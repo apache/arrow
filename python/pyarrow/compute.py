@@ -83,7 +83,7 @@ from pyarrow._compute import (  # noqa
     call_tabular_function,
     register_scalar_function,
     register_tabular_function,
-    UdfContext,
+    ScalarUdfContext,
     # Expressions
     Expression,
 )

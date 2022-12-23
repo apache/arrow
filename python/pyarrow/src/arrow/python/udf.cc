@@ -82,12 +82,12 @@ struct PythonTableUdfKernelInit {
 
   Result<std::unique_ptr<compute::KernelState>> operator()(
       compute::KernelContext* ctx, const compute::KernelInitArgs&) {
-    UdfContext udf_context{ctx->memory_pool(), /*batch_length=*/0};
+    ScalarUdfContext scalar_udf_context{ctx->memory_pool(), /*batch_length=*/0};
     std::unique_ptr<OwnedRefNoGIL> function;
-    RETURN_NOT_OK(SafeCallIntoPython([this, &udf_context, &function] {
+    RETURN_NOT_OK(SafeCallIntoPython([this, &scalar_udf_context, &function] {
       OwnedRef empty_tuple(PyTuple_New(0));
       function = std::make_unique<OwnedRefNoGIL>(
-          cb(function_maker->obj(), udf_context, empty_tuple.obj()));
+          cb(function_maker->obj(), scalar_udf_context, empty_tuple.obj()));
       RETURN_NOT_OK(CheckPyError());
       return Status::OK();
     }));
@@ -131,7 +131,7 @@ struct PythonUdf : public PythonUdfKernelState {
     auto state = arrow::internal::checked_cast<PythonUdfKernelState*>(ctx->state());
     std::shared_ptr<OwnedRefNoGIL>& function = state->function;
     const int num_args = batch.num_values();
-    UdfContext udf_context{ctx->memory_pool(), batch.length};
+    ScalarUdfContext scalar_udf_context{ctx->memory_pool(), batch.length};
 
     OwnedRef arg_tuple(PyTuple_New(num_args));
     RETURN_NOT_OK(CheckPyError());
@@ -147,7 +147,7 @@ struct PythonUdf : public PythonUdfKernelState {
       }
     }
 
-    OwnedRef result(cb(function->obj(), udf_context, arg_tuple.obj()));
+    OwnedRef result(cb(function->obj(), scalar_udf_context, arg_tuple.obj()));
     RETURN_NOT_OK(CheckPyError());
     // unwrapping the output for expected output type
     if (is_array(result.obj())) {

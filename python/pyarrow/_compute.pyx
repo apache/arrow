@@ -2519,7 +2519,7 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
         deref(pyarrow_unwrap_schema(schema).get())))
 
 
-cdef class UdfContext:
+cdef class ScalarUdfContext:
     """
     Per-invocation function context/state.
 
@@ -2531,7 +2531,7 @@ cdef class UdfContext:
         raise TypeError("Do not call {}'s constructor directly"
                         .format(self.__class__.__name__))
 
-    cdef void init(self, const CUdfContext &c_context):
+    cdef void init(self, const CScalarUdfContext &c_context):
         self.c_context = c_context
 
     @property
@@ -2580,26 +2580,26 @@ cdef inline CFunctionDoc _make_function_doc(dict func_doc) except *:
     return f_doc
 
 
-cdef object box_udf_context(const CUdfContext& c_context):
-    cdef UdfContext context = UdfContext.__new__(UdfContext)
+cdef object box_scalar_udf_context(const CScalarUdfContext& c_context):
+    cdef ScalarUdfContext context = ScalarUdfContext.__new__(ScalarUdfContext)
     context.init(c_context)
     return context
 
 
-cdef _udf_callback(user_function, const CUdfContext& c_context, inputs):
+cdef _udf_callback(user_function, const CScalarUdfContext& c_context, inputs):
     """
-    Helper callback function used to wrap the UdfContext from Python to C++
+    Helper callback function used to wrap the ScalarUdfContext from Python to C++
     execution.
     """
-    context = box_udf_context(c_context)
+    context = box_scalar_udf_context(c_context)
     return user_function(context, *inputs)
 
 
-def _get_udf_context(memory_pool, batch_length):
-    cdef CUdfContext c_context
+def _get_scalar_udf_context(memory_pool, batch_length):
+    cdef CScalarUdfContext c_context
     c_context.pool = maybe_unbox_memory_pool(memory_pool)
     c_context.batch_length = batch_length
-    context = box_udf_context(c_context)
+    context = box_scalar_udf_context(c_context)
     return context
 
 
@@ -2644,7 +2644,7 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
     func : callable
         A callable implementing the user-defined function.
         The first argument is the context argument of type
-        UdfContext.
+        ScalarUdfContext.
         Then, it must take arguments equal to the number of
         in_types defined. It must return an Array or Scalar
         matching the out_type. It must return a Scalar if
@@ -2709,7 +2709,7 @@ def register_tabular_function(func, function_name, function_doc, in_types, out_t
     Register a user-defined tabular function.
 
     A tabular function is one accepting a context argument of type
-    UdfContext and returning a generator of struct arrays.
+    ScalarUdfContext and returning a generator of struct arrays.
     The in_types argument must be empty and the out_type argument
     specifies a schema. Each struct array must have field types
     correspoding to the schema.
@@ -2719,7 +2719,7 @@ def register_tabular_function(func, function_name, function_doc, in_types, out_t
     func : callable
         A callable implementing the user-defined function.
         The only argument is the context argument of type
-        UdfContext. It must return a callable that
+        ScalarUdfContext. It must return a callable that
         returns on each invocation a StructArray matching
         the out_type, where an empty array indicates end.
     function_name : str
@@ -2754,7 +2754,7 @@ def _register_scalar_like_function(register_func, func, function_name, function_
     Register a user-defined scalar-like function.
 
     A scalar-like function is a callable accepting a first
-    context argument of type UdfContext as well as
+    context argument of type ScalarUdfContext as well as
     possibly additional Arrow arguments, and returning a
     an Arrow result appropriate for the kind of function.
     A scalar function and a tabular function are examples

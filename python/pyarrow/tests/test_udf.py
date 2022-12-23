@@ -31,9 +31,9 @@ except ImportError:
     ds = None
 
 
-def mock_udf_context(batch_length=10):
-    from pyarrow._compute import _get_udf_context
-    return _get_udf_context(pa.default_memory_pool(), batch_length)
+def mock_scalar_udf_context(batch_length=10):
+    from pyarrow._compute import _get_scalar_udf_context
+    return _get_scalar_udf_context(pa.default_memory_pool(), batch_length)
 
 
 class MyError(RuntimeError):
@@ -248,7 +248,7 @@ def check_scalar_function(func_fixture,
         if all_scalar:
             batch_length = 1
 
-    expected_output = function(mock_udf_context(batch_length), *inputs)
+    expected_output = function(mock_scalar_udf_context(batch_length), *inputs)
     func = pc.get_function(name)
     assert func.name == name
 
@@ -464,7 +464,7 @@ def test_wrong_input_type_declaration():
                                     in_types, out_type)
 
 
-def test_udf_context(unary_func_fixture):
+def test_scalar_udf_context(unary_func_fixture):
     # Check the memory_pool argument is properly propagated
     proxy_pool = pa.proxy_memory_pool(pa.default_memory_pool())
     _, func_name = unary_func_fixture

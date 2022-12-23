@@ -44,13 +44,13 @@ struct ARROW_PYTHON_EXPORT UdfOptions {
 };
 
 /// \brief A context passed as the first argument of scalar UDF functions.
-struct ARROW_PYTHON_EXPORT UdfContext {
+struct ARROW_PYTHON_EXPORT ScalarUdfContext {
   MemoryPool* pool;
   int64_t batch_length;
 };
 
 using UdfWrapperCallback = std::function<PyObject*(
-    PyObject* user_function, const UdfContext& context, PyObject* inputs)>;
+    PyObject* user_function, const ScalarUdfContext& context, PyObject* inputs)>;
 
 /// \brief register a Scalar user-defined-function from Python
 Status ARROW_PYTHON_EXPORT RegisterScalarFunction(
