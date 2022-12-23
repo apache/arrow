@@ -352,7 +352,7 @@ def _plasma_store_entry_point():
     .. deprecated:: 10.0.0
        Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.
     """
-    warnings.warn(
+    _warnings.warn(
         "Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.",
         DeprecationWarning)
 
@@ -415,7 +415,7 @@ def get_libraries():
     Return list of library names to include in the `libraries` argument for C
     or Cython extensions using pyarrow
     """
-    return ['arrow', 'arrow_python']
+    return ['arrow_python', 'arrow']
 
 
 def create_library_symlinks():

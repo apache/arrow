@@ -17,12 +17,14 @@
 package array_test
 
 import (
+	"encoding/json"
+	"math"
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -133,6 +135,22 @@ func TestFloat64SliceDataWithNull(t *testing.T) {
 	if got, want := slice.Float64Values(), sub; !reflect.DeepEqual(got, want) {
 		t.Fatalf("got=%v, want=%v", got, want)
 	}
+}
+
+func TestUnmarshalSpecialFloat(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	bldr := array.NewFloat32Builder(pool)
+	defer bldr.Release()
+
+	assert.NoError(t, json.Unmarshal([]byte(`[3.4, "Inf", "-Inf"]`), bldr))
+	arr := bldr.NewFloat32Array()
+	defer arr.Release()
+
+	assert.False(t, math.IsInf(float64(arr.Value(0)), 0), arr.Value(0))
+	assert.True(t, math.IsInf(float64(arr.Value(1)), 1), arr.Value(1))
+	assert.True(t, math.IsInf(float64(arr.Value(2)), -1), arr.Value(2))
 }
 
 func TestNewTime32Data(t *testing.T) {

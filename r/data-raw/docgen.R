@@ -85,8 +85,10 @@ library(dplyr)
 library(purrr)
 
 # Functions that for whatever reason cause xref problems, so don't hyperlink
-do_not_link <- c(
-  "stringr::str_like" # Still only in the unreleased version
+do_not_link <- c()
+
+package_notes <- list(
+  stringr = "Pattern modifiers `coll()` and `boundary()` are not supported in any functions."
 )
 
 # Vectorized function to make entries for each function
@@ -114,12 +116,14 @@ render_pkg <- function(df, pkg) {
   bullets <- df %>%
     transmute(render_fun(fun, pkg_fun, notes)) %>%
     pull()
-  # Add header
-  bullets <- c(
-    paste0("## ", pkg, "\n#'"),
-    bullets
-  )
-  paste("#'", bullets, collapse = "\n")
+  header <- paste0("## ", pkg, "\n#'")
+  # Some packages have global notes to include
+  pkg_notes <- package_notes[[pkg]]
+  if (!is.null(pkg_notes)) {
+    pkg_notes <- paste(pkg_notes, collapse = "\n#' ")
+    header <- c(header, paste0(pkg_notes, "\n#'"))
+  }
+  paste("#'", c(header, bullets), collapse = "\n")
 }
 
 docs <- arrow:::.cache$docs
@@ -127,10 +131,7 @@ docs <- arrow:::.cache$docs
 # Add some functions
 
 # across() is handled by manipulating the quosures, not by nse_funcs
-docs[["dplyr::across"]] <- c(
-  # TODO(ARROW-17384): implement where
-  "Use of `where()` selection helper not yet supported"
-)
+docs[["dplyr::across"]] <- character(0)
 
 # if_any() and if_all() are used instead of across() in filter()
 # they are both handled by manipulating the quosures, not by nse_funcs

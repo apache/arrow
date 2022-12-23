@@ -21,7 +21,7 @@ import (
 	"hash/maphash"
 	"strings"
 
-	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
 )
 
 // Type is a logical type. They can be expressed as
@@ -286,6 +286,16 @@ func IsInteger(t Type) bool {
 func IsUnsignedInteger(t Type) bool {
 	switch t {
 	case UINT8, UINT16, UINT32, UINT64:
+		return true
+	}
+	return false
+}
+
+// IsFloating is a helper that returns true if the type ID provided is
+// one of Float16, Float32, or Float64
+func IsFloating(t Type) bool {
+	switch t {
+	case FLOAT16, FLOAT32, FLOAT64:
 		return true
 	}
 	return false

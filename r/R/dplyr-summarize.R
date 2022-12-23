@@ -98,39 +98,50 @@ register_bindings_aggregate <- function() {
       options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
     )
   })
-  register_binding_agg("stats::quantile", function(x, probs, na.rm = FALSE) {
-    if (length(probs) != 1) {
-      arrow_not_supported("quantile() with length(probs) != 1")
-    }
-    # TODO: Bind to the Arrow function that returns an exact quantile and remove
-    # this warning (ARROW-14021)
-    warn(
-      "quantile() currently returns an approximate quantile in Arrow",
-      .frequency = "once",
-      .frequency_id = "arrow.quantile.approximate",
-      class = "arrow.quantile.approximate"
+  register_binding_agg(
+    "stats::quantile",
+    function(x, probs, na.rm = FALSE) {
+      if (length(probs) != 1) {
+        arrow_not_supported("quantile() with length(probs) != 1")
+      }
+      # TODO: Bind to the Arrow function that returns an exact quantile and remove
+      # this warning (ARROW-14021)
+      warn(
+        "quantile() currently returns an approximate quantile in Arrow",
+        .frequency = "once",
+        .frequency_id = "arrow.quantile.approximate",
+        class = "arrow.quantile.approximate"
+      )
+      list(
+        fun = "tdigest",
+        data = x,
+        options = list(skip_nulls = na.rm, q = probs)
+      )
+    },
+    notes = c(
+      "`probs` must be length 1;",
+      "approximate quantile (t-digest) is computed"
     )
-    list(
-      fun = "tdigest",
-      data = x,
-      options = list(skip_nulls = na.rm, q = probs)
-    )
-  })
-  register_binding_agg("stats::median", function(x, na.rm = FALSE) {
-    # TODO: Bind to the Arrow function that returns an exact median and remove
-    # this warning (ARROW-14021)
-    warn(
-      "median() currently returns an approximate median in Arrow",
-      .frequency = "once",
-      .frequency_id = "arrow.median.approximate",
-      class = "arrow.median.approximate"
-    )
-    list(
-      fun = "approximate_median",
-      data = x,
-      options = list(skip_nulls = na.rm)
-    )
-  })
+  )
+  register_binding_agg(
+    "stats::median",
+    function(x, na.rm = FALSE) {
+      # TODO: Bind to the Arrow function that returns an exact median and remove
+      # this warning (ARROW-14021)
+      warn(
+        "median() currently returns an approximate median in Arrow",
+        .frequency = "once",
+        .frequency_id = "arrow.median.approximate",
+        class = "arrow.median.approximate"
+      )
+      list(
+        fun = "approximate_median",
+        data = x,
+        options = list(skip_nulls = na.rm)
+      )
+    },
+    notes = "approximate median (t-digest) is computed"
+  )
   register_binding_agg("dplyr::n_distinct", function(..., na.rm = FALSE) {
     list(
       fun = "count_distinct",
@@ -382,11 +393,12 @@ summarize_eval <- function(name, quosure, ctx, hash) {
   # By this point, there are no more aggregation functions in expr
   # except for possibly the outer function call:
   # they've all been pulled out to ctx$aggregations, and in their place in expr
-  # there are variable names, which will correspond to field refs in the
-  # query object after aggregation and collapse().
-  # So if we want to know if there are any aggregations inside expr,
-  # we have to look for them by their new var names
+  # there are variable names, which would correspond to field refs in the
+  # query object after aggregation and collapse() or non-field variable
+  # references. So if we want to know if there are any aggregations inside expr,
+  # we have to look for them by their new var names in ctx$aggregations.
   inner_agg_exprs <- all_vars(expr) %in% names(ctx$aggregations)
+  inner_is_fieldref <- all_vars(expr) %in% names(ctx$mask$.data)
 
   if (outer_agg) {
     # This is something like agg(fun(x, y)
@@ -398,7 +410,7 @@ summarize_eval <- function(name, quosure, ctx, hash) {
       ctx$mask
     )
     return()
-  } else if (all(inner_agg_exprs)) {
+  } else if (all(inner_agg_exprs | !inner_is_fieldref)) {
     # Something like: fun(agg(x), agg(y))
     # So based on the aggregations that have been extracted, mutate after
     agg_field_refs <- make_field_refs(names(ctx$aggregations))

@@ -21,14 +21,14 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/bitutil"
-	"github.com/apache/arrow/go/v10/arrow/memory"
-	"github.com/apache/arrow/go/v10/parquet"
-	"github.com/apache/arrow/go/v10/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v10/parquet/metadata"
-	"github.com/apache/arrow/go/v10/parquet/schema"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/bitutil"
+	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v11/parquet"
+	"github.com/apache/arrow/go/v11/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v11/parquet/metadata"
+	"github.com/apache/arrow/go/v11/parquet/schema"
 )
 
 //go:generate go run ../../arrow/_tools/tmpl/main.go -i -data=../internal/encoding/physical_types.tmpldata column_writer_types.gen.go.tmpl
@@ -55,6 +55,7 @@ type ColumnChunkWriter interface {
 
 	LevelInfo() LevelInfo
 	SetBitsBuffer(*memory.Buffer)
+	HasBitsBuffer() bool
 }
 
 func computeLevelInfo(descr *schema.Column) (info LevelInfo) {
@@ -154,6 +155,7 @@ func newColumnWriterBase(metaData *metadata.ColumnChunkMetaDataBuilder, pager Pa
 	return ret
 }
 
+func (w *columnWriter) HasBitsBuffer() bool              { return w.bitsBuffer != nil }
 func (w *columnWriter) SetBitsBuffer(buf *memory.Buffer) { w.bitsBuffer = buf }
 
 func (w *columnWriter) LevelInfo() LevelInfo { return w.levelInfo }
@@ -270,15 +272,15 @@ func (w *columnWriter) FlushCurrentPage() error {
 
 	uncompressed := defLevelsRLESize + repLevelsRLESize + int32(values.Len())
 	if isV1DataPage {
-		w.buildDataPageV1(defLevelsRLESize, repLevelsRLESize, uncompressed, values.Bytes())
+		err = w.buildDataPageV1(defLevelsRLESize, repLevelsRLESize, uncompressed, values.Bytes())
 	} else {
-		w.buildDataPageV2(defLevelsRLESize, repLevelsRLESize, uncompressed, values.Bytes())
+		err = w.buildDataPageV2(defLevelsRLESize, repLevelsRLESize, uncompressed, values.Bytes())
 	}
 
 	w.reset()
 	w.rowsWritten += w.numBufferedRows
 	w.numBufferedValues, w.numDataValues, w.numBufferedRows = 0, 0, 0
-	return nil
+	return err
 }
 
 func (w *columnWriter) buildDataPageV1(defLevelsRLESize, repLevelsRLESize, uncompressed int32, values []byte) error {
@@ -313,7 +315,7 @@ func (w *columnWriter) buildDataPageV1(defLevelsRLESize, repLevelsRLESize, uncom
 		w.totalCompressedBytes += int64(len(data))
 		dp := NewDataPageV1WithStats(memory.NewBufferBytes(data), int32(w.numBufferedValues), w.encoding, parquet.Encodings.RLE, parquet.Encodings.RLE, uncompressed, pageStats)
 		defer dp.Release()
-		w.WriteDataPage(dp)
+		return w.WriteDataPage(dp)
 	}
 	return nil
 }
@@ -354,22 +356,27 @@ func (w *columnWriter) buildDataPageV2(defLevelsRLESize, repLevelsRLESize, uncom
 	} else {
 		w.totalCompressedBytes += int64(combined.Len())
 		defer page.Release()
-		w.WriteDataPage(page)
+		return w.WriteDataPage(page)
 	}
 	return nil
 }
 
-func (w *columnWriter) FlushBufferedDataPages() {
+func (w *columnWriter) FlushBufferedDataPages() (err error) {
 	if w.numBufferedValues > 0 {
-		w.FlushCurrentPage()
+		if err = w.FlushCurrentPage(); err != nil {
+			return err
+		}
 	}
 
 	for _, p := range w.pages {
 		defer p.Release()
-		w.WriteDataPage(p)
+		if err = w.WriteDataPage(p); err != nil {
+			return err
+		}
 	}
 	w.pages = w.pages[:0]
 	w.totalCompressedBytes = 0
+	return
 }
 
 func (w *columnWriter) writeLevels(numValues int64, defLevels, repLevels []int16) int64 {
@@ -516,7 +523,23 @@ func (w *columnWriter) Close() (err error) {
 			w.WriteDictionaryPage()
 		}
 
-		w.FlushBufferedDataPages()
+		if err = w.FlushBufferedDataPages(); err != nil {
+			return err
+		}
+
+		// ensure we release and reset everything even if we
+		// error out from the chunk statistics handling
+		defer func() {
+			w.defLevelSink.Reset(0)
+			w.repLevelSink.Reset(0)
+			if w.bitsBuffer != nil {
+				w.bitsBuffer.Release()
+				w.bitsBuffer = nil
+			}
+
+			w.currentEncoder.Release()
+			w.currentEncoder = nil
+		}()
 
 		var chunkStats metadata.EncodedStatistics
 		chunkStats, err = w.getChunkStatistics()
@@ -531,9 +554,6 @@ func (w *columnWriter) Close() (err error) {
 			w.metaData.SetStats(chunkStats)
 		}
 		err = w.pager.Close(w.hasDict, w.fallbackToNonDict)
-
-		w.defLevelSink.Reset(0)
-		w.repLevelSink.Reset(0)
 	}
 	return err
 }

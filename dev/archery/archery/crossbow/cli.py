@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from datetime import date
 from pathlib import Path
 import time
 import sys
@@ -96,7 +97,7 @@ def check_config(obj, config_path):
                    'locally. Examples: https://github.com/apache/arrow or '
                    'https://github.com/kszucs/arrow.')
 @click.option('--arrow-branch', '-b', default=None,
-              help='Give the branch name explicitly, e.g. master, ARROW-1949.')
+              help='Give the branch name explicitly, e.g. ARROW-1949.')
 @click.option('--arrow-sha', '-t', default=None,
               help='Set commit SHA or Tag name explicitly, e.g. f67a515, '
                    'apache-arrow-0.11.1.')
@@ -157,12 +158,10 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
 
 
 @crossbow.command()
-@click.option('--base-branch', default="master",
+@click.option('--base-branch', default=None,
               help='Set base branch for the PR.')
 @click.option('--create-pr', is_flag=True, default=False,
               help='Create GitHub Pull Request')
-@click.option('--github-token', envvar='ARROW_GITHUB_API_TOKEN',
-              help='OAuth token to create PR and comments in the arrow repo')
 @click.option('--head-branch', default=None,
               help='Give the branch name explicitly, e.g. release-9.0.0-rc0')
 @click.option('--pr-body', default=None,
@@ -185,7 +184,7 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
 @click.option('--verify-wheels', is_flag=True, default=False,
               help='Trigger the verify wheels jobs')
 @click.pass_obj
-def verify_release_candidate(obj, base_branch, create_pr, github_token,
+def verify_release_candidate(obj, base_branch, create_pr,
                              head_branch, pr_body, pr_title, remote,
                              rc, version, verify_binaries, verify_source,
                              verify_wheels):
@@ -194,9 +193,10 @@ def verify_release_candidate(obj, base_branch, create_pr, github_token,
 
     # Redefine Arrow repo to use the correct arrow remote.
     arrow = Repo(path=obj['arrow'].path, remote_url=remote)
+
     response = arrow.github_pr(title=pr_title, head=head_branch,
                                base=base_branch, body=pr_body,
-                               github_token=github_token,
+                               github_token=obj['queue'].github_token,
                                create=create_pr)
 
     # If we want to trigger any verification job we add a comment to the PR.
@@ -227,7 +227,7 @@ def verify_release_candidate(obj, base_branch, create_pr, github_token,
                    'locally. Examples: https://github.com/apache/arrow or '
                    'https://github.com/kszucs/arrow.')
 @click.option('--arrow-branch', '-b', default=None,
-              help='Give the branch name explicitly, e.g. master, ARROW-1949.')
+              help='Give the branch name explicitly, e.g. ARROW-1949.')
 @click.option('--arrow-sha', '-t', default=None,
               help='Set commit SHA or Tag name explicitly, e.g. f67a515, '
                    'apache-arrow-0.11.1.')
@@ -310,15 +310,11 @@ def status(obj, job_name, fetch, task_filters, validate):
               help='Crossbow repository on github to use')
 @click.option('--fetch/--no-fetch', default=True,
               help='Fetch references (branches and tags) from the remote')
-@click.option('--github-token', envvar='ARROW_GITHUB_API_TOKEN',
-              help='OAuth token to create comments in the arrow repo. '
-                   'Only necessary if --track-on-pr-titled is set.')
 @click.option('--job-name', required=True)
 @click.option('--pr-title', required=True,
               help='Track the job submitted on PR with given title')
 @click.pass_obj
-def report_pr(obj, arrow_remote, crossbow, fetch, github_token, job_name,
-              pr_title):
+def report_pr(obj, arrow_remote, crossbow, fetch, job_name, pr_title):
     arrow = obj['arrow']
     queue = obj['queue']
     if fetch:
@@ -328,7 +324,7 @@ def report_pr(obj, arrow_remote, crossbow, fetch, github_token, job_name,
     report = CommentReport(job, crossbow_repo=crossbow)
     target_arrow = Repo(path=arrow.path, remote_url=arrow_remote)
     pull_request = target_arrow.github_pr(title=pr_title,
-                                          github_token=github_token,
+                                          github_token=queue.github_token,
                                           create=False)
     # render the response comment's content on the PR
     pull_request.create_comment(report.show())
@@ -407,10 +403,10 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
             smtp_server=smtp_server,
             smtp_port=smtp_port,
             recipient_email=recipient_email,
-            message=email_report.render("text")
+            message=email_report.render("nightly_report")
         )
     else:
-        output.write(email_report.render("text"))
+        output.write(email_report.render("nightly_report"))
 
 
 @crossbow.command()
@@ -594,3 +590,69 @@ def delete_old_branches(obj, dry_run, days, maximum):
             queue.push(batch)
         else:
             print(batch)
+
+
+@crossbow.command()
+@click.option('--days', default=30,
+              help='Notification will be sent if expiration date is '
+                   'closer than the number of days.')
+@click.option('--sender-name', '-n',
+              help='Name to use for report e-mail.')
+@click.option('--sender-email', '-e',
+              help='E-mail to use for report e-mail.')
+@click.option('--recipient-email', '-r',
+              help='Where to send the e-mail report')
+@click.option('--smtp-user', '-u',
+              help='E-mail address to use for SMTP login')
+@click.option('--smtp-password', '-P',
+              help='SMTP password to use for report e-mail.')
+@click.option('--smtp-server', '-s', default='smtp.gmail.com',
+              help='SMTP server to use for report e-mail.')
+@click.option('--smtp-port', '-p', default=465,
+              help='SMTP port to use for report e-mail.')
+@click.option('--send/--dry-run', default=False,
+              help='Just display the report, don\'t send it')
+@click.pass_obj
+def notify_token_expiration(obj, days, sender_name, sender_email,
+                            recipient_email, smtp_user, smtp_password,
+                            smtp_server, smtp_port, send):
+    """
+    Check if token is close to expiration and send email notifying.
+    """
+    output = obj['output']
+    queue = obj['queue']
+
+    token_expiration_date = queue.token_expiration_date()
+    days_left = 0
+    if token_expiration_date:
+        days_left = (token_expiration_date - date.today()).days
+        if days_left > days:
+            output.write("Notification not sent. " +
+                         f"Token will expire in {days_left} days.")
+            return
+
+    class TokenExpirationReport:
+        def __init__(self, token_expiration_date, days_left):
+            self.token_expiration_date = token_expiration_date
+            self.days_left = days_left
+
+    email_report = EmailReport(
+        report=TokenExpirationReport(
+            token_expiration_date or "ALREADY_EXPIRED", days_left),
+        sender_name=sender_name,
+        sender_email=sender_email,
+        recipient_email=recipient_email
+    )
+
+    message = email_report.render("token_expiration").strip()
+    if send:
+        ReportUtils.send_email(
+            smtp_user=smtp_user,
+            smtp_password=smtp_password,
+            smtp_server=smtp_server,
+            smtp_port=smtp_port,
+            recipient_email=recipient_email,
+            message=message
+        )
+    else:
+        output.write(message)

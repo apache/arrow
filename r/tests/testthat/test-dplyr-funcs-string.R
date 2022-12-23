@@ -846,64 +846,53 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
 test_that("str_like", {
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
 
-  # TODO: After new version of stringr with str_like has been released, update all
-  # these tests to use compare_dplyr_binding
-
   # No match - entire string
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = str_like(x, "baz")) %>%
       collect(),
-    tibble(x = c(FALSE, FALSE))
+    df
   )
   # with namespacing
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = stringr::str_like(x, "baz")) %>%
       collect(),
-    tibble(x = c(FALSE, FALSE))
+    df
   )
 
   # Match - entire string
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = str_like(x, "Foo and bar")) %>%
       collect(),
-    tibble(x = c(TRUE, FALSE))
+    df
   )
 
   # Wildcard
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = str_like(x, "f%", ignore_case = TRUE)) %>%
       collect(),
-    tibble(x = c(TRUE, FALSE))
+    df
   )
 
   # Ignore case
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = str_like(x, "f%", ignore_case = FALSE)) %>%
       collect(),
-    tibble(x = c(FALSE, FALSE))
+    df
   )
 
   # Single character
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = str_like(x, "_a%")) %>%
       collect(),
-    tibble(x = c(FALSE, TRUE))
+    df
   )
 
-  # TODO: remove this skip once a new version of stringr is released (maybe 1.5.0?)
-  skip_if_not("str_like" %in% getNamespaceExports("stringr"))
   compare_dplyr_binding(
     .input %>%
       mutate(x = str_like(x, "%baz%")) %>%
@@ -954,7 +943,7 @@ test_that("str_pad", {
   )
 })
 
-test_that("substr", {
+test_that("substr with string()", {
   df <- tibble(x = "Apache Arrow")
 
   compare_dplyr_binding(
@@ -1031,6 +1020,31 @@ test_that("substr", {
   expect_error(
     call_binding("substr", "Apache Arrow", 1, c(2, 3)),
     "`stop` must be length 1 - other lengths are not supported in Arrow"
+  )
+})
+
+test_that("substr with binary()", {
+  batch <- record_batch(x = list(charToRaw("Apache Arrow")))
+
+  # Check a field reference input
+  expect_identical(
+    batch %>%
+      transmute(y = substr(x, 1, 3)) %>%
+      collect() %>%
+      # because of the arrow_binary class
+      mutate(y = unclass(y)),
+    tibble::tibble(y = list(charToRaw("Apa")))
+  )
+
+  # Check a Scalar input
+  scalar <- Scalar$create(batch$x)
+  expect_identical(
+    batch %>%
+      transmute(y = substr(scalar, 1, 3)) %>%
+      collect() %>%
+      # because of the arrow_binary class
+      mutate(y = unclass(y)),
+    tibble::tibble(y = list(charToRaw("Apa")))
   )
 })
 
@@ -1393,5 +1407,61 @@ test_that("str_trim()", {
       ) %>%
       collect(),
     tbl
+  )
+})
+
+test_that("str_remove and str_remove_all", {
+  df <- tibble(x = c("Foo", "bar"))
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_remove_all(x, "^F")) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_remove_all(x, regex("^F"))) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = str_remove(x, "^F[a-z]{2}")) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_remove(x, regex("^f[A-Z]{2}", ignore_case = TRUE))) %>%
+      collect(),
+    df
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        x = str_remove_all(x, fixed("o")),
+        x2 = stringr::str_remove_all(x, fixed("o"))
+      ) %>%
+      collect(),
+    df
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        x = str_remove(x, fixed("O")),
+        x2 = stringr::str_remove(x, fixed("O"))
+      ) %>%
+      collect(),
+    df
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_remove(x, fixed("O", ignore_case = TRUE))) %>%
+      collect(),
+    df
   )
 })

@@ -345,6 +345,11 @@ cdef class Date32Scalar(Scalar):
     Concrete class for date32 scalars.
     """
 
+    @property
+    def value(self):
+        cdef CDate32Scalar* sp = <CDate32Scalar*> self.wrapped.get()
+        return sp.value if sp.is_valid else None
+
     def as_py(self):
         """
         Return this value as a Python datetime.datetime instance.
@@ -364,6 +369,11 @@ cdef class Date64Scalar(Scalar):
     """
     Concrete class for date64 scalars.
     """
+
+    @property
+    def value(self):
+        cdef CDate64Scalar* sp = <CDate64Scalar*> self.wrapped.get()
+        return sp.value if sp.is_valid else None
 
     def as_py(self):
         """
@@ -414,6 +424,11 @@ cdef class Time32Scalar(Scalar):
     Concrete class for time32 scalars.
     """
 
+    @property
+    def value(self):
+        cdef CTime32Scalar* sp = <CTime32Scalar*> self.wrapped.get()
+        return sp.value if sp.is_valid else None
+
     def as_py(self):
         """
         Return this value as a Python datetime.timedelta instance.
@@ -432,6 +447,11 @@ cdef class Time64Scalar(Scalar):
     """
     Concrete class for time64 scalars.
     """
+
+    @property
+    def value(self):
+        cdef CTime64Scalar* sp = <CTime64Scalar*> self.wrapped.get()
+        return sp.value if sp.is_valid else None
 
     def as_py(self):
         """

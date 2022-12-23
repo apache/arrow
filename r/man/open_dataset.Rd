@@ -167,7 +167,7 @@ tf <- tempfile()
 dir.create(tf)
 on.exit(unlink(tf))
 
-write_dataset(mtcars, tf, partitioning="cyl")
+write_dataset(mtcars, tf, partitioning = "cyl")
 
 # You can specify a directory containing the files for your dataset and
 # open_dataset will scan all files in your directory.
@@ -211,5 +211,6 @@ open_dataset(tf3, partitioning = schema(Month = int8(), Day = int8()))
 \dontshow{\}) # examplesIf}
 }
 \seealso{
-\code{vignette("dataset", package = "arrow")}
+\href{https://arrow.apache.org/docs/r/articles/dataset.html}{
+datasets article}
 }

@@ -32,8 +32,7 @@
 #' - JSON arrays convert to a [list_of()] type, and inference proceeds recursively on the JSON arrays' values.
 #' - Nested JSON objects convert to a [struct()] type, and inference proceeds recursively on the JSON objects' values.
 #'
-#' When `as_data_frame = FALSE`, Arrow types are further converted to R types.
-#' See `vignette("arrow", package = "arrow")` for details.
+#' When `as_data_frame = TRUE`, Arrow types are further converted to R types.
 #'
 #' @inheritParams read_delim_arrow
 #' @param schema [Schema] that describes the table.
@@ -68,7 +67,8 @@ read_json_arrow <- function(file,
 
   col_select <- enquo(col_select)
   if (!quo_is_null(col_select)) {
-    tab <- tab[vars_select(names(tab), !!col_select)]
+    sim_df <- as.data.frame(tab$schema)
+    tab <- tab[eval_select(col_select, sim_df)]
   }
 
   if (isTRUE(as_data_frame)) {

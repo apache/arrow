@@ -30,12 +30,6 @@ jobs:
   {% endif %}
 
   steps:
-  - task: DockerInstaller@0
-    displayName: Docker Installer
-    inputs:
-      dockerVersion: 17.09.0-ce
-      releaseType: stable
-
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '3.8'
@@ -59,6 +53,8 @@ jobs:
         {{ image }} \
         {{ command|default("") }}
     displayName: Execute Docker Build
+    env:
+    {{ macros.azure_set_sccache_envvars()|indent(4) }}
 
   {% if post_script is defined %}
   - script: |

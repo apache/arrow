@@ -25,11 +25,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/bitutil"
-	"github.com/apache/arrow/go/v10/arrow/internal/debug"
-	"github.com/apache/arrow/go/v10/arrow/memory"
-	"github.com/apache/arrow/go/v10/internal/bitutils"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/bitutil"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v11/internal/bitutils"
 	"github.com/goccy/go-json"
 )
 
@@ -738,12 +738,19 @@ func newUnionBuilder(mem memory.Allocator, children []Builder, typ arrow.UnionTy
 	return b
 }
 
+func (b *unionBuilder) NumChildren() int {
+	return len(b.children)
+}
+
 func (b *unionBuilder) Child(idx int) Builder {
 	if idx < 0 || idx > len(b.children) {
 		panic("arrow/array: invalid child index for union builder")
 	}
 	return b.children[idx]
 }
+
+// Len returns the current number of elements in the builder.
+func (b *unionBuilder) Len() int { return b.typesBuilder.Len() }
 
 func (b *unionBuilder) Mode() arrow.UnionMode { return b.mode }
 

@@ -15,28 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-aws-sdk-cpp=1.8.186
+aws-sdk-cpp=1.10.13
 benchmark>=1.6.0
 boost-cpp>=1.68.0
 brotli
 bzip2
 c-ares
 cmake
+flatbuffers
 gflags
 glog
 gmock>=1.10.0
 google-cloud-cpp>=1.34.0
-# 1.45.0 appears to segfault on Windows/AppVeyor
-grpc-cpp>=1.27.3,<1.45.0
+grpc-cpp
 gtest>=1.10.0
 libprotobuf
 libutf8proc
 lz4-c
 make
 ninja
-# Required by google-cloud-cpp, the Conda package is missing the dependency:
-#    https://github.com/conda-forge/google-cloud-cpp-feedstock/issues/28
-nlohmann_json
+orc
 pkg-config
 python
 rapidjson
@@ -46,4 +44,3 @@ thrift-cpp>=0.11.0
 xsimd
 zlib
 zstd
-flatbuffers

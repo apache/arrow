@@ -30,6 +30,7 @@
 
 #ifndef _WIN32
 #include <pthread.h>
+#include <sys/types.h>
 #include <unistd.h>
 #endif
 
@@ -445,6 +446,36 @@ TEST_F(TestSelfPipe, SendFromSignalAndWait) {
   ASSERT_THAT(ReadPayloads(), testing::UnorderedElementsAre(123, 456, 789));
   ASSERT_OK(ReadStatus());
 }
+
+#if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
+      defined(THREAD_SANITIZER))
+TEST_F(TestSelfPipe, ForkSafety) {
+  self_pipe_->Send(123456789123456789ULL);
+
+  auto child_pid = fork();
+  if (child_pid == 0) {
+    // Child: pipe is reinitialized and usable without interfering with parent
+    self_pipe_->Send(41ULL);
+    StartReading();
+    SleepABit();
+    self_pipe_->Send(42ULL);
+    AssertPayloadsEventually({41ULL, 42ULL});
+
+    self_pipe_.reset();
+    std::exit(0);
+  } else {
+    // Parent: pipe is usable concurrently with child, data is read correctly
+    StartReading();
+    SleepABit();
+    self_pipe_->Send(987654321987654321ULL);
+
+    AssertPayloadsEventually({123456789123456789ULL, 987654321987654321ULL});
+    ASSERT_OK(ReadStatus());
+
+    AssertChildExit(child_pid);
+  }
+}
+#endif
 
 TEST(PlatformFilename, RoundtripAscii) {
   PlatformFilename fn;
@@ -1047,6 +1078,18 @@ TEST(CpuInfo, Basic) {
   ASSERT_EQ(ci->hardware_flags(), 0);
   ci_rw->EnableFeature(original_hardware_flags, true);
   ASSERT_EQ(ci->hardware_flags(), original_hardware_flags);
+}
+
+TEST(Memory, TotalMemory) {
+#if defined(_WIN32)
+  ASSERT_GT(GetTotalMemoryBytes(), 0);
+#elif defined(__APPLE__)
+  ASSERT_GT(GetTotalMemoryBytes(), 0);
+#elif defined(__linux__)
+  ASSERT_GT(GetTotalMemoryBytes(), 0);
+#else
+  ASSERT_EQ(GetTotalMemoryBytes(), 0);
+#endif
 }
 
 }  // namespace internal

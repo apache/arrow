@@ -387,6 +387,22 @@ TEST_F(TestReadableFile, ReadAsync) {
   AssertBufferEqual(*buf2, "test");
 }
 
+TEST_F(TestReadableFile, ReadManyAsync) {
+  MakeTestFile();
+  OpenFile();
+
+  std::vector<ReadRange> ranges = {{1, 3}, {2, 5}, {4, 2}};
+  auto futs = file_->ReadManyAsync(std::move(ranges));
+
+  ASSERT_EQ(futs.size(), 3);
+  ASSERT_OK_AND_ASSIGN(auto buf1, futs[0].result());
+  ASSERT_OK_AND_ASSIGN(auto buf2, futs[1].result());
+  ASSERT_OK_AND_ASSIGN(auto buf3, futs[2].result());
+  AssertBufferEqual(*buf1, "est");
+  AssertBufferEqual(*buf2, "stdat");
+  AssertBufferEqual(*buf3, "da");
+}
+
 TEST_F(TestReadableFile, SeekingRequired) {
   MakeTestFile();
   OpenFile();
@@ -423,15 +439,18 @@ class MyMemoryPool : public MemoryPool {
  public:
   MyMemoryPool() : num_allocations_(0) {}
 
-  Status Allocate(int64_t size, uint8_t** out) override {
+  Status Allocate(int64_t size, int64_t /*alignment*/, uint8_t** out) override {
     *out = reinterpret_cast<uint8_t*>(std::malloc(size));
     ++num_allocations_;
     return Status::OK();
   }
 
-  void Free(uint8_t* buffer, int64_t size) override { std::free(buffer); }
+  void Free(uint8_t* buffer, int64_t size, int64_t /*alignment*/) override {
+    std::free(buffer);
+  }
 
-  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
+  Status Reallocate(int64_t old_size, int64_t new_size, int64_t /*alignment*/,
+                    uint8_t** ptr) override {
     *ptr = reinterpret_cast<uint8_t*>(std::realloc(*ptr, new_size));
 
     if (*ptr == NULL) {

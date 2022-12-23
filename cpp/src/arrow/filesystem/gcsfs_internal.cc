@@ -28,8 +28,12 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
+
+using internal::ToChars;
+
 namespace fs {
 namespace internal {
 
@@ -246,7 +250,7 @@ Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
   result->Append("selfLink", m.self_link());
   result->Append("name", m.name());
   result->Append("bucket", m.bucket());
-  result->Append("generation", std::to_string(m.generation()));
+  result->Append("generation", ToChars(m.generation()));
   result->Append("Content-Type", m.content_type());
   result->Append("timeCreated", format_time(m.time_created()));
   result->Append("updated", format_time(m.updated()));
@@ -266,7 +270,7 @@ Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
     result->Append("timeStorageClassUpdated",
                    format_time(m.time_storage_class_updated()));
   }
-  result->Append("size", std::to_string(m.size()));
+  result->Append("size", ToChars(m.size()));
   result->Append("md5Hash", m.md5_hash());
   result->Append("mediaLink", m.media_link());
   result->Append("Content-Encoding", m.content_encoding());
@@ -282,7 +286,7 @@ Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
     result->Append("owner.entityId", m.owner().entity_id);
   }
   result->Append("crc32c", m.crc32c());
-  result->Append("componentCount", std::to_string(m.component_count()));
+  result->Append("componentCount", ToChars(m.component_count()));
   result->Append("etag", m.etag());
   if (m.has_customer_encryption()) {
     result->Append("customerEncryption.encryptionAlgorithm",

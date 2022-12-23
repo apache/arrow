@@ -255,9 +255,9 @@ export class Vector<T extends DataType = any> {
                 switch (data.length) {
                     case 0: return new ArrayType();
                     case 1: return data[0].values.subarray(0, length * stride);
-                    default: return data.reduce((memo, { values }) => {
-                        memo.array.set(values, memo.offset);
-                        memo.offset += values.length;
+                    default: return data.reduce((memo, { values, length: chunk_length }) => {
+                        memo.array.set(values.subarray(0, chunk_length * stride), memo.offset);
+                        memo.offset += chunk_length * stride;
                         return memo;
                     }, { array: new ArrayType(length * stride), offset: 0 }).array;
                 }

@@ -36,7 +36,9 @@ fi
 VERSION="$1"
 TYPE="$2"
 
-local_prefix="/arrow/dev/tasks/linux-packages"
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOP_SOURCE_DIR="${SOURCE_DIR}/../.."
+local_prefix="${TOP_SOURCE_DIR}/dev/tasks/linux-packages"
 
 artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
 
@@ -73,6 +75,7 @@ case "${distribution}-${distribution_version}" in
     ;;
   almalinux-*)
     distribution_prefix="almalinux"
+    ruby_devel_packages+=(redhat-rpm-config)
     ;;
   amzn-2)
     distribution_prefix="amazon-linux"
@@ -215,7 +218,7 @@ else
     make
 fi
 mkdir -p build
-cp -a /arrow/cpp/examples/minimal_build build/
+cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
 pushd build/minimal_build
 ${cmake_command} .
 make -j$(nproc)
@@ -233,7 +236,7 @@ if [ "${have_glib}" = "yes" ]; then
   ${install_command} --enablerepo=epel arrow-glib-doc-${package_version}
 
   ${install_command} vala
-  cp -a /arrow/c_glib/example/vala build/
+  cp -a "${TOP_SOURCE_DIR}/c_glib/example/vala" build/
   pushd build/vala
   valac --pkg arrow-glib --pkg posix build.vala
   ./build

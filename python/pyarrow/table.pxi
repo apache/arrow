@@ -1039,6 +1039,29 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         return _pc().drop_null(self)
 
+    def sort(self, order="ascending", **kwargs):
+        """
+        Sort the ChunkedArray
+
+        Parameters
+        ----------
+        order : str, default "ascending"
+            Which order to sort values in.
+            Accepted values are "ascending", "descending".
+        **kwargs : dict, optional
+            Additional sorting options.
+            As allowed by :class:`SortOptions`
+
+        Returns
+        -------
+        result : ChunkedArray
+        """
+        indices = _pc().sort_indices(
+            self,
+            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
+        )
+        return self.take(indices)
+
     def unify_dictionaries(self, MemoryPool memory_pool=None):
         """
         Unify dictionaries across all chunks.
@@ -2230,6 +2253,35 @@ cdef class RecordBatch(_PandasConvertible):
         4     100  Centipede
         """
         return _pc().drop_null(self)
+
+    def sort_by(self, sorting, **kwargs):
+        """
+        Sort the RecordBatch by one or multiple columns.
+
+        Parameters
+        ----------
+        sorting : str or list[tuple(name, order)]
+            Name of the column to use to sort (ascending), or
+            a list of multiple sorting conditions where
+            each entry is a tuple with column name
+            and sorting order ("ascending" or "descending")
+        **kwargs : dict, optional
+            Additional sorting options.
+            As allowed by :class:`SortOptions`
+
+        Returns
+        -------
+        RecordBatch
+            A new record batch sorted according to the sort keys.
+        """
+        if isinstance(sorting, str):
+            sorting = [(sorting, "ascending")]
+
+        indices = _pc().sort_indices(
+            self,
+            options=_pc().SortOptions(sort_keys=sorting, **kwargs)
+        )
+        return self.take(indices)
 
     def to_pydict(self):
         """
@@ -4664,7 +4716,7 @@ cdef class Table(_PandasConvertible):
         """
         return TableGroupBy(self, keys)
 
-    def sort_by(self, sorting):
+    def sort_by(self, sorting, **kwargs):
         """
         Sort the table by one or multiple columns.
 
@@ -4675,6 +4727,9 @@ cdef class Table(_PandasConvertible):
             a list of multiple sorting conditions where
             each entry is a tuple with column name
             and sorting order ("ascending" or "descending")
+        **kwargs : dict, optional
+            Additional sorting options.
+            As allowed by :class:`SortOptions`
 
         Returns
         -------
@@ -4703,11 +4758,11 @@ cdef class Table(_PandasConvertible):
         if isinstance(sorting, str):
             sorting = [(sorting, "ascending")]
 
-        indices = _pc().sort_indices(
-            self,
-            sort_keys=sorting
-        )
-        return self.take(indices)
+        res = _pc()._exec_plan._sort_source(self, output_type=Table,
+                                            sort_options=_pc().SortOptions(
+                                                sort_keys=sorting, **kwargs
+                                            ))
+        return res
 
     def join(self, right_table, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
@@ -4735,16 +4790,16 @@ cdef class Table(_PandasConvertible):
             ("left semi", "right semi", "left anti", "right anti",
             "inner", "left outer", "right outer", "full outer")
         left_suffix : str, default None
-            Which suffix to add to right column names. This prevents confusion
+            Which suffix to add to left column names. This prevents confusion
             when the columns in left and right tables have colliding names.
         right_suffix : str, default None
-            Which suffic to add to the left column names. This prevents confusion
+            Which suffix to add to the right column names. This prevents confusion
             when the columns in left and right tables have colliding names.
         coalesce_keys : bool, default True
             If the duplicated keys should be omitted from one of the sides
             in the join result.
         use_threads : bool, default True
-            Whenever to use multithreading or not.
+            Whether to use multithreading or not.
 
         Returns
         -------
@@ -5282,6 +5337,7 @@ class TableGroupBy:
 list[tuple(str, str, FunctionOptions)]
             List of tuples made of aggregation column names followed
             by function names and optionally aggregation function options.
+            Pass empty list to get a single row for each group.
 
         Returns
         -------
@@ -5301,6 +5357,11 @@ list[tuple(str, str, FunctionOptions)]
         keys: string
         ----
         values_sum: [[3,7,5]]
+        keys: [["a","b","c"]]
+        >>> t.group_by("keys").aggregate([])
+        pyarrow.Table
+        keys: string
+        ----
         keys: [["a","b","c"]]
         """
         columns = [a[0] for a in aggregations]

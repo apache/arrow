@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/decimal128"
-	"github.com/apache/arrow/go/v10/arrow/float16"
-	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v10/arrow/ipc"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/decimal128"
+	"github.com/apache/arrow/go/v11/arrow/float16"
+	"github.com/apache/arrow/go/v11/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v11/arrow/ipc"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 var (
@@ -1398,7 +1398,7 @@ func mapOf(mem memory.Allocator, sortedKeys bool, values []arrow.Array, valids [
 		valid = func(i int) bool { return true }
 	}
 
-	vb := bldr.ValueBuilder()
+	vb := bldr.ValueBuilder().(*array.StructBuilder)
 	for i, value := range values {
 		bldr.Append(valid(i))
 		buildArray(vb.FieldBuilder(0), value.(*array.Struct).Field(0))

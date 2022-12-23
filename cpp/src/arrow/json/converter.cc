@@ -42,8 +42,7 @@ namespace json {
 
 template <typename... Args>
 Status GenericConversionError(const DataType& type, Args&&... args) {
-  return Status::Invalid("Failed of conversion of JSON to ", type,
-                         std::forward<Args>(args)...);
+  return Status::Invalid("Failed to convert JSON to ", type, std::forward<Args>(args)...);
 }
 
 namespace {
@@ -166,10 +165,28 @@ class DecimalConverter : public PrimitiveConverter {
     using Builder = typename TypeTraits<T>::BuilderType;
     Builder builder(out_type_, pool_);
     RETURN_NOT_OK(builder.Resize(dict_array.indices()->length()));
+    const auto& decimal_type(checked_cast<const DecimalType&>(*out_type_));
+    int32_t out_precision = decimal_type.precision();
+    int32_t out_scale = decimal_type.scale();
 
-    auto visit_valid = [&builder](string_view repr) {
-      ARROW_ASSIGN_OR_RAISE(value_type value,
-                            TypeTraits<T>::BuilderType::ValueType::FromString(repr));
+    auto visit_valid = [&](string_view repr) {
+      value_type value;
+      int32_t precision, scale;
+      RETURN_NOT_OK(TypeTraits<T>::BuilderType::ValueType::FromString(
+          repr, &value, &precision, &scale));
+      if (precision > out_precision) {
+        return GenericConversionError(*out_type_, ": ", repr, " requires precision ",
+                                      precision);
+      }
+      if (scale != out_scale) {
+        auto result = value.Rescale(scale, out_scale);
+        if (ARROW_PREDICT_FALSE(!result.ok())) {
+          return GenericConversionError(*out_type_, ": ", repr, " requires scale ",
+                                        scale);
+        } else {
+          value = result.MoveValueUnsafe();
+        }
+      }
       builder.UnsafeAppend(value);
       return Status::OK();
     };

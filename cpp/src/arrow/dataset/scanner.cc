@@ -32,6 +32,7 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/query_context.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/plan.h"
@@ -68,12 +69,26 @@ std::vector<FieldRef> ScanOptions::MaterializedFields() const {
   return fields;
 }
 
-std::vector<FieldPath> ScanV2Options::AllColumns(const Dataset& dataset) {
-  std::vector<FieldPath> selection(dataset.schema()->num_fields());
-  for (std::size_t i = 0; i < selection.size(); i++) {
-    selection[i] = {static_cast<int>(i)};
+std::vector<FieldPath> ScanV2Options::AllColumns(const Schema& dataset_schema) {
+  std::vector<FieldPath> selection(dataset_schema.num_fields());
+  for (int i = 0; i < dataset_schema.num_fields(); i++) {
+    selection[i] = {i};
   }
   return selection;
+}
+
+Status ScanV2Options::AddFieldsNeededForFilter(ScanV2Options* options) {
+  std::vector<FieldRef> fields_referenced = FieldsInExpression(options->filter);
+  for (const auto& field : fields_referenced) {
+    // Note: this will fail if the field reference is ambiguous or the field doesn't
+    // exist in the dataset schema
+    ARROW_ASSIGN_OR_RAISE(auto field_path, field.FindOne(*options->dataset->schema()));
+    if (std::find(options->columns.begin(), options->columns.end(), field_path) ==
+        options->columns.end()) {
+      options->columns.push_back(std::move(field_path));
+    }
+  }
+  return Status::OK();
 }
 
 namespace {
@@ -115,6 +130,36 @@ const FieldVector kAugmentedFields{
     field("__filename", utf8()),
 };
 
+Result<std::shared_ptr<Schema>> GetProjectedSchemaFromExpression(
+    const compute::Expression& projection,
+    const std::shared_ptr<Schema>& dataset_schema) {
+  // process resultant dataset_schema after projection
+  FieldVector project_fields;
+  if (auto call = projection.call()) {
+    if (call->function_name != "make_struct") {
+      return Status::Invalid("Top level projection expression call must be make_struct");
+    }
+    for (const compute::Expression& arg : call->arguments) {
+      if (auto field_ref = arg.field_ref()) {
+        if (field_ref->IsName()) {
+          auto field = dataset_schema->GetFieldByName(*field_ref->name());
+          if (field) {
+            project_fields.push_back(std::move(field));
+          }
+          // if the field is not present in the schema we ignore it.
+          // the case is if kAugmentedFields are present in the expression
+          // and if they are not present in the provided schema, we ignore them.
+        } else {
+          return Status::Invalid(
+              "No projected schema was supplied and we could not infer the projected "
+              "schema from the projection expression.");
+        }
+      }
+    }
+  }
+  return schema(project_fields);
+}
+
 // Scan options has a number of options that we can infer from the dataset
 // schema if they are not specified.
 Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
@@ -132,26 +177,11 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
     // If the user specifies a projection expression we can maybe infer from
     // that expression
     if (scan_options->projection.IsBound()) {
-      if (auto call = scan_options->projection.call()) {
-        if (call->function_name != "make_struct") {
-          return Status::Invalid(
-              "Top level projection expression call must be make_struct");
-        }
-        FieldVector fields;
-        for (const compute::Expression& arg : call->arguments) {
-          if (auto field_ref = arg.field_ref()) {
-            if (field_ref->IsName()) {
-              fields.push_back(field(*field_ref->name(), arg.type()->GetSharedPtr()));
-              break;
-            }
-          }
-          // Either the expression for this field is not a field_ref or it is not a
-          // simple field_ref.  User must supply projected_schema
-          return Status::Invalid(
-              "No projected schema was supplied and we could not infer the projected "
-              "schema from the projection expression.");
-        }
-        scan_options->projected_schema = schema(fields);
+      ARROW_ASSIGN_OR_RAISE(
+          auto project_schema,
+          GetProjectedSchemaFromExpression(scan_options->projection, dataset_schema));
+      if (project_schema->num_fields() > 0) {
+        scan_options->projected_schema = std::move(project_schema);
       }
       // If the projection isn't a call we assume it's literal(true) or some
       // invalid expression and just ignore it.  It will be replaced below
@@ -160,10 +190,33 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
     // If we couldn't infer it from the projection expression then just grab all
     // fields from the dataset
     if (!scan_options->projected_schema) {
-      ARROW_ASSIGN_OR_RAISE(auto projection_descr,
-                            ProjectionDescr::Default(*dataset_schema));
-      scan_options->projected_schema = std::move(projection_descr.schema);
-      scan_options->projection = projection_descr.expression;
+      // Until now, we assume the project expression is bound, but if it is not
+      // bound, we have to check the expressions and make sure bind them
+      // and create the projected schema based on the field_refs (which guarantees
+      // IsName() to be true).
+
+      // process resultant dataset_schema after projection
+      ARROW_ASSIGN_OR_RAISE(
+          auto projected_schema,
+          GetProjectedSchemaFromExpression(scan_options->projection, dataset_schema));
+
+      if (projected_schema->num_fields() > 0) {
+        // create the projected schema only if the provided expressions
+        // produces valid set of fields.
+        ARROW_ASSIGN_OR_RAISE(auto projection_descr,
+                              ProjectionDescr::Default(*projected_schema));
+        scan_options->projected_schema = std::move(projection_descr.schema);
+        scan_options->projection = projection_descr.expression;
+        ARROW_ASSIGN_OR_RAISE(scan_options->projection,
+                              scan_options->projection.Bind(*projected_schema));
+      } else {
+        // if projected_fields are not found, we default to creating the projected_schema
+        // and projection from the dataset_schema.
+        ARROW_ASSIGN_OR_RAISE(auto projection_descr,
+                              ProjectionDescr::Default(*dataset_schema));
+        scan_options->projected_schema = std::move(projection_descr.schema);
+        scan_options->projection = projection_descr.expression;
+      }
     }
   }
 
@@ -370,8 +423,11 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   auto exec_context =
       std::make_shared<compute::ExecContext>(scan_options_->pool, cpu_executor);
 
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context.get()));
-  plan->SetUseLegacyBatching(use_legacy_batching);
+  compute::QueryOptions query_options;
+  query_options.use_legacy_batching = use_legacy_batching;
+
+  ARROW_ASSIGN_OR_RAISE(auto plan,
+                        compute::ExecPlan::Make(query_options, exec_context.get()));
   AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
   auto exprs = scan_options_->projection.call()->arguments;
@@ -386,7 +442,8 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
               {"filter", compute::FilterNodeOptions{scan_options_->filter}},
               {"augmented_project",
                compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-              {"sink", compute::SinkNodeOptions{&sink_gen, scan_options_->backpressure}},
+              {"sink", compute::SinkNodeOptions{&sink_gen, /*schema=*/nullptr,
+                                                scan_options_->backpressure}},
           })
           .AddToPlan(plan.get()));
 
@@ -751,7 +808,19 @@ Result<ProjectionDescr> ProjectionDescr::FromNames(std::vector<std::string> name
                                                    const Schema& dataset_schema) {
   std::vector<compute::Expression> exprs(names.size());
   for (size_t i = 0; i < exprs.size(); ++i) {
-    exprs[i] = compute::field_ref(names[i]);
+    // If name isn't in schema, try finding it by dotted path.
+    if (dataset_schema.GetFieldByName(names[i]) == nullptr) {
+      auto name = names[i];
+      if (name.rfind(".", 0) != 0) {
+        name = "." + name;
+      }
+      ARROW_ASSIGN_OR_RAISE(auto field_ref, FieldRef::FromDotPath(name));
+      // safe as we know there is at least 1 dot.
+      names[i] = name.substr(name.rfind(".") + 1);
+      exprs[i] = compute::field_ref(field_ref);
+    } else {
+      exprs[i] = compute::field_ref(names[i]);
+    }
   }
   auto fields = dataset_schema.fields();
   for (const auto& aug_field : kAugmentedFields) {
@@ -877,12 +946,17 @@ Status ScannerBuilder::Backpressure(compute::BackpressureOptions backpressure) {
   return Status::OK();
 }
 
-Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() {
+Result<std::shared_ptr<ScanOptions>> ScannerBuilder::GetScanOptions() {
   if (!scan_options_->projection.IsBound()) {
     RETURN_NOT_OK(Project(scan_options_->dataset_schema->field_names()));
   }
 
-  return std::make_shared<AsyncScanner>(dataset_, scan_options_);
+  return scan_options_;
+}
+
+Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() {
+  ARROW_ASSIGN_OR_RAISE(auto scan_options, GetScanOptions());
+  return std::make_shared<AsyncScanner>(dataset_, scan_options);
 }
 
 namespace {

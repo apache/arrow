@@ -17,7 +17,7 @@
 package flightsql
 
 import (
-	pb "github.com/apache/arrow/go/v10/arrow/flight/internal/flight"
+	pb "github.com/apache/arrow/go/v11/arrow/flight/internal/flight"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -459,7 +459,7 @@ const (
 	// - return 2 (\b10)  => [SQL_UNION_ALL];
 	// - return 3 (\b11)  => [SQL_UNION, SQL_UNION_ALL].
 	// Valid SQL positioned commands are described under `arrow.flight.protocol.sql.SqlSupportedUnions`.
-	SqlInfoSupportedUnions = SqlInfo(pb.SqlSupportedUnions_SQL_UNION)
+	SqlInfoSupportedUnions = SqlInfo(pb.SqlInfo_SQL_SUPPORTED_UNIONS)
 
 	// Retrieves a int64 value representing the maximum number of hex characters allowed in an inline binary literal.
 	SqlInfoMaxBinaryLiteralLen = SqlInfo(pb.SqlInfo_SQL_MAX_BINARY_LITERAL_LENGTH)

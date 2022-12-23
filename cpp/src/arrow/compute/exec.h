@@ -39,16 +39,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-namespace internal {
-
-class CpuInfo;
-
-}  // namespace internal
-
 namespace compute {
-
-class FunctionOptions;
-class FunctionRegistry;
 
 // It seems like 64K might be a good default chunksize to use for execution
 // based on the experience of other query processing systems. The current
@@ -437,6 +428,31 @@ Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
 ARROW_EXPORT
 Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
                            ExecContext* ctx = NULLPTR);
+
+/// @}
+
+/// \defgroup compute-function-executor One-shot calls to obtain function executors
+///
+/// @{
+
+/// \brief One-shot executor provider for all types of functions.
+///
+/// This function creates and initializes a `FunctionExecutor` appropriate
+/// for the given function name, input types and function options.
+ARROW_EXPORT
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, std::vector<TypeHolder> in_types,
+    const FunctionOptions* options = NULLPTR, FunctionRegistry* func_registry = NULLPTR);
+
+/// \brief One-shot executor provider for all types of functions.
+///
+/// This function creates and initializes a `FunctionExecutor` appropriate
+/// for the given function name, input types (taken from the Datum arguments)
+/// and function options.
+ARROW_EXPORT
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, const std::vector<Datum>& args,
+    const FunctionOptions* options = NULLPTR, FunctionRegistry* func_registry = NULLPTR);
 
 /// @}
 

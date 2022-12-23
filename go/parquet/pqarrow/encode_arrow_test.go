@@ -26,20 +26,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/bitutil"
-	"github.com/apache/arrow/go/v10/arrow/decimal128"
-	"github.com/apache/arrow/go/v10/arrow/memory"
-	"github.com/apache/arrow/go/v10/internal/bitutils"
-	"github.com/apache/arrow/go/v10/internal/utils"
-	"github.com/apache/arrow/go/v10/parquet"
-	"github.com/apache/arrow/go/v10/parquet/compress"
-	"github.com/apache/arrow/go/v10/parquet/file"
-	"github.com/apache/arrow/go/v10/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v10/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v10/parquet/pqarrow"
-	"github.com/apache/arrow/go/v10/parquet/schema"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/bitutil"
+	"github.com/apache/arrow/go/v11/arrow/decimal128"
+	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v11/internal/bitutils"
+	"github.com/apache/arrow/go/v11/internal/utils"
+	"github.com/apache/arrow/go/v11/parquet"
+	"github.com/apache/arrow/go/v11/parquet/compress"
+	"github.com/apache/arrow/go/v11/parquet/file"
+	"github.com/apache/arrow/go/v11/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v11/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v11/parquet/pqarrow"
+	"github.com/apache/arrow/go/v11/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -877,17 +877,23 @@ func (ps *ParquetIOTestSuite) TestSingleColumnRequiredWrite() {
 }
 
 func (ps *ParquetIOTestSuite) roundTripTable(expected arrow.Table, storeSchema bool) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(ps.T(), 0)
+
 	var buf bytes.Buffer
 	var props pqarrow.ArrowWriterProperties
 	if storeSchema {
-		props = pqarrow.NewArrowWriterProperties(pqarrow.WithStoreSchema())
+		props = pqarrow.NewArrowWriterProperties(pqarrow.WithStoreSchema(), pqarrow.WithAllocator(mem))
 	} else {
-		props = pqarrow.DefaultWriterProps()
+		props = pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem))
 	}
 
-	ps.Require().NoError(pqarrow.WriteTable(expected, &buf, expected.NumRows(), nil, props))
+	writeProps := parquet.NewWriterProperties(parquet.WithAllocator(mem))
+	ps.Require().NoError(pqarrow.WriteTable(expected, &buf, expected.NumRows(), writeProps, props))
 
 	reader := ps.createReader(buf.Bytes())
+	defer reader.ParquetReader().Close()
+
 	tbl := ps.readTable(reader)
 	defer tbl.Release()
 

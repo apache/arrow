@@ -86,20 +86,25 @@ struct ARROW_EXPORT Datum {
   explicit Datum(const Table& value);
 
   // Cast from subtypes of Array or Scalar to Datum
-  template <typename T, bool IsArray = std::is_base_of<Array, T>::value,
-            bool IsScalar = std::is_base_of<Scalar, T>::value,
+  template <typename T, bool IsArray = std::is_base_of_v<Array, T>,
+            bool IsScalar = std::is_base_of_v<Scalar, T>,
             typename = enable_if_t<IsArray || IsScalar>>
   Datum(std::shared_ptr<T> value)  // NOLINT implicit conversion
       : Datum(std::shared_ptr<typename std::conditional<IsArray, Array, Scalar>::type>(
             std::move(value))) {}
 
   // Cast from subtypes of Array or Scalar to Datum
-  template <typename T, typename TV = typename std::remove_reference<T>::type,
-            bool IsArray = std::is_base_of<Array, T>::value,
-            bool IsScalar = std::is_base_of<Scalar, T>::value,
+  template <typename T, typename TV = typename std::remove_reference_t<T>,
+            bool IsArray = std::is_base_of_v<Array, T>,
+            bool IsScalar = std::is_base_of_v<Scalar, T>,
             typename = enable_if_t<IsArray || IsScalar>>
   Datum(T&& value)  // NOLINT implicit conversion
       : Datum(std::make_shared<TV>(std::forward<T>(value))) {}
+
+  // Many Scalars are copyable, let that happen
+  template <typename T, typename = enable_if_t<std::is_base_of_v<Scalar, T>>>
+  Datum(const T& value)  // NOLINT implicit conversion
+      : Datum(std::make_shared<T>(value)) {}
 
   // Convenience constructors
   explicit Datum(bool value);
@@ -115,6 +120,12 @@ struct ARROW_EXPORT Datum {
   explicit Datum(double value);
   explicit Datum(std::string value);
   explicit Datum(const char* value);
+
+  // Forward to convenience constructors for a DurationScalar from std::chrono::duration
+  template <template <typename, typename> class StdDuration, typename Rep,
+            typename Period,
+            typename = decltype(DurationScalar{StdDuration<Rep, Period>{}})>
+  explicit Datum(StdDuration<Rep, Period> d) : Datum{DurationScalar(d)} {}
 
   Datum::Kind kind() const {
     switch (this->value.index()) {

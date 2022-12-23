@@ -1,0 +1,65 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Bug Report
+description: File a bug report
+labels: ["Type: bug"]
+assignees: []
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug, including details regarding any error messages, version, and platform.
+      description: Please include what you expected.
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component(s)
+      multiple: true
+      options:
+        - Archery
+        - Benchmarking
+        - C
+        - C#
+        - C++
+        - C++ - Gandiva
+        - C++ - Plasma
+        - Continuous Integration
+        - Developer Tools
+        - Documentation
+        - FlightRPC
+        - Format
+        - GLib
+        - Go
+        - GPU
+        - Integration
+        - Java
+        - JavaScript
+        - MATLAB
+        - Packaging
+        - Parquet
+        - Python
+        - R
+        - Release
+        - Ruby
+        - Swift
+        - Website
+        - Other
+    validations:
+      required: true

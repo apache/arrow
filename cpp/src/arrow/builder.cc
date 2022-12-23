@@ -42,14 +42,16 @@ using arrow::internal::checked_cast;
 // exact_index_type case below, to reduce build time and memory usage.
 class ARROW_EXPORT TypeErasedIntBuilder : public ArrayBuilder {
  public:
-  explicit TypeErasedIntBuilder(MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(pool) {
+  explicit TypeErasedIntBuilder(MemoryPool* pool = default_memory_pool(),
+                                int64_t alignment = kDefaultBufferAlignment)
+      : ArrayBuilder(pool, alignment) {
     // Not intended to be used, but adding this is easier than adding a bunch of enable_if
     // magic to builder_dict.h
     DCHECK(false);
   }
   explicit TypeErasedIntBuilder(const std::shared_ptr<DataType>& type,
-                                MemoryPool* pool = default_memory_pool())
+                                MemoryPool* pool = default_memory_pool(),
+                                int64_t alignment = kDefaultBufferAlignment)
       : ArrayBuilder(pool), type_id_(type->id()) {
     DCHECK(is_integer(type_id_));
     switch (type_id_) {

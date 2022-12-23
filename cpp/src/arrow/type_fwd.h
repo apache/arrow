@@ -631,4 +631,6 @@ std::shared_ptr<Schema> schema(
 /// Return the process-wide default memory pool.
 ARROW_EXPORT MemoryPool* default_memory_pool();
 
+constexpr int64_t kDefaultBufferAlignment = 64;
+
 }  // namespace arrow

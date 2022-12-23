@@ -760,4 +760,83 @@ public class TestComplexCopier {
       assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
     }
   }
+
+  @Test
+  public void testCopyStructOfMap() {
+    try (final StructVector from = StructVector.empty("v", allocator);
+         final StructVector to = StructVector.empty("v", allocator);) {
+
+      from.allocateNew();
+
+      NullableStructWriter structWriter = from.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        structWriter.setPosition(i);
+        structWriter.start();
+        BaseWriter.MapWriter innerMapWriter = structWriter.map("f1");
+        innerMapWriter.startMap();
+        innerMapWriter.startEntry();
+        innerMapWriter.key().integer().writeInt(i);
+        innerMapWriter.value().integer().writeInt(i);
+        innerMapWriter.endEntry();
+        innerMapWriter.endMap();
+        structWriter.end();
+      }
+
+      from.setValueCount(COUNT);
+
+      // copy values
+      FieldReader in = from.getReader();
+      FieldWriter out = to.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        in.setPosition(i);
+        out.setPosition(i);
+        ComplexCopier.copy(in, out);
+      }
+      to.setValueCount(COUNT);
+
+      // validate equals
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+    }
+  }
+
+  @Test
+  public void testCopyMapVectorWithMapValue() {
+    try (final MapVector from = MapVector.empty("v", allocator, false);
+         final MapVector to = MapVector.empty("v", allocator, false)) {
+
+      from.allocateNew();
+
+      UnionMapWriter mapWriter = from.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        mapWriter.setPosition(i);
+        mapWriter.startMap();
+        mapWriter.startEntry();
+        mapWriter.key().integer().writeInt(i);
+        BaseWriter.MapWriter innerMapWriter = mapWriter.value().map(false);
+        innerMapWriter.startMap();
+        innerMapWriter.startEntry();
+        innerMapWriter.key().integer().writeInt(i);
+        innerMapWriter.value().integer().writeInt(i);
+        innerMapWriter.endEntry();
+        innerMapWriter.endMap();
+        mapWriter.endEntry();
+        mapWriter.endMap();
+      }
+
+      from.setValueCount(COUNT);
+
+      // copy values
+      FieldReader in = from.getReader();
+      FieldWriter out = to.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        in.setPosition(i);
+        out.setPosition(i);
+        ComplexCopier.copy(in, out);
+      }
+      to.setValueCount(COUNT);
+
+      // validate equals
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+    }
+  }
 }

@@ -951,6 +951,16 @@ Status GetTensorSize(const Tensor& tensor, int64_t* size) {
 
 RecordBatchWriter::~RecordBatchWriter() {}
 
+Status RecordBatchWriter::WriteRecordBatch(
+    const RecordBatch& batch,
+    const std::shared_ptr<const KeyValueMetadata>& custom_metadata) {
+  if (custom_metadata == nullptr) {
+    return WriteRecordBatch(batch);
+  }
+  return Status::NotImplemented(
+      "Write record batch with custom metadata not implemented");
+}
+
 Status RecordBatchWriter::WriteTable(const Table& table, int64_t max_chunksize) {
   TableBatchReader reader(table);
 
@@ -1377,6 +1387,10 @@ namespace internal {
 Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
     std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options) {
+  // constructor for IpcFormatWriter here dereferences ptr to schema.
+  if (schema == nullptr) {
+    return Status::Invalid("nullptr for Schema not allowed");
+  }
   auto writer = std::make_unique<internal::IpcFormatWriter>(
       std::move(sink), schema, options, /*is_file_format=*/false);
   RETURN_NOT_OK(writer->Start());

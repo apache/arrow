@@ -17,7 +17,6 @@
 package ipc
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -27,14 +26,14 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/bitutil"
-	"github.com/apache/arrow/go/v10/arrow/internal"
-	"github.com/apache/arrow/go/v10/arrow/internal/debug"
-	"github.com/apache/arrow/go/v10/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v10/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/bitutil"
+	"github.com/apache/arrow/go/v11/arrow/internal"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v11/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 type swriter struct {
@@ -99,11 +98,12 @@ type Writer struct {
 func NewWriterWithPayloadWriter(pw PayloadWriter, opts ...Option) *Writer {
 	cfg := newConfig(opts...)
 	return &Writer{
-		mem:        cfg.alloc,
-		pw:         pw,
-		schema:     cfg.schema,
-		codec:      cfg.codec,
-		compressNP: cfg.compressNP,
+		mem:            cfg.alloc,
+		pw:             pw,
+		schema:         cfg.schema,
+		codec:          cfg.codec,
+		compressNP:     cfg.compressNP,
+		emitDictDeltas: cfg.emitDictDeltas,
 	}
 }
 
@@ -111,11 +111,12 @@ func NewWriterWithPayloadWriter(pw PayloadWriter, opts ...Option) *Writer {
 func NewWriter(w io.Writer, opts ...Option) *Writer {
 	cfg := newConfig(opts...)
 	return &Writer{
-		w:      w,
-		mem:    cfg.alloc,
-		pw:     &swriter{w: w},
-		schema: cfg.schema,
-		codec:  cfg.codec,
+		w:              w,
+		mem:            cfg.alloc,
+		pw:             &swriter{w: w},
+		schema:         cfg.schema,
+		codec:          cfg.codec,
+		emitDictDeltas: cfg.emitDictDeltas,
 	}
 }
 
@@ -328,19 +329,23 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 		if p.body[idx] == nil || p.body[idx].Len() == 0 {
 			return nil
 		}
-		var buf bytes.Buffer
-		buf.Grow(codec.MaxCompressedLen(p.body[idx].Len()) + arrow.Int64SizeBytes)
-		if err := binary.Write(&buf, binary.LittleEndian, uint64(p.body[idx].Len())); err != nil {
-			return err
-		}
-		codec.Reset(&buf)
+
+		buf := memory.NewResizableBuffer(w.mem)
+		buf.Reserve(codec.MaxCompressedLen(p.body[idx].Len()) + arrow.Int64SizeBytes)
+
+		binary.LittleEndian.PutUint64(buf.Buf(), uint64(p.body[idx].Len()))
+		bw := &bufferWriter{buf: buf, pos: arrow.Int64SizeBytes}
+		codec.Reset(bw)
 		if _, err := codec.Write(p.body[idx].Bytes()); err != nil {
 			return err
 		}
 		if err := codec.Close(); err != nil {
 			return err
 		}
-		p.body[idx] = memory.NewBufferBytes(buf.Bytes())
+
+		buf.Resize(bw.pos)
+		p.body[idx].Release()
+		p.body[idx] = buf
 		return nil
 	}
 
@@ -647,44 +652,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			}
 		}
 		w.depth++
-	case *arrow.MapType:
-		arr := arr.(*array.Map)
-		voffsets, err := w.getZeroBasedValueOffsets(arr)
-		if err != nil {
-			return fmt.Errorf("could not retrieve zero-based value offsets for array %T: %w", arr, err)
-		}
-		p.body = append(p.body, voffsets)
-
-		w.depth--
-		var (
-			values        = arr.ListValues()
-			mustRelease   = false
-			values_offset int64
-			values_length int64
-		)
-		defer func() {
-			if mustRelease {
-				values.Release()
-			}
-		}()
-
-		if voffsets != nil {
-			values_offset = int64(arr.Offsets()[0])
-			values_length = int64(arr.Offsets()[arr.Len()]) - values_offset
-		}
-
-		if len(arr.Offsets()) != 0 || values_length < int64(values.Len()) {
-			// must also slice the values
-			values = array.NewSlice(values, values_offset, values_length)
-			mustRelease = true
-		}
-		err = w.visit(p, values)
-
-		if err != nil {
-			return fmt.Errorf("could not visit list element for array %T: %w", arr, err)
-		}
-		w.depth++
-	case *arrow.ListType, *arrow.LargeListType:
+	case *arrow.MapType, *arrow.ListType, *arrow.LargeListType:
 		arr := arr.(array.ListLike)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
@@ -697,7 +665,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			values        = arr.ListValues()
 			mustRelease   = false
 			values_offset int64
-			values_length int64
+			values_end    int64
 		)
 		defer func() {
 			if mustRelease {
@@ -707,13 +675,12 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 
 		if arr.Len() > 0 && voffsets != nil {
 			values_offset, _ = arr.ValueOffsets(0)
-			_, values_length = arr.ValueOffsets(arr.Len() - 1)
-			values_length -= values_offset
+			_, values_end = arr.ValueOffsets(arr.Len() - 1)
 		}
 
-		if arr.Len() != 0 || values_length < int64(values.Len()) {
+		if arr.Len() != 0 || values_end < int64(values.Len()) {
 			// must also slice the values
-			values = array.NewSlice(values, values_offset, values_length)
+			values = array.NewSlice(values, values_offset, values_end)
 			mustRelease = true
 		}
 		err = w.visit(p, values)

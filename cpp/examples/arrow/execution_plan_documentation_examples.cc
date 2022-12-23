@@ -583,7 +583,8 @@ arrow::Status SourceConsumingSinkExample(cp::ExecContext& exec_context) {
         : batches_seen(batches_seen), finish(std::move(finish)) {}
 
     arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema,
-                       cp::BackpressureControl* backpressure_control) override {
+                       cp::BackpressureControl* backpressure_control,
+                       cp::ExecPlan* plan) override {
       return arrow::Status::OK();
     }
 

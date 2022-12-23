@@ -102,7 +102,7 @@
 #' an Arrow [Schema], or `NULL` (the default) to infer types from the data.
 #' @param col_select A character vector of column names to keep, as in the
 #' "select" argument to `data.table::fread()`, or a
-#' [tidy selection specification][tidyselect::vars_select()]
+#' [tidy selection specification][tidyselect::eval_select()]
 #' of columns, as used in `dplyr::select()`.
 #' @param na A character vector of strings to interpret as missing values.
 #' @param quoted_na Should missing values inside quotes be treated as missing
@@ -144,8 +144,8 @@
 #' read_csv_arrow(tf, col_types = schema(y = utf8()))
 #' read_csv_arrow(tf, col_types = "ic", col_names = c("x", "y"), skip = 1)
 #'
-#' # Note that if a timestamp column contains time zones, type inference won't work,
-#' # whether automatic or via the string "T" `col_types` specification.
+#' # Note that if a timestamp column contains time zones,
+#' # the string "T" `col_types` specification won't work.
 #' # To parse timestamps with time zones, provide a [Schema] to `col_types`
 #' # and specify the time zone in the type object:
 #' tf <- tempfile()
@@ -226,7 +226,8 @@ read_delim_arrow <- function(file,
   # TODO: move this into convert_options using include_columns
   col_select <- enquo(col_select)
   if (!quo_is_null(col_select)) {
-    tab <- tab[vars_select(names(tab), !!col_select)]
+    sim_df <- as.data.frame(tab$schema)
+    tab <- tab[eval_select(col_select, sim_df)]
   }
 
   if (isTRUE(as_data_frame)) {

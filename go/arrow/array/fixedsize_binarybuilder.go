@@ -23,9 +23,9 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/internal/debug"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -86,6 +86,11 @@ func (b *FixedSizeBinaryBuilder) AppendNull() {
 func (b *FixedSizeBinaryBuilder) AppendEmptyValue() {
 	b.Reserve(1)
 	b.values.Advance(b.dtype.ByteWidth)
+	b.UnsafeAppendBoolToBitmap(true)
+}
+
+func (b *FixedSizeBinaryBuilder) UnsafeAppend(v []byte) {
+	b.values.unsafeAppend(v)
 	b.UnsafeAppendBoolToBitmap(true)
 }
 

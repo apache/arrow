@@ -702,11 +702,11 @@ cdef class _PandasConvertible(_Weakrefable):
         memory_pool : MemoryPool, default None
             Arrow MemoryPool to use for allocations. Uses the default memory
             pool is not passed.
-        strings_to_categorical : bool, default False
-            Encode string (UTF8) and binary types to pandas.Categorical.
         categories : list, default empty
             List of fields that should be returned as pandas.Categorical. Only
             applies to table-like data structures.
+        strings_to_categorical : bool, default False
+            Encode string (UTF8) and binary types to pandas.Categorical.
         zero_copy_only : bool, default False
             Raise an ArrowException if this function call would require copying
             the underlying data.
@@ -1398,6 +1398,29 @@ cdef class Array(_PandasConvertible):
             The index of the value in the array (-1 if not found).
         """
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
+
+    def sort(self, order="ascending", **kwargs):
+        """
+        Sort the Array
+
+        Parameters
+        ----------
+        order : str, default "ascending"
+            Which order to sort values in.
+            Accepted values are "ascending", "descending".
+        **kwargs : dict, optional
+            Additional sorting options.
+            As allowed by :class:`SortOptions`
+
+        Returns
+        -------
+        result : Array
+        """
+        indices = _pc().sort_indices(
+            self,
+            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
+        )
+        return self.take(indices)
 
     def _to_pandas(self, options, types_mapper=None, **kwargs):
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
@@ -2549,11 +2572,11 @@ cdef class DictionaryArray(Array):
             The array of values referenced by the indices.
         mask : ndarray or pandas.Series, bool type
             True values indicate that indices are actually null.
+        ordered : bool, default False
+            Set to True if the category values are ordered.
         from_pandas : bool, default False
             If True, the indices should be treated as though they originated in
             a pandas.Categorical (null encoded as -1).
-        ordered : bool, default False
-            Set to True if the category values are ordered.
         safe : bool, default True
             If True, check that the dictionary indices are in range.
         memory_pool : MemoryPool, default None
@@ -2639,6 +2662,39 @@ cdef class StructArray(Array):
         else:
             raise TypeError('Expected integer or string index')
 
+        return pyarrow_wrap_array(child)
+
+    def _flattened_field(self, index, MemoryPool memory_pool=None):
+        """
+        Retrieves the child array belonging to field,
+        accounting for the parent array null bitmap.
+
+        Parameters
+        ----------
+        index : Union[int, str]
+            Index / position or name of the field.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise use default pool.
+
+        Returns
+        -------
+        result : Array
+        """
+        cdef:
+            CStructArray* arr = <CStructArray*> self.ap
+            shared_ptr[CArray] child
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+
+        if isinstance(index, (bytes, str)):
+            int_index = self.type.get_field_index(index)
+            if int_index < 0:
+                raise KeyError(index)
+        elif isinstance(index, int):
+            int_index = _normalize_index(index, self.ap.num_fields())
+        else:
+            raise TypeError('Expected integer or string index')
+
+        child = GetResultValue(arr.GetFlattenedField(int_index, pool))
         return pyarrow_wrap_array(child)
 
     def flatten(self, MemoryPool memory_pool=None):
@@ -2742,6 +2798,36 @@ cdef class StructArray(Array):
         cdef Array result = pyarrow_wrap_array(GetResultValue(c_result))
         result.validate()
         return result
+
+    def sort(self, order="ascending", by=None, **kwargs):
+        """
+        Sort the StructArray
+
+        Parameters
+        ----------
+        order : str, default "ascending"
+            Which order to sort values in.
+            Accepted values are "ascending", "descending".
+        by : str or None, default None
+            If to sort the array by one of its fields
+            or by the whole array.
+        **kwargs : dict, optional
+            Additional sorting options.
+            As allowed by :class:`SortOptions`
+
+        Returns
+        -------
+        result : StructArray
+        """
+        if by is not None:
+            tosort = self._flattened_field(by)
+        else:
+            tosort = self
+        indices = _pc().sort_indices(
+            tosort,
+            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
+        )
+        return self.take(indices)
 
 
 cdef class ExtensionArray(Array):

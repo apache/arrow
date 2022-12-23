@@ -125,13 +125,12 @@ namespace {
 class ParsingBoundaryFinder : public BoundaryFinder {
  public:
   Status FindFirst(string_view partial, string_view block, int64_t* out_pos) override {
-    // NOTE: We could bubble up JSON parse errors here, but the actual parsing
-    // step will detect them later anyway.
     auto length = ConsumeWholeObject(MultiStringStream({partial, block}));
     if (length == string_view::npos) {
       *out_pos = -1;
+    } else if (ARROW_PREDICT_FALSE(length < partial.size())) {
+      return Status::Invalid("JSON chunk error: invalid data at end of document");
     } else {
-      DCHECK_GE(length, partial.size());
       DCHECK_LE(length, partial.size() + block.size());
       *out_pos = static_cast<int64_t>(length - partial.size());
     }

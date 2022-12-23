@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+
 package kernels
 
 import (
@@ -21,12 +23,12 @@ import (
 	"strconv"
 	"unicode/utf8"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/bitutil"
-	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v10/arrow/float16"
-	"github.com/apache/arrow/go/v10/internal/bitutils"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/bitutil"
+	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v11/arrow/float16"
+	"github.com/apache/arrow/go/v11/internal/bitutils"
 )
 
 func validateUtf8Fsb(input *exec.ArraySpan) error {
@@ -191,7 +193,7 @@ func GetFsbCastKernels() []exec.ScalarKernel {
 	outputType := exec.NewComputedOutputType(resolveOutputFromOptions)
 	out := GetCommonCastKernels(arrow.FIXED_SIZE_BINARY, outputType)
 	kernel := exec.NewScalarKernel([]exec.InputType{exec.NewIDInput(arrow.FIXED_SIZE_BINARY)},
-		exec.NewComputedOutputType(resolveToFirstType), CastFsbToFsb, nil)
+		OutputFirstType, CastFsbToFsb, nil)
 	kernel.NullHandling = exec.NullComputedNoPrealloc
 	return append(out, kernel)
 }

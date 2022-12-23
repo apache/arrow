@@ -64,13 +64,22 @@ class SqliteStatement {
   /// \return A sqlite statement.
   sqlite3_stmt* GetSqlite3Stmt() const;
 
+  sqlite3* db() const { return db_; }
+
   /// \brief Executes an UPDATE, INSERT or DELETE statement.
   /// \return              The number of rows changed by execution.
   arrow::Result<int64_t> ExecuteUpdate();
 
+  const std::vector<std::shared_ptr<arrow::RecordBatch>>& parameters() const {
+    return parameters_;
+  }
+  Status SetParameters(std::vector<std::shared_ptr<arrow::RecordBatch>> parameters);
+  Status Bind(size_t batch_index, int64_t row_index);
+
  private:
   sqlite3* db_;
   sqlite3_stmt* stmt_;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> parameters_;
 
   SqliteStatement(sqlite3* db, sqlite3_stmt* stmt) : db_(db), stmt_(stmt) {}
 };

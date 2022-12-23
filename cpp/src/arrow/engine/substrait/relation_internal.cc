@@ -17,43 +17,78 @@
 
 #include "arrow/engine/substrait/relation_internal.h"
 
-#include "arrow/compute/api_scalar.h"
+#include <cstdint>
+#include <functional>
+#include <iterator>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
+#include <variant>
+#include <vector>
+
+#include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/kernel.h"
+#include "arrow/dataset/dataset.h"
+#include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/datum.h"
 #include "arrow/engine/substrait/expression_internal.h"
+#include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/options.h"
+#include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/type_internal.h"
+#include "arrow/engine/substrait/util.h"
+#include "arrow/engine/substrait/util_internal.h"
+#include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
-#include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/type_fwd.h"
 #include "arrow/filesystem/util_internal.h"
+#include "arrow/io/type_fwd.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
-
-#include <memory>
 
 namespace arrow {
 
 using internal::checked_cast;
 using internal::StartsWith;
+using internal::ToChars;
 using internal::UriFromAbsolutePath;
 
 namespace engine {
 
+struct EmitInfo {
+  std::vector<compute::Expression> expressions;
+  std::shared_ptr<Schema> schema;
+};
+
 template <typename RelMessage>
-Result<std::vector<compute::Expression>> GetEmitInfo(
-    const RelMessage& rel, const std::shared_ptr<Schema>& schema) {
+Result<EmitInfo> GetEmitInfo(const RelMessage& rel,
+                             const std::shared_ptr<Schema>& input_schema) {
   const auto& emit = rel.common().emit();
   int emit_size = emit.output_mapping_size();
   std::vector<compute::Expression> proj_field_refs(emit_size);
+  EmitInfo emit_info;
+  FieldVector emit_fields(emit_size);
   for (int i = 0; i < emit_size; i++) {
     int32_t map_id = emit.output_mapping(i);
     proj_field_refs[i] = compute::field_ref(FieldRef(map_id));
+    emit_fields[i] = input_schema->field(map_id);
   }
-  return std::move(proj_field_refs);
+  emit_info.expressions = std::move(proj_field_refs);
+  emit_info.schema = schema(std::move(emit_fields));
+  return std::move(emit_info);
 }
 
 template <typename RelMessage>
@@ -65,12 +100,13 @@ Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
       case substrait::RelCommon::EmitKindCase::kDirect:
         return no_emit_declr;
       case substrait::RelCommon::EmitKindCase::kEmit: {
-        ARROW_ASSIGN_OR_RAISE(auto emit_expressions, GetEmitInfo(rel, schema));
+        ARROW_ASSIGN_OR_RAISE(auto emit_info, GetEmitInfo(rel, schema));
         return DeclarationInfo{
             compute::Declaration::Sequence(
                 {no_emit_declr.declaration,
-                 {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            std::move(schema)};
+                 {"project",
+                  compute::ProjectNodeOptions{std::move(emit_info.expressions)}}}),
+            std::move(emit_info.schema)};
       }
       default:
         return Status::Invalid("Invalid emit case");
@@ -81,9 +117,11 @@ Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
 }
 
 template <typename RelMessage>
-Status CheckRelCommon(const RelMessage& rel) {
+Status CheckRelCommon(const RelMessage& rel,
+                      const ConversionOptions& conversion_options) {
   if (rel.has_common()) {
-    if (rel.common().has_hint()) {
+    if (rel.common().has_hint() &&
+        conversion_options.strictness == ConversionStrictness::EXACT_ROUNDTRIP) {
       return Status::NotImplemented("substrait::RelCommon::Hint");
     }
     if (rel.common().has_advanced_extension()) {
@@ -125,7 +163,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
   switch (rel.rel_type_case()) {
     case substrait::Rel::RelTypeCase::kRead: {
       const auto& read = rel.read();
-      RETURN_NOT_OK(CheckRelCommon(read));
+      RETURN_NOT_OK(CheckRelCommon(read, conversion_options));
 
       // Get the base schema for the read relation
       ARROW_ASSIGN_OR_RAISE(auto base_schema,
@@ -319,7 +357,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
     case substrait::Rel::RelTypeCase::kFilter: {
       const auto& filter = rel.filter();
-      RETURN_NOT_OK(CheckRelCommon(filter));
+      RETURN_NOT_OK(CheckRelCommon(filter, conversion_options));
 
       if (!filter.has_input()) {
         return Status::Invalid("substrait::FilterRel with no input relation");
@@ -345,7 +383,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
     case substrait::Rel::RelTypeCase::kProject: {
       const auto& project = rel.project();
-      RETURN_NOT_OK(CheckRelCommon(project));
+      RETURN_NOT_OK(CheckRelCommon(project, conversion_options));
       if (!project.has_input()) {
         return Status::Invalid("substrait::ProjectRel with no input relation");
       }
@@ -376,14 +414,11 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                                 field_ref->FindOne(*input.output_schema));
           ARROW_ASSIGN_OR_RAISE(project_field, field_path.Get(*input.output_schema));
         } else if (auto* literal = des_expr.literal()) {
-          project_field =
-              field("field_" + std::to_string(num_columns + i), literal->type());
+          project_field = field("field_" + ToChars(num_columns + i), literal->type());
         }
         ARROW_ASSIGN_OR_RAISE(
             project_schema,
-            project_schema->AddField(
-                num_columns + static_cast<int>(project.expressions().size()) - 1,
-                std::move(project_field)));
+            project_schema->AddField(num_columns + i, std::move(project_field)));
         i++;
         expressions.emplace_back(des_expr);
       }
@@ -401,7 +436,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
     case substrait::Rel::RelTypeCase::kJoin: {
       const auto& join = rel.join();
-      RETURN_NOT_OK(CheckRelCommon(join));
+      RETURN_NOT_OK(CheckRelCommon(join, conversion_options));
 
       if (!join.has_left()) {
         return Status::Invalid("substrait::JoinRel with no left relation");
@@ -468,13 +503,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             callptr->function_name);
       }
 
-      // TODO: ARROW-16624 Add Suffix support for Substrait
-      const auto* left_keys = callptr->arguments[0].field_ref();
-      const auto* right_keys = callptr->arguments[1].field_ref();
-      if (!left_keys || !right_keys) {
-        return Status::Invalid("Left keys for join cannot be null");
-      }
-
       // Create output schema from left, right relations and join keys
       FieldVector combined_fields = left.output_schema->fields();
       const FieldVector& right_fields = right.output_schema->fields();
@@ -482,8 +510,25 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                              right_fields.end());
       std::shared_ptr<Schema> join_schema = schema(std::move(combined_fields));
 
+      // adjust the join_keys according to Substrait definition where
+      // the join fields are defined by considering the `join_schema` which
+      // is the combination of the left and right relation schema.
+
+      // TODO: ARROW-16624 Add Suffix support for Substrait
+      const auto* left_keys = callptr->arguments[0].field_ref();
+      const auto* right_keys = callptr->arguments[1].field_ref();
+      // Validating JoinKeys
+      if (!left_keys || !right_keys) {
+        return Status::Invalid(
+            "join condition must include references to both left and right inputs");
+      }
+      int num_left_fields = left.output_schema->num_fields();
+      const auto* right_field_path = right_keys->field_path();
+      std::vector<int> adjusted_field_indices(right_field_path->indices());
+      adjusted_field_indices[0] -= num_left_fields;
+      FieldPath adjusted_right_keys(adjusted_field_indices);
       compute::HashJoinNodeOptions join_options{{std::move(*left_keys)},
-                                                {std::move(*right_keys)}};
+                                                {std::move(adjusted_right_keys)}};
       join_options.join_type = join_type;
       join_options.key_cmp = {join_key_cmp};
       compute::Declaration join_dec{"hashjoin", std::move(join_options)};
@@ -497,7 +542,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
     }
     case substrait::Rel::RelTypeCase::kAggregate: {
       const auto& aggregate = rel.aggregate();
-      RETURN_NOT_OK(CheckRelCommon(aggregate));
+      RETURN_NOT_OK(CheckRelCommon(aggregate, conversion_options));
 
       if (!aggregate.has_input()) {
         return Status::Invalid("substrait::AggregateRel with no input relation");
@@ -598,6 +643,49 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                          std::move(aggregate_schema));
     }
 
+    case substrait::Rel::RelTypeCase::kSet: {
+      const auto& set = rel.set();
+      RETURN_NOT_OK(CheckRelCommon(set, conversion_options));
+
+      if (set.inputs_size() < 2) {
+        return Status::Invalid(
+            "substrait::SetRel with inadequate number of input relations, ",
+            set.inputs_size());
+      }
+      substrait::SetRel_SetOp op = set.op();
+      // Note: at the moment Acero only supports UNION_ALL operation
+      switch (op) {
+        case substrait::SetRel::SET_OP_UNSPECIFIED:
+        case substrait::SetRel::SET_OP_MINUS_PRIMARY:
+        case substrait::SetRel::SET_OP_MINUS_MULTISET:
+        case substrait::SetRel::SET_OP_INTERSECTION_PRIMARY:
+        case substrait::SetRel::SET_OP_INTERSECTION_MULTISET:
+        case substrait::SetRel::SET_OP_UNION_DISTINCT:
+          return Status::NotImplemented(
+              "NotImplemented union type : ",
+              EnumToString(op, *substrait::SetRel_SetOp_descriptor()));
+        case substrait::SetRel::SET_OP_UNION_ALL:
+          break;
+        default:
+          return Status::Invalid("Unknown union type");
+      }
+      int input_size = set.inputs_size();
+      compute::Declaration union_declr{"union", compute::ExecNodeOptions{}};
+      std::shared_ptr<Schema> union_schema;
+      for (int input_id = 0; input_id < input_size; input_id++) {
+        ARROW_ASSIGN_OR_RAISE(
+            auto input, FromProto(set.inputs(input_id), ext_set, conversion_options));
+        union_declr.inputs.emplace_back(std::move(input.declaration));
+        if (union_schema == nullptr) {
+          union_schema = input.output_schema;
+        }
+      }
+
+      auto set_declaration = DeclarationInfo{union_declr, union_schema};
+      return ProcessEmit(std::move(set), std::move(set_declaration),
+                         std::move(union_schema));
+    }
+
     default:
       break;
   }
@@ -617,6 +705,10 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
   } else if (declr.factory_name == "filter") {
     auto input_declr = std::get<compute::Declaration>(declr.inputs[0]);
     ARROW_ASSIGN_OR_RAISE(bind_schema, ExtractSchemaToBind(input_declr));
+  } else if (declr.factory_name == "named_table") {
+    const auto& opts =
+        checked_cast<const compute::NamedTableNodeOptions&>(*declr.options);
+    bind_schema = opts.schema;
   } else if (declr.factory_name == "sink") {
     // Note that the sink has no output_schema
     return bind_schema;
@@ -625,6 +717,30 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
                            declr.factory_name);
   }
   return bind_schema;
+}
+
+Result<std::unique_ptr<substrait::ReadRel>> NamedTableRelationConverter(
+    const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
+    ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
+  auto read_rel = std::make_unique<substrait::ReadRel>();
+  const auto& named_table_options =
+      checked_cast<const compute::NamedTableNodeOptions&>(*declaration.options);
+
+  // set schema
+  ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*schema, ext_set, conversion_options));
+  read_rel->set_allocated_base_schema(named_struct.release());
+
+  if (named_table_options.names.empty()) {
+    return Status::Invalid("Table names cannot be empty");
+  }
+
+  auto read_rel_tn = std::make_unique<substrait::ReadRel::NamedTable>();
+  for (auto& name : named_table_options.names) {
+    read_rel_tn->add_names(name);
+  }
+  read_rel->set_allocated_named_table(read_rel_tn.release());
+
+  return std::move(read_rel);
 }
 
 Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
@@ -641,8 +757,7 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
   }
 
   // set schema
-  ARROW_ASSIGN_OR_RAISE(auto named_struct,
-                        ToProto(*dataset->schema(), ext_set, conversion_options));
+  ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*schema, ext_set, conversion_options));
   read_rel->set_allocated_base_schema(named_struct.release());
 
   // set local files
@@ -722,6 +837,11 @@ Status SerializeAndCombineRelations(const compute::Declaration& declaration,
         auto filter_rel,
         FilterRelationConverter(schema, declaration, ext_set, conversion_options));
     (*rel)->set_allocated_filter(filter_rel.release());
+  } else if (factory_name == "named_table") {
+    ARROW_ASSIGN_OR_RAISE(
+        auto read_rel,
+        NamedTableRelationConverter(schema, declaration, ext_set, conversion_options));
+    (*rel)->set_allocated_read(read_rel.release());
   } else if (factory_name == "sink") {
     // Generally when a plan is deserialized the declaration will be a sink declaration.
     // Since there is no Sink relation in substrait, this function would be recursively

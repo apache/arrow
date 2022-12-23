@@ -122,8 +122,6 @@ endmacro()
 
 macro(resolve_option_dependencies)
   if(MSVC_TOOLCHAIN)
-    # ARROW-17817: ORC can't be built on Windows.
-    set(ARROW_ORC OFF)
     # Plasma using glog is not fully tested on windows.
     set(ARROW_USE_GLOG OFF)
   endif()
@@ -187,6 +185,10 @@ takes precedence over ccache if a storage backend is configured" ON)
                        "AVX2"
                        "AVX512"
                        "NEON"
+                       "SVE" # size agnostic SVE
+                       "SVE128" # fixed size SVE
+                       "SVE256" # "
+                       "SVE512" # "
                        "DEFAULT")
 
   define_option_string(ARROW_RUNTIME_SIMD_LEVEL
@@ -197,17 +199,6 @@ takes precedence over ccache if a storage backend is configured" ON)
                        "AVX2"
                        "AVX512"
                        "MAX")
-
-  # Arm64 architectures and extensions can lead to exploding combinations.
-  # So set it directly through cmake command line.
-  #
-  # If you change this, you need to change the definition in
-  # python/CMakeLists.txt too.
-  define_option_string(ARROW_ARMV8_ARCH
-                       "Arm64 arch and extensions"
-                       "armv8-a" # Default
-                       "armv8-a"
-                       "armv8-a+crc+crypto")
 
   define_option(ARROW_ALTIVEC "Build with Altivec if compiler has support" ON)
 

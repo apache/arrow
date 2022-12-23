@@ -27,6 +27,7 @@ cdef class ScalarUdfContext(_Weakrefable):
 
     cdef void init(self, const CScalarUdfContext& c_context)
 
+
 cdef class FunctionOptions(_Weakrefable):
     cdef:
         shared_ptr[CFunctionOptions] wrapped
@@ -35,6 +36,10 @@ cdef class FunctionOptions(_Weakrefable):
     cdef void init(self, const shared_ptr[CFunctionOptions]& sp)
 
     cdef inline shared_ptr[CFunctionOptions] unwrap(self)
+
+
+cdef class _SortOptions(FunctionOptions):
+    pass
 
 
 cdef CExpression _bind(Expression filter, Schema schema) except *

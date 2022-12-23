@@ -123,7 +123,8 @@
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
 #' @export
-#' @seealso `vignette("dataset", package = "arrow")`
+#' @seealso \href{https://arrow.apache.org/docs/r/articles/dataset.html}{
+#' datasets article}
 #' @include arrow-object.R
 #' @examplesIf arrow_with_dataset() & arrow_with_parquet()
 #' # Set up directory for examples
@@ -131,7 +132,7 @@
 #' dir.create(tf)
 #' on.exit(unlink(tf))
 #'
-#' write_dataset(mtcars, tf, partitioning="cyl")
+#' write_dataset(mtcars, tf, partitioning = "cyl")
 #'
 #' # You can specify a directory containing the files for your dataset and
 #' # open_dataset will scan all files in your directory.
@@ -396,6 +397,11 @@ dim.Dataset <- function(x) c(x$num_rows, x$num_cols)
 
 #' @export
 c.Dataset <- function(...) Dataset$create(list(...))
+
+#' @export
+as.data.frame.Dataset <- function(x, row.names = NULL, optional = FALSE, ...) {
+  collect.Dataset(x)
+}
 
 #' @export
 head.Dataset <- function(x, n = 6L, ...) {

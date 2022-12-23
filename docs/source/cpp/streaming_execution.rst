@@ -127,7 +127,7 @@ Read Relations
 Filter Relations
 ^^^^^^^^^^^^^^^^
 
- * No know caveats
+ * No known caveats
 
 Project Relations
 ^^^^^^^^^^^^^^^^^
@@ -191,9 +191,6 @@ Types
      - 
    * - i8
      - int8
-     - 
-   * - i16
-     - int16
      - 
    * - i16
      - int16

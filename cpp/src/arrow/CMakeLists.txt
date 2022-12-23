@@ -192,6 +192,7 @@ set(ARROW_SRCS
     io/stdio.cc
     io/transform.cc
     util/async_util.cc
+    util/atfork_internal.cc
     util/basic_decimal.cc
     util/bit_block_counter.cc
     util/bit_run_reader.cc
@@ -402,6 +403,7 @@ if(ARROW_COMPUTE)
        compute/exec/partition_util.cc
        compute/exec/options.cc
        compute/exec/project_node.cc
+       compute/exec/query_context.cc
        compute/exec/sink_node.cc
        compute/exec/source_node.cc
        compute/exec/swiss_join.cc

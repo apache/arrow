@@ -19,19 +19,8 @@
 # The following S3 methods are registered on load if dplyr is present
 
 collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
-  tryCatch(
-    out <- as_arrow_table(x),
-    # n = 4 because we want the error to show up as being from collect()
-    # and not augment_io_error_msg()
-    error = function(e, call = caller_env(n = 4)) {
-      augment_io_error_msg(e, call, schema = x$.data$schema)
-    }
-  )
-
-  if (as_data_frame) {
-    out <- as.data.frame(out)
-  }
-  restore_dplyr_features(out, x)
+  out <- compute.arrow_dplyr_query(x)
+  collect.ArrowTabular(out, as_data_frame)
 }
 collect.ArrowTabular <- function(x, as_data_frame = TRUE, ...) {
   if (as_data_frame) {
@@ -40,42 +29,74 @@ collect.ArrowTabular <- function(x, as_data_frame = TRUE, ...) {
     x
   }
 }
-collect.Dataset <- collect.RecordBatchReader <- function(x, ...) dplyr::collect(as_adq(x), ...)
+collect.Dataset <- function(x, as_data_frame = TRUE, ...) {
+  collect.ArrowTabular(compute.Dataset(x), as_data_frame)
+}
+collect.RecordBatchReader <- collect.Dataset
 
-compute.arrow_dplyr_query <- function(x, ...) dplyr::collect(x, as_data_frame = FALSE)
 compute.ArrowTabular <- function(x, ...) x
+compute.arrow_dplyr_query <- function(x, ...) {
+  # TODO: should this tryCatch move down into as_arrow_table()?
+  tryCatch(
+    as_arrow_table(x),
+    # n = 4 because we want the error to show up as being from compute()
+    # and not augment_io_error_msg()
+    error = function(e, call = caller_env(n = 4)) {
+      # Use a dummy schema() here because the CSV file reader handler is only
+      # valid when you read_csv_arrow() with a schema, but Dataset always has
+      # schema
+      # TODO: clean up this
+      augment_io_error_msg(e, call, schema = schema())
+    }
+  )
+}
 compute.Dataset <- compute.RecordBatchReader <- compute.arrow_dplyr_query
 
-pull.arrow_dplyr_query <- function(.data, var = -1) {
+pull.Dataset <- function(.data,
+                         var = -1,
+                         ...,
+                         as_vector = getOption("arrow.pull_as_vector")) {
   .data <- as_adq(.data)
   var <- vars_pull(names(.data), !!enquo(var))
   .data$selected_columns <- set_names(.data$selected_columns[var], var)
-  dplyr::compute(.data)[[1]]
+  out <- dplyr::compute(.data)[[1]]
+  handle_pull_as_vector(out, as_vector)
 }
-pull.Dataset <- pull.RecordBatchReader <- pull.arrow_dplyr_query
+pull.RecordBatchReader <- pull.arrow_dplyr_query <- pull.Dataset
 
-pull.ArrowTabular <- function(x, var = -1) {
-  x[[vars_pull(names(x), !!enquo(var))]]
+pull.ArrowTabular <- function(x,
+                              var = -1,
+                              ...,
+                              as_vector = getOption("arrow.pull_as_vector")) {
+  out <- x[[vars_pull(names(x), !!enquo(var))]]
+  handle_pull_as_vector(out, as_vector)
 }
 
-restore_dplyr_features <- function(df, query) {
-  # An arrow_dplyr_query holds some attributes that Arrow doesn't know about
-  # After calling collect(), make sure these features are carried over
-
-  if (length(query$group_by_vars) > 0) {
-    # Preserve groupings, if present
-    if (is.data.frame(df)) {
-      df <- dplyr::grouped_df(
-        df,
-        dplyr::group_vars(query),
-        drop = dplyr::group_by_drop_default(query)
-      )
-    } else {
-      # This is a Table, via compute() or collect(as_data_frame = FALSE)
-      df$metadata$r$attributes$.group_vars <- query$group_by_vars
-    }
+handle_pull_as_vector <- function(out, as_vector) {
+  if (is.null(as_vector)) {
+    warn(
+      c(
+        paste(
+          "Default behavior of `pull()` on Arrow data is changing. Current",
+          "behavior of returning an R vector is deprecated, and in a future",
+          "release, it will return an Arrow `ChunkedArray`. To control this:"
+        ),
+        i = paste(
+          "Specify `as_vector = TRUE` (the current default) or",
+          "`FALSE` (what it will change to) in `pull()`"
+        ),
+        i = "Or, set `options(arrow.pull_as_vector)` globally"
+      ),
+      .frequency = "regularly",
+      .frequency_id = "arrow.pull_as_vector",
+      class = "lifecycle_warning_deprecated"
+    )
+    as_vector <- TRUE
   }
-  df
+  if (as_vector) {
+    out <- as.vector(out)
+  }
+  out
 }
 
 collapse.arrow_dplyr_query <- function(x, ...) {
@@ -114,6 +135,12 @@ implicit_schema <- function(.data) {
   # want to go one level up (where we may have called implicit_schema() before)
   .data <- ensure_group_vars(.data)
   old_schm <- .data$.data$schema
+
+  if (is.null(.data$aggregations) && is.null(.data$join) && !needs_projection(.data$selected_columns, old_schm)) {
+    # Just use the schema we have
+    return(old_schm)
+  }
+
   # Add in any augmented fields that may exist in the query but not in the
   # real data, in case we have FieldRefs to them
   old_schm[["__filename"]] <- string()
@@ -126,15 +153,26 @@ implicit_schema <- function(.data) {
       # Add cols from right side, except for semi/anti joins
       right_cols <- .data$join$right_data$selected_columns
       left_cols <- .data$selected_columns
-      right_fields <- map(
-        right_cols[setdiff(names(right_cols), .data$join$by)],
-        ~ .$type(.data$join$right_data$.data$schema)
-      )
-      # get right table and left table column names excluding the join key
-      right_cols_ex_by <- right_cols[setdiff(names(right_cols), .data$join$by)]
-      left_cols_ex_by <- left_cols[setdiff(names(left_cols), .data$join$by)]
-      # find the common column names in left and right tables
-      common_cols <- intersect(names(right_cols_ex_by), names(left_cols_ex_by))
+
+      # If keep = TRUE, we want to keep the key columns in the RHS. Otherwise,
+      # they will be dropped. Also, if the join is a full join, then we are
+      # temporarily keeping the key columns so we can coalesce them after.
+      if (.data$join$keep || .data$join$type == JoinType$FULL_OUTER) {
+        # find the common column names in left and right tables
+        common_cols <- intersect(names(right_cols), names(left_cols))
+        right_fields <- map(right_cols, ~ .$type(.data$join$right_data$.data$schema))
+      } else {
+        right_fields <- map(
+          right_cols[setdiff(names(right_cols), .data$join$by)],
+          ~ .$type(.data$join$right_data$.data$schema)
+        )
+        # get right table and left table column projections excluding the join key(s)
+        right_cols_ex_by <- right_cols[setdiff(names(right_cols), .data$join$by)]
+        left_cols_ex_by <- left_cols[setdiff(names(left_cols), .data$join$by)]
+        # find the common column names in left and right tables
+        common_cols <- intersect(names(right_cols_ex_by), names(left_cols_ex_by))
+      }
+
       # adding suffixes to the common columns in left and right tables
       left_fields <- add_suffix(new_fields, common_cols, .data$join$suffix[[1]])
       right_fields <- add_suffix(right_fields, common_cols, .data$join$suffix[[2]])

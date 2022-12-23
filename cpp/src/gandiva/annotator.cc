@@ -107,7 +107,7 @@ EvalBatchPtr Annotator::PrepareEvalBatch(const arrow::RecordBatch& record_batch,
       continue;
     }
 
-    PrepareBuffersForField(*(found->second), *(record_batch.column(i))->data(),
+    PrepareBuffersForField(*(found->second), *(record_batch.column_data(i)),
                            eval_batch.get(), false /*is_output*/);
   }
 

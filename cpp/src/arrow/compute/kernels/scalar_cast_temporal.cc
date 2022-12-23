@@ -419,12 +419,12 @@ struct ParseTimestamp {
       if (expect_timezone) {
         *st = Status::Invalid(
             "Failed to parse string: '", val, "' as a scalar of type ", type.ToString(),
-            "expected a zone offset. If these timestamps "
+            ": expected a zone offset. If these timestamps "
             "are in local time, cast to timestamp without timezone, then "
             "call assume_timezone.");
       } else {
         *st = Status::Invalid("Failed to parse string: '", val, "' as a scalar of type ",
-                              type.ToString(), "expected no zone offset");
+                              type.ToString(), ": expected no zone offset.");
       }
     }
     return result;

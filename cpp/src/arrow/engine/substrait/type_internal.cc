@@ -17,15 +17,23 @@
 
 #include "arrow/engine/substrait/type_internal.h"
 
+#include <array>
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <tuple>
+#include <type_traits>
 #include <vector>
 
+#include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/options.h"
+#include "arrow/extension_type.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/util/logging.h"
+#include "arrow/type_fwd.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -471,7 +479,8 @@ void ToProtoGetDepthFirstNames(const FieldVector& fields,
 Result<std::unique_ptr<::substrait::NamedStruct>> ToProto(
     const Schema& schema, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
-  if (schema.metadata()) {
+  if (conversion_options.strictness == ConversionStrictness::EXACT_ROUNDTRIP &&
+      schema.metadata() != nullptr) {
     return Status::Invalid("::substrait::NamedStruct does not support schema metadata");
   }
 
@@ -486,7 +495,8 @@ Result<std::unique_ptr<::substrait::NamedStruct>> ToProto(
   types->Reserve(schema.num_fields());
 
   for (const auto& field : schema.fields()) {
-    if (field->metadata() != nullptr) {
+    if (conversion_options.strictness == ConversionStrictness::EXACT_ROUNDTRIP &&
+        field->metadata() != nullptr) {
       return Status::Invalid("::substrait::NamedStruct does not support field metadata");
     }
 

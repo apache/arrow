@@ -123,21 +123,41 @@ def test_cython_api(tmpdir):
         # pyarrow imported first.
         code = """if 1:
             import sys
+            import os
+
+            try:
+                # Add dll directory was added on python 3.8
+                # and is required in order to find extra DLLs
+                # only for win32
+                for dir in {library_dirs}:
+                    os.add_dll_directory(dir)
+            except AttributeError:
+                pass
 
             mod = __import__({mod_name!r})
             arr = mod.make_null_array(5)
             assert mod.get_array_length(arr) == 5
             assert arr.null_count == 5
-        """.format(mod_name='pyarrow_cython_example')
+        """.format(mod_name='pyarrow_cython_example',
+                   library_dirs=pa.get_library_dirs())
 
+        path_var = None
         if sys.platform == 'win32':
-            delim, var = ';', 'PATH'
+            if not hasattr(os, 'add_dll_directory'):
+                # Python 3.8 onwards don't check extension module DLLs on path
+                # we have to use os.add_dll_directory instead.
+                delim, path_var = ';', 'PATH'
+        elif sys.platform == 'darwin':
+            delim, path_var = ':', 'DYLD_LIBRARY_PATH'
         else:
-            delim, var = ':', 'LD_LIBRARY_PATH'
+            delim, path_var = ':', 'LD_LIBRARY_PATH'
 
-        subprocess_env[var] = delim.join(
-            pa.get_library_dirs() + [subprocess_env.get(var, '')]
-        )
+        if path_var:
+            paths = sys.path
+            paths += pa.get_library_dirs()
+            paths += [subprocess_env.get(path_var, '')]
+            paths = [path for path in paths if path]
+            subprocess_env[path_var] = delim.join(paths)
         subprocess.check_call([sys.executable, '-c', code],
                               stdout=subprocess.PIPE,
                               env=subprocess_env)

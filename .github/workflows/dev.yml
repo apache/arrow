@@ -98,8 +98,11 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
+          gem install test-unit
           pip install cython setuptools six pytest jira
       - name: Run Release Test
+        env:
+          ARROW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           ci/scripts/release_test.sh $(pwd)

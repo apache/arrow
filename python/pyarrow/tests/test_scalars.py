@@ -230,7 +230,7 @@ def test_date_cast():
         assert result.as_py() == expected
 
 
-def test_time():
+def test_time_from_datetime_time():
     t1 = datetime.time(18, 0)
     t2 = datetime.time(21, 0)
 
@@ -239,6 +239,39 @@ def test_time():
         for t in [t1, t2]:
             s = pa.scalar(t, type=ty)
             assert s.as_py() == t
+
+
+@pytest.mark.parametrize(['value', 'time_type'], [
+    (1, pa.time32("s")),
+    (2**30, pa.time32("s")),
+    (None, pa.time32("s")),
+    (1, pa.time32("ms")),
+    (2**30, pa.time32("ms")),
+    (None, pa.time32("ms")),
+    (1, pa.time64("us")),
+    (2**62, pa.time64("us")),
+    (None, pa.time64("us")),
+    (1, pa.time64("ns")),
+    (2**62, pa.time64("ns")),
+    (None, pa.time64("ns")),
+    (1, pa.date32()),
+    (2**30, pa.date32()),
+    (None, pa.date32()),
+    (1, pa.date64()),
+    (2**62, pa.date64()),
+    (None, pa.date64()),
+    (1, pa.timestamp("ns")),
+    (2**62, pa.timestamp("ns")),
+    (None, pa.timestamp("ns")),
+    (1, pa.duration("ns")),
+    (2**62, pa.duration("ns")),
+    (None, pa.duration("ns")),
+    ((1, 2, -3), pa.month_day_nano_interval()),
+    (None, pa.month_day_nano_interval()),
+])
+def test_temporal_values(value, time_type: pa.DataType):
+    time_scalar = pa.scalar(value, type=time_type)
+    assert time_scalar.value == value
 
 
 def test_cast():

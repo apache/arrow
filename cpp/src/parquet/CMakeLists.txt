@@ -166,6 +166,7 @@ set(PARQUET_SRCS
     level_conversion.cc
     metadata.cc
     murmur3.cc
+    page_index.cc
     "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
     "${ARROW_SOURCE_DIR}/src/generated/parquet_types.cpp"
     platform.cc
@@ -325,6 +326,7 @@ add_parquet_test(internals-test
                  statistics_test.cc
                  encoding_test.cc
                  metadata_test.cc
+                 page_index_test.cc
                  public_api_test.cc
                  types_test.cc
                  test_util.cc)
@@ -385,6 +387,7 @@ endif()
 add_parquet_test(file_deserialize_test SOURCES file_deserialize_test.cc test_util.cc)
 add_parquet_test(schema_test)
 
+add_parquet_benchmark(column_reader_benchmark)
 add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
 add_parquet_benchmark(level_conversion_benchmark)

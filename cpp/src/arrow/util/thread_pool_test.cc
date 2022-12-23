@@ -16,7 +16,7 @@
 // under the License.
 
 #ifndef _WIN32
-#include <sys/wait.h>
+#include <sys/types.h>
 #include <unistd.h>
 #endif
 
@@ -100,7 +100,8 @@ class AddTester {
 
   void SpawnTasks(ThreadPool* pool, AddTaskFunc add_func) {
     for (int i = 0; i < nadds_; ++i) {
-      ASSERT_OK(pool->Spawn([=] { add_func(xs_[i], ys_[i], &outs_[i]); }, stop_token_));
+      ASSERT_OK(pool->Spawn([this, add_func, i] { add_func(xs_[i], ys_[i], &outs_[i]); },
+                            stop_token_));
     }
   }
 
@@ -395,6 +396,54 @@ TEST(SerialExecutor, FailingIteratorWithCleanup) {
   ASSERT_FALSE(follow_up_ran);
   ASSERT_RAISES(Invalid, iter.Next());
   ASSERT_TRUE(follow_up_ran);
+}
+
+TEST(SerialExecutor, IterateSynchronously) {
+  for (bool use_threads : {false, true}) {
+    FnOnce<Result<AsyncGenerator<TestInt>>(Executor*)> factory = [](Executor* executor) {
+      AsyncGenerator<TestInt> vector_gen = MakeVectorGenerator<TestInt>({1, 2, 3});
+      return MakeTransferredGenerator(vector_gen, executor);
+    };
+
+    Iterator<TestInt> my_it =
+        IterateSynchronously<TestInt>(std::move(factory), use_threads);
+    ASSERT_EQ(TestInt(1), *my_it.Next());
+    ASSERT_EQ(TestInt(2), *my_it.Next());
+    ASSERT_EQ(TestInt(3), *my_it.Next());
+    AssertIteratorExhausted(my_it);
+  }
+}
+
+struct MockGeneratorFactory {
+  explicit MockGeneratorFactory(Executor** captured_executor)
+      : captured_executor(captured_executor) {}
+
+  Result<AsyncGenerator<TestInt>> operator()(Executor* executor) {
+    *captured_executor = executor;
+    return MakeEmptyGenerator<TestInt>();
+  }
+  Executor** captured_executor;
+};
+
+TEST(SerialExecutor, IterateSynchronouslyFactoryFails) {
+  for (bool use_threads : {false, true}) {
+    FnOnce<Result<AsyncGenerator<TestInt>>(Executor*)> factory = [](Executor* executor) {
+      return Status::Invalid("XYZ");
+    };
+
+    Iterator<TestInt> my_it =
+        IterateSynchronously<TestInt>(std::move(factory), use_threads);
+    ASSERT_RAISES(Invalid, my_it.Next());
+  }
+}
+
+TEST(SerialExecutor, IterateSynchronouslyUsesThreadsIfRequested) {
+  Executor* captured_executor;
+  MockGeneratorFactory gen_factory(&captured_executor);
+  IterateSynchronously<TestInt>(gen_factory, true);
+  ASSERT_EQ(internal::GetCpuThreadPool(), captured_executor);
+  IterateSynchronously<TestInt>(gen_factory, false);
+  ASSERT_NE(internal::GetCpuThreadPool(), captured_executor);
 }
 
 class TransferTest : public testing::Test {
@@ -749,22 +798,7 @@ TEST_F(TestThreadPool, SubmitWithStopTokenCancelled) {
 #if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
       defined(THREAD_SANITIZER))
 
-class TestThreadPoolForkSafety : public TestThreadPool {
- public:
-  void CheckChildExit(int child_pid) {
-    ASSERT_GT(child_pid, 0);
-    int child_status;
-    int got_pid = waitpid(child_pid, &child_status, 0);
-    ASSERT_EQ(got_pid, child_pid);
-    if (WIFSIGNALED(child_status)) {
-      FAIL() << "Child terminated by signal " << WTERMSIG(child_status);
-    }
-    if (!WIFEXITED(child_status)) {
-      FAIL() << "Child didn't terminate normally?? Child status = " << child_status;
-    }
-    ASSERT_EQ(WEXITSTATUS(child_status), 0);
-  }
-};
+class TestThreadPoolForkSafety : public TestThreadPool {};
 
 TEST_F(TestThreadPoolForkSafety, Basics) {
   {
@@ -783,7 +817,7 @@ TEST_F(TestThreadPoolForkSafety, Basics) {
       std::exit(st.ok() ? 0 : 2);
     } else {
       // Parent
-      CheckChildExit(child_pid);
+      AssertChildExit(child_pid);
       ASSERT_OK(pool->Shutdown());
     }
   }
@@ -805,7 +839,7 @@ TEST_F(TestThreadPoolForkSafety, Basics) {
       std::exit(0);
     } else {
       // Parent
-      CheckChildExit(child_pid);
+      AssertChildExit(child_pid);
     }
   }
 }
@@ -850,7 +884,7 @@ TEST_F(TestThreadPoolForkSafety, MultipleChildThreads) {
       std::exit(0);
     } else {
       // Parent
-      CheckChildExit(child_pid);
+      AssertChildExit(child_pid);
       ASSERT_OK(pool->Shutdown());
     }
   }
@@ -878,14 +912,14 @@ TEST_F(TestThreadPoolForkSafety, NestedChild) {
         ASSERT_OK(pool->Shutdown());
       } else {
         // Child
-        CheckChildExit(grandchild_pid);
+        AssertChildExit(grandchild_pid);
         ASSERT_FINISHES_OK_AND_EQ(7, fut);
         ASSERT_OK(pool->Shutdown());
       }
       std::exit(0);
     } else {
       // Parent
-      CheckChildExit(child_pid);
+      AssertChildExit(child_pid);
       ASSERT_OK(pool->Shutdown());
     }
   }

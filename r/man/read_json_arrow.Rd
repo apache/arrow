@@ -22,7 +22,7 @@ open.}
 
 \item{col_select}{A character vector of column names to keep, as in the
 "select" argument to \code{data.table::fread()}, or a
-\link[tidyselect:vars_select]{tidy selection specification}
+\link[tidyselect:eval_select]{tidy selection specification}
 of columns, as used in \code{dplyr::select()}.}
 
 \item{as_data_frame}{Should the function return a \code{data.frame} (default) or
@@ -54,8 +54,7 @@ falling back to \code{\link[=utf8]{utf8()}} if a conversion error occurs.
 \item Nested JSON objects convert to a \code{\link[=struct]{struct()}} type, and inference proceeds recursively on the JSON objects' values.
 }
 
-When \code{as_data_frame = FALSE}, Arrow types are further converted to R types.
-See \code{vignette("arrow", package = "arrow")} for details.
+When \code{as_data_frame = TRUE}, Arrow types are further converted to R types.
 }
 \examples{
 \dontshow{if (arrow_with_json()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}

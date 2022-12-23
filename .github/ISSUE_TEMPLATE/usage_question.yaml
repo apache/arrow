@@ -1,0 +1,88 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Usage Question
+description: Ask a question
+labels: ["Type: usage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: >
+        While we enable issues as a mechanism for new contributors and passers-by who 
+        are unfamiliar with Apache Software Foundation projects to ask questions and 
+        interact with the project, we encourage users to ask such questions on public 
+        mailing lists:
+        
+        * Development discussions: dev@arrow.apache.org (first subscribe by sending an 
+        e-mail to dev-subscribe@arrow.apache.org).
+        
+        * User discussions: user@arrow.apache.org (first subscribe by sending an e-mail 
+        to user-subscribe@arrow.apache.org).
+        
+        * Mailing list archives: https://arrow.apache.org/community/
+        
+        
+        Do not be surprised by responses to issues raised here directing you to those 
+        mailing lists, or to report a bug or feature request here.
+
+
+        Thank you!
+  - type: textarea
+    id: description
+    attributes:
+      label: > 
+        Describe the usage question you have. Please include as many useful details as 
+        possible.
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component(s)
+      multiple: true
+      options:
+        - Archery
+        - Benchmarking
+        - C
+        - C#
+        - C++
+        - C++ - Gandiva
+        - C++ - Plasma
+        - Continuous Integration
+        - Developer Tools
+        - Documentation
+        - FlightRPC
+        - Format
+        - GLib
+        - Go
+        - GPU
+        - Integration
+        - Java
+        - JavaScript
+        - MATLAB
+        - Packaging
+        - Parquet
+        - Python
+        - R
+        - Release
+        - Ruby
+        - Swift
+        - Website
+        - Other
+    validations:
+      required: true

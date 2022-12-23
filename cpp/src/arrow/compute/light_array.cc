@@ -29,8 +29,9 @@ KeyColumnArray::KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length
                                const uint8_t* fixed_length_buffer,
                                const uint8_t* var_length_buffer, int bit_offset_validity,
                                int bit_offset_fixed) {
-  static_assert(std::is_pod<KeyColumnArray>::value,
-                "This class was intended to be a POD type");
+  static_assert(
+      std::is_trivial_v<KeyColumnArray> && std::is_standard_layout_v<KeyColumnArray>,
+      "This class was intended to be a POD type");
   metadata_ = metadata;
   length_ = length;
   buffers_[kValidityBuffer] = validity_buffer;
