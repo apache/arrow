@@ -942,7 +942,8 @@ tasks:
       - r-lib__libarrow__bin__centos-7__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__ubuntu-18.04__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__ubuntu-22.04__arrow-{no_rc_r_version}\.zip
-      - r-pkg__bin__windows__contrib__4.1__arrow_{no_rc_r_version}\.zip
+      # GH-15080: purrr 1.0.0 doesn't work with R oldrel on Windows
+      # - r-pkg__bin__windows__contrib__4.1__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.2__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__macosx__contrib__4.1__arrow_{no_rc_r_version}\.tgz
       - r-pkg__bin__macosx__contrib__4.2__arrow_{no_rc_r_version}\.tgz
