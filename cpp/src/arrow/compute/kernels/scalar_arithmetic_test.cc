@@ -40,6 +40,7 @@
 
 namespace arrow {
 namespace compute {
+namespace {
 
 using IntegralTypes = testing::Types<Int8Type, Int16Type, Int32Type, Int64Type, UInt8Type,
                                      UInt16Type, UInt32Type, UInt64Type>;
@@ -2797,5 +2798,6 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
   this->AssertUnaryOp(sign, this->MakeScalar(max), this->MakeScalar(1));
 }
 
+}  // namespace
 }  // namespace compute
 }  // namespace arrow
