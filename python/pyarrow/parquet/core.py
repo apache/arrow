@@ -846,6 +846,14 @@ write_batch_size : int, default None
 dictionary_pagesize_limit : int, default None
     Specify the dictionary page size limit per row group. If None, use the
     default 1MB.
+store_schema : bool, default True
+    By default, the Arrow schema is serialized and stored in the Parquet
+    file metadata (in the "ARROW:schema" key). When reading the file,
+    if this key is available, it will be used to more faithfully recreate
+    the original Arrow data. For example, for tz-aware timestamp columns
+    it will restore the timezone (Parquet only stores the UTC values without
+    timezone), or columns with duration type will be restored from the int64
+    Parquet column.
 """
 
 _parquet_writer_example_doc = """\
@@ -937,6 +945,7 @@ Examples
                  encryption_properties=None,
                  write_batch_size=None,
                  dictionary_pagesize_limit=None,
+                 store_schema=True,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -992,6 +1001,7 @@ Examples
             encryption_properties=encryption_properties,
             write_batch_size=write_batch_size,
             dictionary_pagesize_limit=dictionary_pagesize_limit,
+            store_schema=store_schema,
             **options)
         self.is_open = True
 
@@ -2973,6 +2983,7 @@ def write_table(table, where, row_group_size=None, version='2.4',
                 encryption_properties=None,
                 write_batch_size=None,
                 dictionary_pagesize_limit=None,
+                store_schema=True,
                 **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
@@ -2997,6 +3008,7 @@ def write_table(table, where, row_group_size=None, version='2.4',
                 encryption_properties=encryption_properties,
                 write_batch_size=write_batch_size,
                 dictionary_pagesize_limit=dictionary_pagesize_limit,
+                store_schema=store_schema,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
