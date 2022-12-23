@@ -30,14 +30,15 @@ from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table,
                           RecordBatchReader)
 from pyarrow.lib import tobytes
-from pyarrow._compute cimport Expression, _true
+from pyarrow._compute cimport Expression, _true, _SortOptions
 from pyarrow._dataset cimport Dataset, Scanner
 from pyarrow._dataset import InMemoryDataset
 
 Initialize()  # Initialise support for Datasets in ExecPlan
 
 
-cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True):
+cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True,
+              _SortOptions sort_options=None):
     """
     Internal Function to create an ExecPlan and run it.
 
@@ -72,6 +73,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         shared_ptr[CScanNodeOptions] c_scanopts
         shared_ptr[CExecNodeOptions] c_input_node_opts
         shared_ptr[CSinkNodeOptions] c_sinkopts
+        shared_ptr[COrderBySinkNodeOptions] c_orderbysinkopts
         shared_ptr[CAsyncExecBatchGenerator] c_async_exec_batch_gen
         shared_ptr[CRecordBatchReader] c_recordbatchreader
         shared_ptr[CRecordBatchReader] c_recordbatchreader_in
@@ -146,11 +148,23 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
 
     # Create the output node
     c_async_exec_batch_gen = make_shared[CAsyncExecBatchGenerator]()
-    c_sinkopts = make_shared[CSinkNodeOptions](c_async_exec_batch_gen.get())
-    GetResultValue(
-        MakeExecNode(tobytes("sink"), &deref(c_exec_plan),
-                     c_final_node_vec, deref(c_sinkopts))
-    )
+
+    if sort_options is None:
+        c_sinkopts = make_shared[CSinkNodeOptions](
+            c_async_exec_batch_gen.get())
+        GetResultValue(
+            MakeExecNode(tobytes("sink"), &deref(c_exec_plan),
+                         c_final_node_vec, deref(c_sinkopts))
+        )
+    else:
+        c_orderbysinkopts = make_shared[COrderBySinkNodeOptions](
+            deref(<CSortOptions*>(sort_options.unwrap().get())),
+            c_async_exec_batch_gen.get()
+        )
+        GetResultValue(
+            MakeExecNode(tobytes("order_by_sink"), &deref(c_exec_plan),
+                         c_final_node_vec, deref(c_orderbysinkopts))
+        )
 
     # Convert the asyncgenerator to a sync batch reader
     c_recordbatchreader = MakeGeneratorReader(c_node.output_schema(),
@@ -411,5 +425,25 @@ def _filter_table(table, expression, output_type=Table):
         # Get rid of special dataset columns
         # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
         return InMemoryDataset(r.select(table.schema.names))
+    else:
+        raise TypeError("Unsupported output type")
+
+
+def _sort_source(table_or_dataset, sort_options, output_type=Table):
+    cdef:
+        vector[CDeclaration] c_empty_decl_plan
+
+    r = execplan([table_or_dataset],
+                 plan=c_empty_decl_plan,
+                 output_type=Table,
+                 use_threads=True,
+                 sort_options=sort_options)
+
+    if output_type == Table:
+        return r
+    elif output_type == InMemoryDataset:
+        # Get rid of special dataset columns
+        # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
+        return InMemoryDataset(r.select(table_or_dataset.schema.names))
     else:
         raise TypeError("Unsupported output type")

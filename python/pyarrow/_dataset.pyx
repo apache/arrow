@@ -448,6 +448,35 @@ cdef class Dataset(_Weakrefable):
         filtered_dataset._scan_options = dict(filter=new_filter)
         return filtered_dataset
 
+    def sort_by(self, sorting, **kwargs):
+        """
+        Sort the Dataset by one or multiple columns.
+
+        Parameters
+        ----------
+        sorting : str or list[tuple(name, order)]
+            Name of the column to use to sort (ascending), or
+            a list of multiple sorting conditions where
+            each entry is a tuple with column name
+            and sorting order ("ascending" or "descending")
+        **kwargs : dict, optional
+            Additional sorting options.
+            As allowed by :class:`SortOptions`
+
+        Returns
+        -------
+        InMemoryDataset
+            A new dataset sorted according to the sort keys.
+        """
+        if isinstance(sorting, str):
+            sorting = [(sorting, "ascending")]
+
+        res = _pc()._exec_plan._sort_source(self, output_type=InMemoryDataset,
+                                            sort_options=_pc().SortOptions(
+                                                sort_keys=sorting, **kwargs
+                                            ))
+        return res
+
     def join(self, right_dataset, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
              use_threads=True):
