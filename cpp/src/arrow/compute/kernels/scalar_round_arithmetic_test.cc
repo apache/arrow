@@ -30,13 +30,9 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/checked_cast.h"
-#include "arrow/util/math_constants.h"
 #include "arrow/util/string.h"
 
-#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/random.h"
 
 namespace arrow {
 namespace compute {
@@ -81,14 +77,14 @@ class TestBaseUnaryRoundArithmetic : public ::testing::Test {
   void AssertUnaryOp(UnaryFunction func, CType argument, CType expected) {
     auto arg = MakeScalar(argument);
     auto exp = MakeScalar(expected);
-    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr));
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr))
     AssertScalarsApproxEqual(*exp, *actual.scalar(), /*verbose=*/true);
   }
 
   // (Scalar, Scalar)
   void AssertUnaryOp(UnaryFunction func, const std::shared_ptr<Scalar>& arg,
                      const std::shared_ptr<Scalar>& expected) {
-    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr));
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr))
     AssertScalarsApproxEqual(*expected, *actual.scalar(), /*verbose=*/true);
   }
 
@@ -124,7 +120,7 @@ class TestBaseUnaryRoundArithmetic : public ::testing::Test {
     const int64_t length = expected->length();
     for (int64_t i = 0; i < length; ++i) {
       const auto expected_scalar = *expected->GetScalar(i);
-      ASSERT_OK_AND_ASSIGN(actual, func(*arg->GetScalar(i), options_, nullptr));
+      ASSERT_OK_AND_ASSIGN(actual, func(*arg->GetScalar(i), options_, nullptr))
       AssertScalarsApproxEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true,
                                equal_options_);
     }
@@ -144,7 +140,7 @@ class TestBaseUnaryRoundArithmetic : public ::testing::Test {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
                                     func(arg, options_, nullptr));
     for (int64_t i = 0; i < arg->length(); i++) {
-      ASSERT_OK_AND_ASSIGN(auto scalar, arg->GetScalar(i));
+      ASSERT_OK_AND_ASSIGN(auto scalar, arg->GetScalar(i))
       EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
                                       func(scalar, options_, nullptr));
     }
@@ -250,32 +246,32 @@ class TestUnaryRoundToMultipleFloating : public TestUnaryRoundToMultiple<T> {};
 
 class TestArithmeticDecimal : public ::testing::Test {
  protected:
-  std::vector<std::shared_ptr<DataType>> PositiveScaleTypes() {
+  static std::vector<std::shared_ptr<DataType>> PositiveScaleTypes() {
     return {decimal128(4, 2), decimal256(4, 2), decimal128(38, 2), decimal256(76, 2)};
   }
 
-  std::vector<std::shared_ptr<DataType>> NegativeScaleTypes() {
+  static std::vector<std::shared_ptr<DataType>> NegativeScaleTypes() {
     return {decimal128(2, -2), decimal256(2, -2)};
   }
 
   // Validate that func(*decimals) is the same as
   // func([cast(x, float64) x for x in decimals])
-  void CheckDecimalToFloat(const std::string& func, const DatumVector& args) {
+  static void CheckDecimalToFloat(const std::string& func, const DatumVector& args) {
     DatumVector floating_args;
     for (const auto& arg : args) {
       if (is_decimal(arg.type()->id())) {
-        ASSERT_OK_AND_ASSIGN(auto casted, Cast(arg, float64()));
+        ASSERT_OK_AND_ASSIGN(auto casted, Cast(arg, float64()))
         floating_args.push_back(casted);
       } else {
         floating_args.push_back(arg);
       }
     }
-    ASSERT_OK_AND_ASSIGN(auto expected, CallFunction(func, floating_args));
-    ASSERT_OK_AND_ASSIGN(auto actual, CallFunction(func, args));
-    AssertDatumsApproxEqual(actual, expected, /*verbose=*/true);
+    ASSERT_OK_AND_ASSIGN(auto expected, CallFunction(func, floating_args))
+    ASSERT_OK_AND_ASSIGN(auto actual, CallFunction(func, args))
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
   }
 
-  void CheckRaises(const std::string& func, const DatumVector& args,
+  static void CheckRaises(const std::string& func, const DatumVector& args,
                    const std::string& substr, const FunctionOptions* options = nullptr) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(substr),
                                     CallFunction(func, args, options));
@@ -305,114 +301,6 @@ class TestBinaryArithmetic : public ::testing::Test {
     return *arrow::MakeScalar(type_singleton(), value);
   }
 
-#if 0
-            // (Scalar, Scalar)
-            void AssertBinop(BinaryFunction func, CType lhs, CType rhs, CType expected) {
-              auto left = MakeScalar(lhs);
-              auto right = MakeScalar(rhs);
-              auto exp = MakeScalar(expected);
-
-              ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, options_, nullptr));
-              AssertScalarsApproxEqual(*exp, *actual.scalar(), /*verbose=*/true);
-            }
-
-            // (Scalar, Array)
-            void AssertBinop(BinaryFunction func, CType lhs, const std::string& rhs,
-                             const std::string& expected) {
-              auto left = MakeScalar(lhs);
-              AssertBinop(func, left, rhs, expected);
-            }
-
-            // (Scalar, Array)
-            void AssertBinop(BinaryFunction func, const std::shared_ptr<Scalar>& left,
-                             const std::string& rhs, const std::string& expected) {
-              auto right = ArrayFromJSON(type_singleton(), rhs);
-              auto exp = ArrayFromJSON(type_singleton(), expected);
-
-              ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, options_, nullptr));
-              ValidateAndAssertApproxEqual(actual.make_array(), expected);
-            }
-
-            // (Array, Scalar)
-            void AssertBinop(BinaryFunction func, const std::string& lhs, CType rhs,
-                             const std::string& expected) {
-              auto right = MakeScalar(rhs);
-              AssertBinop(func, lhs, right, expected);
-            }
-
-            // (Array, Scalar) => Array
-            void AssertBinop(BinaryFunction func, const std::string& lhs,
-                             const std::shared_ptr<Scalar>& right,
-                             const std::shared_ptr<Array>& expected) {
-              auto left = ArrayFromJSON(type_singleton(), lhs);
-
-              ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, options_, nullptr));
-              ValidateAndAssertApproxEqual(actual.make_array(), expected);
-            }
-
-            // (Array, Scalar)
-            void AssertBinop(BinaryFunction func, const std::string& lhs,
-                             const std::shared_ptr<Scalar>& right, const std::string& expected) {
-              auto left = ArrayFromJSON(type_singleton(), lhs);
-              auto exp = ArrayFromJSON(type_singleton(), expected);
-
-              ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, options_, nullptr));
-              ValidateAndAssertApproxEqual(actual.make_array(), expected);
-            }
-
-            // (Array, Array)
-            void AssertBinop(BinaryFunction func, const std::string& lhs, const std::string& rhs,
-                             const std::string& expected) {
-              auto left = ArrayFromJSON(type_singleton(), lhs);
-              auto right = ArrayFromJSON(type_singleton(), rhs);
-
-              AssertBinop(func, left, right, expected);
-            }
-
-            // (Array, Array) => Array
-            void AssertBinop(BinaryFunction func, const std::string& lhs, const std::string& rhs,
-                             const std::shared_ptr<Array>& expected) {
-              auto left = ArrayFromJSON(type_singleton(), lhs);
-              auto right = ArrayFromJSON(type_singleton(), rhs);
-
-              AssertBinop(func, left, right, expected);
-            }
-
-            // (Array, Array)
-            void AssertBinop(BinaryFunction func, const std::shared_ptr<Array>& left,
-                             const std::shared_ptr<Array>& right,
-                             const std::string& expected_json) {
-              const auto expected = ArrayFromJSON(type_singleton(), expected_json);
-              AssertBinop(func, left, right, expected);
-            }
-
-            void AssertBinop(BinaryFunction func, const std::shared_ptr<Array>& left,
-                             const std::shared_ptr<Array>& right,
-                             const std::shared_ptr<Array>& expected) {
-              ASSERT_OK_AND_ASSIGN(Datum actual, func(left, right, options_, nullptr));
-              ValidateAndAssertApproxEqual(actual.make_array(), expected);
-
-              // Also check (Scalar, Scalar) operations
-              const int64_t length = expected->length();
-              for (int64_t i = 0; i < length; ++i) {
-                const auto expected_scalar = *expected->GetScalar(i);
-                ASSERT_OK_AND_ASSIGN(
-                    actual, func(*left->GetScalar(i), *right->GetScalar(i), options_, nullptr));
-                AssertScalarsApproxEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true,
-                                         equal_options_);
-              }
-            }
-
-            void AssertBinopRaises(BinaryFunction func, const std::string& lhs,
-                                   const std::string& rhs, const std::string& expected_msg) {
-              auto left = ArrayFromJSON(type_singleton(), lhs);
-              auto right = ArrayFromJSON(type_singleton(), rhs);
-
-              EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr(expected_msg),
-                                              func(left, right, options_, nullptr));
-            }
-#endif
-
   void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
                                     const std::string& expected) {
     ValidateAndAssertApproxEqual(actual, ArrayFromJSON(type_singleton(), expected));
@@ -428,10 +316,6 @@ class TestBinaryArithmetic : public ::testing::Test {
 
   void SetNansEqual(bool value = true) {
     this->equal_options_ = equal_options_.nans_equal(value);
-  }
-
-  void SetSignedZerosEqual(bool value = true) {
-    this->equal_options_ = equal_options_.signed_zeros_equal(value);
   }
 
   ArithmeticOptions options_ = ArithmeticOptions();
@@ -461,68 +345,6 @@ class TestBinaryArithmeticUnsigned : public TestBinaryArithmeticIntegral<T> {};
 template <typename T>
 class TestBinaryArithmeticFloating : public TestBinaryArithmetic<T> {};
 
-template <typename T>
-class TestBitWiseArithmetic : public ::testing::Test {
- protected:
-  using ArrowType = T;
-  using CType = typename ArrowType::c_type;
-
-  static std::shared_ptr<DataType> type_singleton() {
-    return TypeTraits<ArrowType>::type_singleton();
-  }
-
-  void AssertUnaryOp(const std::string& func, const std::vector<uint8_t>& args,
-                     const std::vector<uint8_t>& expected) {
-    auto input = ExpandByteArray(args);
-    auto output = ExpandByteArray(expected);
-    ASSERT_OK_AND_ASSIGN(Datum actual, CallFunction(func, {input}));
-    ValidateAndAssertEqual(actual.make_array(), output);
-    for (int64_t i = 0; i < output->length(); i++) {
-      ASSERT_OK_AND_ASSIGN(Datum actual_value,
-                           CallFunction(func, {*input->GetScalar(i)}));
-      const auto expected_scalar = *output->GetScalar(i);
-      AssertScalarsEqual(*expected_scalar, *actual_value.scalar(), /*verbose=*/true);
-    }
-  }
-
-  void AssertBinaryOp(const std::string& func, const std::vector<uint8_t>& arg0,
-                      const std::vector<uint8_t>& arg1,
-                      const std::vector<uint8_t>& expected) {
-    auto input0 = ExpandByteArray(arg0);
-    auto input1 = ExpandByteArray(arg1);
-    auto output = ExpandByteArray(expected);
-    ASSERT_OK_AND_ASSIGN(Datum actual, CallFunction(func, {input0, input1}));
-    ValidateAndAssertEqual(actual.make_array(), output);
-    for (int64_t i = 0; i < output->length(); i++) {
-      ASSERT_OK_AND_ASSIGN(
-          Datum actual_value,
-          CallFunction(func, {*input0->GetScalar(i), *input1->GetScalar(i)}));
-      const auto expected_scalar = *output->GetScalar(i);
-      AssertScalarsEqual(*expected_scalar, *actual_value.scalar(), /*verbose=*/true);
-    }
-  }
-
-  // To make it easier to test different widths, tests give bytes which get repeated to
-  // make an array of the actual type
-  std::shared_ptr<Array> ExpandByteArray(const std::vector<uint8_t>& values) {
-    std::vector<CType> c_values(values.size() + 1);
-    for (size_t i = 0; i < values.size(); i++) {
-      std::memset(&c_values[i], values[i], sizeof(CType));
-    }
-    std::vector<bool> valid(values.size() + 1, true);
-    valid.back() = false;
-    std::shared_ptr<Array> arr;
-    ArrayFromVector<ArrowType>(valid, c_values, &arr);
-    return arr;
-  }
-
-  void ValidateAndAssertEqual(const std::shared_ptr<Array>& actual,
-                              const std::shared_ptr<Array>& expected) {
-    ASSERT_OK(actual->ValidateFull());
-    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
-  }
-};
-
 TYPED_TEST_SUITE(TestUnaryRoundArithmeticIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestUnaryRoundArithmeticSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestUnaryRoundArithmeticUnsigned, UnsignedIntegerTypes);
@@ -532,8 +354,6 @@ TYPED_TEST_SUITE(TestBinaryArithmeticIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticUnsigned, UnsignedIntegerTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticFloating, FloatingTypes);
-
-TYPED_TEST_SUITE(TestBitWiseArithmetic, IntegralTypes);
 
 TEST(TestUnaryRoundArithmetic, DispatchBestRound) {
   // Integer -> Float64
@@ -1256,7 +1076,7 @@ TYPED_TEST(TestUnaryRoundToMultipleFloating, RoundToMultiple) {
 class TestBinaryArithmeticDecimal : public TestArithmeticDecimal {};
 
 TYPED_TEST(TestUnaryRoundArithmeticSigned, Floor) {
-  auto floor = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+  auto floor = [](const Datum& arg, const ArithmeticOptions&, ExecContext* ctx) {
     return Floor(arg, ctx);
   };
 
@@ -1271,7 +1091,7 @@ TYPED_TEST(TestUnaryRoundArithmeticSigned, Floor) {
 }
 
 TYPED_TEST(TestUnaryRoundArithmeticUnsigned, Floor) {
-  auto floor = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+  auto floor = [](const Datum& arg, const ArithmeticOptions&, ExecContext* ctx) {
     return Floor(arg, ctx);
   };
 
@@ -1289,7 +1109,7 @@ TYPED_TEST(TestUnaryRoundArithmeticFloating, Floor) {
 
   this->SetNansEqual(true);
 
-  auto floor = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+  auto floor = [](const Datum& arg, const ArithmeticOptions&, ExecContext* ctx) {
     return Floor(arg, ctx);
   };
 
@@ -1307,7 +1127,7 @@ TYPED_TEST(TestUnaryRoundArithmeticFloating, Floor) {
 }
 
 TYPED_TEST(TestUnaryRoundArithmeticSigned, Ceil) {
-  auto ceil = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+  auto ceil = [](const Datum& arg, const ArithmeticOptions&, ExecContext* ctx) {
     return Ceil(arg, ctx);
   };
 
@@ -1321,7 +1141,7 @@ TYPED_TEST(TestUnaryRoundArithmeticSigned, Ceil) {
 }
 
 TYPED_TEST(TestUnaryRoundArithmeticUnsigned, Ceil) {
-  auto ceil = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+  auto ceil = [](const Datum& arg, const ArithmeticOptions&, ExecContext* ctx) {
     return Ceil(arg, ctx);
   };
 
@@ -1339,7 +1159,7 @@ TYPED_TEST(TestUnaryRoundArithmeticFloating, Ceil) {
 
   this->SetNansEqual(true);
 
-  auto ceil = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+  auto ceil = [](const Datum& arg, const ArithmeticOptions&, ExecContext* ctx) {
     return Ceil(arg, ctx);
   };
 
@@ -1357,7 +1177,7 @@ TYPED_TEST(TestUnaryRoundArithmeticFloating, Ceil) {
 }
 
 TYPED_TEST(TestUnaryRoundArithmeticSigned, Trunc) {
-  auto trunc = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+  auto trunc = [](const Datum& arg, const ArithmeticOptions&, ExecContext* ctx) {
     return Trunc(arg, ctx);
   };
 
@@ -1372,7 +1192,7 @@ TYPED_TEST(TestUnaryRoundArithmeticSigned, Trunc) {
 }
 
 TYPED_TEST(TestUnaryRoundArithmeticUnsigned, Trunc) {
-  auto trunc = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+  auto trunc = [](const Datum& arg, const ArithmeticOptions&, ExecContext* ctx) {
     return Trunc(arg, ctx);
   };
 
@@ -1390,7 +1210,7 @@ TYPED_TEST(TestUnaryRoundArithmeticFloating, Trunc) {
 
   this->SetNansEqual(true);
 
-  auto trunc = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+  auto trunc = [](const Datum& arg, const ArithmeticOptions&, ExecContext* ctx) {
     return Trunc(arg, ctx);
   };
 
