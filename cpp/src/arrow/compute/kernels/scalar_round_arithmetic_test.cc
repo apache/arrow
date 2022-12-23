@@ -175,7 +175,8 @@ class TestBaseUnaryRoundArithmetic : public ::testing::Test {
 
 // Subclasses of TestBaseUnaryRoundArithmetic for different FunctionOptions.
 template <typename T>
-class TestUnaryRoundArithmetic : public TestBaseUnaryRoundArithmetic<T, ArithmeticOptions> {
+class TestUnaryRoundArithmetic
+    : public TestBaseUnaryRoundArithmetic<T, ArithmeticOptions> {
  protected:
   using Base = TestBaseUnaryRoundArithmetic<T, ArithmeticOptions>;
   using Base::options_;
@@ -272,14 +273,15 @@ class TestArithmeticDecimal : public ::testing::Test {
   }
 
   static void CheckRaises(const std::string& func, const DatumVector& args,
-                   const std::string& substr, const FunctionOptions* options = nullptr) {
+                          const std::string& substr,
+                          const FunctionOptions* options = nullptr) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(substr),
                                     CallFunction(func, args, options));
   }
 };
 
 template <typename T>
-class TestBinaryArithmetic : public ::testing::Test {
+class TestBinaryRoundArithmetic : public ::testing::Test {
  protected:
   using ArrowType = T;
   using CType = typename ArrowType::c_type;
@@ -322,40 +324,29 @@ class TestBinaryArithmetic : public ::testing::Test {
   EqualOptions equal_options_ = EqualOptions::Defaults().signed_zeros_equal(false);
 };
 
-template <typename... Elements>
-std::string MakeArray(Elements... elements) {
-  std::vector<std::string> elements_as_strings = {std::to_string(elements)...};
-
-  std::vector<std::string_view> elements_as_views(sizeof...(Elements));
-  std::copy(elements_as_strings.begin(), elements_as_strings.end(),
-            elements_as_views.begin());
-
-  return "[" + ::arrow::internal::JoinStrings(elements_as_views, ",") + "]";
-}
+template <typename T>
+class TestBinaryRoundArithmeticIntegral : public TestBinaryRoundArithmetic<T> {};
 
 template <typename T>
-class TestBinaryArithmeticIntegral : public TestBinaryArithmetic<T> {};
+class TestBinaryRoundArithmeticSigned : public TestBinaryRoundArithmeticIntegral<T> {};
 
 template <typename T>
-class TestBinaryArithmeticSigned : public TestBinaryArithmeticIntegral<T> {};
+class TestBinaryRoundArithmeticUnsigned : public TestBinaryRoundArithmeticIntegral<T> {};
 
 template <typename T>
-class TestBinaryArithmeticUnsigned : public TestBinaryArithmeticIntegral<T> {};
-
-template <typename T>
-class TestBinaryArithmeticFloating : public TestBinaryArithmetic<T> {};
+class TestBinaryRoundArithmeticFloating : public TestBinaryRoundArithmetic<T> {};
 
 TYPED_TEST_SUITE(TestUnaryRoundArithmeticIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestUnaryRoundArithmeticSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestUnaryRoundArithmeticUnsigned, UnsignedIntegerTypes);
 TYPED_TEST_SUITE(TestUnaryRoundArithmeticFloating, FloatingTypes);
 
-TYPED_TEST_SUITE(TestBinaryArithmeticIntegral, IntegralTypes);
-TYPED_TEST_SUITE(TestBinaryArithmeticSigned, SignedIntegerTypes);
-TYPED_TEST_SUITE(TestBinaryArithmeticUnsigned, UnsignedIntegerTypes);
-TYPED_TEST_SUITE(TestBinaryArithmeticFloating, FloatingTypes);
+TYPED_TEST_SUITE(TestBinaryRoundArithmeticIntegral, IntegralTypes);
+TYPED_TEST_SUITE(TestBinaryRoundArithmeticSigned, SignedIntegerTypes);
+TYPED_TEST_SUITE(TestBinaryRoundArithmeticUnsigned, UnsignedIntegerTypes);
+TYPED_TEST_SUITE(TestBinaryRoundArithmeticFloating, FloatingTypes);
 
-TEST(TestUnaryRoundArithmetic, DispatchBestRound) {
+TEST(TestUnaryRound, DispatchBestRound) {
   // Integer -> Float64
   for (std::string name : {"floor", "ceil", "trunc", "round", "round_to_multiple"}) {
     for (const auto& ty :
@@ -1073,7 +1064,7 @@ TYPED_TEST(TestUnaryRoundToMultipleFloating, RoundToMultiple) {
                             "Rounding multiple must be positive");
 }
 
-class TestBinaryArithmeticDecimal : public TestArithmeticDecimal {};
+class TestBinaryRoundArithmeticDecimal : public TestArithmeticDecimal {};
 
 TYPED_TEST(TestUnaryRoundArithmeticSigned, Floor) {
   auto floor = [](const Datum& arg, const ArithmeticOptions&, ExecContext* ctx) {

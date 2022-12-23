@@ -217,51 +217,6 @@ class TestUnaryArithmeticUnsigned : public TestUnaryArithmeticIntegral<T> {};
 template <typename T>
 class TestUnaryArithmeticFloating : public TestUnaryArithmetic<T> {};
 
-template <typename T>
-class TestUnaryRound : public TestBaseUnaryArithmetic<T, RoundOptions> {
- protected:
-  using Base = TestBaseUnaryArithmetic<T, RoundOptions>;
-  using Base::options_;
-  void SetRoundMode(RoundMode value) { options_.round_mode = value; }
-  void SetRoundNdigits(int64_t value) { options_.ndigits = value; }
-};
-
-template <typename T>
-class TestUnaryRoundIntegral : public TestUnaryRound<T> {};
-
-template <typename T>
-class TestUnaryRoundSigned : public TestUnaryRoundIntegral<T> {};
-
-template <typename T>
-class TestUnaryRoundUnsigned : public TestUnaryRoundIntegral<T> {};
-
-template <typename T>
-class TestUnaryRoundFloating : public TestUnaryRound<T> {};
-
-template <typename T>
-class TestUnaryRoundToMultiple
-    : public TestBaseUnaryArithmetic<T, RoundToMultipleOptions> {
- protected:
-  using Base = TestBaseUnaryArithmetic<T, RoundToMultipleOptions>;
-  using Base::options_;
-  void SetRoundMode(RoundMode value) { options_.round_mode = value; }
-  void SetRoundMultiple(double value) {
-    options_.multiple = std::make_shared<DoubleScalar>(value);
-  }
-};
-
-template <typename T>
-class TestUnaryRoundToMultipleIntegral : public TestUnaryRoundToMultiple<T> {};
-
-template <typename T>
-class TestUnaryRoundToMultipleSigned : public TestUnaryRoundToMultipleIntegral<T> {};
-
-template <typename T>
-class TestUnaryRoundToMultipleUnsigned : public TestUnaryRoundToMultipleIntegral<T> {};
-
-template <typename T>
-class TestUnaryRoundToMultipleFloating : public TestUnaryRoundToMultiple<T> {};
-
 class TestArithmeticDecimal : public ::testing::Test {
  protected:
   std::vector<std::shared_ptr<DataType>> PositiveScaleTypes() {
@@ -1278,8 +1233,7 @@ TEST(TestUnaryArithmetic, Null) {
     }
   }
 
-  for (std::string name : {"atan", "bit_wise_not", "ceil", "exp", "floor", "round",
-                           "round_to_multiple", "sign", "trunc"}) {
+  for (std::string name : {"atan", "bit_wise_not", "sign"}) {
     AssertNullToNull(name);
   }
 }
