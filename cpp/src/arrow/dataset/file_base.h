@@ -201,8 +201,8 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 
   /// \brief Get default write options for this format.
   ///
-  /// May return nullptr if this file format does not yet support writing
-  /// datasets.
+  /// May return null shared_ptr if this file format does not yet support
+  /// writing datasets.
   virtual std::shared_ptr<FileWriteOptions> DefaultWriteOptions() = 0;
 
  protected:
