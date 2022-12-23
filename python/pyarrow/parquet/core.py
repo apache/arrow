@@ -42,7 +42,7 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               ParquetLogicalType,
                               FileEncryptionProperties,
                               FileDecryptionProperties)
-from pyarrow.fs import (LocalFileSystem, FileSystem,
+from pyarrow.fs import (LocalFileSystem, FileSystem, FileType,
                         _resolve_filesystem_and_path, _ensure_filesystem)
 from pyarrow import filesystem as legacyfs
 from pyarrow.util import guid, _is_path_like, _stringify_path, _deprecate_api
@@ -1760,7 +1760,7 @@ Examples
             )
         warnings.warn(
             "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
-            "deprecated as of pyarrow 10.0.0, and the legacy implementation "
+            "deprecated as of pyarrow 11.0.0, and the legacy implementation "
             "will be removed in a future version.",
             FutureWarning, stacklevel=2)
         self = object.__new__(cls)
@@ -2419,6 +2419,7 @@ class _ParquetDatasetV2:
 
         # check for single fragment dataset
         single_file = None
+        self._base_dir = None
         if not isinstance(path_or_paths, list):
             if _is_path_like(path_or_paths):
                 path_or_paths = _stringify_path(path_or_paths)
@@ -2429,8 +2430,11 @@ class _ParquetDatasetV2:
                             path_or_paths)
                     except ValueError:
                         filesystem = LocalFileSystem(use_mmap=memory_map)
-                if filesystem.get_file_info(path_or_paths).is_file:
+                finfo = filesystem.get_file_info(path_or_paths)
+                if finfo.is_file:
                     single_file = path_or_paths
+                if finfo.type == FileType.Directory:
+                    self._base_dir = path_or_paths
             else:
                 single_file = path_or_paths
 
@@ -2554,7 +2558,16 @@ class _ParquetDatasetV2:
         """
         # if use_pandas_metadata, we need to include index columns in the
         # column selection, to be able to restore those in the pandas DataFrame
-        metadata = self.schema.metadata
+        metadata = self.schema.metadata or {}
+
+        if use_pandas_metadata:
+            # if the dataset schema metadata itself doesn't have pandas
+            # then try to get this from common file (for backwards compat)
+            if b"pandas" not in metadata:
+                common_metadata = self._get_common_pandas_metadata()
+                if common_metadata:
+                    metadata = common_metadata
+
         if columns is not None and use_pandas_metadata:
             if metadata and b'pandas' in metadata:
                 # RangeIndex can be represented as dict instead of column name
@@ -2580,6 +2593,24 @@ class _ParquetDatasetV2:
                 table = table.replace_schema_metadata(new_metadata)
 
         return table
+
+    def _get_common_pandas_metadata(self):
+
+        if not self._base_dir:
+            return None
+
+        metadata = None
+        for name in ["_common_metadata", "_metadata"]:
+            metadata_path = os.path.join(str(self._base_dir), name)
+            finfo = self.filesystem.get_file_info(metadata_path)
+            if finfo.is_file:
+                pq_meta = read_metadata(
+                    metadata_path, filesystem=self.filesystem)
+                metadata = pq_meta.metadata
+                if metadata and b'pandas' in metadata:
+                    break
+
+        return metadata
 
     def read_pandas(self, **kwargs):
         """
