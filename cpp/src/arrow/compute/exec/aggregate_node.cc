@@ -328,7 +328,7 @@ class ScalarAggregateNode : public ExecNode {
  private:
   Status ReconstructAggregates() {
     const auto& input_schema = *inputs()[0]->output_schema();
-    auto exec_ctx = plan()->exec_context();
+    auto exec_ctx = plan()->query_context()->exec_context();
     for (size_t i = 0; i < kernels_.size(); ++i) {
       TypeHolder in_type(input_schema.field(target_field_ids_[i])->type().get());
       KernelContext kernel_ctx{exec_ctx};
@@ -387,7 +387,7 @@ class ScalarAggregateNode : public ExecNode {
 
 class GroupByNode : public ExecNode {
  public:
-  GroupByNode(ExecNode* input, std::shared_ptr<Schema> output_schema, ExecContext* ctx,
+  GroupByNode(ExecNode* input, std::shared_ptr<Schema> output_schema,
               std::vector<int> key_field_ids, std::vector<int> segment_key_field_ids,
               std::unique_ptr<GroupingSegmenter> segmenter,
               std::vector<int> agg_src_field_ids, std::vector<TypeHolder> agg_src_types,
@@ -395,7 +395,6 @@ class GroupByNode : public ExecNode {
               std::vector<const HashAggregateKernel*> agg_kernels)
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema),
                  /*num_outputs=*/1),
-        ctx_(ctx),
         segmenter_(std::move(segmenter)),
         key_field_ids_(std::move(key_field_ids)),
         segment_key_field_ids_(std::move(segment_key_field_ids)),
@@ -502,14 +501,14 @@ class GroupByNode : public ExecNode {
     }
 
     return input->plan()->EmplaceNode<GroupByNode>(
-        input, schema(std::move(output_fields)), ctx, std::move(key_field_ids),
+        input, schema(std::move(output_fields)), std::move(key_field_ids),
         std::move(segment_key_field_ids), std::move(segmenter),
         std::move(agg_src_field_ids), std::move(agg_src_types), std::move(aggs),
         std::move(agg_kernels));
   }
 
   Status ReconstructAggregates() {
-    auto ctx = plan()->exec_context();
+    auto ctx = plan()->query_context()->exec_context();
 
     ARROW_ASSIGN_OR_RAISE(agg_kernels_, internal::GetKernels(ctx, aggs_, agg_src_types_));
 
