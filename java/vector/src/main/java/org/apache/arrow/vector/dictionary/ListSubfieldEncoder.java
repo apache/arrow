@@ -22,6 +22,7 @@ import java.util.Collections;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
@@ -54,11 +55,11 @@ public class ListSubfieldEncoder {
     hashTable = new DictionaryHashTable(getDataVector(dictVector), hasher);
   }
 
-  private FieldVector getDataVector(BaseListVector vector) {
+  private static FieldVector getDataVector(BaseListVector vector) {
     return vector.getChildrenFromFields().get(0);
   }
 
-  private BaseListVector cloneVector(BaseListVector vector) {
+  private static BaseListVector cloneVector(BaseListVector vector, BufferAllocator allocator) {
 
     final FieldType fieldType = vector.getField().getFieldType();
     BaseListVector cloned = (BaseListVector) fieldType.createNewSingleVector(vector.getField().getName(),
@@ -84,54 +85,82 @@ public class ListSubfieldEncoder {
     Field valueField = new Field(vector.getField().getName(), indexFieldType, null);
 
     // clone list vector and initialize data vector
-    BaseListVector encoded = cloneVector(vector);
-    encoded.initializeChildrenFromFields(Collections.singletonList(valueField));
-    BaseIntVector indices = (BaseIntVector) getDataVector(encoded);
+    BaseListVector encoded = cloneVector(vector, allocator);
+    try {
+      encoded.initializeChildrenFromFields(Collections.singletonList(valueField));
+      BaseIntVector indices = (BaseIntVector) getDataVector(encoded);
 
-    ValueVector dataVector = getDataVector(vector);
-    for (int i = 0; i < valueCount; i++) {
-      if (!vector.isNull(i)) {
-        int start = vector.getElementStartIndex(i);
-        int end = vector.getElementEndIndex(i);
+      ValueVector dataVector = getDataVector(vector);
+      for (int i = 0; i < valueCount; i++) {
+        if (!vector.isNull(i)) {
+          int start = vector.getElementStartIndex(i);
+          int end = vector.getElementEndIndex(i);
 
-        DictionaryEncoder.buildIndexVector(dataVector, indices, hashTable, start, end);
+          DictionaryEncoder.buildIndexVector(dataVector, indices, hashTable, start, end);
+        }
       }
-    }
 
-    return encoded;
+      return encoded;
+    } catch (Exception e) {
+      AutoCloseables.close(e, encoded);
+      throw e;
+    }
   }
 
   /**
    * Decodes a dictionary subfields encoded vector using the provided dictionary.
+   *
+   * {@link ListSubfieldEncoder#decodeListSubField(BaseListVector, Dictionary, BufferAllocator)} should be used instead
+   * if only decoding is required as it can avoid building the {@link DictionaryHashTable} which only makes sense when
+   * encoding.
+   *
    * @param vector dictionary encoded vector, its data vector must be int type
    * @return vector with values restored from dictionary
    */
   public BaseListVector decodeListSubField(BaseListVector vector) {
+    return decodeListSubField(vector, dictionary, allocator);
+  }
 
+  /**
+   * Decodes a dictionary subfields encoded vector using the provided dictionary.
+   *
+   * @param vector dictionary encoded vector, its data vector must be int type
+   * @param dictionary dictionary used to decode the values
+   * @param allocator allocator the decoded values use
+   * @return vector with values restored from dictionary
+   */
+  public static BaseListVector decodeListSubField(BaseListVector vector,
+                                                  Dictionary dictionary,
+                                                  BufferAllocator allocator) {
     int valueCount = vector.getValueCount();
     BaseListVector dictionaryVector = (BaseListVector) dictionary.getVector();
     int dictionaryValueCount = getDataVector(dictionaryVector).getValueCount();
 
     // clone list vector and initialize data vector
-    BaseListVector decoded = cloneVector(vector);
-    Field dataVectorField = getDataVector(dictionaryVector).getField();
-    decoded.initializeChildrenFromFields(Collections.singletonList(dataVectorField));
+    BaseListVector decoded = cloneVector(vector, allocator);
+    try {
+      Field dataVectorField = getDataVector(dictionaryVector).getField();
+      decoded.initializeChildrenFromFields(Collections.singletonList(dataVectorField));
 
-    // get data vector
-    ValueVector dataVector = getDataVector(decoded);
+      // get data vector
+      ValueVector dataVector = getDataVector(decoded);
 
-    TransferPair transfer = getDataVector(dictionaryVector).makeTransferPair(dataVector);
-    BaseIntVector indices = (BaseIntVector) getDataVector(vector);
+      TransferPair transfer = getDataVector(dictionaryVector).makeTransferPair(dataVector);
+      BaseIntVector indices = (BaseIntVector) getDataVector(vector);
 
-    for (int i = 0; i < valueCount; i++) {
+      for (int i = 0; i < valueCount; i++) {
 
-      if (!vector.isNull(i)) {
-        int start = vector.getElementStartIndex(i);
-        int end = vector.getElementEndIndex(i);
+        if (!vector.isNull(i)) {
+          int start = vector.getElementStartIndex(i);
+          int end = vector.getElementEndIndex(i);
 
-        DictionaryEncoder.retrieveIndexVector(indices, transfer, dictionaryValueCount, start, end);
+          DictionaryEncoder.retrieveIndexVector(indices, transfer, dictionaryValueCount, start, end);
+        }
       }
+      return decoded;
+    } catch (Exception e) {
+      AutoCloseables.close(e, decoded);
+      throw e;
     }
-    return decoded;
   }
 }

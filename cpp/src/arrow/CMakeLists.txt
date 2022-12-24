@@ -403,6 +403,7 @@ if(ARROW_COMPUTE)
        compute/exec/partition_util.cc
        compute/exec/options.cc
        compute/exec/project_node.cc
+       compute/exec/query_context.cc
        compute/exec/sink_node.cc
        compute/exec/source_node.cc
        compute/exec/swiss_join.cc

@@ -64,15 +64,9 @@ func getSSE4ArithmeticBinaryNumeric[T exec.NumericTypes](op ArithmeticOp) binary
 }
 
 func getArithmeticOpIntegral[InT, OutT exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
-	if op >= OpAddChecked || op == OpDiv || op == OpPower {
-		// no SIMD for POWER function
-		// integral checked funcs need to use NotNull versions
-		return getGoArithmeticOpIntegral[InT, OutT](op)
-	}
-
 	if cpu.X86.HasAVX2 {
 		switch op {
-		case OpAdd, OpSub:
+		case OpAdd, OpSub, OpMul:
 			return ScalarBinary(getAvx2ArithmeticBinaryNumeric[InT](op))
 		case OpAbsoluteValue, OpNegate:
 			typ := exec.GetType[InT]()
@@ -89,7 +83,7 @@ func getArithmeticOpIntegral[InT, OutT exec.UintTypes | exec.IntTypes](op Arithm
 		}
 	} else if cpu.X86.HasSSE42 {
 		switch op {
-		case OpAdd, OpSub:
+		case OpAdd, OpSub, OpMul:
 			return ScalarBinary(getSSE4ArithmeticBinaryNumeric[InT](op))
 		case OpAbsoluteValue, OpNegate:
 			typ := exec.GetType[InT]()
@@ -106,18 +100,15 @@ func getArithmeticOpIntegral[InT, OutT exec.UintTypes | exec.IntTypes](op Arithm
 		}
 	}
 
+	// no SIMD for POWER or SQRT functions
+	// integral checked funcs need to use NotNull versions
 	return getGoArithmeticOpIntegral[InT, OutT](op)
 }
 
 func getArithmeticOpFloating[InT, OutT constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
-	if op == OpDiv || op == OpDivChecked || op == OpPower || op == OpPowerChecked {
-		// no SIMD for Power
-		return getGoArithmeticOpFloating[InT, OutT](op)
-	}
-
 	if cpu.X86.HasAVX2 {
 		switch op {
-		case OpAdd, OpSub, OpAddChecked, OpSubChecked:
+		case OpAdd, OpSub, OpAddChecked, OpSubChecked, OpMul, OpMulChecked:
 			if exec.GetType[InT]() != exec.GetType[OutT]() {
 				debug.Assert(false, "not implemented")
 				return nil
@@ -136,7 +127,7 @@ func getArithmeticOpFloating[InT, OutT constraints.Float](op ArithmeticOp) exec.
 		}
 	} else if cpu.X86.HasSSE42 {
 		switch op {
-		case OpAdd, OpSub, OpAddChecked, OpSubChecked:
+		case OpAdd, OpSub, OpAddChecked, OpSubChecked, OpMul, OpMulChecked:
 			if exec.GetType[InT]() != exec.GetType[OutT]() {
 				debug.Assert(false, "not implemented")
 				return nil
@@ -155,5 +146,6 @@ func getArithmeticOpFloating[InT, OutT constraints.Float](op ArithmeticOp) exec.
 		}
 	}
 
+	// no SIMD for POWER or SQRT functions
 	return getGoArithmeticOpFloating[InT, OutT](op)
 }

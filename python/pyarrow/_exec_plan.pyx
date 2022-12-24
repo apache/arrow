@@ -27,16 +27,18 @@ from cython.operator cimport dereference as deref, preincrement as inc
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
-from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table)
+from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table,
+                          RecordBatchReader)
 from pyarrow.lib import tobytes
-from pyarrow._compute cimport Expression, _true
-from pyarrow._dataset cimport Dataset
+from pyarrow._compute cimport Expression, _true, _SortOptions
+from pyarrow._dataset cimport Dataset, Scanner
 from pyarrow._dataset import InMemoryDataset
 
 Initialize()  # Initialise support for Datasets in ExecPlan
 
 
-cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True):
+cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True,
+              _SortOptions sort_options=None):
     """
     Internal Function to create an ExecPlan and run it.
 
@@ -58,6 +60,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         CExecutor *c_executor
         shared_ptr[CExecContext] c_exec_context
         shared_ptr[CExecPlan] c_exec_plan
+        CDeclaration current_decl
         vector[CDeclaration] c_decls
         vector[CExecNode*] _empty
         vector[CExecNode*] c_final_node_vec
@@ -66,11 +69,14 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         shared_ptr[CTable] c_in_table
         shared_ptr[CTable] c_out_table
         shared_ptr[CTableSourceNodeOptions] c_tablesourceopts
+        shared_ptr[CScanner] c_dataset_scanner
         shared_ptr[CScanNodeOptions] c_scanopts
         shared_ptr[CExecNodeOptions] c_input_node_opts
         shared_ptr[CSinkNodeOptions] c_sinkopts
+        shared_ptr[COrderBySinkNodeOptions] c_orderbysinkopts
         shared_ptr[CAsyncExecBatchGenerator] c_async_exec_batch_gen
         shared_ptr[CRecordBatchReader] c_recordbatchreader
+        shared_ptr[CRecordBatchReader] c_recordbatchreader_in
         vector[CDeclaration].iterator plan_iter
         vector[CDeclaration.Input] no_c_inputs
         CStatus c_plan_status
@@ -89,35 +95,45 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
     # Create source nodes for each input
     for ipt in inputs:
         if isinstance(ipt, Table):
-            node_factory = "table_source"
             c_in_table = pyarrow_unwrap_table(ipt)
             c_tablesourceopts = make_shared[CTableSourceNodeOptions](
                 c_in_table)
             c_input_node_opts = static_pointer_cast[CExecNodeOptions, CTableSourceNodeOptions](
                 c_tablesourceopts)
+
+            current_decl = CDeclaration(
+                tobytes("table_source"), no_c_inputs, c_input_node_opts)
         elif isinstance(ipt, Dataset):
-            node_factory = "scan"
             c_in_dataset = (<Dataset>ipt).unwrap()
             c_scanopts = make_shared[CScanNodeOptions](
-                c_in_dataset, make_shared[CScanOptions]())
-            deref(deref(c_scanopts).scan_options).use_threads = use_threads
+                c_in_dataset, Scanner._make_scan_options(ipt, {"use_threads": use_threads}))
             c_input_node_opts = static_pointer_cast[CExecNodeOptions, CScanNodeOptions](
                 c_scanopts)
+
+            # Filters applied in CScanNodeOptions are "best effort" for the scan node itself,
+            # so we always need to inject an additional Filter node to apply them for real.
+            current_decl = CDeclaration(
+                tobytes("filter"),
+                no_c_inputs,
+                static_pointer_cast[CExecNodeOptions, CFilterNodeOptions](
+                    make_shared[CFilterNodeOptions](
+                        deref(deref(c_scanopts).scan_options).filter
+                    )
+                )
+            )
+            current_decl.inputs.push_back(
+                CDeclaration.Input(
+                    CDeclaration(tobytes("scan"), no_c_inputs, c_input_node_opts))
+            )
         else:
             raise TypeError("Unsupported type")
 
         if plan_iter != plan.end():
             # Flag the source as the input of the first plan node.
-            deref(plan_iter).inputs.push_back(CDeclaration.Input(
-                CDeclaration(tobytes(node_factory),
-                             no_c_inputs, c_input_node_opts)
-            ))
+            deref(plan_iter).inputs.push_back(CDeclaration.Input(current_decl))
         else:
             # Empty plan, make the source the first plan node.
-            c_decls.push_back(
-                CDeclaration(tobytes(node_factory),
-                             no_c_inputs, c_input_node_opts)
-            )
+            c_decls.push_back(current_decl)
 
     # Add Here additional nodes
     while plan_iter != plan.end():
@@ -132,11 +148,23 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
 
     # Create the output node
     c_async_exec_batch_gen = make_shared[CAsyncExecBatchGenerator]()
-    c_sinkopts = make_shared[CSinkNodeOptions](c_async_exec_batch_gen.get())
-    GetResultValue(
-        MakeExecNode(tobytes("sink"), &deref(c_exec_plan),
-                     c_final_node_vec, deref(c_sinkopts))
-    )
+
+    if sort_options is None:
+        c_sinkopts = make_shared[CSinkNodeOptions](
+            c_async_exec_batch_gen.get())
+        GetResultValue(
+            MakeExecNode(tobytes("sink"), &deref(c_exec_plan),
+                         c_final_node_vec, deref(c_sinkopts))
+        )
+    else:
+        c_orderbysinkopts = make_shared[COrderBySinkNodeOptions](
+            deref(<CSortOptions*>(sort_options.unwrap().get())),
+            c_async_exec_batch_gen.get()
+        )
+        GetResultValue(
+            MakeExecNode(tobytes("order_by_sink"), &deref(c_exec_plan),
+                         c_final_node_vec, deref(c_orderbysinkopts))
+        )
 
     # Convert the asyncgenerator to a sync batch reader
     c_recordbatchreader = MakeGeneratorReader(c_node.output_schema(),
@@ -397,5 +425,25 @@ def _filter_table(table, expression, output_type=Table):
         # Get rid of special dataset columns
         # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
         return InMemoryDataset(r.select(table.schema.names))
+    else:
+        raise TypeError("Unsupported output type")
+
+
+def _sort_source(table_or_dataset, sort_options, output_type=Table):
+    cdef:
+        vector[CDeclaration] c_empty_decl_plan
+
+    r = execplan([table_or_dataset],
+                 plan=c_empty_decl_plan,
+                 output_type=Table,
+                 use_threads=True,
+                 sort_options=sort_options)
+
+    if output_type == Table:
+        return r
+    elif output_type == InMemoryDataset:
+        # Get rid of special dataset columns
+        # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
+        return InMemoryDataset(r.select(table_or_dataset.schema.names))
     else:
         raise TypeError("Unsupported output type")

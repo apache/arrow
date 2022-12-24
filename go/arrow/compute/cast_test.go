@@ -67,14 +67,14 @@ func assertArraysEqual(t *testing.T, expected, actual arrow.Array, opts ...array
 	return assert.Truef(t, array.ApproxEqual(expected, actual, opts...), "expected: %s\ngot: %s", expected, actual)
 }
 
-func assertDatumsEqual(t *testing.T, expected, actual compute.Datum, opts ...array.EqualOption) {
+func assertDatumsEqual(t *testing.T, expected, actual compute.Datum, opts []array.EqualOption, scalarOpts []scalar.EqualOption) {
 	require.Equal(t, expected.Kind(), actual.Kind())
 
 	switch expected.Kind() {
 	case compute.KindScalar:
 		want := expected.(*compute.ScalarDatum).Value
 		got := actual.(*compute.ScalarDatum).Value
-		assert.Truef(t, scalar.Equals(want, got), "expected: %s\ngot: %s", want, got)
+		assert.Truef(t, scalar.ApproxEquals(want, got, scalarOpts...), "expected: %s\ngot: %s", want, got)
 	case compute.KindArray:
 		want := expected.(*compute.ArrayDatum).MakeArray()
 		got := actual.(*compute.ArrayDatum).MakeArray()
@@ -94,7 +94,7 @@ func checkScalarNonRecursive(t *testing.T, funcName string, inputs []compute.Dat
 	out, err := compute.CallFunction(context.Background(), funcName, opts, inputs...)
 	assert.NoError(t, err)
 	defer out.Release()
-	assertDatumsEqual(t, expected, out)
+	assertDatumsEqual(t, expected, out, nil, nil)
 }
 
 func checkScalarWithScalars(t *testing.T, funcName string, inputs []scalar.Scalar, expected scalar.Scalar, opts compute.FunctionOptions) {

@@ -19,16 +19,45 @@
 
 #include "arrow/engine/substrait/expression_internal.h"
 
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstring>
+#include <functional>
 #include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <type_traits>
 #include <utility>
+#include <vector>
 
+#include <google/protobuf/descriptor.h>
+
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_nested.h"
+#include "arrow/array/array_primitive.h"
+#include "arrow/array/util.h"
+#include "arrow/buffer.h"
 #include "arrow/builder.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/expression_internal.h"
+#include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/type_internal.h"
+#include "arrow/engine/substrait/util.h"
+#include "arrow/engine/substrait/util_internal.h"
 #include "arrow/result.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal.h"
+#include "arrow/util/endian.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/small_vector.h"
 #include "arrow/util/string.h"
 #include "arrow/visit_scalar_inline.h"
 
@@ -100,22 +129,13 @@ Result<SubstraitCall> DecodeScalarFunction(
   return std::move(call);
 }
 
-std::string EnumToString(int value, const google::protobuf::EnumDescriptor* descriptor) {
-  const google::protobuf::EnumValueDescriptor* value_desc =
-      descriptor->FindValueByNumber(value);
-  if (value_desc == nullptr) {
-    return "unknown";
-  }
-  return value_desc->name();
-}
-
 Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool is_hash,
                                 const ExtensionSet& ext_set,
                                 const ConversionOptions& conversion_options) {
   if (func.phase() != substrait::AggregationPhase::AGGREGATION_PHASE_INITIAL_TO_RESULT) {
     return Status::NotImplemented(
         "Unsupported aggregation phase '",
-        EnumToString(func.phase(), substrait::AggregationPhase_descriptor()),
+        EnumToString(func.phase(), *substrait::AggregationPhase_descriptor()),
         "'.  Only INITIAL_TO_RESULT is supported");
   }
   if (func.invocation() !=
@@ -124,7 +144,7 @@ Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool i
     return Status::NotImplemented(
         "Unsupported aggregation invocation '",
         EnumToString(func.invocation(),
-                     substrait::AggregateFunction::AggregationInvocation_descriptor()),
+                     *substrait::AggregateFunction::AggregationInvocation_descriptor()),
         "'.  Only AGGREGATION_INVOCATION_ALL is "
         "supported");
   }

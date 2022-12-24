@@ -17,7 +17,7 @@ TEXT ·_arithmetic_binary_avx2(SB), $0-48
 	MOVQ len+40(FP), R9
 	LEAQ LCDATA1<>(SB), BP
 
-	LONG $0x08fe8040         // cmp    sil, 8
+	LONG $0x14fe8040         // cmp    sil, 20
 	JG   LBB0_11
 	WORD $0x8440; BYTE $0xf6 // test    sil, sil
 	JE   LBB0_21
@@ -81,11 +81,11 @@ LBB0_634:
 	JMP  LBB0_825
 
 LBB0_11:
-	LONG $0x09fe8040         // cmp    sil, 9
+	LONG $0x15fe8040         // cmp    sil, 21
 	JE   LBB0_154
-	LONG $0x0afe8040         // cmp    sil, 10
+	LONG $0x16fe8040         // cmp    sil, 22
 	JE   LBB0_420
-	LONG $0x0bfe8040         // cmp    sil, 11
+	LONG $0x17fe8040         // cmp    sil, 23
 	JNE  LBB0_825
 	WORD $0xff83; BYTE $0x06 // cmp    edi, 6
 	JG   LBB0_695
@@ -5857,7 +5857,7 @@ TEXT ·_arithmetic_arr_scalar_avx2(SB), $0-48
 	MOVQ len+40(FP), R9
 	LEAQ LCDATA2<>(SB), BP
 
-	LONG $0x08fe8040         // cmp    sil, 8
+	LONG $0x14fe8040         // cmp    sil, 20
 	JG   LBB1_12
 	WORD $0x8440; BYTE $0xf6 // test    sil, sil
 	JE   LBB1_23
@@ -5930,11 +5930,11 @@ LBB1_668:
 	JMP  LBB1_1109
 
 LBB1_12:
-	LONG $0x09fe8040         // cmp    sil, 9
+	LONG $0x15fe8040         // cmp    sil, 21
 	JE   LBB1_39
-	LONG $0x0afe8040         // cmp    sil, 10
+	LONG $0x16fe8040         // cmp    sil, 22
 	JE   LBB1_47
-	LONG $0x0bfe8040         // cmp    sil, 11
+	LONG $0x17fe8040         // cmp    sil, 23
 	JNE  LBB1_1109
 	WORD $0xff83; BYTE $0x06 // cmp    edi, 6
 	JG   LBB1_62
@@ -13321,7 +13321,7 @@ TEXT ·_arithmetic_scalar_arr_avx2(SB), $0-48
 	MOVQ len+40(FP), R9
 	LEAQ LCDATA3<>(SB), BP
 
-	LONG $0x08fe8040         // cmp    sil, 8
+	LONG $0x14fe8040         // cmp    sil, 20
 	JG   LBB2_12
 	WORD $0x8440; BYTE $0xf6 // test    sil, sil
 	JE   LBB2_23
@@ -13394,11 +13394,11 @@ LBB2_668:
 	JMP  LBB2_1109
 
 LBB2_12:
-	LONG $0x09fe8040         // cmp    sil, 9
+	LONG $0x15fe8040         // cmp    sil, 21
 	JE   LBB2_39
-	LONG $0x0afe8040         // cmp    sil, 10
+	LONG $0x16fe8040         // cmp    sil, 22
 	JE   LBB2_47
-	LONG $0x0bfe8040         // cmp    sil, 11
+	LONG $0x17fe8040         // cmp    sil, 23
 	JNE  LBB2_1109
 	WORD $0xff83; BYTE $0x06 // cmp    edi, 6
 	JG   LBB2_62
@@ -20568,13 +20568,13 @@ TEXT ·_arithmetic_unary_same_types_avx2(SB), $0-40
 	MOVQ len+32(FP), R8
 	LEAQ LCDATA4<>(SB), BP
 
-	LONG $0x07fe8040         // cmp    sil, 7
+	LONG $0x13fe8040         // cmp    sil, 19
 	JLE  LBB3_12
-	LONG $0x08fe8040         // cmp    sil, 8
+	LONG $0x14fe8040         // cmp    sil, 20
 	JE   LBB3_22
-	LONG $0x0dfe8040         // cmp    sil, 13
+	LONG $0x19fe8040         // cmp    sil, 25
 	JE   LBB3_30
-	LONG $0x0efe8040         // cmp    sil, 14
+	LONG $0x1afe8040         // cmp    sil, 26
 	JNE  LBB3_865
 	WORD $0xff83; BYTE $0x06 // cmp    edi, 6
 	JG   LBB3_46
@@ -25886,7 +25886,7 @@ TEXT ·_arithmetic_unary_diff_type_avx2(SB), $0-48
 	MOVQ len+40(FP), R9
 	LEAQ LCDATA5<>(SB), BP
 
-	WORD $0xfa80; BYTE $0x08 // cmp    dl, 8
+	WORD $0xfa80; BYTE $0x14 // cmp    dl, 20
 	JNE  LBB4_1351
 	WORD $0xff83; BYTE $0x06 // cmp    edi, 6
 	JG   LBB4_14

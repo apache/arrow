@@ -50,6 +50,8 @@ class ExecNode;
 class ExecPlan;
 class ExecNodeOptions;
 class ExecFactoryRegistry;
+class QueryContext;
+struct QueryOptions;
 
 class SinkNodeConsumer;
 

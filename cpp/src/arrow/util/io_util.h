@@ -410,5 +410,11 @@ uint64_t GetThreadId();
 ARROW_EXPORT
 int64_t GetCurrentRSS();
 
+/// \brief Get the total memory available to the system in bytes
+///
+/// This function supports Windows, Linux, and Mac and will return 0 otherwise
+ARROW_EXPORT
+int64_t GetTotalMemoryBytes();
+
 }  // namespace internal
 }  // namespace arrow

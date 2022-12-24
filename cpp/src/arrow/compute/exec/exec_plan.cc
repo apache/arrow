@@ -25,9 +25,8 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/task_util.h"
-#include "arrow/compute/exec/util.h"
-#include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
@@ -51,9 +50,9 @@ namespace compute {
 namespace {
 
 struct ExecPlanImpl : public ExecPlan {
-  explicit ExecPlanImpl(ExecContext* exec_context,
+  explicit ExecPlanImpl(QueryOptions options, ExecContext* exec_context,
                         std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR)
-      : ExecPlan(exec_context), metadata_(std::move(metadata)) {}
+      : metadata_(std::move(metadata)), query_context_(options, *exec_context) {}
 
   ~ExecPlanImpl() override {
     if (started_ && !finished_.is_finished()) {
@@ -62,9 +61,6 @@ struct ExecPlanImpl : public ExecPlan {
       finished().Wait();
     }
   }
-
-  size_t GetThreadIndex() { return thread_indexer_(); }
-  size_t max_concurrency() const { return thread_indexer_.Capacity(); }
 
   ExecNode* AddNode(std::unique_ptr<ExecNode> node) {
     if (node->label().empty()) {
@@ -80,44 +76,6 @@ struct ExecPlanImpl : public ExecPlan {
     return nodes_.back().get();
   }
 
-  Result<Future<>> BeginExternalTask() {
-    Future<> completion_future = Future<>::Make();
-    if (async_scheduler_->AddSimpleTask(
-            [completion_future] { return completion_future; })) {
-      return completion_future;
-    }
-    return Future<>{};
-  }
-
-  Status ScheduleTask(std::function<Status()> fn) {
-    auto executor = exec_context_->executor();
-    if (!executor) return fn();
-    // Adds a task which submits fn to the executor and tracks its progress.  If we're
-    // aborted then the task is ignored and fn is not executed.
-    async_scheduler_->AddSimpleTask(
-        [executor, fn]() { return executor->Submit(std::move(fn)); });
-    return Status::OK();
-  }
-
-  Status ScheduleTask(std::function<Status(size_t)> fn) {
-    std::function<Status()> indexed_fn = [this, fn]() {
-      size_t thread_index = GetThreadIndex();
-      return fn(thread_index);
-    };
-    return ScheduleTask(std::move(indexed_fn));
-  }
-
-  int RegisterTaskGroup(std::function<Status(size_t, int64_t)> task,
-                        std::function<Status(size_t)> on_finished) {
-    return task_scheduler_->RegisterTaskGroup(std::move(task), std::move(on_finished));
-  }
-
-  Status StartTaskGroup(int task_group_id, int64_t num_tasks) {
-    return task_scheduler_->StartTaskGroup(GetThreadIndex(), task_group_id, num_tasks);
-  }
-
-  util::AsyncTaskScheduler* async_scheduler() { return async_scheduler_; }
-
   Status Validate() const {
     if (nodes_.empty()) {
       return Status::Invalid("ExecPlan has no node");
@@ -132,6 +90,7 @@ struct ExecPlanImpl : public ExecPlan {
     if (started_) {
       return Status::Invalid("restarted ExecPlan");
     }
+
     started_ = true;
 
     // We call StartProducing on each of the nodes.  The source nodes should generally
@@ -142,7 +101,9 @@ struct ExecPlanImpl : public ExecPlan {
     // call.
     Future<> scheduler_finished =
         util::AsyncTaskScheduler::Make([this](util::AsyncTaskScheduler* async_scheduler) {
-          this->async_scheduler_ = async_scheduler;
+          QueryContext* ctx = query_context();
+          RETURN_NOT_OK(ctx->Init(ctx->max_concurrency(), async_scheduler));
+
           START_COMPUTE_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
 #ifdef ARROW_WITH_OPENTELEMETRY
           if (HasMetadata()) {
@@ -162,17 +123,17 @@ struct ExecPlanImpl : public ExecPlan {
             async_scheduler->AddSimpleTask([&] { return n->finished(); });
           }
 
-          task_scheduler_->RegisterEnd();
+          ctx->scheduler()->RegisterEnd();
           int num_threads = 1;
           bool sync_execution = true;
-          if (auto executor = exec_context()->executor()) {
+          if (auto executor = query_context()->exec_context()->executor()) {
             num_threads = executor->GetCapacity();
             sync_execution = false;
           }
-          RETURN_NOT_OK(task_scheduler_->StartScheduling(
+          RETURN_NOT_OK(ctx->scheduler()->StartScheduling(
               0 /* thread_index */,
-              [this](std::function<Status(size_t)> fn) -> Status {
-                return this->ScheduleTask(std::move(fn));
+              [ctx](std::function<Status(size_t)> fn) -> Status {
+                return ctx->ScheduleTask(std::move(fn));
               },
               /*concurrent_tasks=*/2 * num_threads, sync_execution));
 
@@ -219,7 +180,7 @@ struct ExecPlanImpl : public ExecPlan {
     DCHECK(started_) << "stopped an ExecPlan which never started";
     EVENT(span_, "StopProducing");
     stopped_ = true;
-    task_scheduler_->Abort(
+    query_context()->scheduler()->Abort(
         [this]() { StopProducingImpl(sorted_nodes_.begin(), sorted_nodes_.end()); });
   }
 
@@ -335,10 +296,7 @@ struct ExecPlanImpl : public ExecPlan {
   uint32_t auto_label_counter_ = 0;
   util::tracing::Span span_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
-
-  ThreadIndexer thread_indexer_;
-  util::AsyncTaskScheduler* async_scheduler_ = nullptr;
-  std::unique_ptr<TaskScheduler> task_scheduler_ = TaskScheduler::Make();
+  QueryContext query_context_;
 };
 
 ExecPlanImpl* ToDerived(ExecPlan* ptr) { return checked_cast<ExecPlanImpl*>(ptr); }
@@ -360,8 +318,14 @@ std::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
 const uint32_t ExecPlan::kMaxBatchSize;
 
 Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
+    QueryOptions opts, ExecContext* ctx,
+    std::shared_ptr<const KeyValueMetadata> metadata) {
+  return std::shared_ptr<ExecPlan>(new ExecPlanImpl{opts, ctx, std::move(metadata)});
+}
+
+Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
     ExecContext* ctx, std::shared_ptr<const KeyValueMetadata> metadata) {
-  return std::shared_ptr<ExecPlan>(new ExecPlanImpl{ctx, metadata});
+  return Make(/*opts=*/{}, ctx, std::move(metadata));
 }
 
 ExecNode* ExecPlan::AddNode(std::unique_ptr<ExecNode> node) {
@@ -374,30 +338,7 @@ const ExecPlan::NodeVector& ExecPlan::sources() const {
 
 const ExecPlan::NodeVector& ExecPlan::sinks() const { return ToDerived(this)->sinks_; }
 
-size_t ExecPlan::GetThreadIndex() { return ToDerived(this)->GetThreadIndex(); }
-size_t ExecPlan::max_concurrency() const { return ToDerived(this)->max_concurrency(); }
-
-Result<Future<>> ExecPlan::BeginExternalTask() {
-  return ToDerived(this)->BeginExternalTask();
-}
-
-Status ExecPlan::ScheduleTask(std::function<Status()> fn) {
-  return ToDerived(this)->ScheduleTask(std::move(fn));
-}
-Status ExecPlan::ScheduleTask(std::function<Status(size_t)> fn) {
-  return ToDerived(this)->ScheduleTask(std::move(fn));
-}
-int ExecPlan::RegisterTaskGroup(std::function<Status(size_t, int64_t)> task,
-                                std::function<Status(size_t)> on_finished) {
-  return ToDerived(this)->RegisterTaskGroup(std::move(task), std::move(on_finished));
-}
-Status ExecPlan::StartTaskGroup(int task_group_id, int64_t num_tasks) {
-  return ToDerived(this)->StartTaskGroup(task_group_id, num_tasks);
-}
-
-util::AsyncTaskScheduler* ExecPlan::async_scheduler() {
-  return ToDerived(this)->async_scheduler();
-}
+QueryContext* ExecPlan::query_context() { return &ToDerived(this)->query_context_; }
 
 Status ExecPlan::Validate() { return ToDerived(this)->Validate(); }
 
@@ -614,6 +555,105 @@ Future<std::vector<ExecBatch>> DeclarationToExecBatchesAsync(Declaration declara
 Result<std::vector<ExecBatch>> DeclarationToExecBatches(Declaration declaration,
                                                         ExecContext* exec_context) {
   return DeclarationToExecBatchesAsync(std::move(declaration), exec_context).result();
+}
+
+namespace {
+struct BatchConverter {
+  explicit BatchConverter(::arrow::internal::Executor* executor)
+      : exec_context(std::make_shared<ExecContext>(default_memory_pool(), executor)) {}
+
+  ~BatchConverter() {
+    if (!exec_plan) {
+      return;
+    }
+    if (exec_plan->finished().is_finished()) {
+      return;
+    }
+    exec_plan->StopProducing();
+    Status abandoned_status = exec_plan->finished().status();
+    if (!abandoned_status.ok()) {
+      abandoned_status.Warn();
+    }
+  }
+
+  Future<std::shared_ptr<RecordBatch>> operator()() {
+    return exec_batch_gen().Then(
+        [this](const std::optional<ExecBatch>& batch)
+            -> Future<std::shared_ptr<RecordBatch>> {
+          if (batch) {
+            return batch->ToRecordBatch(schema);
+          } else {
+            return exec_plan->finished().Then(
+                []() -> std::shared_ptr<RecordBatch> { return nullptr; });
+          }
+        },
+        [this](const Status& err) {
+          return exec_plan->finished().Then(
+              [err]() -> Result<std::shared_ptr<RecordBatch>> { return err; });
+        });
+  }
+
+  std::shared_ptr<ExecContext> exec_context;
+  AsyncGenerator<std::optional<ExecBatch>> exec_batch_gen;
+  std::shared_ptr<Schema> schema;
+  std::shared_ptr<ExecPlan> exec_plan;
+};
+
+Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> DeclarationToRecordBatchGenerator(
+    Declaration declaration, ::arrow::internal::Executor* executor,
+    std::shared_ptr<Schema>* out_schema) {
+  auto converter = std::make_shared<BatchConverter>(executor);
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan,
+                        ExecPlan::Make(converter->exec_context.get()));
+  Declaration with_sink = Declaration::Sequence(
+      {declaration,
+       {"sink", SinkNodeOptions(&converter->exec_batch_gen, &converter->schema)}});
+  ARROW_RETURN_NOT_OK(with_sink.AddToPlan(plan.get()));
+  ARROW_RETURN_NOT_OK(plan->StartProducing());
+  converter->exec_plan = std::move(plan);
+  *out_schema = converter->schema;
+  return [conv = std::move(converter)] { return (*conv)(); };
+}
+}  // namespace
+
+Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(Declaration declaration,
+                                                               bool use_threads) {
+  std::shared_ptr<Schema> schema;
+  auto batch_iterator = std::make_unique<Iterator<std::shared_ptr<RecordBatch>>>(
+      ::arrow::internal::IterateSynchronously<std::shared_ptr<RecordBatch>>(
+          [&](::arrow::internal::Executor* executor)
+              -> Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> {
+            return DeclarationToRecordBatchGenerator(declaration, executor, &schema);
+          },
+          use_threads));
+
+  struct PlanReader : RecordBatchReader {
+    PlanReader(std::shared_ptr<Schema> schema,
+               std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> iterator)
+        : schema_(std::move(schema)), iterator_(std::move(iterator)) {}
+
+    std::shared_ptr<Schema> schema() const override { return schema_; }
+
+    Status ReadNext(std::shared_ptr<RecordBatch>* record_batch) override {
+      DCHECK(!!iterator_) << "call to ReadNext on already closed reader";
+      return iterator_->Next().Value(record_batch);
+    }
+
+    Status Close() override {
+      // End plan and read from generator until finished
+      std::shared_ptr<RecordBatch> batch;
+      do {
+        ARROW_RETURN_NOT_OK(ReadNext(&batch));
+      } while (batch != nullptr);
+      iterator_.reset();
+      return Status::OK();
+    }
+
+    std::shared_ptr<Schema> schema_;
+    std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> iterator_;
+  };
+
+  return std::make_unique<PlanReader>(std::move(schema), std::move(batch_iterator));
 }
 
 namespace internal {

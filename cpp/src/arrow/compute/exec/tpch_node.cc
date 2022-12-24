@@ -31,6 +31,7 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/query_context.h"
 #include "arrow/datum.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/formatting.h"
@@ -3381,8 +3382,8 @@ class TpchNode : public ExecNode {
 
   Status StartProducing() override {
     num_running_++;
-    ARROW_RETURN_NOT_OK(generator_->StartProducing(
-        plan_->max_concurrency(),
+    RETURN_NOT_OK(generator_->StartProducing(
+        plan_->query_context()->max_concurrency(),
         [this](ExecBatch batch) { this->OutputBatchCallback(std::move(batch)); },
         [this](int64_t num_batches) { this->FinishedCallback(num_batches); },
         [this](std::function<Status(size_t)> func) -> Status {
@@ -3425,7 +3426,7 @@ class TpchNode : public ExecNode {
   Status ScheduleTaskCallback(std::function<Status(size_t)> func) {
     if (finished_generating_.load()) return Status::OK();
     num_running_++;
-    return plan_->ScheduleTask([this, func](size_t thread_index) {
+    return plan_->query_context()->ScheduleTask([this, func](size_t thread_index) {
       Status status = func(thread_index);
       if (!status.ok()) {
         StopProducing();

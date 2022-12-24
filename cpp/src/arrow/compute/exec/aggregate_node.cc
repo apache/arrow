@@ -25,6 +25,7 @@
 #include "arrow/compute/exec/aggregate.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
@@ -147,7 +148,7 @@ class ScalarAggregateNode : public ExecNode {
     const auto& segment_keys = aggregate_options.segment_keys;
 
     const auto& input_schema = *inputs[0]->output_schema();
-    auto exec_ctx = plan->exec_context();
+    auto exec_ctx = plan->query_context()->exec_context();
 
     std::vector<int> segment_field_ids(segment_keys.size());
     std::vector<TypeHolder> segment_key_types(segment_keys.size());
@@ -192,7 +193,7 @@ class ScalarAggregateNode : public ExecNode {
       }
 
       KernelContext kernel_ctx{exec_ctx};
-      states[i].resize(plan->max_concurrency());
+      states[i].resize(plan->query_context()->max_concurrency());
       RETURN_NOT_OK(Kernel::InitAll(&kernel_ctx,
                                     KernelInitArgs{kernels[i],
                                                    {
@@ -231,7 +232,7 @@ class ScalarAggregateNode : public ExecNode {
                           {"function.options",
                            aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
                           {"function.kind", std::string(kind_name()) + "::Consume"}});
-      KernelContext batch_ctx{plan()->exec_context()};
+      KernelContext batch_ctx{plan()->query_context()->exec_context()};
       batch_ctx.SetState(states_[i][thread_index].get());
 
       ExecSpan single_column_batch{{batch.values[target_field_ids_[i]]}, batch.length};
@@ -255,7 +256,8 @@ class ScalarAggregateNode : public ExecNode {
 
     if (ErrorIfNotOk(HandleSegments(segmenter_, batch, segment_field_ids_,
                                     [this](const ExecSpan& batch, bool is_open) {
-                                      auto thread_index = plan_->GetThreadIndex();
+                                      auto thread_index =
+                                          plan_->query_context()->GetThreadIndex();
                                       RETURN_NOT_OK(DoConsume(batch, thread_index));
                                       if (!is_open) {
                                         RETURN_NOT_OK(OutputResult(false));
@@ -356,7 +358,7 @@ class ScalarAggregateNode : public ExecNode {
                           {"function.options",
                            aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
                           {"function.kind", std::string(kind_name()) + "::Finalize"}});
-      KernelContext ctx{plan()->exec_context()};
+      KernelContext ctx{plan()->query_context()->exec_context()};
       ARROW_ASSIGN_OR_RAISE(auto merged, ScalarAggregateKernel::MergeAll(
                                              kernels_[i], &ctx, std::move(states_[i])));
       RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[i]));
@@ -403,7 +405,7 @@ class GroupByNode : public ExecNode {
         agg_kernels_(std::move(agg_kernels)) {}
 
   Status Init() override {
-    output_task_group_id_ = plan_->RegisterTaskGroup(
+    output_task_group_id_ = plan_->query_context()->RegisterTaskGroup(
         [this](size_t, int64_t task_id) {
           OutputNthBatch(task_id);
           return Status::OK();
@@ -464,7 +466,7 @@ class GroupByNode : public ExecNode {
       segment_key_types[i] = input_schema->field(segment_key_field_id)->type().get();
     }
 
-    auto ctx = input->plan()->exec_context();
+    auto ctx = plan->query_context()->exec_context();
 
     ARROW_ASSIGN_OR_RAISE(auto segmenter,
                           GroupingSegmenter::Make(std::move(segment_key_types), ctx));
@@ -526,7 +528,7 @@ class GroupByNode : public ExecNode {
                        {{"group_by", ToStringExtra()},
                         {"node.label", label()},
                         {"batch.length", batch.length}});
-    size_t thread_index = plan_->GetThreadIndex();
+    size_t thread_index = plan_->query_context()->GetThreadIndex();
     if (thread_index >= local_states_.size()) {
       return Status::IndexError("thread index ", thread_index, " is out of range [0, ",
                                 local_states_.size(), ")");
@@ -553,7 +555,8 @@ class GroupByNode : public ExecNode {
                           {"function.options",
                            aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
                           {"function.kind", std::string(kind_name()) + "::Consume"}});
-      KernelContext kernel_ctx{ctx_};
+      auto ctx = plan_->query_context()->exec_context();
+      KernelContext kernel_ctx{ctx};
       kernel_ctx.SetState(state->agg_states[i].get());
 
       ExecSpan agg_batch({batch[agg_src_field_ids_[i]], ExecValue(*id_batch.array())},
@@ -589,7 +592,9 @@ class GroupByNode : public ExecNode {
              {"function.options",
               aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
              {"function.kind", std::string(kind_name()) + "::Merge"}});
-        KernelContext batch_ctx{ctx_};
+
+        auto ctx = plan_->query_context()->exec_context();
+        KernelContext batch_ctx{ctx};
         DCHECK(state0->agg_states[i]);
         batch_ctx.SetState(state0->agg_states[i].get());
 
@@ -622,7 +627,7 @@ class GroupByNode : public ExecNode {
                           {"function.options",
                            aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
                           {"function.kind", std::string(kind_name()) + "::Finalize"}});
-      KernelContext batch_ctx{ctx_};
+      KernelContext batch_ctx{plan_->query_context()->exec_context()};
       batch_ctx.SetState(state->agg_states[i].get());
       RETURN_NOT_OK(agg_kernels_[i]->finalize(&batch_ctx, &out_data.values[i]));
       state->agg_states[i].reset();
@@ -659,7 +664,8 @@ class GroupByNode : public ExecNode {
     int64_t num_output_batches = bit_util::CeilDiv(out_data_.length, output_batch_size());
     outputs_[0]->InputFinished(this, static_cast<int>(num_output_batches));
     if (is_last) {
-      RETURN_NOT_OK(plan_->StartTaskGroup(output_task_group_id_, num_output_batches));
+      RETURN_NOT_OK(plan_->query_context()->StartTaskGroup(output_task_group_id_,
+                                                           num_output_batches));
     } else {
       for (int64_t i = 0; i < num_output_batches; i++) {
         OutputNthBatch(i);
@@ -725,7 +731,7 @@ class GroupByNode : public ExecNode {
                         {"node.detail", ToString()},
                         {"node.kind", kind_name()}});
 
-    local_states_.resize(plan_->max_concurrency());
+    local_states_.resize(plan_->query_context()->max_concurrency());
     return Status::OK();
   }
 
@@ -770,7 +776,7 @@ class GroupByNode : public ExecNode {
   };
 
   ThreadLocalState* GetLocalState() {
-    size_t thread_index = plan_->GetThreadIndex();
+    size_t thread_index = plan_->query_context()->GetThreadIndex();
     return &local_states_[thread_index];
   }
 
@@ -788,7 +794,8 @@ class GroupByNode : public ExecNode {
     }
 
     // Construct grouper
-    ARROW_ASSIGN_OR_RAISE(state->grouper, Grouper::Make(key_types, ctx_));
+    ARROW_ASSIGN_OR_RAISE(
+        state->grouper, Grouper::Make(key_types, plan_->query_context()->exec_context()));
 
     // Build vector of aggregate source field data types
     std::vector<TypeHolder> agg_src_types(agg_kernels_.size());
@@ -797,21 +804,23 @@ class GroupByNode : public ExecNode {
       agg_src_types[i] = input_schema->field(agg_src_field_id)->type().get();
     }
 
-    ARROW_ASSIGN_OR_RAISE(state->agg_states, internal::InitKernels(agg_kernels_, ctx_,
-                                                                   aggs_, agg_src_types));
+    ARROW_ASSIGN_OR_RAISE(
+        state->agg_states,
+        internal::InitKernels(agg_kernels_, plan_->query_context()->exec_context(), aggs_,
+                              agg_src_types));
 
     return Status::OK();
   }
 
   int output_batch_size() const {
-    int result = static_cast<int>(ctx_->exec_chunksize());
+    int result =
+        static_cast<int>(plan_->query_context()->exec_context()->exec_chunksize());
     if (result < 0) {
       result = 32 * 1024;
     }
     return result;
   }
 
-  ExecContext* ctx_;
   int output_task_group_id_;
   std::unique_ptr<GroupingSegmenter> segmenter_;
 

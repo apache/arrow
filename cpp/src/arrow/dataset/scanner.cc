@@ -32,6 +32,7 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/query_context.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/plan.h"
@@ -68,12 +69,26 @@ std::vector<FieldRef> ScanOptions::MaterializedFields() const {
   return fields;
 }
 
-std::vector<FieldPath> ScanV2Options::AllColumns(const Dataset& dataset) {
-  std::vector<FieldPath> selection(dataset.schema()->num_fields());
-  for (std::size_t i = 0; i < selection.size(); i++) {
-    selection[i] = {static_cast<int>(i)};
+std::vector<FieldPath> ScanV2Options::AllColumns(const Schema& dataset_schema) {
+  std::vector<FieldPath> selection(dataset_schema.num_fields());
+  for (int i = 0; i < dataset_schema.num_fields(); i++) {
+    selection[i] = {i};
   }
   return selection;
+}
+
+Status ScanV2Options::AddFieldsNeededForFilter(ScanV2Options* options) {
+  std::vector<FieldRef> fields_referenced = FieldsInExpression(options->filter);
+  for (const auto& field : fields_referenced) {
+    // Note: this will fail if the field reference is ambiguous or the field doesn't
+    // exist in the dataset schema
+    ARROW_ASSIGN_OR_RAISE(auto field_path, field.FindOne(*options->dataset->schema()));
+    if (std::find(options->columns.begin(), options->columns.end(), field_path) ==
+        options->columns.end()) {
+      options->columns.push_back(std::move(field_path));
+    }
+  }
+  return Status::OK();
 }
 
 namespace {
@@ -408,8 +423,11 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   auto exec_context =
       std::make_shared<compute::ExecContext>(scan_options_->pool, cpu_executor);
 
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context.get()));
-  plan->SetUseLegacyBatching(use_legacy_batching);
+  compute::QueryOptions query_options;
+  query_options.use_legacy_batching = use_legacy_batching;
+
+  ARROW_ASSIGN_OR_RAISE(auto plan,
+                        compute::ExecPlan::Make(query_options, exec_context.get()));
   AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
   auto exprs = scan_options_->projection.call()->arguments;
@@ -424,7 +442,8 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
               {"filter", compute::FilterNodeOptions{scan_options_->filter}},
               {"augmented_project",
                compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-              {"sink", compute::SinkNodeOptions{&sink_gen, scan_options_->backpressure}},
+              {"sink", compute::SinkNodeOptions{&sink_gen, /*schema=*/nullptr,
+                                                scan_options_->backpressure}},
           })
           .AddToPlan(plan.get()));
 
@@ -927,12 +946,17 @@ Status ScannerBuilder::Backpressure(compute::BackpressureOptions backpressure) {
   return Status::OK();
 }
 
-Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() {
+Result<std::shared_ptr<ScanOptions>> ScannerBuilder::GetScanOptions() {
   if (!scan_options_->projection.IsBound()) {
     RETURN_NOT_OK(Project(scan_options_->dataset_schema->field_names()));
   }
 
-  return std::make_shared<AsyncScanner>(dataset_, scan_options_);
+  return scan_options_;
+}
+
+Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() {
+  ARROW_ASSIGN_OR_RAISE(auto scan_options, GetScanOptions());
+  return std::make_shared<AsyncScanner>(dataset_, scan_options);
 }
 
 namespace {

@@ -39,12 +39,6 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-namespace internal {
-
-class CpuInfo;
-
-}  // namespace internal
-
 namespace compute {
 
 // It seems like 64K might be a good default chunksize to use for execution

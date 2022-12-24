@@ -1,0 +1,172 @@
+---
+title: "Data analysis with dplyr syntax"
+description: >
+  Learn how to use the dplyr backend supplied by arrow 
+output: rmarkdown::html_vignette
+---
+
+The arrow package provides functionality allowing users to manipulate tabular Arrow data (`Table` and `Dataset` objects) with familiar `{dplyr}` syntax. To enable this functionality, ensure that the arrow and dplyr packages are both loaded. In this article we will take the `starwars` data set included in dplyr, convert it to an Arrow Table, and then analyze this data. Note that, although these examples all use an in-memory `Table` object, the same functionality works for an on-disk `Dataset` object with only minor differences in behavior (documented later in the article).
+
+To get started let's load the packages and create the data:
+
+```{r}
+library(dplyr, warn.conflicts = FALSE)
+library(arrow, warn.conflicts = FALSE)
+
+sw <- arrow_table(starwars, as_data_frame = FALSE)
+```
+
+## One-table dplyr verbs
+
+The arrow package provides support for the dplyr one-table verbs, allowing users to construct data analysis pipelines in a familiar way. The example below shows the use of `filter()`, `rename()`, `mutate()`, `arrange()` and `select()`:
+
+```{r}
+result <- sw %>%
+  filter(homeworld == "Tatooine") %>%
+  rename(height_cm = height, mass_kg = mass) %>%
+  mutate(height_in = height_cm / 2.54, mass_lbs = mass_kg * 2.2046) %>%
+  arrange(desc(birth_year)) %>%
+  select(name, height_in, mass_lbs)
+```
+
+It is important to note that arrow uses lazy evaluation to delay computation until the result is explicitly requested. This speeds up processing by enabling the Arrow C++ library to perform multiple computations in one operation. As a consequence of this design choice, we have not yet performed computations on the `sw` data. The `result` variable is an object with class `arrow_dplyr_query` that represents all the computations to be performed:
+
+```{r}
+result
+```
+
+To perform these computations and materialize the result, we call
+`compute()` or `collect()`. The difference between the two determines what kind of object will be returned. Calling `compute()` returns an Arrow Table, suitable for passing to other arrow or dplyr functions:
+
+```{r}
+compute(result)
+```
+
+In contrast, `collect()` returns an R data frame, suitable for viewing or passing to other R functions for analysis or visualization:
+
+```{r}
+collect(result)
+```
+
+The arrow package has broad support for single-table dplyr verbs, including those that compute aggregates. For example, it supports `group_by()` and `summarize()`, as well as commonly-used convenience functions such as `count()`:
+
+```{r}
+sw %>%
+  group_by(species) %>%
+  summarize(mean_height = mean(height, na.rm = TRUE)) %>%
+  collect()
+
+sw %>%
+  count(gender) %>%
+  collect()
+```
+
+Note, however, that window functions such as `ntile()` are not yet supported. 
+
+## Two-table dplyr verbs
+
+Equality joins (e.g. `left_join()`, `inner_join()`) are supported for joining multiple tables. This is illustrated below:
+
+```{r}
+jedi <- data.frame(
+  name = c("C-3PO", "Luke Skywalker", "Obi-Wan Kenobi"),
+  jedi = c(FALSE, TRUE, TRUE)
+)
+
+sw %>%
+  select(1:3) %>%
+  right_join(jedi) %>%
+  collect()
+```
+
+## Expressions within dplyr verbs
+
+Inside dplyr verbs, Arrow offers support for many functions and operators, with common functions mapped to their base R and tidyverse equivalents: you can find a [list of supported functions within dplyr queries](../reference/acero.html) in the function documentation. If there are additional functions you would like to see implemented, please file an issue as described in the [Getting help](https://arrow.apache.org/docs/r/#getting-help) guidelines.
+
+## Registering custom bindings
+
+The arrow package makes it possible for users to supply bindings for custom functions in some situations using `register_scalar_function()`. To operate correctly, the to-be-registered function must have `context` as its first argument, as required by the query engine. For example, suppose we wanted to implement a function that converts a string to snake case (a greatly simplified version of `janitor::make_clean_names()`). The function could be written as follows:
+
+```{r}
+to_snake_name <- function(context, string) {
+  replace <- c(`'` = "", `"` = "", `-` = "", `\\.` = "_", ` ` = "_")
+  string %>%
+    stringr::str_replace_all(replace) %>%
+    stringr::str_to_lower() %>%
+    stringi::stri_trans_general(id = "Latin-ASCII")
+}
+```
+
+To call this within an arrow/dplyr pipeline, it needs to be registered:
+
+```{r}
+register_scalar_function(
+  name = "to_snake_name",
+  fun = to_snake_name,
+  in_type = utf8(),
+  out_type = utf8(),
+  auto_convert = TRUE
+)
+```
+
+In this expression, the `name` argument specifies the name by which it will be recognized in the context of the arrow/dplyr pipeline and `fun` is the function itself. The `in_type` and `out_type` arguments are used to specify the expected data type for the input and output, and `auto_convert` specifies whether arrow should automatically convert any R inputs to their Arrow equivalents. 
+
+Once registered, the following works:
+
+```{r}
+sw %>%
+  mutate(name, snake_name = to_snake_name(name), .keep = "none") %>%
+  collect()
+```
+
+To learn more, see `help("register_scalar_function", package = "arrow")`. 
+
+## Handling unsupported expressions
+
+For dplyr queries on Table objects, which are held in memory and should
+usually be representable as data frames, if the arrow package detects
+an unimplemented function within a dplyr verb, it automatically calls
+`collect()` to return the data as an R data frame before processing
+that dplyr verb. As an example, neither `lm()` nor `residuals()` are 
+implemented, so if we write code that computes the residuals for a
+linear regression model, this automatic collection takes place:
+
+```{r}
+sw %>%
+  filter(!is.na(height), !is.na(mass)) %>%
+  transmute(name, height, mass, res = residuals(lm(mass ~ height)))
+```
+
+For queries on `Dataset` objects -- which can be larger
+than memory -- arrow is more conservative and always raises an
+error if it detects an unsupported expression. To illustrate this 
+behavior, we can write the `starwars` data to disk and then open
+it as a Dataset. When we use the same pipeline on the Dataset, 
+we obtain an error:
+
+```{r, error=TRUE}
+# write and open starwars dataset
+dataset_path <- tempfile()
+write_dataset(starwars, dataset_path)
+sw2 <- open_dataset(dataset_path)
+
+# dplyr pipeline with unsupported expressions
+sw2 %>%
+  filter(!is.na(height), !is.na(mass)) %>%
+  transmute(name, height, mass, res = residuals(lm(mass ~ height)))
+```
+
+Calling `collect()` in the middle of the pipeline fixes the issue:
+
+```{r}
+sw2 %>%
+  filter(!is.na(height), !is.na(mass)) %>%
+  collect() %>%
+  transmute(name, height, mass, res = residuals(lm(mass ~ height)))
+```
+
+## Further reading
+
+- To learn more about multi-file datasets, see the [dataset article](./dataset.html).
+- To learn more about user-registered functions, see `help("register_scalar_function", package = "arrow")`.
+- To learn more about writing dplyr bindings as an arrow developer, see the [article on writing bindings](./developers/writing_bindings.html). 

@@ -116,7 +116,8 @@ class IpcMessageReader : public ipc::MessageReader {
     peekable_reader_->Next(&data);
     if (!data) {
       stream_finished_ = true;
-      return stream_->Finish(Status::OK());
+      ARROW_RETURN_NOT_OK(stream_->Finish(Status::OK()));
+      return nullptr;
     }
     if (data->body) {
       ARROW_ASSIGN_OR_RAISE(data->body, Buffer::ViewOrCopy(data->body, memory_manager_));
@@ -124,7 +125,9 @@ class IpcMessageReader : public ipc::MessageReader {
     // Validate IPC message
     auto result = data->OpenMessage();
     if (!result.ok()) {
-      return stream_->Finish(std::move(result).status());
+      stream_finished_ = true;
+      ARROW_RETURN_NOT_OK(stream_->Finish(std::move(result).status()));
+      return nullptr;
     }
     *app_metadata_ = std::move(data->app_metadata);
     return result;

@@ -173,6 +173,12 @@ func (b *BinaryBuilder) AppendStringValues(v []string, valid []bool) {
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
+func (b *BinaryBuilder) UnsafeAppend(v []byte) {
+	b.appendNextOffset()
+	b.values.unsafeAppend(v)
+	b.UnsafeAppendBoolToBitmap(true)
+}
+
 func (b *BinaryBuilder) Value(i int) []byte {
 	start := b.getOffsetVal(i)
 	var end int

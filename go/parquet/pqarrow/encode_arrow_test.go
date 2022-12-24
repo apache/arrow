@@ -877,17 +877,23 @@ func (ps *ParquetIOTestSuite) TestSingleColumnRequiredWrite() {
 }
 
 func (ps *ParquetIOTestSuite) roundTripTable(expected arrow.Table, storeSchema bool) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(ps.T(), 0)
+
 	var buf bytes.Buffer
 	var props pqarrow.ArrowWriterProperties
 	if storeSchema {
-		props = pqarrow.NewArrowWriterProperties(pqarrow.WithStoreSchema())
+		props = pqarrow.NewArrowWriterProperties(pqarrow.WithStoreSchema(), pqarrow.WithAllocator(mem))
 	} else {
-		props = pqarrow.DefaultWriterProps()
+		props = pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem))
 	}
 
-	ps.Require().NoError(pqarrow.WriteTable(expected, &buf, expected.NumRows(), nil, props))
+	writeProps := parquet.NewWriterProperties(parquet.WithAllocator(mem))
+	ps.Require().NoError(pqarrow.WriteTable(expected, &buf, expected.NumRows(), writeProps, props))
 
 	reader := ps.createReader(buf.Bytes())
+	defer reader.ParquetReader().Close()
+
 	tbl := ps.readTable(reader)
 	defer tbl.Release()
 

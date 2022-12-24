@@ -17,14 +17,19 @@
 
 #include "arrow/engine/substrait/extension_set.h"
 
+#include <algorithm>
+#include <iterator>
 #include <list>
 #include <memory>
 #include <sstream>
 #include <unordered_set>
 
-#include "arrow/engine/substrait/expression_internal.h"
+#include "arrow/engine/substrait/options.h"
+#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 
 namespace arrow {

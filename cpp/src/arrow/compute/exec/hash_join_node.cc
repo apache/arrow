@@ -490,7 +490,7 @@ struct BloomFilterPushdownContext {
       std::function<Status(size_t, int64_t)>, std::function<Status(size_t)>)>;
   using StartTaskGroupCallback = std::function<Status(int, int64_t)>;
   using BuildFinishedCallback = std::function<Status(size_t, AccumulationQueue)>;
-  using FiltersReceivedCallback = std::function<Status()>;
+  using FiltersReceivedCallback = std::function<Status(size_t)>;
   using FilterFinishedCallback = std::function<Status(size_t, AccumulationQueue)>;
   void Init(HashJoinNode* owner, size_t num_threads,
             RegisterTaskGroupCallback register_task_group_callback,
@@ -498,7 +498,7 @@ struct BloomFilterPushdownContext {
             FiltersReceivedCallback on_bloom_filters_received, bool disable_bloom_filter,
             bool use_sync_execution);
 
-  Status StartProducing();
+  Status StartProducing(size_t thread_index);
 
   void ExpectBloomFilter() { eval_.num_expected_bloom_filters_ += 1; }
 
@@ -508,10 +508,11 @@ struct BloomFilterPushdownContext {
                           BuildFinishedCallback on_finished);
 
   // Sends the Bloom filter to the pushdown target.
-  Status PushBloomFilter();
+  Status PushBloomFilter(size_t thread_index);
 
   // Receives a Bloom filter and its associated column map.
-  Status ReceiveBloomFilter(std::unique_ptr<BlockedBloomFilter> filter,
+  Status ReceiveBloomFilter(size_t thread_index,
+                            std::unique_ptr<BlockedBloomFilter> filter,
                             std::vector<int> column_map) {
     bool proceed;
     {
@@ -524,7 +525,7 @@ struct BloomFilterPushdownContext {
       ARROW_DCHECK_LE(eval_.received_filters_.size(), eval_.num_expected_bloom_filters_);
     }
     if (proceed) {
-      return eval_.all_received_callback_();
+      return eval_.all_received_callback_(thread_index);
     }
     return Status::OK();
   }
@@ -553,7 +554,8 @@ struct BloomFilterPushdownContext {
     std::vector<uint32_t> hashes(batch.length);
     std::vector<uint8_t> bv(bit_vector_bytes);
 
-    ARROW_ASSIGN_OR_RAISE(util::TempVectorStack * stack, GetStack(thread_index));
+    ARROW_ASSIGN_OR_RAISE(util::TempVectorStack * stack,
+                          ctx_->GetTempStack(thread_index));
 
     // Start with full selection for the current batch
     memset(selected.data(), 0xff, bit_vector_bytes);
@@ -587,8 +589,8 @@ struct BloomFilterPushdownContext {
     size_t first_nonscalar = batch.values.size();
     for (size_t i = 0; i < batch.values.size(); i++) {
       if (!batch.values[i].is_scalar()) {
-        ARROW_ASSIGN_OR_RAISE(batch.values[i],
-                              Filter(batch.values[i], selected_datum, options, ctx_));
+        ARROW_ASSIGN_OR_RAISE(batch.values[i], Filter(batch.values[i], selected_datum,
+                                                      options, ctx_->exec_context()));
         first_nonscalar = std::min(first_nonscalar, i);
         ARROW_DCHECK_EQ(batch.values[i].length(), batch.values[first_nonscalar].length());
       }
@@ -619,25 +621,10 @@ struct BloomFilterPushdownContext {
   // the disable_bloom_filter_ flag.
   std::pair<HashJoinNode*, std::vector<int>> GetPushdownTarget(HashJoinNode* start);
 
-  Result<util::TempVectorStack*> GetStack(size_t thread_index) {
-    if (!tld_[thread_index].is_init) {
-      RETURN_NOT_OK(tld_[thread_index].stack.Init(
-          ctx_->memory_pool(), 4 * util::MiniBatch::kMiniBatchLength * sizeof(uint32_t)));
-      tld_[thread_index].is_init = true;
-    }
-    return &tld_[thread_index].stack;
-  }
-
   StartTaskGroupCallback start_task_group_callback_;
   bool disable_bloom_filter_;
   HashJoinSchema* schema_mgr_;
-  ExecContext* ctx_;
-
-  struct ThreadLocalData {
-    bool is_init = false;
-    util::TempVectorStack stack;
-  };
-  std::vector<ThreadLocalData> tld_;
+  QueryContext* ctx_;
 
   struct {
     int task_id_;
@@ -736,9 +723,10 @@ class HashJoinNode : public ExecNode {
           join_options.output_suffix_for_left, join_options.output_suffix_for_right));
     }
 
-    ARROW_ASSIGN_OR_RAISE(Expression filter,
-                          schema_mgr->BindFilter(join_options.filter, left_schema,
-                                                 right_schema, plan->exec_context()));
+    ARROW_ASSIGN_OR_RAISE(
+        Expression filter,
+        schema_mgr->BindFilter(join_options.filter, left_schema, right_schema,
+                               plan->query_context()->exec_context()));
 
     // Generate output schema
     std::shared_ptr<Schema> output_schema = schema_mgr->MakeOutputSchema(
@@ -786,7 +774,7 @@ class HashJoinNode : public ExecNode {
   }
 
   Status OnBloomFilterFinished(size_t thread_index, AccumulationQueue batches) {
-    RETURN_NOT_OK(pushdown_context_.PushBloomFilter());
+    RETURN_NOT_OK(pushdown_context_.PushBloomFilter(thread_index));
     return impl_->BuildHashTable(
         thread_index, std::move(batches),
         [this](size_t thread_index) { return OnHashTableFinished(thread_index); });
@@ -837,10 +825,9 @@ class HashJoinNode : public ExecNode {
     return Status::OK();
   }
 
-  Status OnFiltersReceived() {
+  Status OnFiltersReceived(size_t thread_index) {
     std::unique_lock<std::mutex> guard(probe_side_mutex_);
     bloom_filters_ready_ = true;
-    size_t thread_index = plan_->GetThreadIndex();
     AccumulationQueue batches = std::move(probe_accumulator_);
     guard.unlock();
     return pushdown_context_.FilterBatches(
@@ -869,8 +856,8 @@ class HashJoinNode : public ExecNode {
       std::lock_guard<std::mutex> guard(probe_side_mutex_);
       queued_batches_to_probe_ = std::move(probe_accumulator_);
     }
-    return plan_->StartTaskGroup(task_group_probe_,
-                                 queued_batches_to_probe_.batch_count());
+    return plan_->query_context()->StartTaskGroup(task_group_probe_,
+                                                  queued_batches_to_probe_.batch_count());
   }
 
   Status OnQueuedBatchesProbed(size_t thread_index) {
@@ -891,7 +878,7 @@ class HashJoinNode : public ExecNode {
       return;
     }
 
-    size_t thread_index = plan_->GetThreadIndex();
+    size_t thread_index = plan_->query_context()->GetThreadIndex();
     int side = (input == inputs_[0]) ? 0 : 1;
 
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}, {"side", side}});
@@ -929,7 +916,7 @@ class HashJoinNode : public ExecNode {
 
   void InputFinished(ExecNode* input, int total_batches) override {
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
-    size_t thread_index = plan_->GetThreadIndex();
+    size_t thread_index = plan_->query_context()->GetThreadIndex();
     int side = (input == inputs_[0]) ? 0 : 1;
 
     EVENT(span_, "InputFinished", {{"side", side}, {"batches.length", total_batches}});
@@ -947,13 +934,14 @@ class HashJoinNode : public ExecNode {
   }
 
   Status Init() override {
-    RETURN_NOT_OK(ExecNode::Init());
-    if (plan_->UseLegacyBatching()) {
+    QueryContext* ctx = plan_->query_context();
+    if (ctx->options().use_legacy_batching) {
       return Status::Invalid(
           "The plan was configured to use legacy batching but contained a join node "
           "which is incompatible with legacy batching");
     }
-    bool use_sync_execution = !(plan_->exec_context()->executor());
+
+    bool use_sync_execution = !(ctx->executor());
     // TODO(ARROW-15732)
     // Each side of join might have an IO thread being called from. Once this is fixed
     // we will change it back to just the CPU's thread pool capacity.
@@ -961,32 +949,32 @@ class HashJoinNode : public ExecNode {
 
     pushdown_context_.Init(
         this, num_threads,
-        [this](std::function<Status(size_t, int64_t)> fn,
-               std::function<Status(size_t)> on_finished) {
-          return plan_->RegisterTaskGroup(std::move(fn), std::move(on_finished));
+        [ctx](std::function<Status(size_t, int64_t)> fn,
+              std::function<Status(size_t)> on_finished) {
+          return ctx->RegisterTaskGroup(std::move(fn), std::move(on_finished));
         },
-        [this](int task_group_id, int64_t num_tasks) {
-          return plan_->StartTaskGroup(task_group_id, num_tasks);
+        [ctx](int task_group_id, int64_t num_tasks) {
+          return ctx->StartTaskGroup(task_group_id, num_tasks);
         },
-        [this]() { return OnFiltersReceived(); }, disable_bloom_filter_,
-        use_sync_execution);
+        [this](size_t thread_index) { return OnFiltersReceived(thread_index); },
+        disable_bloom_filter_, use_sync_execution);
 
     RETURN_NOT_OK(impl_->Init(
-        plan_->exec_context(), join_type_, num_threads, &(schema_mgr_->proj_maps[0]),
+        ctx, join_type_, num_threads, &(schema_mgr_->proj_maps[0]),
         &(schema_mgr_->proj_maps[1]), key_cmp_, filter_,
-        [this](std::function<Status(size_t, int64_t)> fn,
-               std::function<Status(size_t)> on_finished) {
-          return plan_->RegisterTaskGroup(std::move(fn), std::move(on_finished));
+        [ctx](std::function<Status(size_t, int64_t)> fn,
+              std::function<Status(size_t)> on_finished) {
+          return ctx->RegisterTaskGroup(std::move(fn), std::move(on_finished));
         },
-        [this](int task_group_id, int64_t num_tasks) {
-          return plan_->StartTaskGroup(task_group_id, num_tasks);
+        [ctx](int task_group_id, int64_t num_tasks) {
+          return ctx->StartTaskGroup(task_group_id, num_tasks);
         },
         [this](int64_t, ExecBatch batch) { this->OutputBatchCallback(batch); },
         [this](int64_t total_num_batches) {
           this->FinishedCallback(total_num_batches);
         }));
 
-    task_group_probe_ = plan_->RegisterTaskGroup(
+    task_group_probe_ = ctx->RegisterTaskGroup(
         [this](size_t thread_index, int64_t task_id) -> Status {
           return impl_->ProbeSingleBatch(thread_index,
                                          std::move(queued_batches_to_probe_[task_id]));
@@ -1004,7 +992,8 @@ class HashJoinNode : public ExecNode {
                         {"node.detail", ToString()},
                         {"node.kind", kind_name()}});
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
-    RETURN_NOT_OK(pushdown_context_.StartProducing());
+    RETURN_NOT_OK(
+        pushdown_context_.StartProducing(plan_->query_context()->GetThreadIndex()));
     return Status::OK();
   }
 
@@ -1084,8 +1073,7 @@ void BloomFilterPushdownContext::Init(
     FiltersReceivedCallback on_bloom_filters_received, bool disable_bloom_filter,
     bool use_sync_execution) {
   schema_mgr_ = owner->schema_mgr_.get();
-  ctx_ = owner->plan_->exec_context();
-  tld_.resize(num_threads);
+  ctx_ = owner->plan_->query_context();
   disable_bloom_filter_ = disable_bloom_filter;
   std::tie(push_.pushdown_target_, push_.column_map_) = GetPushdownTarget(owner);
   eval_.all_received_callback_ = std::move(on_bloom_filters_received);
@@ -1117,8 +1105,9 @@ void BloomFilterPushdownContext::Init(
   start_task_group_callback_ = std::move(start_task_group_callback);
 }
 
-Status BloomFilterPushdownContext::StartProducing() {
-  if (eval_.num_expected_bloom_filters_ == 0) return eval_.all_received_callback_();
+Status BloomFilterPushdownContext::StartProducing(size_t thread_index) {
+  if (eval_.num_expected_bloom_filters_ == 0)
+    return eval_.all_received_callback_(thread_index);
   return Status::OK();
 }
 
@@ -1132,7 +1121,7 @@ Status BloomFilterPushdownContext::BuildBloomFilter(size_t thread_index,
     return build_.on_finished_(thread_index, std::move(build_.batches_));
 
   RETURN_NOT_OK(build_.builder_->Begin(
-      /*num_threads=*/tld_.size(), ctx_->cpu_info()->hardware_flags(),
+      /*num_threads=*/ctx_->max_concurrency(), ctx_->cpu_info()->hardware_flags(),
       ctx_->memory_pool(), build_.batches_.row_count(), build_.batches_.batch_count(),
       push_.bloom_filter_.get()));
 
@@ -1140,10 +1129,10 @@ Status BloomFilterPushdownContext::BuildBloomFilter(size_t thread_index,
                                     /*num_tasks=*/build_.batches_.batch_count());
 }
 
-Status BloomFilterPushdownContext::PushBloomFilter() {
+Status BloomFilterPushdownContext::PushBloomFilter(size_t thread_index) {
   if (!disable_bloom_filter_)
     return push_.pushdown_target_->pushdown_context_.ReceiveBloomFilter(
-        std::move(push_.bloom_filter_), std::move(push_.column_map_));
+        thread_index, std::move(push_.bloom_filter_), std::move(push_.column_map_));
   return Status::OK();
 }
 
@@ -1164,7 +1153,7 @@ Status BloomFilterPushdownContext::BuildBloomFilter_exec_task(size_t thread_inde
   }
   ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(std::move(key_columns)));
 
-  ARROW_ASSIGN_OR_RAISE(util::TempVectorStack * stack, GetStack(thread_index));
+  ARROW_ASSIGN_OR_RAISE(util::TempVectorStack * stack, ctx_->GetTempStack(thread_index));
   util::TempVectorHolder<uint32_t> hash_holder(stack, util::MiniBatch::kMiniBatchLength);
   uint32_t* hashes = hash_holder.mutable_data();
   for (int64_t i = 0; i < key_batch.length; i += util::MiniBatch::kMiniBatchLength) {

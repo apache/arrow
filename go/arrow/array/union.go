@@ -738,12 +738,19 @@ func newUnionBuilder(mem memory.Allocator, children []Builder, typ arrow.UnionTy
 	return b
 }
 
+func (b *unionBuilder) NumChildren() int {
+	return len(b.children)
+}
+
 func (b *unionBuilder) Child(idx int) Builder {
 	if idx < 0 || idx > len(b.children) {
 		panic("arrow/array: invalid child index for union builder")
 	}
 	return b.children[idx]
 }
+
+// Len returns the current number of elements in the builder.
+func (b *unionBuilder) Len() int { return b.typesBuilder.Len() }
 
 func (b *unionBuilder) Mode() arrow.UnionMode { return b.mode }
 

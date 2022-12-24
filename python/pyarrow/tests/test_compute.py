@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from datetime import datetime
+import datetime
 from functools import lru_cache, partial
 import inspect
 import itertools
@@ -1739,7 +1739,8 @@ def test_cast():
     assert pc.cast(arr, options=allow_overflow_options) == pa.array(
         [-1], type='int32')
 
-    arr = pa.array([datetime(2010, 1, 1), datetime(2015, 1, 1)])
+    arr = pa.array(
+        [datetime.datetime(2010, 1, 1), datetime.datetime(2015, 1, 1)])
     expected = pa.array([1262304000000, 1420070400000], type='timestamp[ms]')
     assert pc.cast(arr, 'timestamp[ms]') == expected
 
@@ -1784,13 +1785,14 @@ def test_strptime():
     arr = pa.array(["5/1/2020", None, "12/13/1900"])
 
     got = pc.strptime(arr, format='%m/%d/%Y', unit='s')
-    expected = pa.array([datetime(2020, 5, 1), None, datetime(1900, 12, 13)],
-                        type=pa.timestamp('s'))
+    expected = pa.array(
+        [datetime.datetime(2020, 5, 1), None, datetime.datetime(1900, 12, 13)],
+        type=pa.timestamp('s'))
     assert got == expected
     # Positional format
     assert pc.strptime(arr, '%m/%d/%Y', unit='s') == got
 
-    expected = pa.array([datetime(2020, 1, 5), None, None],
+    expected = pa.array([datetime.datetime(2020, 1, 5), None, None],
                         type=pa.timestamp('s'))
     got = pc.strptime(arr, format='%d/%m/%Y', unit='s', error_is_null=True)
     assert got == expected
@@ -1933,7 +1935,11 @@ def _check_datetime_components(timestamps, timezone=None):
     assert pc.subsecond(tsa).equals(pa.array(subseconds))
 
     if ts.dt.tz:
-        is_dst = ts.apply(lambda x: x.dst().seconds > 0)
+        if ts.dt.tz is datetime.timezone.utc:
+            # datetime with utc returns None for dst()
+            is_dst = [False] * len(ts)
+        else:
+            is_dst = ts.apply(lambda x: x.dst().seconds > 0)
         assert pc.is_dst(tsa).equals(pa.array(is_dst))
 
     day_of_week_options = pc.DayOfWeekOptions(
@@ -1958,12 +1964,12 @@ def test_extract_datetime_components():
                   "2009-12-31T04:20:20.004132",
                   "2010-01-01T05:25:25.005321",
                   "2010-01-03T06:30:30.006163",
-                  "2010-01-04T07:35:35",
-                  "2006-01-01T08:40:40",
-                  "2005-12-31T09:45:45",
-                  "2008-12-28",
-                  "2008-12-29",
-                  "2012-01-01 01:02:03"]
+                  "2010-01-04T07:35:35.0",
+                  "2006-01-01T08:40:40.0",
+                  "2005-12-31T09:45:45.0",
+                  "2008-12-28T00:00:00.0",
+                  "2008-12-29T00:00:00.0",
+                  "2012-01-01T01:02:03.0"]
     timezones = ["UTC", "US/Central", "Asia/Kolkata",
                  "Etc/GMT-4", "Etc/GMT+4", "Australia/Broken_Hill"]
 
@@ -1994,12 +2000,12 @@ def test_assume_timezone():
                                  "2009-12-31T04:20:20.004132",
                                  "2010-01-01T05:25:25.005321",
                                  "2010-01-03T06:30:30.006163",
-                                 "2010-01-04T07:35:35",
-                                 "2006-01-01T08:40:40",
-                                 "2005-12-31T09:45:45",
-                                 "2008-12-28",
-                                 "2008-12-29",
-                                 "2012-01-01 01:02:03"])
+                                 "2010-01-04T07:35:35.0",
+                                 "2006-01-01T08:40:40.0",
+                                 "2005-12-31T09:45:45.0",
+                                 "2008-12-28T00:00:00.0",
+                                 "2008-12-29T00:00:00.0",
+                                 "2012-01-01T01:02:03.0"])
     nonexistent = pd.to_datetime(["2015-03-29 02:30:00",
                                   "2015-03-29 03:30:00"])
     ambiguous = pd.to_datetime(["2018-10-28 01:20:00",
@@ -2747,7 +2753,7 @@ def test_list_element():
 
 
 def test_count_distinct():
-    seed = datetime.now()
+    seed = datetime.datetime.now()
     samples = [seed.replace(year=y) for y in range(1992, 2092)]
     arr = pa.array(samples, pa.timestamp("ns"))
     assert pc.count_distinct(arr) == pa.scalar(len(samples), type=pa.int64())
@@ -2950,34 +2956,48 @@ def test_cast_table_raises():
 
 
 @pytest.mark.parametrize("start,stop,expected", (
+    (0, None, [[1, 2, 3], [4, 5, None], [6, None, None], None]),
     (0, 1, [[1], [4], [6], None]),
     (0, 2, [[1, 2], [4, 5], [6, None], None]),
     (1, 2, [[2], [5], [None], None]),
     (2, 4, [[3, None], [None, None], [None, None], None])
 ))
+@pytest.mark.parametrize("step", (1, 2))
 @pytest.mark.parametrize("value_type", (pa.string, pa.int16, pa.float64))
 @pytest.mark.parametrize("list_type", (pa.list_, pa.large_list, "fixed"))
-def test_list_slice_output_fixed(start, stop, expected, value_type, list_type):
+def test_list_slice_output_fixed(start, stop, step, expected, value_type,
+                                 list_type):
     if list_type == "fixed":
         arr = pa.array([[1, 2, 3], [4, 5, None], [6, None, None], None],
                        pa.list_(pa.int8(), 3)).cast(pa.list_(value_type(), 3))
     else:
         arr = pa.array([[1, 2, 3], [4, 5], [6], None],
                        pa.list_(pa.int8())).cast(list_type(value_type()))
-    result = pc.list_slice(arr, start, stop, return_fixed_size_list=True)
-    pylist = result.cast(pa.list_(pa.int8(), stop-start)).to_pylist()
-    assert pylist == expected
+
+    args = arr, start, stop, step, True
+    if stop is None and list_type != "fixed":
+        msg = ("Unable to produce FixedSizeListArray from "
+               "non-FixedSizeListArray without `stop` being set.")
+        with pytest.raises(pa.ArrowNotImplementedError, match=msg):
+            pc.list_slice(*args)
+    else:
+        result = pc.list_slice(*args)
+        pylist = result.cast(pa.list_(pa.int8(),
+                             result.type.list_size)).to_pylist()
+        assert pylist == [e[::step] if e else e for e in expected]
 
 
 @pytest.mark.parametrize("start,stop", (
+    (0, None,),
     (0, 1,),
     (0, 2,),
     (1, 2,),
     (2, 4,)
 ))
+@pytest.mark.parametrize("step", (1, 2))
 @pytest.mark.parametrize("value_type", (pa.string, pa.int16, pa.float64))
 @pytest.mark.parametrize("list_type", (pa.list_, pa.large_list, "fixed"))
-def test_list_slice_output_variable(start, stop, value_type, list_type):
+def test_list_slice_output_variable(start, stop, step, value_type, list_type):
     if list_type == "fixed":
         data = [[1, 2, 3], [4, 5, None], [6, None, None], None]
         arr = pa.array(
@@ -2992,13 +3012,14 @@ def test_list_slice_output_variable(start, stop, value_type, list_type):
     if list_type == "fixed":
         list_type = pa.list_  # non fixed output type
 
-    result = pc.list_slice(arr, start, stop, return_fixed_size_list=False)
+    result = pc.list_slice(arr, start, stop, step,
+                           return_fixed_size_list=False)
     assert result.type == list_type(value_type())
 
     pylist = result.cast(pa.list_(pa.int8())).to_pylist()
 
     # Variable output slicing follows Python's slice semantics
-    expected = [d[start:stop] if d is not None else None for d in data]
+    expected = [d[start:stop:step] if d is not None else None for d in data]
     assert pylist == expected
 
 
@@ -3029,21 +3050,9 @@ def test_list_slice_bad_parameters():
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, 0, 0)  # start == stop?
 
-    # TODO(ARROW-18282): support step in slicing
-    msg = "Setting `step` to anything other than 1 is not supported; "\
-        "got step=2"
-    with pytest.raises(NotImplementedError, match=msg):
-        pc.list_slice(arr, 0, 1, step=2)
-
-    # TODO(ARROW-18280): support stop == None; slice to end
-    # This fails first at resolve, b/c it doesn't now how big the
-    # resulting FixedSizeListArray item size will be
-    msg = "Unable to produce FixedSizeListArray without `stop`"
-    with pytest.raises(NotImplementedError, match=msg):
-        pc.list_slice(arr, 0, return_fixed_size_list=True)
-
-    # cont. This fails inside of kernel function; resolver doesn't
-    # need to know the item size for ListArray.
-    msg = "Slicing to end not yet implemented*"
-    with pytest.raises(NotImplementedError, match=msg):
-        pc.list_slice(arr, 0, return_fixed_size_list=False)
+    # Step not >= 1
+    msg = "`step` must be >= 1, got: "
+    with pytest.raises(pa.ArrowInvalid, match=msg + "0"):
+        pc.list_slice(arr, 0, 1, step=0)
+    with pytest.raises(pa.ArrowInvalid, match=msg + "-1"):
+        pc.list_slice(arr, 0, 1, step=-1)

@@ -23,6 +23,18 @@ module Arrow
     include GenericFilterable
     include GenericTakeable
 
+    def to_arrow
+      self
+    end
+
+    def to_arrow_array
+      combine
+    end
+
+    def to_arrow_chunked_array
+      self
+    end
+
     alias_method :size, :n_rows
     unless method_defined?(:length)
       alias_method :length, :n_rows

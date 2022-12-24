@@ -18,7 +18,6 @@
 #include <memory>
 
 #include "./arrow_types.h"
-#include "./arrow_vctrs.h"
 
 #include <arrow/array/array_base.h>
 #include <arrow/chunked_array.h>

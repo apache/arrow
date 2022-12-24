@@ -20,11 +20,12 @@ github:
   homepage: https://arrow.apache.org/
   collaborators:
     - assignUser
-    - raulcd
+    - milesgranger
     - toddfarmer
 
 notifications:
   commits:      commits@arrow.apache.org
+  issues_status: issues@arrow.apache.org
   issues:       github@arrow.apache.org
   pullrequests: github@arrow.apache.org
   jira_options: link label worklog

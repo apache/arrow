@@ -29,6 +29,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/key_hash.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/schema_util.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/light_array.h"
@@ -801,7 +802,7 @@ class AsofJoinNode : public ExecNode {
     if (dst.empty()) {
       return NULLPTR;
     } else {
-      return dst.Materialize(plan()->exec_context()->memory_pool(), output_schema(),
+      return dst.Materialize(plan()->query_context()->memory_pool(), output_schema(),
                              state_);
     }
   }
@@ -861,7 +862,8 @@ class AsofJoinNode : public ExecNode {
   Status Init() override {
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); i++) {
-      RETURN_NOT_OK(key_hashers_[i]->Init(plan()->exec_context(), output_schema()));
+      RETURN_NOT_OK(key_hashers_[i]->Init(plan()->query_context()->exec_context(),
+                                          output_schema()));
       state_.push_back(std::make_unique<InputState>(
           must_hash_, may_rehash_, key_hashers_[i].get(), inputs[i]->output_schema(),
           indices_of_on_key_[i], indices_of_by_key_[i]));

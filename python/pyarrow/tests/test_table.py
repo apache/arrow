@@ -2025,23 +2025,6 @@ def test_table_group_by():
     }
 
 
-def test_table_sort_by():
-    table = pa.table([
-        pa.array([3, 1, 4, 2, 5]),
-        pa.array(["b", "a", "b", "a", "c"]),
-    ], names=["values", "keys"])
-
-    assert table.sort_by("values").to_pydict() == {
-        "keys": ["a", "a", "b", "b", "c"],
-        "values": [1, 2, 3, 4, 5]
-    }
-
-    assert table.sort_by([("values", "descending")]).to_pydict() == {
-        "keys": ["c", "b", "b", "a", "a"],
-        "values": [5, 4, 3, 2, 1]
-    }
-
-
 def test_table_to_recordbatchreader():
     table = pa.Table.from_pydict({'x': [1, 2, 3]})
     reader = table.to_reader()
@@ -2204,3 +2187,55 @@ def test_table_cast_invalid():
 
     table = pa.table({'a': [None, 1], 'b': [False, True]})
     assert table.cast(new_schema).schema == new_schema
+
+
+def test_table_sort_by():
+    table = pa.table([
+        pa.array([3, 1, 4, 2, 5]),
+        pa.array(["b", "a", "b", "a", "c"]),
+    ], names=["values", "keys"])
+
+    assert table.sort_by("values").to_pydict() == {
+        "keys": ["a", "a", "b", "b", "c"],
+        "values": [1, 2, 3, 4, 5]
+    }
+
+    assert table.sort_by([("values", "descending")]).to_pydict() == {
+        "keys": ["c", "b", "b", "a", "a"],
+        "values": [5, 4, 3, 2, 1]
+    }
+
+    tab = pa.Table.from_arrays([
+        pa.array([5, 7, 7, 35], type=pa.int64()),
+        pa.array(["foo", "car", "bar", "foobar"])
+    ], names=["a", "b"])
+
+    sorted_tab = tab.sort_by([("a", "descending")])
+    sorted_tab_dict = sorted_tab.to_pydict()
+    assert sorted_tab_dict["a"] == [35, 7, 7, 5]
+    assert sorted_tab_dict["b"] == ["foobar", "car", "bar", "foo"]
+
+    sorted_tab = tab.sort_by([("a", "ascending")])
+    sorted_tab_dict = sorted_tab.to_pydict()
+    assert sorted_tab_dict["a"] == [5, 7, 7, 35]
+    assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]
+
+
+def test_record_batch_sort():
+    rb = pa.RecordBatch.from_arrays([
+        pa.array([7, 35, 7, 5], type=pa.int64()),
+        pa.array([4, 1, 3, 2], type=pa.int64()),
+        pa.array(["foo", "car", "bar", "foobar"])
+    ], names=["a", "b", "c"])
+
+    sorted_rb = rb.sort_by([("a", "descending"), ("b", "descending")])
+    sorted_rb_dict = sorted_rb.to_pydict()
+    assert sorted_rb_dict["a"] == [35, 7, 7, 5]
+    assert sorted_rb_dict["b"] == [1, 4, 3, 2]
+    assert sorted_rb_dict["c"] == ["car", "foo", "bar", "foobar"]
+
+    sorted_rb = rb.sort_by([("a", "ascending"), ("b", "ascending")])
+    sorted_rb_dict = sorted_rb.to_pydict()
+    assert sorted_rb_dict["a"] == [5, 7, 7, 35]
+    assert sorted_rb_dict["b"] == [2, 3, 4, 1]
+    assert sorted_rb_dict["c"] == ["foobar", "bar", "foo", "car"]

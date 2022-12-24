@@ -393,11 +393,12 @@ summarize_eval <- function(name, quosure, ctx, hash) {
   # By this point, there are no more aggregation functions in expr
   # except for possibly the outer function call:
   # they've all been pulled out to ctx$aggregations, and in their place in expr
-  # there are variable names, which will correspond to field refs in the
-  # query object after aggregation and collapse().
-  # So if we want to know if there are any aggregations inside expr,
-  # we have to look for them by their new var names
+  # there are variable names, which would correspond to field refs in the
+  # query object after aggregation and collapse() or non-field variable
+  # references. So if we want to know if there are any aggregations inside expr,
+  # we have to look for them by their new var names in ctx$aggregations.
   inner_agg_exprs <- all_vars(expr) %in% names(ctx$aggregations)
+  inner_is_fieldref <- all_vars(expr) %in% names(ctx$mask$.data)
 
   if (outer_agg) {
     # This is something like agg(fun(x, y)
@@ -409,7 +410,7 @@ summarize_eval <- function(name, quosure, ctx, hash) {
       ctx$mask
     )
     return()
-  } else if (all(inner_agg_exprs)) {
+  } else if (all(inner_agg_exprs | !inner_is_fieldref)) {
     # Something like: fun(agg(x), agg(y))
     # So based on the aggregations that have been extracted, mutate after
     agg_field_refs <- make_field_refs(names(ctx$aggregations))

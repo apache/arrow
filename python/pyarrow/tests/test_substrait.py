@@ -17,6 +17,7 @@
 
 import os
 import pathlib
+
 import pytest
 
 import pyarrow as pa
