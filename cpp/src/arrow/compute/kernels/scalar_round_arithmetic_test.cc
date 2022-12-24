@@ -245,7 +245,7 @@ class TestUnaryRoundToMultipleUnsigned : public TestUnaryRoundToMultipleIntegral
 template <typename T>
 class TestUnaryRoundToMultipleFloating : public TestUnaryRoundToMultiple<T> {};
 
-class TestArithmeticDecimal : public ::testing::Test {
+class TestRoundArithmeticDecimal : public ::testing::Test {
  protected:
   static std::vector<std::shared_ptr<DataType>> PositiveScaleTypes() {
     return {decimal128(4, 2), decimal256(4, 2), decimal128(38, 2), decimal256(76, 2)};
@@ -357,7 +357,7 @@ TEST(TestUnaryRound, DispatchBestRound) {
   }
 }
 
-class TestUnaryRoundArithmeticDecimal : public TestArithmeticDecimal {};
+class TestUnaryRoundArithmeticDecimal : public TestRoundArithmeticDecimal {};
 
 // Check two modes exhaustively, give all modes a simple test
 TEST_F(TestUnaryRoundArithmeticDecimal, Round) {
@@ -1064,7 +1064,7 @@ TYPED_TEST(TestUnaryRoundToMultipleFloating, RoundToMultiple) {
                             "Rounding multiple must be positive");
 }
 
-class TestBinaryRoundArithmeticDecimal : public TestArithmeticDecimal {};
+class TestBinaryRoundArithmeticDecimal : public TestRoundArithmeticDecimal {};
 
 TYPED_TEST(TestUnaryRoundArithmeticSigned, Floor) {
   auto floor = [](const Datum& arg, const ArithmeticOptions&, ExecContext* ctx) {
