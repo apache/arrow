@@ -174,6 +174,12 @@ struct ARROW_EXPORT ExecBatch {
 
   explicit ExecBatch(const RecordBatch& batch);
 
+  /// Creates an ExecBatch with length-validation.
+  ///
+  /// If any value is given, then all values must have a common length. If the given
+  /// length is negative, then the length of the ExecBatch is set to this common length,
+  /// or to 1 if no values are given. Otherwise, the given length must equal the common
+  /// length, if any value is given.
   static Result<ExecBatch> Make(std::vector<Datum> values, int64_t length = -1);
 
   Result<std::shared_ptr<RecordBatch>> ToRecordBatch(
@@ -227,16 +233,7 @@ struct ARROW_EXPORT ExecBatch {
 
   ExecBatch Slice(int64_t offset, int64_t length) const;
 
-  Result<ExecBatch> SelectValues(const std::vector<int>& ids) const {
-    std::vector<Datum> selected_values(ids.size());
-    for (size_t i = 0; i < ids.size(); i++) {
-      if (ids[i] < 0 || static_cast<size_t>(ids[i]) >= values.size()) {
-        return Status::Invalid("ExecBatch invalid value selection: ", ids[i]);
-      }
-      selected_values[i] = values[ids[i]];
-    }
-    return ExecBatch(std::move(selected_values), length);
-  }
+  Result<ExecBatch> SelectValues(const std::vector<int>& ids) const;
 
   /// \brief A convenience for returning the types from the batch.
   std::vector<TypeHolder> GetTypes() const {
