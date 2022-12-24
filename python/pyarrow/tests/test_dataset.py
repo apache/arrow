@@ -3074,6 +3074,24 @@ def test_orc_format_not_supported():
             ds.dataset(".", format="orc")
 
 
+@pytest.mark.orc
+def test_orc_writer_not_implemented_for_dataset():
+    with pytest.raises(
+        NotImplementedError,
+        match="Writing datasets not yet implemented for this file format"
+    ):
+        ds.write_dataset(
+            pa.table({"a": range(10)}), format='orc', base_dir='/tmp'
+        )
+
+    of = ds.OrcFileFormat()
+    with pytest.raises(
+        NotImplementedError,
+        match="Writing datasets not yet implemented for this file format"
+    ):
+        of.make_write_options()
+
+
 @pytest.mark.pandas
 def test_csv_format(tempdir, dataset_reader):
     table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
