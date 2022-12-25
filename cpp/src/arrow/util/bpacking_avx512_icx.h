@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <type_traits>
 #include <utility>
+#include "arrow/util/bpacking_avx512.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -1095,6 +1096,10 @@ int unpack32_avx512_icx(const uint32_t* __restrict__ in, OutType* __restrict__ o
   int64_t in_bytes = num_values * bit_width / 8;
   static_assert(IsSupportedUnpackingType<OutType>(),
                 "Only unsigned integers are supported.");
+
+  if (bit_width > 16) {
+    return unpack32_avx512(in, out, num_values, bit_width);
+  }
 
   switch (bit_width) {
     case 0:

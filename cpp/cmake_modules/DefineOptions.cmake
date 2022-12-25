@@ -199,6 +199,7 @@ takes precedence over ccache if a storage backend is configured" ON)
                        "SSE4_2"
                        "AVX2"
                        "AVX512"
+                       "AVX512_ICX"
                        "MAX")
 
   define_option(ARROW_ALTIVEC "Build with Altivec if compiler has support" ON)

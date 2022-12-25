@@ -135,6 +135,14 @@ macro(append_avx512_src SRC)
   endif()
 endmacro()
 
+macro(append_avx512_icx_src SRC)
+  if(ARROW_HAVE_RUNTIME_AVX512_ICX)
+    list(APPEND ARROW_SRCS ${SRC})
+    set_source_files_properties(${SRC} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX512_ICX_FLAG})
+  endif()
+endmacro()
+
 set(ARROW_SRCS
     array/array_base.cc
     array/array_binary.cc
@@ -246,6 +254,8 @@ endif()
 
 append_avx2_src(util/bpacking_avx2.cc)
 append_avx512_src(util/bpacking_avx512.cc)
+append_avx512_icx_src(util/bpacking_avx512_icx.h)
+append_avx512_icx_src(util/bpacking.cc)
 
 if(ARROW_HAVE_NEON)
   list(APPEND ARROW_SRCS util/bpacking_neon.cc)
