@@ -62,6 +62,8 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     set(ARROW_AVX2_FLAG "${ARROW_AVX2_FLAG} -mavx2")
     set(ARROW_AVX512_FLAG
         "${ARROW_AVX512_FLAG} -mavx512f -mavx512cd -mavx512vl -mavx512dq -mavx512bw")
+    set(ARROW_AVX512_ICX_FLAG
+        "${ARROW_AVX512_ICX_FLAG} -mavx512ifma -mavx512vbmi -mavx512vnni -mavx512vbmi2")
     check_cxx_compiler_flag(${ARROW_SSE4_2_FLAG} CXX_SUPPORTS_SSE4_2)
   endif()
   check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
