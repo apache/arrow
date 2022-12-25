@@ -22,8 +22,10 @@ import concurrent.futures as cf
 import functools
 import json
 import os
+import random
 import re
 import subprocess
+import time
 import urllib.request
 
 
@@ -190,12 +192,18 @@ class GitHub(Downloader):
             print("Already downloaded", dest_path)
             return
 
-        return self._download_url(
+        delay = random.randint(0, 3)
+        print(f"Waiting {delay} seconds to avoid rate limit")
+        time.sleep(delay)
+
+        self._download_url(
             url,
             dest_path,
             extra_args=[
                 "--header",
                 "Accept: application/octet-stream",
+                # Also retry 403s
+                "--retry-all-errors",
             ],
         )
 
