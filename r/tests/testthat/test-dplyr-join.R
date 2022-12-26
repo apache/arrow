@@ -26,15 +26,14 @@ to_join <- tibble::tibble(
   another_column = TRUE
 )
 
-test_that("left_join", {
-  expect_message(
-    compare_dplyr_binding(
-      .input %>%
-        left_join(to_join) %>%
-        collect(),
-      left
-    ),
-    'Joining, by = "some_grouping"'
+test_that("left_join with automatic grouping", {
+  expect_identical(
+    as_record_batch(left) %>%
+      left_join(to_join) %>%
+      collect(),
+    left %>%
+      left_join(to_join, by = "some_grouping") %>%
+      collect()
   )
 })
 
@@ -174,14 +173,12 @@ test_that("full_join", {
 })
 
 test_that("semi_join", {
-  for (keep in c(TRUE, FALSE)) {
-    compare_dplyr_binding(
-      .input %>%
-        semi_join(to_join, by = "some_grouping", keep = !!keep) %>%
-        collect(),
-      left
-    )
-  }
+  compare_dplyr_binding(
+    .input %>%
+      semi_join(to_join, by = "some_grouping") %>%
+      collect(),
+    left
+  )
 })
 
 test_that("anti_join", {
