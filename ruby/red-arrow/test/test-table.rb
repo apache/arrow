@@ -1056,6 +1056,20 @@ visible: false
   end
 
   sub_test_case("#join") do
+    test("no keys") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["key", [1, 3]],
+                                      ["string", ["one", "three"]],
+                                    ]),
+                   table1.join(table2))
+    end
+
     test("keys: String") do
       table1 = Arrow::Table.new(key: [1, 2, 3],
                                 number: [10, 20, 30])
