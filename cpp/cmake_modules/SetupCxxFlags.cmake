@@ -89,7 +89,23 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
       }"
                               CXX_SUPPORTS_AVX512)
 
-    check_cxx_compiler_flag(${ARROW_AVX512_ICX_FLAG} CXX_SUPPORTS_AVX512_ICX)
+    set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
+
+    set(OLD_CMAKE_REQURED_FLAGS ${CMAKE_REQUIRED_FLAGS})
+    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${ARROW_AVX512_ICX_FLAG}")
+    check_cxx_source_compiles("
+      #ifdef _MSC_VER
+      #include <intrin.h>
+      #else
+      #include <immintrin.h>
+      #endif
+
+      int main() {
+        __m512i data = _mm512_set1_epi32(0x1);
+	_mm512_maskz_expand_epi16(0x1f1f1f1f, data);
+        return 0;
+      }"
+                              CXX_SUPPORTS_AVX512_ICX)
     set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
   endif()
   # Runtime SIMD level it can get from compiler and ARROW_RUNTIME_SIMD_LEVEL
