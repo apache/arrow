@@ -53,6 +53,7 @@ esac
 
 apt-get install -y -q --no-install-recommends \
   build-essential \
+  bundler \
   clang \
   cmake \
   curl \
