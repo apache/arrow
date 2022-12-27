@@ -97,17 +97,17 @@ static void ChunkedArraySortFuncInt64Benchmark(benchmark::State& state,
 
 template <typename Runner>
 static void ChunkedArraySortFuncStringBenchmark(benchmark::State& state,
-                                                const Runner& runner, int64_t min_length,
-                                                int64_t max_length) {
+                                                const Runner& runner, int32_t min_length,
+                                                int32_t max_length) {
   RegressionArgs args(state);
 
-  const int64_t n_chunks = 10;
-  const int64_t string_mean_length = (max_length + min_length) / 2;
-  const int64_t array_size = args.size / n_chunks / string_mean_length;
+  const auto n_chunks = 10;
+  const auto string_mean_length = (max_length + min_length) / 2;
+  const auto array_size = args.size / n_chunks / string_mean_length;
   auto rand = random::RandomArrayGenerator(kSeed);
 
   ArrayVector chunks;
-  for (int64_t i = 0; i < n_chunks; ++i) {
+  for (auto i = 0; i < n_chunks; ++i) {
     chunks.push_back(
         rand.String(array_size, min_length, max_length, args.null_proportion));
   }
@@ -131,8 +131,8 @@ static void ArraySortFuncStringBenchmark(benchmark::State& state, const Runner& 
                                          int32_t min_length, int32_t max_length) {
   RegressionArgs args(state);
 
-  const int64_t string_mean_length = (max_length + min_length) / 2;
-  const int64_t array_size = args.size / string_mean_length;
+  const auto string_mean_length = (max_length + min_length) / 2;
+  const auto array_size = args.size / string_mean_length;
 
   auto rand = random::RandomArrayGenerator(kSeed);
   auto values = rand.String(array_size, min_length, max_length, args.null_proportion);
