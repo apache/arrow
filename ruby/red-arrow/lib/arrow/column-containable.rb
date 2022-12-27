@@ -144,7 +144,7 @@ module Arrow
       end
     end
 
-    # Return column names in this table.
+    # Return column names in this object.
     #
     # @return [::Array<String>] column names.
     # 
