@@ -88,6 +88,11 @@ struct benchmark_traits<BooleanType> {
   using arrow_type = ::arrow::BooleanType;
 };
 
+template <>
+struct benchmark_traits<ByteArrayType> {
+  using arrow_type = ::arrow::BinaryType;
+};
+
 template <typename ParquetType>
 using ArrowType = typename benchmark_traits<ParquetType>::arrow_type;
 
@@ -208,7 +213,7 @@ struct Examples<bool> {
 };
 
 static void BenchmarkReadTable(::benchmark::State& state, const ::arrow::Table& table,
-                               int64_t num_values = -1, int64_t bytes_per_value = -1) {
+                               int64_t num_values = -1, int64_t total_bytes = -1) {
   auto output = CreateOutputStream();
   EXIT_NOT_OK(
       WriteTable(table, ::arrow::default_memory_pool(), output, table.num_rows()));
@@ -228,20 +233,20 @@ static void BenchmarkReadTable(::benchmark::State& state, const ::arrow::Table& 
     num_values = table.num_rows();
   }
   state.SetItemsProcessed(num_values * state.iterations());
-  if (bytes_per_value != -1) {
-    state.SetBytesProcessed(num_values * state.iterations() * bytes_per_value);
+  if (total_bytes != -1) {
+    state.SetBytesProcessed(total_bytes * state.iterations());
   }
 }
 
 static void BenchmarkReadArray(::benchmark::State& state,
                                const std::shared_ptr<Array>& array, bool nullable,
-                               int64_t num_values = -1, int64_t bytes_per_value = -1) {
+                               int64_t num_values = -1, int64_t total_bytes = -1) {
   auto schema = ::arrow::schema({field("s", array->type(), nullable)});
   auto table = ::arrow::Table::Make(schema, {array}, array->length());
 
   EXIT_NOT_OK(table->Validate());
 
-  BenchmarkReadTable(state, *table, num_values, bytes_per_value);
+  BenchmarkReadTable(state, *table, num_values, total_bytes);
 }
 
 //
@@ -259,7 +264,7 @@ static void BM_ReadColumn(::benchmark::State& state) {
       TableFromVector<ParquetType>(values, nullable, state.range(0));
 
   BenchmarkReadTable(state, *table, table->num_rows(),
-                     sizeof(typename ParquetType::c_type));
+                     sizeof(typename ParquetType::c_type) * table->num_rows());
 }
 
 // There are two parameters here that cover different data distributions.
@@ -318,6 +323,44 @@ BENCHMARK_TEMPLATE2(BM_ReadColumn, false, BooleanType)
 BENCHMARK_TEMPLATE2(BM_ReadColumn, true, BooleanType)
     ->Args({kAlternatingOrNa, 1})
     ->Args({5, 10});
+
+//
+// Benchmark reading binary column
+//
+
+int32_t kInfiniteUniqueValues = -1;
+template <bool nullable>
+static void BM_ReadBinaryColumn(::benchmark::State& state) {
+  std::shared_ptr<::arrow::DataType> type = ::arrow::utf8();
+  std::shared_ptr<::arrow::Array> arr;
+  ::arrow::random::RandomArrayGenerator generator(500);
+  double null_percentage = static_cast<double>(state.range(0)) / 100.0;
+  if (state.range(1) == kInfiniteUniqueValues) {
+    arr = generator.String(BENCHMARK_SIZE, /*min_length=*/3, /*max_length=*/32,
+                           /*null_probability=*/null_percentage);
+  } else {
+    arr = generator.StringWithRepeats(BENCHMARK_SIZE, /*unique=*/state.range(1),
+                                      /*min_length=*/3, /*max_length=*/32,
+                                      /*null_probability=*/null_percentage);
+  }
+
+  std::shared_ptr<::arrow::Table> table = ::arrow::Table::Make(
+      ::arrow::schema({::arrow::field("column", type, nullable)}), {arr});
+
+  BenchmarkReadTable(state, *table, table->num_rows(), arr->data()->buffers[1]->size());
+}
+
+BENCHMARK_TEMPLATE1(BM_ReadBinaryColumn, false)
+    ->Args({/*null_probability*/ 0, /*unique_values*/ 2})
+    ->Args({/*null_probability*/ 0, /*unique_values*/ 32})
+    ->Args({/*null_probability*/ 0, /*unique_values*/ kInfiniteUniqueValues});
+BENCHMARK_TEMPLATE1(BM_ReadBinaryColumn, true)
+    ->Args({/*null_probability*/ 1, /*unique_values*/ 32})
+    ->Args({/*null_probability*/ 50, /*unique_values*/ 32})
+    ->Args({/*null_probability*/ 99, /*unique_values*/ 32})
+    ->Args({/*null_probability*/ 1, /*unique_values*/ kInfiniteUniqueValues})
+    ->Args({/*null_probability*/ 50, /*unique_values*/ kInfiniteUniqueValues})
+    ->Args({/*null_probability*/ 99, /*unique_values*/ kInfiniteUniqueValues});
 
 //
 // Benchmark reading a nested column
@@ -383,7 +426,7 @@ static void BM_ReadStructColumn(::benchmark::State& state) {
   ::arrow::random::RandomArrayGenerator rng(42);
   auto array = MakeStructArray(&rng, kNumValues, null_probability);
 
-  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue * kNumValues);
 }
 
 BENCHMARK(BM_ReadStructColumn)->Apply(NestedReadArguments);
@@ -402,7 +445,7 @@ static void BM_ReadStructOfStructColumn(::benchmark::State& state) {
   auto values2 = MakeStructArray(&rng, kNumValues, null_probability);
   auto array = MakeStructArray(&rng, {values1, values2}, null_probability);
 
-  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue * kNumValues);
 }
 
 BENCHMARK(BM_ReadStructOfStructColumn)->Apply(NestedReadArguments);
@@ -426,7 +469,7 @@ static void BM_ReadStructOfListColumn(::benchmark::State& state) {
   auto array = MakeStructArray(&rng, {list1, list2}, null_probability,
                                /*propagate_validity =*/true);
 
-  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue * kNumValues);
 }
 
 BENCHMARK(BM_ReadStructOfListColumn)->Apply(NestedReadArguments);
@@ -445,7 +488,7 @@ static void BM_ReadListColumn(::benchmark::State& state) {
 
   auto array = rng.List(*values, kNumValues / 10, null_probability);
 
-  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue * kNumValues);
 }
 
 BENCHMARK(BM_ReadListColumn)->Apply(NestedReadArguments);
@@ -464,7 +507,7 @@ static void BM_ReadListOfStructColumn(::benchmark::State& state) {
 
   auto array = rng.List(*values, kNumValues / 10, null_probability);
 
-  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue * kNumValues);
 }
 
 BENCHMARK(BM_ReadListOfStructColumn)->Apply(NestedReadArguments);
@@ -484,7 +527,7 @@ static void BM_ReadListOfListColumn(::benchmark::State& state) {
   auto inner = rng.List(*values, kNumValues / 10, null_probability);
   auto array = rng.List(*inner, kNumValues / 100, null_probability);
 
-  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue * kNumValues);
 }
 
 BENCHMARK(BM_ReadListOfListColumn)->Apply(NestedReadArguments);
