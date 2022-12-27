@@ -478,6 +478,8 @@ module Arrow
     #   @macro join_common_before
     #   @macro join_common_after
     #
+    # @since 11.0.0
+    #
     # @overload join(right, key, type: :inner, left_outputs: nil, right_outputs: nil)
     #   Join right by a key.
     #
