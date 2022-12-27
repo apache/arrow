@@ -203,7 +203,9 @@ class GitHub(Downloader):
                 "--header",
                 "Accept: application/octet-stream",
                 # Also retry 403s
-                "--retry-all-errors",
+                "--retry",
+                "5",
+                "--fail"
             ],
         )
 
