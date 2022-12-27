@@ -377,11 +377,13 @@ class FileFormatWriterMixin {
 /// FormatHelper should be a class with these static methods:
 /// std::shared_ptr<Buffer> Write(RecordBatchReader* reader);
 /// std::shared_ptr<FileFormat> MakeFormat();
-template <typename FormatHelper>
+template <typename FormatHelper, int64_t MaxNumRows = -1>
 class FileFormatFixtureMixin : public ::testing::Test {
  public:
-  constexpr static int64_t kBatchSize = 1UL << 12;
   constexpr static int64_t kBatchRepetitions = 1 << 5;
+  constexpr static int64_t kBatchSize =
+      MaxNumRows < 0 ? 1UL << 12 : MaxNumRows / kBatchRepetitions;
+  static_assert(kBatchSize > 0);
 
   FileFormatFixtureMixin()
       : format_(FormatHelper::MakeFormat()), opts_(std::make_shared<ScanOptions>()) {}
