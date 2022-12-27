@@ -579,6 +579,23 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "
   string(APPEND ARROW_PC_LIBS_PRIVATE " -latomic")
 endif()
 
+# If libarrow.a is only built, "pkg-config --cflags --libs arrow"
+# outputs build flags for static linking not shared
+# linking. ARROW_PC_* except ARROW_PC_*_PRIVATE are for the static
+# linking case.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  set(ARROW_PC_CFLAGS "${ARROW_PC_CFLAGS_PRIVATE}")
+  set(ARROW_PC_CFLAGS_PRIVATE "")
+  set(ARROW_PC_LIBS "${ARROW_PC_LIBS_PRIVATE}")
+  set(ARROW_PC_LIBS_PRIVATE "")
+  set(ARROW_PC_REQUIRES "${ARROW_PC_REQUIRES_PRIVATE}")
+  set(ARROW_PC_REQUIRES_PRIVATE "")
+else()
+  set(ARROW_PC_CFLAGS "")
+  set(ARROW_PC_LIBS "")
+  set(ARROW_PC_REQUIRES "")
+endif()
+
 add_arrow_lib(arrow
               CMAKE_PACKAGE_NAME
               Arrow
