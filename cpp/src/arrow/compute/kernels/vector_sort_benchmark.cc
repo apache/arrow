@@ -128,7 +128,7 @@ static void ArraySortFuncBoolBenchmark(benchmark::State& state, const Runner& ru
 
 template <typename Runner>
 static void ArraySortFuncStringBenchmark(benchmark::State& state, const Runner& runner,
-                                         int64_t min_length, int64_t max_length) {
+                                         int32_t min_length, int32_t max_length) {
   RegressionArgs args(state);
 
   const int64_t string_mean_length = (max_length + min_length) / 2;
