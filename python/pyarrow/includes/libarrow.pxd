@@ -2583,6 +2583,10 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
         CProjectNodeOptions(vector[CExpression] expressions,
                             vector[c_string] names)
 
+    cdef cppclass COrderBySinkNodeOptions "arrow::compute::OrderBySinkNodeOptions"(CExecNodeOptions):
+        COrderBySinkNodeOptions(vector[CSortOptions] options,
+                                CAsyncExecBatchGenerator generator)
+
     cdef cppclass CHashJoinNodeOptions "arrow::compute::HashJoinNodeOptions"(CExecNodeOptions):
         CHashJoinNodeOptions(CJoinType, vector[CFieldRef] in_left_keys,
                              vector[CFieldRef] in_right_keys)

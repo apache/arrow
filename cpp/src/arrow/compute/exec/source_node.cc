@@ -23,6 +23,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/datum.h"
@@ -91,7 +92,7 @@ struct SourceNode : ExecNode {
     }
 
     CallbackOptions options;
-    auto executor = plan()->exec_context()->executor();
+    auto executor = plan()->query_context()->executor();
     if (executor) {
       // These options will transfer execution to the desired Executor if necessary.
       // This can happen for in-memory scans where batches didn't require
@@ -100,7 +101,8 @@ struct SourceNode : ExecNode {
       options.executor = executor;
       options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     }
-    ARROW_ASSIGN_OR_RAISE(Future<> scan_task, plan_->BeginExternalTask());
+    ARROW_ASSIGN_OR_RAISE(Future<> scan_task,
+                          plan_->query_context()->BeginExternalTask());
     if (!scan_task.is_valid()) {
       finished_.MarkFinished();
       // Plan has already been aborted, no need to start scanning
@@ -121,7 +123,8 @@ struct SourceNode : ExecNode {
                          return Break(batch_count_);
                        }
                        lock.unlock();
-                       bool use_legacy_batching = plan_->UseLegacyBatching();
+                       bool use_legacy_batching =
+                           plan_->query_context()->options().use_legacy_batching;
                        ExecBatch morsel = std::move(*maybe_morsel);
                        int64_t morsel_length = static_cast<int64_t>(morsel.length);
                        if (use_legacy_batching || morsel_length == 0) {
@@ -133,23 +136,22 @@ struct SourceNode : ExecNode {
                              bit_util::CeilDiv(morsel_length, ExecPlan::kMaxBatchSize));
                          batch_count_ += num_batches;
                        }
-                       RETURN_NOT_OK(plan_->ScheduleTask(
-                           [this, use_legacy_batching, morsel, morsel_length]() {
-                             int64_t offset = 0;
-                             do {
-                               int64_t batch_size = std::min<int64_t>(
-                                   morsel_length - offset, ExecPlan::kMaxBatchSize);
-                               // In order for the legacy batching model to work we must
-                               // not slice batches from the source
-                               if (use_legacy_batching) {
-                                 batch_size = morsel_length;
-                               }
-                               ExecBatch batch = morsel.Slice(offset, batch_size);
-                               offset += batch_size;
-                               outputs_[0]->InputReceived(this, std::move(batch));
-                             } while (offset < morsel.length);
-                             return Status::OK();
-                           }));
+                       RETURN_NOT_OK(plan_->query_context()->ScheduleTask([=]() {
+                         int64_t offset = 0;
+                         do {
+                           int64_t batch_size = std::min<int64_t>(
+                               morsel_length - offset, ExecPlan::kMaxBatchSize);
+                           // In order for the legacy batching model to work we must
+                           // not slice batches from the source
+                           if (use_legacy_batching) {
+                             batch_size = morsel_length;
+                           }
+                           ExecBatch batch = morsel.Slice(offset, batch_size);
+                           offset += batch_size;
+                           outputs_[0]->InputReceived(this, std::move(batch));
+                         } while (offset < morsel.length);
+                         return Status::OK();
+                       }));
                        lock.lock();
                        if (!backpressure_future_.is_finished()) {
                          EVENT(span_, "Source paused due to backpressure");
@@ -309,7 +311,7 @@ struct SchemaSourceNode : public SourceNode {
     auto io_executor = cast_options.io_executor;
 
     if (io_executor == NULLPTR) {
-      io_executor = plan->exec_context()->executor();
+      io_executor = plan->query_context()->exec_context()->executor();
     }
     auto it = it_maker();
 

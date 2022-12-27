@@ -602,6 +602,18 @@ class TableTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("#column_names") do
+    test("unique") do
+      table = Arrow::Table.new(a: [1], b: [2], c: [3])
+      assert_equal(%w[a b c], table.column_names)
+    end
+
+    test("duplicated") do
+      table = Arrow::Table.new([["a", [1, 2, 3]], ["a", [4, 5, 6]]])
+      assert_equal(%w[a a], table.column_names)
+    end
+  end
+
   sub_test_case("#save and .load") do
     module SaveLoadFormatTests
       def test_default

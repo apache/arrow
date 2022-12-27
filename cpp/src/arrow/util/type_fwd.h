@@ -34,6 +34,7 @@ namespace internal {
 class Executor;
 class TaskGroup;
 class ThreadPool;
+class CpuInfo;
 
 }  // namespace internal
 

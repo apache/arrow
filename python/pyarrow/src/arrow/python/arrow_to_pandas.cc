@@ -492,7 +492,7 @@ class PandasWriter {
   Status AllocateNDArray(int npy_type, int ndim = 2) {
     PyAcquireGIL lock;
 
-    PyObject* block_arr;
+    PyObject* block_arr = nullptr;
     npy_intp block_dims[2] = {0, 0};
 
     if (ndim == 2) {

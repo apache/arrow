@@ -141,6 +141,10 @@ jobs:
         r_version:
           - { rtools: "{{ macros.r_release.rt }}", r: "{{ macros.r_release.ver }}" }
           - { rtools: "{{ macros.r_oldrel.rt }}", r: "{{ macros.r_oldrel.ver }}" }
+        exclude:
+          # GH-15080: purrr 1.0.0 doesn't work with R oldrel on Windows
+          - platform: { runs_on: 'windows-latest', name: "Windows"}
+            r_version: { rtools: "{{ macros.r_oldrel.rt }}", r: "{{ macros.r_oldrel.ver }}" }
     steps:
       - uses: r-lib/actions/setup-r@v2
         # expression marker prevents the ! being parsed as yaml tag

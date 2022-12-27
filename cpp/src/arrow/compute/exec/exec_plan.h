@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/exec.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/future.h"
@@ -49,11 +50,15 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   virtual ~ExecPlan() = default;
 
-  ExecContext* exec_context() const { return exec_context_; }
+  QueryContext* query_context();
 
   /// Make an empty exec plan
   static Result<std::shared_ptr<ExecPlan>> Make(
-      ExecContext* = default_exec_context(),
+      QueryOptions options, ExecContext* exec_context = default_exec_context(),
+      std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+
+  static Result<std::shared_ptr<ExecPlan>> Make(
+      ExecContext* exec_context = default_exec_context(),
       std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
   ExecNode* AddNode(std::unique_ptr<ExecNode> node);
@@ -65,62 +70,6 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
     AddNode(std::move(node));
     return out;
   }
-
-  /// \brief Returns the index of the current thread.
-  size_t GetThreadIndex();
-  /// \brief Returns the maximum number of threads that the plan could use.
-  ///
-  /// GetThreadIndex will always return something less than this, so it is safe to
-  /// e.g. make an array of thread-locals off this.
-  size_t max_concurrency() const;
-
-  /// \brief Start an external task
-  ///
-  /// This should be avoided if possible.  It is kept in for now for legacy
-  /// purposes.  This should be called before the external task is started.  If
-  /// a valid future is returned then it should be marked complete when the
-  /// external task has finished.
-  ///
-  /// \return an invalid future if the plan has already ended, otherwise this
-  ///         returns a future that must be completed when the external task
-  ///         finishes.
-  Result<Future<>> BeginExternalTask();
-
-  /// \brief Add a single function as a task to the plan's task group.
-  ///
-  /// \param fn The task to run. Takes no arguments and returns a Status.
-  Status ScheduleTask(std::function<Status()> fn);
-
-  /// \brief Add a single function as a task to the plan's task group.
-  ///
-  /// \param fn The task to run. Takes the thread index and returns a Status.
-  Status ScheduleTask(std::function<Status(size_t)> fn);
-  // Register/Start TaskGroup is a way of performing a "Parallel For" pattern:
-  // - The task function takes the thread index and the index of the task
-  // - The on_finished function takes the thread index
-  // Returns an integer ID that will be used to reference the task group in
-  // StartTaskGroup. At runtime, call StartTaskGroup with the ID and the number of times
-  // you'd like the task to be executed. The need to register a task group before use will
-  // be removed after we rewrite the scheduler.
-  /// \brief Register a "parallel for" task group with the scheduler
-  ///
-  /// \param task The function implementing the task. Takes the thread_index and
-  ///             the task index.
-  /// \param on_finished The function that gets run once all tasks have been completed.
-  /// Takes the thread_index.
-  ///
-  /// Must be called inside of ExecNode::Init.
-  int RegisterTaskGroup(std::function<Status(size_t, int64_t)> task,
-                        std::function<Status(size_t)> on_finished);
-
-  /// \brief Start the task group with the specified ID. This can only
-  ///        be called once per task_group_id.
-  ///
-  /// \param task_group_id The ID  of the task group to run
-  /// \param num_tasks The number of times to run the task
-  Status StartTaskGroup(int task_group_id, int64_t num_tasks);
-
-  util::AsyncTaskScheduler* async_scheduler();
 
   /// The initial inputs
   const NodeVector& sources() const;
@@ -151,25 +100,7 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// \brief Return the plan's attached metadata
   std::shared_ptr<const KeyValueMetadata> metadata() const;
 
-  /// \brief Should the plan use a legacy batching strategy
-  ///
-  /// This is currently in place only to support the Scanner::ToTable
-  /// method.  This method relies on batch indices from the scanner
-  /// remaining consistent.  This is impractical in the ExecPlan which
-  /// might slice batches as needed (e.g. for a join)
-  ///
-  /// However, it still works for simple plans and this is the only way
-  /// we have at the moment for maintaining implicit order.
-  bool UseLegacyBatching() const { return use_legacy_batching_; }
-  // For internal use only, see above comment
-  void SetUseLegacyBatching(bool value) { use_legacy_batching_ = value; }
-
   std::string ToString() const;
-
- protected:
-  ExecContext* exec_context_;
-  bool use_legacy_batching_ = false;
-  explicit ExecPlan(ExecContext* exec_context) : exec_context_(exec_context) {}
 };
 
 class ARROW_EXPORT ExecNode {

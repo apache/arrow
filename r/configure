@@ -203,7 +203,7 @@ else
               ${LIB_DIR}/pkgconfig/*.pc
             rm -f ${LIB_DIR}/pkgconfig/*.pc.bak
           fi
-          PKG_CONFIG="${PKG_CONFIG} --static --silence-errors"
+          PKG_CONFIG="${PKG_CONFIG} --silence-errors"
           PKG_CFLAGS="`${PKG_CONFIG} --cflags ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
           PKG_DIRS="`${PKG_CONFIG} --libs-only-L ${PKG_CONFIG_NAME}`"
           PKG_LIBS="`${PKG_CONFIG} --libs-only-l --libs-only-other ${PKG_CONFIG_NAME}`"

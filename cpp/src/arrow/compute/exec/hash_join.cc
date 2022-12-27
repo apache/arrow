@@ -39,7 +39,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
   struct ThreadLocalState;
 
  public:
-  Status Init(ExecContext* ctx, JoinType join_type, size_t num_threads,
+  Status Init(QueryContext* ctx, JoinType join_type, size_t num_threads,
               const HashJoinProjectionMaps* proj_map_left,
               const HashJoinProjectionMaps* proj_map_right,
               std::vector<JoinKeyCmp> key_cmp, Expression filter,
@@ -98,7 +98,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     for (int icol = 0; icol < num_cols; ++icol) {
       data_types[icol] = schema_[side]->data_type(projection_handle, icol);
     }
-    encoder->Init(data_types, ctx_);
+    encoder->Init(data_types, ctx_->exec_context());
     encoder->Clear();
   }
 
@@ -296,8 +296,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
     AppendFields(left_to_key, left_to_pay, left_key, left_payload);
     AppendFields(right_to_key, right_to_pay, right_key, right_payload);
 
-    ARROW_ASSIGN_OR_RAISE(Datum mask,
-                          ExecuteScalarExpression(filter_, concatenated, ctx_));
+    ARROW_ASSIGN_OR_RAISE(
+        Datum mask, ExecuteScalarExpression(filter_, concatenated, ctx_->exec_context()));
 
     size_t num_probed_rows = match.size() + no_match.size();
     if (mask.is_scalar()) {
@@ -397,7 +397,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
       ARROW_ASSIGN_OR_RAISE(right_key,
                             hash_table_keys_.Decode(batch_size_next, opt_right_ids));
       // Post process build side keys that use dictionary
-      RETURN_NOT_OK(dict_build_.PostDecode(*schema_[1], &right_key, ctx_));
+      RETURN_NOT_OK(
+          dict_build_.PostDecode(*schema_[1], &right_key, ctx_->exec_context()));
     }
     if (has_right_payload) {
       ARROW_ASSIGN_OR_RAISE(right_payload,
@@ -509,13 +510,13 @@ class HashJoinBasicImpl : public HashJoinImpl {
     local_state.match_left.clear();
     local_state.match_right.clear();
 
-    bool use_key_batch_for_dicts =
-        dict_probe_.BatchRemapNeeded(thread_index, *schema_[0], *schema_[1], ctx_);
+    bool use_key_batch_for_dicts = dict_probe_.BatchRemapNeeded(
+        thread_index, *schema_[0], *schema_[1], ctx_->exec_context());
     RowEncoder* row_encoder_for_lookups = &local_state.exec_batch_keys;
     if (use_key_batch_for_dicts) {
-      RETURN_NOT_OK(dict_probe_.EncodeBatch(thread_index, *schema_[0], *schema_[1],
-                                            dict_build_, batch, &row_encoder_for_lookups,
-                                            &batch_key_for_lookups, ctx_));
+      RETURN_NOT_OK(dict_probe_.EncodeBatch(
+          thread_index, *schema_[0], *schema_[1], dict_build_, batch,
+          &row_encoder_for_lookups, &batch_key_for_lookups, ctx_->exec_context()));
     }
 
     // Collect information about all nulls in key columns.
@@ -560,7 +561,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
   Status BuildHashTable_exec_task(size_t thread_index, int64_t /*task_id*/) {
     AccumulationQueue batches = std::move(build_batches_);
-    dict_build_.InitEncoder(*schema_[1], &hash_table_keys_, ctx_);
+    dict_build_.InitEncoder(*schema_[1], &hash_table_keys_, ctx_->exec_context());
     bool has_payload = (schema_[1]->num_cols(HashJoinProjection::PAYLOAD) > 0);
     if (has_payload) {
       InitEncoder(1, HashJoinProjection::PAYLOAD, &hash_table_payloads_);
@@ -577,11 +578,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
       } else if (hash_table_empty_) {
         hash_table_empty_ = false;
 
-        RETURN_NOT_OK(dict_build_.Init(*schema_[1], &batch, ctx_));
+        RETURN_NOT_OK(dict_build_.Init(*schema_[1], &batch, ctx_->exec_context()));
       }
       int32_t num_rows_before = hash_table_keys_.num_rows();
       RETURN_NOT_OK(dict_build_.EncodeBatch(thread_index, *schema_[1], batch,
-                                            &hash_table_keys_, ctx_));
+                                            &hash_table_keys_, ctx_->exec_context()));
       if (has_payload) {
         RETURN_NOT_OK(
             EncodeBatch(1, HashJoinProjection::PAYLOAD, &hash_table_payloads_, batch));
@@ -593,7 +594,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     }
 
     if (hash_table_empty_) {
-      RETURN_NOT_OK(dict_build_.Init(*schema_[1], nullptr, ctx_));
+      RETURN_NOT_OK(dict_build_.Init(*schema_[1], nullptr, ctx_->exec_context()));
     }
 
     return Status::OK();
@@ -734,7 +735,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
   // Metadata
   //
-  ExecContext* ctx_;
+  QueryContext* ctx_;
   JoinType join_type_;
   size_t num_threads_;
   const HashJoinProjectionMaps* schema_[2];
