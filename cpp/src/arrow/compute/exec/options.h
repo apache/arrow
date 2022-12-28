@@ -199,8 +199,8 @@ constexpr int32_t kDefaultBackpressureLowBytes = 1 << 28;   // 256MiB
 class ARROW_EXPORT BackpressureMonitor {
  public:
   virtual ~BackpressureMonitor() = default;
-  virtual uint64_t bytes_in_use() const = 0;
-  virtual bool is_paused() const = 0;
+  virtual uint64_t bytes_in_use() = 0;
+  virtual bool is_paused() = 0;
 };
 
 /// \brief Options to control backpressure behavior

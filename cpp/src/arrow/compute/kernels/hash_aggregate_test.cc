@@ -124,13 +124,13 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
 Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
                                    const std::vector<std::string>& key_names,
                                    const std::vector<Aggregate>& aggregates,
-                                   bool use_threads, ExecContext* ctx) {
+                                   bool use_threads) {
   std::vector<FieldRef> keys(key_names.size());
   for (size_t i = 0; i < key_names.size(); ++i) {
     keys[i] = FieldRef(key_names[i]);
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(ctx));
+  ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(*threaded_exec_context()));
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   RETURN_NOT_OK(
       Declaration::Sequence(
@@ -185,7 +185,7 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
 Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
                                    const std::vector<Datum>& keys,
                                    const std::vector<Aggregate>& aggregates,
-                                   bool use_threads, ExecContext* ctx) {
+                                   bool use_threads) {
   using arrow::compute::detail::ExecSpanIterator;
 
   FieldVector scan_fields(arguments.size() + keys.size());
@@ -206,7 +206,7 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
 
   ExecSpanIterator span_iterator;
   ARROW_ASSIGN_OR_RAISE(auto batch, ExecBatch::Make(inputs));
-  RETURN_NOT_OK(span_iterator.Init(batch, ctx->exec_chunksize()));
+  RETURN_NOT_OK(span_iterator.Init(batch));
   BatchesWithSchema input;
   input.schema = schema(std::move(scan_fields));
   ExecSpan span;
@@ -215,7 +215,7 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
     input.batches.push_back(span.ToExecBatch());
   }
 
-  return GroupByUsingExecPlan(input, key_names, aggregates, use_threads, ctx);
+  return GroupByUsingExecPlan(input, key_names, aggregates, use_threads);
 }
 
 void ValidateGroupBy(const std::vector<Aggregate>& aggregates,
@@ -255,8 +255,7 @@ Result<Datum> GroupByTest(const std::vector<Datum>& arguments,
     idx = idx + 1;
   }
   if (use_exec_plan) {
-    return GroupByUsingExecPlan(arguments, keys, internal_aggregates, use_threads,
-                                small_chunksize_context(use_threads));
+    return GroupByUsingExecPlan(arguments, keys, internal_aggregates, use_threads);
   } else {
     return internal::GroupBy(arguments, keys, internal_aggregates, use_threads,
                              default_exec_context());
@@ -882,7 +881,7 @@ TEST(GroupBy, CountScalar) {
                                  {"hash_count", keep_nulls, "argument", "hash_count"},
                                  {"hash_count", count_all, "argument", "hash_count"},
                              },
-                             use_threads, default_exec_context()));
+                             use_threads));
     Datum expected = ArrayFromJSON(struct_({
                                        field("hash_count", int64()),
                                        field("hash_count", int64()),
@@ -1095,7 +1094,7 @@ TEST(GroupBy, SumMeanProductScalar) {
                                  {"hash_mean", nullptr, "argument", "hash_mean"},
                                  {"hash_product", nullptr, "argument", "hash_product"},
                              },
-                             use_threads, default_exec_context()));
+                             use_threads));
     Datum expected = ArrayFromJSON(struct_({
                                        field("hash_sum", int64()),
                                        field("hash_mean", float64()),
@@ -1492,7 +1491,7 @@ TEST(GroupBy, StddevVarianceTDigestScalar) {
                                  {"hash_variance", nullptr, "argument1", "hash_variance"},
                                  {"hash_tdigest", nullptr, "argument1", "hash_tdigest"},
                              },
-                             use_threads, default_exec_context()));
+                             use_threads));
     Datum expected =
         ArrayFromJSON(struct_({
                           field("hash_stddev", float64()),
@@ -1554,7 +1553,7 @@ TEST(GroupBy, VarianceOptions) {
                 {"hash_variance", min_count, "argument", "hash_variance"},
                 {"hash_variance", keep_nulls_min_count, "argument", "hash_variance"},
             },
-            use_threads, default_exec_context()));
+            use_threads));
     Datum expected = ArrayFromJSON(struct_({
                                        field("hash_stddev", float64()),
                                        field("hash_stddev", float64()),
@@ -1585,7 +1584,7 @@ TEST(GroupBy, VarianceOptions) {
                 {"hash_variance", min_count, "argument1", "hash_variance"},
                 {"hash_variance", keep_nulls_min_count, "argument1", "hash_variance"},
             },
-            use_threads, default_exec_context()));
+            use_threads));
     expected = ArrayFromJSON(struct_({
                                  field("hash_stddev", float64()),
                                  field("hash_stddev", float64()),
@@ -2014,7 +2013,7 @@ TEST(GroupBy, MinMaxScalar) {
         Datum actual,
         GroupByUsingExecPlan(input, {"key"},
                              {{"hash_min_max", nullptr, "argument", "hash_min_max"}},
-                             use_threads, default_exec_context()));
+                             use_threads));
     Datum expected =
         ArrayFromJSON(struct_({
                           field("hash_min_max",
@@ -2144,7 +2143,7 @@ TEST(GroupBy, AnyAllScalar) {
                                  {"hash_any", keep_nulls, "argument", "hash_any"},
                                  {"hash_all", keep_nulls, "argument", "hash_all"},
                              },
-                             use_threads, default_exec_context()));
+                             use_threads));
     Datum expected = ArrayFromJSON(struct_({
                                        field("hash_any", boolean()),
                                        field("hash_all", boolean()),
@@ -2765,7 +2764,7 @@ TEST(GroupBy, OneScalar) {
     ASSERT_OK_AND_ASSIGN(
         Datum actual, GroupByUsingExecPlan(
                           input, {"key"}, {{"hash_one", nullptr, "argument", "hash_one"}},
-                          use_threads, default_exec_context()));
+                          use_threads));
 
     const auto& struct_arr = actual.array_as<StructArray>();
     //  Check the key column

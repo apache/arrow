@@ -54,7 +54,6 @@ static void TableJoinOverhead(benchmark::State& state,
                               TableGenerationProperties right_table_properties,
                               int batch_size, int num_right_tables,
                               std::string factory_name, ExecNodeOptions& options) {
-  ExecContext ctx(default_memory_pool(), nullptr);
   left_table_properties.column_prefix = "lt";
   left_table_properties.seed = 0;
   ASSERT_OK_AND_ASSIGN(TableStats left_table_stats, MakeTable(left_table_properties));
@@ -75,23 +74,18 @@ static void TableJoinOverhead(benchmark::State& state,
 
   for (auto _ : state) {
     state.PauseTiming();
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<arrow::compute::ExecPlan> plan,
-                         ExecPlan::Make(&ctx));
-    std::vector<ExecNode*> input_nodes = {*arrow::compute::MakeExecNode(
-        "table_source", plan.get(), {},
+    std::vector<Declaration::Input> input_nodes = {Declaration(
+        "table_source",
         arrow::compute::TableSourceNodeOptions(left_table_stats.table, batch_size))};
     input_nodes.reserve(right_input_tables.size() + 1);
     for (TableStats table_stats : right_input_tables) {
-      input_nodes.push_back(*arrow::compute::MakeExecNode(
-          "table_source", plan.get(), {},
+      input_nodes.push_back(Declaration(
+          "table_source",
           arrow::compute::TableSourceNodeOptions(table_stats.table, batch_size)));
     }
-    ASSERT_OK_AND_ASSIGN(arrow::compute::ExecNode * join_node,
-                         MakeExecNode(factory_name, plan.get(), input_nodes, options));
-    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
-    ASSERT_OK(MakeExecNode("sink", plan.get(), {join_node}, SinkNodeOptions{&sink_gen}));
+    Declaration join_node{factory_name, {input_nodes}, options};
     state.ResumeTiming();
-    ASSERT_FINISHES_OK(StartAndCollect(plan.get(), sink_gen));
+    ASSERT_OK(DeclarationToStatus(std::move(join_node)));
   }
 
   state.counters["input_rows_per_second"] = benchmark::Counter(
@@ -104,7 +98,7 @@ static void TableJoinOverhead(benchmark::State& state,
                          benchmark::Counter::kIsRate);
 
   state.counters["maximum_peak_memory"] =
-      benchmark::Counter(static_cast<double>(ctx.memory_pool()->max_memory()));
+      benchmark::Counter(static_cast<double>(default_memory_pool()->max_memory()));
 }
 
 static void AsOfJoinOverhead(benchmark::State& state) {

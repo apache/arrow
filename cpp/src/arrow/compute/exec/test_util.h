@@ -143,13 +143,13 @@ ARROW_TESTING_EXPORT
 Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab);
 
 ARROW_TESTING_EXPORT
-void AssertTablesEqual(const std::shared_ptr<Table>& exp,
-                       const std::shared_ptr<Table>& act);
+void AssertTablesEqualIgnoringOrder(const std::shared_ptr<Table>& exp,
+                                    const std::shared_ptr<Table>& act);
 
 ARROW_TESTING_EXPORT
-void AssertExecBatchesEqual(const std::shared_ptr<Schema>& schema,
-                            const std::vector<ExecBatch>& exp,
-                            const std::vector<ExecBatch>& act);
+void AssertExecBatchesEqualIgnoringOrder(const std::shared_ptr<Schema>& schema,
+                                         const std::vector<ExecBatch>& exp,
+                                         const std::vector<ExecBatch>& act);
 
 ARROW_TESTING_EXPORT
 bool operator==(const Declaration&, const Declaration&);

@@ -56,8 +56,14 @@ class BackpressureReservoir : public BackpressureMonitor {
         resume_if_below_(resume_if_below),
         pause_if_above_(pause_if_above) {}
 
-  uint64_t bytes_in_use() const override { return bytes_used_; }
-  bool is_paused() const override { return state_change_counter_ % 2 == 1; }
+  uint64_t bytes_in_use() override {
+    std::lock_guard lg(mutex_);
+    return bytes_used_;
+  }
+  bool is_paused() override {
+    std::lock_guard lg(mutex_);
+    return state_change_counter_ % 2 == 1;
+  }
   bool enabled() const { return pause_if_above_ > 0; }
 
   int32_t RecordProduced(uint64_t num_bytes) {
@@ -330,8 +336,9 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
 
   void StopProducing() override {
     EVENT(span_, "StopProducing");
-    Finish(Status::OK());
-    inputs_[0]->StopProducing(this);
+    if (input_counter_.Cancel()) {
+      Finish(Status::OK());
+    }
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
@@ -381,19 +388,11 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
 
  protected:
   void Finish(const Status& finish_st) {
-    plan_->query_context()->async_scheduler()->AddSimpleTask([this, &finish_st] {
-      return consumer_->Finish().Then(
-          [this, finish_st]() {
-            finished_.MarkFinished(finish_st);
-            return finish_st;
-          },
-          [this, finish_st](const Status& st) {
-            // Prefer the plan error over the consumer error
-            Status final_status = finish_st & st;
-            finished_.MarkFinished(final_status);
-            return final_status;
-          });
-    });
+    if (finish_st.ok()) {
+      plan_->query_context()->async_scheduler()->AddSimpleTask(
+          [this] { return consumer_->Finish(); });
+    }
+    finished_.MarkFinished(finish_st);
   }
 
   AtomicCounter input_counter_;
