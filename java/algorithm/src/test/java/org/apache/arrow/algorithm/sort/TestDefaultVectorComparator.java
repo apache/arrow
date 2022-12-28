@@ -19,6 +19,7 @@ package org.apache.arrow.algorithm.sort;
 
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -34,6 +35,7 @@ import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
@@ -388,6 +390,33 @@ public class TestDefaultVectorComparator {
       assertTrue(comparator.compare(6, 7) < 0);
       assertTrue(comparator.compare(7, 6) > 0);
       assertTrue(comparator.compare(7, 7) == 0);
+    }
+  }
+
+  @Test
+  public void testCheckNullsOnCompareIsFalseForNonNullableVector() {
+    try (IntVector vec = new IntVector("not nullable",
+            FieldType.notNullable(new ArrowType.Int(32, false)), allocator)) {
+      final VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+      comparator.attachVector(vec);
+
+      assertFalse(comparator.checkNullsOnCompare());
+    }
+  }
+
+  @Test
+  public void testCheckNullsOnCompareIsTrueForNullableVector() {
+    try (IntVector vec = new IntVector("nullable", FieldType.nullable(
+            new ArrowType.Int(32, false)), allocator);
+         IntVector vec2 = new IntVector("not-nullable", FieldType.notNullable(
+                 new ArrowType.Int(32, false)), allocator)
+    ) {
+      final VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+      comparator.attachVector(vec);
+      assertTrue(comparator.checkNullsOnCompare());
+
+      comparator.attachVectors(vec, vec2);
+      assertTrue(comparator.checkNullsOnCompare());
     }
   }
 }
