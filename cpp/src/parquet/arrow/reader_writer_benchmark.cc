@@ -88,11 +88,6 @@ struct benchmark_traits<BooleanType> {
   using arrow_type = ::arrow::BooleanType;
 };
 
-template <>
-struct benchmark_traits<ByteArrayType> {
-  using arrow_type = ::arrow::BinaryType;
-};
-
 template <typename ParquetType>
 using ArrowType = typename benchmark_traits<ParquetType>::arrow_type;
 
@@ -222,7 +217,6 @@ std::shared_ptr<::arrow::Table> RandomStringTable(int64_t length, int64_t unique
       ::arrow::schema({::arrow::field("column", type, null_percentage > 0)}), {arr});
 }
 
-template <bool nullable>
 static void BM_WriteBinaryColumn(::benchmark::State& state) {
   std::shared_ptr<::arrow::Table> table =
       RandomStringTable(BENCHMARK_SIZE, state.range(1), state.range(0));
@@ -238,11 +232,10 @@ static void BM_WriteBinaryColumn(::benchmark::State& state) {
   state.SetBytesProcessed(total_bytes * state.iterations());
 }
 
-BENCHMARK_TEMPLATE1(BM_WriteBinaryColumn, false)
+BENCHMARK(BM_WriteBinaryColumn)
     ->Args({/*null_probability*/ 0, /*unique_values*/ 2})
     ->Args({/*null_probability*/ 0, /*unique_values*/ 32})
-    ->Args({/*null_probability*/ 0, /*unique_values*/ kInfiniteUniqueValues});
-BENCHMARK_TEMPLATE1(BM_WriteBinaryColumn, true)
+    ->Args({/*null_probability*/ 0, /*unique_values*/ kInfiniteUniqueValues})
     ->Args({/*null_probability*/ 1, /*unique_values*/ 32})
     ->Args({/*null_probability*/ 50, /*unique_values*/ 32})
     ->Args({/*null_probability*/ 99, /*unique_values*/ 32})
@@ -376,7 +369,6 @@ BENCHMARK_TEMPLATE2(BM_ReadColumn, true, BooleanType)
 // Benchmark reading binary column
 //
 
-template <bool nullable>
 static void BM_ReadBinaryColumn(::benchmark::State& state) {
   std::shared_ptr<::arrow::Table> table =
       RandomStringTable(BENCHMARK_SIZE, state.range(1), state.range(0));
@@ -385,11 +377,10 @@ static void BM_ReadBinaryColumn(::benchmark::State& state) {
   BenchmarkReadTable(state, *table, table->num_rows(), total_bytes);
 }
 
-BENCHMARK_TEMPLATE1(BM_ReadBinaryColumn, false)
+BENCHMARK(BM_ReadBinaryColumn)
     ->Args({/*null_probability*/ 0, /*unique_values*/ 2})
     ->Args({/*null_probability*/ 0, /*unique_values*/ 32})
-    ->Args({/*null_probability*/ 0, /*unique_values*/ kInfiniteUniqueValues});
-BENCHMARK_TEMPLATE1(BM_ReadBinaryColumn, true)
+    ->Args({/*null_probability*/ 0, /*unique_values*/ kInfiniteUniqueValues})
     ->Args({/*null_probability*/ 1, /*unique_values*/ 32})
     ->Args({/*null_probability*/ 50, /*unique_values*/ 32})
     ->Args({/*null_probability*/ 99, /*unique_values*/ 32})
