@@ -202,6 +202,54 @@ BENCHMARK_TEMPLATE2(BM_WriteColumn, true, DoubleType);
 BENCHMARK_TEMPLATE2(BM_WriteColumn, false, BooleanType);
 BENCHMARK_TEMPLATE2(BM_WriteColumn, true, BooleanType);
 
+int32_t kInfiniteUniqueValues = -1;
+
+std::shared_ptr<::arrow::Table> RandomStringTable(int64_t length, int64_t unique_values,
+                                                  int64_t null_percentage) {
+  std::shared_ptr<::arrow::DataType> type = ::arrow::utf8();
+  std::shared_ptr<::arrow::Array> arr;
+  ::arrow::random::RandomArrayGenerator generator(500);
+  double null_probability = static_cast<double>(null_percentage) / 100.0;
+  if (unique_values == kInfiniteUniqueValues) {
+    arr = generator.String(length, /*min_length=*/3, /*max_length=*/32,
+                           /*null_probability=*/null_probability);
+  } else {
+    arr = generator.StringWithRepeats(length, /*unique=*/unique_values,
+                                      /*min_length=*/3, /*max_length=*/32,
+                                      /*null_probability=*/null_probability);
+  }
+  return ::arrow::Table::Make(
+      ::arrow::schema({::arrow::field("column", type, null_percentage > 0)}), {arr});
+}
+
+template <bool nullable>
+static void BM_WriteBinaryColumn(::benchmark::State& state) {
+  std::shared_ptr<::arrow::Table> table =
+      RandomStringTable(BENCHMARK_SIZE, state.range(1), state.range(0));
+
+  while (state.KeepRunning()) {
+    auto output = CreateOutputStream();
+    EXIT_NOT_OK(
+        WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));
+  }
+
+  int64_t total_bytes = table->column(0)->chunk(0)->data()->buffers[1]->size();
+  state.SetItemsProcessed(BENCHMARK_SIZE * state.iterations());
+  state.SetBytesProcessed(total_bytes * state.iterations());
+}
+
+BENCHMARK_TEMPLATE1(BM_WriteBinaryColumn, false)
+    ->Args({/*null_probability*/ 0, /*unique_values*/ 2})
+    ->Args({/*null_probability*/ 0, /*unique_values*/ 32})
+    ->Args({/*null_probability*/ 0, /*unique_values*/ kInfiniteUniqueValues});
+BENCHMARK_TEMPLATE1(BM_WriteBinaryColumn, true)
+    ->Args({/*null_probability*/ 1, /*unique_values*/ 32})
+    ->Args({/*null_probability*/ 50, /*unique_values*/ 32})
+    ->Args({/*null_probability*/ 99, /*unique_values*/ 32})
+    ->Args({/*null_probability*/ 1, /*unique_values*/ kInfiniteUniqueValues})
+    ->Args({/*null_probability*/ 50, /*unique_values*/ kInfiniteUniqueValues})
+    ->Args({/*null_probability*/ 99, /*unique_values*/ kInfiniteUniqueValues});
+
 template <typename T>
 struct Examples {
   static constexpr std::array<T, 2> values() { return {127, 128}; }
@@ -328,26 +376,13 @@ BENCHMARK_TEMPLATE2(BM_ReadColumn, true, BooleanType)
 // Benchmark reading binary column
 //
 
-int32_t kInfiniteUniqueValues = -1;
 template <bool nullable>
 static void BM_ReadBinaryColumn(::benchmark::State& state) {
-  std::shared_ptr<::arrow::DataType> type = ::arrow::utf8();
-  std::shared_ptr<::arrow::Array> arr;
-  ::arrow::random::RandomArrayGenerator generator(500);
-  double null_percentage = static_cast<double>(state.range(0)) / 100.0;
-  if (state.range(1) == kInfiniteUniqueValues) {
-    arr = generator.String(BENCHMARK_SIZE, /*min_length=*/3, /*max_length=*/32,
-                           /*null_probability=*/null_percentage);
-  } else {
-    arr = generator.StringWithRepeats(BENCHMARK_SIZE, /*unique=*/state.range(1),
-                                      /*min_length=*/3, /*max_length=*/32,
-                                      /*null_probability=*/null_percentage);
-  }
+  std::shared_ptr<::arrow::Table> table =
+      RandomStringTable(BENCHMARK_SIZE, state.range(1), state.range(0));
 
-  std::shared_ptr<::arrow::Table> table = ::arrow::Table::Make(
-      ::arrow::schema({::arrow::field("column", type, nullable)}), {arr});
-
-  BenchmarkReadTable(state, *table, table->num_rows(), arr->data()->buffers[1]->size());
+  int64_t total_bytes = table->column(0)->chunk(0)->data()->buffers[1]->size();
+  BenchmarkReadTable(state, *table, table->num_rows(), total_bytes);
 }
 
 BENCHMARK_TEMPLATE1(BM_ReadBinaryColumn, false)
