@@ -24,9 +24,9 @@ test_that("install_pyarrow", {
   skip_if_not_installed("reticulate")
   # PyArrow doesn't support Python 3.6 or earlier
   skip_on_python_older_than("3.7")
-
-  # try and cleanup the testing virtual env if it already exists
-  try(reticulate::virtualenv_remove("arrow-test"))
+  # skip on 10.13 because we do not ship binaries for pyarrow for macos 10.13 anymore
+  on_macos <- tolower(Sys.info()[["sysname"]]) %in% "darwin"
+  skip_if(on_macos && numeric_version(Sys.info()["release"]) < "18.0.0", "No pyarrow binaries are available for macOS 10.13")
   
   venv <- try(reticulate::virtualenv_create("arrow-test"))
   # Bail out if virtualenv isn't available
