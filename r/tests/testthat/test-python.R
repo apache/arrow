@@ -25,6 +25,9 @@ test_that("install_pyarrow", {
   # PyArrow doesn't support Python 3.6 or earlier
   skip_on_python_older_than("3.7")
 
+  # try and cleanup the testing virtual env if it already exists
+  try(reticulate::virtualenv_remove("arrow-test"))
+  
   venv <- try(reticulate::virtualenv_create("arrow-test"))
   # Bail out if virtualenv isn't available
   skip_if(inherits(venv, "try-error"))
