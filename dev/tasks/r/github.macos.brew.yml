@@ -39,6 +39,10 @@ jobs:
           brew install -v --HEAD apache-arrow
           # for testing
           brew install minio
+
+          # The github runners have a non-brew 3.11 installed and the existing symlinks cause
+          # the installation of brew 3.11 to fail
+          find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
       - uses: r-lib/actions/setup-r@v2
       - name: Install dependencies
         run: |
