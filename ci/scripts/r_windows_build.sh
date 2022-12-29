@@ -71,7 +71,7 @@ if [ -d mingw64/lib/ ]; then
   # Move the 64-bit versions of libarrow into the expected location
   mv mingw64/lib/*.a $DST_DIR/lib/x64
   # These are from https://dl.bintray.com/rtools/mingw{32,64}/
-  cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy,zstd,lz4,brotli*,bz2,crypto,curl,ss*,utf8proc,re2,aws*}.a $DST_DIR/lib/x64
+  cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy,zstd,lz4,brotli*,bz2,crypto,curl,ss*,utf8proc,re2,aws*,nghttp2}.a $DST_DIR/lib/x64
 fi
 
 # Same for the 32-bit versions
@@ -79,7 +79,7 @@ if [ -d mingw32/lib/ ]; then
   ls $MSYS_LIB_DIR/mingw32/lib/
   mkdir -p $DST_DIR/lib/i386
   mv mingw32/lib/*.a $DST_DIR/lib/i386
-  cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy,zstd,lz4,brotli*,bz2,crypto,curl,ss*,utf8proc,re2,aws*}.a $DST_DIR/lib/i386
+  cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy,zstd,lz4,brotli*,bz2,crypto,curl,ss*,utf8proc,re2,aws*,nghttp2}.a $DST_DIR/lib/i386
 fi
 
 # Do the same also for ucrt64
@@ -87,7 +87,7 @@ if [ -d ucrt64/lib/ ]; then
   ls $MSYS_LIB_DIR/ucrt64/lib/
   mkdir -p $DST_DIR/lib/x64-ucrt
   mv ucrt64/lib/*.a $DST_DIR/lib/x64-ucrt
-  cp $MSYS_LIB_DIR/ucrt64/lib/lib{thrift,snappy,zstd,lz4,brotli*,bz2,crypto,curl,ss*,utf8proc,re2,aws*}.a $DST_DIR/lib/x64-ucrt
+  cp $MSYS_LIB_DIR/ucrt64/lib/lib{thrift,snappy,zstd,lz4,brotli*,bz2,crypto,curl,ss*,utf8proc,re2,aws*,nghttp2}.a $DST_DIR/lib/x64-ucrt
 fi
 
 # Create build artifact
