@@ -29,6 +29,10 @@ jobs:
       {{ macros.configure_homebrew_arrow(formula)|indent }}
       - name: Test formula
         run: |
+          # The github runners have a non-brew 3.11 installed and the existing symlinks cause
+          # the installation of brew 3.11 to fail
+          find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
+          
           brew install -v --HEAD apache-arrow
           brew test apache-arrow
           brew audit --strict apache-arrow
