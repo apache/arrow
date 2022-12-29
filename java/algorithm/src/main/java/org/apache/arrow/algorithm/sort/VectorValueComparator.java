@@ -89,10 +89,10 @@ public abstract class VectorValueComparator<V extends ValueVector> {
     this.vector1 = vector1;
     this.vector2 = vector2;
 
-    final boolean v1MayHaveNulls = vector1.getField().getFieldType().isNullable() ||
-            vector1.getValidityBuffer() == null;
-    final boolean v2MayHaveNulls = vector2.getField().getFieldType().isNullable() ||
-            vector2.getValidityBuffer() == null;
+    final boolean v1MayHaveNulls = vector1.getField().getFieldType().isNullable() &&
+            vector1.getValidityBuffer() != null;
+    final boolean v2MayHaveNulls = vector2.getField().getFieldType().isNullable() &&
+            vector2.getValidityBuffer() != null;
 
     this.checkNullsOnCompare = v1MayHaveNulls || v2MayHaveNulls;
   }
