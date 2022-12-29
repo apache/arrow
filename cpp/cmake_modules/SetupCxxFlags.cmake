@@ -70,6 +70,8 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
   if(MINGW)
     # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
     message(STATUS "Disable AVX512 support on MINGW for now")
+  elseif(MSVC)
+    set(CXX_SUPPORTS_AVX512_ICX FALSE)
   else()
     # Check for AVX512 support in the compiler.
     set(OLD_CMAKE_REQURED_FLAGS ${CMAKE_REQUIRED_FLAGS})
