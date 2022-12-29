@@ -67,16 +67,17 @@ inline BitmapWordAlignParams BitmapWordAlign(const uint8_t* data, int64_t bit_of
 }
 
 template <typename T>
-Status EnsureAlignment(std::shared_ptr<T> object, int64_t minimum_alignment,
+Status EnsureAlignment(std::shared_ptr<T> object, int64_t alignment,
                        MemoryPool* memory_pool) {
   std::vector<std::shared_ptr<Buffer>> buffers_ = object->data()->buffers;
-  for (auto& it : buffers_) {
-    if (it) {
-      auto buffer_address = it->address();
-      if ((buffer_address & minimum_alignment) != 0) {
-        ARROW_ASSIGN_OR_RAISE(auto new_buffer,
-                              AllocateBuffer(it->size(), minimum_alignment, memory_pool));
-        std::memcpy(it->mutable_data(), new_buffer->data(), new_buffer->size());
+  for (size_t i = 0; i < buffers_.size(); ++i) {
+    if (buffers_[i]) {
+      auto buffer_address = buffers_[i]->address();
+      if ((buffer_address % alignment) != 0) {
+        ARROW_ASSIGN_OR_RAISE(
+            auto new_buffer, AllocateBuffer(buffers_[i]->size(), alignment, memory_pool));
+        std::memcpy(new_buffer->mutable_data(), buffers_[i]->data(), buffers_[i]->size());
+        object->data()->buffers[i] = std::move(new_buffer);
       }
     }
   }
