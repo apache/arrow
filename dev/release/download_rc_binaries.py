@@ -133,6 +133,12 @@ class Downloader:
             raise Exception(f"Downloading {url} failed\n"
                             f"stdout: {stdout}\nstderr: {stderr}")
 
+    def _curl_version(self):
+        cmd = ["curl", "--version"]
+        out = subprocess.run(cmd, capture_output=True, check=True).stdout
+        match = re.search(r"curl (\d+)\.(\d+)\.(\d+) ", out.decode())
+        return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
 
 class Artifactory(Downloader):
     URL_ROOT = "https://apache.jfrog.io/artifactory/arrow"
@@ -196,15 +202,17 @@ class GitHub(Downloader):
         print(f"Waiting {delay} seconds to avoid rate limit")
         time.sleep(delay)
 
+        extra_args = [
+            "--header",
+            "Accept: application/octet-stream",
+        ]
+        if self._curl_version() >= (7, 71, 0):
+            # Also retry 403s
+            extra_args.append("--retry-all-errors")
         self._download_url(
             url,
             dest_path,
-            extra_args=[
-                "--header",
-                "Accept: application/octet-stream",
-                # Also retry 403s
-                "--retry-all-errors",
-            ],
+            extra_args=extra_args
         )
 
 
