@@ -397,6 +397,9 @@ public class TestDefaultVectorComparator {
   public void testCheckNullsOnCompareIsFalseForNonNullableVector() {
     try (IntVector vec = new IntVector("not nullable",
             FieldType.notNullable(new ArrowType.Int(32, false)), allocator)) {
+
+      ValueVectorDataPopulator.setVector(vec, 1, 2, 3, 4);
+
       final VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
       comparator.attachVector(vec);
 
@@ -411,8 +414,50 @@ public class TestDefaultVectorComparator {
          IntVector vec2 = new IntVector("not-nullable", FieldType.notNullable(
                  new ArrowType.Int(32, false)), allocator)
     ) {
+
+      ValueVectorDataPopulator.setVector(vec, 1, null, 3, 4);
+      ValueVectorDataPopulator.setVector(vec2, 1, 2, 3, 4);
+
       final VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
       comparator.attachVector(vec);
+      assertTrue(comparator.checkNullsOnCompare());
+
+      comparator.attachVectors(vec, vec2);
+      assertTrue(comparator.checkNullsOnCompare());
+    }
+  }
+
+  @Test
+  public void testCheckNullsOnCompareIsFalseWithNoNulls() {
+    try (IntVector vec = new IntVector("nullable", FieldType.nullable(
+            new ArrowType.Int(32, false)), allocator);
+         IntVector vec2 = new IntVector("also-nullable", FieldType.nullable(
+                 new ArrowType.Int(32, false)), allocator)
+    ) {
+
+      // no null values
+      ValueVectorDataPopulator.setVector(vec, 1, 2, 3, 4);
+      ValueVectorDataPopulator.setVector(vec2, 1, 2, 3, 4);
+
+      final VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+      comparator.attachVector(vec);
+      assertFalse(comparator.checkNullsOnCompare());
+
+      comparator.attachVectors(vec, vec2);
+      assertFalse(comparator.checkNullsOnCompare());
+    }
+  }
+
+  @Test
+  public void testCheckNullsOnCompareIsTrueWithEmptyVectors() {
+    try (IntVector vec = new IntVector("nullable", FieldType.nullable(
+            new ArrowType.Int(32, false)), allocator);
+         IntVector vec2 = new IntVector("also-nullable", FieldType.nullable(
+                 new ArrowType.Int(32, false)), allocator)
+    ) {
+
+      final VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+      comparator.attachVector(vec2);
       assertTrue(comparator.checkNullsOnCompare());
 
       comparator.attachVectors(vec, vec2);
