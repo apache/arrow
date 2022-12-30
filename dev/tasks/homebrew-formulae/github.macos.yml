@@ -31,8 +31,9 @@ jobs:
         run: |
           # The github runners have a non-brew Python 3.11 installed and the existing symlinks cause
           # the installation of brew python@3.11 to fail
-          rm '/usr/local/bin/2to3-3.11'
-          
+          rm '/usr/local/bin/2to3-3.11' || echo 'Nothing to delete'
+          rm '/usr/local/bin/2to3' || echo 'Nothing to delete'
+
           brew install -v --HEAD apache-arrow
           brew test apache-arrow
           brew audit --strict apache-arrow
