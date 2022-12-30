@@ -2482,12 +2482,12 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
         if (ARROW_PREDICT_FALSE(!block_initialized_)) {
           buffer[i++] = last_value_;
           if (ARROW_PREDICT_FALSE(i == max_values)) {
-            // When block is uninitialized and `i` reaches max_values, there are different
-            // cases:
-            // 1. `i == total_value_count_`. It means that the page may have only one
-            // value, and we should not initialize any block.
-            // 2. `i != total_value_count_`. It means that user just read the first value
-            // in the page, so, we should initialize the incoming block.
+            // When block is uninitialized and i reaches max_values we have two
+            // different possibilities:
+            // 1. i == total_value_count_, which means that the page may have only one
+            // value and we should not initialize any block.
+            // 2. i != total_value_count_ which means that user just read the first value
+            // in the page, so we should initialize the incoming block.
             if (i != static_cast<int>(total_value_count_)) {
               InitBlock();
             }
