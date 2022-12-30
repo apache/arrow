@@ -44,9 +44,12 @@ jobs:
             brew install sccache
             # The github runners have a non-brew Python 3.11 installed and the existing symlinks cause
             # the installation of brew python@3.11 to fail
-            rm '/usr/local/bin/2to3-3.11' || echo 'Nothing to delete   
+            rm '/usr/local/bin/2to3-3.11' || echo 'Nothing to delete'
             rm '/usr/local/bin/2to3' || echo 'Nothing to delete'
-
+            rm '/usr/local/bin/idle3.11' || echo 'Nothing to delete'
+            rm '/usr/local/bin/pydoc3.11' || echo 'Nothing to delete'
+            rm '/usr/local/bin/python3.11' || echo 'Nothing to delete'
+            rm '/usr/local/bin/python3.11-config' || echo 'Nothing to delete'
           fi
           cd arrow/r
           {{ macros.pin_brew_formulae(is_fork)|indent }}
