@@ -53,7 +53,7 @@ namespace {
 
 struct ExecPlanImpl : public ExecPlan {
   explicit ExecPlanImpl(QueryOptions options, ExecContext exec_context,
-                        std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR,
+                        std::shared_ptr<const KeyValueMetadata> metadata = nullptr,
                         std::shared_ptr<ThreadPool> owned_thread_pool = nullptr)
       : metadata_(std::move(metadata)),
         query_context_(options, exec_context),
@@ -99,7 +99,7 @@ struct ExecPlanImpl : public ExecPlan {
       return Status::Invalid(
           "An exec plan must have an executor for CPU tasks.  To run without threads use "
           "a SerialExeuctor (the arrow::compute::DeclarationTo... methods should take "
-          "care of this for you and are an easier way to execute an ExecPlan.");
+          "care of this for you and are an easier way to execute an ExecPlan.)");
     }
     if (query_context_.io_context()->executor() == nullptr) {
       return Status::Invalid("An exec plan must have an I/O executor for I/O tasks.");
@@ -490,7 +490,7 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
       // reading from generator until end is reached.
       std::shared_ptr<RecordBatch> batch;
       RETURN_NOT_OK(ReadNext(&batch));
-      while (batch != NULLPTR) {
+      while (batch != nullptr) {
         RETURN_NOT_OK(ReadNext(&batch));
       }
       return Status::OK();

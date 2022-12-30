@@ -442,10 +442,6 @@ ARROW_EXPORT Result<std::shared_ptr<Table>> DeclarationToTable(Declaration decla
 /// we cannot run synchronously on the calling thread.  Instead, if use_threads=false then
 /// a new thread pool will be created with a single thread and this will be used for all
 /// compute work.
-///
-/// If a custom exec context is provided then the value of `use_threads` will be ignored
-/// and the executor in the custom context will be used.  However, the executor must
-/// exist (cannot be nullptr) and must be kept alive until the future finishes.
 ARROW_EXPORT Future<std::shared_ptr<Table>> DeclarationToTableAsync(
     Declaration declaration, bool use_threads = true);
 
