@@ -62,7 +62,6 @@ Result<Future<>> QueryContext::BeginExternalTask() {
 
 Status QueryContext::ScheduleTask(std::function<Status()> fn) {
   ::arrow::internal::Executor* exec = executor();
-  if (!exec) return fn();
   // Adds a task which submits fn to the executor and tracks its progress.  If we're
   // already stopping then the task is ignored and fn is not executed.
   async_scheduler_->AddSimpleTask([exec, fn]() { return exec->Submit(std::move(fn)); });

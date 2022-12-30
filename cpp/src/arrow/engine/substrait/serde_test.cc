@@ -36,6 +36,7 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/expression_internal.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/type_fwd.h"
@@ -103,31 +104,6 @@ void WriteIpcData(const std::string& path,
     ASSERT_OK(file_writer->WriteRecordBatch(*batch));
   }
   ASSERT_OK(file_writer->Close());
-}
-
-Result<std::shared_ptr<Table>> GetTableFromPlan(
-    compute::Declaration& other_declrs, compute::ExecContext& exec_context,
-    const std::shared_ptr<Schema>& output_schema) {
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
-
-  arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
-  auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
-  auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
-  auto declarations = compute::Declaration::Sequence({other_declrs, sink_declaration});
-
-  ARROW_ASSIGN_OR_RAISE(auto decl, declarations.AddToPlan(plan.get()));
-
-  RETURN_NOT_OK(decl->Validate());
-
-  std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-      output_schema, std::move(sink_gen), exec_context.memory_pool());
-
-  RETURN_NOT_OK(plan->Validate());
-  RETURN_NOT_OK(plan->StartProducing());
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table,
-                        arrow::Table::FromRecordBatchReader(sink_reader.get()));
-  RETURN_NOT_OK(plan->finished().status());
-  return table;
 }
 
 class NullSinkNodeConsumer : public compute::SinkNodeConsumer {
@@ -208,7 +184,6 @@ inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
 }
 
 void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
-                          compute::ExecContext& exec_context,
                           std::shared_ptr<Buffer>& buf,
                           const std::vector<int>& include_columns = {},
                           const ConversionOptions& conversion_options = {},
@@ -222,23 +197,22 @@ void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
   auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
 
   ASSERT_OK_AND_ASSIGN(auto output_table,
-                       compute::DeclarationToTable(other_declrs, &exec_context));
+                       compute::DeclarationToTable(other_declrs, /*use_threads=*/false));
 
   if (!include_columns.empty()) {
     ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns(include_columns));
   }
   if (sort_options) {
-    ASSERT_OK_AND_ASSIGN(
-        auto sort_indices,
-        SortIndices(output_table, std::move(*sort_options), &exec_context));
-    ASSERT_OK_AND_ASSIGN(
-        auto maybe_table,
-        compute::Take(output_table, std::move(sort_indices),
-                      compute::TakeOptions::NoBoundsCheck(), &exec_context));
+    ASSERT_OK_AND_ASSIGN(auto sort_indices,
+                         SortIndices(output_table, std::move(*sort_options)));
+    ASSERT_OK_AND_ASSIGN(auto maybe_table,
+                         compute::Take(output_table, std::move(sort_indices),
+                                       compute::TakeOptions::NoBoundsCheck()));
     output_table = maybe_table.table();
   }
   ASSERT_OK_AND_ASSIGN(output_table, output_table->CombineChunks());
-  AssertTablesEqual(*expected_table, *output_table);
+  ASSERT_OK_AND_ASSIGN(auto merged_expected, expected_table->CombineChunks());
+  compute::AssertTablesEqualIgnoringOrder(merged_expected, output_table);
 }
 
 TEST(Substrait, SupportedTypes) {
@@ -2242,8 +2216,7 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
            {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
        compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"})});
 
-  ASSERT_OK_AND_ASSIGN(auto expected_table,
-                       GetTableFromPlan(declarations, exec_context, dummy_schema));
+  ASSERT_OK_AND_ASSIGN(auto expected_table, compute::DeclarationToTable(declarations));
 
   std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -2290,12 +2263,11 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
     EXPECT_TRUE(l_frag->Equals(*r_frag));
   }
   ASSERT_OK_AND_ASSIGN(auto rnd_trp_table,
-                       GetTableFromPlan(roundtripped_filter, exec_context, dummy_schema));
-  EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
+                       compute::DeclarationToTable(roundtripped_filter));
+  compute::AssertTablesEqualIgnoringOrder(expected_table, rnd_trp_table);
 }
 
 TEST(SubstraitRoundTrip, FilterNamedTable) {
-  compute::ExecContext exec_context;
   arrow::dataset::internal::Initialize();
 
   const std::vector<std::string> table_names{"table", "1"};
@@ -2341,7 +2313,7 @@ TEST(SubstraitRoundTrip, FilterNamedTable) {
     [2, 2, 60]
   ])"});
 
-  CheckRoundTripResult(std::move(expected_table), exec_context, serialized_plan,
+  CheckRoundTripResult(std::move(expected_table), serialized_plan,
                        /*include_columns=*/{}, conversion_options);
 }
 
@@ -2456,12 +2428,11 @@ TEST(SubstraitRoundTrip, ProjectRel) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+  CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithEmit) {
-  compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
 
@@ -2575,12 +2546,11 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+  CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, ReadRelWithEmit) {
-  compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
 
@@ -2634,12 +2604,11 @@ TEST(SubstraitRoundTrip, ReadRelWithEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+  CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, FilterRelWithEmit) {
-  compute::ExecContext exec_context;
   auto dummy_schema = schema({field("A", int32()), field("B", int32()),
                               field("C", int32()), field("D", int32())});
 
@@ -2752,12 +2721,11 @@ TEST(SubstraitRoundTrip, FilterRelWithEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+  CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, JoinRel) {
-  compute::ExecContext exec_context;
   auto left_schema = schema({field("A", int32()), field("B", int32())});
 
   auto right_schema = schema({field("X", int32()), field("Y", int32())});
@@ -2902,12 +2870,11 @@ TEST(SubstraitRoundTrip, JoinRel) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+  CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, JoinRelWithEmit) {
-  compute::ExecContext exec_context;
   auto left_schema = schema({field("A", int32()), field("B", int32())});
 
   auto right_schema = schema({field("X", int32()), field("Y", int32())});
@@ -3054,12 +3021,11 @@ TEST(SubstraitRoundTrip, JoinRelWithEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+  CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, AggregateRel) {
-  compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
 
@@ -3163,12 +3129,11 @@ TEST(SubstraitRoundTrip, AggregateRel) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+  CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
 
 TEST(SubstraitRoundTrip, AggregateRelEmit) {
-  compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
 
@@ -3278,7 +3243,7 @@ TEST(SubstraitRoundTrip, AggregateRelEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+  CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
 
@@ -3382,12 +3347,11 @@ TEST(Substrait, IsthmusPlan) {
                                                    /*ignore_unknown_fields=*/false));
 
   auto expected_table = TableFromJSON(test_schema, {"[[2], [3], [6]]"});
-  CheckRoundTripResult(std::move(expected_table), *compute::default_exec_context(), buf,
+  CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
 
 TEST(Substrait, ProjectWithMultiFieldExpressions) {
-  compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
 
@@ -3536,12 +3500,11 @@ TEST(Substrait, ProjectWithMultiFieldExpressions) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+  CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
 
 TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
-  compute::ExecContext exec_context;
   auto dummy_schema = schema({field("A", int32())});
 
   // creating a dummy dataset using a dummy table
@@ -3623,12 +3586,11 @@ TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+  CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
 
 TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
-  compute::ExecContext exec_context;
   auto dummy_schema = schema({field("A", int32())});
 
   // creating a dummy dataset using a dummy table
@@ -3711,7 +3673,7 @@ TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+  CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
 
@@ -3719,7 +3681,6 @@ TEST(Substrait, ReadRelWithGlobFiles) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #endif
-  compute::ExecContext exec_context;
   arrow::dataset::internal::Initialize();
 
   auto dummy_schema =
@@ -3808,12 +3769,11 @@ TEST(Substrait, ReadRelWithGlobFiles) {
   // To avoid unnecessar metadata columns being included in the final result
   std::vector<int> include_columns = {0, 1, 2};
   compute::SortOptions options({compute::SortKey("A", compute::SortOrder::Ascending)});
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
-                       std::move(include_columns), /*conversion_options=*/{}, &options);
+  CheckRoundTripResult(std::move(expected_table), buf, std::move(include_columns),
+                       /*conversion_options=*/{}, &options);
 }
 
 TEST(Substrait, RootRelationOutputNames) {
-  compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
 
@@ -3917,12 +3877,11 @@ TEST(Substrait, RootRelationOutputNames) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+  CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
 
 TEST(Substrait, SetRelationBasic) {
-  compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
 
@@ -4037,8 +3996,8 @@ TEST(Substrait, SetRelationBasic) {
 
   compute::SortOptions sort_options(
       {compute::SortKey("A", compute::SortOrder::Ascending)});
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
-                       conversion_options, &sort_options);
+  CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options,
+                       &sort_options);
 }
 
 }  // namespace engine

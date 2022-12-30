@@ -223,9 +223,6 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
                     const BatchesWithSchema& r1_batches,
                     const BatchesWithSchema& exp_batches,
                     const AsofJoinNodeOptions join_options) {
-  auto exec_ctx = std::make_unique<ExecContext>(default_memory_pool(), nullptr);
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
-
   Declaration join{"asofjoin", join_options};
 
   join.inputs.emplace_back(Declaration{
@@ -235,20 +232,11 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
   join.inputs.emplace_back(Declaration{
       "source", SourceNodeOptions{r1_batches.schema, r1_batches.gen(false, false)}});
 
-  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
-
-  ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
-                .AddToPlan(plan.get()));
-
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
-  for (auto batch : res) {
-    ASSERT_EQ(exp_batches.schema->num_fields(), batch.values.size());
-  }
+  ASSERT_OK_AND_ASSIGN(auto res_table,
+                       DeclarationToTable(std::move(join), /*use_threads=*/false));
 
   ASSERT_OK_AND_ASSIGN(auto exp_table,
                        TableFromExecBatches(exp_batches.schema, exp_batches.batches));
-
-  ASSERT_OK_AND_ASSIGN(auto res_table, TableFromExecBatches(exp_batches.schema, res));
 
   AssertTablesEqual(*exp_table, *res_table,
                     /*same_chunk_layout=*/true, /*flatten=*/true);
@@ -270,8 +258,7 @@ void DoInvalidPlanTest(const BatchesWithSchema& l_batches,
                        const AsofJoinNodeOptions& join_options,
                        const std::string& expected_error_str,
                        bool fail_on_plan_creation = false) {
-  ExecContext exec_ctx;
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(*threaded_exec_context()));
 
   Declaration join{"asofjoin", join_options};
   join.inputs.emplace_back(Declaration{
