@@ -178,7 +178,30 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
     }
   }
 
-  return StructArray::Make(std::move(out_arrays), output_schema->fields());
+  // The exec plan may reorder the output rows.  The tests are all setup to expect ouptut
+  // in ascending order of keys.  So we need to sort the result by the key columns.  To do
+  // that we create a table using the key columns, calculate the sort indices from that
+  // table (sorting on all fields) and then use those indices to calculate our result.
+  std::vector<std::shared_ptr<Field>> key_fields;
+  std::vector<std::shared_ptr<Array>> key_columns;
+  std::vector<SortKey> sort_keys;
+  for (std::size_t i = 0; i < key_names.size(); i++) {
+    const std::shared_ptr<Array>& arr = out_arrays[i + aggregates.size()];
+    key_columns.push_back(arr);
+    key_fields.push_back(field("name_does_not_matter", arr->type()));
+    sort_keys.emplace_back(i);
+  }
+  std::shared_ptr<Schema> key_schema = schema(std::move(key_fields));
+  std::shared_ptr<Table> key_table = Table::Make(std::move(key_schema), key_columns);
+  SortOptions sort_options(std::move(sort_keys));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> sort_indices,
+                        SortIndices(key_table, sort_options));
+
+  ARROW_ASSIGN_OR_RAISE(
+      std::shared_ptr<Array> struct_arr,
+      StructArray::Make(std::move(out_arrays), output_schema->fields()));
+
+  return Take(struct_arr, sort_indices);
 }
 
 /// Simpler overload where you can give the columns as datums
