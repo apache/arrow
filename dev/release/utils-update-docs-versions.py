@@ -51,7 +51,7 @@ if release_type != "patch":
         {"name": f"{dev_compatible_version} (dev)",
          "version": "dev/"},
         {"name": f"{stable_compatible_version} (stable)",
-        "version": ""},
+         "version": ""},
         {"name": previous_compatible_version,
          "version": f"{previous_compatible_version}/"},
         *old_versions[2:],
