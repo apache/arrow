@@ -1388,6 +1388,8 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(
       this->Execute((values_per_mini_block * values_per_block) + 1, 10));
   ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1, 10));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
       /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
       /*null_probability*/ 0.1));

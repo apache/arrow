@@ -2372,7 +2372,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   // DeltaByteArrayDecoder
   void SetDecoder(int num_values, std::shared_ptr<::arrow::bit_util::BitReader> decoder) {
     this->num_values_ = num_values;
-    decoder_ = decoder;
+    decoder_ = std::move(decoder);
     InitHeader();
   }
 
@@ -2459,7 +2459,9 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
         ParquetException::EofException();
       }
       if (bit_width_data[i] > kMaxDeltaBitWidth) {
-        throw ParquetException("delta bit width larger than integer bit width");
+        throw ParquetException("delta bit width " + std::to_string(bit_width_data[i]) +
+                               " larger than integer bit width " +
+                               std::to_string(kMaxDeltaBitWidth));
       }
     }
     mini_block_idx_ = 0;
@@ -2478,9 +2480,9 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
     while (i < max_values) {
       if (ARROW_PREDICT_FALSE(values_current_mini_block_ == 0)) {
         if (ARROW_PREDICT_FALSE(!block_initialized_)) {
-          InitBlock();
           buffer[i++] = last_value_;
-          if (ARROW_PREDICT_FALSE(i == max_values)) break;
+          if (ARROW_PREDICT_FALSE(i == static_cast<int>(total_value_count_))) break;
+          InitBlock();
         } else {
           ++mini_block_idx_;
           if (mini_block_idx_ < mini_blocks_per_block_) {
