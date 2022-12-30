@@ -1324,6 +1324,29 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
     CheckRoundtripSpaced(valid_bits, valid_bits_offset);
   }
 
+  void ExecuteSteps(int nvalues, int repeats, int read_batch) {
+    this->InitData(nvalues, repeats);
+    auto encoder =
+        MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED, false, descr_.get());
+    auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
+
+    for (size_t i = 0; i < ROUND_TRIP_TIMES; ++i) {
+      encoder->Put(draws_, num_values_);
+      encode_buffer_ = encoder->FlushValues();
+
+      decoder->SetData(num_values_, encode_buffer_->data(),
+                       static_cast<int>(encode_buffer_->size()));
+      int values_decoded_sum = 0;
+      while (values_decoded_sum < num_values_) {
+        int values_decoded =
+            decoder->Decode(decode_buf_ + values_decoded_sum, read_batch);
+        values_decoded_sum += values_decoded;
+      }
+      ASSERT_EQ(num_values_, values_decoded_sum);
+      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+    }
+  }
+
   void CheckRoundtrip() override {
     auto encoder =
         MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED, false, descr_.get());
@@ -1388,8 +1411,6 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(
       this->Execute((values_per_mini_block * values_per_block) + 1, 10));
   ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
-  ASSERT_NO_FATAL_FAILURE(this->Execute(1, 1));
-  ASSERT_NO_FATAL_FAILURE(this->Execute(1, 10));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
       /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
       /*null_probability*/ 0.1));
@@ -1413,6 +1434,17 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
         /*null_probability*/ 0.1,
         /*half_range*/ half_range));
   }
+}
+
+TYPED_TEST(TestDeltaBitPackEncoding, ZeroRoundTrip) {
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1, 2));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(2, 2));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(1, 1, 1));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(1, 2, 1));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(2, 2, 1));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(10, 10, 1));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(10, 10, 3));
 }
 
 }  // namespace test

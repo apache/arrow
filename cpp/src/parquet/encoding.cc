@@ -2481,7 +2481,12 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
       if (ARROW_PREDICT_FALSE(values_current_mini_block_ == 0)) {
         if (ARROW_PREDICT_FALSE(!block_initialized_)) {
           buffer[i++] = last_value_;
-          if (ARROW_PREDICT_FALSE(i == static_cast<int>(total_value_count_))) break;
+          if (ARROW_PREDICT_FALSE(i == max_values)) {
+            if (i != static_cast<int>(total_value_count_)) {
+              InitBlock();
+            }
+            break;
+          }
           InitBlock();
         } else {
           ++mini_block_idx_;
