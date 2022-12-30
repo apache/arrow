@@ -1436,15 +1436,17 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
   }
 }
 
-TYPED_TEST(TestDeltaBitPackEncoding, ZeroRoundTrip) {
+TYPED_TEST(TestDeltaBitPackEncoding, SmallBatchRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(1, 1));
   ASSERT_NO_FATAL_FAILURE(this->Execute(1, 2));
   ASSERT_NO_FATAL_FAILURE(this->Execute(2, 2));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1, 10));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(1, 1, 1));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(1, 2, 1));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(2, 2, 1));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(10, 10, 1));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(10, 10, 3));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(1, 10, 1));
 }
 
 }  // namespace test
