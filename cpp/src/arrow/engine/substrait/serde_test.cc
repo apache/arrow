@@ -36,6 +36,7 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/expression_internal.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/type_fwd.h"
@@ -210,7 +211,8 @@ void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
     output_table = maybe_table.table();
   }
   ASSERT_OK_AND_ASSIGN(output_table, output_table->CombineChunks());
-  AssertTablesEqual(*expected_table, *output_table);
+  ASSERT_OK_AND_ASSIGN(auto merged_expected, expected_table->CombineChunks());
+  compute::AssertTablesEqualIgnoringOrder(merged_expected, output_table);
 }
 
 TEST(Substrait, SupportedTypes) {
@@ -2262,7 +2264,7 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
   }
   ASSERT_OK_AND_ASSIGN(auto rnd_trp_table,
                        compute::DeclarationToTable(roundtripped_filter));
-  EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
+  compute::AssertTablesEqualIgnoringOrder(expected_table, rnd_trp_table);
 }
 
 TEST(SubstraitRoundTrip, FilterNamedTable) {
