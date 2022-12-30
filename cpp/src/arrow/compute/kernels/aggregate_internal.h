@@ -271,6 +271,77 @@ SumType SumArray(const ArraySpan& data) {
       data.buffers[0], data.offset, data.GetNullCount(), values, data.length);
 }
 
+// SumTwoArrays is similar to SumArray but works on two same-length arrays and
+// takes a null bitmap that has the bit at position p set when [p] is valid for
+// both arrays.
+
+// pairwise-summation of floating-point types
+template <typename ValueType1, typename ValueType2, typename SumType,
+          SimdLevel::type SimdLevel, typename ValueFunc>
+enable_if_t<std::is_floating_point<SumType>::value, SumType> SumTwoArrays(
+    const BufferSpan& null_bitmap, int64_t null_bitmap_offset, int64_t null_count,
+    const ValueType1* values1, const ValueType2* values2, int64_t length,
+    ValueFunc&& func) {
+  using arrow::internal::VisitSetBitRunsVoid;
+
+  const int64_t data_size = length - null_count;
+  if (data_size == 0) {
+    return 0;
+  }
+
+  // number of inputs to accumulate before merging with another block
+  constexpr int kBlockSize = 16;  // same as numpy
+  PairwiseSummationState<SumType> state(data_size);
+
+  VisitSetBitRunsVoid(null_bitmap.data, null_bitmap_offset, length,
+                      [&](int64_t pos, int64_t len) {
+                        const ValueType1* v1 = &values1[pos];
+                        const ValueType2* v2 = &values2[pos];
+                        // unsigned division by constant is cheaper than signed one
+                        const uint64_t blocks = static_cast<uint64_t>(len) / kBlockSize;
+                        const uint64_t remains = static_cast<uint64_t>(len) % kBlockSize;
+
+                        for (uint64_t i = 0; i < blocks; ++i) {
+                          SumType block_sum = 0;
+                          for (int j = 0; j < kBlockSize; ++j) {
+                            block_sum += func(v1[j], v2[j]);
+                          }
+                          state.Reduce(block_sum);
+                          v1 += kBlockSize;
+                          v2 += kBlockSize;
+                        }
+
+                        if (remains > 0) {
+                          SumType block_sum = 0;
+                          for (uint64_t i = 0; i < remains; ++i) {
+                            block_sum += func(v1[i], v2[i]);
+                          }
+                          state.Reduce(block_sum);
+                        }
+                      });
+
+  return state.Finalize();
+}
+
+// naive summation for integers and decimals
+template <typename ValueType1, typename ValueType2, typename SumType,
+          SimdLevel::type SimdLevel, typename ValueFunc>
+enable_if_t<!std::is_floating_point<SumType>::value, SumType> SumTwoArray(
+    const BufferSpan& null_bitmap, int64_t null_bitmap_offset, int64_t null_count,
+    const ValueType1* values1, const ValueType2* values2, int64_t length,
+    ValueFunc&& func) {
+  using arrow::internal::VisitSetBitRunsVoid;
+
+  SumType sum = 0;
+  VisitSetBitRunsVoid(null_bitmap.data, null_bitmap_offset, length,
+                      [&](int64_t pos, int64_t len) {
+                        for (int64_t i = 0; i < len; ++i) {
+                          sum += func(values1[pos + i], values2[pos + i]);
+                        }
+                      });
+  return sum;
+}
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow
