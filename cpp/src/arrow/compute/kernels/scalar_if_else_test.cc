@@ -1218,11 +1218,14 @@ void TestCaseWhenFixedSize() {
          ArrayFromJSON(type, "[30, 31, 32, 33, 34, null, 36, 37, null]")},
         ArrayFromJSON(type, "[10, 11, 12, 23, 34, null, 26, 37, null]"));
 
-    // ARROW-18195
+    // ARROW-18195: if there was a null in the first block (64 values) of a condition,
+    // then the subsequent blocks would all miss that condition. This makes sure we
+    // Handle subsequent blocks correctly if there is a null in the first block.
     auto len = 65;
 
     ASSERT_OK_AND_ASSIGN(auto temp_cond0, MakeArrayOfNull(boolean(), 1));
-    ASSERT_OK_AND_ASSIGN(auto temp_cond1, MakeArrayFromScalar(BooleanScalar(true), len - 1));
+    ASSERT_OK_AND_ASSIGN(auto temp_cond1,
+                         MakeArrayFromScalar(BooleanScalar(true), len - 1));
     ASSERT_OK_AND_ASSIGN(auto cond, Concatenate({temp_cond0, temp_cond1}));
 
     ASSERT_OK_AND_ASSIGN(auto ones, MakeArrayFromScalar(Int64Scalar(1), len));
@@ -1231,11 +1234,7 @@ void TestCaseWhenFixedSize() {
     ASSERT_OK_AND_ASSIGN(auto temp_res1, MakeArrayFromScalar(Int64Scalar(1), len - 1));
     ASSERT_OK_AND_ASSIGN(auto res, Concatenate({temp_res0, temp_res1}));
 
-    CheckScalar(
-      "case_when",
-      {MakeStruct({cond}), ones},
-      res
-    );
+    CheckScalar("case_when", {MakeStruct({cond}), ones}, res);
 
     // Error cases
     EXPECT_RAISES_WITH_MESSAGE_THAT(
