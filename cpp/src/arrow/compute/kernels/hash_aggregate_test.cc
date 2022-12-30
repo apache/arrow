@@ -189,7 +189,7 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
     const std::shared_ptr<Array>& arr = out_arrays[i + aggregates.size()];
     key_columns.push_back(arr);
     key_fields.push_back(field("name_does_not_matter", arr->type()));
-    sort_keys.emplace_back(i);
+    sort_keys.emplace_back(static_cast<int>(i));
   }
   std::shared_ptr<Schema> key_schema = schema(std::move(key_fields));
   std::shared_ptr<Table> key_table = Table::Make(std::move(key_schema), key_columns);
