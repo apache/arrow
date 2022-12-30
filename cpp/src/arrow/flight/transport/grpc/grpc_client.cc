@@ -551,7 +551,7 @@ class GrpcResultStream : public ResultStream {
     return nullptr;
   }
 
-  // private:
+ private:
   ClientRpc rpc_;
   StopToken stop_token_;
   Status status_;

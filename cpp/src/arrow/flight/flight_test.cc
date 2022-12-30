@@ -1289,7 +1289,7 @@ TEST_F(TestTls, OverrideHostname) {
   ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location_, client_options));
 
   FlightCallOptions options;
-  // options.timeout = TimeoutDuration{5.0};
+  options.timeout = TimeoutDuration{5.0};
   Action action;
   action.type = "test";
   action.body = Buffer::FromString("");
