@@ -147,14 +147,22 @@ class ARROW_EXPORT AsyncTaskScheduler {
   ///
   /// \param initial_task The initial task which is responsible for adding
   ///        the first subtasks to the scheduler.
+  /// \param abort_callback A callback that will be triggered immediately after a task
+  ///        fails while other tasks may still be running.  Nothing needs to be done here,
+  ///        when a task fails the scheduler will stop accepting new tasks and eventually
+  ///        return the error.  However, this callback can be used to more quickly end
+  ///        long running tasks that have already been submitted.  Defaults to doing
+  ///        nothing.
   /// \param stop_token An optional stop token that will allow cancellation of the
   ///        scheduler.  This will be checked before each task is submitted and, in the
   ///        event of a cancellation, the scheduler will enter an aborted state. This is
   ///        a graceful cancellation and submitted tasks will still complete.
   /// \return A future that will be completed when the initial task and all subtasks have
   ///         finished.
-  static Future<> Make(FnOnce<Status(AsyncTaskScheduler*)> initial_task,
-                       StopToken stop_token = StopToken::Unstoppable());
+  static Future<> Make(
+      FnOnce<Status(AsyncTaskScheduler*)> initial_task,
+      FnOnce<void(const Status&)> abort_callback = [](const Status&) {},
+      StopToken stop_token = StopToken::Unstoppable());
 };
 
 class ARROW_EXPORT ThrottledAsyncTaskScheduler : public AsyncTaskScheduler {

@@ -807,10 +807,36 @@ class AsofJoinNode : public ExecNode {
     }
   }
 
-  void Process() {
+  template <typename Callable>
+  struct Defer {
+    Callable callable;
+    explicit Defer(Callable callable) : callable(std::move(callable)) {}
+    ~Defer() noexcept { callable(); }
+  };
+
+  void EndFromProcessThread() {
+    // We must spawn a new task to transfer off the process thread when
+    // marking this finished.  Otherwise there is a chance that doing so could
+    // mark the plan finished which may destroy the plan which will destroy this
+    // node which will cause us to join on ourselves.
+    ErrorIfNotOk(plan_->query_context()->executor()->Spawn([this] {
+      Defer cleanup([this]() { finished_.MarkFinished(); });
+      outputs_[0]->InputFinished(this, batches_produced_);
+    }));
+  }
+
+  bool CheckEnded() {
+    if (state_.at(0)->Finished()) {
+      EndFromProcessThread();
+      return false;
+    }
+    return true;
+  }
+
+  bool Process() {
     std::lock_guard<std::mutex> guard(gate_);
-    if (finished_.is_finished()) {
-      return;
+    if (!CheckEnded()) {
+      return false;
     }
 
     // Process batches while we have data
@@ -825,7 +851,8 @@ class AsofJoinNode : public ExecNode {
         outputs_[0]->InputReceived(this, std::move(out_b));
       } else {
         ErrorIfNotOk(result.status());
-        return;
+        EndFromProcessThread();
+        return false;
       }
     }
 
@@ -834,18 +861,24 @@ class AsofJoinNode : public ExecNode {
     //
     // It may happen here in cases where InputFinished was called before we were finished
     // producing results (so we didn't know the output size at that time)
-    if (state_.at(0)->Finished()) {
-      outputs_[0]->InputFinished(this, batches_produced_);
-      finished_.MarkFinished();
+    if (!CheckEnded()) {
+      return false;
     }
+
+    // There is no more we can do now but there is still work remaining for later when
+    // more data arrives.
+    return true;
   }
 
   void ProcessThread() {
     for (;;) {
       if (!process_.Pop()) {
+        EndFromProcessThread();
         return;
       }
-      Process();
+      if (!Process()) {
+        return;
+      }
     }
   }
 
@@ -1120,10 +1153,7 @@ class AsofJoinNode : public ExecNode {
     // finished.
     process_.Push(true);
   }
-  Status StartProducing() override {
-    finished_ = arrow::Future<>::Make();
-    return Status::OK();
-  }
+  Status StartProducing() override { return Status::OK(); }
   void PauseProducing(ExecNode* output, int32_t counter) override {}
   void ResumeProducing(ExecNode* output, int32_t counter) override {}
   void StopProducing(ExecNode* output) override {
@@ -1137,7 +1167,6 @@ class AsofJoinNode : public ExecNode {
   arrow::Future<> finished() override { return finished_; }
 
  private:
-  arrow::Future<> finished_;
   std::vector<col_index_t> indices_of_on_key_;
   std::vector<std::vector<col_index_t>> indices_of_by_key_;
   std::vector<std::unique_ptr<KeyHasher>> key_hashers_;
@@ -1176,9 +1205,7 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
       may_rehash_(may_rehash),
       tolerance_(tolerance),
       process_(),
-      process_thread_(&AsofJoinNode::ProcessThreadWrapper, this) {
-  finished_ = arrow::Future<>::MakeFinished();
-}
+      process_thread_(&AsofJoinNode::ProcessThreadWrapper, this) {}
 
 namespace internal {
 void RegisterAsofJoinNode(ExecFactoryRegistry* registry) {

@@ -123,8 +123,8 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       }
       const uint8_t* decoder_data = data + 4;
       if (!rle_decoder_) {
-        rle_decoder_.reset(
-            new ::arrow::util::RleDecoder(decoder_data, num_bytes, bit_width_));
+        rle_decoder_ = std::make_unique<::arrow::util::RleDecoder>(decoder_data,
+                                                                   num_bytes, bit_width_);
       } else {
         rle_decoder_->Reset(decoder_data, num_bytes, bit_width_);
       }
@@ -141,7 +141,8 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
       if (!bit_packed_decoder_) {
-        bit_packed_decoder_.reset(new ::arrow::bit_util::BitReader(data, num_bytes));
+        bit_packed_decoder_ =
+            std::make_unique<::arrow::bit_util::BitReader>(data, num_bytes);
       } else {
         bit_packed_decoder_->Reset(data, num_bytes);
       }
@@ -166,7 +167,8 @@ void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
   bit_width_ = bit_util::Log2(max_level + 1);
 
   if (!rle_decoder_) {
-    rle_decoder_.reset(new ::arrow::util::RleDecoder(data, num_bytes, bit_width_));
+    rle_decoder_ =
+        std::make_unique<::arrow::util::RleDecoder>(data, num_bytes, bit_width_);
   } else {
     rle_decoder_->Reset(data, num_bytes, bit_width_);
   }
@@ -1871,7 +1873,7 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
     DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
     int byte_width = descr_->type_length();
     std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
-    builder_.reset(new ::arrow::FixedSizeBinaryBuilder(type, this->pool_));
+    builder_ = std::make_unique<::arrow::FixedSizeBinaryBuilder>(type, this->pool_);
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
@@ -1923,7 +1925,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
                                ::arrow::MemoryPool* pool)
       : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool) {
     DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-    accumulator_.builder.reset(new ::arrow::BinaryBuilder(pool));
+    accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {

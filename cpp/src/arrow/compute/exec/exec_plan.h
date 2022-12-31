@@ -54,11 +54,21 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   /// Make an empty exec plan
   static Result<std::shared_ptr<ExecPlan>> Make(
-      QueryOptions options, ExecContext* exec_context = default_exec_context(),
+      QueryOptions options, ExecContext exec_context = *threaded_exec_context(),
       std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
   static Result<std::shared_ptr<ExecPlan>> Make(
-      ExecContext* exec_context = default_exec_context(),
+      ExecContext exec_context = *threaded_exec_context(),
+      std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+
+  ARROW_DEPRECATED("Deprecated in 11.0.0. Use version that takes ExecContext by value.")
+  static Result<std::shared_ptr<ExecPlan>> Make(
+      QueryOptions options, ExecContext* exec_context,
+      std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+
+  ARROW_DEPRECATED("Deprecated in 11.0.0. Use version that takes ExecContext by value.")
+  static Result<std::shared_ptr<ExecPlan>> Make(
+      ExecContext* exec_context,
       std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
   ExecNode* AddNode(std::unique_ptr<ExecNode> node);
@@ -419,37 +429,112 @@ struct ARROW_EXPORT Declaration {
 /// This method will add a sink node to the declaration to collect results into a
 /// table.  It will then create an ExecPlan from the declaration, start the exec plan,
 /// block until the plan has finished, and return the created table.
-ARROW_EXPORT Result<std::shared_ptr<Table>> DeclarationToTable(
-    Declaration declaration, ExecContext* exec_context = default_exec_context());
+///
+/// If `use_threads` is false then all CPU work will be done on the calling thread.  I/O
+/// tasks will still happen on the I/O executor and may be multi-threaded (but should
+/// not use significant CPU resources)
+ARROW_EXPORT Result<std::shared_ptr<Table>> DeclarationToTable(Declaration declaration,
+                                                               bool use_threads = true);
 
 /// \brief Asynchronous version of \see DeclarationToTable
+///
+/// The behavior of use_threads is slightly different than the synchronous version since
+/// we cannot run synchronously on the calling thread.  Instead, if use_threads=false then
+/// a new thread pool will be created with a single thread and this will be used for all
+/// compute work.
 ARROW_EXPORT Future<std::shared_ptr<Table>> DeclarationToTableAsync(
-    Declaration declaration, ExecContext* exec_context = default_exec_context());
+    Declaration declaration, bool use_threads = true);
+
+/// \brief Overload of \see DeclarationToTableAsync accepting a custom exec context
+///
+/// The executor must be specified (cannot be null) and must be kept alive until the
+/// returned future finishes.
+ARROW_EXPORT Future<std::shared_ptr<Table>> DeclarationToTableAsync(
+    Declaration declaration, ExecContext custom_exec_context);
+
+/// \brief a collection of exec batches with a common schema
+struct BatchesWithCommonSchema {
+  std::vector<ExecBatch> batches;
+  std::shared_ptr<Schema> schema;
+};
 
 /// \brief Utility method to run a declaration and collect the results into ExecBatch
 /// vector
 ///
-/// \see DeclarationToTable for details
-ARROW_EXPORT Result<std::vector<ExecBatch>> DeclarationToExecBatches(
-    Declaration declaration, ExecContext* exec_context = default_exec_context());
+/// \see DeclarationToTable for details on threading & execution
+ARROW_EXPORT Result<BatchesWithCommonSchema> DeclarationToExecBatches(
+    Declaration declaration, bool use_threads = true);
 
 /// \brief Asynchronous version of \see DeclarationToExecBatches
-ARROW_EXPORT Future<std::vector<ExecBatch>> DeclarationToExecBatchesAsync(
-    Declaration declaration, ExecContext* exec_context = default_exec_context());
+///
+/// \see DeclarationToTableAsync for details on threading & execution
+ARROW_EXPORT Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(
+    Declaration declaration, bool use_threads = true);
+
+/// \brief Overload of \see DeclarationToExecBatchesAsync accepting a custom exec context
+///
+/// \see DeclarationToTableAsync for details on threading & execution
+ARROW_EXPORT Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(
+    Declaration declaration, ExecContext custom_exec_context);
 
 /// \brief Utility method to run a declaration and collect the results into a vector
 ///
-/// \see DeclarationToTable for details
+/// \see DeclarationToTable for details on threading & execution
 ARROW_EXPORT Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatches(
-    Declaration declaration, ExecContext* exec_context = default_exec_context());
+    Declaration declaration, bool use_threads = true);
 
 /// \brief Asynchronous version of \see DeclarationToBatches
+///
+/// \see DeclarationToTableAsync for details on threading & execution
 ARROW_EXPORT Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
-    Declaration declaration, ExecContext* exec_context = default_exec_context());
+    Declaration declaration, bool use_threads = true);
+
+/// \brief Overload of \see DeclarationToBatchesAsync accepting a custom exec context
+///
+/// \see DeclarationToTableAsync for details on threading & execution
+ARROW_EXPORT Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
+    Declaration declaration, ExecContext exec_context);
 
 /// \brief Utility method to run a declaration and return results as a RecordBatchReader
+///
+/// If an exec context is not provided then a default exec context will be used based
+/// on the value of `use_threads`.  If `use_threads` is false then the CPU exeuctor will
+/// be a serial executor and all CPU work will be done on the calling thread.  I/O tasks
+/// will still happen on the I/O executor and may be multi-threaded.
+///
+/// If `use_threads` is false then all CPU work will happen during the calls to
+/// RecordBatchReader::Next and no CPU work will happen in the background.  If
+/// `use_threads` is true then CPU work will happen on the CPU thread pool and tasks may
+/// run in between calls to RecordBatchReader::Next.  If the returned reader is not
+/// consumed quickly enough then the plan will eventually pause as the backpressure queue
+/// fills up.
+///
+/// If a custom exec context is provided then the value of `use_threads` will be ignored.
 ARROW_EXPORT Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
-    Declaration declaration, bool use_threads);
+    Declaration declaration, bool use_threads = true);
+
+/// \brief Utility method to run a declaration and ignore results
+///
+/// This can be useful when the data are consumed as part of the plan itself, for
+/// example, when the plan ends with a write node.
+///
+/// \see DeclarationToTable for details on threading & execution
+ARROW_EXPORT Status DeclarationToStatus(Declaration declaration, bool use_threads = true);
+
+/// \brief Asynchronous version of \see DeclarationToStatus
+///
+/// This can be useful when the data are consumed as part of the plan itself, for
+/// example, when the plan ends with a write node.
+///
+/// \see DeclarationToTableAsync for details on threading & execution
+ARROW_EXPORT Future<> DeclarationToStatusAsync(Declaration declaration,
+                                               bool use_threads = true);
+
+/// \brief Overload of \see DeclarationToStatusAsync accepting a custom exec context
+///
+/// \see DeclarationToTableAsync for details on threading & execution
+ARROW_EXPORT Future<> DeclarationToStatusAsync(Declaration declaration,
+                                               ExecContext exec_context);
 
 /// \brief Wrap an ExecBatch generator in a RecordBatchReader.
 ///
