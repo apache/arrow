@@ -452,6 +452,59 @@ BENCHMARK(BM_ByteStreamSplitEncode_Float_Avx512)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_ByteStreamSplitEncode_Double_Avx512)->Range(MIN_RANGE, MAX_RANGE);
 #endif
 
+template <typename DType>
+static void BM_DeltaBitPackingEncode(benchmark::State& state) {
+  using T = typename DType::c_type;
+  std::vector<T> values(state.range(0), 64);
+  std::vector<uint8_t> output(state.range(0) * sizeof(T), 0);
+  auto encoder = MakeTypedEncoder<DType>(Encoding::DELTA_BINARY_PACKED);
+  for (auto _ : state) {
+    encoder->Put(values.data(), static_cast<int>(values.size()));
+    encoder->FlushValues();
+  }
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int64_t));
+  state.SetBytesProcessed(state.iterations() * values.size() * sizeof(T));
+}
+
+static void BM_DeltaBitPackingEncode_Int32(benchmark::State& state) {
+  BM_DeltaBitPackingEncode<Int32Type>(state);
+}
+
+static void BM_DeltaBitPackingEncode_Int64(benchmark::State& state) {
+  BM_DeltaBitPackingEncode<Int64Type>(state);
+}
+
+BENCHMARK(BM_DeltaBitPackingEncode_Int32)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingEncode_Int64)->Range(MIN_RANGE, MAX_RANGE);
+
+template <typename DType>
+static void BM_DeltaBitPackingDecode(benchmark::State& state) {
+  using T = typename DType::c_type;
+  std::vector<T> values(state.range(0), 64);
+  auto encoder = MakeTypedEncoder<DType>(Encoding::DELTA_BINARY_PACKED);
+  encoder->Put(values.data(), static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  for (auto _ : state) {
+    auto decoder = MakeTypedDecoder<DType>(Encoding::DELTA_BINARY_PACKED);
+    decoder->SetData(static_cast<int>(values.size()), buf->data(),
+                     static_cast<int>(buf->size()));
+    decoder->Decode(values.data(), static_cast<int>(values.size()));
+  }
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int64_t));
+}
+
+static void BM_DeltaBitPackingDecode_Int32(benchmark::State& state) {
+  BM_DeltaBitPackingDecode<Int32Type>(state);
+}
+
+static void BM_DeltaBitPackingDecode_Int64(benchmark::State& state) {
+  BM_DeltaBitPackingDecode<Int64Type>(state);
+}
+
+BENCHMARK(BM_DeltaBitPackingDecode_Int32)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingDecode_Int64)->Range(MIN_RANGE, MAX_RANGE);
+
 template <typename Type>
 static void DecodeDict(std::vector<typename Type::c_type>& values,
                        benchmark::State& state) {
