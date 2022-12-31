@@ -462,7 +462,6 @@ static void BM_DeltaBitPackingEncode(benchmark::State& state, NumberGenerator ge
     encoder->Put(values.data(), static_cast<int>(values.size()));
     encoder->FlushValues();
   }
-  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int64_t));
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(T));
 }
 
@@ -529,7 +528,7 @@ static void BM_DeltaBitPackingDecode(benchmark::State& state, NumberGenerator ge
                      static_cast<int>(buf->size()));
     decoder->Decode(values.data(), static_cast<int>(values.size()));
   }
-  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int64_t));
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(T));
 }
 
 static void BM_DeltaBitPackingDecode_Int32_Equal(benchmark::State& state) {
@@ -548,7 +547,7 @@ static void BM_DeltaBitPackingDecode_Int32_Narrow(benchmark::State& state) {
     ::arrow::randint<int32_t, int32_t>(number, 0, 2000, &numbers);
     return numbers;
   });
-}  // namespace parquet
+}
 
 static void BM_DeltaBitPackingDecode_Int64_Narrow(benchmark::State& state) {
   BM_DeltaBitPackingDecode<Int64Type>(state, [](size_t number) {
