@@ -94,6 +94,10 @@ module GitRunnable
 end
 
 module VersionDetectable
+  def release_type
+    (data || {})[:release_type] || :major
+  end
+
   def detect_versions
     top_dir = Pathname(__dir__).parent.parent
     cpp_cmake_lists = top_dir + "cpp" + "CMakeLists.txt"
@@ -102,7 +106,18 @@ module VersionDetectable
     @release_version = @snapshot_version.gsub(/-SNAPSHOT\z/, "")
     @release_compatible_version = @release_version.split(".")[0, 2].join(".")
     @so_version = compute_so_version(@release_version)
-    @next_version = @release_version.gsub(/\A\d+/) {|major| major.succ}
+    next_version_components = @release_version.split(".")
+    case release_type
+    when :major
+      next_version_components[0].succ!
+    when :minor
+      next_version_components[1].succ!
+    when :patch
+      next_version_components[2].succ!
+    else
+      raise "unknown release type: #{release_type.inspect}"
+    end
+    @next_version = next_version_components.join(".")
     @next_major_version = @next_version.split(".")[0]
     @next_compatible_version = @next_version.split(".")[0, 2].join(".")
     @next_snapshot_version = "#{@next_version}-SNAPSHOT"
