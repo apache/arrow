@@ -94,3 +94,7 @@ find_package_message(NUMPY
     "${NUMPY_INCLUDE_DIRS}${NUMPY_VERSION}")
 
 set(NUMPY_FOUND TRUE)
+
+add_library(Python3::NumPy INTERFACE IMPORTED)
+target_include_directories(Python3::NumPy INTERFACE ${NUMPY_INCLUDE_DIRS})
+target_link_libraries(Python3::NumPy INTERFACE Python3::Module)
