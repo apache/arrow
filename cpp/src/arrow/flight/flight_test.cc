@@ -894,7 +894,8 @@ TEST_F(TestErrorMiddleware, TestMetadata) {
   action.type = "action1";
 
   action.body = Buffer::FromString("action1-content");
-  Status s = client_->DoAction(action).status();
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoAction(action));
+  Status s = stream->Next().status();
   ASSERT_FALSE(s.ok());
   std::shared_ptr<FlightStatusDetail> flightStatusDetail =
       FlightStatusDetail::UnwrapStatus(s);
@@ -1095,7 +1096,8 @@ TEST_F(TestAuthHandler, FailUnauthenticatedCalls) {
   Action action;
   action.type = "";
   action.body = Buffer::FromString("");
-  status = client_->DoAction(action).status();
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoAction(action));
+  status = stream->Next().status();
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 
@@ -1192,7 +1194,8 @@ TEST_F(TestBasicAuthHandler, FailUnauthenticatedCalls) {
   Action action;
   action.type = "";
   action.body = Buffer::FromString("");
-  status = client_->DoAction(action).status();
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoAction(action));
+  status = stream->Next().status();
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 
@@ -1290,7 +1293,8 @@ TEST_F(TestTls, OverrideHostname) {
   Action action;
   action.type = "test";
   action.body = Buffer::FromString("");
-  ASSERT_RAISES(IOError, client->DoAction(options, action));
+  ASSERT_OK_AND_ASSIGN(auto stream, client->DoAction(options, action));
+  ASSERT_RAISES(IOError, stream->Next());
 }
 
 // Test the facility for setting generic transport options.
@@ -1308,7 +1312,8 @@ TEST_F(TestTls, OverrideHostnameGeneric) {
   Action action;
   action.type = "test";
   action.body = Buffer::FromString("");
-  ASSERT_RAISES(IOError, client->DoAction(options, action));
+  ASSERT_OK_AND_ASSIGN(auto stream, client->DoAction(options, action));
+  ASSERT_RAISES(IOError, stream->Next());
   // Could check error message for the gRPC error message but it isn't
   // necessarily stable
 }
@@ -1352,6 +1357,8 @@ TEST_F(TestPropagatingMiddleware, Propagate) {
 
   ASSERT_OK_AND_ASSIGN(result, stream->Next());
   ASSERT_EQ("trace-id", result->body->ToString());
+  ASSERT_OK_AND_ASSIGN(result, stream->Next());
+  ASSERT_EQ(nullptr, result);
   ValidateStatus(Status::OK(), FlightMethod::DoAction);
 }
 
@@ -1509,9 +1516,12 @@ TEST_F(TestCancel, DoAction) {
   StopSource stop_source;
   FlightCallOptions options;
   options.stop_token = stop_source.token();
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoAction(options, {}));
+  ASSERT_OK_AND_ASSIGN(auto result, stream->Next());
+  ASSERT_EQ("foo", result->body->ToString());
   stop_source.RequestStop(Status::Cancelled("StopSource"));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
-                                  client_->DoAction(options, {}));
+                                  stream->Next());
 }
 
 TEST_F(TestCancel, ListActions) {
