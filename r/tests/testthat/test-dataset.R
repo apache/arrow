@@ -586,16 +586,25 @@ test_that("UnionDataset can merge schemas", {
     collect() %>%
     arrange(x)
   expect_equal(colnames(actual), c("x", "y", "z"))
-  expect_equal(
-    actual,
-    union_all(as_tibble(sub_df1), as_tibble(sub_df2))
+
+  union_all_common <- function(...) {
+    common <- vctrs::vec_cast_common(...)
+    rlang::inject(union_all(!!!common))
+  }
+
+  expected <- union_all_common(
+    as_tibble(sub_df1),
+    as_tibble(sub_df2)
   )
+  expect_equal(actual, expected)
 
   # without unifying schemas, takes the first schema and discards any columns
   # in the second which aren't in the first
   ds <- open_dataset(list(ds1, ds2), unify_schemas = FALSE)
-  expected <- as_tibble(sub_df1) %>%
-    union_all(sub_df2 %>% as_tibble() %>% select(x))
+  expected <- union_all_common(
+    as_tibble(sub_df1),
+    as_tibble(sub_df2) %>% select(x)
+  )
   actual <- ds %>%
     collect() %>%
     arrange(x)

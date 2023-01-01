@@ -499,6 +499,65 @@ constexpr char kDummyRootCert[] =
     "-----END CERTIFICATE-----\n";
 #endif
 
+class GrpcResultStream : public ResultStream {
+ public:
+  explicit GrpcResultStream(const FlightCallOptions& options)
+      : rpc_(options),
+        stop_token_(options.stop_token),
+        status_(
+            Status::UnknownError("Internal implementation error, stream not started")) {}
+
+  ~GrpcResultStream() override {
+    if (stream_) {
+      rpc_.context.TryCancel();
+      ARROW_WARN_NOT_OK(FromGrpcStatus(stream_->Finish(), &rpc_.context),
+                        "DoAction result was not fully consumed");
+    }
+  }
+
+  static arrow::Result<std::unique_ptr<GrpcResultStream>> Make(
+      const FlightCallOptions& options, pb::FlightService::Stub* stub,
+      ClientAuthHandler* auth_handler, const Action& action) {
+    auto result = std::make_unique<GrpcResultStream>(options);
+    ARROW_RETURN_NOT_OK(result->Init(stub, auth_handler, action));
+    return result;
+  }
+
+  Status Init(pb::FlightService::Stub* stub, ClientAuthHandler* auth_handler,
+              const Action& action) {
+    pb::Action pb_action;
+    RETURN_NOT_OK(internal::ToProto(action, &pb_action));
+    RETURN_NOT_OK(rpc_.SetToken(auth_handler));
+    stream_ = stub->DoAction(&rpc_.context, pb_action);
+    return Status::OK();
+  }
+
+  arrow::Result<std::unique_ptr<Result>> Next() override {
+    if (stream_) {
+      pb::Result pb_result;
+      if (!stop_token_.IsStopRequested() && stream_->Read(&pb_result)) {
+        auto result = std::make_unique<Result>();
+        RETURN_NOT_OK(internal::FromProto(pb_result, result.get()));
+        return result;
+      } else if (stop_token_.IsStopRequested()) {
+        rpc_.context.TryCancel();
+      }
+      RETURN_NOT_OK(stop_token_.Poll());
+
+      status_ = FromGrpcStatus(stream_->Finish(), &rpc_.context);
+      stream_.reset();
+    }
+    RETURN_NOT_OK(status_);
+    return nullptr;
+  }
+
+ private:
+  ClientRpc rpc_;
+  StopToken stop_token_;
+  Status status_;
+  std::unique_ptr<::grpc::ClientReader<pb::Result>> stream_;
+};
+
 class GrpcClientImpl : public internal::ClientTransport {
  public:
   static arrow::Result<std::unique_ptr<internal::ClientTransport>> Make() {
@@ -729,27 +788,9 @@ class GrpcClientImpl : public internal::ClientTransport {
 
   Status DoAction(const FlightCallOptions& options, const Action& action,
                   std::unique_ptr<ResultStream>* results) override {
-    pb::Action pb_action;
-    RETURN_NOT_OK(internal::ToProto(action, &pb_action));
-
-    ClientRpc rpc(options);
-    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
-    std::unique_ptr<::grpc::ClientReader<pb::Result>> stream(
-        stub_->DoAction(&rpc.context, pb_action));
-
-    pb::Result pb_result;
-
-    std::vector<Result> materialized_results;
-    while (!options.stop_token.IsStopRequested() && stream->Read(&pb_result)) {
-      Result result;
-      RETURN_NOT_OK(internal::FromProto(pb_result, &result));
-      materialized_results.emplace_back(std::move(result));
-    }
-    if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
-    RETURN_NOT_OK(options.stop_token.Poll());
-
-    *results = std::make_unique<SimpleResultStream>(std::move(materialized_results));
-    return FromGrpcStatus(stream->Finish(), &rpc.context);
+    ARROW_ASSIGN_OR_RAISE(*results, GrpcResultStream::Make(options, stub_.get(),
+                                                           auth_handler_.get(), action));
+    return Status::OK();
   }
 
   Status ListActions(const FlightCallOptions& options,

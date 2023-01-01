@@ -17,16 +17,24 @@
 
 #include "arrow/engine/substrait/plan_internal.h"
 
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
+
+#include "arrow/compute/type_fwd.h"
 #include "arrow/config.h"
-#include "arrow/dataset/plan.h"
 #include "arrow/engine/substrait/relation_internal.h"
+#include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/result.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/unreachable.h"
 
-#include <memory>
-#include <unordered_map>
+#include "substrait/extensions/extensions.pb.h"
 
 namespace arrow {
 
@@ -135,7 +143,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
 
 namespace {
 
-// FIXME Is there some way to get these from the cmake files?
+// TODO(ARROW-18145) Populate these from cmake files
 constexpr uint32_t kSubstraitMajorVersion = 0;
 constexpr uint32_t kSubstraitMinorVersion = 20;
 constexpr uint32_t kSubstraitPatchVersion = 0;

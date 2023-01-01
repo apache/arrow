@@ -144,7 +144,7 @@ of digits after the decimal point. It can be negative.}
 sorted.}
 }
 \value{
-An Arrow type object inheriting from DataType.
+An Arrow type object inheriting from \link{DataType}.
 }
 \description{
 These functions create type objects corresponding to Arrow types. Use them

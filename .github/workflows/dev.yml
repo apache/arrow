@@ -98,6 +98,7 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
+          gem install test-unit
           pip install cython setuptools six pytest jira
       - name: Run Release Test
         env:

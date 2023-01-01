@@ -15,28 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <cstddef>
 #include <memory>
 #include <string>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
-#include <gmock/gmock-matchers.h>
+#include <gmock/gmock.h>
+#include <gtest/gtest-matchers.h>
 #include <gtest/gtest.h>
 
-#include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/datum.h"
 #include "arrow/engine/substrait/extension_set.h"
-#include "arrow/engine/substrait/plan_internal.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/test_plan_builder.h"
-#include "arrow/engine/substrait/type_internal.h"
 #include "arrow/record_batch.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 
@@ -152,7 +161,13 @@ void CheckErrorTestCases(const std::vector<FunctionTestCase>& error_cases) {
     std::shared_ptr<Table> output_table;
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
                          PlanFromTestCase(test_case, &output_table));
-    ASSERT_RAISES(Invalid, plan->StartProducing());
+    Status start_st = plan->StartProducing();
+    // The plan can fail in start producing or when running the plan
+    if (!start_st.ok()) {
+      ASSERT_TRUE(start_st.IsInvalid());
+      return;
+    }
+    ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
   }
 }
 

@@ -164,7 +164,9 @@ def test_create_parquet_dataset_multi_threaded(tempdir):
         FutureWarning, match="Specifying the 'metadata_nthreads'"
     ):
         dataset = pq.ParquetDataset(
-            base_path, filesystem=fs, metadata_nthreads=16)
+            base_path, filesystem=fs, metadata_nthreads=16,
+            use_legacy_dataset=True
+        )
     assert len(dataset.pieces) > 0
     partitions = dataset.partitions
     assert len(partitions.partition_names) > 0
@@ -266,10 +268,12 @@ def test_filters_equivalency(tempdir, use_legacy_dataset):
         # results with the current code.
         with pytest.raises(NotImplementedError):
             filters = [[('string', '==', b'1\0a')]]
-            pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
+            pq.ParquetDataset(base_path, filesystem=fs, filters=filters,
+                              use_legacy_dataset=True)
         with pytest.raises(NotImplementedError):
             filters = [[('string', '==', '1\0a')]]
-            pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
+            pq.ParquetDataset(base_path, filesystem=fs, filters=filters,
+                              use_legacy_dataset=True)
     else:
         for filters in [[[('string', '==', b'1\0a')]],
                         [[('string', '==', '1\0a')]]]:
@@ -802,7 +806,8 @@ def _test_read_common_metadata_files(fs, base_path):
     with fs.open(metadata_path, 'wb') as f:
         pq.write_metadata(table.schema, f)
 
-    dataset = pq.ParquetDataset(base_path, filesystem=fs)
+    dataset = pq.ParquetDataset(base_path, filesystem=fs,
+                                use_legacy_dataset=True)
     with pytest.warns(FutureWarning):
         assert dataset.common_metadata_path == str(metadata_path)
 
@@ -811,7 +816,8 @@ def _test_read_common_metadata_files(fs, base_path):
     assert dataset.schema.equals(common_schema)
 
     # handle list of one directory
-    dataset2 = pq.ParquetDataset([base_path], filesystem=fs)
+    dataset2 = pq.ParquetDataset([base_path], filesystem=fs,
+                                 use_legacy_dataset=True)
     assert dataset2.schema.equals(dataset.schema)
 
 
@@ -844,7 +850,8 @@ def test_read_metadata_files(tempdir):
     with fs.open(metadata_path, 'wb') as f:
         pq.write_metadata(table.schema, f)
 
-    dataset = pq.ParquetDataset(tempdir, filesystem=fs)
+    dataset = pq.ParquetDataset(tempdir, filesystem=fs,
+                                use_legacy_dataset=True)
     with pytest.warns(FutureWarning):
         assert dataset.metadata_path == str(metadata_path)
 
@@ -941,7 +948,8 @@ def test_read_multiple_files(tempdir, use_legacy_dataset):
         assert result2.equals(expected)
 
         with pytest.warns(FutureWarning, match="Specifying the 'schema'"):
-            result3 = pq.ParquetDataset(dirpath, schema=metadata.schema).read()
+            result3 = pq.ParquetDataset(dirpath, schema=metadata.schema,
+                                        use_legacy_dataset=True).read()
         assert result3.equals(expected)
     else:
         with pytest.raises(ValueError, match="no longer supported"):
@@ -1481,8 +1489,7 @@ def test_write_to_dataset_filesystem(tempdir):
     assert result.equals(table)
 
 
-# TODO(dataset) support pickling
-def _make_dataset_for_pickling(tempdir, N=100):
+def _make_dataset_for_pickling(tempdir, use_legacy_dataset=False, N=100):
     path = tempdir / 'data.parquet'
     fs = LocalFileSystem._get_instance()
 
@@ -1504,46 +1511,53 @@ def _make_dataset_for_pickling(tempdir, N=100):
     with fs.open(metadata_path, 'wb') as f:
         pq.write_metadata(table.schema, f)
 
-    dataset = pq.ParquetDataset(tempdir, filesystem=fs)
-    with pytest.warns(FutureWarning):
-        assert dataset.metadata_path == str(metadata_path)
+    dataset = pq.ParquetDataset(
+        tempdir, filesystem=fs, use_legacy_dataset=use_legacy_dataset)
+    if use_legacy_dataset:
+        with pytest.warns(FutureWarning):
+            assert dataset.metadata_path == str(metadata_path)
 
     return dataset
 
 
-def _assert_dataset_is_picklable(dataset, pickler):
+def _assert_dataset_is_picklable(dataset, pickler, use_legacy_dataset=False):
     def is_pickleable(obj):
         return obj == pickler.loads(pickler.dumps(obj))
 
     assert is_pickleable(dataset)
-    with pytest.warns(FutureWarning):
-        metadata = dataset.metadata
-    assert is_pickleable(metadata)
-    assert is_pickleable(metadata.schema)
-    assert len(metadata.schema)
-    for column in metadata.schema:
-        assert is_pickleable(column)
+    if use_legacy_dataset:
+        with pytest.warns(FutureWarning):
+            metadata = dataset.metadata
+        assert is_pickleable(metadata)
+        assert is_pickleable(metadata.schema)
+        assert len(metadata.schema)
+        for column in metadata.schema:
+            assert is_pickleable(column)
 
-    for piece in dataset._pieces:
-        assert is_pickleable(piece)
-        metadata = piece.get_metadata()
-        assert metadata.num_row_groups
-        for i in range(metadata.num_row_groups):
-            assert is_pickleable(metadata.row_group(i))
+        for piece in dataset._pieces:
+            assert is_pickleable(piece)
+            metadata = piece.get_metadata()
+            assert metadata.num_row_groups
+            for i in range(metadata.num_row_groups):
+                assert is_pickleable(metadata.row_group(i))
 
 
 @pytest.mark.pandas
-def test_builtin_pickle_dataset(tempdir, datadir):
+@parametrize_legacy_dataset
+def test_builtin_pickle_dataset(tempdir, datadir, use_legacy_dataset):
     import pickle
-    dataset = _make_dataset_for_pickling(tempdir)
-    _assert_dataset_is_picklable(dataset, pickler=pickle)
+    dataset = _make_dataset_for_pickling(tempdir, use_legacy_dataset)
+    _assert_dataset_is_picklable(
+        dataset, pickler=pickle, use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas
-def test_cloudpickle_dataset(tempdir, datadir):
+@parametrize_legacy_dataset
+def test_cloudpickle_dataset(tempdir, datadir, use_legacy_dataset):
     cp = pytest.importorskip('cloudpickle')
-    dataset = _make_dataset_for_pickling(tempdir)
-    _assert_dataset_is_picklable(dataset, pickler=cp)
+    dataset = _make_dataset_for_pickling(tempdir, use_legacy_dataset)
+    _assert_dataset_is_picklable(
+        dataset, pickler=cp, use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas
@@ -1699,7 +1713,10 @@ def test_parquet_dataset_new_filesystem(tempdir):
 
 
 @pytest.mark.filterwarnings("ignore:'ParquetDataset:FutureWarning")
-def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
+@parametrize_legacy_dataset
+def test_parquet_dataset_partitions_piece_path_with_fsspec(
+    tempdir, use_legacy_dataset
+):
     # ARROW-10462 ensure that on Windows we properly use posix-style paths
     # as used by fsspec
     fsspec = pytest.importorskip("fsspec")
@@ -1709,7 +1726,8 @@ def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
 
     # pass a posix-style path (using "/" also on Windows)
     path = str(tempdir).replace("\\", "/")
-    dataset = pq.ParquetDataset(path, filesystem=filesystem)
+    dataset = pq.ParquetDataset(
+        path, filesystem=filesystem, use_legacy_dataset=use_legacy_dataset)
     # ensure the piece path is also posix-style
     expected = path + "/data.parquet"
     assert dataset.pieces[0].path == expected
@@ -1720,7 +1738,7 @@ def test_parquet_dataset_deprecated_properties(tempdir):
     table = pa.table({'a': [1, 2, 3]})
     path = tempdir / 'data.parquet'
     pq.write_table(table, path)
-    dataset = pq.ParquetDataset(path)
+    dataset = pq.ParquetDataset(path, use_legacy_dataset=True)
 
     with pytest.warns(FutureWarning, match="'ParquetDataset.pieces"):
         dataset.pieces

@@ -22,50 +22,74 @@
 const fs = require('fs');
 const path = require('path');
 const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '.cjs';
-const { RecordBatch, AsyncMessageReader } = require(`../index${extension}`);
 const { VectorLoader } = require(`../targets/apache-arrow/visitor/vectorloader`);
+const { RecordBatch, AsyncMessageReader, makeData, Struct, Schema, Field } = require(`../index${extension}`);
 
 (async () => {
 
     const readable = process.argv.length < 3 ? process.stdin : fs.createReadStream(path.resolve(process.argv[2]));
     const reader = new AsyncMessageReader(readable);
 
-    let schema, recordBatchIndex = 0, dictionaryBatchIndex = 0;
+    let schema, metadataLength, message;
+    let byteOffset = 0;
+    let recordBatchCount = 0;
+    let dictionaryBatchCount = 0;
 
-    for await (const message of reader) {
-
-        let bufferRegions = [];
-
-        if (message.isSchema()) {
-            schema = message.header();
-            continue;
-        } else if (message.isRecordBatch()) {
-            const header = message.header();
-            bufferRegions = header.buffers;
-            const body = await reader.readMessageBody(message.bodyLength);
-            const recordBatch = loadRecordBatch(schema, header, body);
-            console.log(`record batch ${++recordBatchIndex}: ${JSON.stringify({
-                offset: body.byteOffset,
-                length: body.byteLength,
-                numRows: recordBatch.length,
-            })}`);
-        } else if (message.isDictionaryBatch()) {
-            const header = message.header();
-            bufferRegions = header.data.buffers;
-            const type = schema.dictionaries.get(header.id);
-            const body = await reader.readMessageBody(message.bodyLength);
-            const recordBatch = loadDictionaryBatch(header.data, body, type);
-            console.log(`dictionary batch ${++dictionaryBatchIndex}: ${JSON.stringify({
-                offset: body.byteOffset,
-                length: body.byteLength,
-                numRows: recordBatch.length,
-                dictionaryId: header.id,
-            })}`);
+    while (1) {
+        if ((metadataLength = (await reader.readMetadataLength())).done) { break; }
+        if (metadataLength.value === -1) {
+            if ((metadataLength = (await reader.readMetadataLength())).done) { break; }
         }
+        if ((message = (await reader.readMetadata(metadataLength.value))).done) { break; }
 
-        bufferRegions.forEach(({ offset, length }, i) => {
-            console.log(`\tbuffer ${i + 1}: { offset: ${offset},  length: ${length} }`);
-        });
+        if (message.value.isSchema()) {
+            console.log(
+                `Schema:`,
+                {
+                    byteOffset,
+                    metadataLength: metadataLength.value,
+                });
+            schema = message.value.header();
+            byteOffset += metadataLength.value;
+        } else if (message.value.isRecordBatch()) {
+            const header = message.value.header();
+            const bufferRegions = header.buffers;
+            const body = await reader.readMessageBody(message.value.bodyLength);
+            const recordBatch = loadRecordBatch(schema, header, body);
+            console.log(
+                `RecordBatch ${++recordBatchCount}:`,
+                {
+                    numRows: recordBatch.numRows,
+                    byteOffset,
+                    metadataLength: metadataLength.value,
+                    bodyByteLength: body.byteLength,
+                });
+            byteOffset += metadataLength.value;
+            bufferRegions.forEach(({ offset, length: byteLength }, i) => {
+                console.log(`\tbuffer ${i + 1}:`, { byteOffset: byteOffset + offset, byteLength });
+            });
+            byteOffset += body.byteLength;
+        } else if (message.value.isDictionaryBatch()) {
+            const header = message.value.header();
+            const bufferRegions = header.data.buffers;
+            const type = schema.dictionaries.get(header.id);
+            const body = await reader.readMessageBody(message.value.bodyLength);
+            const recordBatch = loadDictionaryBatch(header.data, body, type);
+            console.log(
+                `DictionaryBatch ${++dictionaryBatchCount}:`,
+                {
+                    id: header.id,
+                    numRows: recordBatch.numRows,
+                    byteOffset,
+                    metadataLength: metadataLength.value,
+                    bodyByteLength: body.byteLength,
+                });
+            byteOffset += metadataLength.value;
+            bufferRegions.forEach(({ offset, length: byteLength }, i) => {
+                console.log(`\tbuffer ${i + 1}:`, { byteOffset: byteOffset + offset, byteLength });
+            });
+            byteOffset += body.byteLength;
+        }
     }
 
     await reader.return();
@@ -73,9 +97,26 @@ const { VectorLoader } = require(`../targets/apache-arrow/visitor/vectorloader`)
 })().catch((e) => { console.error(e); process.exit(1); });
 
 function loadRecordBatch(schema, header, body) {
-    return new RecordBatch(schema, header.length, new VectorLoader(body, header.nodes, header.buffers, new Map()).visitMany(schema.fields));
+    const children = new VectorLoader(body, header.nodes, header.buffers, new Map()).visitMany(schema.fields);
+    return new RecordBatch(
+        schema,
+        makeData({
+            type: new Struct(schema.fields),
+            length: header.length,
+            children: children
+        })
+    );
 }
 
 function loadDictionaryBatch(header, body, dictionaryType) {
-    return RecordBatch.new(new VectorLoader(body, header.nodes, header.buffers, new Map()).visitMany([dictionaryType]));
+    const schema = new Schema([new Field('', dictionaryType)]);
+    const children = new VectorLoader(body, header.nodes, header.buffers, new Map()).visitMany([dictionaryType]);
+    return new RecordBatch(
+        schema,
+        makeData({
+            type: new Struct(schema.fields),
+            length: header.length,
+            children: children
+        })
+    );
 }

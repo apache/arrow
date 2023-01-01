@@ -178,7 +178,7 @@ test_that("filter scalar validation doesn't crash (ARROW-7772)", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_error(
     ds %>%
-      filter(int == "fff", part == 1) %>%
+      filter(int == Expression$scalar("fff"), part == 1) %>%
       collect(),
     "'equal' has no kernel matching input types .int32, string."
   )

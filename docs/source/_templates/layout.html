@@ -26,3 +26,9 @@
 {# Silence the navbar #}
 {% block docs_navbar %}
 {% endblock %}
+
+{# Add version warnings #}
+{% block footer %}
+  {{ super() }}
+  <script type="text/javascript" src="/docs/_static/versionwarning.js"></script>
+{% endblock %}

@@ -187,6 +187,10 @@ class TestConvertMetadata:
         _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_column_index_names_with_tz(self):
+        if Version("2.0.0.dev0") <= Version(pd.__version__) < Version("2.0.0"):
+            # TODO: regression in pandas, should be fixed before final 2.0.0
+            # https://github.com/pandas-dev/pandas/issues/50140
+            pytest.skip("Regression in pandas 2.0.0.dev")
         # ARROW-13756
         # Bug if index is timezone aware DataTimeIndex
 
@@ -449,6 +453,11 @@ class TestConvertMetadata:
                                         preserve_index=True)
 
     def test_binary_column_name(self):
+        if Version("2.0.0.dev0") <= Version(pd.__version__) < Version("2.0.0"):
+            # TODO: regression in pandas, should be fixed before final 2.0.0
+            # https://issues.apache.org/jira/browse/ARROW-18394
+            # https://github.com/pandas-dev/pandas/issues/50127
+            pytest.skip("Regression in pandas 2.0.0.dev")
         column_data = ['い']
         key = 'あ'.encode()
         data = {key: column_data}
@@ -1496,7 +1505,11 @@ class TestConvertDateTimeLikeTypes:
                 pd.NaT
             ]
         })
-        _check_pandas_roundtrip(df)
+        # 'check_dtype=False' because pandas >= 2 uses datetime.timezone
+        # instead of pytz.FixedOffset, and thus the dtype is not exactly
+        # identical (pyarrow still defaults to pytz)
+        # TODO remove if https://github.com/apache/arrow/issues/15047 is fixed
+        _check_pandas_roundtrip(df, check_dtype=False)
         _check_serialize_components_roundtrip(df)
 
     def test_timedeltas_no_nulls(self):
@@ -2051,6 +2064,11 @@ class TestConvertListTypes:
         assert result3.equals(expected3)
 
     def test_infer_lists(self):
+        if ((Version(np.__version__) >= Version("1.25.0.dev0")) and
+                (Version(pd.__version__) < Version("2.0.0"))):
+            # TODO: regression in pandas with numpy 1.25dev
+            # https://github.com/pandas-dev/pandas/issues/50360
+            pytest.skip("Regression in pandas with numpy 1.25")
         data = OrderedDict([
             ('nan_ints', [[None, 1], [2, 3]]),
             ('ints', [[0, 1], [2, 3]]),
@@ -2100,6 +2118,11 @@ class TestConvertListTypes:
         _check_pandas_roundtrip(df, expected_schema=expected_schema)
 
     def test_to_list_of_structs_pandas(self):
+        if ((Version(np.__version__) >= Version("1.25.0.dev0")) and
+                (Version(pd.__version__) < Version("2.0.0"))):
+            # TODO: regression in pandas with numpy 1.25dev
+            # https://github.com/pandas-dev/pandas/issues/50360
+            pytest.skip("Regression in pandas with numpy 1.25")
         ints = pa.array([1, 2, 3], pa.int32())
         strings = pa.array([['a', 'b'], ['c', 'd'], ['e', 'f']],
                            pa.list_(pa.string()))
@@ -2169,6 +2192,11 @@ class TestConvertListTypes:
             assert result.equals(expected)
 
     def test_nested_large_list(self):
+        if ((Version(np.__version__) >= Version("1.25.0.dev0")) and
+                (Version(pd.__version__) < Version("2.0.0"))):
+            # TODO: regression in pandas with numpy 1.25dev
+            # https://github.com/pandas-dev/pandas/issues/50360
+            pytest.skip("Regression in pandas with numpy 1.25")
         s = (pa.array([[[1, 2, 3], [4]], None],
                       type=pa.large_list(pa.large_list(pa.int64())))
              .to_pandas())
@@ -2877,6 +2905,12 @@ def _fully_loaded_dataframe_example():
 
 @pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
 def test_roundtrip_with_bytes_unicode(columns):
+    if Version("2.0.0.dev0") <= Version(pd.__version__) < Version("2.0.0"):
+        # TODO: regression in pandas, should be fixed before final 2.0.0
+        # https://issues.apache.org/jira/browse/ARROW-18394
+        # https://github.com/pandas-dev/pandas/issues/50127
+        pytest.skip("Regression in pandas 2.0.0.dev")
+
     df = pd.DataFrame(columns=columns)
     table1 = pa.Table.from_pandas(df)
     table2 = pa.Table.from_pandas(table1.to_pandas())

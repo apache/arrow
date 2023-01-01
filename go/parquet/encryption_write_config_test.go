@@ -118,13 +118,17 @@ func (en *EncryptionConfigTestSuite) encryptFile(configs *parquet.FileEncryption
 		boolWriter := nextColumn().(*file.BooleanColumnChunkWriter)
 		for i := 0; i < en.rowsPerRG; i++ {
 			value := (i % 2) == 0
-			boolWriter.WriteBatch([]bool{value}, nil, nil)
+			n, err := boolWriter.WriteBatch([]bool{value}, nil, nil)
+			en.EqualValues(1, n)
+			en.Require().NoError(err)
 		}
 
 		// write the int32 col
 		int32Writer := nextColumn().(*file.Int32ColumnChunkWriter)
 		for i := int32(0); i < int32(en.rowsPerRG); i++ {
-			int32Writer.WriteBatch([]int32{i}, nil, nil)
+			n, err := int32Writer.WriteBatch([]int32{i}, nil, nil)
+			en.EqualValues(1, n)
+			en.Require().NoError(err)
 		}
 
 		// write the int64 column, each row repeats twice
@@ -139,7 +143,9 @@ func (en *EncryptionConfigTestSuite) encryptFile(configs *parquet.FileEncryption
 				repLevel[0] = 1
 			}
 
-			int64Writer.WriteBatch([]int64{value}, defLevel[:], repLevel[:])
+			n, err := int64Writer.WriteBatch([]int64{value}, defLevel[:], repLevel[:])
+			en.EqualValues(1, n)
+			en.Require().NoError(err)
 		}
 
 		// write the int96 col
@@ -149,37 +155,49 @@ func (en *EncryptionConfigTestSuite) encryptFile(configs *parquet.FileEncryption
 			binary.LittleEndian.PutUint32(val[:], uint32(i))
 			binary.LittleEndian.PutUint32(val[4:], uint32(i+1))
 			binary.LittleEndian.PutUint32(val[8:], uint32(i+2))
-			int96Writer.WriteBatch([]parquet.Int96{val}, nil, nil)
+			n, err := int96Writer.WriteBatch([]parquet.Int96{val}, nil, nil)
+			en.EqualValues(1, n)
+			en.Require().NoError(err)
 		}
 
 		// write the float column
 		floatWriter := nextColumn().(*file.Float32ColumnChunkWriter)
 		for i := 0; i < en.rowsPerRG; i++ {
 			val := float32(i) * 1.1
-			floatWriter.WriteBatch([]float32{val}, nil, nil)
+			n, err := floatWriter.WriteBatch([]float32{val}, nil, nil)
+			en.EqualValues(1, n)
+			en.Require().NoError(err)
 		}
 
 		// write the double column
 		doubleWriter := nextColumn().(*file.Float64ColumnChunkWriter)
 		for i := 0; i < en.rowsPerRG; i++ {
 			value := float64(i) * 1.1111111
-			doubleWriter.WriteBatch([]float64{value}, nil, nil)
+			n, err := doubleWriter.WriteBatch([]float64{value}, nil, nil)
+			en.EqualValues(1, n)
+			en.Require().NoError(err)
 		}
 
 		// write the bytearray column. make every alternate value NULL
 		baWriter := nextColumn().(*file.ByteArrayColumnChunkWriter)
 		for i := 0; i < en.rowsPerRG; i++ {
 			var (
+				n     int64
+				err   error
 				hello = []byte{'p', 'a', 'r', 'q', 'u', 'e', 't', 0, 0, 0}
 			)
 			hello[7] = byte(int('0') + i/100)
 			hello[8] = byte(int('0') + (i/10)%10)
 			hello[9] = byte(int('0') + i%10)
 			if i%2 == 0 {
-				baWriter.WriteBatch([]parquet.ByteArray{hello}, []int16{1}, nil)
+				n, err = baWriter.WriteBatch([]parquet.ByteArray{hello}, []int16{1}, nil)
+				en.EqualValues(1, n)
 			} else {
-				baWriter.WriteBatch([]parquet.ByteArray{nil}, []int16{0}, nil)
+				n, err = baWriter.WriteBatch([]parquet.ByteArray{nil}, []int16{0}, nil)
+				en.Zero(n)
 			}
+
+			en.Require().NoError(err)
 		}
 
 		// write fixedlength byte array column
@@ -187,7 +205,9 @@ func (en *EncryptionConfigTestSuite) encryptFile(configs *parquet.FileEncryption
 		for i := 0; i < en.rowsPerRG; i++ {
 			v := byte(i)
 			value := parquet.FixedLenByteArray{v, v, v, v, v, v, v, v, v, v}
-			flbaWriter.WriteBatch([]parquet.FixedLenByteArray{value}, nil, nil)
+			n, err := flbaWriter.WriteBatch([]parquet.FixedLenByteArray{value}, nil, nil)
+			en.EqualValues(1, n)
+			en.Require().NoError(err)
 		}
 	}
 }

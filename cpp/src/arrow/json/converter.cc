@@ -42,8 +42,7 @@ namespace json {
 
 template <typename... Args>
 Status GenericConversionError(const DataType& type, Args&&... args) {
-  return Status::Invalid("Failed of conversion of JSON to ", type,
-                         std::forward<Args>(args)...);
+  return Status::Invalid("Failed to convert JSON to ", type, std::forward<Args>(args)...);
 }
 
 namespace {

@@ -16,38 +16,46 @@
 // under the License.
 
 export default {
-  verbose: false,
-  testEnvironment: "node",
-  globals: {
-    "ts-jest": {
-      diagnostics: false,
-      tsconfig: "test/tsconfig.json",
-      useESM: true,
+    verbose: false,
+    testEnvironment: "node",
+    rootDir: ".",
+    roots: [
+        "<rootDir>/test/",
+    ],
+    extensionsToTreatAsEsm: [".ts"],
+    moduleFileExtensions: ["js", "mjs", "ts"],
+    coverageReporters: ["lcov", "json",],
+    coveragePathIgnorePatterns: [
+        "fb\\/.*\\.(js|ts)$",
+        "test\\/.*\\.(ts|js)$",
+        "/node_modules/",
+    ],
+    moduleNameMapper: {
+        "^apache-arrow$": "<rootDir>/src/Arrow.node",
+        "^apache-arrow(.*)": "<rootDir>/src$1",
+        "^(\\.{1,2}/.*)\\.js$": "$1",
     },
-  },
-  rootDir: ".",
-  roots: ["<rootDir>/test/"],
-  preset: "ts-jest/presets/default-esm",
-  moduleFileExtensions: ["mjs", "js", "ts"],
-  coverageReporters: ["lcov", "json"],
-  coveragePathIgnorePatterns: [
-    "fb\\/.*\\.(js|ts)$",
-    "test\\/.*\\.(ts|js)$",
-    "/node_modules/",
-  ],
-  transform: {
-    "^.+\\.js$": "ts-jest",
-    "^.+\\.ts$": "ts-jest",
-  },
-  transformIgnorePatterns: [
-    "/targets/(es5|es2015|esnext|apache-arrow)/",
-    "/node_modules/(?!@openpgp/web-stream-tools)/",
-  ],
-  testRegex: "(.*(-|\\.)(test|spec)s?)\\.(ts|js)$",
-  testMatch: null,
-  moduleNameMapper: {
-    "^apache-arrow$": "<rootDir>/src/Arrow.node",
-    "^apache-arrow(.*)": "<rootDir>/src$1",
-    "^(\\.{1,2}/.*)\\.js$": "$1",
-  },
+    testRegex: "(.*(-|\\.)(test|spec)s?)\\.(ts|js)$",
+    transform: {
+        "^.+\\.js$": [
+            "ts-jest",
+            {
+                diagnostics: false,
+                tsconfig: "test/tsconfig.json",
+                useESM: true,
+            },
+        ],
+        "^.+\\.ts$": [
+            "ts-jest",
+            {
+                diagnostics: false,
+                tsconfig: "test/tsconfig.json",
+                useESM: true,
+            },
+        ],
+    },
+    transformIgnorePatterns: [
+        "/targets/(es5|es2015|esnext|apache-arrow)/",
+        "/node_modules/(?!@openpgp/web-stream-tools)/",
+    ],
 };

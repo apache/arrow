@@ -17,10 +17,24 @@
 
 #include "arrow/engine/substrait/util.h"
 
+#include <algorithm>
+#include <optional>
+#include <string_view>
+#include <utility>
+
+#include "arrow/buffer.h"
+#include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/type_fwd.h"
+#include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/serde.h"
+#include "arrow/engine/substrait/type_fwd.h"
+#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
-#include "arrow/util/async_util.h"
+#include "arrow/util/future.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
@@ -126,7 +140,7 @@ Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const ConversionOptions& conversion_options) {
   compute::ExecContext exec_context(arrow::default_memory_pool(),
                                     ::arrow::internal::GetCpuThreadPool(), func_registry);
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context));
   SubstraitExecutor executor(std::move(plan), exec_context, conversion_options);
   RETURN_NOT_OK(executor.Init(substrait_buffer, registry));
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());

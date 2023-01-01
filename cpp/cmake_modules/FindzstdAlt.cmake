@@ -77,6 +77,7 @@ else()
   find_package(PkgConfig QUIET)
   pkg_check_modules(ZSTD_PC libzstd)
   if(ZSTD_PC_FOUND)
+    set(zstdAlt_VERSION "${ZSTD_PC_VERSION}")
     set(ZSTD_INCLUDE_DIR "${ZSTD_PC_INCLUDEDIR}")
 
     list(APPEND ZSTD_PC_LIBRARY_DIRS "${ZSTD_PC_LIBDIR}")
@@ -96,7 +97,34 @@ else()
   endif()
 endif()
 
-find_package_handle_standard_args(zstdAlt REQUIRED_VARS ZSTD_LIB ZSTD_INCLUDE_DIR)
+if("${zstdAlt_VERSION}" STREQUAL "" AND ZSTD_INCLUDE_DIR)
+  file(READ "${ZSTD_INCLUDE_DIR}/zstd.h" ZSTD_H_CONTENT)
+  string(REGEX MATCH "#define ZSTD_VERSION_MAJOR +([0-9]+)" ZSTD_VERSION_MAJOR_DEFINITION
+               "${ZSTD_H_CONTENT}")
+  string(REGEX REPLACE "^.+ ([0-9]+)$" "\\1" ZSTD_VERSION_MAJOR
+                       "${ZSTD_VERSION_MAJOR_DEFINITION}")
+  string(REGEX MATCH "#define ZSTD_VERSION_MINOR +([0-9]+)" ZSTD_VERSION_MINOR_DEFINITION
+               "${ZSTD_H_CONTENT}")
+  string(REGEX REPLACE "^.+ ([0-9]+)$" "\\1" ZSTD_VERSION_MINOR
+                       "${ZSTD_VERSION_MINOR_DEFINITION}")
+  string(REGEX MATCH "#define ZSTD_VERSION_RELEASE +([0-9]+)"
+               ZSTD_VERSION_RELEASE_DEFINITION "${ZSTD_H_CONTENT}")
+  string(REGEX REPLACE "^.+ ([0-9]+)$" "\\1" ZSTD_VERSION_RELEASE
+                       "${ZSTD_VERSION_RELEASE_DEFINITION}")
+  if("${ZSTD_VERSION_MAJOR}" STREQUAL ""
+     OR "${ZSTD_VERSION_MINOR}" STREQUAL ""
+     OR "${ZSTD_VERSION_RELEASE}" STREQUAL "")
+    set(zstdAlt_VERSION "0.0.0")
+  else()
+    set(zstdAlt_VERSION
+        "${ZSTD_VERSION_MAJOR}.${ZSTD_VERSION_MINOR}.${ZSTD_VERSION_RELEASE}")
+  endif()
+endif()
+
+find_package_handle_standard_args(
+  zstdAlt
+  REQUIRED_VARS ZSTD_LIB ZSTD_INCLUDE_DIR
+  VERSION_VAR zstdAlt_VERSION)
 
 if(zstdAlt_FOUND)
   if(ARROW_ZSTD_USE_SHARED)

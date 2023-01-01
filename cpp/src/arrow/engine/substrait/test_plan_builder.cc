@@ -17,17 +17,22 @@
 
 #include "arrow/engine/substrait/test_plan_builder.h"
 
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
+#include <utility>
 
-#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/buffer.h"
+#include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/plan_internal.h"
 #include "arrow/engine/substrait/type_internal.h"
-#include "arrow/util/macros.h"
+#include "arrow/status.h"
+#include "arrow/table.h"
+#include "arrow/type_fwd.h"
 
 #include "substrait/algebra.pb.h"
-#include "substrait/plan.pb.h"
-#include "substrait/type.pb.h"
 
 namespace arrow {
 namespace engine {
