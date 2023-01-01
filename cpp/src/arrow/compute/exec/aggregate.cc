@@ -191,8 +191,7 @@ class GroupByProcess {
     std::vector<const HashAggregateKernel*> kernels;
     std::vector<std::vector<std::unique_ptr<KernelState>>> states;
     FieldVector out_fields;
-    ExecSpanIterator argument_iterator;
-    ExecSpanIterator key_iterator;
+    ExecSpanIterator batch_iterator;
     ScalarVector segment_keys;
 
     explicit StateInfo(GroupByProcess& process) : process(process) {}
@@ -235,7 +234,6 @@ class GroupByProcess {
     }
 
     Status Consume(const BatchInfo& batch_info) {
-      const std::vector<TypeHolder>& argument_types = process.argument_types;
       ExecContext* ctx = process.ctx;
 
       const ExecBatch& args_batch = batch_info.args_batch;
@@ -260,10 +258,14 @@ class GroupByProcess {
         }
       }
 
-      if (!argument_types.empty()) {
-        ARROW_RETURN_NOT_OK(argument_iterator.Init(args_batch, ctx->exec_chunksize()));
-      }
-      ARROW_RETURN_NOT_OK(key_iterator.Init(keys_batch, ctx->exec_chunksize()));
+      std::vector<Datum> keys_args_values;
+      keys_args_values.reserve(keys_batch.values.size() + args_batch.values.size());
+      keys_args_values.insert(keys_args_values.end(), keys_batch.values.begin(),
+                              keys_batch.values.end());
+      keys_args_values.insert(keys_args_values.end(), args_batch.values.begin(),
+                              args_batch.values.end());
+      ExecBatch keys_args_batch{std::move(keys_args_values), args_batch.length};
+      ARROW_RETURN_NOT_OK(batch_iterator.Init(keys_args_batch, ctx->exec_chunksize()));
 
       ThreadIndexer thread_indexer;
 
@@ -272,10 +274,17 @@ class GroupByProcess {
                                             : arrow::internal::TaskGroup::MakeSerial();
 
       // start "streaming" execution
-      ExecSpan key_batch, argument_batch;
-      while ((argument_types.empty() || argument_iterator.Next(&argument_batch)) &&
-             key_iterator.Next(&key_batch)) {
-        if (key_batch.length == 0) continue;
+      ExecSpan key_arg_batch, key_batch, argument_batch;
+      while (batch_iterator.Next(&key_arg_batch)) {
+        if (key_arg_batch.length == 0) continue;
+        key_batch.length = argument_batch.length = key_arg_batch.length;
+        auto key_arg_split = key_arg_batch.values.begin() + keys_batch.values.size();
+        key_batch.values.clear();
+        key_batch.values.insert(key_batch.values.end(), key_arg_batch.values.begin(),
+                                key_arg_split);
+        argument_batch.values.clear();
+        argument_batch.values.insert(argument_batch.values.end(), key_arg_split,
+                                     key_arg_batch.values.end());
 
         task_group->Append([&, key_batch, argument_batch] {
           size_t thread_index = thread_indexer();

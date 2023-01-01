@@ -35,11 +35,12 @@ struct ARROW_EXPORT GroupingSegment {
   int64_t offset;
   int64_t length;
   bool is_open;
+  bool extends;
 };
 
 inline bool operator==(const GroupingSegment& segment1, const GroupingSegment& segment2) {
   return segment1.offset == segment2.offset && segment1.length == segment2.length &&
-         segment1.is_open == segment2.is_open;
+         segment1.is_open == segment2.is_open && segment1.extends == segment2.extends;
 }
 inline bool operator!=(const GroupingSegment& segment1, const GroupingSegment& segment2) {
   return !(segment1 == segment2);
@@ -54,7 +55,11 @@ class ARROW_EXPORT GroupingSegmenter {
 
   /// \brief Construct a GroupingSegmenter which receives the specified key types
   static Result<std::unique_ptr<GroupingSegmenter>> Make(
-      std::vector<TypeHolder> key_types, ExecContext* ctx = default_exec_context());
+      const std::vector<TypeHolder>& key_types, bool nullable_keys = false,
+      ExecContext* ctx = default_exec_context());
+
+  /// \brief Return the key types of this segmenter
+  virtual const std::vector<TypeHolder>& key_types() const = 0;
 
   /// \brief Reset this grouping segmenter
   virtual Status Reset() = 0;

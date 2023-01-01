@@ -161,7 +161,8 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
                                    const std::vector<std::string>& key_names,
                                    const std::vector<std::string>& segment_key_names,
                                    const std::vector<Aggregate>& aggregates,
-                                   bool use_threads, ExecContext* ctx) {
+                                   bool use_threads, ExecContext* ctx,
+                                   bool segmented = false) {
   std::vector<FieldRef> keys(key_names.size());
   for (size_t i = 0; i < key_names.size(); ++i) {
     keys[i] = FieldRef(key_names[i]);
@@ -203,31 +204,62 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
   ARROW_ASSIGN_OR_RAISE(std::vector<ExecBatch> output_batches,
                         start_and_collect.MoveResult());
 
-  ArrayVector out_arrays(aggregates.size() + key_names.size());
+  std::vector<ArrayVector> out_arrays(aggregates.size() + key_names.size() +
+                                      segment_key_names.size());
   const auto& output_schema = plan->sources()[0]->outputs()[0]->output_schema();
   for (size_t i = 0; i < out_arrays.size(); ++i) {
     std::vector<std::shared_ptr<Array>> arrays(output_batches.size());
     for (size_t j = 0; j < output_batches.size(); ++j) {
-      arrays[j] = output_batches[j].values[i].make_array();
+      auto& value = output_batches[j].values[i];
+      if (value.is_scalar()) {
+        ARROW_ASSIGN_OR_RAISE(
+            arrays[j], MakeArrayFromScalar(*value.scalar(), output_batches[j].length));
+      } else if (value.is_array()) {
+        arrays[j] = value.make_array();
+      } else {
+        return Status::Invalid("GroupByUsingExecPlan unsupported value kind ",
+                               ToString(value.kind()));
+      }
     }
     if (arrays.empty()) {
+      arrays.resize(1);
       ARROW_ASSIGN_OR_RAISE(
-          out_arrays[i],
-          MakeArrayOfNull(output_schema->field(static_cast<int>(i))->type(),
-                          /*length=*/0));
-    } else {
-      ARROW_ASSIGN_OR_RAISE(out_arrays[i], Concatenate(arrays));
+          arrays[0], MakeArrayOfNull(output_schema->field(static_cast<int>(i))->type(),
+                                     /*length=*/0));
     }
+    out_arrays[i] = {std::move(arrays)};
   }
 
-  return StructArray::Make(std::move(out_arrays), output_schema->fields());
+  if (segmented && segment_key_names.size() > 0) {
+    ArrayVector struct_arrays;
+    struct_arrays.reserve(output_batches.size());
+    for (size_t j = 0; j < output_batches.size(); ++j) {
+      ArrayVector struct_fields;
+      struct_fields.reserve(out_arrays.size());
+      for (auto out_array : out_arrays) {
+        struct_fields.push_back(out_array[j]);
+      }
+      ARROW_ASSIGN_OR_RAISE(auto struct_array,
+                            StructArray::Make(struct_fields, output_schema->fields()));
+      struct_arrays.push_back(struct_array);
+    }
+    return ChunkedArray::Make(struct_arrays);
+  } else {
+    ArrayVector struct_fields(out_arrays.size());
+    for (size_t i = 0; i < out_arrays.size(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(struct_fields[i], Concatenate(out_arrays[i]));
+    }
+    return StructArray::Make(std::move(struct_fields), output_schema->fields());
+  }
 }
 
 Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
                                    const std::vector<std::string>& key_names,
                                    const std::vector<Aggregate>& aggregates,
-                                   bool use_threads, ExecContext* ctx) {
-  return GroupByUsingExecPlan(input, key_names, {}, aggregates, use_threads, ctx);
+                                   bool use_threads, ExecContext* ctx,
+                                   bool segmented = false) {
+  return GroupByUsingExecPlan(input, key_names, {}, aggregates, use_threads, ctx,
+                              segmented);
 }
 
 /// Simpler overload where you can give the columns as datums
@@ -235,7 +267,8 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
                                    const std::vector<Datum>& keys,
                                    const std::vector<Datum>& segment_keys,
                                    const std::vector<Aggregate>& aggregates,
-                                   bool use_threads, ExecContext* ctx) {
+                                   bool use_threads, ExecContext* ctx,
+                                   bool segmented = false) {
   using arrow::compute::detail::ExecSpanIterator;
 
   FieldVector scan_fields(arguments.size() + keys.size() + segment_keys.size());
@@ -245,20 +278,25 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
     auto name = std::string("agg_") + std::to_string(i);
     scan_fields[i] = field(name, arguments[i].type());
   }
+  size_t base = arguments.size();
   for (size_t i = 0; i < keys.size(); ++i) {
     auto name = std::string("key_") + std::to_string(i);
-    scan_fields[arguments.size() + i] = field(name, keys[i].type());
+    scan_fields[base + i] = field(name, keys[i].type());
     key_names[i] = std::move(name);
   }
+  base += keys.size();
+  size_t j = segmented ? keys.size() : keys.size();
+  std::string prefix(segmented ? "key_" : "key_");
   for (size_t i = 0; i < segment_keys.size(); ++i) {
-    auto name = std::string("key_") + std::to_string(i);
-    scan_fields[arguments.size() + keys.size() + i] = field(name, segment_keys[i].type());
+    auto name = prefix + std::to_string(j++);
+    scan_fields[base + i] = field(name, segment_keys[i].type());
     segment_key_names[i] = std::move(name);
   }
 
   std::vector<Datum> inputs = arguments;
-  inputs.reserve(inputs.size() + keys.size());
+  inputs.reserve(inputs.size() + keys.size() + segment_keys.size());
   inputs.insert(inputs.end(), keys.begin(), keys.end());
+  inputs.insert(inputs.end(), segment_keys.begin(), segment_keys.end());
 
   ExecSpanIterator span_iterator;
   ARROW_ASSIGN_OR_RAISE(auto batch, ExecBatch::Make(inputs));
@@ -272,7 +310,25 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
   }
 
   return GroupByUsingExecPlan(input, key_names, segment_key_names, aggregates,
-                              use_threads, ctx);
+                              use_threads, ctx, segmented);
+}
+
+Result<Datum> GroupByUsingExecPlanImpl(const std::vector<Datum>& arguments,
+                                       const std::vector<Datum>& keys,
+                                       const std::vector<Datum>& segment_keys,
+                                       const std::vector<Aggregate>& aggregates,
+                                       bool use_threads, ExecContext* ctx) {
+  return GroupByUsingExecPlan(arguments, keys, segment_keys, aggregates, use_threads,
+                              ctx);
+}
+
+Result<Datum> SegmentedGroupByUsingExecPlan(const std::vector<Datum>& arguments,
+                                            const std::vector<Datum>& keys,
+                                            const std::vector<Datum>& segment_keys,
+                                            const std::vector<Aggregate>& aggregates,
+                                            bool use_threads, ExecContext* ctx) {
+  return GroupByUsingExecPlan(arguments, keys, segment_keys, aggregates, use_threads, ctx,
+                              /*segmented=*/true);
 }
 
 void ValidateGroupBy(GroupByFunction group_by, const std::vector<Aggregate>& aggregates,
@@ -420,7 +476,7 @@ void test_grouping_segmenter_basics(SetupBatch setup, ConvertBatch convert) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 0 "),
                                     segmenter->GetNextSegment(converted2, 0));
     ASSERT_OK_AND_ASSIGN(auto converted0, convert(batch0));
-    TestSegments(segmenter, converted0, {{0, 3, true}, {3, 0, true}});
+    TestSegments(segmenter, converted0, {{0, 3, true, true}, {3, 0, true, true}});
   }
   {
     SCOPED_TRACE("bad_types1 segmenting of batch1");
@@ -436,7 +492,8 @@ void test_grouping_segmenter_basics(SetupBatch setup, ConvertBatch convert) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 1 "),
                                     segmenter->GetNextSegment(converted2, 0));
     ASSERT_OK_AND_ASSIGN(auto converted1, convert(batch1));
-    TestSegments(segmenter, converted1, {{0, 2, false}, {2, 1, true}, {3, 0, true}});
+    TestSegments(segmenter, converted1,
+                 {{0, 2, false, true}, {2, 1, true, false}, {3, 0, true, true}});
   }
   {
     SCOPED_TRACE("bad_types2 segmenting of batch2");
@@ -453,7 +510,10 @@ void test_grouping_segmenter_basics(SetupBatch setup, ConvertBatch convert) {
                                     segmenter->GetNextSegment(converted1, 0));
     ASSERT_OK_AND_ASSIGN(auto converted2, convert(batch2));
     TestSegments(segmenter, converted2,
-                 {{0, 1, false}, {1, 1, false}, {2, 1, true}, {3, 0, true}});
+                 {{0, 1, false, true},
+                  {1, 1, false, false},
+                  {2, 1, true, false},
+                  {3, 0, true, true}});
   }
 }
 
@@ -3735,10 +3795,10 @@ TEST_P(GroupBy, ConcreteCaseWithValidateGroupBy) {
 
   for (auto agg : {
            Aggregate{"hash_sum", nullptr, "agg_0", "hash_sum"},
-           Aggregate{"hash_count", non_null, "agg_1", "hash_count"},
-           Aggregate{"hash_count", nulls, "agg_2", "hash_count"},
-           Aggregate{"hash_min_max", nullptr, "agg_3", "hash_min_max"},
-           Aggregate{"hash_min_max", keepna, "agg_4", "hash_min_max"},
+           Aggregate{"hash_count", non_null, "agg_0", "hash_count"},
+           Aggregate{"hash_count", nulls, "agg_0", "hash_count"},
+           Aggregate{"hash_min_max", nullptr, "agg_0", "hash_min_max"},
+           Aggregate{"hash_min_max", keepna, "agg_0", "hash_min_max"},
        }) {
     SCOPED_TRACE(agg.function);
     ValidateGroupBy({agg}, {batch->GetColumnByName("argument")},
@@ -3762,7 +3822,7 @@ TEST_P(GroupBy, CountNull) {
 
   for (auto agg : {
            Aggregate{"hash_count", keepna, "agg_0", "hash_count"},
-           Aggregate{"hash_count", skipna, "agg_1", "hash_count"},
+           Aggregate{"hash_count", skipna, "agg_0", "hash_count"},
        }) {
     SCOPED_TRACE(agg.function);
     ValidateGroupBy({agg}, {batch->GetColumnByName("argument")},
@@ -3859,7 +3919,7 @@ TEST_P(GroupBy, MinMaxWithNewGroupsInChunkedArray) {
                            },
                            {},
                            {
-                               {"hash_min_max", nullptr, "agg_1", "hash_min_max"},
+                               {"hash_min_max", nullptr, "agg_0", "hash_min_max"},
                            }));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
@@ -4420,6 +4480,12 @@ TEST_P(GroupBy, OnlyKeys) {
   }
 }
 
+INSTANTIATE_TEST_SUITE_P(GroupBy, GroupBy,
+                         ::testing::Values(GroupByDirectImpl, GroupByWithArrays,
+                                           GroupByUsingExecPlanImpl));
+
+class SegmentedGroupBy : public GroupBy {};
+
 void TestSegmentKey(GroupByFunction group_by, const std::shared_ptr<Table>& table,
                     Datum output, const std::vector<Datum>& segment_keys) {
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
@@ -4510,11 +4576,11 @@ void TestSingleSegmentKey(GroupByFunction group_by,
   TestSegmentKey(group_by, table, output, {table->GetColumnByName("segment_key")});
 }
 
-TEST_P(GroupBy, SingleSegmentKeyChunked) {
+TEST_P(SegmentedGroupBy, SingleSegmentKeyChunked) {
   TestSingleSegmentKey(GetParam(), GetSingleSegmentKeyInputAsChunked);
 }
 
-TEST_P(GroupBy, SingleSegmentKeyCombined) {
+TEST_P(SegmentedGroupBy, SingleSegmentKeyCombined) {
   TestSingleSegmentKey(GetParam(), GetSingleSegmentKeyInputAsCombined);
 }
 
@@ -4554,11 +4620,11 @@ void TestEmptySegmentKey(GroupByFunction group_by,
   TestSegmentKey(group_by, table, output, {});
 }
 
-TEST_P(GroupBy, EmptySegmentKeyChunked) {
+TEST_P(SegmentedGroupBy, EmptySegmentKeyChunked) {
   TestEmptySegmentKey(GetParam(), GetEmptySegmentKeyInputAsChunked);
 }
 
-TEST_P(GroupBy, EmptySegmentKeyCombined) {
+TEST_P(SegmentedGroupBy, EmptySegmentKeyCombined) {
   TestEmptySegmentKey(GetParam(), GetEmptySegmentKeyInputAsCombined);
 }
 
@@ -4607,16 +4673,17 @@ void TestMultiSegmentKey(
       {table->GetColumnByName("segment_key"), table->GetColumnByName(add_name)});
 }
 
-TEST_P(GroupBy, MultiSegmentKeyChunked) {
+TEST_P(SegmentedGroupBy, MultiSegmentKeyChunked) {
   TestMultiSegmentKey(GetParam(), GetMultiSegmentKeyInputAsChunked);
 }
 
-TEST_P(GroupBy, MultiSegmentKeyCombined) {
+TEST_P(SegmentedGroupBy, MultiSegmentKeyCombined) {
   TestMultiSegmentKey(GetParam(), GetMultiSegmentKeyInputAsCombined);
 }
 
-INSTANTIATE_TEST_SUITE_P(GroupBy, GroupBy,
-                         ::testing::Values(GroupByDirectImpl, GroupByWithArrays));
+INSTANTIATE_TEST_SUITE_P(SegmentedGroupBy, SegmentedGroupBy,
+                         ::testing::Values(GroupByDirectImpl, GroupByWithArrays,
+                                           SegmentedGroupByUsingExecPlan));
 
 }  // namespace compute
 }  // namespace arrow

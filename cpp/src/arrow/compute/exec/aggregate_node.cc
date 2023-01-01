@@ -14,7 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
+#include <iostream>
 #include <mutex>
 #include <shared_mutex>
 #include <sstream>
@@ -107,16 +107,41 @@ Status HandleSegments(std::unique_ptr<GroupingSegmenter>& segmenter,
                       const ExecBatch& batch, const std::vector<int>& ids,
                       const BatchHandler& handle_batch) {
   int64_t offset = 0;
-  ARROW_RETURN_NOT_OK(segmenter->Reset());
   ARROW_ASSIGN_OR_RAISE(auto segment_batch, batch.SelectValues(ids));
   while (true) {
     ARROW_ASSIGN_OR_RAISE(auto segment, segmenter->GetNextSegment(segment_batch, offset));
     if (segment.offset >= segment_batch.length) break;
-    auto batch_slice = batch.Slice(segment.offset, segment.length);
-    ARROW_RETURN_NOT_OK(handle_batch(ExecSpan(batch_slice), segment.is_open));
+    ARROW_RETURN_NOT_OK(handle_batch(batch, segment));
     offset = segment.offset + segment.length;
   }
   return Status::OK();
+}
+
+Status GetScalarFields(std::vector<Datum>& values, const ExecBatch& input_batch,
+                       const std::vector<int>& field_ids) {
+  DCHECK_GT(input_batch.length, 0);
+  int64_t row = input_batch.length - 1;
+  values.clear();
+  values.resize(field_ids.size());
+  for (size_t i = 0; i < field_ids.size(); i++) {
+    const Datum& value = input_batch.values[field_ids[i]];
+    if (value.is_scalar()) {
+      values[i] = value;
+    } else if (value.is_array()) {
+      ARROW_ASSIGN_OR_RAISE(auto scalar, value.make_array()->GetScalar(row));
+      values[i] = scalar;
+    } else {
+      DCHECK(false);
+    }
+  }
+  return Status::OK();
+}
+
+void PlaceFields(ExecBatch& batch, size_t base, std::vector<Datum>& values) {
+  DCHECK_LE(base + values.size(), batch.values.size());
+  for (size_t i = 0; i < values.size(); i++) {
+    batch.values[base + i] = values[i];
+  }
 }
 
 class ScalarAggregateNode : public ExecNode {
@@ -254,21 +279,21 @@ class ScalarAggregateNode : public ExecNode {
 
     DCHECK_EQ(input, inputs_[0]);
 
-    if (ErrorIfNotOk(HandleSegments(segmenter_, batch, segment_field_ids_,
-                                    [this](const ExecSpan& batch, bool is_open) {
-                                      auto thread_index =
-                                          plan_->query_context()->GetThreadIndex();
-                                      RETURN_NOT_OK(DoConsume(batch, thread_index));
-                                      if (!is_open) {
-                                        RETURN_NOT_OK(OutputResult(false));
-                                      }
-                                      return Status::OK();
-                                    }))) {
+    auto handler = [this](const ExecBatch& full_batch, const GroupingSegment& segment) {
+      if (!segment.extends) RETURN_NOT_OK(OutputResult());
+      auto exec_batch = full_batch.Slice(segment.offset, segment.length);
+      auto batch = ExecSpan(exec_batch);
+      RETURN_NOT_OK(DoConsume(batch, plan_->query_context()->GetThreadIndex()));
+      RETURN_NOT_OK(GetScalarFields(segmenter_values_, exec_batch, segment_field_ids_));
+      if (!segment.is_open) RETURN_NOT_OK(OutputResult());
+      return Status::OK();
+    };
+    if (ErrorIfNotOk(HandleSegments(segmenter_, batch, segment_field_ids_, handler))) {
       return;
     }
 
     if (input_counter_.Increment()) {
-      ErrorIfNotOk(OutputResult(true));
+      ErrorIfNotOk(OutputResult(/*is_last=*/true));
     }
   }
 
@@ -282,7 +307,7 @@ class ScalarAggregateNode : public ExecNode {
     EVENT(span_, "InputFinished", {{"batches.length", total_batches}});
     DCHECK_EQ(input, inputs_[0]);
     if (input_counter_.SetTotal(total_batches)) {
-      ErrorIfNotOk(OutputResult(true));
+      ErrorIfNotOk(OutputResult(/*is_last=*/true));
     }
   }
 
@@ -349,7 +374,7 @@ class ScalarAggregateNode : public ExecNode {
     START_COMPUTE_SPAN(span, "Finish",
                        {{"aggregate", ToStringExtra()}, {"node.label", label()}});
     ExecBatch batch{{}, 1};
-    batch.values.resize(kernels_.size());
+    batch.values.resize(kernels_.size() + segment_field_ids_.size());
 
     for (size_t i = 0; i < kernels_.size(); ++i) {
       util::tracing::Span span;
@@ -363,6 +388,7 @@ class ScalarAggregateNode : public ExecNode {
                                              kernels_[i], &ctx, std::move(states_[i])));
       RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[i]));
     }
+    PlaceFields(batch, kernels_.size(), segmenter_values_);
 
     outputs_[0]->InputReceived(this, std::move(batch));
     if (is_last) {
@@ -376,6 +402,7 @@ class ScalarAggregateNode : public ExecNode {
   const std::vector<int> target_field_ids_;
   const std::vector<int> segment_field_ids_;
   std::unique_ptr<GroupingSegmenter> segmenter_;
+  std::vector<Datum> segmenter_values_;
   const std::vector<Aggregate> aggs_;
   const std::vector<const ScalarAggregateKernel*> kernels_;
 
@@ -482,7 +509,7 @@ class GroupByNode : public ExecNode {
         internal::ResolveKernels(aggs, agg_kernels, agg_states, ctx, agg_src_types));
 
     // Build field vector for output schema
-    FieldVector output_fields{keys.size() + aggs.size()};
+    FieldVector output_fields{keys.size() + segment_keys.size() + aggs.size()};
 
     // Aggregate fields come before key fields to match the behavior of GroupBy function
     for (size_t i = 0; i < aggs.size(); ++i) {
@@ -616,7 +643,8 @@ class GroupByNode : public ExecNode {
     RETURN_NOT_OK(InitLocalStateIfNeeded(state));
 
     ExecBatch out_data{{}, state->grouper->num_groups()};
-    out_data.values.resize(agg_kernels_.size() + key_field_ids_.size());
+    out_data.values.resize(agg_kernels_.size() + key_field_ids_.size() +
+                           segment_key_field_ids_.size());
 
     // Aggregate fields come before key fields to match the behavior of GroupBy function
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
@@ -635,6 +663,7 @@ class GroupByNode : public ExecNode {
     ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, state->grouper->GetUniques());
     std::move(out_keys.values.begin(), out_keys.values.end(),
               out_data.values.begin() + agg_kernels_.size());
+    PlaceFields(out_data, agg_kernels_.size() + key_field_ids_.size(), segmenter_values_);
     state->grouper.reset();
     return out_data;
   }
@@ -661,8 +690,9 @@ class GroupByNode : public ExecNode {
     ARROW_ASSIGN_OR_RAISE(out_data_, Finalize());
 
     int64_t num_output_batches = bit_util::CeilDiv(out_data_.length, output_batch_size());
-    outputs_[0]->InputFinished(this, static_cast<int>(num_output_batches));
+    total_output_batches_ += num_output_batches;
     if (is_last) {
+      outputs_[0]->InputFinished(this, static_cast<int>(total_output_batches_));
       RETURN_NOT_OK(plan_->query_context()->StartTaskGroup(output_task_group_id_,
                                                            num_output_batches));
     } else {
@@ -687,19 +717,23 @@ class GroupByNode : public ExecNode {
 
     DCHECK_EQ(input, inputs_[0]);
 
-    if (ErrorIfNotOk(HandleSegments(segmenter_, batch, segment_key_field_ids_,
-                                    [this](const ExecSpan& batch, bool is_open) {
-                                      RETURN_NOT_OK(Consume(batch));
-                                      if (!is_open) {
-                                        RETURN_NOT_OK(OutputResult(false));
-                                      }
-                                      return Status::OK();
-                                    }))) {
+    auto handler = [this](const ExecBatch& full_batch, const GroupingSegment& segment) {
+      if (!segment.extends) RETURN_NOT_OK(OutputResult());
+      auto exec_batch = full_batch.Slice(segment.offset, segment.length);
+      auto batch = ExecSpan(exec_batch);
+      RETURN_NOT_OK(Consume(batch));
+      RETURN_NOT_OK(
+          GetScalarFields(segmenter_values_, exec_batch, segment_key_field_ids_));
+      if (!segment.is_open) RETURN_NOT_OK(OutputResult());
+      return Status::OK();
+    };
+    if (ErrorIfNotOk(
+            HandleSegments(segmenter_, batch, segment_key_field_ids_, handler))) {
       return;
     }
 
     if (input_counter_.Increment()) {
-      ErrorIfNotOk(OutputResult(true));
+      ErrorIfNotOk(OutputResult(/*is_last=*/true));
     }
   }
 
@@ -720,7 +754,7 @@ class GroupByNode : public ExecNode {
     DCHECK_EQ(input, inputs_[0]);
 
     if (input_counter_.SetTotal(total_batches)) {
-      ErrorIfNotOk(OutputResult(true));
+      ErrorIfNotOk(OutputResult(/*is_last=*/true));
     }
   }
 
@@ -822,6 +856,7 @@ class GroupByNode : public ExecNode {
 
   int output_task_group_id_;
   std::unique_ptr<GroupingSegmenter> segmenter_;
+  std::vector<Datum> segmenter_values_;
 
   const std::vector<int> key_field_ids_;
   const std::vector<int> segment_key_field_ids_;
@@ -831,6 +866,7 @@ class GroupByNode : public ExecNode {
   std::vector<const HashAggregateKernel*> agg_kernels_;
 
   AtomicCounter input_counter_;
+  int64_t total_output_batches_ = 0;
 
   std::vector<ThreadLocalState> local_states_;
   ExecBatch out_data_;
