@@ -391,7 +391,7 @@ if(PYARROW_BUILD_FLIGHT)
   find_package(ArrowFlight REQUIRED)
 
   add_library(arrow_python_flight SHARED ${PYARROW_CPP_FLIGHT_SRCS})
-  target_link_libraries(arrow_python_flight PUBLIC arrow_python_shared
+  target_link_libraries(arrow_python_flight PUBLIC arrow_python
                                                    ArrowFlight::arrow_flight_shared)
   target_compile_definitions(arrow_python_flight PRIVATE ARROW_PYFLIGHT_EXPORTING)
   install(TARGETS arrow_python_flight
