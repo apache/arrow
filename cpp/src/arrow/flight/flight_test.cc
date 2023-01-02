@@ -1545,7 +1545,7 @@ TEST_F(TestCancel, DoActionSideEffect) {
   FlightCallOptions options;
   options.stop_token = stop_source.token();
   // Will block for a bit, but not forever
-  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoAction(options, {"inc"}));
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoAction(options, {"inc", nullptr}));
   // Side effect should have happened
   ASSERT_EQ(1, Server()->CheckCounter());
   stop_source.RequestStop(Status::Cancelled("StopSource"));
