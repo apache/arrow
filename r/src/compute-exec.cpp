@@ -30,7 +30,7 @@
 #include <iostream>
 #include <optional>
 
-// Can't find the header for this?
+// GH-15151: Best path forward to make this available without a hack like this one
 namespace arrow {
 namespace io {
 namespace internal {
