@@ -3419,103 +3419,85 @@ TEST_F(TestProjector, TestMaskDefault) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_mask, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestSqrt) {
-  // input fields
-  auto field1 = field("f1", arrow::int32());
-  auto field2 = field("f2", arrow::int64());
-  auto field3 = field("f3", arrow::float32());
-  auto field4 = field("f4", arrow::float64());
+TEST_F(TestProjector, TestSqrtInt32) {
+  auto in_field = field("in", arrow::int32());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::float64());
+  auto sqrt = TreeExprBuilder::MakeExpression("sqrt", {in_field}, out_field);
 
-  // schema fields
-  auto schema1 = arrow::schema({field1});
-  auto schema2 = arrow::schema({field2});
-  auto schema3 = arrow::schema({field3});
-  auto schema4 = arrow::schema({field4});
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {sqrt}, TestConfiguration(), &projector));
 
-  // output fields
-  auto field5 = field("sqrt_int32", arrow::float64());
-  auto field6 = field("sqrt_int64", arrow::float64());
-  auto field7 = field("sqrt_float32", arrow::float64());
-  auto field8 = field("sqrt_float64", arrow::float64());
-
-  // Build expression
-  auto sqrt_int32 = TreeExprBuilder::MakeExpression("sqrt", {field1}, field5);
-  auto sqrt_int64 = TreeExprBuilder::MakeExpression("sqrt", {field2}, field6);
-  auto sqrt_float32 = TreeExprBuilder::MakeExpression("sqrt", {field3}, field7);
-  auto sqrt_float64 = TreeExprBuilder::MakeExpression("sqrt", {field4}, field8);
-
-  std::shared_ptr<Projector> projector1;
-
-  ARROW_EXPECT_OK(Projector::Make(schema1, {sqrt_int32}, TestConfiguration(), &projector1));
-
-  // Create a row-batch with some sample data
   int num_records = 4;
+  auto array = MakeArrowArrayInt32({1, 4, 9, 16}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayFloat64({1.0, 2.0, 3.0, 4.0}, {true, true, true, true});
 
-  auto array1 = MakeArrowArrayInt32({1, 4, 9, 16}, {true, true, true, true});
-  auto in_batch1 = arrow::RecordBatch::Make(schema1, num_records, {array1});
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
 
-  auto out_int32 = MakeArrowArrayFloat64({1.0, 2.0, 3.0, 4.0}, {true, true, true, true});
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
 
-  arrow::ArrayVector outputs1;
+TEST_F(TestProjector, TestSqrtInt64) {
+  auto in_field = field("in", arrow::int64());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::float64());
+  auto sqrt = TreeExprBuilder::MakeExpression("sqrt", {in_field}, out_field);
 
-  // Evaluate expression
-  ARROW_EXPECT_OK(projector1->Evaluate(*in_batch1, pool_, &outputs1));
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {sqrt}, TestConfiguration(), &projector));
 
-  EXPECT_ARROW_ARRAY_EQUALS(out_int32, outputs1.at(0));
+  int num_records = 4;
+  auto array = MakeArrowArrayInt64({1, 9, 16, 25}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayFloat64({1.0, 3.0, 4.0, 5.0}, {true, true, true, true});
 
-  std::shared_ptr<Projector> projector2;
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
 
-  ARROW_EXPECT_OK(Projector::Make(schema2, {sqrt_int64}, TestConfiguration(), &projector2));
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
 
-  // Create a row-batch with some sample data
-  auto array2 = MakeArrowArrayInt64({1, 9, 16, 25}, {true, true, true, true});
-  auto in_batch2 = arrow::RecordBatch::Make(schema2, num_records, {array2});
+TEST_F(TestProjector, TestSqrtFloat32) {
+  auto in_field = field("in", arrow::float32());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::float64());
+  auto sqrt = TreeExprBuilder::MakeExpression("sqrt", {in_field}, out_field);
 
-  auto out_int64 = MakeArrowArrayFloat64({1.0, 3.0, 4.0, 5.0}, {true, true, true, true});
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {sqrt}, TestConfiguration(), &projector));
 
-  arrow::ArrayVector outputs2;
-
-  // Evaluate expression
-  ARROW_EXPECT_OK(projector2->Evaluate(*in_batch2, pool_, &outputs2));
-
-  EXPECT_ARROW_ARRAY_EQUALS(out_int64, outputs2.at(0));
-
-  std::shared_ptr<Projector> projector3;
-
-  ARROW_EXPECT_OK(Projector::Make(schema3, {sqrt_float32}, TestConfiguration(), &projector3));
-
-  // Create a row-batch with some sample data
-  auto array3 =
+  int num_records = 4;
+  auto array =
       MakeArrowArrayFloat32({1.0f, 4.0f, 25.0f, 36.0f}, {true, true, true, true});
-  auto in_batch3 = arrow::RecordBatch::Make(schema3, num_records, {array3});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayFloat64({1.0, 2.0, 5.0, 6.0}, {true, true, true, true});
 
-  auto out_float32 =
-      MakeArrowArrayFloat64({1.0, 2.0, 5.0, 6.0}, {true, true, true, true});
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
 
-  arrow::ArrayVector outputs3;
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
 
-  // Evaluate expression
-  ARROW_EXPECT_OK(projector3->Evaluate(*in_batch3, pool_, &outputs3));
+TEST_F(TestProjector, TestSqrtFloat64) {
+  auto in_field = field("in", arrow::float64());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::float64());
+  auto sqrt = TreeExprBuilder::MakeExpression("sqrt", {in_field}, out_field);
 
-  EXPECT_ARROW_ARRAY_EQUALS(out_float32, outputs3.at(0));
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {sqrt}, TestConfiguration(), &projector));
 
-  std::shared_ptr<Projector> projector4;
+  int num_records = 4;
+  auto array = MakeArrowArrayFloat64({1.0, 4.0, 9.0, 16.0}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayFloat64({1.0, 2.0, 3.0, 4.0}, {true, true, true, true});
 
-  ARROW_EXPECT_OK(Projector::Make(schema4, {sqrt_float64}, TestConfiguration(), &projector4));
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
 
-  // Create a row-batch with some sample data
-  auto array4 = MakeArrowArrayFloat64({1.0, 4.0, 9.0, 16.0}, {true, true, true, true});
-  auto in_batch4 = arrow::RecordBatch::Make(schema4, num_records, {array4});
-
-  auto out_float64 =
-      MakeArrowArrayFloat64({1.0, 2.0, 3.0, 4.0}, {true, true, true, true});
-
-  arrow::ArrayVector outputs4;
-
-  // Evaluate expression
-  ARROW_EXPECT_OK(projector4->Evaluate(*in_batch4, pool_, &outputs4));
-
-  EXPECT_ARROW_ARRAY_EQUALS(out_float64, outputs4.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 
 }  // namespace gandiva
