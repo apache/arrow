@@ -3446,8 +3446,7 @@ TEST_F(TestProjector, TestSqrt) {
 
   std::shared_ptr<Projector> projector1;
 
-  auto status = Projector::Make(schema1, {sqrt_int32}, TestConfiguration(), &projector1);
-  EXPECT_TRUE(status.ok()) << status.message();
+  ARROW_EXPECT_OK(Projector::Make(schema1, {sqrt_int32}, TestConfiguration(), &projector1));
 
   // Create a row-batch with some sample data
   int num_records = 4;
@@ -3460,15 +3459,13 @@ TEST_F(TestProjector, TestSqrt) {
   arrow::ArrayVector outputs1;
 
   // Evaluate expression
-  status = projector1->Evaluate(*in_batch1, pool_, &outputs1);
-  EXPECT_TRUE(status.ok()) << status.message();
+  ARROW_EXPECT_OK(projector1->Evaluate(*in_batch1, pool_, &outputs1));
 
   EXPECT_ARROW_ARRAY_EQUALS(out_int32, outputs1.at(0));
 
   std::shared_ptr<Projector> projector2;
 
-  status = Projector::Make(schema2, {sqrt_int64}, TestConfiguration(), &projector2);
-  EXPECT_TRUE(status.ok()) << status.message();
+  ARROW_EXPECT_OK(Projector::Make(schema2, {sqrt_int64}, TestConfiguration(), &projector2));
 
   // Create a row-batch with some sample data
   auto array2 = MakeArrowArrayInt64({1, 9, 16, 25}, {true, true, true, true});
@@ -3479,15 +3476,13 @@ TEST_F(TestProjector, TestSqrt) {
   arrow::ArrayVector outputs2;
 
   // Evaluate expression
-  status = projector2->Evaluate(*in_batch2, pool_, &outputs2);
-  EXPECT_TRUE(status.ok()) << status.message();
+  ARROW_EXPECT_OK(projector2->Evaluate(*in_batch2, pool_, &outputs2));
 
   EXPECT_ARROW_ARRAY_EQUALS(out_int64, outputs2.at(0));
 
   std::shared_ptr<Projector> projector3;
 
-  status = Projector::Make(schema3, {sqrt_float32}, TestConfiguration(), &projector3);
-  EXPECT_TRUE(status.ok()) << status.message();
+  ARROW_EXPECT_OK(Projector::Make(schema3, {sqrt_float32}, TestConfiguration(), &projector3));
 
   // Create a row-batch with some sample data
   auto array3 =
@@ -3500,15 +3495,13 @@ TEST_F(TestProjector, TestSqrt) {
   arrow::ArrayVector outputs3;
 
   // Evaluate expression
-  status = projector3->Evaluate(*in_batch3, pool_, &outputs3);
-  EXPECT_TRUE(status.ok()) << status.message();
+  ARROW_EXPECT_OK(projector3->Evaluate(*in_batch3, pool_, &outputs3));
 
   EXPECT_ARROW_ARRAY_EQUALS(out_float32, outputs3.at(0));
 
   std::shared_ptr<Projector> projector4;
 
-  status = Projector::Make(schema4, {sqrt_float64}, TestConfiguration(), &projector4);
-  EXPECT_TRUE(status.ok()) << status.message();
+  ARROW_EXPECT_OK(Projector::Make(schema4, {sqrt_float64}, TestConfiguration(), &projector4));
 
   // Create a row-batch with some sample data
   auto array4 = MakeArrowArrayFloat64({1.0, 4.0, 9.0, 16.0}, {true, true, true, true});
@@ -3519,9 +3512,8 @@ TEST_F(TestProjector, TestSqrt) {
 
   arrow::ArrayVector outputs4;
 
-  // // Evaluate expression
-  status = projector4->Evaluate(*in_batch4, pool_, &outputs4);
-  EXPECT_TRUE(status.ok()) << status.message();
+  // Evaluate expression
+  ARROW_EXPECT_OK(projector4->Evaluate(*in_batch4, pool_, &outputs4));
 
   EXPECT_ARROW_ARRAY_EQUALS(out_float64, outputs4.at(0));
 }
