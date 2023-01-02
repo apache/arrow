@@ -76,5 +76,18 @@ class TestArrowTable < Test::Unit::TestCase
                    Arrow::Table.load(@dir,
                                      filter: ["equal", :visible, true]))
     end
+
+    def test_schema
+      uri = build_file_uri(@path1)
+      @table1.save(uri)
+      schema = Arrow::Schema.new(visible: :boolean,
+                                 point: :int64)
+      assert_equal(Arrow::Table.new(schema,
+                                    [
+                                      @table1[:visible].data,
+                                      @table1[:point].cast(:int64),
+                                    ]),
+                   Arrow::Table.load(uri, schema: schema))
+    end
   end
 end
