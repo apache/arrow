@@ -166,7 +166,6 @@ class RecordBatchReaderHead : public arrow::RecordBatchReader {
     } else {
       done_ = true;
       arrow::Status result = reader_->Close();
-      done_ = true;
       return result;
     }
   }
