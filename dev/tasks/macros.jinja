@@ -235,7 +235,7 @@ on:
       brew unlink python@2 || true
       brew config
       brew doctor || true
-      brew install --overwrite python@3.11
+      brew install --overwrite python@3.11 python@3.10
 
       ARROW_GLIB_FORMULA=$(echo ${ARROW_FORMULA} | sed -e 's/\.rb/-glib.rb/')
       echo "ARROW_GLIB_FORMULA=${ARROW_GLIB_FORMULA}" >> ${GITHUB_ENV}
