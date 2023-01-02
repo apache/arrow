@@ -29,7 +29,6 @@ jobs:
       {{ macros.configure_homebrew_arrow(formula)|indent }}
       - name: Test formula
         run: |
-          {{ macros.github_cleanup_macos_python()|indent(10) }}
           brew install -v --HEAD apache-arrow
           brew test apache-arrow
           brew audit --strict apache-arrow

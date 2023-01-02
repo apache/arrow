@@ -235,6 +235,7 @@ on:
       brew unlink python@2 || true
       brew config
       brew doctor || true
+      brew install --overwrite python@3.11
 
       ARROW_GLIB_FORMULA=$(echo ${ARROW_FORMULA} | sed -e 's/\.rb/-glib.rb/')
       echo "ARROW_GLIB_FORMULA=${ARROW_GLIB_FORMULA}" >> ${GITHUB_ENV}
@@ -397,19 +398,3 @@ on:
   {% endfor %}
 {% endmacro %}
 
-{%- macro github_cleanup_macos_python() %}
-
-# The github runners have a non-brew Python 3.11 installed and the existing symlinks cause
-# the installation of brew python@3.11 to fail
-rm '/usr/local/bin/2to3-3.11' || echo 'Nothing to delete'
-rm '/usr/local/bin/2to3' || echo 'Nothing to delete'
-rm '/usr/local/bin/idle3.11' || echo 'Nothing to delete'
-rm '/usr/local/bin/idle3' || echo 'Nothing to delete'
-rm '/usr/local/bin/pydoc3.11' || echo 'Nothing to delete'
-rm '/usr/local/bin/pydoc3' || echo 'Nothing to delete'
-rm '/usr/local/bin/python3.11' || echo 'Nothing to delete'
-rm '/usr/local/bin/python3' || echo 'Nothing to delete'
-rm '/usr/local/bin/python3.11-config' || echo 'Nothing to delete'
-rm '/usr/local/bin/python3-config' || echo 'Nothing to delete'
-
-{% endmacro %}

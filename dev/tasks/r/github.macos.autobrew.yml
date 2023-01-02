@@ -42,7 +42,6 @@ jobs:
             # install minio for tests
             brew install minio
             brew install sccache
-            {{ macros.github_cleanup_macos_python()|indent(12) }}
           fi
           cd arrow/r
           {{ macros.pin_brew_formulae(is_fork)|indent }}

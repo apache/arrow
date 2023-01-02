@@ -31,7 +31,6 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8)}}  
         run: |
-          {{ macros.github_cleanup_macos_python()|indent(10) }}
           
           brew install sccache
           # for testing
