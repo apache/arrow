@@ -98,6 +98,17 @@ Result<std::shared_ptr<SchemaManifest>> GetSchemaManifest(
   return manifest;
 }
 
+bool isNan(const Scalar& value) {
+  if (value.type->Equals(*float32())) {
+    const FloatScalar& float_scalar = checked_cast<const FloatScalar&>(value);
+    return isnan(float_scalar.value);
+  } else if (value.type->Equals(*float64())) {
+    const DoubleScalar& double_scalar = checked_cast<const DoubleScalar&>(value);
+    return isnan(double_scalar.value);
+  }
+  return false;
+}
+
 std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
     const SchemaField& schema_field, const parquet::RowGroupMetaData& metadata) {
   // For the remaining of this function, failure to extract/parse statistics
@@ -135,10 +146,10 @@ std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
     min = maybe_min.MoveValueUnsafe();
     max = maybe_max.MoveValueUnsafe();
 
-    if(!(min->is_valid) && !(max->is_valid)){
+    if (isNan(*min) && isNan(*max)) {
       return std::nullopt;
     }
-    
+
     if (min->Equals(max)) {
       auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
 
@@ -147,15 +158,14 @@ std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
       }
       return compute::or_(std::move(single_value), is_null(std::move(field_expr)));
     }
-    
-    auto lower_bound =
-        compute::greater_equal(field_expr, compute::literal(min));
-    auto upper_bound = compute::less_equal(field_expr, compute::literal(max));
-    auto in_range = compute::Expression();
 
-    if(!(min->is_valid)){
+    auto lower_bound = compute::greater_equal(field_expr, compute::literal(min));
+    auto upper_bound = compute::less_equal(field_expr, compute::literal(max));
+    compute::Expression in_range;
+
+    if (isNan(*min)) {
       in_range = std::move(upper_bound);
-    } else if(!(max->is_valid)){
+    } else if (isNan(*max)) {
       in_range = std::move(lower_bound);
     } else {
       in_range = compute::and_(std::move(lower_bound), std::move(upper_bound));
