@@ -67,6 +67,8 @@ import pyarrow as pa
 ])
 def test_basics(value, ty, klass):
     s = pa.scalar(value, type=ty)
+    s.validate()
+    s.validate(full=True)
     assert isinstance(s, klass)
     assert s.as_py() == value
     assert s == pa.scalar(value, type=ty)
@@ -271,6 +273,7 @@ def test_time_from_datetime_time():
 ])
 def test_temporal_values(value, time_type: pa.DataType):
     time_scalar = pa.scalar(value, type=time_type)
+    time_scalar.validate(full=True)
     assert time_scalar.value == value
 
 
@@ -679,6 +682,7 @@ def test_union():
         ]
     )
     for s in arr:
+        s.validate(full=True)
         assert isinstance(s, pa.UnionScalar)
         assert s.type.equals(arr.type)
         assert s.is_valid is True
@@ -704,6 +708,7 @@ def test_union():
         ]
     )
     for s in arr:
+        s.validate(full=True)
         assert isinstance(s, pa.UnionScalar)
         assert s.type.equals(arr.type)
         assert s.is_valid is True
