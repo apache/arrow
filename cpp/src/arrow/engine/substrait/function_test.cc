@@ -526,6 +526,8 @@ struct AggregateTestCase {
   std::string group_outputs;
   // The data type of the outputs
   std::shared_ptr<DataType> output_type;
+  // The aggregation takes zero columns as input
+  bool nullary = false;
 };
 
 std::shared_ptr<Table> GetInputTableForAggregateCase(const AggregateTestCase& test_case) {
@@ -560,8 +562,10 @@ std::shared_ptr<compute::ExecPlan> PlanFromAggregateCase(
   }
   EXPECT_OK_AND_ASSIGN(
       std::shared_ptr<Buffer> substrait,
-      internal::CreateScanAggSubstrait(test_case.function_id, input_table, key_idxs,
-                                       /*arg_idx=*/1, *test_case.output_type));
+      internal::CreateScanAggSubstrait(
+          test_case.function_id, input_table, key_idxs,
+          /*arg_idxs=*/test_case.nullary ? std::vector<int>{} : std::vector<int>{1},
+          *test_case.output_type));
   std::shared_ptr<compute::SinkNodeConsumer> consumer =
       std::make_shared<compute::TableSinkNodeConsumer>(output_table,
                                                        default_memory_pool());
@@ -664,7 +668,15 @@ TEST(FunctionMapping, AggregateCases) {
        {int8()},
        "[3]",
        "[2, 1]",
-       int64()}};
+       int64()},
+      {{kSubstraitAggregateGenericFunctionsUri, "count"},
+       {"[1, null, 30]"},
+       {int8()},
+       "[3]",
+       "[2, 1]",
+       int64(),
+       /*nullary=*/true},
+  };
   CheckAggregateCases(test_cases);
 }
 

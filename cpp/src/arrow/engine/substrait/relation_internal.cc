@@ -635,9 +635,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             return Status::NotImplemented("Aggregate filters are not supported.");
           }
           const auto& agg_func = agg_measure.measure();
-          ARROW_ASSIGN_OR_RAISE(
-              SubstraitCall aggregate_call,
-              FromProto(agg_func, !keys.empty(), ext_set, conversion_options));
+          ARROW_ASSIGN_OR_RAISE(SubstraitCall aggregate_call,
+                                FromProto(agg_func, /*is_hash=*/!keys.empty(), ext_set,
+                                          conversion_options));
           ExtensionIdRegistry::SubstraitAggregateToArrow converter;
           if (aggregate_call.id().uri.empty() || aggregate_call.id().uri[0] == '/') {
             ARROW_ASSIGN_OR_RAISE(

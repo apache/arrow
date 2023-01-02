@@ -1883,7 +1883,7 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
   })",
                                                    /*ignore_unknown_fields=*/false));
 
-  ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
+  ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, AggregateWithFilter) {
