@@ -1218,24 +1218,6 @@ void TestCaseWhenFixedSize() {
          ArrayFromJSON(type, "[30, 31, 32, 33, 34, null, 36, 37, null]")},
         ArrayFromJSON(type, "[10, 11, 12, 23, 34, null, 26, 37, null]"));
 
-    // ARROW-18195: if there was a null in the first block (64 values) of a condition,
-    // then the subsequent blocks would all miss that condition. This makes sure we
-    // Handle subsequent blocks correctly if there is a null in the first block.
-    auto len = 65;
-
-    ASSERT_OK_AND_ASSIGN(auto temp_cond0, MakeArrayOfNull(boolean(), 1));
-    ASSERT_OK_AND_ASSIGN(auto temp_cond1,
-                         MakeArrayFromScalar(BooleanScalar(true), len - 1));
-    ASSERT_OK_AND_ASSIGN(auto cond, Concatenate({temp_cond0, temp_cond1}));
-
-    ASSERT_OK_AND_ASSIGN(auto ones, MakeArrayFromScalar(Int64Scalar(1), len));
-
-    ASSERT_OK_AND_ASSIGN(auto temp_res0, MakeArrayOfNull(int64(), 1));
-    ASSERT_OK_AND_ASSIGN(auto temp_res1, MakeArrayFromScalar(Int64Scalar(1), len - 1));
-    ASSERT_OK_AND_ASSIGN(auto res, Concatenate({temp_res0, temp_res1}));
-
-    CheckScalar("case_when", {MakeStruct({cond}), ones}, res);
-
     // Error cases
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid,
@@ -1259,6 +1241,71 @@ class TestCaseWhenNumeric : public ::testing::Test {};
 TYPED_TEST_SUITE(TestCaseWhenNumeric, IfElseNumericBasedTypes);
 
 TYPED_TEST(TestCaseWhenNumeric, FixedSize) { TestCaseWhenFixedSize<TypeParam>(); }
+
+TYPED_TEST(TestCaseWhenNumeric, FixedSizeRandom) {
+  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
+  auto type = default_type_instance<TypeParam>();
+
+  random::RandomArrayGenerator rand(/*seed=*/0);
+  int64_t len = 1000;
+
+  // adding 64 consecutive 1's and 0's in the cond array to test all-true/ all-false
+  // word code paths
+  ASSERT_OK_AND_ASSIGN(auto always_true, MakeArrayFromScalar(BooleanScalar(true), 64));
+  ASSERT_OK_AND_ASSIGN(auto always_false, MakeArrayFromScalar(BooleanScalar(false), 64));
+  auto maybe_true_with_nulls =
+      rand.ArrayOf(boolean(), len - 64 * 2, /*null_probability=*/0.04);
+  auto maybe_true_all_valid =
+      rand.ArrayOf(boolean(), len - 64 * 2, /*null_probability=*/0.0);
+  ASSERT_OK_AND_ASSIGN(auto concat1,
+                       Concatenate({always_true, always_false, maybe_true_with_nulls}));
+  auto cond1 = std::static_pointer_cast<BooleanArray>(concat1);
+  ASSERT_OK_AND_ASSIGN(auto concat2,
+                       Concatenate({always_true, maybe_true_all_valid, always_false}));
+  auto cond2 = std::static_pointer_cast<BooleanArray>(concat2);
+
+  auto value1 = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+  auto value2 = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+  auto value_else = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+  typename TypeTraits<TypeParam>::BuilderType builder(type, default_memory_pool());
+
+  std::array<bool, 2> has_else_options{true, false};
+  for (bool has_else : has_else_options) {
+    for (int64_t i = 0; i < len; ++i) {
+      if (cond1->IsValid(i) && cond1->Value(i)) {
+        if (value1->IsValid(i)) {
+          ASSERT_OK(builder.Append(value1->Value(i)));
+        } else {
+          ASSERT_OK(builder.AppendNull());
+        }
+      } else if (cond2->IsValid(i) && cond2->Value(i)) {
+        if (value2->IsValid(i)) {
+          ASSERT_OK(builder.Append(value2->Value(i)));
+        } else {
+          ASSERT_OK(builder.AppendNull());
+        }
+      } else {
+        if (has_else && value_else->IsValid(i)) {
+          ASSERT_OK(builder.Append(value_else->Value(i)));
+        } else {
+          ASSERT_OK(builder.AppendNull());
+        }
+      }
+    }
+    ASSERT_OK_AND_ASSIGN(auto expected_data, builder.Finish());
+
+    if (has_else) {
+      CheckScalar("case_when", {MakeStruct({cond1, cond2}), value1, value2, value_else},
+                  expected_data);
+    } else {
+      CheckScalar("case_when", {MakeStruct({cond1, cond2}), value1, value2},
+                  expected_data);
+    }
+  }
+}
 
 TYPED_TEST(TestCaseWhenNumeric, ListOfType) {
   // More minimal test to check type coverage
