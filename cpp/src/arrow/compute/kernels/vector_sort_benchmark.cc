@@ -138,6 +138,13 @@ static void ArraySortFuncStringBenchmark(benchmark::State& state, const Runner& 
   auto values = rand.String(array_size, min_length, max_length, args.null_proportion);
 
   ArraySortFuncBenchmark(state, runner, values);
+  auto array = arrow::internal::checked_pointer_cast<const arrow::StringArray>(values);
+  auto nbytes = array->value_offsets()->size() + array->value_data()->size();
+  if (array->null_bitmap() != nullptr) {
+    nbytes += array->null_bitmap()->size();
+  }
+
+  state.SetBytesProcessed(state.iterations() * nbytes);
 }
 
 static void ArraySortIndicesInt64Narrow(benchmark::State& state) {
