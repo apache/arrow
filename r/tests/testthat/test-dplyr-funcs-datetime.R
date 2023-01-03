@@ -3577,32 +3577,32 @@ test_that("with_tz() and force_tz() works", {
       mutate(
         timestamps_with_tz_1 = with_tz(timestamps, "UTC"),
         timestamps_with_tz_2 = with_tz(timestamps, "US/Central"),
-        timestamps_with_tz_3 = with_tz(timestamps, "Asia/Kolkata")
+        timestamps_with_tz_3 = with_tz(timestamps, "Asia/Kolkata"),
+        timestamps_force_tz_1 = force_tz(timestamps, "UTC"),
+        timestamps_force_tz_2 = force_tz(timestamps, "US/Central"),
+        timestamps_force_tz_3 = force_tz(timestamps, "Asia/Kolkata")
       ) %>%
       collect(),
     tibble::tibble(timestamps = timestamps_non_utc)
   )
 
-  # non-UTC timezone to other timezone is not supported in arrow's force_tz()
-  expect_warning(
-    tibble::tibble(timestamps = timestamps_non_utc) %>%
-      arrow_table() %>%
-      mutate(timestamps = force_tz(timestamps, "UTC")) %>%
-      collect(),
-    "from timezone `US/Central` not supported in Arrow"
-  )
-
+  # TODO: Ambiguous roll, make this more explicit
   compare_dplyr_binding(
     .input %>%
-      mutate(nonexistent_roll_true = force_tz(timestamps, "Europe/Brussels", roll = TRUE)) %>%
+      mutate(
+        nonexistent_roll_true = force_tz(
+          timestamps,
+          "Europe/Brussels",
+          roll_dst = "post"
+        )
+      ) %>%
       collect(),
     tibble::tibble(timestamps = nonexistent)
   )
 
   # Raise error when the timezone falls into the DST-break
   expect_error(
-    tibble::tibble(timestamps = nonexistent) %>%
-      arrow_table() %>%
+    record_batch(timestamps = nonexistent) %>%
       mutate(nonexistent_roll_false = force_tz(timestamps, "Europe/Brussels")) %>%
       collect(),
     "Timestamp doesn't exist in timezone 'Europe/Brussels'"

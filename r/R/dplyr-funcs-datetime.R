@@ -433,37 +433,44 @@ register_bindings_datetime_conversion <- function() {
 register_bindings_datetime_timezone <- function() {
   register_binding(
     "lubridate::force_tz",
-    function(time, tzone = "", roll = FALSE) {
-      if (tzone == "") {
+    function(time, tzone = "", roll_dst = c("error", "post")) {
+      roll_dst <- match(roll_dst, c("error", "pre", "post")) - 1L
+      if (length(roll_dst) == 1L) {
+        roll_dst <- c(roll_dst, roll_dst)
+      } else if (length(roll_dst) != 2L) {
+        arrow_not_supported("`roll_dst` length != 1 or 2")
+      }
+
+      nonexistent <- roll_dst[1]
+      ambiguous <- roll_dst[2]
+
+      if (identical(tzone, "")) {
         tzone <- Sys.timezone()
       }
-      if (roll) {
-        .nonexistent <- 2L
-      } else {
-        # ToDo: Should return NA if falls into the DST-break without error
-        .nonexistent <- 0L
-      }
-      # ToDo: Work with non-UTC timezones
-      if (!time$type()$timezone() %in% c("", "UTC")) {
-        abort(
-          paste0(
-            "force_tz() from timezone `",
-            time$type()$timezone(),
-            "` not supported in Arrow"
-          )
-        )
+
+      if (!inherits(time, "Expression")) {
+        time <- Expression$scalar(time)
       }
 
       # Remove timezone
       time <- cast(time, timestamp(unit = time$type()$unit()))
+
       # Add timezone
-      Expression$create("assume_timezone", time, options = list(timezone = tzone, nonexistent = .nonexistent))
+      Expression$create(
+        "assume_timezone",
+        time,
+        options = list(
+          timezone = tzone,
+          nonexistent = nonexistent,
+          ambiguous = ambiguous
+        )
+      )
     },
     notes = c(
-      "Timezone conversion from non-UTC timezone not supported;",
-      "When `roll = FALSE` and hit a non-existent time, raise an error"
+      "roll_dst = 'NA' is not supported: use 'error', 'pre', or 'post'"
     )
   )
+
   register_binding("lubridate::with_tz", function(time, tzone = "") {
     if (tzone == "") {
       tzone <- Sys.timezone()
