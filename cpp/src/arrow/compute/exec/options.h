@@ -147,6 +147,11 @@ class ARROW_EXPORT RecordBatchSourceNodeOptions
   using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
 };
 
+class ARROW_EXPORT RecordBatchReaderSourceNodeOptions
+    : public SchemaSourceNodeOptions<RecordBatchIteratorMaker> {
+  using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
+};
+
 /// \brief Make a node which excludes some rows from batches passed through it
 ///
 /// filter_expression will be evaluated against each batch which is pushed to

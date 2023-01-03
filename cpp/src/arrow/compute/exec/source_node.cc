@@ -360,6 +360,46 @@ struct RecordBatchSourceNode
 
 const char RecordBatchSourceNode::kKindName[] = "RecordBatchSourceNode";
 
+
+/// RecordBatchReaderSourceNode Start
+
+struct RecordBatchReaderSourceNode
+    : public SchemaSourceNode<RecordBatchReaderSourceNode, RecordBatchReaderSourceNodeOptions> {
+  using RecordBatchReaderSchemaSourceNode =
+      SchemaSourceNode<RecordBatchReaderSourceNode, RecordBatchReaderSourceNodeOptions>;
+
+  using RecordBatchReaderSchemaSourceNode::RecordBatchReaderSchemaSourceNode;
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    return RecordBatchReaderSchemaSourceNode::Make(plan, inputs, options);
+  }
+
+  const char* kind_name() const override { return kKindName; }
+
+  static Result<arrow::AsyncGenerator<std::optional<ExecBatch>>> MakeGenerator(
+      Iterator<std::shared_ptr<RecordBatch>>& batch_it,
+      arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
+    auto to_exec_batch =
+        [schema](const std::shared_ptr<RecordBatch>& batch) -> std::optional<ExecBatch> {
+      if (batch == NULLPTR || *batch->schema() != *schema) {
+        return std::nullopt;
+      }
+      return std::optional<ExecBatch>(ExecBatch(*batch));
+    };
+    auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
+    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
+  }
+
+  static const char kKindName[];
+};
+
+const char RecordBatchReaderSourceNode::kKindName[] = "RecordBatchReaderSourceNode";
+
+
+
+/// RecordBatchReaderSourceNode End
+
 struct ExecBatchSourceNode
     : public SchemaSourceNode<ExecBatchSourceNode, ExecBatchSourceNodeOptions> {
   using ExecBatchSchemaSourceNode =
@@ -435,6 +475,8 @@ Result<compute::ExecNode*> MakeNamedTableNode(compute::ExecPlan* plan,
       "The named table node is for serialization purposes only and can never be "
       "converted into an exec plan or executed");
 }
+
+
 
 }  // namespace
 
