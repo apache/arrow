@@ -141,24 +141,22 @@ test_that("Error handling", {
 # TODO: casting: int and float columns?
 
 test_that("right_join", {
+  compare_dplyr_binding(
+    .input %>%
+      right_join(to_join, by = "some_grouping", keep = TRUE) %>%
+      collect(),
+    left
+  )
 
   compare_dplyr_binding(
-      .input %>%
-        right_join(to_join, by = "some_grouping", keep = TRUE) %>%
-        collect(),
-      left
-    )
-
-  compare_dplyr_binding(
-      .input %>%
-        right_join(to_join, by = "some_grouping", keep = FALSE) %>%
-        collect(),
-      left
-    )
+    .input %>%
+      right_join(to_join, by = "some_grouping", keep = FALSE) %>%
+      collect(),
+    left
+  )
 })
 
 test_that("inner_join", {
-
   compare_dplyr_binding(
     .input %>%
       inner_join(to_join, by = "some_grouping", keep = TRUE) %>%
@@ -172,11 +170,9 @@ test_that("inner_join", {
       collect(),
     left
   )
-
 })
 
 test_that("full_join", {
-
   compare_dplyr_binding(
     .input %>%
       full_join(to_join, by = "some_grouping", keep = TRUE) %>%
@@ -190,11 +186,9 @@ test_that("full_join", {
       collect(),
     left
   )
-
 })
 
 test_that("semi_join", {
-
   compare_dplyr_binding(
     .input %>%
       semi_join(to_join, by = "some_grouping", keep = TRUE) %>%
@@ -208,7 +202,6 @@ test_that("semi_join", {
       collect(),
     left
   )
-
 })
 
 test_that("anti_join", {
@@ -403,5 +396,4 @@ test_that("full joins handle keep", {
       collect(),
     small_dataset_df
   )
-
 })
