@@ -101,10 +101,10 @@ Result<std::shared_ptr<SchemaManifest>> GetSchemaManifest(
 bool isNan(const Scalar& value) {
   if (value.type->Equals(*float32())) {
     const FloatScalar& float_scalar = checked_cast<const FloatScalar&>(value);
-    return isnan(float_scalar.value);
+    return std::isnan(float_scalar.value);
   } else if (value.type->Equals(*float64())) {
     const DoubleScalar& double_scalar = checked_cast<const DoubleScalar&>(value);
-    return isnan(double_scalar.value);
+    return std::isnan(double_scalar.value);
   }
   return false;
 }
