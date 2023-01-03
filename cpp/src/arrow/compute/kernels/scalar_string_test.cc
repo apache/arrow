@@ -1753,6 +1753,11 @@ TYPED_TEST(TestBaseBinaryKernels, ReplaceSubstringRegex) {
   this->CheckUnary("replace_substring_regex", R"(["aaaaaa"])", this->type(),
                    R"(["abaaaaabaaaa"])", &options);
 
+  // ARROW-18202: Allow matching against empty string again
+  options = ReplaceSubstringOptions{"^$", "x"};
+  this->CheckUnary("replace_substring_regex", R"([""])", this->type(), R"(["x"])",
+                   &options);
+
   // ARROW-12774
   options = ReplaceSubstringOptions{"X", "Y"};
   this->CheckUnary("replace_substring_regex",

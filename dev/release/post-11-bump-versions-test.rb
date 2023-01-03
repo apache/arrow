@@ -55,6 +55,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
        @next_version)
   end
 
+  data(:release_type, [:major, :minor, :patch])
   def test_version_post_tag
     omit_on_release_branch
 
@@ -115,21 +116,27 @@ class PostBumpVersionsTest < Test::Unit::TestCase
            "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}.9000/apache-arrow-#{@release_version}.9000.tar.gz\""],
         ],
       },
-      {
-        path: "docs/source/_static/versions.json",
-        hunks: [
-          [
-            "-        \"name\": \"#{@release_compatible_version} (dev)\",",
-            "+        \"name\": \"#{@next_compatible_version} (dev)\",",
-            "-        \"name\": \"#{@previous_compatible_version} (stable)\",",
-            "+        \"name\": \"#{@release_compatible_version} (stable)\",",
-            "+    {",
-            "+        \"name\": \"#{@previous_compatible_version}\",",
-            "+        \"version\": \"#{@previous_compatible_version}/\"",
-            "+    },",
+    ]
+    unless release_type == :patch
+      expected_changes += [
+        {
+          path: "docs/source/_static/versions.json",
+          hunks: [
+            [
+              "-        \"name\": \"#{@release_compatible_version} (dev)\",",
+              "+        \"name\": \"#{@next_compatible_version} (dev)\",",
+              "-        \"name\": \"#{@previous_compatible_version} (stable)\",",
+              "+        \"name\": \"#{@release_compatible_version} (stable)\",",
+              "+    {",
+              "+        \"name\": \"#{@previous_compatible_version}\",",
+              "+        \"version\": \"#{@previous_compatible_version}/\"",
+              "+    },",
+            ],
           ],
-        ],
-      },
+        },
+      ]
+    end
+    expected_changes += [
       {
         path: "js/package.json",
         hunks: [
@@ -174,57 +181,80 @@ class PostBumpVersionsTest < Test::Unit::TestCase
            "+# arrow #{@release_version}",],
         ],
       },
-      {
-        path: "r/pkgdown/assets/versions.json",
-        hunks: [
-          [
-            "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
-            "+        \"name\": \"#{@release_version}.9000 (dev)\",",
-            "-        \"name\": \"#{@previous_version} (release)\",",
-            "+        \"name\": \"#{@release_version} (release)\",",
-            "+    {",
-            "+        \"name\": \"#{@previous_version}\",",
-            "+        \"version\": \"#{@previous_compatible_version}/\"",
-            "+    },",
-          ],
-        ],
-      },
     ]
+    if release_type == :major
+      expected_changes += [
+        {
+          path: "r/pkgdown/assets/versions.json",
+          hunks: [
+            [
+              "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
+              "+        \"name\": \"#{@release_version}.9000 (dev)\",",
+              "-        \"name\": \"#{@previous_version} (release)\",",
+              "+        \"name\": \"#{@release_version} (release)\",",
+              "+    {",
+              "+        \"name\": \"#{@previous_version}\",",
+              "+        \"version\": \"#{@previous_compatible_version}/\"",
+              "+    },",
+            ],
+          ],
+        },
+      ]
+    else
+      expected_changes += [
+        {
+          path: "r/pkgdown/assets/versions.json",
+          hunks: [
+            [
+              "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
+              "+        \"name\": \"#{@release_version}.9000 (dev)\",",
+              "-        \"name\": \"#{@previous_version} (release)\",",
+              "+        \"name\": \"#{@release_version} (release)\",",
+            ],
+          ],
+        },
+      ]
+    end
 
     Dir.glob("go/**/{go.mod,*.go,*.go.*}") do |path|
       if path == "go/arrow/doc.go"
         expected_changes << {
           path: path,
           hunks: [
-          [
-            "-const PkgVersion = \"#{@snapshot_version}\"",
-            "+const PkgVersion = \"#{@next_snapshot_version}\"",
-          ],
-        ]}
+            [
+              "-const PkgVersion = \"#{@snapshot_version}\"",
+              "+const PkgVersion = \"#{@next_snapshot_version}\"",
+            ],
+          ]
+        }
         next
       end
+
       import_path = "github.com/apache/arrow/go/v#{@snapshot_major_version}"
-      lines = File.readlines(path, chomp: true)
-      target_lines = lines.grep(/#{Regexp.escape(import_path)}/)
-      next if target_lines.empty?
       hunks = []
-      hunk = []
-      target_lines.each do |line|
-        hunk << "-#{line}"
-      end
-      target_lines.each do |line|
-        new_line = line.gsub("v#{@snapshot_major_version}") do
-          "v#{@next_major_version}"
+      if release_type == :major
+        lines = File.readlines(path, chomp: true)
+        target_lines = lines.grep(/#{Regexp.escape(import_path)}/)
+        next if target_lines.empty?
+        hunk = []
+        target_lines.each do |line|
+          hunk << "-#{line}"
         end
-        hunk << "+#{new_line}"
+        target_lines.each do |line|
+          new_line = line.gsub("v#{@snapshot_major_version}") do
+            "v#{@next_major_version}"
+          end
+          hunk << "+#{new_line}"
+        end
+        hunks << hunk
       end
-      hunks << hunk
       if path == "go/parquet/writer_properties.go"
         hunks << [
           "-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\"",
           "+\tDefaultCreatedBy          = \"parquet-go version #{@next_snapshot_version}\"",
         ]
       end
+      next if hunks.empty?
       expected_changes << {hunks: hunks, path: path}
     end
 

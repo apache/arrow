@@ -44,6 +44,7 @@
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/options.h"
+#include "arrow/engine/substrait/options_internal.h"
 #include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/engine/substrait/util.h"
@@ -227,7 +228,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         // Validate properties of the `FileOrFiles` item
         if (item.partition_index() != 0) {
           return Status::NotImplemented(
-              "non-default substrait::ReadRel::LocalFiles::FileOrFiles::partition_index");
+              "non-default "
+              "substrait::ReadRel::LocalFiles::FileOrFiles::partition_index");
         }
 
         if (item.start() != 0) {
@@ -684,6 +686,35 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       auto set_declaration = DeclarationInfo{union_declr, union_schema};
       return ProcessEmit(std::move(set), std::move(set_declaration),
                          std::move(union_schema));
+    }
+    case substrait::Rel::RelTypeCase::kExtensionLeaf: {
+      const auto& ext = rel.extension_leaf();
+      ARROW_ASSIGN_OR_RAISE(
+          auto ext_leaf_decl,
+          conversion_options.extension_provider->MakeRel({}, ext.detail(), ext_set));
+      return ProcessEmit(ext, std::move(ext_leaf_decl), ext_leaf_decl.output_schema);
+    }
+    case substrait::Rel::RelTypeCase::kExtensionSingle: {
+      const auto& ext = rel.extension_single();
+      ARROW_ASSIGN_OR_RAISE(DeclarationInfo input,
+                            FromProto(ext.input(), ext_set, conversion_options));
+      ARROW_ASSIGN_OR_RAISE(
+          auto ext_single_decl,
+          conversion_options.extension_provider->MakeRel({input}, ext.detail(), ext_set));
+      return ProcessEmit(ext, std::move(ext_single_decl), ext_single_decl.output_schema);
+    }
+    case substrait::Rel::RelTypeCase::kExtensionMulti: {
+      const auto& ext = rel.extension_multi();
+      std::vector<DeclarationInfo> inputs;
+      for (const auto& input : ext.inputs()) {
+        ARROW_ASSIGN_OR_RAISE(auto input_info,
+                              FromProto(input, ext_set, conversion_options));
+        inputs.push_back(std::move(input_info));
+      }
+      ARROW_ASSIGN_OR_RAISE(
+          auto ext_multi_decl,
+          conversion_options.extension_provider->MakeRel(inputs, ext.detail(), ext_set));
+      return ProcessEmit(ext, std::move(ext_multi_decl), ext_multi_decl.output_schema);
     }
 
     default:
