@@ -2551,6 +2551,122 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithEmit) {
                        /*include_columns=*/{}, conversion_options);
 }
 
+TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
+  compute::ExecContext exec_context;
+  auto dummy_schema = schema({field("A", int32()), field("B", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [1, 1],
+      [3, 5],
+      [4, 1],
+      [2, 1],
+      [5, 5],
+      [2, 2]
+  ])"});
+
+  std::string substrait_json = R"({
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
+  "relations": [{
+    "rel": {
+      "project": {
+        "common": {
+          "emit": {
+            "outputMapping": [0, 1, 2]
+          }
+        },
+        "expressions": [{
+          "scalarFunction": {
+            "functionReference": 0,
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }, {
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 1
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }],
+            "output_type": {
+              "bool": {}
+            }
+          }
+        },
+        ],
+        "input" : {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B"],
+                "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "namedTable": {
+              "names": ["A"]
+            }
+          }
+        }
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 0,
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "equal"
+      }}
+    ]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
+  auto output_schema =
+      schema({field("A", int32()), field("B", int32()), field("equal", boolean())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [1, 1, true],
+      [3, 5, false],
+      [4, 1, false],
+      [2, 1, false],
+      [5, 5, true],
+      [2, 2, true]
+  ])"});
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+                       /*include_columns=*/{}, conversion_options);
+}
+
 TEST(SubstraitRoundTrip, ReadRelWithEmit) {
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
