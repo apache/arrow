@@ -431,7 +431,9 @@ default_s3_options <- list(
   proxy_options = "",
   background_writes = TRUE,
   allow_bucket_creation = FALSE,
-  allow_bucket_deletion = FALSE
+  allow_bucket_deletion = FALSE,
+  connect_timeout = -1,
+  request_timeout = -1
 )
 
 #' Connect to an AWS S3 bucket
