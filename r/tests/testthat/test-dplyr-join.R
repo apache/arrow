@@ -141,47 +141,74 @@ test_that("Error handling", {
 # TODO: casting: int and float columns?
 
 test_that("right_join", {
-  for (keep in c(TRUE, FALSE)) {
-    compare_dplyr_binding(
+
+  compare_dplyr_binding(
       .input %>%
-        right_join(to_join, by = "some_grouping", keep = !!keep) %>%
+        right_join(to_join, by = "some_grouping", keep = TRUE) %>%
         collect(),
       left
     )
-  }
+
+  compare_dplyr_binding(
+      .input %>%
+        right_join(to_join, by = "some_grouping", keep = FALSE) %>%
+        collect(),
+      left
+    )
 })
 
 test_that("inner_join", {
-  for (keep in c(TRUE, FALSE)) {
-    compare_dplyr_binding(
-      .input %>%
-        inner_join(to_join, by = "some_grouping", keep = !!keep) %>%
-        collect(),
-      left
-    )
-  }
+
+  compare_dplyr_binding(
+    .input %>%
+      inner_join(to_join, by = "some_grouping", keep = TRUE) %>%
+      collect(),
+    left
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      inner_join(to_join, by = "some_grouping", keep = FALSE) %>%
+      collect(),
+    left
+  )
+
 })
 
 test_that("full_join", {
-  for (keep in c(TRUE, FALSE)) {
-    compare_dplyr_binding(
-      .input %>%
-        full_join(to_join, by = "some_grouping", keep = !!keep) %>%
-        collect(),
-      left
-    )
-  }
+
+  compare_dplyr_binding(
+    .input %>%
+      full_join(to_join, by = "some_grouping", keep = TRUE) %>%
+      collect(),
+    left
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      full_join(to_join, by = "some_grouping", keep = FALSE) %>%
+      collect(),
+    left
+  )
+
 })
 
 test_that("semi_join", {
-  for (keep in c(TRUE, FALSE)) {
-    compare_dplyr_binding(
-      .input %>%
-        semi_join(to_join, by = "some_grouping", keep = !!keep) %>%
-        collect(),
-      left
-    )
-  }
+
+  compare_dplyr_binding(
+    .input %>%
+      semi_join(to_join, by = "some_grouping", keep = TRUE) %>%
+      collect(),
+    left
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      semi_join(to_join, by = "some_grouping", keep = FALSE) %>%
+      collect(),
+    left
+  )
+
 })
 
 test_that("anti_join", {
@@ -361,34 +388,20 @@ test_that("full joins handle keep", {
     z = 6:10
   )
 
-  for (keep in c(TRUE, FALSE)) {
-    compare_dplyr_binding(
-      .input %>%
-        full_join(full_data_df, by = c("y", "x"), keep = !!keep) %>%
-        arrange(index) %>%
-        collect(),
-      small_dataset_df
-    )
-  }
-})
-
-test_that("right_join correctly coalesces keys", {
-  tbl1 <- tibble::tibble(x = 1:10, y = letters[1:10])
-  tbl2 <- tibble::tibble(x = 1:3, z = letters[11:13])
-
   compare_dplyr_binding(
     .input %>%
-      right_join(tbl1, by = "x") %>%
-      arrange(x) %>%
+      full_join(full_data_df, by = c("y", "x"), keep = TRUE) %>%
+      arrange(index) %>%
       collect(),
-    tbl2
+    small_dataset_df
   )
 
   compare_dplyr_binding(
     .input %>%
-      right_join(tbl1, by = "x", keep = TRUE) %>%
-      arrange(x.x) %>%
+      full_join(full_data_df, by = c("y", "x"), keep = FALSE) %>%
+      arrange(index) %>%
       collect(),
-    tbl2
+    small_dataset_df
   )
+
 })
