@@ -1291,6 +1291,7 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
   static constexpr size_t ROUND_TRIP_TIMES = 3;
+  const std::vector<int> EXTRA_READ_BATCH_SIZES = {1, 10};
 
   void InitBoundData(int nvalues, int repeats, c_type half_range) {
     num_values_ = nvalues * repeats;
@@ -1324,43 +1325,29 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
     CheckRoundtripSpaced(valid_bits, valid_bits_offset);
   }
 
-  void ExecuteSteps(int nvalues, int repeats, int read_batch) {
-    this->InitData(nvalues, repeats);
-    auto encoder =
-        MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED, false, descr_.get());
-    auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
-
-    for (size_t i = 0; i < ROUND_TRIP_TIMES; ++i) {
-      encoder->Put(draws_, num_values_);
-      encode_buffer_ = encoder->FlushValues();
-
-      decoder->SetData(num_values_, encode_buffer_->data(),
-                       static_cast<int>(encode_buffer_->size()));
-      int values_decoded_sum = 0;
-      while (values_decoded_sum < num_values_) {
-        int values_decoded =
-            decoder->Decode(decode_buf_ + values_decoded_sum, read_batch);
-        values_decoded_sum += values_decoded;
-      }
-      ASSERT_EQ(num_values_, values_decoded_sum);
-      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
-    }
-  }
-
   void CheckRoundtrip() override {
     auto encoder =
         MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED, false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
-
+    auto read_batch_sizes = EXTRA_READ_BATCH_SIZES;
+    read_batch_sizes.push_back(num_values_);
     for (size_t i = 0; i < ROUND_TRIP_TIMES; ++i) {
-      encoder->Put(draws_, num_values_);
-      encode_buffer_ = encoder->FlushValues();
+      for (int read_batch_size : read_batch_sizes) {
+        encoder->Put(draws_, num_values_);
+        encode_buffer_ = encoder->FlushValues();
 
-      decoder->SetData(num_values_, encode_buffer_->data(),
-                       static_cast<int>(encode_buffer_->size()));
-      int values_decoded = decoder->Decode(decode_buf_, num_values_);
-      ASSERT_EQ(num_values_, values_decoded);
-      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+        decoder->SetData(num_values_, encode_buffer_->data(),
+                         static_cast<int>(encode_buffer_->size()));
+
+        int values_decoded_sum = 0;
+        while (values_decoded_sum < num_values_) {
+          int values_decoded =
+              decoder->Decode(decode_buf_ + values_decoded_sum, read_batch_size);
+          values_decoded_sum += values_decoded;
+        }
+        ASSERT_EQ(num_values_, values_decoded_sum);
+        ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+      }
     }
   }
 
@@ -1434,19 +1421,6 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
         /*null_probability*/ 0.1,
         /*half_range*/ half_range));
   }
-}
-
-TYPED_TEST(TestDeltaBitPackEncoding, SmallBatchRoundTrip) {
-  ASSERT_NO_FATAL_FAILURE(this->Execute(1, 1));
-  ASSERT_NO_FATAL_FAILURE(this->Execute(1, 2));
-  ASSERT_NO_FATAL_FAILURE(this->Execute(2, 2));
-  ASSERT_NO_FATAL_FAILURE(this->Execute(1, 10));
-  ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(1, 1, 1));
-  ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(1, 2, 1));
-  ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(2, 2, 1));
-  ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(10, 10, 1));
-  ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(10, 10, 3));
-  ASSERT_NO_FATAL_FAILURE(this->ExecuteSteps(1, 10, 1));
 }
 
 }  // namespace test
