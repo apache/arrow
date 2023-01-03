@@ -1249,6 +1249,7 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
                          /*aggregates=*/{{"all", nullptr, "b", "all(b)"},
                                          {"any", nullptr, "b", "any(b)"},
                                          {"count", nullptr, "a", "count(a)"},
+                                         {"count_all", "count(*)"},
                                          {"mean", nullptr, "a", "mean(a)"},
                                          {"product", nullptr, "a", "product(a)"},
                                          {"stddev", nullptr, "a", "stddev(a)"},
@@ -1258,12 +1259,12 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
 
   auto exp_batches = {
       ExecBatchFromJSON(
-          {boolean(), boolean(), int64(), float64(), int64(), float64(), int64(),
+          {boolean(), boolean(), int64(), int64(), float64(), int64(), float64(), int64(),
            float64(), float64()},
           {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
-           ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::ARRAY,
-           ArgShape::SCALAR},
-          R"([[false, true, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334]])"),
+           ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
+           ArgShape::ARRAY, ArgShape::SCALAR},
+          R"([[false, true, 6, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334]])"),
   };
   ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan)));
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);

@@ -878,24 +878,21 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeConcatMapping() {
 ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
     const std::string& arrow_function_name) {
   return [arrow_function_name](const SubstraitCall& call) -> Result<compute::Aggregate> {
+    std::string fixed_arrow_func;
+    if (call.is_hash()) {
+      fixed_arrow_func = "hash_";
+    }
+
     switch (call.size()) {
       case 0: {
         if (call.id().name == "count") {
-          return (call.is_hash())
-                     ? compute::Aggregate{"hash_count_all", ""}
-                     : compute::Aggregate{"count",
-                                          std::make_shared<compute::CountOptions>(
-                                              compute::CountOptions::ALL),
-                                          FieldRef{0}, ""};
+          fixed_arrow_func += "count_all";
+          return compute::Aggregate{std::move(fixed_arrow_func), ""};
         }
         return Status::Invalid("Expected aggregate call ", call.id().uri, "#",
                                call.id().name, " to have at least one argument");
       }
       case 1: {
-        std::string fixed_arrow_func;
-        if (call.is_hash()) {
-          fixed_arrow_func = "hash_";
-        }
         fixed_arrow_func += arrow_function_name;
 
         ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(0));
