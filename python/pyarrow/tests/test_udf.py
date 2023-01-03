@@ -381,12 +381,12 @@ def test_registration_errors():
 
     def test_inputs_function(context, a1):
         return pc.add(a1, a1)
-    expected_expr = "in_arg_names and input types per kernel must contain same " \
-        + "number of elements"
+    expected_expr = "in_arg_names and input types per kernel " \
+        + "must contain same number of elements"
     with pytest.raises(ValueError, match=expected_expr):
         pc.register_scalar_function(test_inputs_function,
-                                    "test_inputs_function", doc, in_types, in_names,
-                                    out_types)
+                                    "test_inputs_function", doc,
+                                    in_types, in_names, out_types)
 
 
 def test_varargs_function_validation(varargs_func_fixture):
