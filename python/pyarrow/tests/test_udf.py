@@ -325,8 +325,8 @@ def test_registration_errors():
         "summary": "test udf input",
         "description": "parameters are validated"
     }
-    in_types = [[pa.int64()]]
-    in_names = ["scalar"]
+    in_types = []
+    in_names = []
     out_types = [pa.int64()]
 
     def test_reg_function(context):
@@ -334,7 +334,7 @@ def test_registration_errors():
 
     with pytest.raises(TypeError):
         pc.register_scalar_function(test_reg_function,
-                                    None, doc, in_types,
+                                    None, doc, in_types, in_names,
                                     out_types)
 
     # validate function
@@ -367,6 +367,25 @@ def test_registration_errors():
     with pytest.raises(KeyError, match=expected_expr):
         pc.register_scalar_function(test_reg_function,
                                     "test_reg_function", doc, [[]], [],
+                                    out_types)
+
+    # mismatching input_types and input_names
+
+    doc = {
+        "summary": "test udf input types and names",
+        "description": "parameters are validated"
+    }
+    in_types = [[pa.int64()]]
+    in_names = ["a1", "a2"]
+    out_types = [pa.int64()]
+
+    def test_inputs_function(context, a1):
+        return pc.add(a1, a1)
+    expected_expr = "in_arg_names and input types per kernel must contain same " \
+        + "number of elements"
+    with pytest.raises(ValueError, match=expected_expr):
+        pc.register_scalar_function(test_inputs_function,
+                                    "test_inputs_function", doc, in_types, in_names,
                                     out_types)
 
 
