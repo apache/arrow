@@ -42,14 +42,30 @@ endif()
 
 include(CMakeParseArguments)
 
+# MACOSX_RPATH is enabled by default.
+# https://www.cmake.org/cmake/help/latest/policy/CMP0042.html
+cmake_policy(SET CMP0042 NEW)
+
 # Only interpret if() arguments as variables or keywords when unquoted.
 # https://www.cmake.org/cmake/help/latest/policy/CMP0054.html
 cmake_policy(SET CMP0054 NEW)
+
+# RPATH settings on macOS do not affect install_name.
+# https://cmake.org/cmake/help/latest/policy/CMP0068.html
+if(POLICY CMP0068)
+  cmake_policy(SET CMP0068 NEW)
+endif()
 
 # find_package() uses <PackageName>_ROOT variables.
 # https://cmake.org/cmake/help/latest/policy/CMP0074.html
 if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
+endif()
+
+# RPATH entries are properly escaped in the intermediary CMake install script.
+# https://cmake.org/cmake/help/latest/policy/CMP0095.html
+if(POLICY CMP0095)
+  cmake_policy(SET CMP0095 NEW)
 endif()
 
 # Use the first Python installation on PATH, not the newest one
@@ -76,6 +92,20 @@ endif()
 # See http://clang.llvm.org/docs/JSONCompilationDatabase.html
 if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1")
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+endif()
+
+if(UNIX)
+  set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+  # In the event that we are bundling the shared libraries (e.g. in a
+  # manylinux1 wheel), we need to set the RPATH of the extensions to the
+  # root of the pyarrow/ package so that libarrow is able to be
+  # loaded properly
+  if(APPLE)
+    set(CMAKE_INSTALL_NAME_DIR "@rpath")
+    set(CMAKE_INSTALL_RPATH "@loader_path/")
+  else()
+    set(CMAKE_INSTALL_RPATH "\$ORIGIN")
+  endif()
 endif()
 
 # Top level cmake dir
@@ -232,8 +262,6 @@ set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 find_package(Python3Alt REQUIRED)
 include(UseCython)
 
-include_directories(SYSTEM ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} src)
-
 # PyArrow C++
 include(GNUInstallDirs)
 
@@ -266,11 +294,7 @@ set_source_files_properties(${PYARROW_CPP_SOURCE_DIR}/init.cc
                             PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                        SKIP_UNITY_BUILD_INCLUSION ON)
 
-set(PYARROW_CPP_SHARED_LINK_LIBS)
-set(PYARROW_CPP_SHARED_PRIVATE_LINK_LIBS)
-set(PYARROW_CPP_SHARED_INSTALL_INTERFACE_LIBS)
-set(PYARROW_CPP_STATIC_LINK_LIBS)
-set(PYARROW_CPP_STATIC_INSTALL_INTERFACE_LIBS)
+set(PYARROW_CPP_LINK_LIBS "")
 
 #
 # Arrow vs PyArrow C++ options
@@ -282,12 +306,11 @@ if(PYARROW_BUILD_DATASET)
     message(FATAL_ERROR "You must build Arrow C++ with ARROW_DATASET=ON")
   endif()
   find_package(ArrowDataset REQUIRED)
-  list(APPEND PYARROW_CPP_SHARED_LINK_LIBS ArrowDataset::arrow_dataset_shared)
-  list(APPEND PYARROW_CPP_SHARED_INSTALL_INTERFACE_LIBS
-       ArrowDataset::arrow_dataset_shared)
-  list(APPEND PYARROW_CPP_STATIC_LINK_LIBS ArrowDataset::arrow_dataset_static)
-  list(APPEND PYARROW_CPP_STATIC_INSTALL_INTERFACE_LIBS
-       ArrowDataset::arrow_dataset_static)
+  if(ARROW_BUILD_SHARED)
+    list(APPEND PYARROW_CPP_LINK_LIBS ArrowDataset::arrow_dataset_shared)
+  else()
+    list(APPEND PYARROW_CPP_LINK_LIBS ArrowDataset::arrow_dataset_static)
+  endif()
 endif()
 
 if(PYARROW_BUILD_PARQUET OR PYARROW_BUILD_PARQUET_ENCRYPTION)
@@ -300,10 +323,11 @@ endif()
 if(PYARROW_BUILD_PARQUET_ENCRYPTION)
   if(PARQUET_REQUIRE_ENCRYPTION)
     list(APPEND PYARROW_CPP_SRCS ${PYARROW_CPP_SOURCE_DIR}/parquet_encryption.cc)
-    list(APPEND PYARROW_CPP_SHARED_LINK_LIBS Parquet::parquet_shared)
-    list(APPEND PYARROW_CPP_SHARED_INSTALL_INTERFACE_LIBS Parquet::parquet_shared)
-    list(APPEND PYARROW_CPP_STATIC_LINK_LIBS Parquet::parquet_static)
-    list(APPEND PYARROW_CPP_STATIC_INSTALL_INTERFACE_LIBS Parquet::parquet_static)
+    if(ARROW_BUILD_SHARED)
+      list(APPEND PYARROW_CPP_LINK_LIBS Parquet::parquet_shared)
+    else()
+      list(APPEND PYARROW_CPP_LINK_LIBS Parquet::parquet_static)
+    endif()
   else()
     message(FATAL_ERROR "You must build Arrow C++ with PARQUET_REQUIRE_ENCRYPTION=ON")
   endif()
@@ -330,57 +354,26 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
                PROPERTY COMPILE_FLAGS " -Wno-cast-qual ")
 endif()
 
-if(NOT PYARROW_CPP_SHARED_LINK_LIBS)
-  list(APPEND PYARROW_CPP_SHARED_LINK_LIBS Arrow::arrow_shared)
-endif()
-if(NOT PYARROW_CPP_SHARED_INSTALL_INTERFACE_LIBS)
-  list(APPEND PYARROW_CPP_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
-endif()
-if(NOT PYARROW_CPP_STATIC_LINK_LIBS)
-  list(APPEND PYARROW_CPP_STATIC_LINK_LIBS Arrow::arrow_static)
-endif()
-list(APPEND PYARROW_CPP_STATIC_LINK_LIBS ${PYTHON_OTHER_LIBS})
-if(NOT PYARROW_CPP_STATIC_INSTALL_INTERFACE_LIBS)
-  list(APPEND PYARROW_CPP_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+if(NOT PYARROW_CPP_LINK_LIBS)
+  if(ARROW_BUILD_SHARED)
+    list(APPEND PYARROW_CPP_LINK_LIBS Arrow::arrow_shared)
+  else()
+    list(APPEND PYARROW_CPP_LINK_LIBS Arrow::arrow_static)
+  endif()
 endif()
 
-if(WIN32)
-  list(APPEND PYARROW_CPP_SHARED_LINK_LIBS ${PYTHON_LIBRARIES} ${PYTHON_OTHER_LIBS})
+add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
+target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR})
+if(NOT CMAKE_VERSION VERSION_LESS 3.16)
+  target_precompile_headers(arrow_python PUBLIC
+                            "$<$<COMPILE_LANGUAGE:CXX>:arrow/python/pch.h>")
 endif()
-
-add_arrow_lib(arrow_python
-              SOURCES
-              ${PYARROW_CPP_SRCS}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:${PYARROW_CPP_SOURCE_DIR}/pch.h>"
-              INSTALL_ARCHIVE_DIR
-              "."
-              INSTALL_LIBRARY_DIR
-              "."
-              INSTALL_RUNTIME_DIR
-              "."
-              OUTPUTS
-              PYARROW_CPP_LIBRARIES
-              SHARED_LINK_LIBS
-              ${PYARROW_CPP_SHARED_LINK_LIBS}
-              SHARED_PRIVATE_LINK_LIBS
-              ${PYARROW_CPP_SHARED_PRIVATE_LINK_LIBS}
-              SHARED_INSTALL_INTERFACE_LIBS
-              ${PYARROW_CPP_SHARED_INSTALL_INTERFACE_LIBS}
-              STATIC_LINK_LIBS
-              ${PYARROW_CPP_STATIC_LINK_LIBS}
-              STATIC_INSTALL_INTERFACE_LIBS
-              ${PYARROW_CPP_STATIC_INSTALL_INTERFACE_LIBS}
-              EXTRA_INCLUDES
-              ${PYARROW_CPP_ROOT_DIR})
-
-foreach(LIB_TARGET ${PYARROW_CPP_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_PYTHON_EXPORTING)
-endforeach()
-
-if(ARROW_BUILD_STATIC AND MSVC)
-  target_compile_definitions(arrow_python_static PUBLIC ARROW_PYTHON_STATIC)
-endif()
+target_link_libraries(arrow_python PUBLIC ${PYARROW_CPP_LINK_LIBS} Python3::NumPy)
+target_compile_definitions(arrow_python PRIVATE ARROW_PYTHON_EXPORTING)
+install(TARGETS arrow_python
+        ARCHIVE DESTINATION .
+        LIBRARY DESTINATION .
+        RUNTIME DESTINATION .)
 
 set(PYARROW_CPP_FLIGHT_SRCS ${PYARROW_CPP_SOURCE_DIR}/flight.cc)
 if(PYARROW_BUILD_FLIGHT)
@@ -397,37 +390,14 @@ if(PYARROW_BUILD_FLIGHT)
   endif()
   find_package(ArrowFlight REQUIRED)
 
-  add_arrow_lib(arrow_python_flight
-                SOURCES
-                ${PYARROW_CPP_FLIGHT_SRCS}
-                INSTALL_ARCHIVE_DIR
-                "."
-                INSTALL_LIBRARY_DIR
-                "."
-                INSTALL_RUNTIME_DIR
-                "."
-                OUTPUTS
-                PYARROW_CPP_FLIGHT_LIBRARIES
-                SHARED_LINK_LIBS
-                arrow_python_shared
-                ArrowFlight::arrow_flight_shared
-                SHARED_INSTALL_INTERFACE_LIBS
-                arrow_python_shared
-                ArrowFlight::arrow_flight_shared
-                STATIC_LINK_LIBS
-                arrow_python_static
-                ArrowFlight::arrow_flight_static
-                STATIC_INSTALL_INTERFACE_LIBS
-                arrow_python_static
-                ArrowFlight::arrow_flight_static)
-
-  foreach(LIB_TARGET ${PYARROW_CPP_FLIGHT_LIBRARIES})
-    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_PYFLIGHT_EXPORTING)
-  endforeach()
-
-  if(ARROW_BUILD_STATIC AND MSVC)
-    target_compile_definitions(arrow_python_flight_static PUBLIC ARROW_PYFLIGHT_STATIC)
-  endif()
+  add_library(arrow_python_flight SHARED ${PYARROW_CPP_FLIGHT_SRCS})
+  target_link_libraries(arrow_python_flight PUBLIC arrow_python
+                                                   ArrowFlight::arrow_flight_shared)
+  target_compile_definitions(arrow_python_flight PRIVATE ARROW_PYFLIGHT_EXPORTING)
+  install(TARGETS arrow_python_flight
+          ARCHIVE DESTINATION .
+          LIBRARY DESTINATION .
+          RUNTIME DESTINATION .)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -546,12 +516,8 @@ if(PYARROW_BUNDLE_ARROW_CPP)
 endif()
 
 #
-# Subdirectories
+# Cython modules
 #
-
-if(UNIX)
-  set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-endif()
 
 set(CYTHON_EXTENSIONS
     lib
@@ -565,7 +531,7 @@ set(CYTHON_EXTENSIONS
     _pyarrow_cpp_tests)
 set_source_files_properties(pyarrow/lib.pyx PROPERTIES CYTHON_API TRUE)
 
-set(LINK_LIBS arrow_python_shared)
+set(LINK_LIBS arrow_python)
 
 if(PYARROW_BUILD_GCS)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _gcsfs)
@@ -684,8 +650,10 @@ if(PYARROW_BUILD_FLIGHT)
     endif()
   endif()
 
-  set(FLIGHT_LINK_LIBS arrow_python_flight_shared)
+  set(FLIGHT_LINK_LIBS arrow_python_flight)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _flight)
+else()
+  set(FLIGHT_LINK_LIBS "")
 endif()
 
 # Substrait
@@ -756,16 +724,6 @@ foreach(module ${CYTHON_EXTENSIONS})
                                                     ${module_output_directory})
   endif()
 
-  # In the event that we are bundling the shared libraries (e.g. in a
-  # manylinux1 wheel), we need to set the RPATH of the extensions to the
-  # root of the pyarrow/ package so that libarrow is able to be
-  # loaded properly
-  if(APPLE)
-    set(module_install_rpath "@loader_path/")
-  else()
-    set(module_install_rpath "\$ORIGIN")
-  endif()
-
   # XXX(wesm): ARROW-2326 this logic is only needed when we have Cython
   # modules in interior directories. Since all of our C extensions and
   # bundled libraries are in the same place, we can skip this part
@@ -775,8 +733,6 @@ foreach(module ${CYTHON_EXTENSIONS})
   #   set(module_install_rpath "${module_install_rpath}/..")
   #   math(EXPR i "${i} - 1" )
   # endwhile(${i} GREATER 0)
-
-  set_target_properties(${module_name} PROPERTIES INSTALL_RPATH ${module_install_rpath})
 
   if(PYARROW_GENERATE_COVERAGE)
     set_target_properties(${module_name} PROPERTIES COMPILE_DEFINITIONS
