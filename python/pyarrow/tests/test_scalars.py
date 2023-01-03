@@ -24,6 +24,7 @@ import weakref
 import numpy as np
 
 import pyarrow as pa
+import pyarrow.compute as pc
 
 
 @pytest.mark.parametrize(['value', 'ty', 'klass'], [
@@ -92,6 +93,14 @@ def test_basics(value, ty, klass):
     assert wr() is not None
     del s
     assert wr() is None
+
+
+def test_invalid_scalar():
+    s = pc.cast(pa.scalar(b"\xff"), pa.string(), safe=False)
+    s.validate()
+    with pytest.raises(ValueError,
+                       match="string scalar contains invalid UTF8 data"):
+        s.validate(full=True)
 
 
 def test_null_singleton():

@@ -89,7 +89,7 @@ cdef class Scalar(_Weakrefable):
 
         return Scalar.wrap(result)
 
-    def validate(self, full=False):
+    def validate(self, *, full=False):
         """
         Perform validation checks.  An exception is raised if validation fails.
 
