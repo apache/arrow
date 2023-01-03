@@ -765,16 +765,16 @@ application.
 We discuss dictionary encoding as it relates to serialization further
 below.
 
-.. _run-length-encoded-layout:
+.. _run-end-encoded-layout:
 
-Run-Length Encoded Layout
+Run-End Encoded Layout
 -------------------------
 
-Run-Length is a data representation that represents data as sequences of the
+Run-End is a data representation that represents data as sequences of the
 same value, called runs. Each run is represented as a value, and an integer
-describing how often this value is repeated.
+describing the index in the array where the run ends.
 
-Any array can be run-length encoded. A run-length encoded array has no buffers
+Any array can be run-end encoded. A run-end encoded array has no buffers
 by itself, but has two child arrays. The first one holds a signed integer
 called a "run end" for each run. The run ends array can hold either 16, 32, or
 64-bit integers. The actual values of each run are held
@@ -796,7 +796,7 @@ As an example, you could have the following data: ::
     type: Float32
     [1.0, 1.0, 1.0, 1.0, null, null, 2.0]
 
-In Run-length-encoded form, this could appear as:
+In Run-end-encoded form, this could appear as:
 
 ::
 
@@ -846,7 +846,7 @@ of memory buffers for each layout.
    "Dense Union",type ids,offsets,
    "Null",,,
    "Dictionary-encoded",validity,data (indices),
-   "Run-length encoded",,,
+   "Run-end encoded",,,
 
 Logical Types
 =============
