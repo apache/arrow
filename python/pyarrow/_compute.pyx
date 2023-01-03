@@ -2592,7 +2592,7 @@ def _get_scalar_udf_context(memory_pool, batch_length):
 
 
 def register_scalar_function(func, function_name, function_doc, in_arg_types,
-                             out_types):
+                             in_arg_names, out_types):
     """
     Register a user-defined scalar function.
 
@@ -2624,13 +2624,13 @@ def register_scalar_function(func, function_name, function_doc, in_arg_types,
     function_doc : dict
         A dictionary object with keys "summary" (str),
         and "description" (str).
-    in_arg_types : List[Dict[str, DataType]]
-        A list of dictionary mapping function argument names to
-        their respective DataType.
-        The argument names will be used to generate
-        documentation for the function. The number of
-        arguments specified here determines the function
-        arity.
+    in_arg_types : List[List[DataType]]
+        A list of list of DataTypes which includes input types for 
+        each kernel. The number of arguments specified here 
+        determines the function arity.
+    in_arg_names: List[str]
+        A list of str which contains the names of the arguments used to 
+        generate the function documentation.
     out_types : List[DataType]
         A list of output types of the function.
         Corresponding to the input types, the output type of
@@ -2649,10 +2649,11 @@ def register_scalar_function(func, function_name, function_doc, in_arg_types,
     ...     return pc.add(array, 1, memory_pool=ctx.memory_pool)
     >>>
     >>> func_name = "py_add_func"
-    >>> in_types = [{"array": pa.int64()}]
+    >>> in_types = [[pa.int64()]]
+    >>> in_names = ["array"]
     >>> out_type = [pa.int64()]
     >>> pc.register_scalar_function(add_constant, func_name, func_doc,
-    ...                   in_types, out_type)
+    ...                   in_types, in_names, out_type)
     >>>
     >>> func = pc.get_function(func_name)
     >>> func.name
@@ -2685,26 +2686,27 @@ def register_scalar_function(func, function_name, function_doc, in_arg_types,
     num_args = -1
     if not isinstance(in_arg_types, list):
         raise TypeError(
-            "in_arg_types must be a list of dictionaries of DataType")
+            "in_arg_types must be a list of list of DataType")
+    if not isinstance(in_arg_names, list):
+        raise TypeError(
+            "in_arg_names must be a list of str")
     if not isinstance(out_types, list):
         raise TypeError("out_types must be a list of DataType")
-    # each input_type dict in input_types list must
-    # have same arg_names
-    if isinstance(in_arg_types[0], dict):
-        function_doc["arg_names"] = in_arg_types[0].keys()
-        num_args = len(in_arg_types[0])
-    else:
-        raise TypeError(
-            "Elements in in_arg_types must be a dictionary of DataType")
+
+    function_doc["arg_names"] = in_arg_names
+    num_args = len(in_arg_names)
 
     for in_types in in_arg_types:
-        if isinstance(in_types, dict):
-            for in_type in in_types.values():
+        if isinstance(in_types, list):
+            if len(in_arg_names) != len(in_types):
+                raise ValueError(
+                    "in_arg_names and input types per kernel must contain same number of elements")
+            for in_type in in_types:
                 c_in_types.push_back(
                     pyarrow_unwrap_data_type(ensure_type(in_type)))
         else:
             raise TypeError(
-                "Elements in in_arg_types must be a dictionary of DataType")
+                "Elements in in_arg_types must be a list of DataType")
         vec_c_in_types.push_back(move(c_in_types))
 
     c_arity = CArity(<int> num_args, func_spec.varargs)

@@ -113,7 +113,7 @@ Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback 
     for (const auto& in_dtype : opt_input_types) {
       input_types.emplace_back(in_dtype);
     }
-    const auto opts_out_type = options.output_types[idx];
+    const auto& opts_out_type = options.output_types[idx];
     compute::OutputType output_type(opts_out_type);
     auto udf_data = std::make_shared<PythonUdf>(
       wrapper, std::make_shared<OwnedRefNoGIL>(user_function), opts_out_type);
