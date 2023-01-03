@@ -31,6 +31,7 @@
 #include "parquet/schema.h"
 
 #include <cmath>
+#include <limits>
 #include <random>
 
 using arrow::default_memory_pool;
@@ -452,6 +453,29 @@ BENCHMARK(BM_ByteStreamSplitEncode_Float_Avx512)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_ByteStreamSplitEncode_Double_Avx512)->Range(MIN_RANGE, MAX_RANGE);
 #endif
 
+template <typename DType>
+static auto MakeDeltaBitPackingInputFixed(size_t length) {
+  using T = typename DType::c_type;
+  return std::vector<T>(length, 42);
+}
+
+template <typename DType>
+static auto MakeDeltaBitPackingInputNarrow(size_t length) {
+  using T = typename DType::c_type;
+  auto numbers = std::vector<T>(length);
+  ::arrow::randint<T, T>(length, 0, 1000, &numbers);
+  return numbers;
+}
+
+template <typename DType>
+static auto MakeDeltaBitPackingInputWide(size_t length) {
+  using T = typename DType::c_type;
+  auto numbers = std::vector<T>(length);
+  ::arrow::randint<T, T>(length, std::numeric_limits<T>::min() >> 2,
+                         std::numeric_limits<T>::max() >> 2, &numbers);
+  return numbers;
+}
+
 template <typename DType, typename NumberGenerator>
 static void BM_DeltaBitPackingEncode(benchmark::State& state, NumberGenerator gen) {
   using T = typename DType::c_type;
@@ -462,53 +486,35 @@ static void BM_DeltaBitPackingEncode(benchmark::State& state, NumberGenerator ge
     encoder->FlushValues();
   }
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(T));
-  state.SetItemsProcessed(state.iterations() * state.range(0));
+  state.SetItemsProcessed(state.iterations() * values.size());
 }
 
-static void BM_DeltaBitPackingEncode_Int32_Equals(benchmark::State& state) {
-  BM_DeltaBitPackingEncode<Int32Type>(
-      state, [](size_t length) { return std::vector<int32_t>(length, 64); });
+static void BM_DeltaBitPackingEncode_Int32_Fixed(benchmark::State& state) {
+  BM_DeltaBitPackingEncode<Int32Type>(state, MakeDeltaBitPackingInputFixed<Int32Type>);
 }
 
-static void BM_DeltaBitPackingEncode_Int64_Equals(benchmark::State& state) {
-  BM_DeltaBitPackingEncode<Int64Type>(
-      state, [](size_t length) { return std::vector<int64_t>(length, 64); });
+static void BM_DeltaBitPackingEncode_Int64_Fixed(benchmark::State& state) {
+  BM_DeltaBitPackingEncode<Int64Type>(state, MakeDeltaBitPackingInputFixed<Int64Type>);
 }
 
 static void BM_DeltaBitPackingEncode_Int32_Narrow(benchmark::State& state) {
-  BM_DeltaBitPackingEncode<Int32Type>(state, [](size_t length) {
-    auto numbers = std::vector<int32_t>(length);
-    ::arrow::randint<int32_t, int32_t>(length, 0, 2000, &numbers);
-    return numbers;
-  });
+  BM_DeltaBitPackingEncode<Int32Type>(state, MakeDeltaBitPackingInputNarrow<Int32Type>);
 }
 
 static void BM_DeltaBitPackingEncode_Int64_Narrow(benchmark::State& state) {
-  BM_DeltaBitPackingEncode<Int64Type>(state, [](size_t length) {
-    auto numbers = std::vector<int64_t>(length);
-    ::arrow::randint<int64_t, int64_t>(length, 0, 4000, &numbers);
-    return numbers;
-  });
+  BM_DeltaBitPackingEncode<Int64Type>(state, MakeDeltaBitPackingInputNarrow<Int64Type>);
 }
 
 static void BM_DeltaBitPackingEncode_Int32_Wide(benchmark::State& state) {
-  BM_DeltaBitPackingEncode<Int32Type>(state, [](size_t length) {
-    auto numbers = std::vector<int32_t>(length);
-    ::arrow::randint<int32_t, int32_t>(length, INT32_MIN, INT32_MAX, &numbers);
-    return numbers;
-  });
+  BM_DeltaBitPackingEncode<Int32Type>(state, MakeDeltaBitPackingInputWide<Int32Type>);
 }
 
 static void BM_DeltaBitPackingEncode_Int64_Wide(benchmark::State& state) {
-  BM_DeltaBitPackingEncode<Int64Type>(state, [](size_t length) {
-    auto numbers = std::vector<int64_t>(length);
-    ::arrow::randint<int64_t, int64_t>(length, INT64_MIN, INT64_MAX, &numbers);
-    return numbers;
-  });
+  BM_DeltaBitPackingEncode<Int64Type>(state, MakeDeltaBitPackingInputWide<Int64Type>);
 }
 
-BENCHMARK(BM_DeltaBitPackingEncode_Int32_Equals)->Range(MIN_RANGE, MAX_RANGE);
-BENCHMARK(BM_DeltaBitPackingEncode_Int64_Equals)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingEncode_Int32_Fixed)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingEncode_Int64_Fixed)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingEncode_Int32_Narrow)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingEncode_Int64_Narrow)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingEncode_Int32_Wide)->Range(MIN_RANGE, MAX_RANGE);
@@ -532,50 +538,32 @@ static void BM_DeltaBitPackingDecode(benchmark::State& state, NumberGenerator ge
   state.SetItemsProcessed(state.iterations() * state.range(0));
 }
 
-static void BM_DeltaBitPackingDecode_Int32_Equal(benchmark::State& state) {
-  BM_DeltaBitPackingDecode<Int32Type>(
-      state, [](size_t length) { return std::vector<int32_t>(length, 64); });
+static void BM_DeltaBitPackingDecode_Int32_Fixed(benchmark::State& state) {
+  BM_DeltaBitPackingDecode<Int32Type>(state, MakeDeltaBitPackingInputFixed<Int32Type>);
 }
 
-static void BM_DeltaBitPackingDecode_Int64_Equal(benchmark::State& state) {
-  BM_DeltaBitPackingDecode<Int64Type>(
-      state, [](size_t length) { return std::vector<int64_t>(length, 64); });
+static void BM_DeltaBitPackingDecode_Int64_Fixed(benchmark::State& state) {
+  BM_DeltaBitPackingDecode<Int64Type>(state, MakeDeltaBitPackingInputFixed<Int64Type>);
 }
 
 static void BM_DeltaBitPackingDecode_Int32_Narrow(benchmark::State& state) {
-  BM_DeltaBitPackingDecode<Int32Type>(state, [](size_t length) {
-    auto numbers = std::vector<int32_t>(length);
-    ::arrow::randint<int32_t, int32_t>(length, 0, 2000, &numbers);
-    return numbers;
-  });
+  BM_DeltaBitPackingDecode<Int32Type>(state, MakeDeltaBitPackingInputNarrow<Int32Type>);
 }
 
 static void BM_DeltaBitPackingDecode_Int64_Narrow(benchmark::State& state) {
-  BM_DeltaBitPackingDecode<Int64Type>(state, [](size_t length) {
-    auto numbers = std::vector<int64_t>(length);
-    ::arrow::randint<int64_t, int64_t>(length, 0, 4000, &numbers);
-    return numbers;
-  });
+  BM_DeltaBitPackingDecode<Int64Type>(state, MakeDeltaBitPackingInputNarrow<Int64Type>);
 }
 
 static void BM_DeltaBitPackingDecode_Int32_Wide(benchmark::State& state) {
-  BM_DeltaBitPackingDecode<Int32Type>(state, [](size_t length) {
-    auto numbers = std::vector<int32_t>(length);
-    ::arrow::randint<int32_t, int32_t>(length, INT32_MIN, INT32_MAX, &numbers);
-    return numbers;
-  });
+  BM_DeltaBitPackingDecode<Int32Type>(state, MakeDeltaBitPackingInputWide<Int32Type>);
 }
 
 static void BM_DeltaBitPackingDecode_Int64_Wide(benchmark::State& state) {
-  BM_DeltaBitPackingDecode<Int64Type>(state, [](size_t length) {
-    auto numbers = std::vector<int64_t>(length);
-    ::arrow::randint<int64_t, int64_t>(length, INT64_MIN, INT64_MAX, &numbers);
-    return numbers;
-  });
+  BM_DeltaBitPackingDecode<Int64Type>(state, MakeDeltaBitPackingInputWide<Int64Type>);
 }
 
-BENCHMARK(BM_DeltaBitPackingDecode_Int32_Equal)->Range(MIN_RANGE, MAX_RANGE);
-BENCHMARK(BM_DeltaBitPackingDecode_Int64_Equal)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingDecode_Int32_Fixed)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingDecode_Int64_Fixed)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingDecode_Int32_Narrow)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingDecode_Int64_Narrow)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingDecode_Int32_Wide)->Range(MIN_RANGE, MAX_RANGE);
