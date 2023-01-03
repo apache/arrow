@@ -796,7 +796,8 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
   for (const auto& file : dataset->files()) {
     auto read_rel_lfs_ffs =
         std::make_unique<substrait::ReadRel::LocalFiles::FileOrFiles>();
-    read_rel_lfs_ffs->set_uri_path(UriFromAbsolutePath(file));
+    ARROW_ASSIGN_OR_RAISE(auto uri_path, UriFromAbsolutePath(file));
+    read_rel_lfs_ffs->set_uri_path(std::move(uri_path));
     // set file format
     auto format_type_name = dataset->format()->type_name();
     if (format_type_name == "parquet") {
