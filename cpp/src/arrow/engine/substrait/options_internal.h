@@ -19,14 +19,26 @@
 
 #pragma once
 
+#include <vector>
+
+#include <google/protobuf/any.pb.h>
+
+#include "arrow/compute/type_fwd.h"
+#include "arrow/engine/substrait/type_fwd.h"
+#include "arrow/engine/substrait/visibility.h"
+#include "arrow/type_fwd.h"
+
 namespace arrow {
 namespace engine {
 
-class ExtensionIdRegistry;
-class ExtensionSet;
-
-struct ConversionOptions;
-struct DeclarationInfo;
+class ARROW_ENGINE_EXPORT ExtensionProvider {
+ public:
+  static std::shared_ptr<ExtensionProvider> kDefaultExtensionProvider;
+  virtual ~ExtensionProvider() = default;
+  virtual Result<DeclarationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
+                                          const google::protobuf::Any& rel,
+                                          const ExtensionSet& ext_set) = 0;
+};
 
 }  // namespace engine
 }  // namespace arrow

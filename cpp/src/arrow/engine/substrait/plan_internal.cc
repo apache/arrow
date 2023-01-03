@@ -143,7 +143,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
 
 namespace {
 
-// FIXME Is there some way to get these from the cmake files?
+// TODO(ARROW-18145) Populate these from cmake files
 constexpr uint32_t kSubstraitMajorVersion = 0;
 constexpr uint32_t kSubstraitMinorVersion = 20;
 constexpr uint32_t kSubstraitPatchVersion = 0;

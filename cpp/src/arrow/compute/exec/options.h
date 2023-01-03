@@ -479,22 +479,35 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
 /// This node will output one row for each row in the left table.
 class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
  public:
-  AsofJoinNodeOptions(FieldRef on_key, std::vector<FieldRef> by_key, int64_t tolerance)
-      : on_key(std::move(on_key)), by_key(by_key), tolerance(tolerance) {}
+  /// \brief Keys for one input table of the AsofJoin operation
+  ///
+  /// The keys must be consistent across the input tables:
+  /// Each "on" key must refer to a field of the same type and units across the tables.
+  /// Each "by" key must refer to a list of fields of the same types across the tables.
+  struct Keys {
+    /// \brief "on" key for the join.
+    ///
+    /// The input table must be sorted by the "on" key. Must be a single field of a common
+    /// type. Inexact match is used on the "on" key. i.e., a row is considered a match iff
+    /// left_on - tolerance <= right_on <= left_on.
+    /// Currently, the "on" key must be of an integer, date, or timestamp type.
+    FieldRef on_key;
+    /// \brief "by" key for the join.
+    ///
+    /// Each input table must have each field of the "by" key.  Exact equality is used for
+    /// each field of the "by" key.
+    /// Currently, each field of the "by" key must be of an integer, date, timestamp, or
+    /// base-binary type.
+    std::vector<FieldRef> by_key;
+  };
 
-  /// \brief "on" key for the join.
+  AsofJoinNodeOptions(std::vector<Keys> input_keys, int64_t tolerance)
+      : input_keys(std::move(input_keys)), tolerance(tolerance) {}
+
+  /// \brief AsofJoin keys per input table.
   ///
-  /// All inputs tables must be sorted by the "on" key. Must be a single field of a common
-  /// type. Inexact match is used on the "on" key. i.e., a row is considered match iff
-  /// left_on - tolerance <= right_on <= left_on.
-  /// Currently, the "on" key must be of an integer, date, or timestamp type.
-  FieldRef on_key;
-  /// \brief "by" key for the join.
-  ///
-  /// All input tables must have the "by" key.  Exact equality
-  /// is used for the "by" key.
-  /// Currently, the "by" key must be of an integer, date, timestamp, or base-binary type
-  std::vector<FieldRef> by_key;
+  /// \see `Keys` for details.
+  std::vector<Keys> input_keys;
   /// \brief Tolerance for inexact "on" key matching.  Must be non-negative.
   ///
   /// The tolerance is interpreted in the same units as the "on" key.
