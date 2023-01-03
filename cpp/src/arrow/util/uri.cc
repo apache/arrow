@@ -59,7 +59,7 @@ bool IsDriveSpec(const std::string_view s) {
 
 }  // namespace
 
-std::string UriEscape(const std::string_view& s) {
+std::string UriEscape(std::string_view s) {
   if (s.empty()) {
     // Avoid passing null pointer to uriEscapeExA
     return std::string(s);
@@ -73,7 +73,7 @@ std::string UriEscape(const std::string_view& s) {
   return escaped;
 }
 
-std::string UriUnescape(const std::string_view& s) {
+std::string UriUnescape(std::string_view s) {
   std::string result(s);
   if (!result.empty()) {
     auto end = uriUnescapeInPlaceA(&result[0]);
@@ -82,7 +82,7 @@ std::string UriUnescape(const std::string_view& s) {
   return result;
 }
 
-std::string UriEncodeHost(const std::string_view& host) {
+std::string UriEncodeHost(std::string_view host) {
   // Fairly naive check: if it contains a ':', it's IPv6 and needs
   // brackets, else it's OK
   if (host.find(":") != std::string::npos) {
@@ -95,7 +95,7 @@ std::string UriEncodeHost(const std::string_view& host) {
   }
 }
 
-bool IsValidUriScheme(const std::string_view& s) {
+bool IsValidUriScheme(std::string_view s) {
   auto is_alpha = [](char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); };
   auto is_scheme_char = [&](char c) {
     return is_alpha(c) || (c >= '0' && c <= '9') || c == '+' || c == '-' || c == '.';
@@ -311,7 +311,7 @@ Status Uri::Parse(const std::string& uri_string) {
   return Status::OK();
 }
 
-Result<std::string> UriFromAbsolutePath(const std::string_view& path) {
+Result<std::string> UriFromAbsolutePath(std::string_view path) {
   if (path.empty()) {
     return Status::Invalid(
         "UriFromAbsolutePath expected an absolute path, got an empty string");
