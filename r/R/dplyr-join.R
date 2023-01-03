@@ -35,8 +35,13 @@ do_join <- function(x,
 
   # For outer joins, we need to output the join keys on both sides so we
   # can coalesce them afterwards.
-  left_output <- names(x)
-  right_output <- if (keep || join_type == "FULL_OUTER") {
+  left_output <- if (join_type == "RIGHT_OUTER") {
+    setdiff(names(x), by)
+  } else {
+    names(x)
+  }
+
+  right_output <- if (keep || join_type %in% c("FULL_OUTER", "RIGHT_OUTER")) {
     names(y)
   } else {
     setdiff(names(y), by)
@@ -73,17 +78,8 @@ right_join.arrow_dplyr_query <- function(x,
                                          ...,
                                          keep = FALSE) {
 
-  # Initially keep join keys so we can coalesce them after when keep=FALSE
-  query <- do_join(x, y, by, copy, suffix, ..., keep = TRUE, join_type = "RIGHT_OUTER")
+  do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "RIGHT_OUTER")
 
-  # If we are doing a right outer join and not keeping the join keys of
-  # both sides, we need to coalesce. Otherwise, rows that exist in the
-  # RHS will have NAs for the join keys.
-  if (!keep) {
-    query$selected_columns <- post_join_projection(names(x), names(y), handle_join_by(by, x, y), suffix)
-  }
-
-  query
 }
 right_join.Dataset <- right_join.ArrowTabular <- right_join.RecordBatchReader <- right_join.arrow_dplyr_query
 
