@@ -2663,7 +2663,7 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf,
+  CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
 
