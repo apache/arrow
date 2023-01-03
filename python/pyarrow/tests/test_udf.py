@@ -325,7 +325,7 @@ def test_registration_errors():
         "summary": "test udf input",
         "description": "parameters are validated"
     }
-    in_types = []
+    in_types = [[]]
     in_names = []
     out_types = [pa.int64()]
 
