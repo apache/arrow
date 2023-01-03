@@ -14,19 +14,31 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+syntax = "proto3";
 
-// This API is EXPERIMENTAL.
+package arrow.substrait_ext;
 
-#pragma once
+import "substrait/algebra.proto";
 
-namespace arrow {
-namespace engine {
+option csharp_namespace = "Arrow.Substrait";
+option go_package = "github.com/apache/arrow/substrait";
+option java_multiple_files = true;
+option java_package = "io.arrow.substrait";
 
-class ExtensionIdRegistry;
-class ExtensionSet;
+// As-Of-Join relation
+message AsOfJoinRel {
+  // One key per input relation, each key describing how to join the corresponding input
+  repeated AsOfJoinKey keys = 1;
 
-struct ConversionOptions;
-struct DeclarationInfo;
+  // As-Of tolerance, in units of the on-key
+  int64 tolerance = 2;
 
-}  // namespace engine
-}  // namespace arrow
+  // As-Of-Join key
+  message AsOfJoinKey {
+    // A field reference defining the on-key
+    .substrait.Expression on = 1;
+
+    // A set of field references defining the by-key
+    repeated .substrait.Expression by = 2;
+  }
+}

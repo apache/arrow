@@ -154,6 +154,10 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'    buckets if `$CreateDir()` is called on the bucket level (default `FALSE`).
 #' - `allow_bucket_deletion`: logical, if TRUE, the filesystem will delete
 #'    buckets if`$DeleteDir()` is called on the bucket level (default `FALSE`).
+#' - `request_timeout`: Socket read time on Windows and MacOS in seconds. If
+#'    negative, the AWS SDK default (typically 3 seconds).
+#' - `connect_timeout`: Socket connection timeout in seconds. If negative, AWS
+#'    SDK default is used (typically 1 second).
 #'
 #' `GcsFileSystem$create()` optionally takes arguments:
 #'
@@ -431,7 +435,9 @@ default_s3_options <- list(
   proxy_options = "",
   background_writes = TRUE,
   allow_bucket_creation = FALSE,
-  allow_bucket_deletion = FALSE
+  allow_bucket_deletion = FALSE,
+  connect_timeout = -1,
+  request_timeout = -1
 )
 
 #' Connect to an AWS S3 bucket

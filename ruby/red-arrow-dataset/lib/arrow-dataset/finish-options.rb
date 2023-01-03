@@ -16,16 +16,22 @@
 # under the License.
 
 module ArrowDataset
-  class Dataset
+  class FinishOptions
     class << self
-      def build(*args)
-        factory_class = ArrowDataset.const_get("#{name}Factory")
-        factory = factory_class.new(*args)
-        options = yield(factory)
-        unless options.is_a?(FinishOptions)
-          options = FinishOptions.try_convert(options)
+      # @api private
+      def try_convert(value)
+        case value
+        when Hash
+          options = new
+          value.each do |k, v|
+            setter = "#{k}="
+            next unless options.respond_to?(setter)
+            options.public_send(setter, v)
+          end
+          options
+        else
+          nil
         end
-        factory.finish(options)
       end
     end
   end

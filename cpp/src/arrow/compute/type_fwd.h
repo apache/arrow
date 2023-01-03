@@ -56,6 +56,7 @@ struct QueryOptions;
 class SinkNodeConsumer;
 
 ARROW_EXPORT ExecContext* default_exec_context();
+ARROW_EXPORT ExecContext* threaded_exec_context();
 
 }  // namespace compute
 }  // namespace arrow

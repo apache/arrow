@@ -163,22 +163,18 @@ update_versions() {
     parquet/writer_properties.go
   sed -i.bak -E -e \
     "s/const PkgVersion = \".*/const PkgVersion = \"${version}\"/" \
-    arrow/doc.go  
+    arrow/doc.go
 
   find . -name "*.bak" -exec rm {} \;
   git add .
-  popd  
+  popd
 
-  case "${base_version}" in
-    *.0.0)
-      pushd "${ARROW_DIR}"
-      ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" \
-                         . \
-                         "${base_version}" \
-                         "${next_version}"
-      git add docs/source/_static/versions.json
-      git add r/pkgdown/assets/versions.json
-      popd
-      ;;
-  esac
+  pushd "${ARROW_DIR}"
+  ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" \
+                     . \
+                     "${base_version}" \
+                     "${next_version}"
+  git add docs/source/_static/versions.json
+  git add r/pkgdown/assets/versions.json
+  popd
 }

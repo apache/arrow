@@ -84,7 +84,7 @@ TEST(AsyncTaskScheduler, CancelWaitsForTasksToFinish) {
         scheduler->AddSimpleTask([&] { return task; });
         return Status::OK();
       },
-      stop_source.token());
+      /*abort_callback=*/[](const Status&) {}, stop_source.token());
   stop_source.RequestStop();
   AssertNotFinished(finished);
   task.MarkFinished();
@@ -108,7 +108,7 @@ TEST(AsyncTaskScheduler, CancelPurgesQueuedTasks) {
         });
         return Status::OK();
       },
-      stop_source.token());
+      /*abort_callback=*/[](const Status&) {}, stop_source.token());
   stop_source.RequestStop();
   task.MarkFinished();
   ASSERT_FINISHES_AND_RAISES(Cancelled, finished);
@@ -129,10 +129,27 @@ TEST(AsyncTaskScheduler, CancelPreventsAdditionalTasks) {
         });
         return Status::OK();
       },
-      stop_source.token());
+      /*abort_callback=*/[](const Status&) {}, stop_source.token());
   task.MarkFinished();
   ASSERT_FINISHES_AND_RAISES(Cancelled, finished);
   ASSERT_FALSE(second_task_submitted);
+}
+
+TEST(AsyncTaskScheduler, AbortCallback) {
+  // `task` simulates a long running task that will not end for a while.  The abort
+  // callback ends the task early.
+  Future<> task = Future<>::Make();
+  Future<> finished = AsyncTaskScheduler::Make(
+      [&](AsyncTaskScheduler* scheduler) {
+        scheduler->AddSimpleTask([&] { return task; });
+        scheduler->AddSimpleTask([] { return Status::Invalid("XYZ"); });
+        return Status::OK();
+      },
+      [&](const Status& st) {
+        ASSERT_TRUE(st.IsInvalid());
+        task.MarkFinished();
+      });
+  ASSERT_FINISHES_AND_RAISES(Invalid, finished);
 }
 
 TEST(AsyncTaskScheduler, TaskStaysAliveUntilFinished) {

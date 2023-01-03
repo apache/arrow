@@ -941,7 +941,7 @@ class HashJoinNode : public ExecNode {
           "which is incompatible with legacy batching");
     }
 
-    bool use_sync_execution = !(ctx->executor());
+    bool use_sync_execution = ctx->executor()->GetCapacity() == 1;
     // TODO(ARROW-15732)
     // Each side of join might have an IO thread being called from. Once this is fixed
     // we will change it back to just the CPU's thread pool capacity.
@@ -1007,16 +1007,15 @@ class HashJoinNode : public ExecNode {
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
-    StopProducing();
+    for (auto&& input : inputs_) {
+      input->StopProducing(this);
+    }
   }
 
   void StopProducing() override {
     EVENT(span_, "StopProducing");
     bool expected = false;
     if (complete_.compare_exchange_strong(expected, true)) {
-      for (auto&& input : inputs_) {
-        input->StopProducing(this);
-      }
       impl_->Abort([this]() { finished_.MarkFinished(); });
     }
   }

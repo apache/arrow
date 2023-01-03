@@ -265,6 +265,7 @@ class AsyncScanner : public Scanner, public std::enable_shared_from_this<AsyncSc
   Result<std::shared_ptr<Table>> Head(int64_t num_rows) override;
   Result<std::shared_ptr<Table>> ToTable() override;
   Result<int64_t> CountRows() override;
+  Future<int64_t> CountRowsAsync() override;
   Result<std::shared_ptr<RecordBatchReader>> ToRecordBatchReader() override;
   const std::shared_ptr<Dataset>& dataset() const override;
 
@@ -274,6 +275,7 @@ class AsyncScanner : public Scanner, public std::enable_shared_from_this<AsyncSc
   Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(
       Executor* executor, bool sequence_fragments, bool use_legacy_batching = false);
   Future<std::shared_ptr<Table>> ToTableAsync(Executor* executor);
+  Future<int64_t> CountRowsAsync(Executor* executor);
 
   Result<FragmentGenerator> GetFragments() const;
 
@@ -369,20 +371,25 @@ Result<FragmentGenerator> AsyncScanner::GetFragments() const {
 }
 
 Result<TaggedRecordBatchIterator> AsyncScanner::ScanBatches() {
-  ARROW_ASSIGN_OR_RAISE(auto batches_gen,
-                        ScanBatchesAsync(::arrow::internal::GetCpuThreadPool()));
-  return MakeGeneratorIterator(std::move(batches_gen));
+  return ::arrow::internal::IterateSynchronously<TaggedRecordBatch>(
+      [this](::arrow::internal::Executor* executor) {
+        return ScanBatchesAsync(executor);
+      },
+      scan_options_->use_threads);
 }
 
 Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
-  ARROW_ASSIGN_OR_RAISE(auto batches_gen,
-                        ScanBatchesUnorderedAsync(::arrow::internal::GetCpuThreadPool()));
-  return MakeGeneratorIterator(std::move(batches_gen));
+  return ::arrow::internal::IterateSynchronously<EnumeratedRecordBatch>(
+      [this](::arrow::internal::Executor* executor) {
+        return ScanBatchesUnorderedAsync(executor);
+      },
+      scan_options_->use_threads);
 }
 
 Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
-  auto table_fut = ToTableAsync(::arrow::internal::GetCpuThreadPool());
-  return table_fut.result();
+  return ::arrow::internal::RunSynchronously<Future<std::shared_ptr<Table>>>(
+      [this](::arrow::internal::Executor* executor) { return ToTableAsync(executor); },
+      scan_options_->use_threads);
 }
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync() {
@@ -414,10 +421,6 @@ Result<EnumeratedRecordBatch> ToEnumeratedRecordBatch(
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
     Executor* cpu_executor, bool sequence_fragments, bool use_legacy_batching) {
-  if (!scan_options_->use_threads) {
-    cpu_executor = nullptr;
-  }
-
   RETURN_NOT_OK(NormalizeScanOptions(scan_options_, dataset_->schema()));
 
   auto exec_context =
@@ -427,7 +430,7 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   query_options.use_legacy_batching = use_legacy_batching;
 
   ARROW_ASSIGN_OR_RAISE(auto plan,
-                        compute::ExecPlan::Make(query_options, exec_context.get()));
+                        compute::ExecPlan::Make(query_options, *exec_context.get()));
   AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
   auto exprs = scan_options_->projection.call()->arguments;
@@ -701,14 +704,12 @@ Future<std::shared_ptr<Table>> AsyncScanner::ToTableAsync(Executor* cpu_executor
   });
 }
 
-Result<int64_t> AsyncScanner::CountRows() {
+Future<int64_t> AsyncScanner::CountRowsAsync(Executor* executor) {
   ARROW_ASSIGN_OR_RAISE(auto fragment_gen, GetFragments());
 
-  auto cpu_executor =
-      scan_options_->use_threads ? ::arrow::internal::GetCpuThreadPool() : nullptr;
-  compute::ExecContext exec_context(scan_options_->pool, cpu_executor);
+  compute::ExecContext exec_context(scan_options_->pool, executor);
 
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context));
   // Drop projection since we only need to count rows
   const auto options = std::make_shared<ScanOptions>(*scan_options_);
   ARROW_ASSIGN_OR_RAISE(auto empty_projection,
@@ -716,16 +717,17 @@ Result<int64_t> AsyncScanner::CountRows() {
                                                    *scan_options_->dataset_schema));
   SetProjection(options.get(), empty_projection);
 
-  std::atomic<int64_t> total{0};
+  auto total = std::make_shared<std::atomic<int64_t>>(0);
 
   fragment_gen = MakeMappedGenerator(
-      std::move(fragment_gen), [&](const std::shared_ptr<Fragment>& fragment) {
+      std::move(fragment_gen),
+      [options, total](const std::shared_ptr<Fragment>& fragment) {
         return fragment->CountRows(options->filter, options)
-            .Then([&, fragment](std::optional<int64_t> fast_count) mutable
+            .Then([options, total, fragment](std::optional<int64_t> fast_count) mutable
                   -> std::shared_ptr<Fragment> {
               if (fast_count) {
                 // fast path: got row count directly; skip scanning this fragment
-                total += *fast_count;
+                (*total) += *fast_count;
                 return std::make_shared<InMemoryFragment>(options->dataset_schema,
                                                           RecordBatchVector{});
               }
@@ -735,30 +737,35 @@ Result<int64_t> AsyncScanner::CountRows() {
             });
       });
 
-  AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
+  compute::Declaration count_plan = compute::Declaration::Sequence(
+      {{"scan",
+        ScanNodeOptions{std::make_shared<FragmentDataset>(scan_options_->dataset_schema,
+                                                          std::move(fragment_gen)),
+                        options}},
+       {"project", compute::ProjectNodeOptions{{options->filter}, {"mask"}}},
+       {"aggregate", compute::AggregateNodeOptions{{compute::Aggregate{
+                         "sum", nullptr, "mask", "selected_count"}}}}});
 
-  RETURN_NOT_OK(
-      compute::Declaration::Sequence(
-          {
-              {"scan", ScanNodeOptions{std::make_shared<FragmentDataset>(
-                                           scan_options_->dataset_schema,
-                                           std::move(fragment_gen)),
-                                       options}},
-              {"project", compute::ProjectNodeOptions{{options->filter}, {"mask"}}},
-              {"aggregate", compute::AggregateNodeOptions{{compute::Aggregate{
-                                "sum", nullptr, "mask", "selected_count"}}}},
-              {"sink", compute::SinkNodeOptions{&sink_gen}},
-          })
-          .AddToPlan(plan.get()));
+  return compute::DeclarationToBatchesAsync(std::move(count_plan), exec_context)
+      .Then([total](const RecordBatchVector& batches) -> Result<int64_t> {
+        DCHECK_EQ(1, batches.size());
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> count_scalar,
+                              batches[0]->column(0)->GetScalar(0));
+        return total->load() +
+               static_cast<int64_t>(
+                   ::arrow::internal::checked_pointer_cast<UInt64Scalar>(count_scalar)
+                       ->value);
+      });
+}
 
-  RETURN_NOT_OK(plan->StartProducing());
-  auto maybe_slow_count = sink_gen().result();
-  plan->finished().Wait();
+Future<int64_t> AsyncScanner::CountRowsAsync() {
+  return CountRowsAsync(::arrow::internal::GetCpuThreadPool());
+}
 
-  ARROW_ASSIGN_OR_RAISE(auto slow_count, maybe_slow_count);
-  total += slow_count->values[0].scalar_as<UInt64Scalar>().value;
-
-  return total.load();
+Result<int64_t> AsyncScanner::CountRows() {
+  return ::arrow::internal::RunSynchronously<Future<int64_t>>(
+      [this](Executor* executor) { return CountRowsAsync(executor); },
+      scan_options_->use_threads);
 }
 
 Result<std::shared_ptr<RecordBatchReader>> AsyncScanner::ToRecordBatchReader() {
