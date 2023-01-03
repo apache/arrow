@@ -462,6 +462,7 @@ static void BM_DeltaBitPackingEncode(benchmark::State& state, NumberGenerator ge
     encoder->FlushValues();
   }
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(T));
+  state.SetItemsProcessed(state.iterations() * state.range(0));
 }
 
 static void BM_DeltaBitPackingEncode_Int32_Equals(benchmark::State& state) {
@@ -528,6 +529,7 @@ static void BM_DeltaBitPackingDecode(benchmark::State& state, NumberGenerator ge
     decoder->Decode(values.data(), static_cast<int>(values.size()));
   }
   state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(T));
+  state.SetItemsProcessed(state.iterations() * state.range(0));
 }
 
 static void BM_DeltaBitPackingDecode_Int32_Equal(benchmark::State& state) {
