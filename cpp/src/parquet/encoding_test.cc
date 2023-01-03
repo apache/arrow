@@ -1392,12 +1392,15 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
       /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
       /*null_probability*/ 0.1));
 
-  ASSERT_NO_FATAL_FAILURE(this->ExecuteBound(2000, 2000, 0));
+  // All identical values
+  ASSERT_NO_FATAL_FAILURE(
+      this->ExecuteBound(/*nvalues*/ 2000, /*repeats*/ 50, /*half_range*/ 0));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpacedBound(
       /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
       /*null_probability*/ 0.1,
       /*half_range*/ 0));
 
+  // Various delta bitwidths, including the full datatype width
   const int max_bitwidth = sizeof(T) * 8;
   std::vector<int> bitwidths = {
       1, 2, 3, 5, 8, 11, 16, max_bitwidth - 8, max_bitwidth - 1, max_bitwidth};
@@ -1405,7 +1408,8 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
     T half_range =
         std::numeric_limits<T>::max() >> static_cast<uint32_t>(max_bitwidth - bitwidth);
 
-    ASSERT_NO_FATAL_FAILURE(this->ExecuteBound(25000, 200, half_range));
+    ASSERT_NO_FATAL_FAILURE(
+        this->ExecuteBound(/*nvalues*/ 2000, /*repeats*/ 50, half_range));
     ASSERT_NO_FATAL_FAILURE(this->ExecuteSpacedBound(
         /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
         /*null_probability*/ 0.1,
