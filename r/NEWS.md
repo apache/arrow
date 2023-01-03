@@ -162,7 +162,7 @@ As of version 10.0.0, `arrow` requires C++17 to build. This means that:
   - are supported on `RecordBatchReader`. This allows, for example, results from DuckDB
   to be streamed back into Arrow rather than materialized before continuing the pipeline.
   - no longer need to materialize the entire result table before writing to a dataset
-    if the query contains contains aggregations or joins.
+    if the query contains aggregations or joins.
   - supports `dplyr::rename_with()`.
   - `dplyr::count()` returns an ungrouped dataframe.
 * `write_dataset()` has more options for controlling row group and file sizes when
@@ -487,7 +487,7 @@ Over 100 functions can now be called on Arrow objects inside a `dplyr` verb:
 ## Python and Flight
 
 * Flight methods `flight_get()` and `flight_put()` (renamed from `push_data()` in this release) can handle both Tables and RecordBatches
-* `flight_put()` gains an `overwrite` argument to optionally check for the existence of a resource with the the same name
+* `flight_put()` gains an `overwrite` argument to optionally check for the existence of a resource with the same name
 * `list_flights()` and `flight_path_exists()` enable you to see available resources on a Flight server
 * `Schema` objects now have `r_to_py` and `py_to_r` methods
 * Schema metadata is correctly preserved when converting Tables to/from Python
