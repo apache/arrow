@@ -461,6 +461,11 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
   int64_t compressed_size = buf->size() - sizeof(int64_t);
   int64_t uncompressed_size = bit_util::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
 
+  // Indicates that the buffer isn't compressed
+  if (uncompressed_size == -1) {
+    return buf;
+  }
+
   ARROW_ASSIGN_OR_RAISE(auto uncompressed,
                         AllocateBuffer(uncompressed_size, options.memory_pool));
 
