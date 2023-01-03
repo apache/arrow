@@ -21,8 +21,8 @@ left <- example_data
 left$some_grouping <- rep(c(1, 2), 5)
 
 to_join <- tibble::tibble(
-  some_grouping = c(1, 2),
-  capital_letters = c("A", "B"),
+  some_grouping = c(1, 2, 3),
+  capital_letters = c("A", "B", "C"),
   another_column = TRUE
 )
 
