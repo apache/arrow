@@ -162,6 +162,7 @@ def filters_to_expression(filters):
     Returns
     -------
     pyarrow.compute.Expression
+        An Expression representing the filters
     """
     import pyarrow.dataset as ds
 
