@@ -761,6 +761,41 @@ arrow::Status TableSinkExample() {
   std::cout << "Results : " << output_table->ToString() << std::endl;
   return arrow::Status::OK();
 }
+
+// (Doc section: Table Sink Example)
+
+// (Doc section: RecordBatchReaderSource Example)
+
+/// \brief An example showing the usage of a RecordBatchReader as the data source.
+///
+/// RecordBatchReaderSourceSink Example
+/// This example shows how a record_batch_reader_source can be used
+/// in an execution plan. This includes the source node
+/// receiving data from a TableRecordBatchReader.
+
+arrow::Status RecordBatchReaderSourceSinkExample() {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+                        cp::ExecPlan::Make(*cp::threaded_exec_context()));
+
+  std::cout << "basic data created" << std::endl;
+
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
+  ARROW_ASSIGN_OR_RAISE(auto table, GetTable());
+  std::shared_ptr<arrow::RecordBatchReader> reader =
+      std::make_shared<arrow::TableBatchReader>(table);
+
+  ARROW_ASSIGN_OR_RAISE(
+      cp::ExecNode * source,
+      cp::MakeExecNode("record_batch_reader_source", plan.get(), {},
+                       cp::RecordBatchReaderSourceNodeOptions{table->schema(), reader}));
+  ARROW_RETURN_NOT_OK(cp::MakeExecNode(
+      "order_by_sink", plan.get(), {source},
+      cp::OrderBySinkNodeOptions{
+          cp::SortOptions{{cp::SortKey{"a", cp::SortOrder::Descending}}}, &sink_gen}));
+
+  return ExecutePlanAndCollectAsTableWithCustomSink(plan, table->schema(), sink_gen);
+}
+
 // (Doc section: Table Sink Example)
 
 enum ExampleMode {
@@ -777,7 +812,8 @@ enum ExampleMode {
   KSELECT = 10,
   WRITE = 11,
   UNION = 12,
-  TABLE_SOURCE_TABLE_SINK = 13
+  TABLE_SOURCE_TABLE_SINK = 13,
+  RECORD_BATCH_READER_SOURCE = 14
 };
 
 int main(int argc, char** argv) {
@@ -847,6 +883,10 @@ int main(int argc, char** argv) {
     case TABLE_SOURCE_TABLE_SINK:
       PrintBlock("TableSink Example");
       status = TableSinkExample();
+      break;
+    case RECORD_BATCH_READER_SOURCE:
+      PrintBlock("RecordBatchReaderSource Example");
+      status = RecordBatchReaderSourceSinkExample();
       break;
     default:
       break;

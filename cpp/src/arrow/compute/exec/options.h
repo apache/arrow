@@ -126,6 +126,25 @@ class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
   arrow::internal::Executor* io_executor;
 };
 
+class ARROW_EXPORT RecordBatchReaderSourceNodeOptions : public ExecNodeOptions {
+ public:
+  RecordBatchReaderSourceNodeOptions(std::shared_ptr<Schema> schema,
+                                     std::shared_ptr<RecordBatchReader> reader,
+                                     arrow::internal::Executor* io_executor = NULLPTR)
+      : schema(schema), reader(std::move(reader)), io_executor(io_executor) {}
+
+  /// \brief The schema of the record batches from the iterator
+  std::shared_ptr<Schema> schema;
+
+  /// \brief A maker of an iterator which acts as the data source
+  std::shared_ptr<RecordBatchReader> reader;
+
+  /// \brief The executor to use for scanning the iterator
+  ///
+  /// Defaults to the default I/O executor.
+  arrow::internal::Executor* io_executor;
+};
+
 using ArrayVectorIteratorMaker = std::function<Iterator<std::shared_ptr<ArrayVector>>()>;
 /// \brief An extended Source node which accepts a schema and array-vectors
 class ARROW_EXPORT ArrayVectorSourceNodeOptions
@@ -143,11 +162,6 @@ class ARROW_EXPORT ExecBatchSourceNodeOptions
 using RecordBatchIteratorMaker = std::function<Iterator<std::shared_ptr<RecordBatch>>()>;
 /// \brief An extended Source node which accepts a schema and record-batches
 class ARROW_EXPORT RecordBatchSourceNodeOptions
-    : public SchemaSourceNodeOptions<RecordBatchIteratorMaker> {
-  using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
-};
-
-class ARROW_EXPORT RecordBatchReaderSourceNodeOptions
     : public SchemaSourceNodeOptions<RecordBatchIteratorMaker> {
   using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
 };

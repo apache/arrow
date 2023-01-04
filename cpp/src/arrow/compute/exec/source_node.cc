@@ -327,6 +327,55 @@ struct SchemaSourceNode : public SourceNode {
   }
 };
 
+struct RecordBatchReaderSourceNode : public SourceNode {
+  RecordBatchReaderSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
+                              arrow::AsyncGenerator<std::optional<ExecBatch>> generator)
+      : SourceNode(plan, schema, generator) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, kKindName));
+    const auto& cast_options =
+        checked_cast<const RecordBatchReaderSourceNodeOptions&>(options);
+    auto& reader = cast_options.reader;
+    auto& schema = cast_options.schema;
+    auto io_executor = cast_options.io_executor;
+
+    if (io_executor == NULLPTR) {
+      io_executor = plan->query_context()->exec_context()->executor();
+    }
+
+    if (schema == NULLPTR) {
+      return Status::Invalid(kKindName, " requires schema which is not null");
+    }
+    if (io_executor == NULLPTR) {
+      io_executor = io::internal::GetIOThreadPool();
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto generator, MakeGenerator(reader, io_executor, schema));
+    return plan->EmplaceNode<RecordBatchReaderSourceNode>(plan, schema, generator);
+  }
+
+  static Result<arrow::AsyncGenerator<std::optional<ExecBatch>>> MakeGenerator(
+      const std::shared_ptr<RecordBatchReader>& reader,
+      arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
+    auto to_exec_batch =
+        [schema](const std::shared_ptr<RecordBatch>& batch) -> std::optional<ExecBatch> {
+      if (batch == NULLPTR || *batch->schema() != *schema) {
+        return std::nullopt;
+      }
+      return std::optional<ExecBatch>(ExecBatch(*batch));
+    };
+    Iterator<std::shared_ptr<RecordBatch>> batch_it = MakeIteratorFromReader(reader);
+    auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
+    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
+  }
+
+  static const char kKindName[];
+};
+
+const char RecordBatchReaderSourceNode::kKindName[] = "RecordBatchReaderSourceNode";
+
 struct RecordBatchSourceNode
     : public SchemaSourceNode<RecordBatchSourceNode, RecordBatchSourceNodeOptions> {
   using RecordBatchSchemaSourceNode =
@@ -360,43 +409,7 @@ struct RecordBatchSourceNode
 
 const char RecordBatchSourceNode::kKindName[] = "RecordBatchSourceNode";
 
-
 /// RecordBatchReaderSourceNode Start
-
-struct RecordBatchReaderSourceNode
-    : public SchemaSourceNode<RecordBatchReaderSourceNode, RecordBatchReaderSourceNodeOptions> {
-  using RecordBatchReaderSchemaSourceNode =
-      SchemaSourceNode<RecordBatchReaderSourceNode, RecordBatchReaderSourceNodeOptions>;
-
-  using RecordBatchReaderSchemaSourceNode::RecordBatchReaderSchemaSourceNode;
-
-  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                                const ExecNodeOptions& options) {
-    return RecordBatchReaderSchemaSourceNode::Make(plan, inputs, options);
-  }
-
-  const char* kind_name() const override { return kKindName; }
-
-  static Result<arrow::AsyncGenerator<std::optional<ExecBatch>>> MakeGenerator(
-      Iterator<std::shared_ptr<RecordBatch>>& batch_it,
-      arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
-    auto to_exec_batch =
-        [schema](const std::shared_ptr<RecordBatch>& batch) -> std::optional<ExecBatch> {
-      if (batch == NULLPTR || *batch->schema() != *schema) {
-        return std::nullopt;
-      }
-      return std::optional<ExecBatch>(ExecBatch(*batch));
-    };
-    auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
-    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
-  }
-
-  static const char kKindName[];
-};
-
-const char RecordBatchReaderSourceNode::kKindName[] = "RecordBatchReaderSourceNode";
-
-
 
 /// RecordBatchReaderSourceNode End
 
@@ -476,8 +489,6 @@ Result<compute::ExecNode*> MakeNamedTableNode(compute::ExecPlan* plan,
       "converted into an exec plan or executed");
 }
 
-
-
 }  // namespace
 
 namespace internal {
@@ -486,6 +497,8 @@ void RegisterSourceNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("source", SourceNode::Make));
   DCHECK_OK(registry->AddFactory("table_source", TableSourceNode::Make));
   DCHECK_OK(registry->AddFactory("record_batch_source", RecordBatchSourceNode::Make));
+  DCHECK_OK(registry->AddFactory("record_batch_reader_source",
+                                 RecordBatchReaderSourceNode::Make));
   DCHECK_OK(registry->AddFactory("exec_batch_source", ExecBatchSourceNode::Make));
   DCHECK_OK(registry->AddFactory("array_vector_source", ArrayVectorSourceNode::Make));
   DCHECK_OK(registry->AddFactory("named_table", MakeNamedTableNode));
