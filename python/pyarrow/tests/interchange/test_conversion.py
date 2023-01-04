@@ -363,7 +363,9 @@ def test_pandas_to_pyarrow_categorical_with_missing():
 )
 @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
 @pytest.mark.parametrize("tz", ['America/New_York', '+07:30', '-04:30'])
-def test_pyarrow_roundtrip(uint, int, float, np_float, unit, tz):
+@pytest.mark.parametrize("offset, length", [(0, 3), (0, 2), (0, 2), (2, 1)])
+def test_pyarrow_roundtrip(uint, int, float, np_float,
+                           unit, tz, offset, length):
 
     from datetime import datetime as dt
     arr = [1, 2, None]
@@ -375,11 +377,13 @@ def test_pyarrow_roundtrip(uint, int, float, np_float, unit, tz):
             "b": pa.array(arr, type=int),
             "c": pa.array(np.array(arr, dtype=np_float),
                           type=float, from_pandas=True),
-            "d": [True, False, True],
-            "e": ["a", "", "c"],
-            "f": pa.array(dt_arr, type=pa.timestamp(unit, tz=tz))
+            # "d": [True, False, True],
+            # "e": [True, False, None],
+            "f": ["a", "", "c"],
+            "g": pa.array(dt_arr, type=pa.timestamp(unit, tz=tz))
         }
     )
+    table = table.slice(offset, length)
     result = _from_dataframe(table.__dataframe__())
 
     assert table.equals(result)

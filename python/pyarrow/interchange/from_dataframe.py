@@ -53,7 +53,7 @@ _PYARROW_DTYPES: dict[DtypeKind, dict[int, Any]] = {
     DtypeKind.FLOAT: {16: pa.float16(),
                       32: pa.float32(),
                       64: pa.float64()},
-    DtypeKind.BOOL: {1: pa.uint8()},
+    DtypeKind.BOOL: {8: pa.uint8()},
     DtypeKind.STRING: {8: pa.string()},
 }
 
@@ -142,7 +142,7 @@ def protocol_df_chunk_to_pyarrow(
         ):
             columns[name] = column_to_array(col)
         elif dtype == DtypeKind.BOOL:
-            columns[name] = bool_8_column_to_array(col)
+            columns[name] = bool_column_to_array(col)
         elif dtype == DtypeKind.CATEGORICAL:
             columns[name] = categorical_column_to_dictionary(col)
         elif dtype == DtypeKind.DATETIME:
@@ -176,12 +176,11 @@ def column_to_array(
     return data
 
 
-def bool_8_column_to_array(
+def bool_column_to_array(
     col: ColumnObject,
 ) -> pa.Array:
     """
-    Convert a column holding boolean dtype with bit width = 8 to a
-    PyArrow array.
+    Convert a column holding boolean dtype to a PyArrow array.
 
     Parameters
     ----------
@@ -192,29 +191,12 @@ def bool_8_column_to_array(
     pa.Array
     """
     buffers = col.get_buffers()
-
     data = buffers_to_array(buffers, col.size(),
                             col.describe_null,
                             col.offset)
     data = pc.cast(data, pa.bool_())
 
-    # Validity buffer
-    try:
-        validity_buff, validity_dtype = buffers["validity"]
-    except TypeError:
-        validity_buff = None
-    validity_pa_buff = validity_buff
-
-    if validity_buff:
-        validity_pa_buff = validity_buffer(validity_buff,
-                                           validity_dtype,
-                                           col.describe_null,
-                                           col.size(),
-                                           col.offset)
-
-    return pa.Array.from_buffers(pa.bool_(), col.size(),
-                                 [validity_pa_buff, data.buffers()[1]],
-                                 offset=col.offset)
+    return data
 
 
 def categorical_column_to_dictionary(
@@ -292,6 +274,11 @@ def datetime_column_to_array(
         sentinel_arr = pc.equal(int_arr, sentinel_val)
         mask_bool = pc.invert(sentinel_arr)
         validity_pa_buff = mask_bool.buffers()[1]
+    elif null_kind == ColumnNullType.NON_NULLABLE:
+        # sliced array can have a NON_NULLABLE ColumnNullType due
+        # to no missing values in that slice of an array though the bitmask
+        # exists and validity_buff must be set to None in this case
+        validity_buff = validity_pa_buff = None
     elif validity_buff:
         validity_pa_buff = validity_buffer(validity_buff,
                                            validity_dtype,
@@ -406,6 +393,11 @@ def buffers_to_array(
         sentinel_arr = pc.equal(int_arr, sentinel_val)
         mask_bool = pc.invert(sentinel_arr)
         validity_pa_buff = mask_bool.buffers()[1]
+    elif null_kind == ColumnNullType.NON_NULLABLE:
+        # sliced array can have a NON_NULLABLE ColumnNullType due
+        # to no missing values in that slice of an array though the bitmask
+        # exists and validity_buff must be set to None in this case
+        validity_buff = validity_pa_buff = None
     elif validity_buff:
         validity_pa_buff = validity_buffer(validity_buff,
                                            validity_dtype,
