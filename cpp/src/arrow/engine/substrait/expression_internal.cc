@@ -149,7 +149,9 @@ Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool i
   }
   if (func.invocation() !=
       substrait::AggregateFunction::AggregationInvocation::
-          AggregateFunction_AggregationInvocation_AGGREGATION_INVOCATION_ALL) {
+          AggregateFunction_AggregationInvocation_AGGREGATION_INVOCATION_ALL &&
+      func.invocation() != substrait::AggregateFunction::AggregationInvocation::
+          AggregateFunction_AggregationInvocation_AGGREGATION_INVOCATION_UNSPECIFIED) {
     return Status::NotImplemented(
         "Unsupported aggregation invocation '",
         EnumToString(func.invocation(),
