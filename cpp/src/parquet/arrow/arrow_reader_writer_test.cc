@@ -4157,7 +4157,7 @@ TEST_P(TestArrowWriteDictionary, StatisticsUnifiedDictionary) {
                       R"([0, null, 3, 0, null, 3])"),  // ["b", null "a", "b", null, "a"]
         ArrayFromJSON(
             ::arrow::int32(),
-            R"([0, 3, null, 0, null, 1])")};  // ["b", "c", null, "b", "c", null]
+            R"([0, 3, null, 0, null, 1])")};  // ["b", "a", null, "b", null, "c"]
 
     ::arrow::ArrayVector chunks = {
         std::make_shared<DictionaryArray>(dict_type, test_indices[0], test_dictionary),
