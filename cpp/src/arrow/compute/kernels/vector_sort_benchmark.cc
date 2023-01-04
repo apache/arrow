@@ -107,12 +107,19 @@ static void ChunkedArraySortFuncStringBenchmark(benchmark::State& state,
   auto rand = random::RandomArrayGenerator(kSeed);
 
   ArrayVector chunks;
+  auto chunked_array_bytes = 0;
   for (auto i = 0; i < n_chunks; ++i) {
-    chunks.push_back(
-        rand.String(array_size, min_length, max_length, args.null_proportion));
+    auto values = rand.String(array_size, min_length, max_length, args.null_proportion);
+    chunks.push_back(values);
+    auto array = arrow::internal::checked_pointer_cast<const arrow::StringArray>(values);
+    chunked_array_bytes += array->value_offsets()->size() + array->value_data()->size();
+    if (array->null_bitmap() != nullptr) {
+      chunked_array_bytes += array->null_bitmap()->size();
+    }
   }
 
   ArraySortFuncBenchmark(state, runner, std::make_shared<ChunkedArray>(chunks));
+  state.SetBytesProcessed(state.iterations() * chunked_array_bytes);
 }
 
 template <typename Runner>
