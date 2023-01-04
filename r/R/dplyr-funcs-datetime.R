@@ -433,16 +433,10 @@ register_bindings_datetime_conversion <- function() {
 register_bindings_datetime_timezone <- function() {
   register_binding(
     "lubridate::force_tz",
-    function(time, tzone = "", roll_dst = c("error", "post")) {
-      roll_dst <- match(roll_dst, c("error", "pre", "post")) - 1L
-      if (length(roll_dst) == 1L) {
-        roll_dst <- c(roll_dst, roll_dst)
-      } else if (length(roll_dst) != 2L) {
-        arrow_not_supported("`roll_dst` length != 1 or 2")
+    function(time, tzone = "", roll_dst = "error") {
+      if (!identical(roll_dst, "error")) {
+        arrow_not_supported("`roll_dst`")
       }
-
-      nonexistent <- roll_dst[1]
-      ambiguous <- roll_dst[2]
 
       if (identical(tzone, "")) {
         tzone <- Sys.timezone()
@@ -456,24 +450,13 @@ register_bindings_datetime_timezone <- function() {
       # hard to do in the initial PR because there is no way in Arrow to
       # "unapply" a UTC offset (i.e., the reverse of assume_timezone).
       if (!time$type()$timezone() %in% c("", "UTC")) {
-        abort(
-          paste0(
-            "force_tz() from timezone `",
-            time$type()$timezone(),
-            "` not supported in Arrow"
-          )
+        arrow_not_supported(
+          paste0("force_tz() from timezone `", time$type()$timezone(), "`")
         )
       }
 
       # Remove timezone if needed
-      current_timezone <- time$type()$timezone()
       current_unit <- time$type()$unit()
-      if (!identical(current_timezone, "") && !identical(current_timezone, "UTC")) {
-        # We want wall time!
-        time <- cast(time, string())
-        time <- cast(time, timestamp(current_unit, "UTC"))
-      }
-
       time <- cast(time, timestamp(current_unit, ""))
 
       # Add timezone
@@ -481,9 +464,7 @@ register_bindings_datetime_timezone <- function() {
         "assume_timezone",
         time,
         options = list(
-          timezone = tzone,
-          nonexistent = nonexistent,
-          ambiguous = ambiguous
+          timezone = tzone
         )
       )
     },

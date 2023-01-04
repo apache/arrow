@@ -3592,18 +3592,14 @@ test_that("with_tz() and force_tz() works", {
     "from timezone `US/Central` not supported in Arrow"
   )
 
-  # TODO: Ambiguous roll, make this more explicit
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        nonexistent_roll_true = force_tz(
-          timestamps,
-          "Europe/Brussels",
-          roll_dst = "pre"
-        )
-      ) %>%
+  # Arrow's roll and lubridate's roll do different types of rolls so we can't
+  # support them yet
+  expect_warning(
+    tibble::tibble(timestamps = nonexistent) %>%
+      arrow_table() %>%
+      mutate(timestamps = force_tz(timestamps, "Europe/Brussels", roll_dst = "post")) %>%
       collect(),
-    tibble::tibble(timestamps = nonexistent)
+    "`roll_dst` not supported in Arrow"
   )
 
   # Raise error when the timezone falls into the DST-break
