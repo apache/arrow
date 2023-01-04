@@ -107,7 +107,7 @@ Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback 
     return Status::Invalid("input_arg_types and output_types should be equal in size");
   }
   // adding kernels
-  for(size_t idx=0 ; idx < num_kernels; idx++) {
+  for(size_t idx=0; idx < num_kernels; idx++) {
     const auto& opt_input_types = options.input_arg_types[idx];
     std::vector<compute::InputType> input_types;
     for (const auto& in_dtype : opt_input_types) {
