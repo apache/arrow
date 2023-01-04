@@ -452,8 +452,29 @@ register_bindings_datetime_timezone <- function() {
         time <- Expression$scalar(time)
       }
 
-      # Remove timezone
-      time <- cast(time, timestamp(unit = time$type()$unit()))
+      # Non-UTC timezones don't work here and getting them to do so was too
+      # hard to do in the initial PR because there is no way in Arrow to
+      # "unapply" a UTC offset (i.e., the reverse of assume_timezone).
+      if (!time$type()$timezone() %in% c("", "UTC")) {
+        abort(
+          paste0(
+            "force_tz() from timezone `",
+            time$type()$timezone(),
+            "` not supported in Arrow"
+          )
+        )
+      }
+
+      # Remove timezone if needed
+      current_timezone <- time$type()$timezone()
+      current_unit <- time$type()$unit()
+      if (!identical(current_timezone, "") && !identical(current_timezone, "UTC")) {
+        # We want wall time!
+        time <- cast(time, string())
+        time <- cast(time, timestamp(current_unit, "UTC"))
+      }
+
+      time <- cast(time, timestamp(current_unit, ""))
 
       # Add timezone
       Expression$create(
@@ -467,6 +488,7 @@ register_bindings_datetime_timezone <- function() {
       )
     },
     notes = c(
+      "Timezone conversion from non-UTC timezone not supported;",
       "roll_dst = 'NA' is not supported: use 'error', 'pre', or 'post'"
     )
   )

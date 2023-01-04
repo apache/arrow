@@ -3577,13 +3577,19 @@ test_that("with_tz() and force_tz() works", {
       mutate(
         timestamps_with_tz_1 = with_tz(timestamps, "UTC"),
         timestamps_with_tz_2 = with_tz(timestamps, "US/Central"),
-        timestamps_with_tz_3 = with_tz(timestamps, "Asia/Kolkata"),
-        timestamps_force_tz_1 = force_tz(timestamps, "UTC"),
-        timestamps_force_tz_2 = force_tz(timestamps, "US/Central"),
-        timestamps_force_tz_3 = force_tz(timestamps, "Asia/Kolkata")
+        timestamps_with_tz_3 = with_tz(timestamps, "Asia/Kolkata")
       ) %>%
       collect(),
     tibble::tibble(timestamps = timestamps_non_utc)
+  )
+
+  # non-UTC timezone to other timezone is not supported in arrow's force_tz()
+  expect_warning(
+    tibble::tibble(timestamps = timestamps_non_utc) %>%
+      arrow_table() %>%
+      mutate(timestamps = force_tz(timestamps, "UTC")) %>%
+      collect(),
+    "from timezone `US/Central` not supported in Arrow"
   )
 
   # TODO: Ambiguous roll, make this more explicit
@@ -3593,7 +3599,7 @@ test_that("with_tz() and force_tz() works", {
         nonexistent_roll_true = force_tz(
           timestamps,
           "Europe/Brussels",
-          roll_dst = "post"
+          roll_dst = "pre"
         )
       ) %>%
       collect(),
