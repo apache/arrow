@@ -217,15 +217,30 @@ void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
 }
 
 int CountProjectNodeOptionsInDeclarations(const compute::Declaration& input) {
-  static int counter = 0;
+  int counter = 0;
   if (input.factory_name == "project") {
     counter++;
   }
   const auto& inputs = input.inputs;
   for (const auto& in : inputs) {
-    CountProjectNodeOptionsInDeclarations(std::get<compute::Declaration>(in));
+    return counter +
+           CountProjectNodeOptionsInDeclarations(std::get<compute::Declaration>(in));
   }
   return counter;
+}
+/// Validate the number of expected ProjectNodes when an emit is associated with
+/// relations.
+void ValidateEmit(int expected_projections, const std::shared_ptr<Buffer>& buf,
+                  const ConversionOptions& conversion_options) {
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
+  ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
+                                            *buf, [] { return kNullConsumer; },
+                                            ext_id_reg, &ext_set, conversion_options));
+  auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
+  int num_projections = CountProjectNodeOptionsInDeclarations(other_declrs);
+  ASSERT_EQ(num_projections, expected_projections);
 }
 
 TEST(Substrait, SupportedTypes) {
@@ -2558,7 +2573,7 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithEmit) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-
+  ValidateEmit(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -2757,16 +2772,8 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  // evaluate the plan
-  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
-  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
-  ExtensionSet ext_set(ext_id_reg);
-  ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
-                                            *buf, [] { return kNullConsumer; },
-                                            ext_id_reg, &ext_set, conversion_options));
-  auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
-  int num_projections = CountProjectNodeOptionsInDeclarations(other_declrs);
-  ASSERT_EQ(num_projections, 2);
+  ValidateEmit(2, buf, conversion_options);
+
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -2824,7 +2831,7 @@ TEST(SubstraitRoundTrip, ReadRelWithEmit) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-
+  ValidateEmit(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -2941,7 +2948,7 @@ TEST(SubstraitRoundTrip, FilterRelWithEmit) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-
+  ValidateEmit(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3241,7 +3248,7 @@ TEST(SubstraitRoundTrip, JoinRelWithEmit) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-
+  ValidateEmit(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3463,7 +3470,7 @@ TEST(SubstraitRoundTrip, AggregateRelEmit) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-
+  ValidateEmit(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3566,7 +3573,7 @@ TEST(Substrait, IsthmusPlan) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", substrait_json,
                                                    /*ignore_unknown_fields=*/false));
-
+  ValidateEmit(1, buf, conversion_options);
   auto expected_table = TableFromJSON(test_schema, {"[[2], [3], [6]]"});
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
@@ -3730,7 +3737,7 @@ TEST(Substrait, ProjectWithMultiFieldExpressions) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-
+  ValidateEmit(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3816,7 +3823,7 @@ TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-
+  ValidateEmit(2, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3903,7 +3910,7 @@ TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-
+  ValidateEmit(2, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -4108,6 +4115,7 @@ TEST(Substrait, RootRelationOutputNames) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
+  ValidateEmit(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -4409,7 +4417,7 @@ TEST(Substrait, PlanWithAsOfJoinExtension) {
   conversion_options.named_table_provider = std::move(table_provider);
 
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
-
+  ValidateEmit(1, buf, conversion_options);
   ASSERT_OK_AND_ASSIGN(
       auto out_schema,
       compute::asofjoin::MakeOutputSchema(
