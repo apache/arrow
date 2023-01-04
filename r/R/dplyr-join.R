@@ -35,7 +35,7 @@ do_join <- function(x,
 
   # For outer joins, we need to output the join keys on both sides so we
   # can coalesce them afterwards.
-  left_output <- if (join_type == "RIGHT_OUTER") {
+  left_output <- if (!keep && join_type == "RIGHT_OUTER") {
     setdiff(names(x), by)
   } else {
     names(x)
