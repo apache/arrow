@@ -77,9 +77,7 @@ right_join.arrow_dplyr_query <- function(x,
                                          suffix = c(".x", ".y"),
                                          ...,
                                          keep = FALSE) {
-
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "RIGHT_OUTER")
-
 }
 right_join.Dataset <- right_join.ArrowTabular <- right_join.RecordBatchReader <- right_join.arrow_dplyr_query
 
