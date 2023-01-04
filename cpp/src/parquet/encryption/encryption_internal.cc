@@ -599,7 +599,13 @@ static std::string ShortToBytesLe(int16_t input) {
 
 std::string CreateModuleAad(const std::string& file_aad, int8_t module_type,
                             int16_t row_group_ordinal, int16_t column_ordinal,
-                            int16_t page_ordinal) {
+                            int32_t page_ordinal) {
+  if (ARROW_PREDICT_FALSE(page_ordinal > std::numeric_limits<int16_t>::max())) {
+    throw ParquetException("Encrypted parquet files can't have more than " +
+                           std::to_string(std::numeric_limits<int16_t>::max()) +
+                           " pages per chunk: " + std::to_string(page_ordinal));
+  }
+  int16_t page_ordinal_short = static_cast<int16_t>(page_ordinal);
   int8_t type_ordinal_bytes[1];
   type_ordinal_bytes[0] = module_type;
   std::string type_ordinal_bytes_str(reinterpret_cast<char const*>(type_ordinal_bytes),
@@ -616,7 +622,7 @@ std::string CreateModuleAad(const std::string& file_aad, int8_t module_type,
         << column_ordinal_bytes;
     return out.str();
   }
-  std::string page_ordinal_bytes = ShortToBytesLe(page_ordinal);
+  std::string page_ordinal_bytes = ShortToBytesLe(page_ordinal_short);
   std::ostringstream out;
   out << file_aad << type_ordinal_bytes_str << row_group_ordinal_bytes
       << column_ordinal_bytes << page_ordinal_bytes;
@@ -630,8 +636,14 @@ std::string CreateFooterAad(const std::string& aad_prefix_bytes) {
 
 // Update last two bytes with new page ordinal (instead of creating new page AAD
 // from scratch)
-void QuickUpdatePageAad(const std::string& AAD, int16_t new_page_ordinal) {
-  std::string page_ordinal_bytes = ShortToBytesLe(new_page_ordinal);
+void QuickUpdatePageAad(const std::string& AAD, int32_t new_page_ordinal) {
+  if (ARROW_PREDICT_FALSE(new_page_ordinal > std::numeric_limits<int16_t>::max())) {
+    throw ParquetException("Encrypted parquet files can't have more than " +
+                           std::to_string(std::numeric_limits<int16_t>::max()) +
+                           " pages per chunk: " + std::to_string(new_page_ordinal));
+  }
+  int16_t new_page_ordinal_short = static_cast<int16_t>(new_page_ordinal);
+  std::string page_ordinal_bytes = ShortToBytesLe(new_page_ordinal_short);
   int length = static_cast<int>(AAD.size());
   std::memcpy(reinterpret_cast<int16_t*>(const_cast<char*>(AAD.c_str() + length - 2)),
               reinterpret_cast<const int16_t*>(page_ordinal_bytes.c_str()), 2);

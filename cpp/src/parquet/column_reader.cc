@@ -291,7 +291,7 @@ class SerializedPageReader : public PageReader {
 
   // The ordinal fields in the context below are used for AAD suffix calculation.
   CryptoContext crypto_ctx_;
-  int16_t page_ordinal_;  // page ordinal does not count the dictionary page
+  int32_t page_ordinal_;  // page ordinal does not count the dictionary page
 
   // Maximum allowed page size
   uint32_t max_page_header_size_;
