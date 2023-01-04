@@ -290,6 +290,18 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
   return record_batches;
 }
 
+Result<std::shared_ptr<RecordBatchReader>> ToRecordBatcheReader(
+    const BatchesWithSchema& batches_with_schema) {
+  std::vector<std::shared_ptr<RecordBatch>> record_batches;
+  for (auto batch : batches_with_schema.batches) {
+    ARROW_ASSIGN_OR_RAISE(auto record_batch,
+                          batch.ToRecordBatch(batches_with_schema.schema));
+    record_batches.push_back(record_batch);
+  }
+  ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatches(std::move(record_batches)));
+  return std::make_shared<arrow::TableBatchReader>(std::move(table));
+}
+
 Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab) {
   std::vector<SortKey> sort_keys;
   for (int i = 0; i < tab->num_columns(); i++) {
