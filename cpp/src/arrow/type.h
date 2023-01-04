@@ -1692,9 +1692,7 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
   FieldRef(int index) : impl_(FieldPath({index})) {}  // NOLINT runtime/explicit
 
   /// Construct a nested FieldRef.
-  FieldRef(std::vector<FieldRef> refs) {  // NOLINT runtime/explicit
-    Flatten(std::move(refs));
-  }
+  explicit FieldRef(std::vector<FieldRef> refs) { Flatten(std::move(refs)); }
 
   /// Convenience constructor for nested FieldRefs: each argument will be used to
   /// construct a FieldRef
