@@ -453,7 +453,6 @@ test_that("deprecated int96 timestamp unit can be specified when reading Parquet
 })
 
 test_that("Can read parquet with nested lists and maps", {
-  test_that("Can read parquet with nested lists and maps", {
   # Construct the path to the parquet-testing submodule. This will search:
   # * $ARROW_SOURCE_HOME/cpp/submodules/parquet-testing/data 
   # * ../cpp/submodules/parquet-testing/data 
