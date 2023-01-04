@@ -216,6 +216,20 @@ void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
   compute::AssertTablesEqualIgnoringOrder(merged_expected, output_table);
 }
 
+void countProjectNodeOptionsInDeclarations(const compute::Declaration& input,
+                                           int& counter) {
+  const auto& options = input.options;
+  const auto& inputs = input.inputs;
+  const auto* maybe_project_option =
+      dynamic_cast<const compute::ProjectNodeOptions*>(options.get());
+  if (maybe_project_option != NULL) {
+    counter++;
+  }
+  for (const auto& in : inputs) {
+    countProjectNodeOptionsInDeclarations(std::get<compute::Declaration>(in), counter);
+  }
+}
+
 TEST(Substrait, SupportedTypes) {
   auto ExpectEq = [](std::string_view json, std::shared_ptr<DataType> expected_type) {
     ARROW_SCOPED_TRACE(json);
@@ -2567,68 +2581,150 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
 
   std::string substrait_json = R"({
   "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
-  "relations": [{
-    "rel": {
-      "project": {
-        "common": {
-          "emit": {
-            "outputMapping": [0, 1, 2]
-          }
-        },
-        "expressions": [{
-          "scalarFunction": {
-            "functionReference": 0,
-            "arguments": [{
-              "value": {
-                "selection": {
-                  "directReference": {
-                    "structField": {
-                      "field": 0
-                    }
-                  },
-                  "rootReference": {
+  "relations":[
+      {
+         "rel":{
+            "project":{
+               "common":{
+                  "emit":{
+                     "outputMapping":[
+                        0,
+                        1,
+                        2,
+                        3
+                     ]
                   }
-                }
-              }
-            }, {
-              "value": {
-                "selection": {
-                  "directReference": {
-                    "structField": {
-                      "field": 1
-                    }
-                  },
-                  "rootReference": {
+               },
+               "expressions":[
+                  {
+                     "scalarFunction":{
+                        "functionReference":0,
+                        "arguments":[
+                           {
+                              "value":{
+                                 "selection":{
+                                    "directReference":{
+                                       "structField":{
+                                          "field":0
+                                       }
+                                    },
+                                    "rootReference":{
+                                       
+                                    }
+                                 }
+                              }
+                           },
+                           {
+                              "value":{
+                                 "selection":{
+                                    "directReference":{
+                                       "structField":{
+                                          "field":1
+                                       }
+                                    },
+                                    "rootReference":{
+                                       
+                                    }
+                                 }
+                              }
+                           }
+                        ],
+                        "output_type":{
+                           "bool":{
+                              
+                           }
+                        }
+                     }
                   }
-                }
-              }
-            }],
-            "output_type": {
-              "bool": {}
+               ],
+               "input":{
+                  "project":{
+                     "common":{
+                        "emit":{
+                           "outputMapping":[
+                              0,
+                              1,
+                              2
+                           ]
+                        }
+                     },
+                     "expressions":[
+                        {
+                           "scalarFunction":{
+                              "functionReference":0,
+                              "arguments":[
+                                 {
+                                    "value":{
+                                       "selection":{
+                                          "directReference":{
+                                             "structField":{
+                                                "field":0
+                                             }
+                                          },
+                                          "rootReference":{
+                                             
+                                          }
+                                       }
+                                    }
+                                 },
+                                 {
+                                    "value":{
+                                       "selection":{
+                                          "directReference":{
+                                             "structField":{
+                                                "field":1
+                                             }
+                                          },
+                                          "rootReference":{
+                                             
+                                          }
+                                       }
+                                    }
+                                 }
+                              ],
+                              "output_type":{
+                                 "bool":{
+                                    
+                                 }
+                              }
+                           }
+                        }
+                     ],
+                     "input":{
+                        "read":{
+                           "base_schema":{
+                              "names":[
+                                 "A",
+                                 "B"
+                              ],
+                              "struct":{
+                                 "types":[
+                                    {
+                                       "i32":{
+                                          
+                                       }
+                                    },
+                                    {
+                                       "i32":{
+                                          
+                                       }
+                                    }
+                                 ]
+                              }
+                           },
+                           "namedTable":{
+                              "names":[
+                                 "TABLE"
+                              ]
+                           }
+                        }
+                     }
+                  }
+               }
             }
-          }
-        },
-        ],
-        "input" : {
-          "read": {
-            "base_schema": {
-              "names": ["A", "B"],
-                "struct": {
-                "types": [{
-                  "i32": {}
-                }, {
-                  "i32": {}
-                }]
-              }
-            },
-            "namedTable": {
-              "names": ["A"]
-            }
-          }
-        }
+         }
       }
-    }
-  }],
+   ],
   "extension_uris": [
       {
         "extension_uri_anchor": 0,
@@ -2648,21 +2744,32 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", substrait_json,
                                                    /*ignore_unknown_fields=*/false));
-  auto output_schema =
-      schema({field("A", int32()), field("B", int32()), field("equal", boolean())});
+  auto output_schema = schema({field("A", int32()), field("B", int32()),
+                               field("eq1", boolean()), field("eq2", boolean())});
   auto expected_table = TableFromJSON(output_schema, {R"([
-      [1, 1, true],
-      [3, 5, false],
-      [4, 1, false],
-      [2, 1, false],
-      [5, 5, true],
-      [2, 2, true]
+      [1, 1, true, true],
+      [3, 5, false, false],
+      [4, 1, false, false],
+      [2, 1, false, false],
+      [5, 5, true, true],
+      [2, 2, true, true]
   ])"});
   NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
+  // evaluate the plan
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
+  ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
+                                            *buf, [] { return kNullConsumer; },
+                                            ext_id_reg, &ext_set, conversion_options));
+  auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
+  int num_projections = 0;
+  countProjectNodeOptionsInDeclarations(other_declrs, num_projections);
+  ASSERT_EQ(num_projections, 2);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
