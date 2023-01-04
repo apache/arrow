@@ -227,10 +227,12 @@ int CountProjectNodeOptionsInDeclarations(const compute::Declaration& input) {
   }
   return counter;
 }
-/// Validate the number of expected ProjectNodes when an emit is associated with
-/// relations.
-void ValidateEmit(int expected_projections, const std::shared_ptr<Buffer>& buf,
-                  const ConversionOptions& conversion_options) {
+/// Validate the number of expected ProjectNodes
+///
+/// Project nodes are sometimes added by emit elements and we may want to
+/// verify that we are not adding too many
+void ValidateNumProjectNodes(int expected_projections, const std::shared_ptr<Buffer>& buf,
+                             const ConversionOptions& conversion_options) {
   std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
   ExtensionSet ext_set(ext_id_reg);
@@ -2572,7 +2574,7 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithEmit) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-  ValidateEmit(1, buf, conversion_options);
+  ValidateNumProjectNodes(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -2771,7 +2773,7 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  ValidateEmit(2, buf, conversion_options);
+  ValidateNumProjectNodes(2, buf, conversion_options);
 
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
@@ -2830,7 +2832,7 @@ TEST(SubstraitRoundTrip, ReadRelWithEmit) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-  ValidateEmit(1, buf, conversion_options);
+  ValidateNumProjectNodes(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -2947,7 +2949,7 @@ TEST(SubstraitRoundTrip, FilterRelWithEmit) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-  ValidateEmit(1, buf, conversion_options);
+  ValidateNumProjectNodes(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3247,7 +3249,7 @@ TEST(SubstraitRoundTrip, JoinRelWithEmit) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-  ValidateEmit(1, buf, conversion_options);
+  ValidateNumProjectNodes(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3469,7 +3471,7 @@ TEST(SubstraitRoundTrip, AggregateRelEmit) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-  ValidateEmit(1, buf, conversion_options);
+  ValidateNumProjectNodes(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3572,7 +3574,7 @@ TEST(Substrait, IsthmusPlan) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", substrait_json,
                                                    /*ignore_unknown_fields=*/false));
-  ValidateEmit(1, buf, conversion_options);
+  ValidateNumProjectNodes(1, buf, conversion_options);
   auto expected_table = TableFromJSON(test_schema, {"[[2], [3], [6]]"});
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
@@ -3736,7 +3738,7 @@ TEST(Substrait, ProjectWithMultiFieldExpressions) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-  ValidateEmit(1, buf, conversion_options);
+  ValidateNumProjectNodes(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3822,7 +3824,7 @@ TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-  ValidateEmit(2, buf, conversion_options);
+  ValidateNumProjectNodes(2, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3909,7 +3911,7 @@ TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-  ValidateEmit(2, buf, conversion_options);
+  ValidateNumProjectNodes(2, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -4114,7 +4116,7 @@ TEST(Substrait, RootRelationOutputNames) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-  ValidateEmit(1, buf, conversion_options);
+  ValidateNumProjectNodes(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -4416,7 +4418,7 @@ TEST(Substrait, PlanWithAsOfJoinExtension) {
   conversion_options.named_table_provider = std::move(table_provider);
 
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
-  ValidateEmit(1, buf, conversion_options);
+  ValidateNumProjectNodes(1, buf, conversion_options);
   ASSERT_OK_AND_ASSIGN(
       auto out_schema,
       compute::asofjoin::MakeOutputSchema(
