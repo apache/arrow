@@ -276,6 +276,9 @@ def test_pandas_assertion_error_large_string():
     "np_float", [np.float32, np.float64]
 )
 def test_pandas_to_pyarrow_with_missing(np_float):
+    if Version(pd.__version__) < Version("1.5.0"):
+        pytest.skip("__dataframe__ added to pandas in 1.5.0")
+
     np_array = np.array([0, np.nan, 2], dtype=np_float)
     datetime_array = [None, dt(2007, 7, 14), dt(2007, 7, 15)]
     df = pd.DataFrame({
@@ -293,6 +296,9 @@ def test_pandas_to_pyarrow_with_missing(np_float):
 
 @pytest.mark.pandas
 def test_pandas_to_pyarrow_float16_with_missing():
+    if Version(pd.__version__) < Version("1.5.0"):
+        pytest.skip("__dataframe__ added to pandas in 1.5.0")
+
     # np.float16 errors if ps.is_nan is used
     # pyarrow.lib.ArrowNotImplementedError: Function 'is_nan' has no kernel
     # matching input types (halffloat)
@@ -305,6 +311,9 @@ def test_pandas_to_pyarrow_float16_with_missing():
 
 @pytest.mark.pandas
 def test_pandas_to_pyarrow_string_with_missing():
+    if Version(pd.__version__) < Version("1.5.0"):
+        pytest.skip("__dataframe__ added to pandas in 1.5.0")
+
     # pandas is using int64 offsets for string dtype so the constructed
     # pyarrow string column will always be a large_string data type
     arr = {
@@ -321,6 +330,9 @@ def test_pandas_to_pyarrow_string_with_missing():
 
 @pytest.mark.pandas
 def test_pandas_to_pyarrow_categorical_with_missing():
+    if Version(pd.__version__) < Version("1.5.0"):
+        pytest.skip("__dataframe__ added to pandas in 1.5.0")
+
     arr = ["Mon", "Tue", "Mon", "Wed", "Mon", "Thu", "Fri", "Sat", None]
     df = pd.DataFrame(
         {"weekday": arr}
