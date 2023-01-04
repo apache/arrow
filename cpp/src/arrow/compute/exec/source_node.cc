@@ -409,10 +409,6 @@ struct RecordBatchSourceNode
 
 const char RecordBatchSourceNode::kKindName[] = "RecordBatchSourceNode";
 
-/// RecordBatchReaderSourceNode Start
-
-/// RecordBatchReaderSourceNode End
-
 struct ExecBatchSourceNode
     : public SchemaSourceNode<ExecBatchSourceNode, ExecBatchSourceNodeOptions> {
   using ExecBatchSchemaSourceNode =

@@ -136,10 +136,10 @@ class ARROW_EXPORT RecordBatchReaderSourceNodeOptions : public ExecNodeOptions {
   /// \brief The schema of the record batches from the iterator
   std::shared_ptr<Schema> schema;
 
-  /// \brief A maker of an iterator which acts as the data source
+  /// \brief The RecordBatchReader which acts as the data source
   std::shared_ptr<RecordBatchReader> reader;
 
-  /// \brief The executor to use for scanning the iterator
+  /// \brief The executor to use for the reader
   ///
   /// Defaults to the default I/O executor.
   arrow::internal::Executor* io_executor;
