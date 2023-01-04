@@ -27,26 +27,13 @@ and feature requests or commenting on existing issues. Even if you cannot
 contribute solutions to the issues yourself, your feedback helps us understand
 problems and prioritize work to improve the libraries.
 
-.. _apache-arrow-jira:
+.. _github_issues:
 
-Apache Arrow Jira
-=================
+GitHub issues
+=============
 
-The Arrow project uses `Jira <https://issues.apache.org/jira/projects/ARROW/issues>`_
-to track issues - both bug reports and feature requests. No account or
-permissions are required to view or search Jira issues. The Jira server
-hosts issue tracking for multiple Apache projects. The Jira project name for
-Arrow is "ARROW".
-
-.. _required-permissions:
-
-Required permissions
-++++++++++++++++++++
-
-Any registered Apache Software Foundation (ASF) Jira account may create or
-assign Jira issues in the Apache Arrow project without additional permissions.
-Individuals may
-`create an ASF Jira account here <https://issues.apache.org/jira/secure/Signup!default.jspa>`_.
+The Arrow project uses `GitHub issues <https://github.com/apache/arrow/issues>`_
+to track issues - both bug reports and feature requests.
 
 .. _creating-issues:
 
@@ -65,7 +52,7 @@ Check existing issues
 +++++++++++++++++++++
 
 Before you create a new issue, we recommend you first
-`search <https://issues.apache.org/jira/issues/?jql=project%20%3D%20ARROW%20AND%20resolution%20%3D%20Unresolved>`_
+`search <https://github.com/apache/arrow/issues>`_
 for unresolved existing issues identifying the same problem or feature request.
 
 .. _describe-issue:
@@ -186,9 +173,10 @@ Arrow is an expansive project supporting many languages and organized into a
 number of components. Identifying the affected component(s) helps new issues
 get attention from appropriate contributors.
 
-* Use the **Component** field to indicate the area of the project that your
-  issue pertains to (for example "Python" or "C++").
-* Also prefix the issue title with the component name in brackets, for example
+* **Component label**, which can be added by a committer of the Apache Arrow
+  project, is used to indicate the area of the project that your issue pertains
+  to (for example "Component: Python" or "Component: C++").
+* Prefix the issue title with the component name in brackets, for example
   ``[Python] issue summary`` ; this helps when navigating lists of open issues,
   and it also makes our changelogs more readable. Most prefixes are exactly the
   same as the **Component** name, with the following exceptions:
@@ -197,66 +185,26 @@ get attention from appropriate contributors.
   * **Component:** Developer Tools — **Summary prefix:** [Dev]
   * **Component:** Documentation — **Summary prefix:** [Docs]
 
-.. _affected-version:
-
-Identify affected version
-+++++++++++++++++++++++++
-
-If you're reporting something that used to work in a previous version
-but doesn't work in the current release, you can add the **Affects version**
-field to identify the earliest known version where the bug is observed.
-For feature requests and other proposals, leave **Affects version** empty as
-it is not applicable.
-
 .. _issue-lifecycle:
 
 Issue lifecycle
 ===============
 
-Both bug reports and feature requests follow a defined lifecycle. The issue
-**Status** field is used to document the current state of the issue, while the
-**Resolution** field indicates the outcome of issues that have reached
-terminal status. 
+Both bug reports and feature requests follow a defined lifecycle. If an issue
+is currently worked on, it should have a developer assigned. When an issue has
+reached a terminal status, it is closed with one of two outcomes:
 
+* **Closed as completed** - indicates the issue is complete; the PR that
+  resolved the issue should have been automatically linked by GitHub
+  (assuming the PR correctly mentioned the issue number).
 
-.. _issue-status:
+  If you are merging a PR it is good practice to add a comment
+  to the linked issue about which PR is resolving it. This way
+  GitHub crates a notification for anybody that collaborated on
+  the issue.
 
-Issue Status
-++++++++++++
-
-The Arrow project uses the following statuses in Jira to indicate what has -
-and will be - done on an issue:
-
-* **Open** - This is the initial issue state, prior to a contributor assigning
-  the issue and starting progress. Issues in this state should be unassigned.
-* **In progress** - At the time a contributor self-assigns an issue, the status
-  should be set to In progress by clicking the **Start progress** button. All
-  issues in this status should have an assignee - unassigned issues will be
-  set back to a status of Open. Issues remain "in progress" until resolved or
-  closed, including during review of pull requests.
-* **Resolved** - This is a terminal status indicating action has been taken
-  on the issue, which is now considered completed. Issues in a resolved status
-  should have a resolution code set to **Fixed**.
-* **Closed** - Another terminal status, Closed indicates the issue is complete,
-  but *without* action being taken. The following resolution codes apply to
-  issues in Closed status:
-
-  * Won't Fix
-  * Duplicate
-  * Invalid
-  * Incomplete
-  * Cannot Reproduce
-  * Not a Problem
-  * Not a Bug
-  * Workaround
-  * Information Provided
-  * Works for Me
-  * Won't Do
-  * Abandoned
-
-* **Reopened** - When an issue has been closed or resolved, but additional
-  attention is needed, it may be reopened.
-
+* **closed as not planned** - indicates the issue is closed and should
+  not receive any further updates, but *without* action being taken.
 
 .. _issue-assignment:
 
@@ -264,10 +212,5 @@ Issue assignment
 ++++++++++++++++
 
 Assignment signals commitment to work on an issue, and contributors should
-self-assign issues when that work starts. At the same time the issue is
-assigned, the status field should be updated to **In Progress**.
-
-The Arrow project relies upon community contributors to resolve issues. We
-recognize that priorities and plans may change, resulting in an issue assigned
-to an individual who cannot attend to it. Assigned issues without updates in
-the past 90 days will be unassigned and set to **Open** status.
+self-assign issues when that work starts. Anyone can now self-assign issues
+by commenting ``take``.

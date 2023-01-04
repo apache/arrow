@@ -143,7 +143,7 @@ cast_scalars_to_common_type <- function(args) {
   args[!is_expr] <- lapply(args[!is_expr], Scalar$create)
 
   if (any(is_expr)) {
-    try(
+    tryCatch(
       {
         # If the Expression has no Schema embedded, we cannot resolve its
         # type here, so this will error, hence the try() wrapping it
@@ -154,7 +154,14 @@ cast_scalars_to_common_type <- function(args) {
         # we'll just keep the original
         args[!is_expr] <- lapply(args[!is_expr], cast_or_parse, type = to_type)
       },
-      silent = TRUE
+      error = function(e) {
+        # We do want to error for some types of casting errors
+        if (inherits(e, "arrow_error_implicit_cast")) {
+          abort("Cast error", parent = e)
+        }
+
+        # Other cast errors we ignore and let Arrow handle at collect()
+      }
     )
   }
 
@@ -189,7 +196,10 @@ cast_or_parse <- function(x, type) {
   }
 
   # For most types, just cast.
-  # But for string -> date/time, we need to call a parsing function
+  # For string -> date/time, we need to call a parsing function.
+  # In dplyr 1.1.0, vctrs::vec_ptype2() rules are used, which are mostly
+  # the same as Arrow rules except that implicit conversion from string to
+  # numeric is no longer supported.
   if (x$type_id() %in% c(Type[["STRING"]], Type[["LARGE_STRING"]])) {
     if (to_type_id %in% c(Type[["DATE32"]], Type[["DATE64"]])) {
       x <- call_function(
@@ -210,6 +220,15 @@ cast_or_parse <- function(x, type) {
         "assume_timezone",
         x,
         options = list(timezone = Sys.timezone())
+      )
+    } else if (to_type_id %in% unlist(TYPES_NUMERIC)) {
+      abort(
+        sprintf(
+          "Implicit cast from %s to %s is not supported",
+          x$type$ToString(),
+          type$ToString()
+        ),
+        class = "arrow_error_implicit_cast"
       )
     }
   }

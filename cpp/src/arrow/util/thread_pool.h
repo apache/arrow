@@ -272,6 +272,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   ~SerialExecutor() override;
 
   int GetCapacity() override { return 1; };
+  bool OwnsThisThread() override;
   Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
                    StopCallback&&) override;
 

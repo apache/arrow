@@ -21,8 +21,11 @@ module ArrowDataset
       def build(*args)
         factory_class = ArrowDataset.const_get("#{name}Factory")
         factory = factory_class.new(*args)
-        yield(factory)
-        factory.finish
+        options = yield(factory)
+        unless options.is_a?(FinishOptions)
+          options = FinishOptions.try_convert(options)
+        end
+        factory.finish(options)
       end
     end
   end

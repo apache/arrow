@@ -17,6 +17,7 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 
+#include <atomic>
 #include <optional>
 #include <sstream>
 #include <unordered_map>
@@ -25,9 +26,8 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/task_util.h"
-#include "arrow/compute/exec/util.h"
-#include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
@@ -44,6 +44,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::ThreadPool;
 using internal::ToChars;
 
 namespace compute {
@@ -51,9 +52,12 @@ namespace compute {
 namespace {
 
 struct ExecPlanImpl : public ExecPlan {
-  explicit ExecPlanImpl(ExecContext* exec_context,
-                        std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR)
-      : ExecPlan(exec_context), metadata_(std::move(metadata)) {}
+  explicit ExecPlanImpl(QueryOptions options, ExecContext exec_context,
+                        std::shared_ptr<const KeyValueMetadata> metadata = nullptr,
+                        std::shared_ptr<ThreadPool> owned_thread_pool = nullptr)
+      : metadata_(std::move(metadata)),
+        query_context_(options, exec_context),
+        owned_thread_pool_(std::move(owned_thread_pool)) {}
 
   ~ExecPlanImpl() override {
     if (started_ && !finished_.is_finished()) {
@@ -62,9 +66,6 @@ struct ExecPlanImpl : public ExecPlan {
       finished().Wait();
     }
   }
-
-  size_t GetThreadIndex() { return thread_indexer_(); }
-  size_t max_concurrency() const { return thread_indexer_.Capacity(); }
 
   ExecNode* AddNode(std::unique_ptr<ExecNode> node) {
     if (node->label().empty()) {
@@ -80,44 +81,6 @@ struct ExecPlanImpl : public ExecPlan {
     return nodes_.back().get();
   }
 
-  Result<Future<>> BeginExternalTask() {
-    Future<> completion_future = Future<>::Make();
-    if (async_scheduler_->AddSimpleTask(
-            [completion_future] { return completion_future; })) {
-      return completion_future;
-    }
-    return Future<>{};
-  }
-
-  Status ScheduleTask(std::function<Status()> fn) {
-    auto executor = exec_context_->executor();
-    if (!executor) return fn();
-    // Adds a task which submits fn to the executor and tracks its progress.  If we're
-    // aborted then the task is ignored and fn is not executed.
-    async_scheduler_->AddSimpleTask(
-        [executor, fn]() { return executor->Submit(std::move(fn)); });
-    return Status::OK();
-  }
-
-  Status ScheduleTask(std::function<Status(size_t)> fn) {
-    std::function<Status()> indexed_fn = [this, fn]() {
-      size_t thread_index = GetThreadIndex();
-      return fn(thread_index);
-    };
-    return ScheduleTask(std::move(indexed_fn));
-  }
-
-  int RegisterTaskGroup(std::function<Status(size_t, int64_t)> task,
-                        std::function<Status(size_t)> on_finished) {
-    return task_scheduler_->RegisterTaskGroup(std::move(task), std::move(on_finished));
-  }
-
-  Status StartTaskGroup(int task_group_id, int64_t num_tasks) {
-    return task_scheduler_->StartTaskGroup(GetThreadIndex(), task_group_id, num_tasks);
-  }
-
-  util::AsyncTaskScheduler* async_scheduler() { return async_scheduler_; }
-
   Status Validate() const {
     if (nodes_.empty()) {
       return Status::Invalid("ExecPlan has no node");
@@ -132,6 +95,16 @@ struct ExecPlanImpl : public ExecPlan {
     if (started_) {
       return Status::Invalid("restarted ExecPlan");
     }
+    if (query_context_.exec_context()->executor() == nullptr) {
+      return Status::Invalid(
+          "An exec plan must have an executor for CPU tasks.  To run without threads use "
+          "a SerialExeuctor (the arrow::compute::DeclarationTo... methods should take "
+          "care of this for you and are an easier way to execute an ExecPlan.)");
+    }
+    if (query_context_.io_context()->executor() == nullptr) {
+      return Status::Invalid("An exec plan must have an I/O executor for I/O tasks.");
+    }
+
     started_ = true;
 
     // We call StartProducing on each of the nodes.  The source nodes should generally
@@ -140,9 +113,11 @@ struct ExecPlanImpl : public ExecPlan {
     // If no source node schedules any tasks (e.g. they do all their word synchronously as
     // part of StartProducing) then the plan may be finished before we return from this
     // call.
-    Future<> scheduler_finished =
-        util::AsyncTaskScheduler::Make([this](util::AsyncTaskScheduler* async_scheduler) {
-          this->async_scheduler_ = async_scheduler;
+    Future<> scheduler_finished = util::AsyncTaskScheduler::Make(
+        [this](util::AsyncTaskScheduler* async_scheduler) {
+          QueryContext* ctx = query_context();
+          RETURN_NOT_OK(ctx->Init(ctx->max_concurrency(), async_scheduler));
+
           START_COMPUTE_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
 #ifdef ARROW_WITH_OPENTELEMETRY
           if (HasMetadata()) {
@@ -159,20 +134,22 @@ struct ExecPlanImpl : public ExecPlan {
           // away soon (or at least be replaced by a sub-scheduler to facilitate OT)
           for (auto& n : nodes_) {
             RETURN_NOT_OK(n->Init());
+          }
+          for (auto& n : nodes_) {
             async_scheduler->AddSimpleTask([&] { return n->finished(); });
           }
 
-          task_scheduler_->RegisterEnd();
+          ctx->scheduler()->RegisterEnd();
           int num_threads = 1;
           bool sync_execution = true;
-          if (auto executor = exec_context()->executor()) {
+          if (auto executor = query_context()->exec_context()->executor()) {
             num_threads = executor->GetCapacity();
             sync_execution = false;
           }
-          RETURN_NOT_OK(task_scheduler_->StartScheduling(
+          RETURN_NOT_OK(ctx->scheduler()->StartScheduling(
               0 /* thread_index */,
-              [this](std::function<Status(size_t)> fn) -> Status {
-                return this->ScheduleTask(std::move(fn));
+              [ctx](std::function<Status(size_t)> fn) -> Status {
+                return ctx->ScheduleTask(std::move(fn));
               },
               /*concurrent_tasks=*/2 * num_threads, sync_execution));
 
@@ -192,18 +169,21 @@ struct ExecPlanImpl : public ExecPlan {
             EVENT(span_, "StartProducing:" + node->label(), {{"status", st.ToString()}});
             if (!st.ok()) {
               // Stop nodes that successfully started, in reverse order
-              stopped_ = true;
-              StopProducingImpl(it.base(), sorted_nodes_.end());
-              for (NodeVector::iterator fw_it = sorted_nodes_.begin(); fw_it != it.base();
-                   ++fw_it) {
-                Future<> fut = (*fw_it)->finished();
-                if (!fut.is_finished()) fut.MarkFinished();
+              bool expected = false;
+              if (stopped_.compare_exchange_strong(expected, true)) {
+                StopProducingImpl(it.base(), sorted_nodes_.end());
+                for (NodeVector::iterator fw_it = sorted_nodes_.begin();
+                     fw_it != it.base(); ++fw_it) {
+                  Future<> fut = (*fw_it)->finished();
+                  if (!fut.is_finished()) fut.MarkFinished();
+                }
               }
               return st;
             }
           }
           return st;
-        });
+        },
+        [this](const Status& st) { StopProducing(); });
     scheduler_finished.AddCallback(
         [this](const Status& st) { finished_.MarkFinished(st); });
     // TODO(weston) Do we really need to return status here?  Could we change this return
@@ -218,9 +198,11 @@ struct ExecPlanImpl : public ExecPlan {
   void StopProducing() {
     DCHECK(started_) << "stopped an ExecPlan which never started";
     EVENT(span_, "StopProducing");
-    stopped_ = true;
-    task_scheduler_->Abort(
-        [this]() { StopProducingImpl(sorted_nodes_.begin(), sorted_nodes_.end()); });
+    bool expected = false;
+    if (stopped_.compare_exchange_strong(expected, true)) {
+      query_context()->scheduler()->Abort(
+          [this]() { StopProducingImpl(sorted_nodes_.begin(), sorted_nodes_.end()); });
+    }
   }
 
   template <typename It>
@@ -328,17 +310,18 @@ struct ExecPlanImpl : public ExecPlan {
 
   Status error_st_;
   Future<> finished_ = Future<>::Make();
-  bool started_ = false, stopped_ = false;
+  bool started_ = false;
+  std::atomic<bool> stopped_{false};
   std::vector<std::unique_ptr<ExecNode>> nodes_;
   NodeVector sources_, sinks_;
   NodeVector sorted_nodes_;
   uint32_t auto_label_counter_ = 0;
   util::tracing::Span span_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
-
-  ThreadIndexer thread_indexer_;
-  util::AsyncTaskScheduler* async_scheduler_ = nullptr;
-  std::unique_ptr<TaskScheduler> task_scheduler_ = TaskScheduler::Make();
+  QueryContext query_context_;
+  // This field only exists for backwards compatibility.  Remove once the deprecated
+  // ExecPlan::Make overloads have been removed.
+  std::shared_ptr<ThreadPool> owned_thread_pool_;
 };
 
 ExecPlanImpl* ToDerived(ExecPlan* ptr) { return checked_cast<ExecPlanImpl*>(ptr); }
@@ -360,8 +343,36 @@ std::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
 const uint32_t ExecPlan::kMaxBatchSize;
 
 Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
+    QueryOptions opts, ExecContext ctx,
+    std::shared_ptr<const KeyValueMetadata> metadata) {
+  return std::shared_ptr<ExecPlan>(new ExecPlanImpl{opts, ctx, std::move(metadata)});
+}
+
+Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
+    ExecContext ctx, std::shared_ptr<const KeyValueMetadata> metadata) {
+  return Make(/*opts=*/{}, ctx, std::move(metadata));
+}
+
+// Deprecated and left for backwards compatibility.  If the user does not supply a CPU
+// executor then we will create a 1 thread pool and tie its lifetime to the plan
+Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
+    QueryOptions opts, ExecContext* ctx,
+    std::shared_ptr<const KeyValueMetadata> metadata) {
+  if (ctx->executor() == nullptr) {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
+    ExecContext actual_ctx(ctx->memory_pool(), tpool.get(), ctx->func_registry());
+    return std::shared_ptr<ExecPlan>(
+        new ExecPlanImpl{opts, actual_ctx, std::move(metadata), std::move(tpool)});
+  }
+  return ExecPlan::Make(opts, *ctx, std::move(metadata));
+}
+
+// Deprecated
+Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
     ExecContext* ctx, std::shared_ptr<const KeyValueMetadata> metadata) {
-  return std::shared_ptr<ExecPlan>(new ExecPlanImpl{ctx, metadata});
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  return Make(/*opts=*/{}, ctx, std::move(metadata));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 ExecNode* ExecPlan::AddNode(std::unique_ptr<ExecNode> node) {
@@ -374,30 +385,7 @@ const ExecPlan::NodeVector& ExecPlan::sources() const {
 
 const ExecPlan::NodeVector& ExecPlan::sinks() const { return ToDerived(this)->sinks_; }
 
-size_t ExecPlan::GetThreadIndex() { return ToDerived(this)->GetThreadIndex(); }
-size_t ExecPlan::max_concurrency() const { return ToDerived(this)->max_concurrency(); }
-
-Result<Future<>> ExecPlan::BeginExternalTask() {
-  return ToDerived(this)->BeginExternalTask();
-}
-
-Status ExecPlan::ScheduleTask(std::function<Status()> fn) {
-  return ToDerived(this)->ScheduleTask(std::move(fn));
-}
-Status ExecPlan::ScheduleTask(std::function<Status(size_t)> fn) {
-  return ToDerived(this)->ScheduleTask(std::move(fn));
-}
-int ExecPlan::RegisterTaskGroup(std::function<Status(size_t, int64_t)> task,
-                                std::function<Status(size_t)> on_finished) {
-  return ToDerived(this)->RegisterTaskGroup(std::move(task), std::move(on_finished));
-}
-Status ExecPlan::StartTaskGroup(int task_group_id, int64_t num_tasks) {
-  return ToDerived(this)->StartTaskGroup(task_group_id, num_tasks);
-}
-
-util::AsyncTaskScheduler* ExecPlan::async_scheduler() {
-  return ToDerived(this)->async_scheduler();
-}
+QueryContext* ExecPlan::query_context() { return &ToDerived(this)->query_context_; }
 
 Status ExecPlan::Validate() { return ToDerived(this)->Validate(); }
 
@@ -502,7 +490,7 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
       // reading from generator until end is reached.
       std::shared_ptr<RecordBatch> batch;
       RETURN_NOT_OK(ReadNext(&batch));
-      while (batch != NULLPTR) {
+      while (batch != nullptr) {
         RETURN_NOT_OK(ReadNext(&batch));
       }
       return Status::OK();
@@ -562,7 +550,7 @@ bool Declaration::IsValid(ExecFactoryRegistry* registry) const {
 }
 
 Future<std::shared_ptr<Table>> DeclarationToTableAsync(Declaration declaration,
-                                                       ExecContext* exec_context) {
+                                                       ExecContext exec_context) {
   std::shared_ptr<std::shared_ptr<Table>> output_table =
       std::make_shared<std::shared_ptr<Table>>();
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
@@ -570,57 +558,143 @@ Future<std::shared_ptr<Table>> DeclarationToTableAsync(Declaration declaration,
   Declaration with_sink = Declaration::Sequence(
       {declaration, {"table_sink", TableSinkNodeOptions(output_table.get())}});
   ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
+  ARROW_RETURN_NOT_OK(exec_plan->Validate());
   ARROW_RETURN_NOT_OK(exec_plan->StartProducing());
   return exec_plan->finished().Then([exec_plan, output_table] { return *output_table; });
 }
 
+Future<std::shared_ptr<Table>> DeclarationToTableAsync(Declaration declaration,
+                                                       bool use_threads) {
+  if (use_threads) {
+    return DeclarationToTableAsync(std::move(declaration), *threaded_exec_context());
+  } else {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
+    ExecContext ctx(default_memory_pool(), tpool.get());
+    return DeclarationToTableAsync(std::move(declaration), ctx)
+        .Then([tpool](const std::shared_ptr<Table>& table) { return table; });
+  }
+}
+
 Result<std::shared_ptr<Table>> DeclarationToTable(Declaration declaration,
-                                                  ExecContext* exec_context) {
-  return DeclarationToTableAsync(std::move(declaration), exec_context).result();
+                                                  bool use_threads) {
+  return ::arrow::internal::RunSynchronously<Future<std::shared_ptr<Table>>>(
+      [declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
+        ExecContext ctx(default_memory_pool(), executor);
+        return DeclarationToTableAsync(std::move(declaration), ctx);
+      },
+      use_threads);
 }
 
 Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
-    Declaration declaration, ExecContext* exec_context) {
+    Declaration declaration, ExecContext exec_context) {
   return DeclarationToTableAsync(std::move(declaration), exec_context)
       .Then([](const std::shared_ptr<Table>& table) {
         return TableBatchReader(table).ToRecordBatches();
       });
 }
 
-Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatches(
-    Declaration declaration, ExecContext* exec_context) {
-  return DeclarationToBatchesAsync(std::move(declaration), exec_context).result();
+Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
+    Declaration declaration, bool use_threads) {
+  if (use_threads) {
+    return DeclarationToBatchesAsync(std::move(declaration), *threaded_exec_context());
+  } else {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
+    ExecContext ctx(default_memory_pool(), tpool.get());
+    return DeclarationToBatchesAsync(std::move(declaration), ctx)
+        .Then([tpool](const std::vector<std::shared_ptr<RecordBatch>>& batches) {
+          return batches;
+        });
+  }
 }
 
-Future<std::vector<ExecBatch>> DeclarationToExecBatchesAsync(Declaration declaration,
-                                                             ExecContext* exec_context) {
+Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatches(
+    Declaration declaration, bool use_threads) {
+  return ::arrow::internal::RunSynchronously<
+      Future<std::vector<std::shared_ptr<RecordBatch>>>>(
+      [declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
+        ExecContext ctx(default_memory_pool(), executor);
+        return DeclarationToBatchesAsync(std::move(declaration), ctx);
+      },
+      use_threads);
+}
+
+Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(Declaration declaration,
+                                                              ExecContext exec_context) {
+  std::shared_ptr<Schema> out_schema;
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
                         ExecPlan::Make(exec_context));
-  Declaration with_sink =
-      Declaration::Sequence({declaration, {"sink", SinkNodeOptions(&sink_gen)}});
+  Declaration with_sink = Declaration::Sequence(
+      {declaration, {"sink", SinkNodeOptions(&sink_gen, &out_schema)}});
   ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
+  ARROW_RETURN_NOT_OK(exec_plan->Validate());
   ARROW_RETURN_NOT_OK(exec_plan->StartProducing());
   auto collected_fut = CollectAsyncGenerator(sink_gen);
   return AllFinished({exec_plan->finished(), Future<>(collected_fut)})
-      .Then([collected_fut, exec_plan]() -> Result<std::vector<ExecBatch>> {
+      .Then([collected_fut, exec_plan,
+             schema = std::move(out_schema)]() -> Result<BatchesWithCommonSchema> {
         ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
-        return ::arrow::internal::MapVector(
+        std::vector<ExecBatch> exec_batches = ::arrow::internal::MapVector(
             [](std::optional<ExecBatch> batch) { return batch.value_or(ExecBatch()); },
             std::move(collected));
+        return BatchesWithCommonSchema{std::move(exec_batches), schema};
       });
 }
 
-Result<std::vector<ExecBatch>> DeclarationToExecBatches(Declaration declaration,
-                                                        ExecContext* exec_context) {
-  return DeclarationToExecBatchesAsync(std::move(declaration), exec_context).result();
+Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(Declaration declaration,
+                                                              bool use_threads) {
+  if (use_threads) {
+    return DeclarationToExecBatchesAsync(std::move(declaration),
+                                         *threaded_exec_context());
+  } else {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
+    ExecContext ctx(default_memory_pool(), tpool.get());
+    return DeclarationToExecBatchesAsync(std::move(declaration), ctx)
+        .Then([tpool](const BatchesWithCommonSchema& batches) { return batches; });
+  }
+}
+
+Result<BatchesWithCommonSchema> DeclarationToExecBatches(Declaration declaration,
+                                                         bool use_threads) {
+  return ::arrow::internal::RunSynchronously<Future<BatchesWithCommonSchema>>(
+      [declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
+        ExecContext ctx(default_memory_pool(), executor);
+        return DeclarationToExecBatchesAsync(std::move(declaration), ctx);
+      },
+      use_threads);
+}
+
+Future<> DeclarationToStatusAsync(Declaration declaration, ExecContext exec_context) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
+                        ExecPlan::Make(exec_context));
+  ARROW_RETURN_NOT_OK(declaration.AddToPlan(exec_plan.get()));
+  ARROW_RETURN_NOT_OK(exec_plan->Validate());
+  ARROW_RETURN_NOT_OK(exec_plan->StartProducing());
+  // Keep the exec_plan alive until it finishes
+  return exec_plan->finished().Then([exec_plan]() {});
+}
+
+Future<> DeclarationToStatusAsync(Declaration declaration, bool use_threads) {
+  if (use_threads) {
+    return DeclarationToStatusAsync(std::move(declaration), *threaded_exec_context());
+  } else {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
+    ExecContext ctx(default_memory_pool(), tpool.get());
+    return DeclarationToStatusAsync(std::move(declaration), ctx).Then([tpool]() {});
+  }
+}
+
+Status DeclarationToStatus(Declaration declaration, bool use_threads) {
+  return ::arrow::internal::RunSynchronously<Future<>>(
+      [declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
+        ExecContext ctx(default_memory_pool(), executor);
+        return DeclarationToStatusAsync(std::move(declaration), ctx);
+      },
+      use_threads);
 }
 
 namespace {
 struct BatchConverter {
-  explicit BatchConverter(::arrow::internal::Executor* executor)
-      : exec_context(std::make_shared<ExecContext>(default_memory_pool(), executor)) {}
-
   ~BatchConverter() {
     if (!exec_plan) {
       return;
@@ -652,7 +726,6 @@ struct BatchConverter {
         });
   }
 
-  std::shared_ptr<ExecContext> exec_context;
   AsyncGenerator<std::optional<ExecBatch>> exec_batch_gen;
   std::shared_ptr<Schema> schema;
   std::shared_ptr<ExecPlan> exec_plan;
@@ -661,9 +734,9 @@ struct BatchConverter {
 Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> DeclarationToRecordBatchGenerator(
     Declaration declaration, ::arrow::internal::Executor* executor,
     std::shared_ptr<Schema>* out_schema) {
-  auto converter = std::make_shared<BatchConverter>(executor);
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan,
-                        ExecPlan::Make(converter->exec_context.get()));
+  auto converter = std::make_shared<BatchConverter>();
+  ExecContext exec_context(default_memory_pool(), executor);
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(exec_context));
   Declaration with_sink = Declaration::Sequence(
       {declaration,
        {"sink", SinkNodeOptions(&converter->exec_batch_gen, &converter->schema)}});

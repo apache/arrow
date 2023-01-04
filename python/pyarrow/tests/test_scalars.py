@@ -24,6 +24,7 @@ import weakref
 import numpy as np
 
 import pyarrow as pa
+import pyarrow.compute as pc
 
 
 @pytest.mark.parametrize(['value', 'ty', 'klass'], [
@@ -67,6 +68,8 @@ import pyarrow as pa
 ])
 def test_basics(value, ty, klass):
     s = pa.scalar(value, type=ty)
+    s.validate()
+    s.validate(full=True)
     assert isinstance(s, klass)
     assert s.as_py() == value
     assert s == pa.scalar(value, type=ty)
@@ -90,6 +93,14 @@ def test_basics(value, ty, klass):
     assert wr() is not None
     del s
     assert wr() is None
+
+
+def test_invalid_scalar():
+    s = pc.cast(pa.scalar(b"\xff"), pa.string(), safe=False)
+    s.validate()
+    with pytest.raises(ValueError,
+                       match="string scalar contains invalid UTF8 data"):
+        s.validate(full=True)
 
 
 def test_null_singleton():
@@ -271,6 +282,7 @@ def test_time_from_datetime_time():
 ])
 def test_temporal_values(value, time_type: pa.DataType):
     time_scalar = pa.scalar(value, type=time_type)
+    time_scalar.validate(full=True)
     assert time_scalar.value == value
 
 
@@ -679,6 +691,7 @@ def test_union():
         ]
     )
     for s in arr:
+        s.validate(full=True)
         assert isinstance(s, pa.UnionScalar)
         assert s.type.equals(arr.type)
         assert s.is_valid is True
@@ -704,6 +717,7 @@ def test_union():
         ]
     )
     for s in arr:
+        s.validate(full=True)
         assert isinstance(s, pa.UnionScalar)
         assert s.type.equals(arr.type)
         assert s.is_valid is True

@@ -2916,6 +2916,41 @@ def test_struct_array_field():
             a.field(invalid_name)
 
 
+def test_struct_array_flattened_field():
+    ty = pa.struct([pa.field('x', pa.int16()),
+                    pa.field('y', pa.float32())])
+    a = pa.array([(1, 2.5), (3, 4.5), (5, 6.5)], type=ty,
+                 mask=pa.array([False, True, False]))
+
+    x0 = a._flattened_field(0)
+    y0 = a._flattened_field(1)
+    x1 = a._flattened_field(-2)
+    y1 = a._flattened_field(-1)
+    x2 = a._flattened_field('x')
+    y2 = a._flattened_field('y')
+
+    assert isinstance(x0, pa.lib.Int16Array)
+    assert isinstance(y1, pa.lib.FloatArray)
+    assert x0.equals(pa.array([1, None, 5], type=pa.int16()))
+    assert y0.equals(pa.array([2.5, None, 6.5], type=pa.float32()))
+    assert x0.equals(x1)
+    assert x0.equals(x2)
+    assert y0.equals(y1)
+    assert y0.equals(y2)
+
+    for invalid_index in [None, pa.int16()]:
+        with pytest.raises(TypeError):
+            a._flattened_field(invalid_index)
+
+    for invalid_index in [3, -3]:
+        with pytest.raises(IndexError):
+            a._flattened_field(invalid_index)
+
+    for invalid_name in ['z', '']:
+        with pytest.raises(KeyError):
+            a._flattened_field(invalid_name)
+
+
 def test_empty_cast():
     types = [
         pa.null(),
@@ -3287,3 +3322,57 @@ def test_to_pandas_timezone():
     arr = pa.chunked_array([arr])
     s = arr.to_pandas()
     assert s.dt.tz is not None
+
+
+def test_array_sort():
+    arr = pa.array([5, 7, 35], type=pa.int64())
+    sorted_arr = arr.sort("descending")
+    assert sorted_arr.to_pylist() == [35, 7, 5]
+
+    arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
+    sorted_arr = arr.sort("descending")
+    assert sorted_arr.to_pylist() == [6, 5, 4, 3, 2, 1]
+
+    arr = pa.array([5, 7, 35, None], type=pa.int64())
+    sorted_arr = arr.sort("descending", null_placement="at_end")
+    assert sorted_arr.to_pylist() == [35, 7, 5, None]
+    sorted_arr = arr.sort("descending", null_placement="at_start")
+    assert sorted_arr.to_pylist() == [None, 35, 7, 5]
+
+
+def test_struct_array_sort():
+    arr = pa.StructArray.from_arrays([
+        pa.array([5, 7, 7, 35], type=pa.int64()),
+        pa.array(["foo", "car", "bar", "foobar"])
+    ], names=["a", "b"])
+
+    sorted_arr = arr.sort("descending", by="a")
+    assert sorted_arr.to_pylist() == [
+        {"a": 35, "b": "foobar"},
+        {"a": 7, "b": "car"},
+        {"a": 7, "b": "bar"},
+        {"a": 5, "b": "foo"},
+    ]
+
+    arr_with_nulls = pa.StructArray.from_arrays([
+        pa.array([5, 7, 7, 35], type=pa.int64()),
+        pa.array(["foo", "car", "bar", "foobar"])
+    ], names=["a", "b"], mask=pa.array([False, False, True, False]))
+
+    sorted_arr = arr_with_nulls.sort(
+        "descending", by="a", null_placement="at_start")
+    assert sorted_arr.to_pylist() == [
+        None,
+        {"a": 35, "b": "foobar"},
+        {"a": 7, "b": "car"},
+        {"a": 5, "b": "foo"},
+    ]
+
+    sorted_arr = arr_with_nulls.sort(
+        "descending", by="a", null_placement="at_end")
+    assert sorted_arr.to_pylist() == [
+        {"a": 35, "b": "foobar"},
+        {"a": 7, "b": "car"},
+        {"a": 5, "b": "foo"},
+        None
+    ]

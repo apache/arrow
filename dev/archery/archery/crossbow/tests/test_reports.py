@@ -80,7 +80,9 @@ def test_crossbow_email_report(load_fixture):
                                sender_email="sender@arrow.com",
                                recipient_email="recipient@arrow.com")
 
-    assert email_report.render("text") == textwrap.dedent(expected_msg)
+    assert (
+        email_report.render("nightly_report") == textwrap.dedent(expected_msg)
+    )
 
 
 def test_crossbow_export_report(load_fixture):

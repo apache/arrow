@@ -766,6 +766,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         shared_ptr[CArray] field(int pos)
         shared_ptr[CArray] GetFieldByName(const c_string& name) const
+        CResult[shared_ptr[CArray]] GetFlattenedField(int index, CMemoryPool* pool) const
 
         CResult[vector[shared_ptr[CArray]]] Flatten(CMemoryPool* pool)
 
@@ -2581,6 +2582,10 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
         CProjectNodeOptions(vector[CExpression] expressions)
         CProjectNodeOptions(vector[CExpression] expressions,
                             vector[c_string] names)
+
+    cdef cppclass COrderBySinkNodeOptions "arrow::compute::OrderBySinkNodeOptions"(CExecNodeOptions):
+        COrderBySinkNodeOptions(vector[CSortOptions] options,
+                                CAsyncExecBatchGenerator generator)
 
     cdef cppclass CHashJoinNodeOptions "arrow::compute::HashJoinNodeOptions"(CExecNodeOptions):
         CHashJoinNodeOptions(CJoinType, vector[CFieldRef] in_left_keys,

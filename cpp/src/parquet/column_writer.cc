@@ -173,13 +173,13 @@ void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
   encoding_ = encoding;
   switch (encoding) {
     case Encoding::RLE: {
-      rle_encoder_.reset(new RleEncoder(data, data_size, bit_width_));
+      rle_encoder_ = std::make_unique<RleEncoder>(data, data_size, bit_width_);
       break;
     }
     case Encoding::BIT_PACKED: {
       int num_bytes =
           static_cast<int>(bit_util::BytesForBits(num_buffered_values * bit_width_));
-      bit_packed_encoder_.reset(new BitWriter(data, num_bytes));
+      bit_packed_encoder_ = std::make_unique<BitWriter>(data, num_bytes);
       break;
     }
     default:
@@ -271,7 +271,7 @@ class SerializedPageWriter : public PageWriter {
       InitEncryption();
     }
     compressor_ = GetCodec(codec, compression_level);
-    thrift_serializer_.reset(new ThriftSerializer);
+    thrift_serializer_ = std::make_unique<ThriftSerializer>();
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
@@ -899,9 +899,9 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
     PARQUET_ASSIGN_OR_THROW(
         auto compressed_data_copy,
         compressed_data->CopySlice(0, compressed_data->size(), allocator_));
-    std::unique_ptr<DataPage> page_ptr(new DataPageV1(
+    std::unique_ptr<DataPage> page_ptr = std::make_unique<DataPageV1>(
         compressed_data_copy, static_cast<int32_t>(num_buffered_values_), encoding_,
-        Encoding::RLE, Encoding::RLE, uncompressed_size, page_stats));
+        Encoding::RLE, Encoding::RLE, uncompressed_size, page_stats);
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
 
     data_pages_.push_back(std::move(page_ptr));
@@ -950,9 +950,9 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
   if (has_dictionary_ && !fallback_) {  // Save pages until end of dictionary encoding
     PARQUET_ASSIGN_OR_THROW(auto data_copy,
                             combined->CopySlice(0, combined->size(), allocator_));
-    std::unique_ptr<DataPage> page_ptr(new DataPageV2(
+    std::unique_ptr<DataPage> page_ptr = std::make_unique<DataPageV2>(
         combined, num_values, null_count, num_values, encoding_, def_levels_byte_length,
-        rep_levels_byte_length, uncompressed_size, pager_->has_compressor(), page_stats));
+        rep_levels_byte_length, uncompressed_size, pager_->has_compressor(), page_stats);
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
     data_pages_.push_back(std::move(page_ptr));
   } else {

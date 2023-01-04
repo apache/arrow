@@ -75,6 +75,17 @@ jobs:
         run: pip install -e arrow/dev/archery[all]
       - name: Install dependencies
         run: |
+          # We want to use llvm@14 to avoid shared z3
+          # dependency. llvm@14 doesn't depend on z3 and llvm depends
+          # on z3. And Homebrew's z3 provides only shared library. It
+          # doesn't provides static z3 because z3's CMake doesn't accept
+          # building both shared and static libraries at once.
+          # See also: Z3_BUILD_LIBZ3_SHARED in
+          # https://github.com/Z3Prover/z3/blob/master/README-CMake.md
+          #
+          # If llvm is installed, Apache Arrow C++ uses llvm rather than
+          # llvm@14 because llvm is newer than llvm@14.
+          brew uninstall llvm || :
           brew bundle --file=arrow/cpp/Brewfile
           # We want to link aws-sdk-cpp statically but Homebrew's
           # aws-sdk-cpp provides only shared library. If we have

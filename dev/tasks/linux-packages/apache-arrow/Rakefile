@@ -128,9 +128,8 @@ class ApacheArrowPackageTask < PackageTask
   end
 
   def apt_prepare_debian_control_protobuf(control, target)
-    # Flight requires Protobuf 3.15.0 or later but Debian GNU/Linux
-    # bookwarm and Ubuntu 22.04 don't provide Protobuf 3.15.0 or later
-    # yet.
+    # Flight requires Protobuf 3.15.0 or later but Ubuntu 22.04
+    # doesn't provide Protobuf 3.15.0 or later yet.
     #
     # See also:
     #   * cpp/cmake_modules/ThirdpartyToolchain.cmake
@@ -144,7 +143,8 @@ class ApacheArrowPackageTask < PackageTask
     # enough resource to build with Flight.
     #
     # So, we can use system Protobuf only for arm64 for now.
-    if target.end_with?("-arm64")
+    case target
+    when /\Adebian-bookworm/, /-arm64\z/
       use_system_protobuf = ""
     else
       use_system_protobuf = "#"

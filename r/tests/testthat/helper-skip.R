@@ -102,6 +102,20 @@ skip_on_r_older_than <- function(r_version) {
   }
 }
 
+skip_on_python_older_than <- function(python_version) {
+  if (force_tests()) {
+    return()
+  }
+
+  if (!reticulate::py_available(initialize = TRUE)) {
+    skip("Python isn't available")
+  }
+
+  if (reticulate::py_version() < python_version) {
+    skip(paste("Python version:", reticulate::py_version()))
+  }
+}
+
 process_is_running <- function(x) {
   if (force_tests()) {
     # Return TRUE as this is used as a condition in an if statement

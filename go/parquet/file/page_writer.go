@@ -182,8 +182,10 @@ func (pw *serializedPageWriter) updateEncryption(moduleType int8) error {
 		pw.metaEncryptor.UpdateAad(encryption.CreateModuleAad(pw.metaEncryptor.FileAad(), moduleType, pw.rgOrdinal, pw.columnOrdinal, -1))
 	case encryption.DictPageModule:
 		pw.dataEncryptor.UpdateAad(encryption.CreateModuleAad(pw.dataEncryptor.FileAad(), moduleType, pw.rgOrdinal, pw.columnOrdinal, -1))
+	default:
+		return xerrors.New("unknown module type in updateencryption")
 	}
-	return xerrors.New("unknown module type in updateencryption")
+	return nil
 }
 
 func (pw *serializedPageWriter) Close(hasDict, fallback bool) error {

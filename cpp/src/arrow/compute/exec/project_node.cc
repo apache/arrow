@@ -23,6 +23,7 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/map_node.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
@@ -64,8 +65,8 @@ class ProjectNode : public MapNode {
     int i = 0;
     for (auto& expr : exprs) {
       if (!expr.IsBound()) {
-        ARROW_ASSIGN_OR_RAISE(
-            expr, expr.Bind(*inputs[0]->output_schema(), plan->exec_context()));
+        ARROW_ASSIGN_OR_RAISE(expr, expr.Bind(*inputs[0]->output_schema(),
+                                              plan->query_context()->exec_context()));
       }
       fields[i] = field(std::move(names[i]), expr.type()->GetSharedPtr());
       ++i;
@@ -87,8 +88,9 @@ class ProjectNode : public MapNode {
       ARROW_ASSIGN_OR_RAISE(Expression simplified_expr,
                             SimplifyWithGuarantee(exprs_[i], target.guarantee));
 
-      ARROW_ASSIGN_OR_RAISE(values[i], ExecuteScalarExpression(simplified_expr, target,
-                                                               plan()->exec_context()));
+      ARROW_ASSIGN_OR_RAISE(
+          values[i], ExecuteScalarExpression(simplified_expr, target,
+                                             plan()->query_context()->exec_context()));
     }
     return ExecBatch{std::move(values), target.length};
   }

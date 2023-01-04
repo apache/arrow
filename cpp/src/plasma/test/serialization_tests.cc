@@ -82,7 +82,8 @@ class TestPlasmaSerialization : public ::testing::Test {
 
     std::stringstream ss;
     ss << temp_dir_->path().ToString() << "fileXXXXXX";
-    strncpy(path, ss.str().c_str(), sizeof(path));
+    strncpy(path, ss.str().c_str(), sizeof(path) - 1);
+    path[sizeof(path) - 1] = '\0';
     ARROW_LOG(INFO) << "file path: '" << path << "'";
     return mkstemp(path);
   }
