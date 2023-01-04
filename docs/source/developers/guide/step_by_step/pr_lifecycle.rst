@@ -38,7 +38,7 @@ the official Arrow repository which is saved in your set up as
 ``upstream``.
 
 You should have Git set up by now, have cloned the repository,
-have successfully built Arrow and have a JIRA issue to work on.
+have successfully built Arrow and have a GitHub issue to work on.
 
 **Before making changes to the code, you should create a new
 branch in Git.**
@@ -189,16 +189,15 @@ that supports quality and with it you can learn a lot.
 
 If it still takes too long to get merged, do not hesitate to remind
 maintainers in the comment section of the pull request and post
-reminders on the JIRA ticket also.
+reminders on the GitHub issue also.
 
 How to get your pull request to be reviewed?
 --------------------------------------------
 
 Arrow maintainers will be notified when a pull request is created and
 they will get to it as soon as possible. If days pass and it still had
-not been reviewed go ahead and mention the reporter of the JIRA issue
-or a developer that you communicated with via JIRA comments, mailing
-list or GitHub.
+not been reviewed go ahead and mention the reporter of the GitHub issue
+or a developer that you communicated with via mailing list or GitHub.
 
 To put a **mention** in GitHub insert @ in the comment and select the
 username from the list.

@@ -15,14 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-prefix=@CMAKE_INSTALL_PREFIX@
-includedir=@ARROW_PKG_CONFIG_INCLUDEDIR@
-libdir=@ARROW_PKG_CONFIG_LIBDIR@
-
-Name: Apache Arrow Python
-Description: Python integration library for Apache Arrow
-Version: @ARROW_VERSION@
-Requires: arrow
-Libs: -L${libdir} -larrow_python
-Cflags: -I${includedir} -I@PYTHON_INCLUDE_DIRS@
-Cflags.private: -DARROW_PYTHON_STATIC
+module ArrowDataset
+  class FinishOptions
+    class << self
+      # @api private
+      def try_convert(value)
+        case value
+        when Hash
+          options = new
+          value.each do |k, v|
+            setter = "#{k}="
+            next unless options.respond_to?(setter)
+            options.public_send(setter, v)
+          end
+          options
+        else
+          nil
+        end
+      end
+    end
+  end
+end

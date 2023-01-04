@@ -30,6 +30,15 @@
 #include <iostream>
 #include <optional>
 
+// GH-15151: Best path forward to make this available without a hack like this one
+namespace arrow {
+namespace io {
+namespace internal {
+arrow::internal::ThreadPool* GetIOThreadPool();
+}
+}  // namespace io
+}  // namespace arrow
+
 namespace compute = ::arrow::compute;
 
 std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_name,
@@ -41,8 +50,14 @@ std::shared_ptr<arrow::KeyValueMetadata> strings_to_kvm(cpp11::strings metadata)
 std::shared_ptr<compute::ExecPlan> ExecPlan_create(bool use_threads) {
   static compute::ExecContext threaded_context{gc_memory_pool(),
                                                arrow::internal::GetCpuThreadPool()};
+  // TODO(weston) using gc_context() in this way is deprecated.  Once ordering has
+  // been added we can probably entirely remove all reference to ExecPlan from R
+  // in favor of DeclarationToXyz
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   auto plan = ValueOrStop(
       compute::ExecPlan::Make(use_threads ? &threaded_context : gc_context()));
+#pragma GCC diagnostic pop
   return plan;
 }
 
@@ -447,7 +462,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_SourceNode(
   arrow::compute::SourceNodeOptions options{
       /*output_schema=*/reader->schema(),
       /*generator=*/ValueOrStop(
-          compute::MakeReaderGenerator(reader, arrow::internal::GetCpuThreadPool()))};
+          compute::MakeReaderGenerator(reader, arrow::io::internal::GetIOThreadPool()))};
 
   return MakeExecNodeOrStop("source", plan.get(), {}, options);
 }

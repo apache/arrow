@@ -52,64 +52,46 @@ Where to get help 👋
 
 For any question you may have or problems you are facing you can write to 
 user or development :ref:`mailing_list` or you can create an issue on
-:ref:`github`.
-
-For searching through the issues, reporting bugs and creating feature
-requests or proposals you can use :ref:`jira` issue tracker.
-
-.. _jira:
-
-JIRA
-~~~~
-
-When to use JIRA?
-
-- If you want to **report a bug**.
-- If you want to **propose a new feature**.
-- If you want to **propose a bigger change in the documentation**.
-
-In these cases you can create a JIRA issue and connect with other
-contributors in the issue comments. It is good to mention the
-way you are planning to solve the issue and have one of the Arrow
-developers agree with your basic proposal for fixing it. Better
-to ask before you spend too much of your time on something that we
-might think is not a good idea.
-
-.. seealso::
-
-   - :ref:`create_jira`
-   - :ref:`creating-issues` and :ref:`bug-report-tips`
-
-- If you want to **solve an issue that is already in JIRA**, you should
-  connect with other contributors in the issue comments.
-
-JIRA is used to discuss the problem before a Pull Request is possibly made
-(how to start, where to search for the solution, etc..).
+:ref:`github`. Also use GitHub to search through the issues, report bugs
+and create feature requests or proposals.
 
 .. _github:
 
 GitHub
 ~~~~~~
 
-Further options of communicating are provided through GitHub where the project
+Different options of communicating are provided through GitHub where the project
 is hosted. What we use are GitHub Issues and Pull Requests.
 
-When to use GitHub?
+You can use GitHub issues to:
 
-- If you have **a problem with building** one of the Arrow libraries, you can
-  create an issue on GitHub and discuss the possible solution (or write to the
-  user mailing list).
+- **ask questions**,
+- **report a bug**,
+
+  .. seealso::
+
+    :ref:`How to make good bug reports and feature requests <bug-reports>`
+
+- **propose a new feature**,
+- **propose a bigger change in the documentation**,
+- report **a problem with building** one of the Arrow libraries and discuss
+  the possible solution (or write to the user mailing list).
 
   Making an issue about things you are not sure about may feel intimidating,
   but it is also useful for others and the project.
 
   .. note::
-     Make sure to add which operating system and Arrow version you are using in the
-     issue description plus the debug information/error.
+     Make sure to add which operating system and Arrow version you are using
+     in the issue description plus the debug information/error.
 
-- If you have **a new contribution already written**, you can create a Pull Request after
-  creating a JIRA ticket and mentioning the way you plan to implement it.
-- GitHub is also used to discuss your work after the **Pull Request** is made.
+If you have **a new contribution already written**, you can create a Pull
+Request after creating a GitHub issue and mentioning the way you plan to
+implement it. It is important to have one of the Arrow developers agree with
+your basic proposal for fixing it. Better to ask before you spend too much of
+your time on something that we might think is not a good idea.
+
+If you want to **solve an issue that is already in GitHub**, you should
+connect with other contributors in the issue comments.
 
 .. _mailing_list:
 
@@ -117,10 +99,10 @@ Mailing Lists
 ~~~~~~~~~~~~~
 
 You can subscribe to the **user** or **development** mailing list and browse for
-previous topics or ask questions. Whereas discussion on GitHub and JIRA
-only notifies people who have subscribed to that particular Pull Request or issue,
-the mailing list allows you to broadcast to all users or developers. Use these when
-you want to get feedback or answers from a wider audience.
+previous topics or ask questions. Whereas discussion on GitHub only notifies people
+who are mentioned or are collaborating on a Pull Request, the mailing list allows
+you to broadcast to all users or developers. Use these when you want to get feedback
+or answers from a wider audience.
 
 There is also a **biweekly developers sync call** that anyone is welcome to join.
 It is announced on the development mailing list together with the link to join.

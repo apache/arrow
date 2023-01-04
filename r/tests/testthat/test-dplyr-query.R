@@ -662,19 +662,9 @@ test_that("Scalars in expressions match the type of the field, if possible", {
     0
   )
 
-  # int == string, this works in dplyr and here too
-  expect_output(
-    tab %>%
-      filter(int == "5") %>%
-      show_exec_plan(),
-    "int == 5",
-    fixed = TRUE
-  )
-  expect_equal(
-    tab %>%
-      filter(int == "5") %>%
-      nrow(),
-    1
+  # int == string, errors starting in dplyr 1.1.0
+  expect_snapshot_warning(
+    tab %>% filter(int == "5")
   )
 
   # Strings automatically parsed to date/timestamp

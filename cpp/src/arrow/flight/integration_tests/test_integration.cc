@@ -100,10 +100,9 @@ class AuthBasicProtoScenario : public Scenario {
 
   Status RunClient(std::unique_ptr<FlightClient> client) override {
     Action action;
-    std::unique_ptr<ResultStream> stream;
-    std::shared_ptr<FlightStatusDetail> detail;
-    const auto& status = client->DoAction(action).Value(&stream);
-    detail = FlightStatusDetail::UnwrapStatus(status);
+    ARROW_ASSIGN_OR_RAISE(auto stream, client->DoAction(action));
+    const auto status = stream->Next().status();
+    std::shared_ptr<FlightStatusDetail> detail = FlightStatusDetail::UnwrapStatus(status);
     // This client is unauthenticated and should fail.
     if (detail == nullptr) {
       return Status::Invalid("Expected UNAUTHENTICATED but got ", status.ToString());
