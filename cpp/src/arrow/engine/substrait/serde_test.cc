@@ -216,6 +216,34 @@ void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
   compute::AssertTablesEqualIgnoringOrder(merged_expected, output_table);
 }
 
+int CountProjectNodeOptionsInDeclarations(const compute::Declaration& input) {
+  int counter = 0;
+  if (input.factory_name == "project") {
+    counter++;
+  }
+  const auto& inputs = input.inputs;
+  for (const auto& in : inputs) {
+    counter += CountProjectNodeOptionsInDeclarations(std::get<compute::Declaration>(in));
+  }
+  return counter;
+}
+/// Validate the number of expected ProjectNodes
+///
+/// Project nodes are sometimes added by emit elements and we may want to
+/// verify that we are not adding too many
+void ValidateNumProjectNodes(int expected_projections, const std::shared_ptr<Buffer>& buf,
+                             const ConversionOptions& conversion_options) {
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
+  ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
+                                            *buf, [] { return kNullConsumer; },
+                                            ext_id_reg, &ext_set, conversion_options));
+  auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
+  int num_projections = CountProjectNodeOptionsInDeclarations(other_declrs);
+  ASSERT_EQ(num_projections, expected_projections);
+}
+
 TEST(Substrait, SupportedTypes) {
   auto ExpectEq = [](std::string_view json, std::shared_ptr<DataType> expected_type) {
     ARROW_SCOPED_TRACE(json);
@@ -2546,6 +2574,206 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithEmit) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
+  ValidateNumProjectNodes(1, buf, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), buf,
+                       /*include_columns=*/{}, conversion_options);
+}
+
+TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
+  compute::ExecContext exec_context;
+  auto dummy_schema = schema({field("A", int32()), field("B", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [1, 1],
+      [3, 5],
+      [4, 1],
+      [2, 1],
+      [5, 5],
+      [2, 2]
+  ])"});
+
+  std::string substrait_json = R"({
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
+  "relations":[
+      {
+         "rel":{
+            "project":{
+               "common":{
+                  "emit":{
+                     "outputMapping":[
+                        0,
+                        1,
+                        2,
+                        3
+                     ]
+                  }
+               },
+               "expressions":[
+                  {
+                     "scalarFunction":{
+                        "functionReference":0,
+                        "arguments":[
+                           {
+                              "value":{
+                                 "selection":{
+                                    "directReference":{
+                                       "structField":{
+                                          "field":0
+                                       }
+                                    },
+                                    "rootReference":{
+                                       
+                                    }
+                                 }
+                              }
+                           },
+                           {
+                              "value":{
+                                 "selection":{
+                                    "directReference":{
+                                       "structField":{
+                                          "field":1
+                                       }
+                                    },
+                                    "rootReference":{
+                                       
+                                    }
+                                 }
+                              }
+                           }
+                        ],
+                        "output_type":{
+                           "bool":{
+                              
+                           }
+                        }
+                     }
+                  }
+               ],
+               "input":{
+                  "project":{
+                     "common":{
+                        "emit":{
+                           "outputMapping":[
+                              0,
+                              1,
+                              2
+                           ]
+                        }
+                     },
+                     "expressions":[
+                        {
+                           "scalarFunction":{
+                              "functionReference":0,
+                              "arguments":[
+                                 {
+                                    "value":{
+                                       "selection":{
+                                          "directReference":{
+                                             "structField":{
+                                                "field":0
+                                             }
+                                          },
+                                          "rootReference":{
+                                             
+                                          }
+                                       }
+                                    }
+                                 },
+                                 {
+                                    "value":{
+                                       "selection":{
+                                          "directReference":{
+                                             "structField":{
+                                                "field":1
+                                             }
+                                          },
+                                          "rootReference":{
+                                             
+                                          }
+                                       }
+                                    }
+                                 }
+                              ],
+                              "output_type":{
+                                 "bool":{
+                                    
+                                 }
+                              }
+                           }
+                        }
+                     ],
+                     "input":{
+                        "read":{
+                           "base_schema":{
+                              "names":[
+                                 "A",
+                                 "B"
+                              ],
+                              "struct":{
+                                 "types":[
+                                    {
+                                       "i32":{
+                                          
+                                       }
+                                    },
+                                    {
+                                       "i32":{
+                                          
+                                       }
+                                    }
+                                 ]
+                              }
+                           },
+                           "namedTable":{
+                              "names":[
+                                 "TABLE"
+                              ]
+                           }
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      }
+   ],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 0,
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "equal"
+      }}
+    ]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
+  auto output_schema = schema({field("A", int32()), field("B", int32()),
+                               field("eq1", boolean()), field("eq2", boolean())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [1, 1, true, true],
+      [3, 5, false, false],
+      [4, 1, false, false],
+      [2, 1, false, false],
+      [5, 5, true, true],
+      [2, 2, true, true]
+  ])"});
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  ValidateNumProjectNodes(2, buf, conversion_options);
 
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
@@ -2604,7 +2832,7 @@ TEST(SubstraitRoundTrip, ReadRelWithEmit) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-
+  ValidateNumProjectNodes(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -2721,7 +2949,7 @@ TEST(SubstraitRoundTrip, FilterRelWithEmit) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-
+  ValidateNumProjectNodes(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3021,7 +3249,7 @@ TEST(SubstraitRoundTrip, JoinRelWithEmit) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-
+  ValidateNumProjectNodes(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3243,7 +3471,7 @@ TEST(SubstraitRoundTrip, AggregateRelEmit) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-
+  ValidateNumProjectNodes(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3346,7 +3574,7 @@ TEST(Substrait, IsthmusPlan) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", substrait_json,
                                                    /*ignore_unknown_fields=*/false));
-
+  ValidateNumProjectNodes(1, buf, conversion_options);
   auto expected_table = TableFromJSON(test_schema, {"[[2], [3], [6]]"});
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
@@ -3510,7 +3738,7 @@ TEST(Substrait, ProjectWithMultiFieldExpressions) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-
+  ValidateNumProjectNodes(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3596,7 +3824,7 @@ TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-
+  ValidateNumProjectNodes(2, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3683,7 +3911,7 @@ TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
-
+  ValidateNumProjectNodes(2, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -3888,6 +4116,7 @@ TEST(Substrait, RootRelationOutputNames) {
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
+  ValidateNumProjectNodes(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
 }
@@ -4189,7 +4418,7 @@ TEST(Substrait, PlanWithAsOfJoinExtension) {
   conversion_options.named_table_provider = std::move(table_provider);
 
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
-
+  ValidateNumProjectNodes(1, buf, conversion_options);
   ASSERT_OK_AND_ASSIGN(
       auto out_schema,
       compute::asofjoin::MakeOutputSchema(
