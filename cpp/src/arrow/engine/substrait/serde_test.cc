@@ -223,8 +223,7 @@ int CountProjectNodeOptionsInDeclarations(const compute::Declaration& input) {
   }
   const auto& inputs = input.inputs;
   for (const auto& in : inputs) {
-    return counter +
-           CountProjectNodeOptionsInDeclarations(std::get<compute::Declaration>(in));
+    counter += CountProjectNodeOptionsInDeclarations(std::get<compute::Declaration>(in));
   }
   return counter;
 }
