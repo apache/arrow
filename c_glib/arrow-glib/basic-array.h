@@ -345,6 +345,35 @@ const guint64 *garrow_uint64_array_get_values(GArrowUInt64Array *array,
                                               gint64 *length);
 
 
+#define GARROW_TYPE_HALF_FLOAT_ARRAY (garrow_half_float_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowHalfFloatArray,
+                         garrow_half_float_array,
+                         GARROW,
+                         HALF_FLOAT_ARRAY,
+                         GArrowNumericArray)
+struct _GArrowHalfFloatArrayClass
+{
+  GArrowNumericArrayClass parent_class;
+};
+
+
+GARROW_AVAILABLE_IN_11_0
+GArrowHalfFloatArray *
+garrow_half_float_array_new(gint64 length,
+                            GArrowBuffer *data,
+                            GArrowBuffer *null_bitmap,
+                            gint64 n_nulls);
+
+GARROW_AVAILABLE_IN_11_0
+guint16
+garrow_half_float_array_get_value(GArrowHalfFloatArray *array,
+                                  gint64 i);
+GARROW_AVAILABLE_IN_11_0
+const guint16*
+garrow_half_float_array_get_values(GArrowHalfFloatArray *array,
+                                   gint64 *length);
+
+
 #define GARROW_TYPE_FLOAT_ARRAY (garrow_float_array_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowFloatArray,
                          garrow_float_array,

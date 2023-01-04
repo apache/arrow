@@ -57,6 +57,8 @@ G_BEGIN_DECLS
  *
  * #GArrowUInt64Scalar is a class for a 64-bit unsigned integer scalar.
  *
+ * #GArrowHalfFloatScalar is a class for a 16-bit floating point scalar.
+ *
  * #GArrowFloatScalar is a class for a 32-bit floating point scalar.
  *
  * #GArrowDoubleScalar is a class for a 64-bit floating point scalar.
@@ -862,6 +864,55 @@ garrow_uint64_scalar_get_value(GArrowUInt64Scalar *scalar)
 {
   const auto arrow_scalar =
     std::static_pointer_cast<arrow::UInt64Scalar>(
+      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  return arrow_scalar->value;
+}
+
+
+G_DEFINE_TYPE(GArrowHalfFloatScalar,
+              garrow_half_float_scalar,
+              GARROW_TYPE_SCALAR)
+
+static void
+garrow_half_float_scalar_init(GArrowHalfFloatScalar *object)
+{
+}
+
+static void
+garrow_half_float_scalar_class_init(GArrowHalfFloatScalarClass *klass)
+{
+}
+
+/**
+ * garrow_half_float_scalar_new:
+ * @value: The value of this scalar.
+ *
+ * Returns: A newly created #GArrowHalfFloatScalar.
+ *
+ * Since: 11.0.0
+ */
+GArrowHalfFloatScalar *
+garrow_half_float_scalar_new(guint16 value)
+{
+  auto arrow_scalar =
+    std::static_pointer_cast<arrow::Scalar>(
+      std::make_shared<arrow::HalfFloatScalar>(value));
+  return GARROW_HALF_FLOAT_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
+}
+
+/**
+ * garrow_half_float_scalar_get_value:
+ * @scalar: A #GArrowHalfFloatScalar.
+ *
+ * Returns: The value of this scalar.
+ *
+ * Since: 11.0.0
+ */
+guint16
+garrow_half_float_scalar_get_value(GArrowHalfFloatScalar *scalar)
+{
+  const auto arrow_scalar =
+    std::static_pointer_cast<arrow::HalfFloatScalar>(
       garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
@@ -2550,6 +2601,9 @@ garrow_scalar_new_raw_valist(std::shared_ptr<arrow::Scalar> *arrow_scalar,
     break;
   case arrow::Type::type::UINT64:
     type = GARROW_TYPE_UINT64_SCALAR;
+    break;
+  case arrow::Type::type::HALF_FLOAT:
+    type = GARROW_TYPE_HALF_FLOAT_SCALAR;
     break;
   case arrow::Type::type::FLOAT:
     type = GARROW_TYPE_FLOAT_SCALAR;
