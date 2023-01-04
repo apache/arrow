@@ -216,18 +216,16 @@ void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
   compute::AssertTablesEqualIgnoringOrder(merged_expected, output_table);
 }
 
-void countProjectNodeOptionsInDeclarations(const compute::Declaration& input,
-                                           int& counter) {
-  const auto& options = input.options;
-  const auto& inputs = input.inputs;
-  const auto* maybe_project_option =
-      dynamic_cast<const compute::ProjectNodeOptions*>(options.get());
-  if (maybe_project_option != NULL) {
+int CountProjectNodeOptionsInDeclarations(const compute::Declaration& input) {
+  static int counter = 0;
+  if (input.factory_name == "project") {
     counter++;
   }
+  const auto& inputs = input.inputs;
   for (const auto& in : inputs) {
-    countProjectNodeOptionsInDeclarations(std::get<compute::Declaration>(in), counter);
+    CountProjectNodeOptionsInDeclarations(std::get<compute::Declaration>(in));
   }
+  return counter;
 }
 
 TEST(Substrait, SupportedTypes) {
@@ -2767,8 +2765,7 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
                                             *buf, [] { return kNullConsumer; },
                                             ext_id_reg, &ext_set, conversion_options));
   auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
-  int num_projections = 0;
-  countProjectNodeOptionsInDeclarations(other_declrs, num_projections);
+  int num_projections = CountProjectNodeOptionsInDeclarations(other_declrs);
   ASSERT_EQ(num_projections, 2);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
