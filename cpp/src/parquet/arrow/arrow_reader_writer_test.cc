@@ -4154,7 +4154,7 @@ TEST_P(TestArrowWriteDictionary, StatisticsUnifiedDictionary) {
         ArrayFromJSON(::arrow::utf8(), R"(["b", "c", "d", "a"])");
     std::vector<std::shared_ptr<::arrow::Array>> test_indices = {
         ArrayFromJSON(::arrow::int32(),
-                      R"([0, null, 3, 0, null, 3])"),  // ["b", null "a", "b", null, "a"]
+                      R"([3, null, 3, 3, null, 3])"),  // ["a", null "a", "a", null, "a"]
         ArrayFromJSON(
             ::arrow::int32(),
             R"([0, 3, null, 0, null, 1])")};  // ["b", "a", null, "b", null, "c"]
