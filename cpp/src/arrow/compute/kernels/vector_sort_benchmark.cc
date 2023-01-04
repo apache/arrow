@@ -107,7 +107,7 @@ static void ChunkedArraySortFuncStringBenchmark(benchmark::State& state,
   auto rand = random::RandomArrayGenerator(kSeed);
 
   ArrayVector chunks;
-  auto chunked_array_bytes = 0;
+  int64_t chunked_array_bytes = 0;
   for (auto i = 0; i < n_chunks; ++i) {
     auto values = rand.String(array_size, min_length, max_length, args.null_proportion);
     chunks.push_back(values);
