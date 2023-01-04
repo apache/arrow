@@ -1488,19 +1488,28 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     // as it does not make any copies.
     ::arrow::compute::ExecContext exec_ctx(ctx->memory_pool);
     exec_ctx.set_use_threads(false);
-    PARQUET_ASSIGN_OR_THROW(::arrow::Datum referenced_indices,
-                            ::arrow::compute::Unique(*indices, &exec_ctx));
+
     std::shared_ptr<::arrow::Array> referenced_dictionary;
-    if (referenced_indices.length() == dictionary->length()) {
-      referenced_dictionary = dictionary;
+    // If dictionary is the same dictionary we already have, just use that
+    if (preserved_dictionary_ && preserved_dictionary_ == dictionary) {
+      referenced_dictionary = preserved_dictionary_;
     } else {
-      PARQUET_ASSIGN_OR_THROW(
-          ::arrow::Datum referenced_dictionary_datum,
-          ::arrow::compute::Take(dictionary, referenced_indices,
-                                 ::arrow::compute::TakeOptions(/*boundscheck=*/false),
-                                 &exec_ctx));
-      referenced_dictionary = referenced_dictionary_datum.make_array();
+      PARQUET_ASSIGN_OR_THROW(::arrow::Datum referenced_indices,
+                              ::arrow::compute::Unique(*indices, &exec_ctx));
+
+      // On first run, we might be able to re-use the existing dictionary
+      if (referenced_indices.length() == dictionary->length()) {
+        referenced_dictionary = dictionary;
+      } else {
+        PARQUET_ASSIGN_OR_THROW(
+            ::arrow::Datum referenced_dictionary_datum,
+            ::arrow::compute::Take(dictionary, referenced_indices,
+                                   ::arrow::compute::TakeOptions(/*boundscheck=*/false),
+                                   &exec_ctx));
+        referenced_dictionary = referenced_dictionary_datum.make_array();
+      }
     }
+
     int64_t non_null_count = indices->length() - indices->null_count();
     page_statistics_->IncrementNullCount(num_levels - non_null_count);
     page_statistics_->IncrementNumValues(non_null_count);
