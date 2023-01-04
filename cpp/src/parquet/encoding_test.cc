@@ -1290,8 +1290,8 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
  public:
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
-  static constexpr size_t ROUND_TRIP_TIMES = 3;
-  const std::vector<int> EXTRA_READ_BATCH_SIZES = {1, 10};
+  static constexpr size_t kNumRoundTrips = 3;
+  const std::vector<int> kReadBatchSizes = {1, 11};
 
   void InitBoundData(int nvalues, int repeats, c_type half_range) {
     num_values_ = nvalues * repeats;
@@ -1329,23 +1329,23 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
     auto encoder =
         MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED, false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
-    auto read_batch_sizes = EXTRA_READ_BATCH_SIZES;
+    auto read_batch_sizes = kReadBatchSizes;
     read_batch_sizes.push_back(num_values_);
-    for (size_t i = 0; i < ROUND_TRIP_TIMES; ++i) {
-      for (int read_batch_size : read_batch_sizes) {
-        encoder->Put(draws_, num_values_);
-        encode_buffer_ = encoder->FlushValues();
-
+    // Encode a number of times to exercise the flush logic
+    for (size_t i = 0; i < kNumRoundTrips; ++i) {
+      encoder->Put(draws_, num_values_);
+      encode_buffer_ = encoder->FlushValues();
+      // Exercise different batch sizes
+      for (const int read_batch_size : read_batch_sizes) {
         decoder->SetData(num_values_, encode_buffer_->data(),
                          static_cast<int>(encode_buffer_->size()));
 
-        int values_decoded_sum = 0;
-        while (values_decoded_sum < num_values_) {
-          int values_decoded =
-              decoder->Decode(decode_buf_ + values_decoded_sum, read_batch_size);
-          values_decoded_sum += values_decoded;
+        int values_decoded = 0;
+        while (values_decoded < num_values_) {
+          values_decoded +=
+              decoder->Decode(decode_buf_ + values_decoded, read_batch_size);
         }
-        ASSERT_EQ(num_values_, values_decoded_sum);
+        ASSERT_EQ(num_values_, values_decoded);
         ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
       }
     }
@@ -1363,7 +1363,7 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
       }
     }
 
-    for (size_t i = 0; i < ROUND_TRIP_TIMES; ++i) {
+    for (size_t i = 0; i < kNumRoundTrips; ++i) {
       encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
       encode_buffer_ = encoder->FlushValues();
       decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
