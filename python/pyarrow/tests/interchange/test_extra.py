@@ -224,8 +224,8 @@ def test_roundtrip_pandas_boolean():
 @pytest.mark.pandas
 @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
 def test_roundtrip_pandas_datetime(unit):
-    # pandas always creates datetime64 in "ns"
-    # resolution, timezones are not yet supported
+    # pandas < 2.0 always creates datetime64 in "ns"
+    # resolution, timezones are not yet supported in pandas
 
     if Version(pd.__version__) < Version("1.5.0"):
         pytest.skip("__dataframe__ added to pandas in 1.5.0")
@@ -269,6 +269,71 @@ def test_pandas_assertion_error_large_string():
 
     with pytest.raises(AssertionError):
         pandas_from_dataframe(table)
+
+
+@pytest.mark.pandas
+@pytest.mark.parametrize(
+    "np_float", [np.float32, np.float64]
+)
+def test_pandas_to_pyarrow_with_missing(np_float):
+    np_array = np.array([0, np.nan, 2], dtype=np_float)
+    datetime_array = [None, dt(2007, 7, 14), dt(2007, 7, 15)]
+    df = pd.DataFrame({
+        "a": np_array,   # float, ColumnNullType.USE_NAN
+        "dt": datetime_array  # ColumnNullType.USE_SENTINEL
+    })
+    expected = pa.table({
+        "a": pa.array(np_array, from_pandas=True),
+        "dt": pa.array(datetime_array, type=pa.timestamp("ns"))
+    })
+    result = pi.from_dataframe(df)
+
+    assert result.equals(expected)
+
+
+@pytest.mark.pandas
+def test_pandas_to_pyarrow_float16_with_missing():
+    # np.float16 errors if ps.is_nan is used
+    # pyarrow.lib.ArrowNotImplementedError: Function 'is_nan' has no kernel
+    # matching input types (halffloat)
+    np_array = np.array([0, np.nan, 2], dtype=np.float16)
+    df = pd.DataFrame({"a": np_array})
+
+    with pytest.raises(NotImplementedError):
+        pi.from_dataframe(df)
+
+
+@pytest.mark.pandas
+def test_pandas_to_pyarrow_string_with_missing():
+    # pandas is using int64 offsets for string dtype so the constructed
+    # pyarrow string column will always be a large_string data type
+    arr = {
+        "Y": ["a", "b", None],  # bool, ColumnNullType.USE_BYTEMASK,
+    }
+    df = pd.DataFrame(arr)
+    expected = pa.table(arr)
+    result = pi.from_dataframe(df)
+
+    assert result[0].to_pylist() == expected[0].to_pylist()
+    assert pa.types.is_string(expected[0].type)
+    assert pa.types.is_large_string(result[0].type)
+
+
+@pytest.mark.pandas
+def test_pandas_to_pyarrow_categorical_with_missing():
+    arr = ["Mon", "Tue", "Mon", "Wed", "Mon", "Thu", "Fri", "Sat", None]
+    df = pd.DataFrame(
+        {"weekday": arr}
+    )
+    df = df.astype("category")
+    result = pi.from_dataframe(df)
+
+    expected_dictionary = ["Fri", "Mon", "Sat", "Thu", "Tue", "Wed"]
+    expected_indices = pa.array([1, 4, 1, 5, 1, 3, 0, 2, None], type=pa.int8())
+
+    assert result[0].to_pylist() == arr
+    assert result[0].chunk(0).dictionary.to_pylist() == expected_dictionary
+    assert result[0].chunk(0).indices.equals(expected_indices)
 
 
 @pytest.mark.parametrize(
@@ -317,7 +382,7 @@ def test_pyarrow_roundtrip(uint, int, float, np_float, unit, tz):
 
 
 def test_pyarrow_roundtrip_categorical():
-    arr = ["Mon", "Tue", "Mon", "Wed", "Mon", "Thu", "Fri", "Sat", "Sun"]
+    arr = ["Mon", "Tue", "Mon", "Wed", "Mon", "Thu", "Fri", None, "Sun"]
     table = pa.table(
         {"weekday": pa.array(arr).dictionary_encode()}
     )
