@@ -2427,6 +2427,8 @@ TEST(TestCaseWhen, UnionBoolString) {
   }
 }
 
+// FIXME(GH-15192): enabling this test produces test failures
+
 // TEST(TestCaseWhen, UnionBoolStringRandom) {
 //   for (const auto& type : std::vector<std::shared_ptr<DataType>>{
 //            sparse_union({field("a", boolean()), field("b", utf8())}, {2, 7}),
