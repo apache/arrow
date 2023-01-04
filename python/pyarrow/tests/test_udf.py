@@ -350,7 +350,7 @@ def test_registration_errors():
                                     in_names, None)
 
     # validate input type
-    expected_expr = "in_arg_types must be a list of DataType"
+    expected_expr = "in_arg_types must be a list of list of DataType"
     with pytest.raises(TypeError, match=expected_expr):
         pc.register_scalar_function(test_reg_function,
                                     "test_input_function", doc, None,
