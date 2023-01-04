@@ -98,13 +98,15 @@ Result<std::shared_ptr<SchemaManifest>> GetSchemaManifest(
   return manifest;
 }
 
-bool isNan(const Scalar& value) {
-  if (value.type->Equals(*float32())) {
-    const FloatScalar& float_scalar = checked_cast<const FloatScalar&>(value);
-    return std::isnan(float_scalar.value);
-  } else if (value.type->Equals(*float64())) {
-    const DoubleScalar& double_scalar = checked_cast<const DoubleScalar&>(value);
-    return std::isnan(double_scalar.value);
+bool IsNan(const Scalar& value) {
+  if (value.is_valid) {
+    if (value.type->id() == Type::FLOAT) {
+      const FloatScalar& float_scalar = checked_cast<const FloatScalar&>(value);
+      return std::isnan(float_scalar.value);
+    } else if (value.type->id() == Type::DOUBLE) {
+      const DoubleScalar& double_scalar = checked_cast<const DoubleScalar&>(value);
+      return std::isnan(double_scalar.value);
+    }
   }
   return false;
 }
@@ -146,7 +148,10 @@ std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
     min = maybe_min.MoveValueUnsafe();
     max = maybe_max.MoveValueUnsafe();
 
-    if (isNan(*min) && isNan(*max)) {
+    // Since the minimum & maximum values are NaN, useful statistics
+    // cannot be extracted for checking the presence of a value within
+    // range
+    if (IsNan(*min) && IsNan(*max)) {
       return std::nullopt;
     }
 
@@ -163,9 +168,11 @@ std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
     auto upper_bound = compute::less_equal(field_expr, compute::literal(max));
     compute::Expression in_range;
 
-    if (isNan(*min)) {
+    // If either minimum or maximum is NaN, it should be ignored for the
+    // range computation
+    if (IsNan(*min)) {
       in_range = std::move(upper_bound);
-    } else if (isNan(*max)) {
+    } else if (IsNan(*max)) {
       in_range = std::move(lower_bound);
     } else {
       in_range = compute::and_(std::move(lower_bound), std::move(upper_bound));
