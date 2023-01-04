@@ -332,7 +332,6 @@ def numpydoc(src, symbols, allow_rule, disallow_rule):
     archery numpydoc pyarrow.array
     """
     disallow_rule = disallow_rule or {'GL01', 'SA01', 'EX01', 'ES01'}
-
     try:
         results = python_numpydoc(
             symbols, allow_rules=_flatten_numpydoc_rules(allow_rule),
