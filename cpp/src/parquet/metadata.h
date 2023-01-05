@@ -294,7 +294,7 @@ class PARQUET_EXPORT FileMetaData {
   ///   foo.qux                   2
   /// 1 foo2                      3
   /// 2 foo3                      4
-  /// This method will return 5, because there is 5 "leaf" fields (so 5
+  /// This method will return 5, because there are 5 "leaf" fields (so 5
   /// flattened fields)
   int num_columns() const;
 
