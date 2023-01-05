@@ -458,14 +458,13 @@ test_that("Can read parquet with nested lists and maps", {
   # * ../cpp/submodules/parquet-testing/data
   # ARROW_SOURCE_HOME is set in many of our CI setups, so that will find the files
   # the .. version should catch some (thought not all) ways of running tests locally
-  parquet_test_data <- file.path(
-    Sys.getenv("ARROW_SOURCE_HOME", test_path("..")),
-    "cpp",
-    "submodules",
-    "parquet-testing",
-    "data"
-  )
-  skip_if_not(dir.exists(parquet_test_data), "Parquet test data missing")
+  base_path <- Sys.getenv("ARROW_SOURCE_HOME", "..")
+  # make this a full path, at the root of the filesystem if we're using ARROW_SOURCE_HOME
+  if (base_path != "..") {
+    base_path <- file.path("", base_path)
+  }
+  parquet_test_data <- file.path(base_path, "cpp", "submodules", "parquet-testing", "data")
+  skip_if_not(dir.exists(parquet_test_data) | force_tests(), "Parquet test data missing")
 
   pq <- read_parquet(paste0(parquet_test_data, "/nested_lists.snappy.parquet"), as_data_frame = FALSE)
   expect_equal(pq$a$type, list_of(list_of(list_of(utf8()))), ignore_attr = TRUE)
