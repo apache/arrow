@@ -1708,7 +1708,6 @@ TEST(Substrait, AggregateBasic) {
             }],
               "sorts": [],
               "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
-              "invocation": "AGGREGATION_INVOCATION_ALL",
               "outputType": {
                 "i64": {}
               }
