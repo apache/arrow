@@ -4515,14 +4515,25 @@ def test_does_not_mutate_timedelta_nested():
     assert df["timedelta_2"][0].to_pytimedelta() == timedelta_2[0]
 
 
-def test_list_only_once():
-    breakpoint()
+def test_list_no_duplicate_base():
+    # ARROW-18400
     arr = pa.array([[1, 2], [3, 4, 5], [6], [7, 8]])
-    chunked_arr = pa.chunked_array([arr.slice(0, 2), arr.slice(2, 2)])
+    chunked_arr = pa.chunked_array([arr.slice(0, 2), arr.slice(2, 1)])
 
-    # converting this chunked array to numpy
     np_arr = chunked_arr.to_numpy()
 
-    expected_base = np.array([[1, 2, 3, 4, 5, 6, 7, 8]])
-    assert np_arr[0].base == expected_base
-    assert arr.to_numpy(zero_copy_only=False)[0].base == expected_base
+    expected = np.array([np.array(part) for part in [[1, 2], [3, 4, 5], [6]]])
+    for left, right in zip(np_arr, expected):
+        npt.assert_array_equal(left, right)
+
+    expected_base = np.array([[1, 2, 3, 4, 5, 6]])
+    npt.assert_array_equal(np_arr[0].base, expected_base)
+
+    np_arr_sliced = chunked_arr.slice(1, 3).to_numpy()
+
+    expected = np.array([[3, 4, 5], [6]])
+    for left, right in zip(np_arr_sliced, expected):
+        npt.assert_array_equal(left, right)
+
+    expected_base = np.array([[3, 4, 5, 6]])
+    npt.assert_array_equal(np_arr_sliced[0].base, expected_base)

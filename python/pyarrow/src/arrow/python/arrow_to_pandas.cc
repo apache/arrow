@@ -737,13 +737,16 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   // Get column of underlying value arrays
   ArrayVector value_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
-    // Values does not account for offsets
     const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
+    // values() does not account for offsets, so we need to slice into it.
+    // We can't use Flatten(), because it removes the null values, which we need.
+    std::shared_ptr<Array> flattened_values = arr.values()->Slice(
+        arr.value_offset(0), arr.value_offset(arr.length()) - arr.value_offset(0));
     if (arr.value_type()->id() == Type::EXTENSION) {
-      const auto& arr_ext = checked_cast<const ExtensionArray&>(*arr.values());
+      const auto& arr_ext = checked_cast<const ExtensionArray&>(*flattened_values);
       value_arrays.emplace_back(arr_ext.storage());
     } else {
-      value_arrays.emplace_back(arr.values());
+      value_arrays.emplace_back(flattened_values);
     }
   }
 
@@ -773,8 +776,12 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
         Py_INCREF(Py_None);
         *out_values = Py_None;
       } else {
-        OwnedRef start(PyLong_FromLongLong(arr.value_offset(i) + chunk_offset));
-        OwnedRef end(PyLong_FromLongLong(arr.value_offset(i + 1) + chunk_offset));
+        // Need to subtract value_offset(0) since the original chunk might be a slice
+        // into another array.
+        OwnedRef start(PyLong_FromLongLong(arr.value_offset(i) + chunk_offset -
+                                           arr.value_offset(0)));
+        OwnedRef end(PyLong_FromLongLong(arr.value_offset(i + 1) + chunk_offset -
+                                         arr.value_offset(0)));
         OwnedRef slice(PySlice_New(start.obj(), end.obj(), nullptr));
 
         if (ARROW_PREDICT_FALSE(slice.obj() == nullptr)) {
@@ -792,7 +799,7 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
     }
     RETURN_IF_PYERROR();
 
-    chunk_offset += arr.values()->length();
+    chunk_offset += arr.value_offset(arr.length()) - arr.value_offset(0);
   }
 
   return Status::OK();
@@ -1084,7 +1091,8 @@ struct ObjectWriterVisitor {
       OwnedRef keywords(PyDict_New());
       PyDict_SetItemString(keywords.obj(), "tzinfo", PyDateTime_TimeZone_UTC);
       OwnedRef naive_datetime_replace(PyObject_GetAttrString(naive_datetime, "replace"));
-      OwnedRef datetime_utc(PyObject_Call(naive_datetime_replace.obj(), args.obj(), keywords.obj()));
+      OwnedRef datetime_utc(
+          PyObject_Call(naive_datetime_replace.obj(), args.obj(), keywords.obj()));
       // second step: adjust the datetime to tzinfo timezone (astimezone method)
       *out = PyObject_CallMethod(datetime_utc.obj(), "astimezone", "O", tzinfo.obj());
 
