@@ -770,22 +770,26 @@ below.
 Run-End Encoded Layout
 -------------------------
 
-Run-End is a data representation that represents data as sequences of the
-same value, called runs. Each run is represented as a value, and an integer
-describing the index in the array where the run ends.
+Run-end encoding (REE) is a variation of run-length encoding (RLE). These
+encodings are well-suited for representing data containing sequences of the
+same value, called runs. In run-end encoding, each run is represented as a
+value and an integer giving the index in the array where the run ends.
 
 Any array can be run-end encoded. A run-end encoded array has no buffers
 by itself, but has two child arrays. The first one holds a signed integer
 called a "run end" for each run. The run ends array can hold either 16, 32, or
-64-bit integers. The actual values of each run are held in
-the second child array.
+64-bit integers. The actual values of each run are held in the second child array.
+For the purposes of determining field names and schemas, these child arrays
+are prescribed the standard names of **run_ends** and **values** respectively.
 
 The values in the first child array represent the length of each run. They do
 not hold the length of the respective run directly, but the accumulated length
 of all runs from the first to the current one, i.e. the logical index where the
 current run ends. This allows relatively efficient random access from a logical
 index using binary search. The length of an individual run can be determined by
-subtracting two adjacent values.
+subtracting two adjacent values. (Contrast this with run-length encoding, in
+which the lengths of the runs are represented directly, and in which random
+access is less efficient.)
 
 A run must have have a length of at least 1. This means the values in the
 run ends array all positive and in strictly ascending order. A run end cannot be
@@ -803,7 +807,7 @@ In Run-end-encoded form, this could appear as:
     * Length: 7, Null count: 2
     * Children arrays:
 
-      * run ends (Int32):
+      * run_ends (Int32):
         * Length: 3, Null count: 0
         * Validity bitmap buffer: Not required
         * Values buffer
