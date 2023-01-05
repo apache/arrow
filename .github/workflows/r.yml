@@ -67,6 +67,7 @@ jobs:
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
+        submodules: recursive
         with:
           fetch-depth: 0
       - name: Cache Docker Volumes
@@ -135,6 +136,7 @@ jobs:
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
+        submodules: recursive
         with:
           fetch-depth: 0
       - name: Setup Python
