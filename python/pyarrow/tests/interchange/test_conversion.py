@@ -195,14 +195,10 @@ def test_pandas_roundtrip(uint, int, float, np_float):
 
 @pytest.mark.pandas
 def test_roundtrip_pandas_boolean():
-    # Boolean pyarrow Arrays are casted to uint8 as bit packed boolean
-    # is not yet supported by the protocol
-
     if Version(pd.__version__) < Version("1.5.0"):
         pytest.skip("__dataframe__ added to pandas in 1.5.0")
 
     table = pa.table({"a": [True, False, True]})
-    expected = pa.table({"a": pa.array([1, 0, 1], type=pa.uint8())})
 
     from pandas.api.interchange import (
         from_dataframe as pandas_from_dataframe
@@ -210,15 +206,15 @@ def test_roundtrip_pandas_boolean():
     pandas_df = pandas_from_dataframe(table)
     result = pi.from_dataframe(pandas_df)
 
-    assert expected.equals(result)
+    assert table.equals(result)
 
-    expected_protocol = expected.__dataframe__()
+    table_protocol = table.__dataframe__()
     result_protocol = result.__dataframe__()
 
-    assert expected_protocol.num_columns() == result_protocol.num_columns()
-    assert expected_protocol.num_rows() == result_protocol.num_rows()
-    assert expected_protocol.num_chunks() == result_protocol.num_chunks()
-    assert expected_protocol.column_names() == result_protocol.column_names()
+    assert table_protocol.num_columns() == result_protocol.num_columns()
+    assert table_protocol.num_rows() == result_protocol.num_rows()
+    assert table_protocol.num_chunks() == result_protocol.num_chunks()
+    assert table_protocol.column_names() == result_protocol.column_names()
 
 
 @pytest.mark.pandas
@@ -377,9 +373,9 @@ def test_pyarrow_roundtrip(uint, int, float, np_float,
             "b": pa.array(arr, type=int),
             "c": pa.array(np.array(arr, dtype=np_float),
                           type=float, from_pandas=True),
-            # "d": [True, False, True],
-            # "e": [True, False, None],
-            "f": ["a", "", "c"],
+            "d": [True, False, True],
+            "e": [True, False, None],
+            "f": ["a", None, "c"],
             "g": pa.array(dt_arr, type=pa.timestamp(unit, tz=tz))
         }
     )

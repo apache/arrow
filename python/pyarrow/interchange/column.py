@@ -216,15 +216,25 @@ class _PyArrowColumn:
                         "is forbidden by allow_copy=False"
                     )
                 column = column.combine_chunks()
-        self._col = column
+
         self._allow_copy = allow_copy
 
-        dtype = self._col.type
-        try:
-            bit_width = dtype.bit_width
-        except ValueError:  # in case of a variable-length strings
-            bit_width = 8
-        self._dtype = self._dtype_from_arrowdtype(dtype, bit_width)
+        if pa.types.is_boolean(column.type):
+            if not allow_copy:
+                raise RuntimeError(
+                    "Boolean column will be casted to uint8 and a copy "
+                    "is required which is forbidden by allow_copy=False"
+                )
+            self._dtype = self._dtype_from_arrowdtype(column.type, 8)
+            self._col = pc.cast(column, pa.uint8())
+        else:
+            self._col = column
+            dtype = self._col.type
+            try:
+                bit_width = dtype.bit_width
+            except ValueError:  # in case of a variable-length strings
+                bit_width = 8
+            self._dtype = self._dtype_from_arrowdtype(dtype, bit_width)
 
     def size(self) -> int:
         """
@@ -460,11 +470,6 @@ class _PyArrowColumn:
         array = self._col
         dtype = self.dtype
 
-        # In case of boolean arrays, cast to uint8 array
-        # as bit packed buffers are not supported
-        if pa.types.is_boolean(array.type):
-            array = pc.cast(array, pa.uint8())
-            dtype = _PyArrowColumn(array).dtype
         # In case of dictionary arrays, use indices
         # to define a buffer, codes are transferred through
         # describe_categorical()
