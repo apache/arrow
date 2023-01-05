@@ -17,7 +17,6 @@
 
 class TableTest < Test::Unit::TestCase
   include Helper::Fixture
-  include Helper::Omittable
 
   def setup
     @count_field = Arrow::Field.new("count", :uint8)
