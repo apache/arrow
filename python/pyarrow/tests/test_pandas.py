@@ -4522,18 +4522,18 @@ def test_list_no_duplicate_base():
 
     np_arr = chunked_arr.to_numpy()
 
-    expected = np.array([np.array(part) for part in [[1, 2], [3, 4, 5], [6]]])
+    expected = np.array([[1, 2], [3, 4, 5], [6]], dtype="object")
     for left, right in zip(np_arr, expected):
         npt.assert_array_equal(left, right)
 
-    expected_base = np.array([[1, 2, 3, 4, 5, 6]])
+    expected_base = np.array([[1, 2, 3, 4, 5, 6]], dtype="object")
     npt.assert_array_equal(np_arr[0].base, expected_base)
 
     np_arr_sliced = chunked_arr.slice(1, 3).to_numpy()
 
-    expected = np.array([[3, 4, 5], [6]])
+    expected = np.array([[3, 4, 5], [6]], dtype="object")
     for left, right in zip(np_arr_sliced, expected):
         npt.assert_array_equal(left, right)
 
-    expected_base = np.array([[3, 4, 5, 6]])
+    expected_base = np.array([[3, 4, 5, 6]], dtype="object")
     npt.assert_array_equal(np_arr_sliced[0].base, expected_base)
