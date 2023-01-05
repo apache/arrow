@@ -454,14 +454,14 @@ test_that("deprecated int96 timestamp unit can be specified when reading Parquet
 
 test_that("Can read parquet with nested lists and maps", {
   # Construct the path to the parquet-testing submodule. This will search:
-  # * $ARROW_SOURCE_HOME/cpp/submodules/parquet-testing/data 
-  # * ../cpp/submodules/parquet-testing/data 
+  # * $ARROW_SOURCE_HOME/cpp/submodules/parquet-testing/data
+  # * ../cpp/submodules/parquet-testing/data
   # ARROW_SOURCE_HOME is set in many of our CI setups, so that will find the files
   # the .. version should catch some (thought not all) ways of running tests locally
-  parquet_test_data <-file.path(
-    Sys.getenv("ARROW_SOURCE_HOME", test_path("..")), 
-    "cpp", 
-    "submodules", 
+  parquet_test_data <- file.path(
+    Sys.getenv("ARROW_SOURCE_HOME", test_path("..")),
+    "cpp",
+    "submodules",
     "parquet-testing",
     "data"
   )
