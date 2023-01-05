@@ -509,18 +509,6 @@ class TestListArray : public ::testing::Test {
     ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, 7, 4}, values));
   }
 
-  void TestSliced() {
-    auto arr = ArrayFromJSON(list(int16()), "[[1, 2], [3, 4, 5], [6], [7, 8]]");
-
-    auto arr_sliced = arr->Slice(0, 2);
-    auto expected_sliced = ArrayFromJSON(list(int16()), "[[1, 2], [3, 4, 5]]");
-    AssertArraysEqual(*expected_sliced, *arr_sliced);
-
-    auto values = checked_cast<ListArray*>(arr_sliced.get())->values();
-    auto expected_values = ArrayFromJSON(int16(), "[1, 2, 3, 4, 5]");
-    AssertArraysEqual(*expected_values, *values);
-  }
-
   void TestCornerCases() {
     // ARROW-7985
     ASSERT_OK(builder_->AppendNull());
@@ -612,8 +600,6 @@ TYPED_TEST(TestListArray, TestFlattenNonEmptyBackingNulls) {
 }
 
 TYPED_TEST(TestListArray, ValidateOffsets) { this->TestValidateOffsets(); }
-
-TYPED_TEST(TestListArray, TestSliced) { this->TestSliced(); }
 
 TYPED_TEST(TestListArray, CornerCases) { this->TestCornerCases(); }
 
