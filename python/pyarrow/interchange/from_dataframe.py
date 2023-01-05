@@ -276,6 +276,24 @@ def parse_datetime_format_str(format_str):
     raise NotImplementedError(f"DateTime kind is not supported: {format_str}")
 
 
+def map_date_type(data_type):
+    """Map column date type to pyarrow date type. """
+    kind, bit_width, f_string, _ = data_type
+
+    if kind == DtypeKind.DATETIME:
+        unit, tz = parse_datetime_format_str(f_string)
+        return pa.timestamp(unit, tz=tz)
+    else:
+        pa_dtype = _PYARROW_DTYPES.get(kind, {}).get(bit_width, None)
+
+        # Error if dtype is not supported
+        if pa_dtype:
+            return pa_dtype
+        else:
+            raise NotImplementedError(
+                f"Conversion for {data_type} is not yet supported.")
+
+
 def buffers_to_array(
     buffers: ColumnBuffers,
     length: int,
@@ -320,68 +338,27 @@ def buffers_to_array(
     except TypeError:
         offset_buff = None
 
-    kind, bit_width, f_string, _ = data_type
-
-    # Map date type to pyarrow date type
-    if kind == DtypeKind.DATETIME:
-        unit, tz = parse_datetime_format_str(f_string)
-        data_dtype = pa.timestamp(unit, tz=tz)
-    else:
-        data_dtype = _PYARROW_DTYPES.get(kind, {}).get(bit_width, None)
-    # Error if dtype is not supported
-    if data_dtype is None:
-        raise NotImplementedError(
-            f"Conversion for {data_type} is not yet supported.")
-
     # Construct a pyarrow Buffer
     data_pa_buffer = pa.foreign_buffer(data_buff.ptr, data_buff.bufsize,
                                        base=data_buff)
 
-    # Construct a validity pyarrow Buffer or a bytemask, if exists
-    validity_pa_buff = validity_buff
-    null_kind, sentinel_val = describe_null
-
-    # Check for float NaN values
-    if null_kind == ColumnNullType.USE_NAN:
-        if kind == DtypeKind.FLOAT and bit_width == 16:
-            raise NotImplementedError(
-                f"{data_type} with {null_kind} is not yet supported.")
-        else:
-            pyarrow_data = pa.Array.from_buffers(
-                data_dtype,
-                length,
-                [None, data_pa_buffer],
-                offset=offset,
-            )
-            mask = pc.is_nan(pyarrow_data)
-            mask = pc.invert(mask)
-            validity_pa_buff = mask.buffers()[1]
-    # Check for sentinel values
-    elif null_kind == ColumnNullType.USE_SENTINEL:
-        if kind == DtypeKind.DATETIME:
-            sentinel_dtype = pa.int64()
-        else:
-            sentinel_dtype = data_dtype
-        int_arr = pa.Array.from_buffers(sentinel_dtype,
-                                        length,
-                                        [None, data_pa_buffer],
-                                        offset=offset)
-        sentinel_arr = pc.equal(int_arr, sentinel_val)
-        mask_bool = pc.invert(sentinel_arr)
-        validity_pa_buff = mask_bool.buffers()[1]
-    elif null_kind == ColumnNullType.NON_NULLABLE:
-        # Sliced array can have a NON_NULLABLE ColumnNullType due
-        # to no missing values in that slice of an array though the bitmask
-        # exists and validity_buff must be set to None in this case
-        validity_buff = validity_pa_buff = None
-    elif validity_buff:
-        validity_pa_buff = validity_buffer(validity_buff,
-                                           validity_dtype,
-                                           describe_null,
-                                           length,
-                                           offset)
+    # Construct a validity pyarrow Buffer, if applicable
+    if validity_buff:
+        validity_pa_buff = validity_buffer_from_mask(validity_buff,
+                                                     validity_dtype,
+                                                     describe_null,
+                                                     length,
+                                                     offset)
+    else:
+        validity_pa_buff = validity_buffer_nan_sentinel(data_pa_buffer,
+                                                        data_type,
+                                                        describe_null,
+                                                        length,
+                                                        offset)
 
     # Construct a pyarrow Array from buffers
+    data_dtype = map_date_type(data_type)
+
     if offset_buff:
         _, offset_bit_width, _, _ = offset_dtype
         # If an offset buffer exists, construct an offset pyarrow Buffer
@@ -390,7 +367,7 @@ def buffers_to_array(
                                              offset_buff.bufsize,
                                              base=offset_buff)
 
-        if f_string == 'U':
+        if data_type[2] == 'U':
             if not null_count:
                 null_count = -1
             array = pa.LargeStringArray.from_buffers(
@@ -423,7 +400,7 @@ def buffers_to_array(
     return array
 
 
-def validity_buffer(
+def validity_buffer_from_mask(
     validity_buff: BufferObject,
     validity_dtype: Dtype,
     describe_null: ColumnNullType,
@@ -431,7 +408,7 @@ def validity_buffer(
     offset: int = 0,
 ) -> pa.Buffer:
     """
-    Build a PyArrow buffer from the passed buffer.
+    Build a PyArrow buffer from the passed mask buffer.
 
     Parameters
     ----------
@@ -456,33 +433,108 @@ def validity_buffer(
     validity_kind, _, _, _ = validity_dtype
     assert validity_kind == DtypeKind.BOOL
 
-    if null_kind == ColumnNullType.USE_BYTEMASK or (
+    if null_kind == ColumnNullType.NON_NULLABLE:
+        # Sliced array can have a NON_NULLABLE ColumnNullType due
+        # to no missing values in that slice of an array though the bitmask
+        # exists and validity_buff must be set to None in this case
+        return None
+
+    elif null_kind == ColumnNullType.USE_BYTEMASK or (
         null_kind == ColumnNullType.USE_BITMASK and sentinel_val == 1
     ):
-        validity_pa_buff = pa.foreign_buffer(validity_buff.ptr,
-                                             validity_buff.bufsize,
-                                             base=validity_buff)
+        buff = pa.foreign_buffer(validity_buff.ptr,
+                                 validity_buff.bufsize,
+                                 base=validity_buff)
 
         if null_kind == ColumnNullType.USE_BYTEMASK:
             mask = pa.Array.from_buffers(pa.int8(), length,
-                                         [None, validity_pa_buff],
+                                         [None, buff],
                                          offset=offset)
             mask_bool = pc.cast(mask, pa.bool_())
         else:
             mask_bool = pa.Array.from_buffers(pa.bool_(), length,
-                                              [None, validity_pa_buff],
+                                              [None, buff],
                                               offset=offset)
 
         if sentinel_val == 1:
             mask_bool = pc.invert(mask_bool)
-        validity_buff = mask_bool.buffers()[1]
+
+        return mask_bool.buffers()[1]
 
     elif null_kind == ColumnNullType.USE_BITMASK and sentinel_val == 0:
-        validity_buff = pa.foreign_buffer(validity_buff.ptr,
-                                          validity_buff.bufsize,
-                                          base=validity_buff)
+        return pa.foreign_buffer(validity_buff.ptr,
+                                 validity_buff.bufsize,
+                                 base=validity_buff)
     else:
         raise NotImplementedError(
             f"{describe_null} null representation is not yet supported.")
 
-    return validity_buff
+
+def validity_buffer_nan_sentinel(
+    data_pa_buffer: BufferObject,
+    data_type: Dtype,
+    describe_null: ColumnNullType,
+    length: int,
+    offset: int = 0,
+) -> pa.Buffer:
+    """
+    Build a PyArrow buffer from NaN or sentinel values.
+
+    Parameters
+    ----------
+    data_pa_buffer : pa.Buffer
+        PyArrow buffer for the column data.
+    data_type : Dtype
+        Dtype description as a tuple ``(kind, bit-width, format string,
+        endianness)``.
+    describe_null : ColumnNullType
+        Null representation the column dtype uses,
+        as a tuple ``(kind, value)``
+    length : int
+        The number of values in the array.
+    offset : int, default: 0
+        Number of elements to offset from the start of the buffer.
+
+    Returns
+    -------
+    pa.Buffer
+    """
+    kind, bit_width, _, _ = data_type
+    data_dtype = map_date_type(data_type)
+    null_kind, sentinel_val = describe_null
+
+    # Check for float NaN values
+    if null_kind == ColumnNullType.USE_NAN:
+        if kind == DtypeKind.FLOAT and bit_width == 16:
+            raise NotImplementedError(
+                f"{data_type} with {null_kind} is not yet supported.")
+        else:
+            pyarrow_data = pa.Array.from_buffers(
+                data_dtype,
+                length,
+                [None, data_pa_buffer],
+                offset=offset,
+            )
+            mask = pc.is_nan(pyarrow_data)
+            mask = pc.invert(mask)
+            return mask.buffers()[1]
+
+    # Check for sentinel values
+    elif null_kind == ColumnNullType.USE_SENTINEL:
+        if kind == DtypeKind.DATETIME:
+            sentinel_dtype = pa.int64()
+        else:
+            sentinel_dtype = data_dtype
+        int_arr = pa.Array.from_buffers(sentinel_dtype,
+                                        length,
+                                        [None, data_pa_buffer],
+                                        offset=offset)
+        sentinel_arr = pc.equal(int_arr, sentinel_val)
+        mask_bool = pc.invert(sentinel_arr)
+        return mask_bool.buffers()[1]
+
+    elif null_kind == ColumnNullType.NON_NULLABLE:
+        pass
+    else:
+        raise NotImplementedError(
+            f"{describe_null} null representation is not yet supported.")
