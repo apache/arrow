@@ -111,13 +111,13 @@ namespace red_arrow {
       const auto value = array.Value(i);
       // | sign (1 bit) | exponent (5 bit) | fraction (10 bit) |
       constexpr auto exponent_n_bits = 5;
-      constexpr auto exponent_mask =
+      static const auto exponent_mask =
         static_cast<uint32_t>(std::pow(2.0, exponent_n_bits) - 1);
       constexpr auto exponent_bias = 15;
       constexpr auto fraction_n_bits = 10;
-      constexpr auto fraction_mask =
+      static const auto fraction_mask =
         static_cast<uint32_t>(std::pow(2.0, fraction_n_bits)) - 1;
-      constexpr auto fraction_denominator = std::pow(2.0, fraction_n_bits);
+      static const auto fraction_denominator = std::pow(2.0, fraction_n_bits);
       const auto sign = value >> (exponent_n_bits + fraction_n_bits);
       const auto exponent = (value >> fraction_n_bits) & exponent_mask;
       const auto fraction = value & fraction_mask;
