@@ -305,8 +305,7 @@ as_arrow_array.data.frame <- function(x, ..., type = NULL) {
     types <- map(fields, "type")
     arrays <- Map(as_arrow_array, x, type = types)
     names(arrays) <- names
-
-    StructArray$create(arrays)
+    StructArray$create(!!!arrays)
   } else {
     stop_cant_convert_array(x, type)
   }
@@ -473,7 +472,7 @@ StructArray$create <- function(...) {
     StructArray__from_arrays(dots, names(dots))
   } else {
     abort(
-      "Input to StructArray$create must be Arrays or a single data frame"
+      "Input to StructArray$create must be a Scalar, Arrays or a single data frame"
     )
   }
 }
