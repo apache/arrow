@@ -282,7 +282,7 @@ class PARQUET_EXPORT FileMetaData {
 
   bool Equals(const FileMetaData& other) const;
 
-  /// \brief The number of parquet "leaf" fields.
+  /// \brief The number of parquet "leaf" columns.
   ///
   /// Parquet thrift definition requires that nested schema elements are
   /// flattened. This method returns the number of columns in the flattened
