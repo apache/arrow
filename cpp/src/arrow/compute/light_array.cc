@@ -200,7 +200,8 @@ Status ColumnArraysFromExecBatch(const ExecBatch& batch,
 }
 
 void ResizableArrayData::Init(const std::shared_ptr<DataType>& data_type,
-                              MemoryPool* pool, int log_num_rows_min) {
+                              MemoryPool* pool, int log_num_rows_min,
+                              int64_t alignment) {
 #ifndef NDEBUG
   if (num_rows_allocated_ > 0) {
     ARROW_DCHECK(data_type_ != NULLPTR);
@@ -213,6 +214,7 @@ void ResizableArrayData::Init(const std::shared_ptr<DataType>& data_type,
 #endif
   Clear(/*release_buffers=*/false);
   log_num_rows_min_ = log_num_rows_min;
+  alignment_ = alignment;
   data_type_ = data_type;
   pool_ = pool;
 }
@@ -249,7 +251,7 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
     ARROW_ASSIGN_OR_RAISE(
         buffers_[kValidityBuffer],
         AllocateResizableBuffer(
-            bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes, pool_));
+            bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes, alignment_, pool_));
     memset(mutable_data(kValidityBuffer), 0,
            bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes);
     if (column_metadata.is_fixed_length) {
@@ -258,6 +260,7 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
             buffers_[kFixedLengthBuffer],
             AllocateResizableBuffer(
                 bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes,
+                alignment_,
                 pool_));
         memset(mutable_data(kFixedLengthBuffer), 0,
                bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes);
@@ -266,18 +269,19 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
             buffers_[kFixedLengthBuffer],
             AllocateResizableBuffer(
                 num_rows_allocated_new * column_metadata.fixed_length + kNumPaddingBytes,
+                alignment_,
                 pool_));
       }
     } else {
       ARROW_ASSIGN_OR_RAISE(
           buffers_[kFixedLengthBuffer],
           AllocateResizableBuffer(
-              (num_rows_allocated_new + 1) * sizeof(uint32_t) + kNumPaddingBytes, pool_));
+              (num_rows_allocated_new + 1) * sizeof(uint32_t) + kNumPaddingBytes, alignment_, pool_));
     }
 
     ARROW_ASSIGN_OR_RAISE(
         buffers_[kVariableLengthBuffer],
-        AllocateResizableBuffer(sizeof(uint64_t) + kNumPaddingBytes, pool_));
+        AllocateResizableBuffer(sizeof(uint64_t) + kNumPaddingBytes, alignment_, pool_));
 
     var_len_buf_size_ = sizeof(uint64_t);
   } else {
@@ -491,7 +495,7 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
   ARROW_DCHECK(num_rows_before >= 0);
   int num_rows_after = num_rows_before + num_rows_to_append;
   if (target->num_rows() == 0) {
-    target->Init(source->type, pool, kLogNumRows);
+    target->Init(source->type, pool, kLogNumRows, kAlignment);
   }
   RETURN_NOT_OK(target->ResizeFixedLengthBuffers(num_rows_after));
 
@@ -638,7 +642,7 @@ Status ExecBatchBuilder::AppendNulls(const std::shared_ptr<DataType>& type,
   int num_rows_before = target.num_rows();
   int num_rows_after = num_rows_before + num_rows_to_append;
   if (target.num_rows() == 0) {
-    target.Init(type, pool, kLogNumRows);
+    target.Init(type, pool, kLogNumRows, kAlignment);
   }
   RETURN_NOT_OK(target.ResizeFixedLengthBuffers(num_rows_after));
 
@@ -699,7 +703,7 @@ Status ExecBatchBuilder::AppendSelected(MemoryPool* pool, const ExecBatch& batch
       const Datum& data = batch.values[col_ids ? col_ids[i] : i];
       ARROW_DCHECK(data.is_array());
       const std::shared_ptr<ArrayData>& array_data = data.array();
-      values_[i].Init(array_data->type, pool, kLogNumRows);
+      values_[i].Init(array_data->type, pool, kLogNumRows, kAlignment);
     }
   }
 
@@ -730,7 +734,7 @@ Status ExecBatchBuilder::AppendNulls(MemoryPool* pool,
   if (values_.empty()) {
     values_.resize(types.size());
     for (size_t i = 0; i < types.size(); ++i) {
-      values_[i].Init(types[i], pool, kLogNumRows);
+      values_[i].Init(types[i], pool, kLogNumRows, kAlignment);
     }
   }
 

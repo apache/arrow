@@ -125,6 +125,7 @@ int64_t Datum::TotalBufferSize() const {
     case Datum::TABLE:
       return util::TotalBufferSize(*std::get<std::shared_ptr<Table>>(this->value));
     case Datum::SCALAR:
+    case Datum::NONE:
       return 0;
     default:
       DCHECK(false);

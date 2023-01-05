@@ -37,6 +37,7 @@ add_arrow_compute_test(asof_join_node_test
                        "arrow-compute"
                        SOURCES
                        asof_join_node_test.cc)
+add_arrow_compute_test(spilling_test PREFIX "arrow-compute")
 add_arrow_compute_test(tpch_node_test PREFIX "arrow-compute")
 add_arrow_compute_test(union_node_test PREFIX "arrow-compute")
 add_arrow_compute_test(util_test
@@ -47,6 +48,7 @@ add_arrow_compute_test(util_test
                        task_util_test.cc)
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(spilling_benchmark PREFIX "arrow-compute")
 
 add_arrow_benchmark(filter_benchmark
                     PREFIX

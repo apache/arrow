@@ -406,6 +406,8 @@ if(ARROW_COMPUTE)
        compute/exec/query_context.cc
        compute/exec/sink_node.cc
        compute/exec/source_node.cc
+       compute/exec/spilling_util.cc
+       compute/exec/spilling_join.cc
        compute/exec/swiss_join.cc
        compute/exec/task_util.cc
        compute/exec/tpch_node.cc

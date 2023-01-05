@@ -42,13 +42,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
   Status Init(QueryContext* ctx, JoinType join_type, size_t num_threads,
               const HashJoinProjectionMaps* proj_map_left,
               const HashJoinProjectionMaps* proj_map_right,
-              std::vector<JoinKeyCmp> key_cmp, Expression filter,
-              RegisterTaskGroupCallback register_task_group_callback,
-              StartTaskGroupCallback start_task_group_callback,
-              OutputBatchCallback output_batch_callback,
-              FinishedCallback finished_callback) override {
+              std::vector<JoinKeyCmp> *key_cmp,
+              Expression *filter,
+              CallbackRecord callback_record) override {
     START_COMPUTE_SPAN(span_, "HashJoinBasicImpl",
-                       {{"detail", filter.ToString()},
+                       {{"detail", filter->ToString()},
                         {"join.kind", arrow::compute::ToString(join_type)},
                         {"join.threads", static_cast<uint32_t>(num_threads)}});
 
@@ -57,12 +55,9 @@ class HashJoinBasicImpl : public HashJoinImpl {
     join_type_ = join_type;
     schema_[0] = proj_map_left;
     schema_[1] = proj_map_right;
-    key_cmp_ = std::move(key_cmp);
-    filter_ = std::move(filter);
-    register_task_group_callback_ = std::move(register_task_group_callback);
-    start_task_group_callback_ = std::move(start_task_group_callback);
-    output_batch_callback_ = std::move(output_batch_callback);
-    finished_callback_ = std::move(finished_callback);
+    key_cmp_ = key_cmp;
+    filter_ = filter;
+    callback_record_ = std::move(callback_record);
     local_states_.resize(num_threads_);
 
     for (size_t i = 0; i < local_states_.size(); ++i) {
@@ -155,7 +150,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
         bool is_null = non_null_bit_vectors[icol] &&
                        !bit_util::GetBit(non_null_bit_vectors[icol],
                                          non_null_bit_vector_offsets[icol] + irow);
-        if (key_cmp_[icol] == JoinKeyCmp::EQ && is_null) {
+        if ((*key_cmp_)[icol] == JoinKeyCmp::EQ && is_null) {
           no_match = true;
           break;
         }
@@ -232,7 +227,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
                       : opt_right_payload->values[from_payload.get(icol)];
     }
 
-    output_batch_callback_(0, std::move(result));
+    callback_record_.output_batch(0, std::move(result));
 
     // Update the counter of produced batches
     //
@@ -244,7 +239,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
                                    std::vector<int32_t>& no_match,
                                    std::vector<int32_t>& match_left,
                                    std::vector<int32_t>& match_right) {
-    if (filter_ == literal(true)) {
+    if (*filter_ == literal(true)) {
       return Status::OK();
     }
     ARROW_DCHECK_EQ(match_left.size(), match_right.size());
@@ -296,8 +291,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
     AppendFields(left_to_key, left_to_pay, left_key, left_payload);
     AppendFields(right_to_key, right_to_pay, right_key, right_payload);
 
-    ARROW_ASSIGN_OR_RAISE(
-        Datum mask, ExecuteScalarExpression(filter_, concatenated, ctx_->exec_context()));
+    ARROW_ASSIGN_OR_RAISE(Datum mask,
+                          ExecuteScalarExpression(*filter_, concatenated, ctx_->exec_context()));
 
     size_t num_probed_rows = match.size() + no_match.size();
     if (mask.is_scalar()) {
@@ -550,7 +545,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
   }
 
   void RegisterBuildHashTable() {
-    task_group_build_ = register_task_group_callback_(
+    task_group_build_ = callback_record_.register_task_group(
         [this](size_t thread_index, int64_t task_id) -> Status {
           return BuildHashTable_exec_task(thread_index, task_id);
         },
@@ -610,12 +605,12 @@ class HashJoinBasicImpl : public HashJoinImpl {
                         BuildFinishedCallback on_finished) override {
     build_finished_callback_ = std::move(on_finished);
     build_batches_ = std::move(batches);
-    return start_task_group_callback_(task_group_build_,
-                                      /*num_tasks=*/1);
+    return callback_record_.start_task_group(task_group_build_,
+                                             /*num_tasks=*/1);
   }
 
   void RegisterScanHashTable() {
-    task_group_scan_ = register_task_group_callback_(
+    task_group_scan_ = callback_record_.register_task_group(
         [this](size_t thread_index, int64_t task_id) -> Status {
           return ScanHashTable_exec_task(thread_index, task_id);
         },
@@ -684,13 +679,12 @@ class HashJoinBasicImpl : public HashJoinImpl {
       return Status::Cancelled("Hash join cancelled");
     }
     END_SPAN(span_);
-    finished_callback_(num_batches_produced_.load());
-    return Status::OK();
+    return callback_record_.finished(num_batches_produced_.load());
   }
 
   Status ScanHashTable(size_t thread_index) {
     MergeHasMatch();
-    return start_task_group_callback_(task_group_scan_, ScanHashTable_num_tasks());
+    return callback_record_.start_task_group(task_group_scan_, ScanHashTable_num_tasks());
   }
 
   Status ProbingFinished(size_t thread_index) override {
@@ -739,18 +733,15 @@ class HashJoinBasicImpl : public HashJoinImpl {
   JoinType join_type_;
   size_t num_threads_;
   const HashJoinProjectionMaps* schema_[2];
-  std::vector<JoinKeyCmp> key_cmp_;
-  Expression filter_;
+  std::vector<JoinKeyCmp> *key_cmp_;
+  Expression *filter_;
   int task_group_build_;
   int task_group_scan_;
 
   // Callbacks
   //
-  RegisterTaskGroupCallback register_task_group_callback_;
-  StartTaskGroupCallback start_task_group_callback_;
-  OutputBatchCallback output_batch_callback_;
+  CallbackRecord callback_record_;
   BuildFinishedCallback build_finished_callback_;
-  FinishedCallback finished_callback_;
 
   // Thread local runtime state
   //

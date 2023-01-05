@@ -2025,13 +2025,10 @@ class SwissJoin : public HashJoinImpl {
   Status Init(QueryContext* ctx, JoinType join_type, size_t num_threads,
               const HashJoinProjectionMaps* proj_map_left,
               const HashJoinProjectionMaps* proj_map_right,
-              std::vector<JoinKeyCmp> key_cmp, Expression filter,
-              RegisterTaskGroupCallback register_task_group_callback,
-              StartTaskGroupCallback start_task_group_callback,
-              OutputBatchCallback output_batch_callback,
-              FinishedCallback finished_callback) override {
+              std::vector<JoinKeyCmp> *key_cmp, Expression *filter,
+              CallbackRecord callback_record) override {
     START_COMPUTE_SPAN(span_, "SwissJoinImpl",
-                       {{"detail", filter.ToString()},
+                       {{"detail", filter->ToString()},
                         {"join.kind", arrow::compute::ToString(join_type)},
                         {"join.threads", static_cast<uint32_t>(num_threads)}});
 
@@ -2041,18 +2038,12 @@ class SwissJoin : public HashJoinImpl {
     pool_ = ctx->memory_pool();
 
     join_type_ = join_type;
-    key_cmp_.resize(key_cmp.size());
-    for (size_t i = 0; i < key_cmp.size(); ++i) {
-      key_cmp_[i] = key_cmp[i];
-    }
+    key_cmp_ = key_cmp;
 
     schema_[0] = proj_map_left;
     schema_[1] = proj_map_right;
 
-    register_task_group_callback_ = std::move(register_task_group_callback);
-    start_task_group_callback_ = std::move(start_task_group_callback);
-    output_batch_callback_ = std::move(output_batch_callback);
-    finished_callback_ = std::move(finished_callback);
+    callback_record_ = std::move(callback_record);
 
     hash_table_ready_.store(false);
     cancelled_.store(false);
@@ -2077,7 +2068,7 @@ class SwissJoin : public HashJoinImpl {
     }
 
     probe_processor_.Init(proj_map_left->num_cols(HashJoinProjection::KEY), join_type_,
-                          &hash_table_, materialize, &key_cmp_, output_batch_callback_);
+                          &hash_table_, materialize, key_cmp_, callback_record_.output_batch);
 
     InitTaskGroups();
 
@@ -2085,17 +2076,17 @@ class SwissJoin : public HashJoinImpl {
   }
 
   void InitTaskGroups() {
-    task_group_build_ = register_task_group_callback_(
+    task_group_build_ = callback_record_.register_task_group(
         [this](size_t thread_index, int64_t task_id) -> Status {
           return BuildTask(thread_index, task_id);
         },
         [this](size_t thread_index) -> Status { return BuildFinished(thread_index); });
-    task_group_merge_ = register_task_group_callback_(
+    task_group_merge_ = callback_record_.register_task_group(
         [this](size_t thread_index, int64_t task_id) -> Status {
           return MergeTask(thread_index, task_id);
         },
         [this](size_t thread_index) -> Status { return MergeFinished(thread_index); });
-    task_group_scan_ = register_task_group_callback_(
+    task_group_scan_ = callback_record_.register_task_group(
         [this](size_t thread_index, int64_t task_id) -> Status {
           return ScanTask(thread_index, task_id);
         },
@@ -2176,14 +2167,14 @@ class SwissJoin : public HashJoinImpl {
       payload_types.push_back(metadata);
     }
     RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.Init(
-        &hash_table_, num_threads_, build_side_batches_.row_count(),
+        &hash_table_, num_threads_, static_cast<int64_t>(build_side_batches_.CalculateRowCount()),
         reject_duplicate_keys, no_payload, key_types, payload_types, pool_,
         hardware_flags_)));
 
     // Process all input batches
     //
     return CancelIfNotOK(
-        start_task_group_callback_(task_group_build_, build_side_batches_.batch_count()));
+        callback_record_.start_task_group(task_group_build_, build_side_batches_.batch_count()));
   }
 
   Status BuildTask(size_t thread_id, int64_t batch_id) {
@@ -2248,7 +2239,7 @@ class SwissJoin : public HashJoinImpl {
     //
     RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.PreparePrtnMerge()));
     return CancelIfNotOK(
-        start_task_group_callback_(task_group_merge_, hash_table_build_.num_prtns()));
+        callback_record_.start_task_group(task_group_merge_, hash_table_build_.num_prtns()));
   }
 
   Status MergeTask(size_t /*thread_id*/, int64_t prtn_id) {
@@ -2295,7 +2286,7 @@ class SwissJoin : public HashJoinImpl {
       hash_table_.MergeHasMatch();
       int64_t num_tasks = bit_util::CeilDiv(hash_table_.num_rows(), kNumRowsPerScanTask);
 
-      return CancelIfNotOK(start_task_group_callback_(task_group_scan_, num_tasks));
+      return CancelIfNotOK(callback_record_.start_task_group(task_group_scan_, num_tasks));
     } else {
       return CancelIfNotOK(OnScanHashTableFinished());
     }
@@ -2368,7 +2359,7 @@ class SwissJoin : public HashJoinImpl {
         Status status = local_states_[thread_id].materialize.AppendBuildOnly(
             num_output_rows, key_ids_buf.mutable_data(), payload_ids_buf.mutable_data(),
             [&](ExecBatch batch) {
-              output_batch_callback_(static_cast<int64_t>(thread_id), std::move(batch));
+              callback_record_.output_batch(static_cast<int64_t>(thread_id), std::move(batch));
             });
         RETURN_NOT_OK(CancelIfNotOK(status));
         if (!status.ok()) {
@@ -2406,9 +2397,7 @@ class SwissJoin : public HashJoinImpl {
       num_produced_batches += materialize.num_produced_batches();
     }
 
-    finished_callback_(num_produced_batches);
-
-    return Status::OK();
+    return callback_record_.finished(num_produced_batches);
   }
 
   Result<ExecBatch> KeyPayloadFromInput(int side, ExecBatch* input) {
@@ -2477,7 +2466,7 @@ class SwissJoin : public HashJoinImpl {
   MemoryPool* pool_;
   int num_threads_;
   JoinType join_type_;
-  std::vector<JoinKeyCmp> key_cmp_;
+  std::vector<JoinKeyCmp> *key_cmp_;
   const HashJoinProjectionMaps* schema_[2];
 
   // Task scheduling
@@ -2486,11 +2475,8 @@ class SwissJoin : public HashJoinImpl {
   int task_group_scan_;
 
   // Callbacks
-  RegisterTaskGroupCallback register_task_group_callback_;
-  StartTaskGroupCallback start_task_group_callback_;
-  OutputBatchCallback output_batch_callback_;
+  CallbackRecord callback_record_;
   BuildFinishedCallback build_finished_callback_;
-  FinishedCallback finished_callback_;
 
   struct ThreadLocalState {
     JoinResultMaterialize materialize;

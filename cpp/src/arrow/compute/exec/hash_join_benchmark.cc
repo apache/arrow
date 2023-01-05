@@ -126,10 +126,10 @@ class JoinBenchmark {
     stats_.num_probe_rows = settings.num_probe_batches * settings.batch_size;
 
     schema_mgr_ = std::make_unique<HashJoinSchema>();
-    Expression filter = literal(true);
+    filter_ = literal(true);
     DCHECK_OK(schema_mgr_->Init(settings.join_type, *l_batches_with_schema.schema,
                                 left_keys, *r_batches_with_schema.schema, right_keys,
-                                filter, "l_", "r_"));
+                                filter_, "l_", "r_"));
 
     if (settings.use_basic_implementation) {
       join_ = *HashJoinImpl::MakeBasic();
@@ -147,20 +147,24 @@ class JoinBenchmark {
     scheduler_ = TaskScheduler::Make();
     DCHECK_OK(ctx_.Init(settings.num_threads, nullptr));
 
-    auto register_task_group_callback = [&](std::function<Status(size_t, int64_t)> task,
+    HashJoinImpl::CallbackRecord callbacks;
+    callbacks.register_task_group = [&](std::function<Status(size_t, int64_t)> task,
                                             std::function<Status(size_t)> cont) {
       return scheduler_->RegisterTaskGroup(std::move(task), std::move(cont));
     };
 
-    auto start_task_group_callback = [&](int task_group_id, int64_t num_tasks) {
+    callbacks.start_task_group = [&](int task_group_id, int64_t num_tasks) {
       return scheduler_->StartTaskGroup(omp_get_thread_num(), task_group_id, num_tasks);
     };
+    callbacks.output_batch = [](int64_t, ExecBatch) {};
+    callbacks.finished = [](int64_t){ return Status::OK(); };
 
     DCHECK_OK(join_->Init(
-        &ctx_, settings.join_type, settings.num_threads, &(schema_mgr_->proj_maps[0]),
-        &(schema_mgr_->proj_maps[1]), std::move(key_cmp), std::move(filter),
-        std::move(register_task_group_callback), std::move(start_task_group_callback),
-        [](int64_t, ExecBatch) {}, [](int64_t x) {}));
+        &ctx_, settings.join_type, settings.num_threads,
+        &(schema_mgr_->proj_maps[0]), &(schema_mgr_->proj_maps[1]),
+        &key_cmp_,
+        &filter_, 
+        std::move(callbacks)));
 
     task_group_probe_ = scheduler_->RegisterTaskGroup(
         [this](size_t thread_index, int64_t task_id) -> Status {
@@ -197,6 +201,8 @@ class JoinBenchmark {
   std::unique_ptr<HashJoinSchema> schema_mgr_;
   std::unique_ptr<HashJoinImpl> join_;
   QueryContext ctx_;
+  std::vector<JoinKeyCmp> key_cmp_;
+  Expression filter_;
   int task_group_probe_;
 
   struct {
@@ -208,13 +214,13 @@ static void HashJoinBasicBenchmarkImpl(benchmark::State& st,
                                        BenchmarkSettings& settings) {
   uint64_t total_rows = 0;
   for (auto _ : st) {
-    st.PauseTiming();
     {
       JoinBenchmark bm(settings);
       st.ResumeTiming();
       bm.RunJoin();
       st.PauseTiming();
       total_rows += bm.stats_.num_probe_rows;
+      st.PauseTiming();
     }
     st.ResumeTiming();
   }

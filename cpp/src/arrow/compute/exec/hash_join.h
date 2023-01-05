@@ -35,33 +35,37 @@
 namespace arrow {
 namespace compute {
 
-using arrow::util::AccumulationQueue;
-
 class HashJoinImpl {
  public:
-  using OutputBatchCallback = std::function<void(int64_t, ExecBatch)>;
-  using BuildFinishedCallback = std::function<Status(size_t)>;
-  using FinishedCallback = std::function<void(int64_t)>;
-  using RegisterTaskGroupCallback = std::function<int(
-      std::function<Status(size_t, int64_t)>, std::function<Status(size_t)>)>;
-  using StartTaskGroupCallback = std::function<Status(int, int64_t)>;
-  using AbortContinuationImpl = std::function<void()>;
+    using OutputBatchCallback = std::function<void(int64_t, ExecBatch)>;
+    using BuildFinishedCallback = std::function<Status(size_t)>;
+    using FinishedCallback = std::function<Status(int64_t)>;
+    using RegisterTaskGroupCallback = std::function<int(
+    std::function<Status(size_t, int64_t)>, std::function<Status(size_t)>)>;
+    using StartTaskGroupCallback = std::function<Status(int, int64_t)>;
+    using AbortContinuationImpl = std::function<void()>;
+
+    struct CallbackRecord
+    {
+        RegisterTaskGroupCallback register_task_group;
+        StartTaskGroupCallback start_task_group;
+        OutputBatchCallback output_batch;
+        FinishedCallback finished;
+    };
 
   virtual ~HashJoinImpl() = default;
   virtual Status Init(QueryContext* ctx, JoinType join_type, size_t num_threads,
                       const HashJoinProjectionMaps* proj_map_left,
                       const HashJoinProjectionMaps* proj_map_right,
-                      std::vector<JoinKeyCmp> key_cmp, Expression filter,
-                      RegisterTaskGroupCallback register_task_group_callback,
-                      StartTaskGroupCallback start_task_group_callback,
-                      OutputBatchCallback output_batch_callback,
-                      FinishedCallback finished_callback) = 0;
+                      std::vector<JoinKeyCmp> *key_cmp,
+                      Expression *filter,
+                      CallbackRecord callback_record) = 0;
 
   virtual Status BuildHashTable(size_t thread_index, AccumulationQueue batches,
                                 BuildFinishedCallback on_finished) = 0;
   virtual Status ProbeSingleBatch(size_t thread_index, ExecBatch batch) = 0;
   virtual Status ProbingFinished(size_t thread_index) = 0;
-  virtual void Abort(TaskScheduler::AbortContinuationImpl pos_abort_callback) = 0;
+  virtual void Abort(AbortContinuationImpl pos_abort_callback) = 0;
   virtual std::string ToString() const = 0;
 
   static Result<std::unique_ptr<HashJoinImpl>> MakeBasic();

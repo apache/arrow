@@ -270,7 +270,7 @@ class ARROW_EXPORT ResizableArrayData {
   /// \param log_num_rows_min All resize operations will allocate at least enough
   ///                         space for (1 << log_num_rows_min) rows
   void Init(const std::shared_ptr<DataType>& data_type, MemoryPool* pool,
-            int log_num_rows_min);
+            int log_num_rows_min, int64_t alignment = kDefaultBufferAlignment);
 
   /// \brief Resets the array back to an empty state
   /// \param release_buffers If true then allocated memory is released and the
@@ -325,6 +325,7 @@ class ARROW_EXPORT ResizableArrayData {
  private:
   static constexpr int64_t kNumPaddingBytes = 64;
   int log_num_rows_min_;
+  int64_t alignment_;
   std::shared_ptr<DataType> data_type_;
   MemoryPool* pool_;
   int num_rows_;
@@ -355,6 +356,11 @@ class ARROW_EXPORT ExecBatchBuilder {
                             ResizableArrayData& target, int num_rows_to_append,
                             MemoryPool* pool);
 
+  /// \brief Returns a non-owning view into the `col`th column.
+  KeyColumnArray column(size_t col) const { return values_[col].column_array(); }
+
+  size_t num_cols() const { return values_.size(); }
+
   /// \brief Add selected rows from `batch`
   ///
   /// If `col_ids` is null then `num_cols` should less than batch.num_values() and
@@ -377,11 +383,16 @@ class ARROW_EXPORT ExecBatchBuilder {
   ExecBatch Flush();
 
   int num_rows() const { return values_.empty() ? 0 : values_[0].num_rows(); }
+  bool is_full() const { return num_rows() == num_rows_max(); }
 
   static int num_rows_max() { return 1 << kLogNumRows; }
 
  private:
   static constexpr int kLogNumRows = 15;
+
+  // Align all buffers to 512 bytes so that we can spill them with
+  // DirectIO. 
+  static constexpr int64_t kAlignment = 512;
 
   // Calculate how many rows to skip from the tail of the
   // sequence of selected rows, such that the total size of skipped rows is at

@@ -37,7 +37,7 @@ class PartitionSort {
   /// This corresponds to ranges in the sorted array containing all row ids for
   /// each of the partitions.
   ///
-  /// prtn_ranges must be initailized and have at least prtn_ranges + 1 elements
+  /// prtn_ranges must be initailized and have at least num_prtns + 1 elements
   /// when this method returns prtn_ranges[i] will contains the total number of
   /// elements in partitions 0 through i.  prtn_ranges[0] will be 0.
   ///
@@ -115,6 +115,18 @@ class PartitionLocks {
   bool AcquirePartitionLock(size_t thread_id, int num_prtns, const int* prtns_to_try,
                             bool limit_retries, int max_retries, int* locked_prtn_id,
                             int* locked_prtn_id_pos);
+
+  class [[nodiscard]] AutoReleaseLock
+  {
+  public:
+      AutoReleaseLock(PartitionLocks* locks, int prtn_id)
+          : locks(locks), prtn_id(prtn_id) {}
+      ~AutoReleaseLock() { locks->ReleasePartitionLock(prtn_id); }
+      PartitionLocks* locks;
+      int prtn_id;
+  };
+
+  AutoReleaseLock AcquirePartitionLock(int prtn_id);
   /// \brief Release a partition so that other threads can work on it
   void ReleasePartitionLock(int prtn_id);
 
@@ -147,14 +159,7 @@ class PartitionLocks {
                            /*limit_retries=*/false, /*max_retries=*/-1, &locked_prtn_id,
                            &locked_prtn_id_pos);
       {
-        class AutoReleaseLock {
-         public:
-          AutoReleaseLock(PartitionLocks* locks, int prtn_id)
-              : locks(locks), prtn_id(prtn_id) {}
-          ~AutoReleaseLock() { locks->ReleasePartitionLock(prtn_id); }
-          PartitionLocks* locks;
-          int prtn_id;
-        } auto_release_lock(this, locked_prtn_id);
+        AutoReleaseLock auto_release_lock(this, locked_prtn_id);
         ARROW_RETURN_NOT_OK(process_prtn_fn(locked_prtn_id));
       }
       if (locked_prtn_id_pos < num_unprocessed_partitions - 1) {

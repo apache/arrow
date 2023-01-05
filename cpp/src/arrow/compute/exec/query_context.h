@@ -30,6 +30,8 @@ namespace compute {
 struct ARROW_EXPORT QueryOptions {
   QueryOptions();
 
+  int64_t max_memory_bytes;
+
   /// \brief Should the plan use a legacy batching strategy
   ///
   /// This is currently in place only to support the Scanner::ToTable
@@ -45,7 +47,7 @@ struct ARROW_EXPORT QueryOptions {
 class ARROW_EXPORT QueryContext {
  public:
   QueryContext(QueryOptions opts = {},
-               ExecContext exec_context = *default_exec_context());
+               ExecContext exec_context = *threaded_exec_context());
 
   Status Init(size_t max_num_threads, util::AsyncTaskScheduler* scheduler);
 

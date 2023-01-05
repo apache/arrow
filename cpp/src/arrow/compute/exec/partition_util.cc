@@ -17,6 +17,7 @@
 
 #include "arrow/compute/exec/partition_util.h"
 #include <mutex>
+#include <thread>
 
 namespace arrow {
 namespace compute {
@@ -77,6 +78,19 @@ bool PartitionLocks::AcquirePartitionLock(size_t thread_id, int num_prtns_to_try
   *locked_prtn_id = -1;
   *locked_prtn_id_pos = -1;
   return false;
+}
+
+PartitionLocks::AutoReleaseLock PartitionLocks::AcquirePartitionLock(int prtn_id)
+{
+    std::atomic<bool> *lock = lock_ptr(prtn_id);
+    bool expected = false;
+    for(;;)
+    {
+        if(lock->compare_exchange_strong(expected, true, std::memory_order_acquire))
+            return { this, prtn_id };
+        while(lock->load())
+            std::this_thread::yield();
+    }
 }
 
 void PartitionLocks::ReleasePartitionLock(int prtn_id) {
