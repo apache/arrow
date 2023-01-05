@@ -17,6 +17,7 @@
 
 class TableTest < Test::Unit::TestCase
   include Helper::Fixture
+  include Helper::Omittable
 
   def setup
     @count_field = Arrow::Field.new("count", :uint8)
@@ -1127,7 +1128,9 @@ visible: false
                                       ["right_key", [1, 3]],
                                       ["string", ["one", "three"]],
                                     ]),
-                   table1.join(table2, {left: "left_key", right: :right_key}))
+                   table1.join(table2,
+                               {left: "left_key", right: :right_key},
+                               **{}))
     end
 
     test("keys: {left: [String, Symbol], right: [Symbol, String]}") do
@@ -1149,7 +1152,8 @@ visible: false
                                {
                                  left: ["left_key1", :left_key2],
                                  right: [:right_key1, "right_key2"],
-                               }))
+                               },
+                               **{}))
     end
 
     test("type:") do
