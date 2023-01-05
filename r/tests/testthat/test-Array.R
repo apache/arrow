@@ -544,7 +544,6 @@ test_that("StructArray methods", {
 })
 
 test_that("StructArray creation", {
-
   # from data.frame
   a <- StructArray$create(example_data)
   expect_identical(names(a), c("int", "dbl", "dbl2", "lgl", "false", "chr", "fct"))
@@ -555,7 +554,7 @@ test_that("StructArray creation", {
   str_array <- StructArray$create(Array$create(1:2), Array$create(c("a", "b")))
   expect_identical(names(str_array), c("", ""))
   expect_equal(str_array[[1]], Array$create(1:2))
-  expect_equal(str_array[[2]], Array$create(1:2))
+  expect_equal(str_array[[2]], Array$create(c("a", "b")))
   expect_r6_class(str_array, "StructArray")
 
   expect_error(
@@ -563,12 +562,11 @@ test_that("StructArray creation", {
     "All input Arrays must be equal lengths"
   )
 
-  # only works for Arrays and data.frames
-  expect_error(
-    StructArray$create(Scalar$create(1)),
-    "Input to StructArray$create must be Arrays or a single data frame",
-    fixed = TRUE
-  )
+  # from Scalar
+  str_array_scalar <- StructArray$create(Scalar$create(TRUE))
+  expect_identical(names(str_array_scalar), "")
+  expect_equal(str_array_scalar[[1]], Array$create(TRUE))
+  expect_r6_class(str_array_scalar, "StructArray")
 })
 
 test_that("Array$create() can handle data frame with custom struct type (not inferred)", {
@@ -814,15 +812,16 @@ test_that("Array$create() handles vector -> fixed size list arrays", {
 })
 
 test_that("Handling string data with embedded nuls", {
-  raws <- structure(list(
-    as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
-    as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
-    as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
-    as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
-    as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
-    as.raw(c(0x74, 0x76))
-  ),
-  class = c("arrow_binary", "vctrs_vctr", "list")
+  raws <- structure(
+    list(
+      as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
+      as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
+      as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
+      as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
+      as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
+      as.raw(c(0x74, 0x76))
+    ),
+    class = c("arrow_binary", "vctrs_vctr", "list")
   )
   expect_error(
     rawToChar(raws[[3]]),
