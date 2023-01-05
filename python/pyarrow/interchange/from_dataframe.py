@@ -104,7 +104,7 @@ def _from_dataframe(df: DataFrameObject, allow_copy=True):
     """
     batches = []
     for chunk in df.get_chunks():
-        batch = protocol_df_chunk_to_pyarrow(chunk)
+        batch = protocol_df_chunk_to_pyarrow(chunk, allow_copy)
         batches.append(batch)
 
     table = pa.Table.from_batches(batches)
@@ -113,6 +113,7 @@ def _from_dataframe(df: DataFrameObject, allow_copy=True):
 
 def protocol_df_chunk_to_pyarrow(
     df: DataFrameObject,
+    allow_copy: bool = True
 ) -> pa.Table:
     """
     Convert interchange protocol chunk to ``pa.RecordBatch``.
@@ -120,6 +121,11 @@ def protocol_df_chunk_to_pyarrow(
     Parameters
     ----------
     df : DataFrameObject
+        Object supporting the interchange protocol, i.e. `__dataframe__`
+        method.
+    allow_copy : bool, default: True
+        Whether to allow copying the memory to perform the conversion
+        (if false then zero-copy approach is requested).
 
     Returns
     -------
@@ -142,9 +148,9 @@ def protocol_df_chunk_to_pyarrow(
         ):
             columns[name] = column_to_array(col)
         elif dtype == DtypeKind.BOOL:
-            columns[name] = bool_column_to_array(col)
+            columns[name] = bool_column_to_array(col, allow_copy)
         elif dtype == DtypeKind.CATEGORICAL:
-            columns[name] = categorical_column_to_dictionary(col)
+            columns[name] = categorical_column_to_dictionary(col, allow_copy)
         elif dtype == DtypeKind.DATETIME:
             columns[name] = datetime_column_to_array(col)
         else:
@@ -178,6 +184,7 @@ def column_to_array(
 
 def bool_column_to_array(
     col: ColumnObject,
+    allow_copy: bool = True,
 ) -> pa.Array:
     """
     Convert a column holding boolean dtype to a PyArrow array.
@@ -185,11 +192,20 @@ def bool_column_to_array(
     Parameters
     ----------
     col : ColumnObject
+    allow_copy : bool, default: True
+        Whether to allow copying the memory to perform the conversion
+        (if false then zero-copy approach is requested).
 
     Returns
     -------
     pa.Array
     """
+    if not allow_copy:
+        raise RuntimeError(
+            "Boolean column will be casted from uint8 and a copy "
+            "is required which is forbidden by allow_copy=False"
+        )
+
     buffers = col.get_buffers()
     data = buffers_to_array(buffers, col.size(),
                             col.describe_null,
@@ -201,6 +217,7 @@ def bool_column_to_array(
 
 def categorical_column_to_dictionary(
     col: ColumnObject,
+    allow_copy: bool = True,
 ) -> pa.DictionaryArray:
     """
     Convert a column holding categorical data to a pa.DictionaryArray.
@@ -208,11 +225,20 @@ def categorical_column_to_dictionary(
     Parameters
     ----------
     col : ColumnObject
+    allow_copy : bool, default: True
+        Whether to allow copying the memory to perform the conversion
+        (if false then zero-copy approach is requested).
 
     Returns
     -------
     pa.DictionaryArray
     """
+    if not allow_copy:
+        raise RuntimeError(
+            "Boolean column will be casted from uint8 and a copy "
+            "is required which is forbidden by allow_copy=False"
+        )
+
     categorical = col.describe_categorical
 
     if not categorical["is_dictionary"]:
@@ -223,7 +249,6 @@ def categorical_column_to_dictionary(
     dictionary = column_to_array(cat_column)
 
     buffers = col.get_buffers()
-
     indices = buffers_to_array(buffers, col.size(),
                                col.describe_null,
                                col.offset)
