@@ -777,7 +777,7 @@ describing the index in the array where the run ends.
 Any array can be run-end encoded. A run-end encoded array has no buffers
 by itself, but has two child arrays. The first one holds a signed integer
 called a "run end" for each run. The run ends array can hold either 16, 32, or
-64-bit integers. The actual values of each run are held
+64-bit integers. The actual values of each run are held in
 the second child array.
 
 The values in the first child array represent the length of each run. They do
