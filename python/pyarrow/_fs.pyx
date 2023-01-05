@@ -1235,16 +1235,16 @@ cdef class PyFileSystem(FileSystem):
     Create an fsspec-based filesystem object for GitHub:
 
     >>> from fsspec.implementations import github
-    >>> gfs = github.GithubFileSystem('apache', 'arrow')
+    >>> gfs = github.GithubFileSystem('apache', 'arrow') # doctest: +SKIP
 
     Get a PyArrow FileSystem object:
 
     >>> from pyarrow.fs import PyFileSystem, FSSpecHandler
-    >>> pa_fs = PyFileSystem(FSSpecHandler(gfs))
+    >>> pa_fs = PyFileSystem(FSSpecHandler(gfs)) # doctest: +SKIP
 
     Use :func:`~pyarrow.fs.FileSystem` functionality ``get_file_info()``:
 
-    >>> pa_fs.get_file_info('README.md')
+    >>> pa_fs.get_file_info('README.md') # doctest: +SKIP
     <FileInfo for 'README.md': type=FileType.File, size=...>
     """
 
