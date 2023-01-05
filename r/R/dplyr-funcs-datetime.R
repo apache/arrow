@@ -470,7 +470,7 @@ register_bindings_datetime_timezone <- function() {
     },
     notes = c(
       "Timezone conversion from non-UTC timezone not supported;",
-      "roll_dst = 'NA' is not supported: use 'error', 'pre', or 'post'"
+      "`roll_dst` is not supported: ambiguous and nonexistent times currently error"
     )
   )
 
