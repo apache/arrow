@@ -107,22 +107,7 @@ void WriteIpcData(const std::string& path,
   ASSERT_OK(file_writer->Close());
 }
 
-class NullSinkNodeConsumer : public compute::SinkNodeConsumer {
- public:
-  Status Init(const std::shared_ptr<Schema>&, compute::BackpressureControl*,
-              compute::ExecPlan* plan) override {
-    return Status::OK();
-  }
-  Status Consume(compute::ExecBatch exec_batch) override { return Status::OK(); }
-  Future<> Finish() override { return Status::OK(); }
-
- public:
-  static std::shared_ptr<NullSinkNodeConsumer> Make() {
-    return std::make_shared<NullSinkNodeConsumer>();
-  }
-};
-
-const auto kNullConsumer = std::make_shared<NullSinkNodeConsumer>();
+const auto kNullConsumer = std::make_shared<compute::NullSinkNodeConsumer>();
 
 const std::shared_ptr<Schema> kBoringSchema = schema({
     field("bool", boolean()),
@@ -1124,7 +1109,7 @@ TEST(Substrait, DeserializeWithConsumerFactory) {
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
   ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(auto declarations,
-                       DeserializePlans(*buf, NullSinkNodeConsumer::Make));
+                       DeserializePlans(*buf, compute::NullSinkNodeConsumer::Make));
   ASSERT_EQ(declarations.size(), 1);
   compute::Declaration* decl = &declarations[0];
   ASSERT_EQ(decl->factory_name, "consuming_sink");
@@ -1143,7 +1128,7 @@ TEST(Substrait, DeserializeSinglePlanWithConsumerFactory) {
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
   ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
-                       DeserializePlan(*buf, NullSinkNodeConsumer::Make()));
+                       DeserializePlan(*buf, compute::NullSinkNodeConsumer::Make()));
   ASSERT_EQ(1, plan->sinks().size());
   compute::ExecNode* sink_node = plan->sinks()[0];
   ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
