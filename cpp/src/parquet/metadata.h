@@ -294,8 +294,8 @@ class PARQUET_EXPORT FileMetaData {
   ///   foo.qux                   2
   /// 1 foo2                      3
   /// 2 foo3                      4
-  /// This method will return 5, because there is 5 "leaf" fields (so 5 
-  /// flattened fields) 
+  /// This method will return 5, because there is 5 "leaf" fields (so 5
+  /// flattened fields)
   int num_columns() const;
 
   /// \brief The number of flattened schema elements.
