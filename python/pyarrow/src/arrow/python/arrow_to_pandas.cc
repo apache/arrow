@@ -737,6 +737,7 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   // Get column of underlying value arrays
   ArrayVector value_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
+    // Values does not account for offsets
     const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
     if (arr.value_type()->id() == Type::EXTENSION) {
       const auto& arr_ext = checked_cast<const ExtensionArray&>(*arr.values());

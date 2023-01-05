@@ -4513,3 +4513,16 @@ def test_does_not_mutate_timedelta_nested():
     df = table.to_pandas()
 
     assert df["timedelta_2"][0].to_pytimedelta() == timedelta_2[0]
+
+
+def test_list_only_once():
+    breakpoint()
+    arr = pa.array([[1, 2], [3, 4, 5], [6], [7, 8]])
+    chunked_arr = pa.chunked_array([arr.slice(0, 2), arr.slice(2, 2)])
+
+    # converting this chunked array to numpy
+    np_arr = chunked_arr.to_numpy()
+
+    expected_base = np.array([[1, 2, 3, 4, 5, 6, 7, 8]])
+    assert np_arr[0].base == expected_base
+    assert arr.to_numpy(zero_copy_only=False)[0].base == expected_base
