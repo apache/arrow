@@ -145,14 +145,13 @@ def protocol_df_chunk_to_pyarrow(
             DtypeKind.UINT,
             DtypeKind.FLOAT,
             DtypeKind.STRING,
+            DtypeKind.DATETIME,
         ):
             columns[name] = column_to_array(col)
         elif dtype == DtypeKind.BOOL:
             columns[name] = bool_column_to_array(col, allow_copy)
         elif dtype == DtypeKind.CATEGORICAL:
             columns[name] = categorical_column_to_dictionary(col, allow_copy)
-        elif dtype == DtypeKind.DATETIME:
-            columns[name] = datetime_column_to_array(col)
         else:
             raise NotImplementedError(f"Data type {dtype} not handled yet")
 
@@ -259,64 +258,6 @@ def categorical_column_to_dictionary(
     return dict_array
 
 
-def datetime_column_to_array(
-    col: ColumnObject,
-) -> pa.Array:
-    """
-    Convert a column holding DateTime data to a pa.Array.
-
-    Parameters
-    ----------
-    col : ColumnObject
-
-    Returns
-    -------
-    pa.Array
-    """
-    buffers = col.get_buffers()
-    data_buff, data_type = buffers["data"]
-    try:
-        validity_buff, validity_dtype = buffers["validity"]
-    except TypeError:
-        validity_buff = None
-
-    format_str = data_type[2]
-    unit, tz = parse_datetime_format_str(format_str)
-    data_dtype = pa.timestamp(unit, tz=tz)
-
-    # Data buffer
-    data_pa_buffer = pa.foreign_buffer(data_buff.ptr, data_buff.bufsize,
-                                       base=data_buff)
-
-    # Validity buffer
-    validity_pa_buff = validity_buff
-    null_kind, sentinel_val = col.describe_null
-    if null_kind == ColumnNullType.USE_SENTINEL:
-        int_arr = pa.Array.from_buffers(pa.int64(),
-                                        col.size(),
-                                        [None, data_pa_buffer],
-                                        offset=col.offset)
-        sentinel_arr = pc.equal(int_arr, sentinel_val)
-        mask_bool = pc.invert(sentinel_arr)
-        validity_pa_buff = mask_bool.buffers()[1]
-    elif null_kind == ColumnNullType.NON_NULLABLE:
-        # sliced array can have a NON_NULLABLE ColumnNullType due
-        # to no missing values in that slice of an array though the bitmask
-        # exists and validity_buff must be set to None in this case
-        validity_buff = validity_pa_buff = None
-    elif validity_buff:
-        validity_pa_buff = validity_buffer(validity_buff,
-                                           validity_dtype,
-                                           col.describe_null,
-                                           col.size(),
-                                           col.offset)
-
-    # Constructing a pa.Array from data and validity buffer
-    return pa.Array.from_buffers(data_dtype, col.size(),
-                                 [validity_pa_buff, data_pa_buffer],
-                                 offset=col.offset)
-
-
 def parse_datetime_format_str(format_str):
     """Parse datetime `format_str` to interpret the `data`."""
 
@@ -381,7 +322,13 @@ def buffers_to_array(
 
     kind, bit_width, f_string, _ = data_type
 
-    data_dtype = _PYARROW_DTYPES.get(kind, {}).get(bit_width, None)
+    # Map date type to pyarrow date type
+    if kind == DtypeKind.DATETIME:
+        unit, tz = parse_datetime_format_str(f_string)
+        data_dtype = pa.timestamp(unit, tz=tz)
+    else:
+        data_dtype = _PYARROW_DTYPES.get(kind, {}).get(bit_width, None)
+    # Error if dtype is not supported
     if data_dtype is None:
         raise NotImplementedError(
             f"Conversion for {data_type} is not yet supported.")
@@ -409,9 +356,13 @@ def buffers_to_array(
             mask = pc.is_nan(pyarrow_data)
             mask = pc.invert(mask)
             validity_pa_buff = mask.buffers()[1]
-    # Check for sentinel values values
+    # Check for sentinel values
     elif null_kind == ColumnNullType.USE_SENTINEL:
-        int_arr = pa.Array.from_buffers(data_dtype,
+        if kind == DtypeKind.DATETIME:
+            sentinel_dtype = pa.int64()
+        else:
+            sentinel_dtype = data_dtype
+        int_arr = pa.Array.from_buffers(sentinel_dtype,
                                         length,
                                         [None, data_pa_buffer],
                                         offset=offset)
@@ -419,7 +370,7 @@ def buffers_to_array(
         mask_bool = pc.invert(sentinel_arr)
         validity_pa_buff = mask_bool.buffers()[1]
     elif null_kind == ColumnNullType.NON_NULLABLE:
-        # sliced array can have a NON_NULLABLE ColumnNullType due
+        # Sliced array can have a NON_NULLABLE ColumnNullType due
         # to no missing values in that slice of an array though the bitmask
         # exists and validity_buff must be set to None in this case
         validity_buff = validity_pa_buff = None
