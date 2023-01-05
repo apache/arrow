@@ -236,9 +236,11 @@ class PARQUET_EXPORT FileReader {
   /// 2 foo3                      4
   ///
   /// i=0 will read foo.bar.baz, i=1 will read only foo.bar.baz2 and so on.
-  /// To retrive all the indices corresponding to the upper level arrow schema,
-  /// one can use manifest().schema_fields and get all the indices of the leaves
-  /// for each particular upper level field index.
+  /// Only leaf fields have indices; foo itself doesn't have an index.
+  /// To get the index for a particular leaf field, one can use
+  /// manifest().schema_fields to get the top level fields, and then walk the
+  /// tree to identify the relevant leaf fields and access its column_index.
+  /// To get the total number of leaf fields, use FileMetadata.num_columns().
   virtual ::arrow::Status ReadTable(const std::vector<int>& column_indices,
                                     std::shared_ptr<::arrow::Table>* out) = 0;
 
