@@ -359,7 +359,7 @@ def test_pandas_to_pyarrow_categorical_with_missing():
 )
 @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
 @pytest.mark.parametrize("tz", ['America/New_York', '+07:30', '-04:30'])
-@pytest.mark.parametrize("offset, length", [(0, 3), (0, 2), (0, 2), (2, 1)])
+@pytest.mark.parametrize("offset, length", [(0, 3), (0, 2), (1, 2), (2, 1)])
 def test_pyarrow_roundtrip(uint, int, float, np_float,
                            unit, tz, offset, length):
 
@@ -393,11 +393,13 @@ def test_pyarrow_roundtrip(uint, int, float, np_float,
     assert table_protocol.column_names() == result_protocol.column_names()
 
 
-def test_pyarrow_roundtrip_categorical():
+@pytest.mark.parametrize("offset, length", [(0, 10), (0, 2), (7, 3), (2, 1)])
+def test_pyarrow_roundtrip_categorical(offset, length):
     arr = ["Mon", "Tue", "Mon", "Wed", "Mon", "Thu", "Fri", None, "Sun"]
     table = pa.table(
         {"weekday": pa.array(arr).dictionary_encode()}
     )
+    table = table.slice(offset, length)
     result = _from_dataframe(table.__dataframe__())
 
     assert table.equals(result)
