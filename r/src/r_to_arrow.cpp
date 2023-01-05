@@ -727,9 +727,33 @@ class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
 template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_decimal_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
+  using ValueType = typename arrow::TypeTraits<T>::BuilderType::ValueType;
+
  public:
   Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
-    return Status::NotImplemented("Extend");
+    RETURN_NOT_OK(this->Reserve(size - offset));
+    int32_t precision = this->primitive_type_->precision();
+    int32_t scale = this->primitive_type_->scale();
+
+    auto append_value = [this, precision, scale](double value) {
+      auto converted = ValueType::FromReal(value, precision, scale);
+      RETURN_NOT_OK(converted);
+      this->primitive_builder_->UnsafeAppend(converted.ValueUnsafe());
+      return Status::OK();
+    };
+
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
+
+    if (ALTREP(x)) {
+      return VisitVector(RVectorIterator_ALTREP<double>(x, offset), size, append_null,
+                         append_value);
+    } else {
+      return VisitVector(RVectorIterator<double>(x, offset), size, append_null,
+                         append_value);
+    }
   }
 };
 
