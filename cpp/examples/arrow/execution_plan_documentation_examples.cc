@@ -784,10 +784,9 @@ arrow::Status RecordBatchReaderSourceSinkExample() {
   std::shared_ptr<arrow::RecordBatchReader> reader =
       std::make_shared<arrow::TableBatchReader>(table);
 
-  ARROW_ASSIGN_OR_RAISE(
-      cp::ExecNode * source,
-      cp::MakeExecNode("record_batch_reader_source", plan.get(), {},
-                       cp::RecordBatchReaderSourceNodeOptions{table->schema(), reader}));
+  ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
+                        cp::MakeExecNode("record_batch_reader_source", plan.get(), {},
+                                         cp::RecordBatchReaderSourceNodeOptions{reader}));
   ARROW_RETURN_NOT_OK(cp::MakeExecNode(
       "order_by_sink", plan.get(), {source},
       cp::OrderBySinkNodeOptions{

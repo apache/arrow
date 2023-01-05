@@ -354,13 +354,11 @@ void TestRecordBatchReaderSourceSink(
 
   auto exp_batches = MakeBasicBatches();
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatchReader> reader, to_reader(exp_batches));
-
-  ASSERT_OK(Declaration::Sequence(
-                {
-                    {"record_batch_reader_source",
-                     RecordBatchReaderSourceNodeOptions{exp_batches.schema, reader}},
-                    {"sink", SinkNodeOptions{&sink_gen}},
-                })
+  RecordBatchReaderSourceNodeOptions options{reader, io::internal::GetIOThreadPool()};
+  ASSERT_OK(Declaration::Sequence({
+                                      {"record_batch_reader_source", options},
+                                      {"sink", SinkNodeOptions{&sink_gen}},
+                                  })
                 .AddToPlan(plan.get()));
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
@@ -376,12 +374,12 @@ void TestRecordBatchReaderSourceSinkError(
   auto exp_batches = MakeBasicBatches();
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatchReader> reader, to_reader(exp_batches));
 
-  auto null_executor_options =
-      RecordBatchReaderSourceNodeOptions{exp_batches.schema, reader};
+  auto null_executor_options = RecordBatchReaderSourceNodeOptions{reader};
   ASSERT_OK(MakeExecNode(source_factory_name, plan.get(), {}, null_executor_options));
 
-  auto null_schema_options = RecordBatchReaderSourceNodeOptions{no_schema, reader};
-  ASSERT_THAT(MakeExecNode(source_factory_name, plan.get(), {}, null_schema_options),
+  std::shared_ptr<RecordBatchReader> no_reader;
+  auto null_reader_options = RecordBatchReaderSourceNodeOptions{no_reader};
+  ASSERT_THAT(MakeExecNode(source_factory_name, plan.get(), {}, null_reader_options),
               Raises(StatusCode::Invalid, HasSubstr("not null")));
 }
 
@@ -416,11 +414,11 @@ TEST(ExecPlanExecution, RecordBatchSourceSinkError) {
 }
 
 TEST(ExecPlanExecution, RecordBatchReaderSourceSink) {
-  TestRecordBatchReaderSourceSink(ToRecordBatcheReader);
+  TestRecordBatchReaderSourceSink(ToRecordBatchReader);
 }
 
 TEST(ExecPlanExecution, RecordBatchReaderSourceSinkError) {
-  TestRecordBatchReaderSourceSinkError(ToRecordBatcheReader);
+  TestRecordBatchReaderSourceSinkError(ToRecordBatchReader);
 }
 
 TEST(ExecPlanExecution, SinkNodeBackpressure) {

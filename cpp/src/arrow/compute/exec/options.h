@@ -128,13 +128,9 @@ class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
 
 class ARROW_EXPORT RecordBatchReaderSourceNodeOptions : public ExecNodeOptions {
  public:
-  RecordBatchReaderSourceNodeOptions(std::shared_ptr<Schema> schema,
-                                     std::shared_ptr<RecordBatchReader> reader,
+  RecordBatchReaderSourceNodeOptions(std::shared_ptr<RecordBatchReader> reader,
                                      arrow::internal::Executor* io_executor = NULLPTR)
-      : schema(schema), reader(std::move(reader)), io_executor(io_executor) {}
-
-  /// \brief The schema of the record batches from the iterator
-  std::shared_ptr<Schema> schema;
+      : reader(std::move(reader)), io_executor(io_executor) {}
 
   /// \brief The RecordBatchReader which acts as the data source
   std::shared_ptr<RecordBatchReader> reader;

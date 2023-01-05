@@ -338,27 +338,25 @@ struct RecordBatchReaderSourceNode : public SourceNode {
     const auto& cast_options =
         checked_cast<const RecordBatchReaderSourceNodeOptions&>(options);
     auto& reader = cast_options.reader;
-    auto& schema = cast_options.schema;
     auto io_executor = cast_options.io_executor;
 
-    if (io_executor == NULLPTR) {
-      io_executor = plan->query_context()->exec_context()->executor();
+    if (reader == NULLPTR) {
+      return Status::Invalid(kKindName, " requires a reader which is not null");
     }
 
-    if (schema == NULLPTR) {
-      return Status::Invalid(kKindName, " requires schema which is not null");
-    }
     if (io_executor == NULLPTR) {
       io_executor = io::internal::GetIOThreadPool();
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto generator, MakeGenerator(reader, io_executor, schema));
-    return plan->EmplaceNode<RecordBatchReaderSourceNode>(plan, schema, generator);
+    ARROW_ASSIGN_OR_RAISE(auto generator, MakeGenerator(reader, io_executor));
+    return plan->EmplaceNode<RecordBatchReaderSourceNode>(plan, reader->schema(),
+                                                          generator);
   }
 
   static Result<arrow::AsyncGenerator<std::optional<ExecBatch>>> MakeGenerator(
       const std::shared_ptr<RecordBatchReader>& reader,
-      arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
+      arrow::internal::Executor* io_executor) {
+    const auto& schema = reader->schema();
     auto to_exec_batch =
         [schema](const std::shared_ptr<RecordBatch>& batch) -> std::optional<ExecBatch> {
       if (batch == NULLPTR || *batch->schema() != *schema) {

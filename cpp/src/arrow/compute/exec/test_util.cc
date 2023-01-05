@@ -290,7 +290,7 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
   return record_batches;
 }
 
-Result<std::shared_ptr<RecordBatchReader>> ToRecordBatcheReader(
+Result<std::shared_ptr<RecordBatchReader>> ToRecordBatchReader(
     const BatchesWithSchema& batches_with_schema) {
   std::vector<std::shared_ptr<RecordBatch>> record_batches;
   for (auto batch : batches_with_schema.batches) {
