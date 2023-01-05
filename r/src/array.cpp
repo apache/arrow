@@ -215,16 +215,9 @@ std::shared_ptr<arrow::Array> StructArray__GetFieldByName(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::StructArray> StructArray__from_arrays(
-	const std::vector<std::shared_ptr<arrow::Array>>& arrays,
-	const std::vector<std::string>& field_names) {
-	return ValueOrStop(arrow::StructArray::Make(arrays, field_names));
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::StructArray> StructArray__from_arrays2(
-	const std::vector<std::shared_ptr<arrow::Array>>& arrays,
-	const std::vector<std::shared_ptr<arrow::Field>>& fields) {
-	return ValueOrStop(arrow::StructArray::Make(arrays, fields));
+    const std::vector<std::shared_ptr<arrow::Array>>& arrays,
+    const std::vector<std::string>& field_names) {
+  return ValueOrStop(arrow::StructArray::Make(arrays, field_names));
 }
 
 // [[arrow::export]]

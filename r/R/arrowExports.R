@@ -116,10 +116,6 @@ StructArray__from_arrays <- function(arrays, field_names) {
   .Call(`_arrow_StructArray__from_arrays`, arrays, field_names)
 }
 
-StructArray__from_arrays2 <- function(arrays, fields) {
-  .Call(`_arrow_StructArray__from_arrays2`, arrays, fields)
-}
-
 StructArray__Flatten <- function(array) {
   .Call(`_arrow_StructArray__Flatten`, array)
 }
