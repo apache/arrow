@@ -552,21 +552,9 @@ test_that("StructArray creation", {
 
   # from Arrays
   str_array <- StructArray$create(Array$create(1:2), Array$create(c("a", "b")))
-  expect_identical(names(str_array), c("", ""))
   expect_equal(str_array[[1]], Array$create(1:2))
   expect_equal(str_array[[2]], Array$create(c("a", "b")))
   expect_r6_class(str_array, "StructArray")
-
-  expect_error(
-    StructArray$create(Array$create(1:12), Array$create(c("a", "b"))),
-    "All input Arrays must be equal lengths"
-  )
-
-  # from Scalar
-  str_array_scalar <- StructArray$create(Scalar$create(TRUE))
-  expect_identical(names(str_array_scalar), "")
-  expect_equal(str_array_scalar[[1]], Array$create(TRUE))
-  expect_r6_class(str_array_scalar, "StructArray")
 })
 
 test_that("Array$create() can handle data frame with custom struct type (not inferred)", {

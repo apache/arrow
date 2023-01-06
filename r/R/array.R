@@ -440,7 +440,7 @@ StructArray <- R6Class("StructArray",
 )
 
 StructArray$create <- function(...) {
-  dots <- list2(...)
+  dots <- rlang::dots_list(..., .named = TRUE)
 
   stopifnot(length(dots) > 0)
 
@@ -448,33 +448,9 @@ StructArray$create <- function(...) {
     return(Array$create(dots[[1]]))
   }
 
-  # if we can convert items in dots to Arrays, then do
-  if (!all(map_lgl(dots, ~ inherits(.x, "Array")))) {
-    dots <- map(dots, Array$create)
-  }
+  data <- record_batch(!!!dots)
 
-  if (all(map_lgl(dots, ~ inherits(.x, "Array")))) {
-    # Check for Array length equality
-    if (!length(unique(lengths(dots))) == 1) {
-      abort(
-        message = c(
-          "All input Arrays must be equal lengths",
-          x = paste("Array lengths:", paste(lengths(dots), collapse = ", "))
-        )
-      )
-    }
-
-    # make sure there are names
-    if (is.null(names(dots))) {
-      names(dots) <- rep_len("", length(dots))
-    }
-
-    StructArray__from_arrays(dots, names(dots))
-  } else {
-    abort(
-      "Input to StructArray$create must be a Scalar, Arrays or a single data frame"
-    )
-  }
+  StructArray__from_arrays(dots, names(dots))
 }
 
 
