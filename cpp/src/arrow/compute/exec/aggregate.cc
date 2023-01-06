@@ -38,7 +38,7 @@ namespace internal {
 
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
     ExecContext* ctx, const std::vector<Aggregate>& aggregates,
-    const std::vector<TypeHolder>& in_types) {
+    const std::vector<std::vector<TypeHolder>>& in_types) {
   if (aggregates.size() != in_types.size()) {
     return Status::Invalid(aggregates.size(), " aggregate functions were specified but ",
                            in_types.size(), " arguments were provided.");
@@ -46,11 +46,15 @@ Result<std::vector<const HashAggregateKernel*>> GetKernels(
 
   std::vector<const HashAggregateKernel*> kernels(in_types.size());
 
+  std::vector<TypeHolder> aggregate_in_types;
   for (size_t i = 0; i < aggregates.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(auto function,
                           ctx->func_registry()->GetFunction(aggregates[i].function));
+    // {in_types[i]..., uint32()}
+    aggregate_in_types = in_types[i];
+    aggregate_in_types.emplace_back(uint32());
     ARROW_ASSIGN_OR_RAISE(const Kernel* kernel,
-                          function->DispatchExact({in_types[i], uint32()}));
+                          function->DispatchExact(aggregate_in_types));
     kernels[i] = static_cast<const HashAggregateKernel*>(kernel);
   }
   return kernels;
@@ -58,13 +62,14 @@ Result<std::vector<const HashAggregateKernel*>> GetKernels(
 
 Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     const std::vector<const HashAggregateKernel*>& kernels, ExecContext* ctx,
-    const std::vector<Aggregate>& aggregates, const std::vector<TypeHolder>& in_types) {
+    const std::vector<Aggregate>& aggregates,
+    const std::vector<std::vector<TypeHolder>>& in_types) {
   std::vector<std::unique_ptr<KernelState>> states(kernels.size());
 
+  std::vector<TypeHolder> agg_in_types;
   for (size_t i = 0; i < aggregates.size(); ++i) {
-    const FunctionOptions* options =
-        arrow::internal::checked_cast<const FunctionOptions*>(
-            aggregates[i].options.get());
+    const auto* options = arrow::internal::checked_cast<const FunctionOptions*>(
+        aggregates[i].options.get());
 
     if (options == nullptr) {
       // use known default options for the named function if possible
@@ -75,13 +80,12 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     }
 
     KernelContext kernel_ctx{ctx};
-    ARROW_ASSIGN_OR_RAISE(states[i],
-                          kernels[i]->init(&kernel_ctx, KernelInitArgs{kernels[i],
-                                                                       {
-                                                                           in_types[i],
-                                                                           uint32(),
-                                                                       },
-                                                                       options}));
+    // {in_types[i]..., uint32()}
+    agg_in_types = in_types[i];
+    agg_in_types.emplace_back(uint32());
+    ARROW_ASSIGN_OR_RAISE(
+        states[i],
+        kernels[i]->init(&kernel_ctx, KernelInitArgs{kernels[i], agg_in_types, options}));
   }
 
   return std::move(states);
@@ -91,15 +95,19 @@ Result<FieldVector> ResolveKernels(
     const std::vector<Aggregate>& aggregates,
     const std::vector<const HashAggregateKernel*>& kernels,
     const std::vector<std::unique_ptr<KernelState>>& states, ExecContext* ctx,
-    const std::vector<TypeHolder>& types) {
+    const std::vector<std::vector<TypeHolder>>& types) {
   FieldVector fields(types.size());
 
+  std::vector<TypeHolder> agg_in_types;
   for (size_t i = 0; i < kernels.size(); ++i) {
     KernelContext kernel_ctx{ctx};
     kernel_ctx.SetState(states[i].get());
 
-    ARROW_ASSIGN_OR_RAISE(auto type, kernels[i]->signature->out_type().Resolve(
-                                         &kernel_ctx, {types[i], uint32()}));
+    // {types[i]..., uint32()}
+    agg_in_types = types[i];
+    agg_in_types.emplace_back(uint32());
+    ARROW_ASSIGN_OR_RAISE(
+        auto type, kernels[i]->signature->out_type().Resolve(&kernel_ctx, agg_in_types));
     fields[i] = field(aggregates[i].function, type.GetSharedPtr());
   }
   return fields;
@@ -125,17 +133,32 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
     ARROW_ASSIGN_OR_RAISE(args_batch, ExecBatch::Make(arguments));
 
     // Construct and initialize HashAggregateKernels
-    auto argument_types = args_batch.GetTypes();
+    std::vector<std::vector<TypeHolder>> aggs_argument_types(aggregates.size());
+    {
+      // Contains the flattened list of aggregate arguments. We use the size of
+      // each Aggregate::target to re-group the aggregate argument types.
+      auto argument_types = args_batch.GetTypes();
+      size_t i = 0;
+      for (size_t j = 0; j < aggregates.size(); j++) {
+        const size_t num_agg_args = aggregates[j].target.size();
+        for (size_t k = 0; k < num_agg_args && i < argument_types.size(); k++, i++) {
+          aggs_argument_types[j].push_back(argument_types[i]);
+        }
+      }
+      DCHECK_EQ(i, argument_types.size())
+          << "argument_types should contain input types for all the aggregates.";
+    }
 
-    ARROW_ASSIGN_OR_RAISE(kernels, GetKernels(ctx, aggregates, argument_types));
+    ARROW_ASSIGN_OR_RAISE(kernels, GetKernels(ctx, aggregates, aggs_argument_types));
 
     states.resize(task_group->parallelism());
     for (auto& state : states) {
-      ARROW_ASSIGN_OR_RAISE(state, InitKernels(kernels, ctx, aggregates, argument_types));
+      ARROW_ASSIGN_OR_RAISE(state,
+                            InitKernels(kernels, ctx, aggregates, aggs_argument_types));
     }
 
-    ARROW_ASSIGN_OR_RAISE(
-        out_fields, ResolveKernels(aggregates, kernels, states[0], ctx, argument_types));
+    ARROW_ASSIGN_OR_RAISE(out_fields, ResolveKernels(aggregates, kernels, states[0], ctx,
+                                                     aggs_argument_types));
 
     RETURN_NOT_OK(argument_iterator.Init(args_batch, ctx->exec_chunksize()));
   }
@@ -181,13 +204,23 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
       ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(key_batch));
 
       // consume group ids with HashAggregateKernels
-      for (size_t i = 0; i < kernels.size(); ++i) {
+      for (size_t k = 0, arg_idx = 0; k < kernels.size(); ++k) {
+        const auto* kernel = kernels[k];
         KernelContext batch_ctx{ctx};
-        batch_ctx.SetState(states[thread_index][i].get());
-        ExecSpan kernel_batch({argument_batch[i], *id_batch.array()},
-                              argument_batch.length);
-        RETURN_NOT_OK(kernels[i]->resize(&batch_ctx, grouper->num_groups()));
-        RETURN_NOT_OK(kernels[i]->consume(&batch_ctx, kernel_batch));
+        batch_ctx.SetState(states[thread_index][k].get());
+
+        const size_t kernel_num_args = kernel->signature->in_types().size();
+        DCHECK(kernel_num_args > 0);
+
+        std::vector<ExecValue> kernel_args;
+        for (size_t i = 0; i + 1 < kernel_num_args; i++, arg_idx++) {
+          kernel_args.push_back(argument_batch[arg_idx]);
+        }
+        kernel_args.emplace_back(*id_batch.array());
+
+        ExecSpan kernel_batch(std::move(kernel_args), argument_batch.length);
+        RETURN_NOT_OK(kernel->resize(&batch_ctx, grouper->num_groups()));
+        RETURN_NOT_OK(kernel->consume(&batch_ctx, kernel_batch));
       }
 
       return Status::OK();
@@ -215,7 +248,7 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
   }
 
   // Finalize output
-  ArrayDataVector out_data(arguments.size() + keys.size());
+  ArrayDataVector out_data(kernels.size() + keys.size());
   auto it = out_data.begin();
 
   for (size_t idx = 0; idx < kernels.size(); ++idx) {
