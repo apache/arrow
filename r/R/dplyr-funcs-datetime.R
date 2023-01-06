@@ -444,7 +444,7 @@ register_bindings_datetime_timezone <- function() {
         roll_dst[1],
         "error" = 0L,
         "boundary" = 2L,
-        arrow_not_supported("`roll_dst` != 'error' for nonexistent times")
+        arrow_not_supported("`roll_dst` != 'error' or 'boundary' for nonexistent times")
       )
 
       ambiguous <- switch(

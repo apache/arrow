@@ -3558,6 +3558,11 @@ test_that("with_tz() and force_tz() works", {
     "2015-03-29 03:30:00"
   ), tz = "UTC")
 
+  ambiguous <- as_datetime(c(
+    "2015-10-25 02:30:00",
+    "2015-10-25 03:30:00"
+  ), tz = "UTC")
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -3583,7 +3588,7 @@ test_that("with_tz() and force_tz() works", {
     tibble::tibble(timestamps = timestamps_non_utc)
   )
 
-  # we can support some roll_dst behaviour
+  # We can match some roll_dst behaviour for nonexistent times
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -3597,6 +3602,33 @@ test_that("with_tz() and force_tz() works", {
     tibble::tibble(timestamps = nonexistent)
   )
 
+  # We can match all roll_dst behaviour for ambiguous times
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        # The difference is easier to see if we transform back to UTC
+        # because both pre and post will display as 02:30 otherwise
+        timestamps_with_tz_pre = with_tz(
+          force_tz(
+            timestamps,
+            "Europe/Brussels",
+            roll_dst = c("boundary", "pre")
+          ),
+          "UTC"
+        ),
+        timestamps_with_tz_post = with_tz(
+          force_tz(
+            timestamps,
+            "Europe/Brussels",
+            roll_dst = c("boundary", "post")
+          ),
+          "UTC"
+        )
+      ) %>%
+      collect(),
+    tibble::tibble(timestamps = ambiguous)
+  )
+
   # non-UTC timezone to other timezone is not supported in arrow's force_tz()
   expect_warning(
     tibble::tibble(timestamps = timestamps_non_utc) %>%
@@ -3606,14 +3638,30 @@ test_that("with_tz() and force_tz() works", {
     "from timezone `US/Central` not supported in Arrow"
   )
 
-  # Arrow's roll and lubridate's roll do different types of rolls so we can't
-  # support all of them yet
+  # We only support some roll_dst values
   expect_warning(
     tibble::tibble(timestamps = nonexistent) %>%
       arrow_table() %>%
-      mutate(timestamps = force_tz(timestamps, "Europe/Brussels", roll_dst = "NA")) %>%
+      mutate(timestamps = force_tz(
+        timestamps,
+        "Europe/Brussels",
+        roll_dst = "post")
+      ) %>%
       collect(),
-    "`roll_dst` != 'error' for nonexistent times"
+    "`roll_dst` != 'error' or 'boundary' for nonexistent times"
+  )
+
+  expect_warning(
+    tibble::tibble(timestamps = nonexistent) %>%
+      arrow_table() %>%
+      mutate(timestamps = force_tz(
+          timestamps,
+          "Europe/Brussels",
+          roll_dst = c("boundary", "NA")
+        )
+      ) %>%
+      collect(),
+    "`roll_dst` != 'error', 'pre', or 'post' for ambiguous times"
   )
 
   # Raise error when the timezone falls into the DST-break
