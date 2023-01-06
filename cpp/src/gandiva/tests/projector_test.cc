@@ -1752,7 +1752,7 @@ TEST_F(TestProjector, TestSign) {
   EXPECT_ARROW_ARRAY_EQUALS(out_float64, outputs4.at(0));
 }
 
-TEST_F(TestProjector, TestAbsInt32){
+TEST_F(TestProjector, TestAbsInt32) {
   auto in_field = field("in", arrow::int32());
   auto schema = arrow::schema({in_field});
   auto out_field = field("out", arrow::int32());
@@ -1772,7 +1772,7 @@ TEST_F(TestProjector, TestAbsInt32){
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 
-TEST_F(TestProjector, TestAbsInt64){
+TEST_F(TestProjector, TestAbsInt64) {
   auto in_field = field("in", arrow::int64());
   auto schema = arrow::schema({in_field});
   auto out_field = field("out", arrow::int64());
@@ -1792,7 +1792,7 @@ TEST_F(TestProjector, TestAbsInt64){
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 
-TEST_F(TestProjector, TestAbsFloat32){
+TEST_F(TestProjector, TestAbsFloat32) {
   auto in_field = field("in", arrow::float32());
   auto schema = arrow::schema({in_field});
   auto out_field = field("out", arrow::float32());
@@ -1802,9 +1802,10 @@ TEST_F(TestProjector, TestAbsFloat32){
   ARROW_EXPECT_OK(Projector::Make(schema, {abs}, TestConfiguration(), &projector));
 
   int num_records = 4;
-  auto array = MakeArrowArrayFloat32({1.1f, -2.2f, 3.3f, -4.4f}, {true, true, true, true});;
+  auto array =
+      MakeArrowArrayFloat32({1.1f, -2.2f, 3.3f, -4.4f}, {true, true, true, true});
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
-  auto out = MakeArrowArrayFloat32({1.1f, 2.2f, 3.3f, 4.4f}, {true, true, true, true});;
+  auto out = MakeArrowArrayFloat32({1.1f, 2.2f, 3.3f, 4.4f}, {true, true, true, true});
 
   arrow::ArrayVector outs;
 
@@ -1812,7 +1813,7 @@ TEST_F(TestProjector, TestAbsFloat32){
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 
-TEST_F(TestProjector, TestAbsFloat64){
+TEST_F(TestProjector, TestAbsFloat64) {
   auto in_field = field("in", arrow::float64());
   auto schema = arrow::schema({in_field});
   auto out_field = field("out", arrow::float64());
@@ -1822,9 +1823,9 @@ TEST_F(TestProjector, TestAbsFloat64){
   ARROW_EXPECT_OK(Projector::Make(schema, {abs}, TestConfiguration(), &projector));
 
   int num_records = 4;
-  auto array = MakeArrowArrayFloat64({1.1, -2.2, 3.3, -4.4}, {true, true, true, true});;
+  auto array = MakeArrowArrayFloat64({1.1, -2.2, 3.3, -4.4}, {true, true, true, true});
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
-  auto out = MakeArrowArrayFloat64({1.1, 2.2, 3.3, 4.4}, {true, true, true, true});;
+  auto out = MakeArrowArrayFloat64({1.1, 2.2, 3.3, 4.4}, {true, true, true, true});
 
   arrow::ArrayVector outs;
 

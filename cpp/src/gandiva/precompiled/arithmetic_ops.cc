@@ -495,11 +495,9 @@ SIGN(float64)
 
 #undef SIGN
 
-#define ABS(TYPE)                         \
-  FORCE_INLINE                             \
-  gdv_##TYPE abs_##TYPE(gdv_##TYPE in1) { \
-      return static_cast<gdv_##TYPE>(std::abs(in1));    \
-  }
+#define ABS(TYPE) \
+  FORCE_INLINE    \
+  gdv_##TYPE abs_##TYPE(gdv_##TYPE in1) { return static_cast<gdv_##TYPE>(std::abs(in1)); }
 
 ABS(int32)
 ABS(int64)
