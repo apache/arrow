@@ -209,7 +209,7 @@ a streaming and/or random-access fashion depending on application requirements.
 
 **Write data to an arrow file**
 
-Example: Write the dataset from the previous example to an Arrow random-access file.
+Example: Write the dataset from the previous example to an Arrow IPC file (random-access).
 
 .. code-block:: Java
 
@@ -274,7 +274,7 @@ Example: Write the dataset from the previous example to an Arrow random-access f
 
 **Read data from an arrow file**
 
-Example: Read the dataset from the previous example to an Arrow random-access file.
+Example: Read the dataset from the previous example from an Arrow IPC file (random-access).
 
 .. code-block:: Java
 
