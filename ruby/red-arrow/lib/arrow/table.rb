@@ -22,6 +22,7 @@ module Arrow
     include ColumnContainable
     include GenericFilterable
     include GenericTakeable
+    include InputReferable
     include RecordContainable
 
     class << self
@@ -188,6 +189,7 @@ module Arrow
 
       reader = TableBatchReader.new(self)
       while record_batch = reader.read_next
+        share_input(record_batch)
         yield(record_batch)
       end
     end
@@ -346,10 +348,12 @@ module Arrow
         end
       end
       if sliced_tables.size > 1
-        sliced_tables[0].concatenate(sliced_tables[1..-1])
+        sliced_table = sliced_tables[0].concatenate(sliced_tables[1..-1])
       else
-        sliced_tables[0]
+        sliced_table = sliced_tables[0]
       end
+      share_input(sliced_table)
+      sliced_table
     end
 
     # TODO
@@ -401,7 +405,9 @@ module Arrow
         new_fields << new_column[:field]
         new_arrays << new_column[:data]
       end
-      self.class.new(new_fields, new_arrays)
+      table = self.class.new(new_fields, new_arrays)
+      share_input(table)
+      table
     end
 
     alias_method :remove_column_raw, :remove_column
@@ -423,7 +429,9 @@ module Arrow
           raise IndexError.new(message)
         end
       end
-      remove_column_raw(index)
+      table = remove_column_raw(index)
+      share_input(table)
+      table
     end
 
     # Experimental
@@ -445,7 +453,9 @@ module Arrow
       packed_arrays = columns.collect do |column|
         column.data.pack
       end
-      self.class.new(schema, packed_arrays)
+      table = self.class.new(schema, packed_arrays)
+      share_input(table)
+      table
     end
 
     # Join another Table by matching with keys.
@@ -538,7 +548,9 @@ module Arrow
       plan.start
       plan.wait
       reader = sink_node_options.get_reader(hash_join_node.output_schema)
-      reader.read_all
+      table = reader.read_all
+      share_input(table)
+      table
     end
 
     alias_method :to_s_raw, :to_s

@@ -860,6 +860,76 @@ chris\t-1
         end
       end
     end
+
+    sub_test_case("GC") do
+      def setup
+        table = Arrow::Table.new(integer: [1, 2, 3],
+                                 string: ["a", "b", "c"])
+        @buffer = Arrow::ResizableBuffer.new(1024)
+        table.save(@buffer, format: :arrow)
+        @loaded_table = Arrow::Table.load(@buffer)
+      end
+
+      def test_chunked_array
+        chunked_array = @loaded_table[0].data
+        assert_equal(@buffer,
+                     chunked_array.instance_variable_get(:@input).buffer)
+      end
+
+      def test_array
+        array = @loaded_table[0].data.chunks[0]
+        assert_equal(@buffer,
+                     array.instance_variable_get(:@input).buffer)
+      end
+
+      def test_record_batch
+        record_batch = @loaded_table.each_record_batch.first
+        assert_equal(@buffer,
+                     record_batch.instance_variable_get(:@input).buffer)
+      end
+
+      def test_record_batch_array
+        array = @loaded_table.each_record_batch.first[0].data
+        assert_equal(@buffer,
+                     array.instance_variable_get(:@input).buffer)
+      end
+
+      def test_record_batch_table
+        table = @loaded_table.each_record_batch.first.to_table
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+
+      def test_slice
+        table = @loaded_table.slice(0..-1)
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+
+      def test_merge
+        table = @loaded_table.merge({})
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+
+      def test_remove_column
+        table = @loaded_table.remove_column(0)
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+
+      def test_pack
+        table = @loaded_table.pack
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+
+      def test_join
+        table = @loaded_table.join(@loaded_table, :integer)
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+    end
   end
 
   test("#pack") do

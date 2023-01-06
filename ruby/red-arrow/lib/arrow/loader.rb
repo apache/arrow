@@ -39,6 +39,7 @@ module Arrow
       require "arrow/field-containable"
       require "arrow/generic-filterable"
       require "arrow/generic-takeable"
+      require "arrow/input-referable"
       require "arrow/record-containable"
       require "arrow/symbol-values-appendable"
 
