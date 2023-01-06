@@ -89,11 +89,16 @@ class ReadStats(_ReadStats):
 
     Parameters
     ----------
-    num_messages : number of messages
-    num_record_batches : number of record batches
-    num_dictionary_batches : number of dictionary batches
-    num_dictionary_deltas : delta of dictionaries
-    num_replaced_dictionaries : number of replaced dictionaries
+    num_messages : int
+        Number of messages.
+    num_record_batches : int
+        Number of record batches.
+    num_dictionary_batches : int
+        Number of dictionary batches.
+    num_dictionary_deltas : int
+        Delta of dictionaries.
+    num_replaced_dictionaries : int
+        Number of replaced dictionaries.
     """
     __slots__ = ()
 
