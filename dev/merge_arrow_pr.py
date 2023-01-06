@@ -301,7 +301,7 @@ class GitHubIssue(object):
 
 
 def get_candidate_fix_version(mainline_versions,
-                              merge_branches,
+                              merge_branches=None,
                               maintenance_branches=()):
     if merge_branches is None:
         merge_branches = (git_default_branch_name(),)
@@ -670,7 +670,7 @@ def get_primary_author(cmd, distinct_authors):
 
 def prompt_for_fix_version(cmd, issue, maintenance_branches=()):
     default_fix_version = get_candidate_fix_version(
-        issue.current_versions,
+        mainline_versions=issue.current_versions,
         maintenance_branches=maintenance_branches
     )
 
