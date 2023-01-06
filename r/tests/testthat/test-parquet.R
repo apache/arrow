@@ -470,5 +470,5 @@ test_that("Can read parquet with nested lists and maps", {
   expect_type_equal(pq$a, list_of(field("element", list_of(field("element", list_of(field("element", utf8())))))))
 
   pq <- read_parquet(paste0(parquet_test_data, "/nested_maps.snappy.parquet"), as_data_frame = FALSE)
-  expect_type_equal(pq$a, map_of(utf8(), map_of(int32(), field("value", boolean(), nullable = FALSE))))
+  expect_true(pq$a$type == map_of(utf8(), map_of(int32(), field("value", boolean(), nullable = FALSE))))
 })
