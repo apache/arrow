@@ -118,7 +118,6 @@ cdef class IpcReadOptions(_Weakrefable):
     ----------
     ensure_native_endian : bool, default True
         Whether to convert incoming data to platform-native endianness.
-        Default is true
     use_threads : bool
         Whether to use the global CPU thread pool to parallelize any
         computational tasks like decompression
