@@ -71,7 +71,7 @@ cdef class ParquetFileFormat(FileFormat):
     default_fragment_scan_options : ParquetFragmentScanOptions
         Scan Options for the file.
     **kwargs : dict
-        Additional options for read option or scan option.
+        Additional options for read option or scan option
     """
 
     cdef:
@@ -236,9 +236,12 @@ class RowGroupInfo:
 
     Parameters
     ----------
-    id : the group id.
-    metadata : the rowgroup metadata.
-    schema : schema of the rows.
+    id : integer
+        The group ID.
+    metadata : FileMetaData
+        The rowgroup metadata.
+    schema : Schema
+        Schema of the rows.
     """
 
     def __init__(self, id, metadata, schema):
@@ -449,12 +452,12 @@ cdef class ParquetReadOptions(_Weakrefable):
     ----------
     dictionary_columns : list of string, default None
         Names of columns which should be dictionary encoded as
-        they are read.
-    coerce_int96_timestamp_unit : str, default None.
+        they are read
+    coerce_int96_timestamp_unit : str, default None
         Cast timestamps that are stored in INT96 format to a particular
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
         and therefore INT96 timestamps will be inferred as timestamps
-        in nanoseconds.
+        in nanoseconds
     """
 
     cdef public:

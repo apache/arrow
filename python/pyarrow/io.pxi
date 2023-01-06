@@ -2207,7 +2207,7 @@ def input_stream(source, compression='detect', buffer_size=None):
 
     Parameters
     ----------
-    source : str, Path, buffer, file-like object, ...
+    source : str, Path, buffer, or file-like object
         The source to open for reading.
     compression : str optional, default 'detect'
         The compression algorithm to use for on-the-fly decompression.
@@ -2259,7 +2259,7 @@ def output_stream(source, compression='detect', buffer_size=None):
 
     Parameters
     ----------
-    source : str, Path, buffer, file-like object, ...
+    source : str, Path, buffer, file-like object
         The source to open for writing.
     compression : str optional, default 'detect'
         The compression algorithm to use for on-the-fly compression.

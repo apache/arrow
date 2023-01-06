@@ -164,6 +164,7 @@ Create an Arrow columnar IPC stream writer instance
 Returns
 -------
 writer : RecordBatchStreamWriter
+    A writer for the given sink
 """.format(_ipc_writer_class_doc)
 
 
@@ -180,9 +181,11 @@ def open_stream(source, *, options=None, memory_pool=None):
         If None, default values will be used.
     memory_pool : MemoryPool, default None
         If None, default memory pool is used.
+
     Returns
     -------
     reader : RecordBatchStreamReader
+        A reader for the given source
     """
     return RecordBatchStreamReader(source, options=options,
                                    memory_pool=memory_pool)
@@ -202,6 +205,7 @@ Create an Arrow columnar IPC file writer instance
 Returns
 -------
 writer : RecordBatchFileWriter
+    A writer for the given sink
 """.format(_ipc_writer_class_doc)
 
 
@@ -221,9 +225,11 @@ def open_file(source, footer_offset=None, *, options=None, memory_pool=None):
         If None, default values will be used.
     memory_pool : MemoryPool, default None
         If None, default memory pool is used.
+
     Returns
     -------
     reader : RecordBatchFileReader
+        A reader for the given source
     """
     return RecordBatchFileReader(
         source, footer_offset=footer_offset,
@@ -271,6 +277,7 @@ def deserialize_pandas(buf, *, use_threads=True):
     Returns
     -------
     df : pandas.DataFrame
+        The buffer deserialized as pandas DataFrame
     """
     buffer_reader = pa.BufferReader(buf)
     with pa.RecordBatchStreamReader(buffer_reader) as reader:

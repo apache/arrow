@@ -162,6 +162,7 @@ def filters_to_expression(filters):
     Returns
     -------
     pyarrow.compute.Expression
+        An Expression representing the filters
     """
     import pyarrow.dataset as ds
 
@@ -242,7 +243,7 @@ class ParquetFile:
         Coalesce and issue file reads in parallel to improve performance on
         high-latency filesystems (e.g. S3). If True, Arrow will use a
         background I/O thread pool.
-    coerce_int96_timestamp_unit : str, default None.
+    coerce_int96_timestamp_unit : str, default None
         Cast timestamps that are stored in INT96 format to a particular
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
         and therefore INT96 timestamps will be inferred as timestamps
@@ -541,9 +542,9 @@ class ParquetFile:
             If True and file has custom pandas schema metadata, ensure that
             index columns are also loaded.
 
-        Returns
+        Yields
         -------
-        iterator of pyarrow.RecordBatch
+        pyarrow.RecordBatch
             Contents of each batch as a record batch
 
         Examples
@@ -645,7 +646,8 @@ class ParquetFile:
 
         Returns
         -------
-        num_rows : number of rows in file
+        num_rows : int
+            Number of rows in file
 
         Examples
         --------
@@ -1186,6 +1188,7 @@ class ParquetDatasetPiece:
         Returns
         -------
         metadata : FileMetaData
+            The file's metadata
         """
         with self.open() as parquet:
             return parquet.metadata
@@ -1222,6 +1225,7 @@ class ParquetDatasetPiece:
         Returns
         -------
         table : pyarrow.Table
+            The piece as a pyarrow.Table.
         """
         if self.open_file_func is not None:
             reader = self.open()
@@ -1309,7 +1313,8 @@ class PartitionSet:
 
         Parameters
         ----------
-        key : The value for which we want to known the index.
+        key : str or int
+            The value for which we want to known the index.
         """
         if key in self.key_indices:
             return self.key_indices[key]
@@ -1713,7 +1718,7 @@ pre_buffer : bool, default True
     use_legacy_dataset=False. If using a filesystem layer that itself
     performs readahead (e.g. fsspec's S3FS), disable readahead for best
     results.
-coerce_int96_timestamp_unit : str, default None.
+coerce_int96_timestamp_unit : str, default None
     Cast timestamps that are stored in INT96 format to a particular resolution
     (e.g. 'ms'). Setting to None is equivalent to 'ns' and therefore INT96
     timestamps will be inferred as timestamps in nanoseconds.
@@ -2783,7 +2788,7 @@ pre_buffer : bool, default True
     use_legacy_dataset=False. If using a filesystem layer that itself
     performs readahead (e.g. fsspec's S3FS), disable readahead for best
     results.
-coerce_int96_timestamp_unit : str, default None.
+coerce_int96_timestamp_unit : str, default None
     Cast timestamps that are stored in INT96 format to a particular
     resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
     and therefore INT96 timestamps will be inferred as timestamps
@@ -3560,6 +3565,7 @@ def read_metadata(where, memory_map=False, decryption_properties=None,
     Returns
     -------
     metadata : FileMetaData
+        The metadata of the Parquet file
 
     Examples
     --------
@@ -3609,6 +3615,7 @@ def read_schema(where, memory_map=False, decryption_properties=None,
     Returns
     -------
     schema : pyarrow.Schema
+        The schema of the Parquet file
 
     Examples
     --------
