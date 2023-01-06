@@ -237,7 +237,8 @@
 #' * [`fast_strptime()`][lubridate::fast_strptime()]: non-default values of `lt` and `cutoff_2000` not supported
 #' * [`floor_date()`][lubridate::floor_date()]
 #' * [`force_tz()`][lubridate::force_tz()]: Timezone conversion from non-UTC timezone not supported;
-#' `roll_dst` is not supported: ambiguous and nonexistent times currently error
+#' `roll_dst` values of 'error' and 'boundary' are supported for nonexistent times,
+#' `roll_dst` values of 'error', 'pre', and 'post' are supported for ambiguous times.
 #' * [`format_ISO8601()`][lubridate::format_ISO8601()]
 #' * [`hour()`][lubridate::hour()]
 #' * [`is.Date()`][lubridate::is.Date()]
