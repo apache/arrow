@@ -3583,6 +3583,20 @@ test_that("with_tz() and force_tz() works", {
     tibble::tibble(timestamps = timestamps_non_utc)
   )
 
+  # we can support some roll_dst behaviour
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        timestamps_with_tz_1 = force_tz(
+          timestamps,
+          "Europe/Brussels",
+          roll_dst = c("boundary", "post")
+        )
+      ) %>%
+      collect(),
+    tibble::tibble(timestamps = nonexistent)
+  )
+
   # non-UTC timezone to other timezone is not supported in arrow's force_tz()
   expect_warning(
     tibble::tibble(timestamps = timestamps_non_utc) %>%
@@ -3593,13 +3607,13 @@ test_that("with_tz() and force_tz() works", {
   )
 
   # Arrow's roll and lubridate's roll do different types of rolls so we can't
-  # support them yet
+  # support all of them yet
   expect_warning(
     tibble::tibble(timestamps = nonexistent) %>%
       arrow_table() %>%
-      mutate(timestamps = force_tz(timestamps, "Europe/Brussels", roll_dst = "post")) %>%
+      mutate(timestamps = force_tz(timestamps, "Europe/Brussels", roll_dst = "NA")) %>%
       collect(),
-    "`roll_dst` not supported in Arrow"
+    "`roll_dst` != 'error' for nonexistent times"
   )
 
   # Raise error when the timezone falls into the DST-break

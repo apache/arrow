@@ -433,10 +433,27 @@ register_bindings_datetime_conversion <- function() {
 register_bindings_datetime_timezone <- function() {
   register_binding(
     "lubridate::force_tz",
-    function(time, tzone = "", roll_dst = "error") {
-      if (!identical(roll_dst, "error")) {
-        arrow_not_supported("`roll_dst`")
+    function(time, tzone = "", roll_dst = c("error", "post")) {
+      if (length(roll_dst) == 1L) {
+        roll_dst <- c(roll_dst, roll_dst)
+      } else if (length(roll_dst) != 2L) {
+        arrow_not_supported("`roll_dst` length != 1 or 2")
       }
+
+      nonexistent <- switch(
+        roll_dst[1],
+        "error" = 0L,
+        "boundary" = 2L,
+        arrow_not_supported("`roll_dst` != 'error' for nonexistent times")
+      )
+
+      ambiguous <- switch(
+        roll_dst[2],
+        "error" = 0L,
+        "pre" = 1L,
+        "post" = 2L,
+        arrow_not_supported("`roll_dst` != 'error', 'pre', or 'post' for ambiguous times")
+      )
 
       if (identical(tzone, "")) {
         tzone <- Sys.timezone()
@@ -464,7 +481,9 @@ register_bindings_datetime_timezone <- function() {
         "assume_timezone",
         time,
         options = list(
-          timezone = tzone
+          timezone = tzone,
+          nonexistent = nonexistent,
+          ambiguous = ambiguous
         )
       )
     },
