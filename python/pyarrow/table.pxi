@@ -5364,7 +5364,7 @@ class TableGroupBy:
         Parameters
         ----------
         aggregations : list[tuple(str, str)] or \
-list[tuple(str, str, FunctionOptions)]
+list[tuple(str|list[str]|tuple(str*), str, FunctionOptions)]
             List of tuples made of aggregation column names followed
             by function names and optionally aggregation function options.
             Pass empty list to get a single row for each group.
@@ -5394,30 +5394,31 @@ list[tuple(str, str, FunctionOptions)]
         ----
         keys: [["a","b","c"]]
         """
-        columns = [a[0] for a in aggregations]
+        target_cols = [a[0] if isinstance(a[0], (list, tuple)) else [a[0]] for a in aggregations]
         aggrfuncs = [
-            (a[1], a[2]) if len(a) > 2 else (a[1], None)
-            for a in aggregations
+            (target, a[1], a[2]) if len(a) > 2 else (target, a[1], None)
+            for (target, a) in zip(target_cols, aggregations)
         ]
 
         group_by_aggrs = []
         for aggr in aggrfuncs:
-            if not aggr[0].startswith("hash_"):
-                aggr = ("hash_" + aggr[0], aggr[1])
+            if not aggr[1].startswith("hash_"):
+                aggr = (aggr[0], "hash_" + aggr[1], aggr[2])
             group_by_aggrs.append(aggr)
 
         # Build unique names for aggregation result columns
         # so that it's obvious what they refer to.
-        column_names = [
-            aggr_name.replace("hash", col_name)
-            for col_name, (aggr_name, _) in zip(columns, group_by_aggrs)
+        out_column_names = [
+            aggr_name.replace("hash", "_".join(target))
+            for target, aggr_name, _ in group_by_aggrs
         ] + self.keys
 
+        flat_cols = [c for target in target_cols for c in target]
         result = _pc()._group_by(
-            [self._table[c] for c in columns],
+            [self._table[c] for c in flat_cols],
             [self._table[k] for k in self.keys],
             group_by_aggrs
         )
 
         t = Table.from_batches([RecordBatch.from_struct_array(result)])
-        return t.rename_columns(column_names)
+        return t.rename_columns(out_column_names)

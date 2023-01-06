@@ -1270,6 +1270,41 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
 }
 
+TEST(ExecPlanExecution, ScalarSourceStandaloneNullaryScalarAggSink) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+
+  BatchesWithSchema scalar_data;
+  scalar_data.batches = {
+      ExecBatchFromJSON({int32(), boolean()}, {ArgShape::SCALAR, ArgShape::SCALAR},
+                        "[[5, null], [5, false], [5, false]]"),
+      ExecBatchFromJSON({int32(), boolean()}, "[[5, true], [null, false], [7, true]]")};
+  scalar_data.schema = schema({
+      field("a", int32()),
+      field("b", boolean()),
+  });
+
+  auto sequence = Declaration::Sequence({
+      {"source", SourceNodeOptions{scalar_data.schema, scalar_data.gen(/*parallel=*/false,
+                                                                       /*slow=*/false)}},
+      {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                        {"count_all", "count(*)"},
+                    }}},
+      {"sink", SinkNodeOptions{&sink_gen}},
+  });
+
+  // index can't be tested as it's order-dependent
+  // mode/quantile can't be tested as they're technically vector kernels
+  ASSERT_OK(sequence.AddToPlan(plan.get()));
+
+  auto exec_batch = ExecBatchFromJSON({int64()}, {ArgShape::SCALAR}, R"([[6]])");
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              Finishes(ResultWith(UnorderedElementsAreArray({
+                  std::move(exec_batch),
+              }))));
+}
+
 TEST(ExecPlanExecution, ScalarSourceGroupedSum) {
   // ARROW-14630: ensure grouped aggregation with a scalar key/array input doesn't
   // error

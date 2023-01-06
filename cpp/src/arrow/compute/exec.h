@@ -174,7 +174,12 @@ struct ARROW_EXPORT ExecBatch {
 
   explicit ExecBatch(const RecordBatch& batch);
 
-  static Result<ExecBatch> Make(std::vector<Datum> values);
+  /// \brief Infers the ExecBatch length from values.
+  ///
+  /// \return -1 if unable to infer the length given the values passed
+  static int64_t InferLength(const std::vector<Datum>& values);
+
+  static Result<ExecBatch> Make(std::vector<Datum> values, int64_t length = -1);
 
   Result<std::shared_ptr<RecordBatch>> ToRecordBatch(
       std::shared_ptr<Schema> schema, MemoryPool* pool = default_memory_pool()) const;

@@ -147,12 +147,40 @@ ExecBatch ExecBatch::Slice(int64_t offset, int64_t length) const {
   return out;
 }
 
-Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
+int64_t ExecBatch::InferLength(const std::vector<Datum>& values) {
   if (values.empty()) {
-    return Status::Invalid("Cannot infer ExecBatch length without at least one value");
+    return -1;
   }
 
   int64_t length = -1;
+  for (const auto& value : values) {
+    if (value.is_scalar()) {
+      continue;
+    }
+
+    if (length == -1) {
+      length = value.length();
+      continue;
+    }
+
+    if (length != value.length()) {
+      // all the arrays should have the same length
+      return -1;
+    }
+  }
+
+  return length == -1 ? 1 : length;
+}
+
+Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values, int64_t length) {
+  if (length < 0) {
+    if (values.empty()) {
+      return Status::Invalid("Cannot infer ExecBatch length without at least one value");
+    }
+    length = -1;
+  }
+
+  // Infer the length again and/or validate the given length.
   for (const auto& value : values) {
     if (value.is_scalar()) {
       continue;

@@ -207,11 +207,11 @@ struct ARROW_EXPORT Aggregate {
   Aggregate(std::string function, std::shared_ptr<FunctionOptions> options,
             FieldRef target, std::string name = "")
       : Aggregate(std::move(function), std::move(options),
-                  /*target=*/std::vector<FieldRef>{std::move(target)}, std::move(name)) {}
+                  std::vector<FieldRef>{std::move(target)}, std::move(name)) {}
 
   Aggregate(std::string function, FieldRef target, std::string name)
       : Aggregate(std::move(function), /*options=*/NULLPTR,
-                  /*target=*/std::vector<FieldRef>{std::move(target)}, std::move(name)) {}
+                  std::vector<FieldRef>{std::move(target)}, std::move(name)) {}
 
   Aggregate(std::string function, std::string name)
       : Aggregate(std::move(function), /*options=*/NULLPTR,

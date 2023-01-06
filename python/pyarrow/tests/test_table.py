@@ -2024,6 +2024,24 @@ def test_table_group_by():
         "values_count": [1]
     }
 
+    r = table_with_nulls.group_by(["keys"]).aggregate([
+        ([], "count_all"),  # nullary count that takes no parameters
+        ("values", "count", pc.CountOptions(mode="only_valid"))
+    ])
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "_count_all": [3],
+        "values_count": [1]
+    }
+
+    r = table_with_nulls.group_by(["keys"]).aggregate([
+        ([], "count_all")
+    ])
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "_count_all": [3]
+    }
+
 
 def test_table_to_recordbatchreader():
     table = pa.Table.from_pydict({'x': [1, 2, 3]})

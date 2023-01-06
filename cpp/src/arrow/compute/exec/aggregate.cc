@@ -131,8 +131,12 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
   ExecSpanIterator argument_iterator;
 
   ExecBatch args_batch;
-  if (!arguments.empty()) {
-    ARROW_ASSIGN_OR_RAISE(args_batch, ExecBatch::Make(arguments));
+  int64_t length = ExecBatch::InferLength(arguments);
+  if (length == -1) {
+    length = ExecBatch::InferLength(keys);
+  }
+  if (!aggregates.empty()) {
+    ARROW_ASSIGN_OR_RAISE(args_batch, ExecBatch::Make(arguments, length));
 
     // Construct and initialize HashAggregateKernels
     std::vector<std::vector<TypeHolder>> aggs_argument_types(aggregates.size());
@@ -166,7 +170,7 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
   }
 
   // Construct Groupers
-  ARROW_ASSIGN_OR_RAISE(ExecBatch keys_batch, ExecBatch::Make(keys));
+  ARROW_ASSIGN_OR_RAISE(ExecBatch keys_batch, ExecBatch::Make(keys, length));
   auto key_types = keys_batch.GetTypes();
 
   std::vector<std::unique_ptr<Grouper>> groupers(task_group->parallelism());
@@ -189,6 +193,10 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
   ExecSpan key_batch, argument_batch;
   while ((arguments.empty() || argument_iterator.Next(&argument_batch)) &&
          key_iterator.Next(&key_batch)) {
+    if (arguments.empty()) {
+      // A value-less argument_batch should still have a valid length
+      argument_batch.length = key_batch.length;
+    }
     if (key_batch.length == 0) continue;
 
     task_group->Append([&, key_batch, argument_batch] {
@@ -266,8 +274,8 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
     *it++ = key.array();
   }
 
-  int64_t length = out_data[0]->length;
-  return ArrayData::Make(struct_(std::move(out_fields)), length,
+  const int64_t out_length = out_data[0]->length;
+  return ArrayData::Make(struct_(std::move(out_fields)), out_length,
                          {/*null_bitmap=*/nullptr}, std::move(out_data),
                          /*null_count=*/0);
 }
