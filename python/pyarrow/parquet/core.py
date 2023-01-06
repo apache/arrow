@@ -1225,7 +1225,7 @@ class ParquetDatasetPiece:
         Returns
         -------
         table : pyarrow.Table
-            The pierce as a pyarrow.Table
+            The piece as a pyarrow.Table.
         """
         if self.open_file_func is not None:
             reader = self.open()
