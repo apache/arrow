@@ -1311,6 +1311,8 @@ tasks:
     params:
       flags: '-e ARROW_DEPENDENCY_SOURCE=SYSTEM -e ARROW_GCS=OFF -e xsimd_SOURCE=BUNDLED'
       image: ubuntu-r-only-r
+      env: 
+        GITHUB_PAT: {{ "${{ github.token }}" }}
 
   test-r-offline-minimal:
     ci: azure
@@ -1327,6 +1329,7 @@ tasks:
     params:
       env:
         R_DUCKDB_DEV: TRUE
+        GITHUB_PAT: {{ "${{ github.token }}" }}
       image: ubuntu-r-only-r
 
   test-r-offline-maximal:
@@ -1375,6 +1378,7 @@ tasks:
       env:
         UBUNTU: 22.04
         R_PRUNE_DEPS: TRUE
+        GITHUB_PAT: "${{ github.token }}"
       image: ubuntu-r-only-r
 
   # This also has -flto=auto
@@ -1385,6 +1389,7 @@ tasks:
       env:
         UBUNTU: 22.04
         GCC_VERSION: 11
+        GITHUB_PAT: "${{ github.token }}"
       image: ubuntu-r-only-r
 
   # This also has -flto=auto
@@ -1395,6 +1400,7 @@ tasks:
       env:
         UBUNTU: 22.04
         GCC_VERSION: 12
+        GITHUB_PAT: "${{ github.token }}"
       image: ubuntu-r-only-r
 
   test-r-rstudio-r-base-4.2-centos7-devtoolset-8:
