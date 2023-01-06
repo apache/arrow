@@ -476,7 +476,9 @@ TEST(ExecPlan, ToString) {
                    /*aggregates=*/{
                        {"hash_sum", nullptr, "multiply(i32, 2)", "sum(multiply(i32, 2))"},
                        {"hash_count", options, "multiply(i32, 2)",
-                        "count(multiply(i32, 2))"}},
+                        "count(multiply(i32, 2))"},
+                       {"hash_count_all", "count(*)"},
+                   },
                    /*keys=*/{"bool"}}},
               {"filter", FilterNodeOptions{greater(field_ref("sum(multiply(i32, 2))"),
                                                    literal(10))}},
@@ -493,6 +495,7 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
     :GroupByNode{keys=["bool"], aggregates=[
     	hash_sum(multiply(i32, 2)),
     	hash_count(multiply(i32, 2), {mode=NON_NULL}),
+    	hash_count_all(*),
     ]}
       :ProjectNode{projection=[bool, multiply(i32, 2)]}
         :FilterNode{filter=(i32 >= 0)}
@@ -512,20 +515,23 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
   rhs.label = "rhs";
   union_node.inputs.emplace_back(lhs);
   union_node.inputs.emplace_back(rhs);
-  ASSERT_OK(
-      Declaration::Sequence(
-          {
-              union_node,
-              {"aggregate", AggregateNodeOptions{
-                                /*aggregates=*/{{"count", options, "i32", "count(i32)"}},
-                                /*keys=*/{}}},
-              {"sink", SinkNodeOptions{&sink_gen}},
-          })
-          .AddToPlan(plan.get()));
+  ASSERT_OK(Declaration::Sequence(
+                {
+                    union_node,
+                    {"aggregate",
+                     AggregateNodeOptions{/*aggregates=*/{
+                                              {"count", options, "i32", "count(i32)"},
+                                              {"count_all", "count(*)"},
+                                          },
+                                          /*keys=*/{}}},
+                    {"sink", SinkNodeOptions{&sink_gen}},
+                })
+                .AddToPlan(plan.get()));
   EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 5 nodes:
 :SinkNode{}
   :ScalarAggregateNode{aggregates=[
 	count(i32, {mode=NON_NULL}),
+	count_all(*),
 ]}
     :UnionNode{}
       rhs:SourceNode{}

@@ -47,6 +47,7 @@ class ARROW_EXPORT FunctionOptionsType {
   virtual ~FunctionOptionsType() = default;
 
   virtual const char* type_name() const = 0;
+  virtual size_t num_properties() const = 0;
   virtual std::string Stringify(const FunctionOptions&) const = 0;
   virtual bool Compare(const FunctionOptions&, const FunctionOptions&) const = 0;
   virtual Result<std::shared_ptr<Buffer>> Serialize(const FunctionOptions&) const;

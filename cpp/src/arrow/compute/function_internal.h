@@ -659,6 +659,8 @@ const FunctionOptionsType* GetFunctionOptionsType(const Properties&... propertie
 
     const char* type_name() const override { return Options::kTypeName; }
 
+    size_t num_properties() const override { return properties_.size(); }
+
     std::string Stringify(const FunctionOptions& options) const override {
       const auto& self = checked_cast<const Options&>(options);
       return StringifyImpl<Options>(self, properties_).Finish();
