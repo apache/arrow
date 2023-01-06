@@ -1313,7 +1313,8 @@ class PartitionSet:
 
         Parameters
         ----------
-        key : The value for which we want to known the index
+        key : str or int
+            The value for which we want to known the index.
         """
         if key in self.key_indices:
             return self.key_indices[key]
