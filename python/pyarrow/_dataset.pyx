@@ -532,8 +532,8 @@ cdef class InMemoryDataset(Dataset):
 
     Parameters
     ----------
-    source : The data for this dataset
-        Can be a RecordBatch, Table, list of
+    source : RecordBatch, Table, list, tuple
+        The data for this dataset. Can be a RecordBatch, Table, list of
         RecordBatch/Table, iterable of RecordBatch, or a RecordBatchReader
         If an iterable is provided, the schema must also be provided.
     schema : Schema, optional

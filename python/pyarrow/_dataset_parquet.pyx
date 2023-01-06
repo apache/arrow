@@ -67,9 +67,9 @@ cdef class ParquetFileFormat(FileFormat):
     Parameters
     ----------
     read_options : ParquetReadOptions
-        Read options for the file
+        Read options for the file.
     default_fragment_scan_options : ParquetFragmentScanOptions
-        Scan Options for the file
+        Scan Options for the file.
     **kwargs : dict
         Additional options for read option or scan option
     """
@@ -236,9 +236,12 @@ class RowGroupInfo:
 
     Parameters
     ----------
-    id : the group id
-    metadata : the rowgroup metadata
-    schema : schema of the rows
+    id : integer
+        The group ID.
+    metadata : FileMetaData
+        The rowgroup metadata.
+    schema : Schema
+        Schema of the rows.
     """
 
     def __init__(self, id, metadata, schema):
