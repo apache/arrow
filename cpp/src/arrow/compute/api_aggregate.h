@@ -58,6 +58,13 @@ class ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
   uint32_t min_count;
 };
 
+class ARROW_EXPORT CountAllOptions : public FunctionOptions {
+ public:
+  CountAllOptions();
+  static constexpr char const kTypeName[] = "CountAllOptions";
+  static CountAllOptions Defaults() { return CountAllOptions{}; }
+};
+
 /// \brief Control count aggregate kernel behavior.
 ///
 /// By default, only non-null values are counted.

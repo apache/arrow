@@ -82,6 +82,7 @@ using ::arrow::internal::DataMember;
 static auto kScalarAggregateOptionsType = GetFunctionOptionsType<ScalarAggregateOptions>(
     DataMember("skip_nulls", &ScalarAggregateOptions::skip_nulls),
     DataMember("min_count", &ScalarAggregateOptions::min_count));
+static auto kCountAllOptionsType = GetFunctionOptionsType<CountAllOptions>();
 static auto kCountOptionsType =
     GetFunctionOptionsType<CountOptions>(DataMember("mode", &CountOptions::mode));
 static auto kModeOptionsType = GetFunctionOptionsType<ModeOptions>(
@@ -111,6 +112,9 @@ ScalarAggregateOptions::ScalarAggregateOptions(bool skip_nulls, uint32_t min_cou
       skip_nulls(skip_nulls),
       min_count(min_count) {}
 constexpr char ScalarAggregateOptions::kTypeName[];
+
+CountAllOptions::CountAllOptions() : FunctionOptions(internal::kCountAllOptionsType) {}
+constexpr char CountOptions::kTypeName[];
 
 CountOptions::CountOptions(CountMode mode)
     : FunctionOptions(internal::kCountOptionsType), mode(mode) {}
