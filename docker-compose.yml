@@ -1242,6 +1242,7 @@ services:
       LIBARROW_BUILD: 'false'
       NOT_CRAN: 'true'
       ARROW_R_DEV: ${ARROW_R_DEV}
+      ARROW_SOURCE_HOME: '/arrow'
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
