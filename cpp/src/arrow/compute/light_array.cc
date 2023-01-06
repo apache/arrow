@@ -200,8 +200,7 @@ Status ColumnArraysFromExecBatch(const ExecBatch& batch,
 }
 
 void ResizableArrayData::Init(const std::shared_ptr<DataType>& data_type,
-                              MemoryPool* pool, int log_num_rows_min,
-                              int64_t alignment) {
+                              MemoryPool* pool, int log_num_rows_min, int64_t alignment) {
 #ifndef NDEBUG
   if (num_rows_allocated_ > 0) {
     ARROW_DCHECK(data_type_ != NULLPTR);
@@ -251,7 +250,8 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
     ARROW_ASSIGN_OR_RAISE(
         buffers_[kValidityBuffer],
         AllocateResizableBuffer(
-            bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes, alignment_, pool_));
+            bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes, alignment_,
+            pool_));
     memset(mutable_data(kValidityBuffer), 0,
            bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes);
     if (column_metadata.is_fixed_length) {
@@ -260,8 +260,7 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
             buffers_[kFixedLengthBuffer],
             AllocateResizableBuffer(
                 bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes,
-                alignment_,
-                pool_));
+                alignment_, pool_));
         memset(mutable_data(kFixedLengthBuffer), 0,
                bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes);
       } else {
@@ -269,14 +268,14 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
             buffers_[kFixedLengthBuffer],
             AllocateResizableBuffer(
                 num_rows_allocated_new * column_metadata.fixed_length + kNumPaddingBytes,
-                alignment_,
-                pool_));
+                alignment_, pool_));
       }
     } else {
       ARROW_ASSIGN_OR_RAISE(
           buffers_[kFixedLengthBuffer],
           AllocateResizableBuffer(
-              (num_rows_allocated_new + 1) * sizeof(uint32_t) + kNumPaddingBytes, alignment_, pool_));
+              (num_rows_allocated_new + 1) * sizeof(uint32_t) + kNumPaddingBytes,
+              alignment_, pool_));
     }
 
     ARROW_ASSIGN_OR_RAISE(

@@ -19,9 +19,9 @@
 
 #include <cstdint>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <vector>
-#include <numeric>
 
 #include "arrow/compute/light_array.h"  // for KeyColumnMetadata
 #include "arrow/type.h"                 // for DataType, FieldRef, Field and Schema
@@ -65,19 +65,17 @@ class SchemaProjectionMaps {
  public:
   static constexpr int kMissingField = -1;
 
-  Status Init(ProjectionIdEnum full_schema_handle,
-              const Schema& schema)
-    {
-        RETURN_NOT_OK(RegisterSchema(full_schema_handle, schema));
-        const int id_base = 0;
-        std::vector<int> &mapping = mappings_[id_base];
-        std::vector<int> &inverse = inverse_mappings_[id_base];
-        mapping.resize(schema.num_fields());
-        inverse.resize(schema.num_fields());
-        std::iota(mapping.begin(), mapping.end(), 0);
-        std::iota(inverse.begin(), inverse.end(), 0);
-        return Status::OK();
-    }
+  Status Init(ProjectionIdEnum full_schema_handle, const Schema& schema) {
+    RETURN_NOT_OK(RegisterSchema(full_schema_handle, schema));
+    const int id_base = 0;
+    std::vector<int>& mapping = mappings_[id_base];
+    std::vector<int>& inverse = inverse_mappings_[id_base];
+    mapping.resize(schema.num_fields());
+    inverse.resize(schema.num_fields());
+    std::iota(mapping.begin(), mapping.end(), 0);
+    std::iota(inverse.begin(), inverse.end(), 0);
+    return Status::OK();
+  }
 
   Status RegisterProjectedSchema(ProjectionIdEnum handle,
                                  const std::vector<FieldRef>& selected_fields,
@@ -208,8 +206,10 @@ class SchemaProjectionMaps {
 
   // vector used as a mapping from ProjectionIdEnum to fields
   std::array<FieldInfos, static_cast<size_t>(ProjectionIdEnum::NUM_VALUES)> schemas_;
-  std::array<std::vector<int>, static_cast<size_t>(ProjectionIdEnum::NUM_VALUES)> mappings_;
-  std::array<std::vector<int>, static_cast<size_t>(ProjectionIdEnum::NUM_VALUES)> inverse_mappings_;
+  std::array<std::vector<int>, static_cast<size_t>(ProjectionIdEnum::NUM_VALUES)>
+      mappings_;
+  std::array<std::vector<int>, static_cast<size_t>(ProjectionIdEnum::NUM_VALUES)>
+      inverse_mappings_;
 };
 
 using HashJoinProjectionMaps = SchemaProjectionMaps<HashJoinProjection>;

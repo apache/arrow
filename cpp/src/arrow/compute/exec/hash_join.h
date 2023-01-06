@@ -37,28 +37,26 @@ namespace compute {
 
 class HashJoinImpl {
  public:
-    using OutputBatchCallback = std::function<void(int64_t, ExecBatch)>;
-    using BuildFinishedCallback = std::function<Status(size_t)>;
-    using FinishedCallback = std::function<Status(int64_t)>;
-    using RegisterTaskGroupCallback = std::function<int(
-    std::function<Status(size_t, int64_t)>, std::function<Status(size_t)>)>;
-    using StartTaskGroupCallback = std::function<Status(int, int64_t)>;
-    using AbortContinuationImpl = std::function<void()>;
+  using OutputBatchCallback = std::function<void(int64_t, ExecBatch)>;
+  using BuildFinishedCallback = std::function<Status(size_t)>;
+  using FinishedCallback = std::function<Status(int64_t)>;
+  using RegisterTaskGroupCallback = std::function<int(
+      std::function<Status(size_t, int64_t)>, std::function<Status(size_t)>)>;
+  using StartTaskGroupCallback = std::function<Status(int, int64_t)>;
+  using AbortContinuationImpl = std::function<void()>;
 
-    struct CallbackRecord
-    {
-        RegisterTaskGroupCallback register_task_group;
-        StartTaskGroupCallback start_task_group;
-        OutputBatchCallback output_batch;
-        FinishedCallback finished;
-    };
+  struct CallbackRecord {
+    RegisterTaskGroupCallback register_task_group;
+    StartTaskGroupCallback start_task_group;
+    OutputBatchCallback output_batch;
+    FinishedCallback finished;
+  };
 
   virtual ~HashJoinImpl() = default;
   virtual Status Init(QueryContext* ctx, JoinType join_type, size_t num_threads,
                       const HashJoinProjectionMaps* proj_map_left,
                       const HashJoinProjectionMaps* proj_map_right,
-                      std::vector<JoinKeyCmp> *key_cmp,
-                      Expression *filter,
+                      std::vector<JoinKeyCmp>* key_cmp, Expression* filter,
                       CallbackRecord callback_record) = 0;
 
   virtual Status BuildHashTable(size_t thread_index, AccumulationQueue batches,

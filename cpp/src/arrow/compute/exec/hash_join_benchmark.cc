@@ -149,7 +149,7 @@ class JoinBenchmark {
 
     HashJoinImpl::CallbackRecord callbacks;
     callbacks.register_task_group = [&](std::function<Status(size_t, int64_t)> task,
-                                            std::function<Status(size_t)> cont) {
+                                        std::function<Status(size_t)> cont) {
       return scheduler_->RegisterTaskGroup(std::move(task), std::move(cont));
     };
 
@@ -157,14 +157,11 @@ class JoinBenchmark {
       return scheduler_->StartTaskGroup(omp_get_thread_num(), task_group_id, num_tasks);
     };
     callbacks.output_batch = [](int64_t, ExecBatch) {};
-    callbacks.finished = [](int64_t){ return Status::OK(); };
+    callbacks.finished = [](int64_t) { return Status::OK(); };
 
-    DCHECK_OK(join_->Init(
-        &ctx_, settings.join_type, settings.num_threads,
-        &(schema_mgr_->proj_maps[0]), &(schema_mgr_->proj_maps[1]),
-        &key_cmp_,
-        &filter_, 
-        std::move(callbacks)));
+    DCHECK_OK(join_->Init(&ctx_, settings.join_type, settings.num_threads,
+                          &(schema_mgr_->proj_maps[0]), &(schema_mgr_->proj_maps[1]),
+                          &key_cmp_, &filter_, std::move(callbacks)));
 
     task_group_probe_ = scheduler_->RegisterTaskGroup(
         [this](size_t thread_index, int64_t task_id) -> Status {

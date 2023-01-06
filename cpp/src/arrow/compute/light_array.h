@@ -391,7 +391,7 @@ class ARROW_EXPORT ExecBatchBuilder {
   static constexpr int kLogNumRows = 15;
 
   // Align all buffers to 512 bytes so that we can spill them with
-  // DirectIO. 
+  // DirectIO.
   static constexpr int64_t kAlignment = 512;
 
   // Calculate how many rows to skip from the tail of the

@@ -2025,7 +2025,7 @@ class SwissJoin : public HashJoinImpl {
   Status Init(QueryContext* ctx, JoinType join_type, size_t num_threads,
               const HashJoinProjectionMaps* proj_map_left,
               const HashJoinProjectionMaps* proj_map_right,
-              std::vector<JoinKeyCmp> *key_cmp, Expression *filter,
+              std::vector<JoinKeyCmp>* key_cmp, Expression* filter,
               CallbackRecord callback_record) override {
     START_COMPUTE_SPAN(span_, "SwissJoinImpl",
                        {{"detail", filter->ToString()},
@@ -2068,7 +2068,8 @@ class SwissJoin : public HashJoinImpl {
     }
 
     probe_processor_.Init(proj_map_left->num_cols(HashJoinProjection::KEY), join_type_,
-                          &hash_table_, materialize, key_cmp_, callback_record_.output_batch);
+                          &hash_table_, materialize, key_cmp_,
+                          callback_record_.output_batch);
 
     InitTaskGroups();
 
@@ -2167,14 +2168,15 @@ class SwissJoin : public HashJoinImpl {
       payload_types.push_back(metadata);
     }
     RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.Init(
-        &hash_table_, num_threads_, static_cast<int64_t>(build_side_batches_.CalculateRowCount()),
+        &hash_table_, num_threads_,
+        static_cast<int64_t>(build_side_batches_.CalculateRowCount()),
         reject_duplicate_keys, no_payload, key_types, payload_types, pool_,
         hardware_flags_)));
 
     // Process all input batches
     //
-    return CancelIfNotOK(
-        callback_record_.start_task_group(task_group_build_, build_side_batches_.batch_count()));
+    return CancelIfNotOK(callback_record_.start_task_group(
+        task_group_build_, build_side_batches_.batch_count()));
   }
 
   Status BuildTask(size_t thread_id, int64_t batch_id) {
@@ -2238,8 +2240,8 @@ class SwissJoin : public HashJoinImpl {
     // table.
     //
     RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.PreparePrtnMerge()));
-    return CancelIfNotOK(
-        callback_record_.start_task_group(task_group_merge_, hash_table_build_.num_prtns()));
+    return CancelIfNotOK(callback_record_.start_task_group(
+        task_group_merge_, hash_table_build_.num_prtns()));
   }
 
   Status MergeTask(size_t /*thread_id*/, int64_t prtn_id) {
@@ -2286,7 +2288,8 @@ class SwissJoin : public HashJoinImpl {
       hash_table_.MergeHasMatch();
       int64_t num_tasks = bit_util::CeilDiv(hash_table_.num_rows(), kNumRowsPerScanTask);
 
-      return CancelIfNotOK(callback_record_.start_task_group(task_group_scan_, num_tasks));
+      return CancelIfNotOK(
+          callback_record_.start_task_group(task_group_scan_, num_tasks));
     } else {
       return CancelIfNotOK(OnScanHashTableFinished());
     }
@@ -2359,7 +2362,8 @@ class SwissJoin : public HashJoinImpl {
         Status status = local_states_[thread_id].materialize.AppendBuildOnly(
             num_output_rows, key_ids_buf.mutable_data(), payload_ids_buf.mutable_data(),
             [&](ExecBatch batch) {
-              callback_record_.output_batch(static_cast<int64_t>(thread_id), std::move(batch));
+              callback_record_.output_batch(static_cast<int64_t>(thread_id),
+                                            std::move(batch));
             });
         RETURN_NOT_OK(CancelIfNotOK(status));
         if (!status.ok()) {
@@ -2466,7 +2470,7 @@ class SwissJoin : public HashJoinImpl {
   MemoryPool* pool_;
   int num_threads_;
   JoinType join_type_;
-  std::vector<JoinKeyCmp> *key_cmp_;
+  std::vector<JoinKeyCmp>* key_cmp_;
   const HashJoinProjectionMaps* schema_[2];
 
   // Task scheduling

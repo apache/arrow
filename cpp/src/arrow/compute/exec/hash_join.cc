@@ -42,8 +42,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
   Status Init(QueryContext* ctx, JoinType join_type, size_t num_threads,
               const HashJoinProjectionMaps* proj_map_left,
               const HashJoinProjectionMaps* proj_map_right,
-              std::vector<JoinKeyCmp> *key_cmp,
-              Expression *filter,
+              std::vector<JoinKeyCmp>* key_cmp, Expression* filter,
               CallbackRecord callback_record) override {
     START_COMPUTE_SPAN(span_, "HashJoinBasicImpl",
                        {{"detail", filter->ToString()},
@@ -291,8 +290,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
     AppendFields(left_to_key, left_to_pay, left_key, left_payload);
     AppendFields(right_to_key, right_to_pay, right_key, right_payload);
 
-    ARROW_ASSIGN_OR_RAISE(Datum mask,
-                          ExecuteScalarExpression(*filter_, concatenated, ctx_->exec_context()));
+    ARROW_ASSIGN_OR_RAISE(Datum mask, ExecuteScalarExpression(*filter_, concatenated,
+                                                              ctx_->exec_context()));
 
     size_t num_probed_rows = match.size() + no_match.size();
     if (mask.is_scalar()) {
@@ -733,8 +732,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
   JoinType join_type_;
   size_t num_threads_;
   const HashJoinProjectionMaps* schema_[2];
-  std::vector<JoinKeyCmp> *key_cmp_;
-  Expression *filter_;
+  std::vector<JoinKeyCmp>* key_cmp_;
+  Expression* filter_;
   int task_group_build_;
   int task_group_scan_;
 

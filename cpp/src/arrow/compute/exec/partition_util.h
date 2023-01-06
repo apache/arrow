@@ -116,14 +116,13 @@ class PartitionLocks {
                             bool limit_retries, int max_retries, int* locked_prtn_id,
                             int* locked_prtn_id_pos);
 
-  class [[nodiscard]] AutoReleaseLock
-  {
-  public:
-      AutoReleaseLock(PartitionLocks* locks, int prtn_id)
-          : locks(locks), prtn_id(prtn_id) {}
-      ~AutoReleaseLock() { locks->ReleasePartitionLock(prtn_id); }
-      PartitionLocks* locks;
-      int prtn_id;
+  class [[nodiscard]] AutoReleaseLock {
+   public:
+    AutoReleaseLock(PartitionLocks* locks, int prtn_id)
+        : locks(locks), prtn_id(prtn_id) {}
+    ~AutoReleaseLock() { locks->ReleasePartitionLock(prtn_id); }
+    PartitionLocks* locks;
+    int prtn_id;
   };
 
   AutoReleaseLock AcquirePartitionLock(int prtn_id);
