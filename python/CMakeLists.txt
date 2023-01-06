@@ -18,7 +18,7 @@
 # Includes code assembled from BSD/MIT/Apache-licensed code from some 3rd-party
 # projects, including Kudu, Impala, and libdynd. See python/LICENSE.txt
 
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.5)
 project(pyarrow)
 
 set(PYARROW_VERSION "11.0.0-SNAPSHOT")
@@ -363,7 +363,8 @@ if(NOT PYARROW_CPP_LINK_LIBS)
 endif()
 
 add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
-target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR})
+target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR}
+                                               ${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src)
 if(NOT CMAKE_VERSION VERSION_LESS 3.16)
   target_precompile_headers(arrow_python PUBLIC
                             "$<$<COMPILE_LANGUAGE:CXX>:arrow/python/pch.h>")
@@ -534,15 +535,15 @@ set_source_files_properties(pyarrow/lib.pyx PROPERTIES CYTHON_API TRUE)
 set(LINK_LIBS arrow_python)
 
 if(PYARROW_BUILD_GCS)
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _gcsfs)
+  list(APPEND CYTHON_EXTENSIONS _gcsfs)
 endif()
 
 if(PYARROW_BUILD_S3)
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _s3fs)
+  list(APPEND CYTHON_EXTENSIONS _s3fs)
 endif()
 
 if(PYARROW_BUILD_HDFS)
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _hdfs)
+  list(APPEND CYTHON_EXTENSIONS _hdfs)
 endif()
 
 if(PYARROW_BUILD_CUDA)
@@ -559,7 +560,7 @@ if(PYARROW_BUILD_CUDA)
     endif()
   endif()
   set(CUDA_LINK_LIBS ArrowCUDA::arrow_cuda_shared)
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)
+  list(APPEND CYTHON_EXTENSIONS _cuda)
   set_source_files_properties(pyarrow/_cuda.pyx PROPERTIES CYTHON_API TRUE)
 endif()
 
@@ -573,7 +574,7 @@ if(PYARROW_BUILD_DATASET)
   endif()
 
   set(DATASET_LINK_LIBS ArrowDataset::arrow_dataset_shared)
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset)
+  list(APPEND CYTHON_EXTENSIONS _dataset)
 endif()
 
 # Parquet
@@ -595,12 +596,12 @@ if(PYARROW_BUILD_PARQUET)
   else()
     set(PARQUET_LINK_LIBS Parquet::parquet_static)
   endif()
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _parquet)
+  list(APPEND CYTHON_EXTENSIONS _parquet)
   if(PYARROW_BUILD_PARQUET_ENCRYPTION)
-    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _parquet_encryption)
+    list(APPEND CYTHON_EXTENSIONS _parquet_encryption)
   endif()
   if(PYARROW_BUILD_DATASET)
-    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset_parquet)
+    list(APPEND CYTHON_EXTENSIONS _dataset_parquet)
   endif()
 endif()
 
@@ -619,7 +620,7 @@ if(PYARROW_BUILD_PLASMA)
     bundle_arrow_lib(${PLASMA_SHARED_LIB} SO_VERSION ${PLASMA_SO_VERSION})
   endif()
   set(PLASMA_LINK_LIBS Plasma::plasma_shared)
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _plasma)
+  list(APPEND CYTHON_EXTENSIONS _plasma)
   if(PYARROW_BUNDLE_PLASMA_EXECUTABLE)
     install(PROGRAMS ${PLASMA_STORE_SERVER} DESTINATION ".")
   endif()
@@ -630,9 +631,9 @@ if(PYARROW_BUILD_ORC)
   if(NOT ARROW_ORC)
     message(FATAL_ERROR "You must build Arrow C++ with ARROW_ORC=ON")
   endif()
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _orc)
+  list(APPEND CYTHON_EXTENSIONS _orc)
   if(PYARROW_BUILD_DATASET)
-    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset_orc)
+    list(APPEND CYTHON_EXTENSIONS _dataset_orc)
   endif()
 endif()
 
@@ -651,7 +652,7 @@ if(PYARROW_BUILD_FLIGHT)
   endif()
 
   set(FLIGHT_LINK_LIBS arrow_python_flight)
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _flight)
+  list(APPEND CYTHON_EXTENSIONS _flight)
 else()
   set(FLIGHT_LINK_LIBS "")
 endif()
@@ -670,7 +671,7 @@ if(PYARROW_BUILD_SUBSTRAIT)
   endif()
 
   set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _substrait)
+  list(APPEND CYTHON_EXTENSIONS _substrait)
 endif()
 
 # Gandiva
@@ -693,7 +694,7 @@ if(PYARROW_BUILD_GANDIVA)
   endif()
 
   set(GANDIVA_LINK_LIBS Gandiva::gandiva_shared)
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} gandiva)
+  list(APPEND CYTHON_EXTENSIONS gandiva)
 endif()
 
 #
@@ -751,6 +752,21 @@ foreach(module ${CYTHON_EXTENSIONS})
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${output} DESTINATION ".")
   endforeach()
 endforeach()
+
+set(ARROW_PYTHON_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src/arrow/python")
+file(MAKE_DIRECTORY ${ARROW_PYTHON_BINARY_DIR})
+add_custom_command(OUTPUT "${ARROW_PYTHON_BINARY_DIR}/lib_api.h"
+                          "${ARROW_PYTHON_BINARY_DIR}/lib.h"
+                   COMMAND ${CMAKE_COMMAND} -E copy
+                           "${CMAKE_CURRENT_BINARY_DIR}/lib_api.h"
+                           "${CMAKE_CURRENT_BINARY_DIR}/lib.h"
+                           "${ARROW_PYTHON_BINARY_DIR}/"
+                   DEPENDS lib_pyx)
+add_custom_target(cython_api_headers DEPENDS "${ARROW_PYTHON_BINARY_DIR}/lib_api.h"
+                                             "${ARROW_PYTHON_BINARY_DIR}/lib.h")
+add_dependencies(arrow_python cython_api_headers)
+install(FILES "${ARROW_PYTHON_BINARY_DIR}/lib_api.h" "${ARROW_PYTHON_BINARY_DIR}/lib.h"
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/arrow/python)
 
 # Additional link libraries
 
