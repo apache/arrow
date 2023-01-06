@@ -106,10 +106,34 @@ namespace red_arrow {
       return ULL2NUM(array.Value(i));
     }
 
-    // TODO
-    // inline VALUE convert(const arrow::HalfFloatArray& array,
-    //                      const int64_t i) {
-    // }
+    inline VALUE convert(const arrow::HalfFloatArray& array,
+                         const int64_t i) {
+      const auto value = array.Value(i);
+      // | sign (1 bit) | exponent (5 bit) | fraction (10 bit) |
+      constexpr auto exponent_n_bits = 5;
+      static const auto exponent_mask =
+        static_cast<uint32_t>(std::pow(2.0, exponent_n_bits) - 1);
+      constexpr auto exponent_bias = 15;
+      constexpr auto fraction_n_bits = 10;
+      static const auto fraction_mask =
+        static_cast<uint32_t>(std::pow(2.0, fraction_n_bits)) - 1;
+      static const auto fraction_denominator = std::pow(2.0, fraction_n_bits);
+      const auto sign = value >> (exponent_n_bits + fraction_n_bits);
+      const auto exponent = (value >> fraction_n_bits) & exponent_mask;
+      const auto fraction = value & fraction_mask;
+      if (exponent == exponent_mask) {
+        if (sign == 0) {
+          return DBL2NUM(HUGE_VAL);
+        } else {
+          return DBL2NUM(-HUGE_VAL);
+        }
+      } else {
+        const auto implicit_fraction = (exponent == 0) ? 0 : 1;
+        return DBL2NUM(((sign == 0) ? 1 : -1) *
+                       std::pow(2.0, exponent - exponent_bias) *
+                       (implicit_fraction + fraction / fraction_denominator));
+      }
+    }
 
     inline VALUE convert(const arrow::FloatArray& array,
                          const int64_t i) {
@@ -320,8 +344,7 @@ namespace red_arrow {
     VISIT(UInt16)
     VISIT(UInt32)
     VISIT(UInt64)
-    // TODO
-    // VISIT(HalfFloat)
+    VISIT(HalfFloat)
     VISIT(Float)
     VISIT(Double)
     VISIT(Binary)
@@ -427,8 +450,7 @@ namespace red_arrow {
     VISIT(UInt16)
     VISIT(UInt32)
     VISIT(UInt64)
-    // TODO
-    // VISIT(HalfFloat)
+    VISIT(HalfFloat)
     VISIT(Float)
     VISIT(Double)
     VISIT(Binary)
@@ -530,8 +552,7 @@ namespace red_arrow {
     VISIT(UInt16)
     VISIT(UInt32)
     VISIT(UInt64)
-    // TODO
-    // VISIT(HalfFloat)
+    VISIT(HalfFloat)
     VISIT(Float)
     VISIT(Double)
     VISIT(Binary)
@@ -634,8 +655,7 @@ namespace red_arrow {
     VISIT(UInt16)
     VISIT(UInt32)
     VISIT(UInt64)
-    // TODO
-    // VISIT(HalfFloat)
+    VISIT(HalfFloat)
     VISIT(Float)
     VISIT(Double)
     VISIT(Binary)
@@ -761,8 +781,7 @@ namespace red_arrow {
     VISIT(UInt16)
     VISIT(UInt32)
     VISIT(UInt64)
-    // TODO
-    // VISIT(HalfFloat)
+    VISIT(HalfFloat)
     VISIT(Float)
     VISIT(Double)
     VISIT(Binary)
