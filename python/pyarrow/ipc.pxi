@@ -116,7 +116,7 @@ cdef class IpcReadOptions(_Weakrefable):
 
     Parameters
     ----------
-    ensure_native_endian : bool
+    ensure_native_endian : bool, default True
         Whether to convert incoming data to platform-native endianness.
         Default is true
     use_threads : bool
