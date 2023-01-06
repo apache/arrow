@@ -192,7 +192,6 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
                      day_time_interval(), kResultNullIfNull, "negative_daytimeinterval",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-
       // sign functions
       UNARY_SAFE_NULL_IF_NULL(sign, {}, int32, int32),
       UNARY_SAFE_NULL_IF_NULL(sign, {}, int64, int64),
