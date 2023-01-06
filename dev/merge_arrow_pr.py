@@ -301,8 +301,11 @@ class GitHubIssue(object):
 
 
 def get_candidate_fix_version(mainline_versions,
-                              merge_branches=('master',),
+                              merge_branches,
                               maintenance_branches=()):
+    if merge_branches is None:
+        merge_branches = (git_default_branch_name(),)
+
     all_versions = [getattr(v, "name", v) for v in mainline_versions]
 
     def version_tuple(x):
