@@ -318,7 +318,7 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
 template <typename T>
 inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   DCHECK(buffer_ != NULL);
-  DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8));
+  DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8)) << "num_bits: " << num_bits;
 
   int bit_offset = bit_offset_;
   int byte_offset = byte_offset_;

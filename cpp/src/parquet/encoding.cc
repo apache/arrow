@@ -2446,7 +2446,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 
     delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
     first_block_initialized_ = false;
-    value_sum_up_to_current_block_ = 0;
+    values_num_up_to_current_block_ = 0;
     values_current_mini_block_ = 0;
   }
 
@@ -2455,7 +2455,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 
     // read the bitwidth of each miniblock
     uint8_t* bit_width_data = delta_bit_widths_->mutable_data();
-    uint32_t miniblock_values_sum = value_sum_up_to_current_block_;
+    uint32_t miniblock_values_sum = values_num_up_to_current_block_;
     for (uint32_t current_mini_block_idx = 0;
          current_mini_block_idx < mini_blocks_per_block_; ++current_mini_block_idx) {
       if (!decoder_->GetAligned<uint8_t>(1, bit_width_data + current_mini_block_idx)) {
@@ -2476,7 +2476,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
       }
       miniblock_values_sum += values_per_mini_block_;
     }
-    value_sum_up_to_current_block_ = std::min(miniblock_values_sum, total_value_count_);
+    values_num_up_to_current_block_ = std::min(miniblock_values_sum, total_value_count_);
     mini_block_idx_ = 0;
     delta_bit_width_ = bit_width_data[0];
     values_current_mini_block_ = values_per_mini_block_;
@@ -2495,8 +2495,8 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
         if (ARROW_PREDICT_FALSE(!first_block_initialized_)) {
           buffer[i++] = last_value_;
           DCHECK_EQ(i, 1);  // we're at the beginning of the page
-          DCHECK_EQ(value_sum_up_to_current_block_, 0);
-          value_sum_up_to_current_block_ = 1;
+          DCHECK_EQ(values_num_up_to_current_block_, 0);
+          values_num_up_to_current_block_ = 1;
           if (ARROW_PREDICT_FALSE(i == max_values)) {
             // When block is uninitialized and i reaches max_values we have two
             // different possibilities:
@@ -2561,9 +2561,13 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   uint32_t total_value_count_;
 
   // If the page doesn't contain any block, `first_block_initialized_` will
-  // always be false.
+  // always be false. Otherwise, it will be true when first block initialized.
   bool first_block_initialized_;
-  uint32_t value_sum_up_to_current_block_;
+  // The sum of values up to current block.
+  // If the page doesn't contain any value, it will always be 0.
+  // If the page only contains one value, it would be 1 if value loaded.
+  // Otherwise, it would be the sum value up to "current" block.
+  uint32_t values_num_up_to_current_block_;
   T min_delta_;
   uint32_t mini_block_idx_;
   std::shared_ptr<ResizableBuffer> delta_bit_widths_;
