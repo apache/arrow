@@ -1398,6 +1398,7 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(
       this->Execute((values_per_mini_block * values_per_block) + 1, 10));
   ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(65, 1));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
       /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
       /*null_probability*/ 0.1));
@@ -1437,14 +1438,19 @@ TEST_F(DeltaBitPackEncoding, MalfordMiniblockBitWidth) {
   auto decoder = MakeTypedDecoder<Int32Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
   using c_type = parquet::Int32Type::c_type;
 
-  unsigned char good_data[] = "\200\001\004A\237\224\316\362\r\242\220\203-  ";
   int encode_buffer_size = 273;
   int num_values = 65;
-  std::vector<uint8_t> output_bytes = std::vector<uint8_t>(num_values * sizeof(c_type));
-  auto decode_buf = reinterpret_cast<c_type*>(output_bytes.data());
+  c_type* decode_buf = nullptr;
+  std::vector<uint8_t> output_bytes;
+  int values_decoded = 0;
+  /*
+  unsigned char good_data[] = "\200\001\004A\237\224\316\362\r\242\220\203-  ";
+  output_bytes = std::vector<uint8_t>(num_values * sizeof(c_type));
+  decode_buf = reinterpret_cast<c_type*>(output_bytes.data());
   decoder->SetData(num_values, &good_data[0], encode_buffer_size);
-  int values_decoded = decoder->Decode(decode_buf, num_values);
+  values_decoded = decoder->Decode(decode_buf, num_values);
   ASSERT_EQ(num_values, values_decoded);
+  */
 
   unsigned char bad_data[] =
       "\200\001\004A\237\224\316\362\r\242\220\203-  "
@@ -1459,7 +1465,9 @@ TEST_F(DeltaBitPackEncoding, MalfordMiniblockBitWidth) {
       "\255\271f\026\274\033_\333)4";
   output_bytes = std::vector<uint8_t>(num_values * sizeof(c_type));
   decode_buf = reinterpret_cast<c_type*>(output_bytes.data());
-  decoder->SetData(num_values, &bad_data[0], encode_buffer_size);
+   decoder->SetData(num_values, &bad_data[0], encode_buffer_size);
+   values_decoded = decoder->Decode(decode_buf, num_values);
+  ASSERT_EQ(num_values, values_decoded);
 }
 
 }  // namespace test

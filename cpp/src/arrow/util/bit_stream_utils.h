@@ -19,10 +19,9 @@
 
 #pragma once
 
-#include <string.h>
-
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking.h"
@@ -153,7 +152,7 @@ class BitReader {
   /// 'num_bytes'. The value is assumed to be byte-aligned so the stream will
   /// be advanced to the start of the next byte before 'v' is read. Returns
   /// false if there are not enough bytes left.
-  /// Assume the v was stored in buffer_ as a litte-endian format
+  /// Assume the v was stored in buffer_ as a little-endian format
   template <typename T>
   bool GetAligned(int num_bytes, T* v);
 

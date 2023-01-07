@@ -2464,15 +2464,14 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 
       if (ARROW_PREDICT_FALSE(bit_width_data[current_mini_block_idx] >
                               kMaxDeltaBitWidth)) {
-        if (miniblock_values_sum <= total_value_count_) {
+        if (miniblock_values_sum < total_value_count_) {
           throw ParquetException("delta bit width " +
                                  std::to_string(bit_width_data[current_mini_block_idx]) +
                                  " larger than integer bit width " +
                                  std::to_string(kMaxDeltaBitWidth));
-        } else {
-          // according to the parquet standard, we should ignore the bit_width_data here.
-          break;
         }
+        // according to the parquet standard, we should ignore the bit_width_data here.
+        // cannot break because still need to read remaining bit-width from decoder.
       }
       miniblock_values_sum += values_per_mini_block_;
     }
