@@ -1,3 +1,4 @@
+{#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -14,26 +15,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
-# This config sets the following variables in your project::
-#
-#   ArrowPythonFlight_FOUND - true if Arrow Python Flight found on the system
-#
-# This config sets the following targets in your project::
-#
-#   ArrowPythonFlight::arrow_python_flight_shared - for linked as shared library if shared library is built
-#   ArrowPythonFlight::arrow_python_flight_static - for linked as static library if static library is built
+#}
+From: {{ sender_name }} <{{ sender_email }}>
+To: {{ recipient_email }}
+Subject: [CI] Arrow Crossbow Token Expiration in {{ report.token_expiration_date }}
 
-@PACKAGE_INIT@
+The Arrow Crossbow Token will expire in {{ report.days_left }} days.
 
-include(CMakeFindDependencyMacro)
-find_dependency(ArrowFlight)
-find_dependency(ArrowPython)
-
-include("${CMAKE_CURRENT_LIST_DIR}/ArrowPythonFlightTargets.cmake")
-
-arrow_keep_backward_compatibility(ArrowPythonFlight arrow_python_flight)
-
-check_required_components(ArrowPythonFlight)
-
-arrow_show_details(ArrowPythonFlight ARROW_PYTHON_FLIGHT)
+Please generate a new Token. Send it to Apache INFRA to update the CROSSBOW_GITHUB_TOKEN.
+Update it on the crossbow repository and in the Azure pipelines.

@@ -795,6 +795,12 @@ def test_message_read_from_compressed(example_messages):
         assert result.equals(message)
 
 
+def test_message_read_schema(example_messages):
+    batches, messages = example_messages
+    schema = pa.ipc.read_schema(messages[0])
+    assert schema.equals(batches[1].schema)
+
+
 def test_message_read_record_batch(example_messages):
     batches, messages = example_messages
 

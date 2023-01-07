@@ -33,8 +33,8 @@ checklist for using ``git``:
   "upstream".
 * Keep your fork's **master branch synced** with ``upstream/master``.
 * **Develop on branches**, rather than your own "master" branch.
-* It does not matter what you call your branch. Some people like to use the JIRA
-  number as branch name, others use descriptive names.
+* It does not matter what you call your branch. Some people like to use the GitHub
+  issue number as branch name, others use descriptive names.
 * **Sync your branch** with ``upstream/master`` **regularly**, as many commits are
   merged to master every day.
 * It is recommended to use ``git rebase`` rather than ``git merge``.
@@ -97,9 +97,12 @@ Pull request and review
 When contributing a patch, use this list as a checklist of Apache Arrow workflow:
 
 * Submit the patch as a **GitHub pull request** against the **master branch**.
-* So that your pull request syncs with the JIRA issue, **prefix your pull request
-  name with the JIRA issue id** (ex:
-  `ARROW-767: [C++] Filesystem abstraction <https://github.com/apache/arrow/pull/4225>`_).
+* So that your pull request syncs with the GitHub issue, **prefix your pull request
+  title with the GitHub issue id** (ex:
+  `GH-14866: [C++] Remove internal GroupBy implementation <https://github.com/apache/arrow/pull/14867>`_).
+  Similarly **prefix your pull request name with the JIRA issue id** (ex:
+  `ARROW-767: [C++] Filesystem abstraction <https://github.com/apache/arrow/pull/4225>`_)
+  in case the issue is still located in Jira.
 * Give the pull request a **clear, brief description**: when the pull request is
   merged, this will be retained in the extended commit message.
 * Make sure that your code **passes the unit tests**. You can find instructions how
@@ -137,7 +140,7 @@ will merge the pull request. This is done with a
 
   A pull request is merged with a squash merge so that all of your commits will be
   registered as a single commit to the master branch; this simplifies the
-  connection between JIRA issues and commits, makes it easier to bisect
+  connection between GitHub issues and commits, makes it easier to bisect
   history to identify where changes were introduced, and helps us be able to
   cherry-pick individual patches onto a maintenance branch.
 

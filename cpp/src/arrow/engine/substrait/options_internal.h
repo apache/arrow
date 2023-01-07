@@ -15,8 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// This API is EXPERIMENTAL.
+
 #pragma once
 
-namespace vctrs {
-R_len_t vec_size(SEXP);
-}
+#include <vector>
+
+#include <google/protobuf/any.pb.h>
+
+#include "arrow/compute/type_fwd.h"
+#include "arrow/engine/substrait/type_fwd.h"
+#include "arrow/engine/substrait/visibility.h"
+#include "arrow/type_fwd.h"
+
+namespace arrow {
+namespace engine {
+
+class ARROW_ENGINE_EXPORT ExtensionProvider {
+ public:
+  static std::shared_ptr<ExtensionProvider> kDefaultExtensionProvider;
+  virtual ~ExtensionProvider() = default;
+  virtual Result<DeclarationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
+                                          const google::protobuf::Any& rel,
+                                          const ExtensionSet& ext_set) = 0;
+};
+
+}  // namespace engine
+}  // namespace arrow

@@ -53,6 +53,17 @@ type (
 	Empty                           = flight.Empty
 )
 
+// FlightService_ServiceDesc is the grpc.ServiceDesc for the FlightService
+// server. It should only be used for direct call of grpc.RegisterService,
+// and not introspected or modified (even as a copy).
+var FlightService_ServiceDesc = flight.FlightService_ServiceDesc
+
+// RegisterFlightServiceServer registers an existing flight server onto an
+// existing grpc server, or anything that is a grpc service registrar.
+func RegisterFlightServiceServer(s grpc.ServiceRegistrar, srv FlightServer) {
+	flight.RegisterFlightServiceServer(s, srv)
+}
+
 // Server is an interface for hiding some of the grpc specifics to make
 // it slightly easier to manage a flight service, slightly modeled after
 // the C++ implementation

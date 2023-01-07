@@ -15,12 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-prefix=@CMAKE_INSTALL_PREFIX@
-includedir=@ARROW_PKG_CONFIG_INCLUDEDIR@
-libdir=@ARROW_PKG_CONFIG_LIBDIR@
-
-Name: Apache Arrow Python Flight
-Description: Python integration library for Apache Arrow Flight
-Version: @ARROW_VERSION@
-Requires: arrow-python arrow-flight
-Libs: -L${libdir} -larrow_python_flight
+module Arrow
+  class HalfFloatArray
+    def get_value(i)
+      HalfFloat.new(get_raw_value(i)).to_f
+    end
+  end
+end

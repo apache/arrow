@@ -58,6 +58,9 @@ G_BEGIN_DECLS
  *
  * #GArrowUInt64DataType is a class for the 64-bit unsigned integer data type.
  *
+ * #GArrowHalfFloatDataType is a class for the 16-bit floating point
+ * data type.
+ *
  * #GArrowFloatDataType is a class for the 32-bit floating point data
  * type.
  *
@@ -738,6 +741,39 @@ garrow_floating_point_data_type_init(GArrowFloatingPointDataType *object)
 static void
 garrow_floating_point_data_type_class_init(GArrowFloatingPointDataTypeClass *klass)
 {
+}
+
+
+G_DEFINE_TYPE(GArrowHalfFloatDataType,
+              garrow_half_float_data_type,
+              GARROW_TYPE_FLOATING_POINT_DATA_TYPE)
+
+static void
+garrow_half_float_data_type_init(GArrowHalfFloatDataType *object)
+{
+}
+
+static void
+garrow_half_float_data_type_class_init(GArrowHalfFloatDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_half_float_data_type_new:
+ *
+ * Returns: The newly created half float data type.
+ *
+ * Since: 11.0.0
+ */
+GArrowHalfFloatDataType *
+garrow_half_float_data_type_new(void)
+{
+  auto arrow_data_type = arrow::float16();
+  auto data_type =
+    GARROW_HALF_FLOAT_DATA_TYPE(g_object_new(GARROW_TYPE_HALF_FLOAT_DATA_TYPE,
+                                             "data-type", &arrow_data_type,
+                                             NULL));
+  return data_type;
 }
 
 
@@ -2113,6 +2149,9 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
     break;
   case arrow::Type::type::INT64:
     type = GARROW_TYPE_INT64_DATA_TYPE;
+    break;
+  case arrow::Type::type::HALF_FLOAT:
+    type = GARROW_TYPE_HALF_FLOAT_DATA_TYPE;
     break;
   case arrow::Type::type::FLOAT:
     type = GARROW_TYPE_FLOAT_DATA_TYPE;

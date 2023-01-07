@@ -100,20 +100,13 @@ void MinimalEndToEndScan(
     size_t num_batches, size_t batch_size, const std::string& factory_name,
     std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, size_t)>
         options_factory) {
-  // Specify a MemoryPool and ThreadPool for the ExecPlan
-  compute::ExecContext exec_context(default_memory_pool(),
-                                    ::arrow::internal::GetCpuThreadPool());
-
   // ensure arrow::dataset node factories are in the registry
   ::arrow::dataset::internal::Initialize();
 
-  // A ScanNode is constructed from an ExecPlan (into which it is inserted),
-  // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
-  // predicate pushdown, a projection to skip materialization of unnecessary columns,
+  // A ScanNode is constructed from a Dataset (whose batches will be scanned), and
+  // ScanOptions (to specify a filter for predicate pushdown, a projection to skip
+  // materialization of unnecessary columns,
   // ...)
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
-                       compute::ExecPlan::Make(&exec_context));
-
   RecordBatchVector batches = GetBatches(num_batches, batch_size);
 
   std::shared_ptr<Dataset> dataset =
@@ -123,62 +116,34 @@ void MinimalEndToEndScan(
                        options_factory(num_batches, batch_size));
 
   // construct the scan node
-  ASSERT_OK_AND_ASSIGN(
-      compute::ExecNode * scan,
-      compute::MakeExecNode(factory_name, plan.get(), {}, *node_options));
+  compute::Declaration scan(factory_name, std::move(node_options));
 
   // pipe the scan node into a filter node
   compute::Expression b_is_true = equal(field_ref("b"), literal(true));
-  ASSERT_OK_AND_ASSIGN(compute::ExecNode * filter,
-                       compute::MakeExecNode("filter", plan.get(), {scan},
-                                             compute::FilterNodeOptions{b_is_true}));
+  compute::Declaration filter("filter", {std::move(scan)},
+                              compute::FilterNodeOptions{b_is_true});
 
   // pipe the filter node into a project node
   // NB: we're using the project node factory which preserves fragment/batch index
   // tagging, so we *can* reorder later if we choose. The tags will not appear in
   // our output.
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
-  ASSERT_OK_AND_ASSIGN(
-      compute::ExecNode * project,
-      compute::MakeExecNode("project", plan.get(), {filter},
-                            compute::ProjectNodeOptions{{a_times_2}, {"a*2"}}));
+  compute::Declaration project("project", {std::move(filter)},
+                               compute::ProjectNodeOptions{{a_times_2}, {"a*2"}});
 
-  // finally, pipe the project node into a sink node
-  AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
-  ASSERT_OK_AND_ASSIGN(compute::ExecNode * sink,
-                       compute::MakeExecNode("sink", plan.get(), {project},
-                                             compute::SinkNodeOptions{&sink_gen}));
-
-  ASSERT_NE(sink, nullptr);
-
-  // translate sink_gen (async) to sink_reader (sync)
-  std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-      schema({field("a*2", int32())}), std::move(sink_gen), exec_context.memory_pool());
-
-  // start the ExecPlan
-  ASSERT_OK(plan->StartProducing());
-
-  // collect sink_reader into a Table
-  ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
+  // Consume the plan and transform into a table
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> collected,
+                       compute::DeclarationToTable(std::move(project)));
 
   ASSERT_GT(collected->num_rows(), 0);
-
-  // wait 1s for completion
-  ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
 }
 
 void ScanOnly(
     size_t num_batches, size_t batch_size, const std::string& factory_name,
     std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, size_t)>
         options_factory) {
-  compute::ExecContext exec_context(default_memory_pool(),
-                                    ::arrow::internal::GetCpuThreadPool());
-
   // ensure arrow::dataset node factories are in the registry
   ::arrow::dataset::internal::Initialize();
-
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
-                       compute::ExecPlan::Make(&exec_context));
 
   RecordBatchVector batches = GetBatches(num_batches, batch_size);
 
@@ -189,32 +154,13 @@ void ScanOnly(
                        options_factory(num_batches, batch_size));
 
   // construct the plan
-  ASSERT_OK_AND_ASSIGN(
-      compute::ExecNode * scan,
-      compute::MakeExecNode(factory_name, plan.get(), {}, *node_options));
-  AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
-  ASSERT_OK_AND_ASSIGN(compute::ExecNode * sink,
-                       compute::MakeExecNode("sink", plan.get(), {scan},
-                                             compute::SinkNodeOptions{&sink_gen}));
+  compute::Declaration scan(factory_name, std::move(node_options));
 
-  ASSERT_NE(sink, nullptr);
-
-  // translate sink_gen (async) to sink_reader (sync)
-  std::shared_ptr<RecordBatchReader> sink_reader =
-      compute::MakeGeneratorReader(schema({field("a", int32()), field("b", boolean())}),
-                                   std::move(sink_gen), exec_context.memory_pool());
-
-  // start the ExecPlan
-  ASSERT_OK(plan->StartProducing());
-
-  // collect sink_reader into a Table
-  ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> collected,
+                       compute::DeclarationToTable(std::move(scan)));
 
   ASSERT_GT(collected->num_rows(), 0);
   ASSERT_EQ(collected->num_columns(), 2);
-
-  // wait 1s for completion
-  ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
 }
 
 static constexpr int kScanIdx = 0;

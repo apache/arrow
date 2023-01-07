@@ -44,7 +44,7 @@ namespace {
 template <typename TypeMessage>
 bool IsNullable(const TypeMessage& type) {
   // FIXME what can we do with NULLABILITY_UNSPECIFIED
-  return type.nullability() != ::substrait::Type::NULLABILITY_REQUIRED;
+  return type.nullability() != substrait::Type::NULLABILITY_REQUIRED;
 }
 
 template <typename ArrowType, typename TypeMessage, typename... A>
@@ -95,67 +95,67 @@ Result<FieldVector> FieldsFromProto(int size, const Types& types,
 }  // namespace
 
 Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
-    const ::substrait::Type& type, const ExtensionSet& ext_set,
+    const substrait::Type& type, const ExtensionSet& ext_set,
     const ConversionOptions& conversion_options) {
   switch (type.kind_case()) {
-    case ::substrait::Type::kBool:
+    case substrait::Type::kBool:
       return FromProtoImpl<BooleanType>(type.bool_());
 
-    case ::substrait::Type::kI8:
+    case substrait::Type::kI8:
       return FromProtoImpl<Int8Type>(type.i8());
-    case ::substrait::Type::kI16:
+    case substrait::Type::kI16:
       return FromProtoImpl<Int16Type>(type.i16());
-    case ::substrait::Type::kI32:
+    case substrait::Type::kI32:
       return FromProtoImpl<Int32Type>(type.i32());
-    case ::substrait::Type::kI64:
+    case substrait::Type::kI64:
       return FromProtoImpl<Int64Type>(type.i64());
 
-    case ::substrait::Type::kFp32:
+    case substrait::Type::kFp32:
       return FromProtoImpl<FloatType>(type.fp32());
-    case ::substrait::Type::kFp64:
+    case substrait::Type::kFp64:
       return FromProtoImpl<DoubleType>(type.fp64());
 
-    case ::substrait::Type::kString:
+    case substrait::Type::kString:
       return FromProtoImpl<StringType>(type.string());
-    case ::substrait::Type::kBinary:
+    case substrait::Type::kBinary:
       return FromProtoImpl<BinaryType>(type.binary());
 
-    case ::substrait::Type::kTimestamp:
+    case substrait::Type::kTimestamp:
       return FromProtoImpl<TimestampType>(type.timestamp(), TimeUnit::MICRO);
-    case ::substrait::Type::kTimestampTz:
+    case substrait::Type::kTimestampTz:
       return FromProtoImpl<TimestampType>(type.timestamp_tz(), TimeUnit::MICRO,
                                           TimestampTzTimezoneString());
-    case ::substrait::Type::kDate:
+    case substrait::Type::kDate:
       return FromProtoImpl<Date32Type>(type.date());
 
-    case ::substrait::Type::kTime:
+    case substrait::Type::kTime:
       return FromProtoImpl<Time64Type>(type.time(), TimeUnit::MICRO);
 
-    case ::substrait::Type::kIntervalYear:
+    case substrait::Type::kIntervalYear:
       return FromProtoImpl(type.interval_year(), interval_year);
 
-    case ::substrait::Type::kIntervalDay:
+    case substrait::Type::kIntervalDay:
       return FromProtoImpl(type.interval_day(), interval_day);
 
-    case ::substrait::Type::kUuid:
+    case substrait::Type::kUuid:
       return FromProtoImpl(type.uuid(), uuid);
 
-    case ::substrait::Type::kFixedChar:
+    case substrait::Type::kFixedChar:
       return FromProtoImpl(type.fixed_char(), fixed_char, type.fixed_char().length());
 
-    case ::substrait::Type::kVarchar:
+    case substrait::Type::kVarchar:
       return FromProtoImpl(type.varchar(), varchar, type.varchar().length());
 
-    case ::substrait::Type::kFixedBinary:
+    case substrait::Type::kFixedBinary:
       return FromProtoImpl<FixedSizeBinaryType>(type.fixed_binary(),
                                                 type.fixed_binary().length());
 
-    case ::substrait::Type::kDecimal: {
+    case substrait::Type::kDecimal: {
       const auto& decimal = type.decimal();
       return FromProtoImpl<Decimal128Type>(decimal, decimal.precision(), decimal.scale());
     }
 
-    case ::substrait::Type::kStruct: {
+    case substrait::Type::kStruct: {
       const auto& struct_ = type.struct_();
 
       ARROW_ASSIGN_OR_RAISE(
@@ -166,7 +166,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
       return FromProtoImpl<StructType>(struct_, std::move(fields));
     }
 
-    case ::substrait::Type::kList: {
+    case substrait::Type::kList: {
       const auto& list = type.list();
 
       if (!list.has_type()) {
@@ -181,7 +181,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
           list, field("item", std::move(type_nullable.first), type_nullable.second));
     }
 
-    case ::substrait::Type::kMap: {
+    case substrait::Type::kMap: {
       const auto& map = type.map();
 
       static const std::array<char const*, 4> kMissing = {"key and value", "value", "key",
@@ -207,7 +207,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
           field("value", std::move(value_nullable.first), value_nullable.second));
     }
 
-    case ::substrait::Type::kUserDefined: {
+    case substrait::Type::kUserDefined: {
       const auto& user_defined = type.user_defined();
       uint32_t anchor = user_defined.type_reference();
       ARROW_ASSIGN_OR_RAISE(auto type_record, ext_set.DecodeType(anchor));
@@ -228,20 +228,18 @@ struct DataTypeToProtoImpl {
   Status Visit(const NullType& t) { return EncodeUserDefined(t); }
 
   Status Visit(const BooleanType& t) {
-    return SetWith(&::substrait::Type::set_allocated_bool_);
+    return SetWith(&substrait::Type::set_allocated_bool_);
   }
 
-  Status Visit(const Int8Type& t) {
-    return SetWith(&::substrait::Type::set_allocated_i8);
-  }
+  Status Visit(const Int8Type& t) { return SetWith(&substrait::Type::set_allocated_i8); }
   Status Visit(const Int16Type& t) {
-    return SetWith(&::substrait::Type::set_allocated_i16);
+    return SetWith(&substrait::Type::set_allocated_i16);
   }
   Status Visit(const Int32Type& t) {
-    return SetWith(&::substrait::Type::set_allocated_i32);
+    return SetWith(&substrait::Type::set_allocated_i32);
   }
   Status Visit(const Int64Type& t) {
-    return SetWith(&::substrait::Type::set_allocated_i64);
+    return SetWith(&substrait::Type::set_allocated_i64);
   }
 
   Status Visit(const UInt8Type& t) { return EncodeUserDefined(t); }
@@ -251,27 +249,26 @@ struct DataTypeToProtoImpl {
 
   Status Visit(const HalfFloatType& t) { return EncodeUserDefined(t); }
   Status Visit(const FloatType& t) {
-    return SetWith(&::substrait::Type::set_allocated_fp32);
+    return SetWith(&substrait::Type::set_allocated_fp32);
   }
   Status Visit(const DoubleType& t) {
-    return SetWith(&::substrait::Type::set_allocated_fp64);
+    return SetWith(&substrait::Type::set_allocated_fp64);
   }
 
   Status Visit(const StringType& t) {
-    return SetWith(&::substrait::Type::set_allocated_string);
+    return SetWith(&substrait::Type::set_allocated_string);
   }
   Status Visit(const BinaryType& t) {
-    return SetWith(&::substrait::Type::set_allocated_binary);
+    return SetWith(&substrait::Type::set_allocated_binary);
   }
 
   Status Visit(const FixedSizeBinaryType& t) {
-    SetWithThen(&::substrait::Type::set_allocated_fixed_binary)
-        ->set_length(t.byte_width());
+    SetWithThen(&substrait::Type::set_allocated_fixed_binary)->set_length(t.byte_width());
     return Status::OK();
   }
 
   Status Visit(const Date32Type& t) {
-    return SetWith(&::substrait::Type::set_allocated_date);
+    return SetWith(&substrait::Type::set_allocated_date);
   }
   Status Visit(const Date64Type& t) { return NotImplemented(t); }
 
@@ -279,10 +276,10 @@ struct DataTypeToProtoImpl {
     if (t.unit() != TimeUnit::MICRO) return NotImplemented(t);
 
     if (t.timezone() == "") {
-      return SetWith(&::substrait::Type::set_allocated_timestamp);
+      return SetWith(&substrait::Type::set_allocated_timestamp);
     }
     if (t.timezone() == TimestampTzTimezoneString()) {
-      return SetWith(&::substrait::Type::set_allocated_timestamp_tz);
+      return SetWith(&substrait::Type::set_allocated_timestamp_tz);
     }
 
     return NotImplemented(t);
@@ -291,14 +288,14 @@ struct DataTypeToProtoImpl {
   Status Visit(const Time32Type& t) { return NotImplemented(t); }
   Status Visit(const Time64Type& t) {
     if (t.unit() != TimeUnit::MICRO) return NotImplemented(t);
-    return SetWith(&::substrait::Type::set_allocated_time);
+    return SetWith(&substrait::Type::set_allocated_time);
   }
 
   Status Visit(const MonthIntervalType& t) { return EncodeUserDefined(t); }
   Status Visit(const DayTimeIntervalType& t) { return EncodeUserDefined(t); }
 
   Status Visit(const Decimal128Type& t) {
-    auto dec = SetWithThen(&::substrait::Type::set_allocated_decimal);
+    auto dec = SetWithThen(&substrait::Type::set_allocated_decimal);
     dec->set_precision(t.precision());
     dec->set_scale(t.scale());
     return Status::OK();
@@ -309,20 +306,18 @@ struct DataTypeToProtoImpl {
     // FIXME assert default field name; custom ones won't roundtrip
     ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*t.value_type(), t.value_field()->nullable(),
                                              ext_set_, conversion_options_));
-    SetWithThen(&::substrait::Type::set_allocated_list)
-        ->set_allocated_type(type.release());
+    SetWithThen(&substrait::Type::set_allocated_list)->set_allocated_type(type.release());
     return Status::OK();
   }
 
   Status Visit(const StructType& t) {
-    auto types = SetWithThen(&::substrait::Type::set_allocated_struct_)->mutable_types();
+    auto types = SetWithThen(&substrait::Type::set_allocated_struct_)->mutable_types();
 
     types->Reserve(t.num_fields());
 
     for (const auto& field : t.fields()) {
       if (field->metadata() != nullptr) {
-        return Status::Invalid(
-            "::substrait::Type::Struct does not support field metadata");
+        return Status::Invalid("substrait::Type::Struct does not support field metadata");
       }
       ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*field->type(), field->nullable(),
                                                ext_set_, conversion_options_));
@@ -337,7 +332,7 @@ struct DataTypeToProtoImpl {
 
   Status Visit(const MapType& t) {
     // FIXME assert default field names; custom ones won't roundtrip
-    auto map = SetWithThen(&::substrait::Type::set_allocated_map);
+    auto map = SetWithThen(&substrait::Type::set_allocated_map);
 
     ARROW_ASSIGN_OR_RAISE(auto key, ToProto(*t.key_type(), /*nullable=*/false, ext_set_,
                                             conversion_options_));
@@ -352,25 +347,25 @@ struct DataTypeToProtoImpl {
 
   Status Visit(const ExtensionType& t) {
     if (UnwrapUuid(t)) {
-      return SetWith(&::substrait::Type::set_allocated_uuid);
+      return SetWith(&substrait::Type::set_allocated_uuid);
     }
 
     if (auto length = UnwrapFixedChar(t)) {
-      SetWithThen(&::substrait::Type::set_allocated_fixed_char)->set_length(*length);
+      SetWithThen(&substrait::Type::set_allocated_fixed_char)->set_length(*length);
       return Status::OK();
     }
 
     if (auto length = UnwrapVarChar(t)) {
-      SetWithThen(&::substrait::Type::set_allocated_varchar)->set_length(*length);
+      SetWithThen(&substrait::Type::set_allocated_varchar)->set_length(*length);
       return Status::OK();
     }
 
     if (UnwrapIntervalYear(t)) {
-      return SetWith(&::substrait::Type::set_allocated_interval_year);
+      return SetWith(&substrait::Type::set_allocated_interval_year);
     }
 
     if (UnwrapIntervalDay(t)) {
-      return SetWith(&::substrait::Type::set_allocated_interval_day);
+      return SetWith(&substrait::Type::set_allocated_interval_day);
     }
 
     return NotImplemented(t);
@@ -384,10 +379,10 @@ struct DataTypeToProtoImpl {
   Status Visit(const MonthDayNanoIntervalType& t) { return EncodeUserDefined(t); }
 
   template <typename Sub>
-  Sub* SetWithThen(void (::substrait::Type::*set_allocated_sub)(Sub*)) {
+  Sub* SetWithThen(void (substrait::Type::*set_allocated_sub)(Sub*)) {
     auto sub = std::make_unique<Sub>();
-    sub->set_nullability(nullable_ ? ::substrait::Type::NULLABILITY_NULLABLE
-                                   : ::substrait::Type::NULLABILITY_REQUIRED);
+    sub->set_nullability(nullable_ ? substrait::Type::NULLABILITY_NULLABLE
+                                   : substrait::Type::NULLABILITY_REQUIRED);
 
     auto out = sub.get();
     (type_->*set_allocated_sub)(sub.release());
@@ -395,44 +390,44 @@ struct DataTypeToProtoImpl {
   }
 
   template <typename Sub>
-  Status SetWith(void (::substrait::Type::*set_allocated_sub)(Sub*)) {
+  Status SetWith(void (substrait::Type::*set_allocated_sub)(Sub*)) {
     return SetWithThen(set_allocated_sub), Status::OK();
   }
 
   template <typename T>
   Status EncodeUserDefined(const T& t) {
     ARROW_ASSIGN_OR_RAISE(auto anchor, ext_set_->EncodeType(t));
-    auto user_defined = std::make_unique<::substrait::Type::UserDefined>();
+    auto user_defined = std::make_unique<substrait::Type::UserDefined>();
     user_defined->set_type_reference(anchor);
-    user_defined->set_nullability(nullable_ ? ::substrait::Type::NULLABILITY_NULLABLE
-                                            : ::substrait::Type::NULLABILITY_REQUIRED);
+    user_defined->set_nullability(nullable_ ? substrait::Type::NULLABILITY_NULLABLE
+                                            : substrait::Type::NULLABILITY_REQUIRED);
     type_->set_allocated_user_defined(user_defined.release());
     return Status::OK();
   }
 
   Status NotImplemented(const DataType& t) {
-    return Status::NotImplemented("conversion to ::substrait::Type from ", t.ToString());
+    return Status::NotImplemented("conversion to substrait::Type from ", t.ToString());
   }
 
   Status operator()(const DataType& type) { return VisitTypeInline(type, this); }
 
-  ::substrait::Type* type_;
+  substrait::Type* type_;
   bool nullable_;
   ExtensionSet* ext_set_;
   const ConversionOptions& conversion_options_;
 };
 }  // namespace
 
-Result<std::unique_ptr<::substrait::Type>> ToProto(
+Result<std::unique_ptr<substrait::Type>> ToProto(
     const DataType& type, bool nullable, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
-  auto out = std::make_unique<::substrait::Type>();
+  auto out = std::make_unique<substrait::Type>();
   RETURN_NOT_OK(
       (DataTypeToProtoImpl{out.get(), nullable, ext_set, conversion_options})(type));
   return std::move(out);
 }
 
-Result<std::shared_ptr<Schema>> FromProto(const ::substrait::NamedStruct& named_struct,
+Result<std::shared_ptr<Schema>> FromProto(const substrait::NamedStruct& named_struct,
                                           const ExtensionSet& ext_set,
                                           const ConversionOptions& conversion_options) {
   if (!named_struct.has_struct_()) {
@@ -476,28 +471,28 @@ void ToProtoGetDepthFirstNames(const FieldVector& fields,
 }
 }  // namespace
 
-Result<std::unique_ptr<::substrait::NamedStruct>> ToProto(
+Result<std::unique_ptr<substrait::NamedStruct>> ToProto(
     const Schema& schema, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
   if (conversion_options.strictness == ConversionStrictness::EXACT_ROUNDTRIP &&
       schema.metadata() != nullptr) {
-    return Status::Invalid("::substrait::NamedStruct does not support schema metadata");
+    return Status::Invalid("substrait::NamedStruct does not support schema metadata");
   }
 
-  auto named_struct = std::make_unique<::substrait::NamedStruct>();
+  auto named_struct = std::make_unique<substrait::NamedStruct>();
 
   auto names = named_struct->mutable_names();
   names->Reserve(schema.num_fields());
   ToProtoGetDepthFirstNames(schema.fields(), names);
 
-  auto struct_ = std::make_unique<::substrait::Type::Struct>();
+  auto struct_ = std::make_unique<substrait::Type::Struct>();
   auto types = struct_->mutable_types();
   types->Reserve(schema.num_fields());
 
   for (const auto& field : schema.fields()) {
     if (conversion_options.strictness == ConversionStrictness::EXACT_ROUNDTRIP &&
         field->metadata() != nullptr) {
-      return Status::Invalid("::substrait::NamedStruct does not support field metadata");
+      return Status::Invalid("substrait::NamedStruct does not support field metadata");
     }
 
     ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*field->type(), field->nullable(), ext_set,

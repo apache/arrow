@@ -437,6 +437,35 @@ cdef class Dataset(_Weakrefable):
         filtered_dataset._scan_options = dict(filter=new_filter)
         return filtered_dataset
 
+    def sort_by(self, sorting, **kwargs):
+        """
+        Sort the Dataset by one or multiple columns.
+
+        Parameters
+        ----------
+        sorting : str or list[tuple(name, order)]
+            Name of the column to use to sort (ascending), or
+            a list of multiple sorting conditions where
+            each entry is a tuple with column name
+            and sorting order ("ascending" or "descending")
+        **kwargs : dict, optional
+            Additional sorting options.
+            As allowed by :class:`SortOptions`
+
+        Returns
+        -------
+        InMemoryDataset
+            A new dataset sorted according to the sort keys.
+        """
+        if isinstance(sorting, str):
+            sorting = [(sorting, "ascending")]
+
+        res = _pc()._exec_plan._sort_source(self, output_type=InMemoryDataset,
+                                            sort_options=_pc().SortOptions(
+                                                sort_keys=sorting, **kwargs
+                                            ))
+        return res
+
     def join(self, right_dataset, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
              use_threads=True):
@@ -492,12 +521,12 @@ cdef class InMemoryDataset(Dataset):
 
     Parameters
     ----------
-    source : The data for this dataset.
-        Can be a RecordBatch, Table, list of
-        RecordBatch/Table, iterable of RecordBatch, or a RecordBatchReader.
+    source : RecordBatch, Table, list, tuple
+        The data for this dataset. Can be a RecordBatch, Table, list of
+        RecordBatch/Table, iterable of RecordBatch, or a RecordBatchReader
         If an iterable is provided, the schema must also be provided.
     schema : Schema, optional
-        Only required if passing an iterable as the source.
+        Only required if passing an iterable as the source
     """
 
     cdef:
@@ -876,7 +905,14 @@ cdef class FileFormat(_Weakrefable):
         return Fragment.wrap(move(c_fragment))
 
     def make_write_options(self):
-        return FileWriteOptions.wrap(self.format.DefaultWriteOptions())
+        sp_write_options = self.format.DefaultWriteOptions()
+        if sp_write_options.get() == nullptr:
+            # DefaultWriteOptions() may return `nullptr` which means that
+            # the format does not yet support writing datasets.
+            raise NotImplementedError(
+                "Writing datasets not yet implemented for this file format."
+            )
+        return FileWriteOptions.wrap(sp_write_options)
 
     @property
     def default_extname(self):
@@ -2590,6 +2626,16 @@ cdef class Scanner(_Weakrefable):
         fragment_scan_options : FragmentScanOptions, default None
             Options specific to a particular scan and fragment type, which
             can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        use_async : bool, default True
+            This flag is deprecated and is being kept for this release for
+            backwards compatibility.  It will be removed in the next
+            release.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.

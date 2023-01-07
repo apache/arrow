@@ -14,6 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 #include "skyhook/client/file_skyhook.h"
 #include "skyhook/protocol/rados_protocol.h"
 #include "skyhook/protocol/skyhook_protocol.h"
@@ -132,7 +133,7 @@ arrow::Result<std::shared_ptr<SkyhookFileFormat>> SkyhookFileFormat::Make(
 
 SkyhookFileFormat::SkyhookFileFormat(std::shared_ptr<RadosConnCtx> ctx,
                                      std::string file_format)
-    : impl_(new Impl(std::move(ctx), std::move(file_format))) {}
+    : FileFormat(nullptr), impl_(new Impl(std::move(ctx), std::move(file_format))) {}
 
 SkyhookFileFormat::~SkyhookFileFormat() = default;
 

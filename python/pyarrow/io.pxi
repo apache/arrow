@@ -2097,8 +2097,7 @@ cdef class Codec(_Weakrefable):
         ----------
         buf : pyarrow.Buffer, bytes, or memoryview-compatible object
         decompressed_size : int, default None
-            If not specified, will be computed if the codec is able to
-            determine the uncompressed buffer size.
+            Size of the decompressed result
         asbytes : boolean, default False
             Return result as Python bytes object, otherwise Buffer
         memory_pool : MemoryPool, default None
@@ -2120,7 +2119,7 @@ cdef class Codec(_Weakrefable):
 
         if decompressed_size is None:
             raise ValueError(
-                "Must pass decompressed_size for {} codec".format(self)
+                "Must pass decompressed_size"
             )
 
         output_size = decompressed_size
@@ -2184,8 +2183,7 @@ def decompress(object buf, decompressed_size=None, codec='lz4',
     buf : pyarrow.Buffer, bytes, or memoryview-compatible object
         Input object to decompress data from.
     decompressed_size : int, default None
-        If not specified, will be computed if the codec is able to determine
-        the uncompressed buffer size.
+        Size of the decompressed result
     codec : str, default 'lz4'
         Compression codec.
         Supported types: {'brotli, 'gzip', 'lz4', 'lz4_raw', 'snappy', 'zstd'}
@@ -2209,7 +2207,7 @@ def input_stream(source, compression='detect', buffer_size=None):
 
     Parameters
     ----------
-    source : str, Path, buffer, file-like object, ...
+    source : str, Path, buffer, or file-like object
         The source to open for reading.
     compression : str optional, default 'detect'
         The compression algorithm to use for on-the-fly decompression.
@@ -2261,7 +2259,7 @@ def output_stream(source, compression='detect', buffer_size=None):
 
     Parameters
     ----------
-    source : str, Path, buffer, file-like object, ...
+    source : str, Path, buffer, file-like object
         The source to open for writing.
     compression : str optional, default 'detect'
         The compression algorithm to use for on-the-fly compression.

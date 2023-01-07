@@ -15,29 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <R_ext/Rdynload.h>  // for R_GetCCallable
-#include <Rdefines.h>
+#include <vector>
 
-namespace vctrs {
-struct vctrs_api_ptrs_t {
-  R_len_t (*short_vec_size)(SEXP x);
+#include "arrow/compute/exec.h"
+#include "arrow/compute/exec/options.h"
+#include "arrow/type.h"
+#include "arrow/util/visibility.h"
 
-  vctrs_api_ptrs_t() {
-    short_vec_size = (R_len_t(*)(SEXP))R_GetCCallable("vctrs", "short_vec_size");
-  }
-};
+namespace arrow {
+namespace compute {
+namespace asofjoin {
 
-const vctrs_api_ptrs_t& vctrs_api() {
-  static vctrs_api_ptrs_t ptrs;
-  return ptrs;
-}
+using AsofJoinKeys = AsofJoinNodeOptions::Keys;
 
-R_len_t vec_size(SEXP x) {
-  if (Rf_inherits(x, "data.frame") || TYPEOF(x) != VECSXP || Rf_inherits(x, "POSIXlt")) {
-    return vctrs_api().short_vec_size(x);
-  } else {
-    return Rf_length(x);
-  }
-}
+ARROW_EXPORT Result<std::shared_ptr<Schema>> MakeOutputSchema(
+    const std::vector<std::shared_ptr<Schema>>& input_schema,
+    const std::vector<AsofJoinKeys>& input_keys);
 
-}  // namespace vctrs
+}  // namespace asofjoin
+}  // namespace compute
+}  // namespace arrow

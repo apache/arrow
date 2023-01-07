@@ -24,6 +24,7 @@
 #include "arrow/compute/exec/aggregate.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
@@ -83,7 +84,7 @@ class ScalarAggregateNode : public ExecNode {
     auto aggregates = aggregate_options.aggregates;
 
     const auto& input_schema = *inputs[0]->output_schema();
-    auto exec_ctx = plan->exec_context();
+    auto exec_ctx = plan->query_context()->exec_context();
 
     std::vector<const ScalarAggregateKernel*> kernels(aggregates.size());
     std::vector<std::vector<std::unique_ptr<KernelState>>> states(kernels.size());
@@ -113,7 +114,7 @@ class ScalarAggregateNode : public ExecNode {
       }
 
       KernelContext kernel_ctx{exec_ctx};
-      states[i].resize(plan->max_concurrency());
+      states[i].resize(plan->query_context()->max_concurrency());
       RETURN_NOT_OK(Kernel::InitAll(&kernel_ctx,
                                     KernelInitArgs{kernels[i],
                                                    {
@@ -150,7 +151,7 @@ class ScalarAggregateNode : public ExecNode {
                           {"function.options",
                            aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
                           {"function.kind", std::string(kind_name()) + "::Consume"}});
-      KernelContext batch_ctx{plan()->exec_context()};
+      KernelContext batch_ctx{plan()->query_context()->exec_context()};
       batch_ctx.SetState(states_[i][thread_index].get());
 
       ExecSpan single_column_batch{{batch.values[target_field_ids_[i]]}, batch.length};
@@ -168,7 +169,7 @@ class ScalarAggregateNode : public ExecNode {
                                     {"batch.length", batch.length}});
     DCHECK_EQ(input, inputs_[0]);
 
-    auto thread_index = plan_->GetThreadIndex();
+    auto thread_index = plan_->query_context()->GetThreadIndex();
 
     if (ErrorIfNotOk(DoConsume(ExecSpan(batch), thread_index))) return;
 
@@ -245,7 +246,7 @@ class ScalarAggregateNode : public ExecNode {
                           {"function.options",
                            aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
                           {"function.kind", std::string(kind_name()) + "::Finalize"}});
-      KernelContext ctx{plan()->exec_context()};
+      KernelContext ctx{plan()->query_context()->exec_context()};
       ARROW_ASSIGN_OR_RAISE(auto merged, ScalarAggregateKernel::MergeAll(
                                              kernels_[i], &ctx, std::move(states_[i])));
       RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[i]));
@@ -267,20 +268,19 @@ class ScalarAggregateNode : public ExecNode {
 
 class GroupByNode : public ExecNode {
  public:
-  GroupByNode(ExecNode* input, std::shared_ptr<Schema> output_schema, ExecContext* ctx,
+  GroupByNode(ExecNode* input, std::shared_ptr<Schema> output_schema,
               std::vector<int> key_field_ids, std::vector<int> agg_src_field_ids,
               std::vector<Aggregate> aggs,
               std::vector<const HashAggregateKernel*> agg_kernels)
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema),
                  /*num_outputs=*/1),
-        ctx_(ctx),
         key_field_ids_(std::move(key_field_ids)),
         agg_src_field_ids_(std::move(agg_src_field_ids)),
         aggs_(std::move(aggs)),
         agg_kernels_(std::move(agg_kernels)) {}
 
   Status Init() override {
-    output_task_group_id_ = plan_->RegisterTaskGroup(
+    output_task_group_id_ = plan_->query_context()->RegisterTaskGroup(
         [this](size_t, int64_t task_id) {
           OutputNthBatch(task_id);
           return Status::OK();
@@ -326,7 +326,7 @@ class GroupByNode : public ExecNode {
       agg_src_types[i] = input_schema->field(agg_src_field_id)->type().get();
     }
 
-    auto ctx = input->plan()->exec_context();
+    auto ctx = plan->query_context()->exec_context();
 
     // Construct aggregates
     ARROW_ASSIGN_OR_RAISE(auto agg_kernels,
@@ -354,7 +354,7 @@ class GroupByNode : public ExecNode {
     }
 
     return input->plan()->EmplaceNode<GroupByNode>(
-        input, schema(std::move(output_fields)), ctx, std::move(key_field_ids),
+        input, schema(std::move(output_fields)), std::move(key_field_ids),
         std::move(agg_src_field_ids), std::move(aggs), std::move(agg_kernels));
   }
 
@@ -366,7 +366,7 @@ class GroupByNode : public ExecNode {
                        {{"group_by", ToStringExtra()},
                         {"node.label", label()},
                         {"batch.length", batch.length}});
-    size_t thread_index = plan_->GetThreadIndex();
+    size_t thread_index = plan_->query_context()->GetThreadIndex();
     if (thread_index >= local_states_.size()) {
       return Status::IndexError("thread index ", thread_index, " is out of range [0, ",
                                 local_states_.size(), ")");
@@ -393,7 +393,8 @@ class GroupByNode : public ExecNode {
                           {"function.options",
                            aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
                           {"function.kind", std::string(kind_name()) + "::Consume"}});
-      KernelContext kernel_ctx{ctx_};
+      auto ctx = plan_->query_context()->exec_context();
+      KernelContext kernel_ctx{ctx};
       kernel_ctx.SetState(state->agg_states[i].get());
 
       ExecSpan agg_batch({batch[agg_src_field_ids_[i]], ExecValue(*id_batch.array())},
@@ -429,7 +430,9 @@ class GroupByNode : public ExecNode {
              {"function.options",
               aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
              {"function.kind", std::string(kind_name()) + "::Merge"}});
-        KernelContext batch_ctx{ctx_};
+
+        auto ctx = plan_->query_context()->exec_context();
+        KernelContext batch_ctx{ctx};
         DCHECK(state0->agg_states[i]);
         batch_ctx.SetState(state0->agg_states[i].get());
 
@@ -462,7 +465,7 @@ class GroupByNode : public ExecNode {
                           {"function.options",
                            aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
                           {"function.kind", std::string(kind_name()) + "::Finalize"}});
-      KernelContext batch_ctx{ctx_};
+      KernelContext batch_ctx{plan_->query_context()->exec_context()};
       batch_ctx.SetState(state->agg_states[i].get());
       RETURN_NOT_OK(agg_kernels_[i]->finalize(&batch_ctx, &out_data.values[i]));
       state->agg_states[i].reset();
@@ -497,7 +500,8 @@ class GroupByNode : public ExecNode {
 
     int64_t num_output_batches = bit_util::CeilDiv(out_data_.length, output_batch_size());
     outputs_[0]->InputFinished(this, static_cast<int>(num_output_batches));
-    RETURN_NOT_OK(plan_->StartTaskGroup(output_task_group_id_, num_output_batches));
+    RETURN_NOT_OK(plan_->query_context()->StartTaskGroup(output_task_group_id_,
+                                                         num_output_batches));
     return Status::OK();
   }
 
@@ -548,7 +552,7 @@ class GroupByNode : public ExecNode {
                         {"node.detail", ToString()},
                         {"node.kind", kind_name()}});
 
-    local_states_.resize(plan_->max_concurrency());
+    local_states_.resize(plan_->query_context()->max_concurrency());
     return Status::OK();
   }
 
@@ -593,7 +597,7 @@ class GroupByNode : public ExecNode {
   };
 
   ThreadLocalState* GetLocalState() {
-    size_t thread_index = plan_->GetThreadIndex();
+    size_t thread_index = plan_->query_context()->GetThreadIndex();
     return &local_states_[thread_index];
   }
 
@@ -611,7 +615,8 @@ class GroupByNode : public ExecNode {
     }
 
     // Construct grouper
-    ARROW_ASSIGN_OR_RAISE(state->grouper, Grouper::Make(key_types, ctx_));
+    ARROW_ASSIGN_OR_RAISE(
+        state->grouper, Grouper::Make(key_types, plan_->query_context()->exec_context()));
 
     // Build vector of aggregate source field data types
     std::vector<TypeHolder> agg_src_types(agg_kernels_.size());
@@ -620,21 +625,23 @@ class GroupByNode : public ExecNode {
       agg_src_types[i] = input_schema->field(agg_src_field_id)->type().get();
     }
 
-    ARROW_ASSIGN_OR_RAISE(state->agg_states, internal::InitKernels(agg_kernels_, ctx_,
-                                                                   aggs_, agg_src_types));
+    ARROW_ASSIGN_OR_RAISE(
+        state->agg_states,
+        internal::InitKernels(agg_kernels_, plan_->query_context()->exec_context(), aggs_,
+                              agg_src_types));
 
     return Status::OK();
   }
 
   int output_batch_size() const {
-    int result = static_cast<int>(ctx_->exec_chunksize());
+    int result =
+        static_cast<int>(plan_->query_context()->exec_context()->exec_chunksize());
     if (result < 0) {
       result = 32 * 1024;
     }
     return result;
   }
 
-  ExecContext* ctx_;
   int output_task_group_id_;
 
   const std::vector<int> key_field_ids_;

@@ -3074,6 +3074,24 @@ def test_orc_format_not_supported():
             ds.dataset(".", format="orc")
 
 
+@pytest.mark.orc
+def test_orc_writer_not_implemented_for_dataset():
+    with pytest.raises(
+        NotImplementedError,
+        match="Writing datasets not yet implemented for this file format"
+    ):
+        ds.write_dataset(
+            pa.table({"a": range(10)}), format='orc', base_dir='/tmp'
+        )
+
+    of = ds.OrcFileFormat()
+    with pytest.raises(
+        NotImplementedError,
+        match="Writing datasets not yet implemented for this file format"
+    ):
+        of.make_write_options()
+
+
 @pytest.mark.pandas
 def test_csv_format(tempdir, dataset_reader):
     table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
@@ -5079,3 +5097,54 @@ def test_dataset_partition_with_slash(tmpdir):
     file_paths = sorted(os.listdir(path))
 
     assert encoded_paths == file_paths
+
+
+@pytest.mark.parametrize('dstype', [
+    "fs", "mem"
+])
+def test_dataset_sort_by(tempdir, dstype):
+    table = pa.table([
+        pa.array([3, 1, 4, 2, 5]),
+        pa.array(["b", "a", "b", "a", "c"]),
+    ], names=["values", "keys"])
+
+    if dstype == "fs":
+        ds.write_dataset(table, tempdir / "t1", format="ipc")
+        dt = ds.dataset(tempdir / "t1", format="ipc")
+    elif dstype == "mem":
+        dt = ds.dataset(table)
+    else:
+        raise NotImplementedError
+
+    assert dt.sort_by("values").to_table().to_pydict() == {
+        "keys": ["a", "a", "b", "b", "c"],
+        "values": [1, 2, 3, 4, 5]
+    }
+
+    assert dt.sort_by([("values", "descending")]).to_table().to_pydict() == {
+        "keys": ["c", "b", "b", "a", "a"],
+        "values": [5, 4, 3, 2, 1]
+    }
+
+    assert dt.filter((pc.field("values") < 4)).sort_by(
+        "values"
+    ).to_table().to_pydict() == {
+        "keys": ["a", "a", "b"],
+        "values": [1, 2, 3]
+    }
+
+    table = pa.Table.from_arrays([
+        pa.array([5, 7, 7, 35], type=pa.int64()),
+        pa.array(["foo", "car", "bar", "foobar"])
+    ], names=["a", "b"])
+    dt = ds.dataset(table)
+
+    sorted_tab = dt.sort_by([("a", "descending")])
+    sorted_tab_dict = sorted_tab.to_table().to_pydict()
+    assert sorted_tab_dict["a"] == [35, 7, 7, 5]
+    assert sorted_tab_dict["b"] == ["foobar", "car", "bar", "foo"]
+
+    sorted_tab = dt.sort_by([("a", "ascending")])
+    sorted_tab_dict = sorted_tab.to_table().to_pydict()
+    assert sorted_tab_dict["a"] == [5, 7, 7, 35]
+    assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]

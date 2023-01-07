@@ -448,40 +448,54 @@ module Arrow
       self.class.new(schema, packed_arrays)
     end
 
+    # Join another Table by matching with keys.
+    #
+    # @!macro join_common_before
+    #   @param right [Arrow::Table] The right table.
+    #
+    #   Join columns with `right` on join key columns.
+    #
+    # @!macro join_common_after
+    #   @param type [Arrow::JoinType] How to join.
+    #   @param left_outputs [::Array<String, Symbol>] Output columns in
+    #     `self`.
+    #
+    #     If both of `left_outputs` and `right_outputs` aren't
+    #     specified, all columns in `self` and `right` are
+    #     outputted.
+    #   @param right_outputs [::Array<String, Symbol>] Output columns in
+    #     `right`.
+    #
+    #     If both of `left_outputs` and `right_outputs` aren't
+    #     specified, all columns in `self` and `right` are
+    #     outputted.
+    #   @return [Arrow::Table]
+    #     The joined `Arrow::Table`.
+    #
+    # @overload join(right, type: :inner, left_outputs: nil, right_outputs: nil)
+    #   If key(s) are not supplied, common keys in self and right are used.
+    #
+    #   @macro join_common_before
+    #   @macro join_common_after
+    #
+    # @since 11.0.0
+    #
     # @overload join(right, key, type: :inner, left_outputs: nil, right_outputs: nil)
-    #   @!macro join_common_before
-    #     @param right [Arrow::Table] The right table.
-    #
-    #     Join columns with `right` on join key columns.
-    #
-    #   @!macro join_common_after
-    #     @param type [Arrow::JoinType] How to join.
-    #     @param left_outputs [::Array<String, Symbol>] Output columns in
-    #       `self`.
-    #
-    #       If both of `left_outputs` and `right_outputs` aren't
-    #       specified, all columns in `self` and `right` are
-    #       outputted.
-    #     @param right_outputs [::Array<String, Symbol>] Output columns in
-    #       `right`.
-    #
-    #       If both of `left_outputs` and `right_outputs` aren't
-    #       specified, all columns in `self` and `right` are
-    #       outputted.
-    #     @return [Arrow::Table]
-    #       The joined `Arrow::Table`.
+    #   Join right by a key.
     #
     #   @macro join_common_before
     #   @param key [String, Symbol] A join key.
     #   @macro join_common_after
     #
     # @overload join(right, keys, type: :inner, left_outputs: nil, right_outputs: nil)
+    #   Join right by keys.
     #
     #   @macro join_common_before
     #   @param keys [::Array<String, Symbol>] Join keys.
     #   @macro join_common_after
     #
     # @overload join(right, keys, type: :inner, left_outputs: nil, right_outputs: nil)
+    #   Join right by a key or keys mapped by a hash.
     #
     #   @macro join_common_before
     #   @param keys [Hash] Specify join keys in `self` and `right` separately.
@@ -492,7 +506,8 @@ module Arrow
     #   @macro join_common_after
     #
     # @since 7.0.0
-    def join(right, keys, type: :inner, left_outputs: nil, right_outputs: nil)
+    def join(right, keys=nil, type: :inner, left_outputs: nil, right_outputs: nil)
+      keys ||= column_names.intersection(right.column_names)
       plan = ExecutePlan.new
       left_node = plan.build_source_node(self)
       right_node = plan.build_source_node(right)

@@ -3252,4 +3252,37 @@ TEST_F(TestArrayStreamRoundtrip, Errors) {
   });
 }
 
+TEST_F(TestArrayStreamRoundtrip, SchemaError) {
+  struct StreamState {
+    bool released = false;
+
+    static const char* GetLastError(struct ArrowArrayStream* stream) {
+      return "Expected error";
+    }
+
+    static int GetSchema(struct ArrowArrayStream* stream, struct ArrowSchema* schema) {
+      return EIO;
+    }
+
+    static int GetNext(struct ArrowArrayStream* stream, struct ArrowArray* array) {
+      return EINVAL;
+    }
+
+    static void Release(struct ArrowArrayStream* stream) {
+      reinterpret_cast<StreamState*>(stream->private_data)->released = true;
+      std::memset(stream, 0, sizeof(*stream));
+    }
+  } state;
+  struct ArrowArrayStream stream = {};
+  stream.get_last_error = &StreamState::GetLastError;
+  stream.get_schema = &StreamState::GetSchema;
+  stream.get_next = &StreamState::GetNext;
+  stream.release = &StreamState::Release;
+  stream.private_data = &state;
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, ::testing::HasSubstr("Expected error"),
+                                  ImportRecordBatchReader(&stream));
+  ASSERT_TRUE(state.released);
+}
+
 }  // namespace arrow

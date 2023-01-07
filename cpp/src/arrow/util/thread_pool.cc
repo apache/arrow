@@ -57,6 +57,7 @@ struct SerialExecutor::State {
   std::deque<Task> task_queue;
   std::mutex mutex;
   std::condition_variable wait_for_tasks;
+  std::thread::id current_thread;
   bool paused{false};
   bool finished{false};
 };
@@ -142,11 +143,16 @@ void SerialExecutor::Unpause() {
   }
 }
 
+bool SerialExecutor::OwnsThisThread() {
+  std::lock_guard lk(state_->mutex);
+  return std::this_thread::get_id() == state_->current_thread;
+}
+
 void SerialExecutor::RunLoop() {
   // This is called from the SerialExecutor's main thread, so the
   // state is guaranteed to be kept alive.
   std::unique_lock<std::mutex> lk(state_->mutex);
-
+  state_->current_thread = std::this_thread::get_id();
   // If paused we break out immediately.  If finished we only break out
   // when all work is done.
   while (!state_->paused && !(state_->finished && state_->task_queue.empty())) {
@@ -175,6 +181,7 @@ void SerialExecutor::RunLoop() {
       return state_->paused || state_->finished || !state_->task_queue.empty();
     });
   }
+  state_->current_thread = {};
 }
 
 struct ThreadPool::State {

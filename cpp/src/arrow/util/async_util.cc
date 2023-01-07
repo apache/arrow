@@ -20,6 +20,7 @@
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 
+#include <condition_variable>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -121,8 +122,11 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
  public:
   using Task = AsyncTaskScheduler::Task;
 
-  explicit AsyncTaskSchedulerImpl(StopToken stop_token)
-      : AsyncTaskScheduler(), stop_token_(std::move(stop_token)) {}
+  explicit AsyncTaskSchedulerImpl(StopToken stop_token,
+                                  FnOnce<void(const Status&)> abort_callback)
+      : AsyncTaskScheduler(),
+        stop_token_(std::move(stop_token)),
+        abort_callback_(std::move(abort_callback)) {}
 
   ~AsyncTaskSchedulerImpl() {
     DCHECK_EQ(running_tasks_, 0) << " scheduler destroyed while tasks still running";
@@ -188,8 +192,20 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
 
   void AbortUnlocked(const Status& st, std::unique_lock<std::mutex>&& lk) {
     DCHECK(!st.ok());
+    bool aborted = false;
     if (!IsAborted()) {
       maybe_error_ = st;
+      // Add one more "task" to represent running the abort callback.  This
+      // will prevent any other task finishing and marking the scheduler finished
+      // while we are running the abort callback.
+      running_tasks_++;
+      aborted = true;
+    }
+    if (aborted) {
+      lk.unlock();
+      std::move(abort_callback_)(st);
+      lk.lock();
+      running_tasks_--;
     }
     MaybeEndUnlocked(std::move(lk));
   }
@@ -212,6 +228,9 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   Status maybe_error_;
   std::mutex mutex_;
   StopToken stop_token_;
+  FnOnce<void(const Status&)> abort_callback_;
+  bool abort_callback_pending_ = false;
+  std::condition_variable abort_callback_cv_;
 
   // Allows AsyncTaskScheduler::Make to call OnTaskFinished
   friend AsyncTaskScheduler;
@@ -371,8 +390,10 @@ class AsyncTaskGroupImpl : public AsyncTaskGroup {
 }  // namespace
 
 Future<> AsyncTaskScheduler::Make(FnOnce<Status(AsyncTaskScheduler*)> initial_task,
+                                  FnOnce<void(const Status&)> abort_callback,
                                   StopToken stop_token) {
-  auto scheduler = std::make_unique<AsyncTaskSchedulerImpl>(std::move(stop_token));
+  auto scheduler = std::make_unique<AsyncTaskSchedulerImpl>(std::move(stop_token),
+                                                            std::move(abort_callback));
   Status initial_task_st = std::move(initial_task)(scheduler.get());
   scheduler->OnTaskFinished(std::move(initial_task_st));
   // Keep scheduler alive until finished

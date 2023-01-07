@@ -66,14 +66,12 @@ jobs:
           path: arrow/r/
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt install libcurl4-openssl-dev libssl-dev
+          sudo arrow/ci/scripts/r_install_system_dependencies.sh
           arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
-      - name: Prepare PKG_CONFIG_PATH for Homebrew
-        run: |
-          # zstd is installed by Homebrew on GitHub Actions.
-          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}" \
-            >> "$GITHUB_ENV"
+        env:
+          ARROW_GCS: "ON"
+          ARROW_S3: "ON"
+          ARROW_SOURCE_HOME: arrow
       - name: Install dependencies
         run: |
           install.packages(c("remotes", "glue", "sys"))
@@ -83,7 +81,7 @@ jobs:
         env:
           TEST_OFFLINE_BUILD: true
           LIBARROW_MINIMAL: false
-        {{ macros.github_set_sccache_envvars()|indent(8)}}  
+        {{ macros.github_set_sccache_envvars()|indent(8)}}
         run: |
           cd arrow/r
           R CMD INSTALL --install-tests --no-test-load --no-docs --no-help --no-byte-compile arrow_with_deps.tar.gz
