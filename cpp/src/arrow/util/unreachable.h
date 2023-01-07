@@ -23,6 +23,8 @@
 
 namespace arrow {
 
-[[noreturn]] ARROW_EXPORT void Unreachable(std::string_view message = "Unreachable");
+[[noreturn]] ARROW_EXPORT void Unreachable(const char* message = "Unreachable");
+
+[[noreturn]] ARROW_EXPORT void Unreachable(std::string_view message);
 
 }  // namespace arrow
