@@ -277,12 +277,9 @@ void DoInvalidPlanTest(const BatchesWithSchema& l_batches,
       "source", SourceNodeOptions{r_batches.schema, r_batches.gen(false, false)}});
 
   if (fail_on_plan_creation) {
-    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
-    ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
-                  .AddToPlan(plan.get()));
-    EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                                 ::testing::HasSubstr(expected_error_str),
-                                                 StartAndCollect(plan.get(), sink_gen));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr(expected_error_str),
+        DeclarationToStatus(std::move(join), /*use_threads=*/false));
   } else {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_error_str),
                                     join.AddToPlan(plan.get()));

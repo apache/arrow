@@ -59,25 +59,24 @@ namespace compute {
 namespace {
 
 struct DummyNode : ExecNode {
-  DummyNode(ExecPlan* plan, NodeVector inputs, int num_outputs,
+  DummyNode(ExecPlan* plan, NodeVector inputs, bool is_sink,
             StartProducingFunc start_producing, StopProducingFunc stop_producing)
-      : ExecNode(plan, std::move(inputs), {}, dummy_schema(), num_outputs),
+      : ExecNode(plan, std::move(inputs), {}, (is_sink) ? nullptr : dummy_schema()),
         start_producing_(std::move(start_producing)),
         stop_producing_(std::move(stop_producing)) {
     input_labels_.resize(inputs_.size());
     for (size_t i = 0; i < input_labels_.size(); ++i) {
       input_labels_[i] = std::to_string(i);
     }
-    finished_.MarkFinished();
   }
 
   const char* kind_name() const override { return "Dummy"; }
 
-  void InputReceived(ExecNode* input, ExecBatch batch) override {}
+  Status InputReceived(ExecNode* input, ExecBatch batch) override { return Status::OK(); }
 
-  void ErrorReceived(ExecNode* input, Status error) override {}
-
-  void InputFinished(ExecNode* input, int total_batches) override {}
+  Status InputFinished(ExecNode* input, int total_batches) override {
+    return Status::OK();
+  }
 
   Status StartProducing() override {
     if (start_producing_) {
@@ -88,36 +87,24 @@ struct DummyNode : ExecNode {
   }
 
   void PauseProducing(ExecNode* output, int32_t counter) override {
-    ASSERT_GE(num_outputs(), 0) << "Sink nodes should not experience backpressure";
+    ASSERT_NE(output_, nullptr) << "Sink nodes should not experience backpressure";
     AssertIsOutput(output);
   }
 
   void ResumeProducing(ExecNode* output, int32_t counter) override {
-    ASSERT_GE(num_outputs(), 0) << "Sink nodes should not experience backpressure";
+    ASSERT_NE(output_, nullptr) << "Sink nodes should not experience backpressure";
     AssertIsOutput(output);
   }
 
-  void StopProducing(ExecNode* output) override {
-    EXPECT_GE(num_outputs(), 0) << "Sink nodes should not experience backpressure";
-    AssertIsOutput(output);
-  }
-
-  void StopProducing() override {
-    if (started_) {
-      for (const auto& input : inputs_) {
-        input->StopProducing(this);
-      }
-      if (stop_producing_) {
-        stop_producing_(this);
-      }
+  Status StopProducingImpl() override {
+    if (stop_producing_) {
+      stop_producing_(this);
     }
+    return Status::OK();
   }
 
  private:
-  void AssertIsOutput(ExecNode* output) {
-    auto it = std::find(outputs_.begin(), outputs_.end(), output);
-    ASSERT_NE(it, outputs_.end());
-  }
+  void AssertIsOutput(ExecNode* output) { ASSERT_EQ(output->output(), nullptr); }
 
   std::shared_ptr<Schema> dummy_schema() const {
     return schema({field("dummy", null())});
@@ -132,10 +119,10 @@ struct DummyNode : ExecNode {
 }  // namespace
 
 ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*> inputs,
-                        int num_outputs, StartProducingFunc start_producing,
+                        bool is_sink, StartProducingFunc start_producing,
                         StopProducingFunc stop_producing) {
   auto node =
-      plan->EmplaceNode<DummyNode>(plan, std::move(inputs), num_outputs,
+      plan->EmplaceNode<DummyNode>(plan, std::move(inputs), is_sink,
                                    std::move(start_producing), std::move(stop_producing));
   if (!label.empty()) {
     node->SetLabel(std::move(label));
@@ -175,14 +162,14 @@ ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
 
 Future<> StartAndFinish(ExecPlan* plan) {
   RETURN_NOT_OK(plan->Validate());
-  RETURN_NOT_OK(plan->StartProducing());
+  plan->StartProducing();
   return plan->finished();
 }
 
 Future<std::vector<ExecBatch>> StartAndCollect(
     ExecPlan* plan, AsyncGenerator<std::optional<ExecBatch>> gen) {
   RETURN_NOT_OK(plan->Validate());
-  RETURN_NOT_OK(plan->StartProducing());
+  plan->StartProducing();
 
   auto collected_fut = CollectAsyncGenerator(gen);
 

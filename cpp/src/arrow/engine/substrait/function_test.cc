@@ -140,7 +140,7 @@ void CheckValidTestCases(const std::vector<FunctionTestCase>& valid_cases) {
     std::shared_ptr<Table> output_table;
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
                          PlanFromTestCase(test_case, &output_table));
-    ASSERT_OK(plan->StartProducing());
+    plan->StartProducing();
     ASSERT_FINISHES_OK(plan->finished());
 
     // Could also modify the Substrait plan with an emit to drop the leading columns
@@ -161,12 +161,7 @@ void CheckErrorTestCases(const std::vector<FunctionTestCase>& error_cases) {
     std::shared_ptr<Table> output_table;
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
                          PlanFromTestCase(test_case, &output_table));
-    Status start_st = plan->StartProducing();
-    // The plan can fail in start producing or when running the plan
-    if (!start_st.ok()) {
-      ASSERT_TRUE(start_st.IsInvalid());
-      return;
-    }
+    plan->StartProducing();
     ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
   }
 }
@@ -593,7 +588,7 @@ void CheckWholeAggregateCase(const AggregateTestCase& test_case) {
   std::shared_ptr<compute::ExecPlan> plan =
       PlanFromAggregateCase(test_case, &output_table, /*with_keys=*/false);
 
-  ASSERT_OK(plan->StartProducing());
+  plan->StartProducing();
   ASSERT_FINISHES_OK(plan->finished());
 
   ASSERT_OK_AND_ASSIGN(output_table,
@@ -609,7 +604,7 @@ void CheckGroupedAggregateCase(const AggregateTestCase& test_case) {
   std::shared_ptr<compute::ExecPlan> plan =
       PlanFromAggregateCase(test_case, &output_table, /*with_keys=*/true);
 
-  ASSERT_OK(plan->StartProducing());
+  plan->StartProducing();
   ASSERT_FINISHES_OK(plan->finished());
 
   // The aggregate node's output is unpredictable so we sort by the key column

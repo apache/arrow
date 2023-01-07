@@ -66,11 +66,11 @@ Status BenchmarkIsolatedNodeOverhead(benchmark::State& state,
 
     int task_group_id = scheduler->RegisterTaskGroup(
         [&](size_t thread_id, int64_t task_id) {
-          node->InputReceived(source_node, data.batches[task_id]);
-          return Status::OK();
+          return node->InputReceived(source_node, data.batches[task_id]);
         },
         [&](size_t thread_id) {
-          node->InputFinished(source_node, static_cast<int>(data.batches.size()));
+          RETURN_NOT_OK(
+              node->InputFinished(source_node, static_cast<int>(data.batches.size())));
           std::unique_lock<std::mutex> lk(mutex);
           all_tasks_finished_cv.notify_one();
           return Status::OK();
@@ -95,9 +95,6 @@ Status BenchmarkIsolatedNodeOverhead(benchmark::State& state,
     ARROW_RETURN_NOT_OK(
         scheduler->StartTaskGroup(thread_indexer(), task_group_id, num_batches));
     all_tasks_finished_cv.wait(lk);
-    if (!node->finished().is_finished()) {
-      return Status::Invalid("All tasks were finsihed but the node was not finished");
-    }
   }
   state.counters["rows_per_second"] = benchmark::Counter(
       static_cast<double>(state.iterations() * num_batches * batch_size),

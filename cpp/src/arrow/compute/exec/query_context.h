@@ -83,19 +83,19 @@ class ARROW_EXPORT QueryContext {
   ///
   /// \param fn The task to run. Takes no arguments and returns a Status.
   /// \param name A name to give the task for traceability and debugging
-  Status ScheduleTask(std::function<Status()> fn, std::string_view name);
+  void ScheduleTask(std::function<Status()> fn, std::string_view name);
   /// \brief Add a single function as a task to the query's task group
   ///        on the compute threadpool.
   ///
   /// \param fn The task to run. Takes the thread index and returns a Status.
   /// \param name A name to give the task for traceability and debugging
-  Status ScheduleTask(std::function<Status(size_t)> fn, std::string_view name);
+  void ScheduleTask(std::function<Status(size_t)> fn, std::string_view name);
   /// \brief Add a single function as a task to the query's task group on
   ///        the IO thread pool
   ///
   /// \param fn The task to run. Returns a status.
   /// \param name A name to give the task for traceability and debugging
-  Status ScheduleIOTask(std::function<Status()> fn, std::string_view name);
+  void ScheduleIOTask(std::function<Status()> fn, std::string_view name);
 
   // Register/Start TaskGroup is a way of performing a "Parallel For" pattern:
   // - The task function takes the thread index and the index of the task
