@@ -1427,5 +1427,40 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
   }
 }
 
+class DeltaBitPackEncoding : public TestArrowBuilderDecoding {
+ public:
+  void SetupEncoderDecoder() override {}
+};
+
+TEST_F(DeltaBitPackEncoding, MalfordMiniblockBitWidth) {
+  std::shared_ptr<ColumnDescriptor> descr_ = ExampleDescr<Int32Type>();
+  auto decoder = MakeTypedDecoder<Int32Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
+  using c_type = parquet::Int32Type::c_type;
+
+  unsigned char good_data[] = "\200\001\004A\237\224\316\362\r\242\220\203-  ";
+  int encode_buffer_size = 273;
+  int num_values = 65;
+  std::vector<uint8_t> output_bytes = std::vector<uint8_t>(num_values * sizeof(c_type));
+  auto decode_buf = reinterpret_cast<c_type*>(output_bytes.data());
+  decoder->SetData(num_values, &good_data[0], encode_buffer_size);
+  int values_decoded = decoder->Decode(decode_buf, num_values);
+  ASSERT_EQ(num_values, values_decoded);
+
+  unsigned char bad_data[] =
+      "\200\001\004A\237\224\316\362\r\242\220\203-  "
+      "\245\245\304;`\210'\313\r\270D\316\306h㖀~\372\255\360A\254}\211L\343\373_"
+      "\034®\312Y\036\233<\203\035P\202)\307Y\356\327\024\302!\232\036,"
+      "\271\b\331\353\037e\333\332\315Crm\203\350בOo\001\347\305Z\203G\037\263Y\254\366_"
+      "\"\v\276\242Y\002\374\300\226\231\252C\240\363ۙ\r\334E\314\f\002\255\227\273\307"
+      "\305'\"\033\235\374\250\243\244F\266\254\350\203\304U\036X\331&\210/"
+      "\037\322\321s.\031e/"
+      "\232\340\363\366\306\030\243,5\337\031\005bw\021\017wj\003#Q`\371ʉ\323\300+~="
+      "\232W\232\374p\336$\022\211VQ\237>\v1gە'\224\207\262f\247h\363A!"
+      "\255\271f\026\274\033_\333)4";
+  output_bytes = std::vector<uint8_t>(num_values * sizeof(c_type));
+  decode_buf = reinterpret_cast<c_type*>(output_bytes.data());
+  decoder->SetData(num_values, &bad_data[0], encode_buffer_size);
+}
+
 }  // namespace test
 }  // namespace parquet

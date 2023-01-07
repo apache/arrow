@@ -2453,16 +2453,25 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
     if (!decoder_->GetZigZagVlqInt(&min_delta_)) ParquetException::EofException();
 
     // read the bitwidth of each miniblock
+    uint32_t miniblock_values_sum = 0;
     uint8_t* bit_width_data = delta_bit_widths_->mutable_data();
-    for (uint32_t i = 0; i < mini_blocks_per_block_; ++i) {
-      if (!decoder_->GetAligned<uint8_t>(1, bit_width_data + i)) {
+    for (uint32_t current_mini_block_idx = 0; current_mini_block_idx < mini_blocks_per_block_; ++current_mini_block_idx) {
+      if (!decoder_->GetAligned<uint8_t>(1, bit_width_data + current_mini_block_idx)) {
         ParquetException::EofException();
       }
-      if (bit_width_data[i] > kMaxDeltaBitWidth) {
-        throw ParquetException("delta bit width " + std::to_string(bit_width_data[i]) +
-                               " larger than integer bit width " +
-                               std::to_string(kMaxDeltaBitWidth));
+
+      if (bit_width_data[current_mini_block_idx] > kMaxDeltaBitWidth) {
+        if (miniblock_values_sum < total_value_count_) {
+          throw ParquetException(
+              "delta bit width " +
+              std::to_string(
+                  bit_width_data[current_mini_block_idx * values_current_mini_block_]) +
+              " larger than integer bit width " + std::to_string(kMaxDeltaBitWidth));
+        } else {
+          break;
+        }
       }
+      miniblock_values_sum += values_current_mini_block_;
     }
     mini_block_idx_ = 0;
     delta_bit_width_ = bit_width_data[0];
