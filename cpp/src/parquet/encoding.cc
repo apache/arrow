@@ -2456,18 +2456,19 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
     // read the bitwidth of each miniblock
     uint8_t* bit_width_data = delta_bit_widths_->mutable_data();
     uint32_t miniblock_values_sum = value_sum_up_to_current_block_;
-    for (uint32_t current_mini_block_idx = 0; current_mini_block_idx < mini_blocks_per_block_; ++current_mini_block_idx) {
+    for (uint32_t current_mini_block_idx = 0;
+         current_mini_block_idx < mini_blocks_per_block_; ++current_mini_block_idx) {
       if (!decoder_->GetAligned<uint8_t>(1, bit_width_data + current_mini_block_idx)) {
         ParquetException::EofException();
       }
 
-      if (bit_width_data[current_mini_block_idx] > kMaxDeltaBitWidth) {
+      if (ARROW_PREDICT_FALSE(bit_width_data[current_mini_block_idx] >
+                              kMaxDeltaBitWidth)) {
         if (miniblock_values_sum <= total_value_count_) {
-          throw ParquetException(
-              "delta bit width " +
-              std::to_string(
-                  bit_width_data[current_mini_block_idx]) +
-              " larger than integer bit width " + std::to_string(kMaxDeltaBitWidth));
+          throw ParquetException("delta bit width " +
+                                 std::to_string(bit_width_data[current_mini_block_idx]) +
+                                 " larger than integer bit width " +
+                                 std::to_string(kMaxDeltaBitWidth));
         } else {
           // according to the parquet standard, we should ignore the bit_width_data here.
           break;
