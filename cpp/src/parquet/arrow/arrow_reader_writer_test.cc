@@ -4892,5 +4892,111 @@ TYPED_TEST(TestIntegerAnnotateDecimalTypeParquetIO, SingleNullableDecimalColumn)
   ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleDecimalColumnFile(*values));
 }
 
+template <typename TestType>
+class TestBufferedParquetIO : public TestParquetIO<TestType> {
+ public:
+  void WriteBufferedFile(const std::shared_ptr<Array>& values, int64_t batch_size) {
+    std::shared_ptr<GroupNode> schema =
+        MakeSimpleSchema(*values->type(), Repetition::OPTIONAL);
+    SchemaDescriptor descriptor;
+    ASSERT_NO_THROW(descriptor.Init(schema));
+    std::shared_ptr<::arrow::Schema> arrow_schema;
+    ArrowReaderProperties props;
+    ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, props, &arrow_schema));
+
+    std::unique_ptr<FileWriter> writer;
+    ASSERT_OK_NO_THROW(FileWriter::Make(::arrow::default_memory_pool(),
+                                        this->MakeWriter(schema), arrow_schema,
+                                        default_arrow_writer_properties(), &writer));
+    for (int i = 0; i < 4; i++) {
+      if (i % 2 == 0) {
+        ASSERT_OK_NO_THROW(writer->NewBufferedRowGroup());
+      }
+      std::shared_ptr<Array> sliced_array = values->Slice(i * batch_size, batch_size);
+      std::vector<std::shared_ptr<Array>> arrays = {sliced_array};
+      auto batch = ::arrow::RecordBatch::Make(arrow_schema, batch_size, arrays);
+      ASSERT_OK_NO_THROW(writer->WriteRecordBatch(*batch));
+    }
+    ASSERT_OK_NO_THROW(writer->Close());
+  }
+};
+
+TYPED_TEST_SUITE(TestBufferedParquetIO, TestTypes);
+
+TYPED_TEST(TestBufferedParquetIO, SingleColumnOptionalBufferedWriteSmall) {
+  constexpr int64_t batch_size = SMALL_SIZE / 4;
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, kDefaultSeed, &values));
+  this->WriteBufferedFile(values, batch_size);
+  ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleColumnFile(*values));
+}
+
+TYPED_TEST(TestBufferedParquetIO, SingleColumnOptionalBufferedWriteLarge) {
+  constexpr int64_t batch_size = LARGE_SIZE / 4;
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NullableArray<TypeParam>(LARGE_SIZE, 100, kDefaultSeed, &values));
+  this->WriteBufferedFile(values, batch_size);
+  ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleColumnTable(values));
+}
+
+TEST(TestReadWriteArrow, WriteAndReadRecordBatch) {
+  constexpr int64_t num_row_groups = 3;
+  auto pool = ::arrow::default_memory_pool();
+  auto sink = CreateOutputStream();
+  auto writer_properties = default_writer_properties();
+  auto arrow_writer_properties = default_arrow_writer_properties();
+
+  // Prepare schema
+  auto schema = ::arrow::schema(
+      {::arrow::field("a", ::arrow::int64()), ::arrow::field("b", ::arrow::utf8())});
+  std::shared_ptr<SchemaDescriptor> parquet_schema;
+  ASSERT_OK_NO_THROW(ToParquetSchema(schema.get(), *writer_properties,
+                                     *arrow_writer_properties, &parquet_schema));
+  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
+
+  // Prepare data
+  auto record_batch = ::arrow::RecordBatchFromJSON(schema, R"([
+      [1,     "alfa"],
+      [null,  "alfa"],
+      [3,     "beta"],
+      [null,  "gama"],
+      [5,     null  ],
+      [6,     "alfa"],
+      [7,     "beta"],
+      [8,     "beta"],
+      [9,     null  ],
+      [null,  "gama"]
+    ])");
+
+  // Create writer to write several row groups with same batch data via RecordBatch.
+  auto writer = ParquetFileWriter::Open(sink, schema_node, writer_properties);
+  std::unique_ptr<FileWriter> arrow_writer;
+  ASSERT_OK(FileWriter::Make(pool, std::move(writer), record_batch->schema(),
+                             arrow_writer_properties, &arrow_writer));
+  for (int64_t i = 0; i < num_row_groups; ++i) {
+    ASSERT_OK_NO_THROW(arrow_writer->NewBufferedRowGroup());
+    ASSERT_OK_NO_THROW(arrow_writer->WriteRecordBatch(*record_batch));
+  }
+  ASSERT_OK_NO_THROW(arrow_writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  // Create reader with batch size specified.
+  auto read_properties = default_arrow_reader_properties();
+  read_properties.set_batch_size(record_batch->num_rows());
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  std::unique_ptr<FileReader> arrow_reader;
+  ASSERT_OK(FileReader::Make(pool, std::move(reader), read_properties, &arrow_reader));
+
+  // Verify batch data read via RecordBatch
+  std::unique_ptr<::arrow::RecordBatchReader> batch_reader;
+  ASSERT_OK_NO_THROW(arrow_reader->GetRecordBatchReader(
+      Iota(arrow_reader->parquet_reader()->metadata()->num_row_groups()), &batch_reader));
+  std::shared_ptr<::arrow::RecordBatch> read_record_batch;
+  for (int64_t i = 0; i < num_row_groups; ++i) {
+    ASSERT_OK(batch_reader->ReadNext(&read_record_batch));
+    EXPECT_TRUE(record_batch->Equals(*read_record_batch));
+  }
+}
+
 }  // namespace arrow
 }  // namespace parquet
