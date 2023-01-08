@@ -291,7 +291,7 @@ class ARROW_EXPORT ExecNode {
   std::vector<std::string> input_labels_;
 
   std::shared_ptr<Schema> output_schema_;
-  ExecNode* output_ = nullptr;
+  ExecNode* output_ = NULLPTR;
 };
 
 /// \brief An extensible registry for factories of ExecNodes
