@@ -125,9 +125,9 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
 remove_attributes <- function(x) {
   removed_attributes <- character()
   if (identical(class(x), c("tbl_df", "tbl", "data.frame"))) {
-    removed_attributes <- c("class", "row.names", "names")
+    removed_attributes <- c("class", "names")
   } else if (inherits(x, "data.frame")) {
-    removed_attributes <- c("row.names", "names")
+    removed_attributes <- "names"
   } else if (inherits(x, "factor")) {
     removed_attributes <- c("class", "levels")
   } else if (inherits(x, c("integer64", "Date", "arrow_binary", "arrow_large_binary"))) {
