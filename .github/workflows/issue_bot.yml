@@ -49,7 +49,7 @@ jobs:
             });
 
             // this removes non-existent labels
-            let component_labels = component_labels.filter(
+            component_labels = component_labels.filter(
               label => repo_labels.data.some(repo_label => repo_label.name === label)
             );
           
