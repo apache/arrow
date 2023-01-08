@@ -1444,10 +1444,15 @@ TEST_F(DeltaBitPackEncoding, MalfordMiniblockBitWidth) {
   std::vector<uint8_t> output_bytes;
   int values_decoded = 0;
 
+  // Both good_data and bad_data is a DELTA_BINARY_PACKED INT32 Page with 65 values.
+  // For needed miniblocks, there bit-widths are all 32.
+  // There bit-widths for unneeded miniblocks are different:
+  // * good_data's unneeded bit-width is 0.
+  // * bad_data's unneeded bit-width is 165.
   {
     unsigned char good_data[] = "\200\001\004A\237\224\316\362\r\242\220\203-  ";
     unsigned char data_buf[273] = {};
-    memcpy(&data_buf[0], &good_data[0], 15);
+    std::memcpy(&data_buf[0], &good_data[0], 15);
     output_bytes = std::vector<uint8_t>(num_values * sizeof(c_type));
     decode_buf = reinterpret_cast<c_type*>(output_bytes.data());
     decoder->SetData(num_values, &data_buf[0], encode_buffer_size);
