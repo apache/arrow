@@ -2479,12 +2479,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
     }
     mini_block_idx_ = 0;
     delta_bit_width_ = bit_width_data[0];
-    if (miniblock_values_sum > total_value_count_) {
-      values_remaining_current_mini_block_ =
-          total_value_count_ - values_num_up_to_current_mini_block_;
-    } else {
-      values_remaining_current_mini_block_ = values_per_mini_block_;
-    }
+    values_remaining_current_mini_block_ = values_per_mini_block_;
     first_block_initialized_ = true;
   }
 
@@ -2521,21 +2516,15 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
           values_num_up_to_current_mini_block_ += values_per_mini_block_;
           if (mini_block_idx_ < mini_blocks_per_block_) {
             delta_bit_width_ = delta_bit_widths_->data()[mini_block_idx_];
-            if (values_num_up_to_current_mini_block_ + values_per_mini_block_ >
-                total_value_count_) {
-              values_remaining_current_mini_block_ =
-                  total_value_count_ - values_num_up_to_current_mini_block_;
-            } else {
-              values_remaining_current_mini_block_ = values_per_mini_block_;
-            }
+            values_remaining_current_mini_block_ = values_per_mini_block_;
           } else {
             InitBlock();
           }
         }
       }
 
-      int values_decode =
-          std::min(values_remaining_current_mini_block_, static_cast<uint32_t>(max_values - i));
+      int values_decode = std::min(values_remaining_current_mini_block_,
+                                   static_cast<uint32_t>(max_values - i));
       if (decoder_->GetBatch(delta_bit_width_, buffer + i, values_decode) !=
           values_decode) {
         ParquetException::EofException();
@@ -2572,6 +2561,8 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   uint32_t total_value_count_;
 
   uint32_t total_value_remaining_;
+  // Remaining values in current mini block. If the current block is the last mini block,
+  // values_remaining_current_mini_block_ may greater than total_value_remaining_.
   uint32_t values_remaining_current_mini_block_;
 
   // If the page doesn't contain any block, `first_block_initialized_` will
