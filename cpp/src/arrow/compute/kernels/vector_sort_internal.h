@@ -502,19 +502,19 @@ Result<std::vector<ResolvedSortKey>> ResolveSortKeys(
       });
 }
 
-// Returns nullptr if no column matching `ref` is found, or if the FieldRef is
-// a nested reference.
-inline std::shared_ptr<ChunkedArray> GetTableColumn(const Table& table,
-                                                    const FieldRef& ref) {
-  if (ref.IsNested()) return nullptr;
+// // Returns an error status if no column matching `ref` is found, or if the FieldRef is
+// // a nested reference.
+inline Result<std::shared_ptr<ChunkedArray>> GetColumn(const Table& table,
+                                                       const FieldRef& ref) {
+  RETURN_NOT_OK(CheckNonNested(ref));
+  ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOne(*table.schema()));
+  return table.column(path[0]);
+}
 
-  if (auto name = ref.name()) {
-    return table.GetColumnByName(*name);
-  }
-
-  auto index = ref.field_path()->indices()[0];
-  if (index >= table.num_columns()) return nullptr;
-  return table.column(index);
+inline Result<std::shared_ptr<Array>> GetColumn(const RecordBatch& batch,
+                                                const FieldRef& ref) {
+  RETURN_NOT_OK(CheckNonNested(ref));
+  return ref.GetOne(batch);
 }
 
 // We could try to reproduce the concrete Array classes' facilities

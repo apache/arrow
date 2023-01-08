@@ -285,10 +285,13 @@ class RecordBatchSelecter : public TypeVisitor {
         record_batch_(record_batch),
         k_(options.k),
         output_(output),
-        sort_keys_(ResolveSortKeys(record_batch, options.sort_keys)),
+        sort_keys_(ResolveSortKeys(record_batch, options.sort_keys, &status_)),
         comparator_(sort_keys_, NullPlacement::AtEnd) {}
 
-  Status Run() { return sort_keys_[0].type->Accept(this); }
+  Status Run() {
+    RETURN_NOT_OK(status_);
+    return sort_keys_[0].type->Accept(this);
+  }
 
  protected:
 #define VISIT(TYPE)                                            \
@@ -301,11 +304,15 @@ class RecordBatchSelecter : public TypeVisitor {
 #undef VISIT
 
   static std::vector<ResolvedSortKey> ResolveSortKeys(
-      const RecordBatch& batch, const std::vector<SortKey>& sort_keys) {
+      const RecordBatch& batch, const std::vector<SortKey>& sort_keys, Status* status) {
     std::vector<ResolvedSortKey> resolved;
     for (const auto& key : sort_keys) {
-      auto array = key.target.GetOne(batch).ValueOr(nullptr);
-      resolved.emplace_back(array, key.order);
+      auto maybe_array = GetColumn(batch, key.target);
+      if (!maybe_array.ok()) {
+        *status = maybe_array.status();
+        return {};
+      }
+      resolved.emplace_back(*std::move(maybe_array), key.order);
     }
     return resolved;
   }
@@ -374,6 +381,7 @@ class RecordBatchSelecter : public TypeVisitor {
     return Status::OK();
   }
 
+  Status status_;
   ExecContext* ctx_;
   const RecordBatch& record_batch_;
   int64_t k_;
@@ -418,10 +426,13 @@ class TableSelecter : public TypeVisitor {
         table_(table),
         k_(options.k),
         output_(output),
-        sort_keys_(ResolveSortKeys(table, options.sort_keys)),
+        sort_keys_(ResolveSortKeys(table, options.sort_keys, &status_)),
         comparator_(sort_keys_, NullPlacement::AtEnd) {}
 
-  Status Run() { return sort_keys_[0].type->Accept(this); }
+  Status Run() {
+    RETURN_NOT_OK(status_);
+    return sort_keys_[0].type->Accept(this);
+  }
 
  protected:
 #define VISIT(TYPE)                                            \
@@ -435,11 +446,15 @@ class TableSelecter : public TypeVisitor {
 #undef VISIT
 
   static std::vector<ResolvedSortKey> ResolveSortKeys(
-      const Table& table, const std::vector<SortKey>& sort_keys) {
+      const Table& table, const std::vector<SortKey>& sort_keys, Status* status) {
     std::vector<ResolvedSortKey> resolved;
     for (const auto& key : sort_keys) {
-      auto chunked_array = GetTableColumn(table, key.target);
-      resolved.emplace_back(chunked_array, key.order);
+      auto maybe_chunked_array = GetColumn(table, key.target);
+      if (!maybe_chunked_array.ok()) {
+        *status = maybe_chunked_array.status();
+        return {};
+      }
+      resolved.emplace_back(*std::move(maybe_chunked_array), key.order);
     }
     return resolved;
   }
@@ -537,6 +552,7 @@ class TableSelecter : public TypeVisitor {
     return Status::OK();
   }
 
+  Status status_;
   ExecContext* ctx_;
   const Table& table_;
   int64_t k_;

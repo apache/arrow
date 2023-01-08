@@ -911,8 +911,8 @@ class SortIndicesMetaFunction : public MetaFunction {
       return Status::Invalid("Must specify one or more sort keys");
     }
     if (n_sort_keys == 1) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto array, PrependInvalidColumn(options.sort_keys[0].target.GetOne(batch)));
+      ARROW_ASSIGN_OR_RAISE(auto array, PrependInvalidColumn(GetColumn(
+                                            batch, options.sort_keys[0].target)));
       return SortIndices(*array, options, ctx);
     }
 
@@ -948,11 +948,8 @@ class SortIndicesMetaFunction : public MetaFunction {
       return Status::Invalid("Must specify one or more sort keys");
     }
     if (n_sort_keys == 1) {
-      auto chunked_array = GetTableColumn(table, options.sort_keys[0].target);
-      if (!chunked_array) {
-        return Status::Invalid("Nonexistent sort key column: ",
-                               options.sort_keys[0].target.ToString());
-      }
+      ARROW_ASSIGN_OR_RAISE(auto chunked_array, PrependInvalidColumn(GetColumn(
+                                                    table, options.sort_keys[0].target)));
       return SortIndices(*chunked_array, options, ctx);
     }
 
