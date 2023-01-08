@@ -124,7 +124,7 @@ struct IndexLocation {
   /// File offset of the given index, in bytes
   int64_t offset;
   /// Length of the given index, in bytes
-  int32_t length;
+  int64_t length;
 };
 
 /// \brief ColumnChunkMetaData is a proxy around format::ColumnChunkMetaData.

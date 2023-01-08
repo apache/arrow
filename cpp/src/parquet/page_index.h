@@ -19,6 +19,7 @@
 
 #include "parquet/types.h"
 
+#include <optional>
 #include <vector>
 
 namespace parquet {
@@ -29,6 +30,8 @@ class InternalFileDecryptor;
 class ReaderProperties;
 class RowGroupMetaData;
 class RowGroupPageIndexReader;
+
+struct IndexLocation;
 
 /// \brief ColumnIndex is a proxy around format::ColumnIndex.
 class PARQUET_EXPORT ColumnIndex {
@@ -130,30 +133,44 @@ class PARQUET_EXPORT OffsetIndex {
   virtual const std::vector<PageLocation>& page_locations() const = 0;
 };
 
-/// \brief Interface for reading the page index from a Parquet row group.
+/// \brief Interface for reading the page index for a Parquet row group.
 class PARQUET_EXPORT RowGroupPageIndexReader {
  public:
   virtual ~RowGroupPageIndexReader() = default;
 
   /// \brief Read column index of a column chunk.
   ///
-  /// \param[in] i column id of the column chunk.
-  /// \returns error Result if either column id is invalid or column index does not exist.
-  virtual ::arrow::Result<std::shared_ptr<ColumnIndex>> GetColumnIndex(int32_t i) = 0;
+  /// \param[in] i column ordinal of the column chunk.
+  /// \returns column index of the column or nullptr if it does not exist.
+  /// \throws ParquetException if the index is out of bound.
+  virtual std::shared_ptr<ColumnIndex> GetColumnIndex(int32_t i) = 0;
 
   /// \brief Read offset index of a column chunk.
   ///
-  /// \param[in] i column id of the column chunk.
-  /// \returns error Result if either column id is invalid or offset index does not exist.
-  virtual ::arrow::Result<std::shared_ptr<OffsetIndex>> GetOffsetIndex(int32_t i) = 0;
+  /// \param[in] i column ordinal of the column chunk.
+  /// \returns offset index of the column or nullptr if it does not exist.
+  /// \throws ParquetException if the index is out of bound.
+  virtual std::shared_ptr<OffsetIndex> GetOffsetIndex(int32_t i) = 0;
 };
 
-/// \brief Interface for reading the page index from a Parquet file.
+struct IndexSelection {
+  /// Specifies whether to read the column index.
+  bool need_column_index = false;
+  /// Specifies whether to read the offset index.
+  bool need_offset_index = false;
+};
+
+/// \brief Interface for reading the page index for a Parquet file.
 class PARQUET_EXPORT PageIndexReader {
  public:
   virtual ~PageIndexReader() = default;
 
   /// \brief Create a PageIndexReader instance.
+  /// \returns a PageIndexReader instance.
+  /// WARNING: The returned PageIndexReader references to all the input parameters, so
+  /// it must not outlive all of the input parameters. Usually these input parameters
+  /// come from the same ParquetFileReader object, so it must not outlive the reader
+  /// that creates this PageIndexReader.
   static std::shared_ptr<PageIndexReader> Make(
       ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
       const ReaderProperties& properties,
@@ -161,8 +178,12 @@ class PARQUET_EXPORT PageIndexReader {
 
   /// \brief Get the page index reader of a specific row group.
   /// \param[in] i row group ordinal to get page index reader.
-  /// \returns RowGroupPageIndexReader of the specified row group.
-  virtual ::arrow::Result<std::shared_ptr<RowGroupPageIndexReader>> RowGroup(int i) = 0;
+  /// \returns RowGroupPageIndexReader of the specified row group. A nullptr may or may
+  ///          not be returned if the page index for the row group is unavailable. It is
+  ///          the caller's responsibility to check the return value of follow-up calls
+  ///          to the RowGroupPageIndexReader.
+  /// \throws ParquetException if the index is out of bound.
+  virtual std::shared_ptr<RowGroupPageIndexReader> RowGroup(int i) = 0;
 
   /// \brief Advise the reader which part of page index will be read later.
   ///
@@ -171,10 +192,9 @@ class PARQUET_EXPORT PageIndexReader {
   /// called, or the requested page index is out of range from WillNeed() call.
   ///
   /// \param[in] row_group_indices list of row group ordinal to read page index later.
-  /// \param[in] need_column_index tell if column index is required later.
-  /// \param[in] need_offset_index tell if offset index is required later.
+  /// \param[in] index_selection tell if any of the page index is required later.
   virtual void WillNeed(const std::vector<int32_t>& row_group_indices,
-                        bool need_column_index, bool need_offset_index) = 0;
+                        IndexSelection index_selection) = 0;
 
   /// \brief Advise the reader which part of page index will be read later.
   ///
@@ -187,18 +207,18 @@ class PARQUET_EXPORT PageIndexReader {
 
   /// \brief Determines the column index and offset index ranges for the given row group.
   /// \param[in] row_group_metadata row group metadata to get column chunk metadata.
-  /// \param[out] column_index_start Base start of column index of all column chunks.
-  /// \param[out] column_index_size Total size of column index of all column chunks.
-  /// \param[out] offset_index_start Base start of offset index of all column chunks.
-  /// \param[out] offset_index_size Total size of offset index of all column chunks.
+  /// \param[out] column_index_location Base start and total size of column index of
+  ///   all column chunks.
+  /// \param[out] offset_index_location Base start and total size of offset index of
+  ///   all column chunks.
   /// \param[out] has_column_index Returns true when at least a partial column index are
   /// found. Returns false when there is absolutely no column index for the row group.
   /// \param[out] has_offset_index Returns true when at least a partial offset index are
   /// found. Returns false when there is absolutely no offsets index for the row group.
   static void DeterminePageIndexRangesInRowGroup(
-      const RowGroupMetaData& row_group_metadata, int64_t* column_index_start,
-      int64_t* column_index_size, int64_t* offset_index_start, int64_t* offset_index_size,
-      bool* has_column_index, bool* has_offset_index);
+      const RowGroupMetaData& row_group_metadata, IndexLocation* column_index_location,
+      IndexLocation* offset_index_location, bool* has_column_index,
+      bool* has_offset_index);
 };
 
 }  // namespace parquet

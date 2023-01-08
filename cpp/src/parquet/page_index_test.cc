@@ -318,22 +318,20 @@ void ValidatePageIndexRange(const RowGroupRanges& row_group_ranges,
                             int expected_oi_size) {
   auto file_metadata = ConstructFakeMetaData(row_group_ranges);
 
-  int64_t ci_start;
-  int64_t ci_size;
-  int64_t oi_start;
-  int64_t oi_size;
+  IndexLocation column_index_location;
+  IndexLocation offset_index_location;
   bool has_column_index;
   bool has_offset_index;
   PageIndexReader::DeterminePageIndexRangesInRowGroup(
-      *file_metadata->RowGroup(0), &ci_start, &ci_size, &oi_start, &oi_size,
+      *file_metadata->RowGroup(0), &column_index_location, &offset_index_location,
       &has_column_index, &has_offset_index);
   ASSERT_EQ(expected_has_page_index, has_column_index);
   ASSERT_EQ(expected_has_page_index, has_offset_index);
   if (expected_has_page_index) {
-    EXPECT_EQ(expected_ci_start, ci_start);
-    EXPECT_EQ(expected_ci_size, ci_size);
-    EXPECT_EQ(expected_oi_start, oi_start);
-    EXPECT_EQ(expected_oi_size, oi_size);
+    EXPECT_EQ(expected_ci_start, column_index_location.offset);
+    EXPECT_EQ(expected_ci_size, column_index_location.length);
+    EXPECT_EQ(expected_oi_start, offset_index_location.offset);
+    EXPECT_EQ(expected_oi_size, offset_index_location.length);
   }
 }
 

@@ -303,7 +303,7 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   std::shared_ptr<FileMetaData> metadata() const override { return file_metadata_; }
 
-  std::shared_ptr<PageIndexReader> page_index_reader() override {
+  std::shared_ptr<PageIndexReader> GetPageIndexReader() override {
     if (!file_metadata_) {
       throw ParquetException("Cannot get PageIndexReader as file metadata is not ready");
     }
@@ -797,7 +797,7 @@ std::shared_ptr<FileMetaData> ParquetFileReader::metadata() const {
 }
 
 std::shared_ptr<PageIndexReader> ParquetFileReader::page_index_reader() {
-  return contents_->page_index_reader();
+  return contents_->GetPageIndexReader();
 }
 
 std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {

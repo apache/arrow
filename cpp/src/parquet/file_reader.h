@@ -99,7 +99,13 @@ class PARQUET_EXPORT ParquetFileReader {
     virtual void Close() = 0;
     virtual std::shared_ptr<RowGroupReader> GetRowGroup(int i) = 0;
     virtual std::shared_ptr<FileMetaData> metadata() const = 0;
-    virtual std::shared_ptr<PageIndexReader> page_index_reader() = 0;
+    // Returns a PageIndexReader instance for the parquet file.
+    // If the file does not have page index, nullptr may be returned. Since it pays to
+    // check existence of page index in the file, it is possible to return a non-nullptr
+    // even if page index does not exist. It is the caller's responsibility to check
+    // the return value of follow-up calls to PageIndexReader.
+    // WARNING: The returned PageIndexReader must not outlive the ParquetFileReader.
+    virtual std::shared_ptr<PageIndexReader> GetPageIndexReader() = 0;
   };
 
   ParquetFileReader();
