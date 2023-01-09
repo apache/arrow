@@ -782,14 +782,13 @@ are held in the second child array.
 For the purposes of determining field names and schemas, these child arrays
 are prescribed the standard names of **run_ends** and **values** respectively.
 
-The values in the first child array represent the length of each run. They do
-not hold the length of the respective run directly, but the accumulated length
-of all runs from the first to the current one, i.e. the logical index where the
+The values in the first child array represent the accumulated length of all runs 
+from the first to the current one, i.e. the logical index where the
 current run ends. This allows relatively efficient random access from a logical
 index using binary search. The length of an individual run can be determined by
 subtracting two adjacent values. (Contrast this with run-length encoding, in
 which the lengths of the runs are represented directly, and in which random
-access is less efficient.)
+access is less efficient.) 
 
 A run must have have a length of at least 1. This means the values in the
 run ends array all are positive and in strictly ascending order. A run end cannot be
@@ -805,18 +804,18 @@ In Run-end-encoded form, this could appear as:
 ::
 
     * Length: 7, Null count: 2
-    * Children arrays:
+    * Child Arrays:
 
       * run_ends (Int32):
-        * Length: 3, Null count: 0
-        * Validity bitmap buffer: Not required
+        * Length: 3, Null count: 0 (Run Ends cannot be null)
+        * Validity bitmap buffer: Not required (if it exists, it should be all 1s)
         * Values buffer
 
           | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-63           |
           |-------------|-------------|-------------|-----------------------|
           | 4           | 6           | 7           | unspecified (padding) |
 
-    * values (Float32):
+      * values (Float32):
         * Length: 3, Null count: 1
         * Validity bitmap buffer:
 
