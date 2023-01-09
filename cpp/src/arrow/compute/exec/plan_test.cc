@@ -1277,9 +1277,6 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
 }
 
 TEST(ExecPlanExecution, ScalarSourceStandaloneNullaryScalarAggSink) {
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
-
   BatchesWithSchema scalar_data;
   scalar_data.batches = {
       ExecBatchFromJSON({int32(), boolean()}, {ArgShape::SCALAR, ArgShape::SCALAR},
@@ -1290,25 +1287,19 @@ TEST(ExecPlanExecution, ScalarSourceStandaloneNullaryScalarAggSink) {
       field("b", boolean()),
   });
 
-  auto sequence = Declaration::Sequence({
-      {"source", SourceNodeOptions{scalar_data.schema, scalar_data.gen(/*parallel=*/false,
-                                                                       /*slow=*/false)}},
-      {"aggregate", AggregateNodeOptions{/*aggregates=*/{
-                        {"count_all", "count(*)"},
-                    }}},
-      {"sink", SinkNodeOptions{&sink_gen}},
-  });
+  Declaration plan = Declaration::Sequence(
+      {{"source",
+        SourceNodeOptions{scalar_data.schema, scalar_data.gen(/*parallel=*/false,
+                                                              /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                         {"count_all", "count(*)"},
+                     }}}});
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema actual_batches,
+                       DeclarationToExecBatches(std::move(plan)));
 
-  // index can't be tested as it's order-dependent
-  // mode/quantile can't be tested as they're technically vector kernels
-  ASSERT_OK(sequence.AddToPlan(plan.get()));
-
-  auto exec_batch = ExecBatchFromJSON({int64()}, {ArgShape::SCALAR}, R"([[6]])");
-
-  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              Finishes(ResultWith(UnorderedElementsAreArray({
-                  std::move(exec_batch),
-              }))));
+  auto expected = ExecBatchFromJSON({int64()}, {ArgShape::SCALAR}, R"([[6]])");
+  AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
+                                      {expected});
 }
 
 TEST(ExecPlanExecution, ScalarSourceGroupedSum) {
