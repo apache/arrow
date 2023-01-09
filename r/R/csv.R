@@ -326,6 +326,18 @@ CsvTableReader$create <- function(file,
                                   ...) {
   assert_is(file, "InputStream")
 
+  if (is.list(read_options)) {
+    read_options <- do.call(CsvReadOptions$create, read_options)
+  }
+
+  if (is.list(parse_options)) {
+    parse_options <- do.call(CsvParseOptions$create, parse_options)
+  }
+
+  if (is.list(convert_options)) {
+    convert_options <- do.call(CsvConvertOptions$create, convert_options)
+  }
+
   if (!(tolower(read_options$encoding) %in% c("utf-8", "utf8"))) {
     file <- MakeReencodeInputStream(file, read_options$encoding)
   }
