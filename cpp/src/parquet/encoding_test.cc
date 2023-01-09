@@ -35,6 +35,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/string.h"
 
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
@@ -1428,17 +1429,12 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
   }
 }
 
-class DeltaBitPackEncoding : public TestArrowBuilderDecoding {
- public:
-  void SetupEncoderDecoder() override {}
-};
-
-TEST_F(DeltaBitPackEncoding, MalfordMiniblockBitWidth) {
-  std::shared_ptr<ColumnDescriptor> descr_ = ExampleDescr<Int32Type>();
-  auto decoder = MakeTypedDecoder<Int32Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
+TEST(DeltaBitPackEncoding, MalfordMiniblockBitWidth) {
+  std::shared_ptr<ColumnDescriptor> descr = ExampleDescr<Int32Type>();
+  auto decoder = MakeTypedDecoder<Int32Type>(Encoding::DELTA_BINARY_PACKED, descr.get());
   using c_type = parquet::Int32Type::c_type;
 
-  int encode_buffer_size = 273;
+  int encode_buffer_size = 274;
   int num_values = 65;
   c_type* decode_buf = nullptr;
   std::vector<uint8_t> output_bytes;
@@ -1449,34 +1445,46 @@ TEST_F(DeltaBitPackEncoding, MalfordMiniblockBitWidth) {
   // There bit-widths for unneeded miniblocks are different:
   // * good_data's unneeded bit-width is 0.
   // * bad_data's unneeded bit-width is 165.
-  unsigned char data_buf[273] = {};
+  // We use Hex to represent good_data and bad_data.
   {
-    unsigned char good_data[] = "\200\001\004A\237\224\316\362\r\242\220\203-  ";
-    std::memcpy(&data_buf[0], &good_data[0], 15);
+    char good_data_hex[] =
+        "80010441BDA08DB708A488C0F1012020000089F79E53946D93CA242D48B21478591FDE6E4855CC03"
+        "7024A4E8E56E1D20687C8BFB4DE880E73CE2E49E873BEB0B1DAD0E0169C7951C411CA76AD949D8ED"
+        "FD9E07A485DF4410B4486253A6280335BB87494B7D61E40A8D487731BBC83A37E1E8EE2F5431150C"
+        "F46D7224B3C7C271AC3220F2C6663289427E1CE3B00F8C34D5DDA845664AF36F56ACF6FED2339911"
+        "7AB54F6667A80EA78D08DC61B4262CE28960B46B2D93785ED9933175A910415B50B30E9889C70ECD"
+        "84C8856531E78B4E05B2AB27B1233E4BAB722869D785F5B8B1049955EFE200000000C6C2201E1836"
+        "C0579B202A6A7395C761044AD151D5CEE992CBBA5AE937E54F29D28F86CC0627B9D1";
+    unsigned char good_data[274];
+    for (int i = 0; i < 274; ++i) {
+      auto s = ::arrow::ParseHexValue(&good_data_hex[i * 2], &good_data[i]);
+      ASSERT_TRUE(s.ok());
+    }
+
     output_bytes = std::vector<uint8_t>(num_values * sizeof(c_type));
     decode_buf = reinterpret_cast<c_type*>(output_bytes.data());
-    decoder->SetData(num_values, &data_buf[0], encode_buffer_size);
+    decoder->SetData(num_values, &good_data[0], encode_buffer_size);
     values_decoded = decoder->Decode(decode_buf, num_values);
     ASSERT_EQ(num_values, values_decoded);
   }
 
   {
-    unsigned char bad_data[] =
-        "\200\001\004A\237\224\316\362\r\242\220\203-  "
-        "\245\245\304;`\210'\313\r\270D\316\306h㖀~\372\255\360A\254}\211L\343\373_"
-        "\034®\312Y\036\233<\203\035P\202)\307Y\356\327\024\302!\232\036,"
-        "\271\b\331\353\037e\333\332\315Crm\203\350בOo\001\347\305Z\203G\037\263Y\254\366"
-        "_"
-        "\"\v\276\242Y\002\374\300\226\231\252C\240\363ۙ\r\334E\314\f\002\255\227\273\307"
-        "\305'\"\033\235\374\250\243\244F\266\254\350\203\304U\036X\331&\210/"
-        "\037\322\321s.\031e/"
-        "\232\340\363\366\306\030\243,5\337\031\005bw\021\017wj\003#Q`\371ʉ\323\300+~="
-        "\232W\232\374p\336$\022\211VQ\237>\v1gە'\224\207\262f\247h\363A!"
-        "\255\271f\026\274\033_\333)4";
-    std::memcpy(&data_buf[0], &bad_data[0], 222);
+    char bad_data_hex[] =
+        "80010441BDA08DB708A488C0F1012020A5A589F79E53946D93CA242D48B21478591FDE6E4855CC03"
+        "7024A4E8E56E1D20687C8BFB4DE880E73CE2E49E873BEB0B1DAD0E0169C7951C411CA76AD949D8ED"
+        "FD9E07A485DF4410B4486253A6280335BB87494B7D61E40A8D487731BBC83A37E1E8EE2F5431150C"
+        "F46D7224B3C7C271AC3220F2C6663289427E1CE3B00F8C34D5DDA845664AF36F56ACF6FED2339911"
+        "7AB54F6667A80EA78D08DC61B4262CE28960B46B2D93785ED9933175A910415B50B30E9889C70ECD"
+        "84C8856531E78B4E05B2AB27B1233E4BAB722869D785F5B8B1049955EFE200000000C6C2201E1836"
+        "C0579B202A6A7395C761044AD151D5CEE992CBBA5AE937E54F29D28F86CC0627B9D1";
+    unsigned char bad_data[274];
+    for (int i = 0; i < 274; ++i) {
+      auto s = ::arrow::ParseHexValue(&bad_data_hex[i * 2], &bad_data[i]);
+      ASSERT_TRUE(s.ok());
+    }
     output_bytes = std::vector<uint8_t>(num_values * sizeof(c_type));
     decode_buf = reinterpret_cast<c_type*>(output_bytes.data());
-    decoder->SetData(num_values, &data_buf[0], encode_buffer_size);
+    decoder->SetData(num_values, &bad_data[0], encode_buffer_size);
     values_decoded = decoder->Decode(decode_buf, num_values);
     ASSERT_EQ(num_values, values_decoded);
   }
