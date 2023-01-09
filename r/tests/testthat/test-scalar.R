@@ -45,7 +45,7 @@ test_that("Scalar print", {
 
 test_that("ExtensionType scalar behaviour", {
   ext_array <- vctrs_extension_array(4)
-  ext_scalar <- arrow::Scalar$create(ext_array)
+  ext_scalar <- Scalar$create(ext_array)
   expect_equal(ext_scalar$as_array(), ext_array)
   expect_identical(ext_scalar$as_vector(), 4)
   expect_identical(ext_scalar$as_vector(10), rep(4, 10))
