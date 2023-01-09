@@ -218,7 +218,7 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
         batch_ctx.SetState(states[thread_index][k].get());
 
         const size_t kernel_num_args = kernel->signature->in_types().size();
-        DCHECK(kernel_num_args > 0);
+        DCHECK_GT(kernel_num_args, 0);
 
         std::vector<ExecValue> kernel_args;
         for (size_t i = 0; i + 1 < kernel_num_args; i++, arg_idx++) {
