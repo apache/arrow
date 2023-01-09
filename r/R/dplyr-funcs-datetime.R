@@ -437,7 +437,7 @@ register_bindings_datetime_timezone <- function() {
       if (length(roll_dst) == 1L) {
         roll_dst <- c(roll_dst, roll_dst)
       } else if (length(roll_dst) != 2L) {
-        arrow_not_supported("`roll_dst` length != 1 or 2")
+        arrow_not_supported("`roll_dst` must be 1 or 2 items long; other lengths")
       }
 
       nonexistent <- switch(
