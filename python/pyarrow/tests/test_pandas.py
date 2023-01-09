@@ -2308,6 +2308,36 @@ class TestConvertListTypes:
         actual = arr.to_pandas()
         tm.assert_series_equal(actual, expected, check_names=False)
 
+    def test_list_no_duplicate_base(self):
+        # ARROW-18400
+        arr = pa.array([[1, 2], [3, 4, 5], None, [6, None], [7, 8]])
+        chunked_arr = pa.chunked_array([arr.slice(0, 3), arr.slice(3, 1)])
+
+        np_arr = chunked_arr.to_numpy()
+
+        expected = np.array([[1., 2.], [3., 4., 5.], None,
+                            [6., np.NaN]], dtype="object")
+        for left, right in zip(np_arr, expected):
+            if right is None:
+                assert left == right
+            else:
+                npt.assert_array_equal(left, right)
+
+        expected_base = np.array([[1., 2., 3., 4., 5., 6., np.NaN]])
+        npt.assert_array_equal(np_arr[0].base, expected_base)
+
+        np_arr_sliced = chunked_arr.slice(1, 3).to_numpy()
+
+        expected = np.array([[3, 4, 5], None, [6, np.NaN]], dtype="object")
+        for left, right in zip(np_arr_sliced, expected):
+            if right is None:
+                assert left == right
+            else:
+                npt.assert_array_equal(left, right)
+
+        expected_base = np.array([[3., 4., 5., 6., np.NaN]])
+        npt.assert_array_equal(np_arr_sliced[0].base, expected_base)
+
 
 class TestConvertStructTypes:
     """
@@ -4513,27 +4543,3 @@ def test_does_not_mutate_timedelta_nested():
     df = table.to_pandas()
 
     assert df["timedelta_2"][0].to_pytimedelta() == timedelta_2[0]
-
-
-def test_list_no_duplicate_base():
-    # ARROW-18400
-    arr = pa.array([[1, 2], [3, 4, 5], [6], [7, 8]])
-    chunked_arr = pa.chunked_array([arr.slice(0, 2), arr.slice(2, 1)])
-
-    np_arr = chunked_arr.to_numpy()
-
-    expected = np.array([[1, 2], [3, 4, 5], [6]], dtype="object")
-    for left, right in zip(np_arr, expected):
-        npt.assert_array_equal(left, right)
-
-    expected_base = np.array([[1, 2, 3, 4, 5, 6]], dtype="object")
-    npt.assert_array_equal(np_arr[0].base, expected_base)
-
-    np_arr_sliced = chunked_arr.slice(1, 3).to_numpy()
-
-    expected = np.array([[3, 4, 5], [6]], dtype="object")
-    for left, right in zip(np_arr_sliced, expected):
-        npt.assert_array_equal(left, right)
-
-    expected_base = np.array([[3, 4, 5, 6]], dtype="object")
-    npt.assert_array_equal(np_arr_sliced[0].base, expected_base)

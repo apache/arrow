@@ -739,7 +739,9 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
     // values() does not account for offsets, so we need to slice into it.
-    // We can't use Flatten(), because it removes the null values, which we need.
+    // We can't use Flatten(), because it removes the values behind a null list
+    // value, and that makes the offsets into original list values and our
+    // flattened_values array different.
     std::shared_ptr<Array> flattened_values = arr.values()->Slice(
         arr.value_offset(0), arr.value_offset(arr.length()) - arr.value_offset(0));
     if (arr.value_type()->id() == Type::EXTENSION) {
