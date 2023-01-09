@@ -452,7 +452,10 @@ FileWriteOptions <- R6Class("FileWriteOptions",
             "null_fallback"
           )
         } else if (format == "csv") {
-          supported_args <- names(formals(CsvWriteOptions$create))
+          supported_args <- c(
+            names(formals(CsvWriteOptions$create)),
+            names(formals(readr_to_csv_write_options))
+          )
         }
 
         unsupported_passed_args <- setdiff(passed_args, supported_args)
@@ -470,7 +473,7 @@ FileWriteOptions <- R6Class("FileWriteOptions",
           err_info <- NULL
           arg_info <- paste0(
             "Supported arguments: ",
-            oxford_paste(supported_args, quote_symbol = "`"),
+            oxford_paste(unique(supported_args), quote_symbol = "`"),
             "."
           )
           if ("compression" %in% unsupported_passed_args) {
@@ -505,10 +508,27 @@ FileWriteOptions <- R6Class("FileWriteOptions",
           )
         }
       } else if (self$type == "csv") {
-        dataset___CsvFileWriteOptions__update(
-          self,
-          CsvWriteOptions$create(...)
-        )
+        arrow_opts <- names(formals(CsvWriteOptions$create))
+        readr_opts <- names(formals(readr_to_csv_write_options))
+        readr_only_opts <- setdiff(readr_opts, arrow_opts)
+
+        is_arrow_opt <- !is.na(pmatch(names(args), arrow_opts))
+        is_readr_opt <- !is.na(pmatch(names(args), readr_opts))
+        is_readr_only_opt <- !is.na(pmatch(names(args), readr_only_opts))
+
+        # These option names aren't mutually exclusive, so only use readr path
+        # if we have at least one readr-specific option.
+        if (sum(is_readr_only_opt)) {
+          dataset___CsvFileWriteOptions__update(
+            self,
+            do.call(readr_to_csv_write_options, args[is_readr_opt])
+          )
+        } else {
+          dataset___CsvFileWriteOptions__update(
+            self,
+            do.call(CsvWriteOptions$create, args[is_arrow_opt])
+          )
+        }
       }
       invisible(self)
     }

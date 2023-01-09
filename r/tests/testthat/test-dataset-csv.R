@@ -273,6 +273,28 @@ test_that("readr parse options", {
   )
 })
 
+test_that("Can set null string values", {
+  dst_dir <- make_temp_dir()
+  df <- tibble(x = c(1, NA, 3))
+  write_dataset(df, dst_dir, null_string = "NULL_VALUE", format = "csv")
+
+  csv_contents <- readLines(list.files(dst_dir, full.names = TRUE)[1])
+  expect_equal(csv_contents, c("\"x\"", "1", "NULL_VALUE", "3"))
+
+  back <- open_dataset(dst_dir, null_values = "NULL_VALUE", format = "csv") %>% collect()
+  expect_equal(df, back)
+
+  # Also works with `na` parameter
+  dst_dir <- make_temp_dir()
+  write_dataset(df, dst_dir, na = "another_null", format = "csv")
+
+  csv_contents <- readLines(list.files(dst_dir, full.names = TRUE)[1])
+  expect_equal(csv_contents, c("\"x\"", "1", "another_null", "3"))
+
+  back <- open_dataset(dst_dir, null_values = "another_null", format = "csv") %>% collect()
+  expect_equal(df, back)
+})
+
 # see https://issues.apache.org/jira/browse/ARROW-12791
 test_that("Error if no format specified and files are not parquet", {
   expect_error(
