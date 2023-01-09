@@ -27,53 +27,50 @@ ENV R_PRUNE_DEPS=${r_prune_deps}
 ARG r_duckdb_dev=FALSE
 ENV R_DUCKDB_DEV=${r_duckdb_dev}
 
-ARG github_pat=""
-ENV GITHUB_PAT=${github_pat}
-
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran
 ARG r=3.6
 RUN apt-get update -y && \
     apt-get install -y \
-    dirmngr \
-    apt-transport-https \
-    software-properties-common && \
+        dirmngr \
+        apt-transport-https \
+        software-properties-common && \
     wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | \
-    tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc && \
+        tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc && \
     # NOTE: Only R >= 4.0 is available in this repo
     add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran40/' && \
     apt-get install -y \
-    r-base=${r}* \
-    r-recommended=${r}* \
-    # system libs needed by core R packages
-    libxml2-dev \
-    libgit2-dev \
-    libssl-dev \
-    # install clang to mirror what was done on Travis
-    clang \
-    clang-format \
-    clang-tidy \
-    # R CMD CHECK --as-cran needs pdflatex to build the package manual
-    texlive-latex-base \
-    # Need locales so we can set UTF-8
-    locales \
-    # Need Python to check py-to-r bridge
-    python3 \
-    python3-pip \
-    python3-dev && \
+        r-base=${r}* \
+        r-recommended=${r}* \
+        # system libs needed by core R packages
+        libxml2-dev \
+        libgit2-dev \
+        libssl-dev \
+        # install clang to mirror what was done on Travis
+        clang \
+        clang-format \
+        clang-tidy \
+        # R CMD CHECK --as-cran needs pdflatex to build the package manual
+        texlive-latex-base \
+        # Need locales so we can set UTF-8
+        locales \
+        # Need Python to check py-to-r bridge
+        python3 \
+        python3-pip \
+        python3-dev && \
     locale-gen en_US.UTF-8 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 ARG gcc_version=""
 RUN if [ "${gcc_version}" != "" ]; then \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
-    update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 30 && \
-    update-alternatives --set cc /usr/bin/gcc && \
-    update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 30 && \
-    update-alternatives --set c++ /usr/bin/g++; \
+      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
+      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
+      update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 30 && \
+      update-alternatives --set cc /usr/bin/gcc && \
+      update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 30 && \
+      update-alternatives --set c++ /usr/bin/g++; \
     fi
 
 # Ensure parallel R package installation, set CRAN repo mirror,
