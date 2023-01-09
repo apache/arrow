@@ -120,6 +120,12 @@ the different physical layouts defined by Arrow:
 * **Sparse** and **Dense Union**: a nested layout representing a
   sequence of values, each of which can have type chosen from a
   collection of child array types.
+* **Dictionary-Encoded**: a layout consisting of a sequence of
+  integers (any bit-width) which represent indexes into a dictionary
+  which could be of any type.
+* **Run-End Encoded (REE)**: a nested layout consisting of two child arrays,
+  one representing values, and one representing the logical index where
+  the run of a corresponding value ends.
 * **Null**: a sequence of all null values, having null logical type
 
 The Arrow columnar memory layout only applies to *data* and not
