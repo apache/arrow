@@ -58,16 +58,19 @@ static Result<FileHandle> OpenTemporaryFile() {
   DWORD ret;
   ret = GetTempPathW(kTempFileNameSize, tmp_path_buf);
   if (ret > kTempFileNameSize || ret == 0)
-    return arrow::internal::IOErrorFromWinError(GetLastError());
+    return arrow::internal::IOErrorFromWinError(GetLastError(),
+                                                "Failed to get temporary file path");
   if (GetTempFileNameW(tmp_path_buf, L"ARROW_TMP", 0, tmp_name_buf) == 0)
-    return arrow::internal::IOErrorFromWinError(GetLastError());
+    return arrow::internal::IOErrorFromWinError(GetLastError(),
+                                                "Failed to get temporary file name");
 
   HANDLE file_handle = CreateFileW(
       tmp_name_buf, GENERIC_READ | GENERIC_WRITE | FILE_APPEND_DATA, 0, NULL,
       CREATE_ALWAYS,
       FILE_FLAG_NO_BUFFERING | FILE_FLAG_OVERLAPPED | FILE_FLAG_DELETE_ON_CLOSE, NULL);
   if (file_handle == INVALID_HANDLE_VALUE)
-    return Status::IOError("Failed to create temp file");
+    return arrow::internal::IOErrorFromWinError(GetLastError(),
+                                                "Failed to create temp file");
   return file_handle;
 }
 
@@ -88,7 +91,8 @@ static Status WriteBatch_PlatformSpecific(FileHandle handle, SpillFile::BatchInf
             static_cast<DWORD>((offset >> 32) & ~static_cast<DWORD>(0));
         if (!WriteFile(handle, arr.bufs[i]->data(), static_cast<DWORD>(arr.sizes[i]),
                        NULL, &overlapped))
-          return Status::IOError("Failed to spill!");
+          return arrow::internal::IOErrorFromWinError(
+              GetLastError(), "Failed to write to temporary file");
 
         offset += arr.sizes[i];
         arr.bufs[i].reset();
