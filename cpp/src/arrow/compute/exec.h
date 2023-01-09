@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -176,8 +177,8 @@ struct ARROW_EXPORT ExecBatch {
 
   /// \brief Infers the ExecBatch length from values.
   ///
-  /// \return -1 if unable to infer the length given the values passed
-  static int64_t InferLength(const std::vector<Datum>& values);
+  /// \return std::nullopt if unable to infer the length given the values passed
+  static std::optional<int64_t> InferLength(const std::vector<Datum>& values);
 
   static Result<ExecBatch> Make(std::vector<Datum> values, int64_t length = -1);
 

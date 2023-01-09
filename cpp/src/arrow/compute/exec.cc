@@ -147,9 +147,16 @@ ExecBatch ExecBatch::Slice(int64_t offset, int64_t length) const {
   return out;
 }
 
-int64_t ExecBatch::InferLength(const std::vector<Datum>& values) {
+namespace {
+
+enum LengthInferenceError {
+  kEmptyInput = -1,
+  kInvalidValues = -2,
+};
+
+int64_t DoInferLength(const std::vector<Datum>& values) {
   if (values.empty()) {
-    return -1;
+    return kEmptyInput;
   }
 
   int64_t length = -1;
@@ -165,40 +172,42 @@ int64_t ExecBatch::InferLength(const std::vector<Datum>& values) {
 
     if (length != value.length()) {
       // all the arrays should have the same length
-      return -1;
+      return kInvalidValues;
     }
   }
 
   return length == -1 ? 1 : length;
 }
 
-Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values, int64_t length) {
+}  // namespace
+
+std::optional<int64_t> ExecBatch::InferLength(const std::vector<Datum>& values) {
+  const int64_t length = DoInferLength(values);
   if (length < 0) {
-    if (values.empty()) {
-      return Status::Invalid("Cannot infer ExecBatch length without at least one value");
-    }
-    length = -1;
+    return std::nullopt;
   }
+  return {length};
+}
 
+Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values, int64_t length) {
   // Infer the length again and/or validate the given length.
-  for (const auto& value : values) {
-    if (value.is_scalar()) {
-      continue;
-    }
+  const int64_t inferred_length = DoInferLength(values);
+  switch (inferred_length) {
+    case kEmptyInput:
+      if (length < 0) {
+        return Status::Invalid(
+            "Cannot infer ExecBatch length without at least one value");
+      }
+      break;
 
-    if (length == -1) {
-      length = value.length();
-      continue;
-    }
-
-    if (length != value.length()) {
+    case kInvalidValues:
       return Status::Invalid(
           "Arrays used to construct an ExecBatch must have equal length");
-    }
-  }
 
-  if (length == -1) {
-    length = 1;
+    default:
+      DCHECK(length < 0 || length == inferred_length);
+      length = inferred_length;
+      break;
   }
 
   return ExecBatch(std::move(values), length);
