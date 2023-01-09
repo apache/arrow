@@ -53,6 +53,8 @@ static void RoundArrayBenchmark(benchmark::State& state, const std::string& func
 }
 
 void SetRoundArgs(benchmark::internal::Benchmark* bench) {
+  bench->ArgNames({"size", "inverse_null_proportion"})
+  
   for (const auto inverse_null_proportion : std::vector<ArgsType>({100, 0})) {
     bench->Args({static_cast<ArgsType>(kL2Size), inverse_null_proportion});
   }
