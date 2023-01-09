@@ -78,6 +78,7 @@ static void Trunc(benchmark::State& state) {
   RoundArrayBenchmark<FloatType, Mode>(state, "trunc");
 }
 
+#ifdef ALL_ROUND_BENCHMARKS
 #define DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(OP, TYPE)                              \
   BENCHMARK_TEMPLATE(OP, TYPE, RoundMode::DOWN)->Apply(SetRoundArgs);                  \
   BENCHMARK_TEMPLATE(OP, TYPE, RoundMode::UP)->Apply(SetRoundArgs);                    \
@@ -89,6 +90,12 @@ static void Trunc(benchmark::State& state) {
   BENCHMARK_TEMPLATE(OP, TYPE, RoundMode::HALF_TOWARDS_INFINITY)->Apply(SetRoundArgs); \
   BENCHMARK_TEMPLATE(OP, TYPE, RoundMode::HALF_TO_EVEN)->Apply(SetRoundArgs);          \
   BENCHMARK_TEMPLATE(OP, TYPE, RoundMode::HALF_TO_ODD)->Apply(SetRoundArgs)
+#else
+#define DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(OP, TYPE)                              \
+  BENCHMARK_TEMPLATE(OP, TYPE, RoundMode::DOWN)->Apply(SetRoundArgs);                  \
+  BENCHMARK_TEMPLATE(OP, TYPE, RoundMode::HALF_TOWARDS_ZERO)->Apply(SetRoundArgs);     \
+  BENCHMARK_TEMPLATE(OP, TYPE, RoundMode::HALF_TO_ODD)->Apply(SetRoundArgs)
+#endif
 
 #define DECLARE_ROUND_BENCHMARKS(OP)                       \
   DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(OP, Int64Type);  \
@@ -100,11 +107,16 @@ static void Trunc(benchmark::State& state) {
   DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(OP, UInt16Type); \
   DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(OP, UInt8Type);  \
   DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(OP, FloatType);  \
-  DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(OP, DoubleType)
+  DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(OP, DoubleType);
+
+#define DECLARE_DECIMAL_ROUND_BENCHMARKS(OP)                   \
+  DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(OP, Decimal128Type); \
+  DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(OP, Decimal256Type)
 
 DECLARE_ROUND_BENCHMARKS(Ceil);
 DECLARE_ROUND_BENCHMARKS(Floor);
 DECLARE_ROUND_BENCHMARKS(Round);
+DECLARE_DECIMAL_ROUND_BENCHMARKS(Round);
 DECLARE_ROUND_BENCHMARKS(Trunc);
 
 }  // namespace compute
