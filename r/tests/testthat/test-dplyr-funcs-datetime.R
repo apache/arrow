@@ -3648,7 +3648,7 @@ test_that("with_tz() and force_tz() works", {
         roll_dst = "post")
       ) %>%
       collect(),
-    "`roll_dst` != 'error' or 'boundary' for nonexistent times"
+    "roll_dst` value must be 'error' or 'boundary' for non-existent times"
   )
 
   expect_warning(
