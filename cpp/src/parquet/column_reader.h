@@ -72,8 +72,7 @@ struct PARQUET_EXPORT DataPageStats {
   // For repeated fields, this can be greater than number of rows. For
   // non-repeated fields, this will be the same as the number of rows.
   int32_t num_values;
-  // Number of rows stored in the page. std::nullopt for V1 data pages since
-  // num_rows is not stored in format::DataPageHeader.
+  // Number of rows stored in the page. std::nullopt if not available.
   std::optional<int32_t> num_rows;
 };
 
