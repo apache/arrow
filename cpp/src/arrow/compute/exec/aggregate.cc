@@ -50,8 +50,6 @@ Result<std::vector<const HashAggregateKernel*>> GetKernels(
   for (size_t i = 0; i < aggregates.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(auto function,
                           ctx->func_registry()->GetFunction(aggregates[i].function));
-    // {in_types[i]..., uint32()}
-    aggregate_in_types.reserve(in_types[i].size() + 1);
     aggregate_in_types = in_types[i];
     aggregate_in_types.emplace_back(uint32());
     ARROW_ASSIGN_OR_RAISE(const Kernel* kernel,
@@ -81,8 +79,6 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     }
 
     KernelContext kernel_ctx{ctx};
-    // {in_types[i]..., uint32()}
-    agg_in_types.reserve(in_types[i].size() + 1);
     agg_in_types = in_types[i];
     agg_in_types.emplace_back(uint32());
     ARROW_ASSIGN_OR_RAISE(
