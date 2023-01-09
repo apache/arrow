@@ -45,6 +45,14 @@ ArrowObject <- R6Class("ArrowObject",
         cat(self$ToString(), "\n", sep = "")
       }
       invisible(self)
+    },
+    .unsafe_delete = function() {
+      # The best we can do in a generic way is to set the underlying
+      # pointer to NULL. Subclasses specialize this so that we can actually
+      # call the underlying shared pointer's reset() method for the
+      # shared_ptr<SubclassType> in C++.
+      self$`.:xp:.` <- NULL
+      invisible(self)
     }
   )
 )
