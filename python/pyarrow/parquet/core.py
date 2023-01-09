@@ -1745,6 +1745,20 @@ Examples
                 thrift_string_size_limit=None,
                 thrift_container_size_limit=None):
 
+        extra_msg = ""
+        if use_legacy_dataset is None:
+            # if an old filesystem is passed -> still use to old implementation
+            if isinstance(filesystem, legacyfs.FileSystem):
+                use_legacy_dataset = True
+                extra_msg = (
+                    " The legacy behaviour was still chosen because a "
+                    "deprecated 'pyarrow.filesystem' filesystem was specified "
+                    "(use the filesystems from pyarrow.fs instead)."
+                )
+            # otherwise the default is already False
+            else:
+                use_legacy_dataset = False
+
         if not use_legacy_dataset:
             return _ParquetDatasetV2(
                 path_or_paths, filesystem=filesystem,
@@ -1766,7 +1780,7 @@ Examples
         warnings.warn(
             "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
             "deprecated as of pyarrow 11.0.0, and the legacy implementation "
-            "will be removed in a future version.",
+            "will be removed in a future version." + extra_msg,
             FutureWarning, stacklevel=2)
         self = object.__new__(cls)
         return self
