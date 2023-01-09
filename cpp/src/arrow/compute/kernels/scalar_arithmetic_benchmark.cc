@@ -106,11 +106,14 @@ static void ArrayArrayKernel(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * array_size);
 }
 
-void SetArgs(benchmark::internal::Benchmark* bench) {
+void SetRoundArgs(benchmark::internal::Benchmark* bench) {
+  bench->ArgNames({"size", "inverse_null_proportion"});
+  
   for (const auto inverse_null_proportion : std::vector<ArgsType>({100, 0})) {
     bench->Args({static_cast<ArgsType>(kL2Size), inverse_null_proportion});
   }
 }
+
 
 #define DECLARE_ARITHMETIC_BENCHMARKS(BENCHMARK, OP)             \
   BENCHMARK_TEMPLATE(BENCHMARK, OP, Int64Type)->Apply(SetArgs);  \
