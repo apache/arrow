@@ -4758,11 +4758,11 @@ cdef class Table(_PandasConvertible):
         if isinstance(sorting, str):
             sorting = [(sorting, "ascending")]
 
-        res = _pc()._exec_plan._sort_source(self, output_type=Table,
-                                            sort_options=_pc().SortOptions(
-                                                sort_keys=sorting, **kwargs
-                                            ))
-        return res
+        indices = _pc().sort_indices(
+            self,
+            options=_pc().SortOptions(sort_keys=sorting, **kwargs)
+        )
+        return self.take(indices)
 
     def join(self, right_table, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
