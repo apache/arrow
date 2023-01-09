@@ -551,7 +551,7 @@ test_that("StructArray creation", {
   expect_r6_class(a, "StructArray")
 
   # from Arrays
-  str_array <- StructArray$create(Array$create(1:2), Array$create(c("a", "b")))
+  str_array <- StructArray$create(a = Array$create(1:2), b = Array$create(c("a", "b")))
   expect_equal(str_array[[1]], Array$create(1:2))
   expect_equal(str_array[[2]], Array$create(c("a", "b")))
   expect_r6_class(str_array, "StructArray")
