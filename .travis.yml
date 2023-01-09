@@ -111,8 +111,8 @@ jobs:
           "
         # The LLVM's APT repository causes download error for s390x binary
         # We should use the LLVM provided by the default APT repository
-        CLANG_TOOLS: "10"
-        LLVM: "10"
+        CLANG_TOOLS: "13"
+        LLVM: "13"
         UBUNTU: "20.04"
 
     - name: "Go on s390x"
