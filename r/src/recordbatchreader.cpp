@@ -33,7 +33,8 @@ void RecordBatchReader__Close(const std::shared_ptr<arrow::RecordBatchReader>& r
 }
 
 // [[arrow::export]]
-void RecordBatchReader__UnsafeDelete(const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+void RecordBatchReader__UnsafeDelete(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   auto& reader_unsafe = const_cast<std::shared_ptr<arrow::RecordBatchReader>&>(reader);
   reader_unsafe.reset();
 }
