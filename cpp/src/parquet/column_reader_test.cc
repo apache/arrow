@@ -1248,7 +1248,7 @@ TEST_P(RecordReaderStressTest, StressTest) {
   // run.
   MakePages<Int32Type>(&descr, num_pages, levels_per_page, def_levels, rep_levels, values,
                        data_buffer, pages, Encoding::PLAIN,
-                       /*seed=*/time(0));
+                       /*seed=*/static_cast<uint32_t>(time(0)));
   std::unique_ptr<PageReader> pager;
   pager.reset(new test::MockPageReader(pages));
 
@@ -1266,7 +1266,7 @@ TEST_P(RecordReaderStressTest, StressTest) {
       }
     }
   } else {
-    total_records = def_levels.size();
+    total_records = static_cast<int>(def_levels.size());
   }
 
   // Generate a sequence of reads and skips.
