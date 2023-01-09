@@ -260,6 +260,10 @@ ExecPlan <- R6Class("ExecPlan",
     },
     ToString = function() {
       ExecPlan_ToString(self)
+    },
+    .unsafe_delete = function() {
+      ExecPlan_UnsafeDelete(self)
+      super$.unsafe_delete()
     }
   )
 )
