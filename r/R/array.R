@@ -440,17 +440,8 @@ StructArray <- R6Class("StructArray",
 )
 
 StructArray$create <- function(...) {
-  dots <- rlang::dots_list(..., .named = TRUE)
-
-  stopifnot(length(dots) > 0)
-
-  if (length(dots) == 1 && is.data.frame(dots[[1]])) {
-    return(Array$create(dots[[1]]))
-  }
-
-  data <- record_batch(!!!dots)
-
-  StructArray__from_arrays(dots, names(dots))
+  data <- record_batch(...)
+  StructArray__from_RecordBatch(data)
 }
 
 

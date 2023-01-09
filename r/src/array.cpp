@@ -214,10 +214,10 @@ std::shared_ptr<arrow::Array> StructArray__GetFieldByName(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::StructArray> StructArray__from_arrays(
-    const std::vector<std::shared_ptr<arrow::Array>>& arrays,
-    const std::vector<std::string>& field_names) {
-  return ValueOrStop(arrow::StructArray::Make(arrays, field_names));
+std::shared_ptr<arrow::StructArray> StructArray__from_RecordBatch(
+    const std::shared_ptr<arrow::RecordBatch>& batch) {
+  return ValueOrStop(
+      arrow::StructArray::Make(batch->columns(), batch->schema()->field_names()));
 }
 
 // [[arrow::export]]
