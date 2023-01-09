@@ -48,7 +48,9 @@ First, let's populate a :class:`VectorSchemaRoot` with a small batch of records
     VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors);
 
 Now, we can begin writing a stream containing some number of these batches. For this we use :class:`ArrowStreamWriter`
-(DictionaryProvider used for any vectors that are dictionary encoded is optional and can be null))::
+(DictionaryProvider used for any vectors that are dictionary encoded is optional and can be null))
+
+.. code-block:: Java
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ArrowStreamWriter writer = new ArrowStreamWriter(root, /*DictionaryProvider=*/null, Channels.newChannel(out));
@@ -69,20 +71,19 @@ Here we used an in-memory stream, but this could have been a socket or some othe
       VarCharVector childVector2 = (VarCharVector)root.getVector(1);
       childVector1.reset();
       childVector2.reset();
-      ... do some populate work here, could be different for each batch
+      // ... do some populate work here, could be different for each batch
       writer.writeBatch();
     }
 
-    // end
     writer.end();
 
-Note since the :class:`VectorSchemaRoot` in writer is a container that can hold batches, batches flow through
-:class:`VectorSchemaRoot` as part of a pipeline, so we need to populate data before `writeBatch` so that later batches
+Note that, since the :class:`VectorSchemaRoot` in the writer is a container that can hold batches, batches flow through
+:class:`VectorSchemaRoot` as part of a pipeline, so we need to populate data before `writeBatch`, so that later batches
 could overwrite previous ones.
 
 Now the :class:`ByteArrayOutputStream` contains the complete stream which contains 5 record batches.
-We can read such a stream with :class:`ArrowStreamReader`, note that :class:`VectorSchemaRoot` within
-reader will be loaded with new values on every call to :class:`loadNextBatch()`
+We can read such a stream with :class:`ArrowStreamReader`. Note that the :class:`VectorSchemaRoot` within the reader
+will be loaded with new values on every call to :class:`loadNextBatch()`
 
 .. code-block:: Java
 
@@ -92,7 +93,7 @@ reader will be loaded with new values on every call to :class:`loadNextBatch()`
         // This will be loaded with new values on every call to loadNextBatch
         VectorSchemaRoot readBatch = reader.getVectorSchemaRoot();
         reader.loadNextBatch();
-        ... do something with readBatch
+        // ... do something with readBatch
       }
 
     }
@@ -160,13 +161,13 @@ The :class:`ArrowFileWriter` has the same API as :class:`ArrowStreamWriter`
 .. code-block:: Java
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ArrowFileWriter writer = new ArrowFileWriter(root, null, Channels.newChannel(out));
+    ArrowFileWriter writer = new ArrowFileWriter(root, /*DictionaryProvider=*/null, Channels.newChannel(out));
     writer.start();
     // write the first batch
     writer.writeBatch();
     // write another four batches.
     for (int i = 0; i < 4; i++) {
-      ... do populate work
+      // ... do populate work
       writer.writeBatch();
     }
     writer.end();
