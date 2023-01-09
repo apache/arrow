@@ -160,7 +160,11 @@ public final class ClientAuthenticationUtils {
       Path path = Paths.get(System.getProperty("java.home"), "lib", "security", "cacerts");
       try (InputStream fileInputStream = Files.newInputStream(path)) {
         KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-        keyStore.load(fileInputStream, password.toCharArray());
+        if (password == null) {
+          keyStore.load(fileInputStream, null);
+        } else {
+          keyStore.load(fileInputStream, password.toCharArray());
+        }
         keyStoreList.add(keyStore);
       }
     }
