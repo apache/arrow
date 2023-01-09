@@ -325,6 +325,8 @@ Generally the first slot in the offsets array is 0, and the last slot
 is the length of the values array. When serializing this layout, we
 recommend normalizing the offsets to start at 0.
 
+.. _variable-size-list-layout:
+
 Variable-size List Layout
 -------------------------
 
@@ -795,6 +797,22 @@ index using binary search. The length of an individual run can be determined by
 subtracting two adjacent values. (Contrast this with run-length encoding, in
 which the lengths of the runs are represented directly, and in which random
 access is less efficient.) 
+
+.. note::
+   Because the ``run_ends`` child array cannot have nulls, it's reasonable
+   to consider why the ``run_ends`` are a child array instead of just a
+   buffer, like the offsets for a :ref:`variable-size-list-layout`. This
+   layout was considered, but it was decided to use the child arrays. 
+
+   The full discussion can be found in the `mailing list REE layout discussion`_
+   but the gist of it is the following:
+
+   While maintaining two child arrays makes it easier and more efficient to
+   handle slicing run-end encoded arrays, the decision was more to help
+   distinguish between the logical length (there are no buffers with the
+   logical length, but there is an array) and the physical length (all of
+   the buffers are in these child arrays which are sized to the physical length).
+
 
 A run must have have a length of at least 1. This means the values in the
 run ends array all are positive and in strictly ascending order. A run end cannot be
@@ -1309,3 +1327,4 @@ the Arrow spec.
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness
 .. _SIMD: https://software.intel.com/en-us/cpp-compiler-developer-guide-and-reference-introduction-to-the-simd-data-layout-templates
 .. _Parquet: https://parquet.apache.org/documentation/latest/
+.. _mailing list REE layout discussion: https://lists.apache.org/thread/bfz3m5nyf7flq7n6q9b1bx3jhcn4wq29
