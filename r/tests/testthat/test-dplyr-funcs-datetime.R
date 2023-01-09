@@ -3635,7 +3635,7 @@ test_that("with_tz() and force_tz() works", {
       arrow_table() %>%
       mutate(timestamps = force_tz(timestamps, "UTC")) %>%
       collect(),
-    "from timezone `US/Central` not supported in Arrow"
+    "`time` with a non-UTC timezone not supported in Arrow"
   )
 
   # We only support some roll_dst values

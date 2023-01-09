@@ -467,9 +467,7 @@ register_bindings_datetime_timezone <- function() {
       # hard to do in the initial PR because there is no way in Arrow to
       # "unapply" a UTC offset (i.e., the reverse of assume_timezone).
       if (!time$type()$timezone() %in% c("", "UTC")) {
-        arrow_not_supported(
-          paste0("force_tz() from timezone `", time$type()$timezone(), "`")
-        )
+        arrow_not_supported("`time` with a non-UTC timezone")
       }
 
       # Remove timezone if needed
