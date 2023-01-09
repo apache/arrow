@@ -347,22 +347,17 @@ void TestSourceSink(
 void TestRecordBatchReaderSourceSink(
     std::function<Result<std::shared_ptr<RecordBatchReader>>(const BatchesWithSchema&)>
         to_reader) {
-  ASSERT_OK_AND_ASSIGN(auto executor, arrow::internal::ThreadPool::Make(1));
-  ExecContext exec_context(default_memory_pool(), executor.get());
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_context));
-  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
-
-  auto exp_batches = MakeBasicBatches();
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatchReader> reader, to_reader(exp_batches));
-  RecordBatchReaderSourceNodeOptions options{reader};
-  ASSERT_OK(Declaration::Sequence({
-                                      {"record_batch_reader_source", options},
-                                      {"sink", SinkNodeOptions{&sink_gen}},
-                                  })
-                .AddToPlan(plan.get()));
-
-  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              Finishes(ResultWith(UnorderedElementsAreArray(exp_batches.batches))));
+  for (bool parallel : {false, true}) {
+    SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
+    auto exp_batches = MakeBasicBatches();
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatchReader> reader,
+                         to_reader(exp_batches));
+    RecordBatchReaderSourceNodeOptions options{reader};
+    Declaration plan("record_batch_reader_source", std::move(options));
+    ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(plan, false));
+    AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches,
+                                        exp_batches.batches);
+  }
 }
 
 void TestRecordBatchReaderSourceSinkError(
