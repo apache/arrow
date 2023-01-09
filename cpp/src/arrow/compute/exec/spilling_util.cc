@@ -19,9 +19,14 @@
 #include <mutex>
 
 #ifdef _WIN32
-#include <fileapi.h>
-#include "arrow/util/io_util.h"
+// "windows_compatibility.h" includes <windows.h>, which must go BEFORE
+// <fileapi.h> because <windows.h> defines some architecture stuff that <fileapi.h>
+// needs.
+// clang-format off
 #include "arrow/util/windows_compatibility.h"
+#include "arrow/util/io_util.h"
+#include <fileapi.h>
+// clang-format on
 #endif
 
 namespace arrow {
@@ -111,8 +116,12 @@ static Result<std::shared_ptr<ArrayData>> ReconstructArray(const FileHandle hand
 
       OVERLAPPED overlapped;
       overlapped.Offset = static_cast<DWORD>(current_offset & static_cast<DWORD>(~0));
+#ifdef _WIN64
       overlapped.OffsetHigh =
           static_cast<DWORD>((current_offset >> 32) & static_cast<DWORD>(~0));
+#else
+      overlapped.OffsetHigh = static_cast<DWORD>(0);
+#endif
       if (!ReadFile(handle, static_cast<void*>(data->buffers[i]->mutable_data()),
                     static_cast<DWORD>(arr.sizes[i]), NULL, &overlapped))
         return Status::IOError("Failed to read back spilled data!");

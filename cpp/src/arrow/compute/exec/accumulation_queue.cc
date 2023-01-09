@@ -55,9 +55,7 @@ size_t AccumulationQueue::CalculateRowCount() const {
   return count;
 }
 
-void AccumulationQueue::Clear() {
-  batches_.clear();
-}
+void AccumulationQueue::Clear() { batches_.clear(); }
 
 Status SpillingAccumulationQueue::Init(QueryContext* ctx) {
   ctx_ = ctx;

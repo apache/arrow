@@ -66,7 +66,7 @@ class SchemaProjectionMaps {
   static constexpr int kMissingField = -1;
 
   Status Init(ProjectionIdEnum full_schema_handle, const Schema& schema) {
-    RETURN_NOT_OK(RegisterSchema(full_schema_handle, schema));
+    ARROW_RETURN_NOT_OK(RegisterSchema(full_schema_handle, schema));
     const int id_base = 0;
     std::vector<int>& mapping = mappings_[id_base];
     std::vector<int>& inverse = inverse_mappings_[id_base];

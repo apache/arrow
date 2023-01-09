@@ -56,8 +56,8 @@ class AccumulationQueue {
   // of separate elements).
   void Resize(size_t size) { batches_.resize(size); }
   void Clear();
-  ExecBatch& operator[](size_t i) { return batches_[i]; };
-  const ExecBatch& operator[](size_t i) const { return batches_[i]; };
+  ExecBatch& operator[](size_t i) { return batches_[i]; }
+  const ExecBatch& operator[](size_t i) const { return batches_[i]; }
 
  private:
   std::vector<ExecBatch> batches_;
@@ -106,8 +106,8 @@ class SpillingAccumulationQueue {
 
   Result<bool> AdvanceSpillCursor();
   Result<bool> AdvanceHashCursor();
-  inline size_t spill_cursor() const { return spilling_cursor_.load(); };
-  inline size_t hash_cursor() const { return hash_cursor_.load(); };
+  inline size_t spill_cursor() const { return spilling_cursor_.load(); }
+  inline size_t hash_cursor() const { return hash_cursor_.load(); }
 
  private:
   std::atomic<size_t> spilling_cursor_{0};  // denotes the first in-memory partition
