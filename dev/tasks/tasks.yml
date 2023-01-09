@@ -801,6 +801,8 @@ tasks:
     ci: github
     template: java-jars/github.yml
     artifacts:
+      - arrow-algorithm-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-algorithm-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-algorithm-{no_rc_snapshot_version}-javadoc.jar
       - arrow-algorithm-{no_rc_snapshot_version}-sources.jar
       - arrow-algorithm-{no_rc_snapshot_version}-tests.jar
