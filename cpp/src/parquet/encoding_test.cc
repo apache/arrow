@@ -1449,9 +1449,9 @@ TEST_F(DeltaBitPackEncoding, MalfordMiniblockBitWidth) {
   // There bit-widths for unneeded miniblocks are different:
   // * good_data's unneeded bit-width is 0.
   // * bad_data's unneeded bit-width is 165.
+  unsigned char data_buf[273] = {};
   {
     unsigned char good_data[] = "\200\001\004A\237\224\316\362\r\242\220\203-  ";
-    unsigned char data_buf[273] = {};
     std::memcpy(&data_buf[0], &good_data[0], 15);
     output_bytes = std::vector<uint8_t>(num_values * sizeof(c_type));
     decode_buf = reinterpret_cast<c_type*>(output_bytes.data());
@@ -1473,9 +1473,10 @@ TEST_F(DeltaBitPackEncoding, MalfordMiniblockBitWidth) {
         "\232\340\363\366\306\030\243,5\337\031\005bw\021\017wj\003#Q`\371ʉ\323\300+~="
         "\232W\232\374p\336$\022\211VQ\237>\v1gە'\224\207\262f\247h\363A!"
         "\255\271f\026\274\033_\333)4";
+    std::memcpy(&data_buf[0], &bad_data[0], 222);
     output_bytes = std::vector<uint8_t>(num_values * sizeof(c_type));
     decode_buf = reinterpret_cast<c_type*>(output_bytes.data());
-    decoder->SetData(num_values, &bad_data[0], encode_buffer_size);
+    decoder->SetData(num_values, &data_buf[0], encode_buffer_size);
     values_decoded = decoder->Decode(decode_buf, num_values);
     ASSERT_EQ(num_values, values_decoded);
   }
