@@ -61,6 +61,10 @@ mvn clean \
 
 # copy all jar, zip and pom files to the distribution folder
 find . \
+     "(" -name "*-javadoc.jar" -o -name "*-sources.jar" ")" \
+     -exec echo {} ";" \
+     -exec cp {} $dist_dir ";"
+find ~/.m2/repository/org/apache/arrow \
      "(" \
      -name "*.jar" -o \
      -name "*.json" -o \
@@ -68,10 +72,6 @@ find . \
      -name "*.xml" -o \
      -name "*.zip" \
      ")" \
-     -exec echo {} ";" \
-     -exec cp {} $dist_dir ";"
-find ~/.m2/repository/org/apache/arrow \
-     "(" -name "*.jar" -o -name "*.zip" -o -name "*.pom" ")" \
      -exec echo {} ";" \
      -exec cp {} $dist_dir ";"
 
