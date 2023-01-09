@@ -354,7 +354,7 @@ void TestRecordBatchReaderSourceSink(
 
   auto exp_batches = MakeBasicBatches();
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatchReader> reader, to_reader(exp_batches));
-  RecordBatchReaderSourceNodeOptions options{reader, io::internal::GetIOThreadPool()};
+  RecordBatchReaderSourceNodeOptions options{reader};
   ASSERT_OK(Declaration::Sequence({
                                       {"record_batch_reader_source", options},
                                       {"sink", SinkNodeOptions{&sink_gen}},
