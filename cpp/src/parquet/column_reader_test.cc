@@ -1234,7 +1234,7 @@ TEST_P(RecordReaderStressTest, StressTest) {
   NodePtr type = schema::Int32("b", GetParam());
   const ColumnDescriptor descr(type, level_info.def_level, level_info.rep_level);
 
-  std::default_random_engine gen(/*seed=*/time(0));
+  std::default_random_engine gen(/*seed=*/static_cast<uint32_t>(time(0)));
   // Generate random number of pages with random number of values per page.
   std::uniform_int_distribution<int> d(0, 2000);
   const int num_pages = d(gen);
