@@ -5388,13 +5388,21 @@ list[tuple(str|list[str]|tuple(str*), str, FunctionOptions)]
         ----
         values_sum: [[3,7,5]]
         keys: [["a","b","c"]]
+        >>> t.group_by("keys").aggregate([([], "count_all")])
+        pyarrow.Table
+        _count_all: int64
+        keys: string
+        ----
+        _count_all: [[2,2,1]]
+        keys: [["a","b","c"]]
         >>> t.group_by("keys").aggregate([])
         pyarrow.Table
         keys: string
         ----
         keys: [["a","b","c"]]
         """
-        target_cols = [a[0] if isinstance(a[0], (list, tuple)) else [a[0]] for a in aggregations]
+        target_cols = [a[0] if isinstance(a[0], (list, tuple)) else [
+            a[0]] for a in aggregations]
         aggrfuncs = [
             (target, a[1], a[2]) if len(a) > 2 else (target, a[1], None)
             for (target, a) in zip(target_cols, aggregations)
