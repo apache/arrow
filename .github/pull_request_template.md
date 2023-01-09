@@ -5,7 +5,7 @@ Thanks for opening a pull request!
 If this is your first pull request you can find detailed information on how 
 to contribute here:
   * [New Contributor's Guide](https://arrow.apache.org/docs/developers/guide/step_by_step/pr_lifecycle.html#reviews-and-merge-of-the-pull-request)
-  * [ContributingOverview](https://arrow.apache.org/docs/developers/overview.html)
+  * [Contributing Overview](https://arrow.apache.org/docs/developers/overview.html)
 
 
 If this is not a [minor PR](https://github.com/apache/arrow/blob/master/CONTRIBUTING.md#Minor-Fixes). Could you open an issue for this pull request on GitHub? https://github.com/apache/arrow/issues/new/choose
