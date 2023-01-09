@@ -291,6 +291,8 @@ def test_fspath(tempdir, use_legacy_dataset):
 ])
 @pytest.mark.parametrize("name", ("data.parquet", "例.parquet"))
 def test_relative_paths(tempdir, use_legacy_dataset, filesystem, name):
+    if use_legacy_dataset and isinstance(filesystem, fs.FileSystem):
+        pytest.skip("Passing new filesystem not supported for legacy reader")
     # reading and writing from relative paths
     table = pa.table({"a": [1, 2, 3]})
     path = tempdir / name
@@ -405,6 +407,13 @@ def test_column_encoding(use_legacy_dataset):
                      column_encoding="PLAIN",
                      use_legacy_dataset=use_legacy_dataset)
 
+    # Check "DELTA_BINARY_PACKED" for integer columns.
+    _check_roundtrip(mixed_table, expected=mixed_table,
+                     use_dictionary=False,
+                     column_encoding={'a': "PLAIN",
+                                      'b': "DELTA_BINARY_PACKED"},
+                     use_legacy_dataset=use_legacy_dataset)
+
     # Try to pass "BYTE_STREAM_SPLIT" column encoding for integer column 'b'.
     # This should throw an error as it is only supports FLOAT and DOUBLE.
     with pytest.raises(IOError,
@@ -415,14 +424,12 @@ def test_column_encoding(use_legacy_dataset):
                          column_encoding={'b': "BYTE_STREAM_SPLIT"},
                          use_legacy_dataset=use_legacy_dataset)
 
-    # Try to pass "DELTA_BINARY_PACKED".
-    # This should throw an error as it is only supported for reading.
-    with pytest.raises(IOError,
-                       match="Not yet implemented: Selected encoding is"
-                             " not supported."):
+    # Try to pass use "DELTA_BINARY_PACKED" encoding on float column.
+    # This should throw an error as only integers are supported.
+    with pytest.raises(OSError):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
-                         column_encoding={'b': "DELTA_BINARY_PACKED"},
+                         column_encoding={'a': "DELTA_BINARY_PACKED"},
                          use_legacy_dataset=use_legacy_dataset)
 
     # Try to pass "RLE_DICTIONARY".

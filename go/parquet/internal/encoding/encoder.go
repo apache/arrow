@@ -79,6 +79,14 @@ func newEncoderBase(e format.Encoding, descr *schema.Column, mem memory.Allocato
 	}
 }
 
+func (e *encoder) Release() {
+	poolbuf := e.sink.buf
+	memory.Set(poolbuf.Buf(), 0)
+	poolbuf.ResizeNoShrink(0)
+	bufferPool.Put(poolbuf)
+	e.sink = nil
+}
+
 // ReserveForWrite allocates n bytes so that the next n bytes written do not require new allocations.
 func (e *encoder) ReserveForWrite(n int)           { e.sink.Reserve(n) }
 func (e *encoder) EstimatedDataEncodedSize() int64 { return int64(e.sink.Len()) }
@@ -124,6 +132,16 @@ func (d *dictEncoder) Reset() {
 	d.idxValues = d.idxValues[:0]
 	d.idxBuffer.ResizeNoShrink(0)
 	d.memo.Reset()
+}
+
+func (d *dictEncoder) Release() {
+	d.encoder.Release()
+	d.idxBuffer.Release()
+	if m, ok := d.memo.(BinaryMemoTable); ok {
+		m.Release()
+	} else {
+		d.memo.Reset()
+	}
 }
 
 // append the passed index to the indexbuffer

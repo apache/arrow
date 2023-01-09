@@ -82,17 +82,7 @@ arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData
 }
 
 arrow::Status DoHashJoin() {
-  cp::ExecContext exec_context;
-
   arrow::dataset::internal::Initialize();
-
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
-
-  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
-
-  cp::ExecNode* left_source;
-  cp::ExecNode* right_source;
 
   ARROW_ASSIGN_OR_RAISE(auto l_dataset, CreateDataSetFromCSVData(true));
   ARROW_ASSIGN_OR_RAISE(auto r_dataset, CreateDataSetFromCSVData(false));
@@ -111,10 +101,8 @@ arrow::Status DoHashJoin() {
   auto l_scan_node_options = arrow::dataset::ScanNodeOptions{l_dataset, l_options};
   auto r_scan_node_options = arrow::dataset::ScanNodeOptions{r_dataset, r_options};
 
-  ARROW_ASSIGN_OR_RAISE(left_source,
-                        cp::MakeExecNode("scan", plan.get(), {}, l_scan_node_options));
-  ARROW_ASSIGN_OR_RAISE(right_source,
-                        cp::MakeExecNode("scan", plan.get(), {}, r_scan_node_options));
+  arrow::compute::Declaration left{"scan", std::move(l_scan_node_options)};
+  arrow::compute::Declaration right{"scan", std::move(r_scan_node_options)};
 
   arrow::compute::HashJoinNodeOptions join_opts{arrow::compute::JoinType::INNER,
                                                 /*in_left_keys=*/{"lkey"},
@@ -123,26 +111,12 @@ arrow::Status DoHashJoin() {
                                                 /*output_suffix_for_left*/ "_l",
                                                 /*output_suffix_for_right*/ "_r"};
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto hashjoin,
-      cp::MakeExecNode("hashjoin", plan.get(), {left_source, right_source}, join_opts));
+  arrow::compute::Declaration hashjoin{
+      "hashjoin", {std::move(left), std::move(right)}, join_opts};
 
-  ARROW_ASSIGN_OR_RAISE(std::ignore, cp::MakeExecNode("sink", plan.get(), {hashjoin},
-                                                      cp::SinkNodeOptions{&sink_gen}));
   // expected columns l_a, l_b
-  std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
-      hashjoin->output_schema(), std::move(sink_gen), exec_context.memory_pool());
-
-  // validate the ExecPlan
-  ARROW_RETURN_NOT_OK(plan->Validate());
-  // start the ExecPlan
-  ARROW_RETURN_NOT_OK(plan->StartProducing());
-
-  // collect sink_reader into a Table
-  std::shared_ptr<arrow::Table> response_table;
-
-  ARROW_ASSIGN_OR_RAISE(response_table,
-                        arrow::Table::FromRecordBatchReader(sink_reader.get()));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Table> response_table,
+                        arrow::compute::DeclarationToTable(std::move(hashjoin)));
 
   std::cout << "Results : " << response_table->ToString() << std::endl;
 

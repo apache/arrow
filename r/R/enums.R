@@ -82,6 +82,13 @@ Type <- enum("Type::type",
 )
 
 TYPES_WITH_NAN <- Type[c("HALF_FLOAT", "FLOAT", "DOUBLE")]
+TYPES_NUMERIC <- Type[
+  c(
+    "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32",
+    "INT64", "UINT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
+    "DECIMAL128", "DECIMAL256"
+    )
+  ]
 
 #' @rdname enums
 #' @export

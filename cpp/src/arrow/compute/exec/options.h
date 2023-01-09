@@ -65,6 +65,10 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
   static Result<std::shared_ptr<SourceNodeOptions>> FromTable(const Table& table,
                                                               arrow::internal::Executor*);
 
+  static Result<std::shared_ptr<SourceNodeOptions>> FromRecordBatchReader(
+      std::shared_ptr<RecordBatchReader> reader, std::shared_ptr<Schema> schema,
+      arrow::internal::Executor*);
+
   std::shared_ptr<Schema> output_schema;
   std::function<Future<std::optional<ExecBatch>>()> generator;
 };
@@ -83,6 +87,21 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
   // If the table is larger the node will emit multiple batches from the
   // the table to be processed in parallel.
   int64_t max_batch_size;
+};
+
+/// \brief Define a lazy resolved Arrow table.
+///
+/// The table uniquely identified by the names can typically be resolved at the time when
+/// the plan is to be consumed.
+///
+/// This node is for serialization purposes only and can never be executed.
+class ARROW_EXPORT NamedTableNodeOptions : public ExecNodeOptions {
+ public:
+  NamedTableNodeOptions(std::vector<std::string> names, std::shared_ptr<Schema> schema)
+      : names(std::move(names)), schema(schema) {}
+
+  std::vector<std::string> names;
+  std::shared_ptr<Schema> schema;
 };
 
 /// \brief An extended Source node which accepts a schema
@@ -180,8 +199,8 @@ constexpr int32_t kDefaultBackpressureLowBytes = 1 << 28;   // 256MiB
 class ARROW_EXPORT BackpressureMonitor {
  public:
   virtual ~BackpressureMonitor() = default;
-  virtual uint64_t bytes_in_use() const = 0;
-  virtual bool is_paused() const = 0;
+  virtual uint64_t bytes_in_use() = 0;
+  virtual bool is_paused() = 0;
 };
 
 /// \brief Options to control backpressure behavior
@@ -214,9 +233,19 @@ struct ARROW_EXPORT BackpressureOptions {
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
   explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
+                           std::shared_ptr<Schema>* schema,
                            BackpressureOptions backpressure = {},
                            BackpressureMonitor** backpressure_monitor = NULLPTR)
       : generator(generator),
+        schema(schema),
+        backpressure(backpressure),
+        backpressure_monitor(backpressure_monitor) {}
+
+  explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
+                           BackpressureOptions backpressure = {},
+                           BackpressureMonitor** backpressure_monitor = NULLPTR)
+      : generator(generator),
+        schema(NULLPTR),
         backpressure(std::move(backpressure)),
         backpressure_monitor(backpressure_monitor) {}
 
@@ -226,6 +255,11 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   /// data from the plan.  If this function is not called frequently enough then the sink
   /// node will start to accumulate data and may apply backpressure.
   std::function<Future<std::optional<ExecBatch>>()>* generator;
+  /// \brief A pointer which will be set to the schema of the generated batches
+  ///
+  /// This is optional, if nullptr is passed in then it will be ignored.
+  /// This will be set when the node is added to the plan, before StartProducing is called
+  std::shared_ptr<Schema>* schema;
   /// \brief Options to control when to apply backpressure
   ///
   /// This is optional, the default is to never apply backpressure.  If the plan is not
@@ -445,22 +479,35 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
 /// This node will output one row for each row in the left table.
 class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
  public:
-  AsofJoinNodeOptions(FieldRef on_key, std::vector<FieldRef> by_key, int64_t tolerance)
-      : on_key(std::move(on_key)), by_key(by_key), tolerance(tolerance) {}
+  /// \brief Keys for one input table of the AsofJoin operation
+  ///
+  /// The keys must be consistent across the input tables:
+  /// Each "on" key must refer to a field of the same type and units across the tables.
+  /// Each "by" key must refer to a list of fields of the same types across the tables.
+  struct Keys {
+    /// \brief "on" key for the join.
+    ///
+    /// The input table must be sorted by the "on" key. Must be a single field of a common
+    /// type. Inexact match is used on the "on" key. i.e., a row is considered a match iff
+    /// left_on - tolerance <= right_on <= left_on.
+    /// Currently, the "on" key must be of an integer, date, or timestamp type.
+    FieldRef on_key;
+    /// \brief "by" key for the join.
+    ///
+    /// Each input table must have each field of the "by" key.  Exact equality is used for
+    /// each field of the "by" key.
+    /// Currently, each field of the "by" key must be of an integer, date, timestamp, or
+    /// base-binary type.
+    std::vector<FieldRef> by_key;
+  };
 
-  /// \brief "on" key for the join.
+  AsofJoinNodeOptions(std::vector<Keys> input_keys, int64_t tolerance)
+      : input_keys(std::move(input_keys)), tolerance(tolerance) {}
+
+  /// \brief AsofJoin keys per input table.
   ///
-  /// All inputs tables must be sorted by the "on" key. Must be a single field of a common
-  /// type. Inexact match is used on the "on" key. i.e., a row is considered match iff
-  /// left_on - tolerance <= right_on <= left_on.
-  /// Currently, the "on" key must be of an integer, date, or timestamp type.
-  FieldRef on_key;
-  /// \brief "by" key for the join.
-  ///
-  /// All input tables must have the "by" key.  Exact equality
-  /// is used for the "by" key.
-  /// Currently, the "by" key must be of an integer, date, timestamp, or base-binary type
-  std::vector<FieldRef> by_key;
+  /// \see `Keys` for details.
+  std::vector<Keys> input_keys;
   /// \brief Tolerance for inexact "on" key matching.  Must be non-negative.
   ///
   /// The tolerance is interpreted in the same units as the "on" key.

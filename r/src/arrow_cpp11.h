@@ -344,6 +344,26 @@ std::vector<T> from_r_list(cpp11::list args) {
 
 bool GetBoolOption(const std::string& name, bool default_);
 
+// A version of vctrs::vec_size() limited to the types that are
+// supported at the C++ level. We currently handle record-style
+// vectors (e.g., POSIXlt) at the R level such that by the time
+// they get to C++ they are just a data.frame. This version also
+// supports long vectors.
+static inline R_xlen_t vec_size(SEXP x) {
+  if (Rf_inherits(x, "data.frame")) {
+    if (Rf_length(x) > 0) {
+      return Rf_xlength(VECTOR_ELT(x, 0));
+    } else {
+      // This will expand the rownames if attr(x, "row.names") is ALTREP;
+      // however, this is probably not an important performance consideration
+      // since zero-column data.frames do not occur in many workflows.
+      return Rf_xlength(Rf_getAttrib(x, R_RowNamesSymbol));
+    }
+  } else {
+    return Rf_xlength(x);
+  }
+}
+
 }  // namespace r
 }  // namespace arrow
 

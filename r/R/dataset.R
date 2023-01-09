@@ -123,7 +123,7 @@
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
 #' @export
-#' @seealso \href{https://arrow.apache.org/docs/r/articles/datasets.html}{
+#' @seealso \href{https://arrow.apache.org/docs/r/articles/dataset.html}{
 #' datasets article}
 #' @include arrow-object.R
 #' @examplesIf arrow_with_dataset() & arrow_with_parquet()

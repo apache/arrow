@@ -211,6 +211,6 @@ open_dataset(tf3, partitioning = schema(Month = int8(), Day = int8()))
 \dontshow{\}) # examplesIf}
 }
 \seealso{
-\href{https://arrow.apache.org/docs/r/articles/datasets.html}{
+\href{https://arrow.apache.org/docs/r/articles/dataset.html}{
 datasets article}
 }

@@ -292,16 +292,16 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
 
 Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab) {
   std::vector<SortKey> sort_keys;
-  for (auto&& f : tab->schema()->fields()) {
-    sort_keys.emplace_back(f->name());
+  for (int i = 0; i < tab->num_columns(); i++) {
+    sort_keys.emplace_back(i);
   }
   ARROW_ASSIGN_OR_RAISE(auto sort_ids, SortIndices(tab, SortOptions(sort_keys)));
   ARROW_ASSIGN_OR_RAISE(auto tab_sorted, Take(tab, sort_ids));
   return tab_sorted.table();
 }
 
-void AssertTablesEqual(const std::shared_ptr<Table>& exp,
-                       const std::shared_ptr<Table>& act) {
+void AssertTablesEqualIgnoringOrder(const std::shared_ptr<Table>& exp,
+                                    const std::shared_ptr<Table>& act) {
   ASSERT_EQ(exp->num_columns(), act->num_columns());
   if (exp->num_rows() == 0) {
     ASSERT_EQ(exp->num_rows(), act->num_rows());
@@ -314,12 +314,12 @@ void AssertTablesEqual(const std::shared_ptr<Table>& exp,
   }
 }
 
-void AssertExecBatchesEqual(const std::shared_ptr<Schema>& schema,
-                            const std::vector<ExecBatch>& exp,
-                            const std::vector<ExecBatch>& act) {
+void AssertExecBatchesEqualIgnoringOrder(const std::shared_ptr<Schema>& schema,
+                                         const std::vector<ExecBatch>& exp,
+                                         const std::vector<ExecBatch>& act) {
   ASSERT_OK_AND_ASSIGN(auto exp_tab, TableFromExecBatches(schema, exp));
   ASSERT_OK_AND_ASSIGN(auto act_tab, TableFromExecBatches(schema, act));
-  AssertTablesEqual(exp_tab, act_tab);
+  AssertTablesEqualIgnoringOrder(exp_tab, act_tab);
 }
 
 template <typename T>

@@ -929,6 +929,24 @@ TEST(Expression, FoldConstantsBoolean) {
   ExpectFoldsTo(or_(whatever, whatever), whatever);
 }
 
+void ExpectRemovesRefsTo(Expression expr, Expression expected,
+                         const Schema& schema = *kBoringSchema) {
+  ASSERT_OK_AND_ASSIGN(expr, expr.Bind(schema));
+  ASSERT_OK_AND_ASSIGN(expected, expected.Bind(schema));
+
+  ASSERT_OK_AND_ASSIGN(auto without_named_refs, RemoveNamedRefs(expr));
+
+  EXPECT_EQ(without_named_refs, expected);
+}
+
+TEST(Expression, RemoveNamedRefs) {
+  ExpectRemovesRefsTo(field_ref("i32"), field_ref(2));
+  ExpectRemovesRefsTo(call("add", {literal(4), field_ref("i32")}),
+                      call("add", {literal(4), field_ref(2)}));
+  auto nested_schema = Schema({field("a", struct_({field("b", int32())}))});
+  ExpectRemovesRefsTo(field_ref({"a", "b"}), field_ref({0, 0}), nested_schema);
+}
+
 TEST(Expression, ExtractKnownFieldValues) {
   struct {
     void operator()(Expression guarantee,
@@ -1364,6 +1382,10 @@ TEST(Expression, SimplifyWithValidityGuarantee) {
       .WithGuarantee(is_null(field_ref("i32")))
       .Expect(literal(false));
 
+  Simplify{{true_unless_null(field_ref("i32"))}}
+      .WithGuarantee(is_null(field_ref("i32")))
+      .Expect(null_literal(boolean()));
+
   Simplify{is_valid(field_ref("i32"))}
       .WithGuarantee(is_valid(field_ref("i32")))
       .Expect(literal(true));
@@ -1379,6 +1401,21 @@ TEST(Expression, SimplifyWithValidityGuarantee) {
   Simplify{true_unless_null(field_ref("i32"))}
       .WithGuarantee(is_valid(field_ref("i32")))
       .Expect(literal(true));
+
+  Simplify{{equal(field_ref("i32"), literal(7))}}
+      .WithGuarantee(is_null(field_ref("i32")))
+      .Expect(null_literal(boolean()));
+
+  auto i32_is_2_or_null =
+      or_(equal(field_ref("i32"), literal(2)), is_null(field_ref("i32")));
+
+  Simplify{i32_is_2_or_null}
+      .WithGuarantee(is_null(field_ref("i32")))
+      .Expect(literal(true));
+
+  Simplify{{greater(field_ref("i32"), literal(7))}}
+      .WithGuarantee(is_null(field_ref("i32")))
+      .Expect(null_literal(boolean()));
 }
 
 TEST(Expression, SimplifyWithComparisonAndNullableCaveat) {

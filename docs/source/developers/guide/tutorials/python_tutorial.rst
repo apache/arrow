@@ -73,8 +73,8 @@ the instructions for the building process in this tutorial.
    For the **instructions** on how to build PyArrow refer to the
    :ref:`build_pyarrow` section.
 
-Create a JIRA issue for the new feature
----------------------------------------
+Create a GitHub issue for the new feature
+-----------------------------------------
 
 We will add a new feature that imitates an existing function
 ``min_max`` from the ``arrow.compute`` module but makes the
@@ -84,49 +84,18 @@ made-up function for the purpose of this guide.
 See the example of the ``pc.min_max`` in
 `this link <https://arrow.apache.org/cookbook/py/data.html#computing-mean-min-max-values-of-an-array>`_.
 
-First we need to create a JIRA issue as it doesn't exist yet.
-With a JIRA account created we will navigate to the
-`Apache Arrow JIRA dashboard <https://issues.apache.org/jira/projects/ARROW>`_
-and click on the **Create** button.
-
-.. figure:: /developers/images/python_tutorial_jira_title.jpeg
-   :scale: 70 %
-   :alt: JIRA dashboard with a window for creating a new issue.
-
-   Creating a JIRA issue, adding title (summary) and components.
-
-.. figure:: /developers/images/python_tutorial_jira_description.jpeg
-   :scale: 70 %
-   :alt: JIRA dashboard with a window for creating a
-         description for the new issue.
-
-   Creating a JIRA issue, adding a description.
+First we need to create a GitHub issue as it doesn't exist yet.
+With a GitHub account created we will navigate to the
+`GitHub issue dashboard <https://github.com/apache/arrow/issues>`_
+and click on the **New issue** button.
 
 We should make sure to assign ourselves to the issue to let others
-know we are working on it. If that option is not working, we would
-need to ask for a project maintainer’s help on the
-:ref:`mailing_list`.
-
-Lets also add some comments to start a conversation.
-
-.. figure:: /developers/images/python_tutorial_jira_comment.jpeg
-   :scale: 50 %
-   :alt: JIRA issue page where comment is being added.
-
-   Adding a comment to the JIRA ticket we created.
-
-We have successfully created a new JIRA issue with index
-`ARROW-14977 <https://issues.apache.org/jira/browse/ARROW-14977>`_.
-
-.. figure:: /developers/images/python_tutorial_jira_issue.jpeg
-   :scale: 50 %
-   :alt: JIRA page of the issue just created.
-
-   Our JIRA issue. Yay!
+know we are working on it. You can do that with adding a comment
+``take`` to the issue created.
 
 .. seealso::
 
-   To get more information on JIRA issues go to
+   To get more information on GitHub issues go to
    :ref:`finding-issues` part of the guide.
 
 Start the work on a new branch
@@ -531,9 +500,13 @@ by clicking on **Compare & pull request**.
 
    Notice bar on the Apache Arrow repository.
 
-First we need to change the Title to *ARROW-14977: [Python] Add a "made-up"*
-*feature for the guide tutorial* in order to match it
-with the JIRA issue. Note a punctuation mark was added!
+First we need to change the Title to *ARROW-14977: [Python] Add a "made-up"
+feature for the guide tutorial* in order to match it
+with the issue. Note a punctuation mark was added!
+
+*Extra note: when this tutorial was created, we had been using the Jira issue
+tracker. As we are currently using GitHub issues, the title would be prefixed
+with GH-14977: [Python] Add a "made-up" feature for the guide tutorial*.
 
 We will also add a description to make it clear to others what we are
 trying to do.
@@ -548,7 +521,7 @@ Pull Request in the Apache Arrow repository.
 
    Here it is, our Pull Request!
 
-The Pull Request gets connected to the JIRA issue and the CI is
+The Pull Request gets connected to the issue and the CI is
 running. After some time passes and we get a review we can correct
 the code, comment, resolve conversations and so on. The Pull Request
 we made can be viewed `here <https://github.com/apache/arrow/pull/11900>`_.

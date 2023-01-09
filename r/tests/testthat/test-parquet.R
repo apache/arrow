@@ -453,13 +453,22 @@ test_that("deprecated int96 timestamp unit can be specified when reading Parquet
 })
 
 test_that("Can read parquet with nested lists and maps", {
-  parquet_test_data <- test_path("../../../cpp/submodules/parquet-testing/data")
-  skip_if_not(dir.exists(parquet_test_data), "Parquet test data missing")
+  # Construct the path to the parquet-testing submodule. This will search:
+  # * $ARROW_SOURCE_HOME/cpp/submodules/parquet-testing/data
+  # * ../cpp/submodules/parquet-testing/data
+  # ARROW_SOURCE_HOME is set in many of our CI setups, so that will find the files
+  # the .. version should catch some (thought not all) ways of running tests locally
+  base_path <- Sys.getenv("ARROW_SOURCE_HOME", "..")
+  # make this a full path, at the root of the filesystem if we're using ARROW_SOURCE_HOME
+  if (base_path != "..") {
+    base_path <- file.path("", base_path)
+  }
+  parquet_test_data <- file.path(base_path, "cpp", "submodules", "parquet-testing", "data")
+  skip_if_not(dir.exists(parquet_test_data) | force_tests(), "Parquet test data missing")
 
   pq <- read_parquet(paste0(parquet_test_data, "/nested_lists.snappy.parquet"), as_data_frame = FALSE)
-  # value name is "element" from parquet reader, but type default is "item"
-  expect_equal(pq$a$type, list_of(field("element", list_of(field("element", list_of(field("element", utf8())))))))
+  expect_type_equal(pq$a, list_of(field("element", list_of(field("element", list_of(field("element", utf8())))))))
 
   pq <- read_parquet(paste0(parquet_test_data, "/nested_maps.snappy.parquet"), as_data_frame = FALSE)
-  expect_equal(pq$a$type, map_of(utf8(), map_of(int32(), boolean())))
+  expect_true(pq$a$type == map_of(utf8(), map_of(int32(), field("value", boolean(), nullable = FALSE))))
 })

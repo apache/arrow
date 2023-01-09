@@ -71,6 +71,7 @@ type TypedEncoder interface {
 	Allocator() memory.Allocator
 	// Type returns the underlying physical type this encodes.
 	Type() parquet.Type
+	Release()
 }
 
 // DictEncoder is a special kind of TypedEncoder which implements Dictionary

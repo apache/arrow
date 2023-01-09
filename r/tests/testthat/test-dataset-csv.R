@@ -22,6 +22,11 @@ library(dplyr, warn.conflicts = FALSE)
 csv_dir <- make_temp_dir()
 tsv_dir <- make_temp_dir()
 
+# Data containing a header row
+tbl <- df1[, c("int", "dbl")]
+header_csv_dir <- make_temp_dir()
+headerless_csv_dir <- make_temp_dir()
+
 test_that("Setup (putting data in the dirs)", {
   dir.create(file.path(csv_dir, 5))
   dir.create(file.path(csv_dir, 6))
@@ -35,6 +40,9 @@ test_that("Setup (putting data in the dirs)", {
   write.table(df1, file.path(tsv_dir, 5, "file1.tsv"), row.names = FALSE, sep = "\t")
   write.table(df2, file.path(tsv_dir, 6, "file2.tsv"), row.names = FALSE, sep = "\t")
   expect_length(dir(tsv_dir, recursive = TRUE), 2)
+
+  write.table(tbl, file.path(header_csv_dir, "file1.csv"), sep = ",", row.names = FALSE)
+  write.table(tbl, file.path(headerless_csv_dir, "file1.csv"), sep = ",", row.names = FALSE, col.names = FALSE)
 })
 
 test_that("CSV dataset", {
@@ -265,6 +273,28 @@ test_that("readr parse options", {
   )
 })
 
+test_that("Can set null string values", {
+  dst_dir <- make_temp_dir()
+  df <- tibble(x = c(1, NA, 3))
+  write_dataset(df, dst_dir, null_string = "NULL_VALUE", format = "csv")
+
+  csv_contents <- readLines(list.files(dst_dir, full.names = TRUE)[1])
+  expect_equal(csv_contents, c("\"x\"", "1", "NULL_VALUE", "3"))
+
+  back <- open_dataset(dst_dir, null_values = "NULL_VALUE", format = "csv") %>% collect()
+  expect_equal(df, back)
+
+  # Also works with `na` parameter
+  dst_dir <- make_temp_dir()
+  write_dataset(df, dst_dir, na = "another_null", format = "csv")
+
+  csv_contents <- readLines(list.files(dst_dir, full.names = TRUE)[1])
+  expect_equal(csv_contents, c("\"x\"", "1", "another_null", "3"))
+
+  back <- open_dataset(dst_dir, null_values = "another_null", format = "csv") %>% collect()
+  expect_equal(df, back)
+})
+
 # see https://issues.apache.org/jira/browse/ARROW-12791
 test_that("Error if no format specified and files are not parquet", {
   expect_error(
@@ -279,12 +309,6 @@ test_that("Error if no format specified and files are not parquet", {
 })
 
 test_that("Column names can be inferred from schema", {
-  tbl <- df1[, c("int", "dbl")]
-
-  # Data containing a header row
-  header_csv_dir <- make_temp_dir()
-  write.table(tbl, file.path(header_csv_dir, "file1.csv"), sep = ",", row.names = FALSE)
-
   # First row must be skipped if file has header
   ds <- open_dataset(
     header_csv_dir,
@@ -310,16 +334,54 @@ test_that("Column names can be inferred from schema", {
     )
   )
 
-  # Data with no header row
-  headerless_csv_dir <- make_temp_dir()
-  write.table(tbl, file.path(headerless_csv_dir, "file1.csv"), sep = ",", row.names = FALSE, col.names = FALSE)
-
   ds <- open_dataset(
     headerless_csv_dir,
     format = "csv",
     schema = schema(int = int32(), dbl = float64())
   )
   expect_equal(ds %>% collect(), tbl)
+})
+
+test_that("Can use col_names readr parameter", {
+  expected_names <- c("my_int", "my_double")
+  ds <- open_dataset(
+    headerless_csv_dir,
+    format = "csv",
+    col_names = expected_names
+  )
+  expect_equal(names(ds), expected_names)
+  expect_equal(ds %>% collect(), set_names(tbl, expected_names))
+
+  # WITHOUT header, makes up names
+  ds <- open_dataset(
+    headerless_csv_dir,
+    format = "csv",
+    col_names = FALSE
+  )
+  expect_equal(names(ds), c("f0", "f1"))
+  expect_equal(ds %>% collect(), set_names(tbl, c("f0", "f1")))
+
+  # WITH header, gets names
+  ds <- open_dataset(
+    header_csv_dir,
+    format = "csv",
+    col_names = TRUE
+  )
+  expect_equal(names(ds), c("int", "dbl"))
+  expect_equal(ds %>% collect(), tbl)
+
+  ds <- open_dataset(
+    header_csv_dir,
+    format = "csv",
+    col_names = FALSE,
+    skip = 1
+  )
+  expect_equal(names(ds), c("f0", "f1"))
+  expect_equal(ds %>% collect(), set_names(tbl, c("f0", "f1")))
+
+  expect_error(
+    open_dataset(headerless_csv_dir, format = "csv", col_names = c("my_int"))
+  )
 })
 
 test_that("open_dataset() deals with BOMs (byte-order-marks) correctly", {

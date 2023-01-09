@@ -41,6 +41,15 @@ version=$1
 next_version=$2
 next_version_snapshot="${next_version}-SNAPSHOT"
 
+case "${version}" in
+  *.0.0)
+    is_major_release=1
+    ;;
+  *)
+    is_major_release=0
+    ;;
+esac
+
 if [ ${BUMP_UPDATE_LOCAL_DEFAULT_BRANCH} -gt 0 ]; then
   echo "Updating local default branch"
   git fetch --all --prune --tags --force -j$(nproc)
@@ -68,8 +77,8 @@ if [ ${BUMP_DEB_PACKAGE_NAMES} -gt 0 ]; then
     cd $SOURCE_DIR/../tasks/linux-packages/apache-arrow
     for target in debian*/lib*${deb_lib_suffix}.install; do
       git mv \
-	${target} \
-	$(echo $target | sed -e "s/${deb_lib_suffix}/${next_deb_lib_suffix}/")
+        ${target} \
+        $(echo $target | sed -e "s/${deb_lib_suffix}/${next_deb_lib_suffix}/")
     done
     deb_lib_suffix_substitute_pattern="s/(lib(arrow|gandiva|parquet|plasma)[-a-z]*)${deb_lib_suffix}/\\1${next_deb_lib_suffix}/g"
     sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" debian*/control*
@@ -107,7 +116,7 @@ if [ ${BUMP_PUSH} -gt 0 ]; then
   git push apache ${DEFAULT_BRANCH}
 fi
 
-if [ ${BUMP_TAG} -gt 0 ]; then
+if [ ${BUMP_TAG} -gt 0 -a ${is_major_release} -gt 0 ]; then
   dev_tag=apache-arrow-${next_version}.dev
   echo "Tagging ${dev_tag}"
   git tag ${dev_tag} ${DEFAULT_BRANCH}

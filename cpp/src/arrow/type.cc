@@ -412,11 +412,11 @@ bool DataType::Equals(const DataType& other, bool check_metadata) const {
   return TypeEquals(*this, other, check_metadata);
 }
 
-bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
+bool DataType::Equals(const std::shared_ptr<DataType>& other, bool check_metadata) const {
   if (!other) {
     return false;
   }
-  return Equals(*other.get());
+  return Equals(*other.get(), check_metadata);
 }
 
 size_t DataType::Hash() const {
@@ -2090,6 +2090,10 @@ std::string DataType::ComputeMetadataFingerprint() const {
   // Whatever the data type, metadata can only be found on child fields
   std::string s;
   for (const auto& child : children_) {
+    // Add field name to metadata fingerprint so that the field names within
+    // list and map types are included as part of the metadata. They are
+    // excluded from the base fingerprint.
+    s += child->name() + "=";
     s += child->metadata_fingerprint() + ";";
   }
   return s;
@@ -2136,17 +2140,33 @@ std::string DictionaryType::ComputeFingerprint() const {
 }
 
 std::string ListType::ComputeFingerprint() const {
-  const auto& child_fingerprint = children_[0]->fingerprint();
+  const auto& child_fingerprint = value_type()->fingerprint();
   if (!child_fingerprint.empty()) {
-    return TypeIdFingerprint(*this) + "{" + child_fingerprint + "}";
+    std::stringstream ss;
+    ss << TypeIdFingerprint(*this);
+    if (value_field()->nullable()) {
+      ss << 'n';
+    } else {
+      ss << 'N';
+    }
+    ss << '{' << child_fingerprint << '}';
+    return ss.str();
   }
   return "";
 }
 
 std::string LargeListType::ComputeFingerprint() const {
-  const auto& child_fingerprint = children_[0]->fingerprint();
+  const auto& child_fingerprint = value_type()->fingerprint();
   if (!child_fingerprint.empty()) {
-    return TypeIdFingerprint(*this) + "{" + child_fingerprint + "}";
+    std::stringstream ss;
+    ss << TypeIdFingerprint(*this);
+    if (value_field()->nullable()) {
+      ss << 'n';
+    } else {
+      ss << 'N';
+    }
+    ss << '{' << child_fingerprint << '}';
+    return ss.str();
   }
   return "";
 }
@@ -2155,20 +2175,33 @@ std::string MapType::ComputeFingerprint() const {
   const auto& key_fingerprint = key_type()->fingerprint();
   const auto& item_fingerprint = item_type()->fingerprint();
   if (!key_fingerprint.empty() && !item_fingerprint.empty()) {
+    std::stringstream ss;
+    ss << TypeIdFingerprint(*this);
     if (keys_sorted_) {
-      return TypeIdFingerprint(*this) + "s{" + key_fingerprint + item_fingerprint + "}";
-    } else {
-      return TypeIdFingerprint(*this) + "{" + key_fingerprint + item_fingerprint + "}";
+      ss << 's';
     }
+    if (item_field()->nullable()) {
+      ss << 'n';
+    } else {
+      ss << 'N';
+    }
+    ss << '{' << key_fingerprint + item_fingerprint << '}';
+    return ss.str();
   }
   return "";
 }
 
 std::string FixedSizeListType::ComputeFingerprint() const {
-  const auto& child_fingerprint = children_[0]->fingerprint();
+  const auto& child_fingerprint = value_type()->fingerprint();
   if (!child_fingerprint.empty()) {
     std::stringstream ss;
-    ss << TypeIdFingerprint(*this) << "[" << list_size_ << "]"
+    ss << TypeIdFingerprint(*this);
+    if (value_field()->nullable()) {
+      ss << 'n';
+    } else {
+      ss << 'N';
+    }
+    ss << "[" << list_size_ << "]"
        << "{" << child_fingerprint << "}";
     return ss.str();
   }

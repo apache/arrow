@@ -68,6 +68,10 @@ namespace {
 // better vectorized performance when doing many smaller record reads
 constexpr int64_t kMinLevelBatchSize = 1024;
 
+// Batch size for reading and throwing away values during skip.
+// Both RecordReader and the ColumnReader use this for skipping.
+constexpr int64_t kSkipScratchBatchSize = 1024;
+
 inline bool HasSpacedValues(const ColumnDescriptor* descr) {
   if (descr->max_repetition_level() > 0) {
     // repeated+flat case
@@ -119,8 +123,8 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       }
       const uint8_t* decoder_data = data + 4;
       if (!rle_decoder_) {
-        rle_decoder_.reset(
-            new ::arrow::util::RleDecoder(decoder_data, num_bytes, bit_width_));
+        rle_decoder_ = std::make_unique<::arrow::util::RleDecoder>(decoder_data,
+                                                                   num_bytes, bit_width_);
       } else {
         rle_decoder_->Reset(decoder_data, num_bytes, bit_width_);
       }
@@ -137,7 +141,8 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
       if (!bit_packed_decoder_) {
-        bit_packed_decoder_.reset(new ::arrow::bit_util::BitReader(data, num_bytes));
+        bit_packed_decoder_ =
+            std::make_unique<::arrow::bit_util::BitReader>(data, num_bytes);
       } else {
         bit_packed_decoder_->Reset(data, num_bytes);
       }
@@ -162,7 +167,8 @@ void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
   bit_width_ = bit_util::Log2(max_level + 1);
 
   if (!rle_decoder_) {
-    rle_decoder_.reset(new ::arrow::util::RleDecoder(data, num_bytes, bit_width_));
+    rle_decoder_ =
+        std::make_unique<::arrow::util::RleDecoder>(data, num_bytes, bit_width_);
   } else {
     rle_decoder_->Reset(data, num_bytes, bit_width_);
   }
@@ -941,6 +947,14 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
     this->exposed_encoding_ = encoding;
   }
 
+  // Allocate enough scratch space to accommodate skipping 16-bit levels or any
+  // value type.
+  void InitScratchForSkip();
+
+  // Scratch space for reading and throwing away rep/def levels and values when
+  // skipping.
+  std::shared_ptr<ResizableBuffer> scratch_for_skip_;
+
  private:
   // Read dictionary indices. Similar to ReadValues but decode data to dictionary indices.
   // This function is called only by ReadBatchWithDictionary().
@@ -1152,6 +1166,15 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
 }
 
 template <typename DType>
+void TypedColumnReaderImpl<DType>::InitScratchForSkip() {
+  if (this->scratch_for_skip_ == nullptr) {
+    int value_size = type_traits<DType::type_num>::value_byte_size;
+    this->scratch_for_skip_ = AllocateBuffer(
+        this->pool_, kSkipScratchBatchSize * std::max<int>(sizeof(int16_t), value_size));
+  }
+}
+
+template <typename DType>
 int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_values_to_skip) {
   int64_t values_to_skip = num_values_to_skip;
   // Optimization: Do not call HasNext() when values_to_skip == 0.
@@ -1165,23 +1188,16 @@ int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_values_to_skip) {
     } else {
       // We need to read this Page
       // Jump to the right offset in the Page
-      int64_t batch_size =
-          kMinLevelBatchSize;  // ReadBatch with a smaller memory footprint
       int64_t values_read = 0;
-
-      // This will be enough scratch space to accommodate 16-bit levels or any
-      // value type
-      int value_size = type_traits<DType::type_num>::value_byte_size;
-      std::shared_ptr<ResizableBuffer> scratch = AllocateBuffer(
-          this->pool_, batch_size * std::max<int>(sizeof(int16_t), value_size));
-
+      InitScratchForSkip();
+      ARROW_DCHECK_NE(this->scratch_for_skip_, nullptr);
       do {
-        batch_size = std::min(batch_size, values_to_skip);
-        values_read =
-            ReadBatch(static_cast<int>(batch_size),
-                      reinterpret_cast<int16_t*>(scratch->mutable_data()),
-                      reinterpret_cast<int16_t*>(scratch->mutable_data()),
-                      reinterpret_cast<T*>(scratch->mutable_data()), &values_read);
+        int64_t batch_size = std::min(kSkipScratchBatchSize, values_to_skip);
+        values_read = ReadBatch(
+            static_cast<int>(batch_size),
+            reinterpret_cast<int16_t*>(this->scratch_for_skip_->mutable_data()),
+            reinterpret_cast<int16_t*>(this->scratch_for_skip_->mutable_data()),
+            reinterpret_cast<T*>(this->scratch_for_skip_->mutable_data()), &values_read);
         values_to_skip -= values_read;
       } while (values_read > 0 && values_to_skip > 0);
     }
@@ -1517,18 +1533,16 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   // Throws an error if it could not read 'num_values'.
   void ReadAndThrowAwayValues(int64_t num_values) {
     int64_t values_left = num_values;
-    int64_t batch_size = kMinLevelBatchSize;  // ReadBatch with a smaller memory footprint
     int64_t values_read = 0;
 
-    // This will be enough scratch space to accommodate 16-bit levels or any
+    // Allocate enough scratch space to accommodate 16-bit levels or any
     // value type
-    int value_size = type_traits<DType::type_num>::value_byte_size;
-    std::shared_ptr<ResizableBuffer> scratch = AllocateBuffer(
-        this->pool_, batch_size * std::max<int>(sizeof(int16_t), value_size));
+    this->InitScratchForSkip();
+    ARROW_DCHECK_NE(this->scratch_for_skip_, nullptr);
     do {
-      batch_size = std::min<int64_t>(batch_size, values_left);
-      values_read =
-          this->ReadValues(batch_size, reinterpret_cast<T*>(scratch->mutable_data()));
+      int64_t batch_size = std::min<int64_t>(kSkipScratchBatchSize, values_left);
+      values_read = this->ReadValues(
+          batch_size, reinterpret_cast<T*>(this->scratch_for_skip_->mutable_data()));
       values_left -= values_read;
     } while (values_read > 0 && values_left > 0);
     if (values_left > 0) {
@@ -1859,7 +1873,7 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
     DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
     int byte_width = descr_->type_length();
     std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
-    builder_.reset(new ::arrow::FixedSizeBinaryBuilder(type, this->pool_));
+    builder_ = std::make_unique<::arrow::FixedSizeBinaryBuilder>(type, this->pool_);
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
@@ -1911,7 +1925,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
                                ::arrow::MemoryPool* pool)
       : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool) {
     DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-    accumulator_.builder.reset(new ::arrow::BinaryBuilder(pool));
+    accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {

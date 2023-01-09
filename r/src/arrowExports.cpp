@@ -102,7 +102,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // array.cpp
-int Array__length(const std::shared_ptr<arrow::Array>& x);
+r_vec_size Array__length(const std::shared_ptr<arrow::Array>& x);
 extern "C" SEXP _arrow_Array__length(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
@@ -2426,12 +2426,13 @@ BEGIN_CPP11
 END_CPP11
 }
 // datatype.cpp
-bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs, const std::shared_ptr<arrow::DataType>& rhs);
-extern "C" SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
+bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs, const std::shared_ptr<arrow::DataType>& rhs, bool check_metadata);
+extern "C" SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp, SEXP check_metadata_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type lhs(lhs_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type rhs(rhs_sexp);
-	return cpp11::as_sexp(DataType__Equals(lhs, rhs));
+	arrow::r::Input<bool>::type check_metadata(check_metadata_sexp);
+	return cpp11::as_sexp(DataType__Equals(lhs, rhs, check_metadata));
 END_CPP11
 }
 // datatype.cpp
@@ -3260,8 +3261,8 @@ END_CPP11
 }
 // filesystem.cpp
 #if defined(ARROW_R_WITH_S3)
-std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(bool anonymous, std::string access_key, std::string secret_key, std::string session_token, std::string role_arn, std::string session_name, std::string external_id, int load_frequency, std::string region, std::string endpoint_override, std::string scheme, std::string proxy_options, bool background_writes, bool allow_bucket_creation, bool allow_bucket_deletion);
-extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP proxy_options_sexp, SEXP background_writes_sexp, SEXP allow_bucket_creation_sexp, SEXP allow_bucket_deletion_sexp){
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(bool anonymous, std::string access_key, std::string secret_key, std::string session_token, std::string role_arn, std::string session_name, std::string external_id, int load_frequency, std::string region, std::string endpoint_override, std::string scheme, std::string proxy_options, bool background_writes, bool allow_bucket_creation, bool allow_bucket_deletion, double connect_timeout, double request_timeout);
+extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP proxy_options_sexp, SEXP background_writes_sexp, SEXP allow_bucket_creation_sexp, SEXP allow_bucket_deletion_sexp, SEXP connect_timeout_sexp, SEXP request_timeout_sexp){
 BEGIN_CPP11
 	arrow::r::Input<bool>::type anonymous(anonymous_sexp);
 	arrow::r::Input<std::string>::type access_key(access_key_sexp);
@@ -3278,11 +3279,13 @@ BEGIN_CPP11
 	arrow::r::Input<bool>::type background_writes(background_writes_sexp);
 	arrow::r::Input<bool>::type allow_bucket_creation(allow_bucket_creation_sexp);
 	arrow::r::Input<bool>::type allow_bucket_deletion(allow_bucket_deletion_sexp);
-	return cpp11::as_sexp(fs___S3FileSystem__create(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion));
+	arrow::r::Input<double>::type connect_timeout(connect_timeout_sexp);
+	arrow::r::Input<double>::type request_timeout(request_timeout_sexp);
+	return cpp11::as_sexp(fs___S3FileSystem__create(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, connect_timeout, request_timeout));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP proxy_options_sexp, SEXP background_writes_sexp, SEXP allow_bucket_creation_sexp, SEXP allow_bucket_deletion_sexp){
+extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP proxy_options_sexp, SEXP background_writes_sexp, SEXP allow_bucket_creation_sexp, SEXP allow_bucket_deletion_sexp, SEXP connect_timeout_sexp, SEXP request_timeout_sexp){
 	Rf_error("Cannot call fs___S3FileSystem__create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -5511,7 +5514,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_struct__", (DL_FUNC) &_arrow_struct__, 1}, 
 		{ "_arrow_DataType__ToString", (DL_FUNC) &_arrow_DataType__ToString, 1}, 
 		{ "_arrow_DataType__name", (DL_FUNC) &_arrow_DataType__name, 1}, 
-		{ "_arrow_DataType__Equals", (DL_FUNC) &_arrow_DataType__Equals, 2}, 
+		{ "_arrow_DataType__Equals", (DL_FUNC) &_arrow_DataType__Equals, 3}, 
 		{ "_arrow_DataType__num_fields", (DL_FUNC) &_arrow_DataType__num_fields, 1}, 
 		{ "_arrow_DataType__fields", (DL_FUNC) &_arrow_DataType__fields, 1}, 
 		{ "_arrow_DataType__id", (DL_FUNC) &_arrow_DataType__id, 1}, 
@@ -5607,7 +5610,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___SubTreeFileSystem__base_path", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__base_path, 1}, 
 		{ "_arrow_fs___FileSystemFromUri", (DL_FUNC) &_arrow_fs___FileSystemFromUri, 1}, 
 		{ "_arrow_fs___CopyFiles", (DL_FUNC) &_arrow_fs___CopyFiles, 6}, 
-		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 15}, 
+		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 17}, 
 		{ "_arrow_fs___S3FileSystem__region", (DL_FUNC) &_arrow_fs___S3FileSystem__region, 1}, 
 		{ "_arrow_fs___GcsFileSystem__Make", (DL_FUNC) &_arrow_fs___GcsFileSystem__Make, 2}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 

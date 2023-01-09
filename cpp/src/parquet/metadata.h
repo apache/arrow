@@ -179,7 +179,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   int64_t total_compressed_size() const;
   int64_t total_uncompressed_size() const;
   std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const;
-  std::optional<IndexLocation> GetColumIndexLocation() const;
+  std::optional<IndexLocation> GetColumnIndexLocation() const;
   std::optional<IndexLocation> GetOffsetIndexLocation() const;
 
  private:
@@ -282,11 +282,20 @@ class PARQUET_EXPORT FileMetaData {
 
   bool Equals(const FileMetaData& other) const;
 
-  /// \brief The number of top-level columns in the schema.
+  /// \brief The number of parquet "leaf" columns.
   ///
   /// Parquet thrift definition requires that nested schema elements are
-  /// flattened. This method returns the number of columns in the un-flattened
+  /// flattened. This method returns the number of columns in the flattened
   /// version.
+  /// For instance, if the schema looks like this :
+  /// 0 foo.bar
+  ///       foo.bar.baz           0
+  ///       foo.bar.baz2          1
+  ///   foo.qux                   2
+  /// 1 foo2                      3
+  /// 2 foo3                      4
+  /// This method will return 5, because there are 5 "leaf" fields (so 5
+  /// flattened fields)
   int num_columns() const;
 
   /// \brief The number of flattened schema elements.

@@ -352,8 +352,9 @@ GARROW_AVAILABLE_IN_6_0
 void
 garrow_execute_plan_stop(GArrowExecutePlan *plan);
 GARROW_AVAILABLE_IN_6_0
-void
-garrow_execute_plan_wait(GArrowExecutePlan *plan);
+gboolean
+garrow_execute_plan_wait(GArrowExecutePlan *plan,
+                         GError **error);
 
 
 GArrowCastOptions *garrow_cast_options_new(void);
