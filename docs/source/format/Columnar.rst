@@ -768,7 +768,7 @@ below.
 .. _run-end-encoded-layout:
 
 Run-End Encoded Layout
--------------------------
+----------------------
 
 Run-end encoding (REE) is a variation of run-length encoding (RLE). These
 encodings are well-suited for representing data containing sequences of the
@@ -776,9 +776,9 @@ same value, called runs. In run-end encoding, each run is represented as a
 value and an integer giving the index in the array where the run ends.
 
 Any array can be run-end encoded. A run-end encoded array has no buffers
-by itself, but has two child arrays. The first one holds a signed integer
-called a "run end" for each run. The run ends array can hold either 16, 32, or
-64-bit integers. The actual values of each run are held in the second child array.
+by itself, but has two child arrays. The first child array, called the run ends array,
+holds either 16, 32, or 64-bit signed integers. The actual values of each run
+are held in the second child array.
 For the purposes of determining field names and schemas, these child arrays
 are prescribed the standard names of **run_ends** and **values** respectively.
 
@@ -792,7 +792,7 @@ which the lengths of the runs are represented directly, and in which random
 access is less efficient.)
 
 A run must have have a length of at least 1. This means the values in the
-run ends array all positive and in strictly ascending order. A run end cannot be
+run ends array all are positive and in strictly ascending order. A run end cannot be
 null.
 
 As an example, you could have the following data: ::
@@ -812,7 +812,7 @@ In Run-end-encoded form, this could appear as:
         * Validity bitmap buffer: Not required
         * Values buffer
 
-          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes  6-63           |
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-63           |
           |-------------|-------------|-------------|-----------------------|
           | 4           | 6           | 7           | unspecified (padding) |
 
@@ -826,7 +826,7 @@ In Run-end-encoded form, this could appear as:
 
         * Values buffer
 
-          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes  6-63           |
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-63           |
           |-------------|-------------|-------------|-----------------------|
           | 1.0         | unspecified | 2.0         | unspecified (padding) |
 
