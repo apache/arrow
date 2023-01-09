@@ -1872,10 +1872,6 @@ StructScalar__GetFieldByName <- function(s, name) {
   .Call(`_arrow_StructScalar__GetFieldByName`, s, name)
 }
 
-Scalar__as_vector <- function(scalar) {
-  .Call(`_arrow_Scalar__as_vector`, scalar)
-}
-
 MakeArrayFromScalar <- function(scalar, n) {
   .Call(`_arrow_MakeArrayFromScalar`, scalar, n)
 }
