@@ -183,7 +183,10 @@ check_csv_file_format_args <- function(...) {
   # Filter out arguments meant for CsvConvertOptions/CsvReadOptions
   convert_opts <- c(names(formals(CsvConvertOptions$create)))
 
-  read_opts <- c(names(formals(CsvReadOptions$create)), "skip")
+  read_opts <- c(
+    names(formals(CsvReadOptions$create)),
+    names(formals(readr_to_csv_read_options))
+  )
 
   # We only currently support all of the readr options for parseoptions
   parse_opts <- c(
@@ -224,7 +227,8 @@ check_csv_file_format_args <- function(...) {
   )
 
   readr_opts <- c(
-    names(formals(readr_to_csv_parse_options))
+    names(formals(readr_to_csv_parse_options)),
+    names(formals(readr_to_csv_read_options))
   )
 
   is_arrow_opt <- !is.na(pmatch(opt_names, arrow_opts))
@@ -241,12 +245,29 @@ check_csv_file_format_args <- function(...) {
   }
 }
 
+check_ambiguous_options <- function(passed_opts, opts1, opts2) {
+  is_ambig_opt <- is.na(pmatch(passed_opts, c(opts1, opts2)))
+  ambig_opts <- passed_opts[is_ambig_opt]
+  if (length(ambig_opts)) {
+    stop("Ambiguous ",
+      ngettext(length(ambig_opts), "option", "options"),
+      ": ",
+      oxford_paste(ambig_opts),
+      ". Use full argument names",
+      call. = FALSE
+    )
+  }
+}
+
 # Support both readr-style option names and Arrow C++ option names
 csv_file_format_parse_options <- function(...) {
   opts <- list(...)
   # Filter out arguments meant for CsvConvertOptions/CsvReadOptions
   convert_opts <- names(formals(CsvConvertOptions$create))
-  read_opts <- c(names(formals(CsvReadOptions$create)), "skip")
+  read_opts <- c(
+    names(formals(CsvReadOptions$create)),
+    names(formals(readr_to_csv_read_options))
+  )
   opts[convert_opts] <- NULL
   opts[read_opts] <- NULL
   opts[["schema"]] <- NULL
@@ -261,17 +282,7 @@ csv_file_format_parse_options <- function(...) {
   # Catch options with ambiguous partial names (such as "del") that make it
   # unclear whether the user is specifying Arrow C++ options ("delimiter") or
   # readr-style options ("delim")
-  is_ambig_opt <- is.na(pmatch(opt_names, c(arrow_opts, readr_opts)))
-  ambig_opts <- opt_names[is_ambig_opt]
-  if (length(ambig_opts)) {
-    stop("Ambiguous ",
-      ngettext(length(ambig_opts), "option", "options"),
-      ": ",
-      oxford_paste(ambig_opts),
-      ". Use full argument names",
-      call. = FALSE
-    )
-  }
+  check_ambiguous_options(opt_names, arrow_opts, readr_opts)
 
   if (any(is_readr_opt)) {
     # Catch cases when the user specifies a mix of Arrow C++ options and
@@ -292,7 +303,10 @@ csv_file_format_convert_opts <- function(...) {
   # Filter out arguments meant for CsvParseOptions/CsvReadOptions
   arrow_opts <- names(formals(CsvParseOptions$create))
   readr_opts <- names(formals(readr_to_csv_parse_options))
-  read_opts <- c(names(formals(CsvReadOptions$create)), "skip")
+  read_opts <- c(
+    names(formals(CsvReadOptions$create)),
+    names(formals(readr_to_csv_read_options))
+  )
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[read_opts] <- NULL
@@ -309,10 +323,38 @@ csv_file_format_read_opts <- function(schema = NULL, ...) {
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[convert_opts] <- NULL
-  if (!is.null(schema) && is.null(opts[["column_names"]])) {
-    opts[["column_names"]] <- names(schema)
+
+  opt_names <- names(opts)
+  arrow_opts <- c(names(formals(CsvReadOptions$create)))
+  readr_opts <- c(names(formals(readr_to_csv_read_options)))
+
+  is_arrow_opt <- !is.na(match(opt_names, arrow_opts))
+  is_readr_opt <- !is.na(match(opt_names, readr_opts))
+
+  check_ambiguous_options(opt_names, arrow_opts, readr_opts)
+
+  if (!is.null(schema) && is.null(opts[["column_names"]]) && is.null(opts[["col_names"]])) {
+    if (any(is_readr_opt)) {
+      opts[["col_names"]] <- names(schema)
+    } else {
+      opts[["column_names"]] <- names(schema)
+    }
   }
-  do.call(CsvReadOptions$create, opts)
+
+  if (any(is_readr_opt)) {
+    # Catch cases when the user specifies a mix of Arrow C++ options and
+    # readr-style options
+    if (!all(is_readr_opt)) {
+      abort(c(
+        "Additional CSV reading options must be Arrow-style or readr-style, but not both.",
+        i = sprintf("Arrow options used: %s.", oxford_paste(opt_names[is_arrow_opt])),
+        i = sprintf("readr options used: %s.", oxford_paste(opt_names[is_readr_opt]))
+      ))
+    }
+    do.call(readr_to_csv_read_options, opts) # all options have readr-style names
+  } else {
+    do.call(CsvReadOptions$create, opts) # all options have Arrow C++ names
+  }
 }
 
 #' Format-specific scan options
