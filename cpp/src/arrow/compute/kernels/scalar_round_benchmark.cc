@@ -67,17 +67,17 @@ static void Ceil(benchmark::State& state) {
 
 template <typename ArrowType, RoundMode Mode>
 static void Floor(benchmark::State& state) {
-  RoundArrayBenchmark<FloatType, Mode>(state, "floor");
+  RoundArrayBenchmark<ArrowType, Mode>(state, "floor");
 }
 
 template <typename ArrowType, RoundMode Mode>
 static void Round(benchmark::State& state) {
-  RoundArrayBenchmark<FloatType, Mode>(state, "round");
+  RoundArrayBenchmark<ArrowType, Mode>(state, "round");
 }
 
 template <typename ArrowType, RoundMode Mode>
 static void Trunc(benchmark::State& state) {
-  RoundArrayBenchmark<FloatType, Mode>(state, "trunc");
+  RoundArrayBenchmark<ArrowType, Mode>(state, "trunc");
 }
 
 #ifdef ALL_ROUND_BENCHMARKS
@@ -111,14 +111,9 @@ static void Trunc(benchmark::State& state) {
   DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(OP, FloatType);  \
   DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(OP, DoubleType);
 
-#define DECLARE_DECIMAL_ROUND_BENCHMARKS(OP)                   \
-  DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(OP, Decimal128Type); \
-  DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(OP, Decimal256Type)
-
 DECLARE_ROUND_BENCHMARKS(Ceil);
 DECLARE_ROUND_BENCHMARKS(Floor);
 DECLARE_ROUND_BENCHMARKS(Round);
-DECLARE_DECIMAL_ROUND_BENCHMARKS(Round);
 DECLARE_ROUND_BENCHMARKS(Trunc);
 
 }  // namespace compute
