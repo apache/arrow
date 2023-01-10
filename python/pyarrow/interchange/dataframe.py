@@ -53,9 +53,7 @@ class _PyArrowDataFrame:
         self._df = df
         # ``nan_as_null`` is a keyword intended for the consumer to tell the
         # producer to overwrite null values in the data with ``NaN`` (or
-        # ``NaT``). This currently has no effect; once support for nullable
-        # extension dtypes is added, this value should be propagated to
-        # columns.
+        # ``NaT``).
         if nan_as_null is True:
             raise RuntimeError(
                 "nan_as_null=True currently has no effect, "
