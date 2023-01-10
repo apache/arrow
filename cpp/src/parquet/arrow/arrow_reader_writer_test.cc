@@ -4768,12 +4768,15 @@ class TestIntegerAnnotateDecimalTypeParquetIO : public TestParquetIO<TestType> {
     } else {
       auto& expected_values = dynamic_cast<const ::arrow::Decimal256Array&>(values);
       auto& read_values = dynamic_cast<const ::arrow::Decimal128Array&>(*out);
+      ASSERT_EQ(expected_values.length(), read_values.length());
       ASSERT_EQ(expected_values.null_count(), read_values.null_count());
-      ASSERT_EQ(0, read_values.null_count());
       ASSERT_EQ(expected_values.length(), read_values.length());
       for (int64_t i = 0; i < expected_values.length(); ++i) {
-        ASSERT_EQ(::arrow::Decimal256(expected_values.Value(i)).ToString(0),
-                  ::arrow::Decimal128(read_values.Value(i)).ToString(0));
+        ASSERT_EQ(expected_values.IsNull(i), read_values.IsNull(i));
+        if (!expected_values.IsNull(i)) {
+          ASSERT_EQ(::arrow::Decimal256(expected_values.Value(i)).ToString(0),
+                    ::arrow::Decimal128(read_values.Value(i)).ToString(0));
+        }
       }
     }
   }
@@ -4788,9 +4791,16 @@ typedef ::testing::Types<
 
 TYPED_TEST_SUITE(TestIntegerAnnotateDecimalTypeParquetIO, DecimalTestTypes);
 
-TYPED_TEST(TestIntegerAnnotateDecimalTypeParquetIO, SingleDecimalColumn) {
+TYPED_TEST(TestIntegerAnnotateDecimalTypeParquetIO, SingleNonNullableDecimalColumn) {
   std::shared_ptr<Array> values;
   ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
+  ASSERT_NO_FATAL_FAILURE(this->WriteColumn(values));
+  ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleDecimalColumnFile(*values));
+}
+
+TYPED_TEST(TestIntegerAnnotateDecimalTypeParquetIO, SingleNullableDecimalColumn) {
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, SMALL_SIZE / 2, kDefaultSeed, &values));
   ASSERT_NO_FATAL_FAILURE(this->WriteColumn(values));
   ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleDecimalColumnFile(*values));
 }
