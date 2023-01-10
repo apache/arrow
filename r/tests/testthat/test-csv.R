@@ -669,7 +669,7 @@ test_that("CSV reading/parsing/convert options can be passed in as lists", {
   tf <- tempfile()
   on.exit(unlink(tf))
 
-  writeLines('"x"\nNA\nNA\n"NULL"\n\n"foo"\n', tf, )
+  writeLines('"x"\nNA\nNA\n"NULL"\n\n"foo"\n', tf)
 
   tab1 <- read_csv_arrow(
     tf,
