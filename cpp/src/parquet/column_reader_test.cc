@@ -757,6 +757,52 @@ TEST_F(RecordReaderTest, BasicReadRepeatedField) {
              /*levels_position=*/0);
 }
 
+// Tests reading the nullable values without saving a space for nulls.
+TEST_F(RecordReaderTest, ReadDenseForNullable) {
+  Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED);
+
+  // Records look like: {[10], null, [20, 20], null, [30, 30, 30], null}
+  std::vector<std::shared_ptr<Page>> pages;
+  std::vector<int32_t> values = {10, 20, 20, 30, 30, 30};
+  std::vector<int16_t> def_levels = {1, 0, 1, 1, 0, 1, 1, 1, 0};
+  std::vector<int16_t> rep_levels = {0, 0, 0, 1, 0, 0, 1, 1, 0};
+
+  std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+      descr_.get(), values, /*num_values=*/static_cast<int>(def_levels.size()),
+      Encoding::PLAIN,
+      /*indices=*/{},
+      /*indices_size=*/0, def_levels, level_info_.def_level, rep_levels,
+      level_info_.rep_level);
+  pages.push_back(std::move(page));
+  auto pager = std::make_unique<MockPageReader>(pages);
+  record_reader_->SetPageReader(std::move(pager));
+
+  // Read [10], null
+  int64_t records_read =
+      record_reader_->ReadRecords(/*num_records=*/2, /*read_dense_for_nullable=*/false);
+  ASSERT_EQ(records_read, 2);
+  CheckState(/*values_written=*/2, /*null_count=*/1, /*levels_written=*/9,
+             /*levels_position=*/2);
+  CheckReadValues(/*expected_values=*/{10, kNullValue}, /*expected_defs=*/{1, 0},
+                  /*expected_reps=*/{0, 0});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/7,
+             /*levels_position=*/0);
+
+  // Read [20, 20], null, [30, 30, 30]
+  records_read =
+      record_reader_->ReadRecords(/*num_records=*/3, /*read_dense_for_nullable=*/true);
+  ASSERT_EQ(records_read, 3);
+  CheckState(/*values_written=*/5, /*null_count=*/1, /*levels_written=*/7,
+             /*levels_position=*/6);
+  CheckReadValues(/*expected_values=*/{20, 20, 30, 30, 30},
+                  /*expected_defs=*/{1, 1, 0, 1, 1, 1},
+                  /*expected_reps=*/{0, 1, 0, 0, 1, 1});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
+             /*levels_position=*/0);
+}
+
 // Test that we can skip required top level field.
 TEST_F(RecordReaderTest, SkipRequiredTopLevel) {
   Init(/*max_def_level=*/0, /*max_rep_level=*/0, Repetition::REQUIRED);

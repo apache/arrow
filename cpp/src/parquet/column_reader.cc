@@ -1333,12 +1333,12 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     return bytes_for_values;
   }
 
-  int64_t ReadRecords(int64_t num_records) override {
+  int64_t ReadRecords(int64_t num_records, bool read_dense_for_nullable) override {
     // Delimit records, then read values at the end
     int64_t records_read = 0;
 
     if (levels_position_ < levels_written_) {
-      records_read += ReadRecordData(num_records);
+      records_read += ReadRecordData(num_records, read_dense_for_nullable);
     }
 
     int64_t level_batch_size = std::max<int64_t>(kMinLevelBatchSize, num_records);
@@ -1392,11 +1392,11 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
         }
 
         levels_written_ += levels_read;
-        records_read += ReadRecordData(num_records - records_read);
+        records_read += ReadRecordData(num_records - records_read, read_dense_for_nullable);
       } else {
         // No repetition or definition levels
         batch_size = std::min(num_records - records_read, batch_size);
-        records_read += ReadRecordData(batch_size);
+        records_read += ReadRecordData(batch_size, read_dense_for_nullable);
       }
     }
 
@@ -1804,7 +1804,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   // Return number of logical records read
-  int64_t ReadRecordData(int64_t num_records) {
+  int64_t ReadRecordData(int64_t num_records, bool read_dense_for_nullable) {
     // Conservative upper bound
     const int64_t possible_num_values =
         std::max<int64_t>(num_records, levels_written_ - levels_position_);
@@ -1840,7 +1840,11 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       values_to_read = validity_io.values_read - validity_io.null_count;
       null_count = validity_io.null_count;
       DCHECK_GE(values_to_read, 0);
-      ReadValuesSpaced(validity_io.values_read, null_count);
+      if (read_dense_for_nullable) {
+        ReadValuesDense(values_to_read);
+      } else {
+        ReadValuesSpaced(validity_io.values_read, null_count);
+      }
     } else {
       DCHECK_GE(values_to_read, 0);
       ReadValuesDense(values_to_read);
@@ -1852,8 +1856,14 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       // Flat, non-repeated
       this->ConsumeBufferedValues(values_to_read);
     }
-    // Total values, including null spaces, if any
-    values_written_ += values_to_read + null_count;
+    if (read_dense_for_nullable) {
+      // Total values, if reading dense, we don't have the nulls in the values
+      // vector.
+      values_written_ += values_to_read;
+    } else {
+      // Total values, including null spaces, if any
+      values_written_ += values_to_read + null_count;
+    }
     null_count_ += null_count;
 
     return records_read;

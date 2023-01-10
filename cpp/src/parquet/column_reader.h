@@ -317,9 +317,11 @@ class PARQUET_EXPORT RecordReader {
 
   /// \brief Attempt to read indicated number of records from column chunk
   /// Note that for repeated fields, a record may have more than one value
-  /// and all of them are read.
+  /// and all of them are read. If read_dense_for_nullable is true, it will
+  /// not leave any space for null values. Otherwise, it will read spaced.
   /// \return number of records read
-  virtual int64_t ReadRecords(int64_t num_records) = 0;
+  virtual int64_t ReadRecords(int64_t num_records,
+                              bool read_dense_for_nullable = false) = 0;
 
   /// \brief Attempt to skip indicated number of records from column chunk.
   /// Note that for repeated fields, a record may have more than one value
@@ -367,6 +369,8 @@ class PARQUET_EXPORT RecordReader {
   uint8_t* values() const { return values_->mutable_data(); }
 
   /// \brief Number of values written including nulls (if any)
+  /// If reading dense, by setting read_dense_for_nullable to true in
+  /// ReadRecords, this will not include nulls.
   /// There is no read-ahead/buffering for values.
   int64_t values_written() const { return values_written_; }
 
@@ -381,6 +385,7 @@ class PARQUET_EXPORT RecordReader {
   int64_t levels_written() const { return levels_written_; }
 
   /// \brief Number of nulls in the leaf that we have read so far.
+  /// This is valid and set even if read_dense_for_nullable is set to true.
   int64_t null_count() const { return null_count_; }
 
   /// \brief True if the leaf values are nullable
