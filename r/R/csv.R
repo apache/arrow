@@ -207,6 +207,7 @@ read_delim_arrow <- function(file,
     }
     on.exit(file$close())
   }
+
   reader <- CsvTableReader$create(
     file,
     read_options = read_options,
