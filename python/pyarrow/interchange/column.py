@@ -233,7 +233,8 @@ class _PyArrowColumn:
             try:
                 bit_width = dtype.bit_width
             except ValueError:
-                # in case of a variable-length strings, considered as array of bytes (8 bits)
+                # in case of a variable-length strings, considered as array
+                # of bytes (8 bits)
                 bit_width = 8
             self._dtype = self._dtype_from_arrowdtype(dtype, bit_width)
 
