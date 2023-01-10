@@ -136,6 +136,18 @@ CsvFileFormat$create <- function(...,
     ))
   }
 
+  if (!inherits(read_options, "CsvReadOptions")) {
+    read_options <- do.call(CsvReadOptions$create, read_options)
+  }
+
+  if (!inherits(convert_options, "CsvConvertOptions")) {
+    convert_options <- do.call(CsvConvertOptions$create, convert_options)
+  }
+
+  if (!inherits(opts, "CsvParseOptions")) {
+    opts <- do.call(CsvParseOptions$create, opts)
+  }
+
   column_names <- read_options$column_names
   schema_names <- names(schema)
 

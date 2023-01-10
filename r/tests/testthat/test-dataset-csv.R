@@ -444,7 +444,6 @@ test_that("skip argument in open_dataset", {
 })
 
 test_that("error message if non-schema passed in as schema to open_dataset", {
-
   # passing in the schema function, not an actual schema
   expect_error(
     open_dataset(csv_dir, format = "csv", schema = schema),
@@ -459,20 +458,21 @@ test_that("CSV reading/parsing/convert options can be passed in as lists", {
 
   writeLines('"x"\n"y"\nNA\nNA\n"NULL"\n\n"foo"\n', tf, )
 
-  ds <- open_dataset(
+  ds1 <- open_dataset(
     tf,
     format = "csv",
-    convert_options = list(null_values = c("NA", "NULL")),
+    convert_options = list(null_values = c("NA", "NULL"), strings_can_be_null = TRUE),
     read_options = list(skip_rows = 1L)
-  )
+  ) %>%
+    collect()
 
-  open_dataset(
+  ds2 <- open_dataset(
     tf,
     format = "csv",
-    convert_options = CsvConvertOptions$create(null_values = c(NA, "NA", "NULL")),
+    convert_options = CsvConvertOptions$create(null_values = c(NA, "NA", "NULL"), strings_can_be_null = TRUE),
     read_options = CsvReadOptions$create(skip_rows = 1L)
   ) %>%
     collect()
 
+  expect_equal(ds1, ds2)
 })
-
