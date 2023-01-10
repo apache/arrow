@@ -49,6 +49,8 @@ static void ArrayArrayKernel(benchmark::State& state) {
 }
 
 void SetArgs(benchmark::internal::Benchmark* bench) {
+  bench->ArgNames({"size1", "size2"});
+
   BenchmarkSetArgsWithSizes(bench, {kL1Size, kL2Size});
 }
 
