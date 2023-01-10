@@ -36,6 +36,24 @@
 
 namespace arrow {
 
+namespace internal {
+
+template <class Builder, class V>
+class ArrayBuilderExtraOps {
+ public:
+  Status AppendOrNull(const std::optional<V>& value) {
+    auto* self = static_cast<Builder*>(this);
+    return value.has_value() ? self->Append(*value) : self->AppendNull();
+  }
+
+  void UnsafeAppendOrNull(const std::optional<V>& value) {
+    auto* self = static_cast<Builder*>(this);
+    return value.has_value() ? self->UnsafeAppend(*value) : self->UnsafeAppendNull();
+  }
+};
+
+}  // namespace internal
+
 /// \defgroup numeric-builders Concrete builder subclasses for numeric types
 /// @{
 /// @}
