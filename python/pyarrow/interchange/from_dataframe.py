@@ -174,10 +174,9 @@ def column_to_array(
     pa.Array
     """
     buffers = col.get_buffers()
-    null_count = col.null_count
     data = buffers_to_array(buffers, col.size(),
                             col.describe_null,
-                            col.offset, null_count)
+                            col.offset)
     return data
 
 
@@ -299,7 +298,6 @@ def buffers_to_array(
     length: int,
     describe_null: ColumnNullType,
     offset: int = 0,
-    null_count: int = -1
 ) -> pa.Array:
     """
     Build a PyArrow array from the passed buffer.
@@ -316,7 +314,6 @@ def buffers_to_array(
         as a tuple ``(kind, value)``
     offset : int, default: 0
         Number of elements to offset from the start of the buffer.
-    null_count : int, default: -1
 
     Returns
     -------
@@ -368,27 +365,18 @@ def buffers_to_array(
                                              base=offset_buff)
 
         if data_type[2] == 'U':
-            if not null_count:
-                null_count = -1
-            array = pa.LargeStringArray.from_buffers(
-                length,
-                offset_pa_buffer,
-                data_pa_buffer,
-                validity_pa_buff,
-                null_count=null_count,
-                offset=offset,
-            )
+            string_type = pa.large_string()
         else:
             if offset_bit_width == 64:
                 string_type = pa.large_string()
             else:
                 string_type = pa.string()
-            array = pa.Array.from_buffers(
-                string_type,
-                length,
-                [validity_pa_buff, offset_pa_buffer, data_pa_buffer],
-                offset=offset,
-            )
+        array = pa.Array.from_buffers(
+            string_type,
+            length,
+            [validity_pa_buff, offset_pa_buffer, data_pa_buffer],
+            offset=offset,
+        )
     else:
         array = pa.Array.from_buffers(
             data_dtype,
