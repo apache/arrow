@@ -72,6 +72,25 @@ std::shared_ptr<compute::Expression> compute___expr__field_ref(std::string name)
 }
 
 // [[arrow::export]]
+std::shared_ptr<compute::Expression> compute___expr__nested_field_ref(
+    const std::shared_ptr<compute::Expression>& x, std::string name) {
+  if (auto field_ref = x->field_ref()) {
+    std::vector<arrow::FieldRef> ref_vec;
+    if (field_ref->IsNested()) {
+      ref_vec = *field_ref->nested_refs();
+    } else {
+      // There's just one
+      ref_vec.push_back(*field_ref);
+    }
+    // Add the new ref
+    ref_vec.push_back(arrow::FieldRef(std::move(name)));
+    return std::make_shared<compute::Expression>(compute::field_ref(std::move(ref_vec)));
+  } else {
+    // error
+  }
+}
+
+// [[arrow::export]]
 std::shared_ptr<compute::Expression> compute___expr__scalar(
     const std::shared_ptr<arrow::Scalar>& x) {
   return std::make_shared<compute::Expression>(compute::literal(std::move(x)));

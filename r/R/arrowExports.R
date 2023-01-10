@@ -1096,6 +1096,10 @@ compute___expr__field_ref <- function(name) {
   .Call(`_arrow_compute___expr__field_ref`, name)
 }
 
+compute___expr__nested_field_ref <- function(x, name) {
+  .Call(`_arrow_compute___expr__nested_field_ref`, x, name)
+}
+
 compute___expr__scalar <- function(x) {
   .Call(`_arrow_compute___expr__scalar`, x)
 }

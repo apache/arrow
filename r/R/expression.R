@@ -89,6 +89,24 @@ Expression$create <- function(function_name,
   expr
 }
 
+
+#' @export
+`[[.Expression` <- function(x, i, ...) {
+  # TODO: integer (positional) field refs are supported in C++
+  assert_that(is.string(name))
+  compute___expr__nested_field_ref(x, i)
+}
+
+#' @export
+`$.Expression` <- function(x, name, ...) {
+  assert_that(is.string(name))
+  if (name %in% ls(x)) {
+    get(name, x)
+  } else {
+    compute___expr__nested_field_ref(x, name)
+  }
+}
+
 Expression$field_ref <- function(name) {
   assert_that(is.string(name))
   compute___expr__field_ref(name)

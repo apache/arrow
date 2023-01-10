@@ -76,6 +76,18 @@ test_that("Field reference expression schemas and types", {
   expect_equal(x$type(), int32())
 })
 
+test_that("Nested field refs", {
+  x <- Expression$field_ref("x")
+  nested <- x$y
+  # TODO:
+  # * ToString if nested (not `FieldRef.Nested(FieldRef.Name(x) FieldRef.Name(y))`)
+  # * field_name method?
+  # * Error on trying to make nested field ref with non field ref
+  # * Test with [[ too
+  # * dplyr tests
+  print(nested)
+})
+
 test_that("Scalar expression schemas and types", {
   # type() works on scalars without setting the schema
   expect_equal(
