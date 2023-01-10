@@ -114,7 +114,7 @@ def _from_dataframe(df: DataFrameObject, allow_copy=True):
 def protocol_df_chunk_to_pyarrow(
     df: DataFrameObject,
     allow_copy: bool = True
-) -> pa.Table:
+) -> pa.RecordBatch:
     """
     Convert interchange protocol chunk to ``pa.RecordBatch``.
 
