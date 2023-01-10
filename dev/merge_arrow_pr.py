@@ -118,7 +118,8 @@ def git_default_branch_name():
         try:
             default_reference = run_cmd(
                 "git rev-parse --abbrev-ref origin/HEAD")
-            default_branch_name = default_reference.lstrip("origin/")
+            if default_branch_name.startswith("origin/"):
+                default_branch_name = default_branch_name[len("origin/"):]
             default_branch_name = default_branch_name.rstrip()
         except subprocess.CalledProcessError:
             # TODO: ARROW-18011 to track changing the hard coded default
