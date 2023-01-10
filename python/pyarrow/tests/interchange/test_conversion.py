@@ -169,13 +169,12 @@ def test_pandas_roundtrip(uint, int, float, np_float):
             "a": pa.array(arr, type=uint),
             "b": pa.array(arr, type=int),
             "c": pa.array(np.array(arr, dtype=np_float), type=float),
-            # String dtype errors as col.size is called as a property
-            # not method in pandas, see L255-L257 in
-            # pandas/core/interchange/from_dataframe.py
-            # "d": ["a", "", "c"],
-            # large string is not supported by pandas implementation
         }
     )
+    if Version(pd.__version__) >= Version("2.0"):
+        # See https://github.com/pandas-dev/pandas/issues/50554
+        table["d"] = ["a", "", "c"]
+        # large string is not supported by pandas implementation
 
     from pandas.api.interchange import (
         from_dataframe as pandas_from_dataframe
