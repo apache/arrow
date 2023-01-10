@@ -516,9 +516,9 @@ def validity_buffer_nan_sentinel(
         else:
             sentinel_dtype = data_dtype
         pyarrow_data = pa.Array.from_buffers(sentinel_dtype,
-                                        length,
-                                        [None, data_pa_buffer],
-                                        offset=offset)
+                                             length,
+                                             [None, data_pa_buffer],
+                                             offset=offset)
         sentinel_arr = pc.equal(pyarrow_data, sentinel_val)
         mask_bool = pc.invert(sentinel_arr)
         return mask_bool.buffers()[1]
