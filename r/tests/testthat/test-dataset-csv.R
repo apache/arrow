@@ -456,7 +456,7 @@ test_that("CSV reading/parsing/convert options can be passed in as lists", {
   tf <- tempfile()
   on.exit(unlink(tf))
 
-  writeLines('"x"\n"y"\nNA\nNA\n"NULL"\n\n"foo"\n', tf, )
+  writeLines('"x"\n"y"\nNA\nNA\n"NULL"\n\n"foo"\n', tf)
 
   ds1 <- open_dataset(
     tf,
