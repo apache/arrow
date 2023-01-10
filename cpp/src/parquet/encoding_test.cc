@@ -1434,20 +1434,30 @@ TEST(DeltaBitPackEncoding, MalfordMiniblockBitWidth) {
   auto decoder = MakeTypedDecoder<Int32Type>(Encoding::DELTA_BINARY_PACKED, descr.get());
   using c_type = parquet::Int32Type::c_type;
 
-  int encode_buffer_size = 274;
-  int num_values = 65;
-  c_type* decode_buf = nullptr;
-  std::vector<uint8_t> output_bytes;
-  int values_decoded = 0;
+  auto testHexBinary = [&decoder](std::string_view hex_string, int binary_buffer_size,
+                                  int expect_values_decoded) {
+    std::vector<uint8_t> binary_data(binary_buffer_size);
+    for (int i = 0; i < binary_buffer_size; ++i) {
+      ASSERT_OK(::arrow::ParseHexValue(hex_string.data() + i * 2, &binary_data[i]));
+    }
 
-  // Both good_data and bad_data is a DELTA_BINARY_PACKED INT32 Page with 65 values.
-  // For needed miniblocks, there bit-widths are all 32.
-  // There bit-widths for unneeded miniblocks are different:
-  // * good_data's unneeded bit-width is 0.
-  // * bad_data's unneeded bit-width is 165.
+    auto output_bytes = std::vector<uint8_t>(expect_values_decoded * sizeof(c_type));
+    auto decode_buf = reinterpret_cast<c_type*>(output_bytes.data());
+    decoder->SetData(expect_values_decoded, &binary_data[0], binary_buffer_size);
+    int values_decoded = decoder->Decode(decode_buf, expect_values_decoded);
+    ASSERT_EQ(expect_values_decoded, values_decoded);
+  };
+
+  // Both good_bitwidth_data and bad_bitwidth_data is a DELTA_BINARY_PACKED INT32 Page
+  // with 65 values. For needed miniblocks, there bit-widths are all 32. There bit-widths
+  // for unneeded miniblocks are different:
+  // * good_bitwidth_data's unneeded bit-width is 0.
+  // * bad_bitwidth_data's unneeded bit-width is 165.
   // We use Hex to represent good_data and bad_data.
+  constexpr int kEncodeBufferSize = 274;
+  constexpr int kExpectValues = 65;
   {
-    char good_data_hex[] =
+    std::string_view good_bitwidth_data_hex =
         "80010441BDA08DB708A488C0F1012020000089F79E53946D93CA242D48B21478591FDE6E4855CC03"
         "7024A4E8E56E1D20687C8BFB4DE880E73CE2E49E873BEB0B1DAD0E0169C7951C411CA76AD949D8ED"
         "FD9E07A485DF4410B4486253A6280335BB87494B7D61E40A8D487731BBC83A37E1E8EE2F5431150C"
@@ -1455,21 +1465,11 @@ TEST(DeltaBitPackEncoding, MalfordMiniblockBitWidth) {
         "7AB54F6667A80EA78D08DC61B4262CE28960B46B2D93785ED9933175A910415B50B30E9889C70ECD"
         "84C8856531E78B4E05B2AB27B1233E4BAB722869D785F5B8B1049955EFE200000000C6C2201E1836"
         "C0579B202A6A7395C761044AD151D5CEE992CBBA5AE937E54F29D28F86CC0627B9D1";
-    unsigned char good_data[274];
-    for (int i = 0; i < 274; ++i) {
-      auto s = ::arrow::ParseHexValue(&good_data_hex[i * 2], &good_data[i]);
-      ASSERT_TRUE(s.ok());
-    }
-
-    output_bytes = std::vector<uint8_t>(num_values * sizeof(c_type));
-    decode_buf = reinterpret_cast<c_type*>(output_bytes.data());
-    decoder->SetData(num_values, &good_data[0], encode_buffer_size);
-    values_decoded = decoder->Decode(decode_buf, num_values);
-    ASSERT_EQ(num_values, values_decoded);
+    testHexBinary(good_bitwidth_data_hex, kEncodeBufferSize, kExpectValues);
   }
 
   {
-    char bad_data_hex[] =
+    std::string_view bad_bitwidth_data_hex =
         "80010441BDA08DB708A488C0F1012020A5A589F79E53946D93CA242D48B21478591FDE6E4855CC03"
         "7024A4E8E56E1D20687C8BFB4DE880E73CE2E49E873BEB0B1DAD0E0169C7951C411CA76AD949D8ED"
         "FD9E07A485DF4410B4486253A6280335BB87494B7D61E40A8D487731BBC83A37E1E8EE2F5431150C"
@@ -1477,16 +1477,7 @@ TEST(DeltaBitPackEncoding, MalfordMiniblockBitWidth) {
         "7AB54F6667A80EA78D08DC61B4262CE28960B46B2D93785ED9933175A910415B50B30E9889C70ECD"
         "84C8856531E78B4E05B2AB27B1233E4BAB722869D785F5B8B1049955EFE200000000C6C2201E1836"
         "C0579B202A6A7395C761044AD151D5CEE992CBBA5AE937E54F29D28F86CC0627B9D1";
-    unsigned char bad_data[274];
-    for (int i = 0; i < 274; ++i) {
-      auto s = ::arrow::ParseHexValue(&bad_data_hex[i * 2], &bad_data[i]);
-      ASSERT_TRUE(s.ok());
-    }
-    output_bytes = std::vector<uint8_t>(num_values * sizeof(c_type));
-    decode_buf = reinterpret_cast<c_type*>(output_bytes.data());
-    decoder->SetData(num_values, &bad_data[0], encode_buffer_size);
-    values_decoded = decoder->Decode(decode_buf, num_values);
-    ASSERT_EQ(num_values, values_decoded);
+    testHexBinary(bad_bitwidth_data_hex, kEncodeBufferSize, kExpectValues);
   }
 }
 
