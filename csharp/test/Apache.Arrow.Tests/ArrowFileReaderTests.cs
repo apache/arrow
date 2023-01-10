@@ -176,8 +176,7 @@ namespace Apache.Arrow.Tests
         {
             var assembly = Assembly.GetExecutingAssembly();
             using var stream = assembly.GetManifestResourceStream($"Apache.Arrow.Tests.Resources.{fileName}");
-            var compressionProvider = new Compression.CompressionProvider();
-            using var reader = new ArrowFileReader(stream, compressionProvider);
+            using var reader = new ArrowFileReader(stream);
 
             var batch = reader.ReadNextRecordBatch();
 
@@ -193,17 +192,6 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(intArray.GetValue(i), i);
                 Assert.True(Math.Abs(floatArray.GetValue(i).Value - 0.1f * i) < 1.0e-6);
             }
-        }
-
-        [Fact]
-        public void ErrorReadingCompressedFileWithoutCompressionProvider()
-        {
-            var assembly = Assembly.GetExecutingAssembly();
-            using var stream = assembly.GetManifestResourceStream("Apache.Arrow.Tests.Resources.ipc_lz4_compression.arrow");
-            using var reader = new ArrowFileReader(stream);
-
-            var exception = Assert.Throws<Exception>(() => reader.ReadNextRecordBatch());
-            Assert.Contains("no ICompressionProvider has been configured", exception.Message);
         }
     }
 }
