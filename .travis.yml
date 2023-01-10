@@ -54,7 +54,7 @@ jobs:
         <<: *global_env
         ARCH: arm64v8
         ARROW_CI_MODULES: "CPP"
-	CLANG: "13"
+	CLANG: 13
         DOCKER_IMAGE_ID: ubuntu-cpp
         # ARROW_USE_GLOG=OFF is needed to avoid build error caused by
         # glog and CMAKE_UNITY_BUILD=ON.
@@ -88,7 +88,7 @@ jobs:
         <<: *global_env
         ARCH: s390x
         ARROW_CI_MODULES: "CPP"
-	CLANG: "13"
+	CLANG: 13
         DOCKER_IMAGE_ID: ubuntu-cpp
         # Can't enable ARROW_MIMALLOC because of failures in memory pool tests.
         # Can't enable ARROW_S3 because compiler is killed while compiling
@@ -140,7 +140,7 @@ jobs:
         <<: *global_env
         ARCH: s390x
         ARROW_CI_MODULES: "PYTHON"
-	CLANG: "13"
+	CLANG: 13
         DOCKER_IMAGE_ID: ubuntu-python
         # Can't enable ARROW_MIMALLOC because of failures in memory pool tests.
         # Can't enable ARROW_S3 because compiler is killed while compiling
