@@ -80,11 +80,12 @@ test_that("Nested field refs", {
   x <- Expression$field_ref("x")
   nested <- x$y
   # TODO:
-  # * ToString if nested (not `FieldRef.Nested(FieldRef.Name(x) FieldRef.Name(y))`)
-  # * field_name method?
+  # * ToString if nested (not `FieldRef.Nested(FieldRef.Name(x) FieldRef.Name(y))`)?
+  # * field_names_in_expression? any other places where it is assumed field refs have a single name?
   # * Error on trying to make nested field ref with non field ref
   # * Test with [[ too
-  # * dplyr tests
+  # * R Expression method to determine if is field ref?
+  # * more dplyr tests, including print
   print(nested)
 })
 

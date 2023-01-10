@@ -61,7 +61,11 @@ std::vector<std::string> field_names_in_expression(
 std::string compute___expr__get_field_ref_name(
     const std::shared_ptr<compute::Expression>& x) {
   if (auto field_ref = x->field_ref()) {
-    return *field_ref->name();
+    // Exclude nested field refs because we only use this to determine if we have simple
+    // field refs
+    if (!field_ref->IsNested()) {
+      return *field_ref->name();
+    }
   }
   return "";
 }
@@ -98,6 +102,7 @@ std::shared_ptr<compute::Expression> compute___expr__scalar(
 
 // [[arrow::export]]
 std::string compute___expr__ToString(const std::shared_ptr<compute::Expression>& x) {
+  // TODO: something different if is field ref and IsNested?
   return x->ToString();
 }
 

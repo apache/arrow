@@ -650,3 +650,15 @@ test_that("Can use across() within transmute()", {
     example_data
   )
 })
+
+test_that("Can use nested field refs", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        nested = df_col$a,
+        times2 = df_col$a * 2
+      ) %>%
+      collect(),
+    tibble(int = 1:5, df_col = tibble(a = 6:10, b = 11:15))
+  )
+})
