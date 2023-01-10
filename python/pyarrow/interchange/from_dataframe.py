@@ -234,7 +234,7 @@ def categorical_column_to_dictionary(
     """
     if not allow_copy:
         raise RuntimeError(
-            "Boolean column will be casted from uint8 and a copy "
+            "Categorical column will be casted from uint8 and a copy "
             "is required which is forbidden by allow_copy=False"
         )
 
