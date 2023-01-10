@@ -506,6 +506,8 @@ def validity_buffer_nan_sentinel(
     # Check for float NaN values
     if null_kind == ColumnNullType.USE_NAN:
         if kind == DtypeKind.FLOAT and bit_width == 16:
+            # 'pyarrow.compute.is_nan' kernel not yet implemented
+            # for float16
             raise NotImplementedError(
                 f"{data_type} with {null_kind} is not yet supported.")
         else:
