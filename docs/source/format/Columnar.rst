@@ -1324,4 +1324,3 @@ the Arrow spec.
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness
 .. _SIMD: https://software.intel.com/en-us/cpp-compiler-developer-guide-and-reference-introduction-to-the-simd-data-layout-templates
 .. _Parquet: https://parquet.apache.org/documentation/latest/
-.. _mailing list REE layout discussion: https://lists.apache.org/thread/bfz3m5nyf7flq7n6q9b1bx3jhcn4wq29
