@@ -70,6 +70,7 @@ class TestOrcFileFormatScan : public FileFormatScanMixin<OrcFormatHelper> {};
 
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReader) { TestScan(); }
 TEST_P(TestOrcFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
+TEST_P(TestOrcFileFormatScan, ScanNoReadahead) { TestScanNoReadahead(); }
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjectedNested) {
   TestScanProjectedNested();
