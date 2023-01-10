@@ -394,7 +394,11 @@ class FileWriterImpl : public FileWriter {
       return Status::OK();
     }
 
-    if (row_group_writer_ == nullptr || !row_group_writer_->buffered()) {
+    // Max number of rows allowed in a row group.
+    const int64_t max_row_group_length = this->properties().max_row_group_length();
+
+    if (row_group_writer_ == nullptr || !row_group_writer_->buffered() ||
+        row_group_writer_->num_rows() >= max_row_group_length) {
       RETURN_NOT_OK(NewBufferedRowGroup());
     }
 
@@ -412,7 +416,21 @@ class FileWriterImpl : public FileWriter {
       return Status::OK();
     };
 
-    return WriteBatch(0, batch.num_rows());
+    int64_t offset = 0;
+    while (offset < batch.num_rows()) {
+      const int64_t batch_size =
+          std::min(max_row_group_length - row_group_writer_->num_rows(),
+                   batch.num_rows() - offset);
+      RETURN_NOT_OK(WriteBatch(offset, batch_size));
+      offset += batch_size;
+
+      // Flush current row group if it is full.
+      if (row_group_writer_->num_rows() >= max_row_group_length) {
+        RETURN_NOT_OK(NewBufferedRowGroup());
+      }
+    }
+
+    return Status::OK();
   }
 
   const WriterProperties& properties() const { return *writer_->properties(); }
