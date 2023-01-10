@@ -804,14 +804,11 @@ access is less efficient.)
    buffer, like the offsets for a :ref:`variable-size-list-layout`. This
    layout was considered, but it was decided to use the child arrays. 
 
-   The full discussion can be found in the `mailing list REE layout discussion`_
-   but the gist of it is the following:
-
-   While maintaining two child arrays makes it easier and more efficient to
-   handle slicing run-end encoded arrays, the decision was more to help
-   distinguish between the logical length (there are no buffers with the
-   logical length, but there is an array) and the physical length (all of
-   the buffers are in these child arrays which are sized to the physical length).
+   Child arrays allow us to keep the "logical length" (the decoded length)
+   associated with the parent array and the "physical length" (the number
+   of run ends) associated with the child arrays.  If ``run_ends`` was a
+   buffer in the parent array then the size of the buffer would be unrelated
+   to the length of the array and this would be confusing.
 
 
 A run must have have a length of at least 1. This means the values in the
