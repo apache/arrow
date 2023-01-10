@@ -452,3 +452,27 @@ test_that("error message if non-schema passed in as schema to open_dataset", {
     fixed = TRUE
   )
 })
+
+test_that("CSV reading/parsing/convert options can be passed in as lists", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  writeLines('"x"\n"y"\nNA\nNA\n"NULL"\n\n"foo"\n', tf, )
+
+  ds <- open_dataset(
+    tf,
+    format = "csv",
+    convert_options = list(null_values = c("NA", "NULL")),
+    read_options = list(skip_rows = 1L)
+  )
+
+  open_dataset(
+    tf,
+    format = "csv",
+    convert_options = CsvConvertOptions$create(null_values = c(NA, "NA", "NULL")),
+    read_options = CsvReadOptions$create(skip_rows = 1L)
+  ) %>%
+    collect()
+
+})
+
