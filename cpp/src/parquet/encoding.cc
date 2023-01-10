@@ -2377,8 +2377,8 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   }
 
   int ValidValuesCount() {
-    // total_value_count_ in header ignores of null values
-    return static_cast<int>(total_value_remaining_);
+    // total_values_remaining_ in header ignores of null values
+    return static_cast<int>(total_values_remaining_);
   }
 
   int Decode(T* buffer, int max_values) override {
@@ -2444,7 +2444,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
           std::to_string(values_per_mini_block_));
     }
 
-    total_value_remaining_ = total_value_count_;
+    total_values_remaining_ = total_value_count_;
     delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
     first_block_initialized_ = false;
     values_num_up_to_current_mini_block_ = 0;
@@ -2466,7 +2466,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 
       if (ARROW_PREDICT_FALSE(bit_width_data[current_mini_block_idx] >
                               kMaxDeltaBitWidth)) {
-        if (miniblock_values_sum < total_value_count_) {
+        if (miniblock_values_sum < total_values_remaining_) {
           throw ParquetException("delta bit width " +
                                  std::to_string(bit_width_data[current_mini_block_idx]) +
                                  " larger than integer bit width " +
@@ -2484,7 +2484,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   }
 
   int GetInternal(T* buffer, int max_values) {
-    max_values = static_cast<int>(std::min<int64_t>(max_values, total_value_remaining_));
+    max_values = static_cast<int>(std::min<int64_t>(max_values, total_values_remaining_));
     if (max_values == 0) {
       return 0;
     }
@@ -2539,10 +2539,10 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
       values_remaining_current_mini_block_ -= values_decode;
       i += values_decode;
     }
-    total_value_remaining_ -= max_values;
+    total_values_remaining_ -= max_values;
     this->num_values_ -= max_values;
 
-    if (ARROW_PREDICT_FALSE(total_value_remaining_ == 0)) {
+    if (ARROW_PREDICT_FALSE(total_values_remaining_ == 0)) {
       uint32_t padding_bits = values_remaining_current_mini_block_ * delta_bit_width_;
       // skip the padding bits
       if (!decoder_->Advance(padding_bits)) {
@@ -2560,9 +2560,9 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   uint32_t values_per_mini_block_;
   uint32_t total_value_count_;
 
-  uint32_t total_value_remaining_;
+  uint32_t total_values_remaining_;
   // Remaining values in current mini block. If the current block is the last mini block,
-  // values_remaining_current_mini_block_ may greater than total_value_remaining_.
+  // values_remaining_current_mini_block_ may greater than total_values_remaining_.
   uint32_t values_remaining_current_mini_block_;
 
   // If the page doesn't contain any block, `first_block_initialized_` will
