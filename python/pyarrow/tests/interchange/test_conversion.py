@@ -448,3 +448,49 @@ def test_nan_as_null():
     table = pa.table({"a": [1, 2, 3, 4]})
     with pytest.raises(RuntimeError):
         table.__dataframe__(nan_as_null=True)
+
+
+@pytest.mark.pandas
+def test_allow_copy_false():
+    if Version(pd.__version__) < Version("1.5.0"):
+        pytest.skip("__dataframe__ added to pandas in 1.5.0")
+
+    # Test that an error is raised when a copy is needed
+    # to create a bitmask
+
+    df = pd.DataFrame({"a": [0, 1.0, 2.0]})
+    with pytest.raises(RuntimeError):
+        pi.from_dataframe(df, allow_copy=False)
+
+    df = pd.DataFrame({
+        "dt": [None, dt(2007, 7, 14), dt(2007, 7, 15)]
+    })
+    with pytest.raises(RuntimeError):
+        pi.from_dataframe(df, allow_copy=False)
+
+
+@pytest.mark.pandas
+def test_allow_copy_false_bool_categorical():
+    if Version(pd.__version__) < Version("1.5.0"):
+        pytest.skip("__dataframe__ added to pandas in 1.5.0")
+
+    # Test that an error is raised for boolean
+    # and categorical dtype (copy is always made)
+
+    df = pd.DataFrame({"a": [None, False, True]})
+    with pytest.raises(RuntimeError):
+        pi.from_dataframe(df, allow_copy=False)
+
+    df = pd.DataFrame({"a": [True, False, True]})
+    with pytest.raises(RuntimeError):
+        pi.from_dataframe(df, allow_copy=False)
+
+    df = pd.DataFrame({"weekday": ["a", "b", None]})
+    df = df.astype("category")
+    with pytest.raises(RuntimeError):
+        pi.from_dataframe(df, allow_copy=False)
+
+    df = pd.DataFrame({"weekday": ["a", "b", "c"]})
+    df = df.astype("category")
+    with pytest.raises(RuntimeError):
+        pi.from_dataframe(df, allow_copy=False)

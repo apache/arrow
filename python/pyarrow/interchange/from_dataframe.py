@@ -82,7 +82,8 @@ def from_dataframe(df: DataFrameObject, allow_copy=True) -> pa.Table:
     if not hasattr(df, "__dataframe__"):
         raise ValueError("`df` does not support __dataframe__")
 
-    return _from_dataframe(df.__dataframe__(allow_copy=allow_copy))
+    return _from_dataframe(df.__dataframe__(allow_copy=allow_copy),
+                           allow_copy=allow_copy)
 
 
 def _from_dataframe(df: DataFrameObject, allow_copy=True):
@@ -147,7 +148,7 @@ def protocol_df_chunk_to_pyarrow(
             DtypeKind.STRING,
             DtypeKind.DATETIME,
         ):
-            columns[name] = column_to_array(col)
+            columns[name] = column_to_array(col, allow_copy)
         elif dtype == DtypeKind.BOOL:
             columns[name] = bool_column_to_array(col, allow_copy)
         elif dtype == DtypeKind.CATEGORICAL:
@@ -160,6 +161,7 @@ def protocol_df_chunk_to_pyarrow(
 
 def column_to_array(
     col: ColumnObject,
+    allow_copy: bool = True,
 ) -> pa.Array:
     """
     Convert a column holding one of the primitive dtypes to a PyArrow array.
@@ -168,6 +170,9 @@ def column_to_array(
     Parameters
     ----------
     col : ColumnObject
+    allow_copy : bool, default: True
+        Whether to allow copying the memory to perform the conversion
+        (if false then zero-copy approach is requested).
 
     Returns
     -------
@@ -176,7 +181,8 @@ def column_to_array(
     buffers = col.get_buffers()
     data = buffers_to_array(buffers, col.size(),
                             col.describe_null,
-                            col.offset)
+                            col.offset,
+                            allow_copy)
     return data
 
 
@@ -298,6 +304,7 @@ def buffers_to_array(
     length: int,
     describe_null: ColumnNullType,
     offset: int = 0,
+    allow_copy: bool = True,
 ) -> pa.Array:
     """
     Build a PyArrow array from the passed buffer.
@@ -314,6 +321,9 @@ def buffers_to_array(
         as a tuple ``(kind, value)``
     offset : int, default: 0
         Number of elements to offset from the start of the buffer.
+    allow_copy : bool, default: True
+        Whether to allow copying the memory to perform the conversion
+        (if false then zero-copy approach is requested).
 
     Returns
     -------
@@ -345,13 +355,15 @@ def buffers_to_array(
                                                      validity_dtype,
                                                      describe_null,
                                                      length,
-                                                     offset)
+                                                     offset,
+                                                     allow_copy)
     else:
         validity_pa_buff = validity_buffer_nan_sentinel(data_pa_buffer,
                                                         data_type,
                                                         describe_null,
                                                         length,
-                                                        offset)
+                                                        offset,
+                                                        allow_copy)
 
     # Construct a pyarrow Array from buffers
     data_dtype = map_date_type(data_type)
@@ -394,6 +406,7 @@ def validity_buffer_from_mask(
     describe_null: ColumnNullType,
     length: int,
     offset: int = 0,
+    allow_copy: bool = True,
 ) -> pa.Buffer:
     """
     Build a PyArrow buffer from the passed mask buffer.
@@ -412,6 +425,9 @@ def validity_buffer_from_mask(
         The number of values in the array.
     offset : int, default: 0
         Number of elements to offset from the start of the buffer.
+    allow_copy : bool, default: True
+        Whether to allow copying the memory to perform the conversion
+        (if false then zero-copy approach is requested).
 
     Returns
     -------
@@ -435,6 +451,11 @@ def validity_buffer_from_mask(
                                  base=validity_buff)
 
         if null_kind == ColumnNullType.USE_BYTEMASK:
+            if not allow_copy:
+                raise RuntimeError(
+                    "To create a bitmask a copy of the data is "
+                    "required which is forbidden by allow_copy=False"
+                )
             mask = pa.Array.from_buffers(pa.int8(), length,
                                          [None, buff],
                                          offset=offset)
@@ -464,6 +485,7 @@ def validity_buffer_nan_sentinel(
     describe_null: ColumnNullType,
     length: int,
     offset: int = 0,
+    allow_copy: bool = True,
 ) -> pa.Buffer:
     """
     Build a PyArrow buffer from NaN or sentinel values.
@@ -482,6 +504,9 @@ def validity_buffer_nan_sentinel(
         The number of values in the array.
     offset : int, default: 0
         Number of elements to offset from the start of the buffer.
+    allow_copy : bool, default: True
+        Whether to allow copying the memory to perform the conversion
+        (if false then zero-copy approach is requested).
 
     Returns
     -------
@@ -493,6 +518,12 @@ def validity_buffer_nan_sentinel(
 
     # Check for float NaN values
     if null_kind == ColumnNullType.USE_NAN:
+        if not allow_copy:
+            raise RuntimeError(
+                "To create a bitmask a copy of the data is "
+                "required which is forbidden by allow_copy=False"
+            )
+
         if kind == DtypeKind.FLOAT and bit_width == 16:
             # 'pyarrow.compute.is_nan' kernel not yet implemented
             # for float16
@@ -511,6 +542,12 @@ def validity_buffer_nan_sentinel(
 
     # Check for sentinel values
     elif null_kind == ColumnNullType.USE_SENTINEL:
+        if not allow_copy:
+            raise RuntimeError(
+                "To create a bitmask a copy of the data is "
+                "required which is forbidden by allow_copy=False"
+            )
+
         if kind == DtypeKind.DATETIME:
             sentinel_dtype = pa.int64()
         else:
