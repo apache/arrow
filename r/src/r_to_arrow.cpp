@@ -736,7 +736,8 @@ class RPrimitiveConverter<T, enable_if_t<is_decimal_type<T>::value>>
     int32_t scale = this->primitive_type_->scale();
 
     auto append_value = [this, precision, scale](double value) {
-      ARROW_ASSIGN_OR_RAISE(ValueType converted, ValueType::FromReal(value, precision, scale));
+      ARROW_ASSIGN_OR_RAISE(ValueType converted,
+                            ValueType::FromReal(value, precision, scale));
       this->primitive_builder_->UnsafeAppend(converted);
       return Status::OK();
     };
@@ -746,12 +747,27 @@ class RPrimitiveConverter<T, enable_if_t<is_decimal_type<T>::value>>
       return Status::OK();
     };
 
-    if (ALTREP(x)) {
-      return VisitVector(RVectorIterator_ALTREP<double>(x, offset), size, append_null,
-                         append_value);
-    } else {
-      return VisitVector(RVectorIterator<double>(x, offset), size, append_null,
-                         append_value);
+    switch (TYPEOF(x)) {
+      case REALSXP:
+        if (ALTREP(x)) {
+          return VisitVector(RVectorIterator_ALTREP<double>(x, offset), size, append_null,
+                             append_value);
+        } else {
+          return VisitVector(RVectorIterator<double>(x, offset), size, append_null,
+                             append_value);
+        }
+        break;
+      case INTSXP:
+        if (ALTREP(x)) {
+          return VisitVector(RVectorIterator_ALTREP<int>(x, offset), size, append_null,
+                             append_value);
+        } else {
+          return VisitVector(RVectorIterator<int>(x, offset), size, append_null,
+                             append_value);
+        }
+        break;
+      default:
+        return Status::NotImplemented("Conversion to decimal from non-integer/double");
     }
   }
 };
