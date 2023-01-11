@@ -2069,8 +2069,7 @@ test_that("as_datetime() works with other functions", {
         dchar_date = as_datetime(char_date),
         dchar_date_num = as.numeric(dchar_date)
       ) %>%
-      compute(),
-    "Unsupported cast from timestamp\\[ns, tz=UTC\\] to double using function cast_double"
+      collect()
   )
 })
 
