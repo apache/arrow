@@ -19,7 +19,7 @@
 
 #include <arrow/compute/api_scalar.h>
 #include <arrow/compute/exec/expression.h>
-#include <iostream>
+
 namespace compute = ::arrow::compute;
 
 std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_name,
