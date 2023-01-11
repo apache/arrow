@@ -38,21 +38,21 @@ typedef enum {
 } GADatasetSegmentEncoding;
 
 
-#define GADATASET_TYPE_PARTITIONING_OPTIONS   \
-  (gadataset_partitioning_options_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADatasetPartitioningOptions,
-                         gadataset_partitioning_options,
+#define GADATASET_TYPE_PARTITIONING_FACTORY_OPTIONS   \
+  (gadataset_partitioning_factory_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetPartitioningFactoryOptions,
+                         gadataset_partitioning_factory_options,
                          GADATASET,
-                         PARTITIONING_OPTIONS,
+                         PARTITIONING_FACTORY_OPTIONS,
                          GObject)
-struct _GADatasetPartitioningOptionsClass
+struct _GADatasetPartitioningFactoryOptionsClass
 {
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_6_0
-GADatasetPartitioningOptions *
-gadataset_partitioning_options_new(void);
+GARROW_AVAILABLE_IN_11_0
+GADatasetPartitioningFactoryOptions *
+gadataset_partitioning_factory_options_new(void);
 
 
 #define GADATASET_TYPE_PARTITIONING (gadataset_partitioning_get_type())
@@ -67,11 +67,42 @@ struct _GADatasetPartitioningClass
 };
 
 GARROW_AVAILABLE_IN_6_0
-GADatasetPartitioning *
-gadataset_partitioning_new(void);
-GARROW_AVAILABLE_IN_6_0
 gchar *
 gadataset_partitioning_get_type_name(GADatasetPartitioning *partitioning);
+
+
+#define GADATASET_TYPE_DEFAULT_PARTITIONING     \
+  (gadataset_default_partitioning_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetDefaultPartitioning,
+                         gadataset_default_partitioning,
+                         GADATASET,
+                         DEFAULT_PARTITIONING,
+                         GADatasetPartitioning)
+struct _GADatasetDefaultPartitioningClass
+{
+  GADatasetPartitioningClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_11_0
+GADatasetDefaultPartitioning *
+gadataset_default_partitioning_new(void);
+
+
+#define GADATASET_TYPE_KEY_VALUE_PARTITIONING_OPTIONS   \
+  (gadataset_key_value_partitioning_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetKeyValuePartitioningOptions,
+                         gadataset_key_value_partitioning_options,
+                         GADATASET,
+                         KEY_VALUE_PARTITIONING_OPTIONS,
+                         GObject)
+struct _GADatasetKeyValuePartitioningOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_11_0
+GADatasetKeyValuePartitioningOptions *
+gadataset_key_value_partitioning_options_new(void);
 
 
 #define GADATASET_TYPE_KEY_VALUE_PARTITIONING   \
@@ -101,10 +132,52 @@ struct _GADatasetDirectoryPartitioningClass
 
 GARROW_AVAILABLE_IN_6_0
 GADatasetDirectoryPartitioning *
-gadataset_directory_partitioning_new(GArrowSchema *schema,
-                                     GList *dictionaries,
-                                     GADatasetPartitioningOptions *options,
-                                     GError **error);
+gadataset_directory_partitioning_new(
+  GArrowSchema *schema,
+  GList *dictionaries,
+  GADatasetKeyValuePartitioningOptions *options,
+  GError **error);
+
+
+#define GADATASET_TYPE_HIVE_PARTITIONING_OPTIONS   \
+  (gadataset_hive_partitioning_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetHivePartitioningOptions,
+                         gadataset_hive_partitioning_options,
+                         GADATASET,
+                         HIVE_PARTITIONING_OPTIONS,
+                         GADatasetKeyValuePartitioningOptions)
+struct _GADatasetHivePartitioningOptionsClass
+{
+  GADatasetKeyValuePartitioningOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_11_0
+GADatasetHivePartitioningOptions *
+gadataset_hive_partitioning_options_new(void);
+
+
+#define GADATASET_TYPE_HIVE_PARTITIONING        \
+  (gadataset_hive_partitioning_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetHivePartitioning,
+                         gadataset_hive_partitioning,
+                         GADATASET,
+                         HIVE_PARTITIONING,
+                         GADatasetKeyValuePartitioning)
+struct _GADatasetHivePartitioningClass
+{
+  GADatasetKeyValuePartitioningClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_11_0
+GADatasetHivePartitioning *
+gadataset_hive_partitioning_new(GArrowSchema *schema,
+                                GList *dictionaries,
+                                GADatasetHivePartitioningOptions *options,
+                                GError **error);
+GARROW_AVAILABLE_IN_11_0
+gchar *
+gadataset_hive_partitioning_get_null_fallback(
+  GADatasetHivePartitioning *partitioning);
 
 
 G_END_DECLS
