@@ -62,12 +62,12 @@ jobs:
           -e ARROW_BUILD_STATIC=OFF
           -e ARROW_ORC=OFF
           -e ARROW_USE_GLOG=OFF
-          -e CLANG_TOOLS=10
           -e CMAKE_UNITY_BUILD=ON
           "
         # The LLVM's APT repository doesn't provide arm64 binaries.
         # We should use LLVM provided by Ubuntu.
         LLVM: "10"
+        CLANG_TOOLS: "10"
         UBUNTU: "20.04"
 
     - name: "Go on ARM"
@@ -101,7 +101,6 @@ jobs:
           -e ARROW_PARQUET=OFF
           -e ARROW_S3=OFF
           -e ARROW_SUBSTRAIT=OFF
-          -e CLANG_TOOLS=10
           -e CMAKE_BUILD_PARALLEL_LEVEL=2
           -e CMAKE_UNITY_BUILD=ON
           -e PARQUET_BUILD_EXAMPLES=OFF
@@ -112,6 +111,7 @@ jobs:
         # The LLVM's APT repository causes download error for s390x binary
         # We should use the LLVM provided by the default APT repository
         LLVM: "10"
+        CLANG_TOOLS: "10"
         UBUNTU: "20.04"
 
     - name: "Go on s390x"
@@ -141,6 +141,8 @@ jobs:
         ARCH: s390x
         ARROW_CI_MODULES: "PYTHON"
         DOCKER_IMAGE_ID: ubuntu-python
+        LLVM: "10"
+        CLANG_TOOLS: "10"
         # Can't enable ARROW_MIMALLOC because of failures in memory pool tests.
         # Can't enable ARROW_S3 because compiler is killed while compiling
         # aws-sdk-cpp.
@@ -153,7 +155,6 @@ jobs:
           -e ARROW_PARQUET=OFF
           -e ARROW_PYTHON=ON
           -e ARROW_S3=OFF
-          -e CLANG_TOOLS=10
           -e CMAKE_BUILD_PARALLEL_LEVEL=2
           -e CMAKE_UNITY_BUILD=ON
           -e PARQUET_BUILD_EXAMPLES=OFF
