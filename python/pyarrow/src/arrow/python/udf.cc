@@ -278,6 +278,7 @@ Result<std::shared_ptr<RecordBatchReader>> CallTabularFunction(
     std::vector<Datum> args;
     // passed_length of -1 or 0 with args.size() of 0 leads to an empty ExecSpanIterator
     // in exec.cc and to never invoking the source function, so 1 is passed instead
+    // TODO: GH-33612: Support batch size in user-defined tabular functions
     ARROW_ASSIGN_OR_RAISE(auto datum, func_exec->Execute(args, /*passed_length=*/1));
     if (!datum.is_array()) {
       return Status::Invalid("UDF result of non-array kind");
