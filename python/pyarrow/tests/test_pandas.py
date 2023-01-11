@@ -1685,7 +1685,7 @@ class TestConvertStringLikeTypes:
 
         cat = pd.CategoricalDtype(categories=[], ordered=False)
         assert pd.DataFrame({'col': [None, None]}, dtype=cat).equals(result)
-        
+
     def test_to_pandas_categories_already_dictionary(self):
         # Showed up in ARROW-6434, ARROW-6435
         array = pa.array(['foo', 'foo', 'foo', 'bar']).dictionary_encode()
