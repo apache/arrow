@@ -2049,8 +2049,7 @@ test_that("as_datetime() works with other functions", {
     test_df
   )
 
-  # Arrow does not support conversion of timestamp to int32
-  # ARROW-17428
+  # ARROW-17428 - Arrow does not support conversion of timestamp to int32
   expect_error(
     test_df %>%
       arrow_table() %>%
