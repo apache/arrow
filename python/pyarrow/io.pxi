@@ -2218,6 +2218,40 @@ def input_stream(source, compression='detect', buffer_size=None):
     buffer_size : int, default None
         If None or 0, no buffering will happen. Otherwise the size of the
         temporary read buffer.
+
+    Examples
+    --------
+    Create a readable BufferReader (NativeFile) from a Buffer or a memoryview object:
+
+    >>> import pyarrow as pa
+    >>> buf = memoryview(b"some data")
+    >>> with pa.input_stream(buf) as stream:
+    ...     stream.read(4)
+    ...
+    b'some'
+
+    Create a readable OSFile (NativeFile) from a string or file path:
+
+    >>> import gzip
+    >>> with gzip.open('example.gz', 'wb') as f:
+    ...     f.write(b'some data')
+    ...
+    9
+    >>> with pa.input_stream('example.gz') as stream:
+    ...     stream.read()
+    ...
+    b'some data'
+
+    Create a readable PythonFile (NativeFile) from a a Python file object:
+
+    >>> with open('example.txt', mode='w') as f:
+    ...     f.write('some text')
+    ...
+    9
+    >>> with pa.input_stream('example.txt') as stream:
+    ...     stream.read(6)
+    ...
+    b'some t'
     """
     cdef NativeFile stream
 
@@ -2270,6 +2304,46 @@ def output_stream(source, compression='detect', buffer_size=None):
     buffer_size : int, default None
         If None or 0, no buffering will happen. Otherwise the size of the
         temporary write buffer.
+
+    Examples
+    --------
+    Create a writable NativeFile from a pyarrow Buffer:
+
+    >>> import pyarrow as pa
+    >>> data = b"buffer data"
+    >>> empty_obj = bytearray(11)
+    >>> buf = pa.py_buffer(empty_obj)
+    >>> with pa.output_stream(buf) as stream:
+    ...     stream.write(data)
+    ...
+    11
+    >>> with pa.input_stream(buf) as stream:
+    ...     stream.read(6)
+    ...
+    b'buffer'
+
+    or from a memoryview object:
+
+    >>> buf = memoryview(empty_obj)
+    >>> with pa.output_stream(buf) as stream:
+    ...     stream.write(data)
+    ...
+    11
+    >>> with pa.input_stream(buf) as stream:
+    ...     stream.read()
+    ...
+    b'buffer data'
+
+    Create a writable NativeFile from a string or file path:
+
+    >>> with pa.output_stream('example_second.txt') as stream:
+    ...     stream.write(b'Write some data')
+    ...
+    15
+    >>> with pa.input_stream('example_second.txt') as stream:
+    ...     stream.read()
+    ...
+    b'Write some data'
     """
     cdef NativeFile stream
 
