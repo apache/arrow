@@ -228,6 +228,61 @@ open_dataset <- function(sources,
   )
 }
 
+open_csv_dataset <- function(sources,
+                             schema = NULL,
+                             partitioning = hive_partition(),
+                             hive_style = NA,
+                             unify_schemas = NULL,
+                             factory_options = list(),
+                             delim = ",",
+                             quote = "\"",
+                             escape_double = TRUE,
+                             escape_backslash = FALSE,
+                             col_names = TRUE,
+                             col_types = NULL,
+                             col_select = NULL,
+                             na = NULL,
+                             quoted_na = NULL,
+                             skip_empty_rows = TRUE,
+                             skip = 0L,
+                             parse_options = NULL,
+                             convert_options = NULL,
+                             read_options = NULL,
+                             as_data_frame = TRUE,
+                             timestamp_parsers = NULL) {
+browser()
+  if (!is.null(col_select)) {
+    abort('The following options are supported in "read_delim_arrow" functions but not yet supported here: "col_select"')
+  }
+
+  if (!is.null(na)) {
+    abort('The following options are supported in "read_delim_arrow" functions but not yet supported here: "na"')
+  }
+
+  if (!is.null(quoted_na)) {
+    abort('The following options are supported in "read_delim_arrow" functions but not yet supported here: "quoted_na"')
+  }
+
+  if (!is.null(parse_options)) {
+    abort('The following options are supported in "read_delim_arrow" functions but not yet supported here: "parse_options"')
+  }
+
+  ds <- open_dataset(
+    sources = source, schema = schema, partitioning = partitioning, hive_style = hive_style,
+    unify_schemas = unify_schemas, format = "csv", quote = quote, escape_double = escape_double,
+    escape_backslash = escape_backslash, col_names = col_names, col_types = col_types,
+    skip_empty_rows = skip_empty_rows, skip = skip, convert_options = convert_options,
+    read_options = read_options, timestamp_parsers = timestamp_parsers
+  )
+
+  if (as_data_frame) {
+    return(as.data.frame(ds))
+  }
+
+  ds
+}
+
+
 #' Multi-file datasets
 #'
 #' @description
