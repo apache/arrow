@@ -253,16 +253,13 @@ open_csv_dataset <- function(sources,
                              convert_options = NULL,
                              read_options = NULL,
                              timestamp_parsers = NULL) {
-
-  ds <- open_dataset(
+  open_dataset(
     sources = sources, schema = schema, partitioning = partitioning, hive_style = hive_style,
     unify_schemas = unify_schemas, format = "csv", quote = quote, escape_double = escape_double,
     escape_backslash = escape_backslash, col_names = col_names, col_types = col_types,
     skip_empty_rows = skip_empty_rows, skip = skip, convert_options = convert_options,
     read_options = read_options, timestamp_parsers = timestamp_parsers
   )
-
-  ds
 }
 
 
