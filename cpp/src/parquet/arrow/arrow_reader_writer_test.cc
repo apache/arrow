@@ -3430,6 +3430,25 @@ TEST(ArrowReadWrite, NestedRequiredOuterOptionalDecimal) {
   }
 }
 
+TEST(ArrowReadWrite, Decimal256AsInt) {
+  using ::arrow::Decimal256;
+  using ::arrow::field;
+
+  auto type = ::arrow::decimal256(8, 4);
+
+  const char* json = R"(["1.0000", null, "-1.2345", "-1000.5678",
+                         "-9999.9999", "9999.9999"])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+
+  parquet::WriterProperties::Builder builder;
+  // Enforce integer type to annotate decimal type
+  auto writer_properties = builder.enable_integer_annotate_decimal()->build();
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+
+  CheckConfiguredRoundtrip(table, table, writer_properties, props_store_schema);
+}
+
 class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
  protected:
   // make it *3 to make it easily divisible by 3
@@ -4729,8 +4748,7 @@ INSTANTIATE_TEST_SUITE_P(MapFilteredReads, TestNestedSchemaFilteredReader,
 template <typename TestType>
 class TestIntegerAnnotateDecimalTypeParquetIO : public TestParquetIO<TestType> {
  public:
-  template <typename ArrayType>
-  void WriteColumn(const std::shared_ptr<ArrayType>& values) {
+  void WriteColumn(const std::shared_ptr<Array>& values) {
     auto arrow_schema = ::arrow::schema({::arrow::field("a", values->type())});
 
     parquet::WriterProperties::Builder builder;
