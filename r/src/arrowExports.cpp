@@ -249,6 +249,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // array.cpp
+std::shared_ptr<arrow::StructArray> StructArray__from_RecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch);
+extern "C" SEXP _arrow_StructArray__from_RecordBatch(SEXP batch_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	return cpp11::as_sexp(StructArray__from_RecordBatch(batch));
+END_CPP11
+}
+// array.cpp
 cpp11::list StructArray__Flatten(const std::shared_ptr<arrow::StructArray>& array);
 extern "C" SEXP _arrow_StructArray__Flatten(SEXP array_sexp){
 BEGIN_CPP11
@@ -5300,6 +5308,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_DictionaryArray__dictionary", (DL_FUNC) &_arrow_DictionaryArray__dictionary, 1}, 
 		{ "_arrow_StructArray__field", (DL_FUNC) &_arrow_StructArray__field, 2}, 
 		{ "_arrow_StructArray__GetFieldByName", (DL_FUNC) &_arrow_StructArray__GetFieldByName, 2}, 
+		{ "_arrow_StructArray__from_RecordBatch", (DL_FUNC) &_arrow_StructArray__from_RecordBatch, 1}, 
 		{ "_arrow_StructArray__Flatten", (DL_FUNC) &_arrow_StructArray__Flatten, 1}, 
 		{ "_arrow_ListArray__value_type", (DL_FUNC) &_arrow_ListArray__value_type, 1}, 
 		{ "_arrow_LargeListArray__value_type", (DL_FUNC) &_arrow_LargeListArray__value_type, 1}, 
