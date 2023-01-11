@@ -128,7 +128,7 @@ IPC Format
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
 | Sparse tensors              | ✓     |       |       |            |       |       |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
-| Buffer compression          | ✓     | ✓ (3) | ✓     |            | ✓ (4) |  ✓    | ✓     |
+| Buffer compression          | ✓     | ✓ (3) | ✓     |            |       |  ✓    | ✓     |
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
 | Endianness conversion       | ✓ (2) |       | ✓ (2) |            |       |       |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
@@ -142,10 +142,6 @@ Notes:
 * \(2) Data with non-native endianness can be byte-swapped automatically when reading.
 
 * \(3) LZ4 Codec currently is quite inefficient. ARROW-11901 tracks improving performance.
-
-* \(4) Only decompression of buffers is supported, and requires installing additional packages that
-  are not dependencies of the Apache.Arrow NuGet package (ZstdNet for ZSTD support and
-  K4os.Compression.LZ4.Streams and CommunityToolkit.HighPerformance for LZ4 support).
 
 .. seealso::
    The :ref:`format-ipc` specification.

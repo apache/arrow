@@ -107,15 +107,6 @@ for currently available features.
 - File
 - Stream
 
-## IPC format
-
-### Compression
-
-- Buffer compression is not supported when writing IPC files or streams
-- Buffer decompression is supported, but requires installing additional packages that are not dependencies of the Apache.Arrow NuGet package
-  (ZstdNet for ZSTD support and K4os.Compression.LZ4.Streams and CommunityToolkit.HighPerformance for LZ4 support),
-  and requires targeting netcoreapp3.1 or newer, or netstandard 2.0 or newer.
-
 ## Not Implemented
 
 - Serialization
