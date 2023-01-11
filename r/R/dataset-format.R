@@ -119,12 +119,29 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @export
 CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
 CsvFileFormat$create <- function(...,
-                                 opts = csv_file_format_parse_options(...),
-                                 convert_options = csv_file_format_convert_opts(...),
-                                 read_options = csv_file_format_read_opts(...)) {
+                                 opts = NULL,
+                                 convert_options = NULL,
+                                 read_options = NULL) {
   check_csv_file_format_args(...)
   # Evaluate opts first to catch any unsupported arguments
-  force(opts)
+  if (is.null(opts)) {
+    opts <- csv_file_format_parse_options(...)
+  } else if (is.list(opts)) {
+    opts <- do.call(CsvParseOptions$create, opts)
+  }
+
+  if (is.null(convert_options)) {
+    convert_options <- csv_file_format_convert_opts(...)
+  } else if (is.list(convert_options)) {
+    convert_options <- do.call(CsvConvertOptions$create$create, convert_options)
+  }
+
+  if (is.null(read_options)) {
+    read_options <- csv_file_format_read_opts(...)
+  } else if (is.list(read_options)) {
+    opts <- do.call(CsvReadOptions$create$create, read_options)
+  }
+
 
   options <- list(...)
   schema <- options[["schema"]]
@@ -134,18 +151,6 @@ CsvFileFormat$create <- function(...,
       class(schema)[1],
       "'."
     ))
-  }
-
-  if (!inherits(read_options, "CsvReadOptions")) {
-    read_options <- do.call(CsvReadOptions$create, read_options)
-  }
-
-  if (!inherits(convert_options, "CsvConvertOptions")) {
-    convert_options <- do.call(CsvConvertOptions$create, convert_options)
-  }
-
-  if (!inherits(opts, "CsvParseOptions")) {
-    opts <- do.call(CsvParseOptions$create, opts)
   }
 
   column_names <- read_options$column_names
