@@ -354,7 +354,7 @@ void TestRecordBatchReaderSourceSink(
                          to_reader(exp_batches));
     RecordBatchReaderSourceNodeOptions options{reader};
     Declaration plan("record_batch_reader_source", std::move(options));
-    ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(plan, false));
+    ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(plan, parallel));
     AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches,
                                         exp_batches.batches);
   }
