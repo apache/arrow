@@ -491,6 +491,7 @@ class TestCsvFileFormatScan : public FileFormatScanMixin<CsvFormatHelper> {};
 
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReader) { TestScan(); }
 TEST_P(TestCsvFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
+TEST_P(TestCsvFileFormatScan, ScanNoReadhead) { TestScanNoReadahead(); }
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
 // NOTE(ARROW-14658): TestScanProjectedNested is ignored since CSV
 // doesn't have any nested types for us to work with
