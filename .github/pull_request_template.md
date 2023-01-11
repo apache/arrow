@@ -20,9 +20,8 @@ or
 
     MINOR: [${COMPONENT}] ${SUMMARY}
 
-In the case of old issues on JIRA the title also supports:
+In the case of PARQUET issues on JIRA the title also supports:
 
-    ARROW-${JIRA_ISSUE_ID}: [${COMPONENT}] ${SUMMARY}
     PARQUET-${JIRA_ISSUE_ID}: [${COMPONENT}] ${SUMMARY}
 
 -->

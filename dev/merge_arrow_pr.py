@@ -120,6 +120,11 @@ def fix_version_from_branch(branch, versions):
         return [v for v in versions if v.startswith(branch_ver)][-1]
 
 
+MIGRATION_COMMENT_REGEX = re.compile(
+    r"This issue has been migrated to \[issue #(?P<issue_id>(\d+))"
+)
+
+
 class JiraIssue(object):
 
     def __init__(self, jira_con, jira_id, project, cmd):
@@ -193,6 +198,17 @@ class JiraIssue(object):
         print(format_issue_output("jira", self.jira_id, fields.status.name,
                                   fields.summary, fields.assignee,
                                   fields.components))
+
+    def github_issue_id(self):
+        try:
+            last_jira_comment = self.issue.fields.comment.comments[-1].body
+        except Exception:
+            # If no comment found or other issues ignore
+            return None
+        matches = MIGRATION_COMMENT_REGEX.search(last_jira_comment)
+        if matches:
+            values = matches.groupdict()
+            return "GH-" + values['issue_id']
 
 
 class GitHubIssue(object):
@@ -441,12 +457,13 @@ class CommandInput(object):
 
 class PullRequest(object):
     GITHUB_PR_TITLE_PATTERN = re.compile(r'^GH-([0-9]+)\b.*$')
-    # We can merge both ARROW and PARQUET patches
-    JIRA_SUPPORTED_PROJECTS = ['ARROW', 'PARQUET']
+    # We can merge PARQUET patches from JIRA or GH prefixed issues
+    JIRA_SUPPORTED_PROJECTS = ['PARQUET']
     JIRA_PR_TITLE_REGEXEN = [
         (project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
         for project in JIRA_SUPPORTED_PROJECTS
     ]
+    JIRA_UNSUPPORTED_ARROW = re.compile(r'^(ARROW-[0-9]+)\b.*$')
 
     def __init__(self, cmd, github_api, git_remote, jira_con, number):
         self.cmd = cmd
@@ -499,6 +516,15 @@ class PullRequest(object):
         if m:
             github_id = m.group(1)
             return GitHubIssue(self._github_api, github_id, self.cmd)
+
+        m = self.JIRA_UNSUPPORTED_ARROW.search(self.title)
+        if m:
+            old_jira_id = m.group(1)
+            jira_issue = JiraIssue(self.con, old_jira_id, 'ARROW', self.cmd)
+            self.cmd.fail("PR titles with ARROW- prefixed tickets on JIRA "
+                          "are unsupported, update the PR title from "
+                          f"{old_jira_id}. Possible GitHub id could be: "
+                          f"{jira_issue.github_issue_id()}")
 
         for project, regex in self.JIRA_PR_TITLE_REGEXEN:
             m = regex.search(self.title)
