@@ -1129,7 +1129,7 @@ visible: false
                                     ]),
                    table1.join(table2,
                                {left: "left_key", right: :right_key},
-                               **{}))
+                               type: :inner))
     end
 
     test("keys: {left: [String, Symbol], right: [Symbol, String]}") do
@@ -1152,7 +1152,7 @@ visible: false
                                  left: ["left_key1", :left_key2],
                                  right: [:right_key1, "right_key2"],
                                },
-                               **{}))
+                               type: :inner))
     end
 
     test("type:") do
