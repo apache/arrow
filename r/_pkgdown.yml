@@ -141,6 +141,7 @@ reference:
   - title: Multi-file datasets
     contents:
       - open_dataset
+      - open_csv_dataset
       - write_dataset
       - dataset_factory
       - hive_partition
