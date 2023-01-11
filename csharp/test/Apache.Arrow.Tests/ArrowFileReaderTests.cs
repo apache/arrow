@@ -185,12 +185,12 @@ namespace Apache.Arrow.Tests
             var floatArray = (FloatArray) batch.Column("floats");
 
             const int numRows = 100;
-            Assert.Equal(intArray.Length, numRows);
-            Assert.Equal(floatArray.Length, numRows);
+            Assert.Equal(numRows, intArray.Length);
+            Assert.Equal(numRows, floatArray.Length);
 
             for (var i = 0; i < numRows; ++i)
             {
-                Assert.Equal(intArray.GetValue(i), i);
+                Assert.Equal(i, intArray.GetValue(i));
                 Assert.True(Math.Abs(floatArray.GetValue(i).Value - 0.1f * i) < 1.0e-6);
             }
         }
