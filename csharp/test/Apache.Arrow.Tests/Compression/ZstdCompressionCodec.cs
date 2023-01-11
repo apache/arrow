@@ -15,16 +15,17 @@
 
 using System;
 using Apache.Arrow.Ipc;
+using ZstdSharp;
 
 namespace Apache.Arrow.Tests.Compression
 {
     internal sealed class ZstdCompressionCodec : ICompressionCodec
     {
-        private readonly ZstdNet.Decompressor _decompressor;
+        private readonly Decompressor _decompressor;
 
         public ZstdCompressionCodec()
         {
-            _decompressor = new ZstdNet.Decompressor();
+            _decompressor = new Decompressor();
         }
 
         public int Decompress(ReadOnlyMemory<byte> source, Memory<byte> destination)
