@@ -45,6 +45,7 @@ static void RoundArrayBenchmark(benchmark::State& state, const std::string& func
       rand.Numeric<ArrowType>(array_size, min, max, args.null_proportion));
   RoundOptions options;
   options.round_mode = static_cast<RoundMode>(Mode);
+  options.ndigits = 1;  // Round to the appropriate tenth.
 
   for (auto _ : state) {
     ABORT_NOT_OK(CallFunction(func_name, {val}, &options));
