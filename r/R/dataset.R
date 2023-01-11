@@ -255,7 +255,7 @@ open_csv_dataset <- function(sources,
                              timestamp_parsers = NULL) {
   open_dataset(
     sources = sources, schema = schema, partitioning = partitioning, hive_style = hive_style,
-    unify_schemas = unify_schemas, format = "csv", quote = quote, escape_double = escape_double,
+    unify_schemas = unify_schemas, factory_options = factory_options, delim = delim, format = "csv", quote = quote, escape_double = escape_double,
     escape_backslash = escape_backslash, col_names = col_names, col_types = col_types,
     skip_empty_rows = skip_empty_rows, skip = skip, convert_options = convert_options,
     read_options = read_options, timestamp_parsers = timestamp_parsers
