@@ -86,6 +86,8 @@ std::string lz4_raw_compressed_larger() {
   return data_file("lz4_raw_compressed_larger.parquet");
 }
 
+std::string overflow_i16_page_cnt() { return data_file("overflow_i16_page_cnt.parquet"); }
+
 // TODO: Assert on definition and repetition levels
 template <typename DType, typename ValueType>
 void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t batch_size,
@@ -1014,5 +1016,41 @@ std::vector<TestCodecParam> test_codec_params{
 INSTANTIATE_TEST_SUITE_P(Lz4CodecTests, TestCodec, ::testing::ValuesIn(test_codec_params),
                          testing::PrintToStringParamName());
 #endif  // ARROW_WITH_LZ4
+
+TEST(TestFileReader, TestOverflowI16) {
+  ReaderProperties reader_props;
+  auto file_reader = ParquetFileReader::OpenFile(overflow_i16_page_cnt(),
+                                                 /*memory_map=*/false, reader_props);
+  auto metadata_ptr = file_reader->metadata();
+  EXPECT_EQ(1, metadata_ptr->num_row_groups());
+  EXPECT_EQ(1, metadata_ptr->num_columns());
+  auto row_group = file_reader->RowGroup(0);
+
+  {
+    auto column_reader =
+        std::dynamic_pointer_cast<TypedColumnReader<BooleanType>>(row_group->Column(0));
+    EXPECT_NE(nullptr, column_reader);
+    std::array<bool, 1024> boolean_values{};
+    int64_t value_sum = 0;
+    while (value_sum < 40000) {
+      int64_t value_num = 0;
+      column_reader->ReadBatch(/* batch_size= */ 1024, nullptr, nullptr,
+                               boolean_values.data(), &value_num);
+      value_sum += value_num;
+      for (int i = 0; i < value_num; ++i) {
+        EXPECT_FALSE(boolean_values[i]);
+      }
+    }
+    EXPECT_EQ(40000, value_sum);
+  }
+  {
+    auto page_reader = row_group->GetColumnPageReader(0);
+    int32_t page_ordinal = 0;
+    while (page_reader->NextPage() != nullptr) {
+      ++page_ordinal;
+    }
+    EXPECT_EQ(40000, page_ordinal);
+  }
+}
 
 }  // namespace parquet
