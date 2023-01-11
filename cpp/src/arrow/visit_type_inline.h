@@ -26,11 +26,13 @@ namespace arrow {
 
 #define TYPE_VISIT_INLINE(TYPE_CLASS) \
   case TYPE_CLASS##Type::type_id:     \
-    return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Type&>(type));
+    return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Type&>(type), args...);
 
 /// \brief Calls `visitor` with the corresponding concrete type class
 ///
 /// \tparam VISITOR Visitor type that implements Visit() for all Arrow types.
+/// \tparam ARGS Additional arguments, if any, will be passed to the Visit function after
+/// the `type` argument
 /// \return Status
 ///
 /// A visitor is a type that implements specialized logic for each Arrow type.
@@ -45,8 +47,8 @@ namespace arrow {
 /// ExampleVisitor visitor;
 /// VisitTypeInline(some_type, &visitor);
 /// ```
-template <typename VISITOR>
-inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
+template <typename VISITOR, typename... ARGS>
+inline Status VisitTypeInline(const DataType& type, VISITOR* visitor, ARGS&&... args) {
   switch (type.id()) {
     ARROW_GENERATE_FOR_ALL_TYPES(TYPE_VISIT_INLINE);
     default:
@@ -60,9 +62,11 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
 #define TYPE_VISIT_INLINE(TYPE_CLASS)      \
   case TYPE_CLASS##Type::type_id:          \
     return std::forward<VISITOR>(visitor)( \
-        internal::checked_cast<const TYPE_CLASS##Type&>(type));
+        internal::checked_cast<const TYPE_CLASS##Type&>(type), args...);
 
 /// \brief Call `visitor` with the corresponding concrete type class
+/// \tparam ARGS Additional arguments, if any, will be passed to the Visit function after
+/// the `type` argument
 ///
 /// Unlike VisitTypeInline which calls `visitor.Visit`, here `visitor`
 /// itself is called.
@@ -71,15 +75,15 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
 ///
 /// The intent is for this to be called on a generic lambda
 /// that may internally use `if constexpr` or similar constructs.
-template <typename VISITOR>
-inline auto VisitType(const DataType& type, VISITOR&& visitor)
-    -> decltype(std::forward<VISITOR>(visitor)(type)) {
+template <typename VISITOR, typename... ARGS>
+inline auto VisitType(const DataType& type, VISITOR&& visitor, ARGS&&... args)
+    -> decltype(std::forward<VISITOR>(visitor)(type, args...)) {
   switch (type.id()) {
     ARROW_GENERATE_FOR_ALL_TYPES(TYPE_VISIT_INLINE);
     default:
       break;
   }
-  return std::forward<VISITOR>(visitor)(type);
+  return std::forward<VISITOR>(visitor)(type, args...);
 }
 
 #undef TYPE_VISIT_INLINE
@@ -87,15 +91,17 @@ inline auto VisitType(const DataType& type, VISITOR&& visitor)
 #define TYPE_ID_VISIT_INLINE(TYPE_CLASS)            \
   case TYPE_CLASS##Type::type_id: {                 \
     const TYPE_CLASS##Type* concrete_ptr = NULLPTR; \
-    return visitor->Visit(concrete_ptr);            \
+    return visitor->Visit(concrete_ptr, args...);   \
   }
 
 /// \brief Calls `visitor` with a nullptr of the corresponding concrete type class
 ///
 /// \tparam VISITOR Visitor type that implements Visit() for all Arrow types.
+/// \tparam ARGS Additional arguments, if any, will be passed to the Visit function after
+/// the `type` argument
 /// \return Status
-template <typename VISITOR>
-inline Status VisitTypeIdInline(Type::type id, VISITOR* visitor) {
+template <typename VISITOR, typename... ARGS>
+inline Status VisitTypeIdInline(Type::type id, VISITOR* visitor, ARGS&&... args) {
   switch (id) {
     ARROW_GENERATE_FOR_ALL_TYPES(TYPE_ID_VISIT_INLINE);
     default:
