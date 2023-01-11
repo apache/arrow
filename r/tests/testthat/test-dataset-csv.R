@@ -476,3 +476,25 @@ test_that("CSV reading/parsing/convert options can be passed in as lists", {
 
   expect_equal(ds1, ds2)
 })
+
+test_that("open_csv_dataset params passed through to open_dataset", {
+  ds <- open_csv_dataset(csv_dir, partitioning = "part")
+  expect_r6_class(ds$format, "CsvFileFormat")
+  expect_r6_class(ds$filesystem, "LocalFileSystem")
+  expect_identical(names(ds), c(names(df1), "part"))
+  expect_identical(dim(ds), c(20L, 7L))
+
+  # delim
+  ds_tsv <- open_csv_dataset(tsv_dir, delim = "\t", partitioning = "part")
+  expect_identical(names(ds_tsv), c(names(df1), "part"))
+  expect_identical(dim(ds_tsv), c(20L, 7L))
+
+  # quote
+  df <- data.frame(a = c(1, 2), b = c("'abc'", "'def'"))
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv")
+  write.table(df, sep = ",", dst_file, row.names = FALSE, quote = FALSE)
+
+  ds_quote <- open_csv_dataset(dst_dir, quote = "'") %>% collect()
+  expect_equal(ds_quote$b, c("abc", "def"))
+})
