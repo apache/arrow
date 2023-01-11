@@ -198,7 +198,7 @@ CsvFileFormat$create <- function(...,
 check_csv_file_format_args <- function(...) {
   opts <- list(...)
   # Filter out arguments meant for CsvConvertOptions/CsvReadOptions
-  convert_opts <- c(names(formals(CsvConvertOptions$create)))
+  convert_opts <- c(names(formals(CsvConvertOptions$create)), "na")
 
   read_opts <- c(
     names(formals(CsvReadOptions$create)),
@@ -245,7 +245,8 @@ check_csv_file_format_args <- function(...) {
 
   readr_opts <- c(
     names(formals(readr_to_csv_parse_options)),
-    names(formals(readr_to_csv_read_options))
+    names(formals(readr_to_csv_read_options)),
+    "na"
   )
 
   is_arrow_opt <- !is.na(pmatch(opt_names, arrow_opts))
@@ -280,7 +281,7 @@ check_ambiguous_options <- function(passed_opts, opts1, opts2) {
 csv_file_format_parse_options <- function(...) {
   opts <- list(...)
   # Filter out arguments meant for CsvConvertOptions/CsvReadOptions
-  convert_opts <- names(formals(CsvConvertOptions$create))
+  convert_opts <- c(names(formals(CsvConvertOptions$create)), "na")
   read_opts <- c(
     names(formals(CsvReadOptions$create)),
     names(formals(readr_to_csv_read_options))
@@ -295,7 +296,6 @@ csv_file_format_parse_options <- function(...) {
 
   is_arrow_opt <- !is.na(pmatch(opt_names, arrow_opts))
   is_readr_opt <- !is.na(pmatch(opt_names, readr_opts))
-
   # Catch options with ambiguous partial names (such as "del") that make it
   # unclear whether the user is specifying Arrow C++ options ("delimiter") or
   # readr-style options ("delim")
@@ -328,6 +328,13 @@ csv_file_format_convert_opts <- function(...) {
   opts[readr_opts] <- NULL
   opts[read_opts] <- NULL
   opts[["schema"]] <- NULL
+
+  # map "na" to "null_values"
+  if ("na" %in% names(opts)) {
+    opts[["null_values"]] <- opts[["na"]]
+    opts[["na"]] <- NULL
+  }
+
   do.call(CsvConvertOptions$create, opts)
 }
 
@@ -336,7 +343,7 @@ csv_file_format_read_opts <- function(schema = NULL, ...) {
   # Filter out arguments meant for CsvParseOptions/CsvConvertOptions
   arrow_opts <- names(formals(CsvParseOptions$create))
   readr_opts <- names(formals(readr_to_csv_parse_options))
-  convert_opts <- names(formals(CsvConvertOptions$create))
+  convert_opts <- c(names(formals(CsvConvertOptions$create)), "na")
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[convert_opts] <- NULL
