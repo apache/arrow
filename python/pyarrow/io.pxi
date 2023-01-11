@@ -943,6 +943,20 @@ def memory_map(path, mode='r'):
     Returns
     -------
     mmap : MemoryMappedFile
+
+    Examples
+    --------
+    Reading from a memory map without any memory allocation or copying:
+
+    >>> import pyarrow as pa
+    >>> with pa.output_stream('example_mmap.txt') as stream:
+    ...     stream.write(b'Constructing a buffer referencing the mapped memory')
+    ...
+    51
+    >>> with pa.memory_map('example_mmap.txt') as mmap:
+    ...     mmap.read_at(6,45)
+    ...
+    b'memory'
     """
     _check_is_file(path)
 
@@ -971,6 +985,18 @@ def create_memory_map(path, size):
     Returns
     -------
     mmap : MemoryMappedFile
+
+    Examples
+    --------
+    Create a file with a memory map:
+
+    >>> import pyarrow as pa
+    >>> with pa.create_memory_map('example_mmap_create.dat', 27) as mmap:
+    ...     mmap.write(b'Create a memory-mapped file')
+    ...     mmap.read_at(10, 9)
+    ...
+    27
+    b'memory-map'
     """
     return MemoryMappedFile.create(path, size)
 
