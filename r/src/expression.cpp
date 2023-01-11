@@ -110,7 +110,6 @@ std::shared_ptr<compute::Expression> compute___expr__scalar(
 
 // [[arrow::export]]
 std::string compute___expr__ToString(const std::shared_ptr<compute::Expression>& x) {
-  // TODO: something different if is field ref and IsNested?
   return x->ToString();
 }
 
