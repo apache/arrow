@@ -340,11 +340,11 @@ struct RecordBatchReaderSourceNode : public SourceNode {
     auto& reader = cast_options.reader;
     auto io_executor = cast_options.io_executor;
 
-    if (reader == NULLPTR) {
+    if (reader == nullptr) {
       return Status::Invalid(kKindName, " requires a reader which is not null");
     }
 
-    if (io_executor == NULLPTR) {
+    if (io_executor == nullptr) {
       io_executor = io::internal::GetIOThreadPool();
     }
 
@@ -356,10 +356,9 @@ struct RecordBatchReaderSourceNode : public SourceNode {
   static Result<arrow::AsyncGenerator<std::optional<ExecBatch>>> MakeGenerator(
       const std::shared_ptr<RecordBatchReader>& reader,
       arrow::internal::Executor* io_executor) {
-    const auto& schema = reader->schema();
     auto to_exec_batch =
-        [schema](const std::shared_ptr<RecordBatch>& batch) -> std::optional<ExecBatch> {
-      if (batch == NULLPTR || *batch->schema() != *schema) {
+        [](const std::shared_ptr<RecordBatch>& batch) -> std::optional<ExecBatch> {
+      if (batch == NULLPTR) {
         return std::nullopt;
       }
       return std::optional<ExecBatch>(ExecBatch(*batch));

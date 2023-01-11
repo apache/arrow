@@ -561,8 +561,6 @@ arrow::Status SourceOrderBySinkExample() {
 
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeSortTestBasicBatches());
 
-  std::cout << "basic data created" << std::endl;
-
   arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
@@ -777,22 +775,12 @@ arrow::Status RecordBatchReaderSourceSinkExample() {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
                         cp::ExecPlan::Make(*cp::threaded_exec_context()));
 
-  std::cout << "basic data created" << std::endl;
-
-  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
   ARROW_ASSIGN_OR_RAISE(auto table, GetTable());
   std::shared_ptr<arrow::RecordBatchReader> reader =
       std::make_shared<arrow::TableBatchReader>(table);
-
-  ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
-                        cp::MakeExecNode("record_batch_reader_source", plan.get(), {},
-                                         cp::RecordBatchReaderSourceNodeOptions{reader}));
-  ARROW_RETURN_NOT_OK(cp::MakeExecNode(
-      "order_by_sink", plan.get(), {source},
-      cp::OrderBySinkNodeOptions{
-          cp::SortOptions{{cp::SortKey{"a", cp::SortOrder::Descending}}}, &sink_gen}));
-
-  return ExecutePlanAndCollectAsTableWithCustomSink(plan, table->schema(), sink_gen);
+  cp::Declaration reader_source{"record_batch_reader_source",
+                                cp::RecordBatchReaderSourceNodeOptions{reader}};
+  return ExecutePlanAndCollectAsTable(std::move(reader_source));
 }
 
 // (Doc section: Table Sink Example)
