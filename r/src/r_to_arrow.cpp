@@ -727,7 +727,7 @@ class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
 template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_decimal_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
-  using ValueType = typename arrow::TypeTraits<T>::BuilderType::ValueType;
+  using ValueType = typename arrow::TypeTraits<T>::CType;
 
  public:
   Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
