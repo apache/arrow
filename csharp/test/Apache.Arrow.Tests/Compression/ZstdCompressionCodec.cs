@@ -13,11 +13,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Apache.Arrow.Ipc
+using System;
+using Apache.Arrow.Ipc;
+
+namespace Apache.Arrow.Tests.Compression
 {
-    public enum CompressionType
+    internal sealed class ZstdCompressionCodec : ICompressionCodec
     {
-        Lz4Frame,
-        Zstd,
+        private readonly ZstdNet.Decompressor _decompressor;
+
+        public ZstdCompressionCodec()
+        {
+            _decompressor = new ZstdNet.Decompressor();
+        }
+
+        public int Decompress(ReadOnlyMemory<byte> source, Memory<byte> destination)
+        {
+            return _decompressor.Unwrap(source.Span, destination.Span);
+        }
+
+        public void Dispose()
+        {
+            _decompressor.Dispose();
+        }
     }
 }

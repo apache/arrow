@@ -176,8 +176,8 @@ namespace Apache.Arrow.Tests
         {
             var assembly = Assembly.GetExecutingAssembly();
             using var stream = assembly.GetManifestResourceStream($"Apache.Arrow.Tests.Resources.{fileName}");
-            var compressionProvider = new Compression.CompressionProvider();
-            using var reader = new ArrowFileReader(stream, compressionProvider);
+            var codecFactory = new Compression.CompressionCodecFactory();
+            using var reader = new ArrowFileReader(stream, codecFactory);
 
             var batch = reader.ReadNextRecordBatch();
 
@@ -196,14 +196,14 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
-        public void ErrorReadingCompressedFileWithoutCompressionProvider()
+        public void ErrorReadingCompressedFileWithoutCodecFactory()
         {
             var assembly = Assembly.GetExecutingAssembly();
             using var stream = assembly.GetManifestResourceStream("Apache.Arrow.Tests.Resources.ipc_lz4_compression.arrow");
             using var reader = new ArrowFileReader(stream);
 
             var exception = Assert.Throws<Exception>(() => reader.ReadNextRecordBatch());
-            Assert.Contains("no ICompressionProvider has been configured", exception.Message);
+            Assert.Contains("no ICompressionCodecFactory has been configured", exception.Message);
         }
     }
 }

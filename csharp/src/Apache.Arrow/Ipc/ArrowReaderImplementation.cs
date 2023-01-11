@@ -36,15 +36,15 @@ namespace Apache.Arrow.Ipc
         private protected DictionaryMemo _dictionaryMemo;
         private protected DictionaryMemo DictionaryMemo => _dictionaryMemo ??= new DictionaryMemo();
         private protected readonly MemoryAllocator _allocator;
-        private readonly ICompressionProvider _compressionProvider;
+        private readonly ICompressionCodecFactory _compressionCodecFactory;
 
         private protected ArrowReaderImplementation() : this(null, null)
         { }
 
-        private protected ArrowReaderImplementation(MemoryAllocator allocator, ICompressionProvider compressionProvider)
+        private protected ArrowReaderImplementation(MemoryAllocator allocator, ICompressionCodecFactory compressionCodecFactory)
         {
             _allocator = allocator ?? MemoryAllocator.Default.Value;
-            _compressionProvider = compressionProvider;
+            _compressionCodecFactory = compressionCodecFactory;
         }
 
         public void Dispose()
@@ -210,15 +210,15 @@ namespace Apache.Arrow.Ipc
             }
 
             var codec = compression.Value.Codec;
-            if (_compressionProvider == null)
+            if (_compressionCodecFactory == null)
             {
                 throw new Exception(
-                    $"Body is compressed with codec {codec} but no ICompressionProvider has been configured to decompress buffers");
+                    $"Body is compressed with codec {codec} but no {nameof(ICompressionCodecFactory)} has been configured to decompress buffers");
             }
             var decompressor = codec switch
             {
-                Apache.Arrow.Flatbuf.CompressionType.LZ4_FRAME => _compressionProvider.GetDecompressor(CompressionType.Lz4Frame),
-                Apache.Arrow.Flatbuf.CompressionType.ZSTD => _compressionProvider.GetDecompressor(CompressionType.Zstd),
+                Apache.Arrow.Flatbuf.CompressionType.LZ4_FRAME => _compressionCodecFactory.CreateCodec(CompressionCodecType.Lz4Frame),
+                Apache.Arrow.Flatbuf.CompressionType.ZSTD => _compressionCodecFactory.CreateCodec(CompressionCodecType.Zstd),
                 _ => throw new NotImplementedException($"Compression codec {codec} is not supported")
             };
             return new DecompressingBufferCreator(decompressor, _allocator);

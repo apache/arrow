@@ -13,18 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-
 namespace Apache.Arrow.Ipc
 {
-    public interface IDecompressor : IDisposable
+    /// <summary>
+    /// Provides compression codec implementations for different compression codecs
+    /// </summary>
+    public interface ICompressionCodecFactory
     {
-        /// <summary>
-        /// Decompresses a compressed data buffer
-        /// </summary>
-        /// <param name="source">Data buffer to read compressed data from</param>
-        /// <param name="destination">Data buffer to write decompressed data to</param>
-        /// <returns>The number of decompressed bytes written into the destination</returns>
-        int Decompress(ReadOnlyMemory<byte> source, Memory<byte> destination);
+        ICompressionCodec CreateCodec(CompressionCodecType compressionCodecType);
     }
 }

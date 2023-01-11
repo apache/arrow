@@ -15,26 +15,24 @@
 
 using System;
 using Apache.Arrow.Ipc;
+using CommunityToolkit.HighPerformance;
+using K4os.Compression.LZ4.Streams;
 
 namespace Apache.Arrow.Tests.Compression
 {
-    internal sealed class ZstdDecompressor : IDecompressor
+    internal sealed class Lz4CompressionCodec : ICompressionCodec
     {
-        private readonly ZstdNet.Decompressor _decompressor;
-
-        public ZstdDecompressor()
-        {
-            _decompressor = new ZstdNet.Decompressor();
-        }
-
         public int Decompress(ReadOnlyMemory<byte> source, Memory<byte> destination)
         {
-            return _decompressor.Unwrap(source.Span, destination.Span);
+            using var sourceStream = source.AsStream();
+            using var destStream = destination.AsStream();
+            using var decompressedStream = LZ4Stream.Decode(sourceStream);
+            decompressedStream.CopyTo(destStream);
+            return (int) destStream.Length;
         }
 
         public void Dispose()
         {
-            _decompressor.Dispose();
         }
     }
 }

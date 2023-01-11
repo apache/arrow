@@ -31,41 +31,41 @@ namespace Apache.Arrow.Ipc
         public Schema Schema => _implementation.Schema;
 
         public ArrowStreamReader(Stream stream)
-            : this(stream, allocator: null, compressionProvider: null, leaveOpen: false)
+            : this(stream, allocator: null, compressionCodecFactory: null, leaveOpen: false)
         {
         }
 
         public ArrowStreamReader(Stream stream, MemoryAllocator allocator)
-            : this(stream, allocator, compressionProvider: null, leaveOpen: false)
+            : this(stream, allocator, compressionCodecFactory: null, leaveOpen: false)
         {
         }
 
-        public ArrowStreamReader(Stream stream, ICompressionProvider compressionProvider)
-            : this(stream, allocator: null, compressionProvider, leaveOpen: false)
+        public ArrowStreamReader(Stream stream, ICompressionCodecFactory compressionCodecFactory)
+            : this(stream, allocator: null, compressionCodecFactory, leaveOpen: false)
         {
         }
 
         public ArrowStreamReader(Stream stream, bool leaveOpen)
-            : this(stream, allocator: null, compressionProvider: null, leaveOpen)
+            : this(stream, allocator: null, compressionCodecFactory: null, leaveOpen)
         {
         }
 
         public ArrowStreamReader(Stream stream, MemoryAllocator allocator, bool leaveOpen)
-            : this(stream, allocator, compressionProvider: null, leaveOpen)
+            : this(stream, allocator, compressionCodecFactory: null, leaveOpen)
         {
         }
 
-        public ArrowStreamReader(Stream stream, ICompressionProvider compressionProvider, bool leaveOpen)
-            : this(stream, allocator: null, compressionProvider, leaveOpen)
+        public ArrowStreamReader(Stream stream, ICompressionCodecFactory compressionCodecFactory, bool leaveOpen)
+            : this(stream, allocator: null, compressionCodecFactory, leaveOpen)
         {
         }
 
-        public ArrowStreamReader(Stream stream, MemoryAllocator allocator, ICompressionProvider compressionProvider, bool leaveOpen)
+        public ArrowStreamReader(Stream stream, MemoryAllocator allocator, ICompressionCodecFactory compressionCodecFactory, bool leaveOpen)
         {
             if (stream == null)
                 throw new ArgumentNullException(nameof(stream));
 
-            _implementation = new ArrowStreamReaderImplementation(stream, allocator, compressionProvider, leaveOpen);
+            _implementation = new ArrowStreamReaderImplementation(stream, allocator, compressionCodecFactory, leaveOpen);
         }
 
         public ArrowStreamReader(ReadOnlyMemory<byte> buffer)

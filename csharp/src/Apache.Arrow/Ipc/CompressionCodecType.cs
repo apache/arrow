@@ -13,21 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using Apache.Arrow.Ipc;
-
-namespace Apache.Arrow.Tests.Compression
+namespace Apache.Arrow.Ipc
 {
-    internal sealed class CompressionProvider : ICompressionProvider
+    public enum CompressionCodecType
     {
-        public IDecompressor GetDecompressor(CompressionType compressionType)
-        {
-            return compressionType switch
-            {
-                CompressionType.Lz4Frame => new Lz4Decompressor(),
-                CompressionType.Zstd => new ZstdDecompressor(),
-                _ => throw new NotImplementedException($"Compression type {compressionType} is not supported")
-            };
-        }
+        Lz4Frame,
+        Zstd,
     }
 }

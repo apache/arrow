@@ -24,12 +24,12 @@ namespace Apache.Arrow.Ipc
     /// </summary>
     internal sealed class DecompressingBufferCreator : IBufferCreator
     {
-        private readonly IDecompressor _decompressor;
+        private readonly ICompressionCodec _compressionCodec;
         private readonly MemoryAllocator _allocator;
 
-        public DecompressingBufferCreator(IDecompressor decompressor, MemoryAllocator allocator)
+        public DecompressingBufferCreator(ICompressionCodec compressionCodec, MemoryAllocator allocator)
         {
-            _decompressor = decompressor;
+            _compressionCodec = compressionCodec;
             _allocator = allocator;
         }
 
@@ -49,7 +49,7 @@ namespace Apache.Arrow.Ipc
             }
 
             var outputData = _allocator.Allocate(Convert.ToInt32(uncompressedLength));
-            var decompressedLength = _decompressor.Decompress(source.Slice(8), outputData.Memory);
+            var decompressedLength = _compressionCodec.Decompress(source.Slice(8), outputData.Memory);
             if (decompressedLength != uncompressedLength)
             {
                 throw new Exception($"Expected to decompress {uncompressedLength} bytes, but got {decompressedLength} bytes");
@@ -60,7 +60,7 @@ namespace Apache.Arrow.Ipc
 
         public void Dispose()
         {
-            _decompressor.Dispose();
+            _compressionCodec.Dispose();
         }
     }
 }

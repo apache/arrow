@@ -14,25 +14,20 @@
 // limitations under the License.
 
 using System;
-using Apache.Arrow.Ipc;
-using CommunityToolkit.HighPerformance;
-using K4os.Compression.LZ4.Streams;
 
-namespace Apache.Arrow.Tests.Compression
+namespace Apache.Arrow.Ipc
 {
-    internal sealed class Lz4Decompressor : IDecompressor
+    /// <summary>
+    /// Codec for data compression and decompression (currently only decompression is supported)
+    /// </summary>
+    public interface ICompressionCodec : IDisposable
     {
-        public int Decompress(ReadOnlyMemory<byte> source, Memory<byte> destination)
-        {
-            using var sourceStream = source.AsStream();
-            using var destStream = destination.AsStream();
-            using var decompressedStream = LZ4Stream.Decode(sourceStream);
-            decompressedStream.CopyTo(destStream);
-            return (int) destStream.Length;
-        }
-
-        public void Dispose()
-        {
-        }
+        /// <summary>
+        /// Decompresses a compressed data buffer
+        /// </summary>
+        /// <param name="source">Data buffer to read compressed data from</param>
+        /// <param name="destination">Data buffer to write decompressed data to</param>
+        /// <returns>The number of decompressed bytes written into the destination</returns>
+        int Decompress(ReadOnlyMemory<byte> source, Memory<byte> destination);
     }
 }

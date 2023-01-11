@@ -27,7 +27,7 @@ namespace Apache.Arrow.Ipc
         public Stream BaseStream { get; }
         private readonly bool _leaveOpen;
 
-        public ArrowStreamReaderImplementation(Stream stream, MemoryAllocator allocator, ICompressionProvider compressionProvider, bool leaveOpen) : base(allocator, compressionProvider)
+        public ArrowStreamReaderImplementation(Stream stream, MemoryAllocator allocator, ICompressionCodecFactory compressionCodecFactory, bool leaveOpen) : base(allocator, compressionCodecFactory)
         {
             BaseStream = stream;
             _leaveOpen = leaveOpen;

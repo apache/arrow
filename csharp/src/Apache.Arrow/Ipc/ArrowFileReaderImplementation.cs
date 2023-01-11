@@ -35,8 +35,8 @@ namespace Apache.Arrow.Ipc
 
         private ArrowFooter _footer;
 
-        public ArrowFileReaderImplementation(Stream stream, MemoryAllocator allocator, ICompressionProvider compressionProvider, bool leaveOpen)
-            : base(stream, allocator, compressionProvider, leaveOpen)
+        public ArrowFileReaderImplementation(Stream stream, MemoryAllocator allocator, ICompressionCodecFactory compressionCodecFactory, bool leaveOpen)
+            : base(stream, allocator, compressionCodecFactory, leaveOpen)
         {
         }
 
