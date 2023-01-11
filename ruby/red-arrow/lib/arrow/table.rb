@@ -517,7 +517,7 @@ module Arrow
     #
     # @since 7.0.0
     def join(right, keys=nil, type: :inner, left_outputs: nil, right_outputs: nil)
-      keys ||= column_names.intersection(right.column_names)
+      keys ||= (column_names & right.column_names)
       plan = ExecutePlan.new
       left_node = plan.build_source_node(self)
       right_node = plan.build_source_node(right)
