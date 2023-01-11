@@ -4982,9 +4982,10 @@ TEST(TestReadWriteArrow, WriteAndReadRecordBatch) {
 
   // Prepare schema
   auto schema = ::arrow::schema(
-      {::arrow::field("a", ::arrow::int64()), ::arrow::field("b", ::arrow::utf8()),
-       ::arrow::field("c", ::arrow::struct_({::arrow::field("c1", ::arrow::int64()),
-                                             ::arrow::field("c2", ::arrow::utf8())}))});
+      {::arrow::field("a", ::arrow::int64()),
+       ::arrow::field("b", ::arrow::struct_({::arrow::field("b1", ::arrow::int64()),
+                                             ::arrow::field("b2", ::arrow::utf8())})),
+       ::arrow::field("c", ::arrow::utf8())});
   std::shared_ptr<SchemaDescriptor> parquet_schema;
   ASSERT_OK_NO_THROW(ToParquetSchema(schema.get(), *writer_properties,
                                      *arrow_writer_properties, &parquet_schema));
@@ -4992,18 +4993,18 @@ TEST(TestReadWriteArrow, WriteAndReadRecordBatch) {
 
   // Prepare data
   auto record_batch = ::arrow::RecordBatchFromJSON(schema, R"([
-      [1,     "alfa",  {"c1": -3,   "c2": "1"}],
-      [null,  "alfa",  {"c1": null, "c2": "22"}],
-      [3,     "beta",  {"c1": -2,   "c2": "333"}],
-      [null,  "gama",  {"c1": null, "c2": null}],
-      [5,     null,    {"c1": -1,   "c2": "-333"}],
-      [6,     "alfa",  {"c1": null, "c2": "-22"}],
-      [7,     "beta",  {"c1": 0,    "c2": "-1"}],
-      [8,     "beta",  {"c1": null, "c2": null}],
-      [9,     null  ,  {"c1": 1,    "c2": "0"}],
-      [null,  "gama",  {"c1": null, "c2": ""}],
-      [11,    "foo",   {"c1": 2,    "c2": "1234"}],
-      [12,    "bar",   {"c1": null, "c2": "4321"}]
+      [1,    {"b1": -3,   "b2": "1"   }, "alfa"],
+      [null, {"b1": null, "b2": "22"  }, "alfa"],
+      [3,    {"b1": -2,   "b2": "333" }, "beta"],
+      [null, {"b1": null, "b2": null  }, "gama"],
+      [5,    {"b1": -1,   "b2": "-333"}, null  ],
+      [6,    {"b1": null, "b2": "-22" }, "alfa"],
+      [7,    {"b1": 0,    "b2": "-1"  }, "beta"],
+      [8,    {"b1": null, "b2": null  }, "beta"],
+      [9,    {"b1": 1,    "b2": "0"   }, null  ],
+      [null, {"b1": null, "b2": ""    }, "gama"],
+      [11,   {"b1": 2,    "b2": "1234"}, "foo" ],
+      [12,   {"b1": null, "b2": "4321"}, "bar" ]
     ])");
 
   // Create writer to write data via RecordBatch.
