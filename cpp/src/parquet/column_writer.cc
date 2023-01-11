@@ -1479,6 +1479,43 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     value_offset += batch_num_spaced_values;
   };
 
+  auto update_stats = [&]() {
+    // TODO(PARQUET-2068) This approach may make two copies.  First, a copy of the
+    // indices array to a (hopefully smaller) referenced indices array.  Second, a copy
+    // of the values array to a (probably not smaller) referenced values array.
+    //
+    // Once the MinMax kernel supports all data types we should use that kernel instead
+    // as it does not make any copies.
+    ::arrow::compute::ExecContext exec_ctx(ctx->memory_pool);
+    exec_ctx.set_use_threads(false);
+
+    std::shared_ptr<::arrow::Array> referenced_dictionary;
+    // If dictionary is the same dictionary we already have, just use that
+    if (preserved_dictionary_ && preserved_dictionary_ == dictionary) {
+      referenced_dictionary = preserved_dictionary_;
+    } else {
+      PARQUET_ASSIGN_OR_THROW(::arrow::Datum referenced_indices,
+                              ::arrow::compute::Unique(*indices, &exec_ctx));
+
+      // On first run, we might be able to re-use the existing dictionary
+      if (referenced_indices.length() == dictionary->length()) {
+        referenced_dictionary = dictionary;
+      } else {
+        PARQUET_ASSIGN_OR_THROW(
+            ::arrow::Datum referenced_dictionary_datum,
+            ::arrow::compute::Take(dictionary, referenced_indices,
+                                   ::arrow::compute::TakeOptions(/*boundscheck=*/false),
+                                   &exec_ctx));
+        referenced_dictionary = referenced_dictionary_datum.make_array();
+      }
+    }
+
+    int64_t non_null_count = indices->length() - indices->null_count();
+    page_statistics_->IncrementNullCount(num_levels - non_null_count);
+    page_statistics_->IncrementNumValues(non_null_count);
+    page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
+  };
+
   // Handle seeing dictionary for the first time
   if (!preserved_dictionary_) {
     // It's a new dictionary. Call PutDictionary and keep track of it
@@ -1493,37 +1530,18 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     }
 
     if (page_statistics_ != nullptr) {
-      // TODO(PARQUET-2068) This approach may make two copies.  First, a copy of the
-      // indices array to a (hopefully smaller) referenced indices array.  Second, a copy
-      // of the values array to a (probably not smaller) referenced values array.
-      //
-      // Once the MinMax kernel supports all data types we should use that kernel instead
-      // as it does not make any copies.
-      ::arrow::compute::ExecContext exec_ctx(ctx->memory_pool);
-      exec_ctx.set_use_threads(false);
-      PARQUET_ASSIGN_OR_THROW(::arrow::Datum referenced_indices,
-                              ::arrow::compute::Unique(*indices, &exec_ctx));
-      std::shared_ptr<::arrow::Array> referenced_dictionary;
-      if (referenced_indices.length() == dictionary->length()) {
-        referenced_dictionary = dictionary;
-      } else {
-        PARQUET_ASSIGN_OR_THROW(
-            ::arrow::Datum referenced_dictionary_datum,
-            ::arrow::compute::Take(dictionary, referenced_indices,
-                                   ::arrow::compute::TakeOptions(/*boundscheck=*/false),
-                                   &exec_ctx));
-        referenced_dictionary = referenced_dictionary_datum.make_array();
-      }
-      int64_t non_null_count = indices->length() - indices->null_count();
-      page_statistics_->IncrementNullCount(num_levels - non_null_count);
-      page_statistics_->IncrementNumValues(non_null_count);
-      page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
+      update_stats();
     }
     preserved_dictionary_ = dictionary;
   } else if (!dictionary->Equals(*preserved_dictionary_)) {
     // Dictionary has changed
     PARQUET_CATCH_NOT_OK(FallbackToPlainEncoding());
     return WriteDense();
+  } else {
+    // Dictionary is same, but we need to update stats
+    if (page_statistics_ != nullptr) {
+      update_stats();
+    }
   }
 
   PARQUET_CATCH_NOT_OK(

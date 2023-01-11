@@ -80,6 +80,7 @@ using arrow::DataType;
 using arrow::Datum;
 using arrow::DecimalType;
 using arrow::default_memory_pool;
+using arrow::DictionaryArray;
 using arrow::ListArray;
 using arrow::PrimitiveArray;
 using arrow::ResizableBuffer;
@@ -4138,6 +4139,74 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
 INSTANTIATE_TEST_SUITE_P(WriteDictionary, TestArrowWriteDictionary,
                          ::testing::Values(ParquetDataPageVersion::V1,
                                            ParquetDataPageVersion::V2));
+
+TEST_P(TestArrowWriteDictionary, StatisticsUnifiedDictionary) {
+  // Two chunks, with a shared dictionary
+  std::shared_ptr<::arrow::Table> table;
+  std::shared_ptr<::arrow::DataType> dict_type =
+      ::arrow::dictionary(::arrow::int32(), ::arrow::utf8());
+  std::shared_ptr<::arrow::Schema> schema =
+      ::arrow::schema({::arrow::field("values", dict_type)});
+  {
+    // It's important there are no duplicate values in the dictionary, otherwise
+    // we trigger the WriteDense() code path which side-steps dictionary encoding.
+    std::shared_ptr<::arrow::Array> test_dictionary =
+        ArrayFromJSON(::arrow::utf8(), R"(["b", "c", "d", "a"])");
+    std::vector<std::shared_ptr<::arrow::Array>> test_indices = {
+        ArrayFromJSON(::arrow::int32(),
+                      R"([3, null, 3, 3, null, 3])"),  // ["a", null "a", "a", null, "a"]
+        ArrayFromJSON(
+            ::arrow::int32(),
+            R"([0, 3, null, 0, null, 1])")};  // ["b", "a", null, "b", null, "c"]
+
+    ::arrow::ArrayVector chunks = {
+        std::make_shared<DictionaryArray>(dict_type, test_indices[0], test_dictionary),
+        std::make_shared<DictionaryArray>(dict_type, test_indices[1], test_dictionary),
+    };
+    std::shared_ptr<ChunkedArray> arr = std::make_shared<ChunkedArray>(chunks, dict_type);
+    table = ::arrow::Table::Make(schema, {arr});
+  }
+
+  std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
+  auto out_stream = std::make_shared<::arrow::io::BufferOutputStream>(serialized_data);
+  {
+    // Will write data as two row groups, one with 9 rows and one with 3.
+    std::shared_ptr<WriterProperties> writer_properties =
+        WriterProperties::Builder()
+            .max_row_group_length(9)
+            ->data_page_version(this->GetParquetDataPageVersion())
+            ->write_batch_size(3)
+            ->data_pagesize(3)
+            ->build();
+    std::unique_ptr<FileWriter> writer;
+    ASSERT_OK_AND_ASSIGN(
+        writer, FileWriter::Open(*schema, ::arrow::default_memory_pool(), out_stream,
+                                 writer_properties, default_arrow_writer_properties()));
+    ASSERT_OK(writer->WriteTable(*table, std::numeric_limits<int64_t>::max()));
+    ASSERT_OK(writer->Close());
+    ASSERT_OK(out_stream->Close());
+  }
+
+  auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(serialized_data);
+  std::unique_ptr<ParquetFileReader> parquet_reader =
+      ParquetFileReader::Open(std::move(buffer_reader));
+  // Check row group statistics
+  std::shared_ptr<FileMetaData> metadata = parquet_reader->metadata();
+  ASSERT_EQ(metadata->num_row_groups(), 2);
+  ASSERT_EQ(metadata->RowGroup(0)->num_rows(), 9);
+  ASSERT_EQ(metadata->RowGroup(1)->num_rows(), 3);
+  auto stats0 = metadata->RowGroup(0)->ColumnChunk(0)->statistics();
+  auto stats1 = metadata->RowGroup(1)->ColumnChunk(0)->statistics();
+  ASSERT_EQ(stats0->num_values(), 6);
+  ASSERT_EQ(stats1->num_values(), 2);
+  ASSERT_EQ(stats0->null_count(), 3);
+  ASSERT_EQ(stats1->null_count(), 1);
+  ASSERT_EQ(stats0->EncodeMin(), "a");
+  ASSERT_EQ(stats1->EncodeMin(), "b");
+  ASSERT_EQ(stats0->EncodeMax(), "b");
+  ASSERT_EQ(stats1->EncodeMax(), "c");
+}
+
 // ----------------------------------------------------------------------
 // Tests for directly reading DictionaryArray
 
