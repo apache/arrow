@@ -1392,7 +1392,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
         }
 
         levels_written_ += levels_read;
-        records_read += ReadRecordData(num_records - records_read, read_dense_for_nullable);
+        records_read +=
+            ReadRecordData(num_records - records_read, read_dense_for_nullable);
       } else {
         // No repetition or definition levels
         batch_size = std::min(num_records - records_read, batch_size);
@@ -1829,25 +1830,34 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     int64_t null_count = 0;
     if (leaf_info_.HasNullableValues()) {
-      ValidityBitmapInputOutput validity_io;
-      validity_io.values_read_upper_bound = levels_position_ - start_levels_position;
-      validity_io.valid_bits = valid_bits_->mutable_data();
-      validity_io.valid_bits_offset = values_written_;
-
-      DefLevelsToBitmap(def_levels() + start_levels_position,
-                        levels_position_ - start_levels_position, leaf_info_,
-                        &validity_io);
-      values_to_read = validity_io.values_read - validity_io.null_count;
-      null_count = validity_io.null_count;
-      DCHECK_GE(values_to_read, 0);
       if (read_dense_for_nullable) {
+        DCHECK_GE(values_to_read, 0);
         ReadValuesDense(values_to_read);
+        // Total values, if reading dense, we don't have the nulls in the values
+        // vector.
+        values_written_ += values_to_read;
+        // Any values with def_level < max_def_level is considered null.
+        null_count = levels_position_ - start_levels_position - values_to_read;
       } else {
+        ValidityBitmapInputOutput validity_io;
+        validity_io.values_read_upper_bound = levels_position_ - start_levels_position;
+        validity_io.valid_bits = valid_bits_->mutable_data();
+        validity_io.valid_bits_offset = values_written_;
+
+        DefLevelsToBitmap(def_levels() + start_levels_position,
+                          levels_position_ - start_levels_position, leaf_info_,
+                          &validity_io);
+        values_to_read = validity_io.values_read - validity_io.null_count;
+        null_count = validity_io.null_count;
+        ARROW_DCHECK_GE(values_to_read, 0);
         ReadValuesSpaced(validity_io.values_read, null_count);
+        // Total values, including null spaces, if any
+        values_written_ += values_to_read + null_count;
       }
     } else {
       DCHECK_GE(values_to_read, 0);
       ReadValuesDense(values_to_read);
+      values_written_ += values_to_read;
     }
     if (this->leaf_info_.def_level > 0) {
       // Optional, repeated, or some mix thereof
@@ -1856,14 +1866,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       // Flat, non-repeated
       this->ConsumeBufferedValues(values_to_read);
     }
-    if (read_dense_for_nullable) {
-      // Total values, if reading dense, we don't have the nulls in the values
-      // vector.
-      values_written_ += values_to_read;
-    } else {
-      // Total values, including null spaces, if any
-      values_written_ += values_to_read + null_count;
-    }
+
     null_count_ += null_count;
 
     return records_read;

@@ -319,6 +319,8 @@ class PARQUET_EXPORT RecordReader {
   /// Note that for repeated fields, a record may have more than one value
   /// and all of them are read. If read_dense_for_nullable is true, it will
   /// not leave any space for null values. Otherwise, it will read spaced.
+  /// Readers must call Reset() before switching between reading dense and
+  /// spaced since reading dense will not update the valid_bits_.
   /// \return number of records read
   virtual int64_t ReadRecords(int64_t num_records,
                               bool read_dense_for_nullable = false) = 0;
