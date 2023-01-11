@@ -311,19 +311,16 @@ class PARQUET_EXPORT RecordReader {
   static std::shared_ptr<RecordReader> Make(
       const ColumnDescriptor* descr, LevelInfo leaf_info,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      const bool read_dictionary = false);
+      bool read_dictionary = false, bool read_dense_for_nullable = false);
 
   virtual ~RecordReader() = default;
 
   /// \brief Attempt to read indicated number of records from column chunk
   /// Note that for repeated fields, a record may have more than one value
-  /// and all of them are read. If read_dense_for_nullable is true, it will
+  /// and all of them are read. If read_dense_for_nullable_ is true, it will
   /// not leave any space for null values. Otherwise, it will read spaced.
-  /// Readers must call Reset() before switching between reading dense and
-  /// spaced since reading dense will not update the valid_bits_.
   /// \return number of records read
-  virtual int64_t ReadRecords(int64_t num_records,
-                              bool read_dense_for_nullable = false) = 0;
+  virtual int64_t ReadRecords(int64_t num_records) = 0;
 
   /// \brief Attempt to skip indicated number of records from column chunk.
   /// Note that for repeated fields, a record may have more than one value
@@ -371,8 +368,7 @@ class PARQUET_EXPORT RecordReader {
   uint8_t* values() const { return values_->mutable_data(); }
 
   /// \brief Number of values written including nulls (if any)
-  /// If reading dense, by setting read_dense_for_nullable to true in
-  /// ReadRecords, this will not include nulls.
+  /// If read_dense_for_nullable_ is true this will not include nulls.
   /// There is no read-ahead/buffering for values.
   int64_t values_written() const { return values_written_; }
 
@@ -387,7 +383,7 @@ class PARQUET_EXPORT RecordReader {
   int64_t levels_written() const { return levels_written_; }
 
   /// \brief Number of nulls in the leaf that we have read so far.
-  /// This is valid and set even if read_dense_for_nullable is set to true.
+  /// This is valid and set even if read_dense_for_nullable_ is set to true.
   int64_t null_count() const { return null_count_; }
 
   /// \brief True if the leaf values are nullable
@@ -417,7 +413,7 @@ class PARQUET_EXPORT RecordReader {
   int64_t null_count_;
 
   /// \brief Each bit corresponds to one element in 'values_' and specifies if it
-  /// is null or not null.
+  /// is null or not null. Not set if read_dense_for_nullable_.
   std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
 
   /// \brief Buffer for definition levels. May contain more levels than
@@ -441,6 +437,9 @@ class PARQUET_EXPORT RecordReader {
   int64_t levels_capacity_;
 
   bool read_dictionary_ = false;
+  // If true, we will not leave any space for the null values in the values_
+  // vector.
+  bool read_dense_for_nullable_ = false;
 };
 
 class BinaryRecordReader : virtual public RecordReader {

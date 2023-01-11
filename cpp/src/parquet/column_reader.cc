@@ -1300,7 +1300,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
  public:
   using T = typename DType::c_type;
   using BASE = TypedColumnReaderImpl<DType>;
-  TypedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool)
+  TypedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
+                    bool read_dense_for_nullable)
       // Pager must be set using SetPageReader.
       : BASE(descr, /* pager = */ nullptr, pool) {
     leaf_info_ = leaf_info;
@@ -1312,6 +1313,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     levels_written_ = 0;
     levels_position_ = 0;
     levels_capacity_ = 0;
+    read_dense_for_nullable_ = read_dense_for_nullable;
     uses_values_ = !(descr->physical_type() == Type::BYTE_ARRAY);
 
     if (uses_values_) {
@@ -1333,12 +1335,12 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     return bytes_for_values;
   }
 
-  int64_t ReadRecords(int64_t num_records, bool read_dense_for_nullable) override {
+  int64_t ReadRecords(int64_t num_records) override {
     // Delimit records, then read values at the end
     int64_t records_read = 0;
 
     if (levels_position_ < levels_written_) {
-      records_read += ReadRecordData(num_records, read_dense_for_nullable);
+      records_read += ReadRecordData(num_records);
     }
 
     int64_t level_batch_size = std::max<int64_t>(kMinLevelBatchSize, num_records);
@@ -1392,12 +1394,11 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
         }
 
         levels_written_ += levels_read;
-        records_read +=
-            ReadRecordData(num_records - records_read, read_dense_for_nullable);
+        records_read += ReadRecordData(num_records - records_read);
       } else {
         // No repetition or definition levels
         batch_size = std::min(num_records - records_read, batch_size);
-        records_read += ReadRecordData(batch_size, read_dense_for_nullable);
+        records_read += ReadRecordData(batch_size);
       }
     }
 
@@ -1752,7 +1753,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       }
       values_capacity_ = new_values_capacity;
     }
-    if (leaf_info_.HasNullableValues()) {
+    if (leaf_info_.HasNullableValues() && !read_dense_for_nullable_) {
       int64_t valid_bytes_new = bit_util::BytesForBits(values_capacity_);
       if (valid_bits_->size() < valid_bytes_new) {
         int64_t valid_bytes_old = bit_util::BytesForBits(values_written_);
@@ -1805,7 +1806,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   // Return number of logical records read
-  int64_t ReadRecordData(int64_t num_records, bool read_dense_for_nullable) {
+  int64_t ReadRecordData(int64_t num_records) {
     // Conservative upper bound
     const int64_t possible_num_values =
         std::max<int64_t>(num_records, levels_written_ - levels_position_);
@@ -1830,7 +1831,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     int64_t null_count = 0;
     if (leaf_info_.HasNullableValues()) {
-      if (read_dense_for_nullable) {
+      if (read_dense_for_nullable_) {
         DCHECK_GE(values_to_read, 0);
         ReadValuesDense(values_to_read);
         // Total values, if reading dense, we don't have the nulls in the values
@@ -1923,8 +1924,9 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
                          virtual public BinaryRecordReader {
  public:
   FLBARecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
-                   ::arrow::MemoryPool* pool)
-      : TypedRecordReader<FLBAType>(descr, leaf_info, pool), builder_(nullptr) {
+                   ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+      : TypedRecordReader<FLBAType>(descr, leaf_info, pool, read_dense_for_nullable),
+        builder_(nullptr) {
     DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
     int byte_width = descr_->type_length();
     std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
@@ -1977,8 +1979,9 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
                                      virtual public BinaryRecordReader {
  public:
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
-                               ::arrow::MemoryPool* pool)
-      : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool) {
+                               ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+      : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool,
+                                         read_dense_for_nullable) {
     DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
     accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
   }
@@ -2018,8 +2021,9 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
                                         virtual public DictionaryRecordReader {
  public:
   ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
-                                  ::arrow::MemoryPool* pool)
-      : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool), builder_(pool) {
+                                  ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+      : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool, read_dense_for_nullable),
+        builder_(pool) {
     this->read_dictionary_ = true;
   }
 
@@ -2108,11 +2112,14 @@ void TypedRecordReader<FLBAType>::DebugPrintState() {}
 std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* descr,
                                                         LevelInfo leaf_info,
                                                         ::arrow::MemoryPool* pool,
-                                                        bool read_dictionary) {
+                                                        bool read_dictionary,
+                                                        bool read_dense_for_nullable) {
   if (read_dictionary) {
-    return std::make_shared<ByteArrayDictionaryRecordReader>(descr, leaf_info, pool);
+    return std::make_shared<ByteArrayDictionaryRecordReader>(descr, leaf_info, pool,
+                                                             read_dense_for_nullable);
   } else {
-    return std::make_shared<ByteArrayChunkedRecordReader>(descr, leaf_info, pool);
+    return std::make_shared<ByteArrayChunkedRecordReader>(descr, leaf_info, pool,
+                                                          read_dense_for_nullable);
   }
 }
 
@@ -2120,24 +2127,33 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* 
 
 std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
                                                  LevelInfo leaf_info, MemoryPool* pool,
-                                                 const bool read_dictionary) {
+                                                 bool read_dictionary,
+                                                 bool read_dense_for_nullable) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
-      return std::make_shared<TypedRecordReader<BooleanType>>(descr, leaf_info, pool);
+      return std::make_shared<TypedRecordReader<BooleanType>>(descr, leaf_info, pool,
+                                                              read_dense_for_nullable);
     case Type::INT32:
-      return std::make_shared<TypedRecordReader<Int32Type>>(descr, leaf_info, pool);
+      return std::make_shared<TypedRecordReader<Int32Type>>(descr, leaf_info, pool,
+                                                            read_dense_for_nullable);
     case Type::INT64:
-      return std::make_shared<TypedRecordReader<Int64Type>>(descr, leaf_info, pool);
+      return std::make_shared<TypedRecordReader<Int64Type>>(descr, leaf_info, pool,
+                                                            read_dense_for_nullable);
     case Type::INT96:
-      return std::make_shared<TypedRecordReader<Int96Type>>(descr, leaf_info, pool);
+      return std::make_shared<TypedRecordReader<Int96Type>>(descr, leaf_info, pool,
+                                                            read_dense_for_nullable);
     case Type::FLOAT:
-      return std::make_shared<TypedRecordReader<FloatType>>(descr, leaf_info, pool);
+      return std::make_shared<TypedRecordReader<FloatType>>(descr, leaf_info, pool,
+                                                            read_dense_for_nullable);
     case Type::DOUBLE:
-      return std::make_shared<TypedRecordReader<DoubleType>>(descr, leaf_info, pool);
+      return std::make_shared<TypedRecordReader<DoubleType>>(descr, leaf_info, pool,
+                                                             read_dense_for_nullable);
     case Type::BYTE_ARRAY:
-      return MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary);
+      return MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
+                                       read_dense_for_nullable);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::make_shared<FLBARecordReader>(descr, leaf_info, pool);
+      return std::make_shared<FLBARecordReader>(descr, leaf_info, pool,
+                                                read_dense_for_nullable);
     default: {
       // PARQUET-1481: This can occur if the file is corrupt
       std::stringstream ss;

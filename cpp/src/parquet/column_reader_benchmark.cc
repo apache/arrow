@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <type_traits>
 #include "benchmark/benchmark.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
@@ -26,9 +27,9 @@ namespace parquet {
 
 using benchmark::DoNotOptimize;
 using parquet::Repetition;
+using parquet::internal::RecordReader;
 using parquet::test::MakePages;
 using schema::NodePtr;
-using parquet::internal::RecordReader;
 
 namespace benchmark {
 
@@ -64,7 +65,7 @@ class BenchmarkHelper {
     return static_cast<Int32Reader*>(column_reader_.get());
   }
 
-  RecordReader* ResetRecordReader() {
+  RecordReader* ResetRecordReader(bool read_dense_for_nullable) {
     std::unique_ptr<PageReader> pager;
     pager.reset(new test::MockPageReader(pages_));
     internal::LevelInfo level_info;
@@ -75,7 +76,9 @@ class BenchmarkHelper {
       // returns true. Otherwise, it is not used by the RecordReader.
       level_info.repeated_ancestor_def_level = descr_->max_definition_level() - 1;
     }
-    record_reader_ = internal::RecordReader::Make(descr_.get(), level_info);
+    record_reader_ = internal::RecordReader::Make(
+        descr_.get(), level_info, ::arrow::default_memory_pool(), /*read_dictionary=*/false,
+        /*read_dense_for_nullable=*/read_dense_for_nullable);
     record_reader_->SetPageReader(std::move(pager));
     return record_reader_.get();
   }
@@ -157,12 +160,12 @@ static void RecordReaderReadRecords(::benchmark::State& state) {
   // Vectors to read the values into.
   for (auto _ : state) {
     state.PauseTiming();
-    RecordReader* reader = helper.ResetRecordReader();
+    RecordReader* reader = helper.ResetRecordReader(read_dense_for_nullable);
     int64_t records_read = -1;
     state.ResumeTiming();
     while (records_read != 0) {
-      DoNotOptimize(records_read =
-                        reader->ReadRecords(batch_size, read_dense_for_nullable));
+      DoNotOptimize(records_read = reader->ReadRecords(batch_size));
+      reader->Reset();
     }
   }
 
@@ -181,11 +184,12 @@ static void RecordReaderSkipRecords(::benchmark::State& state) {
   // Vectors to read the values into.
   for (auto _ : state) {
     state.PauseTiming();
-    RecordReader* reader = helper.ResetRecordReader();
+    RecordReader* reader = helper.ResetRecordReader(/*read_dense_for_nullable=*/true);
     int64_t records_skipped = -1;
     state.ResumeTiming();
     while (records_skipped != 0) {
       DoNotOptimize(records_skipped = reader->SkipRecords(batch_size));
+      reader->Reset();
     }
   }
 
