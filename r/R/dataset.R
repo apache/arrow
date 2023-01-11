@@ -248,16 +248,36 @@ open_csv_dataset <- function(sources,
                              escape_backslash = FALSE,
                              col_names = TRUE,
                              col_types = NULL,
+                             col_select = NULL,
+                             na = c("", "NA"),
                              skip_empty_rows = TRUE,
                              skip = 0L,
+                             parse_options = NULL,
                              convert_options = NULL,
                              read_options = NULL,
+                             as_data_frame = NULL,
                              timestamp_parsers = NULL) {
+  if (!missing(col_select)) {
+    abort('The following option is supported in "read_delim_arrow" functions but not supported here: "col_select"')
+  }
+
+  if (!missing(quoted_na)) {
+    abort('The following option is supported in "read_delim_arrow" functions but not supported here: "quoted_na"')
+  }
+
+  if (!missing(parse_options)) {
+    abort('The following option is supported in "read_delim_arrow" functions but not supported here: "parse_options"')
+  }
+
+  if (!missing(as_data_frame)) {
+    abort('The following option is supported in "read_delim_arrow" functions but not supported here: "as_data_frame"')
+  }
+
   open_dataset(
     sources = sources, schema = schema, partitioning = partitioning, hive_style = hive_style,
     unify_schemas = unify_schemas, factory_options = factory_options, delim = delim, format = "csv", quote = quote, escape_double = escape_double,
     escape_backslash = escape_backslash, col_names = col_names, col_types = col_types,
-    skip_empty_rows = skip_empty_rows, skip = skip, convert_options = convert_options,
+    na = na, skip_empty_rows = skip_empty_rows, skip = skip, convert_options = convert_options,
     read_options = read_options, timestamp_parsers = timestamp_parsers
   )
 }
