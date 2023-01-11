@@ -79,14 +79,11 @@ test_that("Field reference expression schemas and types", {
 test_that("Nested field refs", {
   x <- Expression$field_ref("x")
   nested <- x$y
-  # TODO:
-  # * ToString if nested (not `FieldRef.Nested(FieldRef.Name(x) FieldRef.Name(y))`)?
-  # * field_names_in_expression? any other places where it is assumed field refs have a single name?
-  # * Error on trying to make nested field ref with non field ref
-  # * Test with [[ too
-  # * R Expression method to determine if is field ref?
-  # * more dplyr tests, including print
-  print(nested)
+  expect_r6_class(nested, "Expression")
+  expect_r6_class(x[["y"]], "Expression")
+  expect_r6_class(nested$z, "Expression")
+  # Should this instead be NULL?
+  expect_error(Expression$scalar(42L)$y, "'x' must be a FieldRef Expression")
 })
 
 test_that("Scalar expression schemas and types", {
@@ -139,4 +136,14 @@ test_that("Expression schemas and types", {
     Expression$create("add_checked", x, z)$type(),
     int32()
   )
+})
+
+test_that("Nested field ref types", {
+  nested <- Expression$field_ref("x")$y
+  schm <- schema(x = struct(y = int32(), z = double()))
+  expect_equal(nested$type(schm), int32())
+  # implicit casting and schema propagation
+  x <- Expression$field_ref("x")
+  x$schema <- schm
+  expect_equal((x$y * 2)$type(), int32())
 })

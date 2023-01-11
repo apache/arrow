@@ -19,7 +19,7 @@
 
 #include <arrow/compute/api_scalar.h>
 #include <arrow/compute/exec/expression.h>
-
+#include <iostream>
 namespace compute = ::arrow::compute;
 
 std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_name,
@@ -50,9 +50,17 @@ std::shared_ptr<compute::Expression> compute___expr__call(std::string func_name,
 std::vector<std::string> field_names_in_expression(
     const std::shared_ptr<compute::Expression>& x) {
   std::vector<std::string> out;
+  std::vector<arrow::FieldRef> nested;
+
   auto field_refs = FieldsInExpression(*x);
   for (auto f : field_refs) {
-    out.push_back(*f.name());
+    if (f.IsNested()) {
+      // We keep the top-level field name.
+      nested = *f.nested_refs();
+      out.push_back(*nested[0].name());
+    } else {
+      out.push_back(*f.name());
+    }
   }
   return out;
 }
@@ -90,7 +98,7 @@ std::shared_ptr<compute::Expression> compute___expr__nested_field_ref(
     ref_vec.push_back(arrow::FieldRef(std::move(name)));
     return std::make_shared<compute::Expression>(compute::field_ref(std::move(ref_vec)));
   } else {
-    // error
+    cpp11::stop("'x' must be a FieldRef Expression");
   }
 }
 

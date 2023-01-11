@@ -714,3 +714,48 @@ test_that("Scalars in expressions match the type of the field, if possible", {
     collect()
   expect_equal(result$tpc_h_1, result$as_dbl)
 })
+
+test_that("Can use nested field refs", {
+  nested_data <- tibble(int = 1:5, df_col = tibble(a = 6:10, b = 11:15))
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        nested = df_col$a,
+        times2 = df_col$a * 2
+      ) %>%
+      filter(nested > 7) %>%
+      collect(),
+    nested_data
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        nested = df_col$a,
+        times2 = df_col$a * 2
+      ) %>%
+      filter(nested > 7) %>%
+      summarize(sum(times2)) %>%
+      collect(),
+    nested_data
+  )
+
+  # Now with Dataset
+  expect_equal(
+    nested_data %>%
+      InMemoryDataset$create() %>%
+      mutate(
+        nested = df_col$a,
+        times2 = df_col$a * 2
+      ) %>%
+      filter(nested > 7) %>%
+      collect(),
+    nested_data %>%
+      mutate(
+        nested = df_col$a,
+        times2 = df_col$a * 2
+      ) %>%
+      filter(nested > 7)
+  )
+})
