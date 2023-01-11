@@ -118,8 +118,8 @@ def git_default_branch_name():
         try:
             default_reference = run_cmd(
                 "git rev-parse --abbrev-ref origin/HEAD")
-            if default_branch_name.startswith("origin/"):
-                default_branch_name = default_branch_name[len("origin/"):]
+            if default_reference.startswith("origin/"):
+                default_branch_name = default_reference[len("origin/"):]
             default_branch_name = default_branch_name.rstrip()
         except subprocess.CalledProcessError:
             # TODO: ARROW-18011 to track changing the hard coded default
@@ -135,14 +135,10 @@ def git_default_branch_name():
     return default_branch_name
 
 
-def fix_version_from_branch(branch, versions):
+def fix_version_from_branch(versions):
     # Note: Assumes this is a sorted (newest->oldest) list of un-released
     # versions
-    if branch == git_default_branch_name():
-        return versions[-1]
-    else:
-        branch_ver = branch.replace("branch-", "")
-        return [v for v in versions if v.startswith(branch_ver)][-1]
+    return versions[-1]
 
 
 MIGRATION_COMMENT_REGEX = re.compile(
@@ -331,7 +327,7 @@ def get_candidate_fix_version(mainline_versions,
     mainline_versions = [v for v in mainline_versions
                          if f"maint-{v}" not in maintenance_branches]
     default_fix_versions = [
-        fix_version_from_branch(x, mainline_versions)
+        fix_version_from_branch(mainline_versions)
         for x in merge_branches]
 
     return default_fix_versions[0]
