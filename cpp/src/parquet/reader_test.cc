@@ -1036,18 +1036,18 @@ TEST(TestFileReader, TestOverflowInt16PageOrdinal) {
     EXPECT_NE(nullptr, column_reader);
     constexpr int kBatchLength = 1024;
     std::array<bool, kBatchLength> boolean_values{};
-    int64_t value_sum = 0;
-    int64_t value_num = 0;
+    int64_t total_values = 0;
+    int64_t values_read = 0;
     do {
-      value_num = 0;
+      values_read = 0;
       column_reader->ReadBatch(kBatchLength, nullptr, nullptr, boolean_values.data(),
-                               &value_num);
-      value_sum += value_num;
-      for (int i = 0; i < value_num; ++i) {
+                               &values_read);
+      total_values += values_read;
+      for (int i = 0; i < values_read; ++i) {
         EXPECT_FALSE(boolean_values[i]);
       }
-    } while (value_num != 0);
-    EXPECT_EQ(40000, value_sum);
+    } while (values_read != 0);
+    EXPECT_EQ(40000, total_values);
   }
   {
     auto page_reader = row_group->GetColumnPageReader(0);
