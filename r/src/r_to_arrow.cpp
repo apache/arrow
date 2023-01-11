@@ -736,9 +736,8 @@ class RPrimitiveConverter<T, enable_if_t<is_decimal_type<T>::value>>
     int32_t scale = this->primitive_type_->scale();
 
     auto append_value = [this, precision, scale](double value) {
-      auto converted = ValueType::FromReal(value, precision, scale);
-      RETURN_NOT_OK(converted);
-      this->primitive_builder_->UnsafeAppend(converted.ValueUnsafe());
+      ARROW_ASSIGN_OR_RAISE(ValueType converted, ValueType::FromReal(value, precision, scale));
+      this->primitive_builder_->UnsafeAppend(converted);
       return Status::OK();
     };
 
