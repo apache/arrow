@@ -1321,3 +1321,19 @@ test_that("Array to C-interface", {
   delete_arrow_schema(schema_ptr)
   delete_arrow_array(array_ptr)
 })
+
+test_that("direct creation of Decimal Arrays (ARROW-11631)", {
+
+  decimal_array <- Array$create(1, type = decimal128(10, 2))
+  decimal_array2 <- Array$create(1, type = decimal256(10, 2))
+
+  expect_equal(
+    decimal_array,
+    Array$create(1)$cast(decimal(10, 2))
+  )
+
+  expect_equal(
+    decimal_array2,
+    Array$create(1)$cast(decimal256(10, 2))
+  )
+})
