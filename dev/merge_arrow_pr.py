@@ -326,11 +326,9 @@ def get_candidate_fix_version(mainline_versions,
 
     mainline_versions = [v for v in mainline_versions
                          if f"maint-{v}" not in maintenance_branches]
-    default_fix_versions = [
-        fix_version_from_branch(mainline_versions)
-        for x in merge_branches]
+    default_fix_versions = fix_version_from_branch(mainline_versions)
 
-    return default_fix_versions[0]
+    return default_fix_versions
 
 
 def format_issue_output(issue_type, issue_id, status,
