@@ -1206,8 +1206,8 @@ An execution engine (or framework, or UDF executor, or storage engine,
 etc) can implement only a subset of the Arrow spec and/or extend it
 given the following constraints:
 
-Implementing a subset the spec
-------------------------------
+Implementing a subset of the spec
+---------------------------------
 
 * **If only producing (and not consuming) arrow vectors**: Any subset
   of the vector spec and the corresponding metadata can be implemented.
