@@ -2062,8 +2062,7 @@ test_that("as_datetime() works with other functions", {
     "Unsupported cast from timestamp\\[ns, tz=UTC\\] to int32 using function cast_int32"
   )
 
-  # Arrow does not support conversion of timestamp to double
-  # ARROW-17428
+  # ARROW-17428 - Arrow does not support conversion of timestamp to double
   expect_error(
     test_df %>%
       arrow_table() %>%
