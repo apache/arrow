@@ -1,3 +1,4 @@
+adbc-driver-manager; python_version >= "3.9"
 cffi
 hypothesis
 pandas
