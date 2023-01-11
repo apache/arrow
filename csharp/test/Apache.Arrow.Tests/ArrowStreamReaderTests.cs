@@ -202,7 +202,8 @@ namespace Apache.Arrow.Tests
         {
             var assembly = Assembly.GetExecutingAssembly();
             using var stream = assembly.GetManifestResourceStream($"Apache.Arrow.Tests.Resources.{fileName}");
-            using var reader = new ArrowStreamReader(stream);
+            var compressionProvider = new Compression.CompressionProvider();
+            using var reader = new ArrowStreamReader(stream, compressionProvider);
 
             var batch = reader.ReadNextRecordBatch();
 

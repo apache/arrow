@@ -44,7 +44,7 @@ namespace Apache.Arrow.Ipc
         private protected ArrowReaderImplementation(MemoryAllocator allocator, ICompressionProvider compressionProvider)
         {
             _allocator = allocator ?? MemoryAllocator.Default.Value;
-            _compressionProvider = compressionProvider ?? new Compression.DefaultCompressionProvider();
+            _compressionProvider = compressionProvider;
         }
 
         public void Dispose()
@@ -210,6 +210,11 @@ namespace Apache.Arrow.Ipc
             }
 
             var codec = compression.Value.Codec;
+            if (_compressionProvider == null)
+            {
+                throw new Exception(
+                    $"Body is compressed with codec {codec} but no ICompressionProvider has been configured to decompress buffers");
+            }
             var decompressor = codec switch
             {
                 Apache.Arrow.Flatbuf.CompressionType.LZ4_FRAME => _compressionProvider.GetDecompressor(CompressionType.Lz4Frame),
