@@ -133,13 +133,13 @@ CsvFileFormat$create <- function(...,
   if (is.null(convert_options)) {
     convert_options <- csv_file_format_convert_opts(...)
   } else if (is.list(convert_options)) {
-    convert_options <- do.call(CsvConvertOptions$create$create, convert_options)
+    convert_options <- do.call(CsvConvertOptions$create, convert_options)
   }
 
   if (is.null(read_options)) {
     read_options <- csv_file_format_read_opts(...)
   } else if (is.list(read_options)) {
-    opts <- do.call(CsvReadOptions$create$create, read_options)
+    opts <- do.call(CsvReadOptions$create, read_options)
   }
 
 
