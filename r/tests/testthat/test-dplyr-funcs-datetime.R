@@ -2057,8 +2057,7 @@ test_that("as_datetime() works with other functions", {
         dchar_date = as_datetime(char_date),
         dchar_date_int = as.integer(dchar_date)
       ) %>%
-      compute(),
-    "Unsupported cast from timestamp\\[ns, tz=UTC\\] to int32 using function cast_int32"
+      collect()
   )
 
   # ARROW-17428 - Arrow does not support conversion of timestamp to double
