@@ -20,7 +20,8 @@
 /// Format Version History.
 /// Version 1.0 - Forward and backwards compatibility guaranteed.
 /// Version 1.1 - Add Decimal256 (No format release).
-/// Version 1.2 (Pending)- Add Interval MONTH_DAY_NANO
+/// Version 1.2 - Add Interval MONTH_DAY_NANO (No format release).
+/// Version 1.3 - Add Run-End Encoded
 
 namespace org.apache.arrow.flatbuf;
 
