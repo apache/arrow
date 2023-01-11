@@ -1005,7 +1005,7 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
     batch_gen = MakeReadaheadGenerator(std::move(merged_batch_gen),
                                        scan_options->fragment_readahead);
   } else {
-    batch_gen = merged_batch_gen;
+    batch_gen = std::move(merged_batch_gen);
   }
 
   auto gen = MakeMappedGenerator(
