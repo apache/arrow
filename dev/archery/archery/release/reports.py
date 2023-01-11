@@ -27,10 +27,11 @@ class ReleaseCuration(JinjaReport):
         'release',
         'within',
         'outside',
-        'nojira',
+        'noissue',
         'parquet',
         'nopatch',
-        'minimal'
+        'minimal',
+        'minor'
     ]
 
 
