@@ -1229,6 +1229,11 @@ inline flatbuffers::Offset<Bool> CreateBool(
   return builder_.Finish();
 }
 
+/// Contains two child arrays, run_ends and values.
+/// The run_ends child array must be a 16/32/64-bit integer array
+/// which encodes the indices at which the run with the value in 
+/// each corresponding index in the values child array ends.
+/// Like list/struct types, the value array can be of any type.
 struct RunEndEncoded FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef RunEndEncodedBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
