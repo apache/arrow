@@ -139,7 +139,7 @@ CsvFileFormat$create <- function(...,
   if (is.null(read_options)) {
     read_options <- csv_file_format_read_opts(...)
   } else if (is.list(read_options)) {
-    opts <- do.call(CsvReadOptions$create, read_options)
+    read_options <- do.call(CsvReadOptions$create, read_options)
   }
 
 
