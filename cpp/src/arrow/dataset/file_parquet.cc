@@ -125,65 +125,9 @@ std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
 
   auto column_metadata = metadata.ColumnChunk(schema_field.column_index);
   auto statistics = column_metadata->statistics();
-  if (statistics == nullptr) {
-    return std::nullopt;
-  }
-
   const auto& field = schema_field.field;
-  auto field_expr = compute::field_ref(field->name());
+  return ParquetFileFragment::EvaluateStatisticsAsExpression(field, statistics);
 
-  // Optimize for corner case where all values are nulls
-  if (statistics->num_values() == 0 && statistics->null_count() > 0) {
-    return is_null(std::move(field_expr));
-  }
-
-  std::shared_ptr<Scalar> min, max;
-  if (!StatisticsAsScalars(*statistics, &min, &max).ok()) {
-    return std::nullopt;
-  }
-
-  auto maybe_min = min->CastTo(field->type());
-  auto maybe_max = max->CastTo(field->type());
-  if (maybe_min.ok() && maybe_max.ok()) {
-    min = maybe_min.MoveValueUnsafe();
-    max = maybe_max.MoveValueUnsafe();
-
-    if (min->Equals(max)) {
-      auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
-
-      if (statistics->null_count() == 0) {
-        return single_value;
-      }
-      return compute::or_(std::move(single_value), is_null(std::move(field_expr)));
-    }
-
-    // Since the minimum & maximum values are NaN, useful statistics
-    // cannot be extracted for checking the presence of a value within
-    // range
-    if (IsNan(*min) && IsNan(*max)) {
-      return std::nullopt;
-    }
-
-    auto lower_bound = compute::greater_equal(field_expr, compute::literal(min));
-    auto upper_bound = compute::less_equal(field_expr, compute::literal(max));
-    compute::Expression in_range;
-
-    // If either minimum or maximum is NaN, it should be ignored for the
-    // range computation
-    if (IsNan(*min)) {
-      in_range = std::move(upper_bound);
-    } else if (IsNan(*max)) {
-      in_range = std::move(lower_bound);
-    } else {
-      in_range = compute::and_(std::move(lower_bound), std::move(upper_bound));
-    }
-
-    if (statistics->null_count() != 0) {
-      return compute::or_(std::move(in_range), compute::is_null(field_expr));
-    }
-    return in_range;
-  }
-  return std::nullopt;
 }
 
 void AddColumnIndices(const SchemaField& schema_field,
@@ -333,6 +277,68 @@ Result<bool> IsSupportedParquetFile(const ParquetFileFormat& format,
 }
 
 }  // namespace
+
+std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpression(std::shared_ptr<Field> field,std::shared_ptr<parquet::Statistics> statistics){
+  if (statistics == nullptr) {
+    return std::nullopt;
+  }
+
+  auto field_expr = compute::field_ref(field->name());
+
+  // Optimize for corner case where all values are nulls
+  if (statistics->num_values() == 0 && statistics->null_count() > 0) {
+    return is_null(std::move(field_expr));
+  }
+
+  std::shared_ptr<Scalar> min, max;
+  if (!StatisticsAsScalars(*statistics, &min, &max).ok()) {
+    return std::nullopt;
+  }
+
+  auto maybe_min = min->CastTo(field->type());
+  auto maybe_max = max->CastTo(field->type());
+
+  if (maybe_min.ok() && maybe_max.ok()) {
+    min = maybe_min.MoveValueUnsafe();
+    max = maybe_max.MoveValueUnsafe();
+
+    if (min->Equals(max)) {
+      auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
+
+      if (statistics->null_count() == 0) {
+        return single_value;
+      }
+      return compute::or_(std::move(single_value), is_null(std::move(field_expr)));
+    }
+
+    // Since the minimum & maximum values are NaN, useful statistics
+    // cannot be extracted for checking the presence of a value within
+    // range
+    if (IsNan(*min) && IsNan(*max)) {
+      return std::nullopt;
+    }
+
+    auto lower_bound = compute::greater_equal(field_expr, compute::literal(min));
+    auto upper_bound = compute::less_equal(field_expr, compute::literal(max));
+    compute::Expression in_range;
+
+    // If either minimum or maximum is NaN, it should be ignored for the
+    // range computation
+    if (IsNan(*min)) {
+      in_range = std::move(upper_bound);
+    } else if (IsNan(*max)) {
+      in_range = std::move(lower_bound);
+    } else {
+      in_range = compute::and_(std::move(lower_bound), std::move(upper_bound));
+    }
+
+    if (statistics->null_count() != 0) {
+      return compute::or_(std::move(in_range), compute::is_null(field_expr));
+    }
+    return in_range;
+  }
+  return std::nullopt;
+}
 
 ParquetFileFormat::ParquetFileFormat()
     : FileFormat(std::make_shared<ParquetFragmentScanOptions>()) {}

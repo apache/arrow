@@ -36,6 +36,9 @@
 
 #include "parquet/arrow/writer.h"
 #include "parquet/metadata.h"
+#include "parquet/statistics.h"
+#include "parquet/types.h"
+
 
 namespace arrow {
 
@@ -631,6 +634,14 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingStringC
 INSTANTIATE_TEST_SUITE_P(TestScan, TestParquetFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);
+
+TEST(TestParquetStatistics, NullMinAndMax){
+  auto field = ::arrow::field("a", float32());
+  auto node = parquet::schema::PrimitiveNode::Make("float", parquet::Repetition::OPTIONAL, parquet::Type::FLOAT);
+  parquet::ColumnDescriptor column_desc(node, 4, 1);
+  auto statistics = parquet::Statistics::Make(&column_desc, std::string("NaN"), std::string("NaN"), 5, 2, 1, true, true, true);
+  auto stat_expression = ParquetFileFragment::EvaluateStatisticsAsExpression(field, statistics);
+}
 
 }  // namespace dataset
 }  // namespace arrow
