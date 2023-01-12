@@ -58,9 +58,13 @@ def release_curate(obj, version, minimal, github_token):
 
 
 @release.group('changelog')
-def release_changelog():
+@click.option('--github-token', '-t', default=None,
+              envvar="CROSSBOW_GITHUB_TOKEN",
+              help='OAuth token for GitHub authentication')
+@click.pass_obj
+def release_changelog(obj, github_token):
     """Release changelog."""
-    pass
+    obj['github_token'] = github_token
 
 
 @release_changelog.command('add')
@@ -68,10 +72,10 @@ def release_changelog():
 @click.pass_obj
 def release_changelog_add(obj, version):
     """Prepend the changelog with the current release"""
-    jira, repo = obj['jira'], obj['repo']
+    repo, github_token = obj['repo'], obj['github_token']
 
     # just handle the current version
-    release = Release.from_jira(version, jira=jira, repo=repo)
+    release = Release(version, jira=None, repo=repo, github_token=github_token)
     if release.is_released:
         raise ValueError('This version has been already released!')
 
@@ -91,10 +95,10 @@ def release_changelog_add(obj, version):
 @click.pass_obj
 def release_changelog_generate(obj, version, output):
     """Generate the changelog of a specific release."""
-    jira, repo = obj['jira'], obj['repo']
+    repo, github_token = obj['repo'], obj['github_token']
 
     # just handle the current version
-    release = Release.from_jira(version, jira=jira, repo=repo)
+    release = Release(version, jira=None, repo=repo, github_token=github_token)
 
     changelog = release.changelog()
     output.write(changelog.render('markdown'))
@@ -104,6 +108,8 @@ def release_changelog_generate(obj, version, output):
 @click.pass_obj
 def release_changelog_regenerate(obj):
     """Regeneretate the whole CHANGELOG.md file"""
+    # TODO Fix regenerate the whole changelog
+    # from GitHub instead of JIRA
     jira, repo = obj['jira'], obj['repo']
     changelogs = []
 

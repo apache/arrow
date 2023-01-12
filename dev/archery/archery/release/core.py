@@ -99,7 +99,7 @@ class Issue:
             type=next(
                 iter(
                     [
-                        label for label in github_issue.labels
+                        label.name for label in github_issue.labels
                         if label.name.startswith("Type:")
                     ]
                 ), None),
@@ -109,11 +109,16 @@ class Issue:
 
     @property
     def project(self):
+        if isinstance(self.key, int):
+            return 'GH'
         return self.key.split('-')[0]
 
     @property
     def number(self):
-        return int(self.key.split('-')[1])
+        if isinstance(self.key, str):
+            return int(self.key.split('-')[1])
+        else:
+            return self.key
 
     @cached_property
     def pr(self):
@@ -123,6 +128,19 @@ class Issue:
     @cached_property
     def is_pr(self):
         return bool(self._github_issue and self._github_issue.pull_request)
+
+    @property
+    def components(self):
+        if self._github_issue:
+            return [label for label in self._github_issue.labels
+                    if label.name.startswith("Component:")]
+
+    def is_component(self, component_name):
+        if components := self.components:
+            for component in components:
+                if component.name == f"Component: {component_name}":
+                    return True
+        return False
 
     @classmethod
     def original_jira_id(cls, github_issue):
@@ -481,6 +499,10 @@ class Release:
         return list(map(Commit, self.repo.iter_commits(commit_range)))
 
     @cached_property
+    def jira_instance(self):
+        return self.jira if self.jira else Jira()
+
+    @cached_property
     def default_branch(self):
         default_branch_name = os.getenv("ARCHERY_DEFAULT_BRANCH")
 
@@ -540,9 +562,9 @@ class Release:
                 if c.issue in release_issues:
                     within.append((release_issues[c.issue], c))
                 else:
-                    outside.append((c.issue, c))
+                    outside.append((self.jira_instance.issue(c.issue), c))
             elif c.project == 'PARQUET':
-                parquet.append((c.issue, c))
+                parquet.append((self.jira_instance.issue(c.issue), c))
             else:
                 warnings.warn(
                     f'Issue {c.issue} is not MINOR nor pertains to GH' +
@@ -583,10 +605,20 @@ class Release:
             'Task': 'New Features and Improvements',
             'Test': 'Bug Fixes',
             'Wish': 'New Features and Improvements',
+            'Type: bug': 'Bug Fixes',
+            'Type: enhancement': 'New Features and Improvements',
+            'Type: task': 'New Features and Improvements',
+            'Type: test': 'Bug Fixes',
+            'Type: usage': 'New Features and Improvements',
         }
         categories = defaultdict(list)
         for issue, commit in issue_commit_pairs:
-            categories[issue_types[issue.type]].append((issue, commit))
+            try:
+                categories[issue_types[issue.type]].append((issue, commit))
+            except KeyError:
+                # If issue is a PR and don't have a type assume task
+                assert issue.is_pr
+                categories[issue_types['Type: task']].append((issue, commit))
 
         # sort issues by the issue key in ascending order
         for issues in categories.values():
