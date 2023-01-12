@@ -29,13 +29,17 @@ from .core import CachedJira, IssueTracker, Jira, Release
               help="Specify Arrow source directory.")
 @click.option("--jira-cache", type=click.Path(), default=None,
               help="File path to cache queried JIRA issues per version.")
+@click.option('--github-token', '-t', default=None,
+              envvar="CROSSBOW_GITHUB_TOKEN",
+              help='OAuth token for GitHub authentication')
 @click.pass_obj
-def release(obj, src, jira_cache):
+def release(obj, src, jira_cache, github_token):
     """Release releated commands."""
     jira = Jira()
     if jira_cache is not None:
         jira = CachedJira(jira_cache, jira=jira)
 
+    obj['github_token'] = github_token
     obj['jira'] = jira
     obj['repo'] = src.path
 
@@ -44,27 +48,20 @@ def release(obj, src, jira_cache):
 @click.argument('version')
 @click.option('--minimal/--full', '-m/-f',
               help="Only show actionable issues.", default=False)
-@click.option('--github-token', '-t', default=None,
-              envvar="CROSSBOW_GITHUB_TOKEN",
-              help='OAuth token for GitHub authentication')
 @click.pass_obj
-def release_curate(obj, version, minimal, github_token):
+def release_curate(obj, version, minimal):
     """Release curation."""
     release = Release(version, jira=None, repo=obj['repo'],
-                      github_token=github_token)
+                      github_token=obj['github_token'])
     curation = release.curate(minimal)
 
     click.echo(curation.render('console'))
 
 
 @release.group('changelog')
-@click.option('--github-token', '-t', default=None,
-              envvar="CROSSBOW_GITHUB_TOKEN",
-              help='OAuth token for GitHub authentication')
-@click.pass_obj
-def release_changelog(obj, github_token):
+def release_changelog():
     """Release changelog."""
-    obj['github_token'] = github_token
+    pass
 
 
 @release_changelog.command('add')
