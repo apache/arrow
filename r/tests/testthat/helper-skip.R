@@ -43,7 +43,7 @@ skip_if_not_available <- function(feature) {
   if (feature == "s3") {
     sys_info <- Sys.info()
     is_macos_1013 <- identical(unname(Sys.info()["sysname"]), "Darwin") &&
-      identical(unname(Sys.info()["release"]), "17.7.0")
+      package_version(unname(Sys.info()["release"])) < "18.0.0"
     if (is_macos_1013) {
       skip("curl/ssl runtime on MacOS 10.13 is too old")
     }
