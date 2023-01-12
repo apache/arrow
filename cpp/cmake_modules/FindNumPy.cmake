@@ -97,9 +97,8 @@ set(NUMPY_FOUND TRUE)
 
 add_library(Python3::NumPy INTERFACE IMPORTED)
 if(CMAKE_VERSION VERSION_LESS 3.11)
-    target_include_directories(Python3::NumPy PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+    set_target_properties(Python3::NumPy PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
         ${NUMPY_INCLUDE_DIRS})
-    set_target_properties(Python3::Module PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
 else()
     target_include_directories(Python3::NumPy INTERFACE ${NUMPY_INCLUDE_DIRS})
 endif()
