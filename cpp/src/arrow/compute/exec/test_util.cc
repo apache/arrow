@@ -273,8 +273,7 @@ Result<std::vector<std::shared_ptr<ExecBatch>>> ToExecBatches(
     const BatchesWithSchema& batches_with_schema) {
   std::vector<std::shared_ptr<ExecBatch>> exec_batches;
   for (auto batch : batches_with_schema.batches) {
-    auto exec_batch = std::make_shared<ExecBatch>(batch);
-    exec_batches.push_back(exec_batch);
+    exec_batches.push_back(std::make_shared<ExecBatch>(batch));
   }
   return exec_batches;
 }
@@ -285,7 +284,7 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
   for (auto batch : batches_with_schema.batches) {
     ARROW_ASSIGN_OR_RAISE(auto record_batch,
                           batch.ToRecordBatch(batches_with_schema.schema));
-    record_batches.push_back(record_batch);
+    record_batches.push_back(std::move(record_batch));
   }
   return record_batches;
 }
