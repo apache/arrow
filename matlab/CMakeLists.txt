@@ -317,6 +317,30 @@ matlab_add_mex(R2018a
 
 target_include_directories(mexcall PRIVATE ${CPP_SOURCE_DIR})
 
+############# libmexclass #################################
+# TODO: Define CUSTOM_PROXY variables.
+set(CUSTOM_PROXY_FACTORY_INCLUDE_DIR "")
+set(CUSTOM_PROXY_FACTORY_SOURCES "")
+set(CUSTOM_PROXY_SOURCES "")
+set(CUSTOM_PROXY_INCLUDE_DIR "")
+set(CUSTOM_PROXY_LINK_LIBRARIES "")
+
+# Build libmexclass as an external project.
+include(ExternalProject)
+ExternalProject_Add(
+    libmexclass
+    GIT_REPOSITORY git@github.com:mathworks/libmexclass.git
+    GIT_TAG main
+    CMAKE_CACHE_ARGS "-D CUSTOM_PROXY_FACTORY_INCLUDE_DIR:STRING=${CUSTOM_PROXY_FACTORY_INCLUDE_DIR}"
+                     "-D CUSTOM_PROXY_FACTORY_SOURCES:STRING=${CUSTOM_PROXY_FACTORY_SOURCES}"
+                     "-D CUSTOM_PROXY_SOURCES:STRING=${CUSTOM_PROXY_SOURCES}"
+                     "-D CUSTOM_PROXY_INCLUDE_DIR:STRING=${CUSTOM_PROXY_INCLUDE_DIR}"
+                     "-D CUSTOM_PROXY_LINK_LIBRARIES:STRING=${CUSTOM_PROXY_LINK_LIBRARIES}"
+)
+
+# TODO: Install libmexclass binaries.
+############# libmexclass #################################
+
 # ##############################################################################
 # C++ Tests
 # ##############################################################################
