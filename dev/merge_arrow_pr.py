@@ -43,7 +43,6 @@ import subprocess
 import sys
 import requests
 import getpass
-import warnings
 
 from six.moves import input
 import six
