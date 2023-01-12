@@ -25,7 +25,7 @@ open_csv_dataset(
   parse_options = NULL,
   convert_options = NULL,
   read_options = NULL,
-  as_data_frame = NULL,
+  as_data_frame = FALSE,
   timestamp_parsers = NULL
 )
 }
