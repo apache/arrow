@@ -139,7 +139,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
         sink_, properties_->compression(path), properties_->compression_level(path),
         col_meta, row_group_ordinal_, static_cast<int16_t>(next_column_index_ - 1),
         properties_->memory_pool(), false, meta_encryptor, data_encryptor,
-        properties_->data_page_checksum_enabled());
+        properties_->page_checksum_enabled());
     column_writers_[0] = ColumnWriter::Make(col_meta, std::move(pager), properties_);
     return column_writers_[0].get();
   }
@@ -247,7 +247,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
           col_meta, static_cast<int16_t>(row_group_ordinal_),
           static_cast<int16_t>(next_column_index_++), properties_->memory_pool(),
           buffered_row_group_, meta_encryptor, data_encryptor,
-          properties_->data_page_checksum_enabled());
+          properties_->page_checksum_enabled());
       column_writers_.push_back(
           ColumnWriter::Make(col_meta, std::move(pager), properties_));
     }

@@ -223,7 +223,7 @@ void TestPageSerde::TestPageSerdeCrc(bool write_checksum, bool write_page_corrup
       ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
     }
     ReaderProperties readerProperties;
-    readerProperties.set_data_page_checksum_verification(verification_checksum);
+    readerProperties.set_page_checksum_verification(verification_checksum);
     InitSerializedPageReader(num_rows * num_pages, codec_type, readerProperties);
 
     for (int i = 0; i < num_pages; ++i) {
@@ -410,7 +410,7 @@ TEST_F(TestPageSerde, NoCrc) {
 
   ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader());
   ReaderProperties readerProperties;
-  readerProperties.set_data_page_checksum_verification(true);
+  readerProperties.set_page_checksum_verification(true);
   InitSerializedPageReader(num_rows, Compression::UNCOMPRESSED, readerProperties);
   std::shared_ptr<Page> current_page = page_reader_->NextPage();
   ASSERT_NO_FATAL_FAILURE(CheckDataPageHeader(data_page_header_, current_page.get()));

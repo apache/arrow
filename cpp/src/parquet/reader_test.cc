@@ -556,9 +556,8 @@ class TestCheckDataPageCrc : public ::testing::Test {
     EXPECT_EQ(kValuesPerColumn, total_values);
   }
 
-  void CheckCorrectCrc(const std::string& file_path,
-                       bool data_page_checksum_verification) {
-    reader_props_.set_data_page_checksum_verification(data_page_checksum_verification);
+  void CheckCorrectCrc(const std::string& file_path, bool page_checksum_verification) {
+    reader_props_.set_page_checksum_verification(page_checksum_verification);
     {
       // Exercise column readers
       OpenExampleFile(file_path);
@@ -602,9 +601,9 @@ class TestCheckDataPageCrc : public ::testing::Test {
 TEST_F(TestCheckDataPageCrc, CorruptPageV1) {
   // Works when not checking crc
   CheckCorrectCrc(data_page_v1_corrupt_checksum(),
-                  /*data_page_checksum_verification=*/false);
+                  /*page_checksum_verification=*/false);
   // Fails when checking crc
-  reader_props_.set_data_page_checksum_verification(true);
+  reader_props_.set_page_checksum_verification(true);
   {
     // With column readers
     OpenExampleFile(data_page_v1_corrupt_checksum());
@@ -630,17 +629,17 @@ TEST_F(TestCheckDataPageCrc, CorruptPageV1) {
 
 TEST_F(TestCheckDataPageCrc, UncompressedPageV1) {
   CheckCorrectCrc(data_page_v1_uncompressed_checksum(),
-                  /*data_page_checksum_verification=*/false);
+                  /*page_checksum_verification=*/false);
   CheckCorrectCrc(data_page_v1_uncompressed_checksum(),
-                  /*data_page_checksum_verification=*/true);
+                  /*page_checksum_verification=*/true);
 }
 
 #ifndef ARROW_WITH_SNAPPY
 TEST_F(TestCheckDataPageCrc, SnappyPageV1) {
   CheckCorrectCrc(data_page_v1_snappy_checksum(),
-                  /*data_page_checksum_verification=*/false);
+                  /*page_checksum_verification=*/false);
   CheckCorrectCrc(data_page_v1_snappy_checksum(),
-                  /*data_page_checksum_verification=*/true);
+                  /*page_checksum_verification=*/true);
 }
 #endif
 

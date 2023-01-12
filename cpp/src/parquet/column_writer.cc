@@ -263,7 +263,7 @@ class SerializedPageWriter : public PageWriter {
         page_ordinal_(0),
         row_group_ordinal_(row_group_ordinal),
         column_ordinal_(column_chunk_ordinal),
-        data_page_checksum_verification_(use_page_checksum_verification),
+        page_checksum_verification_(use_page_checksum_verification),
         meta_encryptor_(std::move(meta_encryptor)),
         data_encryptor_(std::move(data_encryptor)),
         encryption_buffer_(AllocateBuffer(pool, 0)) {
@@ -383,7 +383,7 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_compressed_page_size(static_cast<int32_t>(output_data_len));
 
     // TODO(PARQUET-594) crc checksum for DATA_PAGE_V2
-    if (data_page_checksum_verification_ && page.type() == PageType::DATA_PAGE) {
+    if (page_checksum_verification_ && page.type() == PageType::DATA_PAGE) {
       uint32_t crc32 =
           ::arrow::internal::crc32(/* prev */ 0, output_data_buffer, output_data_len);
       page_header.__set_crc(static_cast<int32_t>(crc32));
@@ -464,7 +464,7 @@ class SerializedPageWriter : public PageWriter {
 
   int64_t total_uncompressed_size() { return total_uncompressed_size_; }
 
-  bool data_page_checksum_verification() { return data_page_checksum_verification_; }
+  bool page_checksum_verification() { return page_checksum_verification_; }
 
  private:
   // To allow UpdateEncryption on Close
@@ -530,7 +530,7 @@ class SerializedPageWriter : public PageWriter {
   int32_t page_ordinal_;
   int16_t row_group_ordinal_;
   int16_t column_ordinal_;
-  bool data_page_checksum_verification_;
+  bool page_checksum_verification_;
 
   std::unique_ptr<ThriftSerializer> thrift_serializer_;
 

@@ -82,11 +82,11 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
   void BuildReader(int64_t num_rows,
                    Compression::type compression = Compression::UNCOMPRESSED,
-                   bool data_page_checksum_verify = false) {
+                   bool page_checksum_verify = false) {
     ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
     auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
     ReaderProperties readerProperties;
-    readerProperties.set_data_page_checksum_verification(data_page_checksum_verify);
+    readerProperties.set_page_checksum_verification(page_checksum_verify);
     std::unique_ptr<PageReader> page_reader =
         PageReader::Open(std::move(source), num_rows, compression, readerProperties);
     reader_ = std::static_pointer_cast<TypedColumnReader<TestType>>(
@@ -110,7 +110,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       wp_builder.encoding(column_properties.encoding());
     }
     if (enable_checksum) {
-      wp_builder.enable_data_page_checksum();
+      wp_builder.enable_page_checksum();
     }
     wp_builder.max_statistics_size(column_properties.max_statistics_size());
     writer_properties_ = wp_builder.build();
@@ -127,9 +127,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   }
 
   void ReadColumn(Compression::type compression = Compression::UNCOMPRESSED,
-                  bool data_page_checksum_verify = false) {
+                  bool page_checksum_verify = false) {
     BuildReader(static_cast<int64_t>(this->values_out_.size()), compression,
-                data_page_checksum_verify);
+                page_checksum_verify);
     reader_->ReadBatch(static_cast<int>(this->values_out_.size()),
                        definition_levels_out_.data(), repetition_levels_out_.data(),
                        this->values_out_ptr_, &values_read_);
@@ -137,7 +137,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   }
 
   void ReadColumnFully(Compression::type compression = Compression::UNCOMPRESSED,
-                       bool data_page_checksum_verify = false);
+                       bool page_checksum_verify = false);
 
   void TestRequiredWithEncoding(Encoding::type encoding) {
     return TestRequiredWithSettings(encoding, Compression::UNCOMPRESSED, false, false);
@@ -265,9 +265,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   }
 
   void ReadAndCompare(Compression::type compression, int64_t num_rows,
-                      bool data_page_checksum_verify) {
+                      bool page_checksum_verify) {
     this->SetupValuesOut(num_rows);
-    this->ReadColumnFully(compression, data_page_checksum_verify);
+    this->ReadColumnFully(compression, page_checksum_verify);
     auto comparator = MakeComparator<TestType>(this->descr_);
     for (size_t i = 0; i < this->values_.size(); i++) {
       if (comparator->Compare(this->values_[i], this->values_out_[i]) ||
@@ -348,9 +348,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
 template <typename TestType>
 void TestPrimitiveWriter<TestType>::ReadColumnFully(Compression::type compression,
-                                                    bool data_page_checksum_verify) {
+                                                    bool page_checksum_verify) {
   int64_t total_values = static_cast<int64_t>(this->values_out_.size());
-  BuildReader(total_values, compression, data_page_checksum_verify);
+  BuildReader(total_values, compression, page_checksum_verify);
   values_read_ = 0;
   while (values_read_ < total_values) {
     int64_t values_read_recently = 0;
@@ -367,9 +367,9 @@ void TestPrimitiveWriter<TestType>::ReadColumnFully(Compression::type compressio
 template <>
 void TestPrimitiveWriter<Int96Type>::ReadAndCompare(Compression::type compression,
                                                     int64_t num_rows,
-                                                    bool data_page_checksum_verify) {
+                                                    bool page_checksum_verify) {
   this->SetupValuesOut(num_rows);
-  this->ReadColumnFully(compression, data_page_checksum_verify);
+  this->ReadColumnFully(compression, page_checksum_verify);
 
   auto comparator = MakeComparator<Int96Type>(Type::INT96, SortOrder::SIGNED);
   for (size_t i = 0; i < this->values_.size(); i++) {
@@ -385,9 +385,9 @@ void TestPrimitiveWriter<Int96Type>::ReadAndCompare(Compression::type compressio
 
 template <>
 void TestPrimitiveWriter<FLBAType>::ReadColumnFully(Compression::type compression,
-                                                    bool data_page_checksum_verify) {
+                                                    bool page_checksum_verify) {
   int64_t total_values = static_cast<int64_t>(this->values_out_.size());
-  BuildReader(total_values, compression, data_page_checksum_verify);
+  BuildReader(total_values, compression, page_checksum_verify);
   this->data_buffer_.clear();
 
   values_read_ = 0;
