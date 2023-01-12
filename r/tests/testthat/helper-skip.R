@@ -41,10 +41,7 @@ skip_if_not_available <- function(feature) {
   # curl/ssl on MacOS is too old to support S3 filesystems without
   # crashing when the process exits.
   if (feature == "s3") {
-    sys_info <- Sys.info()
-    is_macos_1013 <- identical(unname(Sys.info()["sysname"]), "Darwin") &&
-      package_version(unname(Sys.info()["release"])) < "18.0.0"
-    if (is_macos_1013) {
+    if (on_macos_10_13_or_lower()) {
       skip("curl/ssl runtime on MacOS 10.13 is too old")
     }
   }
