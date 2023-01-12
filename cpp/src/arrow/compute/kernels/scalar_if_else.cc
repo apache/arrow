@@ -738,14 +738,14 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     const uint8_t* right_data = right.buffers[2].data;
 
     if (!left.is_valid) {  // left is null scalar, only need to copy right data to output
-      auto& out_data = *out->array_data();
+      auto* out_data = out->array_data().get();
       auto offset_length = (cond.length + 1) * sizeof(OffsetType);
-      ARROW_ASSIGN_OR_RAISE(out_data.buffers[1], ctx->Allocate(offset_length));
-      memcpy(out_data.buffers[1]->mutable_data(), right_offsets, offset_length);
+      ARROW_ASSIGN_OR_RAISE(out_data->buffers[1], ctx->Allocate(offset_length));
+      std::memcpy(out_data->buffers[1]->mutable_data(), right_offsets, offset_length);
 
       auto right_data_length = right_offsets[right.length] - right_offsets[0];
-      ARROW_ASSIGN_OR_RAISE(out_data.buffers[2], ctx->Allocate(right_data_length));
-      memcpy(out_data.buffers[2]->mutable_data(), right_data, right_data_length);
+      ARROW_ASSIGN_OR_RAISE(out_data->buffers[2], ctx->Allocate(right_data_length));
+      std::memcpy(out_data->buffers[2]->mutable_data(), right_data, right_data_length);
       return Status::OK();
     }
 
@@ -778,14 +778,14 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     const uint8_t* left_data = left.buffers[2].data;
 
     if (!right.is_valid) {  // right is null scalar, only need to copy left data to output
-      auto& out_data = *out->array_data();
+      auto* out_data = out->array_data().get();
       auto offset_length = (cond.length + 1) * sizeof(OffsetType);
-      ARROW_ASSIGN_OR_RAISE(out_data.buffers[1], ctx->Allocate(offset_length));
-      memcpy(out_data.buffers[1]->mutable_data(), left_offsets, offset_length);
+      ARROW_ASSIGN_OR_RAISE(out_data->buffers[1], ctx->Allocate(offset_length));
+      std::memcpy(out_data->buffers[1]->mutable_data(), left_offsets, offset_length);
 
       auto left_data_length = left_offsets[left.length] - left_offsets[0];
-      ARROW_ASSIGN_OR_RAISE(out_data.buffers[2], ctx->Allocate(left_data_length));
-      memcpy(out_data.buffers[2]->mutable_data(), left_data, left_data_length);
+      ARROW_ASSIGN_OR_RAISE(out_data->buffers[2], ctx->Allocate(left_data_length));
+      std::memcpy(out_data->buffers[2]->mutable_data(), left_data, left_data_length);
       return Status::OK();
     }
 
