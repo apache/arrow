@@ -26,7 +26,7 @@
 /format/
 
 ## Components
-/c_glib/
+/c_glib/ @kou
 /cpp/
 /csharp/
 /go/
@@ -35,7 +35,7 @@
 /matlab/
 /python/
 /r/
-/ruby/
+/ruby/ @kou
 
 # Docs
 /docs/
@@ -46,17 +46,17 @@
 *.txt
 
 # PR CI and repository files
-/.github/ @assignUser 
-.asf.yaml @assignUser
-.travis.yml @assignUser
-appveyor.yml @assignUser
+/.github/ @assignUser  @kou
+.asf.yaml @assignUser @kou
+.travis.yml @assignUser @kou
+appveyor.yml @assignUser @kou
 .git*
 
 # release scripts, archery etc.
-/ci/ @assignUser
-/dev/ @assignUser 
-.env @assignUser
-docker-compose.yml @assignUser
+/ci/ @assignUser @kou
+/dev/ @assignUser @kou
+.env @assignUser @kou
+docker-compose.yml @assignUser @kou
 
 # R specific packaging tooling
 /r/configure* @assignUser
