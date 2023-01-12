@@ -259,7 +259,12 @@ open_csv_dataset <- function(sources,
                              as_data_frame = FALSE,
                              timestamp_parsers = NULL) {
   if (!missing(col_select)) {
-    abort('The following option is supported in "read_delim_arrow" functions but not supported here: "col_select"')
+    abort(
+      c(
+        "`col_select` not supported for datasets",
+        i = "instead try calling `dplyr::select()` on your dataset"
+      )
+    )
   }
 
   if (!missing(quoted_na)) {
