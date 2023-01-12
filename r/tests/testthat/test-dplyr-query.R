@@ -760,6 +760,21 @@ test_that("Can use nested field refs", {
   )
 })
 
+test_that("Use struct_field for $ on non-field-ref", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        df_col = tibble(i = int, d = dbl)
+      ) %>%
+      transmute(
+        int2 = df_col$i,
+        dbl2 = df_col$d
+      ) %>%
+      collect(),
+    example_data
+  )
+})
+
 test_that("nested field ref error handling", {
   expect_error(
     example_data %>%

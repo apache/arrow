@@ -57,6 +57,9 @@ Expression <- R6Class("Expression",
       assert_that(!is.null(schema))
       compute___expr__type_id(self, schema)
     },
+    is_field_ref = function() {
+      compute___expr__is_field_ref(self)
+    },
     cast = function(to_type, safe = TRUE, ...) {
       opts <- cast_options(safe, ...)
       opts$to_type <- as_type(to_type)
@@ -94,10 +97,7 @@ Expression$create <- function(function_name,
 `[[.Expression` <- function(x, i, ...) {
   # TODO: integer (positional) field refs are supported in C++
   assert_that(is.string(i))
-  out <- compute___expr__nested_field_ref(x, i)
-  # Schema bookkeeping
-  out$schema <- x$schema
-  out
+  get_nested_field(x, i)
 }
 
 #' @export
@@ -106,11 +106,40 @@ Expression$create <- function(function_name,
   if (name %in% ls(x)) {
     get(name, x)
   } else {
-    out <- compute___expr__nested_field_ref(x, name)
-    # Schema bookkeeping
-    out$schema <- x$schema
-    out
+    get_nested_field(x, name)
   }
+}
+
+get_nested_field <- function(expr, name) {
+  if (expr$is_field_ref()) {
+    # Make a nested field ref
+    out <- compute___expr__nested_field_ref(expr, name)
+  } else {
+    # Use the struct_field kernel, but that only works if:
+    # * expr has a knowable type (has a schema set)
+    # * that type is struct
+    # * `name` exists in the struct (bc we have to map to an integer position)
+    expr_type <- expr$type() # errors if no schema set
+    if (inherits(expr_type, "StructType")) {
+      ind <- match(name, names(expr_type)) - 1L
+      if (is.na(ind)) {
+        stop(
+          "field '", name, "' not found in ",
+          expr_type$ToString(),
+          call. = FALSE
+        )
+      }
+      out <- Expression$create("struct_field", expr, options = list(indices = ind))
+    } else {
+      stop(
+        "Cannot extract a field from an Expression of type ", expr_type$ToString(),
+        call. = FALSE
+      )
+    }
+  }
+  # Schema bookkeeping
+  out$schema <- expr$schema
+  out
 }
 
 Expression$field_ref <- function(name) {

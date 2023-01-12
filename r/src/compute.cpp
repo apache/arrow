@@ -564,6 +564,11 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
+  if (func_name == "struct_field") {
+    using Options = arrow::compute::StructFieldOptions;
+    return std::make_shared<Options>(cpp11::as_cpp<std::vector<int>>(options["indices"]));
+  }
+
   return nullptr;
 }
 

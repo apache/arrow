@@ -47,6 +47,11 @@ std::shared_ptr<compute::Expression> compute___expr__call(std::string func_name,
 }
 
 // [[arrow::export]]
+bool compute___expr__is_field_ref(const std::shared_ptr<compute::Expression>& x) {
+  return x->field_ref() != nullptr;
+}
+
+// [[arrow::export]]
 std::vector<std::string> field_names_in_expression(
     const std::shared_ptr<compute::Expression>& x) {
   std::vector<std::string> out;
