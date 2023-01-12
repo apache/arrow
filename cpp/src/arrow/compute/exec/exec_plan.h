@@ -477,6 +477,13 @@ ARROW_EXPORT Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(
 ARROW_EXPORT Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(
     Declaration declaration, ExecContext custom_exec_context);
 
+/// \brief Overload of \see DeclarationToExecBatchesAsync accepting a custom exec context
+///        and QueryOptions
+///
+/// \see DeclarationToTableAsync for details on threading & execution
+ARROW_EXPORT Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(
+    Declaration declaration, ExecContext custom_exec_context, QueryOptions query_options);
+
 /// \brief Utility method to run a declaration and collect the results into a vector
 ///
 /// \see DeclarationToTable for details on threading & execution

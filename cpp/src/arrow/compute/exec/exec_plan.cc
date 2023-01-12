@@ -620,10 +620,16 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatches(
 
 Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(Declaration declaration,
                                                               ExecContext exec_context) {
+  return DeclarationToExecBatchesAsync(std::move(declaration), exec_context,
+                                       QueryOptions{});
+}
+
+Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(
+    Declaration declaration, ExecContext exec_context, QueryOptions query_options) {
   std::shared_ptr<Schema> out_schema;
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
-                        ExecPlan::Make(exec_context));
+                        ExecPlan::Make(query_options, exec_context));
   Declaration with_sink = Declaration::Sequence(
       {declaration, {"sink", SinkNodeOptions(&sink_gen, &out_schema)}});
   ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));

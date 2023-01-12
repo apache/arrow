@@ -23,7 +23,7 @@ namespace arrow {
 using internal::CpuInfo;
 namespace compute {
 QueryOptions::QueryOptions()
-    : max_memory_bytes(::arrow::internal::GetTotalMemoryBytes()),
+    : max_memory_bytes(::arrow::internal::GetTotalMemoryBytes() / 2),
       use_legacy_batching(false) {}
 
 QueryContext::QueryContext(QueryOptions opts, ExecContext exec_context)

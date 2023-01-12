@@ -26,13 +26,14 @@ namespace arrow {
 namespace compute {
 struct SpillingBenchmarkSettings {
   int64_t num_files = 4;
+  // number of I/O threads. If -1 then the default I/O capacity will be used.
   int64_t num_threads = -1;
 };
 
 static void SpillingWrite_Impl(benchmark::State& st,
                                SpillingBenchmarkSettings& settings) {
   constexpr int num_batches = 1024;
-  constexpr int batch_size = 32000;
+  constexpr int rows_per_batch = 32000;
   int64_t num_files = settings.num_files;
   std::shared_ptr<Schema> bm_schema =
       schema({field("f1", int32()), field("f2", int32())});
@@ -43,13 +44,15 @@ static void SpillingWrite_Impl(benchmark::State& st,
       QueryContext ctx;
       std::vector<SpillFile> file(num_files);
       Future<> fut = util::AsyncTaskScheduler::Make([&](util::AsyncTaskScheduler* sched) {
-        RETURN_NOT_OK(ctx.Init(settings.num_threads, sched));
-        if (settings.num_threads != -1)
+        RETURN_NOT_OK(ctx.Init(ctx.max_concurrency(), sched));
+        if (settings.num_threads != -1) {
           RETURN_NOT_OK(arrow::internal::checked_cast<arrow::internal::ThreadPool*>(
                             ctx.io_context()->executor())
                             ->SetCapacity(static_cast<int>(settings.num_threads)));
-        BatchesWithSchema batches = MakeRandomBatches(
-            bm_schema, num_batches, batch_size, SpillFile::kAlignment, ctx.memory_pool());
+        }
+        BatchesWithSchema batches =
+            MakeRandomBatches(bm_schema, num_batches, rows_per_batch,
+                              SpillFile::kAlignment, ctx.memory_pool());
         st.ResumeTiming();
 
         for (ExecBatch& b : batches.batches) {
@@ -60,12 +63,12 @@ static void SpillingWrite_Impl(benchmark::State& st,
       });
       fut.Wait();
       st.PauseTiming();
-      for (SpillFile& f : file) DCHECK_OK(f.Cleanup());
+      for (SpillFile& f : file) ASSERT_OK(f.Cleanup());
     }
     st.ResumeTiming();
   }
   st.counters["BytesProcessed"] = benchmark::Counter(
-      num_batches * batch_size * sizeof(int32_t) * 2,
+      num_batches * rows_per_batch * sizeof(int32_t) * 2,
       benchmark::Counter::kIsIterationInvariantRate, benchmark::Counter::OneK::kIs1024);
 }
 
@@ -77,7 +80,7 @@ static void BM_SpillingWrite(benchmark::State& st) {
 
 static void BM_SpillingRead(benchmark::State& st) {
   constexpr int num_batches = 1024;
-  constexpr int batch_size = 32000;
+  constexpr int rows_per_batch = 32000;
   std::shared_ptr<Schema> bm_schema =
       schema({field("f1", int32()), field("f2", int32())});
   for (auto _ : st) {
@@ -87,12 +90,13 @@ static void BM_SpillingRead(benchmark::State& st) {
       QueryContext ctx;
       Future<> fut = util::AsyncTaskScheduler::Make([&](util::AsyncTaskScheduler* sched) {
         RETURN_NOT_OK(ctx.Init(std::thread::hardware_concurrency(), sched));
-        BatchesWithSchema batches = MakeRandomBatches(
-            bm_schema, num_batches, batch_size, SpillFile::kAlignment, ctx.memory_pool());
+        BatchesWithSchema batches =
+            MakeRandomBatches(bm_schema, num_batches, rows_per_batch,
+                              SpillFile::kAlignment, ctx.memory_pool());
 
         std::vector<ExecBatch> accum(num_batches);
         for (ExecBatch& b : batches.batches)
-          DCHECK_OK(file.SpillBatch(&ctx, std::move(b)));
+          RETURN_NOT_OK(file.SpillBatch(&ctx, std::move(b)));
 
         while (file.batches_written() < num_batches) std::this_thread::yield();
 
@@ -110,12 +114,12 @@ static void BM_SpillingRead(benchmark::State& st) {
       });
       fut.Wait();
       st.PauseTiming();
-      DCHECK_OK(file.Cleanup());
+      ASSERT_OK(file.Cleanup());
     }
     st.ResumeTiming();
   }
   st.counters["BytesProcessed"] = benchmark::Counter(
-      num_batches * batch_size * sizeof(int32_t) * 2,
+      num_batches * rows_per_batch * sizeof(int32_t) * 2,
       benchmark::Counter::kIsIterationInvariantRate, benchmark::Counter::OneK::kIs1024);
 }
 

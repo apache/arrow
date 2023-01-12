@@ -211,13 +211,13 @@ static void HashJoinBasicBenchmarkImpl(benchmark::State& st,
                                        BenchmarkSettings& settings) {
   uint64_t total_rows = 0;
   for (auto _ : st) {
+    st.PauseTiming();
     {
       JoinBenchmark bm(settings);
       st.ResumeTiming();
       bm.RunJoin();
       st.PauseTiming();
       total_rows += bm.stats_.num_probe_rows;
-      st.PauseTiming();
     }
     st.ResumeTiming();
   }

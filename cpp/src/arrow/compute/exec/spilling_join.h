@@ -25,6 +25,10 @@
 
 namespace arrow {
 namespace compute {
+
+// Holds Bloom filters used by the join. In the case of spilling,
+// Bloom filters are rebuilt on partitions that still have their hashes
+// in memory (since hashes get spilled later).
 struct PartitionedBloomFilter {
   std::unique_ptr<BlockedBloomFilter> in_memory;
   std::unique_ptr<BlockedBloomFilter>
@@ -34,24 +38,42 @@ struct PartitionedBloomFilter {
             uint8_t* bv);
 };
 
+// A separate implementation of the Hash Join that partitions the input data into 64
+// partitions and writes the partitions to disk. Once the partitions have been written to
+// disk, joins are performed per-partition and results are outputted.
+//
+// Probe-side batches are spilled first, then build-side batches, then probe-side hashes,
+// then build-side hashes.
+//
+// As soon as spilling starts, the probe-side is paused to enable full accumulation of the
+// build side first, to minimize the number of batches buffered by the probe side. It is
+// resumed once the build side is finished.
 class SpillingHashJoin {
  public:
   using RegisterTaskGroupCallback = std::function<int(
-      std::function<Status(size_t, int64_t)>, std::function<Status(size_t)>)>;
-  using StartTaskGroupCallback = std::function<Status(int, int64_t)>;
-  using AddProbeSideHashColumn = std::function<Status(size_t, ExecBatch*)>;
-  using BloomFilterFinishedCallback = std::function<Status(size_t)>;
-  using ApplyBloomFilterCallback = std::function<Status(size_t, ExecBatch*)>;
-  using OutputBatchCallback = std::function<void(int64_t, ExecBatch)>;
-  using FinishedCallback = std::function<Status(int64_t)>;
-  using StartSpillingCallback = std::function<Status(size_t)>;
-  using PauseProbeSideCallback = std::function<void(int)>;
-  using ResumeProbeSideCallback = std::function<void(int)>;
+      std::function<Status(size_t, int64_t)>,
+      std::function<Status(size_t)>)>;  // Register a TaskGroup in the ExecPlan
+  using StartTaskGroupCallback =
+      std::function<Status(int, int64_t)>;  // Start the TaskGroup with the givne ID
+  using AddProbeSideHashColumnCallback =
+      std::function<Status(size_t, ExecBatch*)>;  // Hashes the key columns of the batch
+                                                  // and appends the hashes as a column
+  using BloomFilterFinishedCallback =
+      std::function<Status(size_t)>;  // Called when the Bloom filter is built
+  using ApplyBloomFilterCallback =
+      std::function<Status(size_t, ExecBatch*)>;  // Applies the Bloom filter to the batch
+  using OutputBatchCallback = std::function<void(int64_t, ExecBatch)>;  // Output a batch
+  using FinishedCallback =
+      std::function<Status(int64_t)>;  // The Join has finished outputting
+  using StartSpillingCallback = std::function<Status(
+      size_t)>;  // Called when we've run out of memory and spilling is starting
+  using PauseProbeSideCallback = std::function<void(int)>;   // Pauses probe side
+  using ResumeProbeSideCallback = std::function<void(int)>;  // Resumes probe side
 
   struct CallbackRecord {
     RegisterTaskGroupCallback register_task_group;
     StartTaskGroupCallback start_task_group;
-    AddProbeSideHashColumn add_probe_side_hashes;
+    AddProbeSideHashColumnCallback add_probe_side_hashes;
     BloomFilterFinishedCallback bloom_filter_finished;
     ApplyBloomFilterCallback apply_bloom_filter;
     OutputBatchCallback output_batch;
@@ -68,6 +90,7 @@ class SpillingHashJoin {
               PartitionedBloomFilter* bloom_filter, CallbackRecord callback_record,
               bool is_swiss);
 
+  // Checks available memory and initiates spilling if there is not enough.
   Status CheckSpilling(size_t thread_index, ExecBatch& batch);
 
   Status OnBuildSideBatch(size_t thread_index, ExecBatch batch);

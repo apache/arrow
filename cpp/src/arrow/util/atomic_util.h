@@ -22,6 +22,10 @@
 
 namespace arrow {
 namespace util {
+
+// Updates `to_max` to contain the maximum of `to_max` and `val`
+// and returns the new maximum. It is expected that `to_max` be treated
+// as a shared maximum.
 template <typename T>
 inline T AtomicMax(std::atomic<T>& to_max, T val) {
   static_assert(std::is_arithmetic<T>::value,
@@ -34,79 +38,5 @@ inline T AtomicMax(std::atomic<T>& to_max, T val) {
   return to_max.load(std::memory_order_relaxed);
 }
 
-#if defined(__clang) || defined(__GNUC__)
-template <typename T>
-inline T AtomicLoad(T* addr,
-                    std::memory_order order = std::memory_order_seq_cst) noexcept {
-  T ret;
-  __atomic_load(addr, &ret, order);
-  return ret;
-}
-
-template <typename T>
-inline void AtomicStore(T* addr, T& val,
-                        std::memory_order order = std::memory_order_seq_cst) noexcept {
-  __atomic_store(addr, val, order);
-}
-
-template <typename T>
-inline T AtomicFetchAdd(T* addr, T& val,
-                        std::memory_order order = std::memory_order_seq_cst) noexcept {
-  static_assert(std::is_integral<T>::value,
-                "AtomicFetchAdd can only be used on integral types");
-  return __atomic_fetch_add(addr, val, order);
-}
-
-template <typename T>
-inline T AtomicFetchSub(T* addr, T& val,
-                        std::memory_order order = std::memory_order_seq_cst) noexcept {
-  static_assert(std::is_integral<T>::value,
-                "AtomicFetchSub can only be used on integral types");
-  return __atomic_fetch_sub(addr, val, order);
-}
-
-#elif defined(_MSC_VER)
-#include <intrin.h>
-template <typename T>
-inline T AtomicLoad(T* addr, std::memory_order /*order*/) noexcept {
-  T val = *addr;
-  _ReadWriteBarrier();
-  return val;
-}
-
-template <typename T>
-inline void AtomicStore(T* addr, T& val, std::memory_order /*order*/) noexcept {
-  _ReadWriteBarrier();
-  *addr = val;
-}
-
-template <typename T>
-inline T AtomicFetchAdd(T* addr, T& val, std::memory_order /*order*/) noexcept {
-  static_assert(std::is_integral<T>::value,
-                "AtomicFetchAdd can only be used on integral types");
-  if constexpr (sizeof(T) == 1) return _InterlockedExchangeAdd8(addr, val);
-  if constexpr (sizeof(T) == 2) return _InterlockedExchangeAdd16(addr, val);
-  if constexpr (sizeof(T) == 4) return _InterlockedExchangeAdd(addr, val);
-  if constexpr (sizeof(T) == 8) {
-#if _WIN64
-    return _InterlockedExchangeAdd64(addr, val);
-#else
-    _ReadWriteBarrier();
-    T expected = *addr;
-    for (;;) {
-      T new_val = expected + val;
-      T prev = _InterlockedCompareExchange64(addr, new_val, expected);
-      if (prev == expected) return prev;
-      expected = prev;
-    }
-  }
-#endif
-  }
-
-  template <typename T>
-  inline T AtomicFetchSub(T * addr, T & val, std::memory_order /*order*/) noexcept {
-    return AtomicFetchAdd(addr, -val);
-  }
-#endif
 }  // namespace util
 }  // namespace arrow

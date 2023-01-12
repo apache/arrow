@@ -61,12 +61,16 @@ Status SpillingAccumulationQueue::Init(QueryContext* ctx) {
   ctx_ = ctx;
   partition_locks_.Init(ctx_->max_concurrency(), kNumPartitions);
   for (size_t ipart = 0; ipart < kNumPartitions; ipart++) {
-    task_group_read_[ipart] = ctx_->RegisterTaskGroup(
+    Partition& part = partitions_[ipart];
+    part.task_group_read = ctx_->RegisterTaskGroup(
         [this, ipart](size_t thread_index, int64_t batch_index) {
-          return read_back_fn_[ipart](thread_index, static_cast<size_t>(batch_index),
-                                      std::move(queues_[ipart][batch_index]));
+          return partitions_[ipart].read_back_fn(
+              thread_index, static_cast<size_t>(batch_index),
+              std::move(partitions_[ipart].queue[batch_index]));
         },
-        [this, ipart](size_t thread_index) { return on_finished_[ipart](thread_index); });
+        [this, ipart](size_t thread_index) {
+          return partitions_[ipart].on_finished(thread_index);
+        });
   }
   return Status::OK();
 }
@@ -89,37 +93,39 @@ Status SpillingAccumulationQueue::InsertBatch(size_t thread_index, ExecBatch bat
   int unprocessed_partition_ids[kNumPartitions];
   RETURN_NOT_OK(partition_locks_.ForEachPartition(
       thread_index, unprocessed_partition_ids,
-      /*is_prtn_empty=*/
+      /*is_prtn_empty_fn=*/
       [&](int part_id) { return part_starts[part_id + 1] == part_starts[part_id]; },
-      /*partition=*/
+      /*process_prtn_fn=*/
       [&](int locked_part_id_int) {
         size_t locked_part_id = static_cast<size_t>(locked_part_id_int);
         uint64_t num_total_rows_to_append =
             part_starts[locked_part_id + 1] - part_starts[locked_part_id];
+
+        Partition& locked_part = partitions_[locked_part_id];
 
         size_t offset = static_cast<size_t>(part_starts[locked_part_id]);
         while (num_total_rows_to_append > 0) {
           int num_rows_to_append =
               std::min(static_cast<int>(num_total_rows_to_append),
                        static_cast<int>(ExecBatchBuilder::num_rows_max() -
-                                        builders_[locked_part_id].num_rows()));
+                                        locked_part.builder.num_rows()));
 
-          RETURN_NOT_OK(builders_[locked_part_id].AppendSelected(
+          RETURN_NOT_OK(locked_part.builder.AppendSelected(
               ctx_->memory_pool(), batch, num_rows_to_append, permutation.data() + offset,
               batch.num_values()));
 
-          if (builders_[locked_part_id].is_full()) {
-            ExecBatch batch = builders_[locked_part_id].Flush();
+          if (locked_part.builder.is_full()) {
+            ExecBatch batch = locked_part.builder.Flush();
             Datum hash = std::move(batch.values.back());
             batch.values.pop_back();
             ExecBatch hash_batch({std::move(hash)}, batch.length);
             if (locked_part_id < spilling_cursor_)
-              RETURN_NOT_OK(files_[locked_part_id].SpillBatch(ctx_, std::move(batch)));
+              RETURN_NOT_OK(locked_part.file.SpillBatch(ctx_, std::move(batch)));
             else
-              queues_[locked_part_id].InsertBatch(std::move(batch));
+              locked_part.queue.InsertBatch(std::move(batch));
 
             if (locked_part_id >= hash_cursor_)
-              hash_queues_[locked_part_id].InsertBatch(std::move(hash_batch));
+              locked_part.hash_queue.InsertBatch(std::move(hash_batch));
           }
           offset += num_rows_to_append;
           num_total_rows_to_append -= num_rows_to_append;
@@ -129,56 +135,52 @@ Status SpillingAccumulationQueue::InsertBatch(size_t thread_index, ExecBatch bat
   return Status::OK();
 }
 
-const uint64_t* SpillingAccumulationQueue::GetHashes(size_t partition, size_t batch_idx) {
-  ARROW_DCHECK(partition >= hash_cursor_.load());
-  if (batch_idx > hash_queues_[partition].batch_count()) {
-    const Datum& datum = hash_queues_[partition][batch_idx].values[0];
+const uint64_t* SpillingAccumulationQueue::GetHashes(size_t partition_idx,
+                                                     size_t batch_idx) {
+  ARROW_DCHECK(partition_idx >= hash_cursor_.load());
+  Partition& partition = partitions_[partition_idx];
+  if (batch_idx > partition.hash_queue.batch_count()) {
+    const Datum& datum = partition.hash_queue[batch_idx].values[0];
     return reinterpret_cast<const uint64_t*>(datum.array()->buffers[1]->data());
   } else {
-    size_t hash_idx = builders_[partition].num_cols();
-    KeyColumnArray kca = builders_[partition].column(hash_idx - 1);
+    size_t hash_idx = partition.builder.num_cols();
+    KeyColumnArray kca = partition.builder.column(hash_idx - 1);
     return reinterpret_cast<const uint64_t*>(kca.data(1));
   }
 }
 
 Status SpillingAccumulationQueue::GetPartition(
-    size_t thread_index, size_t partition,
+    size_t thread_index, size_t partition_idx,
     std::function<Status(size_t, size_t, ExecBatch)> on_batch,
     std::function<Status(size_t)> on_finished) {
-  bool is_in_memory = partition >= spilling_cursor_.load();
-  if (builders_[partition].num_rows() > 0) {
-    ExecBatch batch = builders_[partition].Flush();
-    Datum hash = std::move(batch.values.back());
+  bool is_in_memory = partition_idx >= spilling_cursor_.load();
+  Partition& partition = partitions_[partition_idx];
+  if (partition.builder.num_rows() > 0) {
+    ExecBatch batch = partition.builder.Flush();
     batch.values.pop_back();
-    if (is_in_memory) {
-      ExecBatch hash_batch({std::move(hash)}, batch.length);
-      hash_queues_[partition].InsertBatch(std::move(hash_batch));
-      queues_[partition].InsertBatch(std::move(batch));
-    } else {
-      RETURN_NOT_OK(on_batch(thread_index,
-                             /*batch_index=*/queues_[partition].batch_count(),
-                             std::move(batch)));
-    }
+    RETURN_NOT_OK(on_batch(thread_index,
+                           /*batch_index=*/partition.queue.batch_count(),
+                           std::move(batch)));
   }
 
   if (is_in_memory) {
-    ARROW_DCHECK(partition >= hash_cursor_.load());
-    read_back_fn_[partition] = std::move(on_batch);
-    on_finished_[partition] = std::move(on_finished);
-    return ctx_->StartTaskGroup(task_group_read_[partition],
-                                queues_[partition].batch_count());
+    ARROW_DCHECK(partition_idx >= hash_cursor_.load());
+    partition.read_back_fn = std::move(on_batch);
+    partition.on_finished = std::move(on_finished);
+    return ctx_->StartTaskGroup(partition.task_group_read, partition.queue.batch_count());
   }
 
-  return files_[partition].ReadBackBatches(
+  return partition.file.ReadBackBatches(
       ctx_, on_batch,
-      [this, partition, finished = std::move(on_finished)](size_t thread_index) {
-        RETURN_NOT_OK(files_[partition].Cleanup());
+      [this, partition_idx, finished = std::move(on_finished)](size_t thread_index) {
+        RETURN_NOT_OK(partitions_[partition_idx].file.Cleanup());
         return finished(thread_index);
       });
 }
 
 size_t SpillingAccumulationQueue::CalculatePartitionRowCount(size_t partition) const {
-  return builders_[partition].num_rows() + queues_[partition].CalculateRowCount();
+  return partitions_[partition].builder.num_rows() +
+         partitions_[partition].queue.CalculateRowCount();
 }
 
 Result<bool> SpillingAccumulationQueue::AdvanceSpillCursor() {
@@ -191,9 +193,10 @@ Result<bool> SpillingAccumulationQueue::AdvanceSpillCursor() {
   }
 
   auto lock = partition_locks_.AcquirePartitionLock(static_cast<int>(to_spill));
-  size_t num_batches = queues_[to_spill].batch_count();
+  Partition& partition = partitions_[to_spill];
+  size_t num_batches = partition.queue.batch_count();
   for (size_t i = 0; i < num_batches; i++)
-    RETURN_NOT_OK(files_[to_spill].SpillBatch(ctx_, std::move(queues_[to_spill][i])));
+    RETURN_NOT_OK(partition.file.SpillBatch(ctx_, std::move(partition.queue[i])));
   return true;
 }
 
@@ -207,7 +210,7 @@ Result<bool> SpillingAccumulationQueue::AdvanceHashCursor() {
   }
 
   auto lock = partition_locks_.AcquirePartitionLock(static_cast<int>(to_spill));
-  hash_queues_[to_spill].Clear();
+  partitions_[to_spill].hash_queue.Clear();
   return true;
 }
 }  // namespace compute

@@ -338,6 +338,7 @@ class ARROW_EXPORT ResizableArrayData {
 /// \brief A builder to concatenate batches of data into a larger batch
 ///
 /// Will only store num_rows_max() rows
+/// All buffers allocated by ExecBatchBuilder will have 512-byte alignment.
 class ARROW_EXPORT ExecBatchBuilder {
  public:
   /// \brief Add rows from `source` into `target` column

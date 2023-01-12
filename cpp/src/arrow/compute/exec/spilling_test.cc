@@ -237,35 +237,26 @@ TEST(Spilling, HashJoin) {
       QueryOptions options;
       if (spilling) options.max_memory_bytes = 1024;
       ExecContext ctx(default_memory_pool(), ::arrow::internal::GetCpuThreadPool());
-      ASSERT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(options, ctx));
-      ASSERT_OK_AND_ASSIGN(
-          ExecNode * l_source,
-          MakeExecNode(
-              "source", plan.get(), {},
-              SourceNodeOptions{l_batches.schema, l_batches.gen(/*parallel=*/true,
-                                                                /*slow=*/false)}));
-      ASSERT_OK_AND_ASSIGN(
-          ExecNode * r_source,
-          MakeExecNode(
-              "source", plan.get(), {},
-              SourceNodeOptions{r_batches.schema, r_batches.gen(/*parallel=*/true,
-                                                                /*slow=*/false)}));
+      Declaration l_source{
+          "source", SourceNodeOptions{l_batches.schema,
+                                      l_batches.gen(/*parallel=*/true, /*slow=*/false)}};
+      Declaration r_source{
+          "source", SourceNodeOptions{r_batches.schema,
+                                      r_batches.gen(/*parallel=*/true, /*slow=*/false)}};
 
       HashJoinNodeOptions join_options;
       join_options.left_keys = left_keys;
       join_options.right_keys = right_keys;
       join_options.output_all = true;
       join_options.key_cmp = key_cmp;
-      ASSERT_OK_AND_ASSIGN(
-          ExecNode * join,
-          MakeExecNode("hashjoin", plan.get(), {l_source, r_source}, join_options));
-      AsyncGenerator<std::optional<ExecBatch>> sink_gen;
-      ASSERT_OK(MakeExecNode("sink", plan.get(), {join}, SinkNodeOptions{&sink_gen}));
-      ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));
+      Declaration join{"hashjoin", {l_source, r_source}, join_options};
+
+      ASSERT_FINISHES_OK_AND_ASSIGN(auto result,
+                                    DeclarationToExecBatchesAsync(join, ctx, options));
       if (!spilling)
-        reference = std::move(result);
+        reference = std::move(result.batches);
       else
-        AssertExecBatchesEqualIgnoringOrder(join->output_schema(), reference, result);
+        AssertExecBatchesEqualIgnoringOrder(result.schema, reference, result.batches);
     }
   }
 }

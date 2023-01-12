@@ -121,6 +121,8 @@ Status SpillingHashJoin::AdvanceSpillCursor(size_t thread_index) {
   if (build_hash_advanced) return Status::OK();
 
   // Pray we don't run out of memory
+  ARROW_LOG(WARNING)
+      << "Memory limits for query exceeded but all data from hash join spilled to disk";
   return Status::OK();
 }
 
