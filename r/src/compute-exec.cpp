@@ -30,15 +30,6 @@
 #include <iostream>
 #include <optional>
 
-// GH-15151: Best path forward to make this available without a hack like this one
-namespace arrow {
-namespace io {
-namespace internal {
-arrow::internal::ThreadPool* GetIOThreadPool();
-}
-}  // namespace io
-}  // namespace arrow
-
 namespace compute = ::arrow::compute;
 
 std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_name,
@@ -459,12 +450,8 @@ std::shared_ptr<compute::ExecNode> ExecNode_Union(
 std::shared_ptr<compute::ExecNode> ExecNode_SourceNode(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
-  arrow::compute::SourceNodeOptions options{
-      /*output_schema=*/reader->schema(),
-      /*generator=*/ValueOrStop(
-          compute::MakeReaderGenerator(reader, arrow::io::internal::GetIOThreadPool()))};
-
-  return MakeExecNodeOrStop("source", plan.get(), {}, options);
+  arrow::compute::RecordBatchReaderSourceNodeOptions options{reader};
+  return MakeExecNodeOrStop("record_batch_reader_source", plan.get(), {}, options);
 }
 
 // [[arrow::export]]

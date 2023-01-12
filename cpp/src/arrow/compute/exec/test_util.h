@@ -128,6 +128,10 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
     const BatchesWithSchema& batches);
 
 ARROW_TESTING_EXPORT
+Result<std::shared_ptr<RecordBatchReader>> ToRecordBatchReader(
+    const BatchesWithSchema& batches_with_schema);
+
+ARROW_TESTING_EXPORT
 Result<std::vector<std::shared_ptr<ArrayVector>>> ToArrayVectors(
     const BatchesWithSchema& batches_with_schema);
 

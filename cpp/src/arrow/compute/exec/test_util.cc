@@ -273,8 +273,7 @@ Result<std::vector<std::shared_ptr<ExecBatch>>> ToExecBatches(
     const BatchesWithSchema& batches_with_schema) {
   std::vector<std::shared_ptr<ExecBatch>> exec_batches;
   for (auto batch : batches_with_schema.batches) {
-    auto exec_batch = std::make_shared<ExecBatch>(batch);
-    exec_batches.push_back(exec_batch);
+    exec_batches.push_back(std::make_shared<ExecBatch>(batch));
   }
   return exec_batches;
 }
@@ -285,9 +284,21 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
   for (auto batch : batches_with_schema.batches) {
     ARROW_ASSIGN_OR_RAISE(auto record_batch,
                           batch.ToRecordBatch(batches_with_schema.schema));
-    record_batches.push_back(record_batch);
+    record_batches.push_back(std::move(record_batch));
   }
   return record_batches;
+}
+
+Result<std::shared_ptr<RecordBatchReader>> ToRecordBatchReader(
+    const BatchesWithSchema& batches_with_schema) {
+  std::vector<std::shared_ptr<RecordBatch>> record_batches;
+  for (auto batch : batches_with_schema.batches) {
+    ARROW_ASSIGN_OR_RAISE(auto record_batch,
+                          batch.ToRecordBatch(batches_with_schema.schema));
+    record_batches.push_back(std::move(record_batch));
+  }
+  ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatches(std::move(record_batches)));
+  return std::make_shared<arrow::TableBatchReader>(std::move(table));
 }
 
 Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab) {
