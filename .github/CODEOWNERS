@@ -55,17 +55,19 @@
 *.txt
 
 # PR CI and repository files
-/.github/ @assignUser  @kou
-.asf.yaml @assignUser @kou
-.travis.yml @assignUser @kou
-appveyor.yml @assignUser @kou
+/.github/ @assignUser @kou @raulcd
+.asf.yaml @assignUser @kou @raulcd
+.pre-commit-config.yaml @raulcd 
+.travis.yml @assignUser @kou @raulcd
+appveyor.yml @assignUser @kou @raulcd
 .git*
 
 # release scripts, archery etc.
-/ci/ @assignUser @kou
-/dev/ @assignUser @kou
-.env @assignUser @kou
-docker-compose.yml @assignUser @kou
+/ci/ @assignUser @kou @raulcd
+/dev/ @assignUser @kou @raulcd
+.dockerignore @raulcd 
+.env @assignUser @kou @raulcd
+docker-compose.yml @assignUser @kou @raulcd
 
 # R specific packaging tooling
 /r/configure* @assignUser
