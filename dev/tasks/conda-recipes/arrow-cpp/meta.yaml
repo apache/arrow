@@ -7,7 +7,7 @@
 {% set llvm_version = "14" %}
 
 package:
-  name: arrow-cpp-ext
+  name: apache-arrow
   version: {{ version }}
 
 source:
@@ -17,22 +17,25 @@ build:
   number: 0
   # for cuda support, building with one version is enough to be compatible with
   # all later versions, since arrow is only using libcuda, and not libcudart.
-  skip: true  # [(win or linux64) and cuda_compiler_version not in ("None", "10.2")]
-  skip: true  # [linux and (aarch64 or ppc64le) and cuda_compiler_version not in ("None", "11.2")]
-  skip: true  # [osx and cuda_compiler_version != "None"]
-  # CUDA builds on ppc64le currently run out of time on Travis CI.
-  # It may be possible to move these to cross-compilation, but this will take additional work.
-  # Hence this is skipped for now until this can be addressed.
-  skip: true  # [linux and ppc64le and cuda_compiler_version != "None"]
+  skip: true  # [cuda_compiler_version not in ("None", cuda_compiler_version_min)]
+  # temporary: skip CUDA on aarch/ppc until cross-compilation works, see
+  # https://github.com/conda-forge/conda-forge-ci-setup-feedstock/pull/210
+  skip: true  # [(aarch64 or ppc64le) and (cuda_compiler_version != "None")]
   run_exports:
-    - {{ pin_subpackage("arrow-cpp", max_pin="x.x.x") }}
+    - {{ pin_subpackage("libarrow", max_pin="x.x.x") }}
 
 outputs:
-  - name: arrow-cpp-proc
+  - name: apache-arrow-proc
     version: {{ build_ext_version }}
     build:
       number: {{ proc_build_number }}
       string: {{ build_ext }}
+      ignore_run_exports_from:
+        - openssl
+    requirements:
+      host:
+        # ensure we split the CI jobs per openssl version
+        - openssl
     test:
       commands:
         - exit 0
@@ -43,29 +46,46 @@ outputs:
         - LICENSE.txt
       summary: A meta-package to select Arrow build variant
 
-  - name: arrow-cpp
+  # compat output for old mutex-package naming
+  - name: arrow-cpp-proc
+    version: {{ build_ext_version }}
+    build:
+      number: {{ proc_build_number }}
+      string: {{ build_ext }}
+      ignore_run_exports_from:
+        - openssl
+    requirements:
+      host:
+        # ensure we split the CI jobs per openssl version
+        - openssl
+      run:
+        - apache-arrow-proc ={{ build_ext_version }}={{ build_ext }}
+    test:
+      commands:
+        - exit 0
+
+  - name: libarrow
     script: build-arrow.sh  # [not win]
     script: bld-arrow.bat   # [win]
     version: {{ version }}
     build:
-      string: py{{ CONDA_PY }}h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}_{{ build_ext }}
+      string: h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}_{{ build_ext }}
       run_exports:
-        - {{ pin_subpackage("arrow-cpp", max_pin="x.x.x") }}
+        - {{ pin_subpackage("libarrow", max_pin="x.x.x") }}
       ignore_run_exports:
         - cudatoolkit
       track_features: {{ "[arrow-cuda]" if cuda_enabled else "" }}
+      missing_dso_whitelist:
+        - "*/libcuda.so.*"    # [linux]
+        - "*/nvcuda.dll"      # [win]
     requirements:
       build:
-        - python                                 # [build_platform != target_platform]
-        - cross-python_{{ target_platform }}     # [build_platform != target_platform]
-        - numpy                                  # [build_platform != target_platform]
         - clangdev {{ llvm_version }}            # [osx and arm64]
         - llvmdev {{ llvm_version }}             # [osx and arm64]
         - gnuconfig                              # [osx and arm64]
+        - libgrpc
         - libprotobuf
-        - grpc-cpp
-        # aws-sdk-cpp 1.8.* doesn't work with a newer CMake
-        - cmake <3.22
+        - cmake
         - autoconf  # [unix]
         - ninja
         - make  # [unix]
@@ -73,11 +93,9 @@ outputs:
         - {{ compiler('cxx') }}
         - {{ compiler("cuda") }}  # [cuda_compiler_version != "None"]
       host:
-        # https://issues.apache.org/jira/browse/ARROW-15141
-        - aws-sdk-cpp 1.8.186
-        # abseil is only here to help conda pick the right constraints for pyarrow, see
-        # https://github.com/conda-forge/arrow-cpp-feedstock/pull/815#issuecomment-1216713245
-        - libabseil
+        - clangdev {{ llvm_version }}
+        - llvmdev {{ llvm_version }}
+        - aws-sdk-cpp
         - boost-cpp >=1.70
         - brotli
         - bzip2
@@ -85,17 +103,19 @@ outputs:
         - gflags
         - glog
         - google-cloud-cpp
-        - grpc-cpp
+        - libabseil
+        # since libgoogle-cloud is static on windows, see
+        # https://github.com/conda-forge/google-cloud-cpp-feedstock/pull/108,
+        # its dependencies leak into the build here
+        - libcrc32c  # [win]
+        - libcurl    # [win]
+        - libgrpc
         - libprotobuf
-        - clangdev {{ llvm_version }}
-        - llvmdev {{ llvm_version }}
         - libutf8proc
         - lz4-c
-        - numpy
         # gandiva depends on openssl
         - openssl
         - orc          # [unix]
-        - python
         - rapidjson
         - re2
         - snappy
@@ -103,12 +123,48 @@ outputs:
         - xsimd
         - zlib
         - zstd
-      run:
-        - {{ pin_compatible('numpy', lower_bound='1.16') }}
-        - python
       run_constrained:
-        - arrow-cpp-proc * {{ build_ext }}
-        - cudatoolkit >=9.2  # [cuda_compiler_version != "None"]
+        - apache-arrow-proc =*={{ build_ext }}
+        - cudatoolkit >={{ cuda_compiler_version_min }}  # [cuda_compiler_version != "None"]
+        # make sure we don't co-install with old version of old package name
+        - arrow-cpp ={{ version }}
+
+    test:
+      commands:
+        {% set headers = [
+            "arrow/api.h", "arrow/flight/types.h", "arrow/flight/sql/api.h",
+            "gandiva/engine.h", "parquet/api/reader.h"
+        ] %}
+        {% set headers = headers + ["plasma/client.h"] %}  # [unix]
+        {% for each_header in headers %}
+        # headers
+        - test -f $PREFIX/include/{{ each_header }} || (echo "{{ each_header }} not found" && exit 1)  # [unix]
+        - if not exist %LIBRARY_INC%\{{ "\\".join(each_header.split("/")) }} exit 1                    # [win]
+        {% endfor %}
+
+        {% set libs = (cuda_compiler_version != "None") * ["arrow_cuda"] + [
+            "arrow", "arrow_dataset", "arrow_flight", "arrow_flight_sql",
+            "arrow_substrait", "gandiva", "parquet"
+        ] %}
+        {% set libs = libs + ["plasma"] %}  # [unix]
+        {% for each_lib in libs %}
+        # shared
+        - test -f $PREFIX/lib/lib{{ each_lib }}.so                 # [linux]
+        - test -f $PREFIX/lib/lib{{ each_lib }}.dylib              # [osx]
+        - if not exist %LIBRARY_BIN%\{{ each_lib }}.dll exit 1     # [win]
+        - if not exist %LIBRARY_LIB%\{{ each_lib }}.lib exit 1     # [win]
+
+        # absence of static libraries
+        - test ! -f $PREFIX/lib/lib{{ each_lib }}.a                # [unix]
+        - if exist %LIBRARY_LIB%\{{ each_lib }}_static.lib exit 1  # [win]
+        {% endfor %}
+
+        # absence of arrow_cuda for CPU builds
+        - test ! -f $PREFIX/lib/libarrow_cuda.so                   # [(cuda_compiler_version == "None") and linux]
+        - test ! -f $PREFIX/lib/libarrow_cuda.a                    # [(cuda_compiler_version == "None") and linux]
+        - if exist %LIBRARY_BIN%\arrow_cuda.dll exit 1             # [(cuda_compiler_version == "None") and win]
+        - if exist %LIBRARY_LIB%\arrow_cuda.lib exit 1             # [(cuda_compiler_version == "None") and win]
+        - if exist %LIBRARY_LIB%\arrow_cuda_static.lib exit 1      # [(cuda_compiler_version == "None") and win]
 
     about:
       home: http://github.com/apache/arrow
@@ -117,56 +173,23 @@ outputs:
         - LICENSE.txt
       summary: C++ libraries for Apache Arrow
 
+  # compat output for old naming scheme; switched for 10.0.0; keep for a few versions
+  - name: arrow-cpp
+    version: {{ version }}
+    build:
+      string: h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}_{{ build_ext }}
+      run_exports:
+        - {{ pin_subpackage("libarrow", max_pin="x.x.x") }}
+    requirements:
+      host:
+        # make sure the builds for different openssl versions (with the same PKG_BUILDNUM) have different hashes
+        - openssl
+        - {{ pin_subpackage('libarrow', exact=True) }}
+      run:
+        - {{ pin_subpackage('libarrow', exact=True) }}
     test:
       commands:
-        # headers
-        - test -f $PREFIX/include/arrow/api.h              # [unix]
-        - test -f $PREFIX/include/arrow/flight/types.h     # [unix]
-        - test -f $PREFIX/include/arrow/flight/sql/api.h   # [unix]
-        - test -f $PREFIX/include/plasma/client.h          # [unix]
-        - test -f $PREFIX/include/gandiva/engine.h         # [unix]
-        - test -f $PREFIX/include/parquet/api/reader.h     # [unix]
-        - if not exist %LIBRARY_INC%\\arrow\\api.h exit 1            # [win]
-        - if not exist %LIBRARY_INC%\\gandiva\\engine.h exit 1       # [win]
-        - if not exist %LIBRARY_INC%\\parquet\\api\\reader.h exit 1  # [win]
-
-        # shared
-        - test -f $PREFIX/lib/libarrow.so             # [linux]
-        - test -f $PREFIX/lib/libarrow_dataset.so     # [linux]
-        - test -f $PREFIX/lib/libarrow_flight.so      # [linux]
-        - test -f $PREFIX/lib/libarrow_flight_sql.so  # [linux]
-        - test -f $PREFIX/lib/libparquet.so           # [linux]
-        - test -f $PREFIX/lib/libgandiva.so           # [linux]
-        - test -f $PREFIX/lib/libplasma.so            # [linux]
-        - test -f $PREFIX/lib/libarrow_cuda${SHLIB_EXT}               # [(cuda_compiler_version != "None") and unix]
-        - test ! -f $PREFIX/lib/libarrow_cuda${SHLIB_EXT}             # [(cuda_compiler_version == "None") and unix]
-        - if not exist %PREFIX%\\Library\\bin\\arrow_cuda.dll exit 1  # [(cuda_compiler_version != "None") and win]
-        - if exist %PREFIX%\\Library\\bin\\arrow_cuda.dll exit 1      # [(cuda_compiler_version == "None") and win]
-        - test -f $PREFIX/lib/libarrow.dylib          # [osx]
-        - test -f $PREFIX/lib/libarrow_dataset.dylib  # [osx]
-        - test -f $PREFIX/lib/libgandiva.dylib        # [osx]
-        - test -f $PREFIX/lib/libparquet.dylib        # [osx]
-        - test -f $PREFIX/lib/libplasma.dylib         # [osx]
-        - if not exist %PREFIX%\\Library\\bin\\arrow.dll exit 1          # [win]
-        - if not exist %PREFIX%\\Library\\bin\\arrow_dataset.dll exit 1  # [win]
-        - if not exist %PREFIX%\\Library\\bin\\arrow_flight.dll exit 1   # [win]
-        - if not exist %PREFIX%\\Library\\bin\\parquet.dll exit 1        # [win]
-        - if not exist %PREFIX%\\Library\\bin\\gandiva.dll exit 1        # [win]
-
-        # absence of static libraries
-        - test ! -f $PREFIX/lib/libarrow.a             # [unix]
-        - test ! -f $PREFIX/lib/libarrow_dataset.a     # [unix]
-        - test ! -f $PREFIX/lib/libarrow_flight.a      # [unix]
-        - test ! -f $PREFIX/lib/libarrow_flight_sql.a  # [unix]
-        - test ! -f $PREFIX/lib/libplasma.a            # [unix]
-        - test ! -f $PREFIX/lib/libparquet.a           # [unix]
-        - test ! -f $PREFIX/lib/libgandiva.a           # [unix]
-        - if exist %PREFIX%\\Library\\lib\\arrow_static.lib exit 1             # [win]
-        - if exist %PREFIX%\\Library\\lib\\arrow_dataset_static.lib exit 1     # [win]
-        - if exist %PREFIX%\\Library\\lib\\arrow_flight_static.lib exit 1      # [win]
-        - if exist %PREFIX%\\Library\\lib\\arrow_flight_sql_static.lib exit 1  # [win]
-        - if exist %PREFIX%\\Library\\lib\\parquet_static.lib exit 1           # [win]
-        - if exist %PREFIX%\\Library\\lib\\gandiva_static.lib exit 1           # [win]
+        - exit 0
 
   - name: pyarrow
     script: build-pyarrow.sh  # [not win]
@@ -179,6 +202,14 @@ outputs:
       ignore_run_exports_from:
         - openssl
       track_features: {{ "[arrow-cuda]" if cuda_enabled else "" }}
+      missing_dso_whitelist:
+        # not actually missing, but installed into SP_DIR, see tests
+        - "*/libarrow_python.so.*"            # [linux]
+        - "*/libarrow_python_flight.so.*"     # [linux]
+        - "*/libarrow_python.*.dylib"         # [osx]
+        - "*/libarrow_python_flight.*.dylib"  # [osx]
+        - "*/arrow_python.dll"                # [win]
+        - "*/arrow_python_flight.dll"         # [win]
     requirements:
       build:
         - python                                 # [build_platform != target_platform]
@@ -190,35 +221,28 @@ outputs:
         - make  # [unix]
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
-        # pyarrow does not require nvcc but it needs to link against libraries in arrow-cpp=*=*cuda
+        # pyarrow does not require nvcc but it needs to link against libraries in libarrow=*=*cuda
         - {{ compiler("cuda") }}  # [cuda_compiler_version != "None"]
       host:
-        - {{ pin_subpackage('arrow-cpp', exact=True) }}
+        - {{ pin_subpackage('libarrow', exact=True) }}
         - clangdev {{ llvm_version }}
         - llvmdev {{ llvm_version }}
         - cython
+        - gflags  # [unix]
         - numpy
         - openssl
         - python
         - setuptools
         - setuptools_scm
-        - six
       run:
-        - {{ pin_subpackage('arrow-cpp', exact=True) }}
-        - {{ pin_compatible('numpy', lower_bound='1.16') }}
+        - {{ pin_subpackage('libarrow', exact=True) }}
+        - {{ pin_compatible('numpy') }}
         # empty parquet-cpp metapackage, force old versions to be uninstalled
         - parquet-cpp 1.5.1.*
         - python
       run_constrained:
-        - arrow-cpp-proc * {{ build_ext }}
-        - cudatoolkit >=9.2  # [cuda_compiler_version != "None"]
-
-    about:
-      home: http://github.com/apache/arrow
-      license: Apache-2.0
-      license_file:
-        - LICENSE.txt
-      summary: Python libraries for Apache Arrow
+        - apache-arrow-proc =*={{ build_ext }}
+        - cudatoolkit >={{ cuda_compiler_version_min }}  # [cuda_compiler_version != "None"]
 
     test:
       files:
@@ -241,11 +265,29 @@ outputs:
         # However, we check below for (at least) the presence of a correctly-compiled module
         - pyarrow.cuda     # [cuda_compiler_version != "None" and not win]
       commands:
+        # libraries that depend on python (and hence aren't in libarrow itself)
+        - test -f ${SP_DIR}/pyarrow/libarrow_python.so                            # [linux]
+        - test -f ${SP_DIR}/pyarrow/libarrow_python_flight.so                     # [linux]
+        - test -f ${SP_DIR}/pyarrow/libarrow_python.dylib                         # [osx]
+        - test -f ${SP_DIR}/pyarrow/libarrow_python_flight.dylib                  # [osx]
+        - if not exist %SP_DIR%\pyarrow\arrow_python.dll exit 1                   # [win]
+        - if not exist %SP_DIR%\pyarrow\arrow_python_flight.dll exit 1            # [win]
+
+        - test -f ${SP_DIR}/pyarrow/include/arrow/python/pyarrow.h                # [unix]
+        - if not exist %SP_DIR%\pyarrow\include\arrow\python\pyarrow.h exit 1     # [win]
+
         - test ! -f ${SP_DIR}/pyarrow/tests/test_array.py                         # [unix]
         - if exist %SP_DIR%/pyarrow/tests/test_array.py exit 1                    # [win]
         # Need to remove dot from PY_VER; %MYVAR:x=y% replaces "x" in %MYVAR% with "y"
         - if not exist %SP_DIR%/pyarrow/_cuda.cp%PY_VER:.=%-win_amd64.pyd exit 1  # [win and cuda_compiler_version != "None"]
         - python test_read_parquet.py
+
+    about:
+      home: http://github.com/apache/arrow
+      license: Apache-2.0
+      license_file:
+        - LICENSE.txt
+      summary: Python libraries for Apache Arrow
 
   - name: pyarrow-tests
     script: build-pyarrow.sh  # [not win]
@@ -269,10 +311,10 @@ outputs:
         - make  # [unix]
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
-        # pyarrow does not require nvcc but it needs to link against libraries in arrow-cpp=*=*cuda
+        # pyarrow does not require nvcc but it needs to link against libraries in libarrow=*=*cuda
         - {{ compiler("cuda") }}  # [cuda_compiler_version != "None"]
       host:
-        - {{ pin_subpackage('arrow-cpp', exact=True) }}
+        - {{ pin_subpackage('libarrow', exact=True) }}
         - {{ pin_subpackage('pyarrow', exact=True) }}
         - clangdev {{ llvm_version }}
         - llvmdev {{ llvm_version }}
@@ -282,13 +324,69 @@ outputs:
         - python
         - setuptools
         - setuptools_scm
-        - six
       run:
         - {{ pin_subpackage('pyarrow', exact=True) }}
         - python
       run_constrained:
-        - arrow-cpp-proc * {{ build_ext }}
-        - cudatoolkit >=9.2  # [cuda_compiler_version != "None"]
+        - apache-arrow-proc =*={{ build_ext }}
+        - cudatoolkit >={{ cuda_compiler_version_min }}  # [cuda_compiler_version != "None"]
+
+    test:
+      requires:
+        - pytest
+        - pytest-lazy-fixture
+        - backports.zoneinfo  # [py<39]
+        - cffi
+        - cloudpickle
+        - cython
+        - fastparquet
+        - fsspec
+        - hypothesis
+        - pandas
+        # not all arches available in conda-forge; osx-arm not tested anyway
+        - pytorch *           # [unix and not ppc64le and py<311]
+        - scipy
+        # we're not building java bindings
+        # - jpype1
+        # doesn't get picked up correctly
+        # - libhdfs3
+        # causes segfaults
+        # - sparse
+        # not rebuilt for grpc 1.49 yet
+        # - tensorflow
+      source_files:
+        - testing/data
+      commands:
+        - cd ${SP_DIR}/pyarrow/tests                        # [unix]
+        - cd %SP_DIR%\pyarrow\tests                         # [win]
+        - export ARROW_TEST_DATA="${SRC_DIR}/testing/data"  # [unix]
+        - set "ARROW_TEST_DATA=%SRC_DIR%\testing\data"      # [win]
+
+        {% set tests_to_skip = "_not_a_real_test" %}
+        # we do not have GPUs in CI --> cannot test cuda
+        {% set tests_to_skip = tests_to_skip + " or test_cuda" %}
+        # skip tests that raise SIGINT and crash the test suite
+        {% set tests_to_skip = tests_to_skip + " or (test_csv and test_cancellation)" %}  # [linux]
+        {% set tests_to_skip = tests_to_skip + " or (test_flight and test_interrupt)" %}  # [linux]
+        # skip tests that make invalid(-for-conda) assumptions about the compilers setup
+        {% set tests_to_skip = tests_to_skip + " or test_cython_api" %}                   # [unix]
+        {% set tests_to_skip = tests_to_skip + " or test_visit_strings" %}                # [unix]
+        # skip tests that cannot succeed in emulation
+        {% set tests_to_skip = tests_to_skip + " or test_debug_memory_pool_disabled" %}   # [aarch64 or ppc64le]
+        {% set tests_to_skip = tests_to_skip + " or test_env_var_io_thread_count" %}      # [aarch64 or ppc64le]
+        # vvvvvvv TESTS THAT SHOULDN'T HAVE TO BE SKIPPED vvvvvvv
+        # failing on linux with "OSError: Could not connect to socket /tmp/[...]/plasma.sock"
+        {% set tests_to_skip = tests_to_skip + " or test_plasma" %}                       # [linux]
+        # "Unsupported backend 'nonexistent' specified in ARROW_DEFAULT_MEMORY_POOL"
+        {% set tests_to_skip = tests_to_skip + " or (test_memory and test_env_var)" %}    # [unix]
+        # test is broken; header is in $PREFIX, not $SP_DIR
+        {% set tests_to_skip = tests_to_skip + " or (test_misc and test_get_include)" %}  # [unix]
+        # ^^^^^^^ TESTS THAT SHOULDN'T HAVE TO BE SKIPPED ^^^^^^^
+
+        # crossbow CI: reduce to one python version, except on (unemulated) linux, where it's fast enough
+        - pytest -v -rfEs -k "not ({{ tests_to_skip }})"  # [linux64 or ((py==310) and not ppc64le)]
+        # NOTE: test suite is skipped on ppc due to bugs in QEMU code that cause
+        # CI to fail, even though the tests would run through on native hardware
 
     about:
       home: http://github.com/apache/arrow
@@ -296,11 +394,6 @@ outputs:
       license_file:
         - LICENSE.txt
       summary: Python test files for Apache Arrow
-
-    test:
-      commands:
-        - test -f ${SP_DIR}/pyarrow/tests/test_array.py             # [unix]
-        - if not exist %SP_DIR%/pyarrow/tests/test_array.py exit 1  # [win]
 
 about:
   home: http://github.com/apache/arrow
@@ -326,3 +419,4 @@ extra:
     - nealrichardson
     - jakirkham
     - h-vetinari
+  feedstock-name: arrow-cpp

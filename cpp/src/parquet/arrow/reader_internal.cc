@@ -638,20 +638,15 @@ struct DecimalConverter<DecimalArrayType, ByteArrayType> {
 /// small enough to fit in less 4 bytes or less than 8 bytes, respectively.
 /// This function implements the conversion from int32 and int64 arrays to decimal arrays.
 template <
-    typename ParquetIntegerType,
+    typename DecimalArrayType, typename ParquetIntegerType,
     typename = ::arrow::enable_if_t<std::is_same<ParquetIntegerType, Int32Type>::value ||
                                     std::is_same<ParquetIntegerType, Int64Type>::value>>
 static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
                                      const std::shared_ptr<Field>& field, Datum* out) {
   // Decimal128 and Decimal256 are only Arrow constructs.  Parquet does not
   // specifically distinguish between decimal byte widths.
-  // Decimal256 isn't relevant here because the Arrow-Parquet C++ bindings never
-  // write Decimal values as integers and if the decimal value can fit in an
-  // integer it is wasteful to use Decimal256. Put another way, the only
-  // way an integer column could be construed as Decimal256 is if an arrow
-  // schema was stored as metadata in the file indicating the column was
-  // Decimal256. The current Arrow-Parquet C++ bindings will never do this.
-  DCHECK(field->type()->id() == ::arrow::Type::DECIMAL128);
+  DCHECK(field->type()->id() == ::arrow::Type::DECIMAL128 ||
+         field->type()->id() == ::arrow::Type::DECIMAL256);
 
   const int64_t length = reader->values_written();
 
@@ -674,16 +669,21 @@ static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
     // sign/zero extend int32_t values, otherwise a no-op
     const auto value = static_cast<int64_t>(values[i]);
 
-    ::arrow::Decimal128 decimal(value);
-    decimal.ToBytes(out_ptr);
+    if constexpr (std::is_same_v<DecimalArrayType, Decimal128Array>) {
+      ::arrow::Decimal128 decimal(value);
+      decimal.ToBytes(out_ptr);
+    } else {
+      ::arrow::Decimal256 decimal(value);
+      decimal.ToBytes(out_ptr);
+    }
   }
 
   if (reader->nullable_values() && field->nullable()) {
     std::shared_ptr<ResizableBuffer> is_valid = reader->ReleaseIsValid();
-    *out = std::make_shared<Decimal128Array>(field->type(), length, std::move(data),
-                                             is_valid, reader->null_count());
+    *out = std::make_shared<DecimalArrayType>(field->type(), length, std::move(data),
+                                              is_valid, reader->null_count());
   } else {
-    *out = std::make_shared<Decimal128Array>(field->type(), length, std::move(data));
+    *out = std::make_shared<DecimalArrayType>(field->type(), length, std::move(data));
   }
   return Status::OK();
 }
@@ -776,11 +776,11 @@ Status TransferColumnData(RecordReader* reader, const std::shared_ptr<Field>& va
     case ::arrow::Type::DECIMAL128: {
       switch (descr->physical_type()) {
         case ::parquet::Type::INT32: {
-          auto fn = DecimalIntegerTransfer<Int32Type>;
+          auto fn = DecimalIntegerTransfer<Decimal128Array, Int32Type>;
           RETURN_NOT_OK(fn(reader, pool, value_field, &result));
         } break;
         case ::parquet::Type::INT64: {
-          auto fn = &DecimalIntegerTransfer<Int64Type>;
+          auto fn = &DecimalIntegerTransfer<Decimal128Array, Int64Type>;
           RETURN_NOT_OK(fn(reader, pool, value_field, &result));
         } break;
         case ::parquet::Type::BYTE_ARRAY: {
@@ -799,6 +799,14 @@ Status TransferColumnData(RecordReader* reader, const std::shared_ptr<Field>& va
     } break;
     case ::arrow::Type::DECIMAL256:
       switch (descr->physical_type()) {
+        case ::parquet::Type::INT32: {
+          auto fn = DecimalIntegerTransfer<Decimal256Array, Int32Type>;
+          RETURN_NOT_OK(fn(reader, pool, value_field, &result));
+        } break;
+        case ::parquet::Type::INT64: {
+          auto fn = &DecimalIntegerTransfer<Decimal256Array, Int64Type>;
+          RETURN_NOT_OK(fn(reader, pool, value_field, &result));
+        } break;
         case ::parquet::Type::BYTE_ARRAY: {
           auto fn = &TransferDecimal<Decimal256Array, ByteArrayType>;
           RETURN_NOT_OK(fn(reader, pool, value_field, &result));
@@ -809,7 +817,8 @@ Status TransferColumnData(RecordReader* reader, const std::shared_ptr<Field>& va
         } break;
         default:
           return Status::Invalid(
-              "Physical type for decimal256 must be fixed length binary");
+              "Physical type for decimal256 must be int32, int64, byte array, or fixed "
+              "length binary");
       }
       break;
 

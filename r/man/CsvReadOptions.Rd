@@ -96,6 +96,8 @@ The \code{CsvWriteOptions$create()} factory method takes the following arguments
 \itemize{
 \item \code{include_header} Whether to write an initial header line with column names
 \item \code{batch_size} Maximum number of rows processed at a time. Default is 1024.
+\item \code{null_string} The string to be written for null values. Must not contain
+quotation marks. Default is an empty string (\code{""}).
 }
 }
 

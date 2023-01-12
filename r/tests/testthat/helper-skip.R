@@ -38,6 +38,14 @@ skip_if_not_available <- function(feature) {
     skip_on_linux_devel()
   }
 
+  # curl/ssl on MacOS is too old to support S3 filesystems without
+  # crashing when the process exits.
+  if (feature == "s3") {
+    if (on_macos_10_13_or_lower()) {
+      skip("curl/ssl runtime on MacOS 10.13 is too old")
+    }
+  }
+
   yes <- feature %in% names(build_features) && build_features[feature]
   if (!yes) {
     skip(paste("Arrow C++ not built with", feature))
@@ -99,6 +107,20 @@ skip_on_r_older_than <- function(r_version) {
 
   if (getRversion() < r_version) {
     skip(paste("R version:", getRversion()))
+  }
+}
+
+skip_on_python_older_than <- function(python_version) {
+  if (force_tests()) {
+    return()
+  }
+
+  if (!reticulate::py_available(initialize = TRUE)) {
+    skip("Python isn't available")
+  }
+
+  if (reticulate::py_version() < python_version) {
+    skip(paste("Python version:", reticulate::py_version()))
   }
 }
 

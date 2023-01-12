@@ -392,6 +392,10 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   ASSERT_TRUE(metadata->Equals(*expected_metadata));
   ASSERT_EQ(stripe_row_count * stripe_count, reader->NumberOfRows());
   ASSERT_EQ(stripe_count, reader->NumberOfStripes());
+  ASSERT_EQ(static_cast<int64_t>(stripe_row_count),
+            reader->GetStripeInformation(0).num_rows);
+  ASSERT_EQ(static_cast<int64_t>(reader->NumberOfRows() - stripe_row_count),
+            reader->GetStripeInformation(stripe_count - 1).first_row_id);
   accumulated = 0;
   EXPECT_OK_AND_ASSIGN(auto stripe_reader, reader->NextStripeReader(reader_batch_size));
   while (stripe_reader) {

@@ -419,6 +419,7 @@ class ARROW_DS_EXPORT Scanner {
   /// This method will push down the predicate and compute the result based on fragment
   /// metadata if possible.
   virtual Result<int64_t> CountRows() = 0;
+  virtual Future<int64_t> CountRowsAsync() = 0;
   /// \brief Convert the Scanner to a RecordBatchReader so it can be
   /// easily used with APIs that expect a reader.
   virtual Result<std::shared_ptr<RecordBatchReader>> ToRecordBatchReader() = 0;
@@ -533,6 +534,9 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
   /// \brief Override default backpressure configuration
   Status Backpressure(compute::BackpressureOptions backpressure);
+
+  /// \brief Return the current scan options for the builder.
+  Result<std::shared_ptr<ScanOptions>> GetScanOptions();
 
   /// \brief Return the constructed now-immutable Scanner object
   Result<std::shared_ptr<Scanner>> Finish();

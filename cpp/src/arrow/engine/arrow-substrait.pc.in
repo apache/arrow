@@ -24,3 +24,4 @@ Description: Apache Arrow's Substrait Consumer.
 Version: @ARROW_VERSION@
 Requires: arrow
 Libs: -L${libdir} -larrow_substrait
+Cflags.private: -DARROW_ENGINE_STATIC

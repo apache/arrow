@@ -51,6 +51,11 @@ func releaseExportedSchema(schema *CArrowSchema) {
 		return
 	}
 
+	if schema.dictionary != nil {
+		C.ArrowSchemaRelease(schema.dictionary)
+		C.free(unsafe.Pointer(schema.dictionary))
+	}
+
 	var children []*CArrowSchema
 	s := (*reflect.SliceHeader)(unsafe.Pointer(&children))
 	s.Data = uintptr(unsafe.Pointer(schema.children))
@@ -74,6 +79,11 @@ func releaseExportedArray(arr *CArrowArray) {
 
 	if arr.n_buffers > 0 {
 		C.free(unsafe.Pointer(arr.buffers))
+	}
+
+	if arr.dictionary != nil {
+		C.ArrowArrayRelease(arr.dictionary)
+		C.free(unsafe.Pointer(arr.dictionary))
 	}
 
 	if arr.n_children > 0 {

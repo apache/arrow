@@ -212,6 +212,23 @@ test_that("Character vectors > 2GB become large_utf8", {
   expect_array_roundtrip(big, large_utf8())
 })
 
+test_that("Arrays with length > INT_MAX can be created and inspected", {
+  skip_on_cran()
+  skip_if_not_running_large_memory_tests()
+
+  big <- raw(as.double(.Machine$integer.max) + 2)
+  big[length(big)] <- as.raw(0xff)
+  big_array <- Array$create(big, type = uint8())
+  expect_identical(length(big_array), length(big))
+  expect_identical(
+    Array__GetScalar(big_array, length(big) - 1)$as_vector(),
+    255L
+  )
+
+  # Calling big_array$as_vector() will return an 8 GB integer vector
+  # which is too big to run on CI.
+})
+
 test_that("empty arrays are supported", {
   expect_array_roundtrip(character(), utf8())
   expect_array_roundtrip(character(), large_utf8(), as = large_utf8())
@@ -526,6 +543,20 @@ test_that("StructArray methods", {
   expect_identical(dim(a), c(10L, 3L))
 })
 
+test_that("StructArray creation", {
+  # from data.frame
+  a <- StructArray$create(example_data)
+  expect_identical(names(a), c("int", "dbl", "dbl2", "lgl", "false", "chr", "fct"))
+  expect_identical(dim(a), c(10L, 7L))
+  expect_r6_class(a, "StructArray")
+
+  # from Arrays
+  str_array <- StructArray$create(a = Array$create(1:2), b = Array$create(c("a", "b")))
+  expect_equal(str_array[[1]], Array$create(1:2))
+  expect_equal(str_array[[2]], Array$create(c("a", "b")))
+  expect_r6_class(str_array, "StructArray")
+})
+
 test_that("Array$create() can handle data frame with custom struct type (not inferred)", {
   df <- tibble::tibble(x = 1:10, y = 1:10)
   type <- struct(x = float64(), y = int16())
@@ -769,15 +800,16 @@ test_that("Array$create() handles vector -> fixed size list arrays", {
 })
 
 test_that("Handling string data with embedded nuls", {
-  raws <- structure(list(
-    as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
-    as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
-    as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
-    as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
-    as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
-    as.raw(c(0x74, 0x76))
-  ),
-  class = c("arrow_binary", "vctrs_vctr", "list")
+  raws <- structure(
+    list(
+      as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
+      as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
+      as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
+      as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
+      as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
+      as.raw(c(0x74, 0x76))
+    ),
+    class = c("arrow_binary", "vctrs_vctr", "list")
   )
   expect_error(
     rawToChar(raws[[3]]),

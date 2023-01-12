@@ -18,13 +18,11 @@
 # under the License.
 
 import contextlib
-import glob
 import os
 import os.path
 from os.path import join as pjoin
 import re
 import shlex
-import shutil
 import sys
 
 if sys.version_info >= (3, 10):
@@ -93,9 +91,7 @@ class build_ext(_build_ext):
         _build_ext.build_extensions(self)
 
     def run(self):
-        pyarrow_cpp_home = pjoin(os.getcwd(), 'build', 'dist')
-        self._run_cmake_pyarrow_cpp(pyarrow_cpp_home)
-        self._run_cmake(pyarrow_cpp_home)
+        self._run_cmake()
         _build_ext.run(self)
 
     # adapted from cmake_build_ext in dynd-python
@@ -230,74 +226,7 @@ class build_ext(_build_ext):
         '_hdfsio',
         'gandiva']
 
-    def _run_cmake_pyarrow_cpp(self, pyarrow_cpp_home):
-        # check if build_type is correctly passed / set
-        if self.build_type.lower() not in ('release', 'debug',
-                                           'relwithdebinfo'):
-            raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
-                             "be 'release', 'debug' or 'relwithdebinfo'")
-
-        # The directory containing this setup.py
-        source = os.path.dirname(os.path.abspath(__file__))
-        # The directory containing this PyArrow C++ CMakeLists.txt
-        source_pyarrow_cpp = pjoin(source, "pyarrow/src")
-
-        # The directory for the module being built
-        build_dir = pjoin(os.getcwd(), 'build', 'cpp')
-
-        if not os.path.isdir(build_dir):
-            self.mkpath(build_dir)
-
-        # Change to the build directory
-        with changed_dir(build_dir):
-            # cmake args
-            cmake_options = [
-                '-DCMAKE_BUILD_TYPE=' + str(self.build_type.lower()),
-                '-DCMAKE_INSTALL_LIBDIR=lib',
-                '-DCMAKE_INSTALL_PREFIX=' + str(pyarrow_cpp_home),
-                '-DPYTHON_EXECUTABLE=' + sys.executable,
-                '-DPython3_EXECUTABLE=' + sys.executable,
-                '-DPYARROW_CXXFLAGS=' + str(self.cmake_cxxflags),
-            ]
-
-            # Check for specific options
-            def append_cmake_bool(value, varname):
-                cmake_options.append('-D{0}={1}'.format(
-                    varname, 'on' if value else 'off'))
-
-            append_cmake_bool(self.with_dataset, 'PYARROW_WITH_DATASET')
-            append_cmake_bool(self.with_parquet_encryption,
-                              'PYARROW_WITH_PARQUET_ENCRYPTION')
-            append_cmake_bool(self.with_hdfs,
-                              'PYARROW_WITH_HDFS')
-            append_cmake_bool(self.with_flight,
-                              'PYARROW_WITH_FLIGHT')
-
-            # Windows
-            if self.cmake_generator:
-                cmake_options += ['-G', self.cmake_generator]
-
-            # build args
-            build_tool_args = []
-            if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
-                cmake_options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
-            if os.environ.get('PYARROW_PARALLEL'):
-                build_tool_args.append('--')
-                build_tool_args.append(
-                    '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
-
-            # run cmake
-            print("-- Running CMake for PyArrow C++")
-            self.spawn(['cmake'] + cmake_options + [source_pyarrow_cpp])
-            print("-- Finished CMake for PyArrow C++")
-            # run make & install
-            print("-- Running CMake build and install for PyArrow C++")
-            self.spawn(['cmake', '--build', '.', '--config',
-                       self.build_type, '--target', 'install'] +
-                       build_tool_args)
-            print("-- Finished CMake build and install for PyArrow C++")
-
-    def _run_cmake(self, pyarrow_cpp_home):
+    def _run_cmake(self):
         # check if build_type is correctly passed / set
         if self.build_type.lower() not in ('release', 'debug',
                                            'relwithdebinfo'):
@@ -320,6 +249,8 @@ class build_ext(_build_ext):
             # a bit hacky
             build_lib = saved_cwd
 
+        install_prefix = pjoin(build_lib, "pyarrow")
+
         # Change to the build directory
         with changed_dir(build_temp):
             # Detect if we built elsewhere
@@ -336,14 +267,11 @@ class build_ext(_build_ext):
                           f"{build_base}.")
                     return
 
-            static_lib_option = ''
-
             cmake_options = [
-                '-DPYTHON_EXECUTABLE=' + sys.executable,
-                '-DPython3_EXECUTABLE=' + sys.executable,
-                '-DPYARROW_CPP_HOME=' + str(pyarrow_cpp_home),
-                '-DPYARROW_CXXFLAGS=' + str(self.cmake_cxxflags),
-                static_lib_option,
+                f'-DCMAKE_INSTALL_PREFIX={install_prefix}',
+                f'-DPYTHON_EXECUTABLE={sys.executable}',
+                f'-DPython3_EXECUTABLE={sys.executable}',
+                f'-DPYARROW_CXXFLAGS={self.cmake_cxxflags}',
             ]
 
             def append_cmake_bool(value, varname):
@@ -371,6 +299,10 @@ class build_ext(_build_ext):
                               'PYARROW_BUNDLE_ARROW_CPP')
             append_cmake_bool(self.bundle_boost,
                               'PYARROW_BUNDLE_BOOST')
+            append_cmake_bool(self.bundle_cython_cpp,
+                              'PYARROW_BUNDLE_CYTHON_CPP')
+            append_cmake_bool(self.bundle_plasma_executable,
+                              'PYARROW_BUNDLE_PLASMA_EXECUTABLE')
             append_cmake_bool(self.generate_coverage,
                               'PYARROW_GENERATE_COVERAGE')
             append_cmake_bool(not self.with_static_boost,
@@ -378,12 +310,12 @@ class build_ext(_build_ext):
             append_cmake_bool(not self.with_static_parquet,
                               'PYARROW_PARQUET_USE_SHARED')
 
-            cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
-                                 .format(self.build_type.lower()))
+            cmake_options.append(
+                f'-DCMAKE_BUILD_TYPE={self.build_type.lower()}')
 
             if self.boost_namespace != 'boost':
-                cmake_options.append('-DBoost_NAMESPACE={}'
-                                     .format(self.boost_namespace))
+                cmake_options.append(
+                    f'-DBoost_NAMESPACE={self.boost_namespace}')
 
             extra_cmake_args = shlex.split(self.extra_cmake_args)
 
@@ -395,9 +327,9 @@ class build_ext(_build_ext):
                 build_tool_args.append('--')
                 if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
                     cmake_options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
-                if os.environ.get('PYARROW_PARALLEL'):
-                    build_tool_args.append(
-                        '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
+                parallel = os.environ.get('PYARROW_PARALLEL')
+                if parallel:
+                    build_tool_args.append(f'-j{parallel}')
 
             # Generate the build files
             print("-- Running cmake for PyArrow")
@@ -409,136 +341,23 @@ class build_ext(_build_ext):
                        build_tool_args)
             print("-- Finished cmake --build for PyArrow")
 
-            # Move the libraries to the place expected by the Python build
-            try:
-                os.makedirs(pjoin(build_lib, 'pyarrow'))
-            except OSError:
-                pass
+            print("-- Running cmake --build --target install for PyArrow")
+            self.spawn(['cmake', '--build', '.', '--config', self.build_type] +
+                       ['--target', 'install'] + build_tool_args)
+            print("-- Finished cmake --build --target install for PyArrow")
 
-            def copy_libs(dir):
-                for path in os.listdir(pjoin(pyarrow_cpp_home, dir)):
-                    if "python" in path:
-                        pyarrow_path = pjoin(build_lib, "pyarrow", path)
-                        if os.path.exists(pyarrow_path):
-                            os.remove(pyarrow_path)
-                        pyarrow_cpp_path = pjoin(pyarrow_cpp_home, dir, path)
-                        print(f"Copying {pyarrow_cpp_path} to {pyarrow_path}")
-                        shutil.copy(pyarrow_cpp_path, pyarrow_path)
-
-            # Move libraries to python/pyarrow
-            # For windows builds, move DLL from bin/
-            try:
-                copy_libs("bin")
-            except OSError:
-                pass
-            copy_libs("lib")
-
-            if sys.platform == 'win32':
-                build_prefix = ''
-            else:
-                build_prefix = self.build_type
-
-            pyarrow_include = pjoin(build_lib, 'pyarrow', 'include')
-            # Move Arrow C++ headers to pyarrow/include
-            if self.bundle_arrow_cpp or self.bundle_arrow_cpp_headers:
-                arrow_cpp_include = pjoin(build_prefix, 'include')
-                print('Bundling includes: ' + arrow_cpp_include)
-                if os.path.exists(pyarrow_include):
-                    shutil.rmtree(pyarrow_include)
-                shutil.move(arrow_cpp_include, pyarrow_include)
-
-            # Move PyArrow headers to pyarrow/include
-            pyarrow_cpp_include = pjoin(pyarrow_cpp_home, 'include')
-            pyarrow_include_sub = pjoin(pyarrow_include, 'arrow', 'python')
-            print('Moving PyArrow C++ includes: ' + pyarrow_include_sub)
-            if os.path.exists(pyarrow_include_sub):
-                shutil.rmtree(pyarrow_include_sub)
-            shutil.move(pjoin(pyarrow_cpp_include, 'arrow', 'python'),
-                        pyarrow_include_sub)
-
-            # Move the built C-extension to the place expected by the Python
-            # build
             self._found_names = []
             for name in self.CYTHON_MODULE_NAMES:
-                built_path = self.get_ext_built(name)
+                built_path = pjoin(install_prefix, name + ext_suffix)
                 if not os.path.exists(built_path):
-                    print('Did not find {0}'.format(built_path))
+                    print(f'Did not find {built_path}')
                     if self._failure_permitted(name):
-                        print('Cython module {0} failure permitted'
-                              .format(name))
+                        print(f'Cython module {name} failure permitted')
                         continue
                     raise RuntimeError('PyArrow C-extension failed to build:',
                                        os.path.abspath(built_path))
 
-                # The destination path to move the built C extension to
-                ext_path = pjoin(build_lib, self._get_cmake_ext_path(name))
-                if os.path.exists(ext_path):
-                    os.remove(ext_path)
-                self.mkpath(os.path.dirname(ext_path))
-
-                if self.bundle_cython_cpp:
-                    self._bundle_cython_cpp(name, build_lib)
-
-                print('Moving built C-extension', built_path,
-                      'to build path', ext_path)
-                shutil.move(built_path, ext_path)
                 self._found_names.append(name)
-
-                if os.path.exists(self.get_ext_built_api_header(name)):
-                    shutil.move(self.get_ext_built_api_header(name),
-                                pjoin(os.path.dirname(ext_path),
-                                      name + '_api.h'))
-
-            if self.bundle_arrow_cpp:
-                self._bundle_arrow_cpp(build_prefix, build_lib)
-
-            if self.with_plasma and self.bundle_plasma_executable:
-                # Move the plasma store
-                source = os.path.join(self.build_type, "plasma-store-server")
-                target = os.path.join(build_lib,
-                                      self._get_build_dir(),
-                                      "plasma-store-server")
-                shutil.move(source, target)
-
-    def _bundle_arrow_cpp(self, build_prefix, build_lib):
-        print(pjoin(build_lib, 'pyarrow'))
-        move_shared_libs(build_prefix, build_lib, "arrow")
-        move_shared_libs(build_prefix, build_lib, "arrow_python")
-        if self.with_cuda:
-            move_shared_libs(build_prefix, build_lib, "arrow_cuda")
-        if self.with_substrait:
-            move_shared_libs(build_prefix, build_lib, "arrow_substrait")
-        if self.with_flight:
-            move_shared_libs(build_prefix, build_lib, "arrow_flight")
-        if self.with_dataset:
-            move_shared_libs(build_prefix, build_lib, "arrow_dataset")
-        if self.with_plasma:
-            move_shared_libs(build_prefix, build_lib, "plasma")
-        if self.with_gandiva:
-            move_shared_libs(build_prefix, build_lib, "gandiva")
-        if self.with_parquet and not self.with_static_parquet:
-            move_shared_libs(build_prefix, build_lib, "parquet")
-        if not self.with_static_boost and self.bundle_boost:
-            move_shared_libs(
-                build_prefix, build_lib,
-                "{}_regex".format(self.boost_namespace),
-                implib_required=False)
-
-    def _bundle_cython_cpp(self, name, lib_path):
-        cpp_generated_path = self.get_ext_generated_cpp_source(name)
-        if not os.path.exists(cpp_generated_path):
-            raise RuntimeError('expected to find generated C++ file '
-                               'in {0!r}'.format(cpp_generated_path))
-
-        # The destination path to move the generated C++ source to
-        # (for Cython source coverage)
-        cpp_path = pjoin(lib_path, self._get_build_dir(),
-                         os.path.basename(cpp_generated_path))
-        if os.path.exists(cpp_path):
-            os.remove(cpp_path)
-        print('Moving generated C++ source', cpp_generated_path,
-              'to build path', cpp_path)
-        shutil.move(cpp_generated_path, cpp_path)
 
     def _failure_permitted(self, name):
         if name == '_parquet' and not self.with_parquet:
@@ -599,18 +418,6 @@ class build_ext(_build_ext):
         else:
             return pjoin(name + "_api.h")
 
-    def get_ext_built(self, name):
-        if sys.platform == 'win32':
-            head, tail = os.path.split(name)
-            # Visual Studio seems to differ from other generators in
-            # where it places output files.
-            if self.cmake_generator.startswith('Visual Studio'):
-                return pjoin(head, self.build_type, tail + ext_suffix)
-            else:
-                return pjoin(head, tail + ext_suffix)
-        else:
-            return pjoin(self.build_type, name + ext_suffix)
-
     def get_names(self):
         return self._found_names
 
@@ -619,50 +426,6 @@ class build_ext(_build_ext):
         # regular_exts = _build_ext.get_outputs(self)
         return [self._get_cmake_ext_path(name)
                 for name in self.get_names()]
-
-
-def move_shared_libs(build_prefix, build_lib, lib_name,
-                     implib_required=True):
-    if sys.platform == 'win32':
-        # Move all .dll and .lib files
-        libs = [lib_name + '.dll']
-        if implib_required:
-            libs.append(lib_name + '.lib')
-        for filename in libs:
-            shutil.move(pjoin(build_prefix, filename),
-                        pjoin(build_lib, 'pyarrow', filename))
-    else:
-        _move_shared_libs_unix(build_prefix, build_lib, lib_name)
-
-
-def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
-    shared_library_prefix = 'lib'
-    if sys.platform == 'darwin':
-        shared_library_suffix = '.dylib'
-    else:
-        shared_library_suffix = '.so'
-
-    lib_filename = (shared_library_prefix + lib_name +
-                    shared_library_suffix)
-    # Also copy libraries with ABI/SO version suffix
-    if sys.platform == 'darwin':
-        lib_pattern = (shared_library_prefix + lib_name +
-                       ".*" + shared_library_suffix[1:])
-        libs = glob.glob(pjoin(build_prefix, lib_pattern))
-    else:
-        libs = glob.glob(pjoin(build_prefix, lib_filename) + '*')
-
-    if not libs:
-        raise Exception('Could not find library:' + lib_filename +
-                        ' in ' + build_prefix)
-
-    # Longest suffix library should be copied, all others ignored and can be
-    # symlinked later after the library has been installed
-    libs.sort(key=lambda s: -len(s))
-    print(libs, libs[0])
-    lib_filename = os.path.basename(libs[0])
-    shutil.move(pjoin(build_prefix, lib_filename),
-                pjoin(build_lib, 'pyarrow', lib_filename))
 
 
 # If the event of not running from a git clone (e.g. from a git archive

@@ -280,6 +280,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarIfElse(registry.get());
   RegisterScalarNested(registry.get());
   RegisterScalarRandom(registry.get());  // Nullary
+  RegisterScalarRoundArithmetic(registry.get());
   RegisterScalarSetLookup(registry.get());
   RegisterScalarStringAscii(registry.get());
   RegisterScalarStringUtf8(registry.get());
@@ -294,7 +295,9 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterVectorCumulativeSum(registry.get());
   RegisterVectorHash(registry.get());
   RegisterVectorNested(registry.get());
+  RegisterVectorRank(registry.get());
   RegisterVectorReplace(registry.get());
+  RegisterVectorSelectK(registry.get());
   RegisterVectorSelection(registry.get());
   RegisterVectorSort(registry.get());
 

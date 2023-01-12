@@ -38,8 +38,6 @@ checking_for(checking_message("Homebrew")) do
   end
 end
 
-$CXXFLAGS += " -std=c++17 "
-
 unless required_pkg_config_package([
                                      "arrow",
                                      Arrow::Version::MAJOR,
@@ -75,6 +73,20 @@ end
   source_dir = File.join(spec.full_gem_path, relative_source_dir)
   build_dir = source_dir
   add_depend_package_path(name, source_dir, build_dir)
+end
+
+case RUBY_PLATFORM
+when /darwin/
+  symbols_in_external_bundles = [
+    "_rbgerr_gerror2exception",
+    "_rbgobj_instance_from_ruby_object",
+  ]
+  symbols_in_external_bundles.each do |symbol|
+    $DLDFLAGS << " -Wl,-U,#{symbol}"
+  end
+  mmacosx_version_min = "-mmacosx-version-min=10.14"
+  $CFLAGS << " #{mmacosx_version_min}"
+  $CXXFLAGS << " #{mmacosx_version_min}"
 end
 
 create_makefile("arrow")

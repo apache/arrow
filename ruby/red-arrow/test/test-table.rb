@@ -602,6 +602,18 @@ class TableTest < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("#column_names") do
+    test("unique") do
+      table = Arrow::Table.new(a: [1], b: [2], c: [3])
+      assert_equal(%w[a b c], table.column_names)
+    end
+
+    test("duplicated") do
+      table = Arrow::Table.new([["a", [1, 2, 3]], ["a", [4, 5, 6]]])
+      assert_equal(%w[a a], table.column_names)
+    end
+  end
+
   sub_test_case("#save and .load") do
     module SaveLoadFormatTests
       def test_default
@@ -848,6 +860,76 @@ chris\t-1
         end
       end
     end
+
+    sub_test_case("GC") do
+      def setup
+        table = Arrow::Table.new(integer: [1, 2, 3],
+                                 string: ["a", "b", "c"])
+        @buffer = Arrow::ResizableBuffer.new(1024)
+        table.save(@buffer, format: :arrow)
+        @loaded_table = Arrow::Table.load(@buffer)
+      end
+
+      def test_chunked_array
+        chunked_array = @loaded_table[0].data
+        assert_equal(@buffer,
+                     chunked_array.instance_variable_get(:@input).buffer)
+      end
+
+      def test_array
+        array = @loaded_table[0].data.chunks[0]
+        assert_equal(@buffer,
+                     array.instance_variable_get(:@input).buffer)
+      end
+
+      def test_record_batch
+        record_batch = @loaded_table.each_record_batch.first
+        assert_equal(@buffer,
+                     record_batch.instance_variable_get(:@input).buffer)
+      end
+
+      def test_record_batch_array
+        array = @loaded_table.each_record_batch.first[0].data
+        assert_equal(@buffer,
+                     array.instance_variable_get(:@input).buffer)
+      end
+
+      def test_record_batch_table
+        table = @loaded_table.each_record_batch.first.to_table
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+
+      def test_slice
+        table = @loaded_table.slice(0..-1)
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+
+      def test_merge
+        table = @loaded_table.merge({})
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+
+      def test_remove_column
+        table = @loaded_table.remove_column(0)
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+
+      def test_pack
+        table = @loaded_table.pack
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+
+      def test_join
+        table = @loaded_table.join(@loaded_table, :integer)
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+    end
   end
 
   test("#pack") do
@@ -1044,6 +1126,20 @@ visible: false
   end
 
   sub_test_case("#join") do
+    test("no keys") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["key", [1, 3]],
+                                      ["string", ["one", "three"]],
+                                    ]),
+                   table1.join(table2))
+    end
+
     test("keys: String") do
       table1 = Arrow::Table.new(key: [1, 2, 3],
                                 number: [10, 20, 30])
@@ -1101,7 +1197,9 @@ visible: false
                                       ["right_key", [1, 3]],
                                       ["string", ["one", "three"]],
                                     ]),
-                   table1.join(table2, {left: "left_key", right: :right_key}))
+                   table1.join(table2,
+                               {left: "left_key", right: :right_key},
+                               type: :inner))
     end
 
     test("keys: {left: [String, Symbol], right: [Symbol, String]}") do
@@ -1123,7 +1221,8 @@ visible: false
                                {
                                  left: ["left_key1", :left_key2],
                                  right: [:right_key1, "right_key2"],
-                               }))
+                               },
+                               type: :inner))
     end
 
     test("type:") do

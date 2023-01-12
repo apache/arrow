@@ -113,7 +113,9 @@ bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, R_xlen_t i) {
 }
 
 // [[arrow::export]]
-int Array__length(const std::shared_ptr<arrow::Array>& x) { return x->length(); }
+r_vec_size Array__length(const std::shared_ptr<arrow::Array>& x) {
+  return r_vec_size(x->length());
+}
 
 // [[arrow::export]]
 int Array__offset(const std::shared_ptr<arrow::Array>& x) { return x->offset(); }
@@ -209,6 +211,13 @@ std::shared_ptr<arrow::Array> StructArray__field(
 std::shared_ptr<arrow::Array> StructArray__GetFieldByName(
     const std::shared_ptr<arrow::StructArray>& array, const std::string& name) {
   return array->GetFieldByName(name);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::StructArray> StructArray__from_RecordBatch(
+    const std::shared_ptr<arrow::RecordBatch>& batch) {
+  return ValueOrStop(
+      arrow::StructArray::Make(batch->columns(), batch->schema()->field_names()));
 }
 
 // [[arrow::export]]

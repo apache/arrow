@@ -299,21 +299,25 @@ TYPED_TEST(TestLocalFS, NormalizePathThroughSubtreeFS) {
 
 TYPED_TEST(TestLocalFS, FileSystemFromUriFile) {
   // Concrete test with actual file
-  const auto uri_string = UriFromAbsolutePath(this->local_path_);
+  ASSERT_OK_AND_ASSIGN(auto uri_string, UriFromAbsolutePath(this->local_path_));
   this->TestFileSystemFromUri(uri_string);
   this->TestFileSystemFromUriOrPath(uri_string);
 
   // Variations
   this->TestLocalUri("file:/foo/bar", "/foo/bar");
   this->TestLocalUri("file:///foo/bar", "/foo/bar");
+  this->TestLocalUri("file:///some%20path/%25percent", "/some path/%percent");
 #ifdef _WIN32
   this->TestLocalUri("file:/C:/foo/bar", "C:/foo/bar");
   this->TestLocalUri("file:///C:/foo/bar", "C:/foo/bar");
+  this->TestLocalUri("file:///C:/some%20path/%25percent", "C:/some path/%percent");
 #endif
 
   // Non-empty authority
 #ifdef _WIN32
   this->TestLocalUri("file://server/share/foo/bar", "//server/share/foo/bar");
+  this->TestLocalUri("file://some%20server/some%20share/some%20path",
+                     "//some server/some share/some path");
 #else
   this->TestInvalidUri("file://server/share/foo/bar");
 #endif

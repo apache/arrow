@@ -731,6 +731,7 @@ class UcpCallDriver::Impl {
   }
 
   Status Close() {
+    std::unique_lock<std::mutex> guard(frame_mutex_);
     if (!endpoint_) return Status::OK();
 
     for (auto& item : frames_) {
@@ -781,6 +782,9 @@ class UcpCallDriver::Impl {
     std::unique_lock<std::mutex> guard(frame_mutex_);
     status_ = std::move(status);
     for (auto& item : frames_) {
+      // Push(Frame) may push a complete frame, in which case the
+      // future is already complete - just skip it
+      if (item.second.is_finished()) continue;
       item.second.MarkFinished(status_);
     }
     frames_.clear();

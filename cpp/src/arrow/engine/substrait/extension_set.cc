@@ -672,8 +672,8 @@ class EnumParser {
  public:
   explicit EnumParser(const std::vector<std::string>& options) {
     for (std::size_t i = 0; i < options.size(); i++) {
-      parse_map_[options[i]] = static_cast<Enum>(i + 1);
-      reverse_map_[static_cast<Enum>(i + 1)] = options[i];
+      parse_map_[options[i]] = static_cast<Enum>(i);
+      reverse_map_[static_cast<Enum>(i)] = options[i];
     }
   }
 
@@ -705,12 +705,12 @@ class EnumParser {
   std::unordered_map<Enum, std::string> reverse_map_;
 };
 
-enum class TemporalComponent { kUnspecified = 0, kYear, kMonth, kDay, kSecond };
+enum class TemporalComponent { kYear = 0, kMonth, kDay, kSecond };
 static std::vector<std::string> kTemporalComponentOptions = {"YEAR", "MONTH", "DAY",
                                                              "SECOND"};
 static EnumParser<TemporalComponent> kTemporalComponentParser(kTemporalComponentOptions);
 
-enum class OverflowBehavior { kUnspecified = 0, kSilent, kSaturate, kError };
+enum class OverflowBehavior { kSilent = 0, kSaturate, kError };
 static std::vector<std::string> kOverflowOptions = {"SILENT", "SATURATE", "ERROR"};
 static EnumParser<OverflowBehavior> kOverflowParser(kOverflowOptions);
 
@@ -776,7 +776,7 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessOverflowableArithmetic
     } else {
       return Status::NotImplemented(
           "Only SILENT and ERROR arithmetic kernels are currently implemented but ",
-          kOverflowOptions[static_cast<int>(overflow_behavior) - 1], " was requested");
+          kOverflowOptions[static_cast<int>(overflow_behavior)], " was requested");
     }
   };
 }
@@ -843,11 +843,6 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeTemporalExtractionMapping() {
   return [](const SubstraitCall& call) -> Result<compute::Expression> {
     ARROW_ASSIGN_OR_RAISE(TemporalComponent temporal_component,
                           ParseEnumArg(call, 0, kTemporalComponentParser));
-    if (temporal_component == TemporalComponent::kUnspecified) {
-      return Status::Invalid(
-          "The temporal component enum is a require option for the extract function "
-          "and is not specified");
-    }
     ARROW_ASSIGN_OR_RAISE(std::vector<compute::Expression> value_args,
                           GetValueArgs(call, 1));
     std::string func_name;

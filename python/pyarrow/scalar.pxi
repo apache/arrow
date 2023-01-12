@@ -89,6 +89,29 @@ cdef class Scalar(_Weakrefable):
 
         return Scalar.wrap(result)
 
+    def validate(self, *, full=False):
+        """
+        Perform validation checks.  An exception is raised if validation fails.
+
+        By default only cheap validation checks are run.  Pass `full=True`
+        for thorough validation checks (potentially O(n)).
+
+        Parameters
+        ----------
+        full : bool, default False
+            If True, run expensive checks, otherwise cheap checks only.
+
+        Raises
+        ------
+        ArrowInvalid
+        """
+        if full:
+            with nogil:
+                check_status(self.wrapped.get().ValidateFull())
+        else:
+            with nogil:
+                check_status(self.wrapped.get().Validate())
+
     def __repr__(self):
         return '<pyarrow.{}: {!r}>'.format(
             self.__class__.__name__, self.as_py()
@@ -345,6 +368,11 @@ cdef class Date32Scalar(Scalar):
     Concrete class for date32 scalars.
     """
 
+    @property
+    def value(self):
+        cdef CDate32Scalar* sp = <CDate32Scalar*> self.wrapped.get()
+        return sp.value if sp.is_valid else None
+
     def as_py(self):
         """
         Return this value as a Python datetime.datetime instance.
@@ -364,6 +392,11 @@ cdef class Date64Scalar(Scalar):
     """
     Concrete class for date64 scalars.
     """
+
+    @property
+    def value(self):
+        cdef CDate64Scalar* sp = <CDate64Scalar*> self.wrapped.get()
+        return sp.value if sp.is_valid else None
 
     def as_py(self):
         """

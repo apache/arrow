@@ -103,6 +103,7 @@ class ARROW_EXPORT ExtensionType : public DataType {
 /// \brief Base array class for user-defined extension types
 class ARROW_EXPORT ExtensionArray : public Array {
  public:
+  using TypeClass = ExtensionType;
   /// \brief Construct an ExtensionArray from an ArrayData.
   ///
   /// The ArrayData must have the right ExtensionType.

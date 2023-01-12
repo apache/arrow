@@ -125,7 +125,7 @@ class ClientConnection {
       RETURN_NOT_OK(FromUcsStatus("ucp_ep_create", status));
     }
 
-    driver_.reset(new UcpCallDriver(ucp_worker_, remote_endpoint_));
+    driver_ = std::make_unique<UcpCallDriver>(ucp_worker_, remote_endpoint_);
     ARROW_LOG(DEBUG) << "Connected to " << driver_->peer();
 
     {
@@ -187,11 +187,15 @@ class UcxClientStream : public internal::ClientDataStream {
         conn_(std::move(conn)),
         driver_(conn_.driver()),
         writes_done_(false),
-        finished_(false) {}
+        finished_(false) {
+    DCHECK_NE(impl, nullptr);
+    DCHECK_NE(conn_.driver(), nullptr);
+  }
 
  protected:
   Status DoFinish() override;
 
+  std::mutex finish_mutex_;
   UcxClientImpl* impl_;
   ClientConnection conn_;
   UcpCallDriver* driver_;
@@ -509,9 +513,9 @@ class ExchangeClientStream : public WriteClientStream {
 
 class UcxClientImpl : public arrow::flight::internal::ClientTransport {
  public:
-  UcxClientImpl() {}
+  UcxClientImpl() = default;
 
-  virtual ~UcxClientImpl() {
+  ~UcxClientImpl() override {
     if (!ucp_context_) return;
     ARROW_WARN_NOT_OK(Close(), "UcxClientImpl errored in Close() in destructor");
   }
@@ -557,8 +561,9 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
   Status Close() override {
     std::unique_lock<std::mutex> connections_mutex_;
     while (!connections_.empty()) {
-      RETURN_NOT_OK(connections_.front().Close());
+      ClientConnection conn = std::move(connections_.front());
       connections_.pop_front();
+      RETURN_NOT_OK(conn.Close());
     }
     return Status::OK();
   }
@@ -650,6 +655,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
   Status MakeConnection() {
     ClientConnection conn;
     RETURN_NOT_OK(conn.Init(ucp_context_, uri_));
+    std::unique_lock<std::mutex> connections_mutex_;
     connections_.push_back(std::move(conn));
     return Status::OK();
   }
@@ -658,10 +664,10 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
     std::unique_lock<std::mutex> connections_mutex_;
     if (connections_.empty()) RETURN_NOT_OK(MakeConnection());
     ClientConnection conn = std::move(connections_.front());
+    connections_.pop_front();
     conn.driver()->set_memory_manager(options.memory_manager);
     conn.driver()->set_read_memory_pool(options.read_options.memory_pool);
     conn.driver()->set_write_memory_pool(options.write_options.memory_pool);
-    connections_.pop_front();
     return conn;
   }
 
@@ -675,6 +681,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
       RETURN_NOT_OK(conn.Close());
       return Status::OK();
     }
+    DCHECK_NE(conn.driver(), nullptr);
     connections_.push_back(std::move(conn));
     return Status::OK();
   }
@@ -690,6 +697,9 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
 
 Status UcxClientStream::DoFinish() {
   RETURN_NOT_OK(WritesDone());
+  // Both reader and writer may be used concurrently, and both may
+  // call Finish() - prevent concurrent state mutation
+  std::lock_guard<std::mutex> guard(finish_mutex_);
   if (!finished_) {
     internal::FlightData message;
     std::shared_ptr<Buffer> metadata;
@@ -700,6 +710,7 @@ Status UcxClientStream::DoFinish() {
     finished_ = true;
   }
   if (impl_) {
+    DCHECK_NE(conn_.driver(), nullptr);
     auto status = impl_->ReturnConnection(std::move(conn_));
     impl_ = nullptr;
     driver_ = nullptr;

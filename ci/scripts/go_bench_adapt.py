@@ -30,7 +30,17 @@ log.setLevel(logging.DEBUG)
 
 ARROW_ROOT = Path(__file__).parent.parent.parent.resolve()
 SCRIPTS_PATH = ARROW_ROOT / "ci" / "scripts"
-RUN_REASON = "commit" if os.environ.get("CONBENCH_REF") == "master" else "branch"
+
+if os.environ.get("CONBENCH_REF") == "master":
+    github = {
+        "repository": os.environ["GITHUB_REPOSITORY"],
+        "commit": os.environ["GITHUB_SHA"],
+        "pr_number": None,  # implying default branch
+    }
+    run_reason = "commit"
+else:
+    github = None  # scrape github info from the local repo
+    run_reason = "branch"
 
 class GoAdapter(BenchmarkAdapter):
     result_file = "bench_stats.json"
@@ -78,12 +88,8 @@ class GoAdapter(BenchmarkAdapter):
                         "name": pieces[0],
                         "params": '/'.join(pieces[1:]),
                     },
-                    run_reason=RUN_REASON,
-                    github={
-                        "repository": os.environ["GITHUB_REPOSITORY"],
-                        "commit": os.environ["GITHUB_SHA"],
-                        "pr_number": None,  # we currently only run this on the default branch
-                    },
+                    run_reason=run_reason,
+                    github=github,
                 )
                 parsed.run_name = f"{parsed.run_reason}: {parsed.github['commit']}"
                 parsed_results.append(parsed)

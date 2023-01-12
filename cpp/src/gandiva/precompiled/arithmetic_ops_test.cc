@@ -669,4 +669,33 @@ TEST(TestArithmeticOps, TestFloorFloatDouble) {
   EXPECT_EQ(floor_float64(-2147483647), -2147483647.0);
 }
 
+TEST(TestArithmeticOps, TestSqrtIntFloatDouble) {
+  // sqrt from int32
+  EXPECT_EQ(sqrt_int32(36), 6.0);
+  EXPECT_EQ(sqrt_int32(49), 7.0);
+  EXPECT_EQ(sqrt_int32(64), 8.0);
+  EXPECT_EQ(sqrt_int32(81), 9.0);
+
+  // sqrt from int64
+  EXPECT_EQ(sqrt_int64(4), 2.0);
+  EXPECT_EQ(sqrt_int64(9), 3.0);
+  EXPECT_EQ(sqrt_int64(64), 8.0);
+  EXPECT_EQ(sqrt_int64(81), 9.0);
+
+  // sqrt from floats
+  EXPECT_EQ(sqrt_float32(16.0f), 4.0);
+  EXPECT_EQ(sqrt_float32(49.0f), 7.0);
+  EXPECT_EQ(sqrt_float32(36.0f), 6.0);
+  EXPECT_EQ(sqrt_float32(0.0f), 0.0);
+
+  // sqrt from doubles
+  EXPECT_EQ(sqrt_float64(16.0), 4.0);
+  EXPECT_EQ(sqrt_float64(11.0889), 3.33);
+  EXPECT_EQ(sqrt_float64(1.522756), 1.234);
+  EXPECT_EQ(sqrt_float64(49.0), 7.0);
+  EXPECT_EQ(sqrt_float64(36.0), 6.0);
+  EXPECT_EQ(sqrt_float64(0.0), 0.0);
+  EXPECT_TRUE(std::isnan(sqrt_float64(-1.0)));
+}
+
 }  // namespace gandiva

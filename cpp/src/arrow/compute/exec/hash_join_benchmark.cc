@@ -125,9 +125,6 @@ class JoinBenchmark {
 
     stats_.num_probe_rows = settings.num_probe_batches * settings.batch_size;
 
-    ctx_ = std::make_unique<ExecContext>(default_memory_pool(),
-                                         arrow::internal::GetCpuThreadPool());
-
     schema_mgr_ = std::make_unique<HashJoinSchema>();
     Expression filter = literal(true);
     DCHECK_OK(schema_mgr_->Init(settings.join_type, *l_batches_with_schema.schema,
@@ -148,6 +145,7 @@ class JoinBenchmark {
     };
 
     scheduler_ = TaskScheduler::Make();
+    DCHECK_OK(ctx_.Init(settings.num_threads, nullptr));
 
     auto register_task_group_callback = [&](std::function<Status(size_t, int64_t)> task,
                                             std::function<Status(size_t)> cont) {
@@ -159,11 +157,10 @@ class JoinBenchmark {
     };
 
     DCHECK_OK(join_->Init(
-        ctx_.get(), settings.join_type, settings.num_threads,
-        &(schema_mgr_->proj_maps[0]), &(schema_mgr_->proj_maps[1]), std::move(key_cmp),
-        std::move(filter), std::move(register_task_group_callback),
-        std::move(start_task_group_callback), [](int64_t, ExecBatch) {},
-        [](int64_t x) {}));
+        &ctx_, settings.join_type, settings.num_threads, &(schema_mgr_->proj_maps[0]),
+        &(schema_mgr_->proj_maps[1]), std::move(key_cmp), std::move(filter),
+        std::move(register_task_group_callback), std::move(start_task_group_callback),
+        [](int64_t, ExecBatch) {}, [](int64_t x) {}));
 
     task_group_probe_ = scheduler_->RegisterTaskGroup(
         [this](size_t thread_index, int64_t task_id) -> Status {
@@ -199,7 +196,7 @@ class JoinBenchmark {
   AccumulationQueue r_batches_;
   std::unique_ptr<HashJoinSchema> schema_mgr_;
   std::unique_ptr<HashJoinImpl> join_;
-  std::unique_ptr<ExecContext> ctx_;
+  QueryContext ctx_;
   int task_group_probe_;
 
   struct {

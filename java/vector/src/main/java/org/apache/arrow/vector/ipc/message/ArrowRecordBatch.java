@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 /**
- * POJO representation of a RecordBatch IPC message (https://arrow.apache.org/docs/format/IPC.html).
+ * POJO representation of a RecordBatch IPC message (https://arrow.apache.org/docs/format/Columnar.html#recordbatch-message).
  */
 public class ArrowRecordBatch implements ArrowMessage {
 

@@ -221,6 +221,7 @@ def read_feather(source, columns=None, use_threads=True,
     Returns
     -------
     df : pandas.DataFrame
+        The contents of the Feather file as a pandas.DataFrame
     """
     return (read_table(
         source, columns=columns, memory_map=memory_map,
@@ -246,6 +247,7 @@ def read_table(source, columns=None, memory_map=False, use_threads=True):
     Returns
     -------
     table : pyarrow.Table
+        The contents of the Feather file as a pyarrow.Table
     """
     reader = _feather.FeatherReader(
         source, use_memory_map=memory_map, use_threads=use_threads)

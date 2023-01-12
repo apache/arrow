@@ -65,6 +65,10 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
   static Result<std::shared_ptr<SourceNodeOptions>> FromTable(const Table& table,
                                                               arrow::internal::Executor*);
 
+  static Result<std::shared_ptr<SourceNodeOptions>> FromRecordBatchReader(
+      std::shared_ptr<RecordBatchReader> reader, std::shared_ptr<Schema> schema,
+      arrow::internal::Executor*);
+
   std::shared_ptr<Schema> output_schema;
   std::function<Future<std::optional<ExecBatch>>()> generator;
 };
@@ -117,6 +121,21 @@ class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
   ItMaker it_maker;
 
   /// \brief The executor to use for scanning the iterator
+  ///
+  /// Defaults to the default I/O executor.
+  arrow::internal::Executor* io_executor;
+};
+
+class ARROW_EXPORT RecordBatchReaderSourceNodeOptions : public ExecNodeOptions {
+ public:
+  RecordBatchReaderSourceNodeOptions(std::shared_ptr<RecordBatchReader> reader,
+                                     arrow::internal::Executor* io_executor = NULLPTR)
+      : reader(std::move(reader)), io_executor(io_executor) {}
+
+  /// \brief The RecordBatchReader which acts as the data source
+  std::shared_ptr<RecordBatchReader> reader;
+
+  /// \brief The executor to use for the reader
   ///
   /// Defaults to the default I/O executor.
   arrow::internal::Executor* io_executor;
@@ -195,8 +214,8 @@ constexpr int32_t kDefaultBackpressureLowBytes = 1 << 28;   // 256MiB
 class ARROW_EXPORT BackpressureMonitor {
  public:
   virtual ~BackpressureMonitor() = default;
-  virtual uint64_t bytes_in_use() const = 0;
-  virtual bool is_paused() const = 0;
+  virtual uint64_t bytes_in_use() = 0;
+  virtual bool is_paused() = 0;
 };
 
 /// \brief Options to control backpressure behavior
@@ -475,22 +494,35 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
 /// This node will output one row for each row in the left table.
 class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
  public:
-  AsofJoinNodeOptions(FieldRef on_key, std::vector<FieldRef> by_key, int64_t tolerance)
-      : on_key(std::move(on_key)), by_key(by_key), tolerance(tolerance) {}
+  /// \brief Keys for one input table of the AsofJoin operation
+  ///
+  /// The keys must be consistent across the input tables:
+  /// Each "on" key must refer to a field of the same type and units across the tables.
+  /// Each "by" key must refer to a list of fields of the same types across the tables.
+  struct Keys {
+    /// \brief "on" key for the join.
+    ///
+    /// The input table must be sorted by the "on" key. Must be a single field of a common
+    /// type. Inexact match is used on the "on" key. i.e., a row is considered a match iff
+    /// left_on - tolerance <= right_on <= left_on.
+    /// Currently, the "on" key must be of an integer, date, or timestamp type.
+    FieldRef on_key;
+    /// \brief "by" key for the join.
+    ///
+    /// Each input table must have each field of the "by" key.  Exact equality is used for
+    /// each field of the "by" key.
+    /// Currently, each field of the "by" key must be of an integer, date, timestamp, or
+    /// base-binary type.
+    std::vector<FieldRef> by_key;
+  };
 
-  /// \brief "on" key for the join.
+  AsofJoinNodeOptions(std::vector<Keys> input_keys, int64_t tolerance)
+      : input_keys(std::move(input_keys)), tolerance(tolerance) {}
+
+  /// \brief AsofJoin keys per input table.
   ///
-  /// All inputs tables must be sorted by the "on" key. Must be a single field of a common
-  /// type. Inexact match is used on the "on" key. i.e., a row is considered match iff
-  /// left_on - tolerance <= right_on <= left_on.
-  /// Currently, the "on" key must be of an integer, date, or timestamp type.
-  FieldRef on_key;
-  /// \brief "by" key for the join.
-  ///
-  /// All input tables must have the "by" key.  Exact equality
-  /// is used for the "by" key.
-  /// Currently, the "by" key must be of an integer, date, timestamp, or base-binary type
-  std::vector<FieldRef> by_key;
+  /// \see `Keys` for details.
+  std::vector<Keys> input_keys;
   /// \brief Tolerance for inexact "on" key matching.  Must be non-negative.
   ///
   /// The tolerance is interpreted in the same units as the "on" key.

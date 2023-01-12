@@ -22,7 +22,6 @@
 #include <cstring>
 #include <map>
 #include <memory>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -41,6 +40,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
+#include "arrow/util/type_traits.h"
 #include "arrow/visit_array_inline.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
@@ -172,13 +172,13 @@ void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
   encoding_ = encoding;
   switch (encoding) {
     case Encoding::RLE: {
-      rle_encoder_.reset(new RleEncoder(data, data_size, bit_width_));
+      rle_encoder_ = std::make_unique<RleEncoder>(data, data_size, bit_width_);
       break;
     }
     case Encoding::BIT_PACKED: {
       int num_bytes =
           static_cast<int>(bit_util::BytesForBits(num_buffered_values * bit_width_));
-      bit_packed_encoder_.reset(new BitWriter(data, num_bytes));
+      bit_packed_encoder_ = std::make_unique<BitWriter>(data, num_bytes);
       break;
     }
     default:
@@ -268,7 +268,7 @@ class SerializedPageWriter : public PageWriter {
       InitEncryption();
     }
     compressor_ = GetCodec(codec, compression_level);
-    thrift_serializer_.reset(new ThriftSerializer);
+    thrift_serializer_ = std::make_unique<ThriftSerializer>();
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
@@ -482,12 +482,12 @@ class SerializedPageWriter : public PageWriter {
         break;
       }
       case encryption::kDataPage: {
-        encryption::QuickUpdatePageAad(data_page_aad_, page_ordinal_);
+        encryption::QuickUpdatePageAad(page_ordinal_, &data_page_aad_);
         data_encryptor_->UpdateAad(data_page_aad_);
         break;
       }
       case encryption::kDataPageHeader: {
-        encryption::QuickUpdatePageAad(data_page_header_aad_, page_ordinal_);
+        encryption::QuickUpdatePageAad(page_ordinal_, &data_page_header_aad_);
         meta_encryptor_->UpdateAad(data_page_header_aad_);
         break;
       }
@@ -516,7 +516,7 @@ class SerializedPageWriter : public PageWriter {
   int64_t data_page_offset_;
   int64_t total_uncompressed_size_;
   int64_t total_compressed_size_;
-  int16_t page_ordinal_;
+  int32_t page_ordinal_;
   int16_t row_group_ordinal_;
   int16_t column_ordinal_;
 
@@ -548,10 +548,10 @@ class BufferedPageWriter : public PageWriter {
                      std::shared_ptr<Encryptor> data_encryptor = nullptr)
       : final_sink_(std::move(sink)), metadata_(metadata), has_dictionary_pages_(false) {
     in_memory_sink_ = CreateOutputStream(pool);
-    pager_ = std::unique_ptr<SerializedPageWriter>(
-        new SerializedPageWriter(in_memory_sink_, codec, compression_level, metadata,
-                                 row_group_ordinal, current_column_ordinal, pool,
-                                 std::move(meta_encryptor), std::move(data_encryptor)));
+    pager_ = std::make_unique<SerializedPageWriter>(
+        in_memory_sink_, codec, compression_level, metadata, row_group_ordinal,
+        current_column_ordinal, pool, std::move(meta_encryptor),
+        std::move(data_encryptor));
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
@@ -607,15 +607,13 @@ std::unique_ptr<PageWriter> PageWriter::Open(
     bool buffered_row_group, std::shared_ptr<Encryptor> meta_encryptor,
     std::shared_ptr<Encryptor> data_encryptor) {
   if (buffered_row_group) {
-    return std::unique_ptr<PageWriter>(
-        new BufferedPageWriter(std::move(sink), codec, compression_level, metadata,
-                               row_group_ordinal, column_chunk_ordinal, pool,
-                               std::move(meta_encryptor), std::move(data_encryptor)));
+    return std::make_unique<BufferedPageWriter>(
+        std::move(sink), codec, compression_level, metadata, row_group_ordinal,
+        column_chunk_ordinal, pool, std::move(meta_encryptor), std::move(data_encryptor));
   } else {
-    return std::unique_ptr<PageWriter>(
-        new SerializedPageWriter(std::move(sink), codec, compression_level, metadata,
-                                 row_group_ordinal, column_chunk_ordinal, pool,
-                                 std::move(meta_encryptor), std::move(data_encryptor)));
+    return std::make_unique<SerializedPageWriter>(
+        std::move(sink), codec, compression_level, metadata, row_group_ordinal,
+        column_chunk_ordinal, pool, std::move(meta_encryptor), std::move(data_encryptor));
   }
 }
 
@@ -886,9 +884,9 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
     PARQUET_ASSIGN_OR_THROW(
         auto compressed_data_copy,
         compressed_data->CopySlice(0, compressed_data->size(), allocator_));
-    std::unique_ptr<DataPage> page_ptr(new DataPageV1(
+    std::unique_ptr<DataPage> page_ptr = std::make_unique<DataPageV1>(
         compressed_data_copy, static_cast<int32_t>(num_buffered_values_), encoding_,
-        Encoding::RLE, Encoding::RLE, uncompressed_size, page_stats));
+        Encoding::RLE, Encoding::RLE, uncompressed_size, page_stats);
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
 
     data_pages_.push_back(std::move(page_ptr));
@@ -937,9 +935,9 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
   if (has_dictionary_ && !fallback_) {  // Save pages until end of dictionary encoding
     PARQUET_ASSIGN_OR_THROW(auto data_copy,
                             combined->CopySlice(0, combined->size(), allocator_));
-    std::unique_ptr<DataPage> page_ptr(new DataPageV2(
+    std::unique_ptr<DataPage> page_ptr = std::make_unique<DataPageV2>(
         combined, num_values, null_count, num_values, encoding_, def_levels_byte_length,
-        rep_levels_byte_length, uncompressed_size, pager_->has_compressor(), page_stats));
+        rep_levels_byte_length, uncompressed_size, pager_->has_compressor(), page_stats);
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
     data_pages_.push_back(std::move(page_ptr));
   } else {
@@ -1481,6 +1479,43 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     value_offset += batch_num_spaced_values;
   };
 
+  auto update_stats = [&]() {
+    // TODO(PARQUET-2068) This approach may make two copies.  First, a copy of the
+    // indices array to a (hopefully smaller) referenced indices array.  Second, a copy
+    // of the values array to a (probably not smaller) referenced values array.
+    //
+    // Once the MinMax kernel supports all data types we should use that kernel instead
+    // as it does not make any copies.
+    ::arrow::compute::ExecContext exec_ctx(ctx->memory_pool);
+    exec_ctx.set_use_threads(false);
+
+    std::shared_ptr<::arrow::Array> referenced_dictionary;
+    // If dictionary is the same dictionary we already have, just use that
+    if (preserved_dictionary_ && preserved_dictionary_ == dictionary) {
+      referenced_dictionary = preserved_dictionary_;
+    } else {
+      PARQUET_ASSIGN_OR_THROW(::arrow::Datum referenced_indices,
+                              ::arrow::compute::Unique(*indices, &exec_ctx));
+
+      // On first run, we might be able to re-use the existing dictionary
+      if (referenced_indices.length() == dictionary->length()) {
+        referenced_dictionary = dictionary;
+      } else {
+        PARQUET_ASSIGN_OR_THROW(
+            ::arrow::Datum referenced_dictionary_datum,
+            ::arrow::compute::Take(dictionary, referenced_indices,
+                                   ::arrow::compute::TakeOptions(/*boundscheck=*/false),
+                                   &exec_ctx));
+        referenced_dictionary = referenced_dictionary_datum.make_array();
+      }
+    }
+
+    int64_t non_null_count = indices->length() - indices->null_count();
+    page_statistics_->IncrementNullCount(num_levels - non_null_count);
+    page_statistics_->IncrementNumValues(non_null_count);
+    page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
+  };
+
   // Handle seeing dictionary for the first time
   if (!preserved_dictionary_) {
     // It's a new dictionary. Call PutDictionary and keep track of it
@@ -1495,37 +1530,18 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     }
 
     if (page_statistics_ != nullptr) {
-      // TODO(PARQUET-2068) This approach may make two copies.  First, a copy of the
-      // indices array to a (hopefully smaller) referenced indices array.  Second, a copy
-      // of the values array to a (probably not smaller) referenced values array.
-      //
-      // Once the MinMax kernel supports all data types we should use that kernel instead
-      // as it does not make any copies.
-      ::arrow::compute::ExecContext exec_ctx(ctx->memory_pool);
-      exec_ctx.set_use_threads(false);
-      PARQUET_ASSIGN_OR_THROW(::arrow::Datum referenced_indices,
-                              ::arrow::compute::Unique(*indices, &exec_ctx));
-      std::shared_ptr<::arrow::Array> referenced_dictionary;
-      if (referenced_indices.length() == dictionary->length()) {
-        referenced_dictionary = dictionary;
-      } else {
-        PARQUET_ASSIGN_OR_THROW(
-            ::arrow::Datum referenced_dictionary_datum,
-            ::arrow::compute::Take(dictionary, referenced_indices,
-                                   ::arrow::compute::TakeOptions(/*boundscheck=*/false),
-                                   &exec_ctx));
-        referenced_dictionary = referenced_dictionary_datum.make_array();
-      }
-      int64_t non_null_count = indices->length() - indices->null_count();
-      page_statistics_->IncrementNullCount(num_levels - non_null_count);
-      page_statistics_->IncrementNumValues(non_null_count);
-      page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
+      update_stats();
     }
     preserved_dictionary_ = dictionary;
   } else if (!dictionary->Equals(*preserved_dictionary_)) {
     // Dictionary has changed
     PARQUET_CATCH_NOT_OK(FallbackToPlainEncoding());
     return WriteDense();
+  } else {
+    // Dictionary is same, but we need to update stats
+    if (page_statistics_ != nullptr) {
+      update_stats();
+    }
   }
 
   PARQUET_CATCH_NOT_OK(
@@ -1660,6 +1676,47 @@ struct SerializeFunctor<Int32Type, ::arrow::Date64Type> {
   }
 };
 
+template <typename ParquetType, typename ArrowType>
+struct SerializeFunctor<
+    ParquetType, ArrowType,
+    ::arrow::enable_if_t<::arrow::is_decimal_type<ArrowType>::value&& ::arrow::internal::
+                             IsOneOf<ParquetType, Int32Type, Int64Type>::value>> {
+  using value_type = typename ParquetType::c_type;
+
+  Status Serialize(const typename ::arrow::TypeTraits<ArrowType>::ArrayType& array,
+                   ArrowWriteContext* ctx, value_type* out) {
+    if (array.null_count() == 0) {
+      for (int64_t i = 0; i < array.length(); i++) {
+        out[i] = TransferValue<ArrowType::kByteWidth>(array.Value(i));
+      }
+    } else {
+      for (int64_t i = 0; i < array.length(); i++) {
+        out[i] =
+            array.IsValid(i) ? TransferValue<ArrowType::kByteWidth>(array.Value(i)) : 0;
+      }
+    }
+
+    return Status::OK();
+  }
+
+  template <int byte_width>
+  value_type TransferValue(const uint8_t* in) const {
+    static_assert(byte_width == 16 || byte_width == 32,
+                  "only 16 and 32 byte Decimals supported");
+    value_type value = 0;
+    if constexpr (byte_width == 16) {
+      ::arrow::Decimal128 decimal_value(in);
+      PARQUET_THROW_NOT_OK(decimal_value.ToInteger(&value));
+    } else {
+      ::arrow::Decimal256 decimal_value(in);
+      // Decimal256 does not provide ToInteger, but we are sure it fits in the target
+      // integer type.
+      value = static_cast<value_type>(decimal_value.low_bits());
+    }
+    return value;
+  }
+};
+
 template <>
 struct SerializeFunctor<Int32Type, ::arrow::Time32Type> {
   Status Serialize(const ::arrow::Time32Array& array, ArrowWriteContext*, int32_t* out) {
@@ -1693,6 +1750,8 @@ Status TypedColumnWriterImpl<Int32Type>::WriteArrowDense(
       WRITE_ZERO_COPY_CASE(DATE32, Date32Type, Int32Type)
       WRITE_SERIALIZE_CASE(DATE64, Date64Type, Int32Type)
       WRITE_SERIALIZE_CASE(TIME32, Time32Type, Int32Type)
+      WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, Int32Type)
+      WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, Int32Type)
     default:
       ARROW_UNSUPPORTED()
   }
@@ -1863,6 +1922,8 @@ Status TypedColumnWriterImpl<Int64Type>::WriteArrowDense(
       WRITE_SERIALIZE_CASE(UINT64, UInt64Type, Int64Type)
       WRITE_ZERO_COPY_CASE(TIME64, Time64Type, Int64Type)
       WRITE_ZERO_COPY_CASE(DURATION, DurationType, Int64Type)
+      WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, Int64Type)
+      WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, Int64Type)
     default:
       ARROW_UNSUPPORTED();
   }
@@ -1981,7 +2042,11 @@ struct SerializeFunctor<
 // Requires a custom serializer because decimal in parquet are in big-endian
 // format. Thus, a temporary local buffer is required.
 template <typename ParquetType, typename ArrowType>
-struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_decimal<ArrowType>> {
+struct SerializeFunctor<
+    ParquetType, ArrowType,
+    ::arrow::enable_if_t<
+        ::arrow::is_decimal_type<ArrowType>::value &&
+        !::arrow::internal::IsOneOf<ParquetType, Int32Type, Int64Type>::value>> {
   Status Serialize(const typename ::arrow::TypeTraits<ArrowType>::ArrayType& array,
                    ArrowWriteContext* ctx, FLBA* out) {
     AllocateScratch(array, ctx);
