@@ -302,7 +302,6 @@ def get_candidate_fix_version(mainline_versions,
 
     return default_fix_versions
 
-
 def format_issue_output(issue_type, issue_id, status,
                         summary, assignee, components):
     if not assignee:
