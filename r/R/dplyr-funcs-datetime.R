@@ -21,6 +21,7 @@ register_bindings_datetime <- function() {
   register_bindings_datetime_utility()
   register_bindings_datetime_components()
   register_bindings_datetime_conversion()
+  register_bindings_datetime_timezone()
   register_bindings_duration()
   register_bindings_duration_constructor()
   register_bindings_duration_helpers()
@@ -439,6 +440,76 @@ register_bindings_datetime_conversion <- function() {
     delta <- Expression$create("floor", seconds * fraction)
     delta <- make_duration(delta, "s")
     start + delta
+  })
+}
+
+register_bindings_datetime_timezone <- function() {
+  register_binding(
+    "lubridate::force_tz",
+    function(time, tzone = "", roll_dst = c("error", "post")) {
+      if (length(roll_dst) == 1L) {
+        roll_dst <- c(roll_dst, roll_dst)
+      } else if (length(roll_dst) != 2L) {
+        arrow_not_supported("`roll_dst` must be 1 or 2 items long; other lengths")
+      }
+
+      nonexistent <- switch(
+        roll_dst[1],
+        "error" = 0L,
+        "boundary" = 2L,
+        arrow_not_supported("`roll_dst` value must be 'error' or 'boundary' for non-existent times; other values")
+      )
+
+      ambiguous <- switch(
+        roll_dst[2],
+        "error" = 0L,
+        "pre" = 1L,
+        "post" = 2L,
+        arrow_not_supported("`roll_dst` value must be 'error', 'pre', or 'post' for non-existent times")
+      )
+
+      if (identical(tzone, "")) {
+        tzone <- Sys.timezone()
+      }
+
+      if (!inherits(time, "Expression")) {
+        time <- Expression$scalar(time)
+      }
+
+      # Non-UTC timezones don't work here and getting them to do so was too
+      # hard to do in the initial PR because there is no way in Arrow to
+      # "unapply" a UTC offset (i.e., the reverse of assume_timezone).
+      if (!time$type()$timezone() %in% c("", "UTC")) {
+        arrow_not_supported("`time` with a non-UTC timezone")
+      }
+
+      # Remove timezone if needed
+      current_unit <- time$type()$unit()
+      time <- cast(time, timestamp(current_unit, ""))
+
+      # Add timezone
+      Expression$create(
+        "assume_timezone",
+        time,
+        options = list(
+          timezone = tzone,
+          nonexistent = nonexistent,
+          ambiguous = ambiguous
+        )
+      )
+    },
+    notes = c(
+      "Timezone conversion from non-UTC timezone not supported;",
+      "`roll_dst` values of 'error' and 'boundary' are supported for nonexistent times,",
+      "`roll_dst` values of 'error', 'pre', and 'post' are supported for ambiguous times."
+    )
+  )
+
+  register_binding("lubridate::with_tz", function(time, tzone = "") {
+    if (tzone == "") {
+      tzone <- Sys.timezone()
+    }
+    cast(time, timestamp(unit = time$type()$unit(), timezone = tzone))
   })
 }
 
