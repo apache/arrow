@@ -40,7 +40,7 @@
 /go/ @zeroshade
 /java/
 /js/
-/matlab/
+/matlab/ @assignUser 
 /python/
 /python/pyarrow/_flight.pyx @lidavidm
 /r/
