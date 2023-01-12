@@ -42,7 +42,7 @@ constexpr FileHandle kInvalidHandle = -1;
 // perspective of the CPU thread pool. There may be concurrent accesses from
 // the IO thread pool by tasks scheduled by this class itself (in other words,
 // this class is not thread-safe from the user's point of view).
-class SpillFile {
+class ARROW_EXPORT SpillFile {
  public:
   static constexpr size_t kAlignment = 512;
 

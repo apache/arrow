@@ -88,7 +88,7 @@ class PartitionSort {
 };
 
 /// \brief A control for synchronizing threads on a partitionable workload
-class PartitionLocks {
+class ARROW_EXPORT PartitionLocks {
  public:
   PartitionLocks();
   ~PartitionLocks();

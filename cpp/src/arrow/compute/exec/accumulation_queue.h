@@ -31,7 +31,7 @@ namespace compute {
 
 /// \brief A container that accumulates batches until they are ready to
 ///        be processed.
-class AccumulationQueue {
+class ARROW_EXPORT AccumulationQueue {
  public:
   AccumulationQueue() = default;
   ~AccumulationQueue() = default;
@@ -84,7 +84,7 @@ class AccumulationQueue {
 ///
 /// This class assumes that data is fully accumulated before it is read-back. As such, do
 /// not call InsertBatch after calling GetPartition.
-class SpillingAccumulationQueue {
+class ARROW_EXPORT SpillingAccumulationQueue {
  public:
   // Number of partitions must be a power of two, since we assign partitions by
   // looking at bottom few bits.
