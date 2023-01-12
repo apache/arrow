@@ -1908,8 +1908,10 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       PARQUET_THROW_NOT_OK(valid_bits_->Resize(0, /*shrink_to_fit=*/false));
       values_written_ = 0;
       values_capacity_ = 0;
-      null_count_ = 0;
     }
+    // When reading dense, we might not write any values, but null_count_ may be
+    // greater than 0.
+    null_count_ = 0;
   }
 
  protected:

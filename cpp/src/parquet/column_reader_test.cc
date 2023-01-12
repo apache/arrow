@@ -648,7 +648,8 @@ class RecordReaderTest : public ::testing::Test {
  public:
   const int32_t kNullValue = -1;
 
-  void Init(int32_t max_def_level, int32_t max_rep_level, Repetition::type repetition) {
+  void Init(int32_t max_def_level, int32_t max_rep_level, Repetition::type repetition,
+            bool read_dense_for_nullable = false) {
     level_info_.def_level = max_def_level;
     level_info_.rep_level = max_rep_level;
     repetition_type_ = repetition;
@@ -657,7 +658,9 @@ class RecordReaderTest : public ::testing::Test {
     descr_ = std::make_unique<ColumnDescriptor>(type, level_info_.def_level,
                                                 level_info_.rep_level);
 
-    record_reader_ = internal::RecordReader::Make(descr_.get(), level_info_);
+    record_reader_ = internal::RecordReader::Make(
+        descr_.get(), level_info_, ::arrow::default_memory_pool(),
+        /*read_dictionary=*/false, read_dense_for_nullable);
   }
 
   void CheckReadValues(std::vector<int32_t> expected_values,
@@ -759,7 +762,8 @@ TEST_F(RecordReaderTest, BasicReadRepeatedField) {
 
 // Tests reading the nullable values without saving a space for nulls.
 TEST_F(RecordReaderTest, ReadDenseForNullable) {
-  Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED);
+  Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED,
+       /*read_dense_for_nullable=*/true);
 
   // Records look like: {[10], null, [20, 20], null, [30, 30, 30], null}
   std::vector<std::shared_ptr<Page>> pages;
@@ -778,20 +782,18 @@ TEST_F(RecordReaderTest, ReadDenseForNullable) {
   record_reader_->SetPageReader(std::move(pager));
 
   // Read [10], null
-  int64_t records_read =
-      record_reader_->ReadRecords(/*num_records=*/2, /*read_dense_for_nullable=*/false);
+  int64_t records_read = record_reader_->ReadRecords(/*num_records=*/2);
   ASSERT_EQ(records_read, 2);
-  CheckState(/*values_written=*/2, /*null_count=*/1, /*levels_written=*/9,
+  CheckState(/*values_written=*/1, /*null_count=*/1, /*levels_written=*/9,
              /*levels_position=*/2);
-  CheckReadValues(/*expected_values=*/{10, kNullValue}, /*expected_defs=*/{1, 0},
+  CheckReadValues(/*expected_values=*/{10}, /*expected_defs=*/{1, 0},
                   /*expected_reps=*/{0, 0});
   record_reader_->Reset();
   CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/7,
              /*levels_position=*/0);
 
   // Read [20, 20], null, [30, 30, 30]
-  records_read =
-      record_reader_->ReadRecords(/*num_records=*/3, /*read_dense_for_nullable=*/true);
+  records_read = record_reader_->ReadRecords(/*num_records=*/3);
   ASSERT_EQ(records_read, 3);
   CheckState(/*values_written=*/5, /*null_count=*/1, /*levels_written=*/7,
              /*levels_position=*/6);
@@ -800,6 +802,18 @@ TEST_F(RecordReaderTest, ReadDenseForNullable) {
                   /*expected_reps=*/{0, 1, 0, 0, 1, 1});
   record_reader_->Reset();
   CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
+             /*levels_position=*/0);
+
+  // Read the last null value and read past the end.
+  records_read = record_reader_->ReadRecords(/*num_records=*/3);
+  ASSERT_EQ(records_read, 1);
+  CheckState(/*values_written=*/0, /*null_count=*/1, /*levels_written=*/1,
+             /*levels_position=*/1);
+  CheckReadValues(/*expected_values=*/{},
+                  /*expected_defs=*/{0},
+                  /*expected_reps=*/{0});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/0,
              /*levels_position=*/0);
 }
 
