@@ -465,7 +465,7 @@ register_bindings_datetime_timezone <- function() {
         "error" = 0L,
         "pre" = 1L,
         "post" = 2L,
-        arrow_not_supported("`roll_dst` != 'error', 'pre', or 'post' for ambiguous times")
+        arrow_not_supported("`roll_dst` value must be 'error', 'pre', or 'post' for non-existent times")
       )
 
       if (identical(tzone, "")) {

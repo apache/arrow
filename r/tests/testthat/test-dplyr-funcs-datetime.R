@@ -3710,7 +3710,7 @@ test_that("with_tz() and force_tz() works", {
         )
       ) %>%
       collect(),
-    "`roll_dst` != 'error', 'pre', or 'post' for ambiguous times"
+    "`roll_dst` value must be 'error', 'pre', or 'post' for non-existent times"
   )
 
   # Raise error when the timezone falls into the DST-break
