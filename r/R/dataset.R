@@ -256,7 +256,7 @@ open_csv_dataset <- function(sources,
                              parse_options = NULL,
                              convert_options = NULL,
                              read_options = NULL,
-                             as_data_frame = NULL,
+                             as_data_frame = FALSE,
                              timestamp_parsers = NULL) {
   if (!missing(col_select)) {
     abort('The following option is supported in "read_delim_arrow" functions but not supported here: "col_select"')
@@ -270,8 +270,13 @@ open_csv_dataset <- function(sources,
     abort('The following option is supported in "read_delim_arrow" functions but not supported here: "parse_options"')
   }
 
-  if (!missing(as_data_frame)) {
-    abort('The following option is supported in "read_delim_arrow" functions but not supported here: "as_data_frame"')
+  if (as_data_frame == TRUE) {
+    abort(
+      c(
+        "`as_data_frame = TRUE` not supported for datasets",
+        i = "instead try calling `dplyr::collect()` or `as.data.frame()` on your dataset"
+      )
+    )
   }
 
   open_dataset(
