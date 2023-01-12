@@ -497,4 +497,14 @@ test_that("open_csv_dataset params passed through to open_dataset", {
 
   ds_quote <- open_csv_dataset(dst_dir, quote = "'") %>% collect()
   expect_equal(ds_quote$b, c("abc", "def"))
+
+  # na
+  ds <- open_csv_dataset(csv_dir, partitioning = "part", na = c("", "NA", "FALSE")) %>% collect()
+  expect_identical(ds$lgl, c(
+    TRUE, NA, NA, TRUE, NA, TRUE, NA, NA, TRUE, NA, TRUE, NA, NA,
+    TRUE, NA, TRUE, NA, NA, TRUE, NA
+  ))
+
+
+
 })

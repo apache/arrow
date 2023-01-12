@@ -17,10 +17,15 @@ open_csv_dataset(
   escape_backslash = FALSE,
   col_names = TRUE,
   col_types = NULL,
+  col_select = NULL,
+  na = c("", "NA"),
+  quoted_na = TRUE,
   skip_empty_rows = TRUE,
   skip = 0L,
+  parse_options = NULL,
   convert_options = NULL,
   read_options = NULL,
+  as_data_frame = NULL,
   timestamp_parsers = NULL
 )
 }
@@ -115,15 +120,34 @@ Alternatively, you can specify a character vector of column names.}
 \item{col_types}{A compact string representation of the column types,
 an Arrow \link{Schema}, or \code{NULL} (the default) to infer types from the data.}
 
+\item{col_select}{A character vector of column names to keep, as in the
+"select" argument to \code{data.table::fread()}, or a
+\link[tidyselect:eval_select]{tidy selection specification}
+of columns, as used in \code{dplyr::select()}.}
+
+\item{na}{A character vector of strings to interpret as missing values.}
+
+\item{quoted_na}{Should missing values inside quotes be treated as missing
+values (the default) or strings. (Note that this is different from the
+the Arrow C++ default for the corresponding convert option,
+\code{strings_can_be_null}.)}
+
 \item{skip_empty_rows}{Should blank rows be ignored altogether? If
 \code{TRUE}, blank rows will not be represented at all. If \code{FALSE}, they will be
 filled with missings.}
 
 \item{skip}{Number of lines to skip before reading data.}
 
+\item{parse_options}{see \link[=CsvReadOptions]{file reader options}.
+If given, this overrides any
+parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, etc.).}
+
 \item{convert_options}{see \link[=CsvReadOptions]{file reader options}}
 
 \item{read_options}{see \link[=CsvReadOptions]{file reader options}}
+
+\item{as_data_frame}{Should the function return a \code{data.frame} (default) or
+an Arrow \link{Table}?}
 
 \item{timestamp_parsers}{User-defined timestamp parsers. If more than one
 parser is specified, the CSV conversion logic will try parsing values
