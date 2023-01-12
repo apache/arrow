@@ -28,7 +28,7 @@ namespace arrow {
     return visitor->Visit(                                                               \
         internal::checked_cast<const typename TypeTraits<TYPE_CLASS##Type>::ArrayType&>( \
             array),                                                                      \
-        args...);
+        std::forward<ARGS>(args)...);
 
 /// \brief Apply the visitors Visit() method specialized to the array type
 ///

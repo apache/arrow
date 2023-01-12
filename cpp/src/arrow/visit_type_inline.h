@@ -24,9 +24,10 @@
 
 namespace arrow {
 
-#define TYPE_VISIT_INLINE(TYPE_CLASS) \
-  case TYPE_CLASS##Type::type_id:     \
-    return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Type&>(type), args...);
+#define TYPE_VISIT_INLINE(TYPE_CLASS)                                            \
+  case TYPE_CLASS##Type::type_id:                                                \
+    return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Type&>(type), \
+                          std::forward<ARGS>(args)...);
 
 /// \brief Calls `visitor` with the corresponding concrete type class
 ///
@@ -59,10 +60,11 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor, ARGS&&... 
 
 #undef TYPE_VISIT_INLINE
 
-#define TYPE_VISIT_INLINE(TYPE_CLASS)      \
-  case TYPE_CLASS##Type::type_id:          \
-    return std::forward<VISITOR>(visitor)( \
-        internal::checked_cast<const TYPE_CLASS##Type&>(type), args...);
+#define TYPE_VISIT_INLINE(TYPE_CLASS)                          \
+  case TYPE_CLASS##Type::type_id:                              \
+    return std::forward<VISITOR>(visitor)(                     \
+        internal::checked_cast<const TYPE_CLASS##Type&>(type), \
+        std::forward<ARGS>(args)...);
 
 /// \brief Call `visitor` with the corresponding concrete type class
 /// \tparam ARGS Additional arguments, if any, will be passed to the Visit function after

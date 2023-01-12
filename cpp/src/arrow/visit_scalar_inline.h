@@ -31,7 +31,7 @@ namespace arrow {
 #define SCALAR_VISIT_INLINE(TYPE_CLASS)                                              \
   case TYPE_CLASS##Type::type_id:                                                    \
     return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Scalar&>(scalar), \
-                          args...);
+                          std::forward<ARGS>(args)...);
 
 /// \brief Apply the visitors Visit() method specialized to the scalar type
 ///
