@@ -317,7 +317,8 @@ void TestSourceSink(
     };
     Declaration plan(source_factory_name,
                      OptionsType{exp_batches.schema, element_it_maker});
-    ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(plan, parallel));
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         DeclarationToExecBatches(std::move(plan), parallel));
     AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches,
                                         exp_batches.batches);
   }
@@ -780,7 +781,8 @@ TEST(ExecPlanExecution, StressSourceSink) {
           schema({field("a", int32()), field("b", boolean())}), num_batches);
       Declaration plan("source", SourceNodeOptions{random_data.schema,
                                                    random_data.gen(parallel, slow)});
-      ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(plan, parallel));
+      ASSERT_OK_AND_ASSIGN(auto result,
+                           DeclarationToExecBatches(std::move(plan), parallel));
       AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches,
                                           random_data.batches);
     }
@@ -897,41 +899,35 @@ TEST(ExecPlanExecution, StressSourceSinkStopped) {
 }
 
 TEST(ExecPlanExecution, SourceFilterSink) {
-  for (bool parallel : {false, true}) {
-    SCOPED_TRACE(parallel ? "parallel" : "single threaded");
-    auto basic_data = MakeBasicBatches();
-    Declaration plan = Declaration::Sequence(
-        {{"source",
-          SourceNodeOptions{basic_data.schema, basic_data.gen(/*parallel=*/false,
-                                                              /*slow=*/false)}},
-         {"filter", FilterNodeOptions{equal(field_ref("i32"), literal(6))}}});
-    ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(plan, parallel));
-    auto exp_batches = {ExecBatchFromJSON({int32(), boolean()}, "[]"),
-                        ExecBatchFromJSON({int32(), boolean()}, "[[6, false]]")};
-    AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
-  }
+  auto basic_data = MakeBasicBatches();
+  Declaration plan = Declaration::Sequence(
+      {{"source", SourceNodeOptions{basic_data.schema, basic_data.gen(/*parallel=*/false,
+                                                                      /*slow=*/false)}},
+       {"filter", FilterNodeOptions{equal(field_ref("i32"), literal(6))}}});
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       DeclarationToExecBatches(std::move(plan), /*user_threads=*/false));
+  auto exp_batches = {ExecBatchFromJSON({int32(), boolean()}, "[]"),
+                      ExecBatchFromJSON({int32(), boolean()}, "[[6, false]]")};
+  AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
 }
 
 TEST(ExecPlanExecution, SourceProjectSink) {
-  for (bool parallel : {false, true}) {
-    SCOPED_TRACE(parallel ? "parallel" : "single threaded");
-    auto basic_data = MakeBasicBatches();
-    Declaration plan = Declaration::Sequence(
-        {{"source",
-          SourceNodeOptions{basic_data.schema, basic_data.gen(/*parallel=*/false,
-                                                              /*slow=*/false)}},
-         {"project", ProjectNodeOptions{{
-                                            not_(field_ref("bool")),
-                                            call("add", {field_ref("i32"), literal(1)}),
-                                        },
-                                        {"!bool", "i32 + 1"}}}});
+  auto basic_data = MakeBasicBatches();
+  Declaration plan = Declaration::Sequence(
+      {{"source", SourceNodeOptions{basic_data.schema, basic_data.gen(/*parallel=*/false,
+                                                                      /*slow=*/false)}},
+       {"project", ProjectNodeOptions{{
+                                          not_(field_ref("bool")),
+                                          call("add", {field_ref("i32"), literal(1)}),
+                                      },
+                                      {"!bool", "i32 + 1"}}}});
 
-    auto exp_batches = {
-        ExecBatchFromJSON({boolean(), int32()}, "[[false, null], [true, 5]]"),
-        ExecBatchFromJSON({boolean(), int32()}, "[[null, 6], [true, 7], [true, 8]]")};
-    ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(plan, parallel));
-    AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
-  }
+  auto exp_batches = {
+      ExecBatchFromJSON({boolean(), int32()}, "[[false, null], [true, 5]]"),
+      ExecBatchFromJSON({boolean(), int32()}, "[[null, 6], [true, 7], [true, 8]]")};
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+  AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
 }
 
 namespace {
@@ -1016,11 +1012,12 @@ TEST(ExecPlanExecution, SourceMinMaxScalar) {
           AggregateNodeOptions{
               /*aggregates=*/{{"min_max", std::move(minmax_opts), "i32", "min_max"}},
               /*keys=*/{}}}});
-    ASSERT_OK_AND_ASSIGN(auto result_table, DeclarationToTable(plan, parallel));
+    ASSERT_OK_AND_ASSIGN(auto result_table,
+                         DeclarationToTable(std::move(plan), parallel));
     AssertTablesEqual(*result_table, *expected_table);
   }
 }
-/// VIBHATHA WORKING
+
 TEST(ExecPlanExecution, NestedSourceFilter) {
   for (bool parallel : {false, true}) {
     SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
@@ -1037,7 +1034,8 @@ TEST(ExecPlanExecution, NestedSourceFilter) {
         {{"source", SourceNodeOptions{input.schema, input.gen(parallel, /*slow=*/false)}},
          {"filter", FilterNodeOptions{greater_equal(field_ref(FieldRef("struct", "i32")),
                                                     literal(5))}}});
-    ASSERT_OK_AND_ASSIGN(auto result_table, DeclarationToTable(plan, parallel));
+    ASSERT_OK_AND_ASSIGN(auto result_table,
+                         DeclarationToTable(std::move(plan), parallel));
     AssertTablesEqual(*result_table, *expected_table);
   }
 }
@@ -1175,27 +1173,22 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumTopK) {
 }
 
 TEST(ExecPlanExecution, SourceScalarAggSink) {
-  for (bool slow : {false, true}) {
-    SCOPED_TRACE(slow ? "slowed" : "unslowed");
-    for (bool parallel : {false, true}) {
-      SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
-      auto basic_data = MakeBasicBatches();
+  auto basic_data = MakeBasicBatches();
 
-      Declaration plan = Declaration::Sequence(
-          {{"source",
-            SourceNodeOptions{basic_data.schema, basic_data.gen(parallel, slow)}},
-           {"aggregate", AggregateNodeOptions{
-                             /*aggregates=*/{{"sum", nullptr, "i32", "sum(i32)"},
-                                             {"any", nullptr, "bool", "any(bool)"}},
-                         }}});
-      auto exp_batches = {
-          ExecBatchFromJSON({int64(), boolean()}, {ArgShape::SCALAR, ArgShape::SCALAR},
-                            "[[22, true]]"),
-      };
-      ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(plan, false));
-      AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
-    }
-  }
+  Declaration plan = Declaration::Sequence(
+      {{"source", SourceNodeOptions{basic_data.schema,
+                                    basic_data.gen(/*parallel=*/false, /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{
+                         /*aggregates=*/{{"sum", nullptr, "i32", "sum(i32)"},
+                                         {"any", nullptr, "bool", "any(bool)"}},
+                     }}});
+  auto exp_batches = {
+      ExecBatchFromJSON({int64(), boolean()}, {ArgShape::SCALAR, ArgShape::SCALAR},
+                        "[[22, true]]"),
+  };
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+  AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
 }
 
 TEST(ExecPlanExecution, AggregationPreservesOptions) {
@@ -1248,46 +1241,41 @@ TEST(ExecPlanExecution, AggregationPreservesOptions) {
 TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
   // ARROW-9056: scalar aggregation can be done over scalars, taking
   // into account batch.length > 1 (e.g. a partition column)
-  for (bool slow : {false, true}) {
-    SCOPED_TRACE(slow ? "slowed" : "unslowed");
-    for (bool parallel : {false, true}) {
-      SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
-      BatchesWithSchema scalar_data;
-      scalar_data.batches = {
-          ExecBatchFromJSON({int32(), boolean()}, {ArgShape::SCALAR, ArgShape::SCALAR},
-                            "[[5, false], [5, false], [5, false]]"),
-          ExecBatchFromJSON({int32(), boolean()}, "[[5, true], [6, false], [7, true]]")};
-      scalar_data.schema = schema({field("a", int32()), field("b", boolean())});
+  BatchesWithSchema scalar_data;
+  scalar_data.batches = {
+      ExecBatchFromJSON({int32(), boolean()}, {ArgShape::SCALAR, ArgShape::SCALAR},
+                        "[[5, false], [5, false], [5, false]]"),
+      ExecBatchFromJSON({int32(), boolean()}, "[[5, true], [6, false], [7, true]]")};
+  scalar_data.schema = schema({field("a", int32()), field("b", boolean())});
 
-      // index can't be tested as it's order-dependent
-      // mode/quantile can't be tested as they're technically vector kernels
-      Declaration plan = Declaration::Sequence(
-          {{"source",
-            SourceNodeOptions{scalar_data.schema, scalar_data.gen(parallel, slow)}},
-           {"aggregate", AggregateNodeOptions{/*aggregates=*/{
-                             {"all", nullptr, "b", "all(b)"},
-                             {"any", nullptr, "b", "any(b)"},
-                             {"count", nullptr, "a", "count(a)"},
-                             {"mean", nullptr, "a", "mean(a)"},
-                             {"product", nullptr, "a", "product(a)"},
-                             {"stddev", nullptr, "a", "stddev(a)"},
-                             {"sum", nullptr, "a", "sum(a)"},
-                             {"tdigest", nullptr, "a", "tdigest(a)"},
-                             {"variance", nullptr, "a", "variance(a)"}}}}});
+  // index can't be tested as it's order-dependent
+  // mode/quantile can't be tested as they're technically vector kernels
+  Declaration plan = Declaration::Sequence(
+      {{"source", SourceNodeOptions{scalar_data.schema,
+                                    scalar_data.gen(/*parallel=*/false, /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{
+                         /*aggregates=*/{{"all", nullptr, "b", "all(b)"},
+                                         {"any", nullptr, "b", "any(b)"},
+                                         {"count", nullptr, "a", "count(a)"},
+                                         {"mean", nullptr, "a", "mean(a)"},
+                                         {"product", nullptr, "a", "product(a)"},
+                                         {"stddev", nullptr, "a", "stddev(a)"},
+                                         {"sum", nullptr, "a", "sum(a)"},
+                                         {"tdigest", nullptr, "a", "tdigest(a)"},
+                                         {"variance", nullptr, "a", "variance(a)"}}}}});
 
-      auto exp_batches = {
-          ExecBatchFromJSON(
-              {boolean(), boolean(), int64(), float64(), int64(), float64(), int64(),
-               float64(), float64()},
-              {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
-               ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::ARRAY,
-               ArgShape::SCALAR},
-              R"([[false, true, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334]])"),
-      };
-      ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(plan, false));
-      AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
-    }
-  }
+  auto exp_batches = {
+      ExecBatchFromJSON(
+          {boolean(), boolean(), int64(), float64(), int64(), float64(), int64(),
+           float64(), float64()},
+          {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
+           ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::ARRAY,
+           ArgShape::SCALAR},
+          R"([[false, true, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334]])"),
+  };
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+  AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
 }
 
 TEST(ExecPlanExecution, ScalarSourceGroupedSum) {
@@ -1349,7 +1337,8 @@ TEST(ExecPlanExecution, SelfInnerHashJoinSink) {
 
     auto plan = Declaration("hashjoin", {left, right}, std::move(join_opts));
 
-    ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(plan, parallel));
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         DeclarationToExecBatches(std::move(plan), parallel));
 
     std::vector<ExecBatch> expected = {
         ExecBatchFromJSON({int32(), utf8(), int32(), utf8()}, R"([
@@ -1386,7 +1375,8 @@ TEST(ExecPlanExecution, SelfOuterHashJoinSink) {
 
     auto plan = Declaration("hashjoin", {left, right}, std::move(join_opts));
 
-    ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(plan, parallel));
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         DeclarationToExecBatches(std::move(plan), parallel));
 
     std::vector<ExecBatch> expected = {
         ExecBatchFromJSON({int32(), utf8(), int32(), utf8()}, R"([
@@ -1402,52 +1392,44 @@ TEST(ExecPlanExecution, SelfOuterHashJoinSink) {
 
 TEST(ExecPlan, RecordBatchReaderSourceSink) {
   // set up a RecordBatchReader:
-  for (bool parallel : {false, true}) {
-    SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
-    auto input = MakeBasicBatches();
+  auto input = MakeBasicBatches();
 
-    RecordBatchVector batches;
-    for (const ExecBatch& exec_batch : input.batches) {
-      ASSERT_OK_AND_ASSIGN(auto batch, exec_batch.ToRecordBatch(input.schema));
-      batches.push_back(std::move(batch));
-    }
-
-    ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
-    std::shared_ptr<RecordBatchReader> reader =
-        std::make_shared<TableBatchReader>(*table);
-
-    // Map the RecordBatchReader to a SourceNode
-    ASSERT_OK_AND_ASSIGN(
-        auto batch_gen,
-        MakeReaderGenerator(std::move(reader), arrow::io::internal::GetIOThreadPool()));
-
-    Declaration plan = Declaration::Sequence(
-        {{"source", SourceNodeOptions{table->schema(), batch_gen}}});
-    ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(plan, false));
-    AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, input.batches);
+  RecordBatchVector batches;
+  for (const ExecBatch& exec_batch : input.batches) {
+    ASSERT_OK_AND_ASSIGN(auto batch, exec_batch.ToRecordBatch(input.schema));
+    batches.push_back(std::move(batch));
   }
+
+  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
+  std::shared_ptr<RecordBatchReader> reader = std::make_shared<TableBatchReader>(*table);
+
+  // Map the RecordBatchReader to a SourceNode
+  ASSERT_OK_AND_ASSIGN(
+      auto batch_gen,
+      MakeReaderGenerator(std::move(reader), arrow::io::internal::GetIOThreadPool()));
+
+  Declaration plan =
+      Declaration::Sequence({{"source", SourceNodeOptions{table->schema(), batch_gen}}});
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+  AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, input.batches);
 }
 
 TEST(ExecPlan, SourceEnforcesBatchLimit) {
-  for (bool slow : {false, true}) {
-    SCOPED_TRACE(slow ? "slowed" : "unslowed");
-    for (bool parallel : {false, true}) {
-      SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
-      auto random_data = MakeRandomBatches(
-          schema({field("a", int32()), field("b", boolean())}), /*num_batches=*/3,
-          /*batch_size=*/static_cast<int32_t>(std::floor(ExecPlan::kMaxBatchSize * 3.5)));
+  auto random_data = MakeRandomBatches(
+      schema({field("a", int32()), field("b", boolean())}), /*num_batches=*/3,
+      /*batch_size=*/static_cast<int32_t>(std::floor(ExecPlan::kMaxBatchSize * 3.5)));
 
-      // AsyncGenerator<std::optional<ExecBatch>> sink_gen;
-      Declaration plan = Declaration::Sequence(
-          {{"source",
-            SourceNodeOptions{random_data.schema, random_data.gen(parallel, slow)}}});
-      ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(plan, true));
-      AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches,
-                                          random_data.batches);
-      for (const auto& batch : result.batches) {
-        ASSERT_LE(batch.length, ExecPlan::kMaxBatchSize);
-      }
-    }
+  // AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+  Declaration plan = Declaration::Sequence(
+      {{"source",
+        SourceNodeOptions{random_data.schema,
+                          random_data.gen(/*parallel=*/false, /*slow=*/false)}}});
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+  AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, random_data.batches);
+  for (const auto& batch : result.batches) {
+    ASSERT_LE(batch.length, ExecPlan::kMaxBatchSize);
   }
 }
 
