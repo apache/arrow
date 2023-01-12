@@ -225,7 +225,8 @@ def test_named_table(use_threads):
     """
 
     buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
-    reader = pa.substrait.run_query(buf, table_provider=table_provider, use_threads=use_threads)
+    reader = pa.substrait.run_query(
+        buf, table_provider=table_provider, use_threads=use_threads)
     res_tb = reader.read_all()
     assert res_tb == test_table_1
 
