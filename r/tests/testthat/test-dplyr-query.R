@@ -759,3 +759,12 @@ test_that("Can use nested field refs", {
       filter(nested > 7)
   )
 })
+
+test_that("nested field ref error handling", {
+  expect_error(
+    example_data %>%
+      arrow_table() %>%
+      mutate(x = int$nested) %>%
+      compute()
+  )
+})
