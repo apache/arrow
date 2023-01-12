@@ -772,9 +772,6 @@ arrow::Status TableSinkExample() {
 /// receiving data from a TableRecordBatchReader.
 
 arrow::Status RecordBatchReaderSourceSinkExample() {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(*cp::threaded_exec_context()));
-
   ARROW_ASSIGN_OR_RAISE(auto table, GetTable());
   std::shared_ptr<arrow::RecordBatchReader> reader =
       std::make_shared<arrow::TableBatchReader>(table);
@@ -783,7 +780,7 @@ arrow::Status RecordBatchReaderSourceSinkExample() {
   return ExecutePlanAndCollectAsTable(std::move(reader_source));
 }
 
-// (Doc section: Table Sink Example)
+// (Doc section: RecordBatchReaderSource Example)
 
 enum ExampleMode {
   SOURCE_SINK = 0,

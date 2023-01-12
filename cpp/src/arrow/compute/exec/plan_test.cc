@@ -364,7 +364,6 @@ void TestRecordBatchReaderSourceSinkError(
     std::function<Result<std::shared_ptr<RecordBatchReader>>(const BatchesWithSchema&)>
         to_reader) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  std::shared_ptr<Schema> no_schema;
   auto source_factory_name = "record_batch_reader_source";
   auto exp_batches = MakeBasicBatches();
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatchReader> reader, to_reader(exp_batches));

@@ -296,7 +296,7 @@ Result<std::shared_ptr<RecordBatchReader>> ToRecordBatchReader(
   for (auto batch : batches_with_schema.batches) {
     ARROW_ASSIGN_OR_RAISE(auto record_batch,
                           batch.ToRecordBatch(batches_with_schema.schema));
-    record_batches.push_back(record_batch);
+    record_batches.push_back(std::move(record_batch));
   }
   ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatches(std::move(record_batches)));
   return std::make_shared<arrow::TableBatchReader>(std::move(table));
