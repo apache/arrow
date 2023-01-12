@@ -1004,56 +1004,41 @@ TEST(ExecPlanExecution, SourceMinMaxScalar) {
 
     auto input = MakeGroupableBatches(/*multiplicity=*/parallel ? 100 : 1);
     auto minmax_opts = std::make_shared<ScalarAggregateOptions>();
-    auto expected_result = ExecBatch::Make(
-        {ScalarFromJSON(struct_({field("min", int32()), field("max", int32())}),
-                        R"({"min": -8, "max": 12})")});
-
-    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+    auto ty = struct_({field("min", int32()), field("max", int32())});
+    auto expected_table = TableFromJSON(schema({field("struct", ty)}), {R"([
+      [{"min": -8, "max": 12}]
+    ])"});
 
     // NOTE: Test `ScalarAggregateNode` by omitting `keys` attribute
-    ASSERT_OK(Declaration::Sequence(
-                  {{"source",
-                    SourceNodeOptions{input.schema, input.gen(parallel, /*slow=*/false)}},
-                   {"aggregate", AggregateNodeOptions{
-                                     /*aggregates=*/{{"min_max", std::move(minmax_opts),
-                                                      "i32", "min_max"}},
-                                     /*keys=*/{}}},
-                   {"sink", SinkNodeOptions{&sink_gen}}})
-                  .AddToPlan(plan.get()));
-
-    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-                Finishes(ResultWith(UnorderedElementsAreArray({*expected_result}))));
+    Declaration plan = Declaration::Sequence(
+        {{"source", SourceNodeOptions{input.schema, input.gen(parallel, /*slow=*/false)}},
+         {"aggregate",
+          AggregateNodeOptions{
+              /*aggregates=*/{{"min_max", std::move(minmax_opts), "i32", "min_max"}},
+              /*keys=*/{}}}});
+    ASSERT_OK_AND_ASSIGN(auto result_table, DeclarationToTable(plan, parallel));
+    AssertTablesEqual(*result_table, *expected_table);
   }
 }
-
+/// VIBHATHA WORKING
 TEST(ExecPlanExecution, NestedSourceFilter) {
   for (bool parallel : {false, true}) {
     SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
 
     auto input = MakeNestedBatches();
-    auto empty = ExecBatchFromJSON({input.schema->field(0)->type()}, R"([])");
-    auto expected = ExecBatchFromJSON({input.schema->field(0)->type()}, R"([
+    auto expected_table = TableFromJSON(input.schema, {R"([])",
+                                                       R"([
       [{"i32": 5, "bool": null}],
       [{"i32": 6, "bool": false}],
       [{"i32": 7, "bool": false}]
-])");
+])"});
 
-    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
-
-    ASSERT_OK(Declaration::Sequence(
-                  {
-                      {"source", SourceNodeOptions{input.schema,
-                                                   input.gen(parallel, /*slow=*/false)}},
-                      {"filter", FilterNodeOptions{greater_equal(
-                                     field_ref(FieldRef("struct", "i32")), literal(5))}},
-                      {"sink", SinkNodeOptions{&sink_gen}},
-                  })
-                  .AddToPlan(plan.get()));
-
-    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-                Finishes(ResultWith(UnorderedElementsAreArray({empty, expected}))));
+    Declaration plan = Declaration::Sequence(
+        {{"source", SourceNodeOptions{input.schema, input.gen(parallel, /*slow=*/false)}},
+         {"filter", FilterNodeOptions{greater_equal(field_ref(FieldRef("struct", "i32")),
+                                                    literal(5))}}});
+    ASSERT_OK_AND_ASSIGN(auto result_table, DeclarationToTable(plan, parallel));
+    AssertTablesEqual(*result_table, *expected_table);
   }
 }
 
@@ -1424,7 +1409,7 @@ TEST(ExecPlan, RecordBatchReaderSourceSink) {
     RecordBatchVector batches;
     for (const ExecBatch& exec_batch : input.batches) {
       ASSERT_OK_AND_ASSIGN(auto batch, exec_batch.ToRecordBatch(input.schema));
-      batches.push_back(batch);
+      batches.push_back(std::move(batch));
     }
 
     ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
