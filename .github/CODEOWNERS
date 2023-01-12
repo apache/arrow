@@ -28,12 +28,14 @@
 ## Components
 /c_glib/ @kou
 /cpp/
+/cpp/src/arrow/flight/ @lidavidm
 /csharp/
 /go/
 /java/
 /js/
 /matlab/
 /python/
+/python/pyarrow/_flight.pyx @lidavidm
 /r/
 /ruby/ @kou
 
