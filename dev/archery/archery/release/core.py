@@ -487,7 +487,11 @@ class Release:
             lower = self.repo.tags[self.previous.tag]
 
         if self.version.released:
-            upper = self.repo.tags[self.tag]
+            try:
+                upper = self.repo.tags[self.tag]
+            except IndexError:
+                warnings.warn(f"Release tag `{self.tag}` doesn't exist.")
+                return []
         else:
             try:
                 upper = self.repo.branches[self.branch]

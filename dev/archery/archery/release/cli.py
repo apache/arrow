@@ -20,7 +20,7 @@ import pathlib
 import click
 
 from ..utils.cli import validate_arrow_sources
-from .core import Jira, CachedJira, Release
+from .core import CachedJira, IssueTracker, Jira, Release
 
 
 @click.group('release')
@@ -108,15 +108,15 @@ def release_changelog_generate(obj, version, output):
 @click.pass_obj
 def release_changelog_regenerate(obj):
     """Regeneretate the whole CHANGELOG.md file"""
-    # TODO Fix regenerate the whole changelog
-    # from GitHub instead of JIRA
-    jira, repo = obj['jira'], obj['repo']
+    github_token, repo = obj['github_token'], obj['repo']
     changelogs = []
+    issue_tracker = IssueTracker(github_token=github_token)
 
-    for version in jira.project_versions('ARROW'):
+    for version in issue_tracker.project_versions('ARROW'):
         if not version.released:
             continue
-        release = Release.from_jira(version, jira=jira, repo=repo)
+        release = Release(version, jira=None, repo=repo,
+                          github_token=github_token)
         click.echo('Querying changelog for version: {}'.format(version))
         changelogs.append(release.changelog())
 
