@@ -124,7 +124,7 @@ std::string CreateModuleAad(const std::string& file_aad, int8_t module_type,
 std::string CreateFooterAad(const std::string& aad_prefix_bytes);
 
 // Update last two bytes of page (or page header) module AAD
-void QuickUpdatePageAad(const std::string& AAD, int32_t new_page_ordinal);
+void QuickUpdatePageAad(int32_t new_page_ordinal, std::string* AAD);
 
 // Wraps OpenSSL RAND_bytes function
 void RandBytes(unsigned char* buf, int num);

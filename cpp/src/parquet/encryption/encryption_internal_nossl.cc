@@ -109,7 +109,7 @@ std::string CreateFooterAad(const std::string& aad_prefix_bytes) {
   return "";
 }
 
-void QuickUpdatePageAad(const std::string& AAD, int32_t new_page_ordinal) {
+void QuickUpdatePageAad(int32_t new_page_ordinal, std::string* AAD) {
   ThrowOpenSSLRequiredException();
 }
 

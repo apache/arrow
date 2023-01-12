@@ -482,12 +482,12 @@ class SerializedPageWriter : public PageWriter {
         break;
       }
       case encryption::kDataPage: {
-        encryption::QuickUpdatePageAad(data_page_aad_, page_ordinal_);
+        encryption::QuickUpdatePageAad(page_ordinal_, &data_page_aad_);
         data_encryptor_->UpdateAad(data_page_aad_);
         break;
       }
       case encryption::kDataPageHeader: {
-        encryption::QuickUpdatePageAad(data_page_header_aad_, page_ordinal_);
+        encryption::QuickUpdatePageAad(page_ordinal_, &data_page_header_aad_);
         meta_encryptor_->UpdateAad(data_page_header_aad_);
         break;
       }
