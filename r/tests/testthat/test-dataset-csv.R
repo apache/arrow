@@ -218,9 +218,9 @@ test_that("readr parse options", {
     character(0)
   )
 
-  # With not yet supported readr parse options (ARROW-8631)
+  # With not yet supported readr parse options
   expect_error(
-    open_dataset(tsv_dir, partitioning = "part", delim = "\t", na = "\\N"),
+    open_dataset(tsv_dir, partitioning = "part", delim = "\t", quoted_na = TRUE),
     "supported"
   )
 
@@ -504,7 +504,4 @@ test_that("open_csv_dataset params passed through to open_dataset", {
     TRUE, NA, NA, TRUE, NA, TRUE, NA, NA, TRUE, NA, TRUE, NA, NA,
     TRUE, NA, TRUE, NA, NA, TRUE, NA
   ))
-
-
-
 })
