@@ -118,16 +118,13 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @rdname FileFormat
 #' @export
 CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
-CsvFileFormat$create <- function(...,
-                                 opts = NULL,
-                                 convert_options = NULL,
-                                 read_options = NULL) {
+CsvFileFormat$create <- function(...) {
   check_csv_file_format_args(...)
-  # Evaluate opts first to catch any unsupported arguments
-  if (is.null(opts)) {
-    opts <- csv_file_format_parse_options(...)
-  } else if (is.list(opts)) {
-    opts <- do.call(CsvParseOptions$create, opts)
+  # Evaluate parse_options first to catch any unsupported arguments
+  if (is.null(parse_options)) {
+    parse_options <- csv_file_format_parse_opts(...)
+  } else if (is.list(parse_options)) {
+    parse_options <- do.call(CsvParseOptions$create, parse_options)
   }
 
   if (is.null(convert_options)) {
@@ -191,7 +188,7 @@ CsvFileFormat$create <- function(...,
     )
   }
 
-  dataset___CsvFileFormat__Make(opts, convert_options, read_options)
+  dataset___CsvFileFormat__Make(parse_options, convert_options, read_options)
 }
 
 # Check all arguments are valid
