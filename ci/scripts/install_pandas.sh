@@ -36,7 +36,7 @@ else
 fi
 
 if [ "${pandas}" = "upstream_devel" ]; then
-  pip install git+https://github.com/pandas-dev/pandas.git --no-build-isolation
+  pip install git+https://github.com/pandas-dev/pandas.git
 elif [ "${pandas}" = "nightly" ]; then
   pip install --extra-index-url https://pypi.anaconda.org/scipy-wheels-nightly/simple --pre pandas
 elif [ "${pandas}" = "latest" ]; then

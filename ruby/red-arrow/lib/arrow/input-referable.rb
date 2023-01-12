@@ -14,26 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
-# This config sets the following variables in your project::
-#
-#   ArrowPythonFlight_FOUND - true if Arrow Python Flight found on the system
-#
-# This config sets the following targets in your project::
-#
-#   ArrowPythonFlight::arrow_python_flight_shared - for linked as shared library if shared library is built
-#   ArrowPythonFlight::arrow_python_flight_static - for linked as static library if static library is built
 
-@PACKAGE_INIT@
+module Arrow
+  module InputReferable
+    def refer_input(input)
+      @input = input
+    end
 
-include(CMakeFindDependencyMacro)
-find_dependency(ArrowFlight)
-find_dependency(ArrowPython)
-
-include("${CMAKE_CURRENT_LIST_DIR}/ArrowPythonFlightTargets.cmake")
-
-arrow_keep_backward_compatibility(ArrowPythonFlight arrow_python_flight)
-
-check_required_components(ArrowPythonFlight)
-
-arrow_show_details(ArrowPythonFlight ARROW_PYTHON_FLIGHT)
+    def share_input(other)
+      return unless defined?(@input)
+      other.refer_input(@input)
+    end
+  end
+end

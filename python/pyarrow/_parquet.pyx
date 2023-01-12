@@ -1606,7 +1606,8 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
         coerce_timestamps=None,
         allow_truncated_timestamps=False,
         writer_engine_version=None,
-        use_compliant_nested_type=False) except *:
+        use_compliant_nested_type=False,
+        store_schema=True) except *:
     """Arrow writer properties"""
     cdef:
         shared_ptr[ArrowWriterProperties] arrow_properties
@@ -1614,7 +1615,8 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
 
     # Store the original Arrow schema so things like dictionary types can
     # be automatically reconstructed
-    arrow_props.store_schema()
+    if store_schema:
+        arrow_props.store_schema()
 
     # int96 support
 
@@ -1686,6 +1688,7 @@ cdef class ParquetWriter(_Weakrefable):
         FileEncryptionProperties encryption_properties
         int64_t write_batch_size
         int64_t dictionary_pagesize_limit
+        object store_schema
 
     def __cinit__(self, where, Schema schema, use_dictionary=None,
                   compression=None, version=None,
@@ -1703,7 +1706,8 @@ cdef class ParquetWriter(_Weakrefable):
                   use_compliant_nested_type=False,
                   encryption_properties=None,
                   write_batch_size=None,
-                  dictionary_pagesize_limit=None):
+                  dictionary_pagesize_limit=None,
+                  store_schema=True):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -1740,7 +1744,8 @@ cdef class ParquetWriter(_Weakrefable):
             coerce_timestamps=coerce_timestamps,
             allow_truncated_timestamps=allow_truncated_timestamps,
             writer_engine_version=writer_engine_version,
-            use_compliant_nested_type=use_compliant_nested_type
+            use_compliant_nested_type=use_compliant_nested_type,
+            store_schema=store_schema,
         )
 
         pool = maybe_unbox_memory_pool(memory_pool)

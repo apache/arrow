@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from datetime import datetime
+import datetime
 from functools import lru_cache, partial
 import inspect
 import itertools
@@ -1739,7 +1739,8 @@ def test_cast():
     assert pc.cast(arr, options=allow_overflow_options) == pa.array(
         [-1], type='int32')
 
-    arr = pa.array([datetime(2010, 1, 1), datetime(2015, 1, 1)])
+    arr = pa.array(
+        [datetime.datetime(2010, 1, 1), datetime.datetime(2015, 1, 1)])
     expected = pa.array([1262304000000, 1420070400000], type='timestamp[ms]')
     assert pc.cast(arr, 'timestamp[ms]') == expected
 
@@ -1784,13 +1785,14 @@ def test_strptime():
     arr = pa.array(["5/1/2020", None, "12/13/1900"])
 
     got = pc.strptime(arr, format='%m/%d/%Y', unit='s')
-    expected = pa.array([datetime(2020, 5, 1), None, datetime(1900, 12, 13)],
-                        type=pa.timestamp('s'))
+    expected = pa.array(
+        [datetime.datetime(2020, 5, 1), None, datetime.datetime(1900, 12, 13)],
+        type=pa.timestamp('s'))
     assert got == expected
     # Positional format
     assert pc.strptime(arr, '%m/%d/%Y', unit='s') == got
 
-    expected = pa.array([datetime(2020, 1, 5), None, None],
+    expected = pa.array([datetime.datetime(2020, 1, 5), None, None],
                         type=pa.timestamp('s'))
     got = pc.strptime(arr, format='%d/%m/%Y', unit='s', error_is_null=True)
     assert got == expected
@@ -1933,7 +1935,11 @@ def _check_datetime_components(timestamps, timezone=None):
     assert pc.subsecond(tsa).equals(pa.array(subseconds))
 
     if ts.dt.tz:
-        is_dst = ts.apply(lambda x: x.dst().seconds > 0)
+        if ts.dt.tz is datetime.timezone.utc:
+            # datetime with utc returns None for dst()
+            is_dst = [False] * len(ts)
+        else:
+            is_dst = ts.apply(lambda x: x.dst().seconds > 0)
         assert pc.is_dst(tsa).equals(pa.array(is_dst))
 
     day_of_week_options = pc.DayOfWeekOptions(
@@ -1958,12 +1964,12 @@ def test_extract_datetime_components():
                   "2009-12-31T04:20:20.004132",
                   "2010-01-01T05:25:25.005321",
                   "2010-01-03T06:30:30.006163",
-                  "2010-01-04T07:35:35",
-                  "2006-01-01T08:40:40",
-                  "2005-12-31T09:45:45",
-                  "2008-12-28",
-                  "2008-12-29",
-                  "2012-01-01 01:02:03"]
+                  "2010-01-04T07:35:35.0",
+                  "2006-01-01T08:40:40.0",
+                  "2005-12-31T09:45:45.0",
+                  "2008-12-28T00:00:00.0",
+                  "2008-12-29T00:00:00.0",
+                  "2012-01-01T01:02:03.0"]
     timezones = ["UTC", "US/Central", "Asia/Kolkata",
                  "Etc/GMT-4", "Etc/GMT+4", "Australia/Broken_Hill"]
 
@@ -1994,12 +2000,12 @@ def test_assume_timezone():
                                  "2009-12-31T04:20:20.004132",
                                  "2010-01-01T05:25:25.005321",
                                  "2010-01-03T06:30:30.006163",
-                                 "2010-01-04T07:35:35",
-                                 "2006-01-01T08:40:40",
-                                 "2005-12-31T09:45:45",
-                                 "2008-12-28",
-                                 "2008-12-29",
-                                 "2012-01-01 01:02:03"])
+                                 "2010-01-04T07:35:35.0",
+                                 "2006-01-01T08:40:40.0",
+                                 "2005-12-31T09:45:45.0",
+                                 "2008-12-28T00:00:00.0",
+                                 "2008-12-29T00:00:00.0",
+                                 "2012-01-01T01:02:03.0"])
     nonexistent = pd.to_datetime(["2015-03-29 02:30:00",
                                   "2015-03-29 03:30:00"])
     ambiguous = pd.to_datetime(["2018-10-28 01:20:00",
@@ -2747,7 +2753,7 @@ def test_list_element():
 
 
 def test_count_distinct():
-    seed = datetime.now()
+    seed = datetime.datetime.now()
     samples = [seed.replace(year=y) for y in range(1992, 2092)]
     arr = pa.array(samples, pa.timestamp("ns"))
     assert pc.count_distinct(arr) == pa.scalar(len(samples), type=pa.int64())

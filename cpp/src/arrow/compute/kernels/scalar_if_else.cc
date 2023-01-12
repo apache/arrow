@@ -1568,6 +1568,7 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
             }
           }
         }
+        offset += block_length;
       });
     }
   }

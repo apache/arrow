@@ -366,7 +366,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
         Parameters
         ----------
-        fill_value
+        fill_value : any
             The replacement value for null entries.
 
         Returns
@@ -530,7 +530,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
         Parameters
         ----------
-        null_encoding
+        null_encoding : str, default "mask"
             How to handle null entries.
 
         Returns
@@ -853,7 +853,7 @@ cdef class ChunkedArray(_PandasConvertible):
         ----------
         mask : Array or array-like
             The boolean mask to filter the chunked array with.
-        null_selection_behavior
+        null_selection_behavior : str, default "drop"
             How nulls in the mask should be handled.
 
         Returns
@@ -2103,7 +2103,7 @@ cdef class RecordBatch(_PandasConvertible):
         ----------
         mask : Array or array-like
             The boolean mask to filter the record batch with.
-        null_selection_behavior
+        null_selection_behavior : str, default "drop"
             How nulls in the mask should be handled.
 
         Returns
@@ -2938,7 +2938,7 @@ cdef class Table(_PandasConvertible):
         ----------
         mask : Array or array-like or .Expression
             The boolean mask or the :class:`.Expression` to filter the table with.
-        null_selection_behavior
+        null_selection_behavior : str, default "drop"
             How nulls in the mask should be handled, does nothing if
             an :class:`.Expression` is used.
 

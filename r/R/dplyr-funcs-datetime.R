@@ -267,7 +267,6 @@ register_bindings_datetime_conversion <- function() {
              min = 0L,
              sec = 0,
              tz = "UTC") {
-
       # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
       # Stop if tz other than 'UTC' is provided.
       if (tz != "UTC") {
@@ -294,7 +293,6 @@ register_bindings_datetime_conversion <- function() {
                                                  min,
                                                  sec,
                                                  tz = "UTC") {
-
     # NAs for seconds aren't propagated (but treated as 0) in the base version
     sec <- call_binding(
       "if_else",
@@ -367,7 +365,8 @@ register_bindings_datetime_conversion <- function() {
     # => we only cast when we want the behaviour of the base version or when
     # `tz` is set (i.e. not NULL)
     if (call_binding("is.POSIXct", x) && !is.null(tz)) {
-      x <- cast(x, timestamp(timezone = tz))
+      unit <- if (inherits(x, "Expression")) x$type()$unit() else "s"
+      x <- cast(x, timestamp(unit = unit, timezone = tz))
     }
     binding_as_date(
       x = x,
@@ -379,22 +378,36 @@ register_bindings_datetime_conversion <- function() {
   register_binding("lubridate::as_datetime", function(x,
                                                       origin = "1970-01-01",
                                                       tz = "UTC",
-                                                      format = NULL) {
+                                                      format = NULL,
+                                                      unit = "ns") {
+    # Arrow uses unit for time parsing, as_datetime() does not.
+    unit <- make_valid_time_unit(
+      unit,
+      c(valid_time64_units, valid_time32_units)
+    )
+
+    if (call_binding("is.integer", x)) {
+      x <- cast(x, int64())
+    }
+
     if (call_binding("is.numeric", x)) {
-      delta <- cast(call_binding("difftime", origin, "1970-01-01"), int64())
+      multiple <- Expression$create("power_checked", 1000L, unit)
+      delta <- call_binding("difftime", origin, "1970-01-01")
+      delta <- cast(delta, int64())
+      delta <- Expression$create("multiply_checked", delta, multiple)
+      x <- Expression$create("multiply_checked", x, multiple)
       x <- cast(x, int64())
       x <- Expression$create("add_checked", x, delta)
     }
 
     if (call_binding("is.character", x) && !is.null(format)) {
-      # unit = 0L is the identifier for seconds in valid_time32_units
       x <- Expression$create(
         "strptime",
         x,
-        options = list(format = format, unit = 0L, error_is_null = TRUE)
+        options = list(format = format, unit = unit, error_is_null = TRUE)
       )
     }
-    output <- cast(x, timestamp())
+    output <- cast(x, timestamp(unit = unit))
     Expression$create("assume_timezone", output, options = list(timezone = tz))
   })
 

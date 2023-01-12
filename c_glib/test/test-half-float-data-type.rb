@@ -14,28 +14,20 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
-# This config sets the following variables in your project::
-#
-#   ArrowPython_FOUND - true if Arrow Python found on the system
-#
-# This config sets the following targets in your project::
-#
-#   ArrowPython::arrow_python_shared - for linked as shared library if shared library is built
-#   ArrowPython::arrow_python_static - for linked as static library if static library is built
 
-@PACKAGE_INIT@
+class TestHalfFloatDataType < Test::Unit::TestCase
+  def test_type
+    data_type = Arrow::HalfFloatDataType.new
+    assert_equal(Arrow::Type::HALF_FLOAT, data_type.id)
+  end
 
-include(CMakeFindDependencyMacro)
-find_dependency(Arrow)
-if(PARQUET_REQUIRE_ENCRYPTION)
-  find_dependency(Parquet)
-endif()
+  def test_name
+    data_type = Arrow::HalfFloatDataType.new
+    assert_equal("halffloat", data_type.name)
+  end
 
-include("${CMAKE_CURRENT_LIST_DIR}/ArrowPythonTargets.cmake")
-
-arrow_keep_backward_compatibility(ArrowPython arrow_python)
-
-check_required_components(ArrowPython)
-
-arrow_show_details(ArrowPython ARROW_PYTHON)
+  def test_to_s
+    data_type = Arrow::HalfFloatDataType.new
+    assert_equal("halffloat", data_type.to_s)
+  end
+end

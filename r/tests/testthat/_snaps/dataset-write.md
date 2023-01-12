@@ -42,7 +42,7 @@
     Condition
       Error in `check_additional_args()`:
       ! `nonsensical_arg` is not a valid argument for your chosen `format`.
-      i Supported arguments: `include_header` and `batch_size`.
+      i Supported arguments: `include_header`, `batch_size`, `null_string`, and `na`.
 
 ---
 

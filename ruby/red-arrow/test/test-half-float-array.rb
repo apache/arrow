@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,25 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+class HalfFloatArrayTest < Test::Unit::TestCase
+  sub_test_case(".new") do
+    test("Float") do
+      array = Arrow::HalfFloatArray.new([1.5])
+      assert_equal([1.5], array.to_a)
+    end
 
-if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <turbodbc version> <target directory>"
-  exit 1
-fi
+    test("Integer") do
+      one_half = Arrow::HalfFloat.new(1.5)
+      array = Arrow::HalfFloatArray.new([one_half.to_uint16])
+      assert_equal([one_half.to_f], array.to_a)
+    end
 
-turbodbc=$1
-target=$2
+    test("HalfFloat") do
+      one_half = Arrow::HalfFloat.new(1.5)
+      array = Arrow::HalfFloatArray.new([one_half])
+      assert_equal([one_half.to_f], array.to_a)
+    end
+  end
 
-git clone --recurse-submodules https://github.com/blue-yonder/turbodbc "${target}"
-if [ "${turbodbc}" = "latest" ]; then
-  git -C "${target}" checkout $(git describe --tags);
-else
-  git -C "${target}" checkout ${turbodbc};
-fi
-
-pushd ${target}
-wget -q https://github.com/pybind/pybind11/archive/v2.6.2.tar.gz
-tar xvf v2.6.2.tar.gz
-mv pybind11-2.6.2 pybind11
-popd
+  test("#[]") do
+    one_half = Arrow::HalfFloat.new(1.5)
+    array = Arrow::HalfFloatArray.new([one_half.to_uint16])
+    assert_equal(one_half.to_f, array[0])
+  end
+end

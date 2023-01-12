@@ -33,6 +33,7 @@ python -c "import dask.dataframe"
 
 pytest -v --pyargs dask.dataframe.tests.test_dataframe
 pytest -v --pyargs dask.dataframe.io.tests.test_orc
-pytest -v --pyargs dask.dataframe.io.tests.test_parquet
+# skip test until new fsspec release is out (https://github.com/fsspec/filesystem_spec/pull/1139)
+pytest -v --pyargs dask.dataframe.io.tests.test_parquet -k "not test_pyarrow_filesystem_option"
 # this file contains parquet tests that use S3 filesystem
 pytest -v --pyargs dask.bytes.tests.test_s3

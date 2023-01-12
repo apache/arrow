@@ -32,6 +32,7 @@ void RegisterScalarComparison(FunctionRegistry* registry);
 void RegisterScalarIfElse(FunctionRegistry* registry);
 void RegisterScalarNested(FunctionRegistry* registry);
 void RegisterScalarRandom(FunctionRegistry* registry);  // Nullary
+void RegisterScalarRoundArithmetic(FunctionRegistry* registry);
 void RegisterScalarSetLookup(FunctionRegistry* registry);
 void RegisterScalarStringAscii(FunctionRegistry* registry);
 void RegisterScalarStringUtf8(FunctionRegistry* registry);

@@ -112,6 +112,10 @@ StructArray__GetFieldByName <- function(array, name) {
   .Call(`_arrow_StructArray__GetFieldByName`, array, name)
 }
 
+StructArray__from_RecordBatch <- function(batch) {
+  .Call(`_arrow_StructArray__from_RecordBatch`, batch)
+}
+
 StructArray__Flatten <- function(array) {
   .Call(`_arrow_StructArray__Flatten`, array)
 }
@@ -1320,8 +1324,8 @@ fs___CopyFiles <- function(source_fs, source_sel, destination_fs, destination_ba
   invisible(.Call(`_arrow_fs___CopyFiles`, source_fs, source_sel, destination_fs, destination_base_dir, chunk_size, use_threads))
 }
 
-fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion) {
-  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion)
+fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, connect_timeout, request_timeout) {
+  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, connect_timeout, request_timeout)
 }
 
 fs___S3FileSystem__region <- function(fs) {
@@ -1870,10 +1874,6 @@ StructScalar__field <- function(s, i) {
 
 StructScalar__GetFieldByName <- function(s, name) {
   .Call(`_arrow_StructScalar__GetFieldByName`, s, name)
-}
-
-Scalar__as_vector <- function(scalar) {
-  .Call(`_arrow_Scalar__as_vector`, scalar)
 }
 
 MakeArrayFromScalar <- function(scalar, n) {

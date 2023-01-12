@@ -41,8 +41,14 @@ std::shared_ptr<arrow::KeyValueMetadata> strings_to_kvm(cpp11::strings metadata)
 std::shared_ptr<compute::ExecPlan> ExecPlan_create(bool use_threads) {
   static compute::ExecContext threaded_context{gc_memory_pool(),
                                                arrow::internal::GetCpuThreadPool()};
+  // TODO(weston) using gc_context() in this way is deprecated.  Once ordering has
+  // been added we can probably entirely remove all reference to ExecPlan from R
+  // in favor of DeclarationToXyz
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   auto plan = ValueOrStop(
       compute::ExecPlan::Make(use_threads ? &threaded_context : gc_context()));
+#pragma GCC diagnostic pop
   return plan;
 }
 
@@ -444,12 +450,8 @@ std::shared_ptr<compute::ExecNode> ExecNode_Union(
 std::shared_ptr<compute::ExecNode> ExecNode_SourceNode(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
-  arrow::compute::SourceNodeOptions options{
-      /*output_schema=*/reader->schema(),
-      /*generator=*/ValueOrStop(
-          compute::MakeReaderGenerator(reader, arrow::internal::GetCpuThreadPool()))};
-
-  return MakeExecNodeOrStop("source", plan.get(), {}, options);
+  arrow::compute::RecordBatchReaderSourceNodeOptions options{reader};
+  return MakeExecNodeOrStop("record_batch_reader_source", plan.get(), {}, options);
 }
 
 // [[arrow::export]]

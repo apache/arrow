@@ -1290,6 +1290,8 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
  public:
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
+  static constexpr size_t kNumRoundTrips = 3;
+  const std::vector<int> kReadBatchSizes = {1, 11};
 
   void InitBoundData(int nvalues, int repeats, c_type half_range) {
     num_values_ = nvalues * repeats;
@@ -1327,15 +1329,26 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
     auto encoder =
         MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED, false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
+    auto read_batch_sizes = kReadBatchSizes;
+    read_batch_sizes.push_back(num_values_);
+    // Encode a number of times to exercise the flush logic
+    for (size_t i = 0; i < kNumRoundTrips; ++i) {
+      encoder->Put(draws_, num_values_);
+      encode_buffer_ = encoder->FlushValues();
+      // Exercise different batch sizes
+      for (const int read_batch_size : read_batch_sizes) {
+        decoder->SetData(num_values_, encode_buffer_->data(),
+                         static_cast<int>(encode_buffer_->size()));
 
-    encoder->Put(draws_, num_values_);
-    encode_buffer_ = encoder->FlushValues();
-
-    decoder->SetData(num_values_, encode_buffer_->data(),
-                     static_cast<int>(encode_buffer_->size()));
-    int values_decoded = decoder->Decode(decode_buf_, num_values_);
-    ASSERT_EQ(num_values_, values_decoded);
-    ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+        int values_decoded = 0;
+        while (values_decoded < num_values_) {
+          values_decoded +=
+              decoder->Decode(decode_buf_ + values_decoded, read_batch_size);
+        }
+        ASSERT_EQ(num_values_, values_decoded);
+        ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+      }
+    }
   }
 
   void CheckRoundtripSpaced(const uint8_t* valid_bits,
@@ -1350,15 +1363,17 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
       }
     }
 
-    encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
-    encode_buffer_ = encoder->FlushValues();
-    decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
-                     static_cast<int>(encode_buffer_->size()));
-    auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
-                                                valid_bits, valid_bits_offset);
-    ASSERT_EQ(num_values_, values_decoded);
-    ASSERT_NO_FATAL_FAILURE(VerifyResultsSpaced<c_type>(decode_buf_, draws_, num_values_,
-                                                        valid_bits, valid_bits_offset));
+    for (size_t i = 0; i < kNumRoundTrips; ++i) {
+      encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
+      encode_buffer_ = encoder->FlushValues();
+      decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
+                       static_cast<int>(encode_buffer_->size()));
+      auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
+                                                  valid_bits, valid_bits_offset);
+      ASSERT_EQ(num_values_, values_decoded);
+      ASSERT_NO_FATAL_FAILURE(VerifyResultsSpaced<c_type>(
+          decode_buf_, draws_, num_values_, valid_bits, valid_bits_offset));
+    }
   }
 
  protected:
@@ -1387,12 +1402,15 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
       /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
       /*null_probability*/ 0.1));
 
-  ASSERT_NO_FATAL_FAILURE(this->ExecuteBound(2000, 2000, 0));
+  // All identical values
+  ASSERT_NO_FATAL_FAILURE(
+      this->ExecuteBound(/*nvalues*/ 2000, /*repeats*/ 50, /*half_range*/ 0));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpacedBound(
       /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
       /*null_probability*/ 0.1,
       /*half_range*/ 0));
 
+  // Various delta bitwidths, including the full datatype width
   const int max_bitwidth = sizeof(T) * 8;
   std::vector<int> bitwidths = {
       1, 2, 3, 5, 8, 11, 16, max_bitwidth - 8, max_bitwidth - 1, max_bitwidth};
@@ -1400,7 +1418,8 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
     T half_range =
         std::numeric_limits<T>::max() >> static_cast<uint32_t>(max_bitwidth - bitwidth);
 
-    ASSERT_NO_FATAL_FAILURE(this->ExecuteBound(25000, 200, half_range));
+    ASSERT_NO_FATAL_FAILURE(
+        this->ExecuteBound(/*nvalues*/ 2000, /*repeats*/ 50, half_range));
     ASSERT_NO_FATAL_FAILURE(this->ExecuteSpacedBound(
         /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
         /*null_probability*/ 0.1,

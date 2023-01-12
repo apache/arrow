@@ -54,7 +54,8 @@ class DataTypeTest < Test::Unit::TestCase
         "abstract type: <:floating_point>: " +
         "use one of not abstract type: [" +
         "Arrow::DoubleDataType, " +
-        "Arrow::FloatDataType]"
+        "Arrow::FloatDataType, " +
+        "Arrow::HalfFloatDataType]"
       assert_raise(ArgumentError.new(message)) do
         Arrow::DataType.resolve(:floating_point)
       end

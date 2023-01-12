@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,31 +15,36 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+class TestHalfFloatScalar < Test::Unit::TestCase
+  def setup
+    @half_float = 0x3c01 # 1.0009765625
+    @scalar = Arrow::HalfFloatScalar.new(@half_float)
+  end
 
-source_dir=${1}
-build_dir=${2}/turbodbc
+  def test_data_type
+    assert_equal(Arrow::HalfFloatDataType.new,
+                 @scalar.data_type)
+  end
 
-# check that optional pyarrow modules are available
-# because pytest would just skip the pyarrow tests
-python -c "import pyarrow.orc"
-python -c "import pyarrow.parquet"
+  def test_valid?
+    assert do
+      @scalar.valid?
+    end
+  end
 
-mkdir -p ${build_dir}
-pushd ${build_dir}
+  def test_equal
+    options = Arrow::EqualOptions.new
+    options.approx = true
+    assert do
+      @scalar.equal_options(Arrow::HalfFloatScalar.new(@half_float), options)
+    end
+  end
 
-cmake -DCMAKE_INSTALL_PREFIX=${ARROW_HOME} \
-      -DCMAKE_CXX_FLAGS="${CXXFLAGS}" \
-      -DPYTHON_EXECUTABLE=$(which python) \
-      -GNinja \
-      ${source_dir}
-ninja install
+  def test_to_s
+    assert_equal("[\n  #{@half_float}\n]", @scalar.to_s)
+  end
 
-# TODO(ARROW-5074)
-export LD_LIBRARY_PATH="${ARROW_HOME}/lib:${LD_LIBRARY_PATH}"
-export ODBCSYSINI="${source_dir}/earthly/odbc/"
-
-service postgresql start
-ctest --output-on-failure
-
-popd
+  def test_value
+    assert_in_delta(@half_float, @scalar.value)
+  end
+end

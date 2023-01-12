@@ -25,7 +25,6 @@
 
 #include <cstdint>
 #include <functional>
-#include <iostream>
 #include <sstream>
 #include <vector>
 
@@ -80,6 +79,7 @@ using arrow::DataType;
 using arrow::Datum;
 using arrow::DecimalType;
 using arrow::default_memory_pool;
+using arrow::DictionaryArray;
 using arrow::ListArray;
 using arrow::PrimitiveArray;
 using arrow::ResizableBuffer;
@@ -3431,6 +3431,25 @@ TEST(ArrowReadWrite, NestedRequiredOuterOptionalDecimal) {
   }
 }
 
+TEST(ArrowReadWrite, Decimal256AsInt) {
+  using ::arrow::Decimal256;
+  using ::arrow::field;
+
+  auto type = ::arrow::decimal256(8, 4);
+
+  const char* json = R"(["1.0000", null, "-1.2345", "-1000.5678",
+                         "-9999.9999", "9999.9999"])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+
+  parquet::WriterProperties::Builder builder;
+  // Enforce integer type to annotate decimal type
+  auto writer_properties = builder.enable_integer_annotate_decimal()->build();
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+
+  CheckConfiguredRoundtrip(table, table, writer_properties, props_store_schema);
+}
+
 class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
  protected:
   // make it *3 to make it easily divisible by 3
@@ -4138,6 +4157,74 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
 INSTANTIATE_TEST_SUITE_P(WriteDictionary, TestArrowWriteDictionary,
                          ::testing::Values(ParquetDataPageVersion::V1,
                                            ParquetDataPageVersion::V2));
+
+TEST_P(TestArrowWriteDictionary, StatisticsUnifiedDictionary) {
+  // Two chunks, with a shared dictionary
+  std::shared_ptr<::arrow::Table> table;
+  std::shared_ptr<::arrow::DataType> dict_type =
+      ::arrow::dictionary(::arrow::int32(), ::arrow::utf8());
+  std::shared_ptr<::arrow::Schema> schema =
+      ::arrow::schema({::arrow::field("values", dict_type)});
+  {
+    // It's important there are no duplicate values in the dictionary, otherwise
+    // we trigger the WriteDense() code path which side-steps dictionary encoding.
+    std::shared_ptr<::arrow::Array> test_dictionary =
+        ArrayFromJSON(::arrow::utf8(), R"(["b", "c", "d", "a"])");
+    std::vector<std::shared_ptr<::arrow::Array>> test_indices = {
+        ArrayFromJSON(::arrow::int32(),
+                      R"([3, null, 3, 3, null, 3])"),  // ["a", null "a", "a", null, "a"]
+        ArrayFromJSON(
+            ::arrow::int32(),
+            R"([0, 3, null, 0, null, 1])")};  // ["b", "a", null, "b", null, "c"]
+
+    ::arrow::ArrayVector chunks = {
+        std::make_shared<DictionaryArray>(dict_type, test_indices[0], test_dictionary),
+        std::make_shared<DictionaryArray>(dict_type, test_indices[1], test_dictionary),
+    };
+    std::shared_ptr<ChunkedArray> arr = std::make_shared<ChunkedArray>(chunks, dict_type);
+    table = ::arrow::Table::Make(schema, {arr});
+  }
+
+  std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
+  auto out_stream = std::make_shared<::arrow::io::BufferOutputStream>(serialized_data);
+  {
+    // Will write data as two row groups, one with 9 rows and one with 3.
+    std::shared_ptr<WriterProperties> writer_properties =
+        WriterProperties::Builder()
+            .max_row_group_length(9)
+            ->data_page_version(this->GetParquetDataPageVersion())
+            ->write_batch_size(3)
+            ->data_pagesize(3)
+            ->build();
+    std::unique_ptr<FileWriter> writer;
+    ASSERT_OK_AND_ASSIGN(
+        writer, FileWriter::Open(*schema, ::arrow::default_memory_pool(), out_stream,
+                                 writer_properties, default_arrow_writer_properties()));
+    ASSERT_OK(writer->WriteTable(*table, std::numeric_limits<int64_t>::max()));
+    ASSERT_OK(writer->Close());
+    ASSERT_OK(out_stream->Close());
+  }
+
+  auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(serialized_data);
+  std::unique_ptr<ParquetFileReader> parquet_reader =
+      ParquetFileReader::Open(std::move(buffer_reader));
+  // Check row group statistics
+  std::shared_ptr<FileMetaData> metadata = parquet_reader->metadata();
+  ASSERT_EQ(metadata->num_row_groups(), 2);
+  ASSERT_EQ(metadata->RowGroup(0)->num_rows(), 9);
+  ASSERT_EQ(metadata->RowGroup(1)->num_rows(), 3);
+  auto stats0 = metadata->RowGroup(0)->ColumnChunk(0)->statistics();
+  auto stats1 = metadata->RowGroup(1)->ColumnChunk(0)->statistics();
+  ASSERT_EQ(stats0->num_values(), 6);
+  ASSERT_EQ(stats1->num_values(), 2);
+  ASSERT_EQ(stats0->null_count(), 3);
+  ASSERT_EQ(stats1->null_count(), 1);
+  ASSERT_EQ(stats0->EncodeMin(), "a");
+  ASSERT_EQ(stats1->EncodeMin(), "b");
+  ASSERT_EQ(stats0->EncodeMax(), "b");
+  ASSERT_EQ(stats1->EncodeMax(), "c");
+}
+
 // ----------------------------------------------------------------------
 // Tests for directly reading DictionaryArray
 
@@ -4726,6 +4813,84 @@ std::vector<NestedFilterTestCase> GenerateMapFilteredTestCases() {
 
 INSTANTIATE_TEST_SUITE_P(MapFilteredReads, TestNestedSchemaFilteredReader,
                          ::testing::ValuesIn(GenerateMapFilteredTestCases()));
+
+template <typename TestType>
+class TestIntegerAnnotateDecimalTypeParquetIO : public TestParquetIO<TestType> {
+ public:
+  void WriteColumn(const std::shared_ptr<Array>& values) {
+    auto arrow_schema = ::arrow::schema({::arrow::field("a", values->type())});
+
+    parquet::WriterProperties::Builder builder;
+    // Enforce integer type to annotate decimal type
+    auto writer_properties = builder.enable_integer_annotate_decimal()->build();
+    std::shared_ptr<SchemaDescriptor> parquet_schema;
+    ASSERT_OK_NO_THROW(ToParquetSchema(arrow_schema.get(), *writer_properties,
+                                       *default_arrow_writer_properties(),
+                                       &parquet_schema));
+
+    this->sink_ = CreateOutputStream();
+    auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
+
+    std::unique_ptr<FileWriter> writer;
+    ASSERT_OK_NO_THROW(FileWriter::Make(
+        ::arrow::default_memory_pool(),
+        ParquetFileWriter::Open(this->sink_, schema_node, writer_properties),
+        arrow_schema, default_arrow_writer_properties(), &writer));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup(values->length()));
+    ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*values));
+    ASSERT_OK_NO_THROW(writer->Close());
+  }
+
+  void ReadAndCheckSingleDecimalColumnFile(const Array& values) {
+    std::shared_ptr<Array> out;
+    std::unique_ptr<FileReader> reader;
+    this->ReaderFromSink(&reader);
+    this->ReadSingleColumnFile(std::move(reader), &out);
+
+    // Reader always read values as DECIMAL128 type
+    ASSERT_EQ(out->type()->id(), ::arrow::Type::DECIMAL128);
+
+    if (values.type()->id() == ::arrow::Type::DECIMAL128) {
+      AssertArraysEqual(values, *out);
+    } else {
+      auto& expected_values = dynamic_cast<const ::arrow::Decimal256Array&>(values);
+      auto& read_values = dynamic_cast<const ::arrow::Decimal128Array&>(*out);
+      ASSERT_EQ(expected_values.length(), read_values.length());
+      ASSERT_EQ(expected_values.null_count(), read_values.null_count());
+      ASSERT_EQ(expected_values.length(), read_values.length());
+      for (int64_t i = 0; i < expected_values.length(); ++i) {
+        ASSERT_EQ(expected_values.IsNull(i), read_values.IsNull(i));
+        if (!expected_values.IsNull(i)) {
+          ASSERT_EQ(::arrow::Decimal256(expected_values.Value(i)).ToString(0),
+                    ::arrow::Decimal128(read_values.Value(i)).ToString(0));
+        }
+      }
+    }
+  }
+};
+
+typedef ::testing::Types<
+    DecimalWithPrecisionAndScale<1>, DecimalWithPrecisionAndScale<5>,
+    DecimalWithPrecisionAndScale<10>, DecimalWithPrecisionAndScale<18>,
+    Decimal256WithPrecisionAndScale<1>, Decimal256WithPrecisionAndScale<5>,
+    Decimal256WithPrecisionAndScale<10>, Decimal256WithPrecisionAndScale<18>>
+    DecimalTestTypes;
+
+TYPED_TEST_SUITE(TestIntegerAnnotateDecimalTypeParquetIO, DecimalTestTypes);
+
+TYPED_TEST(TestIntegerAnnotateDecimalTypeParquetIO, SingleNonNullableDecimalColumn) {
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
+  ASSERT_NO_FATAL_FAILURE(this->WriteColumn(values));
+  ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleDecimalColumnFile(*values));
+}
+
+TYPED_TEST(TestIntegerAnnotateDecimalTypeParquetIO, SingleNullableDecimalColumn) {
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, SMALL_SIZE / 2, kDefaultSeed, &values));
+  ASSERT_NO_FATAL_FAILURE(this->WriteColumn(values));
+  ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleDecimalColumnFile(*values));
+}
 
 }  // namespace arrow
 }  // namespace parquet

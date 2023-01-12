@@ -374,6 +374,7 @@ def cast(arr, target_type=None, safe=None, options=None):
     Returns
     -------
     casted : Array
+        The cast result as a new Array
     """
     safe_vars_passed = (safe is not None) or (target_type is not None)
 
@@ -452,6 +453,7 @@ def take(data, indices, *, boundscheck=True, memory_pool=None):
     Returns
     -------
     result : depends on inputs
+        Selected values for the given indices
 
     Examples
     --------
@@ -490,6 +492,7 @@ def fill_null(values, fill_value):
     Returns
     -------
     result : depends on inputs
+        Values with all null elements replaced
 
     Examples
     --------
@@ -534,7 +537,8 @@ def top_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
 
     Returns
     -------
-    result : Array of indices
+    result : Array
+        Indices of the top-k ordered elements
 
     Examples
     --------
@@ -581,6 +585,7 @@ def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
     Returns
     -------
     result : Array of indices
+        Indices of the bottom-k ordered elements
 
     Examples
     --------
@@ -650,6 +655,7 @@ def field(*name_or_index):
     Returns
     -------
     field_expr : Expression
+        Reference to the given field
 
     Examples
     --------
@@ -691,5 +697,6 @@ def scalar(value):
     Returns
     -------
     scalar_expr : Expression
+        An Expression representing the scalar value
     """
     return Expression._scalar(value)

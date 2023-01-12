@@ -151,6 +151,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
     Returns
     -------
     Partitioning or PartitioningFactory
+        The partioning scheme
 
     Examples
     --------
@@ -524,6 +525,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
     Returns
     -------
     FileSystemDataset
+        The dataset corresponding to the given metadata
     """
     from pyarrow.fs import LocalFileSystem, _ensure_filesystem
 

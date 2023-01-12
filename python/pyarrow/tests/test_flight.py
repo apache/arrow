@@ -1043,6 +1043,11 @@ class ConvenienceServer(FlightServerBase):
             return ['foo']
         elif action.type == 'arrow-exception':
             raise pa.ArrowMemoryError()
+        elif action.type == 'forever':
+            def gen():
+                while not context.is_cancelled():
+                    yield b'foo'
+            return gen()
 
 
 def test_do_action_result_convenience():
@@ -1556,6 +1561,15 @@ def test_cancel_do_get_threaded():
 
         with result_lock:
             assert raised_proper_exception.is_set()
+
+
+def test_streaming_do_action():
+    with ConvenienceServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        results = client.do_action(flight.Action('forever', b''))
+        assert next(results).body == b'foo'
+        # Implicit cancel when destructed
+        del results
 
 
 def test_roundtrip_types():

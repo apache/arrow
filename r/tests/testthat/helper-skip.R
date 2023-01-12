@@ -38,6 +38,14 @@ skip_if_not_available <- function(feature) {
     skip_on_linux_devel()
   }
 
+  # curl/ssl on MacOS is too old to support S3 filesystems without
+  # crashing when the process exits.
+  if (feature == "s3") {
+    if (on_macos_10_13_or_lower()) {
+      skip("curl/ssl runtime on MacOS 10.13 is too old")
+    }
+  }
+
   yes <- feature %in% names(build_features) && build_features[feature]
   if (!yes) {
     skip(paste("Arrow C++ not built with", feature))

@@ -118,7 +118,7 @@ function(compile_pyx
   get_source_file_property(property_is_public ${pyx_file} CYTHON_PUBLIC)
   get_source_file_property(property_is_api ${pyx_file} CYTHON_API)
   if(${property_is_api})
-    set(_generated_files "${output_file}" "${_name}.h" "${name}_api.h")
+    set(_generated_files "${output_file}" "${_name}.h" "${_name}_api.h")
   elseif(${property_is_public})
     set(_generated_files "${output_file}" "${_name}.h")
   else()

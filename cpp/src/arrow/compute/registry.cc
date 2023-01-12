@@ -280,6 +280,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarIfElse(registry.get());
   RegisterScalarNested(registry.get());
   RegisterScalarRandom(registry.get());  // Nullary
+  RegisterScalarRoundArithmetic(registry.get());
   RegisterScalarSetLookup(registry.get());
   RegisterScalarStringAscii(registry.get());
   RegisterScalarStringUtf8(registry.get());
