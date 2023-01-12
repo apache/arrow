@@ -110,31 +110,6 @@ def strip_ci_directives(commit_message):
     # commit message
     return _REGEX_CI_DIRECTIVE.sub('', commit_message)
 
-
-def git_default_branch_name():
-    default_branch_name = os.getenv("MERGE_SCRIPT_DEFAULT_BRANCH_NAME")
-
-    if default_branch_name is None:
-        try:
-            default_reference = run_cmd(
-                "git rev-parse --abbrev-ref origin/HEAD")
-            if default_reference.startswith("origin/"):
-                default_branch_name = default_reference[len("origin/"):]
-            default_branch_name = default_branch_name.rstrip()
-        except subprocess.CalledProcessError:
-            # TODO: ARROW-18011 to track changing the hard coded default
-            # value from "master" to "main".
-            default_branch_name = "master"
-            warnings.warn('Unable to determine default branch name: '
-                          'MERGE_SCRIPT_DEFAULT_BRANCH_NAME environment '
-                          'variable is not set. Git repository does not '
-                          'contain a \'refs/remotes/origin/HEAD\'reference. '
-                          ' Setting the default branch name to ' +
-                          default_branch_name, RuntimeWarning)
-
-    return default_branch_name
-
-
 def fix_version_from_branch(versions):
     # Note: Assumes this is a sorted (newest->oldest) list of un-released
     # versions
@@ -299,10 +274,7 @@ class GitHubIssue(object):
 
 
 def get_candidate_fix_version(mainline_versions,
-                              merge_branches=None,
                               maintenance_branches=()):
-    if merge_branches is None:
-        merge_branches = (git_default_branch_name(),)
 
     all_versions = [getattr(v, "name", v) for v in mainline_versions]
 
