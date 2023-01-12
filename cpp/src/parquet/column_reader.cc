@@ -261,7 +261,7 @@ class SerializedPageReader : public PageReader {
 
  private:
   void UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor, int8_t module_type,
-                        const std::string& page_aad);
+                        std::string* page_aad);
 
   void InitDecryption();
 
@@ -291,7 +291,7 @@ class SerializedPageReader : public PageReader {
 
   // The ordinal fields in the context below are used for AAD suffix calculation.
   CryptoContext crypto_ctx_;
-  int16_t page_ordinal_;  // page ordinal does not count the dictionary page
+  int32_t page_ordinal_;  // page ordinal does not count the dictionary page
 
   // Maximum allowed page size
   uint32_t max_page_header_size_;
@@ -329,8 +329,7 @@ void SerializedPageReader::InitDecryption() {
 }
 
 void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor,
-                                            int8_t module_type,
-                                            const std::string& page_aad) {
+                                            int8_t module_type, std::string* page_aad) {
   DCHECK(decryptor != nullptr);
   if (crypto_ctx_.start_decrypt_with_dictionary_page) {
     std::string aad = encryption::CreateModuleAad(
@@ -338,8 +337,8 @@ void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& de
         crypto_ctx_.column_ordinal, kNonPageOrdinal);
     decryptor->UpdateAad(aad);
   } else {
-    encryption::QuickUpdatePageAad(page_aad, page_ordinal_);
-    decryptor->UpdateAad(page_aad);
+    encryption::QuickUpdatePageAad(page_ordinal_, page_aad);
+    decryptor->UpdateAad(*page_aad);
   }
 }
 
@@ -366,7 +365,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       try {
         if (crypto_ctx_.meta_decryptor != nullptr) {
           UpdateDecryption(crypto_ctx_.meta_decryptor, encryption::kDictionaryPageHeader,
-                           data_page_header_aad_);
+                           &data_page_header_aad_);
         }
         deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(view.data()),
                                         &header_size, &current_page_header_,
@@ -394,7 +393,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     if (crypto_ctx_.data_decryptor != nullptr) {
       UpdateDecryption(crypto_ctx_.data_decryptor, encryption::kDictionaryPage,
-                       data_page_aad_);
+                       &data_page_aad_);
     }
 
     // Read the compressed data page.
