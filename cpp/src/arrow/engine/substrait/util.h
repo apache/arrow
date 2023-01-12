@@ -44,7 +44,7 @@ using PythonTableProvider =
 ///                 If null then the default registry will be used.
 /// \param memory_pool The memory pool the plan should use to make allocations.
 /// \param func_registry A registry of functions used for execution expressions.
-///                      `registry` maps from Substrait function IDs to "names"  These
+///                      `registry` maps from Substrait function IDs to "names". These
 ///                      names will be provided to `func_registry` to get the actual
 ///                      kernel.
 /// \param conversion_options Options to control plan deserialization

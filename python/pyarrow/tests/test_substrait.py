@@ -111,7 +111,7 @@ def test_invalid_plan():
     }
     """
     buf = pa._substrait._parse_json_plan(tobytes(query))
-    exec_message = "No RootRel in plan"
+    exec_message = "No RelRoot in plan"
     with pytest.raises(ArrowInvalid, match=exec_message):
         substrait.run_query(buf)
 

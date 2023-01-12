@@ -202,7 +202,7 @@ ARROW_ENGINE_EXPORT Result<compute::Declaration> DeserializePlan(
                         DeserializePlans(buf, MakeNoSinkDeclarationFactory(), registry,
                                          ext_set_out, conversion_options));
   if (top_level_decls.empty()) {
-    return Status::Invalid("No RootRel in plan");
+    return Status::Invalid("No RelRoot in plan");
   }
   if (top_level_decls.size() != 1) {
     return Status::Invalid("Multiple top level declarations found in Substrait plan");

@@ -429,7 +429,7 @@ struct ARROW_EXPORT Declaration {
 /// \param use_threads If `use_threads` is false then all CPU work will be done on the
 ///                    calling thread.  I/O tasks will still happen on the I/O executor
 ///                    and may be multi-threaded (but should not use significant CPU
-///                    resources)
+///                    resources).
 /// \param memory_pool The memory pool to use for allocations made while running the plan.
 /// \param function_registry The function registry to use for function execution.  If null
 ///                          then the default function registry will be used.
@@ -446,11 +446,11 @@ ARROW_EXPORT Result<std::shared_ptr<Table>> DeclarationToTable(
 ///
 /// \param use_threads The behavior of use_threads is slightly different than the
 ///                    synchronous version since we cannot run synchronously on the
-///                    calling thread.  Instead, if use_threads=false then a new thread
+///                    calling thread. Instead, if use_threads=false then a new thread
 ///                    pool will be created with a single thread and this will be used for
 ///                    all compute work.
 /// \param memory_pool The memory pool to use for allocations made while running the plan.
-/// \param function_registry The function registry to use for function execution.  If null
+/// \param function_registry The function registry to use for function execution. If null
 ///                          then the default function registry will be used.
 ARROW_EXPORT Future<std::shared_ptr<Table>> DeclarationToTableAsync(
     Declaration declaration, bool use_threads = true,
