@@ -219,6 +219,7 @@ TEST(ExecPlanExecution, SourceSink) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
       auto basic_data = MakeBasicBatches();
+      
       Declaration plan(
           "source", SourceNodeOptions{basic_data.schema, basic_data.gen(parallel, slow)});
       ASSERT_OK_AND_ASSIGN(auto result,
@@ -311,10 +312,11 @@ void TestSourceSink(
     return MakeVectorIterator<ElementType>(elements);
   };
   Declaration plan(source_factory_name,
-                   OptionsType{exp_batches.schema, element_it_maker});
+                    OptionsType{exp_batches.schema, element_it_maker});
   ASSERT_OK_AND_ASSIGN(auto result,
-                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
-  AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches.batches);
+                        DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+  AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches,
+                                      exp_batches.batches);
 }
 
 void TestRecordBatchReaderSourceSink(
@@ -1017,11 +1019,11 @@ TEST(ExecPlanExecution, NestedSourceFilter) {
 
     auto input = MakeNestedBatches();
     auto expected_table = TableFromJSON(input.schema, {R"([])",
-                                                       R"([
+    R"([
       [{"i32": 5, "bool": null}],
       [{"i32": 6, "bool": false}],
       [{"i32": 7, "bool": false}]
-])"});
+    ])"});
 
     Declaration plan = Declaration::Sequence(
         {{"source", SourceNodeOptions{input.schema, input.gen(parallel, /*slow=*/false)}},
@@ -1330,8 +1332,7 @@ TEST(ExecPlanExecution, SelfInnerHashJoinSink) {
 
     auto plan = Declaration("hashjoin", {left, right}, std::move(join_opts));
 
-    ASSERT_OK_AND_ASSIGN(auto result,
-                         DeclarationToExecBatches(std::move(plan), parallel));
+    ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan), parallel));
 
     std::vector<ExecBatch> expected = {
         ExecBatchFromJSON({int32(), utf8(), int32(), utf8()}, R"([
@@ -1368,8 +1369,7 @@ TEST(ExecPlanExecution, SelfOuterHashJoinSink) {
 
     auto plan = Declaration("hashjoin", {left, right}, std::move(join_opts));
 
-    ASSERT_OK_AND_ASSIGN(auto result,
-                         DeclarationToExecBatches(std::move(plan), parallel));
+    ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan), parallel));
 
     std::vector<ExecBatch> expected = {
         ExecBatchFromJSON({int32(), utf8(), int32(), utf8()}, R"([
@@ -1413,7 +1413,6 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
       schema({field("a", int32()), field("b", boolean())}), /*num_batches=*/3,
       /*batch_size=*/static_cast<int32_t>(std::floor(ExecPlan::kMaxBatchSize * 3.5)));
 
-  // AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   Declaration plan = Declaration::Sequence(
       {{"source",
         SourceNodeOptions{random_data.schema,
