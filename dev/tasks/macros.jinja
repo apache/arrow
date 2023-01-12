@@ -235,6 +235,10 @@ on:
       brew unlink python@2 || true
       brew config
       brew doctor || true
+      # The GHA runners install of python > 3.10 is incompatible with brew so we
+      # have to force overwritting of the symlinks
+      # see https://github.com/actions/runner-images/issues/6868
+      brew install --overwrite python@3.11 python@3.10
 
       ARROW_GLIB_FORMULA=$(echo ${ARROW_FORMULA} | sed -e 's/\.rb/-glib.rb/')
       echo "ARROW_GLIB_FORMULA=${ARROW_GLIB_FORMULA}" >> ${GITHUB_ENV}
@@ -396,3 +400,4 @@ on:
   {{ key }}: "{{ value }}"
   {% endfor %}
 {% endmacro %}
+

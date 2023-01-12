@@ -147,7 +147,7 @@ module Arrow
     # Return column names in this object.
     #
     # @return [::Array<String>] column names.
-    # 
+    #
     # @since 11.0.0
     def column_names
       @column_names ||= columns.collect(&:name)

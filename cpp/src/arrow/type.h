@@ -236,7 +236,7 @@ struct ARROW_EXPORT TypeHolder {
 
   const DataType& operator*() const { return *this->type; }
 
-  operator bool() { return this->type != NULLPTR; }
+  operator bool() const { return this->type != NULLPTR; }
 
   bool operator==(const TypeHolder& other) const {
     if (type == other.type) return true;

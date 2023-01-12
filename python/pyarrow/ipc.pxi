@@ -57,11 +57,16 @@ class WriteStats(_WriteStats):
 
     Parameters
     ----------
-    num_messages : number of messages.
-    num_record_batches : number of record batches.
-    num_dictionary_batches : number of dictionary batches.
-    num_dictionary_deltas : delta of dictionaries.
-    num_replaced_dictionaries : number of replaced dictionaries.
+    num_messages : int
+        Number of messages.
+    num_record_batches : int
+        Number of record batches.
+    num_dictionary_batches : int
+        Number of dictionary batches.
+    num_dictionary_deltas : int
+        Delta of dictionaries.
+    num_replaced_dictionaries : int
+        Number of replaced dictionaries.
     """
     __slots__ = ()
 
@@ -84,11 +89,16 @@ class ReadStats(_ReadStats):
 
     Parameters
     ----------
-    num_messages : number of messages.
-    num_record_batches : number of record batches.
-    num_dictionary_batches : number of dictionary batches.
-    num_dictionary_deltas : delta of dictionaries.
-    num_replaced_dictionaries : number of replaced dictionaries.
+    num_messages : int
+        Number of messages.
+    num_record_batches : int
+        Number of record batches.
+    num_dictionary_batches : int
+        Number of dictionary batches.
+    num_dictionary_deltas : int
+        Delta of dictionaries.
+    num_replaced_dictionaries : int
+        Number of replaced dictionaries.
     """
     __slots__ = ()
 
@@ -106,16 +116,15 @@ cdef class IpcReadOptions(_Weakrefable):
 
     Parameters
     ----------
-    ensure_native_endian : bool
+    ensure_native_endian : bool, default True
         Whether to convert incoming data to platform-native endianness.
-        Default is true.
     use_threads : bool
         Whether to use the global CPU thread pool to parallelize any
-        computational tasks like decompression.
+        computational tasks like decompression
     included_fields : list
         If empty (the default), return all deserialized fields.
         If non-empty, the values are the indices of fields to read on
-        the top-level schema.
+        the top-level schema
     """
     __slots__ = ()
 
@@ -411,7 +420,7 @@ cdef class MessageReader(_Weakrefable):
 
         Parameters
         ----------
-        source
+        source : bytes/buffer-like, pyarrow.NativeFile, or file-like Python object
             A readable source, like an InputStream
         """
         cdef:

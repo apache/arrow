@@ -254,6 +254,21 @@ struct _GArrowFloatingPointDataTypeClass
 };
 
 
+#define GARROW_TYPE_HALF_FLOAT_DATA_TYPE (garrow_half_float_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowHalfFloatDataType,
+                         garrow_half_float_data_type,
+                         GARROW,
+                         HALF_FLOAT_DATA_TYPE,
+                         GArrowFloatingPointDataType)
+struct _GArrowHalfFloatDataTypeClass
+{
+  GArrowFloatingPointDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_11_0
+GArrowHalfFloatDataType *garrow_half_float_data_type_new(void);
+
+
 #define GARROW_TYPE_FLOAT_DATA_TYPE (garrow_float_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowFloatDataType,
                          garrow_float_data_type,

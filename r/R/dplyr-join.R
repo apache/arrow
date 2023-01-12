@@ -35,8 +35,13 @@ do_join <- function(x,
 
   # For outer joins, we need to output the join keys on both sides so we
   # can coalesce them afterwards.
-  left_output <- names(x)
-  right_output <- if (keep || join_type == "FULL_OUTER") {
+  left_output <- if (!keep && join_type == "RIGHT_OUTER") {
+    setdiff(names(x), by)
+  } else {
+    names(x)
+  }
+
+  right_output <- if (keep || join_type %in% c("FULL_OUTER", "RIGHT_OUTER")) {
     names(y)
   } else {
     setdiff(names(y), by)

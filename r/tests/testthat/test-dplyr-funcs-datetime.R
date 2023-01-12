@@ -1989,6 +1989,7 @@ test_that("`as_datetime()`", {
   test_df <- tibble(
     date = as.Date(c("2022-03-22", "2021-07-30", NA)),
     char_date = c("2022-03-22", "2021-07-30 14:32:47", NA),
+    char_date_subsec = c("1970-01-01T00:00:59.123456789", "2000-02-29T23:23:23.999999999", NA),
     char_date_non_iso = c("2022-22-03 12:34:56", "2021-30-07 14:32:47", NA),
     int_date = c(10L, 25L, NA),
     integerish_date = c(10, 25, NA),
@@ -2002,24 +2003,72 @@ test_that("`as_datetime()`", {
         ddate2 = lubridate::as_datetime(date),
         dchar_date_no_tz = as_datetime(char_date),
         dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas"),
+        dchar_date_subsec_no_tz = as_datetime(char_date_subsec),
+        dchar_date_subsec_with_tz = as_datetime(char_date_subsec, tz = "Pacific/Marquesas"),
         dint_date = as_datetime(int_date, origin = "1970-01-02"),
         dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
-        dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01")
+        dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01"),
+        ddouble_date = as_datetime(double_date)
       ) %>%
       collect(),
     test_df
   )
 
-  # Arrow does not support conversion of double to date
-  # the below should error with an error message originating in the C++ code
+  expect_identical(
+    test_df %>%
+      arrow_table() %>%
+      mutate(
+        x = cast(as_datetime(double_date, unit = "ns"), int64()),
+        y = cast(as_datetime(double_date, unit = "us"), int64()),
+        z = cast(as_datetime(double_date, unit = "ms"), int64()),
+        .keep = "none"
+      ) %>%
+      collect(),
+    tibble(
+      x = bit64::as.integer64(c(10100000000, 25200000000, NA)),
+      y = as.integer(c(10100000, 25200000, NA)),
+      z = as.integer(c(10100, 25200, NA))
+    )
+  )
+})
+
+test_that("as_datetime() works with other functions", {
+  test_df <- tibble(
+    char_date = c("2022-03-22", "2021-07-30 14:32:47", "1970-01-01 00:00:59.123456789", NA)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        ddchar_date = as_datetime(char_date),
+        ddchar_date_date32_1 = as.Date(ddchar_date),
+        ddchar_date_date32_2 = as_date(ddchar_date),
+        ddchar_date_floored = floor_date(ddchar_date, unit = "days")
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # ARROW-17428 - Arrow does not support conversion of timestamp to int32
   expect_error(
     test_df %>%
       arrow_table() %>%
       mutate(
-        ddouble_date = as_datetime(double_date)
+        dchar_date = as_datetime(char_date),
+        dchar_date_int = as.integer(dchar_date)
       ) %>%
-      collect(),
-    regexp = "Float value 10.1 was truncated converting to int64"
+      collect()
+  )
+
+  # ARROW-17428 - Arrow does not support conversion of timestamp to double
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(
+        dchar_date = as_datetime(char_date),
+        dchar_date_num = as.numeric(dchar_date)
+      ) %>%
+      collect()
   )
 })
 

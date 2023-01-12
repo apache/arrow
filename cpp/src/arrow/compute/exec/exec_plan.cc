@@ -667,7 +667,13 @@ Result<BatchesWithCommonSchema> DeclarationToExecBatches(Declaration declaration
 Future<> DeclarationToStatusAsync(Declaration declaration, ExecContext exec_context) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
                         ExecPlan::Make(exec_context));
-  ARROW_RETURN_NOT_OK(declaration.AddToPlan(exec_plan.get()));
+  ARROW_ASSIGN_OR_RAISE(ExecNode * last_node, declaration.AddToPlan(exec_plan.get()));
+  for (int i = 0; i < last_node->num_outputs(); i++) {
+    ARROW_RETURN_NOT_OK(
+        Declaration("consuming_sink", {last_node},
+                    ConsumingSinkNodeOptions(NullSinkNodeConsumer::Make()))
+            .AddToPlan(exec_plan.get()));
+  }
   ARROW_RETURN_NOT_OK(exec_plan->Validate());
   ARROW_RETURN_NOT_OK(exec_plan->StartProducing());
   // Keep the exec_plan alive until it finishes

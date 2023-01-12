@@ -66,6 +66,7 @@ jobs:
           "
         # The LLVM's APT repository doesn't provide arm64 binaries.
         # We should use LLVM provided by Ubuntu.
+        CLANG_TOOLS: "10"
         LLVM: "10"
         UBUNTU: "20.04"
 
@@ -109,6 +110,7 @@ jobs:
           "
         # The LLVM's APT repository causes download error for s390x binary
         # We should use the LLVM provided by the default APT repository
+        CLANG_TOOLS: "10"
         LLVM: "10"
         UBUNTU: "20.04"
 
@@ -158,6 +160,11 @@ jobs:
           -e Protobuf_SOURCE=BUNDLED
           -e gRPC_SOURCE=BUNDLED
           "
+        # The LLVM's APT repository causes download error for s390x binary
+        # We should use the LLVM provided by the default APT repository
+        CLANG_TOOLS: "10"
+        LLVM: "10"
+        UBUNTU: "20.04"
 
   allow_failures:
     - name: "Java on s390x"

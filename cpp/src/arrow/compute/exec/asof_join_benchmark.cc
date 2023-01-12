@@ -53,7 +53,8 @@ static void TableJoinOverhead(benchmark::State& state,
                               TableGenerationProperties left_table_properties,
                               TableGenerationProperties right_table_properties,
                               int batch_size, int num_right_tables,
-                              std::string factory_name, ExecNodeOptions& options) {
+                              std::string factory_name,
+                              std::shared_ptr<ExecNodeOptions> options) {
   left_table_properties.column_prefix = "lt";
   left_table_properties.seed = 0;
   ASSERT_OK_AND_ASSIGN(TableStats left_table_stats, MakeTable(left_table_properties));
@@ -85,7 +86,9 @@ static void TableJoinOverhead(benchmark::State& state,
     }
     Declaration join_node{factory_name, {input_nodes}, options};
     state.ResumeTiming();
-    ASSERT_OK(DeclarationToStatus(std::move(join_node)));
+    // asof-join must currently be run synchronously as it relies on data arriving
+    // in-order
+    ASSERT_OK(DeclarationToStatus(std::move(join_node), /*use_threads=*/false));
   }
 
   state.counters["input_rows_per_second"] = benchmark::Counter(
@@ -112,8 +115,8 @@ AsofJoinNodeOptions GetRepeatedOptions(size_t repeat, FieldRef on_key,
 
 static void AsOfJoinOverhead(benchmark::State& state) {
   int64_t tolerance = 0;
-  AsofJoinNodeOptions options =
-      GetRepeatedOptions(int(state.range(4)), kTimeCol, {kKeyCol}, tolerance);
+  auto options = std::make_shared<AsofJoinNodeOptions>(
+      GetRepeatedOptions(int(state.range(4) + 1), kTimeCol, {kKeyCol}, tolerance));
   TableJoinOverhead(
       state,
       TableGenerationProperties{int(state.range(0)), int(state.range(1)),
@@ -122,7 +125,7 @@ static void AsOfJoinOverhead(benchmark::State& state) {
       TableGenerationProperties{int(state.range(5)), int(state.range(6)),
                                 int(state.range(7)), "", kDefaultMinColumnVal,
                                 kDefaultMaxColumnVal, 0, kDefaultStart, kDefaultEnd},
-      int(state.range(3)), int(state.range(4)), "asofjoin", options);
+      int(state.range(3)), int(state.range(4)), "asofjoin", std::move(options));
 }
 
 // this generates the set of right hand tables to test on.
