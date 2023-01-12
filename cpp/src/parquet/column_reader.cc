@@ -2010,7 +2010,7 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
       int64_t num_decoded = this->current_decoder_->DecodeArrowZeroCopy(
           static_cast<int>(values_to_read), 0, NULLPTR,
           (reinterpret_cast<int32_t*>(offset_->mutable_data()) + values_written_),
-          values_, 0, &bianry_length_);
+          values_, 0, &binary_length_);
       DCHECK_EQ(num_decoded, values_to_read);
     } else {
       int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
@@ -2026,7 +2026,7 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
           static_cast<int>(values_to_read), static_cast<int>(null_count),
           valid_bits_->mutable_data(),
           (reinterpret_cast<int32_t*>(offset_->mutable_data()) + values_written_),
-          values_, values_written_, &bianry_length_);
+          values_, values_written_, &binary_length_);
       DCHECK_EQ(num_decoded, values_to_read - null_count);
     } else {
       int64_t num_decoded = this->current_decoder_->DecodeArrow(
@@ -2078,7 +2078,7 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
       hasCal_average_len_ = true;
     }
     offset_ = AllocateBuffer(this->pool_);
-    bianry_length_ = 0;
+    binary_length_ = 0;
     return result;
   }
   void ResetValues() {
@@ -2091,7 +2091,7 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
       values_written_ = 0;
       values_capacity_ = 0;
       null_count_ = 0;
-      bianry_length_ = 0;
+      binary_length_ = 0;
     }
   }
 
@@ -2099,7 +2099,7 @@ class ByteArrayChunkedOptRecordReader : public TypedRecordReader<ByteArrayType>,
   // Helper data structure for accumulating builder chunks
   typename EncodingTraits<ByteArrayType>::Accumulator accumulator_;
 
-  int32_t bianry_length_ = 0;
+  int32_t binary_length_ = 0;
 
   std::shared_ptr<::arrow::ResizableBuffer> offset_;
 };

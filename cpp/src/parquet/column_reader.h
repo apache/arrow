@@ -55,7 +55,7 @@ static constexpr uint32_t kDefaultMaxPageHeaderSize = 16 * 1024 * 1024;
 // 16 KB is the default expected page header size
 static constexpr uint32_t kDefaultPageHeaderSize = 16 * 1024;
 
-static constexpr int32_t kDefaultBinaryPerRowSzie = 20;
+static constexpr int32_t kDefaultBinaryPerRowSize = 20;
 
 class PARQUET_EXPORT LevelDecoder {
  public:
@@ -377,7 +377,7 @@ class PARQUET_EXPORT RecordReader {
   int64_t null_count_;
 
   bool hasCal_average_len_ = false;
-  int64_t binary_per_row_length_ = kDefaultBinaryPerRowSzie;
+  int64_t binary_per_row_length_ = kDefaultBinaryPerRowSize;
 
   /// \brief Each bit corresponds to one element in 'values_' and specifies if it
   /// is null or not null.
