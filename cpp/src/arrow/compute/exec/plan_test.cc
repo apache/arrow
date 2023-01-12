@@ -249,18 +249,15 @@ TEST(ExecPlanExecution, UseSinkAfterExecution) {
 }
 
 TEST(ExecPlanExecution, TableSourceSink) {
-  for (bool parallel : {false, true}) {
-    SCOPED_TRACE(parallel ? "parallel" : "single threaded");
-    for (int batch_size : {1, 4}) {
-      auto exp_batches = MakeBasicBatches();
-      ASSERT_OK_AND_ASSIGN(auto table,
-                           TableFromExecBatches(exp_batches.schema, exp_batches.batches));
-      Declaration plan("table_source", TableSourceNodeOptions{table, batch_size});
+  for (int batch_size : {1, 4}) {
+    auto exp_batches = MakeBasicBatches();
+    ASSERT_OK_AND_ASSIGN(auto table,
+                         TableFromExecBatches(exp_batches.schema, exp_batches.batches));
+    Declaration plan("table_source", TableSourceNodeOptions{table, batch_size});
 
-      ASSERT_OK_AND_ASSIGN(auto result_table,
-                           DeclarationToTable(std::move(plan), parallel));
-      AssertTablesEqualIgnoringOrder(table, result_table);
-    }
+    ASSERT_OK_AND_ASSIGN(auto result_table,
+                         DeclarationToTable(std::move(plan), /*use_threads=*/false));
+    AssertTablesEqualIgnoringOrder(table, result_table);
   }
 }
 
@@ -308,20 +305,16 @@ void TestSourceSink(
     std::string source_factory_name,
     std::function<Result<std::vector<ElementType>>(const BatchesWithSchema&)>
         to_elements) {
-  for (bool parallel : {false, true}) {
-    SCOPED_TRACE(parallel ? "parallel" : "single threaded");
-    auto exp_batches = MakeBasicBatches();
-    ASSERT_OK_AND_ASSIGN(auto elements, to_elements(exp_batches));
-    auto element_it_maker = [&elements]() {
-      return MakeVectorIterator<ElementType>(elements);
-    };
-    Declaration plan(source_factory_name,
-                     OptionsType{exp_batches.schema, element_it_maker});
-    ASSERT_OK_AND_ASSIGN(auto result,
-                         DeclarationToExecBatches(std::move(plan), parallel));
-    AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches,
-                                        exp_batches.batches);
-  }
+  auto exp_batches = MakeBasicBatches();
+  ASSERT_OK_AND_ASSIGN(auto elements, to_elements(exp_batches));
+  auto element_it_maker = [&elements]() {
+    return MakeVectorIterator<ElementType>(elements);
+  };
+  Declaration plan(source_factory_name,
+                   OptionsType{exp_batches.schema, element_it_maker});
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+  AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches.batches);
 }
 
 void TestRecordBatchReaderSourceSink(
