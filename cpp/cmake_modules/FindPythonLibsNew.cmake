@@ -218,7 +218,12 @@ find_package_message(PYTHON
     "${PYTHON_EXECUTABLE}${PYTHON_VERSION}")
 
 add_library(Python3::Module SHARED IMPORTED)
-target_include_directories(Python3::Module INTERFACE ${PYTHON_INCLUDE_DIRS})
+if(CMAKE_VERSION VERSION_LESS 3.11)
+  set_target_properties(Python3::Module PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+      ${PYTHON_INCLUDE_DIRS})
+else()
+  target_include_directories(Python3::Module INTERFACE ${PYTHON_INCLUDE_DIRS})
+endif()
 set_target_properties(Python3::Module PROPERTIES
     IMPORTED_LOCATION "${PYTHON_LIBRARIES}"
     IMPORTED_IMPLIB "${PYTHON_LIBRARIES}")
