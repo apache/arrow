@@ -205,6 +205,11 @@ on_linux_dev <- function() {
     grepl("devel", R.version.string)
 }
 
+on_macos_10_13_or_lower <- function() {
+  identical(unname(Sys.info()["sysname"]), "Darwin") &&
+    package_version(unname(Sys.info()["release"])) < "18.0.0"
+}
+
 option_use_threads <- function() {
   !is_false(getOption("arrow.use_threads"))
 }
