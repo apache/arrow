@@ -344,6 +344,39 @@ void TestSourceSink(
               Finishes(ResultWith(UnorderedElementsAreArray(exp_batches.batches))));
 }
 
+void TestRecordBatchReaderSourceSink(
+    std::function<Result<std::shared_ptr<RecordBatchReader>>(const BatchesWithSchema&)>
+        to_reader) {
+  for (bool parallel : {false, true}) {
+    SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
+    auto exp_batches = MakeBasicBatches();
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatchReader> reader,
+                         to_reader(exp_batches));
+    RecordBatchReaderSourceNodeOptions options{reader};
+    Declaration plan("record_batch_reader_source", std::move(options));
+    ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(plan, parallel));
+    AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches,
+                                        exp_batches.batches);
+  }
+}
+
+void TestRecordBatchReaderSourceSinkError(
+    std::function<Result<std::shared_ptr<RecordBatchReader>>(const BatchesWithSchema&)>
+        to_reader) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  auto source_factory_name = "record_batch_reader_source";
+  auto exp_batches = MakeBasicBatches();
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatchReader> reader, to_reader(exp_batches));
+
+  auto null_executor_options = RecordBatchReaderSourceNodeOptions{reader};
+  ASSERT_OK(MakeExecNode(source_factory_name, plan.get(), {}, null_executor_options));
+
+  std::shared_ptr<RecordBatchReader> no_reader;
+  auto null_reader_options = RecordBatchReaderSourceNodeOptions{no_reader};
+  ASSERT_THAT(MakeExecNode(source_factory_name, plan.get(), {}, null_reader_options),
+              Raises(StatusCode::Invalid, HasSubstr("not null")));
+}
+
 TEST(ExecPlanExecution, ArrayVectorSourceSink) {
   TestSourceSink<std::shared_ptr<ArrayVector>, ArrayVectorSourceNodeOptions>(
       "array_vector_source", ToArrayVectors);
@@ -372,6 +405,14 @@ TEST(ExecPlanExecution, RecordBatchSourceSink) {
 TEST(ExecPlanExecution, RecordBatchSourceSinkError) {
   TestSourceSinkError<std::shared_ptr<RecordBatch>, RecordBatchSourceNodeOptions>(
       "record_batch_source", ToRecordBatches);
+}
+
+TEST(ExecPlanExecution, RecordBatchReaderSourceSink) {
+  TestRecordBatchReaderSourceSink(ToRecordBatchReader);
+}
+
+TEST(ExecPlanExecution, RecordBatchReaderSourceSinkError) {
+  TestRecordBatchReaderSourceSinkError(ToRecordBatchReader);
 }
 
 TEST(ExecPlanExecution, SinkNodeBackpressure) {

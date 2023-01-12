@@ -2459,7 +2459,9 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
         ParquetException::EofException();
       }
       if (bit_width_data[i] > kMaxDeltaBitWidth) {
-        throw ParquetException("delta bit width larger than integer bit width");
+        throw ParquetException("delta bit width " + std::to_string(bit_width_data[i]) +
+                               " larger than integer bit width " +
+                               std::to_string(kMaxDeltaBitWidth));
       }
     }
     mini_block_idx_ = 0;
@@ -2479,7 +2481,20 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
       if (ARROW_PREDICT_FALSE(values_current_mini_block_ == 0)) {
         if (ARROW_PREDICT_FALSE(!block_initialized_)) {
           buffer[i++] = last_value_;
-          if (ARROW_PREDICT_FALSE(i == max_values)) break;
+          DCHECK_EQ(i, 1);  // we're at the beginning of the page
+          if (ARROW_PREDICT_FALSE(i == max_values)) {
+            // When block is uninitialized and i reaches max_values we have two
+            // different possibilities:
+            // 1. total_value_count_ == 1, which means that the page may have only
+            // one value (encoded in the header), and we should not initialize
+            // any block.
+            // 2. total_value_count_ != 1, which means we should initialize the
+            // incoming block for subsequent reads.
+            if (total_value_count_ != 1) {
+              InitBlock();
+            }
+            break;
+          }
           InitBlock();
         } else {
           ++mini_block_idx_;

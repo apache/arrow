@@ -25,7 +25,7 @@ test_that("install_pyarrow", {
   # PyArrow doesn't support Python 3.6 or earlier
   skip_on_python_older_than("3.7")
   # no pyarrow wheels for macos 10.13
-  skip_if(Sys.info()["sysname"] == "Darwin" && Sys.info()["release"] < 18)
+  skip_if(on_macos_10_13_or_lower())
 
   venv <- try(reticulate::virtualenv_create("arrow-test"))
   # Bail out if virtualenv isn't available

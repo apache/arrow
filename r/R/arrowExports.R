@@ -112,6 +112,10 @@ StructArray__GetFieldByName <- function(array, name) {
   .Call(`_arrow_StructArray__GetFieldByName`, array, name)
 }
 
+StructArray__from_RecordBatch <- function(batch) {
+  .Call(`_arrow_StructArray__from_RecordBatch`, batch)
+}
+
 StructArray__Flatten <- function(array) {
   .Call(`_arrow_StructArray__Flatten`, array)
 }
@@ -1870,10 +1874,6 @@ StructScalar__field <- function(s, i) {
 
 StructScalar__GetFieldByName <- function(s, name) {
   .Call(`_arrow_StructScalar__GetFieldByName`, s, name)
-}
-
-Scalar__as_vector <- function(scalar) {
-  .Call(`_arrow_Scalar__as_vector`, scalar)
 }
 
 MakeArrayFromScalar <- function(scalar, n) {

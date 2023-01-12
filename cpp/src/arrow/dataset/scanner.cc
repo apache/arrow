@@ -988,16 +988,25 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
 
   AsyncGenerator<EnumeratedRecordBatch> merged_batch_gen;
   if (require_sequenced_output) {
-    ARROW_ASSIGN_OR_RAISE(merged_batch_gen,
-                          MakeSequencedMergedGenerator(std::move(batch_gen_gen),
-                                                       scan_options->fragment_readahead));
+    if (scan_options->fragment_readahead > 1) {
+      ARROW_ASSIGN_OR_RAISE(merged_batch_gen, MakeSequencedMergedGenerator(
+                                                  std::move(batch_gen_gen),
+                                                  scan_options->fragment_readahead));
+    } else {
+      merged_batch_gen = MakeConcatenatedGenerator(std::move(batch_gen_gen));
+    }
   } else {
     merged_batch_gen =
         MakeMergedGenerator(std::move(batch_gen_gen), scan_options->fragment_readahead);
   }
 
-  auto batch_gen = MakeReadaheadGenerator(std::move(merged_batch_gen),
-                                          scan_options->fragment_readahead);
+  AsyncGenerator<EnumeratedRecordBatch> batch_gen;
+  if (scan_options->fragment_readahead > 1) {
+    batch_gen = MakeReadaheadGenerator(std::move(merged_batch_gen),
+                                       scan_options->fragment_readahead);
+  } else {
+    batch_gen = std::move(merged_batch_gen);
+  }
 
   auto gen = MakeMappedGenerator(
       std::move(batch_gen),

@@ -1931,16 +1931,21 @@ garrow_execute_plan_stop(GArrowExecutePlan *plan)
 /**
  * garrow_execute_plan_wait:
  * @plan: A #GArrowExecutePlan.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Waits for finishing this plan.
  *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
  * Since: 6.0.0
  */
-void
-garrow_execute_plan_wait(GArrowExecutePlan *plan)
+gboolean
+garrow_execute_plan_wait(GArrowExecutePlan *plan, GError **error)
 {
   auto arrow_plan = garrow_execute_plan_get_raw(plan);
   arrow_plan->finished().Wait();
+  return garrow::check(error, arrow_plan->finished().status(),
+                       "[execute-plan][wait]");
 }
 
 

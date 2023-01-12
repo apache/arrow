@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not(arrow_with_s3(), message = "arrow not build with S3 support.")
+skip_if_not_available("s3")
 skip_if_not(nzchar(Sys.which("minio")), message = "minio is not installed.")
 
 library(dplyr)

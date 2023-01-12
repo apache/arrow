@@ -604,11 +604,16 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
   }
 
   // Scan the fragment through the scanner.
-  RecordBatchIterator Batches(std::shared_ptr<Fragment> fragment) {
+  RecordBatchIterator Batches(std::shared_ptr<Fragment> fragment,
+                              bool use_readahead = true) {
     auto dataset = std::make_shared<FragmentDataset>(opts_->dataset_schema,
                                                      FragmentVector{fragment});
     ScannerBuilder builder(dataset, opts_);
     ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
+    if (!use_readahead) {
+      ARROW_EXPECT_OK(builder.FragmentReadahead(0));
+      ARROW_EXPECT_OK(builder.BatchReadahead(0));
+    }
     EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
     EXPECT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
     return MakeMapIterator([](TaggedRecordBatch tagged) { return tagged.record_batch; },
@@ -652,6 +657,20 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     for (auto maybe_batch : Batches(fragment)) {
       ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       ASSERT_LE(batch->num_rows(), kBatchSize);
+      row_count += batch->num_rows();
+    }
+    ASSERT_EQ(row_count, GetParam().expected_rows());
+  }
+  void TestScanNoReadahead() {
+    auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
+    auto source = this->GetFileSource(reader.get());
+
+    this->SetSchema(reader->schema()->fields());
+    auto fragment = this->MakeFragment(*source);
+
+    int64_t row_count = 0;
+    for (auto maybe_batch : Batches(fragment, /*use_readahead=*/false)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       row_count += batch->num_rows();
     }
     ASSERT_EQ(row_count, GetParam().expected_rows());

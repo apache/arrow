@@ -22,6 +22,7 @@ module Arrow
     include ArrayComputable
     include GenericFilterable
     include GenericTakeable
+    include InputReferable
 
     def to_arrow
       self
@@ -42,7 +43,16 @@ module Arrow
 
     alias_method :chunks_raw, :chunks
     def chunks
-      @chunks ||= chunks_raw
+      @chunks ||= chunks_raw.tap do |_chunks|
+        _chunks.each do |chunk|
+          share_input(chunk)
+        end
+      end
+    end
+
+    alias_method :get_chunk_raw, :get_chunk
+    def get_chunk(i)
+      chunks[i]
     end
 
     def null?(i)

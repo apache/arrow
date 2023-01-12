@@ -161,7 +161,7 @@ module Arrow
         record_batches << record_batch
       end
       table = Table.new(schema, record_batches)
-      table.instance_variable_set(:@input, input)
+      table.refer_input(input)
       table
     end
 
@@ -211,7 +211,7 @@ module Arrow
           field_indexes = @options[:field_indexes]
           reader.set_field_indexes(field_indexes) if field_indexes
           table = reader.read_stripes
-          table.instance_variable_set(:@input, input)
+          table.refer_input(input)
           table
         end
       end
@@ -245,7 +245,7 @@ module Arrow
       open_input_stream do |input|
         reader = FeatherFileReader.new(input)
         table = reader.read
-        table.instance_variable_set(:@input, input)
+        table.refer_input(input)
         table
       end
     end
@@ -254,7 +254,7 @@ module Arrow
       open_input_stream do |input|
         reader = JSONReader.new(input)
         table = reader.read
-        table.instance_variable_set(:@input, input)
+        table.refer_input(input)
         table
       end
     end

@@ -27,6 +27,7 @@ module Arrow
       @index = index
       @field = @container.schema[@index]
       @data = @container.get_column_data(@index)
+      @container.share_input(@data)
     end
 
     def name
