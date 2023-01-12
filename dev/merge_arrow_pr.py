@@ -109,6 +109,7 @@ def strip_ci_directives(commit_message):
     # commit message
     return _REGEX_CI_DIRECTIVE.sub('', commit_message)
 
+
 def fix_version_from_branch(versions):
     # Note: Assumes this is a sorted (newest->oldest) list of un-released
     # versions
