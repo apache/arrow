@@ -110,14 +110,10 @@ def strip_ci_directives(commit_message):
     return _REGEX_CI_DIRECTIVE.sub('', commit_message)
 
 
-def fix_version_from_branch(branch, versions):
+def fix_version_from_branch(versions):
     # Note: Assumes this is a sorted (newest->oldest) list of un-released
     # versions
-    if branch == "master":
-        return versions[-1]
-    else:
-        branch_ver = branch.replace("branch-", "")
-        return [v for v in versions if v.startswith(branch_ver)][-1]
+    return versions[-1]
 
 
 MIGRATION_COMMENT_REGEX = re.compile(
@@ -278,8 +274,8 @@ class GitHubIssue(object):
 
 
 def get_candidate_fix_version(mainline_versions,
-                              merge_branches=('master',),
                               maintenance_branches=()):
+
     all_versions = [getattr(v, "name", v) for v in mainline_versions]
 
     def version_tuple(x):
@@ -302,11 +298,9 @@ def get_candidate_fix_version(mainline_versions,
 
     mainline_versions = [v for v in mainline_versions
                          if f"maint-{v}" not in maintenance_branches]
-    default_fix_versions = [
-        fix_version_from_branch(x, mainline_versions)
-        for x in merge_branches]
+    default_fix_versions = fix_version_from_branch(mainline_versions)
 
-    return default_fix_versions[0]
+    return default_fix_versions
 
 
 def format_issue_output(issue_type, issue_id, status,
@@ -644,7 +638,7 @@ def get_primary_author(cmd, distinct_authors):
 
 def prompt_for_fix_version(cmd, issue, maintenance_branches=()):
     default_fix_version = get_candidate_fix_version(
-        issue.current_versions,
+        mainline_versions=issue.current_versions,
         maintenance_branches=maintenance_branches
     )
 
