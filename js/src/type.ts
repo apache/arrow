@@ -21,6 +21,7 @@ import { MapRow } from './row/map.js';
 import { StructRow, StructRowProxy } from './row/struct.js';
 import { Long } from 'flatbuffers';
 import { TypedArrayConstructor } from './interfaces.js';
+import { BigInt64Array, BigUint64Array } from './util/compat.js';
 
 import {
     Type,
