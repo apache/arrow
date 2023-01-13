@@ -796,7 +796,7 @@ std::shared_ptr<FileMetaData> ParquetFileReader::metadata() const {
   return contents_->metadata();
 }
 
-std::shared_ptr<PageIndexReader> ParquetFileReader::page_index_reader() {
+std::shared_ptr<PageIndexReader> ParquetFileReader::GetPageIndexReader() {
   return contents_->GetPageIndexReader();
 }
 

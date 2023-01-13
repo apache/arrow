@@ -317,21 +317,15 @@ void ValidatePageIndexRange(const RowGroupRanges& row_group_ranges,
                             int expected_ci_size, int expected_oi_start,
                             int expected_oi_size) {
   auto file_metadata = ConstructFakeMetaData(row_group_ranges);
-
-  IndexLocation column_index_location;
-  IndexLocation offset_index_location;
-  bool has_column_index;
-  bool has_offset_index;
-  PageIndexReader::DeterminePageIndexRangesInRowGroup(
-      *file_metadata->RowGroup(0), &column_index_location, &offset_index_location,
-      &has_column_index, &has_offset_index);
-  ASSERT_EQ(expected_has_page_index, has_column_index);
-  ASSERT_EQ(expected_has_page_index, has_offset_index);
+  auto read_range =
+      PageIndexReader::DeterminePageIndexRangesInRowGroup(*file_metadata->RowGroup(0));
+  ASSERT_EQ(expected_has_page_index, read_range.column_index.has_value());
+  ASSERT_EQ(expected_has_page_index, read_range.offset_index.has_value());
   if (expected_has_page_index) {
-    EXPECT_EQ(expected_ci_start, column_index_location.offset);
-    EXPECT_EQ(expected_ci_size, column_index_location.length);
-    EXPECT_EQ(expected_oi_start, offset_index_location.offset);
-    EXPECT_EQ(expected_oi_size, offset_index_location.length);
+    EXPECT_EQ(expected_ci_start, read_range.column_index->offset);
+    EXPECT_EQ(expected_ci_size, read_range.column_index->length);
+    EXPECT_EQ(expected_oi_start, read_range.offset_index->offset);
+    EXPECT_EQ(expected_oi_size, read_range.offset_index->length);
   }
 }
 

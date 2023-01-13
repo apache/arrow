@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "arrow/io/interfaces.h"
 #include "parquet/types.h"
 
 #include <optional>
@@ -30,8 +31,6 @@ class InternalFileDecryptor;
 class ReaderProperties;
 class RowGroupMetaData;
 class RowGroupPageIndexReader;
-
-struct IndexLocation;
 
 /// \brief ColumnIndex is a proxy around format::ColumnIndex.
 class PARQUET_EXPORT ColumnIndex {
@@ -155,9 +154,18 @@ class PARQUET_EXPORT RowGroupPageIndexReader {
 
 struct IndexSelection {
   /// Specifies whether to read the column index.
-  bool need_column_index = false;
+  bool column_index = false;
   /// Specifies whether to read the offset index.
-  bool need_offset_index = false;
+  bool offset_index = false;
+};
+
+struct RowGroupIndexReadRange {
+  /// Base start and total size of column index of all column chunks in a row group.
+  /// If none of the column chunks have column index, it is set to std::nullopt.
+  std::optional<::arrow::io::ReadRange> column_index = std::nullopt;
+  /// Base start and total size of offset index of all column chunks in a row group.
+  /// If none of the column chunks have offset index, it is set to std::nullopt.
+  std::optional<::arrow::io::ReadRange> offset_index = std::nullopt;
 };
 
 /// \brief Interface for reading the page index for a Parquet file.
@@ -206,19 +214,12 @@ class PARQUET_EXPORT PageIndexReader {
   virtual void WillNotNeed(const std::vector<int32_t>& row_group_indices) = 0;
 
   /// \brief Determines the column index and offset index ranges for the given row group.
+  ///
   /// \param[in] row_group_metadata row group metadata to get column chunk metadata.
-  /// \param[out] column_index_location Base start and total size of column index of
-  ///   all column chunks.
-  /// \param[out] offset_index_location Base start and total size of offset index of
-  ///   all column chunks.
-  /// \param[out] has_column_index Returns true when at least a partial column index are
-  /// found. Returns false when there is absolutely no column index for the row group.
-  /// \param[out] has_offset_index Returns true when at least a partial offset index are
+  /// \returns RowGroupIndexReadRange of the specified row group.
   /// found. Returns false when there is absolutely no offsets index for the row group.
-  static void DeterminePageIndexRangesInRowGroup(
-      const RowGroupMetaData& row_group_metadata, IndexLocation* column_index_location,
-      IndexLocation* offset_index_location, bool* has_column_index,
-      bool* has_offset_index);
+  static RowGroupIndexReadRange DeterminePageIndexRangesInRowGroup(
+      const RowGroupMetaData& row_group_metadata);
 };
 
 }  // namespace parquet
