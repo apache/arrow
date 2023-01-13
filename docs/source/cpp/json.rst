@@ -80,7 +80,7 @@ StreamingReader
 :class:`~arrow::RecordBatch`. Each independent JSON object in a block
 is converted to a row in the output batch.
 
-All batches adhere to a consistent :class:`~arrow:Schema`, which is
+All batches adhere to a consistent :class:`~arrow::Schema`, which is
 derived from the first loaded batch. Alternatively, an explicit schema
 may be passed via :class:`~ParseOptions`.
 
