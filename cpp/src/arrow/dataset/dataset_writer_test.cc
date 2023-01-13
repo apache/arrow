@@ -222,6 +222,10 @@ class DatasetWriterTestFixture : public testing::Test {
     }
   }
 
+  void SetWriteOptions(const FileSystemDatasetWriteOptions& write_options) {
+    write_options_ = write_options;
+  }
+
   std::shared_ptr<MockFileSystem> filesystem_;
   std::shared_ptr<Schema> schema_;
   std::vector<std::string> pre_finish_visited_;
@@ -505,6 +509,11 @@ TEST_F(DatasetWriterTestFixture, ErrOnExistingData) {
   ASSERT_RAISES(Invalid, DatasetWriter::Make(
                              write_options_, scheduler_, [] {}, [] {}, [] {}));
   AssertEmptyFiles({"testdir/part-0.arrow"});
+}
+
+/// VIBHATHA WORKING
+TEST_F(DatasetWriterTestFixture, DefaultWriteOptions) {
+
 }
 
 }  // namespace internal

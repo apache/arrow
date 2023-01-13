@@ -32,6 +32,7 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/localfs.h"
 #include "arrow/io/file.h"
 #include "arrow/util/compression.h"
 
@@ -385,24 +386,26 @@ class ARROW_DS_EXPORT FileWriter {
 
 /// \brief Options for writing a dataset.
 struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
+  ///
+  //std::shared_ptr<FileFormat> format;
   /// Options for individual fragment writing.
   std::shared_ptr<FileWriteOptions> file_write_options;
 
   /// FileSystem into which a dataset will be written.
-  std::shared_ptr<fs::FileSystem> filesystem;
+  std::shared_ptr<fs::FileSystem> filesystem;// = std::make_shared<arrow::fs::LocalFileSystem>();
 
   /// Root directory into which the dataset will be written.
   std::string base_dir;
 
   /// Partitioning used to generate fragment paths.
-  std::shared_ptr<Partitioning> partitioning;
+  std::shared_ptr<Partitioning> partitioning = Partitioning::Default();
 
   /// Maximum number of partitions any batch may be written into, default is 1K.
   int max_partitions = 1024;
 
   /// Template string used to generate fragment basenames.
   /// {i} will be replaced by an auto incremented integer.
-  std::string basename_template;
+  std::string basename_template = "part-{i}.undefined";
 
   /// If greater than 0 then this will limit the maximum number of files that can be left
   /// open. If an attempt is made to open too many files then the least recently used file
@@ -452,6 +455,7 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   const std::shared_ptr<FileFormat>& format() const {
     return file_write_options->format();
   }
+
 };
 
 /// \brief Wraps FileSystemDatasetWriteOptions for consumption as compute::ExecNodeOptions
