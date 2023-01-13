@@ -87,8 +87,8 @@ Status SpillingHashJoin::CheckSpilling(size_t thread_index, ExecBatch& batch) {
   constexpr float kFuzzFactor = 0.8f;
   size_t max_memory = static_cast<size_t>(kFuzzFactor * ctx_->options().max_memory_bytes);
   size_t spill_threshold = static_cast<size_t>(std::max(
-      static_cast<ssize_t>(kFuzzFactor * max_memory - num_threads_ * max_batch_size),
-      static_cast<ssize_t>(0)));
+      static_cast<int64_t>(kFuzzFactor * max_memory - num_threads_ * max_batch_size),
+      static_cast<int64_t>(0)));
   size_t bytes_allocated = static_cast<size_t>(ctx_->memory_pool()->bytes_allocated());
   size_t bytes_inflight = ctx_->GetCurrentTempFileIO();
 

@@ -27,7 +27,7 @@ namespace arrow {
 namespace compute {
 #ifdef _WIN32
 using FileHandle = void*;
-extern const FileHandle kInvalidHandle;
+ARROW_EXPORT extern const FileHandle kInvalidHandle;
 #else
 using FileHandle = int;
 constexpr FileHandle kInvalidHandle = -1;

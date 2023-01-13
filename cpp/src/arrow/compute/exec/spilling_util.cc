@@ -48,7 +48,7 @@ struct SpillFile::BatchInfo {
   std::vector<ArrayInfo> arrays;
 };
 
-const ARROW_EXPORT FileHandle kInvalidHandle = INVALID_HANDLE_VALUE;
+ARROW_EXPORT const FileHandle kInvalidHandle = INVALID_HANDLE_VALUE;
 
 static Result<FileHandle> OpenTemporaryFile() {
   constexpr DWORD kTempFileNameSize = MAX_PATH + 1;
