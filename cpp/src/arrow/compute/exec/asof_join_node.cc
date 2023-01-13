@@ -502,8 +502,9 @@ class InputState {
   }
 
   static Result<std::unique_ptr<InputState>> Make(
-      bool must_hash, bool may_rehash, KeyHasher* key_hasher, ExecNode* node,
-      ExecNode* output, std::atomic<int32_t>& backpressure_counter,
+      size_t index, TolType tolerance, bool must_hash, bool may_rehash,
+      KeyHasher* key_hasher, ExecNode* node, ExecNode* output,
+      std::atomic<int32_t>& backpressure_counter,
       const std::shared_ptr<arrow::Schema>& schema, const col_index_t time_col_index,
       const std::vector<col_index_t>& key_col_index) {
     constexpr size_t low_threshold = 4, high_threshold = 8;
@@ -512,9 +513,9 @@ class InputState {
     ARROW_ASSIGN_OR_RAISE(auto handler,
                           BackpressureHandler::Make(low_threshold, high_threshold,
                                                     std::move(backpressure_control)));
-    return std::make_unique<InputState>(must_hash, may_rehash, key_hasher,
-                                        std::move(handler), schema, time_col_index,
-                                        key_col_index);
+    return std::make_unique<InputState>(index, tolerance, must_hash, may_rehash,
+                                        key_hasher, std::move(handler), schema,
+                                        time_col_index, key_col_index);
   }
 
   col_index_t InitSrcToDstMapping(col_index_t dst_offset, bool skip_time_and_key_fields) {
@@ -1182,10 +1183,13 @@ class AsofJoinNode : public ExecNode {
     for (size_t i = 0; i < inputs.size(); i++) {
       RETURN_NOT_OK(key_hashers_[i]->Init(plan()->query_context()->exec_context(),
                                           output_schema()));
-      state_.push_back(std::make_unique<InputState>(
-          i, tolerance_, must_hash_, may_rehash_, key_hashers_[i].get(),
-          backpressure_counter_, inputs[i]->output_schema(), indices_of_on_key_[i],
-          indices_of_by_key_[i]));
+      ARROW_ASSIGN_OR_RAISE(
+          auto input_state,
+          InputState::Make(i, tolerance_, must_hash_, may_rehash_, key_hashers_[i].get(),
+                           inputs[i], this, backpressure_counter_,
+                           inputs[i]->output_schema(), indices_of_on_key_[i],
+                           indices_of_by_key_[i]));
+      state_.push_back(std::move(input_state));
     }
 
     col_index_t dst_offset = 0;

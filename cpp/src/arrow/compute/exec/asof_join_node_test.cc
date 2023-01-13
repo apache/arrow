@@ -1314,7 +1314,7 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
 
 TEST(AsofJoinTest, BackpressureWithBatches) {
   return TestBackpressure(MakeIntegerBatches, /*num_batches=*/10, /*batch_size=*/1,
-                          /*fast_delay=*/0.01, /*slow_delay=*/0.1, /*noisy=*/true);
+                          /*fast_delay=*/0.01, /*slow_delay=*/0.1, /*noisy=*/false);
 }
 
 namespace {
