@@ -85,15 +85,15 @@ inline auto VisitType(const DataType& type, VISITOR&& visitor, ARGS&&... args)
     default:
       break;
   }
-  return std::forward<VISITOR>(visitor)(type, args...);
+  return std::forward<VISITOR>(visitor)(type, std::forward<ARGS>(args)...);
 }
 
 #undef TYPE_VISIT_INLINE
 
-#define TYPE_ID_VISIT_INLINE(TYPE_CLASS)            \
-  case TYPE_CLASS##Type::type_id: {                 \
-    const TYPE_CLASS##Type* concrete_ptr = NULLPTR; \
-    return visitor->Visit(concrete_ptr, args...);   \
+#define TYPE_ID_VISIT_INLINE(TYPE_CLASS)                              \
+  case TYPE_CLASS##Type::type_id: {                                   \
+    const TYPE_CLASS##Type* concrete_ptr = NULLPTR;                   \
+    return visitor->Visit(concrete_ptr, std::forward<ARGS>(args)...); \
   }
 
 /// \brief Calls `visitor` with a nullptr of the corresponding concrete type class
