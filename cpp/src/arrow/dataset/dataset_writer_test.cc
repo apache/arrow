@@ -512,9 +512,7 @@ TEST_F(DatasetWriterTestFixture, ErrOnExistingData) {
 }
 
 /// VIBHATHA WORKING
-TEST_F(DatasetWriterTestFixture, DefaultWriteOptions) {
-
-}
+TEST_F(DatasetWriterTestFixture, DefaultWriteOptions) {}
 
 }  // namespace internal
 }  // namespace dataset

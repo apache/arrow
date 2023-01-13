@@ -386,13 +386,12 @@ class ARROW_DS_EXPORT FileWriter {
 
 /// \brief Options for writing a dataset.
 struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
-  ///
-  //std::shared_ptr<FileFormat> format;
   /// Options for individual fragment writing.
   std::shared_ptr<FileWriteOptions> file_write_options;
 
   /// FileSystem into which a dataset will be written.
-  std::shared_ptr<fs::FileSystem> filesystem;// = std::make_shared<arrow::fs::LocalFileSystem>();
+  std::shared_ptr<fs::FileSystem> filesystem =
+      std::make_shared<arrow::fs::LocalFileSystem>();
 
   /// Root directory into which the dataset will be written.
   std::string base_dir;
@@ -455,7 +454,6 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   const std::shared_ptr<FileFormat>& format() const {
     return file_write_options->format();
   }
-
 };
 
 /// \brief Wraps FileSystemDatasetWriteOptions for consumption as compute::ExecNodeOptions
