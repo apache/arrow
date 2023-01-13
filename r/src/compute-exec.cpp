@@ -270,6 +270,12 @@ std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan) {
 }
 
 // [[arrow::export]]
+void ExecPlan_UnsafeDelete(const std::shared_ptr<compute::ExecPlan>& plan) {
+  auto& plan_unsafe = const_cast<std::shared_ptr<compute::ExecPlan>&>(plan);
+  plan_unsafe.reset();
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(
     const std::shared_ptr<compute::ExecNode>& node) {
   return node->output_schema();
