@@ -59,9 +59,8 @@ If there are user-facing changes then we may require documentation to be updated
 <!--
 If there are any breaking changes to public APIs, please uncomment the following line:
 -->
-<!-- **This PR includes breaking changes to public APIs.** -->
-
+* [ ] This PR includes breaking changes to public APIs.
 <!--
 If the changes fix either a security vulnerability or a bug that caused incorrect or invalid data to be produced. This is intended to mark changes that may affect users without their knowledge. For this reason, fixing bugs that cause errors or crashes don't count, since those are usually obvious.
 -->
-<!-- **This PR contains a "Critical Fix".** -->
+* [ ] This PR contains a "Critical Fix".
