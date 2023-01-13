@@ -35,6 +35,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/parallel.h"
 
 #include "parquet/arrow/path_internal.h"
 #include "parquet/arrow/reader_internal.h"
@@ -286,9 +287,15 @@ class FileWriterImpl : public FileWriter {
       : schema_(std::move(schema)),
         writer_(std::move(writer)),
         row_group_writer_(nullptr),
-        column_write_context_(pool, arrow_properties.get()),
         arrow_properties_(std::move(arrow_properties)),
-        closed_(false) {}
+        closed_(false) {
+    if (arrow_properties_->use_threads()) {
+      column_write_context_.resize(schema_->num_fields(),
+                                   {pool, arrow_properties_.get()});
+    } else {
+      column_write_context_.emplace_back(pool, arrow_properties_.get());
+    }
+  }
 
   Status Init() {
     return SchemaManifest::Make(writer_->schema(), /*schema_metadata=*/nullptr,
@@ -333,7 +340,7 @@ class FileWriterImpl : public FileWriter {
           std::unique_ptr<ArrowColumnWriterV2> writer,
           ArrowColumnWriterV2::Make(*data, offset, size, schema_manifest_,
                                     row_group_writer_));
-      return writer->Write(&column_write_context_);
+      return writer->Write(&column_write_context_.back());
     }
 
     return Status::NotImplemented("Unknown engine version.");
@@ -403,17 +410,31 @@ class FileWriterImpl : public FileWriter {
     }
 
     auto WriteBatch = [&](int64_t offset, int64_t size) {
+      std::vector<std::unique_ptr<ArrowColumnWriterV2>> writers;
+
       int column_index_start = 0;
       for (int i = 0; i < batch.num_columns(); i++) {
-        ChunkedArray chunkedArray(batch.column(i));
+        ChunkedArray chunkedArray{batch.column(i)};
         ARROW_ASSIGN_OR_RAISE(
             std::unique_ptr<ArrowColumnWriterV2> writer,
             ArrowColumnWriterV2::Make(chunkedArray, offset, size, schema_manifest_,
                                       row_group_writer_, column_index_start));
-        RETURN_NOT_OK(writer->Write(&column_write_context_));
         column_index_start += writer->leaf_count();
+        writers.emplace_back(std::move(writer));
       }
-      return Status::OK();
+
+      auto executor = arrow_properties_->executor() == nullptr
+                          ? ::arrow::internal::GetCpuThreadPool()
+                          : arrow_properties_->executor();
+
+      return ::arrow::internal::OptionalParallelFor(
+          arrow_properties_->use_threads(), static_cast<int>(writers.size()),
+          [&](int i) {
+            auto ctx = arrow_properties_->use_threads() ? &column_write_context_.at(i)
+                                                        : &column_write_context_.back();
+            return writers[i]->Write(ctx);
+          },
+          executor);
     };
 
     int64_t offset = 0;
@@ -436,7 +457,8 @@ class FileWriterImpl : public FileWriter {
   const WriterProperties& properties() const { return *writer_->properties(); }
 
   ::arrow::MemoryPool* memory_pool() const override {
-    return column_write_context_.memory_pool;
+    DCHECK(!column_write_context_.empty());
+    return column_write_context_.back().memory_pool;
   }
 
   const std::shared_ptr<FileMetaData> metadata() const override {
@@ -452,7 +474,10 @@ class FileWriterImpl : public FileWriter {
 
   std::unique_ptr<ParquetFileWriter> writer_;
   RowGroupWriter* row_group_writer_;
-  ArrowWriteContext column_write_context_;
+  // If arrow_properties_.use_threads() is true, the vector size is equal to
+  // schema_->num_fields() to make it thread-safe. Otherwise, the vector size
+  // is always 1 which is shared by all column chunks.
+  std::vector<ArrowWriteContext> column_write_context_;
   std::shared_ptr<ArrowWriterProperties> arrow_properties_;
   bool closed_;
 };
