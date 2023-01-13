@@ -426,6 +426,7 @@ struct ARROW_EXPORT Declaration {
 
 /// \brief Utility method to run a declaration and collect the results into a table
 ///
+/// \param declaration A declaration describing the plan to run
 /// \param use_threads If `use_threads` is false then all CPU work will be done on the
 ///                    calling thread.  I/O tasks will still happen on the I/O executor
 ///                    and may be multi-threaded (but should not use significant CPU
@@ -444,6 +445,7 @@ ARROW_EXPORT Result<std::shared_ptr<Table>> DeclarationToTable(
 
 /// \brief Asynchronous version of \see DeclarationToTable
 ///
+/// \param declaration A declaration describing the plan to run
 /// \param use_threads The behavior of use_threads is slightly different than the
 ///                    synchronous version since we cannot run synchronously on the
 ///                    calling thread. Instead, if use_threads=false then a new thread

@@ -543,7 +543,7 @@ class ParquetFile:
             index columns are also loaded.
 
         Yields
-        -------
+        ------
         pyarrow.RecordBatch
             Contents of each batch as a record batch
 
@@ -3251,6 +3251,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
             def file_visitor(written_file):
                 visited_paths.append(written_file.path)
+
         This option is only supported for use_legacy_dataset=False.
     existing_data_behavior : 'overwrite_or_ignore' | 'error' | \
 'delete_matching'
