@@ -1309,7 +1309,7 @@ std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
   if (can_convert_native(x) && type->id() != Type::EXTENSION) {
     // short circuit if `x` is an altrep vector that shells a chunked Array
     auto maybe = altrep::vec_to_arrow_altrep_bypass(x);
-    if (maybe.get()) {
+    if (maybe.get() && maybe->type() == type) {
       return maybe;
     }
 
