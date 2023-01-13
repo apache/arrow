@@ -1395,6 +1395,16 @@ tasks:
         UBUNTU: 22.04
         GCC_VERSION: 12
       image: ubuntu-r-only-r
+  
+  # This also has -flto=auto
+  test-r-gcc-13:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 22.04
+        GCC_VERSION: 13
+      image: ubuntu-r-only-r
 
   test-r-rstudio-r-base-4.2-centos7-devtoolset-8:
     ci: azure
