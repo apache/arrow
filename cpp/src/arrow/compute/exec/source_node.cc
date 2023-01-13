@@ -136,22 +136,24 @@ struct SourceNode : ExecNode {
                              bit_util::CeilDiv(morsel_length, ExecPlan::kMaxBatchSize));
                          batch_count_ += num_batches;
                        }
-                       RETURN_NOT_OK(plan_->query_context()->ScheduleTask([=]() {
-                         int64_t offset = 0;
-                         do {
-                           int64_t batch_size = std::min<int64_t>(
-                               morsel_length - offset, ExecPlan::kMaxBatchSize);
-                           // In order for the legacy batching model to work we must
-                           // not slice batches from the source
-                           if (use_legacy_batching) {
-                             batch_size = morsel_length;
-                           }
-                           ExecBatch batch = morsel.Slice(offset, batch_size);
-                           offset += batch_size;
-                           outputs_[0]->InputReceived(this, std::move(batch));
-                         } while (offset < morsel.length);
-                         return Status::OK();
-                       }));
+                       RETURN_NOT_OK(plan_->query_context()->ScheduleTask(
+                           [this, morsel = std::move(morsel), morsel_length,
+                            use_legacy_batching]() {
+                             int64_t offset = 0;
+                             do {
+                               int64_t batch_size = std::min<int64_t>(
+                                   morsel_length - offset, ExecPlan::kMaxBatchSize);
+                               // In order for the legacy batching model to work we must
+                               // not slice batches from the source
+                               if (use_legacy_batching) {
+                                 batch_size = morsel_length;
+                               }
+                               ExecBatch batch = morsel.Slice(offset, batch_size);
+                               offset += batch_size;
+                               outputs_[0]->InputReceived(this, std::move(batch));
+                             } while (offset < morsel.length);
+                             return Status::OK();
+                           }));
                        lock.lock();
                        if (!backpressure_future_.is_finished()) {
                          EVENT(span_, "Source paused due to backpressure");
