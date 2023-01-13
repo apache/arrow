@@ -52,7 +52,12 @@ ArrowObject <- R6Class("ArrowObject",
       # call the underlying shared pointer's reset() method for the
       # shared_ptr<SubclassType> in C++.
       self$`.:xp:.` <- NULL
-      invisible(self)
+
+      # Return NULL, because keeping this R6 object in scope is not a good idea.
+      # This syntax would allow the rare use that has to actually do this to
+      # do `object <- object$.unsafe_delete()` and reduce the chance that an
+      # IDE like RStudio will try try to call other methods which will error
+      invisible(NULL)
     }
   )
 )
