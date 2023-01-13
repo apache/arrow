@@ -255,3 +255,22 @@ Social aspects
 * Like any communication, code reviews are governed by the Apache
   `Code of Conduct <https://www.apache.org/foundation/policies/conduct.html>`_.
   This applies to both reviewers and contributors.
+
+
+Labelling
+=========
+
+While reviewing PRs, we should try to identify whether these changes need to be
+marked with one or more of the following labels:
+
+* **Critical Fix**: The change fixes either a security vulnerability or a bug 
+  that caused incorrect or invalid data to be produced. This is intended to mark
+  changes that may affect users without their knowledge. For this reason, fixing
+  bugs that cause errors or crashes don't count, since those are usually obvious.
+* **Breaking Change**: The change breaks backwards compatibility in a public API.
+  For changes in C++, this does not include changes that simply break ABI
+  compatibility, except for the few places where we do guarantee ABI
+  compatibility (such as C Data Interface).
+
+These labels are used in the release to highlight changes that users ought to be
+aware of when they consider upgrading library versions.
