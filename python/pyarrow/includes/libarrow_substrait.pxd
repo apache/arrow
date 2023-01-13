@@ -51,6 +51,7 @@ cdef extern from "arrow/engine/substrait/extension_set.h" \
 cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine" nogil:
     CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(
         const CBuffer& substrait_buffer, const ExtensionIdRegistry* registry,
-        CFunctionRegistry* func_registry, const CConversionOptions& conversion_options)
+        CFunctionRegistry* func_registry, const CConversionOptions& conversion_options,
+        c_bool use_threads)
 
     CResult[shared_ptr[CBuffer]] SerializeJsonPlan(const c_string& substrait_json)
