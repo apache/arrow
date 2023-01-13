@@ -338,10 +338,12 @@ class PageIndexReaderImpl : public PageIndexReader {
       auto read_range = PageIndexReader::DeterminePageIndexRangesInRowGroup(
           *file_metadata_->RowGroup(row_group_ordinal));
       if (index_selection.column_index && read_range.column_index.has_value()) {
-        read_ranges.emplace_back(*read_range.column_index);
+        read_ranges.emplace_back(::arrow::io::ReadRange{read_range.column_index->offset,
+                                                        read_range.column_index->length});
       }
       if (index_selection.offset_index && read_range.offset_index.has_value()) {
-        read_ranges.emplace_back(*read_range.offset_index);
+        read_ranges.emplace_back(::arrow::io::ReadRange{read_range.offset_index->offset,
+                                                        read_range.offset_index->length});
       }
     }
     PARQUET_IGNORE_NOT_OK(input_->WillNeed(read_ranges));
@@ -390,10 +392,12 @@ RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(
 
   RowGroupIndexReadRange read_range;
   if (ci_end != -1) {
-    read_range.column_index = ::arrow::io::ReadRange{ci_start, ci_end - ci_start};
+    read_range.column_index =
+        RowGroupIndexReadRange::ReadRange{ci_start, ci_end - ci_start};
   }
   if (oi_end != -1) {
-    read_range.offset_index = ::arrow::io::ReadRange{oi_start, oi_end - oi_start};
+    read_range.offset_index =
+        RowGroupIndexReadRange::ReadRange{oi_start, oi_end - oi_start};
   }
   return read_range;
 }
