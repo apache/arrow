@@ -261,12 +261,13 @@ Labelling
 =========
 
 While reviewing PRs, we should try to identify whether these changes need to be
-marked with one or more of the following labels:
+marked with one or both of the following labels:
 
 * **Critical Fix**: The change fixes either a security vulnerability or a bug 
   that caused incorrect or invalid data to be produced. This is intended to mark
-  changes that may affect users without their knowledge. For this reason, fixing
-  bugs that cause errors or crashes don't count, since those are usually obvious.
+  fixes to issues that may affect users without their knowledge. For this reason, 
+  fixing bugs that cause errors or crashes don't count, since those bugs are
+  usually obvious.
 * **Breaking Change**: The change breaks backwards compatibility in a public API.
   For changes in C++, this does not include changes that simply break ABI
   compatibility, except for the few places where we do guarantee ABI
@@ -274,3 +275,12 @@ marked with one or more of the following labels:
 
 These labels are used in the release to highlight changes that users ought to be
 aware of when they consider upgrading library versions.
+
+In addition, we use the following labels to indicate priority:
+
+* **Priority: Blocker**: Indicates the PR **must** be merged before the next
+  release can happen. This includes fixes to test or packaging failures that
+  would prevent the release from succeeding final packaging or verification.
+* **Priority: Critical**: Indicates issues that are high priority. This is a
+  superset of issues marked "Critical Fix", as it also contains certain fixes
+  to issues causing errors and crashes.
