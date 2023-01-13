@@ -21,7 +21,6 @@ import functools
 import os
 import pathlib
 import re
-import shelve
 import warnings
 
 from git import Repo
@@ -31,7 +30,7 @@ from semver import VersionInfo as SemVer
 
 from ..utils.source import ArrowSources
 from ..utils.logger import logger
-from .reports import ReleaseCuration, JiraChangelog
+from .reports import ReleaseCuration, ReleaseChangelog
 
 
 def cached_property(fn):
@@ -159,60 +158,31 @@ class Jira(JIRA):
     def __init__(self, url='https://issues.apache.org/jira'):
         super().__init__(url)
 
-    def project_version(self, version_string, project='ARROW'):
-        # query version from jira to populated with additional metadata
-        versions = {str(v): v for v in self.project_versions(project)}
-        return versions[version_string]
-
-    def project_versions(self, project):
-        versions = []
-        for v in super().project_versions(project):
-            try:
-                versions.append(Version.from_jira(v))
-            except ValueError:
-                # ignore invalid semantic versions like JS-0.4.0
-                continue
-        return sorted(versions, reverse=True)
-
     def issue(self, key):
         return Issue.from_jira(super().issue(key))
-
-    def project_issues(self, version, project='ARROW'):
-        query = "project={} AND fixVersion={}".format(project, version)
-        issues = super().search_issues(query, maxResults=False)
-        return list(map(Issue.from_jira, issues))
 
 
 class IssueTracker:
 
-    def __init__(self, jira=None, github_token=None):
-        if not jira:
-            github = Github(github_token)
-            self.github_repo = github.get_repo('apache/arrow')
-        self.jira = jira
+    def __init__(self, github_token=None):
+        github = Github(github_token)
+        self.github_repo = github.get_repo('apache/arrow')
 
-    def project_version(self, version_string, *args, **kwargs):
-        if self.jira:
-            return self.jira.project_version(version_string, *args, **kwargs)
-        else:
-            milestones = self.github_repo.get_milestones(state="all")
-            for milestone in milestones:
-                if milestone.title == version_string:
-                    return Version.from_milestone(milestone)
+    def project_version(self, version_string):
+        for milestone in self.project_versions():
+            if milestone == version_string:
+                return milestone
 
-    def project_versions(self, *args, **kwargs):
-        if self.jira:
-            return self.jira.project_versions(*args, **kwargs)
-        else:
-            versions = []
-            milestones = self.github_repo.get_milestones(state="all")
-            for milestone in milestones:
-                try:
-                    versions.append(Version.from_milestone(milestone))
-                except ValueError:
-                    # ignore invalid semantic versions like JS-0.4.0
-                    continue
-            return sorted(versions, reverse=True)
+    def project_versions(self):
+        versions = []
+        milestones = self.github_repo.get_milestones(state="all")
+        for milestone in milestones:
+            try:
+                versions.append(Version.from_milestone(milestone))
+            except ValueError:
+                # ignore invalid semantic versions like JS-0.4.0
+                continue
+        return sorted(versions, reverse=True)
 
     def _milestone_from_semver(self, semver):
         milestones = self.github_repo.get_milestones(state="all")
@@ -224,42 +194,14 @@ class IssueTracker:
                 # ignore invalid semantic versions like JS-0.3.0
                 continue
 
-    def project_issues(self, version, *args, **kwargs):
-        if self.jira:
-            return self.jira.project_issues(version, *args, **kwargs)
-        else:
-            issues = self.github_repo.get_issues(
-                milestone=self._milestone_from_semver(version),
-                state="all")
-            return list(map(Issue.from_github, issues))
+    def project_issues(self, version):
+        issues = self.github_repo.get_issues(
+            milestone=self._milestone_from_semver(version),
+            state="all")
+        return list(map(Issue.from_github, issues))
 
     def issue(self, key):
-        if self.jira:
-            return Issue.from_jira(super().issue(key))
-        else:
-            return Issue.from_github(self.github_repo.get_issue(key))
-
-
-class CachedJira:
-
-    def __init__(self, cache_path, jira=None):
-        self.jira = jira or Jira()
-        self.cache_path = cache_path
-
-    def __getattr__(self, name):
-        attr = getattr(self.jira, name)
-        return self._cached(name, attr) if callable(attr) else attr
-
-    def _cached(self, name, method):
-        def wrapper(*args, **kwargs):
-            key = str((name, args, kwargs))
-            with shelve.open(self.cache_path) as cache:
-                try:
-                    result = cache[key]
-                except KeyError:
-                    cache[key] = result = method(*args, **kwargs)
-            return result
-        return wrapper
+        return Issue.from_github(self.github_repo.get_issue(key))
 
 
 _TITLE_REGEX = re.compile(
@@ -360,7 +302,8 @@ class Commit:
 
 class Release:
 
-    def __new__(self, version, jira=None, repo=None, github_token=None):
+    def __new__(self, version, repo=None, github_token=None,
+                issue_tracker=None):
         if isinstance(version, str):
             version = Version.parse(version)
         elif not isinstance(version, Version):
@@ -380,15 +323,9 @@ class Release:
 
         return super().__new__(klass)
 
-    def __init__(self, version, jira, repo, github_token=None):
-        if jira is None:
-            pass
-        elif isinstance(jira, str):
-            jira = Jira(jira)
-        elif not isinstance(jira, (Jira, CachedJira)):
-            raise TypeError("`jira` argument must be a server url or a valid "
-                            "Jira instance")
-        issue_tracker = IssueTracker(jira, github_token=github_token)
+    def __init__(self, version, repo, github_token=None, issue_tracker=None):
+        if not issue_tracker:
+            issue_tracker = IssueTracker(github_token=github_token)
         if repo is None:
             arrow = ArrowSources.find()
             repo = Repo(arrow.path)
@@ -405,7 +342,6 @@ class Release:
             raise TypeError(version)
 
         self.version = version
-        self.jira = jira
         self.repo = repo
         self.issue_tracker = issue_tracker
         self._github_token = github_token
@@ -418,8 +354,8 @@ class Release:
         return f"<{self.__class__.__name__} {self.version!r} {status}>"
 
     @staticmethod
-    def from_jira(version, jira=None, repo=None):
-        return Release(version, jira, repo)
+    def from_issue_tracker(version, issue_tracker=None, repo=None):
+        return Release(version, repo, issue_tracker=issue_tracker)
 
     @property
     def is_released(self):
@@ -455,7 +391,8 @@ class Release:
             # first release doesn't have a previous one
             return None
         else:
-            return Release(previous, jira=self.jira, repo=self.repo,
+            return Release(previous, repo=self.repo,
+                           issue_tracker=self.issue_tracker,
                            github_token=self._github_token)
 
     @cached_property
@@ -466,13 +403,14 @@ class Release:
             raise ValueError("There is no upcoming release set in JIRA after "
                              f"version {self.version}")
         upcoming = self.siblings[position - 1]
-        return Release(upcoming, jira=self.jira, repo=self.repo,
+        return Release(upcoming, repo=self.repo,
+                       issue_tracker=self.issue_tracker,
                        github_token=self._github_token)
 
     @cached_property
     def issues(self):
         issues = self.issue_tracker.project_issues(
-            self.version, project='ARROW'
+            self.version
         )
         return {i.key: i for i in issues}
 
@@ -510,7 +448,7 @@ class Release:
 
     @cached_property
     def jira_instance(self):
-        return self.jira if self.jira else Jira()
+        return Jira()
 
     @cached_property
     def default_branch(self):
@@ -634,7 +572,7 @@ class Release:
         for issues in categories.values():
             issues.sort(key=lambda pair: (pair[0].project, pair[0].number))
 
-        return JiraChangelog(release=self, categories=categories)
+        return ReleaseChangelog(release=self, categories=categories)
 
     def commits_to_pick(self, exclude_already_applied=True):
         # collect commits applied on the default branch since the root of the
@@ -707,7 +645,7 @@ class MajorRelease(Release):
         Filter only the major releases.
         """
         # handle minor releases before 1.0 as major releases
-        return [v for v in self.issue_tracker.project_versions('ARROW')
+        return [v for v in self.issue_tracker.project_versions()
                 if v.patch == 0 and (v.major == 0 or v.minor == 0)]
 
 
@@ -726,7 +664,7 @@ class MinorRelease(Release):
         """
         Filter the major and minor releases.
         """
-        return [v for v in self.issue_tracker.project_versions('ARROW')
+        return [v for v in self.issue_tracker.project_versions()
                 if v.patch == 0]
 
 
@@ -745,4 +683,4 @@ class PatchRelease(Release):
         """
         No filtering, consider all releases.
         """
-        return self.issue_tracker.project_versions('ARROW')
+        return self.issue_tracker.project_versions()

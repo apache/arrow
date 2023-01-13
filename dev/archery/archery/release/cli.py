@@ -20,27 +20,21 @@ import pathlib
 import click
 
 from ..utils.cli import validate_arrow_sources
-from .core import CachedJira, IssueTracker, Jira, Release
+from .core import IssueTracker, Release
 
 
 @click.group('release')
 @click.option("--src", metavar="<arrow_src>", default=None,
               callback=validate_arrow_sources,
               help="Specify Arrow source directory.")
-@click.option("--jira-cache", type=click.Path(), default=None,
-              help="File path to cache queried JIRA issues per version.")
 @click.option('--github-token', '-t', default=None,
               envvar="CROSSBOW_GITHUB_TOKEN",
               help='OAuth token for GitHub authentication')
 @click.pass_obj
-def release(obj, src, jira_cache, github_token):
+def release(obj, src, github_token):
     """Release releated commands."""
-    jira = Jira()
-    if jira_cache is not None:
-        jira = CachedJira(jira_cache, jira=jira)
 
     obj['github_token'] = github_token
-    obj['jira'] = jira
     obj['repo'] = src.path
 
 
@@ -51,7 +45,7 @@ def release(obj, src, jira_cache, github_token):
 @click.pass_obj
 def release_curate(obj, version, minimal):
     """Release curation."""
-    release = Release(version, jira=None, repo=obj['repo'],
+    release = Release(version, repo=obj['repo'],
                       github_token=obj['github_token'])
     curation = release.curate(minimal)
 
@@ -72,7 +66,7 @@ def release_changelog_add(obj, version):
     repo, github_token = obj['repo'], obj['github_token']
 
     # just handle the current version
-    release = Release(version, jira=None, repo=repo, github_token=github_token)
+    release = Release(version, repo=repo, github_token=github_token)
     if release.is_released:
         raise ValueError('This version has been already released!')
 
@@ -95,7 +89,7 @@ def release_changelog_generate(obj, version, output):
     repo, github_token = obj['repo'], obj['github_token']
 
     # just handle the current version
-    release = Release(version, jira=None, repo=repo, github_token=github_token)
+    release = Release(version, repo=repo, github_token=github_token)
 
     changelog = release.changelog()
     output.write(changelog.render('markdown'))
@@ -109,10 +103,10 @@ def release_changelog_regenerate(obj):
     changelogs = []
     issue_tracker = IssueTracker(github_token=github_token)
 
-    for version in issue_tracker.project_versions('ARROW'):
+    for version in issue_tracker.project_versions():
         if not version.released:
             continue
-        release = Release(version, jira=None, repo=repo,
+        release = Release(version, repo=repo,
                           github_token=github_token)
         click.echo('Querying changelog for version: {}'.format(version))
         changelogs.append(release.changelog())
@@ -136,7 +130,7 @@ def release_cherry_pick(obj, version, dry_run, recreate):
     """
     Cherry pick commits.
     """
-    release = Release(version, jira=None,
+    release = Release(version,
                       repo=obj['repo'], github_token=obj['github_token'])
 
     if not dry_run:

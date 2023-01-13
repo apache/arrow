@@ -35,7 +35,7 @@ class ReleaseCuration(JinjaReport):
     ]
 
 
-class JiraChangelog(JinjaReport):
+class ReleaseChangelog(JinjaReport):
     templates = {
         'markdown': 'release_changelog.md.j2',
         'html': 'release_changelog.html.j2'
