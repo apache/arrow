@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "arrow/io/interfaces.h"
 #include "parquet/types.h"
 
 #include <optional>
@@ -159,16 +160,12 @@ struct IndexSelection {
 };
 
 struct RowGroupIndexReadRange {
-  struct ReadRange {
-    int64_t offset;
-    int64_t length;
-  };
   /// Base start and total size of column index of all column chunks in a row group.
   /// If none of the column chunks have column index, it is set to std::nullopt.
-  std::optional<ReadRange> column_index = std::nullopt;
+  std::optional<::arrow::io::ReadRange> column_index = std::nullopt;
   /// Base start and total size of offset index of all column chunks in a row group.
   /// If none of the column chunks have offset index, it is set to std::nullopt.
-  std::optional<ReadRange> offset_index = std::nullopt;
+  std::optional<::arrow::io::ReadRange> offset_index = std::nullopt;
 };
 
 /// \brief Interface for reading the page index for a Parquet file.
