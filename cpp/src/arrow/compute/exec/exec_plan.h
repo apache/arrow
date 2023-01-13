@@ -425,7 +425,7 @@ struct ARROW_EXPORT Declaration {
 };
 
 /// \brief Utility method to run a declaration and collect the results into a table
-///
+/// \param declaration The Declaration which is executed.
 /// \param use_threads If `use_threads` is false then all CPU work will be done on the
 ///                    calling thread.  I/O tasks will still happen on the I/O executor
 ///                    and may be multi-threaded (but should not use significant CPU
