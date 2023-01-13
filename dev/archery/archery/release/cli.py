@@ -136,7 +136,8 @@ def release_cherry_pick(obj, version, dry_run, recreate):
     """
     Cherry pick commits.
     """
-    release = Release.from_jira(version, jira=obj['jira'], repo=obj['repo'])
+    release = Release(version, jira=None,
+                      repo=obj['repo'], github_token=obj['github_token'])
 
     if not dry_run:
         release.cherry_pick_commits(recreate_branch=recreate)

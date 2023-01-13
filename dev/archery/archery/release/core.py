@@ -80,6 +80,7 @@ class Issue:
         self.key = key
         self.type = type
         self.summary = summary
+        self.github_issue_id = getattr(github_issue, "number", None)
         self._github_issue = github_issue
 
     @classmethod
@@ -476,6 +477,11 @@ class Release:
         return {i.key: i for i in issues}
 
     @cached_property
+    def github_issue_ids(self):
+        return {v.github_issue_id for v in self.issues.values()
+                if v.github_issue_id}
+
+    @cached_property
     def commits(self):
         """
         All commits applied between two versions.
@@ -532,7 +538,7 @@ class Release:
 
                 # The last token is the default branch name
                 default_branch_name = origin_head_name_tokenized[-1]
-            except KeyError:
+            except (KeyError, IndexError):
                 # Use a hard-coded default value to set default_branch_name
                 # TODO: ARROW-18011 to track changing the hard coded default
                 # value from "master" to "main".
@@ -649,10 +655,18 @@ class Release:
 
         # iterate over the commits applied on the main branch and filter out
         # the ones that are included in the jira release
-        patches_to_pick = [c for c in commits if
-                           c.issue in self.issues and
-                           c.title not in already_applied]
-
+        patches_to_pick = []
+        for c in commits:
+            key = c.issue
+            # For the release we assume all issues that have to be
+            # cherry-picked are merged with the GH issue id instead of the
+            # JIRA ARROW one. That's why we use github_issues along with
+            # issues. This is only to correct the mapping for migrated issues.
+            if c.issue and c.issue.startswith("GH-"):
+                key = int(c.issue_id)
+            if ((key in self.github_issue_ids or key in self.issues) and
+                    c.title not in already_applied):
+                patches_to_pick.append(c)
         return reversed(patches_to_pick)
 
     def cherry_pick_commits(self, recreate_branch=True):
