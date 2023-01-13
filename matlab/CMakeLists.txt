@@ -318,12 +318,15 @@ matlab_add_mex(R2018a
 target_include_directories(mexcall PRIVATE ${CPP_SOURCE_DIR})
 
 ############# libmexclass #################################
-# TODO: Define CUSTOM_PROXY variables.
-set(CUSTOM_PROXY_FACTORY_INCLUDE_DIR "")
-set(CUSTOM_PROXY_FACTORY_SOURCES "")
-set(CUSTOM_PROXY_SOURCES "")
-set(CUSTOM_PROXY_INCLUDE_DIR "")
-set(CUSTOM_PROXY_LINK_LIBRARIES "")
+get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
+get_target_property(ARROW_INCLUDE_DIR arrow_shared INTERFACE_INCLUDE_DIRECTORIES)
+
+set(CUSTOM_PROXY_FACTORY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy;${CMAKE_SOURCE_DIR}/src/cpp")
+set(CUSTOM_PROXY_FACTORY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy/CustomProxyFactory.cc")
+set(CUSTOM_PROXY_SOURCES_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy")
+set(CUSTOM_PROXY_SOURCES "${CUSTOM_PROXY_SOURCES_DIR}/array/double_array_proxy.cc")
+set(CUSTOM_PROXY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp;${ARROW_INCLUDE_DIR}")
+set(CUSTOM_PROXY_LINK_LIBRARIES ${ARROW_SHARED_LIB})
 
 # Build libmexclass as an external project.
 include(ExternalProject)
@@ -337,6 +340,7 @@ ExternalProject_Add(
                      "-D CUSTOM_PROXY_SOURCES:STRING=${CUSTOM_PROXY_SOURCES}"
                      "-D CUSTOM_PROXY_INCLUDE_DIR:STRING=${CUSTOM_PROXY_INCLUDE_DIR}"
                      "-D CUSTOM_PROXY_LINK_LIBRARIES:STRING=${CUSTOM_PROXY_LINK_LIBRARIES}"
+    INSTALL_COMMAND ""
 )
 
 # TODO: Install libmexclass binaries.
