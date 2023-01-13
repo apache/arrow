@@ -272,9 +272,17 @@ marked with one or both of the following labels:
   For changes in C++, this does not include changes that simply break ABI
   compatibility, except for the few places where we do guarantee ABI
   compatibility (such as C Data Interface).
+  
+Breaking changes and critical fixes are separate: breaking changes alter the
+API contract, while critical fixes make the implementation align with the
+existing API contract. For example, fixing a bug that caused a Parquet reader
+to skip rows containing the number 42 is a critical fix but not a breaking change,
+since the row skipping wasn't behavior a reasonable user would rely on.
 
 These labels are used in the release to highlight changes that users ought to be
-aware of when they consider upgrading library versions.
+aware of when they consider upgrading library versions. Breaking changes help
+identify reasons when users may wish to wait to upgrade until they have time to
+adapt their code, while critical fixes highlight the risk in *not* upgrading.
 
 In addition, we use the following labels to indicate priority:
 
