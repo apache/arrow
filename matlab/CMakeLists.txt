@@ -331,6 +331,7 @@ ExternalProject_Add(
     libmexclass
     GIT_REPOSITORY git@github.com:mathworks/libmexclass.git
     GIT_TAG main
+    SOURCE_SUBDIR libmexclass/cpp
     CMAKE_CACHE_ARGS "-D CUSTOM_PROXY_FACTORY_INCLUDE_DIR:STRING=${CUSTOM_PROXY_FACTORY_INCLUDE_DIR}"
                      "-D CUSTOM_PROXY_FACTORY_SOURCES:STRING=${CUSTOM_PROXY_FACTORY_SOURCES}"
                      "-D CUSTOM_PROXY_SOURCES:STRING=${CUSTOM_PROXY_SOURCES}"
