@@ -118,7 +118,8 @@ struct ValueBufferSlicer {
     return Status::OK();
   }
 #define NOT_IMPLEMENTED_VISIT(ArrowTypePrefix)                                      \
-  Status Visit(const ::arrow::ArrowTypePrefix##Array& array) {                      \
+  Status Visit(const ::arrow::ArrowTypePrefix##Array& array,                        \
+               std::shared_ptr<Buffer>* buffer) {                                   \
     return Status::NotImplemented("Slicing not implemented for " #ArrowTypePrefix); \
   }
 
@@ -1316,7 +1317,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     buffers[0] = bits_buffer_;
     // Should be a leaf array.
     DCHECK_GT(buffers.size(), 1);
-    ValueBufferSlicer slicer{memory_pool, /*buffer=*/nullptr};
+    ValueBufferSlicer slicer{memory_pool};
     if (array->data()->offset > 0) {
       RETURN_NOT_OK(::arrow::VisitArrayInline(*array, &slicer, &buffers[1]));
     }
