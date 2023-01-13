@@ -271,7 +271,8 @@ marked with one or both of the following labels:
 * **Breaking Change**: The change breaks backwards compatibility in a public API.
   For changes in C++, this does not include changes that simply break ABI
   compatibility, except for the few places where we do guarantee ABI
-  compatibility (such as C Data Interface).
+  compatibility (such as C Data Interface). Experimental APIs are *not*
+  exempt from this; they are just more likely to be associated with this tag.
   
 Breaking changes and critical fixes are separate: breaking changes alter the
 API contract, while critical fixes make the implementation align with the
