@@ -98,6 +98,7 @@ ARROW_TESTING_EXPORT
 Future<std::vector<ExecBatch>> StartAndCollect(
     ExecPlan* plan, AsyncGenerator<std::optional<ExecBatch>> gen);
 
+ARROW_TESTING_EXPORT
 AsyncGenerator<std::optional<ExecBatch>> MakeIntegerBatchGen(
     const std::vector<std::function<int64_t(int)>>& gens,
     const std::shared_ptr<Schema>& schema, int num_batches, int batch_size);
