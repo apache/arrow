@@ -33,7 +33,6 @@
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
-#include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
 
 namespace parquet {

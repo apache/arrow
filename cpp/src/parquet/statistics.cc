@@ -859,6 +859,17 @@ std::shared_ptr<Statistics> Statistics::Make(Type::type physical_type, const voi
 }
 
 std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
+                                             const EncodedStatistics* encoded_stats,
+                                             int64_t num_values,
+                                             ::arrow::MemoryPool* pool) {
+  DCHECK(encoded_stats != nullptr);
+  return Make(descr, encoded_stats->min(), encoded_stats->max(), num_values,
+              encoded_stats->null_count, encoded_stats->distinct_count,
+              encoded_stats->has_min && encoded_stats->has_max,
+              encoded_stats->has_null_count, encoded_stats->has_distinct_count, pool);
+}
+
+std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              const std::string& encoded_min,
                                              const std::string& encoded_max,
                                              int64_t num_values, int64_t null_count,

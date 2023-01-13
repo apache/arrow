@@ -563,23 +563,28 @@ Future<std::shared_ptr<Table>> DeclarationToTableAsync(Declaration declaration,
   return exec_plan->finished().Then([exec_plan, output_table] { return *output_table; });
 }
 
-Future<std::shared_ptr<Table>> DeclarationToTableAsync(Declaration declaration,
-                                                       bool use_threads) {
+Future<std::shared_ptr<Table>> DeclarationToTableAsync(
+    Declaration declaration, bool use_threads, MemoryPool* memory_pool,
+    FunctionRegistry* function_registry) {
   if (use_threads) {
-    return DeclarationToTableAsync(std::move(declaration), *threaded_exec_context());
+    ExecContext ctx(memory_pool, ::arrow::internal::GetCpuThreadPool(),
+                    function_registry);
+    return DeclarationToTableAsync(std::move(declaration), ctx);
   } else {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
-    ExecContext ctx(default_memory_pool(), tpool.get());
+    ExecContext ctx(memory_pool, tpool.get(), function_registry);
     return DeclarationToTableAsync(std::move(declaration), ctx)
         .Then([tpool](const std::shared_ptr<Table>& table) { return table; });
   }
 }
 
 Result<std::shared_ptr<Table>> DeclarationToTable(Declaration declaration,
-                                                  bool use_threads) {
+                                                  bool use_threads,
+                                                  MemoryPool* memory_pool,
+                                                  FunctionRegistry* function_registry) {
   return ::arrow::internal::RunSynchronously<Future<std::shared_ptr<Table>>>(
-      [declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
-        ExecContext ctx(default_memory_pool(), executor);
+      [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
+        ExecContext ctx(memory_pool, executor, function_registry);
         return DeclarationToTableAsync(std::move(declaration), ctx);
       },
       use_threads);
@@ -594,12 +599,15 @@ Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
 }
 
 Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
-    Declaration declaration, bool use_threads) {
+    Declaration declaration, bool use_threads, MemoryPool* memory_pool,
+    FunctionRegistry* function_registry) {
   if (use_threads) {
-    return DeclarationToBatchesAsync(std::move(declaration), *threaded_exec_context());
+    ExecContext ctx(memory_pool, ::arrow::internal::GetCpuThreadPool(),
+                    function_registry);
+    return DeclarationToBatchesAsync(std::move(declaration), ctx);
   } else {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
-    ExecContext ctx(default_memory_pool(), tpool.get());
+    ExecContext ctx(memory_pool, tpool.get(), function_registry);
     return DeclarationToBatchesAsync(std::move(declaration), ctx)
         .Then([tpool](const std::vector<std::shared_ptr<RecordBatch>>& batches) {
           return batches;
@@ -608,11 +616,12 @@ Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
 }
 
 Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatches(
-    Declaration declaration, bool use_threads) {
+    Declaration declaration, bool use_threads, MemoryPool* memory_pool,
+    FunctionRegistry* function_registry) {
   return ::arrow::internal::RunSynchronously<
       Future<std::vector<std::shared_ptr<RecordBatch>>>>(
-      [declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
-        ExecContext ctx(default_memory_pool(), executor);
+      [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
+        ExecContext ctx(memory_pool, executor, function_registry);
         return DeclarationToBatchesAsync(std::move(declaration), ctx);
       },
       use_threads);
@@ -641,24 +650,27 @@ Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(Declaration declar
       });
 }
 
-Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(Declaration declaration,
-                                                              bool use_threads) {
+Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(
+    Declaration declaration, bool use_threads, MemoryPool* memory_pool,
+    FunctionRegistry* function_registry) {
   if (use_threads) {
-    return DeclarationToExecBatchesAsync(std::move(declaration),
-                                         *threaded_exec_context());
+    ExecContext ctx(memory_pool, ::arrow::internal::GetCpuThreadPool(),
+                    function_registry);
+    return DeclarationToExecBatchesAsync(std::move(declaration), ctx);
   } else {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
-    ExecContext ctx(default_memory_pool(), tpool.get());
+    ExecContext ctx(memory_pool, tpool.get(), function_registry);
     return DeclarationToExecBatchesAsync(std::move(declaration), ctx)
         .Then([tpool](const BatchesWithCommonSchema& batches) { return batches; });
   }
 }
 
-Result<BatchesWithCommonSchema> DeclarationToExecBatches(Declaration declaration,
-                                                         bool use_threads) {
+Result<BatchesWithCommonSchema> DeclarationToExecBatches(
+    Declaration declaration, bool use_threads, MemoryPool* memory_pool,
+    FunctionRegistry* function_registry) {
   return ::arrow::internal::RunSynchronously<Future<BatchesWithCommonSchema>>(
-      [declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
-        ExecContext ctx(default_memory_pool(), executor);
+      [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
+        ExecContext ctx(memory_pool, executor, function_registry);
         return DeclarationToExecBatchesAsync(std::move(declaration), ctx);
       },
       use_threads);
@@ -680,20 +692,25 @@ Future<> DeclarationToStatusAsync(Declaration declaration, ExecContext exec_cont
   return exec_plan->finished().Then([exec_plan]() {});
 }
 
-Future<> DeclarationToStatusAsync(Declaration declaration, bool use_threads) {
+Future<> DeclarationToStatusAsync(Declaration declaration, bool use_threads,
+                                  MemoryPool* memory_pool,
+                                  FunctionRegistry* function_registry) {
   if (use_threads) {
-    return DeclarationToStatusAsync(std::move(declaration), *threaded_exec_context());
+    ExecContext ctx(memory_pool, ::arrow::internal::GetCpuThreadPool(),
+                    function_registry);
+    return DeclarationToStatusAsync(std::move(declaration), ctx);
   } else {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
-    ExecContext ctx(default_memory_pool(), tpool.get());
+    ExecContext ctx(memory_pool, tpool.get(), function_registry);
     return DeclarationToStatusAsync(std::move(declaration), ctx).Then([tpool]() {});
   }
 }
 
-Status DeclarationToStatus(Declaration declaration, bool use_threads) {
+Status DeclarationToStatus(Declaration declaration, bool use_threads,
+                           MemoryPool* memory_pool, FunctionRegistry* function_registry) {
   return ::arrow::internal::RunSynchronously<Future<>>(
-      [declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
-        ExecContext ctx(default_memory_pool(), executor);
+      [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
+        ExecContext ctx(memory_pool, executor, function_registry);
         return DeclarationToStatusAsync(std::move(declaration), ctx);
       },
       use_threads);
@@ -738,11 +755,9 @@ struct BatchConverter {
 };
 
 Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> DeclarationToRecordBatchGenerator(
-    Declaration declaration, ::arrow::internal::Executor* executor,
-    std::shared_ptr<Schema>* out_schema) {
+    Declaration declaration, ExecContext exec_ctx, std::shared_ptr<Schema>* out_schema) {
   auto converter = std::make_shared<BatchConverter>();
-  ExecContext exec_context(default_memory_pool(), executor);
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(exec_context));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(exec_ctx));
   Declaration with_sink = Declaration::Sequence(
       {declaration,
        {"sink", SinkNodeOptions(&converter->exec_batch_gen, &converter->schema)}});
@@ -754,14 +769,16 @@ Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> DeclarationToRecordBatchGen
 }
 }  // namespace
 
-Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(Declaration declaration,
-                                                               bool use_threads) {
+Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
+    Declaration declaration, bool use_threads, MemoryPool* memory_pool,
+    FunctionRegistry* function_registry) {
   std::shared_ptr<Schema> schema;
   auto batch_iterator = std::make_unique<Iterator<std::shared_ptr<RecordBatch>>>(
       ::arrow::internal::IterateSynchronously<std::shared_ptr<RecordBatch>>(
           [&](::arrow::internal::Executor* executor)
               -> Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> {
-            return DeclarationToRecordBatchGenerator(declaration, executor, &schema);
+            ExecContext exec_ctx(memory_pool, executor, function_registry);
+            return DeclarationToRecordBatchGenerator(declaration, exec_ctx, &schema);
           },
           use_threads));
 

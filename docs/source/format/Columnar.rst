@@ -21,7 +21,7 @@
 Arrow Columnar Format
 *********************
 
-*Version: 1.0*
+*Version: 1.3*
 
 The "Arrow Columnar Format" includes a language-agnostic in-memory
 data structure specification, metadata serialization, and a protocol
@@ -120,6 +120,12 @@ the different physical layouts defined by Arrow:
 * **Sparse** and **Dense Union**: a nested layout representing a
   sequence of values, each of which can have type chosen from a
   collection of child array types.
+* **Dictionary-Encoded**: a layout consisting of a sequence of
+  integers (any bit-width) which represent indexes into a dictionary
+  which could be of any type.
+* **Run-End Encoded (REE)**: a nested layout consisting of two child arrays,
+  one representing values, and one representing the logical index where
+  the run of a corresponding value ends.
 * **Null**: a sequence of all null values, having null logical type
 
 The Arrow columnar memory layout only applies to *data* and not
@@ -318,6 +324,8 @@ location for all values is valid and well defined.
 Generally the first slot in the offsets array is 0, and the last slot
 is the length of the values array. When serializing this layout, we
 recommend normalizing the offsets to start at 0.
+
+.. _variable-size-list-layout:
 
 Variable-size List Layout
 -------------------------
@@ -765,6 +773,84 @@ application.
 We discuss dictionary encoding as it relates to serialization further
 below.
 
+.. _run-end-encoded-layout:
+
+Run-End Encoded Layout
+----------------------
+
+Run-end encoding (REE) is a variation of run-length encoding (RLE). These
+encodings are well-suited for representing data containing sequences of the
+same value, called runs. In run-end encoding, each run is represented as a
+value and an integer giving the index in the array where the run ends.
+
+Any array can be run-end encoded. A run-end encoded array has no buffers
+by itself, but has two child arrays. The first child array, called the run ends array,
+holds either 16, 32, or 64-bit signed integers. The actual values of each run
+are held in the second child array.
+For the purposes of determining field names and schemas, these child arrays
+are prescribed the standard names of **run_ends** and **values** respectively.
+
+The values in the first child array represent the accumulated length of all runs 
+from the first to the current one, i.e. the logical index where the
+current run ends. This allows relatively efficient random access from a logical
+index using binary search. The length of an individual run can be determined by
+subtracting two adjacent values. (Contrast this with run-length encoding, in
+which the lengths of the runs are represented directly, and in which random
+access is less efficient.) 
+
+.. note::
+   Because the ``run_ends`` child array cannot have nulls, it's reasonable
+   to consider why the ``run_ends`` are a child array instead of just a
+   buffer, like the offsets for a :ref:`variable-size-list-layout`. This
+   layout was considered, but it was decided to use the child arrays. 
+
+   Child arrays allow us to keep the "logical length" (the decoded length)
+   associated with the parent array and the "physical length" (the number
+   of run ends) associated with the child arrays.  If ``run_ends`` was a
+   buffer in the parent array then the size of the buffer would be unrelated
+   to the length of the array and this would be confusing.
+
+
+A run must have have a length of at least 1. This means the values in the
+run ends array all are positive and in strictly ascending order. A run end cannot be
+null.
+
+As an example, you could have the following data: ::
+
+    type: Float32
+    [1.0, 1.0, 1.0, 1.0, null, null, 2.0]
+
+In Run-end-encoded form, this could appear as:
+
+::
+
+    * Length: 7, Null count: 2
+    * Child Arrays:
+
+      * run_ends (Int32):
+        * Length: 3, Null count: 0 (Run Ends cannot be null)
+        * Validity bitmap buffer: Not required (if it exists, it should be all 1s)
+        * Values buffer
+
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-63           |
+          |-------------|-------------|-------------|-----------------------|
+          | 4           | 6           | 7           | unspecified (padding) |
+
+      * values (Float32):
+        * Length: 3, Null count: 1
+        * Validity bitmap buffer:
+
+          | Byte 0 (validity bitmap) | Bytes 1-63            |
+          |--------------------------|-----------------------|
+          | 00000101                 | 0 (padding)           |
+
+        * Values buffer
+
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-63           |
+          |-------------|-------------|-------------|-----------------------|
+          | 1.0         | unspecified | 2.0         | unspecified (padding) |
+
+
 Buffer Listing for Each Layout
 ------------------------------
 
@@ -784,6 +870,7 @@ of memory buffers for each layout.
    "Dense Union",type ids,offsets,
    "Null",,,
    "Dictionary-encoded",validity,data (indices),
+   "Run-end encoded",,,
 
 Logical Types
 =============

@@ -426,24 +426,36 @@ struct ARROW_EXPORT Declaration {
 
 /// \brief Utility method to run a declaration and collect the results into a table
 ///
+/// \param use_threads If `use_threads` is false then all CPU work will be done on the
+///                    calling thread.  I/O tasks will still happen on the I/O executor
+///                    and may be multi-threaded (but should not use significant CPU
+///                    resources).
+/// \param memory_pool The memory pool to use for allocations made while running the plan.
+/// \param function_registry The function registry to use for function execution.  If null
+///                          then the default function registry will be used.
+///
 /// This method will add a sink node to the declaration to collect results into a
 /// table.  It will then create an ExecPlan from the declaration, start the exec plan,
 /// block until the plan has finished, and return the created table.
-///
-/// If `use_threads` is false then all CPU work will be done on the calling thread.  I/O
-/// tasks will still happen on the I/O executor and may be multi-threaded (but should
-/// not use significant CPU resources)
-ARROW_EXPORT Result<std::shared_ptr<Table>> DeclarationToTable(Declaration declaration,
-                                                               bool use_threads = true);
+ARROW_EXPORT Result<std::shared_ptr<Table>> DeclarationToTable(
+    Declaration declaration, bool use_threads = true,
+    MemoryPool* memory_pool = default_memory_pool(),
+    FunctionRegistry* function_registry = NULLPTR);
 
 /// \brief Asynchronous version of \see DeclarationToTable
 ///
-/// The behavior of use_threads is slightly different than the synchronous version since
-/// we cannot run synchronously on the calling thread.  Instead, if use_threads=false then
-/// a new thread pool will be created with a single thread and this will be used for all
-/// compute work.
+/// \param use_threads The behavior of use_threads is slightly different than the
+///                    synchronous version since we cannot run synchronously on the
+///                    calling thread. Instead, if use_threads=false then a new thread
+///                    pool will be created with a single thread and this will be used for
+///                    all compute work.
+/// \param memory_pool The memory pool to use for allocations made while running the plan.
+/// \param function_registry The function registry to use for function execution. If null
+///                          then the default function registry will be used.
 ARROW_EXPORT Future<std::shared_ptr<Table>> DeclarationToTableAsync(
-    Declaration declaration, bool use_threads = true);
+    Declaration declaration, bool use_threads = true,
+    MemoryPool* memory_pool = default_memory_pool(),
+    FunctionRegistry* function_registry = NULLPTR);
 
 /// \brief Overload of \see DeclarationToTableAsync accepting a custom exec context
 ///
@@ -463,13 +475,17 @@ struct BatchesWithCommonSchema {
 ///
 /// \see DeclarationToTable for details on threading & execution
 ARROW_EXPORT Result<BatchesWithCommonSchema> DeclarationToExecBatches(
-    Declaration declaration, bool use_threads = true);
+    Declaration declaration, bool use_threads = true,
+    MemoryPool* memory_pool = default_memory_pool(),
+    FunctionRegistry* function_registry = NULLPTR);
 
 /// \brief Asynchronous version of \see DeclarationToExecBatches
 ///
 /// \see DeclarationToTableAsync for details on threading & execution
 ARROW_EXPORT Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(
-    Declaration declaration, bool use_threads = true);
+    Declaration declaration, bool use_threads = true,
+    MemoryPool* memory_pool = default_memory_pool(),
+    FunctionRegistry* function_registry = NULLPTR);
 
 /// \brief Overload of \see DeclarationToExecBatchesAsync accepting a custom exec context
 ///
@@ -481,13 +497,17 @@ ARROW_EXPORT Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(
 ///
 /// \see DeclarationToTable for details on threading & execution
 ARROW_EXPORT Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatches(
-    Declaration declaration, bool use_threads = true);
+    Declaration declaration, bool use_threads = true,
+    MemoryPool* memory_pool = default_memory_pool(),
+    FunctionRegistry* function_registry = NULLPTR);
 
 /// \brief Asynchronous version of \see DeclarationToBatches
 ///
 /// \see DeclarationToTableAsync for details on threading & execution
 ARROW_EXPORT Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
-    Declaration declaration, bool use_threads = true);
+    Declaration declaration, bool use_threads = true,
+    MemoryPool* memory_pool = default_memory_pool(),
+    FunctionRegistry* function_registry = NULLPTR);
 
 /// \brief Overload of \see DeclarationToBatchesAsync accepting a custom exec context
 ///
@@ -511,7 +531,13 @@ ARROW_EXPORT Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatc
 ///
 /// If a custom exec context is provided then the value of `use_threads` will be ignored.
 ARROW_EXPORT Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
-    Declaration declaration, bool use_threads = true);
+    Declaration declaration, bool use_threads = true,
+    MemoryPool* memory_pool = default_memory_pool(),
+    FunctionRegistry* function_registry = NULLPTR);
+
+/// \brief Overload of \see DeclarationToReader accepting a custom exec context
+ARROW_EXPORT Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
+    Declaration declaration, ExecContext exec_context);
 
 /// \brief Utility method to run a declaration and ignore results
 ///
@@ -519,7 +545,9 @@ ARROW_EXPORT Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
 /// example, when the plan ends with a write node.
 ///
 /// \see DeclarationToTable for details on threading & execution
-ARROW_EXPORT Status DeclarationToStatus(Declaration declaration, bool use_threads = true);
+ARROW_EXPORT Status DeclarationToStatus(Declaration declaration, bool use_threads = true,
+                                        MemoryPool* memory_pool = default_memory_pool(),
+                                        FunctionRegistry* function_registry = NULLPTR);
 
 /// \brief Asynchronous version of \see DeclarationToStatus
 ///
@@ -527,8 +555,10 @@ ARROW_EXPORT Status DeclarationToStatus(Declaration declaration, bool use_thread
 /// example, when the plan ends with a write node.
 ///
 /// \see DeclarationToTableAsync for details on threading & execution
-ARROW_EXPORT Future<> DeclarationToStatusAsync(Declaration declaration,
-                                               bool use_threads = true);
+ARROW_EXPORT Future<> DeclarationToStatusAsync(
+    Declaration declaration, bool use_threads = true,
+    MemoryPool* memory_pool = default_memory_pool(),
+    FunctionRegistry* function_registry = NULLPTR);
 
 /// \brief Overload of \see DeclarationToStatusAsync accepting a custom exec context
 ///
