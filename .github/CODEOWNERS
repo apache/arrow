@@ -35,6 +35,7 @@
 /cpp/src/arrow/util/async* @westonpace
 /cpp/src/arrow/util/future* @westonpace
 /cpp/src/arrow/util/thread* @westonpace
+/cpp/src/parquet @wjones127
 /cpp/src/skyhook @westonpace 
 /csharp/ @westonpace 
 /go/ @zeroshade
@@ -43,6 +44,7 @@
 /matlab/ @assignUser 
 /python/
 /python/pyarrow/_flight.pyx @lidavidm
+/python/pyarrow/**/*gandiva* @wjones127 
 /r/
 /ruby/ @kou
 
