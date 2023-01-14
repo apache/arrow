@@ -265,7 +265,8 @@ class ReportUtils:
 
 class EmailReport(JinjaReport):
     templates = {
-        'text': 'email_nightly_report.txt.j2',
+        'nightly_report': 'email_nightly_report.txt.j2',
+        'token_expiration': 'email_token_expiration.txt.j2',
     }
     fields = [
         'report',

@@ -389,6 +389,7 @@ class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper
 
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReader) { TestScan(); }
 TEST_P(TestParquetFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
+TEST_P(TestParquetFileFormatScan, ScanNoReadahead) { TestScanNoReadahead(); }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjectedNested) {
   // TODO(ARROW-1888): enable fine-grained column projection.

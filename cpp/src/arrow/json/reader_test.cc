@@ -41,6 +41,16 @@ using std::string_view;
 
 using internal::checked_cast;
 
+static Result<std::shared_ptr<Table>> ReadToTable(std::string json,
+                                                  const ReadOptions& read_options,
+                                                  const ParseOptions& parse_options) {
+  std::shared_ptr<io::InputStream> input;
+  RETURN_NOT_OK(MakeStream(json, &input));
+  ARROW_ASSIGN_OR_RAISE(auto reader, TableReader::Make(default_memory_pool(), input,
+                                                       read_options, parse_options));
+  return reader->Read();
+}
+
 class ReaderTest : public ::testing::TestWithParam<bool> {
  public:
   void SetUpReader() {
@@ -323,6 +333,105 @@ TEST(ReaderTest, FailOnInvalidEOF) {
                                                         read_options, parse_options));
     ASSERT_RAISES(Invalid, reader->Read());
   }
+}
+
+// ARROW-18106
+TEST(ReaderTest, FailOnTimeUnitMismatch) {
+  std::string json = R"({"t":"2022-09-05T08:08:46.000"})";
+
+  auto read_options = ReadOptions::Defaults();
+  read_options.use_threads = false;
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.explicit_schema = schema({field("t", timestamp(TimeUnit::SECOND))});
+
+  std::shared_ptr<io::InputStream> input;
+  std::shared_ptr<TableReader> reader;
+  for (auto behavior : {UnexpectedFieldBehavior::Error, UnexpectedFieldBehavior::Ignore,
+                        UnexpectedFieldBehavior::InferType}) {
+    parse_options.unexpected_field_behavior = behavior;
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::StartsWith("Invalid: Failed to convert JSON to timestamp[s]"),
+        ReadToTable(json, read_options, parse_options));
+  }
+}
+
+TEST(ReaderTest, InferNestedFieldsWithSchema) {
+  std::string json = R"({}
+    {"a": {"c": null}}
+    {"a": {"c": {}}}
+    {"a": {"c": {"d": null}}}
+    {"a": {"c": {"d": []}}}
+    {"a": {"c": {"d": [null]}}}
+    {"a": {"c": {"d": [{}]}}}
+    {"a": {"c": {"d": [{"e": null}]}}}
+    {"a": {"c": {"d": [{"e": true}]}}}
+  )";
+
+  auto read_options = ReadOptions::Defaults();
+  read_options.use_threads = false;
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.explicit_schema =
+      schema({field("a", struct_({field("b", timestamp(TimeUnit::SECOND))}))});
+  parse_options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+
+  auto expected_schema = schema({field(
+      "a", struct_({field("b", timestamp(TimeUnit::SECOND)),
+                    field("c", struct_({field(
+                                   "d", list(struct_({field("e", boolean())})))}))}))});
+  auto expected_batch = RecordBatchFromJSON(expected_schema, R"([
+    {"a": null},
+    {"a": {"b": null, "c": null}},
+    {"a": {"b": null, "c": {"d": null}}},
+    {"a": {"b": null, "c": {"d": null}}},
+    {"a": {"b": null, "c": {"d": []}}},
+    {"a": {"b": null, "c": {"d": [null]}}},
+    {"a": {"b": null, "c": {"d": [{"e": null}]}}},
+    {"a": {"b": null, "c": {"d": [{"e": null}]}}},
+    {"a": {"b": null, "c": {"d": [{"e": true}]}}}
+  ])");
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({expected_batch}));
+
+  ASSERT_OK_AND_ASSIGN(auto table, ReadToTable(json, read_options, parse_options));
+  AssertTablesEqual(*expected_table, *table);
+
+  json += std::string(R"({"a": {"b": "2022-09-05T08:08:46.000"}})") + "\n";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::StartsWith("Invalid: Failed to convert JSON to timestamp[s]"),
+      ReadToTable(json, read_options, parse_options));
+}
+
+TEST(ReaderTest, InferNestedFieldsInListWithSchema) {
+  std::string json = R"({}
+    {"a": [{"b": "2022-09-05T08:08:00"}]}
+    {"a": [{"b": "2022-09-05T08:08:01", "c": null}]}
+    {"a": [{"b": "2022-09-05T08:08:02", "c": {"d": true}}]}
+  )";
+
+  auto read_options = ReadOptions::Defaults();
+  read_options.use_threads = false;
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.explicit_schema =
+      schema({field("a", list(struct_({field("b", timestamp(TimeUnit::SECOND))})))});
+  parse_options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+
+  auto expected_schema =
+      schema({field("a", list(struct_({field("b", timestamp(TimeUnit::SECOND)),
+                                       field("c", struct_({field("d", boolean())}))})))});
+  auto expected_batch = RecordBatchFromJSON(expected_schema, R"([
+    {"a": null},
+    {"a": [{"b": "2022-09-05T08:08:00", "c": null}]},
+    {"a": [{"b": "2022-09-05T08:08:01", "c": null}]},
+    {"a": [{"b": "2022-09-05T08:08:02", "c": {"d": true}}]}
+  ])");
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({expected_batch}));
+
+  ASSERT_OK_AND_ASSIGN(auto table, ReadToTable(json, read_options, parse_options));
+  AssertTablesEqual(*expected_table, *table);
+
+  json += std::string(R"({"a": [{"b": "2022-09-05T08:08:03.000", "c": {}}]})") + "\n";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::StartsWith("Invalid: Failed to convert JSON to timestamp[s]"),
+      ReadToTable(json, read_options, parse_options));
 }
 
 class StreamingReaderTestBase {

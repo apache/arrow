@@ -394,7 +394,8 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
     if (has_output) {
       ASSERT_FINISHES_OK_AND_ASSIGN(auto out_batches,
                                     cp::StartAndCollect(plan.get(), sink_gen));
-      cp::AssertExecBatchesEqual(source_data.schema, source_data.batches, out_batches);
+      cp::AssertExecBatchesEqualIgnoringOrder(source_data.schema, source_data.batches,
+                                              out_batches);
     } else {
       ASSERT_FINISHES_OK(cp::StartAndFinish(plan.get()));
     }
@@ -417,7 +418,8 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
 
     ASSERT_FINISHES_OK_AND_ASSIGN(auto written_batches,
                                   cp::StartAndCollect(plan.get(), sink_gen));
-    cp::AssertExecBatchesEqual(source_data.schema, source_data.batches, written_batches);
+    cp::AssertExecBatchesEqualIgnoringOrder(source_data.schema, source_data.batches,
+                                            written_batches);
   }
 };
 

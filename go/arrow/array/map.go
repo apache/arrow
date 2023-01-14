@@ -222,6 +222,10 @@ func (b *MapBuilder) AppendValues(offsets []int32, valid []bool) {
 	b.listBuilder.AppendValues(offsets, valid)
 }
 
+func (b *MapBuilder) UnsafeAppendBoolToBitmap(v bool) {
+	b.listBuilder.UnsafeAppendBoolToBitmap(v)
+}
+
 func (b *MapBuilder) init(capacity int)                  { b.listBuilder.init(capacity) }
 func (b *MapBuilder) resize(newBits int, init func(int)) { b.listBuilder.resize(newBits, init) }
 
@@ -272,8 +276,8 @@ func (b *MapBuilder) ItemBuilder() Builder { return b.itemBuilder }
 // ValueBuilder can be used instead of separately using the Key/Item builders
 // to build the list as a List of Structs rather than building the keys/items
 // separately.
-func (b *MapBuilder) ValueBuilder() *StructBuilder {
-	return b.listBuilder.ValueBuilder().(*StructBuilder)
+func (b *MapBuilder) ValueBuilder() Builder {
+	return b.listBuilder.ValueBuilder()
 }
 
 func (b *MapBuilder) unmarshalOne(dec *json.Decoder) error {
@@ -299,6 +303,7 @@ func (b *MapBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ arrow.Array = (*Map)(nil)
-	_ Builder     = (*MapBuilder)(nil)
+	_ arrow.Array     = (*Map)(nil)
+	_ Builder         = (*MapBuilder)(nil)
+	_ ListLikeBuilder = (*MapBuilder)(nil)
 )

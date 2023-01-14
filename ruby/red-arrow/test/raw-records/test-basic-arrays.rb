@@ -117,6 +117,16 @@ module RawRecordsBasicArraysTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_half_float
+    records = [
+      [-1.5],
+      [nil],
+      [1.5],
+    ]
+    target = build({column: :half_float}, records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_float
     records = [
       [-1.0],

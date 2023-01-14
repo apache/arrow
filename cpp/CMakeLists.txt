@@ -489,10 +489,11 @@ endif()
 include(BuildUtils)
 enable_testing()
 
-# For arrow.pc. Requires.private and Libs.private are used when
-# "pkg-config --libs --static arrow" is used.
-set(ARROW_PC_REQUIRES_PRIVATE)
-set(ARROW_PC_LIBS_PRIVATE)
+# For arrow.pc. Cflags.private, Libs.private and Requires.private are
+# used when "pkg-config --cflags --libs --static arrow" is used.
+set(ARROW_PC_CFLAGS_PRIVATE " -DARROW_STATIC")
+set(ARROW_PC_LIBS_PRIVATE "")
+set(ARROW_PC_REQUIRES_PRIVATE "")
 
 include(ThirdpartyToolchain)
 
@@ -525,6 +526,10 @@ endif()
 # CMAKE_CXX_FLAGS now fully assembled
 message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+message(STATUS "CMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}: ${CMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}}"
+)
+message(STATUS "CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}: ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}}"
+)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/src)
 include_directories(src)

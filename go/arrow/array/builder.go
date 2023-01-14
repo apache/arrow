@@ -74,6 +74,8 @@ type Builder interface {
 	// a new array.
 	NewArray() arrow.Array
 
+	UnsafeAppendBoolToBitmap(bool)
+
 	init(capacity int)
 	resize(newBits int, init func(int))
 

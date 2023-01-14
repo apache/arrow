@@ -126,6 +126,21 @@ class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
   arrow::internal::Executor* io_executor;
 };
 
+class ARROW_EXPORT RecordBatchReaderSourceNodeOptions : public ExecNodeOptions {
+ public:
+  RecordBatchReaderSourceNodeOptions(std::shared_ptr<RecordBatchReader> reader,
+                                     arrow::internal::Executor* io_executor = NULLPTR)
+      : reader(std::move(reader)), io_executor(io_executor) {}
+
+  /// \brief The RecordBatchReader which acts as the data source
+  std::shared_ptr<RecordBatchReader> reader;
+
+  /// \brief The executor to use for the reader
+  ///
+  /// Defaults to the default I/O executor.
+  arrow::internal::Executor* io_executor;
+};
+
 using ArrayVectorIteratorMaker = std::function<Iterator<std::shared_ptr<ArrayVector>>()>;
 /// \brief An extended Source node which accepts a schema and array-vectors
 class ARROW_EXPORT ArrayVectorSourceNodeOptions
@@ -199,8 +214,8 @@ constexpr int32_t kDefaultBackpressureLowBytes = 1 << 28;   // 256MiB
 class ARROW_EXPORT BackpressureMonitor {
  public:
   virtual ~BackpressureMonitor() = default;
-  virtual uint64_t bytes_in_use() const = 0;
-  virtual bool is_paused() const = 0;
+  virtual uint64_t bytes_in_use() = 0;
+  virtual bool is_paused() = 0;
 };
 
 /// \brief Options to control backpressure behavior
@@ -488,13 +503,13 @@ class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
     /// \brief "on" key for the join.
     ///
     /// The input table must be sorted by the "on" key. Must be a single field of a common
-    /// type. Inexact match is used on the "on" key. i.e., a row is considered match iff
+    /// type. Inexact match is used on the "on" key. i.e., a row is considered a match iff
     /// left_on - tolerance <= right_on <= left_on.
     /// Currently, the "on" key must be of an integer, date, or timestamp type.
     FieldRef on_key;
     /// \brief "by" key for the join.
     ///
-    /// The input table must have each field of the "by" key.  Exact equality is used for
+    /// Each input table must have each field of the "by" key.  Exact equality is used for
     /// each field of the "by" key.
     /// Currently, each field of the "by" key must be of an integer, date, timestamp, or
     /// base-binary type.
@@ -506,7 +521,7 @@ class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
 
   /// \brief AsofJoin keys per input table.
   ///
-  /// See `Keys` for details.
+  /// \see `Keys` for details.
   std::vector<Keys> input_keys;
   /// \brief Tolerance for inexact "on" key matching.  Must be non-negative.
   ///

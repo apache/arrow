@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,25 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+# flake8: noqa
 
-if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <turbodbc version> <target directory>"
-  exit 1
-fi
-
-turbodbc=$1
-target=$2
-
-git clone --recurse-submodules https://github.com/blue-yonder/turbodbc "${target}"
-if [ "${turbodbc}" = "latest" ]; then
-  git -C "${target}" checkout $(git describe --tags);
-else
-  git -C "${target}" checkout ${turbodbc};
-fi
-
-pushd ${target}
-wget -q https://github.com/pybind/pybind11/archive/v2.6.2.tar.gz
-tar xvf v2.6.2.tar.gz
-mv pybind11-2.6.2 pybind11
-popd
+from .from_dataframe import from_dataframe

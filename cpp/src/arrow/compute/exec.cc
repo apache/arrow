@@ -48,6 +48,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
 
 namespace arrow {
@@ -56,12 +57,18 @@ using internal::BitmapAnd;
 using internal::checked_cast;
 using internal::CopyBitmap;
 using internal::CpuInfo;
+using internal::GetCpuThreadPool;
 
 namespace compute {
 
 ExecContext* default_exec_context() {
   static ExecContext default_ctx;
   return &default_ctx;
+}
+
+ExecContext* threaded_exec_context() {
+  static ExecContext threaded_ctx(default_memory_pool(), GetCpuThreadPool());
+  return &threaded_ctx;
 }
 
 ExecBatch::ExecBatch(const RecordBatch& batch)

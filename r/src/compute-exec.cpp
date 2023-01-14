@@ -41,6 +41,9 @@ std::shared_ptr<arrow::KeyValueMetadata> strings_to_kvm(cpp11::strings metadata)
 std::shared_ptr<compute::ExecPlan> ExecPlan_create(bool use_threads) {
   static compute::ExecContext threaded_context{gc_memory_pool(),
                                                arrow::internal::GetCpuThreadPool()};
+  // TODO(weston) using gc_context() in this way is deprecated.  Once ordering has
+  // been added we can probably entirely remove all reference to ExecPlan from R
+  // in favor of DeclarationToXyz
   auto plan = ValueOrStop(
       compute::ExecPlan::Make(use_threads ? &threaded_context : gc_context()));
   return plan;
@@ -264,6 +267,12 @@ std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan) {
 }
 
 // [[arrow::export]]
+void ExecPlan_UnsafeDelete(const std::shared_ptr<compute::ExecPlan>& plan) {
+  auto& plan_unsafe = const_cast<std::shared_ptr<compute::ExecPlan>&>(plan);
+  plan_unsafe.reset();
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(
     const std::shared_ptr<compute::ExecNode>& node) {
   return node->output_schema();
@@ -444,12 +453,8 @@ std::shared_ptr<compute::ExecNode> ExecNode_Union(
 std::shared_ptr<compute::ExecNode> ExecNode_SourceNode(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
-  arrow::compute::SourceNodeOptions options{
-      /*output_schema=*/reader->schema(),
-      /*generator=*/ValueOrStop(
-          compute::MakeReaderGenerator(reader, arrow::internal::GetCpuThreadPool()))};
-
-  return MakeExecNodeOrStop("source", plan.get(), {}, options);
+  arrow::compute::RecordBatchReaderSourceNodeOptions options{reader};
+  return MakeExecNodeOrStop("record_batch_reader_source", plan.get(), {}, options);
 }
 
 // [[arrow::export]]

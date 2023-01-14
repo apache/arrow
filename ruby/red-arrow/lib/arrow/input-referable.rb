@@ -15,12 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-prefix=@CMAKE_INSTALL_PREFIX@
-includedir=@ARROW_PKG_CONFIG_INCLUDEDIR@
-libdir=@ARROW_PKG_CONFIG_LIBDIR@
+module Arrow
+  module InputReferable
+    def refer_input(input)
+      @input = input
+    end
 
-Name: Apache Arrow Python Flight
-Description: Python integration library for Apache Arrow Flight
-Version: @ARROW_VERSION@
-Requires: arrow-python arrow-flight
-Libs: -L${libdir} -larrow_python_flight
+    def share_input(other)
+      return unless defined?(@input)
+      other.refer_input(@input)
+    end
+  end
+end

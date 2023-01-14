@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+skip_if_not_available("s3")
 
 run_these <- tryCatch(
   expr = {

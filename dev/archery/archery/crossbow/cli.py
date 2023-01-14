@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from datetime import date
 from pathlib import Path
 import time
 import sys
@@ -402,10 +403,10 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
             smtp_server=smtp_server,
             smtp_port=smtp_port,
             recipient_email=recipient_email,
-            message=email_report.render("text")
+            message=email_report.render("nightly_report")
         )
     else:
-        output.write(email_report.render("text"))
+        output.write(email_report.render("nightly_report"))
 
 
 @crossbow.command()
@@ -589,3 +590,69 @@ def delete_old_branches(obj, dry_run, days, maximum):
             queue.push(batch)
         else:
             print(batch)
+
+
+@crossbow.command()
+@click.option('--days', default=30,
+              help='Notification will be sent if expiration date is '
+                   'closer than the number of days.')
+@click.option('--sender-name', '-n',
+              help='Name to use for report e-mail.')
+@click.option('--sender-email', '-e',
+              help='E-mail to use for report e-mail.')
+@click.option('--recipient-email', '-r',
+              help='Where to send the e-mail report')
+@click.option('--smtp-user', '-u',
+              help='E-mail address to use for SMTP login')
+@click.option('--smtp-password', '-P',
+              help='SMTP password to use for report e-mail.')
+@click.option('--smtp-server', '-s', default='smtp.gmail.com',
+              help='SMTP server to use for report e-mail.')
+@click.option('--smtp-port', '-p', default=465,
+              help='SMTP port to use for report e-mail.')
+@click.option('--send/--dry-run', default=False,
+              help='Just display the report, don\'t send it')
+@click.pass_obj
+def notify_token_expiration(obj, days, sender_name, sender_email,
+                            recipient_email, smtp_user, smtp_password,
+                            smtp_server, smtp_port, send):
+    """
+    Check if token is close to expiration and send email notifying.
+    """
+    output = obj['output']
+    queue = obj['queue']
+
+    token_expiration_date = queue.token_expiration_date()
+    days_left = 0
+    if token_expiration_date:
+        days_left = (token_expiration_date - date.today()).days
+        if days_left > days:
+            output.write("Notification not sent. " +
+                         f"Token will expire in {days_left} days.")
+            return
+
+    class TokenExpirationReport:
+        def __init__(self, token_expiration_date, days_left):
+            self.token_expiration_date = token_expiration_date
+            self.days_left = days_left
+
+    email_report = EmailReport(
+        report=TokenExpirationReport(
+            token_expiration_date or "ALREADY_EXPIRED", days_left),
+        sender_name=sender_name,
+        sender_email=sender_email,
+        recipient_email=recipient_email
+    )
+
+    message = email_report.render("token_expiration").strip()
+    if send:
+        ReportUtils.send_email(
+            smtp_user=smtp_user,
+            smtp_password=smtp_password,
+            smtp_server=smtp_server,
+            smtp_port=smtp_port,
+            recipient_email=recipient_email,
+            message=message
+        )
+    else:
+        output.write(message)

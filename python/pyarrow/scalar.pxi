@@ -89,6 +89,29 @@ cdef class Scalar(_Weakrefable):
 
         return Scalar.wrap(result)
 
+    def validate(self, *, full=False):
+        """
+        Perform validation checks.  An exception is raised if validation fails.
+
+        By default only cheap validation checks are run.  Pass `full=True`
+        for thorough validation checks (potentially O(n)).
+
+        Parameters
+        ----------
+        full : bool, default False
+            If True, run expensive checks, otherwise cheap checks only.
+
+        Raises
+        ------
+        ArrowInvalid
+        """
+        if full:
+            with nogil:
+                check_status(self.wrapped.get().ValidateFull())
+        else:
+            with nogil:
+                check_status(self.wrapped.get().Validate())
+
     def __repr__(self):
         return '<pyarrow.{}: {!r}>'.format(
             self.__class__.__name__, self.as_py()

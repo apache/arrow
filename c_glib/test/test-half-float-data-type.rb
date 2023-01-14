@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,31 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+class TestHalfFloatDataType < Test::Unit::TestCase
+  def test_type
+    data_type = Arrow::HalfFloatDataType.new
+    assert_equal(Arrow::Type::HALF_FLOAT, data_type.id)
+  end
 
-source_dir=${1}
-build_dir=${2}/turbodbc
+  def test_name
+    data_type = Arrow::HalfFloatDataType.new
+    assert_equal("halffloat", data_type.name)
+  end
 
-# check that optional pyarrow modules are available
-# because pytest would just skip the pyarrow tests
-python -c "import pyarrow.orc"
-python -c "import pyarrow.parquet"
-
-mkdir -p ${build_dir}
-pushd ${build_dir}
-
-cmake -DCMAKE_INSTALL_PREFIX=${ARROW_HOME} \
-      -DCMAKE_CXX_FLAGS="${CXXFLAGS}" \
-      -DPYTHON_EXECUTABLE=$(which python) \
-      -GNinja \
-      ${source_dir}
-ninja install
-
-# TODO(ARROW-5074)
-export LD_LIBRARY_PATH="${ARROW_HOME}/lib:${LD_LIBRARY_PATH}"
-export ODBCSYSINI="${source_dir}/earthly/odbc/"
-
-service postgresql start
-ctest --output-on-failure
-
-popd
+  def test_to_s
+    data_type = Arrow::HalfFloatDataType.new
+    assert_equal("halffloat", data_type.to_s)
+  end
+end

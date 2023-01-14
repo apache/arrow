@@ -14,26 +14,19 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
-# This config sets the following variables in your project::
-#
-#   ArrowPythonFlight_FOUND - true if Arrow Python Flight found on the system
-#
-# This config sets the following targets in your project::
-#
-#   ArrowPythonFlight::arrow_python_flight_shared - for linked as shared library if shared library is built
-#   ArrowPythonFlight::arrow_python_flight_static - for linked as static library if static library is built
 
-@PACKAGE_INIT@
-
-include(CMakeFindDependencyMacro)
-find_dependency(ArrowFlight)
-find_dependency(ArrowPython)
-
-include("${CMAKE_CURRENT_LIST_DIR}/ArrowPythonFlightTargets.cmake")
-
-arrow_keep_backward_compatibility(ArrowPythonFlight arrow_python_flight)
-
-check_required_components(ArrowPythonFlight)
-
-arrow_show_details(ArrowPythonFlight ARROW_PYTHON_FLIGHT)
+module Arrow
+  class HalfFloatArrayBuilder
+    private
+    def convert_to_arrow_value(value)
+      case value
+      when Float
+        HalfFloat.new(value).to_uint16
+      when HalfFloat
+        value.to_uint16
+      else
+        value
+      end
+    end
+  end
+end

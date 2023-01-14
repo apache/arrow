@@ -330,6 +330,10 @@ func (b *StringBuilder) Value(i int) string {
 	return string(b.BinaryBuilder.Value(i))
 }
 
+// func (b *StringBuilder) UnsafeAppend(v string) {
+// 	b.BinaryBuilder.UnsafeAppend([]byte(v))
+// }
+
 // NewArray creates a String array from the memory buffers used by the builder and resets the StringBuilder
 // so it can be used to build a new array.
 func (b *StringBuilder) NewArray() arrow.Array {
@@ -423,6 +427,10 @@ func (b *LargeStringBuilder) Value(i int) string {
 	return string(b.BinaryBuilder.Value(i))
 }
 
+// func (b *LargeStringBuilder) UnsafeAppend(v string) {
+// 	b.BinaryBuilder.UnsafeAppend([]byte(v))
+// }
+
 // NewArray creates a String array from the memory buffers used by the builder and resets the StringBuilder
 // so it can be used to build a new array.
 func (b *LargeStringBuilder) NewArray() arrow.Array {
@@ -485,6 +493,7 @@ func (b *LargeStringBuilder) UnmarshalJSON(data []byte) error {
 type StringLikeBuilder interface {
 	Builder
 	Append(string)
+	UnsafeAppend([]byte)
 	ReserveData(int)
 }
 

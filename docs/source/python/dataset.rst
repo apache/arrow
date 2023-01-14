@@ -41,17 +41,17 @@ Tabular Datasets
 The ``pyarrow.dataset`` module provides functionality to efficiently work with
 tabular, potentially larger than memory, and multi-file datasets. This includes:
 
-* A unified interface that supports different sources and file formats
-  (Parquet, ORC, Feather / Arrow IPC, and CSV files) and different file systems
-  (local, cloud).
+* A unified interface that supports different sources and file formats and
+  different file systems (local, cloud).
 * Discovery of sources (crawling directories, handle directory-based partitioned
   datasets, basic schema normalization, ..)
 * Optimized reading with predicate pushdown (filtering rows), projection
   (selecting and deriving columns), and optionally parallel reading.
 
-Currently, only Parquet, ORC, Feather / Arrow IPC, and CSV files are
-supported. The goal is to expand this in the future to other file formats and
-data sources (e.g. database connections).
+The supported file formats currently are Parquet, Feather / Arrow IPC, CSV and
+ORC (note that ORC datasets can currently only be read and not yet written).
+The goal is to expand support to other file formats and data sources
+(e.g. database connections) in the future.
 
 For those familiar with the existing :class:`pyarrow.parquet.ParquetDataset` for
 reading Parquet datasets: ``pyarrow.dataset``'s goal is similar but not specific

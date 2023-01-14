@@ -283,13 +283,13 @@ string(TOUPPER ${BUILD_WARNING_LEVEL} BUILD_WARNING_LEVEL)
 message(STATUS "Arrow build warning level: ${BUILD_WARNING_LEVEL}")
 
 macro(arrow_add_werror_if_debug)
-  if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-    # Treat all compiler warnings as errors
-    if(MSVC)
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /WX")
-    else()
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Werror")
-    endif()
+  # Treat all compiler warnings as errors
+  if(MSVC)
+    string(APPEND CMAKE_C_FLAGS_DEBUG " /WX")
+    string(APPEND CMAKE_CXX_FLAGS_DEBUG " /WX")
+  else()
+    string(APPEND CMAKE_C_FLAGS_DEBUG " -Werror")
+    string(APPEND CMAKE_CXX_FLAGS_DEBUG " -Werror")
   endif()
 endmacro()
 
@@ -604,76 +604,42 @@ endif()
 # For all builds:
 # For CMAKE_BUILD_TYPE=Debug
 #   -ggdb: Enable gdb debugging
-# For CMAKE_BUILD_TYPE=FastDebug
-#   Same as Debug, except with some optimizations on.
 # For CMAKE_BUILD_TYPE=Release
-#   -O2: Enable all compiler optimizations
+#   -O2 (not -O3): Enable compiler optimizations
 #   Debug symbols are stripped for reduced binary size.
 # For CMAKE_BUILD_TYPE=RelWithDebInfo
 #   Same as Release, except with debug symbols enabled.
 
 if(NOT MSVC)
-  string(REPLACE "-O3" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
-  string(REPLACE "-O3" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO
-                 "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-
-  set(RELEASE_FLAGS "-O2 -DNDEBUG")
+  set(C_RELEASE_FLAGS "")
+  if(CMAKE_C_FLAGS_RELEASE MATCHES "-O3")
+    string(APPEND C_RELEASE_FLAGS " -O2")
+  endif()
+  set(CXX_RELEASE_FLAGS "")
+  if(CMAKE_CXX_FLAGS_RELEASE MATCHES "-O3")
+    string(APPEND CXX_RELEASE_FLAGS " -O2")
+  endif()
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(RELEASE_FLAGS "${RELEASE_FLAGS} -ftree-vectorize")
+    string(APPEND C_RELEASE_FLAGS " -ftree-vectorize")
+    string(APPEND CXX_RELEASE_FLAGS " -ftree-vectorize")
   endif()
 
-  if(ARROW_GGDB_DEBUG)
-    set(ARROW_DEBUG_SYMBOL_TYPE "gdb")
-    set(C_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
-    set(C_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
-    set(C_FLAGS_RELWITHDEBINFO "-g${ARROW_DEBUG_SYMBOL_TYPE} ${RELEASE_FLAGS}")
-    set(CXX_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
-    set(CXX_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
-    set(CXX_FLAGS_RELWITHDEBINFO "-g${ARROW_DEBUG_SYMBOL_TYPE} ${RELEASE_FLAGS}")
+  set(DEBUG_FLAGS "")
+  if(MSVC)
+    string(APPEND DEBUG_FLAGS " /Od")
   else()
-    set(C_FLAGS_DEBUG "-g -O0")
-    set(C_FLAGS_FASTDEBUG "-g -O1")
-    set(C_FLAGS_RELWITHDEBINFO "-g ${RELEASE_FLAGS}")
-    set(CXX_FLAGS_DEBUG "-g -O0")
-    set(CXX_FLAGS_FASTDEBUG "-g -O1")
-    set(CXX_FLAGS_RELWITHDEBINFO "-g ${RELEASE_FLAGS}")
+    string(APPEND DEBUG_FLAGS " -O0")
+  endif()
+  if(ARROW_GGDB_DEBUG)
+    string(APPEND DEBUG_FLAGS " -ggdb")
   endif()
 
-  set(C_FLAGS_RELEASE "${RELEASE_FLAGS}")
-  set(CXX_FLAGS_RELEASE "${RELEASE_FLAGS}")
-endif()
-
-set(C_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
-set(C_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
-set(CXX_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
-set(CXX_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
-
-# Set compile flags based on the build type.
-message(STATUS "Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})"
-)
-if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_DEBUG}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_DEBUG}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_RELWITHDEBINFO}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_RELWITHDEBINFO}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_FASTDEBUG}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_FASTDEBUG}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_RELEASE}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_RELEASE}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_GEN")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_PROFILE_GEN}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_PROFILE_GEN}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_BUILD")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_PROFILE_BUILD}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_PROFILE_BUILD}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "MINSIZEREL")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_MINSIZEREL}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_MINSIZEREL}")
-else()
-  message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
+  string(APPEND CMAKE_C_FLAGS_RELEASE "${C_RELEASE_FLAGS}")
+  string(APPEND CMAKE_CXX_FLAGS_RELEASE "${CXX_RELEASE_FLAGS}")
+  string(APPEND CMAKE_C_FLAGS_DEBUG "${DEBUG_FLAGS}")
+  string(APPEND CMAKE_CXX_FLAGS_DEBUG "${DEBUG_FLAGS}")
+  string(APPEND CMAKE_C_FLAGS_RELWITHDEBINFO "${C_RELEASE_FLAGS} ${DEBUG_FLAGS}")
+  string(APPEND CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CXX_RELEASE_FLAGS} ${DEBUG_FLAGS}")
 endif()
 
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")

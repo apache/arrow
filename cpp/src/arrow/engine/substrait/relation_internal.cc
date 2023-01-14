@@ -114,6 +114,44 @@ Result<DeclarationInfo> ProcessEmit(std::optional<substrait::RelCommon> rel_comm
     return no_emit_declr;
   }
 }
+/// In the specialization, a single ProjectNode is being used to
+/// get the Acero relation with or without emit.
+template <>
+Result<DeclarationInfo> ProcessEmit(const substrait::ProjectRel& rel,
+                                    const DeclarationInfo& project_declr,
+                                    const std::shared_ptr<Schema>& input_schema) {
+  if (rel.has_common()) {
+    switch (rel.common().emit_kind_case()) {
+      case substrait::RelCommon::EmitKindCase::kDirect:
+        return project_declr;
+      case substrait::RelCommon::EmitKindCase::kEmit: {
+        const auto& emit = rel.common().emit();
+        int emit_size = emit.output_mapping_size();
+        const auto& proj_options = checked_cast<const compute::ProjectNodeOptions&>(
+            *project_declr.declaration.options);
+        FieldVector emit_fields(emit_size);
+        std::vector<compute::Expression> emit_proj_exprs(emit_size);
+        for (int i = 0; i < emit_size; i++) {
+          int32_t map_id = emit.output_mapping(i);
+          emit_fields[i] = input_schema->field(map_id);
+          emit_proj_exprs[i] = std::move(proj_options.expressions[map_id]);
+        }
+        // Note: DeclarationInfo is created by considering the input to the
+        // ProjectRel and the ProjectNodeOptions are set by only considering
+        // what is in the emit expression in Substrait.
+        return DeclarationInfo{
+            compute::Declaration::Sequence(
+                {std::get<compute::Declaration>(project_declr.declaration.inputs[0]),
+                 {"project", compute::ProjectNodeOptions{std::move(emit_proj_exprs)}}}),
+            schema(std::move(emit_fields))};
+      }
+      default:
+        return Status::Invalid("Invalid emit case");
+    }
+  } else {
+    return project_declr;
+  }
+}
 
 template <typename RelMessage>
 Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
@@ -329,7 +367,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         // Validate properties of the `FileOrFiles` item
         if (item.partition_index() != 0) {
           return Status::NotImplemented(
-              "non-default substrait::ReadRel::LocalFiles::FileOrFiles::partition_index");
+              "non-default "
+              "substrait::ReadRel::LocalFiles::FileOrFiles::partition_index");
         }
 
         if (item.start() != 0) {
@@ -832,6 +871,35 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       return ProcessEmit(std::move(set), std::move(set_declaration),
                          std::move(union_schema));
     }
+    case substrait::Rel::RelTypeCase::kExtensionLeaf: {
+      const auto& ext = rel.extension_leaf();
+      ARROW_ASSIGN_OR_RAISE(
+          auto ext_leaf_decl,
+          conversion_options.extension_provider->MakeRel({}, ext.detail(), ext_set));
+      return ProcessEmit(ext, std::move(ext_leaf_decl), ext_leaf_decl.output_schema);
+    }
+    case substrait::Rel::RelTypeCase::kExtensionSingle: {
+      const auto& ext = rel.extension_single();
+      ARROW_ASSIGN_OR_RAISE(DeclarationInfo input,
+                            FromProto(ext.input(), ext_set, conversion_options));
+      ARROW_ASSIGN_OR_RAISE(
+          auto ext_single_decl,
+          conversion_options.extension_provider->MakeRel({input}, ext.detail(), ext_set));
+      return ProcessEmit(ext, std::move(ext_single_decl), ext_single_decl.output_schema);
+    }
+    case substrait::Rel::RelTypeCase::kExtensionMulti: {
+      const auto& ext = rel.extension_multi();
+      std::vector<DeclarationInfo> inputs;
+      for (const auto& input : ext.inputs()) {
+        ARROW_ASSIGN_OR_RAISE(auto input_info,
+                              FromProto(input, ext_set, conversion_options));
+        inputs.push_back(std::move(input_info));
+      }
+      ARROW_ASSIGN_OR_RAISE(
+          auto ext_multi_decl,
+          conversion_options.extension_provider->MakeRel(inputs, ext.detail(), ext_set));
+      return ProcessEmit(ext, std::move(ext_multi_decl), ext_multi_decl.output_schema);
+    }
 
     default:
       break;
@@ -912,7 +980,8 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
   for (const auto& file : dataset->files()) {
     auto read_rel_lfs_ffs =
         std::make_unique<substrait::ReadRel::LocalFiles::FileOrFiles>();
-    read_rel_lfs_ffs->set_uri_path(UriFromAbsolutePath(file));
+    ARROW_ASSIGN_OR_RAISE(auto uri_path, UriFromAbsolutePath(file));
+    read_rel_lfs_ffs->set_uri_path(std::move(uri_path));
     // set file format
     auto format_type_name = dataset->format()->type_name();
     if (format_type_name == "parquet") {

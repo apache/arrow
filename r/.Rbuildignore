@@ -31,3 +31,4 @@ STYLE.md
 ^revdep$
 ^vignettes$
 ^PACKAGING\.md$
+^inst/__pycache__$

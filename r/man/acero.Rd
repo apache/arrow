@@ -6,7 +6,7 @@
 \description{
 The \code{arrow} package contains methods for 37 \code{dplyr} table functions, many of
 which are "verbs" that do transformations to one or more tables.
-The package also has mappings of 207 R functions to the corresponding
+The package also has mappings of 209 R functions to the corresponding
 functions in the Arrow compute library. These allow you to write code inside
 of \code{dplyr} methods that call R functions, including many in packages like
 \code{stringr} and \code{lubridate}, and they will get translated to Arrow and run
@@ -68,7 +68,7 @@ can assume that the function works in Acero just as it does in R.
 Functions can be called either as \code{pkg::fun()} or just \code{fun()}, i.e. both
 \code{str_sub()} and \code{stringr::str_sub()} work.
 
-In addition to these functions, you can call any of Arrow's 243 compute
+In addition to these functions, you can call any of Arrow's 246 compute
 functions directly. Arrow has many functions that don't map to an existing R
 function. In other cases where there is an R function mapping, you can still
 call the Arrow function directly if you don't want the adaptations that the R
@@ -228,6 +228,8 @@ Valid values are "s", "ms" (default), "us", "ns".
 \item \code{\link[lubridate:year]{epiyear()}}
 \item \code{\link[lubridate:parse_date_time]{fast_strptime()}}: non-default values of \code{lt} and \code{cutoff_2000} not supported
 \item \code{\link[lubridate:round_date]{floor_date()}}
+\item \code{\link[lubridate:force_tz]{force_tz()}}: Timezone conversion from non-UTC timezone not supported;
+When \code{roll = FALSE} and hit a non-existent time, raise an error
 \item \code{\link[lubridate:format_ISO8601]{format_ISO8601()}}
 \item \code{\link[lubridate:hour]{hour()}}
 \item \code{\link[lubridate:date_utils]{is.Date()}}
@@ -260,6 +262,7 @@ providing both \code{num} and \code{...} is not supported
 \item \code{\link[lubridate:tz]{tz()}}
 \item \code{\link[lubridate:day]{wday()}}
 \item \code{\link[lubridate:week]{week()}}
+\item \code{\link[lubridate:with_tz]{with_tz()}}
 \item \code{\link[lubridate:day]{yday()}}
 \item \code{\link[lubridate:ymd]{ydm()}}: \code{locale} argument not supported
 \item \code{\link[lubridate:ymd_hms]{ydm_h()}}: \code{locale} argument not supported
@@ -317,8 +320,10 @@ Pattern modifiers \code{coll()} and \code{boundary()} are not supported in any f
 \item \code{\link[stringr:str_dup]{str_dup()}}
 \item \code{\link[stringr:str_starts]{str_ends()}}
 \item \code{\link[stringr:str_length]{str_length()}}
-\item \code{str_like()}: not yet in a released version of \code{stringr}, but it is supported in \code{arrow}
+\item \code{\link[stringr:str_like]{str_like()}}
 \item \code{\link[stringr:str_pad]{str_pad()}}
+\item \code{\link[stringr:str_remove]{str_remove()}}
+\item \code{\link[stringr:str_remove]{str_remove_all()}}
 \item \code{\link[stringr:str_replace]{str_replace()}}
 \item \code{\link[stringr:str_replace]{str_replace_all()}}
 \item \code{\link[stringr:str_split]{str_split()}}: Case-insensitive string splitting and splitting into 0 parts not supported

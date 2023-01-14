@@ -135,6 +135,7 @@ class TestIpcFileFormatScan : public FileFormatScanMixin<IpcFormatHelper> {};
 
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReader) { TestScan(); }
 TEST_P(TestIpcFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
+TEST_P(TestIpcFileFormatScan, ScanNoReadahead) { TestScanNoReadahead(); }
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderProjectedNested) {
   TestScanProjectedNested();

@@ -217,6 +217,16 @@ find_package_message(PYTHON
     "Found PythonLibs: ${PYTHON_LIBRARY}"
     "${PYTHON_EXECUTABLE}${PYTHON_VERSION}")
 
+add_library(Python3::Module SHARED IMPORTED)
+if(CMAKE_VERSION VERSION_LESS 3.11)
+  set_target_properties(Python3::Module PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+      ${PYTHON_INCLUDE_DIRS})
+else()
+  target_include_directories(Python3::Module INTERFACE ${PYTHON_INCLUDE_DIRS})
+endif()
+set_target_properties(Python3::Module PROPERTIES
+    IMPORTED_LOCATION "${PYTHON_LIBRARIES}"
+    IMPORTED_IMPLIB "${PYTHON_LIBRARIES}")
 
 # PYTHON_ADD_MODULE(<name> src1 src2 ... srcN) is used to build modules for python.
 FUNCTION(PYTHON_ADD_MODULE _NAME )

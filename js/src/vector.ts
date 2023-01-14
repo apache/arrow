@@ -30,6 +30,7 @@ import {
     wrapChunkedCall2,
     wrapChunkedIndexOf,
 } from './util/chunk.js';
+import { BigInt64Array, BigUint64Array } from './util/compat.js';
 
 import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
