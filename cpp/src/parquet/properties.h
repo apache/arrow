@@ -755,7 +755,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
           compliant_nested_types_(false),
           engine_version_(V2),
           use_threads_(kArrowDefaultUseThreads),
-          executor_(default_executor()) {}
+          executor_(NULLPTR) {}
     virtual ~Builder() = default;
 
     /// \brief Disable writing legacy int96 timestamps (default disabled).
@@ -855,9 +855,6 @@ class PARQUET_EXPORT ArrowWriterProperties {
     }
 
    private:
-    static ::arrow::internal::Executor* default_executor();
-
-   private:
     bool write_timestamps_as_int96_;
 
     bool coerce_timestamps_enabled_;
@@ -901,7 +898,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
   bool use_threads() const { return use_threads_; }
 
   /// \brief Returns the executor used to write columns in parallel.
-  ::arrow::internal::Executor* executor() const { return executor_; }
+  ::arrow::internal::Executor* executor() const;
 
  private:
   explicit ArrowWriterProperties(bool write_nanos_as_int96,

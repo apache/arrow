@@ -52,8 +52,8 @@ std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
   }
 }
 
-::arrow::internal::Executor* ArrowWriterProperties::Builder::default_executor() {
-  return ::arrow::internal::GetCpuThreadPool();
+::arrow::internal::Executor* ArrowWriterProperties::executor() const {
+  return executor_ != nullptr ? executor_ : ::arrow::internal::GetCpuThreadPool();
 }
 
 ArrowReaderProperties default_arrow_reader_properties() {
