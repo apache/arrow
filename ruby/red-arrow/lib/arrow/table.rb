@@ -516,8 +516,8 @@ module Arrow
     #   @macro join_common_after
     #
     # @since 7.0.0
-    def join(right, keys=nil, type: :inner, left_outputs: nil, right_outputs: nil)
-      org_keys = keys # preserve original keys to remember if it is natural join.
+    def join(right, keys=nil, type: :inner, left_suffix: "", right_suffix: "", left_outputs: nil, right_outputs: nil)
+      natural_join = true if keys.nil?
       keys ||= (column_names & right.column_names)
       plan = ExecutePlan.new
       left_node = plan.build_source_node(self)
@@ -551,22 +551,33 @@ module Arrow
       reader = sink_node_options.get_reader(hash_join_node.output_schema)
       table = reader.read_all
 
-      # merge column if required
       table =
         if left_outputs || right_outputs
           table
         elsif type.end_with?("semi") || type.end_with?("anti")
           table
-        # "#{type}" == "inner" || type.end_with?("outer") from here.
-        elsif org_keys.nil? # natural join
+        # For the cases of "#{type}" == "inner" || type.end_with?("outer")
+        elsif natural_join
           merge_columns_in_table(table, keys)
         elsif keys.is_a?(String) || keys.is_a?(Symbol)
           merge_columns_in_table(table, [keys.to_s])
         else
-          table
+          if !keys.is_a?(Hash) && (left_suffix != "" || right_suffix != "")
+            fields = table.schema.fields
+            columns = table.columns
+            keys.each do |k|
+              l = table.column_names.index(k)
+              r = table.column_names.rindex(k)
+              fields[l] = Arrow::Field.new("#{k}#{left_suffix}", fields[l].data_type)
+              fields[r] = Arrow::Field.new("#{k}#{right_suffix}", fields[r].data_type)
+            end
+            Arrow::Table.new(Arrow::Schema.new(fields), columns)
+          else
+            table
+          end
         end
       share_input(table)
-      table      
+      table
     end
 
     alias_method :to_s_raw, :to_s
@@ -644,7 +655,7 @@ module Arrow
         l = table.column_names.index(k)
         r = table.column_names.rindex(k)
         arrays[l] = merge_arrays(table.columns[l].data, table.columns[r].data)
-        fields[l] = Arrow::Field.new(k, arrays[l].value_data_type)
+        fields[l] = Arrow::Field.new(k, fields[l].data_type)
         arrays.delete_at(r - i)
         fields.delete_at(r - i)
       end

@@ -1411,5 +1411,26 @@ visible: false
                                left_outputs: table1.column_names,
                                right_outputs: table2.column_names))
     end
+
+    test(":left_suffix and :right_suffix, keys in Array") do
+      table1 = Arrow::Table.new(key1: [1, 1, 2, 2],
+                                key2: [10, 100, 20, 200],
+                                number: [1010, 1100, 2020, 2200])
+      table2 = Arrow::Table.new(key1: [1, 2, 2],
+                                key2: [100, 20, 50],
+                                string: ["1-100", "2-20", "2-50"])
+      assert_equal(Arrow::Table.new([
+                                      ["key1_left", [1, 2]],
+                                      ["key2_left", [100, 20]],
+                                      ["number", [1100, 2020]],
+                                      ["key1_right", [1, 2]],
+                                      ["key2_right", [100, 20]],
+                                      ["string", ["1-100", "2-20"]],
+                                    ]),
+                    table1.join(table2,
+                                ["key1", "key2"],
+                                left_suffix: "_left",
+                                right_suffix: "_right"))
+    end
   end
 end
