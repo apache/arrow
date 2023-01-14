@@ -40,7 +40,7 @@
 /csharp/ @westonpace 
 /go/ @zeroshade
 /java/
-/js/
+/js/ @domoritz @trxcllnt 
 /matlab/ @assignUser 
 /python/
 /python/pyarrow/_flight.pyx @lidavidm
