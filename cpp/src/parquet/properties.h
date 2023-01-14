@@ -754,7 +754,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
           // TODO: At some point we should flip this.
           compliant_nested_types_(false),
           engine_version_(V2),
-          use_threads_(kArrowDefaultUseThreads) {}
+          use_threads_(kArrowDefaultUseThreads),
+          executor_(default_executor()) {}
     virtual ~Builder() = default;
 
     /// \brief Disable writing legacy int96 timestamps (default disabled).
@@ -852,6 +853,9 @@ class PARQUET_EXPORT ArrowWriterProperties {
           truncated_timestamps_allowed_, store_schema_, compliant_nested_types_,
           engine_version_, use_threads_, executor_));
     }
+
+   private:
+    static ::arrow::internal::Executor* default_executor();
 
    private:
     bool write_timestamps_as_int96_;
