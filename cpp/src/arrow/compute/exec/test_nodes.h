@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
 #include <string>
 
 #include "arrow/compute/exec/options.h"
@@ -24,15 +22,6 @@
 
 namespace arrow {
 namespace compute {
-
-struct ConcatNodeOptions : public ExecNodeOptions {
-  // Pause the concat node's inputs if we have this many batches queued
-  int pause_if_above = 8;
-  // Restart the concat node's inputs once the queue drops below this amount
-  int resume_if_below = 4;
-};
-
-void RegisterConcatNode(ExecFactoryRegistry* registry);
 
 // \brief Make a delaying source that is optionally noisy (prints when it emits)
 AsyncGenerator<std::optional<ExecBatch>> MakeDelayedGen(
