@@ -1177,10 +1177,8 @@ TEST(ExecPlanExecution, SourceScalarAggSink) {
                          /*aggregates=*/{{"sum", nullptr, "i32", "sum(i32)"},
                                          {"any", nullptr, "bool", "any(bool)"}},
                      }}});
-  auto exp_batches = {
-      ExecBatchFromJSON({int64(), boolean()}, {ArgShape::SCALAR, ArgShape::SCALAR},
-                        "[[22, true]]")
-  };
+  auto exp_batches = {ExecBatchFromJSON(
+      {int64(), boolean()}, {ArgShape::SCALAR, ArgShape::SCALAR}, "[[22, true]]")};
   ASSERT_OK_AND_ASSIGN(auto result,
                        DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
