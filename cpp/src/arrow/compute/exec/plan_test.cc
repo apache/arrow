@@ -1008,6 +1008,7 @@ TEST(ExecPlanExecution, SourceMinMaxScalar) {
               /*keys=*/{}}}});
     ASSERT_OK_AND_ASSIGN(auto result_table,
                          DeclarationToTable(std::move(plan), parallel));
+    // No need to ignore order since there is only 1 row
     AssertTablesEqual(*result_table, *expected_table);
   }
 }
