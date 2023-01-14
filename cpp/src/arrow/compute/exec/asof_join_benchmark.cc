@@ -113,15 +113,6 @@ AsofJoinNodeOptions GetRepeatedOptions(size_t repeat, FieldRef on_key,
   return AsofJoinNodeOptions(input_keys, tolerance);
 }
 
-AsofJoinNodeOptions GetRepeatedOptions(size_t repeat, FieldRef on_key,
-                                       std::vector<FieldRef> by_key, int64_t tolerance) {
-  std::vector<AsofJoinNodeOptions::Keys> input_keys(repeat);
-  for (size_t i = 0; i < repeat; i++) {
-    input_keys[i] = {on_key, by_key};
-  }
-  return AsofJoinNodeOptions(input_keys, tolerance);
-}
-
 static void AsOfJoinOverhead(benchmark::State& state) {
   int64_t tolerance = 0;
   auto options = std::make_shared<AsofJoinNodeOptions>(

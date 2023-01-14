@@ -169,7 +169,7 @@ inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
   return compute::Expression{std::move(modified_call)};
 }
 
-Status CheckTable(compute::ExecContext& exec_context, std::shared_ptr<Buffer>& buf,
+Status CheckTable(std::shared_ptr<Buffer>& buf,
                   const ConversionOptions& conversion_options = {}) {
   std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -178,7 +178,7 @@ Status CheckTable(compute::ExecContext& exec_context, std::shared_ptr<Buffer>& b
                                              *buf, [] { return kNullConsumer; },
                                              ext_id_reg, &ext_set, conversion_options));
   auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
-  ARROW_RETURN_NOT_OK(compute::DeclarationToTable(other_declrs, &exec_context));
+  ARROW_RETURN_NOT_OK(compute::DeclarationToTable(other_declrs));
   return Status::OK();
 }
 
@@ -2293,16 +2293,6 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
   compute::AssertTablesEqualIgnoringOrder(expected_table, rnd_trp_table);
 }
 
-NamedTableProvider ProvideMadeTable(
-    std::function<Result<std::shared_ptr<Table>>(const std::vector<std::string>&)> make) {
-  return [make](const std::vector<std::string>& names) -> Result<compute::Declaration> {
-    ARROW_ASSIGN_OR_RAISE(auto table, make(names));
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
-}
-
 TEST(SubstraitRoundTrip, FilterNamedTable) {
   arrow::dataset::internal::Initialize();
 
@@ -4258,7 +4248,7 @@ TEST(Substrait, PlanWithAsOfJoinExtension) {
           "extension_multi": {
             "common": {
               "emit": {
-                "outputMapping": [0, 1, 2, 3]
+                "outputMapping": [0, 1, 2, 5]
               }
             },
             "inputs": [
@@ -4435,7 +4425,7 @@ TEST(Substrait, PlanWithAsOfJoinExtension) {
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
-void TestSubstraitPlanWithExtension(compute::ExecContext* exec_context) {
+TEST(Substrait, PlanWithExtension) {
   // This demos an extension relation
   std::string substrait_json = R"({
     "extensionUris": [],
@@ -4620,24 +4610,7 @@ void TestSubstraitPlanWithExtension(compute::ExecContext* exec_context) {
           input_schema, {{FieldRef(0), {FieldRef(1)}}, {FieldRef(0), {FieldRef(1)}}}));
   auto expected_table = TableFromJSON(
       out_schema, {"[[2, 1, 1.1, 1.2], [4, 1, 2.1, 1.2], [6, 2, 3.1, 3.2]]"});
-  if (exec_context == nullptr) {
-    ASSERT_THAT(CheckTable(*compute::default_exec_context(), buf, conversion_options),
-                Raises(StatusCode::Invalid,
-                       HasSubstr("AsOfJoinNode requires a non-null executor")));
-  } else {
-    CheckRoundTripResult(std::move(expected_table), *exec_context, buf, {},
-                         conversion_options);
-  }
-}
-
-TEST(Substrait, PlanWithExtension) {
-  ASSERT_OK_AND_ASSIGN(auto io_executor, arrow::internal::ThreadPool::Make(1));
-  compute::ExecContext exec_context(default_memory_pool(), io_executor.get());
-  TestSubstraitPlanWithExtension(&exec_context);
-}
-
-TEST(Substrait, PlanWithExtensionNoContext) {
-  TestSubstraitPlanWithExtension(/*exec_context=*/nullptr);
+  CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
 TEST(Substrait, AsOfJoinDefaultEmit) {
@@ -4822,8 +4795,7 @@ TEST(Substrait, AsOfJoinDefaultEmit) {
       {"[[2, 1, 1.1, 2, 1, 1.2], [4, 1, 2.1, 4, 1, 1.2], [6, 2, 3.1, 6, 2, 3.2]]"});
   ASSERT_OK_AND_ASSIGN(auto io_executor, arrow::internal::ThreadPool::Make(1));
   compute::ExecContext exec_context(default_memory_pool(), io_executor.get());
-  CheckRoundTripResult(std::move(expected_table), exec_context, buf, {},
-                       conversion_options);
+  CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
 }  // namespace engine

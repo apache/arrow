@@ -1149,10 +1149,11 @@ class AsofJoinNode : public ExecNode {
         if (!out_rb) break;
         ++batches_produced_;
         ExecBatch out_b(*out_rb);
-        ErrorIfNotOk(plan_->ScheduleTask([this, out_b = std::move(out_b)]() mutable {
-          outputs_[0]->InputReceived(this, std::move(out_b));
-          return Status::OK();
-        }));
+        ErrorIfNotOk(plan_->query_context()->ScheduleTask(
+            [this, out_b = std::move(out_b)]() mutable {
+              outputs_[0]->InputReceived(this, std::move(out_b));
+              return Status::OK();
+            }));
       } else {
         ErrorIfNotOk(result.status());
         EndFromProcessThread();
@@ -1197,12 +1198,13 @@ class AsofJoinNode : public ExecNode {
                bool may_rehash);
 
   Status Init() override {
-    if (plan()->exec_context()->executor() == nullptr) {
+    if (plan()->query_context()->exec_context()->executor() == nullptr) {
       return Status::Invalid("AsOfJoinNode requires a non-null executor");
     }
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); i++) {
-      RETURN_NOT_OK(key_hashers_[i]->Init(plan()->exec_context(), output_schema()));
+      RETURN_NOT_OK(key_hashers_[i]->Init(plan()->query_context()->exec_context(),
+                                          output_schema()));
       ARROW_ASSIGN_OR_RAISE(
           auto input_state,
           InputState::Make(i, tolerance_, must_hash_, may_rehash_, key_hashers_[i].get(),
