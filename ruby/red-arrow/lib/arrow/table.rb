@@ -517,6 +517,7 @@ module Arrow
     #
     # @since 7.0.0
     def join(right, keys=nil, type: :inner, left_outputs: nil, right_outputs: nil)
+      org_keys = keys # preserve original keys to remember if it is natural join.
       keys ||= (column_names & right.column_names)
       plan = ExecutePlan.new
       left_node = plan.build_source_node(self)
@@ -550,7 +551,20 @@ module Arrow
       reader = sink_node_options.get_reader(hash_join_node.output_schema)
       table = reader.read_all
       share_input(table)
-      table
+
+      # merge column if required
+      if left_outputs || right_outputs
+        table
+      elsif type.end_with?("semi") || type.end_with?("anti")
+        table
+      # "#{type}" == "inner" || type.end_with?("outer") from here.
+      elsif org_keys.nil? # natural join
+        merge_columns_in_table(table, keys)
+      elsif keys.is_a?(String) || keys.is_a?(Symbol)
+        merge_columns_in_table(table, [keys.to_s])
+      else
+        table
+      end
     end
 
     alias_method :to_s_raw, :to_s
@@ -619,6 +633,25 @@ module Arrow
           "<#{name}>: <#{data.inspect}>: #{inspect}"
         raise ArgumentError, message
       end
+    end
+
+    def merge_columns_in_table(table, keys)
+      fields = table.schema.fields
+      arrays = table.columns.map(&:data)
+      keys.each_with_index do |k, i|
+        l = table.column_names.index(k)
+        r = table.column_names.rindex(k)
+        arrays[l] = merge_arrays(table.columns[l].data, table.columns[r].data)
+        fields[l] = Arrow::Field.new(k, arrays[l].value_data_type)
+        arrays.delete_at(r - i)
+        fields.delete_at(r - i)
+      end
+      Arrow::Table.new(Arrow::Schema.new(fields), arrays)
+    end
+
+    def merge_arrays(array1, array2)
+      booleans = Arrow::Function.find(:is_null).execute([array1])
+      Arrow::Function.find(:if_else).execute([booleans, array2, array1]).value
     end
   end
 end

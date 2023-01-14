@@ -1131,7 +1131,7 @@ visible: false
   end
 
   sub_test_case("#join") do
-    test("no keys") do
+    test("w/o keys (natural join)") do
       table1 = Arrow::Table.new(key: [1, 2, 3],
                                 number: [10, 20, 30])
       table2 = Arrow::Table.new(key: [3, 1],
@@ -1139,7 +1139,6 @@ visible: false
       assert_equal(Arrow::Table.new([
                                       ["key", [1, 3]],
                                       ["number", [10, 30]],
-                                      ["key", [1, 3]],
                                       ["string", ["one", "three"]],
                                     ]),
                    table1.join(table2))
@@ -1153,7 +1152,6 @@ visible: false
       assert_equal(Arrow::Table.new([
                                       ["key", [1, 3]],
                                       ["number", [10, 30]],
-                                      ["key", [1, 3]],
                                       ["string", ["one", "three"]],
                                     ]),
                    table1.join(table2, "key"))
@@ -1167,10 +1165,23 @@ visible: false
       assert_equal(Arrow::Table.new([
                                       ["key", [1, 3]],
                                       ["number", [10, 30]],
-                                      ["key", [1, 3]],
                                       ["string", ["one", "three"]],
                                     ]),
                    table1.join(table2, :key))
+    end
+
+    test("keys: [String]") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["key", [1, 3]],
+                                      ["string", ["one", "three"]],
+                                    ]),
+                   table1.join(table2, ["key"]))
     end
 
     test("keys: [String, Symbol]") do
@@ -1230,7 +1241,7 @@ visible: false
                                type: :inner))
     end
 
-    test("type:") do
+    test("type: :left_outer") do
       table1 = Arrow::Table.new(key: [1, 2, 3],
                                 number: [10, 20, 30])
       table2 = Arrow::Table.new(key: [3, 1],
@@ -1238,10 +1249,85 @@ visible: false
       assert_equal(Arrow::Table.new([
                                       ["key", [1, 3, 2]],
                                       ["number", [10, 30, 20]],
-                                      ["key", [1, 3, nil]],
                                       ["string", ["one", "three", nil]],
                                     ]),
                    table1.join(table2, "key", type: :left_outer))
+    end
+
+    test("type: :right_outer") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["string", ["one", "three"]],
+                                    ]),
+                   table1.join(table2, "key", type: :right_outer))
+    end
+
+    test("type: :full_outer") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3, 2]],
+                                      ["number", [10, 30, 20]],
+                                      ["string", ["one", "three", nil]],
+                                    ]),
+                   table1.join(table2, "key", type: :full_outer))
+    end
+
+    test("type: :left_semi") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                    ]),
+                   table1.join(table2, "key", type: :left_semi))
+    end
+
+    test("type: :right_semi") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [3, 1]],
+                                      ["string", ["three", "one"]],
+                                    ]),
+                   table1.join(table2, "key", type: :right_semi))
+    end
+
+    test("type: :left_anti") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [2]],
+                                      ["number", [20]],
+                                    ]),
+                   table1.join(table2, "key", type: :left_anti))
+    end
+
+    test("type: :right_anti") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", []],
+                                      ["string", []],
+                                    ]).to_s,
+                   table1.join(table2, "key", type: :right_anti).to_s)
+      # There is a bug: right_anti result has incorrect chunked array.
+      # Temporarily compare #to_s result.
     end
 
     test("left_outputs: & right_outputs:") do
@@ -1256,6 +1342,74 @@ visible: false
                                "key",
                                left_outputs: ["key", "number"],
                                right_outputs: ["string"]))
+    end
+
+    test("preserve outputs, type: :inner") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["key", [1, 3]],
+                                      ["string", ["one", "three"]]
+                                    ]),
+                   table1.join(table2,
+                               type: :inner,
+                               left_outputs: table1.column_names,
+                               right_outputs: table2.column_names))
+    end
+
+    test("preserve outputs, type: :left_outer") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3, 2]],
+                                      ["number", [10, 30, 20]],
+                                      ["key", [1, 3, nil]],
+                                      ["string", ["one", "three", nil]],
+                                    ]),
+                   table1.join(table2,
+                               type: :left_outer,
+                               left_outputs: table1.column_names,
+                               right_outputs: table2.column_names))
+    end
+
+    test("'preserve outputs, type: :right_outer") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["key", [1, 3]],
+                                      ["string", ["one", "three"]],
+                                    ]),
+                   table1.join(table2,
+                               type: :right_outer,
+                               left_outputs: table1.column_names,
+                               right_outputs: table2.column_names))
+    end
+
+    test("preserve outputs, type: :full_outer") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3, 2]],
+                                      ["number", [10, 30, 20]],
+                                      ["key", [1, 3, nil]],
+                                      ["string", ["one", "three", nil]],
+                                    ]),
+                   table1.join(table2,
+                               type: :full_outer,
+                               left_outputs: table1.column_names,
+                               right_outputs: table2.column_names))
     end
   end
 end
