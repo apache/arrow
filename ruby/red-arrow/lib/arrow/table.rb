@@ -550,21 +550,23 @@ module Arrow
       plan.wait
       reader = sink_node_options.get_reader(hash_join_node.output_schema)
       table = reader.read_all
-      share_input(table)
 
       # merge column if required
-      if left_outputs || right_outputs
-        table
-      elsif type.end_with?("semi") || type.end_with?("anti")
-        table
-      # "#{type}" == "inner" || type.end_with?("outer") from here.
-      elsif org_keys.nil? # natural join
-        merge_columns_in_table(table, keys)
-      elsif keys.is_a?(String) || keys.is_a?(Symbol)
-        merge_columns_in_table(table, [keys.to_s])
-      else
-        table
-      end
+      table =
+        if left_outputs || right_outputs
+          table
+        elsif type.end_with?("semi") || type.end_with?("anti")
+          table
+        # "#{type}" == "inner" || type.end_with?("outer") from here.
+        elsif org_keys.nil? # natural join
+          merge_columns_in_table(table, keys)
+        elsif keys.is_a?(String) || keys.is_a?(Symbol)
+          merge_columns_in_table(table, [keys.to_s])
+        else
+          table
+        end
+      share_input(table)
+      table      
     end
 
     alias_method :to_s_raw, :to_s
