@@ -472,18 +472,22 @@ module Arrow
     #
     #     If both of `left_outputs` and `right_outputs` aren't
     #     specified, all columns in `self` and `right` are
-    #     outputted.
+    #     output.
     #   @param right_outputs [::Array<String, Symbol>] Output columns in
     #     `right`.
     #
     #     If both of `left_outputs` and `right_outputs` aren't
     #     specified, all columns in `self` and `right` are
-    #     outputted.
+    #     output.
     #   @return [Arrow::Table]
     #     The joined `Arrow::Table`.
     #
     # @overload join(right, type: :inner, left_outputs: nil, right_outputs: nil)
-    #   If key(s) are not supplied, common keys in self and right are used.
+    #   If key(s) are not supplied, common keys in self and right are used
+    #     (natural join).
+    #
+    #     Column used as keys are merged and remain in left side
+    #     when both of `left_outputs` and `right_outputs` are `nil`.
     #
     #   @macro join_common_before
     #   @macro join_common_after
@@ -493,12 +497,18 @@ module Arrow
     # @overload join(right, key, type: :inner, left_outputs: nil, right_outputs: nil)
     #   Join right by a key.
     #
+    #     Column used as keys are merged and remain in left side
+    #     when both of `left_outputs` and `right_outputs` are `nil`.
+    #
     #   @macro join_common_before
     #   @param key [String, Symbol] A join key.
     #   @macro join_common_after
     #
-    # @overload join(right, keys, type: :inner, left_outputs: nil, right_outputs: nil)
+    # @overload join(right, keys, type: :inner, left_suffix: "", right_suffix: "",
+    #                left_outputs: nil, right_outputs: nil)
     #   Join right by keys.
+    #
+    #     Column name can be renamed by appending `left_suffix` or `right_suffix`.
     #
     #   @macro join_common_before
     #   @param keys [::Array<String, Symbol>] Join keys.
