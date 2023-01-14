@@ -1178,7 +1178,7 @@ TEST(ExecPlanExecution, SourceScalarAggSink) {
                      }}});
   auto exp_batches = {
       ExecBatchFromJSON({int64(), boolean()}, {ArgShape::SCALAR, ArgShape::SCALAR},
-                        "[[22, true]]"),
+                        "[[22, true]]")
   };
   ASSERT_OK_AND_ASSIGN(auto result,
                        DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
