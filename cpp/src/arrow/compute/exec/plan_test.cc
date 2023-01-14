@@ -994,8 +994,8 @@ TEST(ExecPlanExecution, SourceMinMaxScalar) {
 
     auto input = MakeGroupableBatches(/*multiplicity=*/parallel ? 100 : 1);
     auto minmax_opts = std::make_shared<ScalarAggregateOptions>();
-    auto ty = struct_({field("min", int32()), field("max", int32())});
-    auto expected_table = TableFromJSON(schema({field("struct", ty)}), {R"([
+    auto min_max_type = struct_({field("min", int32()), field("max", int32())});
+    auto expected_table = TableFromJSON(schema({field("struct", min_max_type)}), {R"([
       [{"min": -8, "max": 12}]
     ])"});
 
