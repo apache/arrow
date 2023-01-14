@@ -898,8 +898,7 @@ TEST(ExecPlanExecution, SourceFilterSink) {
       {{"source", SourceNodeOptions{basic_data.schema, basic_data.gen(/*parallel=*/false,
                                                                       /*slow=*/false)}},
        {"filter", FilterNodeOptions{equal(field_ref("i32"), literal(6))}}});
-  ASSERT_OK_AND_ASSIGN(auto result,
-                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan)));
   auto exp_batches = {ExecBatchFromJSON({int32(), boolean()}, "[]"),
                       ExecBatchFromJSON({int32(), boolean()}, "[[6, false]]")};
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
@@ -919,8 +918,7 @@ TEST(ExecPlanExecution, SourceProjectSink) {
   auto exp_batches = {
       ExecBatchFromJSON({boolean(), int32()}, "[[false, null], [true, 5]]"),
       ExecBatchFromJSON({boolean(), int32()}, "[[null, 6], [true, 7], [true, 8]]")};
-  ASSERT_OK_AND_ASSIGN(auto result,
-                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan)));
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
 }
 
@@ -1179,8 +1177,7 @@ TEST(ExecPlanExecution, SourceScalarAggSink) {
                      }}});
   auto exp_batches = {ExecBatchFromJSON(
       {int64(), boolean()}, {ArgShape::SCALAR, ArgShape::SCALAR}, "[[22, true]]")};
-  ASSERT_OK_AND_ASSIGN(auto result,
-                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan)));
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
 }
 
@@ -1266,8 +1263,7 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
            ArgShape::SCALAR},
           R"([[false, true, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334]])"),
   };
-  ASSERT_OK_AND_ASSIGN(auto result,
-                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan)));
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
 }
 
@@ -1403,8 +1399,7 @@ TEST(ExecPlan, RecordBatchReaderSourceSink) {
 
   Declaration plan =
       Declaration::Sequence({{"source", SourceNodeOptions{table->schema(), batch_gen}}});
-  ASSERT_OK_AND_ASSIGN(auto result,
-                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan)));
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, input.batches);
 }
 
@@ -1417,8 +1412,7 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
       {{"source",
         SourceNodeOptions{random_data.schema,
                           random_data.gen(/*parallel=*/false, /*slow=*/false)}}});
-  ASSERT_OK_AND_ASSIGN(auto result,
-                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan)));
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, random_data.batches);
   for (const auto& batch : result.batches) {
     ASSERT_LE(batch.length, ExecPlan::kMaxBatchSize);
