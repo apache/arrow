@@ -61,12 +61,10 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
       ExecContext exec_context = *threaded_exec_context(),
       std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
-  ARROW_DEPRECATED("Deprecated in 11.0.0. Use version that takes ExecContext by value.")
   static Result<std::shared_ptr<ExecPlan>> Make(
       QueryOptions options, ExecContext* exec_context,
       std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
-  ARROW_DEPRECATED("Deprecated in 11.0.0. Use version that takes ExecContext by value.")
   static Result<std::shared_ptr<ExecPlan>> Make(
       ExecContext* exec_context,
       std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);

@@ -44,11 +44,8 @@ std::shared_ptr<compute::ExecPlan> ExecPlan_create(bool use_threads) {
   // TODO(weston) using gc_context() in this way is deprecated.  Once ordering has
   // been added we can probably entirely remove all reference to ExecPlan from R
   // in favor of DeclarationToXyz
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   auto plan = ValueOrStop(
       compute::ExecPlan::Make(use_threads ? &threaded_context : gc_context()));
-#pragma GCC diagnostic pop
   return plan;
 }
 
