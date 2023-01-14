@@ -899,7 +899,7 @@ TEST(ExecPlanExecution, SourceFilterSink) {
                                                                       /*slow=*/false)}},
        {"filter", FilterNodeOptions{equal(field_ref("i32"), literal(6))}}});
   ASSERT_OK_AND_ASSIGN(auto result,
-                       DeclarationToExecBatches(std::move(plan), /*user_threads=*/false));
+                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
   auto exp_batches = {ExecBatchFromJSON({int32(), boolean()}, "[]"),
                       ExecBatchFromJSON({int32(), boolean()}, "[[6, false]]")};
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
