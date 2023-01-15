@@ -484,10 +484,10 @@ module Arrow
     #
     # @overload join(right, type: :inner, left_outputs: nil, right_outputs: nil)
     #   If key(s) are not supplied, common keys in self and right are used
-    #     (natural join).
+    #   (natural join).
     #
-    #     Column used as keys are merged and remain in left side
-    #     when both of `left_outputs` and `right_outputs` are `nil`.
+    #   Column used as keys are merged and remain in left side
+    #   when both of `left_outputs` and `right_outputs` are `nil`.
     #
     #   @macro join_common_before
     #   @macro join_common_after
@@ -497,8 +497,8 @@ module Arrow
     # @overload join(right, key, type: :inner, left_outputs: nil, right_outputs: nil)
     #   Join right by a key.
     #
-    #     Column used as keys are merged and remain in left side
-    #     when both of `left_outputs` and `right_outputs` are `nil`.
+    #   Column used as keys are merged and remain in left side
+    #   when both of `left_outputs` and `right_outputs` are `nil`.
     #
     #   @macro join_common_before
     #   @param key [String, Symbol] A join key.
@@ -508,7 +508,7 @@ module Arrow
     #                left_outputs: nil, right_outputs: nil)
     #   Join right by keys.
     #
-    #     Column name can be renamed by appending `left_suffix` or `right_suffix`.
+    #   Column name can be renamed by appending `left_suffix` or `right_suffix`.
     #
     #   @macro join_common_before
     #   @param keys [::Array<String, Symbol>] Join keys.
