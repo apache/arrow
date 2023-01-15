@@ -90,8 +90,7 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
     }
 
     Result<PartitionPathFormat> Format(const compute::Expression& expr) const override {
-      return Status::NotImplemented("formatting paths from ", type_name(),
-                                    " Partitioning");
+      return PartitionPathFormat{"", ""};
     }
 
     Result<PartitionedBatches> Partition(
