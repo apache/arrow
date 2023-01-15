@@ -564,7 +564,7 @@ module Arrow
       table =
         if left_outputs || right_outputs
           table
-        elsif type.end_with?("semi") || type.end_with?("anti")
+        elsif type.to_s.end_with?("semi") || type.to_s.end_with?("anti")
           table
         # For the cases of "#{type}" == "inner" || type.end_with?("outer")
         elsif natural_join
