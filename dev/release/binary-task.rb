@@ -1556,24 +1556,28 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       target_dir = "#{incoming_dir}/#{distribution}/#{distribution_version}"
       target_dir = Pathname(target_dir)
       next unless target_dir.directory?
-      Dir.glob("#{target_dir}/**/repodata") do |repodata|
-        rm_rf(repodata, verbose: verbose?)
-      end
-      target_dir.glob("*") do |arch_dir|
-        next unless arch_dir.directory?
-        base_repodata_dir = [
-          base_dir,
-          distribution,
-          distribution_version,
-          File.basename(arch_dir),
-          "repodata",
-        ].join("/")
-        if File.exist?(base_repodata_dir)
+
+      base_target_dir = Pathname(base_dir) + distribution + distribution_version
+      if base_target_dir.exist?
+        base_target_dir.glob("*") do |base_arch_dir|
+          next unless base_arch_dir.directory?
+
+          base_repodata_dir = base_arch_dir + "repodata"
+          next unless base_repodata_dir.exist?
+
+          target_repodata_dir = target_dir + base_arch_dir.basename + "repodata"
+          rm_rf(target_repodata_dir, verbose: verbose?)
+          mkdir_p(target_repodata_dir.parent, verbose: verbose?)
           cp_r(base_repodata_dir,
-               arch_dir.to_s,
+               target_repodata_dir,
                preserve: true,
                verbose: verbose?)
         end
+      end
+
+      target_dir.glob("*") do |arch_dir|
+        next unless arch_dir.directory?
+
         packages = Tempfile.new("createrepo-c-packages")
         Pathname.glob("#{arch_dir}/*/*.rpm") do |rpm|
           relative_rpm = rpm.relative_path_from(arch_dir)
