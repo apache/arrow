@@ -653,7 +653,7 @@ BasicTest GetBasicTest1() {
       /*r1*/ {R"([[1000, 1, 101]])"},
       /*exp_nokey*/ {R"([[0, 0, 1, 11, null], [1000, 0, 2, 11, 101]])"},
       /*exp_emptykey*/ {R"([[0, 1, 1, 11, null], [1000, 1, 2, 11, 101]])"},
-      /*exp*/ {R"([[0, 1, 1, 11, null], [1000, 1, 2, 11, 101]])"}, 1000);
+      /*exp*/ {R"([[0, 1, 1, 11, null], [1000, 1, 2, 11, 101]])"}, -1000);
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic1, {
@@ -662,7 +662,7 @@ TRACED_TEST_P(AsofJoinBasicTest, TestBasic1, {
   runner(basic_test);
 })
 
-BasicTest GetBasicTest1Negative() {
+BasicTest GetBasicTest1Positive() {
   // Single key, single batch
   return BasicTest(
       /*l*/ {R"([[0, 1, 1], [1000, 1, 2]])"},
@@ -670,11 +670,11 @@ BasicTest GetBasicTest1Negative() {
       /*r1*/ {R"([[2000, 1, 101]])"},
       /*exp_nokey*/ {R"([[0, 0, 1, 11, null], [1000, 0, 2, 11, 101]])"},
       /*exp_emptykey*/ {R"([[0, 1, 1, 11, null], [1000, 1, 2, 11, 101]])"},
-      /*exp*/ {R"([[0, 1, 1, 11, null], [1000, 1, 2, 11, 101]])"}, -1000);
+      /*exp*/ {R"([[0, 1, 1, 11, null], [1000, 1, 2, 11, 101]])"}, 1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic1Negative, {
-  BasicTest basic_test = GetBasicTest1Negative();
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic1Positive, {
+  BasicTest basic_test = GetBasicTest1Positive();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -687,7 +687,7 @@ BasicTest GetBasicTest2() {
       /*r1*/ {R"([[0, 1, 101]])", R"([[1000, 1, 102]])"},
       /*exp_nokey*/ {R"([[0, 0, 1, 11, 101], [1000, 0, 2, 12, 102]])"},
       /*exp_emptykey*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"},
-      /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, 1000);
+      /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, -1000);
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic2, {
@@ -696,7 +696,7 @@ TRACED_TEST_P(AsofJoinBasicTest, TestBasic2, {
   runner(basic_test);
 })
 
-BasicTest GetBasicTest2Negative() {
+BasicTest GetBasicTest2Positive() {
   // Single key, multiple batches
   return BasicTest(
       /*l*/ {R"([[0, 1, 1]])", R"([[1000, 1, 2]])"},
@@ -704,11 +704,11 @@ BasicTest GetBasicTest2Negative() {
       /*r1*/ {R"([[500, 1, 101]])", R"([[1000, 1, 102]])"},
       /*exp_nokey*/ {R"([[0, 0, 1, 11, 101], [1000, 0, 2, 12, 102]])"},
       /*exp_emptykey*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"},
-      /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, -1000);
+      /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, 1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic2Negative, {
-  BasicTest basic_test = GetBasicTest2Negative();
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic2Positive, {
+  BasicTest basic_test = GetBasicTest2Positive();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -721,7 +721,7 @@ BasicTest GetBasicTest3() {
       /*r1*/ {R"([[0, 1, 101], [1000, 1, 102]])"},
       /*exp_nokey*/ {R"([[0, 0, 1, 11, 101], [1000, 0, 2, 12, 102]])"},
       /*exp_emptykey*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"},
-      /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, 1000);
+      /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, -1000);
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic3, {
@@ -731,7 +731,7 @@ TRACED_TEST_P(AsofJoinBasicTest, TestBasic3, {
   runner(basic_test);
 })
 
-BasicTest GetBasicTest3Negative() {
+BasicTest GetBasicTest3Positive() {
   // Single key, multiple left batches, single right batches
   return BasicTest(
       /*l*/ {R"([[0, 1, 1]])", R"([[1000, 1, 2]])"},
@@ -739,12 +739,12 @@ BasicTest GetBasicTest3Negative() {
       /*r1*/ {R"([[500, 1, 101], [1000, 1, 102]])"},
       /*exp_nokey*/ {R"([[0, 0, 1, 11, 101], [1000, 0, 2, 12, 102]])"},
       /*exp_emptykey*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"},
-      /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, -1000);
+      /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, 1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic3Negative, {
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic3Positive, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic3_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest3Negative();
+  BasicTest basic_test = GetBasicTest3Positive();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -770,7 +770,7 @@ BasicTest GetBasicTest4() {
       /*exp*/
       {R"([[0, 1, 1, 11, null], [0, 2, 21, null, 1001], [500, 1, 2, 11, 101], [1000, 2, 22, 31, 1001], [1500, 1, 3, 12, 102], [1500, 2, 23, 32, 1002]])",
        R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 32, 1002]])"},
-      1000);
+      -1000);
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic4, {
@@ -779,7 +779,7 @@ TRACED_TEST_P(AsofJoinBasicTest, TestBasic4, {
   runner(basic_test);
 })
 
-BasicTest GetBasicTest4Negative() {
+BasicTest GetBasicTest4Positive() {
   // Multi key, multiple batches, misaligned batches
   return BasicTest(
       /*l*/
@@ -800,11 +800,11 @@ BasicTest GetBasicTest4Negative() {
       /*exp*/
       {R"([[0, 1, 1, 11, 101], [0, 2, 21, 31, 1001], [500, 1, 2, 12, 101], [1000, 2, 22, 32, 1002], [1500, 1, 3, 13, 103], [1500, 2, 23, 32, 1002]])",
        R"([[2000, 1, 4, 13, 103], [2000, 2, 24, null, null]])"},
-      -1000);
+      1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic4Negative, {
-  BasicTest basic_test = GetBasicTest4Negative();
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic4Positive, {
+  BasicTest basic_test = GetBasicTest4Positive();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -829,7 +829,7 @@ BasicTest GetBasicTest5() {
                    /*exp*/
                    {R"([[0, 1, 1, 11, null], [0, 2, 21, null, 1001], [500, 1, 2, 11, 101], [1000, 2, 22, 31, null], [1500, 1, 3, 12, 102], [1500, 2, 23, 32, 1002]])",
                     R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 32, 1002]])"},
-                   500);
+                   -500);
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic5, {
@@ -839,7 +839,7 @@ TRACED_TEST_P(AsofJoinBasicTest, TestBasic5, {
   runner(basic_test);
 })
 
-BasicTest GetBasicTest5Negative() {
+BasicTest GetBasicTest5Positive() {
   // Multi key, multiple batches, misaligned batches, smaller tolerance
   return BasicTest(/*l*/
                    {R"([[0, 1, 1], [0, 2, 21], [500, 1, 2], [1000, 2, 22], [1500, 1, 3], [1500, 2, 23]])",
@@ -859,12 +859,12 @@ BasicTest GetBasicTest5Negative() {
                    /*exp*/
                    {R"([[0, 1, 1, 11, 101], [0, 2, 21, 31, 1001], [500, 1, 2, 12, 101], [1000, 2, 22, 32, 1002], [1500, 1, 3, 13, 103], [1500, 2, 23, 32, 1002]])",
                     R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 33, null]])"},
-                   -500);
+                   500);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic5Negative, {
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic5Positive, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic5_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest5Negative();
+  BasicTest basic_test = GetBasicTest5Positive();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -914,7 +914,7 @@ BasicTest GetEmptyTest1() {
                    /*exp_emptykey*/
                    {R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 13, 103]])"},
                    /*exp*/
-                   {R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 32, 1002]])"}, 1000);
+                   {R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 32, 1002]])"}, -1000);
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty1, {
@@ -924,7 +924,7 @@ TRACED_TEST_P(AsofJoinBasicTest, TestEmpty1, {
   runner(basic_test);
 })
 
-BasicTest GetEmptyTest1Negative() {
+BasicTest GetEmptyTest1Positive() {
   // Empty left batch
   return BasicTest(/*l*/
                    {R"([])", R"([[2000, 1, 4], [2000, 2, 24]])"},
@@ -939,12 +939,12 @@ BasicTest GetEmptyTest1Negative() {
                    /*exp_emptykey*/
                    {R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 13, 103]])"},
                    /*exp*/
-                   {R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 33, null]])"}, -1000);
+                   {R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 33, null]])"}, 1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestEmpty1Negative, {
-  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty1Negative_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest1Negative();
+TRACED_TEST_P(AsofJoinBasicTest, TestEmpty1Positive, {
+  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty1Positive_" + std::get<1>(GetParam()));
+  BasicTest basic_test = GetEmptyTest1Positive();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -964,7 +964,7 @@ BasicTest GetEmptyTest2() {
                    /*exp_emptykey*/
                    {R"([])"},
                    /*exp*/
-                   {R"([])"}, 1000);
+                   {R"([])"}, -1000);
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty2, {
@@ -974,7 +974,7 @@ TRACED_TEST_P(AsofJoinBasicTest, TestEmpty2, {
   runner(basic_test);
 })
 
-BasicTest GetEmptyTest2Negative() {
+BasicTest GetEmptyTest2Positive() {
   // Empty left input
   return BasicTest(/*l*/
                    {R"([])"},
@@ -989,12 +989,12 @@ BasicTest GetEmptyTest2Negative() {
                    /*exp_emptykey*/
                    {R"([])"},
                    /*exp*/
-                   {R"([])"}, -1000);
+                   {R"([])"}, 1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestEmpty2Negative, {
-  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty2Negative_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest2Negative();
+TRACED_TEST_P(AsofJoinBasicTest, TestEmpty2Positive, {
+  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty2Positive_" + std::get<1>(GetParam()));
+  BasicTest basic_test = GetEmptyTest2Positive();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1018,7 +1018,7 @@ BasicTest GetEmptyTest3() {
                    /*exp*/
                    {R"([[0, 1, 1, null, null], [0, 2, 21, null, 1001], [500, 1, 2, null, 101], [1000, 2, 22, null, 1001], [1500, 1, 3, null, 102], [1500, 2, 23, 32, 1002]])",
                     R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 32, 1002]])"},
-                   1000);
+                   -1000);
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty3, {
@@ -1028,7 +1028,7 @@ TRACED_TEST_P(AsofJoinBasicTest, TestEmpty3, {
   runner(basic_test);
 })
 
-BasicTest GetEmptyTest3Negative() {
+BasicTest GetEmptyTest3Positive() {
   // Empty right batch
   return BasicTest(/*l*/
                    {R"([[0, 1, 1], [0, 2, 21], [500, 1, 2], [1000, 2, 22], [1500, 1, 3], [1500, 2, 23]])",
@@ -1047,12 +1047,12 @@ BasicTest GetEmptyTest3Negative() {
                    /*exp*/
                    {R"([[0, 1, 1, null, 101], [0, 2, 21, null, 1001], [500, 1, 2, null, 101], [1000, 2, 22, 32, 1002], [1500, 1, 3, 13, 103], [1500, 2, 23, 32, 1002]])",
                     R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 33, null]])"},
-                   -1000);
+                   1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestEmpty3Negative, {
-  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty3Negative_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest3Negative();
+TRACED_TEST_P(AsofJoinBasicTest, TestEmpty3Positive, {
+  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty3Positive_" + std::get<1>(GetParam()));
+  BasicTest basic_test = GetEmptyTest3Positive();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1076,7 +1076,7 @@ BasicTest GetEmptyTest4() {
                    /*exp*/
                    {R"([[0, 1, 1, null, null], [0, 2, 21, null, 1001], [500, 1, 2, null, 101], [1000, 2, 22, null, 1001], [1500, 1, 3, null, 102], [1500, 2, 23, null, 1002]])",
                     R"([[2000, 1, 4, null, 103], [2000, 2, 24, null, 1002]])"},
-                   1000);
+                   -1000);
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty4, {
@@ -1086,7 +1086,7 @@ TRACED_TEST_P(AsofJoinBasicTest, TestEmpty4, {
   runner(basic_test);
 })
 
-BasicTest GetEmptyTest4Negative() {
+BasicTest GetEmptyTest4Positive() {
   // Empty right input
   return BasicTest(/*l*/
                    {R"([[0, 1, 1], [0, 2, 21], [500, 1, 2], [1000, 2, 22], [1500, 1, 3], [1500, 2, 23]])",
@@ -1105,12 +1105,12 @@ BasicTest GetEmptyTest4Negative() {
                    /*exp*/
                    {R"([[0, 1, 1, null, 101], [0, 2, 21, null, 1001], [500, 1, 2, null, 101], [1000, 2, 22, null, 1002], [1500, 1, 3, null, 103], [1500, 2, 23, null, 1002]])",
                     R"([[2000, 1, 4, null, 103], [2000, 2, 24, null, null]])"},
-                   -1000);
+                   1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestEmpty4Negative, {
-  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty4Negative_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest4Negative();
+TRACED_TEST_P(AsofJoinBasicTest, TestEmpty4Positive, {
+  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty4Positive_" + std::get<1>(GetParam()));
+  BasicTest basic_test = GetEmptyTest4Positive();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1128,7 +1128,7 @@ BasicTest GetEmptyTest5() {
                    /*exp_emptykey*/
                    {R"([])"},
                    /*exp*/
-                   {R"([])"}, 1000);
+                   {R"([])"}, -1000);
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty5, {
@@ -1138,7 +1138,7 @@ TRACED_TEST_P(AsofJoinBasicTest, TestEmpty5, {
   runner(basic_test);
 })
 
-BasicTest GetEmptyTest5Negative() {
+BasicTest GetEmptyTest5Positive() {
   // All empty
   return BasicTest(/*l*/
                    {R"([])"},
@@ -1151,12 +1151,12 @@ BasicTest GetEmptyTest5Negative() {
                    /*exp_emptykey*/
                    {R"([])"},
                    /*exp*/
-                   {R"([])"}, -1000);
+                   {R"([])"}, 1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestEmpty5Negative, {
-  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty5Negative_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest5Negative();
+TRACED_TEST_P(AsofJoinBasicTest, TestEmpty5Positive, {
+  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty5Positive_" + std::get<1>(GetParam()));
+  BasicTest basic_test = GetEmptyTest5Positive();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
