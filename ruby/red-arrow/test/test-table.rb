@@ -720,6 +720,11 @@ class TableTest < Test::Unit::TestCase
                                            schema: @table.schema))
           end
 
+          test("csv, return value") do
+            output = create_output(".csv")
+            assert_equal(@table, @table.save(output))
+          end
+
           test("csv.gz") do
             output = create_output(".csv.gz")
             @table.save(output)
