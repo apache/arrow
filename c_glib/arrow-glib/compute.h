@@ -156,6 +156,24 @@ GArrowSourceNodeOptions *
 garrow_source_node_options_new_table(GArrowTable *table);
 
 
+#define GARROW_TYPE_PROJECT_NODE_OPTIONS (garrow_project_node_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowProjectNodeOptions,
+                         garrow_project_node_options,
+                         GARROW,
+                         PROJECT_NODE_OPTIONS,
+                         GArrowExecuteNodeOptions)
+struct _GArrowProjectNodeOptionsClass
+{
+  GArrowExecuteNodeOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_11_0
+GArrowProjectNodeOptions *
+garrow_project_node_options_new(GList *expressions,
+                                gchar **names,
+                                gsize n_names);
+
+
 #define GARROW_TYPE_AGGREGATION (garrow_aggregation_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowAggregation,
                          garrow_aggregation,
@@ -321,6 +339,12 @@ GArrowExecuteNode *
 garrow_execute_plan_build_source_node(GArrowExecutePlan *plan,
                                       GArrowSourceNodeOptions *options,
                                       GError **error);
+GARROW_AVAILABLE_IN_11_0
+GArrowExecuteNode *
+garrow_execute_plan_build_project_node(GArrowExecutePlan *plan,
+                                       GArrowExecuteNode *input,
+                                       GArrowProjectNodeOptions *options,
+                                       GError **error);
 GARROW_AVAILABLE_IN_6_0
 GArrowExecuteNode *
 garrow_execute_plan_build_aggregate_node(GArrowExecutePlan *plan,

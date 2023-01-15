@@ -26,6 +26,7 @@
 #include <arrow-glib/datum.hpp>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/expression.hpp>
 #include <arrow-glib/reader.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/scalar.hpp>
@@ -109,7 +110,6 @@ namespace {
     return
       (sort_key.target == other_sort_key.target) &&
       (sort_key.order == other_sort_key.order);
-
   }
 }
 
@@ -135,6 +135,8 @@ G_BEGIN_DECLS
  * options classes such as #GArrowSourceNodeOptions.
  *
  * #GArrowSourceNodeOptions is a class to customize a source node.
+ *
+ * #GArrowProjectNodeOptions is a class to customize a project node.
  *
  * #GArrowAggregation is a class to specify how to aggregate.
  *
@@ -1014,6 +1016,61 @@ garrow_source_node_options_new_table(GArrowTable *table)
 }
 
 
+G_DEFINE_TYPE(GArrowProjectNodeOptions,
+              garrow_project_node_options,
+              GARROW_TYPE_EXECUTE_NODE_OPTIONS)
+
+static void
+garrow_project_node_options_init(GArrowProjectNodeOptions *object)
+{
+}
+
+static void
+garrow_project_node_options_class_init(GArrowProjectNodeOptionsClass *klass)
+{
+}
+
+/**
+ * garrow_project_node_options_new:
+ * @expressions: (element-type GArrowExpression):
+ *   A list of #GArrowExpression to be executed.
+ * @names: (nullable) (array length=n_names):
+ *   A list of output column names of @expressions. If @names is %NULL,
+ *   the string representations of @expressions will be used.
+ * @n_names: The number of @names.
+ *
+ * Returns: A newly created #GArrowProjectNodeOptions.
+ *
+ * Since: 11.0.0
+ */
+GArrowProjectNodeOptions *
+garrow_project_node_options_new(GList *expressions,
+                                gchar **names,
+                                gsize n_names)
+{
+  std::vector<arrow::compute::Expression> arrow_expressions;
+  std::vector<std::string> arrow_names;
+  for (auto node = expressions; node; node = g_list_next(node)) {
+    auto expression = GARROW_EXPRESSION(node->data);
+    arrow_expressions.push_back(*garrow_expression_get_raw(expression));
+  }
+  for (gsize i = 0; i < n_names; ++i) {
+    arrow_names.emplace_back(names[i]);
+  }
+  if (!arrow_names.empty()) {
+    for (size_t i = arrow_names.size(); i < arrow_expressions.size(); ++i) {
+      arrow_names.push_back(arrow_expressions[i].ToString());
+    }
+  }
+  auto arrow_options =
+    new arrow::compute::ProjectNodeOptions(arrow_expressions, arrow_names);
+  auto options = g_object_new(GARROW_TYPE_PROJECT_NODE_OPTIONS,
+                              "options", arrow_options,
+                              NULL);
+  return GARROW_PROJECT_NODE_OPTIONS(options);
+}
+
+
 typedef struct GArrowAggregationPrivate_ {
   gchar *function;
   GArrowFunctionOptions *options;
@@ -1769,6 +1826,39 @@ garrow_execute_plan_build_source_node(GArrowExecutePlan *plan,
                                         NULL,
                                         GARROW_EXECUTE_NODE_OPTIONS(options),
                                         error);
+}
+
+/**
+ * garrow_execute_plan_build_project_node:
+ * @plan: A #GArrowExecutePlan.
+ * @input: A #GArrowExecuteNode.
+ * @options: A #GArrowProjectNodeOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * This is a shortcut of garrow_execute_plan_build_node() for project
+ * node.
+ *
+ * Returns: (transfer full): A newly built and added #GArrowExecuteNode
+ *   for project on success, %NULL on error.
+ *
+ * Since: 11.0.0
+ */
+GArrowExecuteNode *
+garrow_execute_plan_build_project_node(GArrowExecutePlan *plan,
+                                       GArrowExecuteNode *input,
+                                       GArrowProjectNodeOptions *options,
+                                       GError **error)
+{
+  GList *inputs = nullptr;
+  inputs = g_list_prepend(inputs, input);
+  auto node =
+    garrow_execute_plan_build_node(plan,
+                                   "project",
+                                   inputs,
+                                   GARROW_EXECUTE_NODE_OPTIONS(options),
+                                   error);
+  g_list_free(inputs);
+  return node;
 }
 
 /**
