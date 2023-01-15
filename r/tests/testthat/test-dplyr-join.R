@@ -67,6 +67,39 @@ test_that("left_join `by` args", {
   )
 })
 
+test_that("left_join with join_by", {
+  # only run this test in newer versions of dplyr that include `join_by()`
+  skip_if_not(packageVersion("dplyr") >= "1.0.99.9000")
+
+  compare_dplyr_binding(
+    .input %>%
+      left_join(to_join, join_by(some_grouping)) %>%
+      collect(),
+    left
+  )
+  compare_dplyr_binding(
+    .input %>%
+      left_join(
+        to_join %>%
+          rename(the_grouping = some_grouping),
+          join_by(some_grouping == the_grouping)
+      ) %>%
+      collect(),
+    left
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      rename(the_grouping = some_grouping) %>%
+      left_join(
+        to_join,
+        join_by(the_grouping == some_grouping)
+      ) %>%
+      collect(),
+    left
+  )
+})
+
 test_that("join two tables", {
   expect_identical(
     arrow_table(left) %>%
@@ -133,6 +166,23 @@ test_that("Error handling", {
       by = c("made_up_colname1" = "made_up_colname2")
     ),
     error = TRUE
+  )
+})
+
+test_that("Error handling for unsupported expressions in join_by", {
+  # only run this test in newer versions of dplyr that include `join_by()`
+  skip_if_not(packageVersion("dplyr") >= "1.0.99.9000")
+
+  expect_error(
+    arrow_table(left) %>%
+      left_join(to_join, join_by(some_grouping >= some_grouping)),
+    "not supported"
+  )
+
+  expect_error(
+    arrow_table(left) %>%
+      left_join(to_join, join_by(closest(some_grouping >= some_grouping))),
+    "not supported"
   )
 })
 
