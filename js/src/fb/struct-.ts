@@ -10,7 +10,7 @@ import * as flatbuffers from 'flatbuffers';
 export class Struct_ {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):Struct_ {
+  __init(i:number, bb:flatbuffers.ByteBuffer):Struct_ {
   this.bb_pos = i;
   this.bb = bb;
   return this;

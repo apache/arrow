@@ -43,7 +43,7 @@ import { Int } from './int.js';
 export class SparseTensorIndexCOO {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):SparseTensorIndexCOO {
+  __init(i:number, bb:flatbuffers.ByteBuffer):SparseTensorIndexCOO {
   this.bb_pos = i;
   this.bb = bb;
   return this;
@@ -70,9 +70,9 @@ indicesType(obj?:Int):Int|null {
  * Non-negative byte offsets to advance one value cell along each dimension
  * If omitted, default to row-major order (C-like).
  */
-indicesStrides(index: number):flatbuffers.Long|null {
+indicesStrides(index: number):bigint|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
-  return offset ? this.bb!.readInt64(this.bb!.__vector(this.bb_pos + offset) + index * 8) : this.bb!.createLong(0, 0);
+  return offset ? this.bb!.readInt64(this.bb!.__vector(this.bb_pos + offset) + index * 8) : BigInt(0);
 }
 
 indicesStridesLength():number {
@@ -112,7 +112,7 @@ static addIndicesStrides(builder:flatbuffers.Builder, indicesStridesOffset:flatb
   builder.addFieldOffset(1, indicesStridesOffset, 0);
 }
 
-static createIndicesStridesVector(builder:flatbuffers.Builder, data:flatbuffers.Long[]):flatbuffers.Offset {
+static createIndicesStridesVector(builder:flatbuffers.Builder, data:bigint[]):flatbuffers.Offset {
   builder.startVector(8, data.length, 8);
   for (let i = data.length - 1; i >= 0; i--) {
     builder.addInt64(data[i]!);

@@ -3,15 +3,15 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { Buffer } from './buffer.js';
-import { SparseTensorIndex } from './sparse-tensor-index.js';
+import { SparseTensorIndex, unionToSparseTensorIndex, unionListToSparseTensorIndex } from './sparse-tensor-index.js';
 import { TensorDim } from './tensor-dim.js';
-import { Type } from './type.js';
+import { Type, unionToType, unionListToType } from './type.js';
 
 
 export class SparseTensor {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):SparseTensor {
+  __init(i:number, bb:flatbuffers.ByteBuffer):SparseTensor {
   this.bb_pos = i;
   this.bb = bb;
   return this;
@@ -36,7 +36,6 @@ typeType():Type {
  * Currently only fixed-width value types are supported,
  * no strings or nested types.
  */
-// @ts-ignore
 type<T extends flatbuffers.Table>(obj:any):any|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
   return offset ? this.bb!.__union(obj, this.bb_pos + offset) : null;
@@ -58,9 +57,9 @@ shapeLength():number {
 /**
  * The number of non-zero values in a sparse tensor.
  */
-nonZeroLength():flatbuffers.Long {
+nonZeroLength():bigint {
   const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? this.bb!.readInt64(this.bb_pos + offset) : this.bb!.createLong(0, 0);
+  return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('0');
 }
 
 sparseIndexType():SparseTensorIndex {
@@ -71,7 +70,6 @@ sparseIndexType():SparseTensorIndex {
 /**
  * Sparse tensor index
  */
-// @ts-ignore
 sparseIndex<T extends flatbuffers.Table>(obj:any):any|null {
   const offset = this.bb!.__offset(this.bb_pos, 14);
   return offset ? this.bb!.__union(obj, this.bb_pos + offset) : null;
@@ -113,8 +111,8 @@ static startShapeVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
-static addNonZeroLength(builder:flatbuffers.Builder, nonZeroLength:flatbuffers.Long) {
-  builder.addFieldInt64(3, nonZeroLength, builder.createLong(0, 0));
+static addNonZeroLength(builder:flatbuffers.Builder, nonZeroLength:bigint) {
+  builder.addFieldInt64(3, nonZeroLength, BigInt('0'));
 }
 
 static addSparseIndexType(builder:flatbuffers.Builder, sparseIndexType:SparseTensorIndex) {

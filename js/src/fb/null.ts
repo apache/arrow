@@ -8,7 +8,7 @@ import * as flatbuffers from 'flatbuffers';
 export class Null {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):Null {
+  __init(i:number, bb:flatbuffers.ByteBuffer):Null {
   this.bb_pos = i;
   this.bb = bb;
   return this;
