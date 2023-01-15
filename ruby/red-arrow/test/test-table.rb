@@ -1131,7 +1131,7 @@ visible: false
   end
 
   sub_test_case("#join") do
-    test("w/o keys (natural join)") do
+    test("keys: nil (natural join)") do
       table1 = Arrow::Table.new(key: [1, 2, 3],
                                 number: [10, 20, 30])
       table2 = Arrow::Table.new(key: [3, 1],
@@ -1344,7 +1344,7 @@ visible: false
                                right_outputs: ["string"]))
     end
 
-    test("preserve outputs, type: :inner") do
+    test("left_outputs: & type: :inner") do
       table1 = Arrow::Table.new(key: [1, 2, 3],
                                 number: [10, 20, 30])
       table2 = Arrow::Table.new(key: [3, 1],
@@ -1361,7 +1361,7 @@ visible: false
                                right_outputs: table2.column_names))
     end
 
-    test("preserve outputs, type: :left_outer") do
+    test("left_outputs: & type: :left_outer") do
       table1 = Arrow::Table.new(key: [1, 2, 3],
                                 number: [10, 20, 30])
       table2 = Arrow::Table.new(key: [3, 1],
@@ -1378,7 +1378,7 @@ visible: false
                                right_outputs: table2.column_names))
     end
 
-    test("'preserve outputs, type: :right_outer") do
+    test("left_outputs: & type: :right_outer") do
       table1 = Arrow::Table.new(key: [1, 2, 3],
                                 number: [10, 20, 30])
       table2 = Arrow::Table.new(key: [3, 1],
@@ -1395,7 +1395,7 @@ visible: false
                                right_outputs: table2.column_names))
     end
 
-    test("preserve outputs, type: :full_outer") do
+    test("left_outputs: & type: :full_outer") do
       table1 = Arrow::Table.new(key: [1, 2, 3],
                                 number: [10, 20, 30])
       table2 = Arrow::Table.new(key: [3, 1],
@@ -1412,7 +1412,7 @@ visible: false
                                right_outputs: table2.column_names))
     end
 
-    test(":left_suffix and :right_suffix, keys in Array") do
+    test("left_suffix: & keys: [String]") do
       table1 = Arrow::Table.new(key1: [1, 1, 2, 2],
                                 key2: [10, 100, 20, 200],
                                 number: [1010, 1100, 2020, 2200])
