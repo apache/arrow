@@ -60,7 +60,7 @@ export function unionToType(
   accessor: (obj:Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|RunEndEncoded|Struct_|Time|Timestamp|Union|Utf8) => Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|RunEndEncoded|Struct_|Time|Timestamp|Union|Utf8|null
 ): Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|RunEndEncoded|Struct_|Time|Timestamp|Union|Utf8|null {
   switch(Type[type]) {
-    case 'NONE': return null; 
+    case 'NONE': return null;
     case 'Null': return accessor(new Null())! as Null;
     case 'Int': return accessor(new Int())! as Int;
     case 'FloatingPoint': return accessor(new FloatingPoint())! as FloatingPoint;
@@ -88,12 +88,12 @@ export function unionToType(
 }
 
 export function unionListToType(
-  type: Type, 
-  accessor: (index: number, obj:Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|RunEndEncoded|Struct_|Time|Timestamp|Union|Utf8) => Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|RunEndEncoded|Struct_|Time|Timestamp|Union|Utf8|null, 
+  type: Type,
+  accessor: (index: number, obj:Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|RunEndEncoded|Struct_|Time|Timestamp|Union|Utf8) => Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|RunEndEncoded|Struct_|Time|Timestamp|Union|Utf8|null,
   index: number
 ): Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|RunEndEncoded|Struct_|Time|Timestamp|Union|Utf8|null {
   switch(Type[type]) {
-    case 'NONE': return null; 
+    case 'NONE': return null;
     case 'Null': return accessor(index, new Null())! as Null;
     case 'Int': return accessor(index, new Int())! as Int;
     case 'FloatingPoint': return accessor(index, new FloatingPoint())! as FloatingPoint;

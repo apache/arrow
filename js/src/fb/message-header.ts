@@ -31,7 +31,7 @@ export function unionToMessageHeader(
   accessor: (obj:DictionaryBatch|RecordBatch|Schema|SparseTensor|Tensor) => DictionaryBatch|RecordBatch|Schema|SparseTensor|Tensor|null
 ): DictionaryBatch|RecordBatch|Schema|SparseTensor|Tensor|null {
   switch(MessageHeader[type]) {
-    case 'NONE': return null; 
+    case 'NONE': return null;
     case 'Schema': return accessor(new Schema())! as Schema;
     case 'DictionaryBatch': return accessor(new DictionaryBatch())! as DictionaryBatch;
     case 'RecordBatch': return accessor(new RecordBatch())! as RecordBatch;
@@ -42,12 +42,12 @@ export function unionToMessageHeader(
 }
 
 export function unionListToMessageHeader(
-  type: MessageHeader, 
-  accessor: (index: number, obj:DictionaryBatch|RecordBatch|Schema|SparseTensor|Tensor) => DictionaryBatch|RecordBatch|Schema|SparseTensor|Tensor|null, 
+  type: MessageHeader,
+  accessor: (index: number, obj:DictionaryBatch|RecordBatch|Schema|SparseTensor|Tensor) => DictionaryBatch|RecordBatch|Schema|SparseTensor|Tensor|null,
   index: number
 ): DictionaryBatch|RecordBatch|Schema|SparseTensor|Tensor|null {
   switch(MessageHeader[type]) {
-    case 'NONE': return null; 
+    case 'NONE': return null;
     case 'Schema': return accessor(index, new Schema())! as Schema;
     case 'DictionaryBatch': return accessor(index, new DictionaryBatch())! as DictionaryBatch;
     case 'RecordBatch': return accessor(index, new RecordBatch())! as RecordBatch;

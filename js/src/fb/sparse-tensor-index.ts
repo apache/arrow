@@ -17,7 +17,7 @@ export function unionToSparseTensorIndex(
   accessor: (obj:SparseMatrixIndexCSX|SparseTensorIndexCOO|SparseTensorIndexCSF) => SparseMatrixIndexCSX|SparseTensorIndexCOO|SparseTensorIndexCSF|null
 ): SparseMatrixIndexCSX|SparseTensorIndexCOO|SparseTensorIndexCSF|null {
   switch(SparseTensorIndex[type]) {
-    case 'NONE': return null; 
+    case 'NONE': return null;
     case 'SparseTensorIndexCOO': return accessor(new SparseTensorIndexCOO())! as SparseTensorIndexCOO;
     case 'SparseMatrixIndexCSX': return accessor(new SparseMatrixIndexCSX())! as SparseMatrixIndexCSX;
     case 'SparseTensorIndexCSF': return accessor(new SparseTensorIndexCSF())! as SparseTensorIndexCSF;
@@ -26,12 +26,12 @@ export function unionToSparseTensorIndex(
 }
 
 export function unionListToSparseTensorIndex(
-  type: SparseTensorIndex, 
-  accessor: (index: number, obj:SparseMatrixIndexCSX|SparseTensorIndexCOO|SparseTensorIndexCSF) => SparseMatrixIndexCSX|SparseTensorIndexCOO|SparseTensorIndexCSF|null, 
+  type: SparseTensorIndex,
+  accessor: (index: number, obj:SparseMatrixIndexCSX|SparseTensorIndexCOO|SparseTensorIndexCSF) => SparseMatrixIndexCSX|SparseTensorIndexCOO|SparseTensorIndexCSF|null,
   index: number
 ): SparseMatrixIndexCSX|SparseTensorIndexCOO|SparseTensorIndexCSF|null {
   switch(SparseTensorIndex[type]) {
-    case 'NONE': return null; 
+    case 'NONE': return null;
     case 'SparseTensorIndexCOO': return accessor(index, new SparseTensorIndexCOO())! as SparseTensorIndexCOO;
     case 'SparseMatrixIndexCSX': return accessor(index, new SparseMatrixIndexCSX())! as SparseMatrixIndexCSX;
     case 'SparseTensorIndexCSF': return accessor(index, new SparseTensorIndexCSF())! as SparseTensorIndexCSF;
