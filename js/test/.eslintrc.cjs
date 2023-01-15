@@ -29,5 +29,6 @@ module.exports = {
         "jest/no-conditional-expect": "off",
 
         "unicorn/consistent-function-scoping": "off",
+        "unicorn/no-useless-spread": "warn",
     },
 };
