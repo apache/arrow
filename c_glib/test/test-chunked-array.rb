@@ -18,6 +18,12 @@
 class TestChunkedArray < Test::Unit::TestCase
   include Helper::Buildable
 
+  def test_empty
+    chunked_array = Arrow::ChunkedArray.new(Arrow::BooleanDataType.new)
+    assert_equal(Arrow::BooleanDataType.new,
+                 chunked_array.value_data_type)
+  end
+
   def test_equal
     chunks1 = [
       build_boolean_array([true, false]),

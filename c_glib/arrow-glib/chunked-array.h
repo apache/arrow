@@ -24,7 +24,13 @@
 
 G_BEGIN_DECLS
 
-GArrowChunkedArray *garrow_chunked_array_new(GList *chunks);
+GArrowChunkedArray *
+garrow_chunked_array_new(GList *chunks,
+                         GError **error);
+GARROW_AVAILABLE_IN_11_0
+GArrowChunkedArray *
+garrow_chunked_array_new_empty(GArrowDataType *data_type,
+                               GError **error);
 
 gboolean garrow_chunked_array_equal(GArrowChunkedArray *chunked_array,
                                     GArrowChunkedArray *other_chunked_array);
