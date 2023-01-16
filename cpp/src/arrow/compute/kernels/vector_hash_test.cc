@@ -332,8 +332,8 @@ TEST_F(TestHashKernel, ValueCountsTimeTimestamp) {
                                            {true, false, true, true}, {2, 0, 1},
                                            {1, 0, 1}, {2, 1, 1});
   CheckValueCounts<DurationType, int64_t>(duration(TimeUnit::NANO), {2, 1, 2, 1},
-                                          {true, false, true, true}, {2, 0, 1},
-                                          {1, 0, 1}, {2, 1, 1});
+                                          {true, false, true, true}, {2, 0, 1}, {1, 0, 1},
+                                          {2, 1, 1});
 }
 
 TEST_F(TestHashKernel, UniqueBoolean) {
