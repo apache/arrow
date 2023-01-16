@@ -575,6 +575,8 @@ class PullRequest(object):
         commit_title = f'{self.title} (#{self.number})'
         commit_message_chunks = []
         if self.body is not None:
+            # Remove comments (i.e. <-- comment -->) from the pull request description.
+            body = re.sub(r"<!--(.|\s)*-->", "", self.body)
             # avoid github user name references by inserting a space after @
             body = re.sub(r"@(\w+)", "@ \\1", self.body)
             commit_message_chunks.append(body)
