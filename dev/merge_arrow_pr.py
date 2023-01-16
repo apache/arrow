@@ -576,9 +576,9 @@ class PullRequest(object):
         commit_message_chunks = []
         if self.body is not None:
             # Remove comments (i.e. <-- comment -->) from the pull request description.
-            body = re.sub(r"<!--(.|\s)*-->", "", self.body)
+            body = re.sub(r"<!--.*?-->", "", self.body, flags=re.DOTALL)
             # avoid github user name references by inserting a space after @
-            body = re.sub(r"@(\w+)", "@ \\1", self.body)
+            body = re.sub(r"@(\w+)", "@ \\1", body)
             commit_message_chunks.append(body)
 
         committer_name = run_cmd("git config --get user.name").strip()
@@ -596,9 +596,16 @@ class PullRequest(object):
 
         commit_message = "\n\n".join(commit_message_chunks)
 
+        # Collapse extraneous newlines. We allow two consecutive newlines
+        # (for paragraph breaks) but not more.
+        commit_message = "\n".join(commit_message.splitlines())  # normalize line ends
+        commit_message = re.sub("\n{2,}", "\n\n", commit_message)
+
         if DEBUG:
+            print("*** Commit title ***")
             print(commit_title)
             print()
+            print("*** Commit message ***")
             print(commit_message)
 
         if DEBUG:
