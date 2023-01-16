@@ -113,9 +113,37 @@ ParquetFileFormat$create <- function(...,
 #' @export
 IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 
-#' @usage NULL
-#' @format NULL
-#' @rdname FileFormat
+#' CSV dataset file format
+#'
+#' @description
+#' A `CSVFileFormat` is a [FileFormat] subclass which holds information about how to
+#' read and parse the files included in a CSV `Dataset`.
+#'
+#' @section Factory:
+#' `CSVFileFormat$create()` can take options in the form of lists passed through as `parse_options`,
+#'  `read_options`, or `convert_options` parameters.  Alternatively, readr-style options can be passed
+#'  through individually.
+#'
+#' @return A `CsvFileFormat` object
+#' @rdname CsvFileFormat
+#' @name CsvFileFormat
+#' @seealso [FileFormat]
+#' @examplesIf arrow_with_dataset() && tolower(Sys.info()[["sysname"]]) != "windows"
+#' # Set up directory for examples
+#' tf <- tempfile()
+#' dir.create(tf)
+#' on.exit(unlink(tf))
+#' df <- data.frame(x = c("1", "2", "NULL"))
+#' write.table(df, file.path(tf, "file1.txt"), sep = ",", row.names = FALSE)
+#'
+#' # Create CsvFileFormat object with Arrow-style null_values option
+#' format <- CsvFileFormat$create(convert_options = list(null_values = c("", "NA", "NULL")))
+#' open_dataset(tf, format = format)
+#'
+#' # Use readr-style options
+#' format <- CsvFileFormat$create(na = c("", "NA", "NULL"))
+#' open_dataset(tf, format = format)
+#'
 #' @export
 CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
 CsvFileFormat$create <- function(...) {
