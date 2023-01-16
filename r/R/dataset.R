@@ -235,6 +235,13 @@ open_dataset <- function(sources,
 #' @inheritParams open_dataset
 #' @inheritParams read_csv_arrow
 #'
+#' Options currently supported by [read_delim_arrow] which are not supported here:
+#' * `file` (instead, please specify files in `sources`)
+#' * `col_select` (instead, subset columns after dataset creation)
+#' * `quoted_na`
+#' * `as_data_frame` (instead, convert to data frame after dataset creation)
+#' * `parse_options`
+#'
 #' @export
 open_csv_dataset <- function(sources,
                              schema = NULL,
