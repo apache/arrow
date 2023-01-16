@@ -699,7 +699,9 @@ register_bindings_datetime_parsers <- function() {
       }
     },
     notes = c(
-      "`quiet = FALSE` is not supported"
+      "`quiet = FALSE` is not supported",
+      "Available formats are H, I, j, M, S, U, w, W, y, Y, R, T.",
+      "On Linux and OS X additionally a, A, b, B, Om, p, r are available."
     )
   )
 

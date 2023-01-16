@@ -110,7 +110,6 @@ As of version 10.0.0, `arrow` requires C++17 to build. This means that:
 * Functions can be called with package namespace prefixes (e.g. `stringr::`, `lubridate::`) within queries. For example, `stringr::str_length` will now dispatch to the same kernel as `str_length`. (ARROW-14575)
 * Support for new functions:
   * `lubridate::parse_date_time()` datetime parser: (ARROW-14848, ARROW-16407, ARROW-16653)
-    * most formats are now supported.
     * `orders` with year, month, day, hours, minutes, and seconds components are supported.
     * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
   * `lubridate` date and datetime parsers such as `lubridate::ymd()`, `lubridate::yq()`, and `lubridate::ymd_hms()` (ARROW-16394, ARROW-16516, ARROW-16395)
