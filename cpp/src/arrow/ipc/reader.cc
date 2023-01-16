@@ -480,8 +480,8 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
                              actual_decompressed);
     }
   } else {
-    mempcpy(uncompressed->mutable_data(), data + sizeof(int64_t),
-            static_cast<size_t>(uncompressed_size));
+    std::memcpy(uncompressed->mutable_data(), data + sizeof(int64_t),
+                static_cast<size_t>(uncompressed_size));
   }
 
   return std::move(uncompressed);

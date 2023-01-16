@@ -193,8 +193,8 @@ class RecordBatchSerializer {
     } else {
       actual_length = buffer.size();
       ARROW_ASSIGN_OR_RAISE(result, AllocateBuffer(buffer.size() + sizeof(int64_t)));
-      memcpy(result->mutable_data() + sizeof(int64_t), buffer.data(),
-             static_cast<size_t>(buffer.size()));
+      std::memcpy(result->mutable_data() + sizeof(int64_t), buffer.data(),
+                  static_cast<size_t>(buffer.size()));
       *reinterpret_cast<int64_t*>(result->mutable_data()) = bit_util::ToLittleEndian(-1);
     }
     *out = SliceBuffer(std::move(result), /*offset=*/0, actual_length + sizeof(int64_t));
