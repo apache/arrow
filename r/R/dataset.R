@@ -228,22 +228,33 @@ open_dataset <- function(sources,
   )
 }
 
-#' Open a multi-file dataset of CSVs
+#' Open a multi-file dataset of CSV or other delimiter-separated format
 #'
-#' A wrapper around [open_dataset] which explicitly includes parameters specific to reading CSV files
+#' A wrapper around [open_dataset] which explicitly includes parameters mirroring [read_csv_arrow()],
+#' [read_delim_arrow()], and [read_tsv_arrow()].
 #'
 #' @inheritParams open_dataset
 #' @inheritParams read_csv_arrow
 #'
-#' Options currently supported by [read_delim_arrow] which are not supported here:
+#' @section Options currently supported by [read_delim_arrow()] which are not supported here:
 #' * `file` (instead, please specify files in `sources`)
 #' * `col_select` (instead, subset columns after dataset creation)
 #' * `quoted_na`
 #' * `as_data_frame` (instead, convert to data frame after dataset creation)
 #' * `parse_options`
 #'
+#' @examplesIf arrow_with_dataset()
+#' # Set up directory for examples
+#' tf <- tempfile()
+#' dir.create(tf)
+#' on.exit(unlink(tf))
+#'
+#' write_dataset(mtcars, tf, format = "csv")
+#' open_csv_dataset(tf)
+#'
+#' @seealso [open_dataset()]
 #' @export
-open_csv_dataset <- function(sources,
+open_delim_dataset <- function(sources,
                              schema = NULL,
                              partitioning = hive_partition(),
                              hive_style = NA,
@@ -269,8 +280,7 @@ open_csv_dataset <- function(sources,
     hive_style = hive_style,
     unify_schemas = unify_schemas,
     factory_options = factory_options,
-    delim = delim,
-    format = "csv",
+    format = "text",
     quote = quote,
     escape_double = escape_double,
     escape_backslash = escape_backslash,
@@ -284,6 +294,57 @@ open_csv_dataset <- function(sources,
     timestamp_parsers = timestamp_parsers
   )
 }
+
+#' @rdname open_delim_dataset
+#' @export
+open_csv_dataset <- function(sources,
+                             schema = NULL,
+                             partitioning = hive_partition(),
+                             hive_style = NA,
+                             unify_schemas = NULL,
+                             factory_options = list(),
+                             quote = "\"",
+                             escape_double = TRUE,
+                             escape_backslash = FALSE,
+                             col_names = TRUE,
+                             col_types = NULL,
+                             na = c("", "NA"),
+                             skip_empty_rows = TRUE,
+                             skip = 0L,
+                             convert_options = NULL,
+                             read_options = NULL,
+                             timestamp_parsers = NULL) {
+  mc <- match.call()
+  mc$delim <- ","
+  mc[[1]] <- get("open_delim_dataset", envir = asNamespace("arrow"))
+  eval.parent(mc)
+}
+
+#' @rdname open_delim_dataset
+#' @export
+open_tsv_dataset <- function(sources,
+                             schema = NULL,
+                             partitioning = hive_partition(),
+                             hive_style = NA,
+                             unify_schemas = NULL,
+                             factory_options = list(),
+                             quote = "\"",
+                             escape_double = TRUE,
+                             escape_backslash = FALSE,
+                             col_names = TRUE,
+                             col_types = NULL,
+                             na = c("", "NA"),
+                             skip_empty_rows = TRUE,
+                             skip = 0L,
+                             convert_options = NULL,
+                             read_options = NULL,
+                             timestamp_parsers = NULL) {
+  mc <- match.call()
+  mc$delim <- "\t"
+  mc[[1]] <- get("open_delim_dataset", envir = asNamespace("arrow"))
+  eval.parent(mc)
+}
+
 
 
 #' Multi-file datasets

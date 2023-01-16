@@ -4,7 +4,6 @@
 \alias{FileFormat}
 \alias{ParquetFileFormat}
 \alias{IpcFileFormat}
-\alias{CsvFileFormat}
 \title{Dataset file formats}
 \description{
 A \code{FileFormat} holds information about how to read and parse the files
