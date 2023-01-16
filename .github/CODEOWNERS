@@ -45,7 +45,7 @@
 /python/
 /python/pyarrow/_flight.pyx @lidavidm
 /python/pyarrow/**/*gandiva* @wjones127 
-/r/ @paleolimbot
+/r/ @paleolimbot @thisisnic 
 /ruby/ @kou
 
 # Docs
