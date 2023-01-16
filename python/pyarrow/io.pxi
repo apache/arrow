@@ -879,6 +879,16 @@ cdef class MemoryMappedFile(NativeFile):
     A stream that represents a memory-mapped file.
 
     Supports 'r', 'r+', 'w' modes.
+
+    Examples
+    --------
+    Create a MemoryMappedFile:
+
+    >>> import pyarrow as pa
+    >>> mmap = pa.create_memory_map('example_mmap.dat', 10)
+    >>> mmap
+    <pyarrow.MemoryMappedFile closed=False own_file=False is_seekable=True is_writable=True is_readable=True>
+    >>> mmap.close()
     """
     cdef:
         shared_ptr[CMemoryMappedFile] handle
@@ -1491,6 +1501,22 @@ cdef class CompressedInputStream(NativeFile):
         Input stream object to wrap with the compression.
     compression : str
         The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd").
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> data = b"Compressed stream"
+    >>> raw = pa.BufferOutputStream()
+    >>> with pa.CompressedOutputStream(raw, "gzip") as compressed:
+    ...     compressed.write(data)
+    ...
+    17
+    >>> cdata = raw.getvalue()
+    >>> raw = pa.BufferReader(cdata)
+    >>> with pa.CompressedInputStream(raw, "gzip") as compressed:
+    ...     compressed.read()
+    ...
+    b'Compressed stream'
     """
 
     def __init__(self, object stream, str compression not None):
@@ -1518,6 +1544,16 @@ cdef class CompressedOutputStream(NativeFile):
         Input stream object to wrap with the compression.
     compression : str
         The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd").
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> data = b"Compressed stream"
+    >>> raw = pa.BufferOutputStream()
+    >>> with pa.CompressedOutputStream(raw, "gzip") as compressed:
+    ...     compressed.write(data)
+    ...
+    17
     """
 
     def __init__(self, object stream, str compression not None):
