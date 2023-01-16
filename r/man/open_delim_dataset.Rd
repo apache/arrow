@@ -181,7 +181,8 @@ starting from the beginning of this vector. Possible values are:
 }
 \description{
 A wrapper around \link{open_dataset} which explicitly includes parameters mirroring \code{\link[=read_csv_arrow]{read_csv_arrow()}},
-\code{\link[=read_delim_arrow]{read_delim_arrow()}}, and \code{\link[=read_tsv_arrow]{read_tsv_arrow()}}.
+\code{\link[=read_delim_arrow]{read_delim_arrow()}}, and \code{\link[=read_tsv_arrow]{read_tsv_arrow()}} to allows for easy switching between functions
+for opening single files and functions for opening datasets.
 }
 \section{Options currently supported by \code{\link[=read_delim_arrow]{read_delim_arrow()}} which are not supported here}{
 
@@ -200,9 +201,13 @@ A wrapper around \link{open_dataset} which explicitly includes parameters mirror
 tf <- tempfile()
 dir.create(tf)
 on.exit(unlink(tf))
+df <- data.frame(x = c("1", "2", "NULL"))
 
-write_dataset(mtcars, tf, format = "csv")
-open_csv_dataset(tf)
+file_path <- file.path(tf, "file1.txt")
+write.table(df, file_path, sep = ",", row.names = FALSE)
+
+read_csv_arrow(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
+open_csv_dataset(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
 \dontshow{\}) # examplesIf}
 }
 \seealso{
