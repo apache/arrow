@@ -831,6 +831,10 @@ class PARQUET_EXPORT ArrowWriterProperties {
     /// \brief Set whether to use multiple threads to write columns
     /// in parallel in the buffered row group mode.
     ///
+    /// WARNING: If writing multiple files in parallel in the same
+    /// executor, deadlock may occur if use_threads is true. Please
+    /// disable it in this case.
+    ///
     /// Default is false.
     Builder* set_use_threads(bool use_threads) {
       use_threads_ = use_threads;

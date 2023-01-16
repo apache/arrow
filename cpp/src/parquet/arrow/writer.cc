@@ -428,8 +428,8 @@ class FileWriterImpl : public FileWriter {
 
       if (arrow_properties_->use_threads()) {
         DCHECK_EQ(parallel_column_write_contexts_.size(), writers.size());
-        RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
-            /*use_threads=*/true, static_cast<int>(writers.size()),
+        RETURN_NOT_OK(::arrow::internal::ParallelFor(
+            static_cast<int>(writers.size()),
             [&](int i) { return writers[i]->Write(&parallel_column_write_contexts_[i]); },
             arrow_properties_->executor()));
       }

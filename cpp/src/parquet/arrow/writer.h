@@ -131,6 +131,11 @@ class PARQUET_EXPORT FileWriter {
   ///
   /// Batches get flushed to the output stream once NewBufferedRowGroup()
   /// or Close() is called.
+  ///
+  /// WARNING: If you are writing multiple files in parallel in the same
+  /// executor, deadlock may occur if ArrowWriterProperties::use_threads
+  /// is set to true to write columns in parallel. Please disable use_threads
+  /// option in this case.
   virtual ::arrow::Status WriteRecordBatch(const ::arrow::RecordBatch& batch) = 0;
 
   /// \brief Write the footer and close the file.
