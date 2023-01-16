@@ -152,6 +152,7 @@ reference:
       - Expression
       - Scanner
       - FileFormat
+      - CsvFileFormat
       - FileWriteOptions
       - FragmentScanOptions
       - map_batches
