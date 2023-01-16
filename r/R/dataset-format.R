@@ -389,6 +389,7 @@ csv_file_format_convert_opts <- function(...) {
     names(formals(readr_to_csv_read_options)),
     "read_options"
   )
+
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[read_opts] <- NULL
