@@ -121,26 +121,8 @@ class Issue:
             return self.key
 
     @cached_property
-    def pr(self):
-        if self.is_pr:
-            return self._github_issue.as_pull_request()
-
-    @cached_property
     def is_pr(self):
         return bool(self._github_issue and self._github_issue.pull_request)
-
-    @property
-    def components(self):
-        if self._github_issue:
-            return [label for label in self._github_issue.labels
-                    if label.name.startswith("Component:")]
-
-    def is_component(self, component_name):
-        if components := self.components:
-            for component in components:
-                if component.name == f"Component: {component_name}":
-                    return True
-        return False
 
     @classmethod
     def original_jira_id(cls, github_issue):
@@ -323,9 +305,7 @@ class Release:
 
         return super().__new__(klass)
 
-    def __init__(self, version, repo, github_token=None, issue_tracker=None):
-        if not issue_tracker:
-            issue_tracker = IssueTracker(github_token=github_token)
+    def __init__(self, version, repo, issue_tracker):
         if repo is None:
             arrow = ArrowSources.find()
             repo = Repo(arrow.path)
@@ -344,7 +324,6 @@ class Release:
         self.version = version
         self.repo = repo
         self.issue_tracker = issue_tracker
-        self._github_token = github_token
 
     def __repr__(self):
         if self.version.released:
@@ -352,10 +331,6 @@ class Release:
         else:
             status = "pending"
         return f"<{self.__class__.__name__} {self.version!r} {status}>"
-
-    @staticmethod
-    def from_issue_tracker(version, issue_tracker=None, repo=None):
-        return Release(version, repo, issue_tracker=issue_tracker)
 
     @property
     def is_released(self):
@@ -392,8 +367,7 @@ class Release:
             return None
         else:
             return Release(previous, repo=self.repo,
-                           issue_tracker=self.issue_tracker,
-                           github_token=self._github_token)
+                           issue_tracker=self.issue_tracker)
 
     @cached_property
     def next(self):
@@ -404,8 +378,7 @@ class Release:
                              f"version {self.version}")
         upcoming = self.siblings[position - 1]
         return Release(upcoming, repo=self.repo,
-                       issue_tracker=self.issue_tracker,
-                       github_token=self._github_token)
+                       issue_tracker=self.issue_tracker)
 
     @cached_property
     def issues(self):
@@ -564,8 +537,8 @@ class Release:
             try:
                 categories[issue_types[issue.type]].append((issue, commit))
             except KeyError:
-                # If issue is a PR and don't have a type assume task
-                assert issue.is_pr
+                # If issue or pr don't have a type assume task.
+                # Currently the label for type is not mandatory on GitHub.
                 categories[issue_types['Type: task']].append((issue, commit))
 
         # sort issues by the issue key in ascending order

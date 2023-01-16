@@ -230,26 +230,26 @@ def test_commit_title():
 
 
 def test_release_basics(fake_issue_tracker):
-    r = Release.from_issue_tracker("1.0.0", issue_tracker=fake_issue_tracker)
+    r = Release("1.0.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r, MajorRelease)
     assert r.is_released is True
     assert r.branch == 'maint-1.0.0'
     assert r.tag == 'apache-arrow-1.0.0'
 
-    r = Release.from_issue_tracker("1.1.0", issue_tracker=fake_issue_tracker)
+    r = Release("1.1.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r, MinorRelease)
     assert r.is_released is False
     assert r.branch == 'maint-1.x.x'
     assert r.tag == 'apache-arrow-1.1.0'
 
     # minor releases before 1.0 are treated as major releases
-    r = Release.from_issue_tracker("0.17.0", issue_tracker=fake_issue_tracker)
+    r = Release("0.17.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r, MajorRelease)
     assert r.is_released is True
     assert r.branch == 'maint-0.17.0'
     assert r.tag == 'apache-arrow-0.17.0'
 
-    r = Release.from_issue_tracker("0.17.1", issue_tracker=fake_issue_tracker)
+    r = Release("0.17.1", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r, PatchRelease)
     assert r.is_released is True
     assert r.branch == 'maint-0.17.x'
@@ -257,41 +257,41 @@ def test_release_basics(fake_issue_tracker):
 
 
 def test_previous_and_next_release(fake_issue_tracker):
-    r = Release.from_issue_tracker("4.0.0", issue_tracker=fake_issue_tracker)
+    r = Release("4.0.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r.previous, MajorRelease)
     assert r.previous.version == Version.parse("3.0.0")
     with pytest.raises(ValueError, match="There is no upcoming release set"):
         assert r.next
 
-    r = Release.from_issue_tracker("3.0.0", issue_tracker=fake_issue_tracker)
+    r = Release("3.0.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r.previous, MajorRelease)
     assert isinstance(r.next, MajorRelease)
     assert r.previous.version == Version.parse("2.0.0")
     assert r.next.version == Version.parse("4.0.0")
 
-    r = Release.from_issue_tracker("1.1.0", issue_tracker=fake_issue_tracker)
+    r = Release("1.1.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r.previous, MajorRelease)
     assert isinstance(r.next, MajorRelease)
     assert r.previous.version == Version.parse("1.0.0")
     assert r.next.version == Version.parse("2.0.0")
 
-    r = Release.from_issue_tracker("1.0.0", issue_tracker=fake_issue_tracker)
+    r = Release("1.0.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r.next, MajorRelease)
     assert isinstance(r.previous, MajorRelease)
     assert r.previous.version == Version.parse("0.17.0")
     assert r.next.version == Version.parse("2.0.0")
 
-    r = Release.from_issue_tracker("0.17.0", issue_tracker=fake_issue_tracker)
+    r = Release("0.17.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r.previous, MajorRelease)
     assert r.previous.version == Version.parse("0.16.0")
 
-    r = Release.from_issue_tracker("0.15.2", issue_tracker=fake_issue_tracker)
+    r = Release("0.15.2", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r.previous, PatchRelease)
     assert isinstance(r.next, MajorRelease)
     assert r.previous.version == Version.parse("0.15.1")
     assert r.next.version == Version.parse("0.16.0")
 
-    r = Release.from_issue_tracker("0.15.1", issue_tracker=fake_issue_tracker)
+    r = Release("0.15.1", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r.previous, MajorRelease)
     assert isinstance(r.next, PatchRelease)
     assert r.previous.version == Version.parse("0.15.0")
@@ -300,7 +300,7 @@ def test_previous_and_next_release(fake_issue_tracker):
 
 def test_release_issues(fake_issue_tracker):
     # major release issues
-    r = Release.from_issue_tracker("1.0.0", issue_tracker=fake_issue_tracker)
+    r = Release("1.0.0", repo=None, issue_tracker=fake_issue_tracker)
     assert r.issues.keys() == set([
         "ARROW-300",
         "ARROW-4427",
@@ -312,7 +312,7 @@ def test_release_issues(fake_issue_tracker):
         "ARROW-8973"
     ])
     # minor release issues
-    r = Release.from_issue_tracker("0.17.0", issue_tracker=fake_issue_tracker)
+    r = Release("0.17.0", repo=None, issue_tracker=fake_issue_tracker)
     assert r.issues.keys() == set([
         "ARROW-2882",
         "ARROW-2587",
@@ -322,7 +322,7 @@ def test_release_issues(fake_issue_tracker):
         "ARROW-1636",
     ])
     # patch release issues
-    r = Release.from_issue_tracker("1.0.1", issue_tracker=fake_issue_tracker)
+    r = Release("1.0.1", repo=None, issue_tracker=fake_issue_tracker)
     assert r.issues.keys() == set([
         "ARROW-9684",
         "ARROW-9667",
@@ -332,7 +332,7 @@ def test_release_issues(fake_issue_tracker):
         "ARROW-9609",
         "ARROW-9606"
     ])
-    r = Release.from_issue_tracker("2.0.0", issue_tracker=fake_issue_tracker)
+    r = Release("2.0.0", repo=None, issue_tracker=fake_issue_tracker)
     assert r.issues.keys() == set([
         "ARROW-9784",
         "ARROW-9767",
@@ -351,7 +351,7 @@ def test_release_issues(fake_issue_tracker):
     ("0.15.1", 41)
 ])
 def test_release_commits(fake_issue_tracker, version, ncommits):
-    r = Release.from_issue_tracker(version, issue_tracker=fake_issue_tracker)
+    r = Release(version, repo=None, issue_tracker=fake_issue_tracker)
     assert len(r.commits) == ncommits
     for c in r.commits:
         assert isinstance(c, Commit)
@@ -360,7 +360,7 @@ def test_release_commits(fake_issue_tracker, version, ncommits):
 
 
 def test_maintenance_patch_selection(fake_issue_tracker):
-    r = Release.from_issue_tracker("0.17.1", issue_tracker=fake_issue_tracker)
+    r = Release("0.17.1", repo=None, issue_tracker=fake_issue_tracker)
 
     shas_to_pick = [
         c.hexsha for c in r.commits_to_pick(exclude_already_applied=False)
