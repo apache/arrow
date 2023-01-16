@@ -87,6 +87,49 @@ class TestMessage : public ::testing::TestWithParam<MetadataVersion> {
   IpcWriteOptions options_;
 };
 
+class DummyCodec : public util::Codec {
+ public:
+  static void EnsureCodecRegistered() {
+    util::RegisterCustomCodec(
+        [](int) { return std::unique_ptr<Codec>(new DummyCodec()); });
+  }
+
+  int64_t MaxCompressedLen(int64_t input_len,
+                           const uint8_t* ARROW_ARG_UNUSED(input)) override {
+    return input_len;
+  }
+
+  Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
+                           int64_t output_buffer_len, uint8_t* output_buffer) override {
+    return input_len;
+  }
+
+  Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
+                             int64_t output_buffer_len, uint8_t* output_buffer) override {
+    return input_len;
+  }
+
+  Result<std::shared_ptr<util::Compressor>> MakeCompressor() override {
+    return Status::NotImplemented("Streaming compression unsupported");
+  }
+
+  Result<std::shared_ptr<util::Decompressor>> MakeDecompressor() override {
+    return Status::NotImplemented("Streaming compression unsupported");
+  }
+
+  Compression::type compression_type() const override { return Compression::CUSTOM; }
+  int minimum_compression_level() const override {
+    return util::kUseDefaultCompressionLevel;
+  }
+  int maximum_compression_level() const override {
+    return util::kUseDefaultCompressionLevel;
+  }
+  int default_compression_level() const override {
+    return util::kUseDefaultCompressionLevel;
+  }
+  int compression_level() const override { return util::kUseDefaultCompressionLevel; }
+};
+
 TEST(TestMessage, Equals) {
   std::string metadata = "foo";
   std::string body = "bar";
@@ -706,12 +749,15 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
   auto batch =
       RecordBatch::Make(schema, length, {rg.String(500, 0, 10, 0.1), dict_array});
 
-  std::vector<Compression::type> codecs = {Compression::LZ4_FRAME, Compression::ZSTD};
+  std::vector<Compression::type> codecs = internal::kSupportedCodec;
   for (auto codec : codecs) {
     if (!util::Codec::IsAvailable(codec)) {
       continue;
     }
     IpcWriteOptions write_options = IpcWriteOptions::Defaults();
+    if (codec == Compression::type::CUSTOM) {
+      DummyCodec::EnsureCodecRegistered();
+    }
     ASSERT_OK_AND_ASSIGN(write_options.codec, util::Codec::Create(codec));
     CheckRoundtrip(*batch, write_options);
 

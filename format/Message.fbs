@@ -49,7 +49,10 @@ enum CompressionType:byte {
   LZ4_FRAME,
 
   // Zstandard
-  ZSTD
+  ZSTD,
+
+  // Pluggable custom codec
+  CUSTOM
 }
 
 /// Provided for forward compatibility in case we need to support different

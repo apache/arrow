@@ -98,6 +98,8 @@ Result<Compression::type> Codec::GetCompressionType(const std::string& name) {
     return Compression::ZSTD;
   } else if (name == "bz2") {
     return Compression::BZ2;
+  } else if (name == "custom") {
+    return Compression::CUSTOM;
   } else {
     return Status::Invalid("Unrecognized compression type: ", name);
   }
@@ -201,6 +203,12 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
       codec = internal::MakeBZ2Codec(compression_level);
 #endif
       break;
+    case Compression::CUSTOM:
+      if (codec_factory == nullptr) {
+        return Status::Invalid("Custom codec is not registered.");
+      }
+      codec_factory(compression_level);
+      break;
     default:
       break;
   }
@@ -254,9 +262,15 @@ bool Codec::IsAvailable(Compression::type codec_type) {
 #else
       return false;
 #endif
+    case Compression::CUSTOM:
+      return codec_factory != nullptr;
     default:
       return false;
   }
+}
+
+void RegisterCustomCodec(const CodecFactory& factory) {
+  std::call_once(custom_codec_registered, [&factory]() { codec_factory = factory; });
 }
 
 }  // namespace util

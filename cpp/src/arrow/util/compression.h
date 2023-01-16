@@ -18,8 +18,10 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "arrow/result.h"
@@ -197,6 +199,15 @@ class ARROW_EXPORT Codec {
   /// \brief Initializes the codec's resources.
   virtual Status Init();
 };
+
+typedef std::function<std::unique_ptr<Codec>(int compression_level)> CodecFactory;
+
+static CodecFactory codec_factory;
+static std::once_flag custom_codec_registered;
+
+/// Register a factory that is used to create user-defined codec.
+ARROW_EXPORT
+void RegisterCustomCodec(const CodecFactory& codec_factory);
 
 }  // namespace util
 }  // namespace arrow

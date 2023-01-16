@@ -159,6 +159,9 @@ struct ARROW_EXPORT IpcReadOptions {
 
 namespace internal {
 
+static const std::vector<Compression::type> kSupportedCodec = {
+    Compression::LZ4_FRAME, Compression::ZSTD, Compression::CUSTOM};
+
 Status CheckCompressionSupported(Compression::type codec);
 
 }  // namespace internal

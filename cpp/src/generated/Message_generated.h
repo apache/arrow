@@ -32,29 +32,32 @@ struct MessageBuilder;
 enum class CompressionType : int8_t {
   LZ4_FRAME = 0,
   ZSTD = 1,
+  CUSTOM = 2,
   MIN = LZ4_FRAME,
-  MAX = ZSTD
+  MAX = CUSTOM
 };
 
-inline const CompressionType (&EnumValuesCompressionType())[2] {
+inline const CompressionType (&EnumValuesCompressionType())[3] {
   static const CompressionType values[] = {
     CompressionType::LZ4_FRAME,
-    CompressionType::ZSTD
+    CompressionType::ZSTD,
+    CompressionType::CUSTOM
   };
   return values;
 }
 
 inline const char * const *EnumNamesCompressionType() {
-  static const char * const names[3] = {
+  static const char * const names[4] = {
     "LZ4_FRAME",
     "ZSTD",
+    "CUSTOM",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCompressionType(CompressionType e) {
-  if (flatbuffers::IsOutRange(e, CompressionType::LZ4_FRAME, CompressionType::ZSTD)) return "";
+  if (flatbuffers::IsOutRange(e, CompressionType::LZ4_FRAME, CompressionType::CUSTOM)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCompressionType()[index];
 }
