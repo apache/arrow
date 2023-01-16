@@ -397,8 +397,7 @@ std::string Decimal128::ToString(int32_t scale) const {
 // Iterates over input and for each group of kInt64DecimalDigits multiple out by
 // the appropriate power of 10 necessary to add source parsed as uint64 and
 // then adds the parsed value of source.
-static inline void ShiftAndAdd(std::string_view input, uint64_t out[],
-                               size_t out_size) {
+static inline void ShiftAndAdd(std::string_view input, uint64_t out[], size_t out_size) {
   for (size_t posn = 0; posn < input.size();) {
     const size_t group_size = std::min(kInt64DecimalDigits, input.size() - posn);
     const uint64_t multiple = kUInt64PowersOfTen[group_size];
