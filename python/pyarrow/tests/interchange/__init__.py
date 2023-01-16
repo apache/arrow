@@ -14,14 +14,3 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-prefix=@CMAKE_INSTALL_PREFIX@
-includedir=@ARROW_PKG_CONFIG_INCLUDEDIR@
-libdir=@ARROW_PKG_CONFIG_LIBDIR@
-
-Name: Apache Arrow Dataset
-Description: Apache Arrow Dataset provides an API to read and write semantic datasets stored in different locations and formats.
-Version: @ARROW_VERSION@
-Requires: @ARROW_DATASET_PKG_CONFIG_REQUIRES@
-Libs: -L${libdir} -larrow_dataset
-Cflags.private: -DARROW_DS_STATIC

@@ -452,6 +452,10 @@ ExecPlan_ToString <- function(plan) {
   .Call(`_arrow_ExecPlan_ToString`, plan)
 }
 
+ExecPlan_UnsafeDelete <- function(plan) {
+  invisible(.Call(`_arrow_ExecPlan_UnsafeDelete`, plan))
+}
+
 ExecNode_output_schema <- function(node) {
   .Call(`_arrow_ExecNode_output_schema`, node)
 }
@@ -1762,6 +1766,10 @@ RecordBatchReader__schema <- function(reader) {
 
 RecordBatchReader__Close <- function(reader) {
   invisible(.Call(`_arrow_RecordBatchReader__Close`, reader))
+}
+
+RecordBatchReader__UnsafeDelete <- function(reader) {
+  invisible(.Call(`_arrow_RecordBatchReader__UnsafeDelete`, reader))
 }
 
 RecordBatchReader__ReadNext <- function(reader) {

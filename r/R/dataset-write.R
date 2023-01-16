@@ -151,6 +151,8 @@ write_dataset <- function(dataset,
   }
 
   plan <- ExecPlan$create()
+  on.exit(plan$.unsafe_delete())
+
   final_node <- plan$Build(dataset)
   if (!is.null(final_node$extras$sort %||% final_node$extras$head %||% final_node$extras$tail)) {
     # Because sorting and topK are only handled in the SinkNode (or in R!),

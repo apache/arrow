@@ -124,8 +124,43 @@ public class ClientAuthenticationUtilsTest {
     }
   }
 
+  @Test
+  public void testGetCertificateInputStreamFromLinuxSystem() throws IOException,
+      KeyStoreException, CertificateException, NoSuchAlgorithmException {
+    InputStream mock = mock(InputStream.class);
+
+    try (
+        MockedStatic<KeyStore> keyStoreMockedStatic = createKeyStoreStaticMock();
+        MockedStatic<ClientAuthenticationUtils>
+            clientAuthenticationUtilsMockedStatic = createClientAuthenticationUtilsStaticMock()) {
+
+      setOperatingSystemMock(clientAuthenticationUtilsMockedStatic, false, false);
+      keyStoreMockedStatic.when(() -> ClientAuthenticationUtils
+              .getCertificatesInputStream(Mockito.any()))
+          .thenReturn(mock);
+
+      clientAuthenticationUtilsMockedStatic
+          .when(ClientAuthenticationUtils::getKeystoreInputStream)
+          .thenCallRealMethod();
+      keyStoreMockedStatic.when(KeyStore::getDefaultType).thenCallRealMethod();
+
+      InputStream inputStream = ClientAuthenticationUtils.getCertificateInputStreamFromSystem("changeit");
+      Assert.assertEquals(inputStream, mock);
+      inputStream = ClientAuthenticationUtils.getCertificateInputStreamFromSystem(null);
+      Assert.assertEquals(inputStream, mock);
+    }
+  }
+
+
   private MockedStatic<KeyStore> createKeyStoreStaticMock() {
-    return Mockito.mockStatic(KeyStore.class);
+    return Mockito.mockStatic(KeyStore.class, invocationOnMock -> {
+          Method method = invocationOnMock.getMethod();
+          if (method.getName().equals("getInstance")) {
+            return invocationOnMock.callRealMethod();
+          }
+          return invocationOnMock.getMock();
+        }
+    );
   }
 
   private MockedStatic<ClientAuthenticationUtils> createClientAuthenticationUtilsStaticMock() {

@@ -948,6 +948,39 @@ test_that("Dataset and query print methods", {
   )
 })
 
+test_that("Can delete filesystem dataset files after collection", {
+  # While this test should pass on all platforms, this is primarily
+  # a test for Windows because that platform won't allow open files
+  # to be deleted.
+  dataset_dir2 <- tempfile()
+  ds0 <- open_dataset(dataset_dir)
+  write_dataset(ds0, dataset_dir2)
+
+  ds <- open_dataset(dataset_dir2)
+  collected <- ds %>% arrange(int) %>% collect()
+  unlink(dataset_dir2, recursive = TRUE)
+  expect_false(dir.exists(dataset_dir2))
+
+  expect_identical(
+    collected,
+    ds0 %>% arrange(int) %>% collect()
+  )
+
+  # Also try with head(), since this creates a nested query whose interior
+  # components should also be cleaned up to allow deleting the original
+  # dataset
+  write_dataset(ds0, dataset_dir2)
+  ds <- open_dataset(dataset_dir2)
+  collected <- ds %>% arrange(int) %>% head() %>% arrange(int) %>% collect()
+  unlink(dataset_dir2, recursive = TRUE)
+  expect_false(dir.exists(dataset_dir2))
+
+  expect_identical(
+    collected,
+    ds0 %>% arrange(int) %>% head() %>% arrange(int) %>% collect()
+  )
+})
+
 test_that("Scanner$ScanBatches", {
   ds <- open_dataset(ipc_dir, format = "feather")
   batches <- ds$NewScan()$Finish()$ScanBatches()
