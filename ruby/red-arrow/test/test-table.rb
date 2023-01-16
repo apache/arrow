@@ -1324,10 +1324,8 @@ visible: false
       assert_equal(Arrow::Table.new([
                                       ["key", []],
                                       ["string", []],
-                                    ]).to_s,
-                   table1.join(table2, "key", type: :right_anti).to_s)
-      # There is a bug: right_anti result has incorrect chunked array.
-      # Temporarily compare #to_s result.
+                                    ]),
+                   table1.join(table2, "key", type: :right_anti))
     end
 
     test("left_outputs: & right_outputs:") do
