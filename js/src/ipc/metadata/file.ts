@@ -29,7 +29,7 @@ import { Schema } from '../../schema.js';
 import { MetadataVersion } from '../../enum.js';
 import { toUint8Array } from '../../util/buffer.js';
 import { ArrayBufferViewInput } from '../../util/buffer.js';
-import { bigIntToNumber } from './message.js';
+import { bigIntToNumber } from '../../util/bigint.js';
 
 /** @ignore */
 class Footer_ {

@@ -21,7 +21,7 @@ import { MapRow } from './row/map.js';
 import { StructRow, StructRowProxy } from './row/struct.js';
 import { TypedArrayConstructor } from './interfaces.js';
 import { BigInt64Array, BigUint64Array } from './util/compat.js';
-import { bigIntToNumber } from './ipc/metadata/message.js';
+import { bigIntToNumber } from './util/bigint.js';
 
 import {
     Type,

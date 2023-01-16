@@ -45,6 +45,7 @@ import { Message as _Message } from '../../fb/message.js';
 import { Schema, Field } from '../../schema.js';
 import { toUint8Array } from '../../util/buffer.js';
 import { ArrayBufferViewInput } from '../../util/buffer.js';
+import { bigIntToNumber } from '../../util/bigint.js';
 import { MessageHeader, MetadataVersion } from '../../enum.js';
 import { instance as typeAssembler } from '../../visitor/typeassembler.js';
 import { fieldFromJSON, schemaFromJSON, recordBatchFromJSON, dictionaryBatchFromJSON } from './json.js';
@@ -58,16 +59,6 @@ import {
     List, FixedSizeList, Map_, Struct, Union,
     Bool, Null, Int, Float, Date_, Time, Interval, Timestamp, IntBitWidth, Int32, TKeys,
 } from '../../type.js';
-
-/**
- * Converts a number or bigint to a number, throwing if the input is not safe to convert to a number.
- */
-export function bigIntToNumber(number: bigint | number): number {
-    if (!Number.isSafeInteger(number)) {
-        throw new TypeError(`Number ${number} is not safe to convert to a 32-bit integer`);
-    }
-    return Number(number);
-}
 
 /**
  * @ignore
