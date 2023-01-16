@@ -1448,7 +1448,7 @@ TYPED_TEST(TestDeltaBitPackEncoding, NonZeroPaddedMiniblockBitWidth) {
 
     // Generate input data with a small half_range to make the header length
     // deterministic (see kHeaderLength).
-    this->InitBoundData(num_values, /*repeats=*/1, /*half_range=*/63);
+    this->InitBoundData(num_values, /*repeats=*/1, /*half_range=*/31);
     ASSERT_EQ(this->num_values_, num_values);
 
     auto encoder = MakeTypedEncoder<TypeParam>(Encoding::DELTA_BINARY_PACKED, false,
@@ -1476,9 +1476,9 @@ TYPED_TEST(TestDeltaBitPackEncoding, NonZeroPaddedMiniblockBitWidth) {
     // - 1 byte for ULEB128-encoded first value
     // (this assumes that num_values and the first value are narrow enough)
     constexpr int kHeaderLength = 5;
-    // After the header, there is a ULEB128-encoded min delta for the first block,
+    // After the header, there is a zigzag ULEB128-encoded min delta for the first block,
     // then the miniblock bitwidths for the first block.
-    // Given a narrow enough range, the ULEB128-encoded min delta is 1 byte long.
+    // Given a narrow enough range, the zigzag ULEB128-encoded min delta is 1 byte long.
     uint8_t* mini_block_bitwidths = data + kHeaderLength + 1;
 
     // Garble padding bytes; decoding should succeed.
