@@ -205,8 +205,11 @@ Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values, int64_t length) {
           "Arrays used to construct an ExecBatch must have equal length");
 
     default:
-      DCHECK(length < 0 || length == inferred_length);
-      length = inferred_length;
+      if (length < 0) {
+        length = inferred_length;
+      } else if (length != inferred_length) {
+        return Status::Invalid("Length used to construct an ExecBatch is invalid");
+      }
       break;
   }
 
