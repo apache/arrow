@@ -65,7 +65,7 @@ size_t CaseInsensitiveHash::operator()(const std::string& key) const {
   return std::hash<std::string>{}(upper_string);
 }
 
-Cookie Cookie::Parse(const std::string_view& cookie_header_value) {
+Cookie Cookie::Parse(std::string_view cookie_header_value) {
   // Parse the cookie string. If the cookie has an expiration, record it.
   // If the cookie has a max-age, calculate the current time + max_age and set that as
   // the expiration.
