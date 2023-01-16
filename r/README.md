@@ -22,7 +22,7 @@ The arrow package provides functionality for a wide range of data analysis
 tasks. It allows users to read and write data in a variety formats:
 
 -   Read and write Parquet files, an efficient and widely used columnar format
--   Read and write Feather files, a format optimized for speed and
+-   Read and write Arrow files, a format optimized for speed and
     interoperability
 -   Read and write CSV files with excellent speed and efficiency
 -   Read and write multi-file and larger-than-memory datasets
@@ -84,7 +84,7 @@ than the default system compiler gcc 4.8. See the [installation details article]
 this does not affect users who are installing a binary version of the package.
 
 - Development versions of arrow are released nightly. Most users will not 
-need to install nightly builds, but if you do please see the article on [installing nightly builds](https://arrow.apache.org/docs/r/articles/install_nightly.html) for more information.
+need to install nightly builds, but if you do please see the [installation guide](https://arrow.apache.org/docs/r/articles/install.html) for more information.
 
 ## Arrow resources 
 
