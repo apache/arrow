@@ -782,6 +782,34 @@ cdef class PythonFile(NativeFile):
     >>> import pyarrow as pa
     >>> pa.PythonFile(io.BytesIO())
     <pyarrow.PythonFile closed=False own_file=False is_seekable=False is_writable=True is_readable=False>
+
+    Create a stream for writing:
+
+    >>> buf = io.BytesIO()
+    >>> f =  pa.PythonFile(buf, mode = 'w')
+    >>> f.writable()
+    True
+    >>> f.write(b'PythonFile')
+    10
+    >>> buf.getvalue()
+    b'PythonFile'
+    >>> f.close()
+    >>> f
+    <pyarrow.PythonFile closed=True own_file=False is_seekable=False is_writable=True is_readable=False>
+
+    Create a stream for reading:
+
+    >>> buf = io.BytesIO(b'PythonFile')
+    >>> f =  pa.PythonFile(buf, mode = 'r')
+    >>> f.mode
+    'rb'
+    >>> f.read()
+    b'PythonFile'
+    >>> f
+    <pyarrow.PythonFile closed=False own_file=False is_seekable=True is_writable=False is_readable=True>
+    >>> f.close()
+    >>> f
+    <pyarrow.PythonFile closed=True own_file=False is_seekable=True is_writable=False is_readable=True>
     """
     cdef:
         object handle
@@ -978,6 +1006,26 @@ def create_memory_map(path, size):
 cdef class OSFile(NativeFile):
     """
     A stream backed by a regular file descriptor.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> with pa.OSFile('example_osfile.arrow', mode='w') as f:
+    ...     f.writable()
+    ...     f.write(b'OSFile')
+    ...     f.seekable()
+    ...
+    True
+    6
+    False
+    >>> with pa.OSFile('example_osfile.arrow', mode='r') as f:
+    ...     f.mode
+    ...     f.read()
+    ...
+    'rb'
+    b'OSFile'
+    >>> pa.OSFile('example_osfile.arrow')
+    <pyarrow.OSFile closed=False own_file=False is_seekable=True is_writable=False is_readable=True>
     """
     cdef:
         object path
