@@ -124,14 +124,10 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  ${ARROW_FLIGHT_SQL_TEST_SRCS}
                  ${ARROW_FLIGHT_SQL_TEST_SERVER_SRCS}
                  STATIC_LINK_LIBS
-                 ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
-                 ${ARROW_FLIGHT_SQL_TEST_LIBS}
                  nanoarrow
                  AdbcValidation::adbc_validation
-                 # Needs to come twice since the validation library
-                 # also uses ADBC symbols, which get provided by
-                 # libarrow_flight_sql here.
                  ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
+                 ${ARROW_FLIGHT_SQL_TEST_LIBS}
                  EXTRA_INCLUDES
                  # adbc_validation.h needs adbc.h
                  "${CMAKE_SOURCE_DIR}/../format/"

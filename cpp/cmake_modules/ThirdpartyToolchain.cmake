@@ -4665,11 +4665,11 @@ macro(build_adbc_validation)
   set(ADBC_VALIDATION_LIB_DIR "lib")
 
   set(ADBC_VALIDATION_COMMON_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_INSTALL_LIBDIR=${ADBC_VALIDATION_LIB_DIR}"
-      "-DCMAKE_INSTALL_PREFIX=${ADBC_VALIDATION_PREFIX}"
-      "-DCMAKE_PREFIX_PATH=${ADBC_VALIDATION_PREFIX}"
-      "-DCMAKE_UNITY_BUILD=ON")
+      ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_LIBDIR=${ADBC_VALIDATION_LIB_DIR}"
+      "-DCMAKE_INSTALL_PREFIX=${ADBC_VALIDATION_PREFIX}" "-DCMAKE_UNITY_BUILD=ON")
+  if(GTEST_VENDORED)
+    list(APPEND ADBC_VALIDATION_COMMON_CMAKE_ARGS "-DCMAKE_PREFIX_PATH=${GTEST_PREFIX}")
+  endif()
   set(ADBC_VALIDATION_STATIC_LIBRARY
       "${ADBC_VALIDATION_PREFIX}/${ADBC_VALIDATION_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}adbc_validation${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
@@ -4693,6 +4693,9 @@ macro(build_adbc_validation)
   add_dependencies(AdbcValidation::adbc_validation nanoarrow_ep)
   set(ADBCVALIDATION_LINK_LIBRARIES AdbcValidation::adbc_validation)
   add_dependencies(AdbcValidation::adbc_validation adbcvalidation_ep)
+  if(GTEST_VENDORED)
+    add_dependencies(adbcvalidation_ep googletest_ep)
+  endif()
 endmacro()
 
 if(ARROW_WITH_ADBC_VALIDATION)
