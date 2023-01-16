@@ -248,41 +248,12 @@ open_csv_dataset <- function(sources,
                              escape_backslash = FALSE,
                              col_names = TRUE,
                              col_types = NULL,
-                             col_select = NULL,
                              na = c("", "NA"),
-                             quoted_na = TRUE,
                              skip_empty_rows = TRUE,
                              skip = 0L,
-                             parse_options = NULL,
                              convert_options = NULL,
                              read_options = NULL,
-                             as_data_frame = FALSE,
                              timestamp_parsers = NULL) {
-  if (!missing(col_select)) {
-    abort(
-      c(
-        "`col_select` not supported for datasets",
-        i = "instead try calling `dplyr::select()` on your dataset"
-      )
-    )
-  }
-
-  if (!missing(quoted_na)) {
-    abort('The following option is supported in "read_delim_arrow" functions but not supported here: "quoted_na"')
-  }
-
-  if (!missing(parse_options)) {
-    abort('The following option is supported in "read_delim_arrow" functions but not supported here: "parse_options"')
-  }
-
-  if (as_data_frame == TRUE) {
-    abort(
-      c(
-        "`as_data_frame = TRUE` not supported for datasets",
-        i = "instead try calling `dplyr::collect()` or `as.data.frame()` on your dataset"
-      )
-    )
-  }
 
   open_dataset(
     sources = sources,
