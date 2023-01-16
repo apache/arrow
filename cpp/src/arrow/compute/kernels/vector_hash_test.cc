@@ -315,6 +315,8 @@ TEST_F(TestHashKernel, UniqueTimeTimestamp) {
 
   CheckUnique<TimestampType, int64_t>(timestamp(TimeUnit::NANO), {2, 1, 2, 1},
                                       {true, false, true, true}, {2, 0, 1}, {1, 0, 1});
+  CheckUnique<DurationType, int64_t>(duration(TimeUnit::NANO), {2, 1, 2, 1},
+                                     {true, false, true, true}, {2, 0, 1}, {1, 0, 1});
 }
 
 TEST_F(TestHashKernel, ValueCountsTimeTimestamp) {
@@ -329,6 +331,9 @@ TEST_F(TestHashKernel, ValueCountsTimeTimestamp) {
   CheckValueCounts<TimestampType, int64_t>(timestamp(TimeUnit::NANO), {2, 1, 2, 1},
                                            {true, false, true, true}, {2, 0, 1},
                                            {1, 0, 1}, {2, 1, 1});
+  CheckValueCounts<DurationType, int64_t>(duration(TimeUnit::NANO), {2, 1, 2, 1},
+                                          {true, false, true, true}, {2, 0, 1}, {1, 0, 1},
+                                          {2, 1, 1});
 }
 
 TEST_F(TestHashKernel, UniqueBoolean) {
