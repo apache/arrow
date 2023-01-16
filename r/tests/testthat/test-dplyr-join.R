@@ -82,7 +82,7 @@ test_that("left_join with join_by", {
       left_join(
         to_join %>%
           rename(the_grouping = some_grouping),
-          join_by(some_grouping == the_grouping)
+        join_by(some_grouping == the_grouping)
       ) %>%
       collect(),
     left
@@ -244,7 +244,6 @@ test_that("semi_join", {
       collect(),
     left
   )
-
 })
 
 test_that("anti_join", {
