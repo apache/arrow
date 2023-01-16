@@ -1068,6 +1068,22 @@ cdef class OSFile(NativeFile):
 cdef class FixedSizeBufferWriter(NativeFile):
     """
     A stream writing to a Arrow buffer.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> buf = pa.allocate_buffer(5)
+    >>> bit = b'abcde'
+    >>> writer = pa.FixedSizeBufferWriter(buf)
+    >>> writer.write(bit)
+    5
+    >>> buf.to_pybytes()
+    b'abcde'
+    >>> buf
+    <pyarrow.Buffer address=... size=5 is_cpu=True is_mutable=True>
+    >>> writer
+    <pyarrow.FixedSizeBufferWriter closed=False own_file=False is_seekable=False is_writable=True is_readable=False>
+    >>> writer.close()
     """
 
     def __cinit__(self, Buffer buffer):
@@ -1375,6 +1391,20 @@ def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
 
 
 cdef class BufferOutputStream(NativeFile):
+    """
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> f = pa.BufferOutputStream()
+    >>> f.write(b'pyarrow.Buffer')
+    14
+    >>> f.closed
+    False
+    >>> f.getvalue()
+    <pyarrow.Buffer address=... size=14 is_cpu=True is_mutable=True>
+    >>> f.closed
+    True
+    """
 
     cdef:
         shared_ptr[CResizableBuffer] buffer
@@ -1416,6 +1446,26 @@ cdef class BufferReader(NativeFile):
     Parameters
     ----------
     obj : Python bytes or pyarrow.Buffer
+
+    Examples
+    --------
+
+    >>> import pyarrow as pa
+    >>> data = b'reader data'
+    >>> f = pa.BufferReader(data)
+    >>> f.size()
+    11
+    >>> f.read(6)
+    b'reader'
+    >>> f.seek(7)
+    7
+    >>> f.read(15)
+    b'data'
+    >>> f.closed
+    False
+    >>> f.close()
+    >>> f.closed
+    True
     """
     cdef:
         Buffer buffer
