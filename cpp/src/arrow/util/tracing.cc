@@ -33,10 +33,16 @@ Span::Span() noexcept {
   details = std::make_unique<::arrow::internal::tracing::SpanImpl>();
 }
 
+bool Span::valid() const {
+  return static_cast<::arrow::internal::tracing::SpanImpl*>(details.get())->valid();
+}
+
 #else
 
 Span::Span() noexcept { /* details is left a nullptr */
 }
+
+Span::valid() const { return false; }
 
 #endif
 

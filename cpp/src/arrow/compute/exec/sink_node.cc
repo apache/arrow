@@ -19,6 +19,7 @@
 #include <atomic>
 #include <mutex>
 #include <optional>
+#include <string_view>
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
@@ -388,9 +389,10 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
 
  protected:
   void Finish(const Status& finish_st) {
+    using namespace std::string_view_literals;
     if (finish_st.ok()) {
       plan_->query_context()->async_scheduler()->AddSimpleTask(
-          [this] { return consumer_->Finish(); });
+          [this] { return consumer_->Finish(); }, "ConsumingSinkNode::Finish"sv);
     }
     finished_.MarkFinished(finish_st);
   }

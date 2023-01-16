@@ -19,6 +19,8 @@
 
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
+#include "arrow/util/tracing_internal.h"
 
 #include <condition_variable>
 #include <list>
@@ -118,6 +120,24 @@ class FifoQueue : public ThrottledAsyncTaskScheduler::Queue {
   std::list<std::unique_ptr<Task>> tasks_;
 };
 
+#ifdef ARROW_WITH_OPENTELEMETRY
+void TraceTaskSubmitted(const AsyncTaskScheduler::Task& task) {
+  if (task.span.valid()) {
+    EVENT(task.span, "task submitted");
+    return;
+  }
+  START_COMPUTE_SPAN(task.span, {task.name().data(), task.name().size()},
+                     {{"cost", ::arrow::internal::ToChars(task.cost())}});
+}
+
+void TraceTaskQueued(const AsyncTaskScheduler::Task& task) {
+  START_COMPUTE_SPAN(task.span, {task.name().data(), task.name().size()},
+                     {{"cost", ::arrow::internal::ToChars(task.cost())}});
+}
+
+void TraceTaskFinished(const AsyncTaskScheduler::Task& task) { END_SPAN(task.span); }
+#endif
+
 class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
  public:
   using Task = AsyncTaskScheduler::Task;
@@ -173,6 +193,9 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     // Capture `task` to keep it alive until finished
     if (!submit_result->TryAddCallback([this, task_inner = std::move(task)]() mutable {
           return [this, task_inner2 = std::move(task_inner)](const Status& st) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+            TraceTaskFinished(*task_inner2);
+#endif
             OnTaskFinished(st);
           };
         })) {
@@ -215,6 +238,9 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
       AbortUnlocked(stop_token_.Poll(), std::move(lk));
       return;
     }
+#ifdef ARROW_WITH_OPENTELEMETRY
+    TraceTaskSubmitted(*task);
+#endif
     running_tasks_++;
     lk.unlock();
     return DoSubmitTask(std::move(task));
@@ -265,6 +291,9 @@ class ThrottledAsyncTaskSchedulerImpl
     int latched_cost = std::min(task->cost(), throttle_->Capacity());
     std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(latched_cost);
     if (maybe_backoff) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+      TraceTaskQueued(*task);
+#endif
       queue_->Push(std::move(task));
       lk.unlock();
       maybe_backoff->AddCallback(
@@ -290,6 +319,7 @@ class ThrottledAsyncTaskSchedulerImpl
   bool SubmitTask(std::unique_ptr<Task> task, int latched_cost) {
     // Wrap the task with a wrapper that runs it and then checks to see if there are any
     // queued tasks
+    std::string_view name = task->name();
     return target_->AddSimpleTask(
         [latched_cost, inner_task = std::move(task),
          self = shared_from_this()]() mutable -> Result<Future<>> {
@@ -298,7 +328,8 @@ class ThrottledAsyncTaskSchedulerImpl
             self->throttle_->Release(latched_cost);
             self->ContinueTasks();
           });
-        });
+        },
+        name);
   }
 
   void ContinueTasks() {
@@ -345,12 +376,14 @@ class AsyncTaskGroupImpl : public AsyncTaskGroup {
       : target_(target), state_(std::make_shared<State>(std::move(finish_cb))) {}
 
   ~AsyncTaskGroupImpl() {
+    using namespace std::string_view_literals;
     if (--state_->task_count == 0) {
       Status st = std::move(state_->finish_cb)();
       if (!st.ok()) {
         // We can't return an invalid status from the destructor so we schedule a dummy
         // failing task
-        target_->AddSimpleTask([st = std::move(st)]() { return st; });
+        target_->AddSimpleTask([st = std::move(st)]() { return st; },
+                               "failed_task_reporter"sv);
       }
     }
   }
@@ -370,6 +403,7 @@ class AsyncTaskGroupImpl : public AsyncTaskGroup {
         });
       }
       int cost() const override { return target->cost(); }
+      std::string_view name() const override { return target->name(); }
       std::unique_ptr<Task> target;
       std::shared_ptr<State> state;
     };

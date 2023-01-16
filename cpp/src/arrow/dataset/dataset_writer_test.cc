@@ -63,6 +63,7 @@ class DatasetWriterTestFixture : public testing::Test {
   };
 
   void SetUp() override {
+    using namespace std::string_view_literals;
     fs::TimePoint mock_now = std::chrono::system_clock::now();
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<fs::FileSystem> fs,
                          MockFileSystem::Make(mock_now, {::arrow::fs::Dir("testdir")}));
@@ -84,7 +85,9 @@ class DatasetWriterTestFixture : public testing::Test {
     scheduler_finished_ =
         util::AsyncTaskScheduler::Make([&](util::AsyncTaskScheduler* scheduler) {
           scheduler_ = scheduler;
-          scheduler->AddSimpleTask([&] { return test_done_with_tasks_; });
+          scheduler->AddSimpleTask(
+              [&] { return test_done_with_tasks_; },
+              "DatasetWriterTestFixture::WaitForTestMethodToFinish"sv);
           return Status::OK();
         });
   }

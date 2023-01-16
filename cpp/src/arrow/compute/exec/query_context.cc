@@ -51,34 +51,36 @@ Result<util::TempVectorStack*> QueryContext::GetTempStack(size_t thread_index) {
   return &tld_[thread_index].stack;
 }
 
-Result<Future<>> QueryContext::BeginExternalTask() {
+Result<Future<>> QueryContext::BeginExternalTask(std::string_view name) {
   Future<> completion_future = Future<>::Make();
-  if (async_scheduler_->AddSimpleTask(
-          [completion_future] { return completion_future; })) {
+  if (async_scheduler_->AddSimpleTask([completion_future] { return completion_future; },
+                                      name)) {
     return completion_future;
   }
   return Future<>{};
 }
 
-Status QueryContext::ScheduleTask(std::function<Status()> fn) {
+Status QueryContext::ScheduleTask(std::function<Status()> fn, std::string_view name) {
   ::arrow::internal::Executor* exec = executor();
   // Adds a task which submits fn to the executor and tracks its progress.  If we're
   // already stopping then the task is ignored and fn is not executed.
-  async_scheduler_->AddSimpleTask([exec, fn]() { return exec->Submit(std::move(fn)); });
+  async_scheduler_->AddSimpleTask([exec, fn]() { return exec->Submit(std::move(fn)); },
+                                  name);
   return Status::OK();
 }
 
-Status QueryContext::ScheduleTask(std::function<Status(size_t)> fn) {
+Status QueryContext::ScheduleTask(std::function<Status(size_t)> fn,
+                                  std::string_view name) {
   std::function<Status()> indexed_fn = [this, fn]() {
     size_t thread_index = GetThreadIndex();
     return fn(thread_index);
   };
-  return ScheduleTask(std::move(indexed_fn));
+  return ScheduleTask(std::move(indexed_fn), name);
 }
 
-Status QueryContext::ScheduleIOTask(std::function<Status()> fn) {
+Status QueryContext::ScheduleIOTask(std::function<Status()> fn, std::string_view name) {
   async_scheduler_->AddSimpleTask(
-      [this, fn]() { return io_context_.executor()->Submit(std::move(fn)); });
+      [this, fn]() { return io_context_.executor()->Submit(std::move(fn)); }, name);
   return Status::OK();
 }
 

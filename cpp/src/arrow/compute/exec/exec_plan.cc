@@ -136,7 +136,8 @@ struct ExecPlanImpl : public ExecPlan {
             RETURN_NOT_OK(n->Init());
           }
           for (auto& n : nodes_) {
-            async_scheduler->AddSimpleTask([&] { return n->finished(); });
+            async_scheduler->AddSimpleTask([&] { return n->finished(); },
+                                           "Wait for " + n->label() + " to finish");
           }
 
           ctx->scheduler()->RegisterEnd();
@@ -149,7 +150,9 @@ struct ExecPlanImpl : public ExecPlan {
           RETURN_NOT_OK(ctx->scheduler()->StartScheduling(
               0 /* thread_index */,
               [ctx](std::function<Status(size_t)> fn) -> Status {
-                return ctx->ScheduleTask(std::move(fn));
+                // TODO(weston) add names to synchronous scheduler so we can use something
+                // better than sync-scheduler-task here
+                return ctx->ScheduleTask(std::move(fn), "sync-scheduler-task");
               },
               /*concurrent_tasks=*/2 * num_threads, sync_execution));
 

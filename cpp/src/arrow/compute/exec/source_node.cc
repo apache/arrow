@@ -101,8 +101,8 @@ struct SourceNode : ExecNode {
       options.executor = executor;
       options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     }
-    ARROW_ASSIGN_OR_RAISE(Future<> scan_task,
-                          plan_->query_context()->BeginExternalTask());
+    ARROW_ASSIGN_OR_RAISE(Future<> scan_task, plan_->query_context()->BeginExternalTask(
+                                                  "SourceNode::DatasetScan"));
     if (!scan_task.is_valid()) {
       finished_.MarkFinished();
       // Plan has already been aborted, no need to start scanning
@@ -153,7 +153,8 @@ struct SourceNode : ExecNode {
                                outputs_[0]->InputReceived(this, std::move(batch));
                              } while (offset < morsel.length);
                              return Status::OK();
-                           }));
+                           },
+                           "SourceNode::ProcessMorsel"));
                        lock.lock();
                        if (!backpressure_future_.is_finished()) {
                          EVENT(span_, "Source paused due to backpressure");

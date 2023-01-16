@@ -34,6 +34,7 @@
 #endif
 #endif
 
+#include "arrow/memory_pool.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/tracing.h"
@@ -108,6 +109,7 @@ AsyncGenerator<T> PropagateSpanThroughAsyncGenerator(AsyncGenerator<T> wrapped) 
 class SpanImpl : public ::arrow::util::tracing::SpanDetails {
  public:
   ~SpanImpl() override = default;
+  bool valid() const { return ot_span != nullptr; }
   opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> ot_span;
 };
 

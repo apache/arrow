@@ -33,6 +33,8 @@ class ARROW_EXPORT SpanDetails {
 class ARROW_EXPORT Span {
  public:
   Span() noexcept;
+  // True if this span has been started with START_SPAN
+  bool valid() const;
   std::unique_ptr<SpanDetails> details;
 };
 
