@@ -234,7 +234,7 @@ open_dataset <- function(sources,
 #' [read_delim_arrow()], and [read_tsv_arrow()].
 #'
 #' @inheritParams open_dataset
-#' @inheritParams read_csv_arrow
+#' @inheritParams read_delim_arrow
 #'
 #' @section Options currently supported by [read_delim_arrow()] which are not supported here:
 #' * `file` (instead, please specify files in `sources`)
@@ -281,6 +281,7 @@ open_delim_dataset <- function(sources,
     unify_schemas = unify_schemas,
     factory_options = factory_options,
     format = "text",
+    delim = delim,
     quote = quote,
     escape_double = escape_double,
     escape_backslash = escape_backslash,
