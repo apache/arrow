@@ -6,7 +6,7 @@
 \description{
 The \code{arrow} package contains methods for 37 \code{dplyr} table functions, many of
 which are "verbs" that do transformations to one or more tables.
-The package also has mappings of 209 R functions to the corresponding
+The package also has mappings of 211 R functions to the corresponding
 functions in the Arrow compute library. These allow you to write code inside
 of \code{dplyr} methods that call R functions, including many in packages like
 \code{stringr} and \code{lubridate}, and they will get translated to Arrow and run
@@ -229,7 +229,8 @@ Valid values are "s", "ms" (default), "us", "ns".
 \item \code{\link[lubridate:parse_date_time]{fast_strptime()}}: non-default values of \code{lt} and \code{cutoff_2000} not supported
 \item \code{\link[lubridate:round_date]{floor_date()}}
 \item \code{\link[lubridate:force_tz]{force_tz()}}: Timezone conversion from non-UTC timezone not supported;
-When \code{roll = FALSE} and hit a non-existent time, raise an error
+\code{roll_dst} values of 'error' and 'boundary' are supported for nonexistent times,
+\code{roll_dst} values of 'error', 'pre', and 'post' are supported for ambiguous times.
 \item \code{\link[lubridate:format_ISO8601]{format_ISO8601()}}
 \item \code{\link[lubridate:hour]{hour()}}
 \item \code{\link[lubridate:date_utils]{is.Date()}}
@@ -253,6 +254,8 @@ providing both \code{num} and \code{...} is not supported
 \item \code{\link[lubridate:ymd]{my()}}: \code{locale} argument not supported
 \item \code{\link[lubridate:ymd]{myd()}}: \code{locale} argument not supported
 \item \code{\link[lubridate:parse_date_time]{parse_date_time()}}: \code{quiet = FALSE} is not supported
+Available formats are H, I, j, M, S, U, w, W, y, Y, R, T.
+On Linux and OS X additionally a, A, b, B, Om, p, r are available.
 \item \code{\link[lubridate:am]{pm()}}
 \item \code{\link[lubridate:day]{qday()}}
 \item \code{\link[lubridate:quarter]{quarter()}}
