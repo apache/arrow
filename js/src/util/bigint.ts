@@ -16,11 +16,11 @@
 // under the License.
 
 /**
- * Converts a number or bigint to a number, throwing if the input is not safe to convert to a number.
+ * Converts an integer as a number or bigint to a number, throwing an error if the input cannot safely be represented as a number.
  */
 export function bigIntToNumber(number: bigint | number): number {
-    if (!Number.isSafeInteger(number)) {
-        throw new TypeError(`Number ${number} is not safe to convert to a 32-bit integer`);
+    if (typeof number === 'bigint' && (number < Number.MIN_SAFE_INTEGER || number > Number.MAX_SAFE_INTEGER)) {
+        throw new TypeError(`${number} is not safe to convert to a number.`);
     }
     return Number(number);
 }
