@@ -517,6 +517,53 @@ class TestIpcRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*>,
   }
 };
 
+// A valid codec that doesn't actually compress anything and returns an expected
+// compressed size that exceeds the uncompressed size.
+class MockCodec : public util::Codec {
+ public:
+  explicit MockCodec(std::unique_ptr<util::Codec> real) : real_(std::move(real)) {}
+
+  static Result<std::unique_ptr<util::Codec>> Create(Compression::type type) {
+    ARROW_ASSIGN_OR_RAISE(auto real, util::Codec::Create(type));
+    if (!real) return nullptr;
+    return std::make_unique<MockCodec>(std::move(real));
+  }
+
+  int64_t MaxCompressedLen(int64_t input_len, const uint8_t*) override {
+    return input_len + 1;
+  }
+
+  Result<std::shared_ptr<util::Compressor>> MakeCompressor() override {
+    return Status::NotImplemented("MakeCompressor");
+  }
+  Result<std::shared_ptr<util::Decompressor>> MakeDecompressor() override {
+    return Status::NotImplemented("MakeDecompressor");
+  }
+  Result<int64_t> Compress(int64_t, const uint8_t*, int64_t, uint8_t*) override {
+    return Status::NotImplemented("Compress");
+  }
+  Result<int64_t> Decompress(int64_t, const uint8_t*, int64_t, uint8_t*) override {
+    return Status::NotImplemented("Decompress");
+  }
+
+  int minimum_compression_level() const override {
+    return real_->minimum_compression_level();
+  }
+  int maximum_compression_level() const override {
+    return real_->maximum_compression_level();
+  }
+  int default_compression_level() const override {
+    return real_->default_compression_level();
+  }
+  Compression::type compression_type() const override {
+    return real_->compression_type();
+  }
+  int compression_level() const override { return real_->compression_level(); }
+
+ private:
+  std::unique_ptr<util::Codec> real_;
+};
+
 TEST_P(TestIpcRoundTrip, RoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
@@ -719,6 +766,10 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
     IpcReadOptions read_options = IpcReadOptions::Defaults();
     write_options.use_threads = false;
     read_options.use_threads = false;
+    CheckRoundtrip(*batch, write_options, read_options);
+
+    ASSERT_OK_AND_ASSIGN(write_options.codec, MockCodec::Create(codec));
+    write_options.compress_always = false;
     CheckRoundtrip(*batch, write_options, read_options);
   }
 

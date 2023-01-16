@@ -180,15 +180,25 @@ class RecordBatchSerializer {
                         std::shared_ptr<Buffer>* out) {
     // Convert buffer to uncompressed-length-prefixed compressed buffer
     int64_t maximum_length = codec->MaxCompressedLen(buffer.size(), buffer.data());
-    ARROW_ASSIGN_OR_RAISE(auto result, AllocateBuffer(maximum_length + sizeof(int64_t)));
-
     int64_t actual_length;
-    ARROW_ASSIGN_OR_RAISE(actual_length,
-                          codec->Compress(buffer.size(), buffer.data(), maximum_length,
-                                          result->mutable_data() + sizeof(int64_t)));
-    *reinterpret_cast<int64_t*>(result->mutable_data()) =
-        bit_util::ToLittleEndian(buffer.size());
+    std::unique_ptr<Buffer> result;
+
+    if (options_.compress_always || maximum_length < buffer.size()) {
+      ARROW_ASSIGN_OR_RAISE(result, AllocateBuffer(maximum_length + sizeof(int64_t)));
+      ARROW_ASSIGN_OR_RAISE(actual_length,
+                            codec->Compress(buffer.size(), buffer.data(), maximum_length,
+                                            result->mutable_data() + sizeof(int64_t)));
+      *reinterpret_cast<int64_t*>(result->mutable_data()) =
+          bit_util::ToLittleEndian(buffer.size());
+    } else {
+      actual_length = buffer.size();
+      ARROW_ASSIGN_OR_RAISE(result, AllocateBuffer(buffer.size() + sizeof(int64_t)));
+      memcpy(result->mutable_data() + sizeof(int64_t), buffer.data(),
+             static_cast<size_t>(buffer.size()));
+      *reinterpret_cast<int64_t*>(result->mutable_data()) = bit_util::ToLittleEndian(-1);
+    }
     *out = SliceBuffer(std::move(result), /*offset=*/0, actual_length + sizeof(int64_t));
+
     return Status::OK();
   }
 

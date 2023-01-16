@@ -67,6 +67,15 @@ struct ARROW_EXPORT IpcWriteOptions {
   /// May only be UNCOMPRESSED, LZ4_FRAME and ZSTD.
   std::shared_ptr<util::Codec> codec;
 
+  /// @brief Always use compression, regardless of the resulting output size
+  ///
+  /// If false, compression will be skipped for body buffers where the expected compressed
+  /// size matches/exceeds the uncompressed size. Otherwise, compression will be applied
+  /// indiscriminately. This option is ignored if no codec was supplied.
+  ///
+  /// This is true by default due to backwards-compatibility concerns.
+  bool compress_always = true;
+
   /// \brief Use global CPU thread pool to parallelize any computational tasks
   /// like compression
   bool use_threads = true;
