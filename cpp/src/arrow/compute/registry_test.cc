@@ -174,7 +174,6 @@ class ExampleOptionsType : public FunctionOptionsType {
     static std::string name = std::string("example") + std::to_string(kExampleSeqNum);
     return name.c_str();
   }
-  size_t num_properties() const override { return 1; }
   std::string Stringify(const FunctionOptions& options) const override {
     return type_name();
   }

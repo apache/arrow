@@ -33,7 +33,6 @@ namespace cp = ::arrow::compute;
 
 class ExampleFunctionOptionsType : public cp::FunctionOptionsType {
   const char* type_name() const override { return "ExampleFunctionOptionsType"; }
-  size_t num_properties() const override { return 0; }
   std::string Stringify(const cp::FunctionOptions&) const override {
     return "ExampleFunctionOptionsType";
   }

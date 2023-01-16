@@ -62,10 +62,7 @@ void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
       }
     }
     if (aggs[i].options) {
-      auto* options_type = aggs[i].options->options_type();
-      if (options_type->num_properties() > 0) {
-        *ss << ", " << aggs[i].options->ToString();
-      }
+      *ss << ", " << aggs[i].options->ToString();
     }
     *ss << ")," << std::endl;
   }

@@ -240,7 +240,6 @@ class WidgetifyOptionsType : public FunctionOptionsType {
     return instance.get();
   }
   const char* type_name() const override { return "widgetify"; }
-  size_t num_properties() const override { return 1; }
   std::string Stringify(const FunctionOptions& options) const override {
     return type_name();
   }
