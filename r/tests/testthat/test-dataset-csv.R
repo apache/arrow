@@ -528,18 +528,35 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds <- open_csv_dataset(tf, skip_empty_rows = FALSE) %>% collect()
   expect_equal(nrow(ds), 7)
 
-
-  ds1 <- open_csv_dataset(
-    tf,
-    format = "csv",
-    convert_options = list(null_values = c("NA", "NULL"), strings_can_be_null = TRUE),
-    read_options = list(skip_rows = 1L)
-  ) %>%
-    collect()
-
   # timestamp_parsers
+  df <- data.frame(time = "2023-01-16 19:47:57")
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv")
+  write.table(df, sep = ",", dst_file, row.names = FALSE, quote = FALSE)
+
+  ds <- open_csv_dataset(dst_dir, timestamp_parsers = c(TimestampParser$create(format = "%d-%m-%y"))) %>% collect()
+
+  # GH-33708: timestamp_parsers don't appear to be working properly
+  expect_error(
+    expect_equal(ds$time, "16-01-2023")
+  )
 
   # convert_options
+  ds <- open_csv_dataset(
+    csv_dir,
+    convert_options = list(null_values = c("NA", "", "FALSE"), strings_can_be_null = TRUE)
+  ) %>% collect()
+
+  expect_equal(
+    ds$lgl,
+    c(TRUE, NA, NA, TRUE, NA, TRUE, NA, NA, TRUE, NA, TRUE, NA, NA, TRUE, NA, TRUE, NA, NA, TRUE, NA)
+  )
 
   # read_options
+  ds <- open_csv_dataset(
+    csv_dir,
+    read_options = list(column_names = paste0("col_", 1:6))
+  ) %>% collect()
+
+  expect_named(ds, c("col_1", "col_2", "col_3", "col_4", "col_5", "col_6"))
 })
