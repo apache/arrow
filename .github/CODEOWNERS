@@ -23,11 +23,11 @@
 # documentation about the syntax: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Arrow Format
-/format/
+# /format/
 
 ## Components
 /c_glib/ @kou
-/cpp/
+# /cpp/
 /cpp/src/arrow/compute @westonpace
 /cpp/src/arrow/dataset @westonpace
 /cpp/src/arrow/engine @westonpace
@@ -49,12 +49,12 @@
 /ruby/ @kou
 
 # Docs
-/docs/
-.readthedocs.yml
-*.md
-*.rmd
-*.rst
-*.txt
+# /docs/
+# .readthedocs.yml
+# *.md
+# *.rmd
+# *.rst
+# *.txt
 
 # PR CI and repository files
 /.github/ @assignUser @kou @raulcd
@@ -62,7 +62,7 @@
 .pre-commit-config.yaml @raulcd 
 .travis.yml @assignUser @kou @raulcd
 appveyor.yml @assignUser @kou @raulcd
-.git*
+# .git*
 
 # release scripts, archery etc.
 /ci/ @assignUser @kou @raulcd
