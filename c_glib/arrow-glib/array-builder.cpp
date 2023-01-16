@@ -402,6 +402,9 @@ G_BEGIN_DECLS
  * #GArrowUInt64ArrayBuilder is the class to create a new
  * #GArrowUInt64Array.
  *
+ * #GArrowHalfFloatArrayBuilder is the class to creating a new
+ * #GArrowHalfFloatArray.
+ *
  * #GArrowFloatArrayBuilder is the class to creating a new
  * #GArrowFloatArray.
  *
@@ -2596,6 +2599,99 @@ garrow_uint64_array_builder_append_nulls(GArrowUInt64ArrayBuilder *builder,
   return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
                                            n,
                                            error);
+}
+
+
+G_DEFINE_TYPE(GArrowHalfFloatArrayBuilder,
+              garrow_half_float_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_half_float_array_builder_init(GArrowHalfFloatArrayBuilder *builder)
+{
+}
+
+static void
+garrow_half_float_array_builder_class_init(
+  GArrowHalfFloatArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_half_float_array_builder_new:
+ *
+ * Returns: A newly created #GArrowHalfFloatArrayBuilder.
+ *
+ * Since: 11.0.0
+ */
+GArrowHalfFloatArrayBuilder *
+garrow_half_float_array_builder_new(void)
+{
+  auto builder = garrow_array_builder_new(arrow::float16(),
+                                          nullptr,
+                                          "[half-float-array-builder][new]");
+  return GARROW_HALF_FLOAT_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_half_float_array_builder_append_value:
+ * @builder: A #GArrowHalfFloatArrayBuilder.
+ * @value: A 16-bit float value.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 11.0.0
+ */
+gboolean
+garrow_half_float_array_builder_append_value(
+  GArrowHalfFloatArrayBuilder *builder,
+  guint16 value,
+  GError **error)
+{
+  return garrow_array_builder_append_value<arrow::HalfFloatBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     value,
+     error,
+     "[half-float-array-builder][append-value]");
+}
+
+/**
+ * garrow_half_float_array_builder_append_values:
+ * @builder: A #GArrowHalfFloatArrayBuilder.
+ * @values: (array length=values_length): The array of 16-bit float.
+ * @values_length: The length of `values`.
+ * @is_valids: (nullable) (array length=is_valids_length): The array of
+ *   boolean that shows whether the Nth value is valid or not. If the
+ *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   the Nth value is null value.
+ * @is_valids_length: The length of `is_valids`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple values at once. It's more efficient than multiple
+ * `append` and `append_null` calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 11.0.0
+ */
+gboolean
+garrow_half_float_array_builder_append_values(
+  GArrowHalfFloatArrayBuilder *builder,
+  const guint16 *values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error)
+{
+  return garrow_array_builder_append_values<arrow::HalfFloatBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     values,
+     values_length,
+     is_valids,
+     is_valids_length,
+     error,
+     "[half-float-array-builder][append-values]");
 }
 
 
@@ -6493,6 +6589,9 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
       break;
     case arrow::Type::type::INT64:
       type = GARROW_TYPE_INT64_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::HALF_FLOAT:
+      type = GARROW_TYPE_HALF_FLOAT_ARRAY_BUILDER;
       break;
     case arrow::Type::type::FLOAT:
       type = GARROW_TYPE_FLOAT_ARRAY_BUILDER;

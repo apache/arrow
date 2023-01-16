@@ -543,6 +543,20 @@ test_that("StructArray methods", {
   expect_identical(dim(a), c(10L, 3L))
 })
 
+test_that("StructArray creation", {
+  # from data.frame
+  a <- StructArray$create(example_data)
+  expect_identical(names(a), c("int", "dbl", "dbl2", "lgl", "false", "chr", "fct"))
+  expect_identical(dim(a), c(10L, 7L))
+  expect_r6_class(a, "StructArray")
+
+  # from Arrays
+  str_array <- StructArray$create(a = Array$create(1:2), b = Array$create(c("a", "b")))
+  expect_equal(str_array[[1]], Array$create(1:2))
+  expect_equal(str_array[[2]], Array$create(c("a", "b")))
+  expect_r6_class(str_array, "StructArray")
+})
+
 test_that("Array$create() can handle data frame with custom struct type (not inferred)", {
   df <- tibble::tibble(x = 1:10, y = 1:10)
   type <- struct(x = float64(), y = int16())
@@ -786,15 +800,16 @@ test_that("Array$create() handles vector -> fixed size list arrays", {
 })
 
 test_that("Handling string data with embedded nuls", {
-  raws <- structure(list(
-    as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
-    as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
-    as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
-    as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
-    as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
-    as.raw(c(0x74, 0x76))
-  ),
-  class = c("arrow_binary", "vctrs_vctr", "list")
+  raws <- structure(
+    list(
+      as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
+      as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
+      as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
+      as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
+      as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
+      as.raw(c(0x74, 0x76))
+    ),
+    class = c("arrow_binary", "vctrs_vctr", "list")
   )
   expect_error(
     rawToChar(raws[[3]]),
@@ -868,17 +883,6 @@ test_that("Array$create() should have helpful error", {
   char <- character(0)
   expect_error(Array$create(list(lgl, lgl, int)), "Expecting a logical vector")
   expect_error(Array$create(list(char, num, char)), "Expecting a character vector")
-
-  # hint at casting if direct fails and casting looks like it might work
-  expect_error(
-    Array$create(as.double(1:10), type = decimal(4, 2)),
-    "You might want to try casting manually"
-  )
-
-  expect_error(
-    Array$create(1:10, type = decimal(12, 2)),
-    "You might want to try casting manually"
-  )
 
   a <- expect_error(Array$create("one", int32()))
   b <- expect_error(vec_to_Array("one", int32()))
@@ -1320,4 +1324,54 @@ test_that("Array to C-interface", {
   # must clean up the pointers or we leak
   delete_arrow_schema(schema_ptr)
   delete_arrow_array(array_ptr)
+})
+
+test_that("Can convert R integer/double to decimal (ARROW-11631)", {
+  # Check both decimal128 and decimal256
+  decimal128_from_dbl <- Array$create(c(1, NA_real_), type = decimal128(12, 2))
+  decimal256_from_dbl <- Array$create(c(1, NA_real_), type = decimal256(12, 2))
+  decimal128_from_int <- Array$create(c(1L, NA_integer_), type = decimal128(12, 2))
+  decimal256_from_int <- Array$create(c(1L, NA_integer_), type = decimal256(12, 2))
+
+  # Check ALTREP input
+  altrep_dbl <- as.vector(Array$create(c(1, NA_real_)))
+  altrep_int <- as.vector(Array$create(c(1L, NA_integer_)))
+  decimal_from_altrep_dbl <- Array$create(altrep_dbl, type = decimal128(12, 2))
+  decimal_from_altrep_int <- Array$create(altrep_int, type = decimal128(12, 2))
+
+  expect_equal(
+    decimal128_from_dbl,
+    Array$create(c(1, NA))$cast(decimal128(12, 2))
+  )
+
+  expect_equal(
+    decimal256_from_dbl,
+    Array$create(c(1, NA))$cast(decimal256(12, 2))
+  )
+
+  expect_equal(
+    decimal128_from_int,
+    Array$create(c(1, NA))$cast(decimal128(12, 2))
+  )
+
+  expect_equal(
+    decimal256_from_int,
+    Array$create(c(1, NA))$cast(decimal256(12, 2))
+  )
+
+  expect_equal(
+    decimal_from_altrep_dbl,
+    Array$create(c(1, NA))$cast(decimal128(12, 2))
+  )
+
+  expect_equal(
+    decimal_from_altrep_int,
+    Array$create(c(1, NA))$cast(decimal128(12, 2))
+  )
+
+  # Check that other types aren't silently but invalidly converted
+  expect_error(
+    Array$create(complex(), decimal128(12, 2)),
+    "Conversion to decimal from non-integer/double"
+  )
 })

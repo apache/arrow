@@ -299,7 +299,7 @@ test_that("Can use across() within group_by()", {
   test_groups <- c("dbl", "int", "chr")
   compare_dplyr_binding(
     .input %>%
-      group_by(across()) %>%
+      group_by(across(everything())) %>%
       collect(),
     tbl
   )

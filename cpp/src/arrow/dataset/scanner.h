@@ -419,6 +419,7 @@ class ARROW_DS_EXPORT Scanner {
   /// This method will push down the predicate and compute the result based on fragment
   /// metadata if possible.
   virtual Result<int64_t> CountRows() = 0;
+  virtual Future<int64_t> CountRowsAsync() = 0;
   /// \brief Convert the Scanner to a RecordBatchReader so it can be
   /// easily used with APIs that expect a reader.
   virtual Result<std::shared_ptr<RecordBatchReader>> ToRecordBatchReader() = 0;

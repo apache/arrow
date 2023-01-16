@@ -21,20 +21,19 @@ left <- example_data
 left$some_grouping <- rep(c(1, 2), 5)
 
 to_join <- tibble::tibble(
-  some_grouping = c(1, 2),
-  capital_letters = c("A", "B"),
+  some_grouping = c(1, 2, 3),
+  capital_letters = c("A", "B", "C"),
   another_column = TRUE
 )
 
-test_that("left_join", {
-  expect_message(
-    compare_dplyr_binding(
-      .input %>%
-        left_join(to_join) %>%
-        collect(),
-      left
-    ),
-    'Joining, by = "some_grouping"'
+test_that("left_join with automatic grouping", {
+  expect_identical(
+    as_record_batch(left) %>%
+      left_join(to_join) %>%
+      collect(),
+    left %>%
+      left_join(to_join, by = "some_grouping") %>%
+      collect()
   )
 })
 
@@ -62,6 +61,39 @@ test_that("left_join `by` args", {
       left_join(
         to_join,
         by = c(the_grouping = "some_grouping")
+      ) %>%
+      collect(),
+    left
+  )
+})
+
+test_that("left_join with join_by", {
+  # only run this test in newer versions of dplyr that include `join_by()`
+  skip_if_not(packageVersion("dplyr") >= "1.0.99.9000")
+
+  compare_dplyr_binding(
+    .input %>%
+      left_join(to_join, join_by(some_grouping)) %>%
+      collect(),
+    left
+  )
+  compare_dplyr_binding(
+    .input %>%
+      left_join(
+        to_join %>%
+          rename(the_grouping = some_grouping),
+          join_by(some_grouping == the_grouping)
+      ) %>%
+      collect(),
+    left
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      rename(the_grouping = some_grouping) %>%
+      left_join(
+        to_join,
+        join_by(the_grouping == some_grouping)
       ) %>%
       collect(),
     left
@@ -137,51 +169,88 @@ test_that("Error handling", {
   )
 })
 
+test_that("Error handling for unsupported expressions in join_by", {
+  # only run this test in newer versions of dplyr that include `join_by()`
+  skip_if_not(packageVersion("dplyr") >= "1.0.99.9000")
+
+  expect_error(
+    arrow_table(left) %>%
+      left_join(to_join, join_by(some_grouping >= some_grouping)),
+    "not supported"
+  )
+
+  expect_error(
+    arrow_table(left) %>%
+      left_join(to_join, join_by(closest(some_grouping >= some_grouping))),
+    "not supported"
+  )
+})
+
 # TODO: test duplicate col names
 # TODO: casting: int and float columns?
 
 test_that("right_join", {
-  for (keep in c(TRUE, FALSE)) {
-    compare_dplyr_binding(
-      .input %>%
-        right_join(to_join, by = "some_grouping", keep = !!keep) %>%
-        collect(),
-      left
-    )
-  }
+  compare_dplyr_binding(
+    .input %>%
+      right_join(to_join, by = "some_grouping", keep = TRUE) %>%
+      collect(),
+    left
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      right_join(to_join, by = "some_grouping", keep = FALSE) %>%
+      collect(),
+    left
+  )
 })
 
 test_that("inner_join", {
-  for (keep in c(TRUE, FALSE)) {
-    compare_dplyr_binding(
-      .input %>%
-        inner_join(to_join, by = "some_grouping", keep = !!keep) %>%
-        collect(),
-      left
-    )
-  }
+  compare_dplyr_binding(
+    .input %>%
+      inner_join(to_join, by = "some_grouping", keep = TRUE) %>%
+      collect(),
+    left
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      inner_join(to_join, by = "some_grouping", keep = FALSE) %>%
+      collect(),
+    left
+  )
 })
 
 test_that("full_join", {
-  for (keep in c(TRUE, FALSE)) {
-    compare_dplyr_binding(
-      .input %>%
-        full_join(to_join, by = "some_grouping", keep = !!keep) %>%
-        collect(),
-      left
-    )
-  }
+  compare_dplyr_binding(
+    .input %>%
+      full_join(to_join, by = "some_grouping", keep = TRUE) %>%
+      collect(),
+    left
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      full_join(to_join, by = "some_grouping", keep = FALSE) %>%
+      collect(),
+    left
+  )
 })
 
 test_that("semi_join", {
-  for (keep in c(TRUE, FALSE)) {
-    compare_dplyr_binding(
-      .input %>%
-        semi_join(to_join, by = "some_grouping", keep = !!keep) %>%
-        collect(),
-      left
-    )
-  }
+  compare_dplyr_binding(
+    .input %>%
+      semi_join(to_join, by = "some_grouping", keep = TRUE) %>%
+      collect(),
+    left
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      semi_join(to_join, by = "some_grouping", keep = FALSE) %>%
+      collect(),
+    left
+  )
 })
 
 test_that("anti_join", {
@@ -361,13 +430,19 @@ test_that("full joins handle keep", {
     z = 6:10
   )
 
-  for (keep in c(TRUE, FALSE)) {
-    compare_dplyr_binding(
-      .input %>%
-        full_join(full_data_df, by = c("y", "x"), keep = !!keep) %>%
-        arrange(index) %>%
-        collect(),
-      small_dataset_df
-    )
-  }
+  compare_dplyr_binding(
+    .input %>%
+      full_join(full_data_df, by = c("y", "x"), keep = TRUE) %>%
+      arrange(index) %>%
+      collect(),
+    small_dataset_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      full_join(full_data_df, by = c("y", "x"), keep = FALSE) %>%
+      arrange(index) %>%
+      collect(),
+    small_dataset_df
+  )
 })

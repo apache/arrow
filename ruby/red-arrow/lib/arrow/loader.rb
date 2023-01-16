@@ -39,6 +39,7 @@ module Arrow
       require "arrow/field-containable"
       require "arrow/generic-filterable"
       require "arrow/generic-takeable"
+      require "arrow/input-referable"
       require "arrow/record-containable"
       require "arrow/symbol-values-appendable"
 
@@ -81,6 +82,9 @@ module Arrow
       require "arrow/fixed-size-binary-array-builder"
       require "arrow/function"
       require "arrow/group"
+      require "arrow/half-float"
+      require "arrow/half-float-array"
+      require "arrow/half-float-array-builder"
       require "arrow/list-array-builder"
       require "arrow/list-data-type"
       require "arrow/map-array"
@@ -196,6 +200,7 @@ module Arrow
            "Arrow::Date64Array",
            "Arrow::Decimal128Array",
            "Arrow::Decimal256Array",
+           "Arrow::HalfFloatArray",
            "Arrow::Time32Array",
            "Arrow::Time64Array",
            "Arrow::TimestampArray"

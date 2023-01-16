@@ -94,3 +94,13 @@ find_package_message(NUMPY
     "${NUMPY_INCLUDE_DIRS}${NUMPY_VERSION}")
 
 set(NUMPY_FOUND TRUE)
+
+add_library(Python3::NumPy INTERFACE IMPORTED)
+if(CMAKE_VERSION VERSION_LESS 3.11)
+    set_target_properties(Python3::NumPy PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${NUMPY_INCLUDE_DIRS}"
+        INTERFACE_LINK_LIBRARIES Python3::Module)
+else()
+    target_include_directories(Python3::NumPy INTERFACE ${NUMPY_INCLUDE_DIRS})
+    target_link_libraries(Python3::NumPy INTERFACE Python3::Module)
+endif()

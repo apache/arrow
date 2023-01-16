@@ -35,81 +35,9 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
   fi
 
   # Install curl and OpenSSL for S3/GCS support
-  #
-  # We need to install all dependencies explicitly to use "pkg-config
-  # --static --libs libcurl" result. Because libcurl-dev/libcurl-devel
-  # don't depend on packages that are only needed for "pkg-config
-  # --static".
   case "$PACKAGE_MANAGER" in
     apt-get)
-      # "pkg-config --static --libs libcurl" has
-      #   * -lnghttp2
-      #   * -lidn2
-      #   * -lrtmp
-      #   * -lssh or -lssh2
-      #   * -lpsl
-      #   * -lssl
-      #   * -lcrypto
-      #   * -lgssapi_krb5
-      #   * -lkrb5
-      #   * -lk5crypto
-      #   * -lcom_err
-      #   * -lldap
-      #   * -llber
-      #   * -lzstd
-      #   * -lbrotlidec
-      #   * -lz
-      apt-get install -y \
-              libbrotli-dev \
-              libcurl4-openssl-dev \
-              libidn2-dev \
-              libkrb5-dev \
-              libldap-dev \
-              libnghttp2-dev \
-              libpsl-dev \
-              librtmp-dev \
-              libssh-dev \
-              libssh2-1-dev \
-              libssl-dev \
-              libzstd-dev
-      ;;
-    dnf|yum)
-      # "pkg-config --static --libs libcurl" has -lidl, -lssh2 and -lldap
-      $PACKAGE_MANAGER install -y \
-                       libcurl-devel \
-                       libidn-devel \
-                       libssh2-devel \
-                       openldap-devel \
-                       openssl-devel
-      ;;
-    zypper)
-      # "pkg-config --static --libs libcurl" has
-      #   * -lnghttp2
-      #   * -lidn2
-      #   * -lssh
-      #   * -lpsl
-      #   * -lssl
-      #   * -lcrypto
-      #   * -lgssapi_krb5
-      #   * -lkrb5
-      #   * -lk5crypto
-      #   * -lcom_err
-      #   * -lldap
-      #   * -llber
-      #   * -lzstd
-      #   * -lbrotlidec
-      #   * -lz
-      $PACKAGE_MANAGER install -y \
-                       krb5-devel \
-                       libbrotli-devel \
-                       libcurl-devel \
-                       libidn2-devel \
-                       libnghttp2-devel \
-                       libpsl-devel \
-                       libssh-devel \
-                       libzstd-devel \
-                       openldap2-devel \
-                       openssl-devel
+      apt-get install -y libcurl4-openssl-dev libssl-dev
       ;;
     *)
       $PACKAGE_MANAGER install -y libcurl-devel openssl-devel

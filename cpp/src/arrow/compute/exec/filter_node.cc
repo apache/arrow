@@ -21,6 +21,7 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/map_node.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/query_context.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
@@ -51,8 +52,9 @@ class FilterNode : public MapNode {
 
     auto filter_expression = filter_options.filter_expression;
     if (!filter_expression.IsBound()) {
-      ARROW_ASSIGN_OR_RAISE(filter_expression,
-                            filter_expression.Bind(*schema, plan->exec_context()));
+      ARROW_ASSIGN_OR_RAISE(
+          filter_expression,
+          filter_expression.Bind(*schema, plan->query_context()->exec_context()));
     }
 
     if (filter_expression.type()->id() != Type::BOOL) {
@@ -76,8 +78,9 @@ class FilterNode : public MapNode {
                         {"filter.expression.simplified", simplified_filter.ToString()},
                         {"filter.length", target.length}});
 
-    ARROW_ASSIGN_OR_RAISE(Datum mask, ExecuteScalarExpression(simplified_filter, target,
-                                                              plan()->exec_context()));
+    ARROW_ASSIGN_OR_RAISE(
+        Datum mask, ExecuteScalarExpression(simplified_filter, target,
+                                            plan()->query_context()->exec_context()));
 
     if (mask.is_scalar()) {
       const auto& mask_scalar = mask.scalar_as<BooleanScalar>();

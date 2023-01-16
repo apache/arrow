@@ -27,6 +27,7 @@ namespace arrow {
 
 class Array;
 class ChunkedArray;
+class RecordBatch;
 class Schema;
 class Table;
 
@@ -113,6 +114,24 @@ class PARQUET_EXPORT FileWriter {
   /// \brief Write ColumnChunk in a row group using a ChunkedArray
   virtual ::arrow::Status WriteColumnChunk(
       const std::shared_ptr<::arrow::ChunkedArray>& data) = 0;
+
+  /// \brief Start a new buffered row group.
+  ///
+  /// Returns an error if not all columns have been written.
+  virtual ::arrow::Status NewBufferedRowGroup() = 0;
+
+  /// \brief Write a RecordBatch into the buffered row group.
+  ///
+  /// Multiple RecordBatches can be written into the same row group
+  /// through this method.
+  ///
+  /// WriterProperties.max_row_group_length() is respected and a new
+  /// row group will be created if the current row group exceeds the
+  /// limit.
+  ///
+  /// Batches get flushed to the output stream once NewBufferedRowGroup()
+  /// or Close() is called.
+  virtual ::arrow::Status WriteRecordBatch(const ::arrow::RecordBatch& batch) = 0;
 
   /// \brief Write the footer and close the file.
   virtual ::arrow::Status Close() = 0;

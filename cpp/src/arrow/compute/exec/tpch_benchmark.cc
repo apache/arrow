@@ -31,9 +31,7 @@ namespace internal {
 
 std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<std::optional<ExecBatch>>* sink_gen,
                                   int scale_factor) {
-  ExecContext* ctx = default_exec_context();
-  *ctx = ExecContext(default_memory_pool(), arrow::internal::GetCpuThreadPool());
-  std::shared_ptr<ExecPlan> plan = *ExecPlan::Make(ctx);
+  std::shared_ptr<ExecPlan> plan = *ExecPlan::Make();
   std::unique_ptr<TpchGen> gen =
       *TpchGen::Make(plan.get(), static_cast<double>(scale_factor));
 

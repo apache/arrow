@@ -40,15 +40,15 @@ crossbow_package_dir="${SOURCE_DIR}/../../packages"
 
 : ${CROSSBOW_JOB_NUMBER:="0"}
 : ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-${CROSSBOW_JOB_NUMBER}"}
-artifact_dir="${crossbow_package_dir}/${CROSSBOW_JOB_ID}"
+: ${ARROW_ARTIFACTS_DIR:="${crossbow_package_dir}/${CROSSBOW_JOB_ID}"}
 
-if [ ! -e "$artifact_dir" ]; then
-  echo "$artifact_dir does not exist"
+if [ ! -e "${ARROW_ARTIFACTS_DIR}" ]; then
+  echo "${ARROW_ARTIFACTS_DIR} does not exist"
   exit 1
 fi
 
-if [ ! -d "$artifact_dir" ]; then
-  echo "$artifact_dir is not a directory"
+if [ ! -d "${ARROW_ARTIFACTS_DIR}" ]; then
+  echo "${ARROW_ARTIFACTS_DIR} is not a directory"
   exit 1
 fi
 
@@ -118,7 +118,7 @@ tmp_dir=binary/tmp
 mkdir -p "${tmp_dir}"
 source_artifacts_dir="${tmp_dir}/artifacts"
 rm -rf "${source_artifacts_dir}"
-cp -a "${artifact_dir}" "${source_artifacts_dir}"
+cp -a "${ARROW_ARTIFACTS_DIR}" "${source_artifacts_dir}"
 
 docker_run \
   ./runner.sh \
@@ -132,5 +132,6 @@ docker_run \
     GPG_KEY_ID="${GPG_KEY_ID}" \
     RC=${rc} \
     STAGING=${STAGING:-no} \
+    VERBOSE=${VERBOSE:-no} \
     VERSION=${version} \
     YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")

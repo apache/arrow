@@ -281,7 +281,7 @@ class FSSpecHandler(FileSystemHandler):
 
     Parameters
     ----------
-    fs : FSSpec-compliant filesystem instance.
+    fs : FSSpec-compliant filesystem instance
 
     Examples
     --------

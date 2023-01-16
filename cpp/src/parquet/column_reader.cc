@@ -123,8 +123,8 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       }
       const uint8_t* decoder_data = data + 4;
       if (!rle_decoder_) {
-        rle_decoder_.reset(
-            new ::arrow::util::RleDecoder(decoder_data, num_bytes, bit_width_));
+        rle_decoder_ = std::make_unique<::arrow::util::RleDecoder>(decoder_data,
+                                                                   num_bytes, bit_width_);
       } else {
         rle_decoder_->Reset(decoder_data, num_bytes, bit_width_);
       }
@@ -141,7 +141,8 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
       if (!bit_packed_decoder_) {
-        bit_packed_decoder_.reset(new ::arrow::bit_util::BitReader(data, num_bytes));
+        bit_packed_decoder_ =
+            std::make_unique<::arrow::bit_util::BitReader>(data, num_bytes);
       } else {
         bit_packed_decoder_->Reset(data, num_bytes);
       }
@@ -166,7 +167,8 @@ void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
   bit_width_ = bit_util::Log2(max_level + 1);
 
   if (!rle_decoder_) {
-    rle_decoder_.reset(new ::arrow::util::RleDecoder(data, num_bytes, bit_width_));
+    rle_decoder_ =
+        std::make_unique<::arrow::util::RleDecoder>(data, num_bytes, bit_width_);
   } else {
     rle_decoder_->Reset(data, num_bytes, bit_width_);
   }
@@ -224,6 +226,12 @@ EncodedStatistics ExtractStatsFromHeader(const H& header) {
   return page_statistics;
 }
 
+void CheckNumValuesInHeader(int num_values) {
+  if (num_values < 0) {
+    throw ParquetException("Invalid page header (negative number of values)");
+  }
+}
+
 // ----------------------------------------------------------------------
 // SerializedPageReader deserializes Thrift metadata and pages that have been
 // assembled in a serialized stream for storing in a Parquet files
@@ -259,13 +267,18 @@ class SerializedPageReader : public PageReader {
 
  private:
   void UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor, int8_t module_type,
-                        const std::string& page_aad);
+                        std::string* page_aad);
 
   void InitDecryption();
 
   std::shared_ptr<Buffer> DecompressIfNeeded(std::shared_ptr<Buffer> page_buffer,
                                              int compressed_len, int uncompressed_len,
                                              int levels_byte_len = 0);
+
+  // Returns true for non-data pages, and if we should skip based on
+  // data_page_filter_. Performs basic checks on values in the page header.
+  // Fills in data_page_statistics.
+  bool ShouldSkipPage(EncodedStatistics* data_page_statistics);
 
   const ReaderProperties properties_;
   std::shared_ptr<ArrowInputStream> stream_;
@@ -289,7 +302,7 @@ class SerializedPageReader : public PageReader {
 
   // The ordinal fields in the context below are used for AAD suffix calculation.
   CryptoContext crypto_ctx_;
-  int16_t page_ordinal_;  // page ordinal does not count the dictionary page
+  int32_t page_ordinal_;  // page ordinal does not count the dictionary page
 
   // Maximum allowed page size
   uint32_t max_page_header_size_;
@@ -327,8 +340,7 @@ void SerializedPageReader::InitDecryption() {
 }
 
 void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor,
-                                            int8_t module_type,
-                                            const std::string& page_aad) {
+                                            int8_t module_type, std::string* page_aad) {
   DCHECK(decryptor != nullptr);
   if (crypto_ctx_.start_decrypt_with_dictionary_page) {
     std::string aad = encryption::CreateModuleAad(
@@ -336,9 +348,58 @@ void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& de
         crypto_ctx_.column_ordinal, kNonPageOrdinal);
     decryptor->UpdateAad(aad);
   } else {
-    encryption::QuickUpdatePageAad(page_aad, page_ordinal_);
-    decryptor->UpdateAad(page_aad);
+    encryption::QuickUpdatePageAad(page_ordinal_, page_aad);
+    decryptor->UpdateAad(*page_aad);
   }
+}
+
+bool SerializedPageReader::ShouldSkipPage(EncodedStatistics* data_page_statistics) {
+  const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
+  if (page_type == PageType::DATA_PAGE) {
+    const format::DataPageHeader& header = current_page_header_.data_page_header;
+    CheckNumValuesInHeader(header.num_values);
+    *data_page_statistics = ExtractStatsFromHeader(header);
+    seen_num_values_ += header.num_values;
+    if (data_page_filter_) {
+      const EncodedStatistics* filter_statistics =
+          data_page_statistics->is_set() ? data_page_statistics : nullptr;
+      DataPageStats data_page_stats(filter_statistics, header.num_values,
+                                    /*num_rows=*/std::nullopt);
+      if (data_page_filter_(data_page_stats)) {
+        return true;
+      }
+    }
+  } else if (page_type == PageType::DATA_PAGE_V2) {
+    const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
+    CheckNumValuesInHeader(header.num_values);
+    if (header.num_rows < 0) {
+      throw ParquetException("Invalid page header (negative number of rows)");
+    }
+    if (header.definition_levels_byte_length < 0 ||
+        header.repetition_levels_byte_length < 0) {
+      throw ParquetException("Invalid page header (negative levels byte length)");
+    }
+    *data_page_statistics = ExtractStatsFromHeader(header);
+    seen_num_values_ += header.num_values;
+    if (data_page_filter_) {
+      const EncodedStatistics* filter_statistics =
+          data_page_statistics->is_set() ? data_page_statistics : nullptr;
+      DataPageStats data_page_stats(filter_statistics, header.num_values,
+                                    header.num_rows);
+      if (data_page_filter_(data_page_stats)) {
+        return true;
+      }
+    }
+  } else if (page_type == PageType::DICTIONARY_PAGE) {
+    const format::DictionaryPageHeader& dict_header =
+        current_page_header_.dictionary_page_header;
+    CheckNumValuesInHeader(dict_header.num_values);
+  } else {
+    // We don't know what this page type is. We're allowed to skip non-data
+    // pages.
+    return true;
+  }
+  return false;
 }
 
 std::shared_ptr<Page> SerializedPageReader::NextPage() {
@@ -364,7 +425,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       try {
         if (crypto_ctx_.meta_decryptor != nullptr) {
           UpdateDecryption(crypto_ctx_.meta_decryptor, encryption::kDictionaryPageHeader,
-                           data_page_header_aad_);
+                           &data_page_header_aad_);
         }
         deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(view.data()),
                                         &header_size, &current_page_header_,
@@ -390,9 +451,15 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       throw ParquetException("Invalid page header");
     }
 
+    EncodedStatistics data_page_statistics;
+    if (ShouldSkipPage(&data_page_statistics)) {
+      PARQUET_THROW_NOT_OK(stream_->Advance(compressed_len));
+      continue;
+    }
+
     if (crypto_ctx_.data_decryptor != nullptr) {
       UpdateDecryption(crypto_ctx_.data_decryptor, encryption::kDictionaryPage,
-                       data_page_aad_);
+                       &data_page_aad_);
     }
 
     // Read the compressed data page.
@@ -415,19 +482,14 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       page_buffer = decryption_buffer_;
     }
 
+    // Uncompress and construct the pages to return.
     const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
-
     if (page_type == PageType::DICTIONARY_PAGE) {
       crypto_ctx_.start_decrypt_with_dictionary_page = false;
       const format::DictionaryPageHeader& dict_header =
           current_page_header_.dictionary_page_header;
-
       bool is_sorted = dict_header.__isset.is_sorted ? dict_header.is_sorted : false;
-      if (dict_header.num_values < 0) {
-        throw ParquetException("Invalid page header (negative number of values)");
-      }
 
-      // Uncompress if needed
       page_buffer =
           DecompressIfNeeded(std::move(page_buffer), compressed_len, uncompressed_len);
 
@@ -437,14 +499,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     } else if (page_type == PageType::DATA_PAGE) {
       ++page_ordinal_;
       const format::DataPageHeader& header = current_page_header_.data_page_header;
-
-      if (header.num_values < 0) {
-        throw ParquetException("Invalid page header (negative number of values)");
-      }
-      EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
-      seen_num_values_ += header.num_values;
-
-      // Uncompress if needed
       page_buffer =
           DecompressIfNeeded(std::move(page_buffer), compressed_len, uncompressed_len);
 
@@ -452,24 +506,15 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
                                           LoadEnumSafe(&header.encoding),
                                           LoadEnumSafe(&header.definition_level_encoding),
                                           LoadEnumSafe(&header.repetition_level_encoding),
-                                          uncompressed_len, page_statistics);
+                                          uncompressed_len, data_page_statistics);
     } else if (page_type == PageType::DATA_PAGE_V2) {
       ++page_ordinal_;
       const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
 
-      if (header.num_values < 0) {
-        throw ParquetException("Invalid page header (negative number of values)");
-      }
-      if (header.definition_levels_byte_length < 0 ||
-          header.repetition_levels_byte_length < 0) {
-        throw ParquetException("Invalid page header (negative levels byte length)");
-      }
       // Arrow prior to 3.0.0 set is_compressed to false but still compressed.
       bool is_compressed =
           (header.__isset.is_compressed ? header.is_compressed : false) ||
           always_compressed_;
-      EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
-      seen_num_values_ += header.num_values;
 
       // Uncompress if needed
       int levels_byte_len;
@@ -488,11 +533,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           page_buffer, header.num_values, header.num_nulls, header.num_rows,
           LoadEnumSafe(&header.encoding), header.definition_levels_byte_length,
           header.repetition_levels_byte_length, uncompressed_len, is_compressed,
-          page_statistics);
+          data_page_statistics);
     } else {
-      // We don't know what this page type is. We're allowed to skip non-data
-      // pages.
-      continue;
+      throw ParquetException(
+          "Internal error, we have already skipped non-data pages in ShouldSkipPage()");
     }
   }
   return std::shared_ptr<Page>(nullptr);
@@ -1871,7 +1915,7 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
     DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
     int byte_width = descr_->type_length();
     std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
-    builder_.reset(new ::arrow::FixedSizeBinaryBuilder(type, this->pool_));
+    builder_ = std::make_unique<::arrow::FixedSizeBinaryBuilder>(type, this->pool_);
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
@@ -1923,7 +1967,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
                                ::arrow::MemoryPool* pool)
       : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool) {
     DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-    accumulator_.builder.reset(new ::arrow::BinaryBuilder(pool));
+    accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {

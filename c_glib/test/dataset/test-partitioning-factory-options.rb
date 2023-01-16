@@ -15,12 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestDatasetPartitioningOptions < Test::Unit::TestCase
+class TestDatasetPartitioningFactoryOptions < Test::Unit::TestCase
   include Helper::Buildable
 
   def setup
     omit("Arrow Dataset is required") unless defined?(ArrowDataset)
-    @options = ArrowDataset::PartitioningOptions.new
+    @options = ArrowDataset::PartitioningFactoryOptions.new
   end
 
   def test_infer_dictionary

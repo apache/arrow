@@ -180,7 +180,7 @@ Types
    classes that are currently supported
 
 .. list-table:: Substrait / Arrow Type Mapping
-   :widths: 25 25
+   :widths: 25 25 50
    :header-rows: 1
 
    * - Substrait Type

@@ -256,6 +256,25 @@ guint64
 garrow_uint64_scalar_get_value(GArrowUInt64Scalar *scalar);
 
 
+#define GARROW_TYPE_HALF_FLOAT_SCALAR (garrow_half_float_scalar_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowHalfFloatScalar,
+                         garrow_half_float_scalar,
+                         GARROW,
+                         HALF_FLOAT_SCALAR,
+                         GArrowScalar)
+struct _GArrowHalfFloatScalarClass
+{
+  GArrowScalarClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_11_0
+GArrowHalfFloatScalar *
+garrow_half_float_scalar_new(guint16 value);
+GARROW_AVAILABLE_IN_11_0
+guint16
+garrow_half_float_scalar_get_value(GArrowHalfFloatScalar *scalar);
+
+
 #define GARROW_TYPE_FLOAT_SCALAR (garrow_float_scalar_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowFloatScalar,
                          garrow_float_scalar,

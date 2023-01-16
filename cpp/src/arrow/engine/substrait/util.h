@@ -38,10 +38,24 @@ namespace engine {
 using PythonTableProvider =
     std::function<Result<std::shared_ptr<Table>>(const std::vector<std::string>&)>;
 
+/// \brief Utility method to run a Substrait plan
+/// \param substrait_buffer The plan to run, must be in binary protobuf format
+/// \param registry A registry of extension functions to make available to the plan
+///                 If null then the default registry will be used.
+/// \param memory_pool The memory pool the plan should use to make allocations.
+/// \param func_registry A registry of functions used for execution expressions.
+///                      `registry` maps from Substrait function IDs to "names". These
+///                      names will be provided to `func_registry` to get the actual
+///                      kernel.
+/// \param conversion_options Options to control plan deserialization
+/// \param use_threads If True then the CPU thread pool will be used for CPU work.  If
+///                    False then all work will be done on the calling thread.
+/// \return A record batch reader that will read out the results
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const Buffer& substrait_buffer, const ExtensionIdRegistry* registry = NULLPTR,
     compute::FunctionRegistry* func_registry = NULLPTR,
-    const ConversionOptions& conversion_options = {});
+    const ConversionOptions& conversion_options = {}, bool use_threads = true,
+    MemoryPool* memory_pool = default_memory_pool());
 
 /// \brief Get a Serialized Plan from a Substrait JSON plan.
 /// This is a helper method for Python tests.

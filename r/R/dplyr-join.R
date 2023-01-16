@@ -35,8 +35,13 @@ do_join <- function(x,
 
   # For outer joins, we need to output the join keys on both sides so we
   # can coalesce them afterwards.
-  left_output <- names(x)
-  right_output <- if (keep || join_type == "FULL_OUTER") {
+  left_output <- if (!keep && join_type == "RIGHT_OUTER") {
+    setdiff(names(x), by)
+  } else {
+    names(x)
+  }
+
+  right_output <- if (keep || join_type %in% c("FULL_OUTER", "RIGHT_OUTER")) {
     names(y)
   } else {
     setdiff(names(y), by)
@@ -112,9 +117,8 @@ semi_join.arrow_dplyr_query <- function(x,
                                         by = NULL,
                                         copy = FALSE,
                                         suffix = c(".x", ".y"),
-                                        ...,
-                                        keep = FALSE) {
-  do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "LEFT_SEMI")
+                                        ...) {
+  do_join(x, y, by, copy, suffix, ..., join_type = "LEFT_SEMI")
 }
 semi_join.Dataset <- semi_join.ArrowTabular <- semi_join.RecordBatchReader <- semi_join.arrow_dplyr_query
 
@@ -123,15 +127,25 @@ anti_join.arrow_dplyr_query <- function(x,
                                         by = NULL,
                                         copy = FALSE,
                                         suffix = c(".x", ".y"),
-                                        ...,
-                                        keep = FALSE) {
-  do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "LEFT_ANTI")
+                                        ...) {
+  do_join(x, y, by, copy, suffix, ..., join_type = "LEFT_ANTI")
 }
 anti_join.Dataset <- anti_join.ArrowTabular <- anti_join.RecordBatchReader <- anti_join.arrow_dplyr_query
 
 handle_join_by <- function(by, x, y) {
   if (is.null(by)) {
     return(set_names(intersect(names(x), names(y))))
+  }
+  if (inherits(by, "dplyr_join_by")) {
+    if (!all(by$condition == "==" & by$filter == "none")) {
+      abort(
+        paste0(
+          "Inequality conditions and helper functions ",
+          "are not supported in `join_by()` expressions."
+        )
+      )
+    }
+    by <- set_names(by$y, by$x)
   }
   stopifnot(is.character(by))
   if (is.null(names(by))) {

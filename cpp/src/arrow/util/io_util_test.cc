@@ -1080,5 +1080,17 @@ TEST(CpuInfo, Basic) {
   ASSERT_EQ(ci->hardware_flags(), original_hardware_flags);
 }
 
+TEST(Memory, TotalMemory) {
+#if defined(_WIN32)
+  ASSERT_GT(GetTotalMemoryBytes(), 0);
+#elif defined(__APPLE__)
+  ASSERT_GT(GetTotalMemoryBytes(), 0);
+#elif defined(__linux__)
+  ASSERT_GT(GetTotalMemoryBytes(), 0);
+#else
+  ASSERT_EQ(GetTotalMemoryBytes(), 0);
+#endif
+}
+
 }  // namespace internal
 }  // namespace arrow

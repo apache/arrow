@@ -294,9 +294,9 @@ class SerializedFile : public ParquetFileReader::Contents {
   }
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
-    std::unique_ptr<SerializedRowGroup> contents(
-        new SerializedRowGroup(source_, cached_source_, source_size_,
-                               file_metadata_.get(), i, properties_, file_decryptor_));
+    std::unique_ptr<SerializedRowGroup> contents = std::make_unique<SerializedRowGroup>(
+        source_, cached_source_, source_size_, file_metadata_.get(), i, properties_,
+        file_decryptor_);
     return std::make_shared<RowGroupReader>(std::move(contents));
   }
 
@@ -728,7 +728,7 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
     std::shared_ptr<::arrow::io::RandomAccessFile> source, const ReaderProperties& props,
     std::shared_ptr<FileMetaData> metadata) {
   auto contents = SerializedFile::Open(std::move(source), props, std::move(metadata));
-  std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
+  std::unique_ptr<ParquetFileReader> result = std::make_unique<ParquetFileReader>();
   result->Open(std::move(contents));
   return result;
 }
@@ -762,7 +762,7 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(
       completed.MarkFinished(contents.status());
       return;
     }
-    std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
+    std::unique_ptr<ParquetFileReader> result = std::make_unique<ParquetFileReader>();
     result->Open(fut.MoveResult().MoveValueUnsafe());
     completed.MarkFinished(std::move(result));
   });

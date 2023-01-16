@@ -362,6 +362,21 @@ struct ARROW_EXPORT TableSinkNodeConsumer : public SinkNodeConsumer {
   util::Mutex consume_mutex_;
 };
 
+class ARROW_EXPORT NullSinkNodeConsumer : public SinkNodeConsumer {
+ public:
+  Status Init(const std::shared_ptr<Schema>&, BackpressureControl*,
+              ExecPlan* plan) override {
+    return Status::OK();
+  }
+  Status Consume(ExecBatch exec_batch) override { return Status::OK(); }
+  Future<> Finish() override { return Status::OK(); }
+
+ public:
+  static std::shared_ptr<NullSinkNodeConsumer> Make() {
+    return std::make_shared<NullSinkNodeConsumer>();
+  }
+};
+
 /// Modify an Expression with pre-order and post-order visitation.
 /// `pre` will be invoked on each Expression. `pre` will visit Calls before their
 /// arguments, `post_call` will visit Calls (and no other Expressions) after their
