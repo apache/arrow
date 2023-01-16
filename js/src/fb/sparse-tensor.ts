@@ -3,9 +3,9 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { Buffer } from './buffer.js';
-import { SparseTensorIndex, unionToSparseTensorIndex, unionListToSparseTensorIndex } from './sparse-tensor-index.js';
+import { SparseTensorIndex } from './sparse-tensor-index.js';
 import { TensorDim } from './tensor-dim.js';
-import { Type, unionToType, unionListToType } from './type.js';
+import { Type } from './type.js';
 
 
 export class SparseTensor {
@@ -36,7 +36,7 @@ typeType():Type {
  * Currently only fixed-width value types are supported,
  * no strings or nested types.
  */
-type<T extends flatbuffers.Table>(obj:any):any|null {
+type(obj:any):any|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
   return offset ? this.bb!.__union(obj, this.bb_pos + offset) : null;
 }
@@ -70,7 +70,7 @@ sparseIndexType():SparseTensorIndex {
 /**
  * Sparse tensor index
  */
-sparseIndex<T extends flatbuffers.Table>(obj:any):any|null {
+sparseIndex(obj:any):any|null {
   const offset = this.bb!.__offset(this.bb_pos, 14);
   return offset ? this.bb!.__union(obj, this.bb_pos + offset) : null;
 }

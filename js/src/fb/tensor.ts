@@ -4,7 +4,7 @@ import * as flatbuffers from 'flatbuffers';
 
 import { Buffer } from './buffer.js';
 import { TensorDim } from './tensor-dim.js';
-import { Type, unionToType, unionListToType } from './type.js';
+import { Type } from './type.js';
 
 
 export class Tensor {
@@ -34,7 +34,7 @@ typeType():Type {
  * The type of data contained in a value cell. Currently only fixed-width
  * value types are supported, no strings or nested types
  */
-type<T extends flatbuffers.Table>(obj:any):any|null {
+type(obj:any):any|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
   return offset ? this.bb!.__union(obj, this.bb_pos + offset) : null;
 }

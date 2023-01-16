@@ -4,7 +4,7 @@ import * as flatbuffers from 'flatbuffers';
 
 import { DictionaryEncoding } from './dictionary-encoding.js';
 import { KeyValue } from './key-value.js';
-import { Type, unionToType, unionListToType } from './type.js';
+import { Type } from './type.js';
 
 
 /**
@@ -56,7 +56,7 @@ typeType():Type {
 /**
  * This is the type of the decoded value if the field is dictionary encoded.
  */
-type<T extends flatbuffers.Table>(obj:any):any|null {
+type(obj:any):any|null {
   const offset = this.bb!.__offset(this.bb_pos, 10);
   return offset ? this.bb!.__union(obj, this.bb_pos + offset) : null;
 }

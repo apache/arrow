@@ -3,7 +3,7 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { KeyValue } from './key-value.js';
-import { MessageHeader, unionToMessageHeader, unionListToMessageHeader } from './message-header.js';
+import { MessageHeader } from './message-header.js';
 import { MetadataVersion } from './metadata-version.js';
 
 
@@ -35,7 +35,7 @@ headerType():MessageHeader {
   return offset ? this.bb!.readUint8(this.bb_pos + offset) : MessageHeader.NONE;
 }
 
-header<T extends flatbuffers.Table>(obj:any):any|null {
+header(obj:any):any|null {
   const offset = this.bb!.__offset(this.bb_pos, 8);
   return offset ? this.bb!.__union(obj, this.bb_pos + offset) : null;
 }
