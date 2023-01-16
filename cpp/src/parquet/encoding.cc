@@ -2450,37 +2450,34 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
     values_remaining_current_mini_block_ = 0;
   }
 
-  void InitBlock(int prefix_values) {
+  void InitBlock() {
+    DCHECK_GT(total_values_remaining_, 0) << "InitBlock called at EOF";
+
     if (!decoder_->GetZigZagVlqInt(&min_delta_))
       ParquetException::EofException("InitBlock EOF");
 
     // read the bitwidth of each miniblock
     uint8_t* bit_width_data = delta_bit_widths_->mutable_data();
-    // If the current block contains the last mini block,
-    // current_num_values may greater than total_values_remaining_.
-    uint32_t current_num_values = prefix_values;
-    for (uint32_t current_mini_block_idx = 0;
-         current_mini_block_idx < mini_blocks_per_block_; ++current_mini_block_idx) {
-      if (!decoder_->GetAligned<uint8_t>(1, bit_width_data + current_mini_block_idx)) {
+    for (uint32_t i = 0; i < mini_blocks_per_block_; ++i) {
+      if (!decoder_->GetAligned<uint8_t>(1, bit_width_data + i)) {
         ParquetException::EofException("Decode bit-width EOF");
       }
-      if (ARROW_PREDICT_FALSE(bit_width_data[current_mini_block_idx] >
-                              kMaxDeltaBitWidth)) {
-        if (current_num_values < total_values_remaining_) {
-          throw ParquetException("delta bit width " +
-                                 std::to_string(bit_width_data[current_mini_block_idx]) +
-                                 " larger than integer bit width " +
-                                 std::to_string(kMaxDeltaBitWidth));
-        }
-        // according to the parquet standard, we should ignore the bit_width_data here.
-        // cannot break because still need to read remaining bit-width from decoder.
-      }
-      current_num_values += values_per_mini_block_;
+      // Note that non-conformant bitwidth entries are allowed by the Parquet spec
+      // for extraneous miniblocks in the last block (GH-14923), so we check
+      // the bitwidths when actually using them (see InitMiniBlock()).
     }
+
     mini_block_idx_ = 0;
-    delta_bit_width_ = bit_width_data[0];
-    values_remaining_current_mini_block_ = values_per_mini_block_;
     first_block_initialized_ = true;
+    InitMiniBlock(bit_width_data[0]);
+  }
+
+  void InitMiniBlock(int bit_width) {
+    if (ARROW_PREDICT_FALSE(bit_width > kMaxDeltaBitWidth)) {
+      throw ParquetException("delta bit width larger than integer bit width");
+    }
+    delta_bit_width_ = bit_width;
+    values_remaining_current_mini_block_ = values_per_mini_block_;
   }
 
   int GetInternal(T* buffer, int max_values) {
@@ -2504,18 +2501,17 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
             // 2. total_value_count_ != 1, which means we should initialize the
             // incoming block for subsequent reads.
             if (total_value_count_ != 1) {
-              InitBlock(i);
+              InitBlock();
             }
             break;
           }
-          InitBlock(i);
+          InitBlock();
         } else {
           ++mini_block_idx_;
           if (mini_block_idx_ < mini_blocks_per_block_) {
-            delta_bit_width_ = delta_bit_widths_->data()[mini_block_idx_];
-            values_remaining_current_mini_block_ = values_per_mini_block_;
+            InitMiniBlock(delta_bit_widths_->data()[mini_block_idx_]);
           } else {
-            InitBlock(i);
+            InitBlock();
           }
         }
       }

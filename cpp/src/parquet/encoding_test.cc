@@ -1326,29 +1326,32 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
     CheckRoundtripSpaced(valid_bits, valid_bits_offset);
   }
 
-  void CheckRoundtrip() override {
-    auto encoder =
-        MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED, false, descr_.get());
+  void CheckDecoding() {
     auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
     auto read_batch_sizes = kReadBatchSizes;
     read_batch_sizes.push_back(num_values_);
+    // Exercise different batch sizes
+    for (const int read_batch_size : read_batch_sizes) {
+      decoder->SetData(num_values_, encode_buffer_->data(),
+                       static_cast<int>(encode_buffer_->size()));
+
+      int values_decoded = 0;
+      while (values_decoded < num_values_) {
+        values_decoded += decoder->Decode(decode_buf_ + values_decoded, read_batch_size);
+      }
+      ASSERT_EQ(num_values_, values_decoded);
+      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+    }
+  }
+
+  void CheckRoundtrip() override {
+    auto encoder =
+        MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED, false, descr_.get());
     // Encode a number of times to exercise the flush logic
     for (size_t i = 0; i < kNumRoundTrips; ++i) {
       encoder->Put(draws_, num_values_);
       encode_buffer_ = encoder->FlushValues();
-      // Exercise different batch sizes
-      for (const int read_batch_size : read_batch_sizes) {
-        decoder->SetData(num_values_, encode_buffer_->data(),
-                         static_cast<int>(encode_buffer_->size()));
-
-        int values_decoded = 0;
-        while (values_decoded < num_values_) {
-          values_decoded +=
-              decoder->Decode(decode_buf_ + values_decoded, read_batch_size);
-        }
-        ASSERT_EQ(num_values_, values_decoded);
-        ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
-      }
+      CheckDecoding();
     }
   }
 
@@ -1429,55 +1432,64 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
   }
 }
 
-TEST(DeltaBitPackEncoding, MalfordMiniblockBitWidth) {
-  std::shared_ptr<ColumnDescriptor> descr = ExampleDescr<Int32Type>();
-  auto decoder = MakeTypedDecoder<Int32Type>(Encoding::DELTA_BINARY_PACKED, descr.get());
-  using c_type = parquet::Int32Type::c_type;
+TYPED_TEST(TestDeltaBitPackEncoding, NonZeroPaddedMiniblockBitWidth) {
+  // GH-14923: depending on the number of encoded values, some of the miniblock
+  // bitwidths are actually padding bytes that may take non-conformant values
+  // according to the Parquet spec.
 
-  auto testHexBinary = [&decoder](std::string_view hex_string, int binary_buffer_size,
-                                  int expect_values_decoded) {
-    std::vector<uint8_t> binary_data(binary_buffer_size);
-    for (int i = 0; i < binary_buffer_size; ++i) {
-      ASSERT_OK(::arrow::ParseHexValue(hex_string.data() + i * 2, &binary_data[i]));
+  // Same values as in DeltaBitPackEncoder
+  constexpr int kValuesPerBlock = 128;
+  constexpr int kMiniBlocksPerBlock = 4;
+  constexpr int kValuesPerMiniBlock = kValuesPerBlock / kMiniBlocksPerBlock;
+
+  // num_values must be kept small enough for kHeaderLength below
+  for (const int num_values : {2, 62, 63, 64, 65, 95, 96, 97, 127}) {
+    ARROW_SCOPED_TRACE("num_values = ", num_values);
+
+    // Generate input data with a small half_range to make the header length
+    // deterministic (see kHeaderLength).
+    this->InitBoundData(num_values, /*repeats=*/1, /*half_range=*/63);
+    ASSERT_EQ(this->num_values_, num_values);
+
+    auto encoder = MakeTypedEncoder<TypeParam>(Encoding::DELTA_BINARY_PACKED, false,
+                                               this->descr_.get());
+    encoder->Put(this->draws_, this->num_values_);
+    auto encoded = encoder->FlushValues();
+    const auto encoded_size = encoded->size();
+
+    // Make mutable copy of encoded buffer
+    this->encode_buffer_ = AllocateBuffer(default_memory_pool(), encoded_size);
+    uint8_t* data = this->encode_buffer_->mutable_data();
+    memcpy(data, encoded->data(), encoded_size);
+
+    // The number of padding bytes at the end of the miniblock bitwidths array.
+    // We subtract 1 from num_values because the first data value is encoded
+    // in the header, thus does not participate in miniblock encoding.
+    const int num_padding_bytes =
+        (kValuesPerBlock - num_values + 1) / kValuesPerMiniBlock;
+    ARROW_SCOPED_TRACE("num_padding_bytes = ", num_padding_bytes);
+
+    // The header length is:
+    // - 2 bytes for ULEB128-encoded block size (== kValuesPerBlock)
+    // - 1 byte for ULEB128-encoded miniblocks per block (== kMiniBlocksPerBlock)
+    // - 1 byte for ULEB128-encoded num_values
+    // - 1 byte for ULEB128-encoded first value
+    // (this assumes that num_values and the first value are narrow enough)
+    constexpr int kHeaderLength = 5;
+    // After the header, there is a ULEB128-encoded min delta for the first block,
+    // then the miniblock bitwidths for the first block.
+    // Given a narrow enough range, the ULEB128-encoded min delta is 1 byte long.
+    uint8_t* mini_block_bitwidths = data + kHeaderLength + 1;
+
+    // Garble padding bytes; decoding should succeed.
+    for (int i = 0; i < num_padding_bytes; ++i) {
+      mini_block_bitwidths[kMiniBlocksPerBlock - i - 1] = 0xFFU;
     }
+    ASSERT_NO_THROW(this->CheckDecoding());
 
-    auto output_bytes = std::vector<uint8_t>(expect_values_decoded * sizeof(c_type));
-    auto decode_buf = reinterpret_cast<c_type*>(output_bytes.data());
-    decoder->SetData(expect_values_decoded, &binary_data[0], binary_buffer_size);
-    int values_decoded = decoder->Decode(decode_buf, expect_values_decoded);
-    ASSERT_EQ(expect_values_decoded, values_decoded);
-  };
-
-  // Both good_bitwidth_data and bad_bitwidth_data is a DELTA_BINARY_PACKED INT32 Page
-  // with 65 values. For needed miniblocks, there bit-widths are all 32. There bit-widths
-  // for unneeded miniblocks are different:
-  // * good_bitwidth_data's unneeded bit-width is 0.
-  // * bad_bitwidth_data's unneeded bit-width is 165.
-  // We use Hex to represent good_data and bad_data.
-  constexpr int kEncodeBufferSize = 274;
-  constexpr int kExpectValues = 65;
-  {
-    std::string_view good_bitwidth_data_hex =
-        "80010441BDA08DB708A488C0F1012020000089F79E53946D93CA242D48B21478591FDE6E4855CC03"
-        "7024A4E8E56E1D20687C8BFB4DE880E73CE2E49E873BEB0B1DAD0E0169C7951C411CA76AD949D8ED"
-        "FD9E07A485DF4410B4486253A6280335BB87494B7D61E40A8D487731BBC83A37E1E8EE2F5431150C"
-        "F46D7224B3C7C271AC3220F2C6663289427E1CE3B00F8C34D5DDA845664AF36F56ACF6FED2339911"
-        "7AB54F6667A80EA78D08DC61B4262CE28960B46B2D93785ED9933175A910415B50B30E9889C70ECD"
-        "84C8856531E78B4E05B2AB27B1233E4BAB722869D785F5B8B1049955EFE200000000C6C2201E1836"
-        "C0579B202A6A7395C761044AD151D5CEE992CBBA5AE937E54F29D28F86CC0627B9D1";
-    testHexBinary(good_bitwidth_data_hex, kEncodeBufferSize, kExpectValues);
-  }
-
-  {
-    std::string_view bad_bitwidth_data_hex =
-        "80010441BDA08DB708A488C0F1012020A5A589F79E53946D93CA242D48B21478591FDE6E4855CC03"
-        "7024A4E8E56E1D20687C8BFB4DE880E73CE2E49E873BEB0B1DAD0E0169C7951C411CA76AD949D8ED"
-        "FD9E07A485DF4410B4486253A6280335BB87494B7D61E40A8D487731BBC83A37E1E8EE2F5431150C"
-        "F46D7224B3C7C271AC3220F2C6663289427E1CE3B00F8C34D5DDA845664AF36F56ACF6FED2339911"
-        "7AB54F6667A80EA78D08DC61B4262CE28960B46B2D93785ED9933175A910415B50B30E9889C70ECD"
-        "84C8856531E78B4E05B2AB27B1233E4BAB722869D785F5B8B1049955EFE200000000C6C2201E1836"
-        "C0579B202A6A7395C761044AD151D5CEE992CBBA5AE937E54F29D28F86CC0627B9D1";
-    testHexBinary(bad_bitwidth_data_hex, kEncodeBufferSize, kExpectValues);
+    // Not a padding byte but an actual miniblock bitwidth; decoding should error out.
+    mini_block_bitwidths[kMiniBlocksPerBlock - num_padding_bytes - 1] = 0xFFU;
+    EXPECT_THROW(this->CheckDecoding(), ParquetException);
   }
 }
 
