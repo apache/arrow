@@ -69,9 +69,11 @@ class BaseListArray : public Array {
   const TypeClass* list_type() const { return list_type_; }
 
   /// \brief Return array object containing the list's values
+  ///
+  /// Note that this buffer does not account for any slice offset or length.
   std::shared_ptr<Array> values() const { return values_; }
 
-  /// Note that this buffer does not account for any slice offset
+  /// Note that this buffer does not account for any slice offset or length.
   std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[1]; }
 
   std::shared_ptr<DataType> value_type() const { return list_type_->value_type(); }
