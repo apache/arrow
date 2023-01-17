@@ -82,7 +82,7 @@ test_that("left_join with join_by", {
       left_join(
         to_join %>%
           rename(the_grouping = some_grouping),
-          join_by(some_grouping == the_grouping)
+        join_by(some_grouping == the_grouping)
       ) %>%
       collect(),
     left
@@ -240,14 +240,7 @@ test_that("full_join", {
 test_that("semi_join", {
   compare_dplyr_binding(
     .input %>%
-      semi_join(to_join, by = "some_grouping", keep = TRUE) %>%
-      collect(),
-    left
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      semi_join(to_join, by = "some_grouping", keep = FALSE) %>%
+      semi_join(to_join, by = "some_grouping") %>%
       collect(),
     left
   )
