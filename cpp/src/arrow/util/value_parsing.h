@@ -920,8 +920,8 @@ bool ParseValue(const T& type, const char* s, size_t length,
 template <typename T>
 enable_if_parameter_free<T, bool> ParseValue(
     const char* s, size_t length, typename StringConverter<T>::value_type* out) {
-  static T type;
-  return StringConverter<T>{}.Convert(type, s, length, out);
+  auto type = std::static_pointer_cast<T>(TypeTraits<T>::type_singleton());
+  return StringConverter<T>{}.Convert(*type, s, length, out);
 }
 
 }  // namespace internal
