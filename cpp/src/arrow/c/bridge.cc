@@ -1544,13 +1544,18 @@ struct ArrayImporter {
 
   Status ImportBitsBuffer(int32_t buffer_id, bool is_null_bitmap = false) {
     // Compute visible size of buffer
-    int64_t buffer_size = bit_util::BytesForBits(c_struct_->length + c_struct_->offset);
+    int64_t buffer_size =
+        (c_struct_->length > 0)
+            ? bit_util::BytesForBits(c_struct_->length + c_struct_->offset)
+            : 0;
     return ImportBuffer(buffer_id, buffer_size, is_null_bitmap);
   }
 
   Status ImportFixedSizeBuffer(int32_t buffer_id, int64_t byte_width) {
     // Compute visible size of buffer
-    int64_t buffer_size = byte_width * (c_struct_->length + c_struct_->offset);
+    int64_t buffer_size = (c_struct_->length > 0)
+                              ? byte_width * (c_struct_->length + c_struct_->offset)
+                              : 0;
     return ImportBuffer(buffer_id, buffer_size);
   }
 
@@ -1567,7 +1572,8 @@ struct ArrayImporter {
                                   int64_t byte_width = 1) {
     auto offsets = data_->GetValues<OffsetType>(offsets_buffer_id);
     // Compute visible size of buffer
-    int64_t buffer_size = byte_width * offsets[c_struct_->length];
+    int64_t buffer_size =
+        (c_struct_->length > 0) ? byte_width * offsets[c_struct_->length] : 0;
     return ImportBuffer(buffer_id, buffer_size);
   }
 
