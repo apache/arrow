@@ -5195,7 +5195,7 @@ G_END_DECLS
 arrow::Result<arrow::FieldRef>
 garrow_field_reference_resolve_raw(const gchar *reference)
 {
-  if (reference && reference[0] == '.') {
+  if (reference && (reference[0] == '.' || reference[0] == '[')) {
     return arrow::FieldRef::FromDotPath(reference);
   } else {
     arrow::FieldRef arrow_reference(reference);

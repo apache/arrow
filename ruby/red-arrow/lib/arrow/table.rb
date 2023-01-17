@@ -526,9 +526,16 @@ module Arrow
     #   @macro join_common_after
     #
     # @since 7.0.0
-    def join(right, keys=nil, type: :inner, left_suffix: "", right_suffix: "", left_outputs: nil, right_outputs: nil)
-      natural_join = true if keys.nil?
+    def join(right,
+             keys=nil,
+             type: :inner,
+             left_suffix: "",
+             right_suffix: "",
+             left_outputs: nil,
+             right_outputs: nil)
+      is_natural_join = keys.nil?
       keys ||= (column_names & right.column_names)
+      type = JoinType.try_convert(type) || type
       plan = ExecutePlan.new
       left_node = plan.build_source_node(self)
       right_node = plan.build_source_node(right)
@@ -553,39 +560,33 @@ module Arrow
       hash_join_node = plan.build_hash_join_node(left_node,
                                                  right_node,
                                                  hash_join_node_options)
+      type_nick = type.nick
+      if (left_outputs or
+          right_outputs or
+          type_nick.end_with?("-semi") or
+          type_nick.end_with?("-anti"))
+        process_node = hash_join_node
+      elsif is_natural_join
+        process_node = join_merge_keys(plan, hash_join_node, right, keys)
+      elsif keys.is_a?(String) or keys.is_a?(Symbol)
+        process_node = join_merge_keys(plan, hash_join_node, right, [keys.to_s])
+      elsif !keys.is_a?(Hash) and (left_suffix != "" or right_suffix != "")
+        process_node = join_rename_keys(plan,
+                                        hash_join_node,
+                                        right,
+                                        keys,
+                                        left_suffix,
+                                        right_suffix)
+      else
+        process_node = hash_join_node
+      end
       sink_node_options = SinkNodeOptions.new
-      plan.build_sink_node(hash_join_node, sink_node_options)
+      plan.build_sink_node(process_node, sink_node_options)
       plan.validate
       plan.start
       plan.wait
-      reader = sink_node_options.get_reader(hash_join_node.output_schema)
+      reader = sink_node_options.get_reader(process_node.output_schema)
       table = reader.read_all
-
-      table =
-        if left_outputs || right_outputs
-          table
-        elsif type.to_s.end_with?("semi") || type.to_s.end_with?("anti")
-          table
-        # For the cases of "#{type}" == "inner" || type.end_with?("outer")
-        elsif natural_join
-          merge_columns_in_table(table, keys)
-        elsif keys.is_a?(String) || keys.is_a?(Symbol)
-          merge_columns_in_table(table, [keys.to_s])
-        else
-          if !keys.is_a?(Hash) && (left_suffix != "" || right_suffix != "")
-            fields = table.schema.fields
-            columns = table.columns
-            keys.each do |k|
-              l = table.column_names.index(k)
-              r = table.column_names.rindex(k)
-              fields[l] = Arrow::Field.new("#{k}#{left_suffix}", fields[l].data_type)
-              fields[r] = Arrow::Field.new("#{k}#{right_suffix}", fields[r].data_type)
-            end
-            Arrow::Table.new(Arrow::Schema.new(fields), columns)
-          else
-            table
-          end
-        end
       share_input(table)
       table
     end
@@ -658,23 +659,86 @@ module Arrow
       end
     end
 
-    def merge_columns_in_table(table, keys)
-      fields = table.schema.fields
-      arrays = table.columns.map(&:data)
-      keys.each_with_index do |k, i|
-        l = table.column_names.index(k)
-        r = table.column_names.rindex(k)
-        arrays[l] = merge_arrays(table.columns[l].data, table.columns[r].data)
-        fields[l] = Arrow::Field.new(k, fields[l].data_type)
-        arrays.delete_at(r - i)
-        fields.delete_at(r - i)
+    def join_merge_keys(plan, input_node, right, keys)
+      expressions = []
+      names = []
+      normalized_keys = {}
+      keys.each do |key|
+        normalized_keys[key.to_s] = true
       end
-      Arrow::Table.new(Arrow::Schema.new(fields), arrays)
+      key_to_outputs = {}
+      outputs = []
+      left_n_column_names = column_names.size
+      column_names.each_with_index do |name, i|
+        is_key = normalized_keys.include?(name)
+        output = {is_key: is_key, name: name, index: i, direction: :left}
+        outputs << output
+        key_to_outputs[name] = {left: output} if is_key
+      end
+      right.column_names.each_with_index do |name, i|
+        index = left_n_column_names + i
+        is_key = normalized_keys.include?(name)
+        output = {is_key: is_key, name: name, index: index, direction: :right}
+        outputs << output
+        key_to_outputs[name][:right] = output if is_key
+      end
+
+      outputs.each do |output|
+        if output[:is_key]
+          next if output[:direction] == :right
+          left_output = key_to_outputs[output[:name]][:left]
+          right_output = key_to_outputs[output[:name]][:right]
+          left_field = FieldExpression.new("[#{left_output[:index]}]")
+          right_field = FieldExpression.new("[#{right_output[:index]}]")
+          is_left_null = CallExpression.new("is_null", [left_field])
+          merge_column = CallExpression.new("if_else",
+                                            [
+                                              is_left_null,
+                                              right_field,
+                                              left_field,
+                                            ])
+          expressions << merge_column
+        else
+          expressions << FieldExpression.new("[#{output[:index]}]")
+        end
+        names << output[:name]
+      end
+      project_node_options = ProjectNodeOptions.new(expressions, names)
+      plan.build_project_node(input_node, project_node_options)
     end
 
-    def merge_arrays(array1, array2)
-      booleans = Arrow::Function.find(:is_null).execute([array1])
-      Arrow::Function.find(:if_else).execute([booleans, array2, array1]).value
+    def join_rename_keys(plan,
+                         input_node,
+                         right,
+                         keys,
+                         left_suffix,
+                         right_suffix)
+      expressions = []
+      names = []
+      normalized_keys = {}
+      keys.each do |key|
+        normalized_keys[key.to_s] = true
+      end
+      left_n_column_names = column_names.size
+      column_names.each_with_index do |name, i|
+        expressions << FieldExpression.new("[#{i}]")
+        if normalized_keys.include?(name)
+          names << "#{name}#{left_suffix}"
+        else
+          names << name
+        end
+      end
+      right.column_names.each_with_index do |name, i|
+        index = left_n_column_names + i
+        expressions << FieldExpression.new("[#{index}]")
+        if normalized_keys.include?(name)
+          names << "#{name}#{right_suffix}"
+        else
+          names << name
+        end
+      end
+      project_node_options = ProjectNodeOptions.new(expressions, names)
+      plan.build_project_node(input_node, project_node_options)
     end
   end
 end
