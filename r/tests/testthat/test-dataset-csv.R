@@ -218,9 +218,9 @@ test_that("readr parse options", {
     character(0)
   )
 
-  # With not yet supported readr parse options (ARROW-8631)
+  # With not yet supported readr parse options
   expect_error(
-    open_dataset(tsv_dir, partitioning = "part", delim = "\t", na = "\\N"),
+    open_dataset(tsv_dir, partitioning = "part", delim = "\t", quoted_na = TRUE),
     "supported"
   )
 
@@ -475,4 +475,90 @@ test_that("CSV reading/parsing/convert options can be passed in as lists", {
     collect()
 
   expect_equal(ds1, ds2)
+})
+
+test_that("open_delim_dataset params passed through to open_dataset", {
+  ds <- open_delim_dataset(csv_dir, delim = ",", partitioning = "part")
+  expect_r6_class(ds$format, "CsvFileFormat")
+  expect_r6_class(ds$filesystem, "LocalFileSystem")
+  expect_identical(names(ds), c(names(df1), "part"))
+  expect_identical(dim(ds), c(20L, 7L))
+
+  # quote
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv")
+
+  df <- data.frame(a = c(1, 2), b = c("'abc'", "'def'"))
+  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
+
+  ds_quote <- open_csv_dataset(dst_dir, quote = "'") %>% collect()
+  expect_equal(ds_quote$b, c("abc", "def"))
+
+  # na
+  ds <- open_csv_dataset(csv_dir, partitioning = "part", na = c("", "NA", "FALSE")) %>% collect()
+  expect_identical(ds$lgl, c(
+    TRUE, NA, NA, TRUE, NA, TRUE, NA, NA, TRUE, NA, TRUE, NA, NA,
+    TRUE, NA, TRUE, NA, NA, TRUE, NA
+  ))
+
+  # col_names and skip
+  ds <- open_csv_dataset(
+    csv_dir,
+    partitioning = "part",
+    col_names = paste0("col_", 1:6),
+    skip = 1
+  ) %>% collect()
+
+  expect_named(ds, c("col_1", "col_2", "col_3", "col_4", "col_5", "col_6", "part"))
+  expect_equal(nrow(ds), 20)
+
+  # col_types
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv")
+
+  df <- data.frame(a = c(1, NA, 2), b = c("'abc'", NA, "'def'"))
+  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
+
+  data_schema <- schema(a = string(), b = string())
+  ds_strings <- open_csv_dataset(dst_dir, col_types = data_schema)
+  expect_equal(ds_strings$schema, schema(a = string(), b = string()))
+
+  # skip_empty_rows
+  tf <- tempfile()
+  writeLines('"x"\n"y"\nNA\nNA\n"NULL"\n\n\n', tf)
+
+  ds <- open_csv_dataset(tf, skip_empty_rows = FALSE) %>% collect()
+  expect_equal(nrow(ds), 7)
+
+  # convert_options
+  ds <- open_csv_dataset(
+    csv_dir,
+    convert_options = list(null_values = c("NA", "", "FALSE"), strings_can_be_null = TRUE)
+  ) %>% collect()
+
+  expect_equal(
+    ds$lgl,
+    c(TRUE, NA, NA, TRUE, NA, TRUE, NA, NA, TRUE, NA, TRUE, NA, NA, TRUE, NA, TRUE, NA, NA, TRUE, NA)
+  )
+
+  # read_options
+  ds <- open_csv_dataset(
+    csv_dir,
+    read_options = list(column_names = paste0("col_", 1:6))
+  ) %>% collect()
+
+  expect_named(ds, c("col_1", "col_2", "col_3", "col_4", "col_5", "col_6"))
+
+  # timestamp_parsers
+  skip("GH-33708: timestamp_parsers don't appear to be working properly")
+
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv")
+
+  df <- data.frame(time = "2023-01-16 19:47:57")
+  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
+
+  ds <- open_csv_dataset(dst_dir, timestamp_parsers = c(TimestampParser$create(format = "%d-%m-%y"))) %>% collect()
+
+  expect_equal(ds$time, "16-01-2023")
 })
