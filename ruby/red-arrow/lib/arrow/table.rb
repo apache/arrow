@@ -551,20 +551,22 @@ module Arrow
       hash_join_node_options = HashJoinNodeOptions.new(type,
                                                        left_keys,
                                                        right_keys)
+      use_manual_outputs = false
       unless left_outputs.nil?
         hash_join_node_options.left_outputs = left_outputs
+        use_manual_outputs = true
       end
       unless right_outputs.nil?
         hash_join_node_options.right_outputs = right_outputs
+        use_manual_outputs = true
       end
       hash_join_node = plan.build_hash_join_node(left_node,
                                                  right_node,
                                                  hash_join_node_options)
       type_nick = type.nick
-      if (left_outputs or
-          right_outputs or
-          type_nick.end_with?("-semi") or
-          type_nick.end_with?("-anti"))
+      is_filter_join = (type_nick.end_with?("-semi") or
+                        type_nick.end_with?("-anti"))
+      if use_manual_outputs or is_filter_join
         process_node = hash_join_node
       elsif is_natural_join
         process_node = join_merge_keys(plan, hash_join_node, right, keys)
