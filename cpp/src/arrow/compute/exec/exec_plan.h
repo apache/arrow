@@ -290,7 +290,7 @@ class ARROW_EXPORT ExecNode {
   bool ErrorIfNotOk(Status status);
 
   /// Provide extra info to include in the string representation.
-  virtual std::string ToStringExtra(int indent) const;
+  virtual std::string ToStringExtra(int indent = 0) const;
 
   ExecPlan* plan_;
   std::string label_;
@@ -304,8 +304,6 @@ class ARROW_EXPORT ExecNode {
 
   // Future to sync finished
   Future<> finished_ = Future<>::Make();
-
-  util::tracing::Span span_;
 };
 
 /// \brief An extensible registry for factories of ExecNodes

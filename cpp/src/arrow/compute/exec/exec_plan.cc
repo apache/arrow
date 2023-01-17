@@ -113,12 +113,12 @@ struct ExecPlanImpl : public ExecPlan {
     // If no source node schedules any tasks (e.g. they do all their word synchronously as
     // part of StartProducing) then the plan may be finished before we return from this
     // call.
+    auto scope = START_SCOPED_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
     Future<> scheduler_finished = util::AsyncTaskScheduler::Make(
         [this](util::AsyncTaskScheduler* async_scheduler) {
           QueryContext* ctx = query_context();
           RETURN_NOT_OK(ctx->Init(ctx->max_concurrency(), async_scheduler));
 
-          START_COMPUTE_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
 #ifdef ARROW_WITH_OPENTELEMETRY
           if (HasMetadata()) {
             auto pairs = metadata().get()->sorted_pairs();
@@ -136,8 +136,11 @@ struct ExecPlanImpl : public ExecPlan {
             RETURN_NOT_OK(n->Init());
           }
           for (auto& n : nodes_) {
+            std::string qualified_label = std::string(n->kind_name()) + ":" + n->label();
+            std::string wait_for_finish =
+                "ExecPlan::WaitForFinish(" + qualified_label + ")";
             async_scheduler->AddSimpleTask([&] { return n->finished(); },
-                                           "Wait for " + n->label() + " to finish");
+                                           std::move(wait_for_finish));
           }
 
           ctx->scheduler()->RegisterEnd();
@@ -166,10 +169,7 @@ struct ExecPlanImpl : public ExecPlan {
                ++it) {
             auto node = *it;
 
-            EVENT(span_, "StartProducing:" + node->label(),
-                  {{"node.label", node->label()}, {"node.kind_name", node->kind_name()}});
             st = node->StartProducing();
-            EVENT(span_, "StartProducing:" + node->label(), {{"status", st.ToString()}});
             if (!st.ok()) {
               // Stop nodes that successfully started, in reverse order
               bool expected = false;
@@ -200,7 +200,7 @@ struct ExecPlanImpl : public ExecPlan {
 
   void StopProducing() {
     DCHECK(started_) << "stopped an ExecPlan which never started";
-    EVENT(span_, "StopProducing");
+    EVENT(span_, "ExecPlan::StopProducing");
     bool expected = false;
     if (stopped_.compare_exchange_strong(expected, true)) {
       query_context()->scheduler()->Abort(
@@ -212,8 +212,6 @@ struct ExecPlanImpl : public ExecPlan {
   void StopProducingImpl(It begin, It end) {
     for (auto it = begin; it != end; ++it) {
       auto node = *it;
-      EVENT(span_, "StopProducing:" + node->label(),
-            {{"node.label", node->label()}, {"node.kind_name", node->kind_name()}});
       node->StopProducing();
     }
   }
@@ -462,7 +460,7 @@ std::string ExecNode::ToString(int indent) const {
   return ss.str();
 }
 
-std::string ExecNode::ToStringExtra(int indent = 0) const { return ""; }
+std::string ExecNode::ToStringExtra(int indent) const { return ""; }
 
 bool ExecNode::ErrorIfNotOk(Status status) {
   if (status.ok()) return false;

@@ -113,7 +113,7 @@ Future<AsyncGenerator<std::shared_ptr<Fragment>>> GetFragments(Dataset* dataset,
 /// fragments.  On destruction we continue consuming the fragments until they complete
 /// (which should be fairly quick since we cancelled the fragment).  This ensures the
 /// I/O work is completely finished before the node is destroyed.
-class ScanNode : public cp::ExecNode {
+class ScanNode : public cp::ExecNode, public cp::TracedNode<ScanNode> {
  public:
   ScanNode(cp::ExecPlan* plan, ScanV2Options options,
            std::shared_ptr<Schema> output_schema)
@@ -345,12 +345,7 @@ class ScanNode : public cp::ExecNode {
   }
 
   Status StartProducing() override {
-    START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
-                       {{"node.kind", kind_name()},
-                        {"node.label", label()},
-                        {"node.output_schema", output_schema()->ToString()},
-                        {"node.detail", ToString()}});
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
+    NoteStartProducing(ToStringExtra());
     batches_throttle_ = util::ThrottledAsyncTaskScheduler::Make(
         plan_->query_context()->async_scheduler(), options_.target_bytes_readahead + 1);
     plan_->query_context()->async_scheduler()->AddSimpleTask(

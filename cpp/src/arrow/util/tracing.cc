@@ -42,7 +42,7 @@ bool Span::valid() const {
 Span::Span() noexcept { /* details is left a nullptr */
 }
 
-Span::valid() const { return false; }
+bool Span::valid() const { return false; }
 
 #endif
 

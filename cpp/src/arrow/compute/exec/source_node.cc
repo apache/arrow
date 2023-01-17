@@ -48,7 +48,7 @@ using internal::MapVector;
 namespace compute {
 namespace {
 
-struct SourceNode : ExecNode {
+struct SourceNode : ExecNode, public TracedNode<SourceNode> {
   SourceNode(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
              AsyncGenerator<std::optional<ExecBatch>> generator)
       : ExecNode(plan, {}, {}, std::move(output_schema),
@@ -73,12 +73,7 @@ struct SourceNode : ExecNode {
   [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
 
   Status StartProducing() override {
-    START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
-                       {{"node.kind", kind_name()},
-                        {"node.label", label()},
-                        {"node.output_schema", output_schema()->ToString()},
-                        {"node.detail", ToString()}});
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
+    NoteStartProducing(ToStringExtra());
     {
       // If another exec node encountered an error during its StartProducing call
       // it might have already called StopProducing on all of its inputs (including this
@@ -157,7 +152,7 @@ struct SourceNode : ExecNode {
                            "SourceNode::ProcessMorsel"));
                        lock.lock();
                        if (!backpressure_future_.is_finished()) {
-                         EVENT(span_, "Source paused due to backpressure");
+                         EVENT_ON_CURRENT_SPAN("SourceNode::BackpressureApplied");
                          return backpressure_future_.Then(
                              []() -> ControlFlow<int> { return Continue(); });
                        }

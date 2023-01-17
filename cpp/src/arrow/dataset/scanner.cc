@@ -286,16 +286,14 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
     const Enumerated<std::shared_ptr<Fragment>>& fragment,
     const std::shared_ptr<ScanOptions>& options) {
 #ifdef ARROW_WITH_OPENTELEMETRY
-  auto tracer = arrow::internal::tracing::GetTracer();
-  auto span = tracer->StartSpan(
-      "arrow::dataset::FragmentToBatches",
-      {
-          {"arrow.dataset.fragment", fragment.value->ToString()},
-          {"arrow.dataset.fragment.index", fragment.index},
-          {"arrow.dataset.fragment.last", fragment.last},
-          {"arrow.dataset.fragment.type_name", fragment.value->type_name()},
-      });
-  auto scope = tracer->WithActiveSpan(span);
+  util::tracing::Span span;
+  START_SPAN(span, "Scanner::FragmentToBatches",
+             {
+                 {"arrow.dataset.fragment", fragment.value->ToString()},
+                 {"arrow.dataset.fragment.index", fragment.index},
+                 {"arrow.dataset.fragment.last", fragment.last},
+                 {"arrow.dataset.fragment.type_name", fragment.value->type_name()},
+             });
 #endif
   ARROW_ASSIGN_OR_RAISE(auto batch_gen, fragment.value->ScanBatchesAsync(options));
   ArrayVector columns;

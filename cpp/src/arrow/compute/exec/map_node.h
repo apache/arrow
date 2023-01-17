@@ -42,7 +42,7 @@
 namespace arrow {
 namespace compute {
 
-class ARROW_EXPORT MapNode : public ExecNode {
+class ARROW_EXPORT MapNode : public ExecNode, public TracedNode<MapNode> {
  public:
   MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
           std::shared_ptr<Schema> output_schema);

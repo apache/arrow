@@ -113,6 +113,11 @@ class SpanImpl : public ::arrow::util::tracing::SpanDetails {
   opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> ot_span;
 };
 
+struct Scope {
+  Scope(opentelemetry::trace::Scope ot_scope) : scope_impl(std::move(ot_scope)) {}
+  opentelemetry::trace::Scope scope_impl;
+};
+
 opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& UnwrapSpan(
     ::arrow::util::tracing::SpanDetails* span);
 
@@ -133,15 +138,23 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
               target_span.details.get(),                       \
               ::arrow::internal::tracing::GetTracer()->StartSpan(__VA_ARGS__)))
 
-#define START_SPAN_WITH_PARENT(target_span, parent_span, ...)     \
-  auto opentelemetry_scope##__LINE__ =                            \
-      ::arrow::internal::tracing::GetTracer()->WithActiveSpan(    \
-          ::arrow::internal::tracing::RewrapSpan(                 \
-              target_span.details.get(),                          \
-                                                                  \
-              ::arrow::internal::tracing::GetTracer()->StartSpan( \
-                  __VA_ARGS__,                                    \
-                  ::arrow::internal::tracing::SpanOptionsWithParent(parent_span))))
+#define START_SCOPED_SPAN(target_span, ...)                    \
+  ::arrow::internal::tracing::Scope(                           \
+      ::arrow::internal::tracing::GetTracer()->WithActiveSpan( \
+          ::arrow::internal::tracing::RewrapSpan(              \
+              target_span.details.get(),                       \
+              ::arrow::internal::tracing::GetTracer()->StartSpan(__VA_ARGS__))))
+
+#define START_SCOPED_SPAN_WITH_PARENT_SV(target_span, parent_span, name, ...)    \
+  ::arrow::internal::tracing::Scope(                                             \
+      ::arrow::internal::tracing::GetTracer()->WithActiveSpan(                   \
+          ::arrow::internal::tracing::RewrapSpan(                                \
+              target_span.details.get(),                                         \
+                                                                                 \
+              ::arrow::internal::tracing::GetTracer()->StartSpan(                \
+                  ::opentelemetry::nostd::string_view(name.data(), name.size()), \
+                  __VA_ARGS__,                                                   \
+                  ::arrow::internal::tracing::SpanOptionsWithParent(parent_span)))))
 
 #define START_COMPUTE_SPAN(target_span, ...)                        \
   START_SPAN(target_span, __VA_ARGS__);                             \
@@ -149,14 +162,16 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
       ->SetAttribute("arrow.memory_pool_bytes",                     \
                      ::arrow::default_memory_pool()->bytes_allocated())
 
-#define START_COMPUTE_SPAN_WITH_PARENT(target_span, parent_span, ...) \
-  START_SPAN_WITH_PARENT(target_span, parent_span, __VA_ARGS__);      \
-  ::arrow::internal::tracing::UnwrapSpan(target_span.details.get())   \
-      ->SetAttribute("arrow.memory_pool_bytes",                       \
-                     ::arrow::default_memory_pool()->bytes_allocated())
+#define EVENT_ON_CURRENT_SPAN(...) \
+  ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()->AddEvent(__VA_ARGS__)
 
 #define EVENT(target_span, ...) \
   ::arrow::internal::tracing::UnwrapSpan(target_span.details.get())->AddEvent(__VA_ARGS__)
+
+#define ACTIVATE_SPAN(target_span)                             \
+  ::arrow::internal::tracing::Scope(                           \
+      ::arrow::internal::tracing::GetTracer()->WithActiveSpan( \
+          ::arrow::internal::tracing::UnwrapSpan(target_span.details.get())))
 
 #define MARK_SPAN(target_span, status)  \
   ::arrow::internal::tracing::MarkSpan( \
@@ -180,10 +195,10 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
       ::arrow::internal::tracing::WrapAsyncGenerator(std::move(generator), name, true)
 
 /*
- * Calls to the helper macros above are removed by the preprocessor when building
- * without opentelemetry, because of the empty definitions below.
- * Without them, every call to a helper function would need to be surrounded with
- * #ifdef ARROW_WITH_OPENTELEMETRY
+ * Calls to the helper macros above are removed by the preprocessor when
+ * building without opentelemetry, because of the empty definitions
+ * below. Without them, every call to a helper function would need to be
+ * surrounded with #ifdef ARROW_WITH_OPENTELEMETRY
  * ...
  * #endif
  */
@@ -191,13 +206,19 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
 #else  // !ARROW_WITH_OPENTELEMETRY
 
 class SpanImpl {};
+struct Scope {
+  [[maybe_unused]] ~Scope(){};
+};
 
 #define START_SPAN(target_span, ...)
-#define START_SPAN_WITH_PARENT(target_span, parent_span, ...)
+#define START_SCOPED_SPAN(target_span, ...) ::arrow::internal::tracing::Scope()
+#define START_SCOPED_SPAN_WITH_PARENT_SV(target_span, parent_span, name, ...) \
+  ::arrow::internal::tracing::Scope()
 #define START_COMPUTE_SPAN(target_span, ...)
-#define START_COMPUTE_SPAN_WITH_PARENT(target_span, parent_span, ...)
+#define ACTIVATE_SPAN(target_span) ::arrow::internal::tracing::Scope()
 #define MARK_SPAN(target_span, status)
 #define EVENT(target_span, ...)
+#define EVENT_ON_CURRENT_SPAN(...)
 #define END_SPAN(target_span)
 #define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future)
 #define PROPAGATE_SPAN_TO_GENERATOR(generator)

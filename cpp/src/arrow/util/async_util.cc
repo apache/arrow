@@ -99,6 +99,11 @@ class ThrottleImpl : public ThrottledAsyncTaskScheduler::Throttle {
 
 namespace {
 
+class HasSpan {
+ public:
+  virtual const tracing::Span& span() const = 0;
+};
+
 // Very basic FIFO queue
 class FifoQueue : public ThrottledAsyncTaskScheduler::Queue {
   using Task = AsyncTaskScheduler::Task;
@@ -121,24 +126,29 @@ class FifoQueue : public ThrottledAsyncTaskScheduler::Queue {
 };
 
 #ifdef ARROW_WITH_OPENTELEMETRY
-void TraceTaskSubmitted(const AsyncTaskScheduler::Task& task) {
-  if (task.span.valid()) {
-    EVENT(task.span, "task submitted");
-    return;
+::arrow::internal::tracing::Scope TraceTaskSubmitted(AsyncTaskScheduler::Task* task,
+                                                     const tracing::Span& parent) {
+  if (task->span.valid()) {
+    EVENT(task->span, "task submitted");
+    return ACTIVATE_SPAN(task->span);
   }
-  START_COMPUTE_SPAN(task.span, {task.name().data(), task.name().size()},
-                     {{"cost", ::arrow::internal::ToChars(task.cost())}});
+  return START_SCOPED_SPAN_WITH_PARENT_SV(task->span, parent, task->name(),
+                                          {{"task.cost", task->cost()}});
 }
 
-void TraceTaskQueued(const AsyncTaskScheduler::Task& task) {
-  START_COMPUTE_SPAN(task.span, {task.name().data(), task.name().size()},
-                     {{"cost", ::arrow::internal::ToChars(task.cost())}});
+void TraceTaskQueued(AsyncTaskScheduler::Task* task, const tracing::Span& parent) {
+  START_SCOPED_SPAN_WITH_PARENT_SV(task->span, parent, task->name(),
+                                   {{"task.cost", task->cost()}});
 }
 
-void TraceTaskFinished(const AsyncTaskScheduler::Task& task) { END_SPAN(task.span); }
+void TraceTaskFinished(AsyncTaskScheduler::Task* task) { END_SPAN(task->span); }
+
+void TraceSchedulerAbort(const tracing::Span& span, const Status& error) {
+  MARK_SPAN(span, error);
+}
 #endif
 
-class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
+class AsyncTaskSchedulerImpl : public AsyncTaskScheduler, public HasSpan {
  public:
   using Task = AsyncTaskScheduler::Task;
 
@@ -146,7 +156,9 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
                                   FnOnce<void(const Status&)> abort_callback)
       : AsyncTaskScheduler(),
         stop_token_(std::move(stop_token)),
-        abort_callback_(std::move(abort_callback)) {}
+        abort_callback_(std::move(abort_callback)) {
+    START_SCOPED_SPAN(span_, "AsyncTaskScheduler");
+  }
 
   ~AsyncTaskSchedulerImpl() {
     DCHECK_EQ(running_tasks_, 0) << " scheduler destroyed while tasks still running";
@@ -165,6 +177,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   }
 
   Future<> OnFinished() const { return finished_; }
+  const tracing::Span& span() const override { return span_; }
 
  private:
   bool IsAborted() { return !maybe_error_.ok(); }
@@ -194,7 +207,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     if (!submit_result->TryAddCallback([this, task_inner = std::move(task)]() mutable {
           return [this, task_inner2 = std::move(task_inner)](const Status& st) {
 #ifdef ARROW_WITH_OPENTELEMETRY
-            TraceTaskFinished(*task_inner2);
+            TraceTaskFinished(task_inner2.get());
 #endif
             OnTaskFinished(st);
           };
@@ -218,6 +231,9 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     bool aborted = false;
     if (!IsAborted()) {
       maybe_error_ = st;
+#ifdef ARROW_WITH_OPENTELEMETRY
+      TraceSchedulerAbort(span_, st);
+#endif
       // Add one more "task" to represent running the abort callback.  This
       // will prevent any other task finishing and marking the scheduler finished
       // while we are running the abort callback.
@@ -239,7 +255,10 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
       return;
     }
 #ifdef ARROW_WITH_OPENTELEMETRY
-    TraceTaskSubmitted(*task);
+    // It's important that the task's span be active while we run the submit function.
+    // Normally the submit function should transfer the span to the thread task as the
+    // active span.
+    auto scope = TraceTaskSubmitted(task.get(), span_);
 #endif
     running_tasks_++;
     lk.unlock();
@@ -257,6 +276,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   FnOnce<void(const Status&)> abort_callback_;
   bool abort_callback_pending_ = false;
   std::condition_variable abort_callback_cv_;
+  tracing::Span span_;
 
   // Allows AsyncTaskScheduler::Make to call OnTaskFinished
   friend AsyncTaskScheduler;
@@ -264,6 +284,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
 
 class ThrottledAsyncTaskSchedulerImpl
     : public ThrottledAsyncTaskScheduler,
+      public HasSpan,
       public std::enable_shared_from_this<ThrottledAsyncTaskSchedulerImpl> {
  public:
   using Queue = ThrottledAsyncTaskScheduler::Queue;
@@ -292,7 +313,7 @@ class ThrottledAsyncTaskSchedulerImpl
     std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(latched_cost);
     if (maybe_backoff) {
 #ifdef ARROW_WITH_OPENTELEMETRY
-      TraceTaskQueued(*task);
+      TraceTaskQueued(task.get(), span());
 #endif
       queue_->Push(std::move(task));
       lk.unlock();
@@ -310,6 +331,10 @@ class ThrottledAsyncTaskSchedulerImpl
       lk.unlock();
       return SubmitTask(std::move(task), latched_cost);
     }
+  }
+
+  const tracing::Span& span() const override {
+    return ::arrow::internal::checked_cast<HasSpan*>(target_)->span();
   }
 
   void Pause() override { throttle_->Pause(); }
@@ -370,7 +395,7 @@ class ThrottledAsyncTaskSchedulerImpl
   std::mutex mutex_;
 };
 
-class AsyncTaskGroupImpl : public AsyncTaskGroup {
+class AsyncTaskGroupImpl : public AsyncTaskGroup, public HasSpan {
  public:
   AsyncTaskGroupImpl(AsyncTaskScheduler* target, FnOnce<Status()> finish_cb)
       : target_(target), state_(std::make_shared<State>(std::move(finish_cb))) {}
@@ -408,6 +433,10 @@ class AsyncTaskGroupImpl : public AsyncTaskGroup {
       std::shared_ptr<State> state;
     };
     return target_->AddTask(std::make_unique<WrapperTask>(std::move(task), state_));
+  }
+
+  const tracing::Span& span() const override {
+    return ::arrow::internal::checked_cast<HasSpan*>(target_)->span();
   }
 
  private:
