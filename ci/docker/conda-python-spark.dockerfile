@@ -26,6 +26,7 @@ ARG maven=3.5
 RUN mamba install -q -y \
         openjdk=${jdk} \
         maven=${maven} \
+        numpy=${numpy} \
         pandas && \
     mamba clean --all
 
