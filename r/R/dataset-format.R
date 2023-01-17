@@ -122,7 +122,8 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @section Factory:
 #' `CSVFileFormat$create()` can take options in the form of lists passed through as `parse_options`,
 #'  `read_options`, or `convert_options` parameters.  Alternatively, readr-style options can be passed
-#'  through individually.
+#'  through individually.  While it is possible to pass in `CSVReadOptions`, `CSVConvertOptions`, and `CSVParseOptions`
+#'  objects, this is not recommended as options set in these objects are not validated for compatibility.
 #'
 #' @return A `CsvFileFormat` object
 #' @rdname CsvFileFormat
@@ -228,7 +229,9 @@ check_unsupported_args <- function(args) {
 }
 
 # unlists "parse_options", "convert_options", "read_options" and returns them along with
-# names of options passed in individualls via args
+# names of options passed in individually via args.  `get_opt_names()` ignores any
+# CSV*Options objects passed in as these are not validated - users must ensure they've
+# chosen reasonable values in this case.
 get_opt_names <- function(args) {
   opt_names <- names(args)
 

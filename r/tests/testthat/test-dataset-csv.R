@@ -485,10 +485,11 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   expect_identical(dim(ds), c(20L, 7L))
 
   # quote
-  df <- data.frame(a = c(1, 2), b = c("'abc'", "'def'"))
   dst_dir <- make_temp_dir()
   dst_file <- file.path(dst_dir, "data.csv")
-  write.table(df, sep = ",", dst_file, row.names = FALSE, quote = FALSE)
+
+  df <- data.frame(a = c(1, 2), b = c("'abc'", "'def'"))
+  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
 
   ds_quote <- open_csv_dataset(dst_dir, quote = "'") %>% collect()
   expect_equal(ds_quote$b, c("abc", "def"))
@@ -512,10 +513,11 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   expect_equal(nrow(ds), 20)
 
   # col_types
-  df <- data.frame(a = c(1, NA, 2), b = c("'abc'", NA, "'def'"))
   dst_dir <- make_temp_dir()
   dst_file <- file.path(dst_dir, "data.csv")
-  write.table(df, sep = ",", dst_file, row.names = FALSE, quote = FALSE)
+
+  df <- data.frame(a = c(1, NA, 2), b = c("'abc'", NA, "'def'"))
+  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
 
   data_schema <- schema(a = string(), b = string())
   ds_strings <- open_csv_dataset(dst_dir, col_types = data_schema)
@@ -527,19 +529,6 @@ test_that("open_delim_dataset params passed through to open_dataset", {
 
   ds <- open_csv_dataset(tf, skip_empty_rows = FALSE) %>% collect()
   expect_equal(nrow(ds), 7)
-
-  # timestamp_parsers
-  df <- data.frame(time = "2023-01-16 19:47:57")
-  dst_dir <- make_temp_dir()
-  dst_file <- file.path(dst_dir, "data.csv")
-  write.table(df, sep = ",", dst_file, row.names = FALSE, quote = FALSE)
-
-  ds <- open_csv_dataset(dst_dir, timestamp_parsers = c(TimestampParser$create(format = "%d-%m-%y"))) %>% collect()
-
-  # GH-33708: timestamp_parsers don't appear to be working properly
-  expect_error(
-    expect_equal(ds$time, "16-01-2023")
-  )
 
   # convert_options
   ds <- open_csv_dataset(
@@ -559,4 +548,17 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ) %>% collect()
 
   expect_named(ds, c("col_1", "col_2", "col_3", "col_4", "col_5", "col_6"))
+
+  # timestamp_parsers
+  skip("GH-33708: timestamp_parsers don't appear to be working properly")
+
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv")
+
+  df <- data.frame(time = "2023-01-16 19:47:57")
+  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
+
+  ds <- open_csv_dataset(dst_dir, timestamp_parsers = c(TimestampParser$create(format = "%d-%m-%y"))) %>% collect()
+
+  expect_equal(ds$time, "16-01-2023")
 })

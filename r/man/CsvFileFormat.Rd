@@ -14,11 +14,12 @@ read and parse the files included in a CSV \code{Dataset}.
 
 \code{CSVFileFormat$create()} can take options in the form of lists passed through as \code{parse_options},
 \code{read_options}, or \code{convert_options} parameters.  Alternatively, readr-style options can be passed
-through individually.
+through individually.  While it is possible to pass in \code{CSVReadOptions}, \code{CSVConvertOptions}, and \code{CSVParseOptions}
+objects, this is not recommended as options set in these objects are not validated for compatibility.
 }
 
 \examples{
-\dontshow{if (arrow_with_dataset() && tolower(Sys.info()[["sysname"]]) != "windows") (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # Set up directory for examples
 tf <- tempfile()
 dir.create(tf)
