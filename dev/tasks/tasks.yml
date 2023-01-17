@@ -801,91 +801,131 @@ tasks:
     ci: github
     template: java-jars/github.yml
     artifacts:
+      - arrow-algorithm-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-algorithm-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-algorithm-{no_rc_snapshot_version}-javadoc.jar
       - arrow-algorithm-{no_rc_snapshot_version}-sources.jar
       - arrow-algorithm-{no_rc_snapshot_version}-tests.jar
       - arrow-algorithm-{no_rc_snapshot_version}.jar
       - arrow-algorithm-{no_rc_snapshot_version}.pom
+      - arrow-avro-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-avro-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-avro-{no_rc_snapshot_version}-javadoc.jar
       - arrow-avro-{no_rc_snapshot_version}-sources.jar
       - arrow-avro-{no_rc_snapshot_version}-tests.jar
       - arrow-avro-{no_rc_snapshot_version}.jar
       - arrow-avro-{no_rc_snapshot_version}.pom
+      - arrow-c-data-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-c-data-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-c-data-{no_rc_snapshot_version}-javadoc.jar
       - arrow-c-data-{no_rc_snapshot_version}-sources.jar
       - arrow-c-data-{no_rc_snapshot_version}-tests.jar
       - arrow-c-data-{no_rc_snapshot_version}.jar
       - arrow-c-data-{no_rc_snapshot_version}.pom
+      - arrow-compression-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-compression-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-compression-{no_rc_snapshot_version}-javadoc.jar
       - arrow-compression-{no_rc_snapshot_version}-sources.jar
       - arrow-compression-{no_rc_snapshot_version}-tests.jar
       - arrow-compression-{no_rc_snapshot_version}.jar
       - arrow-compression-{no_rc_snapshot_version}.pom
+      - arrow-dataset-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-dataset-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-dataset-{no_rc_snapshot_version}-javadoc.jar
       - arrow-dataset-{no_rc_snapshot_version}-sources.jar
       - arrow-dataset-{no_rc_snapshot_version}-tests.jar
       - arrow-dataset-{no_rc_snapshot_version}.jar
       - arrow-dataset-{no_rc_snapshot_version}.pom
+      - arrow-flight-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-flight-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-flight-{no_rc_snapshot_version}.pom
+      - arrow-format-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-format-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-format-{no_rc_snapshot_version}-javadoc.jar
       - arrow-format-{no_rc_snapshot_version}-sources.jar
       - arrow-format-{no_rc_snapshot_version}-tests.jar
       - arrow-format-{no_rc_snapshot_version}.jar
       - arrow-format-{no_rc_snapshot_version}.pom
+      - arrow-gandiva-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-gandiva-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-gandiva-{no_rc_snapshot_version}-javadoc.jar
       - arrow-gandiva-{no_rc_snapshot_version}-sources.jar
       - arrow-gandiva-{no_rc_snapshot_version}-tests.jar
       - arrow-gandiva-{no_rc_snapshot_version}.jar
       - arrow-gandiva-{no_rc_snapshot_version}.pom
+      - arrow-java-root-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-java-root-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-java-root-{no_rc_snapshot_version}-source-release.zip
       - arrow-java-root-{no_rc_snapshot_version}.pom
+      - arrow-jdbc-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-jdbc-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-jdbc-{no_rc_snapshot_version}-javadoc.jar
       - arrow-jdbc-{no_rc_snapshot_version}-sources.jar
       - arrow-jdbc-{no_rc_snapshot_version}-tests.jar
       - arrow-jdbc-{no_rc_snapshot_version}.jar
       - arrow-jdbc-{no_rc_snapshot_version}.pom
+      - arrow-memory-core-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-memory-core-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-memory-core-{no_rc_snapshot_version}-javadoc.jar
       - arrow-memory-core-{no_rc_snapshot_version}-sources.jar
       - arrow-memory-core-{no_rc_snapshot_version}-tests.jar
       - arrow-memory-core-{no_rc_snapshot_version}.jar
       - arrow-memory-core-{no_rc_snapshot_version}.pom
+      - arrow-memory-netty-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-memory-netty-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-memory-netty-{no_rc_snapshot_version}-javadoc.jar
       - arrow-memory-netty-{no_rc_snapshot_version}-sources.jar
       - arrow-memory-netty-{no_rc_snapshot_version}-tests.jar
       - arrow-memory-netty-{no_rc_snapshot_version}.jar
       - arrow-memory-netty-{no_rc_snapshot_version}.pom
+      - arrow-memory-unsafe-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-memory-unsafe-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-memory-unsafe-{no_rc_snapshot_version}-javadoc.jar
       - arrow-memory-unsafe-{no_rc_snapshot_version}-sources.jar
       - arrow-memory-unsafe-{no_rc_snapshot_version}-tests.jar
       - arrow-memory-unsafe-{no_rc_snapshot_version}.jar
       - arrow-memory-unsafe-{no_rc_snapshot_version}.pom
+      - arrow-memory-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-memory-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-memory-{no_rc_snapshot_version}.pom
+      - arrow-orc-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-orc-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-orc-{no_rc_snapshot_version}-javadoc.jar
       - arrow-orc-{no_rc_snapshot_version}-sources.jar
       - arrow-orc-{no_rc_snapshot_version}-tests.jar
       - arrow-orc-{no_rc_snapshot_version}.jar
       - arrow-orc-{no_rc_snapshot_version}.pom
+      - arrow-performance-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-performance-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-performance-{no_rc_snapshot_version}-sources.jar
       - arrow-performance-{no_rc_snapshot_version}-tests.jar
       - arrow-performance-{no_rc_snapshot_version}.jar
       - arrow-performance-{no_rc_snapshot_version}.pom
+      - arrow-plasma-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-plasma-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-plasma-{no_rc_snapshot_version}-javadoc.jar
       - arrow-plasma-{no_rc_snapshot_version}-sources.jar
       - arrow-plasma-{no_rc_snapshot_version}-tests.jar
       - arrow-plasma-{no_rc_snapshot_version}.jar
       - arrow-plasma-{no_rc_snapshot_version}.pom
+      - arrow-tools-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-tools-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-tools-{no_rc_snapshot_version}-jar-with-dependencies.jar
       - arrow-tools-{no_rc_snapshot_version}-javadoc.jar
       - arrow-tools-{no_rc_snapshot_version}-sources.jar
       - arrow-tools-{no_rc_snapshot_version}-tests.jar
       - arrow-tools-{no_rc_snapshot_version}.jar
       - arrow-tools-{no_rc_snapshot_version}.pom
+      - arrow-vector-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-vector-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-vector-{no_rc_snapshot_version}-javadoc.jar
       - arrow-vector-{no_rc_snapshot_version}-shade-format-flatbuffers.jar
       - arrow-vector-{no_rc_snapshot_version}-sources.jar
       - arrow-vector-{no_rc_snapshot_version}-tests.jar
       - arrow-vector-{no_rc_snapshot_version}.jar
       - arrow-vector-{no_rc_snapshot_version}.pom
+      - flight-core-{no_rc_snapshot_version}-cyclonedx.json
+      - flight-core-{no_rc_snapshot_version}-cyclonedx.xml
       - flight-core-{no_rc_snapshot_version}-jar-with-dependencies.jar
       - flight-core-{no_rc_snapshot_version}-javadoc.jar
       - flight-core-{no_rc_snapshot_version}-shaded-ext.jar
@@ -894,22 +934,30 @@ tasks:
       - flight-core-{no_rc_snapshot_version}-tests.jar
       - flight-core-{no_rc_snapshot_version}.jar
       - flight-core-{no_rc_snapshot_version}.pom
+      - flight-grpc-{no_rc_snapshot_version}-cyclonedx.json
+      - flight-grpc-{no_rc_snapshot_version}-cyclonedx.xml
       - flight-grpc-{no_rc_snapshot_version}-javadoc.jar
       - flight-grpc-{no_rc_snapshot_version}-sources.jar
       - flight-grpc-{no_rc_snapshot_version}-tests.jar
       - flight-grpc-{no_rc_snapshot_version}.jar
       - flight-grpc-{no_rc_snapshot_version}.pom
+      - flight-integration-tests-{no_rc_snapshot_version}-cyclonedx.json
+      - flight-integration-tests-{no_rc_snapshot_version}-cyclonedx.xml
       - flight-integration-tests-{no_rc_snapshot_version}-jar-with-dependencies.jar
       - flight-integration-tests-{no_rc_snapshot_version}-javadoc.jar
       - flight-integration-tests-{no_rc_snapshot_version}-sources.jar
       - flight-integration-tests-{no_rc_snapshot_version}-tests.jar
       - flight-integration-tests-{no_rc_snapshot_version}.jar
       - flight-integration-tests-{no_rc_snapshot_version}.pom
+      - flight-sql-{no_rc_snapshot_version}-cyclonedx.json
+      - flight-sql-{no_rc_snapshot_version}-cyclonedx.xml
       - flight-sql-{no_rc_snapshot_version}-javadoc.jar
       - flight-sql-{no_rc_snapshot_version}-sources.jar
       - flight-sql-{no_rc_snapshot_version}-tests.jar
       - flight-sql-{no_rc_snapshot_version}.jar
       - flight-sql-{no_rc_snapshot_version}.pom
+      - flight-sql-jdbc-driver-{no_rc_snapshot_version}-cyclonedx.json
+      - flight-sql-jdbc-driver-{no_rc_snapshot_version}-cyclonedx.xml
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}-javadoc.jar
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}-sources.jar
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}-tests.jar
