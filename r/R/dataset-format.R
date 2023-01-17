@@ -227,6 +227,8 @@ check_unsupported_args <- function(args) {
   }
 }
 
+# unlists "parse_options", "read_options", and "convert_options" and
+# returns names of all options passed in via args
 get_opt_names <- function(args) {
   opt_names <- names(args)
 
