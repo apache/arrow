@@ -1783,10 +1783,6 @@ services:
         repo: ${REPO}
         arch: ${ARCH}
         python: ${PYTHON}
-        # https://github.com/apache/arrow/issues/33697
-        # numpy version pin should be removed with new apache spark release
-        # that includes https://github.com/apache/spark/pull/37817
-        numpy: 1.23
         jdk: ${JDK}
         # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
         # be set to ${MAVEN}
