@@ -25,6 +25,7 @@ import numpy as np
 
 import pyarrow as pa
 import pyarrow.compute as pc
+from pyarrow.vendored.version import Version
 
 
 @pytest.mark.parametrize(['value', 'ty', 'klass'], [
@@ -306,6 +307,11 @@ def test_timestamp():
         dtype = 'datetime64[{}]'.format(unit)
         arrow_arr = pa.Array.from_pandas(arr.astype(dtype))
         expected = pd.Timestamp('2000-01-01 12:34:56')
+        if Version("2.0.0.dev0") <= Version(pd.__version__) < Version("2.0.0"):
+            # TODO: regression in pandas, should be fixed before final 2.0.0
+            # https://github.com/apache/arrow/issues/33696
+            # https://github.com/pandas-dev/pandas/issues/49076
+            expected = expected.as_unit("ns")
 
         assert arrow_arr[0].as_py() == expected
         assert arrow_arr[0].value * 1000**i == expected.value
@@ -318,6 +324,9 @@ def test_timestamp():
         expected = (pd.Timestamp('2000-01-01 12:34:56')
                     .tz_localize('utc')
                     .tz_convert(tz))
+        if Version("2.0.0.dev0") <= Version(pd.__version__) < Version("2.0.0"):
+            # TODO: regression in pandas, should be fixed before final 2.0.0
+            expected = expected.as_unit("ns")
 
         assert arrow_arr[0].as_py() == expected
         assert arrow_arr[0].value * 1000**i == expected.value
