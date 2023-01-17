@@ -248,7 +248,6 @@ open_dataset <- function(sources,
 #' # Set up directory for examples
 #' tf <- tempfile()
 #' dir.create(tf)
-#' on.exit(unlink(tf))
 #' df <- data.frame(x = c("1", "2", "NULL"))
 #'
 #' file_path <- file.path(tf, "file1.txt")
@@ -257,6 +256,7 @@ open_dataset <- function(sources,
 #' read_csv_arrow(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
 #' open_csv_dataset(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
 #'
+#' unlink(tf)
 #' @seealso [open_dataset()]
 #' @export
 open_delim_dataset <- function(sources,
