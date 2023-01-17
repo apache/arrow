@@ -53,7 +53,7 @@
 #' It returns the appropriate subclass of `FileFormat` (e.g. `ParquetFileFormat`)
 #' @rdname FileFormat
 #' @name FileFormat
-#' @examplesIf arrow_with_dataset() && tolower(Sys.info()[["sysname"]]) != "windows"
+#' @examplesIf arrow_with_dataset()
 #' ## Semi-colon delimited files
 #' # Set up directory for examples
 #' tf <- tempfile()
@@ -128,7 +128,7 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @rdname CsvFileFormat
 #' @name CsvFileFormat
 #' @seealso [FileFormat]
-#' @examplesIf arrow_with_dataset() && tolower(Sys.info()[["sysname"]]) != "windows"
+#' @examplesIf arrow_with_dataset()
 #' # Set up directory for examples
 #' tf <- tempfile()
 #' dir.create(tf)
@@ -227,8 +227,8 @@ check_unsupported_args <- function(args) {
   }
 }
 
-# unlists "parse_options", "read_options", and "convert_options" and
-# returns names of all options passed in via args
+# unlists "parse_options", "convert_options", "read_options" and returns them along with
+# names of options passed in individualls via args
 get_opt_names <- function(args) {
   opt_names <- names(args)
 
@@ -391,7 +391,6 @@ csv_file_format_convert_opts <- function(...) {
     names(formals(readr_to_csv_read_options)),
     "read_options"
   )
-
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[read_opts] <- NULL
