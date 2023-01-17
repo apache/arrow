@@ -91,7 +91,7 @@ if [ "${CHECK_UNITTESTS}" == "ON" ]; then
 
   # Not on newer Ubuntu by default
   apt update || true
-  apt install glibc-tools || true
+  apt install -y glibc-tools || true
 
   export PYTHONFAULTHANDLER=1
   # Execute unittest, test dependencies must be installed
