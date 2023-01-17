@@ -90,7 +90,8 @@ if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   pip install -U -r ${source_dir}/python/requirements-wheel-test.txt
 
   # Not on newer Ubuntu by default
-  sudo apt install glibc-tools || true
+  apt update || true
+  apt install glibc-tools || true
 
   export PYTHONFAULTHANDLER=1
   # Execute unittest, test dependencies must be installed
