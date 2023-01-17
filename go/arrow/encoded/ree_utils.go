@@ -23,6 +23,16 @@ import (
 	"github.com/apache/arrow/go/v11/arrow"
 )
 
+// FindPhysicalOffset performs a binary search on the run-ends to return
+// the appropriate physical offset into the values/run-ends that corresponds
+// with the logical offset defined in the array.
+//
+// For example, an array with run-ends [10, 20, 30, 40, 50] and a logical
+// offset of 25 will return the value 2. This returns the smallest offset
+// whose run-end is greater than the logical offset, which would also be the
+// offset index into the values that contains the correct value.
+//
+// This function assumes it receives Run End Encoded array data
 func FindPhysicalOffset(arr arrow.ArrayData) int {
 	data := arr.Children()[0]
 	logicalOffset := arr.Offset()
@@ -45,6 +55,12 @@ func FindPhysicalOffset(arr arrow.ArrayData) int {
 	}
 }
 
+// GetPhysicalLength returns the physical number of values which are in
+// the passed in RunEndEncoded array data. This will take into account
+// the offset and length of the array as reported in the array data
+// (so that it properly handles slices).
+//
+// This function assumes it receives Run End Encoded array data
 func GetPhysicalLength(arr arrow.ArrayData) int {
 	if arr.Len() == 0 {
 		return 0
@@ -92,6 +108,9 @@ func getRunEnds(arr arrow.ArrayData) func(int64) int64 {
 	}
 }
 
+// MergedRuns is used to take two Run End Encoded arrays and iterate
+// them, finding the correct physical indices to correspond with the
+// runs.
 type MergedRuns struct {
 	inputs       [2]arrow.Array
 	runIndex     [2]int64
@@ -102,6 +121,8 @@ type MergedRuns struct {
 	mergedEnd    int64
 }
 
+// NewMergedRuns takes two RunEndEncoded arrays and returns a MergedRuns
+// object that will allow iterating over the physical indices of the runs.
 func NewMergedRuns(inputs [2]arrow.Array) *MergedRuns {
 	if len(inputs) == 0 {
 		return &MergedRuns{logicalLen: 0}
@@ -126,6 +147,8 @@ func NewMergedRuns(inputs [2]arrow.Array) *MergedRuns {
 	return mr
 }
 
+// Next returns true if there are more values/runs to iterate and false
+// when one of the arrays has reached the end.
 func (mr *MergedRuns) Next() bool {
 	mr.logicalPos = int(mr.mergedEnd)
 	if mr.isEnd() {
@@ -142,11 +165,23 @@ func (mr *MergedRuns) Next() bool {
 	return true
 }
 
+// IndexIntoBuffer returns the physical index into the value buffer of
+// the passed in array index (ie: 0 for the first array and 1 for the second)
+// this takes into account the offset of the array so it is the true physical
+// index into the value *buffer* in the child.
 func (mr *MergedRuns) IndexIntoBuffer(id int) int64 {
 	return mr.runIndex[id] + int64(mr.inputs[id].Data().Children()[1].Offset())
 }
+
+// IndexIntoArray is like IndexIntoBuffer but it doesn't take into account
+// the array offset and instead is the index that can be used with the .Value
+// method on the array to get the correct value.
 func (mr *MergedRuns) IndexIntoArray(id int) int64 { return mr.runIndex[id] }
-func (mr *MergedRuns) RunLength() int64            { return mr.mergedEnd - int64(mr.logicalPos) }
+
+// RunLength returns the logical length of the current merged run being looked at.
+func (mr *MergedRuns) RunLength() int64 { return mr.mergedEnd - int64(mr.logicalPos) }
+
+// AccumulatedRunLength returns the logical run end of the current merged run.
 func (mr *MergedRuns) AccumulatedRunLength() int64 { return mr.mergedEnd }
 
 func (mr *MergedRuns) findMergedRun() {
