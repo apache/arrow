@@ -159,7 +159,7 @@ func arrayRunEndEncodedApproxEqual(l, r *RunEndEncoded, opt equalOption) bool {
 	return true
 }
 
-type RunLengthEncodedBuilder struct {
+type RunEndEncodedBuilder struct {
 	builder
 
 	dt        arrow.DataType
@@ -168,10 +168,10 @@ type RunLengthEncodedBuilder struct {
 	maxRunEnd uint64
 }
 
-func NewRunLengthEncodedBuilder(mem memory.Allocator, runEnds, encoded arrow.DataType) *RunLengthEncodedBuilder {
-	dt := arrow.RunLengthEncodedOf(runEnds, encoded)
+func NewRunEndEncodedBuilder(mem memory.Allocator, runEnds, encoded arrow.DataType) *RunEndEncodedBuilder {
+	dt := arrow.RunEndEncodedOf(runEnds, encoded)
 	if !dt.ValidRunEndsType(runEnds) {
-		panic("arrow/rle: invalid runEnds type for run length encoded array")
+		panic("arrow/ree: invalid runEnds type for run length encoded array")
 	}
 
 	var maxEnd uint64
@@ -183,7 +183,7 @@ func NewRunLengthEncodedBuilder(mem memory.Allocator, runEnds, encoded arrow.Dat
 	case arrow.INT64:
 		maxEnd = math.MaxInt64
 	}
-	return &RunLengthEncodedBuilder{
+	return &RunEndEncodedBuilder{
 		builder:   builder{refCount: 1, mem: mem},
 		dt:        dt,
 		runEnds:   NewBuilder(mem, runEnds),
@@ -192,11 +192,11 @@ func NewRunLengthEncodedBuilder(mem memory.Allocator, runEnds, encoded arrow.Dat
 	}
 }
 
-func (b *RunLengthEncodedBuilder) Type() arrow.DataType {
+func (b *RunEndEncodedBuilder) Type() arrow.DataType {
 	return b.dt
 }
 
-func (b *RunLengthEncodedBuilder) Release() {
+func (b *RunEndEncodedBuilder) Release() {
 	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
 
 	if atomic.AddInt64(&b.refCount, -1) == 0 {
@@ -205,7 +205,7 @@ func (b *RunLengthEncodedBuilder) Release() {
 	}
 }
 
-func (b *RunLengthEncodedBuilder) addLength(n uint64) {
+func (b *RunEndEncodedBuilder) addLength(n uint64) {
 	if uint64(b.length)+n > b.maxRunEnd {
 		panic(fmt.Errorf("%w: %s array length must fit be less than %d", arrow.ErrInvalid, b.dt, b.maxRunEnd))
 	}
@@ -213,7 +213,7 @@ func (b *RunLengthEncodedBuilder) addLength(n uint64) {
 	b.length += int(n)
 }
 
-func (b *RunLengthEncodedBuilder) finishRun() {
+func (b *RunEndEncodedBuilder) finishRun() {
 	if b.length == 0 {
 		return
 	}
@@ -228,49 +228,49 @@ func (b *RunLengthEncodedBuilder) finishRun() {
 	}
 }
 
-func (b *RunLengthEncodedBuilder) ValueBuilder() Builder { return b.values }
-func (b *RunLengthEncodedBuilder) Append(n uint64) {
+func (b *RunEndEncodedBuilder) ValueBuilder() Builder { return b.values }
+func (b *RunEndEncodedBuilder) Append(n uint64) {
 	b.finishRun()
 	b.addLength(n)
 }
-func (b *RunLengthEncodedBuilder) ContinueRun(n uint64) {
+func (b *RunEndEncodedBuilder) ContinueRun(n uint64) {
 	b.addLength(n)
 }
-func (b *RunLengthEncodedBuilder) AppendNull() {
+func (b *RunEndEncodedBuilder) AppendNull() {
 	b.finishRun()
 	b.values.AppendNull()
 	b.addLength(1)
 }
 
-func (b *RunLengthEncodedBuilder) NullN() int {
+func (b *RunEndEncodedBuilder) NullN() int {
 	return UnknownNullCount
 }
 
-func (b *RunLengthEncodedBuilder) AppendEmptyValue() {
+func (b *RunEndEncodedBuilder) AppendEmptyValue() {
 	b.AppendNull()
 }
 
-func (b *RunLengthEncodedBuilder) Reserve(n int) {
+func (b *RunEndEncodedBuilder) Reserve(n int) {
 	b.values.Reserve(n)
 	b.runEnds.Reserve(n)
 }
 
-func (b *RunLengthEncodedBuilder) Resize(n int) {
+func (b *RunEndEncodedBuilder) Resize(n int) {
 	b.values.Resize(n)
 	b.runEnds.Resize(n)
 }
 
-func (b *RunLengthEncodedBuilder) NewRunLengthEncodedArray() *RunLengthEncoded {
+func (b *RunEndEncodedBuilder) NewRunEndEncodedArray() *RunEndEncoded {
 	data := b.newData()
 	defer data.Release()
-	return NewRunLengthEncodedData(data)
+	return NewRunEndEncodedData(data)
 }
 
-func (b *RunLengthEncodedBuilder) NewArray() arrow.Array {
-	return b.NewRunLengthEncodedArray()
+func (b *RunEndEncodedBuilder) NewArray() arrow.Array {
+	return b.NewRunEndEncodedArray()
 }
 
-func (b *RunLengthEncodedBuilder) newData() (data *Data) {
+func (b *RunEndEncodedBuilder) newData() (data *Data) {
 	b.finishRun()
 	values := b.values.NewArray()
 	defer values.Release()
@@ -284,11 +284,11 @@ func (b *RunLengthEncodedBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *RunLengthEncodedBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *RunEndEncodedBuilder) unmarshalOne(dec *json.Decoder) error {
 	return arrow.ErrNotImplemented
 }
 
-func (b *RunLengthEncodedBuilder) unmarshal(dec *json.Decoder) error {
+func (b *RunEndEncodedBuilder) unmarshal(dec *json.Decoder) error {
 	for dec.More() {
 		if err := b.unmarshalOne(dec); err != nil {
 			return err
@@ -297,7 +297,7 @@ func (b *RunLengthEncodedBuilder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *RunLengthEncodedBuilder) UnmarshalJSON(data []byte) error {
+func (b *RunEndEncodedBuilder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	t, err := dec.Token()
 	if err != nil {
@@ -312,6 +312,6 @@ func (b *RunLengthEncodedBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ arrow.Array = (*RunLengthEncoded)(nil)
-	_ Builder     = (*RunLengthEncodedBuilder)(nil)
+	_ arrow.Array = (*RunEndEncoded)(nil)
+	_ Builder     = (*RunEndEncodedBuilder)(nil)
 )

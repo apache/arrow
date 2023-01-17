@@ -208,32 +208,32 @@ func TestRLECompare(t *testing.T) {
 	})
 }
 
-func TestRunLengthEncodedBuilder(t *testing.T) {
+func TestRunEndEncodedBuilder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
-	bldr := array.NewBuilder(mem, arrow.RunLengthEncodedOf(arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String))
+	bldr := array.NewBuilder(mem, arrow.RunEndEncodedOf(arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String))
 	defer bldr.Release()
 
-	assert.IsType(t, (*array.RunLengthEncodedBuilder)(nil), bldr)
-	rleBldr := bldr.(*array.RunLengthEncodedBuilder)
+	assert.IsType(t, (*array.RunEndEncodedBuilder)(nil), bldr)
+	reeBldr := bldr.(*array.RunEndEncodedBuilder)
 
-	valBldr := rleBldr.ValueBuilder().(*array.StringBuilder)
+	valBldr := reeBldr.ValueBuilder().(*array.StringBuilder)
 
-	rleBldr.Append(100)
+	reeBldr.Append(100)
 	valBldr.Append("Hello")
-	rleBldr.Append(100)
+	reeBldr.Append(100)
 	valBldr.Append("beautiful")
-	rleBldr.Append(50)
+	reeBldr.Append(50)
 	valBldr.Append("world")
-	rleBldr.ContinueRun(50)
-	rleBldr.Append(100)
+	reeBldr.ContinueRun(50)
+	reeBldr.Append(100)
 	valBldr.Append("of")
-	rleBldr.Append(100)
+	reeBldr.Append(100)
 	valBldr.Append("RLE")
-	rleBldr.AppendNull()
+	reeBldr.AppendNull()
 
-	rleArray := rleBldr.NewRunLengthEncodedArray()
+	rleArray := reeBldr.NewRunEndEncodedArray()
 	defer rleArray.Release()
 
 	assert.EqualValues(t, 501, rleArray.Len())
@@ -250,14 +250,14 @@ func TestRunLengthEncodedBuilder(t *testing.T) {
 	assert.True(t, strValues.IsNull(5))
 }
 
-func TestRLEBuilderOverflow(t *testing.T) {
+func TestREEBuilderOverflow(t *testing.T) {
 	for _, typ := range []arrow.DataType{arrow.PrimitiveTypes.Int16, arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int64} {
 		t.Run("run_ends="+typ.String(), func(t *testing.T) {
 
 			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 			defer mem.AssertSize(t, 0)
 
-			bldr := array.NewRunLengthEncodedBuilder(mem, typ, arrow.BinaryTypes.String)
+			bldr := array.NewRunEndEncodedBuilder(mem, typ, arrow.BinaryTypes.String)
 			defer bldr.Release()
 
 			valBldr := bldr.ValueBuilder().(*array.StringBuilder)
