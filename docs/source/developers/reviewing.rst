@@ -263,11 +263,13 @@ Labelling
 While reviewing PRs, we should try to identify whether these changes need to be
 marked with one or both of the following labels:
 
-* **Critical Fix**: The change fixes either a security vulnerability or a bug 
-  that caused incorrect or invalid data to be produced. This is intended to mark
-  fixes to issues that may affect users without their knowledge. For this reason, 
-  fixing bugs that cause errors or crashes don't count, since those bugs are
-  usually obvious.
+* **Critical Fix**: The change fixes either: (a) a security vulnerability;
+  (b) a bug that caused incorrect or invalid data to be produced;
+  or (c) a bug that causes a crash, though only if the API contract is upheld.
+  This is intended to mark fixes to issues that may affect users without their
+  knowledge. For this reason, fixing bugs that cause errors don't count, since 
+  those bugs are usually obvious. Bugs that cause crashes are considered critical
+  because they are a possible vector of Denial-of-Service attacks.
 * **Breaking Change**: The change breaks backwards compatibility in a public API.
   For changes in C++, this does not include changes that simply break ABI
   compatibility, except for the few places where we do guarantee ABI

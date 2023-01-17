@@ -61,6 +61,6 @@ If there are any breaking changes to public APIs, please check the box below:
 -->
 * [ ] This PR includes breaking changes to public APIs.
 <!--
-Check the box below if the changes fix either a security vulnerability or a bug that caused incorrect or invalid data to be produced. We use this to highlight fixes to issues that may affect users without their knowledge. For this reason, fixing bugs that cause errors or crashes don't count, since those are usually obvious.
+Check the box below if the changes fix either (a) a security vulnerability, (b) a bug that caused incorrect or invalid data to be produced, or (c) a bug that causes a crash (even when the API contract is upheld). We use this to highlight fixes to issues that may affect users without their knowledge. For this reason, fixing bugs that cause errors don't count, since those are usually obvious.
 -->
 * [ ] This PR contains a "Critical Fix".
