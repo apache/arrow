@@ -388,21 +388,23 @@ Result<std::shared_ptr<Array>> NormalizeArray(const std::shared_ptr<Array>& arra
       ARROW_ASSIGN_OR_RAISE(auto value_array, NormalizeArray(list_array->values()));
       return std::make_shared<ListArray>(list_array->type(), list_array->length(),
                                          list_array->value_offsets(), value_array,
-                                         list_array->null_bitmap());
+                                         list_array->null_bitmap(),
+                                         list_array->null_count(), list_array->offset());
     }
     case Type::type::LARGE_LIST: {
       auto list_array = checked_pointer_cast<LargeListArray>(array);
       ARROW_ASSIGN_OR_RAISE(auto value_array, NormalizeArray(list_array->values()));
-      return std::make_shared<LargeListArray>(list_array->type(), list_array->length(),
-                                              list_array->value_offsets(), value_array,
-                                              list_array->null_bitmap());
+      return std::make_shared<LargeListArray>(
+          list_array->type(), list_array->length(), list_array->value_offsets(),
+          value_array, list_array->null_bitmap(), list_array->null_count(),
+          list_array->offset());
     }
     case Type::type::FIXED_SIZE_LIST: {
       auto list_array = checked_pointer_cast<FixedSizeListArray>(array);
       ARROW_ASSIGN_OR_RAISE(auto value_array, NormalizeArray(list_array->values()));
-      return std::make_shared<FixedSizeListArray>(list_array->type(),
-                                                  list_array->length(), value_array,
-                                                  list_array->null_bitmap());
+      return std::make_shared<FixedSizeListArray>(
+          list_array->type(), list_array->length(), value_array,
+          list_array->null_bitmap(), list_array->null_count(), list_array->offset());
     }
     case Type::type::MAP: {
       auto map_array = checked_pointer_cast<MapArray>(array);
@@ -410,7 +412,8 @@ Result<std::shared_ptr<Array>> NormalizeArray(const std::shared_ptr<Array>& arra
       ARROW_ASSIGN_OR_RAISE(auto item_array, NormalizeArray(map_array->items()));
       return std::make_shared<MapArray>(map_array->type(), map_array->length(),
                                         map_array->value_offsets(), key_array, item_array,
-                                        map_array->null_bitmap());
+                                        map_array->null_bitmap(), map_array->null_count(),
+                                        map_array->offset());
     }
     default: {
       return array;
