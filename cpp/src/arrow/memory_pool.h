@@ -43,6 +43,17 @@ class MemoryPoolStats {
 
   int64_t bytes_allocated() const { return bytes_allocated_.load(); }
 
+  int64_t total_allocated() const { return total_allocated_bytes_.load(); }
+
+  int64_t num_allocations() const { return num_allocs_.load(); }
+
+  void Reset() {
+    bytes_allocated_ = 0;
+    max_memory_ = 0;
+    total_allocated_bytes_ = 0;
+    num_allocs_ = 0;
+  }
+
   inline void UpdateAllocatedBytes(int64_t diff) {
     auto allocated = bytes_allocated_.fetch_add(diff) + diff;
     // "maximum" allocated memory is ill-defined in multi-threaded code,
@@ -50,11 +61,20 @@ class MemoryPoolStats {
     if (diff > 0 && allocated > max_memory_) {
       max_memory_ = allocated;
     }
+
+    if (diff > 0) {
+      total_allocated_bytes_ += diff;
+    }
+
+    // TODO: don't count frees
+    num_allocs_ += 1;
   }
 
  protected:
   std::atomic<int64_t> bytes_allocated_;
   std::atomic<int64_t> max_memory_;
+  std::atomic<int64_t> total_allocated_bytes_;
+  std::atomic<int64_t> num_allocs_;
 };
 
 }  // namespace internal
@@ -119,6 +139,12 @@ class ARROW_EXPORT MemoryPool {
   /// returns -1
   virtual int64_t max_memory() const;
 
+  virtual int64_t total_allocated() const = 0;
+
+  virtual int64_t num_allocations() const = 0;
+
+  virtual void ResetStatistics() = 0;
+
   /// The name of the backend used by this MemoryPool (e.g. "system" or "jemalloc").
   virtual std::string backend_name() const = 0;
 
@@ -143,6 +169,12 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
   int64_t bytes_allocated() const override;
 
   int64_t max_memory() const override;
+
+  int64_t total_allocated() const override;
+
+  int64_t num_allocations() const override;
+
+  void ResetStatistics() override;
 
   std::string backend_name() const override;
 
@@ -171,6 +203,12 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
   int64_t bytes_allocated() const override;
 
   int64_t max_memory() const override;
+
+  int64_t total_allocated() const override;
+
+  int64_t num_allocations() const override;
+
+  void ResetStatistics() override;
 
   std::string backend_name() const override;
 

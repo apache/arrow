@@ -21,6 +21,8 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/memory_pool.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/cpu_info.h"
 
 namespace arrow {
@@ -135,5 +137,33 @@ struct RegressionArgs {
   benchmark::State& state_;
   bool size_is_bytes_;
 };
+
+class MemoryPoolMemoryManager : public benchmark::MemoryManager {
+  void Start() BENCHMARK_OVERRIDE {
+    // TODO: Should we try to exclude memory allocated from setup?
+    // TODO: Are we isolating memory to this test at all?
+    // I think we have to do this with a custom allocator, but how do we force
+    // the benchmarks to use that?
+    // Or can we enable enhanced statistics on normal memory pools?
+    MemoryPool* pool = default_memory_pool();
+    pool->ResetStatistics();
+  }
+
+  void Stop(benchmark::MemoryManager::Result* result) BENCHMARK_OVERRIDE {
+    MemoryPool* pool = default_memory_pool();
+    result->max_bytes_used = pool->max_memory();
+    result->total_allocated_bytes = pool->total_allocated();
+    result->num_allocs = pool->num_allocations();
+  }
+};
+
+// Defines a global variable that registers MemoryPoolMemoryManager on init.
+#define ARROW_BENCHMARK_TRACK_MEMORY()                                          \
+  class TrackMemory {                                                           \
+   public:                                                                      \
+    TrackMemory() : manager() { ::benchmark::RegisterMemoryManager(&manager); } \
+    ::arrow::MemoryPoolMemoryManager manager;                                   \
+  };                                                                            \
+  TrackMemory __memory_tracker;
 
 }  // namespace arrow

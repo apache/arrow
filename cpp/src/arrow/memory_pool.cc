@@ -518,6 +518,12 @@ class BaseMemoryPoolImpl : public MemoryPool {
 
   int64_t max_memory() const override { return stats_.max_memory(); }
 
+  int64_t total_allocated() const override { return stats_.total_allocated(); }
+
+  int64_t num_allocations() const override { return stats_.num_allocations(); }
+
+  void ResetStatistics() override { stats_.Reset(); }
+
  protected:
   internal::MemoryPoolStats stats_;
 };
@@ -732,6 +738,20 @@ int64_t LoggingMemoryPool::max_memory() const {
   return mem;
 }
 
+int64_t LoggingMemoryPool::total_allocated() const {
+  int64_t mem = pool_->total_allocated();
+  std::cout << "total_allocated: " << mem << std::endl;
+  return mem;
+}
+
+int64_t LoggingMemoryPool::num_allocations() const {
+  int64_t mem = pool_->num_allocations();
+  std::cout << "num_allocations: " << mem << std::endl;
+  return mem;
+}
+
+void LoggingMemoryPool::ResetStatistics() { pool_->ResetStatistics(); }
+
 std::string LoggingMemoryPool::backend_name() const { return pool_->backend_name(); }
 
 ///////////////////////////////////////////////////////////////////////
@@ -763,6 +783,12 @@ class ProxyMemoryPool::ProxyMemoryPoolImpl {
 
   int64_t max_memory() const { return stats_.max_memory(); }
 
+  int64_t total_allocated() const { return stats_.total_allocated(); }
+
+  int64_t num_allocations() const { return stats_.num_allocations(); }
+
+  void ResetStatistics() { stats_.Reset(); }
+
   std::string backend_name() const { return pool_->backend_name(); }
 
  private:
@@ -792,6 +818,12 @@ void ProxyMemoryPool::Free(uint8_t* buffer, int64_t size, int64_t alignment) {
 int64_t ProxyMemoryPool::bytes_allocated() const { return impl_->bytes_allocated(); }
 
 int64_t ProxyMemoryPool::max_memory() const { return impl_->max_memory(); }
+
+int64_t ProxyMemoryPool::total_allocated() const { return impl_->total_allocated(); }
+
+int64_t ProxyMemoryPool::num_allocations() const { return impl_->num_allocations(); }
+
+void ProxyMemoryPool::ResetStatistics() { impl_->ResetStatistics(); }
 
 std::string ProxyMemoryPool::backend_name() const { return impl_->backend_name(); }
 

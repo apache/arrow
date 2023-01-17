@@ -462,9 +462,13 @@ class MyMemoryPool : public MemoryPool {
 
   int64_t bytes_allocated() const override { return -1; }
 
+  int64_t total_allocated() const override { return -1; }
+
   std::string backend_name() const override { return "my"; }
 
-  int64_t num_allocations() const { return num_allocations_.load(); }
+  int64_t num_allocations() const override { return num_allocations_.load(); }
+
+  void ResetStatistics() override { num_allocations_ = 0; }
 
  private:
   std::atomic<int64_t> num_allocations_;

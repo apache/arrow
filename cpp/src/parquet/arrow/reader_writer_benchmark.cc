@@ -36,6 +36,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/benchmark_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
 
@@ -61,6 +62,8 @@ using arrow::WriteTable;
 using schema::PrimitiveNode;
 
 namespace benchmark {
+
+ARROW_BENCHMARK_TRACK_MEMORY();
 
 // This should result in multiple pages for most primitive types
 constexpr int64_t BENCHMARK_SIZE = 10 * 1024 * 1024;
@@ -656,6 +659,8 @@ static void BM_ReadMultipleRowGroupsGenerator(::benchmark::State& state) {
 }
 
 BENCHMARK(BM_ReadMultipleRowGroupsGenerator);
+
+// BENCHMARK_MAIN();
 
 }  // namespace benchmark
 
