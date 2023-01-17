@@ -1096,18 +1096,23 @@ cdef class FixedSizeBufferWriter(NativeFile):
 
     Examples
     --------
+    Create a stream to write to ``pyarrow.Buffer``:
+
     >>> import pyarrow as pa
     >>> buf = pa.allocate_buffer(5)
-    >>> writer = pa.FixedSizeBufferWriter(buf)
-    >>> writer.write(b'abcde')
+    >>> with pa.output_stream(buf) as stream:
+    ...     stream.write(b'abcde')
+    ...     stream
+    ...
     5
+    <pyarrow.FixedSizeBufferWriter closed=False own_file=False is_seekable=False is_writable=True is_readable=False>
+
+    Inspect the buffer:
+
     >>> buf.to_pybytes()
     b'abcde'
     >>> buf
     <pyarrow.Buffer address=... size=5 is_cpu=True is_mutable=True>
-    >>> writer
-    <pyarrow.FixedSizeBufferWriter closed=False own_file=False is_seekable=False is_writable=True is_readable=False>
-    >>> writer.close()
     """
 
     def __cinit__(self, Buffer buffer):
@@ -1479,23 +1484,21 @@ cdef class BufferReader(NativeFile):
 
     Examples
     --------
+    Create an Arrow input stream and inspect it:
 
     >>> import pyarrow as pa
     >>> data = b'reader data'
-    >>> f = pa.BufferReader(data)
-    >>> f.size()
+    >>> buf = memoryview(data)
+    >>> with pa.input_stream(buf) as stream:
+    ...     stream.size()
+    ...     stream.read(6)
+    ...     stream.seek(7)
+    ...     stream.read(15)
+    ...
     11
-    >>> f.read(6)
     b'reader'
-    >>> f.seek(7)
     7
-    >>> f.read(15)
     b'data'
-    >>> f.closed
-    False
-    >>> f.close()
-    >>> f.closed
-    True
     """
     cdef:
         Buffer buffer
@@ -1524,6 +1527,8 @@ cdef class CompressedInputStream(NativeFile):
 
     Examples
     --------
+    Create an ouput stream wich compresses the data:
+
     >>> import pyarrow as pa
     >>> data = b"Compressed stream"
     >>> raw = pa.BufferOutputStream()
@@ -1531,8 +1536,12 @@ cdef class CompressedInputStream(NativeFile):
     ...     compressed.write(data)
     ...
     17
+
+    Create an input stream with decompression referencing the
+    buffer with compressed data:
+
     >>> cdata = raw.getvalue()
-    >>> raw = pa.BufferReader(cdata)
+    >>> raw = pa.input_stream(cdata)
     >>> with pa.CompressedInputStream(raw, "gzip") as compressed:
     ...     compressed.read()
     ...
@@ -1567,6 +1576,8 @@ cdef class CompressedOutputStream(NativeFile):
 
     Examples
     --------
+    Create an ouput stream wich compresses the data:
+
     >>> import pyarrow as pa
     >>> data = b"Compressed stream"
     >>> raw = pa.BufferOutputStream()
