@@ -20,58 +20,58 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/internal/debug"
-	"github.com/apache/arrow/go/v10/arrow/memory"
-	"github.com/apache/arrow/go/v10/arrow/rle"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/encoded"
+	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
-// RunLengthEncoded represents an array containing two children:
+// RunEndEncoded represents an array containing two children:
 // an array of int32 values defining the ends of each run of values
 // and an array of values
-type RunLengthEncoded struct {
+type RunEndEncoded struct {
 	array
 
 	ends   arrow.Array
 	values arrow.Array
 }
 
-func NewRunLengthEncodedArray(runEnds, values arrow.Array, logicalLength, offset int) *RunLengthEncoded {
-	data := NewData(arrow.RunLengthEncodedOf(runEnds.DataType(), values.DataType()), logicalLength,
+func NewRunEndEncodedArray(runEnds, values arrow.Array, logicalLength, offset int) *RunEndEncoded {
+	data := NewData(arrow.RunEndEncodedOf(runEnds.DataType(), values.DataType()), logicalLength,
 		[]*memory.Buffer{nil}, []arrow.ArrayData{runEnds.Data(), values.Data()}, 0, offset)
 	defer data.Release()
-	return NewRunLengthEncodedData(data)
+	return NewRunEndEncodedData(data)
 }
 
-func NewRunLengthEncodedData(data arrow.ArrayData) *RunLengthEncoded {
-	r := &RunLengthEncoded{}
+func NewRunEndEncodedData(data arrow.ArrayData) *RunEndEncoded {
+	r := &RunEndEncoded{}
 	r.refCount = 1
 	r.setData(data.(*Data))
 	return r
 }
 
-func (r *RunLengthEncoded) Values() arrow.Array     { return r.values }
-func (r *RunLengthEncoded) RunEndsArr() arrow.Array { return r.ends }
+func (r *RunEndEncoded) Values() arrow.Array     { return r.values }
+func (r *RunEndEncoded) RunEndsArr() arrow.Array { return r.ends }
 
-func (r *RunLengthEncoded) Retain() {
+func (r *RunEndEncoded) Retain() {
 	r.array.Retain()
 	r.values.Retain()
 	r.ends.Retain()
 }
 
-func (r *RunLengthEncoded) Release() {
+func (r *RunEndEncoded) Release() {
 	r.array.Release()
 	r.values.Release()
 	r.ends.Release()
 }
 
-func (r *RunLengthEncoded) setData(data *Data) {
+func (r *RunEndEncoded) setData(data *Data) {
 	if len(data.childData) != 2 {
 		panic(fmt.Errorf("%w: arrow/array: RLE array must have exactly 2 children", arrow.ErrInvalid))
 	}
-	debug.Assert(data.dtype.ID() == arrow.RUN_LENGTH_ENCODED, "invalid type for RunLengthEncoded")
-	if !data.dtype.(*arrow.RunLengthEncodedType).ValidRunEndsType(data.childData[0].DataType()) {
+	debug.Assert(data.dtype.ID() == arrow.RUN_END_ENCODED, "invalid type for RunLengthEncoded")
+	if !data.dtype.(*arrow.RunEndEncodedType).ValidRunEndsType(data.childData[0].DataType()) {
 		panic(fmt.Errorf("%w: arrow/array: run ends array must be int16, int32, or int64", arrow.ErrInvalid))
 	}
 	if data.childData[0].NullN() > 0 {
@@ -84,15 +84,15 @@ func (r *RunLengthEncoded) setData(data *Data) {
 	r.values = MakeFromData(r.data.childData[1])
 }
 
-func (r *RunLengthEncoded) GetPhysicalOffset() int {
-	return rle.FindPhysicalOffset(r.data)
+func (r *RunEndEncoded) GetPhysicalOffset() int {
+	return encoded.FindPhysicalOffset(r.data)
 }
 
-func (r *RunLengthEncoded) GetPhysicalLength() int {
-	return rle.GetPhysicalLength(r.data)
+func (r *RunEndEncoded) GetPhysicalLength() int {
+	return encoded.GetPhysicalLength(r.data)
 }
 
-func (r *RunLengthEncoded) String() string {
+func (r *RunEndEncoded) String() string {
 	var buf bytes.Buffer
 	buf.WriteByte('[')
 	for i := 0; i < r.ends.Len(); i++ {
@@ -108,12 +108,12 @@ func (r *RunLengthEncoded) String() string {
 	return buf.String()
 }
 
-func (r *RunLengthEncoded) getOneForMarshal(i int) interface{} {
+func (r *RunEndEncoded) getOneForMarshal(i int) interface{} {
 	return [2]interface{}{r.ends.(arraymarshal).getOneForMarshal(i),
 		r.values.(arraymarshal).getOneForMarshal(i)}
 }
 
-func (r *RunLengthEncoded) MarshalJSON() ([]byte, error) {
+func (r *RunEndEncoded) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	buf.WriteByte('[')
@@ -129,10 +129,10 @@ func (r *RunLengthEncoded) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func arrayRunLengthEncodedEqual(l, r *RunLengthEncoded) bool {
+func arrayRunEndEncodedEqual(l, r *RunEndEncoded) bool {
 	// types were already checked before getting here, so we know
 	// the encoded types are equal
-	mr := rle.NewMergedRuns([2]arrow.Array{l, r})
+	mr := encoded.NewMergedRuns([2]arrow.Array{l, r})
 	for mr.Next() {
 		lIndex := mr.IndexIntoArray(0)
 		rIndex := mr.IndexIntoArray(1)
@@ -143,10 +143,10 @@ func arrayRunLengthEncodedEqual(l, r *RunLengthEncoded) bool {
 	return true
 }
 
-func arrayRunLengthEncodedApproxEqual(l, r *RunLengthEncoded, opt equalOption) bool {
+func arrayRunEndEncodedApproxEqual(l, r *RunEndEncoded, opt equalOption) bool {
 	// types were already checked before getting here, so we know
 	// the encoded types are equal
-	mr := rle.NewMergedRuns([2]arrow.Array{l, r})
+	mr := encoded.NewMergedRuns([2]arrow.Array{l, r})
 	for mr.Next() {
 		lIndex := mr.IndexIntoArray(0)
 		rIndex := mr.IndexIntoArray(1)
@@ -155,5 +155,4 @@ func arrayRunLengthEncodedApproxEqual(l, r *RunLengthEncoded, opt equalOption) b
 		}
 	}
 	return true
-
 }

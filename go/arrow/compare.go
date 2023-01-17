@@ -121,8 +121,8 @@ func TypeEqual(left, right DataType, opts ...TypeEqualOption) bool {
 	case *TimestampType:
 		r := right.(*TimestampType)
 		return l.Unit == r.Unit && l.TimeZone == r.TimeZone
-	case *RunLengthEncodedType:
-		r := right.(*RunLengthEncodedType)
+	case *RunEndEncodedType:
+		r := right.(*RunEndEncodedType)
 		return TypeEqual(l.Encoded(), r.Encoded(), opts...) &&
 			TypeEqual(l.ends, r.ends, opts...)
 	default:

@@ -150,7 +150,7 @@ const (
 	// calendar interval with three fields
 	INTERVAL_MONTH_DAY_NANO
 
-	RUN_LENGTH_ENCODED
+	RUN_END_ENCODED
 
 	// Alias to ensure we do not break any consumers
 	DECIMAL = DECIMAL128

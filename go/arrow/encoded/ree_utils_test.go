@@ -14,17 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package rle_test
+package encoded_test
 
 import (
 	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/memory"
-	"github.com/apache/arrow/go/v10/arrow/rle"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/encoded"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,13 +49,13 @@ func TestFindPhysicalOffset(t *testing.T) {
 		{[]int32{2, 4, 6}, 10000, 3},
 	}
 
-	rleType := arrow.RunLengthEncodedOf(arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int32)
+	reeType := arrow.RunEndEncodedOf(arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int32)
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%v find %d", tt.vals, tt.offset), func(t *testing.T) {
 			child := array.NewData(arrow.PrimitiveTypes.Int32, len(tt.vals), []*memory.Buffer{nil, memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(tt.vals))}, nil, 0, 0)
-			arr := array.NewData(rleType, -1, nil, []arrow.ArrayData{child}, 0, tt.offset)
+			arr := array.NewData(reeType, -1, nil, []arrow.ArrayData{child}, 0, tt.offset)
 
-			assert.Equal(t, tt.exp, rle.FindPhysicalOffset(arr))
+			assert.Equal(t, tt.exp, encoded.FindPhysicalOffset(arr))
 		})
 	}
 }
@@ -88,9 +88,9 @@ func TestMergedRunsIter(t *testing.T) {
 	leftChild = array.NewSlice(leftChild, int64(leftChildOffset), int64(leftChildOffset)+int64(leftRunEnds.Len()))
 	rightChild = array.NewSlice(rightChild, int64(rightChildOffset), int64(rightChild.Len()))
 
-	leftArray := arrow.Array(array.NewRunLengthEncodedArray(leftRunEnds, leftChild, 1050, 0))
+	leftArray := arrow.Array(array.NewRunEndEncodedArray(leftRunEnds, leftChild, 1050, 0))
 	defer leftArray.Release()
-	rightArray := arrow.Array(array.NewRunLengthEncodedArray(rightRunEnds, rightChild, 2050, 0))
+	rightArray := arrow.Array(array.NewRunEndEncodedArray(rightRunEnds, rightChild, 2050, 0))
 	defer rightArray.Release()
 
 	leftArray = array.NewSlice(leftArray, int64(leftPrntOffset), int64(leftArray.Len()))
@@ -99,7 +99,7 @@ func TestMergedRunsIter(t *testing.T) {
 	defer rightArray.Release()
 
 	pos, logicalPos := 0, 0
-	mr := rle.NewMergedRuns([2]arrow.Array{leftArray, rightArray})
+	mr := encoded.NewMergedRuns([2]arrow.Array{leftArray, rightArray})
 	for mr.Next() {
 		assert.EqualValues(t, expectedRunLengths[pos], mr.RunLength())
 		assert.EqualValues(t, expectedLeftVisits[pos], mr.IndexIntoBuffer(0))
@@ -115,7 +115,7 @@ func TestMergedRunsIter(t *testing.T) {
 	t.Run("left array only", func(t *testing.T) {
 		leftOnlyRunLengths := []int32{5, 10, 5, 5, 25}
 		pos, logicalPos := 0, 0
-		mr := rle.NewMergedRuns([2]arrow.Array{leftArray, leftArray})
+		mr := encoded.NewMergedRuns([2]arrow.Array{leftArray, leftArray})
 		for mr.Next() {
 			assert.EqualValues(t, leftOnlyRunLengths[pos], mr.RunLength())
 			assert.EqualValues(t, 110+pos, mr.IndexIntoBuffer(0))
@@ -132,7 +132,7 @@ func TestMergedRunsIter(t *testing.T) {
 	t.Run("right array only", func(t *testing.T) {
 		rightOnlyRunLengths := []int32{5, 4, 16, 25}
 		pos, logicalPos := 0, 0
-		mr := rle.NewMergedRuns([2]arrow.Array{rightArray, rightArray})
+		mr := encoded.NewMergedRuns([2]arrow.Array{rightArray, rightArray})
 		for mr.Next() {
 			assert.EqualValues(t, rightOnlyRunLengths[pos], mr.RunLength())
 			assert.EqualValues(t, 205+pos, mr.IndexIntoBuffer(0))

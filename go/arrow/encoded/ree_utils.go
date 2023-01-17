@@ -14,13 +14,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package rle
+package encoded
 
 import (
 	"math"
 	"sort"
 
-	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v11/arrow"
 )
 
 func FindPhysicalOffset(arr arrow.ArrayData) int {
@@ -109,7 +109,7 @@ func NewMergedRuns(inputs [2]arrow.Array) *MergedRuns {
 
 	mr := &MergedRuns{inputs: inputs, logicalLen: inputs[0].Len()}
 	for i, in := range inputs {
-		if in.DataType().ID() != arrow.RUN_LENGTH_ENCODED {
+		if in.DataType().ID() != arrow.RUN_END_ENCODED {
 			panic("arrow/rle: NewMergedRuns can only be called with RunLengthEncoded arrays")
 		}
 		if in.Len() != mr.logicalLen {

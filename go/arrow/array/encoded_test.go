@@ -20,9 +20,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,7 +33,7 @@ var (
 )
 
 func TestMakeRLEArray(t *testing.T) {
-	rleArr := array.NewRunLengthEncodedArray(int32Values, stringValues, 3, 0)
+	rleArr := array.NewRunEndEncodedArray(int32Values, stringValues, 3, 0)
 	defer rleArr.Release()
 
 	arrData := rleArr.Data()
@@ -41,11 +41,11 @@ func TestMakeRLEArray(t *testing.T) {
 	defer newArr.Release()
 
 	assert.Same(t, newArr.Data(), arrData)
-	assert.IsType(t, (*array.RunLengthEncoded)(nil), newArr)
+	assert.IsType(t, (*array.RunEndEncoded)(nil), newArr)
 }
 
 func TestRLEFromRunEndsAndValues(t *testing.T) {
-	rleArray := array.NewRunLengthEncodedArray(int32Values, int32Values, 3, 0)
+	rleArray := array.NewRunEndEncodedArray(int32Values, int32Values, 3, 0)
 	defer rleArray.Release()
 
 	assert.EqualValues(t, 3, rleArray.Len())
@@ -57,7 +57,7 @@ func TestRLEFromRunEndsAndValues(t *testing.T) {
 	assert.Len(t, rleArray.Data().Buffers(), 1)
 
 	// explicit offset
-	rleArray = array.NewRunLengthEncodedArray(int32Values, stringValues, 2, 1)
+	rleArray = array.NewRunEndEncodedArray(int32Values, stringValues, 2, 1)
 	defer rleArray.Release()
 
 	assert.EqualValues(t, 2, rleArray.Len())
@@ -67,10 +67,10 @@ func TestRLEFromRunEndsAndValues(t *testing.T) {
 	assert.Zero(t, rleArray.Data().NullN())
 
 	assert.PanicsWithError(t, "invalid: arrow/array: run ends array must be int16, int32, or int64", func() {
-		array.NewRunLengthEncodedArray(stringValues, int32Values, 3, 0)
+		array.NewRunEndEncodedArray(stringValues, int32Values, 3, 0)
 	})
 	assert.PanicsWithError(t, "invalid: arrow/array: run ends array cannot contain nulls", func() {
-		array.NewRunLengthEncodedArray(int32OnlyNull, int32Values, 3, 0)
+		array.NewRunEndEncodedArray(int32OnlyNull, int32Values, 3, 0)
 	})
 }
 
@@ -84,37 +84,37 @@ func TestRunLengthEncodedOffsetLength(t *testing.T) {
 	values, _, _ := array.FromJSON(mem, arrow.BinaryTypes.String, strings.NewReader(`["Hello", "beautiful", "world", "of", "RLE"]`))
 	defer values.Release()
 
-	rleArray := array.NewRunLengthEncodedArray(runEnds, values, 500, 0)
+	rleArray := array.NewRunEndEncodedArray(runEnds, values, 500, 0)
 	defer rleArray.Release()
 
 	assert.EqualValues(t, 5, rleArray.GetPhysicalLength())
 	assert.EqualValues(t, 0, rleArray.GetPhysicalOffset())
 
-	slice := array.NewSlice(rleArray, 199, 204).(*array.RunLengthEncoded)
+	slice := array.NewSlice(rleArray, 199, 204).(*array.RunEndEncoded)
 	defer slice.Release()
 
 	assert.EqualValues(t, 2, slice.GetPhysicalLength())
 	assert.EqualValues(t, 1, slice.GetPhysicalOffset())
 
-	slice2 := array.NewSlice(rleArray, 199, 300).(*array.RunLengthEncoded)
+	slice2 := array.NewSlice(rleArray, 199, 300).(*array.RunEndEncoded)
 	defer slice2.Release()
 
 	assert.EqualValues(t, 2, slice2.GetPhysicalLength())
 	assert.EqualValues(t, 1, slice2.GetPhysicalOffset())
 
-	slice3 := array.NewSlice(rleArray, 400, 500).(*array.RunLengthEncoded)
+	slice3 := array.NewSlice(rleArray, 400, 500).(*array.RunEndEncoded)
 	defer slice3.Release()
 
 	assert.EqualValues(t, 1, slice3.GetPhysicalLength())
 	assert.EqualValues(t, 4, slice3.GetPhysicalOffset())
 
-	slice4 := array.NewSlice(rleArray, 0, 150).(*array.RunLengthEncoded)
+	slice4 := array.NewSlice(rleArray, 0, 150).(*array.RunEndEncoded)
 	defer slice4.Release()
 
 	assert.EqualValues(t, 2, slice4.GetPhysicalLength())
 	assert.EqualValues(t, 0, slice4.GetPhysicalOffset())
 
-	zeroLengthAtEnd := array.NewSlice(rleArray, 500, 500).(*array.RunLengthEncoded)
+	zeroLengthAtEnd := array.NewSlice(rleArray, 500, 500).(*array.RunEndEncoded)
 	defer zeroLengthAtEnd.Release()
 
 	assert.EqualValues(t, 0, zeroLengthAtEnd.GetPhysicalLength())
@@ -122,7 +122,7 @@ func TestRunLengthEncodedOffsetLength(t *testing.T) {
 }
 
 func TestRLECompare(t *testing.T) {
-	rleArray := array.NewRunLengthEncodedArray(int32Values, stringValues, 30, 0)
+	rleArray := array.NewRunEndEncodedArray(int32Values, stringValues, 30, 0)
 	// second that is a copy of the first
 	standardEquals := array.MakeFromData(rleArray.Data().(*array.Data).Copy())
 
@@ -144,7 +144,7 @@ func TestRLECompare(t *testing.T) {
 			strings.NewReader(`["Hello", "Hello", "World", null]`))
 		defer strValues.Release()
 
-		dupArr := array.NewRunLengthEncodedArray(dupRunEnds, strValues, 30, 0)
+		dupArr := array.NewRunEndEncodedArray(dupRunEnds, strValues, 30, 0)
 		defer dupArr.Release()
 
 		assert.Truef(t, array.Equal(rleArray, dupArr), "expected: %sgot: %s", rleArray, dupArr)
@@ -156,7 +156,7 @@ func TestRLECompare(t *testing.T) {
 		defer emptyRuns.Release()
 		defer emptyVals.Release()
 
-		emptyArr := array.NewRunLengthEncodedArray(emptyRuns, emptyVals, 0, 0)
+		emptyArr := array.NewRunEndEncodedArray(emptyRuns, emptyVals, 0, 0)
 		defer emptyArr.Release()
 
 		dataCopy := emptyArr.Data().(*array.Data).Copy()
@@ -190,11 +190,11 @@ func TestRLECompare(t *testing.T) {
 			valsc.Release()
 		}()
 
-		differentOffsetsA := array.NewRunLengthEncodedArray(offsetsa, valsa, 60, 0)
+		differentOffsetsA := array.NewRunEndEncodedArray(offsetsa, valsa, 60, 0)
 		defer differentOffsetsA.Release()
-		differentOffsetsB := array.NewRunLengthEncodedArray(offsetsb, valsb, 100, 0)
+		differentOffsetsB := array.NewRunEndEncodedArray(offsetsb, valsb, 100, 0)
 		defer differentOffsetsB.Release()
-		differentOffsetsC := array.NewRunLengthEncodedArray(offsetsc, valsc, 7, 0)
+		differentOffsetsC := array.NewRunEndEncodedArray(offsetsc, valsc, 7, 0)
 		defer differentOffsetsC.Release()
 
 		sliceA := array.NewSlice(differentOffsetsA, 9, 16)

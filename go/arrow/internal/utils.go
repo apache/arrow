@@ -40,7 +40,7 @@ func HasValidityBitmap(id arrow.Type, version flatbuf.MetadataVersion) bool {
 	}
 
 	switch id {
-	case arrow.NULL, arrow.DENSE_UNION, arrow.SPARSE_UNION, arrow.RUN_LENGTH_ENCODED:
+	case arrow.NULL, arrow.DENSE_UNION, arrow.SPARSE_UNION, arrow.RUN_END_ENCODED:
 		return false
 	}
 	return true

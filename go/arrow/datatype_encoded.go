@@ -21,41 +21,41 @@ type EncodedType interface {
 	Encoded() DataType
 }
 
-// RunLengthEncodedType is the datatype to represent a run-length encoded
+// RunEndEncodedType is the datatype to represent a run-end encoded
 // array of data.
-type RunLengthEncodedType struct {
+type RunEndEncodedType struct {
 	ends DataType
 	enc  DataType
 }
 
-func RunLengthEncodedOf(runEnds, encoded DataType) *RunLengthEncodedType {
-	return &RunLengthEncodedType{ends: runEnds, enc: encoded}
+func RunEndEncodedOf(runEnds, encoded DataType) *RunEndEncodedType {
+	return &RunEndEncodedType{ends: runEnds, enc: encoded}
 }
 
-func (*RunLengthEncodedType) ID() Type     { return RUN_LENGTH_ENCODED }
-func (*RunLengthEncodedType) Name() string { return "run_length_encoded" }
-func (*RunLengthEncodedType) Layout() DataTypeLayout {
+func (*RunEndEncodedType) ID() Type     { return RUN_END_ENCODED }
+func (*RunEndEncodedType) Name() string { return "run_end_encoded" }
+func (*RunEndEncodedType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecAlwaysNull()}}
 }
 
-func (t *RunLengthEncodedType) String() string {
+func (t *RunEndEncodedType) String() string {
 	return t.Name() + "<run_ends: " + t.ends.String() + ", values: " + t.enc.String() + ">"
 }
 
-func (t *RunLengthEncodedType) Fingerprint() string {
+func (t *RunEndEncodedType) Fingerprint() string {
 	return typeFingerprint(t) + "{" + t.ends.Fingerprint() + ";" + t.enc.Fingerprint() + ";}"
 }
 
-func (t *RunLengthEncodedType) Encoded() DataType { return t.enc }
+func (t *RunEndEncodedType) Encoded() DataType { return t.enc }
 
-func (t *RunLengthEncodedType) Fields() []Field {
+func (t *RunEndEncodedType) Fields() []Field {
 	return []Field{
 		{Name: "run_ends", Type: t.ends},
-		{Name: "encoded", Type: t.enc, Nullable: true},
+		{Name: "values", Type: t.enc, Nullable: true},
 	}
 }
 
-func (*RunLengthEncodedType) ValidRunEndsType(dt DataType) bool {
+func (*RunEndEncodedType) ValidRunEndsType(dt DataType) bool {
 	switch dt.ID() {
 	case INT16, INT32, INT64:
 		return true
