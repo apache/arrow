@@ -33,7 +33,6 @@
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
-#include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
 
 namespace parquet {
@@ -164,7 +163,7 @@ std::unique_ptr<ColumnCryptoMetaData> ColumnCryptoMetaData::Make(
 }
 
 ColumnCryptoMetaData::ColumnCryptoMetaData(const uint8_t* metadata)
-    : impl_(new ColumnCryptoMetaDataImpl(
+    : impl_(std::make_unique<ColumnCryptoMetaDataImpl>(
           reinterpret_cast<const format::ColumnCryptoMetaData*>(metadata))) {}
 
 ColumnCryptoMetaData::~ColumnCryptoMetaData() = default;

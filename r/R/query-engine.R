@@ -83,7 +83,9 @@ ExecPlan <- R6Class("ExecPlan",
           # SinkNode, so if there are any steps done after head/tail, we need to
           # evaluate the query up to then and then do a new query for the rest.
           # as_record_batch_reader() will build and run an ExecPlan
-          node <- self$SourceNode(as_record_batch_reader(.data$.data))
+          reader <- as_record_batch_reader(.data$.data)
+          on.exit(reader$.unsafe_delete())
+          node <- self$SourceNode(reader)
         } else {
           # Recurse
           node <- self$Build(.data$.data)
@@ -260,6 +262,10 @@ ExecPlan <- R6Class("ExecPlan",
     },
     ToString = function() {
       ExecPlan_ToString(self)
+    },
+    .unsafe_delete = function() {
+      ExecPlan_UnsafeDelete(self)
+      super$.unsafe_delete()
     }
   )
 )
@@ -361,6 +367,14 @@ ExecPlanReader <- R6Class("ExecPlanReader",
   )
 )
 
+#' @export
+head.ExecPlanReader <- function(x, n = 6L, ...) {
+  # We need to make sure that the head() of an ExecPlanReader
+  # is also an ExecPlanReader so that the evaluation takes place
+  # in a way that supports calls into R.
+  as_record_batch_reader(as_adq(RecordBatchReader__Head(x, n)))
+}
+
 do_exec_plan_substrait <- function(substrait_plan) {
   if (is.string(substrait_plan)) {
     substrait_plan <- substrait__internal__SubstraitFromJSON(substrait_plan)
@@ -371,6 +385,8 @@ do_exec_plan_substrait <- function(substrait_plan) {
   }
 
   plan <- ExecPlan$create()
+  on.exit(plan$.unsafe_delete())
+
   ExecPlan_run_substrait(plan, substrait_plan)
 }
 

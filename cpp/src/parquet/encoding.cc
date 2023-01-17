@@ -658,7 +658,7 @@ void DictEncoderImpl<DType>::WriteDict(uint8_t* buffer) {
 // ByteArray and FLBA already have the dictionary encoded in their data heaps
 template <>
 void DictEncoderImpl<ByteArrayType>::WriteDict(uint8_t* buffer) {
-  memo_table_.VisitValues(0, [&buffer](const ::std::string_view& v) {
+  memo_table_.VisitValues(0, [&buffer](::std::string_view v) {
     uint32_t len = static_cast<uint32_t>(v.length());
     memcpy(buffer, &len, sizeof(len));
     buffer += sizeof(len);
@@ -669,7 +669,7 @@ void DictEncoderImpl<ByteArrayType>::WriteDict(uint8_t* buffer) {
 
 template <>
 void DictEncoderImpl<FLBAType>::WriteDict(uint8_t* buffer) {
-  memo_table_.VisitValues(0, [&](const ::std::string_view& v) {
+  memo_table_.VisitValues(0, [&](::std::string_view v) {
     DCHECK_EQ(v.length(), static_cast<size_t>(type_length_));
     memcpy(buffer, v.data(), type_length_);
     buffer += type_length_;
@@ -1171,7 +1171,7 @@ PlainBooleanDecoder::PlainBooleanDecoder(const ColumnDescriptor* descr)
 
 void PlainBooleanDecoder::SetData(int num_values, const uint8_t* data, int len) {
   num_values_ = num_values;
-  bit_reader_.reset(new bit_util::BitReader(data, len));
+  bit_reader_ = std::make_unique<bit_util::BitReader>(data, len);
 }
 
 int PlainBooleanDecoder::DecodeArrow(
@@ -2372,7 +2372,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   // DeltaByteArrayDecoder
   void SetDecoder(int num_values, std::shared_ptr<::arrow::bit_util::BitReader> decoder) {
     this->num_values_ = num_values;
-    decoder_ = decoder;
+    decoder_ = std::move(decoder);
     InitHeader();
   }
 
@@ -2459,7 +2459,9 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
         ParquetException::EofException();
       }
       if (bit_width_data[i] > kMaxDeltaBitWidth) {
-        throw ParquetException("delta bit width larger than integer bit width");
+        throw ParquetException("delta bit width " + std::to_string(bit_width_data[i]) +
+                               " larger than integer bit width " +
+                               std::to_string(kMaxDeltaBitWidth));
       }
     }
     mini_block_idx_ = 0;
@@ -2479,7 +2481,20 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
       if (ARROW_PREDICT_FALSE(values_current_mini_block_ == 0)) {
         if (ARROW_PREDICT_FALSE(!block_initialized_)) {
           buffer[i++] = last_value_;
-          if (ARROW_PREDICT_FALSE(i == max_values)) break;
+          DCHECK_EQ(i, 1);  // we're at the beginning of the page
+          if (ARROW_PREDICT_FALSE(i == max_values)) {
+            // When block is uninitialized and i reaches max_values we have two
+            // different possibilities:
+            // 1. total_value_count_ == 1, which means that the page may have only
+            // one value (encoded in the header), and we should not initialize
+            // any block.
+            // 2. total_value_count_ != 1, which means we should initialize the
+            // incoming block for subsequent reads.
+            if (total_value_count_ != 1) {
+              InitBlock();
+            }
+            break;
+          }
           InitBlock();
         } else {
           ++mini_block_idx_;
@@ -3040,11 +3055,9 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
   } else if (encoding == Encoding::BYTE_STREAM_SPLIT) {
     switch (type_num) {
       case Type::FLOAT:
-        return std::unique_ptr<Encoder>(
-            new ByteStreamSplitEncoder<FloatType>(descr, pool));
+        return std::make_unique<ByteStreamSplitEncoder<FloatType>>(descr, pool);
       case Type::DOUBLE:
-        return std::unique_ptr<Encoder>(
-            new ByteStreamSplitEncoder<DoubleType>(descr, pool));
+        return std::make_unique<ByteStreamSplitEncoder<DoubleType>>(descr, pool);
       default:
         throw ParquetException("BYTE_STREAM_SPLIT only supports FLOAT and DOUBLE");
         break;
@@ -3052,9 +3065,9 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
   } else if (encoding == Encoding::DELTA_BINARY_PACKED) {
     switch (type_num) {
       case Type::INT32:
-        return std::unique_ptr<Encoder>(new DeltaBitPackEncoder<Int32Type>(descr, pool));
+        return std::make_unique<DeltaBitPackEncoder<Int32Type>>(descr, pool);
       case Type::INT64:
-        return std::unique_ptr<Encoder>(new DeltaBitPackEncoder<Int64Type>(descr, pool));
+        return std::make_unique<DeltaBitPackEncoder<Int64Type>>(descr, pool);
       default:
         throw ParquetException(
             "DELTA_BINARY_PACKED encoder only supports INT32 and INT64");
@@ -3123,7 +3136,7 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
     throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
   } else if (encoding == Encoding::RLE) {
     if (type_num == Type::BOOLEAN) {
-      return std::unique_ptr<Decoder>(new RleBooleanDecoder(descr));
+      return std::make_unique<RleBooleanDecoder>(descr);
     }
     throw ParquetException("RLE encoding only supports BOOLEAN");
   } else {

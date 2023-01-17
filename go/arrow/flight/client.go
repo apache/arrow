@@ -234,7 +234,7 @@ type ClientMiddleware struct {
 }
 
 type client struct {
-	conn        *grpc.ClientConn
+	conn        grpc.ClientConnInterface
 	authHandler ClientAuthHandler
 
 	FlightServiceClient
@@ -296,6 +296,11 @@ func NewClientWithMiddleware(addr string, auth ClientAuthHandler, middleware []C
 	return &client{conn: conn, FlightServiceClient: flight.NewFlightServiceClient(conn), authHandler: auth}, nil
 }
 
+func NewClientFromConn(cc grpc.ClientConnInterface, auth ClientAuthHandler) Client {
+	return &client{conn: cc,
+		FlightServiceClient: flight.NewFlightServiceClient(cc), authHandler: auth}
+}
+
 func (c *client) AuthenticateBasicToken(ctx context.Context, username, password string, opts ...grpc.CallOption) (context.Context, error) {
 	authCtx := metadata.AppendToOutgoingContext(ctx, "Authorization", "Basic "+base64.RawStdEncoding.EncodeToString([]byte(strings.Join([]string{username, password}, ":"))))
 
@@ -345,5 +350,8 @@ func (c *client) Authenticate(ctx context.Context, opts ...grpc.CallOption) erro
 
 func (c *client) Close() error {
 	c.FlightServiceClient = nil
-	return c.conn.Close()
+	if cl, ok := c.conn.(io.Closer); ok {
+		return cl.Close()
+	}
+	return nil
 }

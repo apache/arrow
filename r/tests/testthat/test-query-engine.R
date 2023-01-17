@@ -79,6 +79,17 @@ test_that("ExecPlanReader evaluates head() lazily", {
   # evaluate to TRUE (i.e., the reader may or may not be completely drained).
 })
 
+test_that("head() of an ExecPlanReader is an ExecPlanReader", {
+  reader <- as_record_batch_reader(as_adq(arrow_table(x = 1:10)))
+  expect_r6_class(reader, "ExecPlanReader")
+  reader_head <- head(reader, 6)
+  expect_r6_class(reader_head, "ExecPlanReader")
+  expect_equal(
+    as_arrow_table(reader_head),
+    arrow_table(x = 1:6)
+  )
+})
+
 test_that("do_exec_plan_substrait can evaluate a simple plan", {
   skip_if_not_available("substrait")
 

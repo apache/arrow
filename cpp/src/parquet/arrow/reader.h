@@ -133,6 +133,7 @@ class PARQUET_EXPORT FileReader {
   // fully-materialized arrow::Array instances
   //
   // Returns error status if the column of interest is not flat.
+  // The indicated column index is relative to the schema
   virtual ::arrow::Status GetColumn(int i, std::unique_ptr<ColumnReader>* out) = 0;
 
   /// \brief Return arrow schema for all the columns.
@@ -225,7 +226,21 @@ class PARQUET_EXPORT FileReader {
 
   /// \brief Read the given columns into a Table
   ///
-  /// The indicated column indices are relative to the schema
+  /// The indicated column indices are relative to the internal representation
+  /// of the parquet table. For instance :
+  /// 0 foo.bar
+  ///       foo.bar.baz           0
+  ///       foo.bar.baz2          1
+  ///   foo.qux                   2
+  /// 1 foo2                      3
+  /// 2 foo3                      4
+  ///
+  /// i=0 will read foo.bar.baz, i=1 will read only foo.bar.baz2 and so on.
+  /// Only leaf fields have indices; foo itself doesn't have an index.
+  /// To get the index for a particular leaf field, one can use
+  /// manifest().schema_fields to get the top level fields, and then walk the
+  /// tree to identify the relevant leaf fields and access its column_index.
+  /// To get the total number of leaf fields, use FileMetadata.num_columns().
   virtual ::arrow::Status ReadTable(const std::vector<int>& column_indices,
                                     std::shared_ptr<::arrow::Table>* out) = 0;
 

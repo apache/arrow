@@ -727,9 +727,48 @@ class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
 template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_decimal_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
+  using ValueType = typename arrow::TypeTraits<T>::CType;
+
  public:
   Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
-    return Status::NotImplemented("Extend");
+    RETURN_NOT_OK(this->Reserve(size - offset));
+    int32_t precision = this->primitive_type_->precision();
+    int32_t scale = this->primitive_type_->scale();
+
+    auto append_value = [this, precision, scale](double value) {
+      ARROW_ASSIGN_OR_RAISE(ValueType converted,
+                            ValueType::FromReal(value, precision, scale));
+      this->primitive_builder_->UnsafeAppend(converted);
+      return Status::OK();
+    };
+
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
+
+    switch (TYPEOF(x)) {
+      case REALSXP:
+        if (ALTREP(x)) {
+          return VisitVector(RVectorIterator_ALTREP<double>(x, offset), size, append_null,
+                             append_value);
+        } else {
+          return VisitVector(RVectorIterator<double>(x, offset), size, append_null,
+                             append_value);
+        }
+        break;
+      case INTSXP:
+        if (ALTREP(x)) {
+          return VisitVector(RVectorIterator_ALTREP<int>(x, offset), size, append_null,
+                             append_value);
+        } else {
+          return VisitVector(RVectorIterator<int>(x, offset), size, append_null,
+                             append_value);
+        }
+        break;
+      default:
+        return Status::NotImplemented("Conversion to decimal from non-integer/double");
+    }
   }
 };
 
@@ -1270,7 +1309,7 @@ std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
   if (can_convert_native(x) && type->id() != Type::EXTENSION) {
     // short circuit if `x` is an altrep vector that shells a chunked Array
     auto maybe = altrep::vec_to_arrow_altrep_bypass(x);
-    if (maybe.get()) {
+    if (maybe.get() && maybe->type()->Equals(type)) {
       return maybe;
     }
 

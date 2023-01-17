@@ -28,13 +28,16 @@
 
 namespace arrow {
 
-#define SCALAR_VISIT_INLINE(TYPE_CLASS) \
-  case TYPE_CLASS##Type::type_id:       \
-    return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Scalar&>(scalar));
+#define SCALAR_VISIT_INLINE(TYPE_CLASS)                                              \
+  case TYPE_CLASS##Type::type_id:                                                    \
+    return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Scalar&>(scalar), \
+                          std::forward<ARGS>(args)...);
 
 /// \brief Apply the visitors Visit() method specialized to the scalar type
 ///
 /// \tparam VISITOR Visitor type that implements Visit() for all scalar types.
+/// \tparam ARGS Additional arguments, if any, will be passed to the Visit function after
+/// the `scalar` argument
 /// \return Status
 ///
 /// A visitor is a type that implements specialized logic for each Arrow type.
@@ -42,15 +45,15 @@ namespace arrow {
 ///
 /// ```
 /// class ExampleVisitor {
-///   arrow::Status Visit(arrow::Int32Scalar arr) { ... }
-///   arrow::Status Visit(arrow::Int64Scalar arr) { ... }
+///   arrow::Status Visit(arrow::Int32Scalar scalar) { ... }
+///   arrow::Status Visit(arrow::Int64Scalar scalar) { ... }
 ///   ...
 /// }
 /// ExampleVisitor visitor;
 /// VisitScalarInline(some_scalar, &visitor);
 /// ```
-template <typename VISITOR>
-inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
+template <typename VISITOR, typename... ARGS>
+inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor, ARGS&&... args) {
   switch (scalar.type->id()) {
     ARROW_GENERATE_FOR_ALL_TYPES(SCALAR_VISIT_INLINE);
     default:

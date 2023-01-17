@@ -720,6 +720,11 @@ class TableTest < Test::Unit::TestCase
                                            schema: @table.schema))
           end
 
+          test("csv, return value") do
+            output = create_output(".csv")
+            assert_equal(@table, @table.save(output))
+          end
+
           test("csv.gz") do
             output = create_output(".csv.gz")
             @table.save(output)
@@ -858,6 +863,76 @@ chris\t-1
           loaded_table = Arrow::Table.load(input)
           assert_equal(@table.to_s, loaded_table.to_s)
         end
+      end
+    end
+
+    sub_test_case("GC") do
+      def setup
+        table = Arrow::Table.new(integer: [1, 2, 3],
+                                 string: ["a", "b", "c"])
+        @buffer = Arrow::ResizableBuffer.new(1024)
+        table.save(@buffer, format: :arrow)
+        @loaded_table = Arrow::Table.load(@buffer)
+      end
+
+      def test_chunked_array
+        chunked_array = @loaded_table[0].data
+        assert_equal(@buffer,
+                     chunked_array.instance_variable_get(:@input).buffer)
+      end
+
+      def test_array
+        array = @loaded_table[0].data.chunks[0]
+        assert_equal(@buffer,
+                     array.instance_variable_get(:@input).buffer)
+      end
+
+      def test_record_batch
+        record_batch = @loaded_table.each_record_batch.first
+        assert_equal(@buffer,
+                     record_batch.instance_variable_get(:@input).buffer)
+      end
+
+      def test_record_batch_array
+        array = @loaded_table.each_record_batch.first[0].data
+        assert_equal(@buffer,
+                     array.instance_variable_get(:@input).buffer)
+      end
+
+      def test_record_batch_table
+        table = @loaded_table.each_record_batch.first.to_table
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+
+      def test_slice
+        table = @loaded_table.slice(0..-1)
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+
+      def test_merge
+        table = @loaded_table.merge({})
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+
+      def test_remove_column
+        table = @loaded_table.remove_column(0)
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+
+      def test_pack
+        table = @loaded_table.pack
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
+      end
+
+      def test_join
+        table = @loaded_table.join(@loaded_table, :integer)
+        assert_equal(@buffer,
+                     table.instance_variable_get(:@input).buffer)
       end
     end
   end
@@ -1056,6 +1131,19 @@ visible: false
   end
 
   sub_test_case("#join") do
+    test("keys: nil (natural join)") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["string", ["one", "three"]],
+                                    ]),
+                   table1.join(table2))
+    end
+
     test("keys: String") do
       table1 = Arrow::Table.new(key: [1, 2, 3],
                                 number: [10, 20, 30])
@@ -1064,7 +1152,6 @@ visible: false
       assert_equal(Arrow::Table.new([
                                       ["key", [1, 3]],
                                       ["number", [10, 30]],
-                                      ["key", [1, 3]],
                                       ["string", ["one", "three"]],
                                     ]),
                    table1.join(table2, "key"))
@@ -1078,10 +1165,23 @@ visible: false
       assert_equal(Arrow::Table.new([
                                       ["key", [1, 3]],
                                       ["number", [10, 30]],
-                                      ["key", [1, 3]],
                                       ["string", ["one", "three"]],
                                     ]),
                    table1.join(table2, :key))
+    end
+
+    test("keys: [String]") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["key", [1, 3]],
+                                      ["string", ["one", "three"]],
+                                    ]),
+                   table1.join(table2, ["key"]))
     end
 
     test("keys: [String, Symbol]") do
@@ -1113,7 +1213,9 @@ visible: false
                                       ["right_key", [1, 3]],
                                       ["string", ["one", "three"]],
                                     ]),
-                   table1.join(table2, {left: "left_key", right: :right_key}))
+                   table1.join(table2,
+                               {left: "left_key", right: :right_key},
+                               type: :inner))
     end
 
     test("keys: {left: [String, Symbol], right: [Symbol, String]}") do
@@ -1135,10 +1237,11 @@ visible: false
                                {
                                  left: ["left_key1", :left_key2],
                                  right: [:right_key1, "right_key2"],
-                               }))
+                               },
+                               type: :inner))
     end
 
-    test("type:") do
+    test("type: :left_outer") do
       table1 = Arrow::Table.new(key: [1, 2, 3],
                                 number: [10, 20, 30])
       table2 = Arrow::Table.new(key: [3, 1],
@@ -1146,10 +1249,83 @@ visible: false
       assert_equal(Arrow::Table.new([
                                       ["key", [1, 3, 2]],
                                       ["number", [10, 30, 20]],
-                                      ["key", [1, 3, nil]],
                                       ["string", ["one", "three", nil]],
                                     ]),
                    table1.join(table2, "key", type: :left_outer))
+    end
+
+    test("type: :right_outer") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["string", ["one", "three"]],
+                                    ]),
+                   table1.join(table2, "key", type: :right_outer))
+    end
+
+    test("type: :full_outer") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3, 2]],
+                                      ["number", [10, 30, 20]],
+                                      ["string", ["one", "three", nil]],
+                                    ]),
+                   table1.join(table2, "key", type: :full_outer))
+    end
+
+    test("type: :left_semi") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                    ]),
+                   table1.join(table2, "key", type: :left_semi))
+    end
+
+    test("type: :right_semi") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [3, 1]],
+                                      ["string", ["three", "one"]],
+                                    ]),
+                   table1.join(table2, "key", type: :right_semi))
+    end
+
+    test("type: :left_anti") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [2]],
+                                      ["number", [20]],
+                                    ]),
+                   table1.join(table2, "key", type: :left_anti))
+    end
+
+    test("type: :right_anti") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", Arrow::ChunkedArray.new(:uint8)],
+                                      ["string", Arrow::ChunkedArray.new(:string)],
+                                    ]),
+                   table1.join(table2, "key", type: :right_anti))
     end
 
     test("left_outputs: & right_outputs:") do
@@ -1164,6 +1340,95 @@ visible: false
                                "key",
                                left_outputs: ["key", "number"],
                                right_outputs: ["string"]))
+    end
+
+    test("left_outputs: & type: :inner") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["key", [1, 3]],
+                                      ["string", ["one", "three"]]
+                                    ]),
+                   table1.join(table2,
+                               type: :inner,
+                               left_outputs: table1.column_names,
+                               right_outputs: table2.column_names))
+    end
+
+    test("left_outputs: & type: :left_outer") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3, 2]],
+                                      ["number", [10, 30, 20]],
+                                      ["key", [1, 3, nil]],
+                                      ["string", ["one", "three", nil]],
+                                    ]),
+                   table1.join(table2,
+                               type: :left_outer,
+                               left_outputs: table1.column_names,
+                               right_outputs: table2.column_names))
+    end
+
+    test("left_outputs: & type: :right_outer") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["key", [1, 3]],
+                                      ["string", ["one", "three"]],
+                                    ]),
+                   table1.join(table2,
+                               type: :right_outer,
+                               left_outputs: table1.column_names,
+                               right_outputs: table2.column_names))
+    end
+
+    test("left_outputs: & type: :full_outer") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3, 2]],
+                                      ["number", [10, 30, 20]],
+                                      ["key", [1, 3, nil]],
+                                      ["string", ["one", "three", nil]],
+                                    ]),
+                   table1.join(table2,
+                               type: :full_outer,
+                               left_outputs: table1.column_names,
+                               right_outputs: table2.column_names))
+    end
+
+    test("left_suffix: & keys: [String]") do
+      table1 = Arrow::Table.new(key1: [1, 1, 2, 2],
+                                key2: [10, 100, 20, 200],
+                                number: [1010, 1100, 2020, 2200])
+      table2 = Arrow::Table.new(key1: [1, 2, 2],
+                                key2: [100, 20, 50],
+                                string: ["1-100", "2-20", "2-50"])
+      assert_equal(Arrow::Table.new([
+                                      ["key1_left", [1, 2]],
+                                      ["key2_left", [100, 20]],
+                                      ["number", [1100, 2020]],
+                                      ["key1_right", [1, 2]],
+                                      ["key2_right", [100, 20]],
+                                      ["string", ["1-100", "2-20"]],
+                                    ]),
+                    table1.join(table2,
+                                ["key1", "key2"],
+                                left_suffix: "_left",
+                                right_suffix: "_right"))
     end
   end
 end

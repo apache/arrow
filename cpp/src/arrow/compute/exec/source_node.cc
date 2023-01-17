@@ -136,22 +136,24 @@ struct SourceNode : ExecNode {
                              bit_util::CeilDiv(morsel_length, ExecPlan::kMaxBatchSize));
                          batch_count_ += num_batches;
                        }
-                       RETURN_NOT_OK(plan_->query_context()->ScheduleTask([=]() {
-                         int64_t offset = 0;
-                         do {
-                           int64_t batch_size = std::min<int64_t>(
-                               morsel_length - offset, ExecPlan::kMaxBatchSize);
-                           // In order for the legacy batching model to work we must
-                           // not slice batches from the source
-                           if (use_legacy_batching) {
-                             batch_size = morsel_length;
-                           }
-                           ExecBatch batch = morsel.Slice(offset, batch_size);
-                           offset += batch_size;
-                           outputs_[0]->InputReceived(this, std::move(batch));
-                         } while (offset < morsel.length);
-                         return Status::OK();
-                       }));
+                       RETURN_NOT_OK(plan_->query_context()->ScheduleTask(
+                           [this, morsel = std::move(morsel), morsel_length,
+                            use_legacy_batching]() {
+                             int64_t offset = 0;
+                             do {
+                               int64_t batch_size = std::min<int64_t>(
+                                   morsel_length - offset, ExecPlan::kMaxBatchSize);
+                               // In order for the legacy batching model to work we must
+                               // not slice batches from the source
+                               if (use_legacy_batching) {
+                                 batch_size = morsel_length;
+                               }
+                               ExecBatch batch = morsel.Slice(offset, batch_size);
+                               offset += batch_size;
+                               outputs_[0]->InputReceived(this, std::move(batch));
+                             } while (offset < morsel.length);
+                             return Status::OK();
+                           }));
                        lock.lock();
                        if (!backpressure_future_.is_finished()) {
                          EVENT(span_, "Source paused due to backpressure");
@@ -327,6 +329,52 @@ struct SchemaSourceNode : public SourceNode {
   }
 };
 
+struct RecordBatchReaderSourceNode : public SourceNode {
+  RecordBatchReaderSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
+                              arrow::AsyncGenerator<std::optional<ExecBatch>> generator)
+      : SourceNode(plan, schema, generator) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, kKindName));
+    const auto& cast_options =
+        checked_cast<const RecordBatchReaderSourceNodeOptions&>(options);
+    auto& reader = cast_options.reader;
+    auto io_executor = cast_options.io_executor;
+
+    if (reader == nullptr) {
+      return Status::Invalid(kKindName, " requires a reader which is not null");
+    }
+
+    if (io_executor == nullptr) {
+      io_executor = io::internal::GetIOThreadPool();
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto generator, MakeGenerator(reader, io_executor));
+    return plan->EmplaceNode<RecordBatchReaderSourceNode>(plan, reader->schema(),
+                                                          generator);
+  }
+
+  static Result<arrow::AsyncGenerator<std::optional<ExecBatch>>> MakeGenerator(
+      const std::shared_ptr<RecordBatchReader>& reader,
+      arrow::internal::Executor* io_executor) {
+    auto to_exec_batch =
+        [](const std::shared_ptr<RecordBatch>& batch) -> std::optional<ExecBatch> {
+      if (batch == NULLPTR) {
+        return std::nullopt;
+      }
+      return std::optional<ExecBatch>(ExecBatch(*batch));
+    };
+    Iterator<std::shared_ptr<RecordBatch>> batch_it = MakeIteratorFromReader(reader);
+    auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
+    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
+  }
+
+  static const char kKindName[];
+};
+
+const char RecordBatchReaderSourceNode::kKindName[] = "RecordBatchReaderSourceNode";
+
 struct RecordBatchSourceNode
     : public SchemaSourceNode<RecordBatchSourceNode, RecordBatchSourceNodeOptions> {
   using RecordBatchSchemaSourceNode =
@@ -444,6 +492,8 @@ void RegisterSourceNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("source", SourceNode::Make));
   DCHECK_OK(registry->AddFactory("table_source", TableSourceNode::Make));
   DCHECK_OK(registry->AddFactory("record_batch_source", RecordBatchSourceNode::Make));
+  DCHECK_OK(registry->AddFactory("record_batch_reader_source",
+                                 RecordBatchReaderSourceNode::Make));
   DCHECK_OK(registry->AddFactory("exec_batch_source", ExecBatchSourceNode::Make));
   DCHECK_OK(registry->AddFactory("array_vector_source", ArrayVectorSourceNode::Make));
   DCHECK_OK(registry->AddFactory("named_table", MakeNamedTableNode));

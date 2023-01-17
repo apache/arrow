@@ -1989,6 +1989,7 @@ test_that("`as_datetime()`", {
   test_df <- tibble(
     date = as.Date(c("2022-03-22", "2021-07-30", NA)),
     char_date = c("2022-03-22", "2021-07-30 14:32:47", NA),
+    char_date_subsec = c("1970-01-01T00:00:59.123456789", "2000-02-29T23:23:23.999999999", NA),
     char_date_non_iso = c("2022-22-03 12:34:56", "2021-30-07 14:32:47", NA),
     int_date = c(10L, 25L, NA),
     integerish_date = c(10, 25, NA),
@@ -2002,24 +2003,72 @@ test_that("`as_datetime()`", {
         ddate2 = lubridate::as_datetime(date),
         dchar_date_no_tz = as_datetime(char_date),
         dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas"),
+        dchar_date_subsec_no_tz = as_datetime(char_date_subsec),
+        dchar_date_subsec_with_tz = as_datetime(char_date_subsec, tz = "Pacific/Marquesas"),
         dint_date = as_datetime(int_date, origin = "1970-01-02"),
         dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
-        dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01")
+        dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01"),
+        ddouble_date = as_datetime(double_date)
       ) %>%
       collect(),
     test_df
   )
 
-  # Arrow does not support conversion of double to date
-  # the below should error with an error message originating in the C++ code
+  expect_identical(
+    test_df %>%
+      arrow_table() %>%
+      mutate(
+        x = cast(as_datetime(double_date, unit = "ns"), int64()),
+        y = cast(as_datetime(double_date, unit = "us"), int64()),
+        z = cast(as_datetime(double_date, unit = "ms"), int64()),
+        .keep = "none"
+      ) %>%
+      collect(),
+    tibble(
+      x = bit64::as.integer64(c(10100000000, 25200000000, NA)),
+      y = as.integer(c(10100000, 25200000, NA)),
+      z = as.integer(c(10100, 25200, NA))
+    )
+  )
+})
+
+test_that("as_datetime() works with other functions", {
+  test_df <- tibble(
+    char_date = c("2022-03-22", "2021-07-30 14:32:47", "1970-01-01 00:00:59.123456789", NA)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        ddchar_date = as_datetime(char_date),
+        ddchar_date_date32_1 = as.Date(ddchar_date),
+        ddchar_date_date32_2 = as_date(ddchar_date),
+        ddchar_date_floored = floor_date(ddchar_date, unit = "days")
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # ARROW-17428 - Arrow does not support conversion of timestamp to int32
   expect_error(
     test_df %>%
       arrow_table() %>%
       mutate(
-        ddouble_date = as_datetime(double_date)
+        dchar_date = as_datetime(char_date),
+        dchar_date_int = as.integer(dchar_date)
       ) %>%
-      collect(),
-    regexp = "Float value 10.1 was truncated converting to int64"
+      collect()
+  )
+
+  # ARROW-17428 - Arrow does not support conversion of timestamp to double
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(
+        dchar_date = as_datetime(char_date),
+        dchar_date_num = as.numeric(dchar_date)
+      ) %>%
+      collect()
   )
 })
 
@@ -3530,4 +3579,165 @@ test_that("timestamp rounding takes place in local time", {
   tz_times %>% check_timezone_rounding_for_consistency("13 hours")
   tz_times %>% check_timezone_rounding_for_consistency("13 months")
   tz_times %>% check_timezone_rounding_for_consistency("13 years")
+})
+
+test_that("with_tz() and force_tz() works", {
+  timestamps <- as_datetime(c(
+    "1970-01-01T00:00:59.123456789",
+    "2000-02-29T23:23:23.999999999",
+    "2033-05-18T03:33:20.000000000",
+    "2020-01-01T01:05:05.001",
+    "2019-12-31T02:10:10.002",
+    "2019-12-30T03:15:15.003",
+    "2009-12-31T04:20:20.004132",
+    "2010-01-01T05:25:25.005321",
+    "2010-01-03T06:30:30.006163",
+    "2010-01-04T07:35:35",
+    "2006-01-01T08:40:40",
+    "2005-12-31T09:45:45",
+    "2008-12-28",
+    "2008-12-29",
+    "2012-01-01 01:02:03"
+  ), tz = "UTC")
+
+  timestamps_non_utc <- force_tz(timestamps, "US/Central")
+
+  nonexistent <- as_datetime(c(
+    "2015-03-29 02:30:00",
+    "2015-03-29 03:30:00"
+  ), tz = "UTC")
+
+  ambiguous <- as_datetime(c(
+    "2015-10-25 02:30:00",
+    "2015-10-25 03:30:00"
+  ), tz = "UTC")
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        timestamps_with_tz_1 = with_tz(timestamps, "UTC"),
+        timestamps_with_tz_2 = with_tz(timestamps, "US/Central"),
+        timestamps_with_tz_3 = with_tz(timestamps, "Asia/Kolkata"),
+        timestamps_force_tz_1 = force_tz(timestamps, "UTC"),
+        timestamps_force_tz_2 = force_tz(timestamps, "US/Central"),
+        timestamps_force_tz_3 = force_tz(timestamps, "Asia/Kolkata")
+      ) %>%
+      collect(),
+    tibble::tibble(timestamps = timestamps)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        timestamps_with_tz_1 = with_tz(timestamps, "UTC"),
+        timestamps_with_tz_2 = with_tz(timestamps, "US/Central"),
+        timestamps_with_tz_3 = with_tz(timestamps, "Asia/Kolkata")
+      ) %>%
+      collect(),
+    tibble::tibble(timestamps = timestamps_non_utc)
+  )
+
+  # We can match some roll_dst behaviour for nonexistent times
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        timestamps_with_tz_1 = force_tz(
+          timestamps,
+          "Europe/Brussels",
+          roll_dst = c("boundary", "post")
+        )
+      ) %>%
+      collect(),
+    tibble::tibble(timestamps = nonexistent)
+  )
+
+  # We can match all roll_dst behaviour for ambiguous times
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        # The difference is easier to see if we transform back to UTC
+        # because both pre and post will display as 02:30 otherwise
+        timestamps_with_tz_pre = with_tz(
+          force_tz(
+            timestamps,
+            "Europe/Brussels",
+            roll_dst = c("boundary", "pre")
+          ),
+          "UTC"
+        ),
+        timestamps_with_tz_post = with_tz(
+          force_tz(
+            timestamps,
+            "Europe/Brussels",
+            roll_dst = c("boundary", "post")
+          ),
+          "UTC"
+        )
+      ) %>%
+      collect(),
+    tibble::tibble(timestamps = ambiguous)
+  )
+
+  # non-UTC timezone to other timezone is not supported in arrow's force_tz()
+  expect_warning(
+    tibble::tibble(timestamps = timestamps_non_utc) %>%
+      arrow_table() %>%
+      mutate(timestamps = force_tz(timestamps, "UTC")) %>%
+      collect(),
+    "`time` with a non-UTC timezone not supported in Arrow"
+  )
+
+  # We only support some roll_dst values
+  expect_warning(
+    tibble::tibble(timestamps = nonexistent) %>%
+      arrow_table() %>%
+      mutate(timestamps = force_tz(
+        timestamps,
+        "Europe/Brussels",
+        roll_dst = "post")
+      ) %>%
+      collect(),
+    "roll_dst` value must be 'error' or 'boundary' for non-existent times"
+  )
+
+  expect_warning(
+    tibble::tibble(timestamps = nonexistent) %>%
+      arrow_table() %>%
+      mutate(timestamps = force_tz(
+          timestamps,
+          "Europe/Brussels",
+          roll_dst = c("boundary", "NA")
+        )
+      ) %>%
+      collect(),
+    "`roll_dst` value must be 'error', 'pre', or 'post' for non-existent times"
+  )
+
+  # Raise error when the timezone falls into the DST-break
+  expect_error(
+    record_batch(timestamps = nonexistent) %>%
+      mutate(nonexistent_roll_false = force_tz(timestamps, "Europe/Brussels")) %>%
+      collect(),
+    "Timestamp doesn't exist in timezone 'Europe/Brussels'"
+  )
+})
+
+test_that("with_tz() and force_tz() can add timezone to timestamp without timezone", {
+  timestamps <- Array$create(1L:10L, int64())$cast(timestamp("s"))
+
+  expect_equal(
+    arrow_table(timestamps = timestamps) %>%
+      mutate(timestamps = with_tz(timestamps, "US/Central")) %>%
+      compute(),
+    arrow_table(timestamps = timestamps$cast(timestamp("s", "US/Central")))
+  )
+
+  expect_equal(
+    arrow_table(timestamps = timestamps) %>%
+      mutate(timestamps = force_tz(timestamps, "US/Central")) %>%
+      compute(),
+    arrow_table(
+      timestamps = call_function("assume_timezone", timestamps, options = list(timezone = "US/Central"))
+    )
+  )
 })

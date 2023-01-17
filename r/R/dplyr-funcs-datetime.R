@@ -21,6 +21,7 @@ register_bindings_datetime <- function() {
   register_bindings_datetime_utility()
   register_bindings_datetime_components()
   register_bindings_datetime_conversion()
+  register_bindings_datetime_timezone()
   register_bindings_duration()
   register_bindings_duration_constructor()
   register_bindings_duration_helpers()
@@ -267,7 +268,6 @@ register_bindings_datetime_conversion <- function() {
              min = 0L,
              sec = 0,
              tz = "UTC") {
-
       # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
       # Stop if tz other than 'UTC' is provided.
       if (tz != "UTC") {
@@ -294,7 +294,6 @@ register_bindings_datetime_conversion <- function() {
                                                  min,
                                                  sec,
                                                  tz = "UTC") {
-
     # NAs for seconds aren't propagated (but treated as 0) in the base version
     sec <- call_binding(
       "if_else",
@@ -367,7 +366,8 @@ register_bindings_datetime_conversion <- function() {
     # => we only cast when we want the behaviour of the base version or when
     # `tz` is set (i.e. not NULL)
     if (call_binding("is.POSIXct", x) && !is.null(tz)) {
-      x <- cast(x, timestamp(timezone = tz))
+      unit <- if (inherits(x, "Expression")) x$type()$unit() else "s"
+      x <- cast(x, timestamp(unit = unit, timezone = tz))
     }
     binding_as_date(
       x = x,
@@ -379,22 +379,36 @@ register_bindings_datetime_conversion <- function() {
   register_binding("lubridate::as_datetime", function(x,
                                                       origin = "1970-01-01",
                                                       tz = "UTC",
-                                                      format = NULL) {
+                                                      format = NULL,
+                                                      unit = "ns") {
+    # Arrow uses unit for time parsing, as_datetime() does not.
+    unit <- make_valid_time_unit(
+      unit,
+      c(valid_time64_units, valid_time32_units)
+    )
+
+    if (call_binding("is.integer", x)) {
+      x <- cast(x, int64())
+    }
+
     if (call_binding("is.numeric", x)) {
-      delta <- cast(call_binding("difftime", origin, "1970-01-01"), int64())
+      multiple <- Expression$create("power_checked", 1000L, unit)
+      delta <- call_binding("difftime", origin, "1970-01-01")
+      delta <- cast(delta, int64())
+      delta <- Expression$create("multiply_checked", delta, multiple)
+      x <- Expression$create("multiply_checked", x, multiple)
       x <- cast(x, int64())
       x <- Expression$create("add_checked", x, delta)
     }
 
     if (call_binding("is.character", x) && !is.null(format)) {
-      # unit = 0L is the identifier for seconds in valid_time32_units
       x <- Expression$create(
         "strptime",
         x,
-        options = list(format = format, unit = 0L, error_is_null = TRUE)
+        options = list(format = format, unit = unit, error_is_null = TRUE)
       )
     }
-    output <- cast(x, timestamp())
+    output <- cast(x, timestamp(unit = unit))
     Expression$create("assume_timezone", output, options = list(timezone = tz))
   })
 
@@ -426,6 +440,76 @@ register_bindings_datetime_conversion <- function() {
     delta <- Expression$create("floor", seconds * fraction)
     delta <- make_duration(delta, "s")
     start + delta
+  })
+}
+
+register_bindings_datetime_timezone <- function() {
+  register_binding(
+    "lubridate::force_tz",
+    function(time, tzone = "", roll_dst = c("error", "post")) {
+      if (length(roll_dst) == 1L) {
+        roll_dst <- c(roll_dst, roll_dst)
+      } else if (length(roll_dst) != 2L) {
+        arrow_not_supported("`roll_dst` must be 1 or 2 items long; other lengths")
+      }
+
+      nonexistent <- switch(
+        roll_dst[1],
+        "error" = 0L,
+        "boundary" = 2L,
+        arrow_not_supported("`roll_dst` value must be 'error' or 'boundary' for non-existent times; other values")
+      )
+
+      ambiguous <- switch(
+        roll_dst[2],
+        "error" = 0L,
+        "pre" = 1L,
+        "post" = 2L,
+        arrow_not_supported("`roll_dst` value must be 'error', 'pre', or 'post' for non-existent times")
+      )
+
+      if (identical(tzone, "")) {
+        tzone <- Sys.timezone()
+      }
+
+      if (!inherits(time, "Expression")) {
+        time <- Expression$scalar(time)
+      }
+
+      # Non-UTC timezones don't work here and getting them to do so was too
+      # hard to do in the initial PR because there is no way in Arrow to
+      # "unapply" a UTC offset (i.e., the reverse of assume_timezone).
+      if (!time$type()$timezone() %in% c("", "UTC")) {
+        arrow_not_supported("`time` with a non-UTC timezone")
+      }
+
+      # Remove timezone if needed
+      current_unit <- time$type()$unit()
+      time <- cast(time, timestamp(current_unit, ""))
+
+      # Add timezone
+      Expression$create(
+        "assume_timezone",
+        time,
+        options = list(
+          timezone = tzone,
+          nonexistent = nonexistent,
+          ambiguous = ambiguous
+        )
+      )
+    },
+    notes = c(
+      "Timezone conversion from non-UTC timezone not supported;",
+      "`roll_dst` values of 'error' and 'boundary' are supported for nonexistent times,",
+      "`roll_dst` values of 'error', 'pre', and 'post' are supported for ambiguous times."
+    )
+  )
+
+  register_binding("lubridate::with_tz", function(time, tzone = "") {
+    if (tzone == "") {
+      tzone <- Sys.timezone()
+    }
+    cast(time, timestamp(unit = time$type()$unit(), timezone = tzone))
   })
 }
 
@@ -615,7 +699,9 @@ register_bindings_datetime_parsers <- function() {
       }
     },
     notes = c(
-      "`quiet = FALSE` is not supported"
+      "`quiet = FALSE` is not supported",
+      "Available formats are H, I, j, M, S, U, w, W, y, Y, R, T.",
+      "On Linux and OS X additionally a, A, b, B, Om, p, r are available."
     )
   )
 

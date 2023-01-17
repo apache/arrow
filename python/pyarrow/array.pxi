@@ -984,7 +984,7 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        null_encoding
+        null_encoding : str, default "mask"
             How to handle null entries.
 
         Returns
@@ -1265,7 +1265,7 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        fill_value
+        fill_value : any
             The replacement value for null entries.
 
         Returns
@@ -1363,7 +1363,7 @@ cdef class Array(_PandasConvertible):
         ----------
         mask : Array or array-like
             The boolean mask to filter the array with.
-        null_selection_behavior
+        null_selection_behavior : str, default "drop"
             How nulls in the mask should be handled.
 
         Returns

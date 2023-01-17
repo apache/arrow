@@ -20,6 +20,7 @@ github:
   homepage: https://arrow.apache.org/
   collaborators:
     - assignUser
+    - benibus
     - milesgranger
     - toddfarmer
 

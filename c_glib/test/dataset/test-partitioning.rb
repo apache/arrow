@@ -23,12 +23,39 @@ class TestDatasetPartitioning < Test::Unit::TestCase
   end
 
   def test_default
-    assert_equal("default", ArrowDataset::Partitioning.new.type_name)
+    assert_equal("default", ArrowDataset::DefaultPartitioning.new.type_name)
   end
 
   def test_directory
     schema = build_schema(year: Arrow::UInt16DataType.new)
     partitioning = ArrowDataset::DirectoryPartitioning.new(schema)
     assert_equal("directory", partitioning.type_name)
+  end
+
+  def test_directory_options
+    schema = build_schema(year: Arrow::UInt16DataType.new)
+    options = ArrowDataset::KeyValuePartitioningOptions.new
+    options.segment_encoding = :none
+    partitioning = ArrowDataset::DirectoryPartitioning.new(schema,
+                                                           nil,
+                                                           options)
+    assert_equal("directory", partitioning.type_name)
+  end
+
+  def test_hive
+    schema = build_schema(year: Arrow::UInt16DataType.new)
+    partitioning = ArrowDataset::HivePartitioning.new(schema)
+    assert_equal("hive", partitioning.type_name)
+  end
+
+  def test_hive_options
+    schema = build_schema(year: Arrow::UInt16DataType.new)
+    options = ArrowDataset::HivePartitioningOptions.new
+    options.segment_encoding = :none
+    options.null_fallback = "NULL"
+    partitioning = ArrowDataset::HivePartitioning.new(schema,
+                                                      nil,
+                                                      options)
+    assert_equal("NULL", partitioning.null_fallback)
   end
 end

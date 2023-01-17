@@ -35,7 +35,6 @@ namespace compute {
 // calling InputFinished and InputReceived.
 
 Status BenchmarkIsolatedNodeOverhead(benchmark::State& state,
-                                     arrow::compute::ExecContext ctx,
                                      arrow::compute::Expression expr, int32_t num_batches,
                                      int32_t batch_size,
                                      arrow::compute::BatchesWithSchema data,
@@ -46,7 +45,7 @@ Status BenchmarkIsolatedNodeOverhead(benchmark::State& state,
     AsyncGenerator<std::optional<arrow::compute::ExecBatch>> sink_gen;
 
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::compute::ExecPlan> plan,
-                          arrow::compute::ExecPlan::Make(&ctx));
+                          arrow::compute::ExecPlan::Make());
     // Source and sink nodes have no effect on the benchmark.
     // Used for dummy purposes as they are referenced in InputReceived and InputFinished.
     ARROW_ASSIGN_OR_RAISE(arrow::compute::ExecNode * source_node,
@@ -113,13 +112,13 @@ Status BenchmarkIsolatedNodeOverhead(benchmark::State& state,
 // a source -> node_declarations -> sink sequence.
 
 Status BenchmarkNodeOverhead(
-    benchmark::State& state, arrow::compute::ExecContext ctx, int32_t num_batches,
-    int32_t batch_size, arrow::compute::BatchesWithSchema data,
+    benchmark::State& state, int32_t num_batches, int32_t batch_size,
+    arrow::compute::BatchesWithSchema data,
     std::vector<arrow::compute::Declaration>& node_declarations) {
   for (auto _ : state) {
     state.PauseTiming();
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::compute::ExecPlan> plan,
-                          arrow::compute::ExecPlan::Make(&ctx));
+                          arrow::compute::ExecPlan::Make());
     AsyncGenerator<std::optional<arrow::compute::ExecBatch>> sink_gen;
     arrow::compute::Declaration source = arrow::compute::Declaration(
         {"source",

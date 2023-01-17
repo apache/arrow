@@ -139,6 +139,23 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
     const ConversionOptions& conversion_options = {});
 
+/// \brief Deserializes a Substrait Plan message to a Declaration
+///
+/// The plan will not contain any sink nodes and will be suitable for use in any
+/// of the arrow::compute::DeclarationToXyz methods.
+///
+/// \param[in] buf a buffer containing the protobuf serialization of a Substrait Plan
+/// message
+/// \param[in] registry an extension-id-registry to use, or null for the default one.
+/// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait
+/// Plan is returned here.
+/// \param[in] conversion_options options to control how the conversion is to be done.
+/// \return A declaration representing the Substrait plan
+ARROW_ENGINE_EXPORT Result<compute::Declaration> DeserializePlan(
+    const Buffer& buf, const ExtensionIdRegistry* registry = NULLPTR,
+    ExtensionSet* ext_set_out = NULLPTR,
+    const ConversionOptions& conversion_options = {});
+
 /// \brief Deserializes a Substrait Type message to the corresponding Arrow type
 ///
 /// \param[in] buf a buffer containing the protobuf serialization of a Substrait Type

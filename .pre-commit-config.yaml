@@ -46,3 +46,4 @@ repos:
           - file
           - python
         exclude: vendored
+        args: [--config, python/setup.cfg]

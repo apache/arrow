@@ -2045,13 +2045,10 @@ struct RegexSubstringReplacer {
         regex_replacement_(options_.pattern, MakeRE2Options<Type>()) {}
 
   Status ReplaceString(std::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
-    if (s.empty()) {
-      // Special-case empty input as s.data() may not be a valid pointer
-      return Status::OK();
-    }
     re2::StringPiece replacement(options_.replacement);
 
-    if (options_.max_replacements == -1) {
+    // If s is empty, then it's essentially global
+    if (options_.max_replacements == -1 || s.empty()) {
       std::string s_copy(s);
       RE2::GlobalReplace(&s_copy, regex_replacement_, replacement);
       return builder->Append(reinterpret_cast<const uint8_t*>(s_copy.data()),

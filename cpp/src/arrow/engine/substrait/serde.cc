@@ -127,6 +127,13 @@ DeclarationFactory MakeWriteDeclarationFactory(
   };
 }
 
+DeclarationFactory MakeNoSinkDeclarationFactory() {
+  return [](compute::Declaration input,
+            std::vector<std::string> names) -> Result<compute::Declaration> {
+    return input;
+  };
+}
+
 // FIXME - Replace with actual version that includes the change
 constexpr uint32_t kMinimumMajorVersion = 0;
 constexpr uint32_t kMinimumMinorVersion = 19;
@@ -186,6 +193,21 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
     const ConversionOptions& conversion_options) {
   return DeserializePlans(buf, MakeWriteDeclarationFactory(write_options_factory),
                           registry, ext_set_out, conversion_options);
+}
+
+ARROW_ENGINE_EXPORT Result<compute::Declaration> DeserializePlan(
+    const Buffer& buf, const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
+    const ConversionOptions& conversion_options) {
+  ARROW_ASSIGN_OR_RAISE(std::vector<compute::Declaration> top_level_decls,
+                        DeserializePlans(buf, MakeNoSinkDeclarationFactory(), registry,
+                                         ext_set_out, conversion_options));
+  if (top_level_decls.empty()) {
+    return Status::Invalid("No RelRoot in plan");
+  }
+  if (top_level_decls.size() != 1) {
+    return Status::Invalid("Multiple top level declarations found in Substrait plan");
+  }
+  return top_level_decls[0];
 }
 
 namespace {

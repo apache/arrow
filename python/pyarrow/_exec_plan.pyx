@@ -86,6 +86,9 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
     else:
         c_executor = NULL
 
+    # TODO(weston): This is deprecated.  Once ordering is better supported
+    # in the exec plan we can remove all references to ExecPlan and use the
+    # DeclarationToXyz methods
     c_exec_context = make_shared[CExecContext](
         c_default_memory_pool(), c_executor)
     c_exec_plan = GetResultValue(CExecPlan.Make(c_exec_context.get()))
