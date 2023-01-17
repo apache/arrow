@@ -1322,8 +1322,8 @@ visible: false
       table2 = Arrow::Table.new(key: [3, 1],
                                 string: ["three", "one"])
       assert_equal(Arrow::Table.new([
-                                      ["key", []],
-                                      ["string", []],
+                                      ["key", Arrow::ChunkedArray.new(:uint8)],
+                                      ["string", Arrow::ChunkedArray.new(:string)],
                                     ]),
                    table1.join(table2, "key", type: :right_anti))
     end
