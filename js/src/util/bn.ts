@@ -90,9 +90,9 @@ function bignumToNumber<T extends BN<BigNumArray>>(bn: T) {
 }
 
 /** @ignore */
-export const bignumToString = (<T extends BN<BigNumArray>>(a: T) => a.byteLength === 8 ? new a['BigIntArray'](a.buffer, a.byteOffset, 1)[0] : <any>decimalToString(a));
+export const bignumToString: { <T extends BN<BigNumArray>>(a: T): string } = (<T extends BN<BigNumArray>>(a: T) => a.byteLength === 8 ? `${new a['BigIntArray'](a.buffer, a.byteOffset, 1)[0]}` : decimalToString(a));
 /** @ignore */
-export const bignumToBigInt = (<T extends BN<BigNumArray>>(a: T) => a.byteLength === 8 ? `${new a['BigIntArray'](a.buffer, a.byteOffset, 1)[0]}` : decimalToString(a));
+export const bignumToBigInt: { <T extends BN<BigNumArray>>(a: T): bigint } = (<T extends BN<BigNumArray>>(a: T) => a.byteLength === 8 ? new a['BigIntArray'](a.buffer, a.byteOffset, 1)[0] : <any>decimalToString(a));
 
 /** @ignore */
 function decimalToString<T extends BN<BigNumArray>>(a: T) {
