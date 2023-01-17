@@ -1026,6 +1026,8 @@ cdef class OSFile(NativeFile):
 
     Examples
     --------
+    Create a new file to write to:
+
     >>> import pyarrow as pa
     >>> with pa.OSFile('example_osfile.arrow', mode='w') as f:
     ...     f.writable()
@@ -1035,12 +1037,18 @@ cdef class OSFile(NativeFile):
     True
     6
     False
+
+    Open the file to read:
+
     >>> with pa.OSFile('example_osfile.arrow', mode='r') as f:
     ...     f.mode
     ...     f.read()
     ...
     'rb'
     b'OSFile'
+
+    Inspect created OSFile:
+
     >>> pa.OSFile('example_osfile.arrow')
     <pyarrow.OSFile closed=False own_file=False is_seekable=True is_writable=False is_readable=True>
     """
