@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "spilling_util.h"
+#include "arrow/compute/exec/spilling_util.h"
 #include <mutex>
 
 #ifdef _WIN32

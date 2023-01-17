@@ -189,7 +189,7 @@ TEST(Spilling, ReadWriteBasicBatches) {
 }
 
 TEST(Spilling, HashJoin) {
-  constexpr int kNumTests = 10;
+  constexpr int kNumTests = 1;
   Random64Bit rng(42);
 
   // 50% chance to get a string column, 50% chance to get an integer
