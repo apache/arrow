@@ -882,13 +882,20 @@ cdef class MemoryMappedFile(NativeFile):
 
     Examples
     --------
-    Create a MemoryMappedFile:
+    Create a new file with memory map:
 
     >>> import pyarrow as pa
     >>> mmap = pa.create_memory_map('example_mmap.dat', 10)
     >>> mmap
     <pyarrow.MemoryMappedFile closed=False own_file=False is_seekable=True is_writable=True is_readable=True>
     >>> mmap.close()
+
+    Open an existing file with memory map:
+
+    >>> with pa.memory_map('example_mmap.dat') as mmap:
+    ...     mmap
+    ...
+    <pyarrow.MemoryMappedFile closed=False own_file=False is_seekable=True is_writable=False is_readable=True>
     """
     cdef:
         shared_ptr[CMemoryMappedFile] handle
