@@ -413,10 +413,10 @@ class FileWriterImpl : public FileWriter {
       int column_index_start = 0;
 
       for (int i = 0; i < batch.num_columns(); i++) {
-        ChunkedArray chunkedArray{batch.column(i)};
+        ChunkedArray chunked_array{batch.column(i)};
         ARROW_ASSIGN_OR_RAISE(
             std::unique_ptr<ArrowColumnWriterV2> writer,
-            ArrowColumnWriterV2::Make(chunkedArray, offset, size, schema_manifest_,
+            ArrowColumnWriterV2::Make(chunked_array, offset, size, schema_manifest_,
                                       row_group_writer_, column_index_start));
         column_index_start += writer->leaf_count();
         if (arrow_properties_->use_threads()) {
