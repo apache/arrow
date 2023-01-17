@@ -397,8 +397,7 @@ std::string Decimal128::ToString(int32_t scale) const {
 // Iterates over input and for each group of kInt64DecimalDigits multiple out by
 // the appropriate power of 10 necessary to add source parsed as uint64 and
 // then adds the parsed value of source.
-static inline void ShiftAndAdd(const std::string_view& input, uint64_t out[],
-                               size_t out_size) {
+static inline void ShiftAndAdd(std::string_view input, uint64_t out[], size_t out_size) {
   for (size_t posn = 0; posn < input.size();) {
     const size_t group_size = std::min(kInt64DecimalDigits, input.size() - posn);
     const uint64_t multiple = kUInt64PowersOfTen[group_size];
@@ -508,7 +507,7 @@ inline Status ToArrowStatus(DecimalStatus dstatus, int num_bits) {
 }
 
 template <typename Decimal>
-Status DecimalFromString(const char* type_name, const std::string_view& s, Decimal* out,
+Status DecimalFromString(const char* type_name, std::string_view s, Decimal* out,
                          int32_t* precision, int32_t* scale) {
   if (s.empty()) {
     return Status::Invalid("Empty string cannot be converted to ", type_name);
@@ -573,8 +572,8 @@ Status DecimalFromString(const char* type_name, const std::string_view& s, Decim
 
 }  // namespace
 
-Status Decimal128::FromString(const std::string_view& s, Decimal128* out,
-                              int32_t* precision, int32_t* scale) {
+Status Decimal128::FromString(std::string_view s, Decimal128* out, int32_t* precision,
+                              int32_t* scale) {
   return DecimalFromString("decimal128", s, out, precision, scale);
 }
 
@@ -588,7 +587,7 @@ Status Decimal128::FromString(const char* s, Decimal128* out, int32_t* precision
   return FromString(std::string_view(s), out, precision, scale);
 }
 
-Result<Decimal128> Decimal128::FromString(const std::string_view& s) {
+Result<Decimal128> Decimal128::FromString(std::string_view s) {
   Decimal128 out;
   RETURN_NOT_OK(FromString(s, &out, nullptr, nullptr));
   return std::move(out);
@@ -706,8 +705,8 @@ std::string Decimal256::ToString(int32_t scale) const {
   return str;
 }
 
-Status Decimal256::FromString(const std::string_view& s, Decimal256* out,
-                              int32_t* precision, int32_t* scale) {
+Status Decimal256::FromString(std::string_view s, Decimal256* out, int32_t* precision,
+                              int32_t* scale) {
   return DecimalFromString("decimal256", s, out, precision, scale);
 }
 
@@ -721,7 +720,7 @@ Status Decimal256::FromString(const char* s, Decimal256* out, int32_t* precision
   return FromString(std::string_view(s), out, precision, scale);
 }
 
-Result<Decimal256> Decimal256::FromString(const std::string_view& s) {
+Result<Decimal256> Decimal256::FromString(std::string_view s) {
   Decimal256 out;
   RETURN_NOT_OK(FromString(s, &out, nullptr, nullptr));
   return std::move(out);
