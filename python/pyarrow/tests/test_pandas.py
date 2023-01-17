@@ -2338,6 +2338,21 @@ class TestConvertListTypes:
         expected_base = np.array([[3., 4., 5., 6., np.NaN]])
         npt.assert_array_equal(np_arr_sliced[0].base, expected_base)
 
+    def test_list_values_behind_null(self):
+        arr = pa.ListArray.from_arrays(
+            offsets=pa.array([0, 2, 4, 6]),
+            values=pa.array([1, 2, 99, 99, 3, None]),
+            mask=pa.array([False, True, False])
+        )
+        np_arr = arr.to_numpy(zero_copy_only=False)
+
+        expected = np.array([[1., 2.], None, [3., np.NaN]], dtype="object")
+        for left, right in zip(np_arr, expected):
+            if right is None:
+                assert left == right
+            else:
+                npt.assert_array_equal(left, right)
+
 
 class TestConvertStructTypes:
     """
