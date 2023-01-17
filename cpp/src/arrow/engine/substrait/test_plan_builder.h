@@ -68,7 +68,7 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> CreateScanProjectSubstrait(
 /// defined by `function_id` and direct references to `arg_idxs`.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> CreateScanAggSubstrait(
     Id function_id, const std::shared_ptr<Table>& input_table,
-    const std::vector<int>& key_idxs, const std::vector<int>& arg_idx,
+    const std::vector<int>& key_idxs, const std::vector<int>& arg_idxs,
     const DataType& output_type);
 
 }  // namespace internal

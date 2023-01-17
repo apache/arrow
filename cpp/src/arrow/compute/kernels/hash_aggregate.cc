@@ -253,7 +253,7 @@ struct GroupedCountAllImpl : public GroupedAggregator {
     auto other = checked_cast<GroupedCountAllImpl*>(&raw_other);
 
     auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
-    auto other_counts = reinterpret_cast<const int64_t*>(other->counts_.mutable_data());
+    auto other_counts = reinterpret_cast<const int64_t*>(other->counts_.data());
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {

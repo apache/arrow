@@ -175,7 +175,7 @@ struct ARROW_EXPORT ExecBatch {
 
   explicit ExecBatch(const RecordBatch& batch);
 
-  /// \brief Infers the ExecBatch length from values.
+  /// \brief Infer the ExecBatch length from values.
   ///
   /// \return std::nullopt if unable to infer the length given the values passed
   static std::optional<int64_t> InferLength(const std::vector<Datum>& values);
