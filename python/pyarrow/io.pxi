@@ -1083,9 +1083,8 @@ cdef class FixedSizeBufferWriter(NativeFile):
     --------
     >>> import pyarrow as pa
     >>> buf = pa.allocate_buffer(5)
-    >>> bit = b'abcde'
     >>> writer = pa.FixedSizeBufferWriter(buf)
-    >>> writer.write(bit)
+    >>> writer.write(b'abcde')
     5
     >>> buf.to_pybytes()
     b'abcde'
