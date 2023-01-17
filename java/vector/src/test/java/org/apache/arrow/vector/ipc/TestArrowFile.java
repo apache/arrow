@@ -59,6 +59,19 @@ public class TestArrowFile extends BaseFileTest {
   }
 
   @Test
+  public void testWriteThruBuilderPattern() throws IOException {
+    File file = new File("target/mytest_write_builder.arrow");
+    int count = COUNT;
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors builders",
+            0, Integer.MAX_VALUE);
+        StructVector parent = StructVector.empty("parent builder", vectorAllocator)) {
+      writeData(count, parent);
+      writeThruBuilderPattern(parent.getChild("root"), file, new ByteArrayOutputStream());
+    }
+  }
+
+  @Test
   public void testWriteComplex() throws IOException {
     File file = new File("target/mytest_write_complex.arrow");
     int count = COUNT;
@@ -69,6 +82,20 @@ public class TestArrowFile extends BaseFileTest {
       FieldVector root = parent.getChild("root");
       validateComplexContent(count, new VectorSchemaRoot(root));
       write(root, file, new ByteArrayOutputStream());
+    }
+  }
+
+  @Test
+  public void testWriteComplexThruBuilderPattern() throws IOException {
+    File file = new File("target/mytest_write_complex_builder.arrow");
+    int count = COUNT;
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors builder", 0, Integer.MAX_VALUE);
+        StructVector parent = StructVector.empty("parent builder", vectorAllocator)) {
+      writeComplexData(count, parent);
+      FieldVector root = parent.getChild("root");
+      validateComplexContent(count, new VectorSchemaRoot(root));
+      writeThruBuilderPattern(root, file, new ByteArrayOutputStream());
     }
   }
 
@@ -90,6 +117,27 @@ public class TestArrowFile extends BaseFileTest {
     // Also try serializing to the stream writer.
     if (outStream != null) {
       try (ArrowStreamWriter arrowWriter = new ArrowStreamWriter(root, null, outStream)) {
+        arrowWriter.start();
+        arrowWriter.writeBatch();
+        arrowWriter.end();
+      }
+    }
+  }
+
+  private void writeThruBuilderPattern(FieldVector parent, File file, OutputStream outStream) throws IOException {
+    VectorSchemaRoot root = new VectorSchemaRoot(parent);
+
+    try (FileOutputStream fileOutputStream = new FileOutputStream(file);
+         ArrowFileWriter arrowWriter = new ArrowFileWriter.Builder(root, fileOutputStream.getChannel()).build()) {
+      LOGGER.debug("writing schema: " + root.getSchema());
+      arrowWriter.start();
+      arrowWriter.writeBatch();
+      arrowWriter.end();
+    }
+
+    // Also try serializing to the stream writer.
+    if (outStream != null) {
+      try (ArrowStreamWriter arrowWriter = new ArrowStreamWriter.Builder(root, outStream).build()) {
         arrowWriter.start();
         arrowWriter.writeBatch();
         arrowWriter.end();

@@ -20,11 +20,13 @@ package org.apache.arrow.vector.ipc;
 import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.compression.CompressionCodec;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
@@ -115,5 +117,64 @@ public class ArrowFileWriter extends ArrowWriter {
   @VisibleForTesting
   public List<ArrowBlock> getDictionaryBlocks() {
     return dictionaryBlocks;
+  }
+
+  /**
+   * Class to configure builder pattern for ArrowWriter that writes out a Arrow files.
+   */
+  public static class Builder extends ArrowWriter.Builder<Builder> {
+    private DictionaryProvider provider = null;
+    private IpcOption option = IpcOption.DEFAULT;
+    private Map<String, String> metaData = Collections.emptyMap();
+    private int level = -1;
+
+    public Builder(VectorSchemaRoot root, WritableByteChannel out) {
+      super(root, out);
+    }
+
+    @Override
+    public ArrowFileWriter build() {
+      ArrowFileWriter writer = new ArrowFileWriter(this);
+      writer.initialize();
+      return writer;
+    }
+
+    @Override
+    protected Builder self() {
+      return this;
+    }
+
+    public Builder setProvider(DictionaryProvider provider) {
+      this.provider = provider;
+      return this;
+    }
+
+    public Builder setOption(IpcOption option) {
+      this.option = option;
+      return this;
+    }
+
+    public Builder setMetaData(Map<String, String> metaData) {
+      this.metaData = metaData;
+      return this;
+    }
+
+    public Builder setLevel(int level) {
+      this.level = level;
+      return this;
+    }
+
+    @Override
+    public Builder setCodec(CompressionCodec codec) {
+      return super.setCodec(codec);
+    }
+  }
+
+  private ArrowFileWriter(Builder builder) {
+    super(builder);
+    provider = builder.provider;
+    option = builder.option;
+    metaData = builder.metaData;
+    level = builder.level;
   }
 }

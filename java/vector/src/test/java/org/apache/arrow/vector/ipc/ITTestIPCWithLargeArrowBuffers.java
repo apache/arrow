@@ -122,6 +122,53 @@ public class ITTestIPCWithLargeArrowBuffers {
     assertTrue(new File(FILE_NAME).exists());
   }
 
+  private void testWriteLargeArrowDataThruBuilderPattern(boolean streamMode) throws IOException {
+    // simulate encoding big int as int
+    try (RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+         BigIntVector dictVector = new BigIntVector("dic vector", allocator);
+         FileOutputStream out = new FileOutputStream(FILE_NAME);
+         IntVector encodedVector = (IntVector) ENCODED_VECTOR_FIELD.createVector(allocator)) {
+
+      // prepare dictionary provider.
+      DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+      Dictionary dictionary = new Dictionary(dictVector, DICTIONARY_ENCODING);
+      provider.put(dictionary);
+
+      // populate the dictionary vector
+      dictVector.allocateNew(DICTIONARY_VECTOR_SIZE);
+      for (int i = 0; i < DICTIONARY_VECTOR_SIZE; i++) {
+        dictVector.set(i, i);
+      }
+      dictVector.setValueCount(DICTIONARY_VECTOR_SIZE);
+      assertTrue(dictVector.getDataBuffer().capacity() > Integer.MAX_VALUE);
+      logger.trace("Populating dictionary vector finished");
+
+      // populate the encoded vector
+      encodedVector.allocateNew(ENCODED_VECTOR_SIZE);
+      for (int i = 0; i < ENCODED_VECTOR_SIZE; i++) {
+        encodedVector.set(i, i % DICTIONARY_VECTOR_SIZE);
+      }
+      encodedVector.setValueCount(ENCODED_VECTOR_SIZE);
+      assertTrue(encodedVector.getDataBuffer().capacity() > Integer.MAX_VALUE);
+      logger.trace("Populating encoded vector finished");
+
+      // build vector schema root and write data.
+      try (VectorSchemaRoot root =
+               new VectorSchemaRoot(
+                   Arrays.asList(ENCODED_VECTOR_FIELD), Arrays.asList(encodedVector), ENCODED_VECTOR_SIZE);
+           ArrowWriter writer = streamMode ?
+               new ArrowStreamWriter.Builder(root, out).setProvider(provider).build() :
+               new ArrowFileWriter.Builder(root, out.getChannel()).setProvider(provider).build()) {
+        writer.start();
+        writer.writeBatch();
+        writer.end();
+        logger.trace("Writing data finished");
+      }
+    }
+
+    assertTrue(new File(FILE_NAME).exists());
+  }
+
   private void testReadLargeArrowData(boolean streamMode) throws IOException {
     try (RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
          FileInputStream in = new FileInputStream(FILE_NAME);
@@ -181,6 +228,19 @@ public class ITTestIPCWithLargeArrowBuffers {
 
     logger.trace("Start testing reading/writing large arrow file data");
     testWriteLargeArrowData(false);
+    testReadLargeArrowData(false);
+    logger.trace("Finish testing reading/writing large arrow file data");
+  }
+
+  @Test
+  public void testIPCThruBuilderPattern() throws IOException {
+    logger.trace("Start testing reading/writing large arrow stream data");
+    testWriteLargeArrowDataThruBuilderPattern(true);
+    testReadLargeArrowData(true);
+    logger.trace("Finish testing reading/writing large arrow stream data");
+
+    logger.trace("Start testing reading/writing large arrow file data");
+    testWriteLargeArrowDataThruBuilderPattern(false);
     testReadLargeArrowData(false);
     logger.trace("Finish testing reading/writing large arrow file data");
   }

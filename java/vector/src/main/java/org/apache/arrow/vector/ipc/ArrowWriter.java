@@ -29,6 +29,8 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
@@ -49,20 +51,19 @@ import org.slf4j.LoggerFactory;
 public abstract class ArrowWriter implements AutoCloseable {
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(ArrowWriter.class);
-
-  // schema with fields in message format, not memory format
-  protected final Schema schema;
+  private final VectorSchemaRoot root;
+  protected final VectorUnloader unloader;
   protected final WriteChannel out;
-
-  private final VectorUnloader unloader;
-  private final List<ArrowDictionaryBatch> dictionaries;
-
+  protected DictionaryProvider provider;
+  protected IpcOption option;
+  protected CompressionCodec codec;
+  protected int level;
+  // schema with fields in message format, not memory format
+  protected Schema schema;
+  private List<ArrowDictionaryBatch> dictionaries;
   private boolean started = false;
   private boolean ended = false;
-
   private boolean dictWritten = false;
-
-  protected IpcOption option;
 
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
     this (root, provider, out, IpcOption.DEFAULT);
@@ -77,23 +78,32 @@ public abstract class ArrowWriter implements AutoCloseable {
    * @param option   IPC write options
    */
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option) {
-    this.unloader = new VectorUnloader(root);
+    this.root = root;
+    this.unloader = new VectorUnloader(this.root);
     this.out = new WriteChannel(out);
     this.option = option;
+    this.provider = provider;
 
-    List<Field> fields = new ArrayList<>(root.getSchema().getFields().size());
+    initialize();
+  }
+
+  /**
+   * Initialize object needed as part of Arrow Writer functionalities.
+   */
+  public void initialize() {
+    List<Field> fields = new ArrayList<>(this.root.getSchema().getFields().size());
     Set<Long> dictionaryIdsUsed = new HashSet<>();
 
-    MetadataV4UnionChecker.checkForUnion(root.getSchema().getFields().iterator(), option.metadataVersion);
+    MetadataV4UnionChecker.checkForUnion(this.root.getSchema().getFields().iterator(), this.option.metadataVersion);
     // Convert fields with dictionaries to have dictionary type
-    for (Field field : root.getSchema().getFields()) {
-      fields.add(DictionaryUtility.toMessageFormat(field, provider, dictionaryIdsUsed));
+    for (Field field : this.root.getSchema().getFields()) {
+      fields.add(DictionaryUtility.toMessageFormat(field, this.provider, dictionaryIdsUsed));
     }
 
     // Create a record batch for each dictionary
     this.dictionaries = new ArrayList<>(dictionaryIdsUsed.size());
     for (long id : dictionaryIdsUsed) {
-      Dictionary dictionary = provider.lookup(id);
+      Dictionary dictionary = this.provider.lookup(id);
       FieldVector vector = dictionary.getVector();
       int count = vector.getValueCount();
       VectorSchemaRoot dictRoot = new VectorSchemaRoot(
@@ -105,7 +115,7 @@ public abstract class ArrowWriter implements AutoCloseable {
       this.dictionaries.add(new ArrowDictionaryBatch(id, batch));
     }
 
-    this.schema = new Schema(fields, root.getSchema().getCustomMetadata());
+    this.schema = new Schema(fields, this.root.getSchema().getCustomMetadata());
   }
 
   public void start() throws IOException {
@@ -206,5 +216,35 @@ public abstract class ArrowWriter implements AutoCloseable {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /**
+   * Abstract class to configure builder pattern for implementing Arrow writers for IPC over a WriteChannel.
+   * @param <T> Recursive type parameter that allow method chaining tp work properly in subclasses
+   */
+  abstract static class Builder<T extends Builder<T>> {
+    private final VectorSchemaRoot root;
+    private final WriteChannel out;
+    private CompressionCodec codec = NoCompressionCodec.INSTANCE;
+
+    abstract ArrowWriter build();
+
+    protected abstract T self();
+
+    public Builder(VectorSchemaRoot root, WritableByteChannel out) {
+      this.root = root;
+      this.out = new WriteChannel(out);
+    }
+
+    public T setCodec(CompressionCodec codec) {
+      this.codec = codec;
+      return self();
+    }
+  }
+
+  protected ArrowWriter(Builder<?> builder) {
+    this.root = builder.root;
+    this.out = builder.out;
+    this.unloader = new VectorUnloader(builder.root, true, builder.codec, true);
   }
 }

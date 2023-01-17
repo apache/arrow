@@ -23,6 +23,7 @@ import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.compression.CompressionCodec;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
@@ -82,5 +83,57 @@ public class ArrowStreamWriter extends ArrowWriter {
   @Override
   protected void endInternal(WriteChannel out) throws IOException {
     writeEndOfStream(out, option);
+  }
+
+  /**
+   * Class to configure builder pattern for the Arrow stream format to send ArrowRecordBatches over a WriteChannel.
+   */
+  public static class Builder extends ArrowWriter.Builder<ArrowStreamWriter.Builder> {
+    private DictionaryProvider provider = null;
+    private IpcOption option = IpcOption.DEFAULT;
+    private int level = -1;
+
+    public Builder(VectorSchemaRoot root, OutputStream out) {
+      super(root, Channels.newChannel(out));
+    }
+
+    @Override
+    public ArrowStreamWriter build() {
+      ArrowStreamWriter writer = new ArrowStreamWriter(this);
+      writer.initialize();
+      return writer;
+    }
+
+    @Override
+    protected ArrowStreamWriter.Builder self() {
+      return this;
+    }
+
+    public ArrowStreamWriter.Builder setProvider(DictionaryProvider provider) {
+      this.provider = provider;
+      return this;
+    }
+
+    public ArrowStreamWriter.Builder setOption(IpcOption option) {
+      this.option = option;
+      return this;
+    }
+
+    public ArrowStreamWriter.Builder setLevel(int level) {
+      this.level = level;
+      return this;
+    }
+
+    @Override
+    public Builder setCodec(CompressionCodec codec) {
+      return super.setCodec(codec);
+    }
+  }
+
+  private ArrowStreamWriter(ArrowStreamWriter.Builder builder) {
+    super(builder);
+    provider = builder.provider;
+    option = builder.option;
+    level = builder.level;
   }
 }

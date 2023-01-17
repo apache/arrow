@@ -78,13 +78,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @RunWith(Parameterized.class)
-public class TestRoundTrip extends BaseFileTest {
-  private static final Logger LOGGER = LoggerFactory.getLogger(TestRoundTrip.class);
+public class TestRoundTripBuilder extends BaseFileTest {
+  private static final Logger LOGGER = LoggerFactory.getLogger(TestRoundTripBuilder.class);
   private static BufferAllocator allocator;
   private final String name;
   private final IpcOption writeOption;
 
-  public TestRoundTrip(String name, IpcOption writeOption) {
+  public TestRoundTripBuilder(String name, IpcOption writeOption) {
     this.name = name;
     this.writeOption = writeOption;
   }
@@ -116,10 +116,10 @@ public class TestRoundTrip extends BaseFileTest {
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
          final StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       writeData(COUNT, parent);
-      roundTrip(
+      roundTripThruBuilderPattern(
           new VectorSchemaRoot(parent.getChild("root")),
           /* dictionaryProvider */null,
-          TestRoundTrip::writeSingleBatch,
+          TestRoundTripBuilder::writeSingleBatch,
           validateFileBatches(new int[] {COUNT}, this::validateContent),
           validateStreamBatches(new int[] {COUNT}, this::validateContent));
     }
@@ -131,10 +131,10 @@ public class TestRoundTrip extends BaseFileTest {
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
          final StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       writeComplexData(COUNT, parent);
-      roundTrip(
+      roundTripThruBuilderPattern(
           new VectorSchemaRoot(parent.getChild("root")),
           /* dictionaryProvider */null,
-          TestRoundTrip::writeSingleBatch,
+          TestRoundTripBuilder::writeSingleBatch,
           validateFileBatches(new int[] {COUNT}, this::validateComplexContent),
           validateStreamBatches(new int[] {COUNT}, this::validateComplexContent));
     }
@@ -147,7 +147,7 @@ public class TestRoundTrip extends BaseFileTest {
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
          final StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       writeData(counts[0], parent);
-      roundTrip(
+      roundTripThruBuilderPattern(
           new VectorSchemaRoot(parent.getChild("root")),
           /* dictionaryProvider */null,
           (root, writer) -> {
@@ -167,32 +167,6 @@ public class TestRoundTrip extends BaseFileTest {
           },
           validateFileBatches(counts, this::validateContent),
           validateStreamBatches(counts, this::validateContent));
-    }
-  }
-
-  @Test
-  public void testUnionV4() throws Exception {
-    Assume.assumeTrue(writeOption.metadataVersion == MetadataVersion.V4);
-    final File temp = File.createTempFile("arrow-test-" + name + "-", ".arrow");
-    temp.deleteOnExit();
-    final ByteArrayOutputStream memoryStream = new ByteArrayOutputStream();
-
-    try (final BufferAllocator originalVectorAllocator =
-             allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
-         final StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
-      writeUnionData(COUNT, parent);
-      final VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
-      IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> {
-        try (final FileOutputStream fileStream = new FileOutputStream(temp)) {
-          new ArrowFileWriter(root, null, fileStream.getChannel(), writeOption);
-          new ArrowStreamWriter(root, null, Channels.newChannel(memoryStream), writeOption);
-        }
-      });
-      assertTrue(e.getMessage(), e.getMessage().contains("Cannot write union with V4 metadata"));
-      e = assertThrows(IllegalArgumentException.class, () -> {
-        new ArrowStreamWriter(root, null, Channels.newChannel(memoryStream), writeOption);
-      });
-      assertTrue(e.getMessage(), e.getMessage().contains("Cannot write union with V4 metadata"));
     }
   }
 
@@ -231,10 +205,10 @@ public class TestRoundTrip extends BaseFileTest {
       writeUnionData(COUNT, parent);
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
       validateUnionData(COUNT, root);
-      roundTrip(
+      roundTripThruBuilderPattern(
           root,
           /* dictionaryProvider */null,
-          TestRoundTrip::writeSingleBatch,
+          TestRoundTripBuilder::writeSingleBatch,
           validateFileBatches(new int[] {COUNT}, this::validateUnionData),
           validateStreamBatches(new int[] {COUNT}, this::validateUnionData));
     }
@@ -252,10 +226,10 @@ public class TestRoundTrip extends BaseFileTest {
       vector.setValueCount(count);
       root.setRowCount(count);
 
-      roundTrip(
+      roundTripThruBuilderPattern(
           root,
           /* dictionaryProvider */null,
-          TestRoundTrip::writeSingleBatch,
+          TestRoundTripBuilder::writeSingleBatch,
           validateFileBatches(new int[] {count}, this::validateTinyData),
           validateStreamBatches(new int[] {count}, this::validateTinyData));
     }
@@ -308,10 +282,10 @@ public class TestRoundTrip extends BaseFileTest {
           assertEquals(metadata(i + 1), top.getChildren().get(i).getMetadata());
         }
       };
-      roundTrip(
+      roundTripThruBuilderPattern(
           root,
           /* dictionaryProvider */null,
-          TestRoundTrip::writeSingleBatch,
+          TestRoundTripBuilder::writeSingleBatch,
           validateFileBatches(new int[] {0}, validate),
           validateStreamBatches(new int[] {0}, validate));
     }
@@ -331,7 +305,7 @@ public class TestRoundTrip extends BaseFileTest {
     try (final BufferAllocator originalVectorAllocator =
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
          final VectorSchemaRoot root = writeFlatDictionaryData(originalVectorAllocator, provider)) {
-      roundTrip(
+      roundTripThruBuilderPattern(
           root,
           provider,
           (ignored, writer) -> {
@@ -381,7 +355,7 @@ public class TestRoundTrip extends BaseFileTest {
         assertTrue(streamReader.loadNextBatch());
         validateNestedDictionary(readRoot, streamReader);
       };
-      roundTrip(
+      roundTripThruBuilderPattern(
           root,
           provider,
           (ignored, writer) -> {
@@ -430,10 +404,10 @@ public class TestRoundTrip extends BaseFileTest {
       }
       parent.setValueCount(count);
 
-      roundTrip(
+      roundTripThruBuilderPattern(
           new VectorSchemaRoot(parent),
           /* dictionaryProvider */null,
-          TestRoundTrip::writeSingleBatch,
+          TestRoundTripBuilder::writeSingleBatch,
           validateFileBatches(new int[] {count}, validator),
           validateStreamBatches(new int[] {count}, validator));
     }
@@ -466,10 +440,10 @@ public class TestRoundTrip extends BaseFileTest {
       }
       parent.setValueCount(COUNT);
 
-      roundTrip(
+      roundTripThruBuilderPattern(
           new VectorSchemaRoot(parent),
           /* dictionaryProvider */null,
-          TestRoundTrip::writeSingleBatch,
+          TestRoundTripBuilder::writeSingleBatch,
           validateFileBatches(new int[] {COUNT}, validator),
           validateStreamBatches(new int[] {COUNT}, validator));
     }
@@ -484,36 +458,12 @@ public class TestRoundTrip extends BaseFileTest {
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
       validateVarBinary(COUNT, root);
 
-      roundTrip(
+      roundTripThruBuilderPattern(
           root,
           /* dictionaryProvider */null,
-          TestRoundTrip::writeSingleBatch,
+          TestRoundTripBuilder::writeSingleBatch,
           validateFileBatches(new int[]{COUNT}, this::validateVarBinary),
           validateStreamBatches(new int[]{COUNT}, this::validateVarBinary));
-    }
-  }
-
-  @Test
-  public void testReadWriteMultipleBatches() throws IOException {
-    File file = new File("target/mytest_nulls_multibatch.arrow");
-    int numBlocksWritten = 0;
-
-    try (IntVector vector = new IntVector("foo", allocator);) {
-      Schema schema = new Schema(Collections.singletonList(vector.getField()));
-      try (FileOutputStream fileOutputStream = new FileOutputStream(file);
-           VectorSchemaRoot root =
-               new VectorSchemaRoot(schema, Collections.singletonList((FieldVector) vector), vector.getValueCount());
-           ArrowFileWriter writer = new ArrowFileWriter(root, null, fileOutputStream.getChannel(), writeOption)) {
-        writeBatchData(writer, vector, root);
-        numBlocksWritten = writer.getRecordBlocks().size();
-      }
-    }
-
-    try (FileInputStream fileInputStream = new FileInputStream(file);
-         ArrowFileReader reader = new ArrowFileReader(fileInputStream.getChannel(), allocator);) {
-      IntVector vector = (IntVector) reader.getVectorSchemaRoot().getFieldVectors().get(0);
-      validateBatchData(reader, vector);
-      assertEquals(numBlocksWritten, reader.getRecordBlocks().size());
     }
   }
 
@@ -547,10 +497,10 @@ public class TestRoundTrip extends BaseFileTest {
     try (final BufferAllocator originalVectorAllocator =
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
          final VectorSchemaRoot root = writeMapData(originalVectorAllocator)) {
-      roundTrip(
+      roundTripThruBuilderPattern(
           root,
           /* dictionaryProvider */null,
-          TestRoundTrip::writeSingleBatch,
+          TestRoundTripBuilder::writeSingleBatch,
           validateFileBatches(new int[]{root.getRowCount()}, (count, readRoot) -> validateMapData(readRoot)),
           validateStreamBatches(new int[]{root.getRowCount()}, (count, readRoot) -> validateMapData(readRoot)));
     }
@@ -561,10 +511,10 @@ public class TestRoundTrip extends BaseFileTest {
     try (final BufferAllocator originalVectorAllocator =
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
          final VectorSchemaRoot root = writeListAsMapData(originalVectorAllocator)) {
-      roundTrip(
+      roundTripThruBuilderPattern(
           root,
           /* dictionaryProvider */null,
-          TestRoundTrip::writeSingleBatch,
+          TestRoundTripBuilder::writeSingleBatch,
           validateFileBatches(new int[]{root.getRowCount()}, (count, readRoot) -> validateListAsMapData(readRoot)),
           validateStreamBatches(new int[]{root.getRowCount()}, (count, readRoot) -> validateListAsMapData(readRoot)));
     }
@@ -641,47 +591,11 @@ public class TestRoundTrip extends BaseFileTest {
     void accept(T t, U u) throws Exception;
   }
 
-  private void roundTrip(VectorSchemaRoot root, DictionaryProvider provider,
-                         CheckedBiConsumer<VectorSchemaRoot, ArrowWriter> writer,
-                         CheckedConsumer<? super ArrowFileReader> fileValidator,
-                         CheckedConsumer<? super ArrowStreamReader> streamValidator) throws Exception {
-    final File temp = File.createTempFile("arrow-test-" + name + "-", ".arrow");
-    temp.deleteOnExit();
-    final ByteArrayOutputStream memoryStream = new ByteArrayOutputStream();
-    final Map<String, String> metadata = new HashMap<>();
-    metadata.put("foo", "bar");
-    try (final FileOutputStream fileStream = new FileOutputStream(temp);
-         final ArrowFileWriter fileWriter =
-             new ArrowFileWriter(root, provider, fileStream.getChannel(), metadata, writeOption);
-         final ArrowStreamWriter streamWriter =
-             new ArrowStreamWriter(root, provider, Channels.newChannel(memoryStream), writeOption)) {
-      writer.accept(root, fileWriter);
-      writer.accept(root, streamWriter);
-    }
-
-    MessageMetadataResult metadataResult = MessageSerializer.readMessage(
-        new ReadChannel(Channels.newChannel(new ByteArrayInputStream(memoryStream.toByteArray()))));
-    assertNotNull(metadataResult);
-    assertEquals(writeOption.metadataVersion.toFlatbufID(), metadataResult.getMessage().version());
-
-    try (
-        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, allocator.getLimit());
-        FileInputStream fileInputStream = new FileInputStream(temp);
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(memoryStream.toByteArray());
-        ArrowFileReader fileReader = new ArrowFileReader(fileInputStream.getChannel(), readerAllocator);
-        ArrowStreamReader streamReader = new ArrowStreamReader(inputStream, readerAllocator)) {
-      fileValidator.accept(fileReader);
-      streamValidator.accept(streamReader);
-      assertEquals(writeOption.metadataVersion, fileReader.getFooter().getMetadataVersion());
-      assertEquals(metadata, fileReader.getMetaData());
-    }
-  }
-
   private void roundTripThruBuilderPattern(VectorSchemaRoot root, DictionaryProvider provider,
                          CheckedBiConsumer<VectorSchemaRoot, ArrowWriter> writer,
                          CheckedConsumer<? super ArrowFileReader> fileValidator,
                          CheckedConsumer<? super ArrowStreamReader> streamValidator) throws Exception {
-    final File temp = File.createTempFile("arrow-test-" + name + "-", ".arrow");
+    final File temp = File.createTempFile("arrow-test-builder-" + name + "-", ".arrow");
     temp.deleteOnExit();
     final ByteArrayOutputStream memoryStream = new ByteArrayOutputStream();
     final Map<String, String> metadata = new HashMap<>();
@@ -689,7 +603,7 @@ public class TestRoundTrip extends BaseFileTest {
     try (final FileOutputStream fileStream = new FileOutputStream(temp);
          final ArrowFileWriter fileWriter =
              new ArrowFileWriter.Builder(root,
-                 fileStream.getChannel()).setProvider(provider).setOption(writeOption).build();
+                 fileStream.getChannel()).setProvider(provider).setMetaData(metadata).setOption(writeOption).build();
          final ArrowStreamWriter streamWriter =
              new ArrowStreamWriter.Builder(root, memoryStream).setProvider(provider).setOption(writeOption).build()) {
       writer.accept(root, fileWriter);

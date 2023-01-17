@@ -84,6 +84,8 @@ public class TestCompressionCodec {
       CompressionCodec zstdCodec = new ZstdCompressionCodec();
       params.add(new Object[]{zstdCodec.getCodecType(), len, zstdCodec});
 
+      CompressionCodec zstdCodecLevel1 = new ZstdCompressionCodec(1);
+      params.add(new Object[]{zstdCodecLevel1.getCodecType(), len, zstdCodecLevel1});
     }
     return params;
   }
