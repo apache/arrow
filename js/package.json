@@ -58,7 +58,7 @@
     "@types/pad-left": "2.1.1",
     "command-line-args": "5.2.1",
     "command-line-usage": "6.1.3",
-    "flatbuffers": "2.0.4",
+    "flatbuffers": "23.1.4",
     "json-bignum": "^0.0.3",
     "pad-left": "^2.1.0",
     "tslib": "^2.4.1"

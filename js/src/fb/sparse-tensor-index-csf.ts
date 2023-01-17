@@ -12,7 +12,7 @@ import { Int } from './int.js';
 export class SparseTensorIndexCSF {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):SparseTensorIndexCSF {
+  __init(i:number, bb:flatbuffers.ByteBuffer):SparseTensorIndexCSF {
   this.bb_pos = i;
   this.bb = bb;
   return this;
