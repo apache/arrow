@@ -53,9 +53,9 @@ Table into an R \code{data.frame}.
 \item \code{\link[dplyr:slice]{slice_tail()}}: slicing within groups not supported; Arrow datasets do not have row order, so tail is non-deterministic; \code{prop} only supported on queries where \code{nrow()} is knowable without evaluating
 \item \code{\link[dplyr:summarise]{summarise()}}: window functions not currently supported; arguments \code{.drop = FALSE} and `.groups = "rowwise" not supported
 \item \code{\link[dplyr:count]{tally()}}
-\item \code{\link[dplyr:mutate]{transmute()}}
+\item \code{\link[dplyr:transmute]{transmute()}}
 \item \code{\link[dplyr:group_by]{ungroup()}}
-\item \code{\link[dplyr:reexports]{union()}}
+\item \code{\link[dplyr:setops]{union()}}
 \item \code{\link[dplyr:setops]{union_all()}}
 }
 }
