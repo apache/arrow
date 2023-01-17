@@ -1416,8 +1416,14 @@ def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
 
 cdef class BufferOutputStream(NativeFile):
     """
+    An output stream which writes data in-memory producing a pyarrow.Buffer
+    as a result when ``get.value()`` is called.
+
     Examples
     --------
+    Create an output stream, write data to it and finalize it with
+    ``get.value()``:
+
     >>> import pyarrow as pa
     >>> f = pa.BufferOutputStream()
     >>> f.write(b'pyarrow.Buffer')
