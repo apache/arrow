@@ -16,7 +16,7 @@
 # under the License.
 #
 # Any committer can add themselves to any  of the path patterns
-# and will subsequently get requested as a reviewer for any PRs 
+# and will subsequently get requested as a reviewer for any PRs
 # that change matching files.
 #
 # This file uses .gitignore syntax with a few exceptions see the
@@ -36,16 +36,16 @@
 /cpp/src/arrow/util/future* @westonpace
 /cpp/src/arrow/util/thread* @westonpace
 /cpp/src/parquet @wjones127
-/cpp/src/skyhook @westonpace 
-/csharp/ @westonpace 
+/cpp/src/skyhook @westonpace
+/csharp/ @westonpace
 /go/ @zeroshade
-/java/ @lidavidm 
-/js/ @domoritz @trxcllnt 
-/matlab/ @assignUser 
-/python/ @AlenkaF  
+/java/ @lidavidm
+/js/ @domoritz @trxcllnt
+/matlab/ @assignUser
+/python/ @AlenkaF
 /python/pyarrow/_flight.pyx @lidavidm
-/python/pyarrow/**/*gandiva* @wjones127 
-/r/ @paleolimbot @thisisnic 
+/python/pyarrow/**/*gandiva* @wjones127
+/r/ @paleolimbot @thisisnic
 /ruby/ @kou
 
 # Docs
@@ -59,7 +59,7 @@
 # PR CI and repository files
 /.github/ @assignUser @kou @raulcd
 .asf.yaml @assignUser @kou @raulcd
-.pre-commit-config.yaml @raulcd 
+.pre-commit-config.yaml @raulcd
 .travis.yml @assignUser @kou @raulcd
 appveyor.yml @assignUser @kou @raulcd
 # .git*
@@ -67,7 +67,7 @@ appveyor.yml @assignUser @kou @raulcd
 # release scripts, archery etc.
 /ci/ @assignUser @kou @raulcd
 /dev/ @assignUser @kou @raulcd
-.dockerignore @raulcd 
+.dockerignore @raulcd
 .env @assignUser @kou @raulcd
 docker-compose.yml @assignUser @kou @raulcd
 
