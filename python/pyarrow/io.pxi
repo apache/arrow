@@ -1542,7 +1542,15 @@ cdef class CompressedInputStream(NativeFile):
     buffer with compressed data:
 
     >>> cdata = raw.getvalue()
-    >>> raw = pa.input_stream(cdata)
+    >>> with pa.input_stream(cdata, compression="gzip") as compressed:
+    ...     compressed.read()
+    ...
+    b'Compressed stream'
+
+    which actually translates to the use of ``BufferReader``and
+    ``CompressedInputStream``:
+
+    >>> raw = pa.BufferReader(cdata)
     >>> with pa.CompressedInputStream(raw, "gzip") as compressed:
     ...     compressed.read()
     ...
