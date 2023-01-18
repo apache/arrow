@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 #include "arrow/io/caching.h"
@@ -67,14 +68,17 @@ struct ARROW_EXPORT IpcWriteOptions {
   /// May only be UNCOMPRESSED, LZ4_FRAME and ZSTD.
   std::shared_ptr<util::Codec> codec;
 
-  /// @brief Always use compression, regardless of the resulting output size
+  /// @brief Minimum space savings percentage required for compression to be applied
   ///
-  /// If false, compression will be skipped for body buffers where the expected compressed
-  /// size matches/exceeds the uncompressed size. Otherwise, compression will be applied
-  /// indiscriminately. This option is ignored if no codec was supplied.
+  /// Space savings is calculated as (1.0 - compressed_size / uncompressed_size).
   ///
-  /// This is true by default due to backwards-compatibility concerns.
-  bool compress_always = true;
+  /// For example, if min_space_savings = 0.1, a 100-byte body buffer won't undergo
+  /// compression if its expected compressed size exceeds 90 bytes. If this option isn't
+  /// set, compression will be used indiscriminately. If no codec was supplied, this
+  /// option is ignored.
+  ///
+  /// Unset by default due to backwards-compatibility concerns
+  std::optional<double> min_space_savings;
 
   /// \brief Use global CPU thread pool to parallelize any computational tasks
   /// like compression

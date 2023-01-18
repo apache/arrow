@@ -517,8 +517,7 @@ class TestIpcRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*>,
   }
 };
 
-// A valid codec that doesn't actually compress anything and returns an expected
-// compressed size that exceeds the uncompressed size.
+// A valid codec with no compression/decompression capabilities
 class MockCodec : public util::Codec {
  public:
   explicit MockCodec(std::unique_ptr<util::Codec> real) : real_(std::move(real)) {}
@@ -529,8 +528,8 @@ class MockCodec : public util::Codec {
     return std::make_unique<MockCodec>(std::move(real));
   }
 
-  int64_t MaxCompressedLen(int64_t input_len, const uint8_t*) override {
-    return input_len + 1;
+  int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) override {
+    return real_->MaxCompressedLen(input_len, input);
   }
 
   Result<std::shared_ptr<util::Compressor>> MakeCompressor() override {
@@ -769,7 +768,8 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
     CheckRoundtrip(*batch, write_options, read_options);
 
     ASSERT_OK_AND_ASSIGN(write_options.codec, MockCodec::Create(codec));
-    write_options.compress_always = false;
+    // 200% savings is impossible, so compression/decompression should be skipped
+    write_options.min_space_savings = 2.0;
     CheckRoundtrip(*batch, write_options, read_options);
   }
 
