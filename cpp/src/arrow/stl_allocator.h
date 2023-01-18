@@ -137,7 +137,9 @@ class STLMemoryPool : public MemoryPool {
 
   int64_t max_memory() const override { return stats_.max_memory(); }
 
-  int64_t total_allocated() const override { return stats_.total_allocated(); }
+  int64_t total_bytes_allocated() const override {
+    return stats_.total_bytes_allocated();
+  }
 
   int64_t num_allocations() const override { return stats_.num_allocations(); }
 

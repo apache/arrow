@@ -140,11 +140,7 @@ struct RegressionArgs {
 
 class MemoryPoolMemoryManager : public benchmark::MemoryManager {
   void Start() BENCHMARK_OVERRIDE {
-    // TODO: Should we try to exclude memory allocated from setup?
-    // TODO: Are we isolating memory to this test at all?
-    // I think we have to do this with a custom allocator, but how do we force
-    // the benchmarks to use that?
-    // Or can we enable enhanced statistics on normal memory pools?
+    // Reset statistics between each benchmark
     MemoryPool* pool = default_memory_pool();
     pool->ResetStatistics();
   }
@@ -152,7 +148,7 @@ class MemoryPoolMemoryManager : public benchmark::MemoryManager {
   void Stop(benchmark::MemoryManager::Result* result) BENCHMARK_OVERRIDE {
     MemoryPool* pool = default_memory_pool();
     result->max_bytes_used = pool->max_memory();
-    result->total_allocated_bytes = pool->total_allocated();
+    result->total_allocated_bytes = pool->total_bytes_allocated();
     result->num_allocs = pool->num_allocations();
   }
 };

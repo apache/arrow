@@ -660,8 +660,6 @@ static void BM_ReadMultipleRowGroupsGenerator(::benchmark::State& state) {
 
 BENCHMARK(BM_ReadMultipleRowGroupsGenerator);
 
-// BENCHMARK_MAIN();
-
 }  // namespace benchmark
 
 }  // namespace parquet

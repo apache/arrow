@@ -462,7 +462,7 @@ class MyMemoryPool : public MemoryPool {
 
   int64_t bytes_allocated() const override { return -1; }
 
-  int64_t total_allocated() const override { return -1; }
+  int64_t total_bytes_allocated() const override { return -1; }
 
   std::string backend_name() const override { return "my"; }
 

@@ -518,7 +518,9 @@ class BaseMemoryPoolImpl : public MemoryPool {
 
   int64_t max_memory() const override { return stats_.max_memory(); }
 
-  int64_t total_allocated() const override { return stats_.total_allocated(); }
+  int64_t total_bytes_allocated() const override {
+    return stats_.total_bytes_allocated();
+  }
 
   int64_t num_allocations() const override { return stats_.num_allocations(); }
 
@@ -738,9 +740,9 @@ int64_t LoggingMemoryPool::max_memory() const {
   return mem;
 }
 
-int64_t LoggingMemoryPool::total_allocated() const {
-  int64_t mem = pool_->total_allocated();
-  std::cout << "total_allocated: " << mem << std::endl;
+int64_t LoggingMemoryPool::total_bytes_allocated() const {
+  int64_t mem = pool_->total_bytes_allocated();
+  std::cout << "total_bytes_allocated: " << mem << std::endl;
   return mem;
 }
 
@@ -783,7 +785,7 @@ class ProxyMemoryPool::ProxyMemoryPoolImpl {
 
   int64_t max_memory() const { return stats_.max_memory(); }
 
-  int64_t total_allocated() const { return stats_.total_allocated(); }
+  int64_t total_bytes_allocated() const { return stats_.total_bytes_allocated(); }
 
   int64_t num_allocations() const { return stats_.num_allocations(); }
 
@@ -819,7 +821,9 @@ int64_t ProxyMemoryPool::bytes_allocated() const { return impl_->bytes_allocated
 
 int64_t ProxyMemoryPool::max_memory() const { return impl_->max_memory(); }
 
-int64_t ProxyMemoryPool::total_allocated() const { return impl_->total_allocated(); }
+int64_t ProxyMemoryPool::total_bytes_allocated() const {
+  return impl_->total_bytes_allocated();
+}
 
 int64_t ProxyMemoryPool::num_allocations() const { return impl_->num_allocations(); }
 

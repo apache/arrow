@@ -43,7 +43,7 @@ class MemoryPoolStats {
 
   int64_t bytes_allocated() const { return bytes_allocated_.load(); }
 
-  int64_t total_allocated() const { return total_allocated_bytes_.load(); }
+  int64_t total_bytes_allocated() const { return total_allocated_bytes_.load(); }
 
   int64_t num_allocations() const { return num_allocs_.load(); }
 
@@ -64,10 +64,8 @@ class MemoryPoolStats {
 
     if (diff > 0) {
       total_allocated_bytes_ += diff;
+      num_allocs_ += 1;
     }
-
-    // TODO: don't count frees
-    num_allocs_ += 1;
   }
 
  protected:
@@ -139,7 +137,7 @@ class ARROW_EXPORT MemoryPool {
   /// returns -1
   virtual int64_t max_memory() const;
 
-  virtual int64_t total_allocated() const = 0;
+  virtual int64_t total_bytes_allocated() const = 0;
 
   virtual int64_t num_allocations() const = 0;
 
@@ -170,7 +168,7 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
 
   int64_t max_memory() const override;
 
-  int64_t total_allocated() const override;
+  int64_t total_bytes_allocated() const override;
 
   int64_t num_allocations() const override;
 
@@ -204,7 +202,7 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
 
   int64_t max_memory() const override;
 
-  int64_t total_allocated() const override;
+  int64_t total_bytes_allocated() const override;
 
   int64_t num_allocations() const override;
 
