@@ -110,7 +110,7 @@ TEST(DefaultMemoryPool, Identity) {
 // googletest documentation
 #if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
 
-TEST(DefaultMemoryPoolDeathTest, MaxMemory) {
+TEST(DefaultMemoryPoolDeathTest, Statistics) {
   MemoryPool* pool = default_memory_pool();
   uint8_t* data1;
   uint8_t* data2;
@@ -118,11 +118,20 @@ TEST(DefaultMemoryPoolDeathTest, MaxMemory) {
   ASSERT_OK(pool->Allocate(100, &data1));
   ASSERT_OK(pool->Allocate(50, &data2));
   pool->Free(data2, 50);
+
+  ASSERT_EQ(150, pool->max_memory());
+  ASSERT_EQ(150, pool->total_bytes_allocated());
+  ASSERT_EQ(100, pool->bytes_allocated());
+  ASSERT_EQ(2, pool->num_allocations());
+
   ASSERT_OK(pool->Allocate(100, &data2));
   pool->Free(data1, 100);
   pool->Free(data2, 100);
 
   ASSERT_EQ(200, pool->max_memory());
+  ASSERT_EQ(250, pool->total_bytes_allocated());
+  ASSERT_EQ(0, pool->bytes_allocated());
+  ASSERT_EQ(3, pool->num_allocations());
 }
 
 #endif  // ARROW_VALGRIND
