@@ -76,6 +76,15 @@ test_that("Field reference expression schemas and types", {
   expect_equal(x$type(), int32())
 })
 
+test_that("Nested field refs", {
+  x <- Expression$field_ref("x")
+  nested <- x$y
+  expect_r6_class(nested, "Expression")
+  expect_r6_class(x[["y"]], "Expression")
+  expect_r6_class(nested$z, "Expression")
+  expect_error(Expression$scalar(42L)$y, "Cannot extract a field from an Expression of type int32")
+})
+
 test_that("Scalar expression schemas and types", {
   # type() works on scalars without setting the schema
   expect_equal(
@@ -126,4 +135,21 @@ test_that("Expression schemas and types", {
     Expression$create("add_checked", x, z)$type(),
     int32()
   )
+})
+
+test_that("Nested field ref types", {
+  nested <- Expression$field_ref("x")$y
+  schm <- schema(x = struct(y = int32(), z = double()))
+  expect_equal(nested$type(schm), int32())
+  # implicit casting and schema propagation
+  x <- Expression$field_ref("x")
+  x$schema <- schm
+  expect_equal((x$y * 2)$type(), int32())
+})
+
+test_that("Nested field from a non-field-ref (struct_field kernel)", {
+  x <- Expression$scalar(data.frame(a = 1, b = "two"))
+  expect_true(inherits(x$a, "Expression"))
+  expect_equal(x$a$type(), float64())
+  expect_error(x$c, "field 'c' not found in struct<a: double, b: string>")
 })

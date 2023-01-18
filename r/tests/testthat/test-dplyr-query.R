@@ -714,3 +714,73 @@ test_that("Scalars in expressions match the type of the field, if possible", {
     collect()
   expect_equal(result$tpc_h_1, result$as_dbl)
 })
+
+test_that("Can use nested field refs", {
+  nested_data <- tibble(int = 1:5, df_col = tibble(a = 6:10, b = 11:15))
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        nested = df_col$a,
+        times2 = df_col$a * 2
+      ) %>%
+      filter(nested > 7) %>%
+      collect(),
+    nested_data
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        nested = df_col$a,
+        times2 = df_col$a * 2
+      ) %>%
+      filter(nested > 7) %>%
+      summarize(sum(times2)) %>%
+      collect(),
+    nested_data
+  )
+
+  # Now with Dataset: make sure column pushdown in ScanNode works
+  expect_equal(
+    nested_data %>%
+      InMemoryDataset$create() %>%
+      mutate(
+        nested = df_col$a,
+        times2 = df_col$a * 2
+      ) %>%
+      filter(nested > 7) %>%
+      collect(),
+    nested_data %>%
+      mutate(
+        nested = df_col$a,
+        times2 = df_col$a * 2
+      ) %>%
+      filter(nested > 7)
+  )
+})
+
+test_that("Use struct_field for $ on non-field-ref", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        df_col = tibble(i = int, d = dbl)
+      ) %>%
+      transmute(
+        int2 = df_col$i,
+        dbl2 = df_col$d
+      ) %>%
+      collect(),
+    example_data
+  )
+})
+
+test_that("nested field ref error handling", {
+  expect_error(
+    example_data %>%
+      arrow_table() %>%
+      mutate(x = int$nested) %>%
+      compute(),
+    "No match"
+  )
+})

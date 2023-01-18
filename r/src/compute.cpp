@@ -564,6 +564,20 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
+  if (func_name == "struct_field") {
+    using Options = arrow::compute::StructFieldOptions;
+    if (!Rf_isNull(options["indices"])) {
+      return std::make_shared<Options>(
+          cpp11::as_cpp<std::vector<int>>(options["indices"]));
+    } else {
+      // field_ref
+      return std::make_shared<Options>(
+          *cpp11::as_cpp<std::shared_ptr<arrow::compute::Expression>>(
+               options["field_ref"])
+               ->field_ref());
+    }
+  }
+
   return nullptr;
 }
 
