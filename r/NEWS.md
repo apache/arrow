@@ -51,7 +51,7 @@ The following functions can now be used in queries on Arrow objects:
 * The package can now be installed offline using pre-downloaded binaries 
 (@pgramme, #14086)
 * The package can now automatically link to system installations of the AWS SDK
-C++ (@kou, #14235)
+for C++ (@kou, #14235)
 
 ### Other
 
