@@ -3091,6 +3091,24 @@ cpdef DataType decimal256(int precision, int scale=0):
 def string():
     """
     Create UTF8 variable-length string type.
+
+    Examples
+    --------
+    Create an instance of a string type:
+
+    >>> import pyarrow as pa
+    >>> pa.string()
+    DataType(string)
+
+    and use the string type to create an array:
+
+    >>> pa.array(['foo', 'bar', 'baz'], type=pa.string())
+    <pyarrow.lib.StringArray object at ...>
+    [
+      "foo",
+      "bar",
+      "baz"
+    ]
     """
     return primitive_type(_Type_STRING)
 
@@ -3098,13 +3116,31 @@ def string():
 def utf8():
     """
     Alias for string().
+
+    Examples
+    --------
+    Create an instance of a string type:
+
+    >>> import pyarrow as pa
+    >>> pa.utf8()
+    DataType(string)
+
+    and use the string type to create an array:
+
+    >>> pa.array(['foo', 'bar', 'baz'], type=pa.utf8())
+    <pyarrow.lib.StringArray object at ...>
+    [
+      "foo",
+      "bar",
+      "baz"
+    ]
     """
     return string()
 
 
 def binary(int length=-1):
     """
-    Create variable-length binary type.
+    Create variable-length or fixed size binary type.
 
     Parameters
     ----------
@@ -3112,6 +3148,38 @@ def binary(int length=-1):
         If length == -1 then return a variable length binary type. If length is
         greater than or equal to 0 then return a fixed size binary type of
         width `length`.
+
+    Examples
+    --------
+    Create an instance of a variable-length binary type:
+
+    >>> import pyarrow as pa
+    >>> pa.binary()
+    DataType(binary)
+
+    and use the variable-length binary type to create an array:
+
+    >>> pa.array(['foo', 'bar', 'baz'], type=pa.binary())
+    <pyarrow.lib.BinaryArray object at ...>
+    [
+      666F6F,
+      626172,
+      62617A
+    ]
+
+    Create an instance of a fixed-size binary type:
+
+    >>> pa.binary(3)
+    FixedSizeBinaryType(fixed_size_binary[3])
+
+    and use the fixed-length binary type to create an array:
+    >>> pa.array(['foo', 'bar', 'baz'], type=pa.binary(3))
+    <pyarrow.lib.FixedSizeBinaryArray object at ...>
+    [
+      666F6F,
+      626172,
+      62617A
+    ]
     """
     if length == -1:
         return primitive_type(_Type_BINARY)
@@ -3127,6 +3195,26 @@ def large_binary():
 
     This data type may not be supported by all Arrow implementations.  Unless
     you need to represent data larger than 2GB, you should prefer binary().
+
+    Examples
+    --------
+    Create an instance of large variable-length binary type:
+
+    >>> import pyarrow as pa
+    >>> pa.large_binary()
+    DataType(large_binary)
+
+    and use the type to create an array:
+
+    >>> pa.array(['foo', 'bar'] * 50, type=pa.large_binary())
+    <pyarrow.lib.LargeBinaryArray object at ...>
+    [
+      666F6F,
+      626172,
+      666F6F,
+      626172,
+      666F6F,
+    ...
     """
     return primitive_type(_Type_LARGE_BINARY)
 
@@ -3137,6 +3225,26 @@ def large_string():
 
     This data type may not be supported by all Arrow implementations.  Unless
     you need to represent data larger than 2GB, you should prefer string().
+
+    Examples
+    --------
+    Create an instance of large UTF8 variable-length binary type:
+
+    >>> import pyarrow as pa
+    >>> pa.large_string()
+    DataType(large_string)
+
+    and use the type to create an array:
+
+    >>> pa.array(['foo', 'bar'] * 50, type=pa.large_string())
+    <pyarrow.lib.LargeStringArray object at ...>
+    [
+      "foo",
+      "bar",
+      ...
+      "foo",
+      "bar"
+    ]
     """
     return primitive_type(_Type_LARGE_STRING)
 
@@ -3144,6 +3252,26 @@ def large_string():
 def large_utf8():
     """
     Alias for large_string().
+
+    Examples
+    --------
+    Create an instance of large UTF8 variable-length binary type:
+
+    >>> import pyarrow as pa
+    >>> pa.large_utf8()
+    DataType(large_string)
+
+    and use the type to create an array:
+
+    >>> pa.array(['foo', 'bar'] * 50, type=pa.large_utf8())
+    <pyarrow.lib.LargeStringArray object at ...>
+    [
+      "foo",
+      "bar",
+      ...
+      "foo",
+      "bar"
+    ]
     """
     return large_string()
 
