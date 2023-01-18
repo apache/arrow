@@ -74,8 +74,8 @@ sub-seconds (@eitsupi, #13890)
 `dplyr::group_by()`/`dplyr::summarise()` calls are used (#14905)
 * fix for a bug in which `dplyr::summarize()` fails with division when divisor 
 is a variable (#14933)
-* fix for a bug in which as.Date fails going from timestamp[us] to timestamp[s] 
-(#14935)
+* fix for a bug in which `as.Date()` fails going from `timestamp[us]` to
+`timestamp[s]` (#14935)
 * fix for a bug in which Creating an Array from an object bigger than 2^31 
 results in an Array of length 0 (#14929)
 * fix for a bug in which accents in file paths caused an error in 
