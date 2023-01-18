@@ -2358,6 +2358,21 @@ cdef set PRIMITIVE_TYPES = set([
 def null():
     """
     Create instance of null type.
+
+    Examples
+    --------
+    Create an instance of a null type:
+
+    >>> import pyarrow as pa
+    >>> pa.null()
+    DataType(null)
+    >>> print(pa.null())
+    null
+
+    Create a ``Field`` type with a null type and a name:
+
+    >>> pa.field('null_field', pa.null())
+    pyarrow.Field<null_field: null>
     """
     return primitive_type(_Type_NA)
 
@@ -2365,6 +2380,22 @@ def null():
 def bool_():
     """
     Create instance of boolean type.
+
+    Examples
+    --------
+    Create an instance of a boolean type:
+
+    >>> import pyarrow as pa
+    >>> pa.bool_()
+    DataType(bool)
+    >>> print(pa.bool_())
+    bool
+
+    Create a ``Field`` type with a boolean type
+    and a name:
+
+    >>> pa.field('null_field', pa.bool_())
+    pyarrow.Field<null_field: bool>
     """
     return primitive_type(_Type_BOOL)
 
@@ -2372,6 +2403,26 @@ def bool_():
 def uint8():
     """
     Create instance of unsigned int8 type.
+
+    Examples
+    --------
+    Create an instance of unsigned int8 type:
+
+    >>> import pyarrow as pa
+    >>> pa.uint8()
+    DataType(uint8)
+    >>> print(pa.uint8())
+    uint8
+
+    Create an array with unsigned int8 type:
+
+    >>> pa.array([0, 1, 2], type=pa.uint8())
+    <pyarrow.lib.UInt8Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_UINT8)
 
@@ -2379,6 +2430,26 @@ def uint8():
 def int8():
     """
     Create instance of signed int8 type.
+
+    Examples
+    --------
+    Create an instance of int8 type:
+
+    >>> import pyarrow as pa
+    >>> pa.int8()
+    DataType(int8)
+    >>> print(pa.int8())
+    int8
+
+    Create an array with int8 type:
+
+    >>> pa.array([0, 1, 2], type=pa.int8())
+    <pyarrow.lib.Int8Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_INT8)
 
@@ -2386,6 +2457,26 @@ def int8():
 def uint16():
     """
     Create instance of unsigned uint16 type.
+
+    Examples
+    --------
+    Create an instance of unsigned int16 type:
+
+    >>> import pyarrow as pa
+    >>> pa.uint16()
+    DataType(uint16)
+    >>> print(pa.uint16())
+    uint16
+
+    Create an array with unsigned int16 type:
+
+    >>> pa.array([0, 1, 2], type=pa.uint16())
+    <pyarrow.lib.UInt16Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_UINT16)
 
@@ -2393,6 +2484,26 @@ def uint16():
 def int16():
     """
     Create instance of signed int16 type.
+
+    Examples
+    --------
+    Create an instance of int16 type:
+
+    >>> import pyarrow as pa
+    >>> pa.int16()
+    DataType(int16)
+    >>> print(pa.int16())
+    int16
+
+    Create an array with int16 type:
+
+    >>> pa.array([0, 1, 2], type=pa.int16())
+    <pyarrow.lib.Int16Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_INT16)
 
@@ -2400,6 +2511,26 @@ def int16():
 def uint32():
     """
     Create instance of unsigned uint32 type.
+
+    Examples
+    --------
+    Create an instance of unsigned int32 type:
+
+    >>> import pyarrow as pa
+    >>> pa.uint32()
+    DataType(uint32)
+    >>> print(pa.uint32())
+    uint32
+
+    Create an array with unsigned int32 type:
+
+    >>> pa.array([0, 1, 2], type=pa.uint32())
+    <pyarrow.lib.UInt32Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_UINT32)
 
@@ -2407,6 +2538,26 @@ def uint32():
 def int32():
     """
     Create instance of signed int32 type.
+
+    Examples
+    --------
+    Create an instance of int32 type:
+
+    >>> import pyarrow as pa
+    >>> pa.int32()
+    DataType(int32)
+    >>> print(pa.int32())
+    int32
+
+    Create an array with int32 type:
+
+    >>> pa.array([0, 1, 2], type=pa.int32())
+    <pyarrow.lib.Int32Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_INT32)
 
@@ -2414,6 +2565,26 @@ def int32():
 def uint64():
     """
     Create instance of unsigned uint64 type.
+
+    Examples
+    --------
+    Create an instance of unsigned int64 type:
+
+    >>> import pyarrow as pa
+    >>> pa.uint64()
+    DataType(uint64)
+    >>> print(pa.uint64())
+    uint64
+
+    Create an array with unsigned uint64 type:
+
+    >>> pa.array([0, 1, 2], type=pa.uint64())
+    <pyarrow.lib.UInt64Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_UINT64)
 
@@ -2421,6 +2592,26 @@ def uint64():
 def int64():
     """
     Create instance of signed int64 type.
+
+    Examples
+    --------
+    Create an instance of int64 type:
+
+    >>> import pyarrow as pa
+    >>> pa.int64()
+    DataType(int64)
+    >>> print(pa.int64())
+    int64
+
+    Create an array with int64 type:
+
+    >>> pa.array([0, 1, 2], type=pa.int64())
+    <pyarrow.lib.Int64Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_INT64)
 
