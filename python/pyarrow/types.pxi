@@ -2703,6 +2703,8 @@ def timestamp(unit, tz=None):
 
     Examples
     --------
+    Create an instance of timestamp type:
+
     >>> import pyarrow as pa
     >>> pa.timestamp('us')
     TimestampType(timestamp[us])
@@ -2710,6 +2712,16 @@ def timestamp(unit, tz=None):
     TimestampType(timestamp[s, tz=America/New_York])
     >>> pa.timestamp('s', tz='+07:30')
     TimestampType(timestamp[s, tz=+07:30])
+
+    Use timestamp type when creating a scalar object:
+
+    >>> from datetime import datetime
+    >>> pa.scalar(datetime(2012, 1, 1),
+    ...           type=pa.timestamp('s', tz='+07:30'))
+    <pyarrow.TimestampScalar: datetime.datetime(2012, 1, 1, 7, 30, tzinfo=pytz.FixedOffset(450))>
+    >>> pa.scalar(datetime(2012, 1, 1),
+    ...           type=pa.timestamp('us'))
+    <pyarrow.TimestampScalar: datetime.datetime(2012, 1, 1, 0, 0)>
 
     Returns
     -------
@@ -2840,11 +2852,23 @@ def duration(unit):
 
     Examples
     --------
+    Create an instance of duration type:
+
     >>> import pyarrow as pa
     >>> pa.duration('us')
     DurationType(duration[us])
     >>> pa.duration('s')
     DurationType(duration[s])
+
+    Create an array with duration type:
+
+    >>> pa.array([0, 1, 2], type=pa.duration('s'))
+    <pyarrow.lib.DurationArray object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     cdef:
         TimeUnit unit_code
@@ -2866,6 +2890,19 @@ def month_day_nano_interval():
     """
     Create instance of an interval type representing months, days and
     nanoseconds between two dates.
+
+    Examples
+    --------
+    Create an instance of an month_day_nano_interval type:
+
+    >>> import pyarrow as pa
+    >>> pa.month_day_nano_interval()
+    DataType(month_day_nano_interval)
+
+    Create a scalar with month_day_nano_interval type:
+
+    >>> pa.scalar((1, 15, -30), type=pa.month_day_nano_interval())
+    <pyarrow.MonthDayNanoIntervalScalar: MonthDayNano(months=1, days=15, nanoseconds=-30)>
     """
     return primitive_type(_Type_INTERVAL_MONTH_DAY_NANO)
 
@@ -2873,6 +2910,20 @@ def month_day_nano_interval():
 def date32():
     """
     Create instance of 32-bit date (days since UNIX epoch 1970-01-01).
+
+    Examples
+    --------
+    Create an instance of 32-bit date type:
+
+    >>> import pyarrow as pa
+    >>> pa.date32()
+    DataType(date32[day])
+
+    Create a scalar with 32-bit date type:
+
+    >>> from datetime import datetime
+    >>> pa.scalar(datetime(2012, 1, 1), type=pa.date32())
+    <pyarrow.Date32Scalar: datetime.date(2012, 1, 1)>
     """
     return primitive_type(_Type_DATE32)
 
@@ -2880,6 +2931,20 @@ def date32():
 def date64():
     """
     Create instance of 64-bit date (milliseconds since UNIX epoch 1970-01-01).
+
+    Examples
+    --------
+    Create an instance of 64-bit date type:
+
+    >>> import pyarrow as pa
+    >>> pa.date64()
+    DataType(date64[ms])
+
+    Create a scalar with 64-bit date type:
+
+    >>> from datetime import datetime
+    >>> pa.scalar(datetime(2012, 1, 1), type=pa.date64())
+    <pyarrow.Date64Scalar: datetime.date(2012, 1, 1)>
     """
     return primitive_type(_Type_DATE64)
 
