@@ -1421,8 +1421,9 @@ def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
 
 cdef class BufferOutputStream(NativeFile):
     """
-    An output stream which writes data in-memory producing a pyarrow.Buffer
-    as a result when ``get.value()`` is called.
+    An output stream that writes to a resizable buffer.
+
+    The buffer is produced as a result when ``get.value()`` is called.
 
     Examples
     --------
