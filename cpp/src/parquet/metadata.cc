@@ -278,8 +278,11 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
   const std::vector<PageEncodingStats>& encoding_stats() const { return encoding_stats_; }
 
-  inline bool has_bloom_filter() const {
-    return column_metadata_->__isset.bloom_filter_offset;
+  inline std::optional<int64_t> bloom_filter_offset() const {
+    if(column_metadata_->__isset.bloom_filter_offset) {
+      return column_metadata_->bloom_filter_offset;
+    }
+    return std::nullopt;
   }
 
   inline bool has_dictionary_page() const {
@@ -391,8 +394,8 @@ std::shared_ptr<Statistics> ColumnChunkMetaData::statistics() const {
 
 bool ColumnChunkMetaData::is_stats_set() const { return impl_->is_stats_set(); }
 
-bool ColumnChunkMetaData::has_bloom_filter() const {
-  return impl_->has_bloom_filter();
+std::optional<int64_t> ColumnChunkMetaData::bloom_filter_offset() const {
+  return impl_->bloom_filter_offset();
 }
 
 bool ColumnChunkMetaData::has_dictionary_page() const {

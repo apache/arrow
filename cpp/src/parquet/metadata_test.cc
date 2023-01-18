@@ -303,7 +303,9 @@ TEST(Metadata, TestHasBloomFilter) {
   auto row_group_metadata = file_metadata->RowGroup(0);
   ASSERT_EQ(1, row_group_metadata->num_columns());
   auto col_chunk_metadata = row_group_metadata->ColumnChunk(0);
-  ASSERT_TRUE(col_chunk_metadata->has_bloom_filter());
+  auto bloom_filter_offset = col_chunk_metadata->bloom_filter_offset();
+  ASSERT_TRUE(bloom_filter_offset.has_value());
+  ASSERT_EQ(192, bloom_filter_offset);
 }
 
 TEST(Metadata, TestReadPageIndex) {
@@ -341,7 +343,7 @@ TEST(Metadata, TestReadPageIndex) {
     ASSERT_TRUE(oi_location.has_value());
     ASSERT_EQ(oi_offsets.at(i), oi_location->offset);
     ASSERT_EQ(oi_lengths.at(i), oi_location->length);
-    ASSERT_FALSE(col_chunk_metadata->has_bloom_filter());
+    ASSERT_FALSE(col_chunk_metadata->bloom_filter_offset().has_value());
   }
 }
 
