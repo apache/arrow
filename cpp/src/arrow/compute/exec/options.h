@@ -523,7 +523,8 @@ class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
   ///
   /// \see `Keys` for details.
   std::vector<Keys> input_keys;
-  /// \brief Tolerance for inexact "on" key matching.  Must be non-negative.
+  /// \brief Tolerance for inexact "on" key matching. Positive (resp. negative) tolerance
+  /// is interpreted as a future (resp. past) as-of-join.
   ///
   /// The tolerance is interpreted in the same units as the "on" key.
   int64_t tolerance;
