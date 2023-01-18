@@ -236,7 +236,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
   /**
    * Allows an AllocationManager to tell the allocator that we are removing a
-   * ledger associated with this allocator
+   * ledger associated with this allocator.
    */
   void dissociateLedger(BufferLedger ledger) {
     assertOpen();
