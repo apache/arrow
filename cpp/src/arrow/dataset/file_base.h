@@ -411,7 +411,7 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
 
   /// Template string used to generate fragment basenames.
   /// {i} will be replaced by an auto incremented integer.
-  std::string basename_template = "part-{i}.undefined";
+  std::string basename_template = "part-{i}";
 
   /// If greater than 0 then this will limit the maximum number of files that can be left
   /// open. If an attempt is made to open too many files then the least recently used file
@@ -431,13 +431,13 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// and only write the row groups to the disk when sufficient rows have accumulated.
   /// The final row group size may be less than this value and other options such as
   /// `max_open_files` or `max_rows_per_file` lead to smaller row group sizes.
-  uint64_t min_rows_per_group = 0;
+  uint64_t min_rows_per_group = 1 << 20;
 
   /// If greater than 0 then the dataset writer may split up large incoming batches into
   /// multiple row groups.  If this value is set then min_rows_per_group should also be
   /// set or else you may end up with very small row groups (e.g. if the incoming row
   /// group size is just barely larger than this value).
-  uint64_t max_rows_per_group = 1 << 20;
+  uint64_t max_rows_per_group = 1 << 26;
 
   /// Controls what happens if an output directory already exists.
   ExistingDataBehavior existing_data_behavior = ExistingDataBehavior::kError;

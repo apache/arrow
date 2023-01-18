@@ -98,8 +98,8 @@ class TestIpcFileSystemDataset : public testing::Test,
     MakeSourceDataset();
     auto ipc_format = std::make_shared<IpcFileFormat>();
     format_ = ipc_format;
-    auto write_options = std::make_shared<FileSystemDatasetWriteOptions>(ipc_format);
-    SetWriteOptions(std::move(write_options));
+    write_options_ = std::make_shared<FileSystemDatasetWriteOptions>(format_);
+    SetWriteOptions();
   }
 };
 

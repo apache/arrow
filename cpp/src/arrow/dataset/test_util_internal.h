@@ -1833,8 +1833,8 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     SetProjection(scan_options_.get(), std::move(projection));
   }
 
-  void SetWriteOptions(std::shared_ptr<FileSystemDatasetWriteOptions> write_options) {
-    write_options_ = write_options;
+  void SetWriteOptions() {
+    write_options_->filesystem = fs_;
     write_options_->base_dir = "/new_root/";
     write_options_->basename_template = "dat_{i}";
     write_options_->writer_pre_finish = [this](FileWriter* writer) {
