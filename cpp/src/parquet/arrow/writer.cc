@@ -291,8 +291,13 @@ class FileWriterImpl : public FileWriter {
         arrow_properties_(std::move(arrow_properties)),
         closed_(false) {
     if (arrow_properties_->use_threads()) {
-      parallel_column_write_contexts_.resize(schema_->num_fields(),
-                                             {pool, arrow_properties_.get()});
+      parallel_column_write_contexts_.reserve(schema_->num_fields());
+      for (int i = 0; i < schema_->num_fields(); ++i) {
+        // Explicitly create each ArrowWriteContext object to avoid unintentional
+        // call of the copy constructor. Otherwise, the buffers in the type of
+        // sharad_ptr will be shared among all contexts.
+        parallel_column_write_contexts_.emplace_back(pool, arrow_properties_.get());
+      }
     }
   }
 
