@@ -23,7 +23,7 @@
 
 ### Docs
 
-* A substantial reorganisation, rewrite of, and addition to many of the 
+* A substantial reorganisation, rewrite of and addition to, many of the 
 vignettes and README (@djnavarro, #14514)  
 
 ### Reading/writing data
@@ -55,8 +55,8 @@ C++ (@kou, #14235)
 
 ### Other
 
-* new dplyr (1.1.0) function `join_by()` implemented for dplyr joins on Arrow 
-object (equality conditions only)  (#33664)
+* new dplyr (1.1.0) function `join_by()` has been implemented for dplyr joins 
+on Arrow objects (equality conditions only)  (#33664)
 * StructArray objects can now be created directly via `StructArray$create()` 
 (#14922)
 * curl timeout policy can now be configured for S3 (#15166)
