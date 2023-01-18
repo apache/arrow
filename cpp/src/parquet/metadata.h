@@ -171,6 +171,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 
   const std::vector<Encoding::type>& encodings() const;
   const std::vector<PageEncodingStats>& encoding_stats() const;
+  bool has_bloom_filter() const;
   bool has_dictionary_page() const;
   int64_t dictionary_page_offset() const;
   int64_t data_page_offset() const;
