@@ -87,7 +87,7 @@ public class TestBaseAllocator {
     }
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test()
   public void testRootAllocator_closeWithOutstanding() throws Exception {
     try {
       try (final RootAllocator rootAllocator =
@@ -107,6 +107,19 @@ public class TestBaseAllocator {
       assertEquals(1, bufferCount);
       // ------------------------------- DEBUG ---------------------------------
       */
+    }
+  }
+
+  @Test()
+  public void testRootAllocator_closeChildWithOutstanding() throws Exception {
+    try (final RootAllocator parent =
+        new RootAllocator(MAX_ALLOCATION)) {
+      final ArrowBuf parentBuf = parent.buffer(512);
+      assertNotNull("allocation failed", parentBuf);
+      try (BufferAllocator child1 = parent.newChildAllocator("child1", 0L, MAX_ALLOCATION)) {
+        final ArrowBuf childBuf = child1.buffer(512);
+        assertNotNull("allocation failed", childBuf);
+      }
     }
   }
 

@@ -68,6 +68,12 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   private final BaseAllocator parentAllocator;
   private final Map<BaseAllocator, Object> childAllocators;
   private final ArrowBuf empty;
+
+  // linked list to hold references to alive ledgers
+  private BufferLedger tail = null;
+
+  private final Object REF_LOCK = new Object();
+
   // members used purely for debugging
   private final IdentityHashMap<BufferLedger, Object> childLedgers;
   private final IdentityHashMap<Reservation, Object> reservations;
@@ -177,13 +183,50 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     return empty;
   }
 
+  private void appendToRefList(BufferLedger ledger) {
+    synchronized (REF_LOCK) {
+      if (ledger.next != null || ledger.prev != null) {
+        throw new IllegalStateException("already linked");
+      }
+      if (tail == null) {
+        tail = ledger;
+        return;
+      }
+      tail.next = ledger;
+      ledger.prev = tail;
+      tail = ledger;
+    }
+  }
+
+  private void removeFromRefList(BufferLedger ledger) {
+    synchronized (REF_LOCK) {
+      if (ledger.next == ledger) {
+        return;
+      }
+      if (ledger.prev == ledger) {
+        throw new IllegalStateException();
+      }
+      if (ledger == tail) {
+        tail = ledger.prev;
+      }
+      if (ledger.prev != null) {
+        ledger.prev.next = ledger.next;
+      }
+      if (ledger.next != null) {
+        ledger.next.prev = ledger.prev;
+      }
+      ledger.prev = ledger;
+      ledger.next = ledger;
+    }
+  }
+
   /**
-   * For debug/verification purposes only. Allows an AllocationManager to tell the allocator that
-   * we have a new ledger
+   * Allows an AllocationManager to tell the allocator that we have a new ledger
    * associated with this allocator.
    */
   void associateLedger(BufferLedger ledger) {
     assertOpen();
+    appendToRefList(ledger);
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
         childLedgers.put(ledger, null);
@@ -192,12 +235,12 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   }
 
   /**
-   * For debug/verification purposes only. Allows an AllocationManager to tell the allocator that
-   * we are removing a
+   * Allows an AllocationManager to tell the allocator that we are removing a
    * ledger associated with this allocator
    */
   void dissociateLedger(BufferLedger ledger) {
     assertOpen();
+    removeFromRefList(ledger);
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
         if (!childLedgers.containsKey(ledger)) {
@@ -376,8 +419,6 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       return;
     }
 
-    isClosed = true;
-
     StringBuilder outstandingChildAllocators = new StringBuilder();
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
@@ -434,11 +475,34 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       String msg = String.format("Memory was leaked by query. Memory leaked: (%d)\n%s%s", allocated,
           outstandingChildAllocators.toString(), toString());
       logger.error(msg);
+    }
+
+    // Release outstanding buffers
+    synchronized (REF_LOCK) {
+      int releasedLedgerCount = 0;
+      while (tail != null) {
+        final BufferLedger tmp = tail.prev;
+        tail.destroy();
+        tail = tmp;
+        releasedLedgerCount++;
+      }
+      if (releasedLedgerCount != 0) {
+        String msg = String.format("Released %d outstanding buffer ledgers.", releasedLedgerCount);
+        logger.warn(msg);
+      }
+    }
+
+    final long remaining = getAllocatedMemory();
+    if (remaining > 0) {
+      String msg = String.format("Memory is still leaked after final clean-up: (%d)\n%s%s", remaining,
+          outstandingChildAllocators.toString(), toString());
       throw new IllegalStateException(msg);
     }
 
     // we need to release our memory to our parent before we tell it we've closed.
     super.close();
+
+    isClosed = true;
 
     // Inform our parent allocator that we've closed
     if (parentAllocator != null) {

@@ -46,6 +46,11 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
   private final HistoricalLog historicalLog =
       BaseAllocator.DEBUG ? new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH,
         "BufferLedger[%d]", 1) : null;
+
+  BufferLedger prev = null;
+
+  BufferLedger next = null;
+
   private volatile long lDestructionTime = 0;
 
   BufferLedger(final BufferAllocator allocator, final AllocationManager allocationManager) {
@@ -129,6 +134,17 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
     // the new ref count should be >= 0
     Preconditions.checkState(refCnt >= 0, "RefCnt has gone negative");
     return refCnt == 0;
+  }
+
+  /**
+   * Forcibly release the buffer ledger by setting reference count
+   * to zero. Used by BaseAllocator to reclaim outstanding buffers
+   * when being closed.
+   */
+  void destroy() {
+    synchronized (allocationManager) {
+      release(bufRefCnt.get());
+    }
   }
 
   /**
