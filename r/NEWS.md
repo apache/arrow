@@ -63,6 +63,7 @@ The following functions can now be used in queries on Arrow objects:
 
 ## Minor improvements and fixes
 
+* `map_batches()` now is lazy by default. (#14521)
 * Arrays of Decimal type objects can now be created directly and without 
   casting. (#15211)
 * Calling `lubridate::as_datetime()` on Arrow objects now can handle time in 
