@@ -31,7 +31,7 @@ extras = {
     'lint': ['numpydoc==1.1.0', 'autopep8', 'flake8', 'cmake_format==0.6.13'],
     'benchmark': ['pandas'],
     'docker': ['ruamel.yaml', 'python-dotenv'],
-    'release': [jinja_req, 'jira', 'semver', 'gitpython'],
+    'release': ['pygithub', jinja_req, 'jira', 'semver', 'gitpython'],
     'crossbow': ['github3.py', jinja_req, 'pygit2>=1.6.0', 'requests',
                  'ruamel.yaml', 'setuptools_scm'],
     'crossbow-upload': ['github3.py', jinja_req, 'ruamel.yaml',
