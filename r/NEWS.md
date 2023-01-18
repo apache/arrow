@@ -86,7 +86,7 @@ from Scalars (#15277)
 
 ## Breaking changes
 
-* rlang dependency must be at least version 1.0.0 because of check_dots_empty 
+* rlang dependency must be at least version 1.0.0 because of `check_dots_empty()` 
 (@daattali, #14744)
 
 # arrow 10.0.1
