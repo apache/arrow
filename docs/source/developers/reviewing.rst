@@ -260,12 +260,12 @@ Social aspects
 Labelling
 =========
 
-While reviewing PRs, we should try to identify whether these changes need to be
-marked with one or both of the following labels:
+While reviewing PRs, we should try to identify whether the corresponding issue 
+needs to be marked with one or both of the following issue labels:
 
 * **Critical Fix**: The change fixes either: (a) a security vulnerability;
-  (b) a bug that caused incorrect or invalid data to be produced;
-  or (c) a bug that causes a crash, though only if the API contract is upheld.
+  (b) a bug that causes incorrect or invalid data to be produced;
+  or (c) a bug that causes a crash (while the API contract is upheld).
   This is intended to mark fixes to issues that may affect users without their
   knowledge. For this reason, fixing bugs that cause errors don't count, since 
   those bugs are usually obvious. Bugs that cause crashes are considered critical
@@ -289,7 +289,7 @@ adapt their code, while critical fixes highlight the risk in *not* upgrading.
 
 In addition, we use the following labels to indicate priority:
 
-* **Priority: Blocker**: Indicates the PR **must** be merged before the next
+* **Priority: Blocker**: Indicates the changes **must** be merged before the next
   release can happen. This includes fixes to test or packaging failures that
   would prevent the release from succeeding final packaging or verification.
 * **Priority: Critical**: Indicates issues that are high priority. This is a
