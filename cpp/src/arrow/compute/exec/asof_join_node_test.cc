@@ -645,7 +645,7 @@ struct AsofJoinBasicTest : public testing::TestWithParam<AsofJoinBasicParams> {}
 
 class AsofJoinTest : public testing::Test {};
 
-BasicTest GetBasicTest1() {
+BasicTest GetBasicTest1Backward() {
   // Single key, single batch
   return BasicTest(
       /*l*/ {R"([[0, 1, 1], [1000, 1, 2]])"},
@@ -656,13 +656,13 @@ BasicTest GetBasicTest1() {
       /*exp*/ {R"([[0, 1, 1, 11, null], [1000, 1, 2, 11, 101]])"}, -1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic1, {
-  BasicTest basic_test = GetBasicTest1();
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic1Backward, {
+  BasicTest basic_test = GetBasicTest1Backward();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
 
-BasicTest GetBasicTest1Positive() {
+BasicTest GetBasicTest1Forward() {
   // Single key, single batch
   return BasicTest(
       /*l*/ {R"([[0, 1, 1], [1000, 1, 2]])"},
@@ -673,13 +673,13 @@ BasicTest GetBasicTest1Positive() {
       /*exp*/ {R"([[0, 1, 1, 11, null], [1000, 1, 2, 11, 101]])"}, 1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic1Positive, {
-  BasicTest basic_test = GetBasicTest1Positive();
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic1Forward, {
+  BasicTest basic_test = GetBasicTest1Forward();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
 
-BasicTest GetBasicTest2() {
+BasicTest GetBasicTest2Backward() {
   // Single key, multiple batches
   return BasicTest(
       /*l*/ {R"([[0, 1, 1]])", R"([[1000, 1, 2]])"},
@@ -690,13 +690,13 @@ BasicTest GetBasicTest2() {
       /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, -1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic2, {
-  BasicTest basic_test = GetBasicTest2();
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic2Backward, {
+  BasicTest basic_test = GetBasicTest2Backward();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
 
-BasicTest GetBasicTest2Positive() {
+BasicTest GetBasicTest2Forward() {
   // Single key, multiple batches
   return BasicTest(
       /*l*/ {R"([[0, 1, 1]])", R"([[1000, 1, 2]])"},
@@ -707,13 +707,13 @@ BasicTest GetBasicTest2Positive() {
       /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, 1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic2Positive, {
-  BasicTest basic_test = GetBasicTest2Positive();
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic2Forward, {
+  BasicTest basic_test = GetBasicTest2Forward();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
 
-BasicTest GetBasicTest3() {
+BasicTest GetBasicTest3Backward() {
   // Single key, multiple left batches, single right batches
   return BasicTest(
       /*l*/ {R"([[0, 1, 1]])", R"([[1000, 1, 2]])"},
@@ -724,14 +724,14 @@ BasicTest GetBasicTest3() {
       /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, -1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic3, {
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic3Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic3_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest3();
+  BasicTest basic_test = GetBasicTest3Backward();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
 
-BasicTest GetBasicTest3Positive() {
+BasicTest GetBasicTest3Forward() {
   // Single key, multiple left batches, single right batches
   return BasicTest(
       /*l*/ {R"([[0, 1, 1]])", R"([[1000, 1, 2]])"},
@@ -742,14 +742,14 @@ BasicTest GetBasicTest3Positive() {
       /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, 1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic3Positive, {
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic3Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic3_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest3Positive();
+  BasicTest basic_test = GetBasicTest3Forward();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
 
-BasicTest GetBasicTest4() {
+BasicTest GetBasicTest4Backward() {
   // Multi key, multiple batches, misaligned batches
   return BasicTest(
       /*l*/
@@ -773,13 +773,13 @@ BasicTest GetBasicTest4() {
       -1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic4, {
-  BasicTest basic_test = GetBasicTest4();
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic4Backward, {
+  BasicTest basic_test = GetBasicTest4Backward();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
 
-BasicTest GetBasicTest4Positive() {
+BasicTest GetBasicTest4Forward() {
   // Multi key, multiple batches, misaligned batches
   return BasicTest(
       /*l*/
@@ -803,13 +803,13 @@ BasicTest GetBasicTest4Positive() {
       1000);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic4Positive, {
-  BasicTest basic_test = GetBasicTest4Positive();
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic4Forward, {
+  BasicTest basic_test = GetBasicTest4Forward();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
 
-BasicTest GetBasicTest5() {
+BasicTest GetBasicTest5Backward() {
   // Multi key, multiple batches, misaligned batches, smaller tolerance
   return BasicTest(/*l*/
                    {R"([[0, 1, 1], [0, 2, 21], [500, 1, 2], [1000, 2, 22], [1500, 1, 3], [1500, 2, 23]])",
@@ -832,14 +832,14 @@ BasicTest GetBasicTest5() {
                    -500);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic5, {
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic5Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic5_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest5();
+  BasicTest basic_test = GetBasicTest5Backward();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
 
-BasicTest GetBasicTest5Positive() {
+BasicTest GetBasicTest5Forward() {
   // Multi key, multiple batches, misaligned batches, smaller tolerance
   return BasicTest(/*l*/
                    {R"([[0, 1, 1], [0, 2, 21], [500, 1, 2], [1000, 2, 22], [1500, 1, 3], [1500, 2, 23]])",
@@ -862,14 +862,14 @@ BasicTest GetBasicTest5Positive() {
                    500);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic5Positive, {
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic5Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic5_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest5Positive();
+  BasicTest basic_test = GetBasicTest5Forward();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
 
-BasicTest GetBasicTest6() {
+BasicTest GetBasicTest6Backward() {
   // Multi key, multiple batches, misaligned batches, zero tolerance
   return BasicTest(/*l*/
                    {R"([[0, 1, 1], [0, 2, 21], [500, 1, 2], [1000, 2, 22], [1500, 1, 3], [1500, 2, 23]])",
@@ -892,9 +892,9 @@ BasicTest GetBasicTest6() {
                    0);
 }
 
-TRACED_TEST_P(AsofJoinBasicTest, TestBasic6, {
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic6Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic6_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest6();
+  BasicTest basic_test = GetBasicTest6Backward();
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
