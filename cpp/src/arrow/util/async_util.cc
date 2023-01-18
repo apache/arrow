@@ -334,7 +334,7 @@ class ThrottledAsyncTaskSchedulerImpl
   }
 
   const tracing::Span& span() const override {
-    return ::arrow::internal::checked_cast<HasSpan*>(target_)->span();
+    return ::arrow::internal::checked_cast<const HasSpan*>(target_)->span();
   }
 
   void Pause() override { throttle_->Pause(); }
@@ -436,7 +436,7 @@ class AsyncTaskGroupImpl : public AsyncTaskGroup, public HasSpan {
   }
 
   const tracing::Span& span() const override {
-    return ::arrow::internal::checked_cast<HasSpan*>(target_)->span();
+    return ::arrow::internal::checked_cast<const HasSpan*>(target_)->span();
   }
 
  private:
