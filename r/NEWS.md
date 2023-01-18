@@ -24,21 +24,21 @@
 ### Docs
 
 * A substantial reorganisation, rewrite of and addition to, many of the 
-vignettes and README (@djnavarro, #14514)  
+vignettes and README. (@djnavarro, #14514)  
 
 ### Reading/writing data
 
-* new functions `open_csv_dataset()`, `open_ts_dataset()`, and 
-`open_delim_dataset()` all wrap `open_dataset()`—they don't provide new 
+* New functions `open_csv_dataset()`, `open_ts_dataset()`, and 
+`open_delim_dataset()` all wrap `open_dataset()`- they don't provide new 
 functionality, but allow for readr-style options to be supplied, making it 
 simpler to switch between individual file-reading and dataset 
-functionality (#33614)
-* user-defined null values can now be set when writing CSVs both as datasets 
-and as individual files (@wjones127, #14679)
-* the new `col_names` parameter allows specification of column names via when 
-opening a CSV dataset (@wjones127, #14705)
-* the `parse_options`, `read_options`, and `convert_options` parameters for 
-reading individual files and datasets can now be passed in as lists (#15270)
+functionality. (#33614)
+* User-defined null values can now be set when writing CSVs both as datasets 
+and as individual files. (@wjones127, #14679)
+* The new `col_names` parameter allows specification of column names when 
+opening a CSV dataset. (@wjones127, #14705)
+* The `parse_options`, `read_options`, and `convert_options` parameters for 
+reading individual files and datasets can now be passed in as lists. (#15270)
 
 ### Function bindings
 
@@ -48,46 +48,46 @@ The following functions can now be used in queries on Arrow objects:
 
 ### Installation
 
-* The package can now be installed offline using pre-downloaded binaries 
+* The package can now be installed offline using pre-downloaded binaries. 
 (@pgramme, #14086)
 * The package can now automatically link to system installations of the AWS SDK
-for C++ (@kou, #14235)
+for C++. (@kou, #14235)
 
 ### Other
 
-* new dplyr (1.1.0) function `join_by()` has been implemented for dplyr joins 
-on Arrow objects (equality conditions only)  (#33664)
-* StructArray objects can now be created directly via `StructArray$create()` 
+* New dplyr (1.1.0) function `join_by()` has been implemented for dplyr joins 
+on Arrow objects (equality conditions only).  (#33664)
+* StructArray objects can now be created directly via `StructArray$create()`. 
 (#14922)
-* curl timeout policy can now be configured for S3 (#15166)
+* curl timeout policy can now be configured for S3. (#15166)
 
 ## Minor improvements and fixes
 
 * Arrays of Decimal type objects can now be created directly and without 
-casting (#15211)
-* calling `lubridate::as_datetime()` on Arrow objects now can handle time in 
-sub-seconds (@eitsupi, #13890)
-* `head()` can now be called after `as_record_batch_read()` without error 
+casting. (#15211)
+* Calling `lubridate::as_datetime()` on Arrow objects now can handle time in 
+sub-seconds. (@eitsupi, #13890)
+* `head()` can now be called after `as_record_batch_read()` without error. 
 (#14518)
-* fix for a bug in which `dplyr::right_join()` did not coalesce keys (#15077)
-* fix for a bug in output returned when multiple 
-`dplyr::group_by()`/`dplyr::summarise()` calls are used (#14905)
-* fix for a bug in which `dplyr::summarize()` fails with division when divisor 
-is a variable (#14933)
-* fix for a bug in which `as.Date()` fails going from `timestamp[us]` to
-`timestamp[s]` (#14935)
-* fix for a bug in which creating an Array from an object bigger than 2^31 
-results in an Array of length 0 (#14929)
-* fix for a bug in which accents in file paths caused an error in 
-`read_csv_arrow()` (#14930)
-* fix for a bug which prevented Arrow arrays of `POSIXlt` objects being created 
-from Scalars (#15277)
-* multiple changes to ensure compatibility with dplyr 1.1.0 (@lionel-, #14948)
+* Fix for a bug in which `dplyr::right_join()` did not coalesce keys. (#15077)
+* Fix for a bug in output returned when multiple 
+`dplyr::group_by()`/`dplyr::summarise()` calls are used. (#14905)
+* Fix for a bug in which `dplyr::summarize()` fails with division when divisor 
+is a variable. (#14933)
+* Fix for a bug in which `as.Date()` fails going from `timestamp[us]` to
+`timestamp[s]`. (#14935)
+* Fix for a bug in which creating an Array from an object bigger than 2^31 
+results in an Array of length 0. (#14929)
+* Fix for a bug in which accents in file paths caused an error in 
+`read_csv_arrow()`. (#14930)
+* Fix for a bug which prevented Arrow arrays of `POSIXlt` objects being created 
+from Scalars. (#15277)
+* Multiple changes to ensure compatibility with dplyr 1.1.0. (@lionel-, #14948)
 
 ## Breaking changes
 
-* rlang dependency must be at least version 1.0.0 because of `check_dots_empty()` 
-(@daattali, #14744)
+* rlang dependency must be at least version 1.0.0 because of 
+`check_dots_empty()`. (@daattali, #14744)
 
 # arrow 10.0.1
 
