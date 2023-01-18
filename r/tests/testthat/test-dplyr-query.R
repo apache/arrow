@@ -780,6 +780,7 @@ test_that("nested field ref error handling", {
     example_data %>%
       arrow_table() %>%
       mutate(x = int$nested) %>%
-      compute()
+      compute(),
+    "No match"
   )
 })
