@@ -53,6 +53,7 @@ package cdata
 // struct ArrowSchema** test_struct(const char** fmts, const char** names, int64_t* flags, const int n);
 // struct ArrowSchema** test_map(const char** fmts, const char** names, int64_t* flags, const int n);
 // struct ArrowSchema** test_schema(const char** fmts, const char** names, int64_t* flags, const int n);
+// int test_exported_stream(struct ArrowArrayStream* stream);
 import "C"
 import (
 	"unsafe"
@@ -263,4 +264,14 @@ func arrayStreamTest() *CArrowArrayStream {
 	st := C.get_test_stream()
 	C.setup_array_stream_test(2, st)
 	return st
+}
+
+func exportedStreamTest(reader array.RecordReader) error {
+	var out *CArrowArrayStream
+	ExportRecordReader(reader, out)
+	rc := C.test_exported_stream(out)
+	if rc == 0 {
+		return nil
+	}
+	return fmt.Errorf("Exported stream test failed with return code %s", rc)
 }

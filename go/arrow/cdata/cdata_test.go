@@ -747,3 +747,11 @@ func TestEmptyDictExport(t *testing.T) {
 	assert.Nil(t, out.dictionary.children)
 	assert.Nil(t, out.dictionary.dictionary)
 }
+
+func TestRecordReaderExport(t *testing.T) {
+	// Regression test for apache/arrow#33767
+	reclist := arrdata.Records["primitives"]
+	rdr, _ := array.NewRecordReader(reclist[0].Schema(), reclist)
+
+	exportedStreamTest(rdr)
+}
