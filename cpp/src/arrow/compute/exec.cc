@@ -181,10 +181,16 @@ int64_t DoInferLength(const std::vector<Datum>& values) {
 
 }  // namespace
 
-std::optional<int64_t> ExecBatch::InferLength(const std::vector<Datum>& values) {
+Result<int64_t> ExecBatch::InferLength(const std::vector<Datum>& values) {
   const int64_t length = DoInferLength(values);
-  if (length < 0) {
-    return std::nullopt;
+  switch (length) {
+    case kInvalidValues:
+      return Status::Invalid(
+          "Arrays used to construct an ExecBatch must have equal length");
+    case kEmptyInput:
+      return Status::Invalid("Cannot infer ExecBatch length without at least one value");
+    default:
+      break;
   }
   return {length};
 }

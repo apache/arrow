@@ -127,12 +127,11 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
   ExecSpanIterator argument_iterator;
 
   ExecBatch args_batch;
-  std::optional<int64_t> inferred_length = ExecBatch::InferLength(arguments);
-  if (!inferred_length.has_value()) {
+  Result<int64_t> inferred_length = ExecBatch::InferLength(arguments);
+  if (!inferred_length.ok()) {
     inferred_length = ExecBatch::InferLength(keys);
   }
-  DCHECK(inferred_length.has_value());
-  const int64_t length = inferred_length.value();
+  ARROW_ASSIGN_OR_RAISE(const int64_t length, std::move(inferred_length));
   if (!aggregates.empty()) {
     ARROW_ASSIGN_OR_RAISE(args_batch, ExecBatch::Make(arguments, length));
 
