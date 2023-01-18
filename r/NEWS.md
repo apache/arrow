@@ -28,7 +28,7 @@
 
 ### Reading/writing data
 
-* New functions `open_csv_dataset()`, `open_ts_dataset()`, and 
+* New functions `open_csv_dataset()`, `open_tsv_dataset()`, and 
   `open_delim_dataset()` all wrap `open_dataset()`- they don't provide new 
   functionality, but allow for readr-style options to be supplied, making it 
   simpler to switch between individual file-reading and dataset 
