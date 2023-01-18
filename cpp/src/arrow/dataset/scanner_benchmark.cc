@@ -28,9 +28,12 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/benchmark_util.h"
 
 namespace arrow {
 namespace compute {
+
+ARROW_BENCHMARK_TRACK_MEMORY();
 
 constexpr auto kSeed = 0x0ff1ce;
 

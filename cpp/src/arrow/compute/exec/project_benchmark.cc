@@ -32,9 +32,12 @@
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/benchmark_util.h"
 
 namespace arrow {
 namespace compute {
+
+ARROW_BENCHMARK_TRACK_MEMORY();
 
 static constexpr int64_t kTotalBatchSize = 1000000;
 

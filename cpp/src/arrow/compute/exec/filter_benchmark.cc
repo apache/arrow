@@ -24,9 +24,12 @@
 #include "arrow/compute/exec/options.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/benchmark_util.h"
 
 namespace arrow {
 namespace compute {
+
+ARROW_BENCHMARK_TRACK_MEMORY();
 
 constexpr int64_t kTotalBatchSize = 1000000;
 constexpr auto kSeed = 0x94378165;

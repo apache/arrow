@@ -30,9 +30,12 @@
 #include "arrow/io/memory.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/value_parsing.h"
+#include "arrow/util/benchmark_util.h"
 
 namespace arrow {
 namespace csv {
+
+ARROW_BENCHMARK_TRACK_MEMORY();
 
 static std::shared_ptr<BlockParser> BuildFromExamples(
     const std::vector<std::string>& base_rows, int32_t num_rows) {

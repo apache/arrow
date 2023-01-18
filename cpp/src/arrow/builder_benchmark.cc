@@ -31,8 +31,11 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/benchmark_util.h"
 
 namespace arrow {
+
+ARROW_BENCHMARK_TRACK_MEMORY();
 
 using ValueType = int64_t;
 using VectorType = std::vector<ValueType>;

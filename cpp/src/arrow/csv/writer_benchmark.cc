@@ -29,9 +29,12 @@
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/benchmark_util.h"
 
 namespace arrow {
 namespace csv {
+
+ARROW_BENCHMARK_TRACK_MEMORY();
 
 namespace {
 

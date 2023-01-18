@@ -24,12 +24,14 @@
 #include "arrow/compute/exec/aggregate.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
-#include "arrow/util/benchmark_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
+#include "arrow/util/benchmark_util.h"
 
 namespace arrow {
 namespace compute {
+
+ARROW_BENCHMARK_TRACK_MEMORY();
 
 #include <cassert>
 #include <cmath>

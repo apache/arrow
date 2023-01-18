@@ -22,12 +22,15 @@
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/tpch_node.h"
 #include "arrow/testing/future_util.h"
+#include "arrow/util/benchmark_util.h"
 
 #include <memory>
 
 namespace arrow {
 namespace compute {
 namespace internal {
+
+ARROW_BENCHMARK_TRACK_MEMORY();
 
 std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<std::optional<ExecBatch>>* sink_gen,
                                   int scale_factor) {

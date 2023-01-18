@@ -26,9 +26,12 @@
 #include "arrow/json/test_common.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/benchmark_util.h"
 
 namespace arrow {
 namespace json {
+
+ARROW_BENCHMARK_TRACK_MEMORY();
 
 constexpr int kSeed = 0x432432;
 
