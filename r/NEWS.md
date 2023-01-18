@@ -80,7 +80,7 @@ is a variable (#14933)
 results in an Array of length 0 (#14929)
 * fix for a bug in which accents in file paths caused an error in 
 `read_csv_arrow()` (#14930)
-* fix for a bug which prevented Arrow arrays of POSIXlt objects being created 
+* fix for a bug which prevented Arrow arrays of `POSIXlt` objects being created 
 from Scalars (#15277)
 * multiple changes to ensure compatibility with dplyr 1.1.0 (@lionel-, #14948)
 
