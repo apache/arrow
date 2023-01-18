@@ -442,7 +442,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
         // are there outstanding buffers?
         final int allocatedCount = childLedgers.size();
         if (allocatedCount > 0) {
-          throw new IllegalStateException(
+          logger.error(
             String.format("Allocator[%s] closed with outstanding buffers allocated (%d).\n%s",
               name, allocatedCount, toString()));
         }
