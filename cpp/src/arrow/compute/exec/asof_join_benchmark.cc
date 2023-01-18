@@ -102,9 +102,6 @@ static void TableJoinOverhead(benchmark::State& state,
       benchmark::Counter(static_cast<double>(state.iterations() *
                                              (left_table_stats.bytes + right_hand_bytes)),
                          benchmark::Counter::kIsRate);
-
-  state.counters["maximum_peak_memory"] =
-      benchmark::Counter(static_cast<double>(default_memory_pool()->max_memory()));
 }
 
 AsofJoinNodeOptions GetRepeatedOptions(size_t repeat, FieldRef on_key,

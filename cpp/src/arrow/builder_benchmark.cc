@@ -29,9 +29,9 @@
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/benchmark_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/benchmark_util.h"
 
 namespace arrow {
 
