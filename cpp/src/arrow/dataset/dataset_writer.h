@@ -50,9 +50,9 @@ class ARROW_DS_EXPORT DatasetWriter {
   /// \param max_rows_queued max # of rows allowed to be queued before the dataset_writer
   ///                        will ask for backpressure
   static Result<std::unique_ptr<DatasetWriter>> Make(
-      FileSystemDatasetWriteOptions write_options, util::AsyncTaskScheduler* scheduler,
-      std::function<void()> pause_callback, std::function<void()> resume_callback,
-      std::function<void()> finish_callback,
+      std::shared_ptr<FileSystemDatasetWriteOptions> write_options,
+      util::AsyncTaskScheduler* scheduler, std::function<void()> pause_callback,
+      std::function<void()> resume_callback, std::function<void()> finish_callback,
       uint64_t max_rows_queued = kDefaultDatasetWriterMaxRowsQueued);
 
   ~DatasetWriter();
@@ -88,7 +88,7 @@ class ARROW_DS_EXPORT DatasetWriter {
   void Finish();
 
  protected:
-  DatasetWriter(FileSystemDatasetWriteOptions write_options,
+  DatasetWriter(std::shared_ptr<FileSystemDatasetWriteOptions> write_options,
                 util::AsyncTaskScheduler* scheduler, std::function<void()> pause_callback,
                 std::function<void()> resume_callback,
                 std::function<void()> finish_callback,

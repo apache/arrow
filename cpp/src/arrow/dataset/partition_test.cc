@@ -894,12 +894,13 @@ TEST_F(TestPartitioning, WriteHiveWithSlashesInValues) {
   auto partition_schema = arrow::schema({arrow::field("part", arrow::utf8())});
   auto partitioning = std::make_shared<dataset::HivePartitioning>(partition_schema);
   auto ipc_format = std::make_shared<dataset::IpcFileFormat>();
-  dataset::FileSystemDatasetWriteOptions write_options;
-  write_options.file_write_options = ipc_format->DefaultWriteOptions();
-  write_options.filesystem = filesystem;
-  write_options.base_dir = base_path;
-  write_options.partitioning = partitioning;
-  write_options.basename_template = "part{i}.arrow";
+  auto write_options =
+      std::make_shared<dataset::FileSystemDatasetWriteOptions>(ipc_format);
+  // write_options.file_write_options = ipc_format->DefaultWriteOptions();
+  write_options->filesystem = filesystem;
+  write_options->base_dir = base_path;
+  write_options->partitioning = partitioning;
+  write_options->basename_template = "part{i}.arrow";
   ASSERT_OK(dataset::FileSystemDataset::Write(write_options, scanner));
 
   auto mockfs =

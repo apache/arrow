@@ -677,12 +677,13 @@ arrow::Status ScanFilterWriteExample(const std::string& file_path) {
   // We'll write Parquet files.
   auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
 
-  arrow::dataset::FileSystemDatasetWriteOptions write_options;
-  write_options.file_write_options = format->DefaultWriteOptions();
-  write_options.filesystem = filesystem;
-  write_options.base_dir = base_path;
-  write_options.partitioning = partitioning;
-  write_options.basename_template = "part{i}.parquet";
+  auto write_options =
+      std::make_shared<arrow::dataset::FileSystemDatasetWriteOptions>(format);
+  // write_options.file_write_options = format->DefaultWriteOptions();
+  write_options->filesystem = filesystem;
+  write_options->base_dir = base_path;
+  write_options->partitioning = partitioning;
+  write_options->basename_template = "part{i}.parquet";
 
   arrow::dataset::WriteNodeOptions write_node_options{write_options};
 

@@ -357,21 +357,21 @@ namespace {
 
 Status WriteBatch(
     std::shared_ptr<RecordBatch> batch, compute::Expression guarantee,
-    FileSystemDatasetWriteOptions write_options,
+    std::shared_ptr<FileSystemDatasetWriteOptions> write_options,
     std::function<Status(std::shared_ptr<RecordBatch>, const PartitionPathFormat&)>
         write) {
-  ARROW_ASSIGN_OR_RAISE(auto groups, write_options.partitioning->Partition(batch));
+  ARROW_ASSIGN_OR_RAISE(auto groups, write_options->partitioning->Partition(batch));
   batch.reset();  // drop to hopefully conserve memory
 
-  if (write_options.max_partitions <= 0) {
+  if (write_options->max_partitions <= 0) {
     return Status::Invalid("max_partitions must be positive (was ",
-                           write_options.max_partitions, ")");
+                           write_options->max_partitions, ")");
   }
 
-  if (groups.batches.size() > static_cast<size_t>(write_options.max_partitions)) {
+  if (groups.batches.size() > static_cast<size_t>(write_options->max_partitions)) {
     return Status::Invalid("Fragment would be written into ", groups.batches.size(),
                            " partitions. This exceeds the maximum of ",
-                           write_options.max_partitions);
+                           write_options->max_partitions);
   }
 
   for (std::size_t index = 0; index < groups.batches.size(); index++) {
@@ -379,7 +379,7 @@ Status WriteBatch(
     auto next_batch = groups.batches[index];
     PartitionPathFormat destination;
     ARROW_ASSIGN_OR_RAISE(destination,
-                          write_options.partitioning->Format(partition_expression));
+                          write_options->partitioning->Format(partition_expression));
     RETURN_NOT_OK(write(next_batch, destination));
   }
   return Status::OK();
@@ -387,8 +387,9 @@ Status WriteBatch(
 
 class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
  public:
-  DatasetWritingSinkNodeConsumer(std::shared_ptr<const KeyValueMetadata> custom_metadata,
-                                 FileSystemDatasetWriteOptions write_options)
+  DatasetWritingSinkNodeConsumer(
+      std::shared_ptr<const KeyValueMetadata> custom_metadata,
+      std::shared_ptr<FileSystemDatasetWriteOptions> write_options)
       : custom_metadata_(std::move(custom_metadata)),
         write_options_(std::move(write_options)) {}
 
@@ -436,15 +437,16 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
 
   std::shared_ptr<const KeyValueMetadata> custom_metadata_;
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
-  FileSystemDatasetWriteOptions write_options_;
+  std::shared_ptr<FileSystemDatasetWriteOptions> write_options_;
   Future<> finished_ = Future<>::Make();
   std::shared_ptr<Schema> schema_ = nullptr;
 };
 
 }  // namespace
 
-Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
-                                std::shared_ptr<Scanner> scanner) {
+Status FileSystemDataset::Write(
+    const std::shared_ptr<FileSystemDatasetWriteOptions>& write_options,
+    std::shared_ptr<Scanner> scanner) {
   auto exprs = scanner->options()->projection.call()->arguments;
   auto names = checked_cast<const compute::MakeStructOptions*>(
                    scanner->options()->projection.call()->options.get())
@@ -477,9 +479,10 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
       checked_cast<const WriteNodeOptions&>(options);
   const std::shared_ptr<const KeyValueMetadata>& custom_metadata =
       write_node_options.custom_metadata;
-  const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
+  const std::shared_ptr<FileSystemDatasetWriteOptions>& write_options =
+      write_node_options.write_options;
 
-  if (!write_options.partitioning) {
+  if (!write_options->partitioning) {
     return Status::Invalid("Must provide partitioning");
   }
 
@@ -500,7 +503,7 @@ class TeeNode : public compute::MapNode {
  public:
   TeeNode(compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
           std::shared_ptr<Schema> output_schema,
-          FileSystemDatasetWriteOptions write_options)
+          std::shared_ptr<FileSystemDatasetWriteOptions> write_options)
       : MapNode(plan, std::move(inputs), std::move(output_schema)),
         write_options_(std::move(write_options)) {}
 
@@ -520,7 +523,8 @@ class TeeNode : public compute::MapNode {
 
     const WriteNodeOptions write_node_options =
         checked_cast<const WriteNodeOptions&>(options);
-    const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
+    const std::shared_ptr<FileSystemDatasetWriteOptions>& write_options =
+        write_node_options.write_options;
     const std::shared_ptr<Schema> schema = inputs[0]->output_schema();
 
     return plan->EmplaceNode<TeeNode>(plan, std::move(inputs), std::move(schema),
@@ -555,12 +559,12 @@ class TeeNode : public compute::MapNode {
 
  protected:
   std::string ToStringExtra(int indent = 0) const override {
-    return "base_dir=" + write_options_.base_dir;
+    return "base_dir=" + write_options_->base_dir;
   }
 
  private:
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
-  FileSystemDatasetWriteOptions write_options_;
+  std::shared_ptr<FileSystemDatasetWriteOptions> write_options_;
   std::atomic<int32_t> backpressure_counter_ = 0;
 };
 

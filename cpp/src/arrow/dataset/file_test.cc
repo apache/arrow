@@ -311,12 +311,12 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
   // Regression test for ARROW-12620
   auto format = std::make_shared<IpcFileFormat>();
   auto fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
-  FileSystemDatasetWriteOptions write_options;
-  write_options.file_write_options = format->DefaultWriteOptions();
-  write_options.filesystem = fs;
-  write_options.base_dir = "root";
-  write_options.partitioning = std::make_shared<HivePartitioning>(schema({}));
-  write_options.basename_template = "{i}.feather";
+  auto write_options = std::make_shared<FileSystemDatasetWriteOptions>(format);
+  // write_options.file_write_options = format->DefaultWriteOptions();
+  write_options->filesystem = fs;
+  write_options->base_dir = "root";
+  write_options->partitioning = std::make_shared<HivePartitioning>(schema({}));
+  write_options->basename_template = "{i}.feather";
 
   auto dataset_schema = schema({field("a", int64())});
   RecordBatchVector batches{
@@ -352,7 +352,7 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
 
 class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>> {
   using PlanFactory = std::function<std::vector<cp::Declaration>(
-      const FileSystemDatasetWriteOptions&,
+      const std::shared_ptr<FileSystemDatasetWriteOptions>&,
       std::function<Future<std::optional<cp::ExecBatch>>()>*)>;
 
  protected:
@@ -366,12 +366,12 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
     // data to ensure it matches the source data
     auto format = std::make_shared<IpcFileFormat>();
     auto fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
-    FileSystemDatasetWriteOptions write_options;
-    write_options.file_write_options = format->DefaultWriteOptions();
-    write_options.filesystem = fs;
-    write_options.base_dir = "root";
-    write_options.partitioning = std::make_shared<HivePartitioning>(schema({}));
-    write_options.basename_template = "{i}.feather";
+    auto write_options = std::make_shared<FileSystemDatasetWriteOptions>(format);
+    // write_options.file_write_options = format->DefaultWriteOptions();
+    write_options->filesystem = fs;
+    write_options->base_dir = "root";
+    write_options->partitioning = std::make_shared<HivePartitioning>(schema({}));
+    write_options->basename_template = "{i}.feather";
     const std::string kExpectedFilename = "root/0.feather";
 
     cp::BatchesWithSchema source_data;
@@ -425,7 +425,7 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
 
 TEST_P(FileSystemWriteTest, Write) {
   auto plan_factory =
-      [](const FileSystemDatasetWriteOptions& write_options,
+      [](const std::shared_ptr<FileSystemDatasetWriteOptions>& write_options,
          std::function<Future<std::optional<cp::ExecBatch>>()>* sink_gen) {
         return std::vector<cp::Declaration>{{"write", WriteNodeOptions{write_options}}};
       };
@@ -434,7 +434,7 @@ TEST_P(FileSystemWriteTest, Write) {
 
 TEST_P(FileSystemWriteTest, TeeWrite) {
   auto plan_factory =
-      [](const FileSystemDatasetWriteOptions& write_options,
+      [](const std::shared_ptr<FileSystemDatasetWriteOptions>& write_options,
          std::function<Future<std::optional<cp::ExecBatch>>()>* sink_gen) {
         return std::vector<cp::Declaration>{
             {"tee", WriteNodeOptions{write_options}},

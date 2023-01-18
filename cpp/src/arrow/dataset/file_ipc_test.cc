@@ -98,7 +98,8 @@ class TestIpcFileSystemDataset : public testing::Test,
     MakeSourceDataset();
     auto ipc_format = std::make_shared<IpcFileFormat>();
     format_ = ipc_format;
-    SetWriteOptions(ipc_format->DefaultWriteOptions());
+    auto write_options = std::make_shared<FileSystemDatasetWriteOptions>(ipc_format);
+    SetWriteOptions(std::move(write_options));
   }
 };
 
@@ -119,11 +120,11 @@ TEST_F(TestIpcFileSystemDataset, WriteWithEmptyPartitioningSchema) {
 }
 
 TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
-  write_options_.partitioning = std::make_shared<DirectoryPartitioning>(
+  write_options_->partitioning = std::make_shared<DirectoryPartitioning>(
       SchemaFromColumnNames(source_schema_, {"model"}));
 
   // require that no batch be grouped into more than 2 written batches:
-  write_options_.max_partitions = 2;
+  write_options_->max_partitions = 2;
 
   auto scanner_builder = ScannerBuilder(dataset_, scan_options_);
   EXPECT_OK_AND_ASSIGN(auto scanner, scanner_builder.Finish());

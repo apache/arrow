@@ -195,9 +195,9 @@ arrow::Status RunMain() {
   // (Doc section: Write Format)
   // (Doc section: Write Options)
   // This time, we make Options for writing, but do much more configuration.
-  arrow::dataset::FileSystemDatasetWriteOptions write_options;
+  arrow::dataset::FileSystemDatasetWriteOptions write_options(write_format);
   // Defaults to start.
-  write_options.file_write_options = write_format->DefaultWriteOptions();
+  // write_options.file_write_options = write_format->DefaultWriteOptions();
   // (Doc section: Write Options)
   // (Doc section: Options FS)
   // Use the filesystem we already have.

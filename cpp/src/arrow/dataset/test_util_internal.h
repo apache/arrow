@@ -1833,19 +1833,18 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     SetProjection(scan_options_.get(), std::move(projection));
   }
 
-  void SetWriteOptions(std::shared_ptr<FileWriteOptions> file_write_options) {
-    write_options_.file_write_options = file_write_options;
-    write_options_.filesystem = fs_;
-    write_options_.base_dir = "/new_root/";
-    write_options_.basename_template = "dat_{i}";
-    write_options_.writer_pre_finish = [this](FileWriter* writer) {
+  void SetWriteOptions(std::shared_ptr<FileSystemDatasetWriteOptions> write_options) {
+    write_options_ = write_options;
+    write_options_->base_dir = "/new_root/";
+    write_options_->basename_template = "dat_{i}";
+    write_options_->writer_pre_finish = [this](FileWriter* writer) {
       visited_paths_.push_back(writer->destination().path);
       return Status::OK();
     };
   }
 
   void DoWrite(std::shared_ptr<Partitioning> desired_partitioning) {
-    write_options_.partitioning = desired_partitioning;
+    write_options_->partitioning = desired_partitioning;
     auto scanner_builder = ScannerBuilder(dataset_, scan_options_);
     ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder.Finish());
     ASSERT_OK(FileSystemDataset::Write(write_options_, scanner));
@@ -2054,7 +2053,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
   std::shared_ptr<Schema> expected_physical_schema_;
   std::shared_ptr<Dataset> written_;
   std::vector<std::string> visited_paths_;
-  FileSystemDatasetWriteOptions write_options_;
+  std::shared_ptr<FileSystemDatasetWriteOptions> write_options_;
   std::shared_ptr<ScanOptions> scan_options_;
 };
 

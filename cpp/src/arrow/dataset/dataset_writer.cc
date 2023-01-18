@@ -121,20 +121,21 @@ struct DatasetWriterState {
 };
 
 Result<std::shared_ptr<FileWriter>> OpenWriter(
-    const FileSystemDatasetWriteOptions& write_options, std::shared_ptr<Schema> schema,
-    const std::string& filename) {
+    const std::shared_ptr<FileSystemDatasetWriteOptions>& write_options,
+    std::shared_ptr<Schema> schema, const std::string& filename) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<io::OutputStream> out_stream,
-                        write_options.filesystem->OpenOutputStream(filename));
-  return write_options.format()->MakeWriter(std::move(out_stream), std::move(schema),
-                                            write_options.file_write_options,
-                                            {write_options.filesystem, filename});
+                        write_options->filesystem->OpenOutputStream(filename));
+  return write_options->format()->MakeWriter(std::move(out_stream), std::move(schema),
+                                             write_options->fileWriteOptions(),
+                                             {write_options->filesystem, filename});
 }
 
 class DatasetWriterFileQueue {
  public:
-  explicit DatasetWriterFileQueue(const std::shared_ptr<Schema>& schema,
-                                  const FileSystemDatasetWriteOptions& options,
-                                  DatasetWriterState* writer_state)
+  explicit DatasetWriterFileQueue(
+      const std::shared_ptr<Schema>& schema,
+      const std::shared_ptr<FileSystemDatasetWriteOptions>& options,
+      DatasetWriterState* writer_state)
       : options_(options), schema_(schema), writer_state_(writer_state) {}
 
   void Start(util::AsyncTaskScheduler* file_tasks, const std::string& filename) {
@@ -143,7 +144,7 @@ class DatasetWriterFileQueue {
     // be opened before any attempt to write
     file_tasks_->AddSimpleTask(
         [this, filename] {
-          Executor* io_executor = options_.filesystem->io_context().executor();
+          Executor* io_executor = options_->filesystem->io_context().executor();
           return DeferNotOk(io_executor->Submit([this, filename]() {
             ARROW_ASSIGN_OR_RAISE(writer_, OpenWriter(options_, schema_, filename));
             return Status::OK();
@@ -158,14 +159,14 @@ class DatasetWriterFileQueue {
     while (!staged_batches_.empty()) {
       std::shared_ptr<RecordBatch> next = std::move(staged_batches_.front());
       staged_batches_.pop_front();
-      if (num_rows + next->num_rows() <= options_.max_rows_per_group) {
+      if (num_rows + next->num_rows() <= options_->max_rows_per_group) {
         num_rows += next->num_rows();
         batches_to_write.push_back(std::move(next));
-        if (num_rows == options_.max_rows_per_group) {
+        if (num_rows == options_->max_rows_per_group) {
           break;
         }
       } else {
-        uint64_t remaining = options_.max_rows_per_group - num_rows;
+        uint64_t remaining = options_->max_rows_per_group - num_rows;
         std::shared_ptr<RecordBatch> next_partial =
             next->Slice(0, static_cast<int64_t>(remaining));
         batches_to_write.push_back(std::move(next_partial));
@@ -204,7 +205,7 @@ class DatasetWriterFileQueue {
     staged_batches_.push_back(std::move(batch));
     while (!staged_batches_.empty() &&
            (writer_state_->StagingFull() ||
-            rows_currently_staged_ >= options_.min_rows_per_group)) {
+            rows_currently_staged_ >= options_->min_rows_per_group)) {
       ARROW_ASSIGN_OR_RAISE(int64_t rows_popped, PopAndDeliverStagedBatch());
       delta_staged -= rows_popped;
     }
@@ -229,7 +230,7 @@ class DatasetWriterFileQueue {
  private:
   Future<> WriteNext(std::shared_ptr<RecordBatch> next) {
     // May want to prototype / measure someday pushing the async write down further
-    return DeferNotOk(options_.filesystem->io_context().executor()->Submit(
+    return DeferNotOk(options_->filesystem->io_context().executor()->Submit(
         [self = this, batch = std::move(next)]() {
           int64_t rows_to_release = batch->num_rows();
           Status status = self->writer_->Write(batch);
@@ -241,15 +242,15 @@ class DatasetWriterFileQueue {
   Future<> DoFinish() {
     {
       std::lock_guard<std::mutex> lg(writer_state_->visitors_mutex);
-      RETURN_NOT_OK(options_.writer_pre_finish(writer_.get()));
+      RETURN_NOT_OK(options_->writer_pre_finish(writer_.get()));
     }
     return writer_->Finish().Then([this]() {
       std::lock_guard<std::mutex> lg(writer_state_->visitors_mutex);
-      return options_.writer_post_finish(writer_.get());
+      return options_->writer_post_finish(writer_.get());
     });
   }
 
-  const FileSystemDatasetWriteOptions& options_;
+  const std::shared_ptr<FileSystemDatasetWriteOptions>& options_;
   const std::shared_ptr<Schema>& schema_;
   DatasetWriterState* writer_state_;
   std::shared_ptr<FileWriter> writer_;
@@ -267,10 +268,11 @@ struct WriteTask {
 
 class DatasetWriterDirectoryQueue {
  public:
-  DatasetWriterDirectoryQueue(util::AsyncTaskScheduler* scheduler, std::string directory,
-                              std::string prefix, std::shared_ptr<Schema> schema,
-                              const FileSystemDatasetWriteOptions& write_options,
-                              DatasetWriterState* writer_state)
+  DatasetWriterDirectoryQueue(
+      util::AsyncTaskScheduler* scheduler, std::string directory, std::string prefix,
+      std::shared_ptr<Schema> schema,
+      const std::shared_ptr<FileSystemDatasetWriteOptions>& write_options,
+      DatasetWriterState* writer_state)
       : scheduler_(std::move(scheduler)),
         directory_(std::move(directory)),
         prefix_(std::move(prefix)),
@@ -284,8 +286,8 @@ class DatasetWriterDirectoryQueue {
     DCHECK_GT(batch->num_rows(), 0);
     uint64_t rows_available = std::numeric_limits<uint64_t>::max();
     *will_open_file = rows_written_ == 0;
-    if (write_options_.max_rows_per_file > 0) {
-      rows_available = write_options_.max_rows_per_file - rows_written_;
+    if (write_options_->max_rows_per_file > 0) {
+      rows_available = write_options_->max_rows_per_file - rows_written_;
     }
 
     std::shared_ptr<RecordBatch> to_queue;
@@ -308,7 +310,7 @@ class DatasetWriterDirectoryQueue {
   }
 
   Result<std::string> GetNextFilename() {
-    auto basename = ::arrow::internal::Replace(write_options_.basename_template,
+    auto basename = ::arrow::internal::Replace(write_options_->basename_template,
                                                kIntegerToken, ToChars(file_counter_++));
     if (!basename) {
       return Status::Invalid("string interpolation of basename template failed");
@@ -350,13 +352,13 @@ class DatasetWriterDirectoryQueue {
   uint64_t rows_written() const { return rows_written_; }
 
   void PrepareDirectory() {
-    if (directory_.empty() || !write_options_.create_dir) {
+    if (directory_.empty() || !write_options_->create_dir) {
       return;
     }
     init_future_ = Future<>::Make();
     auto create_dir_cb = [this] {
-      return DeferNotOk(write_options_.filesystem->io_context().executor()->Submit(
-          [this]() { return write_options_.filesystem->CreateDir(directory_); }));
+      return DeferNotOk(write_options_->filesystem->io_context().executor()->Submit(
+          [this]() { return write_options_->filesystem->CreateDir(directory_); }));
     };
     // We need to notify waiters whether the directory succeeded or failed.
     auto notify_waiters_cb = [this] { init_future_.MarkFinished(); };
@@ -368,10 +370,10 @@ class DatasetWriterDirectoryQueue {
       return err;
     };
     std::function<Future<>()> init_task;
-    if (write_options_.existing_data_behavior ==
+    if (write_options_->existing_data_behavior ==
         ExistingDataBehavior::kDeleteMatchingPartitions) {
       init_task = [this, create_dir_cb, notify_waiters_cb, notify_waiters_on_err_cb] {
-        return write_options_.filesystem
+        return write_options_->filesystem
             ->DeleteDirContentsAsync(directory_,
                                      /*missing_dir_ok=*/true)
             .Then(create_dir_cb)
@@ -388,7 +390,7 @@ class DatasetWriterDirectoryQueue {
 
   static Result<std::unique_ptr<DatasetWriterDirectoryQueue>> Make(
       util::AsyncTaskScheduler* scheduler,
-      const FileSystemDatasetWriteOptions& write_options,
+      const std::shared_ptr<FileSystemDatasetWriteOptions>& write_options,
       DatasetWriterState* writer_state, std::shared_ptr<Schema> schema,
       std::string directory, std::string prefix) {
     auto dir_queue = std::make_unique<DatasetWriterDirectoryQueue>(
@@ -414,7 +416,7 @@ class DatasetWriterDirectoryQueue {
   std::string directory_;
   std::string prefix_;
   std::shared_ptr<Schema> schema_;
-  const FileSystemDatasetWriteOptions& write_options_;
+  const std::shared_ptr<FileSystemDatasetWriteOptions>& write_options_;
   DatasetWriterState* writer_state_;
   Future<> init_future_;
   std::string current_filename_;
@@ -442,7 +444,7 @@ Status ValidateBasenameTemplate(std::string_view basename_template) {
 
 Status ValidateOptions(const FileSystemDatasetWriteOptions& options) {
   ARROW_RETURN_NOT_OK(ValidateBasenameTemplate(options.basename_template));
-  if (!options.file_write_options) {
+  if (!options.fileWriteOptions()) {
     return Status::Invalid("Must provide file_write_options");
   }
   if (!options.filesystem) {
@@ -494,7 +496,7 @@ uint64_t CalculateMaxRowsStaged(uint64_t max_rows_queued) {
 
 class DatasetWriter::DatasetWriterImpl {
  public:
-  DatasetWriterImpl(FileSystemDatasetWriteOptions write_options,
+  DatasetWriterImpl(std::shared_ptr<FileSystemDatasetWriteOptions> write_options,
                     util::AsyncTaskScheduler* scheduler,
                     std::function<void()> pause_callback,
                     std::function<void()> resume_callback,
@@ -507,7 +509,7 @@ class DatasetWriter::DatasetWriterImpl {
               return Status::OK();
             })),
         write_options_(std::move(write_options)),
-        writer_state_(max_rows_queued, write_options_.max_open_files,
+        writer_state_(max_rows_queued, write_options_->max_open_files,
                       CalculateMaxRowsStaged(max_rows_queued)),
         pause_callback_(std::move(pause_callback)),
         resume_callback_(std::move(resume_callback)) {}
@@ -520,10 +522,10 @@ class DatasetWriter::DatasetWriterImpl {
     }
     if (!directory.empty()) {
       auto full_path =
-          fs::internal::ConcatAbstractPath(write_options_.base_dir, directory);
+          fs::internal::ConcatAbstractPath(write_options_->base_dir, directory);
       return DoWriteRecordBatch(std::move(batch), full_path, prefix);
     } else {
-      return DoWriteRecordBatch(std::move(batch), write_options_.base_dir, prefix);
+      return DoWriteRecordBatch(std::move(batch), write_options_->base_dir, prefix);
     }
   }
 
@@ -626,7 +628,7 @@ class DatasetWriter::DatasetWriterImpl {
   util::AsyncTaskScheduler* scheduler_ = nullptr;
   std::unique_ptr<util::AsyncTaskScheduler> write_tasks_;
   Future<> finish_fut_ = Future<>::Make();
-  FileSystemDatasetWriteOptions write_options_;
+  std::shared_ptr<FileSystemDatasetWriteOptions> write_options_;
   DatasetWriterState writer_state_;
   std::function<void()> pause_callback_;
   std::function<void()> resume_callback_;
@@ -636,7 +638,7 @@ class DatasetWriter::DatasetWriterImpl {
   Status err_;
 };
 
-DatasetWriter::DatasetWriter(FileSystemDatasetWriteOptions write_options,
+DatasetWriter::DatasetWriter(std::shared_ptr<FileSystemDatasetWriteOptions> write_options,
                              util::AsyncTaskScheduler* scheduler,
                              std::function<void()> pause_callback,
                              std::function<void()> resume_callback,
@@ -647,11 +649,12 @@ DatasetWriter::DatasetWriter(FileSystemDatasetWriteOptions write_options,
           std::move(resume_callback), std::move(finish_callback), max_rows_queued)) {}
 
 Result<std::unique_ptr<DatasetWriter>> DatasetWriter::Make(
-    FileSystemDatasetWriteOptions write_options, util::AsyncTaskScheduler* scheduler,
-    std::function<void()> pause_callback, std::function<void()> resume_callback,
-    std::function<void()> finish_callback, uint64_t max_rows_queued) {
-  RETURN_NOT_OK(ValidateOptions(write_options));
-  RETURN_NOT_OK(EnsureDestinationValid(write_options));
+    std::shared_ptr<FileSystemDatasetWriteOptions> write_options,
+    util::AsyncTaskScheduler* scheduler, std::function<void()> pause_callback,
+    std::function<void()> resume_callback, std::function<void()> finish_callback,
+    uint64_t max_rows_queued) {
+  RETURN_NOT_OK(ValidateOptions(*write_options.get()));
+  RETURN_NOT_OK(EnsureDestinationValid(*write_options.get()));
   return std::unique_ptr<DatasetWriter>(new DatasetWriter(
       std::move(write_options), scheduler, std::move(pause_callback),
       std::move(resume_callback), std::move(finish_callback), max_rows_queued));

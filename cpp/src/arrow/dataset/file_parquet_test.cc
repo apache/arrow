@@ -371,7 +371,8 @@ class TestParquetFileSystemDataset : public WriteFileSystemDatasetMixin,
     check_metadata_ = false;
     auto parquet_format = std::make_shared<ParquetFileFormat>();
     format_ = parquet_format;
-    SetWriteOptions(parquet_format->DefaultWriteOptions());
+    auto write_options = std::make_shared<FileSystemDatasetWriteOptions>(format_);
+    SetWriteOptions(std::move(write_options));
   }
 };
 
