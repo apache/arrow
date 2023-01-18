@@ -2887,6 +2887,16 @@ def date64():
 def float16():
     """
     Create half-precision floating point type.
+
+    Examples
+    --------
+    Create an instance of float16 type:
+
+    >>> import pyarrow as pa
+    >>> pa.float16()
+    DataType(halffloat)
+    >>> print(pa.float16())
+    halffloat
     """
     return primitive_type(_Type_HALF_FLOAT)
 
@@ -2894,6 +2904,26 @@ def float16():
 def float32():
     """
     Create single-precision floating point type.
+
+    Examples
+    --------
+    Create an instance of float32 type:
+
+    >>> import pyarrow as pa
+    >>> pa.float32()
+    DataType(float)
+    >>> print(pa.float32())
+    float
+
+    Create an array with float32 type:
+
+    >>> pa.array([0.0, 1.0, 2.0], type=pa.float32())
+    <pyarrow.lib.FloatArray object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_FLOAT)
 
@@ -2901,6 +2931,26 @@ def float32():
 def float64():
     """
     Create double-precision floating point type.
+
+    Examples
+    --------
+    Create an instance of float64 type:
+
+    >>> import pyarrow as pa
+    >>> pa.float64()
+    DataType(double)
+    >>> print(pa.float64())
+    double
+
+    Create an array with float64 type:
+
+    >>> pa.array([0.0, 1.0, 2.0], type=pa.float64())
+    <pyarrow.lib.DoubleArray object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_DOUBLE)
 
