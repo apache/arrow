@@ -22,10 +22,12 @@
 ## New features
 
 ### Docs
+
 * A substantial reorganisation, rewrite of, and addition to many of the 
 vignettes and README (@djnavarro, #14514)  
 
 ### Reading/writing data
+
 * new functions `open_csv_dataset()`, `open_ts_dataset()`, and 
 `open_delim_dataset()` all wrap `open_dataset()`- they don't provide new 
 functionality, but allow for readr-style options to be supplied, making it 
@@ -39,17 +41,20 @@ opening a CSV dataset (@wjones127, #14705)
 reading individual files and datasets can now be passed in as lists (#15270)
 
 ### Function bindings
+
 The following functions can now be used in queries on Arrow objects:
 * `lubridate::with_tz()` and `lubridate::force_tz()` (@eitsupi, #14093)
 * `stringr::str_remove()` and `stringr::str_remove_all()` (#14644)
 
 ### Installation
+
 * The package can now be installed offline using pre-downloaded binaries 
 (@pgramme, #14086)
 * The package can now automatically link to system installations of the AWS SDK
 C++ (@kou, #14235)
 
 ### Other
+
 * new dplyr (1.1.0) function `join_by()` implemented for dplyr joins on Arrow 
 object (equality conditions only)  (#33664)
 * StructArray objects can now be created directly via `StructArray$create()` 
@@ -57,6 +62,7 @@ object (equality conditions only)  (#33664)
 * curl timeout policy can now be configured for S3 (#15166)
 
 ## Minor improvements and fixes
+
 * Arrays of Decimal type objects can now be created directly and without 
 casting (#15211)
 * calling `lubridate::as_datetime()` on Arrow objects now can handle time in 
@@ -79,6 +85,7 @@ from Scalars (#15277)
 * multiple changes to ensure compatibility with dplyr 1.1.0 (@lionel-, #14948)
 
 ## Breaking changes
+
 * rlang dependency must be at least version 1.0.0 because of check_dots_empty 
 (@daattali, #14744)
 
