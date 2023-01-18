@@ -52,25 +52,6 @@ bool compute___expr__is_field_ref(const std::shared_ptr<compute::Expression>& x)
 }
 
 // [[arrow::export]]
-std::vector<std::string> field_names_in_expression(
-    const std::shared_ptr<compute::Expression>& x) {
-  std::vector<std::string> out;
-  std::vector<arrow::FieldRef> nested;
-
-  auto field_refs = FieldsInExpression(*x);
-  for (auto f : field_refs) {
-    if (f.IsNested()) {
-      // We keep the top-level field name.
-      nested = *f.nested_refs();
-      out.push_back(*nested[0].name());
-    } else {
-      out.push_back(*f.name());
-    }
-  }
-  return out;
-}
-
-// [[arrow::export]]
 std::string compute___expr__get_field_ref_name(
     const std::shared_ptr<compute::Expression>& x) {
   if (auto field_ref = x->field_ref()) {

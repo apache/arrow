@@ -288,28 +288,31 @@ std::shared_ptr<arrow::Schema> ExecNode_output_schema(
 std::shared_ptr<compute::ExecNode> ExecNode_Scan(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<ds::Dataset>& dataset,
-    const std::shared_ptr<compute::Expression>& filter,
-    std::vector<std::string> materialized_field_names) {
+    const std::shared_ptr<compute::Expression>& filter, cpp11::list projection) {
   arrow::dataset::internal::Initialize();
 
   // TODO: pass in FragmentScanOptions
   auto options = std::make_shared<ds::ScanOptions>();
 
   options->use_threads = arrow::r::GetBoolOption("arrow.use_threads", true);
-
   options->dataset_schema = dataset->schema();
 
+  // This filter is only used for predicate pushdown;
+  // you still need to pass it to a FilterNode after to handle any other components
   options->filter = *filter;
 
-  // ScanNode needs to know which fields to materialize (and which are unnecessary)
+  // ScanNode needs to know which fields to materialize.
+  // It will pull them from this projection to prune the scan,
+  // but you still need to Project after
   std::vector<compute::Expression> exprs;
-  for (const auto& name : materialized_field_names) {
-    exprs.push_back(compute::field_ref(name));
+  for (SEXP expr : projection) {
+    auto expr_ptr = cpp11::as_cpp<std::shared_ptr<compute::Expression>>(expr);
+    exprs.push_back(*expr_ptr);
   }
-
-  options->projection =
-      call("make_struct", std::move(exprs),
-           compute::MakeStructOptions{std::move(materialized_field_names)});
+  cpp11::strings field_names(projection.attr(R_NamesSymbol));
+  options->projection = call(
+      "make_struct", std::move(exprs),
+      compute::MakeStructOptions{cpp11::as_cpp<std::vector<std::string>>(field_names)});
 
   return MakeExecNodeOrStop("scan", plan.get(), {},
                             ds::ScanNodeOptions{dataset, options});
