@@ -2377,8 +2377,8 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   }
 
   int ValidValuesCount() {
-    // total_value_count_ in header ignores of null values
-    return static_cast<int>(total_value_count_);
+    // total_values_remaining_ in header ignores of null values
+    return static_cast<int>(total_values_remaining_);
   }
 
   int Decode(T* buffer, int max_values) override {
@@ -2420,7 +2420,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
         !decoder_->GetVlqInt(&mini_blocks_per_block_) ||
         !decoder_->GetVlqInt(&total_value_count_) ||
         !decoder_->GetZigZagVlqInt(&last_value_)) {
-      ParquetException::EofException();
+      ParquetException::EofException("InitHeader EOF");
     }
 
     if (values_per_block_ == 0) {
@@ -2444,42 +2444,52 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
           std::to_string(values_per_mini_block_));
     }
 
+    total_values_remaining_ = total_value_count_;
     delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
-    block_initialized_ = false;
-    values_current_mini_block_ = 0;
+    first_block_initialized_ = false;
+    values_remaining_current_mini_block_ = 0;
   }
 
   void InitBlock() {
-    if (!decoder_->GetZigZagVlqInt(&min_delta_)) ParquetException::EofException();
+    DCHECK_GT(total_values_remaining_, 0) << "InitBlock called at EOF";
+
+    if (!decoder_->GetZigZagVlqInt(&min_delta_))
+      ParquetException::EofException("InitBlock EOF");
 
     // read the bitwidth of each miniblock
     uint8_t* bit_width_data = delta_bit_widths_->mutable_data();
     for (uint32_t i = 0; i < mini_blocks_per_block_; ++i) {
       if (!decoder_->GetAligned<uint8_t>(1, bit_width_data + i)) {
-        ParquetException::EofException();
+        ParquetException::EofException("Decode bit-width EOF");
       }
-      if (bit_width_data[i] > kMaxDeltaBitWidth) {
-        throw ParquetException("delta bit width " + std::to_string(bit_width_data[i]) +
-                               " larger than integer bit width " +
-                               std::to_string(kMaxDeltaBitWidth));
-      }
+      // Note that non-conformant bitwidth entries are allowed by the Parquet spec
+      // for extraneous miniblocks in the last block (GH-14923), so we check
+      // the bitwidths when actually using them (see InitMiniBlock()).
     }
+
     mini_block_idx_ = 0;
-    delta_bit_width_ = bit_width_data[0];
-    values_current_mini_block_ = values_per_mini_block_;
-    block_initialized_ = true;
+    first_block_initialized_ = true;
+    InitMiniBlock(bit_width_data[0]);
+  }
+
+  void InitMiniBlock(int bit_width) {
+    if (ARROW_PREDICT_FALSE(bit_width > kMaxDeltaBitWidth)) {
+      throw ParquetException("delta bit width larger than integer bit width");
+    }
+    delta_bit_width_ = bit_width;
+    values_remaining_current_mini_block_ = values_per_mini_block_;
   }
 
   int GetInternal(T* buffer, int max_values) {
-    max_values = static_cast<int>(std::min<int64_t>(max_values, total_value_count_));
+    max_values = static_cast<int>(std::min<int64_t>(max_values, total_values_remaining_));
     if (max_values == 0) {
       return 0;
     }
 
     int i = 0;
     while (i < max_values) {
-      if (ARROW_PREDICT_FALSE(values_current_mini_block_ == 0)) {
-        if (ARROW_PREDICT_FALSE(!block_initialized_)) {
+      if (ARROW_PREDICT_FALSE(values_remaining_current_mini_block_ == 0)) {
+        if (ARROW_PREDICT_FALSE(!first_block_initialized_)) {
           buffer[i++] = last_value_;
           DCHECK_EQ(i, 1);  // we're at the beginning of the page
           if (ARROW_PREDICT_FALSE(i == max_values)) {
@@ -2499,16 +2509,15 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
         } else {
           ++mini_block_idx_;
           if (mini_block_idx_ < mini_blocks_per_block_) {
-            delta_bit_width_ = delta_bit_widths_->data()[mini_block_idx_];
-            values_current_mini_block_ = values_per_mini_block_;
+            InitMiniBlock(delta_bit_widths_->data()[mini_block_idx_]);
           } else {
             InitBlock();
           }
         }
       }
 
-      int values_decode =
-          std::min(values_current_mini_block_, static_cast<uint32_t>(max_values - i));
+      int values_decode = std::min(values_remaining_current_mini_block_,
+                                   static_cast<uint32_t>(max_values - i));
       if (decoder_->GetBatch(delta_bit_width_, buffer + i, values_decode) !=
           values_decode) {
         ParquetException::EofException();
@@ -2520,19 +2529,19 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
                         static_cast<UT>(last_value_);
         last_value_ = buffer[i + j];
       }
-      values_current_mini_block_ -= values_decode;
+      values_remaining_current_mini_block_ -= values_decode;
       i += values_decode;
     }
-    total_value_count_ -= max_values;
+    total_values_remaining_ -= max_values;
     this->num_values_ -= max_values;
 
-    if (ARROW_PREDICT_FALSE(total_value_count_ == 0)) {
-      uint32_t padding_bits = values_current_mini_block_ * delta_bit_width_;
+    if (ARROW_PREDICT_FALSE(total_values_remaining_ == 0)) {
+      uint32_t padding_bits = values_remaining_current_mini_block_ * delta_bit_width_;
       // skip the padding bits
       if (!decoder_->Advance(padding_bits)) {
         ParquetException::EofException();
       }
-      values_current_mini_block_ = 0;
+      values_remaining_current_mini_block_ = 0;
     }
     return max_values;
   }
@@ -2542,10 +2551,16 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   uint32_t values_per_block_;
   uint32_t mini_blocks_per_block_;
   uint32_t values_per_mini_block_;
-  uint32_t values_current_mini_block_;
   uint32_t total_value_count_;
 
-  bool block_initialized_;
+  uint32_t total_values_remaining_;
+  // Remaining values in current mini block. If the current block is the last mini block,
+  // values_remaining_current_mini_block_ may greater than total_values_remaining_.
+  uint32_t values_remaining_current_mini_block_;
+
+  // If the page doesn't contain any block, `first_block_initialized_` will
+  // always be false. Otherwise, it will be true when first block initialized.
+  bool first_block_initialized_;
   T min_delta_;
   uint32_t mini_block_idx_;
   std::shared_ptr<ResizableBuffer> delta_bit_widths_;
