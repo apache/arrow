@@ -35,6 +35,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/parallel.h"
 
 #include "parquet/arrow/path_internal.h"
 #include "parquet/arrow/reader_internal.h"
@@ -288,7 +289,12 @@ class FileWriterImpl : public FileWriter {
         row_group_writer_(nullptr),
         column_write_context_(pool, arrow_properties.get()),
         arrow_properties_(std::move(arrow_properties)),
-        closed_(false) {}
+        closed_(false) {
+    if (arrow_properties_->use_threads()) {
+      parallel_column_write_contexts_.resize(schema_->num_fields(),
+                                             {pool, arrow_properties_.get()});
+    }
+  }
 
   Status Init() {
     return SchemaManifest::Make(writer_->schema(), /*schema_metadata=*/nullptr,
@@ -403,16 +409,31 @@ class FileWriterImpl : public FileWriter {
     }
 
     auto WriteBatch = [&](int64_t offset, int64_t size) {
+      std::vector<std::unique_ptr<ArrowColumnWriterV2>> writers;
       int column_index_start = 0;
+
       for (int i = 0; i < batch.num_columns(); i++) {
-        ChunkedArray chunkedArray(batch.column(i));
+        ChunkedArray chunked_array{batch.column(i)};
         ARROW_ASSIGN_OR_RAISE(
             std::unique_ptr<ArrowColumnWriterV2> writer,
-            ArrowColumnWriterV2::Make(chunkedArray, offset, size, schema_manifest_,
+            ArrowColumnWriterV2::Make(chunked_array, offset, size, schema_manifest_,
                                       row_group_writer_, column_index_start));
-        RETURN_NOT_OK(writer->Write(&column_write_context_));
         column_index_start += writer->leaf_count();
+        if (arrow_properties_->use_threads()) {
+          writers.emplace_back(std::move(writer));
+        } else {
+          RETURN_NOT_OK(writer->Write(&column_write_context_));
+        }
       }
+
+      if (arrow_properties_->use_threads()) {
+        DCHECK_EQ(parallel_column_write_contexts_.size(), writers.size());
+        RETURN_NOT_OK(::arrow::internal::ParallelFor(
+            static_cast<int>(writers.size()),
+            [&](int i) { return writers[i]->Write(&parallel_column_write_contexts_[i]); },
+            arrow_properties_->executor()));
+      }
+
       return Status::OK();
     };
 
@@ -455,6 +476,11 @@ class FileWriterImpl : public FileWriter {
   ArrowWriteContext column_write_context_;
   std::shared_ptr<ArrowWriterProperties> arrow_properties_;
   bool closed_;
+
+  /// If arrow_properties_.use_threads() is true, the vector size is equal to
+  /// schema_->num_fields() to make it thread-safe. Otherwise, the vector is
+  /// empty and column_write_context_ above is shared by all columns.
+  std::vector<ArrowWriteContext> parallel_column_write_contexts_;
 };
 
 FileWriter::~FileWriter() {}
