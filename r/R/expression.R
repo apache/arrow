@@ -94,11 +94,7 @@ Expression$create <- function(function_name,
 
 
 #' @export
-`[[.Expression` <- function(x, i, ...) {
-  # TODO: integer (positional) field refs are supported in C++
-  assert_that(is.string(i))
-  get_nested_field(x, i)
-}
+`[[.Expression` <- function(x, i, ...) get_nested_field(x, i)
 
 #' @export
 `$.Expression` <- function(x, name, ...) {
@@ -113,24 +109,29 @@ Expression$create <- function(function_name,
 get_nested_field <- function(expr, name) {
   if (expr$is_field_ref()) {
     # Make a nested field ref
+    # TODO(#33756): integer (positional) field refs are supported in C++
+    assert_that(is.string(name))
     out <- compute___expr__nested_field_ref(expr, name)
   } else {
-    # Use the struct_field kernel, but that only works if:
-    # * expr has a knowable type (has a schema set)
-    # * that type is struct
-    # * `name` exists in the struct (bc we have to map to an integer position)
+    # Use the struct_field kernel if expr is a struct:
     expr_type <- expr$type() # errors if no schema set
     if (inherits(expr_type, "StructType")) {
-      ind <- match(name, names(expr_type)) - 1L
-      if (is.na(ind)) {
+      # Because we have the type, we can validate that the field exists
+      if (!(name %in% names(expr_type))) {
         stop(
           "field '", name, "' not found in ",
           expr_type$ToString(),
           call. = FALSE
         )
       }
-      out <- Expression$create("struct_field", expr, options = list(indices = ind))
+      out <- Expression$create(
+        "struct_field",
+        expr,
+        options = list(field_ref = Expression$field_ref(name))
+      )
     } else {
+      # TODO(#33757): if expr is list type and name is integer or Expression,
+      # call list_element
       stop(
         "Cannot extract a field from an Expression of type ", expr_type$ToString(),
         call. = FALSE
@@ -143,6 +144,7 @@ get_nested_field <- function(expr, name) {
 }
 
 Expression$field_ref <- function(name) {
+  # TODO(#33756): allow construction of field ref from integer
   assert_that(is.string(name))
   compute___expr__field_ref(name)
 }
