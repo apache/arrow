@@ -33,18 +33,18 @@
   functionality, but allow for readr-style options to be supplied, making it 
   simpler to switch between individual file-reading and dataset 
   functionality. (#33614)
-* User-defined null values can now be set when writing CSVs both as datasets 
+* User-defined null values can be set when writing CSVs both as datasets 
   and as individual files. (@wjones127, #14679)
 * The new `col_names` parameter allows specification of column names when 
   opening a CSV dataset. (@wjones127, #14705)
 * The `parse_options`, `read_options`, and `convert_options` parameters for 
   reading individual files (`read_*_arrow()` functions) and datasets 
-  (`open_dataset()` and the new `open_*_dataset()` functions) can now be passed 
+  (`open_dataset()` and the new `open_*_dataset()` functions) can be passed 
   in as lists. (#15270)
 
 ### Function bindings
 
-The following functions can now be used in queries on Arrow objects:
+The following functions can be used in queries on Arrow objects:
 * `lubridate::with_tz()` and `lubridate::force_tz()` (@eitsupi, #14093)
 * `stringr::str_remove()` and `stringr::str_remove_all()` (#14644)
 
@@ -52,45 +52,38 @@ The following functions can now be used in queries on Arrow objects:
 
 * Improved offline installation using pre-downloaded binaries. 
   (@pgramme, #14086)
-* The package can now automatically link to system installations of the AWS SDK
+* The package can automatically link to system installations of the AWS SDK
   for C++. (@kou, #14235)
 
 ### Other
 
 * New dplyr (1.1.0) function `join_by()` has been implemented for dplyr joins 
   on Arrow objects (equality conditions only).  (#33664)
-* StructArray objects can now be created directly via `StructArray$create()`. 
+* StructArray objects can be created directly via `StructArray$create()`. 
   (#14922)
-* curl timeout policy can now be configured for S3. (#15166)
+* curl timeout policy can be configured for S3. (#15166)
 
 ## Minor improvements and fixes
 
-* `map_batches()` now is lazy by default. (#14521)
-* Decimal arrays can now be created in `Array$create()` without
-  casting. (#15211)
-* Calling `lubridate::as_datetime()` on Arrow objects now can handle time in 
+* Decimal arrays can be created in `Array$create()` without casting. (#15211)
+* Calling `lubridate::as_datetime()` on Arrow objects can handle time in 
   sub-seconds. (@eitsupi, #13890)
-* `head()` can now be called after `as_record_batch_read()` without error. 
-  (#14518)
-* Fix for a bug in which `dplyr::right_join()` did not coalesce keys. (#15077)
-* Fix for a bug in output returned when multiple 
-  `dplyr::group_by()`/`dplyr::summarise()` calls are used. (#14905)
-* Fix for a bug in which `dplyr::summarize()` fails with division when divisor 
-  is a variable. (#14933)
-* Fix for a bug in which `as.Date()` fails going from `timestamp[us]` to
-  `timestamp[s]`. (#14935)
-* Fix for a bug in which creating an Array from an object bigger than 2^31 
-  results in an Array of length 0. (#14929)
-* Fix for a bug in which accents in file paths caused an error in 
-  `read_csv_arrow()`. (#14930)
-* Fix for a bug which prevented Arrow arrays of `POSIXlt` objects being created 
-  from Scalars. (#15277)
+* `head()` can be called after `as_record_batch_read()` without error. (#14518)
+* `dplyr::right_join()` correctly coalesces keys. (#15077)
+* output accurate when multiple `dplyr::group_by()`/`dplyr::summarise()` calls 
+  are used. (#14905)
+* `dplyr::summarize()` works with division when divisor is a variable. (#14933)
+* `as.Date()` can go from `timestamp[us]` to `timestamp[s]`. (#14935)
+* creating an Array from an object bigger than 2^31 has correct length (#14929)
+* file paths containing accents can be read by `read_csv_arrow()`. (#14930)
+* Arrow arrays of `POSIXlt` objects can be created from Scalars. (#15277)
 * Multiple changes to ensure compatibility with dplyr 1.1.0. (@lionel-, #14948)
+* rlang dependency must be at least version 1.0.0 because of 
+  `check_dots_empty()`. (@daattali, #14744)
 
 ## Breaking changes
 
-* rlang dependency must be at least version 1.0.0 because of 
-  `check_dots_empty()`. (@daattali, #14744)
+* `map_batches()` is lazy by default. (#14521)
 
 # arrow 10.0.1
 
