@@ -753,5 +753,7 @@ func TestRecordReaderExport(t *testing.T) {
 	reclist := arrdata.Records["primitives"]
 	rdr, _ := array.NewRecordReader(reclist[0].Schema(), reclist)
 
-	exportedStreamTest(rdr)
+	if err := exportedStreamTest(rdr); err != nil {
+		t.Fatalf("Failed to test exported stream: %#v", err)
+	}
 }
