@@ -24,8 +24,8 @@
 #include "generated/parquet_types.h"
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
-#include "parquet/xxhash.h"
 #include "parquet/thrift_internal.h"
+#include "parquet/xxhash.h"
 
 namespace parquet {
 constexpr uint32_t BlockSplitBloomFilter::SALT[kBitsSetPerBlock];
@@ -70,7 +70,6 @@ void BlockSplitBloomFilter::Init(const uint8_t* bitset, uint32_t num_bytes) {
 
   this->hasher_ = std::make_unique<XxHash>();
 }
-
 
 static constexpr uint32_t HEADER_SIZE_GUESS = 32;
 static constexpr uint32_t MAX_BLOOM_FILTER_HEADER_SIZE = 1024;
