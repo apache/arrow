@@ -25,6 +25,7 @@ package cdata
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"runtime"
 	"runtime/cgo"
@@ -756,4 +757,53 @@ func TestRecordReaderExport(t *testing.T) {
 	if err := exportedStreamTest(rdr); err != nil {
 		t.Fatalf("Failed to test exported stream: %#v", err)
 	}
+}
+
+type failingReader struct {
+	opCount int
+}
+
+func (r *failingReader) Retain()  {}
+func (r *failingReader) Release() {}
+func (r *failingReader) Schema() *arrow.Schema {
+	r.opCount -= 1
+	if r.opCount == 0 {
+		return nil
+	}
+	return arrdata.Records["primitives"][0].Schema()
+}
+func (r *failingReader) Next() bool {
+	r.opCount -= 1
+	return r.opCount > 0
+}
+func (r *failingReader) Record() arrow.Record {
+	arrdata.Records["primitives"][0].Retain()
+	return arrdata.Records["primitives"][0]
+}
+func (r *failingReader) Err() error {
+	if r.opCount == 0 {
+		return fmt.Errorf("Expected error message")
+	}
+	return nil
+}
+
+func TestRecordReaderError(t *testing.T) {
+	// Regression test for apache/arrow#33789
+	err := roundTripStreamTest(&failingReader{opCount: 1})
+	if err == nil {
+		t.Fatalf("Expected error but got none")
+	}
+	assert.Contains(t, err.Error(), "Expected error message")
+
+	err = roundTripStreamTest(&failingReader{opCount: 2})
+	if err == nil {
+		t.Fatalf("Expected error but got none")
+	}
+	assert.Contains(t, err.Error(), "Expected error message")
+
+	err = roundTripStreamTest(&failingReader{opCount: 3})
+	if err == nil {
+		t.Fatalf("Expected error but got none")
+	}
+	assert.Contains(t, err.Error(), "Expected error message")
 }

@@ -16,6 +16,7 @@
 
 package cdata
 
+// #include <errno.h>
 // #include <stdlib.h>
 // #include "arrow/c/abi.h"
 // #include "arrow/c/helpers.h"
@@ -415,10 +416,15 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 
 type cRecordReader struct {
 	rdr array.RecordReader
+	err *C.char
 }
 
 func (rr cRecordReader) getSchema(out *CArrowSchema) int {
-	ExportArrowSchema(rr.rdr.Schema(), out)
+	schema := rr.rdr.Schema()
+	if schema == nil {
+		return rr.maybeError()
+	}
+	ExportArrowSchema(schema, out)
 	return 0
 }
 
@@ -428,9 +434,31 @@ func (rr cRecordReader) next(out *CArrowArray) int {
 		return 0
 	}
 	C.ArrowArrayMarkReleased(out)
+	return rr.maybeError()
+}
+
+func (rr cRecordReader) maybeError() int {
+	err := rr.rdr.Err()
+	if err != nil {
+		return C.EIO
+	}
 	return 0
 }
 
+func (rr cRecordReader) getLastError() *C.char {
+	err := rr.rdr.Err()
+	if err != nil {
+		if rr.err != nil {
+			C.free(unsafe.Pointer(rr.err))
+		}
+		rr.err = C.CString(err.Error())
+	}
+	return rr.err
+}
+
 func (rr cRecordReader) release() {
+	if rr.err != nil {
+		C.free(unsafe.Pointer(rr.err))
+	}
 	rr.rdr.Release()
 }
