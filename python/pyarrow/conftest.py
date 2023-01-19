@@ -270,7 +270,6 @@ def add_fs(doctest_namespace, request, tmp_path):
 # which may try and use S3.  See https://github.com/pytest-dev/pytest/issues/7484
 @pytest.hookimpl(trylast=True)
 def pytest_sessionfinish(session):
-    print('Session finished, finalizing s3')
     try:
         from pyarrow.fs import finalize_s3
         finalize_s3()
