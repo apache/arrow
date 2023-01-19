@@ -33,7 +33,8 @@ constexpr uint32_t BlockSplitBloomFilter::SALT[kBitsSetPerBlock];
 BlockSplitBloomFilter::BlockSplitBloomFilter()
     : pool_(::arrow::default_memory_pool()),
       hash_strategy_(HashStrategy::XXHASH),
-      algorithm_(Algorithm::BLOCK) {}
+      algorithm_(Algorithm::BLOCK),
+      compression_strategy_(CompressionStrategy::UNCOMPRESSED) {}
 
 void BlockSplitBloomFilter::Init(uint32_t num_bytes) {
   if (num_bytes < kMinimumBloomFilterBytes) {
@@ -116,11 +117,10 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(ArrowInputStream* input
 
   // Read and deserialize bloom filter header
   while (true) {
-    PARQUET_ASSIGN_OR_THROW(auto sv, input->Peek(16));
+    PARQUET_ASSIGN_OR_THROW(auto sv, input->Peek(length));
     // This gets used, then set by DeserializeThriftMsg
     headerSize = static_cast<uint32_t>(sv.size());
     try {
-      //      PARQUET_SCOPED_TIMER(deserialize_thrift_latency_ns);
       deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(sv.data()),
                                       &headerSize, &header);
       break;
@@ -154,8 +154,17 @@ void BlockSplitBloomFilter::WriteTo(ArrowOutputStream* sink) const {
   DCHECK(sink != nullptr);
 
   format::BloomFilterHeader header;
+  if (ARROW_PREDICT_FALSE(algorithm_ != BloomFilter::Algorithm::BLOCK)) {
+    throw ParquetException("BloomFilter not support Algorithm other than BLOCK");
+  }
   header.algorithm.__set_BLOCK(format::SplitBlockAlgorithm());
+  if (ARROW_PREDICT_FALSE(hash_strategy_ != HashStrategy::XXHASH)) {
+    throw ParquetException("BloomFilter not support Hash other than XXHASH");
+  }
   header.hash.__set_XXHASH(format::XxHash());
+  if (ARROW_PREDICT_FALSE(compression_strategy_ != CompressionStrategy::UNCOMPRESSED)) {
+    throw ParquetException("BloomFilter not support Compression other than UNCOMPRESSED");
+  }
   header.compression.__set_UNCOMPRESSED(format::Uncompressed());
   header.__set_numBytes(num_bytes_);
 

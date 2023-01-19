@@ -109,6 +109,8 @@ class PARQUET_EXPORT BloomFilter {
 
   // Bloom filter algorithm.
   enum class Algorithm : uint32_t { BLOCK = 0 };
+
+  enum class CompressionStrategy : uint32_t { UNCOMPRESSED = 0 };
 };
 
 /// The BlockSplitBloomFilter is implemented using block-based Bloom filters from
@@ -235,10 +237,13 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   uint32_t num_bytes_;
 
   // Hash strategy used in this Bloom filter.
-  [[maybe_unused]] HashStrategy hash_strategy_;
+  HashStrategy hash_strategy_;
 
   // Algorithm used in this Bloom filter.
-  [[maybe_unused]] Algorithm algorithm_;
+  Algorithm algorithm_;
+
+  // Compression used in this Bloom filter.
+  CompressionStrategy compression_strategy_;
 
   // The hash pointer points to actual hash class used.
   std::unique_ptr<Hasher> hasher_;
