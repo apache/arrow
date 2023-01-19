@@ -1681,6 +1681,10 @@ struct FindSubstringRegex {
 
   template <typename OutValue, typename... Ignored>
   OutValue Call(KernelContext*, std::string_view val, Status*) const {
+    if (!regex_match_->ok()) {
+      // TODO: Report error
+      return -1;
+    }
     re2::StringPiece piece(val.data(), val.length());
     re2::StringPiece match;
     if (RE2::PartialMatch(piece, *regex_match_, &match)) {
@@ -1816,6 +1820,10 @@ struct CountSubstringRegex {
 
   template <typename OutValue, typename... Ignored>
   OutValue Call(KernelContext*, std::string_view val, Status*) const {
+    if (!regex_match_->ok()) {
+      // TODO: Report error
+      return 0;
+    }
     OutValue count = 0;
     re2::StringPiece input(val.data(), val.size());
     auto last_size = input.size();
