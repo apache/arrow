@@ -5364,10 +5364,13 @@ class TableGroupBy:
         Parameters
         ----------
         aggregations : list[tuple(str, str)] or \
-list[tuple(str|list[str]|tuple(str*), str, FunctionOptions)]
+list[tuple(str, str, FunctionOptions)]
             List of tuples made of aggregation column names followed
             by function names and optionally aggregation function options.
             Pass empty list to get a single row for each group.
+            The column names can be a string, an empty list or a list of
+            column names, for unary, nullary and n-ary aggregation functions
+            respectively.
 
         Returns
         -------
