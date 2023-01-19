@@ -86,7 +86,7 @@ Plans
 ^^^^^
 
  * A plan should have a single top-level relation.
- * The consumer is currently based on a version 0.20.0 of Substrait.
+ * The consumer is currently based on version 0.20.0 of Substrait.
    Any features added that are newer will not be supported.
  * Due to a breaking change in 0.20.0 any Substrait plan older than 0.20.0
    will be rejected.
@@ -95,7 +95,7 @@ Extensions
 ^^^^^^^^^^
 
  * If a plan contains any extension type variations it will be rejected.
- * Advanced extensions can be provided by supply a custom implementation of
+ * Advanced extensions can be provided by supplying a custom implementation of
    :class:`arrow::engine::ExtensionProvider`.
 
 Relations (in general)
@@ -109,9 +109,9 @@ Read Relations
 
  * The ``projection`` property is not supported and plans containing this
    property will be rejected.
- * The only ``VirtualTable`` and ``ExtensionTable``read types are not supported.
+ * The ``VirtualTable`` and ``ExtensionTable``read types are not supported.
    Plans containing these types will be rejected.
- * Only the parquet and arrow file format are currently supported.
+ * Only the parquet and arrow file formats are currently supported.
  * All URIs must use the ``file`` scheme
  * ``partition_index``, ``start``, and ``length`` are not supported.  Plans containing
    non-default values for these properties will be rejected.
