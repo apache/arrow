@@ -437,7 +437,7 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// multiple row groups.  If this value is set then min_rows_per_group should also be
   /// set or else you may end up with very small row groups (e.g. if the incoming row
   /// group size is just barely larger than this value).
-  uint64_t max_rows_per_group = 1 << 26;
+  uint64_t max_rows_per_group = 1 << 20;
 
   /// Controls what happens if an output directory already exists.
   ExistingDataBehavior existing_data_behavior = ExistingDataBehavior::kError;

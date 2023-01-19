@@ -269,6 +269,7 @@ TEST_F(DatasetWriterTestFixture, DirectoryCreateFails) {
 
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
   write_options_->max_rows_per_file = 10;
+  write_options_->min_rows_per_group = 0;
   write_options_->max_rows_per_group = 10;
   auto dataset_writer = MakeDatasetWriter();
   dataset_writer->WriteRecordBatch(MakeBatch(35), "");
@@ -281,6 +282,7 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
 
 TEST_F(DatasetWriterTestFixture, MaxRowsManyWrites) {
   write_options_->max_rows_per_file = 10;
+  write_options_->min_rows_per_group = 0;
   write_options_->max_rows_per_group = 10;
   auto dataset_writer = MakeDatasetWriter();
   dataset_writer->WriteRecordBatch(MakeBatch(3), "");
@@ -313,6 +315,7 @@ TEST_F(DatasetWriterTestFixture, MinRowGroup) {
 }
 
 TEST_F(DatasetWriterTestFixture, MaxRowGroup) {
+  write_options_->min_rows_per_group = 0;
   write_options_->max_rows_per_group = 10;
   auto dataset_writer = MakeDatasetWriter();
   // Test hitting the limit exactly and inexactly
@@ -356,6 +359,7 @@ TEST_F(DatasetWriterTestFixture, MinRowGroupBackpressure) {
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
   // Use a gated filesystem to queue up many writes behind a file open to make sure the
   // file isn't opened multiple times.
+  write_options_->min_rows_per_group = 0;
   auto gated_fs = UseGatedFs();
   auto dataset_writer = MakeDatasetWriter();
   for (int i = 0; i < 10; i++) {
