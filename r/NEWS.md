@@ -88,7 +88,7 @@
 * Calling `lubridate::as_datetime()` on Arrow objects can handle time in 
   sub-seconds. (@eitsupi, 
   [#13890](https://github.com/apache/arrow/issues/13890))
-* `head()` can be called after `as_record_batch_read()`. 
+* `head()` can be called after `as_record_batch_reader()`. 
   ([#14518](https://github.com/apache/arrow/issues/14518))
 * `dplyr::right_join()` correctly coalesces keys. 
   ([#15077](https://github.com/apache/arrow/issues/15077))
