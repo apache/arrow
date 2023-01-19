@@ -36,6 +36,24 @@ using internal::ToChars;
 namespace compute {
 namespace internal {
 
+namespace {
+
+Result<const HashAggregateKernel*> GetKernel(ExecContext* ctx, const Aggregate& aggregate,
+                                             const std::vector<TypeHolder>& in_types) {
+  std::vector<TypeHolder> aggregate_in_types;
+  aggregate_in_types.reserve(in_types.size());
+  aggregate_in_types = in_types;
+  aggregate_in_types.emplace_back(uint32());
+
+  ARROW_ASSIGN_OR_RAISE(auto function,
+                        ctx->func_registry()->GetFunction(aggregate.function));
+  ARROW_ASSIGN_OR_RAISE(const Kernel* kernel,
+                        function->DispatchExact(aggregate_in_types));
+  return static_cast<const HashAggregateKernel*>(kernel);
+}
+
+}  // namespace
+
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
     ExecContext* ctx, const std::vector<Aggregate>& aggregates,
     const std::vector<std::vector<TypeHolder>>& in_types) {
@@ -45,16 +63,8 @@ Result<std::vector<const HashAggregateKernel*>> GetKernels(
   }
 
   std::vector<const HashAggregateKernel*> kernels(in_types.size());
-
-  std::vector<TypeHolder> aggregate_in_types;
   for (size_t i = 0; i < aggregates.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(auto function,
-                          ctx->func_registry()->GetFunction(aggregates[i].function));
-    aggregate_in_types = in_types[i];
-    aggregate_in_types.emplace_back(uint32());
-    ARROW_ASSIGN_OR_RAISE(const Kernel* kernel,
-                          function->DispatchExact(aggregate_in_types));
-    kernels[i] = static_cast<const HashAggregateKernel*>(kernel);
+    ARROW_ASSIGN_OR_RAISE(kernels[i], GetKernel(ctx, aggregates[i], in_types[i]));
   }
   return kernels;
 }
