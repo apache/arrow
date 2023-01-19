@@ -2925,41 +2925,41 @@ def _filesystemdataset_write(
     CFileSystemDataset.Write wrapper
     """
     cdef:
-        CFileSystemDatasetWriteOptions c_options
+        shared_ptr[CFileSystemDatasetWriteOptions] c_options
         shared_ptr[CScanner] c_scanner
         vector[shared_ptr[CRecordBatch]] c_batches
         dict visit_args
-
-    c_options.file_write_options = file_options.unwrap()
-    c_options.filesystem = filesystem.unwrap()
-    c_options.base_dir = tobytes(_stringify_path(base_dir))
-    c_options.partitioning = partitioning.unwrap()
-    c_options.max_partitions = max_partitions
-    c_options.max_open_files = max_open_files
-    c_options.max_rows_per_file = max_rows_per_file
-    c_options.max_rows_per_group = max_rows_per_group
-    c_options.min_rows_per_group = min_rows_per_group
-    c_options.basename_template = tobytes(basename_template)
+    c_options = make_shared[CFileSystemDatasetWriteOptions](
+        file_options.unwrap().get().format())
+    c_options.get().filesystem = filesystem.unwrap()
+    c_options.get().base_dir = tobytes(_stringify_path(base_dir))
+    c_options.get().partitioning = partitioning.unwrap()
+    c_options.get().max_partitions = max_partitions
+    c_options.get().max_open_files = max_open_files
+    c_options.get().max_rows_per_file = max_rows_per_file
+    c_options.get().max_rows_per_group = max_rows_per_group
+    c_options.get().min_rows_per_group = min_rows_per_group
+    c_options.get().basename_template = tobytes(basename_template)
     if existing_data_behavior == 'error':
-        c_options.existing_data_behavior = ExistingDataBehavior_ERROR
+        c_options.get().existing_data_behavior = ExistingDataBehavior_ERROR
     elif existing_data_behavior == 'overwrite_or_ignore':
-        c_options.existing_data_behavior =\
+        c_options.get().existing_data_behavior =\
             ExistingDataBehavior_OVERWRITE_OR_IGNORE
     elif existing_data_behavior == 'delete_matching':
-        c_options.existing_data_behavior = ExistingDataBehavior_DELETE_MATCHING
+        c_options.get().existing_data_behavior = ExistingDataBehavior_DELETE_MATCHING
     else:
         raise ValueError(
             ("existing_data_behavior must be one of 'error', ",
              "'overwrite_or_ignore' or 'delete_matching'")
         )
-    c_options.create_dir = create_dir
+    c_options.get().create_dir = create_dir
 
     if file_visitor is not None:
-        visit_args = {'base_dir': c_options.base_dir,
+        visit_args = {'base_dir': c_options.get().base_dir,
                       'file_visitor': file_visitor}
         # Need to use post_finish because parquet metadata is not available
         # until after Finish has been called
-        c_options.writer_post_finish = BindFunction[cb_writer_finish_internal](
+        c_options.get().writer_post_finish = BindFunction[cb_writer_finish_internal](
             &_filesystemdataset_write_visitor, visit_args)
 
     c_scanner = data.unwrap()
