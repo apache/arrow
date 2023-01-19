@@ -76,7 +76,7 @@ The following functions can be used in queries on Arrow objects:
 * `as.Date()` can go from `timestamp[us]` to `timestamp[s]`. (#14935)
 * creating an Array from an object bigger than 2^31 has correct length (#14929)
 * file paths containing accents can be read by `read_csv_arrow()`. (#14930)
-* Arrow arrays of `POSIXlt` objects can be created from Scalars. (#15277)
+* Arrow Scalars can be created from `POSIXlt` objects. (#15277)
 * Multiple changes to ensure compatibility with dplyr 1.1.0. (@lionel-, #14948)
 * rlang dependency must be at least version 1.0.0 because of 
   `check_dots_empty()`. (@daattali, #14744)
