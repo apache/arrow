@@ -359,7 +359,7 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictBuild::RemapOutput(
                         HashJoinDictUtil::ConvertFromInt32(
                             index_type_, Datum(indices32Bit), indices32Bit.length, ctx));
 
-  auto type = std::make_shared<DictionaryType>(index_type_, value_type_);
+  auto type = dictionary(index_type_, value_type_);
   return ArrayData::Make(type, indices->length, indices->buffers, {},
                          unified_dictionary_);
 }

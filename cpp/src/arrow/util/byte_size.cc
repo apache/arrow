@@ -131,13 +131,13 @@ struct GetByteRangesArray {
     return Status::OK();
   }
 
-  Status VisitFixedWidthArray(const Buffer& buffer, const FixedWidthType& type) const {
+  Status VisitFixedWidthArray(const Buffer& buffer, const FixedWidthType* type) const {
     uint64_t data_start = reinterpret_cast<uint64_t>(buffer.data());
-    uint64_t offset_bits = offset * type.bit_width();
+    uint64_t offset_bits = offset * type->bit_width();
     uint64_t offset_bytes = bit_util::RoundDown(static_cast<int64_t>(offset_bits), 8) / 8;
     uint64_t end_byte =
-        bit_util::RoundUp(static_cast<int64_t>(offset_bits + (length * type.bit_width())),
-                          8) /
+        bit_util::RoundUp(
+            static_cast<int64_t>(offset_bits + (length * type->bit_width())), 8) /
         8;
     uint64_t length_bytes = (end_byte - offset_bytes);
     RETURN_NOT_OK(range_starts->Append(data_start));
@@ -149,7 +149,7 @@ struct GetByteRangesArray {
     static_assert(sizeof(uint8_t*) <= sizeof(uint64_t),
                   "Undefined behavior if pointer larger than uint64_t");
     RETURN_NOT_OK(VisitBitmap(input.buffers[0]));
-    RETURN_NOT_OK(VisitFixedWidthArray(*input.buffers[1], type));
+    RETURN_NOT_OK(VisitFixedWidthArray(*input.buffers[1], &type));
     if (input.dictionary) {
       // This is slightly imprecise because we always assume the entire dictionary is
       // referenced.  If this array has an offset it may only be referencing a portion of
@@ -241,11 +241,11 @@ struct GetByteRangesArray {
   Status Visit(const DenseUnionType& type) const {
     // Skip validity map for DenseUnionType
     // Types buffer is always int8
-    RETURN_NOT_OK(VisitFixedWidthArray(
-        *input.buffers[1], *std::dynamic_pointer_cast<FixedWidthType>(int8())));
+    RETURN_NOT_OK(VisitFixedWidthArray(*input.buffers[1],
+                                       static_cast<FixedWidthType*>(int8().get())));
     // Offsets buffer is always int32
-    RETURN_NOT_OK(VisitFixedWidthArray(
-        *input.buffers[2], *std::dynamic_pointer_cast<FixedWidthType>(int32())));
+    RETURN_NOT_OK(VisitFixedWidthArray(*input.buffers[2],
+                                       static_cast<FixedWidthType*>(int32().get())));
 
     // We have to loop through the types buffer to figure out the correct
     // offset / length being referenced in the child arrays
@@ -278,8 +278,8 @@ struct GetByteRangesArray {
   Status Visit(const SparseUnionType& type) const {
     // Skip validity map for SparseUnionType
     // Types buffer is always int8
-    RETURN_NOT_OK(VisitFixedWidthArray(
-        *input.buffers[1], *std::dynamic_pointer_cast<FixedWidthType>(int8())));
+    RETURN_NOT_OK(VisitFixedWidthArray(*input.buffers[1],
+                                       static_cast<FixedWidthType*>(int8().get())));
 
     for (int i = 0; i < type.num_fields(); i++) {
       GetByteRangesArray child{*input.child_data[i],

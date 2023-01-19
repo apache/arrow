@@ -185,7 +185,8 @@ class BaseListBuilder : public ArrayBuilder {
   }
 
   std::shared_ptr<DataType> type() const override {
-    return std::make_shared<TYPE>(value_field_->WithType(value_builder_->type()));
+    return TypeTraits<TYPE>::type_instance(
+        value_field_->WithType(value_builder_->type()));
   }
 
  protected:

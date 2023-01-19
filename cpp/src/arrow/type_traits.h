@@ -415,6 +415,14 @@ struct TypeTraits<ListType> {
   using OffsetBuilderType = Int32Builder;
   using OffsetScalarType = Int32Scalar;
   constexpr static bool is_parameter_free = false;
+  static inline std::shared_ptr<DataType> type_instance(
+      const std::shared_ptr<Field>& value_type) {
+    return list(value_type);
+  }
+  static inline std::shared_ptr<DataType> type_instance(
+      const std::shared_ptr<DataType>& value_type) {
+    return list(value_type);
+  }
 };
 
 template <>
@@ -427,6 +435,14 @@ struct TypeTraits<LargeListType> {
   using OffsetBuilderType = Int64Builder;
   using OffsetScalarType = Int64Scalar;
   constexpr static bool is_parameter_free = false;
+  static inline std::shared_ptr<DataType> type_instance(
+      const std::shared_ptr<Field>& value_type) {
+    return list(value_type);
+  }
+  static inline std::shared_ptr<DataType> type_instance(
+      const std::shared_ptr<DataType>& value_type) {
+    return list(value_type);
+  }
 };
 
 template <>
@@ -438,6 +454,14 @@ struct TypeTraits<MapType> {
   using OffsetArrayType = Int32Array;
   using OffsetBuilderType = Int32Builder;
   constexpr static bool is_parameter_free = false;
+  static inline std::shared_ptr<DataType> type_instance(
+      const std::shared_ptr<Field>& value_type) {
+    return large_list(value_type);
+  }
+  static inline std::shared_ptr<DataType> type_instance(
+      const std::shared_ptr<DataType>& value_type) {
+    return large_list(value_type);
+  }
 };
 
 template <>

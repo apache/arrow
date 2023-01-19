@@ -1299,7 +1299,7 @@ struct Strptime {
           return Status::OK();
         } else {
           return Status::Invalid("Failed to parse string: '", s, "' as a scalar of type ",
-                                 TimestampType(self.unit).ToString());
+                                 timestamp(self.unit)->ToString());
         }
       };
       RETURN_NOT_OK(VisitArraySpanInline<InType>(in, visit_value, visit_null));

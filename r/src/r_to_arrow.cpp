@@ -1262,7 +1262,7 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
     buffers[0] = std::move(null_bitmap);
   }
 
-  auto data = ArrayData::Make(std::make_shared<Type>(), LENGTH(x), std::move(buffers),
+  auto data = ArrayData::Make(TypeTraits<Type>::type_singleton(), LENGTH(x), std::move(buffers),
                               null_count, 0 /*offset*/);
 
   // return the right Array class
@@ -1387,7 +1387,7 @@ bool vector_from_r_memory_impl(SEXP x, const std::shared_ptr<DataType>& type,
       buffers[0] = std::move(null_bitmap);
     }
 
-    auto data = ArrayData::Make(std::make_shared<Type>(), n, std::move(buffers),
+    auto data = ArrayData::Make(TypeTraits<Type>::type_singleton(), n, std::move(buffers),
                                 null_count, 0 /*offset*/);
     auto array = std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
     columns[j] = std::make_shared<arrow::ChunkedArray>(array);
