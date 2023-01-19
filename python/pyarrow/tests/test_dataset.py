@@ -1020,7 +1020,7 @@ def _create_dataset_for_fragments(tempdir, chunk_size=None, filesystem=None):
 
     # write_to_dataset currently requires pandas
     pq.write_to_dataset(table, path,
-                        partition_cols=["part"], chunk_size=chunk_size)
+                        partition_cols=["part"], chunk_size=chunk_size, min_rows_per_group=chunk_size)
     dataset = ds.dataset(
         path, format="parquet", partitioning="hive", filesystem=filesystem
     )
@@ -1839,15 +1839,16 @@ def test_read_partition_keys_only(tempdir):
     # This is a regression test for ARROW-15318 which saw issues
     # reading only the partition keys from files with batches larger
     # than the default batch size (e.g. so we need to return two chunks)
+    min_rows_per_group = 0
     table = pa.table({
         'key': pa.repeat(0, BATCH_SIZE + 1),
         'value': np.arange(BATCH_SIZE + 1)})
     pq.write_to_dataset(
         table[:BATCH_SIZE],
-        tempdir / 'one', partition_cols=['key'])
+        tempdir / 'one', partition_cols=['key'], min_rows_per_group=min_rows_per_group)
     pq.write_to_dataset(
         table[:BATCH_SIZE + 1],
-        tempdir / 'two', partition_cols=['key'])
+        tempdir / 'two', partition_cols=['key'], min_rows_per_group=min_rows_per_group)
 
     table = pq.read_table(tempdir / 'one', columns=['key'])
     assert table['key'].num_chunks == 1
@@ -3276,7 +3277,8 @@ def test_feather_format_compressed(tempdir, compression, dataset_reader):
         table,
         str(uncompressed_basedir / "data.arrow"),
         format=file_format,
-        file_options=file_format.make_write_options(compression=None)
+        file_options=file_format.make_write_options(compression=None),
+        min_rows_per_group=0
     )
 
     if compression == "brotli":
@@ -3293,7 +3295,8 @@ def test_feather_format_compressed(tempdir, compression, dataset_reader):
         table,
         str(basedir / "data.arrow"),
         format=file_format,
-        file_options=write_options
+        file_options=write_options,
+        min_rows_per_group=0
     )
 
     dataset = ds.dataset(basedir, format=ds.IpcFileFormat())
@@ -4049,6 +4052,7 @@ def _get_num_of_files_generated(base_directory, file_format):
 def test_write_dataset_max_rows_per_file(tempdir):
     directory = tempdir / 'ds'
     max_rows_per_file = 10
+    min_rows_per_group = 0
     max_rows_per_group = 10
     num_of_columns = 2
     num_of_records = 35
@@ -4058,6 +4062,7 @@ def test_write_dataset_max_rows_per_file(tempdir):
 
     ds.write_dataset(record_batch, directory, format="parquet",
                      max_rows_per_file=max_rows_per_file,
+                     min_rows_per_group=min_rows_per_group,
                      max_rows_per_group=max_rows_per_group)
 
     files_in_dir = os.listdir(directory)
@@ -4121,6 +4126,7 @@ def test_write_dataset_min_rows_per_group(tempdir):
 @pytest.mark.parquet
 def test_write_dataset_max_rows_per_group(tempdir):
     directory = tempdir / 'ds'
+    min_rows_per_group = 0
     max_rows_per_group = 18
     num_of_columns = 2
     num_of_records = 30
@@ -4131,6 +4137,7 @@ def test_write_dataset_max_rows_per_group(tempdir):
     data_source = directory / "max_rows_group"
 
     ds.write_dataset(data=record_batch, base_dir=data_source,
+                     min_rows_per_group=min_rows_per_group,
                      max_rows_per_group=max_rows_per_group,
                      format="parquet")
 
@@ -4447,7 +4454,7 @@ def test_write_dataset_parquet(tempdir):
     # using default "parquet" format string
 
     base_dir = tempdir / 'parquet_dataset'
-    ds.write_dataset(table, base_dir, format="parquet")
+    ds.write_dataset(table, base_dir, format="parquet", min_rows_per_group=0)
     # check that all files are present
     file_paths = list(base_dir.rglob("*"))
     expected_paths = [base_dir / "part-0.parquet"]
@@ -4461,7 +4468,7 @@ def test_write_dataset_parquet(tempdir):
         format = ds.ParquetFileFormat()
         opts = format.make_write_options(version=version)
         base_dir = tempdir / 'parquet_dataset_version{0}'.format(version)
-        ds.write_dataset(table, base_dir, format=format, file_options=opts)
+        ds.write_dataset(table, base_dir, format=format, file_options=opts, min_rows_per_group=0)
         meta = pq.read_metadata(base_dir / "part-0.parquet")
         expected_version = "1.0" if version == "1.0" else "2.6"
         assert meta.format_version == expected_version

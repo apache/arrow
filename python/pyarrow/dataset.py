@@ -971,7 +971,7 @@ Table/RecordBatch, or iterable of RecordBatch
         max_rows_per_group = 1 << 20
 
     if min_rows_per_group is None:
-        min_rows_per_group = 0
+        min_rows_per_group = 1 << 20
 
     # at this point data is a Scanner or a Dataset, anything else
     # was converted to one of those two. So we can grab the schema
