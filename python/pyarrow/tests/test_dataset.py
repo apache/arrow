@@ -1020,7 +1020,8 @@ def _create_dataset_for_fragments(tempdir, chunk_size=None, filesystem=None):
 
     # write_to_dataset currently requires pandas
     pq.write_to_dataset(table, path,
-                        partition_cols=["part"], chunk_size=chunk_size, min_rows_per_group=chunk_size)
+                        partition_cols=["part"], chunk_size=chunk_size,
+                        min_rows_per_group=chunk_size)
     dataset = ds.dataset(
         path, format="parquet", partitioning="hive", filesystem=filesystem
     )
@@ -4454,7 +4455,7 @@ def test_write_dataset_parquet(tempdir):
     # using default "parquet" format string
 
     base_dir = tempdir / 'parquet_dataset'
-    ds.write_dataset(table, base_dir, format="parquet", min_rows_per_group=0)
+    ds.write_dataset(table, base_dir, format="parquet")
     # check that all files are present
     file_paths = list(base_dir.rglob("*"))
     expected_paths = [base_dir / "part-0.parquet"]
@@ -4468,7 +4469,7 @@ def test_write_dataset_parquet(tempdir):
         format = ds.ParquetFileFormat()
         opts = format.make_write_options(version=version)
         base_dir = tempdir / 'parquet_dataset_version{0}'.format(version)
-        ds.write_dataset(table, base_dir, format=format, file_options=opts, min_rows_per_group=0)
+        ds.write_dataset(table, base_dir, format=format, file_options=opts)
         meta = pq.read_metadata(base_dir / "part-0.parquet")
         expected_version = "1.0" if version == "1.0" else "2.6"
         assert meta.format_version == expected_version
@@ -4479,7 +4480,6 @@ def test_write_dataset_csv(tempdir):
         pa.array(range(20)), pa.array(np.random.randn(20)),
         pa.array(np.repeat(['a', 'b'], 10))
     ], names=["f1", "f2", "chr1"])
-
     base_dir = tempdir / 'csv_dataset'
     ds.write_dataset(table, base_dir, format="csv")
     # check that all files are present

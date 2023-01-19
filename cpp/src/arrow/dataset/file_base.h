@@ -387,8 +387,14 @@ class ARROW_DS_EXPORT FileWriter {
 /// \brief Options for writing a dataset.
 struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
  public:
-  explicit FileSystemDatasetWriteOptions(const std::shared_ptr<FileFormat>& format) {
-    file_write_options_ = format->DefaultWriteOptions();
+  explicit FileSystemDatasetWriteOptions(
+      const std::shared_ptr<FileFormat>& format,
+      const std::shared_ptr<FileWriteOptions> file_write_options = NULLPTR) {
+    if (file_write_options == NULLPTR) {
+      file_write_options_ = format->DefaultWriteOptions();
+    } else {
+      file_write_options_ = file_write_options;
+    }
   }
 
   /// Options for individual fragment writing.

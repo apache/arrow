@@ -2928,9 +2928,11 @@ def _filesystemdataset_write(
         shared_ptr[CFileSystemDatasetWriteOptions] c_options
         shared_ptr[CScanner] c_scanner
         vector[shared_ptr[CRecordBatch]] c_batches
+        shared_ptr[CFileWriteOptions] c_file_options
         dict visit_args
+    c_file_options = file_options.unwrap()
     c_options = make_shared[CFileSystemDatasetWriteOptions](
-        file_options.unwrap().get().format())
+        c_file_options.get().format(), c_file_options)
     c_options.get().filesystem = filesystem.unwrap()
     c_options.get().base_dir = tobytes(_stringify_path(base_dir))
     c_options.get().partitioning = partitioning.unwrap()

@@ -213,8 +213,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CFileSystemDatasetWriteOptions \
             "arrow::dataset::FileSystemDatasetWriteOptions":
-        # shared_ptr[CFileWriteOptions] file_write_options
-        CFileSystemDatasetWriteOptions(const shared_ptr[CFileFormat]& format)
+        CFileSystemDatasetWriteOptions(const shared_ptr[CFileFormat]& format, const shared_ptr[CFileWriteOptions] file_write_options)
         shared_ptr[CFileSystem] filesystem
         c_string base_dir
         shared_ptr[CPartitioning] partitioning
