@@ -54,6 +54,7 @@
   ([#14930](https://github.com/apache/arrow/issues/14930))
 
 ### dplyr compatibility
+
 * New dplyr (1.1.0) function `join_by()` has been implemented for dplyr joins 
   on Arrow objects (equality conditions only).  
   ([#33664](https://github.com/apache/arrow/issues/33664))
