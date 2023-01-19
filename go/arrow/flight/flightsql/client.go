@@ -388,6 +388,7 @@ type PreparedStatement struct {
 	datasetSchema *arrow.Schema
 	paramSchema   *arrow.Schema
 	paramBinding  arrow.Record
+	streamBinding array.RecordReader
 	closed        bool
 }
 
@@ -408,15 +409,14 @@ func (p *PreparedStatement) Execute(ctx context.Context) (*flight.FlightInfo, er
 		return nil, err
 	}
 
-	if p.paramBinding != nil && p.paramBinding.NumRows() > 0 {
+	if p.hasBindParameters() {
 		pstream, err := p.client.Client.DoPut(ctx, p.opts...)
 		if err != nil {
 			return nil, err
 		}
 
-		wr := flight.NewRecordWriter(pstream, ipc.WithSchema(p.paramBinding.Schema()))
-		wr.SetFlightDescriptor(desc)
-		if err = wr.Write(p.paramBinding); err != nil {
+		wr, err := p.writeBindParameters(pstream, desc)
+		if err != nil {
 			return nil, err
 		}
 		if err = wr.Close(); err != nil {
@@ -458,10 +458,9 @@ func (p *PreparedStatement) ExecuteUpdate(ctx context.Context) (nrecords int64, 
 	if pstream, err = p.client.Client.DoPut(ctx, p.opts...); err != nil {
 		return
 	}
-	if p.paramBinding != nil && p.paramBinding.NumRows() > 0 {
-		wr = flight.NewRecordWriter(pstream, ipc.WithSchema(p.paramBinding.Schema()))
-		wr.SetFlightDescriptor(desc)
-		if err = wr.Write(p.paramBinding); err != nil {
+	if p.hasBindParameters() {
+		wr, err = p.writeBindParameters(pstream, desc)
+		if err != nil {
 			return
 		}
 	} else {
@@ -491,6 +490,33 @@ func (p *PreparedStatement) ExecuteUpdate(ctx context.Context) (nrecords int64, 
 	return updateResult.GetRecordCount(), nil
 }
 
+func (p *PreparedStatement) hasBindParameters() bool {
+	return (p.paramBinding != nil && p.paramBinding.NumRows() > 0) || (p.streamBinding != nil)
+}
+
+func (p *PreparedStatement) writeBindParameters(pstream pb.FlightService_DoPutClient, desc *pb.FlightDescriptor) (*flight.Writer, error) {
+	if p.paramBinding != nil {
+		wr := flight.NewRecordWriter(pstream, ipc.WithSchema(p.paramBinding.Schema()))
+		wr.SetFlightDescriptor(desc)
+		if err := wr.Write(p.paramBinding); err != nil {
+			return nil, err
+		}
+		return wr, nil
+	} else {
+		wr := flight.NewRecordWriter(pstream, ipc.WithSchema(p.streamBinding.Schema()))
+		wr.SetFlightDescriptor(desc)
+		for p.streamBinding.Next() {
+			if err := wr.Write(p.streamBinding.Record()); err != nil {
+				return nil, err
+			}
+		}
+		if err := p.streamBinding.Err(); err != nil {
+			return nil, err
+		}
+		return wr, nil
+	}
+}
+
 // DatasetSchema may be nil if the server did not return it when creating the
 // Prepared Statement.
 func (p *PreparedStatement) DatasetSchema() *arrow.Schema { return p.datasetSchema }
@@ -518,20 +544,42 @@ func (p *PreparedStatement) GetSchema(ctx context.Context) (*flight.SchemaResult
 	return p.client.getSchema(ctx, desc, p.opts...)
 }
 
-// SetParameters takes a record batch to send as the parameter bindings when
-// executing. It should match the schema from ParameterSchema.
-//
-// This will call Retain on the record to ensure it doesn't get released
-// out from under the statement. Release will be called on a previous
-// binding record if it existed, and will be called upon calling Close
-// on the PreparedStatement.
-func (p *PreparedStatement) SetParameters(binding arrow.Record) {
+func (p *PreparedStatement) clearParameters() {
 	if p.paramBinding != nil {
 		p.paramBinding.Release()
 		p.paramBinding = nil
 	}
+	if p.streamBinding != nil {
+		p.streamBinding.Release()
+		p.streamBinding = nil
+	}
+}
+
+// SetParameters takes a record batch to send as the parameter bindings when
+// executing. It should match the schema from ParameterSchema.
+//
+// This will call Retain on the record to ensure it doesn't get released out
+// from under the statement. Release will be called on a previous binding
+// record or reader if it existed, and will be called upon calling Close on the
+// PreparedStatement.
+func (p *PreparedStatement) SetParameters(binding arrow.Record) {
+	p.clearParameters()
 	p.paramBinding = binding
 	p.paramBinding.Retain()
+}
+
+// SetRecordReader takes a RecordReader to send as the parameter bindings when
+// executing. It should match the schema from ParameterSchema.
+//
+// This will call Retain on the reader to ensure it doesn't get released out
+// from under the statement. Release will be called on a previous binding
+// record or reader if it existed, and will be called upon calling Close on the
+// PreparedStatement.
+func (p *PreparedStatement) SetRecordReader(binding array.RecordReader) {
+	p.clearParameters()
+	binding.Retain()
+	p.streamBinding = binding
+	p.streamBinding.Retain()
 }
 
 // Close calls release on any parameter binding record and sends
@@ -542,10 +590,7 @@ func (p *PreparedStatement) Close(ctx context.Context) error {
 		return errors.New("arrow/flightsql: already closed")
 	}
 
-	if p.paramBinding != nil {
-		p.paramBinding.Release()
-		p.paramBinding = nil
-	}
+	p.clearParameters()
 
 	const actionType = ClosePreparedStatementActionType
 	var (
