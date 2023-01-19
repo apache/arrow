@@ -15,11 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
-#include <cstddef>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -172,7 +169,7 @@ void CheckErrorTestCases(const std::vector<FunctionTestCase>& error_cases) {
 }
 
 template <typename ErrorMatcher>
-void CheckNonYetImplementedTestCase(const FunctionTestCase& test_case,
+void CheckNotYetImplementedTestCase(const FunctionTestCase& test_case,
                                     ErrorMatcher error_matcher) {
   ARROW_SCOPED_TRACE("func=", test_case.function_id.uri, "#", test_case.function_id.name);
   std::shared_ptr<Table> output_table;
@@ -456,7 +453,41 @@ TEST(FunctionMapping, ValidCases) {
        kNoOptions,
        {float64()},
        "4",
-       float64()}};
+       float64()},
+      {{kSubstraitRoundingFunctionsUri, "round"},
+       {"323.125", "2"},
+       {
+           {"rounding", {"TIE_AWAY_FROM_ZERO"}},
+           {"function", {"0"}},
+       },
+       {float32(), int32()},
+       "323.13",
+       float32()},
+      {{kSubstraitRoundingFunctionsUri, "round"},
+       {"323.125", "-2"},
+       {
+           {"rounding", {"TIE_AWAY_FROM_ZERO"}},
+           {"function", {"0"}},
+       },
+       {float64(), int32()},
+       "300",
+       float64()},
+      {{kSubstraitRoundingFunctionsUri, "round"},
+       {"323.135", "2"},
+       {
+           {"rounding", {"TIE_TO_EVEN"}},
+           {"function", {"0"}},
+       },
+       {float64(), int32()},
+       "323.14",
+       float64()},
+      {{kSubstraitRoundingFunctionsUri, "round"},
+       {"323", "-2"},
+       {{"rounding", {"TIE_AWAY_FROM_ZERO"}}},
+       {int64(), int32()},
+       "300",
+       float64()},
+  };
   CheckValidTestCases(valid_test_cases);
 }
 
@@ -490,7 +521,7 @@ TEST(FunctionMapping, ErrorCases) {
 }
 
 TEST(FunctionMapping, UnrecognizedOptions) {
-  CheckNonYetImplementedTestCase(
+  CheckNotYetImplementedTestCase(
       {{kSubstraitArithmeticFunctionsUri, "add"},
        {"-119", "10"},
        {{"overflow", {"NEW_OVERFLOW_TYPE", "SILENT"}}},
@@ -498,7 +529,7 @@ TEST(FunctionMapping, UnrecognizedOptions) {
        "",
        int8()},
       ::testing::HasSubstr("The value NEW_OVERFLOW_TYPE is not an expected enum value"));
-  CheckNonYetImplementedTestCase(
+  CheckNotYetImplementedTestCase(
       {{kSubstraitArithmeticFunctionsUri, "add"},
        {"-119", "10"},
        {{"overflow", {"SATURATE"}}},
