@@ -142,18 +142,17 @@ if [ ${SOURCE_PR} -gt 0 ]; then
 fi
 
 if [ ${SOURCE_VOTE} -gt 0 ]; then
-  jira_url="https://issues.apache.org/jira"
-  jql="project%20%3D%20ARROW%20AND%20status%20in%20%28Resolved%2C%20Closed%29%20AND%20fixVersion%20%3D%20${version}"
-  n_resolved_issues=$(curl "${jira_url}/rest/api/2/search/?jql=${jql}" | jq ".total")
-  curl_options=(--header "Accept: application/vnd.github+json")
-  if [ -n "${ARROW_GITHUB_API_TOKEN:-}" ]; then
-    curl_options+=(--header "Authorization: Bearer ${ARROW_GITHUB_API_TOKEN}")
-  fi
-  curl_options+=(--get)
-  curl_options+=(--data "state=open")
-  curl_options+=(--data "head=apache:${rc_branch}")
-  curl_options+=(https://api.github.com/repos/apache/arrow/pulls)
-  verify_pr_url=$(curl "${curl_options[@]}" | jq -r ".[0].html_url")
+  graphql_url="https://api.github.com/graphql"
+  curl_options=($graphql_url)
+  curl_options+=(--header "Authorization: Bearer ${ARROW_GITHUB_API_TOKEN}")
+  curl_options+=(--data "{\"query\": \"query {search(query: \\\"repo:apache/arrow is:issue is:closed milestone:${version}\\\", type:ISSUE) {issueCount}}\"}")
+  n_resolved_issues=$(curl "${curl_options[@]}" | jq ".data.search.issueCount")
+
+  curl_options=($graphql_url)
+  curl_options+=(--header "Authorization: Bearer ${ARROW_GITHUB_API_TOKEN}")
+  curl_options+=(--data "{\"query\": \"query {repository(owner: \\\"apache\\\", name: \\\"arrow\\\") {refs(first: 1, refPrefix: \\\"refs/heads/\\\", query: \\\"${rc_branch}\\\") {nodes{associatedPullRequests(first: 1){edges{node{url}}}}}}}\"}")
+  verify_pr_url=$(curl "${curl_options[@]}" | jq -r ".data.repository.refs.nodes[0].associatedPullRequests.edges[0].node.url")
+
   echo "The following draft email has been created to send to the"
   echo "dev@arrow.apache.org mailing list"
   echo ""
@@ -186,7 +185,7 @@ The vote will be open for at least 72 hours.
 [ ] +0
 [ ] -1 Do not release this as Apache Arrow ${version} because...
 
-[1]: ${jira_url}/issues/?jql=${jql}
+[1]: https://github.com/apache/arrow/issues?q=is%3Aissue+milestone%3A${version}+is%3Aclosed
 [2]: https://github.com/apache/arrow/tree/${release_hash}
 [3]: ${rc_url}
 [4]: https://apache.jfrog.io/artifactory/arrow/almalinux-rc/
