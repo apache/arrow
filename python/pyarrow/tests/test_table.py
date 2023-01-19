@@ -2030,7 +2030,7 @@ def test_table_group_by():
     ])
     assert r.to_pydict() == {
         "keys": ["a"],
-        "_count_all": [3],
+        "count_all": [3],
         "values_count": [1]
     }
 
@@ -2039,7 +2039,7 @@ def test_table_group_by():
     ])
     assert r.to_pydict() == {
         "keys": ["a"],
-        "_count_all": [3]
+        "count_all": [3]
     }
 
 

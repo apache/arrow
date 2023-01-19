@@ -5393,10 +5393,10 @@ list[tuple(str, str, FunctionOptions)]
         keys: [["a","b","c"]]
         >>> t.group_by("keys").aggregate([([], "count_all")])
         pyarrow.Table
-        _count_all: int64
+        count_all: int64
         keys: string
         ----
-        _count_all: [[2,2,1]]
+        count_all: [[2,2,1]]
         keys: [["a","b","c"]]
         >>> t.group_by("keys").aggregate([])
         pyarrow.Table
@@ -5421,6 +5421,7 @@ list[tuple(str, str, FunctionOptions)]
         # so that it's obvious what they refer to.
         out_column_names = [
             aggr_name.replace("hash", "_".join(target))
+            if len(target) > 0 else aggr_name.replace("hash_", "")
             for target, aggr_name, _ in group_by_aggrs
         ] + self.keys
 
