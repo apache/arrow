@@ -2320,6 +2320,28 @@ def field(name, type, bint nullable=True, metadata=None):
     Returns
     -------
     field : pyarrow.Field
+
+    Examples
+    --------
+    Create an instance of pyarrow.Field:
+
+    >>> import pyarrow as pa
+    >>> pa.field('key', pa.int32())
+    pyarrow.Field<key: int32>
+    >>> pa.field('key', pa.int32(), nullable=False)
+    pyarrow.Field<key: int32 not null>
+
+    >>> field = pa.field('key', pa.int32(),
+    ...                  metadata={"key": "Something important"})
+    >>> field
+    pyarrow.Field<key: int32>
+    >>> field.metadata
+    {b'key': b'Something important'}
+
+    Use the field to create a struct type:
+
+    >>> pa.struct([field])
+    StructType(struct<key: int32>)
     """
     cdef:
         Field result = Field.__new__(Field)
@@ -3049,6 +3071,24 @@ cpdef DataType decimal128(int precision, int scale=0):
     Returns
     -------
     decimal_type : Decimal128Type
+
+    Examples
+    --------
+    Create an instance of decimal type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal128(5, 2)
+    Decimal128Type(decimal128(5, 2))
+
+    Create an array with decimal type:
+
+    >>> import decimal
+    >>> a = decimal.Decimal('123.45')
+    >>> pa.array([a], pa.decimal128(5, 2))
+    <pyarrow.lib.Decimal128Array object at ...>
+    [
+      123.45
+    ]
     """
     cdef shared_ptr[CDataType] decimal_type
     if precision < 1 or precision > 38:
@@ -3290,6 +3330,36 @@ def list_(value_type, int list_size=-1):
     Returns
     -------
     list_type : DataType
+
+    Examples
+    --------
+    Create an instance of ListType:
+
+    >>> import pyarrow as pa
+    >>> pa.list_(pa.string())
+    ListType(list<item: string>)
+    >>> pa.list_(pa.int32(), 2)
+    FixedSizeListType(fixed_size_list<item: int32>[2])
+
+    Use the ListType to create a scalar:
+
+    >>> pa.scalar(['foo', None], type=pa.list_(pa.string(), 2))
+    <pyarrow.FixedSizeListScalar: ['foo', None]>
+
+    or an array:
+
+    >>> pa.array([[1, 2], [3, 4]], pa.list_(pa.int32(), 2))
+    <pyarrow.lib.FixedSizeListArray object at ...>
+    [
+      [
+        1,
+        2
+      ],
+      [
+        3,
+        4
+      ]
+    ]
     """
     cdef:
         Field _field
@@ -3327,6 +3397,29 @@ cpdef LargeListType large_list(value_type):
     Returns
     -------
     list_type : DataType
+
+    Examples
+    --------
+    Create an instance of LargeListType:
+
+    >>> import pyarrow as pa
+    >>> pa.large_list(pa.int8())
+    LargeListType(large_list<item: int8>)
+
+    Use the LargeListType to create an array:
+
+    >>> pa.array([[-1, 3]] * 5, type=pa.large_list(pa.int8()))
+    <pyarrow.lib.LargeListArray object at ...>
+    [
+      [
+        -1,
+        3
+      ],
+      [
+        -1,
+        3
+      ],
+    ...
     """
     cdef:
         DataType data_type
@@ -3359,6 +3452,34 @@ cpdef MapType map_(key_type, item_type, keys_sorted=False):
     Returns
     -------
     map_type : DataType
+
+    Examples
+    --------
+    Create an instance of MapType:
+
+    >>> import pyarrow as pa
+    >>> pa.map_(pa.string(), pa.int32())
+    MapType(map<string, int32>)
+    >>> pa.map_(pa.string(), pa.int32(), keys_sorted=True)
+    MapType(map<string, int32, keys_sorted>)
+
+    Use MapType to create an array:
+
+    >>> data = [[{'key': 'a', 'value': 1}, {'key': 'b', 'value': 2}]]
+    >>> pa.array(data, type=pa.map_(pa.string(), pa.int32(), keys_sorted=True))
+    <pyarrow.lib.MapArray object at ...>
+    [
+      keys:
+      [
+        "a",
+        "b"
+      ]
+      values:
+      [
+        1,
+        2
+      ]
+    ]
     """
     cdef:
         Field _key_field
@@ -3398,6 +3519,33 @@ cpdef DictionaryType dictionary(index_type, value_type, bint ordered=False):
     Returns
     -------
     type : DictionaryType
+
+    Examples
+    --------
+    Create an instance of dictionary type:
+
+    >>> import pyarrow as pa
+    >>> pa.dictionary(pa.int64(), pa.utf8())
+    DictionaryType(dictionary<values=string, indices=int64, ordered=0>)
+
+    Use dictionary type to create an array:
+
+    >>> pa.array(["a", "b", None, "d"], pa.dictionary(pa.int64(), pa.utf8()))
+    <pyarrow.lib.DictionaryArray object at ...>
+    ...
+    -- dictionary:
+      [
+        "a",
+        "b",
+        "d"
+      ]
+    -- indices:
+      [
+        0,
+        1,
+        null,
+        2
+      ]
     """
     cdef:
         DataType _index_type = ensure_type(index_type, allow_none=False)
@@ -3432,6 +3580,8 @@ def struct(fields):
 
     Examples
     --------
+    Create an instance of StructType from an iterable of tuples:
+
     >>> import pyarrow as pa
     >>> fields = [
     ...     ('f1', pa.int32()),
@@ -3440,6 +3590,16 @@ def struct(fields):
     >>> struct_type = pa.struct(fields)
     >>> struct_type
     StructType(struct<f1: int32, f2: string>)
+
+    Retrieve a field from a StructType:
+
+    >>> struct_type[0]
+    pyarrow.Field<f1: int32>
+    >>> struct_type['f1']
+    pyarrow.Field<f1: int32>
+
+    Create an instance of StructType from an iterable of Fields:
+
     >>> fields = [
     ...     pa.field('f1', pa.int32()),
     ...     pa.field('f2', pa.string(), nullable=False),
@@ -3712,6 +3872,8 @@ def schema(fields, metadata=None):
 
     Examples
     --------
+    Create a Schema from iterable of tuples:
+
     >>> import pyarrow as pa
     >>> pa.schema([
     ...     ('some_int', pa.int32()),
@@ -3721,6 +3883,9 @@ def schema(fields, metadata=None):
     some_int: int32
     some_string: string
     some_required_string: string not null
+
+    Create a Schema from iterable of Fields:
+
     >>> pa.schema([
     ...     pa.field('some_int', pa.int32()),
     ...     pa.field('some_string', pa.string())
@@ -3768,6 +3933,22 @@ def from_numpy_dtype(object dtype):
     Parameters
     ----------
     dtype : the numpy dtype to convert
+
+
+    Examples
+    --------
+    Create a pyarrow DataType from NumPy dtype:
+
+    >>> import pyarrow as pa
+    >>> import numpy as np
+    >>> pa.from_numpy_dtype(np.dtype('float16'))
+    DataType(halffloat)
+    >>> pa.from_numpy_dtype('U')
+    DataType(string)
+    >>> pa.from_numpy_dtype(bool)
+    DataType(bool)
+    >>> pa.from_numpy_dtype(np.str_)
+    DataType(string)
     """
     cdef shared_ptr[CDataType] c_type
     dtype = np.dtype(dtype)
