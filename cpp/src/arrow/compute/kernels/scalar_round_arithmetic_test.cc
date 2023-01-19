@@ -239,9 +239,9 @@ class TestBaseBinaryRoundArithmetic : public ::testing::Test {
     return *arrow::MakeScalar(type_singleton(), value);
   }
 
-    std::shared_ptr<Scalar> MakeInt32Scalar(int32_t value) {
-        return *arrow::MakeScalar(int32(), value);
-    }
+  std::shared_ptr<Scalar> MakeInt32Scalar(int32_t value) {
+    return *arrow::MakeScalar(int32(), value);
+  }
 
   void SetUp() override {}
 
