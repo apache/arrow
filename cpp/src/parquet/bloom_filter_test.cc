@@ -156,6 +156,10 @@ TEST(FPPTest, TestBloomFilter) {
 // Step 1: Construct a Bloom filter with 1024 bytes bitset.
 // Step 2: Insert "hello", "parquet", "bloom", "filter" to Bloom filter.
 // Step 3: Call writeTo API to write to File.
+//
+// TODO(mwish): The test is deprecated, because the bloom_filter.bin breaks
+//  the current bloom filter standard.
+/*
 TEST(CompatibilityTest, TestBloomFilter) {
   const std::string test_string[4] = {"hello", "parquet", "bloom", "filter"};
   const std::string bloom_filter_test_binary =
@@ -202,6 +206,7 @@ TEST(CompatibilityTest, TestBloomFilter) {
 
   EXPECT_TRUE((*buffer1).Equals(*buffer2));
 }
+*/
 
 // OptimalValueTest is used to test whether OptimalNumOfBits returns expected
 // numbers according to formula:
