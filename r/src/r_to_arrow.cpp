@@ -1262,8 +1262,8 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
     buffers[0] = std::move(null_bitmap);
   }
 
-  auto data = ArrayData::Make(TypeTraits<Type>::type_singleton(), LENGTH(x), std::move(buffers),
-                              null_count, 0 /*offset*/);
+  auto data = ArrayData::Make(TypeTraits<Type>::type_singleton(), LENGTH(x),
+                              std::move(buffers), null_count, 0 /*offset*/);
 
   // return the right Array class
   return std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
