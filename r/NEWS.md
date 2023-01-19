@@ -38,7 +38,9 @@
 * The new `col_names` parameter allows specification of column names when 
   opening a CSV dataset. (@wjones127, #14705)
 * The `parse_options`, `read_options`, and `convert_options` parameters for 
-  reading individual files and datasets can now be passed in as lists. (#15270)
+  reading individual files (`read_*_arrow()` functions) and datasets 
+  (`open_dataset()` and the new `open_*_dataset()` functions) can now be passed 
+  in as lists. (#15270)
 
 ### Function bindings
 
