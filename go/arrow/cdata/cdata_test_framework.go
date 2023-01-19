@@ -56,7 +56,9 @@ package cdata
 // int test_exported_stream(struct ArrowArrayStream* stream);
 import "C"
 import (
+	"errors"
 	"fmt"
+	"io"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v11/arrow"
@@ -276,4 +278,20 @@ func exportedStreamTest(reader array.RecordReader) error {
 		return nil
 	}
 	return fmt.Errorf("Exported stream test failed with return code %d", int(rc))
+}
+
+func roundTripStreamTest(reader array.RecordReader) error {
+	out := C.get_test_stream()
+	ExportRecordReader(reader, out)
+	rdr := ImportCArrayStream(out, nil)
+
+	for {
+		_, err := rdr.Read()
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return err
+		}
+	}
+	return nil
 }

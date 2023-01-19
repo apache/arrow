@@ -31,7 +31,7 @@ import (
 //	typedef const char cchar_t;
 //	extern int streamGetSchema(struct ArrowArrayStream*, struct ArrowSchema*);
 //	extern int streamGetNext(struct ArrowArrayStream*, struct ArrowArray*);
-//  extern const char* streamGetError(struct ArrowArrayStream*);
+//	extern const char* streamGetError(struct ArrowArrayStream*);
 //	extern void streamRelease(struct ArrowArrayStream*);
 //
 import "C"
@@ -120,7 +120,11 @@ func streamGetNext(handle *CArrowArrayStream, out *CArrowArray) C.int {
 }
 
 //export streamGetError
-func streamGetError(*CArrowArrayStream) *C.cchar_t { return nil }
+func streamGetError(handle *CArrowArrayStream) *C.cchar_t {
+	h := *(*cgo.Handle)(handle.private_data)
+	rdr := h.Value().(cRecordReader)
+	return rdr.getLastError()
+}
 
 //export streamRelease
 func streamRelease(handle *CArrowArrayStream) {
@@ -136,6 +140,6 @@ func exportStream(rdr array.RecordReader, out *CArrowArrayStream) {
 	out.get_next = (*[0]byte)(C.streamGetNext)
 	out.get_last_error = (*[0]byte)(C.streamGetError)
 	out.release = (*[0]byte)(C.streamRelease)
-	h := cgo.NewHandle(cRecordReader{rdr})
+	h := cgo.NewHandle(cRecordReader{rdr: rdr, err: nil})
 	out.private_data = unsafe.Pointer(&h)
 }
