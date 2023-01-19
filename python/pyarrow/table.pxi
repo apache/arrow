@@ -5404,18 +5404,18 @@ list[tuple(str, str, FunctionOptions)]
         ----
         keys: [["a","b","c"]]
         """
-        target_cols = [a[0] if isinstance(a[0], (list, tuple)) else [
-            a[0]] for a in aggregations]
-        aggrfuncs = [
-            (target, a[1], a[2]) if len(a) > 2 else (target, a[1], None)
-            for (target, a) in zip(target_cols, aggregations)
-        ]
-
         group_by_aggrs = []
-        for aggr in aggrfuncs:
-            if not aggr[1].startswith("hash_"):
-                aggr = (aggr[0], "hash_" + aggr[1], aggr[2])
-            group_by_aggrs.append(aggr)
+        for aggr in aggregations:
+            if len(aggr) == 2:
+                target, func = aggr
+                opt = None
+            else:
+                target, func, opt = aggr
+            if not isinstance(target, (list, tuple)):
+                target = [target]
+            if not func.startswith("hash_"):
+                func = "hash_" + func
+            group_by_aggrs.append((target, func, opt))
 
         # Build unique names for aggregation result columns
         # so that it's obvious what they refer to.
@@ -5424,7 +5424,7 @@ list[tuple(str, str, FunctionOptions)]
             for target, aggr_name, _ in group_by_aggrs
         ] + self.keys
 
-        flat_cols = [c for target in target_cols for c in target]
+        flat_cols = [c for aggr in group_by_aggrs for c in aggr[0]]
         result = _pc()._group_by(
             [self._table[c] for c in flat_cols],
             [self._table[k] for k in self.keys],
