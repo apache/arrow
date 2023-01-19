@@ -19,6 +19,12 @@
 
 # arrow 10.0.1.9000
 
+## Breaking changes
+
+* `map_batches()` is lazy by default; it now returns a `RecordBatchReader`
+  instead of a list of `RecordBatch` objects unless `lazy = FALSE`.
+  ([#14521](https://github.com/apache/arrow/issues/14521))
+
 ## New features
 
 ### Docs
@@ -100,10 +106,6 @@
 * rlang dependency must be at least version 1.0.0 because of 
   `check_dots_empty()`. (@daattali, 
   [#14744](https://github.com/apache/arrow/issues/14744))
-
-## Breaking changes
-
-* `map_batches()` is lazy by default. ([#14521](https://github.com/apache/arrow/issues/14521))
 
 # arrow 10.0.1
 
