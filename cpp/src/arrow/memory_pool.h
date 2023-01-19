@@ -137,10 +137,15 @@ class ARROW_EXPORT MemoryPool {
   /// returns -1
   virtual int64_t max_memory() const;
 
+  /// The number of bytes that were allocated.
   virtual int64_t total_bytes_allocated() const = 0;
 
+  /// The number of allocations or reallocations that were requested.
   virtual int64_t num_allocations() const = 0;
 
+  /// \brief Reset statistics to zero.
+  ///
+  /// Includes bytes_allocated, max_memory, total_bytes_allocated, and num_allocations.
   virtual void ResetStatistics() = 0;
 
   /// The name of the backend used by this MemoryPool (e.g. "system" or "jemalloc").
