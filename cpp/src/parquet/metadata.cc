@@ -279,7 +279,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   const std::vector<PageEncodingStats>& encoding_stats() const { return encoding_stats_; }
 
   inline std::optional<int64_t> bloom_filter_offset() const {
-    if(column_metadata_->__isset.bloom_filter_offset) {
+    if (column_metadata_->__isset.bloom_filter_offset) {
       return column_metadata_->bloom_filter_offset;
     }
     return std::nullopt;
