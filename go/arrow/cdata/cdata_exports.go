@@ -427,7 +427,7 @@ func (rr cRecordReader) next(out *CArrowArray) int {
 		ExportArrowRecordBatch(rr.rdr.Record(), out, nil)
 		return 0
 	}
-	releaseArr(out)
+	C.ArrowArrayMarkReleased(out)
 	return 0
 }
 
