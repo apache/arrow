@@ -30,6 +30,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/map.h"
 #include "arrow/util/string.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -595,11 +596,13 @@ class DatasetWriter::DatasetWriterImpl {
       backpressure =
           writer_state_.rows_in_flight_throttle.Acquire(next_chunk->num_rows());
       if (!backpressure.is_finished()) {
+        EVENT_ON_CURRENT_SPAN("DatasetWriter::Backpressure::TooManyRowsQueued");
         break;
       }
       if (will_open_file) {
         backpressure = writer_state_.open_files_throttle.Acquire(1);
         if (!backpressure.is_finished()) {
+          EVENT_ON_CURRENT_SPAN("DatasetWriter::Backpressure::TooManyOpenFiles");
           RETURN_NOT_OK(CloseLargestFile());
           break;
         }

@@ -534,7 +534,6 @@ class TeeNode : public compute::MapNode {
       MapNode::Finish(std::move(finish_st));
       return;
     }
-    auto scope = TraceFinish();
     dataset_writer_->Finish();
   }
 

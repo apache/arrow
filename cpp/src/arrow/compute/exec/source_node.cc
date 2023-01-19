@@ -40,6 +40,8 @@
 #include "arrow/util/unreachable.h"
 #include "arrow/util/vector.h"
 
+using namespace std::string_view_literals;
+
 namespace arrow {
 
 using internal::checked_cast;
@@ -109,10 +111,14 @@ struct SourceNode : ExecNode, public TracedNode<SourceNode> {
                    return Future<ControlFlow<int>>::MakeFinished(Break(batch_count_));
                  }
                  lock.unlock();
-
+                 util::tracing::Span fetch_batch_span;
+                 auto fetch_batch_scope =
+                     START_SCOPED_SPAN(fetch_batch_span, "SourceNode::ReadBatch");
                  return generator_().Then(
-                     [this](const std::optional<ExecBatch>& maybe_morsel)
-                         -> Future<ControlFlow<int>> {
+                     [this, fetch_batch_span = std::move(fetch_batch_span)](
+                         const std::optional<ExecBatch>& maybe_morsel) mutable
+                     -> Future<ControlFlow<int>> {
+                       fetch_batch_span.reset();
                        std::unique_lock<std::mutex> lock(mutex_);
                        if (IsIterationEnd(maybe_morsel) || stop_requested_) {
                          return Break(batch_count_);

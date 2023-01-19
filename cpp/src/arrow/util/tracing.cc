@@ -37,12 +37,15 @@ bool Span::valid() const {
   return static_cast<::arrow::internal::tracing::SpanImpl*>(details.get())->valid();
 }
 
+void Span::reset() { details.reset(); }
+
 #else
 
 Span::Span() noexcept { /* details is left a nullptr */
 }
 
 bool Span::valid() const { return false; }
+void Span::reset() {}
 
 #endif
 

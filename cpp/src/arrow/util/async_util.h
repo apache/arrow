@@ -201,6 +201,9 @@ class ARROW_EXPORT AsyncTaskScheduler {
       FnOnce<Status(AsyncTaskScheduler*)> initial_task,
       FnOnce<void(const Status&)> abort_callback = [](const Status&) {},
       StopToken stop_token = StopToken::Unstoppable());
+
+  /// A span tracking execution of the generators tasks, for internal use only
+  virtual const tracing::Span& span() const = 0;
 };
 
 class ARROW_EXPORT ThrottledAsyncTaskScheduler : public AsyncTaskScheduler {

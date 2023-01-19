@@ -99,11 +99,6 @@ class ThrottleImpl : public ThrottledAsyncTaskScheduler::Throttle {
 
 namespace {
 
-class HasSpan {
- public:
-  virtual const tracing::Span& span() const = 0;
-};
-
 // Very basic FIFO queue
 class FifoQueue : public ThrottledAsyncTaskScheduler::Queue {
   using Task = AsyncTaskScheduler::Task;
@@ -148,7 +143,7 @@ void TraceSchedulerAbort(const tracing::Span& span, const Status& error) {
 }
 #endif
 
-class AsyncTaskSchedulerImpl : public AsyncTaskScheduler, public HasSpan {
+class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
  public:
   using Task = AsyncTaskScheduler::Task;
 
@@ -284,7 +279,6 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler, public HasSpan {
 
 class ThrottledAsyncTaskSchedulerImpl
     : public ThrottledAsyncTaskScheduler,
-      public HasSpan,
       public std::enable_shared_from_this<ThrottledAsyncTaskSchedulerImpl> {
  public:
   using Queue = ThrottledAsyncTaskScheduler::Queue;
@@ -333,9 +327,7 @@ class ThrottledAsyncTaskSchedulerImpl
     }
   }
 
-  const tracing::Span& span() const override {
-    return ::arrow::internal::checked_cast<const HasSpan*>(target_)->span();
-  }
+  const tracing::Span& span() const override { return target_->span(); }
 
   void Pause() override { throttle_->Pause(); }
   void Resume() override { throttle_->Resume(); }
@@ -395,7 +387,7 @@ class ThrottledAsyncTaskSchedulerImpl
   std::mutex mutex_;
 };
 
-class AsyncTaskGroupImpl : public AsyncTaskGroup, public HasSpan {
+class AsyncTaskGroupImpl : public AsyncTaskGroup {
  public:
   AsyncTaskGroupImpl(AsyncTaskScheduler* target, FnOnce<Status()> finish_cb)
       : target_(target), state_(std::make_shared<State>(std::move(finish_cb))) {}
@@ -435,9 +427,7 @@ class AsyncTaskGroupImpl : public AsyncTaskGroup, public HasSpan {
     return target_->AddTask(std::make_unique<WrapperTask>(std::move(task), state_));
   }
 
-  const tracing::Span& span() const override {
-    return ::arrow::internal::checked_cast<const HasSpan*>(target_)->span();
-  }
+  const tracing::Span& span() const override { return target_->span(); }
 
  private:
   struct State {
@@ -497,6 +487,7 @@ class ThrottledAsyncTaskGroup : public ThrottledAsyncTaskScheduler {
   bool AddTask(std::unique_ptr<Task> task) override {
     return task_group_->AddTask(std::move(task));
   }
+  const util::tracing::Span& span() const override { return task_group_->span(); }
 
  private:
   std::shared_ptr<ThrottledAsyncTaskScheduler> throttle_;
