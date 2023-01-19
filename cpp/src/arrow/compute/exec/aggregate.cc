@@ -40,16 +40,41 @@ namespace {
 
 Result<const HashAggregateKernel*> GetKernel(ExecContext* ctx, const Aggregate& aggregate,
                                              const std::vector<TypeHolder>& in_types) {
-  std::vector<TypeHolder> aggregate_in_types;
-  aggregate_in_types.reserve(in_types.size());
-  aggregate_in_types = in_types;
-  aggregate_in_types.emplace_back(uint32());
+  std::vector<TypeHolder> aggr_in_types;
+  aggr_in_types.reserve(in_types.size());
+  aggr_in_types = in_types;
+  aggr_in_types.emplace_back(uint32());
 
   ARROW_ASSIGN_OR_RAISE(auto function,
                         ctx->func_registry()->GetFunction(aggregate.function));
-  ARROW_ASSIGN_OR_RAISE(const Kernel* kernel,
-                        function->DispatchExact(aggregate_in_types));
+  ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, function->DispatchExact(aggr_in_types));
   return static_cast<const HashAggregateKernel*>(kernel);
+}
+
+Result<std::unique_ptr<KernelState>> InitKernel(const HashAggregateKernel* kernel,
+                                                ExecContext* ctx,
+                                                const Aggregate& aggregate,
+                                                const std::vector<TypeHolder>& in_types) {
+  std::vector<TypeHolder> aggr_in_types;
+  aggr_in_types.reserve(in_types.size() + 1);
+  aggr_in_types = in_types;
+  aggr_in_types.emplace_back(uint32());
+
+  KernelContext kernel_ctx{ctx};
+  const auto* options =
+      arrow::internal::checked_cast<const FunctionOptions*>(aggregate.options.get());
+  if (options == nullptr) {
+    // use known default options for the named function if possible
+    auto maybe_function = ctx->func_registry()->GetFunction(aggregate.function);
+    if (maybe_function.ok()) {
+      options = maybe_function.ValueOrDie()->default_options();
+    }
+  }
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto state,
+      kernel->init(&kernel_ctx, KernelInitArgs{kernel, aggr_in_types, options}));
+  return std::move(state);
 }
 
 }  // namespace
@@ -74,28 +99,10 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     const std::vector<Aggregate>& aggregates,
     const std::vector<std::vector<TypeHolder>>& in_types) {
   std::vector<std::unique_ptr<KernelState>> states(kernels.size());
-
-  std::vector<TypeHolder> agg_in_types;
   for (size_t i = 0; i < aggregates.size(); ++i) {
-    const auto* options = arrow::internal::checked_cast<const FunctionOptions*>(
-        aggregates[i].options.get());
-
-    if (options == nullptr) {
-      // use known default options for the named function if possible
-      auto maybe_function = ctx->func_registry()->GetFunction(aggregates[i].function);
-      if (maybe_function.ok()) {
-        options = maybe_function.ValueOrDie()->default_options();
-      }
-    }
-
-    KernelContext kernel_ctx{ctx};
-    agg_in_types = in_types[i];
-    agg_in_types.emplace_back(uint32());
-    ARROW_ASSIGN_OR_RAISE(
-        states[i],
-        kernels[i]->init(&kernel_ctx, KernelInitArgs{kernels[i], agg_in_types, options}));
+    ARROW_ASSIGN_OR_RAISE(states[i],
+                          InitKernel(kernels[i], ctx, aggregates[i], in_types[i]));
   }
-
   return std::move(states);
 }
 
