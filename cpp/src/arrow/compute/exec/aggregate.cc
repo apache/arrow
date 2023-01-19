@@ -144,7 +144,7 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
       size_t i = 0;
       for (size_t j = 0; j < aggregates.size(); j++) {
         const size_t num_agg_args = aggregates[j].target.size();
-        for (size_t k = 0; k < num_agg_args; k++, i++) {
+        for (size_t k = 0; k < num_agg_args && i < argument_types.size(); k++, i++) {
           aggs_argument_types[j].push_back(std::move(argument_types[i]));
         }
       }
