@@ -183,41 +183,29 @@ class RecordBatchSerializer {
     return compressed_size <= max_compressed_size;
   }
 
-  // Write an uncompressed-length-prefixed buffer without using compression
-  Result<int64_t> WriteBuffer(const Buffer& source, Buffer* dest) {
-    std::memcpy(dest->mutable_data() + sizeof(int64_t), source.data(),
-                static_cast<size_t>(source.size()));
-    // Size of -1 indicates to the reader that the body doesn't need to be decompressed
-    *reinterpret_cast<int64_t*>(dest->mutable_data()) = bit_util::ToLittleEndian(-1);
-    return source.size();
-  }
-
-  // Write an uncompressed-length-prefixed buffer using compression
-  Result<int64_t> WriteBuffer(util::Codec* codec, const Buffer& source, Buffer* dest) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto compressed_size,
-        codec->Compress(source.size(), source.data(), dest->size() - sizeof(int64_t),
-                        dest->mutable_data() + sizeof(int64_t)));
-    *reinterpret_cast<int64_t*>(dest->mutable_data()) =
-        bit_util::ToLittleEndian(source.size());
-    return compressed_size;
-  }
-
   Status CompressBuffer(const Buffer& buffer, util::Codec* codec,
                         std::shared_ptr<Buffer>* out) {
     // Convert buffer to uncompressed-length-prefixed buffer. The actual body may or may
     // not be compressed, depending on user-preference and projected size reduction.
     int64_t maximum_length = codec->MaxCompressedLen(buffer.size(), buffer.data());
-    int64_t actual_length;
-    std::unique_ptr<Buffer> result;
+    int64_t prefixed_length = buffer.size();
 
-    if (ShouldCompress(buffer.size(), maximum_length)) {
-      ARROW_ASSIGN_OR_RAISE(result, AllocateBuffer(maximum_length + sizeof(int64_t)));
-      ARROW_ASSIGN_OR_RAISE(actual_length, WriteBuffer(codec, buffer, result.get()));
-    } else {
-      ARROW_ASSIGN_OR_RAISE(result, AllocateBuffer(buffer.size() + sizeof(int64_t)));
-      ARROW_ASSIGN_OR_RAISE(actual_length, WriteBuffer(buffer, result.get()));
+    ARROW_ASSIGN_OR_RAISE(auto result, AllocateBuffer(maximum_length + sizeof(int64_t)));
+    ARROW_ASSIGN_OR_RAISE(auto actual_length,
+                          codec->Compress(buffer.size(), buffer.data(), maximum_length,
+                                          result->mutable_data() + sizeof(int64_t)));
+    // FIXME: Not the most sophisticated way to handle this. Ideally, you'd want to avoid
+    // pre-compressing the entire buffer via some kind of sampling method. As the feature
+    // gains adoption, this may become a worthwhile optimization.
+    if (!ShouldCompress(buffer.size(), actual_length)) {
+      std::memcpy(result->mutable_data() + sizeof(int64_t), buffer.data(),
+                  static_cast<size_t>(buffer.size()));
+      actual_length = buffer.size();
+      // Size of -1 indicates to the reader that the body doesn't need to be decompressed
+      prefixed_length = -1;
     }
+    *reinterpret_cast<int64_t*>(result->mutable_data()) =
+        bit_util::ToLittleEndian(prefixed_length);
     *out = SliceBuffer(std::move(result), /*offset=*/0, actual_length + sizeof(int64_t));
 
     return Status::OK();
