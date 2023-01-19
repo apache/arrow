@@ -41,12 +41,23 @@
   reading individual files (`read_*_arrow()` functions) and datasets 
   (`open_dataset()` and the new `open_*_dataset()` functions) can be passed 
   in as lists. (#15270)
+* File paths containing accents can be read by `read_csv_arrow()`. (#14930)
+
+### dplyr compatibility
+* New dplyr (1.1.0) function `join_by()` has been implemented for dplyr joins 
+  on Arrow objects (equality conditions only).  (#33664)
 
 ### Function bindings
 
-The following functions can be used in queries on Arrow objects:
-* `lubridate::with_tz()` and `lubridate::force_tz()` (@eitsupi, #14093)
-* `stringr::str_remove()` and `stringr::str_remove_all()` (#14644)
+* The following functions can be used in queries on Arrow objects:
+  * `lubridate::with_tz()` and `lubridate::force_tz()` (@eitsupi, #14093)
+  * `stringr::str_remove()` and `stringr::str_remove_all()` (#14644)
+
+### Arrow object creation
+
+* Arrow Scalars can be created from `POSIXlt` objects. (#15277)
+* `Array$create()` can create Decimal arrays. (#15211)
+* `StructArray$create()` can be used to create StructArray objects. (#14922)
 
 ### Installation
 
@@ -55,28 +66,18 @@ The following functions can be used in queries on Arrow objects:
 * The package can automatically link to system installations of the AWS SDK
   for C++. (@kou, #14235)
 
-### Other
-
-* New dplyr (1.1.0) function `join_by()` has been implemented for dplyr joins 
-  on Arrow objects (equality conditions only).  (#33664)
-* StructArray objects can be created directly via `StructArray$create()`. 
-  (#14922)
-* curl timeout policy can be configured for S3. (#15166)
-
 ## Minor improvements and fixes
 
-* Decimal arrays can be created in `Array$create()` without casting. (#15211)
 * Calling `lubridate::as_datetime()` on Arrow objects can handle time in 
   sub-seconds. (@eitsupi, #13890)
-* `head()` can be called after `as_record_batch_read()` without error. (#14518)
+* `head()` can be called after `as_record_batch_read()`. (#14518)
 * `dplyr::right_join()` correctly coalesces keys. (#15077)
-* output accurate when multiple `dplyr::group_by()`/`dplyr::summarise()` calls 
+* Output is accurate when multiple `dplyr::group_by()`/`dplyr::summarise()` calls 
   are used. (#14905)
 * `dplyr::summarize()` works with division when divisor is a variable. (#14933)
 * `as.Date()` can go from `timestamp[us]` to `timestamp[s]`. (#14935)
-* creating an Array from an object bigger than 2^31 has correct length (#14929)
-* file paths containing accents can be read by `read_csv_arrow()`. (#14930)
-* Arrow Scalars can be created from `POSIXlt` objects. (#15277)
+* Creating an Array from an object bigger than 2^31 has correct length (#14929)
+* curl timeout policy can be configured for S3. (#15166)
 * Multiple changes to ensure compatibility with dplyr 1.1.0. (@lionel-, #14948)
 * rlang dependency must be at least version 1.0.0 because of 
   `check_dots_empty()`. (@daattali, #14744)
