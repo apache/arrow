@@ -42,7 +42,7 @@
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/unreachable.h"
 
-using namespace std::string_view_literals;
+using namespace std::string_view_literals;  // NOLINT
 
 namespace arrow {
 

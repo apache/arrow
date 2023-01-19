@@ -40,7 +40,7 @@
 #include "arrow/util/unreachable.h"
 #include "arrow/util/vector.h"
 
-using namespace std::string_view_literals;
+using namespace std::string_view_literals;  // NOLINT
 
 namespace arrow {
 

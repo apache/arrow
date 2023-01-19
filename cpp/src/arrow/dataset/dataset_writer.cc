@@ -32,6 +32,8 @@
 #include "arrow/util/string.h"
 #include "arrow/util/tracing_internal.h"
 
+using namespace std::string_view_literals;  // NOLINT
+
 namespace arrow {
 
 using internal::Executor;
@@ -43,7 +45,6 @@ namespace internal {
 namespace {
 
 constexpr std::string_view kIntegerToken = "{i}";
-using namespace std::string_view_literals;
 
 class Throttle {
  public:

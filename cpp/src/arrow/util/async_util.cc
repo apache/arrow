@@ -27,7 +27,7 @@
 #include <memory>
 #include <mutex>
 
-using namespace std::string_view_literals;
+using namespace std::string_view_literals;  // NOLINT
 
 namespace arrow {
 

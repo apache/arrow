@@ -37,6 +37,8 @@
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/unreachable.h"
 
+using namespace std::string_view_literals;  // NOLINT
+
 namespace cp = arrow::compute;
 
 namespace arrow {
@@ -46,7 +48,6 @@ using internal::checked_cast;
 namespace dataset {
 
 namespace {
-using namespace std::string_view_literals;
 
 Result<std::shared_ptr<Schema>> OutputSchemaFromOptions(const ScanV2Options& options) {
   return FieldPath::GetAll(*options.dataset->schema(), options.columns);

@@ -33,6 +33,8 @@
 #include "arrow/testing/gtest_util.h"
 #include "gtest/gtest.h"
 
+using namespace std::string_view_literals;  // NOLINT
+
 namespace arrow {
 namespace dataset {
 namespace internal {
@@ -63,7 +65,6 @@ class DatasetWriterTestFixture : public testing::Test {
   };
 
   void SetUp() override {
-    using namespace std::string_view_literals;
     fs::TimePoint mock_now = std::chrono::system_clock::now();
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<fs::FileSystem> fs,
                          MockFileSystem::Make(mock_now, {::arrow::fs::Dir("testdir")}));
