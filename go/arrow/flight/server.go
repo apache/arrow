@@ -64,8 +64,10 @@ func RegisterFlightServiceServer(s grpc.ServiceRegistrar, srv FlightServer) {
 }
 
 // From https://github.com/grpc/grpc-go/blob/4c776ec01572d55249df309251900554b46adb41/reflection/serverreflection.go#L69-L83
-// See "google.golang.org/grpc/reflection" 's reflection.ServiceInfoProvider
-// ServiceInfoProvider is an interface used to retrieve metadata about the
+// This interface is inlined to make this arrow library compatible with
+// grpc < 1.45 .
+// See "google.golang.org/grpc/reflection" 's reflection.ServiceInfoProvider .
+// serviceInfoProvider is an interface used to retrieve metadata about the
 // services to expose.
 //
 // The reflection service is only interested in the service names, but the
