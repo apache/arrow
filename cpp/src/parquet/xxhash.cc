@@ -22,10 +22,12 @@
 
 namespace parquet {
 
+namespace {
 template <typename T>
 uint64_t HashHelper(T value, uint32_t seed) {
   return XXH64(reinterpret_cast<const void*>(&value), sizeof(T), seed);
 }
+}  // namespace
 
 uint64_t XxHash::Hash(int32_t value) const { return HashHelper(value, seed_); }
 

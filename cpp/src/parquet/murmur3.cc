@@ -185,12 +185,14 @@ void Hash_x64_128(const void* key, const int len, const uint32_t seed, uint64_t 
   reinterpret_cast<uint64_t*>(out)[1] = h2;
 }
 
+namespace {
 template <typename T>
 uint64_t HashHelper(T value, uint32_t seed) {
   uint64_t output[2];
   Hash_x64_128(reinterpret_cast<void*>(&value), sizeof(T), seed, output);
   return output[0];
 }
+}  // namespace
 
 uint64_t MurmurHash3::Hash(int32_t value) const { return HashHelper(value, seed_); }
 
