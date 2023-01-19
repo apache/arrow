@@ -24,18 +24,18 @@ namespace parquet {
 
 namespace {
 template <typename T>
-uint64_t HashHelper(T value, uint32_t seed) {
+uint64_t XxHashHelper(T value, uint32_t seed) {
   return XXH64(reinterpret_cast<const void*>(&value), sizeof(T), seed);
 }
 }  // namespace
 
-uint64_t XxHash::Hash(int32_t value) const { return HashHelper(value, seed_); }
+uint64_t XxHash::Hash(int32_t value) const { return XxHashHelper(value, seed_); }
 
-uint64_t XxHash::Hash(int64_t value) const { return HashHelper(value, seed_); }
+uint64_t XxHash::Hash(int64_t value) const { return XxHashHelper(value, seed_); }
 
-uint64_t XxHash::Hash(float value) const { return HashHelper(value, seed_); }
+uint64_t XxHash::Hash(float value) const { return XxHashHelper(value, seed_); }
 
-uint64_t XxHash::Hash(double value) const { return HashHelper(value, seed_); }
+uint64_t XxHash::Hash(double value) const { return XxHashHelper(value, seed_); }
 
 uint64_t XxHash::Hash(const FLBA* value, uint32_t len) const {
   return XXH64(reinterpret_cast<const void*>(value->ptr), len, seed_);

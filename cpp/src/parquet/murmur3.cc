@@ -187,20 +187,24 @@ void Hash_x64_128(const void* key, const int len, const uint32_t seed, uint64_t 
 
 namespace {
 template <typename T>
-uint64_t HashHelper(T value, uint32_t seed) {
+uint64_t Murmur3HashHelper(T value, uint32_t seed) {
   uint64_t output[2];
   Hash_x64_128(reinterpret_cast<void*>(&value), sizeof(T), seed, output);
   return output[0];
 }
 }  // namespace
 
-uint64_t MurmurHash3::Hash(int32_t value) const { return HashHelper(value, seed_); }
+uint64_t MurmurHash3::Hash(int32_t value) const {
+  return Murmur3HashHelper(value, seed_);
+}
 
-uint64_t MurmurHash3::Hash(int64_t value) const { return HashHelper(value, seed_); }
+uint64_t MurmurHash3::Hash(int64_t value) const {
+  return Murmur3HashHelper(value, seed_);
+}
 
-uint64_t MurmurHash3::Hash(float value) const { return HashHelper(value, seed_); }
+uint64_t MurmurHash3::Hash(float value) const { return Murmur3HashHelper(value, seed_); }
 
-uint64_t MurmurHash3::Hash(double value) const { return HashHelper(value, seed_); }
+uint64_t MurmurHash3::Hash(double value) const { return Murmur3HashHelper(value, seed_); }
 
 uint64_t MurmurHash3::Hash(const FLBA* value, uint32_t len) const {
   uint64_t out[2];
