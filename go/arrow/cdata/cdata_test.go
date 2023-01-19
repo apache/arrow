@@ -763,7 +763,7 @@ type failingReader struct {
 	opCount int
 }
 
-func (r *failingReader) Retain() {}
+func (r *failingReader) Retain()  {}
 func (r *failingReader) Release() {}
 func (r *failingReader) Schema() *arrow.Schema {
 	r.opCount -= 1

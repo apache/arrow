@@ -108,7 +108,7 @@ func (rs *simpleRecords) Next() bool {
 	rs.recs = rs.recs[1:]
 	return true
 }
-func (rs *simpleRecords) Err() error  { return nil }
+func (rs *simpleRecords) Err() error { return nil }
 
 // simpleRecord is a basic, non-lazy in-memory record batch.
 type simpleRecord struct {
