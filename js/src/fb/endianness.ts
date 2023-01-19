@@ -4,8 +4,7 @@
  * ----------------------------------------------------------------------
  * Endianness of the platform producing the data
  */
-export enum Endianness{
+export enum Endianness {
   Little = 0,
   Big = 1
 }
-

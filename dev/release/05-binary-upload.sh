@@ -132,5 +132,6 @@ docker_run \
     GPG_KEY_ID="${GPG_KEY_ID}" \
     RC=${rc} \
     STAGING=${STAGING:-no} \
+    VERBOSE=${VERBOSE:-no} \
     VERSION=${version} \
     YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")

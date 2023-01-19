@@ -2456,7 +2456,8 @@ def test_sort_indices_table():
     with pytest.raises(ValueError, match="Must specify one or more sort keys"):
         pc.sort_indices(table)
 
-    with pytest.raises(ValueError, match="Nonexistent sort key column"):
+    with pytest.raises(ValueError,
+                       match="Invalid sort key column: No match for.*unknown"):
         pc.sort_indices(table, sort_keys=[("unknown", "ascending")])
 
     with pytest.raises(ValueError, match="not a valid sort order"):

@@ -54,7 +54,7 @@ class ARROW_FLIGHT_EXPORT Cookie {
   /// \brief Parse function to parse a cookie header value and return a Cookie object.
   ///
   /// \return Cookie object based on cookie header value.
-  static Cookie Parse(const std::string_view& cookie_header_value);
+  static Cookie Parse(std::string_view cookie_header_value);
 
   /// \brief Parse a cookie header string beginning at the given start_pos and identify
   /// the name and value of an attribute.

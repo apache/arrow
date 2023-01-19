@@ -18,7 +18,7 @@
 import { ArrayBufferViewInput, toArrayBufferView } from './buffer.js';
 import { TypedArray, TypedArrayConstructor } from '../interfaces.js';
 import { BigIntArray, BigIntArrayConstructor } from '../interfaces.js';
-import { BigIntAvailable, BigInt64Array, BigUint64Array } from './compat.js';
+import { BigInt64Array, BigUint64Array } from './compat.js';
 
 /** @ignore */
 export const isArrowBigNumSymbol = Symbol.for('isArrowBigNum');
@@ -90,17 +90,9 @@ function bignumToNumber<T extends BN<BigNumArray>>(bn: T) {
 }
 
 /** @ignore */
-export let bignumToString: { <T extends BN<BigNumArray>>(a: T): string };
+export const bignumToString: { <T extends BN<BigNumArray>>(a: T): string } = (<T extends BN<BigNumArray>>(a: T) => a.byteLength === 8 ? `${new a['BigIntArray'](a.buffer, a.byteOffset, 1)[0]}` : decimalToString(a));
 /** @ignore */
-export let bignumToBigInt: { <T extends BN<BigNumArray>>(a: T): bigint };
-
-if (!BigIntAvailable) {
-    bignumToString = decimalToString;
-    bignumToBigInt = <any>bignumToString;
-} else {
-    bignumToBigInt = (<T extends BN<BigNumArray>>(a: T) => a.byteLength === 8 ? new a['BigIntArray'](a.buffer, a.byteOffset, 1)[0] : <any>decimalToString(a));
-    bignumToString = (<T extends BN<BigNumArray>>(a: T) => a.byteLength === 8 ? `${new a['BigIntArray'](a.buffer, a.byteOffset, 1)[0]}` : decimalToString(a));
-}
+export const bignumToBigInt: { <T extends BN<BigNumArray>>(a: T): bigint } = (<T extends BN<BigNumArray>>(a: T) => a.byteLength === 8 ? new a['BigIntArray'](a.buffer, a.byteOffset, 1)[0] : <any>decimalToString(a));
 
 /** @ignore */
 function decimalToString<T extends BN<BigNumArray>>(a: T) {

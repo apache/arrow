@@ -550,6 +550,38 @@ gboolean garrow_uint64_array_builder_append_nulls(GArrowUInt64ArrayBuilder *buil
 #endif
 
 
+#define GARROW_TYPE_HALF_FLOAT_ARRAY_BUILDER    \
+  (garrow_half_float_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowHalfFloatArrayBuilder,
+                         garrow_half_float_array_builder,
+                         GARROW,
+                         HALF_FLOAT_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowHalfFloatArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_11_0
+GArrowHalfFloatArrayBuilder *
+garrow_half_float_array_builder_new(void);
+
+GARROW_AVAILABLE_IN_11_0
+gboolean
+garrow_half_float_array_builder_append_value(
+  GArrowHalfFloatArrayBuilder *builder,
+  guint16 value,
+  GError **error);
+GARROW_AVAILABLE_IN_11_0
+gboolean garrow_half_float_array_builder_append_values(
+  GArrowHalfFloatArrayBuilder *builder,
+  const guint16 *values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error);
+
+
 #define GARROW_TYPE_FLOAT_ARRAY_BUILDER (garrow_float_array_builder_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowFloatArrayBuilder,
                          garrow_float_array_builder,

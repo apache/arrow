@@ -366,7 +366,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
         Parameters
         ----------
-        fill_value
+        fill_value : any
             The replacement value for null entries.
 
         Returns
@@ -530,7 +530,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
         Parameters
         ----------
-        null_encoding
+        null_encoding : str, default "mask"
             How to handle null entries.
 
         Returns
@@ -853,7 +853,7 @@ cdef class ChunkedArray(_PandasConvertible):
         ----------
         mask : Array or array-like
             The boolean mask to filter the chunked array with.
-        null_selection_behavior
+        null_selection_behavior : str, default "drop"
             How nulls in the mask should be handled.
 
         Returns
@@ -2103,7 +2103,7 @@ cdef class RecordBatch(_PandasConvertible):
         ----------
         mask : Array or array-like
             The boolean mask to filter the record batch with.
-        null_selection_behavior
+        null_selection_behavior : str, default "drop"
             How nulls in the mask should be handled.
 
         Returns
@@ -2861,6 +2861,36 @@ cdef class Table(_PandasConvertible):
 
         return self.column(key)
 
+    # ----------------------------------------------------------------------
+    def __dataframe__(self, nan_as_null: bool = False, allow_copy: bool = True):
+        """
+        Return the dataframe interchange object implementing the interchange protocol.
+        Parameters
+        ----------
+        nan_as_null : bool, default False
+            Whether to tell the DataFrame to overwrite null values in the data
+            with ``NaN`` (or ``NaT``).
+        allow_copy : bool, default True
+            Whether to allow memory copying when exporting. If set to False
+            it would cause non-zero-copy exports to fail.
+        Returns
+        -------
+        DataFrame interchange object
+            The object which consuming library can use to ingress the dataframe.
+        Notes
+        -----
+        Details on the interchange protocol:
+        https://data-apis.org/dataframe-protocol/latest/index.html
+        `nan_as_null` currently has no effect; once support for nullable extension
+        dtypes is added, this value should be propagated to columns.
+        """
+
+        from pyarrow.interchange.dataframe import _PyArrowDataFrame
+
+        return _PyArrowDataFrame(self, nan_as_null, allow_copy)
+
+    # ----------------------------------------------------------------------
+
     def slice(self, offset=0, length=None):
         """
         Compute zero-copy slice of this Table.
@@ -2938,7 +2968,7 @@ cdef class Table(_PandasConvertible):
         ----------
         mask : Array or array-like or .Expression
             The boolean mask or the :class:`.Expression` to filter the table with.
-        null_selection_behavior
+        null_selection_behavior : str, default "drop"
             How nulls in the mask should be handled, does nothing if
             an :class:`.Expression` is used.
 
@@ -4758,11 +4788,11 @@ cdef class Table(_PandasConvertible):
         if isinstance(sorting, str):
             sorting = [(sorting, "ascending")]
 
-        res = _pc()._exec_plan._sort_source(self, output_type=Table,
-                                            sort_options=_pc().SortOptions(
-                                                sort_keys=sorting, **kwargs
-                                            ))
-        return res
+        indices = _pc().sort_indices(
+            self,
+            options=_pc().SortOptions(sort_keys=sorting, **kwargs)
+        )
+        return self.take(indices)
 
     def join(self, right_table, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,

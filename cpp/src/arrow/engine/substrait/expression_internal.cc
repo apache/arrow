@@ -147,9 +147,9 @@ Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool i
         EnumToString(func.phase(), *substrait::AggregationPhase_descriptor()),
         "'.  Only INITIAL_TO_RESULT is supported");
   }
-  if (func.invocation() !=
-      substrait::AggregateFunction::AggregationInvocation::
-          AggregateFunction_AggregationInvocation_AGGREGATION_INVOCATION_ALL) {
+  if (func.invocation() != substrait::AggregateFunction::AGGREGATION_INVOCATION_ALL &&
+      func.invocation() !=
+          substrait::AggregateFunction::AGGREGATION_INVOCATION_UNSPECIFIED) {
     return Status::NotImplemented(
         "Unsupported aggregation invocation '",
         EnumToString(func.invocation(),

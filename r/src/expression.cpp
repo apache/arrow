@@ -47,12 +47,25 @@ std::shared_ptr<compute::Expression> compute___expr__call(std::string func_name,
 }
 
 // [[arrow::export]]
+bool compute___expr__is_field_ref(const std::shared_ptr<compute::Expression>& x) {
+  return x->field_ref() != nullptr;
+}
+
+// [[arrow::export]]
 std::vector<std::string> field_names_in_expression(
     const std::shared_ptr<compute::Expression>& x) {
   std::vector<std::string> out;
+  std::vector<arrow::FieldRef> nested;
+
   auto field_refs = FieldsInExpression(*x);
   for (auto f : field_refs) {
-    out.push_back(*f.name());
+    if (f.IsNested()) {
+      // We keep the top-level field name.
+      nested = *f.nested_refs();
+      out.push_back(*nested[0].name());
+    } else {
+      out.push_back(*f.name());
+    }
   }
   return out;
 }
@@ -61,7 +74,11 @@ std::vector<std::string> field_names_in_expression(
 std::string compute___expr__get_field_ref_name(
     const std::shared_ptr<compute::Expression>& x) {
   if (auto field_ref = x->field_ref()) {
-    return *field_ref->name();
+    // Exclude nested field refs because we only use this to determine if we have simple
+    // field refs
+    if (!field_ref->IsNested()) {
+      return *field_ref->name();
+    }
   }
   return "";
 }
@@ -69,6 +86,25 @@ std::string compute___expr__get_field_ref_name(
 // [[arrow::export]]
 std::shared_ptr<compute::Expression> compute___expr__field_ref(std::string name) {
   return std::make_shared<compute::Expression>(compute::field_ref(std::move(name)));
+}
+
+// [[arrow::export]]
+std::shared_ptr<compute::Expression> compute___expr__nested_field_ref(
+    const std::shared_ptr<compute::Expression>& x, std::string name) {
+  if (auto field_ref = x->field_ref()) {
+    std::vector<arrow::FieldRef> ref_vec;
+    if (field_ref->IsNested()) {
+      ref_vec = *field_ref->nested_refs();
+    } else {
+      // There's just one
+      ref_vec.push_back(*field_ref);
+    }
+    // Add the new ref
+    ref_vec.push_back(arrow::FieldRef(std::move(name)));
+    return std::make_shared<compute::Expression>(compute::field_ref(std::move(ref_vec)));
+  } else {
+    cpp11::stop("'x' must be a FieldRef Expression");
+  }
 }
 
 // [[arrow::export]]

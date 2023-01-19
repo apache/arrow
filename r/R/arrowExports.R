@@ -112,6 +112,10 @@ StructArray__GetFieldByName <- function(array, name) {
   .Call(`_arrow_StructArray__GetFieldByName`, array, name)
 }
 
+StructArray__from_RecordBatch <- function(batch) {
+  .Call(`_arrow_StructArray__from_RecordBatch`, batch)
+}
+
 StructArray__Flatten <- function(array) {
   .Call(`_arrow_StructArray__Flatten`, array)
 }
@@ -446,6 +450,10 @@ ExecPlan_run <- function(plan, final_node, sort_options, metadata, head) {
 
 ExecPlan_ToString <- function(plan) {
   .Call(`_arrow_ExecPlan_ToString`, plan)
+}
+
+ExecPlan_UnsafeDelete <- function(plan) {
+  invisible(.Call(`_arrow_ExecPlan_UnsafeDelete`, plan))
 }
 
 ExecNode_output_schema <- function(node) {
@@ -1076,6 +1084,10 @@ compute___expr__call <- function(func_name, argument_list, options) {
   .Call(`_arrow_compute___expr__call`, func_name, argument_list, options)
 }
 
+compute___expr__is_field_ref <- function(x) {
+  .Call(`_arrow_compute___expr__is_field_ref`, x)
+}
+
 field_names_in_expression <- function(x) {
   .Call(`_arrow_field_names_in_expression`, x)
 }
@@ -1086,6 +1098,10 @@ compute___expr__get_field_ref_name <- function(x) {
 
 compute___expr__field_ref <- function(name) {
   .Call(`_arrow_compute___expr__field_ref`, name)
+}
+
+compute___expr__nested_field_ref <- function(x, name) {
+  .Call(`_arrow_compute___expr__nested_field_ref`, x, name)
 }
 
 compute___expr__scalar <- function(x) {
@@ -1320,8 +1336,8 @@ fs___CopyFiles <- function(source_fs, source_sel, destination_fs, destination_ba
   invisible(.Call(`_arrow_fs___CopyFiles`, source_fs, source_sel, destination_fs, destination_base_dir, chunk_size, use_threads))
 }
 
-fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion) {
-  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion)
+fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, connect_timeout, request_timeout) {
+  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, connect_timeout, request_timeout)
 }
 
 fs___S3FileSystem__region <- function(fs) {
@@ -1760,6 +1776,10 @@ RecordBatchReader__Close <- function(reader) {
   invisible(.Call(`_arrow_RecordBatchReader__Close`, reader))
 }
 
+RecordBatchReader__UnsafeDelete <- function(reader) {
+  invisible(.Call(`_arrow_RecordBatchReader__UnsafeDelete`, reader))
+}
+
 RecordBatchReader__ReadNext <- function(reader) {
   .Call(`_arrow_RecordBatchReader__ReadNext`, reader)
 }
@@ -1870,10 +1890,6 @@ StructScalar__field <- function(s, i) {
 
 StructScalar__GetFieldByName <- function(s, name) {
   .Call(`_arrow_StructScalar__GetFieldByName`, s, name)
-}
-
-Scalar__as_vector <- function(scalar) {
-  .Call(`_arrow_Scalar__as_vector`, scalar)
 }
 
 MakeArrayFromScalar <- function(scalar, n) {
@@ -2079,4 +2095,3 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
-

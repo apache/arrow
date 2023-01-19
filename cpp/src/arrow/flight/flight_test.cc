@@ -1469,8 +1469,12 @@ class CancelTestServer : public FlightServerBase {
     *listings = std::make_unique<ForeverFlightListing>();
     return Status::OK();
   }
-  Status DoAction(const ServerCallContext&, const Action&,
+  Status DoAction(const ServerCallContext&, const Action& action,
                   std::unique_ptr<ResultStream>* result) override {
+    if (action.type == "inc") {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      counter_++;
+    }
     *result = std::make_unique<ForeverResultStream>();
     return Status::OK();
   }
@@ -1484,6 +1488,11 @@ class CancelTestServer : public FlightServerBase {
     *data_stream = std::make_unique<ForeverDataStream>();
     return Status::OK();
   }
+
+  int64_t CheckCounter() const { return counter_; }
+
+ private:
+  std::atomic<int64_t> counter_ = 0;
 };
 
 class TestCancel : public ::testing::Test {
@@ -1496,6 +1505,9 @@ class TestCancel : public ::testing::Test {
   void TearDown() {
     ASSERT_OK(client_->Close());
     ASSERT_OK(server_->Shutdown());
+  }
+  CancelTestServer* Server() const {
+    return static_cast<CancelTestServer*>(server_.get());
   }
 
  protected:
@@ -1522,6 +1534,21 @@ TEST_F(TestCancel, DoAction) {
   stop_source.RequestStop(Status::Cancelled("StopSource"));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
                                   stream->Next());
+}
+
+TEST_F(TestCancel, DoActionSideEffect) {
+  // GH-15150: DoAction should at least wait for the server to begin
+  // the response, since existing code may be using DoAction solely
+  // for the side effect.
+  ASSERT_EQ(0, Server()->CheckCounter());
+  StopSource stop_source;
+  FlightCallOptions options;
+  options.stop_token = stop_source.token();
+  // Will block for a bit, but not forever
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoAction(options, {"inc", nullptr}));
+  // Side effect should have happened
+  ASSERT_EQ(1, Server()->CheckCounter());
+  stop_source.RequestStop(Status::Cancelled("StopSource"));
 }
 
 TEST_F(TestCancel, ListActions) {

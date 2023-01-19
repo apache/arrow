@@ -55,6 +55,10 @@ in the background, without blocking (default \code{TRUE})
 buckets if \verb{$CreateDir()} is called on the bucket level (default \code{FALSE}).
 \item \code{allow_bucket_deletion}: logical, if TRUE, the filesystem will delete
 buckets if\verb{$DeleteDir()} is called on the bucket level (default \code{FALSE}).
+\item \code{request_timeout}: Socket read time on Windows and MacOS in seconds. If
+negative, the AWS SDK default (typically 3 seconds).
+\item \code{connect_timeout}: Socket connection timeout in seconds. If negative, AWS
+SDK default is used (typically 1 second).
 }
 
 \code{GcsFileSystem$create()} optionally takes arguments:

@@ -43,6 +43,8 @@ jobs:
           TEST_DEFAULT: 0
           TEST_{{ target|upper }}: 1
         run: |
+          brew bundle --file=arrow/cpp/Brewfile
+          brew bundle --file=arrow/c_glib/Brewfile
           export PATH="$(brew --prefix node@16)/bin:$PATH"
           export PATH="$(brew --prefix ruby)/bin:$PATH"
           export PKG_CONFIG_PATH="$(brew --prefix ruby)/lib/pkgconfig"

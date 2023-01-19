@@ -86,6 +86,10 @@ std::string lz4_raw_compressed_larger() {
   return data_file("lz4_raw_compressed_larger.parquet");
 }
 
+std::string overflow_i16_page_oridinal() {
+  return data_file("overflow_i16_page_cnt.parquet");
+}
+
 // TODO: Assert on definition and repetition levels
 template <typename DType, typename ValueType>
 void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t batch_size,
@@ -1014,5 +1018,45 @@ std::vector<TestCodecParam> test_codec_params{
 INSTANTIATE_TEST_SUITE_P(Lz4CodecTests, TestCodec, ::testing::ValuesIn(test_codec_params),
                          testing::PrintToStringParamName());
 #endif  // ARROW_WITH_LZ4
+
+// Test reading a data file with a ColumnChunk contains more than
+// INT16_MAX pages. (GH-15074).
+TEST(TestFileReader, TestOverflowInt16PageOrdinal) {
+  ReaderProperties reader_props;
+  auto file_reader = ParquetFileReader::OpenFile(overflow_i16_page_oridinal(),
+                                                 /*memory_map=*/false, reader_props);
+  auto metadata_ptr = file_reader->metadata();
+  EXPECT_EQ(1, metadata_ptr->num_row_groups());
+  EXPECT_EQ(1, metadata_ptr->num_columns());
+  auto row_group = file_reader->RowGroup(0);
+
+  {
+    auto column_reader =
+        std::dynamic_pointer_cast<TypedColumnReader<BooleanType>>(row_group->Column(0));
+    EXPECT_NE(nullptr, column_reader);
+    constexpr int kBatchLength = 1024;
+    std::array<bool, kBatchLength> boolean_values{};
+    int64_t total_values = 0;
+    int64_t values_read = 0;
+    do {
+      values_read = 0;
+      column_reader->ReadBatch(kBatchLength, nullptr, nullptr, boolean_values.data(),
+                               &values_read);
+      total_values += values_read;
+      for (int i = 0; i < values_read; ++i) {
+        EXPECT_FALSE(boolean_values[i]);
+      }
+    } while (values_read != 0);
+    EXPECT_EQ(40000, total_values);
+  }
+  {
+    auto page_reader = row_group->GetColumnPageReader(0);
+    int32_t page_ordinal = 0;
+    while (page_reader->NextPage() != nullptr) {
+      ++page_ordinal;
+    }
+    EXPECT_EQ(40000, page_ordinal);
+  }
+}
 
 }  // namespace parquet

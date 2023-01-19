@@ -109,7 +109,7 @@ As of version 10.0.0, `arrow` requires C++17 to build. This means that:
 * `map_batches()` returns a `RecordBatchReader` and requires that the function it maps returns something coercible to a `RecordBatch` through the `as_record_batch()` S3 function. It can also run in streaming fashion if passed `.lazy = TRUE`. (ARROW-15271, ARROW-16703)
 * Functions can be called with package namespace prefixes (e.g. `stringr::`, `lubridate::`) within queries. For example, `stringr::str_length` will now dispatch to the same kernel as `str_length`. (ARROW-14575)
 * Support for new functions:
-  * `lubridate::parse_date_time()` datetime parser: (ARROW-14848, ARROW-16407)
+  * `lubridate::parse_date_time()` datetime parser: (ARROW-14848, ARROW-16407, ARROW-16653)
     * `orders` with year, month, day, hours, minutes, and seconds components are supported.
     * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
   * `lubridate` date and datetime parsers such as `lubridate::ymd()`, `lubridate::yq()`, and `lubridate::ymd_hms()` (ARROW-16394, ARROW-16516, ARROW-16395)
@@ -162,7 +162,7 @@ As of version 10.0.0, `arrow` requires C++17 to build. This means that:
   - are supported on `RecordBatchReader`. This allows, for example, results from DuckDB
   to be streamed back into Arrow rather than materialized before continuing the pipeline.
   - no longer need to materialize the entire result table before writing to a dataset
-    if the query contains contains aggregations or joins.
+    if the query contains aggregations or joins.
   - supports `dplyr::rename_with()`.
   - `dplyr::count()` returns an ungrouped dataframe.
 * `write_dataset()` has more options for controlling row group and file sizes when
@@ -487,7 +487,7 @@ Over 100 functions can now be called on Arrow objects inside a `dplyr` verb:
 ## Python and Flight
 
 * Flight methods `flight_get()` and `flight_put()` (renamed from `push_data()` in this release) can handle both Tables and RecordBatches
-* `flight_put()` gains an `overwrite` argument to optionally check for the existence of a resource with the the same name
+* `flight_put()` gains an `overwrite` argument to optionally check for the existence of a resource with the same name
 * `list_flights()` and `flight_path_exists()` enable you to see available resources on a Flight server
 * `Schema` objects now have `r_to_py` and `py_to_r` methods
 * Schema metadata is correctly preserved when converting Tables to/from Python

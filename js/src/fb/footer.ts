@@ -16,7 +16,7 @@ import { Schema } from './schema.js';
 export class Footer {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):Footer {
+  __init(i:number, bb:flatbuffers.ByteBuffer):Footer {
   this.bb_pos = i;
   this.bb = bb;
   return this;

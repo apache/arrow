@@ -201,7 +201,7 @@ static inline bool ValidateUTF8Inline(const uint8_t* data, int64_t size) {
   return ARROW_PREDICT_TRUE(state == internal::kUTF8ValidateAccept);
 }
 
-static inline bool ValidateUTF8Inline(const std::string_view& str) {
+static inline bool ValidateUTF8Inline(std::string_view str) {
   const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
   const size_t length = str.size();
 
@@ -266,7 +266,7 @@ static inline bool ValidateAscii(const uint8_t* data, int64_t len) {
 #endif
 }
 
-static inline bool ValidateAscii(const std::string_view& str) {
+static inline bool ValidateAscii(std::string_view str) {
   const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
   const size_t length = str.size();
 

@@ -60,7 +60,7 @@ void AssertMakeScalar(const Scalar& expected, MakeScalarArgs&&... args) {
   AssertScalarsEqual(expected, *scalar, /*verbose=*/true);
 }
 
-void AssertParseScalar(const std::shared_ptr<DataType>& type, const std::string_view& s,
+void AssertParseScalar(const std::shared_ptr<DataType>& type, std::string_view s,
                        const Scalar& expected) {
   ASSERT_OK_AND_ASSIGN(auto scalar, Scalar::Parse(type, s));
   ASSERT_OK(scalar->Validate());

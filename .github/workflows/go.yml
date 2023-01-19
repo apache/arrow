@@ -96,6 +96,7 @@ jobs:
           CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
           CONBENCH_PASSWORD: ${{ secrets.CONBENCH_PASS }}
           CONBENCH_REF: ${{ github.ref_name }}
+          CONBENCH_MACHINE_INFO_NAME: amd64-debian-11
         run: |
           pip install benchadapt@git+https://github.com/conbench/conbench.git@main#subdirectory=benchadapt/python
           python ci/scripts/go_bench_adapt.py
@@ -266,6 +267,7 @@ jobs:
           CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
           CONBENCH_PASSWORD: ${{ secrets.CONBENCH_PASS }}
           CONBENCH_REF: ${{ github.ref_name }}
+          CONBENCH_MACHINE_INFO_NAME: amd64-macos-11
         run: |
           pip install benchadapt@git+https://github.com/conbench/conbench.git@main#subdirectory=benchadapt/python
           python ci/scripts/go_bench_adapt.py

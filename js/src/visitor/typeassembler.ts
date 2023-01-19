@@ -16,7 +16,6 @@
 // under the License.
 
 import * as flatbuffers from 'flatbuffers';
-import Long = flatbuffers.Long;
 import Builder = flatbuffers.Builder;
 
 import * as type from '../type.js';
@@ -34,7 +33,7 @@ import { Time } from '../fb/time.js';
 import { Timestamp } from '../fb/timestamp.js';
 import { Interval } from '../fb/interval.js';
 import { List } from '../fb/list.js';
-import { Struct_ as Struct } from '../fb/struct_.js';
+import { Struct_ as Struct } from '../fb/struct-.js';
 import { Union } from '../fb/union.js';
 import { DictionaryEncoding } from '../fb/dictionary-encoding.js';
 import { FixedSizeBinary } from '../fb/fixed-size-binary.js';
@@ -129,7 +128,7 @@ export class TypeAssembler extends Visitor {
     public visitDictionary<T extends type.Dictionary>(node: T, b: Builder) {
         const indexType = this.visit(node.indices, b);
         DictionaryEncoding.startDictionaryEncoding(b);
-        DictionaryEncoding.addId(b, new Long(node.id, 0));
+        DictionaryEncoding.addId(b, BigInt(node.id));
         DictionaryEncoding.addIsOrdered(b, node.isOrdered);
         if (indexType !== undefined) {
             DictionaryEncoding.addIndexType(b, indexType);

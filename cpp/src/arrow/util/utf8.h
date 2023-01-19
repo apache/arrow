@@ -41,7 +41,7 @@ ARROW_EXPORT void InitializeUTF8();
 
 ARROW_EXPORT bool ValidateUTF8(const uint8_t* data, int64_t size);
 
-ARROW_EXPORT bool ValidateUTF8(const std::string_view& str);
+ARROW_EXPORT bool ValidateUTF8(std::string_view str);
 
 // Skip UTF8 byte order mark, if any.
 ARROW_EXPORT

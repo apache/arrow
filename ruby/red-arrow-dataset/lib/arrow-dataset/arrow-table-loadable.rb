@@ -42,7 +42,7 @@ module ArrowDataset
         factory.file_system_uri = uri
         finish_options = FinishOptions.new
         FinishOptions.instance_methods(false).each do |method|
-          next unless method.end_with?("=")
+          next unless method.to_s.end_with?("=")
           value = options.delete(method[0..-2].to_sym)
           next if value.nil?
           finish_options.public_send(method, value)

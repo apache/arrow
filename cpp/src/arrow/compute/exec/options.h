@@ -126,6 +126,21 @@ class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
   arrow::internal::Executor* io_executor;
 };
 
+class ARROW_EXPORT RecordBatchReaderSourceNodeOptions : public ExecNodeOptions {
+ public:
+  RecordBatchReaderSourceNodeOptions(std::shared_ptr<RecordBatchReader> reader,
+                                     arrow::internal::Executor* io_executor = NULLPTR)
+      : reader(std::move(reader)), io_executor(io_executor) {}
+
+  /// \brief The RecordBatchReader which acts as the data source
+  std::shared_ptr<RecordBatchReader> reader;
+
+  /// \brief The executor to use for the reader
+  ///
+  /// Defaults to the default I/O executor.
+  arrow::internal::Executor* io_executor;
+};
+
 using ArrayVectorIteratorMaker = std::function<Iterator<std::shared_ptr<ArrayVector>>()>;
 /// \brief An extended Source node which accepts a schema and array-vectors
 class ARROW_EXPORT ArrayVectorSourceNodeOptions

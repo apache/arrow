@@ -450,7 +450,9 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_cumulative_ops.cc
        compute/kernels/vector_hash.cc
        compute/kernels/vector_nested.cc
+       compute/kernels/vector_rank.cc
        compute/kernels/vector_replace.cc
+       compute/kernels/vector_select_k.cc
        compute/kernels/vector_selection.cc
        compute/kernels/vector_sort.cc
        compute/row/encode_internal.cc
@@ -578,6 +580,8 @@ endif()
 # See also: https://issues.apache.org/jira/browse/ARROW-12860
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "armv7")
   string(APPEND ARROW_PC_LIBS_PRIVATE " -latomic")
+  list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS "atomic")
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS "atomic")
 endif()
 
 # If libarrow.a is only built, "pkg-config --cflags --libs arrow"

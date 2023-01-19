@@ -116,6 +116,44 @@ Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
     return no_emit_declr;
   }
 }
+/// In the specialization, a single ProjectNode is being used to
+/// get the Acero relation with or without emit.
+template <>
+Result<DeclarationInfo> ProcessEmit(const substrait::ProjectRel& rel,
+                                    const DeclarationInfo& project_declr,
+                                    const std::shared_ptr<Schema>& input_schema) {
+  if (rel.has_common()) {
+    switch (rel.common().emit_kind_case()) {
+      case substrait::RelCommon::EmitKindCase::kDirect:
+        return project_declr;
+      case substrait::RelCommon::EmitKindCase::kEmit: {
+        const auto& emit = rel.common().emit();
+        int emit_size = emit.output_mapping_size();
+        const auto& proj_options = checked_cast<const compute::ProjectNodeOptions&>(
+            *project_declr.declaration.options);
+        FieldVector emit_fields(emit_size);
+        std::vector<compute::Expression> emit_proj_exprs(emit_size);
+        for (int i = 0; i < emit_size; i++) {
+          int32_t map_id = emit.output_mapping(i);
+          emit_fields[i] = input_schema->field(map_id);
+          emit_proj_exprs[i] = std::move(proj_options.expressions[map_id]);
+        }
+        // Note: DeclarationInfo is created by considering the input to the
+        // ProjectRel and the ProjectNodeOptions are set by only considering
+        // what is in the emit expression in Substrait.
+        return DeclarationInfo{
+            compute::Declaration::Sequence(
+                {std::get<compute::Declaration>(project_declr.declaration.inputs[0]),
+                 {"project", compute::ProjectNodeOptions{std::move(emit_proj_exprs)}}}),
+            schema(std::move(emit_fields))};
+      }
+      default:
+        return Status::Invalid("Invalid emit case");
+    }
+  } else {
+    return project_declr;
+  }
+}
 
 template <typename RelMessage>
 Status CheckRelCommon(const RelMessage& rel,
@@ -796,7 +834,8 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
   for (const auto& file : dataset->files()) {
     auto read_rel_lfs_ffs =
         std::make_unique<substrait::ReadRel::LocalFiles::FileOrFiles>();
-    read_rel_lfs_ffs->set_uri_path(UriFromAbsolutePath(file));
+    ARROW_ASSIGN_OR_RAISE(auto uri_path, UriFromAbsolutePath(file));
+    read_rel_lfs_ffs->set_uri_path(std::move(uri_path));
     // set file format
     auto format_type_name = dataset->format()->type_name();
     if (format_type_name == "parquet") {

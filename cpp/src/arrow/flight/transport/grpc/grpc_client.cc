@@ -529,6 +529,8 @@ class GrpcResultStream : public ResultStream {
     RETURN_NOT_OK(internal::ToProto(action, &pb_action));
     RETURN_NOT_OK(rpc_.SetToken(auth_handler));
     stream_ = stub->DoAction(&rpc_.context, pb_action);
+    // GH-15150: wait for initial metadata to allow some side effects to occur
+    stream_->WaitForInitialMetadata();
     return Status::OK();
   }
 

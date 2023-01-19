@@ -15,7 +15,7 @@ import { FieldNode } from './field-node.js';
 export class RecordBatch {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):RecordBatch {
+  __init(i:number, bb:flatbuffers.ByteBuffer):RecordBatch {
   this.bb_pos = i;
   this.bb = bb;
   return this;
@@ -34,9 +34,9 @@ static getSizePrefixedRootAsRecordBatch(bb:flatbuffers.ByteBuffer, obj?:RecordBa
  * number of records / rows. The arrays in the batch should all have this
  * length
  */
-length():flatbuffers.Long {
+length():bigint {
   const offset = this.bb!.__offset(this.bb_pos, 4);
-  return offset ? this.bb!.readInt64(this.bb_pos + offset) : this.bb!.createLong(0, 0);
+  return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('0');
 }
 
 /**
@@ -82,8 +82,8 @@ static startRecordBatch(builder:flatbuffers.Builder) {
   builder.startObject(4);
 }
 
-static addLength(builder:flatbuffers.Builder, length:flatbuffers.Long) {
-  builder.addFieldInt64(0, length, builder.createLong(0, 0));
+static addLength(builder:flatbuffers.Builder, length:bigint) {
+  builder.addFieldInt64(0, length, BigInt('0'));
 }
 
 static addNodes(builder:flatbuffers.Builder, nodesOffset:flatbuffers.Offset) {

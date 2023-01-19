@@ -46,6 +46,7 @@ repos:
           - file
           - python
         exclude: vendored
+        args: [--config, python/setup.cfg]
   - repo: https://github.com/MarcoGorelli/cython-lint
     rev: v0.10.1
     hooks:

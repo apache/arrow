@@ -8,7 +8,7 @@ import { Precision } from './precision.js';
 export class FloatingPoint {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):FloatingPoint {
+  __init(i:number, bb:flatbuffers.ByteBuffer):FloatingPoint {
   this.bb_pos = i;
   this.bb = bb;
   return this;
