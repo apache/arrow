@@ -274,6 +274,33 @@ int64_t HASHES_OF_LOOPING_BYTES_WITH_SEED_42[32] = {
     -1268276809699008557L, 1518581707938531581L,  7988048690914090770L,
     -4510281763783422346L, -8988936099728967847L};
 
+/**
+ * Test data is output of the following program with xxHash implementation
+ * from https://github.com/Cyan4973/xxHash with commit c8c4cc0f812719ce1f5b2c291159658980e7c255
+ *
+ * #define XXH_INLINE_ALL
+ * #include "xxhash.h"
+ * #include <stdlib.h>
+ * #include <stdio.h>
+ * int main()
+ * {
+ *     char* src = (char*) malloc(32);
+ *     const int N = 32;
+ *     for (int i = 0; i < N; i++) {
+ *         src[i] = (char) i;
+ *     }
+ *
+ *     printf("without seed\n");
+ *     for (int i = 0; i <= N; i++) {
+ *        printf("%lldL,\n", (long long) XXH64(src, i, 0));
+ *     }
+ *
+ *     printf("with seed 42\n");
+ *     for (int i = 0; i <= N; i++) {
+ *        printf("%lldL,\n", (long long) XXH64(src, i, 42));
+ *     }
+ * }
+*/
 TEST(XxHashTest, TestBloomFilter) {
   uint8_t bytes[32] = {};
 
