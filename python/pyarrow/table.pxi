@@ -4670,18 +4670,18 @@ cdef class Table(_PandasConvertible):
 
         Parameters
         ----------
-        columns : list of str
-            List of field names referencing existing columns.
+        columns : str or list[str]
+            Field name(s) referencing existing column(s).
 
         Raises
         ------
         KeyError
-            If any of the passed columns name are not existing.
+            If any of the passed column names do not exist.
 
         Returns
         -------
         Table
-            New table without the columns.
+            New table without the column(s).
 
         Examples
         --------
@@ -4693,19 +4693,22 @@ cdef class Table(_PandasConvertible):
 
         Drop one column:
 
-        >>> table.drop(["animals"])
+        >>> table.drop("animals")
         pyarrow.Table
         n_legs: int64
         ----
         n_legs: [[2,4,5,100]]
 
-        Drop more columns:
+        Drop one or more columns:
 
         >>> table.drop(["n_legs", "animals"])
         pyarrow.Table
         ...
         ----
         """
+        if isinstance(columns, str):
+            columns = [columns]
+
         indices = []
         for col in columns:
             idx = self.schema.get_field_index(col)
@@ -4721,6 +4724,35 @@ cdef class Table(_PandasConvertible):
             table = table.remove_column(idx)
 
         return table
+
+    def drop_column(self, name):
+        """
+        Create new Table with the named column removed.
+
+        Parameters
+        ----------
+        name : str
+            Name of column to remove.
+
+        Returns
+        -------
+        Table
+            New table without the column.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.drop_column('animals')
+        pyarrow.Table
+        n_legs: int64
+        ----
+        n_legs: [[2,4,5,100]]
+        """
+        return self.drop(name)
 
     def group_by(self, keys):
         """Declare a grouping over the columns of the table.
