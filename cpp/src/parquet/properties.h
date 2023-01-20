@@ -201,7 +201,7 @@ class PARQUET_EXPORT WriterProperties {
           version_(ParquetVersion::PARQUET_2_4),
           data_page_version_(ParquetDataPageVersion::V1),
           created_by_(DEFAULT_CREATED_BY),
-          store_short_decimal_as_integer_(false) {}
+          store_decimal_as_integer_(false) {}
     virtual ~Builder() {}
 
     /// Specify the memory pool for the writer. Default default_memory_pool.
@@ -452,17 +452,15 @@ class PARQUET_EXPORT WriterProperties {
       return this->disable_statistics(path->ToDotString());
     }
 
-    /// Enable decimal logical type with 1 <= precision <= 18 to be stored as
-    /// integer physical type.
+    /// Allow decimals with 1 <= precision <= 18 to be stored as integers.
     ///
-    /// According to the specs, DECIMAL can be used to annotate the following types:
+    /// In Parquet, DECIMAL can be stored in any of the following physical types:
     /// - int32: for 1 <= precision <= 9.
     /// - int64: for 1 <= precision <= 18; precision < 10 will produce a warning.
     /// - fixed_len_byte_array: precision is limited by the array size.
     ///   Length n can store <= floor(log_10(2^(8*n - 1) - 1)) base-10 digits.
-    /// - binary: precision is not limited, but is required. precision is not limited,
-    ///   but is required. The minimum number of bytes to store the unscaled value
-    ///   should be used.
+    /// - binary: precision is not limited, but is required. The minimum number
+    ///   of bytes to store the unscaled value should be used.
     ///
     /// By default, this is DISABLED and all decimal types annotate fixed_len_byte_array.
     ///
@@ -472,10 +470,9 @@ class PARQUET_EXPORT WriterProperties {
     /// - fixed_len_byte_array: for precision > 18.
     ///
     /// As a consequence, decimal columns stored in integer types are more compact
-    /// but in a risk that the parquet file may not be readable by previous Arrow C++
-    /// versions or other implementations.
-    Builder* enable_short_decimal_stored_as_integer() {
-      store_short_decimal_as_integer_ = true;
+    /// but in a risk that the parquet file may not be readable by other implementations.
+    Builder* enable_store_decimal_as_integer() {
+      store_decimal_as_integer_ = true;
       return this;
     }
 
@@ -483,8 +480,8 @@ class PARQUET_EXPORT WriterProperties {
     /// integer physical type.
     ///
     /// Default disabled.
-    Builder* disable_short_decimal_stored_as_integer() {
-      store_short_decimal_as_integer_ = false;
+    Builder* disable_store_decimal_as_integer() {
+      store_decimal_as_integer_ = false;
       return this;
     }
 
@@ -513,7 +510,7 @@ class PARQUET_EXPORT WriterProperties {
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
           pagesize_, version_, created_by_, std::move(file_encryption_properties_),
           default_column_properties_, column_properties, data_page_version_,
-          store_short_decimal_as_integer_));
+          store_decimal_as_integer_));
     }
 
    private:
@@ -525,7 +522,7 @@ class PARQUET_EXPORT WriterProperties {
     ParquetVersion::type version_;
     ParquetDataPageVersion data_page_version_;
     std::string created_by_;
-    bool store_short_decimal_as_integer_;
+    bool store_decimal_as_integer_;
 
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
@@ -556,9 +553,7 @@ class PARQUET_EXPORT WriterProperties {
 
   inline std::string created_by() const { return parquet_created_by_; }
 
-  inline bool store_short_decimal_as_integer() const {
-    return store_short_decimal_as_integer_;
-  }
+  inline bool store_decimal_as_integer() const { return store_decimal_as_integer_; }
 
   inline Encoding::type dictionary_index_encoding() const {
     if (parquet_version_ == ParquetVersion::PARQUET_1_0) {
@@ -637,7 +632,7 @@ class PARQUET_EXPORT WriterProperties {
         parquet_data_page_version_(data_page_version),
         parquet_version_(version),
         parquet_created_by_(created_by),
-        store_short_decimal_as_integer_(store_short_decimal_as_integer),
+        store_decimal_as_integer_(store_short_decimal_as_integer),
         file_encryption_properties_(file_encryption_properties),
         default_column_properties_(default_column_properties),
         column_properties_(column_properties) {}
@@ -650,7 +645,7 @@ class PARQUET_EXPORT WriterProperties {
   ParquetDataPageVersion parquet_data_page_version_;
   ParquetVersion::type parquet_version_;
   std::string parquet_created_by_;
-  bool store_short_decimal_as_integer_;
+  bool store_decimal_as_integer_;
 
   std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
