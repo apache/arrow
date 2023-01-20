@@ -22,36 +22,19 @@ set -e
 echo "INSTALL SUBSTRAIT CONSUMER TEST SUITE";
 
 git clone https://github.com/substrait-io/consumer-testing.git
-# pip install duckdb \
-#             filelock \
-#             ibis-framework \
-#             ibis-substrait \
-#             protobuf \
-#             pytest \
-#             pytest-xdist \
-#             substrait-validator
-echo "PYARROW PRE INSTALLED"
-echo $(pip list | grep pyarrow)
-pip install -r consumer-testing/requirements.txt --ignore-installed
-echo "PYARROW POST INSTALLED"
-echo $(pip list | grep pyarrow)
+cd consumer-testing
+# avoid installing pyarrow
+cat requirements.txt | while read line
+do
+    if [ $line != "pyarrow" ]; then
+        pip install -y $line
+    fi
+done
+
+pip install -r requirements_build.txt
 # TODO: write a better installation and testing script
-
+python setup.py install
 python -c "import pyarrow.substrait"
-python -c "from tests.consumers import AceroConsumer"
+python -c "from substrait_consumer.consumers import AceroConsumer"
 
-cd consumer-testing && \
-    pytest tests/integration/test_acero_tpch.py
-
-#dask=$1
-
-#if [ "${dask}" = "upstream_devel" ]; then
-#  pip install https://github.com/dask/dask/archive/main.tar.gz#egg=dask[dataframe]
-#elif [ "${dask}" = "latest" ]; then
-#  pip install dask[dataframe]
-#else
-#  pip install dask[dataframe]==${dask}
-#fi
-
-# additional dependencies needed for dask's s3 tests
-#pip install moto[server] flask requests
+pytest tests/integration/test_acero_tpch.py
