@@ -21,10 +21,13 @@ set -e
 
 # check that optional pyarrow modules are available
 # because pytest would just skip the substrait tests
-python -c "import pyarrow.orc"
-python -c "import pyarrow.substrait"
-
 echo "Substrait Integration Tests";
+python -c "from substrait_consumer.consumers import AceroConsumer"
+#python -c "import pyarrow.orc"
+#python -c "import pyarrow.substrait"
+
+
+echo ">>>>>>>>>>>>>>>> ALL DONE!!! @ install_substrait_consumer.sh"
 
 # check that dask.dataframe is correctly installed
 #python -c "import dask.dataframe"

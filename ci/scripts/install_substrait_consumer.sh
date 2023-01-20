@@ -27,14 +27,17 @@ cd consumer-testing
 cat requirements.txt | while read line
 do
     if [ $line != "pyarrow" ]; then
-        pip install -y $line
+        pip install $line
     fi
 done
 
-pip install -r requirements_build.txt
+pip install -r requirements-build.txt
 # TODO: write a better installation and testing script
 python setup.py install
+echo ">>>>>>>>>>>>>>>> consumer-testing installed !!! @ install_substrait_consumer.sh"
 python -c "import pyarrow.substrait"
 python -c "from substrait_consumer.consumers import AceroConsumer"
 
 pytest tests/integration/test_acero_tpch.py
+
+echo ">>>>>>>>>>>>>>>> ALL DONE!!! @ install_substrait_consumer.sh"

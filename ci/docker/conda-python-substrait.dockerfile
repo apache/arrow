@@ -27,7 +27,7 @@ COPY ci/conda_env_python.txt \
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
         --file arrow/ci/conda_env_sphinx.txt \
-        $([ "$python" == "3.7" ] && echo "pickle5") \
+        $([ "$python" == "3.9" ] && echo "pickle5") \
         python=${python} \
         nomkl && \
     mamba clean --all
@@ -43,4 +43,3 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_FILESYSTEM=ON \
     ARROW_JSON=ON \
     ARROW_SUBSTRAIT=ON \
-    ARROW_USE_GLOG=OFF
