@@ -26,18 +26,5 @@ python -c "from substrait_consumer.consumers import AceroConsumer"
 python -c "import pyarrow.orc"
 python -c "import pyarrow.substrait"
 
+pytest substrait_consumer/tests/functional/extension_functions/test_boolean_functions.py --producer IsthmusProducer --consumer AceroConsumer
 
-echo ">>>>>>>>>>>>>>>> ALL DONE!!! @ install_substrait_consumer.sh"
-
-# check that dask.dataframe is correctly installed
-#python -c "import dask.dataframe"
-
-# TODO(kszucs): the following tests are also uses pyarrow
-# pytest -sv --pyargs dask.bytes.tests.test_hdfs
-# pytest -sv --pyargs dask.bytes.tests.test_local
-
-#pytest -v --pyargs dask.dataframe.tests.test_dataframe
-#pytest -v --pyargs dask.dataframe.io.tests.test_orc
-#pytest -v --pyargs dask.dataframe.io.tests.test_parquet
-# this file contains parquet tests that use S3 filesystem
-#pytest -v --pyargs dask.bytes.tests.test_s3
