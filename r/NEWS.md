@@ -57,6 +57,14 @@
 * New dplyr (1.1.0) function `join_by()` has been implemented for dplyr joins 
   on Arrow objects (equality conditions only).  
   ([#33664](https://github.com/apache/arrow/issues/33664))
+* Output is accurate when multiple `dplyr::group_by()`/`dplyr::summarise()` 
+  calls are used. ([#14905](https://github.com/apache/arrow/issues/14905))
+* `dplyr::summarize()` works with division when divisor is a variable. 
+  ([#14933](https://github.com/apache/arrow/issues/14933))
+* `dplyr::right_join()` correctly coalesces keys. 
+  ([#15077](https://github.com/apache/arrow/issues/15077))
+* Multiple changes to ensure compatibility with dplyr 1.1.0. 
+  (@lionel-, [#14948](https://github.com/apache/arrow/issues/14948))
 
 ### Function bindings
 
@@ -74,6 +82,8 @@
   ([#15211](https://github.com/apache/arrow/issues/15211))
 * `StructArray$create()` can be used to create StructArray objects. 
   ([#14922](https://github.com/apache/arrow/issues/14922))
+* Creating an Array from an object bigger than 2^31 has correct length 
+  ([#14929](https://github.com/apache/arrow/issues/14929))
 
 ### Installation
 
@@ -89,20 +99,10 @@
   [#13890](https://github.com/apache/arrow/issues/13890))
 * `head()` can be called after `as_record_batch_read()`. 
   ([#14518](https://github.com/apache/arrow/issues/14518))
-* `dplyr::right_join()` correctly coalesces keys. 
-  ([#15077](https://github.com/apache/arrow/issues/15077))
-* Output is accurate when multiple `dplyr::group_by()`/`dplyr::summarise()` 
-  calls are used. ([#14905](https://github.com/apache/arrow/issues/14905))
-* `dplyr::summarize()` works with division when divisor is a variable. 
-  ([#14933](https://github.com/apache/arrow/issues/14933))
 * `as.Date()` can go from `timestamp[us]` to `timestamp[s]`. 
   ([#14935](https://github.com/apache/arrow/issues/14935))
-* Creating an Array from an object bigger than 2^31 has correct length 
-  ([#14929](https://github.com/apache/arrow/issues/14929))
 * curl timeout policy can be configured for S3. 
   ([#15166](https://github.com/apache/arrow/issues/15166))
-* Multiple changes to ensure compatibility with dplyr 1.1.0. 
-  (@lionel-, [#14948](https://github.com/apache/arrow/issues/14948))
 * rlang dependency must be at least version 1.0.0 because of 
   `check_dots_empty()`. (@daattali, 
   [#14744](https://github.com/apache/arrow/issues/14744))
