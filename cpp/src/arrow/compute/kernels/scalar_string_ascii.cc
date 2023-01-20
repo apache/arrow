@@ -18,7 +18,9 @@
 #include <algorithm>
 #include <cctype>
 #include <iterator>
+#include <memory>
 #include <string>
+#include "arrow/result.h"
 
 #ifdef ARROW_WITH_RE2
 #include <re2/re2.h>
@@ -1501,10 +1503,13 @@ struct MatchLike {
     static const RE2::Options kRE2Options = MakeRE2Options<StringType>();
     // A LIKE pattern matching this regex can be translated into a substring search.
     static const RE2 kLikePatternIsSubstringMatch(R"(%+([^%_]*[^\\%_])?%+)", kRE2Options);
+    RETURN_NOT_OK(RegexStatus(kLikePatternIsSubstringMatch));
     // A LIKE pattern matching this regex can be translated into a prefix search.
     static const RE2 kLikePatternIsStartsWith(R"(([^%_]*[^\\%_])?%+)", kRE2Options);
+    RETURN_NOT_OK(RegexStatus(kLikePatternIsStartsWith));
     // A LIKE pattern matching this regex can be translated into a suffix search.
     static const RE2 kLikePatternIsEndsWith(R"(%+([^%_]*))", kRE2Options);
+    RETURN_NOT_OK(RegexStatus(kLikePatternIsEndsWith));
 
     auto original_options = MatchSubstringState::Get(ctx);
     auto original_state = ctx->state();
@@ -1669,14 +1674,21 @@ struct FindSubstring {
 struct FindSubstringRegex {
   std::unique_ptr<RE2> regex_match_;
 
+  static Result<FindSubstringRegex> Make(const MatchSubstringOptions& options,
+                                         bool is_utf8 = true, bool literal = false) {
+    auto matcher = FindSubstringRegex(options, is_utf8, literal);
+    RETURN_NOT_OK(RegexStatus(*matcher.regex_match_));
+    return std::move(matcher);
+  }
+
   explicit FindSubstringRegex(const MatchSubstringOptions& options, bool is_utf8 = true,
                               bool literal = false) {
     std::string regex = "(";
     regex.reserve(options.pattern.length() + 2);
     regex += literal ? RE2::QuoteMeta(options.pattern) : options.pattern;
     regex += ")";
-    regex_match_.reset(
-        new RE2(regex, MakeRE2Options(is_utf8, options.ignore_case, /*literal=*/false)));
+    regex_match_ = std::make_unique<RE2>(
+        regex, MakeRE2Options(is_utf8, options.ignore_case, /*literal=*/false));
   }
 
   template <typename OutValue, typename... Ignored>
@@ -1698,9 +1710,10 @@ struct FindSubstringExec {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
+      ARROW_ASSIGN_OR_RAISE(auto matcher,
+                            FindSubstringRegex::Make(options, InputType::is_utf8, true));
       applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstringRegex>
-          kernel{FindSubstringRegex(options, /*is_utf8=*/InputType::is_utf8,
-                                    /*literal=*/true)};
+          kernel{std::move(matcher)};
       return kernel.Exec(ctx, batch, out);
 #else
       return Status::NotImplemented("ignore_case requires RE2");
