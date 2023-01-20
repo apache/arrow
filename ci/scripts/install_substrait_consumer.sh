@@ -34,10 +34,3 @@ done
 pip install -r requirements-build.txt
 # TODO: write a better installation and testing script
 python setup.py install
-echo ">>>>>>>>>>>>>>>> consumer-testing installed !!! @ install_substrait_consumer.sh"
-python -c "import pyarrow.substrait"
-python -c "from substrait_consumer.consumers import AceroConsumer"
-
-pytest tests/integration/test_acero_tpch.py
-
-echo ">>>>>>>>>>>>>>>> ALL DONE!!! @ install_substrait_consumer.sh"

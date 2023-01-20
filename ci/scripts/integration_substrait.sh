@@ -23,8 +23,8 @@ set -e
 # because pytest would just skip the substrait tests
 echo "Substrait Integration Tests";
 python -c "from substrait_consumer.consumers import AceroConsumer"
-#python -c "import pyarrow.orc"
-#python -c "import pyarrow.substrait"
+python -c "import pyarrow.orc"
+python -c "import pyarrow.substrait"
 
 
 echo ">>>>>>>>>>>>>>>> ALL DONE!!! @ install_substrait_consumer.sh"
