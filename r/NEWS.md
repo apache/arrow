@@ -54,6 +54,7 @@
   ([#14930](https://github.com/apache/arrow/issues/14930))
 
 ### dplyr compatibility
+
 * New dplyr (1.1.0) function `join_by()` has been implemented for dplyr joins 
   on Arrow objects (equality conditions only).  
   ([#33664](https://github.com/apache/arrow/issues/33664))
@@ -97,7 +98,7 @@
 * Calling `lubridate::as_datetime()` on Arrow objects can handle time in 
   sub-seconds. (@eitsupi, 
   [#13890](https://github.com/apache/arrow/issues/13890))
-* `head()` can be called after `as_record_batch_read()`. 
+* `head()` can be called after `as_record_batch_reader()`. 
   ([#14518](https://github.com/apache/arrow/issues/14518))
 * `as.Date()` can go from `timestamp[us]` to `timestamp[s]`. 
   ([#14935](https://github.com/apache/arrow/issues/14935))
