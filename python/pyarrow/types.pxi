@@ -856,7 +856,6 @@ cdef class BaseExtensionType(DataType):
         """
         return ExtensionScalar
 
-
     @property
     def extension_name(self):
         """

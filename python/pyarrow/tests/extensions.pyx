@@ -75,6 +75,7 @@ cdef extern from * namespace "arrow::py" nogil:
     cdef shared_ptr[CDataType] CMakeUuidType" arrow::py::MakeUuidType"()
     cdef shared_ptr[CArray] CMakeUuidArray" arrow::py::MakeUuidArray"()
 
+
 def _make_uuid_type():
     return pyarrow_wrap_data_type(CMakeUuidType())
 
