@@ -142,13 +142,14 @@ if [ ${SOURCE_PR} -gt 0 ]; then
 fi
 
 if [ ${SOURCE_VOTE} -gt 0 ]; then
-  graphql_url="https://api.github.com/graphql"
-  curl_options=($graphql_url)
+  gh_api_url="https://api.github.com/graphql"
+
+  curl_options=($gh_api_url)
   curl_options+=(--header "Authorization: Bearer ${ARROW_GITHUB_API_TOKEN}")
   curl_options+=(--data "{\"query\": \"query {search(query: \\\"repo:apache/arrow is:issue is:closed milestone:${version}\\\", type:ISSUE) {issueCount}}\"}")
   n_resolved_issues=$(curl "${curl_options[@]}" | jq ".data.search.issueCount")
 
-  curl_options=($graphql_url)
+  curl_options=($gh_api_url)
   curl_options+=(--header "Authorization: Bearer ${ARROW_GITHUB_API_TOKEN}")
   curl_options+=(--data "{\"query\": \"query {repository(owner: \\\"apache\\\", name: \\\"arrow\\\") {refs(first: 1, refPrefix: \\\"refs/heads/\\\", query: \\\"${rc_branch}\\\") {nodes{associatedPullRequests(first: 1){edges{node{url}}}}}}}\"}")
   verify_pr_url=$(curl "${curl_options[@]}" | jq -r ".data.repository.refs.nodes[0].associatedPullRequests.edges[0].node.url")

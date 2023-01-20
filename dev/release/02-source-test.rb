@@ -93,33 +93,26 @@ class SourceTest < Test::Unit::TestCase
   end
 
   def test_vote
-    jira_url = "https://issues.apache.org/jira"
-    jql_conditions = [
-      "project = ARROW",
-      "status in (Resolved, Closed)",
-      "fixVersion = #{@release_version}",
-    ]
-    jql = jql_conditions.join(" AND ")
-    n_resolved_issues = nil
-    search_url = URI("#{jira_url}/rest/api/2/search?jql=#{CGI.escape(jql)}")
-    search_url.open do |response|
-      n_resolved_issues = JSON.parse(response.read)["total"]
-    end
-    github_api_url = "https://api.github.com"
-    verify_prs = URI("#{github_api_url}/repos/apache/arrow/pulls" +
-                     "?state=open" +
-                     "&head=apache:release-#{@release_version}-rc0")
-    verify_pr_url = nil
-    headers = {
-      "Accept" => "application/vnd.github+json",
-    }
     github_token = ENV["ARROW_GITHUB_API_TOKEN"]
-    if github_token
-      headers["Authorization"] = "Bearer #{github_token}"
+    uri = URI.parse("https://api.github.com/graphql")
+    https = Net::HTTP.new(uri.host, uri.port)
+    https.use_ssl = true
+    req = Net::HTTP::Post.new(uri.path, initheader = {"Authorization" => "Bearer #{github_token}"})
+
+    n_issues_query = "{\"query\":\"query {search(query: \\\"repo:apache/arrow is:issue is:closed milestone:#{@release_version}\\\", type:ISSUE) {issueCount}}\"}"
+    req.body = n_issues_query
+    n_resolved_issues = nil
+    https.request(req) do |response|
+        n_resolved_issues = JSON.parse(response.body)["data"]["search"]["issueCount"]
     end
-    verify_prs.open(headers) do |response|
-      verify_pr_url = (JSON.parse(response.read)[0] || {})["html_url"]
+
+    pr_query = "{\"query\": \"query {repository(owner: \\\"apache\\\", name: \\\"arrow\\\") {refs(first: 1, refPrefix: \\\"refs/heads/\\\", query: \\\"release-#{@release_version}-rc0\\\") {nodes{associatedPullRequests(first: 1){edges{node{url}}}}}}}\"}"
+    req.body = pr_query
+    verify_pr_url = nil
+    https.request(req) do |response|
+      verify_pr_url = JSON.parse(response.body)["data"]["repository"]["refs"]["nodes"][0]["associatedPullRequests"]["edges"][0]["node"]["url"]
     end
+
     output = source("VOTE")
     assert_equal(<<-VOTE.strip, output[/^-+$(.+?)^-+$/m, 1].strip)
 To: dev@arrow.apache.org
@@ -149,7 +142,7 @@ The vote will be open for at least 72 hours.
 [ ] +0
 [ ] -1 Do not release this as Apache Arrow #{@release_version} because...
 
-[1]: https://issues.apache.org/jira/issues/?jql=project%20%3D%20ARROW%20AND%20status%20in%20%28Resolved%2C%20Closed%29%20AND%20fixVersion%20%3D%20#{@release_version}
+[1]: https://github.com/apache/arrow/issues?q=is%3Aissue+milestone%3A#{@release_version}+is%3Aclosed
 [2]: https://github.com/apache/arrow/tree/#{@current_commit}
 [3]: https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-#{@release_version}-rc0
 [4]: https://apache.jfrog.io/artifactory/arrow/almalinux-rc/
