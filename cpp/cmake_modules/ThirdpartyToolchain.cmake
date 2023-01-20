@@ -4715,6 +4715,7 @@ endif()
 macro(build_awssdk)
   message(STATUS "Building AWS C++ SDK from source")
   set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
+  set(AWSSDK_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-prefix/src/awssdk_ep")
   set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
 
   if(WIN32)
@@ -4741,7 +4742,7 @@ macro(build_awssdk)
   set(AWSSDK_CMAKE_ARGS
       ${AWSSDK_COMMON_CMAKE_ARGS}
       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT}
-      -DBUILD_DEPS=OFF
+      -DBUILD_DEPS=ON # We need to build aws-crt-cpp from source
       -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
       -DMINIMIZE_SIZE=ON)
 
@@ -4885,76 +4886,14 @@ macro(build_awssdk)
                       DEPENDS aws_checksums_ep aws_c_io_ep)
   add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
 
-  externalproject_add(aws_c_sdkutils_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_SDKUTILS_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_SDKUTILS_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_SDKUTILS_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep)
-  add_dependencies(AWS::aws-c-sdkutils aws_c_sdkutils_ep)
-
-  externalproject_add(aws_c_compression_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_COMPRESSION_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_COMPRESSION_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_COMPRESSION_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep)
-  add_dependencies(AWS::aws-c-compression aws_c_compression_ep)
-
-  externalproject_add(aws_c_http_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_HTTP_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_HTTP_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_HTTP_STATIC_LIBRARY}
-                      DEPENDS aws_c_io_ep aws_c_compression_ep)
-  add_dependencies(AWS::aws-c-http aws_c_http_ep)
-
-  externalproject_add(aws_c_mqtt_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_MQTT_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_MQTT_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_MQTT_STATIC_LIBRARY}
-                      DEPENDS aws_c_http_ep)
-  add_dependencies(AWS::aws-c-mqtt aws_c_mqtt_ep)
-
-  externalproject_add(aws_c_auth_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_AUTH_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_AUTH_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_AUTH_STATIC_LIBRARY}
-                      DEPENDS aws_c_sdkutils_ep aws_c_cal_ep aws_c_http_ep)
-  add_dependencies(AWS::aws-c-auth aws_c_auth_ep)
-
-  externalproject_add(aws_c_s3_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_S3_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_S3_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_S3_STATIC_LIBRARY}
-                      DEPENDS aws_checksums_ep aws_c_auth_ep)
-  add_dependencies(AWS::aws-c-s3 aws_c_s3_ep)
-
-  externalproject_add(aws_crt_cpp_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_CRT_CPP_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_CRT_CPP_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_CRT_CPP_STATIC_LIBRARY}
-                      DEPENDS aws_c_auth_ep
-                              aws_c_cal_ep
-                              aws_c_common_ep
-                              aws_c_event_stream_ep
-                              aws_c_http_ep
-                              aws_c_io_ep
-                              aws_c_mqtt_ep
-                              aws_c_s3_ep
-                              aws_checksums_ep)
-  add_dependencies(AWS::aws-crt-cpp aws_crt_cpp_ep)
+  set(AWSSDK_PATCH_COMMAND)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER
+                                              "10")
+    # Workaround for https://github.com/aws/aws-sdk-cpp/issues/1750
+    set(AWSSDK_PATCH_COMMAND "sed" "-i.bak" "-e" "s/\"-Werror\"//g"
+                             "<SOURCE_DIR>/cmake/compiler_settings.cmake" "&&")
+  endif()
+  list(APPEND AWSSDK_PATCH_COMMAND "${AWSSDK_SOURCE}/prefetch_crt_dependency.sh")
 
   externalproject_add(awssdk_ep
                       ${EP_COMMON_OPTIONS}
