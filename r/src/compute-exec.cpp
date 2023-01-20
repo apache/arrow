@@ -332,8 +332,9 @@ void ExecPlan_Write(
 
   // TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
   // and encapsulate this logic better
-  std::shared_ptr<ds::FileSystemDatasetWriteOptions> opts 
-    = std::make_shared<ds::FileSystemDatasetWriteOptions>(file_write_options->format(), file_write_options);
+  std::shared_ptr<ds::FileSystemDatasetWriteOptions> opts =
+      std::make_shared<ds::FileSystemDatasetWriteOptions>(file_write_options->format(),
+                                                          file_write_options);
   opts->existing_data_behavior = existing_data_behavior;
   opts->filesystem = filesystem;
   opts->base_dir = base_dir;
