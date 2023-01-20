@@ -34,18 +34,18 @@ const FunctionNode LikeHolder::TryOptimize(const FunctionNode& node) {
   // NOTE: avoid making those constants global to avoid compiling regexes at startup
   // pre-compiled pattern for matching starts_with
   static const RE2 starts_with_regex(R"(([^\.\*])*\.\*)");
-  if (ARROW_PREDICT_FALSE(starts_with_regex.ok())) {
-    return node;
-  }
   // pre-compiled pattern for matching ends_with
   static const RE2 ends_with_regex(R"(\.\*([^\.\*])*)");
-  if (ARROW_PREDICT_FALSE(ends_with_regex.ok())) {
-    return node;
-  }
   // pre-compiled pattern for matching is_substr
   static const RE2 is_substr_regex(R"(\.\*([^\.\*])*\.\*)");
-  if (ARROW_PREDICT_FALSE(is_substr_regex.ok())) {
-    return node;
+
+  static bool global_checked = false;
+  if (ARROW_PREDICT_FALSE(!global_checked)) {
+    if (ARROW_PREDICT_FALSE(
+            !(starts_with_regex.ok() && ends_with_regex.ok() && is_substr_regex.ok()))) {
+      return node;
+    }
+    global_checked = true;
   }
 
   std::shared_ptr<LikeHolder> holder;

@@ -21,6 +21,7 @@
 #include <memory>
 #include <string>
 #include "arrow/result.h"
+#include "arrow/util/macros.h"
 
 #ifdef ARROW_WITH_RE2
 #include <re2/re2.h>
@@ -1503,13 +1504,17 @@ struct MatchLike {
     static const RE2::Options kRE2Options = MakeRE2Options<StringType>();
     // A LIKE pattern matching this regex can be translated into a substring search.
     static const RE2 kLikePatternIsSubstringMatch(R"(%+([^%_]*[^\\%_])?%+)", kRE2Options);
-    RETURN_NOT_OK(RegexStatus(kLikePatternIsSubstringMatch));
     // A LIKE pattern matching this regex can be translated into a prefix search.
     static const RE2 kLikePatternIsStartsWith(R"(([^%_]*[^\\%_])?%+)", kRE2Options);
-    RETURN_NOT_OK(RegexStatus(kLikePatternIsStartsWith));
     // A LIKE pattern matching this regex can be translated into a suffix search.
     static const RE2 kLikePatternIsEndsWith(R"(%+([^%_]*))", kRE2Options);
-    RETURN_NOT_OK(RegexStatus(kLikePatternIsEndsWith));
+    static bool global_checked = false;
+    if (ARROW_PREDICT_FALSE(!global_checked)) {
+      RETURN_NOT_OK(RegexStatus(kLikePatternIsSubstringMatch));
+      RETURN_NOT_OK(RegexStatus(kLikePatternIsStartsWith));
+      RETURN_NOT_OK(RegexStatus(kLikePatternIsEndsWith));
+      global_checked = true;
+    }
 
     auto original_options = MatchSubstringState::Get(ctx);
     auto original_state = ctx->state();
