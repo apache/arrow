@@ -366,6 +366,7 @@ int64_t LinuxParseCpuFlags(const std::string& values) {
 #elif defined(CPUINFO_ARCH_ARM)
     {"asimd", CpuInfo::ASIMD},
 #endif
+    {"", 0},
   };
   const int64_t num_flags = sizeof(flag_mappings) / sizeof(flag_mappings[0]);
 
