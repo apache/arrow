@@ -38,13 +38,17 @@ namespace internal {
 
 namespace {
 
-Result<const HashAggregateKernel*> GetKernel(ExecContext* ctx, const Aggregate& aggregate,
-                                             const std::vector<TypeHolder>& in_types) {
+std::vector<TypeHolder> ExtendWithGroupIdType(const std::vector<TypeHolder>& in_types) {
   std::vector<TypeHolder> aggr_in_types;
-  aggr_in_types.reserve(in_types.size());
+  aggr_in_types.reserve(in_types.size() + 1);
   aggr_in_types = in_types;
   aggr_in_types.emplace_back(uint32());
+  return aggr_in_types;
+}
 
+Result<const HashAggregateKernel*> GetKernel(ExecContext* ctx, const Aggregate& aggregate,
+                                             const std::vector<TypeHolder>& in_types) {
+  const auto aggr_in_types = ExtendWithGroupIdType(in_types);
   ARROW_ASSIGN_OR_RAISE(auto function,
                         ctx->func_registry()->GetFunction(aggregate.function));
   ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, function->DispatchExact(aggr_in_types));
@@ -55,10 +59,7 @@ Result<std::unique_ptr<KernelState>> InitKernel(const HashAggregateKernel* kerne
                                                 ExecContext* ctx,
                                                 const Aggregate& aggregate,
                                                 const std::vector<TypeHolder>& in_types) {
-  std::vector<TypeHolder> aggr_in_types;
-  aggr_in_types.reserve(in_types.size() + 1);
-  aggr_in_types = in_types;
-  aggr_in_types.emplace_back(uint32());
+  const auto aggr_in_types = ExtendWithGroupIdType(in_types);
 
   KernelContext kernel_ctx{ctx};
   const auto* options =
@@ -113,16 +114,13 @@ Result<FieldVector> ResolveKernels(
     const std::vector<std::vector<TypeHolder>>& types) {
   FieldVector fields(types.size());
 
-  std::vector<TypeHolder> agg_in_types;
   for (size_t i = 0; i < kernels.size(); ++i) {
     KernelContext kernel_ctx{ctx};
     kernel_ctx.SetState(states[i].get());
 
-    // {types[i]..., uint32()}
-    agg_in_types = types[i];
-    agg_in_types.emplace_back(uint32());
+    const auto aggr_in_types = ExtendWithGroupIdType(types[i]);
     ARROW_ASSIGN_OR_RAISE(
-        auto type, kernels[i]->signature->out_type().Resolve(&kernel_ctx, agg_in_types));
+        auto type, kernels[i]->signature->out_type().Resolve(&kernel_ctx, aggr_in_types));
     fields[i] = field(aggregates[i].function, type.GetSharedPtr());
   }
   return fields;
