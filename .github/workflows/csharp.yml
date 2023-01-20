@@ -51,9 +51,9 @@ jobs:
       - name: Install C#
         uses: actions/setup-dotnet@v2
         with:
-          dotnet-version: >
-	    6.0.x
-	    7.0.x
+          dotnet-version: |
+            6.0.x
+            7.0.x
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
@@ -67,8 +67,8 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/csharp_test.sh $(pwd)
-	env:
-	  DOTNET_VERSION: ${{ matrix.dotnet }}
+        env:
+          DOTNET_VERSION: ${{ matrix.dotnet }}
 
   windows:
     name: AMD64 Windows 2019 18.04 C# ${{ matrix.dotnet }}
@@ -83,9 +83,9 @@ jobs:
       - name: Install C#
         uses: actions/setup-dotnet@v2
         with:
-          dotnet-version: >
-	    6.0.x
-	    7.0.x
+          dotnet-version: |
+            6.0.x
+            7.0.x
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
@@ -98,8 +98,8 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/csharp_test.sh $(pwd)
-	env:
-	  DOTNET_VERSION: ${{ matrix.dotnet }}
+        env:
+          DOTNET_VERSION: ${{ matrix.dotnet }}
 
   macos:
     name: AMD64 macOS 11 C# ${{ matrix.dotnet }}
@@ -114,9 +114,9 @@ jobs:
       - name: Install C#
         uses: actions/setup-dotnet@v2
         with:
-          dotnet-version: >
-	    6.0.x
-	    7.0.x
+          dotnet-version: |
+            6.0.x
+            7.0.x
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
@@ -130,5 +130,5 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/csharp_test.sh $(pwd)
-	env:
-	  DOTNET_VERSION: ${{ matrix.dotnet }}
+        env:
+          DOTNET_VERSION: ${{ matrix.dotnet }}
