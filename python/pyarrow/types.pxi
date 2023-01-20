@@ -836,6 +836,27 @@ cdef class BaseExtensionType(DataType):
         DataType.init(self, type)
         self.ext_type = <const CExtensionType*> type.get()
 
+    def __arrow_ext_class__(self):
+        """Return an extension array class to be used for building or
+        deserializing arrays with this extension type.
+
+        This method should return a subclass of the ExtensionArray class. By
+        default, if not specialized in the extension implementation, an
+        extension type array will be a built-in ExtensionArray instance.
+        """
+        return ExtensionArray
+
+    def __arrow_ext_scalar_class__(self):
+        """Return an extension scalar class for building scalars with this
+        extension type.
+
+        This method should return subclass of the ExtensionScalar class. By
+        default, if not specialized in the extension implementation, an
+        extension type scalar will be a built-in ExtensionScalar instance.
+        """
+        return ExtensionScalar
+
+
     @property
     def extension_name(self):
         """
@@ -967,27 +988,6 @@ cdef class ExtensionType(BaseExtensionType):
         return value of ``__arrow_ext_serialize__``).
         """
         return NotImplementedError
-
-    def __arrow_ext_class__(self):
-        """Return an extension array class to be used for building or
-        deserializing arrays with this extension type.
-
-        This method should return a subclass of the ExtensionArray class. By
-        default, if not specialized in the extension implementation, an
-        extension type array will be a built-in ExtensionArray instance.
-        """
-        return ExtensionArray
-
-    def __arrow_ext_scalar_class__(self):
-        """Return an extension scalar class for building scalars with this
-        extension type.
-
-        This method should return subclass of the ExtensionScalar class. By
-        default, if not specialized in the extension implementation, an
-        extension type scalar will be a built-in ExtensionScalar instance.
-        """
-        return ExtensionScalar
-
 
 cdef class PyExtensionType(ExtensionType):
     """

@@ -164,6 +164,40 @@ def test_cython_api(tmpdir):
 
 
 @pytest.mark.cython
+def test_extension_type(tmpdir):
+    with tmpdir.as_cwd():
+        # Set up temporary workspace
+        pyx_file = 'extensions.pyx'
+        shutil.copyfile(os.path.join(here, pyx_file),
+                        os.path.join(str(tmpdir), pyx_file))
+        # Create setup.py file
+        setup_code = setup_template.format(pyx_file=pyx_file,
+                                           compiler_opts=compiler_opts,
+                                           test_ld_path=test_ld_path)
+        with open('setup.py', 'w') as f:
+            f.write(setup_code)
+
+        subprocess_env = test_util.get_modified_env_with_pythonpath()
+
+        # Compile extension module
+        subprocess.check_call([sys.executable, 'setup.py',
+                               'build_ext', '--inplace'],
+                              env=subprocess_env)
+
+    sys.path.insert(0, str(tmpdir))
+    mod = __import__('extensions')
+
+    uuid_type = mod._make_uuid_type()
+    assert uuid_type.extension_name == "uuid"
+    assert uuid_type.storage_type == pa.binary(16)
+
+    array = mod._make_uuid_array()
+    assert array.to_pylist() == [b'abcdefghijklmno0', b'0onmlkjihgfedcba']
+    assert array[0].as_py() == b'abcdefghijklmno0'
+    assert array[1].as_py() == b'0onmlkjihgfedcba'
+
+
+@pytest.mark.cython
 def test_visit_strings(tmpdir):
     with tmpdir.as_cwd():
         # Set up temporary workspace
