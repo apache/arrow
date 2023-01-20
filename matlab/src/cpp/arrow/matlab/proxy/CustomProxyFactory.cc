@@ -20,6 +20,6 @@
 #include "CustomProxyFactory.h"
 
 std::shared_ptr<Proxy> CustomProxyFactory::make_proxy(const ClassName& class_name, const FunctionArguments& constructor_arguments) {
-    registerProxy(DoubleArrayProxy);
+    REGISTER_PROXY_SAME_NAME(DoubleArrayProxy);
     return nullptr;
 };

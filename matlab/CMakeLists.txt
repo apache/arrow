@@ -318,7 +318,15 @@ matlab_add_mex(R2018a
 target_include_directories(mexcall PRIVATE ${CPP_SOURCE_DIR})
 
 ############# libmexclass #################################
-get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
+# On Windows, we use the arrow.lib for linking arrow_matlab against the Arrow C++ library.
+# The location of arrow.lib is previously saved in IMPORTED_IMPLIB.
+if(WIN32)
+	get_target_property(ARROW_LINK_LIB arrow_shared IMPORTED_IMPLIB)
+else()
+	# On Linux and macOS, it is the arrow.dll in the newly built arrow_shared library used for linking.
+	# This is available in IMPORTED_LOCATION.
+	get_target_property(ARROW_LINK_LIB arrow_shared IMPORTED_LOCATION)
+endif()
 get_target_property(ARROW_INCLUDE_DIR arrow_shared INTERFACE_INCLUDE_DIRECTORIES)
 
 set(CUSTOM_PROXY_FACTORY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy;${CMAKE_SOURCE_DIR}/src/cpp")
@@ -326,7 +334,7 @@ set(CUSTOM_PROXY_FACTORY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy
 set(CUSTOM_PROXY_SOURCES_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy")
 set(CUSTOM_PROXY_SOURCES "${CUSTOM_PROXY_SOURCES_DIR}/array/double_array_proxy.cc")
 set(CUSTOM_PROXY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp;${ARROW_INCLUDE_DIR}")
-set(CUSTOM_PROXY_LINK_LIBRARIES ${ARROW_SHARED_LIB})
+set(CUSTOM_PROXY_LINK_LIBRARIES ${ARROW_LINK_LIB})
 
 # Build libmexclass as an external project.
 include(ExternalProject)
