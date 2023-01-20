@@ -32,5 +32,7 @@ do
 done
 
 pip install -r requirements-build.txt
-# TODO: write a better installation and testing script
+# setup substrait-java
+./build-and-copy-isthmus-shadow-jar.sh
+# install substrait_consumer library
 python setup.py install
