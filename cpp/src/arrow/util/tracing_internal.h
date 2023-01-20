@@ -117,7 +117,8 @@ struct Scope {
   Scope()
       : scope_impl(opentelemetry::trace::Scope(
             opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>(nullptr))) {}
-  Scope(opentelemetry::trace::Scope ot_scope) : scope_impl(std::move(ot_scope)) {}
+  explicit Scope(opentelemetry::trace::Scope ot_scope)
+      : scope_impl(std::move(ot_scope)) {}
   opentelemetry::trace::Scope scope_impl;
 };
 
@@ -208,7 +209,7 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
 
 class SpanImpl {};
 struct Scope {
-  [[maybe_unused]] ~Scope(){};
+  [[maybe_unused]] ~Scope() {}
 };
 
 #define START_SPAN(target_span, ...)
