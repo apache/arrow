@@ -25,7 +25,7 @@ from ..utils.source import ARROW_ROOT_DEFAULT
 _EXE_PATH = os.path.join(
     ARROW_ROOT_DEFAULT,
     "csharp/artifacts/Apache.Arrow.IntegrationTest",
-    "Debug/net6.0/Apache.Arrow.IntegrationTest",
+    "Debug/net7.0/Apache.Arrow.IntegrationTest",
 )
 
 

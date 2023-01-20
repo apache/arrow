@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-ARG dotnet=6.0
+ARG dotnet=7.0
 ARG platform=focal
 FROM mcr.microsoft.com/dotnet/sdk:${dotnet}-${platform}-${arch}
 
