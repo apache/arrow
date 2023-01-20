@@ -4630,6 +4630,7 @@ endif()
 macro(build_awssdk)
   message(STATUS "Building AWS C++ SDK from source")
   set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
+  set(AWSSDK_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-prefix/src/awssdk_ep")
   set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
 
   if(WIN32)
@@ -4661,7 +4662,7 @@ macro(build_awssdk)
   set(AWSSDK_CMAKE_ARGS
       ${AWSSDK_COMMON_CMAKE_ARGS}
       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT}
-      -DBUILD_DEPS=OFF
+      -DBUILD_DEPS=ON # We need to build aws-crt-cpp from source
       -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
       -DMINIMIZE_SIZE=ON)
 
@@ -4746,8 +4747,9 @@ macro(build_awssdk)
                                               "10")
     # Workaround for https://github.com/aws/aws-sdk-cpp/issues/1750
     set(AWSSDK_PATCH_COMMAND "sed" "-i.bak" "-e" "s/\"-Werror\"//g"
-                             "<SOURCE_DIR>/cmake/compiler_settings.cmake")
+                             "<SOURCE_DIR>/cmake/compiler_settings.cmake" "&&")
   endif()
+  list(APPEND AWSSDK_PATCH_COMMAND "${AWSSDK_SOURCE}/prefetch_crt_dependency.sh")
 
   externalproject_add(awssdk_ep
                       ${EP_COMMON_OPTIONS}
