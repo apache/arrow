@@ -18,7 +18,6 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <utility>
@@ -741,6 +740,63 @@ class EncodingAdHocTyped : public ::testing::Test {
     ::arrow::AssertArraysEqual(*values, *result);
   }
 
+  void DeltaBitPack(int seed) {
+    if (!std::is_same<ParquetType, Int32Type>::value &&
+        !std::is_same<ParquetType, Int64Type>::value) {
+      return;
+    }
+    auto values = GetValues(seed);
+    auto encoder = MakeTypedEncoder<ParquetType>(
+        Encoding::DELTA_BINARY_PACKED, /*use_dictionary=*/false, column_descr());
+    auto decoder =
+        MakeTypedDecoder<ParquetType>(Encoding::DELTA_BINARY_PACKED, column_descr());
+
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.Finish(&result));
+    ASSERT_EQ(50, result->length());
+    ::arrow::AssertArraysEqual(*values, *result);
+  }
+
+  void DeltaLengthByte(int seed) {
+    if (!std::is_same<ParquetType, ByteArrayType>::value) {
+      return;
+    }
+    auto values = GetValues(seed);
+    auto encoder = MakeTypedEncoder<ParquetType>(
+        Encoding::DELTA_LENGTH_BYTE_ARRAY, /*use_dictionary=*/false, column_descr());
+    auto decoder =
+        MakeTypedDecoder<ParquetType>(Encoding::DELTA_LENGTH_BYTE_ARRAY, column_descr());
+
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.Finish(&result));
+    ASSERT_EQ(50, result->length());
+    ::arrow::AssertArraysEqual(*values, *result);
+  }
+
   void Dict(int seed) {
     if (std::is_same<ParquetType, BooleanType>::value) {
       return;
@@ -826,7 +882,7 @@ class EncodingAdHocTyped : public ::testing::Test {
 
  protected:
   const int64_t size_ = 50;
-  const double null_probability_ = 0.25;
+  double null_probability_ = 0.25;
 };
 
 template <typename ParquetType>
@@ -876,6 +932,20 @@ TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPut) {
 TYPED_TEST(EncodingAdHocTyped, ByteStreamSplitArrowDirectPut) {
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
     this->ByteStreamSplit(seed);
+  }
+}
+
+TYPED_TEST(EncodingAdHocTyped, DeltaBitPackArrowDirectPut) {
+  this->null_probability_ = 0;
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    this->DeltaBitPack(seed);
+  }
+}
+
+// TODO
+TYPED_TEST(EncodingAdHocTyped, DeltaLengthByteArrowDirectPut) {
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    this->DeltaLengthByte(seed);
   }
 }
 

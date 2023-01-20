@@ -400,9 +400,10 @@ typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
 
 TYPED_TEST_SUITE(TestPrimitiveWriter, TestTypes);
 
-using TestInt32TypeValuesWriter = TestPrimitiveWriter<Int32Type>;
-using TestInt64TypeValuesWriter = TestPrimitiveWriter<Int64Type>;
+using TestValuesWriterInt32Type = TestPrimitiveWriter<Int32Type>;
+using TestValuesWriterInt64Type = TestPrimitiveWriter<Int64Type>;
 using TestByteArrayValuesWriter = TestPrimitiveWriter<ByteArrayType>;
+using TestFixedLengthByteArrayValuesWriter = TestPrimitiveWriter<FLBAType>;
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlain) {
   this->TestRequiredWithEncoding(Encoding::PLAIN);
@@ -422,17 +423,22 @@ TYPED_TEST(TestPrimitiveWriter, RequiredBitPacked) {
 }
 */
 
-TEST_F(TestInt32TypeValuesWriter, RequiredDeltaBinaryPacked) {
+TEST_F(TestValuesWriterInt32Type, RequiredDeltaBinaryPacked) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BINARY_PACKED);
 }
 
-TEST_F(TestInt64TypeValuesWriter, RequiredDeltaBinaryPacked) {
+TEST_F(TestValuesWriterInt64Type, RequiredDeltaBinaryPacked) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BINARY_PACKED);
 }
 
 TEST_F(TestByteArrayValuesWriter, RequiredDeltaLengthByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
+
+// TODO
+//TEST_F(TestFixedLengthByteArrayValuesWriter, RequiredDeltaLengthByteArray) {
+//  this->TestRequiredWithEncoding(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+//}
 
 /*
 TYPED_TEST(TestPrimitiveWriter, RequiredDeltaByteArray) {
@@ -655,7 +661,7 @@ TEST(TestWriter, NullValuesBuffer) {
 
 // PARQUET-719
 // Test case for NULL values
-TEST_F(TestInt32TypeValuesWriter, OptionalNullValueChunk) {
+TEST_F(TestValuesWriterInt32Type, OptionalNullValueChunk) {
   this->SetUpSchema(Repetition::OPTIONAL);
 
   this->GenerateData(LARGE_SIZE);

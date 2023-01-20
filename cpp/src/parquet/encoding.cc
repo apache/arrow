@@ -2575,11 +2575,10 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 // ----------------------------------------------------------------------
 // DeltaLengthByteArrayEncoder
 
+template <typename DType>
 class DeltaLengthByteArrayEncoder : public EncoderImpl,
                                     virtual public TypedEncoder<ByteArrayType> {
  public:
-  using T = typename ByteArrayType::c_type;
-
   explicit DeltaLengthByteArrayEncoder(const ColumnDescriptor* descr, MemoryPool* pool)
       : EncoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY,
                     pool = ::arrow::default_memory_pool()),
@@ -2602,30 +2601,64 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override;
 
+  void UnsafePutByteArray(const void* data, uint32_t length) {
+    DCHECK(length == 0 || data != nullptr) << "Value ptr cannot be NULL";
+    sink_.UnsafeAppend(&length, sizeof(uint32_t));
+    sink_.UnsafeAppend(data, static_cast<int64_t>(length));
+  }
+
  protected:
+  template <typename ArrayType>
+  void PutBinaryArray(const ArrayType& array) {
+    const int64_t total_bytes =
+        array.value_offset(array.length()) - array.value_offset(0);
+    PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes + array.length() * sizeof(uint32_t)));
+
+    PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
+        *array.data(),
+        [&](::std::string_view view) {
+          if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
+            return Status::Invalid("Parquet cannot store strings with size 2GB or more");
+          }
+          UnsafePutByteArray(view.data(), static_cast<uint32_t>(view.size()));
+          return Status::OK();
+        },
+        []() { return Status::OK(); }));
+  }
+
+  template <typename ArrayType>
+  void PutBinaryArray2(const ArrayType& array) {
+    ARROW_LOG(INFO) << "PutBinaryArray2";
+  }
+
   ::arrow::BufferBuilder sink_;
   DeltaBitPackEncoder<Int32Type> length_encoder_;
   uint32_t encoded_size_;
 };
 
-void DeltaLengthByteArrayEncoder::Put(const ::arrow::Array& values) {
-  const ::arrow::ArrayData& data = *values.data();
-  if (values.type_id() != ::arrow::Type::BINARY) {
-    throw ParquetException("Expected ByteArrayType, got ", values.type()->ToString());
-  }
-  if (data.length > std::numeric_limits<int32_t>::max()) {
-    throw ParquetException("Array cannot be longer than ",
-                           std::numeric_limits<int32_t>::max());
-  }
-  if (values.null_count() == 0) {
-    Put(data.GetValues<ByteArray>(1), static_cast<int>(data.length));
-  } else {
-    PutSpaced(data.GetValues<ByteArray>(1), static_cast<int>(data.length),
-              data.GetValues<uint8_t>(0, 0), data.offset);
+template <typename DType>
+void DeltaLengthByteArrayEncoder<DType>::Put(const ::arrow::Array& values) {
+  ARROW_LOG(INFO) << "DeltaLengthByteArrayEncoder::Put";
+  AssertBaseBinary(values);
+  switch (values.type_id()) {
+    case ::arrow::Type::STRING:
+      PutBinaryArray(checked_cast<const ::arrow::StringArray&>(values));
+    case ::arrow::Type::LARGE_STRING:
+      PutBinaryArray(checked_cast<const ::arrow::LargeStringArray&>(values));
+    case ::arrow::Type::BINARY:
+      PutBinaryArray(static_cast<const ::arrow::BinaryArray&>(values));
+    case ::arrow::Type::LARGE_BINARY:
+      PutBinaryArray(static_cast<const ::arrow::LargeBinaryArray&>(values));
+    case ::arrow::Type::FIXED_SIZE_BINARY:
+      PutBinaryArray2(static_cast<const ::arrow::FixedSizeBinaryArray&>(values));
+    default:
+      throw ParquetException("Expected ByteArray-like type, got ",
+                             values.type()->ToString());
   }
 }
 
-void DeltaLengthByteArrayEncoder::Put(const T* src, int num_values) {
+template <typename DType>
+void DeltaLengthByteArrayEncoder<DType>::Put(const T* src, int num_values) {
   if (num_values == 0) {
     return;
   }
@@ -2648,9 +2681,10 @@ void DeltaLengthByteArrayEncoder::Put(const T* src, int num_values) {
   }
 }
 
-void DeltaLengthByteArrayEncoder::PutSpaced(const T* src, int num_values,
-                                            const uint8_t* valid_bits,
-                                            int64_t valid_bits_offset) {
+template <typename DType>
+void DeltaLengthByteArrayEncoder<DType>::PutSpaced(const T* src, int num_values,
+                                                   const uint8_t* valid_bits,
+                                                   int64_t valid_bits_offset) {
   if (valid_bits != NULLPTR) {
     PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateBuffer(num_values * sizeof(T),
                                                                  this->memory_pool()));
@@ -2663,7 +2697,8 @@ void DeltaLengthByteArrayEncoder::PutSpaced(const T* src, int num_values,
   }
 }
 
-std::shared_ptr<Buffer> DeltaLengthByteArrayEncoder::FlushValues() {
+template <typename DType>
+std::shared_ptr<Buffer> DeltaLengthByteArrayEncoder<DType>::FlushValues() {
   std::shared_ptr<Buffer> encoded_lengths = length_encoder_.FlushValues();
 
   std::shared_ptr<Buffer> data;
@@ -3201,13 +3236,16 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
   } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
     switch (type_num) {
       case Type::BYTE_ARRAY:
-        return std::unique_ptr<Encoder>(new DeltaLengthByteArrayEncoder(descr, pool));
+        return std::unique_ptr<Encoder>(
+            new DeltaLengthByteArrayEncoder<ByteArray>(descr, pool));
+      case Type::FIXED_LEN_BYTE_ARRAY:
+        return std::unique_ptr<Encoder>(
+            new DeltaLengthByteArrayEncoder<FLBAType>(descr, pool));
       default:
         throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
-        break;
     }
   } else {
-    ParquetException::NYI("Selected encoding is not supported");
+    ParquetException::NYI("Selected encoding is not supported1");
   }
   DCHECK(false) << "Should not be able to reach this code";
   return nullptr;
@@ -3263,10 +3301,14 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
     }
     throw ParquetException("DELTA_BYTE_ARRAY only supports BYTE_ARRAY");
   } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
-    if (type_num == Type::BYTE_ARRAY) {
-      return std::make_unique<DeltaLengthByteArrayDecoder>(descr);
+    switch (type_num) {
+      case Type::BYTE_ARRAY:
+        return std::make_unique<DeltaLengthByteArrayDecoder>(descr);
+      case Type::FIXED_LEN_BYTE_ARRAY:
+        return std::make_unique<DeltaLengthByteArrayDecoder>(descr);
+      default:
+        throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
     }
-    throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
   } else if (encoding == Encoding::RLE) {
     if (type_num == Type::BOOLEAN) {
       return std::make_unique<RleBooleanDecoder>(descr);
