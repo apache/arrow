@@ -1066,8 +1066,8 @@ def test_table_drop():
     assert exp_t3.equals(t3)
 
     # -- raise KeyError if column not in Table
-    with pytest.raises(KeyError, match="Column 'e' not found"):
-        table.drop(['e'])
+    with pytest.raises(KeyError, match="Column 'd' not found"):
+        table.drop(['d'])
 
 
 def test_table_drop_column():
