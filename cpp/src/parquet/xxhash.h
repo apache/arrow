@@ -31,7 +31,7 @@ namespace parquet {
 class PARQUET_EXPORT XxHash : public Hasher {
  public:
   XxHash() : seed_(DEFAULT_SEED) {}
-  XxHash(uint32_t seed) : seed_(seed) {}
+  explicit XxHash(uint32_t seed) : seed_(seed) {}
   uint64_t Hash(int32_t value) const override;
   uint64_t Hash(int64_t value) const override;
   uint64_t Hash(float value) const override;

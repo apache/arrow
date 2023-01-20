@@ -121,7 +121,7 @@ class PARQUET_EXPORT BloomFilter {
 /// filter is 32 bytes to take advantage of 32-byte SIMD instructions.
 class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
  public:
-  /// The constructor of BlockSplitBloomFilter. It uses murmur3_x64_128 as hash function.
+  /// The constructor of BlockSplitBloomFilter. It uses XXH64 as hash function.
   BlockSplitBloomFilter();
 
   /// Initialize the BlockSplitBloomFilter. The range of num_bytes should be within

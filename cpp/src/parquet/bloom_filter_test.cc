@@ -276,7 +276,8 @@ int64_t HASHES_OF_LOOPING_BYTES_WITH_SEED_42[32] = {
 
 /**
  * Test data is output of the following program with xxHash implementation
- * from https://github.com/Cyan4973/xxHash with commit c8c4cc0f812719ce1f5b2c291159658980e7c255
+ * from https://github.com/Cyan4973/xxHash with commit
+ * c8c4cc0f812719ce1f5b2c291159658980e7c255
  *
  * #define XXH_INLINE_ALL
  * #include "xxhash.h"
@@ -300,7 +301,7 @@ int64_t HASHES_OF_LOOPING_BYTES_WITH_SEED_42[32] = {
  *        printf("%lldL,\n", (long long) XXH64(src, i, 42));
  *     }
  * }
-*/
+ */
 TEST(XxHashTest, TestBloomFilter) {
   uint8_t bytes[32] = {};
 
