@@ -151,21 +151,20 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
     ARROW_ASSIGN_OR_RAISE(args_batch, ExecBatch::Make(arguments, length));
 
     // Construct and initialize HashAggregateKernels
-    std::vector<std::vector<TypeHolder>> aggs_argument_types(aggregates.size());
-    {
-      // Contains the flattened list of aggregate arguments. We use the size of
-      // each Aggregate::target to re-group the aggregate argument types.
-      auto argument_types = args_batch.GetTypes();
-      size_t i = 0;
-      for (size_t j = 0; j < aggregates.size(); j++) {
-        const size_t num_agg_args = aggregates[j].target.size();
-        for (size_t k = 0; k < num_agg_args && i < argument_types.size(); k++, i++) {
-          aggs_argument_types[j].push_back(std::move(argument_types[i]));
-        }
+    std::vector<std::vector<TypeHolder>> aggs_argument_types;
+    aggs_argument_types.reserve(aggregates.size());
+    size_t i = 0;
+    for (const auto& aggregate : aggregates) {
+      auto& agg_types = aggs_argument_types.emplace_back();
+      const size_t num_needed = aggregate.target.size();
+      for (size_t j = 0; j < num_needed && i < arguments.size(); j++, i++) {
+        agg_types.emplace_back(arguments[i].type());
       }
-      DCHECK_EQ(i, argument_types.size())
-          << "argument_types should contain input types for all the aggregates.";
+      DCHECK_EQ(agg_types.size(), num_needed);
     }
+    DCHECK_EQ(aggs_argument_types.size(), aggregates.size());
+    DCHECK_EQ(i, arguments.size())
+        << "arguments should contain enough values for all the aggregates.";
 
     ARROW_ASSIGN_OR_RAISE(kernels, GetKernels(ctx, aggregates, aggs_argument_types));
 
