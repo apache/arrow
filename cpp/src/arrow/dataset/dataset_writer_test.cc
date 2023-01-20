@@ -84,8 +84,6 @@ class DatasetWriterTestFixture : public testing::Test {
       post_finish_visited_.push_back(writer->destination().path);
       return Status::OK();
     };
-    // std::shared_ptr<FileFormat> format = std::make_shared<IpcFileFormat>();
-    // write_options_->file_write_options = format->DefaultWriteOptions();
     scheduler_finished_ =
         util::AsyncTaskScheduler::Make([&](util::AsyncTaskScheduler* scheduler) {
           scheduler_ = scheduler;
@@ -516,11 +514,6 @@ TEST_F(DatasetWriterTestFixture, ErrOnExistingData) {
                              write_options_, scheduler_, [] {}, [] {}, [] {}));
   AssertEmptyFiles({"testdir/part-0.arrow"});
 }
-
-/// VIBHATHA WORKING
-// TEST_F(DatasetWriterTestFixture, DefaultWriteOptions) {
-//   ASSERT_EQ(1,1);
-// }
 
 }  // namespace internal
 }  // namespace dataset

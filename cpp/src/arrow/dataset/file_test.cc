@@ -312,7 +312,6 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
   auto format = std::make_shared<IpcFileFormat>();
   auto fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
   auto write_options = std::make_shared<FileSystemDatasetWriteOptions>(format);
-  // write_options.file_write_options = format->DefaultWriteOptions();
   write_options->filesystem = fs;
   write_options->base_dir = "root";
   write_options->partitioning = std::make_shared<HivePartitioning>(schema({}));
@@ -367,7 +366,6 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
     auto format = std::make_shared<IpcFileFormat>();
     auto fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
     auto write_options = std::make_shared<FileSystemDatasetWriteOptions>(format);
-    // write_options.file_write_options = format->DefaultWriteOptions();
     write_options->filesystem = fs;
     write_options->base_dir = "root";
     write_options->partitioning = std::make_shared<HivePartitioning>(schema({}));

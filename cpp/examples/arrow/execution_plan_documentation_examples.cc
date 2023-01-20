@@ -679,7 +679,6 @@ arrow::Status ScanFilterWriteExample(const std::string& file_path) {
 
   auto write_options =
       std::make_shared<arrow::dataset::FileSystemDatasetWriteOptions>(format);
-  // write_options.file_write_options = format->DefaultWriteOptions();
   write_options->filesystem = filesystem;
   write_options->base_dir = base_path;
   write_options->partitioning = partitioning;
