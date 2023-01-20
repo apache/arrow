@@ -31,7 +31,6 @@ Aggregations
    any
    approximate_median
    count
-   count_all
    count_distinct
    index
    max
@@ -45,6 +44,10 @@ Aggregations
    sum
    tdigest
    variance
+
+..
+  Nullary aggregate functions (count_all) aren't exposed in pyarrow.compute,
+  so they aren't listed here.
 
 Cumulative Functions
 --------------------
