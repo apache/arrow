@@ -123,7 +123,11 @@ class ScalarAggregateNode : public ExecNode, public TracedNode<ScalarAggregateNo
       kernels[i] = static_cast<const ScalarAggregateKernel*>(kernel);
 
       if (aggregates[i].options == nullptr) {
-        aggregates[i].options = function->default_options()->Copy();
+        DCHECK(!function->doc().options_required);
+        const auto* default_options = function->default_options();
+        if (default_options) {
+          aggregates[i].options = default_options->Copy();
+        }
       }
 
       KernelContext kernel_ctx{exec_ctx};

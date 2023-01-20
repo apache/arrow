@@ -531,7 +531,7 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
 :SinkNode{}
   :ScalarAggregateNode{aggregates=[
 	count(i32, {mode=NON_NULL}),
-	count_all(*, {}),
+	count_all(*),
 ]}
     :UnionNode{}
       rhs:SourceNode{}

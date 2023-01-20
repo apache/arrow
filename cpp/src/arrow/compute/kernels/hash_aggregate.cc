@@ -2841,7 +2841,6 @@ const FunctionDoc hash_list_doc{"List all values in each group",
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   static auto default_count_options = CountOptions::Defaults();
-  static auto default_count_all_options = CountAllOptions::Defaults();
   static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
   static auto default_tdigest_options = TDigestOptions::Defaults();
   static auto default_variance_options = VarianceOptions::Defaults();
@@ -2856,8 +2855,8 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   }
 
   {
-    auto func = std::make_shared<HashAggregateFunction>(
-        "hash_count_all", Arity::Unary(), hash_count_all_doc, &default_count_all_options);
+    auto func = std::make_shared<HashAggregateFunction>("hash_count_all", Arity::Unary(),
+                                                        hash_count_all_doc, NULLPTR);
 
     DCHECK_OK(func->AddKernel(MakeUnaryKernel(HashAggregateInit<GroupedCountAllImpl>)));
     auto status = registry->AddFunction(std::move(func));

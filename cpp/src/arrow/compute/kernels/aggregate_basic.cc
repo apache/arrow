@@ -934,11 +934,10 @@ const FunctionDoc index_doc{"Find the index of the first occurrence of a given v
 
 void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
-  static auto default_count_all_options = CountAllOptions::Defaults();
   static auto default_count_options = CountOptions::Defaults();
 
-  auto func = std::make_shared<ScalarAggregateFunction>(
-      "count_all", Arity::Nullary(), count_all_doc, &default_count_all_options);
+  auto func = std::make_shared<ScalarAggregateFunction>("count_all", Arity::Nullary(),
+                                                        count_all_doc, NULLPTR);
 
   // Takes no input (counts all rows), outputs int64 scalar
   AddAggKernel(KernelSignature::Make({}, int64()), CountAllInit, func.get());
