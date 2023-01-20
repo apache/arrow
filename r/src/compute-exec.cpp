@@ -332,18 +332,18 @@ void ExecPlan_Write(
 
   // TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
   // and encapsulate this logic better
-  ds::FileSystemDatasetWriteOptions opts;
-  opts.file_write_options = file_write_options;
-  opts.existing_data_behavior = existing_data_behavior;
-  opts.filesystem = filesystem;
-  opts.base_dir = base_dir;
-  opts.partitioning = partitioning;
-  opts.basename_template = basename_template;
-  opts.max_partitions = max_partitions;
-  opts.max_open_files = max_open_files;
-  opts.max_rows_per_file = max_rows_per_file;
-  opts.min_rows_per_group = min_rows_per_group;
-  opts.max_rows_per_group = max_rows_per_group;
+  std::shared_ptr<ds::FileSystemDatasetWriteOptions> opts 
+    = std::make_shared<ds::FileSystemDatasetWriteOptions>(file_write_options->format(), file_write_options);
+  opts->existing_data_behavior = existing_data_behavior;
+  opts->filesystem = filesystem;
+  opts->base_dir = base_dir;
+  opts->partitioning = partitioning;
+  opts->basename_template = basename_template;
+  opts->max_partitions = max_partitions;
+  opts->max_open_files = max_open_files;
+  opts->max_rows_per_file = max_rows_per_file;
+  opts->min_rows_per_group = min_rows_per_group;
+  opts->max_rows_per_group = max_rows_per_group;
 
   auto kv = strings_to_kvm(metadata);
   MakeExecNodeOrStop("write", final_node->plan(), {final_node.get()},
