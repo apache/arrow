@@ -2292,15 +2292,17 @@ if(ARROW_USE_XSIMD)
                      TRUE)
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
-    add_library(xsimd INTERFACE IMPORTED)
+    add_library(arrow::xsimd INTERFACE IMPORTED)
     if(CMAKE_VERSION VERSION_LESS 3.11)
-      set_target_properties(xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                             "${XSIMD_INCLUDE_DIR}")
+      set_target_properties(arrow::xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                                    "${XSIMD_INCLUDE_DIR}")
     else()
-      target_include_directories(xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
+      target_include_directories(arrow::xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
     endif()
+    set(ARROW_XSIMD arrow::xsimd)
   else()
     message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
+    set(ARROW_XSIMD xsimd)
   endif()
 endif()
 
