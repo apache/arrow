@@ -181,8 +181,8 @@ volumes:
     name: maven-cache
   python-wheel-manylinux2014-ccache:
     name: python-wheel-manylinux2014-ccache
-  python-wheel-manylinux228-ccache:
-    name: python-wheel-manylinux228-ccache
+  python-wheel-manylinux_2_28-ccache:
+    name: python-wheel-manylinux_2_28-ccache
   python-wheel-windows-clcache:
     name: python-wheel-windows-clcache
   ubuntu-ccache:
@@ -990,9 +990,8 @@ services:
       <<: *ccache
     volumes:
       - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux228-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux_2_28-ccache:/ccache:delegated
     command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
-
 
 
   python-wheel-manylinux-test-imports:

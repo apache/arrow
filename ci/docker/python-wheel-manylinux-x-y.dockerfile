@@ -27,30 +27,29 @@ ENV MANYLINUX_VERSION=${manylinux}
 # Install basic dependencies
 RUN yum install -y git flex curl autoconf zip perl-IPC-Cmd wget
 
-ENV HOST_PYTHON_VERSION=3.8
-RUN HOST_PYTHON_ROOT=$(find /opt/python -name cp${HOST_PYTHON_VERSION/./}-*) && \
-    echo "export PATH=$HOST_PYTHON_ROOT/bin:\$PATH" >> /python.sh
+ENV CPYTHON_VERSION=cp38
+ENV PATH=/opt/python/${CPYTHON_VERSION}-${CPYTHON_VERSION}/bin:${PATH}
 
 # Install CMake
 # AWS SDK doesn't work with CMake=3.22 due to https://gitlab.kitware.com/cmake/cmake/-/issues/22524
 ARG cmake=3.21.4
 COPY ci/scripts/install_cmake.sh arrow/ci/scripts/
-RUN source /python.sh && /arrow/ci/scripts/install_cmake.sh ${arch} linux ${cmake} /usr/local
+RUN /arrow/ci/scripts/install_cmake.sh ${arch} linux ${cmake} /usr/local
 
 # Install Ninja
 ARG ninja=1.10.2
 COPY ci/scripts/install_ninja.sh arrow/ci/scripts/
-RUN source /python.sh && /arrow/ci/scripts/install_ninja.sh ${ninja} /usr/local
+RUN /arrow/ci/scripts/install_ninja.sh ${ninja} /usr/local
 
 # Install ccache
 ARG ccache=4.1
 COPY ci/scripts/install_ccache.sh arrow/ci/scripts/
-RUN source /python.sh && /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
-
-RUN echo "Hello World"
+RUN /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
 
 # Install vcpkg
 ARG vcpkg
+# PEP 600 states that a wheel tagged manylinux_x_y
+# shall work on any distro based on glibc>=x.y
 ARG glibc=2.28
 COPY ci/vcpkg/*.patch \
      ci/vcpkg/*linux*.cmake \
@@ -59,7 +58,7 @@ COPY ci/scripts/install_vcpkg.sh \
      ci/scripts/install_glibc.sh \
      arrow/ci/scripts/
 ENV VCPKG_ROOT=/opt/vcpkg
-RUN source /python.sh && arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg}
+RUN arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg}
 ENV PATH="${PATH}:${VCPKG_ROOT}"
 
 ARG build_type=release
@@ -74,7 +73,7 @@ COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
 # arm machines it hits ARROW-15141 where we would need to fall back to 1.8.186
 # but we cannot patch those portfiles since vcpkg-tool handles the checkout of
 # previous versions => use bundled S3 build
-RUN source /python.sh && vcpkg install \
+RUN vcpkg install \
         --clean-after-build \
         --x-install-root=${VCPKG_ROOT}/installed \
         --x-manifest-root=/arrow/ci/vcpkg \
