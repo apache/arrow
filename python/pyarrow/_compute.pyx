@@ -2214,7 +2214,7 @@ def _group_by(args, keys, aggregations):
             c_aggr.target.push_back(CFieldRef(<int> field_ref))
             field_ref += 1
 
-        c_aggregations.push_back(c_aggr)
+        c_aggregations.push_back(move(c_aggr))
 
     with nogil:
         result = GetResultValue(

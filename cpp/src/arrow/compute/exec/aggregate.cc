@@ -160,11 +160,15 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
       for (size_t j = 0; j < num_needed && i < arguments.size(); j++, i++) {
         agg_types.emplace_back(arguments[i].type());
       }
-      DCHECK_EQ(agg_types.size(), num_needed);
+      if (agg_types.size() != num_needed) {
+        return Status::Invalid("Not enough arguments specified to aggregate functions.");
+      }
     }
     DCHECK_EQ(aggs_argument_types.size(), aggregates.size());
-    DCHECK_EQ(i, arguments.size())
-        << "arguments should contain enough values for all the aggregates.";
+    if (i != arguments.size()) {
+      return Status::Invalid("Aggregate functions expect exactly ", i, " arguments, but ",
+                             arguments.size(), " were specified.");
+    }
 
     ARROW_ASSIGN_OR_RAISE(kernels, GetKernels(ctx, aggregates, aggs_argument_types));
 
