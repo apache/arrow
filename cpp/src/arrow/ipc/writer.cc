@@ -473,23 +473,18 @@ class RecordBatchSerializer {
       int32_t* shifted_offsets =
           reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
 
-      // Offsets may not be ascending, so we need to find out the start offset
-      // for each child
-      for (int64_t i = 0; i < length; ++i) {
-        const uint8_t code = type_codes[i];
-        if (child_offsets[code] == -1) {
-          child_offsets[code] = unshifted_offsets[i];
-        } else {
-          child_offsets[code] = std::min(child_offsets[code], unshifted_offsets[i]);
-        }
-      }
-
-      // Now compute shifted offsets by subtracting child offset
-      for (int64_t i = 0; i < length; ++i) {
-        const int8_t code = type_codes[i];
-        shifted_offsets[i] = unshifted_offsets[i] - child_offsets[code];
-        // Update the child length to account for observed value
-        child_lengths[code] = std::max(child_lengths[code], shifted_offsets[i] + 1);
+      // Offsets are guaranteed to be increasing according to the spec, so
+      // the first offset we find for a child is the initial offset and
+      // will become the 0th offset for this child.
+      for (int64_t codeIdx = 0; codeIdx < length; ++codeIdx) {
+          const uint8_t code = type_codes[codeIdx];
+          if (child_offsets[code] == -1) {
+              child_offsets[code] = unshifted_offsets[codeIdx];
+              shifted_offsets[codeIdx] = 0;
+          } else {
+              shifted_offsets[codeIdx] = unshifted_offsets[codeIdx] - child_offsets[code];
+          }
+          child_lengths[code] = std::max(child_lengths[code], shifted_offsets[codeIdx] + 1);
       }
 
       value_offsets = std::move(shifted_offsets_buffer);
