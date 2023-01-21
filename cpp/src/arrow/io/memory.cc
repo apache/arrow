@@ -274,7 +274,7 @@ BufferReader::BufferReader(const uint8_t* data, int64_t size)
 BufferReader::BufferReader(const Buffer& buffer)
     : BufferReader(buffer.data(), buffer.size()) {}
 
-BufferReader::BufferReader(const std::string_view& data)
+BufferReader::BufferReader(std::string_view data)
     : BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
                    static_cast<int64_t>(data.size())) {}
 

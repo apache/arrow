@@ -1084,6 +1084,10 @@ compute___expr__call <- function(func_name, argument_list, options) {
   .Call(`_arrow_compute___expr__call`, func_name, argument_list, options)
 }
 
+compute___expr__is_field_ref <- function(x) {
+  .Call(`_arrow_compute___expr__is_field_ref`, x)
+}
+
 field_names_in_expression <- function(x) {
   .Call(`_arrow_field_names_in_expression`, x)
 }
@@ -1094,6 +1098,10 @@ compute___expr__get_field_ref_name <- function(x) {
 
 compute___expr__field_ref <- function(name) {
   .Call(`_arrow_compute___expr__field_ref`, name)
+}
+
+compute___expr__nested_field_ref <- function(x, name) {
+  .Call(`_arrow_compute___expr__nested_field_ref`, x, name)
 }
 
 compute___expr__scalar <- function(x) {
@@ -2087,4 +2095,3 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
-

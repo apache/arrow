@@ -99,6 +99,11 @@ Future<std::vector<ExecBatch>> StartAndCollect(
     ExecPlan* plan, AsyncGenerator<std::optional<ExecBatch>> gen);
 
 ARROW_TESTING_EXPORT
+AsyncGenerator<std::optional<ExecBatch>> MakeIntegerBatchGen(
+    const std::vector<std::function<int64_t(int)>>& gens,
+    const std::shared_ptr<Schema>& schema, int num_batches, int batch_size);
+
+ARROW_TESTING_EXPORT
 BatchesWithSchema MakeBasicBatches();
 
 ARROW_TESTING_EXPORT
@@ -109,6 +114,11 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
                                     int num_batches = 10, int batch_size = 4,
                                     int64_t alignment = kDefaultBufferAlignment,
                                     MemoryPool* memory_pool = nullptr);
+
+ARROW_TESTING_EXPORT
+Result<BatchesWithSchema> MakeIntegerBatches(
+    const std::vector<std::function<int64_t(int)>>& gens,
+    const std::shared_ptr<Schema>& schema, int num_batches, int batch_size);
 
 ARROW_TESTING_EXPORT
 BatchesWithSchema MakeBatchesFromString(const std::shared_ptr<Schema>& schema,

@@ -67,6 +67,39 @@ test_that("left_join `by` args", {
   )
 })
 
+test_that("left_join with join_by", {
+  # only run this test in newer versions of dplyr that include `join_by()`
+  skip_if_not(packageVersion("dplyr") >= "1.0.99.9000")
+
+  compare_dplyr_binding(
+    .input %>%
+      left_join(to_join, join_by(some_grouping)) %>%
+      collect(),
+    left
+  )
+  compare_dplyr_binding(
+    .input %>%
+      left_join(
+        to_join %>%
+          rename(the_grouping = some_grouping),
+        join_by(some_grouping == the_grouping)
+      ) %>%
+      collect(),
+    left
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      rename(the_grouping = some_grouping) %>%
+      left_join(
+        to_join,
+        join_by(the_grouping == some_grouping)
+      ) %>%
+      collect(),
+    left
+  )
+})
+
 test_that("join two tables", {
   expect_identical(
     arrow_table(left) %>%
@@ -136,6 +169,23 @@ test_that("Error handling", {
   )
 })
 
+test_that("Error handling for unsupported expressions in join_by", {
+  # only run this test in newer versions of dplyr that include `join_by()`
+  skip_if_not(packageVersion("dplyr") >= "1.0.99.9000")
+
+  expect_error(
+    arrow_table(left) %>%
+      left_join(to_join, join_by(some_grouping >= some_grouping)),
+    "not supported"
+  )
+
+  expect_error(
+    arrow_table(left) %>%
+      left_join(to_join, join_by(closest(some_grouping >= some_grouping))),
+    "not supported"
+  )
+})
+
 # TODO: test duplicate col names
 # TODO: casting: int and float columns?
 
@@ -190,14 +240,7 @@ test_that("full_join", {
 test_that("semi_join", {
   compare_dplyr_binding(
     .input %>%
-      semi_join(to_join, by = "some_grouping", keep = TRUE) %>%
-      collect(),
-    left
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      semi_join(to_join, by = "some_grouping", keep = FALSE) %>%
+      semi_join(to_join, by = "some_grouping") %>%
       collect(),
     left
   )

@@ -47,6 +47,7 @@ case ${codename} in
     python=3
     apt-get update -y -q
     apt-get install -y -q --no-install-recommends \
+      libxsimd-dev \
       llvm-dev
     ;;
 esac

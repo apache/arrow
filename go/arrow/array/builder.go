@@ -281,15 +281,6 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.TIME64:
 		typ := dtype.(*arrow.Time64Type)
 		return NewTime64Builder(mem, typ)
-	case arrow.INTERVAL:
-		switch dtype.(type) {
-		case *arrow.DayTimeIntervalType:
-			return NewDayTimeIntervalBuilder(mem)
-		case *arrow.MonthIntervalType:
-			return NewMonthIntervalBuilder(mem)
-		case *arrow.MonthDayNanoIntervalType:
-			return NewMonthDayNanoIntervalBuilder(mem)
-		}
 	case arrow.INTERVAL_MONTHS:
 		return NewMonthIntervalBuilder(mem)
 	case arrow.INTERVAL_DAY_TIME:

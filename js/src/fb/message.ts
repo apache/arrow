@@ -10,7 +10,7 @@ import { MetadataVersion } from './metadata-version.js';
 export class Message {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):Message {
+  __init(i:number, bb:flatbuffers.ByteBuffer):Message {
   this.bb_pos = i;
   this.bb = bb;
   return this;
@@ -35,15 +35,14 @@ headerType():MessageHeader {
   return offset ? this.bb!.readUint8(this.bb_pos + offset) : MessageHeader.NONE;
 }
 
-// @ts-ignore
-header<T extends flatbuffers.Table>(obj:any):any|null {
+header(obj:any):any|null {
   const offset = this.bb!.__offset(this.bb_pos, 8);
   return offset ? this.bb!.__union(obj, this.bb_pos + offset) : null;
 }
 
-bodyLength():flatbuffers.Long {
+bodyLength():bigint {
   const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? this.bb!.readInt64(this.bb_pos + offset) : this.bb!.createLong(0, 0);
+  return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('0');
 }
 
 customMetadata(index: number, obj?:KeyValue):KeyValue|null {
@@ -72,8 +71,8 @@ static addHeader(builder:flatbuffers.Builder, headerOffset:flatbuffers.Offset) {
   builder.addFieldOffset(2, headerOffset, 0);
 }
 
-static addBodyLength(builder:flatbuffers.Builder, bodyLength:flatbuffers.Long) {
-  builder.addFieldInt64(3, bodyLength, builder.createLong(0, 0));
+static addBodyLength(builder:flatbuffers.Builder, bodyLength:bigint) {
+  builder.addFieldInt64(3, bodyLength, BigInt('0'));
 }
 
 static addCustomMetadata(builder:flatbuffers.Builder, customMetadataOffset:flatbuffers.Offset) {
@@ -105,7 +104,7 @@ static finishSizePrefixedMessageBuffer(builder:flatbuffers.Builder, offset:flatb
   builder.finish(offset, undefined, true);
 }
 
-static createMessage(builder:flatbuffers.Builder, version:MetadataVersion, headerType:MessageHeader, headerOffset:flatbuffers.Offset, bodyLength:flatbuffers.Long, customMetadataOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createMessage(builder:flatbuffers.Builder, version:MetadataVersion, headerType:MessageHeader, headerOffset:flatbuffers.Offset, bodyLength:bigint, customMetadataOffset:flatbuffers.Offset):flatbuffers.Offset {
   Message.startMessage(builder);
   Message.addVersion(builder, version);
   Message.addHeaderType(builder, headerType);

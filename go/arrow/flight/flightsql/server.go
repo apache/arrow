@@ -632,7 +632,7 @@ func (f *flightSqlServer) DoGet(request *flight.Ticket, stream flight.FlightServ
 
 	for chunk := range cc {
 		if chunk.Err != nil {
-			return err
+			return chunk.Err
 		}
 
 		wr.SetFlightDescriptor(chunk.Desc)

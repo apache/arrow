@@ -45,7 +45,7 @@ describe(`BoolVector`, () => {
     });
     test(`indexOf returns -1 when value not found`, () => {
         const v = newBoolVector(3, new Uint8Array([0xFF]));
-        expect(v.indexOf(false)).toEqual(-1);
+        expect(v.indexOf(false)).toBe(-1);
     });
     test(`can set values to true and false`, () => {
         const v = newBoolVector(n, new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]));

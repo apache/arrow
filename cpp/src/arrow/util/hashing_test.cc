@@ -440,7 +440,7 @@ TEST(BinaryMemoTable, Basics) {
   {
     const int32_t start_offset = 1;
     std::vector<std::string> actual;
-    table.VisitValues(start_offset, [&](const std::string_view& v) {
+    table.VisitValues(start_offset, [&](std::string_view v) {
       actual.emplace_back(v.data(), v.length());
     });
     EXPECT_THAT(actual, testing::ElementsAre(B, C, D, E, F, ""));

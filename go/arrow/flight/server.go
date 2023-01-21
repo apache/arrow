@@ -24,7 +24,6 @@ import (
 
 	"github.com/apache/arrow/go/v11/arrow/flight/internal/flight"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 type (
@@ -64,6 +63,26 @@ func RegisterFlightServiceServer(s grpc.ServiceRegistrar, srv FlightServer) {
 	flight.RegisterFlightServiceServer(s, srv)
 }
 
+// From https://github.com/grpc/grpc-go/blob/4c776ec01572d55249df309251900554b46adb41/reflection/serverreflection.go#L69-L83
+// This interface is inlined to make this arrow library compatible with
+// grpc < 1.45 .
+// See "google.golang.org/grpc/reflection" 's reflection.ServiceInfoProvider .
+// serviceInfoProvider is an interface used to retrieve metadata about the
+// services to expose.
+//
+// The reflection service is only interested in the service names, but the
+// signature is this way so that *grpc.Server implements it. So it is okay
+// for a custom implementation to return zero values for the
+// grpc.ServiceInfo values in the map.
+//
+// Experimental
+//
+// Notice: This type is EXPERIMENTAL and may be changed or removed in a
+// later release.
+type serviceInfoProvider interface {
+	GetServiceInfo() map[string]grpc.ServiceInfo
+}
+
 // Server is an interface for hiding some of the grpc specifics to make
 // it slightly easier to manage a flight service, slightly modeled after
 // the C++ implementation
@@ -94,9 +113,9 @@ type Server interface {
 	// ServiceRegistrar wraps a single method that supports service registration.
 	// For example, it may be used to register health check provided by grpc-go.
 	grpc.ServiceRegistrar
-	// ServiceInfoProvider is an interface used to retrieve metadata about the services to expose.
+	// serviceInfoProvider is an interface used to retrieve metadata about the services to expose.
 	// If reflection is enabled on the server, all the endpoints can be invoked using grpcurl.
-	reflection.ServiceInfoProvider
+	serviceInfoProvider
 }
 
 // BaseFlightServer is the base flight server implementation and must be

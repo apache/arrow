@@ -16,7 +16,8 @@ import { LargeUtf8 } from './large-utf8.js';
 import { List } from './list.js';
 import { Map } from './map.js';
 import { Null } from './null.js';
-import { Struct_ } from './struct_.js';
+import { RunEndEncoded } from './run-end-encoded.js';
+import { Struct_ } from './struct-.js';
 import { Time } from './time.js';
 import { Timestamp } from './timestamp.js';
 import { Union } from './union.js';
@@ -28,7 +29,7 @@ import { Utf8 } from './utf8.js';
  * Top-level Type value, enabling extensible type-specific metadata. We can
  * add new logical types to Type without breaking backwards compatibility
  */
-export enum Type{
+export enum Type {
   NONE = 0,
   Null = 1,
   Int = 2,
@@ -50,13 +51,14 @@ export enum Type{
   Duration = 18,
   LargeBinary = 19,
   LargeUtf8 = 20,
-  LargeList = 21
+  LargeList = 21,
+  RunEndEncoded = 22
 }
 
 export function unionToType(
   type: Type,
-  accessor: (obj:Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|Struct_|Time|Timestamp|Union|Utf8) => Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|Struct_|Time|Timestamp|Union|Utf8|null
-): Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|Struct_|Time|Timestamp|Union|Utf8|null {
+  accessor: (obj:Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|RunEndEncoded|Struct_|Time|Timestamp|Union|Utf8) => Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|RunEndEncoded|Struct_|Time|Timestamp|Union|Utf8|null
+): Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|RunEndEncoded|Struct_|Time|Timestamp|Union|Utf8|null {
   switch(Type[type]) {
     case 'NONE': return null;
     case 'Null': return accessor(new Null())! as Null;
@@ -80,15 +82,16 @@ export function unionToType(
     case 'LargeBinary': return accessor(new LargeBinary())! as LargeBinary;
     case 'LargeUtf8': return accessor(new LargeUtf8())! as LargeUtf8;
     case 'LargeList': return accessor(new LargeList())! as LargeList;
+    case 'RunEndEncoded': return accessor(new RunEndEncoded())! as RunEndEncoded;
     default: return null;
   }
 }
 
 export function unionListToType(
   type: Type,
-  accessor: (index: number, obj:Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|Struct_|Time|Timestamp|Union|Utf8) => Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|Struct_|Time|Timestamp|Union|Utf8|null,
+  accessor: (index: number, obj:Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|RunEndEncoded|Struct_|Time|Timestamp|Union|Utf8) => Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|RunEndEncoded|Struct_|Time|Timestamp|Union|Utf8|null,
   index: number
-): Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|Struct_|Time|Timestamp|Union|Utf8|null {
+): Binary|Bool|Date|Decimal|Duration|FixedSizeBinary|FixedSizeList|FloatingPoint|Int|Interval|LargeBinary|LargeList|LargeUtf8|List|Map|Null|RunEndEncoded|Struct_|Time|Timestamp|Union|Utf8|null {
   switch(Type[type]) {
     case 'NONE': return null;
     case 'Null': return accessor(index, new Null())! as Null;
@@ -112,7 +115,7 @@ export function unionListToType(
     case 'LargeBinary': return accessor(index, new LargeBinary())! as LargeBinary;
     case 'LargeUtf8': return accessor(index, new LargeUtf8())! as LargeUtf8;
     case 'LargeList': return accessor(index, new LargeList())! as LargeList;
+    case 'RunEndEncoded': return accessor(index, new RunEndEncoded())! as RunEndEncoded;
     default: return null;
   }
 }
-

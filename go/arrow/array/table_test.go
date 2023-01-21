@@ -695,6 +695,9 @@ func TestTableReader(t *testing.T) {
 
 	for tr.Next() {
 	}
+	if err := tr.Err(); err != nil {
+		t.Fatalf("tr err: %#v", err)
+	}
 
 	for _, tc := range []struct {
 		sz   int64
@@ -728,6 +731,9 @@ func TestTableReader(t *testing.T) {
 				}
 				n++
 				sum += rec.NumRows()
+			}
+			if err := tr.Err(); err != nil {
+				t.Fatalf("tr err: %#v", err)
 			}
 
 			if got, want := n, tc.n; got != want {

@@ -534,11 +534,10 @@ Result<std::shared_ptr<StructArray>> StructArray::Make(
   if (children.size() != fields.size()) {
     return Status::Invalid("Mismatching number of fields and child arrays");
   }
-  int64_t length = 0;
-  if (children.size() == 0) {
+  if (children.empty()) {
     return Status::Invalid("Can't infer struct array length with 0 child arrays");
   }
-  length = children.front()->length();
+  const int64_t length = children.front()->length();
   for (const auto& child : children) {
     if (length != child->length()) {
       return Status::Invalid("Mismatching child array lengths");

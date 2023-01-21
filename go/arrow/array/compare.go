@@ -333,6 +333,9 @@ func Equal(left, right arrow.Array) bool {
 	case *DenseUnion:
 		r := right.(*DenseUnion)
 		return arrayDenseUnionEqual(l, r)
+	case *RunEndEncoded:
+		r := right.(*RunEndEncoded)
+		return arrayRunEndEncodedEqual(l, r)
 	default:
 		panic(fmt.Errorf("arrow/array: unknown array type %T", l))
 	}
@@ -591,6 +594,9 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *DenseUnion:
 		r := right.(*DenseUnion)
 		return arrayDenseUnionApproxEqual(l, r, opt)
+	case *RunEndEncoded:
+		r := right.(*RunEndEncoded)
+		return arrayRunEndEncodedApproxEqual(l, r, opt)
 	default:
 		panic(fmt.Errorf("arrow/array: unknown array type %T", l))
 	}
