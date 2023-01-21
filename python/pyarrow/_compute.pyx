@@ -2069,6 +2069,25 @@ class TDigestOptions(_TDigestOptions):
         self._set_options(q, delta, buffer_size, skip_nulls, min_count)
 
 
+cdef class _HllOptions(FunctionOptions):
+    def _set_options(self, lg_config_k):
+        self.wrapped.reset(new CHllOptions(lg_config_k))
+
+
+class HllOptions(_HllOptions):
+    __doc__ = f"""
+    Options for the `hll` function.
+
+    Parameters
+    ----------
+    lg_config_k : int, default 11
+        log (base 2) of the size of the data structure. Larger values increase accuracy
+    """
+
+    def __init__(self, lg_config_k=11):
+        self._set_options(lg_config_k)
+
+
 cdef class _Utf8NormalizeOptions(FunctionOptions):
     _form_map = {
         "NFC": CUtf8NormalizeForm_NFC,

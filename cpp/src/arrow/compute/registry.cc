@@ -310,6 +310,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarAggregateQuantile(registry.get());
   RegisterScalarAggregateTDigest(registry.get());
   RegisterScalarAggregateVariance(registry.get());
+  RegisterScalarAggregateHll(registry.get());
 
   RegisterAggregateOptions(registry.get());
 

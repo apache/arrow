@@ -39,6 +39,7 @@ from pyarrow._compute import (  # noqa
     ElementWiseAggregateOptions,
     ExtractRegexOptions,
     FilterOptions,
+    HllOptions,
     IndexOptions,
     JoinOptions,
     ListSliceOptions,

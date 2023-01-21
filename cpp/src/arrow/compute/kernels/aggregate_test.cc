@@ -16,8 +16,11 @@
 // under the License.
 
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <limits>
 #include <memory>
+#include <string>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
@@ -34,7 +37,9 @@
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/registry.h"
+#include "arrow/testing/generator.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
@@ -2989,6 +2994,209 @@ TEST_F(TestInt32ModeKernel, LargeValueRange) {
 TEST_F(TestInt32ModeKernel, Sliced) {
   CheckModeWithRangeSliced<ArrowType>(-100, 100);
   CheckModeWithRangeSliced<ArrowType>(-10000000, 10000000);
+}
+
+//
+// Hll
+//
+
+// Check that for array or chunked array a, Hll returns something close to expected_ndv,
+// where close is defined by variance_factor according to the proofs about HyperLogLog in
+// the literature.
+void CheckHll(const Datum& a, const HllOptions& options, uint64_t expected_ndv,
+              double variance_factor) {
+  ASSERT_OK_AND_ASSIGN(Datum out_ndv, Hll(a, options));
+  auto ndv = checked_cast<const DoubleScalar*>(out_ndv.scalar().get());
+  ASSERT_TRUE(ndv->is_valid);
+  // Check that we're close in terms of standard deviation from the expected number of
+  // distinct values. For 5 sigma, this test should fail one in 1.74M runs.
+  constexpr double sigmas = 5;
+  const double stddev =
+      expected_ndv * sqrt(variance_factor / pow(2, options.lg_config_k));
+  EXPECT_GE(ndv->value, expected_ndv - sigmas * stddev) << "stddev: " << stddev;
+  EXPECT_LE(ndv->value, expected_ndv + sigmas * stddev) << "stddev: " << stddev;
+}
+
+// Classic HyperLogLog supports merges and has a variance factor of 1.04^2.
+void CheckMergeHll(const Datum& array, const HllOptions& options, uint64_t expected_ndv) {
+  CheckHll(array, options, expected_ndv, 1.04 * 1.04);
+}
+
+// When no HLL merges have occurred, the variance is lower
+void CheckStreamHll(const Datum& array, const HllOptions& options,
+                    uint64_t expected_ndv) {
+  // "Streamed Approximate Counting of Distinct Elements: Beating Optimal Batch Methods"
+  // by Daniel Ting
+  CheckHll(array, options, expected_ndv, 1.0 / 1.4426);
+}
+
+class TestHllKernel : public ::testing::Test {};
+
+// Check a variety of array lengths, with the arrays containing random elements. This uses
+// streaming HLL and has a lower variance.
+TEST_F(TestHllKernel, Random) {
+  for (int i = 0; i <= 20; ++i) {
+    UInt64Builder builder;
+    std::unordered_set<uint64_t> memo;
+    auto visit_null = []() { return Status::OK(); };
+    auto visit_value = [&](uint64_t arg) {
+      const bool inserted = memo.insert(arg).second;
+      if (inserted) {
+        return builder.Append(arg);
+      }
+      return Status::OK();
+    };
+    auto rand = random::RandomArrayGenerator(0x3869ec73u + i);
+    auto arr =
+        rand.Numeric<UInt64Type>(UINT64_C(1) << i, UINT64_C(0), UINT64_MAX, 0.0)->data();
+    auto r = VisitArraySpanInline<UInt64Type>(*arr, visit_value, visit_null);
+    auto input = builder.Finish().ValueOrDie();
+    CheckStreamHll(input, HllOptions{}, memo.size());
+  }
+}
+
+// Check a variety of array lengths, with the arrays containing random elements. This uses
+// streaming HLL and has a lower variance.
+#define HLL_TEST_TYPE(TEST_NAME, ARROW_TYPE, C_NAME, ARROW_NAME)         \
+  TEST_F(TestHllKernel, RandomType##TEST_NAME) {                         \
+    std::set<C_NAME> memo;                                               \
+    auto visit_null = []() {};                                           \
+    auto visit_value = [&](C_NAME arg) { memo.insert(arg); };            \
+    auto rand = random::RandomArrayGenerator(0x3869ec73u);               \
+    auto arr = rand.ArrayOf(ARROW_NAME, UINT64_C(1) << 15, 0.0)->data(); \
+    VisitArraySpanInline<ARROW_TYPE>(*arr, visit_value, visit_null);     \
+    CheckStreamHll(arr, HllOptions{}, memo.size());                      \
+  }
+
+HLL_TEST_TYPE(Bool, BooleanType, bool, boolean())
+
+// Numeric
+HLL_TEST_TYPE(Int8, Int8Type, int8_t, int8())
+HLL_TEST_TYPE(Int16, Int16Type, int16_t, int16())
+HLL_TEST_TYPE(Int32, Int32Type, int32_t, int32())
+HLL_TEST_TYPE(Int64, Int64Type, int64_t, int64())
+HLL_TEST_TYPE(UInt8, UInt8Type, uint8_t, uint8())
+HLL_TEST_TYPE(UInt16, UInt16Type, uint16_t, uint16())
+HLL_TEST_TYPE(UInt32, UInt32Type, uint32_t, uint32())
+HLL_TEST_TYPE(UInt64, UInt64Type, uint64_t, uint64())
+HLL_TEST_TYPE(HalfFloat, HalfFloatType, uint16_t, float16())
+HLL_TEST_TYPE(Float, FloatType, float, float32())
+HLL_TEST_TYPE(Double, DoubleType, double, float64())
+
+// Date
+HLL_TEST_TYPE(Date32, Date32Type, uint32_t, date32())
+HLL_TEST_TYPE(Date64, Date64Type, uint64_t, date64())
+
+// Time
+HLL_TEST_TYPE(Seconds, Time32Type, uint32_t, time32(TimeUnit::SECOND))
+HLL_TEST_TYPE(Millis, Time32Type, uint32_t, time32(TimeUnit::MILLI))
+HLL_TEST_TYPE(Micros, Time64Type, uint64_t, time64(TimeUnit::MICRO))
+HLL_TEST_TYPE(Nanos, Time64Type, uint64_t, time64(TimeUnit::NANO))
+
+// Timestamp & Duration
+HLL_TEST_TYPE(SecondsDuration, Time32Type, uint32_t, duration(TimeUnit::SECOND))
+HLL_TEST_TYPE(MillisDuration, Time32Type, uint32_t, duration(TimeUnit::MILLI))
+HLL_TEST_TYPE(MicrosDuration, Time64Type, uint64_t, duration(TimeUnit::MICRO))
+HLL_TEST_TYPE(NanosDuration, Time64Type, uint64_t, duration(TimeUnit::NANO))
+
+HLL_TEST_TYPE(SecondsTimestamp, Time32Type, uint32_t, timestamp(TimeUnit::SECOND))
+HLL_TEST_TYPE(MillisTimestamp, Time32Type, uint32_t, timestamp(TimeUnit::MILLI))
+HLL_TEST_TYPE(MicrosTimestamp, Time64Type, uint64_t, timestamp(TimeUnit::MICRO))
+HLL_TEST_TYPE(NanosTimestamp, Time64Type, uint64_t, timestamp(TimeUnit::NANO))
+
+// Interval
+HLL_TEST_TYPE(MonthInterval, MonthIntervalType, uint64_t, month_interval())
+HLL_TEST_TYPE(DayTimeInterval, DayTimeIntervalType, DayTimeIntervalType::DayMilliseconds,
+              day_time_interval())
+HLL_TEST_TYPE(MonthDayNanoInterval, MonthDayNanoIntervalType,
+              MonthDayNanoIntervalType::MonthDayNanos, month_day_nano_interval())
+
+// Binary & String
+HLL_TEST_TYPE(Binary, BinaryType, std::string_view, binary())
+HLL_TEST_TYPE(LargeBinary, LargeBinaryType, std::string_view, large_binary())
+HLL_TEST_TYPE(Utf8, StringType, std::string_view, utf8())
+HLL_TEST_TYPE(LargeUtf8, LargeStringType, std::string_view, large_utf8())
+
+// Fixed Binary & Decimal
+HLL_TEST_TYPE(FixedBinary, FixedSizeBinaryType, std::string_view, fixed_size_binary(3))
+HLL_TEST_TYPE(Decimal128, Decimal128Type, std::string_view, decimal128(21, 3))
+HLL_TEST_TYPE(Decimal256, Decimal256Type, std::string_view, decimal256(13, 3))
+
+// Check a variety of duplicate probabilities, with the arrays containing random
+// elements. This uses streaming HLL and has a lower variance.
+TEST_F(TestHllKernel, RandomDuplicates) {
+  for (int i = 0; i <= 20; ++i) {
+    UInt64Builder builder;
+    std::unordered_set<uint64_t> memo;
+    auto visit_null = []() { return Status::OK(); };
+    auto visit_value = [&](uint64_t arg) {
+      const bool inserted = memo.insert(arg).second;
+      if (inserted) {
+        return builder.Append(arg);
+      }
+      return Status::OK();
+    };
+    auto rand = random::RandomArrayGenerator(0x3869ec73u + i);
+    auto arr =
+        rand.Numeric<UInt64Type>(UINT64_C(1) << 20, UINT64_C(0), UINT64_C(1) << i, 0.0)
+            ->data();
+    auto r = VisitArraySpanInline<UInt64Type>(*arr, visit_value, visit_null);
+    auto input = builder.Finish().ValueOrDie();
+    CheckStreamHll(input, HllOptions{}, memo.size());
+  }
+}
+
+// All NaNs are considered equal by HLL
+TEST_F(TestHllKernel, NaNs) {
+  unsigned j = 0;
+  DoubleBuilder builder;
+  auto visit_null = []() { return Status::OK(); };
+  auto visit_value = [&](double arg) {
+    return builder.Append(nan(std::to_string(j++).data()));
+  };
+  auto arr = ConstantArrayGenerator::Float64(1ul << 20)->data();
+  auto r = VisitArraySpanInline<DoubleType>(*arr, visit_value, visit_null);
+  auto input = builder.Finish().ValueOrDie();
+  CheckStreamHll(input, HllOptions{}, 1);
+}
+
+// Test empty HLL
+TEST_F(TestHllKernel, Empty) {
+  const HllOptions options{};
+  auto arr = ConstantArrayGenerator::Float64(0)->data();
+  ASSERT_OK_AND_ASSIGN(Datum out_ndv, Hll(*arr, options));
+  auto ndv = checked_cast<const DoubleScalar*>(out_ndv.scalar().get());
+  ASSERT_TRUE(ndv->is_valid);
+  EXPECT_EQ(ndv->value, 0);
+}
+
+// All NaNs are considered equal by HLL
+TEST_F(TestHllKernel, Nulls) {
+  auto rand = random::RandomArrayGenerator(867 - 5309);
+  auto arr = rand.Numeric<DoubleType>(1 << 20, 0, 0, 1.0);
+  CheckStreamHll(arr, HllOptions{}, 0);
+}
+
+// Check a variety of chunked array lengths, with the arrays containing random elements.
+// This uses HLL merge.
+TEST_F(TestHllKernel, Chunked) {
+  for (int i = 0; i <= 10; ++i) {
+    for (int j = 0; j <= 10; ++j) {
+      std::unordered_set<uint64_t> memo;
+      ArrayVector array_vector;
+      for (unsigned k = 0; k < 1ul << j; ++k) {
+        std::shared_ptr<Array> array;
+        auto visit_null = []() {};
+        auto visit_value = [&](uint64_t arg) { memo.insert(arg); };
+        auto rand = random::RandomArrayGenerator(0x97cb9188u + ((i * 10 + j) << j) + k);
+        array = rand.Numeric<UInt64Type>(UINT64_C(1) << i, UINT64_C(0), UINT64_MAX, 0.0);
+        VisitArraySpanInline<UInt64Type>(*array->data(), visit_value, visit_null);
+        array_vector.push_back(array);
+      }
+      auto chunked = *ChunkedArray::Make(array_vector);
+      CheckMergeHll(chunked, HllOptions{}, memo.size());
+    }
+  }
 }
 
 //

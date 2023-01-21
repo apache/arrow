@@ -417,6 +417,7 @@ if(ARROW_COMPUTE)
        compute/light_array.cc
        compute/registry.cc
        compute/kernels/aggregate_basic.cc
+       compute/kernels/aggregate_hll.cc
        compute/kernels/aggregate_mode.cc
        compute/kernels/aggregate_quantile.cc
        compute/kernels/aggregate_tdigest.cc

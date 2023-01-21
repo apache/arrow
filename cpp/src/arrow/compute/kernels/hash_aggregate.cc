@@ -47,6 +47,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
+#include "arrow/util/hll.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/task_group.h"
@@ -183,8 +184,7 @@ VisitGroupedValues(const ExecSpan& batch, ConsumeValue&& valid_func,
   auto g = batch[1].array.GetValues<uint32_t>(1);
   if (batch[0].is_array()) {
     VisitArrayValuesInline<Type>(
-        batch[0].array,
-        [&](typename TypeTraits<Type>::CType val) { valid_func(*g++, val); },
+        batch[0].array, [&](typename GetViewType<Type>::T val) { valid_func(*g++, val); },
         [&]() { null_func(*g++); });
     return;
   }
@@ -2026,6 +2026,192 @@ Result<std::unique_ptr<KernelState>> GroupedDistinctInit(KernelContext* ctx,
 }
 
 // ----------------------------------------------------------------------
+// Hll implementation
+
+using ::arrow::internal::HllImpl;
+
+template <typename Type, typename Enable = void>
+struct GroupedHllImpl : public GroupedAggregator {
+  using CType = typename TypeTraits<Type>::CType;
+
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    pool_ = ctx->memory_pool();
+    options_ = checked_cast<const HllOptions&>(*args.options);
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    while (hlls_.size() < static_cast<size_t>(new_num_groups)) {
+      hlls_.emplace_back(options_.lg_config_k);
+    }
+    return Status::OK();
+  }
+
+  Status Consume(const ExecSpan& batch) override {
+    VisitGroupedValues<Type>(
+        batch, [&](uint32_t g, CType value) { hlls_[g].Update(value); }, [](uint32_t) {});
+    return Status::OK();
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedHllImpl*>(&raw_other);
+
+    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
+      hlls_[*g].Merge(other->hlls_[other_g]);
+    }
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> values,
+                          AllocateBuffer(hlls_.size() * sizeof(double), pool_));
+
+    auto* results = reinterpret_cast<double*>(values->mutable_data());
+    for (int64_t i = 0; static_cast<size_t>(i) < hlls_.size(); ++i) {
+      results[i] = hlls_[i].Finalize();
+    }
+
+    return ArrayData::Make(float64(), hlls_.size(), {nullptr, std::move(values)},
+                           /*null_count=*/0);
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return float64(); }
+
+  std::vector<HllImpl> hlls_;
+  MemoryPool* pool_;
+  HllOptions options_;
+  std::shared_ptr<DataType> out_type_;
+};
+
+template <typename Type>
+struct GroupedHllImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
+                                        std::is_same<Type, FixedSizeBinaryType>::value>>
+    final : public GroupedAggregator {
+  using Allocator = arrow::stl::allocator<char>;
+  using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
+  using GetSet = GroupedValueTraits<Type>;
+
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    pool_ = ctx->memory_pool();
+    options_ = checked_cast<const HllOptions&>(*args.options);
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    while (hlls_.size() < static_cast<size_t>(new_num_groups)) {
+      hlls_.emplace_back(options_.lg_config_k);
+    }
+    return Status::OK();
+  }
+
+  Status Consume(const ExecSpan& batch) override {
+    VisitGroupedValues<Type>(
+        batch, [&](uint32_t g, std::string_view val) { hlls_[g].Update(val); },
+        [](uint32_t) {});
+    return Status::OK();
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedHllImpl*>(&raw_other);
+
+    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
+      hlls_[*g].Merge(other->hlls_[other_g]);
+    }
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> values,
+                          AllocateBuffer(hlls_.size() * sizeof(double), pool_));
+
+    auto* results = reinterpret_cast<double*>(values->mutable_data());
+    for (int64_t i = 0; static_cast<size_t>(i) < hlls_.size(); ++i) {
+      results[i] = hlls_[i].Finalize();
+    }
+
+    return ArrayData::Make(float64(), hlls_.size(), {nullptr, std::move(values)},
+                           /*null_count=*/0);
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return float64(); }
+
+  std::vector<HllImpl> hlls_;
+  MemoryPool* pool_;
+  HllOptions options_;
+  std::shared_ptr<DataType> out_type_;
+};
+
+template <typename Type>
+Result<std::unique_ptr<KernelState>> GroupedHllInit(KernelContext* ctx,
+                                                    const KernelInitArgs& args) {
+  ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedHllImpl<Type>>(ctx, args));
+  auto instance = static_cast<GroupedHllImpl<Type>*>(impl.get());
+  instance->out_type_ = args.inputs[0].GetSharedPtr();
+  return std::move(impl);
+}
+
+struct GroupedHllFactory {
+  template <typename T>
+  enable_if_physical_integer<T, Status> Visit(const T&) {
+    using PhysicalType = typename T::PhysicalType;
+    kernel = MakeKernel(std::move(argument_type), GroupedHllInit<PhysicalType>);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_floating_point<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedHllInit<T>);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_decimal<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedHllInit<T>);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_base_binary<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedHllInit<T>);
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeBinaryType&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedHllInit<FixedSizeBinaryType>);
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanType&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedHllInit<BooleanType>);
+    return Status::OK();
+  }
+
+  Status Visit(const HalfFloatType& type) {
+    return Status::NotImplemented("Outputting HLL of data of type HalfFloatType");
+    // kernel = MakeKernel(std::move(argument_type), GroupedHllInit<HalfFloatType>);
+    // return Status::OK();
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("Outputting HLL of data of type ", type);
+  }
+
+  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
+    GroupedHllFactory factory;
+    factory.argument_type = type->id();
+    RETURN_NOT_OK(VisitTypeInline(*type, &factory));
+    return std::move(factory.kernel);
+  }
+
+  HashAggregateKernel kernel;
+  InputType argument_type;
+};
+
+// ----------------------------------------------------------------------
 // One implementation
 
 template <typename Type, typename Enable = void>
@@ -2784,6 +2970,13 @@ const FunctionDoc hash_tdigest_doc{
     {"array", "group_id_array"},
     "TDigestOptions"};
 
+const FunctionDoc hash_hll_doc{
+    "Compute approximate number of distinct values in each group",
+    ("The HyperLogLog algorithm is used for a fast approximation.\n"
+     "Nulls are ignored; all NaNs are considered equal."),
+    {"array", "group_id_array"},
+    "HllOptions"};
+
 const FunctionDoc hash_approximate_median_doc{
     "Compute approximate medians of values in each group",
     ("The T-Digest algorithm is used for a fast approximation.\n"
@@ -2841,6 +3034,7 @@ const FunctionDoc hash_list_doc{"List all values in each group",
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   static auto default_count_options = CountOptions::Defaults();
+  static auto default_hll_options = HllOptions::Defaults();
   static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
   static auto default_tdigest_options = TDigestOptions::Defaults();
   static auto default_variance_options = VarianceOptions::Defaults();
@@ -2954,6 +3148,18 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
                                 GroupedTDigestFactory::Make, func.get()));
     tdigest_func = func.get();
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_hll", Arity::Binary(), hash_hll_doc, &default_hll_options);
+    DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedHllFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedHllFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), GroupedHllFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels({boolean(), decimal128(1, 1), decimal256(1, 1),
+                                 month_interval(), fixed_size_binary(1)},
+                                GroupedHllFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 

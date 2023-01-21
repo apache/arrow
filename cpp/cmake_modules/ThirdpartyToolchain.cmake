@@ -4305,6 +4305,25 @@ else()
 endif()
 
 # ----------------------------------------------------------------------
+# Apache DataSketches
+
+set(DATASKETCHES_HOME "${THIRDPARTY_DIR}/datasketches-cpp")
+
+add_library(arrow::datasketches INTERFACE IMPORTED)
+if(CMAKE_VERSION VERSION_LESS 3.11)
+  set_target_properties(arrow::datasketches PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+    "${DATASKETCHES_HOME}/include")
+  set_target_properties(arrow::datasketches PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+    "${DATASKETCHES_HOME}/include/datasketches-cpp/common/include")
+else()
+  target_include_directories(arrow::datasketches INTERFACE "${DATASKETCHES_HOME}/include")
+  target_include_directories(arrow::datasketches INTERFACE
+    "${DATASKETCHES_HOME}/include/datasketches-cpp/common/include")
+endif()
+
+
+
+# ----------------------------------------------------------------------
 # Apache ORC
 
 macro(build_orc)

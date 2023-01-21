@@ -96,6 +96,8 @@ static auto kQuantileOptionsType = GetFunctionOptionsType<QuantileOptions>(
     DataMember("interpolation", &QuantileOptions::interpolation),
     DataMember("skip_nulls", &QuantileOptions::skip_nulls),
     DataMember("min_count", &QuantileOptions::min_count));
+static auto kHllOptionsType = GetFunctionOptionsType<HllOptions>(
+    DataMember("lg_config_k", &HllOptions::lg_config_k));
 static auto kTDigestOptionsType = GetFunctionOptionsType<TDigestOptions>(
     DataMember("q", &TDigestOptions::q), DataMember("delta", &TDigestOptions::delta),
     DataMember("buffer_size", &TDigestOptions::buffer_size),
@@ -146,6 +148,10 @@ QuantileOptions::QuantileOptions(std::vector<double> q, enum Interpolation inter
       min_count{min_count} {}
 constexpr char QuantileOptions::kTypeName[];
 
+HllOptions::HllOptions(uint8_t lg_config_k)
+    : FunctionOptions(internal::kHllOptionsType), lg_config_k{lg_config_k} {}
+constexpr char HllOptions::kTypeName[];
+
 TDigestOptions::TDigestOptions(double q, uint32_t delta, uint32_t buffer_size,
                                bool skip_nulls, uint32_t min_count)
     : FunctionOptions(internal::kTDigestOptionsType),
@@ -177,6 +183,7 @@ void RegisterAggregateOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kVarianceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kQuantileOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kTDigestOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kHllOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kIndexOptionsType));
 }
 }  // namespace internal
@@ -240,6 +247,10 @@ Result<Datum> Quantile(const Datum& value, const QuantileOptions& options,
 Result<Datum> TDigest(const Datum& value, const TDigestOptions& options,
                       ExecContext* ctx) {
   return CallFunction("tdigest", {value}, &options, ctx);
+}
+
+Result<Datum> Hll(const Datum& value, const HllOptions& options, ExecContext* ctx) {
+  return CallFunction("hll", {value}, &options, ctx);
 }
 
 Result<Datum> Index(const Datum& value, const IndexOptions& options, ExecContext* ctx) {

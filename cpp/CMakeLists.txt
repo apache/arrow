@@ -649,12 +649,12 @@ endif()
 
 # Libraries to link statically with libarrow.so.
 #
-# Note that arrow::hadoop is a header only target that refers
-# cpp/thirdparty/hadoop/include/. See
+# Note that arrow::hadoop and arrow::datasketches are header only targets that refer
+# cpp/thirdparty/hadoop/include/ and cpp/thirdparty/datasketches-cpp/include/. See
 # cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
-set(ARROW_SHARED_LINK_LIBS arrow::flatbuffers arrow::hadoop)
+set(ARROW_SHARED_LINK_LIBS arrow::flatbuffers arrow::hadoop arrow::datasketches)
 set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
-set(ARROW_STATIC_LINK_LIBS arrow::flatbuffers arrow::hadoop)
+set(ARROW_STATIC_LINK_LIBS arrow::flatbuffers arrow::hadoop arrow::datasketches)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
 if(ARROW_USE_BOOST)

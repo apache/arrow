@@ -175,6 +175,17 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
   uint32_t min_count;
 };
 
+/// \brief Control Hll approximate cardinality. More space usage yields more accurate
+/// estimates.
+class ARROW_EXPORT HllOptions : public FunctionOptions {
+ public:
+  explicit HllOptions(uint8_t lg_config_k = 11);
+  static constexpr char const kTypeName[] = "HllOptions";
+  static HllOptions Defaults() { return HllOptions{}; }
+  // Sketch can hold 2^lg_config_k values
+  uint8_t lg_config_k;
+};
+
 /// \brief Control Index kernel behavior
 class ARROW_EXPORT IndexOptions : public FunctionOptions {
  public:
@@ -390,6 +401,18 @@ ARROW_EXPORT
 Result<Datum> Variance(const Datum& value,
                        const VarianceOptions& options = VarianceOptions::Defaults(),
                        ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the approximate NDV of a numeric array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see HllOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed approximate distinct cardinality as a DoubleScalar
+///
+/// \since 12.0.0
+ARROW_EXPORT
+Result<Datum> Hll(const Datum& value, const HllOptions& options = HllOptions::Defaults(),
+                  ExecContext* ctx = NULLPTR);
 
 /// \brief Calculate the quantiles of a numeric array
 ///

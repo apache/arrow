@@ -215,3 +215,4 @@ r/tools/nixlibs-allowlist.txt
 .gitattributes
 ruby/red-arrow/.yardopts
 .github/pull_request_template.md
+cpp/thirdparty/datasketches-cpp/include/datasketches-cpp/*

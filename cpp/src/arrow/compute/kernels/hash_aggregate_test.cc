@@ -2370,6 +2370,174 @@ TEST(GroupBy, CountDistinct) {
   }
 }
 
+TEST(GroupBy, Hll) {
+#if defined(__MINGW32__) && !defined(__MINGW64__)
+  GTEST_SKIP() << "Precision issues on MinGW32 with floats";
+#endif
+
+  auto lg_k = std::make_shared<HllOptions>(11);
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+    auto table =
+        TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
+    [1,    1],
+    [1,    1]
+])",
+                                                                                      R"([
+    [0,    2],
+    [null, 3],
+    [null, 3]
+])",
+                                                                                      R"([
+    [null, 4],
+    [null, 4]
+])",
+                                                                                      R"([
+    [4,    null],
+    [1,    3]
+])",
+                                                                                      R"([
+    [0,    2],
+    [-1,   2]
+])",
+                                                                                      R"([
+    [1,    null],
+    [NaN,  3]
+  ])",
+                                                                                      R"([
+    [2,    null],
+    [3,    null]
+  ])"});
+
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         internal::GroupBy(
+                             {
+                                 table->GetColumnByName("argument"),
+                             },
+                             {
+                                 table->GetColumnByName("key"),
+                             },
+                             {
+                                 {"hash_hll", lg_k, "agg_0", "hash_hll"},
+                             },
+                             use_threads));
+    SortBy({"key_0"}, &aggregated_and_grouped);
+    ValidateOutput(aggregated_and_grouped);
+
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("hash_hll", float64()),
+                                        field("key_0", int64()),
+                                    }),
+                                    R"([
+    [1, 1],
+    [2.000000004967054, 2],
+    [2.000000004967054, 3],
+    [0, 4],
+    [4.000000029802323, null]
+  ])"),
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
+
+    table =
+        TableFromJSON(schema({field("argument", utf8()), field("key", int64())}), {R"([
+    ["foo",  1],
+    ["foo",  1]
+])",
+                                                                                   R"([
+    ["bar",  2],
+    [null,   3],
+    [null,   3]
+])",
+                                                                                   R"([
+    [null, 4],
+    [null, 4]
+])",
+                                                                                   R"([
+    ["baz",  null],
+    ["foo",  3]
+])",
+                                                                                   R"([
+    ["bar",  2],
+    ["spam", 2]
+])",
+                                                                                   R"([
+    ["eggs", null],
+    ["ham",  3]
+  ])",
+                                                                                   R"([
+    ["a",    null],
+    ["b",    null]
+  ])"});
+
+    ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
+                         internal::GroupBy(
+                             {
+                                 table->GetColumnByName("argument"),
+                             },
+                             {
+                                 table->GetColumnByName("key"),
+                             },
+                             {
+                                 {"hash_hll", lg_k, "agg_0", "hash_hll"},
+                             },
+                             use_threads));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("hash_hll", float64()),
+                                        field("key_0", int64()),
+                                    }),
+                                    R"([
+    [1.0, 1],
+    [2.000000004967054, 2],
+    [2.000000004967054, 3],
+    [0.0, 4],
+    [4.000000029802323, null]
+  ])"),
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
+
+    table = TableFromJSON(schema({field("argument", utf8()), field("key", float64())}),
+                          {
+                              R"([
+    ["foo",  1],
+    ["foo",  1],
+    ["bar",  2],
+    ["bar",  2],
+    ["spam", 2]
+])",
+                          });
+
+    ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
+                         internal::GroupBy(
+                             {
+                                 table->GetColumnByName("argument"),
+                             },
+                             {
+                                 table->GetColumnByName("key"),
+                             },
+                             {
+                                 {"hash_hll", lg_k, "agg_0", "hash_hll"},
+                             },
+                             use_threads));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("hash_hll", float64()),
+                                        field("key_0", float64()),
+                                    }),
+                                    R"([
+    [1, 1],
+    [2.000000004967054, 2]
+  ])"),
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
+  }
+}
+
 TEST(GroupBy, Distinct) {
   auto all = std::make_shared<CountOptions>(CountOptions::ALL);
   auto only_valid = std::make_shared<CountOptions>(CountOptions::ONLY_VALID);

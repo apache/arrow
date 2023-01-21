@@ -212,6 +212,8 @@ the input to a single output value.
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | count_distinct     | Unary   | Non-nested types | Scalar Int64           | :struct:`CountOptions`           | \(2)  |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
+| hll                | Unary   | Non-nested types | Scalar Dloat64         | :struct:`HllOptions`             |       |
++--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | index              | Unary   | Any              | Scalar Int64           | :struct:`IndexOptions`           | \(3)  |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | max                | Unary   | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |

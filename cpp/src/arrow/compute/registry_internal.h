@@ -62,6 +62,7 @@ void RegisterScalarAggregateMode(FunctionRegistry* registry);
 void RegisterScalarAggregateQuantile(FunctionRegistry* registry);
 void RegisterScalarAggregateTDigest(FunctionRegistry* registry);
 void RegisterScalarAggregateVariance(FunctionRegistry* registry);
+void RegisterScalarAggregateHll(FunctionRegistry* registry);
 
 void RegisterAggregateOptions(FunctionRegistry* registry);
 

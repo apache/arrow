@@ -2397,6 +2397,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool skip_nulls
         uint32_t min_count
 
+    cdef cppclass CHllOptions \
+            "arrow::compute::HllOptions"(CFunctionOptions):
+        CHllOptions(uint8_t lg_config_k)
+        uint8_t lg_config_k
+
     cdef enum CUtf8NormalizeForm \
             "arrow::compute::Utf8NormalizeOptions::Form":
         CUtf8NormalizeForm_NFC "arrow::compute::Utf8NormalizeOptions::NFC"
