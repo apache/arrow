@@ -190,7 +190,8 @@ class RecordBatchSerializer {
     int64_t maximum_length = codec->MaxCompressedLen(buffer.size(), buffer.data());
     int64_t prefixed_length = buffer.size();
 
-    ARROW_ASSIGN_OR_RAISE(auto result, AllocateBuffer(maximum_length + sizeof(int64_t)));
+    ARROW_ASSIGN_OR_RAISE(auto result,
+                          AllocateResizableBuffer(maximum_length + sizeof(int64_t)));
     ARROW_ASSIGN_OR_RAISE(auto actual_length,
                           codec->Compress(buffer.size(), buffer.data(), maximum_length,
                                           result->mutable_data() + sizeof(int64_t)));
@@ -198,6 +199,11 @@ class RecordBatchSerializer {
     // pre-compressing the entire buffer via some kind of sampling method. As the feature
     // gains adoption, this may become a worthwhile optimization.
     if (!ShouldCompress(buffer.size(), actual_length)) {
+      if (buffer.size() < actual_length || buffer.size() > maximum_length) {
+        RETURN_NOT_OK(
+            result->Resize(buffer.size() + sizeof(int64_t), /*shrink_to_fit=*/false));
+        result->ZeroPadding();
+      }
       std::memcpy(result->mutable_data() + sizeof(int64_t), buffer.data(),
                   static_cast<size_t>(buffer.size()));
       actual_length = buffer.size();
