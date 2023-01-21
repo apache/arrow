@@ -452,18 +452,18 @@ tasks:
 
 {############################## Wheel Linux ##################################}
 
-{% for ci, arch, arch_alias, x_y, manylinux in [("github", "amd64", "x86_64", "2_17", "2014"),
-                                                ("github", "amd64", "x86_64", "2_28", "2_28"),
-                                                ("travis", "arm64", "aarch64", "2_17", "2014"),
-                                                ("travis", "amd64", "x86_64", "2_28", "2_28")] %}
-  wheel-manylinux{{ manylinux }}-{{ python_tag }}-{{ arch }}:
+{% for ci, arch, arch_alias, x_y, manylinux_version, manylinux in [("github", "amd64", "x86_64", "2_17", "2014", "manylinux2014"),
+                                                                   ("github", "amd64", "x86_64", "2_28", "2_28", "manylinux_2_28"),
+                                                                   ("travis", "arm64", "aarch64", "2_17", "2014", "manylinux2014"),
+                                                                   ("travis", "amd64", "x86_64", "2_28", "2_28", "manylinux_2_28")] %}
+  wheel-{{ manylinux }}-{{ python_tag }}-{{ arch }}:
     ci: "{{ ci }}"
     template: python-wheels/{{ ci }}.linux.{{ arch }}.yml
     params:
       python_version: "{{ python_version }}"
-      manylinux_version: "{{ manylinux }}"
+      manylinux_version: "{{ manylinux_version }}"
     artifacts:
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-manylinux_{{ x_y }}_{{ arch_alias }}.manylinux{{ manylinux }}_{{ arch_alias }}.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-manylinux_{{ x_y }}_{{ arch_alias }}.{{ manylinux }}_{{ arch_alias }}.whl
 {% endfor %}
 
 {############################## Wheel OSX ####################################}
