@@ -1,5 +1,65 @@
 # Apache Arrow Flight SQL adapter for PostgreSQL
 
+## Use cases
+
+### ETL (Extract, Transform, Load)
+
+Fast large data extraction from PostgreSQL:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant P as PostgreSQL
+    participant D as DWH
+    P->>C: Extract large data via Flight SQL
+    note right of C: Transform
+    C->>D: Load transformed data
+```
+
+Fast large data load to PostgreSQL:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant D as Data Lake
+    participant P as PostgreSQL
+    D->>C: Extract data
+    note right of C: Transform
+    C->>P: Load large transformed data via Flight SQL
+```
+
+### Interactive/exploratory data analysis
+
+Fast large data fetch from PostgreSQL and interactive/exploratory
+in-memory data analysis with analyze libraries such as data frame and
+visualizer:
+
+```mermaid
+sequenceDiagram
+    participant J as Jupyter Notebook
+    participant P as PostgreSQL
+    P->>J: Fetch data via Flight SQL
+    note left of J: Analyze data interactively
+```
+
+## Not goals
+
+This project doesn't provide a PostgreSQL wire protocol proxy for
+a Flight SQL server:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant P as Proxy
+    participant F as Flight SQL server
+    C->>P: PostgreSQL wire protocol
+    P->>F: Flight SQL
+    F->>P: Flight SQL
+    P->>C: PostgreSQL wire protocol
+```
+
+## Approach
+
 MySQL has a plugin API to open a new socket, that is used for
 implementing MySQL's X protocol, but PostgreSQL doesn't provide such
 API. So we need to implement it with background worker process API.
@@ -38,7 +98,7 @@ sequenceDiagram
     D->>C: Return the result with Flight SQL protocol
 ```
 
-Concerns:
+### Concerns
 
 * We need to implement authentication feature by ourselves because
   PostgreSQL's authentication related API is based on the PostgreSQL
@@ -51,7 +111,7 @@ Concerns:
   PostgreSQL uses multi-process model. fork() and thread aren't good
   friend.
 
-Plans:
+### Plan
 
 1. Create apache/arrow-flight-sql-postgresql repository for this
    project
@@ -76,7 +136,7 @@ Plans:
 
 7 ...
 
-Another approach:
+## Another approach
 
 1. Add support for Apache Arrow data in PostgreSQL's `COPY`.
 
@@ -94,7 +154,7 @@ Another approach:
    This approach uses PostgreSQL wire protocol internally but data are
    interchanged as Apache Arrow data. So overhead will be small.
 
-Concerns of another approach:
+### Concerns
 
 * We need at least 1-2 years to implement 1. because PostgreSQL
   releases one major release per year.
