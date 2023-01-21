@@ -2572,37 +2572,23 @@ endmacro()
 
 if(ARROW_WITH_BZ2)
   resolve_dependency(BZip2 PC_PACKAGE_NAMES bzip2)
-  if(${BZip2_SOURCE} STREQUAL "SYSTEM" AND NOT bzip2_PC_FOUND)
-    set(ARROW_BZIP2_CONFIGS "")
-    if(BZIP2_LIBRARY_RELEASE)
-      string(APPEND ARROW_PC_LIBS_PRIVATE
-             " $<$<CONFIG:RELEASE>:${BZIP2_LIBRARY_RELEASE}>")
-      list(APPEND ARROW_BZIP2_CONFIGS "$<CONFIG:RELEASE>")
-    endif()
-    if(BZIP2_LIBRARY_DEBUG)
-      string(APPEND ARROW_PC_LIBS_PRIVATE " $<$<CONFIG:DEBUG>:${BZIP2_LIBRARY_DEBUG}>")
-      list(APPEND ARROW_BZIP2_CONFIGS "$<CONFIG:DEBUG>")
-    endif()
-    string(APPEND ARROW_PC_LIBS_PRIVATE " $<$<NOT:$<OR:")
-    if(CMAKE_VERSION VERSION_LESS "3.12")
-      string(REPLACE ";" "," ARROW_BZIP2_CONFIGS_CSV "${ARROW_BZIP2_CONFIGS}")
-    else()
-      list(JOIN ARROW_BZIP2_CONFIGS "," ARROW_BZIP2_CONFIGS_CSV)
-    endif()
-    string(APPEND ARROW_PC_LIBS_PRIVATE "${ARROW_BZIP2_CONFIGS_CSV}>>:")
-    if(BZIP2_LIBRARY)
-      string(APPEND ARROW_PC_LIBS_PRIVATE "${BZIP2_LIBRARY}")
-    else()
-      string(APPEND ARROW_PC_LIBS_PRIVATE "${BZIP2_LIBRARIES}")
-    endif()
-    string(APPEND ARROW_PC_LIBS_PRIVATE ">")
-  endif()
 
   if(NOT TARGET BZip2::BZip2)
     add_library(BZip2::BZip2 UNKNOWN IMPORTED)
     set_target_properties(BZip2::BZip2
                           PROPERTIES IMPORTED_LOCATION "${BZIP2_LIBRARIES}"
                                      INTERFACE_INCLUDE_DIRECTORIES "${BZIP2_INCLUDE_DIR}")
+  endif()
+
+  if(${BZip2_SOURCE} STREQUAL "SYSTEM" AND NOT bzip2_PC_FOUND)
+    get_target_property(BZIP2_TYPE BZip2::BZip2 TYPE)
+    if(BZIP2_TYPE STREQUAL "INTERFACE_LIBRARY")
+      # Conan
+      string(APPEND ARROW_PC_LIBS_PRIVATE
+             " $<TARGET_FILE:CONAN_LIB::bzip2_bz2_$<CONFIG>>")
+    else()
+      string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:BZip2::BZip2>")
+    endif()
   endif()
 endif()
 
