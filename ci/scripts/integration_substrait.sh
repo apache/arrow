@@ -25,5 +25,5 @@ echo "Substrait Integration Tests";
 python -c "import pyarrow.substrait"
 python -c "from substrait_consumer.consumers import AceroConsumer"
 
-pytest -v --pyargs substrait_consumer/tests/functional/extension_functions/test_boolean_functions.py --producer IsthmusProducer --consumer AceroConsumer
-
+cd consumer_testing
+pytest substrait_consumer/tests/functional/extension_functions/test_boolean_functions.py --producer IsthmusProducer --consumer AceroConsumer
