@@ -28,7 +28,7 @@ RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
         --file arrow/ci/conda_env_sphinx.txt \
         $([ "$python" == "3.9" ] && echo "pickle5") \
-        python=${python} \
+        python=${python} openjdk \
         nomkl && \
     mamba clean --all
 

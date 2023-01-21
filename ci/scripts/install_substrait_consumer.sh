@@ -19,7 +19,7 @@
 
 set -e
 
-echo "INSTALL SUBSTRAIT CONSUMER TEST SUITE";
+echo "Install Substrait Consumer Test Suite";
 
 git clone https://github.com/substrait-io/consumer-testing.git
 cd consumer-testing

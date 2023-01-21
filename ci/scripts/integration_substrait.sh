@@ -22,9 +22,8 @@ set -e
 # check that optional pyarrow modules are available
 # because pytest would just skip the substrait tests
 echo "Substrait Integration Tests";
-python -c "from substrait_consumer.consumers import AceroConsumer"
-python -c "import pyarrow.orc"
 python -c "import pyarrow.substrait"
+python -c "from substrait_consumer.consumers import AceroConsumer"
 
-pytest substrait_consumer/tests/functional/extension_functions/test_boolean_functions.py --producer IsthmusProducer --consumer AceroConsumer
+pytest -v --pyargs substrait_consumer/tests/functional/extension_functions/test_boolean_functions.py --producer IsthmusProducer --consumer AceroConsumer
 
