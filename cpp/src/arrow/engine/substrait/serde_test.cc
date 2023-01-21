@@ -169,19 +169,6 @@ inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
   return compute::Expression{std::move(modified_call)};
 }
 
-Status CheckTable(std::shared_ptr<Buffer>& buf,
-                  const ConversionOptions& conversion_options = {}) {
-  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
-  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
-  ExtensionSet ext_set(ext_id_reg);
-  ARROW_ASSIGN_OR_RAISE(auto sink_decls, DeserializePlans(
-                                             *buf, [] { return kNullConsumer; },
-                                             ext_id_reg, &ext_set, conversion_options));
-  auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
-  ARROW_RETURN_NOT_OK(compute::DeclarationToTable(other_declrs));
-  return Status::OK();
-}
-
 void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
                           std::shared_ptr<Buffer>& buf,
                           const std::vector<int>& include_columns = {},
@@ -4793,8 +4780,6 @@ TEST(Substrait, AsOfJoinDefaultEmit) {
   auto expected_table = TableFromJSON(
       out_schema,
       {"[[2, 1, 1.1, 2, 1, 1.2], [4, 1, 2.1, 4, 1, 1.2], [6, 2, 3.1, 6, 2, 3.2]]"});
-  ASSERT_OK_AND_ASSIGN(auto io_executor, arrow::internal::ThreadPool::Make(1));
-  compute::ExecContext exec_context(default_memory_pool(), io_executor.get());
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 

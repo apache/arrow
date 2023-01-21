@@ -798,8 +798,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                                             substrait::RelCommon::EmitKindCase::kEmit;
       if (!ext_rel_info.field_output_indices) {
         if (!has_emit) {
-          return ProcessEmitProject(ext_common_opt, ext_decl_info,
-                                    ext_decl_info.output_schema);
+          return ext_decl_info;
         }
         return Status::NotImplemented("Emit not supported by ",
                                       ext_decl_info.declaration.factory_name);
@@ -810,7 +809,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       // from these input fields.
       std::vector<int> emit_order;
       if (has_emit) {
-        // the emit order in defined in the Substrait plan - pick it up
+        // the emit order is defined in the Substrait plan - pick it up
         const auto& emit_info = ext_common_opt->emit();
         emit_order.reserve(emit_info.output_mapping_size());
         for (const auto& emit_idx : emit_info.output_mapping()) {

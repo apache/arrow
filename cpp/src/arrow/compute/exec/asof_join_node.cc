@@ -1198,9 +1198,6 @@ class AsofJoinNode : public ExecNode {
                bool may_rehash);
 
   Status Init() override {
-    if (plan()->query_context()->exec_context()->executor() == nullptr) {
-      return Status::Invalid("AsOfJoinNode requires a non-null executor");
-    }
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); i++) {
       RETURN_NOT_OK(key_hashers_[i]->Init(plan()->query_context()->exec_context(),
@@ -1222,12 +1219,8 @@ class AsofJoinNode : public ExecNode {
   }
 
   virtual ~AsofJoinNode() {
-    process_.Push(false);                                          // poison pill
-    if (process_thread_.get_id() != std::this_thread::get_id()) {  // avoid deadlock
-      process_thread_.join();
-    } else {
-      process_thread_.detach();
-    }
+    process_.Push(false);  // poison pill
+    process_thread_.join();
   }
 
   const std::vector<col_index_t>& indices_of_on_key() { return indices_of_on_key_; }
