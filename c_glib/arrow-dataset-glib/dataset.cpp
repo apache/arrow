@@ -188,15 +188,16 @@ gadataset_dataset_get_type_name(GADatasetDataset *dataset)
 }
 
 
-typedef struct GADatasetFileSystemDatasetWriteOptionsPrivate_ {
-  arrow::dataset::FileSystemDatasetWriteOptions options;
+struct GADatasetFileSystemDatasetWriteOptionsPrivate {
+  std::shared_ptr<arrow::dataset::FileSystemDatasetWriteOptions> options;
   GADatasetFileWriteOptions *file_write_options;
   GArrowFileSystem *file_system;
   GADatasetPartitioning *partitioning;
-} GADatasetFileSystemDatasetWriteOptionsPrivate;
+};
 
 enum {
-  PROP_FILE_WRITE_OPTIONS = 1,
+  PROP_FILE_SYSTEM_DATASET_WRITE_OPTIONS = 1,
+  PROP_FILE_WRITE_OPTIONS,
   PROP_FILE_SYSTEM,
   PROP_BASE_DIR,
   PROP_PARTITIONING,
@@ -217,7 +218,7 @@ static void
 gadataset_file_system_dataset_write_options_finalize(GObject *object)
 {
   auto priv = GADATASET_FILE_SYSTEM_DATASET_WRITE_OPTIONS_GET_PRIVATE(object);
-  priv->options.~FileSystemDatasetWriteOptions();
+  priv->options.~shared_ptr();
   G_OBJECT_CLASS(gadataset_file_system_dataset_write_options_parent_class)->
     finalize(object);
 }
@@ -229,17 +230,17 @@ gadataset_file_system_dataset_write_options_dispose(GObject *object)
 
   if (priv->file_write_options) {
     g_object_unref(priv->file_write_options);
-    priv->file_write_options = NULL;
+    priv->file_write_options = nullptr;
   }
 
   if (priv->file_system) {
     g_object_unref(priv->file_system);
-    priv->file_system = NULL;
+    priv->file_system = nullptr;
   }
 
   if (priv->partitioning) {
     g_object_unref(priv->partitioning);
-    priv->partitioning = NULL;
+    priv->partitioning = nullptr;
   }
 
   G_OBJECT_CLASS(gadataset_file_system_dataset_write_options_parent_class)->
@@ -255,26 +256,14 @@ gadataset_file_system_dataset_write_options_set_property(GObject *object,
   auto priv = GADATASET_FILE_SYSTEM_DATASET_WRITE_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
+  case PROP_FILE_SYSTEM_DATASET_WRITE_OPTIONS:
+    priv->options =
+      *static_cast<std::shared_ptr<arrow::dataset::FileSystemDatasetWriteOptions> *>(
+        g_value_get_pointer(value));
+    break;
   case PROP_FILE_WRITE_OPTIONS:
-    {
-      auto file_write_options = g_value_get_object(value);
-      if (file_write_options == priv->file_write_options) {
-        break;
-      }
-      auto old_file_write_options = priv->file_write_options;
-      if (file_write_options) {
-        g_object_ref(file_write_options);
-        priv->file_write_options =
-          GADATASET_FILE_WRITE_OPTIONS(file_write_options);
-        priv->options.file_write_options =
-          gadataset_file_write_options_get_raw(priv->file_write_options);
-      } else {
-        priv->options.file_write_options = nullptr;
-      }
-      if (old_file_write_options) {
-        g_object_unref(old_file_write_options);
-      }
-    }
+    priv->file_write_options =
+      GADATASET_FILE_WRITE_OPTIONS(g_value_dup_object(value));
     break;
   case PROP_FILE_SYSTEM:
     {
@@ -286,9 +275,10 @@ gadataset_file_system_dataset_write_options_set_property(GObject *object,
       if (file_system) {
         g_object_ref(file_system);
         priv->file_system = GARROW_FILE_SYSTEM(file_system);
-        priv->options.filesystem = garrow_file_system_get_raw(priv->file_system);
+        priv->options->filesystem =
+          garrow_file_system_get_raw(priv->file_system);
       } else {
-        priv->options.filesystem = nullptr;
+        priv->options->filesystem = nullptr;
       }
       if (old_file_system) {
         g_object_unref(old_file_system);
@@ -296,7 +286,7 @@ gadataset_file_system_dataset_write_options_set_property(GObject *object,
     }
     break;
   case PROP_BASE_DIR:
-    priv->options.base_dir = g_value_get_string(value);
+    priv->options->base_dir = g_value_get_string(value);
     break;
   case PROP_PARTITIONING:
     {
@@ -308,10 +298,10 @@ gadataset_file_system_dataset_write_options_set_property(GObject *object,
       if (partitioning) {
         g_object_ref(partitioning);
         priv->partitioning = GADATASET_PARTITIONING(partitioning);
-        priv->options.partitioning =
+        priv->options->partitioning =
           gadataset_partitioning_get_raw(priv->partitioning);
       } else {
-        priv->options.partitioning = arrow::dataset::Partitioning::Default();
+        priv->options->partitioning = arrow::dataset::Partitioning::Default();
       }
       if (old_partitioning) {
         g_object_unref(old_partitioning);
@@ -319,10 +309,10 @@ gadataset_file_system_dataset_write_options_set_property(GObject *object,
     }
     break;
   case PROP_MAX_PARTITIONS:
-    priv->options.max_partitions = g_value_get_uint(value);
+    priv->options->max_partitions = g_value_get_uint(value);
     break;
   case PROP_BASE_NAME_TEMPLATE:
-    priv->options.basename_template = g_value_get_string(value);
+    priv->options->basename_template = g_value_get_string(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -346,16 +336,16 @@ gadataset_file_system_dataset_write_options_get_property(GObject *object,
     g_value_set_object(value, priv->file_system);
     break;
   case PROP_BASE_DIR:
-    g_value_set_string(value, priv->options.base_dir.c_str());
+    g_value_set_string(value, priv->options->base_dir.c_str());
     break;
   case PROP_PARTITIONING:
     g_value_set_object(value, priv->partitioning);
     break;
   case PROP_MAX_PARTITIONS:
-    g_value_set_uint(value, priv->options.max_partitions);
+    g_value_set_uint(value, priv->options->max_partitions);
     break;
   case PROP_BASE_NAME_TEMPLATE:
-    g_value_set_string(value, priv->options.basename_template.c_str());
+    g_value_set_string(value, priv->options->basename_template.c_str());
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -368,8 +358,8 @@ gadataset_file_system_dataset_write_options_init(
   GADatasetFileSystemDatasetWriteOptions *object)
 {
   auto priv = GADATASET_FILE_SYSTEM_DATASET_WRITE_OPTIONS_GET_PRIVATE(object);
-  new(&(priv->options)) arrow::dataset::FileSystemDatasetWriteOptions;
-  priv->options.partitioning = arrow::dataset::Partitioning::Default();
+  new(&(priv->options))
+    std::shared_ptr<arrow::dataset::FileSystemDatasetWriteOptions>;
 }
 
 static void
@@ -386,10 +376,21 @@ gadataset_file_system_dataset_write_options_class_init(
   gobject_class->get_property =
     gadataset_file_system_dataset_write_options_get_property;
 
-  arrow::dataset::FileSystemDatasetWriteOptions default_options;
+  auto ipc_file_format = std::make_shared<arrow::dataset::IpcFileFormat>();
+  arrow::dataset::FileSystemDatasetWriteOptions default_options(ipc_file_format);
   GParamSpec *spec;
+  spec = g_param_spec_pointer("file-system-dataset-write-options",
+                              "FileSystemDatasetWriteOptions",
+                              "The raw std::shared_ptr<"
+                              "arrow::dataset::FileSystemDatasetWriteOptions> *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class,
+                                  PROP_FILE_SYSTEM_DATASET_WRITE_OPTIONS,
+                                  spec);
+
   /**
-   * GADatasetFileSystemDatasetWriteOptions:file_write_options:
+   * GADatasetFileSystemDatasetWriteOptions:file-write-options:
    *
    * Options for individual fragment writing.
    *
@@ -403,7 +404,7 @@ gadataset_file_system_dataset_write_options_class_init(
   g_object_class_install_property(gobject_class, PROP_FILE_WRITE_OPTIONS, spec);
 
   /**
-   * GADatasetFileSystemDatasetWriteOptions:file_system:
+   * GADatasetFileSystemDatasetWriteOptions:file-system:
    *
    * #GArrowFileSystem into which a dataset will be written.
    *
@@ -418,7 +419,7 @@ gadataset_file_system_dataset_write_options_class_init(
   g_object_class_install_property(gobject_class, PROP_FILE_SYSTEM, spec);
 
   /**
-   * GADatasetFileSystemDatasetWriteOptions:base_dir:
+   * GADatasetFileSystemDatasetWriteOptions:base-dir:
    *
    * Root directory into which the dataset will be written.
    *
@@ -484,17 +485,26 @@ gadataset_file_system_dataset_write_options_class_init(
 
 /**
  * gadataset_file_system_dataset_write_options_new:
+ * @write_options: A @GADatasetFileWriteOptions.
  *
  * Returns: The newly created #GADatasetFileSystemDatasetWriteOptions.
  *
  * Since: 6.0.0
  */
 GADatasetFileSystemDatasetWriteOptions *
-gadataset_file_system_dataset_write_options_new(void)
+gadataset_file_system_dataset_write_options_new(
+  GADatasetFileWriteOptions *write_options)
 {
+  auto arrow_write_options = gadataset_file_write_options_get_raw(write_options);
+  auto arrow_options =
+    std::make_shared<arrow::dataset::FileSystemDatasetWriteOptions>(
+      arrow_write_options->format(),
+      arrow_write_options);
   return GADATASET_FILE_SYSTEM_DATASET_WRITE_OPTIONS(
     g_object_new(GADATASET_TYPE_FILE_SYSTEM_DATASET_WRITE_OPTIONS,
-                 NULL));
+                 "file-system-dataset-write-options", &arrow_options,
+                 "file-write-options", write_options,
+                 nullptr));
 }
 
 
@@ -671,7 +681,7 @@ gadataset_file_system_dataset_write_scanner(
   auto arrow_options =
     gadataset_file_system_dataset_write_options_get_raw(options);
   auto status =
-    arrow::dataset::FileSystemDataset::Write(*arrow_options, arrow_scanner);
+    arrow::dataset::FileSystemDataset::Write(arrow_options, arrow_scanner);
   return garrow::check(error,
                        status,
                        "[file-system-dataset][write-scanner]");
@@ -727,10 +737,10 @@ gadataset_dataset_get_raw(GADatasetDataset *dataset)
   return priv->dataset;
 }
 
-arrow::dataset::FileSystemDatasetWriteOptions *
+std::shared_ptr<arrow::dataset::FileSystemDatasetWriteOptions>
 gadataset_file_system_dataset_write_options_get_raw(
   GADatasetFileSystemDatasetWriteOptions *options)
 {
   auto priv = GADATASET_FILE_SYSTEM_DATASET_WRITE_OPTIONS_GET_PRIVATE(options);
-  return &(priv->options);
+  return priv->options;
 }

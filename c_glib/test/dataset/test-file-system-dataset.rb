@@ -61,8 +61,8 @@ class TestDatasetFileSystemDataset < Test::Unit::TestCase
     table_reader = Arrow::TableBatchReader.new(table)
     scanner_builder = ArrowDataset::ScannerBuilder.new(table_reader)
     scanner = scanner_builder.finish
-    options = ArrowDataset::FileSystemDatasetWriteOptions.new
-    options.file_write_options = @format.default_write_options
+    file_write_options = @format.default_write_options
+    options = ArrowDataset::FileSystemDatasetWriteOptions.new(file_write_options)
     options.file_system = Arrow::LocalFileSystem.new
     options.base_dir = @dir
     options.base_name_template = "{i}.arrow"

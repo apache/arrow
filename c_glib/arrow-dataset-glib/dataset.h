@@ -52,7 +52,8 @@ struct _GADatasetFileSystemDatasetWriteOptionsClass
 
 GARROW_AVAILABLE_IN_6_0
 GADatasetFileSystemDatasetWriteOptions *
-gadataset_file_system_dataset_write_options_new(void);
+gadataset_file_system_dataset_write_options_new(
+  GADatasetFileWriteOptions *write_options);
 
 
 #define GADATASET_TYPE_FILE_SYSTEM_DATASET      \

@@ -41,6 +41,6 @@ std::shared_ptr<arrow::dataset::Dataset>
 gadataset_dataset_get_raw(GADatasetDataset *dataset);
 
 
-arrow::dataset::FileSystemDatasetWriteOptions *
+std::shared_ptr<arrow::dataset::FileSystemDatasetWriteOptions>
 gadataset_file_system_dataset_write_options_get_raw(
   GADatasetFileSystemDatasetWriteOptions *options);

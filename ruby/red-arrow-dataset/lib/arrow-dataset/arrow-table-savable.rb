@@ -20,8 +20,8 @@ module ArrowDataset
     private
     def save_to_uri
       format = FileFormat.resolve(@options[:format])
-      options = FileSystemDatasetWriteOptions.new
-      options.file_write_options = format.default_write_options
+      file_write_options = format.default_write_options
+      options = FileSystemDatasetWriteOptions.new(file_write_options)
       path = @output.path
       if @output.scheme.nil?
         options.file_system = Arrow::LocalFileSystem.new
