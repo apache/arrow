@@ -20,8 +20,6 @@
 #include <iterator>
 #include <memory>
 #include <string>
-#include "arrow/result.h"
-#include "arrow/util/macros.h"
 
 #ifdef ARROW_WITH_RE2
 #include <re2/re2.h>
@@ -29,6 +27,8 @@
 
 #include "arrow/array/builder_nested.h"
 #include "arrow/compute/kernels/scalar_string_internal.h"
+#include "arrow/result.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 
