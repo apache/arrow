@@ -1743,8 +1743,9 @@ struct FindSubstringRegexExec {
   using OffsetType = typename TypeTraits<InputType>::OffsetType;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
+    ARROW_ASSIGN_OR_RAISE(auto matcher, FindSubstringRegex::Make(options, false));
     applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstringRegex>
-        kernel{FindSubstringRegex(options, /*literal=*/false)};
+        kernel{std::move(matcher)};
     return kernel.Exec(ctx, batch, out);
   }
 };
