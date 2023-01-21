@@ -305,7 +305,12 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   std::shared_ptr<PageIndexReader> GetPageIndexReader() override {
     if (!file_metadata_) {
-      throw ParquetException("Cannot get PageIndexReader as file metadata is not ready");
+      // Usually this won't happen if user calls one of the static Open() functions
+      // to create a ParquetFileReader instance. But if user calls the constructor
+      // directly and calls GetPageIndexReader() before Open() then this could happen.
+      throw ParquetException(
+          "Cannot call GetPageIndexReader() due to missing file metadata. Did you "
+          "forget to call ParquetFileReader::Open() first?");
     }
     if (!page_index_reader_) {
       page_index_reader_ = PageIndexReader::Make(source_.get(), file_metadata_,

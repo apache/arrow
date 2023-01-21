@@ -208,7 +208,7 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     auto col_chunk = row_group_metadata_->ColumnChunk(i);
 
     std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col_chunk->crypto_metadata();
-    if (crypto_metadata != nullptr && file_decryptor_ == nullptr) {
+    if (crypto_metadata != nullptr) {
       ParquetException::NYI("Cannot read encrypted column index yet");
     }
 
@@ -227,22 +227,25 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
                                              index_read_range_.column_index->length));
     }
 
-    auto buffer = column_index_buffer_.get();
+    // Validate range of column index
+    if (column_index_location->offset < index_read_range_.column_index->offset ||
+        column_index_location->length <= 0 ||
+        column_index_location->offset + column_index_location->length >
+            index_read_range_.column_index->offset +
+                index_read_range_.column_index->length) {
+      throw ParquetException("Invalid column index location: offset {} length {}",
+                             column_index_location->offset,
+                             column_index_location->length);
+    }
+
     int64_t buffer_offset =
         column_index_location->offset - index_read_range_.column_index->offset;
+    // ColumnIndex::Make() requires the type of serialized thrift message to be
+    // uint32_t
     uint32_t length = static_cast<uint32_t>(column_index_location->length);
-    DCHECK_GE(buffer_offset, 0);
-    DCHECK_LE(buffer_offset + length, index_read_range_.column_index->length);
-
     auto descr = row_group_metadata_->schema()->Column(i);
-    std::shared_ptr<ColumnIndex> column_index;
-    try {
-      column_index =
-          ColumnIndex::Make(*descr, buffer->data() + buffer_offset, length, properties_);
-    } catch (...) {
-      throw ParquetException("Cannot deserialize column index for column {}", i);
-    }
-    return column_index;
+    return ColumnIndex::Make(*descr, column_index_buffer_->data() + buffer_offset, length,
+                             properties_);
   }
 
   /// Read offset index of a column chunk.
@@ -254,7 +257,7 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     auto col_chunk = row_group_metadata_->ColumnChunk(i);
 
     std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col_chunk->crypto_metadata();
-    if (crypto_metadata != nullptr && file_decryptor_ == nullptr) {
+    if (crypto_metadata != nullptr) {
       ParquetException::NYI("Cannot read encrypted offset index yet");
     }
 
@@ -273,21 +276,24 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
                                              index_read_range_.offset_index->length));
     }
 
-    auto buffer = offset_index_buffer_.get();
+    // Validate range of offset index
+    if (offset_index_location->offset < index_read_range_.offset_index->offset ||
+        offset_index_location->length <= 0 ||
+        offset_index_location->offset + offset_index_location->length >
+            index_read_range_.offset_index->offset +
+                index_read_range_.offset_index->length) {
+      throw ParquetException("Invalid offset index location: offset {} length {}",
+                             offset_index_location->offset,
+                             offset_index_location->length);
+    }
+
     int64_t buffer_offset =
         offset_index_location->offset - index_read_range_.offset_index->offset;
+    // OffsetIndex::Make() requires the type of serialized thrift message to be
+    // uint32_t
     uint32_t length = static_cast<uint32_t>(offset_index_location->length);
-    DCHECK_GE(buffer_offset, 0);
-    DCHECK_LE(buffer_offset + length, index_read_range_.offset_index->length);
-
-    std::shared_ptr<OffsetIndex> offset_index;
-    try {
-      offset_index =
-          OffsetIndex::Make(buffer->data() + buffer_offset, length, properties_);
-    } catch (...) {
-      throw ParquetException("Cannot deserialize offset index for column {}", i);
-    }
-    return offset_index;
+    return OffsetIndex::Make(offset_index_buffer_->data() + buffer_offset, length,
+                             properties_);
   }
 
  private:
@@ -344,7 +350,7 @@ class PageIndexReaderImpl : public PageIndexReader {
         read_ranges.push_back(*read_range.offset_index);
       }
     }
-    PARQUET_IGNORE_NOT_OK(input_->WillNeed(read_ranges));
+    PARQUET_THROW_NOT_OK(input_->WillNeed(read_ranges));
   }
 
   void WillNotNeed(const std::vector<int32_t>& row_group_indices) override {
@@ -377,6 +383,10 @@ RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(
   auto merge_range = [](const std::optional<IndexLocation>& index_location,
                         int64_t* start, int64_t* end) {
     if (index_location.has_value()) {
+      if (index_location->offset < 0 || index_location->length <= 0) {
+        throw ParquetException("Invalid index location: offset {} length {}",
+                               index_location->offset, index_location->length);
+      }
       *start = std::min(*start, index_location->offset);
       *end = std::max(*end, index_location->offset + index_location->length);
     }
