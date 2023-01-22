@@ -815,6 +815,9 @@ A run must have have a length of at least 1. This means the values in the
 run ends array all are positive and in strictly ascending order. A run end cannot be
 null.
 
+The REE parent has no validity bitmap, and it's null count field should always be 0.
+validity bitmap. Null values are encoded as runs with the value null.
+
 As an example, you could have the following data: ::
 
     type: Float32
