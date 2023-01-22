@@ -437,11 +437,11 @@ struct TypeTraits<LargeListType> {
   constexpr static bool is_parameter_free = false;
   static inline std::shared_ptr<DataType> type_instance(
       const std::shared_ptr<Field>& value_type) {
-    return list(value_type);
+    return large_list(value_type);
   }
   static inline std::shared_ptr<DataType> type_instance(
       const std::shared_ptr<DataType>& value_type) {
-    return list(value_type);
+    return large_list(value_type);
   }
 };
 
