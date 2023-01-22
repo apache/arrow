@@ -95,23 +95,42 @@ class SourceTest < Test::Unit::TestCase
   def test_vote
     github_token = ENV["ARROW_GITHUB_API_TOKEN"]
     uri = URI.parse("https://api.github.com/graphql")
-    https = Net::HTTP.new(uri.host, uri.port)
-    https.use_ssl = true
-    req = Net::HTTP::Post.new(uri.path, initheader = {"Authorization" => "Bearer #{github_token}"})
+    n_issues_query = {
+      "query" => <<-QUERY,
+        query {
+          search(query: "repo:apache/arrow is:issue is:closed milestone:#{@release_version}",
+                 type: ISSUE) {
+            issueCount
+          }
+        }
+      QUERY
+    }
+    response = Net::HTTP.post(uri,
+                              n_issues_query.to_json,
+                              "Content-Type" => "application/json",
+                              "Authorization" => "Bearer #{github_token}")
+    n_resolved_issues = JSON.parse(response.body)["data"]["search"]["issueCount"]
 
-    n_issues_query = "{\"query\":\"query {search(query: \\\"repo:apache/arrow is:issue is:closed milestone:#{@release_version}\\\", type:ISSUE) {issueCount}}\"}"
-    req.body = n_issues_query
-    n_resolved_issues = nil
-    https.request(req) do |response|
-        n_resolved_issues = JSON.parse(response.body)["data"]["search"]["issueCount"]
-    end
-
-    pr_query = "{\"query\": \"query {repository(owner: \\\"apache\\\", name: \\\"arrow\\\") {refs(first: 1, refPrefix: \\\"refs/heads/\\\", query: \\\"release-#{@release_version}-rc0\\\") {nodes{associatedPullRequests(first: 1){edges{node{url}}}}}}}\"}"
-    req.body = pr_query
-    verify_pr_url = nil
-    https.request(req) do |response|
-      verify_pr_url = JSON.parse(response.body)["data"]["repository"]["refs"]["nodes"][0]["associatedPullRequests"]["edges"][0]["node"]["url"]
-    end
+    pr_query = {
+      "query" => <<-QUERY,
+        query {
+            repository(owner: "apache", name: "arrow") {
+                refs(first: 1, refPrefix: "refs/heads/", query: "release-#{@release_version}-rc0") {
+                    nodes {
+                        associatedPullRequests(first: 1) {
+                            edges { node { url } }
+                        }
+                    }
+                }
+            }
+        }
+      QUERY
+    }
+    response = Net::HTTP.post(uri,
+                              pr_query.to_json,
+                              "Content-Type" => "application/json",
+                              "Authorization" => "Bearer #{github_token}")
+    verify_pr_url = JSON.parse(response.body)["data"]["repository"]["refs"]["nodes"][0]["associatedPullRequests"]["edges"][0]["node"]["url"]
 
     output = source("VOTE")
     assert_equal(<<-VOTE.strip, output[/^-+$(.+?)^-+$/m, 1].strip)
