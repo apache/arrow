@@ -110,28 +110,21 @@ class SourceTest < Test::Unit::TestCase
                               "Content-Type" => "application/json",
                               "Authorization" => "Bearer #{github_token}")
     n_resolved_issues = JSON.parse(response.body)["data"]["search"]["issueCount"]
-
-    pr_query = {
-      "query" => <<-QUERY,
-        query {
-            repository(owner: "apache", name: "arrow") {
-                refs(first: 1, refPrefix: "refs/heads/", query: "release-#{@release_version}-rc0") {
-                    nodes {
-                        associatedPullRequests(first: 1) {
-                            edges { node { url } }
-                        }
-                    }
-                }
-            }
-        }
-      QUERY
+    github_api_url = "https://api.github.com"
+    verify_prs = URI("#{github_api_url}/repos/apache/arrow/pulls" +
+                     "?state=open" +
+                     "&head=apache:release-#{@release_version}-rc0")
+    verify_pr_url = nil
+    headers = {
+      "Accept" => "application/vnd.github+json",
     }
-    response = Net::HTTP.post(uri,
-                              pr_query.to_json,
-                              "Content-Type" => "application/json",
-                              "Authorization" => "Bearer #{github_token}")
-    verify_pr_url = JSON.parse(response.body)["data"]["repository"]["refs"]["nodes"][0]["associatedPullRequests"]["edges"][0]["node"]["url"]
 
+    if github_token
+      headers["Authorization"] = "Bearer #{github_token}"
+    end
+    verify_prs.open(headers) do |response|
+      verify_pr_url = (JSON.parse(response.read)[0] || {})["html_url"]
+    end
     output = source("VOTE")
     assert_equal(<<-VOTE.strip, output[/^-+$(.+?)^-+$/m, 1].strip)
 To: dev@arrow.apache.org
