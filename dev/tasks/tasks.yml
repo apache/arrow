@@ -453,9 +453,9 @@ tasks:
 {############################## Wheel Linux ##################################}
 
 {% for ci, arch, arch_alias, x_y, manylinux_version, manylinux in [("github", "amd64", "x86_64", "2_17", "2014", "manylinux2014"),
-                                                                   ("github", "amd64", "x86_64", "2_28", "2_28", "manylinux_2_28"),
+                                                                   ("github", "amd64", "x86_64", "2_28", "2-28", "manylinux_2_28"),
                                                                    ("travis", "arm64", "aarch64", "2_17", "2014", "manylinux2014"),
-                                                                   ("travis", "arm64", "aarch64", "2_28", "2_28", "manylinux_2_28")] %}
+                                                                   ("travis", "arm64", "aarch64", "2_28", "2-28", "manylinux_2_28")] %}
   wheel-{{ manylinux }}-{{ python_tag }}-{{ arch }}:
     ci: "{{ ci }}"
     template: python-wheels/{{ ci }}.linux.{{ arch }}.yml
