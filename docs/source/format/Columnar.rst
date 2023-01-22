@@ -824,7 +824,7 @@ In Run-end-encoded form, this could appear as:
 
 ::
 
-    * Length: 7, Null count: 2
+    * Length: 7, Null count: 0
     * Child Arrays:
 
       * run_ends (Int32):
