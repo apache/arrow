@@ -33,6 +33,8 @@ done
 
 pip install -r requirements-build.txt
 # setup substrait-java
+git submodule init
+git submodule update --init
 ./build-and-copy-isthmus-shadow-jar.sh
 # install substrait_consumer library
 python setup.py install
