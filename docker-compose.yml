@@ -1052,7 +1052,6 @@ services:
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux-2-28-ccache:/ccache:delegated
     command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
 
-
   python-wheel-manylinux-test-imports:
     image: ${ARCH}/python:${PYTHON}
     shm_size: 2G
