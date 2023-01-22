@@ -477,14 +477,15 @@ class RecordBatchSerializer {
       // the first offset we find for a child is the initial offset and
       // will become the 0th offset for this child.
       for (int64_t code_idx = 0; code_idx < length; ++code_idx) {
-          const uint8_t code = type_codes[code_idx];
-          if (child_offsets[code] == -1) {
-              child_offsets[code] = unshifted_offsets[code_idx];
-              shifted_offsets[code_idx] = 0;
-          } else {
-              shifted_offsets[code_idx] = unshifted_offsets[code_idx] - child_offsets[code];
-          }
-          child_lengths[code] = std::max(child_lengths[code], shifted_offsets[code_idx] + 1);
+        const uint8_t code = type_codes[code_idx];
+        if (child_offsets[code] == -1) {
+          child_offsets[code] = unshifted_offsets[code_idx];
+          shifted_offsets[code_idx] = 0;
+        } else {
+          shifted_offsets[code_idx] = unshifted_offsets[code_idx] - child_offsets[code];
+        }
+        child_lengths[code] =
+            std::max(child_lengths[code], shifted_offsets[code_idx] + 1);
       }
 
       value_offsets = std::move(shifted_offsets_buffer);
