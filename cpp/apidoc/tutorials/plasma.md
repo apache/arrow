@@ -366,7 +366,7 @@ Object Lifetime Management
 The Plasma store internally does reference counting to make sure objects that
 are mapped into the address space of one of the clients with `PlasmaClient::Get`
 are accessible. To unmap objects from a client, call `PlasmaClient::Release`.
-All objects that are mapped into a clients address space will automatically
+All objects that are mapped into a client's address space will automatically
 be released when the client is disconnected from the store (this happens even
 if the client process crashes or otherwise fails to call `Disconnect`).
 
