@@ -1480,7 +1480,7 @@ class ArrayReader {
   }
 
   Status Visit(const MapType& type) {
-    auto list_type = std::make_shared<ListType>(type.value_field());
+    auto list_type = list(type.value_field());
     RETURN_NOT_OK(CreateList<ListType>(list_type));
     data_->type = type_;
     return Status::OK();

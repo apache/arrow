@@ -90,7 +90,7 @@ TYPED_TEST(TestDictionaryBuilder, Basic) {
   ASSERT_EQ(builder.null_count(), 1);
 
   // Build expected data
-  auto value_type = std::make_shared<TypeParam>();
+  auto value_type = TypeTraits<TypeParam>::type_singleton();
   auto dict_type = dictionary(int8(), value_type);
 
   std::shared_ptr<Array> result;
@@ -104,7 +104,7 @@ TYPED_TEST(TestDictionaryBuilder, Basic) {
 TYPED_TEST(TestDictionaryBuilder, ArrayInit) {
   using c_type = typename TypeParam::c_type;
 
-  auto value_type = std::make_shared<TypeParam>();
+  auto value_type = TypeTraits<TypeParam>::type_singleton();
   auto dict_array = ArrayFromJSON(value_type, "[1, 2]");
   auto dict_type = dictionary(int8(), value_type);
 
@@ -131,7 +131,7 @@ TYPED_TEST(TestDictionaryBuilder, ArrayInit) {
 TYPED_TEST(TestDictionaryBuilder, MakeBuilder) {
   using c_type = typename TypeParam::c_type;
 
-  auto value_type = std::make_shared<TypeParam>();
+  auto value_type = TypeTraits<TypeParam>::type_singleton();
   auto dict_array = ArrayFromJSON(value_type, "[1, 2]");
   auto dict_type = dictionary(int8(), value_type);
   std::unique_ptr<ArrayBuilder> boxed_builder;
@@ -158,7 +158,7 @@ TYPED_TEST(TestDictionaryBuilder, MakeBuilder) {
 }
 
 TYPED_TEST(TestDictionaryBuilder, ArrayConversion) {
-  auto type = std::make_shared<TypeParam>();
+  auto type = TypeTraits<TypeParam>::type_singleton();
 
   auto intermediate_result = ArrayFromJSON(type, "[1, 2, 1]");
   DictionaryBuilder<TypeParam> dictionary_builder;
@@ -217,7 +217,7 @@ TYPED_TEST(TestDictionaryBuilder, DoubleTableSize) {
 
 TYPED_TEST(TestDictionaryBuilder, DeltaDictionary) {
   using c_type = typename TypeParam::c_type;
-  auto type = std::make_shared<TypeParam>();
+  auto type = TypeTraits<TypeParam>::type_singleton();
 
   DictionaryBuilder<TypeParam> builder;
 
@@ -250,7 +250,7 @@ TYPED_TEST(TestDictionaryBuilder, DeltaDictionary) {
 
 TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
   using c_type = typename TypeParam::c_type;
-  auto type = std::make_shared<TypeParam>();
+  auto type = TypeTraits<TypeParam>::type_singleton();
   auto dict_type = dictionary(int8(), type);
 
   DictionaryBuilder<TypeParam> builder;
@@ -295,7 +295,7 @@ TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
 
 TYPED_TEST(TestDictionaryBuilder, Dictionary32_BasicPrimitive) {
   using c_type = typename TypeParam::c_type;
-  auto type = std::make_shared<TypeParam>();
+  auto type = TypeTraits<TypeParam>::type_singleton();
   auto dict_type = dictionary(int32(), type);
 
   Dictionary32Builder<TypeParam> builder;
@@ -316,7 +316,7 @@ TYPED_TEST(TestDictionaryBuilder, Dictionary32_BasicPrimitive) {
 TYPED_TEST(TestDictionaryBuilder, FinishResetBehavior) {
   // ARROW-6861
   using c_type = typename TypeParam::c_type;
-  auto type = std::make_shared<TypeParam>();
+  auto type = TypeTraits<TypeParam>::type_singleton();
 
   Dictionary32Builder<TypeParam> builder;
 
@@ -351,7 +351,7 @@ TYPED_TEST(TestDictionaryBuilder, FinishResetBehavior) {
 
 TYPED_TEST(TestDictionaryBuilder, ResetFull) {
   using c_type = typename TypeParam::c_type;
-  auto type = std::make_shared<TypeParam>();
+  auto type = TypeTraits<TypeParam>::type_singleton();
 
   Dictionary32Builder<TypeParam> builder;
 

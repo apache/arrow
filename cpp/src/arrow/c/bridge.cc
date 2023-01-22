@@ -1083,7 +1083,7 @@ struct SchemaImporter {
     RETURN_NOT_OK(f_parser_.CheckAtEnd());
     RETURN_NOT_OK(CheckNumChildren(1));
     ARROW_ASSIGN_OR_RAISE(auto field, MakeChildField(0));
-    type_ = std::make_shared<ListType>(field);
+    type_ = list(field);
     return Status::OK();
   }
 

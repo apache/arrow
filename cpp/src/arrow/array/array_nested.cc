@@ -245,8 +245,8 @@ void LargeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
 Result<std::shared_ptr<ListArray>> ListArray::FromArrays(
     const Array& offsets, const Array& values, MemoryPool* pool,
     std::shared_ptr<Buffer> null_bitmap, int64_t null_count) {
-  return ListArrayFromArrays<ListType>(std::make_shared<ListType>(values.type()), offsets,
-                                       values, pool, null_bitmap, null_count);
+  return ListArrayFromArrays<ListType>(list(values.type()), offsets, values, pool,
+                                       null_bitmap, null_count);
 }
 
 Result<std::shared_ptr<ListArray>> ListArray::FromArrays(
@@ -266,9 +266,8 @@ Result<std::shared_ptr<ListArray>> ListArray::FromArrays(
 Result<std::shared_ptr<LargeListArray>> LargeListArray::FromArrays(
     const Array& offsets, const Array& values, MemoryPool* pool,
     std::shared_ptr<Buffer> null_bitmap, int64_t null_count) {
-  return ListArrayFromArrays<LargeListType>(
-      std::make_shared<LargeListType>(values.type()), offsets, values, pool, null_bitmap,
-      null_count);
+  return ListArrayFromArrays<LargeListType>(large_list(values.type()), offsets, values,
+                                            pool, null_bitmap, null_count);
 }
 
 Result<std::shared_ptr<LargeListArray>> LargeListArray::FromArrays(
@@ -370,8 +369,7 @@ Result<std::shared_ptr<Array>> MapArray::FromArrays(const std::shared_ptr<Array>
                                                     const std::shared_ptr<Array>& keys,
                                                     const std::shared_ptr<Array>& items,
                                                     MemoryPool* pool) {
-  return FromArraysInternal(std::make_shared<MapType>(keys->type(), items->type()),
-                            offsets, keys, items, pool);
+  return FromArraysInternal(map(keys->type(), items->type()), offsets, keys, items, pool);
 }
 
 Result<std::shared_ptr<Array>> MapArray::FromArrays(std::shared_ptr<DataType> type,
@@ -473,7 +471,7 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
         "The length of the values Array needs to be a multiple of the list_size");
   }
   int64_t length = values->length() / list_size;
-  auto list_type = std::make_shared<FixedSizeListType>(values->type(), list_size);
+  auto list_type = fixed_size_list(values->type(), list_size);
   std::shared_ptr<Buffer> validity_buf;
 
   return std::make_shared<FixedSizeListArray>(list_type, length, values, validity_buf,

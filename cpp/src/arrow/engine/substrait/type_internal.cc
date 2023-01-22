@@ -47,20 +47,10 @@ bool IsNullable(const TypeMessage& type) {
   return type.nullability() != substrait::Type::NULLABILITY_REQUIRED;
 }
 
-template <typename ArrowType, typename TypeMessage, typename... A>
-Result<std::pair<std::shared_ptr<DataType>, bool>> FromProtoImpl(const TypeMessage& type,
-                                                                 A&&... args) {
-  return std::make_pair(std::static_pointer_cast<DataType>(
-                            std::make_shared<ArrowType>(std::forward<A>(args)...)),
-                        IsNullable(type));
-}
-
-template <typename TypeMessage, typename... A>
+template <typename TypeMessage>
 Result<std::pair<std::shared_ptr<DataType>, bool>> FromProtoImpl(
-    const TypeMessage& type, std::shared_ptr<DataType> type_factory(A...), A&&... args) {
-  return std::make_pair(
-      std::static_pointer_cast<DataType>(type_factory(std::forward<A>(args)...)),
-      IsNullable(type));
+    const TypeMessage& type, std::shared_ptr<DataType> data_type) {
+  return std::make_pair(data_type, IsNullable(type));
 }
 
 template <typename Types, typename NextName>
@@ -99,60 +89,60 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
     const ConversionOptions& conversion_options) {
   switch (type.kind_case()) {
     case substrait::Type::kBool:
-      return FromProtoImpl<BooleanType>(type.bool_());
+      return FromProtoImpl(type.bool_(), boolean());
 
     case substrait::Type::kI8:
-      return FromProtoImpl<Int8Type>(type.i8());
+      return FromProtoImpl(type.i8(), int8());
     case substrait::Type::kI16:
-      return FromProtoImpl<Int16Type>(type.i16());
+      return FromProtoImpl(type.i16(), int16());
     case substrait::Type::kI32:
-      return FromProtoImpl<Int32Type>(type.i32());
+      return FromProtoImpl(type.i32(), int32());
     case substrait::Type::kI64:
-      return FromProtoImpl<Int64Type>(type.i64());
+      return FromProtoImpl(type.i64(), int64());
 
     case substrait::Type::kFp32:
-      return FromProtoImpl<FloatType>(type.fp32());
+      return FromProtoImpl(type.fp32(), float32());
     case substrait::Type::kFp64:
-      return FromProtoImpl<DoubleType>(type.fp64());
+      return FromProtoImpl(type.fp64(), float64());
 
     case substrait::Type::kString:
-      return FromProtoImpl<StringType>(type.string());
+      return FromProtoImpl(type.string(), utf8());
     case substrait::Type::kBinary:
-      return FromProtoImpl<BinaryType>(type.binary());
+      return FromProtoImpl(type.binary(), binary());
 
     case substrait::Type::kTimestamp:
-      return FromProtoImpl<TimestampType>(type.timestamp(), TimeUnit::MICRO);
+      return FromProtoImpl(type.timestamp(), timestamp(TimeUnit::MICRO));
     case substrait::Type::kTimestampTz:
-      return FromProtoImpl<TimestampType>(type.timestamp_tz(), TimeUnit::MICRO,
-                                          TimestampTzTimezoneString());
+      return FromProtoImpl(type.timestamp_tz(),
+                           timestamp(TimeUnit::MICRO, TimestampTzTimezoneString()));
     case substrait::Type::kDate:
-      return FromProtoImpl<Date32Type>(type.date());
+      return FromProtoImpl(type.date(), date32());
 
     case substrait::Type::kTime:
-      return FromProtoImpl<Time64Type>(type.time(), TimeUnit::MICRO);
+      return FromProtoImpl(type.time(), time64(TimeUnit::MICRO));
 
     case substrait::Type::kIntervalYear:
-      return FromProtoImpl(type.interval_year(), interval_year);
+      return FromProtoImpl(type.interval_year(), interval_year());
 
     case substrait::Type::kIntervalDay:
-      return FromProtoImpl(type.interval_day(), interval_day);
+      return FromProtoImpl(type.interval_day(), interval_day());
 
     case substrait::Type::kUuid:
-      return FromProtoImpl(type.uuid(), uuid);
+      return FromProtoImpl(type.uuid(), uuid());
 
     case substrait::Type::kFixedChar:
-      return FromProtoImpl(type.fixed_char(), fixed_char, type.fixed_char().length());
+      return FromProtoImpl(type.fixed_char(), fixed_char(type.fixed_char().length()));
 
     case substrait::Type::kVarchar:
-      return FromProtoImpl(type.varchar(), varchar, type.varchar().length());
+      return FromProtoImpl(type.varchar(), varchar(type.varchar().length()));
 
     case substrait::Type::kFixedBinary:
-      return FromProtoImpl<FixedSizeBinaryType>(type.fixed_binary(),
-                                                type.fixed_binary().length());
+      return FromProtoImpl(type.fixed_binary(),
+                           fixed_size_binary(type.fixed_binary().length()));
 
     case substrait::Type::kDecimal: {
       const auto& decimal = type.decimal();
-      return FromProtoImpl<Decimal128Type>(decimal, decimal.precision(), decimal.scale());
+      return FromProtoImpl(decimal, decimal128(decimal.precision(), decimal.scale()));
     }
 
     case substrait::Type::kStruct: {
@@ -163,7 +153,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
                            struct_.types_size(), struct_.types(),
                            /*next_name=*/[] { return ""; }, ext_set, conversion_options));
 
-      return FromProtoImpl<StructType>(struct_, std::move(fields));
+      return FromProtoImpl(struct_, ::arrow::struct_(std::move(fields)));
     }
 
     case substrait::Type::kList: {
@@ -177,8 +167,9 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
 
       ARROW_ASSIGN_OR_RAISE(auto type_nullable,
                             FromProto(list.type(), ext_set, conversion_options));
-      return FromProtoImpl<ListType>(
-          list, field("item", std::move(type_nullable.first), type_nullable.second));
+      return FromProtoImpl(
+          list, ::arrow::list(
+                    field("item", std::move(type_nullable.first), type_nullable.second)));
     }
 
     case substrait::Type::kMap: {
@@ -202,9 +193,10 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
             map.DebugString());
       }
 
-      return FromProtoImpl<MapType>(
-          map, std::move(key_nullable.first),
-          field("value", std::move(value_nullable.first), value_nullable.second));
+      return FromProtoImpl(map,
+                           ::arrow::map(std::move(key_nullable.first),
+                                        field("value", std::move(value_nullable.first),
+                                              value_nullable.second)));
     }
 
     case substrait::Type::kUserDefined: {

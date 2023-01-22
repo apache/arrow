@@ -83,8 +83,8 @@ template <class ArrowType>
   ::arrow::randint(size, 0, 64, &values);
 
   // Passing data type so this will work with TimestampType too
-  ::arrow::NumericBuilder<ArrowType> builder(std::make_shared<ArrowType>(),
-                                             ::arrow::default_memory_pool());
+  ::arrow::NumericBuilder<ArrowType> builder(
+      ::arrow::TypeTraits<ArrowType>::type_singleton(), ::arrow::default_memory_pool());
   RETURN_NOT_OK(builder.AppendValues(values.data(), values.size()));
   return builder.Finish(out);
 }
@@ -99,8 +99,8 @@ template <class ArrowType>
   }
 
   // Passing data type so this will work with TimestampType too
-  ::arrow::NumericBuilder<ArrowType> builder(std::make_shared<ArrowType>(),
-                                             ::arrow::default_memory_pool());
+  ::arrow::NumericBuilder<ArrowType> builder(
+      ::arrow::TypeTraits<ArrowType>::type_singleton(), ::arrow::default_memory_pool());
   RETURN_NOT_OK(builder.AppendValues(values.data(), values.size()));
   return builder.Finish(out);
 }
@@ -231,8 +231,8 @@ template <typename ArrowType>
   }
 
   // Passing data type so this will work with TimestampType too
-  ::arrow::NumericBuilder<ArrowType> builder(std::make_shared<ArrowType>(),
-                                             ::arrow::default_memory_pool());
+  ::arrow::NumericBuilder<ArrowType> builder(
+      ::arrow::TypeTraits<ArrowType>::type_singleton(), ::arrow::default_memory_pool());
   RETURN_NOT_OK(builder.AppendValues(values.data(), values.size(), valid_bytes.data()));
   return builder.Finish(out);
 }
@@ -256,8 +256,8 @@ template <typename ArrowType>
   }
 
   // Passing data type so this will work with TimestampType too
-  ::arrow::NumericBuilder<ArrowType> builder(std::make_shared<ArrowType>(),
-                                             ::arrow::default_memory_pool());
+  ::arrow::NumericBuilder<ArrowType> builder(
+      ::arrow::TypeTraits<ArrowType>::type_singleton(), ::arrow::default_memory_pool());
   RETURN_NOT_OK(builder.AppendValues(values.data(), values.size(), valid_bytes.data()));
   return builder.Finish(out);
 }

@@ -257,7 +257,7 @@ TYPED_TEST_SUITE(ByteRangesList, ListArrowTypes);
 
 TYPED_TEST(ByteRangesList, Basic) {
   using offset_type = typename TypeParam::offset_type;
-  std::shared_ptr<DataType> type = std::make_shared<TypeParam>(int32());
+  std::shared_ptr<DataType> type = TypeTraits<TypeParam>::type_instance(int32());
   std::shared_ptr<Array> list_arr = ArrayFromJSON(type, "[[1, 2], [3], [0]]");
   CheckBufferRanges(list_arr, {{0, 0, 3 * sizeof(offset_type)}, {1, 0, 16}});
   CheckBufferRanges(list_arr->Slice(2, 1),
@@ -281,7 +281,7 @@ TYPED_TEST(ByteRangesList, Basic) {
 TYPED_TEST(ByteRangesList, NestedList) {
   using offset_type = typename TypeParam::offset_type;
   std::shared_ptr<DataType> type =
-      std::make_shared<TypeParam>(std::make_shared<TypeParam>(int32()));
+      TypeTraits<TypeParam>::type_instance(TypeTraits<TypeParam>::type_instance(int32()));
   std::shared_ptr<Array> list_arr =
       ArrayFromJSON(type, "[[[1], [2, 3, 4]], null, [[null]], [null, [5]]]");
   CheckBufferRanges(list_arr, {{0, 0, 1},

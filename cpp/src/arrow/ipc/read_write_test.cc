@@ -238,20 +238,18 @@ class TestSchemaMetadata : public ::testing::Test {
   }
 };
 
-const std::shared_ptr<DataType> INT32 = std::make_shared<Int32Type>();
-
 TEST_F(TestSchemaMetadata, PrimitiveFields) {
-  auto f0 = field("f0", std::make_shared<Int8Type>());
-  auto f1 = field("f1", std::make_shared<Int16Type>(), false);
-  auto f2 = field("f2", std::make_shared<Int32Type>());
-  auto f3 = field("f3", std::make_shared<Int64Type>());
-  auto f4 = field("f4", std::make_shared<UInt8Type>());
-  auto f5 = field("f5", std::make_shared<UInt16Type>());
-  auto f6 = field("f6", std::make_shared<UInt32Type>());
-  auto f7 = field("f7", std::make_shared<UInt64Type>());
-  auto f8 = field("f8", std::make_shared<FloatType>());
-  auto f9 = field("f9", std::make_shared<DoubleType>(), false);
-  auto f10 = field("f10", std::make_shared<BooleanType>());
+  auto f0 = field("f0", int8());
+  auto f1 = field("f1", int16(), false);
+  auto f2 = field("f2", int32());
+  auto f3 = field("f3", int64());
+  auto f4 = field("f4", uint8());
+  auto f5 = field("f5", uint16());
+  auto f6 = field("f6", uint32());
+  auto f7 = field("f7", uint64());
+  auto f8 = field("f8", float32());
+  auto f9 = field("f9", float64(), false);
+  auto f10 = field("f10", boolean());
 
   Schema schema({f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10});
   CheckSchemaRoundtrip(schema);
@@ -262,7 +260,7 @@ TEST_F(TestSchemaMetadata, NestedFields) {
   auto f0 = field("f0", type);
 
   std::shared_ptr<StructType> type2(
-      new StructType({field("k1", INT32), field("k2", INT32), field("k3", INT32)}));
+      new StructType({field("k1", int32()), field("k2", int32()), field("k3", int32())}));
   auto f1 = field("f1", type2);
 
   Schema schema({f0, f1});
@@ -314,8 +312,8 @@ TEST_F(TestSchemaMetadata, KeyValueMetadata) {
   auto field_metadata = key_value_metadata({{"key", "value"}});
   auto schema_metadata = key_value_metadata({{"foo", "bar"}, {"bizz", "buzz"}});
 
-  auto f0 = field("f0", std::make_shared<Int8Type>());
-  auto f1 = field("f1", std::make_shared<Int16Type>(), false, field_metadata);
+  auto f0 = field("f0", int8());
+  auto f1 = field("f1", int16(), false, field_metadata);
 
   Schema schema({f0, f1}, schema_metadata);
   CheckSchemaRoundtrip(schema);

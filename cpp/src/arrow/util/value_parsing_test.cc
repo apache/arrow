@@ -440,317 +440,318 @@ void AssertInvalidTimes(const T& type) {
 
 TEST(StringConversion, ToTime32) {
   {
-    Time32Type type{TimeUnit::SECOND};
+    auto type = checked_pointer_cast<Time32Type>(time32(TimeUnit::SECOND));
 
-    AssertConversion(type, "00:00", 0);
-    AssertConversion(type, "01:23", 4980);
-    AssertConversion(type, "23:59", 86340);
+    AssertConversion(*type, "00:00", 0);
+    AssertConversion(*type, "01:23", 4980);
+    AssertConversion(*type, "23:59", 86340);
 
-    AssertConversion(type, "00:00:00", 0);
-    AssertConversion(type, "01:23:45", 5025);
-    AssertConversion(type, "23:45:43", 85543);
-    AssertConversion(type, "23:59:59", 86399);
+    AssertConversion(*type, "00:00:00", 0);
+    AssertConversion(*type, "01:23:45", 5025);
+    AssertConversion(*type, "23:45:43", 85543);
+    AssertConversion(*type, "23:59:59", 86399);
 
-    AssertInvalidTimes(type);
+    AssertInvalidTimes(*type);
     // No subseconds allowed
-    AssertConversionFails(type, "00:00:00.123");
+    AssertConversionFails(*type, "00:00:00.123");
   }
   {
-    Time32Type type{TimeUnit::MILLI};
+    auto type = checked_pointer_cast<Time32Type>(time32(TimeUnit::MILLI));
 
-    AssertConversion(type, "00:00", 0);
-    AssertConversion(type, "01:23", 4980000);
-    AssertConversion(type, "23:59", 86340000);
+    AssertConversion(*type, "00:00", 0);
+    AssertConversion(*type, "01:23", 4980000);
+    AssertConversion(*type, "23:59", 86340000);
 
-    AssertConversion(type, "00:00:00", 0);
-    AssertConversion(type, "01:23:45", 5025000);
-    AssertConversion(type, "23:45:43", 85543000);
-    AssertConversion(type, "23:59:59", 86399000);
+    AssertConversion(*type, "00:00:00", 0);
+    AssertConversion(*type, "01:23:45", 5025000);
+    AssertConversion(*type, "23:45:43", 85543000);
+    AssertConversion(*type, "23:59:59", 86399000);
 
-    AssertConversion(type, "00:00:00.123", 123);
-    AssertConversion(type, "01:23:45.000", 5025000);
-    AssertConversion(type, "01:23:45.1", 5025100);
-    AssertConversion(type, "01:23:45.123", 5025123);
-    AssertConversion(type, "01:23:45.999", 5025999);
+    AssertConversion(*type, "00:00:00.123", 123);
+    AssertConversion(*type, "01:23:45.000", 5025000);
+    AssertConversion(*type, "01:23:45.1", 5025100);
+    AssertConversion(*type, "01:23:45.123", 5025123);
+    AssertConversion(*type, "01:23:45.999", 5025999);
 
-    AssertInvalidTimes(type);
+    AssertInvalidTimes(*type);
     // Invalid subseconds
-    AssertConversionFails(type, "00:00:00.1234");
+    AssertConversionFails(*type, "00:00:00.1234");
   }
 }
 
 TEST(StringConversion, ToTime64) {
   {
-    Time64Type type{TimeUnit::MICRO};
+    auto type = checked_pointer_cast<Time64Type>(time64(TimeUnit::MICRO));
 
-    AssertConversion(type, "00:00:00", 0LL);
-    AssertConversion(type, "01:23:45", 5025000000LL);
-    AssertConversion(type, "23:45:43", 85543000000LL);
-    AssertConversion(type, "23:59:59", 86399000000LL);
+    AssertConversion(*type, "00:00:00", 0LL);
+    AssertConversion(*type, "01:23:45", 5025000000LL);
+    AssertConversion(*type, "23:45:43", 85543000000LL);
+    AssertConversion(*type, "23:59:59", 86399000000LL);
 
-    AssertConversion(type, "00:00:00.123456", 123456LL);
-    AssertConversion(type, "01:23:45.000000", 5025000000LL);
-    AssertConversion(type, "01:23:45.1", 5025100000LL);
-    AssertConversion(type, "01:23:45.123", 5025123000LL);
-    AssertConversion(type, "01:23:45.999999", 5025999999LL);
+    AssertConversion(*type, "00:00:00.123456", 123456LL);
+    AssertConversion(*type, "01:23:45.000000", 5025000000LL);
+    AssertConversion(*type, "01:23:45.1", 5025100000LL);
+    AssertConversion(*type, "01:23:45.123", 5025123000LL);
+    AssertConversion(*type, "01:23:45.999999", 5025999999LL);
 
-    AssertInvalidTimes(type);
+    AssertInvalidTimes(*type);
     // Invalid subseconds
-    AssertConversionFails(type, "00:00:00.1234567");
+    AssertConversionFails(*type, "00:00:00.1234567");
   }
   {
-    Time64Type type{TimeUnit::NANO};
+    auto type = checked_pointer_cast<Time64Type>(time64(TimeUnit::NANO));
 
-    AssertConversion(type, "00:00:00", 0LL);
-    AssertConversion(type, "01:23:45", 5025000000000LL);
-    AssertConversion(type, "23:45:43", 85543000000000LL);
-    AssertConversion(type, "23:59:59", 86399000000000LL);
+    AssertConversion(*type, "00:00:00", 0LL);
+    AssertConversion(*type, "01:23:45", 5025000000000LL);
+    AssertConversion(*type, "23:45:43", 85543000000000LL);
+    AssertConversion(*type, "23:59:59", 86399000000000LL);
 
-    AssertConversion(type, "00:00:00.123456789", 123456789LL);
-    AssertConversion(type, "01:23:45.000000000", 5025000000000LL);
-    AssertConversion(type, "01:23:45.1", 5025100000000LL);
-    AssertConversion(type, "01:23:45.1234", 5025123400000LL);
-    AssertConversion(type, "01:23:45.999999999", 5025999999999LL);
+    AssertConversion(*type, "00:00:00.123456789", 123456789LL);
+    AssertConversion(*type, "01:23:45.000000000", 5025000000000LL);
+    AssertConversion(*type, "01:23:45.1", 5025100000000LL);
+    AssertConversion(*type, "01:23:45.1234", 5025123400000LL);
+    AssertConversion(*type, "01:23:45.999999999", 5025999999999LL);
 
-    AssertInvalidTimes(type);
+    AssertInvalidTimes(*type);
     // Invalid subseconds
-    AssertConversionFails(type, "00:00:00.1234567891");
+    AssertConversionFails(*type, "00:00:00.1234567891");
   }
 }
 
 TEST(StringConversion, ToTimestampDate_ISO8601) {
   {
-    TimestampType type{TimeUnit::SECOND};
+    auto type = checked_pointer_cast<TimestampType>(timestamp(TimeUnit::SECOND));
 
-    AssertConversion(type, "1970-01-01", 0);
-    AssertConversion(type, "1989-07-14", 616377600);
-    AssertConversion(type, "2000-02-29", 951782400);
-    AssertConversion(type, "3989-07-14", 63730281600LL);
-    AssertConversion(type, "1900-02-28", -2203977600LL);
+    AssertConversion(*type, "1970-01-01", 0);
+    AssertConversion(*type, "1989-07-14", 616377600);
+    AssertConversion(*type, "2000-02-29", 951782400);
+    AssertConversion(*type, "3989-07-14", 63730281600LL);
+    AssertConversion(*type, "1900-02-28", -2203977600LL);
 
-    AssertConversionFails(type, "");
-    AssertConversionFails(type, "1970");
-    AssertConversionFails(type, "19700101");
-    AssertConversionFails(type, "1970/01/01");
-    AssertConversionFails(type, "1970-01-01 ");
-    AssertConversionFails(type, "1970-01-01Z");
+    AssertConversionFails(*type, "");
+    AssertConversionFails(*type, "1970");
+    AssertConversionFails(*type, "19700101");
+    AssertConversionFails(*type, "1970/01/01");
+    AssertConversionFails(*type, "1970-01-01 ");
+    AssertConversionFails(*type, "1970-01-01Z");
 
     // Invalid dates
-    AssertConversionFails(type, "1970-00-01");
-    AssertConversionFails(type, "1970-13-01");
-    AssertConversionFails(type, "1970-01-32");
-    AssertConversionFails(type, "1970-02-29");
-    AssertConversionFails(type, "2100-02-29");
+    AssertConversionFails(*type, "1970-00-01");
+    AssertConversionFails(*type, "1970-13-01");
+    AssertConversionFails(*type, "1970-01-32");
+    AssertConversionFails(*type, "1970-02-29");
+    AssertConversionFails(*type, "2100-02-29");
   }
   {
-    TimestampType type{TimeUnit::MILLI};
+    auto type = checked_pointer_cast<TimestampType>(timestamp(TimeUnit::MILLI));
 
-    AssertConversion(type, "1970-01-01", 0);
-    AssertConversion(type, "1989-07-14", 616377600000LL);
-    AssertConversion(type, "3989-07-14", 63730281600000LL);
-    AssertConversion(type, "1900-02-28", -2203977600000LL);
+    AssertConversion(*type, "1970-01-01", 0);
+    AssertConversion(*type, "1989-07-14", 616377600000LL);
+    AssertConversion(*type, "3989-07-14", 63730281600000LL);
+    AssertConversion(*type, "1900-02-28", -2203977600000LL);
   }
   {
-    TimestampType type{TimeUnit::MICRO};
+    auto type = checked_pointer_cast<TimestampType>(timestamp(TimeUnit::MICRO));
 
-    AssertConversion(type, "1970-01-01", 0);
-    AssertConversion(type, "1989-07-14", 616377600000000LL);
-    AssertConversion(type, "3989-07-14", 63730281600000000LL);
-    AssertConversion(type, "1900-02-28", -2203977600000000LL);
+    AssertConversion(*type, "1970-01-01", 0);
+    AssertConversion(*type, "1989-07-14", 616377600000000LL);
+    AssertConversion(*type, "3989-07-14", 63730281600000000LL);
+    AssertConversion(*type, "1900-02-28", -2203977600000000LL);
   }
   {
-    TimestampType type{TimeUnit::NANO};
+    auto type = checked_pointer_cast<TimestampType>(timestamp(TimeUnit::NANO));
 
-    AssertConversion(type, "1970-01-01", 0);
-    AssertConversion(type, "1989-07-14", 616377600000000000LL);
-    AssertConversion(type, "2018-11-13", 1542067200000000000LL);
-    AssertConversion(type, "1900-02-28", -2203977600000000000LL);
+    AssertConversion(*type, "1970-01-01", 0);
+    AssertConversion(*type, "1989-07-14", 616377600000000000LL);
+    AssertConversion(*type, "2018-11-13", 1542067200000000000LL);
+    AssertConversion(*type, "1900-02-28", -2203977600000000000LL);
   }
 }
 
 TEST(StringConversion, ToTimestampDateTime_ISO8601) {
   {
-    TimestampType type{TimeUnit::SECOND};
+    auto type = checked_pointer_cast<TimestampType>(timestamp(TimeUnit::SECOND));
 
-    AssertConversion(type, "1970-01-01 00:00:00", 0);
-    AssertConversion(type, "2018-11-13 17", 1542128400);
-    AssertConversion(type, "2018-11-13 17+00", 1542128400);
-    AssertConversion(type, "2018-11-13 17+0000", 1542128400);
-    AssertConversion(type, "2018-11-13 17+00:00", 1542128400);
-    AssertConversion(type, "2018-11-13 17+01", 1542124800);
-    AssertConversion(type, "2018-11-13 17+0117", 1542123780);
-    AssertConversion(type, "2018-11-13 17+01:17", 1542123780);
-    AssertConversion(type, "2018-11-13 17-01", 1542132000);
-    AssertConversion(type, "2018-11-13 17-0117", 1542133020);
-    AssertConversion(type, "2018-11-13 17-01:17", 1542133020);
-    AssertConversion(type, "2018-11-13T17", 1542128400);
-    AssertConversion(type, "2018-11-13 17Z", 1542128400);
-    AssertConversion(type, "2018-11-13T17Z", 1542128400);
-    AssertConversion(type, "2018-11-13 17:11", 1542129060);
-    AssertConversion(type, "2018-11-13T17:11", 1542129060);
-    AssertConversion(type, "2018-11-13 17:11Z", 1542129060);
-    AssertConversion(type, "2018-11-13T17:11Z", 1542129060);
-    AssertConversion(type, "2018-11-13 17:11+00", 1542129060);
-    AssertConversion(type, "2018-11-13 17:11+0000", 1542129060);
-    AssertConversion(type, "2018-11-13 17:11+00:00", 1542129060);
-    AssertConversion(type, "2018-11-13 17:11+01", 1542125460);
-    AssertConversion(type, "2018-11-13 17:11+0117", 1542124440);
-    AssertConversion(type, "2018-11-13 17:11+01:17", 1542124440);
-    AssertConversion(type, "2018-11-13 17:11-01", 1542132660);
-    AssertConversion(type, "2018-11-13 17:11-0117", 1542133680);
-    AssertConversion(type, "2018-11-13 17:11-01:17", 1542133680);
-    AssertConversion(type, "2018-11-13 17:11:10", 1542129070);
-    AssertConversion(type, "2018-11-13T17:11:10", 1542129070);
-    AssertConversion(type, "2018-11-13 17:11:10Z", 1542129070);
-    AssertConversion(type, "2018-11-13T17:11:10Z", 1542129070);
-    AssertConversion(type, "2018-11-13T17:11:10+00", 1542129070);
-    AssertConversion(type, "2018-11-13T17:11:10+0000", 1542129070);
-    AssertConversion(type, "2018-11-13T17:11:10+00:00", 1542129070);
-    AssertConversion(type, "2018-11-13T17:11:10+01", 1542125470);
-    AssertConversion(type, "2018-11-13T17:11:10+0117", 1542124450);
-    AssertConversion(type, "2018-11-13T17:11:10+01:17", 1542124450);
-    AssertConversion(type, "2018-11-13T17:11:10-01", 1542132670);
-    AssertConversion(type, "2018-11-13T17:11:10-0117", 1542133690);
-    AssertConversion(type, "2018-11-13T17:11:10-01:17", 1542133690);
-    AssertConversion(type, "1900-02-28 12:34:56", -2203932304LL);
+    AssertConversion(*type, "1970-01-01 00:00:00", 0);
+    AssertConversion(*type, "2018-11-13 17", 1542128400);
+    AssertConversion(*type, "2018-11-13 17+00", 1542128400);
+    AssertConversion(*type, "2018-11-13 17+0000", 1542128400);
+    AssertConversion(*type, "2018-11-13 17+00:00", 1542128400);
+    AssertConversion(*type, "2018-11-13 17+01", 1542124800);
+    AssertConversion(*type, "2018-11-13 17+0117", 1542123780);
+    AssertConversion(*type, "2018-11-13 17+01:17", 1542123780);
+    AssertConversion(*type, "2018-11-13 17-01", 1542132000);
+    AssertConversion(*type, "2018-11-13 17-0117", 1542133020);
+    AssertConversion(*type, "2018-11-13 17-01:17", 1542133020);
+    AssertConversion(*type, "2018-11-13T17", 1542128400);
+    AssertConversion(*type, "2018-11-13 17Z", 1542128400);
+    AssertConversion(*type, "2018-11-13T17Z", 1542128400);
+    AssertConversion(*type, "2018-11-13 17:11", 1542129060);
+    AssertConversion(*type, "2018-11-13T17:11", 1542129060);
+    AssertConversion(*type, "2018-11-13 17:11Z", 1542129060);
+    AssertConversion(*type, "2018-11-13T17:11Z", 1542129060);
+    AssertConversion(*type, "2018-11-13 17:11+00", 1542129060);
+    AssertConversion(*type, "2018-11-13 17:11+0000", 1542129060);
+    AssertConversion(*type, "2018-11-13 17:11+00:00", 1542129060);
+    AssertConversion(*type, "2018-11-13 17:11+01", 1542125460);
+    AssertConversion(*type, "2018-11-13 17:11+0117", 1542124440);
+    AssertConversion(*type, "2018-11-13 17:11+01:17", 1542124440);
+    AssertConversion(*type, "2018-11-13 17:11-01", 1542132660);
+    AssertConversion(*type, "2018-11-13 17:11-0117", 1542133680);
+    AssertConversion(*type, "2018-11-13 17:11-01:17", 1542133680);
+    AssertConversion(*type, "2018-11-13 17:11:10", 1542129070);
+    AssertConversion(*type, "2018-11-13T17:11:10", 1542129070);
+    AssertConversion(*type, "2018-11-13 17:11:10Z", 1542129070);
+    AssertConversion(*type, "2018-11-13T17:11:10Z", 1542129070);
+    AssertConversion(*type, "2018-11-13T17:11:10+00", 1542129070);
+    AssertConversion(*type, "2018-11-13T17:11:10+0000", 1542129070);
+    AssertConversion(*type, "2018-11-13T17:11:10+00:00", 1542129070);
+    AssertConversion(*type, "2018-11-13T17:11:10+01", 1542125470);
+    AssertConversion(*type, "2018-11-13T17:11:10+0117", 1542124450);
+    AssertConversion(*type, "2018-11-13T17:11:10+01:17", 1542124450);
+    AssertConversion(*type, "2018-11-13T17:11:10-01", 1542132670);
+    AssertConversion(*type, "2018-11-13T17:11:10-0117", 1542133690);
+    AssertConversion(*type, "2018-11-13T17:11:10-01:17", 1542133690);
+    AssertConversion(*type, "1900-02-28 12:34:56", -2203932304LL);
 
     // No subseconds allowed
-    AssertConversionFails(type, "1900-02-28 12:34:56.001");
+    AssertConversionFails(*type, "1900-02-28 12:34:56.001");
     // Invalid dates
-    AssertConversionFails(type, "1970-02-29 00:00:00");
-    AssertConversionFails(type, "2100-02-29 00:00:00");
+    AssertConversionFails(*type, "1970-02-29 00:00:00");
+    AssertConversionFails(*type, "2100-02-29 00:00:00");
     // Invalid times
-    AssertConversionFails(type, "1970-01-01 24");
-    AssertConversionFails(type, "1970-01-01 00:60");
-    AssertConversionFails(type, "1970-01-01 00,00");
-    AssertConversionFails(type, "1970-01-01 24:00:00");
-    AssertConversionFails(type, "1970-01-01 00:60:00");
-    AssertConversionFails(type, "1970-01-01 00:00:60");
-    AssertConversionFails(type, "1970-01-01 00:00,00");
-    AssertConversionFails(type, "1970-01-01 00,00:00");
+    AssertConversionFails(*type, "1970-01-01 24");
+    AssertConversionFails(*type, "1970-01-01 00:60");
+    AssertConversionFails(*type, "1970-01-01 00,00");
+    AssertConversionFails(*type, "1970-01-01 24:00:00");
+    AssertConversionFails(*type, "1970-01-01 00:60:00");
+    AssertConversionFails(*type, "1970-01-01 00:00:60");
+    AssertConversionFails(*type, "1970-01-01 00:00,00");
+    AssertConversionFails(*type, "1970-01-01 00,00:00");
     // Invalid zone offsets
-    AssertConversionFails(type, "1970-01-01 00:00+0");
-    AssertConversionFails(type, "1970-01-01 00:00+000");
-    AssertConversionFails(type, "1970-01-01 00:00+00000");
-    AssertConversionFails(type, "1970-01-01 00:00+2400");
-    AssertConversionFails(type, "1970-01-01 00:00+0060");
-    AssertConversionFails(type, "1970-01-01 00-0");
-    AssertConversionFails(type, "1970-01-01 00-000");
-    AssertConversionFails(type, "1970-01-01 00+00000");
-    AssertConversionFails(type, "1970-01-01 00+2400");
-    AssertConversionFails(type, "1970-01-01 00+0060");
-    AssertConversionFails(type, "1970-01-01 00:00:00+0");
-    AssertConversionFails(type, "1970-01-01 00:00:00-000");
-    AssertConversionFails(type, "1970-01-01 00:00:00-00000");
-    AssertConversionFails(type, "1970-01-01 00:00:00+2400");
-    AssertConversionFails(type, "1970-01-01 00:00:00+00:99");
+    AssertConversionFails(*type, "1970-01-01 00:00+0");
+    AssertConversionFails(*type, "1970-01-01 00:00+000");
+    AssertConversionFails(*type, "1970-01-01 00:00+00000");
+    AssertConversionFails(*type, "1970-01-01 00:00+2400");
+    AssertConversionFails(*type, "1970-01-01 00:00+0060");
+    AssertConversionFails(*type, "1970-01-01 00-0");
+    AssertConversionFails(*type, "1970-01-01 00-000");
+    AssertConversionFails(*type, "1970-01-01 00+00000");
+    AssertConversionFails(*type, "1970-01-01 00+2400");
+    AssertConversionFails(*type, "1970-01-01 00+0060");
+    AssertConversionFails(*type, "1970-01-01 00:00:00+0");
+    AssertConversionFails(*type, "1970-01-01 00:00:00-000");
+    AssertConversionFails(*type, "1970-01-01 00:00:00-00000");
+    AssertConversionFails(*type, "1970-01-01 00:00:00+2400");
+    AssertConversionFails(*type, "1970-01-01 00:00:00+00:99");
   }
   {
-    TimestampType type{TimeUnit::MILLI};
+    auto type = checked_pointer_cast<TimestampType>(timestamp(TimeUnit::MILLI));
 
-    AssertConversion(type, "2018-11-13 17:11:10", 1542129070000LL);
-    AssertConversion(type, "2018-11-13T17:11:10Z", 1542129070000LL);
-    AssertConversion(type, "3989-07-14T11:22:33Z", 63730322553000LL);
-    AssertConversion(type, "1900-02-28 12:34:56", -2203932304000LL);
-    AssertConversion(type, "2018-11-13T17:11:10.777Z", 1542129070777LL);
+    AssertConversion(*type, "2018-11-13 17:11:10", 1542129070000LL);
+    AssertConversion(*type, "2018-11-13T17:11:10Z", 1542129070000LL);
+    AssertConversion(*type, "3989-07-14T11:22:33Z", 63730322553000LL);
+    AssertConversion(*type, "1900-02-28 12:34:56", -2203932304000LL);
+    AssertConversion(*type, "2018-11-13T17:11:10.777Z", 1542129070777LL);
 
-    AssertConversion(type, "1900-02-28 12:34:56.1", -2203932304000LL + 100LL);
-    AssertConversion(type, "1900-02-28 12:34:56.12", -2203932304000LL + 120LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123", -2203932304000LL + 123LL);
+    AssertConversion(*type, "1900-02-28 12:34:56.1", -2203932304000LL + 100LL);
+    AssertConversion(*type, "1900-02-28 12:34:56.12", -2203932304000LL + 120LL);
+    AssertConversion(*type, "1900-02-28 12:34:56.123", -2203932304000LL + 123LL);
 
-    AssertConversion(type, "2018-11-13 17:11:10.123+01", 1542129070123LL - 3600000LL);
-    AssertConversion(type, "2018-11-13 17:11:10.123+0117", 1542129070123LL - 4620000LL);
-    AssertConversion(type, "2018-11-13 17:11:10.123+01:17", 1542129070123LL - 4620000LL);
-    AssertConversion(type, "2018-11-13 17:11:10.123-01", 1542129070123LL + 3600000LL);
-    AssertConversion(type, "2018-11-13 17:11:10.123-0117", 1542129070123LL + 4620000LL);
-    AssertConversion(type, "2018-11-13 17:11:10.123-01:17", 1542129070123LL + 4620000LL);
+    AssertConversion(*type, "2018-11-13 17:11:10.123+01", 1542129070123LL - 3600000LL);
+    AssertConversion(*type, "2018-11-13 17:11:10.123+0117", 1542129070123LL - 4620000LL);
+    AssertConversion(*type, "2018-11-13 17:11:10.123+01:17", 1542129070123LL - 4620000LL);
+    AssertConversion(*type, "2018-11-13 17:11:10.123-01", 1542129070123LL + 3600000LL);
+    AssertConversion(*type, "2018-11-13 17:11:10.123-0117", 1542129070123LL + 4620000LL);
+    AssertConversion(*type, "2018-11-13 17:11:10.123-01:17", 1542129070123LL + 4620000LL);
 
     // Invalid subseconds
-    AssertConversionFails(type, "1900-02-28 12:34:56.1234");
-    AssertConversionFails(type, "1900-02-28 12:34:56.12345");
-    AssertConversionFails(type, "1900-02-28 12:34:56.123456");
-    AssertConversionFails(type, "1900-02-28 12:34:56.1234567");
-    AssertConversionFails(type, "1900-02-28 12:34:56.12345678");
-    AssertConversionFails(type, "1900-02-28 12:34:56.123456789");
+    AssertConversionFails(*type, "1900-02-28 12:34:56.1234");
+    AssertConversionFails(*type, "1900-02-28 12:34:56.12345");
+    AssertConversionFails(*type, "1900-02-28 12:34:56.123456");
+    AssertConversionFails(*type, "1900-02-28 12:34:56.1234567");
+    AssertConversionFails(*type, "1900-02-28 12:34:56.12345678");
+    AssertConversionFails(*type, "1900-02-28 12:34:56.123456789");
   }
   {
-    TimestampType type{TimeUnit::MICRO};
+    auto type = checked_pointer_cast<TimestampType>(timestamp(TimeUnit::MICRO));
 
-    AssertConversion(type, "2018-11-13 17:11:10", 1542129070000000LL);
-    AssertConversion(type, "2018-11-13T17:11:10Z", 1542129070000000LL);
-    AssertConversion(type, "3989-07-14T11:22:33Z", 63730322553000000LL);
-    AssertConversion(type, "1900-02-28 12:34:56", -2203932304000000LL);
-    AssertConversion(type, "2018-11-13T17:11:10.777000", 1542129070777000LL);
-    AssertConversion(type, "3989-07-14T11:22:33.000777Z", 63730322553000777LL);
+    AssertConversion(*type, "2018-11-13 17:11:10", 1542129070000000LL);
+    AssertConversion(*type, "2018-11-13T17:11:10Z", 1542129070000000LL);
+    AssertConversion(*type, "3989-07-14T11:22:33Z", 63730322553000000LL);
+    AssertConversion(*type, "1900-02-28 12:34:56", -2203932304000000LL);
+    AssertConversion(*type, "2018-11-13T17:11:10.777000", 1542129070777000LL);
+    AssertConversion(*type, "3989-07-14T11:22:33.000777Z", 63730322553000777LL);
 
-    AssertConversion(type, "1900-02-28 12:34:56.1", -2203932304000000LL + 100000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.12", -2203932304000000LL + 120000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123", -2203932304000000LL + 123000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.1234", -2203932304000000LL + 123400LL);
-    AssertConversion(type, "1900-02-28 12:34:56.12345", -2203932304000000LL + 123450LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123456", -2203932304000000LL + 123456LL);
+    AssertConversion(*type, "1900-02-28 12:34:56.1", -2203932304000000LL + 100000LL);
+    AssertConversion(*type, "1900-02-28 12:34:56.12", -2203932304000000LL + 120000LL);
+    AssertConversion(*type, "1900-02-28 12:34:56.123", -2203932304000000LL + 123000LL);
+    AssertConversion(*type, "1900-02-28 12:34:56.1234", -2203932304000000LL + 123400LL);
+    AssertConversion(*type, "1900-02-28 12:34:56.12345", -2203932304000000LL + 123450LL);
+    AssertConversion(*type, "1900-02-28 12:34:56.123456", -2203932304000000LL + 123456LL);
 
-    AssertConversion(type, "1900-02-28 12:34:56.123456+01",
+    AssertConversion(*type, "1900-02-28 12:34:56.123456+01",
                      -2203932304000000LL + 123456LL - 3600000000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123456+0117",
+    AssertConversion(*type, "1900-02-28 12:34:56.123456+0117",
                      -2203932304000000LL + 123456LL - 4620000000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123456+01:17",
+    AssertConversion(*type, "1900-02-28 12:34:56.123456+01:17",
                      -2203932304000000LL + 123456LL - 4620000000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123456-01",
+    AssertConversion(*type, "1900-02-28 12:34:56.123456-01",
                      -2203932304000000LL + 123456LL + 3600000000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123456-0117",
+    AssertConversion(*type, "1900-02-28 12:34:56.123456-0117",
                      -2203932304000000LL + 123456LL + 4620000000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123456-01:17",
+    AssertConversion(*type, "1900-02-28 12:34:56.123456-01:17",
                      -2203932304000000LL + 123456LL + 4620000000LL);
 
     // Invalid subseconds
-    AssertConversionFails(type, "1900-02-28 12:34:56.1234567");
-    AssertConversionFails(type, "1900-02-28 12:34:56.12345678");
-    AssertConversionFails(type, "1900-02-28 12:34:56.123456789");
+    AssertConversionFails(*type, "1900-02-28 12:34:56.1234567");
+    AssertConversionFails(*type, "1900-02-28 12:34:56.12345678");
+    AssertConversionFails(*type, "1900-02-28 12:34:56.123456789");
   }
   {
-    TimestampType type{TimeUnit::NANO};
+    auto type = checked_pointer_cast<TimestampType>(timestamp(TimeUnit::NANO));
 
-    AssertConversion(type, "2018-11-13 17:11:10", 1542129070000000000LL);
-    AssertConversion(type, "2018-11-13T17:11:10Z", 1542129070000000000LL);
-    AssertConversion(type, "1900-02-28 12:34:56", -2203932304000000000LL);
-    AssertConversion(type, "2018-11-13 17:11:10.777000000", 1542129070777000000LL);
-    AssertConversion(type, "2018-11-13T17:11:10.000777000Z", 1542129070000777000LL);
-    AssertConversion(type, "1969-12-31 23:59:59.999999999", -1);
+    AssertConversion(*type, "2018-11-13 17:11:10", 1542129070000000000LL);
+    AssertConversion(*type, "2018-11-13T17:11:10Z", 1542129070000000000LL);
+    AssertConversion(*type, "1900-02-28 12:34:56", -2203932304000000000LL);
+    AssertConversion(*type, "2018-11-13 17:11:10.777000000", 1542129070777000000LL);
+    AssertConversion(*type, "2018-11-13T17:11:10.000777000Z", 1542129070000777000LL);
+    AssertConversion(*type, "1969-12-31 23:59:59.999999999", -1);
 
-    AssertConversion(type, "1900-02-28 12:34:56.1", -2203932304000000000LL + 100000000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.12",
+    AssertConversion(*type, "1900-02-28 12:34:56.1",
+                     -2203932304000000000LL + 100000000LL);
+    AssertConversion(*type, "1900-02-28 12:34:56.12",
                      -2203932304000000000LL + 120000000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123",
+    AssertConversion(*type, "1900-02-28 12:34:56.123",
                      -2203932304000000000LL + 123000000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.1234",
+    AssertConversion(*type, "1900-02-28 12:34:56.1234",
                      -2203932304000000000LL + 123400000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.12345",
+    AssertConversion(*type, "1900-02-28 12:34:56.12345",
                      -2203932304000000000LL + 123450000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123456",
+    AssertConversion(*type, "1900-02-28 12:34:56.123456",
                      -2203932304000000000LL + 123456000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.1234567",
+    AssertConversion(*type, "1900-02-28 12:34:56.1234567",
                      -2203932304000000000LL + 123456700LL);
-    AssertConversion(type, "1900-02-28 12:34:56.12345678",
+    AssertConversion(*type, "1900-02-28 12:34:56.12345678",
                      -2203932304000000000LL + 123456780LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123456789",
+    AssertConversion(*type, "1900-02-28 12:34:56.123456789",
                      -2203932304000000000LL + 123456789LL);
 
-    AssertConversion(type, "1900-02-28 12:34:56.123456789+01",
+    AssertConversion(*type, "1900-02-28 12:34:56.123456789+01",
                      -2203932304000000000LL + 123456789LL - 3600000000000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123456789+0117",
+    AssertConversion(*type, "1900-02-28 12:34:56.123456789+0117",
                      -2203932304000000000LL + 123456789LL - 4620000000000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123456789+01:17",
+    AssertConversion(*type, "1900-02-28 12:34:56.123456789+01:17",
                      -2203932304000000000LL + 123456789LL - 4620000000000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123456789-01",
+    AssertConversion(*type, "1900-02-28 12:34:56.123456789-01",
                      -2203932304000000000LL + 123456789LL + 3600000000000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123456789-0117",
+    AssertConversion(*type, "1900-02-28 12:34:56.123456789-0117",
                      -2203932304000000000LL + 123456789LL + 4620000000000LL);
-    AssertConversion(type, "1900-02-28 12:34:56.123456789-01:17",
+    AssertConversion(*type, "1900-02-28 12:34:56.123456789-01:17",
                      -2203932304000000000LL + 123456789LL + 4620000000000LL);
 
     // Invalid subseconds
-    AssertConversionFails(type, "1900-02-28 12:34:56.1234567890");
+    AssertConversionFails(*type, "1900-02-28 12:34:56.1234567890");
   }
 }
 

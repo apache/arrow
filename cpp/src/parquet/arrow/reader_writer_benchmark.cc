@@ -132,7 +132,7 @@ std::shared_ptr<::arrow::Table> TableFromVector(
   if (!nullable) {
     ARROW_CHECK_EQ(null_percentage, kAlternatingOrNa);
   }
-  std::shared_ptr<::arrow::DataType> type = std::make_shared<ArrowType<ParquetType>>();
+  auto type = ::arrow::TypeTraits<ArrowType<ParquetType>>::type_singleton();
   NumericBuilder<ArrowType<ParquetType>> builder;
   if (nullable) {
     // Note true values select index 1 of sample_values

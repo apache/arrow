@@ -535,8 +535,9 @@ std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
     }
   }
 
-  auto array_data = ArrayData::Make(
-      std::make_shared<typename OffsetArrayType::TypeClass>(), size, buffers, null_count);
+  auto array_data =
+      ArrayData::Make(TypeTraits<typename OffsetArrayType::TypeClass>::type_singleton(),
+                      size, buffers, null_count);
   return std::make_shared<OffsetArrayType>(array_data);
 }
 
@@ -589,8 +590,9 @@ std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
     }
   }
 
-  auto array_data = ArrayData::Make(
-      std::make_shared<typename OffsetArrayType::TypeClass>(), size, buffers, null_count);
+  auto array_data =
+      ArrayData::Make(TypeTraits<typename OffsetArrayType::TypeClass>::type_singleton(),
+                      size, buffers, null_count);
   return std::make_shared<OffsetArrayType>(array_data);
 }
 }  // namespace

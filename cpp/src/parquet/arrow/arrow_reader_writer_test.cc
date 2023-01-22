@@ -1469,8 +1469,7 @@ TEST_F(TestNullParquetIO, NullDictionaryColumn) {
   ASSERT_OK_AND_ASSIGN(auto null_bitmap, ::arrow::AllocateEmptyBitmap(SMALL_SIZE));
 
   ASSERT_OK_AND_ASSIGN(auto indices, MakeArrayOfNull(::arrow::int8(), SMALL_SIZE));
-  std::shared_ptr<::arrow::DictionaryType> dict_type =
-      std::make_shared<::arrow::DictionaryType>(::arrow::int8(), ::arrow::null());
+  auto dict_type = ::arrow::dictionary(::arrow::int8(), ::arrow::null());
 
   std::shared_ptr<Array> dict = std::make_shared<::arrow::NullArray>(0);
   std::shared_ptr<Array> dict_values =
@@ -1515,9 +1514,9 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
 
   void MakeTestFile(std::vector<T>& values, int num_chunks,
                     std::unique_ptr<FileReader>* reader) {
-    TestType dummy;
+    auto dummy = ::arrow::TypeTraits<TestType>::type_singleton();
 
-    std::shared_ptr<GroupNode> schema = MakeSimpleSchema(dummy, Repetition::REQUIRED);
+    std::shared_ptr<GroupNode> schema = MakeSimpleSchema(*dummy, Repetition::REQUIRED);
     std::unique_ptr<ParquetFileWriter> file_writer = this->MakeWriter(schema);
     size_t chunk_size = values.size() / num_chunks;
     // Convert to Parquet's expected physical type

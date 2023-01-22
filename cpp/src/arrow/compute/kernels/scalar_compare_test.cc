@@ -566,7 +566,7 @@ class TestCompareDecimal : public ::testing::Test {};
 TYPED_TEST_SUITE(TestCompareDecimal, DecimalArrowTypes);
 
 TYPED_TEST(TestCompareDecimal, ArrayScalar) {
-  auto ty = std::make_shared<TypeParam>(3, 2);
+  auto ty = TypeTraits<TypeParam>::type_instance(3, 2);
 
   std::vector<std::pair<std::string, std::string>> cases = {
       {"equal", "[1, 0, 0, null]"},   {"not_equal", "[0, 1, 1, null]"},
@@ -593,7 +593,7 @@ TYPED_TEST(TestCompareDecimal, ArrayScalar) {
 }
 
 TYPED_TEST(TestCompareDecimal, ScalarArray) {
-  auto ty = std::make_shared<TypeParam>(3, 2);
+  auto ty = TypeTraits<TypeParam>::type_instance(3, 2);
 
   std::vector<std::pair<std::string, std::string>> cases = {
       {"equal", "[1, 0, 0, null]"},   {"not_equal", "[0, 1, 1, null]"},
@@ -620,7 +620,7 @@ TYPED_TEST(TestCompareDecimal, ScalarArray) {
 }
 
 TYPED_TEST(TestCompareDecimal, ArrayArray) {
-  auto ty = std::make_shared<TypeParam>(3, 2);
+  auto ty = TypeTraits<TypeParam>::type_instance(3, 2);
 
   std::vector<std::pair<std::string, std::string>> cases = {
       {"equal", "[1, 0, 0, 1, 0, 0, null, null]"},
@@ -659,8 +659,8 @@ TYPED_TEST(TestCompareDecimal, ArrayArray) {
 }
 
 TYPED_TEST(TestCompareDecimal, DifferentParameters) {
-  auto ty1 = std::make_shared<TypeParam>(3, 2);
-  auto ty2 = std::make_shared<TypeParam>(4, 3);
+  auto ty1 = TypeTraits<TypeParam>::type_instance(3, 2);
+  auto ty2 = TypeTraits<TypeParam>::type_instance(4, 3);
 
   std::vector<std::pair<std::string, std::string>> cases = {
       {"equal", "[1, 0, 0, 1, 0, 0]"},   {"not_equal", "[0, 1, 1, 0, 1, 1]"},
@@ -1231,12 +1231,13 @@ template <typename T>
 class TestVarArgsCompareDecimal : public TestVarArgsCompare<T> {
  protected:
   Datum scalar(const std::string& value, int32_t precision = 38, int32_t scale = 2) {
-    return ScalarFromJSON(std::make_shared<T>(/*precision=*/precision, /*scale=*/scale),
-                          value);
+    return ScalarFromJSON(
+        TypeTraits<T>::type_instance(/*precision=*/precision, /*scale=*/scale), value);
   }
 
   Datum array(const std::string& value) {
-    return ArrayFromJSON(std::make_shared<T>(/*precision=*/38, /*scale=*/2), value);
+    return ArrayFromJSON(TypeTraits<T>::type_instance(/*precision=*/38, /*scale=*/2),
+                         value);
   }
 };
 
@@ -1264,9 +1265,9 @@ class TestVarArgsCompareParametricTemporal : public TestVarArgsCompare<T> {
   static std::shared_ptr<DataType> type_singleton() {
     // Time32 requires second/milli, Time64 requires nano/micro
     if (TypeTraits<T>::bytes_required(1) == 4) {
-      return std::make_shared<T>(TimeUnit::type::SECOND);
+      return time32(TimeUnit::type::SECOND);
     } else {
-      return std::make_shared<T>(TimeUnit::type::NANO);
+      return time64(TimeUnit::type::NANO);
     }
   }
 

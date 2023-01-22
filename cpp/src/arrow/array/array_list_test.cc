@@ -59,7 +59,7 @@ class TestListArray : public ::testing::Test {
 
   void SetUp() {
     value_type_ = int16();
-    type_ = std::make_shared<T>(value_type_);
+    type_ = TypeTraits<T>::type_instance(value_type_);
 
     std::unique_ptr<ArrayBuilder> tmp;
     ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
@@ -98,7 +98,7 @@ class TestListArray : public ::testing::Test {
     auto offsets = std::dynamic_pointer_cast<OffsetArrayType>(result->offsets());
     ASSERT_EQ(offsets->length(), result->length() + 1);
     ASSERT_EQ(offsets->null_count(), 0);
-    AssertTypeEqual(*offsets->type(), OffsetType());
+    AssertTypeEqual(offsets->type(), TypeTraits<OffsetType>::type_singleton());
 
     for (int64_t i = 0; i < result->length(); ++i) {
       ASSERT_EQ(offsets->Value(i), result_->raw_value_offsets()[i]);
@@ -190,7 +190,7 @@ class TestListArray : public ::testing::Test {
   }
 
   void TestValuesEquality() {
-    auto type = std::make_shared<T>(int32());
+    auto type = TypeTraits<T>::type_instance(int32());
     auto left = ArrayFromJSON(type, "[[1, 2], [3], [0]]");
     auto right = ArrayFromJSON(type, "[[1, 2], [3], [100000]]");
     auto offset = 2;
@@ -207,7 +207,7 @@ class TestListArray : public ::testing::Test {
                                              &offsets_w_nulls);
     ArrayFromVector<OffsetType, offset_type>(offsets, &offsets_wo_nulls);
 
-    auto type = std::make_shared<T>(int32());
+    auto type = TypeTraits<T>::type_instance(int32());
     auto expected = std::dynamic_pointer_cast<ArrayType>(
         ArrayFromJSON(type, "[[0], null, [0, null], [0]]"));
     values = expected->values();
@@ -260,7 +260,7 @@ class TestListArray : public ::testing::Test {
 
     ArrayFromVector<Int8Type, int8_t>(values_is_valid, values_values, &values);
 
-    auto list_type = std::make_shared<T>(int8());
+    auto list_type = TypeTraits<T>::type_instance(int8());
 
     ASSERT_OK_AND_ASSIGN(auto list1, ArrayType::FromArrays(*offsets1, *values, pool_));
     ASSERT_OK_AND_ASSIGN(auto list3, ArrayType::FromArrays(*offsets3, *values, pool_));
@@ -404,7 +404,7 @@ class TestListArray : public ::testing::Test {
   }
 
   void TestBuilderPreserveFieldName() {
-    auto list_type_with_name = std::make_shared<T>(field("counts", int16()));
+    auto list_type_with_name = TypeTraits<T>::type_instance(field("counts", int16()));
 
     std::unique_ptr<ArrayBuilder> tmp;
     ASSERT_OK(MakeBuilder(pool_, list_type_with_name, &tmp));
@@ -428,7 +428,7 @@ class TestListArray : public ::testing::Test {
   }
 
   void TestFlattenSimple() {
-    auto type = std::make_shared<T>(int32());
+    auto type = TypeTraits<T>::type_instance(int32());
     auto list_array = std::dynamic_pointer_cast<ArrayType>(
         ArrayFromJSON(type, "[[1, 2], [3], [4], null, [5], [], [6]]"));
     ASSERT_OK_AND_ASSIGN(auto flattened, list_array->Flatten());
@@ -437,7 +437,7 @@ class TestListArray : public ::testing::Test {
   }
 
   void TestFlattenSliced() {
-    auto type = std::make_shared<T>(int32());
+    auto type = TypeTraits<T>::type_instance(int32());
     auto list_array = std::dynamic_pointer_cast<ArrayType>(
         ArrayFromJSON(type, "[[1, 2], [3], [4], null, [5], [], [6]]"));
     auto sliced_list_array =
@@ -451,7 +451,7 @@ class TestListArray : public ::testing::Test {
   }
 
   void TestFlattenNonEmptyBackingNulls() {
-    auto type = std::make_shared<T>(int32());
+    auto type = TypeTraits<T>::type_instance(int32());
     auto array_data =
         std::dynamic_pointer_cast<ArrayType>(
             ArrayFromJSON(type, "[[1, 2], [3], null, [5, 6], [7, 8], [], [9]]"))
@@ -472,7 +472,7 @@ class TestListArray : public ::testing::Test {
 
   Status ValidateOffsets(int64_t length, std::vector<offset_type> offsets,
                          const std::shared_ptr<Array>& values, int64_t offset = 0) {
-    auto type = std::make_shared<TypeClass>(values->type());
+    auto type = TypeTraits<TypeClass>::type_instance(values->type());
     ArrayType arr(type, length, Buffer::Wrap(offsets), values,
                   /*null_bitmap=*/nullptr, /*null_count=*/0, offset);
     return arr.ValidateFull();
@@ -1029,7 +1029,7 @@ TEST_F(TestMapArray, ValueBuilder) {
   ASSERT_OK(BuildListOfStructPairs(list_builder, &actual_list));
 
   MapArray* map_ptr = internal::checked_cast<MapArray*>(actual_map.get());
-  auto list_type = std::make_shared<ListType>(map_type->field(0));
+  auto list_type = list(map_type->field(0));
   ListArray map_as_list(list_type, map_ptr->length(), map_ptr->data()->buffers[1],
                         map_ptr->values(), actual_map->data()->buffers[0],
                         map_ptr->null_count());

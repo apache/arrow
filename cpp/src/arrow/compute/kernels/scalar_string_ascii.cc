@@ -3190,7 +3190,7 @@ void AddBinaryJoinForListType(ScalarFunction* func) {
   for (const auto& ty : BaseBinaryTypes()) {
     auto exec =
         GenerateTypeAgnosticVarBinaryBase<BinaryJoin, ArrayKernelExec, ListType>(*ty);
-    auto list_ty = std::make_shared<ListType>(ty);
+    auto list_ty = TypeTraits<ListType>::type_instance(ty);
     DCHECK_OK(func->AddKernel({InputType(list_ty), InputType(ty)}, ty, std::move(exec)));
   }
 }

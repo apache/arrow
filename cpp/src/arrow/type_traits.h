@@ -320,6 +320,10 @@ struct TypeTraits<Decimal128Type> {
   using ScalarType = Decimal128Scalar;
   using CType = Decimal128;
   constexpr static bool is_parameter_free = false;
+  static inline std::shared_ptr<DataType> type_instance(int32_t precision,
+                                                        int32_t scale) {
+    return decimal128(precision, scale);
+  }
 };
 
 template <>
@@ -329,6 +333,10 @@ struct TypeTraits<Decimal256Type> {
   using ScalarType = Decimal256Scalar;
   using CType = Decimal256;
   constexpr static bool is_parameter_free = false;
+  static inline std::shared_ptr<DataType> type_instance(int32_t precision,
+                                                        int32_t scale) {
+    return decimal256(precision, scale);
+  }
 };
 
 template <>
@@ -499,6 +507,16 @@ struct TypeTraits<SparseUnionType> {
   using BuilderType = SparseUnionBuilder;
   using ScalarType = SparseUnionScalar;
   constexpr static bool is_parameter_free = false;
+  static inline std::shared_ptr<DataType> type_instance(
+      FieldVector child_fields, std::vector<int8_t> type_codes = {}) {
+    return sparse_union(std::move(child_fields), std::move(type_codes));
+  }
+  static inline std::shared_ptr<DataType> type_instance(
+      const ArrayVector& children, std::vector<std::string> field_names = {},
+      std::vector<int8_t> type_codes = {}) {
+    return sparse_union(std::move(children), std::move(field_names),
+                        std::move(type_codes));
+  }
 };
 
 template <>
@@ -507,6 +525,16 @@ struct TypeTraits<DenseUnionType> {
   using BuilderType = DenseUnionBuilder;
   using ScalarType = DenseUnionScalar;
   constexpr static bool is_parameter_free = false;
+  static inline std::shared_ptr<DataType> type_instance(
+      FieldVector child_fields, std::vector<int8_t> type_codes = {}) {
+    return sparse_union(std::move(child_fields), std::move(type_codes));
+  }
+  static inline std::shared_ptr<DataType> type_instance(
+      const ArrayVector& children, std::vector<std::string> field_names = {},
+      std::vector<int8_t> type_codes = {}) {
+    return sparse_union(std::move(children), std::move(field_names),
+                        std::move(type_codes));
+  }
 };
 
 template <>

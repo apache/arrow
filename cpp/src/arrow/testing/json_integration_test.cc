@@ -842,7 +842,7 @@ void PrimitiveTypesCheckOne() {
 
   std::vector<bool> is_valid = {true, false, true, true, true, false, true, true};
   std::vector<c_type> values = {0, 1, 2, 3, 4, 5, 6, 7};
-  CheckPrimitive<T, c_type>(std::make_shared<T>(), is_valid, values);
+  CheckPrimitive<T, c_type>(TypeTraits<T>::type_singleton(), is_valid, values);
 }
 
 TEST(TestJsonArrayWriter, NullType) {

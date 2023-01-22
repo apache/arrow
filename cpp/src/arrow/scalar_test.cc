@@ -416,7 +416,7 @@ class TestDecimalScalar : public ::testing::Test {
   using ValueType = typename ScalarType::ValueType;
 
   void TestBasics() {
-    const auto ty = std::make_shared<T>(3, 2);
+    const auto ty = TypeTraits<T>::type_instance(3, 2);
     const auto pi = ScalarType(ValueType(314), ty);
     const auto pi2 = ScalarType(ValueType(628), ty);
     const auto null = CheckMakeNullScalar(ty);
@@ -442,7 +442,8 @@ class TestDecimalScalar : public ::testing::Test {
     ASSERT_TRUE(second->Equals(pi));
     ASSERT_FALSE(second->Equals(null));
 
-    auto invalid = ScalarType(ValueType::GetMaxValue(6), std::make_shared<T>(5, 2));
+    auto invalid =
+        ScalarType(ValueType::GetMaxValue(6), TypeTraits<T>::type_instance(5, 2));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("does not fit in precision of"),
                                     invalid.ValidateFull());
@@ -1049,7 +1050,7 @@ TYPED_TEST(TestNumericScalar, Cast) {
 template <typename T>
 std::shared_ptr<DataType> MakeListType(std::shared_ptr<DataType> value_type,
                                        int32_t list_size) {
-  return std::make_shared<T>(std::move(value_type));
+  return TypeTraits<T>::type_instance(std::move(value_type));
 }
 
 template <>
@@ -1064,7 +1065,6 @@ class TestListScalar : public ::testing::Test {
   using ScalarType = typename TypeTraits<T>::ScalarType;
 
   void SetUp() {
-    //     type_ = std::make_shared<T>(int16());
     type_ = MakeListType<T>(int16(), 3);
     value_ = ArrayFromJSON(int16(), "[1, 2, null]");
   }

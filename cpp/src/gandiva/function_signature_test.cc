@@ -26,23 +26,24 @@ namespace gandiva {
 class TestFunctionSignature : public ::testing::Test {
  protected:
   virtual void SetUp() {
-    // Use make_shared so these are distinct from the static instances returned
-    // by e.g. arrow::int32()
-    local_i32_type_ = std::make_shared<arrow::Int32Type>();
-    local_i64_type_ = std::make_shared<arrow::Int64Type>();
-    local_date32_type_ = std::make_shared<arrow::Date32Type>();
+    list_type1_ = arrow::list(arrow::int32());
+    list_type2_ = arrow::list(arrow::int32());
+    large_list_type1_ = arrow::large_list(arrow::int32());
+    large_list_type2_ = arrow::large_list(arrow::int32());
   }
 
   virtual void TearDown() {
-    local_i32_type_.reset();
-    local_i64_type_.reset();
-    local_date32_type_.reset();
+    list_type1_.reset();
+    list_type2_.reset();
+    large_list_type1_.reset();
+    large_list_type2_.reset();
   }
 
   // virtual void TearDown() {}
-  DataTypePtr local_i32_type_;
-  DataTypePtr local_i64_type_;
-  DataTypePtr local_date32_type_;
+  DataTypePtr list_type1_;
+  DataTypePtr list_type2_;
+  DataTypePtr large_list_type1_;
+  DataTypePtr large_list_type2_;
 };
 
 TEST_F(TestFunctionSignature, TestToString) {
@@ -53,11 +54,11 @@ TEST_F(TestFunctionSignature, TestToString) {
 }
 
 TEST_F(TestFunctionSignature, TestEqualsName) {
-  EXPECT_EQ(FunctionSignature("add", {arrow::int32()}, arrow::int32()),
-            FunctionSignature("add", {arrow::int32()}, arrow::int32()));
+  EXPECT_EQ(FunctionSignature("myfunc", {list_type1_}, large_list_type1_),
+            FunctionSignature("myfunc", {list_type1_}, large_list_type1_));
 
-  EXPECT_EQ(FunctionSignature("add", {arrow::int32()}, arrow::int64()),
-            FunctionSignature("add", {local_i32_type_}, local_i64_type_));
+  EXPECT_EQ(FunctionSignature("myfunc", {list_type1_}, large_list_type1_),
+            FunctionSignature("myfunc", {list_type2_}, large_list_type2_));
 
   EXPECT_FALSE(FunctionSignature("add", {arrow::int32()}, arrow::int32()) ==
                FunctionSignature("sub", {arrow::int32()}, arrow::int32()));
@@ -88,9 +89,6 @@ TEST_F(TestFunctionSignature, TestEqualsParamValue) {
       FunctionSignature("add", {arrow::int32(), arrow::int64()}, arrow::int32()) ==
       FunctionSignature("add", {arrow::int64(), arrow::int32()}, arrow::int32()));
 
-  EXPECT_EQ(FunctionSignature("extract_month", {arrow::date32()}, arrow::int64()),
-            FunctionSignature("extract_month", {local_date32_type_}, local_i64_type_));
-
   EXPECT_FALSE(FunctionSignature("extract_month", {arrow::date32()}, arrow::int64()) ==
                FunctionSignature("extract_month", {arrow::date64()}, arrow::date32()));
 }
@@ -101,8 +99,8 @@ TEST_F(TestFunctionSignature, TestEqualsReturn) {
 }
 
 TEST_F(TestFunctionSignature, TestHash) {
-  FunctionSignature f1("add", {arrow::int32(), arrow::int32()}, arrow::int64());
-  FunctionSignature f2("add", {local_i32_type_, local_i32_type_}, local_i64_type_);
+  FunctionSignature f1("myfunc", {list_type1_}, large_list_type1_);
+  FunctionSignature f2("myfunc", {list_type2_}, large_list_type2_);
   EXPECT_EQ(f1.Hash(), f2.Hash());
 
   FunctionSignature f3("extractDay", {arrow::int64()}, arrow::int64());

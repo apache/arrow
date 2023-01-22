@@ -173,9 +173,9 @@ Status MakeListArray(const std::shared_ptr<Array>& child_array, int num_lists,
   RETURN_NOT_OK(GetBitmapFromVector(valid_lists, &null_bitmap));
   RETURN_NOT_OK(CopyBufferFromVector(offsets, pool, &offsets_buffer));
 
-  *out = std::make_shared<ArrayType>(std::make_shared<TypeClass>(child_array->type()),
-                                     num_lists, offsets_buffer, child_array, null_bitmap,
-                                     kUnknownNullCount);
+  *out = std::make_shared<ArrayType>(
+      TypeTraits<TypeClass>::type_instance(child_array->type()), num_lists,
+      offsets_buffer, child_array, null_bitmap, kUnknownNullCount);
   return (**out).Validate();
 }
 

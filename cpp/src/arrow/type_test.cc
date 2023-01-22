@@ -1149,10 +1149,10 @@ TEST_F(TestUnifySchemas, DuplicateFieldNames) {
 
 #define PRIMITIVE_TEST(KLASS, CTYPE, ENUM, NAME)                              \
   TEST(TypesTest, ARROW_CONCAT(TestPrimitive_, ENUM)) {                       \
-    KLASS tp;                                                                 \
+    auto tp = TypeTraits<KLASS>::type_singleton();                            \
                                                                               \
-    ASSERT_EQ(tp.id(), Type::ENUM);                                           \
-    ASSERT_EQ(tp.ToString(), std::string(NAME));                              \
+    ASSERT_EQ(tp->id(), Type::ENUM);                                          \
+    ASSERT_EQ(tp->ToString(), std::string(NAME));                             \
                                                                               \
     using CType = TypeTraits<KLASS>::CType;                                   \
     static_assert(std::is_same<CType, CTYPE>::value, "Not the same c-type!"); \
@@ -1177,33 +1177,33 @@ PRIMITIVE_TEST(DoubleType, double, DOUBLE, "double");
 PRIMITIVE_TEST(BooleanType, bool, BOOL, "bool");
 
 TEST(TestBinaryType, ToString) {
-  BinaryType t1;
-  BinaryType e1;
-  StringType t2;
+  auto t1 = binary();
+  auto e1 = binary();
+  auto t2 = utf8();
   AssertTypeEqual(t1, e1);
   AssertTypeNotEqual(t1, t2);
-  ASSERT_EQ(t1.id(), Type::BINARY);
-  ASSERT_EQ(t1.ToString(), std::string("binary"));
+  ASSERT_EQ(t1->id(), Type::BINARY);
+  ASSERT_EQ(t1->ToString(), std::string("binary"));
 }
 
 TEST(TestStringType, ToString) {
-  StringType str;
-  ASSERT_EQ(str.id(), Type::STRING);
-  ASSERT_EQ(str.ToString(), std::string("string"));
+  auto str = utf8();
+  ASSERT_EQ(str->id(), Type::STRING);
+  ASSERT_EQ(str->ToString(), std::string("string"));
 }
 
 TEST(TestLargeBinaryTypes, ToString) {
-  BinaryType bt1;
-  LargeBinaryType t1;
-  LargeBinaryType e1;
-  LargeStringType t2;
+  auto bt1 = binary();
+  auto t1 = large_binary();
+  auto e1 = large_binary();
+  auto t2 = large_utf8();
   AssertTypeEqual(t1, e1);
   AssertTypeNotEqual(t1, t2);
   AssertTypeNotEqual(t1, bt1);
-  ASSERT_EQ(t1.id(), Type::LARGE_BINARY);
-  ASSERT_EQ(t1.ToString(), std::string("large_binary"));
-  ASSERT_EQ(t2.id(), Type::LARGE_STRING);
-  ASSERT_EQ(t2.ToString(), std::string("large_string"));
+  ASSERT_EQ(t1->id(), Type::LARGE_BINARY);
+  ASSERT_EQ(t1->ToString(), std::string("large_binary"));
+  ASSERT_EQ(t2->id(), Type::LARGE_STRING);
+  ASSERT_EQ(t2->ToString(), std::string("large_string"));
 }
 
 TEST(TestFixedSizeBinaryType, ToString) {
@@ -1222,71 +1222,71 @@ TEST(TestFixedSizeBinaryType, Equals) {
 }
 
 TEST(TestListType, Basics) {
-  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+  auto vt = uint8();
 
-  ListType list_type(vt);
-  ASSERT_EQ(list_type.id(), Type::LIST);
+  auto list_type = std::static_pointer_cast<ListType>(list(vt));
+  ASSERT_EQ(list_type->id(), Type::LIST);
 
-  ASSERT_EQ("list", list_type.name());
-  ASSERT_EQ("list<item: uint8>", list_type.ToString());
+  ASSERT_EQ("list", list_type->name());
+  ASSERT_EQ("list<item: uint8>", list_type->ToString());
 
-  ASSERT_EQ(list_type.value_type()->id(), vt->id());
-  ASSERT_EQ(list_type.value_type()->id(), vt->id());
+  ASSERT_EQ(list_type->value_type()->id(), vt->id());
+  ASSERT_EQ(list_type->value_type()->id(), vt->id());
 
-  std::shared_ptr<DataType> st = std::make_shared<StringType>();
-  std::shared_ptr<DataType> lt = std::make_shared<ListType>(st);
+  auto st = utf8();
+  auto lt = list(st);
   ASSERT_EQ("list<item: string>", lt->ToString());
 
-  ListType lt2(lt);
-  ASSERT_EQ("list<item: list<item: string>>", lt2.ToString());
+  auto lt2 = list(lt);
+  ASSERT_EQ("list<item: list<item: string>>", lt2->ToString());
 }
 
 TEST(TestLargeListType, Basics) {
-  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+  auto vt = uint8();
 
-  LargeListType list_type(vt);
-  ASSERT_EQ(list_type.id(), Type::LARGE_LIST);
+  auto list_type = std::static_pointer_cast<LargeListType>(large_list(vt));
+  ASSERT_EQ(list_type->id(), Type::LARGE_LIST);
 
-  ASSERT_EQ("large_list", list_type.name());
-  ASSERT_EQ("large_list<item: uint8>", list_type.ToString());
+  ASSERT_EQ("large_list", list_type->name());
+  ASSERT_EQ("large_list<item: uint8>", list_type->ToString());
 
-  ASSERT_EQ(list_type.value_type()->id(), vt->id());
-  ASSERT_EQ(list_type.value_type()->id(), vt->id());
+  ASSERT_EQ(list_type->value_type()->id(), vt->id());
+  ASSERT_EQ(list_type->value_type()->id(), vt->id());
 
-  std::shared_ptr<DataType> st = std::make_shared<StringType>();
-  std::shared_ptr<DataType> lt = std::make_shared<LargeListType>(st);
+  auto st = utf8();
+  auto lt = large_list(st);
   ASSERT_EQ("large_list<item: string>", lt->ToString());
 
-  LargeListType lt2(lt);
-  ASSERT_EQ("large_list<item: large_list<item: string>>", lt2.ToString());
+  auto lt2 = large_list(lt);
+  ASSERT_EQ("large_list<item: large_list<item: string>>", lt2->ToString());
 }
 
 TEST(TestMapType, Basics) {
   auto md = key_value_metadata({"foo"}, {"foo value"});
 
-  std::shared_ptr<DataType> kt = std::make_shared<StringType>();
-  std::shared_ptr<DataType> it = std::make_shared<UInt8Type>();
+  auto kt = utf8();
+  auto it = uint8();
 
-  MapType map_type(kt, it);
-  ASSERT_EQ(map_type.id(), Type::MAP);
+  auto map_type = std::static_pointer_cast<MapType>(map(kt, it));
+  ASSERT_EQ(map_type->id(), Type::MAP);
 
-  ASSERT_EQ("map", map_type.name());
-  ASSERT_EQ("map<string, uint8>", map_type.ToString());
+  ASSERT_EQ("map", map_type->name());
+  ASSERT_EQ("map<string, uint8>", map_type->ToString());
 
-  ASSERT_EQ(map_type.key_type()->id(), kt->id());
-  ASSERT_EQ(map_type.item_type()->id(), it->id());
-  ASSERT_EQ(map_type.value_type()->id(), Type::STRUCT);
+  ASSERT_EQ(map_type->key_type()->id(), kt->id());
+  ASSERT_EQ(map_type->item_type()->id(), it->id());
+  ASSERT_EQ(map_type->value_type()->id(), Type::STRUCT);
 
-  std::shared_ptr<DataType> mt = std::make_shared<MapType>(it, kt);
+  auto mt = map(it, kt);
   ASSERT_EQ("map<uint8, string>", mt->ToString());
 
-  MapType mt2(kt, mt, /*keys_sorted=*/true);
-  ASSERT_EQ("map<string, map<uint8, string>, keys_sorted>", mt2.ToString());
+  auto mt2 = map(kt, mt, /*keys_sorted=*/true);
+  ASSERT_EQ("map<string, map<uint8, string>, keys_sorted>", mt2->ToString());
   AssertTypeNotEqual(map_type, mt2);
-  MapType mt3(kt, mt);
-  ASSERT_EQ("map<string, map<uint8, string>>", mt3.ToString());
+  auto mt3 = map(kt, mt);
+  ASSERT_EQ("map<string, map<uint8, string>>", mt3->ToString());
   AssertTypeNotEqual(mt2, mt3);
-  MapType mt4(kt, mt);
+  auto mt4 = map(kt, mt);
   AssertTypeEqual(mt3, mt4);
 
   // Field names are indifferent when comparing map types
@@ -1295,12 +1295,12 @@ TEST(TestMapType, Basics) {
       MapType::Make(field(
           "some_entries",
           struct_({field("some_key", kt, false), field("some_value", mt)}), false)));
-  AssertTypeEqual(mt3, *mt5);
+  AssertTypeEqual(mt3, mt5);
   // ...unless we explicitly ask about them.
-  ASSERT_FALSE(mt3.Equals(mt5, /*check_metadata=*/true));
+  ASSERT_FALSE(mt3->Equals(mt5, /*check_metadata=*/true));
 
   // nullability of value type matters in comparisons
-  MapType map_type_non_nullable(kt, field("value", it, /*nullable=*/false));
+  auto map_type_non_nullable = map(kt, field("value", it, /*nullable=*/false));
   AssertTypeNotEqual(map_type, map_type_non_nullable);
 }
 
@@ -1312,8 +1312,7 @@ TEST(TestMapType, Metadata) {
   auto t1 = map(utf8(), field("value", int32(), md1));
   auto t2 = map(utf8(), field("value", int32(), md2));
   auto t3 = map(utf8(), field("value", int32(), md3));
-  auto t4 =
-      std::make_shared<MapType>(field("key", utf8(), md1), field("value", int32(), md2));
+  auto t4 = map(field("key", utf8(), md1), field("value", int32(), md2));
   ASSERT_OK_AND_ASSIGN(auto t5,
                        MapType::Make(field("some_entries",
                                            struct_({field("some_key", utf8(), false),
@@ -1334,24 +1333,26 @@ TEST(TestMapType, Metadata) {
 }
 
 TEST(TestFixedSizeListType, Basics) {
-  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+  auto vt = uint8();
 
-  FixedSizeListType fixed_size_list_type(vt, 4);
-  ASSERT_EQ(fixed_size_list_type.id(), Type::FIXED_SIZE_LIST);
+  auto fixed_size_list_type =
+      std::static_pointer_cast<FixedSizeListType>(fixed_size_list(vt, 4));
+  ASSERT_EQ(fixed_size_list_type->id(), Type::FIXED_SIZE_LIST);
 
-  ASSERT_EQ(4, fixed_size_list_type.list_size());
-  ASSERT_EQ("fixed_size_list", fixed_size_list_type.name());
-  ASSERT_EQ("fixed_size_list<item: uint8>[4]", fixed_size_list_type.ToString());
+  ASSERT_EQ(4, fixed_size_list_type->list_size());
+  ASSERT_EQ("fixed_size_list", fixed_size_list_type->name());
+  ASSERT_EQ("fixed_size_list<item: uint8>[4]", fixed_size_list_type->ToString());
 
-  ASSERT_EQ(fixed_size_list_type.value_type()->id(), vt->id());
-  ASSERT_EQ(fixed_size_list_type.value_type()->id(), vt->id());
+  ASSERT_EQ(fixed_size_list_type->value_type()->id(), vt->id());
+  ASSERT_EQ(fixed_size_list_type->value_type()->id(), vt->id());
 
-  std::shared_ptr<DataType> st = std::make_shared<StringType>();
-  std::shared_ptr<DataType> lt = std::make_shared<FixedSizeListType>(st, 3);
+  auto st = utf8();
+  auto lt = fixed_size_list(st, 3);
   ASSERT_EQ("fixed_size_list<item: string>[3]", lt->ToString());
 
-  FixedSizeListType lt2(lt, 7);
-  ASSERT_EQ("fixed_size_list<item: fixed_size_list<item: string>[3]>[7]", lt2.ToString());
+  auto lt2 = fixed_size_list(lt, 7);
+  ASSERT_EQ("fixed_size_list<item: fixed_size_list<item: string>[3]>[7]",
+            lt2->ToString());
 }
 
 TEST(TestFixedSizeListType, Equals) {
@@ -1383,15 +1384,15 @@ TEST(TestDateTypes, Attrs) {
 }
 
 TEST(TestTimeType, Equals) {
-  Time32Type t0;
-  Time32Type t1(TimeUnit::SECOND);
-  Time32Type t2(TimeUnit::MILLI);
-  Time64Type t3(TimeUnit::MICRO);
-  Time64Type t4(TimeUnit::NANO);
-  Time64Type t5(TimeUnit::MICRO);
+  auto t0 = checked_pointer_cast<Time32Type>(time32(TimeUnit::MILLI));
+  auto t1 = checked_pointer_cast<Time32Type>(time32(TimeUnit::SECOND));
+  auto t2 = checked_pointer_cast<Time32Type>(time32(TimeUnit::MILLI));
+  auto t3 = checked_pointer_cast<Time64Type>(time64(TimeUnit::MICRO));
+  auto t4 = checked_pointer_cast<Time64Type>(time64(TimeUnit::NANO));
+  auto t5 = checked_pointer_cast<Time64Type>(time64(TimeUnit::MICRO));
 
-  ASSERT_EQ(32, t0.bit_width());
-  ASSERT_EQ(64, t3.bit_width());
+  ASSERT_EQ(32, t0->bit_width());
+  ASSERT_EQ(64, t3->bit_width());
 
   AssertTypeEqual(t0, t2);
   AssertTypeEqual(t1, t1);
@@ -1413,9 +1414,9 @@ TEST(TestTimeType, ToString) {
 }
 
 TEST(TestMonthIntervalType, Equals) {
-  MonthIntervalType t1;
-  MonthIntervalType t2;
-  DayTimeIntervalType t3;
+  auto t1 = month_interval();
+  auto t2 = month_interval();
+  auto t3 = day_time_interval();
 
   AssertTypeEqual(t1, t2);
   AssertTypeNotEqual(t1, t3);
@@ -1428,9 +1429,9 @@ TEST(TestMonthIntervalType, ToString) {
 }
 
 TEST(TestDayTimeIntervalType, Equals) {
-  DayTimeIntervalType t1;
-  DayTimeIntervalType t2;
-  MonthIntervalType t3;
+  auto t1 = day_time_interval();
+  auto t2 = day_time_interval();
+  auto t3 = month_interval();
 
   AssertTypeEqual(t1, t2);
   AssertTypeNotEqual(t1, t3);
@@ -1443,10 +1444,10 @@ TEST(TestDayTimeIntervalType, ToString) {
 }
 
 TEST(TestMonthDayNanoIntervalType, Equals) {
-  MonthDayNanoIntervalType t1;
-  MonthDayNanoIntervalType t2;
-  MonthIntervalType t3;
-  DayTimeIntervalType t4;
+  auto t1 = month_day_nano_interval();
+  auto t2 = month_day_nano_interval();
+  auto t3 = month_interval();
+  auto t4 = day_time_interval();
 
   AssertTypeEqual(t1, t2);
   AssertTypeNotEqual(t1, t3);
@@ -1460,10 +1461,10 @@ TEST(TestMonthDayNanoIntervalType, ToString) {
 }
 
 TEST(TestDurationType, Equals) {
-  DurationType t1;
-  DurationType t2;
-  DurationType t3(TimeUnit::NANO);
-  DurationType t4(TimeUnit::NANO);
+  auto t1 = duration(TimeUnit::MILLI);
+  auto t2 = duration(TimeUnit::MILLI);
+  auto t3 = duration(TimeUnit::NANO);
+  auto t4 = duration(TimeUnit::NANO);
 
   AssertTypeEqual(t1, t2);
   AssertTypeNotEqual(t1, t3);
@@ -1483,13 +1484,13 @@ TEST(TestDurationType, ToString) {
 }
 
 TEST(TestTimestampType, Equals) {
-  TimestampType t1;
-  TimestampType t2;
-  TimestampType t3(TimeUnit::NANO);
-  TimestampType t4(TimeUnit::NANO);
+  auto t1 = timestamp(TimeUnit::MILLI);
+  auto t2 = timestamp(TimeUnit::MILLI);
+  auto t3 = timestamp(TimeUnit::NANO);
+  auto t4 = timestamp(TimeUnit::NANO);
 
-  DurationType dt1;
-  DurationType dt2(TimeUnit::NANO);
+  auto dt1 = duration(TimeUnit::MILLI);
+  auto dt2 = duration(TimeUnit::NANO);
 
   AssertTypeEqual(t1, t2);
   AssertTypeNotEqual(t1, t3);
@@ -1527,14 +1528,14 @@ TEST(TestListType, Equals) {
   AssertTypeEqual(*tl1, *tl2);
   AssertTypeNotEqual(*tl2, *tl3);
 
-  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+  auto vt = uint8();
   std::shared_ptr<Field> inner_field = std::make_shared<Field>("non_default_name", vt);
 
-  ListType list_type(vt);
-  ListType list_type_named(inner_field);
+  auto list_type = list(vt);
+  auto list_type_named = list(inner_field);
 
   AssertTypeEqual(list_type, list_type_named);
-  ASSERT_FALSE(list_type.Equals(list_type_named, /*check_metadata=*/true));
+  ASSERT_FALSE(list_type->Equals(list_type_named, /*check_metadata=*/true));
 }
 
 TEST(TestListType, Metadata) {
@@ -1572,7 +1573,7 @@ TEST(TestNestedType, Equals) {
                           std::string struct_name) -> std::shared_ptr<Field> {
     auto f_type = field(inner_name, int32());
     std::vector<std::shared_ptr<Field>> fields = {f_type};
-    auto s_type = std::make_shared<StructType>(fields);
+    auto s_type = struct_(fields);
     return field(struct_name, s_type);
   };
 
@@ -1615,13 +1616,13 @@ TEST(TestStructType, Basics) {
 
   std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
 
-  StructType struct_type(fields);
+  auto struct_type = struct_(fields);
 
-  ASSERT_TRUE(struct_type.field(0)->Equals(f0));
-  ASSERT_TRUE(struct_type.field(1)->Equals(f1));
-  ASSERT_TRUE(struct_type.field(2)->Equals(f2));
+  ASSERT_TRUE(struct_type->field(0)->Equals(f0));
+  ASSERT_TRUE(struct_type->field(1)->Equals(f1));
+  ASSERT_TRUE(struct_type->field(2)->Equals(f2));
 
-  ASSERT_EQ(struct_type.ToString(), "struct<f0: int32, f1: string, f2: uint8>");
+  ASSERT_EQ(struct_type->ToString(), "struct<f0: int32, f1: string, f2: uint8>");
 
   // TODO(wesm): out of bounds for field(...)
 }
@@ -1632,16 +1633,16 @@ TEST(TestStructType, GetFieldByName) {
   auto f2 = field("f2", utf8());
   auto f3 = field("f3", list(int16()));
 
-  StructType struct_type({f0, f1, f2, f3});
+  auto struct_type = std::static_pointer_cast<StructType>(struct_({f0, f1, f2, f3}));
   std::shared_ptr<Field> result;
 
-  result = struct_type.GetFieldByName("f1");
+  result = struct_type->GetFieldByName("f1");
   ASSERT_EQ(f1, result);
 
-  result = struct_type.GetFieldByName("f3");
+  result = struct_type->GetFieldByName("f3");
   ASSERT_EQ(f3, result);
 
-  result = struct_type.GetFieldByName("not-found");
+  result = struct_type->GetFieldByName("not-found");
   ASSERT_EQ(result, nullptr);
 }
 
@@ -1651,33 +1652,33 @@ TEST(TestStructType, GetFieldIndex) {
   auto f2 = field("f2", utf8());
   auto f3 = field("f3", list(int16()));
 
-  StructType struct_type({f0, f1, f2, f3});
+  auto struct_type = std::static_pointer_cast<StructType>(struct_({f0, f1, f2, f3}));
 
-  ASSERT_EQ(0, struct_type.GetFieldIndex(f0->name()));
-  ASSERT_EQ(1, struct_type.GetFieldIndex(f1->name()));
-  ASSERT_EQ(2, struct_type.GetFieldIndex(f2->name()));
-  ASSERT_EQ(3, struct_type.GetFieldIndex(f3->name()));
-  ASSERT_EQ(-1, struct_type.GetFieldIndex("not-found"));
+  ASSERT_EQ(0, struct_type->GetFieldIndex(f0->name()));
+  ASSERT_EQ(1, struct_type->GetFieldIndex(f1->name()));
+  ASSERT_EQ(2, struct_type->GetFieldIndex(f2->name()));
+  ASSERT_EQ(3, struct_type->GetFieldIndex(f3->name()));
+  ASSERT_EQ(-1, struct_type->GetFieldIndex("not-found"));
 }
 
 TEST(TestStructType, GetFieldDuplicates) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", int64());
   auto f2 = field("f1", utf8());
-  StructType struct_type({f0, f1, f2});
+  auto struct_type = std::static_pointer_cast<StructType>(struct_({f0, f1, f2}));
 
-  ASSERT_EQ(0, struct_type.GetFieldIndex("f0"));
-  ASSERT_EQ(-1, struct_type.GetFieldIndex("f1"));
-  ASSERT_EQ(std::vector<int>{0}, struct_type.GetAllFieldIndices(f0->name()));
-  ASSERT_EQ(std::vector<int>({1, 2}), struct_type.GetAllFieldIndices(f1->name()));
+  ASSERT_EQ(0, struct_type->GetFieldIndex("f0"));
+  ASSERT_EQ(-1, struct_type->GetFieldIndex("f1"));
+  ASSERT_EQ(std::vector<int>{0}, struct_type->GetAllFieldIndices(f0->name()));
+  ASSERT_EQ(std::vector<int>({1, 2}), struct_type->GetAllFieldIndices(f1->name()));
 
   std::vector<std::shared_ptr<Field>> results;
 
-  results = struct_type.GetAllFieldsByName(f0->name());
+  results = struct_type->GetAllFieldsByName(f0->name());
   ASSERT_EQ(results.size(), 1);
   ASSERT_TRUE(results[0]->Equals(f0));
 
-  results = struct_type.GetAllFieldsByName(f1->name());
+  results = struct_type->GetAllFieldsByName(f1->name());
   ASSERT_EQ(results.size(), 2);
   if (results[0]->type()->id() == Type::INT64) {
     ASSERT_TRUE(results[0]->Equals(f1));
@@ -1687,7 +1688,7 @@ TEST(TestStructType, GetFieldDuplicates) {
     ASSERT_TRUE(results[1]->Equals(f1));
   }
 
-  results = struct_type.GetAllFieldsByName("not-found");
+  results = struct_type->GetAllFieldsByName("not-found");
   ASSERT_EQ(results.size(), 0);
 }
 
@@ -1695,14 +1696,14 @@ TEST(TestStructType, TestFieldsDifferOnlyInMetadata) {
   auto f0 = field("f", utf8(), true, nullptr);
   auto f1 = field("f", utf8(), true, key_value_metadata({{"foo", "baz"}}));
 
-  StructType s0({f0, f1});
-  StructType s1({f1, f0});
+  auto s0 = struct_({f0, f1});
+  auto s1 = struct_({f1, f0});
 
   AssertTypeEqual(s0, s1);
   AssertTypeNotEqual(s0, s1, /* check_metadata = */ true);
 
-  ASSERT_EQ(s0.fingerprint(), s1.fingerprint());
-  ASSERT_NE(s0.metadata_fingerprint(), s1.metadata_fingerprint());
+  ASSERT_EQ(s0->fingerprint(), s1->fingerprint());
+  ASSERT_NE(s0->metadata_fingerprint(), s1->metadata_fingerprint());
 }
 
 TEST(TestStructType, FieldModifierMethods) {
@@ -1711,9 +1712,9 @@ TEST(TestStructType, FieldModifierMethods) {
 
   std::vector<std::shared_ptr<Field>> fields = {f0, f1};
 
-  StructType struct_type(fields);
+  auto struct_type = std::static_pointer_cast<StructType>(struct_(fields));
 
-  ASSERT_OK_AND_ASSIGN(auto new_struct, struct_type.AddField(1, field("f2", int8())));
+  ASSERT_OK_AND_ASSIGN(auto new_struct, struct_type->AddField(1, field("f2", int8())));
   ASSERT_EQ(3, new_struct->num_fields());
   ASSERT_EQ(1, new_struct->GetFieldIndex("f2"));
 
@@ -1782,11 +1783,10 @@ TEST(TestUnionType, Basics) {
 TEST(TestDictionaryType, Basics) {
   auto value_type = int32();
 
-  std::shared_ptr<DictionaryType> type1 =
-      std::dynamic_pointer_cast<DictionaryType>(dictionary(int16(), value_type));
+  auto type1 = std::dynamic_pointer_cast<DictionaryType>(dictionary(int16(), value_type));
 
-  auto type2 = std::dynamic_pointer_cast<DictionaryType>(
-      ::arrow::dictionary(int16(), type1, true));
+  auto type2 =
+      std::dynamic_pointer_cast<DictionaryType>(dictionary(int16(), type1, true));
 
   ASSERT_TRUE(int16()->Equals(type1->index_type()));
   ASSERT_TRUE(type1->value_type()->Equals(value_type));
@@ -1818,102 +1818,102 @@ TEST(TestDictionaryType, Equals) {
 }
 
 TEST(TypesTest, TestDecimal128Small) {
-  Decimal128Type t1(8, 4);
+  auto t1 = std::static_pointer_cast<Decimal128Type>(decimal128(8, 4));
 
-  EXPECT_EQ(t1.id(), Type::DECIMAL128);
-  EXPECT_EQ(t1.precision(), 8);
-  EXPECT_EQ(t1.scale(), 4);
+  EXPECT_EQ(t1->id(), Type::DECIMAL128);
+  EXPECT_EQ(t1->precision(), 8);
+  EXPECT_EQ(t1->scale(), 4);
 
-  EXPECT_EQ(t1.ToString(), std::string("decimal128(8, 4)"));
+  EXPECT_EQ(t1->ToString(), std::string("decimal128(8, 4)"));
 
   // Test properties
-  EXPECT_EQ(t1.byte_width(), 16);
-  EXPECT_EQ(t1.bit_width(), 128);
+  EXPECT_EQ(t1->byte_width(), 16);
+  EXPECT_EQ(t1->bit_width(), 128);
 }
 
 TEST(TypesTest, TestDecimal128Medium) {
-  Decimal128Type t1(12, 5);
+  auto t1 = std::static_pointer_cast<Decimal128Type>(decimal128(12, 5));
 
-  EXPECT_EQ(t1.id(), Type::DECIMAL128);
-  EXPECT_EQ(t1.precision(), 12);
-  EXPECT_EQ(t1.scale(), 5);
+  EXPECT_EQ(t1->id(), Type::DECIMAL128);
+  EXPECT_EQ(t1->precision(), 12);
+  EXPECT_EQ(t1->scale(), 5);
 
-  EXPECT_EQ(t1.ToString(), std::string("decimal128(12, 5)"));
+  EXPECT_EQ(t1->ToString(), std::string("decimal128(12, 5)"));
 
   // Test properties
-  EXPECT_EQ(t1.byte_width(), 16);
-  EXPECT_EQ(t1.bit_width(), 128);
+  EXPECT_EQ(t1->byte_width(), 16);
+  EXPECT_EQ(t1->bit_width(), 128);
 }
 
 TEST(TypesTest, TestDecimal128Large) {
-  Decimal128Type t1(27, 7);
+  auto t1 = std::static_pointer_cast<Decimal128Type>(decimal128(27, 7));
 
-  EXPECT_EQ(t1.id(), Type::DECIMAL128);
-  EXPECT_EQ(t1.precision(), 27);
-  EXPECT_EQ(t1.scale(), 7);
+  EXPECT_EQ(t1->id(), Type::DECIMAL128);
+  EXPECT_EQ(t1->precision(), 27);
+  EXPECT_EQ(t1->scale(), 7);
 
-  EXPECT_EQ(t1.ToString(), std::string("decimal128(27, 7)"));
+  EXPECT_EQ(t1->ToString(), std::string("decimal128(27, 7)"));
 
   // Test properties
-  EXPECT_EQ(t1.byte_width(), 16);
-  EXPECT_EQ(t1.bit_width(), 128);
+  EXPECT_EQ(t1->byte_width(), 16);
+  EXPECT_EQ(t1->bit_width(), 128);
 }
 
 TEST(TypesTest, TestDecimal256Small) {
-  Decimal256Type t1(8, 4);
+  auto t1 = std::static_pointer_cast<Decimal256Type>(decimal256(8, 4));
 
-  EXPECT_EQ(t1.id(), Type::DECIMAL256);
-  EXPECT_EQ(t1.precision(), 8);
-  EXPECT_EQ(t1.scale(), 4);
+  EXPECT_EQ(t1->id(), Type::DECIMAL256);
+  EXPECT_EQ(t1->precision(), 8);
+  EXPECT_EQ(t1->scale(), 4);
 
-  EXPECT_EQ(t1.ToString(), std::string("decimal256(8, 4)"));
+  EXPECT_EQ(t1->ToString(), std::string("decimal256(8, 4)"));
 
   // Test properties
-  EXPECT_EQ(t1.byte_width(), 32);
-  EXPECT_EQ(t1.bit_width(), 256);
+  EXPECT_EQ(t1->byte_width(), 32);
+  EXPECT_EQ(t1->bit_width(), 256);
 }
 
 TEST(TypesTest, TestDecimal256Medium) {
-  Decimal256Type t1(12, 5);
+  auto t1 = std::static_pointer_cast<Decimal256Type>(decimal256(12, 5));
 
-  EXPECT_EQ(t1.id(), Type::DECIMAL256);
-  EXPECT_EQ(t1.precision(), 12);
-  EXPECT_EQ(t1.scale(), 5);
+  EXPECT_EQ(t1->id(), Type::DECIMAL256);
+  EXPECT_EQ(t1->precision(), 12);
+  EXPECT_EQ(t1->scale(), 5);
 
-  EXPECT_EQ(t1.ToString(), std::string("decimal256(12, 5)"));
+  EXPECT_EQ(t1->ToString(), std::string("decimal256(12, 5)"));
 
   // Test properties
-  EXPECT_EQ(t1.byte_width(), 32);
-  EXPECT_EQ(t1.bit_width(), 256);
+  EXPECT_EQ(t1->byte_width(), 32);
+  EXPECT_EQ(t1->bit_width(), 256);
 }
 
 TEST(TypesTest, TestDecimal256Large) {
-  Decimal256Type t1(76, 38);
+  auto t1 = std::static_pointer_cast<Decimal256Type>(decimal256(76, 38));
 
-  EXPECT_EQ(t1.id(), Type::DECIMAL256);
-  EXPECT_EQ(t1.precision(), 76);
-  EXPECT_EQ(t1.scale(), 38);
+  EXPECT_EQ(t1->id(), Type::DECIMAL256);
+  EXPECT_EQ(t1->precision(), 76);
+  EXPECT_EQ(t1->scale(), 38);
 
-  EXPECT_EQ(t1.ToString(), std::string("decimal256(76, 38)"));
+  EXPECT_EQ(t1->ToString(), std::string("decimal256(76, 38)"));
 
   // Test properties
-  EXPECT_EQ(t1.byte_width(), 32);
-  EXPECT_EQ(t1.bit_width(), 256);
+  EXPECT_EQ(t1->byte_width(), 32);
+  EXPECT_EQ(t1->bit_width(), 256);
 }
 
 TEST(TypesTest, TestDecimalEquals) {
-  Decimal128Type t1(8, 4);
-  Decimal128Type t2(8, 4);
-  Decimal128Type t3(8, 5);
-  Decimal128Type t4(27, 5);
+  auto t1 = decimal128(8, 4);
+  auto t2 = decimal128(8, 4);
+  auto t3 = decimal128(8, 5);
+  auto t4 = decimal128(27, 5);
 
-  Decimal256Type t5(8, 4);
-  Decimal256Type t6(8, 4);
-  Decimal256Type t7(8, 5);
-  Decimal256Type t8(27, 5);
+  auto t5 = decimal256(8, 4);
+  auto t6 = decimal256(8, 4);
+  auto t7 = decimal256(8, 5);
+  auto t8 = decimal256(27, 5);
 
-  FixedSizeBinaryType t9(16);
-  FixedSizeBinaryType t10(32);
+  auto t9 = fixed_size_binary(16);
+  auto t10 = fixed_size_binary(32);
 
   AssertTypeEqual(t1, t2);
   AssertTypeNotEqual(t1, t3);

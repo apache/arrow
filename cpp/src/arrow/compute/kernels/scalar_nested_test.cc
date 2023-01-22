@@ -715,8 +715,8 @@ template <typename KeyType>
 class TestMapLookupDecimalKeys : public ::testing ::Test {
  protected:
   std::shared_ptr<DataType> type_singleton() const {
-    return std::make_shared<KeyType>(/*precision=*/5,
-                                     /*scale=*/4);
+    return TypeTraits<KeyType>::type_instance(/*precision=*/5,
+                                              /*scale=*/4);
   }
 };
 

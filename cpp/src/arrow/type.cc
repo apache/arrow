@@ -2386,6 +2386,12 @@ std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
                                    keys_sorted);
 }
 
+std::shared_ptr<DataType> map(std::shared_ptr<Field> key_field,
+                              std::shared_ptr<Field> item_field, bool keys_sorted) {
+  return std::make_shared<MapType>(std::move(key_field), std::move(item_field),
+                                   keys_sorted);
+}
+
 std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
                                           int32_t list_size) {
   return std::make_shared<FixedSizeListType>(value_type, list_size);

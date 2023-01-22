@@ -688,7 +688,7 @@ class TestIfElseList : public ::testing::Test {};
 TYPED_TEST_SUITE(TestIfElseList, ListArrowTypes);
 
 TYPED_TEST(TestIfElseList, ListOfInt) {
-  auto type = std::make_shared<TypeParam>(int32());
+  auto type = TypeTraits<TypeParam>::type_instance(int32());
   CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, false, false]"),
                            ArrayFromJSON(type, "[[], null, [1, null], [2, 3]]"),
                            ArrayFromJSON(type, "[[4, 5, 6], [7], [null], null]"),
@@ -701,7 +701,7 @@ TYPED_TEST(TestIfElseList, ListOfInt) {
 }
 
 TYPED_TEST(TestIfElseList, ListOfString) {
-  auto type = std::make_shared<TypeParam>(utf8());
+  auto type = TypeTraits<TypeParam>::type_instance(utf8());
   CheckWithDifferentShapes(
       ArrayFromJSON(boolean(), "[true, true, false, false]"),
       ArrayFromJSON(type, R"([[], null, ["xyz", null], ["ab", "c"]])"),
@@ -847,7 +847,7 @@ TYPED_TEST(TestIfElseUnion, UnionPrimitive) {
   std::vector<std::shared_ptr<Field>> fields = {field("int", uint16()),
                                                 field("str", utf8())};
   std::vector<int8_t> codes = {2, 7};
-  auto type = std::make_shared<TypeParam>(fields, codes);
+  auto type = TypeTraits<TypeParam>::type_instance(fields, codes);
   CheckWithDifferentShapes(
       ArrayFromJSON(boolean(), "[true, true, false, false]"),
       ArrayFromJSON(type, R"([[7, "foo"], [7, null], [7, null], [7, "spam"]])"),
@@ -865,7 +865,7 @@ TYPED_TEST(TestIfElseUnion, UnionNested) {
   std::vector<std::shared_ptr<Field>> fields = {field("int", uint16()),
                                                 field("list", list(int16()))};
   std::vector<int8_t> codes = {2, 7};
-  auto type = std::make_shared<TypeParam>(fields, codes);
+  auto type = TypeTraits<TypeParam>::type_instance(fields, codes);
   CheckWithDifferentShapes(
       ArrayFromJSON(boolean(), "[true, true, false, false]"),
       ArrayFromJSON(type, R"([[7, [1, 2]], [7, null], [7, []], [7, [3]]])"),
@@ -1865,7 +1865,7 @@ class TestCaseWhenList : public ::testing::Test {};
 TYPED_TEST_SUITE(TestCaseWhenList, ListArrowTypes);
 
 TYPED_TEST(TestCaseWhenList, ListOfString) {
-  auto type = std::make_shared<TypeParam>(utf8());
+  auto type = TypeTraits<TypeParam>::type_instance(utf8());
   auto cond_true = ScalarFromJSON(boolean(), "true");
   auto cond_false = ScalarFromJSON(boolean(), "false");
   auto cond_null = ScalarFromJSON(boolean(), "null");
@@ -1925,13 +1925,13 @@ TYPED_TEST(TestCaseWhenList, ListOfString) {
 }
 
 TYPED_TEST(TestCaseWhenList, ListOfStringRandom) {
-  auto type = std::make_shared<TypeParam>(utf8());
+  auto type = TypeTraits<TypeParam>::type_instance(utf8());
   TestCaseWhenRandom(type, /*len=*/200);
 }
 
 // More minimal tests to check type coverage
 TYPED_TEST(TestCaseWhenList, ListOfBool) {
-  auto type = std::make_shared<TypeParam>(boolean());
+  auto type = TypeTraits<TypeParam>::type_instance(boolean());
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
   auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
@@ -1947,12 +1947,12 @@ TYPED_TEST(TestCaseWhenList, ListOfBool) {
 }
 
 TYPED_TEST(TestCaseWhenList, ListOfBoolRandom) {
-  auto type = std::make_shared<TypeParam>(boolean());
+  auto type = TypeTraits<TypeParam>::type_instance(boolean());
   TestCaseWhenRandom(type, /*len=*/200);
 }
 
 TYPED_TEST(TestCaseWhenList, ListOfInt) {
-  auto type = std::make_shared<TypeParam>(int64());
+  auto type = TypeTraits<TypeParam>::type_instance(int64());
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
   auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
@@ -1968,7 +1968,7 @@ TYPED_TEST(TestCaseWhenList, ListOfInt) {
 }
 
 TYPED_TEST(TestCaseWhenList, ListOfDayTimeInterval) {
-  auto type = std::make_shared<TypeParam>(day_time_interval());
+  auto type = TypeTraits<TypeParam>::type_instance(day_time_interval());
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
   auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
@@ -1987,7 +1987,7 @@ TYPED_TEST(TestCaseWhenList, ListOfDayTimeInterval) {
 TYPED_TEST(TestCaseWhenList, ListOfDecimal) {
   for (const auto& decimal_ty :
        std::vector<std::shared_ptr<DataType>>{decimal128(3, 2), decimal256(3, 2)}) {
-    auto type = std::make_shared<TypeParam>(decimal_ty);
+    auto type = TypeTraits<TypeParam>::type_instance(decimal_ty);
     auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
     auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
     auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
@@ -2006,7 +2006,7 @@ TYPED_TEST(TestCaseWhenList, ListOfDecimal) {
 }
 
 TYPED_TEST(TestCaseWhenList, ListOfFixedSizeBinary) {
-  auto type = std::make_shared<TypeParam>(fixed_size_binary(4));
+  auto type = TypeTraits<TypeParam>::type_instance(fixed_size_binary(4));
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
   auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
@@ -2024,7 +2024,7 @@ TYPED_TEST(TestCaseWhenList, ListOfFixedSizeBinary) {
 }
 
 TYPED_TEST(TestCaseWhenList, ListOfListOfInt) {
-  auto type = std::make_shared<TypeParam>(list(int64()));
+  auto type = TypeTraits<TypeParam>::type_instance(list(int64()));
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
   auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
@@ -2041,7 +2041,7 @@ TYPED_TEST(TestCaseWhenList, ListOfListOfInt) {
 }
 
 TYPED_TEST(TestCaseWhenList, ListOfListOfIntRandom) {
-  auto type = std::make_shared<TypeParam>(list(int64()));
+  auto type = TypeTraits<TypeParam>::type_instance(list(int64()));
   TestCaseWhenRandom(type, /*len=*/200);
 }
 
@@ -2648,7 +2648,7 @@ TYPED_TEST(TestCoalesceBinary, Basics) {
 }
 
 TYPED_TEST(TestCoalesceList, ListOfString) {
-  auto type = std::make_shared<TypeParam>(utf8());
+  auto type = TypeTraits<TypeParam>::type_instance(utf8());
   auto scalar_null = ScalarFromJSON(type, "null");
   auto scalar1 = ScalarFromJSON(type, R"([null, "a"])");
   auto values_null = ArrayFromJSON(type, R"([null, null, null, null])");
@@ -2679,7 +2679,7 @@ TYPED_TEST(TestCoalesceList, ListOfString) {
 
 // More minimal tests to check type coverage
 TYPED_TEST(TestCoalesceList, ListOfBool) {
-  auto type = std::make_shared<TypeParam>(boolean());
+  auto type = TypeTraits<TypeParam>::type_instance(boolean());
   auto scalar_null = ScalarFromJSON(type, "null");
   auto scalar1 = ScalarFromJSON(type, "[true, false, null]");
   auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
@@ -2696,7 +2696,7 @@ TYPED_TEST(TestCoalesceList, ListOfBool) {
 }
 
 TYPED_TEST(TestCoalesceList, ListOfInt) {
-  auto type = std::make_shared<TypeParam>(int64());
+  auto type = TypeTraits<TypeParam>::type_instance(int64());
   auto scalar_null = ScalarFromJSON(type, "null");
   auto scalar1 = ScalarFromJSON(type, "[20, 24]");
   auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
@@ -2711,7 +2711,7 @@ TYPED_TEST(TestCoalesceList, ListOfInt) {
 }
 
 TYPED_TEST(TestCoalesceList, ListOfDayTimeInterval) {
-  auto type = std::make_shared<TypeParam>(day_time_interval());
+  auto type = TypeTraits<TypeParam>::type_instance(day_time_interval());
   auto scalar_null = ScalarFromJSON(type, "null");
   auto scalar1 = ScalarFromJSON(type, "[[20, 24], null]");
   auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
@@ -2731,7 +2731,7 @@ TYPED_TEST(TestCoalesceList, ListOfDayTimeInterval) {
 
 TYPED_TEST(TestCoalesceList, ListOfDecimal) {
   for (auto ty : {decimal128(3, 2), decimal256(3, 2)}) {
-    auto type = std::make_shared<TypeParam>(ty);
+    auto type = TypeTraits<TypeParam>::type_instance(ty);
     auto scalar_null = ScalarFromJSON(type, "null");
     auto scalar1 = ScalarFromJSON(type, R"(["0.42", null])");
     auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
@@ -2749,7 +2749,7 @@ TYPED_TEST(TestCoalesceList, ListOfDecimal) {
 }
 
 TYPED_TEST(TestCoalesceList, ListOfFixedSizeBinary) {
-  auto type = std::make_shared<TypeParam>(fixed_size_binary(3));
+  auto type = TypeTraits<TypeParam>::type_instance(fixed_size_binary(3));
   auto scalar_null = ScalarFromJSON(type, "null");
   auto scalar1 = ScalarFromJSON(type, R"(["ab!", null])");
   auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
@@ -2766,7 +2766,8 @@ TYPED_TEST(TestCoalesceList, ListOfFixedSizeBinary) {
 }
 
 TYPED_TEST(TestCoalesceList, ListOfListOfInt) {
-  auto type = std::make_shared<TypeParam>(std::make_shared<TypeParam>(int64()));
+  auto type =
+      TypeTraits<TypeParam>::type_instance(TypeTraits<TypeParam>::type_instance(int64()));
   auto scalar_null = ScalarFromJSON(type, "null");
   auto scalar1 = ScalarFromJSON(type, "[[20], null]");
   auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
@@ -2782,8 +2783,8 @@ TYPED_TEST(TestCoalesceList, ListOfListOfInt) {
 }
 
 TYPED_TEST(TestCoalesceList, Errors) {
-  auto type1 = std::make_shared<TypeParam>(int64());
-  auto type2 = std::make_shared<TypeParam>(utf8());
+  auto type1 = TypeTraits<TypeParam>::type_instance(int64());
+  auto type2 = TypeTraits<TypeParam>::type_instance(utf8());
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError, ::testing::HasSubstr("All types must be compatible"),
       CallFunction("coalesce", {

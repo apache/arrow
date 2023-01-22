@@ -622,7 +622,7 @@ TEST_F(TestArray, TestMakeArrayFromScalarSliced) {
 
 TEST_F(TestArray, TestMakeArrayFromDictionaryScalar) {
   auto dictionary = ArrayFromJSON(utf8(), R"(["foo", "bar", "baz"])");
-  auto type = std::make_shared<DictionaryType>(int8(), utf8());
+  auto type = ::arrow::dictionary(int8(), utf8());
   ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(int8(), 1));
   auto scalar = DictionaryScalar({value, dictionary}, type);
 
@@ -978,7 +978,7 @@ struct UniformIntSampleType<int8_t> {
   typedef CapType##Type Type;           \
   typedef c_type T;                     \
                                         \
-  static std::shared_ptr<DataType> type() { return std::make_shared<Type>(); }
+  static std::shared_ptr<DataType> type() { return TypeTraits<Type>::type_singleton(); }
 
 #define PINT_DECL(CapType, c_type)                                                     \
   struct P##CapType {                                                                  \
@@ -2828,7 +2828,7 @@ class DecimalTest : public ::testing::TestWithParam<int> {
   std::shared_ptr<Array> TestCreate(int32_t precision, const DecimalVector& draw,
                                     const std::vector<uint8_t>& valid_bytes,
                                     int64_t offset) const {
-    auto type = std::make_shared<TYPE>(precision, 4);
+    auto type = TypeTraits<TYPE>::type_instance(precision, 4);
     auto builder = std::make_shared<DecimalBuilder>(type);
 
     const size_t size = draw.size();
@@ -3219,7 +3219,7 @@ TEST(TestSwapEndianArrayData, StringType) {
 }
 
 TEST(TestSwapEndianArrayData, ListType) {
-  auto type1 = std::make_shared<ListType>(int32());
+  auto type1 = list(int32());
   auto array = ArrayFromJSON(type1, "[[0, 1, 2, 3], null, [4, 5]]");
   const std::vector<uint8_t> offset1 =
 #if ARROW_LITTLE_ENDIAN
@@ -3238,7 +3238,7 @@ TEST(TestSwapEndianArrayData, ListType) {
   test_data = ReplaceBuffersInChild(test_data, 0, data1);
   AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
 
-  auto type2 = std::make_shared<LargeListType>(int64());
+  auto type2 = large_list(int64());
   array = ArrayFromJSON(type2, "[[0, 1, 2], null, [3]]");
   const std::vector<uint8_t> offset2 =
 #if ARROW_LITTLE_ENDIAN
@@ -3261,7 +3261,7 @@ TEST(TestSwapEndianArrayData, ListType) {
   test_data = ReplaceBuffersInChild(test_data, 0, data2);
   AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
 
-  auto type3 = std::make_shared<FixedSizeListType>(int32(), 2);
+  auto type3 = fixed_size_list(int32(), 2);
   array = ArrayFromJSON(type3, "[[0, 1], null, [2, 3]]");
   expected_data = array->data();
   const std::vector<uint8_t> data3 =

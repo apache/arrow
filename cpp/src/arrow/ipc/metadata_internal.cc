@@ -347,13 +347,13 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       if (children.size() != 1) {
         return Status::Invalid("List must have exactly 1 child field");
       }
-      *out = std::make_shared<ListType>(children[0]);
+      *out = list(children[0]);
       return Status::OK();
     case flatbuf::Type::LargeList:
       if (children.size() != 1) {
         return Status::Invalid("LargeList must have exactly 1 child field");
       }
-      *out = std::make_shared<LargeListType>(children[0]);
+      *out = large_list(children[0]);
       return Status::OK();
     case flatbuf::Type::Map:
       if (children.size() != 1) {
@@ -367,9 +367,8 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
         return Status::Invalid("Map's keys must be non-nullable");
       } else {
         auto map = static_cast<const flatbuf::Map*>(type_data);
-        *out = std::make_shared<MapType>(children[0]->type()->field(0)->type(),
-                                         children[0]->type()->field(1)->type(),
-                                         map->keysSorted());
+        *out = ::arrow::map(children[0]->type()->field(0)->type(),
+                            children[0]->type()->field(1)->type(), map->keysSorted());
       }
       return Status::OK();
     case flatbuf::Type::FixedSizeList:
@@ -377,11 +376,11 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
         return Status::Invalid("FixedSizeList must have exactly 1 child field");
       } else {
         auto fs_list = static_cast<const flatbuf::FixedSizeList*>(type_data);
-        *out = std::make_shared<FixedSizeListType>(children[0], fs_list->listSize());
+        *out = fixed_size_list(children[0], fs_list->listSize());
       }
       return Status::OK();
     case flatbuf::Type::Struct_:
-      *out = std::make_shared<StructType>(children);
+      *out = struct_(children);
       return Status::OK();
     case flatbuf::Type::Union:
       return UnionFromFlatbuffer(static_cast<const flatbuf::Union*>(type_data), children,
