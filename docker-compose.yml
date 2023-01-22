@@ -1019,7 +1019,7 @@ services:
         python: ${PYTHON}
         manylinux: 2014
       context: .
-      dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
+      dockerfile: ci/docker/python-wheel-manylinux.dockerfile
       cache_from:
         - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
     environment:
@@ -1042,7 +1042,7 @@ services:
         python: ${PYTHON}
         manylinux: 2_28
       context: .
-      dockerfile: ci/docker/python-wheel-manylinux-x-y.dockerfile
+      dockerfile: ci/docker/python-wheel-manylinux.dockerfile
       cache_from:
         - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2-28-vcpkg-${VCPKG}
     environment:
