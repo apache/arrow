@@ -48,14 +48,10 @@ RUN /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
 
 # Install vcpkg
 ARG vcpkg
-# PEP 600 states that a wheel tagged manylinux_x_y
-# shall work on any distro based on glibc>=x.y
-ARG glibc=2.28
 COPY ci/vcpkg/*.patch \
      ci/vcpkg/*linux*.cmake \
      arrow/ci/vcpkg/
 COPY ci/scripts/install_vcpkg.sh \
-     ci/scripts/install_glibc.sh \
      arrow/ci/scripts/
 ENV VCPKG_ROOT=/opt/vcpkg
 RUN arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg}
