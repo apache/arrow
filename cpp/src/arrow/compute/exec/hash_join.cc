@@ -181,9 +181,9 @@ class HashJoinBasicImpl : public HashJoinImpl {
     }
   }
 
-  void ProbeBatch_OutputOne(int64_t batch_size_next, ExecBatch* opt_left_key,
-                            ExecBatch* opt_left_payload, ExecBatch* opt_right_key,
-                            ExecBatch* opt_right_payload) {
+  Status ProbeBatch_OutputOne(int64_t batch_size_next, ExecBatch* opt_left_key,
+                              ExecBatch* opt_left_payload, ExecBatch* opt_right_key,
+                              ExecBatch* opt_right_payload) {
     ExecBatch result({}, batch_size_next);
     int num_out_cols_left = schema_[0]->num_cols(HashJoinProjection::OUTPUT);
     int num_out_cols_right = schema_[1]->num_cols(HashJoinProjection::OUTPUT);
@@ -232,11 +232,12 @@ class HashJoinBasicImpl : public HashJoinImpl {
                       : opt_right_payload->values[from_payload.get(icol)];
     }
 
-    output_batch_callback_(0, std::move(result));
+    ARROW_RETURN_NOT_OK(output_batch_callback_(0, std::move(result)));
 
     // Update the counter of produced batches
     //
     num_batches_produced_++;
+    return Status::OK();
   }
 
   Status ProbeBatch_ResidualFilter(ThreadLocalState& local_state,
@@ -405,12 +406,10 @@ class HashJoinBasicImpl : public HashJoinImpl {
                             hash_table_payloads_.Decode(batch_size_next, opt_right_ids));
     }
 
-    ProbeBatch_OutputOne(batch_size_next, has_left ? &left_key : nullptr,
-                         has_left_payload ? &left_payload : nullptr,
-                         has_right ? &right_key : nullptr,
-                         has_right_payload ? &right_payload : nullptr);
-
-    return Status::OK();
+    return ProbeBatch_OutputOne(batch_size_next, has_left ? &left_key : nullptr,
+                                has_left_payload ? &left_payload : nullptr,
+                                has_right ? &right_key : nullptr,
+                                has_right_payload ? &right_payload : nullptr);
   }
 
   Status ProbeBatch_OutputAll(size_t thread_index, const RowEncoder& exec_batch_keys,
@@ -684,8 +683,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
       return Status::Cancelled("Hash join cancelled");
     }
     END_SPAN(span_);
-    finished_callback_(num_batches_produced_.load());
-    return Status::OK();
+    return finished_callback_(num_batches_produced_.load());
   }
 
   Status ScanHashTable(size_t thread_index) {

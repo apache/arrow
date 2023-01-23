@@ -39,9 +39,9 @@ using arrow::util::AccumulationQueue;
 
 class HashJoinImpl {
  public:
-  using OutputBatchCallback = std::function<void(int64_t, ExecBatch)>;
+  using OutputBatchCallback = std::function<Status(int64_t, ExecBatch)>;
   using BuildFinishedCallback = std::function<Status(size_t)>;
-  using FinishedCallback = std::function<void(int64_t)>;
+  using FinishedCallback = std::function<Status(int64_t)>;
   using RegisterTaskGroupCallback = std::function<int(
       std::function<Status(size_t, int64_t)>, std::function<Status(size_t)>)>;
   using StartTaskGroupCallback = std::function<Status(int, int64_t)>;
