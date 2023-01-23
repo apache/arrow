@@ -15,8 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <cstddef>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>

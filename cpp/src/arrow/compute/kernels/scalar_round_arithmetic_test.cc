@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <string>
 #include <utility>
 
 #include <gtest/gtest.h>
@@ -76,14 +77,14 @@ class TestBaseUnaryRoundArithmetic : public ::testing::Test {
   void AssertUnaryOp(UnaryFunction func, CType argument, CType expected) {
     auto arg = MakeScalar(argument);
     auto exp = MakeScalar(expected);
-    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr))
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr));
     AssertScalarsApproxEqual(*exp, *actual.scalar(), /*verbose=*/true);
   }
 
   // (Scalar, Scalar)
   void AssertUnaryOp(UnaryFunction func, const std::shared_ptr<Scalar>& arg,
                      const std::shared_ptr<Scalar>& expected) {
-    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr))
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr));
     AssertScalarsApproxEqual(*expected, *actual.scalar(), /*verbose=*/true);
   }
 
@@ -112,14 +113,14 @@ class TestBaseUnaryRoundArithmetic : public ::testing::Test {
   // (Array, Array)
   void AssertUnaryOp(UnaryFunction func, const std::shared_ptr<Array>& arg,
                      const std::shared_ptr<Array>& expected) {
-    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr))
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr));
     ValidateAndAssertApproxEqual(actual.make_array(), expected);
 
     // Also check (Scalar, Scalar) operations
     const int64_t length = expected->length();
     for (int64_t i = 0; i < length; ++i) {
       const auto expected_scalar = *expected->GetScalar(i);
-      ASSERT_OK_AND_ASSIGN(actual, func(*arg->GetScalar(i), options_, nullptr))
+      ASSERT_OK_AND_ASSIGN(actual, func(*arg->GetScalar(i), options_, nullptr));
       AssertScalarsApproxEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true,
                                equal_options_);
     }
@@ -139,7 +140,7 @@ class TestBaseUnaryRoundArithmetic : public ::testing::Test {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
                                     func(arg, options_, nullptr));
     for (int64_t i = 0; i < arg->length(); i++) {
-      ASSERT_OK_AND_ASSIGN(auto scalar, arg->GetScalar(i))
+      ASSERT_OK_AND_ASSIGN(auto scalar, arg->GetScalar(i));
       EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
                                       func(scalar, options_, nullptr));
     }
@@ -251,7 +252,7 @@ class TestBaseBinaryRoundArithmetic : public ::testing::Test {
     auto arg = MakeScalar(argument);
     auto nd = MakeInt32Scalar(ndigits);
     auto exp = MakeScalar(expected);
-    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, nd, options_, nullptr))
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, nd, options_, nullptr));
     AssertScalarsApproxEqual(*exp, *actual.scalar(), /*verbose=*/true);
   }
 
@@ -259,7 +260,7 @@ class TestBaseBinaryRoundArithmetic : public ::testing::Test {
   void AssertBinaryOp(BinaryFunction func, const std::shared_ptr<Scalar>& arg,
                       const std::shared_ptr<Scalar>& ndigits,
                       const std::shared_ptr<Scalar>& expected) {
-    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, ndigits, options_, nullptr))
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, ndigits, options_, nullptr));
     AssertScalarsApproxEqual(*expected, *actual.scalar(), /*verbose=*/true);
   }
 
@@ -268,7 +269,7 @@ class TestBaseBinaryRoundArithmetic : public ::testing::Test {
                       const std::string& expected_json) {
     auto arg = ArrayFromJSON(type_singleton(), arg_json);
     auto nd = MakeInt32Scalar(ndigits);
-    ASSERT_OK_AND_ASSIGN(auto nda, MakeArrayFromScalar(*nd, arg->length()))
+    ASSERT_OK_AND_ASSIGN(auto nda, MakeArrayFromScalar(*nd, arg->length()));
     auto expected = ArrayFromJSON(type_singleton(), expected_json);
     AssertBinaryOp(func, arg, nda, expected);
   }
@@ -295,7 +296,7 @@ class TestBaseBinaryRoundArithmetic : public ::testing::Test {
                       const std::shared_ptr<Array>& expected) {
     auto arg = ArrayFromJSON(type_singleton(), arg_json);
     auto nd = MakeInt32Scalar(ndigits);
-    ASSERT_OK_AND_ASSIGN(auto nda, MakeArrayFromScalar(*nd, arg->length()))
+    ASSERT_OK_AND_ASSIGN(auto nda, MakeArrayFromScalar(*nd, arg->length()));
     AssertBinaryOp(func, arg, nda, expected);
   }
 
@@ -303,7 +304,7 @@ class TestBaseBinaryRoundArithmetic : public ::testing::Test {
   void AssertBinaryOp(BinaryFunction func, const std::shared_ptr<Array>& arg,
                       const std::shared_ptr<Array>& ndigits,
                       const std::shared_ptr<Array>& expected) {
-    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, ndigits, options_, nullptr))
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, ndigits, options_, nullptr));
     ValidateAndAssertApproxEqual(actual.make_array(), expected);
 
     // Also check (Scalar, Scalar) operations
@@ -311,7 +312,7 @@ class TestBaseBinaryRoundArithmetic : public ::testing::Test {
     for (int64_t i = 0; i < length; ++i) {
       const auto expected_scalar = *expected->GetScalar(i);
       ASSERT_OK_AND_ASSIGN(
-          actual, func(*arg->GetScalar(i), *ndigits->GetScalar(i), options_, nullptr))
+          actual, func(*arg->GetScalar(i), *ndigits->GetScalar(i), options_, nullptr));
       AssertScalarsApproxEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true,
                                equal_options_);
     }
@@ -333,8 +334,8 @@ class TestBaseBinaryRoundArithmetic : public ::testing::Test {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
                                     func(arg, nd, options_, nullptr));
     for (int64_t i = 0; i < arg->length(); i++) {
-      ASSERT_OK_AND_ASSIGN(auto scalar, arg->GetScalar(i))
-      ASSERT_OK_AND_ASSIGN(auto nscalar, nd->GetScalar(i))
+      ASSERT_OK_AND_ASSIGN(auto scalar, arg->GetScalar(i));
+      ASSERT_OK_AND_ASSIGN(auto nscalar, nd->GetScalar(i));
       EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
                                       func(scalar, nscalar, options_, nullptr));
     }
@@ -443,14 +444,14 @@ class TestRoundArithmeticDecimal : public ::testing::Test {
     DatumVector floating_args;
     for (const auto& arg : args) {
       if (is_decimal(arg.type()->id())) {
-        ASSERT_OK_AND_ASSIGN(auto casted, Cast(arg, float64()))
+        ASSERT_OK_AND_ASSIGN(auto casted, Cast(arg, float64()));
         floating_args.push_back(casted);
       } else {
         floating_args.push_back(arg);
       }
     }
-    ASSERT_OK_AND_ASSIGN(auto expected, CallFunction(func, floating_args))
-    ASSERT_OK_AND_ASSIGN(auto actual, CallFunction(func, args))
+    ASSERT_OK_AND_ASSIGN(auto expected, CallFunction(func, floating_args));
+    ASSERT_OK_AND_ASSIGN(auto actual, CallFunction(func, args));
     AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
   }
 

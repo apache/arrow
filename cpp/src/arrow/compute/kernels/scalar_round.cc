@@ -25,7 +25,9 @@
 #include "arrow/compare.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
@@ -893,7 +895,7 @@ struct RoundFunction : ScalarFunction {
   }
 };
 
-/// An RoundFunction that promotes only decimal arguments to double.
+/// A RoundFunction that promotes only decimal arguments to double.
 struct ArithmeticDecimalToFloatingPointFunction : public RoundFunction {
   using RoundFunction::RoundFunction;
 
@@ -918,7 +920,7 @@ struct ArithmeticDecimalToFloatingPointFunction : public RoundFunction {
   }
 };
 
-/// An RoundFunction that promotes only the first integer argument to double.
+/// A RoundFunction that promotes only the first integer argument to double.
 struct RoundIntegerToFloatingPointFunction : public RoundFunction {
   using RoundFunction::RoundFunction;
 
@@ -943,7 +945,7 @@ struct RoundIntegerToFloatingPointFunction : public RoundFunction {
   }
 };
 
-/// An RoundFunction that promotes integer and decimal arguments to double.
+/// A RoundFunction that promotes integer and decimal arguments to double.
 struct RoundFloatingPointFunction : public RoundFunction {
   using RoundFunction::RoundFunction;
 
