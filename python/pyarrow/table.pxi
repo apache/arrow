@@ -4664,7 +4664,7 @@ cdef class Table(_PandasConvertible):
 
         return pyarrow_wrap_table(c_table)
 
-    def drop(self, columns):
+    def drop_columns(self, columns):
         """
         Drop one or more columns and return a new table.
 
@@ -4693,7 +4693,7 @@ cdef class Table(_PandasConvertible):
 
         Drop one column:
 
-        >>> table.drop("animals")
+        >>> table.drop_columns("animals")
         pyarrow.Table
         n_legs: int64
         ----
@@ -4701,7 +4701,7 @@ cdef class Table(_PandasConvertible):
 
         Drop one or more columns:
 
-        >>> table.drop(["n_legs", "animals"])
+        >>> table.drop_columns(["n_legs", "animals"])
         pyarrow.Table
         ...
         ----
@@ -4725,34 +4725,20 @@ cdef class Table(_PandasConvertible):
 
         return table
 
-    def drop_column(self, name):
+    def drop(self, columns):
         """
-        Create new Table with the named column removed.
+        Alias of Table.drop_columns for backwards compatibility.
 
-        Parameters
-        ----------
-        name : str
-            Name of column to remove.
-
-        Returns
-        -------
-        Table
-            New table without the column.
-
-        Examples
+        Warnings
         --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.drop_column('animals')
-        pyarrow.Table
-        n_legs: int64
-        ----
-        n_legs: [[2,4,5,100]]
+        This API is depreacted in favor of Table.drop_columns.
         """
-        return self.drop(name)
+        import warnings
+        warnings.warn(
+            "Table.drop is deprecated, use Table.drop_columns.",
+            DeprecationWarning)
+
+        return self.drop_column(columns)
 
     def group_by(self, keys):
         """Declare a grouping over the columns of the table.
