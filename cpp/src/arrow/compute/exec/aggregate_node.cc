@@ -440,7 +440,8 @@ class GroupByNode : public ExecNode, public TracedNode<GroupByNode> {
     return output_->InputReceived(this, out_data_.Slice(batch_size * n, batch_size));
   }
 
-  Status DoOutputResult() {
+  Status OutputResult() {
+    auto scope = TraceFinish();
     // To simplify merging, ensure that the first grouper is nonempty
     for (size_t i = 0; i < local_states_.size(); i++) {
       if (local_states_[i].grouper) {

@@ -1486,7 +1486,8 @@ class AsofJoinNode : public ExecNode {
   }
 
   Status StartProducing() override {
-    ARROW_ASSIGN_OR_RAISE(process_task_, plan_->query_context()->BeginExternalTask());
+    ARROW_ASSIGN_OR_RAISE(process_task_, plan_->query_context()->BeginExternalTask(
+                                             "AsofJoinNode::ProcessThread"));
     if (!process_task_.is_valid()) {
       // Plan has already aborted.  Do not start process thread
       return Status::OK();

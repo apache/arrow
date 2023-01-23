@@ -42,6 +42,8 @@
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/vector.h"
 
+using namespace std::string_view_literals;  // NOLINT
+
 namespace arrow {
 
 using internal::checked_cast;
@@ -227,7 +229,8 @@ struct ExecPlanImpl : public ExecPlan {
         // If an error occurs during StopProducing then we submit a task to fail.  If we
         // have already aborted then this will be ignored.  This way the failing status
         // will get communicated to finished_.
-        query_context()->async_scheduler()->AddSimpleTask([st] { return st; });
+        query_context()->async_scheduler()->AddSimpleTask(
+            [st] { return st; }, "ExecPlan::StopProducingErrorReporter"sv);
       }
     }
   }

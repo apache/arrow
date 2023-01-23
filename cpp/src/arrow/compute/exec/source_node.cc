@@ -166,7 +166,8 @@ struct SourceNode : ExecNode, public TracedNode<SourceNode> {
             plan_->query_context()->ScheduleTask(
                 [this, total_batches = *maybe_total_batches] {
                   return output_->InputFinished(this, total_batches);
-                });
+                },
+                "SourceNode::InputFinished");
           }
           scan_task.MarkFinished(maybe_total_batches.status());
         },
