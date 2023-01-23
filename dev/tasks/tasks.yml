@@ -463,7 +463,7 @@ tasks:
       python_version: "{{ python_version }}"
       manylinux_version: "{{ manylinux_version }}"
     artifacts:
-      {% if manylinux = 'manylinux2014' -%}
+      {% if manylinux == 'manylinux2014' -%}
       {#- auditwheel produces two labels, manylinux_x_y and manylinux2014 -#}
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-manylinux_{{ x_y }}_{{ arch_alias }}.{{ manylinux }}_{{ arch_alias }}.whl
       {%- else -%}
