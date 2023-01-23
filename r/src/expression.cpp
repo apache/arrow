@@ -101,7 +101,8 @@ std::shared_ptr<compute::Expression> compute___expr__nested_field_ref(
     }
     // Add the new ref
     ref_vec.push_back(arrow::FieldRef(std::move(name)));
-    return std::make_shared<compute::Expression>(compute::field_ref(std::move(ref_vec)));
+    return std::make_shared<compute::Expression>(
+        compute::field_ref(arrow::FieldRef{std::move(ref_vec)}));
   } else {
     cpp11::stop("'x' must be a FieldRef Expression");
   }
