@@ -83,7 +83,7 @@ RUN vcpkg install \
         --x-feature=json \
         --x-feature=parquet
 
-# Configure Python for dependent Dockerfiles
+# Configure Python for applications running in the bash shell of this Dockerfile
 ARG python=3.8
 ENV PYTHON_VERSION=${python}
 RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-*) && \
