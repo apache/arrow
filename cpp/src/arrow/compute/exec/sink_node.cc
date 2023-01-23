@@ -19,6 +19,7 @@
 #include <atomic>
 #include <mutex>
 #include <optional>
+#include <string_view>
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
@@ -40,6 +41,8 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/unreachable.h"
+
+using namespace std::string_view_literals;  // NOLINT
 
 namespace arrow {
 
@@ -94,7 +97,7 @@ class BackpressureReservoir : public BackpressureMonitor {
   const uint64_t pause_if_above_;
 };
 
-class SinkNode : public ExecNode {
+class SinkNode : public ExecNode, public TracedNode<SinkNode> {
  public:
   SinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
            AsyncGenerator<std::optional<ExecBatch>>* generator,
@@ -143,11 +146,7 @@ class SinkNode : public ExecNode {
   const char* kind_name() const override { return "SinkNode"; }
 
   Status StartProducing() override {
-    START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
-                       {{"node.label", label()},
-                        {"node.detail", ToString()},
-                        {"node.kind", kind_name()}});
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
+    NoteStartProducing(ToStringExtra());
     return Status::OK();
   }
 
@@ -164,8 +163,6 @@ class SinkNode : public ExecNode {
   [[noreturn]] void StopProducing(ExecNode* output) override { NoOutputs(); }
 
   void StopProducing() override {
-    EVENT(span_, "StopProducing");
-
     Finish();
     inputs_[0]->StopProducing(this);
   }
@@ -175,7 +172,9 @@ class SinkNode : public ExecNode {
       uint64_t bytes_used = static_cast<uint64_t>(batch.TotalBufferSize());
       auto state_change = backpressure_queue_.RecordProduced(bytes_used);
       if (state_change >= 0) {
-        EVENT(span_, "Backpressure applied", {{"backpressure.counter", state_change}});
+        EVENT_ON_CURRENT_SPAN(
+            "SinkNode::BackpressureApplied",
+            {{"node.label", label()}, {"backpressure.counter", state_change}});
         inputs_[0]->PauseProducing(this, state_change);
       }
     }
@@ -186,19 +185,16 @@ class SinkNode : public ExecNode {
       uint64_t bytes_freed = static_cast<uint64_t>(batch.TotalBufferSize());
       auto state_change = backpressure_queue_.RecordConsumed(bytes_freed);
       if (state_change >= 0) {
-        EVENT(span_, "Backpressure released", {{"backpressure.counter", state_change}});
+        EVENT_ON_CURRENT_SPAN(
+            "SinkNode::BackpressureReleased",
+            {{"node.label", label()}, {"backpressure.counter", state_change}});
         inputs_[0]->ResumeProducing(this, state_change);
       }
     }
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
-    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
-    util::tracing::Span span;
-    START_COMPUTE_SPAN_WITH_PARENT(
-        span, span_, "InputReceived",
-        {{"node.label", label()}, {"batch.length", batch.length}});
-
+    auto scope = TraceInputReceived(batch);
     DCHECK_EQ(input, inputs_[0]);
 
     RecordBackpressureBytesUsed(batch);
@@ -211,7 +207,6 @@ class SinkNode : public ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
-    EVENT(span_, "ErrorReceived", {{"error", error.message()}});
     DCHECK_EQ(input, inputs_[0]);
 
     producer_.Push(std::move(error));
@@ -223,7 +218,6 @@ class SinkNode : public ExecNode {
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
-    EVENT(span_, "InputFinished", {{"batches.length", total_batches}});
     if (input_counter_.SetTotal(total_batches)) {
       Finish();
     }
@@ -267,7 +261,9 @@ class SinkNode : public ExecNode {
 // is finished.  Use SinkNode if you are transferring the ownership of the data to another
 // system.  Use ConsumingSinkNode if the data is being consumed within the exec plan (i.e.
 // the exec plan should not complete until the consumption has completed).
-class ConsumingSinkNode : public ExecNode, public BackpressureControl {
+class ConsumingSinkNode : public ExecNode,
+                          public BackpressureControl,
+                          public TracedNode<ConsumingSinkNode> {
  public:
   ConsumingSinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                     std::shared_ptr<SinkNodeConsumer> consumer,
@@ -294,11 +290,7 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
   const char* kind_name() const override { return "ConsumingSinkNode"; }
 
   Status StartProducing() override {
-    START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
-                       {{"node.label", label()},
-                        {"node.detail", ToString()},
-                        {"node.kind", kind_name()}});
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
+    NoteStartProducing(ToStringExtra());
     DCHECK_GT(inputs_.size(), 0);
     auto output_schema = inputs_[0]->output_schema();
     if (names_.size() > 0) {
@@ -335,19 +327,13 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
   void Resume() override { inputs_[0]->ResumeProducing(this, ++backpressure_counter_); }
 
   void StopProducing() override {
-    EVENT(span_, "StopProducing");
     if (input_counter_.Cancel()) {
       Finish(Status::OK());
     }
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
-    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
-    util::tracing::Span span;
-    START_COMPUTE_SPAN_WITH_PARENT(
-        span, span_, "InputReceived",
-        {{"node.label", label()}, {"batch.length", batch.length}});
-
+    auto scope = TraceInputReceived(batch);
     DCHECK_EQ(input, inputs_[0]);
 
     // This can happen if an error was received and the source hasn't yet stopped.  Since
@@ -371,7 +357,6 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
-    EVENT(span_, "ErrorReceived", {{"error", error.message()}});
     DCHECK_EQ(input, inputs_[0]);
 
     if (input_counter_.Cancel()) Finish(error);
@@ -380,7 +365,6 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
-    EVENT(span_, "InputFinished", {{"batches.length", total_batches}});
     if (input_counter_.SetTotal(total_batches)) {
       Finish(Status::OK());
     }
@@ -390,7 +374,7 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
   void Finish(const Status& finish_st) {
     if (finish_st.ok()) {
       plan_->query_context()->async_scheduler()->AddSimpleTask(
-          [this] { return consumer_->Finish(); });
+          [this] { return consumer_->Finish(); }, "ConsumingSinkNode::Finish"sv);
     }
     finished_.MarkFinished(finish_st);
   }
@@ -482,11 +466,7 @@ struct OrderBySinkNode final : public SinkNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
-    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
-    util::tracing::Span span;
-    START_COMPUTE_SPAN_WITH_PARENT(
-        span, span_, "InputReceived",
-        {{"node.label", label()}, {"batch.length", batch.length}});
+    auto scope = TraceInputReceived(batch);
 
     DCHECK_EQ(input, inputs_[0]);
 
@@ -509,6 +489,7 @@ struct OrderBySinkNode final : public SinkNode {
 
  protected:
   Status DoFinish() {
+    auto scope = TraceFinish();
     ARROW_ASSIGN_OR_RAISE(Datum sorted, impl_->DoFinish());
     TableBatchReader reader(*sorted.table());
     while (true) {
@@ -522,8 +503,6 @@ struct OrderBySinkNode final : public SinkNode {
   }
 
   void Finish() override {
-    util::tracing::Span span;
-    START_COMPUTE_SPAN_WITH_PARENT(span, span_, "Finish", {{"node.label", label()}});
     Status st = DoFinish();
     if (ErrorIfNotOk(st)) {
       producer_.Push(std::move(st));

@@ -31,6 +31,7 @@
 #include "arrow/compute/exec/map_node.h"
 #include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/subtree_internal.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/dataset_writer.h"
 #include "arrow/dataset/scanner.h"
@@ -556,19 +557,8 @@ class TeeNode : public compute::MapNode {
   }
 
   void InputReceived(compute::ExecNode* input, compute::ExecBatch batch) override {
-    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     DCHECK_EQ(input, inputs_[0]);
-    auto func = [this](compute::ExecBatch batch) {
-      util::tracing::Span span;
-      START_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                             {{"tee", ToStringExtra()},
-                              {"node.label", label()},
-                              {"batch.length", batch.length}});
-      auto result = DoTee(std::move(batch));
-      MARK_SPAN(span, result.status());
-      END_SPAN(span);
-      return result;
-    };
+    auto func = [this](compute::ExecBatch batch) { return DoTee(std::move(batch)); };
     this->SubmitTask(std::move(func), std::move(batch));
   }
 

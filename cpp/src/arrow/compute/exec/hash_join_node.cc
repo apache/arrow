@@ -678,7 +678,7 @@ bool HashJoinSchema::HasLargeBinary() const {
   return false;
 }
 
-class HashJoinNode : public ExecNode {
+class HashJoinNode : public ExecNode, public TracedNode<HashJoinNode> {
  public:
   HashJoinNode(ExecPlan* plan, NodeVector inputs, const HashJoinNodeOptions& join_options,
                std::shared_ptr<Schema> output_schema,
@@ -873,6 +873,7 @@ class HashJoinNode : public ExecNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
+    auto scope = TraceInputReceived(batch);
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
     if (complete_.load()) {
       return;
@@ -880,11 +881,6 @@ class HashJoinNode : public ExecNode {
 
     size_t thread_index = plan_->query_context()->GetThreadIndex();
     int side = (input == inputs_[0]) ? 0 : 1;
-
-    EVENT(span_, "InputReceived", {{"batch.length", batch.length}, {"side", side}});
-    util::tracing::Span span;
-    START_COMPUTE_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                                   {{"batch.length", batch.length}});
 
     Status status = side == 0 ? OnProbeSideBatch(thread_index, std::move(batch))
                               : OnBuildSideBatch(thread_index, std::move(batch));
@@ -908,7 +904,6 @@ class HashJoinNode : public ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
-    EVENT(span_, "ErrorReceived", {{"error", error.message()}});
     DCHECK_EQ(input, inputs_[0]);
     StopProducing();
     outputs_[0]->ErrorReceived(this, std::move(error));
@@ -918,8 +913,6 @@ class HashJoinNode : public ExecNode {
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
     size_t thread_index = plan_->query_context()->GetThreadIndex();
     int side = (input == inputs_[0]) ? 0 : 1;
-
-    EVENT(span_, "InputFinished", {{"side", side}, {"batches.length", total_batches}});
 
     if (batch_count_[side].SetTotal(total_batches)) {
       Status status = side == 0 ? OnProbeSideFinished(thread_index)
@@ -987,11 +980,7 @@ class HashJoinNode : public ExecNode {
   }
 
   Status StartProducing() override {
-    START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
-                       {{"node.label", label()},
-                        {"node.detail", ToString()},
-                        {"node.kind", kind_name()}});
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
+    NoteStartProducing(ToStringExtra());
     RETURN_NOT_OK(
         pushdown_context_.StartProducing(plan_->query_context()->GetThreadIndex()));
     return Status::OK();
@@ -1013,7 +1002,6 @@ class HashJoinNode : public ExecNode {
   }
 
   void StopProducing() override {
-    EVENT(span_, "StopProducing");
     bool expected = false;
     if (complete_.compare_exchange_strong(expected, true)) {
       impl_->Abort([this]() { finished_.MarkFinished(); });

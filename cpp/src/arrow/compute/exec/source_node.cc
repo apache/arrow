@@ -40,6 +40,8 @@
 #include "arrow/util/unreachable.h"
 #include "arrow/util/vector.h"
 
+using namespace std::string_view_literals;  // NOLINT
+
 namespace arrow {
 
 using internal::checked_cast;
@@ -48,7 +50,7 @@ using internal::MapVector;
 namespace compute {
 namespace {
 
-struct SourceNode : ExecNode {
+struct SourceNode : ExecNode, public TracedNode<SourceNode> {
   SourceNode(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
              AsyncGenerator<std::optional<ExecBatch>> generator)
       : ExecNode(plan, {}, {}, std::move(output_schema),
@@ -73,12 +75,7 @@ struct SourceNode : ExecNode {
   [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
 
   Status StartProducing() override {
-    START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
-                       {{"node.kind", kind_name()},
-                        {"node.label", label()},
-                        {"node.output_schema", output_schema()->ToString()},
-                        {"node.detail", ToString()}});
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
+    NoteStartProducing(ToStringExtra());
     {
       // If another exec node encountered an error during its StartProducing call
       // it might have already called StopProducing on all of its inputs (including this
@@ -101,8 +98,8 @@ struct SourceNode : ExecNode {
       options.executor = executor;
       options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     }
-    ARROW_ASSIGN_OR_RAISE(Future<> scan_task,
-                          plan_->query_context()->BeginExternalTask());
+    ARROW_ASSIGN_OR_RAISE(Future<> scan_task, plan_->query_context()->BeginExternalTask(
+                                                  "SourceNode::DatasetScan"));
     if (!scan_task.is_valid()) {
       finished_.MarkFinished();
       // Plan has already been aborted, no need to start scanning
@@ -114,10 +111,14 @@ struct SourceNode : ExecNode {
                    return Future<ControlFlow<int>>::MakeFinished(Break(batch_count_));
                  }
                  lock.unlock();
-
+                 util::tracing::Span fetch_batch_span;
+                 auto fetch_batch_scope =
+                     START_SCOPED_SPAN(fetch_batch_span, "SourceNode::ReadBatch");
                  return generator_().Then(
-                     [this](const std::optional<ExecBatch>& maybe_morsel)
-                         -> Future<ControlFlow<int>> {
+                     [this, fetch_batch_span = std::move(fetch_batch_span)](
+                         const std::optional<ExecBatch>& maybe_morsel) mutable
+                     -> Future<ControlFlow<int>> {
+                       fetch_batch_span.reset();
                        std::unique_lock<std::mutex> lock(mutex_);
                        if (IsIterationEnd(maybe_morsel) || stop_requested_) {
                          return Break(batch_count_);
@@ -153,10 +154,11 @@ struct SourceNode : ExecNode {
                                outputs_[0]->InputReceived(this, std::move(batch));
                              } while (offset < morsel.length);
                              return Status::OK();
-                           }));
+                           },
+                           "SourceNode::ProcessMorsel"));
                        lock.lock();
                        if (!backpressure_future_.is_finished()) {
-                         EVENT(span_, "Source paused due to backpressure");
+                         EVENT_ON_CURRENT_SPAN("SourceNode::BackpressureApplied");
                          return backpressure_future_.Then(
                              []() -> ControlFlow<int> { return Continue(); });
                        }

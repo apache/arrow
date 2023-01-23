@@ -39,7 +39,7 @@ using internal::checked_cast;
 namespace compute {
 namespace {
 
-class ProjectNode : public MapNode {
+class ProjectNode : public MapNode, public TracedNode<ProjectNode> {
  public:
   ProjectNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
               std::shared_ptr<Schema> output_schema, std::vector<Expression> exprs)
@@ -96,17 +96,9 @@ class ProjectNode : public MapNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
-    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     DCHECK_EQ(input, inputs_[0]);
     auto func = [this](ExecBatch batch) {
-      util::tracing::Span span;
-      START_COMPUTE_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                                     {{"project", ToStringExtra()},
-                                      {"node.label", label()},
-                                      {"batch.length", batch.length}});
       auto result = DoProject(std::move(batch));
-      MARK_SPAN(span, result.status());
-      END_SPAN(span);
       return result;
     };
     this->SubmitTask(std::move(func), std::move(batch));

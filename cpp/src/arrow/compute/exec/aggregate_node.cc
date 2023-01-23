@@ -61,7 +61,7 @@ void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
   *ss << ']';
 }
 
-class ScalarAggregateNode : public ExecNode {
+class ScalarAggregateNode : public ExecNode, public TracedNode<ScalarAggregateNode> {
  public:
   ScalarAggregateNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                       std::shared_ptr<Schema> output_schema,
@@ -139,11 +139,6 @@ class ScalarAggregateNode : public ExecNode {
   const char* kind_name() const override { return "ScalarAggregateNode"; }
 
   Status DoConsume(const ExecSpan& batch, size_t thread_index) {
-    util::tracing::Span span;
-    START_COMPUTE_SPAN(span, "Consume",
-                       {{"aggregate", ToStringExtra()},
-                        {"node.label", label()},
-                        {"batch.length", batch.length}});
     for (size_t i = 0; i < kernels_.size(); ++i) {
       util::tracing::Span span;
       START_COMPUTE_SPAN(span, aggs_[i].function,
@@ -161,12 +156,7 @@ class ScalarAggregateNode : public ExecNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
-    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
-    util::tracing::Span span;
-    START_COMPUTE_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                                   {{"aggregate", ToStringExtra()},
-                                    {"node.label", label()},
-                                    {"batch.length", batch.length}});
+    auto scope = TraceInputReceived(batch);
     DCHECK_EQ(input, inputs_[0]);
 
     auto thread_index = plan_->query_context()->GetThreadIndex();
@@ -179,13 +169,11 @@ class ScalarAggregateNode : public ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
-    EVENT(span_, "ErrorReceived", {{"error", error.message()}});
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->ErrorReceived(this, std::move(error));
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
-    EVENT(span_, "InputFinished", {{"batches.length", total_batches}});
     DCHECK_EQ(input, inputs_[0]);
     if (input_counter_.SetTotal(total_batches)) {
       ErrorIfNotOk(Finish());
@@ -193,10 +181,7 @@ class ScalarAggregateNode : public ExecNode {
   }
 
   Status StartProducing() override {
-    START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
-                       {{"node.label", label()},
-                        {"node.detail", ToString()},
-                        {"node.kind", kind_name()}});
+    NoteStartProducing(ToStringExtra());
     // Scalar aggregates will only output a single batch
     outputs_[0]->InputFinished(this, 1);
     return Status::OK();
@@ -216,7 +201,6 @@ class ScalarAggregateNode : public ExecNode {
   }
 
   void StopProducing() override {
-    EVENT(span_, "StopProducing");
     if (input_counter_.Cancel()) {
       finished_.MarkFinished();
     }
@@ -233,9 +217,7 @@ class ScalarAggregateNode : public ExecNode {
 
  private:
   Status Finish() {
-    util::tracing::Span span;
-    START_COMPUTE_SPAN(span, "Finish",
-                       {{"aggregate", ToStringExtra()}, {"node.label", label()}});
+    auto scope = TraceFinish();
     ExecBatch batch{{}, 1};
     batch.values.resize(kernels_.size());
 
@@ -266,7 +248,7 @@ class ScalarAggregateNode : public ExecNode {
   AtomicCounter input_counter_;
 };
 
-class GroupByNode : public ExecNode {
+class GroupByNode : public ExecNode, public TracedNode<GroupByNode> {
  public:
   GroupByNode(ExecNode* input, std::shared_ptr<Schema> output_schema,
               std::vector<int> key_field_ids, std::vector<int> agg_src_field_ids,
@@ -361,11 +343,6 @@ class GroupByNode : public ExecNode {
   const char* kind_name() const override { return "GroupByNode"; }
 
   Status Consume(ExecSpan batch) {
-    util::tracing::Span span;
-    START_COMPUTE_SPAN(span, "Consume",
-                       {{"group_by", ToStringExtra()},
-                        {"node.label", label()},
-                        {"batch.length", batch.length}});
     size_t thread_index = plan_->query_context()->GetThreadIndex();
     if (thread_index >= local_states_.size()) {
       return Status::IndexError("thread index ", thread_index, " is out of range [0, ",
@@ -514,6 +491,7 @@ class GroupByNode : public ExecNode {
   }
 
   void OutputResult() {
+    auto scope = TraceFinish();
     // If something goes wrong outputting the result we need to make sure
     // we still mark finished.
     Status st = DoOutputResult();
@@ -523,12 +501,7 @@ class GroupByNode : public ExecNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
-    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
-    util::tracing::Span span;
-    START_COMPUTE_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                                   {{"group_by", ToStringExtra()},
-                                    {"node.label", label()},
-                                    {"batch.length", batch.length}});
+    auto scope = TraceInputReceived(batch);
 
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
@@ -543,16 +516,12 @@ class GroupByNode : public ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
-    EVENT(span_, "ErrorReceived", {{"error", error.message()}});
-
     DCHECK_EQ(input, inputs_[0]);
 
     outputs_[0]->ErrorReceived(this, std::move(error));
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
-    EVENT(span_, "InputFinished", {{"batches.length", total_batches}});
-
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
 
@@ -564,10 +533,7 @@ class GroupByNode : public ExecNode {
   }
 
   Status StartProducing() override {
-    START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
-                       {{"node.label", label()},
-                        {"node.detail", ToString()},
-                        {"node.kind", kind_name()}});
+    NoteStartProducing(ToStringExtra());
     local_states_.resize(plan_->query_context()->max_concurrency());
     return Status::OK();
   }
@@ -583,7 +549,6 @@ class GroupByNode : public ExecNode {
   }
 
   void StopProducing(ExecNode* output) override {
-    EVENT(span_, "StopProducing");
     DCHECK_EQ(output, outputs_[0]);
 
     if (input_counter_.Cancel()) {

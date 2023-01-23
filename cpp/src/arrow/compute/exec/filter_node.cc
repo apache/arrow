@@ -103,17 +103,9 @@ class FilterNode : public MapNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
-    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     DCHECK_EQ(input, inputs_[0]);
     auto func = [this](ExecBatch batch) {
-      util::tracing::Span span;
-      START_COMPUTE_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                                     {{"filter", ToStringExtra()},
-                                      {"node.label", label()},
-                                      {"batch.length", batch.length}});
       auto result = DoFilter(std::move(batch));
-      MARK_SPAN(span, result.status());
-      END_SPAN(span);
       return result;
     };
     this->SubmitTask(std::move(func), std::move(batch));

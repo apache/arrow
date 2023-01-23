@@ -41,13 +41,11 @@ MapNode::MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
 
 void MapNode::ErrorReceived(ExecNode* input, Status error) {
   DCHECK_EQ(input, inputs_[0]);
-  EVENT(span_, "ErrorReceived", {{"error.message", error.message()}});
   outputs_[0]->ErrorReceived(this, std::move(error));
 }
 
 void MapNode::InputFinished(ExecNode* input, int total_batches) {
   DCHECK_EQ(input, inputs_[0]);
-  EVENT(span_, "InputFinished", {{"batches.length", total_batches}});
   outputs_[0]->InputFinished(this, total_batches);
   if (input_counter_.SetTotal(total_batches)) {
     this->Finish();
@@ -55,9 +53,7 @@ void MapNode::InputFinished(ExecNode* input, int total_batches) {
 }
 
 Status MapNode::StartProducing() {
-  START_COMPUTE_SPAN(
-      span_, std::string(kind_name()) + ":" + label(),
-      {{"node.label", label()}, {"node.detail", ToString()}, {"node.kind", kind_name()}});
+  NoteStartProducing(ToStringExtra());
   return Status::OK();
 }
 
@@ -75,7 +71,6 @@ void MapNode::StopProducing(ExecNode* output) {
 }
 
 void MapNode::StopProducing() {
-  EVENT(span_, "StopProducing");
   if (input_counter_.Cancel()) {
     this->Finish();
   }
@@ -84,6 +79,7 @@ void MapNode::StopProducing() {
 
 void MapNode::SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn,
                          ExecBatch batch) {
+  auto scope = TraceInputReceived(batch);
   Status status;
   // This will be true if the node is stopped early due to an error or manual
   // cancellation

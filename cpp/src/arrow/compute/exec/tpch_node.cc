@@ -3426,17 +3426,19 @@ class TpchNode : public ExecNode {
   Status ScheduleTaskCallback(std::function<Status(size_t)> func) {
     if (finished_generating_.load()) return Status::OK();
     num_running_++;
-    return plan_->query_context()->ScheduleTask([this, func](size_t thread_index) {
-      Status status = func(thread_index);
-      if (!status.ok()) {
-        StopProducing();
-        ErrorIfNotOk(status);
-      }
-      if (--num_running_ == 0) {
-        finished_.MarkFinished(Status::OK());
-      }
-      return status;
-    });
+    return plan_->query_context()->ScheduleTask(
+        [this, func](size_t thread_index) {
+          Status status = func(thread_index);
+          if (!status.ok()) {
+            StopProducing();
+            ErrorIfNotOk(status);
+          }
+          if (--num_running_ == 0) {
+            finished_.MarkFinished(Status::OK());
+          }
+          return status;
+        },
+        "TpchNode::GenerateAndProcessBatch");
   }
 
   const char* name_;
