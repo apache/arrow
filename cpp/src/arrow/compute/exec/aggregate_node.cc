@@ -191,10 +191,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode<ScalarAggregateNo
     inputs_[0]->ResumeProducing(this, counter);
   }
 
-  Status StopProducingImpl() override {
-    EVENT(span_, "StopProducing");
-    return Status::OK();
-  }
+  Status StopProducingImpl() override { return Status::OK(); }
 
  protected:
   std::string ToStringExtra(int indent = 0) const override {
@@ -473,8 +470,6 @@ class GroupByNode : public ExecNode, public TracedNode<GroupByNode> {
   }
 
   Status InputFinished(ExecNode* input, int total_batches) override {
-    EVENT(span_, "InputFinished", {{"batches.length", total_batches}});
-
     DCHECK_EQ(input, inputs_[0]);
 
     if (input_counter_.SetTotal(total_batches)) {
@@ -499,10 +494,7 @@ class GroupByNode : public ExecNode, public TracedNode<GroupByNode> {
     // Without spillover there is way to handle backpressure in this node
   }
 
-  Status StopProducingImpl() override {
-    EVENT(span_, "StopProducing");
-    return Status::OK();
-  }
+  Status StopProducingImpl() override { return Status::OK(); }
 
  protected:
   std::string ToStringExtra(int indent = 0) const override {
