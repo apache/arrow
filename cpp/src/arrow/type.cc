@@ -454,6 +454,16 @@ std::string TypeHolder::ToString(const std::vector<TypeHolder>& types) {
 
 // ----------------------------------------------------------------------
 
+FixedWidthType::~FixedWidthType() {}
+
+PrimitiveCType::~PrimitiveCType() {}
+
+NumberType::~NumberType() {}
+
+IntegerType::~IntegerType() {}
+
+FloatingPointType::~FloatingPointType() {}
+
 FloatingPointType::Precision HalfFloatType::precision() const {
   return FloatingPointType::HALF;
 }
@@ -477,6 +487,12 @@ std::ostream& operator<<(std::ostream& os,
   os << interval.months << "M" << interval.days << "d" << interval.nanoseconds << "ns";
   return os;
 }
+
+NestedType::~NestedType() {}
+
+BaseBinaryType::~BaseBinaryType() {}
+
+BaseListType::~BaseListType() {}
 
 std::string ListType::ToString() const {
   std::stringstream s;
@@ -588,6 +604,8 @@ std::string FixedSizeBinaryType::ToString() const {
   ss << "fixed_size_binary[" << byte_width_ << "]";
   return ss.str();
 }
+
+TemporalType::~TemporalType() {}
 
 // ----------------------------------------------------------------------
 // Date types
