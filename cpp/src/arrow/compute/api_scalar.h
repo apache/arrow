@@ -894,10 +894,11 @@ Result<Datum> Round(const Datum& arg, RoundOptions options = RoundOptions::Defau
 /// \brief Round a value to a given precision.
 ///
 /// If arg1 is null the result will be null.
-/// If arg2 is null then the default number of significant digits (zero) will be used instead.
-/// If arg2 is negative, then the rounding place will be shifted to the left (thus -1 would
-/// correspond to rounding to the nearest ten).  If positive, the rounding place will shift
-/// to the right (and +1 would correspond to rounding to the nearest tenth).
+/// If arg2 is null then the default number of significant digits (zero) will be used
+/// instead. If arg2 is negative, then the rounding place will be shifted to the left
+/// (thus -1 would correspond to rounding to the nearest ten).  If positive, the rounding
+/// place will shift to the right (and +1 would correspond to rounding to the nearest
+/// tenth).
 ///
 /// \param[in] arg1 the value to be rounded
 /// \param[in] arg2 the number of significant digits to round to
