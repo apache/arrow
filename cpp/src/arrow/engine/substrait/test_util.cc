@@ -26,7 +26,10 @@
 // global namespace conflicts.
 
 #include "arrow/engine/substrait/test_util.h"
+
 #include "arrow/compute/exec/test_util.h"
+#include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/serde.h"
 #include "arrow/ipc/writer.h"
 
 namespace arrow {
@@ -90,9 +93,7 @@ Result<std::shared_ptr<Table>> GetTableFromPlan(
   return arrow::Table::FromRecordBatchReader(sink_reader.get());
 }
 
-void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
-                          const std::shared_ptr<Table> expected_table,
-                          compute::ExecContext& exec_context,
+void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
                           std::shared_ptr<Buffer>& buf,
                           const std::vector<int>& include_columns,
                           const ConversionOptions& conversion_options,
@@ -104,25 +105,24 @@ void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
                                             *buf, [] { return kNullConsumer; },
                                             ext_id_reg, &ext_set, conversion_options));
   auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
-  ASSERT_TRUE(other_declrs.IsValid());
 
   ASSERT_OK_AND_ASSIGN(auto output_table,
-                       GetTableFromPlan(other_declrs, exec_context, output_schema));
+                       compute::DeclarationToTable(other_declrs, /*use_threads=*/false));
+
   if (!include_columns.empty()) {
     ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns(include_columns));
   }
   if (sort_options) {
-    ASSERT_OK_AND_ASSIGN(
-        auto sort_indices,
-        SortIndices(output_table, std::move(*sort_options), &exec_context));
-    ASSERT_OK_AND_ASSIGN(
-        auto maybe_table,
-        compute::Take(output_table, std::move(sort_indices),
-                      compute::TakeOptions::NoBoundsCheck(), &exec_context));
+    ASSERT_OK_AND_ASSIGN(auto sort_indices,
+                         SortIndices(output_table, std::move(*sort_options)));
+    ASSERT_OK_AND_ASSIGN(auto maybe_table,
+                         compute::Take(output_table, std::move(sort_indices),
+                                       compute::TakeOptions::NoBoundsCheck()));
     output_table = maybe_table.table();
   }
   ASSERT_OK_AND_ASSIGN(output_table, output_table->CombineChunks());
-  AssertTablesEqual(*expected_table, *output_table);
+  ASSERT_OK_AND_ASSIGN(auto merged_expected, expected_table->CombineChunks());
+  compute::AssertTablesEqualIgnoringOrder(merged_expected, output_table);
 }
 
 }  // namespace engine

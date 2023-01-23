@@ -112,8 +112,6 @@ void WriteIpcData(const std::string& path,
   ASSERT_OK(file_writer->Close());
 }
 
-const auto kNullConsumer = std::make_shared<compute::NullSinkNodeConsumer>();
-
 const std::shared_ptr<Schema> kBoringSchema = schema({
     field("bool", boolean()),
     field("i8", int8()),
@@ -172,38 +170,6 @@ inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
     arg = UseBoringRefs(arg);
   }
   return compute::Expression{std::move(modified_call)};
-}
-
-void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
-                          std::shared_ptr<Buffer>& buf,
-                          const std::vector<int>& include_columns = {},
-                          const ConversionOptions& conversion_options = {},
-                          const compute::SortOptions* sort_options = NULLPTR) {
-  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
-  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
-  ExtensionSet ext_set(ext_id_reg);
-  ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
-                                            *buf, [] { return kNullConsumer; },
-                                            ext_id_reg, &ext_set, conversion_options));
-  auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
-
-  ASSERT_OK_AND_ASSIGN(auto output_table,
-                       compute::DeclarationToTable(other_declrs, /*use_threads=*/false));
-
-  if (!include_columns.empty()) {
-    ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns(include_columns));
-  }
-  if (sort_options) {
-    ASSERT_OK_AND_ASSIGN(auto sort_indices,
-                         SortIndices(output_table, std::move(*sort_options)));
-    ASSERT_OK_AND_ASSIGN(auto maybe_table,
-                         compute::Take(output_table, std::move(sort_indices),
-                                       compute::TakeOptions::NoBoundsCheck()));
-    output_table = maybe_table.table();
-  }
-  ASSERT_OK_AND_ASSIGN(output_table, output_table->CombineChunks());
-  ASSERT_OK_AND_ASSIGN(auto merged_expected, expected_table->CombineChunks());
-  compute::AssertTablesEqualIgnoringOrder(merged_expected, output_table);
 }
 
 int CountProjectNodeOptionsInDeclarations(const compute::Declaration& input) {
@@ -4418,9 +4384,6 @@ TEST(Substrait, PlanWithAsOfJoinExtension) {
 }
 
 TEST(Substrait, CompoundEmitFilterless) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
   compute::ExecContext exec_context;
   auto left_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32()),
@@ -4448,6 +4411,7 @@ TEST(Substrait, CompoundEmitFilterless) {
   ])"});
 
   std::string substrait_json = R"({
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
   "relations": [{
     "rel": {
       "join": {
@@ -4467,11 +4431,6 @@ TEST(Substrait, CompoundEmitFilterless) {
               "scalarFunction": {
                 "functionReference": 32,
                 "arguments": [
-                  {
-                    "enum": {
-                          "specified": "ERROR"
-                    }
-                  },
                   {
                     "value": {
                       "selection": {
@@ -4540,11 +4499,6 @@ TEST(Substrait, CompoundEmitFilterless) {
               "scalarFunction": {
                 "functionReference": 32,
                 "arguments": [
-                  {
-                    "enum": {
-                          "specified": "ERROR"
-                    }
-                  },
                   {
                     "value": {
                       "selection": {
@@ -4707,8 +4661,7 @@ TEST(Substrait, CompoundEmitFilterless) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
 TEST(Substrait, CompoundEmitWithFilter) {
@@ -4802,11 +4755,6 @@ TEST(Substrait, CompoundEmitWithFilter) {
                     "functionReference": 32,
                     "arguments": [
                       {
-                        "enum": {
-                              "specified": "ERROR"
-                        }
-                      },
-                      {
                         "value": {
                           "selection": {
                             "directReference": {
@@ -4874,11 +4822,6 @@ TEST(Substrait, CompoundEmitWithFilter) {
                   "scalarFunction": {
                     "functionReference": 32,
                     "arguments": [
-                      {
-                        "enum": {
-                              "specified": "ERROR"
-                        }
-                      },
                       {
                         "value": {
                           "selection": {
@@ -5049,8 +4992,7 @@ TEST(Substrait, CompoundEmitWithFilter) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
-                       buf, {}, conversion_options);
+  CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
 }  // namespace engine
