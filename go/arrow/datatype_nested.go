@@ -596,7 +596,7 @@ func (t *SparseUnionType) Fingerprint() string {
 	return typeFingerprint(t) + "[s" + t.fingerprint()
 }
 func (SparseUnionType) Layout() DataTypeLayout {
-	return DataTypeLayout{Buffers: []BufferSpec{SpecAlwaysNull(), SpecFixedWidth(Uint8SizeBytes)}}
+	return DataTypeLayout{Buffers: []BufferSpec{SpecFixedWidth(Uint8SizeBytes)}}
 }
 func (t *SparseUnionType) String() string {
 	return t.Name() + t.unionType.String()
@@ -659,7 +659,7 @@ func (t *DenseUnionType) Fingerprint() string {
 }
 
 func (DenseUnionType) Layout() DataTypeLayout {
-	return DataTypeLayout{Buffers: []BufferSpec{SpecAlwaysNull(), SpecFixedWidth(Uint8SizeBytes), SpecFixedWidth(Int32SizeBytes)}}
+	return DataTypeLayout{Buffers: []BufferSpec{SpecFixedWidth(Uint8SizeBytes), SpecFixedWidth(Int32SizeBytes)}}
 }
 
 func (DenseUnionType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
