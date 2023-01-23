@@ -2577,9 +2577,7 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
                                           "field":0
                                        }
                                     },
-                                    "rootReference":{
-
-                                    }
+                                    "rootReference":{}
                                  }
                               }
                            },
@@ -2591,17 +2589,13 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
                                           "field":1
                                        }
                                     },
-                                    "rootReference":{
-
-                                    }
+                                    "rootReference":{}
                                  }
                               }
                            }
                         ],
                         "output_type":{
-                           "bool":{
-
-                           }
+                           "bool":{}
                         }
                      }
                   }
@@ -2630,9 +2624,7 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
                                                 "field":0
                                              }
                                           },
-                                          "rootReference":{
-
-                                          }
+                                          "rootReference":{}
                                        }
                                     }
                                  },
@@ -2644,17 +2636,13 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
                                                 "field":1
                                              }
                                           },
-                                          "rootReference":{
-
-                                          }
+                                          "rootReference":{}
                                        }
                                     }
                                  }
                               ],
                               "output_type":{
-                                 "bool":{
-
-                                 }
+                                 "bool":{}
                               }
                            }
                         }
@@ -2669,14 +2657,10 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
                               "struct":{
                                  "types":[
                                     {
-                                       "i32":{
-
-                                       }
+                                       "i32":{}
                                     },
                                     {
-                                       "i32":{
-
-                                       }
+                                       "i32":{}
                                     }
                                  ]
                               }
