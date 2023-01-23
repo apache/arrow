@@ -260,8 +260,8 @@ class TestBaseBinaryRoundArithmetic : public ::testing::Test {
   void AssertBinaryOp(BinaryFunction func, const std::shared_ptr<Array>& arg,
                       const std::shared_ptr<Scalar>& ndigits,
                       const std::shared_ptr<Array>& expected) {
-      ASSERT_OK_AND_ASSIGN(auto actual, func(arg, ndigits, options_, nullptr));
-      ValidateAndAssertApproxEqual(actual.make_array(), expected);
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, ndigits, options_, nullptr));
+    ValidateAndAssertApproxEqual(actual.make_array(), expected);
   }
 
   // (Scalar, Scalar)
