@@ -136,9 +136,9 @@ func (w *Int32ColumnChunkWriter) WriteBatchSpaced(values []int32, defLevels, rep
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -294,9 +294,9 @@ func (w *Int64ColumnChunkWriter) WriteBatchSpaced(values []int64, defLevels, rep
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -452,9 +452,9 @@ func (w *Int96ColumnChunkWriter) WriteBatchSpaced(values []parquet.Int96, defLev
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -610,9 +610,9 @@ func (w *Float32ColumnChunkWriter) WriteBatchSpaced(values []float32, defLevels,
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -768,9 +768,9 @@ func (w *Float64ColumnChunkWriter) WriteBatchSpaced(values []float64, defLevels,
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -929,9 +929,9 @@ func (w *BooleanColumnChunkWriter) WriteBatchSpaced(values []bool, defLevels, re
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -1087,9 +1087,9 @@ func (w *ByteArrayColumnChunkWriter) WriteBatchSpaced(values []parquet.ByteArray
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -1245,9 +1245,9 @@ func (w *FixedLenByteArrayColumnChunkWriter) WriteBatchSpaced(values []parquet.F
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()

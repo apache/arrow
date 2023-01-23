@@ -286,7 +286,7 @@ func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 	childArrData := make([]arrow.ArrayData, 0)
 	// gather children arrays and def levels
 	for _, child := range sr.children {
-		field, err := child.BuildArray(validityIO.Read + validityIO.NullCount + 1)
+		field, err := child.BuildArray(lenBound)
 		if err != nil {
 			return nil, err
 		}
@@ -393,7 +393,7 @@ func (lr *listReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 	// definition levels when building out the bitmap. So the upper bound
 	// to make sure we have the space for is the worst case scenario,
 	// the upper bound is the value of the last offset + the nullcount
-	arr, err := lr.itemRdr.BuildArray(int64(offsetData[int(validityIO.Read)]) + validityIO.NullCount + 1)
+	arr, err := lr.itemRdr.BuildArray(int64(offsetData[int(validityIO.Read)]) + validityIO.NullCount)
 	if err != nil {
 		return nil, err
 	}
