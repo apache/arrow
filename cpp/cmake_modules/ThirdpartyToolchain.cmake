@@ -4935,13 +4935,22 @@ macro(build_awssdk)
                       BUILD_BYPRODUCTS ${S2N_STATIC_LIBRARY})
   add_dependencies(AWS::s2n s2n_ep)
 
+  externalproject_add(aws_c_cal_ep
+                      ${EP_COMMON_OPTIONS}
+                      URL ${AWS_C_CAL_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AWS_C_CAL_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_C_CAL_STATIC_LIBRARY}
+                      DEPENDS aws_c_common_ep)
+  add_dependencies(AWS::aws-c-cal aws_c_cal_ep)
+
   externalproject_add(aws_c_io_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${AWS_C_IO_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWS_C_IO_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_IO_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep s2n_ep)
+                      DEPENDS aws_c_common_ep s2n_ep aws_c_cal_ep)
   add_dependencies(AWS::aws-c-io aws_c_io_ep)
 
   externalproject_add(aws_c_event_stream_ep
@@ -4961,15 +4970,6 @@ macro(build_awssdk)
                       BUILD_BYPRODUCTS ${AWS_C_SDKUTILS_STATIC_LIBRARY}
                       DEPENDS aws_c_common_ep)
   add_dependencies(AWS::aws-c-sdkutils aws_c_sdkutils_ep)
-
-  externalproject_add(aws_c_cal_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_C_CAL_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_C_CAL_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_C_CAL_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep)
-  add_dependencies(AWS::aws-c-cal aws_c_cal_ep)
 
   externalproject_add(aws_c_compression_ep
                       ${EP_COMMON_OPTIONS}
@@ -5030,7 +5030,7 @@ macro(build_awssdk)
                       URL ${AWS_LC_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWS_LC_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWS_LC_STATIC_LIBRARY})
+                      BUILD_BYPRODUCTS ${CRYPTO_STATIC_LIBRARY} ${SSL_STATIC_LIBRARY})
   add_dependencies(AWS::crypto aws_lc_ep)
   add_dependencies(AWS::ssl aws_lc_ep)
 
