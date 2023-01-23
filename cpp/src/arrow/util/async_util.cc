@@ -123,16 +123,20 @@ class FifoQueue : public ThrottledAsyncTaskScheduler::Queue {
 };
 
 #ifdef ARROW_WITH_OPENTELEMETRY
-::arrow::internal::tracing::Scope TraceTaskSubmitted(AsyncTaskScheduler::Task* task) {
+::arrow::internal::tracing::Scope TraceTaskSubmitted(AsyncTaskScheduler::Task* task,
+                                                     const util::tracing::Span& parent) {
   if (task->span.valid()) {
     EVENT(task->span, "task submitted");
     return ACTIVATE_SPAN(task->span);
   }
-  return START_SCOPED_SPAN_SV(task->span, task->name(), {{"task.cost", task->cost()}});
+
+  return START_SCOPED_SPAN_WITH_PARENT_SV(task->span, parent, task->name(),
+                                          {{"task.cost", task->cost()}});
 }
 
-void TraceTaskQueued(AsyncTaskScheduler::Task* task) {
-  START_SCOPED_SPAN_SV(task->span, task->name(), {{"task.cost", task->cost()}});
+void TraceTaskQueued(AsyncTaskScheduler::Task* task, const util::tracing::Span& parent) {
+  START_SCOPED_SPAN_WITH_PARENT_SV(task->span, parent, task->name(),
+                                   {{"task.cost", task->cost()}});
 }
 
 void TraceTaskFinished(AsyncTaskScheduler::Task* task) { END_SPAN(task->span); }
@@ -148,7 +152,9 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
                                   FnOnce<void(const Status&)> abort_callback)
       : AsyncTaskScheduler(),
         stop_token_(std::move(stop_token)),
-        abort_callback_(std::move(abort_callback)) {}
+        abort_callback_(std::move(abort_callback)) {
+    START_SCOPED_SPAN(span_, "AsyncTaskScheduler");
+  }
 
   ~AsyncTaskSchedulerImpl() {
     DCHECK_EQ(running_tasks_, 0) << " scheduler destroyed while tasks still running";
@@ -167,6 +173,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   }
 
   Future<> OnFinished() const { return finished_; }
+  const tracing::Span& span() const override { return span_; }
 
  private:
   bool IsAborted() { return !maybe_error_.ok(); }
@@ -247,7 +254,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     // It's important that the task's span be active while we run the submit function.
     // Normally the submit function should transfer the span to the thread task as the
     // active span.
-    auto scope = TraceTaskSubmitted(task.get());
+    auto scope = TraceTaskSubmitted(task.get(), span_);
 #endif
     running_tasks_++;
     lk.unlock();
@@ -263,8 +270,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   std::mutex mutex_;
   StopToken stop_token_;
   FnOnce<void(const Status&)> abort_callback_;
-  bool abort_callback_pending_ = false;
-  std::condition_variable abort_callback_cv_;
+  util::tracing::Span span_;
 
   // Allows AsyncTaskScheduler::Make to call OnTaskFinished
   friend AsyncTaskScheduler;
@@ -300,7 +306,7 @@ class ThrottledAsyncTaskSchedulerImpl
     std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(latched_cost);
     if (maybe_backoff) {
 #ifdef ARROW_WITH_OPENTELEMETRY
-      TraceTaskQueued(task.get());
+      TraceTaskQueued(task.get(), span());
 #endif
       queue_->Push(std::move(task));
       lk.unlock();
@@ -322,6 +328,7 @@ class ThrottledAsyncTaskSchedulerImpl
 
   void Pause() override { throttle_->Pause(); }
   void Resume() override { throttle_->Resume(); }
+  const util::tracing::Span& span() const override { return target_->span(); }
 
  private:
   bool SubmitTask(std::unique_ptr<Task> task, int latched_cost) {
@@ -417,6 +424,8 @@ class AsyncTaskGroupImpl : public AsyncTaskGroup {
     return target_->AddTask(std::make_unique<WrapperTask>(std::move(task), state_));
   }
 
+  const util::tracing::Span& span() const override { return target_->span(); }
+
  private:
   struct State {
     explicit State(FnOnce<Status()> finish_cb)
@@ -474,6 +483,7 @@ class ThrottledAsyncTaskGroup : public ThrottledAsyncTaskScheduler {
       : throttle_(std::move(throttle)), task_group_(std::move(task_group)) {}
   void Pause() override { throttle_->Pause(); }
   void Resume() override { throttle_->Resume(); }
+  const util::tracing::Span& span() const override { return task_group_->span(); }
   bool AddTask(std::unique_ptr<Task> task) override {
     return task_group_->AddTask(std::move(task));
   }

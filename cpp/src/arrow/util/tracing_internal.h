@@ -158,6 +158,17 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
                   ::opentelemetry::nostd::string_view(name.data(), name.size()), \
                   ##__VA_ARGS__))))
 
+#define START_SCOPED_SPAN_WITH_PARENT_SV(target_span, parent_span, name, ...)    \
+  ::arrow::internal::tracing::Scope(                                             \
+      ::arrow::internal::tracing::GetTracer()->WithActiveSpan(                   \
+          ::arrow::internal::tracing::RewrapSpan(                                \
+              target_span.details.get(),                                         \
+                                                                                 \
+              ::arrow::internal::tracing::GetTracer()->StartSpan(                \
+                  ::opentelemetry::nostd::string_view(name.data(), name.size()), \
+                  __VA_ARGS__,                                                   \
+                  ::arrow::internal::tracing::SpanOptionsWithParent(parent_span)))))
+
 #define START_COMPUTE_SPAN(target_span, ...)                        \
   START_SPAN(target_span, __VA_ARGS__);                             \
   ::arrow::internal::tracing::UnwrapSpan(target_span.details.get()) \
