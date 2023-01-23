@@ -256,6 +256,14 @@ class TestBaseBinaryRoundArithmetic : public ::testing::Test {
     AssertScalarsApproxEqual(*exp, *actual.scalar(), /*verbose=*/true);
   }
 
+  // (Array, Scalar)
+  void AssertBinaryOp(BinaryFunction func, const std::shared_ptr<Array>& arg,
+                      const std::shared_ptr<Scalar>& ndigits,
+                      const std::shared_ptr<Array>& expected) {
+      ASSERT_OK_AND_ASSIGN(auto actual, func(arg, ndigits, options_, nullptr));
+      ValidateAndAssertApproxEqual(actual.make_array(), expected);
+  }
+
   // (Scalar, Scalar)
   void AssertBinaryOp(BinaryFunction func, const std::shared_ptr<Scalar>& arg,
                       const std::shared_ptr<Scalar>& ndigits,
@@ -272,6 +280,9 @@ class TestBaseBinaryRoundArithmetic : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(auto nda, MakeArrayFromScalar(*nd, arg->length()));
     auto expected = ArrayFromJSON(type_singleton(), expected_json);
     AssertBinaryOp(func, arg, nda, expected);
+
+    // Also test with ndigits as a scalar.
+    AssertBinaryOp(func, arg, nd, expected);
   }
 
   // (JSON, JSON)
@@ -1160,6 +1171,9 @@ TYPED_TEST(TestBinaryRoundFloating, Round) {
     this->AssertBinaryOp(RoundBinary, "[]", "[]", "[]");
     this->AssertBinaryOp(RoundBinary, "[null, 0, Inf, -Inf, NaN, -NaN]",
                          "[0, 0, 0, 0, 0, 0]", "[null, 0, Inf, -Inf, NaN, -NaN]");
+    this->AssertBinaryOp(RoundBinary, "[null, 0, Inf, -Inf, NaN, -NaN, 12]",
+                         "[null, null, null, null, null, null, null]",
+                         "[null, null, null, null, null, null, null]");
     this->AssertBinaryOp(RoundBinary, values, 0, pair.second);
   }
 
