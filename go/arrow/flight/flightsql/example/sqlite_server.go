@@ -142,7 +142,7 @@ func prepareQueryForGetKeys(filter string) string {
 
 type Statement struct {
 	stmt   *sql.Stmt
-	params []interface{}
+	params [][]interface{}
 }
 
 type SQLiteFlightSQLServer struct {
@@ -183,6 +183,7 @@ func NewSQLiteFlightSQLServer() (*SQLiteFlightSQLServer, error) {
 		return nil, err
 	}
 	ret := &SQLiteFlightSQLServer{db: db}
+	ret.Alloc = memory.DefaultAllocator
 	for k, v := range SqlInfoResultMap() {
 		ret.RegisterSqlInfo(flightsql.SqlInfo(k), v)
 	}
@@ -380,41 +381,113 @@ func doGetQuery(ctx context.Context, mem memory.Allocator, db *sql.DB, query str
 	return schema, ch, nil
 }
 
-func (s *SQLiteFlightSQLServer) DoGetPreparedStatement(ctx context.Context, cmd flightsql.PreparedStatementQuery) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+func (s *SQLiteFlightSQLServer) DoGetPreparedStatement(ctx context.Context, cmd flightsql.PreparedStatementQuery) (schema *arrow.Schema, out <-chan flight.StreamChunk, err error) {
 	val, ok := s.prepared.Load(string(cmd.GetPreparedStatementHandle()))
 	if !ok {
 		return nil, nil, status.Error(codes.InvalidArgument, "prepared statement not found")
 	}
 
 	stmt := val.(Statement)
-	rows, err := stmt.stmt.QueryContext(ctx, stmt.params...)
-	if err != nil {
-		return nil, nil, err
+	readers := make([]array.RecordReader, 0, len(stmt.params))
+	if len(stmt.params) == 0 {
+		rows, err := stmt.stmt.QueryContext(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		rdr, err := NewSqlBatchReader(s.Alloc, rows)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		schema = rdr.schema
+		readers = append(readers, rdr)
+	} else {
+		defer func() {
+			if err != nil {
+				for _, r := range readers {
+					r.Release()
+				}
+			}
+		}()
+		var (
+			rows *sql.Rows
+			rdr  *SqlBatchReader
+		)
+		// if we have multiple rows of bound params, execute the query
+		// multiple times and concatenate the result sets.
+		for _, p := range stmt.params {
+			rows, err = stmt.stmt.QueryContext(ctx, p...)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			if schema == nil {
+				rdr, err = NewSqlBatchReader(s.Alloc, rows)
+				if err != nil {
+					return nil, nil, err
+				}
+				schema = rdr.schema
+			} else {
+				rdr, err = NewSqlBatchReaderWithSchema(s.Alloc, schema, rows)
+				if err != nil {
+					return nil, nil, err
+				}
+			}
+
+			readers = append(readers, rdr)
+		}
 	}
 
-	rdr, err := NewSqlBatchReader(s.Alloc, rows)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	schema := rdr.schema
 	ch := make(chan flight.StreamChunk)
-	go flight.StreamChunksFromReader(rdr, ch)
-	return schema, ch, nil
+	go flight.ConcatenateReaders(readers, ch)
+	out = ch
+	return
 }
 
-func getParamsForStatement(rdr flight.MessageReader) (params []interface{}, err error) {
+func scalarToIFace(s scalar.Scalar) (interface{}, error) {
+	if !s.IsValid() {
+		return nil, nil
+	}
+
+	switch val := s.(type) {
+	case *scalar.Int8:
+		return val.Value, nil
+	case *scalar.Uint8:
+		return val.Value, nil
+	case *scalar.Int32:
+		return val.Value, nil
+	case *scalar.Int64:
+		return val.Value, nil
+	case *scalar.Float32:
+		return val.Value, nil
+	case *scalar.Float64:
+		return val.Value, nil
+	case *scalar.String:
+		return string(val.Value.Bytes()), nil
+	case *scalar.Binary:
+		return val.Value.Bytes(), nil
+	case scalar.DateScalar:
+		return val.ToTime(), nil
+	case scalar.TimeScalar:
+		return val.ToTime(), nil
+	case *scalar.DenseUnion:
+		return scalarToIFace(val.Value)
+	default:
+		return nil, fmt.Errorf("unsupported type: %s", val)
+	}
+}
+
+func getParamsForStatement(rdr flight.MessageReader) (params [][]interface{}, err error) {
+	params = make([][]interface{}, 0)
 	for rdr.Next() {
 		rec := rdr.Record()
 
 		nrows := int(rec.NumRows())
 		ncols := int(rec.NumCols())
 
-		if len(params) < int(ncols) {
-			params = make([]interface{}, ncols)
-		}
-
 		for i := 0; i < nrows; i++ {
+			invokeParams := make([]interface{}, ncols)
 			for c := 0; c < ncols; c++ {
 				col := rec.Column(c)
 				sc, err := scalar.GetScalar(col, i)
@@ -425,21 +498,12 @@ func getParamsForStatement(rdr flight.MessageReader) (params []interface{}, err 
 					r.Release()
 				}
 
-				switch v := sc.(*scalar.DenseUnion).Value.(type) {
-				case *scalar.Int64:
-					params[c] = v.Value
-				case *scalar.Float32:
-					params[c] = v.Value
-				case *scalar.Float64:
-					params[c] = v.Value
-				case *scalar.String:
-					params[c] = string(v.Value.Bytes())
-				case *scalar.Binary:
-					params[c] = v.Value.Bytes()
-				default:
-					return nil, fmt.Errorf("unsupported type: %s", v)
+				invokeParams[c], err = scalarToIFace(sc)
+				if err != nil {
+					return nil, err
 				}
 			}
+			params = append(params, invokeParams)
 		}
 	}
 
@@ -475,13 +539,30 @@ func (s *SQLiteFlightSQLServer) DoPutPreparedStatementUpdate(ctx context.Context
 		return 0, status.Errorf(codes.Internal, "error gathering parameters for prepared statement: %s", err.Error())
 	}
 
-	stmt.params = args
-	result, err := stmt.stmt.ExecContext(ctx, args...)
-	if err != nil {
-		return 0, err
+	if len(args) == 0 {
+		result, err := stmt.stmt.ExecContext(ctx)
+		if err != nil {
+			return 0, err
+		}
+
+		return result.RowsAffected()
 	}
 
-	return result.RowsAffected()
+	var totalAffected int64
+	for _, p := range args {
+		result, err := stmt.stmt.ExecContext(ctx, p...)
+		if err != nil {
+			return totalAffected, err
+		}
+
+		n, err := result.RowsAffected()
+		if err != nil {
+			return totalAffected, err
+		}
+		totalAffected += n
+	}
+
+	return totalAffected, nil
 }
 
 func (s *SQLiteFlightSQLServer) GetFlightInfoPrimaryKeys(_ context.Context, cmd flightsql.TableRef, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {

@@ -579,6 +579,50 @@ func createTestMapArr() arrow.Array {
 	return bld.NewArray()
 }
 
+func createTestSparseUnion() arrow.Array {
+	return createTestUnionArr(arrow.SparseMode)
+}
+
+func createTestDenseUnion() arrow.Array {
+	return createTestUnionArr(arrow.DenseMode)
+}
+
+func createTestUnionArr(mode arrow.UnionMode) arrow.Array {
+	fields := []arrow.Field{
+		arrow.Field{Name: "u0", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		arrow.Field{Name: "u1", Type: arrow.PrimitiveTypes.Uint8, Nullable: true},
+	}
+	typeCodes := []arrow.UnionTypeCode{5, 10}
+	bld := array.NewBuilder(memory.DefaultAllocator, arrow.UnionOf(mode, fields, typeCodes)).(array.UnionBuilder)
+	defer bld.Release()
+
+	u0Bld := bld.Child(0).(*array.Int32Builder)
+	u1Bld := bld.Child(1).(*array.Uint8Builder)
+
+	bld.Append(5)
+	if mode == arrow.SparseMode {
+		u1Bld.AppendNull()
+	}
+	u0Bld.Append(128)
+	bld.Append(5)
+	if mode == arrow.SparseMode {
+		u1Bld.AppendNull()
+	}
+	u0Bld.Append(256)
+	bld.Append(10)
+	if mode == arrow.SparseMode {
+		u0Bld.AppendNull()
+	}
+	u1Bld.Append(127)
+	bld.Append(10)
+	if mode == arrow.SparseMode {
+		u0Bld.AppendNull()
+	}
+	u1Bld.Append(25)
+
+	return bld.NewArray()
+}
+
 func TestNestedArrays(t *testing.T) {
 	tests := []struct {
 		name string
@@ -589,6 +633,8 @@ func TestNestedArrays(t *testing.T) {
 		{"fixed size list", createTestFixedSizeList},
 		{"struct", createTestStructArr},
 		{"map", createTestMapArr},
+		{"sparse union", createTestSparseUnion},
+		{"dense union", createTestDenseUnion},
 	}
 
 	for _, tt := range tests {
