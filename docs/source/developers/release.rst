@@ -61,7 +61,6 @@ generated properly.
         mvn clean install -Papache-release
 
     - Have the build requirements for cpp and c_glib installed.
-    - Set the ``JIRA_USERNAME`` and ``JIRA_PASSWORD`` environment variables
     - Set the ``CROSSBOW_GITHUB_TOKEN`` environment variable to automatically create the verify release Pull Request.
     - Install ``en_US.UTF-8`` locale. You can confirm available locales by ``locale -a``.
     - Install Python 3 as python
