@@ -809,7 +809,7 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeBinaryRoundingMode(
              compute::RoundMode::HALF_TOWARDS_ZERO,
              compute::RoundMode::HALF_TOWARDS_INFINITY, compute::RoundMode::HALF_TO_EVEN,
              compute::RoundMode::HALF_TO_ODD},
-            compute::RoundMode::HALF_TOWARDS_INFINITY));
+            compute::RoundMode::HALF_TO_EVEN));
     ARROW_ASSIGN_OR_RAISE(std::vector<compute::Expression> value_args,
                           GetValueArgs(call, 0));
     std::shared_ptr<compute::RoundBinaryOptions> options =
