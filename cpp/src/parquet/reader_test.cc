@@ -1085,7 +1085,7 @@ TEST_P(ParameterizedPageIndexReaderTest, TestReadPageIndex) {
   auto page_index_reader = file_reader->GetPageIndexReader();
   ASSERT_NE(nullptr, page_index_reader);
   const auto params = GetParam();
-  page_index_reader->WillNeed(params.row_group_indices, params.index_selection);
+  page_index_reader->WillNeed(params.row_group_indices, {}, params.index_selection);
   auto row_group_index_reader = page_index_reader->RowGroup(0);
   ASSERT_NE(nullptr, row_group_index_reader);
 

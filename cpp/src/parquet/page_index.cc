@@ -191,13 +191,25 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
                               std::shared_ptr<RowGroupMetaData> row_group_metadata,
                               const ReaderProperties& properties,
                               int32_t row_group_ordinal,
+                              std::optional<RowGroupIndexReadRange> index_read_range,
                               std::shared_ptr<InternalFileDecryptor> file_decryptor)
       : input_(input),
         row_group_metadata_(std::move(row_group_metadata)),
         properties_(properties),
-        file_decryptor_(std::move(file_decryptor)),
-        index_read_range_(
-            PageIndexReader::DeterminePageIndexRangesInRowGroup(*row_group_metadata_)) {}
+        row_group_ordinal_(row_group_ordinal),
+        file_decryptor_(std::move(file_decryptor)) {
+    if (index_read_range.has_value()) {
+      /// This row group has been requested by WillNeed(). Only column index and/or
+      /// offset index of requested columns can be read. Will throw if columns are
+      /// out of range.
+      index_read_range_ = index_read_range.value();
+    } else {
+      /// If the row group has not been requested by WillNeed(), by default both column
+      /// index and offset index of all column chunks for the row group can be read.
+      index_read_range_ =
+          PageIndexReader::DeterminePageIndexRangesInRowGroup(*row_group_metadata_, {});
+    }
+  }
 
   /// Read column index of a column chunk.
   std::shared_ptr<ColumnIndex> GetColumnIndex(int32_t i) override {
@@ -206,7 +218,6 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     }
 
     auto col_chunk = row_group_metadata_->ColumnChunk(i);
-
     std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col_chunk->crypto_metadata();
     if (crypto_metadata != nullptr) {
       ParquetException::NYI("Cannot read encrypted column index yet");
@@ -217,25 +228,13 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
       return nullptr;
     }
 
-    if (!index_read_range_.column_index.has_value()) {
-      throw ParquetException("Missing column index read range");
-    }
+    CheckReadRangeOrThrow(*column_index_location, index_read_range_.column_index,
+                          row_group_ordinal_);
 
     if (column_index_buffer_ == nullptr) {
       PARQUET_ASSIGN_OR_THROW(column_index_buffer_,
                               input_->ReadAt(index_read_range_.column_index->offset,
                                              index_read_range_.column_index->length));
-    }
-
-    // Validate range of column index
-    if (column_index_location->offset < index_read_range_.column_index->offset ||
-        column_index_location->length <= 0 ||
-        column_index_location->offset + column_index_location->length >
-            index_read_range_.column_index->offset +
-                index_read_range_.column_index->length) {
-      throw ParquetException("Invalid column index location: offset {} length {}",
-                             column_index_location->offset,
-                             column_index_location->length);
     }
 
     int64_t buffer_offset =
@@ -255,7 +254,6 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     }
 
     auto col_chunk = row_group_metadata_->ColumnChunk(i);
-
     std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col_chunk->crypto_metadata();
     if (crypto_metadata != nullptr) {
       ParquetException::NYI("Cannot read encrypted offset index yet");
@@ -266,25 +264,13 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
       return nullptr;
     }
 
-    if (!index_read_range_.offset_index.has_value()) {
-      throw ParquetException("Missing column index read range");
-    }
+    CheckReadRangeOrThrow(*offset_index_location, index_read_range_.offset_index,
+                          row_group_ordinal_);
 
     if (offset_index_buffer_ == nullptr) {
       PARQUET_ASSIGN_OR_THROW(offset_index_buffer_,
                               input_->ReadAt(index_read_range_.offset_index->offset,
                                              index_read_range_.offset_index->length));
-    }
-
-    // Validate range of offset index
-    if (offset_index_location->offset < index_read_range_.offset_index->offset ||
-        offset_index_location->length <= 0 ||
-        offset_index_location->offset + offset_index_location->length >
-            index_read_range_.offset_index->offset +
-                index_read_range_.offset_index->length) {
-      throw ParquetException("Invalid offset index location: offset {} length {}",
-                             offset_index_location->offset,
-                             offset_index_location->length);
     }
 
     int64_t buffer_offset =
@@ -297,6 +283,42 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
   }
 
  private:
+  static void CheckReadRangeOrThrow(
+      const IndexLocation& index_location,
+      const std::optional<::arrow::io::ReadRange>& index_read_range,
+      int32_t row_group_ordinal) {
+    if (!index_read_range.has_value()) {
+      throw ParquetException(
+          "Missing page index read range of row group {}, it may not exist or has not "
+          "been requested",
+          row_group_ordinal);
+    }
+
+    /// The coalesced read range is invalid.
+    if (index_read_range->offset < 0 || index_read_range->length <= 0) {
+      throw ParquetException("Invalid page index read range: offset {} length {}",
+                             index_read_range->offset, index_read_range->length);
+    }
+
+    /// The location to page index itself is corrupted.
+    if (index_location.offset < 0 || index_location.length <= 0) {
+      throw ParquetException("Invalid page index location: offset {} length {}",
+                             index_location.offset, index_location.length);
+    }
+
+    /// Page index location must be within the range of the read range.
+    if (index_location.offset < index_read_range->offset ||
+        index_location.offset + index_location.length >
+            index_read_range->offset + index_read_range->length) {
+      throw ParquetException(
+          "Page index location [offset:{},length:{}] is out of range from previous "
+          "WillNeed request [offset:{},length:{}], row group: {}",
+          index_location.offset, index_location.length, index_read_range->offset,
+          index_read_range->length, row_group_ordinal);
+    }
+  }
+
+ private:
   /// The input stream that can perform random access read.
   ::arrow::io::RandomAccessFile* input_;
 
@@ -305,6 +327,9 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
 
   /// Reader properties used to deserialize thrift object.
   const ReaderProperties& properties_;
+
+  /// The ordinal of the row group in the file.
+  int32_t row_group_ordinal_;
 
   /// File-level decryptor.
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
@@ -333,28 +358,46 @@ class PageIndexReaderImpl : public PageIndexReader {
     if (i < 0 || i >= file_metadata_->num_row_groups()) {
       throw ParquetException("Invalid row group ordinal {}", i);
     }
+
+    // Find the read range of the page index of the row group if provided by WillNeed()
+    std::optional<RowGroupIndexReadRange> index_read_range = std::nullopt;
+    auto iter = index_read_ranges_.find(i);
+    if (iter != index_read_ranges_.cend()) {
+      index_read_range = iter->second;
+    }
+
     return std::make_shared<RowGroupPageIndexReaderImpl>(
-        input_, file_metadata_->RowGroup(i), properties_, i, file_decryptor_);
+        input_, file_metadata_->RowGroup(i), properties_, i, index_read_range,
+        file_decryptor_);
   }
 
   void WillNeed(const std::vector<int32_t>& row_group_indices,
+                const std::vector<int32_t>& column_indices,
                 IndexSelection index_selection) override {
+    if (!index_selection.column_index && !index_selection.offset_index) {
+      // Neither column index nor offset index has been requested, simply return.
+      return;
+    }
+
     std::vector<::arrow::io::ReadRange> read_ranges;
     for (int32_t row_group_ordinal : row_group_indices) {
       auto read_range = PageIndexReader::DeterminePageIndexRangesInRowGroup(
-          *file_metadata_->RowGroup(row_group_ordinal));
+          *file_metadata_->RowGroup(row_group_ordinal), column_indices);
       if (index_selection.column_index && read_range.column_index.has_value()) {
         read_ranges.push_back(*read_range.column_index);
       }
       if (index_selection.offset_index && read_range.offset_index.has_value()) {
         read_ranges.push_back(*read_range.offset_index);
       }
+      index_read_ranges_.emplace(row_group_ordinal, std::move(read_range));
     }
     PARQUET_THROW_NOT_OK(input_->WillNeed(read_ranges));
   }
 
   void WillNotNeed(const std::vector<int32_t>& row_group_indices) override {
-    // No-op for now.
+    for (int32_t row_group_ordinal : row_group_indices) {
+      index_read_ranges_.erase(row_group_ordinal);
+    }
   }
 
  private:
@@ -369,12 +412,16 @@ class PageIndexReaderImpl : public PageIndexReader {
 
   /// File-level decrypter.
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
+
+  /// Coalesced read ranges of page index of row groups that have been suggested by
+  /// WillNeed(). Key is the row group ordinal.
+  std::unordered_map<int32_t, RowGroupIndexReadRange> index_read_ranges_;
 };
 
 }  // namespace
 
 RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(
-    const RowGroupMetaData& row_group_metadata) {
+    const RowGroupMetaData& row_group_metadata, const std::vector<int32_t>& columns) {
   int64_t ci_start = std::numeric_limits<int64_t>::max();
   int64_t oi_start = std::numeric_limits<int64_t>::max();
   int64_t ci_end = -1;
@@ -392,10 +439,21 @@ RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(
     }
   };
 
-  for (int i = 0; i < row_group_metadata.num_columns(); ++i) {
-    auto col_chunk = row_group_metadata.ColumnChunk(i);
-    merge_range(col_chunk->GetColumnIndexLocation(), &ci_start, &ci_end);
-    merge_range(col_chunk->GetOffsetIndexLocation(), &oi_start, &oi_end);
+  if (columns.empty()) {
+    for (int32_t i = 0; i < row_group_metadata.num_columns(); ++i) {
+      auto col_chunk = row_group_metadata.ColumnChunk(i);
+      merge_range(col_chunk->GetColumnIndexLocation(), &ci_start, &ci_end);
+      merge_range(col_chunk->GetOffsetIndexLocation(), &oi_start, &oi_end);
+    }
+  } else {
+    for (int32_t i : columns) {
+      if (i < 0 || i >= row_group_metadata.num_columns()) {
+        throw ParquetException("Invalid column ordinal {}", i);
+      }
+      auto col_chunk = row_group_metadata.ColumnChunk(i);
+      merge_range(col_chunk->GetColumnIndexLocation(), &ci_start, &ci_end);
+      merge_range(col_chunk->GetOffsetIndexLocation(), &oi_start, &oi_end);
+    }
   }
 
   RowGroupIndexReadRange read_range;

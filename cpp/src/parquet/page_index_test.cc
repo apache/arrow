@@ -317,8 +317,8 @@ void ValidatePageIndexRange(const RowGroupRanges& row_group_ranges,
                             int expected_ci_size, int expected_oi_start,
                             int expected_oi_size) {
   auto file_metadata = ConstructFakeMetaData(row_group_ranges);
-  auto read_range =
-      PageIndexReader::DeterminePageIndexRangesInRowGroup(*file_metadata->RowGroup(0));
+  auto read_range = PageIndexReader::DeterminePageIndexRangesInRowGroup(
+      *file_metadata->RowGroup(0), {});
   ASSERT_EQ(expected_has_page_index, read_range.column_index.has_value());
   ASSERT_EQ(expected_has_page_index, read_range.offset_index.has_value());
   if (expected_has_page_index) {
@@ -341,7 +341,7 @@ TEST(PageIndex, DeterminePageIndexRangesInRowGroup) {
   ValidatePageIndexRange({{10, 5, 15, 5}}, true, 10, 5, 15, 5);
   // Page index for two column chunks.
   ValidatePageIndexRange({{10, 5, 30, 25}, {15, 15, 50, 20}}, true, 10, 20, 30, 40);
-  // Page index for second column chunk..
+  // Page index for second column chunk.
   ValidatePageIndexRange({{-1, -1, -1, -1}, {20, 10, 30, 25}}, true, 20, 10, 30, 25);
   // Page index for first column chunk.
   ValidatePageIndexRange({{10, 5, 15, 5}, {-1, -1, -1, -1}}, true, 10, 5, 15, 5);

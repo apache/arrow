@@ -195,31 +195,59 @@ class PARQUET_EXPORT PageIndexReader {
 
   /// \brief Advise the reader which part of page index will be read later.
   ///
-  /// The PageIndexReader implementation can optionally prefetch and cache page index
-  /// that may be read later. Follow-up read should not fail even if WillNeed() is not
-  /// called, or the requested page index is out of range from WillNeed() call.
+  /// The PageIndexReader can optionally prefetch and cache page index that
+  /// may be read later to get better performance.
+  ///
+  /// The contract of this function is as below:
+  /// 1) If WillNeed() has not been called for a specific row group and the page index
+  ///    exists, follow-up calls to get column index or offset index of all columns in
+  ///    this row group SHOULD NOT FAIL, but the performance may not be optimal.
+  /// 2) If WillNeed() has been called for a specific row group, follow-up calls MAY
+  ///    FAIL if columns that are not requested by WillNeed() are requested.
+  /// 3) Later calls to WillNeed() MAY override previous calls of same row groups.
+  /// For example,
+  /// 1) If WillNeed() is not called for row group 0, then follow-up calls to read
+  ///    column index and/or offset index of all columns of row group 0 should not
+  ///    fail if its page index exists.
+  /// 2) If WillNeed() is called for columns 0 and 1 for row group 0, then follow-up
+  ///    call to read page index of column 2 for row group 0 WILL FAIL even if its
+  ///    page index exists.
+  /// 3) If WillNeed() is called for row group 0 with offset index only, then
+  ///    follow-up call to read column index of row group 0 WILL FAIL even if
+  ///    the column index of this column exists.
+  /// 4) If WillNeed() is called for columns 0 and 1 for row group 0, then later
+  ///    call to WillNeed() for columns 1 and 2 for row group 0. The later one
+  ///    overrides previous call and only columns 1 and 2 of row group 0 are allowed
+  ///    to access.
   ///
   /// \param[in] row_group_indices list of row group ordinal to read page index later.
+  /// \param[in] column_indices list of column ordinal to read page index later. If it is
+  ///            empty, it means all columns in the row group will be read.
   /// \param[in] index_selection tell if any of the page index is required later.
   virtual void WillNeed(const std::vector<int32_t>& row_group_indices,
+                        const std::vector<int32_t>& column_indices,
                         IndexSelection index_selection) = 0;
 
-  /// \brief Advise the reader which part of page index will be read later.
+  /// \brief Advise the reader page index of these row groups will not be read any more.
   ///
   /// The PageIndexReader implementation has the opportunity to cancel any prefetch or
   /// release resource that are related to these row groups.
   ///
   /// \param[in] row_group_indices list of row group ordinal that whose page index will
-  /// not be needed any more.
+  /// not be accessed any more.
   virtual void WillNotNeed(const std::vector<int32_t>& row_group_indices) = 0;
 
   /// \brief Determines the column index and offset index ranges for the given row group.
   ///
   /// \param[in] row_group_metadata row group metadata to get column chunk metadata.
-  /// \returns RowGroupIndexReadRange of the specified row group.
+  /// \param[in] columns list of column ordinals to get page index. If the list is empty,
+  ///            it means all columns in the row group.
+  /// \returns RowGroupIndexReadRange of the specified row group. Throws ParquetException
+  ///          if the selected column ordinal is out of bound or metadata of page index
+  ///          is corrupted.
   /// found. Returns false when there is absolutely no offsets index for the row group.
   static RowGroupIndexReadRange DeterminePageIndexRangesInRowGroup(
-      const RowGroupMetaData& row_group_metadata);
+      const RowGroupMetaData& row_group_metadata, const std::vector<int32_t>& columns);
 };
 
 }  // namespace parquet
