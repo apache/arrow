@@ -24,11 +24,9 @@ echo "Install Substrait Consumer Test Suite";
 git clone https://github.com/substrait-io/consumer-testing.git
 cd consumer-testing
 # avoid installing pyarrow
-cat requirements.txt | while read line
+grep -v pyarrow requirements.txt | while read line
 do
-    if [ $line != "pyarrow" ]; then
-        pip install $line
-    fi
+    pip install $line
 done
 
 pip install -r requirements-build.txt
