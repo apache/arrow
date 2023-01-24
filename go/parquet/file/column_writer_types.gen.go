@@ -136,9 +136,9 @@ func (w *Int32ColumnChunkWriter) WriteBatchSpaced(values []int32, defLevels, rep
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -154,8 +154,8 @@ func (w *Int32ColumnChunkWriter) writeValues(values []int32, numNulls int64) {
 	}
 }
 
-func (w *Int32ColumnChunkWriter) writeValuesSpaced(spacedValues []int32, numValues int64, validBits []byte, validBitsOffset int64) {
-	if len(spacedValues) != int(numValues) {
+func (w *Int32ColumnChunkWriter) writeValuesSpaced(spacedValues []int32, numRead, numValues int64, validBits []byte, validBitsOffset int64) {
+	if len(spacedValues) != int(numRead) {
 		w.currentEncoder.(encoding.Int32Encoder).PutSpaced(spacedValues, validBits, validBitsOffset)
 	} else {
 		w.currentEncoder.(encoding.Int32Encoder).Put(spacedValues)
@@ -294,9 +294,9 @@ func (w *Int64ColumnChunkWriter) WriteBatchSpaced(values []int64, defLevels, rep
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -312,8 +312,8 @@ func (w *Int64ColumnChunkWriter) writeValues(values []int64, numNulls int64) {
 	}
 }
 
-func (w *Int64ColumnChunkWriter) writeValuesSpaced(spacedValues []int64, numValues int64, validBits []byte, validBitsOffset int64) {
-	if len(spacedValues) != int(numValues) {
+func (w *Int64ColumnChunkWriter) writeValuesSpaced(spacedValues []int64, numRead, numValues int64, validBits []byte, validBitsOffset int64) {
+	if len(spacedValues) != int(numRead) {
 		w.currentEncoder.(encoding.Int64Encoder).PutSpaced(spacedValues, validBits, validBitsOffset)
 	} else {
 		w.currentEncoder.(encoding.Int64Encoder).Put(spacedValues)
@@ -452,9 +452,9 @@ func (w *Int96ColumnChunkWriter) WriteBatchSpaced(values []parquet.Int96, defLev
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -470,8 +470,8 @@ func (w *Int96ColumnChunkWriter) writeValues(values []parquet.Int96, numNulls in
 	}
 }
 
-func (w *Int96ColumnChunkWriter) writeValuesSpaced(spacedValues []parquet.Int96, numValues int64, validBits []byte, validBitsOffset int64) {
-	if len(spacedValues) != int(numValues) {
+func (w *Int96ColumnChunkWriter) writeValuesSpaced(spacedValues []parquet.Int96, numRead, numValues int64, validBits []byte, validBitsOffset int64) {
+	if len(spacedValues) != int(numRead) {
 		w.currentEncoder.(encoding.Int96Encoder).PutSpaced(spacedValues, validBits, validBitsOffset)
 	} else {
 		w.currentEncoder.(encoding.Int96Encoder).Put(spacedValues)
@@ -610,9 +610,9 @@ func (w *Float32ColumnChunkWriter) WriteBatchSpaced(values []float32, defLevels,
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -628,8 +628,8 @@ func (w *Float32ColumnChunkWriter) writeValues(values []float32, numNulls int64)
 	}
 }
 
-func (w *Float32ColumnChunkWriter) writeValuesSpaced(spacedValues []float32, numValues int64, validBits []byte, validBitsOffset int64) {
-	if len(spacedValues) != int(numValues) {
+func (w *Float32ColumnChunkWriter) writeValuesSpaced(spacedValues []float32, numRead, numValues int64, validBits []byte, validBitsOffset int64) {
+	if len(spacedValues) != int(numRead) {
 		w.currentEncoder.(encoding.Float32Encoder).PutSpaced(spacedValues, validBits, validBitsOffset)
 	} else {
 		w.currentEncoder.(encoding.Float32Encoder).Put(spacedValues)
@@ -768,9 +768,9 @@ func (w *Float64ColumnChunkWriter) WriteBatchSpaced(values []float64, defLevels,
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -786,8 +786,8 @@ func (w *Float64ColumnChunkWriter) writeValues(values []float64, numNulls int64)
 	}
 }
 
-func (w *Float64ColumnChunkWriter) writeValuesSpaced(spacedValues []float64, numValues int64, validBits []byte, validBitsOffset int64) {
-	if len(spacedValues) != int(numValues) {
+func (w *Float64ColumnChunkWriter) writeValuesSpaced(spacedValues []float64, numRead, numValues int64, validBits []byte, validBitsOffset int64) {
+	if len(spacedValues) != int(numRead) {
 		w.currentEncoder.(encoding.Float64Encoder).PutSpaced(spacedValues, validBits, validBitsOffset)
 	} else {
 		w.currentEncoder.(encoding.Float64Encoder).Put(spacedValues)
@@ -929,9 +929,9 @@ func (w *BooleanColumnChunkWriter) WriteBatchSpaced(values []bool, defLevels, re
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -947,8 +947,8 @@ func (w *BooleanColumnChunkWriter) writeValues(values []bool, numNulls int64) {
 	}
 }
 
-func (w *BooleanColumnChunkWriter) writeValuesSpaced(spacedValues []bool, numValues int64, validBits []byte, validBitsOffset int64) {
-	if len(spacedValues) != int(numValues) {
+func (w *BooleanColumnChunkWriter) writeValuesSpaced(spacedValues []bool, numRead, numValues int64, validBits []byte, validBitsOffset int64) {
+	if len(spacedValues) != int(numRead) {
 		w.currentEncoder.(encoding.BooleanEncoder).PutSpaced(spacedValues, validBits, validBitsOffset)
 	} else {
 		w.currentEncoder.(encoding.BooleanEncoder).Put(spacedValues)
@@ -1087,9 +1087,9 @@ func (w *ByteArrayColumnChunkWriter) WriteBatchSpaced(values []parquet.ByteArray
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -1105,8 +1105,8 @@ func (w *ByteArrayColumnChunkWriter) writeValues(values []parquet.ByteArray, num
 	}
 }
 
-func (w *ByteArrayColumnChunkWriter) writeValuesSpaced(spacedValues []parquet.ByteArray, numValues int64, validBits []byte, validBitsOffset int64) {
-	if len(spacedValues) != int(numValues) {
+func (w *ByteArrayColumnChunkWriter) writeValuesSpaced(spacedValues []parquet.ByteArray, numRead, numValues int64, validBits []byte, validBitsOffset int64) {
+	if len(spacedValues) != int(numRead) {
 		w.currentEncoder.(encoding.ByteArrayEncoder).PutSpaced(spacedValues, validBits, validBitsOffset)
 	} else {
 		w.currentEncoder.(encoding.ByteArrayEncoder).Put(spacedValues)
@@ -1245,9 +1245,9 @@ func (w *FixedLenByteArrayColumnChunkWriter) WriteBatchSpaced(values []parquet.F
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, batch, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, batch, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -1263,8 +1263,8 @@ func (w *FixedLenByteArrayColumnChunkWriter) writeValues(values []parquet.FixedL
 	}
 }
 
-func (w *FixedLenByteArrayColumnChunkWriter) writeValuesSpaced(spacedValues []parquet.FixedLenByteArray, numValues int64, validBits []byte, validBitsOffset int64) {
-	if len(spacedValues) != int(numValues) {
+func (w *FixedLenByteArrayColumnChunkWriter) writeValuesSpaced(spacedValues []parquet.FixedLenByteArray, numRead, numValues int64, validBits []byte, validBitsOffset int64) {
+	if len(spacedValues) != int(numRead) {
 		w.currentEncoder.(encoding.FixedLenByteArrayEncoder).PutSpaced(spacedValues, validBits, validBitsOffset)
 	} else {
 		w.currentEncoder.(encoding.FixedLenByteArrayEncoder).Put(spacedValues)
