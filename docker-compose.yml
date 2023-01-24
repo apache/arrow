@@ -1169,7 +1169,8 @@ services:
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build"]
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/integration_substrait.sh"]
 
   conda-python-jpype:
     # Usage:

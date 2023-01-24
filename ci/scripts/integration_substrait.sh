@@ -22,8 +22,10 @@ set -e
 # check that optional pyarrow modules are available
 # because pytest would just skip the substrait tests
 echo "Substrait Integration Tests"
+echo "Validating imports"
 python -c "import pyarrow.substrait"
 python -c "from substrait_consumer.consumers import AceroConsumer"
 
+echo "Executing pytest"
 cd consumer-testing
 pytest substrait_consumer/tests/functional/extension_functions/test_boolean_functions.py --producer IsthmusProducer --consumer AceroConsumer

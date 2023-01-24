@@ -35,7 +35,6 @@ RUN mamba install -q -y \
 
 ARG substrait=latest
 COPY ci/scripts/install_substrait_consumer.sh /arrow/ci/scripts/
-COPY ci/scripts/integration_substrait.sh /arrow/ci/scripts/
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_COMPUTE=ON \
@@ -46,4 +45,3 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_SUBSTRAIT=ON
 
 RUN /arrow/ci/scripts/install_substrait_consumer.sh
-RUN /arrow/ci/scripts/integration_substrait.sh
