@@ -456,7 +456,7 @@ class PARQUET_EXPORT WriterProperties {
     ///
     /// In Parquet, DECIMAL can be stored in any of the following physical types:
     /// - int32: for 1 <= precision <= 9.
-    /// - int64: for 1 <= precision <= 18; precision < 10 will produce a warning.
+    /// - int64: for 10 <= precision <= 18.
     /// - fixed_len_byte_array: precision is limited by the array size.
     ///   Length n can store <= floor(log_10(2^(8*n - 1) - 1)) base-10 digits.
     /// - binary: precision is unlimited. The minimum number of bytes to store
