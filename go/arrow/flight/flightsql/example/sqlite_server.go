@@ -70,7 +70,7 @@ func genRandomString() []byte {
 
 func prepareQueryForGetTables(cmd flightsql.GetTables) string {
 	var b strings.Builder
-	b.WriteString(`SELECT null AS catalog_name, null AS schema_name, 
+	b.WriteString(`SELECT 'main' AS catalog_name, '' AS schema_name,
 		name AS table_name, type AS table_type FROM sqlite_master WHERE 1=1`)
 
 	if cmd.GetCatalog() != nil {
@@ -108,7 +108,7 @@ func prepareQueryForGetTables(cmd flightsql.GetTables) string {
 
 func prepareQueryForGetKeys(filter string) string {
 	return `SELECT * FROM (
-		SELECT 
+		SELECT
 			NULL AS pk_catalog_name,
 			NULL AS pk_schema_name,
 			p."table" AS pk_table_name,
@@ -162,7 +162,7 @@ func NewSQLiteFlightSQLServer() (*SQLiteFlightSQLServer, error) {
 	CREATE TABLE foreignTable (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		foreignName varchar(100),
-		value int);	
+		value int);
 
 	CREATE TABLE intTable (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -224,10 +224,25 @@ func (s *SQLiteFlightSQLServer) GetFlightInfoCatalogs(_ context.Context, desc *f
 }
 
 func (s *SQLiteFlightSQLServer) DoGetCatalogs(context.Context) (*arrow.Schema, <-chan flight.StreamChunk, error) {
-	// sqlite doesn't support catalogs, this returns an empty record batch
+	// https://www.sqlite.org/cli.html
+	// > The ".databases" command shows a list of all databases open
+	// > in the current connection. There will always be at least
+	// > 2. The first one is "main", the original database opened. The
+	// > second is "temp", the database used for temporary tables.
+	// For our purposes, return only "main" and ignore other databases.
+
 	schema := schema_ref.Catalogs
 
-	ch := make(chan flight.StreamChunk)
+	catalogs, _, err := array.FromJSON(s.Alloc, arrow.BinaryTypes.String, strings.NewReader(`["main"]`))
+	if err != nil {
+		return nil, nil, err
+	}
+	defer catalogs.Release()
+
+	batch := array.NewRecord(schema, []arrow.Array{catalogs}, 1)
+
+	ch := make(chan flight.StreamChunk, 1)
+	ch <- flight.StreamChunk{Data: batch}
 	close(ch)
 
 	return schema, ch, nil
@@ -237,11 +252,29 @@ func (s *SQLiteFlightSQLServer) GetFlightInfoSchemas(_ context.Context, cmd flig
 	return s.flightInfoForCommand(desc, schema_ref.DBSchemas), nil
 }
 
-func (s *SQLiteFlightSQLServer) DoGetDBSchemas(context.Context, flightsql.GetDBSchemas) (*arrow.Schema, <-chan flight.StreamChunk, error) {
-	// sqlite doesn't support schemas, this returns an empty record batch
+func (s *SQLiteFlightSQLServer) DoGetDBSchemas(_ context.Context, cmd flightsql.GetDBSchemas) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	// SQLite doesn't support schemas, so pretend we have a single unnamed schema.
 	schema := schema_ref.DBSchemas
 
-	ch := make(chan flight.StreamChunk)
+	ch := make(chan flight.StreamChunk, 1)
+
+	if cmd.GetDBSchemaFilterPattern() == nil || *cmd.GetDBSchemaFilterPattern() == "" {
+		catalogs, _, err := array.FromJSON(s.Alloc, arrow.BinaryTypes.String, strings.NewReader(`["main"]`))
+		if err != nil {
+			return nil, nil, err
+		}
+		defer catalogs.Release()
+
+		dbSchemas, _, err := array.FromJSON(s.Alloc, arrow.BinaryTypes.String, strings.NewReader(`[""]`))
+		if err != nil {
+			return nil, nil, err
+		}
+		defer dbSchemas.Release()
+
+		batch := array.NewRecord(schema, []arrow.Array{catalogs, dbSchemas}, 1)
+		ch <- flight.StreamChunk{Data: batch}
+	}
+
 	close(ch)
 
 	return schema, ch, nil
