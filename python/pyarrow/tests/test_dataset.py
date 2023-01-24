@@ -3906,7 +3906,7 @@ def test_write_dataset_with_scanner(tempdir):
         load_back = ds.dataset(tempdir2, format='ipc', partitioning=["b"])
         load_back_table = load_back.to_table()
         assert dict(load_back_table.to_pydict()
-                    ) == table.drop(["a"]).to_pydict()
+                    ) == table.drop_columns("a").to_pydict()
 
 
 @pytest.mark.parquet
