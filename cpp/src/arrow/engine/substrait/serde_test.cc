@@ -28,10 +28,6 @@
 #include <gtest/gtest-matchers.h>
 #include <gtest/gtest.h>
 
-#include <google/protobuf/descriptor.h>
-#include <google/protobuf/util/json_util.h>
-#include <google/protobuf/util/type_resolver_util.h>
-
 #include "arrow/buffer.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
@@ -57,7 +53,6 @@
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/serde.h"
-#include "arrow/engine/substrait/test_util.h"
 #include "arrow/engine/substrait/util.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
@@ -93,23 +88,52 @@ using internal::checked_cast;
 using internal::hash_combine;
 namespace engine {
 
+const auto kNullConsumer = std::make_shared<compute::NullSinkNodeConsumer>();
+
 void WriteIpcData(const std::string& path,
                   const std::shared_ptr<fs::FileSystem> file_system,
                   const std::shared_ptr<Table> input) {
-  EXPECT_OK_AND_ASSIGN(auto mmap, file_system->OpenOutputStream(path));
+  EXPECT_OK_AND_ASSIGN(auto out_stream, file_system->OpenOutputStream(path));
   ASSERT_OK_AND_ASSIGN(
       auto file_writer,
-      MakeFileWriter(mmap, input->schema(), ipc::IpcWriteOptions::Defaults()));
-  TableBatchReader reader(input);
-  std::shared_ptr<RecordBatch> batch;
-  while (true) {
-    ASSERT_OK(reader.ReadNext(&batch));
-    if (batch == nullptr) {
-      break;
-    }
-    ASSERT_OK(file_writer->WriteRecordBatch(*batch));
-  }
+      MakeFileWriter(out_stream, input->schema(), ipc::IpcWriteOptions::Defaults()));
+  ASSERT_OK(file_writer->WriteTable(*input));
   ASSERT_OK(file_writer->Close());
+}
+
+void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
+                          std::shared_ptr<Buffer>& buf,
+                          const std::vector<int>& include_columns = {},
+                          const ConversionOptions& conversion_options = {},
+                          const compute::SortOptions* sort_options = NULLPTR) {
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
+  ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
+                                            *buf, [] { return kNullConsumer; },
+                                            ext_id_reg, &ext_set, conversion_options));
+  auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
+
+  ASSERT_OK_AND_ASSIGN(auto output_table,
+                       compute::DeclarationToTable(other_declrs, /*use_threads=*/false));
+
+  if (!include_columns.empty()) {
+    ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns(include_columns));
+  }
+  if (sort_options) {
+    ASSERT_OK_AND_ASSIGN(auto sort_indices,
+                         SortIndices(output_table, std::move(*sort_options)));
+    ASSERT_OK_AND_ASSIGN(auto maybe_table,
+                         compute::Take(output_table, std::move(sort_indices),
+                                       compute::TakeOptions::NoBoundsCheck()));
+    output_table = maybe_table.table();
+  }
+  ASSERT_OK_AND_ASSIGN(output_table, output_table->CombineChunks());
+  ASSERT_OK_AND_ASSIGN(auto merged_expected, expected_table->CombineChunks());
+  std::cout << merged_expected->ToString() << std::endl;
+  std::cout << "----------------------" << std::endl;
+  std::cout << output_table->ToString() << std::endl;
+  compute::AssertTablesEqualIgnoringOrder(merged_expected, output_table);
 }
 
 const std::shared_ptr<Schema> kBoringSchema = schema({
@@ -141,22 +165,6 @@ const std::shared_ptr<Schema> kBoringSchema = schema({
     field("dict_i32", dictionary(int32(), int32())),
     field("ts_ns", timestamp(TimeUnit::NANO)),
 });
-
-std::shared_ptr<DataType> StripFieldNames(std::shared_ptr<DataType> type) {
-  if (type->id() == Type::STRUCT) {
-    FieldVector fields(type->num_fields());
-    for (int i = 0; i < type->num_fields(); ++i) {
-      fields[i] = type->field(i)->WithName("");
-    }
-    return struct_(std::move(fields));
-  }
-
-  if (type->id() == Type::LIST) {
-    return list(type->field(0)->WithName(""));
-  }
-
-  return type;
-}
 
 inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
   if (expr.literal()) return expr;
@@ -3856,9 +3864,6 @@ TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
 }
 
 TEST(Substrait, ReadRelWithGlobFiles) {
-#ifdef _WIN32
-  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#endif
   arrow::dataset::internal::Initialize();
 
   auto dummy_schema =
