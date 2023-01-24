@@ -18,7 +18,6 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 #include <vector>
 
 #include "arrow/io/caching.h"
@@ -76,9 +75,7 @@ struct ARROW_EXPORT IpcWriteOptions {
   /// compression if its expected compressed size exceeds 90 bytes. If this option isn't
   /// set, compression will be used indiscriminately. If no codec was supplied, this
   /// option is ignored.
-  ///
-  /// Unset by default due to backwards-compatibility concerns
-  std::optional<double> min_space_savings;
+  double min_space_savings = 0.0;
 
   /// \brief Use global CPU thread pool to parallelize any computational tasks
   /// like compression

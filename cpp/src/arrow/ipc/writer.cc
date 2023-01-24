@@ -177,9 +177,8 @@ class RecordBatchSerializer {
   }
 
   bool ShouldCompress(int64_t uncompressed_size, int64_t compressed_size) const {
-    if (!options_.min_space_savings) return true;
     auto max_compressed_size = static_cast<int64_t>(
-        std::floor((1.0 - *options_.min_space_savings) * uncompressed_size));
+        std::floor((1.0 - options_.min_space_savings) * uncompressed_size));
     return compressed_size <= max_compressed_size;
   }
 
