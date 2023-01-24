@@ -23,6 +23,8 @@
 #include <vector>
 
 #include "arrow/array/array_base.h"
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
@@ -233,5 +235,76 @@ class ARROW_TESTING_EXPORT ConstantArrayGenerator {
 
 ARROW_TESTING_EXPORT
 Result<std::shared_ptr<Array>> ScalarVectorToArray(const ScalarVector& scalars);
+
+namespace gen {
+
+class ArrayGenerator {
+ public:
+  virtual ~ArrayGenerator() = default;
+  virtual Result<std::shared_ptr<Array>> Generate(int64_t num_rows) = 0;
+  virtual std::shared_ptr<DataType> type() const = 0;
+};
+
+class DataGenerator {
+ public:
+  virtual ~DataGenerator() = default;
+  virtual Result<std::shared_ptr<::arrow::RecordBatch>> RecordBatch(int64_t num_rows) = 0;
+  virtual Result<std::vector<std::shared_ptr<::arrow::RecordBatch>>> RecordBatches(
+      int64_t rows_per_batch, int num_batches) = 0;
+  virtual Result<::arrow::compute::ExecBatch> ExecBatch(int64_t num_rows) = 0;
+  virtual Result<std::vector<::arrow::compute::ExecBatch>> ExecBatches(
+      int64_t rows_per_batch, int num_batches) = 0;
+  virtual Result<std::shared_ptr<::arrow::Table>> Table(int64_t rows_per_chunk,
+                                                        int num_chunks = 1) = 0;
+  virtual std::shared_ptr<::arrow::Schema> Schema() = 0;
+};
+
+// Same as DataGenerator but instead of returning Result an ok status is EXPECT'd
+class GTestDataGenerator {
+ public:
+  virtual ~GTestDataGenerator() = default;
+  virtual std::shared_ptr<::arrow::RecordBatch> RecordBatch(int64_t num_rows) = 0;
+  virtual std::vector<std::shared_ptr<::arrow::RecordBatch>> RecordBatches(
+      int64_t rows_per_batch, int num_batches) = 0;
+  virtual ::arrow::compute::ExecBatch ExecBatch(int64_t num_rows) = 0;
+  virtual std::vector<::arrow::compute::ExecBatch> ExecBatches(int64_t rows_per_batch,
+                                                               int num_batches) = 0;
+  virtual std::shared_ptr<::arrow::Table> Table(int64_t rows_per_chunk,
+                                                int num_chunks = 1) = 0;
+  virtual std::shared_ptr<::arrow::Schema> Schema() = 0;
+};
+
+struct GeneratorField {
+  std::string name;
+  std::shared_ptr<ArrayGenerator> gen;
+};
+
+std::unique_ptr<DataGenerator> Gen(
+    std::vector<std::shared_ptr<ArrayGenerator>> column_gens);
+std::unique_ptr<DataGenerator> Gen(std::vector<GeneratorField> column_gens);
+// For generating batches with 0 columns (though they can still have length)
+std::unique_ptr<DataGenerator> EmptyGen();
+
+std::unique_ptr<GTestDataGenerator> TestGen(
+    std::vector<std::shared_ptr<ArrayGenerator>> column_gens);
+std::unique_ptr<GTestDataGenerator> TestGen(std::vector<GeneratorField> column_gens);
+// For generating batches with 0 columns (though they can still have length)
+std::unique_ptr<GTestDataGenerator> EmptyTestGen();
+
+/// make a generator that returns a constant value
+std::unique_ptr<ArrayGenerator> Constant(std::shared_ptr<Scalar> value);
+/// make a generator that returns an incrementing value
+///
+/// Note: overflow is not prevented standard unsigned integer overflow applies
+std::unique_ptr<ArrayGenerator> Step(uint32_t start = 0, uint32_t step = 1);
+/// make a generator that returns a random value
+std::unique_ptr<ArrayGenerator> Random(std::shared_ptr<DataType> type);
+/// TODO(if-needed) could add a repeat-scalars generator, e.g. Repeat({1, 2, 3}) for
+/// 1,2,3,1,2,3,1
+///
+/// TODO(if-needed) could add a repeat-from-json generator e.g. Repeat(int32(), "[1, 2,
+/// 3]")), same behavior as repeat-scalars
+
+}  // namespace gen
 
 }  // namespace arrow

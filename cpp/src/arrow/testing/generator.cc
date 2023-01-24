@@ -27,15 +27,24 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
+#include "arrow/compute/exec.h"
+#include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
+#include "arrow/table.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
 
 template <typename ArrowType, typename CType = typename TypeTraits<ArrowType>::CType,
           typename BuilderType = typename TypeTraits<ArrowType>::BuilderType>
@@ -187,5 +196,217 @@ Result<std::shared_ptr<Array>> ScalarVectorToArray(const ScalarVector& scalars) 
   RETURN_NOT_OK(builder->Finish(&out));
   return out;
 }
+
+namespace gen {
+
+namespace {
+class ConstantGenerator : public ArrayGenerator {
+ public:
+  explicit ConstantGenerator(std::shared_ptr<Scalar> value) : value_(std::move(value)) {}
+
+  Result<std::shared_ptr<Array>> Generate(int64_t num_rows) override {
+    return MakeArrayFromScalar(*value_, num_rows);
+  }
+
+  std::shared_ptr<DataType> type() const override { return value_->type; }
+
+ private:
+  std::shared_ptr<Scalar> value_;
+};
+
+class StepGenerator : public ArrayGenerator {
+ public:
+  StepGenerator(uint32_t start, uint32_t step) : start_(start), step_(step) {}
+
+  Result<std::shared_ptr<Array>> Generate(int64_t num_rows) override {
+    UInt32Builder builder;
+    ARROW_RETURN_NOT_OK(builder.Reserve(num_rows));
+    uint32_t val = start_;
+    for (int64_t i = 0; i < num_rows; i++) {
+      builder.UnsafeAppend(val);
+      val += step_;
+    }
+    start_ = val;
+    return builder.Finish();
+  }
+
+  std::shared_ptr<DataType> type() const override { return uint32(); }
+
+ private:
+  uint32_t start_;
+  uint32_t step_;
+};
+
+static constexpr random::SeedType kTestSeed = 42;
+
+class RandomGenerator : public ArrayGenerator {
+ public:
+  RandomGenerator(std::shared_ptr<DataType> type) : type_(std::move(type)) {}
+
+  random::RandomArrayGenerator* generator() {
+    static random::RandomArrayGenerator instance(kTestSeed);
+    return &instance;
+  }
+
+  Result<std::shared_ptr<Array>> Generate(int64_t num_rows) override {
+    return generator()->ArrayOf(type_, num_rows);
+  }
+
+  std::shared_ptr<DataType> type() const override { return type_; }
+
+ private:
+  std::shared_ptr<DataType> type_;
+};
+
+class DataGeneratorImpl : public DataGenerator {
+ public:
+  DataGeneratorImpl(std::vector<GeneratorField> generators)
+      : generators_(std::move(generators)) {
+    schema_ = DeriveSchemaFromGenerators();
+  }
+
+  Result<std::shared_ptr<::arrow::RecordBatch>> RecordBatch(int64_t num_rows) override {
+    ARROW_ASSIGN_OR_RAISE(::arrow::compute::ExecBatch exec_batch, ExecBatch(num_rows));
+    return exec_batch.ToRecordBatch(schema_);
+  }
+
+  Result<std::vector<std::shared_ptr<::arrow::RecordBatch>>> RecordBatches(
+      int64_t rows_per_batch, int num_batches) override {
+    std::vector<std::shared_ptr<::arrow::RecordBatch>> batches;
+    batches.reserve(num_batches);
+    for (int i = 0; i < num_batches; i++) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<::arrow::RecordBatch> batch,
+                            RecordBatch(rows_per_batch));
+      batches.push_back(std::move(batch));
+    }
+    return batches;
+  }
+
+  Result<::arrow::compute::ExecBatch> ExecBatch(int64_t num_rows) override {
+    std::vector<Datum> values;
+    values.reserve(generators_.size());
+    for (auto& field : generators_) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> arr, field.gen->Generate(num_rows));
+      values.push_back(std::move(arr));
+    }
+    return ::arrow::compute::ExecBatch(std::move(values), num_rows);
+  }
+
+  Result<std::vector<::arrow::compute::ExecBatch>> ExecBatches(int64_t rows_per_batch,
+                                                               int num_batches) override {
+    std::vector<::arrow::compute::ExecBatch> batches;
+    for (int i = 0; i < num_batches; i++) {
+      ARROW_ASSIGN_OR_RAISE(::arrow::compute::ExecBatch batch, ExecBatch(rows_per_batch));
+      batches.push_back(std::move(batch));
+    }
+    return batches;
+  }
+
+  Result<std::shared_ptr<::arrow::Table>> Table(int64_t rows_per_chunk,
+                                                int num_chunks = 1) override {
+    ARROW_ASSIGN_OR_RAISE(RecordBatchVector batches,
+                          RecordBatches(rows_per_chunk, num_chunks));
+    return ::arrow::Table::FromRecordBatches(batches);
+  }
+
+  std::shared_ptr<::arrow::Schema> Schema() override { return schema_; }
+
+ private:
+  std::shared_ptr<::arrow::Schema> DeriveSchemaFromGenerators() {
+    FieldVector fields;
+    for (const auto& gen : generators_) {
+      fields.push_back(field(gen.name, gen.gen->type()));
+    }
+    return schema(std::move(fields));
+  }
+
+  std::vector<GeneratorField> generators_;
+  std::shared_ptr<::arrow::Schema> schema_;
+};
+
+class GTestDataGeneratorImpl : public GTestDataGenerator {
+ public:
+  GTestDataGeneratorImpl(std::vector<GeneratorField> fields)
+      : target_(Gen(std::move(fields))) {}
+  std::shared_ptr<::arrow::RecordBatch> RecordBatch(int64_t num_rows) override {
+    EXPECT_OK_AND_ASSIGN(auto batch, target_->RecordBatch(num_rows));
+    return batch;
+  }
+  std::vector<std::shared_ptr<::arrow::RecordBatch>> RecordBatches(
+      int64_t rows_per_batch, int num_batches) override {
+    EXPECT_OK_AND_ASSIGN(auto batches,
+                         target_->RecordBatches(rows_per_batch, num_batches));
+    return batches;
+  }
+  ::arrow::compute::ExecBatch ExecBatch(int64_t num_rows) override {
+    EXPECT_OK_AND_ASSIGN(auto batch, target_->ExecBatch(num_rows));
+    return batch;
+  }
+  std::vector<::arrow::compute::ExecBatch> ExecBatches(int64_t rows_per_batch,
+                                                       int num_batches) override {
+    EXPECT_OK_AND_ASSIGN(auto batches, target_->ExecBatches(rows_per_batch, num_batches));
+    return batches;
+  }
+  std::shared_ptr<::arrow::Table> Table(int64_t rows_per_chunk, int num_chunks) override {
+    EXPECT_OK_AND_ASSIGN(auto table, target_->Table(rows_per_chunk, num_chunks));
+    return table;
+  }
+  std::shared_ptr<::arrow::Schema> Schema() override { return target_->Schema(); }
+
+ private:
+  std::unique_ptr<DataGenerator> target_;
+};
+
+std::vector<GeneratorField> AutoNameFields(
+    std::vector<std::shared_ptr<ArrayGenerator>> gens) {
+  std::vector<GeneratorField> fields;
+  fields.reserve(gens.size());
+  for (std::size_t idx = 0; idx < gens.size(); idx++) {
+    std::string name = "f" + internal::ToChars(idx);
+    fields.push_back({std::move(name), std::move(gens[idx])});
+  }
+  return fields;
+}
+
+}  // namespace
+
+std::unique_ptr<ArrayGenerator> Constant(std::shared_ptr<Scalar> value) {
+  return std::make_unique<ConstantGenerator>(std::move(value));
+}
+
+std::unique_ptr<ArrayGenerator> Step(uint32_t start, uint32_t step) {
+  return std::make_unique<StepGenerator>(start, step);
+}
+
+std::unique_ptr<ArrayGenerator> Random(std::shared_ptr<DataType> type) {
+  return std::make_unique<RandomGenerator>(std::move(type));
+}
+
+std::unique_ptr<DataGenerator> Gen(std::vector<GeneratorField> fields) {
+  return std::make_unique<DataGeneratorImpl>(std::move(fields));
+}
+
+std::unique_ptr<DataGenerator> EmptyGen() {
+  return std::make_unique<DataGeneratorImpl>(std::vector<GeneratorField>());
+}
+
+std::unique_ptr<DataGenerator> Gen(std::vector<std::shared_ptr<ArrayGenerator>> gens) {
+  return Gen(AutoNameFields(std::move(gens)));
+}
+
+std::unique_ptr<GTestDataGenerator> TestGen(std::vector<GeneratorField> fields) {
+  return std::make_unique<GTestDataGeneratorImpl>(std::move(fields));
+}
+
+std::unique_ptr<GTestDataGenerator> TestGen(
+    std::vector<std::shared_ptr<ArrayGenerator>> gens) {
+  return TestGen(AutoNameFields(std::move(gens)));
+}
+
+std::unique_ptr<GTestDataGenerator> EmptyTestGen() {
+  return std::make_unique<GTestDataGeneratorImpl>(std::vector<GeneratorField>());
+}
+
+}  // namespace gen
 
 }  // namespace arrow

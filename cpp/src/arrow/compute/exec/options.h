@@ -175,6 +175,14 @@ class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
   Expression filter_expression;
 };
 
+class ARROW_EXPORT FetchNodeOptions : public ExecNodeOptions {
+ public:
+  static constexpr std::string_view kName = "fetch";
+  FetchNodeOptions(int64_t offset, int64_t count) : offset(offset), count(count) {}
+  int64_t offset;
+  int64_t count;
+};
+
 /// \brief Make a node which executes expressions on input batches, producing new batches.
 ///
 /// Each expression will be evaluated against each batch which is pushed to
@@ -244,25 +252,30 @@ struct ARROW_EXPORT BackpressureOptions {
 
 /// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
 ///
-/// Emitted batches will not be ordered.
+/// Emitted batches will only be ordered if there is a meaningful ordering
+/// and sequence_delivery is set to true.
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
   explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
                            std::shared_ptr<Schema>* schema,
                            BackpressureOptions backpressure = {},
-                           BackpressureMonitor** backpressure_monitor = NULLPTR)
+                           BackpressureMonitor** backpressure_monitor = NULLPTR,
+                           bool sequence_delivery = false)
       : generator(generator),
         schema(schema),
         backpressure(backpressure),
-        backpressure_monitor(backpressure_monitor) {}
+        backpressure_monitor(backpressure_monitor),
+        sequence_delivery(false) {}
 
   explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
                            BackpressureOptions backpressure = {},
-                           BackpressureMonitor** backpressure_monitor = NULLPTR)
+                           BackpressureMonitor** backpressure_monitor = NULLPTR,
+                           bool sequence_delivery = false)
       : generator(generator),
         schema(NULLPTR),
         backpressure(std::move(backpressure)),
-        backpressure_monitor(backpressure_monitor) {}
+        backpressure_monitor(backpressure_monitor),
+        sequence_delivery(false) {}
 
   /// \brief A pointer to a generator of batches.
   ///
@@ -286,6 +299,8 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   /// the amount of data currently queued in the sink node.  This is an optional utility
   /// and backpressure can be applied even if this is not used.
   BackpressureMonitor** backpressure_monitor;
+  /// \brief If true and there is a meaningful ordering then sequence delivered batches
+  bool sequence_delivery;
 };
 
 /// \brief Control used by a SinkNodeConsumer to pause & resume
@@ -340,6 +355,7 @@ class ARROW_EXPORT ConsumingSinkNodeOptions : public ExecNodeOptions {
   /// If specified then names must be provided for all fields. Currently, only a flat
   /// schema is supported (see ARROW-15901).
   std::vector<std::string> names;
+  bool sequence_output = false;
 };
 
 /// \brief Make a node which sorts rows passed through it
@@ -563,6 +579,7 @@ class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
       : output_table(output_table) {}
 
   std::shared_ptr<Table>* output_table;
+  bool sequence_output = false;
 };
 
 /// @}
