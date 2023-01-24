@@ -4729,7 +4729,7 @@ cdef class Table(_PandasConvertible):
         """
         Drop one or more columns and return a new table.
 
-        (Alias of Table.drop_columns for backwards compatibility.)
+        Alias of Table.drop_columns for backwards compatibility.
 
         Parameters
         ----------
@@ -4768,7 +4768,7 @@ cdef class Table(_PandasConvertible):
 
         Drop one or more columns:
 
-        >>> table.drop_columns(["n_legs", "animals"])
+        >>> table.drop(["n_legs", "animals"])
         pyarrow.Table
         ...
         ----
