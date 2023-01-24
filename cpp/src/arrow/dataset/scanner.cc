@@ -22,6 +22,7 @@
 #include <memory>
 #include <mutex>
 #include <numeric>
+#include <set>
 #include <sstream>
 
 #include "arrow/array/array_primitive.h"
@@ -135,6 +136,7 @@ Result<std::shared_ptr<Schema>> GetProjectedSchemaFromExpression(
     const std::shared_ptr<Schema>& dataset_schema) {
   // process resultant dataset_schema after projection
   FieldVector project_fields;
+  std::set<std::string> field_names;
   if (auto call = projection.call()) {
     if (call->function_name != "make_struct") {
       return Status::Invalid("Top level projection expression call must be make_struct");
@@ -142,19 +144,26 @@ Result<std::shared_ptr<Schema>> GetProjectedSchemaFromExpression(
     for (const compute::Expression& arg : call->arguments) {
       if (auto field_ref = arg.field_ref()) {
         if (field_ref->IsName()) {
-          auto field = dataset_schema->GetFieldByName(*field_ref->name());
-          if (field) {
-            project_fields.push_back(std::move(field));
-          }
-          // if the field is not present in the schema we ignore it.
-          // the case is if kAugmentedFields are present in the expression
-          // and if they are not present in the provided schema, we ignore them.
+          field_names.emplace(*field_ref->name());
+        } else if (field_ref->IsNested()) {
+          // We keep the top-level field name.
+          auto nested_field_refs = *field_ref->nested_refs();
+          field_names.emplace(*nested_field_refs[0].name());
         } else {
           return Status::Invalid(
               "No projected schema was supplied and we could not infer the projected "
               "schema from the projection expression.");
         }
       }
+    }
+  }
+  for (auto f : field_names) {
+    auto field = dataset_schema->GetFieldByName(f);
+    if (field) {
+      // if the field is not present in the schema we ignore it.
+      // the case is if kAugmentedFields are present in the expression
+      // and if they are not present in the provided schema, we ignore them.
+      project_fields.push_back(std::move(field));
     }
   }
   return schema(project_fields);

@@ -34,11 +34,7 @@ ExecPlan <- R6Class("ExecPlan",
         if (isTRUE(filter)) {
           filter <- Expression$scalar(TRUE)
         }
-        # Use FieldsInExpression to find all from dataset$selected_columns
-        colnames <- unique(unlist(map(
-          dataset$selected_columns,
-          field_names_in_expression
-        )))
+        projection <- dataset$selected_columns
         dataset <- dataset$.data
         assert_is(dataset, "Dataset")
       } else {
@@ -46,10 +42,10 @@ ExecPlan <- R6Class("ExecPlan",
         # Just a dataset, not a query, so there's no predicates to push down
         # so set some defaults
         filter <- Expression$scalar(TRUE)
-        colnames <- names(dataset)
+        projection <- make_field_refs(colnames)
       }
 
-      out <- ExecNode_Scan(self, dataset, filter, colnames %||% character(0))
+      out <- ExecNode_Scan(self, dataset, filter, projection)
       # Hold onto the source data's schema so we can preserve schema metadata
       # in the resulting Scan/Write
       out$extras$source_schema <- dataset$schema
