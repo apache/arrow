@@ -246,111 +246,24 @@ class ChunkedArrayRanker : public TypeVisitor {
     using T = typename GetViewType<InType>::T;
     using ArrayType = typename TypeTraits<InType>::ArrayType;
 
-    const auto num_chunks = chunked_array_.num_chunks();
-    if (num_chunks == 0) {
+    if (chunked_array_.num_chunks() == 0) {
       return Status::OK();
     }
+
+    ARROW_ASSIGN_OR_RAISE(
+        NullPartitionResult sorted,
+        SortChunkedArray(ctx_, indices_begin_, indices_end_, physical_type_,
+                         physical_chunks_, order_, null_placement_));
+
     const auto arrays = GetArrayPointers(physical_chunks_);
-
-    ArraySortOptions array_options(order_, null_placement_);
-
-    ARROW_ASSIGN_OR_RAISE(auto array_sorter, GetArraySorter(*physical_type_));
-
-    // See related ChunkedArraySort method for comments
-    std::vector<NullPartitionResult> sorted(num_chunks);
-    int64_t begin_offset = 0;
-    int64_t end_offset = 0;
-    int64_t null_count = 0;
-    for (int i = 0; i < num_chunks; ++i) {
-      const auto array = checked_cast<const ArrayType*>(arrays[i]);
-      end_offset += array->length();
-      null_count += array->null_count();
-      sorted[i] = array_sorter(indices_begin_ + begin_offset, indices_begin_ + end_offset,
-                               *array, begin_offset, array_options);
-      begin_offset = end_offset;
-    }
-    DCHECK_EQ(end_offset, indices_end_ - indices_begin_);
-
-    auto resolver = ChunkedArrayResolver(arrays);
-    if (sorted.size() > 1) {
-      auto merge_nulls = [&](uint64_t* nulls_begin, uint64_t* nulls_middle,
-                             uint64_t* nulls_end, uint64_t* temp_indices,
-                             int64_t null_count) {
-        if (has_null_like_values<typename ArrayType::TypeClass>::value) {
-          PartitionNullsOnly<StablePartitioner>(nulls_begin, nulls_end, resolver,
-                                                null_count, null_placement_);
-        }
-      };
-      auto merge_non_nulls = [&](uint64_t* range_begin, uint64_t* range_middle,
-                                 uint64_t* range_end, uint64_t* temp_indices) {
-        MergeNonNulls<ArrayType>(range_begin, range_middle, range_end, arrays,
-                                 temp_indices);
-      };
-
-      MergeImpl merge_impl{null_placement_, std::move(merge_nulls),
-                           std::move(merge_non_nulls)};
-      // std::merge is only called on non-null values, so size temp indices accordingly
-      RETURN_NOT_OK(merge_impl.Init(ctx_, indices_end_ - indices_begin_ - null_count));
-
-      while (sorted.size() > 1) {
-        auto out_it = sorted.begin();
-        auto it = sorted.begin();
-        while (it < sorted.end() - 1) {
-          const auto& left = *it++;
-          const auto& right = *it++;
-          DCHECK_EQ(left.overall_end(), right.overall_begin());
-          const auto merged = merge_impl.Merge(left, right, null_count);
-          *out_it++ = merged;
-        }
-        if (it < sorted.end()) {
-          *out_it++ = *it++;
-        }
-        sorted.erase(out_it, sorted.end());
-      }
-    }
-
-    DCHECK_EQ(sorted.size(), 1);
-    DCHECK_EQ(sorted[0].overall_begin(), indices_begin_);
-    DCHECK_EQ(sorted[0].overall_end(), indices_end_);
-    // Note that "nulls" can also include NaNs, hence the >= check
-    DCHECK_GE(sorted[0].null_count(), null_count);
-
-    auto value_selector = [resolver](int64_t index) {
+    auto value_selector = [resolver = ChunkedArrayResolver(arrays)](int64_t index) {
       return resolver.Resolve<ArrayType>(index).Value();
     };
     auto rankings =
-        CreateRankings<T>(ctx_, sorted[0], null_placement_, tiebreaker_, value_selector);
+        CreateRankings<T>(ctx_, sorted, null_placement_, tiebreaker_, value_selector);
     ARROW_ASSIGN_OR_RAISE(auto output, rankings);
     *output_ = output;
     return Status::OK();
-  }
-
-  template <typename ArrayType>
-  void MergeNonNulls(uint64_t* range_begin, uint64_t* range_middle, uint64_t* range_end,
-                     const std::vector<const Array*>& arrays, uint64_t* temp_indices) {
-    const ChunkedArrayResolver left_resolver(arrays);
-    const ChunkedArrayResolver right_resolver(arrays);
-
-    if (order_ == SortOrder::Ascending) {
-      std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
-                 [&](uint64_t left, uint64_t right) {
-                   const auto chunk_left = left_resolver.Resolve<ArrayType>(left);
-                   const auto chunk_right = right_resolver.Resolve<ArrayType>(right);
-                   return chunk_left.Value() < chunk_right.Value();
-                 });
-    } else {
-      std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
-                 [&](uint64_t left, uint64_t right) {
-                   const auto chunk_left = left_resolver.Resolve<ArrayType>(left);
-                   const auto chunk_right = right_resolver.Resolve<ArrayType>(right);
-                   // We don't use 'left > right' here to reduce required
-                   // operator. If we use 'right < left' here, '<' is only
-                   // required.
-                   return chunk_right.Value() < chunk_left.Value();
-                 });
-    }
-    // Copy back temp area into main buffer
-    std::copy(temp_indices, temp_indices + (range_end - range_begin), range_begin);
   }
 
   ExecContext* ctx_;

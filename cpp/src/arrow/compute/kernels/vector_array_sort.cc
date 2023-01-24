@@ -459,7 +459,8 @@ Status ArraySortIndicesChunked(KernelContext* ctx, const ExecBatch& batch, Datum
   std::iota(out_begin, out_end, 0);
   return SortChunkedArray(ctx->exec_context(), out_begin, out_end,
                           *batch[0].chunked_array(), options.order,
-                          options.null_placement);
+                          options.null_placement)
+      .status();
 }
 
 template <template <typename...> class ExecTemplate>
