@@ -575,7 +575,7 @@ func TestConcatRunLengthEncoded(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	arrs := make([]arrow.Array, 0)
-	bldr := array.NewRunLengthEncodedBuilder(mem, arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
+	bldr := array.NewRunEndEncodedBuilder(mem, arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
 	defer bldr.Release()
 	valBldr := bldr.ValueBuilder().(*array.StringBuilder)
 
@@ -615,7 +615,7 @@ func TestConcatRunLengthEncoded(t *testing.T) {
 	assert.NoError(t, err)
 	defer result.Release()
 
-	rle := result.(*array.RunLengthEncoded)
+	rle := result.(*array.RunEndEncoded)
 	assert.EqualValues(t, 8, rle.GetPhysicalLength())
 	assert.EqualValues(t, 0, rle.GetPhysicalOffset())
 	assert.Equal(t, []int16{1, 11, 111, 211, 311, 411, 500, 600}, rle.RunEndsArr().(*array.Int16).Int16Values())

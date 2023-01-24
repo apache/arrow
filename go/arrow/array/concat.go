@@ -524,14 +524,14 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, erro
 			return nil, err
 		}
 	case *arrow.RunEndEncodedType:
-		physicalLength, overflow := int32(0), false
+		physicalLength, overflow := int(0), false
 		// we can't use gatherChildren because the Offset and Len of
 		// data doesn't correspond to the physical length or offset
 		runs := make([]arrow.ArrayData, len(data))
 		values := make([]arrow.ArrayData, len(data))
 		for i, d := range data {
 			plen := encoded.GetPhysicalLength(d)
-			off := encoded.GetPhysicalOffset(d)
+			off := encoded.FindPhysicalOffset(d)
 
 			runs[i] = NewSliceData(d.Children()[0], int64(off), int64(off+plen))
 			defer runs[i].Release()
