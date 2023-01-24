@@ -215,12 +215,6 @@ Be sure to go through on the following checklist:
 #. Make the CPP PARQUET related version as "RELEASED" on JIRA
 #. Start the new version on JIRA for the related CPP PARQUET version
 #. Merge changes on release branch to maintenance branch for patch releases
-
-.. code-block::
-    git checkout maint-<version>
-    git merge release-<version>-rc<rc-number>
-    git push apache maint-<version>
-
 #. Add the new release to the Apache Reporter System
 #. Upload source
 #. Upload binaries
