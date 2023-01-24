@@ -130,9 +130,6 @@ void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
   }
   ASSERT_OK_AND_ASSIGN(output_table, output_table->CombineChunks());
   ASSERT_OK_AND_ASSIGN(auto merged_expected, expected_table->CombineChunks());
-  std::cout << merged_expected->ToString() << std::endl;
-  std::cout << "----------------------" << std::endl;
-  std::cout << output_table->ToString() << std::endl;
   compute::AssertTablesEqualIgnoringOrder(merged_expected, output_table);
 }
 
