@@ -52,7 +52,7 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   QueryContext* query_context();
 
-  /// @brief retrieve the nodes in the plan
+  /// \brief retrieve the nodes in the plan
   const NodeVector& nodes() const;
 
   /// Make an empty exec plan
