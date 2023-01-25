@@ -3861,6 +3861,9 @@ TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
 }
 
 TEST(Substrait, ReadRelWithGlobFiles) {
+#ifdef _WIN32
+  GTEST_SKIP() << "GH-33861: Substrait Glob Files URI not supported for Windows";
+#endif
   arrow::dataset::internal::Initialize();
 
   auto dummy_schema =
