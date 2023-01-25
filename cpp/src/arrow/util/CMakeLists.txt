@@ -57,6 +57,7 @@ add_arrow_test(utility-test
                queue_test.cc
                range_test.cc
                reflection_test.cc
+               rows_to_batches_test.cc
                small_vector_test.cc
                stl_util_test.cc
                string_test.cc
