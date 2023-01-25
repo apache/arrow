@@ -180,6 +180,24 @@ func (s *FlightSqliteServerSuite) TestCommandGetTables() {
 	s.Truef(array.RecordEqual(expectedRec, rec), "expected: %s\ngot: %s", expectedRec, rec)
 }
 
+func (s *FlightSqliteServerSuite) TestCommandGetTablesWithIncludedSchemasNoFilter() {
+	ctx := context.Background()
+	info, err := s.cl.GetTables(ctx, &flightsql.GetTablesOpts{
+		IncludeSchema: true,
+	})
+	s.NoError(err)
+	s.NotNil(info)
+
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	// Don't check the actual data since it'll include SQLite internal tables
+	s.True(rdr.Next())
+	s.False(rdr.Next())
+	s.NoError(rdr.Err())
+}
+
 func (s *FlightSqliteServerSuite) TestCommandGetTablesWithTableFilter() {
 	ctx := context.Background()
 	info, err := s.cl.GetTables(ctx, &flightsql.GetTablesOpts{

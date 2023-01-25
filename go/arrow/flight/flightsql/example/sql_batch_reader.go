@@ -35,6 +35,10 @@ import (
 
 func getArrowTypeFromString(dbtype string) arrow.DataType {
 	dbtype = strings.ToLower(dbtype)
+	if dbtype == "" {
+		// SQLite may not know the type yet.
+		return &arrow.NullType{}
+	}
 	if strings.HasPrefix(dbtype, "varchar") {
 		return arrow.BinaryTypes.String
 	}
