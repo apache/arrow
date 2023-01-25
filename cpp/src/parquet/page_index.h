@@ -202,9 +202,10 @@ class PARQUET_EXPORT PageIndexReader {
   /// 1) If WillNeed() has not been called for a specific row group and the page index
   ///    exists, follow-up calls to get column index or offset index of all columns in
   ///    this row group SHOULD NOT FAIL, but the performance may not be optimal.
-  /// 2) If WillNeed() has been called for a specific row group, follow-up calls MAY
-  ///    FAIL if columns that are not requested by WillNeed() are requested.
-  /// 3) Later calls to WillNeed() MAY override previous calls of same row groups.
+  /// 2) If WillNeed() has been called for a specific row group, follow-up calls to get
+  ///    page index are limited to columns and index type requested by WillNeed().
+  ///    So it MAY FAIL if columns that are not requested by WillNeed() are requested.
+  /// 3) Later calls to WillNeed() MAY OVERRIDE previous calls of same row groups.
   /// For example,
   /// 1) If WillNeed() is not called for row group 0, then follow-up calls to read
   ///    column index and/or offset index of all columns of row group 0 should not

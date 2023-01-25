@@ -1062,10 +1062,13 @@ TEST(TestFileReader, TestOverflowInt16PageOrdinal) {
 
 struct PageIndexReaderParam {
   PageIndexReaderParam(const std::vector<int32_t>& row_group_indices,
-                       bool need_column_index, bool need_offset_index)
+                       const std::vector<int32_t>& column_indices, bool need_column_index,
+                       bool need_offset_index)
       : row_group_indices(row_group_indices),
+        column_indices(column_indices),
         index_selection{need_column_index, need_offset_index} {}
   std::vector<int32_t> row_group_indices;
+  std::vector<int32_t> column_indices;
   IndexSelection index_selection;
 };
 
@@ -1085,12 +1088,40 @@ TEST_P(ParameterizedPageIndexReaderTest, TestReadPageIndex) {
   auto page_index_reader = file_reader->GetPageIndexReader();
   ASSERT_NE(nullptr, page_index_reader);
   const auto params = GetParam();
-  page_index_reader->WillNeed(params.row_group_indices, {}, params.index_selection);
-  auto row_group_index_reader = page_index_reader->RowGroup(0);
-  ASSERT_NE(nullptr, row_group_index_reader);
+  const bool call_will_need = !params.row_group_indices.empty();
+  if (call_will_need) {
+    page_index_reader->WillNeed(params.row_group_indices, params.column_indices,
+                                params.index_selection);
+  }
 
-  // Verify offset index of column 0 and only partial data as it contains 325 pages.
-  {
+  auto row_group_index_reader = page_index_reader->RowGroup(0);
+  if (!call_will_need || params.index_selection.offset_index ||
+      params.index_selection.column_index) {
+    ASSERT_NE(nullptr, row_group_index_reader);
+  } else {
+    // None of page index is requested.
+    ASSERT_EQ(nullptr, row_group_index_reader);
+    return;
+  }
+
+  auto column_index_requested = [&](int32_t column_id) {
+    return !call_will_need ||
+           (params.index_selection.column_index &&
+            (params.column_indices.empty() ||
+             (std::find(params.column_indices.cbegin(), params.column_indices.cend(),
+                        column_id) != params.column_indices.cend())));
+  };
+
+  auto offset_index_requested = [&](int32_t column_id) {
+    return !call_will_need ||
+           (params.index_selection.offset_index &&
+            (params.column_indices.empty() ||
+             (std::find(params.column_indices.cbegin(), params.column_indices.cend(),
+                        column_id) != params.column_indices.cend())));
+  };
+
+  if (offset_index_requested(0)) {
+    // Verify offset index of column 0 and only partial data as it contains 325 pages.
     const size_t num_pages = 325;
     const std::vector<size_t> page_indices = {0, 100, 200, 300};
     const std::vector<PageLocation> page_locations = {
@@ -1111,10 +1142,12 @@ TEST_P(ParameterizedPageIndexReaderTest, TestReadPageIndex) {
       EXPECT_EQ(expected_page_location.first_row_index,
                 read_page_location.first_row_index);
     }
+  } else {
+    EXPECT_THROW(row_group_index_reader->GetOffsetIndex(0), ParquetException);
   }
 
-  // Verify column index of column 5 and only partial data as it contains 528 pages.
-  {
+  if (column_index_requested(5)) {
+    // Verify column index of column 5 and only partial data as it contains 528 pages.
     const size_t num_pages = 528;
     const BoundaryOrder::type boundary_order = BoundaryOrder::Unordered;
     const std::vector<size_t> page_indices = {0, 99, 426, 520};
@@ -1143,23 +1176,49 @@ TEST_P(ParameterizedPageIndexReaderTest, TestReadPageIndex) {
         EXPECT_EQ(max_values.at(i), typed_column_index->max_values().at(page_id));
       }
     }
+  } else {
+    EXPECT_THROW(row_group_index_reader->GetColumnIndex(5), ParquetException);
   }
 
   // Verify null is returned if column index does not exist.
-  {
-    auto column_index = row_group_index_reader->GetColumnIndex(10);
-    EXPECT_EQ(nullptr, column_index);
-  }
+  auto column_index = row_group_index_reader->GetColumnIndex(10);
+  EXPECT_EQ(nullptr, column_index);
 }
 
 INSTANTIATE_TEST_SUITE_P(PageIndexReaderTests, ParameterizedPageIndexReaderTest,
-                         ::testing::Values(PageIndexReaderParam({0}, true, true),
-                                           PageIndexReaderParam({0}, true, false),
-                                           PageIndexReaderParam({0}, false, true),
-                                           PageIndexReaderParam({0}, false, false),
-                                           PageIndexReaderParam({}, true, true),
-                                           PageIndexReaderParam({}, true, false),
-                                           PageIndexReaderParam({}, false, true),
-                                           PageIndexReaderParam({}, false, false)));
+                         ::testing::Values(PageIndexReaderParam({}, {}, true, true),
+                                           PageIndexReaderParam({}, {}, true, false),
+                                           PageIndexReaderParam({}, {}, false, true),
+                                           PageIndexReaderParam({}, {}, false, false),
+                                           PageIndexReaderParam({0}, {}, true, true),
+                                           PageIndexReaderParam({0}, {}, true, false),
+                                           PageIndexReaderParam({0}, {}, false, true),
+                                           PageIndexReaderParam({0}, {}, false, false),
+                                           PageIndexReaderParam({0}, {0}, true, true),
+                                           PageIndexReaderParam({0}, {0}, true, false),
+                                           PageIndexReaderParam({0}, {0}, false, true),
+                                           PageIndexReaderParam({0}, {0}, false, false),
+                                           PageIndexReaderParam({0}, {5}, true, true),
+                                           PageIndexReaderParam({0}, {5}, true, false),
+                                           PageIndexReaderParam({0}, {5}, false, true),
+                                           PageIndexReaderParam({0}, {5}, false, false),
+                                           PageIndexReaderParam({0}, {0, 5}, true, true),
+                                           PageIndexReaderParam({0}, {0, 5}, true, false),
+                                           PageIndexReaderParam({0}, {0, 5}, false, true),
+                                           PageIndexReaderParam({0}, {0, 5}, false,
+                                                                false)));
+
+TEST(PageIndexReaderTest, ReadFileWithoutPageIndex) {
+  ReaderProperties properties;
+  auto file_reader = ParquetFileReader::OpenFile(data_file("int32_decimal.parquet"),
+                                                 /*memory_map=*/false, properties);
+  auto metadata = file_reader->metadata();
+  EXPECT_EQ(1, metadata->num_row_groups());
+
+  auto page_index_reader = file_reader->GetPageIndexReader();
+  ASSERT_NE(nullptr, page_index_reader);
+  auto row_group_index_reader = page_index_reader->RowGroup(0);
+  ASSERT_EQ(nullptr, row_group_index_reader);
+}
 
 }  // namespace parquet
