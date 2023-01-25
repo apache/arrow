@@ -27,8 +27,8 @@ ENV MANYLINUX_VERSION=${manylinux}
 # Install basic dependencies
 RUN yum install -y git flex curl autoconf zip perl-IPC-Cmd wget kernel-headers
 
-# A system python is required for ninja and vcpkg in this Dockerfile.
-# On manylinux2014 base images, system python is 2.7.5, while
+# A system Python is required for ninja and vcpkg in this Dockerfile.
+# On manylinux2014 base images, system Python is 2.7.5, while
 # on manylinux_2_28, no system python is installed.
 # We therefore override the PATH with Python 3.8 in /opt/python
 # so that we have a consistent Python version across base images.
