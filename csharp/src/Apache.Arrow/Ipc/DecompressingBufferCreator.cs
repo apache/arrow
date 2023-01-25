@@ -35,6 +35,9 @@ namespace Apache.Arrow.Ipc
 
         public ArrowBuffer CreateBuffer(ReadOnlyMemory<byte> source)
         {
+            // See the BodyCompressionMethod enum in format/Message.fbs
+            // for documentation on the Buffer compression method used here.
+
             if (source.Length < 8)
             {
                 throw new Exception($"Invalid compressed data buffer size ({source.Length}), expected at least 8 bytes");
