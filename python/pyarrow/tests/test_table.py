@@ -1070,18 +1070,6 @@ def test_table_drop_columns():
         table.drop_columns(['d'])
 
 
-def test_table_drop():
-    """ test the alias of drop_columns"""
-    a = pa.array(range(5))
-    b = pa.array([-10, -5, 0, 5, 10])
-
-    table = pa.Table.from_arrays([a, b], names=('a', 'b'))
-    t2 = table.drop('b')
-
-    exp = pa.Table.from_arrays([a], names=('a',))
-    assert exp.equals(t2)
-
-
 def test_table_remove_column():
     data = [
         pa.array(range(5)),

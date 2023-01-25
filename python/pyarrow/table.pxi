@@ -4725,60 +4725,10 @@ cdef class Table(_PandasConvertible):
 
         return table
 
-    def drop(self, columns):
-        """
-        Drop one or more columns and return a new table.
-
-        Alias of Table.drop_columns for backwards compatibility.
-
-        Parameters
-        ----------
-        columns : str or list[str]
-            Field name(s) referencing existing column(s).
-
-        Raises
-        ------
-        KeyError
-            If any of the passed column names do not exist.
-
-        Returns
-        -------
-        Table
-            New table without the column(s).
-        
-        Warnings
-        --------
-        This API is depreacted in favor of Table.drop_columns.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-
-        Drop one column:
-
-        >>> table.drop("animals")
-        pyarrow.Table
-        n_legs: int64
-        ----
-        n_legs: [[2,4,5,100]]
-
-        Drop one or more columns:
-
-        >>> table.drop(["n_legs", "animals"])
-        pyarrow.Table
-        ...
-        ----
-        """
-        import warnings
-        warnings.warn(
-            "Table.drop is deprecated, use Table.drop_columns.",
-            DeprecationWarning)
-
-        return self.drop_columns(columns)
+    drop = drop_columns
+    """
+    Alias of Table.drop_columns, kept for backwards compatibility.
+    """
 
     def group_by(self, keys):
         """Declare a grouping over the columns of the table.
