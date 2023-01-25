@@ -2130,6 +2130,29 @@ if(ARROW_TESTING)
                      1.10.0
                      USE_CONFIG
                      ${GTEST_USE_CONFIG})
+
+  if(GTest_SOURCE STREQUAL "SYSTEM")
+    find_package(PkgConfig QUIET)
+    pkg_check_modules(gtest_PC
+                      gtest
+                      NO_CMAKE_PATH
+                      NO_CMAKE_ENVIRONMENT_PATH
+                      QUIET)
+    if(gtest_PC_FOUND)
+      string(APPEND ARROW_TESTING_PC_REQUIRES " gtest")
+    else()
+      string(APPEND ARROW_TESTING_PC_CFLAGS " -I$<JOIN:")
+      string(APPEND ARROW_TESTING_PC_CFLAGS
+             "$<TARGET_PROPERTY:GTest::gtest,INTERFACE_INCLUDE_DIRECTORIES>")
+      string(APPEND ARROW_TESTING_PC_CFLAGS ",-I>")
+
+      string(APPEND ARROW_TESTING_PC_LIBS " $<TARGET_FILE:GTest::gtest>")
+    endif()
+  else()
+    # TODO: How to solve BUNDLED case? Do we install bundled GoogleTest?
+    # string(APPEND ARROW_TESTING_PC_CFLAGS " -I${GTEST_INCLUDE_DIR}")
+    # string(APPEND ARROW_TESTING_PC_LIBS " -lgtest")
+  endif()
 endif()
 
 macro(build_benchmark)
