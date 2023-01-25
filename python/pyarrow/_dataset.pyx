@@ -2898,6 +2898,17 @@ def get_partition_keys(Expression partition_expression):
     will be conjunctions of equality conditions and are accessible through this
     function. Other subexpressions will be ignored.
 
+    Parameters
+    ----------
+    partition_expression : pyarrow.dataset.Expression
+
+    Returns
+    -------
+    dict
+
+    Examples
+    --------
+
     For example, an expression of
     <pyarrow.dataset.Expression ((part == A:string) and (year == 2016:int32))>
     is converted to {'part': 'A', 'year': 2016}
