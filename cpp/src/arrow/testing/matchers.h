@@ -431,9 +431,9 @@ DataEqMatcher DataEqArray(T type, const std::vector<std::optional<ValueType>>& v
 
   for (auto value : values) {
     if (need_safe_append) {
-      builder.UnsafeAppendOrNull(value);
-    } else {
       DCHECK_OK(builder.AppendOrNull(value));
+    } else {
+      builder.UnsafeAppendOrNull(value);
     }
   }
 
