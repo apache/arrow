@@ -52,6 +52,9 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   QueryContext* query_context();
 
+  /// \brief retrieve the nodes in the plan
+  const NodeVector& nodes() const;
+
   /// Make an empty exec plan
   static Result<std::shared_ptr<ExecPlan>> Make(
       QueryOptions options, ExecContext exec_context = *threaded_exec_context(),
@@ -79,27 +82,22 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
     return out;
   }
 
-  /// The initial inputs
-  const NodeVector& sources() const;
-
-  /// The final outputs
-  const NodeVector& sinks() const;
-
   Status Validate();
 
   /// \brief Start producing on all nodes
   ///
   /// Nodes are started in reverse topological order, such that any node
   /// is started before all of its inputs.
-  Status StartProducing();
+  void StartProducing();
 
   /// \brief Stop producing on all nodes
   ///
-  /// Nodes are stopped in topological order, such that any node
-  /// is stopped before all of its outputs.
+  /// Triggers all sources to stop producing new data.  In order to cleanly stop the plan
+  /// will continue to run any tasks that are already in progress.  The caller should
+  /// still wait for `finished` to complete before destroying the plan.
   void StopProducing();
 
-  /// \brief A future which will be marked finished when all nodes have stopped producing.
+  /// \brief A future which will be marked finished when all tasks have finished.
   Future<> finished();
 
   /// \brief Return whether the plan has non-empty metadata
@@ -119,18 +117,20 @@ class ARROW_EXPORT ExecNode {
 
   virtual const char* kind_name() const = 0;
 
-  // The number of inputs/outputs expected by this node
+  // The number of inputs expected by this node
   int num_inputs() const { return static_cast<int>(inputs_.size()); }
-  int num_outputs() const { return num_outputs_; }
 
   /// This node's predecessors in the exec plan
   const NodeVector& inputs() const { return inputs_; }
 
+  /// True if the plan has no output schema (is a sink)
+  bool is_sink() const { return !output_schema_; }
+
   /// \brief Labels identifying the function of each input.
   const std::vector<std::string>& input_labels() const { return input_labels_; }
 
-  /// This node's successors in the exec plan
-  const NodeVector& outputs() const { return outputs_; }
+  /// This node's successor in the exec plan
+  const ExecNode* output() const { return output_; }
 
   /// The datatypes for batches produced by this node
   const std::shared_ptr<Schema>& output_schema() const { return output_schema_; }
@@ -144,11 +144,11 @@ class ARROW_EXPORT ExecNode {
   const std::string& label() const { return label_; }
   void SetLabel(std::string label) { label_ = std::move(label); }
 
-  Status Validate() const;
+  virtual Status Validate() const;
 
   /// Upstream API:
   /// These functions are called by input nodes that want to inform this node
-  /// about an updated condition (a new input batch, an error, an impeding
+  /// about an updated condition (a new input batch or an impending
   /// end of stream).
   ///
   /// Implementation rules:
@@ -159,17 +159,21 @@ class ARROW_EXPORT ExecNode {
   ///   and StopProducing()
 
   /// Transfer input batch to ExecNode
-  virtual void InputReceived(ExecNode* input, ExecBatch batch) = 0;
-
-  /// Signal error to ExecNode
-  virtual void ErrorReceived(ExecNode* input, Status error) = 0;
+  ///
+  /// A node will typically perform some kind of operation on the batch
+  /// and then call InputReceived on its outputs with the result.
+  ///
+  /// Other nodes may need to accumulate some number of inputs before any
+  /// output can be produced.  These nodes will add the batch to some kind
+  /// of in-memory accumulation queue and return.
+  virtual Status InputReceived(ExecNode* input, ExecBatch batch) = 0;
 
   /// Mark the inputs finished after the given number of batches.
   ///
   /// This may be called before all inputs are received.  This simply fixes
   /// the total number of incoming batches for an input, so that the ExecNode
   /// knows when it has received all input, regardless of order.
-  virtual void InputFinished(ExecNode* input, int total_batches) = 0;
+  virtual Status InputFinished(ExecNode* input, int total_batches) = 0;
 
   /// \brief Perform any needed initialization
   ///
@@ -189,35 +193,26 @@ class ARROW_EXPORT ExecNode {
   /// - StartProducing() should not recurse into the inputs, as it is
   ///   handled by ExecPlan::StartProducing()
   /// - PauseProducing(), ResumeProducing(), StopProducing() may be called
-  ///   concurrently (but only after StartProducing() has returned successfully)
+  ///   concurrently, potentially even before the call to StartProducing
+  ///   has finished.
   /// - PauseProducing(), ResumeProducing(), StopProducing() may be called
   ///   by the downstream nodes' InputReceived(), ErrorReceived(), InputFinished()
   ///   methods
-  /// - StopProducing() should recurse into the inputs
+  ///
+  /// StopProducing may be called due to an error, by the user (e.g. cancel), or
+  /// because a node has all the data it needs (e.g. limit, top-k on sorted data).
+  /// This means the method may be called multiple times and we have the following
+  /// additional rules
   /// - StopProducing() must be idempotent
+  /// - StopProducing() must be forwarded to inputs (this is needed for the limit/top-k
+  ///     case because we may not be stopping the entire plan)
 
-  // XXX What happens if StartProducing() calls an output's InputReceived()
-  // synchronously, and InputReceived() decides to call back into StopProducing()
-  // (or PauseProducing()) because it received enough data?
-  //
   // Right now, since synchronous calls happen in both directions (input to
   // output and then output to input), a node must be careful to be reentrant
   // against synchronous calls from its output, *and* also concurrent calls from
   // other threads.  The most reliable solution is to update the internal state
   // first, and notify outputs only at the end.
   //
-  // Alternate rules:
-  // - StartProducing(), ResumeProducing() can call synchronously into
-  //   its ouputs' consuming methods (InputReceived() etc.)
-  // - InputReceived(), ErrorReceived(), InputFinished() can call asynchronously
-  //   into its inputs' PauseProducing(), StopProducing()
-  //
-  // Alternate API:
-  // - InputReceived(), ErrorReceived(), InputFinished() return a ProductionHint
-  //   enum: either None (default), PauseProducing, ResumeProducing, StopProducing
-  // - A method allows passing a ProductionHint asynchronously from an output node
-  //   (replacing PauseProducing(), ResumeProducing(), StopProducing())
-
   // Concurrent calls to PauseProducing and ResumeProducing can be hard to sequence
   // as they may travel at different speeds through the plan.
   //
@@ -228,18 +223,10 @@ class ARROW_EXPORT ExecNode {
   // To resolve this a counter is sent for all calls to pause/resume.  Only the call with
   // the highest counter value is valid.  So if a call to PauseProducing(5) comes after
   // a call to ResumeProducing(6) then the source should continue producing.
-  //
-  // If a node has multiple outputs it should emit a new counter value to its inputs
-  // whenever any of its outputs changes which means the counters sent to inputs may be
-  // larger than the counters received on its outputs.
-  //
-  // A node with multiple outputs will also need to ensure it is applying backpressure if
-  // any of its outputs is asking to pause
 
   /// \brief Start producing
   ///
-  /// This must only be called once.  If this fails, then other lifecycle
-  /// methods must not be called.
+  /// This must only be called once.
   ///
   /// This is typically called automatically by ExecPlan::StartProducing().
   virtual Status StartProducing() = 0;
@@ -252,7 +239,7 @@ class ARROW_EXPORT ExecNode {
   /// This call is a hint that an output node is currently not willing
   /// to receive data.
   ///
-  /// This may be called any number of times after StartProducing() succeeds.
+  /// This may be called any number of times.
   /// However, the node is still free to produce data (which may be difficult
   /// to prevent anyway if data is produced using multiple threads).
   virtual void PauseProducing(ExecNode* output, int32_t counter) = 0;
@@ -264,34 +251,39 @@ class ARROW_EXPORT ExecNode {
   ///
   /// This call is a hint that an output node is willing to receive data again.
   ///
-  /// This may be called any number of times after StartProducing() succeeds.
+  /// This may be called any number of times.
   virtual void ResumeProducing(ExecNode* output, int32_t counter) = 0;
 
-  /// \brief Stop producing definitively to a single output
+  /// \brief Stop producing new data
   ///
-  /// This call is a hint that an output node has completed and is not willing
-  /// to receive any further data.
-  virtual void StopProducing(ExecNode* output) = 0;
-
-  /// \brief Stop producing definitively to all outputs
-  virtual void StopProducing() = 0;
-
-  /// \brief A future which will be marked finished when this node has stopped producing.
-  virtual Future<> finished() { return finished_; }
+  /// If this node is a source then the source should stop generating data
+  /// as quickly as possible.  If this node is not a source then there is typically
+  /// nothing that needs to be done although a node may choose to start ignoring incoming
+  /// data.
+  ///
+  /// This method will be called when an error occurs in the plan
+  /// This method may also be called by the user if they wish to end a plan early
+  /// Finally, this method may be called if a node determines it no longer needs any more
+  /// input (for example, a limit node).
+  ///
+  /// This method may be called multiple times.
+  ///
+  /// This is not a pause.  There will be no way to start the source again after this has
+  /// been called.
+  Status StopProducing();
 
   std::string ToString(int indent = 0) const;
 
  protected:
   ExecNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
-           std::shared_ptr<Schema> output_schema, int num_outputs);
+           std::shared_ptr<Schema> output_schema);
 
-  // A helper method to send an error status to all outputs.
-  // Returns true if the status was an error.
-  bool ErrorIfNotOk(Status status);
+  virtual Status StopProducingImpl() = 0;
 
   /// Provide extra info to include in the string representation.
   virtual std::string ToStringExtra(int indent = 0) const;
 
+  std::atomic<bool> stopped_;
   ExecPlan* plan_;
   std::string label_;
 
@@ -299,11 +291,7 @@ class ARROW_EXPORT ExecNode {
   std::vector<std::string> input_labels_;
 
   std::shared_ptr<Schema> output_schema_;
-  int num_outputs_;
-  NodeVector outputs_;
-
-  // Future to sync finished
-  Future<> finished_ = Future<>::Make();
+  ExecNode* output_ = NULLPTR;
 };
 
 /// \brief An extensible registry for factories of ExecNodes

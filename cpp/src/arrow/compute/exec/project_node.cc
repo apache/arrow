@@ -77,31 +77,22 @@ class ProjectNode : public MapNode, public TracedNode<ProjectNode> {
 
   const char* kind_name() const override { return "ProjectNode"; }
 
-  Result<ExecBatch> DoProject(const ExecBatch& target) {
+  Result<ExecBatch> ProcessBatch(ExecBatch batch) override {
     std::vector<Datum> values{exprs_.size()};
     for (size_t i = 0; i < exprs_.size(); ++i) {
       util::tracing::Span span;
       START_COMPUTE_SPAN(span, "Project",
                          {{"project.type", exprs_[i].type()->ToString()},
-                          {"project.length", target.length},
+                          {"project.length", batch.length},
                           {"project.expression", exprs_[i].ToString()}});
       ARROW_ASSIGN_OR_RAISE(Expression simplified_expr,
-                            SimplifyWithGuarantee(exprs_[i], target.guarantee));
+                            SimplifyWithGuarantee(exprs_[i], batch.guarantee));
 
       ARROW_ASSIGN_OR_RAISE(
-          values[i], ExecuteScalarExpression(simplified_expr, target,
+          values[i], ExecuteScalarExpression(simplified_expr, batch,
                                              plan()->query_context()->exec_context()));
     }
-    return ExecBatch{std::move(values), target.length};
-  }
-
-  void InputReceived(ExecNode* input, ExecBatch batch) override {
-    DCHECK_EQ(input, inputs_[0]);
-    auto func = [this](ExecBatch batch) {
-      auto result = DoProject(std::move(batch));
-      return result;
-    };
-    this->SubmitTask(std::move(func), std::move(batch));
+    return ExecBatch{std::move(values), batch.length};
   }
 
  protected:

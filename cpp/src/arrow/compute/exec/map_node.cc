@@ -36,20 +36,16 @@ namespace compute {
 MapNode::MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                  std::shared_ptr<Schema> output_schema)
     : ExecNode(plan, std::move(inputs), /*input_labels=*/{"target"},
-               std::move(output_schema),
-               /*num_outputs=*/1) {}
+               std::move(output_schema)) {}
 
-void MapNode::ErrorReceived(ExecNode* input, Status error) {
+Status MapNode::InputFinished(ExecNode* input, int total_batches) {
   DCHECK_EQ(input, inputs_[0]);
-  outputs_[0]->ErrorReceived(this, std::move(error));
-}
-
-void MapNode::InputFinished(ExecNode* input, int total_batches) {
-  DCHECK_EQ(input, inputs_[0]);
-  outputs_[0]->InputFinished(this, total_batches);
+  EVENT_ON_CURRENT_SPAN("InputFinished", {{"batches.length", total_batches}});
+  ARROW_RETURN_NOT_OK(output_->InputFinished(this, total_batches));
   if (input_counter_.SetTotal(total_batches)) {
     this->Finish();
   }
+  return Status::OK();
 }
 
 Status MapNode::StartProducing() {
@@ -65,54 +61,22 @@ void MapNode::ResumeProducing(ExecNode* output, int32_t counter) {
   inputs_[0]->ResumeProducing(this, counter);
 }
 
-void MapNode::StopProducing(ExecNode* output) {
-  DCHECK_EQ(output, outputs_[0]);
-  StopProducing();
-}
+Status MapNode::StopProducingImpl() { return Status::OK(); }
 
-void MapNode::StopProducing() {
-  if (input_counter_.Cancel()) {
-    this->Finish();
-  }
-  inputs_[0]->StopProducing(this);
-}
-
-void MapNode::SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn,
-                         ExecBatch batch) {
+Status MapNode::InputReceived(ExecNode* input, ExecBatch batch) {
   auto scope = TraceInputReceived(batch);
-  Status status;
-  // This will be true if the node is stopped early due to an error or manual
-  // cancellation
-  if (input_counter_.Completed()) {
-    return;
-  }
-  auto task = [this, map_fn, batch]() {
-    auto guarantee = batch.guarantee;
-    auto output_batch = map_fn(std::move(batch));
-    if (ErrorIfNotOk(output_batch.status())) {
-      return output_batch.status();
-    }
-    output_batch->guarantee = guarantee;
-    outputs_[0]->InputReceived(this, output_batch.MoveValueUnsafe());
-    return Status::OK();
-  };
-
-  status = task();
-  if (!status.ok()) {
-    if (input_counter_.Cancel()) {
-      this->Finish(status);
-    }
-    inputs_[0]->StopProducing(this);
-    return;
-  }
+  DCHECK_EQ(input, inputs_[0]);
+  compute::Expression guarantee = batch.guarantee;
+  ARROW_ASSIGN_OR_RAISE(auto output_batch, ProcessBatch(std::move(batch)));
+  output_batch.guarantee = guarantee;
+  ARROW_RETURN_NOT_OK(output_->InputReceived(this, std::move(output_batch)));
   if (input_counter_.Increment()) {
     this->Finish();
   }
+  return Status::OK();
 }
 
-void MapNode::Finish(Status finish_st /*= Status::OK()*/) {
-  this->finished_.MarkFinished(finish_st);
-}
+void MapNode::Finish() {}
 
 }  // namespace compute
 }  // namespace arrow

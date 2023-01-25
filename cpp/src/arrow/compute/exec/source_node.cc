@@ -53,8 +53,7 @@ namespace {
 struct SourceNode : ExecNode, public TracedNode<SourceNode> {
   SourceNode(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
              AsyncGenerator<std::optional<ExecBatch>> generator)
-      : ExecNode(plan, {}, {}, std::move(output_schema),
-                 /*num_outputs=*/1),
+      : ExecNode(plan, {}, {}, std::move(output_schema)),
         generator_(std::move(generator)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -70,9 +69,40 @@ struct SourceNode : ExecNode, public TracedNode<SourceNode> {
   [[noreturn]] static void NoInputs() {
     Unreachable("no inputs; this should never be called");
   }
-  [[noreturn]] void InputReceived(ExecNode*, ExecBatch) override { NoInputs(); }
-  [[noreturn]] void ErrorReceived(ExecNode*, Status) override { NoInputs(); }
-  [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
+  [[noreturn]] Status InputReceived(ExecNode*, ExecBatch) override { NoInputs(); }
+  [[noreturn]] Status InputFinished(ExecNode*, int) override { NoInputs(); }
+
+  void SliceAndDeliverMorsel(const ExecBatch& morsel) {
+    bool use_legacy_batching = plan_->query_context()->options().use_legacy_batching;
+    int64_t morsel_length = static_cast<int64_t>(morsel.length);
+    if (use_legacy_batching || morsel_length == 0) {
+      // For various reasons (e.g. ARROW-13982) we pass empty batches
+      // through
+      batch_count_++;
+    } else {
+      int num_batches =
+          static_cast<int>(bit_util::CeilDiv(morsel_length, ExecPlan::kMaxBatchSize));
+      batch_count_ += num_batches;
+    }
+    plan_->query_context()->ScheduleTask(
+        [=]() {
+          int64_t offset = 0;
+          do {
+            int64_t batch_size =
+                std::min<int64_t>(morsel_length - offset, ExecPlan::kMaxBatchSize);
+            // In order for the legacy batching model to work we must
+            // not slice batches from the source
+            if (use_legacy_batching) {
+              batch_size = morsel_length;
+            }
+            ExecBatch batch = morsel.Slice(offset, batch_size);
+            offset += batch_size;
+            ARROW_RETURN_NOT_OK(output_->InputReceived(this, std::move(batch)));
+          } while (offset < morsel.length);
+          return Status::OK();
+        },
+        "SourceNode::ProcessMorsel");
+  }
 
   Status StartProducing() override {
     NoteStartProducing(ToStringExtra());
@@ -89,95 +119,59 @@ struct SourceNode : ExecNode, public TracedNode<SourceNode> {
     }
 
     CallbackOptions options;
-    auto executor = plan()->query_context()->executor();
-    if (executor) {
-      // These options will transfer execution to the desired Executor if necessary.
-      // This can happen for in-memory scans where batches didn't require
-      // any CPU work to decode. Otherwise, parsing etc should have already
-      // been placed us on the desired Executor and no queues will be pushed to.
-      options.executor = executor;
-      options.should_schedule = ShouldSchedule::IfDifferentExecutor;
-    }
+    // These options will transfer execution to the desired Executor if necessary.
+    // This can happen for in-memory scans where batches didn't require
+    // any CPU work to decode. Otherwise, parsing etc should have already
+    // been placed us on the desired Executor and no queues will be pushed to.
+    options.executor = plan()->query_context()->executor();
+    options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     ARROW_ASSIGN_OR_RAISE(Future<> scan_task, plan_->query_context()->BeginExternalTask(
                                                   "SourceNode::DatasetScan"));
     if (!scan_task.is_valid()) {
-      finished_.MarkFinished();
       // Plan has already been aborted, no need to start scanning
       return Status::OK();
     }
     auto fut = Loop([this, options] {
-                 std::unique_lock<std::mutex> lock(mutex_);
-                 if (stop_requested_) {
-                   return Future<ControlFlow<int>>::MakeFinished(Break(batch_count_));
-                 }
-                 lock.unlock();
-                 util::tracing::Span fetch_batch_span;
-                 auto fetch_batch_scope =
-                     START_SCOPED_SPAN(fetch_batch_span, "SourceNode::ReadBatch");
-                 return generator_().Then(
-                     [this, fetch_batch_span = std::move(fetch_batch_span)](
-                         const std::optional<ExecBatch>& maybe_morsel) mutable
-                     -> Future<ControlFlow<int>> {
-                       fetch_batch_span.reset();
-                       std::unique_lock<std::mutex> lock(mutex_);
-                       if (IsIterationEnd(maybe_morsel) || stop_requested_) {
-                         return Break(batch_count_);
-                       }
-                       lock.unlock();
-                       bool use_legacy_batching =
-                           plan_->query_context()->options().use_legacy_batching;
-                       ExecBatch morsel = std::move(*maybe_morsel);
-                       int64_t morsel_length = static_cast<int64_t>(morsel.length);
-                       if (use_legacy_batching || morsel_length == 0) {
-                         // For various reasons (e.g. ARROW-13982) we pass empty batches
-                         // through
-                         batch_count_++;
-                       } else {
-                         int num_batches = static_cast<int>(
-                             bit_util::CeilDiv(morsel_length, ExecPlan::kMaxBatchSize));
-                         batch_count_ += num_batches;
-                       }
-                       RETURN_NOT_OK(plan_->query_context()->ScheduleTask(
-                           [this, morsel = std::move(morsel), morsel_length,
-                            use_legacy_batching]() {
-                             int64_t offset = 0;
-                             do {
-                               int64_t batch_size = std::min<int64_t>(
-                                   morsel_length - offset, ExecPlan::kMaxBatchSize);
-                               // In order for the legacy batching model to work we must
-                               // not slice batches from the source
-                               if (use_legacy_batching) {
-                                 batch_size = morsel_length;
-                               }
-                               ExecBatch batch = morsel.Slice(offset, batch_size);
-                               offset += batch_size;
-                               outputs_[0]->InputReceived(this, std::move(batch));
-                             } while (offset < morsel.length);
-                             return Status::OK();
-                           },
-                           "SourceNode::ProcessMorsel"));
-                       lock.lock();
-                       if (!backpressure_future_.is_finished()) {
-                         EVENT_ON_CURRENT_SPAN("SourceNode::BackpressureApplied");
-                         return backpressure_future_.Then(
-                             []() -> ControlFlow<int> { return Continue(); });
-                       }
-                       return Future<ControlFlow<int>>::MakeFinished(Continue());
-                     },
-                     [this](const Status& error) -> ControlFlow<int> {
-                       outputs_[0]->ErrorReceived(this, error);
-                       return Break(batch_count_);
-                     },
-                     options);
-               })
-                   .Then(
-                       [this, scan_task](int total_batches) mutable {
-                         outputs_[0]->InputFinished(this, total_batches);
-                         scan_task.MarkFinished();
-                         finished_.MarkFinished();
-                       },
-                       {}, options);
-    if (!executor && finished_.is_finished()) return finished_.status();
+      std::unique_lock<std::mutex> lock(mutex_);
+      if (stop_requested_) {
+        return Future<ControlFlow<int>>::MakeFinished(Break(batch_count_));
+      }
+      lock.unlock();
+
+      util::tracing::Span fetch_batch_span;
+      auto fetch_batch_scope =
+          START_SCOPED_SPAN(fetch_batch_span, "SourceNode::ReadBatch");
+      return generator_().Then(
+          [this](
+              const std::optional<ExecBatch>& morsel_or_end) -> Future<ControlFlow<int>> {
+            std::unique_lock<std::mutex> lock(mutex_);
+            if (IsIterationEnd(morsel_or_end) || stop_requested_) {
+              return Break(batch_count_);
+            }
+            lock.unlock();
+            SliceAndDeliverMorsel(*morsel_or_end);
+            lock.lock();
+            if (!backpressure_future_.is_finished()) {
+              EVENT_ON_CURRENT_SPAN("SourceNode::BackpressureApplied");
+              return backpressure_future_.Then(
+                  []() -> ControlFlow<int> { return Continue(); });
+            }
+            return Future<ControlFlow<int>>::MakeFinished(Continue());
+          },
+          [](const Status& err) -> Future<ControlFlow<int>> { return err; }, options);
+    });
+    fut.AddCallback(
+        [this, scan_task](Result<int> maybe_total_batches) mutable {
+          if (maybe_total_batches.ok()) {
+            plan_->query_context()->ScheduleTask(
+                [this, total_batches = *maybe_total_batches] {
+                  return output_->InputFinished(this, total_batches);
+                },
+                "SourceNode::InputFinished");
+          }
+          scan_task.MarkFinished(maybe_total_batches.status());
+        },
+        options);
     return Status::OK();
   }
 
@@ -210,17 +204,10 @@ struct SourceNode : ExecNode, public TracedNode<SourceNode> {
     to_finish.MarkFinished();
   }
 
-  void StopProducing(ExecNode* output) override {
-    DCHECK_EQ(output, outputs_[0]);
-    StopProducing();
-  }
-
-  void StopProducing() override {
+  Status StopProducingImpl() override {
     std::unique_lock<std::mutex> lock(mutex_);
     stop_requested_ = true;
-    if (!started_) {
-      finished_.MarkFinished();
-    }
+    return Status::OK();
   }
 
  private:

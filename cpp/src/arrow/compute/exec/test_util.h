@@ -42,7 +42,8 @@ using StopProducingFunc = std::function<void(ExecNode*)>;
 // Make a dummy node that has no execution behaviour
 ARROW_TESTING_EXPORT
 ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*> inputs,
-                        int num_outputs, StartProducingFunc = {}, StopProducingFunc = {});
+                        bool is_sink = false, StartProducingFunc = {},
+                        StopProducingFunc = {});
 
 ARROW_TESTING_EXPORT
 ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types, std::string_view json);

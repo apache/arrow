@@ -369,9 +369,8 @@ gboolean
 garrow_execute_plan_validate(GArrowExecutePlan *plan,
                              GError **error);
 GARROW_AVAILABLE_IN_6_0
-gboolean
-garrow_execute_plan_start(GArrowExecutePlan *plan,
-                          GError **error);
+void
+garrow_execute_plan_start(GArrowExecutePlan *plan);
 GARROW_AVAILABLE_IN_6_0
 void
 garrow_execute_plan_stop(GArrowExecutePlan *plan);

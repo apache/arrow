@@ -50,8 +50,7 @@ class UnionNode : public ExecNode, public TracedNode<UnionNode> {
  public:
   UnionNode(ExecPlan* plan, std::vector<ExecNode*> inputs)
       : ExecNode(plan, inputs, GetInputLabels(inputs),
-                 /*output_schema=*/inputs[0]->output_schema(),
-                 /*num_outputs=*/1) {
+                 /*output_schema=*/inputs[0]->output_schema()) {
     bool counter_completed = input_count_.SetTotal(static_cast<int>(inputs.size()));
     ARROW_DCHECK(counter_completed == false);
   }
@@ -76,37 +75,23 @@ class UnionNode : public ExecNode, public TracedNode<UnionNode> {
     return plan->EmplaceNode<UnionNode>(plan, std::move(inputs));
   }
 
-  void InputReceived(ExecNode* input, ExecBatch batch) override {
+  Status InputReceived(ExecNode* input, ExecBatch batch) override {
     NoteInputReceived(batch);
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
-    if (finished_.is_finished()) {
-      return;
-    }
-    outputs_[0]->InputReceived(this, std::move(batch));
-    if (batch_count_.Increment()) {
-      finished_.MarkFinished();
-    }
+    return output_->InputReceived(this, std::move(batch));
   }
 
-  void ErrorReceived(ExecNode* input, Status error) override {
-    DCHECK_EQ(input, inputs_[0]);
-    outputs_[0]->ErrorReceived(this, std::move(error));
-
-    StopProducing();
-  }
-
-  void InputFinished(ExecNode* input, int total_batches) override {
+  Status InputFinished(ExecNode* input, int total_batches) override {
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
     total_batches_.fetch_add(total_batches);
 
     if (input_count_.Increment()) {
-      outputs_[0]->InputFinished(this, total_batches_.load());
-      if (batch_count_.SetTotal(total_batches_.load())) {
-        finished_.MarkFinished();
-      }
+      return output_->InputFinished(this, total_batches_.load());
     }
+
+    return Status::OK();
   }
 
   Status StartProducing() override {
@@ -126,29 +111,9 @@ class UnionNode : public ExecNode, public TracedNode<UnionNode> {
     }
   }
 
-  void StopProducing(ExecNode* output) override {
-    DCHECK_EQ(output, outputs_[0]);
-    if (batch_count_.Cancel()) {
-      finished_.MarkFinished();
-    }
-    for (auto&& input : inputs_) {
-      input->StopProducing(this);
-    }
-  }
-
-  void StopProducing() override {
-    if (batch_count_.Cancel()) {
-      finished_.MarkFinished();
-    }
-    for (auto&& input : inputs_) {
-      input->StopProducing(this);
-    }
-  }
-
-  Future<> finished() override { return finished_; }
+  Status StopProducingImpl() override { return Status::OK(); }
 
  private:
-  AtomicCounter batch_count_;
   AtomicCounter input_count_;
   std::atomic<int> total_batches_{0};
 };
