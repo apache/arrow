@@ -396,7 +396,7 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 
 	arr.Data().Retain()
 	h := cgo.NewHandle(arr.Data())
-	out.private_data = unsafe.Pointer(&h)
+	out.private_data = createHandle(h)
 	out.release = (*[0]byte)(C.goReleaseArray)
 	switch arr := arr.(type) {
 	case array.ListLike:
