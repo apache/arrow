@@ -134,6 +134,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
       *batch_out = batch_result.ValueUnsafe();
     } else {
       batch_out->reset();
+      plan_status_ = PLAN_FINISHED;
       return plan_->finished().status();
     }
 
