@@ -509,12 +509,12 @@ class TestArrowBuilderDecoding : public ::testing::Test {
       InitTestCase(np);
 
       typename EncodingTraits<ByteArrayType>::Accumulator acc;
-      acc.offsets_builder.reset(new ::arrow::BinaryBuilder);
+      acc.data_builder.reset(new ::arrow::BinaryBuilder);
       auto actual_num_values =
           decoder_->DecodeArrow(num_values_, null_count_, valid_bits_, 0, &acc);
 
       std::shared_ptr<::arrow::Array> chunk;
-      ASSERT_OK(acc.offsets_builder->Finish(&chunk));
+      ASSERT_OK(acc.data_builder->Finish(&chunk));
       CheckDense(actual_num_values, *chunk);
     }
   }
@@ -536,10 +536,10 @@ class TestArrowBuilderDecoding : public ::testing::Test {
         continue;
       }
       typename EncodingTraits<ByteArrayType>::Accumulator acc;
-      acc.offsets_builder.reset(new ::arrow::BinaryBuilder);
+      acc.data_builder.reset(new ::arrow::BinaryBuilder);
       auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, &acc);
       std::shared_ptr<::arrow::Array> chunk;
-      ASSERT_OK(acc.offsets_builder->Finish(&chunk));
+      ASSERT_OK(acc.data_builder->Finish(&chunk));
       CheckDense(actual_num_values, *chunk);
     }
   }
@@ -626,14 +626,14 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
     typename EncodingTraits<ByteArrayType>::Accumulator acc;
-    acc.offsets_builder.reset(new ::arrow::StringBuilder);
+    acc.data_builder.reset(new ::arrow::StringBuilder);
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
                                    values->null_bitmap_data(), values->offset(), &acc));
 
     std::shared_ptr<::arrow::Array> result;
-    ASSERT_OK(acc.offsets_builder->Finish(&result));
+    ASSERT_OK(acc.data_builder->Finish(&result));
     ASSERT_EQ(50, result->length());
     ::arrow::AssertArraysEqual(*values, *result);
   };
@@ -750,34 +750,6 @@ class EncodingAdHocTyped : public ::testing::Test {
         Encoding::DELTA_BINARY_PACKED, /*use_dictionary=*/false, column_descr());
     auto decoder =
         MakeTypedDecoder<ParquetType>(Encoding::DELTA_BINARY_PACKED, column_descr());
-
-    ASSERT_NO_THROW(encoder->Put(*values));
-    auto buf = encoder->FlushValues();
-
-    int num_values = static_cast<int>(values->length() - values->null_count());
-    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
-
-    BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
-    ASSERT_EQ(num_values,
-              decoder->DecodeArrow(static_cast<int>(values->length()),
-                                   static_cast<int>(values->null_count()),
-                                   values->null_bitmap_data(), values->offset(), &acc));
-
-    std::shared_ptr<::arrow::Array> result;
-    ASSERT_OK(acc.Finish(&result));
-    ASSERT_EQ(50, result->length());
-    ::arrow::AssertArraysEqual(*values, *result);
-  }
-
-  void DeltaLengthByte(int seed) {
-    if (!std::is_same<ParquetType, ByteArrayType>::value) {
-      return;
-    }
-    auto values = GetValues(seed);
-    auto encoder = MakeTypedEncoder<ParquetType>(
-        Encoding::DELTA_LENGTH_BYTE_ARRAY, /*use_dictionary=*/false, column_descr());
-    auto decoder =
-        MakeTypedDecoder<ParquetType>(Encoding::DELTA_LENGTH_BYTE_ARRAY, column_descr());
 
     ASSERT_NO_THROW(encoder->Put(*values));
     auto buf = encoder->FlushValues();
@@ -942,13 +914,6 @@ TYPED_TEST(EncodingAdHocTyped, DeltaBitPackArrowDirectPut) {
   }
 }
 
-// TODO
-TYPED_TEST(EncodingAdHocTyped, DeltaLengthByteArrowDirectPut) {
-  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
-    this->DeltaLengthByte(seed);
-  }
-}
-
 TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
   // Implemented as part of ARROW-3246
   const int64_t size = 50;
@@ -971,14 +936,14 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
   GetDictDecoder(encoder, num_values, &buf, &dict_buf, nullptr, &decoder);
 
   typename EncodingTraits<ByteArrayType>::Accumulator acc;
-  acc.offsets_builder.reset(new ::arrow::StringBuilder);
+  acc.data_builder.reset(new ::arrow::StringBuilder);
   ASSERT_EQ(num_values,
             decoder->DecodeArrow(static_cast<int>(values->length()),
                                  static_cast<int>(values->null_count()),
                                  values->null_bitmap_data(), values->offset(), &acc));
 
   std::shared_ptr<::arrow::Array> result;
-  ASSERT_OK(acc.offsets_builder->Finish(&result));
+  ASSERT_OK(acc.data_builder->Finish(&result));
   ::arrow::AssertArraysEqual(*values, *result);
 }
 
@@ -1017,14 +982,14 @@ TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
     GetDictDecoder(encoder, num_values, &buf, &dict_buf, nullptr, &decoder);
 
     typename EncodingTraits<ByteArrayType>::Accumulator acc;
-    acc.offsets_builder.reset(new ::arrow::BinaryBuilder);
+    acc.data_builder.reset(new ::arrow::BinaryBuilder);
     ASSERT_EQ(num_values, decoder->DecodeArrow(static_cast<int>(expected->length()),
                                                static_cast<int>(expected->null_count()),
                                                expected->null_bitmap_data(),
                                                expected->offset(), &acc));
 
     std::shared_ptr<::arrow::Array> result;
-    ASSERT_OK(acc.offsets_builder->Finish(&result));
+    ASSERT_OK(acc.data_builder->Finish(&result));
     ::arrow::AssertArraysEqual(*expected, *result);
   };
 
@@ -1623,6 +1588,43 @@ TYPED_TEST(TestDeltaLengthByteArrayEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
       /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
       /*null_probability*/ 0.1));
+}
+
+TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
+  const int64_t size = 50;
+  const int32_t min_length = 0;
+  const int32_t max_length = 10;
+  const double null_probability = 0.25;
+
+  auto CheckSeed = [&](int seed) {
+    ::arrow::random::RandomArrayGenerator rag(seed);
+    auto values = rag.String(size, min_length, max_length, null_probability);
+
+    auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
+    acc.data_builder.reset(new ::arrow::StringBuilder);
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.data_builder->Finish(&result));
+    ASSERT_EQ(50, result->length());
+    ::arrow::AssertArraysEqual(*values, *result);
+  };
+
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    CheckSeed(seed);
+  }
 }
 
 }  // namespace test

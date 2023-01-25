@@ -436,7 +436,7 @@ TEST_F(TestByteArrayValuesWriter, RequiredDeltaLengthByteArray) {
 }
 
 // TODO
-//TEST_F(TestFixedLengthByteArrayValuesWriter, RequiredDeltaLengthByteArray) {
+// TEST_F(TestFixedLengthByteArrayValuesWriter, RequiredDeltaLengthByteArray) {
 //  this->TestRequiredWithEncoding(Encoding::DELTA_LENGTH_BYTE_ARRAY);
 //}
 

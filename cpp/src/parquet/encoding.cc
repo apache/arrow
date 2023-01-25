@@ -1233,14 +1233,14 @@ int PlainBooleanDecoder::Decode(bool* buffer, int max_values) {
 struct ArrowBinaryHelper {
   explicit ArrowBinaryHelper(typename EncodingTraits<ByteArrayType>::Accumulator* out) {
     this->out = out;
-    this->builder = out->offsets_builder.get();
+    this->data_builder = out->data_builder.get();
     this->chunk_space_remaining =
-        ::arrow::kBinaryMemoryLimit - this->builder->value_data_length();
+        ::arrow::kBinaryMemoryLimit - this->data_builder->value_data_length();
   }
 
   Status PushChunk() {
     std::shared_ptr<::arrow::Array> result;
-    RETURN_NOT_OK(builder->Finish(&result));
+    RETURN_NOT_OK(data_builder->Finish(&result));
     out->chunks.push_back(result);
     chunk_space_remaining = ::arrow::kBinaryMemoryLimit;
     return Status::OK();
@@ -1250,20 +1250,20 @@ struct ArrowBinaryHelper {
 
   void UnsafeAppend(const uint8_t* data, int32_t length) {
     chunk_space_remaining -= length;
-    builder->UnsafeAppend(data, length);
+    data_builder->UnsafeAppend(data, length);
   }
 
-  void UnsafeAppendNull() { builder->UnsafeAppendNull(); }
+  void UnsafeAppendNull() { data_builder->UnsafeAppendNull(); }
 
   Status Append(const uint8_t* data, int32_t length) {
     chunk_space_remaining -= length;
-    return builder->Append(data, length);
+    return data_builder->Append(data, length);
   }
 
-  Status AppendNull() { return builder->AppendNull(); }
+  Status AppendNull() { return data_builder->AppendNull(); }
 
   typename EncodingTraits<ByteArrayType>::Accumulator* out;
-  ::arrow::BinaryBuilder* builder;
+  ::arrow::BinaryBuilder* data_builder;
   int64_t chunk_space_remaining;
 };
 
@@ -1368,8 +1368,8 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     ArrowBinaryHelper helper(out);
     int values_decoded = 0;
 
-    RETURN_NOT_OK(helper.builder->Reserve(num_values));
-    RETURN_NOT_OK(helper.builder->ReserveData(
+    RETURN_NOT_OK(helper.data_builder->Reserve(num_values));
+    RETURN_NOT_OK(helper.data_builder->ReserveData(
         std::min<int64_t>(len_, helper.chunk_space_remaining)));
 
     int i = 0;
@@ -1390,8 +1390,8 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
           if (ARROW_PREDICT_FALSE(!helper.CanFit(value_len))) {
             // This element would exceed the capacity of a chunk
             RETURN_NOT_OK(helper.PushChunk());
-            RETURN_NOT_OK(helper.builder->Reserve(num_values - i));
-            RETURN_NOT_OK(helper.builder->ReserveData(
+            RETURN_NOT_OK(helper.data_builder->Reserve(num_values - i));
+            RETURN_NOT_OK(helper.data_builder->ReserveData(
                 std::min<int64_t>(len_, helper.chunk_space_remaining)));
           }
           helper.UnsafeAppend(data_ + 4, value_len);
@@ -2601,34 +2601,30 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override;
 
-  void UnsafePutByteArray(const void* data, uint32_t length) {
-    DCHECK(length == 0 || data != nullptr) << "Value ptr cannot be NULL";
-    sink_.UnsafeAppend(&length, sizeof(uint32_t));
-    sink_.UnsafeAppend(data, static_cast<int64_t>(length));
+  void Put(const ByteArray& val) {
+    // Write the result to the output stream
+    const int64_t increment = static_cast<int64_t>(val.len + sizeof(uint32_t));
+    if (ARROW_PREDICT_FALSE(sink_.length() + increment > sink_.capacity())) {
+      PARQUET_THROW_NOT_OK(sink_.Reserve(increment));
+    }
+    DCHECK(val.len == 0 || val.ptr != nullptr) << "Value ptr cannot be NULL";
+    sink_.UnsafeAppend(val.ptr, val.len);
   }
 
  protected:
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
-    const int64_t total_bytes =
-        array.value_offset(array.length()) - array.value_offset(0);
-    PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes + array.length() * sizeof(uint32_t)));
-
     PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
         *array.data(),
         [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
             return Status::Invalid("Parquet cannot store strings with size 2GB or more");
           }
-          UnsafePutByteArray(view.data(), static_cast<uint32_t>(view.size()));
+          length_encoder_.Put({static_cast<int32_t>(view.length())}, 1);
+          Put(view);
           return Status::OK();
         },
         []() { return Status::OK(); }));
-  }
-
-  template <typename ArrayType>
-  void PutBinaryArray2(const ArrayType& array) {
-    ARROW_LOG(INFO) << "PutBinaryArray2";
   }
 
   ::arrow::BufferBuilder sink_;
@@ -2638,22 +2634,12 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
 
 template <typename DType>
 void DeltaLengthByteArrayEncoder<DType>::Put(const ::arrow::Array& values) {
-  ARROW_LOG(INFO) << "DeltaLengthByteArrayEncoder::Put";
   AssertBaseBinary(values);
-  switch (values.type_id()) {
-    case ::arrow::Type::STRING:
-      PutBinaryArray(checked_cast<const ::arrow::StringArray&>(values));
-    case ::arrow::Type::LARGE_STRING:
-      PutBinaryArray(checked_cast<const ::arrow::LargeStringArray&>(values));
-    case ::arrow::Type::BINARY:
-      PutBinaryArray(static_cast<const ::arrow::BinaryArray&>(values));
-    case ::arrow::Type::LARGE_BINARY:
-      PutBinaryArray(static_cast<const ::arrow::LargeBinaryArray&>(values));
-    case ::arrow::Type::FIXED_SIZE_BINARY:
-      PutBinaryArray2(static_cast<const ::arrow::FixedSizeBinaryArray&>(values));
-    default:
-      throw ParquetException("Expected ByteArray-like type, got ",
-                             values.type()->ToString());
+  if (::arrow::is_binary_like(values.type_id())) {
+    PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
+  } else {
+    DCHECK(::arrow::is_large_binary_like(values.type_id()));
+    PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
   }
 }
 
@@ -2669,7 +2655,9 @@ void DeltaLengthByteArrayEncoder<DType>::Put(const T* src, int num_values) {
     const int batch_size = std::min(kBatchSize, num_values - idx);
     for (int j = 0; j < batch_size; ++j) {
       const int32_t len = src[idx + j].len;
-      encoded_size_ += len;
+      if (AddWithOverflow(encoded_size_, len, &encoded_size_)) {
+        throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
+      }
       lengths[j] = len;
     }
     length_encoder_.Put(lengths.data(), batch_size);
@@ -2781,13 +2769,17 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
-    ParquetException::NYI("DecodeArrow for DeltaLengthByteArrayDecoder");
+    int result = 0;
+    PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
+                                          valid_bits_offset, out, &result));
+    return result;
   }
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<ByteArrayType>::DictAccumulator* out) override {
-    ParquetException::NYI("DecodeArrow for DeltaLengthByteArrayDecoder");
+    ParquetException::NYI(
+        "DecodeArrow of DictAccumulator for DeltaLengthByteArrayDecoder");
   }
 
  private:
@@ -2807,6 +2799,41 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     DCHECK_EQ(ret, num_length);
     length_idx_ = 0;
     num_valid_values_ = num_length;
+  }
+
+  Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset,
+                          typename EncodingTraits<ByteArrayType>::Accumulator* out,
+                          int* out_num_values) {
+    ArrowBinaryHelper helper(out);
+
+    std::vector<ByteArray> values(num_values);
+    const int num_valid_values = Decode(values.data(), num_values - null_count);
+    DCHECK_EQ(num_values - null_count, num_valid_values);
+
+    auto values_ptr = reinterpret_cast<const ByteArray*>(values.data());
+    int value_idx = 0;
+
+    RETURN_NOT_OK(VisitNullBitmapInline(
+        valid_bits, valid_bits_offset, num_values, null_count,
+        [&]() {
+          const auto& val = values_ptr[value_idx];
+          if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
+            RETURN_NOT_OK(helper.PushChunk());
+          }
+          RETURN_NOT_OK(helper.Append(val.ptr, static_cast<int32_t>(val.len)));
+          ++value_idx;
+          return Status::OK();
+        },
+        [&]() {
+          RETURN_NOT_OK(helper.AppendNull());
+          --null_count;
+          return Status::OK();
+        }));
+
+    DCHECK_EQ(null_count, 0);
+    *out_num_values = num_valid_values;
+    return Status::OK();
   }
 
   std::shared_ptr<::arrow::bit_util::BitReader> decoder_;

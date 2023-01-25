@@ -145,8 +145,8 @@ struct EncodingTraits<ByteArrayType> {
   /// \brief Internal helper class for decoding BYTE_ARRAY data where we can
   /// overflow the capacity of a single arrow::BinaryArray
   struct Accumulator {
-    std::unique_ptr<::arrow::BinaryBuilder> offsets_builder;
-    std::unique_ptr<::arrow::BufferBuilder> data_builder;
+    std::unique_ptr<::arrow::Int32Builder> offsets_builder;
+    std::unique_ptr<::arrow::BinaryBuilder> data_builder;
     std::vector<std::shared_ptr<::arrow::Array>> chunks;
   };
   using ArrowType = ::arrow::BinaryType;
