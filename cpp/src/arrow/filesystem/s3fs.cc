@@ -2576,7 +2576,7 @@ Aws::SDKOptions aws_options;
 bool aws_initialized = false;
 
 struct AwsInstance : public ::arrow::internal::Executor::Resource {
-  AwsInstance(const S3GlobalOptions& options) {
+  explicit AwsInstance(const S3GlobalOptions& options) {
     Aws::Utils::Logging::LogLevel aws_log_level;
 
 #define LOG_LEVEL_CASE(level_name)                             \
