@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/v11/arrow"
@@ -567,4 +568,178 @@ func TestConcatDictionaryNullSlots(t *testing.T) {
 	defer actual.Release()
 
 	assert.Truef(t, array.Equal(actual, expected), "got: %s, expected: %s", actual, expected)
+}
+
+func TestConcatRunEndEncoded(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	tests := []struct {
+		offsetType arrow.DataType
+		expected   interface{}
+	}{
+		{arrow.PrimitiveTypes.Int16, []int16{1, 11, 111, 211, 311, 411, 500, 600}},
+		{arrow.PrimitiveTypes.Int32, []int32{1, 11, 111, 211, 311, 411, 500, 600}},
+		{arrow.PrimitiveTypes.Int64, []int64{1, 11, 111, 211, 311, 411, 500, 600}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.offsetType.String(), func(t *testing.T) {
+
+			arrs := make([]arrow.Array, 0)
+			bldr := array.NewRunEndEncodedBuilder(mem, tt.offsetType, arrow.BinaryTypes.String)
+			defer bldr.Release()
+			valBldr := bldr.ValueBuilder().(*array.StringBuilder)
+
+			bldr.Append(1)
+			valBldr.Append("Hello")
+			bldr.AppendNull()
+			bldr.ContinueRun(9)
+
+			bldr.Append(100)
+			valBldr.Append("World")
+			arrs = append(arrs, bldr.NewArray())
+
+			bldr.Append(100)
+			valBldr.Append("Goku")
+			bldr.Append(100)
+			valBldr.Append("Gohan")
+			bldr.Append(100)
+			valBldr.Append("Goten")
+			arrs = append(arrs, bldr.NewArray())
+
+			bldr.AppendNull()
+			bldr.ContinueRun(99)
+			bldr.Append(100)
+			valBldr.Append("Vegeta")
+			bldr.Append(100)
+			valBldr.Append("Trunks")
+			next := bldr.NewArray()
+			defer next.Release()
+			// remove the initial null with an offset and dig into the next run
+			arrs = append(arrs, array.NewSlice(next, 111, int64(next.Len())))
+
+			for _, a := range arrs {
+				defer a.Release()
+			}
+
+			result, err := array.Concatenate(arrs, mem)
+			assert.NoError(t, err)
+			defer result.Release()
+
+			rle := result.(*array.RunEndEncoded)
+			assert.EqualValues(t, 8, rle.GetPhysicalLength())
+			assert.EqualValues(t, 0, rle.GetPhysicalOffset())
+
+			var values interface{}
+			switch endsArr := rle.RunEndsArr().(type) {
+			case *array.Int16:
+				values = endsArr.Int16Values()
+			case *array.Int32:
+				values = endsArr.Int32Values()
+			case *array.Int64:
+				values = endsArr.Int64Values()
+			}
+			assert.Equal(t, tt.expected, values)
+
+			expectedValues, _, _ := array.FromJSON(mem, arrow.BinaryTypes.String,
+				strings.NewReader(`["Hello", null, "World", "Goku", "Gohan", "Goten", "Vegeta", "Trunks"]`))
+			defer expectedValues.Release()
+			assert.Truef(t, array.Equal(expectedValues, rle.Values()), "expected: %s\ngot: %s", expectedValues, rle.Values())
+		})
+	}
+}
+
+func TestConcatAlmostOverflowRunEndEncoding(t *testing.T) {
+	tests := []struct {
+		offsetType arrow.DataType
+		max        uint64
+	}{
+		{arrow.PrimitiveTypes.Int16, math.MaxInt16},
+		{arrow.PrimitiveTypes.Int32, math.MaxInt32},
+		{arrow.PrimitiveTypes.Int64, math.MaxInt64},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.offsetType.String(), func(t *testing.T) {
+			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+			defer mem.AssertSize(t, 0)
+
+			arrs := make([]arrow.Array, 0)
+			bldr := array.NewRunEndEncodedBuilder(mem, tt.offsetType, arrow.BinaryTypes.String)
+			defer bldr.Release()
+			valBldr := bldr.ValueBuilder().(*array.StringBuilder)
+
+			// max is not evently divisible by 4, so we add one to each
+			// to account for that so our final concatenate will overflow
+			bldr.Append((tt.max / 4) + 1)
+			valBldr.Append("foo")
+			bldr.Append((tt.max / 4) + 1)
+			valBldr.Append("bar")
+			arrs = append(arrs, bldr.NewArray())
+
+			bldr.Append((tt.max / 4) + 1)
+			valBldr.Append("baz")
+			bldr.Append((tt.max / 4))
+			valBldr.Append("bop")
+			arrs = append(arrs, bldr.NewArray())
+
+			defer func() {
+				for _, a := range arrs {
+					a.Release()
+				}
+			}()
+
+			arr, err := array.Concatenate(arrs, mem)
+			assert.NoError(t, err)
+			defer arr.Release()
+		})
+	}
+}
+
+func TestConcatOverflowRunEndEncoding(t *testing.T) {
+	tests := []struct {
+		offsetType arrow.DataType
+		max        uint64
+	}{
+		{arrow.PrimitiveTypes.Int16, math.MaxInt16},
+		{arrow.PrimitiveTypes.Int32, math.MaxInt32},
+		{arrow.PrimitiveTypes.Int64, math.MaxInt64},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.offsetType.String(), func(t *testing.T) {
+			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+			defer mem.AssertSize(t, 0)
+
+			arrs := make([]arrow.Array, 0)
+			bldr := array.NewRunEndEncodedBuilder(mem, tt.offsetType, arrow.BinaryTypes.String)
+			defer bldr.Release()
+			valBldr := bldr.ValueBuilder().(*array.StringBuilder)
+
+			// max is not evently divisible by 4, so we add one to each
+			// to account for that so our final concatenate will overflow
+			bldr.Append((tt.max / 4) + 1)
+			valBldr.Append("foo")
+			bldr.Append((tt.max / 4) + 1)
+			valBldr.Append("bar")
+			arrs = append(arrs, bldr.NewArray())
+
+			bldr.Append((tt.max / 4) + 1)
+			valBldr.Append("baz")
+			bldr.Append((tt.max / 4) + 1)
+			valBldr.Append("bop")
+			arrs = append(arrs, bldr.NewArray())
+
+			defer func() {
+				for _, a := range arrs {
+					a.Release()
+				}
+			}()
+
+			arr, err := array.Concatenate(arrs, mem)
+			assert.Nil(t, arr)
+			assert.ErrorIs(t, err, arrow.ErrInvalid)
+		})
+	}
 }
