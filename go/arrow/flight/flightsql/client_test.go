@@ -132,6 +132,7 @@ func getAction(cmd proto.Message) *flight.Action {
 func (s *FlightSqlClientSuite) SetupTest() {
 	s.mockClient = FlightServiceClientMock{}
 	s.sqlClient.Client = &s.mockClient
+	s.callOpts = []grpc.CallOption{grpc.EmptyCallOption{}}
 }
 
 func (s *FlightSqlClientSuite) TearDownTest() {
@@ -358,9 +359,9 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecute() {
 
 	prepared, err := s.sqlClient.Prepare(context.TODO(), memory.DefaultAllocator, query, s.callOpts...)
 	s.NoError(err)
-	defer prepared.Close(context.TODO())
+	defer prepared.Close(context.TODO(), s.callOpts...)
 
-	info, err := prepared.Execute(context.TODO())
+	info, err := prepared.Execute(context.TODO(), s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
 }
@@ -411,7 +412,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 
 	prepared, err := s.sqlClient.Prepare(context.TODO(), memory.DefaultAllocator, query, s.callOpts...)
 	s.NoError(err)
-	defer prepared.Close(context.TODO())
+	defer prepared.Close(context.TODO(), s.callOpts...)
 
 	paramSchema := prepared.ParameterSchema()
 	rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, paramSchema, strings.NewReader(`[{"id": 1}]`))
@@ -419,7 +420,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	defer rec.Release()
 
 	prepared.SetParameters(rec)
-	info, err := prepared.Execute(context.TODO())
+	info, err := prepared.Execute(context.TODO(), s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
 }
@@ -475,7 +476,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 
 	prepared, err := s.sqlClient.Prepare(context.TODO(), memory.DefaultAllocator, query, s.callOpts...)
 	s.NoError(err)
-	defer prepared.Close(context.TODO())
+	defer prepared.Close(context.TODO(), s.callOpts...)
 
 	paramSchema := prepared.ParameterSchema()
 	rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, paramSchema, strings.NewReader(`[{"id": 1}]`))
@@ -486,7 +487,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 	s.NoError(err)
 	prepared.SetRecordReader(rdr)
 
-	info, err := prepared.Execute(context.TODO())
+	info, err := prepared.Execute(context.TODO(), s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
 }
