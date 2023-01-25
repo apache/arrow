@@ -25,7 +25,7 @@ ARG manylinux
 ENV MANYLINUX_VERSION=${manylinux}
 
 # Install basic dependencies
-RUN yum install -y git flex curl autoconf zip perl-IPC-Cmd wget
+RUN yum install -y git flex curl autoconf zip perl-IPC-Cmd wget kernel-headers
 
 # A system python is required for ninja and vcpkg in this Dockerfile.
 # On manylinux2014 base images, system python is 2.7.5, while
