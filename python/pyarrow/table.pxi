@@ -5442,23 +5442,27 @@ list[tuple(str, str, FunctionOptions)]
         """
         group_by_aggrs = []
         for aggr in aggregations:
+            # Set opt to None if not specified
             if len(aggr) == 2:
                 target, func = aggr
                 opt = None
             else:
                 target, func, opt = aggr
+            # Ensure target is a list
             if not isinstance(target, (list, tuple)):
                 target = [target]
+            # Ensure aggregate function is hash_ if needed
             if len(self.keys) > 0 and not func.startswith("hash_"):
                 func = "hash_" + func
             if len(self.keys) == 0 and func.startswith("hash_"):
                 func = func[5:]
+            # Determine output field name
             func_nohash = func if not func.startswith("hash_") else func[5:]
             if len(target) == 0:
                 aggr_name = func_nohash
             else:
                 aggr_name = "_".join(target) + "_" + func_nohash
-            print("aggr_name=" + aggr_name)
+            # Calculate target indices by resolving field names
             target_indices = [
                 self._table.schema.get_field_index(f) for f in target]
             group_by_aggrs.append((target_indices, func, opt, aggr_name))
