@@ -25,10 +25,10 @@
 
 #include <type_traits>
 
-namespace arrow {
+namespace arrow::util {
 
 namespace detail {
-[[nodiscard]] constexpr inline auto make_default_accessor() {
+[[nodiscard]] constexpr inline auto MakeDefaultAccessor() {
   return [](auto& x) -> Result<decltype(std::ref(x))> { return std::ref(x); };
 }
 
@@ -43,20 +43,20 @@ struct is_range<T, std::void_t<decltype(std::begin(std::declval<T>())),
 }  // namespace detail
 
 template <class Range, class DataPointConvertor,
-          class RowAccessor = decltype(detail::make_default_accessor())>
+          class RowAccessor = decltype(detail::MakeDefaultAccessor())>
 typename std::enable_if_t<detail::is_range<Range>::value,
                           Result<std::shared_ptr<RecordBatchReader>>>
-/* Result<std::shared_ptr<RecordBatchReader>>> */ rows_to_batches(
+/* Result<std::shared_ptr<RecordBatchReader>>> */ RowsToBatches(
     const std::shared_ptr<Schema>& schema, std::reference_wrapper<Range> rows,
     DataPointConvertor&& data_point_convertor,
-    RowAccessor&& row_accessor = detail::make_default_accessor()) {
+    RowAccessor&& row_accessor = detail::MakeDefaultAccessor()) {
   const std::size_t batch_size = 1024;
   auto make_next_batch =
       [rows_ittr = std::begin(rows.get()), rows_ittr_end = std::end(rows.get()),
        schema = schema, row_accessor = std::forward<RowAccessor>(row_accessor),
        data_point_convertor = std::forward<DataPointConvertor>(
            data_point_convertor)]() mutable -> Result<std::shared_ptr<RecordBatch>> {
-    if (rows_ittr == rows_ittr_end) return nullptr;
+    if (rows_ittr == rows_ittr_end) return NULLPTR;
 
     ARROW_ASSIGN_OR_RAISE(
         auto record_batch_builder,
@@ -68,8 +68,8 @@ typename std::enable_if_t<detail::is_range<Range>::value,
       ARROW_ASSIGN_OR_RAISE(auto row, row_accessor(*rows_ittr));
       for (auto& data_point : row.get()) {
         ArrayBuilder* array_builder = record_batch_builder->GetField(col_index);
-        ARROW_RETURN_IF(array_builder == nullptr,
-                        Status::Invalid("array_builder == nullptr"));
+        ARROW_RETURN_IF(array_builder == NULLPTR,
+                        Status::Invalid("array_builder == NULLPTR"));
 
         ARROW_RETURN_NOT_OK(data_point_convertor(*array_builder, data_point));
         col_index++;
@@ -83,4 +83,4 @@ typename std::enable_if_t<detail::is_range<Range>::value,
                                              schema);
 }
 
-}  // namespace arrow
+}  // namespace arrow::util

@@ -37,10 +37,10 @@ auto int_convertor = [](ArrayBuilder& array_builder, int value) {
   return static_cast<Int64Builder&>(array_builder).Append(value);
 };
 
-TEST(rows_to_batches, basic_usage) {
+TEST(RowsToBatches, basic_usage) {
   std::vector<std::vector<int>> data = {{1, 2, 4}, {5, 6, 7}};
 
-  auto batches = rows_to_batches(test_schema, std::ref(data), int_convertor).ValueOrDie();
+  auto batches = RowsToBatches(test_schema, std::ref(data), int_convertor).ValueOrDie();
 
   auto table = batches->ToTable().ValueOrDie();
 
