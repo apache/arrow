@@ -33,14 +33,14 @@ const auto test_schema = schema(
      field("field_3", int64())} );
 // clang-format on
 
-auto int_convertor = [](ArrayBuilder& array_builder, int value) {
+auto IntConvertor = [](ArrayBuilder& array_builder, int value) {
   return static_cast<Int64Builder&>(array_builder).Append(value);
 };
 
-TEST(RowsToBatches, basic_usage) {
+TEST(RowsToBatches, BasicUsage) {
   std::vector<std::vector<int>> data = {{1, 2, 4}, {5, 6, 7}};
 
-  auto batches = RowsToBatches(test_schema, std::ref(data), int_convertor).ValueOrDie();
+  auto batches = RowsToBatches(test_schema, std::ref(data), IntConvertor).ValueOrDie();
 
   auto table = batches->ToTable().ValueOrDie();
 

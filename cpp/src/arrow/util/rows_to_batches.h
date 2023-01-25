@@ -28,10 +28,15 @@
 namespace arrow::util {
 
 namespace detail {
-[[nodiscard]] constexpr inline auto MakeDefaultAccessor() {
+
+// Default identity function row accessor. Used to for the common case where the value
+// of each row iterated over is it's self also directly iterable.
+[[nodiscard]] constexpr inline auto MakeDefaultRowAccessor() {
   return [](auto& x) -> Result<decltype(std::ref(x))> { return std::ref(x); };
 }
 
+// Meta-funciton to check if a type `T` is a range (iterable using `std::begin()` /
+// `std::end()`). `is_range<T>::value` will be false if `T` is not a valid range.
 template <typename T, typename = void>
 struct is_range : std::false_type {};
 
@@ -42,14 +47,58 @@ struct is_range<T, std::void_t<decltype(std::begin(std::declval<T>())),
 
 }  // namespace detail
 
+/// \brief Utility function for converting any row-based structure into an
+/// `arrow::RecordBatchReader` (this can be easily converted to an `arrow::Table` using
+/// `arrow::RecordBatchReader::ToTable()`).
+///
+/// Examples of supported types:
+/// - `std::vector<std::vector<std::variant<int, bsl::string>>>`
+/// - `std::vector<MyRowStruct>`
+
+/// If `rows` (client’s row-based structure) is not a valid C++ range, the client will
+/// need to either make it iterable, or make an adapter/wrapper that is a valid C++
+/// range.
+
+/// The client must provide a `DataPointConvertor` callable type that will convert the
+/// structure’s data points into the corresponding arrow types.
+
+/// Complex nested rows can be supported by providing a custom `row_accessor` instead
+/// of the default.
+
+/// Example usage:
+/// \code{.cpp}
+/// auto IntConvertor = [](ArrayBuilder& array_builder, int value) {
+///  return static_cast<Int64Builder&>(array_builder).Append(value);
+/// };
+/// std::vector<std::vector<int>> data = {{1, 2, 4}, {5, 6, 7}};
+/// auto batches = RowsToBatches(test_schema, std::ref(data), IntConvertor);
+/// \endcode
+
+/// \param[in] schema - the schema to be used in the `RecordBatchReader`
+
+/// \param[in] rows - iterable row-based structure that will be converted to arrow
+/// batches
+
+/// \param[in] data_point_convertor - client provided callable type that will convert
+/// the structure’s data points into the corresponding arrow types. The convertor must
+/// return an error `Status` if an error happens during conversion.
+
+/// \param[in] row_accessor - In the common case where the value of each row iterated
+/// over is it's self also directly iterable, the client can just use the default.
+/// the provided callable must take the values of the otter `rows` range and return a
+/// `std::reference_wrapper<Range>` to the data points in a given row.
+/// see: /ref `MakeDefaultRowAccessor`
+
+/// \return `Result<std::shared_ptr<RecordBatchReader>>>` result will be a
+/// `std::shared_ptr<RecordBatchReader>>` if not errors occurred, else an error status.
 template <class Range, class DataPointConvertor,
-          class RowAccessor = decltype(detail::MakeDefaultAccessor())>
-typename std::enable_if_t<detail::is_range<Range>::value,
-                          Result<std::shared_ptr<RecordBatchReader>>>
+          class RowAccessor = decltype(detail::MakeDefaultRowAccessor())>
+[[nodiscard]] typename std::enable_if_t<detail::is_range<Range>::value,
+                                        Result<std::shared_ptr<RecordBatchReader>>>
 /* Result<std::shared_ptr<RecordBatchReader>>> */ RowsToBatches(
     const std::shared_ptr<Schema>& schema, std::reference_wrapper<Range> rows,
     DataPointConvertor&& data_point_convertor,
-    RowAccessor&& row_accessor = detail::MakeDefaultAccessor()) {
+    RowAccessor&& row_accessor = detail::MakeDefaultRowAccessor()) {
   const std::size_t batch_size = 1024;
   auto make_next_batch =
       [rows_ittr = std::begin(rows.get()), rows_ittr_end = std::end(rows.get()),
