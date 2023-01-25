@@ -71,7 +71,7 @@ struct is_range<T, std::void_t<decltype(std::begin(std::declval<T>())),
 ///  return static_cast<Int64Builder&>(array_builder).Append(value);
 /// };
 /// std::vector<std::vector<int>> data = {{1, 2, 4}, {5, 6, 7}};
-/// auto batches = RowsToBatches(test_schema, std::ref(data), IntConvertor);
+/// auto batches = RowsToBatches(kTestSchema, std::ref(data), IntConvertor);
 /// \endcode
 
 /// \param[in] schema - the schema to be used in the `RecordBatchReader`

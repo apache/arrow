@@ -27,7 +27,7 @@
 namespace arrow::util {
 
 // clang-format off
-const auto test_schema = schema(
+const auto kTestSchema = schema(
     {field("field_1", int64()),
      field("field_2", int64()),
      field("field_3", int64())} );
@@ -40,7 +40,7 @@ auto IntConvertor = [](ArrayBuilder& array_builder, int value) {
 TEST(RowsToBatches, BasicUsage) {
   std::vector<std::vector<int>> data = {{1, 2, 4}, {5, 6, 7}};
 
-  auto batches = RowsToBatches(test_schema, std::ref(data), IntConvertor).ValueOrDie();
+  auto batches = RowsToBatches(kTestSchema, std::ref(data), IntConvertor).ValueOrDie();
 
   auto table = batches->ToTable().ValueOrDie();
 
