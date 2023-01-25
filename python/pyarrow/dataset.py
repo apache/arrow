@@ -47,7 +47,8 @@ from pyarrow._dataset import (  # noqa
     UnionDataset,
     UnionDatasetFactory,
     WrittenFile,
-    _get_partition_keys,
+    get_partition_keys,
+    get_partition_keys as _get_partition_keys,  # keep for backwards compatibility
     _filesystemdataset_write,
 )
 # keep Expression functionality exposed here for backwards compatibility
