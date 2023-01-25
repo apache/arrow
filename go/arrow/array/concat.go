@@ -538,16 +538,16 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, erro
 			values[i] = NewSliceData(d.Children()[1], int64(off), int64(off+plen))
 			defer values[i].Release()
 
-			physicalLength, overflow = addOvf(physicalLength, int(plen))
+			physicalLength, overflow = addOvf(physicalLength, plen)
 			if overflow {
-				return nil, fmt.Errorf("%w: run length encoded array length must fit into a 32-bit signed integer",
+				return nil, fmt.Errorf("%w: run end encoded array length must fit into a 32-bit signed integer",
 					arrow.ErrInvalid)
 			}
 		}
 
 		runEndsByteWidth := runs[0].DataType().(arrow.FixedWidthDataType).Bytes()
 		runEndsBuffers := gatherFixedBuffers(runs, 1, runEndsByteWidth)
-		outRunEndsLen := int(physicalLength) * runEndsByteWidth
+		outRunEndsLen := physicalLength * runEndsByteWidth
 		outRunEndsBuf := memory.NewResizableBuffer(mem)
 		outRunEndsBuf.Resize(outRunEndsLen)
 		defer outRunEndsBuf.Release()
