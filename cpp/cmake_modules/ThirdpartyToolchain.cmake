@@ -4717,7 +4717,6 @@ endif()
 macro(build_awssdk)
   message(STATUS "Building AWS C++ SDK from source")
   set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
-  set(AWSSDK_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-prefix/src/awssdk_ep")
   set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
 
   if(WIN32)
@@ -4737,11 +4736,6 @@ macro(build_awssdk)
       -DENABLE_UNITY_BUILD=ON
       "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
       "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
-  if(NOT MSVC)
-    list(APPEND AWSSDK_COMMON_CMAKE_ARGS
-         # Workaround for https://github.com/aws/aws-sdk-cpp/issues/1582
-         "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS} -Wno-error=deprecated-declarations")
-  endif()
 
   # provide hint for AWS SDK to link with the already located openssl
   get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
@@ -4789,8 +4783,6 @@ macro(build_awssdk)
       aws-c-s3
       aws-c-sdkutils
       s2n
-      crypto
-      ssl
       aws-crt-cpp)
   set(AWSSDK_LIBRARIES)
   foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
@@ -4930,15 +4922,6 @@ macro(build_awssdk)
                               aws_c_auth_ep)
   add_dependencies(AWS::aws-c-s3 aws_c_s3_ep)
 
-  externalproject_add(aws_lc_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_LC_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_LC_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${CRYPTO_STATIC_LIBRARY} ${SSL_STATIC_LIBRARY})
-  add_dependencies(AWS::crypto aws_lc_ep)
-  add_dependencies(AWS::ssl aws_lc_ep)
-
   externalproject_add(aws_crt_cpp_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${AWS_CRT_CPP_SOURCE_URL}
@@ -4956,7 +4939,6 @@ macro(build_awssdk)
                               aws_c_s3_ep
                               aws_c_sdkutils_ep
                               aws_checksums_ep
-                              aws_lc_ep
                               s2n_ep)
   add_dependencies(AWS::aws-crt-cpp aws_crt_cpp_ep)
 
@@ -4970,7 +4952,7 @@ macro(build_awssdk)
                                        ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_S3_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_STS_STATIC_LIBRARY}
-                      DEPENDS aws_c_event_stream_ep aws_crt_cpp_ep)
+                      DEPENDS aws_crt_cpp_ep)
   add_dependencies(toolchain awssdk_ep)
   foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
     if(${_AWSSDK_LIB} MATCHES "^aws-cpp-sdk-")
