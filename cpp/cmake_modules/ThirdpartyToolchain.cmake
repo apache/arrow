@@ -463,14 +463,15 @@ else()
   set_urls(AWS_C_COMPRESSION_SOURCE_URL
            "https://github.com/awslabs/aws-c-compression/archive/${ARROW_AWS_C_COMPRESSION_BUILD_VERSION}.tar.gz"
   )
-endif()
 
-if(DEFINED ENV{ARROW_AWS_C_EVENT_STREAM_URL})
-  set(AWS_C_EVENT_STREAM_SOURCE_URL "$ENV{ARROW_AWS_C_EVENT_STREAM_URL}")
-else()
-  set_urls(AWS_C_EVENT_STREAM_SOURCE_URL
-           "https://github.com/awslabs/aws-c-event-stream/archive/${ARROW_AWS_C_EVENT_STREAM_BUILD_VERSION}.tar.gz"
-  )
+  if(DEFINED ENV{ARROW_AWS_C_EVENT_STREAM_URL})
+    set(AWS_C_EVENT_STREAM_SOURCE_URL "$ENV{ARROW_AWS_C_EVENT_STREAM_URL}")
+  else()
+    set_urls(AWS_C_EVENT_STREAM_SOURCE_URL
+             "https://github.com/awslabs/aws-c-event-stream/archive/${ARROW_AWS_C_EVENT_STREAM_BUILD_VERSION}.tar.gz"
+    )
+  endif()
+
 endif()
 
 if(DEFINED ENV{ARROW_AWS_C_HTTP_URL})
@@ -519,93 +520,6 @@ else()
   set_urls(AWS_CHECKSUMS_SOURCE_URL
            "https://github.com/awslabs/aws-checksums/archive/${ARROW_AWS_CHECKSUMS_BUILD_VERSION}.tar.gz"
   )
-endif()
-
-if(DEFINED ENV{ARROW_AWS_CRT_CPP_URL})
-  set(AWS_CRT_CPP_SOURCE_URL "$ENV{ARROW_AWS_CRT_CPP_URL}")
-else()
-  set_urls(AWS_CRT_CPP_SOURCE_URL
-           "https://github.com/awslabs/aws-crt-cpp/archive/${ARROW_AWS_CRT_CPP_BUILD_VERSION}.tar.gz"
-  )
-endif()
-
-if(DEFINED ENV{ARROW_AWS_C_AUTH_URL})
-  set(AWS_C_AUTH_SOURCE_URL "$ENV{ARROW_AWS_C_AUTH_URL}")
-else()
-  set_urls(AWS_C_AUTH_SOURCE_URL
-           "https://github.com/awslabs/aws-c-auth/archive/${ARROW_AWS_C_AUTH_BUILD_VERSION}.tar.gz"
-  )
-endif()
-
-if(DEFINED ENV{ARROW_AWS_C_CAL_URL})
-  set(AWS_C_CAL_SOURCE_URL "$ENV{ARROW_AWS_C_CAL_URL}")
-else()
-  set_urls(AWS_C_CAL_SOURCE_URL
-           "https://github.com/awslabs/aws-c-cal/archive/${ARROW_AWS_C_CAL_BUILD_VERSION}.tar.gz"
-  )
-endif()
-
-if(DEFINED ENV{ARROW_AWS_C_COMPRESSION_URL})
-  set(AWS_C_COMPRESSION_SOURCE_URL "$ENV{ARROW_AWS_C_COMPRESSION_URL}")
-else()
-  set_urls(AWS_C_COMPRESSION_SOURCE_URL
-           "https://github.com/awslabs/aws-c-compression/archive/${ARROW_AWS_C_COMPRESSION_BUILD_VERSION}.tar.gz"
-  )
-endif()
-
-if(DEFINED ENV{ARROW_AWS_C_HTTP_URL})
-  set(AWS_C_HTTP_SOURCE_URL "$ENV{ARROW_AWS_C_HTTP_URL}")
-else()
-  set_urls(AWS_C_HTTP_SOURCE_URL
-           "https://github.com/awslabs/aws-c-http/archive/${ARROW_AWS_C_HTTP_BUILD_VERSION}.tar.gz"
-  )
-endif()
-
-if(DEFINED ENV{ARROW_AWS_C_IO_URL})
-  set(AWS_C_IO_SOURCE_URL "$ENV{ARROW_AWS_C_IO_URL}")
-else()
-  set_urls(AWS_C_IO_SOURCE_URL
-           "https://github.com/awslabs/aws-c-io/archive/${ARROW_AWS_C_IO_BUILD_VERSION}.tar.gz"
-  )
-endif()
-
-if(DEFINED ENV{ARROW_AWS_C_MQTT_URL})
-  set(AWS_C_MQTT_SOURCE_URL "$ENV{ARROW_AWS_C_MQTT_URL}")
-else()
-  set_urls(AWS_C_MQTT_SOURCE_URL
-           "https://github.com/awslabs/aws-c-mqtt/archive/${ARROW_AWS_C_MQTT_BUILD_VERSION}.tar.gz"
-  )
-endif()
-
-if(DEFINED ENV{ARROW_AWS_C_S3_URL})
-  set(AWS_C_S3_SOURCE_URL "$ENV{ARROW_AWS_C_S3_URL}")
-else()
-  set_urls(AWS_C_S3_SOURCE_URL
-           "https://github.com/awslabs/aws-c-s3/archive/${ARROW_AWS_C_S3_BUILD_VERSION}.tar.gz"
-  )
-endif()
-
-if(DEFINED ENV{ARROW_AWS_C_SDKUTILS_URL})
-  set(AWS_C_SDKUTILS_SOURCE_URL "$ENV{ARROW_AWS_C_SDKUTILS_URL}")
-else()
-  set_urls(AWS_C_SDKUTILS_SOURCE_URL
-           "https://github.com/awslabs/aws-c-sdkutils/archive/${ARROW_AWS_C_SDKUTILS_BUILD_VERSION}.tar.gz"
-  )
-endif()
-
-if(DEFINED ENV{ARROW_AWS_LC_URL})
-  set(AWS_LC_SOURCE_URL "$ENV{ARROW_AWS_LC_URL}")
-else()
-  set_urls(AWS_LC_SOURCE_URL
-           "https://github.com/awslabs/aws-lc/archive/${ARROW_AWS_LC_BUILD_VERSION}.tar.gz"
-  )
-endif()
-
-if(DEFINED ENV{ARROW_S2N_URL})
-  set(S2N_SOURCE_URL "$ENV{ARROW_S2N_URL}")
-else()
-  set_urls(S2N_SOURCE_URL
-           "https://github.com/awslabs/s2n/archive/${ARROW_S2N_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_AWS_CRT_CPP_URL})
@@ -810,11 +724,11 @@ else()
            "${THIRDPARTY_MIRROR_URL}/rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz")
 endif()
 
-if(DEFINED ENV{ARROW_S2N_TLS_URL})
-  set(S2N_TLS_SOURCE_URL "$ENV{ARROW_S2N_TLS_URL}")
+if(DEFINED ENV{ARROW_S2N_URL})
+  set(S2N_SOURCE_URL "$ENV{ARROW_S2N_URL}")
 else()
-  set_urls(S2N_TLS_SOURCE_URL
-           "https://github.com/aws/s2n-tls/archive/${ARROW_S2N_TLS_BUILD_VERSION}.tar.gz")
+  set_urls(S2N_SOURCE_URL
+           "https://github.com/awslabs/s2n/archive/${ARROW_S2N_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_SNAPPY_URL})
@@ -4946,7 +4860,7 @@ macro(build_awssdk)
                       URL_HASH "SHA256=${ARROW_AWS_C_EVENT_STREAM_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_EVENT_STREAM_STATIC_LIBRARY}
-                      DEPENDS aws_checksums_ep s2n_ep aws_c_io_ep)
+                      DEPENDS aws_checksums_ep aws_c_common_ep aws_c_io_ep)
   add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
 
   externalproject_add(aws_c_sdkutils_ep
@@ -4973,7 +4887,7 @@ macro(build_awssdk)
                       URL_HASH "SHA256=${ARROW_AWS_C_HTTP_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_HTTP_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep s2n_ep aws_c_io_ep aws_c_compression_ep)
+                      DEPENDS aws_c_io_ep aws_c_compression_ep)
   add_dependencies(AWS::aws-c-http aws_c_http_ep)
 
   externalproject_add(aws_c_mqtt_ep
@@ -4982,7 +4896,7 @@ macro(build_awssdk)
                       URL_HASH "SHA256=${ARROW_AWS_C_MQTT_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_MQTT_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep s2n_ep aws_c_io_ep aws_c_http_ep)
+                      DEPENDS aws_c_io_ep aws_c_http_ep)
   add_dependencies(AWS::aws-c-mqtt aws_c_mqtt_ep)
 
   externalproject_add(aws_c_auth_ep
@@ -4991,11 +4905,7 @@ macro(build_awssdk)
                       URL_HASH "SHA256=${ARROW_AWS_C_AUTH_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_AUTH_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep
-                              aws_c_sdkutils_ep
-                              s2n_ep
-                              aws_c_io_ep
-                              aws_c_http_ep)
+                      DEPENDS aws_c_sdkutils_ep aws_c_cal_ep aws_c_http_ep)
   add_dependencies(AWS::aws-c-auth aws_c_auth_ep)
 
   externalproject_add(aws_c_s3_ep
@@ -5004,12 +4914,7 @@ macro(build_awssdk)
                       URL_HASH "SHA256=${ARROW_AWS_C_S3_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_S3_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep
-                              aws_c_cal_ep
-                              s2n_ep
-                              aws_c_io_ep
-                              aws_c_http_ep
-                              aws_c_auth_ep)
+                      DEPENDS aws_checksums_ep aws_c_auth_ep)
   add_dependencies(AWS::aws-c-s3 aws_c_s3_ep)
 
   externalproject_add(aws_crt_cpp_ep
@@ -5021,15 +4926,12 @@ macro(build_awssdk)
                       DEPENDS aws_c_auth_ep
                               aws_c_cal_ep
                               aws_c_common_ep
-                              aws_c_compression_ep
                               aws_c_event_stream_ep
                               aws_c_http_ep
                               aws_c_io_ep
                               aws_c_mqtt_ep
                               aws_c_s3_ep
-                              aws_c_sdkutils_ep
-                              aws_checksums_ep
-                              s2n_ep)
+                              aws_checksums_ep)
   add_dependencies(AWS::aws-crt-cpp aws_crt_cpp_ep)
 
   externalproject_add(awssdk_ep
