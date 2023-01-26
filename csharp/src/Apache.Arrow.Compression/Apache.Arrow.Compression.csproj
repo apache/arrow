@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
+    <Description>Provides decompression support for the Arrow IPC format</Description>
   </PropertyGroup>
 
   <ItemGroup>
