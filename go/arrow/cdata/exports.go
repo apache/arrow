@@ -70,6 +70,22 @@ func releaseExportedSchema(schema *CArrowSchema) {
 	C.free(unsafe.Pointer(schema.children))
 }
 
+// apache/arrow#33864: allocate a new cgo.Handle and store its address
+// in a heap-allocated uintptr_t.
+func createHandle(hndl cgo.Handle) unsafe.Pointer {
+	// uintptr_t* hptr = malloc(sizeof(uintptr_t));
+	hptr := (*C.uintptr_t)(C.malloc(C.sizeof_uintptr_t))
+	// *hptr = (uintptr)hndl;
+	*hptr = C.uintptr_t(uintptr(hndl))
+	return unsafe.Pointer(hptr)
+}
+
+func getHandle(ptr unsafe.Pointer) cgo.Handle {
+	// uintptr_t* hptr = (uintptr_t*)ptr;
+	hptr := (*C.uintptr_t)(ptr)
+	return cgo.Handle((uintptr)(*hptr))
+}
+
 //export releaseExportedArray
 func releaseExportedArray(arr *CArrowArray) {
 	if C.ArrowArrayIsReleased(arr) == 1 {
@@ -100,35 +116,35 @@ func releaseExportedArray(arr *CArrowArray) {
 		C.free(unsafe.Pointer(arr.children))
 	}
 
-	h := *(*cgo.Handle)(arr.private_data)
+	h := getHandle(arr.private_data)
 	h.Value().(arrow.ArrayData).Release()
 	h.Delete()
 }
 
 //export streamGetSchema
 func streamGetSchema(handle *CArrowArrayStream, out *CArrowSchema) C.int {
-	h := *(*cgo.Handle)(handle.private_data)
+	h := getHandle(handle.private_data)
 	rdr := h.Value().(cRecordReader)
 	return C.int(rdr.getSchema(out))
 }
 
 //export streamGetNext
 func streamGetNext(handle *CArrowArrayStream, out *CArrowArray) C.int {
-	h := *(*cgo.Handle)(handle.private_data)
+	h := getHandle(handle.private_data)
 	rdr := h.Value().(cRecordReader)
 	return C.int(rdr.next(out))
 }
 
 //export streamGetError
 func streamGetError(handle *CArrowArrayStream) *C.cchar_t {
-	h := *(*cgo.Handle)(handle.private_data)
+	h := getHandle(handle.private_data)
 	rdr := h.Value().(cRecordReader)
 	return rdr.getLastError()
 }
 
 //export streamRelease
 func streamRelease(handle *CArrowArrayStream) {
-	h := *(*cgo.Handle)(handle.private_data)
+	h := getHandle(handle.private_data)
 	h.Value().(cRecordReader).release()
 	h.Delete()
 	handle.release = nil
@@ -141,5 +157,5 @@ func exportStream(rdr array.RecordReader, out *CArrowArrayStream) {
 	out.get_last_error = (*[0]byte)(C.streamGetError)
 	out.release = (*[0]byte)(C.streamRelease)
 	h := cgo.NewHandle(cRecordReader{rdr: rdr, err: nil})
-	out.private_data = unsafe.Pointer(&h)
+	out.private_data = createHandle(h)
 }

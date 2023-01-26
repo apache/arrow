@@ -92,7 +92,7 @@ x-hierarchy:
   # This section is used by the archery tool to enable building nested images,
   # so it is enough to call:
   #   archery run debian-ruby
-  # instead of a seguence of docker-compose commands:
+  # instead of a sequence of docker-compose commands:
   #   docker-compose build debian-cpp
   #   docker-compose build debian-c-glib
   #   docker-compose build debian-ruby

@@ -106,7 +106,7 @@ void VerifyStringAndNumber_Single(std::string_view row, std::string_view prefix,
   const char* num_str_end = row.data() + row.size();
   int64_t num = 0;
   // Parse the number out; note that it can be padded with NUL chars at the end
-  for (; *num_str && num_str < num_str_end; num_str++) {
+  for (; num_str < num_str_end && *num_str; num_str++) {
     num *= 10;
     ASSERT_TRUE(std::isdigit(*num_str)) << row << ", prefix=" << prefix << ", i=" << i;
     num += *num_str - '0';
@@ -309,7 +309,7 @@ void VerifyOneOf(const Datum& d, int32_t byte_width,
   for (int64_t i = 0; i < length; i++) {
     const char* row = col + i * byte_width;
     int32_t row_len = 0;
-    while (row[row_len] && row_len < byte_width) row_len++;
+    while (row_len < byte_width && row[row_len]) row_len++;
     std::string_view view(row, row_len);
     ASSERT_TRUE(possibilities.find(view) != possibilities.end())
         << view << " is not a valid string.";
@@ -631,7 +631,7 @@ TEST(TpchNode, AllTables) {
   }
 
   ASSERT_OK(plan->Validate());
-  ASSERT_OK(plan->StartProducing());
+  plan->StartProducing();
   ASSERT_OK(plan->finished().status());
   for (int i = 0; i < kNumTables; i++) {
     auto fut = CollectAsyncGenerator(gens[i]);

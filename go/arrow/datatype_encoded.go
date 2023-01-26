@@ -46,6 +46,7 @@ func (t *RunEndEncodedType) Fingerprint() string {
 	return typeFingerprint(t) + "{" + t.ends.Fingerprint() + ";" + t.enc.Fingerprint() + ";}"
 }
 
+func (t *RunEndEncodedType) RunEnds() DataType { return t.ends }
 func (t *RunEndEncodedType) Encoded() DataType { return t.enc }
 
 func (t *RunEndEncodedType) Fields() []Field {
