@@ -34,7 +34,7 @@
 #include "parquet/platform.h"
 #include "parquet/test_util.h"
 #include "parquet/types.h"
-#include "parquet/xxhash.h"
+#include "parquet/xxhasher.h"
 
 namespace parquet {
 namespace test {

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/xxhash.h"
+#include "parquet/xxhasher.h"
 
 #define XXH_INLINE_ALL
 #include "arrow/vendored/xxhash/xxhash.h"

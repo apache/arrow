@@ -25,7 +25,7 @@
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
 #include "parquet/thrift_internal.h"
-#include "parquet/xxhash.h"
+#include "parquet/xxhasher.h"
 
 namespace parquet {
 constexpr uint32_t BlockSplitBloomFilter::SALT[kBitsSetPerBlock];

@@ -165,7 +165,7 @@ set(PARQUET_SRCS
     level_comparison.cc
     level_conversion.cc
     metadata.cc
-    xxhash.cc
+    xxhasher.cc
     page_index.cc
     "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
     "${ARROW_SOURCE_DIR}/src/generated/parquet_types.cpp"
