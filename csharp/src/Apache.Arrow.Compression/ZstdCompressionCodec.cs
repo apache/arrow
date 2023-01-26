@@ -17,7 +17,7 @@ using System;
 using Apache.Arrow.Ipc;
 using ZstdSharp;
 
-namespace Apache.Arrow.Tests.Compression
+namespace Apache.Arrow.Compression
 {
     internal sealed class ZstdCompressionCodec : ICompressionCodec
     {

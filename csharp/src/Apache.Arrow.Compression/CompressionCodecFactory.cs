@@ -15,24 +15,22 @@
 
 using System;
 using Apache.Arrow.Ipc;
-using CommunityToolkit.HighPerformance;
-using K4os.Compression.LZ4.Streams;
 
-namespace Apache.Arrow.Tests.Compression
+namespace Apache.Arrow.Compression
 {
-    internal sealed class Lz4CompressionCodec : ICompressionCodec
+    /// <summary>
+    /// Creates compression codec implementations for decompressing Arrow IPC data
+    /// </summary>
+    public sealed class CompressionCodecFactory : ICompressionCodecFactory
     {
-        public int Decompress(ReadOnlyMemory<byte> source, Memory<byte> destination)
+        public ICompressionCodec CreateCodec(CompressionCodecType compressionCodecType)
         {
-            using var sourceStream = source.AsStream();
-            using var destStream = destination.AsStream();
-            using var decompressedStream = LZ4Stream.Decode(sourceStream);
-            decompressedStream.CopyTo(destStream);
-            return (int) destStream.Length;
-        }
-
-        public void Dispose()
-        {
+            return compressionCodecType switch
+            {
+                CompressionCodecType.Lz4Frame => new Lz4CompressionCodec(),
+                CompressionCodecType.Zstd => new ZstdCompressionCodec(),
+                _ => throw new NotImplementedException($"Compression type {compressionCodecType} is not supported")
+            };
         }
     }
 }
