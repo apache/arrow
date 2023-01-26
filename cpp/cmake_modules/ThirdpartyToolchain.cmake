@@ -4771,19 +4771,19 @@ macro(build_awssdk)
       aws-cpp-sdk-cognito-identity
       aws-cpp-sdk-s3
       aws-cpp-sdk-core
-      aws-c-event-stream
-      aws-checksums
-      aws-c-common
-      aws-c-auth
-      aws-c-cal
-      aws-c-compression
-      aws-c-http
-      aws-c-io
-      aws-c-mqtt
+      aws-crt-cpp
       aws-c-s3
+      aws-c-auth
+      aws-c-mqtt
+      aws-c-http
+      aws-c-compression
       aws-c-sdkutils
+      aws-c-event-stream
+      aws-c-io
+      aws-c-cal
       s2n
-      aws-crt-cpp)
+      aws-checksums
+      aws-c-common)
   set(AWSSDK_LIBRARIES)
   foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
     # aws-c-common -> AWS-C-COMMON
@@ -4883,7 +4883,7 @@ macro(build_awssdk)
                       URL_HASH "SHA256=${ARROW_AWS_C_HTTP_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_HTTP_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep s2n_ep aws_c_io_ep)
+                      DEPENDS aws_c_common_ep s2n_ep aws_c_io_ep aws_c_compression_ep)
   add_dependencies(AWS::aws-c-http aws_c_http_ep)
 
   externalproject_add(aws_c_mqtt_ep
