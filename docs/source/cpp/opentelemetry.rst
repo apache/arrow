@@ -41,7 +41,7 @@ Exporting Tracing Information
 
 By default, no tracing information is exported until a tracing backend has been
 specified. The choice of tracing backend is controlled with the
-:envvar:`_ARROW_TRACING_BACKEND` environment variable. Possible values are:
+:envvar:`ARROW_TRACING_BACKEND` environment variable. Possible values are:
 
    - ``ostream``: emit textual log messages to stdout
    - ``otlp_http``: emit JSON traces to a HTTP server (by default, the endpoint
