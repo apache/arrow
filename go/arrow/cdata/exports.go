@@ -119,6 +119,7 @@ func releaseExportedArray(arr *CArrowArray) {
 	h := getHandle(arr.private_data)
 	h.Value().(arrow.ArrayData).Release()
 	h.Delete()
+	C.free(unsafe.Pointer(arr.private_data))
 }
 
 //export streamGetSchema
@@ -147,6 +148,7 @@ func streamRelease(handle *CArrowArrayStream) {
 	h := getHandle(handle.private_data)
 	h.Value().(cRecordReader).release()
 	h.Delete()
+	C.free(unsafe.Pointer(handle.private_data))
 	handle.release = nil
 	handle.private_data = nil
 }
