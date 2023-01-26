@@ -4829,8 +4829,7 @@ macro(build_awssdk)
   add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
   set(S2N_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
-  # When arrow is dynamically linked, arrow-s3fs-test and libarrow.so 
-  # each has its own copy of AWS SDK. 
+  # When arrow is dynamically linked, arrow-s3fs-test and libarrow.so each has its own copy of AWS SDK.
   # Need S2N to statically link OpenSSL::Crypto and internalize it to avoid conflicts.
   if(ARROW_BUILD_TESTS AND ARROW_TEST_LINKAGE STREQUAL "shared")
     list(APPEND S2N_CMAKE_ARGS -DS2N_INTERN_LIBCRYPTO=ON)
