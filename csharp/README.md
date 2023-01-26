@@ -107,6 +107,16 @@ for currently available features.
 - File
 - Stream
 
+## IPC Format
+
+### Compression
+
+- Buffer compression is not supported when writing IPC files or streams
+- Buffer decompression is supported, but requires installing the `Apache.Arrow.Compression` package,
+  and passing an `Apache.Arrow.Compression.CompressionCodecFactory` instance to the
+  `ArrowFileReader` or `ArrowStreamReader` constructor.
+  Alternatively, a custom implementation of `ICompressionCodecFactory` can be used.
+
 ## Not Implemented
 
 - Serialization
