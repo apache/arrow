@@ -264,6 +264,9 @@ struct ARROW_EXPORT TypeHolder {
   }
 
   static std::string ToString(const std::vector<TypeHolder>&);
+
+  static std::vector<TypeHolder> FromTypes(
+      const std::vector<std::shared_ptr<DataType>>& types);
 };
 
 ARROW_EXPORT

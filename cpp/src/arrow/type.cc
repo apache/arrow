@@ -452,6 +452,16 @@ std::string TypeHolder::ToString(const std::vector<TypeHolder>& types) {
   return ss.str();
 }
 
+std::vector<TypeHolder> TypeHolder::FromTypes(
+    const std::vector<std::shared_ptr<DataType>>& types) {
+  std::vector<TypeHolder> type_holders;
+  type_holders.reserve(types.size());
+  for (const auto& type : types) {
+    type_holders.emplace_back(type);
+  }
+  return type_holders;
+}
+
 // ----------------------------------------------------------------------
 
 FloatingPointType::Precision HalfFloatType::precision() const {

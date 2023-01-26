@@ -2550,6 +2550,20 @@ cdef class RecordBatch(_PandasConvertible):
                 CRecordBatch.FromStructArray(struct_array.sp_array))
         return pyarrow_wrap_batch(c_record_batch)
 
+    def to_struct_array(self):
+        """
+        Convert to a struct array.
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_record_batch
+            shared_ptr[CArray] c_array
+
+        c_record_batch = pyarrow_unwrap_batch(self)
+        with nogil:
+            c_array = GetResultValue(
+                <CResult[shared_ptr[CArray]]>deref(c_record_batch).ToStructArray())
+        return pyarrow_wrap_array(c_array)
+
     def _export_to_c(self, out_ptr, out_schema_ptr=0):
         """
         Export to a C ArrowArray struct, given its pointer.

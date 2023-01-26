@@ -32,22 +32,11 @@ from pyarrow.lib cimport *
 from pyarrow.lib import ArrowTypeError, frombytes, tobytes, _pc
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow._compute cimport Expression, _bind
+from pyarrow._compute import _forbid_instantiation
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
 from pyarrow._csv cimport (
     ConvertOptions, ParseOptions, ReadOptions, WriteOptions)
 from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
-
-
-def _forbid_instantiation(klass, subclasses_instead=True):
-    msg = '{} is an abstract class thus cannot be initialized.'.format(
-        klass.__name__
-    )
-    if subclasses_instead:
-        subclasses = [cls.__name__ for cls in klass.__subclasses__]
-        msg += ' Use one of the subclasses instead: {}'.format(
-            ', '.join(subclasses)
-        )
-    raise TypeError(msg)
 
 
 _orc_fileformat = None

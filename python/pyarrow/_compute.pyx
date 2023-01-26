@@ -36,6 +36,18 @@ import inspect
 import numpy as np
 
 
+def _forbid_instantiation(klass, subclasses_instead=True):
+    msg = '{} is an abstract class thus cannot be initialized.'.format(
+        klass.__name__
+    )
+    if subclasses_instead:
+        subclasses = [cls.__name__ for cls in klass.__subclasses__]
+        msg += ' Use one of the subclasses instead: {}'.format(
+            ', '.join(subclasses)
+        )
+    raise TypeError(msg)
+
+
 cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
     """
     Wrap a C++ scalar Function in a ScalarFunction object.
@@ -2574,7 +2586,7 @@ cdef object box_scalar_udf_context(const CScalarUdfContext& c_context):
     return context
 
 
-cdef _scalar_udf_callback(user_function, const CScalarUdfContext& c_context, inputs):
+cdef _udf_callback(user_function, const CScalarUdfContext& c_context, inputs):
     """
     Helper callback function used to wrap the ScalarUdfContext from Python to C++
     execution.
@@ -2591,8 +2603,30 @@ def _get_scalar_udf_context(memory_pool, batch_length):
     return context
 
 
-def register_scalar_function(func, function_name, function_doc, in_types,
-                             out_type):
+ctypedef CStatus (*CRegisterUdf)(PyObject* function, function[CallbackUdf] wrapper,
+                                 const CUdfOptions& options, CFunctionRegistry* registry)
+
+cdef class RegisterUdf(_Weakrefable):
+    cdef CRegisterUdf register_func
+
+    cdef void init(self, const CRegisterUdf register_func):
+        self.register_func = register_func
+
+
+cdef get_register_scalar_function():
+    cdef RegisterUdf reg = RegisterUdf.__new__(RegisterUdf)
+    reg.register_func = RegisterScalarFunction
+    return reg
+
+
+cdef get_register_tabular_function():
+    cdef RegisterUdf reg = RegisterUdf.__new__(RegisterUdf)
+    reg.register_func = RegisterTabularFunction
+    return reg
+
+
+def register_scalar_function(func, function_name, function_doc, in_types, out_type,
+                             func_registry=None):
     """
     Register a user-defined scalar function.
 
@@ -2633,6 +2667,8 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         arity.
     out_type : DataType
         Output type of the function.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
 
     Examples
     --------
@@ -2662,14 +2698,106 @@ def register_scalar_function(func, function_name, function_doc, in_types,
       21
     ]
     """
+    return _register_scalar_like_function(get_register_scalar_function(),
+                                          func, function_name, function_doc, in_types,
+                                          out_type, func_registry)
+
+
+def register_tabular_function(func, function_name, function_doc, in_types, out_type,
+                              func_registry=None):
+    """
+    Register a user-defined tabular function.
+
+    A tabular function is one accepting a context argument of type
+    ScalarUdfContext and returning a generator of struct arrays.
+    The in_types argument must be empty and the out_type argument
+    specifies a schema. Each struct array must have field types
+    correspoding to the schema.
+
+    Parameters
+    ----------
+    func : callable
+        A callable implementing the user-defined function.
+        The only argument is the context argument of type
+        ScalarUdfContext. It must return a callable that
+        returns on each invocation a StructArray matching
+        the out_type, where an empty array indicates end.
+    function_name : str
+        Name of the function. This name must be globally unique.
+    function_doc : dict
+        A dictionary object with keys "summary" (str),
+        and "description" (str).
+    in_types : Dict[str, DataType]
+        Must be an empty dictionary (reserved for future use).
+    out_type : Union[Schema, DataType]
+        Schema of the function's output, or a corresponding flat struct type.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
+    """
     cdef:
+        shared_ptr[CSchema] c_schema
+        shared_ptr[CDataType] c_type
+
+    if isinstance(out_type, Schema):
+        c_schema = pyarrow_unwrap_schema(out_type)
+        with nogil:
+            c_type = <shared_ptr[CDataType]>make_shared[CStructType](deref(c_schema).fields())
+        out_type = pyarrow_wrap_data_type(c_type)
+    return _register_scalar_like_function(get_register_tabular_function(),
+                                          func, function_name, function_doc, in_types,
+                                          out_type, func_registry)
+
+
+def _register_scalar_like_function(register_func, func, function_name, function_doc, in_types,
+                                   out_type, func_registry=None):
+    """
+    Register a user-defined scalar-like function.
+
+    A scalar-like function is a callable accepting a first
+    context argument of type ScalarUdfContext as well as
+    possibly additional Arrow arguments, and returning a
+    an Arrow result appropriate for the kind of function.
+    A scalar function and a tabular function are examples
+    for scalar-like functions.
+    This function is normally not called directly but via
+    register_scalar_function or register_tabular_function.
+
+    Parameters
+    ----------
+    register_func: object
+        An object holding a CRegisterUdf in a "register_func" attribute. Use
+        get_register_scalar_function() for a scalar function and
+        get_register_tabular_function() for a tabular function.
+    func : callable
+        A callable implementing the user-defined function.
+        See register_scalar_function and
+        register_tabular_function for details.
+
+    function_name : str
+        Name of the function. This name must be globally unique.
+    function_doc : dict
+        A dictionary object with keys "summary" (str),
+        and "description" (str).
+    in_types : Dict[str, DataType]
+        A dictionary mapping function argument names to
+        their respective DataType.
+        See register_scalar_function and
+        register_tabular_function for details.
+    out_type : DataType
+        Output type of the function.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
+    """
+    cdef:
+        CRegisterUdf c_register_func
         c_string c_func_name
         CArity c_arity
         CFunctionDoc c_func_doc
         vector[shared_ptr[CDataType]] c_in_types
         PyObject* c_function
         shared_ptr[CDataType] c_out_type
-        CScalarUdfOptions c_options
+        CUdfOptions c_options
+        CFunctionRegistry* c_func_registry
 
     if callable(func):
         c_function = <PyObject*>func
@@ -2711,5 +2839,51 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     c_options.input_types = c_in_types
     c_options.output_type = c_out_type
 
-    check_status(RegisterScalarFunction(c_function,
-                                        <function[CallbackUdf]> &_scalar_udf_callback, c_options))
+    if func_registry is None:
+        c_func_registry = NULL
+    else:
+        c_func_registry = (<FunctionRegistry>func_registry).registry
+
+    c_register_func = (<RegisterUdf>register_func).register_func
+
+    check_status(c_register_func(c_function,
+                                 <function[CallbackUdf]> &_udf_callback,
+                                 c_options, c_func_registry))
+
+
+def call_tabular_function(function_name, args=None, func_registry=None):
+    """
+    Get a record batch iterator from a tabular function.
+
+    Parameters
+    ----------
+    function_name : str
+        Name of the function.
+    args : iterable
+        The arguments to pass to the function.  Accepted types depend
+        on the specific function.  Currently, only an empty args is supported.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
+    """
+    cdef:
+        c_string c_func_name
+        vector[CDatum] c_args
+        CFunctionRegistry* c_func_registry
+        shared_ptr[CRecordBatchReader] c_reader
+        RecordBatchReader reader
+
+    c_func_name = tobytes(function_name)
+    if func_registry is None:
+        c_func_registry = NULL
+    else:
+        c_func_registry = (<FunctionRegistry>func_registry).registry
+    if args is None:
+        args = []
+    _pack_compute_args(args, &c_args)
+
+    with nogil:
+        c_reader = GetResultValue(CallTabularFunction(
+            c_func_name, c_args, c_func_registry))
+    reader = RecordBatchReader.__new__(RecordBatchReader)
+    reader.reader = c_reader
+    return RecordBatchReader.from_batches(pyarrow_wrap_schema(deref(c_reader).schema()), reader)
