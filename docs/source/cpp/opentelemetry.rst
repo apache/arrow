@@ -44,7 +44,7 @@ specified. The choice of tracing backend is controlled with the
 :envvar:`ARROW_TRACING_BACKEND` environment variable. Possible values are:
 
    - ``ostream``: emit textual log messages to stdout
-   - ``otlp_http``: emit JSON traces to a HTTP server (by default, the endpoint
+   - ``otlp_http``: emit OTLP JSON encoded traces to a HTTP server (by default, the endpoint
      URL is "http://localhost:4318/v1/traces")
    - ``arrow_otlp_stdout``: emit JSON traces to stdout
    - ``arrow_otlp_stderr``: emit JSON traces to stderr
