@@ -73,8 +73,8 @@ struct ARROW_EXPORT IpcWriteOptions {
   ///
   /// For example, if min_space_savings = 0.1, a 100-byte body buffer won't undergo
   /// compression if its expected compressed size exceeds 90 bytes. If this option is
-  /// set to 0.0, compression will be used indiscriminately. If no codec was supplied, this
-  /// option is ignored.
+  /// set to 0.0, compression will be used indiscriminately. If no codec was supplied,
+  /// this option is ignored.
   double min_space_savings = 0.0;
 
   /// \brief Use global CPU thread pool to parallelize any computational tasks
