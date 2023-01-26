@@ -27,12 +27,12 @@ extern "C" {
 #endif
 
 /// Query whether the C schema is released
-inline int ArrowSchemaIsReleased(const struct ArrowSchema* schema) {
+static inline int ArrowSchemaIsReleased(const struct ArrowSchema* schema) {
   return schema->release == NULL;
 }
 
 /// Mark the C schema released (for use in release callbacks)
-inline void ArrowSchemaMarkReleased(struct ArrowSchema* schema) {
+static inline void ArrowSchemaMarkReleased(struct ArrowSchema* schema) {
   schema->release = NULL;
 }
 
@@ -40,7 +40,7 @@ inline void ArrowSchemaMarkReleased(struct ArrowSchema* schema) {
 ///
 /// Note `dest` must *not* point to a valid schema already, otherwise there
 /// will be a memory leak.
-inline void ArrowSchemaMove(struct ArrowSchema* src, struct ArrowSchema* dest) {
+static inline void ArrowSchemaMove(struct ArrowSchema* src, struct ArrowSchema* dest) {
   assert(dest != src);
   assert(!ArrowSchemaIsReleased(src));
   memcpy(dest, src, sizeof(struct ArrowSchema));
@@ -48,7 +48,7 @@ inline void ArrowSchemaMove(struct ArrowSchema* src, struct ArrowSchema* dest) {
 }
 
 /// Release the C schema, if necessary, by calling its release callback
-inline void ArrowSchemaRelease(struct ArrowSchema* schema) {
+static inline void ArrowSchemaRelease(struct ArrowSchema* schema) {
   if (!ArrowSchemaIsReleased(schema)) {
     schema->release(schema);
     assert(ArrowSchemaIsReleased(schema));
@@ -56,18 +56,18 @@ inline void ArrowSchemaRelease(struct ArrowSchema* schema) {
 }
 
 /// Query whether the C array is released
-inline int ArrowArrayIsReleased(const struct ArrowArray* array) {
+static inline int ArrowArrayIsReleased(const struct ArrowArray* array) {
   return array->release == NULL;
 }
 
 /// Mark the C array released (for use in release callbacks)
-inline void ArrowArrayMarkReleased(struct ArrowArray* array) { array->release = NULL; }
+static inline void ArrowArrayMarkReleased(struct ArrowArray* array) { array->release = NULL; }
 
 /// Move the C array from `src` to `dest`
 ///
 /// Note `dest` must *not* point to a valid array already, otherwise there
 /// will be a memory leak.
-inline void ArrowArrayMove(struct ArrowArray* src, struct ArrowArray* dest) {
+static inline void ArrowArrayMove(struct ArrowArray* src, struct ArrowArray* dest) {
   assert(dest != src);
   assert(!ArrowArrayIsReleased(src));
   memcpy(dest, src, sizeof(struct ArrowArray));
@@ -75,7 +75,7 @@ inline void ArrowArrayMove(struct ArrowArray* src, struct ArrowArray* dest) {
 }
 
 /// Release the C array, if necessary, by calling its release callback
-inline void ArrowArrayRelease(struct ArrowArray* array) {
+static inline void ArrowArrayRelease(struct ArrowArray* array) {
   if (!ArrowArrayIsReleased(array)) {
     array->release(array);
     assert(ArrowArrayIsReleased(array));
@@ -83,12 +83,12 @@ inline void ArrowArrayRelease(struct ArrowArray* array) {
 }
 
 /// Query whether the C array stream is released
-inline int ArrowArrayStreamIsReleased(const struct ArrowArrayStream* stream) {
+static inline int ArrowArrayStreamIsReleased(const struct ArrowArrayStream* stream) {
   return stream->release == NULL;
 }
 
 /// Mark the C array stream released (for use in release callbacks)
-inline void ArrowArrayStreamMarkReleased(struct ArrowArrayStream* stream) {
+static inline void ArrowArrayStreamMarkReleased(struct ArrowArrayStream* stream) {
   stream->release = NULL;
 }
 
@@ -96,7 +96,7 @@ inline void ArrowArrayStreamMarkReleased(struct ArrowArrayStream* stream) {
 ///
 /// Note `dest` must *not* point to a valid stream already, otherwise there
 /// will be a memory leak.
-inline void ArrowArrayStreamMove(struct ArrowArrayStream* src,
+static inline void ArrowArrayStreamMove(struct ArrowArrayStream* src,
                                  struct ArrowArrayStream* dest) {
   assert(dest != src);
   assert(!ArrowArrayStreamIsReleased(src));
@@ -105,7 +105,7 @@ inline void ArrowArrayStreamMove(struct ArrowArrayStream* src,
 }
 
 /// Release the C array stream, if necessary, by calling its release callback
-inline void ArrowArrayStreamRelease(struct ArrowArrayStream* stream) {
+static inline void ArrowArrayStreamRelease(struct ArrowArrayStream* stream) {
   if (!ArrowArrayStreamIsReleased(stream)) {
     stream->release(stream);
     assert(ArrowArrayStreamIsReleased(stream));
