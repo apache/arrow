@@ -67,11 +67,11 @@ that changing their value later will have an effect.
    The backend where to export `OpenTelemetry <https://opentelemetry.io/>`_-based
    execution traces.  Possible values are:
 
-   - ``ostream``: emit textual log messages to stdout;
-   - ``otlp_http``: emit JSON traces to a HTTP server (by default, the endpoint
-     URL is "http://localhost:4318/v1/traces");
-   - ``arrow_otlp_stdout``: emit JSON traces to stdout;
-   - ``arrow_otlp_stderr``: emit JSON traces to stderr.
+   - ``ostream``: emit textual log messages to stdout
+   - ``otlp_http``: emit OTLP JSON encoded traces to a HTTP server (by default,
+     the endpoint URL is "http://localhost:4318/v1/traces")
+   - ``arrow_otlp_stdout``: emit JSON traces to stdout
+   - ``arrow_otlp_stderr``: emit JSON traces to stderr
 
    If this variable is not set, no traces are exported.
 
