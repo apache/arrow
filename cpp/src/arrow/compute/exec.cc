@@ -154,6 +154,11 @@ enum LengthInferenceError {
   kInvalidValues = -2,
 };
 
+/// \brief Infer the ExecBatch length from values.
+///
+/// \return the inferred length of the batch. If there are no values in the
+/// batch then kEmptyInput (-1) is returned. If the values in the batch have
+/// different lengths then kInvalidValues (-2) is returned.
 int64_t DoInferLength(const std::vector<Datum>& values) {
   if (values.empty()) {
     return kEmptyInput;
