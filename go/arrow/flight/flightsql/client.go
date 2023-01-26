@@ -355,7 +355,6 @@ func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string
 
 	prep = &PreparedStatement{
 		client:        c,
-		opts:          opts,
 		handle:        result.PreparedStatementHandle,
 		datasetSchema: dsSchema,
 		paramSchema:   paramSchema,
@@ -383,7 +382,6 @@ func (c *Client) Close() error { return c.Client.Close() }
 // should be called when no longer needed.
 type PreparedStatement struct {
 	client        *Client
-	opts          []grpc.CallOption
 	handle        []byte
 	datasetSchema *arrow.Schema
 	paramSchema   *arrow.Schema
@@ -397,7 +395,7 @@ type PreparedStatement struct {
 // then the parameter bindings will be sent before execution.
 //
 // Will error if already closed.
-func (p *PreparedStatement) Execute(ctx context.Context) (*flight.FlightInfo, error) {
+func (p *PreparedStatement) Execute(ctx context.Context, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	if p.closed {
 		return nil, errors.New("arrow/flightsql: prepared statement already closed")
 	}
@@ -410,7 +408,7 @@ func (p *PreparedStatement) Execute(ctx context.Context) (*flight.FlightInfo, er
 	}
 
 	if p.hasBindParameters() {
-		pstream, err := p.client.Client.DoPut(ctx, p.opts...)
+		pstream, err := p.client.Client.DoPut(ctx, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -430,13 +428,13 @@ func (p *PreparedStatement) Execute(ctx context.Context) (*flight.FlightInfo, er
 		}
 	}
 
-	return p.client.getFlightInfo(ctx, desc, p.opts...)
+	return p.client.getFlightInfo(ctx, desc, opts...)
 }
 
 // ExecuteUpdate executes the prepared statement update query on the server
 // and returns the number of rows affected. If SetParameters was called,
 // the parameter bindings will be sent with the request to execute.
-func (p *PreparedStatement) ExecuteUpdate(ctx context.Context) (nrecords int64, err error) {
+func (p *PreparedStatement) ExecuteUpdate(ctx context.Context, opts ...grpc.CallOption) (nrecords int64, err error) {
 	if p.closed {
 		return 0, errors.New("arrow/flightsql: prepared statement already closed")
 	}
@@ -455,7 +453,7 @@ func (p *PreparedStatement) ExecuteUpdate(ctx context.Context) (nrecords int64, 
 		return
 	}
 
-	if pstream, err = p.client.Client.DoPut(ctx, p.opts...); err != nil {
+	if pstream, err = p.client.Client.DoPut(ctx, opts...); err != nil {
 		return
 	}
 	if p.hasBindParameters() {
@@ -529,7 +527,7 @@ func (p *PreparedStatement) ParameterSchema() *arrow.Schema { return p.paramSche
 // statement from the server. It should otherwise be identical to DatasetSchema.
 //
 // Will error if already closed.
-func (p *PreparedStatement) GetSchema(ctx context.Context) (*flight.SchemaResult, error) {
+func (p *PreparedStatement) GetSchema(ctx context.Context, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
 	if p.closed {
 		return nil, errors.New("arrow/flightsql: prepared statement already closed")
 	}
@@ -541,7 +539,7 @@ func (p *PreparedStatement) GetSchema(ctx context.Context) (*flight.SchemaResult
 		return nil, err
 	}
 
-	return p.client.getSchema(ctx, desc, p.opts...)
+	return p.client.getSchema(ctx, desc, opts...)
 }
 
 func (p *PreparedStatement) clearParameters() {
@@ -585,7 +583,7 @@ func (p *PreparedStatement) SetRecordReader(binding array.RecordReader) {
 // Close calls release on any parameter binding record and sends
 // a ClosePreparedStatement action to the server. After calling
 // Close, the PreparedStatement should not be used again.
-func (p *PreparedStatement) Close(ctx context.Context) error {
+func (p *PreparedStatement) Close(ctx context.Context, opts ...grpc.CallOption) error {
 	if p.closed {
 		return errors.New("arrow/flightsql: already closed")
 	}
@@ -609,7 +607,7 @@ func (p *PreparedStatement) Close(ctx context.Context) error {
 	}
 
 	action := &flight.Action{Type: actionType, Body: body}
-	_, err = p.client.Client.DoAction(ctx, action, p.opts...)
+	_, err = p.client.Client.DoAction(ctx, action, opts...)
 	if err != nil {
 		return err
 	}

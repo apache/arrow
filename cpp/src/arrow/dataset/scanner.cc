@@ -22,6 +22,7 @@
 #include <memory>
 #include <mutex>
 #include <numeric>
+#include <set>
 #include <sstream>
 
 #include "arrow/array/array_primitive.h"
@@ -135,6 +136,7 @@ Result<std::shared_ptr<Schema>> GetProjectedSchemaFromExpression(
     const std::shared_ptr<Schema>& dataset_schema) {
   // process resultant dataset_schema after projection
   FieldVector project_fields;
+  std::set<std::string> field_names;
   if (auto call = projection.call()) {
     if (call->function_name != "make_struct") {
       return Status::Invalid("Top level projection expression call must be make_struct");
@@ -142,19 +144,26 @@ Result<std::shared_ptr<Schema>> GetProjectedSchemaFromExpression(
     for (const compute::Expression& arg : call->arguments) {
       if (auto field_ref = arg.field_ref()) {
         if (field_ref->IsName()) {
-          auto field = dataset_schema->GetFieldByName(*field_ref->name());
-          if (field) {
-            project_fields.push_back(std::move(field));
-          }
-          // if the field is not present in the schema we ignore it.
-          // the case is if kAugmentedFields are present in the expression
-          // and if they are not present in the provided schema, we ignore them.
+          field_names.emplace(*field_ref->name());
+        } else if (field_ref->IsNested()) {
+          // We keep the top-level field name.
+          auto nested_field_refs = *field_ref->nested_refs();
+          field_names.emplace(*nested_field_refs[0].name());
         } else {
           return Status::Invalid(
               "No projected schema was supplied and we could not infer the projected "
               "schema from the projection expression.");
         }
       }
+    }
+  }
+  for (auto f : field_names) {
+    auto field = dataset_schema->GetFieldByName(f);
+    if (field) {
+      // if the field is not present in the schema we ignore it.
+      // the case is if kAugmentedFields are present in the expression
+      // and if they are not present in the provided schema, we ignore them.
+      project_fields.push_back(std::move(field));
     }
   }
   return schema(project_fields);
@@ -286,16 +295,14 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
     const Enumerated<std::shared_ptr<Fragment>>& fragment,
     const std::shared_ptr<ScanOptions>& options) {
 #ifdef ARROW_WITH_OPENTELEMETRY
-  auto tracer = arrow::internal::tracing::GetTracer();
-  auto span = tracer->StartSpan(
-      "arrow::dataset::FragmentToBatches",
-      {
-          {"arrow.dataset.fragment", fragment.value->ToString()},
-          {"arrow.dataset.fragment.index", fragment.index},
-          {"arrow.dataset.fragment.last", fragment.last},
-          {"arrow.dataset.fragment.type_name", fragment.value->type_name()},
-      });
-  auto scope = tracer->WithActiveSpan(span);
+  util::tracing::Span span;
+  START_SPAN(span, "Scanner::FragmentToBatches",
+             {
+                 {"arrow.dataset.fragment", fragment.value->ToString()},
+                 {"arrow.dataset.fragment.index", fragment.index},
+                 {"arrow.dataset.fragment.last", fragment.last},
+                 {"arrow.dataset.fragment.type_name", fragment.value->type_name()},
+             });
 #endif
   ARROW_ASSIGN_OR_RAISE(auto batch_gen, fragment.value->ScanBatchesAsync(options));
   ArrayVector columns;
@@ -450,7 +457,7 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
           })
           .AddToPlan(plan.get()));
 
-  RETURN_NOT_OK(plan->StartProducing());
+  plan->StartProducing();
 
   auto options = scan_options_;
   ARROW_ASSIGN_OR_RAISE(auto fragments_it, dataset_->GetFragments(scan_options_->filter));
@@ -468,13 +475,24 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
         }
       }};
 
-  return MakeMappedGenerator(
+  EnumeratedRecordBatchGenerator mapped_gen = MakeMappedGenerator(
       std::move(sink_gen),
-      [sink_gen, options, stop_producing,
+      [sink_gen, options,
        shared_fragments](const std::optional<compute::ExecBatch>& batch)
           -> Future<EnumeratedRecordBatch> {
         return ToEnumeratedRecordBatch(batch, *options, *shared_fragments);
       });
+
+  return [mapped_gen = std::move(mapped_gen), plan = std::move(plan),
+          stop_producing = std::move(stop_producing)] {
+    auto next = mapped_gen();
+    return next.Then([plan](const EnumeratedRecordBatch& value) {
+      if (IsIterationEnd(value)) {
+        return plan->finished().Then([value] { return value; });
+      }
+      return Future<EnumeratedRecordBatch>::MakeFinished(value);
+    });
+  };
 }
 
 Result<std::shared_ptr<Table>> AsyncScanner::TakeRows(const Array& indices) {

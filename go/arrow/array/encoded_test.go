@@ -207,3 +207,67 @@ func TestRLECompare(t *testing.T) {
 		assert.True(t, array.Equal(sliceB, differentOffsetsC))
 	})
 }
+
+func TestRunEndEncodedBuilder(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	bldr := array.NewBuilder(mem, arrow.RunEndEncodedOf(arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String))
+	defer bldr.Release()
+
+	assert.IsType(t, (*array.RunEndEncodedBuilder)(nil), bldr)
+	reeBldr := bldr.(*array.RunEndEncodedBuilder)
+
+	valBldr := reeBldr.ValueBuilder().(*array.StringBuilder)
+
+	reeBldr.Append(100)
+	valBldr.Append("Hello")
+	reeBldr.Append(100)
+	valBldr.Append("beautiful")
+	reeBldr.Append(50)
+	valBldr.Append("world")
+	reeBldr.ContinueRun(50)
+	reeBldr.Append(100)
+	valBldr.Append("of")
+	reeBldr.Append(100)
+	valBldr.Append("RLE")
+	reeBldr.AppendNull()
+
+	rleArray := reeBldr.NewRunEndEncodedArray()
+	defer rleArray.Release()
+
+	assert.EqualValues(t, 501, rleArray.Len())
+	assert.EqualValues(t, 6, rleArray.GetPhysicalLength())
+	assert.Equal(t, arrow.INT16, rleArray.RunEndsArr().DataType().ID())
+	assert.Equal(t, []int16{100, 200, 300, 400, 500, 501}, rleArray.RunEndsArr().(*array.Int16).Int16Values())
+
+	strValues := rleArray.Values().(*array.String)
+	assert.Equal(t, "Hello", strValues.Value(0))
+	assert.Equal(t, "beautiful", strValues.Value(1))
+	assert.Equal(t, "world", strValues.Value(2))
+	assert.Equal(t, "of", strValues.Value(3))
+	assert.Equal(t, "RLE", strValues.Value(4))
+	assert.True(t, strValues.IsNull(5))
+}
+
+func TestREEBuilderOverflow(t *testing.T) {
+	for _, typ := range []arrow.DataType{arrow.PrimitiveTypes.Int16, arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int64} {
+		t.Run("run_ends="+typ.String(), func(t *testing.T) {
+
+			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+			defer mem.AssertSize(t, 0)
+
+			bldr := array.NewRunEndEncodedBuilder(mem, typ, arrow.BinaryTypes.String)
+			defer bldr.Release()
+
+			valBldr := bldr.ValueBuilder().(*array.StringBuilder)
+			assert.Panics(t, func() {
+				valBldr.Append("Foo")
+
+				maxVal := uint64(1<<typ.(arrow.FixedWidthDataType).BitWidth()) - 1
+
+				bldr.Append(uint64(maxVal))
+			})
+		})
+	}
+}

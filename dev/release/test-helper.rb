@@ -19,6 +19,7 @@ require "English"
 require "cgi/util"
 require "fileutils"
 require "find"
+require 'net/http'
 require "json"
 require "open-uri"
 require "rexml/document"

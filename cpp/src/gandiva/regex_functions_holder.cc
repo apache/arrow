@@ -17,14 +17,11 @@
 
 #include "gandiva/regex_functions_holder.h"
 #include <regex>
+#include "arrow/util/macros.h"
 #include "gandiva/node.h"
 #include "gandiva/regex_util.h"
 
 namespace gandiva {
-
-RE2 LikeHolder::starts_with_regex_(R"(([^\.\*])*\.\*)");
-RE2 LikeHolder::ends_with_regex_(R"(\.\*([^\.\*])*)");
-RE2 LikeHolder::is_substr_regex_(R"(\.\*([^\.\*])*\.\*)");
 
 std::string& RemovePatternEscapeChars(const FunctionNode& node, std::string& pattern) {
   pattern.erase(std::remove(pattern.begin(), pattern.end(), '\\'), pattern.end());
@@ -34,27 +31,44 @@ std::string& RemovePatternEscapeChars(const FunctionNode& node, std::string& pat
 // Short-circuit pattern matches for the following common sub cases :
 // - starts_with, ends_with and is_substr
 const FunctionNode LikeHolder::TryOptimize(const FunctionNode& node) {
+  // NOTE: avoid making those constants global to avoid compiling regexes at startup
+  // pre-compiled pattern for matching starts_with
+  static const RE2 starts_with_regex(R"(([^\.\*])*\.\*)");
+  // pre-compiled pattern for matching ends_with
+  static const RE2 ends_with_regex(R"(\.\*([^\.\*])*)");
+  // pre-compiled pattern for matching is_substr
+  static const RE2 is_substr_regex(R"(\.\*([^\.\*])*\.\*)");
+
+  static bool global_checked = false;
+  if (ARROW_PREDICT_FALSE(!global_checked)) {
+    if (ARROW_PREDICT_FALSE(
+            !(starts_with_regex.ok() && ends_with_regex.ok() && is_substr_regex.ok()))) {
+      return node;
+    }
+    global_checked = true;
+  }
+
   std::shared_ptr<LikeHolder> holder;
   auto status = Make(node, &holder);
   if (status.ok()) {
     std::string& pattern = holder->pattern_;
     auto literal_type = node.children().at(1)->return_type();
 
-    if (RE2::FullMatch(pattern, starts_with_regex_)) {
+    if (RE2::FullMatch(pattern, starts_with_regex)) {
       auto prefix = pattern.substr(0, pattern.length() - 2);  // trim .*
       auto parsed_prefix = RemovePatternEscapeChars(node, prefix);
       auto prefix_node = std::make_shared<LiteralNode>(
           literal_type, LiteralHolder(parsed_prefix), false);
       return FunctionNode("starts_with", {node.children().at(0), prefix_node},
                           node.return_type());
-    } else if (RE2::FullMatch(pattern, ends_with_regex_)) {
+    } else if (RE2::FullMatch(pattern, ends_with_regex)) {
       auto suffix = pattern.substr(2);  // skip .*
       auto parsed_suffix = RemovePatternEscapeChars(node, suffix);
       auto suffix_node = std::make_shared<LiteralNode>(
           literal_type, LiteralHolder(parsed_suffix), false);
       return FunctionNode("ends_with", {node.children().at(0), suffix_node},
                           node.return_type());
-    } else if (RE2::FullMatch(pattern, is_substr_regex_)) {
+    } else if (RE2::FullMatch(pattern, is_substr_regex)) {
       auto substr =
           pattern.substr(2, pattern.length() - 4);  // trim starting and ending .*
       auto parsed_substr = RemovePatternEscapeChars(node, substr);
@@ -115,9 +129,10 @@ Status LikeHolder::Make(const std::string& sql_pattern,
 
   auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
   ARROW_RETURN_IF(!lholder->regex_.ok(),
-                  Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
+                  Status::Invalid("Building RE2 pattern '", pcre_pattern,
+                                  "' failed with: ", lholder->regex_.error()));
 
-  *holder = lholder;
+  *holder = std::move(lholder);
   return Status::OK();
 }
 
@@ -136,9 +151,10 @@ Status LikeHolder::Make(const std::string& sql_pattern, const std::string& escap
 
   auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
   ARROW_RETURN_IF(!lholder->regex_.ok(),
-                  Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
+                  Status::Invalid("Building RE2 pattern '", pcre_pattern,
+                                  "' failed with: ", lholder->regex_.error()));
 
-  *holder = lholder;
+  *holder = std::move(lholder);
   return Status::OK();
 }
 
@@ -151,9 +167,10 @@ Status LikeHolder::Make(const std::string& sql_pattern,
   lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern, regex_op));
 
   ARROW_RETURN_IF(!lholder->regex_.ok(),
-                  Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
+                  Status::Invalid("Building RE2 pattern '", pcre_pattern,
+                                  "' failed with: ", lholder->regex_.error()));
 
-  *holder = lholder;
+  *holder = std::move(lholder);
   return Status::OK();
 }
 
@@ -180,9 +197,10 @@ Status ReplaceHolder::Make(const std::string& sql_pattern,
                            std::shared_ptr<ReplaceHolder>* holder) {
   auto lholder = std::shared_ptr<ReplaceHolder>(new ReplaceHolder(sql_pattern));
   ARROW_RETURN_IF(!lholder->regex_.ok(),
-                  Status::Invalid("Building RE2 pattern '", sql_pattern, "' failed"));
+                  Status::Invalid("Building RE2 pattern '", sql_pattern,
+                                  "' failed with: ", lholder->regex_.error()));
 
-  *holder = lholder;
+  *holder = std::move(lholder);
   return Status::OK();
 }
 
@@ -210,9 +228,10 @@ Status ExtractHolder::Make(const std::string& sql_pattern,
                            std::shared_ptr<ExtractHolder>* holder) {
   auto lholder = std::shared_ptr<ExtractHolder>(new ExtractHolder(sql_pattern));
   ARROW_RETURN_IF(!lholder->regex_.ok(),
-                  Status::Invalid("Building RE2 pattern '", sql_pattern, "' failed"));
+                  Status::Invalid("Building RE2 pattern '", sql_pattern,
+                                  "' failed with: ", lholder->regex_.error()));
 
-  *holder = lholder;
+  *holder = std::move(lholder);
   return Status::OK();
 }
 
