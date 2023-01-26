@@ -29,23 +29,23 @@ uint64_t XxHashHelper(T value, uint32_t seed) {
 }
 }  // namespace
 
-uint64_t XxHash::Hash(int32_t value) const { return XxHashHelper(value, seed_); }
+uint64_t XxHasher::Hash(int32_t value) const { return XxHashHelper(value, seed_); }
 
-uint64_t XxHash::Hash(int64_t value) const { return XxHashHelper(value, seed_); }
+uint64_t XxHasher::Hash(int64_t value) const { return XxHashHelper(value, seed_); }
 
-uint64_t XxHash::Hash(float value) const { return XxHashHelper(value, seed_); }
+uint64_t XxHasher::Hash(float value) const { return XxHashHelper(value, seed_); }
 
-uint64_t XxHash::Hash(double value) const { return XxHashHelper(value, seed_); }
+uint64_t XxHasher::Hash(double value) const { return XxHashHelper(value, seed_); }
 
-uint64_t XxHash::Hash(const FLBA* value, uint32_t len) const {
+uint64_t XxHasher::Hash(const FLBA* value, uint32_t len) const {
   return XXH64(reinterpret_cast<const void*>(value->ptr), len, seed_);
 }
 
-uint64_t XxHash::Hash(const Int96* value) const {
+uint64_t XxHasher::Hash(const Int96* value) const {
   return XXH64(reinterpret_cast<const void*>(value->value), sizeof(value->value), seed_);
 }
 
-uint64_t XxHash::Hash(const ByteArray* value) const {
+uint64_t XxHasher::Hash(const ByteArray* value) const {
   return XXH64(reinterpret_cast<const void*>(value->ptr), value->len, seed_);
 }
 

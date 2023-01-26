@@ -54,7 +54,7 @@ void BlockSplitBloomFilter::Init(uint32_t num_bytes) {
   PARQUET_ASSIGN_OR_THROW(data_, ::arrow::AllocateBuffer(num_bytes_, pool_));
   memset(data_->mutable_data(), 0, num_bytes_);
 
-  this->hasher_ = std::make_unique<XxHash>();
+  this->hasher_ = std::make_unique<XxHasher>();
 }
 
 void BlockSplitBloomFilter::Init(const uint8_t* bitset, uint32_t num_bytes) {
@@ -69,7 +69,7 @@ void BlockSplitBloomFilter::Init(const uint8_t* bitset, uint32_t num_bytes) {
   PARQUET_ASSIGN_OR_THROW(data_, ::arrow::AllocateBuffer(num_bytes_, pool_));
   memcpy(data_->mutable_data(), bitset, num_bytes_);
 
-  this->hasher_ = std::make_unique<XxHash>();
+  this->hasher_ = std::make_unique<XxHasher>();
 }
 
 static constexpr uint32_t HEADER_SIZE_GUESS = 32;

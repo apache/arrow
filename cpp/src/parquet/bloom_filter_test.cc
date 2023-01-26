@@ -31,7 +31,6 @@
 
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
-#include "parquet/murmur3.h"
 #include "parquet/platform.h"
 #include "parquet/test_util.h"
 #include "parquet/types.h"
@@ -39,15 +38,6 @@
 
 namespace parquet {
 namespace test {
-
-TEST(Murmur3Test, TestBloomFilter) {
-  uint64_t result;
-  const uint8_t bitset[8] = {0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7};
-  ByteArray byteArray(8, bitset);
-  MurmurHash3 murmur3;
-  result = murmur3.Hash(&byteArray);
-  EXPECT_EQ(result, UINT64_C(913737700387071329));
-}
 
 TEST(ConstructorTest, TestBloomFilter) {
   BlockSplitBloomFilter bloom_filter;
@@ -303,11 +293,11 @@ TEST(XxHashTest, TestBloomFilter) {
     ByteArray byteArray(i, bytes);
     bytes[i] = i;
 
-    auto hasher_seed_0 = std::make_unique<XxHash>();
+    auto hasher_seed_0 = std::make_unique<XxHasher>();
     EXPECT_EQ(HASHES_OF_LOOPING_BYTES_WITH_SEED_0[i], hasher_seed_0->Hash(&byteArray))
         << "Hash with seed 0 Error: " << i;
 
-    auto hasher_seed_42 = std::make_unique<XxHash>(42);
+    auto hasher_seed_42 = std::make_unique<XxHasher>(42);
     EXPECT_EQ(HASHES_OF_LOOPING_BYTES_WITH_SEED_42[i], hasher_seed_42->Hash(&byteArray))
         << "Hash with seed 42 Error: " << i;
   }

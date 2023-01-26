@@ -25,13 +25,10 @@
 
 namespace parquet {
 
-/// Source:
-/// https://github.com/Cyan4973/xxHash/blob/dev/xxhash.c
-/// (Modified to adapt to coding conventions and to inherit the Hasher abstract class)
-class PARQUET_EXPORT XxHash : public Hasher {
+class PARQUET_EXPORT XxHasher : public Hasher {
  public:
-  XxHash() : seed_(DEFAULT_SEED) {}
-  explicit XxHash(uint32_t seed) : seed_(seed) {}
+  XxHasher() : seed_(DEFAULT_SEED) {}
+  explicit XxHasher(uint32_t seed) : seed_(seed) {}
   uint64_t Hash(int32_t value) const override;
   uint64_t Hash(int64_t value) const override;
   uint64_t Hash(float value) const override;
