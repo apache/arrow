@@ -399,7 +399,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_closeDataset
 /*
  * Class:     org_apache_arrow_dataset_jni_JniWrapper
  * Method:    createScanner
- * Signature: (J[Ljava/lang/String;JJ)J
+ * Signature: (J[Ljava/lang/String;JLjava/lang/String;J)J
  */
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScanner(
     JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns, jlong batch_size,
