@@ -26,6 +26,7 @@ import org.apache.arrow.util.Preconditions;
  */
 public class ScanOptions {
   private final Optional<String[]> columns;
+  private final Optional<String> filter;
   private final long batchSize;
 
   /**
@@ -43,7 +44,7 @@ public class ScanOptions {
         return null;
       }
       return present;
-    }));
+    }), Optional.empty());
   }
 
   /**
@@ -52,18 +53,23 @@ public class ScanOptions {
    * @param columns (Optional) Projected columns. {@link Optional#empty()} for scanning all columns. Otherwise,
    *                Only columns present in the Array will be scanned.
    */
-  public ScanOptions(long batchSize, Optional<String[]> columns) {
+  public ScanOptions(long batchSize, Optional<String[]> columns, Optional<String> filter) {
+    Preconditions.checkNotNull(filter)
     Preconditions.checkNotNull(columns);
     this.batchSize = batchSize;
     this.columns = columns;
   }
 
   public ScanOptions(long batchSize) {
-    this(batchSize, Optional.empty());
+    this(batchSize, Optional.empty(), Optional.empty());
   }
 
   public Optional<String[]> getColumns() {
     return columns;
+  }
+  
+  public Optional<String> getFilter() {
+    return filter;
   }
 
   public long getBatchSize() {
