@@ -623,11 +623,11 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         }
       }
 
-      int measure_size = aggregate.measures_size();
+      const int measure_size = aggregate.measures_size();
       std::vector<compute::Aggregate> aggregates;
       aggregates.reserve(measure_size);
       // store aggregate fields to be used when output schema is created
-      std::vector<int> agg_src_field_ids(measure_size);
+      std::vector<std::vector<int>> agg_src_fieldsets(measure_size);
       for (int measure_id = 0; measure_id < measure_size; measure_id++) {
         const auto& agg_measure = aggregate.measures(measure_id);
         if (agg_measure.has_measure()) {
@@ -635,9 +635,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             return Status::NotImplemented("Aggregate filters are not supported.");
           }
           const auto& agg_func = agg_measure.measure();
-          ARROW_ASSIGN_OR_RAISE(
-              SubstraitCall aggregate_call,
-              FromProto(agg_func, !keys.empty(), ext_set, conversion_options));
+          ARROW_ASSIGN_OR_RAISE(SubstraitCall aggregate_call,
+                                FromProto(agg_func, /*is_hash=*/!keys.empty(), ext_set,
+                                          conversion_options));
           ExtensionIdRegistry::SubstraitAggregateToArrow converter;
           if (aggregate_call.id().uri.empty() || aggregate_call.id().uri[0] == '/') {
             ARROW_ASSIGN_OR_RAISE(
@@ -651,9 +651,11 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           ARROW_ASSIGN_OR_RAISE(compute::Aggregate arrow_agg, converter(aggregate_call));
 
           // find aggregate field ids from schema
-          const auto field_ref = arrow_agg.target;
-          ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*input_schema));
-          agg_src_field_ids[measure_id] = match[0];
+          const auto& target = arrow_agg.target;
+          for (const auto& field_ref : target) {
+            ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*input_schema));
+            agg_src_fieldsets[measure_id].push_back(match[0]);
+          }
 
           aggregates.push_back(std::move(arrow_agg));
         } else {
@@ -661,14 +663,16 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         }
       }
       FieldVector output_fields;
-      output_fields.reserve(key_field_ids.size() + agg_src_field_ids.size());
+      output_fields.reserve(key_field_ids.size() + measure_size);
       // extract aggregate fields to output schema
-      for (int id = 0; id < static_cast<int>(agg_src_field_ids.size()); id++) {
-        output_fields.emplace_back(input_schema->field(agg_src_field_ids[id]));
+      for (const auto& agg_src_fieldset : agg_src_fieldsets) {
+        for (int field : agg_src_fieldset) {
+          output_fields.emplace_back(input_schema->field(field));
+        }
       }
       // extract key fields to output schema
-      for (int id = 0; id < static_cast<int>(key_field_ids.size()); id++) {
-        output_fields.emplace_back(input_schema->field(key_field_ids[id]));
+      for (int key_field_id : key_field_ids) {
+        output_fields.emplace_back(input_schema->field(key_field_id));
       }
 
       std::shared_ptr<Schema> aggregate_schema = schema(std::move(output_fields));

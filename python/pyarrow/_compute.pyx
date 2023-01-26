@@ -2214,13 +2214,19 @@ def _group_by(args, keys, aggregations):
     _pack_compute_args(args, &c_args)
     _pack_compute_args(keys, &c_keys)
 
-    for aggr_func_name, aggr_opts in aggregations:
+    # reference into the flattened list of arguments for the aggregations
+    field_ref = 0
+    for aggr_arg_names, aggr_func_name, aggr_opts in aggregations:
         c_aggr.function = tobytes(aggr_func_name)
         if aggr_opts is not None:
             c_aggr.options = (<FunctionOptions?>aggr_opts).wrapped
         else:
             c_aggr.options = <shared_ptr[CFunctionOptions]>nullptr
-        c_aggregations.push_back(c_aggr)
+        for _ in aggr_arg_names:
+            c_aggr.target.push_back(CFieldRef(<int> field_ref))
+            field_ref += 1
+
+        c_aggregations.push_back(move(c_aggr))
 
     with nogil:
         result = GetResultValue(

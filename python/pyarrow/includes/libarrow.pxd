@@ -2492,6 +2492,8 @@ cdef extern from "arrow/compute/exec/aggregate.h" namespace \
     cdef cppclass CAggregate "arrow::compute::Aggregate":
         c_string function
         shared_ptr[CFunctionOptions] options
+        vector[CFieldRef] target
+        c_string name
 
     CResult[CDatum] GroupBy(const vector[CDatum]& arguments,
                             const vector[CDatum]& keys,

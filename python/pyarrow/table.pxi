@@ -5379,9 +5379,13 @@ class TableGroupBy:
         ----------
         aggregations : list[tuple(str, str)] or \
 list[tuple(str, str, FunctionOptions)]
-            List of tuples made of aggregation column names followed
-            by function names and optionally aggregation function options.
+            List of tuples, where each tuple is one aggregation specification
+            and consists of: aggregation column name followed
+            by function name and optionally aggregation function option.
             Pass empty list to get a single row for each group.
+            The column name can be a string, an empty list or a list of
+            column names, for unary, nullary and n-ary aggregation functions
+            respectively.
 
         Returns
         -------
@@ -5402,36 +5406,46 @@ list[tuple(str, str, FunctionOptions)]
         ----
         values_sum: [[3,7,5]]
         keys: [["a","b","c"]]
+        >>> t.group_by("keys").aggregate([([], "count_all")])
+        pyarrow.Table
+        count_all: int64
+        keys: string
+        ----
+        count_all: [[2,2,1]]
+        keys: [["a","b","c"]]
         >>> t.group_by("keys").aggregate([])
         pyarrow.Table
         keys: string
         ----
         keys: [["a","b","c"]]
         """
-        columns = [a[0] for a in aggregations]
-        aggrfuncs = [
-            (a[1], a[2]) if len(a) > 2 else (a[1], None)
-            for a in aggregations
-        ]
-
         group_by_aggrs = []
-        for aggr in aggrfuncs:
-            if not aggr[0].startswith("hash_"):
-                aggr = ("hash_" + aggr[0], aggr[1])
-            group_by_aggrs.append(aggr)
+        for aggr in aggregations:
+            if len(aggr) == 2:
+                target, func = aggr
+                opt = None
+            else:
+                target, func, opt = aggr
+            if not isinstance(target, (list, tuple)):
+                target = [target]
+            if not func.startswith("hash_"):
+                func = "hash_" + func
+            group_by_aggrs.append((target, func, opt))
 
         # Build unique names for aggregation result columns
         # so that it's obvious what they refer to.
-        column_names = [
-            aggr_name.replace("hash", col_name)
-            for col_name, (aggr_name, _) in zip(columns, group_by_aggrs)
+        out_column_names = [
+            aggr_name.replace("hash", "_".join(target))
+            if len(target) > 0 else aggr_name.replace("hash_", "")
+            for target, aggr_name, _ in group_by_aggrs
         ] + self.keys
 
+        flat_cols = [c for aggr in group_by_aggrs for c in aggr[0]]
         result = _pc()._group_by(
-            [self._table[c] for c in columns],
+            [self._table[c] for c in flat_cols],
             [self._table[k] for k in self.keys],
             group_by_aggrs
         )
 
         t = Table.from_batches([RecordBatch.from_struct_array(result)])
-        return t.rename_columns(column_names)
+        return t.rename_columns(out_column_names)

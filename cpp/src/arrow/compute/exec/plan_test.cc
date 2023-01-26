@@ -476,7 +476,9 @@ TEST(ExecPlan, ToString) {
                    /*aggregates=*/{
                        {"hash_sum", nullptr, "multiply(i32, 2)", "sum(multiply(i32, 2))"},
                        {"hash_count", options, "multiply(i32, 2)",
-                        "count(multiply(i32, 2))"}},
+                        "count(multiply(i32, 2))"},
+                       {"hash_count_all", "count(*)"},
+                   },
                    /*keys=*/{"bool"}}},
               {"filter", FilterNodeOptions{greater(field_ref("sum(multiply(i32, 2))"),
                                                    literal(10))}},
@@ -493,6 +495,7 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
     :GroupByNode{keys=["bool"], aggregates=[
     	hash_sum(multiply(i32, 2)),
     	hash_count(multiply(i32, 2), {mode=NON_NULL}),
+    	hash_count_all(*),
     ]}
       :ProjectNode{projection=[bool, multiply(i32, 2)]}
         :FilterNode{filter=(i32 >= 0)}
@@ -512,20 +515,23 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
   rhs.label = "rhs";
   union_node.inputs.emplace_back(lhs);
   union_node.inputs.emplace_back(rhs);
-  ASSERT_OK(
-      Declaration::Sequence(
-          {
-              union_node,
-              {"aggregate", AggregateNodeOptions{
-                                /*aggregates=*/{{"count", options, "i32", "count(i32)"}},
-                                /*keys=*/{}}},
-              {"sink", SinkNodeOptions{&sink_gen}},
-          })
-          .AddToPlan(plan.get()));
+  ASSERT_OK(Declaration::Sequence(
+                {
+                    union_node,
+                    {"aggregate",
+                     AggregateNodeOptions{/*aggregates=*/{
+                                              {"count", options, "i32", "count(i32)"},
+                                              {"count_all", "count(*)"},
+                                          },
+                                          /*keys=*/{}}},
+                    {"sink", SinkNodeOptions{&sink_gen}},
+                })
+                .AddToPlan(plan.get()));
   EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 5 nodes:
 :SinkNode{}
   :ScalarAggregateNode{aggregates=[
 	count(i32, {mode=NON_NULL}),
+	count_all(*),
 ]}
     :UnionNode{}
       rhs:SourceNode{}
@@ -1249,6 +1255,7 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
                          /*aggregates=*/{{"all", nullptr, "b", "all(b)"},
                                          {"any", nullptr, "b", "any(b)"},
                                          {"count", nullptr, "a", "count(a)"},
+                                         {"count_all", "count(*)"},
                                          {"mean", nullptr, "a", "mean(a)"},
                                          {"product", nullptr, "a", "product(a)"},
                                          {"stddev", nullptr, "a", "stddev(a)"},
@@ -1258,15 +1265,41 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
 
   auto exp_batches = {
       ExecBatchFromJSON(
-          {boolean(), boolean(), int64(), float64(), int64(), float64(), int64(),
+          {boolean(), boolean(), int64(), int64(), float64(), int64(), float64(), int64(),
            float64(), float64()},
           {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
-           ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::ARRAY,
-           ArgShape::SCALAR},
-          R"([[false, true, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334]])"),
+           ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
+           ArgShape::ARRAY, ArgShape::SCALAR},
+          R"([[false, true, 6, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334]])"),
   };
   ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan)));
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
+}
+
+TEST(ExecPlanExecution, ScalarSourceStandaloneNullaryScalarAggSink) {
+  BatchesWithSchema scalar_data;
+  scalar_data.batches = {
+      ExecBatchFromJSON({int32(), boolean()}, {ArgShape::SCALAR, ArgShape::SCALAR},
+                        "[[5, null], [5, false], [5, false]]"),
+      ExecBatchFromJSON({int32(), boolean()}, "[[5, true], [null, false], [7, true]]")};
+  scalar_data.schema = schema({
+      field("a", int32()),
+      field("b", boolean()),
+  });
+
+  Declaration plan = Declaration::Sequence(
+      {{"source",
+        SourceNodeOptions{scalar_data.schema, scalar_data.gen(/*parallel=*/false,
+                                                              /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                         {"count_all", "count(*)"},
+                     }}}});
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema actual_batches,
+                       DeclarationToExecBatches(std::move(plan)));
+
+  auto expected = ExecBatchFromJSON({int64()}, {ArgShape::SCALAR}, R"([[6]])");
+  AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
+                                      {expected});
 }
 
 TEST(ExecPlanExecution, ScalarSourceGroupedSum) {

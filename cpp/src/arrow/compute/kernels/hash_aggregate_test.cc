@@ -3259,10 +3259,10 @@ TEST(GroupBy, CountAndSum) {
     [null,  3]
   ])");
 
-  std::shared_ptr<CountOptions> count_options;
-  auto count_nulls = std::make_shared<CountOptions>(CountOptions::ONLY_NULL);
-  auto count_all = std::make_shared<CountOptions>(CountOptions::ALL);
-  auto min_count =
+  std::shared_ptr<CountOptions> count_opts;
+  auto count_nulls_opts = std::make_shared<CountOptions>(CountOptions::ONLY_NULL);
+  auto count_all_opts = std::make_shared<CountOptions>(CountOptions::ALL);
+  auto min_count_opts =
       std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(
       Datum aggregated_and_grouped,
@@ -3280,12 +3280,13 @@ TEST(GroupBy, CountAndSum) {
               batch->GetColumnByName("key"),
           },
           {
-              {"hash_count", count_options, "agg_0", "hash_count"},
-              {"hash_count", count_nulls, "agg_1", "hash_count"},
-              {"hash_count", count_all, "agg_2", "hash_count"},
-              {"hash_sum", nullptr, "agg_3", "hash_sum"},
-              {"hash_sum", min_count, "agg_4", "hash_sum"},
-              {"hash_sum", nullptr, "agg_5", "hash_sum"},
+              {"hash_count", count_opts, "agg_0", "hash_count"},
+              {"hash_count", count_nulls_opts, "agg_1", "hash_count"},
+              {"hash_count", count_all_opts, "agg_2", "hash_count"},
+              {"hash_count_all", "hash_count_all"},
+              {"hash_sum", "agg_3", "hash_sum"},
+              {"hash_sum", min_count_opts, "agg_4", "hash_sum"},
+              {"hash_sum", "agg_5", "hash_sum"},
           }));
 
   AssertDatumsEqual(
@@ -3293,6 +3294,7 @@ TEST(GroupBy, CountAndSum) {
                         field("hash_count", int64()),
                         field("hash_count", int64()),
                         field("hash_count", int64()),
+                        field("hash_count_all", int64()),
                         // NB: summing a float32 array results in float64 sums
                         field("hash_sum", float64()),
                         field("hash_sum", float64()),
@@ -3300,13 +3302,54 @@ TEST(GroupBy, CountAndSum) {
                         field("key_0", int64()),
                     }),
                     R"([
-    [2, 1, 3, 4.25,   null,   3,    1],
-    [3, 0, 3, -0.125, -0.125, 6,    2],
-    [0, 2, 2, null,   null,   6,    3],
-    [2, 0, 2, 4.75,   null,   null, null]
+    [2, 1, 3, 3, 4.25,   null,   3,    1],
+    [3, 0, 3, 3, -0.125, -0.125, 6,    2],
+    [0, 2, 2, 2, null,   null,   6,    3],
+    [2, 0, 2, 2, 4.75,   null,   null, null]
   ])"),
       aggregated_and_grouped,
       /*verbose=*/true);
+}
+
+TEST(GroupBy, StandAloneNullaryCount) {
+  auto batch = RecordBatchFromJSON(
+      schema({field("argument", float64()), field("key", int64())}), R"([
+    [1.0,   1],
+    [null,  1],
+    [0.0,   2],
+    [null,  3],
+    [4.0,   null],
+    [3.25,  1],
+    [0.125, 2],
+    [-0.25, 2],
+    [0.75,  null],
+    [null,  3]
+  ])");
+
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       internal::GroupBy(
+                           // zero arguments for aggregations because only the
+                           // nullary hash_count_all aggregation is present
+                           {},
+                           {
+                               batch->GetColumnByName("key"),
+                           },
+                           {
+                               {"hash_count_all", "hash_count_all"},
+                           }));
+
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("hash_count_all", int64()),
+                                      field("key_0", int64()),
+                                  }),
+                                  R"([
+    [3, 1],
+    [3, 2],
+    [2, 3],
+    [2, null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
 }
 
 TEST(GroupBy, Product) {

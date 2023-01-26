@@ -319,6 +319,10 @@ def _make_global_functions():
             # Hash aggregate functions are not callable,
             # so let's not expose them at module level.
             continue
+        if func.kind == "scalar_aggregate" and func.arity == 0:
+            # Nullary scalar aggregate functions are not callable
+            # directly so let's not expose them at module level.
+            continue
         assert name not in g, name
         g[cpp_name] = g[name] = _wrap_function(name, func)
 

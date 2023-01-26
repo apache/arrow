@@ -46,12 +46,21 @@ namespace {
 
 void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
                         const std::vector<Aggregate>& aggs,
-                        const std::vector<int>& target_field_ids, int indent = 0) {
+                        const std::vector<std::vector<int>>& target_fieldsets,
+                        int indent = 0) {
   *ss << "aggregates=[" << std::endl;
   for (size_t i = 0; i < aggs.size(); i++) {
     for (int j = 0; j < indent; ++j) *ss << "  ";
-    *ss << '\t' << aggs[i].function << '('
-        << input_schema.field(target_field_ids[i])->name();
+    *ss << '\t' << aggs[i].function << '(';
+    const auto& target = target_fieldsets[i];
+    if (target.size() == 0) {
+      *ss << "*";
+    } else {
+      *ss << input_schema.field(target[0])->name();
+      for (size_t k = 1; k < target.size(); k++) {
+        *ss << ", " << input_schema.field(target[k])->name();
+      }
+    }
     if (aggs[i].options) {
       *ss << ", " << aggs[i].options->ToString();
     }
@@ -65,12 +74,13 @@ class ScalarAggregateNode : public ExecNode, public TracedNode<ScalarAggregateNo
  public:
   ScalarAggregateNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                       std::shared_ptr<Schema> output_schema,
-                      std::vector<int> target_field_ids, std::vector<Aggregate> aggs,
+                      std::vector<std::vector<int>> target_fieldsets,
+                      std::vector<Aggregate> aggs,
                       std::vector<const ScalarAggregateKernel*> kernels,
                       std::vector<std::vector<std::unique_ptr<KernelState>>> states)
       : ExecNode(plan, std::move(inputs), {"target"},
                  /*output_schema=*/std::move(output_schema)),
-        target_field_ids_(std::move(target_field_ids)),
+        target_fieldsets_(std::move(target_fieldsets)),
         aggs_(std::move(aggs)),
         kernels_(std::move(kernels)),
         states_(std::move(states)) {}
@@ -88,13 +98,14 @@ class ScalarAggregateNode : public ExecNode, public TracedNode<ScalarAggregateNo
     std::vector<const ScalarAggregateKernel*> kernels(aggregates.size());
     std::vector<std::vector<std::unique_ptr<KernelState>>> states(kernels.size());
     FieldVector fields(kernels.size());
-    std::vector<int> target_field_ids(kernels.size());
+    std::vector<std::vector<int>> target_fieldsets(kernels.size());
 
     for (size_t i = 0; i < kernels.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto match,
-          FieldRef(aggregate_options.aggregates[i].target).FindOne(input_schema));
-      target_field_ids[i] = match[0];
+      const auto& target_fieldset = aggregate_options.aggregates[i].target;
+      for (const auto& target : target_fieldset) {
+        ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(target).FindOne(input_schema));
+        target_fieldsets[i].push_back(match[0]);
+      }
 
       ARROW_ASSIGN_OR_RAISE(
           auto function, exec_ctx->func_registry()->GetFunction(aggregates[i].function));
@@ -104,34 +115,37 @@ class ScalarAggregateNode : public ExecNode, public TracedNode<ScalarAggregateNo
                                aggregates[i].function);
       }
 
-      TypeHolder in_type(input_schema.field(target_field_ids[i])->type().get());
-      ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, function->DispatchExact({in_type}));
+      std::vector<TypeHolder> in_types;
+      for (const auto& target : target_fieldsets[i]) {
+        in_types.emplace_back(input_schema.field(target)->type().get());
+      }
+      ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, function->DispatchExact(in_types));
       kernels[i] = static_cast<const ScalarAggregateKernel*>(kernel);
 
       if (aggregates[i].options == nullptr) {
-        aggregates[i].options = function->default_options()->Copy();
+        DCHECK(!function->doc().options_required);
+        const auto* default_options = function->default_options();
+        if (default_options) {
+          aggregates[i].options = default_options->Copy();
+        }
       }
 
       KernelContext kernel_ctx{exec_ctx};
       states[i].resize(plan->query_context()->max_concurrency());
-      RETURN_NOT_OK(Kernel::InitAll(&kernel_ctx,
-                                    KernelInitArgs{kernels[i],
-                                                   {
-                                                       in_type,
-                                                   },
-                                                   aggregates[i].options.get()},
-                                    &states[i]));
+      RETURN_NOT_OK(Kernel::InitAll(
+          &kernel_ctx, KernelInitArgs{kernels[i], in_types, aggregates[i].options.get()},
+          &states[i]));
 
       // pick one to resolve the kernel signature
       kernel_ctx.SetState(states[i][0].get());
       ARROW_ASSIGN_OR_RAISE(auto out_type, kernels[i]->signature->out_type().Resolve(
-                                               &kernel_ctx, {in_type}));
+                                               &kernel_ctx, in_types));
 
       fields[i] = field(aggregate_options.aggregates[i].name, out_type.GetSharedPtr());
     }
 
     return plan->EmplaceNode<ScalarAggregateNode>(
-        plan, std::move(inputs), schema(std::move(fields)), std::move(target_field_ids),
+        plan, std::move(inputs), schema(std::move(fields)), std::move(target_fieldsets),
         std::move(aggregates), std::move(kernels), std::move(states));
   }
 
@@ -148,8 +162,12 @@ class ScalarAggregateNode : public ExecNode, public TracedNode<ScalarAggregateNo
       KernelContext batch_ctx{plan()->query_context()->exec_context()};
       batch_ctx.SetState(states_[i][thread_index].get());
 
-      ExecSpan single_column_batch{{batch.values[target_field_ids_[i]]}, batch.length};
-      RETURN_NOT_OK(kernels_[i]->consume(&batch_ctx, single_column_batch));
+      std::vector<ExecValue> column_values;
+      for (const int field : target_fieldsets_[i]) {
+        column_values.push_back(batch.values[field]);
+      }
+      ExecSpan column_batch{std::move(column_values), batch.length};
+      RETURN_NOT_OK(kernels_[i]->consume(&batch_ctx, column_batch));
     }
     return Status::OK();
   }
@@ -197,7 +215,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode<ScalarAggregateNo
   std::string ToStringExtra(int indent = 0) const override {
     std::stringstream ss;
     const auto input_schema = inputs_[0]->output_schema();
-    AggregatesToString(&ss, *input_schema, aggs_, target_field_ids_);
+    AggregatesToString(&ss, *input_schema, aggs_, target_fieldsets_);
     return ss.str();
   }
 
@@ -223,7 +241,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode<ScalarAggregateNo
     return output_->InputReceived(this, std::move(batch));
   }
 
-  const std::vector<int> target_field_ids_;
+  const std::vector<std::vector<int>> target_fieldsets_;
   const std::vector<Aggregate> aggs_;
   const std::vector<const ScalarAggregateKernel*> kernels_;
 
@@ -235,12 +253,13 @@ class ScalarAggregateNode : public ExecNode, public TracedNode<ScalarAggregateNo
 class GroupByNode : public ExecNode, public TracedNode<GroupByNode> {
  public:
   GroupByNode(ExecNode* input, std::shared_ptr<Schema> output_schema,
-              std::vector<int> key_field_ids, std::vector<int> agg_src_field_ids,
+              std::vector<int> key_field_ids,
+              std::vector<std::vector<int>> agg_src_fieldsets,
               std::vector<Aggregate> aggs,
               std::vector<const HashAggregateKernel*> agg_kernels)
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema)),
         key_field_ids_(std::move(key_field_ids)),
-        agg_src_field_ids_(std::move(agg_src_field_ids)),
+        agg_src_fieldsets_(std::move(agg_src_fieldsets)),
         aggs_(std::move(aggs)),
         agg_kernels_(std::move(agg_kernels)) {}
 
@@ -272,17 +291,21 @@ class GroupByNode : public ExecNode, public TracedNode<GroupByNode> {
     }
 
     // Find input field indices for aggregates
-    std::vector<int> agg_src_field_ids(aggs.size());
+    std::vector<std::vector<int>> agg_src_fieldsets(aggs.size());
     for (size_t i = 0; i < aggs.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(auto match, aggs[i].target.FindOne(*input_schema));
-      agg_src_field_ids[i] = match[0];
+      const auto& target_fieldset = aggs[i].target;
+      for (const auto& target : target_fieldset) {
+        ARROW_ASSIGN_OR_RAISE(auto match, target.FindOne(*input_schema));
+        agg_src_fieldsets[i].push_back(match[0]);
+      }
     }
 
     // Build vector of aggregate source field data types
-    std::vector<TypeHolder> agg_src_types(aggs.size());
+    std::vector<std::vector<TypeHolder>> agg_src_types(aggs.size());
     for (size_t i = 0; i < aggs.size(); ++i) {
-      auto agg_src_field_id = agg_src_field_ids[i];
-      agg_src_types[i] = input_schema->field(agg_src_field_id)->type().get();
+      for (const auto& agg_src_field_id : agg_src_fieldsets[i]) {
+        agg_src_types[i].push_back(input_schema->field(agg_src_field_id)->type().get());
+      }
     }
 
     auto ctx = plan->query_context()->exec_context();
@@ -314,7 +337,7 @@ class GroupByNode : public ExecNode, public TracedNode<GroupByNode> {
 
     return input->plan()->EmplaceNode<GroupByNode>(
         input, schema(std::move(output_fields)), std::move(key_field_ids),
-        std::move(agg_src_field_ids), std::move(aggs), std::move(agg_kernels));
+        std::move(agg_src_fieldsets), std::move(aggs), std::move(agg_kernels));
   }
 
   const char* kind_name() const override { return "GroupByNode"; }
@@ -351,8 +374,12 @@ class GroupByNode : public ExecNode, public TracedNode<GroupByNode> {
       KernelContext kernel_ctx{ctx};
       kernel_ctx.SetState(state->agg_states[i].get());
 
-      ExecSpan agg_batch({batch[agg_src_field_ids_[i]], ExecValue(*id_batch.array())},
-                         batch.length);
+      std::vector<ExecValue> column_values;
+      for (const int field : agg_src_fieldsets_[i]) {
+        column_values.push_back(batch[field]);
+      }
+      column_values.emplace_back(*id_batch.array());
+      ExecSpan agg_batch(std::move(column_values), batch.length);
       RETURN_NOT_OK(agg_kernels_[i]->resize(&kernel_ctx, state->grouper->num_groups()));
       RETURN_NOT_OK(agg_kernels_[i]->consume(&kernel_ctx, agg_batch));
     }
@@ -506,7 +533,7 @@ class GroupByNode : public ExecNode, public TracedNode<GroupByNode> {
       ss << '"' << input_schema->field(key_field_ids_[i])->name() << '"';
     }
     ss << "], ";
-    AggregatesToString(&ss, *input_schema, aggs_, agg_src_field_ids_, indent);
+    AggregatesToString(&ss, *input_schema, aggs_, agg_src_fieldsets_, indent);
     return ss.str();
   }
 
@@ -539,10 +566,11 @@ class GroupByNode : public ExecNode, public TracedNode<GroupByNode> {
         state->grouper, Grouper::Make(key_types, plan_->query_context()->exec_context()));
 
     // Build vector of aggregate source field data types
-    std::vector<TypeHolder> agg_src_types(agg_kernels_.size());
+    std::vector<std::vector<TypeHolder>> agg_src_types(agg_kernels_.size());
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
-      auto agg_src_field_id = agg_src_field_ids_[i];
-      agg_src_types[i] = input_schema->field(agg_src_field_id)->type().get();
+      for (const auto& field_id : agg_src_fieldsets_[i]) {
+        agg_src_types[i].emplace_back(input_schema->field(field_id)->type().get());
+      }
     }
 
     ARROW_ASSIGN_OR_RAISE(
@@ -565,7 +593,7 @@ class GroupByNode : public ExecNode, public TracedNode<GroupByNode> {
   int output_task_group_id_;
 
   const std::vector<int> key_field_ids_;
-  const std::vector<int> agg_src_field_ids_;
+  const std::vector<std::vector<int>> agg_src_fieldsets_;
   const std::vector<Aggregate> aggs_;
   const std::vector<const HashAggregateKernel*> agg_kernels_;
 
