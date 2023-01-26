@@ -460,7 +460,7 @@ std::ostream& operator<<(std::ostream& out, const ScannerTestParams& params) {
   return out;
 }
 
-constexpr int kRowsPerTestBatch = 1024;
+constexpr int kRowsPerTestBatch = 16;
 
 std::shared_ptr<Schema> ScannerTestSchema() {
   return schema({field("row_num", int32()), field("filterable", int16()),
