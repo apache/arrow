@@ -1813,12 +1813,13 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // For repeated fields, DelimitRecords will update both records_read and
     // values_to_read.
     int64_t records_read = DelimitRecords(num_records, values_to_read);
-    // Any values with def_level < max_def_level is considered null.
-    *null_count = levels_position_ - start_levels_position - *values_to_read;
     if (read_dense_for_nullable_) {
       ReadValuesDense(*values_to_read);
+      // Any values with def_level < max_def_level is considered null.
+      *null_count = levels_position_ - start_levels_position - *values_to_read;
     } else {
       ReadSpacedForNullable(start_levels_position, values_to_read, null_count);
+      DCHECK_EQ(*null_count, levels_position_ - start_levels_position - *values_to_read);
     }
     return records_read;
   }
