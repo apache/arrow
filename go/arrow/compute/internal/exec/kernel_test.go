@@ -184,7 +184,7 @@ func TestREEMatcher(t *testing.T) {
 			assert.False(t, matcher.Matches(arrow.RunEndEncodedOf(tt.nomatchRunEnds, tt.matchEnc)))
 			assert.False(t, matcher.Matches(arrow.RunEndEncodedOf(tt.nomatchRunEnds, tt.nomatchEnc)))
 
-			assert.Equal(t, "run_length_encoded("+tt.enc.String()+")", matcher.String())
+			assert.Equal(t, "run_end_encoded(run_ends="+tt.runEnds.String()+", values="+tt.enc.String()+")", matcher.String())
 
 			assert.True(t, matcher.Equals(exec.RunEndEncoded(tt.runEnds, tt.enc)))
 			assert.False(t, matcher.Equals(exec.Primitive()))

@@ -265,7 +265,7 @@ func (r reeMatcher) Equals(other TypeMatcher) bool {
 }
 
 func (r reeMatcher) String() string {
-	return "run_length_encoded(" + r.encodedMatcher.String() + ")"
+	return "run_end_encoded(run_ends=" + r.runEndsMatcher.String() + ", values=" + r.encodedMatcher.String() + ")"
 }
 
 // RunEndEncoded returns a matcher which matches a RunEndEncoded
