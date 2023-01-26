@@ -3270,7 +3270,7 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
         throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
     }
   } else {
-    ParquetException::NYI("Selected encoding is not supported1");
+    ParquetException::NYI("Selected encoding is not supported");
   }
   DCHECK(false) << "Should not be able to reach this code";
   return nullptr;
@@ -3324,14 +3324,10 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
     }
     throw ParquetException("DELTA_BYTE_ARRAY only supports BYTE_ARRAY");
   } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
-    switch (type_num) {
-      case Type::BYTE_ARRAY:
-        return std::make_unique<DeltaLengthByteArrayDecoder>(descr);
-      case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::make_unique<DeltaLengthByteArrayDecoder>(descr);
-      default:
-        throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
+    if (type_num == Type::BYTE_ARRAY || type_num == Type::FIXED_LEN_BYTE_ARRAY) {
+      return std::make_unique<DeltaLengthByteArrayDecoder>(descr);
     }
+    throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
   } else if (encoding == Encoding::RLE) {
     if (type_num == Type::BOOLEAN) {
       return std::make_unique<RleBooleanDecoder>(descr);

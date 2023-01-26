@@ -435,13 +435,12 @@ TEST_F(TestByteArrayValuesWriter, RequiredDeltaLengthByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
-// TODO
-// TEST_F(TestFixedLengthByteArrayValuesWriter, RequiredDeltaLengthByteArray) {
-//  this->TestRequiredWithEncoding(Encoding::DELTA_LENGTH_BYTE_ARRAY);
-//}
-
 /*
-TYPED_TEST(TestPrimitiveWriter, RequiredDeltaByteArray) {
+TYPED_TEST(TestByteArrayValuesWriter, RequiredDeltaByteArray) {
+  this->TestRequiredWithEncoding(Encoding::DELTA_BYTE_ARRAY);
+}
+
+TEST_F(TestFixedLengthByteArrayValuesWriter, RequiredDeltaByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BYTE_ARRAY);
 }
 */
