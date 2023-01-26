@@ -1232,7 +1232,7 @@ int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_values_to_skip) {
       // Jump to the right offset in the Page
       int64_t values_read = 0;
       InitScratchForSkip();
-      ARROW_DCHECK_NE(this->scratch_for_skip_, nullptr);
+      DCHECK_NE(this->scratch_for_skip_, nullptr);
       do {
         int64_t batch_size = std::min(kSkipScratchBatchSize, values_to_skip);
         values_read = ReadBatch(
@@ -1410,10 +1410,10 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   // accordingly and move the levels to left to fill in the gap.
   // It will resize the buffer without releasing the memory allocation.
   void ThrowAwayLevels(int64_t start_levels_position) {
-    ARROW_DCHECK_LE(levels_position_, levels_written_);
-    ARROW_DCHECK_LE(start_levels_position, levels_position_);
-    ARROW_DCHECK_GT(this->max_def_level_, 0);
-    ARROW_DCHECK_NE(def_levels_, nullptr);
+    DCHECK_LE(levels_position_, levels_written_);
+    DCHECK_LE(start_levels_position, levels_position_);
+    DCHECK_GT(this->max_def_level_, 0);
+    DCHECK_NE(def_levels_, nullptr);
 
     int64_t gap = levels_position_ - start_levels_position;
     if (gap == 0) return;
@@ -1431,7 +1431,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     left_shift(def_levels_.get());
 
     if (this->max_rep_level_ > 0) {
-      ARROW_DCHECK_NE(rep_levels_, nullptr);
+      DCHECK_NE(rep_levels_, nullptr);
       left_shift(rep_levels_.get());
     }
 
@@ -1443,7 +1443,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   // Skip records that we have in our buffer. This function is only for
   // non-repeated fields.
   int64_t SkipRecordsInBufferNonRepeated(int64_t num_records) {
-    ARROW_DCHECK_EQ(this->max_rep_level_, 0);
+    DCHECK_EQ(this->max_rep_level_, 0);
     if (!this->has_values_to_process() || num_records == 0) return 0;
 
     int64_t remaining_records = levels_written_ - levels_position_;
@@ -1512,7 +1512,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   // desired number of records or we run out of values in the column chunk.
   // Returns number of skipped records.
   int64_t SkipRecordsRepeated(int64_t num_records) {
-    ARROW_DCHECK_GT(this->max_rep_level_, 0);
+    DCHECK_GT(this->max_rep_level_, 0);
     int64_t skipped_records = 0;
 
     // First consume what is in the buffer.
@@ -1582,7 +1582,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // Allocate enough scratch space to accommodate 16-bit levels or any
     // value type
     this->InitScratchForSkip();
-    ARROW_DCHECK_NE(this->scratch_for_skip_, nullptr);
+    DCHECK_NE(this->scratch_for_skip_, nullptr);
     do {
       int64_t batch_size = std::min<int64_t>(kSkipScratchBatchSize, values_left);
       values_read = this->ReadValues(
@@ -1608,7 +1608,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       // First consume whatever is in the buffer.
       skipped_records = SkipRecordsInBufferNonRepeated(num_records);
 
-      ARROW_DCHECK_LE(skipped_records, num_records);
+      DCHECK_LE(skipped_records, num_records);
 
       // For records that we have not buffered, we will use the column
       // reader's Skip to do the remaining Skip. Since the field is not
@@ -1805,7 +1805,99 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     CheckNumberDecoded(num_decoded, values_to_read);
   }
 
-  // Return number of logical records read
+  // Reads repeated records and returns number of records read. Fills in
+  // values_to_read and null_count.
+  int64_t ReadRepeatedRecords(int64_t num_records, int64_t* values_to_read,
+                              int64_t* null_count) {
+    const int64_t start_levels_position = levels_position_;
+    // For repeated fields, DelimitRecords will update both records_read and
+    // values_to_read.
+    int64_t records_read = DelimitRecords(num_records, values_to_read);
+    // Any values with def_level < max_def_level is considered null.
+    *null_count = levels_position_ - start_levels_position - *values_to_read;
+    if (read_dense_for_nullable_) {
+      ReadValuesDense(*values_to_read);
+    } else {
+      ReadSpacedForNullable(start_levels_position, values_to_read, null_count);
+    }
+    return records_read;
+  }
+
+  // Reads optional records and returns number of records read. Fills in
+  // values_to_read and null_count.
+  int64_t ReadOptionalRecords(int64_t num_records, int64_t* values_to_read,
+                              int64_t* null_count) {
+    const int64_t start_levels_position = levels_position_;
+    // No repetition levels, skip delimiting logic. Each level represents a
+    // null or not null entry
+    int64_t records_read =
+        std::min<int64_t>(levels_written_ - levels_position_, num_records);
+    // This is advanced by DelimitRecords, which we skipped
+    levels_position_ += records_read;
+
+    if (read_dense_for_nullable_) {
+      ReadDenseForOptional(start_levels_position, values_to_read, null_count);
+    } else {
+      ReadSpacedForNullable(start_levels_position, values_to_read, null_count);
+    }
+    return records_read;
+  }
+
+  // Reads optional records and returns number of records read. Fills in
+  // values_to_read and null_count.
+  // null_count will be always 0. Kept the argument to be consistent with the
+  // other functions for repeated/optional.
+  int64_t ReadRequiredRecords(int64_t num_records, int64_t* values_to_read,
+                              int64_t* null_count) {
+    *values_to_read = num_records;
+    *null_count = 0;
+    ReadValuesDense(*values_to_read);
+    return num_records;
+  }
+
+  // Reads dense for optional records. First, it figures out number of values to
+  // read and null count.
+  void ReadDenseForOptional(int64_t start_levels_position, int64_t* values_to_read,
+                            int64_t* null_count) {
+    // levels_position_ must already be incremented based on number of records
+    // read.
+    DCHECK_GE(levels_position_, start_levels_position);
+
+    // When reading dense we need to figure out number of values to read.
+    const int16_t* def_levels = this->def_levels();
+    for (int i = start_levels_position; i < levels_position_; ++i) {
+      if (def_levels[i] == this->max_def_level_) {
+        ++(*values_to_read);
+      } else {
+        ++(*null_count);
+      }
+    }
+    // Any values with def_level < max_def_level is considered null.
+    DCHECK_EQ(*null_count, levels_position_ - start_levels_position - *values_to_read);
+    ReadValuesDense(*values_to_read);
+  }
+
+  // Reads spaced for optional or repeated fields.
+  void ReadSpacedForNullable(int64_t start_levels_position, int64_t* values_to_read,
+                             int64_t* null_count) {
+    // levels_position_ must already be incremented based on number of records
+    // read.
+    DCHECK_GE(levels_position_, start_levels_position);
+    ValidityBitmapInputOutput validity_io;
+    validity_io.values_read_upper_bound = levels_position_ - start_levels_position;
+    validity_io.valid_bits = valid_bits_->mutable_data();
+    validity_io.valid_bits_offset = values_written_;
+
+    DefLevelsToBitmap(def_levels() + start_levels_position,
+                      levels_position_ - start_levels_position, leaf_info_, &validity_io);
+    *values_to_read = validity_io.values_read - validity_io.null_count;
+    *null_count = validity_io.null_count;
+    DCHECK_GE(*values_to_read, 0);
+    ReadValuesSpaced(validity_io.values_read, *null_count);
+  }
+
+  // Return number of logical records read.
+  // Updates levels_position_, values_written_, and null_count_.
   int64_t ReadRecordData(int64_t num_records) {
     // Conservative upper bound
     const int64_t possible_num_values =
@@ -1814,61 +1906,37 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     const int64_t start_levels_position = levels_position_;
 
-    int64_t values_to_read = 0;
+    // To be updated by the function calls below for each of the repetition
+    // types.
     int64_t records_read = 0;
-    if (this->max_rep_level_ > 0) {
-      records_read = DelimitRecords(num_records, &values_to_read);
-    } else if (this->max_def_level_ > 0) {
-      // No repetition levels, skip delimiting logic. Each level represents a
-      // null or not null entry
-      records_read = std::min<int64_t>(levels_written_ - levels_position_, num_records);
-
-      // This is advanced by DelimitRecords, which we skipped
-      levels_position_ += records_read;
-    } else {
-      records_read = values_to_read = num_records;
-    }
-
+    int64_t values_to_read = 0;
     int64_t null_count = 0;
-    if (leaf_info_.HasNullableValues()) {
-      if (read_dense_for_nullable_) {
-        DCHECK_GE(values_to_read, 0);
-        ReadValuesDense(values_to_read);
-        // Total values, if reading dense, we don't have the nulls in the values
-        // vector.
-        values_written_ += values_to_read;
-        // Any values with def_level < max_def_level is considered null.
-        null_count = levels_position_ - start_levels_position - values_to_read;
-      } else {
-        ValidityBitmapInputOutput validity_io;
-        validity_io.values_read_upper_bound = levels_position_ - start_levels_position;
-        validity_io.valid_bits = valid_bits_->mutable_data();
-        validity_io.valid_bits_offset = values_written_;
-
-        DefLevelsToBitmap(def_levels() + start_levels_position,
-                          levels_position_ - start_levels_position, leaf_info_,
-                          &validity_io);
-        values_to_read = validity_io.values_read - validity_io.null_count;
-        null_count = validity_io.null_count;
-        ARROW_DCHECK_GE(values_to_read, 0);
-        ReadValuesSpaced(validity_io.values_read, null_count);
-        // Total values, including null spaces, if any
-        values_written_ += values_to_read + null_count;
-      }
+    if (this->max_rep_level_ > 0) {
+      records_read = ReadRepeatedRecords(num_records, &values_to_read, &null_count);
+    } else if (this->max_def_level_ > 0) {
+      records_read = ReadOptionalRecords(num_records, &values_to_read, &null_count);
     } else {
-      DCHECK_GE(values_to_read, 0);
-      ReadValuesDense(values_to_read);
-      values_written_ += values_to_read;
+      records_read = ReadRequiredRecords(num_records, &values_to_read, &null_count);
     }
-    if (this->leaf_info_.def_level > 0) {
+
+    DCHECK_GE(records_read, 0);
+    DCHECK_GE(values_to_read, 0);
+    DCHECK_GE(null_count, 0);
+
+    null_count_ += null_count;
+    if (read_dense_for_nullable_) {
+      values_written_ += values_to_read;
+    } else {
+      values_written_ += values_to_read + null_count;
+    }
+    // Total values, including null spaces, if any
+    if (this->max_def_level_ > 0) {
       // Optional, repeated, or some mix thereof
       this->ConsumeBufferedValues(levels_position_ - start_levels_position);
     } else {
       // Flat, non-repeated
       this->ConsumeBufferedValues(values_to_read);
     }
-
-    null_count_ += null_count;
 
     return records_read;
   }

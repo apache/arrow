@@ -303,6 +303,12 @@ namespace internal {
 
 /// \brief Stateful column reader that delimits semantic records for both flat
 /// and nested columns
+/// \param[in] column descriptor
+/// \param[in] level info
+/// \param[in] memory pool to use for buffering values and rep/def levels
+/// \param[in] True if reading directly as Arrow dictionary-encoded
+/// \param[in] True if reading dense and not leaving space for null values
+///
 ///
 /// \note API EXPERIMENTAL
 /// \since 1.3.0
@@ -367,8 +373,10 @@ class PARQUET_EXPORT RecordReader {
   /// \brief Decoded values, including nulls, if any
   uint8_t* values() const { return values_->mutable_data(); }
 
-  /// \brief Number of values written including nulls (if any)
-  /// If read_dense_for_nullable_ is true this will not include nulls.
+  /// \brief Number of values written. If this Reader was constructed
+  /// with read_dense_for_nullable set to true, this will not include number of
+  /// null values, otherwise it will since we have left spaces for the null
+  /// values.
   /// There is no read-ahead/buffering for values.
   int64_t values_written() const { return values_written_; }
 
