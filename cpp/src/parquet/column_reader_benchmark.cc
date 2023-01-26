@@ -71,11 +71,6 @@ class BenchmarkHelper {
     internal::LevelInfo level_info;
     level_info.def_level = descr_->max_definition_level();
     level_info.rep_level = descr_->max_repetition_level();
-    if (descr_->max_definition_level() > 0) {
-      // Set this to smaller than max_definition_level so that HasNullableValues
-      // returns true. Otherwise, it is not used by the RecordReader.
-      level_info.repeated_ancestor_def_level = descr_->max_definition_level() - 1;
-    }
     record_reader_ = internal::RecordReader::Make(
         descr_.get(), level_info, ::arrow::default_memory_pool(), /*read_dictionary=*/false,
         /*read_dense_for_nullable=*/read_dense_for_nullable);
