@@ -74,7 +74,7 @@ public class JniWrapper {
    * @param memoryPool identifier of memory pool used in the native scanner.
    * @return the native pointer of the arrow::dataset::Scanner instance.
    */
-  public native long createScanner(long datasetId, String[] columns, long batchSize, long memoryPool);
+  public native long createScanner(long datasetId, String[] columns, long batchSize, String filter, long memoryPool);
 
   /**
    * Get a serialized schema from native instance of a Scanner.
