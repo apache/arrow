@@ -403,7 +403,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_closeDataset
  */
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScanner(
     JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns, jlong batch_size,
-    jlong memory_pool_id) {
+    jstring filter, jlong memory_pool_id) {
   JNI_METHOD_START
   arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
   if (pool == nullptr) {
@@ -417,6 +417,11 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
   if (columns != nullptr) {
     std::vector<std::string> column_vector = ToStringVector(env, columns);
     JniAssertOkOrThrow(scanner_builder->Project(column_vector));
+  }
+  if (filter != nullptr) {
+    arrow::compute::Expression filter_expr = JniGetOrThrow(
+      arrow::compute::Expression::FromString(JStringToCString(env, filter)));
+    JniAssertOkOrThrow(scanner_builder->Filter(filter_expr));
   }
   JniAssertOkOrThrow(scanner_builder->BatchSize(batch_size));
 
