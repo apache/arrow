@@ -110,6 +110,7 @@ TEST(DefaultMemoryPool, Identity) {
 // googletest documentation
 #if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
 
+// TODO: is this still a death test?
 TEST(DefaultMemoryPoolDeathTest, Statistics) {
   MemoryPool* pool = default_memory_pool();
   uint8_t* data1;
@@ -124,14 +125,26 @@ TEST(DefaultMemoryPoolDeathTest, Statistics) {
   ASSERT_EQ(100, pool->bytes_allocated());
   ASSERT_EQ(2, pool->num_allocations());
 
-  ASSERT_OK(pool->Allocate(100, &data2));
-  pool->Free(data1, 100);
-  pool->Free(data2, 100);
+  ASSERT_OK(pool->Reallocate(100, 150, &data1));  // Grow data1
 
-  ASSERT_EQ(200, pool->max_memory());
-  ASSERT_EQ(250, pool->total_bytes_allocated());
-  ASSERT_EQ(0, pool->bytes_allocated());
+  ASSERT_EQ(150, pool->max_memory());
+  ASSERT_EQ(150 + 50, pool->total_bytes_allocated());
+  ASSERT_EQ(150, pool->bytes_allocated());
   ASSERT_EQ(3, pool->num_allocations());
+
+  ASSERT_OK(pool->Reallocate(150, 50, &data1));  // Shrink data1
+
+  ASSERT_EQ(150, pool->max_memory());
+  ASSERT_EQ(200, pool->total_bytes_allocated());
+  ASSERT_EQ(50, pool->bytes_allocated());
+  ASSERT_EQ(4, pool->num_allocations());
+
+  pool->Free(data1, 50);
+
+  ASSERT_EQ(150, pool->max_memory());
+  ASSERT_EQ(200, pool->total_bytes_allocated());
+  ASSERT_EQ(0, pool->bytes_allocated());
+  ASSERT_EQ(4, pool->num_allocations());
 }
 
 #endif  // ARROW_VALGRIND

@@ -509,7 +509,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
 #endif
     Allocator::DeallocateAligned(buffer, size, alignment);
 
-    stats_.UpdateAllocatedBytes(-size);
+    stats_.UpdateAllocatedBytes(-size, /*is_free*/ true);
   }
 
   void ReleaseUnused() override { Allocator::ReleaseUnused(); }
@@ -778,7 +778,7 @@ class ProxyMemoryPool::ProxyMemoryPoolImpl {
 
   void Free(uint8_t* buffer, int64_t size, int64_t alignment) {
     pool_->Free(buffer, size, alignment);
-    stats_.UpdateAllocatedBytes(-size);
+    stats_.UpdateAllocatedBytes(-size, /*is_free=*/true);
   }
 
   int64_t bytes_allocated() const { return stats_.bytes_allocated(); }

@@ -54,7 +54,7 @@ class MemoryPoolStats {
     num_allocs_ = 0;
   }
 
-  inline void UpdateAllocatedBytes(int64_t diff) {
+  inline void UpdateAllocatedBytes(int64_t diff, bool is_free = false) {
     auto allocated = bytes_allocated_.fetch_add(diff) + diff;
     // "maximum" allocated memory is ill-defined in multi-threaded code,
     // so don't try to be too rigorous here
@@ -64,6 +64,9 @@ class MemoryPoolStats {
 
     if (diff > 0) {
       total_allocated_bytes_ += diff;
+    }
+
+    if (!is_free) {
       num_allocs_ += 1;
     }
   }

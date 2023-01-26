@@ -130,7 +130,7 @@ class STLMemoryPool : public MemoryPool {
 
   void Free(uint8_t* buffer, int64_t size, int64_t /*alignment*/) override {
     alloc_.deallocate(buffer, size);
-    stats_.UpdateAllocatedBytes(-size);
+    stats_.UpdateAllocatedBytes(-size, /*is_free=*/true);
   }
 
   int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
