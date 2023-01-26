@@ -157,21 +157,16 @@ TEST(FPPTest, TestBloomFilter) {
 // Step 1: Construct a Bloom filter with 1024 bytes bitset.
 // Step 2: Insert "hello", "parquet", "bloom", "filter" to Bloom filter.
 // Step 3: Call writeTo API to write to File.
-//
-// TODO(mwish): The test is deprecated, because the bloom_filter.bin breaks
-//  the current bloom filter standard.
-/*
 TEST(CompatibilityTest, TestBloomFilter) {
   const std::string test_string[4] = {"hello", "parquet", "bloom", "filter"};
   const std::string bloom_filter_test_binary =
-      std::string(test::get_data_dir()) + "/bloom_filter.bin";
+      std::string(test::get_data_dir()) + "/bloom_filter.xxhash.bin";
 
   PARQUET_ASSIGN_OR_THROW(auto handle,
                           ::arrow::io::ReadableFile::Open(bloom_filter_test_binary));
   PARQUET_ASSIGN_OR_THROW(int64_t size, handle->GetSize());
 
-  // 1024 bytes (bitset) + 4 bytes (hash) + 4 bytes (algorithm) + 4 bytes (length)
-  EXPECT_EQ(size, 1036);
+  EXPECT_EQ(size, 1040);
 
   std::unique_ptr<uint8_t[]> bitset(new uint8_t[size]());
   PARQUET_ASSIGN_OR_THROW(auto buffer, handle->Read(size));
@@ -207,7 +202,6 @@ TEST(CompatibilityTest, TestBloomFilter) {
 
   EXPECT_TRUE((*buffer1).Equals(*buffer2));
 }
-*/
 
 // OptimalValueTest is used to test whether OptimalNumOfBits returns expected
 // numbers according to formula:
