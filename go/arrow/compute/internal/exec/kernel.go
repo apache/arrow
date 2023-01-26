@@ -242,36 +242,36 @@ func (primitiveMatcher) Equals(other TypeMatcher) bool {
 // returns true for.
 func Primitive() TypeMatcher { return primitiveMatcher{} }
 
-type rleMatcher struct {
+type reeMatcher struct {
 	runEndsMatcher TypeMatcher
 	encodedMatcher TypeMatcher
 }
 
-func (r rleMatcher) Matches(typ arrow.DataType) bool {
-	if typ.ID() != arrow.RUN_LENGTH_ENCODED {
+func (r reeMatcher) Matches(typ arrow.DataType) bool {
+	if typ.ID() != arrow.RUN_END_ENCODED {
 		return false
 	}
 
-	dt := typ.(*arrow.RunLengthEncodedType)
+	dt := typ.(*arrow.RunEndEncodedType)
 	return r.runEndsMatcher.Matches(dt.RunEnds()) && r.encodedMatcher.Matches(dt.Encoded())
 }
 
-func (r rleMatcher) Equals(other TypeMatcher) bool {
-	o, ok := other.(rleMatcher)
+func (r reeMatcher) Equals(other TypeMatcher) bool {
+	o, ok := other.(reeMatcher)
 	if !ok {
 		return false
 	}
 	return r.runEndsMatcher.Equals(o.runEndsMatcher) && r.encodedMatcher.Equals(o.encodedMatcher)
 }
 
-func (r rleMatcher) String() string {
+func (r reeMatcher) String() string {
 	return "run_length_encoded(" + r.encodedMatcher.String() + ")"
 }
 
-// RunLengthEncoded returns a matcher which matches a RunLengthEncoded
+// RunEndEncoded returns a matcher which matches a RunEndEncoded
 // type whose encoded type is matched by the passed in matcher.
-func RunLengthEncoded(runEndsMatcher, encodedMatcher TypeMatcher) TypeMatcher {
-	return rleMatcher{
+func RunEndEncoded(runEndsMatcher, encodedMatcher TypeMatcher) TypeMatcher {
+	return reeMatcher{
 		runEndsMatcher: runEndsMatcher,
 		encodedMatcher: encodedMatcher}
 }

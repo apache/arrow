@@ -161,7 +161,7 @@ func TestPrimitiveMatcher(t *testing.T) {
 	assert.False(t, match.Matches(arrow.Null))
 }
 
-func TestRLEMatcher(t *testing.T) {
+func TestREEMatcher(t *testing.T) {
 	tests := []struct {
 		runEnds        exec.TypeMatcher
 		enc            exec.TypeMatcher
@@ -177,20 +177,20 @@ func TestRLEMatcher(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.enc.String(), func(t *testing.T) {
-			matcher := exec.RunLengthEncoded(tt.runEnds, tt.enc)
+			matcher := exec.RunEndEncoded(tt.runEnds, tt.enc)
 			assert.False(t, matcher.Matches(tt.matchEnc))
-			assert.True(t, matcher.Matches(arrow.RunLengthEncodedOf(tt.matchRunEnds, tt.matchEnc)))
-			assert.False(t, matcher.Matches(arrow.RunLengthEncodedOf(tt.matchRunEnds, tt.nomatchEnc)))
-			assert.False(t, matcher.Matches(arrow.RunLengthEncodedOf(tt.nomatchRunEnds, tt.matchEnc)))
-			assert.False(t, matcher.Matches(arrow.RunLengthEncodedOf(tt.nomatchRunEnds, tt.nomatchEnc)))
+			assert.True(t, matcher.Matches(arrow.RunEndEncodedOf(tt.matchRunEnds, tt.matchEnc)))
+			assert.False(t, matcher.Matches(arrow.RunEndEncodedOf(tt.matchRunEnds, tt.nomatchEnc)))
+			assert.False(t, matcher.Matches(arrow.RunEndEncodedOf(tt.nomatchRunEnds, tt.matchEnc)))
+			assert.False(t, matcher.Matches(arrow.RunEndEncodedOf(tt.nomatchRunEnds, tt.nomatchEnc)))
 
 			assert.Equal(t, "run_length_encoded("+tt.enc.String()+")", matcher.String())
 
-			assert.True(t, matcher.Equals(exec.RunLengthEncoded(tt.runEnds, tt.enc)))
+			assert.True(t, matcher.Equals(exec.RunEndEncoded(tt.runEnds, tt.enc)))
 			assert.False(t, matcher.Equals(exec.Primitive()))
-			assert.False(t, matcher.Equals(exec.RunLengthEncoded(exec.SameTypeID(tt.nomatchRunEnds.ID()), exec.SameTypeID(tt.nomatchEnc.ID()))))
-			assert.False(t, matcher.Equals(exec.RunLengthEncoded(exec.SameTypeID(tt.matchRunEnds.ID()), exec.SameTypeID(tt.nomatchEnc.ID()))))
-			assert.False(t, matcher.Equals(exec.RunLengthEncoded(exec.SameTypeID(tt.nomatchRunEnds.ID()), exec.SameTypeID(tt.matchEnc.ID()))))
+			assert.False(t, matcher.Equals(exec.RunEndEncoded(exec.SameTypeID(tt.nomatchRunEnds.ID()), exec.SameTypeID(tt.nomatchEnc.ID()))))
+			assert.False(t, matcher.Equals(exec.RunEndEncoded(exec.SameTypeID(tt.matchRunEnds.ID()), exec.SameTypeID(tt.nomatchEnc.ID()))))
+			assert.False(t, matcher.Equals(exec.RunEndEncoded(exec.SameTypeID(tt.nomatchRunEnds.ID()), exec.SameTypeID(tt.matchEnc.ID()))))
 		})
 	}
 }
