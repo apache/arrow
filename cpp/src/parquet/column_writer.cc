@@ -767,7 +767,7 @@ class ColumnWriterImpl {
   int64_t total_bytes_written_;
 
   // Records the current number of compressed bytes in a column
-  // These bytes are unwritten to `pager_`yet
+  // These bytes are unwritten to `pager_` yet
   int64_t total_compressed_bytes_;
 
   // Flag to check if the Writer has been closed

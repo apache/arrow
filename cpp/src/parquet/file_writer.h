@@ -92,8 +92,11 @@ class PARQUET_EXPORT RowGroupWriter {
    */
   int64_t num_rows() const;
 
+  /// \brief total uncompressed bytes written by the page writer
   int64_t total_bytes_written() const;
+  /// \brief total bytes still compressed but not written
   int64_t total_compressed_bytes() const;
+  /// \brief total compressed bytes written by the page writer
   int64_t total_compressed_bytes_written() const;
 
   /// Returns whether the current RowGroupWriter is in the buffered mode and is created
