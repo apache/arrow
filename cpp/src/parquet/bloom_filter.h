@@ -202,7 +202,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   ///
   /// @param input_stream The input stream from which to construct the Bloom filter
   /// @return The BlockSplitBloomFilter.
-  static BlockSplitBloomFilter Deserialize(const ReaderProperties& readerProperties,
+  static BlockSplitBloomFilter Deserialize(const ReaderProperties& properties,
                                            ArrowInputStream* input_stream);
 
  private:

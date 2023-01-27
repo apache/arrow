@@ -107,11 +107,11 @@ static ::arrow::Status ValidateBloomFilterHeader(
 }
 
 BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
-    const ReaderProperties& readerProperties, ArrowInputStream* input) {
+    const ReaderProperties& properties, ArrowInputStream* input) {
   uint32_t length = kBloomFilterHeaderSizeGuess;
   uint32_t header_size = 0;
 
-  ThriftDeserializer deserializer(readerProperties);
+  ThriftDeserializer deserializer(properties);
   format::BloomFilterHeader header;
 
   // Read and deserialize bloom filter header
@@ -144,9 +144,9 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
   PARQUET_THROW_NOT_OK(input->Advance(header_size));
   PARQUET_ASSIGN_OR_THROW(auto buffer, input->Read(header.numBytes));
 
-  BlockSplitBloomFilter bloomFilter;
-  bloomFilter.Init(buffer->data(), header.numBytes);
-  return bloomFilter;
+  BlockSplitBloomFilter bloom_filter;
+  bloom_filter.Init(buffer->data(), header.numBytes);
+  return bloom_filter;
 }
 
 void BlockSplitBloomFilter::WriteTo(ArrowOutputStream* sink) const {
