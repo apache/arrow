@@ -291,24 +291,36 @@ std::shared_ptr<DataType> GetPhysicalType(const std::shared_ptr<DataType>& type)
 class ARROW_EXPORT FixedWidthType : public DataType {
  public:
   using DataType::DataType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~FixedWidthType() override;
 };
 
 /// \brief Base class for all data types representing primitive values
 class ARROW_EXPORT PrimitiveCType : public FixedWidthType {
  public:
   using FixedWidthType::FixedWidthType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~PrimitiveCType() override;
 };
 
 /// \brief Base class for all numeric data types
 class ARROW_EXPORT NumberType : public PrimitiveCType {
  public:
   using PrimitiveCType::PrimitiveCType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~NumberType() override;
 };
 
 /// \brief Base class for all integral data types
 class ARROW_EXPORT IntegerType : public NumberType {
  public:
   using NumberType::NumberType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~IntegerType() override;
   virtual bool is_signed() const = 0;
 };
 
@@ -316,6 +328,9 @@ class ARROW_EXPORT IntegerType : public NumberType {
 class ARROW_EXPORT FloatingPointType : public NumberType {
  public:
   using NumberType::NumberType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~FloatingPointType() override;
   enum Precision { HALF, SINGLE, DOUBLE };
   virtual Precision precision() const = 0;
 };
@@ -326,6 +341,9 @@ class ParametricType {};
 class ARROW_EXPORT NestedType : public DataType, public ParametricType {
  public:
   using DataType::DataType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~NestedType() override;
 };
 
 /// \brief The combination of a field name and data type, with optional metadata
@@ -653,6 +671,9 @@ class ARROW_EXPORT DoubleType
 class ARROW_EXPORT BaseBinaryType : public DataType {
  public:
   using DataType::DataType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~BaseBinaryType() override;
 };
 
 constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
@@ -896,6 +917,9 @@ class ARROW_EXPORT Decimal256Type : public DecimalType {
 class ARROW_EXPORT BaseListType : public NestedType {
  public:
   using NestedType::NestedType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~BaseListType() override;
   const std::shared_ptr<Field>& value_field() const { return children_[0]; }
 
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
@@ -1212,6 +1236,9 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
 class ARROW_EXPORT TemporalType : public FixedWidthType {
  public:
   using FixedWidthType::FixedWidthType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~TemporalType() override;
 
   DataTypeLayout layout() const override {
     return DataTypeLayout(
