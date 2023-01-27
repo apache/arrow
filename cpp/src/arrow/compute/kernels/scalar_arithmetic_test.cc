@@ -387,7 +387,7 @@ class TestBinaryArithmetic : public ::testing::Test {
 
   void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
                                     const std::shared_ptr<Array>& expected) {
-    ValidateOutput(*actual);
+    ValidateOutput(Datum(*actual));
     AssertArraysApproxEqual(*expected, *actual, /*verbose=*/true, equal_options_);
   }
 
