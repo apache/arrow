@@ -61,6 +61,12 @@ inline bool std_has(const T& container, const V& val) {
   return container.end() != std_find(container, val);
 }
 
+template <typename T, typename V = typename T::value_type,
+          typename D = typename T::difference_type>
+inline D std_index(const T& container, const V& val) {
+  return std_find(container, val) - container.begin();
+}
+
 typedef uint64_t ByType;
 typedef uint64_t OnType;
 typedef uint64_t HashType;
@@ -954,20 +960,29 @@ class CompositeReferenceTable {
   void AddRecordBatchRef(const std::shared_ptr<RecordBatch>& ref) {
     if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
   }
+
   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_fixed_width_type<Type, Status> static BuilderAppend(
+  enable_if_boolean<Type, Status> static BuilderAppend(
       Builder& builder, const std::shared_ptr<ArrayData>& source, row_index_t row) {
     if (source->IsNull(row)) {
       builder.UnsafeAppendNull();
       return Status::OK();
     }
+    builder.UnsafeAppend(bit_util::GetBit(source->template GetValues<uint8_t>(1), row));
+    return Status::OK();
+  }
 
-    if constexpr (is_boolean_type<Type>::value) {
-      builder.UnsafeAppend(bit_util::GetBit(source->template GetValues<uint8_t>(1), row));
-    } else {
-      using CType = typename TypeTraits<Type>::CType;
-      builder.UnsafeAppend(source->template GetValues<CType>(1)[row]);
+  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
+  enable_if_t<is_fixed_width_type<Type>::value && !is_boolean_type<Type>::value,
+              Status> static BuilderAppend(Builder& builder,
+                                           const std::shared_ptr<ArrayData>& source,
+                                           row_index_t row) {
+    if (source->IsNull(row)) {
+      builder.UnsafeAppendNull();
+      return Status::OK();
     }
+    using CType = typename TypeTraits<Type>::CType;
+    builder.UnsafeAppend(source->template GetValues<CType>(1)[row]);
     return Status::OK();
   }
 
@@ -1291,16 +1306,27 @@ class AsofJoinNode : public ExecNode {
     }
   }
 
+  /// \brief Make the output schema of an as-of-join node
+  ///
+  /// Optionally, also provides the field output indices for this node.
+  /// \see arrow::engine::RelationInfo
+  ///
+  /// \param[in] input_schema the schema of each input to the node
+  /// \param[in] indices_of_on_key the on-key index of each input to the node
+  /// \param[in] indices_of_by_key the by-key indices of each input to the node
+  /// \param[out] field_output_indices the output index of each field
   static arrow::Result<std::shared_ptr<Schema>> MakeOutputSchema(
       const std::vector<std::shared_ptr<Schema>> input_schema,
       const std::vector<col_index_t>& indices_of_on_key,
-      const std::vector<std::vector<col_index_t>>& indices_of_by_key) {
+      const std::vector<std::vector<col_index_t>>& indices_of_by_key,
+      std::vector<int>* field_output_indices = nullptr) {
     std::vector<std::shared_ptr<arrow::Field>> fields;
 
     size_t n_by = indices_of_by_key.size() == 0 ? 0 : indices_of_by_key[0].size();
     const DataType* on_key_type = NULLPTR;
     std::vector<const DataType*> by_key_type(n_by, NULLPTR);
     // Take all non-key, non-time RHS fields
+    int output_field_idx = 0;
     for (size_t j = 0; j < input_schema.size(); ++j) {
       const auto& on_field_ix = indices_of_on_key[j];
       const auto& by_field_ix = indices_of_by_key[j];
@@ -1334,21 +1360,29 @@ class AsofJoinNode : public ExecNode {
 
       for (int i = 0; i < input_schema[j]->num_fields(); ++i) {
         const auto field = input_schema[j]->field(i);
+        bool as_output;        // true if the field appears as an output
+        int final_output_idx;  // the final output index for the field
         if (i == on_field_ix) {
           ARROW_RETURN_NOT_OK(is_valid_on_field(field));
           // Only add on field from the left table
-          if (j == 0) {
-            fields.push_back(field);
-          }
+          as_output = (j == 0);
+          final_output_idx = as_output ? output_field_idx++ : indices_of_on_key[0];
         } else if (std_has(by_field_ix, i)) {
           ARROW_RETURN_NOT_OK(is_valid_by_field(field));
           // Only add by field from the left table
-          if (j == 0) {
-            fields.push_back(field);
-          }
+          as_output = (j == 0);
+          final_output_idx = as_output ? output_field_idx++
+                                       : indices_of_by_key[0][std_index(by_field_ix, i)];
         } else {
           ARROW_RETURN_NOT_OK(is_valid_data_field(field));
+          as_output = true;
+          final_output_idx = output_field_idx++;
+        }
+        if (as_output) {
           fields.push_back(field);
+        }
+        if (field_output_indices) {
+          field_output_indices->push_back(final_output_idx);
         }
       }
     }
@@ -1559,13 +1593,13 @@ namespace asofjoin {
 
 Result<std::shared_ptr<Schema>> MakeOutputSchema(
     const std::vector<std::shared_ptr<Schema>>& input_schema,
-    const std::vector<AsofJoinKeys>& input_keys) {
+    const std::vector<AsofJoinKeys>& input_keys, std::vector<int>* field_output_indices) {
   ARROW_ASSIGN_OR_RAISE(std::vector<col_index_t> indices_of_on_key,
                         AsofJoinNode::GetIndicesOfOnKey(input_schema, input_keys));
   ARROW_ASSIGN_OR_RAISE(std::vector<std::vector<col_index_t>> indices_of_by_key,
                         AsofJoinNode::GetIndicesOfByKey(input_schema, input_keys));
   return AsofJoinNode::MakeOutputSchema(input_schema, indices_of_on_key,
-                                        indices_of_by_key);
+                                        indices_of_by_key, field_output_indices);
 }
 
 }  // namespace asofjoin
