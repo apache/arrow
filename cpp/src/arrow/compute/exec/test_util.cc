@@ -514,7 +514,19 @@ static inline void PrintToImpl(const std::string& factory_name,
       *os << "function=" << agg.function << "<";
       if (agg.options) PrintTo(*agg.options, os);
       *os << ">,";
-      *os << "target=" << agg.target.ToString() << ",";
+      *os << "target=";
+      if (agg.target.size() == 0) {
+        *os << "*";
+      } else if (agg.target.size() == 1) {
+        *os << agg.target[0].ToString();
+      } else {
+        *os << "(" << agg.target[0].ToString();
+        for (size_t i = 1; i < agg.target.size(); i++) {
+          *os << "," << agg.target[i].ToString();
+        }
+        *os << ")";
+      }
+      *os << ",";
       *os << "name=" << agg.name;
     }
     *os << "},";

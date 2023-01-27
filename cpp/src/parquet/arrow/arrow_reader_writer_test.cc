@@ -3443,8 +3443,8 @@ TEST(ArrowReadWrite, Decimal256AsInt) {
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
 
   parquet::WriterProperties::Builder builder;
-  // Enforce integer type to annotate decimal type
-  auto writer_properties = builder.enable_integer_annotate_decimal()->build();
+  // Allow small decimals to be stored as int32 or int64.
+  auto writer_properties = builder.enable_store_decimal_as_integer()->build();
   auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
 
   CheckConfiguredRoundtrip(table, table, writer_properties, props_store_schema);
@@ -4821,8 +4821,8 @@ class TestIntegerAnnotateDecimalTypeParquetIO : public TestParquetIO<TestType> {
     auto arrow_schema = ::arrow::schema({::arrow::field("a", values->type())});
 
     parquet::WriterProperties::Builder builder;
-    // Enforce integer type to annotate decimal type
-    auto writer_properties = builder.enable_integer_annotate_decimal()->build();
+    // Allow small decimals to be stored as int32 or int64.
+    auto writer_properties = builder.enable_store_decimal_as_integer()->build();
     std::shared_ptr<SchemaDescriptor> parquet_schema;
     ASSERT_OK_NO_THROW(ToParquetSchema(arrow_schema.get(), *writer_properties,
                                        *default_arrow_writer_properties(),

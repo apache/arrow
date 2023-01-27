@@ -67,12 +67,12 @@ constexpr const char* kSubstraitAggregateGenericFunctionsUri =
     "https://github.com/substrait-io/substrait/blob/main/extensions/"
     "functions_aggregate_generic.yaml";
 
-struct Id {
+struct ARROW_ENGINE_EXPORT Id {
   std::string_view uri, name;
   bool empty() const { return uri.empty() && name.empty(); }
   std::string ToString() const;
 };
-struct IdHashEq {
+struct ARROW_ENGINE_EXPORT IdHashEq {
   size_t operator()(Id id) const;
   bool operator()(Id l, Id r) const;
 };
@@ -84,7 +84,7 @@ struct IdHashEq {
 /// convert a plan from Substrait to Arrow we need to copy these strings out of
 /// the Substrait buffer and into owned storage.  This class serves as that owned
 /// storage.
-class IdStorage {
+class ARROW_ENGINE_EXPORT IdStorage {
  public:
   virtual ~IdStorage() = default;
   /// \brief Get an equivalent id pointing into this storage
@@ -112,7 +112,7 @@ class IdStorage {
 /// Substrait call expressions contain a list of arguments which can either
 /// be enum arguments (which are serialized as strings), value arguments (which)
 /// are Arrow expressions, or type arguments (not yet implemented)
-class SubstraitCall {
+class ARROW_ENGINE_EXPORT SubstraitCall {
  public:
   SubstraitCall(Id id, std::shared_ptr<DataType> output_type, bool output_nullable,
                 bool is_hash = false)

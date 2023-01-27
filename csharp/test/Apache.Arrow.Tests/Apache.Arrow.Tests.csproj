@@ -13,10 +13,24 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="CommunityToolkit.HighPerformance" Version="8.0.0" />
+    <PackageReference Include="K4os.Compression.LZ4.Streams" Version="1.3.5" />
+    <PackageReference Include="ZstdSharp.Port" Version="0.6.7" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Apache.Arrow\Apache.Arrow.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Resources\ipc_lz4_compression.arrow" />
+    <EmbeddedResource Include="Resources\ipc_lz4_compression.arrow" />
+    <None Remove="Resources\ipc_zstd_compression.arrow" />
+    <EmbeddedResource Include="Resources\ipc_zstd_compression.arrow" />
+    <None Remove="Resources\ipc_lz4_compression.arrow_stream" />
+    <EmbeddedResource Include="Resources\ipc_lz4_compression.arrow_stream" />
+    <None Remove="Resources\ipc_zstd_compression.arrow_stream" />
+    <EmbeddedResource Include="Resources\ipc_zstd_compression.arrow_stream" />
   </ItemGroup>
 
 </Project>

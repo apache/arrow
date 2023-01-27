@@ -1275,6 +1275,14 @@ tasks:
         PYTEST_ARGS: "-m hypothesis"
       image: conda-python-pandas
 
+  test-conda-python-3.9-substrait:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        PYTHON: "3.9"
+      image: conda-python-substrait
+
   test-debian-11-python-3:
     ci: azure
     template: docker-tests/azure.linux.yml
