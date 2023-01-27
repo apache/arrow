@@ -94,6 +94,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
         metadata_(metadata),
         properties_(properties),
         total_bytes_written_(0),
+        total_compressed_bytes_written_(0),
         closed_(false),
         row_group_ordinal_(row_group_ordinal),
         next_column_index_(0),
@@ -130,6 +131,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 
     if (column_writers_[0]) {
       total_bytes_written_ += column_writers_[0]->Close();
+      total_compressed_bytes_written_ +=
+          column_writers_[0]->total_compressed_bytes_written();
     }
 
     ++next_column_index_;
@@ -164,6 +167,9 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   int current_column() const override { return metadata_->current_column(); }
 
   int64_t total_compressed_bytes() const override {
+    if (closed_) {
+      return total_bytes_written_;
+    }
     int64_t total_compressed_bytes = 0;
     for (size_t i = 0; i < column_writers_.size(); i++) {
       if (column_writers_[i]) {
@@ -184,6 +190,9 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   }
 
   int64_t total_compressed_bytes_written() const override {
+    if (closed_) {
+      return total_compressed_bytes_written_;
+    }
     int64_t total_compressed_bytes_written = 0;
     for (size_t i = 0; i < column_writers_.size(); i++) {
       if (column_writers_[i]) {
@@ -204,6 +213,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       for (size_t i = 0; i < column_writers_.size(); i++) {
         if (column_writers_[i]) {
           total_bytes_written_ += column_writers_[i]->Close();
+          total_compressed_bytes_written_ +=
+              column_writers_[i]->total_compressed_bytes_written();
           column_writers_[i].reset();
         }
       }
@@ -221,6 +232,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   mutable RowGroupMetaDataBuilder* metadata_;
   const WriterProperties* properties_;
   int64_t total_bytes_written_;
+  int64_t total_compressed_bytes_written_;
   bool closed_;
   int16_t row_group_ordinal_;
   int next_column_index_;
