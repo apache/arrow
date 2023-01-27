@@ -62,10 +62,14 @@ class MemoryPoolStats {
       max_memory_ = allocated;
     }
 
+    // Reallocations might just expand/contract the allocation in place or might
+    // copy to a new location. We can't really know, so we just represent the
+    // optimistic case.
     if (diff > 0) {
       total_allocated_bytes_ += diff;
     }
 
+    // We count any reallocation as a allocation.
     if (!is_free) {
       num_allocs_ += 1;
     }
