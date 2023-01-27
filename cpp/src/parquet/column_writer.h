@@ -103,6 +103,8 @@ class PARQUET_EXPORT PageWriter {
   // Return the number of uncompressed bytes written (including header size)
   virtual int64_t WriteDictionaryPage(const DictionaryPage& page) = 0;
 
+  virtual int64_t total_compressed_bytes_written() const = 0;
+
   virtual bool has_compressor() = 0;
 
   virtual void Compress(const Buffer& src_buffer, ResizableBuffer* dest_buffer) = 0;
@@ -136,7 +138,14 @@ class PARQUET_EXPORT ColumnWriter {
 
   /// \brief The total number of bytes written as serialized data and
   /// dictionary pages to the ColumnChunk so far
+  /// These bytes are uncompressed bytes.
   virtual int64_t total_bytes_written() const = 0;
+
+  /// \brief The total number of bytes written as serialized data and
+  /// dictionary pages to the ColumnChunk so far.
+  /// If the column is uncompressed, the value would be equal to
+  /// total_bytes_written().
+  virtual int64_t total_compressed_bytes_written() const = 0;
 
   /// \brief The file-level writer properties
   virtual const WriterProperties* properties() = 0;
