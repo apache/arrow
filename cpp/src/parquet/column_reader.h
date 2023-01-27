@@ -303,11 +303,12 @@ namespace internal {
 
 /// \brief Stateful column reader that delimits semantic records for both flat
 /// and nested columns
-/// \param[in] column descriptor
-/// \param[in] level info
-/// \param[in] memory pool to use for buffering values and rep/def levels
-/// \param[in] True if reading directly as Arrow dictionary-encoded
-/// \param[in] True if reading dense and not leaving space for null values
+///
+/// @param column descriptor
+/// @param level info
+/// @param memory pool to use for buffering values and rep/def levels
+/// @param True if reading directly as Arrow dictionary-encoded
+/// @param True if reading dense and not leaving space for null values
 ///
 ///
 /// \note API EXPERIMENTAL

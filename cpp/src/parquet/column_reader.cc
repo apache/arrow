@@ -326,13 +326,13 @@ class SerializedPageReader : public PageReader {
 void SerializedPageReader::InitDecryption() {
   // Prepare the AAD for quick update later.
   if (crypto_ctx_.data_decryptor != nullptr) {
-    DCHECK(!crypto_ctx_.data_decryptor->file_aad().empty());
+    ARROW_DCHECK(!crypto_ctx_.data_decryptor->file_aad().empty());
     data_page_aad_ = encryption::CreateModuleAad(
         crypto_ctx_.data_decryptor->file_aad(), encryption::kDataPage,
         crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
   }
   if (crypto_ctx_.meta_decryptor != nullptr) {
-    DCHECK(!crypto_ctx_.meta_decryptor->file_aad().empty());
+    ARROW_DCHECK(!crypto_ctx_.meta_decryptor->file_aad().empty());
     data_page_header_aad_ = encryption::CreateModuleAad(
         crypto_ctx_.meta_decryptor->file_aad(), encryption::kDataPageHeader,
         crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
@@ -341,7 +341,7 @@ void SerializedPageReader::InitDecryption() {
 
 void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor,
                                             int8_t module_type, std::string* page_aad) {
-  DCHECK(decryptor != nullptr);
+  ARROW_DCHECK(decryptor != nullptr);
   if (crypto_ctx_.start_decrypt_with_dictionary_page) {
     std::string aad = encryption::CreateModuleAad(
         decryptor->file_aad(), module_type, crypto_ctx_.row_group_ordinal,
@@ -742,7 +742,7 @@ class ColumnReaderImplBase {
 
     new_dictionary_ = true;
     current_decoder_ = decoders_[encoding].get();
-    DCHECK(current_decoder_);
+    ARROW_DCHECK(current_decoder_);
   }
 
   // Initialize repetition and definition level decoders on the next data page.
@@ -842,7 +842,7 @@ class ColumnReaderImplBase {
 
     auto it = decoders_.find(static_cast<int>(encoding));
     if (it != decoders_.end()) {
-      DCHECK(it->second.get() != nullptr);
+      ARROW_DCHECK(it->second.get() != nullptr);
       current_decoder_ = it->second.get();
     } else {
       switch (encoding) {
@@ -1232,7 +1232,7 @@ int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_values_to_skip) {
       // Jump to the right offset in the Page
       int64_t values_read = 0;
       InitScratchForSkip();
-      DCHECK_NE(this->scratch_for_skip_, nullptr);
+      ARROW_DCHECK_NE(this->scratch_for_skip_, nullptr);
       do {
         int64_t batch_size = std::min(kSkipScratchBatchSize, values_to_skip);
         values_read = ReadBatch(
@@ -1410,10 +1410,10 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   // accordingly and move the levels to left to fill in the gap.
   // It will resize the buffer without releasing the memory allocation.
   void ThrowAwayLevels(int64_t start_levels_position) {
-    DCHECK_LE(levels_position_, levels_written_);
-    DCHECK_LE(start_levels_position, levels_position_);
-    DCHECK_GT(this->max_def_level_, 0);
-    DCHECK_NE(def_levels_, nullptr);
+    ARROW_DCHECK_LE(levels_position_, levels_written_);
+    ARROW_DCHECK_LE(start_levels_position, levels_position_);
+    ARROW_DCHECK_GT(this->max_def_level_, 0);
+    ARROW_DCHECK_NE(def_levels_, nullptr);
 
     int64_t gap = levels_position_ - start_levels_position;
     if (gap == 0) return;
@@ -1431,7 +1431,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     left_shift(def_levels_.get());
 
     if (this->max_rep_level_ > 0) {
-      DCHECK_NE(rep_levels_, nullptr);
+      ARROW_DCHECK_NE(rep_levels_, nullptr);
       left_shift(rep_levels_.get());
     }
 
@@ -1443,7 +1443,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   // Skip records that we have in our buffer. This function is only for
   // non-repeated fields.
   int64_t SkipRecordsInBufferNonRepeated(int64_t num_records) {
-    DCHECK_EQ(this->max_rep_level_, 0);
+    ARROW_DCHECK_EQ(this->max_rep_level_, 0);
     if (!this->has_values_to_process() || num_records == 0) return 0;
 
     int64_t remaining_records = levels_written_ - levels_position_;
@@ -1512,7 +1512,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   // desired number of records or we run out of values in the column chunk.
   // Returns number of skipped records.
   int64_t SkipRecordsRepeated(int64_t num_records) {
-    DCHECK_GT(this->max_rep_level_, 0);
+    ARROW_DCHECK_GT(this->max_rep_level_, 0);
     int64_t skipped_records = 0;
 
     // First consume what is in the buffer.
@@ -1582,7 +1582,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // Allocate enough scratch space to accommodate 16-bit levels or any
     // value type
     this->InitScratchForSkip();
-    DCHECK_NE(this->scratch_for_skip_, nullptr);
+    ARROW_DCHECK_NE(this->scratch_for_skip_, nullptr);
     do {
       int64_t batch_size = std::min<int64_t>(kSkipScratchBatchSize, values_left);
       values_read = this->ReadValues(
@@ -1608,7 +1608,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       // First consume whatever is in the buffer.
       skipped_records = SkipRecordsInBufferNonRepeated(num_records);
 
-      DCHECK_LE(skipped_records, num_records);
+      ARROW_DCHECK_LE(skipped_records, num_records);
 
       // For records that we have not buffered, we will use the column
       // reader's Skip to do the remaining Skip. Since the field is not
@@ -1663,7 +1663,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     const int16_t* def_levels = this->def_levels() + levels_position_;
     const int16_t* rep_levels = this->rep_levels() + levels_position_;
 
-    DCHECK_GT(this->max_rep_level_, 0);
+    ARROW_DCHECK_GT(this->max_rep_level_, 0);
 
     // Count logical records and number of values to read
     while (levels_position_ < levels_written_) {
@@ -1816,10 +1816,15 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     if (read_dense_for_nullable_) {
       ReadValuesDense(*values_to_read);
       // Any values with def_level < max_def_level is considered null.
+      // This behavior is consistent with reading spaced below. When reading
+      // spaced, we leave a space for an empty list with parent present, and it
+      // counts as null. So we do the same when counting nulls with reading
+      // dense.
       *null_count = levels_position_ - start_levels_position - *values_to_read;
     } else {
-      ReadSpacedForNullable(start_levels_position, values_to_read, null_count);
-      DCHECK_EQ(*null_count, levels_position_ - start_levels_position - *values_to_read);
+      ReadSpacedForOptionalOrRepeated(start_levels_position, values_to_read, null_count);
+      ARROW_DCHECK_EQ(*null_count,
+                      levels_position_ - start_levels_position - *values_to_read);
     }
     return records_read;
   }
@@ -1839,7 +1844,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     if (read_dense_for_nullable_) {
       ReadDenseForOptional(start_levels_position, values_to_read, null_count);
     } else {
-      ReadSpacedForNullable(start_levels_position, values_to_read, null_count);
+      ReadSpacedForOptionalOrRepeated(start_levels_position, values_to_read, null_count);
     }
     return records_read;
   }
@@ -1862,7 +1867,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
                             int64_t* null_count) {
     // levels_position_ must already be incremented based on number of records
     // read.
-    DCHECK_GE(levels_position_, start_levels_position);
+    ARROW_DCHECK_GE(levels_position_, start_levels_position);
 
     // When reading dense we need to figure out number of values to read.
     const int16_t* def_levels = this->def_levels();
@@ -1874,16 +1879,18 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       }
     }
     // Any values with def_level < max_def_level is considered null.
-    DCHECK_EQ(*null_count, levels_position_ - start_levels_position - *values_to_read);
+    // This behavior is consistent with reading spaced for optional fields.
+    ARROW_DCHECK_EQ(*null_count,
+                    levels_position_ - start_levels_position - *values_to_read);
     ReadValuesDense(*values_to_read);
   }
 
   // Reads spaced for optional or repeated fields.
-  void ReadSpacedForNullable(int64_t start_levels_position, int64_t* values_to_read,
-                             int64_t* null_count) {
+  void ReadSpacedForOptionalOrRepeated(int64_t start_levels_position,
+                                       int64_t* values_to_read, int64_t* null_count) {
     // levels_position_ must already be incremented based on number of records
     // read.
-    DCHECK_GE(levels_position_, start_levels_position);
+    ARROW_DCHECK_GE(levels_position_, start_levels_position);
     ValidityBitmapInputOutput validity_io;
     validity_io.values_read_upper_bound = levels_position_ - start_levels_position;
     validity_io.valid_bits = valid_bits_->mutable_data();
@@ -1893,7 +1900,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
                       levels_position_ - start_levels_position, leaf_info_, &validity_io);
     *values_to_read = validity_io.values_read - validity_io.null_count;
     *null_count = validity_io.null_count;
-    DCHECK_GE(*values_to_read, 0);
+    ARROW_DCHECK_GE(*values_to_read, 0);
     ReadValuesSpaced(validity_io.values_read, *null_count);
   }
 
@@ -1920,9 +1927,9 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       records_read = ReadRequiredRecords(num_records, &values_to_read, &null_count);
     }
 
-    DCHECK_GE(records_read, 0);
-    DCHECK_GE(values_to_read, 0);
-    DCHECK_GE(null_count, 0);
+    ARROW_DCHECK_GE(records_read, 0);
+    ARROW_DCHECK_GE(values_to_read, 0);
+    ARROW_DCHECK_GE(null_count, 0);
 
     null_count_ += null_count;
     if (read_dense_for_nullable_) {
@@ -1998,7 +2005,7 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
                    ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
       : TypedRecordReader<FLBAType>(descr, leaf_info, pool, read_dense_for_nullable),
         builder_(nullptr) {
-    DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
+    ARROW_DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
     int byte_width = descr_->type_length();
     std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
     builder_ = std::make_unique<::arrow::FixedSizeBinaryBuilder>(type, this->pool_);
@@ -2030,7 +2037,7 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
     int64_t num_decoded = this->current_decoder_->DecodeSpaced(
         values, static_cast<int>(values_to_read), static_cast<int>(null_count),
         valid_bits, valid_bits_offset);
-    DCHECK_EQ(num_decoded, values_to_read);
+    ARROW_DCHECK_EQ(num_decoded, values_to_read);
 
     for (int64_t i = 0; i < num_decoded; i++) {
       if (::arrow::bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
@@ -2053,7 +2060,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
                                ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
       : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool,
                                          read_dense_for_nullable) {
-    DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
+    ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
     accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
   }
 
@@ -2160,7 +2167,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
       /// Flush values since they have been copied into the builder
       ResetValues();
     }
-    DCHECK_EQ(num_decoded, values_to_read - null_count);
+    ARROW_DCHECK_EQ(num_decoded, values_to_read - null_count);
   }
 
  private:

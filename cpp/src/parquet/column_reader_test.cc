@@ -760,15 +760,75 @@ TEST_F(RecordReaderTest, BasicReadRepeatedField) {
              /*levels_position=*/0);
 }
 
+// Tests reading an optional field with saving a space for nulls.
+// Use a max definition field > 1 to test both cases where parent is present or
+// parent is missing.
+TEST_F(RecordReaderTest, ReadSpacedForNullableOptional) {
+  Init(/*max_def_level=*/2, /*max_rep_level=*/0, Repetition::OPTIONAL,
+       /*read_dense_for_nullable=*/false);
+
+  // Records look like: {10, null, 20, 20, null, 30, 30, 30, null}
+  std::vector<std::shared_ptr<Page>> pages;
+  std::vector<int32_t> values = {10, 20, 20, 30, 30, 30};
+  std::vector<int16_t> def_levels = {2, 0, 2, 2, 1, 2, 2, 2, 0};
+
+  std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+      descr_.get(), values, /*num_values=*/static_cast<int>(def_levels.size()),
+      Encoding::PLAIN,
+      /*indices=*/{},
+      /*indices_size=*/0, def_levels, level_info_.def_level, /*rep_levels=*/{},
+      level_info_.rep_level);
+  pages.push_back(std::move(page));
+  auto pager = std::make_unique<MockPageReader>(pages);
+  record_reader_->SetPageReader(std::move(pager));
+
+  // Read 10, null
+  int64_t records_read = record_reader_->ReadRecords(/*num_records=*/2);
+  ASSERT_EQ(records_read, 2);
+  CheckState(/*values_written=*/2, /*null_count=*/1, /*levels_written=*/9,
+             /*levels_position=*/2);
+  CheckReadValues(/*expected_values=*/{10, kNullValue}, /*expected_defs=*/{2, 0},
+                  /*expected_reps=*/{});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/7,
+             /*levels_position=*/0);
+
+  // Read 20, 20, null (parent present), 30, 30, 30
+  records_read = record_reader_->ReadRecords(/*num_records=*/6);
+  ASSERT_EQ(records_read, 6);
+  CheckState(/*values_written=*/6, /*null_count=*/1, /*levels_written=*/7,
+             /*levels_position=*/6);
+  CheckReadValues(/*expected_values=*/{20, 20, kNullValue, 30, 30, 30},
+                  /*expected_defs=*/{2, 2, 1, 2, 2, 2},
+                  /*expected_reps=*/{});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
+             /*levels_position=*/0);
+
+  // Read the last null value and read past the end.
+  records_read = record_reader_->ReadRecords(/*num_records=*/3);
+  ASSERT_EQ(records_read, 1);
+  CheckState(/*values_written=*/1, /*null_count=*/1, /*levels_written=*/1,
+             /*levels_position=*/1);
+  CheckReadValues(/*expected_values=*/{kNullValue},
+                  /*expected_defs=*/{0},
+                  /*expected_reps=*/{});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/0,
+             /*levels_position=*/0);
+}
+
 // Tests reading an optional field without saving a space for nulls.
+// Use a max definition field > 1 to test both cases where parent is present or
+// parent is missing.
 TEST_F(RecordReaderTest, ReadDenseForNullableOptional) {
-  Init(/*max_def_level=*/1, /*max_rep_level=*/0, Repetition::OPTIONAL,
+  Init(/*max_def_level=*/2, /*max_rep_level=*/0, Repetition::OPTIONAL,
        /*read_dense_for_nullable=*/true);
 
   // Records look like: {10, null, 20, 20, null, 30, 30, 30, null}
   std::vector<std::shared_ptr<Page>> pages;
   std::vector<int32_t> values = {10, 20, 20, 30, 30, 30};
-  std::vector<int16_t> def_levels = {1, 0, 1, 1, 0, 1, 1, 1, 0};
+  std::vector<int16_t> def_levels = {2, 0, 2, 2, 1, 2, 2, 2, 0};
 
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
       descr_.get(), values, /*num_values=*/static_cast<int>(def_levels.size()),
@@ -785,20 +845,20 @@ TEST_F(RecordReaderTest, ReadDenseForNullableOptional) {
   ASSERT_EQ(records_read, 2);
   CheckState(/*values_written=*/1, /*null_count=*/1, /*levels_written=*/9,
              /*levels_position=*/2);
-  CheckReadValues(/*expected_values=*/{10}, /*expected_defs=*/{1, 0},
-                  /*expected_reps=*/{0, 0});
+  CheckReadValues(/*expected_values=*/{10}, /*expected_defs=*/{2, 0},
+                  /*expected_reps=*/{});
   record_reader_->Reset();
   CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/7,
              /*levels_position=*/0);
 
-  // Read 20, 20, null, 30, 30, 30
+  // Read 20, 20, null (parent present), 30, 30, 30
   records_read = record_reader_->ReadRecords(/*num_records=*/6);
   ASSERT_EQ(records_read, 6);
   CheckState(/*values_written=*/5, /*null_count=*/1, /*levels_written=*/7,
              /*levels_position=*/6);
   CheckReadValues(/*expected_values=*/{20, 20, 30, 30, 30},
-                  /*expected_defs=*/{1, 1, 0, 1, 1, 1},
-                  /*expected_reps=*/{0, 1, 0, 0, 1, 1});
+                  /*expected_defs=*/{2, 2, 1, 2, 2, 2},
+                  /*expected_reps=*/{});
   record_reader_->Reset();
   CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
              /*levels_position=*/0);
@@ -810,7 +870,7 @@ TEST_F(RecordReaderTest, ReadDenseForNullableOptional) {
              /*levels_position=*/1);
   CheckReadValues(/*expected_values=*/{},
                   /*expected_defs=*/{0},
-                  /*expected_reps=*/{0});
+                  /*expected_reps=*/{});
   record_reader_->Reset();
   CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/0,
              /*levels_position=*/0);
@@ -868,6 +928,66 @@ TEST_F(RecordReaderTest, ReadDenseForNullableRepeated) {
   CheckReadValues(/*expected_values=*/{},
                   /*expected_defs=*/{0},
                   /*expected_reps=*/{0});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/0,
+             /*levels_position=*/0);
+}
+
+// Tests reading a nested repeated field with saving a space for nulls so
+// that we can test both null and an empty list.
+TEST_F(RecordReaderTest, ReadSpacedForNullableNestedRepeated) {
+  Init(/*max_def_level=*/2, /*max_rep_level=*/2, Repetition::REPEATED,
+       /*read_dense_for_nullable=*/false);
+
+  // Records look like: {[[10]], null, [[20, 20, 20], null, [30]], null, [[40], [], [40]]}
+  std::vector<std::shared_ptr<Page>> pages;
+  std::vector<int32_t> values = {10, 20, 20, 20, 30, 40, 40};
+  std::vector<int16_t> def_levels = {2, 0, 2, 2, 2, 0, 2, 0, 2, 1, 2};
+  std::vector<int16_t> rep_levels = {0, 0, 0, 1, 2, 1, 1, 0, 0, 1, 1};
+
+  std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
+      descr_.get(), values, /*num_values=*/static_cast<int>(def_levels.size()),
+      Encoding::PLAIN,
+      /*indices=*/{},
+      /*indices_size=*/0, def_levels, level_info_.def_level, rep_levels,
+      level_info_.rep_level);
+  pages.push_back(std::move(page));
+  auto pager = std::make_unique<MockPageReader>(pages);
+  record_reader_->SetPageReader(std::move(pager));
+
+  // Read [[10]], null
+  int64_t records_read = record_reader_->ReadRecords(/*num_records=*/2);
+  ASSERT_EQ(records_read, 2);
+  CheckState(/*values_written=*/2, /*null_count=*/1, /*levels_written=*/11,
+             /*levels_position=*/2);
+  CheckReadValues(/*expected_values=*/{10, kNullValue}, /*expected_defs=*/{2, 0},
+                  /*expected_reps=*/{0, 0});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/9,
+             /*levels_position=*/0);
+
+  // Read [[20, 20, 20], null, [30]]
+  records_read = record_reader_->ReadRecords(/*num_records=*/1);
+  ASSERT_EQ(records_read, 1);
+  CheckState(/*values_written=*/5, /*null_count=*/1, /*levels_written=*/9,
+             /*levels_position=*/5);
+  CheckReadValues(/*expected_values=*/{20, 20, 20, kNullValue, 30},
+                  /*expected_defs=*/{2, 2, 2, 0, 2},
+                  /*expected_reps=*/{0, 1, 2, 1, 1});
+  record_reader_->Reset();
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/4,
+             /*levels_position=*/0);
+
+  // Read the rest of the values, including the empty list.
+  // The empty list counts in null count since its definition level is smaller
+  // than max definition level.
+  records_read = record_reader_->ReadRecords(/*num_records=*/3);
+  ASSERT_EQ(records_read, 2);
+  CheckState(/*values_written=*/4, /*null_count=*/2, /*levels_written=*/4,
+             /*levels_position=*/4);
+  CheckReadValues(/*expected_values=*/{kNullValue, 40, kNullValue, 40},
+                  /*expected_defs=*/{0, 2, 1, 2},
+                  /*expected_reps=*/{0, 0, 1, 1});
   record_reader_->Reset();
   CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/0,
              /*levels_position=*/0);
