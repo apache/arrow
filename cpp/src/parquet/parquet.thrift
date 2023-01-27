@@ -585,7 +585,7 @@ union BloomFilterAlgorithm {
 /** Hash strategy type annotation. xxHash is an extremely fast non-cryptographic hash
  * algorithm. It uses 64 bits version of xxHash. 
  **/
-struct XxHasher {}
+struct XxHash {}
 
 /** 
  * The hash function used in Bloom filter. This function takes the hash of a column value
@@ -593,7 +593,7 @@ struct XxHasher {}
  **/
 union BloomFilterHash {
   /** xxHash Strategy. **/
-  1: XxHasher XXHASH;
+  1: XxHash XXHASH;
 }
 
 /**

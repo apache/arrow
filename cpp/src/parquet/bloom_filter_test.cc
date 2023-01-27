@@ -74,7 +74,9 @@ TEST(BasicTest, TestBloomFilter) {
   ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
   ::arrow::io::BufferReader source(buffer);
 
-  BlockSplitBloomFilter de_bloom = BlockSplitBloomFilter::Deserialize(&source);
+  ReaderProperties reader_properties;
+  BlockSplitBloomFilter de_bloom =
+      BlockSplitBloomFilter::Deserialize(reader_properties, &source);
 
   for (int i = 0; i < 10; i++) {
     EXPECT_TRUE(de_bloom.FindHash(de_bloom.Hash(i)));
@@ -162,7 +164,9 @@ TEST(CompatibilityTest, TestBloomFilter) {
   PARQUET_ASSIGN_OR_THROW(auto buffer, handle->Read(size));
 
   ::arrow::io::BufferReader source(buffer);
-  BlockSplitBloomFilter bloom_filter1 = BlockSplitBloomFilter::Deserialize(&source);
+  ReaderProperties reader_properties;
+  BlockSplitBloomFilter bloom_filter1 =
+      BlockSplitBloomFilter::Deserialize(reader_properties, &source);
 
   for (int i = 0; i < 4; i++) {
     const ByteArray tmp(static_cast<uint32_t>(test_string[i].length()),
