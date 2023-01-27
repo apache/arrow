@@ -980,31 +980,6 @@ void AddNullExec(ScalarFunction* func) {
   DCHECK_OK(func->AddKernel(std::move(input_types), OutputType(null()), NullToNullExec));
 }
 
-template <typename Op, typename FunctionImpl = RoundFunction>
-std::shared_ptr<ScalarFunction> MakeRoundFunction(std::string name, FunctionDoc doc) {
-  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), std::move(doc));
-  for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Op>(ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
-  }
-  AddNullExec(func.get());
-  return func;
-}
-
-// Like MakeRoundFunction, but for arithmetic ops that need to run
-// only on non-null output.
-template <typename Op, typename FunctionImpl = RoundFunction>
-std::shared_ptr<ScalarFunction> MakeRoundFunctionNotNull(std::string name,
-                                                         FunctionDoc doc) {
-  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), std::move(doc));
-  for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
-  }
-  AddNullExec(func.get());
-  return func;
-}
-
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeUnaryRoundFunction(std::string name,
                                                        FunctionDoc doc) {
