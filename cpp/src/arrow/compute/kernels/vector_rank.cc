@@ -25,11 +25,12 @@ namespace {
 // ----------------------------------------------------------------------
 // Rank implementation
 
-template <typename T>
+template <typename ValueSelector,
+          typename T = std::decay_t<std::invoke_result_t<ValueSelector, int64_t>>>
 Result<Datum> CreateRankings(ExecContext* ctx, const NullPartitionResult& sorted,
                              const NullPlacement null_placement,
                              const RankOptions::Tiebreaker tiebreaker,
-                             std::function<T(int64_t)> value_selector) {
+                             ValueSelector&& value_selector) {
   auto length = sorted.overall_end() - sorted.overall_begin();
   ARROW_ASSIGN_OR_RAISE(auto rankings,
                         MakeMutableUInt64Array(length, ctx->memory_pool()));
@@ -169,7 +170,6 @@ class ArrayRanker : public TypeVisitor {
   template <typename InType>
   Status RankInternal() {
     using GetView = GetViewType<InType>;
-    using T = typename GetViewType<InType>::T;
     using ArrayType = typename TypeTraits<InType>::ArrayType;
 
     ArrayType arr(array_.data());
@@ -196,7 +196,7 @@ class ArrayRanker : public TypeVisitor {
       return GetView::LogicalValue(arr.GetView(index));
     };
     auto rankings =
-        CreateRankings<T>(ctx_, sorted, null_placement_, tiebreaker_, value_selector);
+        CreateRankings(ctx_, sorted, null_placement_, tiebreaker_, value_selector);
     ARROW_ASSIGN_OR_RAISE(auto output, rankings);
     *output_ = output;
     return Status::OK();
@@ -243,7 +243,6 @@ class ChunkedArrayRanker : public TypeVisitor {
 
   template <typename InType>
   Status RankInternal() {
-    using T = typename GetViewType<InType>::T;
     using ArrayType = typename TypeTraits<InType>::ArrayType;
 
     if (chunked_array_.num_chunks() == 0) {
@@ -260,7 +259,7 @@ class ChunkedArrayRanker : public TypeVisitor {
       return resolver.Resolve<ArrayType>(index).Value();
     };
     auto rankings =
-        CreateRankings<T>(ctx_, sorted, null_placement_, tiebreaker_, value_selector);
+        CreateRankings(ctx_, sorted, null_placement_, tiebreaker_, value_selector);
     ARROW_ASSIGN_OR_RAISE(auto output, rankings);
     *output_ = output;
     return Status::OK();
