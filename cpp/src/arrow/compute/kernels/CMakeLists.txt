@@ -24,18 +24,11 @@ add_arrow_compute_test(scalar_type_test
                        scalar_cast_test.cc
                        scalar_nested_test.cc
                        scalar_string_test.cc
-                       test_util.cc
-                       )
-
-add_arrow_compute_test(scalar_if_else_test
-                       SOURCES
-                       scalar_if_else_test.cc
                        test_util.cc)
 
-add_arrow_compute_test(scalar_temporal_test
-                       SOURCES
-                       scalar_temporal_test.cc
-                       test_util.cc)
+add_arrow_compute_test(scalar_if_else_test SOURCES scalar_if_else_test.cc test_util.cc)
+
+add_arrow_compute_test(scalar_temporal_test SOURCES scalar_temporal_test.cc test_util.cc)
 
 add_arrow_compute_test(scalar_math_test
                        SOURCES
