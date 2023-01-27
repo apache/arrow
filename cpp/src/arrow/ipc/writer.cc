@@ -197,6 +197,8 @@ class RecordBatchSerializer {
     // FIXME: Not the most sophisticated way to handle this. Ideally, you'd want to avoid
     // pre-compressing the entire buffer via some kind of sampling method. As the feature
     // gains adoption, this may become a worthwhile optimization.
+    //
+    // See: GH-33885
     if (!ShouldCompress(buffer.size(), actual_length)) {
       if (buffer.size() < actual_length || buffer.size() > maximum_length) {
         RETURN_NOT_OK(
