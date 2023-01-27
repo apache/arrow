@@ -21,6 +21,8 @@ set -e
 set -u
 set -o pipefail
 
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 if [ "$#" -ne 1 ]; then
   echo "Usage: $0 <rubygems-account>"
   echo "Usage: $0 kou"
@@ -29,16 +31,8 @@ fi
 
 account=$1
 
-gems=(
-  red-arrow
-  red-arrow-cuda
-  red-arrow-dataset
-  red-arrow-flight
-  red-arrow-flight-sql
-  red-gandiva
-  red-parquet
-  red-plasma
-)
-for gem in "${gems[@]}"; do
+pushd "${SOURCE_DIR}/../../ruby"
+for gem in red-*; do
   gem owner ${gem} -a ${account}
 done
+popd
