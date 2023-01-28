@@ -59,42 +59,42 @@ register_bindings_aggregate <- function() {
   register_binding_agg("base::sum", function(..., na.rm = FALSE) {
     list(
       fun = "sum",
-      data = ensure_one_arg(list2(...), "sum"),
+      data = list(ensure_one_arg(list2(...), "sum")),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
   register_binding_agg("base::any", function(..., na.rm = FALSE) {
     list(
       fun = "any",
-      data = ensure_one_arg(list2(...), "any"),
+      data = list(ensure_one_arg(list2(...), "any")),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
   register_binding_agg("base::all", function(..., na.rm = FALSE) {
     list(
       fun = "all",
-      data = ensure_one_arg(list2(...), "all"),
+      data = list(ensure_one_arg(list2(...), "all")),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
   register_binding_agg("base::mean", function(x, na.rm = FALSE) {
     list(
       fun = "mean",
-      data = x,
+      data = list(x),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
   register_binding_agg("stats::sd", function(x, na.rm = FALSE, ddof = 1) {
     list(
       fun = "stddev",
-      data = x,
+      data = list(x),
       options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
     )
   })
   register_binding_agg("stats::var", function(x, na.rm = FALSE, ddof = 1) {
     list(
       fun = "variance",
-      data = x,
+      data = list(x),
       options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
     )
   })
@@ -114,7 +114,7 @@ register_bindings_aggregate <- function() {
       )
       list(
         fun = "tdigest",
-        data = x,
+        data = list(x),
         options = list(skip_nulls = na.rm, q = probs)
       )
     },
@@ -136,7 +136,7 @@ register_bindings_aggregate <- function() {
       )
       list(
         fun = "approximate_median",
-        data = x,
+        data = list(x),
         options = list(skip_nulls = na.rm)
       )
     },
@@ -145,28 +145,28 @@ register_bindings_aggregate <- function() {
   register_binding_agg("dplyr::n_distinct", function(..., na.rm = FALSE) {
     list(
       fun = "count_distinct",
-      data = ensure_one_arg(list2(...), "n_distinct"),
+      data = list(ensure_one_arg(list2(...), "n_distinct")),
       options = list(na.rm = na.rm)
     )
   })
   register_binding_agg("dplyr::n", function() {
     list(
       fun = "sum",
-      data = Expression$scalar(1L),
+      data = list(Expression$scalar(1L)),
       options = list()
     )
   })
   register_binding_agg("base::min", function(..., na.rm = FALSE) {
     list(
       fun = "min",
-      data = ensure_one_arg(list2(...), "min"),
+      data = list(ensure_one_arg(list2(...), "min")),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
   register_binding_agg("base::max", function(..., na.rm = FALSE) {
     list(
       fun = "max",
-      data = ensure_one_arg(list2(...), "max"),
+      data = list(ensure_one_arg(list2(...), "max")),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
@@ -322,15 +322,29 @@ arrow_eval_or_stop <- function(expr, mask) {
   out
 }
 
+# This function returns a list of expressions that can be used to project the
+# data before an aggregation to only the fields required for the aggregation
 summarize_projection <- function(.data) {
   c(
-    map(.data$aggregations, ~ .$data),
+    unlist(map(.data$aggregations, ~ .$data)),
+    .data$selected_columns[.data$group_by_vars]
+  )
+}
+
+# This function returns a list of expressions representing the fields that will
+# be returned by an aggregation
+summarize_fields <- function(.data) {
+  c(
+    map(
+      .data$aggregations,
+      ~Expression$create(.$fun, args = .$data, options = .$options)
+    ),
     .data$selected_columns[.data$group_by_vars]
   )
 }
 
 format_aggregation <- function(x) {
-  paste0(x$fun, "(", x$data$ToString(), ")")
+  paste0(x$fun, "(", paste(map(x$data, ~.$ToString()), collapse = ","), ")")
 }
 
 # This function handles each summarize expression and turns it into the
