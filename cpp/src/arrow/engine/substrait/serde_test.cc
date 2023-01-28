@@ -5128,7 +5128,7 @@ TEST(Substrait, PlanWithExtension) {
                   ]
 		}
 	      ],
-              "tolerance": 1000
+              "tolerance": -1000
             }
           }
         },
@@ -5310,7 +5310,7 @@ TEST(Substrait, AsOfJoinDefaultEmit) {
                   ]
 		}
 	      ],
-              "tolerance": 1000
+              "tolerance": -1000
             }
           }
         },
