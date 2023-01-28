@@ -4368,7 +4368,7 @@ TEST(Substrait, PlanWithAsOfJoinExtension) {
                   ]
 		}
 	      ],
-              "tolerance": 1000
+              "tolerance": -1000
             }
           }
         },
