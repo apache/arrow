@@ -162,7 +162,7 @@ arrow::Status RunSubstraitConsumer(int argc, char** argv) {
 
   // Start the plan...
   std::cout << std::string(50, '#') << " consuming batches:" << std::endl;
-  ARROW_RETURN_NOT_OK(plan->StartProducing());
+  plan->StartProducing();
 
   // ... and wait for it to finish
   ARROW_RETURN_NOT_OK(plan->finished().status());

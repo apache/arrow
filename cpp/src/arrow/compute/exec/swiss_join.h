@@ -558,7 +558,7 @@ class JoinResultMaterialize {
       if (num_rows_appended < num_rows_to_append) {
         ExecBatch batch;
         ARROW_RETURN_NOT_OK(Flush(&batch));
-        output_batch_fn(batch);
+        ARROW_RETURN_NOT_OK(output_batch_fn(batch));
         num_rows_to_append -= num_rows_appended;
         offset += num_rows_appended;
       } else {
@@ -613,7 +613,7 @@ class JoinResultMaterialize {
     if (num_rows_ > 0) {
       ExecBatch batch({}, num_rows_);
       ARROW_RETURN_NOT_OK(Flush(&batch));
-      output_batch_fn(std::move(batch));
+      ARROW_RETURN_NOT_OK(output_batch_fn(std::move(batch)));
     }
     return Status::OK();
   }
@@ -731,7 +731,7 @@ class JoinMatchIterator {
 //
 class JoinProbeProcessor {
  public:
-  using OutputBatchFn = std::function<void(int64_t, ExecBatch)>;
+  using OutputBatchFn = std::function<Status(int64_t, ExecBatch)>;
 
   void Init(int num_key_columns, JoinType join_type, SwissTableForJoin* hash_table,
             std::vector<JoinResultMaterialize*> materialize,

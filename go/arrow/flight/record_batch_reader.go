@@ -234,3 +234,30 @@ func StreamChunksFromReader(rdr array.RecordReader, ch chan<- StreamChunk) {
 		}
 	}
 }
+
+func ConcatenateReaders(rdrs []array.RecordReader, ch chan<- StreamChunk) {
+	defer close(ch)
+	defer func() {
+		for _, r := range rdrs {
+			r.Release()
+		}
+
+		if err := recover(); err != nil {
+			ch <- StreamChunk{Err: fmt.Errorf("panic while reading: %s", err)}
+		}
+	}()
+
+	for _, r := range rdrs {
+		for r.Next() {
+			rec := r.Record()
+			rec.Retain()
+			ch <- StreamChunk{Data: rec}
+		}
+		if e, ok := r.(haserr); ok {
+			if e.Err() != nil {
+				ch <- StreamChunk{Err: e.Err()}
+				return
+			}
+		}
+	}
+}

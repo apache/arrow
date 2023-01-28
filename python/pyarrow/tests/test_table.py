@@ -1995,6 +1995,23 @@ def test_table_group_by():
         "values_sum": [3, 3, 4, 5]
     }
 
+    # Test many arguments
+    r = table.group_by("keys").aggregate([
+        ("values", "max"),
+        ("bigvalues", "sum"),
+        ("bigvalues", "max"),
+        ([], "count_all"),
+        ("values", "sum")
+    ])
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b", "c"],
+        "values_max": [2, 4, 5],
+        "bigvalues_sum": [30, 70, 50],
+        "bigvalues_max": [20, 40, 50],
+        "count_all": [2, 2, 1],
+        "values_sum": [3, 7, 5]
+    }
+
     table_with_nulls = pa.table([
         pa.array(["a", "a", "a"]),
         pa.array([1, None, None])
@@ -2022,6 +2039,24 @@ def test_table_group_by():
     assert r.to_pydict() == {
         "keys": ["a"],
         "values_count": [1]
+    }
+
+    r = table_with_nulls.group_by(["keys"]).aggregate([
+        ([], "count_all"),  # nullary count that takes no parameters
+        ("values", "count", pc.CountOptions(mode="only_valid"))
+    ])
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "count_all": [3],
+        "values_count": [1]
+    }
+
+    r = table_with_nulls.group_by(["keys"]).aggregate([
+        ([], "count_all")
+    ])
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "count_all": [3]
     }
 
 

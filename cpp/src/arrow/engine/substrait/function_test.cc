@@ -140,7 +140,7 @@ void CheckValidTestCases(const std::vector<FunctionTestCase>& valid_cases) {
     std::shared_ptr<Table> output_table;
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
                          PlanFromTestCase(test_case, &output_table));
-    ASSERT_OK(plan->StartProducing());
+    plan->StartProducing();
     ASSERT_FINISHES_OK(plan->finished());
 
     // Could also modify the Substrait plan with an emit to drop the leading columns
@@ -161,12 +161,7 @@ void CheckErrorTestCases(const std::vector<FunctionTestCase>& error_cases) {
     std::shared_ptr<Table> output_table;
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
                          PlanFromTestCase(test_case, &output_table));
-    Status start_st = plan->StartProducing();
-    // The plan can fail in start producing or when running the plan
-    if (!start_st.ok()) {
-      ASSERT_TRUE(start_st.IsInvalid());
-      return;
-    }
+    plan->StartProducing();
     ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
   }
 }
@@ -531,6 +526,8 @@ struct AggregateTestCase {
   std::string group_outputs;
   // The data type of the outputs
   std::shared_ptr<DataType> output_type;
+  // The aggregation takes zero columns as input
+  bool nullary = false;
 };
 
 std::shared_ptr<Table> GetInputTableForAggregateCase(const AggregateTestCase& test_case) {
@@ -565,8 +562,10 @@ std::shared_ptr<compute::ExecPlan> PlanFromAggregateCase(
   }
   EXPECT_OK_AND_ASSIGN(
       std::shared_ptr<Buffer> substrait,
-      internal::CreateScanAggSubstrait(test_case.function_id, input_table, key_idxs,
-                                       /*arg_idx=*/1, *test_case.output_type));
+      internal::CreateScanAggSubstrait(
+          test_case.function_id, input_table, key_idxs,
+          /*arg_idxs=*/test_case.nullary ? std::vector<int>{} : std::vector<int>{1},
+          *test_case.output_type));
   std::shared_ptr<compute::SinkNodeConsumer> consumer =
       std::make_shared<compute::TableSinkNodeConsumer>(output_table,
                                                        default_memory_pool());
@@ -593,7 +592,7 @@ void CheckWholeAggregateCase(const AggregateTestCase& test_case) {
   std::shared_ptr<compute::ExecPlan> plan =
       PlanFromAggregateCase(test_case, &output_table, /*with_keys=*/false);
 
-  ASSERT_OK(plan->StartProducing());
+  plan->StartProducing();
   ASSERT_FINISHES_OK(plan->finished());
 
   ASSERT_OK_AND_ASSIGN(output_table,
@@ -609,7 +608,7 @@ void CheckGroupedAggregateCase(const AggregateTestCase& test_case) {
   std::shared_ptr<compute::ExecPlan> plan =
       PlanFromAggregateCase(test_case, &output_table, /*with_keys=*/true);
 
-  ASSERT_OK(plan->StartProducing());
+  plan->StartProducing();
   ASSERT_FINISHES_OK(plan->finished());
 
   // The aggregate node's output is unpredictable so we sort by the key column
@@ -669,7 +668,15 @@ TEST(FunctionMapping, AggregateCases) {
        {int8()},
        "[3]",
        "[2, 1]",
-       int64()}};
+       int64()},
+      {{kSubstraitAggregateGenericFunctionsUri, "count"},
+       {"[1, null, 30]"},
+       {int8()},
+       "[3]",
+       "[2, 1]",
+       int64(),
+       /*nullary=*/true},
+  };
   CheckAggregateCases(test_cases);
 }
 

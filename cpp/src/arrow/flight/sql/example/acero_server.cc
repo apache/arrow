@@ -200,7 +200,7 @@ class AceroFlightSqlServer : public FlightSqlServerBase {
 
     ARROW_LOG(INFO) << "DoGetStatement: executing plan " << plan->ToString();
 
-    ARROW_RETURN_NOT_OK(plan->StartProducing());
+    plan->StartProducing();
 
     auto reader = std::make_shared<ConsumerBasedRecordBatchReader>(std::move(plan),
                                                                    std::move(consumer));
@@ -268,11 +268,13 @@ class AceroFlightSqlServer : public FlightSqlServerBase {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<compute::ExecPlan> plan,
                           engine::DeserializePlan(*plan_buf, consumer));
     std::shared_ptr<Schema> output_schema;
-    for (compute::ExecNode* sink : plan->sinks()) {
-      // Force SinkNodeConsumer::Init to be called
-      ARROW_RETURN_NOT_OK(sink->StartProducing());
-      output_schema = consumer->schema();
-      break;
+    for (compute::ExecNode* possible_sink : plan->nodes()) {
+      if (possible_sink->is_sink()) {
+        // Force SinkNodeConsumer::Init to be called
+        ARROW_RETURN_NOT_OK(possible_sink->StartProducing());
+        output_schema = consumer->schema();
+        break;
+      }
     }
     if (!output_schema) {
       return Status::Invalid("Could not infer output schema");

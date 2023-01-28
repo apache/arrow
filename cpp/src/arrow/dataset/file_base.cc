@@ -31,6 +31,7 @@
 #include "arrow/compute/exec/map_node.h"
 #include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/subtree_internal.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/dataset_writer.h"
 #include "arrow/dataset/scanner.h"
@@ -528,15 +529,9 @@ class TeeNode : public compute::MapNode {
 
   const char* kind_name() const override { return "TeeNode"; }
 
-  void Finish(Status finish_st) override {
-    if (!finish_st.ok()) {
-      MapNode::Finish(std::move(finish_st));
-      return;
-    }
-    dataset_writer_->Finish();
-  }
+  void Finish() override { dataset_writer_->Finish(); }
 
-  Result<compute::ExecBatch> DoTee(const compute::ExecBatch& batch) {
+  Result<compute::ExecBatch> ProcessBatch(compute::ExecBatch batch) override {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
                           batch.ToRecordBatch(output_schema()));
     ARROW_RETURN_NOT_OK(WriteNextBatch(std::move(record_batch), batch.guarantee));
@@ -548,28 +543,10 @@ class TeeNode : public compute::MapNode {
     return WriteBatch(batch, guarantee, write_options_,
                       [this](std::shared_ptr<RecordBatch> next_batch,
                              const PartitionPathFormat& destination) {
-                        util::tracing::Span span;
                         dataset_writer_->WriteRecordBatch(
                             next_batch, destination.directory, destination.filename);
                         return Status::OK();
                       });
-  }
-
-  void InputReceived(compute::ExecNode* input, compute::ExecBatch batch) override {
-    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
-    DCHECK_EQ(input, inputs_[0]);
-    auto func = [this](compute::ExecBatch batch) {
-      util::tracing::Span span;
-      START_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                             {{"tee", ToStringExtra()},
-                              {"node.label", label()},
-                              {"batch.length", batch.length}});
-      auto result = DoTee(std::move(batch));
-      MARK_SPAN(span, result.status());
-      END_SPAN(span);
-      return result;
-    };
-    this->SubmitTask(std::move(func), std::move(batch));
   }
 
   void Pause() { inputs_[0]->PauseProducing(this, ++backpressure_counter_); }

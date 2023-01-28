@@ -53,6 +53,7 @@ package cdata
 // struct ArrowSchema** test_struct(const char** fmts, const char** names, int64_t* flags, const int n);
 // struct ArrowSchema** test_map(const char** fmts, const char** names, int64_t* flags, const int n);
 // struct ArrowSchema** test_schema(const char** fmts, const char** names, int64_t* flags, const int n);
+// struct ArrowSchema** test_union(const char** fmts, const char** names, int64_t* flags, const int n);
 // int test_exported_stream(struct ArrowArrayStream* stream);
 import "C"
 import (
@@ -182,6 +183,24 @@ func testMap(fmts, names []string, flags []int64) **CArrowSchema {
 	return C.test_map((**C.char)(unsafe.Pointer(&cfmts[0])), (**C.char)(unsafe.Pointer(&cnames[0])), (*C.int64_t)(unsafe.Pointer(&cflags[0])), C.int(len(fmts)))
 }
 
+func testUnion(fmts, names []string, flags []int64) **CArrowSchema {
+	if len(fmts) != len(names) || len(names) != len(flags) {
+		panic("testing unions must all have the same size slices in args")
+	}
+
+	cfmts := make([]*C.char, len(fmts))
+	cnames := make([]*C.char, len(names))
+	cflags := make([]C.int64_t, len(flags))
+
+	for i := range fmts {
+		cfmts[i] = C.CString(fmts[i])
+		cnames[i] = C.CString(names[i])
+		cflags[i] = C.int64_t(flags[i])
+	}
+
+	return C.test_union((**C.char)(unsafe.Pointer(&cfmts[0])), (**C.char)(unsafe.Pointer(&cnames[0])), (*C.int64_t)(unsafe.Pointer(&cflags[0])), C.int(len(fmts)))
+}
+
 func testSchema(fmts, names []string, flags []int64) **CArrowSchema {
 	if len(fmts) != len(names) || len(names) != len(flags) {
 		panic("testing structs must all have the same size slices in args")
@@ -235,6 +254,13 @@ func createCArr(arr arrow.Array) *CArrowArray {
 		clist := []*CArrowArray{createCArr(arr.ListValues())}
 		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
 		nchildren += 1
+	case array.Union:
+		clist := []*CArrowArray{}
+		for i := 0; i < arr.NumFields(); i++ {
+			clist = append(clist, createCArr(arr.Field(i)))
+			nchildren += 1
+		}
+		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
 	}
 
 	carr.children = children

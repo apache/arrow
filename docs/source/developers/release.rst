@@ -61,7 +61,6 @@ generated properly.
         mvn clean install -Papache-release
 
     - Have the build requirements for cpp and c_glib installed.
-    - Set the ``JIRA_USERNAME`` and ``JIRA_PASSWORD`` environment variables
     - Set the ``CROSSBOW_GITHUB_TOKEN`` environment variable to automatically create the verify release Pull Request.
     - Install ``en_US.UTF-8`` locale. You can confirm available locales by ``locale -a``.
     - Install Python 3 as python
@@ -87,6 +86,9 @@ Ensure local tags are removed, gpg-agent is set and JIRA tickets are correctly a
     # The end of the generated report shows the JIRA tickets with wrong version number assigned.
     archery release curate <version>
 
+Ensure a major version milestone for a follow up release is created on GitHub. This will
+automatically be used by our merge script as the new version for issues closed when
+the maintenance branch is created.
 
 Creating a Release Candidate
 ============================
@@ -192,13 +194,8 @@ Verify the Release
 
 .. code-block::
 
-    # Once the automatic verification has passed merge the Release Candidate's branch to the maintenance branch
-    git checkout maint-<version>
-    git merge release-<version>-rc<rc-number>
-    git push apache maint-<version>
-    
-    # Start the vote thread on dev@arrow.apache.org
-    # To regenerate the email template use
+    # Once the automatic verification has passed start the vote thread
+    # on dev@arrow.apache.org. To regenerate the email template use
     SOURCE_DEFAULT=0 SOURCE_VOTE=1 dev/release/02-source.sh <version> <rc-number>
 
 Voting and approval
@@ -214,9 +211,8 @@ After the release vote, we must undertake many tasks to update source artifacts,
 
 Be sure to go through on the following checklist:
 
-#. Make the released version as "RELEASED" on JIRA
+#. Update the released milestone Date and set to "Closed" on GitHub
 #. Make the CPP PARQUET related version as "RELEASED" on JIRA
-#. Start the new version on JIRA on the ARROW project
 #. Start the new version on JIRA for the related CPP PARQUET version
 #. Merge changes on release branch to maintenance branch for patch releases
 #. Add the new release to the Apache Reporter System

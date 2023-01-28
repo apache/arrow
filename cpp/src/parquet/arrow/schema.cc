@@ -357,7 +357,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
       const auto& decimal_type = static_cast<const ::arrow::DecimalType&>(*field->type());
       precision = decimal_type.precision();
       scale = decimal_type.scale();
-      if (properties.integer_annotate_decimal() && 1 <= precision && precision <= 18) {
+      if (properties.store_decimal_as_integer() && 1 <= precision && precision <= 18) {
         type = precision <= 9 ? ParquetType ::INT32 : ParquetType ::INT64;
       } else {
         type = ParquetType::FIXED_LEN_BYTE_ARRAY;

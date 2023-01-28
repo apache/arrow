@@ -85,12 +85,14 @@ func NewDurationScalar(val arrow.Duration, typ arrow.DataType) *Duration {
 
 type DateScalar interface {
 	TemporalScalar
+	ToTime() time.Time
 	date()
 }
 
 type TimeScalar interface {
 	TemporalScalar
 	Unit() arrow.TimeUnit
+	ToTime() time.Time
 	time()
 }
 
@@ -197,6 +199,9 @@ func (s *Date32) String() string {
 	}
 	return string(val.(*String).Value.Bytes())
 }
+func (s *Date32) ToTime() time.Time {
+	return s.Value.ToTime()
+}
 
 func NewDate32Scalar(val arrow.Date32) *Date32 {
 	return &Date32{scalar{arrow.FixedWidthTypes.Date32, true}, val}
@@ -226,6 +231,9 @@ func (s *Date64) String() string {
 		return "..."
 	}
 	return string(val.(*String).Value.Bytes())
+}
+func (s *Date64) ToTime() time.Time {
+	return s.Value.ToTime()
 }
 
 func NewDate64Scalar(val arrow.Date64) *Date64 {
@@ -262,6 +270,10 @@ func (s *Time32) Data() []byte {
 	return (*[arrow.Time32SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
+func (s *Time32) ToTime() time.Time {
+	return s.Value.ToTime(s.Unit())
+}
+
 func NewTime32Scalar(val arrow.Time32, typ arrow.DataType) *Time32 {
 	return &Time32{scalar{typ, true}, val}
 }
@@ -295,6 +307,10 @@ func (s *Time64) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
+func (s *Time64) ToTime() time.Time {
+	return s.Value.ToTime(s.Unit())
+}
+
 func NewTime64Scalar(val arrow.Time64, typ arrow.DataType) *Time64 {
 	return &Time64{scalar{typ, true}, val}
 }
@@ -326,6 +342,10 @@ func (s *Timestamp) String() string {
 		return "..."
 	}
 	return string(val.(*String).Value.Bytes())
+}
+
+func (s *Timestamp) ToTime() time.Time {
+	return s.Value.ToTime(s.Unit())
 }
 
 func NewTimestampScalar(val arrow.Timestamp, typ arrow.DataType) *Timestamp {

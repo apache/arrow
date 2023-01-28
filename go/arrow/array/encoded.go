@@ -19,6 +19,8 @@ package array
 import (
 	"bytes"
 	"fmt"
+	"math"
+	"sync/atomic"
 
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/encoded"
@@ -156,3 +158,160 @@ func arrayRunEndEncodedApproxEqual(l, r *RunEndEncoded, opt equalOption) bool {
 	}
 	return true
 }
+
+type RunEndEncodedBuilder struct {
+	builder
+
+	dt        arrow.DataType
+	runEnds   Builder
+	values    Builder
+	maxRunEnd uint64
+}
+
+func NewRunEndEncodedBuilder(mem memory.Allocator, runEnds, encoded arrow.DataType) *RunEndEncodedBuilder {
+	dt := arrow.RunEndEncodedOf(runEnds, encoded)
+	if !dt.ValidRunEndsType(runEnds) {
+		panic("arrow/ree: invalid runEnds type for run length encoded array")
+	}
+
+	var maxEnd uint64
+	switch runEnds.ID() {
+	case arrow.INT16:
+		maxEnd = math.MaxInt16
+	case arrow.INT32:
+		maxEnd = math.MaxInt32
+	case arrow.INT64:
+		maxEnd = math.MaxInt64
+	}
+	return &RunEndEncodedBuilder{
+		builder:   builder{refCount: 1, mem: mem},
+		dt:        dt,
+		runEnds:   NewBuilder(mem, runEnds),
+		values:    NewBuilder(mem, encoded),
+		maxRunEnd: maxEnd,
+	}
+}
+
+func (b *RunEndEncodedBuilder) Type() arrow.DataType {
+	return b.dt
+}
+
+func (b *RunEndEncodedBuilder) Release() {
+	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
+
+	if atomic.AddInt64(&b.refCount, -1) == 0 {
+		b.values.Release()
+		b.runEnds.Release()
+	}
+}
+
+func (b *RunEndEncodedBuilder) addLength(n uint64) {
+	if uint64(b.length)+n > b.maxRunEnd {
+		panic(fmt.Errorf("%w: %s array length must fit be less than %d", arrow.ErrInvalid, b.dt, b.maxRunEnd))
+	}
+
+	b.length += int(n)
+}
+
+func (b *RunEndEncodedBuilder) finishRun() {
+	if b.length == 0 {
+		return
+	}
+
+	switch bldr := b.runEnds.(type) {
+	case *Int16Builder:
+		bldr.Append(int16(b.length))
+	case *Int32Builder:
+		bldr.Append(int32(b.length))
+	case *Int64Builder:
+		bldr.Append(int64(b.length))
+	}
+}
+
+func (b *RunEndEncodedBuilder) ValueBuilder() Builder { return b.values }
+func (b *RunEndEncodedBuilder) Append(n uint64) {
+	b.finishRun()
+	b.addLength(n)
+}
+func (b *RunEndEncodedBuilder) ContinueRun(n uint64) {
+	b.addLength(n)
+}
+func (b *RunEndEncodedBuilder) AppendNull() {
+	b.finishRun()
+	b.values.AppendNull()
+	b.addLength(1)
+}
+
+func (b *RunEndEncodedBuilder) NullN() int {
+	return UnknownNullCount
+}
+
+func (b *RunEndEncodedBuilder) AppendEmptyValue() {
+	b.AppendNull()
+}
+
+func (b *RunEndEncodedBuilder) Reserve(n int) {
+	b.values.Reserve(n)
+	b.runEnds.Reserve(n)
+}
+
+func (b *RunEndEncodedBuilder) Resize(n int) {
+	b.values.Resize(n)
+	b.runEnds.Resize(n)
+}
+
+func (b *RunEndEncodedBuilder) NewRunEndEncodedArray() *RunEndEncoded {
+	data := b.newData()
+	defer data.Release()
+	return NewRunEndEncodedData(data)
+}
+
+func (b *RunEndEncodedBuilder) NewArray() arrow.Array {
+	return b.NewRunEndEncodedArray()
+}
+
+func (b *RunEndEncodedBuilder) newData() (data *Data) {
+	b.finishRun()
+	values := b.values.NewArray()
+	defer values.Release()
+	runEnds := b.runEnds.NewArray()
+	defer runEnds.Release()
+
+	data = NewData(
+		b.dt, b.length, []*memory.Buffer{nil},
+		[]arrow.ArrayData{runEnds.Data(), values.Data()}, 0, 0)
+	b.reset()
+	return
+}
+
+func (b *RunEndEncodedBuilder) unmarshalOne(dec *json.Decoder) error {
+	return arrow.ErrNotImplemented
+}
+
+func (b *RunEndEncodedBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *RunEndEncodedBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("list builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
+var (
+	_ arrow.Array = (*RunEndEncoded)(nil)
+	_ Builder     = (*RunEndEncodedBuilder)(nil)
+)

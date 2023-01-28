@@ -321,6 +321,9 @@ class ARROW_EXPORT SinkNodeConsumer {
   /// \brief Signal to the consumer that the last batch has been delivered
   ///
   /// The returned future should only finish when all outstanding tasks have completed
+  ///
+  /// If the plan is ended early or aborts due to an error then this will not be
+  /// called.
   virtual Future<> Finish() = 0;
 };
 
