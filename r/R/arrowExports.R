@@ -112,6 +112,10 @@ StructArray__GetFieldByName <- function(array, name) {
   .Call(`_arrow_StructArray__GetFieldByName`, array, name)
 }
 
+StructArray__from_RecordBatch <- function(batch) {
+  .Call(`_arrow_StructArray__from_RecordBatch`, batch)
+}
+
 StructArray__Flatten <- function(array) {
   .Call(`_arrow_StructArray__Flatten`, array)
 }
@@ -448,12 +452,16 @@ ExecPlan_ToString <- function(plan) {
   .Call(`_arrow_ExecPlan_ToString`, plan)
 }
 
+ExecPlan_UnsafeDelete <- function(plan) {
+  invisible(.Call(`_arrow_ExecPlan_UnsafeDelete`, plan))
+}
+
 ExecNode_output_schema <- function(node) {
   .Call(`_arrow_ExecNode_output_schema`, node)
 }
 
-ExecNode_Scan <- function(plan, dataset, filter, materialized_field_names) {
-  .Call(`_arrow_ExecNode_Scan`, plan, dataset, filter, materialized_field_names)
+ExecNode_Scan <- function(plan, dataset, filter, projection) {
+  .Call(`_arrow_ExecNode_Scan`, plan, dataset, filter, projection)
 }
 
 ExecPlan_Write <- function(plan, final_node, metadata, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group) {
@@ -1076,8 +1084,8 @@ compute___expr__call <- function(func_name, argument_list, options) {
   .Call(`_arrow_compute___expr__call`, func_name, argument_list, options)
 }
 
-field_names_in_expression <- function(x) {
-  .Call(`_arrow_field_names_in_expression`, x)
+compute___expr__is_field_ref <- function(x) {
+  .Call(`_arrow_compute___expr__is_field_ref`, x)
 }
 
 compute___expr__get_field_ref_name <- function(x) {
@@ -1086,6 +1094,10 @@ compute___expr__get_field_ref_name <- function(x) {
 
 compute___expr__field_ref <- function(name) {
   .Call(`_arrow_compute___expr__field_ref`, name)
+}
+
+compute___expr__nested_field_ref <- function(x, name) {
+  .Call(`_arrow_compute___expr__nested_field_ref`, x, name)
 }
 
 compute___expr__scalar <- function(x) {
@@ -1760,6 +1772,10 @@ RecordBatchReader__Close <- function(reader) {
   invisible(.Call(`_arrow_RecordBatchReader__Close`, reader))
 }
 
+RecordBatchReader__UnsafeDelete <- function(reader) {
+  invisible(.Call(`_arrow_RecordBatchReader__UnsafeDelete`, reader))
+}
+
 RecordBatchReader__ReadNext <- function(reader) {
   .Call(`_arrow_RecordBatchReader__ReadNext`, reader)
 }
@@ -1870,10 +1886,6 @@ StructScalar__field <- function(s, i) {
 
 StructScalar__GetFieldByName <- function(s, name) {
   .Call(`_arrow_StructScalar__GetFieldByName`, s, name)
-}
-
-Scalar__as_vector <- function(scalar) {
-  .Call(`_arrow_Scalar__as_vector`, scalar)
 }
 
 MakeArrayFromScalar <- function(scalar, n) {

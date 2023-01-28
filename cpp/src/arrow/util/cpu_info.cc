@@ -345,6 +345,7 @@ int64_t LinuxGetCacheSize(int level) {
 // care about are present.
 // Returns a bitmap of flags.
 int64_t LinuxParseCpuFlags(const std::string& values) {
+#if defined(CPUINFO_ARCH_X86) || defined(CPUINFO_ARCH_ARM)
   const struct {
     std::string name;
     int64_t flag;
@@ -376,6 +377,9 @@ int64_t LinuxParseCpuFlags(const std::string& values) {
     }
   }
   return flags;
+#else
+  return 0;
+#endif
 }
 
 void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {

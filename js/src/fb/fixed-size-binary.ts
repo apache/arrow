@@ -5,7 +5,7 @@ import * as flatbuffers from 'flatbuffers';
 export class FixedSizeBinary {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):FixedSizeBinary {
+  __init(i:number, bb:flatbuffers.ByteBuffer):FixedSizeBinary {
   this.bb_pos = i;
   this.bb = bb;
   return this;

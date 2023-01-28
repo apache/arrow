@@ -62,6 +62,8 @@ int64_t RowGroupWriter::total_bytes_written() const {
   return contents_->total_bytes_written();
 }
 
+bool RowGroupWriter::buffered() const { return contents_->buffered(); }
+
 int RowGroupWriter::current_column() { return contents_->current_column(); }
 
 int RowGroupWriter::num_columns() const { return contents_->num_columns(); }
@@ -176,6 +178,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     }
     return total_bytes_written;
   }
+
+  bool buffered() const override { return buffered_row_group_; }
 
   void Close() override {
     if (!closed_) {

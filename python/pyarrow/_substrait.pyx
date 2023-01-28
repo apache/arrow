@@ -48,7 +48,7 @@ cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector
                         no_c_inputs, c_input_node_opts)
 
 
-def run_query(plan, table_provider=None):
+def run_query(plan, *, table_provider=None, use_threads=True):
     """
     Execute a Substrait plan and read the results as a RecordBatchReader.
 
@@ -60,6 +60,9 @@ def run_query(plan, table_provider=None):
         A function to resolve any NamedTable relation to a table.
         The function will receive a single argument which will be a list
         of strings representing the table name and should return a pyarrow.Table.
+    use_threads : bool, default True
+        If True then multiple threads will be used to run the query.  If False then
+        all CPU intensive work will be done on the calling thread.
 
     Returns
     -------
@@ -123,7 +126,9 @@ def run_query(plan, table_provider=None):
         shared_ptr[CBuffer] c_buf_plan
         function[CNamedTableProvider] c_named_table_provider
         CConversionOptions c_conversion_options
+        c_bool c_use_threads
 
+    c_use_threads = use_threads
     if isinstance(plan, bytes):
         c_buf_plan = pyarrow_unwrap_buffer(py_buffer(plan))
     elif isinstance(plan, Buffer):
@@ -141,7 +146,8 @@ def run_query(plan, table_provider=None):
 
     with nogil:
         c_res_reader = ExecuteSerializedPlan(
-            deref(c_buf_plan), default_extension_id_registry(), GetFunctionRegistry(), c_conversion_options)
+            deref(c_buf_plan), default_extension_id_registry(),
+            GetFunctionRegistry(), c_conversion_options, c_use_threads)
 
     c_reader = GetResultValue(c_res_reader)
 

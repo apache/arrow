@@ -156,7 +156,7 @@ There are lots of ways to contribute to the project besides writing code!
   For more information visit :ref:`documentation` section of the guide.
 
 * **Apache Arrow Cookbooks** are a collection of recipes for solving various problems 
-and completing different tasks using Apache Arrow. They are also a great way to start
+  and completing different tasks using Apache Arrow. They are also a great way to start
   contributing. For more information visit
   `How to contribute to Apache Arrow Cookbook <https://github.com/apache/arrow-cookbook/blob/main/CONTRIBUTING.md>`_
   located in the Apache Arrow Cookbook repository.

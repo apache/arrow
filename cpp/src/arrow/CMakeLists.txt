@@ -450,7 +450,9 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_cumulative_ops.cc
        compute/kernels/vector_hash.cc
        compute/kernels/vector_nested.cc
+       compute/kernels/vector_rank.cc
        compute/kernels/vector_replace.cc
+       compute/kernels/vector_select_k.cc
        compute/kernels/vector_selection.cc
        compute/kernels/vector_sort.cc
        compute/row/encode_internal.cc
@@ -593,6 +595,9 @@ if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
   set(ARROW_PC_LIBS_PRIVATE "")
   set(ARROW_PC_REQUIRES "${ARROW_PC_REQUIRES_PRIVATE}")
   set(ARROW_PC_REQUIRES_PRIVATE "")
+
+  string(APPEND ARROW_TESTING_PC_CFLAGS "${ARROW_TESTING_PC_CFLAGS_PRIVATE}")
+  set(ARROW_TESTING_PC_CFLAGS_PRIVATE "")
 else()
   set(ARROW_PC_CFLAGS "")
   set(ARROW_PC_LIBS "")

@@ -16,6 +16,7 @@
 
 package cdata
 
+// #include <errno.h>
 // #include <stdlib.h>
 // #include "arrow/c/abi.h"
 // #include "arrow/c/helpers.h"
@@ -37,6 +38,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime/cgo"
+	"strconv"
 	"strings"
 	"unsafe"
 
@@ -151,6 +153,8 @@ func (exp *schemaExporter) exportFormat(dt arrow.DataType) string {
 		return fmt.Sprintf("w:%d", dt.ByteWidth)
 	case *arrow.Decimal128Type:
 		return fmt.Sprintf("d:%d,%d", dt.Precision, dt.Scale)
+	case *arrow.Decimal256Type:
+		return fmt.Sprintf("d:%d,%d,256", dt.Precision, dt.Scale)
 	case *arrow.BinaryType:
 		return "z"
 	case *arrow.LargeBinaryType:
@@ -234,6 +238,20 @@ func (exp *schemaExporter) exportFormat(dt arrow.DataType) string {
 			exp.flags |= C.ARROW_FLAG_DICTIONARY_ORDERED
 		}
 		return exp.exportFormat(dt.IndexType)
+	case arrow.UnionType:
+		var b strings.Builder
+		if dt.Mode() == arrow.SparseMode {
+			b.WriteString("+us:")
+		} else {
+			b.WriteString("+ud:")
+		}
+		for i, c := range dt.TypeCodes() {
+			if i != 0 {
+				b.WriteByte(',')
+			}
+			b.WriteString(strconv.Itoa(int(c)))
+		}
+		return b.String()
 	}
 	panic("unsupported data type for export")
 }
@@ -249,23 +267,11 @@ func (exp *schemaExporter) export(field arrow.Field) {
 	case *arrow.DictionaryType:
 		exp.dict = new(schemaExporter)
 		exp.dict.export(arrow.Field{Type: dt.ValueType})
-	case *arrow.ListType:
-		exp.children = make([]schemaExporter, 1)
-		exp.children[0].export(dt.ElemField())
-	case *arrow.LargeListType:
-		exp.children = make([]schemaExporter, 1)
-		exp.children[0].export(dt.ElemField())
-	case *arrow.StructType:
+	case arrow.NestedType:
 		exp.children = make([]schemaExporter, len(dt.Fields()))
 		for i, f := range dt.Fields() {
 			exp.children[i].export(f)
 		}
-	case *arrow.MapType:
-		exp.children = make([]schemaExporter, 1)
-		exp.children[0].export(dt.ValueField())
-	case *arrow.FixedSizeListType:
-		exp.children = make([]schemaExporter, 1)
-		exp.children[0].export(dt.ElemField())
 	}
 
 	exp.exportMeta(&field.Metadata)
@@ -363,9 +369,21 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 	out.n_buffers = C.int64_t(len(arr.Data().Buffers()))
 
 	if out.n_buffers > 0 {
-		buffers := allocateBufferPtrArr(len(arr.Data().Buffers()))
-		for i := range arr.Data().Buffers() {
-			buf := arr.Data().Buffers()[i]
+		var (
+			nbuffers = len(arr.Data().Buffers())
+			bufs     = arr.Data().Buffers()
+		)
+		// unions don't have validity bitmaps, but we keep them shifted
+		// to make processing easier in other contexts. This means that
+		// we have to adjust for union arrays
+		if arr.DataType().ID() == arrow.DENSE_UNION || arr.DataType().ID() == arrow.SPARSE_UNION {
+			out.n_buffers--
+			nbuffers--
+			bufs = bufs[1:]
+		}
+		buffers := allocateBufferPtrArr(nbuffers)
+		for i := range bufs {
+			buf := bufs[i]
 			if buf == nil || buf.Len() == 0 {
 				buffers[i] = nil
 				continue
@@ -378,7 +396,7 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 
 	arr.Data().Retain()
 	h := cgo.NewHandle(arr.Data())
-	out.private_data = unsafe.Pointer(&h)
+	out.private_data = createHandle(h)
 	out.release = (*[0]byte)(C.goReleaseArray)
 	switch arr := arr.(type) {
 	case array.ListLike:
@@ -407,6 +425,15 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 	case *array.Dictionary:
 		out.dictionary = (*CArrowArray)(C.malloc(C.sizeof_struct_ArrowArray))
 		exportArray(arr.Dictionary(), out.dictionary, nil)
+	case array.Union:
+		out.n_children = C.int64_t(arr.NumFields())
+		childPtrs := allocateArrowArrayPtrArr(arr.NumFields())
+		children := allocateArrowArrayArr(arr.NumFields())
+		for i := 0; i < arr.NumFields(); i++ {
+			exportArray(arr.Field(i), &children[i], nil)
+			childPtrs[i] = &children[i]
+		}
+		out.children = (**CArrowArray)(unsafe.Pointer(&childPtrs[0]))
 	default:
 		out.n_children = 0
 		out.children = nil
@@ -415,10 +442,15 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 
 type cRecordReader struct {
 	rdr array.RecordReader
+	err *C.char
 }
 
 func (rr cRecordReader) getSchema(out *CArrowSchema) int {
-	ExportArrowSchema(rr.rdr.Schema(), out)
+	schema := rr.rdr.Schema()
+	if schema == nil {
+		return rr.maybeError()
+	}
+	ExportArrowSchema(schema, out)
 	return 0
 }
 
@@ -427,10 +459,32 @@ func (rr cRecordReader) next(out *CArrowArray) int {
 		ExportArrowRecordBatch(rr.rdr.Record(), out, nil)
 		return 0
 	}
-	releaseArr(out)
+	C.ArrowArrayMarkReleased(out)
+	return rr.maybeError()
+}
+
+func (rr cRecordReader) maybeError() int {
+	err := rr.rdr.Err()
+	if err != nil {
+		return C.EIO
+	}
 	return 0
 }
 
+func (rr cRecordReader) getLastError() *C.char {
+	err := rr.rdr.Err()
+	if err != nil {
+		if rr.err != nil {
+			C.free(unsafe.Pointer(rr.err))
+		}
+		rr.err = C.CString(err.Error())
+	}
+	return rr.err
+}
+
 func (rr cRecordReader) release() {
+	if rr.err != nil {
+		C.free(unsafe.Pointer(rr.err))
+	}
 	rr.rdr.Release()
 }

@@ -8,7 +8,7 @@ import * as flatbuffers from 'flatbuffers';
 export class Utf8 {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):Utf8 {
+  __init(i:number, bb:flatbuffers.ByteBuffer):Utf8 {
   this.bb_pos = i;
   this.bb = bb;
   return this;

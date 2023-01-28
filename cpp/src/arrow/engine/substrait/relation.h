@@ -26,12 +26,28 @@
 namespace arrow {
 namespace engine {
 
-/// Information resulting from converting a Substrait relation.
+/// Execution information resulting from converting a Substrait relation.
 struct ARROW_ENGINE_EXPORT DeclarationInfo {
   /// The compute declaration produced thus far.
   compute::Declaration declaration;
 
   std::shared_ptr<Schema> output_schema;
+};
+
+/// Information resulting from converting a Substrait relation.
+///
+/// RelationInfo adds the "output indices" field for the extension to define how the
+/// fields should be mapped to get the standard indices expected by Substrait.
+struct ARROW_ENGINE_EXPORT RelationInfo {
+  /// The execution information produced thus far.
+  DeclarationInfo decl_info;
+  /// A vector of indices, one per input field per input in order, each index referring
+  /// to the corresponding field within the output schema, if it is in the output, or -1
+  /// otherwise. Each location in this vector is a field input index. This vector is
+  /// useful for translating selected field input indices (often from an output mapping in
+  /// a Substrait plan) of a join-type relation to their locations in the output schema of
+  /// the relation. This vector is undefined if the translation is unsupported.
+  std::optional<std::vector<int>> field_output_indices;
 };
 
 }  // namespace engine

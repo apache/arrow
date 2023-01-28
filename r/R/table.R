@@ -339,7 +339,10 @@ as_arrow_table.Dataset <- function(x, ...) {
 #' @rdname as_arrow_table
 #' @export
 as_arrow_table.arrow_dplyr_query <- function(x, ...) {
-  out <- as_arrow_table(as_record_batch_reader(x))
+  reader <- as_record_batch_reader(x)
+  on.exit(reader$.unsafe_delete())
+
+  out <- as_arrow_table(reader)
   # arrow_dplyr_query holds group_by information. Set it on the table metadata.
   set_group_attributes(
     out,

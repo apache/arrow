@@ -5,7 +5,7 @@ import * as flatbuffers from 'flatbuffers';
 export class Block {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):Block {
+  __init(i:number, bb:flatbuffers.ByteBuffer):Block {
   this.bb_pos = i;
   this.bb = bb;
   return this;
@@ -14,7 +14,7 @@ __init(i:number, bb:flatbuffers.ByteBuffer):Block {
 /**
  * Index to the start of the RecordBlock (note this is past the Message header)
  */
-offset():flatbuffers.Long {
+offset():bigint {
   return this.bb!.readInt64(this.bb_pos);
 }
 
@@ -29,7 +29,7 @@ metaDataLength():number {
  * Length of the data (this is aligned so there can be a gap between this and
  * the metadata).
  */
-bodyLength():flatbuffers.Long {
+bodyLength():bigint {
   return this.bb!.readInt64(this.bb_pos + 16);
 }
 
@@ -37,12 +37,12 @@ static sizeOf():number {
   return 24;
 }
 
-static createBlock(builder:flatbuffers.Builder, offset: flatbuffers.Long, metaDataLength: number, bodyLength: flatbuffers.Long):flatbuffers.Offset {
+static createBlock(builder:flatbuffers.Builder, offset: bigint, metaDataLength: number, bodyLength: bigint):flatbuffers.Offset {
   builder.prep(8, 24);
-  builder.writeInt64(bodyLength);
+  builder.writeInt64(BigInt(bodyLength ?? 0));
   builder.pad(4);
   builder.writeInt32(metaDataLength);
-  builder.writeInt64(offset);
+  builder.writeInt64(BigInt(offset ?? 0));
   return builder.offset();
 }
 

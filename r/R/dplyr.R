@@ -295,8 +295,13 @@ show_exec_plan <- function(x) {
   }
 
   result <- as_record_batch_reader(adq)
-  cat(result$Plan()$ToString())
-  result$Close()
+  plan <- result$Plan()
+  on.exit({
+    plan$.unsafe_delete()
+    result$.unsafe_delete()
+  })
+
+  cat(plan$ToString())
 
   invisible(x)
 }

@@ -22,6 +22,7 @@ module Arrow
     include ArrayComputable
     include GenericFilterable
     include GenericTakeable
+    include InputReferable
 
     class << self
       def new(*args)

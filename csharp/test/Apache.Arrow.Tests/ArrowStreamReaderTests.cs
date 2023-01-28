@@ -17,6 +17,7 @@ using Apache.Arrow.Ipc;
 using Apache.Arrow.Memory;
 using System;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -192,6 +193,32 @@ namespace Apache.Arrow.Tests
         public async Task ReadRecordBatchAsync_PartialReadStream(bool createDictionaryArray)
         {
             await TestReaderFromPartialReadStream(ArrowReaderVerifier.VerifyReaderAsync, createDictionaryArray);
+        }
+
+        [Theory]
+        [InlineData("ipc_lz4_compression.arrow_stream")]
+        [InlineData("ipc_zstd_compression.arrow_stream")]
+        public void CanReadCompressedIpcStream(string fileName)
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            using var stream = assembly.GetManifestResourceStream($"Apache.Arrow.Tests.Resources.{fileName}");
+            var codecFactory = new Compression.CompressionCodecFactory();
+            using var reader = new ArrowStreamReader(stream, codecFactory);
+
+            var batch = reader.ReadNextRecordBatch();
+
+            var intArray = (Int32Array) batch.Column("integers");
+            var floatArray = (FloatArray) batch.Column("floats");
+
+            const int numRows = 100;
+            Assert.Equal(numRows, intArray.Length);
+            Assert.Equal(numRows, floatArray.Length);
+
+            for (var i = 0; i < numRows; ++i)
+            {
+                Assert.Equal(i, intArray.GetValue(i));
+                Assert.True(Math.Abs(floatArray.GetValue(i).Value - 0.1f * i) < 1.0e-6);
+            }
         }
 
         /// <summary>

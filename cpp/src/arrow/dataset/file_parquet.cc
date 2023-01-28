@@ -476,6 +476,9 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
                               ::arrow::internal::GetCpuThreadPool(), rows_to_readahead));
     RecordBatchGenerator sliced =
         SlicingGenerator(std::move(generator), options->batch_size);
+    if (batch_readahead == 0) {
+      return sliced;
+    }
     RecordBatchGenerator sliced_readahead =
         MakeSerialReadaheadGenerator(std::move(sliced), batch_readahead);
     return sliced_readahead;

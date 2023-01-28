@@ -216,6 +216,14 @@ class PARQUET_EXPORT Statistics {
       bool has_distinct_count,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
+  // Helper function to convert EncodedStatistics to Statistics.
+  // EncodedStatistics does not contain number of non-null values, and it can be
+  // passed using the num_values parameter.
+  static std::shared_ptr<Statistics> Make(
+      const ColumnDescriptor* descr, const EncodedStatistics* encoded_statistics,
+      int64_t num_values = -1,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+
   /// \brief Return true if the count of null values is set
   virtual bool HasNullCount() const = 0;
 

@@ -107,6 +107,9 @@ module.exports = {
         "unicorn/no-await-expression-member": "warn",
         "unicorn/no-useless-undefined": "warn",
         "unicorn/consistent-function-scoping": "warn",
-        "unicorn/prefer-math-trunc": "warn"
+        "unicorn/prefer-math-trunc": "warn",
+        "unicorn/no-negated-condition": "off",
+        "unicorn/switch-case-braces": "off",
+        "unicorn/no-typeof-undefined": "off",
     },
 };

@@ -141,9 +141,9 @@ func (w *{{.Name}}ColumnChunkWriter) WriteBatchSpaced(values []{{.name}}, defLev
     }
 
     if w.bitsBuffer != nil {
-      w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
+      w.writeValuesSpaced(vals, info.batchNum, batch, w.bitsBuffer.Bytes(), 0)
     } else {
-      w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
+      w.writeValuesSpaced(vals, info.batchNum, batch, validBits, validBitsOffset+valueOffset)
     }
     w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
     valueOffset += info.numSpaced()
@@ -160,8 +160,8 @@ func (w *{{.Name}}ColumnChunkWriter) writeValues(values []{{.name}}, numNulls in
   }
 }
 
-func (w *{{.Name}}ColumnChunkWriter) writeValuesSpaced(spacedValues []{{.name}}, numValues int64, validBits []byte, validBitsOffset int64) {
-  if len(spacedValues) != int(numValues) {
+func (w *{{.Name}}ColumnChunkWriter) writeValuesSpaced(spacedValues []{{.name}}, numRead, numValues int64, validBits []byte, validBitsOffset int64) {
+  if len(spacedValues) != int(numRead) {
     w.currentEncoder.(encoding.{{.Name}}Encoder).PutSpaced(spacedValues, validBits, validBitsOffset)
   } else {
     w.currentEncoder.(encoding.{{.Name}}Encoder).Put(spacedValues)

@@ -301,6 +301,9 @@ func TestRecordReader(t *testing.T) {
 			t.Fatalf("itr[%d], invalid record. got=%#v, want=%#v", n-1, got, want)
 		}
 	}
+	if err := itr.Err(); err != nil {
+		t.Fatalf("itr error: %#v", err)
+	}
 
 	if n != len(recs) {
 		t.Fatalf("invalid number of iterations. got=%d, want=%d", n, len(recs))

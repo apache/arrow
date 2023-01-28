@@ -68,7 +68,9 @@ jobs:
           - image: conda-cpp
             title: AMD64 Conda C++
           - image: ubuntu-cpp-sanitizer
-            title: AMD64 Ubuntu 20.04 C++ ASAN UBSAN
+            title: AMD64 Ubuntu 22.04 C++ ASAN UBSAN
+    env:
+      UBUNTU: "22.04"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3

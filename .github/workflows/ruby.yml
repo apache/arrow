@@ -196,7 +196,7 @@ jobs:
         mingw-n-bits:
           - 64
         ruby-version:
-          - "3.1"
+          - ruby
     env:
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: OFF

@@ -46,6 +46,7 @@ public abstract class AbstractCompressionCodec implements CompressionCodec {
     if (compressedLength > uncompressedLength) {
       // compressed buffer is larger, send the raw buffer
       compressedBuffer.close();
+      // XXX: this makes a copy of uncompressedBuffer
       compressedBuffer = CompressionUtil.packageRawBuffer(allocator, uncompressedBuffer);
     } else {
       writeUncompressedLength(compressedBuffer, uncompressedLength);

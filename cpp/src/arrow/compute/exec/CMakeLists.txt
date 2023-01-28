@@ -24,7 +24,12 @@ add_arrow_compute_test(expression_test
                        expression_test.cc
                        subtree_test.cc)
 
-add_arrow_compute_test(plan_test PREFIX "arrow-compute")
+add_arrow_compute_test(plan_test
+                       PREFIX
+                       "arrow-compute"
+                       SOURCES
+                       plan_test.cc
+                       test_nodes.cc)
 add_arrow_compute_test(hash_join_node_test
                        PREFIX
                        "arrow-compute"
@@ -36,7 +41,8 @@ add_arrow_compute_test(asof_join_node_test
                        PREFIX
                        "arrow-compute"
                        SOURCES
-                       asof_join_node_test.cc)
+                       asof_join_node_test.cc
+                       test_nodes.cc)
 add_arrow_compute_test(tpch_node_test PREFIX "arrow-compute")
 add_arrow_compute_test(union_node_test PREFIX "arrow-compute")
 add_arrow_compute_test(util_test

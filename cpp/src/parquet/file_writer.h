@@ -56,6 +56,8 @@ class PARQUET_EXPORT RowGroupWriter {
     virtual int64_t total_bytes_written() const = 0;
     // total bytes still compressed but not written
     virtual int64_t total_compressed_bytes() const = 0;
+
+    virtual bool buffered() const = 0;
   };
 
   explicit RowGroupWriter(std::unique_ptr<Contents> contents);
@@ -90,6 +92,10 @@ class PARQUET_EXPORT RowGroupWriter {
 
   int64_t total_bytes_written() const;
   int64_t total_compressed_bytes() const;
+
+  /// Returns whether the current RowGroupWriter is in the buffered mode and is created
+  /// by calling ParquetFileWriter::AppendBufferedRowGroup.
+  bool buffered() const;
 
  private:
   // Holds a pointer to an instance of Contents implementation

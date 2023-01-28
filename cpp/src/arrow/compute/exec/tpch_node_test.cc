@@ -98,15 +98,15 @@ void VerifyUniqueKey(std::unordered_set<int32_t>* seen, const Datum& d, int32_t 
   }
 }
 
-void VerifyStringAndNumber_Single(const std::string_view& row,
-                                  const std::string_view& prefix, const int64_t i,
-                                  const int32_t* nums, bool verify_padding) {
+void VerifyStringAndNumber_Single(std::string_view row, std::string_view prefix,
+                                  const int64_t i, const int32_t* nums,
+                                  bool verify_padding) {
   ASSERT_TRUE(StartsWith(row, prefix)) << row << ", prefix=" << prefix << ", i=" << i;
   const char* num_str = row.data() + prefix.size();
   const char* num_str_end = row.data() + row.size();
   int64_t num = 0;
   // Parse the number out; note that it can be padded with NUL chars at the end
-  for (; *num_str && num_str < num_str_end; num_str++) {
+  for (; num_str < num_str_end && *num_str; num_str++) {
     num *= 10;
     ASSERT_TRUE(std::isdigit(*num_str)) << row << ", prefix=" << prefix << ", i=" << i;
     num += *num_str - '0';
@@ -128,7 +128,7 @@ void VerifyStringAndNumber_Single(const std::string_view& row,
 // corresponding row in numbers. Some TPC-H data is padded to 9 zeros, which this function
 // can optionally verify as well. This string function verifies fixed width columns.
 void VerifyStringAndNumber_FixedWidth(const Datum& strings, const Datum& numbers,
-                                      int byte_width, const std::string_view& prefix,
+                                      int byte_width, std::string_view prefix,
                                       bool verify_padding = true) {
   int64_t length = strings.length();
   const char* str = reinterpret_cast<const char*>(strings.array()->buffers[1]->data());
@@ -148,8 +148,7 @@ void VerifyStringAndNumber_FixedWidth(const Datum& strings, const Datum& numbers
 
 // Same as above but for variable length columns
 void VerifyStringAndNumber_Varlen(const Datum& strings, const Datum& numbers,
-                                  const std::string_view& prefix,
-                                  bool verify_padding = true) {
+                                  std::string_view prefix, bool verify_padding = true) {
   int64_t length = strings.length();
   const int32_t* offsets =
       reinterpret_cast<const int32_t*>(strings.array()->buffers[1]->data());
@@ -310,7 +309,7 @@ void VerifyOneOf(const Datum& d, int32_t byte_width,
   for (int64_t i = 0; i < length; i++) {
     const char* row = col + i * byte_width;
     int32_t row_len = 0;
-    while (row[row_len] && row_len < byte_width) row_len++;
+    while (row_len < byte_width && row[row_len]) row_len++;
     std::string_view view(row, row_len);
     ASSERT_TRUE(possibilities.find(view) != possibilities.end())
         << view << " is not a valid string.";
@@ -632,7 +631,7 @@ TEST(TpchNode, AllTables) {
   }
 
   ASSERT_OK(plan->Validate());
-  ASSERT_OK(plan->StartProducing());
+  plan->StartProducing();
   ASSERT_OK(plan->finished().status());
   for (int i = 0; i < kNumTables; i++) {
     auto fut = CollectAsyncGenerator(gens[i]);

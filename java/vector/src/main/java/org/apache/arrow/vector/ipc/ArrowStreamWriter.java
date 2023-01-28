@@ -23,6 +23,8 @@ import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.CompressionUtil;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
@@ -63,6 +65,23 @@ public class ArrowStreamWriter extends ArrowWriter {
   public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
       IpcOption option) {
     super(root, provider, out, option);
+  }
+
+  /**
+   * Construct an ArrowStreamWriter with compression enabled.
+   *
+   * @param root Existing VectorSchemaRoot with vectors to be written.
+   * @param provider DictionaryProvider for any vectors that are dictionary encoded.
+   *                 (Optional, can be null)
+   * @param option IPC write options
+   * @param compressionFactory Compression codec factory
+   * @param codecType Codec type
+   * @param out WritableByteChannel for writing.
+   */
+  public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
+                           IpcOption option, CompressionCodec.Factory compressionFactory,
+                           CompressionUtil.CodecType codecType) {
+    super(root, provider, out, option, compressionFactory, codecType);
   }
 
   /**

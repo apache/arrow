@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstring>
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
@@ -22,6 +23,8 @@
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/copy_data_internal.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap.h"
@@ -470,6 +473,10 @@ struct IfElseFunctor<Type,
     // copy right data to out_buff
     std::memcpy(out_values, right.GetValues<T>(1), right.length * sizeof(T));
 
+    if (!left.is_valid) {  // left is null scalar, only need to copy right data to output
+      return Status::OK();
+    }
+
     // selectively copy values from left data
     T left_data = internal::UnboxScalar<Type>::Unbox(left);
 
@@ -489,6 +496,10 @@ struct IfElseFunctor<Type,
     // copy left data to out_buff
     const T* left_data = left.GetValues<T>(1);
     std::memcpy(out_values, left_data, left.length * sizeof(T));
+
+    if (!right.is_valid) {  // right is null scalar, only need to copy left data to output
+      return Status::OK();
+    }
 
     T right_data = internal::UnboxScalar<Type>::Unbox(right);
 
@@ -723,11 +734,23 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
   // ASA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const ArraySpan& right, ExecResult* out) {
-    std::string_view left_data = internal::UnboxScalar<Type>::Unbox(left);
-    auto left_size = static_cast<OffsetType>(left_data.size());
-
     const auto* right_offsets = right.GetValues<OffsetType>(1);
     const uint8_t* right_data = right.buffers[2].data;
+
+    if (!left.is_valid) {  // left is null scalar, only need to copy right data to output
+      auto* out_data = out->array_data().get();
+      auto offset_length = (cond.length + 1) * sizeof(OffsetType);
+      ARROW_ASSIGN_OR_RAISE(out_data->buffers[1], ctx->Allocate(offset_length));
+      std::memcpy(out_data->buffers[1]->mutable_data(), right_offsets, offset_length);
+
+      auto right_data_length = right_offsets[right.length] - right_offsets[0];
+      ARROW_ASSIGN_OR_RAISE(out_data->buffers[2], ctx->Allocate(right_data_length));
+      std::memcpy(out_data->buffers[2]->mutable_data(), right_data, right_data_length);
+      return Status::OK();
+    }
+
+    std::string_view left_data = internal::UnboxScalar<Type>::Unbox(left);
+    auto left_size = static_cast<OffsetType>(left_data.size());
 
     // allocate data buffer conservatively
     int64_t data_buff_alloc =
@@ -753,6 +776,18 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
                      const Scalar& right, ExecResult* out) {
     const auto* left_offsets = left.GetValues<OffsetType>(1);
     const uint8_t* left_data = left.buffers[2].data;
+
+    if (!right.is_valid) {  // right is null scalar, only need to copy left data to output
+      auto* out_data = out->array_data().get();
+      auto offset_length = (cond.length + 1) * sizeof(OffsetType);
+      ARROW_ASSIGN_OR_RAISE(out_data->buffers[1], ctx->Allocate(offset_length));
+      std::memcpy(out_data->buffers[1]->mutable_data(), left_offsets, offset_length);
+
+      auto left_data_length = left_offsets[left.length] - left_offsets[0];
+      ARROW_ASSIGN_OR_RAISE(out_data->buffers[2], ctx->Allocate(left_data_length));
+      std::memcpy(out_data->buffers[2]->mutable_data(), left_data, left_data_length);
+      return Status::OK();
+    }
 
     std::string_view right_data = internal::UnboxScalar<Type>::Unbox(right);
     auto right_size = static_cast<OffsetType>(right_data.size());

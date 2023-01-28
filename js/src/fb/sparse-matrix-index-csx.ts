@@ -13,7 +13,7 @@ import { SparseMatrixCompressedAxis } from './sparse-matrix-compressed-axis.js';
 export class SparseMatrixIndexCSX {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):SparseMatrixIndexCSX {
+  __init(i:number, bb:flatbuffers.ByteBuffer):SparseMatrixIndexCSX {
   this.bb_pos = i;
   this.bb = bb;
   return this;

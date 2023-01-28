@@ -2130,6 +2130,29 @@ if(ARROW_TESTING)
                      1.10.0
                      USE_CONFIG
                      ${GTEST_USE_CONFIG})
+
+  if(GTest_SOURCE STREQUAL "SYSTEM")
+    find_package(PkgConfig QUIET)
+    pkg_check_modules(gtest_PC
+                      gtest
+                      NO_CMAKE_PATH
+                      NO_CMAKE_ENVIRONMENT_PATH
+                      QUIET)
+    if(gtest_PC_FOUND)
+      string(APPEND ARROW_TESTING_PC_REQUIRES " gtest")
+    else()
+      string(APPEND ARROW_TESTING_PC_CFLAGS " -I$<JOIN:")
+      string(APPEND ARROW_TESTING_PC_CFLAGS
+             "$<TARGET_PROPERTY:GTest::gtest,INTERFACE_INCLUDE_DIRECTORIES>")
+      string(APPEND ARROW_TESTING_PC_CFLAGS ",-I>")
+
+      string(APPEND ARROW_TESTING_PC_LIBS " $<TARGET_FILE:GTest::gtest>")
+    endif()
+  else()
+    # TODO: How to solve BUNDLED case? Do we install bundled GoogleTest?
+    # string(APPEND ARROW_TESTING_PC_CFLAGS " -I${GTEST_INCLUDE_DIR}")
+    # string(APPEND ARROW_TESTING_PC_LIBS " -lgtest")
+  endif()
 endif()
 
 macro(build_benchmark)
@@ -2292,15 +2315,17 @@ if(ARROW_USE_XSIMD)
                      TRUE)
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
-    add_library(xsimd INTERFACE IMPORTED)
+    add_library(arrow::xsimd INTERFACE IMPORTED)
     if(CMAKE_VERSION VERSION_LESS 3.11)
-      set_target_properties(xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                             "${XSIMD_INCLUDE_DIR}")
+      set_target_properties(arrow::xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                                    "${XSIMD_INCLUDE_DIR}")
     else()
-      target_include_directories(xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
+      target_include_directories(arrow::xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
     endif()
+    set(ARROW_XSIMD arrow::xsimd)
   else()
     message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
+    set(ARROW_XSIMD xsimd)
   endif()
 endif()
 
@@ -2569,16 +2594,24 @@ macro(build_bzip2)
 endmacro()
 
 if(ARROW_WITH_BZ2)
-  resolve_dependency(BZip2)
-  if(${BZip2_SOURCE} STREQUAL "SYSTEM")
-    string(APPEND ARROW_PC_LIBS_PRIVATE " ${BZIP2_LIBRARIES}")
-  endif()
+  resolve_dependency(BZip2 PC_PACKAGE_NAMES bzip2)
 
   if(NOT TARGET BZip2::BZip2)
     add_library(BZip2::BZip2 UNKNOWN IMPORTED)
     set_target_properties(BZip2::BZip2
                           PROPERTIES IMPORTED_LOCATION "${BZIP2_LIBRARIES}"
                                      INTERFACE_INCLUDE_DIRECTORIES "${BZIP2_INCLUDE_DIR}")
+  endif()
+
+  if(${BZip2_SOURCE} STREQUAL "SYSTEM" AND NOT bzip2_PC_FOUND)
+    get_target_property(BZIP2_TYPE BZip2::BZip2 TYPE)
+    if(BZIP2_TYPE STREQUAL "INTERFACE_LIBRARY")
+      # Conan
+      string(APPEND ARROW_PC_LIBS_PRIVATE
+             " $<TARGET_FILE:CONAN_LIB::bzip2_bz2_$<CONFIG>>")
+    else()
+      string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:BZip2::BZip2>")
+    endif()
   endif()
 endif()
 
