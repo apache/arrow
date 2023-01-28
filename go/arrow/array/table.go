@@ -323,6 +323,7 @@ func (tr *TableReader) Release() {
 		tr.offsets = nil
 	}
 }
+func (tr *TableReader) Err() error { return nil }
 
 func imin64(a, b int64) int64 {
 	if a < b {

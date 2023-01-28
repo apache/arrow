@@ -1101,7 +1101,10 @@ services:
       LANG: "C.UTF-8"
       BUILD_DOCS_CPP: "ON"
       BUILD_DOCS_PYTHON: "ON"
-      PYTEST_ARGS: "--doctest-modules --doctest-cython"
+      # GH-31506/GH-33609: Remove --disable-warnings once
+      # https://github.com/lgpage/pytest-cython/issues/24 is resolved
+      # and a new version that includes the fix is released.
+      PYTEST_ARGS: "--doctest-modules --doctest-cython --disable-warnings"
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&

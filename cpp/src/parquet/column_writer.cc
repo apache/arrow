@@ -74,9 +74,10 @@ namespace {
 // Visitor that exracts the value buffer from a FlatArray at a given offset.
 struct ValueBufferSlicer {
   template <typename T>
-  ::arrow::enable_if_base_binary<typename T::TypeClass, Status> Visit(const T& array) {
+  ::arrow::enable_if_base_binary<typename T::TypeClass, Status> Visit(
+      const T& array, std::shared_ptr<Buffer>* buffer) {
     auto data = array.data();
-    buffer_ =
+    *buffer =
         SliceBuffer(data->buffers[1], data->offset * sizeof(typename T::offset_type),
                     data->length * sizeof(typename T::offset_type));
     return Status::OK();
@@ -84,9 +85,9 @@ struct ValueBufferSlicer {
 
   template <typename T>
   ::arrow::enable_if_fixed_size_binary<typename T::TypeClass, Status> Visit(
-      const T& array) {
+      const T& array, std::shared_ptr<Buffer>* buffer) {
     auto data = array.data();
-    buffer_ = SliceBuffer(data->buffers[1], data->offset * array.byte_width(),
+    *buffer = SliceBuffer(data->buffers[1], data->offset * array.byte_width(),
                           data->length * array.byte_width());
     return Status::OK();
   }
@@ -95,29 +96,30 @@ struct ValueBufferSlicer {
   ::arrow::enable_if_t<::arrow::has_c_type<typename T::TypeClass>::value &&
                            !std::is_same<BooleanType, typename T::TypeClass>::value,
                        Status>
-  Visit(const T& array) {
+  Visit(const T& array, std::shared_ptr<Buffer>* buffer) {
     auto data = array.data();
-    buffer_ = SliceBuffer(
+    *buffer = SliceBuffer(
         data->buffers[1],
         ::arrow::TypeTraits<typename T::TypeClass>::bytes_required(data->offset),
         ::arrow::TypeTraits<typename T::TypeClass>::bytes_required(data->length));
     return Status::OK();
   }
 
-  Status Visit(const ::arrow::BooleanArray& array) {
+  Status Visit(const ::arrow::BooleanArray& array, std::shared_ptr<Buffer>* buffer) {
     auto data = array.data();
     if (bit_util::IsMultipleOf8(data->offset)) {
-      buffer_ = SliceBuffer(data->buffers[1], bit_util::BytesForBits(data->offset),
+      *buffer = SliceBuffer(data->buffers[1], bit_util::BytesForBits(data->offset),
                             bit_util::BytesForBits(data->length));
       return Status::OK();
     }
-    PARQUET_ASSIGN_OR_THROW(buffer_,
+    PARQUET_ASSIGN_OR_THROW(*buffer,
                             ::arrow::internal::CopyBitmap(pool_, data->buffers[1]->data(),
                                                           data->offset, data->length));
     return Status::OK();
   }
 #define NOT_IMPLEMENTED_VISIT(ArrowTypePrefix)                                      \
-  Status Visit(const ::arrow::ArrowTypePrefix##Array& array) {                      \
+  Status Visit(const ::arrow::ArrowTypePrefix##Array& array,                        \
+               std::shared_ptr<Buffer>* buffer) {                                   \
     return Status::NotImplemented("Slicing not implemented for " #ArrowTypePrefix); \
   }
 
@@ -133,7 +135,6 @@ struct ValueBufferSlicer {
 #undef NOT_IMPLEMENTED_VISIT
 
   MemoryPool* pool_;
-  std::shared_ptr<Buffer> buffer_;
 };
 
 internal::LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
@@ -1316,10 +1317,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     buffers[0] = bits_buffer_;
     // Should be a leaf array.
     DCHECK_GT(buffers.size(), 1);
-    ValueBufferSlicer slicer{memory_pool, /*buffer=*/nullptr};
+    ValueBufferSlicer slicer{memory_pool};
     if (array->data()->offset > 0) {
-      RETURN_NOT_OK(::arrow::VisitArrayInline(*array, &slicer));
-      buffers[1] = slicer.buffer_;
+      RETURN_NOT_OK(::arrow::VisitArrayInline(*array, &slicer, &buffers[1]));
     }
     return ::arrow::MakeArray(std::make_shared<ArrayData>(
         array->type(), array->length(), std::move(buffers), new_null_count));

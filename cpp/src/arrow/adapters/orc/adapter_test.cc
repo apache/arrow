@@ -536,6 +536,15 @@ TEST_F(TestORCWriterTrivialNoConversion, writeFilledChunkAndSelectField) {
                             &selected_indices);
 }
 
+TEST_F(TestORCWriterTrivialNoConversion, writeSlicedBatch) {
+  std::shared_ptr<Table> table =
+      GenerateRandomTable(table_schema, /*size=*/100, /*min_num_chunks=*/1,
+                          /*max_num_chunks*/ 1, /*probability=*/0);
+  table = table->Slice(20, 60);
+
+  AssertTableWriteReadEqual(table, table, kDefaultSmallMemStreamSize / 16);
+}
+
 class TestORCWriterTrivialWithConversion : public ::testing::Test {
  public:
   TestORCWriterTrivialWithConversion() {

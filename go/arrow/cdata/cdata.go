@@ -748,6 +748,7 @@ type nativeCRecordBatchReader struct {
 func (n *nativeCRecordBatchReader) Retain()  {}
 func (n *nativeCRecordBatchReader) Release() {}
 
+func (n *nativeCRecordBatchReader) Err() error           { return n.err }
 func (n *nativeCRecordBatchReader) Record() arrow.Record { return n.cur }
 
 func (n *nativeCRecordBatchReader) Next() bool {
@@ -825,6 +826,7 @@ func (n *nativeCRecordBatchReader) getError(errno int) error {
 
 func (n *nativeCRecordBatchReader) Read() (arrow.Record, error) {
 	if err := n.next(); err != nil {
+		n.err = err
 		return nil, err
 	}
 	return n.cur, nil

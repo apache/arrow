@@ -38,6 +38,7 @@
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/datum.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/builder.h"
@@ -194,6 +195,91 @@ Future<std::vector<ExecBatch>> StartAndCollect(
       });
 }
 
+namespace {
+
+Result<ExecBatch> MakeIntegerBatch(const std::vector<std::function<int64_t(int)>>& gens,
+                                   const std::shared_ptr<Schema>& schema,
+                                   int batch_start_row, int batch_size) {
+  int n_fields = schema->num_fields();
+  if (gens.size() != static_cast<size_t>(n_fields)) {
+    return Status::Invalid("mismatching generator-vector and schema size");
+  }
+  auto memory_pool = default_memory_pool();
+  std::vector<Datum> values(n_fields);
+  for (int f = 0; f < n_fields; f++) {
+    std::shared_ptr<Array> array;
+    auto type = schema->field(f)->type();
+
+#define ARROW_TEST_INT_BUILD_CASE(id)                                         \
+  case Type::id: {                                                            \
+    using T = typename TypeIdTraits<Type::id>::Type;                          \
+    using CType = typename TypeTraits<T>::CType;                              \
+    using Builder = typename TypeTraits<T>::BuilderType;                      \
+    ARROW_ASSIGN_OR_RAISE(auto a_builder, MakeBuilder(type, memory_pool));    \
+    Builder& builder = *checked_cast<Builder*>(a_builder.get());              \
+    ARROW_RETURN_NOT_OK(builder.Reserve(batch_size));                         \
+    for (int j = 0; j < batch_size; j++) {                                    \
+      builder.UnsafeAppend(static_cast<CType>(gens[f](batch_start_row + j))); \
+    }                                                                         \
+    ARROW_RETURN_NOT_OK(builder.Finish(&array));                              \
+    break;                                                                    \
+  }
+
+    switch (type->id()) {
+      ARROW_TEST_INT_BUILD_CASE(INT8)
+      ARROW_TEST_INT_BUILD_CASE(INT16)
+      ARROW_TEST_INT_BUILD_CASE(INT32)
+      ARROW_TEST_INT_BUILD_CASE(INT64)
+      default:
+        return Status::TypeError("building ", type->ToString());
+    }
+
+#undef ARROW_TEST_INT_BUILD_CASE
+
+    values[f] = Datum(array);
+  }
+  return ExecBatch(std::move(values), batch_size);
+}
+
+}  // namespace
+
+AsyncGenerator<std::optional<ExecBatch>> MakeIntegerBatchGen(
+    const std::vector<std::function<int64_t(int)>>& gens,
+    const std::shared_ptr<Schema>& schema, int num_batches, int batch_size) {
+  struct IntegerBatchGenState {
+    IntegerBatchGenState(const std::vector<std::function<int64_t(int)>>& gens,
+                         const std::shared_ptr<Schema>& schema, int num_batches,
+                         int batch_size)
+        : gens(gens), schema(schema), num_batches(num_batches), batch_size(batch_size) {}
+
+    std::optional<ExecBatch> Next() {
+      if (batch_index >= num_batches) {
+        return std::nullopt;
+      }
+      Result<ExecBatch> batch_res = MakeIntegerBatch(gens, schema, batch_row, batch_size);
+      if (!batch_res.ok()) {
+        return std::nullopt;
+      }
+      ++batch_index;
+      batch_row += batch_size;
+      return batch_res.ValueOrDie();
+    }
+
+    std::vector<std::function<int64_t(int)>> gens;
+    std::shared_ptr<Schema> schema;
+    int num_batches;
+    int batch_size;
+    int batch_index = 0;
+    int batch_row = 0;
+  };
+  auto state =
+      std::make_shared<IntegerBatchGenState>(gens, schema, num_batches, batch_size);
+  return [state]() {
+    return DeferNotOk(::arrow::io::default_io_context().executor()->Submit(
+        [state]() { return state->Next(); }));
+  };
+}
+
 BatchesWithSchema MakeBasicBatches() {
   BatchesWithSchema out;
   out.batches = {
@@ -231,6 +317,20 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
   }
 
   out.schema = schema;
+  return out;
+}
+
+Result<BatchesWithSchema> MakeIntegerBatches(
+    const std::vector<std::function<int64_t(int)>>& gens,
+    const std::shared_ptr<Schema>& schema, int num_batches, int batch_size) {
+  BatchesWithSchema out;
+  out.schema = schema;
+  int row = 0;
+  for (int i = 0; i < num_batches; i++) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, MakeIntegerBatch(gens, schema, row, batch_size));
+    out.batches.push_back(std::move(batch));
+    row += batch_size;
+  }
   return out;
 }
 

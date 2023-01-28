@@ -31,6 +31,7 @@
 #include "arrow/c/util_internal.h"
 #include "arrow/extension_type.h"
 #include "arrow/memory_pool.h"
+#include "arrow/memory_pool_internal.h"  // for kZeroSizeArea
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/stl_allocator.h"
@@ -59,6 +60,8 @@ using internal::SchemaExportGuard;
 using internal::SchemaExportTraits;
 
 using internal::ToChars;
+
+using memory_pool::internal::kZeroSizeArea;
 
 namespace {
 
@@ -1265,7 +1268,8 @@ class ImportedBuffer : public Buffer {
 };
 
 struct ArrayImporter {
-  explicit ArrayImporter(const std::shared_ptr<DataType>& type) : type_(type) {}
+  explicit ArrayImporter(const std::shared_ptr<DataType>& type)
+      : type_(type), zero_size_buffer_(std::make_shared<Buffer>(kZeroSizeArea, 0)) {}
 
   Status Import(struct ArrowArray* src) {
     if (ArrowArrayIsReleased(src)) {
@@ -1529,7 +1533,7 @@ struct ArrayImporter {
   }
 
   Status ImportNullBitmap(int32_t buffer_id = 0) {
-    RETURN_NOT_OK(ImportBitsBuffer(buffer_id));
+    RETURN_NOT_OK(ImportBitsBuffer(buffer_id, /*is_null_bitmap=*/true));
     if (data_->null_count > 0 && data_->buffers[buffer_id] == nullptr) {
       return Status::Invalid(
           "ArrowArray struct has null bitmap buffer but non-zero null_count ",
@@ -1538,15 +1542,20 @@ struct ArrayImporter {
     return Status::OK();
   }
 
-  Status ImportBitsBuffer(int32_t buffer_id) {
+  Status ImportBitsBuffer(int32_t buffer_id, bool is_null_bitmap = false) {
     // Compute visible size of buffer
-    int64_t buffer_size = bit_util::BytesForBits(c_struct_->length + c_struct_->offset);
-    return ImportBuffer(buffer_id, buffer_size);
+    int64_t buffer_size =
+        (c_struct_->length > 0)
+            ? bit_util::BytesForBits(c_struct_->length + c_struct_->offset)
+            : 0;
+    return ImportBuffer(buffer_id, buffer_size, is_null_bitmap);
   }
 
   Status ImportFixedSizeBuffer(int32_t buffer_id, int64_t byte_width) {
     // Compute visible size of buffer
-    int64_t buffer_size = byte_width * (c_struct_->length + c_struct_->offset);
+    int64_t buffer_size = (c_struct_->length > 0)
+                              ? byte_width * (c_struct_->length + c_struct_->offset)
+                              : 0;
     return ImportBuffer(buffer_id, buffer_size);
   }
 
@@ -1563,17 +1572,27 @@ struct ArrayImporter {
                                   int64_t byte_width = 1) {
     auto offsets = data_->GetValues<OffsetType>(offsets_buffer_id);
     // Compute visible size of buffer
-    int64_t buffer_size = byte_width * offsets[c_struct_->length];
+    int64_t buffer_size =
+        (c_struct_->length > 0) ? byte_width * offsets[c_struct_->length] : 0;
     return ImportBuffer(buffer_id, buffer_size);
   }
 
-  Status ImportBuffer(int32_t buffer_id, int64_t buffer_size) {
+  Status ImportBuffer(int32_t buffer_id, int64_t buffer_size,
+                      bool is_null_bitmap = false) {
     std::shared_ptr<Buffer>* out = &data_->buffers[buffer_id];
     auto data = reinterpret_cast<const uint8_t*>(c_struct_->buffers[buffer_id]);
     if (data != nullptr) {
       *out = std::make_shared<ImportedBuffer>(data, buffer_size, import_);
-    } else {
+    } else if (is_null_bitmap) {
       out->reset();
+    } else {
+      // Ensure that imported buffers are never null (except for the null bitmap)
+      if (buffer_size != 0) {
+        return Status::Invalid(
+            "ArrowArrayStruct contains null data pointer "
+            "for a buffer with non-zero computed size");
+      }
+      *out = zero_size_buffer_;
     }
     return Status::OK();
   }
@@ -1585,6 +1604,9 @@ struct ArrayImporter {
   std::shared_ptr<ImportedArrayData> import_;
   std::shared_ptr<ArrayData> data_;
   std::vector<ArrayImporter> child_importers_;
+
+  // For imported null buffer pointers
+  std::shared_ptr<Buffer> zero_size_buffer_;
 };
 
 }  // namespace

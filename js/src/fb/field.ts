@@ -15,7 +15,7 @@ import { Type } from './type.js';
 export class Field {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):Field {
+  __init(i:number, bb:flatbuffers.ByteBuffer):Field {
   this.bb_pos = i;
   this.bb = bb;
   return this;
@@ -56,8 +56,7 @@ typeType():Type {
 /**
  * This is the type of the decoded value if the field is dictionary encoded.
  */
-// @ts-ignore
-type<T extends flatbuffers.Table>(obj:any):any|null {
+type(obj:any):any|null {
   const offset = this.bb!.__offset(this.bb_pos, 10);
   return offset ? this.bb!.__union(obj, this.bb_pos + offset) : null;
 }

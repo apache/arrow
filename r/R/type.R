@@ -641,6 +641,9 @@ StructType$create <- function(...) struct__(.fields(list(...)))
 #' @export
 struct <- StructType$create
 
+#' @export
+names.StructType <- function(x) StructType__field_names(x)
+
 ListType <- R6Class("ListType",
   inherit = NestedType,
   public = list(

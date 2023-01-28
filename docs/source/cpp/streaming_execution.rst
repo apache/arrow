@@ -86,25 +86,21 @@ Plans
 ^^^^^
 
  * A plan should have a single top-level relation.
- * The consumer is currently based on a custom build of Substrait that
-   is older than 0.1.0.  Any features added that are newer than 0.1.0 will
-   not be supported.
+ * The consumer is currently based on version 0.20.0 of Substrait.
+   Any features added that are newer will not be supported.
+ * Due to a breaking change in 0.20.0 any Substrait plan older than 0.20.0
+   will be rejected.
 
 Extensions
 ^^^^^^^^^^
 
  * If a plan contains any extension type variations it will be rejected.
- * If a plan contains any advanced extensions it will be rejected.
+ * Advanced extensions can be provided by supplying a custom implementation of
+   :class:`arrow::engine::ExtensionProvider`.
 
 Relations (in general)
 ^^^^^^^^^^^^^^^^^^^^^^
 
- * The ``emit`` property (to customize output order of a node or to drop
-   columns) is not supported and plans containing this property will
-   be rejected.
- * The ``hint`` property is not supported and plans containing this
-   property will be rejected.
- * Any advanced extensions will cause a plan to be rejected.
  * Any relation not explicitly listed below will not be supported
    and will cause the plan to be rejected.
 
@@ -113,12 +109,12 @@ Read Relations
 
  * The ``projection`` property is not supported and plans containing this
    property will be rejected.
- * The only supported read type is ``LocalFiles``.  Plans with any other
-   type will be rejected.
- * Only the parquet file format is currently supported.
+ * The ``VirtualTable`` and ``ExtensionTable``read types are not supported.
+   Plans containing these types will be rejected.
+ * Only the parquet and arrow file formats are currently supported.
  * All URIs must use the ``file`` scheme
  * ``partition_index``, ``start``, and ``length`` are not supported.  Plans containing
-   these properties will be rejected.
+   non-default values for these properties will be rejected.
  * The Substrait spec requires that a ``filter`` be completely satisfied by a read
    relation.  However, Acero only uses a read filter for pushdown projection and
    it may not be fully satisfied.  Users should generally attach an additional
@@ -152,7 +148,8 @@ Aggregate Relations
  * Each measure's arguments must be direct references.
  * A measure may not have a filter
  * A measure may not have sorts
- * A measure's invocation must be AGGREGATION_INVOCATION_ALL
+ * A measure's invocation must be AGGREGATION_INVOCATION_ALL or 
+   AGGREGATION_INVOCATION_UNSPECIFIED
  * A measure's phase must be AGGREGATION_PHASE_INITIAL_TO_RESULT
 
 Expressions (general)
@@ -163,8 +160,6 @@ Expressions (general)
    grouping set.  Acero typically expects these expressions to be direct references.
    Planners should extract the implicit projection into a formal project relation
    before delivering the plan to Acero.
- * Older versions of Isthmus would omit optional arguments instead of including them
-   as unspecified enums.  Acero will not support these plans.
 
 Literals
 ^^^^^^^^
@@ -262,7 +257,6 @@ Types
 Functions
 ^^^^^^^^^
 
- * Acero does not support the legacy ``args`` style of declaring arguments
  * The following functions have caveats or are not supported at all.  Note that
    this is not a comprehensive list.  Functions are being added to Substrait at
    a rapid pace and new functions may be missing.
@@ -283,8 +277,11 @@ Functions
      * ``count_distinct``
      * ``approx_count_distinct``
 
- * The functions above must be referenced using the URI
+ * The functions above should be referenced using the URI
    ``https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml``
+     * Alternatively, the URI can be left completely empty and Acero will match
+       based only on function name.  This fallback mechanism is non-standard and should
+       be avoided if possible.
 
 Architecture Overview
 =====================

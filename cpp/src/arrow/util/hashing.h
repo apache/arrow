@@ -107,7 +107,7 @@ struct ScalarHelper<Scalar, AlgNum,
     : public ScalarHelperBase<Scalar, AlgNum> {
   // ScalarHelper specialization for std::string_view
 
-  static hash_t ComputeHash(const std::string_view& value) {
+  static hash_t ComputeHash(std::string_view value) {
     return ComputeStringHash<AlgNum>(value.data(), static_cast<int64_t>(value.size()));
   }
 };
@@ -641,7 +641,7 @@ class BinaryMemoTable : public MemoTable {
     }
   }
 
-  int32_t Get(const std::string_view& value) const {
+  int32_t Get(std::string_view value) const {
     return Get(value.data(), static_cast<builder_offset_type>(value.length()));
   }
 
@@ -669,8 +669,8 @@ class BinaryMemoTable : public MemoTable {
   }
 
   template <typename Func1, typename Func2>
-  Status GetOrInsert(const std::string_view& value, Func1&& on_found,
-                     Func2&& on_not_found, int32_t* out_memo_index) {
+  Status GetOrInsert(std::string_view value, Func1&& on_found, Func2&& on_not_found,
+                     int32_t* out_memo_index) {
     return GetOrInsert(value.data(), static_cast<builder_offset_type>(value.length()),
                        std::forward<Func1>(on_found), std::forward<Func2>(on_not_found),
                        out_memo_index);
@@ -682,7 +682,7 @@ class BinaryMemoTable : public MemoTable {
         data, length, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
   }
 
-  Status GetOrInsert(const std::string_view& value, int32_t* out_memo_index) {
+  Status GetOrInsert(std::string_view value, int32_t* out_memo_index) {
     return GetOrInsert(value.data(), static_cast<builder_offset_type>(value.length()),
                        out_memo_index);
   }
@@ -850,7 +850,7 @@ class BinaryMemoTable : public MemoTable {
 
  public:
   Status MergeTable(const BinaryMemoTable& other_table) {
-    other_table.VisitValues(0, [this](const std::string_view& other_value) {
+    other_table.VisitValues(0, [this](std::string_view other_value) {
       int32_t unused;
       DCHECK_OK(this->GetOrInsert(other_value, &unused));
     });
@@ -918,7 +918,7 @@ struct StringViewHash {
   // std::hash compatible hasher for use with std::unordered_*
   // (the std::hash specialization provided by nonstd constructs std::string
   // temporaries then invokes std::hash<std::string> against those)
-  hash_t operator()(const std::string_view& value) const {
+  hash_t operator()(std::string_view value) const {
     return ComputeStringHash<0>(value.data(), static_cast<int64_t>(value.size()));
   }
 };

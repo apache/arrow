@@ -53,8 +53,12 @@ package cdata
 // struct ArrowSchema** test_struct(const char** fmts, const char** names, int64_t* flags, const int n);
 // struct ArrowSchema** test_map(const char** fmts, const char** names, int64_t* flags, const int n);
 // struct ArrowSchema** test_schema(const char** fmts, const char** names, int64_t* flags, const int n);
+// int test_exported_stream(struct ArrowArrayStream* stream);
 import "C"
 import (
+	"errors"
+	"fmt"
+	"io"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v11/arrow"
@@ -263,4 +267,31 @@ func arrayStreamTest() *CArrowArrayStream {
 	st := C.get_test_stream()
 	C.setup_array_stream_test(2, st)
 	return st
+}
+
+func exportedStreamTest(reader array.RecordReader) error {
+	out := C.get_test_stream()
+	ExportRecordReader(reader, out)
+	rc := C.test_exported_stream(out)
+	C.free(unsafe.Pointer(out))
+	if rc == 0 {
+		return nil
+	}
+	return fmt.Errorf("Exported stream test failed with return code %d", int(rc))
+}
+
+func roundTripStreamTest(reader array.RecordReader) error {
+	out := C.get_test_stream()
+	ExportRecordReader(reader, out)
+	rdr := ImportCArrayStream(out, nil)
+
+	for {
+		_, err := rdr.Read()
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return err
+		}
+	}
+	return nil
 }

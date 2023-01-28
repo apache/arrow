@@ -483,36 +483,27 @@ var makeNullFn [64]scalarMakeNullFn
 
 func init() {
 	makeNullFn = [...]scalarMakeNullFn{
-		arrow.NULL:              func(dt arrow.DataType) Scalar { return ScalarNull },
-		arrow.BOOL:              func(dt arrow.DataType) Scalar { return &Boolean{scalar: scalar{dt, false}} },
-		arrow.UINT8:             func(dt arrow.DataType) Scalar { return &Uint8{scalar: scalar{dt, false}} },
-		arrow.INT8:              func(dt arrow.DataType) Scalar { return &Int8{scalar: scalar{dt, false}} },
-		arrow.UINT16:            func(dt arrow.DataType) Scalar { return &Uint16{scalar: scalar{dt, false}} },
-		arrow.INT16:             func(dt arrow.DataType) Scalar { return &Int16{scalar: scalar{dt, false}} },
-		arrow.UINT32:            func(dt arrow.DataType) Scalar { return &Uint32{scalar: scalar{dt, false}} },
-		arrow.INT32:             func(dt arrow.DataType) Scalar { return &Int32{scalar: scalar{dt, false}} },
-		arrow.UINT64:            func(dt arrow.DataType) Scalar { return &Uint64{scalar: scalar{dt, false}} },
-		arrow.INT64:             func(dt arrow.DataType) Scalar { return &Int64{scalar: scalar{dt, false}} },
-		arrow.FLOAT16:           func(dt arrow.DataType) Scalar { return &Float16{scalar: scalar{dt, false}} },
-		arrow.FLOAT32:           func(dt arrow.DataType) Scalar { return &Float32{scalar: scalar{dt, false}} },
-		arrow.FLOAT64:           func(dt arrow.DataType) Scalar { return &Float64{scalar: scalar{dt, false}} },
-		arrow.STRING:            func(dt arrow.DataType) Scalar { return &String{&Binary{scalar: scalar{dt, false}}} },
-		arrow.BINARY:            func(dt arrow.DataType) Scalar { return &Binary{scalar: scalar{dt, false}} },
-		arrow.FIXED_SIZE_BINARY: func(dt arrow.DataType) Scalar { return &FixedSizeBinary{&Binary{scalar: scalar{dt, false}}} },
-		arrow.DATE32:            func(dt arrow.DataType) Scalar { return &Date32{scalar: scalar{dt, false}} },
-		arrow.DATE64:            func(dt arrow.DataType) Scalar { return &Date64{scalar: scalar{dt, false}} },
-		arrow.TIMESTAMP:         func(dt arrow.DataType) Scalar { return &Timestamp{scalar: scalar{dt, false}} },
-		arrow.TIME32:            func(dt arrow.DataType) Scalar { return &Time32{scalar: scalar{dt, false}} },
-		arrow.TIME64:            func(dt arrow.DataType) Scalar { return &Time64{scalar: scalar{dt, false}} },
-		arrow.INTERVAL: func(dt arrow.DataType) Scalar {
-			if arrow.TypeEqual(dt, arrow.FixedWidthTypes.MonthInterval) {
-				return &MonthInterval{scalar: scalar{dt, false}}
-			}
-			if arrow.TypeEqual(dt, arrow.FixedWidthTypes.MonthDayNanoInterval) {
-				return &MonthDayNanoInterval{scalar: scalar{dt, false}}
-			}
-			return &DayTimeInterval{scalar: scalar{dt, false}}
-		},
+		arrow.NULL:                    func(dt arrow.DataType) Scalar { return ScalarNull },
+		arrow.BOOL:                    func(dt arrow.DataType) Scalar { return &Boolean{scalar: scalar{dt, false}} },
+		arrow.UINT8:                   func(dt arrow.DataType) Scalar { return &Uint8{scalar: scalar{dt, false}} },
+		arrow.INT8:                    func(dt arrow.DataType) Scalar { return &Int8{scalar: scalar{dt, false}} },
+		arrow.UINT16:                  func(dt arrow.DataType) Scalar { return &Uint16{scalar: scalar{dt, false}} },
+		arrow.INT16:                   func(dt arrow.DataType) Scalar { return &Int16{scalar: scalar{dt, false}} },
+		arrow.UINT32:                  func(dt arrow.DataType) Scalar { return &Uint32{scalar: scalar{dt, false}} },
+		arrow.INT32:                   func(dt arrow.DataType) Scalar { return &Int32{scalar: scalar{dt, false}} },
+		arrow.UINT64:                  func(dt arrow.DataType) Scalar { return &Uint64{scalar: scalar{dt, false}} },
+		arrow.INT64:                   func(dt arrow.DataType) Scalar { return &Int64{scalar: scalar{dt, false}} },
+		arrow.FLOAT16:                 func(dt arrow.DataType) Scalar { return &Float16{scalar: scalar{dt, false}} },
+		arrow.FLOAT32:                 func(dt arrow.DataType) Scalar { return &Float32{scalar: scalar{dt, false}} },
+		arrow.FLOAT64:                 func(dt arrow.DataType) Scalar { return &Float64{scalar: scalar{dt, false}} },
+		arrow.STRING:                  func(dt arrow.DataType) Scalar { return &String{&Binary{scalar: scalar{dt, false}}} },
+		arrow.BINARY:                  func(dt arrow.DataType) Scalar { return &Binary{scalar: scalar{dt, false}} },
+		arrow.FIXED_SIZE_BINARY:       func(dt arrow.DataType) Scalar { return &FixedSizeBinary{&Binary{scalar: scalar{dt, false}}} },
+		arrow.DATE32:                  func(dt arrow.DataType) Scalar { return &Date32{scalar: scalar{dt, false}} },
+		arrow.DATE64:                  func(dt arrow.DataType) Scalar { return &Date64{scalar: scalar{dt, false}} },
+		arrow.TIMESTAMP:               func(dt arrow.DataType) Scalar { return &Timestamp{scalar: scalar{dt, false}} },
+		arrow.TIME32:                  func(dt arrow.DataType) Scalar { return &Time32{scalar: scalar{dt, false}} },
+		arrow.TIME64:                  func(dt arrow.DataType) Scalar { return &Time64{scalar: scalar{dt, false}} },
 		arrow.INTERVAL_MONTHS:         func(dt arrow.DataType) Scalar { return &MonthInterval{scalar: scalar{dt, false}} },
 		arrow.INTERVAL_DAY_TIME:       func(dt arrow.DataType) Scalar { return &DayTimeInterval{scalar: scalar{dt, false}} },
 		arrow.INTERVAL_MONTH_DAY_NANO: func(dt arrow.DataType) Scalar { return &MonthDayNanoInterval{scalar: scalar{dt, false}} },

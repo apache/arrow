@@ -105,5 +105,6 @@ docker_run \
     ARTIFACTS_DIR="${tmp_dir}/artifacts" \
     RC=${rc} \
     STAGING=${STAGING:-no} \
+    VERBOSE=${VERBOSE:-no} \
     VERSION=${version} \
     YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")

@@ -424,6 +424,73 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	s.Equal(&emptyFlightInfo, info)
 }
 
+func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
+	const query = "query"
+
+	// create and close actions
+	cmd := &pb.ActionCreatePreparedStatementRequest{Query: query}
+	action := getAction(cmd)
+	action.Type = flightsql.CreatePreparedStatementActionType
+	closeAct := getAction(&pb.ActionClosePreparedStatementRequest{PreparedStatementHandle: []byte(query)})
+	closeAct.Type = flightsql.ClosePreparedStatementActionType
+
+	// results from createprepared statement
+	result := &pb.ActionCreatePreparedStatementResult{
+		PreparedStatementHandle: []byte(query),
+	}
+	schema := arrow.NewSchema([]arrow.Field{{Name: "id", Type: arrow.PrimitiveTypes.Int64, Nullable: true}}, nil)
+	result.ParameterSchema = flight.SerializeSchema(schema, memory.DefaultAllocator)
+
+	// mocked client stream
+	var out anypb.Any
+	out.MarshalFrom(result)
+	data, _ := proto.Marshal(&out)
+	rsp := &mockDoActionClient{}
+	defer rsp.AssertExpectations(s.T())
+	rsp.On("Recv").Return(&pb.Result{Body: data}, nil)
+
+	// expect two actions: one to create and one to close the prepared statement
+	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).Return(rsp, nil)
+	s.mockClient.On("DoAction", flightsql.ClosePreparedStatementActionType, closeAct.Body, s.callOpts).Return(rsp, nil)
+
+	expectedDesc := getDesc(&pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(query)})
+
+	// mocked client stream for DoPut
+	mockedPut := &mockDoPutClient{}
+	s.mockClient.On("DoPut", s.callOpts).Return(mockedPut, nil)
+	// 1x schema
+	mockedPut.On("Send", mock.MatchedBy(func(fd *flight.FlightData) bool {
+		return proto.Equal(expectedDesc, fd.FlightDescriptor)
+	})).Return(nil)
+	// 3x bind parameters
+	mockedPut.On("Send", mock.MatchedBy(func(fd *flight.FlightData) bool {
+		return fd.FlightDescriptor == nil
+	})).Return(nil).Times(3)
+	mockedPut.On("CloseSend").Return(nil)
+	mockedPut.On("Recv").Return((*pb.PutResult)(nil), nil)
+
+	infoCmd := &pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(query)}
+	desc := getDesc(infoCmd)
+	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
+
+	prepared, err := s.sqlClient.Prepare(context.TODO(), memory.DefaultAllocator, query, s.callOpts...)
+	s.NoError(err)
+	defer prepared.Close(context.TODO())
+
+	paramSchema := prepared.ParameterSchema()
+	rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, paramSchema, strings.NewReader(`[{"id": 1}]`))
+	s.NoError(err)
+	defer rec.Release()
+
+	rdr, err := array.NewRecordReader(rec.Schema(), []arrow.Record{rec, rec, rec})
+	s.NoError(err)
+	prepared.SetRecordReader(rdr)
+
+	info, err := prepared.Execute(context.TODO())
+	s.NoError(err)
+	s.Equal(&emptyFlightInfo, info)
+}
+
 func (s *FlightSqlClientSuite) TestExecuteUpdate() {
 	const query = "query"
 

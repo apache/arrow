@@ -943,6 +943,20 @@ def memory_map(path, mode='r'):
     Returns
     -------
     mmap : MemoryMappedFile
+
+    Examples
+    --------
+    Reading from a memory map without any memory allocation or copying:
+
+    >>> import pyarrow as pa
+    >>> with pa.output_stream('example_mmap.txt') as stream:
+    ...     stream.write(b'Constructing a buffer referencing the mapped memory')
+    ...
+    51
+    >>> with pa.memory_map('example_mmap.txt') as mmap:
+    ...     mmap.read_at(6,45)
+    ...
+    b'memory'
     """
     _check_is_file(path)
 
@@ -971,6 +985,18 @@ def create_memory_map(path, size):
     Returns
     -------
     mmap : MemoryMappedFile
+
+    Examples
+    --------
+    Create a file with a memory map:
+
+    >>> import pyarrow as pa
+    >>> with pa.create_memory_map('example_mmap_create.dat', 27) as mmap:
+    ...     mmap.write(b'Create a memory-mapped file')
+    ...     mmap.read_at(10, 9)
+    ...
+    27
+    b'memory-map'
     """
     return MemoryMappedFile.create(path, size)
 
@@ -2218,6 +2244,40 @@ def input_stream(source, compression='detect', buffer_size=None):
     buffer_size : int, default None
         If None or 0, no buffering will happen. Otherwise the size of the
         temporary read buffer.
+
+    Examples
+    --------
+    Create a readable BufferReader (NativeFile) from a Buffer or a memoryview object:
+
+    >>> import pyarrow as pa
+    >>> buf = memoryview(b"some data")
+    >>> with pa.input_stream(buf) as stream:
+    ...     stream.read(4)
+    ...
+    b'some'
+
+    Create a readable OSFile (NativeFile) from a string or file path:
+
+    >>> import gzip
+    >>> with gzip.open('example.gz', 'wb') as f:
+    ...     f.write(b'some data')
+    ...
+    9
+    >>> with pa.input_stream('example.gz') as stream:
+    ...     stream.read()
+    ...
+    b'some data'
+
+    Create a readable PythonFile (NativeFile) from a a Python file object:
+
+    >>> with open('example.txt', mode='w') as f:
+    ...     f.write('some text')
+    ...
+    9
+    >>> with pa.input_stream('example.txt') as stream:
+    ...     stream.read(6)
+    ...
+    b'some t'
     """
     cdef NativeFile stream
 
@@ -2270,6 +2330,46 @@ def output_stream(source, compression='detect', buffer_size=None):
     buffer_size : int, default None
         If None or 0, no buffering will happen. Otherwise the size of the
         temporary write buffer.
+
+    Examples
+    --------
+    Create a writable NativeFile from a pyarrow Buffer:
+
+    >>> import pyarrow as pa
+    >>> data = b"buffer data"
+    >>> empty_obj = bytearray(11)
+    >>> buf = pa.py_buffer(empty_obj)
+    >>> with pa.output_stream(buf) as stream:
+    ...     stream.write(data)
+    ...
+    11
+    >>> with pa.input_stream(buf) as stream:
+    ...     stream.read(6)
+    ...
+    b'buffer'
+
+    or from a memoryview object:
+
+    >>> buf = memoryview(empty_obj)
+    >>> with pa.output_stream(buf) as stream:
+    ...     stream.write(data)
+    ...
+    11
+    >>> with pa.input_stream(buf) as stream:
+    ...     stream.read()
+    ...
+    b'buffer data'
+
+    Create a writable NativeFile from a string or file path:
+
+    >>> with pa.output_stream('example_second.txt') as stream:
+    ...     stream.write(b'Write some data')
+    ...
+    15
+    >>> with pa.input_stream('example_second.txt') as stream:
+    ...     stream.read()
+    ...
+    b'Write some data'
     """
     cdef NativeFile stream
 

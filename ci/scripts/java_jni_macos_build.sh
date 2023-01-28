@@ -133,6 +133,7 @@ archery linking check-dependencies \
   --allow libcurl \
   --allow libgandiva_jni \
   --allow libncurses \
+  --allow libobjc \
   --allow libplasma_java \
   --allow libz \
   libarrow_cdata_jni.dylib \

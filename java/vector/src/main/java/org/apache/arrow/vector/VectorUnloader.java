@@ -69,7 +69,7 @@ public class VectorUnloader {
       VectorSchemaRoot root, boolean includeNullCount, CompressionCodec codec, boolean alignBuffers) {
     this.root = root;
     this.includeNullCount = includeNullCount;
-    this.codec = codec;
+    this.codec = codec == null ? NoCompressionCodec.INSTANCE : codec;
     this.alignBuffers = alignBuffers;
   }
 
@@ -83,8 +83,10 @@ public class VectorUnloader {
     for (FieldVector vector : root.getFieldVectors()) {
       appendNodes(vector, nodes, buffers);
     }
+    // Do NOT retain buffers in ArrowRecordBatch constructor since we have already retained them.
     return new ArrowRecordBatch(
-        root.getRowCount(), nodes, buffers, CompressionUtil.createBodyCompression(codec), alignBuffers);
+        root.getRowCount(), nodes, buffers, CompressionUtil.createBodyCompression(codec), alignBuffers,
+        /*retainBuffers*/ false);
   }
 
   private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
@@ -97,6 +99,11 @@ public class VectorUnloader {
           vector.getField(), vector.getClass().getSimpleName(), fieldBuffers));
     }
     for (ArrowBuf buf : fieldBuffers) {
+      // If the codec is NoCompressionCodec, then it will return the input buffer unchanged. In that case,
+      // we need to retain it for ArrowRecordBatch. Otherwise, it will return a new buffer, and also close
+      // the input buffer. In that case, we need to retain the input buffer still to avoid modifying
+      // the source VectorSchemaRoot.
+      buf.getReferenceManager().retain();
       buffers.add(codec.compress(vector.getAllocator(), buf));
     }
     for (FieldVector child : vector.getChildrenFromFields()) {

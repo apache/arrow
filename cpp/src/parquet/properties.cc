@@ -23,6 +23,7 @@
 #include "arrow/io/buffered.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/thread_pool.h"
 
 namespace parquet {
 
@@ -49,6 +50,10 @@ std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
     }
     return std::make_shared<::arrow::io::BufferReader>(data);
   }
+}
+
+::arrow::internal::Executor* ArrowWriterProperties::executor() const {
+  return executor_ != nullptr ? executor_ : ::arrow::internal::GetCpuThreadPool();
 }
 
 ArrowReaderProperties default_arrow_reader_properties() {

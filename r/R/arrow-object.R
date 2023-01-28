@@ -32,7 +32,7 @@ ArrowObject <- R6Class("ArrowObject",
       assign(".:xp:.", xp, envir = self)
     },
     class_title = function() {
-      if (!is.null(self$.class_title)) {
+      if (".class_title" %in% ls(self, all.names = TRUE)) {
         # Allow subclasses to override just printing the class name first
         class_title <- self$.class_title()
       } else {

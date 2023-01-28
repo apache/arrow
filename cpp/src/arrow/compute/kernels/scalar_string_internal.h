@@ -351,8 +351,7 @@ struct StringSplitExec {
     return Status::OK();
   }
 
-  Status SplitString(const std::string_view& s, SplitFinder* finder,
-                     BuilderType* builder) {
+  Status SplitString(std::string_view s, SplitFinder* finder, BuilderType* builder) {
     const uint8_t* begin = reinterpret_cast<const uint8_t*>(s.data());
     const uint8_t* end = begin + s.length();
 

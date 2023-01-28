@@ -16,7 +16,7 @@ import { DateUnit } from './date-unit.js';
 export class Date {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):Date {
+  __init(i:number, bb:flatbuffers.ByteBuffer):Date {
   this.bb_pos = i;
   this.bb = bb;
   return this;
