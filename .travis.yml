@@ -94,7 +94,7 @@ jobs:
         # aws-sdk-cpp.
         DOCKER_RUN_ARGS: >-
           "
-          -e ARROW_FLIGHT=ON
+          -e ARROW_FLIGHT=OFF
           -e ARROW_GCS=OFF
           -e ARROW_MIMALLOC=OFF
           -e ARROW_ORC=OFF
@@ -146,7 +146,7 @@ jobs:
         # aws-sdk-cpp.
         DOCKER_RUN_ARGS: >-
           "
-          -e ARROW_FLIGHT=ON
+          -e ARROW_FLIGHT=OFF
           -e ARROW_GCS=OFF
           -e ARROW_MIMALLOC=OFF
           -e ARROW_ORC=OFF
