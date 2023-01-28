@@ -28,6 +28,19 @@
 namespace arrow {
 namespace engine {
 
+namespace {
+
+std::vector<compute::Declaration::Input> MakeInputDeclarations(
+    const std::vector<DeclarationInfo> inputs) {
+  std::vector<compute::Declaration::Input> input_decls(inputs.size());
+  for (size_t i = 0; i < inputs.size(); i++) {
+    input_decls[i] = inputs[i].declaration;
+  }
+  return input_decls;
+}
+
+}  // namespace
+
 class BaseExtensionProvider : public ExtensionProvider {
  public:
   Result<RelationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
@@ -51,6 +64,11 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
       substrait_ext::AsOfJoinRel as_of_join_rel;
       rel.UnpackTo(&as_of_join_rel);
       return MakeAsOfJoinRel(inputs, as_of_join_rel, ext_set);
+    }
+    if (rel.Is<substrait_ext::NamedTapRel>()) {
+      substrait_ext::NamedTapRel named_tap_rel;
+      rel.UnpackTo(&named_tap_rel);
+      return MakeNamedTapRel(inputs, named_tap_rel, ext_set);
     }
     return Status::NotImplemented("Unrecognized extension in Susbstrait plan: ",
                                   rel.DebugString());
@@ -111,14 +129,42 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     compute::AsofJoinNodeOptions asofjoin_node_opts{std::move(input_keys), tolerance};
 
     // declaration
-    std::vector<compute::Declaration::Input> input_decls(inputs.size());
-    for (size_t i = 0; i < inputs.size(); i++) {
-      input_decls[i] = inputs[i].declaration;
-    }
+    auto input_decls = MakeInputDeclarations(inputs);
     return RelationInfo{
         {compute::Declaration("asofjoin", input_decls, std::move(asofjoin_node_opts)),
          std::move(schema)},
         std::move(field_output_indices)};
+  }
+
+  Result<RelationInfo> MakeNamedTapRel(const std::vector<DeclarationInfo>& inputs,
+                                       const substrait_ext::NamedTapRel& named_tap_rel,
+                                       const ExtensionSet& ext_set) {
+    if (inputs.size() != 1) {
+      return Status::Invalid(
+          "substrait_ext::NamedTapNode requires a single table but got: ", inputs.size());
+    }
+
+    auto schema = inputs[0].output_schema;
+    int num_fields = schema->num_fields();
+    if (named_tap_rel.columns_size() != num_fields) {
+      return Status::Invalid("Got ", named_tap_rel.columns_size(),
+                             " NamedTapRel columns but expected ", num_fields);
+    }
+    int i = 0;
+    FieldVector fields(static_cast<size_t>(num_fields));
+    for (const auto& column : named_tap_rel.columns()) {
+      fields[i] = field(column, schema->field(i)->type());
+      i++;
+    }
+    auto renamed_schema = arrow::schema(std::move(fields));
+    std::shared_ptr<compute::ExecNodeOptions> named_tap_opts =
+        std::make_shared<NamedTapNodeOptions>(named_tap_rel.name(),
+                                              std::move(renamed_schema));
+    auto input_decls = MakeInputDeclarations(inputs);
+    return RelationInfo{{compute::Declaration(named_tap_rel.kind(), input_decls,
+                                              std::move(named_tap_opts)),
+                         std::move(renamed_schema)},
+                        std::nullopt};
   }
 };
 

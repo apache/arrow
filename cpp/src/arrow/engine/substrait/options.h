@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/compute/exec/options.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
@@ -82,6 +83,14 @@ class ARROW_ENGINE_EXPORT ExtensionProvider {
 };
 
 ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionProvider> default_extension_provider();
+
+struct ARROW_ENGINE_EXPORT NamedTapNodeOptions : public compute::ExecNodeOptions {
+  NamedTapNodeOptions(const std::string& name, std::shared_ptr<Schema> schema)
+      : name(name), schema(std::move(schema)) {}
+
+  std::string name;
+  std::shared_ptr<Schema> schema;
+};
 
 /// Options that control the conversion between Substrait and Acero representations of a
 /// plan.

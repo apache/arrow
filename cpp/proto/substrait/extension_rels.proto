@@ -44,3 +44,9 @@ message AsOfJoinRel {
     repeated .substrait.Expression by = 2;
   }
 }
+
+message NamedTapRel {
+  string kind = 1;
+  string name = 2;
+  repeated string columns = 3;
+}
