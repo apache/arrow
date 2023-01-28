@@ -486,7 +486,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   ~DictEncoderImpl() override { DCHECK(buffered_indices_.empty()); }
 
-  int dict_encoded_size() override { return dict_encoded_size_; }
+  int dict_encoded_size() const override { return dict_encoded_size_; }
 
   int WriteIndices(uint8_t* buffer, int buffer_len) override {
     // Write bit width in first byte
@@ -601,7 +601,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   /// Writes out the encoded dictionary to buffer. buffer must be preallocated to
   /// dict_encoded_size() bytes.
-  void WriteDict(uint8_t* buffer) override;
+  void WriteDict(uint8_t* buffer) const override;
 
   /// The number of entries in the dictionary.
   int num_entries() const override { return memo_table_.size(); }
@@ -649,7 +649,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 };
 
 template <typename DType>
-void DictEncoderImpl<DType>::WriteDict(uint8_t* buffer) {
+void DictEncoderImpl<DType>::WriteDict(uint8_t* buffer) const {
   // For primitive types, only a memcpy
   DCHECK_EQ(static_cast<size_t>(dict_encoded_size_), sizeof(T) * memo_table_.size());
   memo_table_.CopyValues(0 /* start_pos */, reinterpret_cast<T*>(buffer));
@@ -657,7 +657,7 @@ void DictEncoderImpl<DType>::WriteDict(uint8_t* buffer) {
 
 // ByteArray and FLBA already have the dictionary encoded in their data heaps
 template <>
-void DictEncoderImpl<ByteArrayType>::WriteDict(uint8_t* buffer) {
+void DictEncoderImpl<ByteArrayType>::WriteDict(uint8_t* buffer) const {
   memo_table_.VisitValues(0, [&buffer](::std::string_view v) {
     uint32_t len = static_cast<uint32_t>(v.length());
     memcpy(buffer, &len, sizeof(len));
@@ -668,7 +668,7 @@ void DictEncoderImpl<ByteArrayType>::WriteDict(uint8_t* buffer) {
 }
 
 template <>
-void DictEncoderImpl<FLBAType>::WriteDict(uint8_t* buffer) {
+void DictEncoderImpl<FLBAType>::WriteDict(uint8_t* buffer) const {
   memo_table_.VisitValues(0, [&](::std::string_view v) {
     DCHECK_EQ(v.length(), static_cast<size_t>(type_length_));
     memcpy(buffer, v.data(), type_length_);
