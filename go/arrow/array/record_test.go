@@ -390,6 +390,28 @@ func TestRecordBuilder(t *testing.T) {
 	if got, want := rec.ColumnName(0), schema.Field(0).Name; got != want {
 		t.Fatalf("invalid column name: got=%q, want=%q", got, want)
 	}
+
+	{
+		dt := arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
+		dt.KeysSorted = true
+		dt.SetItemNullable(false)
+		schema := arrow.NewSchema([]arrow.Field{
+			{Name: "map", Type: dt, Nullable: false},
+		},
+			nil,
+		)
+
+		b := array.NewRecordBuilder(mem, schema)
+		defer b.Release()
+
+		mb := b.Field(0).(*array.MapBuilder)
+		mb.Append(true)
+		mb.KeyBuilder().(*array.StringBuilder).AppendValues([]string{"1", "2", "3"}, nil)
+		mb.ItemBuilder().(*array.StringBuilder).AppendValues([]string{"a", "b", "c"}, nil)
+
+		rec := b.NewRecord()
+		defer rec.Release()
+	}
 }
 
 type testMessage struct {
