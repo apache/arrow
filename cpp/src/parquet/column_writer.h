@@ -103,6 +103,8 @@ class PARQUET_EXPORT PageWriter {
   // Return the number of uncompressed bytes written (including header size)
   virtual int64_t WriteDictionaryPage(const DictionaryPage& page) = 0;
 
+  /// \brief The total number of bytes written as serialized data and
+  /// dictionary pages to the sink so far.
   virtual int64_t total_compressed_bytes_written() const = 0;
 
   virtual bool has_compressor() = 0;
@@ -110,7 +112,6 @@ class PARQUET_EXPORT PageWriter {
   virtual void Compress(const Buffer& src_buffer, ResizableBuffer* dest_buffer) = 0;
 };
 
-static constexpr int WRITE_BATCH_SIZE = 1000;
 class PARQUET_EXPORT ColumnWriter {
  public:
   virtual ~ColumnWriter() = default;
@@ -132,8 +133,10 @@ class PARQUET_EXPORT ColumnWriter {
   /// \brief The number of rows written so far
   virtual int64_t rows_written() const = 0;
 
-  /// \brief The total size of the compressed pages + page headers. Some values
-  /// might be still buffered and not written to a page yet
+  /// \brief The total size of the compressed pages + page headers. Values
+  /// are still buffered and not written to a page yet
+  ///
+  /// So in un-buffered mode, it always returns 0
   virtual int64_t total_compressed_bytes() const = 0;
 
   /// \brief The total number of bytes written as serialized data and

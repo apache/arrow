@@ -95,6 +95,7 @@ class PARQUET_EXPORT RowGroupWriter {
   /// \brief total uncompressed bytes written by the page writer
   int64_t total_bytes_written() const;
   /// \brief total bytes still compressed but not written
+  /// It will always be 0 in un-buffered mode.
   int64_t total_compressed_bytes() const;
   /// \brief total compressed bytes written by the page writer
   int64_t total_compressed_bytes_written() const;
