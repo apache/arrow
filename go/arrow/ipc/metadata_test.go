@@ -33,6 +33,9 @@ import (
 
 func TestRWSchema(t *testing.T) {
 	meta := arrow.NewMetadata([]string{"k1", "k2", "k3"}, []string{"v1", "v2", "v3"})
+
+	mType := arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
+	mType.SetItemNullable(false)
 	for _, tc := range []struct {
 		schema *arrow.Schema
 		memo   dictutils.Memo
@@ -42,6 +45,7 @@ func TestRWSchema(t *testing.T) {
 				{Name: "f1", Type: arrow.PrimitiveTypes.Int64},
 				{Name: "f2", Type: arrow.PrimitiveTypes.Uint16},
 				{Name: "f3", Type: arrow.PrimitiveTypes.Float64},
+				{Name: "f4", Type: mType},
 			}, &meta),
 			memo: dictutils.Memo{},
 		},
