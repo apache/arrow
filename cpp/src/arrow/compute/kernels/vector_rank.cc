@@ -195,10 +195,9 @@ class ArrayRanker : public TypeVisitor {
     auto value_selector = [&arr](int64_t index) {
       return GetView::LogicalValue(arr.GetView(index));
     };
-    auto rankings =
-        CreateRankings(ctx_, sorted, null_placement_, tiebreaker_, value_selector);
-    ARROW_ASSIGN_OR_RAISE(auto output, rankings);
-    *output_ = output;
+    ARROW_ASSIGN_OR_RAISE(*output_, CreateRankings(ctx_, sorted, null_placement_,
+                                                   tiebreaker_, value_selector));
+
     return Status::OK();
   }
 
@@ -258,10 +257,9 @@ class ChunkedArrayRanker : public TypeVisitor {
     auto value_selector = [resolver = ChunkedArrayResolver(arrays)](int64_t index) {
       return resolver.Resolve<ArrayType>(index).Value();
     };
-    auto rankings =
-        CreateRankings(ctx_, sorted, null_placement_, tiebreaker_, value_selector);
-    ARROW_ASSIGN_OR_RAISE(auto output, rankings);
-    *output_ = output;
+    ARROW_ASSIGN_OR_RAISE(*output_, CreateRankings(ctx_, sorted, null_placement_,
+                                                   tiebreaker_, value_selector));
+
     return Status::OK();
   }
 
