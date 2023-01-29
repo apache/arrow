@@ -105,7 +105,6 @@ jobs:
           -e CMAKE_UNITY_BUILD=ON
           -e PARQUET_BUILD_EXAMPLES=OFF
           -e PARQUET_BUILD_EXECUTABLES=OFF
-          -e Protobuf_SOURCE=BUNDLED
           -e gRPC_SOURCE=BUNDLED
           "
         # The LLVM's APT repository causes download error for s390x binary
@@ -157,7 +156,6 @@ jobs:
           -e CMAKE_UNITY_BUILD=ON
           -e PARQUET_BUILD_EXAMPLES=OFF
           -e PARQUET_BUILD_EXECUTABLES=OFF
-          -e Protobuf_SOURCE=BUNDLED
           -e gRPC_SOURCE=BUNDLED
           "
         # The LLVM's APT repository causes download error for s390x binary
