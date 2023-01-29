@@ -34,27 +34,6 @@ ensure_one_arg <- function(args, fun) {
   args[[1]]
 }
 
-agg_fun_output_type <- function(fun, input_type, hash) {
-  # These are quick and dirty heuristics.
-  if (fun %in% c("any", "all")) {
-    bool()
-  } else if (fun %in% "sum") {
-    # It may upcast to a bigger type but this is close enough
-    input_type
-  } else if (fun %in% c("mean", "stddev", "variance", "approximate_median")) {
-    float64()
-  } else if (fun %in% "tdigest") {
-    if (hash) {
-      fixed_size_list_of(float64(), 1L)
-    } else {
-      float64()
-    }
-  } else {
-    # Just so things don't error, assume the resulting type is the same
-    input_type
-  }
-}
-
 register_bindings_aggregate <- function() {
   register_binding_agg("base::sum", function(..., na.rm = FALSE) {
     list(
