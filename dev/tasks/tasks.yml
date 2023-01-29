@@ -452,24 +452,19 @@ tasks:
 
 {############################## Wheel Linux ##################################}
 
-{% for ci, arch, arch_alias, x_y, manylinux_version, manylinux in [("github", "amd64", "x86_64", "2_17", "2014", "manylinux2014"),
-                                                                   ("github", "amd64", "x86_64", "2_28", "2-28", "manylinux_2_28"),
-                                                                   ("travis", "arm64", "aarch64", "2_17", "2014", "manylinux2014"),
-                                                                   ("travis", "arm64", "aarch64", "2_28", "2-28", "manylinux_2_28")] %}
-  wheel-{{ manylinux }}-{{ python_tag }}-{{ arch }}:
+{% for ci, arch, manylinux_version, platform_tag in [("github", "amd64", "2014", "manylinux_2_17_x86_64.manylinux2014_x86_64"),
+                                                     ("github", "amd64", "2-28", "manylinux_2_28_x86_64"),
+                                                     ("travis", "arm64", "2014", "manylinux_2_17_aarch64.manylinux2014_aarch64"),
+                                                     ("travis", "arm64", "2-28", "manylinux_2_28_aarch64")] %}
+wheel-{{ manylinux }}-{{ python_tag }}-{{ arch }}:
     ci: "{{ ci }}"
     template: python-wheels/{{ ci }}.linux.{{ arch }}.yml
     params:
       python_version: "{{ python_version }}"
       manylinux_version: "{{ manylinux_version }}"
+      wheel_platform_tag: "{{ platform_tag }}"
     artifacts:
-      {% if manylinux == 'manylinux2014' %}
-      {# auditwheel produces two labels, manylinux_x_y and manylinux2014 #}
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-manylinux_{{ x_y }}_{{ arch_alias }}.{{ manylinux }}_{{ arch_alias }}.whl
-      {% else %}
-      {# auditwheel produces a single manylinux_x_y label #}
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ manylinux }}_{{ arch_alias }}.whl
-      {% endif %}
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-${{ platform_tag }}.whl
 {% endfor %}
 
 {############################## Wheel OSX ####################################}
