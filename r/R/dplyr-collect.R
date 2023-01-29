@@ -186,7 +186,9 @@ implicit_schema <- function(.data) {
     #   and they get projected to this order after aggregation)
     # * Determine the output types of the aggregations
     group_fields <- new_fields[.data$group_by_vars]
+    hash <- length(.data$group_by_vars) > 0
     agg_fields <- new_fields[setdiff(names(new_fields), .data$group_by_vars)]
+    agg_fields <- fix_aggregated_types(.data$aggregations, agg_fields, hash)
     new_fields <- c(group_fields, agg_fields)
   }
   schema(!!!new_fields)

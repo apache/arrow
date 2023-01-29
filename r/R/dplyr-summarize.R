@@ -331,14 +331,37 @@ summarize_projection <- function(.data) {
   )
 }
 
+# This function returns a list of expressions representing the aggregated fields
+# that will be returned by an aggregation
+aggregated_fields <- function(aggs) {
+  map(
+    aggs,
+    ~Expression$create(.$fun, args = .$data, options = .$options)
+  )
+}
+
+# Unlike with other pairs of non-hash/hash aggregate kernels in the Arrow C++
+# library, the `tdigest` and `hash_tdigest` kernels have different output types.
+# The `tdigest` kernel returns `Float64`, but the `hash_tdigest` kernel returns
+# `FixedSizeList[Float64]`. The system that the R bindings use to infer the
+# output types of expressions does not account for this. It infers the output
+# type of `hash_tdigest` as `Float64`. This function is used to correct this.
+fix_aggregated_types <- function(aggs, fields, hash) {
+  imap(
+    fields,
+    ~if(hash && aggs[[.y]]$fun == "tdigest") {
+        fixed_size_list_of(float64(), 1L)
+      } else {
+        .x
+      }
+  )
+}
+
 # This function returns a list of expressions representing the fields that will
-# be returned by an aggregation
+# be returned by an aggregation, including aggregated fields and group fields
 summarize_fields <- function(.data) {
   c(
-    map(
-      .data$aggregations,
-      ~Expression$create(.$fun, args = .$data, options = .$options)
-    ),
+    aggregated_fields(.data$aggregations),
     .data$selected_columns[.data$group_by_vars]
   )
 }
@@ -428,7 +451,7 @@ summarize_eval <- function(name, quosure, ctx, hash) {
     # Something like: fun(agg(x), agg(y))
     # So based on the aggregations that have been extracted, mutate after
     agg_field_refs <- make_field_refs(names(ctx$aggregations))
-    agg_field_types <- lapply(ctx$aggregations, function(x) x$data$type())
+    agg_field_types <- map(aggregated_fields(ctx$aggregations), ~.$type())
 
     mutate_mask <- arrow_mask(
       list(
