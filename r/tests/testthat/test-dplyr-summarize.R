@@ -1129,8 +1129,8 @@ test_that("We don't add unnecessary ProjectNodes when aggregating", {
   )
 
   # 0 Projections if
-  # (a) the aggregate function is nullary, and
-  # (b) no groping
+  # (a) only nullary functions in summarize()
+  # (b) no grouping
   expect_project_nodes(
     tab[, "int"] %>% summarize(n()),
     0

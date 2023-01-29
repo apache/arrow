@@ -102,6 +102,7 @@ ExecPlan <- R6Class("ExecPlan",
         # TODO: validate that none of names(aggregations) are the same as names(group_by_vars)
         # dplyr does not error on this but the result it gives isn't great
         projection <- summarize_projection(.data)
+        # skip projection if no grouping and all aggregate functions are nullary
         if (length(projection)) {
           node <- node$Project(projection)
         }
