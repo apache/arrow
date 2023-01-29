@@ -310,10 +310,19 @@ summarize_projection <- function(.data) {
   c(
     unlist(unname(imap(
       .data$aggregations,
-      ~setNames(
-        .x$data,
-        paste(.y[length(.x$data) > 0], seq_along(.x$data), sep = "..")
-      )
+      ~if (length(.x$data) > 1) {
+          setNames(
+            .x$data,
+            paste(.y, seq_along(.x$data), sep = "..")
+          )
+        } else if (length(.x$data) > 0) {
+          setNames(
+            .x$data,
+            .y
+          )
+        } else {
+          character(0)
+        }
     ))),
     .data$selected_columns[.data$group_by_vars]
   )
