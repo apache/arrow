@@ -304,8 +304,10 @@ arrow_eval_or_stop <- function(expr, mask) {
 # This function returns a list of expressions that can be used to project the
 # data before an aggregation to only the fields required for the aggregation,
 # including the fields used in the aggregations (the "targets") and the group
-# fields. It gives unique names to the targets used in an aggregation,  to
-# support aggregation functions with 2+ arguments.
+# fields. The names of the returned list are used to ensure that the projection
+# node is wired up correctly to the aggregation node. When an aggregation
+# function takes 2 or more fields as targets, this function gives the fields
+# unique names by appending `..1`, `..2`, ...
 summarize_projection <- function(.data) {
   c(
     unlist(unname(imap(
