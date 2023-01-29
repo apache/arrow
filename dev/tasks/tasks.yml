@@ -456,7 +456,7 @@ tasks:
                                                      ("github", "amd64", "2-28", "manylinux_2_28_x86_64"),
                                                      ("travis", "arm64", "2014", "manylinux_2_17_aarch64.manylinux2014_aarch64"),
                                                      ("travis", "arm64", "2-28", "manylinux_2_28_aarch64")] %}
-wheel-{{ manylinux }}-{{ python_tag }}-{{ arch }}:
+  wheel-manylinux-{{ manylinux_version }}-{{ python_tag }}-{{ arch }}:
     ci: "{{ ci }}"
     template: python-wheels/{{ ci }}.linux.{{ arch }}.yml
     params:
