@@ -130,8 +130,8 @@ register_bindings_aggregate <- function() {
   })
   register_binding_agg("dplyr::n", function() {
     list(
-      fun = "sum",
-      data = list(Expression$scalar(1L)),
+      fun = "count_all",
+      data = list(),
       options = list()
     )
   })
