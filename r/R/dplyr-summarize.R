@@ -305,6 +305,7 @@ arrow_eval_or_stop <- function(expr, mask) {
 # data before an aggregation to only the fields required for the aggregation
 summarize_projection <- function(.data) {
   c(
+    # TODO: support 2+ targets
     unlist(map(.data$aggregations, ~ .$data)),
     .data$selected_columns[.data$group_by_vars]
   )

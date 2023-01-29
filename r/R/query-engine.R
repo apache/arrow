@@ -101,7 +101,13 @@ ExecPlan <- R6Class("ExecPlan",
         # plus group_by_vars (last)
         # TODO: validate that none of names(aggregations) are the same as names(group_by_vars)
         # dplyr does not error on this but the result it gives isn't great
-        node <- node$Project(summarize_projection(.data))
+        # TODO: detect whether we actually need to project before aggregating
+        # by checking whether the targets contain literals or expressions. If
+        # they are all just column references, then we don't need to project.
+        projection <- summarize_projection(.data)
+        if (length(projection)) {
+          node <- node$Project(projection)
+        }
 
         if (grouped) {
           # We need to prefix all of the aggregation function names with "hash_"
@@ -114,7 +120,13 @@ ExecPlan <- R6Class("ExecPlan",
         .data$aggregations <- imap(.data$aggregations, function(x, name) {
           # Embed the name inside the aggregation objects. `target` and `name`
           # are the same because we just Project()ed the data that way above
-          x[["name"]] <- x[["target"]] <- name
+          x[["name"]] <- name
+          # TODO: support 2+ targets
+          if (length(x$data)) {
+            x[["target"]] <- name
+          } else {
+            x[["target"]] <- character(0)
+          }
           x
         })
 
