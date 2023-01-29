@@ -118,14 +118,13 @@ ExecPlan <- R6Class("ExecPlan",
         }
 
         .data$aggregations <- imap(.data$aggregations, function(x, name) {
-          # Embed the name inside the aggregation objects. `target` and `name`
-          # are the same because we just Project()ed the data that way above
+          # Embed `name` and `targets` inside the aggregation objects
           x[["name"]] <- name
-          # TODO: support 2+ targets
           if (length(x$data)) {
-            x[["target"]] <- name
+            # name the targets to match how summarize_projection() named them
+            x[["targets"]] <- paste0(name, "..", seq_along(x$data))
           } else {
-            x[["target"]] <- character(0)
+            x[["targets"]] <- character(0)
           }
           x
         })

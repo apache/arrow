@@ -302,11 +302,19 @@ arrow_eval_or_stop <- function(expr, mask) {
 }
 
 # This function returns a list of expressions that can be used to project the
-# data before an aggregation to only the fields required for the aggregation
+# data before an aggregation to only the fields required for the aggregation,
+# including the fields used in the aggregations (the "targets") and the group
+# fields. It gives unique names to the targets used in an aggregation,  to
+# support aggregation functions with 2+ arguments.
 summarize_projection <- function(.data) {
   c(
-    # TODO: support 2+ targets
-    unlist(map(.data$aggregations, ~ .$data)),
+    unlist(unname(imap(
+      .data$aggregations,
+      ~setNames(
+        .x$data,
+        paste(.y[length(.x$data) > 0], seq_along(.x$data), sep = "..")
+      )
+    ))),
     .data$selected_columns[.data$group_by_vars]
   )
 }

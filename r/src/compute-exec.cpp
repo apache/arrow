@@ -393,7 +393,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
   for (cpp11::list name_opts : options) {
     auto function = cpp11::as_cpp<std::string>(name_opts["fun"]);
     auto opts = make_compute_options(function, name_opts["options"]);
-    auto target_names = cpp11::as_cpp<std::vector<std::string>>(name_opts["target"]);
+    auto target_names = cpp11::as_cpp<std::vector<std::string>>(name_opts["targets"]);
     auto name = cpp11::as_cpp<std::string>(name_opts["name"]);
 
     std::vector<arrow::FieldRef> targets;
