@@ -40,7 +40,7 @@ aggregate function. This function must accept \code{Expression} objects as
 arguments and return a \code{list()} with components:
 \itemize{
 \item \code{fun}: string function name
-\item \code{data}: \code{Expression} (these are all currently a single field)
+\item \code{data}: \code{Expression} (all currently a single field, except \code{dplyr::n})
 \item \code{options}: list of function options, as passed to call_function
 }}
 }

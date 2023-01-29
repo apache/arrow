@@ -18,7 +18,7 @@
 # Aggregation functions
 # These all return a list of:
 # @param fun string function name
-# @param data Expression (these are all currently a single field)
+# @param data Expression (all currently a single field, except for dplyr::n)
 # @param options list of function options, as passed to call_function
 # For group-by aggregation, `hash_` gets prepended to the function name.
 # So to see a list of available hash aggregation functions,
