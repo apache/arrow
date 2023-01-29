@@ -305,29 +305,33 @@ arrow_eval_or_stop <- function(expr, mask) {
 # data before an aggregation to only the fields required for the aggregation,
 # including the fields used in the aggregations (the "targets") and the group
 # fields. The names of the returned list are used to ensure that the projection
-# node is wired up correctly to the aggregation node. When an aggregation
-# function takes 2 or more fields as targets, this function gives the fields
-# unique names by appending `..1`, `..2`, ...
+# node is wired up correctly to the aggregation node.
 summarize_projection <- function(.data) {
   c(
     unlist(unname(imap(
       .data$aggregations,
-      ~if (length(.x$data) > 1) {
-          setNames(
-            .x$data,
-            paste(.y, seq_along(.x$data), sep = "..")
-          )
-        } else if (length(.x$data) > 0) {
-          setNames(
-            .x$data,
-            .y
-          )
-        } else {
-          character(0)
-        }
+      ~set_names(
+        .x$data,
+        aggregate_target_names(.x$data, .y)
+      )
     ))),
     .data$selected_columns[.data$group_by_vars]
   )
+}
+
+# This function determines what names to give to the fields used in aggregations
+# (the "targets"). When an aggregate function takes 2 or more fields as targets,
+# this function gives the fields unique names by appending `..1`, `..2`, etc.
+# When an aggregate function is nullary, this function returns a zero-length
+# character vector.
+aggregate_target_names <- function(data, name) {
+  if (length(data) > 1) {
+    paste(name, seq_along(data), sep = "..")
+  } else if (length(data) > 0) {
+    name
+  } else {
+    character(0)
+  }
 }
 
 # This function returns a list of expressions representing the aggregated fields
