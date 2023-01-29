@@ -48,7 +48,7 @@ repos:
         exclude: vendored
         args: [--config, python/setup.cfg]
   - repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.10.1
+    rev: v0.11.0
     hooks:
       - id: cython-lint
         args: [--max-line-length=120]
