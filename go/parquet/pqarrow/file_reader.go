@@ -761,6 +761,8 @@ func (r *recordReader) Next() bool {
 
 func (r *recordReader) Record() arrow.Record { return r.cur }
 
+func (r *recordReader) Err() error { return r.err }
+
 func (r *recordReader) Read() (arrow.Record, error) {
 	if r.cur != nil {
 		r.cur.Release()

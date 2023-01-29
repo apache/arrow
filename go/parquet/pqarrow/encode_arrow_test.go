@@ -1330,6 +1330,53 @@ func (ps *ParquetIOTestSuite) TestNullableListOfStruct() {
 	ps.roundTripTable(expected, false)
 }
 
+func (ps *ParquetIOTestSuite) TestStructWithListOfNestedStructs() {
+	bldr := array.NewStructBuilder(memory.DefaultAllocator, arrow.StructOf(
+		arrow.Field{
+			Nullable: true,
+			Name:     "l",
+			Type: arrow.ListOf(arrow.StructOf(
+				arrow.Field{
+					Nullable: true,
+					Name:     "a",
+					Type: arrow.StructOf(
+						arrow.Field{
+							Nullable: true,
+							Name:     "b",
+							Type:     arrow.BinaryTypes.String,
+						},
+					),
+				},
+			)),
+		},
+	))
+	defer bldr.Release()
+
+	lBldr := bldr.FieldBuilder(0).(*array.ListBuilder)
+	stBldr := lBldr.ValueBuilder().(*array.StructBuilder)
+	aBldr := stBldr.FieldBuilder(0).(*array.StructBuilder)
+	bBldr := aBldr.FieldBuilder(0).(*array.StringBuilder)
+
+	bldr.AppendNull()
+	bldr.Append(true)
+	lBldr.Append(true)
+	for i := 0; i < 8; i++ {
+		stBldr.Append(true)
+		aBldr.Append(true)
+		bBldr.Append(strconv.Itoa(i))
+	}
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+
+	field := arrow.Field{Name: "x", Type: arr.DataType(), Nullable: true}
+	expected := array.NewTable(arrow.NewSchema([]arrow.Field{field}, nil),
+		[]arrow.Column{*arrow.NewColumn(field, arrow.NewChunked(field.Type, []arrow.Array{arr}))}, -1)
+	defer expected.Release()
+
+	ps.roundTripTable(expected, false)
+}
+
 func TestParquetArrowIO(t *testing.T) {
 	suite.Run(t, new(ParquetIOTestSuite))
 }

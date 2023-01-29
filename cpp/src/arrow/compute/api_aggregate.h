@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "arrow/compute/function.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
@@ -186,16 +188,38 @@ class ARROW_EXPORT IndexOptions : public FunctionOptions {
 
 /// \brief Configure a grouped aggregation
 struct ARROW_EXPORT Aggregate {
+  Aggregate() = default;
+
+  Aggregate(std::string function, std::shared_ptr<FunctionOptions> options,
+            std::vector<FieldRef> target, std::string name = "")
+      : function(std::move(function)),
+        options(std::move(options)),
+        target(std::move(target)),
+        name(std::move(name)) {}
+
+  Aggregate(std::string function, std::shared_ptr<FunctionOptions> options,
+            FieldRef target, std::string name = "")
+      : Aggregate(std::move(function), std::move(options),
+                  std::vector<FieldRef>{std::move(target)}, std::move(name)) {}
+
+  Aggregate(std::string function, FieldRef target, std::string name)
+      : Aggregate(std::move(function), /*options=*/NULLPTR,
+                  std::vector<FieldRef>{std::move(target)}, std::move(name)) {}
+
+  Aggregate(std::string function, std::string name)
+      : Aggregate(std::move(function), /*options=*/NULLPTR,
+                  /*target=*/std::vector<FieldRef>{}, std::move(name)) {}
+
   /// the name of the aggregation function
   std::string function;
 
   /// options for the aggregation function
   std::shared_ptr<FunctionOptions> options;
 
-  // fields to which aggregations will be applied
-  FieldRef target;
+  /// zero or more fields to which aggregations will be applied
+  std::vector<FieldRef> target;
 
-  // output field name for aggregations
+  /// optional output field name for aggregations
   std::string name;
 };
 

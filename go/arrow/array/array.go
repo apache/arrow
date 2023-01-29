@@ -175,8 +175,8 @@ func init() {
 		arrow.LARGE_STRING:            func(data arrow.ArrayData) arrow.Array { return NewLargeStringData(data) },
 		arrow.LARGE_BINARY:            func(data arrow.ArrayData) arrow.Array { return NewLargeBinaryData(data) },
 		arrow.LARGE_LIST:              func(data arrow.ArrayData) arrow.Array { return NewLargeListData(data) },
-		arrow.INTERVAL:                func(data arrow.ArrayData) arrow.Array { return NewIntervalData(data) },
 		arrow.INTERVAL_MONTH_DAY_NANO: func(data arrow.ArrayData) arrow.Array { return NewMonthDayNanoIntervalData(data) },
+		arrow.RUN_END_ENCODED:         func(data arrow.ArrayData) arrow.Array { return NewRunEndEncodedData(data) },
 
 		// invalid data types to fill out array to size 2^6 - 1
 		63: invalidDataType,

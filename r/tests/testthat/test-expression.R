@@ -148,7 +148,7 @@ test_that("Nested field ref types", {
 })
 
 test_that("Nested field from a non-field-ref (struct_field kernel)", {
-  x <- Expression$scalar(data.frame(a = 1, b = "two"))
+  x <- Expression$scalar(tibble::tibble(a = 1, b = "two"))
   expect_true(inherits(x$a, "Expression"))
   expect_equal(x$a$type(), float64())
   expect_error(x$c, "field 'c' not found in struct<a: double, b: string>")

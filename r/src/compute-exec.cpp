@@ -100,7 +100,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     // If this is the first batch getting pulled, tell the exec plan to
     // start producing
     if (plan_status_ == PLAN_NOT_STARTED) {
-      ARROW_RETURN_NOT_OK(StartProducing());
+      StartProducing();
     }
 
     // If we've closed the reader, keep sending nullptr
@@ -134,7 +134,8 @@ class ExecPlanReader : public arrow::RecordBatchReader {
       *batch_out = batch_result.ValueUnsafe();
     } else {
       batch_out->reset();
-      StopProducing();
+      plan_status_ = PLAN_FINISHED;
+      return plan_->finished().status();
     }
 
     return arrow::Status::OK();
@@ -156,10 +157,9 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   ExecPlanReaderStatus plan_status_;
   arrow::StopToken stop_token_;
 
-  arrow::Status StartProducing() {
-    ARROW_RETURN_NOT_OK(plan_->StartProducing());
+  void StartProducing() {
+    plan_->StartProducing();
     plan_status_ = PLAN_RUNNING;
-    return arrow::Status::OK();
   }
 
   void StopProducing() {
@@ -288,28 +288,31 @@ std::shared_ptr<arrow::Schema> ExecNode_output_schema(
 std::shared_ptr<compute::ExecNode> ExecNode_Scan(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<ds::Dataset>& dataset,
-    const std::shared_ptr<compute::Expression>& filter,
-    std::vector<std::string> materialized_field_names) {
+    const std::shared_ptr<compute::Expression>& filter, cpp11::list projection) {
   arrow::dataset::internal::Initialize();
 
   // TODO: pass in FragmentScanOptions
   auto options = std::make_shared<ds::ScanOptions>();
 
   options->use_threads = arrow::r::GetBoolOption("arrow.use_threads", true);
-
   options->dataset_schema = dataset->schema();
 
+  // This filter is only used for predicate pushdown;
+  // you still need to pass it to a FilterNode after to handle any other components
   options->filter = *filter;
 
-  // ScanNode needs to know which fields to materialize (and which are unnecessary)
+  // ScanNode needs to know which fields to materialize.
+  // It will pull them from this projection to prune the scan,
+  // but you still need to Project after
   std::vector<compute::Expression> exprs;
-  for (const auto& name : materialized_field_names) {
-    exprs.push_back(compute::field_ref(name));
+  for (SEXP expr : projection) {
+    auto expr_ptr = cpp11::as_cpp<std::shared_ptr<compute::Expression>>(expr);
+    exprs.push_back(*expr_ptr);
   }
-
-  options->projection =
-      call("make_struct", std::move(exprs),
-           compute::MakeStructOptions{std::move(materialized_field_names)});
+  cpp11::strings field_names(projection.attr(R_NamesSymbol));
+  options->projection = call(
+      "make_struct", std::move(exprs),
+      compute::MakeStructOptions{cpp11::as_cpp<std::vector<std::string>>(field_names)});
 
   return MakeExecNodeOrStop("scan", plan.get(), {},
                             ds::ScanNodeOptions{dataset, options});
@@ -349,9 +352,8 @@ void ExecPlan_Write(
   StopIfNotOk(plan->Validate());
 
   arrow::Status result = RunWithCapturedRIfPossibleVoid([&]() {
-    RETURN_NOT_OK(plan->StartProducing());
-    RETURN_NOT_OK(plan->finished().status());
-    return arrow::Status::OK();
+    plan->StartProducing();
+    return plan->finished().status();
   });
 
   StopIfNotOk(result);
@@ -537,7 +539,7 @@ std::shared_ptr<arrow::Table> ExecPlan_run_substrait(
   }
 
   StopIfNotOk(plan->Validate());
-  StopIfNotOk(plan->StartProducing());
+  plan->StartProducing();
   StopIfNotOk(plan->finished().status());
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> all_batches;

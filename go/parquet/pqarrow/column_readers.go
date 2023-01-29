@@ -286,7 +286,7 @@ func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 	childArrData := make([]arrow.ArrayData, 0)
 	// gather children arrays and def levels
 	for _, child := range sr.children {
-		field, err := child.BuildArray(validityIO.Read)
+		field, err := child.BuildArray(lenBound)
 		if err != nil {
 			return nil, err
 		}

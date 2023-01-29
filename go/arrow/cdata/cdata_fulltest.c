@@ -65,7 +65,7 @@ static void release_int32_array(struct ArrowArray* array) {
     free(array->buffers);
     // mark released
     array->release = NULL;
-    test1_released = true;    
+    test1_released = true;
 }
 
 void export_int32_array(const int32_t* data, int64_t nitems, struct ArrowArray* array) {
@@ -91,7 +91,7 @@ void export_int32_array(const int32_t* data, int64_t nitems, struct ArrowArray* 
 
 
 static void release_primitive(struct ArrowSchema* schema) {
-    free((void *)schema->format);    
+    free((void *)schema->format);
     schema->release = NULL;
 }
 
@@ -141,7 +141,7 @@ void test_primitive(struct ArrowSchema* schema, const char* fmt) {
         .children = NULL,
         .dictionary = NULL,
         // bookkeeping
-        .release = &release_primitive,    
+        .release = &release_primitive,
     };
 }
 
@@ -170,12 +170,12 @@ struct ArrowSchema** test_lists(const char** fmts, const char** names, const int
             schemas[i-1]->children = &schemas[i];
             schemas[i]->flags = nullflags[i-1];
         }
-    }    
+    }
     return schemas;
 }
 
 struct ArrowSchema** fill_structs(const char** fmts, const char** names, int64_t* flags, const int n) {
-    struct ArrowSchema** schemas = malloc(sizeof(struct ArrowSchema*)*n);        
+    struct ArrowSchema** schemas = malloc(sizeof(struct ArrowSchema*)*n);
     for (int i = 0; i < n; ++i) {
         schemas[i] = malloc(sizeof(struct ArrowSchema));
         *schemas[i] = (struct ArrowSchema) {
@@ -244,6 +244,27 @@ struct ArrowSchema** test_map(const char** fmts, const char** names, int64_t* fl
     return schemas;
 }
 
+struct ArrowSchema** test_union(const char** fmts, const char** names, int64_t* flags, const int n) {
+    struct ArrowSchema** schemas = malloc(sizeof(struct ArrowSchema*)*n);
+     for (int i = 0; i < n; ++i) {
+        schemas[i] = malloc(sizeof(struct ArrowSchema));
+        *schemas[i] = (struct ArrowSchema) {
+            .format = fmts[i],
+            .name = names[i],
+            .metadata = NULL,
+            .flags = flags[i],
+            .children = NULL,
+            .n_children = 0,
+            .dictionary = NULL,
+            .release = &release_nested_dynamic,
+        };
+    }
+
+    schemas[0]->n_children = n-1;
+    schemas[0]->children = &schemas[1];
+    return schemas;
+}
+
 struct streamcounter {
     int n;
     int max;
@@ -252,7 +273,7 @@ struct streamcounter {
 static int stream_schema(struct ArrowArrayStream* st, struct ArrowSchema* out) {
     out->children = malloc(sizeof(struct ArrowSchema*)*2);
     out->n_children = 2;
-    
+
     out->children[0] = malloc(sizeof(struct ArrowSchema));
     *out->children[0] = (struct ArrowSchema) {
         .format = "i",
@@ -290,7 +311,7 @@ static void release_stream(struct ArrowArrayStream* st) {
 
 static void release_the_array(struct ArrowArray* out) {
     for (int i = 0; i < out->n_children; ++i) {
-        ArrowArrayRelease(out->children[i]);        
+        ArrowArrayRelease(out->children[i]);
     }
     free((void*)out->children);
     free(out->buffers);
@@ -322,17 +343,17 @@ void export_str_array(const char* data, const int32_t* offsets, int64_t nitems, 
 
     out->buffers = (const void**)malloc(sizeof(void*) * out->n_buffers);
     assert(out->buffers != NULL);
-    out->buffers[0] = NULL;    
+    out->buffers[0] = NULL;
     out->buffers[1] = offsets;
     out->buffers[2] = data;
 }
 
-static int next_record(struct ArrowArrayStream* st, struct ArrowArray* out) {    
+static int next_record(struct ArrowArrayStream* st, struct ArrowArray* out) {
     struct streamcounter* cnter = (struct streamcounter*)(st->private_data);
     if (cnter->n == cnter->max) {
         ArrowArrayMarkReleased(out);
         return 0;
-    }    
+    }
 
     cnter->n++;
 
@@ -363,7 +384,7 @@ static int next_record(struct ArrowArrayStream* st, struct ArrowArray* out) {
     offsets[1] = 3;
     offsets[2] = 6;
     offsets[3] = 9;
-    export_str_array(strdata, offsets, 3, out->children[1]);    
+    export_str_array(strdata, offsets, 3, out->children[1]);
 
     return 0;
 }
@@ -377,4 +398,20 @@ void setup_array_stream_test(const int n_batches, struct ArrowArrayStream* out) 
     out->get_schema = &stream_schema;
     out->release = &release_stream;
     out->private_data = cnt;
+}
+
+int test_exported_stream(struct ArrowArrayStream* stream) {
+  while (1) {
+    struct ArrowArray array;
+    // Garbage - implementation should not try to call it, though!
+    array.release = (void*)0xDEADBEEF;
+    int rc = stream->get_next(stream, &array);
+    if (rc != 0) return rc;
+
+    if (array.release == NULL) {
+      stream->release(stream);
+      break;
+    }
+  }
+  return 0;
 }

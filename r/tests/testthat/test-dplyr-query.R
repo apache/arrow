@@ -742,6 +742,7 @@ test_that("Can use nested field refs", {
   )
 
   # Now with Dataset: make sure column pushdown in ScanNode works
+  skip_if_not_available("dataset")
   expect_equal(
     nested_data %>%
       InMemoryDataset$create() %>%

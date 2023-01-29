@@ -294,6 +294,20 @@ TEST(Metadata, TestKeyValueMetadata) {
   EXPECT_TRUE(f_accessor->key_value_metadata()->Equals(*kvmeta));
 }
 
+TEST(Metadata, TestHasBloomFilter) {
+  std::string dir_string(parquet::test::get_data_dir());
+  std::string path = dir_string + "/data_index_bloom_encoding_stats.parquet";
+  auto reader = ParquetFileReader::OpenFile(path, false);
+  auto file_metadata = reader->metadata();
+  ASSERT_EQ(1, file_metadata->num_row_groups());
+  auto row_group_metadata = file_metadata->RowGroup(0);
+  ASSERT_EQ(1, row_group_metadata->num_columns());
+  auto col_chunk_metadata = row_group_metadata->ColumnChunk(0);
+  auto bloom_filter_offset = col_chunk_metadata->bloom_filter_offset();
+  ASSERT_TRUE(bloom_filter_offset.has_value());
+  ASSERT_EQ(192, bloom_filter_offset);
+}
+
 TEST(Metadata, TestReadPageIndex) {
   std::string dir_string(parquet::test::get_data_dir());
   std::string path = dir_string + "/alltypes_tiny_pages.parquet";
@@ -329,6 +343,7 @@ TEST(Metadata, TestReadPageIndex) {
     ASSERT_TRUE(oi_location.has_value());
     ASSERT_EQ(oi_offsets.at(i), oi_location->offset);
     ASSERT_EQ(oi_lengths.at(i), oi_location->length);
+    ASSERT_FALSE(col_chunk_metadata->bloom_filter_offset().has_value());
   }
 }
 

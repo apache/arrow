@@ -37,6 +37,7 @@ type RecordReader interface {
 
 	Next() bool
 	Record() arrow.Record
+	Err() error
 }
 
 // simpleRecords is a simple iterator over a collection of records.
@@ -107,6 +108,7 @@ func (rs *simpleRecords) Next() bool {
 	rs.recs = rs.recs[1:]
 	return true
 }
+func (rs *simpleRecords) Err() error { return nil }
 
 // simpleRecord is a basic, non-lazy in-memory record batch.
 type simpleRecord struct {
