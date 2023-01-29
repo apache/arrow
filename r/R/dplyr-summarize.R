@@ -328,7 +328,7 @@ aggregated_fields <- function(aggs) {
 fix_aggregated_types <- function(fields, aggs, hash) {
   imap(
     fields,
-    ~if(hash && aggs[[.y]]$fun == "tdigest") {
+    ~if (hash && aggs[[.y]]$fun == "tdigest") {
         fixed_size_list_of(float64(), 1L)
       } else {
         .x
