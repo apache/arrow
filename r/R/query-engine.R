@@ -97,14 +97,12 @@ ExecPlan <- R6Class("ExecPlan",
       }
 
       if (!is.null(.data$aggregations)) {
-        # When necessary, project to include the data required for each
-        # aggregation, plus group_by_vars (last)
+        # Project to include just the data required for each aggregation,
+        # plus group_by_vars (last)
         # TODO: validate that none of names(aggregations) are the same as names(group_by_vars)
         # dplyr does not error on this but the result it gives isn't great
         projection <- summarize_projection(.data)
-        projection_required <- length(projection) &&
-          !all_targets_are_field_refs(.data$aggregations)
-        if (projection_required) {
+        if (length(projection)) {
           node <- node$Project(projection)
         }
 
@@ -120,13 +118,8 @@ ExecPlan <- R6Class("ExecPlan",
           # Embed `name` and `targets` inside the aggregation objects
           x[["name"]] <- name
           if (length(x$data)) {
-            if (projection_required) {
-              # name the targets to match how summarize_projection() named them
-              x[["targets"]] <- paste0(name, "..", seq_along(x$data))
-            } else {
-              # name the targets to match the field names they refer to
-              x[["targets"]] <- map(x$data, ~.$field_name)
-            }
+            # name the targets to match how summarize_projection() named them
+            x[["targets"]] <- paste0(name, "..", seq_along(x$data))
           } else {
             x[["targets"]] <- character(0)
           }

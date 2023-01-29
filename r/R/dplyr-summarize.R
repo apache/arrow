@@ -319,15 +319,6 @@ summarize_projection <- function(.data) {
   )
 }
 
-# This function determines whether we need to project before aggregating. If
-# all the aggregation targets are column references, then this function returns
-# TRUE, indicating that we do not need to project before aggregating. If any of
-# the targets are literals or expressions, then this function returns FALSE,
-# indicating that we do need to project aggregating.
-all_targets_are_field_refs <- function(aggs) {
-  all(map_lgl(aggs, ~all(map_lgl(.$data, ~.$is_field_ref()))))
-}
-
 # This function returns a list of expressions representing the aggregated fields
 # that will be returned by an aggregation
 aggregated_fields <- function(aggs) {
