@@ -188,7 +188,7 @@ implicit_schema <- function(.data) {
     group_fields <- new_fields[.data$group_by_vars]
     hash <- length(.data$group_by_vars) > 0
     agg_fields <- new_fields[setdiff(names(new_fields), .data$group_by_vars)]
-    agg_fields <- fix_aggregated_types(.data$aggregations, agg_fields, hash)
+    agg_fields <- fix_aggregated_types(agg_fields, .data$aggregations, hash)
     new_fields <- c(group_fields, agg_fields)
   }
   schema(!!!new_fields)

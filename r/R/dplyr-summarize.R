@@ -325,7 +325,7 @@ aggregated_fields <- function(aggs) {
 # `FixedSizeList[Float64]`. The system that the R bindings use to infer the
 # output types of expressions does not account for this. It infers the output
 # type of `hash_tdigest` as `Float64`. This function is used to correct this.
-fix_aggregated_types <- function(aggs, fields, hash) {
+fix_aggregated_types <- function(fields, aggs, hash) {
   imap(
     fields,
     ~if(hash && aggs[[.y]]$fun == "tdigest") {
