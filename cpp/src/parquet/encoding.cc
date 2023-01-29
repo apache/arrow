@@ -1233,14 +1233,14 @@ int PlainBooleanDecoder::Decode(bool* buffer, int max_values) {
 struct ArrowBinaryHelper {
   explicit ArrowBinaryHelper(typename EncodingTraits<ByteArrayType>::Accumulator* out) {
     this->out = out;
-    this->data_builder = out->data_builder.get();
+    this->builder = out->builder.get();
     this->chunk_space_remaining =
-        ::arrow::kBinaryMemoryLimit - this->data_builder->value_data_length();
+        ::arrow::kBinaryMemoryLimit - this->builder->value_data_length();
   }
 
   Status PushChunk() {
     std::shared_ptr<::arrow::Array> result;
-    RETURN_NOT_OK(data_builder->Finish(&result));
+    RETURN_NOT_OK(builder->Finish(&result));
     out->chunks.push_back(result);
     chunk_space_remaining = ::arrow::kBinaryMemoryLimit;
     return Status::OK();
@@ -1250,20 +1250,20 @@ struct ArrowBinaryHelper {
 
   void UnsafeAppend(const uint8_t* data, int32_t length) {
     chunk_space_remaining -= length;
-    data_builder->UnsafeAppend(data, length);
+    builder->UnsafeAppend(data, length);
   }
 
-  void UnsafeAppendNull() { data_builder->UnsafeAppendNull(); }
+  void UnsafeAppendNull() { builder->UnsafeAppendNull(); }
 
   Status Append(const uint8_t* data, int32_t length) {
     chunk_space_remaining -= length;
-    return data_builder->Append(data, length);
+    return builder->Append(data, length);
   }
 
-  Status AppendNull() { return data_builder->AppendNull(); }
+  Status AppendNull() { return builder->AppendNull(); }
 
   typename EncodingTraits<ByteArrayType>::Accumulator* out;
-  ::arrow::BinaryBuilder* data_builder;
+  ::arrow::BinaryBuilder* builder;
   int64_t chunk_space_remaining;
 };
 
@@ -1368,8 +1368,8 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     ArrowBinaryHelper helper(out);
     int values_decoded = 0;
 
-    RETURN_NOT_OK(helper.data_builder->Reserve(num_values));
-    RETURN_NOT_OK(helper.data_builder->ReserveData(
+    RETURN_NOT_OK(helper.builder->Reserve(num_values));
+    RETURN_NOT_OK(helper.builder->ReserveData(
         std::min<int64_t>(len_, helper.chunk_space_remaining)));
 
     int i = 0;
@@ -1390,8 +1390,8 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
           if (ARROW_PREDICT_FALSE(!helper.CanFit(value_len))) {
             // This element would exceed the capacity of a chunk
             RETURN_NOT_OK(helper.PushChunk());
-            RETURN_NOT_OK(helper.data_builder->Reserve(num_values - i));
-            RETURN_NOT_OK(helper.data_builder->ReserveData(
+            RETURN_NOT_OK(helper.builder->Reserve(num_values - i));
+            RETURN_NOT_OK(helper.builder->ReserveData(
                 std::min<int64_t>(len_, helper.chunk_space_remaining)));
           }
           helper.UnsafeAppend(data_ + 4, value_len);
@@ -2601,16 +2601,6 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override;
 
-  void Put(const ByteArray& val) {
-    // Write the result to the output stream
-    const int64_t increment = static_cast<int64_t>(val.len + sizeof(uint32_t));
-    if (ARROW_PREDICT_FALSE(sink_.length() + increment > sink_.capacity())) {
-      PARQUET_THROW_NOT_OK(sink_.Reserve(increment));
-    }
-    DCHECK(val.len == 0 || val.ptr != nullptr) << "Value ptr cannot be NULL";
-    sink_.UnsafeAppend(val.ptr, val.len);
-  }
-
  protected:
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
@@ -2621,7 +2611,7 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
             return Status::Invalid("Parquet cannot store strings with size 2GB or more");
           }
           length_encoder_.Put({static_cast<int32_t>(view.length())}, 1);
-          Put(view);
+          PARQUET_THROW_NOT_OK(sink_.Append(view.data(), view.length()));
           return Status::OK();
         },
         []() { return Status::OK(); }));
@@ -2664,6 +2654,8 @@ void DeltaLengthByteArrayEncoder<DType>::Put(const T* src, int num_values) {
   }
 
   PARQUET_THROW_NOT_OK(sink_.Reserve(encoded_size_));
+  // TODO: replace UnsafeAppend with memcpy?
+  //  memcpy(sink_.mutable_data() + sink_.length(), src, encoded_size_);
   for (int idx = 0; idx < num_values; idx++) {
     sink_.UnsafeAppend(src[idx].ptr, src[idx].len);
   }
@@ -2694,7 +2686,7 @@ std::shared_ptr<Buffer> DeltaLengthByteArrayEncoder<DType>::FlushValues() {
   sink_.Reset();
 
   PARQUET_THROW_NOT_OK(sink_.Append(encoded_lengths->data(), encoded_lengths->size()));
-  PARQUET_THROW_NOT_OK(sink_.Append(data->mutable_data(), data->size()));
+  PARQUET_THROW_NOT_OK(sink_.Append(data->data(), data->size()));
 
   std::shared_ptr<Buffer> buffer;
   PARQUET_THROW_NOT_OK(sink_.Finish(&buffer, true));
@@ -2807,7 +2799,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
                           int* out_num_values) {
     ArrowBinaryHelper helper(out);
 
-    std::vector<ByteArray> values(num_values);
+    std::vector<ByteArray> values(num_values - null_count);
     const int num_valid_values = Decode(values.data(), num_values - null_count);
     DCHECK_EQ(num_values - null_count, num_valid_values);
 
@@ -3261,13 +3253,12 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
   } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
     switch (type_num) {
       case Type::BYTE_ARRAY:
-        return std::unique_ptr<Encoder>(
-            new DeltaLengthByteArrayEncoder<ByteArray>(descr, pool));
+        return std::make_unique<DeltaLengthByteArrayEncoder<ByteArray>>(descr, pool);
       case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::unique_ptr<Encoder>(
-            new DeltaLengthByteArrayEncoder<FLBAType>(descr, pool));
+        return std::make_unique<DeltaLengthByteArrayEncoder<FLBAType>>(descr, pool);
       default:
-        throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
+        throw ParquetException(
+            "DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY and FIXED_LEN_BYTE_ARRAY");
     }
   } else {
     ParquetException::NYI("Selected encoding is not supported");

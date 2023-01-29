@@ -1967,14 +1967,14 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
                                ::arrow::MemoryPool* pool)
       : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool) {
     DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-    accumulator_.data_builder = std::make_unique<::arrow::BinaryBuilder>(pool);
+    accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
     ::arrow::ArrayVector result = accumulator_.chunks;
-    if (result.size() == 0 || accumulator_.data_builder->length() > 0) {
+    if (result.size() == 0 || accumulator_.builder->length() > 0) {
       std::shared_ptr<::arrow::Array> last_chunk;
-      PARQUET_THROW_NOT_OK(accumulator_.data_builder->Finish(&last_chunk));
+      PARQUET_THROW_NOT_OK(accumulator_.builder->Finish(&last_chunk));
       result.push_back(std::move(last_chunk));
     }
     accumulator_.chunks = {};

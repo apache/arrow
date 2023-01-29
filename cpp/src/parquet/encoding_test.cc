@@ -509,12 +509,12 @@ class TestArrowBuilderDecoding : public ::testing::Test {
       InitTestCase(np);
 
       typename EncodingTraits<ByteArrayType>::Accumulator acc;
-      acc.data_builder.reset(new ::arrow::BinaryBuilder);
+      acc.builder.reset(new ::arrow::BinaryBuilder);
       auto actual_num_values =
           decoder_->DecodeArrow(num_values_, null_count_, valid_bits_, 0, &acc);
 
       std::shared_ptr<::arrow::Array> chunk;
-      ASSERT_OK(acc.data_builder->Finish(&chunk));
+      ASSERT_OK(acc.builder->Finish(&chunk));
       CheckDense(actual_num_values, *chunk);
     }
   }
@@ -536,10 +536,10 @@ class TestArrowBuilderDecoding : public ::testing::Test {
         continue;
       }
       typename EncodingTraits<ByteArrayType>::Accumulator acc;
-      acc.data_builder.reset(new ::arrow::BinaryBuilder);
+      acc.builder.reset(new ::arrow::BinaryBuilder);
       auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, &acc);
       std::shared_ptr<::arrow::Array> chunk;
-      ASSERT_OK(acc.data_builder->Finish(&chunk));
+      ASSERT_OK(acc.builder->Finish(&chunk));
       CheckDense(actual_num_values, *chunk);
     }
   }
@@ -626,14 +626,14 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
     typename EncodingTraits<ByteArrayType>::Accumulator acc;
-    acc.data_builder.reset(new ::arrow::StringBuilder);
+    acc.builder.reset(new ::arrow::StringBuilder);
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
                                    values->null_bitmap_data(), values->offset(), &acc));
 
     std::shared_ptr<::arrow::Array> result;
-    ASSERT_OK(acc.data_builder->Finish(&result));
+    ASSERT_OK(acc.builder->Finish(&result));
     ASSERT_EQ(50, result->length());
     ::arrow::AssertArraysEqual(*values, *result);
   };
@@ -936,14 +936,14 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
   GetDictDecoder(encoder, num_values, &buf, &dict_buf, nullptr, &decoder);
 
   typename EncodingTraits<ByteArrayType>::Accumulator acc;
-  acc.data_builder.reset(new ::arrow::StringBuilder);
+  acc.builder.reset(new ::arrow::StringBuilder);
   ASSERT_EQ(num_values,
             decoder->DecodeArrow(static_cast<int>(values->length()),
                                  static_cast<int>(values->null_count()),
                                  values->null_bitmap_data(), values->offset(), &acc));
 
   std::shared_ptr<::arrow::Array> result;
-  ASSERT_OK(acc.data_builder->Finish(&result));
+  ASSERT_OK(acc.builder->Finish(&result));
   ::arrow::AssertArraysEqual(*values, *result);
 }
 
@@ -982,14 +982,14 @@ TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
     GetDictDecoder(encoder, num_values, &buf, &dict_buf, nullptr, &decoder);
 
     typename EncodingTraits<ByteArrayType>::Accumulator acc;
-    acc.data_builder.reset(new ::arrow::BinaryBuilder);
+    acc.builder.reset(new ::arrow::BinaryBuilder);
     ASSERT_EQ(num_values, decoder->DecodeArrow(static_cast<int>(expected->length()),
                                                static_cast<int>(expected->null_count()),
                                                expected->null_bitmap_data(),
                                                expected->offset(), &acc));
 
     std::shared_ptr<::arrow::Array> result;
-    ASSERT_OK(acc.data_builder->Finish(&result));
+    ASSERT_OK(acc.builder->Finish(&result));
     ::arrow::AssertArraysEqual(*expected, *result);
   };
 
@@ -1610,14 +1610,14 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
     typename EncodingTraits<ByteArrayType>::Accumulator acc;
-    acc.data_builder.reset(new ::arrow::StringBuilder);
+    acc.builder.reset(new ::arrow::StringBuilder);
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
                                    values->null_bitmap_data(), values->offset(), &acc));
 
     std::shared_ptr<::arrow::Array> result;
-    ASSERT_OK(acc.data_builder->Finish(&result));
+    ASSERT_OK(acc.builder->Finish(&result));
     ASSERT_EQ(50, result->length());
     ::arrow::AssertArraysEqual(*values, *result);
   };
