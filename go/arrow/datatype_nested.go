@@ -346,6 +346,11 @@ func (t *MapType) String() string {
 	if t.KeysSorted {
 		o.WriteString(", keys_sorted")
 	}
+	if t.ItemField().Nullable {
+		o.WriteString(", items_nullable")
+	} else {
+		o.WriteString(", items_non_nullable")
+	}
 	o.WriteString(">")
 	return o.String()
 }

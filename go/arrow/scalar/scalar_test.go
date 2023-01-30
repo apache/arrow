@@ -965,7 +965,7 @@ func TestToScalar(t *testing.T) {
 
 	expected := `{field_names:list<item: utf8, nullable> = ["foo" "bar" "baz"], ` +
 		`field_null:list<item: bool, nullable> = [true false], ` +
-		`field_metadata:list<item: map<binary, binary>, nullable> = ` +
+		`field_metadata:list<item: map<binary, binary, items_nullable>, nullable> = ` +
 		`[{["captain" "option" "souper"] ["planet" "val" "bowl"]} {[] []} {["captain" "option" "souper"] ["planet" "val" "bowl"]}], ` +
 		`val8:list<item: int8, nullable> = [1 2 3 4], ` +
 		`u8:list<item: uint8, nullable> = [5 6], ` +

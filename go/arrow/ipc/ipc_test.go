@@ -533,7 +533,7 @@ func Example_mapSlice() {
 	// record:
 	//   schema:
 	//   fields: 1
-	//     - map: type=map<utf8, utf8>
+	//     - map: type=map<utf8, utf8, items_nullable>
 	//   rows: 1
 	//   col[0][map]: [{["index3" "tag_int"] ["main4" ""]}]
 }
