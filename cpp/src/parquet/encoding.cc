@@ -3254,11 +3254,8 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
     switch (type_num) {
       case Type::BYTE_ARRAY:
         return std::make_unique<DeltaLengthByteArrayEncoder<ByteArray>>(descr, pool);
-      case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::make_unique<DeltaLengthByteArrayEncoder<FLBAType>>(descr, pool);
       default:
-        throw ParquetException(
-            "DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY and FIXED_LEN_BYTE_ARRAY");
+        throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
     }
   } else {
     ParquetException::NYI("Selected encoding is not supported");
