@@ -53,7 +53,8 @@ class PARQUET_EXPORT RowGroupReader {
   const RowGroupMetaData* metadata() const;
 
   // Construct a ColumnReader for the indicated row group-relative
-  // column. Ownership is shared with the RowGroupReader.
+  // column. Ownership is shared with the RowGroupReader. This object
+  // must not outlive the RowGroupReader.
   std::shared_ptr<ColumnReader> Column(int i);
 
   // Construct a ColumnReader, trying to enable exposed encoding.
