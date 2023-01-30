@@ -48,6 +48,18 @@ namespace Apache.Arrow.Compression.Tests
                 Assert.True(Math.Abs(floatArray.GetValue(i).Value - 0.1f * i) < 1.0e-6);
             }
         }
+
+        [Fact]
+        public void ErrorReadingCompressedStreamWithoutCodecFactory()
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            using var stream = assembly.GetManifestResourceStream("Apache.Arrow.Compression.Tests.Resources.ipc_lz4_compression.arrow_stream");
+            Assert.NotNull(stream);
+            using var reader = new ArrowStreamReader(stream);
+
+            var exception = Assert.Throws<Exception>(() => reader.ReadNextRecordBatch());
+            Assert.Contains("no ICompressionCodecFactory has been configured", exception.Message);
+        }
     }
 }
 
