@@ -2143,6 +2143,7 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
   }
 
   std::shared_ptr<Buffer> FlushValues() override;
+  std::shared_ptr<ResizableBuffer> FlushValuesInternal(size_t& offset_bytes);
 
   int64_t EstimatedDataEncodedSize() override { return sink_.length(); }
 
@@ -2289,6 +2290,38 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
 
   // Excess bytes at the beginning are sliced off and ignored.
   return SliceBuffer(buffer, offset_bytes);
+}
+
+template <typename DType>
+std::shared_ptr<ResizableBuffer> DeltaBitPackEncoder<DType>::FlushValuesInternal(
+    size_t& offset_bytes) {
+  if (values_current_block_ > 0) {
+    FlushBlock();
+  }
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink_.Finish(/*shrink_to_fit=*/true));
+
+  uint8_t header_buffer_[kMaxPageHeaderWriterSize] = {};
+  bit_util::BitWriter header_writer(header_buffer_, sizeof(header_buffer_));
+  if (!header_writer.PutVlqInt(values_per_block_) ||
+      !header_writer.PutVlqInt(mini_blocks_per_block_) ||
+      !header_writer.PutVlqInt(total_value_count_) ||
+      !header_writer.PutZigZagVlqInt(static_cast<T>(first_value_))) {
+    throw ParquetException("header writing error");
+  }
+  header_writer.Flush();
+
+  // We reserved enough space at the beginning of the buffer for largest possible header
+  // and data was written immediately after. We now write the header data immediately
+  // before the end of reserved space.
+  offset_bytes = kMaxPageHeaderWriterSize - header_writer.bytes_written();
+  std::memcpy(buffer->mutable_data() + offset_bytes, header_buffer_,
+              header_writer.bytes_written());
+
+  // Reset counter of cached values
+  total_value_count_ = 0;
+  // Reserve enough space at the beginning of the buffer for largest possible header.
+  PARQUET_THROW_NOT_OK(sink_.Advance(kMaxPageHeaderWriterSize));
+  return reinterpret_cast<std::shared_ptr<ResizableBuffer>&>(buffer);
 }
 
 template <>
@@ -2676,19 +2709,22 @@ void DeltaLengthByteArrayEncoder<DType>::PutSpaced(const T* src, int num_values,
 
 template <typename DType>
 std::shared_ptr<Buffer> DeltaLengthByteArrayEncoder<DType>::FlushValues() {
-  std::shared_ptr<Buffer> encoded_lengths = length_encoder_.FlushValues();
+  size_t offset_bytes = 0;
+  std::shared_ptr<ResizableBuffer> encoded_lengths =
+      length_encoder_.FlushValuesInternal(offset_bytes);
 
   std::shared_ptr<Buffer> data;
   PARQUET_THROW_NOT_OK(sink_.Finish(&data));
   sink_.Reset();
 
-  PARQUET_THROW_NOT_OK(sink_.Append(encoded_lengths->data(), encoded_lengths->size()));
-  PARQUET_THROW_NOT_OK(sink_.Append(data->data(), data->size()));
-
-  std::shared_ptr<Buffer> buffer;
-  PARQUET_THROW_NOT_OK(sink_.Finish(&buffer, true));
+  const int64_t encoded_lengths_size = encoded_lengths->size();
+  PARQUET_THROW_NOT_OK(encoded_lengths->Resize(encoded_lengths->size() + data->size()));
+  memcpy(encoded_lengths->mutable_data() + encoded_lengths_size, data->data(),
+         data->size());
   encoded_size_ = 0;
-  return buffer;
+
+  // Excess bytes at the beginning are sliced off and ignored.
+  return SliceBuffer(encoded_lengths, offset_bytes);
 }
 
 // ----------------------------------------------------------------------
