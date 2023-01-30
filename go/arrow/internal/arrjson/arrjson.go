@@ -477,33 +477,36 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 		case "DENSE":
 			arrowType = arrow.DenseUnionOf(fieldsFromJSON(children), t.TypeIDs)
 		}
-	case "runlengthencoded":
+	case "runendencoded":
 		if len(children) != 2 {
-			err = fmt.Errorf("%w: RLE array must have exactly 2 fields, but got %d",
+			err = fmt.Errorf("%w: REE array must have exactly 2 fields, but got %d",
 				arrow.ErrInvalid, len(children))
 			return
 		}
 		if children[0].Name != "run_ends" {
-			err = fmt.Errorf("%w: first child of RLE must be called run_ends, but got: %s",
+			err = fmt.Errorf("%w: first child of REE must be called run_ends, but got: %s",
 				arrow.ErrInvalid, children[0].Name)
 			return
 		}
-		if children[0].arrowType.ID() != arrow.INT32 {
-			err = fmt.Errorf("%w: only int32 type is supported as run ends array, but got: %s",
+		switch children[0].arrowType.ID() {
+		case arrow.INT16, arrow.INT32, arrow.INT64:
+		default:
+			err = fmt.Errorf("%w: only int16, int32 and int64 type are supported as run ends array, but got: %s",
 				arrow.ErrInvalid, children[0].Type)
 			return
 		}
+
 		if children[0].Nullable {
 			err = fmt.Errorf("%w: run ends array cannot be nullable", arrow.ErrInvalid)
 			return
 		}
 		if children[1].Name != "values" {
-			err = fmt.Errorf("%w: second child of RLE must be called values, got: %s",
+			err = fmt.Errorf("%w: second child of REE must be called values, got: %s",
 				arrow.ErrInvalid, children[1].Name)
 			return
 		}
 		if !children[1].Nullable {
-			err = fmt.Errorf("%w: RLE values array should be nullable, but is not", arrow.ErrInvalid)
+			err = fmt.Errorf("%w: REE values array should be nullable, but is not", arrow.ErrInvalid)
 			return
 		}
 		arrowType = arrow.RunEndEncodedOf(children[0].arrowType, children[1].arrowType)
@@ -1209,7 +1212,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		return array.NewData(dt, indices.Len(), indices.Buffers(), indices.Children(), indices.NullN(), indices.Offset())
 
 	case *arrow.RunEndEncodedType:
-		runEnds := arrayFromJSON(mem, arrow.PrimitiveTypes.Int32, arr.Children[0])
+		runEnds := arrayFromJSON(mem, dt.RunEnds(), arr.Children[0])
 		defer runEnds.Release()
 		values := arrayFromJSON(mem, dt.Encoded(), arr.Children[1])
 		defer values.Release()
