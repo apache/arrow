@@ -83,8 +83,7 @@ Fixed size tensor
 
   * **value_type** = Arrow DataType of the tensor elements
   * **shape** = shape of the contained tensors as a tuple
-  * **order** = string indicating the order of elements in memory;
-    ‘C’ for row major order and ‘F’ for column major order
+  * **is_row_major** = boolean indicating the order of elements in memory
 
 * Description of the serialization:
 
@@ -93,4 +92,4 @@ Fixed size tensor
   * shape of the contained tensors as an array with key “shape”,
   * string defining the order of elements in memory with key “order”.
 
-  For example: `{ "shape": [2, 5], "order": "C" }`
+  For example: `{ "shape": [2, 5], "is_row_major": True }`
