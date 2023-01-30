@@ -250,7 +250,7 @@ func TableFromJSON(mem memory.Allocator, sc *arrow.Schema, recJSON []string, opt
 	return NewTableFromRecords(sc, batches), nil
 }
 
-func getDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable hashing.MemoTable, startOffset int) (*Data, error) {
+func GetDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable hashing.MemoTable, startOffset int) (*Data, error) {
 	dictLen := memoTable.Size() - startOffset
 	buffers := []*memory.Buffer{nil, nil}
 
