@@ -161,6 +161,40 @@ func TestPrimitiveMatcher(t *testing.T) {
 	assert.False(t, match.Matches(arrow.Null))
 }
 
+func TestREEMatcher(t *testing.T) {
+	tests := []struct {
+		runEnds        exec.TypeMatcher
+		enc            exec.TypeMatcher
+		matchRunEnds   arrow.DataType
+		nomatchRunEnds arrow.DataType
+		matchEnc       arrow.DataType
+		nomatchEnc     arrow.DataType
+	}{
+		{exec.Integer(), exec.Integer(), arrow.PrimitiveTypes.Int16, arrow.FixedWidthTypes.Float16, arrow.PrimitiveTypes.Int8, arrow.BinaryTypes.String},
+		{exec.SameTypeID(arrow.INT32), exec.BinaryLike(), arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int64, arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32},
+		{exec.SameTypeID(arrow.INT64), exec.SameTypeID(arrow.STRUCT), arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Int32, arrow.StructOf(arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int16}), arrow.PrimitiveTypes.Int8},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.enc.String(), func(t *testing.T) {
+			matcher := exec.RunEndEncoded(tt.runEnds, tt.enc)
+			assert.False(t, matcher.Matches(tt.matchEnc))
+			assert.True(t, matcher.Matches(arrow.RunEndEncodedOf(tt.matchRunEnds, tt.matchEnc)))
+			assert.False(t, matcher.Matches(arrow.RunEndEncodedOf(tt.matchRunEnds, tt.nomatchEnc)))
+			assert.False(t, matcher.Matches(arrow.RunEndEncodedOf(tt.nomatchRunEnds, tt.matchEnc)))
+			assert.False(t, matcher.Matches(arrow.RunEndEncodedOf(tt.nomatchRunEnds, tt.nomatchEnc)))
+
+			assert.Equal(t, "run_end_encoded(run_ends="+tt.runEnds.String()+", values="+tt.enc.String()+")", matcher.String())
+
+			assert.True(t, matcher.Equals(exec.RunEndEncoded(tt.runEnds, tt.enc)))
+			assert.False(t, matcher.Equals(exec.Primitive()))
+			assert.False(t, matcher.Equals(exec.RunEndEncoded(exec.SameTypeID(tt.nomatchRunEnds.ID()), exec.SameTypeID(tt.nomatchEnc.ID()))))
+			assert.False(t, matcher.Equals(exec.RunEndEncoded(exec.SameTypeID(tt.matchRunEnds.ID()), exec.SameTypeID(tt.nomatchEnc.ID()))))
+			assert.False(t, matcher.Equals(exec.RunEndEncoded(exec.SameTypeID(tt.nomatchRunEnds.ID()), exec.SameTypeID(tt.matchEnc.ID()))))
+		})
+	}
+}
+
 func TestInputTypeAnyType(t *testing.T) {
 	var ty exec.InputType
 	assert.Equal(t, exec.InputAny, ty.Kind)
