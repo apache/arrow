@@ -425,17 +425,17 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		flatbuf.MapAddKeysSorted(fv.b, dt.KeysSorted)
 		fv.offset = flatbuf.MapEnd(fv.b)
 
-	case *arrow.RunLengthEncodedType:
-		fv.dtype = flatbuf.TypeRunLengthEncoded
+	case *arrow.RunEndEncodedType:
+		fv.dtype = flatbuf.TypeRunEndEncoded
 		var offsets [2]flatbuffers.UOffsetT
 		offsets[0] = fieldToFB(fv.b, fv.pos.Child(0),
-			arrow.Field{Name: "run_ends", Type: arrow.PrimitiveTypes.Int32}, fv.memo)
+			arrow.Field{Name: "run_ends", Type: dt.RunEnds()}, fv.memo)
 		offsets[1] = fieldToFB(fv.b, fv.pos.Child(1),
 			arrow.Field{Name: "values", Type: dt.Encoded(), Nullable: true}, fv.memo)
-		flatbuf.RunLengthEncodedStart(fv.b)
+		flatbuf.RunEndEncodedStart(fv.b)
 		fv.b.PrependUOffsetT(offsets[1])
 		fv.b.PrependUOffsetT(offsets[0])
-		fv.offset = flatbuf.RunLengthEncodedEnd(fv.b)
+		fv.offset = flatbuf.RunEndEncodedEnd(fv.b)
 		fv.kids = append(fv.kids, offsets[0], offsets[1])
 
 	case arrow.ExtensionType:
@@ -810,14 +810,16 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		ret.KeysSorted = dt.KeysSorted()
 		return ret, nil
 
-	case flatbuf.TypeRunLengthEncoded:
+	case flatbuf.TypeRunEndEncoded:
 		if len(children) != 2 {
-			return nil, fmt.Errorf("%w: arrow/ipc: RunlengthEncoded must have exactly 2 child fields", arrow.ErrInvalid)
+			return nil, fmt.Errorf("%w: arrow/ipc: RunEndEncoded must have exactly 2 child fields", arrow.ErrInvalid)
 		}
-		if children[0].Type.ID() != arrow.INT32 {
-			return nil, fmt.Errorf("%w: arrow/ipc: RLE run_ends field must be int32 type", arrow.ErrInvalid)
+		switch children[0].Type.ID() {
+		case arrow.INT16, arrow.INT32, arrow.INT64:
+		default:
+			return nil, fmt.Errorf("%w: arrow/ipc: REE run_ends field must be one of int16, int32, or int64 type", arrow.ErrInvalid)
 		}
-		return arrow.RunLengthEncodedOf(children[0].Type, children[1].Type), nil
+		return arrow.RunEndEncodedOf(children[0].Type, children[1].Type), nil
 
 	default:
 		panic(fmt.Errorf("arrow/ipc: type %v not implemented", flatbuf.EnumNamesType[typ]))

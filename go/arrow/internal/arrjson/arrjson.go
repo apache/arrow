@@ -222,8 +222,8 @@ func typeToJSON(arrowType arrow.DataType) (json.RawMessage, error) {
 		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision), 256}
 	case arrow.UnionType:
 		typ = unionJSON{"union", dt.Mode().String(), dt.TypeCodes()}
-	case *arrow.RunLengthEncodedType:
-		typ = nameJSON{"runlengthencoded"}
+	case *arrow.RunEndEncodedType:
+		typ = nameJSON{"runendencoded"}
 	default:
 		return nil, fmt.Errorf("unknown arrow.DataType %v", arrowType)
 	}
@@ -506,7 +506,7 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 			err = fmt.Errorf("%w: RLE values array should be nullable, but is not", arrow.ErrInvalid)
 			return
 		}
-		arrowType = arrow.RunLengthEncodedOf(children[0].arrowType, children[1].arrowType)
+		arrowType = arrow.RunEndEncodedOf(children[0].arrowType, children[1].arrowType)
 	}
 
 	if arrowType == nil {
@@ -1208,7 +1208,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		defer indices.Release()
 		return array.NewData(dt, indices.Len(), indices.Buffers(), indices.Children(), indices.NullN(), indices.Offset())
 
-	case *arrow.RunLengthEncodedType:
+	case *arrow.RunEndEncodedType:
 		runEnds := arrayFromJSON(mem, arrow.PrimitiveTypes.Int32, arr.Children[0])
 		defer runEnds.Release()
 		values := arrayFromJSON(mem, dt.Encoded(), arr.Children[1])
@@ -1584,8 +1584,8 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 		}
 		return o
 
-	case *array.RunLengthEncoded:
-		dt := arr.DataType().(*arrow.RunLengthEncodedType)
+	case *array.RunEndEncoded:
+		dt := arr.DataType().(*arrow.RunEndEncodedType)
 		fields := dt.Fields()
 		runEnds := arr.LogicalRunEndsArray(memory.DefaultAllocator)
 		defer runEnds.Release()
