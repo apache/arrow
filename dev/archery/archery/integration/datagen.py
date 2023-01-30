@@ -205,6 +205,7 @@ class RunEndsField(IntegerField):
                        include_extremes=False):
         rng = np.random.default_rng()
         values = rng.choice(2 ** (self.bit_width - 1) - 1, size=size, replace=False)
+        values += 1
         values = sorted(values)
         values = list(map(int if self.bit_width < 64 else str, values))
         is_valid = self._make_is_valid(size)
