@@ -330,6 +330,8 @@ static auto kReplaceSubstringOptionsType =
 static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
     DataMember("ndigits", &RoundOptions::ndigits),
     DataMember("round_mode", &RoundOptions::round_mode));
+static auto kRoundBinaryOptionsType = GetFunctionOptionsType<RoundBinaryOptions>(
+    DataMember("round_mode", &RoundBinaryOptions::round_mode));
 static auto kRoundTemporalOptionsType = GetFunctionOptionsType<RoundTemporalOptions>(
     DataMember("multiple", &RoundTemporalOptions::multiple),
     DataMember("unit", &RoundTemporalOptions::unit),
@@ -497,6 +499,22 @@ RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
                 "enumerated last with HALF_DOWN being the first among them.");
 }
 constexpr char RoundOptions::kTypeName[];
+
+RoundBinaryOptions::RoundBinaryOptions(RoundMode round_mode)
+    : FunctionOptions(internal::kRoundBinaryOptionsType), round_mode(round_mode) {
+  static_assert(RoundMode::HALF_DOWN > RoundMode::DOWN &&
+                    RoundMode::HALF_DOWN > RoundMode::UP &&
+                    RoundMode::HALF_DOWN > RoundMode::TOWARDS_ZERO &&
+                    RoundMode::HALF_DOWN > RoundMode::TOWARDS_INFINITY &&
+                    RoundMode::HALF_DOWN < RoundMode::HALF_UP &&
+                    RoundMode::HALF_DOWN < RoundMode::HALF_TOWARDS_ZERO &&
+                    RoundMode::HALF_DOWN < RoundMode::HALF_TOWARDS_INFINITY &&
+                    RoundMode::HALF_DOWN < RoundMode::HALF_TO_EVEN &&
+                    RoundMode::HALF_DOWN < RoundMode::HALF_TO_ODD,
+                "Invalid order of round modes. Modes prefixed with HALF need to be "
+                "enumerated last with HALF_DOWN being the first among them.");
+}
+constexpr char RoundBinaryOptions::kTypeName[];
 
 RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit,
                                            bool week_starts_monday,
@@ -681,6 +699,11 @@ SCALAR_EAGER_UNARY(Sign, "sign")
 
 Result<Datum> Round(const Datum& arg, RoundOptions options, ExecContext* ctx) {
   return CallFunction("round", {arg}, &options, ctx);
+}
+
+Result<Datum> RoundBinary(const Datum& arg1, const Datum& arg2,
+                          RoundBinaryOptions options, ExecContext* ctx) {
+  return CallFunction("round_binary", {arg1, arg2}, &options, ctx);
 }
 
 Result<Datum> RoundToMultiple(const Datum& arg, RoundToMultipleOptions options,

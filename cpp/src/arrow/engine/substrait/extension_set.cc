@@ -24,6 +24,7 @@
 #include <sstream>
 #include <unordered_set>
 
+#include "arrow/compute/api_scalar.h"
 #include "arrow/engine/substrait/options.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
@@ -714,6 +715,11 @@ enum class OverflowBehavior { kSilent = 0, kSaturate, kError };
 static std::vector<std::string> kOverflowOptions = {"SILENT", "SATURATE", "ERROR"};
 static EnumParser<OverflowBehavior> kOverflowParser(kOverflowOptions);
 
+static std::vector<std::string> kRoundModes = {
+    "FLOOR",  "CEILING",          "TRUNCATE",           "AWAY_FROM_ZERO", "TIE_DOWN",
+    "TIE_UP", "TIE_TOWARDS_ZERO", "TIE_AWAY_FROM_ZERO", "TIE_TO_EVEN",    "TIE_TO_ODD"};
+static EnumParser<compute::RoundMode> kRoundModeParser(kRoundModes);
+
 template <typename Enum>
 Result<Enum> ParseOptionOrElse(const SubstraitCall& call, std::string_view option_name,
                                const EnumParser<Enum>& parser,
@@ -787,6 +793,30 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessUncheckedArithmetic(
     ARROW_ASSIGN_OR_RAISE(std::vector<compute::Expression> value_args,
                           GetValueArgs(call, 0));
     return arrow::compute::call(function_name, std::move(value_args));
+  };
+}
+
+ExtensionIdRegistry::SubstraitCallToArrow DecodeBinaryRoundingMode(
+    const std::string& function_name) {
+  return [function_name](const SubstraitCall& call) -> Result<compute::Expression> {
+    ARROW_ASSIGN_OR_RAISE(
+        compute::RoundMode round_mode,
+        ParseOptionOrElse(
+            call, "rounding", kRoundModeParser,
+            {compute::RoundMode::DOWN, compute::RoundMode::UP,
+             compute::RoundMode::TOWARDS_ZERO, compute::RoundMode::TOWARDS_INFINITY,
+             compute::RoundMode::HALF_DOWN, compute::RoundMode::HALF_UP,
+             compute::RoundMode::HALF_TOWARDS_ZERO,
+             compute::RoundMode::HALF_TOWARDS_INFINITY, compute::RoundMode::HALF_TO_EVEN,
+             compute::RoundMode::HALF_TO_ODD},
+            compute::RoundMode::HALF_TO_EVEN));
+    ARROW_ASSIGN_OR_RAISE(std::vector<compute::Expression> value_args,
+                          GetValueArgs(call, 0));
+    std::shared_ptr<compute::RoundBinaryOptions> options =
+        std::make_shared<compute::RoundBinaryOptions>();
+    options->round_mode = round_mode;
+    return arrow::compute::call("round_binary", std::move(value_args),
+                                std::move(options));
   };
 }
 
@@ -969,6 +999,9 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
           AddSubstraitCallToArrow({kSubstraitRoundingFunctionsUri, function_name},
                                   DecodeOptionlessUncheckedArithmetic(function_name)));
     }
+    // Expose only the binary version of round
+    DCHECK_OK(AddSubstraitCallToArrow({kSubstraitRoundingFunctionsUri, "round"},
+                                      DecodeBinaryRoundingMode("round_binary")));
 
     // Basic mappings that need _kleene appended to them
     for (const auto& function_name : {"or", "and"}) {
