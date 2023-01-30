@@ -817,7 +817,7 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		switch children[0].Type.ID() {
 		case arrow.INT16, arrow.INT32, arrow.INT64:
 		default:
-			return nil, fmt.Errorf("%w: arrow/ipc: REE run_ends field must be one of int16, int32, or int64 type", arrow.ErrInvalid)
+			return nil, fmt.Errorf("%w: arrow/ipc: run-end encoded run_ends field must be one of int16, int32, or int64 type", arrow.ErrInvalid)
 		}
 		return arrow.RunEndEncodedOf(children[0].Type, children[1].Type), nil
 

@@ -479,12 +479,12 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 		}
 	case "runendencoded":
 		if len(children) != 2 {
-			err = fmt.Errorf("%w: REE array must have exactly 2 fields, but got %d",
+			err = fmt.Errorf("%w: run-end encoded array must have exactly 2 fields, but got %d",
 				arrow.ErrInvalid, len(children))
 			return
 		}
 		if children[0].Name != "run_ends" {
-			err = fmt.Errorf("%w: first child of REE must be called run_ends, but got: %s",
+			err = fmt.Errorf("%w: first child of run-end encoded array must be called run_ends, but got: %s",
 				arrow.ErrInvalid, children[0].Name)
 			return
 		}
@@ -501,12 +501,12 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 			return
 		}
 		if children[1].Name != "values" {
-			err = fmt.Errorf("%w: second child of REE must be called values, got: %s",
+			err = fmt.Errorf("%w: second child of run-end encoded array must be called values, got: %s",
 				arrow.ErrInvalid, children[1].Name)
 			return
 		}
 		if !children[1].Nullable {
-			err = fmt.Errorf("%w: REE values array should be nullable, but is not", arrow.ErrInvalid)
+			err = fmt.Errorf("%w: run-end encoded values array should be nullable, but is not", arrow.ErrInvalid)
 			return
 		}
 		arrowType = arrow.RunEndEncodedOf(children[0].arrowType, children[1].arrowType)
