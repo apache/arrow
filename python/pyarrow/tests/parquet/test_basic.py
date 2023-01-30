@@ -392,8 +392,7 @@ def test_byte_stream_split(use_legacy_dataset):
 def test_column_encoding(use_legacy_dataset):
     arr_float = pa.array(list(map(float, range(100))))
     arr_int = pa.array(list(map(int, range(100))))
-    arr_bin = pa.array(list(map(
-        lambda x: bytes(str(x).zfill(8), "utf-8"), range(100))), pa.binary())
+    arr_bin = pa.array([str(x) for x in range(100)])
     mixed_table = pa.Table.from_arrays([arr_float, arr_int, arr_bin],
                                        names=['a', 'b', 'c'])
 
