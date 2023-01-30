@@ -196,7 +196,7 @@ class IntegerField(PrimitiveField):
 # Integer field that fulfils the requirements for the run ends field of RLE.
 # The integers are positive and in a strictly increasing sequence
 class RunEndsField(IntegerField):
-    def __init__(self, name, bit_width, *, nullable=True,
+    def __init__(self, name, bit_width, *, nullable=False,
                  metadata=None):
         super().__init__(name, is_signed=True, bit_width=bit_width,
                          nullable=nullable, metadata=metadata, min_value=1)
@@ -961,18 +961,18 @@ class StructField(Field):
         return StructColumn(name, size, is_valid, field_values)
 
 
-class RunLengthEncodedField(Field):
+class RunEndEncodedField(Field):
 
-    def __init__(self, name, values_field, *, nullable=True,
+    def __init__(self, name, run_ends_bitwidth, values_field, *, nullable=True,
                  metadata=None):
         super().__init__(name, nullable=nullable,
                          metadata=metadata)
-        self.run_ends_field = RunEndsField('run_ends', 32, nullable=False)
+        self.run_ends_field = RunEndsField('run_ends', run_ends_bitwidth, nullable=False)
         self.values_field = values_field
 
     def _get_type(self):
         return OrderedDict([
-            ('name', 'runlengthencoded')
+            ('name', 'runendencoded')
         ])
 
     def _get_children(self):
@@ -986,7 +986,7 @@ class RunLengthEncodedField(Field):
         run_ends = self.run_ends_field.generate_column(size)
         if name is None:
             name = self.name
-        return RunLengthEncodedColumn(name, size, run_ends, values)
+        return RunEndEncodedColumn(name, size, run_ends, values)
 
 
 class _BaseUnionField(Field):
@@ -1154,7 +1154,7 @@ class StructColumn(Column):
         return [field.get_json() for field in self.field_values]
 
 
-class RunLengthEncodedColumn(Column):
+class RunEndEncodedColumn(Column):
 
     def __init__(self, name, count, run_ends_field, values_field):
         super().__init__(name, count)
@@ -1527,7 +1527,10 @@ def generate_recursive_nested_case():
 
 def generate_rle_case():
     fields = [
-        RunLengthEncodedField('rle', get_field('values', 'int32'))]
+        RunEndEncodedField('rle16', 16, get_field('values', 'int32')),
+        RunEndEncodedField('rle32', 32, get_field('values', 'utf8')),
+        RunEndEncodedField('rle64', 64, get_field('values', 'float32')),
+    ]
     batch_sizes = [0, 7, 10]
     return _generate_file("rle", fields, batch_sizes)
 
