@@ -58,10 +58,10 @@ _PYARROW_DTYPES: dict[DtypeKind, dict[int, Any]] = {
 }
 
 
-def from_dataframe(df: DataFrameObject, allow_copy=True) -> pa.Table:
+def from_dataframe(df: DataFrameObject, allow_copy=True) -> pa.Table | pa.RecordBatch:
     """
-    Build a ``pa.Table`` from any DataFrame supporting the interchange
-    protocol.
+    Build a ``pa.Table`` or a ``pa.RecordBatch`` from any DataFrame supporting
+    the interchange protocol.
 
     Parameters
     ----------
@@ -74,9 +74,9 @@ def from_dataframe(df: DataFrameObject, allow_copy=True) -> pa.Table:
 
     Returns
     -------
-    pa.Table
+    pa.Table or pa.RecordBatch
     """
-    if isinstance(df, pa.Table):
+    if isinstance(df, (pa.Table, pa.RecordBatch)):
         return df
 
     if not hasattr(df, "__dataframe__"):
@@ -108,8 +108,10 @@ def _from_dataframe(df: DataFrameObject, allow_copy=True):
         batch = protocol_df_chunk_to_pyarrow(chunk, allow_copy)
         batches.append(batch)
 
-    table = pa.Table.from_batches(batches)
-    return table
+    if len(batches) == 1:
+        return batches[0]
+    else:
+        return pa.Table.from_batches(batches)
 
 
 def protocol_df_chunk_to_pyarrow(
