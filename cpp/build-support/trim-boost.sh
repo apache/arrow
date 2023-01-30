@@ -66,6 +66,9 @@ fi
 mkdir -p ${BOOST_FILE}
 ./dist/bin/bcp ${BOOST_LIBS} ${BOOST_FILE}
 
+# These files are assumed by the thirdparty toolchain but are not copied by bcp
+cp bootstrap.sh bootstrap.bat boostcpp.jam boost-build.jam Jamroot LICENSE_1_0.txt INSTALL ${BOOST_FILE}/
+
 tar -czf ${BOOST_FILE}.tar.gz ${BOOST_FILE}/
 # Resulting tarball is in ${BOOST_FILE}/${BOOST_FILE}.tar.gz
 
