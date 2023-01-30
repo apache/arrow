@@ -22,7 +22,6 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/buffer_builder.h"
 #include "arrow/util/spaced.h"
 
 #include "parquet/exception.h"
