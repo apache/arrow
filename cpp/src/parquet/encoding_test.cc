@@ -1584,6 +1584,7 @@ typedef ::testing::Types<ByteArrayType> TestDeltaLengthByteArrayEncodingTypes;
 TYPED_TEST_SUITE(TestDeltaLengthByteArrayEncoding, TestDeltaLengthByteArrayEncodingTypes);
 
 TYPED_TEST(TestDeltaLengthByteArrayEncoding, BasicRoundTrip) {
+  ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
   ASSERT_NO_FATAL_FAILURE(this->Execute(2000, 200));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
       /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
@@ -1598,7 +1599,7 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
   auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
   auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
 
-  auto CheckSeed = [&](int seed) {
+  auto CheckSeed = [&](int seed, int64_t size) {
     ::arrow::random::RandomArrayGenerator rag(seed);
     auto values = rag.String(size, min_length, max_length, null_probability);
 
@@ -1617,12 +1618,13 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
 
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.builder->Finish(&result));
-    ASSERT_EQ(50, result->length());
+    ASSERT_EQ(size, result->length());
     ::arrow::AssertArraysEqual(*values, *result);
   };
 
+  CheckSeed(/*seed=*/42, /*size=*/0);
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
-    CheckSeed(seed);
+    CheckSeed(seed, size);
   }
 }
 
