@@ -90,6 +90,6 @@ Fixed size tensor
   The metadata must be a valid JSON object including:
 
   * shape of the contained tensors as an array with key “shape”,
-  * string defining the order of elements in memory with key “order”.
+  * boolean indicating the order of elements in memory with key “order”.
 
   For example: `{ "shape": [2, 5], "is_row_major": True }`
