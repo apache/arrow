@@ -152,4 +152,19 @@ table.group('name').sum('amount')
 ```
 
 ### Joining
-Work in progress, see https://issues.apache.org/jira/browse/ARROW-14531
+```ruby
+amounts = Arrow::Table.new(
+  'name' => ['Tom', 'Max', 'Kate'],
+  'amount' => [10, 2, 3]
+)
+levels = Arrow::Table.new(
+  'name' => ['Max', 'Kate', 'Tom'],
+  'level' => [1, 9, 5]
+)
+amounts.join(levels, [:name])
+# => #<Arrow::Table:0x55d512ceb1b0 ptr=0x55d51262aa70>
+# 	name	amount	name	level
+# 0	Tom 	    10	Tom 	    5
+# 1	Max 	     2	Max 	    1
+# 2	Kate	     3	Kate	    9
+```
