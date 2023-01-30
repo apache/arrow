@@ -2628,7 +2628,6 @@ void DeltaLengthByteArrayEncoder<DType>::Put(const ::arrow::Array& values) {
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
   } else {
-    DCHECK(::arrow::is_large_binary_like(values.type_id()));
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
   }
 }
@@ -2654,8 +2653,6 @@ void DeltaLengthByteArrayEncoder<DType>::Put(const T* src, int num_values) {
   }
 
   PARQUET_THROW_NOT_OK(sink_.Reserve(encoded_size_));
-  // TODO: replace UnsafeAppend with memcpy?
-  //  memcpy(sink_.mutable_data() + sink_.length(), src, encoded_size_);
   for (int idx = 0; idx < num_values; idx++) {
     sink_.UnsafeAppend(src[idx].ptr, src[idx].len);
   }
@@ -2695,7 +2692,7 @@ std::shared_ptr<Buffer> DeltaLengthByteArrayEncoder<DType>::FlushValues() {
 }
 
 // ----------------------------------------------------------------------
-// DeltaByteArrayDecoder
+// DeltaLengthByteArrayDecoder
 
 class DeltaLengthByteArrayDecoder : public DecoderImpl,
                                     virtual public TypedDecoder<ByteArrayType> {
@@ -2803,7 +2800,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     const int num_valid_values = Decode(values.data(), num_values - null_count);
     DCHECK_EQ(num_values - null_count, num_valid_values);
 
-    auto values_ptr = reinterpret_cast<const ByteArray*>(values.data());
+    auto values_ptr = values.data();
     int value_idx = 0;
 
     RETURN_NOT_OK(VisitNullBitmapInline(
@@ -3315,7 +3312,7 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
     }
     throw ParquetException("DELTA_BYTE_ARRAY only supports BYTE_ARRAY");
   } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
-    if (type_num == Type::BYTE_ARRAY || type_num == Type::FIXED_LEN_BYTE_ARRAY) {
+    if (type_num == Type::BYTE_ARRAY) {
       return std::make_unique<DeltaLengthByteArrayDecoder>(descr);
     }
     throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
