@@ -20,7 +20,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v12/arrow"
 )
 
 // FindPhysicalOffset performs a binary search on the run-ends to return

@@ -21,7 +21,7 @@ package kernels
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v12/arrow"
 )
 
 //go:noescape
