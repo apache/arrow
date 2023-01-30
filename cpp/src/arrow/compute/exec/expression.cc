@@ -248,7 +248,7 @@ bool Expression::Equals(const Expression& other) const {
 
   if (call->options == other_call->options) return true;
   if (call->options && other_call->options) {
-    return call->options->Equals(other_call->options);
+    return call->options->Equals(*other_call->options);
   }
   return false;
 }
