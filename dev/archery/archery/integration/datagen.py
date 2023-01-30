@@ -203,7 +203,6 @@ class RunEndsField(IntegerField):
 
     def generate_range(self, size, lower, upper, name=None,
                        include_extremes=False):
-        # values = np.random.randint(lower, upper, size=size, dtype=np.int64)
         rng = np.random.default_rng()
         values = rng.choice(2 ** (self.bit_width - 1) - 1, size=size, replace=False)
         values = sorted(values)
