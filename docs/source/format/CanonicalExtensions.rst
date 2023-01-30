@@ -88,12 +88,9 @@ Fixed size tensor
 
 * Description of the serialization:
 
-  The metadata MUST be a valid JSON object including:
+  The metadata must be a valid JSON object including:
 
   * shape of the contained tensors as an array with key “shape”,
   * string defining the order of elements in memory with key “order”.
 
   For example: `{ "shape": [2, 5], "order": "C" }`
-
-  Implementations MAY include implementation-specific metadata by using a
-  namespaced key. For example `{"package.name": {"my": "metadata"}}`
