@@ -464,7 +464,7 @@ tasks:
       manylinux_version: "{{ manylinux_version }}"
       wheel_platform_tag: "{{ platform_tag }}"
     artifacts:
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-${{ platform_tag }}.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 {% endfor %}
 
 {############################## Wheel OSX ####################################}
