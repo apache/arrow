@@ -522,11 +522,17 @@ class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
   AsofJoinNodeOptions(std::vector<Keys> input_keys, int64_t tolerance)
       : input_keys(std::move(input_keys)), tolerance(tolerance) {}
 
-  /// \brief AsofJoin keys per input table.
+  /// \brief AsofJoin keys per input table. At least two keys must be given. The first key
+  /// corresponds to a left table and all other keys correspond to right tables for the
+  /// as-of-join.
   ///
   /// \see `Keys` for details.
   std::vector<Keys> input_keys;
-  /// \brief Tolerance for inexact "on" key matching.  Must be non-negative.
+  /// \brief Tolerance for inexact "on" key matching. A right row is considered a match
+  /// with the left row if `right.on - left.on <= tolerance`. The `tolerance` may be:
+  /// - negative, in which case a past-as-of-join occurs;
+  /// - or positive, in which case a future-as-of-join occurs;
+  /// - or zero, in which case an exact-as-of-join occurs.
   ///
   /// The tolerance is interpreted in the same units as the "on" key.
   int64_t tolerance;
