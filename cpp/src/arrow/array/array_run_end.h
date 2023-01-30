@@ -86,6 +86,22 @@ class ARROW_EXPORT RunEndEncodedArray : public Array {
   ///
   /// The physical offset to the array is applied.
   const std::shared_ptr<Array>& values() const { return values_array_; }
+
+  /// \brief Find the physical offset of this REE array
+  ///
+  /// This function uses binary-search, so it has a O(log N) cost.
+  int64_t FindPhysicalOffset() const;
+
+  /// \brief Find the physical length of this REE array
+  ///
+  /// The physical length of an REE is the number of physical values (and
+  /// run-ends) necessary to represent the logical range of values from offset
+  /// to length.
+  ///
+  /// Avoid calling this function if the physical length can be estabilished in
+  /// some other way (e.g. when iterating over the runs sequentially until the
+  /// end). This function uses binary-search, so it has a O(log N) cost.
+  int64_t FindPhysicalLength() const;
 };
 
 /// @}

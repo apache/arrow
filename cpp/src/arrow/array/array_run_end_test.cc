@@ -43,6 +43,7 @@ namespace {
 class TestRunEndEncodedArray
     : public ::testing::TestWithParam<std::shared_ptr<DataType>> {
  protected:
+  std::shared_ptr<DataType> run_end_type;
   std::shared_ptr<Array> string_values;
   std::shared_ptr<Array> int32_values;
   std::shared_ptr<Array> int16_values;
@@ -50,7 +51,7 @@ class TestRunEndEncodedArray
   std::shared_ptr<Array> run_end_only_null;
 
   void SetUp() override {
-    std::shared_ptr<DataType> run_end_type = GetParam();
+    run_end_type = GetParam();
 
     string_values = ArrayFromJSON(utf8(), R"(["Hello", "World", null])");
     int32_values = ArrayFromJSON(int32(), "[10, 20, 30]");
@@ -100,6 +101,36 @@ TEST_P(TestRunEndEncodedArray, FromRunEndsAndValues) {
   ASSERT_RAISES_WITH_MESSAGE(
       Invalid, "Invalid: Run ends array cannot contain null values",
       RunEndEncodedArray::Make(30, run_end_only_null, int32_values));
+}
+
+TEST_P(TestRunEndEncodedArray, FindOffsetAndLength) {
+  auto run_ends = ArrayFromJSON(run_end_type, "[100, 200, 300, 400, 500]");
+  auto values = ArrayFromJSON(utf8(), R"(["Hello", "beautiful", "world", "of", "REE"])");
+  ASSERT_OK_AND_ASSIGN(auto ree_array, RunEndEncodedArray::Make(500, run_ends, values));
+
+  ASSERT_EQ(ree_array->FindPhysicalOffset(), 0);
+  ASSERT_EQ(ree_array->FindPhysicalLength(), 5);
+
+  auto slice = std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(199, 5));
+  ASSERT_EQ(slice->FindPhysicalOffset(), 1);
+  ASSERT_EQ(slice->FindPhysicalLength(), 2);
+
+  auto slice2 = std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(199, 101));
+  ASSERT_EQ(slice2->FindPhysicalOffset(), 1);
+  ASSERT_EQ(slice2->FindPhysicalLength(), 2);
+
+  auto slice3 = std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(400, 100));
+  ASSERT_EQ(slice3->FindPhysicalOffset(), 4);
+  ASSERT_EQ(slice3->FindPhysicalLength(), 1);
+
+  auto slice4 = std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(0, 150));
+  ASSERT_EQ(slice4->FindPhysicalOffset(), 0);
+  ASSERT_EQ(slice4->FindPhysicalLength(), 2);
+
+  auto zero_length_at_end =
+      std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(500, 0));
+  ASSERT_EQ(zero_length_at_end->FindPhysicalOffset(), 5);
+  ASSERT_EQ(zero_length_at_end->FindPhysicalLength(), 0);
 }
 
 }  // anonymous namespace

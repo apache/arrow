@@ -18,6 +18,7 @@
 #include "arrow/array/array_run_end.h"
 #include "arrow/array/util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/ree_util.h"
 
 namespace arrow {
 
@@ -72,6 +73,16 @@ void RunEndEncodedArray::SetData(const std::shared_ptr<ArrayData>& data) {
   Array::SetData(data);
   run_ends_array_ = MakeArray(this->data()->child_data[0]);
   values_array_ = MakeArray(this->data()->child_data[1]);
+}
+
+int64_t RunEndEncodedArray::FindPhysicalOffset() const {
+  const ArraySpan span(*this->data_);
+  return ree_util::FindPhysicalIndex(span, 0, span.offset);
+}
+
+int64_t RunEndEncodedArray::FindPhysicalLength() const {
+  const ArraySpan span(*this->data_);
+  return ree_util::FindPhysicalLength(span);
 }
 
 }  // namespace arrow
