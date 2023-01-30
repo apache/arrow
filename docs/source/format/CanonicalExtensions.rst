@@ -72,4 +72,28 @@ same rules as laid out above, and provide backwards compatibility guarantees.
 Official List
 =============
 
-No canonical extension types have been standardized yet.
+Fixed size tensor
+=================
+
+* Extension name: `arrow.fixed_size_tensor`.
+
+* The storage type of the extension: ``List``.
+
+* Extension type parameters:
+
+  * **value_type** = pyarrow DataType of the tensor elements
+  * **shape** = shape of the contained tensors as a tuple
+  * **order** = string indicating the order of elements in memory;
+    ‘C’ for row major order and ‘F’ for column major order
+
+* Description of the serialization:
+
+  The metadata MUST be a valid JSON object including:
+
+  * shape of the contained tensors as a tuple with key “shape”,
+  * string defining the order of elements in memory with key “order”.
+
+  For example: `{ “shape”: (2, 5), “order”: ‘C’}`
+
+  Implementations MAY include implementation-specific metadata by using a
+  namespaced key. For example `{"package.name": {"my": "metadata"}}`
