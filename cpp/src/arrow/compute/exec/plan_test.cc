@@ -1378,36 +1378,45 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
   // into account batch.length > 1 (e.g. a partition column)
   BatchesWithSchema scalar_data;
   scalar_data.batches = {
-      ExecBatchFromJSON({int32(), boolean()}, {ArgShape::SCALAR, ArgShape::SCALAR},
-                        "[[5, false], [5, false], [5, false]]"),
-      ExecBatchFromJSON({int32(), boolean()}, "[[5, true], [6, false], [7, true]]")};
-  scalar_data.schema = schema({field("a", int32()), field("b", boolean())});
+      ExecBatchFromJSON({int32(), boolean(), float64()},
+                        {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR},
+                        "[[5, false, 4.0], [5, false, 6.0], [5, false, 5.0]]"),
+      ExecBatchFromJSON({int32(), boolean(), float64()},
+                        "[[5, true, 4.0], [6, false, 5.0], [7, true, 6.0]]")};
+  scalar_data.schema = schema({
+      field("a", int32()),
+      field("b", boolean()),
+      field("c", float64()),
+  });
 
   // index can't be tested as it's order-dependent
   // mode/quantile can't be tested as they're technically vector kernels
   Declaration plan = Declaration::Sequence(
       {{"source", SourceNodeOptions{scalar_data.schema,
                                     scalar_data.gen(/*parallel=*/false, /*slow=*/false)}},
-       {"aggregate", AggregateNodeOptions{
-                         /*aggregates=*/{{"all", nullptr, "b", "all(b)"},
-                                         {"any", nullptr, "b", "any(b)"},
-                                         {"count", nullptr, "a", "count(a)"},
-                                         {"count_all", "count(*)"},
-                                         {"mean", nullptr, "a", "mean(a)"},
-                                         {"product", nullptr, "a", "product(a)"},
-                                         {"stddev", nullptr, "a", "stddev(a)"},
-                                         {"sum", nullptr, "a", "sum(a)"},
-                                         {"tdigest", nullptr, "a", "tdigest(a)"},
-                                         {"variance", nullptr, "a", "variance(a)"}}}}});
+       {"aggregate",
+        AggregateNodeOptions{/*aggregates=*/{
+            {"all", nullptr, "b", "all(b)"},
+            {"any", nullptr, "b", "any(b)"},
+            {"count", nullptr, "a", "count(a)"},
+            {"count_all", "count(*)"},
+            {"mean", nullptr, "a", "mean(a)"},
+            {"product", nullptr, "a", "product(a)"},
+            {"stddev", nullptr, "a", "stddev(a)"},
+            {"sum", nullptr, "a", "sum(a)"},
+            {"tdigest", nullptr, "a", "tdigest(a)"},
+            {"variance", nullptr, "a", "variance(a)"},
+            {"covariance", nullptr, std::vector<FieldRef>{"a", "c"}, "covar_pop(a, c)"},
+        }}}});
 
   auto exp_batches = {
       ExecBatchFromJSON(
           {boolean(), boolean(), int64(), int64(), float64(), int64(), float64(), int64(),
-           float64(), float64()},
+           float64(), float64(), float64()},
           {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
            ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
-           ArgShape::ARRAY, ArgShape::SCALAR},
-          R"([[false, true, 6, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334]])"),
+           ArgShape::ARRAY, ArgShape::SCALAR, ArgShape::SCALAR},
+          R"([[false, true, 6, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334, 0.3333333333333333]])"),
   };
   ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan)));
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
