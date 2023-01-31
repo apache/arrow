@@ -72,10 +72,10 @@ same rules as laid out above, and provide backwards compatibility guarantees.
 Official List
 =============
 
-Fixed size tensor
-=================
+Fixed shape tensor
+==================
 
-* Extension name: `arrow.fixed_size_tensor`.
+* Extension name: `arrow.fixed_shape_tensor`.
 
 * The storage type of the extension: ``FixedSizeList``.
 
