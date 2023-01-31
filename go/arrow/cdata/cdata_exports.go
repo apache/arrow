@@ -17,12 +17,15 @@
 package cdata
 
 // #include <errno.h>
+// #include <stdint.h>
 // #include <stdlib.h>
 // #include "arrow/c/abi.h"
 // #include "arrow/c/helpers.h"
 //
 // extern void releaseExportedSchema(struct ArrowSchema* schema);
 // extern void releaseExportedArray(struct ArrowArray* array);
+//
+// const uint8_t kGoCdataZeroRegion[8] = {0};
 //
 // void goReleaseArray(struct ArrowArray* array) {
 //	releaseExportedArray(array);
@@ -385,7 +388,13 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		for i := range bufs {
 			buf := bufs[i]
 			if buf == nil || buf.Len() == 0 {
-				buffers[i] = nil
+				if i > 0 {
+					// apache/arrow#33936: export a dummy buffer to be friendly to
+					// implementations that don't import NULL properly
+					buffers[i] = (*C.void)(unsafe.Pointer(&C.kGoCdataZeroRegion))
+				} else {
+					buffers[i] = nil
+				}
 				continue
 			}
 
