@@ -1526,7 +1526,7 @@ def generate_recursive_nested_case():
     return _generate_file("recursive_nested", fields, batch_sizes)
 
 
-def generate_ree_case():
+def generate_run_end_encoded_case():
     fields = [
         RunEndEncodedField('ree16', 16, get_field('values', 'int32')),
         RunEndEncodedField('ree32', 32, get_field('values', 'utf8')),
