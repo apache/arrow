@@ -49,7 +49,6 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/endian"
 	"github.com/apache/arrow/go/v12/arrow/internal"
-	"github.com/apache/arrow/go/v12/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v12/arrow/ipc"
 )
 
