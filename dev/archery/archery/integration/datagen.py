@@ -196,14 +196,19 @@ class IntegerField(PrimitiveField):
 # Integer field that fulfils the requirements for the run ends field of REE.
 # The integers are positive and in a strictly increasing sequence
 class RunEndsField(IntegerField):
-    def __init__(self, name, bit_width, *, nullable=False,
-                 metadata=None):
+    # bit_width should only be one of 16/32/64
+    def __init__(self, name, bit_width, *, metadata=None):
         super().__init__(name, is_signed=True, bit_width=bit_width,
-                         nullable=nullable, metadata=metadata, min_value=1)
+                         nullable=False, metadata=metadata, min_value=1)
 
     def generate_range(self, size, lower, upper, name=None,
                        include_extremes=False):
         rng = np.random.default_rng()
+        # generate values that are strictly increasing with a min-value of
+        # 1, but don't go higher than the max signed value for the given
+        # bit width. We sort the values to ensure they are strictly increasing
+        # and set replace to False to avoid duplicates, ensuring a valid
+        # run-ends array.
         values = rng.choice(2 ** (self.bit_width - 1) - 1, size=size, replace=False)
         values += 1
         values = sorted(values)
@@ -1734,7 +1739,7 @@ def get_generated_json_files(tempdir=None):
         .skip_category('Java')  # TODO(ARROW-7779)
         .skip_category('JS'),
 
-        generate_ree_case()
+        generate_run_end_encoded_case()
         .skip_category('C++')
         .skip_category('C#')
         .skip_category('Java')

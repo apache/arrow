@@ -505,10 +505,6 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 				arrow.ErrInvalid, children[1].Name)
 			return
 		}
-		if !children[1].Nullable {
-			err = fmt.Errorf("%w: run-end encoded values array should be nullable, but is not", arrow.ErrInvalid)
-			return
-		}
 		arrowType = arrow.RunEndEncodedOf(children[0].arrowType, children[1].arrowType)
 	}
 
