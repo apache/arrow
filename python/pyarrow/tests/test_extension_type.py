@@ -1092,7 +1092,7 @@ class TensorType(pa.ExtensionType):
         self._is_row_major = is_row_major
         size = math.prod(shape)
         pa.ExtensionType.__init__(self, pa.list_(self._value_type, size),
-                                    'arrow.fixed_size_tensor')
+                                  'arrow.fixed_size_tensor')
 
     @property
     def dtype(self):
@@ -1124,7 +1124,7 @@ class TensorType(pa.ExtensionType):
         order = metadata["is_row_major"]
 
         return TensorType(storage_type.value_type, shape, order)
-    
+
     def __arrow_ext_class__(self):
         return TensorArray
 
@@ -1173,22 +1173,24 @@ def registered_tensor_type():
 
 
 def test_generic_ext_type_tensor():
-    tensor_type = TensorType(pa.int8(), (2,3), True)
+    tensor_type = TensorType(pa.int8(), (2, 3), True)
     assert tensor_type.extension_name == "arrow.fixed_size_tensor"
     assert tensor_type.storage_type == pa.list_(pa.int8(), 6)
 
 
 def test_tensor_ext_class_methods():
     tensor_type = TensorType(pa.float32(), (2, 2, 3), 'C')
-    storage = pa.array([[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]], pa.list_(pa.float32(), 12))
+    storage = pa.array([[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]],
+                       pa.list_(pa.float32(), 12))
     arr = pa.ExtensionArray.from_storage(tensor_type, storage)
-    expected = [np.array([[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]], dtype=np.float32)]
+    expected = [
+        np.array([[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]], dtype=np.float32)]
 
     result = arr.to_numpy_tensor_list()
     np.testing.assert_array_equal(result, expected)
 
     tensor_array_from_numpy = TensorArray.from_numpy_tensor_list(expected)
-    assert isinstance(tensor_array_from_numpy.type, TensorType) 
+    assert isinstance(tensor_array_from_numpy.type, TensorType)
     assert tensor_array_from_numpy.type.dtype == pa.float32()
     assert tensor_array_from_numpy.type.shape == (2, 2, 3)
     assert tensor_array_from_numpy.type.is_row_major
@@ -1225,7 +1227,8 @@ def test_generic_ext_type_ipc_tensor(registered_tensor_type):
     assert tensor_type_uint.shape == (2, 3)
     assert tensor_type_uint.is_row_major
 
-    storage = pa.array([[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]], pa.list_(pa.uint8(), 6))
+    storage = pa.array([[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]],
+                       pa.list_(pa.uint8(), 6))
     arr = pa.ExtensionArray.from_storage(tensor_type_uint, storage)
     batch = pa.RecordBatch.from_arrays([arr], ["ext"])
 
