@@ -157,15 +157,28 @@ public final class ClientAuthenticationUtils {
     } else if (isMac()) {
       keyStoreList.add(getKeyStoreInstance("KeychainStore"));
     } else {
-      Path path = Paths.get(System.getProperty("java.home"), "lib", "security", "cacerts");
-      try (InputStream fileInputStream = Files.newInputStream(path)) {
+      try (InputStream fileInputStream = getKeystoreInputStream()) {
         KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-        keyStore.load(fileInputStream, password.toCharArray());
+        if (password == null) {
+          keyStore.load(fileInputStream, null);
+        } else {
+          keyStore.load(fileInputStream, password.toCharArray());
+        }
         keyStoreList.add(keyStore);
       }
     }
 
     return getCertificatesInputStream(keyStoreList);
+  }
+
+  @VisibleForTesting
+  static InputStream getKeystoreInputStream() throws IOException {
+    Path path = Paths.get(System.getProperty("java.home"), "lib", "security", "cacerts");
+    if (Files.notExists(path)) {
+      // for JDK8
+      path = Paths.get(System.getProperty("java.home"), "jre", "lib", "security", "cacerts");
+    }
+    return Files.newInputStream(path);
   }
 
   @VisibleForTesting

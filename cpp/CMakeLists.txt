@@ -47,7 +47,7 @@ if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
 endif()
 
-set(ARROW_VERSION "11.0.0-SNAPSHOT")
+set(ARROW_VERSION "12.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -495,6 +495,12 @@ set(ARROW_PC_CFLAGS_PRIVATE " -DARROW_STATIC")
 set(ARROW_PC_LIBS_PRIVATE "")
 set(ARROW_PC_REQUIRES_PRIVATE "")
 
+# For arrow-testing.pc.
+set(ARROW_TESTING_PC_CFLAGS "")
+set(ARROW_TESTING_PC_CFLAGS_PRIVATE " -DARROW_TESTING_STATIC")
+set(ARROW_TESTING_PC_LIBS "")
+set(ARROW_TESTING_PC_REQUIRES "")
+
 include(ThirdpartyToolchain)
 
 # Add common flags
@@ -798,8 +804,8 @@ if(ARROW_WITH_RAPIDJSON)
 endif()
 
 if(ARROW_USE_XSIMD)
-  list(APPEND ARROW_SHARED_LINK_LIBS xsimd)
-  list(APPEND ARROW_STATIC_LINK_LIBS xsimd)
+  list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_XSIMD})
+  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_XSIMD})
 endif()
 
 add_custom_target(arrow_dependencies)

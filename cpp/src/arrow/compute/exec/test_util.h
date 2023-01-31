@@ -42,7 +42,8 @@ using StopProducingFunc = std::function<void(ExecNode*)>;
 // Make a dummy node that has no execution behaviour
 ARROW_TESTING_EXPORT
 ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*> inputs,
-                        int num_outputs, StartProducingFunc = {}, StopProducingFunc = {});
+                        bool is_sink = false, StartProducingFunc = {},
+                        StopProducingFunc = {});
 
 ARROW_TESTING_EXPORT
 ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types, std::string_view json);
@@ -99,6 +100,11 @@ Future<std::vector<ExecBatch>> StartAndCollect(
     ExecPlan* plan, AsyncGenerator<std::optional<ExecBatch>> gen);
 
 ARROW_TESTING_EXPORT
+AsyncGenerator<std::optional<ExecBatch>> MakeIntegerBatchGen(
+    const std::vector<std::function<int64_t(int)>>& gens,
+    const std::shared_ptr<Schema>& schema, int num_batches, int batch_size);
+
+ARROW_TESTING_EXPORT
 BatchesWithSchema MakeBasicBatches();
 
 ARROW_TESTING_EXPORT
@@ -109,6 +115,11 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
                                     int num_batches = 10, int batch_size = 4,
                                     int64_t alignment = kDefaultBufferAlignment,
                                     MemoryPool* memory_pool = nullptr);
+
+ARROW_TESTING_EXPORT
+Result<BatchesWithSchema> MakeIntegerBatches(
+    const std::vector<std::function<int64_t(int)>>& gens,
+    const std::shared_ptr<Schema>& schema, int num_batches, int batch_size);
 
 ARROW_TESTING_EXPORT
 BatchesWithSchema MakeBatchesFromString(const std::shared_ptr<Schema>& schema,

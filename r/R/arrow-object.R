@@ -32,7 +32,7 @@ ArrowObject <- R6Class("ArrowObject",
       assign(".:xp:.", xp, envir = self)
     },
     class_title = function() {
-      if (!is.null(self$.class_title)) {
+      if (".class_title" %in% ls(self, all.names = TRUE)) {
         # Allow subclasses to override just printing the class name first
         class_title <- self$.class_title()
       } else {
@@ -45,6 +45,19 @@ ArrowObject <- R6Class("ArrowObject",
         cat(self$ToString(), "\n", sep = "")
       }
       invisible(self)
+    },
+    .unsafe_delete = function() {
+      # The best we can do in a generic way is to set the underlying
+      # pointer to NULL. Subclasses specialize this so that we can actually
+      # call the underlying shared pointer's reset() method for the
+      # shared_ptr<SubclassType> in C++.
+      self$`.:xp:.` <- NULL
+
+      # Return NULL, because keeping this R6 object in scope is not a good idea.
+      # This syntax would allow the rare use that has to actually do this to
+      # do `object <- object$.unsafe_delete()` and reduce the chance that an
+      # IDE like RStudio will try try to call other methods which will error
+      invisible(NULL)
     }
   )
 )

@@ -76,6 +76,9 @@ for dependency in $(grep -l -r 'depends_on "apache-arrow"' Formula); do
   brew bump-revision --message "(apache-arrow ${version})" ${dependency}
 done
 
+# Force homebrew to not install from API but local checkout
+export HOMEBREW_NO_INSTALL_FROM_API=1
+
 echo "Testing apache-arrow formulae"
 brew uninstall apache-arrow apache-arrow-glib || :
 brew install --build-from-source apache-arrow

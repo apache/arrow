@@ -209,7 +209,13 @@ Pointer r6_to_pointer(SEXP self) {
         cpp11::decay_t<typename std::remove_pointer<Pointer>::type>>();
     cpp11::stop("Invalid R object for %s, must be an ArrowObject", type_name.c_str());
   }
-  void* p = R_ExternalPtrAddr(Rf_findVarInFrame(self, arrow::r::symbols::xp));
+
+  SEXP xp = Rf_findVarInFrame(self, arrow::r::symbols::xp);
+  if (xp == R_NilValue) {
+    cpp11::stop("Invalid: self$`.:xp:.` is NULL");
+  }
+
+  void* p = R_ExternalPtrAddr(xp);
   if (p == nullptr) {
     SEXP klass = Rf_getAttrib(self, R_ClassSymbol);
     cpp11::stop("Invalid <%s>, external pointer to null", CHAR(STRING_ELT(klass, 0)));

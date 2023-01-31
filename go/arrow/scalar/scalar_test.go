@@ -25,11 +25,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/decimal128"
-	"github.com/apache/arrow/go/v11/arrow/memory"
-	"github.com/apache/arrow/go/v11/arrow/scalar"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/decimal128"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -965,7 +965,7 @@ func TestToScalar(t *testing.T) {
 
 	expected := `{field_names:list<item: utf8, nullable> = ["foo" "bar" "baz"], ` +
 		`field_null:list<item: bool, nullable> = [true false], ` +
-		`field_metadata:list<item: map<binary, binary>, nullable> = ` +
+		`field_metadata:list<item: map<binary, binary, items_nullable>, nullable> = ` +
 		`[{["captain" "option" "souper"] ["planet" "val" "bowl"]} {[] []} {["captain" "option" "souper"] ["planet" "val" "bowl"]}], ` +
 		`val8:list<item: int8, nullable> = [1 2 3 4], ` +
 		`u8:list<item: uint8, nullable> = [5 6], ` +

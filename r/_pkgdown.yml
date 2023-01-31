@@ -141,6 +141,9 @@ reference:
   - title: Multi-file datasets
     contents:
       - open_dataset
+      - open_delim_dataset
+      - open_csv_dataset
+      - open_tsv_dataset
       - write_dataset
       - dataset_factory
       - hive_partition
@@ -149,6 +152,7 @@ reference:
       - Expression
       - Scanner
       - FileFormat
+      - CsvFileFormat
       - FileWriteOptions
       - FragmentScanOptions
       - map_batches

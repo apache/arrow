@@ -9,7 +9,7 @@ import { Int } from './int.js';
 export class DictionaryEncoding {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):DictionaryEncoding {
+  __init(i:number, bb:flatbuffers.ByteBuffer):DictionaryEncoding {
   this.bb_pos = i;
   this.bb = bb;
   return this;
@@ -29,9 +29,9 @@ static getSizePrefixedRootAsDictionaryEncoding(bb:flatbuffers.ByteBuffer, obj?:D
  * the file or streaming formats, the dictionary ids are found in the
  * DictionaryBatch messages
  */
-id():flatbuffers.Long {
+id():bigint {
   const offset = this.bb!.__offset(this.bb_pos, 4);
-  return offset ? this.bb!.readInt64(this.bb_pos + offset) : this.bb!.createLong(0, 0);
+  return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('0');
 }
 
 /**
@@ -66,8 +66,8 @@ static startDictionaryEncoding(builder:flatbuffers.Builder) {
   builder.startObject(4);
 }
 
-static addId(builder:flatbuffers.Builder, id:flatbuffers.Long) {
-  builder.addFieldInt64(0, id, builder.createLong(0, 0));
+static addId(builder:flatbuffers.Builder, id:bigint) {
+  builder.addFieldInt64(0, id, BigInt('0'));
 }
 
 static addIndexType(builder:flatbuffers.Builder, indexTypeOffset:flatbuffers.Offset) {

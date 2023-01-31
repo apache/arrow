@@ -42,17 +42,18 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
 
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
     ExecContext* ctx, const std::vector<Aggregate>& aggregates,
-    const std::vector<TypeHolder>& in_types);
+    const std::vector<std::vector<TypeHolder>>& in_types);
 
 Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     const std::vector<const HashAggregateKernel*>& kernels, ExecContext* ctx,
-    const std::vector<Aggregate>& aggregates, const std::vector<TypeHolder>& in_types);
+    const std::vector<Aggregate>& aggregates,
+    const std::vector<std::vector<TypeHolder>>& in_types);
 
 Result<FieldVector> ResolveKernels(
     const std::vector<Aggregate>& aggregates,
     const std::vector<const HashAggregateKernel*>& kernels,
     const std::vector<std::unique_ptr<KernelState>>& states, ExecContext* ctx,
-    const std::vector<TypeHolder>& in_types);
+    const std::vector<std::vector<TypeHolder>>& in_types);
 
 }  // namespace internal
 }  // namespace compute

@@ -43,15 +43,6 @@ export interface Observable<T> {
 }
 
 /** @ignore */
-const [BigIntCtor, BigIntAvailable] = (() => {
-    const BigIntUnavailableError = () => { throw new Error('BigInt is not available in this environment'); };
-    function BigIntUnavailable() { throw BigIntUnavailableError(); }
-    BigIntUnavailable.asIntN = () => { throw BigIntUnavailableError(); };
-    BigIntUnavailable.asUintN = () => { throw BigIntUnavailableError(); };
-    return typeof BigInt !== 'undefined' ? [BigInt, true] : [<any>BigIntUnavailable, false];
-})() as [BigIntConstructor, boolean];
-
-/** @ignore */
 const [BigInt64ArrayCtor, BigInt64ArrayAvailable] = (() => {
     const BigInt64ArrayUnavailableError = () => { throw new Error('BigInt64Array is not available in this environment'); };
     class BigInt64ArrayUnavailable {
@@ -75,7 +66,6 @@ const [BigUint64ArrayCtor, BigUint64ArrayAvailable] = (() => {
     return typeof BigUint64Array !== 'undefined' ? [BigUint64Array, true] : [<any>BigUint64ArrayUnavailable, false];
 })() as [BigUint64ArrayConstructor, boolean];
 
-export { BigIntCtor as BigInt, BigIntAvailable };
 export { BigInt64ArrayCtor as BigInt64Array, BigInt64ArrayAvailable };
 export { BigUint64ArrayCtor as BigUint64Array, BigUint64ArrayAvailable };
 

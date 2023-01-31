@@ -2174,6 +2174,7 @@ PREDEFINED             = __attribute__(x)= \
                          ARROW_DS_EXPORT= \
                          ARROW_ENGINE_EXPORT= \
                          ARROW_FLIGHT_EXPORT= \
+                         ARROW_FLIGHT_SQL_EXPORT= \
                          ARROW_EXTERN_TEMPLATE= \
                          ARROW_DEPRECATED(x)=
 

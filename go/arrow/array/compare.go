@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/float16"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/float16"
 )
 
 // RecordEqual reports whether the two provided records are equal.
@@ -333,6 +333,9 @@ func Equal(left, right arrow.Array) bool {
 	case *DenseUnion:
 		r := right.(*DenseUnion)
 		return arrayDenseUnionEqual(l, r)
+	case *RunEndEncoded:
+		r := right.(*RunEndEncoded)
+		return arrayRunEndEncodedEqual(l, r)
 	default:
 		panic(fmt.Errorf("arrow/array: unknown array type %T", l))
 	}
@@ -591,6 +594,9 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *DenseUnion:
 		r := right.(*DenseUnion)
 		return arrayDenseUnionApproxEqual(l, r, opt)
+	case *RunEndEncoded:
+		r := right.(*RunEndEncoded)
+		return arrayRunEndEncodedApproxEqual(l, r, opt)
 	default:
 		panic(fmt.Errorf("arrow/array: unknown array type %T", l))
 	}

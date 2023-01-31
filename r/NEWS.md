@@ -17,7 +17,98 @@
   under the License.
 -->
 
-# arrow 10.0.1.9000
+# arrow 11.0.0.9000
+
+# arrow 11.0.0
+
+## Breaking changes
+
+* `map_batches()` is lazy by default; it now returns a `RecordBatchReader`
+  instead of a list of `RecordBatch` objects unless `lazy = FALSE`.
+  ([#14521](https://github.com/apache/arrow/issues/14521))
+
+## New features
+
+### Docs
+
+* A substantial reorganisation, rewrite of and addition to, many of the 
+  vignettes and README. (@djnavarro, 
+  [#14514](https://github.com/apache/arrow/issues/14514))  
+
+### Reading/writing data
+
+* New functions `open_csv_dataset()`, `open_tsv_dataset()`, and 
+  `open_delim_dataset()` all wrap `open_dataset()`- they don't provide new 
+  functionality, but allow for readr-style options to be supplied, making it 
+  simpler to switch between individual file-reading and dataset 
+  functionality. ([#33614](https://github.com/apache/arrow/issues/33614))
+* User-defined null values can be set when writing CSVs both as datasets 
+  and as individual files. (@wjones127, 
+  [#14679](https://github.com/apache/arrow/issues/14679))
+* The new `col_names` parameter allows specification of column names when 
+  opening a CSV dataset. (@wjones127, 
+  [#14705](https://github.com/apache/arrow/issues/14705))
+* The `parse_options`, `read_options`, and `convert_options` parameters for 
+  reading individual files (`read_*_arrow()` functions) and datasets 
+  (`open_dataset()` and the new `open_*_dataset()` functions) can be passed 
+  in as lists. ([#15270](https://github.com/apache/arrow/issues/15270))
+* File paths containing accents can be read by `read_csv_arrow()`. 
+  ([#14930](https://github.com/apache/arrow/issues/14930))
+
+### dplyr compatibility
+
+* New dplyr (1.1.0) function `join_by()` has been implemented for dplyr joins 
+  on Arrow objects (equality conditions only).  
+  ([#33664](https://github.com/apache/arrow/issues/33664))
+* Output is accurate when multiple `dplyr::group_by()`/`dplyr::summarise()` 
+  calls are used. ([#14905](https://github.com/apache/arrow/issues/14905))
+* `dplyr::summarize()` works with division when divisor is a variable. 
+  ([#14933](https://github.com/apache/arrow/issues/14933))
+* `dplyr::right_join()` correctly coalesces keys. 
+  ([#15077](https://github.com/apache/arrow/issues/15077))
+* Multiple changes to ensure compatibility with dplyr 1.1.0. 
+  (@lionel-, [#14948](https://github.com/apache/arrow/issues/14948))
+
+### Function bindings
+
+* The following functions can be used in queries on Arrow objects:
+  * `lubridate::with_tz()` and `lubridate::force_tz()` (@eitsupi, 
+  [#14093](https://github.com/apache/arrow/issues/14093))
+  * `stringr::str_remove()` and `stringr::str_remove_all()` 
+  ([#14644](https://github.com/apache/arrow/issues/14644))
+
+### Arrow object creation
+
+* Arrow Scalars can be created from `POSIXlt` objects. 
+  ([#15277](https://github.com/apache/arrow/issues/15277))
+* `Array$create()` can create Decimal arrays. 
+  ([#15211](https://github.com/apache/arrow/issues/15211))
+* `StructArray$create()` can be used to create StructArray objects. 
+  ([#14922](https://github.com/apache/arrow/issues/14922))
+* Creating an Array from an object bigger than 2^31 has correct length 
+  ([#14929](https://github.com/apache/arrow/issues/14929))
+
+### Installation
+
+* Improved offline installation using pre-downloaded binaries. 
+  (@pgramme, [#14086](https://github.com/apache/arrow/issues/14086))
+* The package can automatically link to system installations of the AWS SDK
+  for C++. (@kou, [#14235](https://github.com/apache/arrow/issues/14235))
+
+## Minor improvements and fixes
+
+* Calling `lubridate::as_datetime()` on Arrow objects can handle time in 
+  sub-seconds. (@eitsupi, 
+  [#13890](https://github.com/apache/arrow/issues/13890))
+* `head()` can be called after `as_record_batch_reader()`. 
+  ([#14518](https://github.com/apache/arrow/issues/14518))
+* `as.Date()` can go from `timestamp[us]` to `timestamp[s]`. 
+  ([#14935](https://github.com/apache/arrow/issues/14935))
+* curl timeout policy can be configured for S3. 
+  ([#15166](https://github.com/apache/arrow/issues/15166))
+* rlang dependency must be at least version 1.0.0 because of 
+  `check_dots_empty()`. (@daattali, 
+  [#14744](https://github.com/apache/arrow/issues/14744))
 
 # arrow 10.0.1
 
@@ -109,7 +200,7 @@ As of version 10.0.0, `arrow` requires C++17 to build. This means that:
 * `map_batches()` returns a `RecordBatchReader` and requires that the function it maps returns something coercible to a `RecordBatch` through the `as_record_batch()` S3 function. It can also run in streaming fashion if passed `.lazy = TRUE`. (ARROW-15271, ARROW-16703)
 * Functions can be called with package namespace prefixes (e.g. `stringr::`, `lubridate::`) within queries. For example, `stringr::str_length` will now dispatch to the same kernel as `str_length`. (ARROW-14575)
 * Support for new functions:
-  * `lubridate::parse_date_time()` datetime parser: (ARROW-14848, ARROW-16407)
+  * `lubridate::parse_date_time()` datetime parser: (ARROW-14848, ARROW-16407, ARROW-16653)
     * `orders` with year, month, day, hours, minutes, and seconds components are supported.
     * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
   * `lubridate` date and datetime parsers such as `lubridate::ymd()`, `lubridate::yq()`, and `lubridate::ymd_hms()` (ARROW-16394, ARROW-16516, ARROW-16395)

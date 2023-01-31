@@ -3443,8 +3443,8 @@ TEST(ArrowReadWrite, Decimal256AsInt) {
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
 
   parquet::WriterProperties::Builder builder;
-  // Enforce integer type to annotate decimal type
-  auto writer_properties = builder.enable_integer_annotate_decimal()->build();
+  // Allow small decimals to be stored as int32 or int64.
+  auto writer_properties = builder.enable_store_decimal_as_integer()->build();
   auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
 
   CheckConfiguredRoundtrip(table, table, writer_properties, props_store_schema);
@@ -4821,8 +4821,8 @@ class TestIntegerAnnotateDecimalTypeParquetIO : public TestParquetIO<TestType> {
     auto arrow_schema = ::arrow::schema({::arrow::field("a", values->type())});
 
     parquet::WriterProperties::Builder builder;
-    // Enforce integer type to annotate decimal type
-    auto writer_properties = builder.enable_integer_annotate_decimal()->build();
+    // Allow small decimals to be stored as int32 or int64.
+    auto writer_properties = builder.enable_store_decimal_as_integer()->build();
     std::shared_ptr<SchemaDescriptor> parquet_schema;
     ASSERT_OK_NO_THROW(ToParquetSchema(arrow_schema.get(), *writer_properties,
                                        *default_arrow_writer_properties(),
@@ -4973,7 +4973,7 @@ TYPED_TEST(TestBufferedParquetIO, SingleColumnOptionalBufferedWriteLarge) {
   ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleColumnTable(values, num_row_groups));
 }
 
-TEST(TestReadWriteArrow, WriteAndReadRecordBatch) {
+TEST(TestArrowReadWrite, WriteAndReadRecordBatch) {
   auto pool = ::arrow::default_memory_pool();
   auto sink = CreateOutputStream();
   // Limit the max number of rows in a row group to 10
@@ -5039,6 +5039,37 @@ TEST(TestReadWriteArrow, WriteAndReadRecordBatch) {
   std::shared_ptr<::arrow::RecordBatch> read_record_batch;
   ASSERT_OK(batch_reader->ReadNext(&read_record_batch));
   EXPECT_TRUE(record_batch->Equals(*read_record_batch));
+}
+
+TEST(TestArrowReadWrite, MultithreadedWrite) {
+  const int num_columns = 20;
+  const int num_rows = 1000;
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
+
+  // Write columns in parallel in the buffered row group mode.
+  auto sink = CreateOutputStream();
+  auto write_props = WriterProperties::Builder()
+                         .write_batch_size(100)
+                         ->max_row_group_length(table->num_rows())
+                         ->build();
+  auto pool = ::arrow::default_memory_pool();
+  auto arrow_properties = ArrowWriterProperties::Builder().set_use_threads(true)->build();
+  PARQUET_ASSIGN_OR_THROW(
+      auto writer, FileWriter::Open(*table->schema(), pool, sink, std::move(write_props),
+                                    std::move(arrow_properties)));
+  PARQUET_ASSIGN_OR_THROW(auto batch, table->CombineChunksToBatch(pool));
+  ASSERT_OK_NO_THROW(writer->NewBufferedRowGroup());
+  ASSERT_OK_NO_THROW(writer->WriteRecordBatch(*batch));
+  ASSERT_OK_NO_THROW(writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  // Read to verify the data.
+  std::shared_ptr<Table> result;
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer), pool, &reader));
+  ASSERT_OK_NO_THROW(reader->ReadTable(&result));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 }
 
 }  // namespace arrow

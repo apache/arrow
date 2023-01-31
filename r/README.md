@@ -22,7 +22,7 @@ The arrow package provides functionality for a wide range of data analysis
 tasks. It allows users to read and write data in a variety formats:
 
 -   Read and write Parquet files, an efficient and widely used columnar format
--   Read and write Feather files, a format optimized for speed and
+-   Read and write Arrow (formerly known as Feather) files, a format optimized for speed and
     interoperability
 -   Read and write CSV files with excellent speed and efficiency
 -   Read and write multi-file and larger-than-memory datasets

@@ -262,6 +262,8 @@
 #' * [`my()`][lubridate::my()]: `locale` argument not supported
 #' * [`myd()`][lubridate::myd()]: `locale` argument not supported
 #' * [`parse_date_time()`][lubridate::parse_date_time()]: `quiet = FALSE` is not supported
+#' Available formats are H, I, j, M, S, U, w, W, y, Y, R, T.
+#' On Linux and OS X additionally a, A, b, B, Om, p, r are available.
 #' * [`pm()`][lubridate::pm()]
 #' * [`qday()`][lubridate::qday()]
 #' * [`quarter()`][lubridate::quarter()]

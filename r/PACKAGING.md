@@ -54,7 +54,7 @@ use the release candidate as the source.
   to update the release version, SHA256 checksum of the release source file (which can be found in the same directory as the release source file), and any changes to dependencies and build steps that have changed in the
   [copy of the formula we have of that formula in the Arrow repo](https://github.com/apache/arrow/blob/master/dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb)
 - [ ] Pull request to modify
-  [the apache-arrow-static autobrew formula]( https://github.com/autobrew/homebrew-core/blob/master/Formula/apache-arrow-static.rb)
+  [the apache-arrow-static autobrew formula](https://github.com/autobrew/homebrew-cran/blob/master/Formula/apache-arrow-static.rb)
   to update the version, SHA, and any changes to dependencies and build steps that have changed in the
   [copy of the formula we have of that formula in the Arrow repo](https://github.com/apache/arrow/blob/master/dev/tasks/homebrew-formulae/autobrew/apache-arrow-static.rb)
 - [ ] Pull request to modify the 
@@ -108,7 +108,7 @@ instead of the *release candidate*; ensure linux binary packages are available:
 Check binary Arrow C++ distributions specific to the R package:
 
 - [ ] Upload the .tar.gz to [win-builder](https://win-builder.r-project.org/upload.aspx) (r-devel only)
-  and confirm (with Neal, who will automatically receive an email about the results) that the check is clean.
+  and confirm (with Nic, who will automatically receive an email about the results) that the check is clean.
   This step cannot be completed before Jeroen has put the binaries in the MinGW repository, i.e. [here](https://ftp.opencpu.org/rtools/ucrt64/), [here](https://ftp.opencpu.org/rtools/mingw64/), and [here](https://ftp.opencpu.org/rtools/mingw32/).
 - [ ] Upload the .tar.gz to [MacBuilder](https://mac.r-project.org/macbuilder/submit.html)
   and confirm that the check is clean

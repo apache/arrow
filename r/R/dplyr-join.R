@@ -136,6 +136,17 @@ handle_join_by <- function(by, x, y) {
   if (is.null(by)) {
     return(set_names(intersect(names(x), names(y))))
   }
+  if (inherits(by, "dplyr_join_by")) {
+    if (!all(by$condition == "==" & by$filter == "none")) {
+      abort(
+        paste0(
+          "Inequality conditions and helper functions ",
+          "are not supported in `join_by()` expressions."
+        )
+      )
+    }
+    by <- set_names(by$y, by$x)
+  }
   stopifnot(is.character(by))
   if (is.null(names(by))) {
     by <- set_names(by)

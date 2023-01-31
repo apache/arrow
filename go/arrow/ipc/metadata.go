@@ -23,11 +23,11 @@ import (
 	"io"
 	"sort"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/endian"
-	"github.com/apache/arrow/go/v11/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v11/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/endian"
+	"github.com/apache/arrow/go/v12/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v12/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
@@ -793,6 +793,7 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		var dt flatbuf.Map
 		dt.Init(data.Bytes, data.Pos)
 		ret := arrow.MapOf(pairType.Field(0).Type, pairType.Field(1).Type)
+		ret.SetItemNullable(pairType.Field(1).Nullable)
 		ret.KeysSorted = dt.KeysSorted()
 		return ret, nil
 

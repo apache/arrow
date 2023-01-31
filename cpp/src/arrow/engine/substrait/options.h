@@ -67,7 +67,19 @@ using NamedTableProvider =
     std::function<Result<compute::Declaration>(const std::vector<std::string>&)>;
 static NamedTableProvider kDefaultNamedTableProvider;
 
-class ExtensionProvider;
+class ARROW_ENGINE_EXPORT ExtensionDetails {
+ public:
+  virtual ~ExtensionDetails() = default;
+};
+
+class ARROW_ENGINE_EXPORT ExtensionProvider {
+ public:
+  static std::shared_ptr<ExtensionProvider> kDefaultExtensionProvider;
+  virtual ~ExtensionProvider() = default;
+  virtual Result<RelationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
+                                       const ExtensionDetails& ext_details,
+                                       const ExtensionSet& ext_set) = 0;
+};
 
 ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionProvider> default_extension_provider();
 

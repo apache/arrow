@@ -894,8 +894,6 @@ Status MultipathLevelBuilder::Write(const Array& array, bool array_field_nullabl
                                     MultipathLevelBuilder::CallbackFunction callback) {
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<MultipathLevelBuilder> builder,
                         MultipathLevelBuilder::Make(array, array_field_nullable));
-  PathBuilder constructor(array_field_nullable);
-  RETURN_NOT_OK(VisitArrayInline(array, &constructor));
   for (int leaf_idx = 0; leaf_idx < builder->GetLeafCount(); leaf_idx++) {
     RETURN_NOT_OK(builder->Write(leaf_idx, context, callback));
   }

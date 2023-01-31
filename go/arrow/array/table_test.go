@@ -21,9 +21,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 func TestChunked(t *testing.T) {
@@ -695,6 +695,9 @@ func TestTableReader(t *testing.T) {
 
 	for tr.Next() {
 	}
+	if err := tr.Err(); err != nil {
+		t.Fatalf("tr err: %#v", err)
+	}
 
 	for _, tc := range []struct {
 		sz   int64
@@ -728,6 +731,9 @@ func TestTableReader(t *testing.T) {
 				}
 				n++
 				sum += rec.NumRows()
+			}
+			if err := tr.Err(); err != nil {
+				t.Fatalf("tr err: %#v", err)
 			}
 
 			if got, want := n, tc.n; got != want {
