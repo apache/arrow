@@ -30,8 +30,8 @@ namespace engine {
 
 namespace {
 
-std::vector<compute::Declaration::Input> MakeInputDeclarations(
-    const std::vector<DeclarationInfo> inputs) {
+std::vector<compute::Declaration::Input> MakeDeclarationInputss(
+    const std::vector<DeclarationInfo>& inputs) {
   std::vector<compute::Declaration::Input> input_decls(inputs.size());
   for (size_t i = 0; i < inputs.size(); i++) {
     input_decls[i] = inputs[i].declaration;
@@ -129,7 +129,7 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     compute::AsofJoinNodeOptions asofjoin_node_opts{std::move(input_keys), tolerance};
 
     // declaration
-    auto input_decls = MakeInputDeclarations(inputs);
+    auto input_decls = MakeDeclarationInputss(inputs);
     return RelationInfo{
         {compute::Declaration("asofjoin", input_decls, std::move(asofjoin_node_opts)),
          std::move(schema)},
@@ -150,17 +150,13 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
       return Status::Invalid("Got ", named_tap_rel.columns_size(),
                              " NamedTapRel columns but expected ", num_fields);
     }
-    int i = 0;
-    FieldVector fields(static_cast<size_t>(num_fields));
-    for (const auto& column : named_tap_rel.columns()) {
-      fields[i] = field(column, schema->field(i)->type());
-      i++;
-    }
-    auto renamed_schema = arrow::schema(std::move(fields));
+    std::vector<std::string> columns(named_tap_rel.columns().begin(),
+                                     named_tap_rel.columns().end());
+    ARROW_ASSIGN_OR_RAISE(auto renamed_schema, schema->WithNames(columns));
     std::shared_ptr<compute::ExecNodeOptions> named_tap_opts =
         std::make_shared<NamedTapNodeOptions>(named_tap_rel.name(),
                                               std::move(renamed_schema));
-    auto input_decls = MakeInputDeclarations(inputs);
+    auto input_decls = MakeDeclarationInputss(inputs);
     return RelationInfo{{compute::Declaration(named_tap_rel.kind(), input_decls,
                                               std::move(named_tap_opts)),
                          std::move(renamed_schema)},

@@ -1968,6 +1968,8 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   Result<std::shared_ptr<Schema>> SetField(int i,
                                            const std::shared_ptr<Field>& field) const;
 
+  Result<std::shared_ptr<Schema>> WithNames(const std::vector<std::string>& names) const;
+
   /// \brief Replace key-value metadata with new metadata
   ///
   /// \param[in] metadata new KeyValueMetadata

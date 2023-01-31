@@ -45,8 +45,15 @@ message AsOfJoinRel {
   }
 }
 
+// Named tap relation
+//
+// A tap is a relation having a single input relation that it passes through, while also
+// causing some side-effect, e.g., writing to external storage.
 message NamedTapRel {
+  // The kind of tap
   string kind = 1;
+  // A name used to configure the tap, e.g., a URI defining the destination of writing
   string name = 2;
+  // Column names for the tap's output. Their number must be 0 or equal to the input's.
   repeated string columns = 3;
 }
