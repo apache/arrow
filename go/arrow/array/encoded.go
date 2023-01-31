@@ -73,7 +73,24 @@ func (r *RunEndEncoded) Release() {
 // run, only over the range of run values inside the logical offset/length
 // range of the parent array.
 //
-// The return from this needs to be Released
+// Example
+//
+// For this array:
+//     RunEndEncoded: { Offset: 150, Length: 1500 }
+//         RunEnds: [ 1, 2, 4, 6, 10, 1000, 1750, 2000 ]
+//         Values:  [ "a", "b", "c", "d", "e", "f", "g", "h" ]
+//
+// LogicalValuesArray will return the following array:
+//     [ "f", "g" ]
+//
+// This is because the offset of 150 tells it to skip the values until
+// "f" which corresponds with the logical offset (the run from 10 - 1000),
+// and stops after "g" because the length + offset goes to 1650 which is
+// within the run from 1000 - 1750, corresponding to the "g" value.
+//
+// Note
+//
+// The return from this needs to be Released.
 func (r *RunEndEncoded) LogicalValuesArray() arrow.Array {
 	physOffset := r.GetPhysicalOffset()
 	physLength := r.GetPhysicalLength()
@@ -87,7 +104,26 @@ func (r *RunEndEncoded) LogicalValuesArray() arrow.Array {
 // to the logical offset/length range of the parent array.
 //
 // For arrays with an offset, this is not a slice of the existing
-// internal run ends array.
+// internal run ends array. Instead a new array is created with run-ends
+// that are adjusted so the new array can have an offset of 0.
+//
+// Example
+//
+// For this array:
+//     RunEndEncoded: { Offset: 150, Length: 1500 }
+//         RunEnds: [ 1, 2, 4, 6, 10, 1000, 1750, 2000 ]
+//         Values:  [ "a", "b", "c", "d", "e", "f", "g", "h" ]
+//
+// LogicalRunEndsArray will return the following array:
+//     [ 850, 1500 ]
+//
+// This is because the offset of 150 tells us to skip all run-ends less
+// than 150 (by finding the physical offset), and we adjust the run-ends
+// accordingly (1000 - 150 = 850). The logical length of the array is 1500,
+// so we know we don't want to go past the 1750 run end. Thus the last
+// run-end is determined by doing: min(1750 - 150, 1500) = 1500.
+//
+// Note
 //
 // The return from this needs to be Released
 func (r *RunEndEncoded) LogicalRunEndsArray(mem memory.Allocator) arrow.Array {
