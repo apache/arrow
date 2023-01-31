@@ -26,7 +26,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v11/parquet"
+	"github.com/apache/arrow/go/v12/parquet"
 
 	"github.com/zeebo/xxh3"
 )

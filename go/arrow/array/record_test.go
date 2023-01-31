@@ -21,9 +21,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -300,6 +300,9 @@ func TestRecordReader(t *testing.T) {
 		if got, want := itr.Record(), recs[n-1]; !reflect.DeepEqual(got, want) {
 			t.Fatalf("itr[%d], invalid record. got=%#v, want=%#v", n-1, got, want)
 		}
+	}
+	if err := itr.Err(); err != nil {
+		t.Fatalf("itr error: %#v", err)
 	}
 
 	if n != len(recs) {

@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -281,15 +281,6 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.TIME64:
 		typ := dtype.(*arrow.Time64Type)
 		return NewTime64Builder(mem, typ)
-	case arrow.INTERVAL:
-		switch dtype.(type) {
-		case *arrow.DayTimeIntervalType:
-			return NewDayTimeIntervalBuilder(mem)
-		case *arrow.MonthIntervalType:
-			return NewMonthIntervalBuilder(mem)
-		case *arrow.MonthDayNanoIntervalType:
-			return NewMonthDayNanoIntervalBuilder(mem)
-		}
 	case arrow.INTERVAL_MONTHS:
 		return NewMonthIntervalBuilder(mem)
 	case arrow.INTERVAL_DAY_TIME:
@@ -334,6 +325,9 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.DURATION:
 		typ := dtype.(*arrow.DurationType)
 		return NewDurationBuilder(mem, typ)
+	case arrow.RUN_END_ENCODED:
+		typ := dtype.(*arrow.RunEndEncodedType)
+		return NewRunEndEncodedBuilder(mem, typ.RunEnds(), typ.Encoded())
 	}
 	panic(fmt.Errorf("arrow/array: unsupported builder for %T", dtype))
 }

@@ -2785,7 +2785,10 @@ cdef class StructArray(Array):
         if (c_arrays.size() == 0 and c_names.size() == 0 and
                 c_fields.size() == 0):
             # The C++ side doesn't allow this
-            return array([], struct([]))
+            if mask is None:
+                return array([], struct([]))
+            else:
+                return array([{}] * len(mask), struct([]), mask=mask)
 
         if names is not None:
             # XXX Cannot pass "nullptr" for a shared_ptr<T> argument:

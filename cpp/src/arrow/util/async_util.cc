@@ -19,11 +19,15 @@
 
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
+#include "arrow/util/tracing_internal.h"
 
 #include <condition_variable>
 #include <list>
 #include <memory>
 #include <mutex>
+
+using namespace std::string_view_literals;  // NOLINT
 
 namespace arrow {
 
@@ -118,6 +122,28 @@ class FifoQueue : public ThrottledAsyncTaskScheduler::Queue {
   std::list<std::unique_ptr<Task>> tasks_;
 };
 
+#ifdef ARROW_WITH_OPENTELEMETRY
+::arrow::internal::tracing::Scope TraceTaskSubmitted(AsyncTaskScheduler::Task* task,
+                                                     const util::tracing::Span& parent) {
+  if (task->span.valid()) {
+    EVENT(task->span, "task submitted");
+    return ACTIVATE_SPAN(task->span);
+  }
+
+  return START_SCOPED_SPAN_WITH_PARENT_SV(task->span, parent, task->name(),
+                                          {{"task.cost", task->cost()}});
+}
+
+void TraceTaskQueued(AsyncTaskScheduler::Task* task, const util::tracing::Span& parent) {
+  START_SCOPED_SPAN_WITH_PARENT_SV(task->span, parent, task->name(),
+                                   {{"task.cost", task->cost()}});
+}
+
+void TraceTaskFinished(AsyncTaskScheduler::Task* task) { END_SPAN(task->span); }
+
+void TraceSchedulerAbort(const Status& error) { EVENT_ON_CURRENT_SPAN(error.ToString()); }
+#endif
+
 class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
  public:
   using Task = AsyncTaskScheduler::Task;
@@ -126,7 +152,9 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
                                   FnOnce<void(const Status&)> abort_callback)
       : AsyncTaskScheduler(),
         stop_token_(std::move(stop_token)),
-        abort_callback_(std::move(abort_callback)) {}
+        abort_callback_(std::move(abort_callback)) {
+    START_SCOPED_SPAN(span_, "AsyncTaskScheduler");
+  }
 
   ~AsyncTaskSchedulerImpl() {
     DCHECK_EQ(running_tasks_, 0) << " scheduler destroyed while tasks still running";
@@ -145,6 +173,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   }
 
   Future<> OnFinished() const { return finished_; }
+  const tracing::Span& span() const override { return span_; }
 
  private:
   bool IsAborted() { return !maybe_error_.ok(); }
@@ -173,6 +202,9 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     // Capture `task` to keep it alive until finished
     if (!submit_result->TryAddCallback([this, task_inner = std::move(task)]() mutable {
           return [this, task_inner2 = std::move(task_inner)](const Status& st) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+            TraceTaskFinished(task_inner2.get());
+#endif
             OnTaskFinished(st);
           };
         })) {
@@ -195,6 +227,9 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     bool aborted = false;
     if (!IsAborted()) {
       maybe_error_ = st;
+#ifdef ARROW_WITH_OPENTELEMETRY
+      TraceSchedulerAbort(st);
+#endif
       // Add one more "task" to represent running the abort callback.  This
       // will prevent any other task finishing and marking the scheduler finished
       // while we are running the abort callback.
@@ -215,6 +250,12 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
       AbortUnlocked(stop_token_.Poll(), std::move(lk));
       return;
     }
+#ifdef ARROW_WITH_OPENTELEMETRY
+    // It's important that the task's span be active while we run the submit function.
+    // Normally the submit function should transfer the span to the thread task as the
+    // active span.
+    auto scope = TraceTaskSubmitted(task.get(), span_);
+#endif
     running_tasks_++;
     lk.unlock();
     return DoSubmitTask(std::move(task));
@@ -229,8 +270,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   std::mutex mutex_;
   StopToken stop_token_;
   FnOnce<void(const Status&)> abort_callback_;
-  bool abort_callback_pending_ = false;
-  std::condition_variable abort_callback_cv_;
+  util::tracing::Span span_;
 
   // Allows AsyncTaskScheduler::Make to call OnTaskFinished
   friend AsyncTaskScheduler;
@@ -265,6 +305,9 @@ class ThrottledAsyncTaskSchedulerImpl
     int latched_cost = std::min(task->cost(), throttle_->Capacity());
     std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(latched_cost);
     if (maybe_backoff) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+      TraceTaskQueued(task.get(), span());
+#endif
       queue_->Push(std::move(task));
       lk.unlock();
       maybe_backoff->AddCallback(
@@ -285,11 +328,13 @@ class ThrottledAsyncTaskSchedulerImpl
 
   void Pause() override { throttle_->Pause(); }
   void Resume() override { throttle_->Resume(); }
+  const util::tracing::Span& span() const override { return target_->span(); }
 
  private:
   bool SubmitTask(std::unique_ptr<Task> task, int latched_cost) {
     // Wrap the task with a wrapper that runs it and then checks to see if there are any
     // queued tasks
+    std::string_view name = task->name();
     return target_->AddSimpleTask(
         [latched_cost, inner_task = std::move(task),
          self = shared_from_this()]() mutable -> Result<Future<>> {
@@ -298,7 +343,8 @@ class ThrottledAsyncTaskSchedulerImpl
             self->throttle_->Release(latched_cost);
             self->ContinueTasks();
           });
-        });
+        },
+        name);
   }
 
   void ContinueTasks() {
@@ -350,7 +396,8 @@ class AsyncTaskGroupImpl : public AsyncTaskGroup {
       if (!st.ok()) {
         // We can't return an invalid status from the destructor so we schedule a dummy
         // failing task
-        target_->AddSimpleTask([st = std::move(st)]() { return st; });
+        target_->AddSimpleTask([st = std::move(st)]() { return st; },
+                               "failed_task_reporter"sv);
       }
     }
   }
@@ -370,11 +417,14 @@ class AsyncTaskGroupImpl : public AsyncTaskGroup {
         });
       }
       int cost() const override { return target->cost(); }
+      std::string_view name() const override { return target->name(); }
       std::unique_ptr<Task> target;
       std::shared_ptr<State> state;
     };
     return target_->AddTask(std::make_unique<WrapperTask>(std::move(task), state_));
   }
+
+  const util::tracing::Span& span() const override { return target_->span(); }
 
  private:
   struct State {
@@ -392,6 +442,8 @@ class AsyncTaskGroupImpl : public AsyncTaskGroup {
 Future<> AsyncTaskScheduler::Make(FnOnce<Status(AsyncTaskScheduler*)> initial_task,
                                   FnOnce<void(const Status&)> abort_callback,
                                   StopToken stop_token) {
+  util::tracing::Span span;
+  auto scope = START_SCOPED_SPAN_SV(span, "AsyncTaskScheduler::InitialTask"sv);
   auto scheduler = std::make_unique<AsyncTaskSchedulerImpl>(std::move(stop_token),
                                                             std::move(abort_callback));
   Status initial_task_st = std::move(initial_task)(scheduler.get());
@@ -431,6 +483,7 @@ class ThrottledAsyncTaskGroup : public ThrottledAsyncTaskScheduler {
       : throttle_(std::move(throttle)), task_group_(std::move(task_group)) {}
   void Pause() override { throttle_->Pause(); }
   void Resume() override { throttle_->Resume(); }
+  const util::tracing::Span& span() const override { return task_group_->span(); }
   bool AddTask(std::unique_ptr<Task> task) override {
     return task_group_->AddTask(std::move(task));
   }

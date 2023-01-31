@@ -134,9 +134,8 @@ DeclarationFactory MakeNoSinkDeclarationFactory() {
   };
 }
 
-// FIXME - Replace with actual version that includes the change
 constexpr uint32_t kMinimumMajorVersion = 0;
-constexpr uint32_t kMinimumMinorVersion = 19;
+constexpr uint32_t kMinimumMinorVersion = 20;
 
 Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, DeclarationFactory declaration_factory,

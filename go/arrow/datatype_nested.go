@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
 )
 
 type NestedType interface {
@@ -346,6 +346,11 @@ func (t *MapType) String() string {
 	if t.KeysSorted {
 		o.WriteString(", keys_sorted")
 	}
+	if t.ItemField().Nullable {
+		o.WriteString(", items_nullable")
+	} else {
+		o.WriteString(", items_non_nullable")
+	}
 	o.WriteString(">")
 	return o.String()
 }
@@ -596,7 +601,7 @@ func (t *SparseUnionType) Fingerprint() string {
 	return typeFingerprint(t) + "[s" + t.fingerprint()
 }
 func (SparseUnionType) Layout() DataTypeLayout {
-	return DataTypeLayout{Buffers: []BufferSpec{SpecAlwaysNull(), SpecFixedWidth(Uint8SizeBytes)}}
+	return DataTypeLayout{Buffers: []BufferSpec{SpecFixedWidth(Uint8SizeBytes)}}
 }
 func (t *SparseUnionType) String() string {
 	return t.Name() + t.unionType.String()
@@ -659,7 +664,7 @@ func (t *DenseUnionType) Fingerprint() string {
 }
 
 func (DenseUnionType) Layout() DataTypeLayout {
-	return DataTypeLayout{Buffers: []BufferSpec{SpecAlwaysNull(), SpecFixedWidth(Uint8SizeBytes), SpecFixedWidth(Int32SizeBytes)}}
+	return DataTypeLayout{Buffers: []BufferSpec{SpecFixedWidth(Uint8SizeBytes), SpecFixedWidth(Int32SizeBytes)}}
 }
 
 func (DenseUnionType) OffsetTypeTraits() OffsetTraits { return Int32Traits }

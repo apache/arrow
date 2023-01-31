@@ -439,14 +439,14 @@ class StreamingReaderTestBase {
   virtual ~StreamingReaderTestBase() = default;
 
  protected:
-  static std::shared_ptr<io::InputStream> MakeTestStream(const std::string& str) {
-    auto buffer = std::make_shared<Buffer>(str);
+  static std::shared_ptr<io::InputStream> MakeTestStream(std::string str) {
+    auto buffer = Buffer::FromString(std::move(str));
     return std::make_shared<io::BufferReader>(std::move(buffer));
   }
   // Stream with simulated latency
-  static std::shared_ptr<io::InputStream> MakeTestStream(const std::string& str,
+  static std::shared_ptr<io::InputStream> MakeTestStream(std::string str,
                                                          double latency) {
-    return std::make_shared<io::SlowInputStream>(MakeTestStream(str), latency);
+    return std::make_shared<io::SlowInputStream>(MakeTestStream(std::move(str)), latency);
   }
 
   Result<std::shared_ptr<StreamingReader>> MakeReader(

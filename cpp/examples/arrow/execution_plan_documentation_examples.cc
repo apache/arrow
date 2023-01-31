@@ -531,7 +531,7 @@ arrow::Status ExecutePlanAndCollectAsTableWithCustomSink(
   ARROW_RETURN_NOT_OK(plan->Validate());
   std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
   // start the ExecPlan
-  ARROW_RETURN_NOT_OK(plan->StartProducing());
+  plan->StartProducing();
 
   // collect sink_reader into a Table
   std::shared_ptr<arrow::Table> response_table;
@@ -751,7 +751,7 @@ arrow::Status TableSinkExample() {
   ARROW_RETURN_NOT_OK(plan->Validate());
   std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
   // start the ExecPlan
-  ARROW_RETURN_NOT_OK(plan->StartProducing());
+  plan->StartProducing();
 
   // Wait for the plan to finish
   auto finished = plan->finished();

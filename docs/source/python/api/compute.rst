@@ -45,6 +45,10 @@ Aggregations
    tdigest
    variance
 
+..
+  Nullary aggregate functions (count_all) aren't exposed in pyarrow.compute,
+  so they aren't listed here.
+
 Cumulative Functions
 --------------------
 

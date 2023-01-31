@@ -47,10 +47,10 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -748,6 +748,7 @@ type nativeCRecordBatchReader struct {
 func (n *nativeCRecordBatchReader) Retain()  {}
 func (n *nativeCRecordBatchReader) Release() {}
 
+func (n *nativeCRecordBatchReader) Err() error           { return n.err }
 func (n *nativeCRecordBatchReader) Record() arrow.Record { return n.cur }
 
 func (n *nativeCRecordBatchReader) Next() bool {
@@ -825,6 +826,7 @@ func (n *nativeCRecordBatchReader) getError(errno int) error {
 
 func (n *nativeCRecordBatchReader) Read() (arrow.Record, error) {
 	if err := n.next(); err != nil {
+		n.err = err
 		return nil, err
 	}
 	return n.cur, nil

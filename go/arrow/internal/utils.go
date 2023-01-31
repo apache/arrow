@@ -17,8 +17,8 @@
 package internal
 
 import (
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/internal/flatbuf"
 )
 
 const CurMetadataVersion = flatbuf.MetadataVersionV5
@@ -40,7 +40,7 @@ func HasValidityBitmap(id arrow.Type, version flatbuf.MetadataVersion) bool {
 	}
 
 	switch id {
-	case arrow.NULL, arrow.DENSE_UNION, arrow.SPARSE_UNION:
+	case arrow.NULL, arrow.DENSE_UNION, arrow.SPARSE_UNION, arrow.RUN_END_ENCODED:
 		return false
 	}
 	return true

@@ -25,15 +25,15 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/decimal128"
-	"github.com/apache/arrow/go/v11/arrow/memory"
-	"github.com/apache/arrow/go/v11/internal/utils"
-	"github.com/apache/arrow/go/v11/parquet"
-	"github.com/apache/arrow/go/v11/parquet/file"
-	"github.com/apache/arrow/go/v11/parquet/schema"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/decimal128"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/internal/utils"
+	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v12/parquet/file"
+	"github.com/apache/arrow/go/v12/parquet/schema"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/xerrors"
 )
@@ -286,7 +286,7 @@ func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 	childArrData := make([]arrow.ArrayData, 0)
 	// gather children arrays and def levels
 	for _, child := range sr.children {
-		field, err := child.BuildArray(validityIO.Read)
+		field, err := child.BuildArray(lenBound)
 		if err != nil {
 			return nil, err
 		}
