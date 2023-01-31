@@ -970,10 +970,8 @@ class RunEndEncodedField(Field):
 
     def __init__(self, name, run_ends_bitwidth, values_field, *, nullable=True,
                  metadata=None):
-        super().__init__(name, nullable=nullable,
-                         metadata=metadata)
-        self.run_ends_field = RunEndsField(
-            'run_ends', run_ends_bitwidth, nullable=False)
+        super().__init__(name, nullable=nullable, metadata=metadata)
+        self.run_ends_field = RunEndsField('run_ends', run_ends_bitwidth)
         self.values_field = values_field
 
     def _get_type(self):

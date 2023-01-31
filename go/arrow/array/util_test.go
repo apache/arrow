@@ -430,6 +430,10 @@ func TestArrRecordsJSONRoundTrip(t *testing.T) {
 			// float weirdness due to their size, so smaller tests will work fine.
 			continue
 		}
+		if k == "run_end_encoded" {
+			// unmarshalling json to run_end_encoded not yet implemented
+			continue
+		}
 		t.Run(k, func(t *testing.T) {
 			var buf bytes.Buffer
 			assert.NotPanics(t, func() {

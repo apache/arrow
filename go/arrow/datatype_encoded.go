@@ -22,14 +22,16 @@ type EncodedType interface {
 }
 
 // RunEndEncodedType is the datatype to represent a run-end encoded
-// array of data.
+// array of data. ValueNullable defaults to true, but can be set false
+// if this should represent a type with a non-nullable value field.
 type RunEndEncodedType struct {
-	ends DataType
-	enc  DataType
+	ends          DataType
+	enc           DataType
+	ValueNullable bool
 }
 
 func RunEndEncodedOf(runEnds, encoded DataType) *RunEndEncodedType {
-	return &RunEndEncodedType{ends: runEnds, enc: encoded}
+	return &RunEndEncodedType{ends: runEnds, enc: encoded, ValueNullable: true}
 }
 
 func (*RunEndEncodedType) ID() Type     { return RUN_END_ENCODED }
@@ -52,7 +54,7 @@ func (t *RunEndEncodedType) Encoded() DataType { return t.enc }
 func (t *RunEndEncodedType) Fields() []Field {
 	return []Field{
 		{Name: "run_ends", Type: t.ends},
-		{Name: "values", Type: t.enc, Nullable: true},
+		{Name: "values", Type: t.enc, Nullable: t.ValueNullable},
 	}
 }
 

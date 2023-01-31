@@ -208,8 +208,8 @@ func (r *RunEndEncoded) String() string {
 }
 
 func (r *RunEndEncoded) getOneForMarshal(i int) interface{} {
-	return [2]interface{}{r.ends.(arraymarshal).getOneForMarshal(i),
-		r.values.(arraymarshal).getOneForMarshal(i)}
+	physIndex := encoded.FindPhysicalIndex(r.data, i)
+	return r.values.(arraymarshal).getOneForMarshal(physIndex)
 }
 
 func (r *RunEndEncoded) MarshalJSON() ([]byte, error) {
