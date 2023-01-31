@@ -463,15 +463,14 @@ else()
   set_urls(AWS_C_COMPRESSION_SOURCE_URL
            "https://github.com/awslabs/aws-c-compression/archive/${ARROW_AWS_C_COMPRESSION_BUILD_VERSION}.tar.gz"
   )
+endif()
 
-  if(DEFINED ENV{ARROW_AWS_C_EVENT_STREAM_URL})
-    set(AWS_C_EVENT_STREAM_SOURCE_URL "$ENV{ARROW_AWS_C_EVENT_STREAM_URL}")
-  else()
-    set_urls(AWS_C_EVENT_STREAM_SOURCE_URL
-             "https://github.com/awslabs/aws-c-event-stream/archive/${ARROW_AWS_C_EVENT_STREAM_BUILD_VERSION}.tar.gz"
-    )
-  endif()
-
+if(DEFINED ENV{ARROW_AWS_C_EVENT_STREAM_URL})
+  set(AWS_C_EVENT_STREAM_SOURCE_URL "$ENV{ARROW_AWS_C_EVENT_STREAM_URL}")
+else()
+  set_urls(AWS_C_EVENT_STREAM_SOURCE_URL
+           "https://github.com/awslabs/aws-c-event-stream/archive/${ARROW_AWS_C_EVENT_STREAM_BUILD_VERSION}.tar.gz"
+  )
 endif()
 
 if(DEFINED ENV{ARROW_AWS_C_HTTP_URL})
@@ -4817,9 +4816,9 @@ macro(build_awssdk)
                       DEPENDS aws_c_common_ep)
   add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
-  set(S2N_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
   # When arrow is dynamically linked, arrow-s3fs-test and libarrow.so each has its own copy of AWS SDK.
   # Need S2N to statically link OpenSSL::Crypto and internalize it to avoid conflicts.
+  set(S2N_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
   if(ARROW_BUILD_TESTS AND ARROW_TEST_LINKAGE STREQUAL "shared")
     list(APPEND S2N_CMAKE_ARGS -DS2N_INTERN_LIBCRYPTO=ON)
   endif()
