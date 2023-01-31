@@ -17,19 +17,30 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.JDBCType;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.utils.ConvertUtils;
 import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.Text;
+import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.AvaticaPreparedStatement;
+import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.Meta.Signature;
 import org.apache.calcite.avatica.Meta.StatementHandle;
-
+import org.apache.calcite.avatica.QueryState;
+import org.apache.calcite.avatica.remote.TypedValue;
 
 /**
  * Arrow Flight JBCS's implementation {@link PreparedStatement}.
@@ -72,8 +83,10 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
 
     final ArrowFlightSqlClientHandler.PreparedStatement prepare = connection.getClientHandler().prepare(signature.sql);
     final Schema resultSetSchema = prepare.getDataSetSchema();
+    final Schema parameterSchema = prepare.getParameterSchema();
 
     signature.columns.addAll(ConvertUtils.convertArrowFieldsToColumnMetaDataList(resultSetSchema.getFields()));
+    signature.parameters.addAll(ConvertUtils.convertArrowFieldsToAvaticaParameters(parameterSchema.getFields()));
 
     return new ArrowFlightPreparedStatement(
         connection, prepare, statementHandle,
@@ -92,7 +105,111 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
   }
 
   @Override
+  public long executeLargeUpdate() throws SQLException {
+    copyParameters();
+    return preparedStatement.executeUpdate();
+  }
+
+  @Override
   public FlightInfo executeFlightInfoQuery() throws SQLException {
+    copyParameters();
     return preparedStatement.executeQuery();
+  }
+
+  private void copyParameters() throws SQLException {
+    BufferAllocator allocator = new RootAllocator(1024 * 1024);
+    List<FieldVector> fields = new ArrayList<>();
+    List<TypedValue> values = this.getParameterValues();
+    for(int i = 0; i < this.getParameterCount(); i++) {
+      AvaticaParameter param = this.getParameter(i + 1);
+      switch (param.parameterType) {
+        case java.sql.Types.TINYINT:
+        case java.sql.Types.SMALLINT:
+        case java.sql.Types.INTEGER:
+        case java.sql.Types.BIGINT:
+          IntVector intVec = new IntVector(param.name, allocator);
+          intVec.setSafe(0, (int)values.get(i).value);
+          intVec.setValueCount(1);
+          fields.add(intVec);
+          break;
+        case java.sql.Types.BIT:
+        case java.sql.Types.BOOLEAN:
+          BitVector bitVec = new BitVector(param.name, allocator);
+          bitVec.set(0, (int)values.get(i).value);
+          bitVec.setValueCount(1);
+          fields.add(bitVec);
+          break;
+        case java.sql.Types.FLOAT:
+          Float4Vector floatVec = new Float4Vector(param.name, allocator);
+          floatVec.set(0, (float)values.get(i).value);
+          floatVec.setValueCount(1);
+          fields.add(floatVec);
+          break;
+        case java.sql.Types.DOUBLE:
+          Float8Vector doubleVec = new Float8Vector(param.name, allocator);
+          doubleVec.set(0, (double)values.get(i).value);
+          doubleVec.setValueCount(1);
+          fields.add(doubleVec);
+          break;
+        case java.sql.Types.REAL:
+        case java.sql.Types.NUMERIC:
+        case java.sql.Types.DECIMAL:
+          DecimalVector decVec = new DecimalVector(param.name, allocator, param.precision, param.scale);
+          decVec.set(0, (BigDecimal) values.get(i).value);
+          decVec.setValueCount(1);
+          fields.add(decVec);
+          break;
+        case java.sql.Types.CHAR:
+        case java.sql.Types.VARCHAR:
+        case java.sql.Types.NCHAR:
+        case java.sql.Types.NVARCHAR:
+          Text txt = new Text((String) values.get(i).value);
+          VarCharVector strVec = new VarCharVector(param.name, allocator);
+          strVec.setSafe(0, txt);
+          strVec.setValueCount(1);
+          fields.add(strVec);
+          break;
+        case java.sql.Types.LONGVARCHAR:
+        case java.sql.Types.LONGNVARCHAR:
+          LargeVarCharVector textVec = new LargeVarCharVector(param.name, allocator);
+          textVec.set(0, new Text((String) values.get(i).value));
+          textVec.setValueCount(1);
+          fields.add(textVec);
+          break;
+        case java.sql.Types.DATE:
+        case java.sql.Types.TIME:
+        case java.sql.Types.TIMESTAMP:
+        case java.sql.Types.TIME_WITH_TIMEZONE:
+        case java.sql.Types.TIMESTAMP_WITH_TIMEZONE:
+          DateMilliVector timeVec = new DateMilliVector(param.name, allocator);
+          timeVec.set(0, (long)values.get(i).value);
+          timeVec.setValueCount(1);
+          fields.add(timeVec);
+          break;
+        case java.sql.Types.BINARY:
+        case java.sql.Types.VARBINARY:
+          VarBinaryVector binVec = new VarBinaryVector(param.name, allocator);
+          binVec.set(0, (byte[])values.get(i).value);
+          binVec.setValueCount(1);
+          fields.add(binVec);
+          break;
+        case java.sql.Types.BLOB:
+        case java.sql.Types.LONGVARBINARY:
+          LargeVarBinaryVector blobVec = new LargeVarBinaryVector(param.name, allocator);
+          blobVec.set(0, (byte[])values.get(i).value);
+          blobVec.setValueCount(1);
+          fields.add(blobVec);
+          break;
+        case java.sql.Types.NULL:
+          NullVector nullVec = new NullVector(param.name);
+          nullVec.setValueCount(1);
+          fields.add(nullVec);
+          break;
+        default:
+          throw new SQLException("Unknown type: " + param.typeName);
+      }
+    }
+    VectorSchemaRoot parameters = new VectorSchemaRoot(fields);
+    this.preparedStatement.setParameters(parameters);
   }
 }

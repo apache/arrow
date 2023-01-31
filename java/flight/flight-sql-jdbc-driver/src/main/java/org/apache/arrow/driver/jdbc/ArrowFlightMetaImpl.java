@@ -58,7 +58,7 @@ public class ArrowFlightMetaImpl extends MetaImpl {
     return new Signature(
         new ArrayList<ColumnMetaData>(),
         sql,
-        Collections.<AvaticaParameter>emptyList(),
+        new ArrayList<AvaticaParameter>(),
         Collections.<String, Object>emptyMap(),
         null, // unnecessary, as SQL requests use ArrowFlightJdbcCursor
         StatementType.SELECT

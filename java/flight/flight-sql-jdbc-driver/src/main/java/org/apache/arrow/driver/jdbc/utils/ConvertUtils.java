@@ -17,6 +17,13 @@
 
 package org.apache.arrow.driver.jdbc.utils;
 
+import java.math.BigDecimal;
+import java.sql.Date;
+import java.sql.JDBCType;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -25,6 +32,7 @@ import java.util.stream.Stream;
 import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.proto.Common;
 import org.apache.calcite.avatica.proto.Common.ColumnMetaData.Builder;
@@ -35,6 +43,114 @@ import org.apache.calcite.avatica.proto.Common.ColumnMetaData.Builder;
 public final class ConvertUtils {
 
   private ConvertUtils() {
+  }
+
+  static boolean isSigned(ArrowType.ArrowTypeID type) {
+    switch (type) {
+      case Int:
+      case FloatingPoint:
+      case Decimal:
+      case Interval:
+      case Duration:
+        return true;
+    }
+    return false;
+  }
+
+  static int toJdbcType(ArrowType.ArrowTypeID type) {
+    switch (type) {
+      case Null:
+        return JDBCType.NULL.getVendorTypeNumber();
+      case Struct:
+        return JDBCType.STRUCT.getVendorTypeNumber();
+      case List:
+      case LargeList:
+      case FixedSizeList:
+        return JDBCType.ARRAY.getVendorTypeNumber();
+      case Int:
+        return JDBCType.INTEGER.getVendorTypeNumber();
+      case FloatingPoint:
+        return JDBCType.FLOAT.getVendorTypeNumber();
+      case Utf8:
+      case LargeUtf8:
+        return JDBCType.VARCHAR.getVendorTypeNumber();
+      case Binary:
+      case LargeBinary:
+        return JDBCType.VARBINARY.getVendorTypeNumber();
+      case FixedSizeBinary:
+        return JDBCType.BINARY.getVendorTypeNumber();
+      case Bool:
+        return JDBCType.BOOLEAN.getVendorTypeNumber();
+      case Decimal:
+        return JDBCType.DECIMAL.getVendorTypeNumber();
+      case Date:
+        return JDBCType.DATE.getVendorTypeNumber();
+      case Time:
+        return JDBCType.TIME.getVendorTypeNumber();
+      case Timestamp:
+      case Interval:
+      case Duration:
+        return JDBCType.TIMESTAMP.getVendorTypeNumber();
+    }
+    return JDBCType.OTHER.getVendorTypeNumber();
+  }
+
+  static String getClassName(ArrowType.ArrowTypeID type) {
+    switch (type) {
+      case List:
+      case LargeList:
+      case FixedSizeList:
+        return ArrayList.class.getCanonicalName();
+      case Map:
+        return HashMap.class.getCanonicalName();
+      case Int:
+        return int.class.getCanonicalName();
+      case FloatingPoint:
+        return float.class.getCanonicalName();
+      case Utf8:
+      case LargeUtf8:
+        return String.class.getCanonicalName();
+      case Binary:
+      case LargeBinary:
+      case FixedSizeBinary:
+        return byte[].class.getCanonicalName();
+      case Bool:
+        return boolean.class.getCanonicalName();
+      case Decimal:
+        return BigDecimal.class.getCanonicalName();
+      case Date:
+        return Date.class.getCanonicalName();
+      case Time:
+        return Time.class.getCanonicalName();
+      case Timestamp:
+      case Interval:
+      case Duration:
+        return Timestamp.class.getCanonicalName();
+    }
+    return null;
+  }
+
+  /**
+   * Convert Fields To Avatica Parameters.
+   *
+   * @param fields list of {@link Field}.
+   * @return list of {@link AvaticaParameter}.
+   */
+  public static List<AvaticaParameter> convertArrowFieldsToAvaticaParameters(final List<Field> fields) {
+    List<AvaticaParameter> list = new ArrayList<>();
+    for(Field field : fields) {
+      final ArrowType.ArrowTypeID typeId = field.getType().getTypeID();
+      final boolean signed = isSigned(typeId);
+      final int precision = 0; // Would have to know about the actual number
+      final int scale = 0; // According to https://www.postgresql.org/docs/current/datatype-numeric.html
+      final int type = toJdbcType(typeId);
+      final String typeName = typeId.name();
+      final String clazz = getClassName(typeId);
+      final String name = field.getName();
+      final AvaticaParameter param = new AvaticaParameter(signed, precision, scale, type, typeName, clazz, name);
+      list.add(param);
+    }
+    return list;
   }
 
   /**

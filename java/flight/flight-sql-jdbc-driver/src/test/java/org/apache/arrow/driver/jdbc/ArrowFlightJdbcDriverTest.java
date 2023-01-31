@@ -17,16 +17,7 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.sql.Connection;
-import java.sql.Driver;
-import java.sql.DriverManager;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Properties;
@@ -41,6 +32,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for {@link ArrowFlightJdbcDriver}.
@@ -130,6 +123,68 @@ public class ArrowFlightJdbcDriverTest {
                      "useEncryption=false",
                  dataSource.getProperties(dataSource.getConfig().getUser(), dataSource.getConfig().getPassword()))) {
       assertTrue(connection.isValid(300));
+    }
+  }
+
+  @Test
+  public void testQueryParameters() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    Properties props = new Properties();
+    props.setProperty("user", "admin");
+    props.setProperty("password", "password");
+    props.setProperty("useEncryption", "false");
+    String conString = "jdbc:arrow-flight://127.0.0.1:50060";
+    try (Connection con = driver.connect(conString, props); Statement stmt = con.createStatement()) {
+      try {
+        stmt.execute("create table person (id int, name varchar, primary key(id))");
+      } catch (Exception ignored) {}
+      try(PreparedStatement ps = con.prepareStatement("select * from person where id=$1")) {
+        ParameterMetaData md = ps.getParameterMetaData();
+        assertEquals(1, md.getParameterCount());
+        assertEquals("Int", md.getParameterTypeName(1));
+        ps.setInt(1, 1);
+        ResultSet rs = ps.executeQuery();
+        assertFalse(rs.next()); // should be no records
+      }
+    }
+  }
+
+  @Test
+  public void testDmlParameters() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    Properties props = new Properties();
+    props.setProperty("user", "admin");
+    props.setProperty("password", "password");
+    props.setProperty("useEncryption", "false");
+    String conString = "jdbc:arrow-flight://127.0.0.1:50060";
+    try (Connection con = driver.connect(conString, props); Statement stmt = con.createStatement()) {
+      try {
+        stmt.execute("create table person (id int, name varchar, primary key(id))");
+      } catch (Exception ignored) {}
+      try(PreparedStatement ps = con.prepareStatement("insert into person (id, name) values ($1, $2)")) {
+        ParameterMetaData md = ps.getParameterMetaData();
+        assertEquals(2, md.getParameterCount());
+        assertEquals("Int", md.getParameterTypeName(1));
+        assertEquals("Utf8", md.getParameterTypeName(2));
+        ps.setInt(1, 1);
+        ps.setString(2, "Alan");
+        assertEquals(-1, ps.executeUpdate());
+        ResultSet rs = ps.getResultSet();
+        assertNull(rs);
+      }
+    }
+  }
+
+  @Test
+  public void testSetVariable() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    Properties props = new Properties();
+    props.setProperty("user", "admin");
+    props.setProperty("password", "password");
+    props.setProperty("useEncryption", "false");
+    String conString = "jdbc:arrow-flight://127.0.0.1:50060";
+    try (Connection con = driver.connect(conString, props); Statement stmt = con.createStatement()) {
+      assertTrue(stmt.execute("SET UNIQUE_CHECKS=0"));
     }
   }
 
