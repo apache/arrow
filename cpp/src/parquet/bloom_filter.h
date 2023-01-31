@@ -200,8 +200,8 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// Deserialize the Bloom filter from an input stream. It is used when reconstructing
   /// a Bloom filter from a parquet filter.
   ///
-  /// @param input_stream The input stream from which to construct the Bloom filter.
   /// @param properties The parquet reader properties.
+  /// @param input_stream The input stream from which to construct the Bloom filter.
   /// @return The BlockSplitBloomFilter.
   static BlockSplitBloomFilter Deserialize(const ReaderProperties& properties,
                                            ArrowInputStream* input_stream);

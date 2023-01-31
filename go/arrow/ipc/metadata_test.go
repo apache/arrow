@@ -21,18 +21,21 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v11/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v11/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v12/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v12/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRWSchema(t *testing.T) {
 	meta := arrow.NewMetadata([]string{"k1", "k2", "k3"}, []string{"v1", "v2", "v3"})
+
+	mType := arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
+	mType.SetItemNullable(false)
 	for _, tc := range []struct {
 		schema *arrow.Schema
 		memo   dictutils.Memo
@@ -42,6 +45,7 @@ func TestRWSchema(t *testing.T) {
 				{Name: "f1", Type: arrow.PrimitiveTypes.Int64},
 				{Name: "f2", Type: arrow.PrimitiveTypes.Uint16},
 				{Name: "f3", Type: arrow.PrimitiveTypes.Float64},
+				{Name: "f4", Type: mType},
 			}, &meta),
 			memo: dictutils.Memo{},
 		},

@@ -78,21 +78,17 @@ static constexpr uint32_t kMaxBloomFilterHeaderSize = 1024;
 static ::arrow::Status ValidateBloomFilterHeader(
     const format::BloomFilterHeader& header) {
   if (!header.algorithm.__isset.BLOCK) {
-    std::stringstream ss;
-    ss << "Unsupported Bloom filter algorithm: " << header.algorithm << ".";
-    return ::arrow::Status::Invalid(ss.str());
+    return ::arrow::Status::Invalid(
+        "Unsupported Bloom filter algorithm: ", header.algorithm, ".");
   }
 
   if (!header.hash.__isset.XXHASH) {
-    std::stringstream ss;
-    ss << "Unsupported Bloom filter hash: " << header.hash << ".";
-    return ::arrow::Status::Invalid(ss.str());
+    return ::arrow::Status::Invalid("Unsupported Bloom filter hash: ", header.hash, ".");
   }
 
   if (!header.compression.__isset.UNCOMPRESSED) {
-    std::stringstream ss;
-    ss << "Unsupported Bloom filter compression: " << header.compression << ".";
-    return ::arrow::Status::Invalid(ss.str());
+    return ::arrow::Status::Invalid(
+        "Unsupported Bloom filter compression: ", header.compression, ".");
   }
 
   if (header.numBytes <= 0 ||
@@ -135,14 +131,14 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
   }
 
   // Throw if the header is invalid
-  auto status = ValidateBloomFilterHeader(header);
-  if (!status.ok()) {
-    throw ParquetException(status.ToString());
-  }
-
+  PARQUET_THROW_NOT_OK(ValidateBloomFilterHeader(header));
   // Read remaining data of bitset
   PARQUET_THROW_NOT_OK(input->Advance(header_size));
   PARQUET_ASSIGN_OR_THROW(auto buffer, input->Read(header.numBytes));
+  if (ARROW_PREDICT_FALSE(buffer->size() < header.numBytes)) {
+    throw ParquetException("BloomFilter read header with {} bytes failed",
+                           header.numBytes);
+  }
 
   BlockSplitBloomFilter bloom_filter;
   bloom_filter.Init(buffer->data(), header.numBytes);
@@ -191,8 +187,8 @@ void BlockSplitBloomFilter::SetMask(uint32_t key, BlockMask& block_mask) const {
 bool BlockSplitBloomFilter::FindHash(uint64_t hash) const {
   const uint32_t bucket_index =
       static_cast<uint32_t>(((hash >> 32) * (num_bytes_ / kBytesPerFilterBlock)) >> 32);
-  uint32_t key = static_cast<uint32_t>(hash);
-  uint32_t* bitset32 = reinterpret_cast<uint32_t*>(data_->mutable_data());
+  const uint32_t key = static_cast<uint32_t>(hash);
+  const uint32_t* bitset32 = reinterpret_cast<const uint32_t*>(data_->data());
 
   // Calculate mask for bucket.
   BlockMask block_mask;
@@ -209,7 +205,7 @@ bool BlockSplitBloomFilter::FindHash(uint64_t hash) const {
 void BlockSplitBloomFilter::InsertHash(uint64_t hash) {
   const uint32_t bucket_index =
       static_cast<uint32_t>(((hash >> 32) * (num_bytes_ / kBytesPerFilterBlock)) >> 32);
-  uint32_t key = static_cast<uint32_t>(hash);
+  const uint32_t key = static_cast<uint32_t>(hash);
   uint32_t* bitset32 = reinterpret_cast<uint32_t*>(data_->mutable_data());
 
   // Calculate mask for bucket.

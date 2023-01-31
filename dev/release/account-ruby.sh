@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,12 +17,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowDataset
-  VERSION = "12.0.0-SNAPSHOT"
+set -e
+set -u
+set -o pipefail
 
-  module Version
-    numbers, TAG = VERSION.split("-")
-    MAJOR, MINOR, MICRO = numbers.split(".").collect(&:to_i)
-    STRING = VERSION
-  end
-end
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <rubygems-account>"
+  echo "Usage: $0 kou"
+  exit
+fi
+
+account=$1
+
+pushd "${SOURCE_DIR}/../../ruby"
+for gem in red-*; do
+  gem owner ${gem} -a ${account}
+done
+popd

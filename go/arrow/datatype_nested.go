@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
 )
 
 type NestedType interface {
@@ -345,6 +345,11 @@ func (t *MapType) String() string {
 		t.value.Elem().(*StructType).Field(1).Type))
 	if t.KeysSorted {
 		o.WriteString(", keys_sorted")
+	}
+	if t.ItemField().Nullable {
+		o.WriteString(", items_nullable")
+	} else {
+		o.WriteString(", items_non_nullable")
 	}
 	o.WriteString(">")
 	return o.String()

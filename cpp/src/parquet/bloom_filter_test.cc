@@ -158,6 +158,7 @@ TEST(CompatibilityTest, TestBloomFilter) {
                           ::arrow::io::ReadableFile::Open(bloom_filter_test_binary));
   PARQUET_ASSIGN_OR_THROW(int64_t size, handle->GetSize());
 
+  // 16 bytes (thrift header) + 1024 bytes (bitset)
   EXPECT_EQ(size, 1040);
 
   std::unique_ptr<uint8_t[]> bitset(new uint8_t[size]());
