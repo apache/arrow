@@ -186,6 +186,46 @@ class ARROW_EXPORT Executor {
                   std::forward<Args>(args)...);
   }
 
+  template <typename Function, typename... Args,
+            typename FutureType = typename ::arrow::detail::ContinueFuture::ForSignature<
+                Function && (Args && ...)>>
+  Result<FutureType> SubmitOnce(TaskHints hints, StopToken stop_token, Function func,
+                                Args&&... args) {
+    using ValueType = typename FutureType::ValueType;
+
+    auto future = FutureType::Make();
+    struct {
+      Future<ValueType> sink;
+      Function func;
+      decltype(std::make_tuple(std::forward<Args>(args)...)) args;
+
+      void operator()() {
+        std::apply(
+            [this](auto&&... args) mutable {
+              ::arrow::detail::ContinueFuture{}(sink, std::move(func),
+                                                std::forward<Args>(args)...);
+            },
+            std::move(args));
+      }
+
+    } task{future, std::forward<Function>(func),
+           std::make_tuple(std::forward<Args>(args)...)};
+    struct {
+      WeakFuture<ValueType> weak_fut;
+
+      void operator()(const Status& st) {
+        auto fut = weak_fut.get();
+        if (fut.is_valid()) {
+          fut.MarkFinished(st);
+        }
+      }
+    } stop_callback{WeakFuture<ValueType>(future)};
+    ARROW_RETURN_NOT_OK(SpawnReal(hints, std::move(task), std::move(stop_token),
+                                  std::move(stop_callback)));
+
+    return future;
+  }
+
   // Return the level of parallelism (the number of tasks that may be executed
   // concurrently).  This may be an approximate number.
   virtual int GetCapacity() = 0;

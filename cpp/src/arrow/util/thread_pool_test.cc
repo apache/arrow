@@ -751,6 +751,20 @@ TEST_F(TestThreadPool, Submit) {
   }
 }
 
+TEST_F(TestThreadPool, SubmitFnOnce) {
+  auto pool = this->MakeThreadPool(3);
+  FnOnce<int()> move_only_fn = [] { return 0; };
+  ASSERT_OK_AND_ASSIGN(
+      Future<int> fut,
+      pool->SubmitOnce(TaskHints{}, StopToken::Unstoppable(), std::move(move_only_fn)));
+  ASSERT_OK_AND_EQ(9, fut.result());
+
+  FnOnce<int(int)> move_only_fn_args = [](int x) { return x; };
+  ASSERT_OK_AND_ASSIGN(fut, pool->SubmitOnce(TaskHints{}, StopToken::Unstoppable(),
+                                             std::move(move_only_fn_args), 5));
+  ASSERT_OK_AND_EQ(9, fut.result());
+}
+
 TEST_F(TestThreadPool, SubmitWithStopToken) {
   auto pool = this->MakeThreadPool(3);
   {
