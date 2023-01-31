@@ -414,7 +414,9 @@ Be sure to go through on the following checklist:
 
    In order to publish the binary build to npm, you will need to get access to the project by asking one of the current collaborators listed at https://www.npmjs.com/package/apache-arrow packages.
 
-   When you have access, you can publish releases to npm by running the ``npm-release.sh`` script inside the JavaScript source release:
+   The package upload requires npm and yarn to be installed and 2FA to be configured on your account.
+
+   When you have access, you can publish releases to npm by running the the following script:
 
    .. code-block:: Bash
 
@@ -576,6 +578,8 @@ Be sure to go through on the following checklist:
 
       # dev/release/post-08-docs.sh 10.0.0 9.0.0
       dev/release/post-08-docs.sh X.Y.Z PREVIOUS_X.PREVIOUS_Y.PREVIOUS_Z
+
+   This script pushes a ``release-docs-X.Y.Z`` branch to your ``arrow-site`` fork. You need to create a Pull Request and use the ``asf-site`` branch as base for it.
 
 .. dropdown:: Update version in Apache Arrow Cookbook
    :animate: fade-in-slide-down
