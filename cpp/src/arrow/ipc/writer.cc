@@ -484,8 +484,7 @@ class RecordBatchSerializer {
         } else {
           shifted_offsets[code_idx] = unshifted_offsets[code_idx] - child_offsets[code];
         }
-        child_lengths[code] =
-            std::max(child_lengths[code], shifted_offsets[code_idx]);
+        child_lengths[code] = std::max(child_lengths[code], shifted_offsets[code_idx]);
       }
 
       value_offsets = std::move(shifted_offsets_buffer);
