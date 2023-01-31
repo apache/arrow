@@ -105,7 +105,8 @@ func (r *RunEndEncoded) LogicalValuesArray() arrow.Array {
 //
 // For arrays with an offset, this is not a slice of the existing
 // internal run ends array. Instead a new array is created with run-ends
-// that are adjusted so the new array can have an offset of 0.
+// that are adjusted so the new array can have an offset of 0. As a result
+// this method can be expensive to call for an array with a non-zero offset.
 //
 // Example
 //
@@ -142,19 +143,19 @@ func (r *RunEndEncoded) LogicalRunEndsArray(mem memory.Allocator) arrow.Array {
 
 	switch e := r.ends.(type) {
 	case *Int16:
-		for _, v := range e.Int16Values()[physOffset:] {
+		for _, v := range e.Int16Values()[physOffset : physOffset+physLength] {
 			v -= int16(r.data.offset)
 			v = int16(utils.MinInt(int(v), r.data.length))
 			bldr.(*Int16Builder).Append(v)
 		}
 	case *Int32:
-		for _, v := range e.Int32Values()[physOffset:] {
+		for _, v := range e.Int32Values()[physOffset : physOffset+physLength] {
 			v -= int32(r.data.offset)
 			v = int32(utils.MinInt(int(v), r.data.length))
 			bldr.(*Int32Builder).Append(v)
 		}
 	case *Int64:
-		for _, v := range e.Int64Values()[physOffset:] {
+		for _, v := range e.Int64Values()[physOffset : physOffset+physLength] {
 			v -= int64(r.data.offset)
 			v = int64(utils.MinInt(int(v), r.data.length))
 			bldr.(*Int64Builder).Append(v)
@@ -328,6 +329,12 @@ func (b *RunEndEncodedBuilder) ValueBuilder() Builder { return b.values }
 func (b *RunEndEncodedBuilder) Append(n uint64) {
 	b.finishRun()
 	b.addLength(n)
+}
+func (b *RunEndEncodedBuilder) AppendRuns(runs []uint64) {
+	for _, r := range runs {
+		b.finishRun()
+		b.addLength(r)
+	}
 }
 func (b *RunEndEncodedBuilder) ContinueRun(n uint64) {
 	b.addLength(n)

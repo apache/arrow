@@ -24,6 +24,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -270,4 +271,39 @@ func TestREEBuilderOverflow(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestLogicalRunEndsValuesArray(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	bldr := array.NewRunEndEncodedBuilder(mem, arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
+	defer bldr.Release()
+
+	valBldr := bldr.ValueBuilder().(*array.StringBuilder)
+	// produces run-ends 1, 2, 4, 6, 10, 1000, 1750, 2000
+	bldr.AppendRuns([]uint64{1, 1, 2, 2, 4, 990, 750, 250})
+	valBldr.AppendValues([]string{"a", "b", "c", "d", "e", "f", "g", "h"}, nil)
+
+	arr := bldr.NewRunEndEncodedArray()
+	defer arr.Release()
+
+	sl := array.NewSlice(arr, 150, 1650)
+	defer sl.Release()
+
+	assert.EqualValues(t, 150, sl.Data().Offset())
+	assert.EqualValues(t, 1500, sl.Len())
+
+	logicalValues := sl.(*array.RunEndEncoded).LogicalValuesArray()
+	defer logicalValues.Release()
+	logicalRunEnds := sl.(*array.RunEndEncoded).LogicalRunEndsArray(mem)
+	defer logicalRunEnds.Release()
+
+	expectedValues, _, err := array.FromJSON(mem, arrow.BinaryTypes.String, strings.NewReader(`["f", "g"]`))
+	require.NoError(t, err)
+	defer expectedValues.Release()
+	expectedRunEnds := []int16{850, 1500}
+
+	assert.Truef(t, array.Equal(logicalValues, expectedValues), "expected: %s\ngot: %s", expectedValues, logicalValues)
+	assert.Equal(t, expectedRunEnds, logicalRunEnds.(*array.Int16).Int16Values())
 }
