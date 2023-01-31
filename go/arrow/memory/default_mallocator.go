@@ -14,14 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build mallocator
+
 package memory
 
-const (
-	alignment = 64
+import (
+	"github.com/apache/arrow/go/v12/arrow/memory/mallocator"
 )
 
-type Allocator interface {
-	Allocate(size int) []byte
-	Reallocate(size int, b []byte) []byte
-	Free(b []byte)
-}
+// DefaultAllocator is a default implementation of Allocator and can be used anywhere
+// an Allocator is required.
+//
+// DefaultAllocator is safe to use from multiple goroutines.
+var DefaultAllocator Allocator = mallocator.NewMallocator()
