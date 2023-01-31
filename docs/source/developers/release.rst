@@ -391,29 +391,14 @@ Be sure to go through on the following checklist:
 
    You need an account on https://rubygems.org/ to release Ruby packages.
 
-   If you have an account on https://rubygems.org/ , you need to join owners of the following gems:
+   If you have an account on https://rubygems.org/ , you need to join owners of our gems.
 
-   - red-arrow gem
-   - red-arrow-cuda gem
-   - red-arrow-dataset gem
-   - red-arrow-flight gem
-   - red-arrow-flight-sql gem
-   - red-gandiva gem
-   - red-parquet gem
-   - red-plasma gem
-
-   Existing owners can add a new account to the owners of them by the following command lines:
+   Existing owners can add a new account to the owners of them by the following command line:
 
    .. code-block:: Bash
 
-      gem owner red-arrow -a NEW_ACCOUNT
-      gem owner red-arrow-cuda -a NEW_ACCOUNT
-      gem owner red-arrow-dataset -a NEW_ACCOUNT
-      gem owner red-arrow-flight -a NEW_ACCOUNT
-      gem owner red-arrow-flight-sql -a NEW_ACCOUNT
-      gem owner red-gandiva -a NEW_ACCOUNT
-      gem owner red-parquet -a NEW_ACCOUNT
-      gem owner red-plasma -a NEW_ACCOUNT
+      # dev/release/account-ruby.sh raulcd
+      dev/release/account-ruby.sh NEW_ACCOUNT
 
    Update RubyGems after Homebrew packages and MSYS2 packages are updated:
 
