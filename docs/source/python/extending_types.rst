@@ -357,3 +357,186 @@ pandas ``ExtensionArray``. This method should have the following signature::
 
 This way, you can control the conversion of a pyarrow ``Array`` of your pyarrow
 extension type to a pandas ``ExtensionArray`` that can be stored in a DataFrame.
+
+
+Canonical extension types
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In the :ref:`format_canonical_extensions` under the section **Official List**
+there is a list of canonical extension types. Here you can find an example of how
+to implement and how to use the listed canonical extension types.
+
+Fixed size tensor
+"""""""""""""""""
+
+**Implementation** of the canonical extension type in Python
+
+.. code-block:: python
+   
+   class TensorType(pa.ExtensionType):
+
+      def __init__(self, value_type, shape, is_row_major):
+         self._value_type = value_type
+         self._shape = shape
+         self._is_row_major = is_row_major
+         size = math.prod(shape)
+         pa.ExtensionType.__init__(self, pa.list_(self._value_type, size),
+                                    'arrow.fixed_size_tensor')
+
+      @property
+      def dtype(self):
+         return self._value_type
+
+      @property
+      def shape(self):
+         return self._shape
+
+      @property
+      def is_row_major(self):
+         """
+         Boolean indicating the order of elements in memory
+         """
+         return self._is_row_major
+
+      def __arrow_ext_serialize__(self):
+         metadata = {"shape": str(self._shape),
+                     "is_row_major": self._is_row_major}
+         return json.dumps(metadata).encode()
+
+      @classmethod
+      def __arrow_ext_deserialize__(cls, storage_type, serialized):
+         # return an instance of this subclass given the serialized
+         # metadata.
+         assert serialized.decode().startswith('{"shape":')
+         metadata = json.loads(serialized.decode())
+         shape = ast.literal_eval(metadata['shape'])
+         order = metadata["is_row_major"]
+
+         return TensorType(storage_type.value_type, shape, order)
+
+      def __arrow_ext_class__(self):
+         return TensorArray
+
+
+   class TensorArray(pa.ExtensionArray):
+
+      def to_numpy_tensor_list(self):
+         tensors = []
+         for tensor in self.storage:
+            np_flat = np.array(tensor.as_py())
+            order = 'C' if self.type.is_row_major else 'F'
+            numpy_tensor = np_flat.reshape((self.type.shape),
+                                          order=order)
+            tensors.append(numpy_tensor)
+         return tensors
+
+      def from_numpy_tensor_list(obj):
+         numpy_type = obj[0].flatten().dtype
+         arrow_type = pa.from_numpy_dtype(numpy_type)
+         shape = obj[0].shape
+         is_row_major = False if np.isfortran(obj[0]) else True
+         size = obj[0].size
+
+         tensor_list = []
+         for tensor in obj:
+            tensor_list.append(tensor.flatten())
+
+         return pa.ExtensionArray.from_storage(
+            TensorType(arrow_type, shape, is_row_major),
+            pa.array(tensor_list, pa.list_(arrow_type, size))
+         )
+
+**Example of usage**
+
+Define and register the extension type:
+
+.. code-block:: python
+
+   >>> tensor_type = TensorType(pa.int32(), (2, 2), 'C')
+   >>> pa.register_extension_type(tensor_type)
+
+Create an array of tensors with storage array and tensor type:
+
+.. code-block:: python
+
+   >>> arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
+   >>> storage = pa.array(arr, pa.list_(pa.int32(), 4))
+   >>> tensor = pa.ExtensionArray.from_storage(tensor_type, storage)
+
+Create another array of tensors with different value type:
+
+.. code-block:: python
+
+   >>> tensor_type2 = TensorType(pa.float32(), (2, 2), 'C')
+   >>> storage2 = pa.array(arr, pa.list_(pa.float32(), 4))
+   >>> tensor2 = pa.ExtensionArray.from_storage(tensor_type2, storage2)
+
+Create a ``pyarrow.Table`` with random data and two tensor arrays:
+
+.. code-block:: python
+
+   >>> data = [
+   ...     pa.array([1, 2, 3]),
+   ...     pa.array(['foo', 'bar', None]),
+   ...     pa.array([True, None, True]),
+   ...     tensor,
+   ...     tensor2
+   ... ]
+   >>> my_schema = pa.schema([('f0', pa.int8()),
+   ...                        ('f1', pa.string()),
+   ...                        ('f2', pa.bool_()),
+   ...                        ('tensors_int', tensor_type),
+   ...                        ('tensors_float', tensor_type2)])
+   >>> table = pa.Table.from_arrays(data, schema=my_schema)
+
+   >>> table
+   pyarrow.Table
+   f0: int8
+   f1: string
+   f2: bool
+   tensors_int: extension<arrow.fixed_size_tensor<TensorType>>
+   tensors_float: extension<arrow.fixed_size_tensor<TensorType>>
+   ----
+   f0: [[1,2,3]]
+   f1: [["foo","bar",null]]
+   f2: [[true,null,true]]
+   tensors_int: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
+   tensors_float: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
+
+Convert a tensor array to list of numpy ndarrays (tensors):
+
+.. code-block:: python
+
+   >>> numpy_list = table.column("tensors_float").chunk(0).to_numpy_tensor_list()
+   >>> numpy_list
+   [array([[1., 2.],
+         [3., 4.]]), array([[10., 20.],
+         [30., 40.]]), array([[100., 200.],
+         [300., 400.]])]
+
+Convert a list of numpy ndarrays (tensors) to a tensor array:
+
+.. code-block:: python
+
+   >>> TensorArray.from_numpy_tensor_list(numpy_list)
+   <__main__.TensorArray object at 0x147a60220>
+   [
+   [
+      1,
+      2,
+      3,
+      4
+   ],
+   [
+      10,
+      20,
+      30,
+      40
+   ],
+   [
+      100,
+      200,
+      300,
+      400
+   ]
+   ]
