@@ -818,6 +818,28 @@ func TestEmptyStringExport(t *testing.T) {
 	assert.NotEqualValues(t, unsafe.Pointer(nil), buffers[2])
 }
 
+func TestEmptyUnionExport(t *testing.T) {
+	// apache/arrow#33936: regression test
+	bldr := array.NewBuilder(memory.DefaultAllocator, arrow.SparseUnionOf([]arrow.Field{
+		{Name: "child", Type: &arrow.Int64Type{}},
+	}, []arrow.UnionTypeCode{0}))
+	defer bldr.Release()
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+
+	var out CArrowArray
+	var sc CArrowSchema
+	ExportArrowArray(arr, &out, &sc)
+
+	assert.EqualValues(t, 1, sc.n_children)
+	assert.Nil(t, sc.dictionary)
+
+	assert.EqualValues(t, 1, out.n_buffers)
+	buffers := (*[1]unsafe.Pointer)(unsafe.Pointer(out.buffers))
+	assert.NotEqualValues(t, unsafe.Pointer(nil), buffers[0])
+}
+
 func TestRecordReaderExport(t *testing.T) {
 	// Regression test for apache/arrow#33767
 	reclist := arrdata.Records["primitives"]
