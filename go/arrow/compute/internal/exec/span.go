@@ -437,6 +437,12 @@ func (a *ArraySpan) FillFromScalar(val scalar.Scalar) {
 	}
 }
 
+func (a *ArraySpan) SetDictionary(span *ArraySpan) {
+	a.resizeChildren(1)
+	a.Children[0].Release()
+	a.Children[0] = *span
+}
+
 // TakeOwnership is like SetMembers only this takes ownership of
 // the buffers by calling Retain on them so that the passed in
 // ArrayData can be released without negatively affecting this
@@ -479,11 +485,7 @@ func (a *ArraySpan) TakeOwnership(data arrow.ArrayData) {
 	}
 
 	if typeID == arrow.DICTIONARY {
-		if cap(a.Children) >= 1 {
-			a.Children = a.Children[:1]
-		} else {
-			a.Children = make([]ArraySpan, 1)
-		}
+		a.resizeChildren(1)
 		a.Children[0].TakeOwnership(data.Dictionary())
 	} else {
 		if cap(a.Children) >= len(data.Children()) {
@@ -538,11 +540,7 @@ func (a *ArraySpan) SetMembers(data arrow.ArrayData) {
 	}
 
 	if typeID == arrow.DICTIONARY {
-		if cap(a.Children) >= 1 {
-			a.Children = a.Children[:1]
-		} else {
-			a.Children = make([]ArraySpan, 1)
-		}
+		a.resizeChildren(1)
 		a.Children[0].SetMembers(data.Dictionary())
 	} else {
 		if cap(a.Children) >= len(data.Children()) {

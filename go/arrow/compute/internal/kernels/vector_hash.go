@@ -373,13 +373,44 @@ func regularHashInit(dt arrow.DataType, actionInit initAction, appendFn func(Act
 		}
 		ret := &regularHashState{
 			mem:       mem,
-			typ:       dt,
+			typ:       args.Inputs[0],
 			memoTable: memoTable,
 			action:    actionInit(args.Inputs[0], args.Options, mem),
 			doAppend:  appendFn,
 		}
 		ret.Reset()
 		return ret, nil
+	}
+}
+
+func dictionaryHashInit(actionInit initAction) exec.KernelInitFn {
+	return func(ctx *exec.KernelCtx, args exec.KernelInitArgs) (exec.KernelState, error) {
+		var (
+			dictType      = args.Inputs[0].(*arrow.DictionaryType)
+			indicesHasher exec.KernelState
+			err           error
+		)
+
+		switch dictType.IndexType.ID() {
+		case arrow.INT8, arrow.UINT8:
+			indicesHasher, err = getHashInit(arrow.UINT8, actionInit)(ctx, args)
+		case arrow.INT16, arrow.UINT16:
+			indicesHasher, err = getHashInit(arrow.UINT16, actionInit)(ctx, args)
+		case arrow.INT32, arrow.UINT32:
+			indicesHasher, err = getHashInit(arrow.UINT32, actionInit)(ctx, args)
+		case arrow.INT64, arrow.UINT64:
+			indicesHasher, err = getHashInit(arrow.UINT64, actionInit)(ctx, args)
+		default:
+			return nil, fmt.Errorf("%w: unsupported dictionary index type", arrow.ErrInvalid)
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		return &dictionaryHashState{
+			indicesKernel: indicesHasher.(HashState),
+			dictValueType: dictType.ValueType,
+		}, nil
 	}
 }
 
@@ -444,15 +475,83 @@ func uniqueFinalize(ctx *exec.KernelCtx, _ []*exec.ArraySpan) ([]*exec.ArraySpan
 	return []*exec.ArraySpan{&out}, nil
 }
 
-func GetVectorHashKernels() {
+func ensureHashDictionary(ctx *exec.KernelCtx, hash *dictionaryHashState) (*exec.ArraySpan, error) {
+	out := &exec.ArraySpan{}
+
+	if hash.dictionary != nil {
+		out.SetMembers(hash.dictionary.Data())
+		return out, nil
+	}
+
+	exec.FillZeroLength(hash.DictionaryValueType(), out)
+	return out, nil
+}
+
+func uniqueFinalizeDictionary(ctx *exec.KernelCtx, result []*exec.ArraySpan) (out []*exec.ArraySpan, err error) {
+	if out, err = uniqueFinalize(ctx, result); err != nil {
+		return
+	}
+
+	hash, ok := ctx.State.(*dictionaryHashState)
+	if !ok {
+		return nil, fmt.Errorf("%w: state should be *dictionaryHashState", arrow.ErrInvalid)
+	}
+
+	dict, err := ensureHashDictionary(ctx, hash)
+	if err != nil {
+		return nil, err
+	}
+	out[0].SetDictionary(dict)
+	return
+}
+
+func addHashKernels(base exec.VectorKernel, actionInit initAction, outTy exec.OutputType) []exec.VectorKernel {
+	kernels := make([]exec.VectorKernel, 0)
+	for _, ty := range primitiveTypes {
+		base.Init = getHashInit(ty.ID(), actionInit)
+		base.Signature = &exec.KernelSignature{
+			InputTypes: []exec.InputType{exec.NewExactInput(ty)},
+			OutType:    outTy,
+		}
+		kernels = append(kernels, base)
+	}
+
+	parametricTypes := []arrow.Type{arrow.TIME32, arrow.TIME64, arrow.TIMESTAMP,
+		arrow.DURATION, arrow.FIXED_SIZE_BINARY, arrow.DECIMAL128, arrow.DECIMAL256,
+		arrow.INTERVAL_DAY_TIME, arrow.INTERVAL_MONTHS, arrow.INTERVAL_MONTH_DAY_NANO}
+	for _, ty := range parametricTypes {
+		base.Init = getHashInit(ty, actionInit)
+		base.Signature = &exec.KernelSignature{
+			InputTypes: []exec.InputType{exec.NewIDInput(ty)},
+			OutType:    outTy,
+		}
+		kernels = append(kernels, base)
+	}
+
+	return kernels
+}
+
+func initUnique(dt arrow.DataType, _ any, mem memory.Allocator) Action {
+	return uniqueAction{mem: mem, dt: dt}
+}
+
+func GetVectorHashKernels() (unique, valueCounts, dictEncode []exec.VectorKernel) {
 	var base exec.VectorKernel
 	base.ExecFn = hashExec
 
 	// unique
 	base.Finalize = uniqueFinalize
 	base.OutputChunked = false
-	// addHashKernels(uniqueAction, base, firstType)
+	unique = addHashKernels(base, initUnique, OutputFirstType)
 
 	// dictionary unique
+	base.Init = dictionaryHashInit(initUnique)
+	base.Finalize = uniqueFinalizeDictionary
+	base.Signature = &exec.KernelSignature{
+		InputTypes: []exec.InputType{exec.NewIDInput(arrow.DICTIONARY)},
+		OutType:    OutputFirstType,
+	}
+	unique = append(unique, base)
 
+	return
 }
