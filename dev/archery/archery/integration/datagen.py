@@ -193,7 +193,7 @@ class IntegerField(PrimitiveField):
         return PrimitiveColumn(name, size, is_valid, values)
 
 
-# Integer field that fulfils the requirements for the run ends field of RLE.
+# Integer field that fulfils the requirements for the run ends field of REE.
 # The integers are positive and in a strictly increasing sequence
 class RunEndsField(IntegerField):
     def __init__(self, name, bit_width, *, nullable=False,
@@ -1526,14 +1526,14 @@ def generate_recursive_nested_case():
     return _generate_file("recursive_nested", fields, batch_sizes)
 
 
-def generate_rle_case():
+def generate_ree_case():
     fields = [
-        RunEndEncodedField('rle16', 16, get_field('values', 'int32')),
-        RunEndEncodedField('rle32', 32, get_field('values', 'utf8')),
-        RunEndEncodedField('rle64', 64, get_field('values', 'float32')),
+        RunEndEncodedField('ree16', 16, get_field('values', 'int32')),
+        RunEndEncodedField('ree32', 32, get_field('values', 'utf8')),
+        RunEndEncodedField('ree64', 64, get_field('values', 'float32')),
     ]
     batch_sizes = [0, 7, 10]
-    return _generate_file("rle", fields, batch_sizes)
+    return _generate_file("ree", fields, batch_sizes)
 
 
 def generate_nested_large_offsets_case():
@@ -1734,7 +1734,7 @@ def get_generated_json_files(tempdir=None):
         .skip_category('Java')  # TODO(ARROW-7779)
         .skip_category('JS'),
 
-        generate_rle_case()
+        generate_ree_case()
         .skip_category('C++')
         .skip_category('C#')
         .skip_category('Java')
