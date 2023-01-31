@@ -94,4 +94,4 @@ Fixed size tensor
   * boolean indicating the order of elements in memory with key
     "is_row_major".
 
-  For example: `{ "shape": [2, 5], "is_row_major": True }`
+  For example: `{ "shape": [2, 5], "is_row_major": true }`
