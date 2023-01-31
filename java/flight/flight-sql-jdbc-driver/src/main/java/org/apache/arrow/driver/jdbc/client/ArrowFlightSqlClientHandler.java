@@ -573,12 +573,12 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         if (authFactory != null) {
           options.add(
               ClientAuthenticationUtils.getAuthenticate(
-                      client, username, password, authFactory, options.toArray(new CallOption[options.size()])));
+                      client, username, password, authFactory, options.toArray(new CallOption[0])));
         } else if (token != null) {
           options.add(
               ClientAuthenticationUtils.getAuthenticate(
                   client, new CredentialCallOption(new BearerCredentialWriter(token)), options.toArray(
-                          new CallOption[options.size()])));
+                          new CallOption[0])));
         }
         return ArrowFlightSqlClientHandler.createNewHandler(client, options);
 
