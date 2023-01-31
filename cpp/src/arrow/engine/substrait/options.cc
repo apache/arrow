@@ -43,39 +43,43 @@ std::vector<compute::Declaration::Input> MakeDeclarationInputss(
 
 class BaseExtensionProvider : public ExtensionProvider {
  public:
-  Result<RelationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
+  Result<RelationInfo> MakeRel(const ConversionOptions& conv_opts,
+                               const std::vector<DeclarationInfo>& inputs,
                                const ExtensionDetails& ext_details,
                                const ExtensionSet& ext_set) override {
     auto details = dynamic_cast<const DefaultExtensionDetails&>(ext_details);
-    return MakeRel(inputs, details.rel, ext_set);
+    return MakeRel(conv_opts, inputs, details.rel, ext_set);
   }
 
-  virtual Result<RelationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
+  virtual Result<RelationInfo> MakeRel(const ConversionOptions& conv_opts,
+                                       const std::vector<DeclarationInfo>& inputs,
                                        const google::protobuf::Any& rel,
                                        const ExtensionSet& ext_set) = 0;
 };
 
 class DefaultExtensionProvider : public BaseExtensionProvider {
  public:
-  Result<RelationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
+  Result<RelationInfo> MakeRel(const ConversionOptions& conv_opts,
+                               const std::vector<DeclarationInfo>& inputs,
                                const google::protobuf::Any& rel,
                                const ExtensionSet& ext_set) override {
     if (rel.Is<substrait_ext::AsOfJoinRel>()) {
       substrait_ext::AsOfJoinRel as_of_join_rel;
       rel.UnpackTo(&as_of_join_rel);
-      return MakeAsOfJoinRel(inputs, as_of_join_rel, ext_set);
+      return MakeAsOfJoinRel(conv_opts, inputs, as_of_join_rel, ext_set);
     }
     if (rel.Is<substrait_ext::NamedTapRel>()) {
       substrait_ext::NamedTapRel named_tap_rel;
       rel.UnpackTo(&named_tap_rel);
-      return MakeNamedTapRel(inputs, named_tap_rel, ext_set);
+      return MakeNamedTapRel(conv_opts, inputs, named_tap_rel, ext_set);
     }
     return Status::NotImplemented("Unrecognized extension in Susbstrait plan: ",
                                   rel.DebugString());
   }
 
  private:
-  Result<RelationInfo> MakeAsOfJoinRel(const std::vector<DeclarationInfo>& inputs,
+  Result<RelationInfo> MakeAsOfJoinRel(const ConversionOptions& conv_opts,
+                                       const std::vector<DeclarationInfo>& inputs,
                                        const substrait_ext::AsOfJoinRel& as_of_join_rel,
                                        const ExtensionSet& ext_set) {
     if (inputs.size() < 2) {
@@ -136,13 +140,17 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
         std::move(field_output_indices)};
   }
 
-  Result<RelationInfo> MakeNamedTapRel(const std::vector<DeclarationInfo>& inputs,
+  Result<RelationInfo> MakeNamedTapRel(const ConversionOptions& conv_opts,
+                                       const std::vector<DeclarationInfo>& inputs,
                                        const substrait_ext::NamedTapRel& named_tap_rel,
                                        const ExtensionSet& ext_set) {
     if (inputs.size() != 1) {
       return Status::Invalid(
           "substrait_ext::NamedTapNode requires a single table but got: ", inputs.size());
     }
+
+    ARROW_ASSIGN_OR_RAISE(auto tap_func_name,
+                          conv_opts.named_tap_mapper(named_tap_rel.kind()));
 
     auto schema = inputs[0].output_schema;
     int num_fields = schema->num_fields();
@@ -157,10 +165,10 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
         std::make_shared<NamedTapNodeOptions>(named_tap_rel.name(),
                                               std::move(renamed_schema));
     auto input_decls = MakeDeclarationInputss(inputs);
-    return RelationInfo{{compute::Declaration(named_tap_rel.kind(), input_decls,
-                                              std::move(named_tap_opts)),
-                         std::move(renamed_schema)},
-                        std::nullopt};
+    return RelationInfo{
+        {compute::Declaration(tap_func_name, input_decls, std::move(named_tap_opts)),
+         std::move(renamed_schema)},
+        std::nullopt};
   }
 };
 

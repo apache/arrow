@@ -68,6 +68,9 @@ using NamedTableProvider =
     std::function<Result<compute::Declaration>(const std::vector<std::string>&)>;
 static NamedTableProvider kDefaultNamedTableProvider;
 
+using NamedTapKindMapper = std::function<Result<std::string>(const std::string&)>;
+static NamedTapKindMapper kDefaultNamedTapKindMapper;
+
 class ARROW_ENGINE_EXPORT ExtensionDetails {
  public:
   virtual ~ExtensionDetails() = default;
@@ -77,7 +80,8 @@ class ARROW_ENGINE_EXPORT ExtensionProvider {
  public:
   static std::shared_ptr<ExtensionProvider> kDefaultExtensionProvider;
   virtual ~ExtensionProvider() = default;
-  virtual Result<RelationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
+  virtual Result<RelationInfo> MakeRel(const ConversionOptions& conv_opts,
+                                       const std::vector<DeclarationInfo>& inputs,
                                        const ExtensionDetails& ext_details,
                                        const ExtensionSet& ext_set) = 0;
 };
@@ -102,6 +106,11 @@ struct ARROW_ENGINE_EXPORT ConversionOptions {
   /// The default behavior will return an invalid status if the plan has any
   /// named table relations.
   NamedTableProvider named_table_provider = kDefaultNamedTableProvider;
+  /// \brief A custom strategy to be used for mapping a tap kind to a function name
+  ///
+  /// The default behavior will return an invalid status if the plan has any
+  /// named tap relations.
+  NamedTapKindMapper named_tap_mapper = kDefaultNamedTapKindMapper;
   std::shared_ptr<ExtensionProvider> extension_provider = default_extension_provider();
 };
 
