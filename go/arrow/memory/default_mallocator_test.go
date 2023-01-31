@@ -14,14 +14,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory
+//go:build mallocator
 
-const (
-	alignment = 64
+package memory_test
+
+import (
+	"testing"
+
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow/memory/mallocator"
+	"github.com/stretchr/testify/assert"
 )
 
-type Allocator interface {
-	Allocate(size int) []byte
-	Reallocate(size int, b []byte) []byte
-	Free(b []byte)
+func TestDefaultAllocator(t *testing.T) {
+	assert.IsType(t, &mallocator.Mallocator{}, memory.DefaultAllocator)
 }

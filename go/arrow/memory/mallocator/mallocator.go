@@ -33,10 +33,17 @@ import (
 	"reflect"
 	"sync/atomic"
 	"unsafe"
-
-	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
+// Mallocator is an allocator which defers to libc malloc.
+//
+// The priamry reason to use this is when exporting data across the C Data
+// Interface. CGO requires that pointers to Go memory are not stored in C
+// memory, which is exactly what the C Data Interface would otherwise
+// require. By allocating with Mallocator up front, we can safely export the
+// buffers in Arrow arrays without copying buffers or violating CGO rules.
+//
+// The build tag 'mallocator' will also make this the default allocator.
 type Mallocator struct {
 	allocatedBytes uint64
 }
@@ -93,7 +100,13 @@ func (alloc *Mallocator) AllocatedBytes() int64 {
 	return int64(alloc.allocatedBytes)
 }
 
-func (alloc *Mallocator) AssertSize(t memory.TestingT, sz int) {
+// Duplicate interface to avoid circular import
+type TestingT interface {
+	Errorf(format string, args ...interface{})
+	Helper()
+}
+
+func (alloc *Mallocator) AssertSize(t TestingT, sz int) {
 	cur := alloc.AllocatedBytes()
 	if int64(sz) != cur {
 		t.Helper()
