@@ -430,14 +430,10 @@ DataEqMatcher DataEqArray(T type, const std::vector<std::optional<ValueType>>& v
   static const bool need_safe_append = !is_fixed_width(T::type_id);
 
   for (auto value : values) {
-    if (value) {
-      if (need_safe_append) {
-        builder.UnsafeAppend(*value);
-      } else {
-        DCHECK_OK(builder.Append(*value));
-      }
+    if (need_safe_append) {
+      DCHECK_OK(builder.AppendOrNull(value));
     } else {
-      builder.UnsafeAppendNull();
+      builder.UnsafeAppendOrNull(value);
     }
   }
 

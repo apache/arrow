@@ -670,11 +670,7 @@ struct BinaryScalarMinMax {
         }
       }
 
-      if (result) {
-        RETURN_NOT_OK(builder.Append(*result));
-      } else {
-        builder.UnsafeAppendNull();
-      }
+      RETURN_NOT_OK(builder.AppendOrNull(result));
     }
 
     std::shared_ptr<Array> string_array;
