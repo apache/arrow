@@ -48,6 +48,8 @@ import (
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/endian"
+	"github.com/apache/arrow/go/v12/arrow/internal"
+	"github.com/apache/arrow/go/v12/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v12/arrow/ipc"
 )
 
@@ -379,7 +381,7 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		// unions don't have validity bitmaps, but we keep them shifted
 		// to make processing easier in other contexts. This means that
 		// we have to adjust for union arrays
-		if arr.DataType().ID() == arrow.DENSE_UNION || arr.DataType().ID() == arrow.SPARSE_UNION {
+		if !internal.HasValidityBitmap(arr.DataType().ID(), flatbuf.MetadataVersionV5) {
 			out.n_buffers--
 			nbuffers--
 			bufs = bufs[1:]
@@ -388,7 +390,7 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		for i := range bufs {
 			buf := bufs[i]
 			if buf == nil || buf.Len() == 0 {
-				if i > 0 {
+				if i > 0 || !internal.HasValidityBitmap(arr.DataType().ID(), flatbuf.MetadataVersionV5) {
 					// apache/arrow#33936: export a dummy buffer to be friendly to
 					// implementations that don't import NULL properly
 					buffers[i] = (*C.void)(unsafe.Pointer(&C.kGoCdataZeroRegion))
