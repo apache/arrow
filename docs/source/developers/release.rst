@@ -414,7 +414,7 @@ Be sure to go through on the following checklist:
 
    In order to publish the binary build to npm, you will need to get access to the project by asking one of the current collaborators listed at https://www.npmjs.com/package/apache-arrow packages.
 
-   You require to have installed npm and yarn. The package upload requires 2FA to be configured on your account.
+   The package upload requires npm and yarn to be installed and 2FA to be configured on your account.
 
    When you have access, you can publish releases to npm by running the the following script:
 
