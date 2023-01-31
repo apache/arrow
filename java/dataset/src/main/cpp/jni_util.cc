@@ -119,8 +119,6 @@ class ReservationListenableMemoryPool::Impl {
 
   int64_t num_allocations() { return stats_.num_allocations(); }
 
-  void ResetStatistics() { stats_.Reset(); }
-
   std::string backend_name() { return pool_->backend_name(); }
 
   std::shared_ptr<ReservationListener> get_listener() { return listener_; }
@@ -171,8 +169,6 @@ int64_t ReservationListenableMemoryPool::total_bytes_allocated() const {
 int64_t ReservationListenableMemoryPool::num_allocations() const {
   return impl_->num_allocations();
 }
-
-void ReservationListenableMemoryPool::ResetStatistics() { impl_->ResetStatistics(); }
 
 std::string ReservationListenableMemoryPool::backend_name() const {
   return impl_->backend_name();

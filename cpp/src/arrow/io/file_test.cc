@@ -468,8 +468,6 @@ class MyMemoryPool : public MemoryPool {
 
   int64_t num_allocations() const override { return num_allocations_.load(); }
 
-  void ResetStatistics() override { num_allocations_ = 0; }
-
  private:
   std::atomic<int64_t> num_allocations_;
 };

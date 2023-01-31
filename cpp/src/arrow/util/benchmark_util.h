@@ -24,6 +24,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/cpu_info.h"
+#include "arrow/util/logging.h"  // IWYU pragma: keep
 
 namespace arrow {
 
@@ -139,27 +140,70 @@ struct RegressionArgs {
 };
 
 class MemoryPoolMemoryManager : public benchmark::MemoryManager {
-  void Start() BENCHMARK_OVERRIDE {
-    // Reset statistics between each benchmark
-    MemoryPool* pool = default_memory_pool();
-    pool->ResetStatistics();
+  void Start() override {
+    memory_pool = std::make_shared<ProxyMemoryPool>(default_memory_pool());
+
+    MemoryPool* default_pool = default_memory_pool();
+    global_allocations_start = default_pool->num_allocations();
   }
 
-  void Stop(benchmark::MemoryManager::Result* result) BENCHMARK_OVERRIDE {
-    MemoryPool* pool = default_memory_pool();
-    result->max_bytes_used = pool->max_memory();
-    result->total_allocated_bytes = pool->total_bytes_allocated();
-    result->num_allocs = pool->num_allocations();
+  void Stop(benchmark::MemoryManager::Result* result) override {
+    // If num_allocations is still zero, we assume that the memory pool wasn't passed down
+    // so we should record them.
+    MemoryPool* default_pool = default_memory_pool();
+    int64_t new_default_allocations =
+        default_pool->num_allocations() - global_allocations_start;
+      
+    if (!memory_pool) {
+      ARROW_LOG(WARNING) << "memory pool is null";
+    }
+
+    // Only record metrics metrics if (1) there were allocations and (2) we
+    // recorded at least one.
+    if (new_default_allocations > 0 && memory_pool->num_allocations() > 0) {
+      ARROW_LOG(WARNING) << "default allocations: " << new_default_allocations 
+        << " proxy allocations: " << memory_pool->num_allocations();
+      if (new_default_allocations > memory_pool->num_allocations()) {
+        // If we missed some, let's report that.
+        int64_t missed_allocations =
+            new_default_allocations - memory_pool->num_allocations();
+        ARROW_LOG(WARNING) << "BenchmarkMemoryTracker recorded some allocations "
+                           << "for a benchmark, but missed " << missed_allocations
+                           << " allocations.\n";
+      }
+
+      result->max_bytes_used = memory_pool->max_memory();
+      result->total_allocated_bytes = memory_pool->total_bytes_allocated();
+      result->num_allocs = memory_pool->num_allocations();
+    }
   }
+
+ public:
+  std::shared_ptr<::arrow::ProxyMemoryPool> memory_pool;
+
+ protected:
+  int64_t global_allocations_start;
+};
+
+/// \brief Track memory pool allocations in benchmarks.
+///
+/// Instantiate as a global variable to register the hooks into Google Benchmark
+/// to collect memory metrics. Before each benchmark, a new ProxyMemoryPool is
+/// created. It can then be accessed with memory_pool(). Once the benchmark is
+/// complete, the hook will record the maximum memory used, the total bytes
+/// allocated, and the total number of allocations. If no allocations were seen,
+/// (for example, if you forgot to pass down the memory pool), then these metrics
+/// will not be saved.
+class BenchmarkMemoryTracker {
+ public:
+  BenchmarkMemoryTracker() : manager_() { ::benchmark::RegisterMemoryManager(&manager_); }
+  ::arrow::MemoryPool* memory_pool() const { return manager_.memory_pool.get(); }
+
+ protected:
+  ::arrow::MemoryPoolMemoryManager manager_;
 };
 
 // Defines a global variable that registers MemoryPoolMemoryManager on init.
-#define ARROW_BENCHMARK_TRACK_MEMORY()                                          \
-  class TrackMemory {                                                           \
-   public:                                                                      \
-    TrackMemory() : manager() { ::benchmark::RegisterMemoryManager(&manager); } \
-    ::arrow::MemoryPoolMemoryManager manager;                                   \
-  };                                                                            \
-  TrackMemory __memory_tracker;
+#define ARROW_BENCHMARK_TRACK_MEMORY() ::arrow::BenchmarkMemoryTracker memory_tracker;
 
 }  // namespace arrow

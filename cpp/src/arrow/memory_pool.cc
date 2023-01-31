@@ -524,8 +524,6 @@ class BaseMemoryPoolImpl : public MemoryPool {
 
   int64_t num_allocations() const override { return stats_.num_allocations(); }
 
-  void ResetStatistics() override { stats_.Reset(); }
-
  protected:
   internal::MemoryPoolStats stats_;
 };
@@ -752,8 +750,6 @@ int64_t LoggingMemoryPool::num_allocations() const {
   return mem;
 }
 
-void LoggingMemoryPool::ResetStatistics() { pool_->ResetStatistics(); }
-
 std::string LoggingMemoryPool::backend_name() const { return pool_->backend_name(); }
 
 ///////////////////////////////////////////////////////////////////////
@@ -788,8 +784,6 @@ class ProxyMemoryPool::ProxyMemoryPoolImpl {
   int64_t total_bytes_allocated() const { return stats_.total_bytes_allocated(); }
 
   int64_t num_allocations() const { return stats_.num_allocations(); }
-
-  void ResetStatistics() { stats_.Reset(); }
 
   std::string backend_name() const { return pool_->backend_name(); }
 
@@ -826,8 +820,6 @@ int64_t ProxyMemoryPool::total_bytes_allocated() const {
 }
 
 int64_t ProxyMemoryPool::num_allocations() const { return impl_->num_allocations(); }
-
-void ProxyMemoryPool::ResetStatistics() { impl_->ResetStatistics(); }
 
 std::string ProxyMemoryPool::backend_name() const { return impl_->backend_name(); }
 

@@ -143,8 +143,6 @@ class STLMemoryPool : public MemoryPool {
 
   int64_t num_allocations() const override { return stats_.num_allocations(); }
 
-  void ResetStatistics() override { stats_.Reset(); }
-
   std::string backend_name() const override { return "stl"; }
 
  private:

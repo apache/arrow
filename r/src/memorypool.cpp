@@ -51,8 +51,6 @@ class GcMemoryPool : public arrow::MemoryPool {
 
   int64_t num_allocations() const override { return pool_->num_allocations(); }
 
-  void ResetStatistics() override { pool_->ResetStatistics(); }
-
   std::string backend_name() const override { return pool_->backend_name(); }
 
  private:
