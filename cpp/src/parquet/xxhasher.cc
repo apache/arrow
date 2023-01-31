@@ -29,24 +29,34 @@ uint64_t XxHashHelper(T value, uint32_t seed) {
 }
 }  // namespace
 
-uint64_t XxHasher::Hash(int32_t value) const { return XxHashHelper(value, seed_); }
+uint64_t XxHasher::Hash(int32_t value) const {
+  return XxHashHelper(value, kParquetBloomXxHashSeed);
+}
 
-uint64_t XxHasher::Hash(int64_t value) const { return XxHashHelper(value, seed_); }
+uint64_t XxHasher::Hash(int64_t value) const {
+  return XxHashHelper(value, kParquetBloomXxHashSeed);
+}
 
-uint64_t XxHasher::Hash(float value) const { return XxHashHelper(value, seed_); }
+uint64_t XxHasher::Hash(float value) const {
+  return XxHashHelper(value, kParquetBloomXxHashSeed);
+}
 
-uint64_t XxHasher::Hash(double value) const { return XxHashHelper(value, seed_); }
+uint64_t XxHasher::Hash(double value) const {
+  return XxHashHelper(value, kParquetBloomXxHashSeed);
+}
 
 uint64_t XxHasher::Hash(const FLBA* value, uint32_t len) const {
-  return XXH64(reinterpret_cast<const void*>(value->ptr), len, seed_);
+  return XXH64(reinterpret_cast<const void*>(value->ptr), len, kParquetBloomXxHashSeed);
 }
 
 uint64_t XxHasher::Hash(const Int96* value) const {
-  return XXH64(reinterpret_cast<const void*>(value->value), sizeof(value->value), seed_);
+  return XXH64(reinterpret_cast<const void*>(value->value), sizeof(value->value),
+               kParquetBloomXxHashSeed);
 }
 
 uint64_t XxHasher::Hash(const ByteArray* value) const {
-  return XXH64(reinterpret_cast<const void*>(value->ptr), value->len, seed_);
+  return XXH64(reinterpret_cast<const void*>(value->ptr), value->len,
+               kParquetBloomXxHashSeed);
 }
 
 }  // namespace parquet

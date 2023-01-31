@@ -27,8 +27,6 @@ namespace parquet {
 
 class PARQUET_EXPORT XxHasher : public Hasher {
  public:
-  XxHasher() : seed_(kDefaultSeed) {}
-  explicit XxHasher(uint32_t seed) : seed_(seed) {}
   uint64_t Hash(int32_t value) const override;
   uint64_t Hash(int64_t value) const override;
   uint64_t Hash(float value) const override;
@@ -37,10 +35,7 @@ class PARQUET_EXPORT XxHasher : public Hasher {
   uint64_t Hash(const ByteArray* value) const override;
   uint64_t Hash(const FLBA* val, uint32_t len) const override;
 
- private:
-  static constexpr int kDefaultSeed = 0;
-
-  uint32_t seed_;
+  static constexpr int kParquetBloomXxHashSeed = 0;
 };
 
 }  // namespace parquet
