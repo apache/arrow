@@ -1533,7 +1533,7 @@ def generate_ree_case():
         RunEndEncodedField('ree64', 64, get_field('values', 'float32')),
     ]
     batch_sizes = [0, 7, 10]
-    return _generate_file("ree", fields, batch_sizes)
+    return _generate_file("run_end_encoded", fields, batch_sizes)
 
 
 def generate_nested_large_offsets_case():
