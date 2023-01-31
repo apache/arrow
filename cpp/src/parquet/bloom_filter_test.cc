@@ -55,31 +55,34 @@ TEST(ConstructorTest, TestBloomFilter) {
 // The BasicTest is used to test basic operations including InsertHash, FindHash and
 // serializing and de-serializing.
 TEST(BasicTest, TestBloomFilter) {
-  BlockSplitBloomFilter bloom_filter;
-  bloom_filter.Init(1024);
+  std::vector<uint32_t> bloom_filter_bytes_vec = {32, 64, 128, 256, 512, 1024, 2048};
+  for (auto bloom_filter_bytes : bloom_filter_bytes_vec) {
+    BlockSplitBloomFilter bloom_filter;
+    bloom_filter.Init(bloom_filter_bytes);
 
-  for (int i = 0; i < 10; i++) {
-    bloom_filter.InsertHash(bloom_filter.Hash(i));
-  }
+    for (int i = 0; i < 10; i++) {
+      bloom_filter.InsertHash(bloom_filter.Hash(i));
+    }
 
-  for (int i = 0; i < 10; i++) {
-    EXPECT_TRUE(bloom_filter.FindHash(bloom_filter.Hash(i)));
-  }
+    for (int i = 0; i < 10; i++) {
+      EXPECT_TRUE(bloom_filter.FindHash(bloom_filter.Hash(i)));
+    }
 
-  // Serialize Bloom filter to memory output stream
-  auto sink = CreateOutputStream();
-  bloom_filter.WriteTo(sink.get());
+    // Serialize Bloom filter to memory output stream
+    auto sink = CreateOutputStream();
+    bloom_filter.WriteTo(sink.get());
 
-  // Deserialize Bloom filter from memory
-  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
-  ::arrow::io::BufferReader source(buffer);
+    // Deserialize Bloom filter from memory
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+    ::arrow::io::BufferReader source(buffer);
 
-  ReaderProperties reader_properties;
-  BlockSplitBloomFilter de_bloom =
-      BlockSplitBloomFilter::Deserialize(reader_properties, &source);
+    ReaderProperties reader_properties;
+    BlockSplitBloomFilter de_bloom =
+        BlockSplitBloomFilter::Deserialize(reader_properties, &source);
 
-  for (int i = 0; i < 10; i++) {
-    EXPECT_TRUE(de_bloom.FindHash(de_bloom.Hash(i)));
+    for (int i = 0; i < 10; i++) {
+      EXPECT_TRUE(de_bloom.FindHash(de_bloom.Hash(i)));
+    }
   }
 }
 
