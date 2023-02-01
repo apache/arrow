@@ -1007,7 +1007,7 @@ func makeRunEndEncodedRecords() []arrow.Record {
 	}, nil)
 
 	schema.Field(1).Type.(*arrow.RunEndEncodedType).ValueNullable = false
-	isValid := []bool{true, false, false, true, true}
+	isValid := []bool{true, false, true, false, true}
 	chunks := [][]arrow.Array{
 		{
 			runEndEncodedOf(

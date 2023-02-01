@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"reflect"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v12/arrow"
@@ -198,9 +199,14 @@ func (r *RunEndEncoded) String() string {
 		if i != 0 {
 			buf.WriteByte(',')
 		}
-		fmt.Fprintf(&buf, "{%v -> %v}",
+
+		value := r.values.(arraymarshal).getOneForMarshal(i)
+		if byts, ok := value.(json.RawMessage); ok {
+			value = string(byts)
+		}
+		fmt.Fprintf(&buf, "{%d -> %v}",
 			r.ends.(arraymarshal).getOneForMarshal(i),
-			r.values.(arraymarshal).getOneForMarshal(i))
+			value)
 	}
 
 	buf.WriteByte(']')
@@ -208,7 +214,7 @@ func (r *RunEndEncoded) String() string {
 }
 
 func (r *RunEndEncoded) getOneForMarshal(i int) interface{} {
-	physIndex := encoded.FindPhysicalIndex(r.data, i)
+	physIndex := encoded.FindPhysicalIndex(r.data, i+r.data.offset)
 	return r.values.(arraymarshal).getOneForMarshal(physIndex)
 }
 
@@ -216,7 +222,7 @@ func (r *RunEndEncoded) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	buf.WriteByte('[')
-	for i := 0; i < r.ends.Len(); i++ {
+	for i := 0; i < r.Len(); i++ {
 		if i != 0 {
 			buf.WriteByte(',')
 		}
@@ -263,6 +269,8 @@ type RunEndEncodedBuilder struct {
 	runEnds   Builder
 	values    Builder
 	maxRunEnd uint64
+
+	lastUnmarshalled interface{}
 }
 
 func NewRunEndEncodedBuilder(mem memory.Allocator, runEnds, encoded arrow.DataType) *RunEndEncodedBuilder {
@@ -281,11 +289,12 @@ func NewRunEndEncodedBuilder(mem memory.Allocator, runEnds, encoded arrow.DataTy
 		maxEnd = math.MaxInt64
 	}
 	return &RunEndEncodedBuilder{
-		builder:   builder{refCount: 1, mem: mem},
-		dt:        dt,
-		runEnds:   NewBuilder(mem, runEnds),
-		values:    NewBuilder(mem, encoded),
-		maxRunEnd: maxEnd,
+		builder:          builder{refCount: 1, mem: mem},
+		dt:               dt,
+		runEnds:          NewBuilder(mem, runEnds),
+		values:           NewBuilder(mem, encoded),
+		maxRunEnd:        maxEnd,
+		lastUnmarshalled: nil,
 	}
 }
 
@@ -311,7 +320,11 @@ func (b *RunEndEncodedBuilder) addLength(n uint64) {
 }
 
 func (b *RunEndEncodedBuilder) finishRun() {
-	if b.length == 0 {
+	b.lastUnmarshalled = nil
+	// protect against a 0 len or attempting to finish an already
+	// finished run. This can happen if you're mixing json unmarshalling
+	// and manually adding values/runs.
+	if b.length == 0 || b.runEnds.Len() == b.values.Len() {
 		return
 	}
 
@@ -388,10 +401,35 @@ func (b *RunEndEncodedBuilder) newData() (data *Data) {
 }
 
 func (b *RunEndEncodedBuilder) unmarshalOne(dec *json.Decoder) error {
-	return arrow.ErrNotImplemented
+	var value interface{}
+	if err := dec.Decode(&value); err != nil {
+		return err
+	}
+
+	// if we unmarshalled the same value as the previous one, we want to
+	// continue the run. However, there's an edge case. At the start of
+	// unmarshalling, lastUnmarshalled will be nil, but we might get
+	// nil as the first value we unmarshal. In that case we want to
+	// make sure we add a new run instead. We can detect that case by
+	// checking that the number of runEnds matches the number of values
+	// we have, which means no matter what we have to start a new run
+	if reflect.DeepEqual(value, b.lastUnmarshalled) && (value != nil || b.runEnds.Len() != b.values.Len()) {
+		b.ContinueRun(1)
+		return nil
+	}
+
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+
+	b.Append(1)
+	b.lastUnmarshalled = value
+	return b.ValueBuilder().unmarshalOne(json.NewDecoder(bytes.NewReader(data)))
 }
 
 func (b *RunEndEncodedBuilder) unmarshal(dec *json.Decoder) error {
+	b.finishRun()
 	for dec.More() {
 		if err := b.unmarshalOne(dec); err != nil {
 			return err
