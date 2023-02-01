@@ -331,6 +331,23 @@ TEST(Expression, Equality) {
   EXPECT_EQ(literal(1), literal(1));
   EXPECT_NE(literal(1), literal(2));
 
+  // NaN literals (of the same type) should be equal.  This allows, for example,
+  // the expression x == NaN to equal itself.
+  auto double_nan_literal = literal(std::numeric_limits<double>::quiet_NaN());
+  auto float_nan_literal = literal(std::numeric_limits<float>::quiet_NaN());
+  EXPECT_EQ(double_nan_literal, double_nan_literal);
+  EXPECT_NE(double_nan_literal, float_nan_literal);
+  // The literals may be equal but the values should not be
+  Expression nans_eq = equal(double_nan_literal, double_nan_literal);
+  ASSERT_OK_AND_ASSIGN(nans_eq, nans_eq.Bind(*kBoringSchema));
+  ASSERT_OK_AND_ASSIGN(Datum nans_eq_rsp, ExecuteScalarExpression(nans_eq, ExecBatch()));
+  EXPECT_FALSE(nans_eq_rsp.scalar_as<BooleanScalar>().value);
+  if (std::numeric_limits<double>::has_signaling_NaN) {
+    // We intentionally do not care about signaling and may even discard it on conversion.
+    EXPECT_EQ(literal(std::numeric_limits<double>::quiet_NaN()),
+              literal(std::numeric_limits<double>::signaling_NaN()));
+  }
+
   EXPECT_EQ(field_ref("a"), field_ref("a"));
   EXPECT_NE(field_ref("a"), field_ref("b"));
   EXPECT_NE(field_ref("a"), literal(2));
@@ -606,6 +623,19 @@ TEST(Expression, BindWithImplicitCasts) {
     ExpectBindsTo(
         cmp(field_ref("binary"), literal(std::make_shared<LargeBinaryScalar>("foo"))),
         cmp(field_ref("binary"), literal(std::make_shared<BinaryScalar>("foo"))));
+
+    // We will not implicitly cast a literal from signed to unsigned or vice versa
+    ExpectBindsTo(cmp(field_ref("i8"), literal(uint8_t(4))),
+                  cmp(cast(field_ref("i8"), int16()), literal(int16_t(4))));
+    ExpectBindsTo(cmp(field_ref("u32"), literal(int64_t(4))),
+                  cmp(cast(field_ref("u32"), int64()), literal(int64_t(4))));
+
+    // NaN / Inf can be float or double as needed
+    ExpectBindsTo(
+        cmp(field_ref("f32"), literal(std::numeric_limits<double>::quiet_NaN())),
+        cmp(field_ref("f32"), literal(std::numeric_limits<float>::quiet_NaN())));
+    ExpectBindsTo(cmp(field_ref("f32"), literal(std::numeric_limits<double>::infinity())),
+                  cmp(field_ref("f32"), literal(std::numeric_limits<float>::infinity())));
 
     // Bit of an odd case, both fields are cast
     ExpectBindsTo(cmp(field_ref("i32"), literal(std::make_shared<DoubleScalar>(10.0))),

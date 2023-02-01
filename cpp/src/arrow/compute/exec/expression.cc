@@ -18,6 +18,7 @@
 #include "arrow/compute/exec/expression.h"
 
 #include <algorithm>
+#include <cmath>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
@@ -221,7 +222,11 @@ bool Expression::Equals(const Expression& other) const {
   }
 
   if (auto lit = literal()) {
-    return lit->Equals(*other.literal());
+    // The scalar NaN is not equal to the scalar NaN but the literal NaN
+    // is equal to the literal NaN (e.g. the expressions are equal even if
+    // the values are not)
+    EqualOptions equal_options = EqualOptions::Defaults().nans_equal(true);
+    return lit->scalar()->Equals(other.literal()->scalar(), equal_options);
   }
 
   if (auto ref = field_ref()) {
@@ -442,7 +447,12 @@ TypeHolder SmallestTypeFor(const arrow::Datum& value) {
     }
     case Type::DOUBLE: {
       double doub = value.scalar_as<DoubleScalar>().value;
-      if (double(float(doub)) == doub) {
+      if (!std::isfinite(doub)) {
+        // Special values can be float
+        return float32();
+      }
+      // Test if float representation is the same
+      if (static_cast<double>(static_cast<float>(doub)) == doub) {
         return float32();
       }
       return float64();
