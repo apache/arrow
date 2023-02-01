@@ -153,7 +153,7 @@ type SQLiteFlightSQLServer struct {
 }
 
 func NewSQLiteFlightSQLServer() (*SQLiteFlightSQLServer, error) {
-	db, err := sql.Open("sqlite", ":memory:")
+	db, err := sql.Open("sqlite", "file::memory:?cache=shared")
 	if err != nil {
 		return nil, err
 	}
