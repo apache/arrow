@@ -4854,7 +4854,7 @@ macro(build_awssdk)
                       URL_HASH "SHA256=${ARROW_AWS_C_EVENT_STREAM_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_EVENT_STREAM_STATIC_LIBRARY}
-                      DEPENDS aws_checksums_ep aws_c_common_ep aws_c_io_ep)
+                      DEPENDS aws_checksums_ep aws_c_io_ep)
   add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
 
   externalproject_add(aws_c_sdkutils_ep
