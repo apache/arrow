@@ -321,3 +321,64 @@ func TestUniqueDecimal(t *testing.T) {
 			values, expected, []bool{true, false, true, true}, []bool{true, false, true})
 	})
 }
+
+func TestUniqueIntervalMonth(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	checkUniqueFW(t, mem, arrow.FixedWidthTypes.MonthInterval,
+		[]arrow.MonthInterval{2, 1, 2, 1}, []arrow.MonthInterval{2, 0, 1},
+		[]bool{true, false, true, true}, []bool{true, false, true})
+
+	checkUniqueFW(t, mem, arrow.FixedWidthTypes.DayTimeInterval,
+		[]arrow.DayTimeInterval{
+			{Days: 2, Milliseconds: 1}, {Days: 3, Milliseconds: 2},
+			{Days: 2, Milliseconds: 1}, {Days: 1, Milliseconds: 2}},
+		[]arrow.DayTimeInterval{{Days: 2, Milliseconds: 1},
+			{Days: 1, Milliseconds: 1}, {Days: 1, Milliseconds: 2}},
+		[]bool{true, false, true, true}, []bool{true, false, true})
+
+	checkUniqueFW(t, mem, arrow.FixedWidthTypes.MonthDayNanoInterval,
+		[]arrow.MonthDayNanoInterval{
+			{Months: 2, Days: 1, Nanoseconds: 1},
+			{Months: 3, Days: 2, Nanoseconds: 1},
+			{Months: 2, Days: 1, Nanoseconds: 1},
+			{Months: 1, Days: 2, Nanoseconds: 1}},
+		[]arrow.MonthDayNanoInterval{
+			{Months: 2, Days: 1, Nanoseconds: 1},
+			{Months: 1, Days: 1, Nanoseconds: 1},
+			{Months: 1, Days: 2, Nanoseconds: 1}},
+		[]bool{true, false, true, true}, []bool{true, false, true})
+}
+
+func TestUniqueChunkedArrayInvoke(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	var (
+		values1    = []string{"foo", "bar", "foo"}
+		values2    = []string{"bar", "baz", "quuux", "foo"}
+		dictValues = []string{"foo", "bar", "baz", "quuux"}
+		typ        = arrow.BinaryTypes.String
+		a1         = makeArray(mem, typ, values1, nil)
+		a2         = makeArray(mem, typ, values2, nil)
+		exDict     = makeArray(mem, typ, dictValues, nil)
+	)
+
+	defer a1.Release()
+	defer a2.Release()
+	defer exDict.Release()
+
+	carr := arrow.NewChunked(typ, []arrow.Array{a1, a2})
+	defer carr.Release()
+
+	result, err := compute.Unique(context.TODO(), &compute.ChunkedDatum{Value: carr})
+	require.NoError(t, err)
+	defer result.Release()
+
+	require.Equal(t, compute.KindArray, result.Kind())
+	out := result.(*compute.ArrayDatum).MakeArray()
+	defer out.Release()
+
+	assertArraysEqual(t, exDict, out)
+}
