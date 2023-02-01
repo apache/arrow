@@ -542,6 +542,7 @@ func GetVectorHashKernels() (unique, valueCounts, dictEncode []exec.VectorKernel
 	// unique
 	base.Finalize = uniqueFinalize
 	base.OutputChunked = false
+	base.CanExecuteChunkWise = true
 	unique = addHashKernels(base, initUnique, OutputFirstType)
 
 	// dictionary unique
