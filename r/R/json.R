@@ -43,17 +43,16 @@
 #' @examplesIf arrow_with_json()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
-#' json <- '
-#'   { "hello": 3.5, "world": false, "yo": "thing" }
-#'   { "hello": 3.25, "world": null }
-#'   { "hello": 0.0, "world": true, "yo": null }
-#' '
-#' writeLines(json, tf, useBytes = TRUE)
+#' writeLines('
+#'     { "hello": 3.5, "world": false, "yo": "thing" }
+#'     { "hello": 3.25, "world": null }
+#'     { "hello": 0.0, "world": true, "yo": null }
+#'   ', tf, useBytes = TRUE)
 #'
 #' read_json_arrow(tf)
 #'
 #' # Read directly from strings with `I()`
-#' read_json_arrow(I(json))
+#' read_json_arrow(I(c('{"x": 1, "y": 2}', '{"x": 3, "y": 4}')))
 read_json_arrow <- function(file,
                             col_select = NULL,
                             as_data_frame = TRUE,
