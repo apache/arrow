@@ -373,7 +373,7 @@ Fixed size tensor
 
 .. code-block:: python
    
-   class TensorType(pa.ExtensionType):
+   class FixedShapeTensorType(pa.ExtensionType):
       """
       Canonical extension type class for fixed shape tensors.
 
@@ -390,9 +390,9 @@ Fixed size tensor
       Examples
       --------
       >>> import pyarrow as pa
-      >>> tensor_type = TensorType(pa.int32(), (2, 2), 'C')
+      >>> tensor_type = FixedShapeTensorType(pa.int32(), (2, 2), 'C')
       >>> tensor_type
-      TensorType(FixedSizeListType(fixed_size_list<item: int32>[4]))
+      FixedShapeTensorType(FixedSizeListType(fixed_size_list<item: int32>[4]))
       >>> pa.register_extension_type(tensor_type)
       """
 
@@ -405,7 +405,7 @@ Fixed size tensor
                                     'arrow.fixed_size_tensor')
 
       @property
-      def dtype(self):
+      def value_type(self):
          """
          Data type of an individual tensor.
          """
@@ -439,13 +439,13 @@ Fixed size tensor
          shape = ast.literal_eval(metadata['shape'])
          order = metadata["is_row_major"]
 
-         return TensorType(storage_type.value_type, shape, order)
+         return FixedShapeTensorType(storage_type.value_type, shape, order)
 
       def __arrow_ext_class__(self):
-         return TensorArray
+         return FixedShapeTensorArray
 
 
-   class TensorArray(pa.ExtensionArray):
+   class FixedShapeTensorArray(pa.ExtensionArray):
       """
       Canonical extension array class for fixed shape tensors.
 
@@ -454,7 +454,7 @@ Fixed size tensor
       Define and register extension type for tensor array
 
       >>> import pyarrow as pa
-      >>> tensor_type = TensorType(pa.int32(), (2, 2), 'C')
+      >>> tensor_type = FixedShapeTensorType(pa.int32(), (2, 2), 'C')
       >>> pa.register_extension_type(tensor_type)
 
       Create an extension array
@@ -462,7 +462,7 @@ Fixed size tensor
       >>> arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
       >>> storage = pa.array(arr, pa.list_(pa.int32(), 4))
       >>> pa.ExtensionArray.from_storage(tensor_type, storage)
-      <__main__.TensorArray object at 0x1491a5a00>
+      <__main__.FixedShapeTensorArray object at ...>
       [
         [
           1,
@@ -491,11 +491,11 @@ Fixed size tensor
          """
          tensors = []
          for tensor in self.storage:
-               np_flat = np.array(tensor.as_py())
-               order = 'C' if self.type.is_row_major else 'F'
-               numpy_tensor = np_flat.reshape((self.type.shape),
+            np_flat = np.array(tensor.as_py())
+            order = 'C' if self.type.is_row_major else 'F'
+            numpy_tensor = np_flat.reshape((self.type.shape),
                                              order=order)
-               tensors.append(numpy_tensor)
+            tensors.append(numpy_tensor)
          return tensors
 
       def from_numpy_tensor_list(obj):
@@ -510,12 +510,13 @@ Fixed size tensor
 
          tensor_list = []
          for tensor in obj:
-               tensor_list.append(tensor.flatten())
+            tensor_list.append(tensor.flatten())
 
          return pa.ExtensionArray.from_storage(
-               TensorType(arrow_type, shape, is_row_major),
-               pa.array(tensor_list, pa.list_(arrow_type, size))
+            FixedShapeTensorType(arrow_type, shape, is_row_major),
+            pa.array(tensor_list, pa.list_(arrow_type, size))
          )
+
 
 **Example of usage**
 
