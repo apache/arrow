@@ -718,33 +718,23 @@ func (ps *ParquetIOTestSuite) TestLargeBinaryReadWriteTable() {
 	// So we're building a normal array.String to use with array.Equal
 	lsBldr := array.NewLargeStringBuilder(memory.DefaultAllocator)
 	defer lsBldr.Release()
-	sBldr := array.NewStringBuilder(memory.DefaultAllocator)
-	defer sBldr.Release()
 	lbBldr := array.NewBinaryBuilder(memory.DefaultAllocator, arrow.BinaryTypes.LargeBinary)
 	defer lbBldr.Release()
-	bBldr := array.NewBinaryBuilder(memory.DefaultAllocator, arrow.BinaryTypes.Binary)
-	defer bBldr.Release()
 
 	for i := 0; i < smallSize; i++ {
 		s := strconv.FormatInt(int64(i), 10)
 		lsBldr.Append(s)
-		sBldr.Append(s)
 		lbBldr.Append([]byte(s))
-		bBldr.Append([]byte(s))
 	}
 
 	lsValues := lsBldr.NewArray()
 	defer lsValues.Release()
-	sExpected := sBldr.NewArray()
-	defer sExpected.Release()
 	lbValues := lbBldr.NewArray()
 	defer lbValues.Release()
-	bExpected := bBldr.NewArray()
-	defer bExpected.Release()
 
 	lsField := arrow.Field{Name: "large_string", Type: arrow.BinaryTypes.LargeString, Nullable: true}
 	lbField := arrow.Field{Name: "large_binary", Type: arrow.BinaryTypes.LargeBinary, Nullable: true}
-	tbl := array.NewTable(
+	expected := array.NewTable(
 		arrow.NewSchema([]arrow.Field{lsField, lbField}, nil),
 		[]arrow.Column{
 			*arrow.NewColumn(lsField, arrow.NewChunked(lsField.Type, []arrow.Array{lsValues})),
@@ -752,20 +742,8 @@ func (ps *ParquetIOTestSuite) TestLargeBinaryReadWriteTable() {
 		},
 		-1,
 	)
-	defer tbl.Release()
-
-	var buf bytes.Buffer
-	ps.Require().NoError(pqarrow.WriteTable(tbl, &buf, tbl.NumRows(), nil, pqarrow.DefaultWriterProps()))
-
-	reader := ps.createReader(buf.Bytes())
-	actual := ps.readTable(reader)
-	defer actual.Release()
-
-	ps.Equal(tbl.NumCols(), actual.NumCols())
-	ps.Equal(tbl.NumRows(), actual.NumRows())
-
-	ps.True(array.Equal(sExpected, actual.Column(0).Data().Chunk(0)))
-	ps.True(array.Equal(bExpected, actual.Column(1).Data().Chunk(0)))
+	defer expected.Release()
+	ps.roundTripTable(expected, true)
 }
 
 func (ps *ParquetIOTestSuite) TestReadSingleColumnFile() {

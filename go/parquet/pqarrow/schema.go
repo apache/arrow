@@ -1001,6 +1001,9 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 			inferred.Field.Type = origin.Type
 		}
 		modified = true
+	case arrow.LARGE_STRING, arrow.LARGE_BINARY:
+		inferred.Field.Type = origin.Type
+		modified = true
 	}
 
 	if origin.HasMetadata() {

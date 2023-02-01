@@ -751,20 +751,15 @@ type byteArrayRecordReader struct {
 	valueBuf []parquet.ByteArray
 }
 
-func newByteArrayRecordReader(descr *schema.Column, info LevelInfo, mem memory.Allocator, bufferPool *sync.Pool) RecordReader {
+func newByteArrayRecordReader(descr *schema.Column, info LevelInfo, dtype arrow.DataType, mem memory.Allocator, bufferPool *sync.Pool) RecordReader {
 	if mem == nil {
 		mem = memory.DefaultAllocator
-	}
-
-	dt := arrow.BinaryTypes.Binary
-	if descr.LogicalType().Equals(schema.StringLogicalType{}) {
-		dt = arrow.BinaryTypes.String
 	}
 
 	return &binaryRecordReader{&recordReader{
 		recordReaderImpl: &byteArrayRecordReader{
 			createPrimitiveRecordReader(descr, mem, bufferPool),
-			array.NewBinaryBuilder(mem, dt),
+			array.NewBinaryBuilder(mem, dtype.(arrow.BinaryDataType)),
 			nil,
 		},
 		leafInfo:  info,
@@ -841,10 +836,10 @@ func (br *byteArrayRecordReader) GetBuilderChunks() []arrow.Array {
 
 // TODO(mtopol): create optimized readers for dictionary types after ARROW-7286 is done
 
-func NewRecordReader(descr *schema.Column, info LevelInfo, readDict bool, mem memory.Allocator, bufferPool *sync.Pool) RecordReader {
+func NewRecordReader(descr *schema.Column, info LevelInfo, dtype arrow.DataType, mem memory.Allocator, bufferPool *sync.Pool) RecordReader {
 	switch descr.PhysicalType() {
 	case parquet.Types.ByteArray:
-		return newByteArrayRecordReader(descr, info, mem, bufferPool)
+		return newByteArrayRecordReader(descr, info, dtype, mem, bufferPool)
 	case parquet.Types.FixedLenByteArray:
 		return newFLBARecordReader(descr, info, mem, bufferPool)
 	default:
