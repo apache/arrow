@@ -306,8 +306,9 @@ public class FlightClient implements AutoCloseable {
    * @param options RPC-layer hints for this call.
    */
   public FlightStream getStream(Ticket ticket, CallOption... options) {
-    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
-    ClientCall<Flight.Ticket, ArrowMessage> call = interceptedChannel.newCall(doGetDescriptor, callOptions);
+    FlightServiceStub stub = CallOptions.wrapStub(asyncStub, options);
+    final io.grpc.CallOptions callOptions = stub.getCallOptions();
+    ClientCall<Flight.Ticket, ArrowMessage> call = stub.getChannel().newCall(doGetDescriptor, callOptions);
     FlightStream stream = new FlightStream(
         allocator,
         PENDING_REQUESTS,
