@@ -1007,29 +1007,29 @@ func makeRunEndEncodedRecords() []arrow.Record {
 	}, nil)
 
 	schema.Field(1).Type.(*arrow.RunEndEncodedType).ValueNullable = false
-	mask := []bool{true, false, false, true, true}
+	isValid := []bool{true, false, false, true, true}
 	chunks := [][]arrow.Array{
 		{
 			runEndEncodedOf(
 				arrayOf(mem, []int16{5, 10, 20, 1020, 1120}, nil),
-				arrayOf(mem, []string{"foo", "bar", "baz", "foo", ""}, mask), 1100, 20),
+				arrayOf(mem, []string{"foo", "bar", "baz", "foo", ""}, isValid), 1100, 20),
 			runEndEncodedOf(
 				arrayOf(mem, []int32{100, 200, 800, 1000, 1100}, nil),
 				arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil), 1100, 0),
 			runEndEncodedOf(
 				arrayOf(mem, []int64{100, 250, 450, 800, 1100}, nil),
-				arrayOf(mem, [][]byte{{0xde, 0xad}, {0xbe, 0xef}, {0xde, 0xad, 0xbe, 0xef}, {}, {0xba, 0xad, 0xf0, 0x0d}}, mask), 1100, 0),
+				arrayOf(mem, [][]byte{{0xde, 0xad}, {0xbe, 0xef}, {0xde, 0xad, 0xbe, 0xef}, {}, {0xba, 0xad, 0xf0, 0x0d}}, isValid), 1100, 0),
 		},
 		{
 			runEndEncodedOf(
 				arrayOf(mem, []int16{110, 160, 170, 1070, 1120}, nil),
-				arrayOf(mem, []string{"super", "dee", "", "duper", "doo"}, mask), 1100, 20),
+				arrayOf(mem, []string{"super", "dee", "", "duper", "doo"}, isValid), 1100, 20),
 			runEndEncodedOf(
 				arrayOf(mem, []int32{100, 120, 710, 810, 1100}, nil),
 				arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil), 1100, 0),
 			runEndEncodedOf(
 				arrayOf(mem, []int64{100, 250, 450, 800, 1100}, nil),
-				arrayOf(mem, [][]byte{{0xde, 0xad}, {0xbe, 0xef}, {0xde, 0xad, 0xbe, 0xef}, {}, {0xba, 0xad, 0xf0, 0x0d}}, mask), 1100, 0),
+				arrayOf(mem, [][]byte{{0xde, 0xad}, {0xbe, 0xef}, {0xde, 0xad, 0xbe, 0xef}, {}, {0xba, 0xad, 0xf0, 0x0d}}, isValid), 1100, 0),
 		},
 	}
 

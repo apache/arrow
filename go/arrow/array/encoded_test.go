@@ -307,3 +307,47 @@ func TestLogicalRunEndsValuesArray(t *testing.T) {
 	assert.Truef(t, array.Equal(logicalValues, expectedValues), "expected: %s\ngot: %s", expectedValues, logicalValues)
 	assert.Equal(t, expectedRunEnds, logicalRunEnds.(*array.Int16).Int16Values())
 }
+
+func TestLogicalRunEndsValuesArrayEmpty(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	bldr := array.NewRunEndEncodedBuilder(mem, arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
+	defer bldr.Release()
+
+	valBldr := bldr.ValueBuilder().(*array.StringBuilder)
+	// produces run-ends 1, 2, 4, 6, 10, 1000, 1750, 2000
+	bldr.AppendRuns([]uint64{1, 1, 2, 2, 4, 990, 750, 250})
+	valBldr.AppendValues([]string{"a", "b", "c", "d", "e", "f", "g", "h"}, nil)
+
+	arr := bldr.NewRunEndEncodedArray()
+	defer arr.Release()
+
+	emptySlice := array.NewSlice(arr, 2000, 2000)
+	defer emptySlice.Release()
+
+	assert.EqualValues(t, 2000, emptySlice.Data().Offset())
+	assert.EqualValues(t, 0, emptySlice.Len())
+
+	logicalValues := emptySlice.(*array.RunEndEncoded).LogicalValuesArray()
+	defer logicalValues.Release()
+	logicalRunEnds := emptySlice.(*array.RunEndEncoded).LogicalRunEndsArray(mem)
+	defer logicalRunEnds.Release()
+
+	assert.Zero(t, logicalValues.Len())
+	assert.Zero(t, logicalRunEnds.Len())
+
+	empty := bldr.NewRunEndEncodedArray()
+	defer empty.Release()
+
+	assert.EqualValues(t, 0, empty.Data().Offset())
+	assert.EqualValues(t, 0, empty.Len())
+
+	logicalValues = empty.LogicalValuesArray()
+	defer logicalValues.Release()
+	logicalRunEnds = empty.LogicalRunEndsArray(mem)
+	defer logicalRunEnds.Release()
+
+	assert.Zero(t, logicalValues.Len())
+	assert.Zero(t, logicalRunEnds.Len())
+}

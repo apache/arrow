@@ -213,6 +213,8 @@ class RunEndsField(IntegerField):
         values += 1
         values = sorted(values)
         values = list(map(int if self.bit_width < 64 else str, values))
+        # RunEnds cannot be null, as such self.nullable == False and this
+        # will generate a validity map of all ones.
         is_valid = self._make_is_valid(size)
 
         if name is None:
