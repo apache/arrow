@@ -32,6 +32,7 @@
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
@@ -1105,6 +1106,89 @@ TEST(TestStripPrefixAndFilename, Basic) {
   auto paths = StripPrefixAndFilename(input, "/data");
   EXPECT_THAT(paths, testing::ElementsAre("year=2019", "year=2019/month=12",
                                           "year=2019/month=12/day=01"));
+}
+
+TEST_F(TestPartitioning, HivePartitionReadEvaluation) {
+  // Test non-partitioned data
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  const std::string file_name = "data.arrow";
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("non-hive-tempdir-"));
+  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
+  std::string file_path_str = file_path.ToString();
+  auto schema = arrow::schema(
+      {arrow::field("a", arrow::int64()), arrow::field("part", arrow::utf8())});
+
+  auto table = TableFromJSON(schema, {
+                                         R"([
+    [10, "a2"],
+    [11, "a1"],
+    [12, "a2"],
+    [20, "a1"],
+    [14, "a2"]
+  ])",
+                                     });
+  // Write data with no-partitioning
+  ASSERT_OK_AND_ASSIGN(auto output, filesystem->OpenOutputStream(file_path_str));
+  ASSERT_OK_AND_ASSIGN(auto writer, ipc::MakeFileWriter(output.get(), schema));
+  ASSERT_OK(writer->WriteTable(*table));
+  ASSERT_OK(writer->Close());
+
+  FileSystemFactoryOptions options;
+  options.partitioning = HivePartitioning::MakeFactory();
+
+  std::vector<fs::FileInfo> files;
+  const std::vector<std::string> f_paths = {file_path_str};
+
+  for (const auto& f_path : f_paths) {
+    ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
+    files.push_back(std::move(f_file));
+  }
+  auto format = std::make_shared<dataset::IpcFileFormat>();
+  ASSERT_OK_AND_ASSIGN(auto ds_factory,
+                       dataset::FileSystemDatasetFactory::Make(
+                           filesystem, std::move(files), format, options));
+  ASSERT_OK_AND_ASSIGN(auto ds, ds_factory->Finish());
+
+  auto file_system_dataset = std::dynamic_pointer_cast<FileSystemDataset>(ds);
+  // When non-partitioned data is even read with `HivePartitioning` options, the
+  // schema of the partiion should be an empty schema.
+  EXPECT_TRUE(file_system_dataset->partitioning()->schema()->Equals(arrow::schema({})));
+
+  // Test Hive-based partitioning with `partition_schema`.
+
+  auto partition_schema = arrow::schema({arrow::field("part", arrow::utf8())});
+  auto partitioning = std::make_shared<dataset::HivePartitioning>(partition_schema);
+  ASSERT_OK_AND_ASSIGN(auto hive_tempdir,
+                       arrow::internal::TemporaryDir::Make("hive-tempdir-"));
+  dataset::FileSystemDatasetWriteOptions write_options;
+  write_options.file_write_options = format->DefaultWriteOptions();
+  write_options.filesystem = filesystem;
+  write_options.base_dir = hive_tempdir->path().ToString();
+  write_options.partitioning = partitioning;  // partiion with `HivePartitioning`
+  write_options.basename_template = "part{i}.arrow";
+
+  // Write it using Datasets
+  auto dataset = std::make_shared<dataset::InMemoryDataset>(table);
+  ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+
+  ASSERT_OK(dataset::FileSystemDataset::Write(write_options, scanner));
+
+  fs::FileSelector selector;
+  selector.base_dir = hive_tempdir->path().ToString();
+  selector.recursive = true;  // Make sure to search subdirectories
+  FileSystemFactoryOptions hive_options;
+  hive_options.partitioning = HivePartitioning::MakeFactory();
+  ASSERT_OK_AND_ASSIGN(auto factory, FileSystemDatasetFactory::Make(
+                                         filesystem, selector, format, hive_options));
+  ASSERT_OK_AND_ASSIGN(auto hive_ds, factory->Finish());
+
+  auto hive_file_system_dataset = std::dynamic_pointer_cast<FileSystemDataset>(hive_ds);
+  // When `HivePartitioning` is used in writing and reading, the partitioning schema
+  // should equal to the `partition_schema`.
+  EXPECT_TRUE(
+      hive_file_system_dataset->partitioning()->schema()->Equals(partition_schema));
 }
 
 }  // namespace dataset

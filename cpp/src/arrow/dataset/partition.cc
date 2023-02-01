@@ -827,7 +827,7 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
   Result<std::shared_ptr<Partitioning>> Finish(
       const std::shared_ptr<Schema>& schema) const override {
     if (dictionaries_.empty()) {
-      return std::make_shared<HivePartitioning>(schema, dictionaries_);
+      return std::make_shared<HivePartitioning>(arrow::schema({}), dictionaries_);
     } else {
       for (FieldRef ref : field_names_) {
         // ensure all of field_names_ are present in schema
