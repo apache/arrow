@@ -107,12 +107,9 @@ func TestMapArray(t *testing.T) {
 		kb.Append(1)
 		ib.AppendNull()
 
-		defer func() {
-			if recover() == nil {
-				t.Fatal("this should have panicked")
-			}
-		}()
-		_ = bldr.NewArray()
+		assert.Panics(t, func() {
+			_ = bldr.NewArray()
+		})
 	})
 }
 
