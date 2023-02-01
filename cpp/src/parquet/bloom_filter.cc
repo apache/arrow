@@ -103,49 +103,53 @@ static ::arrow::Status ValidateBloomFilterHeader(
 
 BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
     const ReaderProperties& properties, ArrowInputStream* input) {
-  uint32_t header_size = 0;
-
+  // NOTE: we don't know the bloom filter header size upfront, and we can't rely on
+  // InputStream::Peek() which isn't always implemented. Therefore, we must first
+  // Read() with an upper bound estimate of the header size, then once we know
+  // the bloom filter data size, we can Read() the exact number of remaining data bytes.
   ThriftDeserializer deserializer(properties);
   format::BloomFilterHeader header;
 
   // Read and deserialize bloom filter header
-  PARQUET_ASSIGN_OR_THROW(auto sv, input->Read(kBloomFilterHeaderSizeGuess));
+  PARQUET_ASSIGN_OR_THROW(auto header_buf, input->Read(kBloomFilterHeaderSizeGuess));
   // This gets used, then set by DeserializeThriftMsg
-  header_size = static_cast<uint32_t>(sv->size());
+  uint32_t header_size = static_cast<uint32_t>(header_buf->size());
   try {
-    deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(sv->data()),
+    deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(header_buf->data()),
                                     &header_size, &header);
+    DCHECK_LE(header_size, header_buf->size());
   } catch (std::exception& e) {
     std::stringstream ss;
     ss << "Deserializing bloom filter header failed.\n" << e.what();
     throw ParquetException(ss.str());
   }
-  // Throw if the header is invalid
   PARQUET_THROW_NOT_OK(ValidateBloomFilterHeader(header));
-  int32_t bloom_filter_data_size = header.numBytes;
-  bool all_data_within_sv = bloom_filter_data_size + header_size <= sv->size();
-  if (all_data_within_sv) {
+
+  const int32_t bloom_filter_size = header.numBytes;
+  if (bloom_filter_size + header_size <= header_buf->size()) {
+    // The bloom filter data is entirely contained in the buffer we just read
+    // => just return it.
     BlockSplitBloomFilter bloom_filter;
-    bloom_filter.Init(sv->data() + header_size, bloom_filter_data_size);
+    bloom_filter.Init(header_buf->data() + header_size, bloom_filter_size);
     return bloom_filter;
   }
-  DCHECK(sv->size() > header_size);
-  auto num_bytes_in_sv = sv->size() - header_size;
-  auto buffer = AllocateBuffer(properties.memory_pool(), bloom_filter_data_size);
-  // If header length equal to sv->size(), not copying data to buffer.
-  if (num_bytes_in_sv != 0) {
-    std::memcpy(buffer->mutable_data(), sv->data() + header_size, num_bytes_in_sv);
-  }
-  // need to read from input
-  auto requireReadSize = header.numBytes + header_size - sv->size();
+  // We have read a part of the bloom filter already, copy it to the target buffer
+  // and read the remaining part from the InputStream.
+  auto buffer = AllocateBuffer(properties.memory_pool(), bloom_filter_size);
+
+  const auto bloom_filter_bytes_in_header = header_buf->size() - header_size;
+  std::memcpy(buffer->mutable_data(), header_buf->data() + header_size,
+              bloom_filter_bytes_in_header);
+
+  const auto required_read_size = bloom_filter_size - bloom_filter_bytes_in_header;
   PARQUET_ASSIGN_OR_THROW(
-      auto readSize,
-      input->Read(header.numBytes, buffer->mutable_data() + num_bytes_in_sv));
-  if (ARROW_PREDICT_FALSE(readSize < requireReadSize)) {
-    throw ParquetException("Read Bloom Filter failed, not have enough data");
+      auto read_size, input->Read(required_read_size,
+                                  buffer->mutable_data() + bloom_filter_bytes_in_header));
+  if (ARROW_PREDICT_FALSE(read_size < required_read_size)) {
+    throw ParquetException("Bloom Filter read failed: not enough data");
   }
   BlockSplitBloomFilter bloom_filter;
-  bloom_filter.Init(buffer->data(), header.numBytes);
+  bloom_filter.Init(buffer->data(), bloom_filter_size);
   return bloom_filter;
 }
 

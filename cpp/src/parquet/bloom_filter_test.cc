@@ -22,6 +22,7 @@
 #include <memory>
 #include <random>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -55,18 +56,49 @@ TEST(ConstructorTest, TestBloomFilter) {
 // The BasicTest is used to test basic operations including InsertHash, FindHash and
 // serializing and de-serializing.
 TEST(BasicTest, TestBloomFilter) {
-  std::vector<uint32_t> bloom_filter_bytes_vec = {32, 64, 128, 256, 512, 1024, 2048};
-  for (auto bloom_filter_bytes : bloom_filter_bytes_vec) {
+  const std::vector<uint32_t> kBloomFilterSizes = {32, 64, 128, 256, 512, 1024, 2048};
+  const std::vector<int32_t> kIntInserts = {1, 2,  3,  5,  6,       7,      8,
+                                            9, 10, 42, -1, 1 << 29, 1 << 30};
+  const std::vector<double> kFloatInserts = {1.5,     -1.5, 3.0, 6.0, 0.0,
+                                             123.456, 1e6,  1e7, 1e8};
+  const std::vector<int32_t> kNegativeIntLookups = {0,  11, 12,      13,     -2,
+                                                    -3, 43, 1 << 27, 1 << 28};
+
+  for (const auto bloom_filter_bytes : kBloomFilterSizes) {
     BlockSplitBloomFilter bloom_filter;
     bloom_filter.Init(bloom_filter_bytes);
 
-    for (int i = 0; i < 10; i++) {
-      bloom_filter.InsertHash(bloom_filter.Hash(i));
+    // Empty bloom filter deterministically returns false
+    for (const auto v : kIntInserts) {
+      EXPECT_FALSE(bloom_filter.FindHash(bloom_filter.Hash(v)));
+    }
+    for (const auto v : kFloatInserts) {
+      EXPECT_FALSE(bloom_filter.FindHash(bloom_filter.Hash(v)));
     }
 
-    for (int i = 0; i < 10; i++) {
-      EXPECT_TRUE(bloom_filter.FindHash(bloom_filter.Hash(i)));
+    // Insert all values
+    for (const auto v : kIntInserts) {
+      bloom_filter.InsertHash(bloom_filter.Hash(v));
     }
+    for (const auto v : kFloatInserts) {
+      bloom_filter.InsertHash(bloom_filter.Hash(v));
+    }
+
+    // They should always lookup successfully
+    for (const auto v : kIntInserts) {
+      EXPECT_TRUE(bloom_filter.FindHash(bloom_filter.Hash(v)));
+    }
+    for (const auto v : kFloatInserts) {
+      EXPECT_TRUE(bloom_filter.FindHash(bloom_filter.Hash(v)));
+    }
+
+    // Values not inserted in the filter should only rarely lookup successfully
+    int false_positives = 0;
+    for (const auto v : kNegativeIntLookups) {
+      false_positives += bloom_filter.FindHash(bloom_filter.Hash(v));
+    }
+    // (this is a crude check, see FPPTest below for a more rigourous formula)
+    EXPECT_LE(false_positives, 2);
 
     // Serialize Bloom filter to memory output stream
     auto sink = CreateOutputStream();
@@ -80,9 +112,18 @@ TEST(BasicTest, TestBloomFilter) {
     BlockSplitBloomFilter de_bloom =
         BlockSplitBloomFilter::Deserialize(reader_properties, &source);
 
-    for (int i = 0; i < 10; i++) {
-      EXPECT_TRUE(de_bloom.FindHash(de_bloom.Hash(i)));
+    // Lookup previously inserted values
+    for (const auto v : kIntInserts) {
+      EXPECT_TRUE(de_bloom.FindHash(de_bloom.Hash(v)));
     }
+    for (const auto v : kFloatInserts) {
+      EXPECT_TRUE(de_bloom.FindHash(de_bloom.Hash(v)));
+    }
+    false_positives = 0;
+    for (const auto v : kNegativeIntLookups) {
+      false_positives += de_bloom.FindHash(de_bloom.Hash(v));
+    }
+    EXPECT_LE(false_positives, 2);
   }
 }
 
@@ -240,7 +281,9 @@ TEST(OptimalValueTest, TestBloomFilter) {
       UINT32_C(1073741824));
 }
 
-int64_t HASHES_OF_LOOPING_BYTES_WITH_SEED_0[32] = {
+// The test below is plainly copied from parquet-mr and serves as a basic sanity
+// check of our XXH64 wrapper.
+const int64_t HASHES_OF_LOOPING_BYTES_WITH_SEED_0[32] = {
     -1205034819632174695L, -1642502924627794072L, 5216751715308240086L,
     -1889335612763511331L, -13835840860730338L,   -2521325055659080948L,
     4867868962443297827L,  1498682999415010002L,  -8626056615231480947L,
@@ -290,5 +333,4 @@ TEST(XxHashTest, TestBloomFilter) {
 }
 
 }  // namespace test
-
 }  // namespace parquet
