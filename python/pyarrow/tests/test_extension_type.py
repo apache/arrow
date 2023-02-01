@@ -1199,6 +1199,10 @@ class FixedShapeTensorArray(pa.ExtensionArray):
     def to_numpy_tensor_list(self):
         """
         Convert tensor extension array to a list of numpy tensors (ndarrays).
+
+        Examples
+        --------
+
         """
         tensors = []
         for tensor in self.storage:
@@ -1243,13 +1247,13 @@ def registered_tensor_type():
         pass
 
 
-def test_generic_ext_type_tensor():
+def test_tensor_type():
     tensor_type = FixedShapeTensorType(pa.int8(), (2, 3), True)
     assert tensor_type.extension_name == "arrow.fixed_size_tensor"
     assert tensor_type.storage_type == pa.list_(pa.int8(), 6)
 
 
-def test_tensor_ext_class_methods():
+def test_tensor_class_methods():
     tensor_type = FixedShapeTensorType(pa.float32(), (2, 2, 3), 'C')
     storage = pa.array([[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]],
                        pa.list_(pa.float32(), 12))
@@ -1267,7 +1271,7 @@ def test_tensor_ext_class_methods():
     assert tensor_array_from_numpy.type.is_row_major
 
 
-def test_generic_ext_type_ipc_tensor(registered_tensor_type):
+def test_tensor_type_ipc(registered_tensor_type):
     tensor_type, tensor_class = registered_tensor_type
     storage = pa.array([[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]], pa.list_(pa.int8(), 12))
     arr = pa.ExtensionArray.from_storage(tensor_type, storage)
@@ -1314,7 +1318,7 @@ def test_generic_ext_type_ipc_tensor(registered_tensor_type):
     assert type(result) == tensor_class
 
 
-def test_generic_ext_type_ipc_unknown_tensor(registered_tensor_type):
+def test_tensor_type_ipc_unknown(registered_tensor_type):
     tensor_type, _ = registered_tensor_type
     storage = pa.array([[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]], pa.list_(pa.int8(), 12))
     arr = pa.ExtensionArray.from_storage(tensor_type, storage)
@@ -1339,7 +1343,7 @@ def test_generic_ext_type_ipc_unknown_tensor(registered_tensor_type):
     }
 
 
-def test_generic_ext_type_equality_tensor():
+def test_tensor_type_equality():
     tensor_type = FixedShapeTensorType(pa.int8(), (2, 2, 3), True)
     assert tensor_type.extension_name == "arrow.fixed_size_tensor"
 
@@ -1349,7 +1353,7 @@ def test_generic_ext_type_equality_tensor():
     assert not tensor_type == tensor_type3
 
 
-def test_generic_ext_type_register_tensor(registered_tensor_type):
+def test_tensor_type_register(registered_tensor_type):
     # test that trying to register other type does not segfault
     with pytest.raises(TypeError):
         pa.register_extension_type(pa.string())
