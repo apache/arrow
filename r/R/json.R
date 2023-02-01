@@ -43,17 +43,30 @@
 #' @examplesIf arrow_with_json()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
-#' writeLines('
-#'     { "hello": 3.5, "world": false, "yo": "thing" }
-#'     { "hello": 3.25, "world": null }
-#'     { "hello": 0.0, "world": true, "yo": null }
-#'   ', tf, useBytes = TRUE)
+#' json <- '
+#'   { "hello": 3.5, "world": false, "yo": "thing" }
+#'   { "hello": 3.25, "world": null }
+#'   { "hello": 0.0, "world": true, "yo": null }
+#' '
+#' writeLines(json, tf, useBytes = TRUE)
+#'
 #' read_json_arrow(tf)
+#'
+#' # Read directly from strings with `I()`
+#' read_json_arrow(I(json))
 read_json_arrow <- function(file,
                             col_select = NULL,
                             as_data_frame = TRUE,
                             schema = NULL,
                             ...) {
+  if (inherits(file, "AsIs")) {
+    if (is.raw(file)) {
+      file <- unclass(file)
+    } else {
+      file <- charToRaw(paste(file, collapse = "\n"))
+    }
+  }
+
   if (!inherits(file, "InputStream")) {
     compression <- detect_compression(file)
     file <- make_readable_file(file)
