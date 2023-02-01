@@ -1254,7 +1254,8 @@ def test_tensor_class_methods():
     storage = pa.array([[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]],
                        pa.list_(pa.float32(), 6))
     arr = pa.ExtensionArray.from_storage(tensor_type, storage)
-    expected = np.array([[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]], dtype=np.float32)
+    expected = np.array(
+        [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]], dtype=np.float32)
 
     result = arr.to_numpy_tensor()
     np.testing.assert_array_equal(result, expected)
