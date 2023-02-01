@@ -126,7 +126,7 @@ type MapBuilder struct {
 // building using keys in sorted order for each value. The KeysSorted value will just be
 // used when creating the DataType for the map.
 //
-// # Example
+// Example
 //
 // Simple example provided of converting a []map[string]int32 to an array.Map
 // by using a MapBuilder:
