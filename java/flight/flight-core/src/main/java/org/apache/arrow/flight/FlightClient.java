@@ -79,7 +79,7 @@ public class FlightClient implements AutoCloseable {
   private static final int MAX_CHANNEL_TRACE_EVENTS = 0;
   private final BufferAllocator allocator;
   private final ManagedChannel channel;
-  private final Channel interceptedChannel;
+
   private final FlightServiceBlockingStub blockingStub;
   private final FlightServiceStub asyncStub;
   private final ClientAuthInterceptor authInterceptor = new ClientAuthInterceptor();
@@ -101,7 +101,7 @@ public class FlightClient implements AutoCloseable {
     interceptors = new ClientInterceptor[]{authInterceptor, new ClientInterceptorAdapter(middleware)};
 
     // Create a channel with interceptors pre-applied for DoGet and DoPut
-    this.interceptedChannel = ClientInterceptors.intercept(channel, interceptors);
+    Channel interceptedChannel = ClientInterceptors.intercept(channel, interceptors);
 
     blockingStub = FlightServiceGrpc.newBlockingStub(interceptedChannel);
     asyncStub = FlightServiceGrpc.newStub(interceptedChannel);
@@ -255,13 +255,14 @@ public class FlightClient implements AutoCloseable {
                                        CallOption... options) {
     Preconditions.checkNotNull(descriptor, "descriptor must not be null");
     Preconditions.checkNotNull(metadataListener, "metadataListener must not be null");
-    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
+    FlightServiceStub stub = CallOptions.wrapStub(asyncStub, options);
+    final io.grpc.CallOptions callOptions = stub.getCallOptions();
 
     try {
       final SetStreamObserver resultObserver = new SetStreamObserver(allocator, metadataListener);
       ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
           ClientCalls.asyncBidiStreamingCall(
-              interceptedChannel.newCall(doPutDescriptor, callOptions), resultObserver);
+              stub.getChannel().newCall(doPutDescriptor, callOptions), resultObserver);
       return new PutObserver(
           descriptor, observer, metadataListener::isCancelled, metadataListener::getResult);
     } catch (StatusRuntimeException sre) {
@@ -354,10 +355,11 @@ public class FlightClient implements AutoCloseable {
    */
   public ExchangeReaderWriter doExchange(FlightDescriptor descriptor, CallOption... options) {
     Preconditions.checkNotNull(descriptor, "descriptor must not be null");
-    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
+    FlightServiceStub stub = CallOptions.wrapStub(asyncStub, options);
+    final io.grpc.CallOptions callOptions = stub.getCallOptions();
 
     try {
-      final ClientCall<ArrowMessage, ArrowMessage> call = interceptedChannel.newCall(doExchangeDescriptor, callOptions);
+      final ClientCall<ArrowMessage, ArrowMessage> call = stub.getChannel().newCall(doExchangeDescriptor, callOptions);
       final FlightStream stream = new FlightStream(allocator, PENDING_REQUESTS, call::cancel, call::request);
       final ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
               ClientCalls.asyncBidiStreamingCall(call, stream.asObserver());
