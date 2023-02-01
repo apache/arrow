@@ -2143,7 +2143,7 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
   }
 
   std::shared_ptr<Buffer> FlushValues() override;
-  std::shared_ptr<ResizableBuffer> FlushValuesInternal(size_t& offset_bytes);
+  std::shared_ptr<ResizableBuffer> FlushValuesInternal(size_t* offset_bytes);
 
   int64_t EstimatedDataEncodedSize() override { return sink_.length(); }
 
@@ -2294,7 +2294,7 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
 
 template <typename DType>
 std::shared_ptr<ResizableBuffer> DeltaBitPackEncoder<DType>::FlushValuesInternal(
-    size_t& offset_bytes) {
+    size_t* offset_bytes) {
   if (values_current_block_ > 0) {
     FlushBlock();
   }
@@ -2313,8 +2313,8 @@ std::shared_ptr<ResizableBuffer> DeltaBitPackEncoder<DType>::FlushValuesInternal
   // We reserved enough space at the beginning of the buffer for largest possible header
   // and data was written immediately after. We now write the header data immediately
   // before the end of reserved space.
-  offset_bytes = kMaxPageHeaderWriterSize - header_writer.bytes_written();
-  std::memcpy(buffer->mutable_data() + offset_bytes, header_buffer_,
+  *offset_bytes = kMaxPageHeaderWriterSize - header_writer.bytes_written();
+  std::memcpy(buffer->mutable_data() + *offset_bytes, header_buffer_,
               header_writer.bytes_written());
 
   // Reset counter of cached values
@@ -2711,7 +2711,7 @@ template <typename DType>
 std::shared_ptr<Buffer> DeltaLengthByteArrayEncoder<DType>::FlushValues() {
   size_t offset_bytes = 0;
   std::shared_ptr<ResizableBuffer> encoded_lengths =
-      length_encoder_.FlushValuesInternal(offset_bytes);
+      length_encoder_.FlushValuesInternal(&offset_bytes);
 
   std::shared_ptr<Buffer> data;
   PARQUET_THROW_NOT_OK(sink_.Finish(&data));
