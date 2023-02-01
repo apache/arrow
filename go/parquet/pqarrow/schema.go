@@ -292,10 +292,10 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		typ = parquet.Types.Float
 	case arrow.FLOAT64:
 		typ = parquet.Types.Double
-	case arrow.STRING:
+	case arrow.STRING, arrow.LARGE_STRING:
 		logicalType = schema.StringLogicalType{}
 		fallthrough
-	case arrow.BINARY:
+	case arrow.BINARY, arrow.LARGE_BINARY:
 		typ = parquet.Types.ByteArray
 	case arrow.FIXED_SIZE_BINARY:
 		typ = parquet.Types.FixedLenByteArray
