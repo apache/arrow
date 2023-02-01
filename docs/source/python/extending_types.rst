@@ -524,7 +524,7 @@ Define and register the extension type:
 
 .. code-block:: python
 
-   >>> tensor_type = TensorType(pa.int32(), (2, 2), 'C')
+   >>> tensor_type = FixedShapeTensorType(pa.int32(), (2, 2), 'C')
    >>> pa.register_extension_type(tensor_type)
 
 Create an array of tensors with storage array and tensor type:
@@ -539,7 +539,7 @@ Create another array of tensors with different value type:
 
 .. code-block:: python
 
-   >>> tensor_type2 = TensorType(pa.float32(), (2, 2), 'C')
+   >>> tensor_type2 = FixedShapeTensorType(pa.float32(), (2, 2), 'C')
    >>> storage2 = pa.array(arr, pa.list_(pa.float32(), 4))
    >>> tensor2 = pa.ExtensionArray.from_storage(tensor_type2, storage2)
 
@@ -558,16 +558,16 @@ Create a ``pyarrow.Table`` with random data and two tensor arrays:
    ...                        ('f1', pa.string()),
    ...                        ('f2', pa.bool_()),
    ...                        ('tensors_int', tensor_type),
-   ...                        ('tensors_float', tensor_type2)])
-   >>> table = pa.Table.from_arrays(data, schema=my_schema)
+   ...                         ('tensors_float', tensor_type2)])
 
+   >>> table = pa.Table.from_arrays(data, schema=my_schema)
    >>> table
    pyarrow.Table
    f0: int8
    f1: string
    f2: bool
-   tensors_int: extension<arrow.fixed_size_tensor<TensorType>>
-   tensors_float: extension<arrow.fixed_size_tensor<TensorType>>
+   tensors_int: extension<arrow.fixed_size_tensor<FixedShapeTensorType>>
+   tensors_float: extension<arrow.fixed_size_tensor<FixedShapeTensorType>>
    ----
    f0: [[1,2,3]]
    f1: [["foo","bar",null]]
@@ -575,40 +575,44 @@ Create a ``pyarrow.Table`` with random data and two tensor arrays:
    tensors_int: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
    tensors_float: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
 
-Convert a tensor array to list of numpy ndarrays (tensors):
+Convert a tensor array to numpy ndarray (tensor):
 
 .. code-block:: python
 
-   >>> numpy_list = table.column("tensors_float").chunk(0).to_numpy_tensor_list()
-   >>> numpy_list
-   [array([[1., 2.],
-         [3., 4.]]), array([[10., 20.],
-         [30., 40.]]), array([[100., 200.],
-         [300., 400.]])]
+   >>> numpy_tensor = table.column("tensors_float").chunk(0).to_numpy_tensor()
+   >>> numpy_tensor
+   array([[[  1.,   2.],
+         [  3.,   4.]],
+
+         [[ 10.,  20.],
+         [ 30.,  40.]],
+
+         [[100., 200.],
+         [300., 400.]]])
 
 Convert a list of numpy ndarrays (tensors) to a tensor array:
 
 .. code-block:: python
 
-   >>> TensorArray.from_numpy_tensor_list(numpy_list)
-   <__main__.TensorArray object at 0x147a60220>
+   >>> FixedShapeTensorArray.from_numpy_tensor(numpy_tensor)
+   <__main__.FixedShapeTensorArray object at 0x141d9d460>
    [
-   [
-      1,
-      2,
-      3,
-      4
-   ],
-   [
-      10,
-      20,
-      30,
-      40
-   ],
-   [
-      100,
-      200,
-      300,
-      400
-   ]
+     [
+       1,
+       2,
+       3,
+       4
+     ],
+     [
+       10,
+       20,
+       30,
+       40
+     ],
+     [
+       100,
+       200,
+       300,
+       400
+     ]
    ]
