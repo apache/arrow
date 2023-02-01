@@ -138,8 +138,10 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
   auto buffer = AllocateBuffer(properties.memory_pool(), bloom_filter_size);
 
   const auto bloom_filter_bytes_in_header = header_buf->size() - header_size;
-  std::memcpy(buffer->mutable_data(), header_buf->data() + header_size,
-              bloom_filter_bytes_in_header);
+  if (bloom_filter_bytes_in_header > 0) {
+    std::memcpy(buffer->mutable_data(), header_buf->data() + header_size,
+                bloom_filter_bytes_in_header);
+  }
 
   const auto required_read_size = bloom_filter_size - bloom_filter_bytes_in_header;
   PARQUET_ASSIGN_OR_THROW(
