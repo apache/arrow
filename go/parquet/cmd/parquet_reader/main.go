@@ -225,40 +225,33 @@ func main() {
 
 		switch {
 		case config.JSON:
-			fmt.Fprint(dataOut, "[")
-
 			scanners := make([]*Dumper, len(selectedColumns))
-			fields := make([]string, len(selectedColumns))
+			quotedFields := make([]string, len(selectedColumns))
 			for idx, c := range selectedColumns {
 				col, err := rgr.Column(c)
 				if err != nil {
 					log.Fatalf("unable to fetch column=%d err=%s", c, err)
 				}
 				scanners[idx] = createDumper(col)
-				fields[idx] = col.Descriptor().Path()
+				quotedFields[idx] = strconv.Quote(col.Descriptor().Path())
 			}
 
 			var line string
 			for {
-				if line == "" {
-					line = "\n  {"
-				} else {
-					line = ",\n  {"
-				}
-
+				line = "{"
 				data := false
 				first := true
 				for idx, s := range scanners {
 					if val, ok := s.Next(); ok {
 						if !data {
-							fmt.Fprint(dataOut, line)
+							io.WriteString(dataOut, line)
 						}
 						data = true
 						if val == nil {
 							continue
 						}
 						if !first {
-							fmt.Fprint(dataOut, ",")
+							io.WriteString(dataOut, ", ")
 						}
 						first = false
 						switch val.(type) {
@@ -271,16 +264,18 @@ func main() {
 							fmt.Fprintf(os.Stderr, "error: marshalling json for %+v, %s\n", val, err)
 							os.Exit(1)
 						}
-						fmt.Fprintf(dataOut, "\n    %q: %s", fields[idx], jsonVal)
+						io.WriteString(dataOut, quotedFields[idx])
+						io.WriteString(dataOut, ":")
+						dataOut.Write(jsonVal)
 					}
 				}
 				if !data {
 					break
 				}
-				fmt.Fprint(dataOut, "\n  }")
+				io.WriteString(dataOut, "}\n")
 			}
 
-			fmt.Fprintln(dataOut, "\n]")
+			// fmt.Fprintln(dataOut, "\n]")
 		case config.CSV:
 			scanners := make([]*Dumper, len(selectedColumns))
 			for idx, c := range selectedColumns {
