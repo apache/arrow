@@ -1116,7 +1116,7 @@ class TensorType(pa.ExtensionType):
                                   'arrow.fixed_size_tensor')
 
     @property
-    def dtype(self):
+    def value_type(self):
         """
         Data type of an individual tensor.
         """
