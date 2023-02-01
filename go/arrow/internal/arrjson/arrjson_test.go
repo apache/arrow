@@ -5544,7 +5544,7 @@ func makeRunEndEncodedWantJSONs() string {
               "name": "values",
               "count": 2,
               "VALIDITY": [
-                1,
+                0,
                 1
               ],
               "DATA": [
@@ -5629,8 +5629,8 @@ func makeRunEndEncodedWantJSONs() string {
               "VALIDITY": [
                 1,
                 0,
-                0,
                 1,
+                0,
                 1
               ],
               "DATA": [
@@ -5684,8 +5684,8 @@ func makeRunEndEncodedWantJSONs() string {
               "VALIDITY": [
                 1,
                 0,
-                0,
                 1,
+                0,
                 1
               ],
               "DATA": [
@@ -5776,8 +5776,8 @@ func makeRunEndEncodedWantJSONs() string {
               "VALIDITY": [
                 1,
                 0,
-                0,
                 1,
+                0,
                 1
               ],
               "DATA": [
