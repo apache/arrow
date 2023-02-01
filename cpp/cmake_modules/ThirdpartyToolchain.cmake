@@ -4890,7 +4890,7 @@ macro(build_awssdk)
                       URL_HASH "SHA256=${ARROW_AWS_C_MQTT_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_MQTT_STATIC_LIBRARY}
-                      DEPENDS aws_c_io_ep aws_c_http_ep)
+                      DEPENDS aws_c_http_ep)
   add_dependencies(AWS::aws-c-mqtt aws_c_mqtt_ep)
 
   externalproject_add(aws_c_auth_ep
