@@ -756,10 +756,16 @@ func newByteArrayRecordReader(descr *schema.Column, info LevelInfo, dtype arrow.
 		mem = memory.DefaultAllocator
 	}
 
+	dt, ok := dtype.(arrow.BinaryDataType)
+	// arrow.DecimalType will also come through here, which we want to treat as binary
+	if !ok {
+		dt = arrow.BinaryTypes.Binary
+	}
+
 	return &binaryRecordReader{&recordReader{
 		recordReaderImpl: &byteArrayRecordReader{
 			createPrimitiveRecordReader(descr, mem, bufferPool),
-			array.NewBinaryBuilder(mem, dtype.(arrow.BinaryDataType)),
+			array.NewBinaryBuilder(mem, dt),
 			nil,
 		},
 		leafInfo:  info,
