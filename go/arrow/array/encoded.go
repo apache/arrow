@@ -321,10 +321,7 @@ func (b *RunEndEncodedBuilder) addLength(n uint64) {
 
 func (b *RunEndEncodedBuilder) finishRun() {
 	b.lastUnmarshalled = nil
-	// protect against a 0 len or attempting to finish an already
-	// finished run. This can happen if you're mixing json unmarshalling
-	// and manually adding values/runs.
-	if b.length == 0 || b.runEnds.Len() == b.values.Len() {
+	if b.length == 0 {
 		return
 	}
 
