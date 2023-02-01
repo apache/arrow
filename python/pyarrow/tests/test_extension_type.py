@@ -1196,40 +1196,36 @@ class FixedShapeTensorArray(pa.ExtensionArray):
     ]
     """
 
-    def to_numpy_tensor_list(self):
+    def to_numpy_tensor(self):
         """
-        Convert tensor extension array to a list of numpy tensors (ndarrays).
+        Convert tensor extension array to a numpy array (with dim+1).
 
         Examples
         --------
 
         """
-        tensors = []
+        np_flat = np.array([])
         for tensor in self.storage:
-            np_flat = np.array(tensor.as_py())
+            np_flat = np.append(np_flat, tensor.as_py())
             order = 'C' if self.type.is_row_major else 'F'
-            numpy_tensor = np_flat.reshape((self.type.shape),
-                                           order=order)
-            tensors.append(numpy_tensor)
-        return tensors
+        numpy_tensor = np_flat.reshape((len(self),) + self.type.shape,
+                                       order=order)
+        return numpy_tensor
 
-    def from_numpy_tensor_list(obj):
+    def from_numpy_tensor(obj):
         """
-        Convert a list of numpy tensors (ndarrays) to a tensor extension array.
+        Convert numpy tensors (ndarrays) to a tensor extension array.
         """
-        numpy_type = obj[0].flatten().dtype
+        numpy_type = obj.flatten().dtype
         arrow_type = pa.from_numpy_dtype(numpy_type)
-        shape = obj[0].shape
-        is_row_major = False if np.isfortran(obj[0]) else True
-        size = obj[0].size
-
-        tensor_list = []
-        for tensor in obj:
-            tensor_list.append(tensor.flatten())
+        shape = obj.shape[1:]
+        size = obj.size / obj.shape[0]
+        is_row_major = False if np.isfortran(obj) else True
 
         return pa.ExtensionArray.from_storage(
             FixedShapeTensorType(arrow_type, shape, is_row_major),
-            pa.array(tensor_list, pa.list_(arrow_type, size))
+            pa.array([t.flatten() for t in obj],
+                     pa.list_(arrow_type, size))
         )
 
 
@@ -1254,20 +1250,19 @@ def test_tensor_type():
 
 
 def test_tensor_class_methods():
-    tensor_type = FixedShapeTensorType(pa.float32(), (2, 2, 3), 'C')
-    storage = pa.array([[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]],
-                       pa.list_(pa.float32(), 12))
+    tensor_type = FixedShapeTensorType(pa.float32(), (2, 3), 'C')
+    storage = pa.array([[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]],
+                       pa.list_(pa.float32(), 6))
     arr = pa.ExtensionArray.from_storage(tensor_type, storage)
-    expected = [
-        np.array([[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]], dtype=np.float32)]
+    expected = np.array([[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]], dtype=np.float32)
 
-    result = arr.to_numpy_tensor_list()
+    result = arr.to_numpy_tensor()
     np.testing.assert_array_equal(result, expected)
 
-    tensor_array_from_numpy = FixedShapeTensorArray.from_numpy_tensor_list(expected)
+    tensor_array_from_numpy = FixedShapeTensorArray.from_numpy_tensor(expected)
     assert isinstance(tensor_array_from_numpy.type, FixedShapeTensorType)
     assert tensor_array_from_numpy.type.value_type == pa.float32()
-    assert tensor_array_from_numpy.type.shape == (2, 2, 3)
+    assert tensor_array_from_numpy.type.shape == (2, 3)
     assert tensor_array_from_numpy.type.is_row_major
 
 
