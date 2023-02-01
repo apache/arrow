@@ -485,37 +485,32 @@ Fixed size tensor
       ]
       """
 
-      def to_numpy_tensor_list(self):
+      def to_numpy_tensor(self):
          """
-         Convert tensor extension array to a list of numpy tensors (ndarrays).
+         Convert tensor extension array to a numpy array (with dim+1).
          """
-         tensors = []
-         for tensor in self.storage:
-            np_flat = np.array(tensor.as_py())
-            order = 'C' if self.type.is_row_major else 'F'
-            numpy_tensor = np_flat.reshape((self.type.shape),
-                                             order=order)
-            tensors.append(numpy_tensor)
-         return tensors
+         np_flat = np.array(self.storage.values)
+         order = 'C' if self.type.is_row_major else 'F'
+         numpy_tensor = np_flat.reshape((len(self),) + self.type.shape,
+                                          order=order)
+         return numpy_tensor
 
-      def from_numpy_tensor_list(obj):
+      def from_numpy_tensor(obj):
          """
-         Convert a list of numpy tensors (ndarrays) to a tensor extension array.
+         Convert numpy tensors (ndarrays) to a tensor extension array.
          """
-         numpy_type = obj[0].flatten().dtype
+         numpy_type = obj.flatten().dtype
          arrow_type = pa.from_numpy_dtype(numpy_type)
-         shape = obj[0].shape
-         is_row_major = False if np.isfortran(obj[0]) else True
-         size = obj[0].size
-
-         tensor_list = []
-         for tensor in obj:
-            tensor_list.append(tensor.flatten())
+         shape = obj.shape[1:]
+         size = obj.size / obj.shape[0]
+         is_row_major = False if np.isfortran(obj) else True
 
          return pa.ExtensionArray.from_storage(
-            FixedShapeTensorType(arrow_type, shape, is_row_major),
-            pa.array(tensor_list, pa.list_(arrow_type, size))
+               FixedShapeTensorType(arrow_type, shape, is_row_major),
+               pa.array([t.flatten() for t in obj],
+                        pa.list_(arrow_type, size))
          )
+
 
 
 **Example of usage**

@@ -1199,15 +1199,9 @@ class FixedShapeTensorArray(pa.ExtensionArray):
     def to_numpy_tensor(self):
         """
         Convert tensor extension array to a numpy array (with dim+1).
-
-        Examples
-        --------
-
         """
-        np_flat = np.array([])
-        for tensor in self.storage:
-            np_flat = np.append(np_flat, tensor.as_py())
-            order = 'C' if self.type.is_row_major else 'F'
+        np_flat = np.array(self.storage.values)
+        order = 'C' if self.type.is_row_major else 'F'
         numpy_tensor = np_flat.reshape((len(self),) + self.type.shape,
                                        order=order)
         return numpy_tensor
