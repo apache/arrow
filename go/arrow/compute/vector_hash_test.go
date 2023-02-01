@@ -27,6 +27,8 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/compute"
 	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v12/arrow/decimal128"
+	"github.com/apache/arrow/go/v12/arrow/decimal256"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -59,7 +61,7 @@ func checkUniqueVariableWidth[OffsetType int32 | int64](t *testing.T, input, exp
 
 	createSlice := func(v arrow.Array) [][]byte {
 		var (
-			offsets = exec.GetValues[OffsetType](v.Data(), 1)
+			offsets = exec.GetOffsets[OffsetType](v.Data(), 1)
 			data    = v.Data().Buffers()[2].Bytes()
 			out     = make([][]byte, v.Len())
 		)
@@ -90,6 +92,33 @@ func makeArray[T ArrowType](mem memory.Allocator, dt arrow.DataType, values []T,
 
 	bldr.(builder[T]).AppendValues(values, isValid)
 	return bldr.NewArray()
+}
+
+func checkUniqueFixedSizeBinary(t *testing.T, mem memory.Allocator, dt *arrow.FixedSizeBinaryType, inValues, outValues [][]byte, inValid, outValid []bool) {
+	input := makeArray(mem, dt, inValues, inValid)
+	defer input.Release()
+	expected := makeArray(mem, dt, outValues, outValid)
+	defer expected.Release()
+
+	result, err := compute.UniqueArray(context.TODO(), input)
+	require.NoError(t, err)
+	defer result.Release()
+
+	require.Truef(t, arrow.TypeEqual(result.DataType(), expected.DataType()),
+		"wanted: %s\ngot: %s", expected.DataType(), result.DataType())
+
+	slice := func(v arrow.Array) [][]byte {
+		data := v.Data().Buffers()[1].Bytes()
+		out := make([][]byte, v.Len())
+		for i := range out {
+			out[i] = data[i*dt.ByteWidth : (i+1)*dt.ByteWidth]
+		}
+		return out
+	}
+
+	want := slice(expected)
+	got := slice(result)
+	assert.ElementsMatch(t, want, got)
 }
 
 func checkUniqueFW[T exec.FixedWidthTypes](t *testing.T, mem memory.Allocator, dt arrow.DataType, inValues, outValues []T, inValid, outValid []bool) {
@@ -135,47 +164,49 @@ func (ps *PrimitiveHashKernelSuite[T]) TearDownTest() {
 }
 
 func (ps *PrimitiveHashKernelSuite[T]) TestUnique() {
-	if ps.dt.ID() == arrow.DATE64 {
-		checkUniqueFW(ps.T(), ps.mem, ps.dt,
-			[]arrow.Date64{172800000, 864000000, 172800000, 864000000},
-			[]arrow.Date64{172800000, 0, 864000000},
-			[]bool{true, false, true, true}, []bool{true, false, true})
+	ps.Run(ps.dt.String(), func() {
+		if ps.dt.ID() == arrow.DATE64 {
+			checkUniqueFW(ps.T(), ps.mem, ps.dt,
+				[]arrow.Date64{172800000, 864000000, 172800000, 864000000},
+				[]arrow.Date64{172800000, 0, 864000000},
+				[]bool{true, false, true, true}, []bool{true, false, true})
+
+			checkUniqueFW(ps.T(), ps.mem, ps.dt,
+				[]arrow.Date64{172800000, 864000000, 259200000, 864000000},
+				[]arrow.Date64{0, 259200000, 864000000},
+				[]bool{false, false, true, true}, []bool{false, true, true})
+
+			arr, _, err := array.FromJSON(ps.mem, ps.dt, strings.NewReader(`[86400000, 172800000, null, 259200000, 172800000, null]`))
+			ps.Require().NoError(err)
+			defer arr.Release()
+			input := array.NewSlice(arr, 1, 5)
+			defer input.Release()
+			expected, _, err := array.FromJSON(ps.mem, ps.dt, strings.NewReader(`[172800000, null, 259200000]`))
+			ps.Require().NoError(err)
+			defer expected.Release()
+			checkUniqueFixedWidth[arrow.Date64](ps.T(), input, expected)
+			return
+		}
 
 		checkUniqueFW(ps.T(), ps.mem, ps.dt,
-			[]arrow.Date64{172800000, 864000000, 259200000, 864000000},
-			[]arrow.Date64{0, 259200000, 864000000},
+			[]T{2, 1, 2, 1}, []T{2, 0, 1},
+			[]bool{true, false, true, true}, []bool{true, false, true})
+		checkUniqueFW(ps.T(), ps.mem, ps.dt,
+			[]T{2, 1, 3, 1}, []T{0, 3, 1},
 			[]bool{false, false, true, true}, []bool{false, true, true})
 
-		arr, _, err := array.FromJSON(ps.mem, ps.dt, strings.NewReader(`[86400000, 172800000, null, 259200000, 172800000, null]`))
+		arr, _, err := array.FromJSON(ps.mem, ps.dt, strings.NewReader(`[1, 2, null, 3, 2, null]`))
 		ps.Require().NoError(err)
 		defer arr.Release()
 		input := array.NewSlice(arr, 1, 5)
 		defer input.Release()
-		expected, _, err := array.FromJSON(ps.mem, ps.dt, strings.NewReader(`[172800000, null, 259200000]`))
+
+		expected, _, err := array.FromJSON(ps.mem, ps.dt, strings.NewReader(`[2, null, 3]`))
 		ps.Require().NoError(err)
 		defer expected.Release()
-		checkUniqueFixedWidth[arrow.Date64](ps.T(), input, expected)
-		return
-	}
 
-	checkUniqueFW(ps.T(), ps.mem, ps.dt,
-		[]T{2, 1, 2, 1}, []T{2, 0, 1},
-		[]bool{true, false, true, true}, []bool{true, false, true})
-	checkUniqueFW(ps.T(), ps.mem, ps.dt,
-		[]T{2, 1, 3, 1}, []T{0, 3, 1},
-		[]bool{false, false, true, true}, []bool{false, true, true})
-
-	arr, _, err := array.FromJSON(ps.mem, ps.dt, strings.NewReader(`[1, 2, null, 3, 2, null]`))
-	ps.Require().NoError(err)
-	defer arr.Release()
-	input := array.NewSlice(arr, 1, 5)
-	defer input.Release()
-
-	expected, _, err := array.FromJSON(ps.mem, ps.dt, strings.NewReader(`[2, null, 3]`))
-	ps.Require().NoError(err)
-	defer expected.Release()
-
-	checkUniqueFixedWidth[T](ps.T(), input, expected)
+		checkUniqueFixedWidth[T](ps.T(), input, expected)
+	})
 }
 
 type BinaryTypeHashKernelSuite[T string | []byte] struct {
@@ -194,9 +225,11 @@ func (ps *BinaryTypeHashKernelSuite[T]) TearDownTest() {
 }
 
 func (ps *BinaryTypeHashKernelSuite[T]) TestUnique() {
-	checkUniqueVW(ps.T(), ps.mem, ps.dt,
-		[]T{T("test"), T(""), T("test2"), T("test")}, []T{T("test"), T(""), T("test2")},
-		[]bool{true, false, true, true}, []bool{true, false, true})
+	ps.Run(ps.dt.String(), func() {
+		checkUniqueVW(ps.T(), ps.mem, ps.dt,
+			[]T{T("test"), T(""), T("test2"), T("test")}, []T{T("test"), T(""), T("test2")},
+			[]bool{true, false, true, true}, []bool{true, false, true})
+	})
 }
 
 func TestHashKernels(t *testing.T) {
@@ -238,4 +271,53 @@ func TestUniqueTimeTimestamp(t *testing.T) {
 	checkUniqueFW(t, mem, arrow.FixedWidthTypes.Duration_ns,
 		[]arrow.Duration{2, 1, 2, 1}, []arrow.Duration{2, 0, 1},
 		[]bool{true, false, true, true}, []bool{true, false, true})
+}
+
+func TestUniqueFixedSizeBinary(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dt := &arrow.FixedSizeBinaryType{ByteWidth: 3}
+	checkUniqueFixedSizeBinary(t, mem, dt,
+		[][]byte{[]byte("aaa"), nil, []byte("bbb"), []byte("aaa")},
+		[][]byte{[]byte("aaa"), nil, []byte("bbb")},
+		[]bool{true, false, true, true}, []bool{true, false, true})
+}
+
+func TestUniqueDecimal(t *testing.T) {
+	t.Run("decimal128", func(t *testing.T) {
+		mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer mem.AssertSize(t, 0)
+
+		values := []decimal128.Num{
+			decimal128.FromI64(12),
+			decimal128.FromI64(12),
+			decimal128.FromI64(11),
+			decimal128.FromI64(12)}
+		expected := []decimal128.Num{
+			decimal128.FromI64(12),
+			decimal128.FromI64(0),
+			decimal128.FromI64(11)}
+
+		checkUniqueFW(t, mem, &arrow.Decimal128Type{Precision: 2, Scale: 0},
+			values, expected, []bool{true, false, true, true}, []bool{true, false, true})
+	})
+
+	t.Run("decimal256", func(t *testing.T) {
+		mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer mem.AssertSize(t, 0)
+
+		values := []decimal256.Num{
+			decimal256.FromI64(12),
+			decimal256.FromI64(12),
+			decimal256.FromI64(11),
+			decimal256.FromI64(12)}
+		expected := []decimal256.Num{
+			decimal256.FromI64(12),
+			decimal256.FromI64(0),
+			decimal256.FromI64(11)}
+
+		checkUniqueFW(t, mem, &arrow.Decimal256Type{Precision: 2, Scale: 0},
+			values, expected, []bool{true, false, true, true}, []bool{true, false, true})
+	})
 }

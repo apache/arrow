@@ -102,6 +102,11 @@ func GetValues[T FixedWidthTypes](data arrow.ArrayData, i int) []T {
 	return ret[data.Offset():]
 }
 
+func GetOffsets[T int32 | int64](data arrow.ArrayData, i int) []T {
+	ret := unsafe.Slice((*T)(unsafe.Pointer(&data.Buffers()[i].Bytes()[0])), data.Offset()+data.Len()+1)
+	return ret[data.Offset():]
+}
+
 // GetSpanValues returns a properly typed slice by reinterpreting
 // the buffer at index i using unsafe.Slice. This will take into account
 // the offset of the given ArraySpan.

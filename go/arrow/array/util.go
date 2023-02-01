@@ -281,7 +281,7 @@ func GetDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable 
 
 			buffers[1].Resize(arrow.Int64Traits.BytesRequired(dictLen + 1))
 			offsets := arrow.Int64Traits.CastFromBytes(buffers[1].Bytes())
-			tbl.CopyOffsetsSubset(startOffset, offsets)
+			tbl.CopyLargeOffsetsSubset(startOffset, offsets)
 
 			valuesz := offsets[len(offsets)-1] - offsets[0]
 			buffers[2].Resize(int(valuesz))
