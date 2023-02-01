@@ -18,7 +18,6 @@
 #include "arrow/compute/exec/expression.h"
 
 #include <algorithm>
-#include <cmath>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
