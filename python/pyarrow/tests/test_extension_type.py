@@ -1085,6 +1085,27 @@ def test_array_constructor_from_pandas():
 
 
 class TensorType(pa.ExtensionType):
+    """
+    Canonical extension type class for fixed shape tensors.
+
+    Parameters
+    ----------
+    value_type : DataType or Field
+        The data type of an individual tensor
+    shape : tuple
+        shape of the tensors
+    is_row_major : bool
+        boolean indicating the order of elements
+        in memory
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> tensor_type = TensorType(pa.int32(), (2, 2), 'C')
+    >>> tensor_type
+    TensorType(FixedSizeListType(fixed_size_list<item: int32>[4]))
+    >>> pa.register_extension_type(tensor_type)
+    """
 
     def __init__(self, value_type, shape, is_row_major):
         self._value_type = value_type
@@ -1096,16 +1117,22 @@ class TensorType(pa.ExtensionType):
 
     @property
     def dtype(self):
+        """
+        Data type of an individual tensor.
+        """
         return self._value_type
 
     @property
     def shape(self):
+        """
+        Shape of the tensors.
+        """
         return self._shape
 
     @property
     def is_row_major(self):
         """
-        Boolean indicating the order of elements in memory
+        Boolean indicating the order of elements in memory.
         """
         return self._is_row_major
 
@@ -1130,8 +1157,49 @@ class TensorType(pa.ExtensionType):
 
 
 class TensorArray(pa.ExtensionArray):
+    """
+    Canonical extension array class for fixed shape tensors.
+
+    Examples
+    --------
+    Define and register extension type for tensor array
+
+    >>> import pyarrow as pa
+    >>> tensor_type = TensorType(pa.int32(), (2, 2), 'C')
+    >>> pa.register_extension_type(tensor_type)
+
+    Create an extension array
+
+    >>> arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
+    >>> storage = pa.array(arr, pa.list_(pa.int32(), 4))
+    >>> pa.ExtensionArray.from_storage(tensor_type, storage)
+    <__main__.TensorArray object at 0x1491a5a00>
+    [
+      [
+        1,
+        2,
+        3,
+        4
+      ],
+      [
+        10,
+        20,
+        30,
+        40
+      ],
+      [
+        100,
+        200,
+        300,
+        400
+      ]
+    ]
+    """
 
     def to_numpy_tensor_list(self):
+        """
+        Convert tensor extension array to a list of numpy tensors (ndarrays).
+        """
         tensors = []
         for tensor in self.storage:
             np_flat = np.array(tensor.as_py())
@@ -1142,6 +1210,9 @@ class TensorArray(pa.ExtensionArray):
         return tensors
 
     def from_numpy_tensor_list(obj):
+        """
+        Convert a list of numpy tensors (ndarrays) to a tensor extension array.
+        """
         numpy_type = obj[0].flatten().dtype
         arrow_type = pa.from_numpy_dtype(numpy_type)
         shape = obj[0].shape
