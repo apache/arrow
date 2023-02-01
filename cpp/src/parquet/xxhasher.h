@@ -15,10 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//-----------------------------------------------------------------------------
-// MurmurHash3 was written by Austin Appleby, and is placed in the public
-// domain. The author hereby disclaims copyright to this source code.
-
 #pragma once
 
 #include <cstdint>
@@ -29,12 +25,8 @@
 
 namespace parquet {
 
-/// Source:
-/// https://github.com/aappleby/smhasher/blob/master/src/MurmurHash3.cpp
-/// (Modified to adapt to coding conventions and to inherit the Hasher abstract class)
-class PARQUET_EXPORT MurmurHash3 : public Hasher {
+class PARQUET_EXPORT XxHasher : public Hasher {
  public:
-  MurmurHash3() : seed_(DEFAULT_SEED) {}
   uint64_t Hash(int32_t value) const override;
   uint64_t Hash(int64_t value) const override;
   uint64_t Hash(float value) const override;
@@ -43,12 +35,7 @@ class PARQUET_EXPORT MurmurHash3 : public Hasher {
   uint64_t Hash(const ByteArray* value) const override;
   uint64_t Hash(const FLBA* val, uint32_t len) const override;
 
- private:
-  // Default seed for hash which comes from Bloom filter in parquet-mr, it is generated
-  // by System.nanoTime() of java.
-  static constexpr int DEFAULT_SEED = 1361930890;
-
-  uint32_t seed_;
+  static constexpr int kParquetBloomXxHashSeed = 0;
 };
 
 }  // namespace parquet
