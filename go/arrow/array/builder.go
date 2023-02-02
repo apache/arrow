@@ -315,7 +315,7 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		return NewLargeListBuilderWithField(mem, typ.ElemField())
 	case arrow.MAP:
 		typ := dtype.(*arrow.MapType)
-		return NewMapBuilder(mem, typ.KeyType(), typ.ItemType(), typ.KeysSorted)
+		return NewMapBuilderWithType(mem, typ)
 	case arrow.EXTENSION:
 		typ := dtype.(arrow.ExtensionType)
 		return NewExtensionBuilder(mem, typ)

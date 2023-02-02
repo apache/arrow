@@ -1221,6 +1221,22 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
   }
 }
 
+TYPED_TEST(TestPrimitiveBuilder, TestAppendOptional) {
+  int64_t size = 1000;
+  for (int64_t i = 0; i < size; ++i) {
+    ASSERT_OK(this->builder_->AppendOrNull(std::nullopt));
+    ASSERT_EQ(i + 1, this->builder_->null_count());
+  }
+
+  std::shared_ptr<Array> out;
+  FinishAndCheckPadding(this->builder_.get(), &out);
+  auto result = checked_pointer_cast<typename TypeParam::ArrayType>(out);
+
+  for (int64_t i = 0; i < size; ++i) {
+    ASSERT_TRUE(result->IsNull(i)) << i;
+  }
+}
+
 TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
   const int64_t size = 10;
   ASSERT_OK(this->builder_->AppendNulls(size));
