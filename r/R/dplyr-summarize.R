@@ -18,7 +18,7 @@
 # Aggregation functions
 # These all return a list of:
 # @param fun string function name
-# @param data Expression (all currently a single field, except for dplyr::n)
+# @param data list of 0 or more Expressions
 # @param options list of function options, as passed to call_function
 # For group-by aggregation, `hash_` gets prepended to the function name.
 # So to see a list of available hash aggregation functions,
@@ -301,8 +301,8 @@ arrow_eval_or_stop <- function(expr, mask) {
   out
 }
 
-# This function returns a list of expressions that can be used to project the
-# data before an aggregation to only the fields required for the aggregation,
+# This function returns a list of expressions that is used to project the data
+# before an aggregation to only the fields required for the aggregation,
 # including the fields used in the aggregations (the "targets") and the group
 # fields. The names of the returned list are used to ensure that the projection
 # node is wired up correctly to the aggregation node.
