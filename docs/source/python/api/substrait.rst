@@ -15,27 +15,26 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. _api:
+.. _api.substrait:
+.. currentmodule:: pyarrow.substrait
 
-*************
-API Reference
-*************
+Substrait
+=========
 
-.. toctree::
-   :maxdepth: 2
+These functions allow you to execute Substrait plans against Arrow data
 
-   api/datatypes
-   api/arrays
-   api/memory
-   api/compute
-   api/substrait
-   api/files
-   api/tables
-   api/ipc
-   api/flight
-   api/formats
-   api/filesystems
-   api/dataset
-   api/plasma
-   api/cuda
-   api/misc
+Query Execution
+---------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   run_query
+
+Utility
+-------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   get_supported_functions
