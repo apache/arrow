@@ -219,7 +219,7 @@ template <>
 class Ranker<ChunkedArray> : public RankerMixin<ChunkedArray, Ranker<ChunkedArray>> {
  public:
   template <typename... Args>
-  Ranker(Args&&... args)
+  explicit Ranker(Args&&... args)
       : RankerMixin(std::forward<Args>(args)...),
         physical_chunks_(GetPhysicalChunks(input_, physical_type_)) {}
 
