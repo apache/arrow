@@ -4725,10 +4725,9 @@ cdef class Table(_PandasConvertible):
 
         return table
 
-    drop = drop_columns
-    """
-    Alias of Table.drop_columns, kept for backwards compatibility.
-    """
+    def drop(self, columns):
+        """Alias of Table.drop_columns, but kept for backwards compatibility."""
+        return self.drop_columns(columns)
 
     def group_by(self, keys):
         """Declare a grouping over the columns of the table.
