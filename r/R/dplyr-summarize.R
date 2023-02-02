@@ -334,38 +334,34 @@ aggregate_target_names <- function(data, name) {
   }
 }
 
-# This function returns a list of Expressions to be executed in an aggregation
-aggregate_exprs <- function(aggs) {
+# This function returns a named list of the data types of the aggregate columns
+# returned by an aggregation
+aggregate_types <- function(.data, hash, schema = NULL) {
   map(
-    aggs,
-    ~Expression$create(.$fun, args = .$data, options = .$options)
+    .data$aggregations,
+    ~if (hash) {
+      Expression$create(
+        paste0("hash_", .$fun),
+        # hash aggregate kernels must be passed another argument representing
+        # the groups, so we pass in a dummy scalar, since the groups will not
+        # affect the type that an aggregation returns
+        args = c(.$data, Scalar$create(1L, uint32())),
+        options = .$options
+      )$type(schema)
+    } else {
+      Expression$create(
+        .$fun,
+        args = .$data,
+        options = .$options
+      )$type(schema)
+    }
   )
 }
 
-# Unlike with other pairs of non-hash/hash aggregate kernels in the Arrow C++
-# library, the `tdigest` and `hash_tdigest` kernels have different output types.
-# The `tdigest` kernel returns `Float64`, but the `hash_tdigest` kernel returns
-# `FixedSizeList[Float64]`. The system that the R bindings use to infer the
-# output types of expressions does not account for this. It infers the output
-# type of `hash_tdigest` as `Float64`. This function is used to correct this.
-fix_aggregated_types <- function(fields, aggs, hash) {
-  imap(
-    fields,
-    ~if (hash && aggs[[.y]]$fun == "tdigest") {
-        fixed_size_list_of(float64(), 1L)
-      } else {
-        .x
-      }
-  )
-}
-
-# This function returns a list of expressions representing the fields that will
-# be returned by an aggregation, including aggregated fields and group fields
-summarize_fields <- function(.data) {
-  c(
-    aggregate_exprs(.data$aggregations),
-    .data$selected_columns[.data$group_by_vars]
-  )
+# This function returns a named list of the data types of the group columns
+# returned by an aggregation
+group_types <- function(.data, schema = NULL) {
+  map(.data$selected_columns[.data$group_by_vars], ~.$type(schema))
 }
 
 format_aggregation <- function(x) {
@@ -453,7 +449,7 @@ summarize_eval <- function(name, quosure, ctx, hash) {
     # Something like: fun(agg(x), agg(y))
     # So based on the aggregations that have been extracted, mutate after
     agg_field_refs <- make_field_refs(names(ctx$aggregations))
-    agg_field_types <- map(aggregate_exprs(ctx$aggregations), ~.$type())
+    agg_field_types <- aggregate_types(ctx$aggregations, hash)
 
     mutate_mask <- arrow_mask(
       list(
