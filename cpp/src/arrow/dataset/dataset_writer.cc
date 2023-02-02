@@ -30,6 +30,9 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/map.h"
 #include "arrow/util/string.h"
+#include "arrow/util/tracing_internal.h"
+
+using namespace std::string_view_literals;  // NOLINT
 
 namespace arrow {
 
@@ -138,13 +141,15 @@ class DatasetWriterFileQueue {
     file_tasks_ = std::move(file_tasks);
     // Because the scheduler runs one task at a time we know the writer will
     // be opened before any attempt to write
-    file_tasks_->AddSimpleTask([this, filename] {
-      Executor* io_executor = options_.filesystem->io_context().executor();
-      return DeferNotOk(io_executor->Submit([this, filename]() {
-        ARROW_ASSIGN_OR_RAISE(writer_, OpenWriter(options_, schema_, filename));
-        return Status::OK();
-      }));
-    });
+    file_tasks_->AddSimpleTask(
+        [this, filename] {
+          Executor* io_executor = options_.filesystem->io_context().executor();
+          return DeferNotOk(io_executor->Submit([this, filename]() {
+            ARROW_ASSIGN_OR_RAISE(writer_, OpenWriter(options_, schema_, filename));
+            return Status::OK();
+          }));
+        },
+        "DatasetWriter::OpenWriter"sv);
   }
 
   Result<std::shared_ptr<RecordBatch>> PopStagedBatch() {
@@ -177,9 +182,11 @@ class DatasetWriterFileQueue {
   }
 
   void ScheduleBatch(std::shared_ptr<RecordBatch> batch) {
-    file_tasks_->AddSimpleTask([self = this, batch = std::move(batch)]() {
-      return self->WriteNext(std::move(batch));
-    });
+    file_tasks_->AddSimpleTask(
+        [self = this, batch = std::move(batch)]() {
+          return self->WriteNext(std::move(batch));
+        },
+        "DatasetWriter::WriteBatch"sv);
   }
 
   Result<int64_t> PopAndDeliverStagedBatch() {
@@ -214,7 +221,8 @@ class DatasetWriterFileQueue {
     // At this point all write tasks have been added.  Because the scheduler
     // is a 1-task FIFO we know this task will run at the very end and can
     // add it now.
-    file_tasks_->AddSimpleTask([this] { return DoFinish(); });
+    file_tasks_->AddSimpleTask([this] { return DoFinish(); },
+                               "DatasetWriter::FinishFile"sv);
     return Status::OK();
   }
 
@@ -332,7 +340,8 @@ class DatasetWriterDirectoryQueue {
         scheduler_, 1, /*queue=*/nullptr, std::move(file_finish_task));
     if (init_future_.is_valid()) {
       latest_open_file_tasks_->AddSimpleTask(
-          [init_future = init_future_]() { return init_future; });
+          [init_future = init_future_]() { return init_future; },
+          "DatasetWriter::WaitForDirectoryInit"sv);
     }
     latest_open_file_->Start(latest_open_file_tasks_.get(), filename);
     return Status::OK();
@@ -373,7 +382,8 @@ class DatasetWriterDirectoryQueue {
         return create_dir_cb().Then(notify_waiters_cb, notify_waiters_on_err_cb);
       };
     }
-    scheduler_->AddSimpleTask(std::move(init_task));
+    scheduler_->AddSimpleTask(std::move(init_task),
+                              "DatasetWriter::InitializeDirectory"sv);
   }
 
   static Result<std::unique_ptr<DatasetWriterDirectoryQueue>> Make(
@@ -519,30 +529,34 @@ class DatasetWriter::DatasetWriterImpl {
 
   void WriteRecordBatch(std::shared_ptr<RecordBatch> batch, const std::string& directory,
                         const std::string& prefix) {
-    write_tasks_->AddSimpleTask([this, batch = std::move(batch), directory,
-                                 prefix]() mutable {
-      Future<> has_room = WriteAndCheckBackpressure(std::move(batch), directory, prefix);
-      if (!has_room.is_finished()) {
-        // We don't have to worry about sequencing backpressure here since
-        // task_group_ serves as our sequencer.  If batches continue to arrive after
-        // we pause they will queue up in task_group_ until we free up and call
-        // Resume
-        pause_callback_();
-        return has_room.Then([this] { resume_callback_(); });
-      }
-      return has_room;
-    });
+    write_tasks_->AddSimpleTask(
+        [this, batch = std::move(batch), directory, prefix]() mutable {
+          Future<> has_room =
+              WriteAndCheckBackpressure(std::move(batch), directory, prefix);
+          if (!has_room.is_finished()) {
+            // We don't have to worry about sequencing backpressure here since
+            // task_group_ serves as our sequencer.  If batches continue to arrive after
+            // we pause they will queue up in task_group_ until we free up and call
+            // Resume
+            pause_callback_();
+            return has_room.Then([this] { resume_callback_(); });
+          }
+          return has_room;
+        },
+        "DatasetWriter::WriteAndCheckBackpressure"sv);
   }
 
   void Finish() {
-    write_tasks_->AddSimpleTask([this]() -> Result<Future<>> {
-      for (const auto& directory_queue : directory_queues_) {
-        ARROW_RETURN_NOT_OK(directory_queue.second->Finish());
-      }
-      // This task is purely synchronous but we add it to write_tasks_ for the throttling
-      // task group benefits.
-      return Future<>::MakeFinished();
-    });
+    write_tasks_->AddSimpleTask(
+        [this]() -> Result<Future<>> {
+          for (const auto& directory_queue : directory_queues_) {
+            ARROW_RETURN_NOT_OK(directory_queue.second->Finish());
+          }
+          // This task is purely synchronous but we add it to write_tasks_ for the
+          // throttling task group benefits.
+          return Future<>::MakeFinished();
+        },
+        "DatasetWriter::FinishAll"sv);
     write_tasks_.reset();
   }
 
@@ -583,11 +597,13 @@ class DatasetWriter::DatasetWriterImpl {
       backpressure =
           writer_state_.rows_in_flight_throttle.Acquire(next_chunk->num_rows());
       if (!backpressure.is_finished()) {
+        EVENT_ON_CURRENT_SPAN("DatasetWriter::Backpressure::TooManyRowsQueued");
         break;
       }
       if (will_open_file) {
         backpressure = writer_state_.open_files_throttle.Acquire(1);
         if (!backpressure.is_finished()) {
+          EVENT_ON_CURRENT_SPAN("DatasetWriter::Backpressure::TooManyOpenFiles");
           RETURN_NOT_OK(CloseLargestFile());
           break;
         }

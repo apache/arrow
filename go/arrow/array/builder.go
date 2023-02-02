@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -315,7 +315,7 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		return NewLargeListBuilderWithField(mem, typ.ElemField())
 	case arrow.MAP:
 		typ := dtype.(*arrow.MapType)
-		return NewMapBuilder(mem, typ.KeyType(), typ.ItemType(), typ.KeysSorted)
+		return NewMapBuilderWithType(mem, typ)
 	case arrow.EXTENSION:
 		typ := dtype.(arrow.ExtensionType)
 		return NewExtensionBuilder(mem, typ)
@@ -325,6 +325,9 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.DURATION:
 		typ := dtype.(*arrow.DurationType)
 		return NewDurationBuilder(mem, typ)
+	case arrow.RUN_END_ENCODED:
+		typ := dtype.(*arrow.RunEndEncodedType)
+		return NewRunEndEncodedBuilder(mem, typ.RunEnds(), typ.Encoded())
 	}
 	panic(fmt.Errorf("arrow/array: unsupported builder for %T", dtype))
 }

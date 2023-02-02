@@ -3443,8 +3443,8 @@ TEST(ArrowReadWrite, Decimal256AsInt) {
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
 
   parquet::WriterProperties::Builder builder;
-  // Enforce integer type to annotate decimal type
-  auto writer_properties = builder.enable_integer_annotate_decimal()->build();
+  // Allow small decimals to be stored as int32 or int64.
+  auto writer_properties = builder.enable_store_decimal_as_integer()->build();
   auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
 
   CheckConfiguredRoundtrip(table, table, writer_properties, props_store_schema);
@@ -4821,8 +4821,8 @@ class TestIntegerAnnotateDecimalTypeParquetIO : public TestParquetIO<TestType> {
     auto arrow_schema = ::arrow::schema({::arrow::field("a", values->type())});
 
     parquet::WriterProperties::Builder builder;
-    // Enforce integer type to annotate decimal type
-    auto writer_properties = builder.enable_integer_annotate_decimal()->build();
+    // Allow small decimals to be stored as int32 or int64.
+    auto writer_properties = builder.enable_store_decimal_as_integer()->build();
     std::shared_ptr<SchemaDescriptor> parquet_schema;
     ASSERT_OK_NO_THROW(ToParquetSchema(arrow_schema.get(), *writer_properties,
                                        *default_arrow_writer_properties(),
@@ -5070,6 +5070,26 @@ TEST(TestArrowReadWrite, MultithreadedWrite) {
   ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer), pool, &reader));
   ASSERT_OK_NO_THROW(reader->ReadTable(&result));
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
+}
+
+TEST(TestArrowReadWrite, FuzzReader) {
+  constexpr size_t kMaxFileSize = 1024 * 1024 * 1;
+  {
+    auto path = test::get_data_file("PARQUET-1481.parquet", /*is_good=*/false);
+    PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
+                                             path, ::arrow::io::FileMode::READ));
+    PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
+    auto s = internal::FuzzReader(buffer->data(), buffer->size());
+    ASSERT_NOT_OK(s);
+  }
+  {
+    auto path = test::get_data_file("alltypes_plain.parquet", /*is_good=*/true);
+    PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
+                                             path, ::arrow::io::FileMode::READ));
+    PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
+    auto s = internal::FuzzReader(buffer->data(), buffer->size());
+    ASSERT_OK(s);
+  }
 }
 
 }  // namespace arrow

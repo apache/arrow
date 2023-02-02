@@ -33,6 +33,8 @@
 #include "arrow/testing/gtest_util.h"
 #include "gtest/gtest.h"
 
+using namespace std::string_view_literals;  // NOLINT
+
 namespace arrow {
 namespace dataset {
 namespace internal {
@@ -84,7 +86,9 @@ class DatasetWriterTestFixture : public testing::Test {
     scheduler_finished_ =
         util::AsyncTaskScheduler::Make([&](util::AsyncTaskScheduler* scheduler) {
           scheduler_ = scheduler;
-          scheduler->AddSimpleTask([&] { return test_done_with_tasks_; });
+          scheduler->AddSimpleTask(
+              [&] { return test_done_with_tasks_; },
+              "DatasetWriterTestFixture::WaitForTestMethodToFinish"sv);
           return Status::OK();
         });
   }

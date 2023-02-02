@@ -1,3 +1,9 @@
+apache-arrow (11.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Wed, 18 Jan 2023 08:38:47 -0000
+
 apache-arrow (10.0.0-1) unstable; urgency=low
 
   * New upstream release.

@@ -990,18 +990,18 @@ END_CPP11
 }
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<compute::ExecNode> ExecNode_Scan(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<ds::Dataset>& dataset, const std::shared_ptr<compute::Expression>& filter, std::vector<std::string> materialized_field_names);
-extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP filter_sexp, SEXP materialized_field_names_sexp){
+std::shared_ptr<compute::ExecNode> ExecNode_Scan(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<ds::Dataset>& dataset, const std::shared_ptr<compute::Expression>& filter, cpp11::list projection);
+extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP filter_sexp, SEXP projection_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<ds::Dataset>&>::type dataset(dataset_sexp);
 	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type filter(filter_sexp);
-	arrow::r::Input<std::vector<std::string>>::type materialized_field_names(materialized_field_names_sexp);
-	return cpp11::as_sexp(ExecNode_Scan(plan, dataset, filter, materialized_field_names));
+	arrow::r::Input<cpp11::list>::type projection(projection_sexp);
+	return cpp11::as_sexp(ExecNode_Scan(plan, dataset, filter, projection));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP filter_sexp, SEXP materialized_field_names_sexp){
+extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP filter_sexp, SEXP projection_sexp){
 	Rf_error("Cannot call ExecNode_Scan(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -2737,14 +2737,6 @@ extern "C" SEXP _arrow_compute___expr__is_field_ref(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type x(x_sexp);
 	return cpp11::as_sexp(compute___expr__is_field_ref(x));
-END_CPP11
-}
-// expression.cpp
-std::vector<std::string> field_names_in_expression(const std::shared_ptr<compute::Expression>& x);
-extern "C" SEXP _arrow_field_names_in_expression(SEXP x_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type x(x_sexp);
-	return cpp11::as_sexp(field_names_in_expression(x));
 END_CPP11
 }
 // expression.cpp
@@ -5587,7 +5579,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_compute___expr__equals", (DL_FUNC) &_arrow_compute___expr__equals, 2}, 
 		{ "_arrow_compute___expr__call", (DL_FUNC) &_arrow_compute___expr__call, 3}, 
 		{ "_arrow_compute___expr__is_field_ref", (DL_FUNC) &_arrow_compute___expr__is_field_ref, 1}, 
-		{ "_arrow_field_names_in_expression", (DL_FUNC) &_arrow_field_names_in_expression, 1}, 
 		{ "_arrow_compute___expr__get_field_ref_name", (DL_FUNC) &_arrow_compute___expr__get_field_ref_name, 1}, 
 		{ "_arrow_compute___expr__field_ref", (DL_FUNC) &_arrow_compute___expr__field_ref, 1}, 
 		{ "_arrow_compute___expr__nested_field_ref", (DL_FUNC) &_arrow_compute___expr__nested_field_ref, 2}, 

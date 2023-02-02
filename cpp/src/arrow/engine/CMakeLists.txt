@@ -17,7 +17,7 @@
 
 add_custom_target(arrow_substrait)
 
-arrow_install_all_headers("arrow/engine/substrait")
+arrow_install_all_headers("arrow/engine")
 
 set(ARROW_SUBSTRAIT_SRCS
     substrait/expression_internal.cc

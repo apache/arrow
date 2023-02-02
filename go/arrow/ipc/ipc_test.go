@@ -29,10 +29,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/ipc"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/ipc"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 func TestArrow12072(t *testing.T) {
@@ -533,7 +533,7 @@ func Example_mapSlice() {
 	// record:
 	//   schema:
 	//   fields: 1
-	//     - map: type=map<utf8, utf8>
+	//     - map: type=map<utf8, utf8, items_nullable>
 	//   rows: 1
 	//   col[0][map]: [{["index3" "tag_int"] ["main4" ""]}]
 }

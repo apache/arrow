@@ -29,7 +29,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v11/parquet"
+	"github.com/apache/arrow/go/v12/parquet"
 )
 
 // important constants for handling the aes encryption

@@ -26,20 +26,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/decimal128"
-	"github.com/apache/arrow/go/v11/arrow/memory"
-	"github.com/apache/arrow/go/v11/internal/bitutils"
-	"github.com/apache/arrow/go/v11/internal/utils"
-	"github.com/apache/arrow/go/v11/parquet"
-	"github.com/apache/arrow/go/v11/parquet/compress"
-	"github.com/apache/arrow/go/v11/parquet/file"
-	"github.com/apache/arrow/go/v11/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v11/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v11/parquet/pqarrow"
-	"github.com/apache/arrow/go/v11/parquet/schema"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/decimal128"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/internal/bitutils"
+	"github.com/apache/arrow/go/v12/internal/utils"
+	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v12/parquet/compress"
+	"github.com/apache/arrow/go/v12/parquet/file"
+	"github.com/apache/arrow/go/v12/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v12/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v12/parquet/pqarrow"
+	"github.com/apache/arrow/go/v12/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -1317,6 +1317,53 @@ func (ps *ParquetIOTestSuite) TestNullableListOfStruct() {
 			aBldr.Append(int32(i + j))
 			bBldr.Append(strconv.Itoa(i + j))
 		}
+	}
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+
+	field := arrow.Field{Name: "x", Type: arr.DataType(), Nullable: true}
+	expected := array.NewTable(arrow.NewSchema([]arrow.Field{field}, nil),
+		[]arrow.Column{*arrow.NewColumn(field, arrow.NewChunked(field.Type, []arrow.Array{arr}))}, -1)
+	defer expected.Release()
+
+	ps.roundTripTable(expected, false)
+}
+
+func (ps *ParquetIOTestSuite) TestStructWithListOfNestedStructs() {
+	bldr := array.NewStructBuilder(memory.DefaultAllocator, arrow.StructOf(
+		arrow.Field{
+			Nullable: true,
+			Name:     "l",
+			Type: arrow.ListOf(arrow.StructOf(
+				arrow.Field{
+					Nullable: true,
+					Name:     "a",
+					Type: arrow.StructOf(
+						arrow.Field{
+							Nullable: true,
+							Name:     "b",
+							Type:     arrow.BinaryTypes.String,
+						},
+					),
+				},
+			)),
+		},
+	))
+	defer bldr.Release()
+
+	lBldr := bldr.FieldBuilder(0).(*array.ListBuilder)
+	stBldr := lBldr.ValueBuilder().(*array.StructBuilder)
+	aBldr := stBldr.FieldBuilder(0).(*array.StructBuilder)
+	bBldr := aBldr.FieldBuilder(0).(*array.StringBuilder)
+
+	bldr.AppendNull()
+	bldr.Append(true)
+	lBldr.Append(true)
+	for i := 0; i < 8; i++ {
+		stBldr.Append(true)
+		aBldr.Append(true)
+		bBldr.Append(strconv.Itoa(i))
 	}
 
 	arr := bldr.NewArray()

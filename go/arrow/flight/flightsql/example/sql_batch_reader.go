@@ -22,26 +22,37 @@ package example
 import (
 	"database/sql"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v11/arrow/internal/debug"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 func getArrowTypeFromString(dbtype string) arrow.DataType {
 	dbtype = strings.ToLower(dbtype)
+	if dbtype == "" {
+		// SQLite may not know the type yet.
+		return &arrow.NullType{}
+	}
 	if strings.HasPrefix(dbtype, "varchar") {
 		return arrow.BinaryTypes.String
 	}
 
 	switch dbtype {
+	case "tinyint":
+		return arrow.PrimitiveTypes.Int8
+	case "mediumint":
+		return arrow.PrimitiveTypes.Int32
 	case "int", "integer":
 		return arrow.PrimitiveTypes.Int64
-	case "real":
+	case "float":
+		return arrow.PrimitiveTypes.Float32
+	case "real", "double":
 		return arrow.PrimitiveTypes.Float64
 	case "blob":
 		return arrow.BinaryTypes.Binary
@@ -52,14 +63,31 @@ func getArrowTypeFromString(dbtype string) arrow.DataType {
 	}
 }
 
+var sqliteDenseUnion = arrow.DenseUnionOf([]arrow.Field{
+	{Name: "int", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+	{Name: "float", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+	{Name: "string", Type: arrow.BinaryTypes.String, Nullable: true},
+}, []arrow.UnionTypeCode{0, 1, 2})
+
 func getArrowType(c *sql.ColumnType) arrow.DataType {
 	dbtype := strings.ToLower(c.DatabaseTypeName())
 	if dbtype == "" {
+		if c.ScanType() == nil {
+			return sqliteDenseUnion
+		}
 		switch c.ScanType().Kind() {
+		case reflect.Int8, reflect.Uint8:
+			return arrow.PrimitiveTypes.Int8
+		case reflect.Int32, reflect.Uint32:
+			return arrow.PrimitiveTypes.Int32
 		case reflect.Int, reflect.Int64, reflect.Uint64:
 			return arrow.PrimitiveTypes.Int64
-		case reflect.Float32, reflect.Float64:
+		case reflect.Float32:
+			return arrow.PrimitiveTypes.Float32
+		case reflect.Float64:
 			return arrow.PrimitiveTypes.Float64
+		case reflect.String:
+			return arrow.BinaryTypes.String
 		}
 	}
 	return getArrowTypeFromString(dbtype)
@@ -83,9 +111,11 @@ func NewSqlBatchReaderWithSchema(mem memory.Allocator, schema *arrow.Schema, row
 	rowdest := make([]interface{}, len(schema.Fields()))
 	for i, f := range schema.Fields() {
 		switch f.Type.ID() {
-		case arrow.UINT8:
+		case arrow.DENSE_UNION, arrow.SPARSE_UNION:
+			rowdest[i] = new(interface{})
+		case arrow.UINT8, arrow.INT8:
 			if f.Nullable {
-				rowdest[i] = &sql.NullInt32{}
+				rowdest[i] = &sql.NullByte{}
 			} else {
 				rowdest[i] = new(uint8)
 			}
@@ -101,7 +131,7 @@ func NewSqlBatchReaderWithSchema(mem memory.Allocator, schema *arrow.Schema, row
 			} else {
 				rowdest[i] = new(int64)
 			}
-		case arrow.FLOAT64:
+		case arrow.FLOAT32, arrow.FLOAT64:
 			if f.Nullable {
 				rowdest[i] = &sql.NullFloat64{}
 			} else {
@@ -140,13 +170,18 @@ func NewSqlBatchReader(mem memory.Allocator, rows *sql.Rows) (*SqlBatchReader, e
 	fields := make([]arrow.Field, len(cols))
 	for i, c := range cols {
 		fields[i].Name = c.Name()
+		if c.Name() == "?" {
+			fields[i].Name += ":" + strconv.Itoa(i)
+		}
 		fields[i].Nullable, _ = c.Nullable()
 		fields[i].Type = getArrowType(c)
 		fields[i].Metadata = getColumnMetadata(bldr, getSqlTypeFromTypeName(c.DatabaseTypeName()), "")
 		switch fields[i].Type.ID() {
-		case arrow.UINT8:
+		case arrow.DENSE_UNION, arrow.SPARSE_UNION:
+			rowdest[i] = new(interface{})
+		case arrow.UINT8, arrow.INT8:
 			if fields[i].Nullable {
-				rowdest[i] = &sql.NullInt32{}
+				rowdest[i] = &sql.NullByte{}
 			} else {
 				rowdest[i] = new(uint8)
 			}
@@ -162,7 +197,7 @@ func NewSqlBatchReader(mem memory.Allocator, rows *sql.Rows) (*SqlBatchReader, e
 			} else {
 				rowdest[i] = new(int64)
 			}
-		case arrow.FLOAT64:
+		case arrow.FLOAT64, arrow.FLOAT32:
 			if fields[i].Nullable {
 				rowdest[i] = &sql.NullFloat64{}
 			} else {
@@ -231,6 +266,12 @@ func (r *SqlBatchReader) Next() bool {
 			switch v := v.(type) {
 			case *uint8:
 				fb.(*array.Uint8Builder).Append(*v)
+			case *sql.NullByte:
+				if !v.Valid {
+					fb.AppendNull()
+				} else {
+					fb.(*array.Uint8Builder).Append(v.Byte)
+				}
 			case *int64:
 				fb.(*array.Int64Builder).Append(*v)
 			case *sql.NullInt64:
@@ -245,20 +286,25 @@ func (r *SqlBatchReader) Next() bool {
 				if !v.Valid {
 					fb.AppendNull()
 				} else {
-					switch b := fb.(type) {
-					case *array.Int32Builder:
-						b.Append(v.Int32)
-					case *array.Uint8Builder:
-						b.Append(uint8(v.Int32))
-					}
+					fb.(*array.Int32Builder).Append(v.Int32)
 				}
 			case *float64:
-				fb.(*array.Float64Builder).Append(*v)
+				switch b := fb.(type) {
+				case *array.Float64Builder:
+					b.Append(*v)
+				case *array.Float32Builder:
+					b.Append(float32(*v))
+				}
 			case *sql.NullFloat64:
 				if !v.Valid {
 					fb.AppendNull()
 				} else {
-					fb.(*array.Float64Builder).Append(v.Float64)
+					switch b := fb.(type) {
+					case *array.Float64Builder:
+						b.Append(v.Float64)
+					case *array.Float32Builder:
+						b.Append(float32(v.Float64))
+					}
 				}
 			case *[]byte:
 				if v == nil {

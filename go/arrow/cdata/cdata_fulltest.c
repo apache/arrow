@@ -244,6 +244,27 @@ struct ArrowSchema** test_map(const char** fmts, const char** names, int64_t* fl
     return schemas;
 }
 
+struct ArrowSchema** test_union(const char** fmts, const char** names, int64_t* flags, const int n) {
+    struct ArrowSchema** schemas = malloc(sizeof(struct ArrowSchema*)*n);
+     for (int i = 0; i < n; ++i) {
+        schemas[i] = malloc(sizeof(struct ArrowSchema));
+        *schemas[i] = (struct ArrowSchema) {
+            .format = fmts[i],
+            .name = names[i],
+            .metadata = NULL,
+            .flags = flags[i],
+            .children = NULL,
+            .n_children = 0,
+            .dictionary = NULL,
+            .release = &release_nested_dynamic,
+        };
+    }
+
+    schemas[0]->n_children = n-1;
+    schemas[0]->children = &schemas[1];
+    return schemas;
+}
+
 struct streamcounter {
     int n;
     int max;
