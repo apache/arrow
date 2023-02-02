@@ -122,7 +122,8 @@ class PARQUET_EXPORT BloomFilter {
 class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
  public:
   /// The constructor of BlockSplitBloomFilter. It uses XXH64 as hash function.
-  BlockSplitBloomFilter(::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+  explicit BlockSplitBloomFilter(
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   /// Initialize the BlockSplitBloomFilter. The range of num_bytes should be within
   /// [kMinimumBloomFilterBytes, kMaximumBloomFilterBytes], it will be
