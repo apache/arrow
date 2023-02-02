@@ -52,9 +52,12 @@ public class FlightTestUtil {
     IOException lastThrown = null;
     T server = null;
     for (int x = 0; x < 3; x++) {
-      final ServerSocket dynamicPortSocket = new ServerSocket(0);
-      final int port = dynamicPortSocket.getLocalPort();
-      dynamicPortSocket.close();
+      int port;
+      try (final ServerSocket dynamicPortSocket = new ServerSocket(0)) {
+        port = dynamicPortSocket.getLocalPort();
+      } catch (SecurityException | IOException e) {
+        throw new RuntimeException("Unable to create a ServerSocket instance. ", e);
+      }
 
       final Location location = Location.forGrpcInsecure(LOCALHOST, port);
       lastThrown = null;
