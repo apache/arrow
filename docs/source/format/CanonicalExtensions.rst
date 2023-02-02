@@ -87,15 +87,15 @@ Fixed shape tensor
 
   * **value_type** = Arrow DataType of the tensor elements
   * **shape** = shape of the contained tensors as a tuple
-  * **is_row_major** = boolean indicating the order of elements
-    in memory
 
 * Description of the serialization:
 
-  The metadata must be a valid JSON object including:
+  The metadata must be a valid JSON object including shape of
+  the contained tensors as an array with key "shape".
 
-  * shape of the contained tensors as an array with key "shape",
-  * boolean indicating the order of elements in memory with key
-    "is_row_major".
+  For example: `{ "shape": [2, 5]}`
 
-  For example: `{ "shape": [2, 5], "is_row_major": true }`
+.. note::
+
+  Elements in an fixed shape tensor extension array are stored
+  in row-major/C-contiguous order.
