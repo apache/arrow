@@ -148,7 +148,7 @@ struct CastFunctor<
                 (is_duration_type<O>::value && is_duration_type<I>::value)>> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ArraySpan& input = batch[0].array;
-    auto* output = out->array_span_mutable();
+    ArraySpan* output = out->array_span_mutable();
 
     const auto& in_type = checked_cast<const I&>(*batch[0].type());
     const auto& out_type = checked_cast<const O&>(*output->type);
@@ -339,7 +339,7 @@ struct CastFunctor<O, I, enable_if_t<is_time_type<I>::value && is_time_type<O>::
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ArraySpan& input = batch[0].array;
-    auto* output = out->array_span_mutable();
+    ArraySpan* output = out->array_span_mutable();
 
     // If units are the same, zero copy, otherwise convert
     const auto& in_type = checked_cast<const I&>(*input.type);

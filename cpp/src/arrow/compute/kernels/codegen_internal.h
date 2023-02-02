@@ -658,7 +658,7 @@ struct ScalarUnaryNotNullStateful {
     static Status Exec(const ThisType& functor, KernelContext* ctx, const ArraySpan& arg0,
                        ExecResult* out) {
       Status st = Status::OK();
-      auto* out_arr = out->array_span_mutable();
+      ArraySpan* out_arr = out->array_span_mutable();
       FirstTimeBitmapWriter out_writer(out_arr->buffers[1].data, out_arr->offset,
                                        out_arr->length);
       VisitArrayValuesInline<Arg0Type>(
@@ -812,7 +812,7 @@ struct ScalarBinaryNotNullStateful {
   Status ArrayScalar(KernelContext* ctx, const ArraySpan& arg0, const Scalar& arg1,
                      ExecResult* out) {
     Status st = Status::OK();
-    auto* out_span = out->array_span_mutable();
+    ArraySpan* out_span = out->array_span_mutable();
     OutputArrayWriter<OutType> writer(out_span);
     if (arg1.is_valid) {
       const auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
@@ -832,7 +832,7 @@ struct ScalarBinaryNotNullStateful {
   Status ScalarArray(KernelContext* ctx, const Scalar& arg0, const ArraySpan& arg1,
                      ExecResult* out) {
     Status st = Status::OK();
-    auto* out_span = out->array_span_mutable();
+    ArraySpan* out_span = out->array_span_mutable();
     OutputArrayWriter<OutType> writer(out_span);
     if (arg0.is_valid) {
       const auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);

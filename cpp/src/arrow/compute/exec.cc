@@ -831,7 +831,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     std::shared_ptr<ArrayData> preallocation;
     ExecSpan input;
     ExecResult output;
-    auto* output_span = output.array_span_mutable();
+    ArraySpan* output_span = output.array_span_mutable();
 
     if (preallocate_contiguous_) {
       // Make one big output allocation
@@ -866,7 +866,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
   }
 
   Status ExecuteSingleSpan(const ExecSpan& input, ExecResult* out) {
-    auto* result_span = out->array_span_mutable();
+    ArraySpan* result_span = out->array_span_mutable();
     if (output_type_.type->id() == Type::NA) {
       result_span->null_count = result_span->length;
     } else if (kernel_->null_handling == NullHandling::INTERSECTION) {

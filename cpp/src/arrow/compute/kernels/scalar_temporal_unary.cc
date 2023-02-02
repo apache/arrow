@@ -1248,7 +1248,7 @@ struct Strptime {
     const ArraySpan& in = batch[0].array;
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
 
-    auto* out_span = out->array_span_mutable();
+    ArraySpan* out_span = out->array_span_mutable();
     int64_t* out_data = out_span->GetValues<int64_t>(1);
 
     if (self.error_is_null) {
