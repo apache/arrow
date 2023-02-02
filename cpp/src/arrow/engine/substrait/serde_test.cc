@@ -5447,17 +5447,8 @@ TEST(Substrait, PlanWithNamedTapExtension) {
 
   std::shared_ptr<Schema> input_schema =
       schema({field("time", int32()), field("key", int32()), field("value", float64())});
-  NamedTableProvider table_provider = ProvideMadeTable(
-      [&input_schema](
-          const std::vector<std::string>& names) -> Result<std::shared_ptr<Table>> {
-        if (names.size() != 1) {
-          return Status::Invalid("Multiple test table names");
-        }
-        if (names[0] == "T") {
-          return TableFromJSON(input_schema, {"[[2, 1, 1.1], [4, 1, 2.1], [6, 2, 3.1]]"});
-        }
-        return Status::Invalid("Unknown test table name ", names[0]);
-      });
+  NamedTableProvider table_provider = AlwaysProvideSameTable(
+      TableFromJSON(input_schema, {"[[2, 1, 1.1], [4, 1, 2.1], [6, 2, 3.1]]"}));
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
   conversion_options.named_tap_mapper =

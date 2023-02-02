@@ -30,7 +30,7 @@ namespace engine {
 
 namespace {
 
-std::vector<compute::Declaration::Input> MakeDeclarationInputss(
+std::vector<compute::Declaration::Input> MakeDeclarationInputs(
     const std::vector<DeclarationInfo>& inputs) {
   std::vector<compute::Declaration::Input> input_decls(inputs.size());
   for (size_t i = 0; i < inputs.size(); i++) {
@@ -133,7 +133,7 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     compute::AsofJoinNodeOptions asofjoin_node_opts{std::move(input_keys), tolerance};
 
     // declaration
-    auto input_decls = MakeDeclarationInputss(inputs);
+    auto input_decls = MakeDeclarationInputs(inputs);
     return RelationInfo{
         {compute::Declaration("asofjoin", input_decls, std::move(asofjoin_node_opts)),
          std::move(schema)},
@@ -146,7 +146,7 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
                                        const ExtensionSet& ext_set) {
     if (inputs.size() != 1) {
       return Status::Invalid(
-          "substrait_ext::NamedTapNode requires a single table but got: ", inputs.size());
+          "substrait_ext::NamedTapRel requires a single input but got: ", inputs.size());
     }
 
     ARROW_ASSIGN_OR_RAISE(auto tap_func_name,
@@ -164,7 +164,7 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     std::shared_ptr<compute::ExecNodeOptions> named_tap_opts =
         std::make_shared<NamedTapNodeOptions>(named_tap_rel.name(),
                                               std::move(renamed_schema));
-    auto input_decls = MakeDeclarationInputss(inputs);
+    auto input_decls = MakeDeclarationInputs(inputs);
     return RelationInfo{
         {compute::Declaration(tap_func_name, input_decls, std::move(named_tap_opts)),
          std::move(renamed_schema)},

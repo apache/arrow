@@ -54,6 +54,7 @@ message NamedTapRel {
   string kind = 1;
   // A name used to configure the tap, e.g., a URI defining the destination of writing
   string name = 2;
-  // Column names for the tap's output. Their number must be 0 or equal to the input's.
+  // Column names for the tap's output. If specified there must be one name per field.
+  // If empty, field names will be automatically generated.
   repeated string columns = 3;
 }

@@ -69,7 +69,8 @@ using NamedTableProvider =
 static NamedTableProvider kDefaultNamedTableProvider;
 
 using NamedTapKindMapper = std::function<Result<std::string>(const std::string&)>;
-static NamedTapKindMapper kDefaultNamedTapKindMapper;
+static NamedTapKindMapper kDefaultNamedTapKindMapper =
+    [](const std::string& kind) -> Result<std::string> { return kind; };
 
 class ARROW_ENGINE_EXPORT ExtensionDetails {
  public:
@@ -108,8 +109,7 @@ struct ARROW_ENGINE_EXPORT ConversionOptions {
   NamedTableProvider named_table_provider = kDefaultNamedTableProvider;
   /// \brief A custom strategy to be used for mapping a tap kind to a function name
   ///
-  /// The default behavior will return an invalid status if the plan has any
-  /// named tap relations.
+  /// The default mapper is the identity mapping.
   NamedTapKindMapper named_tap_mapper = kDefaultNamedTapKindMapper;
   std::shared_ptr<ExtensionProvider> extension_provider = default_extension_provider();
 };
