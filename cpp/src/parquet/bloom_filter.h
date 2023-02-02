@@ -36,7 +36,7 @@ class PARQUET_EXPORT BloomFilter {
  public:
   // Maximum Bloom filter size, it sets to HDFS default block size 128MB
   // This value will be reconsidered when implementing Bloom filter producer.
-  static constexpr uint32_t kMaximumBloomFilterBytes = 128 * 1024 * 1024;
+  static constexpr uint64_t kMaximumBloomFilterBytes = 128 * 1024 * 1024;
 
   /// Determine whether an element exist in set or not.
   ///
@@ -122,7 +122,7 @@ class PARQUET_EXPORT BloomFilter {
 class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
  public:
   /// The constructor of BlockSplitBloomFilter. It uses XXH64 as hash function.
-  BlockSplitBloomFilter();
+  BlockSplitBloomFilter(::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   /// Initialize the BlockSplitBloomFilter. The range of num_bytes should be within
   /// [kMinimumBloomFilterBytes, kMaximumBloomFilterBytes], it will be
@@ -144,6 +144,12 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
 
   /// Minimum Bloom filter size, it sets to 32 bytes to fit a tiny Bloom filter.
   static constexpr uint32_t kMinimumBloomFilterBytes = 32;
+
+  static uint32_t OptimalNumOfBytes(uint32_t ndv, double fpp) {
+    uint32_t optimal_num_of_bits = OptimalNumOfBits(ndv, fpp);
+    DCHECK(::arrow::bit_util::IsMultipleOf8(optimal_num_of_bits));
+    return optimal_num_of_bits >> 3;
+  }
 
   /// Calculate optimal size according to the number of distinct values and false
   /// positive probability.

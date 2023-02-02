@@ -159,7 +159,7 @@ TEST(FPPTest, TestBloomFilter) {
 
   std::vector<std::string> members;
   BlockSplitBloomFilter bloom_filter;
-  bloom_filter.Init(BlockSplitBloomFilter::OptimalNumOfBits(total_count, fpp));
+  bloom_filter.Init(BlockSplitBloomFilter::OptimalNumOfBytes(total_count, fpp));
 
   // Insert elements into the Bloom filter
   for (int i = 0; i < total_count; i++) {
