@@ -2682,6 +2682,7 @@ std::shared_ptr<Buffer> DeltaLengthByteArrayEncoder<DType>::FlushValues() {
   PARQUET_THROW_NOT_OK(sink_.Finish(&data));
   sink_.Reset();
 
+  PARQUET_THROW_NOT_OK(sink_.Resize(encoded_lengths->size() + data->size()));
   PARQUET_THROW_NOT_OK(sink_.Append(encoded_lengths->data(), encoded_lengths->size()));
   PARQUET_THROW_NOT_OK(sink_.Append(data->data(), data->size()));
 

@@ -1619,6 +1619,7 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.builder->Finish(&result));
     ASSERT_EQ(size, result->length());
+    ASSERT_OK(result->ValidateFull());
     ::arrow::AssertArraysEqual(*values, *result);
   };
 
