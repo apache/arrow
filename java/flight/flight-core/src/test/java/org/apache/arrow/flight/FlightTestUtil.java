@@ -20,6 +20,7 @@ package org.apache.arrow.flight;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.net.ServerSocket;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -51,7 +52,10 @@ public class FlightTestUtil {
     IOException lastThrown = null;
     T server = null;
     for (int x = 0; x < 3; x++) {
-      final int port = 49152 + RANDOM.nextInt(5000);
+      final ServerSocket dynamicPortSocket = new ServerSocket(0);
+      final int port = dynamicPortSocket.getLocalPort();
+      dynamicPortSocket.close();
+
       final Location location = Location.forGrpcInsecure(LOCALHOST, port);
       lastThrown = null;
       try {
