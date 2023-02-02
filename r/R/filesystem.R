@@ -462,8 +462,8 @@ s3_bucket <- function(bucket, ...) {
   if (!is_url(bucket)) {
     bucket <- paste0("s3://", bucket)
   }
-  
-  if (!length(args)) {  
+
+  if (!length(args)) {
     fs_and_path <- FileSystem$from_uri(bucket)
     fs <- fs_and_path$fs
   } else {
