@@ -301,7 +301,8 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   virtual void CheckRoundtrip() {
-    auto encoder = MakeTypedEncoder<Type>(Encoding::PLAIN, false, descr_.get());
+    auto encoder =
+        MakeTypedEncoder<Type>(Encoding::PLAIN, /*use_dictionary=*/false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::PLAIN, descr_.get());
     encoder->Put(draws_, num_values_);
     encode_buffer_ = encoder->FlushValues();
@@ -314,7 +315,8 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
   }
 
   void CheckRoundtripSpaced(const uint8_t* valid_bits, int64_t valid_bits_offset) {
-    auto encoder = MakeTypedEncoder<Type>(Encoding::PLAIN, false, descr_.get());
+    auto encoder =
+        MakeTypedEncoder<Type>(Encoding::PLAIN, /*use_dictionary=*/false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::PLAIN, descr_.get());
     int null_count = 0;
     for (auto i = 0; i < num_values_; i++) {
@@ -1103,8 +1105,8 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void CheckRoundtrip() override {
-    auto encoder =
-        MakeTypedEncoder<Type>(Encoding::BYTE_STREAM_SPLIT, false, descr_.get());
+    auto encoder = MakeTypedEncoder<Type>(Encoding::BYTE_STREAM_SPLIT,
+                                          /*use_dictionary=*/false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::BYTE_STREAM_SPLIT, descr_.get());
     encoder->Put(draws_, num_values_);
     encode_buffer_ = encoder->FlushValues();
@@ -1380,8 +1382,8 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
   }
 
   void CheckRoundtrip() override {
-    auto encoder =
-        MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED, false, descr_.get());
+    auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED,
+                                          /*use_dictionary=*/false, descr_.get());
     // Encode a number of times to exercise the flush logic
     for (size_t i = 0; i < kNumRoundTrips; ++i) {
       encoder->Put(draws_, num_values_);
@@ -1392,8 +1394,8 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
 
   void CheckRoundtripSpaced(const uint8_t* valid_bits,
                             int64_t valid_bits_offset) override {
-    auto encoder =
-        MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED, false, descr_.get());
+    auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED,
+                                          /*use_dictionary=*/false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
     int null_count = 0;
     for (auto i = 0; i < num_values_; i++) {
@@ -1486,8 +1488,8 @@ TYPED_TEST(TestDeltaBitPackEncoding, NonZeroPaddedMiniblockBitWidth) {
     this->InitBoundData(num_values, /*repeats=*/1, /*half_range=*/31);
     ASSERT_EQ(this->num_values_, num_values);
 
-    auto encoder = MakeTypedEncoder<TypeParam>(Encoding::DELTA_BINARY_PACKED, false,
-                                               this->descr_.get());
+    auto encoder = MakeTypedEncoder<TypeParam>(
+        Encoding::DELTA_BINARY_PACKED, /*use_dictionary=*/false, this->descr_.get());
     encoder->Put(this->draws_, this->num_values_);
     auto encoded = encoder->FlushValues();
     const auto encoded_size = encoded->size();
@@ -1538,8 +1540,8 @@ class TestDeltaLengthByteArrayEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   virtual void CheckRoundtrip() {
-    auto encoder =
-        MakeTypedEncoder<Type>(Encoding::DELTA_LENGTH_BYTE_ARRAY, false, descr_.get());
+    auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+                                          /*use_dictionary=*/false, descr_.get());
     auto decoder =
         MakeTypedDecoder<Type>(Encoding::DELTA_LENGTH_BYTE_ARRAY, descr_.get());
 
@@ -1554,8 +1556,8 @@ class TestDeltaLengthByteArrayEncoding : public TestEncodingBase<Type> {
   }
 
   void CheckRoundtripSpaced(const uint8_t* valid_bits, int64_t valid_bits_offset) {
-    auto encoder =
-        MakeTypedEncoder<Type>(Encoding::DELTA_LENGTH_BYTE_ARRAY, false, descr_.get());
+    auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+                                          /*use_dictionary=*/false, descr_.get());
     auto decoder =
         MakeTypedDecoder<Type>(Encoding::DELTA_LENGTH_BYTE_ARRAY, descr_.get());
     int null_count = 0;
