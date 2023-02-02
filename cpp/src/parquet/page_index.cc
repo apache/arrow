@@ -438,13 +438,14 @@ RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(
   auto merge_range = [](const std::optional<IndexLocation>& index_location,
                         int64_t* start, int64_t* end) {
     if (index_location.has_value()) {
-      if (index_location->offset < 0 || index_location->length <= 0) {
-        throw ParquetException("Invalid index location: offset ", index_location->offset,
-                               " length ", index_location->length);
-      }
       int64_t index_end = 0;
-      ::arrow::internal::AddWithOverflow(index_location->offset, index_location->length,
-                                         &index_end);
+      if (index_location->offset < 0 || index_location->length <= 0 ||
+          ::arrow::internal::AddWithOverflow(index_location->offset,
+                                             index_location->length, &index_end)) {
+        throw ParquetException("Invalid page index location: offset ",
+                               index_location->offset, " length ",
+                               index_location->length);
+      }
       *start = std::min(*start, index_location->offset);
       *end = std::max(*end, index_end);
     }
