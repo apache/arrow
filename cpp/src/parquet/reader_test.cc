@@ -1061,15 +1061,9 @@ TEST(TestFileReader, TestOverflowInt16PageOrdinal) {
 }
 
 struct PageIndexReaderParam {
-  PageIndexReaderParam(const std::vector<int32_t>& row_group_indices,
-                       const std::vector<int32_t>& column_indices, bool need_column_index,
-                       bool need_offset_index)
-      : row_group_indices(row_group_indices),
-        column_indices(column_indices),
-        index_selection{need_column_index, need_offset_index} {}
   std::vector<int32_t> row_group_indices;
   std::vector<int32_t> column_indices;
-  IndexSelection index_selection;
+  PageIndexSelection index_selection;
 };
 
 class ParameterizedPageIndexReaderTest
@@ -1185,28 +1179,28 @@ TEST_P(ParameterizedPageIndexReaderTest, TestReadPageIndex) {
   EXPECT_EQ(nullptr, column_index);
 }
 
-INSTANTIATE_TEST_SUITE_P(PageIndexReaderTests, ParameterizedPageIndexReaderTest,
-                         ::testing::Values(PageIndexReaderParam({}, {}, true, true),
-                                           PageIndexReaderParam({}, {}, true, false),
-                                           PageIndexReaderParam({}, {}, false, true),
-                                           PageIndexReaderParam({}, {}, false, false),
-                                           PageIndexReaderParam({0}, {}, true, true),
-                                           PageIndexReaderParam({0}, {}, true, false),
-                                           PageIndexReaderParam({0}, {}, false, true),
-                                           PageIndexReaderParam({0}, {}, false, false),
-                                           PageIndexReaderParam({0}, {0}, true, true),
-                                           PageIndexReaderParam({0}, {0}, true, false),
-                                           PageIndexReaderParam({0}, {0}, false, true),
-                                           PageIndexReaderParam({0}, {0}, false, false),
-                                           PageIndexReaderParam({0}, {5}, true, true),
-                                           PageIndexReaderParam({0}, {5}, true, false),
-                                           PageIndexReaderParam({0}, {5}, false, true),
-                                           PageIndexReaderParam({0}, {5}, false, false),
-                                           PageIndexReaderParam({0}, {0, 5}, true, true),
-                                           PageIndexReaderParam({0}, {0, 5}, true, false),
-                                           PageIndexReaderParam({0}, {0, 5}, false, true),
-                                           PageIndexReaderParam({0}, {0, 5}, false,
-                                                                false)));
+INSTANTIATE_TEST_SUITE_P(
+    PageIndexReaderTests, ParameterizedPageIndexReaderTest,
+    ::testing::Values(PageIndexReaderParam{{}, {}, {true, true}},
+                      PageIndexReaderParam{{}, {}, {true, false}},
+                      PageIndexReaderParam{{}, {}, {false, true}},
+                      PageIndexReaderParam{{}, {}, {false, false}},
+                      PageIndexReaderParam{{0}, {}, {true, true}},
+                      PageIndexReaderParam{{0}, {}, {true, false}},
+                      PageIndexReaderParam{{0}, {}, {false, true}},
+                      PageIndexReaderParam{{0}, {}, {false, false}},
+                      PageIndexReaderParam{{0}, {0}, {true, true}},
+                      PageIndexReaderParam{{0}, {0}, {true, false}},
+                      PageIndexReaderParam{{0}, {0}, {false, true}},
+                      PageIndexReaderParam{{0}, {0}, {false, false}},
+                      PageIndexReaderParam{{0}, {5}, {true, true}},
+                      PageIndexReaderParam{{0}, {5}, {true, false}},
+                      PageIndexReaderParam{{0}, {5}, {false, true}},
+                      PageIndexReaderParam{{0}, {5}, {false, false}},
+                      PageIndexReaderParam{{0}, {0, 5}, {true, true}},
+                      PageIndexReaderParam{{0}, {0, 5}, {true, false}},
+                      PageIndexReaderParam{{0}, {0, 5}, {false, true}},
+                      PageIndexReaderParam{{0}, {0, 5}, {false, false}}));
 
 TEST(PageIndexReaderTest, ReadFileWithoutPageIndex) {
   ReaderProperties properties;

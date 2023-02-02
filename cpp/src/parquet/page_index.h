@@ -152,7 +152,7 @@ class PARQUET_EXPORT RowGroupPageIndexReader {
   virtual std::shared_ptr<OffsetIndex> GetOffsetIndex(int32_t i) = 0;
 };
 
-struct IndexSelection {
+struct PageIndexSelection {
   /// Specifies whether to read the column index.
   bool column_index = false;
   /// Specifies whether to read the offset index.
@@ -211,10 +211,10 @@ class PARQUET_EXPORT PageIndexReader {
   ///    column index and/or offset index of all columns of row group 0 should not
   ///    fail if its page index exists.
   /// 2) If WillNeed() is called for columns 0 and 1 for row group 0, then follow-up
-  ///    call to read page index of column 2 for row group 0 WILL FAIL even if its
+  ///    call to read page index of column 2 for row group 0 MAY FAIL even if its
   ///    page index exists.
   /// 3) If WillNeed() is called for row group 0 with offset index only, then
-  ///    follow-up call to read column index of row group 0 WILL FAIL even if
+  ///    follow-up call to read column index of row group 0 MAY FAIL even if
   ///    the column index of this column exists.
   /// 4) If WillNeed() is called for columns 0 and 1 for row group 0, then later
   ///    call to WillNeed() for columns 1 and 2 for row group 0. The later one
@@ -224,10 +224,10 @@ class PARQUET_EXPORT PageIndexReader {
   /// \param[in] row_group_indices list of row group ordinal to read page index later.
   /// \param[in] column_indices list of column ordinal to read page index later. If it is
   ///            empty, it means all columns in the row group will be read.
-  /// \param[in] index_selection tell if any of the page index is required later.
+  /// \param[in] selection which kind of page index is required later.
   virtual void WillNeed(const std::vector<int32_t>& row_group_indices,
                         const std::vector<int32_t>& column_indices,
-                        const IndexSelection& index_selection) = 0;
+                        const PageIndexSelection& selection) = 0;
 
   /// \brief Advise the reader page index of these row groups will not be read any more.
   ///
@@ -238,7 +238,7 @@ class PARQUET_EXPORT PageIndexReader {
   /// not be accessed any more.
   virtual void WillNotNeed(const std::vector<int32_t>& row_group_indices) = 0;
 
-  /// \brief Determines the column index and offset index ranges for the given row group.
+  /// \brief Determine the column index and offset index ranges for the given row group.
   ///
   /// \param[in] row_group_metadata row group metadata to get column chunk metadata.
   /// \param[in] columns list of column ordinals to get page index. If the list is empty,
@@ -246,7 +246,6 @@ class PARQUET_EXPORT PageIndexReader {
   /// \returns RowGroupIndexReadRange of the specified row group. Throws ParquetException
   ///          if the selected column ordinal is out of bound or metadata of page index
   ///          is corrupted.
-  /// found. Returns false when there is absolutely no offsets index for the row group.
   static RowGroupIndexReadRange DeterminePageIndexRangesInRowGroup(
       const RowGroupMetaData& row_group_metadata, const std::vector<int32_t>& columns);
 };

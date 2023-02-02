@@ -23,6 +23,7 @@
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
 
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/unreachable.h"
 
 #include <limits>
@@ -379,18 +380,18 @@ class PageIndexReaderImpl : public PageIndexReader {
 
   void WillNeed(const std::vector<int32_t>& row_group_indices,
                 const std::vector<int32_t>& column_indices,
-                const IndexSelection& index_selection) override {
+                const PageIndexSelection& selection) override {
     std::vector<::arrow::io::ReadRange> read_ranges;
     for (int32_t row_group_ordinal : row_group_indices) {
       auto read_range = PageIndexReader::DeterminePageIndexRangesInRowGroup(
           *file_metadata_->RowGroup(row_group_ordinal), column_indices);
-      if (index_selection.column_index && read_range.column_index.has_value()) {
+      if (selection.column_index && read_range.column_index.has_value()) {
         read_ranges.push_back(*read_range.column_index);
       } else {
         // Mark the column index as not requested.
         read_range.column_index = std::nullopt;
       }
-      if (index_selection.offset_index && read_range.offset_index.has_value()) {
+      if (selection.offset_index && read_range.offset_index.has_value()) {
         read_ranges.push_back(*read_range.offset_index);
       } else {
         // Mark the offset index as not requested.
@@ -441,8 +442,11 @@ RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(
         throw ParquetException("Invalid index location: offset ", index_location->offset,
                                " length ", index_location->length);
       }
+      int64_t index_end = 0;
+      ::arrow::internal::AddWithOverflow(index_location->offset, index_location->length,
+                                         &index_end);
       *start = std::min(*start, index_location->offset);
-      *end = std::max(*end, index_location->offset + index_location->length);
+      *end = std::max(*end, index_end);
     }
   };
 
