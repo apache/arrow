@@ -31,28 +31,28 @@ ensure_one_arg <- function(args, fun) {
   } else if (length(args) > 1) {
     arrow_not_supported(paste0("Multiple arguments to ", fun, "()"))
   }
-  args[[1]]
+  args
 }
 
 register_bindings_aggregate <- function() {
   register_binding_agg("base::sum", function(..., na.rm = FALSE) {
     list(
       fun = "sum",
-      data = list(ensure_one_arg(list2(...), "sum")),
+      data = ensure_one_arg(list2(...), "sum"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
   register_binding_agg("base::any", function(..., na.rm = FALSE) {
     list(
       fun = "any",
-      data = list(ensure_one_arg(list2(...), "any")),
+      data = ensure_one_arg(list2(...), "any"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
   register_binding_agg("base::all", function(..., na.rm = FALSE) {
     list(
       fun = "all",
-      data = list(ensure_one_arg(list2(...), "all")),
+      data = ensure_one_arg(list2(...), "all"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
@@ -124,7 +124,7 @@ register_bindings_aggregate <- function() {
   register_binding_agg("dplyr::n_distinct", function(..., na.rm = FALSE) {
     list(
       fun = "count_distinct",
-      data = list(ensure_one_arg(list2(...), "n_distinct")),
+      data = ensure_one_arg(list2(...), "n_distinct"),
       options = list(na.rm = na.rm)
     )
   })
@@ -138,14 +138,14 @@ register_bindings_aggregate <- function() {
   register_binding_agg("base::min", function(..., na.rm = FALSE) {
     list(
       fun = "min",
-      data = list(ensure_one_arg(list2(...), "min")),
+      data = ensure_one_arg(list2(...), "min"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
   register_binding_agg("base::max", function(..., na.rm = FALSE) {
     list(
       fun = "max",
-      data = list(ensure_one_arg(list2(...), "max")),
+      data = ensure_one_arg(list2(...), "max"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
