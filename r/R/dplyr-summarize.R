@@ -301,11 +301,11 @@ arrow_eval_or_stop <- function(expr, mask) {
   out
 }
 
-# This function returns a list of expressions that is used to project the data
-# before an aggregation to only the fields required for the aggregation,
-# including the fields used in the aggregations (the "targets") and the group
-# fields. The names of the returned list are used to ensure that the projection
-# node is wired up correctly to the aggregation node.
+# This function returns a list of expressions which is used to project the data
+# before an aggregation. This list includes the fields used in the aggregation
+# expressions (the "targets") and the group fields. The names of the returned
+# list are used to ensure that the projection node is wired up correctly to the
+# aggregation node.
 summarize_projection <- function(.data) {
   c(
     unlist(unname(imap(
@@ -319,11 +319,11 @@ summarize_projection <- function(.data) {
   )
 }
 
-# This function determines what names to give to the fields used in aggregations
-# (the "targets"). When an aggregate function takes 2 or more fields as targets,
-# this function gives the fields unique names by appending `..1`, `..2`, etc.
-# When an aggregate function is nullary, this function returns a zero-length
-# character vector.
+# This function determines what names to give to the fields used in an
+# aggregation expression (the "targets"). When an aggregate function takes 2 or
+# more fields as targets, this function gives the fields unique names by
+# appending `..1`, `..2`, etc. When an aggregate function is nullary, this
+# function returns a zero-length character vector.
 aggregate_target_names <- function(data, name) {
   if (length(data) > 1) {
     paste(name, seq_along(data), sep = "..")
@@ -334,9 +334,8 @@ aggregate_target_names <- function(data, name) {
   }
 }
 
-# This function returns a list of expressions representing the aggregated fields
-# that will be returned by an aggregation
-aggregated_fields <- function(aggs) {
+# This function returns a list of Expressions to be executed in an aggregation
+aggregate_exprs <- function(aggs) {
   map(
     aggs,
     ~Expression$create(.$fun, args = .$data, options = .$options)
@@ -364,7 +363,7 @@ fix_aggregated_types <- function(fields, aggs, hash) {
 # be returned by an aggregation, including aggregated fields and group fields
 summarize_fields <- function(.data) {
   c(
-    aggregated_fields(.data$aggregations),
+    aggregate_exprs(.data$aggregations),
     .data$selected_columns[.data$group_by_vars]
   )
 }
@@ -454,7 +453,7 @@ summarize_eval <- function(name, quosure, ctx, hash) {
     # Something like: fun(agg(x), agg(y))
     # So based on the aggregations that have been extracted, mutate after
     agg_field_refs <- make_field_refs(names(ctx$aggregations))
-    agg_field_types <- map(aggregated_fields(ctx$aggregations), ~.$type())
+    agg_field_types <- map(aggregate_exprs(ctx$aggregations), ~.$type())
 
     mutate_mask <- arrow_mask(
       list(
