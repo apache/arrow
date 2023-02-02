@@ -130,9 +130,12 @@ set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static thrift
 
 #
 # Generated Thrift sources
-set_source_files_properties(src/generated/parquet_types.cpp src/generated/parquet_types.h
-                            src/generated/parquet_constants.cpp
-                            src/generated/parquet_constants.h
+set(PARQUET_THRIFT_SOURCE_DIR "${ARROW_SOURCE_DIR}/src/generated/")
+
+set_source_files_properties("${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
+                            "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.h"
+                            "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
+                            "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.h"
                             PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                        SKIP_UNITY_BUILD_INCLUSION ON)
 
@@ -167,8 +170,8 @@ set(PARQUET_SRCS
     metadata.cc
     xxhasher.cc
     page_index.cc
-    "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
-    "${ARROW_SOURCE_DIR}/src/generated/parquet_types.cpp"
+    "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
+    "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
     platform.cc
     printer.cc
     properties.cc
@@ -277,8 +280,8 @@ add_arrow_lib(parquet
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC
-              "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
-              "${ARROW_SOURCE_DIR}/src/generated/parquet_types.cpp")
+              "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
+              "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp")
   target_link_libraries(parquet_test_support thrift::thrift)
   set(PARQUET_SHARED_TEST_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS} parquet_test_support)
   set(PARQUET_LIBRARIES ${PARQUET_LIBRARIES} parquet_test_support)
