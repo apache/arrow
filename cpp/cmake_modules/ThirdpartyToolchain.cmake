@@ -723,11 +723,11 @@ else()
            "${THIRDPARTY_MIRROR_URL}/rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz")
 endif()
 
-if(DEFINED ENV{ARROW_S2N_URL})
-  set(S2N_SOURCE_URL "$ENV{ARROW_S2N_URL}")
+if(DEFINED ENV{ARROW_S2N_TLS_URL})
+  set(S2N_TLS_SOURCE_URL "$ENV{ARROW_S2N_TLS_URL}")
 else()
-  set_urls(S2N_SOURCE_URL
-           "https://github.com/awslabs/s2n/archive/${ARROW_S2N_BUILD_VERSION}.tar.gz")
+  set_urls(S2N_TLS_SOURCE_URL
+           "https://github.com/aws/s2n-tls/archive/${ARROW_S2N_TLS_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_SNAPPY_URL})
@@ -4779,7 +4779,7 @@ macro(build_awssdk)
       aws-c-event-stream
       aws-c-io
       aws-c-cal
-      s2n
+      s2n-tls
       aws-checksums
       aws-c-common)
   set(AWSSDK_LIBRARIES)
@@ -4828,18 +4828,18 @@ macro(build_awssdk)
   add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
   # When arrow is dynamically linked, arrow-s3fs-test and libarrow.so each has its own copy of AWS SDK.
-  # Need S2N to statically link OpenSSL::Crypto and internalize it to avoid conflicts.
-  set(S2N_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
+  # Need S2N_TLS to statically link OpenSSL::Crypto and internalize it to avoid conflicts.
+  set(S2N_TLS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
   if(ARROW_BUILD_TESTS AND ARROW_TEST_LINKAGE STREQUAL "shared")
-    list(APPEND S2N_CMAKE_ARGS -DS2N_INTERN_LIBCRYPTO=ON)
+    list(APPEND S2N_TLS_CMAKE_ARGS -DS2N_INTERN_LIBCRYPTO=ON)
   endif()
-  externalproject_add(s2n_ep
+  externalproject_add(s2n_tls_ep
                       ${EP_COMMON_OPTIONS}
-                      URL ${S2N_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_S2N_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${S2N_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${S2N_STATIC_LIBRARY})
-  add_dependencies(AWS::s2n s2n_ep)
+                      URL ${S2N_TLS_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_S2N_TLS_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${S2N_TLS_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${S2N_TLS_STATIC_LIBRARY})
+  add_dependencies(AWS::s2n-tls s2n_tls_ep)
 
   externalproject_add(aws_c_cal_ep
                       ${EP_COMMON_OPTIONS}
@@ -4856,7 +4856,7 @@ macro(build_awssdk)
                       URL_HASH "SHA256=${ARROW_AWS_C_IO_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_IO_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep s2n_ep aws_c_cal_ep)
+                      DEPENDS aws_c_common_ep s2n_tls_ep aws_c_cal_ep)
   add_dependencies(AWS::aws-c-io aws_c_io_ep)
 
   externalproject_add(aws_c_event_stream_ep
