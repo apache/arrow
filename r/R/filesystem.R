@@ -462,12 +462,13 @@ s3_bucket <- function(bucket, ...) {
   if (!is_url(bucket)) {
     bucket <- paste0("s3://", bucket)
   }
-  fs_and_path <- FileSystem$from_uri(bucket)
-  fs <- fs_and_path$fs
+  
+  if (!length(args)) {  
+    fs_and_path <- FileSystem$from_uri(bucket)
+    fs <- fs_and_path$fs
+  } else {
   # If there are no additional S3Options, we can use that filesystem
-  # Otherwise, take the region that was detected and make a new fs with the args
-  if (length(args)) {
-    args$region <- fs$region
+  # If user specifies args, they must specify region as arg, env var, or config
     fs <- exec(S3FileSystem$create, !!!args)
   }
   # Return a subtree pointing at that bucket path
