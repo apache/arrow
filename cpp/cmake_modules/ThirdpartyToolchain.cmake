@@ -1649,8 +1649,8 @@ macro(build_protobuf)
 endmacro()
 
 if(ARROW_WITH_PROTOBUF)
-  if(ARROW_WITH_GRPC)
-    # FlightSQL uses proto3 optionals, which require 3.15 or later.
+  if(ARROW_FLIGHT_SQL)
+    # Flight SQL uses proto3 optionals, which require 3.15 or later.
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.15.0")
   elseif(ARROW_SUBSTRAIT)
     # Substrait protobuf files use proto3 syntax
