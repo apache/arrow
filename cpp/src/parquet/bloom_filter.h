@@ -36,7 +36,7 @@ class PARQUET_EXPORT BloomFilter {
  public:
   // Maximum Bloom filter size, it sets to HDFS default block size 128MB
   // This value will be reconsidered when implementing Bloom filter producer.
-  static constexpr uint64_t kMaximumBloomFilterBytes = 128 * 1024 * 1024;
+  static constexpr uint32_t kMaximumBloomFilterBytes = 128 * 1024 * 1024;
 
   /// Determine whether an element exist in set or not.
   ///
