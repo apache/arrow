@@ -2147,52 +2147,37 @@ TEST_F(TestRank, Bool) {
   SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Min,
              ArrayFromJSON(uint64(), "[3, 1, 3, 6, 3, 6, 1]"));
-  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Max,
              ArrayFromJSON(uint64(), "[5, 2, 5, 7, 5, 7, 2]"));
-  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::First,
              ArrayFromJSON(uint64(), "[3, 1, 4, 6, 5, 7, 2]"));
-  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Dense,
              ArrayFromJSON(uint64(), "[2, 1, 2, 3, 2, 3, 1]"));
 
-  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Min,
              ArrayFromJSON(uint64(), "[5, 3, 5, 1, 5, 1, 3]"));
-  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Max,
              ArrayFromJSON(uint64(), "[7, 4, 7, 2, 7, 2, 4]"));
-  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::First,
              ArrayFromJSON(uint64(), "[5, 3, 6, 1, 7, 2, 4]"));
-  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Dense,
              ArrayFromJSON(uint64(), "[3, 2, 3, 1, 3, 1, 2]"));
 
-  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Min,
              ArrayFromJSON(uint64(), "[1, 4, 1, 6, 1, 6, 4]"));
-  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Max,
              ArrayFromJSON(uint64(), "[3, 5, 3, 7, 3, 7, 5]"));
-  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Descending, NullPlacement::AtEnd, RankOptions::First,
              ArrayFromJSON(uint64(), "[1, 4, 2, 6, 3, 7, 5]"));
-  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Dense,
              ArrayFromJSON(uint64(), "[1, 2, 1, 3, 1, 3, 2]"));
 
-  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Descending, NullPlacement::AtStart, RankOptions::Min,
              ArrayFromJSON(uint64(), "[3, 6, 3, 1, 3, 1, 6]"));
-  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Descending, NullPlacement::AtStart, RankOptions::Max,
              ArrayFromJSON(uint64(), "[5, 7, 5, 2, 5, 2, 7]"));
-  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Descending, NullPlacement::AtStart, RankOptions::First,
              ArrayFromJSON(uint64(), "[3, 6, 4, 1, 5, 2, 7]"));
-  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
   AssertRank(SortOrder::Descending, NullPlacement::AtStart, RankOptions::Dense,
              ArrayFromJSON(uint64(), "[2, 3, 2, 1, 2, 1, 3]"));
 }
