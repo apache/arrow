@@ -190,6 +190,10 @@ func NewSQLiteFlightSQLServer() (*SQLiteFlightSQLServer, error) {
 	return ret, nil
 }
 
+func (s *SQLiteFlightSQLServer) Shutdown() error {
+	return s.db.Close()
+}
+
 func (s *SQLiteFlightSQLServer) flightInfoForCommand(desc *flight.FlightDescriptor, schema *arrow.Schema) *flight.FlightInfo {
 	return &flight.FlightInfo{
 		Endpoint:         []*flight.FlightEndpoint{{Ticket: &flight.Ticket{Ticket: desc.Cmd}}},

@@ -88,6 +88,8 @@ func (s *FlightSqliteServerSuite) SetupTest() {
 func (s *FlightSqliteServerSuite) TearDownTest() {
 	s.Require().NoError(s.cl.Close())
 	s.s.Shutdown()
+	err := s.srv.Shutdown()
+	s.Require().NoError(err)
 	s.srv = nil
 	s.mem.AssertSize(s.T(), 0)
 }
