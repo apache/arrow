@@ -1098,7 +1098,7 @@ class FixedShapeTensorType(pa.ExtensionType):
     Examples
     --------
     >>> import pyarrow as pa
-    >>> tensor_type = FixedShapeTensorType(pa.int32(), (2, 2), 'C')
+    >>> tensor_type = FixedShapeTensorType(pa.int32(), (2, 2))
     >>> tensor_type
     FixedShapeTensorType(FixedSizeListType(fixed_size_list<item: int32>[4]))
     >>> pa.register_extension_type(tensor_type)
@@ -1153,7 +1153,7 @@ class FixedShapeTensorArray(pa.ExtensionArray):
     Define and register extension type for tensor array
 
     >>> import pyarrow as pa
-    >>> tensor_type = FixedShapeTensorType(pa.int32(), (2, 2), 'C')
+    >>> tensor_type = FixedShapeTensorType(pa.int32(), (2, 2))
     >>> pa.register_extension_type(tensor_type)
 
     Create an extension array

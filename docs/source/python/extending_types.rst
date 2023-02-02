@@ -373,7 +373,7 @@ Define and register the extension type:
 
 .. code-block:: python
 
-   >>> tensor_type = FixedShapeTensorType(pa.int32(), (2, 2), 'C')
+   >>> tensor_type = FixedShapeTensorType(pa.int32(), (2, 2))
    >>> pa.register_extension_type(tensor_type)
 
 Create an array of tensors with storage array and tensor type:
@@ -388,7 +388,7 @@ Create another array of tensors with different value type:
 
 .. code-block:: python
 
-   >>> tensor_type2 = FixedShapeTensorType(pa.float32(), (2, 2), 'C')
+   >>> tensor_type2 = FixedShapeTensorType(pa.float32(), (2, 2))
    >>> storage2 = pa.array(arr, pa.list_(pa.float32(), 4))
    >>> tensor2 = pa.ExtensionArray.from_storage(tensor_type2, storage2)
 
@@ -444,7 +444,7 @@ Convert a list of numpy ndarrays (tensors) to a tensor array:
 .. code-block:: python
 
    >>> FixedShapeTensorArray.from_numpy_tensor(numpy_tensor)
-   <__main__.FixedShapeTensorArray object at 0x141d9d460>
+   <__main__.FixedShapeTensorArray object at ...>
    [
      [
        1,
