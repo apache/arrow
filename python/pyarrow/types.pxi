@@ -1451,8 +1451,8 @@ cdef class Schema(_Weakrefable):
     """
     A named collection of types a.k.a schema. A schema defines the
     column names and types in a record batch or table data structure.
-    They also contain metadata about the columns. For example, schemas 
-    converted from Pandas contain metadata about their original Pandas 
+    They also contain metadata about the columns. For example, schemas
+    converted from Pandas contain metadata about their original Pandas
     types so they can be converted back to the same types.
 
     Warnings
