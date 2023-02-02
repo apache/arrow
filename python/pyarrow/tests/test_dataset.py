@@ -5058,10 +5058,8 @@ def test_dataset_partition_with_slash(tmpdir):
     read_table = ds.dataset(
         source=path,
         format='ipc',
-        partitioning='hive',
-        schema=pa.schema([pa.field("exp_id", pa.int32()),
-                          pa.field("exp_meta", pa.utf8())])
-    ).to_table().combine_chunks()
+        schema=dt_table.schema,
+        partitioning='hive').to_table().combine_chunks()
 
     assert dt_table == read_table.sort_by("exp_id")
 

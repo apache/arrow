@@ -259,7 +259,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
         raise ValueError("Unsupported flavor")
 
 
-def _ensure_partitioning(scheme):
+def _ensure_partitioning(scheme, schema):
     """
     Validate input and return a Partitioning(Factory).
 
@@ -268,7 +268,7 @@ def _ensure_partitioning(scheme):
     if scheme is None:
         pass
     elif isinstance(scheme, str):
-        scheme = partitioning(flavor=scheme)
+        scheme = partitioning(schema=schema, flavor=scheme)
     elif isinstance(scheme, list):
         scheme = partitioning(field_names=scheme)
     elif isinstance(scheme, (Partitioning, PartitioningFactory)):
@@ -437,7 +437,7 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     FileSystemDataset
     """
     format = _ensure_format(format or 'parquet')
-    partitioning = _ensure_partitioning(partitioning)
+    partitioning = _ensure_partitioning(partitioning, schema)
 
     if isinstance(source, (list, tuple)):
         fs, paths_or_selector = _ensure_multiple_sources(source, filesystem)
@@ -542,7 +542,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
     metadata_path = filesystem.normalize_path(_stringify_path(metadata_path))
     options = ParquetFactoryOptions(
         partition_base_dir=partition_base_dir,
-        partitioning=_ensure_partitioning(partitioning)
+        partitioning=_ensure_partitioning(partitioning, schema)
     )
 
     factory = ParquetDatasetFactory(
