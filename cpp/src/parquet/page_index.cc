@@ -379,7 +379,7 @@ class PageIndexReaderImpl : public PageIndexReader {
 
   void WillNeed(const std::vector<int32_t>& row_group_indices,
                 const std::vector<int32_t>& column_indices,
-                IndexSelection index_selection) override {
+                const IndexSelection& index_selection) override {
     std::vector<::arrow::io::ReadRange> read_ranges;
     for (int32_t row_group_ordinal : row_group_indices) {
       auto read_range = PageIndexReader::DeterminePageIndexRangesInRowGroup(

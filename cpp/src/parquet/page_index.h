@@ -227,7 +227,7 @@ class PARQUET_EXPORT PageIndexReader {
   /// \param[in] index_selection tell if any of the page index is required later.
   virtual void WillNeed(const std::vector<int32_t>& row_group_indices,
                         const std::vector<int32_t>& column_indices,
-                        IndexSelection index_selection) = 0;
+                        const IndexSelection& index_selection) = 0;
 
   /// \brief Advise the reader page index of these row groups will not be read any more.
   ///
