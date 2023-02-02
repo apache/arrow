@@ -81,6 +81,11 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+/*
+ * The crc32 code is modified from
+ * https://github.com/cyrusimap/cyrus-imapd/blob/master/lib/crc32.c
+ */
+
 #include "arrow/util/crc32.h"
 
 #include <cstdint>
@@ -877,7 +882,7 @@ uint32_t crc32(uint32_t prev, const void* data, size_t length) {
   while (length >= bytes_at_once) {
     size_t unrolling;
     for (unrolling = 0; unrolling < unroll; unrolling++) {
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if ARROW_LITTLE_ENDIAN
       uint32_t one = *current++ ^ crc;
       uint32_t two = *current++;
       uint32_t three = *current++;

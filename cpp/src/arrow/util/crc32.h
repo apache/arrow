@@ -23,6 +23,12 @@
 namespace arrow {
 namespace internal {
 
+/// \brief Compute the CRC32 checksum of the given data
+///
+/// This function computes CRC32 with the polynomial 0x04C11DB7,
+/// as used in zlib and others (note this is different from CRC32C).
+/// To compute a running CRC32, pass the previous value in `prev`,
+/// otherwise `prev` should be 0.
 ARROW_EXPORT
 uint32_t crc32(uint32_t prev, const void* data, size_t length);
 
