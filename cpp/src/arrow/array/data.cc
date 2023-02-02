@@ -428,7 +428,7 @@ std::shared_ptr<Array> ArraySpan::ToArray() const {
 }
 
 // ----------------------------------------------------------------------
-// Implement ArrayData::View
+// Implement internal::GetArrayView
 
 namespace {
 

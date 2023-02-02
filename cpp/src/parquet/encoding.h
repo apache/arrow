@@ -221,14 +221,13 @@ class DictEncoder : virtual public TypedEncoder<DType> {
   /// to size buffer.
   virtual int WriteIndices(uint8_t* buffer, int buffer_len) = 0;
 
-  virtual int dict_encoded_size() = 0;
-  // virtual int dict_encoded_size() { return dict_encoded_size_; }
+  virtual int dict_encoded_size() const = 0;
 
   virtual int bit_width() const = 0;
 
   /// Writes out the encoded dictionary to buffer. buffer must be preallocated to
   /// dict_encoded_size() bytes.
-  virtual void WriteDict(uint8_t* buffer) = 0;
+  virtual void WriteDict(uint8_t* buffer) const = 0;
 
   virtual int num_entries() const = 0;
 

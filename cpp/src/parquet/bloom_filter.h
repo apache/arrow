@@ -105,21 +105,23 @@ class PARQUET_EXPORT BloomFilter {
 
  protected:
   // Hash strategy available for Bloom filter.
-  enum class HashStrategy : uint32_t { MURMUR3_X64_128 = 0 };
+  enum class HashStrategy : uint32_t { XXHASH = 0 };
 
   // Bloom filter algorithm.
   enum class Algorithm : uint32_t { BLOCK = 0 };
+
+  enum class CompressionStrategy : uint32_t { UNCOMPRESSED = 0 };
 };
 
-// The BlockSplitBloomFilter is implemented using block-based Bloom filters from
-// Putze et al.'s "Cache-,Hash- and Space-Efficient Bloom filters". The basic idea is to
-// hash the item to a tiny Bloom filter which size fit a single cache line or smaller.
-//
-// This implementation sets 8 bits in each tiny Bloom filter. Each tiny Bloom
-// filter is 32 bytes to take advantage of 32-byte SIMD instructions.
+/// The BlockSplitBloomFilter is implemented using block-based Bloom filters from
+/// Putze et al.'s "Cache-,Hash- and Space-Efficient Bloom filters". The basic idea is to
+/// hash the item to a tiny Bloom filter which size fit a single cache line or smaller.
+///
+/// This implementation sets 8 bits in each tiny Bloom filter. Each tiny Bloom
+/// filter is 32 bytes to take advantage of 32-byte SIMD instructions.
 class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
  public:
-  /// The constructor of BlockSplitBloomFilter. It uses murmur3_x64_128 as hash function.
+  /// The constructor of BlockSplitBloomFilter. It uses XXH64 as hash function.
   BlockSplitBloomFilter();
 
   /// Initialize the BlockSplitBloomFilter. The range of num_bytes should be within
@@ -140,7 +142,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// @param num_bytes  The number of bytes of given bitset.
   void Init(const uint8_t* bitset, uint32_t num_bytes);
 
-  // Minimum Bloom filter size, it sets to 32 bytes to fit a tiny Bloom filter.
+  /// Minimum Bloom filter size, it sets to 32 bytes to fit a tiny Bloom filter.
   static constexpr uint32_t kMinimumBloomFilterBytes = 32;
 
   /// Calculate optimal size according to the number of distinct values and false
@@ -198,9 +200,11 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// Deserialize the Bloom filter from an input stream. It is used when reconstructing
   /// a Bloom filter from a parquet filter.
   ///
-  /// @param input_stream The input stream from which to construct the Bloom filter
+  /// @param properties The parquet reader properties.
+  /// @param input_stream The input stream from which to construct the Bloom filter.
   /// @return The BlockSplitBloomFilter.
-  static BlockSplitBloomFilter Deserialize(ArrowInputStream* input_stream);
+  static BlockSplitBloomFilter Deserialize(const ReaderProperties& properties,
+                                           ArrowInputStream* input_stream);
 
  private:
   // Bytes in a tiny Bloom filter block.
@@ -239,6 +243,9 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
 
   // Algorithm used in this Bloom filter.
   Algorithm algorithm_;
+
+  // Compression used in this Bloom filter.
+  CompressionStrategy compression_strategy_;
 
   // The hash pointer points to actual hash class used.
   std::unique_ptr<Hasher> hasher_;

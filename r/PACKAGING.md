@@ -54,7 +54,7 @@ use the release candidate as the source.
   to update the release version, SHA256 checksum of the release source file (which can be found in the same directory as the release source file), and any changes to dependencies and build steps that have changed in the
   [copy of the formula we have of that formula in the Arrow repo](https://github.com/apache/arrow/blob/master/dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb)
 - [ ] Pull request to modify
-  [the apache-arrow-static autobrew formula]( https://github.com/autobrew/homebrew-core/blob/master/Formula/apache-arrow-static.rb)
+  [the apache-arrow-static autobrew formula](https://github.com/autobrew/homebrew-cran/blob/master/Formula/apache-arrow-static.rb)
   to update the version, SHA, and any changes to dependencies and build steps that have changed in the
   [copy of the formula we have of that formula in the Arrow repo](https://github.com/apache/arrow/blob/master/dev/tasks/homebrew-formulae/autobrew/apache-arrow-static.rb)
 - [ ] Pull request to modify the 

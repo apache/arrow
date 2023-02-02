@@ -42,6 +42,7 @@ using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
 using arrow::util::SafeCopy;
+using arrow::util::SafeLoad;
 
 namespace parquet {
 namespace {
@@ -353,7 +354,7 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
     T max = Helper::DefaultMax();
 
     for (int64_t i = 0; i < length; i++) {
-      auto val = values[i];
+      const auto val = SafeLoad(values + i);
       min = Helper::Min(type_length_, min, Helper::Coalesce(val, Helper::DefaultMin()));
       max = Helper::Max(type_length_, max, Helper::Coalesce(val, Helper::DefaultMax()));
     }
@@ -372,7 +373,7 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
     ::arrow::internal::VisitSetBitRunsVoid(
         valid_bits, valid_bits_offset, length, [&](int64_t position, int64_t length) {
           for (int64_t i = 0; i < length; i++) {
-            const auto val = values[i + position];
+            const auto val = SafeLoad(values + i + position);
             min = Helper::Min(type_length_, min,
                               Helper::Coalesce(val, Helper::DefaultMin()));
             max = Helper::Max(type_length_, max,

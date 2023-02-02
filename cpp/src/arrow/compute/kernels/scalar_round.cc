@@ -293,6 +293,24 @@ struct RoundOptionsWrapper<RoundOptions> : public OptionsWrapper<RoundOptions> {
 };
 
 template <>
+struct RoundOptionsWrapper<RoundBinaryOptions>
+    : public OptionsWrapper<RoundBinaryOptions> {
+  using OptionsType = RoundBinaryOptions;
+
+  explicit RoundOptionsWrapper(OptionsType options)
+      : OptionsWrapper(std::move(options)) {}
+
+  static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
+                                                   const KernelInitArgs& args) {
+    if (auto options = static_cast<const OptionsType*>(args.options)) {
+      return std::make_unique<RoundOptionsWrapper>(*options);
+    }
+    return Status::Invalid(
+        "Attempted to initialize KernelState from null FunctionOptions");
+  }
+};
+
+template <>
 struct RoundOptionsWrapper<RoundToMultipleOptions>
     : public OptionsWrapper<RoundToMultipleOptions> {
   using OptionsType = RoundToMultipleOptions;
@@ -449,6 +467,127 @@ struct Round<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
       return 0;
     }
     return arg;
+  }
+};
+
+template <typename ArrowType, RoundMode RndMode, typename Enable = void>
+struct RoundBinary {
+  using CType = typename TypeTraits<ArrowType>::CType;
+  using State = RoundOptionsWrapper<RoundBinaryOptions>;
+
+  explicit RoundBinary(const State& state, const DataType& out_ty) {}
+
+  template <typename T = ArrowType, typename CType0 = typename TypeTraits<T>::CType0,
+            typename CType1 = typename TypeTraits<T>::CType1>
+  enable_if_floating_value<CType> Call(KernelContext* ctx, CType0 arg0, CType1 arg1,
+                                       Status* st) const {
+    // Do not process Inf or NaN because they will trigger the overflow error at end of
+    // function.
+    if (!std::isfinite(arg0)) {
+      return arg0;
+    }
+
+    // Only positive exponents for powers of 10 are used because combining
+    // multiply and division operations produced more stable rounding than
+    // using multiply-only.  Refer to NumPy's round implementation:
+    // https://github.com/numpy/numpy/blob/7b2f20b406d27364c812f7a81a9c901afbd3600c/numpy/core/src/multiarray/calculation.c#L589
+    double pow10 = RoundUtil::Pow10(std::abs(arg1));
+
+    auto round_val = arg1 >= 0 ? (arg0 * pow10) : (arg0 / pow10);
+    auto frac = round_val - std::floor(round_val);
+    if (frac != T(0)) {
+      // Use std::round() if in tie-breaking mode and scaled value is not 0.5.
+      if ((RndMode >= RoundMode::HALF_DOWN) && (frac != T(0.5))) {
+        round_val = std::round(round_val);
+      } else {
+        round_val = RoundImpl<CType, RndMode>::Round(round_val);
+      }
+      // Equality check is omitted so that the common case of 10^0 (integer rounding)
+      // uses multiply-only
+      round_val = arg1 > 0 ? (round_val / pow10) : (round_val * pow10);
+      if (!std::isfinite(round_val)) {
+        *st = Status::Invalid("overflow occurred during rounding");
+        return arg0;
+      }
+    } else {
+      // If scaled value is an integer, then no rounding is needed.
+      round_val = arg0;
+    }
+    return static_cast<CType0>(round_val);
+  }
+};
+
+template <typename ArrowType, RoundMode kRoundMode>
+struct RoundBinary<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
+  using CType = typename TypeTraits<ArrowType>::CType;
+  using State = RoundOptionsWrapper<RoundBinaryOptions>;
+
+  const ArrowType& ty;
+  int32_t pow;
+  // pow10 is "1" for the given decimal scale. Similarly half_pow10 is "0.5".
+  CType half_pow10, neg_half_pow10;
+
+  explicit RoundBinary(const State& state, const DataType& out_ty)
+      : RoundBinary(out_ty) {}
+
+  explicit RoundBinary(const DataType& out_ty)
+      : ty(checked_cast<const ArrowType&>(out_ty)),
+        pow(static_cast<int32_t>(ty.scale() - 0)) {
+    if (pow >= ty.precision() || pow < 0) {
+      half_pow10 = neg_half_pow10 = 0;
+    } else {
+      half_pow10 = CType::GetHalfScaleMultiplier(pow);
+      neg_half_pow10 = -half_pow10;
+    }
+  }
+
+  template <typename T = ArrowType, typename CType0 = typename TypeTraits<T>::CType0,
+            typename CType1 = typename TypeTraits<T>::CType1>
+  enable_if_decimal_value<CType> Call(KernelContext* ctx, CType0 arg0, CType1 arg1,
+                                      Status* st) const {
+    if (pow - arg1 >= ty.precision()) {
+      *st = Status::Invalid("Rounding to ", arg1, " digits will not fit in precision of ",
+                            ty);
+      return 0;
+    } else if (pow < 0) {
+      // no-op, copy output to input
+      return arg0;
+    }
+
+    CType0 pow10 = CType0::GetScaleMultiplier(static_cast<int32_t>(ty.scale() - arg1));
+
+    std::pair<CType, CType> pair;
+    *st = arg0.Divide(pow10).Value(&pair);
+    if (!st->ok()) return arg0;
+    // The remainder is effectively the scaled fractional part after division.
+    const auto& remainder = pair.second;
+    if (remainder == 0) return arg0;
+    if (kRoundMode >= RoundMode::HALF_DOWN) {
+      if (remainder == half_pow10 || remainder == neg_half_pow10) {
+        // On the halfway point, use tiebreaker
+        RoundImpl<CType0, kRoundMode>::Round(&arg0, remainder, pow10, pow);
+      } else if (remainder.Sign() >= 0) {
+        // Positive, round up/down
+        arg0 -= remainder;
+        if (remainder > half_pow10) {
+          arg0 += pow10;
+        }
+      } else {
+        // Negative, round up/down
+        arg0 -= remainder;
+        if (remainder < neg_half_pow10) {
+          arg0 -= pow10;
+        }
+      }
+    } else {
+      RoundImpl<CType0, kRoundMode>::Round(&arg0, remainder, pow10, pow);
+    }
+    if (!arg0.FitsInPrecision(ty.precision())) {
+      *st = Status::Invalid("Rounded value ", arg0.ToString(ty.scale()),
+                            " does not fit in precision of ", ty);
+      return 0;
+    }
+    return arg0;
   }
 };
 
@@ -709,17 +848,6 @@ Result<TypeHolder> ResolveDecimalBinaryOperationOutput(
   return std::move(type);
 }
 
-template <typename Op>
-void AddDecimalUnaryKernels(ScalarFunction* func) {
-  OutputType out_type(FirstType);
-  auto in_type128 = InputType(Type::DECIMAL128);
-  auto in_type256 = InputType(Type::DECIMAL256);
-  auto exec128 = ScalarUnaryNotNull<Decimal128Type, Decimal128Type, Op>::Exec;
-  auto exec256 = ScalarUnaryNotNull<Decimal256Type, Decimal256Type, Op>::Exec;
-  DCHECK_OK(func->AddKernel({in_type128}, out_type, exec128));
-  DCHECK_OK(func->AddKernel({in_type256}, out_type, exec256));
-}
-
 // Generate a kernel given an arithmetic functor
 template <template <typename...> class KernelGenerator, typename OutType, typename Op>
 ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) {
@@ -751,60 +879,25 @@ ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) 
   }
 }
 
-struct ArithmeticFunction : ScalarFunction {
+struct RoundFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
   Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
     RETURN_NOT_OK(CheckArity(types->size()));
 
-    RETURN_NOT_OK(CheckDecimals(types));
-
     using arrow::compute::detail::DispatchExactImpl;
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
     EnsureDictionaryDecoded(types);
 
-    // Only promote types for binary functions
-    if (types->size() == 2) {
-      ReplaceNullWithOtherType(types);
-      TimeUnit::type finest_unit;
-      if (CommonTemporalResolution(types->data(), types->size(), &finest_unit)) {
-        ReplaceTemporalTypes(finest_unit, types);
-      } else {
-        if (TypeHolder type = CommonNumeric(*types)) {
-          ReplaceTypes(type, types);
-        }
-      }
-    }
-
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
     return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
-
-  Status CheckDecimals(std::vector<TypeHolder>* types) const {
-    if (!HasDecimal(*types)) return Status::OK();
-
-    if (types->size() == 2) {
-      // "add_checked" -> "add"
-      const auto func_name = name();
-      const std::string op = func_name.substr(0, func_name.find("_"));
-      if (op == "add" || op == "subtract") {
-        return CastBinaryDecimalArgs(DecimalPromotion::kAdd, types);
-      } else if (op == "multiply") {
-        return CastBinaryDecimalArgs(DecimalPromotion::kMultiply, types);
-      } else if (op == "divide") {
-        return CastBinaryDecimalArgs(DecimalPromotion::kDivide, types);
-      } else {
-        return Status::Invalid("Invalid decimal function: ", func_name);
-      }
-    }
-    return Status::OK();
-  }
 };
 
-/// An ArithmeticFunction that promotes only decimal arguments to double.
-struct ArithmeticDecimalToFloatingPointFunction : public ArithmeticFunction {
-  using ArithmeticFunction::ArithmeticFunction;
+/// A RoundFunction that promotes only decimal arguments to double.
+struct ArithmeticDecimalToFloatingPointFunction : public RoundFunction {
+  using RoundFunction::RoundFunction;
 
   Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
     RETURN_NOT_OK(CheckArity(types->size()));
@@ -814,60 +907,22 @@ struct ArithmeticDecimalToFloatingPointFunction : public ArithmeticFunction {
 
     EnsureDictionaryDecoded(types);
 
-    if (types->size() == 2) {
-      ReplaceNullWithOtherType(types);
-    }
-
-    for (size_t i = 0; i < types->size(); ++i) {
-      if (is_decimal((*types)[i].type->id())) {
-        (*types)[i] = float64();
-      }
-    }
-
-    if (TypeHolder type = CommonNumeric(*types)) {
-      ReplaceTypes(type, types);
+    // Size of types is checked above.
+    const auto originalType = (*types)[0];
+    if (is_decimal((*types)[0].type->id())) {
+      (*types)[0] = float64();
     }
 
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+
+    (*types)[0] = originalType;
     return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
 
-/// An ArithmeticFunction that promotes only integer arguments to double.
-struct ArithmeticIntegerToFloatingPointFunction : public ArithmeticFunction {
-  using ArithmeticFunction::ArithmeticFunction;
-
-  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
-    RETURN_NOT_OK(CheckArity(types->size()));
-    RETURN_NOT_OK(CheckDecimals(types));
-
-    using arrow::compute::detail::DispatchExactImpl;
-    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
-
-    EnsureDictionaryDecoded(types);
-
-    if (types->size() == 2) {
-      ReplaceNullWithOtherType(types);
-    }
-
-    for (size_t i = 0; i < types->size(); ++i) {
-      if (is_integer((*types)[i].type->id())) {
-        (*types)[i] = float64();
-      }
-    }
-
-    if (auto type = CommonNumeric(*types)) {
-      ReplaceTypes(type, types);
-    }
-
-    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
-    return arrow::compute::detail::NoMatchingKernel(this, *types);
-  }
-};
-
-/// An ArithmeticFunction that promotes integer and decimal arguments to double.
-struct ArithmeticFloatingPointFunction : public ArithmeticFunction {
-  using ArithmeticFunction::ArithmeticFunction;
+/// A RoundFunction that promotes only the first integer argument to double.
+struct RoundIntegerToFloatingPointFunction : public RoundFunction {
+  using RoundFunction::RoundFunction;
 
   Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
     RETURN_NOT_OK(CheckArity(types->size()));
@@ -877,21 +932,40 @@ struct ArithmeticFloatingPointFunction : public ArithmeticFunction {
 
     EnsureDictionaryDecoded(types);
 
-    if (types->size() == 2) {
-      ReplaceNullWithOtherType(types);
-    }
-
-    for (size_t i = 0; i < types->size(); ++i) {
-      if (is_integer((*types)[i].type->id()) || is_decimal((*types)[i].type->id())) {
-        (*types)[i] = float64();
-      }
-    }
-
-    if (auto type = CommonNumeric(*types)) {
-      ReplaceTypes(type, types);
+    // Size of types is checked above.
+    const auto originalType = (*types)[0];
+    if (is_integer((*types)[0].type->id())) {
+      (*types)[0] = float64();
     }
 
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+
+    (*types)[0] = originalType;
+    return arrow::compute::detail::NoMatchingKernel(this, *types);
+  }
+};
+
+/// A RoundFunction that promotes integer and decimal arguments to double.
+struct RoundFloatingPointFunction : public RoundFunction {
+  using RoundFunction::RoundFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+    RETURN_NOT_OK(CheckArity(types->size()));
+
+    using arrow::compute::detail::DispatchExactImpl;
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+
+    EnsureDictionaryDecoded(types);
+
+    // Size of types is checked above.
+    const auto originalType = (*types)[0];
+    if (is_integer((*types)[0].type->id()) || is_decimal((*types)[0].type->id())) {
+      (*types)[0] = float64();
+    }
+
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+
+    (*types)[0] = originalType;
     return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
@@ -906,36 +980,10 @@ void AddNullExec(ScalarFunction* func) {
   DCHECK_OK(func->AddKernel(std::move(input_types), OutputType(null()), NullToNullExec));
 }
 
-template <typename Op, typename FunctionImpl = ArithmeticFunction>
-std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
-                                                       FunctionDoc doc) {
-  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), std::move(doc));
-  for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Op>(ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
-  }
-  AddNullExec(func.get());
-  return func;
-}
-
-// Like MakeArithmeticFunction, but for arithmetic ops that need to run
-// only on non-null output.
-template <typename Op, typename FunctionImpl = ArithmeticFunction>
-std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
-                                                              FunctionDoc doc) {
-  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), std::move(doc));
-  for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
-  }
-  AddNullExec(func.get());
-  return func;
-}
-
 template <typename Op>
-std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
-                                                            FunctionDoc doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
+std::shared_ptr<ScalarFunction> MakeUnaryRoundFunction(std::string name,
+                                                       FunctionDoc doc) {
+  auto func = std::make_shared<RoundFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarUnary, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
@@ -944,13 +992,13 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
   return func;
 }
 
-// Like MakeUnaryArithmeticFunction, but for unary arithmetic ops with a fixed
+// Like MakeUnaryRoundFunction, but for unary arithmetic ops with a fixed
 // output type for integral inputs.
 template <typename Op, typename IntOutType>
-std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionWithFixedIntOutType(
+std::shared_ptr<ScalarFunction> MakeUnaryRoundFunctionWithFixedIntOutType(
     std::string name, FunctionDoc doc) {
   auto int_out_ty = TypeTraits<IntOutType>::type_singleton();
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
+  auto func = std::make_shared<RoundFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto out_ty = arrow::is_floating(ty->id()) ? ty : int_out_ty;
     auto exec = GenerateArithmeticWithFixedIntOutType<ScalarUnary, IntOutType, Op>(ty);
@@ -966,12 +1014,12 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionWithFixedIntOutType(
   return func;
 }
 
-// Like MakeUnaryArithmeticFunction, but for arithmetic ops that need to run
+// Like MakeUnaryRoundFunction, but for arithmetic ops that need to run
 // only on non-null output.
 template <typename Op>
-std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionNotNull(std::string name,
-                                                                   FunctionDoc doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
+std::shared_ptr<ScalarFunction> MakeUnaryRoundFunctionNotNull(std::string name,
+                                                              FunctionDoc doc) {
+  auto func = std::make_shared<RoundFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
@@ -1014,14 +1062,49 @@ struct RoundKernel {
 };
 #undef ROUND_CASE
 
-// Like MakeUnaryArithmeticFunction, but for unary rounding functions that control
+#define ROUND_BINARY_CASE(MODE)                                                \
+  case RoundMode::MODE: {                                                      \
+    using Op = OpImpl<Type, RoundMode::MODE>;                                  \
+    return applicator::ScalarBinaryNotNullStateful<Type, Type, Int32Type, Op>( \
+               Op(state, *out->type()))                                        \
+        .Exec(ctx, batch, out);                                                \
+  }
+
+// Exec the round (binary) kernel for the given types
+template <typename Type, typename OptionsType,
+          template <typename, RoundMode, typename...> class OpImpl>
+struct RoundBinaryKernel {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    using State = RoundOptionsWrapper<OptionsType>;
+    const auto& state = static_cast<const State&>(*ctx->state());
+    switch (state.options.round_mode) {
+      ROUND_BINARY_CASE(DOWN)
+      ROUND_BINARY_CASE(UP)
+      ROUND_BINARY_CASE(TOWARDS_ZERO)
+      ROUND_BINARY_CASE(TOWARDS_INFINITY)
+      ROUND_BINARY_CASE(HALF_DOWN)
+      ROUND_BINARY_CASE(HALF_UP)
+      ROUND_BINARY_CASE(HALF_TOWARDS_ZERO)
+      ROUND_BINARY_CASE(HALF_TOWARDS_INFINITY)
+      ROUND_BINARY_CASE(HALF_TO_EVEN)
+      ROUND_BINARY_CASE(HALF_TO_ODD)
+    }
+    DCHECK(false);
+    return Status::NotImplemented(
+        "Internal implementation error: round mode not implemented: ",
+        state.options.ToString());
+  }
+};
+#undef ROUND_BINARY_CASE
+
+// Like MakeUnaryRoundFunction, but for unary rounding functions that control
 // kernel dispatch based on RoundMode, only on non-null output.
 template <template <typename, RoundMode, typename...> class Op, typename OptionsType>
 std::shared_ptr<ScalarFunction> MakeUnaryRoundFunction(std::string name,
                                                        FunctionDoc doc) {
   using State = RoundOptionsWrapper<OptionsType>;
   static const OptionsType kDefaultOptions = OptionsType::Defaults();
-  auto func = std::make_shared<ArithmeticIntegerToFloatingPointFunction>(
+  auto func = std::make_shared<RoundIntegerToFloatingPointFunction>(
       name, Arity::Unary(), std::move(doc), &kDefaultOptions);
   for (const auto& ty : {float32(), float64(), decimal128(1, 0), decimal256(1, 0)}) {
     auto type_id = ty->id();
@@ -1051,12 +1134,47 @@ std::shared_ptr<ScalarFunction> MakeUnaryRoundFunction(std::string name,
   return func;
 }
 
-// Like MakeUnaryArithmeticFunction, but for signed arithmetic ops that need to run
+template <template <typename, RoundMode, typename...> class Op, typename OptionsType>
+std::shared_ptr<ScalarFunction> MakeBinaryRoundFunction(const std::string& name,
+                                                        FunctionDoc doc) {
+  using State = RoundOptionsWrapper<OptionsType>;
+  static const OptionsType kDefaultOptions = OptionsType::Defaults();
+  auto func = std::make_shared<RoundIntegerToFloatingPointFunction>(
+      name, Arity::Binary(), std::move(doc), &kDefaultOptions);
+  for (const auto& ty : {float32(), float64(), decimal128(1, 0), decimal256(1, 0)}) {
+    auto type_id = ty->id();
+    ArrayKernelExec exec = nullptr;
+    switch (type_id) {
+      case Type::FLOAT:
+        exec = RoundBinaryKernel<FloatType, OptionsType, Op>::Exec;
+        break;
+      case Type::DOUBLE:
+        exec = RoundBinaryKernel<DoubleType, OptionsType, Op>::Exec;
+        break;
+      case Type::DECIMAL128:
+        exec = RoundBinaryKernel<Decimal128Type, OptionsType, Op>::Exec;
+        break;
+      case Type::DECIMAL256:
+        exec = RoundBinaryKernel<Decimal256Type, OptionsType, Op>::Exec;
+        break;
+      default:
+        DCHECK(false);
+        break;
+    }
+    DCHECK_OK(func->AddKernel(
+        {ty, Type::INT32}, is_decimal(type_id) ? OutputType(FirstType) : OutputType(ty),
+        exec, State::Init));
+  }
+  AddNullExec(func.get());
+  return func;
+}
+
+// Like MakeUnaryRoundFunction, but for signed arithmetic ops that need to run
 // only on non-null output.
 template <typename Op>
-std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
-    std::string name, FunctionDoc doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
+std::shared_ptr<ScalarFunction> MakeUnarySignedRoundFunctionNotNull(std::string name,
+                                                                    FunctionDoc doc) {
+  auto func = std::make_shared<RoundFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     if (!arrow::is_unsigned_integer(ty->id())) {
       auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
@@ -1070,7 +1188,7 @@ std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeBitWiseFunctionNotNull(std::string name,
                                                            FunctionDoc doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), std::move(doc));
+  auto func = std::make_shared<RoundFunction>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : IntTypes()) {
     auto exec = TypeAgnosticBitWiseExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -1082,7 +1200,7 @@ std::shared_ptr<ScalarFunction> MakeBitWiseFunctionNotNull(std::string name,
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeShiftFunctionNotNull(std::string name,
                                                          FunctionDoc doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), std::move(doc));
+  auto func = std::make_shared<RoundFunction>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : IntTypes()) {
     auto exec = ShiftExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -1091,9 +1209,9 @@ std::shared_ptr<ScalarFunction> MakeShiftFunctionNotNull(std::string name,
   return func;
 }
 
-template <typename Op, typename FunctionImpl = ArithmeticFloatingPointFunction>
-std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPoint(
-    std::string name, FunctionDoc doc) {
+template <typename Op, typename FunctionImpl = RoundFloatingPointFunction>
+std::shared_ptr<ScalarFunction> MakeUnaryRoundFunctionFloatingPoint(std::string name,
+                                                                    FunctionDoc doc) {
   auto func = std::make_shared<FunctionImpl>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
     auto exec = GenerateArithmeticFloatingPoint<ScalarUnary, Op>(ty);
@@ -1104,69 +1222,16 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPoint(
 }
 
 template <typename Op>
-std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPointNotNull(
+std::shared_ptr<ScalarFunction> MakeUnaryRoundFunctionFloatingPointNotNull(
     std::string name, FunctionDoc doc) {
-  auto func = std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Unary(),
-                                                                std::move(doc));
+  auto func =
+      std::make_shared<RoundFloatingPointFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
     auto exec = GenerateArithmeticFloatingPoint<ScalarUnaryNotNull, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
   }
   AddNullExec(func.get());
   return func;
-}
-
-template <typename Op>
-std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPoint(std::string name,
-                                                                    FunctionDoc doc) {
-  auto func = std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(),
-                                                                std::move(doc));
-  for (const auto& ty : FloatingPointTypes()) {
-    auto exec = GenerateArithmeticFloatingPoint<ScalarBinaryEqualTypes, Op>(ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
-  }
-  AddNullExec(func.get());
-  return func;
-}
-
-template <typename Op>
-std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPointNotNull(
-    std::string name, FunctionDoc doc) {
-  auto func = std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(),
-                                                                std::move(doc));
-  for (const auto& ty : FloatingPointTypes()) {
-    auto output = is_integer(ty->id()) ? float64() : ty;
-    auto exec = GenerateArithmeticFloatingPoint<ScalarBinaryNotNullEqualTypes, Op>(ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, output, exec));
-  }
-  AddNullExec(func.get());
-  return func;
-}
-
-template <template <int64_t> class Op>
-void AddArithmeticFunctionTimeDuration(std::shared_ptr<ScalarFunction> func) {
-  // Add Op(time32, duration) -> time32
-  TimeUnit::type unit = TimeUnit::SECOND;
-  auto exec_1 = ScalarBinary<Time32Type, Time32Type, DurationType, Op<86400>>::Exec;
-  DCHECK_OK(func->AddKernel({time32(unit), duration(unit)}, OutputType(FirstType),
-                            std::move(exec_1)));
-
-  unit = TimeUnit::MILLI;
-  auto exec_2 = ScalarBinary<Time32Type, Time32Type, DurationType, Op<86400000>>::Exec;
-  DCHECK_OK(func->AddKernel({time32(unit), duration(unit)}, OutputType(FirstType),
-                            std::move(exec_2)));
-
-  // Add Op(time64, duration) -> time64
-  unit = TimeUnit::MICRO;
-  auto exec_3 = ScalarBinary<Time64Type, Time64Type, DurationType, Op<86400000000>>::Exec;
-  DCHECK_OK(func->AddKernel({time64(unit), duration(unit)}, OutputType(FirstType),
-                            std::move(exec_3)));
-
-  unit = TimeUnit::NANO;
-  auto exec_4 =
-      ScalarBinary<Time64Type, Time64Type, DurationType, Op<86400000000000>>::Exec;
-  DCHECK_OK(func->AddKernel({time64(unit), duration(unit)}, OutputType(FirstType),
-                            std::move(exec_4)));
 }
 
 const FunctionDoc floor_doc{
@@ -1192,6 +1257,13 @@ const FunctionDoc round_doc{
     {"x"},
     "RoundOptions"};
 
+const FunctionDoc round_binary_doc{
+    "Round to the given precision",
+    ("Options are used to control the rounding mode.\n"
+     "Default behavior is to use the half-to-even rule to break ties."),
+    {"x", "s"},
+    "RoundBinaryOptions"};
+
 const FunctionDoc round_to_multiple_doc{
     "Round to a given multiple",
     ("Options are used to control the rounding multiple and rounding mode.\n"
@@ -1203,8 +1275,7 @@ const FunctionDoc round_to_multiple_doc{
 
 void RegisterScalarRoundArithmetic(FunctionRegistry* registry) {
   auto floor =
-      MakeUnaryArithmeticFunctionFloatingPoint<Floor,
-                                               ArithmeticIntegerToFloatingPointFunction>(
+      MakeUnaryRoundFunctionFloatingPoint<Floor, RoundIntegerToFloatingPointFunction>(
           "floor", floor_doc);
   DCHECK_OK(floor->AddKernel(
       {InputType(Type::DECIMAL128)}, OutputType(FirstType),
@@ -1215,8 +1286,7 @@ void RegisterScalarRoundArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(floor)));
 
   auto ceil =
-      MakeUnaryArithmeticFunctionFloatingPoint<Ceil,
-                                               ArithmeticIntegerToFloatingPointFunction>(
+      MakeUnaryRoundFunctionFloatingPoint<Ceil, RoundIntegerToFloatingPointFunction>(
           "ceil", ceil_doc);
   DCHECK_OK(ceil->AddKernel(
       {InputType(Type::DECIMAL128)}, OutputType(FirstType),
@@ -1227,8 +1297,7 @@ void RegisterScalarRoundArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(ceil)));
 
   auto trunc =
-      MakeUnaryArithmeticFunctionFloatingPoint<Trunc,
-                                               ArithmeticIntegerToFloatingPointFunction>(
+      MakeUnaryRoundFunctionFloatingPoint<Trunc, RoundIntegerToFloatingPointFunction>(
           "trunc", trunc_doc);
   DCHECK_OK(trunc->AddKernel(
       {InputType(Type::DECIMAL128)}, OutputType(FirstType),
@@ -1240,6 +1309,10 @@ void RegisterScalarRoundArithmetic(FunctionRegistry* registry) {
 
   auto round = MakeUnaryRoundFunction<Round, RoundOptions>("round", round_doc);
   DCHECK_OK(registry->AddFunction(std::move(round)));
+
+  auto round_binary = MakeBinaryRoundFunction<RoundBinary, RoundBinaryOptions>(
+      "round_binary", round_binary_doc);
+  DCHECK_OK(registry->AddFunction(std::move(round_binary)));
 
   auto round_to_multiple =
       MakeUnaryRoundFunction<RoundToMultiple, RoundToMultipleOptions>(

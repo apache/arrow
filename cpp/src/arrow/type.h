@@ -2126,7 +2126,7 @@ Result<std::shared_ptr<Schema>> UnifySchemas(
 
 namespace internal {
 
-static inline bool HasValidityBitmap(Type::type id) {
+constexpr bool HasValidityBitmap(Type::type id) {
   switch (id) {
     case Type::NA:
     case Type::DENSE_UNION:

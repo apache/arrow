@@ -22,13 +22,13 @@ import (
 	"math"
 	"math/bits"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/encoded"
-	"github.com/apache/arrow/go/v11/arrow/internal/debug"
-	"github.com/apache/arrow/go/v11/arrow/memory"
-	"github.com/apache/arrow/go/v11/internal/bitutils"
-	"github.com/apache/arrow/go/v11/internal/utils"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/encoded"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/internal/bitutils"
+	"github.com/apache/arrow/go/v12/internal/utils"
 )
 
 // Concatenate creates a new arrow.Array which is the concatenation of the
@@ -47,7 +47,7 @@ func Concatenate(arrs []arrow.Array, mem memory.Allocator) (result arrow.Array, 
 			case error:
 				err = fmt.Errorf("arrow/concat: %w", e)
 			default:
-				err = fmt.Errorf("arrow/concat: unknown error: %v", pErr)
+				err = fmt.Errorf("arrow/concat: %v", pErr)
 			}
 		}
 	}()

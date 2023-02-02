@@ -368,7 +368,7 @@ func TestMapOf(t *testing.T) {
 				Field{Name: "key", Type: BinaryTypes.String},
 				Field{Name: "value", Type: PrimitiveTypes.Uint8, Nullable: true},
 			))},
-			str: "map<utf8, uint8>",
+			str: "map<utf8, uint8, items_nullable>",
 		},
 		{
 			key:  BinaryTypes.String,
@@ -381,7 +381,7 @@ func TestMapOf(t *testing.T) {
 						Field{Name: "value", Type: FixedWidthTypes.Date32, Nullable: true},
 					))}},
 			))},
-			str: "map<utf8, map<uint32, date32>>",
+			str: "map<utf8, map<uint32, date32, items_nullable>, items_nullable>",
 		},
 	} {
 		t.Run("", func(t *testing.T) {

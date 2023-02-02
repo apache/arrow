@@ -45,6 +45,15 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 
+#ifdef ARROW_VALGRIND
+using RealArrowTypes = ::testing::Types<FloatType>;
+
+using IntegralArrowTypes = ::testing::Types<UInt32Type>;
+using TemporalArrowTypes = ::testing::Types<Date32Type, TimestampType, Time32Type>;
+
+using DecimalArrowTypes = ::testing::Types<Decimal128Type>;
+#endif
+
 std::vector<SortOrder> AllOrders() {
   return {SortOrder::Ascending, SortOrder::Descending};
 }
@@ -320,10 +329,15 @@ class TestNthToIndicesRandom : public TestNthToIndicesBase<ArrowType> {
   }
 };
 
+#ifdef ARROW_VALGRIND
+using NthToIndicesableTypes =
+    ::testing::Types<Int16Type, FloatType, Decimal128Type, StringType>;
+#else
 using NthToIndicesableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, Decimal128Type,
                      StringType>;
+#endif
 
 TYPED_TEST_SUITE(TestNthToIndicesRandom, NthToIndicesableTypes);
 
@@ -779,10 +793,15 @@ class TestArraySortIndicesRandomCount : public ::testing::Test {};
 template <typename ArrowType>
 class TestArraySortIndicesRandomCompare : public ::testing::Test {};
 
+#ifdef ARROW_VALGRIND
+using SortIndicesableTypes = ::testing::Types<UInt32Type, FloatType, DoubleType,
+                                              StringType, Decimal128Type, BooleanType>;
+#else
 using SortIndicesableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, StringType,
                      Decimal128Type, BooleanType>;
+#endif
 
 template <typename ArrayType>
 void ValidateSorted(const ArrayType& array, UInt64Array& offsets, SortOrder order,
@@ -1940,12 +1959,17 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
   }
 }
 
+#ifdef ARROW_VALGRIND
+static const auto first_sort_keys = testing::Values("uint64");
+static const auto num_sort_keys = testing::Values(3);
+#else
 // Some first keys will have duplicates, others not
 static const auto first_sort_keys = testing::Values("uint8", "int16", "uint64", "float",
                                                     "boolean", "string", "decimal128");
 
 // Different numbers of sort keys may trigger different algorithms
 static const auto num_sort_keys = testing::Values(1, 3, 7, 9);
+#endif
 
 INSTANTIATE_TEST_SUITE_P(NoNull, TestTableSortIndicesRandom,
                          testing::Combine(first_sort_keys, num_sort_keys,
