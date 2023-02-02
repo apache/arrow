@@ -64,7 +64,7 @@ if "%ARROW_BUILD_GANDIVA%" == "ON" (
 @rem Install pre-built "toolchain" packages for faster builds
 set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.txt
 @rem Arrow conda environment
-mamba create -n arrow -vvv -y -c conda-forge ^
+mamba create -n arrow -vv -y -c conda-forge ^
   --file=ci\conda_env_python.txt ^
   %CONDA_PACKAGES%  ^
   "ccache" ^
