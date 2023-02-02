@@ -1094,9 +1094,6 @@ class FixedShapeTensorType(pa.ExtensionType):
         The data type of an individual tensor
     shape : tuple
         shape of the tensors
-    is_row_major : bool
-        boolean indicating the order of elements
-        in memory
 
     Examples
     --------
@@ -1107,10 +1104,9 @@ class FixedShapeTensorType(pa.ExtensionType):
     >>> pa.register_extension_type(tensor_type)
     """
 
-    def __init__(self, value_type, shape, is_row_major):
+    def __init__(self, value_type, shape):
         self._value_type = value_type
         self._shape = shape
-        self._is_row_major = is_row_major
         size = math.prod(shape)
         pa.ExtensionType.__init__(self, pa.list_(self._value_type, size),
                                   'arrow.fixed_size_tensor')
@@ -1129,16 +1125,8 @@ class FixedShapeTensorType(pa.ExtensionType):
         """
         return self._shape
 
-    @property
-    def is_row_major(self):
-        """
-        Boolean indicating the order of elements in memory.
-        """
-        return self._is_row_major
-
     def __arrow_ext_serialize__(self):
-        metadata = {"shape": str(self._shape),
-                    "is_row_major": self._is_row_major}
+        metadata = {"shape": str(self._shape)}
         return json.dumps(metadata).encode()
 
     @classmethod
@@ -1146,11 +1134,11 @@ class FixedShapeTensorType(pa.ExtensionType):
         # return an instance of this subclass given the serialized
         # metadata.
         assert serialized.decode().startswith('{"shape":')
+
         metadata = json.loads(serialized.decode())
         shape = ast.literal_eval(metadata['shape'])
-        order = metadata["is_row_major"]
 
-        return FixedShapeTensorType(storage_type.value_type, shape, order)
+        return FixedShapeTensorType(storage_type.value_type, shape)
 
     def __arrow_ext_class__(self):
         return FixedShapeTensorArray
@@ -1201,9 +1189,8 @@ class FixedShapeTensorArray(pa.ExtensionArray):
         Convert tensor extension array to a numpy array (with dim+1).
         """
         np_flat = np.array(self.storage.values)
-        order = 'C' if self.type.is_row_major else 'F'
         numpy_tensor = np_flat.reshape((len(self),) + self.type.shape,
-                                       order=order)
+                                       order='C')
         return numpy_tensor
 
     def from_numpy_tensor(obj):
@@ -1214,10 +1201,9 @@ class FixedShapeTensorArray(pa.ExtensionArray):
         arrow_type = pa.from_numpy_dtype(numpy_type)
         shape = obj.shape[1:]
         size = obj.size / obj.shape[0]
-        is_row_major = False if np.isfortran(obj) else True
 
         return pa.ExtensionArray.from_storage(
-            FixedShapeTensorType(arrow_type, shape, is_row_major),
+            FixedShapeTensorType(arrow_type, shape),
             pa.array([t.flatten() for t in obj],
                      pa.list_(arrow_type, size))
         )
@@ -1226,7 +1212,7 @@ class FixedShapeTensorArray(pa.ExtensionArray):
 @pytest.fixture
 def registered_tensor_type():
     # setup
-    tensor_type = FixedShapeTensorType(pa.int8(), (2, 2, 3), True)
+    tensor_type = FixedShapeTensorType(pa.int8(), (2, 2, 3))
     tensor_class = tensor_type.__arrow_ext_class__()
     pa.register_extension_type(tensor_type)
     yield tensor_type, tensor_class
@@ -1238,13 +1224,13 @@ def registered_tensor_type():
 
 
 def test_tensor_type():
-    tensor_type = FixedShapeTensorType(pa.int8(), (2, 3), True)
+    tensor_type = FixedShapeTensorType(pa.int8(), (2, 3))
     assert tensor_type.extension_name == "arrow.fixed_size_tensor"
     assert tensor_type.storage_type == pa.list_(pa.int8(), 6)
 
 
 def test_tensor_class_methods():
-    tensor_type = FixedShapeTensorType(pa.float32(), (2, 3), 'C')
+    tensor_type = FixedShapeTensorType(pa.float32(), (2, 3))
     storage = pa.array([[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]],
                        pa.list_(pa.float32(), 6))
     arr = pa.ExtensionArray.from_storage(tensor_type, storage)
@@ -1258,7 +1244,6 @@ def test_tensor_class_methods():
     assert isinstance(tensor_array_from_numpy.type, FixedShapeTensorType)
     assert tensor_array_from_numpy.type.value_type == pa.float32()
     assert tensor_array_from_numpy.type.shape == (2, 3)
-    assert tensor_array_from_numpy.type.is_row_major
 
 
 def test_tensor_type_ipc(registered_tensor_type):
@@ -1283,14 +1268,12 @@ def test_tensor_type_ipc(registered_tensor_type):
     assert isinstance(result.type, FixedShapeTensorType)
     assert result.type.value_type == pa.int8()
     assert result.type.shape == (2, 2, 3)
-    assert result.type.is_row_major
 
     # using different parametrization as how it was registered
-    tensor_type_uint = tensor_type.__class__(pa.uint8(), (2, 3), True)
+    tensor_type_uint = tensor_type.__class__(pa.uint8(), (2, 3))
     assert tensor_type_uint.extension_name == "arrow.fixed_size_tensor"
     assert tensor_type_uint.value_type == pa.uint8()
     assert tensor_type_uint.shape == (2, 3)
-    assert tensor_type_uint.is_row_major
 
     storage = pa.array([[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]],
                        pa.list_(pa.uint8(), 6))
@@ -1304,7 +1287,6 @@ def test_tensor_type_ipc(registered_tensor_type):
     assert isinstance(result.type, FixedShapeTensorType)
     assert result.type.value_type == pa.uint8()
     assert result.type.shape == (2, 3)
-    assert result.type.is_row_major
     assert type(result) == tensor_class
 
 
@@ -1328,17 +1310,17 @@ def test_tensor_type_ipc_unknown(registered_tensor_type):
     assert result.type.list_size == 12
     ext_field = batch.schema.field('ext')
     assert ext_field.metadata == {
-        b'ARROW:extension:metadata': b'{"shape": "(2, 2, 3)", "is_row_major": true}',
+        b'ARROW:extension:metadata': b'{"shape": "(2, 2, 3)"}',
         b'ARROW:extension:name': b'arrow.fixed_size_tensor'
     }
 
 
 def test_tensor_type_equality():
-    tensor_type = FixedShapeTensorType(pa.int8(), (2, 2, 3), True)
+    tensor_type = FixedShapeTensorType(pa.int8(), (2, 2, 3))
     assert tensor_type.extension_name == "arrow.fixed_size_tensor"
 
-    tensor_type2 = FixedShapeTensorType(pa.int8(), (2, 2, 3), True)
-    tensor_type3 = FixedShapeTensorType(pa.uint8(), (2, 2, 3), False)
+    tensor_type2 = FixedShapeTensorType(pa.int8(), (2, 2, 3))
+    tensor_type3 = FixedShapeTensorType(pa.uint8(), (2, 2, 3))
     assert tensor_type == tensor_type2
     assert not tensor_type == tensor_type3
 
@@ -1349,6 +1331,6 @@ def test_tensor_type_register(registered_tensor_type):
         pa.register_extension_type(pa.string())
 
     # register second time raises KeyError
-    period_type = FixedShapeTensorType(pa.int8(), (2, 2, 3), True)
+    period_type = FixedShapeTensorType(pa.int8(), (2, 2, 3))
     with pytest.raises(KeyError):
         pa.register_extension_type(period_type)
