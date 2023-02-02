@@ -157,8 +157,10 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
   inline bool Equals(const Status& s) const;
 
   // AND the statuses.
-  inline Status operator&(const Status& s) const noexcept;
-  inline Status operator&(Status&& s) const noexcept;
+  inline Status operator&(const Status& s) const& noexcept;
+  inline Status operator&(const Status& s) && noexcept;
+  inline Status operator&(Status&& s) const& noexcept;
+  inline Status operator&(Status&& s) && noexcept;
   inline Status& operator&=(const Status& s) noexcept;
   inline Status& operator&=(Status&& s) noexcept;
 
@@ -422,7 +424,7 @@ bool Status::Equals(const Status& s) const {
 /// \cond FALSE
 // (note: emits warnings on Doxygen < 1.8.15,
 //  see https://github.com/doxygen/doxygen/issues/6295)
-Status Status::operator&(const Status& s) const noexcept {
+Status Status::operator&(const Status& s) const& noexcept {
   if (ok()) {
     return s;
   } else {
@@ -430,11 +432,27 @@ Status Status::operator&(const Status& s) const noexcept {
   }
 }
 
-Status Status::operator&(Status&& s) const noexcept {
+Status Status::operator&(const Status& s) && noexcept {
+  if (ok()) {
+    return s;
+  } else {
+    return std::move(*this);
+  }
+}
+
+Status Status::operator&(Status&& s) const& noexcept {
   if (ok()) {
     return std::move(s);
   } else {
     return *this;
+  }
+}
+
+Status Status::operator&(Status&& s) && noexcept {
+  if (ok()) {
+    return std::move(s);
+  } else {
+    return std::move(*this);
   }
 }
 

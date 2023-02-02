@@ -104,6 +104,21 @@ TEST(StatusTest, AndStatus) {
   res = Status::Invalid("foo") & Status::IOError("bar");
   ASSERT_TRUE(res.IsInvalid());
 
+  ASSERT_TRUE((a & Status::OK()).ok());
+  ASSERT_TRUE((c & Status::OK()).IsInvalid());
+  ASSERT_TRUE((a & Status::IOError("")).IsIOError());
+  ASSERT_TRUE((c & Status::IOError("")).IsInvalid());
+
+  ASSERT_TRUE((Status::OK() & a).ok());
+  ASSERT_TRUE((Status::OK() & c).IsInvalid());
+  ASSERT_TRUE((Status::IOError("") & a).IsIOError());
+  ASSERT_TRUE((Status::IOError("") & c).IsIOError());
+
+  ASSERT_TRUE((Status::OK() & Status::OK()).ok());
+  ASSERT_TRUE((Status::Invalid("") & Status::OK()).IsInvalid());
+  ASSERT_TRUE((Status::OK() & Status::IOError("")).IsIOError());
+  ASSERT_TRUE((Status::IOError("") & Status::Invalid("")).IsIOError());
+
   res = Status::OK();
   res &= Status::OK();
   ASSERT_TRUE(res.ok());
