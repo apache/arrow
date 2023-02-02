@@ -316,6 +316,7 @@ services:
       ARROW_TEST_MEMCHECK: "ON"
       ARROW_USE_LD_GOLD: "ON"
       BUILD_WARNING_LEVEL: "PRODUCTION"
+      ARROW_CTEST_TIMEOUT: 500
     volumes: *conda-volumes
     command: *conda-cpp-command
 
