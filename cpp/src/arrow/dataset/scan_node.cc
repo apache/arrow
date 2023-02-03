@@ -114,11 +114,13 @@ Future<AsyncGenerator<std::shared_ptr<Fragment>>> GetFragments(Dataset* dataset,
 /// fragments.  On destruction we continue consuming the fragments until they complete
 /// (which should be fairly quick since we cancelled the fragment).  This ensures the
 /// I/O work is completely finished before the node is destroyed.
-class ScanNode : public cp::ExecNode, public cp::TracedNode<ScanNode> {
+class ScanNode : public cp::ExecNode, public cp::TracedNode {
  public:
   ScanNode(cp::ExecPlan* plan, ScanV2Options options,
            std::shared_ptr<Schema> output_schema)
-      : cp::ExecNode(plan, {}, {}, std::move(output_schema)), options_(options) {}
+      : cp::ExecNode(plan, {}, {}, std::move(output_schema)),
+        cp::TracedNode(this),
+        options_(options) {}
 
   static Result<ScanV2Options> NormalizeAndValidate(const ScanV2Options& options,
                                                     compute::ExecContext* ctx) {
