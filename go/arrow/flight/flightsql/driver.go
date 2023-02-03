@@ -1,6 +1,7 @@
 package flightsql
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
 	"database/sql"
@@ -12,8 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/goccy/go-json"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -80,49 +84,11 @@ func (r *Rows) Next(dest []driver.Value) error {
 	}
 
 	for i, arr := range record.Columns() {
-		switch c := arr.(type) {
-		case *array.Boolean:
-			dest[i] = c.Value(r.currentRow)
-		case *array.Float16:
-			dest[i] = float64(c.Value(r.currentRow).Float32())
-		case *array.Float32:
-			dest[i] = float64(c.Value(r.currentRow))
-		case *array.Float64:
-			dest[i] = c.Value(r.currentRow)
-		case *array.Int8:
-			dest[i] = int64(c.Value(r.currentRow))
-		case *array.Int16:
-			dest[i] = int64(c.Value(r.currentRow))
-		case *array.Int32:
-			dest[i] = int64(c.Value(r.currentRow))
-		case *array.Int64:
-			dest[i] = c.Value(r.currentRow)
-		case *array.String:
-			dest[i] = c.Value(r.currentRow)
-		case *array.Time32:
-			dt, ok := arr.DataType().(*arrow.Time32Type)
-			if !ok {
-				return fmt.Errorf("datatype %T not matching time32", arr.DataType())
-			}
-			v := c.Value(r.currentRow)
-			dest[i] = v.ToTime(dt.TimeUnit())
-		case *array.Time64:
-			dt, ok := arr.DataType().(*arrow.Time64Type)
-			if !ok {
-				return fmt.Errorf("datatype %T not matching time64", arr.DataType())
-			}
-			v := c.Value(r.currentRow)
-			dest[i] = v.ToTime(dt.TimeUnit())
-		case *array.Timestamp:
-			dt, ok := arr.DataType().(*arrow.TimestampType)
-			if !ok {
-				return fmt.Errorf("datatype %T not matching timestamp", arr.DataType())
-			}
-			v := c.Value(r.currentRow)
-			dest[i] = v.ToTime(dt.TimeUnit())
-		default:
-			return fmt.Errorf("type %T: %w", arr, ErrNotSupported)
+		v, err := fromArrowType(arr, r.currentRow)
+		if err != nil {
+			return err
 		}
+		dest[i] = v
 	}
 
 	r.currentRow++
@@ -181,6 +147,45 @@ func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 
 // Query executes a query that may return rows, such as a SELECT.
 func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
+	if len(args) > 0 {
+		values := make(map[string]interface{})
+		var fields []arrow.Field
+		for i, arg := range args {
+			dt, err := toArrowDataType(arg)
+			if err != nil {
+				return nil, fmt.Errorf("schema: %w", err)
+			}
+			name := fmt.Sprintf("arg_%d", i)
+			fields = append(fields, arrow.Field{
+				Name:     name,
+				Type:     dt,
+				Nullable: true,
+			})
+			values[name] = arg
+		}
+
+		schema := s.stmt.ParameterSchema()
+		if schema == nil {
+			schema = arrow.NewSchema(fields, nil)
+		}
+		data, err := json.Marshal([]map[string]interface{}{values})
+		if err != nil {
+			return nil, fmt.Errorf("marshalling: %w", err)
+		}
+		rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, schema, bytes.NewBuffer(data))
+		if err != nil {
+			return nil, fmt.Errorf("record: %w", err)
+		}
+		s.stmt.SetParameters(rec)
+	} else if s.stmt.paramBinding != nil {
+		// Hack as there is no UnsetParameters() function yet and setting
+		// the parameters to `nil` will panic due to Retain being called.
+		// This is required to make sure we do not reuse a previous argument
+		// list.
+		s.stmt.paramBinding.Release()
+		s.stmt.paramBinding = nil
+	}
+
 	ctx := context.Background()
 	info, err := s.stmt.Execute(ctx)
 	if err != nil {
@@ -325,6 +330,84 @@ func (d *Driver) Close() error {
 // Begin starts and returns a new transaction.
 func (d *Driver) Begin() (driver.Tx, error) {
 	return nil, ErrNotImplemented
+}
+
+func fromArrowType(arr arrow.Array, idx int) (any, error) {
+	switch c := arr.(type) {
+	case *array.Boolean:
+		return c.Value(idx), nil
+	case *array.Float16:
+		return float64(c.Value(idx).Float32()), nil
+	case *array.Float32:
+		return float64(c.Value(idx)), nil
+	case *array.Float64:
+		return c.Value(idx), nil
+	case *array.Int8:
+		return int64(c.Value(idx)), nil
+	case *array.Int16:
+		return int64(c.Value(idx)), nil
+	case *array.Int32:
+		return int64(c.Value(idx)), nil
+	case *array.Int64:
+		return c.Value(idx), nil
+	case *array.String:
+		return c.Value(idx), nil
+	case *array.Time32:
+		dt, ok := arr.DataType().(*arrow.Time32Type)
+		if !ok {
+			return nil, fmt.Errorf("datatype %T not matching time32", arr.DataType())
+		}
+		v := c.Value(idx)
+		return v.ToTime(dt.TimeUnit()), nil
+	case *array.Time64:
+		dt, ok := arr.DataType().(*arrow.Time64Type)
+		if !ok {
+			return nil, fmt.Errorf("datatype %T not matching time64", arr.DataType())
+		}
+		v := c.Value(idx)
+		return v.ToTime(dt.TimeUnit()), nil
+	case *array.Timestamp:
+		dt, ok := arr.DataType().(*arrow.TimestampType)
+		if !ok {
+			return nil, fmt.Errorf("datatype %T not matching timestamp", arr.DataType())
+		}
+		v := c.Value(idx)
+		return v.ToTime(dt.TimeUnit()), nil
+	}
+
+	return nil, fmt.Errorf("type %T: %w", arr, ErrNotSupported)
+}
+
+func toArrowDataType(value any) (arrow.DataType, error) {
+	switch value.(type) {
+	case bool:
+		return &arrow.BooleanType{}, nil
+	case float32:
+		return &arrow.Float32Type{}, nil
+	case float64:
+		return &arrow.Float64Type{}, nil
+	case int8:
+		return &arrow.Int8Type{}, nil
+	case int16:
+		return &arrow.Int16Type{}, nil
+	case int32:
+		return &arrow.Int32Type{}, nil
+	case int64:
+		return &arrow.Int64Type{}, nil
+	case uint8:
+		return &arrow.Uint8Type{}, nil
+	case uint16:
+		return &arrow.Uint16Type{}, nil
+	case uint32:
+		return &arrow.Uint32Type{}, nil
+	case uint64:
+		return &arrow.Uint64Type{}, nil
+	case string:
+		return &arrow.StringType{}, nil
+	case time.Time:
+		return &arrow.Time64Type{Unit: arrow.Nanosecond}, nil
+	}
+	return nil, fmt.Errorf("type %T: %w", value, ErrNotSupported)
 }
 
 func init() {
