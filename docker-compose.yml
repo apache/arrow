@@ -150,6 +150,7 @@ x-hierarchy:
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-r-sanitizer
   - ubuntu-r-valgrind
+  - ubuntu-swift
   - ubuntu-verify-rc
   - fedora-r-clang-sanitizer
   - r
@@ -870,6 +871,18 @@ services:
       <<: *ccache
     volumes: *ubuntu-volumes
     command: *python-command
+
+  ubuntu-swift:
+    # Usage:
+    #   docker-compose build ubuntu-swift
+    #   docker-compose run --rm ubuntu-swift
+    # Parameters:
+    image: swift:5.7.3
+    shm_size: *shm-size
+    volumes: *ubuntu-volumes
+    command: >
+      /bin/bash -c "/arrow/ci/scripts/swift_test.sh /arrow"
+
 
   fedora-python:
     # Usage:
