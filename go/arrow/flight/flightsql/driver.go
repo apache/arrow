@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -147,21 +148,37 @@ func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 
 // Query executes a query that may return rows, such as a SELECT.
 func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
+	ctx := context.Background()
+	var params []driver.NamedValue
+	for i, arg := range args {
+		params = append(params, driver.NamedValue{
+			Name:    fmt.Sprintf("arg_%d", i),
+			Ordinal: i,
+			Value:   arg,
+		})
+	}
+	return s.QueryContext(ctx, params)
+}
+
+// QueryContext executes a query that may return rows, such as a SELECT.
+func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
 	if len(args) > 0 {
 		values := make(map[string]interface{})
 		var fields []arrow.Field
-		for i, arg := range args {
-			dt, err := toArrowDataType(arg)
+		sort.SliceStable(args, func(i, j int) bool {
+			return args[i].Ordinal < args[j].Ordinal
+		})
+		for _, arg := range args {
+			dt, err := toArrowDataType(arg.Value)
 			if err != nil {
 				return nil, fmt.Errorf("schema: %w", err)
 			}
-			name := fmt.Sprintf("arg_%d", i)
 			fields = append(fields, arrow.Field{
-				Name:     name,
+				Name:     arg.Name,
 				Type:     dt,
 				Nullable: true,
 			})
-			values[name] = arg
+			values[arg.Name] = arg.Value
 		}
 
 		schema := s.stmt.ParameterSchema()
@@ -186,7 +203,6 @@ func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 		s.stmt.paramBinding = nil
 	}
 
-	ctx := context.Background()
 	info, err := s.stmt.Execute(ctx)
 	if err != nil {
 		return nil, err
@@ -444,6 +460,7 @@ func toArrowDataType(value any) (arrow.DataType, error) {
 	return nil, fmt.Errorf("type %T: %w", value, ErrNotSupported)
 }
 
+// Register the driver on load.
 func init() {
 	sql.Register("flightsql", &Driver{})
 }
