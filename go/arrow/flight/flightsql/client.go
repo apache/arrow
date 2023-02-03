@@ -39,7 +39,11 @@ import (
 // its arguments to flight.NewClientWithMiddleware to create the
 // underlying Flight Client.
 func NewClient(addr string, auth flight.ClientAuthHandler, middleware []flight.ClientMiddleware, opts ...grpc.DialOption) (*Client, error) {
-	cl, err := flight.NewClientWithMiddleware(addr, auth, middleware, opts...)
+	return NewClientCtx(context.Background(), addr, auth, middleware, opts...)
+}
+
+func NewClientCtx(ctx context.Context, addr string, auth flight.ClientAuthHandler, middleware []flight.ClientMiddleware, opts ...grpc.DialOption) (*Client, error) {
+	cl, err := flight.NewClientWithMiddlewareCtx(ctx, addr, auth, middleware, opts...)
 	if err != nil {
 		return nil, err
 	}
