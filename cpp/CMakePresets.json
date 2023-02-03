@@ -120,7 +120,7 @@
     {
       "name": "features-python-minimal",
       "inherits": [
-	  "features-minimal"
+        "features-minimal"
       ],
       "hidden": true,
       "cacheVariables": {
@@ -133,7 +133,7 @@
     {
       "name": "features-python",
       "inherits": [
-	  "features-main"
+        "features-main"
       ],
       "hidden": true,
       "cacheVariables": {
@@ -148,12 +148,12 @@
     {
       "name": "features-python-maximal",
       "inherits": [
-	  "features-cuda",
-	  "features-filesystems",
-	  "features-flight",
-	  "features-gandiva",
-	  "features-main",
-	  "features-python-minimal"
+        "features-cuda",
+        "features-filesystems",
+        "features-flight",
+        "features-gandiva",
+        "features-main",
+        "features-python-minimal"
       ],
       "hidden": true,
       "cacheVariables": {
@@ -183,10 +183,12 @@
         "PARQUET_REQUIRE_ENCRYPTION": "ON"
       }
     },
-
     {
       "name": "ninja-debug-minimal",
-      "inherits": ["base-debug", "features-minimal"],
+      "inherits": [
+        "base-debug",
+        "features-minimal"
+      ],
       "displayName": "Debug build without anything enabled",
       "cacheVariables": {
         "ARROW_BUILD_INTEGRATION": "OFF",
@@ -195,136 +197,209 @@
     },
     {
       "name": "ninja-debug-basic",
-      "inherits": ["base-debug", "features-basic"],
+      "inherits": [
+        "base-debug",
+        "features-basic"
+      ],
       "displayName": "Debug build with tests and reduced dependencies",
       "cacheVariables": {}
     },
     {
       "name": "ninja-debug",
-      "inherits": ["base-debug", "features-main"],
+      "inherits": [
+        "base-debug",
+        "features-main"
+      ],
       "displayName": "Debug build with tests and more optional components",
       "cacheVariables": {}
     },
     {
       "name": "ninja-debug-cuda",
-      "inherits": ["base-debug", "features-cuda"],
+      "inherits": [
+        "base-debug",
+        "features-cuda"
+      ],
       "displayName": "Debug build with tests and CUDA integration",
       "cacheVariables": {}
     },
     {
       "name": "ninja-debug-filesystems",
-      "inherits": ["base-debug", "features-filesystems"],
+      "inherits": [
+        "base-debug",
+        "features-filesystems"
+      ],
       "displayName": "Debug build with tests and filesystems",
       "cacheVariables": {}
     },
     {
       "name": "ninja-debug-flight",
-      "inherits": ["base-debug", "features-flight"],
+      "inherits": [
+        "base-debug",
+        "features-flight"
+      ],
       "displayName": "Debug build with tests and Flight",
       "cacheVariables": {}
     },
     {
       "name": "ninja-debug-gandiva",
-      "inherits": ["base-debug", "features-gandiva"],
+      "inherits": [
+        "base-debug",
+        "features-gandiva"
+      ],
       "displayName": "Debug build with tests and Gandiva",
       "cacheVariables": {}
     },
     {
       "name": "ninja-debug-python-minimal",
-      "inherits": ["base-debug", "features-python-minimal"],
+      "inherits": [
+        "base-debug",
+        "features-python-minimal"
+      ],
       "displayName": "Debug build for PyArrow with minimal features",
       "cacheVariables": {}
     },
     {
       "name": "ninja-debug-python",
-      "inherits": ["base-debug", "features-python"],
+      "inherits": [
+        "base-debug",
+        "features-python"
+      ],
       "displayName": "Debug build for PyArrow with common features (for backward compatibility)",
       "cacheVariables": {}
     },
     {
       "name": "ninja-debug-python-maximal",
-      "inherits": ["base-debug", "features-python-maximal"],
-      "displayName": "Debug build for PyArrow with everything enabled (except CUDA)",
+      "inherits": [
+        "base-debug",
+        "features-python-maximal"
+      ],
+      "displayName": "Debug build for PyArrow with everything enabled",
       "cacheVariables": {}
     },
     {
       "name": "ninja-debug-maximal",
-      "inherits": ["base-debug", "features-maximal"],
-      "displayName": "Debug build with everything enabled (except benchmarks and CUDA)",
+      "inherits": [
+        "base-debug",
+        "features-maximal"
+      ],
+      "displayName": "Debug build with everything enabled (except benchmarks)",
       "cacheVariables": {}
     },
-
     {
       "name": "ninja-release-minimal",
-      "inherits": ["base-release", "features-minimal"],
+      "inherits": [
+        "base-release",
+        "features-minimal"
+      ],
       "displayName": "Release build without anything enabled",
       "cacheVariables": {}
     },
     {
       "name": "ninja-release-basic",
-      "inherits": ["base-release", "features-basic"],
+      "inherits": [
+        "base-release",
+        "features-basic"
+      ],
       "displayName": "Release build with reduced dependencies",
       "cacheVariables": {}
     },
     {
       "name": "ninja-release",
-      "inherits": ["base-release", "features-main"],
+      "inherits": [
+        "base-release",
+        "features-main"
+      ],
       "displayName": "Release build with more optional components",
       "cacheVariables": {}
     },
     {
       "name": "ninja-release-cuda",
-      "inherits": ["base-release", "features-cuda"],
+      "inherits": [
+        "base-release",
+        "features-cuda"
+      ],
       "displayName": "Release build with CUDA integration",
       "cacheVariables": {}
     },
     {
       "name": "ninja-release-flight",
-      "inherits": ["base-release", "features-flight"],
+      "inherits": [
+        "base-release",
+        "features-flight"
+      ],
       "displayName": "Release build with Flight",
       "cacheVariables": {}
     },
     {
       "name": "ninja-release-gandiva",
-      "inherits": ["base-release", "features-gandiva"],
+      "inherits": [
+        "base-release",
+        "features-gandiva"
+      ],
       "displayName": "Release build with Gandiva",
       "cacheVariables": {}
     },
     {
       "name": "ninja-release-python-minimal",
-      "inherits": ["base-release", "features-python-minimal"],
+      "inherits": [
+        "base-release",
+        "features-python-minimal"
+      ],
       "displayName": "Release build for PyArrow with minimal features",
       "cacheVariables": {}
     },
     {
       "name": "ninja-release-python",
-      "inherits": ["base-release", "features-python"],
+      "inherits": [
+        "base-release",
+        "features-python"
+      ],
       "displayName": "Release build for PyArrow with common features (for backward compatibility)",
       "cacheVariables": {}
     },
     {
       "name": "ninja-release-python-maximal",
-      "inherits": ["base-release", "features-python-maximal"],
-      "displayName": "Release build for PyArrow with everything enabled (except CUDA)",
+      "inherits": [
+        "base-release",
+        "features-python-maximal"
+      ],
+      "displayName": "Release build for PyArrow with everything enabled",
       "cacheVariables": {}
     },
     {
       "name": "ninja-release-maximal",
-      "inherits": ["base-release", "features-maximal"],
-      "displayName": "Release build with everything enabled (except benchmarks and CUDA)",
+      "inherits": [
+        "base-release",
+        "features-maximal"
+      ],
+      "displayName": "Release build with everything enabled (except benchmarks)",
       "cacheVariables": {}
     },
-
     {
       "name": "ninja-benchmarks-basic",
-      "inherits": ["base-benchmarks", "features-basic"],
+      "inherits": [
+        "base-benchmarks",
+        "features-basic"
+      ],
       "displayName": "Benchmarking build with reduced dependencies",
       "cacheVariables": {}
     },
     {
       "name": "ninja-benchmarks",
-      "inherits": ["base-benchmarks", "features-main"],
+      "inherits": [
+        "base-benchmarks",
+        "features-main"
+      ],
       "displayName": "Benchmarking build with more optional components",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-benchmarks-maximal",
+      "inherits": [
+        "base-benchmarks",
+        "features-maximal"
+      ],
+      "displayName": "Benchmarking build with with everything enabled",
       "cacheVariables": {}
     }
   ]

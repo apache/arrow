@@ -5072,5 +5072,25 @@ TEST(TestArrowReadWrite, MultithreadedWrite) {
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 }
 
+TEST(TestArrowReadWrite, FuzzReader) {
+  constexpr size_t kMaxFileSize = 1024 * 1024 * 1;
+  {
+    auto path = test::get_data_file("PARQUET-1481.parquet", /*is_good=*/false);
+    PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
+                                             path, ::arrow::io::FileMode::READ));
+    PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
+    auto s = internal::FuzzReader(buffer->data(), buffer->size());
+    ASSERT_NOT_OK(s);
+  }
+  {
+    auto path = test::get_data_file("alltypes_plain.parquet", /*is_good=*/true);
+    PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
+                                             path, ::arrow::io::FileMode::READ));
+    PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
+    auto s = internal::FuzzReader(buffer->data(), buffer->size());
+    ASSERT_OK(s);
+  }
+}
+
 }  // namespace arrow
 }  // namespace parquet

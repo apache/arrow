@@ -41,17 +41,18 @@ Result<RecordBatchVector> BatchesFromTable(const Table& table) {
 class ChunkedArraySorter : public TypeVisitor {
  public:
   ChunkedArraySorter(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
-                     const ChunkedArray& chunked_array, const SortOrder order,
-                     const NullPlacement null_placement)
+                     const std::shared_ptr<DataType>& physical_type,
+                     const ArrayVector& physical_chunks, const SortOrder order,
+                     const NullPlacement null_placement, NullPartitionResult* output)
       : TypeVisitor(),
         indices_begin_(indices_begin),
         indices_end_(indices_end),
-        chunked_array_(chunked_array),
-        physical_type_(GetPhysicalType(chunked_array.type())),
-        physical_chunks_(GetPhysicalChunks(chunked_array_, physical_type_)),
+        physical_type_(physical_type),
+        physical_chunks_(physical_chunks),
         order_(order),
         null_placement_(null_placement),
-        ctx_(ctx) {}
+        ctx_(ctx),
+        output_(output) {}
 
   Status Sort() {
     ARROW_ASSIGN_OR_RAISE(array_sorter_, GetArraySorter(*physical_type_));
@@ -75,8 +76,9 @@ class ChunkedArraySorter : public TypeVisitor {
   Status SortInternal() {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
     ArraySortOptions options(order_, null_placement_);
-    const auto num_chunks = chunked_array_.num_chunks();
+    const auto num_chunks = static_cast<int>(physical_chunks_.size());
     if (num_chunks == 0) {
+      *output_ = {indices_end_, indices_end_, indices_end_, indices_end_};
       return Status::OK();
     }
     const auto arrays = GetArrayPointers(physical_chunks_);
@@ -145,6 +147,7 @@ class ChunkedArraySorter : public TypeVisitor {
     // Note that "nulls" can also include NaNs, hence the >= check
     DCHECK_GE(sorted[0].null_count(), null_count);
 
+    *output_ = sorted[0];
     return Status::OK();
   }
 
@@ -178,13 +181,13 @@ class ChunkedArraySorter : public TypeVisitor {
 
   uint64_t* indices_begin_;
   uint64_t* indices_end_;
-  const ChunkedArray& chunked_array_;
-  const std::shared_ptr<DataType> physical_type_;
-  const ArrayVector physical_chunks_;
+  const std::shared_ptr<DataType>& physical_type_;
+  const ArrayVector& physical_chunks_;
   const SortOrder order_;
   const NullPlacement null_placement_;
   ArraySortFunc array_sorter_;
   ExecContext* ctx_;
+  NullPartitionResult* output_;
 };
 
 // ----------------------------------------------------------------------
@@ -898,9 +901,8 @@ class SortIndicesMetaFunction : public MetaFunction {
     auto out_end = out_begin + length;
     std::iota(out_begin, out_end, 0);
 
-    ChunkedArraySorter sorter(ctx, out_begin, out_end, chunked_array, order,
-                              options.null_placement);
-    ARROW_RETURN_NOT_OK(sorter.Sort());
+    RETURN_NOT_OK(SortChunkedArray(ctx, out_begin, out_end, chunked_array, order,
+                                   options.null_placement));
     return Datum(out);
   }
 
@@ -993,12 +995,26 @@ Result<std::vector<SortField>> FindSortKeys(const Schema& schema,
   return fields;
 }
 
-Status SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
-                        const ChunkedArray& values, SortOrder sort_order,
-                        NullPlacement null_placement) {
-  ChunkedArraySorter sorter{ctx,    indices_begin, indices_end,
-                            values, sort_order,    null_placement};
-  return sorter.Sort();
+Result<NullPartitionResult> SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin,
+                                             uint64_t* indices_end,
+                                             const ChunkedArray& chunked_array,
+                                             SortOrder sort_order,
+                                             NullPlacement null_placement) {
+  auto physical_type = GetPhysicalType(chunked_array.type());
+  auto physical_chunks = GetPhysicalChunks(chunked_array, physical_type);
+  return SortChunkedArray(ctx, indices_begin, indices_end, physical_type, physical_chunks,
+                          sort_order, null_placement);
+}
+
+Result<NullPartitionResult> SortChunkedArray(
+    ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+    const std::shared_ptr<DataType>& physical_type, const ArrayVector& physical_chunks,
+    SortOrder sort_order, NullPlacement null_placement) {
+  NullPartitionResult output;
+  ChunkedArraySorter sorter(ctx, indices_begin, indices_end, physical_type,
+                            physical_chunks, sort_order, null_placement, &output);
+  RETURN_NOT_OK(sorter.Sort());
+  return output;
 }
 
 void RegisterVectorSort(FunctionRegistry* registry) {

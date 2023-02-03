@@ -1050,17 +1050,40 @@ def test_table_set_column():
     assert t2.equals(expected)
 
 
-def test_table_drop():
+def test_table_drop_columns():
     """ drop one or more columns given labels"""
     a = pa.array(range(5))
     b = pa.array([-10, -5, 0, 5, 10])
     c = pa.array(range(5, 10))
 
     table = pa.Table.from_arrays([a, b, c], names=('a', 'b', 'c'))
-    t2 = table.drop(['a', 'b'])
+    t2 = table.drop_columns(['a', 'b'])
+    t3 = table.drop_columns('a')
 
-    exp = pa.Table.from_arrays([c], names=('c',))
-    assert exp.equals(t2)
+    exp_t2 = pa.Table.from_arrays([c], names=('c',))
+    assert exp_t2.equals(t2)
+    exp_t3 = pa.Table.from_arrays([b, c], names=('b', 'c',))
+    assert exp_t3.equals(t3)
+
+    # -- raise KeyError if column not in Table
+    with pytest.raises(KeyError, match="Column 'd' not found"):
+        table.drop_columns(['d'])
+
+
+def test_table_drop():
+    """ verify the alias of drop_columns is working"""
+    a = pa.array(range(5))
+    b = pa.array([-10, -5, 0, 5, 10])
+    c = pa.array(range(5, 10))
+
+    table = pa.Table.from_arrays([a, b, c], names=('a', 'b', 'c'))
+    t2 = table.drop(['a', 'b'])
+    t3 = table.drop('a')
+
+    exp_t2 = pa.Table.from_arrays([c], names=('c',))
+    assert exp_t2.equals(t2)
+    exp_t3 = pa.Table.from_arrays([b, c], names=('b', 'c',))
+    assert exp_t3.equals(t3)
 
     # -- raise KeyError if column not in Table
     with pytest.raises(KeyError, match="Column 'd' not found"):

@@ -391,7 +391,7 @@ func getLogicalType(typ arrow.DataType) schema.LogicalType {
 		return schema.NewIntLogicalType(64, true)
 	case arrow.UINT64:
 		return schema.NewIntLogicalType(64, false)
-	case arrow.STRING:
+	case arrow.STRING, arrow.LARGE_STRING:
 		return schema.StringLogicalType{}
 	case arrow.DATE32:
 		return schema.DateLogicalType{}
@@ -441,7 +441,7 @@ func getPhysicalType(typ arrow.DataType) parquet.Type {
 		return parquet.Types.Float
 	case arrow.FLOAT64:
 		return parquet.Types.Double
-	case arrow.BINARY, arrow.STRING:
+	case arrow.BINARY, arrow.LARGE_BINARY, arrow.STRING, arrow.LARGE_STRING:
 		return parquet.Types.ByteArray
 	case arrow.FIXED_SIZE_BINARY, arrow.DECIMAL:
 		return parquet.Types.FixedLenByteArray
@@ -708,6 +708,42 @@ func (ps *ParquetIOTestSuite) TestDateTimeTypesWithInt96ReadWriteTable() {
 		ps.Equal(len(exChunk.Chunks()), len(tblChunk.Chunks()))
 		ps.Truef(array.Equal(exChunk.Chunk(0), tblChunk.Chunk(0)), "expected %s\ngot %s", exChunk.Chunk(0), tblChunk.Chunk(0))
 	}
+}
+
+func (ps *ParquetIOTestSuite) TestLargeBinaryReadWriteTable() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	// While we may write using LargeString, when we read, we get an array.String back out.
+	// So we're building a normal array.String to use with array.Equal
+	lsBldr := array.NewLargeStringBuilder(memory.DefaultAllocator)
+	defer lsBldr.Release()
+	lbBldr := array.NewBinaryBuilder(memory.DefaultAllocator, arrow.BinaryTypes.LargeBinary)
+	defer lbBldr.Release()
+
+	for i := 0; i < smallSize; i++ {
+		s := strconv.FormatInt(int64(i), 10)
+		lsBldr.Append(s)
+		lbBldr.Append([]byte(s))
+	}
+
+	lsValues := lsBldr.NewArray()
+	defer lsValues.Release()
+	lbValues := lbBldr.NewArray()
+	defer lbValues.Release()
+
+	lsField := arrow.Field{Name: "large_string", Type: arrow.BinaryTypes.LargeString, Nullable: true}
+	lbField := arrow.Field{Name: "large_binary", Type: arrow.BinaryTypes.LargeBinary, Nullable: true}
+	expected := array.NewTable(
+		arrow.NewSchema([]arrow.Field{lsField, lbField}, nil),
+		[]arrow.Column{
+			*arrow.NewColumn(lsField, arrow.NewChunked(lsField.Type, []arrow.Array{lsValues})),
+			*arrow.NewColumn(lbField, arrow.NewChunked(lbField.Type, []arrow.Array{lbValues})),
+		},
+		-1,
+	)
+	defer expected.Release()
+	ps.roundTripTable(expected, true)
 }
 
 func (ps *ParquetIOTestSuite) TestReadSingleColumnFile() {
