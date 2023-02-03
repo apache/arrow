@@ -60,7 +60,7 @@ namespace arrow {
 namespace internal {
 namespace tracing {
 
-class Scope;
+struct Scope;
 
 }  // namespace tracing
 }  // namespace internal
