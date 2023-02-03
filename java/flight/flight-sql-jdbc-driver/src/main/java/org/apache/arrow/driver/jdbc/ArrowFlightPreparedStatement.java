@@ -196,7 +196,7 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
           TypedValue tmVal = values.get(i);
           String dtStr = (String)tmVal.value;
 
-          String pattern = "yyyy-MM-dd hh:mm:ss.SSS";
+          String pattern = "yyyy-MM-dd HH:mm:ss.SSS";
           DateTime dateTime = DateTime.parse(dtStr, DateTimeFormat.forPattern(pattern));
 
           timeVec.setSafe(0, dateTime.getMillis());
