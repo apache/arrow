@@ -63,8 +63,6 @@ using schema::PrimitiveNode;
 
 namespace benchmark {
 
-ARROW_BENCHMARK_TRACK_MEMORY();
-
 // This should result in multiple pages for most primitive types
 constexpr int64_t BENCHMARK_SIZE = 10 * 1024 * 1024;
 

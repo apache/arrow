@@ -35,7 +35,7 @@
 namespace arrow {
 namespace csv {
 
-ARROW_BENCHMARK_TRACK_MEMORY();
+::arrow::BenchmarkMemoryTracker memory_tracker;
 
 static std::shared_ptr<BlockParser> BuildFromExamples(
     const std::vector<std::string>& base_rows, int32_t num_rows) {
@@ -45,7 +45,8 @@ static std::shared_ptr<BlockParser> BuildFromExamples(
   }
 
   std::shared_ptr<BlockParser> result;
-  MakeCSVParser(rows, &result);
+  MakeCSVParser(rows, ParseOptions::Defaults(), -1, memory_tracker.memory_pool(),
+                &result);
   return result;
 }
 
@@ -87,7 +88,8 @@ static void BenchmarkConversion(benchmark::State& state,  // NOLINT non-const re
                                 BlockParser& parser,
                                 const std::shared_ptr<DataType>& type,
                                 ConvertOptions options) {
-  std::shared_ptr<Converter> converter = *Converter::Make(type, options);
+  std::shared_ptr<Converter> converter =
+      *Converter::Make(type, options, memory_tracker.memory_pool());
 
   while (state.KeepRunning()) {
     auto converted = *converter->Convert(parser, 0 /* col_index */);

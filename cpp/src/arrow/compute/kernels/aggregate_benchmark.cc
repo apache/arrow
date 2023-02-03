@@ -31,8 +31,6 @@
 namespace arrow {
 namespace compute {
 
-ARROW_BENCHMARK_TRACK_MEMORY();
-
 #include <cassert>
 #include <cmath>
 #include <iostream>

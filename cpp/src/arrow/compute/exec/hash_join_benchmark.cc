@@ -25,7 +25,6 @@
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/testing/random.h"
-#include "arrow/util/benchmark_util.h"
 #include "arrow/util/thread_pool.h"
 
 #include <cstdint>
@@ -36,8 +35,6 @@
 
 namespace arrow {
 namespace compute {
-
-ARROW_BENCHMARK_TRACK_MEMORY();
 
 struct BenchmarkSettings {
   int num_threads = 1;

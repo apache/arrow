@@ -30,12 +30,9 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
-#include "arrow/util/benchmark_util.h"
 #include "arrow/util/io_util.h"
 
 namespace arrow {
-
-ARROW_BENCHMARK_TRACK_MEMORY();
 
 std::shared_ptr<RecordBatch> MakeRecordBatch(int64_t total_size, int64_t num_fields) {
   int64_t length = total_size / num_fields / sizeof(int64_t);

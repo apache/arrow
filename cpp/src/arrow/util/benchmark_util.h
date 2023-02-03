@@ -153,16 +153,10 @@ class MemoryPoolMemoryManager : public benchmark::MemoryManager {
     MemoryPool* default_pool = default_memory_pool();
     int64_t new_default_allocations =
         default_pool->num_allocations() - global_allocations_start;
-      
-    if (!memory_pool) {
-      ARROW_LOG(WARNING) << "memory pool is null";
-    }
 
     // Only record metrics metrics if (1) there were allocations and (2) we
     // recorded at least one.
     if (new_default_allocations > 0 && memory_pool->num_allocations() > 0) {
-      ARROW_LOG(WARNING) << "default allocations: " << new_default_allocations 
-        << " proxy allocations: " << memory_pool->num_allocations();
       if (new_default_allocations > memory_pool->num_allocations()) {
         // If we missed some, let's report that.
         int64_t missed_allocations =
@@ -202,8 +196,5 @@ class BenchmarkMemoryTracker {
  protected:
   ::arrow::MemoryPoolMemoryManager manager_;
 };
-
-// Defines a global variable that registers MemoryPoolMemoryManager on init.
-#define ARROW_BENCHMARK_TRACK_MEMORY() ::arrow::BenchmarkMemoryTracker memory_tracker;
 
 }  // namespace arrow

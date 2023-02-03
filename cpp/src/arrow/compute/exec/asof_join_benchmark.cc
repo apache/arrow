@@ -23,12 +23,9 @@
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
-#include "arrow/util/benchmark_util.h"
 
 namespace arrow {
 namespace compute {
-
-ARROW_BENCHMARK_TRACK_MEMORY();
 
 static const char* kTimeCol = "time";
 static const char* kKeyCol = "id";

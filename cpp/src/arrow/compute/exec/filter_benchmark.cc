@@ -24,12 +24,9 @@
 #include "arrow/compute/exec/options.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/random.h"
-#include "arrow/util/benchmark_util.h"
 
 namespace arrow {
 namespace compute {
-
-::arrow::BenchmarkMemoryTracker memory_tracker;
 
 constexpr int64_t kTotalBatchSize = 1000000;
 constexpr auto kSeed = 0x94378165;
@@ -47,9 +44,9 @@ static std::shared_ptr<arrow::RecordBatch> GetBatchesWithNullProbability(
   for (size_t i = 0; i < fields.size(); i++) {
     const auto& field = fields[i];
     if (field.get()->name() == "bool") {
-      arrays[i] = rand.Boolean(length, bool_true_probability, null_probability, /*alignment=*/64LL, memory_tracker.memory_pool());
+      arrays[i] = rand.Boolean(length, bool_true_probability, null_probability);
     } else {
-      arrays[i] = rand.ArrayOf(field.get()->type(), length, null_probability, /*alignment=*/64LL, memory_tracker.memory_pool());
+      arrays[i] = rand.ArrayOf(field.get()->type(), length, null_probability);
     }
   }
   return RecordBatch::Make(schema(fields), length, std::move(arrays));
@@ -90,7 +87,7 @@ static void FilterOverheadIsolated(benchmark::State& state, Expression expr) {
   const int32_t batch_size = static_cast<int32_t>(state.range(0));
   const int32_t num_batches = kTotalBatchSize / batch_size;
   arrow::compute::BatchesWithSchema data = MakeRandomBatches(
-      schema({field("i64", int64()), field("bool", boolean())}), num_batches, batch_size, /*alignment=*/64LL, memory_tracker.memory_pool());
+      schema({field("i64", int64()), field("bool", boolean())}), num_batches, batch_size);
   FilterNodeOptions options = FilterNodeOptions{expr};
   ASSERT_OK(BenchmarkIsolatedNodeOverhead(state, expr, num_batches, batch_size, data,
                                           "filter", options));

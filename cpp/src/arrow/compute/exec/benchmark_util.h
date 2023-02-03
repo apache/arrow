@@ -31,14 +31,16 @@ namespace compute {
 
 Status BenchmarkNodeOverhead(benchmark::State& state, int32_t num_batches,
                              int32_t batch_size, arrow::compute::BatchesWithSchema data,
-                             std::vector<arrow::compute::Declaration>& node_declarations);
+                             std::vector<arrow::compute::Declaration>& node_declarations,
+                             arrow::MemoryPool* pool = default_memory_pool());
 
 Status BenchmarkIsolatedNodeOverhead(benchmark::State& state,
                                      arrow::compute::Expression expr, int32_t num_batches,
                                      int32_t batch_size,
                                      arrow::compute::BatchesWithSchema data,
                                      std::string factory_name,
-                                     arrow::compute::ExecNodeOptions& options);
+                                     arrow::compute::ExecNodeOptions& options,
+                                     arrow::MemoryPool* pool = default_memory_pool());
 
 }  // namespace compute
 }  // namespace arrow
