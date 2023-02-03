@@ -254,7 +254,7 @@ test_that("Can read json file with list<struct<T...>> nested columns (ARROW-7740
   expect_equal(read_json_arrow(tf), expected, ignore_attr = TRUE)
 })
 
-test_that("Read literal data directory", {
+test_that("Read literal data directly", {
   expected <- tibble::tibble(x = c(1L, 3L), y = c(2L, 4L))
 
   expect_identical(read_json_arrow(I('{"x": 1, "y": 2}\n{"x": 3, "y": 4}')), expected)
