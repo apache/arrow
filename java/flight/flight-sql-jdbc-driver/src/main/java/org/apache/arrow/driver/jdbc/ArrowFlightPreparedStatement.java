@@ -135,19 +135,21 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
         case java.sql.Types.BIT:
         case java.sql.Types.BOOLEAN:
           BitVector bitVec = new BitVector(param.name, allocator);
-          bitVec.set(0, (int)values.get(i).value);
+          bitVec.setSafe(0, (int)values.get(i).value);
           bitVec.setValueCount(1);
           fields.add(bitVec);
           break;
         case java.sql.Types.FLOAT:
           Float4Vector floatVec = new Float4Vector(param.name, allocator);
-          floatVec.set(0, (float)values.get(i).value);
+          TypedValue tfVal = values.get(i);
+          float floatVal = (float)tfVal.value;
+          floatVec.setSafe(0, floatVal);
           floatVec.setValueCount(1);
           fields.add(floatVec);
           break;
         case java.sql.Types.DOUBLE:
           Float8Vector doubleVec = new Float8Vector(param.name, allocator);
-          doubleVec.set(0, (double)values.get(i).value);
+          doubleVec.setSafe(0, (double)values.get(i).value);
           doubleVec.setValueCount(1);
           fields.add(doubleVec);
           break;
@@ -155,7 +157,7 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
         case java.sql.Types.NUMERIC:
         case java.sql.Types.DECIMAL:
           DecimalVector decVec = new DecimalVector(param.name, allocator, param.precision, param.scale);
-          decVec.set(0, (BigDecimal) values.get(i).value);
+          decVec.setSafe(0, (BigDecimal) values.get(i).value);
           decVec.setValueCount(1);
           fields.add(decVec);
           break;
@@ -172,7 +174,7 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
         case java.sql.Types.LONGVARCHAR:
         case java.sql.Types.LONGNVARCHAR:
           LargeVarCharVector textVec = new LargeVarCharVector(param.name, allocator);
-          textVec.set(0, new Text((String) values.get(i).value));
+          textVec.setSafe(0, new Text((String) values.get(i).value));
           textVec.setValueCount(1);
           fields.add(textVec);
           break;
@@ -182,21 +184,21 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
         case java.sql.Types.TIME_WITH_TIMEZONE:
         case java.sql.Types.TIMESTAMP_WITH_TIMEZONE:
           DateMilliVector timeVec = new DateMilliVector(param.name, allocator);
-          timeVec.set(0, (long)values.get(i).value);
+          timeVec.setSafe(0, (long)values.get(i).value);
           timeVec.setValueCount(1);
           fields.add(timeVec);
           break;
         case java.sql.Types.BINARY:
         case java.sql.Types.VARBINARY:
           VarBinaryVector binVec = new VarBinaryVector(param.name, allocator);
-          binVec.set(0, (byte[])values.get(i).value);
+          binVec.setSafe(0, (byte[])values.get(i).value);
           binVec.setValueCount(1);
           fields.add(binVec);
           break;
         case java.sql.Types.BLOB:
         case java.sql.Types.LONGVARBINARY:
           LargeVarBinaryVector blobVec = new LargeVarBinaryVector(param.name, allocator);
-          blobVec.set(0, (byte[])values.get(i).value);
+          blobVec.setSafe(0, (byte[])values.get(i).value);
           blobVec.setValueCount(1);
           fields.add(blobVec);
           break;
