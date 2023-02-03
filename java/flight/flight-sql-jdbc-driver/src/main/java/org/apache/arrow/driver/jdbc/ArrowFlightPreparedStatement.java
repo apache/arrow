@@ -23,6 +23,7 @@ import java.sql.JDBCType;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
@@ -41,6 +42,8 @@ import org.apache.calcite.avatica.Meta.Signature;
 import org.apache.calcite.avatica.Meta.StatementHandle;
 import org.apache.calcite.avatica.QueryState;
 import org.apache.calcite.avatica.remote.TypedValue;
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
 
 /**
  * Arrow Flight JBCS's implementation {@link PreparedStatement}.
@@ -184,7 +187,13 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
         case java.sql.Types.TIME_WITH_TIMEZONE:
         case java.sql.Types.TIMESTAMP_WITH_TIMEZONE:
           DateMilliVector timeVec = new DateMilliVector(param.name, allocator);
-          timeVec.setSafe(0, (long)values.get(i).value);
+          TypedValue tmVal = values.get(i);
+          String dtStr = (String)tmVal.value;
+
+          String pattern = "yyyy-MM-dd hh:mm:ss.SSS";
+          DateTime dateTime = DateTime.parse(dtStr, DateTimeFormat.forPattern(pattern));
+
+          timeVec.setSafe(0, dateTime.getMillis());
           timeVec.setValueCount(1);
           fields.add(timeVec);
           break;
