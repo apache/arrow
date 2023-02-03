@@ -137,7 +137,12 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
           break;
         case java.sql.Types.BIGINT:
           BigIntVector longVec = new BigIntVector(param.name, allocator);
-          longVec.setSafe(0, (long)values.get(i).value);
+          Object lv = values.get(i).value;
+          if(lv instanceof Long){
+            longVec.setSafe(0, (long)lv);
+          } else {
+            longVec.setSafe(0, (int)lv);
+          }
           longVec.setValueCount(1);
           fields.add(longVec);
           break;
