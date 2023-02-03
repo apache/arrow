@@ -1112,6 +1112,7 @@ services:
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}-pandas-${PANDAS}
     environment:
       <<: *ccache
+      ARROW_SUBSTRAIT: "ON"
       LC_ALL: "C.UTF-8"
       LANG: "C.UTF-8"
       BUILD_DOCS_CPP: "ON"
