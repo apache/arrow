@@ -640,7 +640,7 @@ TEST(Expression, BindWithImplicitCasts) {
     // Bit of an odd case, both fields are cast
     ExpectBindsTo(cmp(field_ref("i32"), literal(std::make_shared<DoubleScalar>(10.0))),
                   cmp(cast(field_ref("i32"), float32()),
-                      literal(std::make_shared<FloatScalar>(10.0))));
+                      literal(std::make_shared<FloatScalar>(10.0f))));
   }
 
   compute::SetLookupOptions in_a{ArrayFromJSON(utf8(), R"(["a"])")};
