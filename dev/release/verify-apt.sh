@@ -65,7 +65,6 @@ esac
 
 have_flight=yes
 have_plasma=yes
-have_python=yes
 workaround_missing_packages=()
 case "${distribution}-${code_name}" in
   debian-bookworm)
@@ -79,9 +78,6 @@ case "${distribution}-${code_name}" in
       -i"" \
       -e "s/ main$/ main contrib non-free/g" \
       /etc/apt/sources.list
-    ;;
-  ubuntu-bionic)
-    have_python=no
     ;;
 esac
 if [ "$(arch)" = "aarch64" ]; then
