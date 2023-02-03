@@ -18,7 +18,7 @@
 #include <cmath>
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"

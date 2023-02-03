@@ -25,7 +25,7 @@
 
 #include "arrow/array/data.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/type_traits.h"

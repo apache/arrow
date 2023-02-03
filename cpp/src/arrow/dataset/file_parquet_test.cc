@@ -23,7 +23,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"

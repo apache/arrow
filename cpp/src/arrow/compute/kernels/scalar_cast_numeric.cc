@@ -18,7 +18,7 @@
 // Implementation of casting to integer, floating point, or decimal types
 
 #include "arrow/array/builder_primitive.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/scalar.h"

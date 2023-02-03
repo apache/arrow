@@ -30,7 +30,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_ipc.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
