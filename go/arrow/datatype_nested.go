@@ -205,6 +205,8 @@ func (t *FixedSizeListType) String() string {
 	return fmt.Sprintf("fixed_size_list<%s: %s>[%d]", t.elem.Name, t.elem.Type, t.n)
 }
 
+func (t *FixedSizeListType) SetElemNullable(n bool) { t.elem.Nullable = n }
+
 // Elem returns the FixedSizeListType's element type.
 func (t *FixedSizeListType) Elem() DataType { return t.elem.Type }
 

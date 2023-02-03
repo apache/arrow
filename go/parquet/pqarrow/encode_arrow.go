@@ -231,6 +231,10 @@ type binaryarr interface {
 	ValueOffsets() []int32
 }
 
+type binary64arr interface {
+	ValueOffsets() []int64
+}
+
 func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr arrow.Array, defLevels, repLevels []int16, maybeParentNulls bool) (err error) {
 	noNulls := cw.Descr().SchemaNode().RepetitionType() == parquet.Repetitions.Required || leafArr.NullN() == 0
 
@@ -421,12 +425,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 			wr.WriteBatchSpaced(leafArr.(*array.Float64).Float64Values(), defLevels, repLevels, leafArr.NullBitmapBytes(), int64(leafArr.Data().Offset()))
 		}
 	case *file.ByteArrayColumnChunkWriter:
-		if leafArr.DataType().ID() != arrow.STRING && leafArr.DataType().ID() != arrow.BINARY {
-			return xerrors.New("invalid column type to write to ByteArray")
-		}
-
 		var (
-			offsets  = leafArr.(binaryarr).ValueOffsets()
 			buffer   = leafArr.Data().Buffers()[2]
 			valueBuf []byte
 		)
@@ -438,9 +437,21 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 		}
 
 		data := make([]parquet.ByteArray, leafArr.Len())
-		for i := range data {
-			data[i] = parquet.ByteArray(valueBuf[offsets[i]:offsets[i+1]])
+		switch leafArr.DataType().ID() {
+		case arrow.BINARY, arrow.STRING:
+			offsets := leafArr.(binaryarr).ValueOffsets()
+			for i := range data {
+				data[i] = parquet.ByteArray(valueBuf[offsets[i]:offsets[i+1]])
+			}
+		case arrow.LARGE_BINARY, arrow.LARGE_STRING:
+			offsets := leafArr.(binary64arr).ValueOffsets()
+			for i := range data {
+				data[i] = parquet.ByteArray(valueBuf[offsets[i]:offsets[i+1]])
+			}
+		default:
+			return xerrors.New(fmt.Sprintf("invalid column type to write to ByteArray: %s", leafArr.DataType().Name()))
 		}
+
 		if !maybeParentNulls && noNulls {
 			wr.WriteBatch(data, defLevels, repLevels)
 		} else {

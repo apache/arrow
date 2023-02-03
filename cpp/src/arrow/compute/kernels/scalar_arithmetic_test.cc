@@ -27,6 +27,7 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/datum.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
