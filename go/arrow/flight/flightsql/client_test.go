@@ -347,6 +347,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecute() {
 	out.MarshalFrom(result)
 	data, _ := proto.Marshal(&out)
 	rsp.On("Recv").Return(&pb.Result{Body: data}, nil)
+	rsp.On("CloseSend").Return(nil)
 
 	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).
 		Return(rsp, nil)
@@ -390,6 +391,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	rsp := &mockDoActionClient{}
 	defer rsp.AssertExpectations(s.T())
 	rsp.On("Recv").Return(&pb.Result{Body: data}, nil)
+	rsp.On("CloseSend").Return(nil)
 
 	// expect two actions: one to create and one to close the prepared statement
 	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).Return(rsp, nil)
@@ -449,6 +451,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 	rsp := &mockDoActionClient{}
 	defer rsp.AssertExpectations(s.T())
 	rsp.On("Recv").Return(&pb.Result{Body: data}, nil)
+	rsp.On("CloseSend").Return(nil)
 
 	// expect two actions: one to create and one to close the prepared statement
 	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).Return(rsp, nil)
