@@ -437,7 +437,7 @@ Result<Expression> ModifyExpression(Expression expr, const PreVisit& pre,
 
 /// CRTP helper for tracing helper functions
 
-class TracedNode {
+class ARROW_EXPORT TracedNode {
  public:
   // All nodes should call TraceStartProducing or NoteStartProducing exactly once
   // Most nodes will be fine with a call to NoteStartProducing since the StartProducing
