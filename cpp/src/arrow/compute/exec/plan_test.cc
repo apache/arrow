@@ -682,6 +682,20 @@ TEST(ExecPlanExecution, DeclarationToSchema) {
   AssertSchemaEqual(expected_out_schema, actual_out_schema);
 }
 
+TEST(ExecPlanExecution, DeclarationToReader) {
+  auto basic_data = MakeBasicBatches();
+  auto plan = Declaration::Sequence(
+      {{"source", SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))}});
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> reader,
+                       DeclarationToReader(plan));
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> out, reader->ToTable());
+  ASSERT_EQ(5, out->num_rows());
+  ASSERT_OK(reader->Close());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("already closed reader"),
+                                  reader->Next());
+}
+
 TEST(ExecPlanExecution, ConsumingSinkNames) {
   struct SchemaKeepingConsumer : public SinkNodeConsumer {
     std::shared_ptr<Schema> schema_;

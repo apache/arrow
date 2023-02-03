@@ -863,12 +863,14 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
     std::shared_ptr<Schema> schema() const override { return schema_; }
 
     Status ReadNext(std::shared_ptr<RecordBatch>* record_batch) override {
-      DCHECK(!!iterator_) << "call to ReadNext on already closed reader";
+      if (!iterator_) {
+        return Status::Invalid("call to ReadNext on already closed reader");
+      }
       return iterator_->Next().Value(record_batch);
     }
 
     Status Close() override {
-      if (!!iterator_) {
+      if (!iterator_) {
         // Already closed
         return Status::OK();
       }
