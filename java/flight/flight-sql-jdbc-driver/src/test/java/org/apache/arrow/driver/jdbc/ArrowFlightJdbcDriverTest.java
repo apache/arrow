@@ -185,6 +185,53 @@ public class ArrowFlightJdbcDriverTest {
   }
 
   @Test
+  public void testCustomer() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    Properties props = new Properties();
+    props.setProperty("user", "admin");
+    props.setProperty("password", "password");
+    props.setProperty("useEncryption", "false");
+    String conString = "jdbc:arrow-flight://127.0.0.1:50060";
+    try (Connection con = driver.connect(conString, props); Statement stmt = con.createStatement()) {
+      try {
+        stmt.execute("create table customer (\n" +
+                "c_id int,\n" +
+                "c_d_id int,\n" +
+                "c_w_id int,\n" +
+                "c_first string,\n" +
+                "c_middle string,\n" +
+                "c_last string,\n" +
+                "c_street_1 string,\n" +
+                "c_street_2 string,\n" +
+                "c_city string,\n" +
+                "c_state string,\n" +
+                "c_zip string,\n" +
+                "c_phone string,\n" +
+                "c_since datetime,\n" +
+                "c_credit string,\n" +
+                "c_credit_lim int,\n" +
+                "c_discount float,\n" +
+                "c_balance float,\n" +
+                "c_ytd_payment float,\n" +
+                "c_payment_cnt int,\n" +
+                "c_delivery_cnt int,\n" +
+                "c_data string,\n" +
+                "PRIMARY KEY(c_w_id, c_d_id, c_id)\n" +
+                ");");
+      } catch (Exception ignored) {}
+      String sql = "SELECT count(c_id) FROM customer WHERE c_w_id = $1 AND c_d_id = $2 AND c_last = $3";
+      try(PreparedStatement ps = con.prepareStatement(sql)) {
+        ParameterMetaData md = ps.getParameterMetaData();
+        ps.setInt(1, 1);
+        ps.setInt(2, 1);
+        ps.setString(3, "Acme");
+        ResultSet rs = ps.executeQuery();
+        assertNotNull(rs);
+      }
+    }
+  }
+
+  @Test
   public void testDmlParameters() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
     Properties props = new Properties();
