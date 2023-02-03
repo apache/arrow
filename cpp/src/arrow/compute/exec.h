@@ -324,9 +324,9 @@ struct ARROW_EXPORT ExecResult {
     }
   }
 
-  ArraySpan* array_span() const {
-    return const_cast<ArraySpan*>(&std::get<ArraySpan>(this->value));
-  }
+  const ArraySpan* array_span() const { return &std::get<ArraySpan>(this->value); }
+  ArraySpan* array_span_mutable() { return &std::get<ArraySpan>(this->value); }
+
   bool is_array_span() const { return this->value.index() == 0; }
 
   const std::shared_ptr<ArrayData>& array_data() const {

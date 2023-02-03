@@ -69,7 +69,7 @@ Status ExecRandom(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     std::lock_guard<std::mutex> seed_gen_lock(seed_gen_mutex);
     gen.seed(seed_gen());
   }
-  double* out_values = out->array_span()->GetValues<double>(1);
+  double* out_values = out->array_span_mutable()->GetValues<double>(1);
   for (int64_t i = 0; i < batch.length; ++i) {
     out_values[i] = generate_uniform(&gen);
   }

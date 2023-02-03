@@ -261,7 +261,7 @@ struct CompareKernel {
     DCHECK(kernel);
     const auto kernel_data = checked_cast<const CompareData*>(kernel->data.get());
 
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     // TODO: implement path for offset not multiple of 8
     const bool out_is_byte_aligned = out_arr->offset % 8 == 0;

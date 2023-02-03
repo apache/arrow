@@ -326,7 +326,7 @@ struct IndexInVisitor {
 };
 
 Status ExecIndexIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return IndexInVisitor(ctx, batch[0].array, out->array_span()).Execute();
+  return IndexInVisitor(ctx, batch[0].array, out->array_span_mutable()).Execute();
 }
 
 // ----------------------------------------------------------------------
@@ -408,7 +408,7 @@ struct IsInVisitor {
 };
 
 Status ExecIsIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return IsInVisitor(ctx, batch[0].array, out->array_span()).Execute();
+  return IsInVisitor(ctx, batch[0].array, out->array_span_mutable()).Execute();
 }
 
 // Unary set lookup kernels available for the following input types

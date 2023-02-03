@@ -221,7 +221,7 @@ struct StringPredicateFunctor {
     EnsureUtf8LookupTablesFilled();
     const ArraySpan& input = batch[0].array;
     ArrayIterator<Type> input_it(input);
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
     ::arrow::internal::GenerateBitsUnrolled(
         out_arr->buffers[1].data, out_arr->offset, input.length, [&]() -> bool {
           std::string_view val = input_it();

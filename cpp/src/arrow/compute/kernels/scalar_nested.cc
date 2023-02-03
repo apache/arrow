@@ -39,7 +39,7 @@ namespace {
 template <typename Type, typename offset_type = typename Type::offset_type>
 Status ListValueLength(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& arr = batch[0].array;
-  ArraySpan* out_arr = out->array_span();
+  ArraySpan* out_arr = out->array_span_mutable();
   auto out_values = out_arr->GetValues<offset_type>(1);
   const offset_type* offsets = arr.GetValues<offset_type>(1);
   // Offsets are always well-defined and monotonic, even for null values
@@ -53,7 +53,7 @@ Status FixedSizeListValueLength(KernelContext* ctx, const ExecSpan& batch,
                                 ExecResult* out) {
   auto width = checked_cast<const FixedSizeListType&>(*batch[0].type()).list_size();
   const ArraySpan& arr = batch[0].array;
-  ArraySpan* out_arr = out->array_span();
+  ArraySpan* out_arr = out->array_span_mutable();
   int32_t* out_values = out_arr->GetValues<int32_t>(1);
   std::fill(out_values, out_values + arr.length, width);
   return Status::OK();
