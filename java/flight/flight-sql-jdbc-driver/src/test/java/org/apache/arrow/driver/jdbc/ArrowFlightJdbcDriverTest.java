@@ -150,7 +150,7 @@ public class ArrowFlightJdbcDriverTest {
   }
 
   @Test
-  public void testDmlParameters() throws Exception {
+  public void testWarehouse() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
     Properties props = new Properties();
     props.setProperty("user", "admin");
@@ -185,7 +185,7 @@ public class ArrowFlightJdbcDriverTest {
   }
 
   @Test
-  public void testWarehouse() throws Exception {
+  public void testDmlParameters() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
     Properties props = new Properties();
     props.setProperty("user", "admin");
