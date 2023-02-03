@@ -1643,6 +1643,7 @@ services:
       <<: *ccache
       ARROW_JAVA_SKIP_GIT_PLUGIN:
       ARROW_CUDA: "ON"
+      ARROW_SUBSTRAIT: "ON"
       BUILD_DOCS_C_GLIB: "ON"
       BUILD_DOCS_CPP: "ON"
       BUILD_DOCS_JAVA: "ON"
