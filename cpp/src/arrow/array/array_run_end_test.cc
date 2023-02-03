@@ -34,6 +34,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/ree_util.h"
 
 namespace arrow {
 
@@ -62,6 +63,17 @@ class TestRunEndEncodedArray
     int16_values = ArrayFromJSON(int16(), "[10, 20, 30]");
     run_end_values = ArrayFromJSON(run_end_type, "[10, 20, 30]");
     run_end_only_null = ArrayFromJSON(run_end_type, "[null, null, null]");
+  }
+
+  std::shared_ptr<RunEndEncodedArray> RunEndEncodedArrayFromJSON(
+      int64_t logical_length, std::shared_ptr<DataType> value_type,
+      std::string_view run_ends_json, std::string_view values_json,
+      int64_t logical_offset = 0) {
+    auto run_ends = ArrayFromJSON(run_end_type, run_ends_json);
+    auto values = ArrayFromJSON(value_type, values_json);
+    return RunEndEncodedArray::Make(logical_length, std::move(run_ends),
+                                    std::move(values), logical_offset)
+        .ValueOrDie();
   }
 };
 
@@ -138,43 +150,124 @@ TEST_P(TestRunEndEncodedArray, FindOffsetAndLength) {
 }
 
 TEST_P(TestRunEndEncodedArray, Builder) {
-  auto expected_run_ends =
-      ArrayFromJSON(run_end_type, "[1, 3, 105, 165, 205, 305, 405, 505]");
-  auto expected_values = ArrayFromJSON(
-      utf8(),
-      R"(["unique", null, "common", "common", "appended", "common", "common", "appended"])");
-  auto appended_run_ends = ArrayFromJSON(run_end_type, "[100, 200]");
-  auto appended_values = ArrayFromJSON(utf8(), R"(["common", "appended"])");
-  ASSERT_OK_AND_ASSIGN(auto appended_array,
-                       RunEndEncodedArray::Make(200, appended_run_ends, appended_values));
+  auto value_type = utf8();
+  auto ree_type = run_end_encoded(run_end_type, value_type);
+
+  auto BuilderEquals = [this, value_type, ree_type](
+                           ArrayBuilder& builder, int64_t expected_length,
+                           std::string_view run_ends_json,
+                           std::string_view values_json) -> Status {
+    const int64_t length = builder.length();
+    if (length != expected_length) {
+      return Status::Invalid("Length from builder differs from expected length: ", length,
+                             " != ", expected_length);
+    }
+    ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
+    auto ree_array = std::dynamic_pointer_cast<RunEndEncodedArray>(array);
+    if (length != ree_array->length()) {
+      return Status::Invalid("Length from builder differs from length of built array: ",
+                             length, " != ", ree_array->length());
+    }
+    auto expected_ree_array =
+        RunEndEncodedArrayFromJSON(length, value_type, run_ends_json, values_json, 0);
+    ASSERT_ARRAYS_EQUAL(*expected_ree_array->run_ends(), *ree_array->run_ends());
+    ASSERT_ARRAYS_EQUAL(*expected_ree_array->values(), *ree_array->values());
+    ASSERT_ARRAYS_EQUAL(*expected_ree_array, *ree_array);
+    return Status::OK();
+  };
+
+  auto appended_array = RunEndEncodedArrayFromJSON(200, value_type, R"([110, 210])",
+                                                   R"(["common", "appended"])", 10);
   auto appended_span = ArraySpan(*appended_array->data());
 
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ArrayBuilder> builder,
-                       MakeBuilder(run_end_encoded(run_end_type, utf8())));
-  auto ree_builder = std::dynamic_pointer_cast<RunEndEncodedBuilder>(builder);
-  ASSERT_NE(ree_builder, NULLPTR);
-  ASSERT_OK(builder->AppendScalar(*MakeScalar("unique")));
-  ASSERT_OK(builder->AppendNull());
-  ASSERT_OK(builder->AppendScalar(*MakeNullScalar(utf8())));
-  ASSERT_OK(builder->AppendScalar(*MakeScalar("common"), 100));
-  ASSERT_OK(builder->AppendScalar(*MakeScalar("common")));
-  ASSERT_OK(builder->AppendScalar(*MakeScalar("common")));
-  // Append span that starts with the same value as the previous run ends. They
-  // are currently not merged for simplicity and performance. This is still a
-  // valid REE array
-  ASSERT_OK(builder->AppendArraySlice(appended_span, 40, 100));
-  ASSERT_OK(builder->AppendArraySlice(appended_span, 0, 100));
-  // Append an entire array
-  ASSERT_OK(builder->AppendArraySlice(appended_span, 0, appended_span.length));
-  ASSERT_EQ(builder->length(), 505);
-  ASSERT_EQ(*builder->type(), *run_end_encoded(run_end_type, utf8()));
-  ASSERT_OK_AND_ASSIGN(auto array, builder->Finish());
-  auto ree_array = std::dynamic_pointer_cast<RunEndEncodedArray>(array);
-  ASSERT_NE(ree_array, NULLPTR);
-  ASSERT_ARRAYS_EQUAL(*expected_run_ends, *ree_array->run_ends());
-  ASSERT_ARRAYS_EQUAL(*expected_values, *ree_array->values());
-  ASSERT_EQ(array->length(), 505);
-  ASSERT_EQ(array->offset(), 0);
+  for (int step = 0;; step++) {
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<ArrayBuilder> builder, MakeBuilder(ree_type));
+    if (step == 0) {
+      auto ree_builder = std::dynamic_pointer_cast<RunEndEncodedBuilder>(builder);
+      ASSERT_NE(ree_builder, NULLPTR);
+      ASSERT_OK(BuilderEquals(*builder, 0, "[]", "[]"));
+      continue;
+    }
+    ASSERT_OK(builder->AppendScalar(*MakeScalar("unique")));
+    if (step == 1) {
+      ASSERT_OK(BuilderEquals(*builder, 1, "[1]", R"(["unique"])"));
+      continue;
+    }
+    ASSERT_OK(builder->AppendNull());
+    if (step == 2) {
+      ASSERT_OK(BuilderEquals(*builder, 2, "[1, 2]", R"(["unique", null])"));
+      continue;
+    }
+    ASSERT_OK(builder->AppendScalar(*MakeNullScalar(utf8())));
+    if (step == 3) {
+      ASSERT_OK(BuilderEquals(*builder, 3, "[1, 3]", R"(["unique", null])"));
+      continue;
+    }
+    ASSERT_OK(builder->AppendScalar(*MakeScalar("common"), 100));
+    if (step == 4) {
+      ASSERT_OK(
+          BuilderEquals(*builder, 103, "[1, 3, 103]", R"(["unique", null, "common"])"));
+      continue;
+    }
+    ASSERT_OK(builder->AppendScalar(*MakeScalar("common")));
+    if (step == 5) {
+      ASSERT_OK(
+          BuilderEquals(*builder, 104, "[1, 3, 104]", R"(["unique", null, "common"])"));
+      continue;
+    }
+    ASSERT_OK(builder->AppendScalar(*MakeScalar("common")));
+    if (step == 6) {
+      ASSERT_OK(
+          BuilderEquals(*builder, 105, "[1, 3, 105]", R"(["unique", null, "common"])"));
+      continue;
+    }
+    // Append span that starts with the same value as the previous run ends. They
+    // are currently not merged for simplicity and performance. This is still a
+    // valid REE array.
+    //
+    // builder->Append([(60 * "common")..., (40 * "appended")...])
+    ASSERT_OK(builder->AppendArraySlice(appended_span, 40, 100));
+    if (step == 7) {
+      ASSERT_OK(BuilderEquals(*builder, 205, "[1, 3, 105, 165, 205]",
+                              R"(["unique", null, "common", "common", "appended"])"));
+      continue;
+    }
+    // builder->Append([(100 * "common")...])
+    ASSERT_OK(builder->AppendArraySlice(appended_span, 0, 100));
+    if (step == 8) {
+      ASSERT_OK(
+          BuilderEquals(*builder, 305, "[1, 3, 105, 165, 205, 305]",
+                        R"(["unique", null, "common", "common", "appended", "common"])"));
+      continue;
+    }
+    // Append an entire array
+    ASSERT_OK(builder->AppendArraySlice(appended_span, 0, appended_span.length));
+    if (step == 9) {
+      ASSERT_OK(BuilderEquals(
+          *builder, 505, "[1, 3, 105, 165, 205, 305, 405, 505]",
+          R"(["unique", null, "common", "common", "appended", "common", "common", "appended"])"));
+      continue;
+    }
+    if (step == 10) {
+      ASSERT_EQ(builder->length(), 505);
+      ASSERT_EQ(*builder->type(), *run_end_encoded(run_end_type, utf8()));
+
+      auto expected_run_ends =
+          ArrayFromJSON(run_end_type, "[1, 3, 105, 165, 205, 305, 405, 505]");
+      auto expected_values = ArrayFromJSON(
+          value_type,
+          R"(["unique", null, "common", "common", "appended", "common", "common", "appended"])");
+
+      ASSERT_OK_AND_ASSIGN(auto array, builder->Finish());
+      auto ree_array = std::dynamic_pointer_cast<RunEndEncodedArray>(array);
+      ASSERT_NE(ree_array, NULLPTR);
+      ASSERT_ARRAYS_EQUAL(*expected_run_ends, *ree_array->run_ends());
+      ASSERT_ARRAYS_EQUAL(*expected_values, *ree_array->values());
+      ASSERT_EQ(array->length(), 505);
+      ASSERT_EQ(array->offset(), 0);
+      break;
+    }
+  }
 }
 
 TEST_P(TestRunEndEncodedArray, Validate) {

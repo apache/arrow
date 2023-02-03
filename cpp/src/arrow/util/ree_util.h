@@ -122,6 +122,133 @@ int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i, int64_t absolute_off
 /// end). This function uses binary-search, so it has a O(log N) cost.
 int64_t FindPhysicalLength(const ArraySpan& span);
 
+template <typename RunEndsType>
+class RunEndEncodedArraySpan {
+ private:
+  struct PrivateTag {};
+
+ public:
+  /// \brief Iterator representing the current run during iteration over a
+  /// run-end encoded array
+  class Iterator {
+   public:
+    Iterator(PrivateTag, const RunEndEncodedArraySpan& span, int64_t logical_pos,
+             int64_t physical_pos)
+        : span_(span), logical_pos_(logical_pos), physical_pos_(physical_pos) {}
+
+    /// \brief Return the physical index of the run
+    ///
+    /// The values array can be addressed with this index to get the value
+    /// that makes up the run.
+    ///
+    /// NOTE: if this Iterator was produced by RunEndEncodedArraySpan::end(),
+    /// the value returned is undefined.
+    int64_t physical_position() const { return physical_pos_; }
+
+    /// \brief Return the initial logical position of the run
+    ///
+    /// If this Iterator was produced by RunEndEncodedArraySpan::end(), this is
+    /// the same as RunEndEncodedArraySpan::length().
+    int64_t logical_position() const { return logical_pos_; }
+
+    /// \brief Return the logical position immediately after the run.
+    ///
+    /// Pre-condition: *this != RunEndEncodedArraySpan::end()
+    int64_t run_end() const { return span_.run_end(physical_pos_); }
+
+    /// \brief Returns the logical length of the run.
+    ///
+    /// Pre-condition: *this != RunEndEncodedArraySpan::end()
+    int64_t run_length() const { return run_end() - logical_pos_; }
+
+    Iterator& operator++() {
+      logical_pos_ = span_.run_end(physical_pos_);
+      physical_pos_ += 1;
+      return *this;
+    }
+
+    Iterator operator++(int) {
+      const Iterator prev = *this;
+      ++(*this);
+      return prev;
+    }
+
+    bool operator==(const Iterator& other) const {
+      return logical_pos_ == other.logical_pos_;
+    }
+
+    bool operator!=(const Iterator& other) const {
+      return logical_pos_ != other.logical_pos_;
+    }
+
+   private:
+    const RunEndEncodedArraySpan& span_;
+    int64_t logical_pos_;
+    int64_t physical_pos_;
+  };
+
+  explicit RunEndEncodedArraySpan(const ArrayData& data)
+      : RunEndEncodedArraySpan(ArraySpan{data}) {}
+
+  explicit RunEndEncodedArraySpan(ArraySpan array_span)
+      : array_span_{std::move(array_span)}, run_ends_(RunEnds<RunEndsType>(array_span_)) {
+    assert(array_span_.type->id() == Type::RUN_END_ENCODED);
+  }
+
+  int64_t length() const { return array_span_.length; }
+  int64_t offset() const { return array_span_.offset; }
+
+  int64_t PhysicalIndex(int64_t logical_pos = 0) const {
+    return internal::FindPhysicalIndex(run_ends_, RunEndsArray(array_span_).length,
+                                       offset() + logical_pos);
+  }
+
+  /// \brief Create an iterator from a logical position and its
+  /// pre-computed physical offset into the run ends array
+  ///
+  /// \param logical_pos is an index in the [0, length()) range
+  /// \param physical_offset the pre-calculated PhysicalIndex(logical_pos)
+  Iterator iterator(int64_t logical_pos, int64_t physical_offset) const {
+    return Iterator{PrivateTag{}, *this, logical_pos, physical_offset};
+  }
+
+  /// \brief Create an iterator from a logical position
+  ///
+  /// \param logical_pos is an index in the [0, length()) range
+  Iterator iterator(int64_t logical_pos) const {
+    assert(logical_pos < length());
+    return iterator(logical_pos, PhysicalIndex(logical_pos));
+  }
+
+  /// \brief Create an iterator representing the logical begin of the run-end
+  /// encoded array
+  Iterator begin() const { return iterator(0); }
+
+  /// \brief Create an iterator representing the first invalid logical position
+  /// of the run-end encoded array
+  ///
+  /// The Iterator returned by end() should not be
+  Iterator end() const {
+    // NOTE: the run ends array length is not necessarily what
+    // PhysicalIndex(length()) would return but it is a cheap to obtain
+    // physical offset that is invalid.
+    return iterator(length(), RunEndsArray(array_span_).length);
+  }
+
+  // Pre-condition: physical_pos < RunEndsArray(array_span_).length);
+  inline int64_t run_end(int64_t physical_pos) const {
+    assert(physical_pos < RunEndsArray(array_span_).length);
+    // Logical index of the end of the currently active run
+    const int64_t logical_run_end = run_ends_[physical_pos] - offset();
+    // The current run may go further than the logical length, cap it
+    return std::min(logical_run_end, length());
+  }
+
+ private:
+  const ArraySpan array_span_;
+  const RunEndsType* run_ends_;
+};
+
 /// \brief Iterate over two run-end encoded arrays in segments of runs that are inside
 /// run boundaries in each input
 template <typename... RunEndsTypes>
@@ -226,7 +353,7 @@ class MergedRunsIterator {
   struct Input {
     explicit Input(const ArraySpan& array_span) : array_span{array_span} {
       run_ends = RunEnds<RunEndsType>(array_span);
-      run_index = ree_util::internal::FindPhysicalOffset(
+      run_index = ree_util::internal::FindPhysicalIndex(
           run_ends, RunEndsArray(array_span).length, array_span.offset);
       // actual value found later by FindMergedRun:
       current_run_end = 0;
