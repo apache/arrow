@@ -211,7 +211,7 @@ public class ArrowFlightJdbcDriverTest {
       } catch (Exception ignored) {}
       String sql = "UPDATE district SET d_next_o_id = $1 + 1 WHERE d_id = $2 AND d_w_id = $3";
       try(PreparedStatement ps = con.prepareStatement(sql)) {
-        ps.setInt(1, 0);
+        ps.setLong(1, 0);
         ps.setInt(2, 2);
         ps.setInt(3, 1);
         ps.executeUpdate();

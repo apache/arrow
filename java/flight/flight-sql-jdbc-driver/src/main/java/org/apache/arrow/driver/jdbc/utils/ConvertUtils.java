@@ -57,8 +57,8 @@ public final class ConvertUtils {
     return false;
   }
 
-  static int toJdbcType(ArrowType.ArrowTypeID type) {
-    switch (type) {
+  static int toJdbcType(ArrowType type) {
+    switch (type.getTypeID()) {
       case Null:
         return JDBCType.NULL.getVendorTypeNumber();
       case Struct:
@@ -68,7 +68,13 @@ public final class ConvertUtils {
       case FixedSizeList:
         return JDBCType.ARRAY.getVendorTypeNumber();
       case Int:
-        return JDBCType.INTEGER.getVendorTypeNumber();
+        ArrowType.Int t = (ArrowType.Int)type;
+        switch (t.getBitWidth()) {
+          case 64:
+            return JDBCType.BIGINT.getVendorTypeNumber();
+          default:
+            return JDBCType.INTEGER.getVendorTypeNumber();
+        }
       case FloatingPoint:
         return JDBCType.FLOAT.getVendorTypeNumber();
       case Utf8:
@@ -95,8 +101,8 @@ public final class ConvertUtils {
     return JDBCType.OTHER.getVendorTypeNumber();
   }
 
-  static String getClassName(ArrowType.ArrowTypeID type) {
-    switch (type) {
+  static String getClassName(ArrowType type) {
+    switch (type.getTypeID()) {
       case List:
       case LargeList:
       case FixedSizeList:
@@ -104,7 +110,13 @@ public final class ConvertUtils {
       case Map:
         return HashMap.class.getCanonicalName();
       case Int:
-        return int.class.getCanonicalName();
+        ArrowType.Int t = (ArrowType.Int)type;
+        switch (t.getBitWidth()) {
+          case 64:
+            return long.class.getCanonicalName();
+          default:
+            return int.class.getCanonicalName();
+        }
       case FloatingPoint:
         return float.class.getCanonicalName();
       case Utf8:
@@ -139,13 +151,12 @@ public final class ConvertUtils {
   public static List<AvaticaParameter> convertArrowFieldsToAvaticaParameters(final List<Field> fields) {
     List<AvaticaParameter> list = new ArrayList<>();
     for(Field field : fields) {
-      final ArrowType.ArrowTypeID typeId = field.getType().getTypeID();
-      final boolean signed = isSigned(typeId);
+      final boolean signed = isSigned(field.getType().getTypeID());
       final int precision = 0; // Would have to know about the actual number
       final int scale = 0; // According to https://www.postgresql.org/docs/current/datatype-numeric.html
-      final int type = toJdbcType(typeId);
-      final String typeName = typeId.name();
-      final String clazz = getClassName(typeId);
+      final int type = toJdbcType(field.getType());
+      final String typeName = field.getType().toString();
+      final String clazz = getClassName(field.getType());
       final String name = field.getName();
       final AvaticaParameter param = new AvaticaParameter(signed, precision, scale, type, typeName, clazz, name);
       list.add(param);

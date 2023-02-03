@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import com.google.flatbuffers.LongVector;
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.utils.ConvertUtils;
 import org.apache.arrow.flight.FlightInfo;
@@ -129,11 +130,16 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
         case java.sql.Types.TINYINT:
         case java.sql.Types.SMALLINT:
         case java.sql.Types.INTEGER:
-        case java.sql.Types.BIGINT:
           IntVector intVec = new IntVector(param.name, allocator);
           intVec.setSafe(0, (int)values.get(i).value);
           intVec.setValueCount(1);
           fields.add(intVec);
+          break;
+        case java.sql.Types.BIGINT:
+          BigIntVector longVec = new BigIntVector(param.name, allocator);
+          longVec.setSafe(0, (long)values.get(i).value);
+          longVec.setValueCount(1);
+          fields.add(longVec);
           break;
         case java.sql.Types.BIT:
         case java.sql.Types.BOOLEAN:
