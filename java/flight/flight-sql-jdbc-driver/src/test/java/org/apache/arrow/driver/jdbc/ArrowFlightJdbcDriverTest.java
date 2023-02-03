@@ -185,6 +185,41 @@ public class ArrowFlightJdbcDriverTest {
   }
 
   @Test
+  public void testDistrict() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    Properties props = new Properties();
+    props.setProperty("user", "admin");
+    props.setProperty("password", "password");
+    props.setProperty("useEncryption", "false");
+    String conString = "jdbc:arrow-flight://127.0.0.1:50060";
+    try (Connection con = driver.connect(conString, props); Statement stmt = con.createStatement()) {
+      try {
+        stmt.execute("create table district (\n" +
+                "d_id int,\n" +
+                "d_w_id int,\n" +
+                "d_name string,\n" +
+                "d_street_1 string,\n" +
+                "d_street_2 string,\n" +
+                "d_city string,\n" +
+                "d_state string,\n" +
+                "d_zip string,\n" +
+                "d_tax float,\n" +
+                "d_ytd float,\n" +
+                "d_next_o_id int,\n" +
+                "primary key (d_w_id, d_id)\n" +
+                ");\n");
+      } catch (Exception ignored) {}
+      String sql = "UPDATE district SET d_next_o_id = $1 + 1 WHERE d_id = $2 AND d_w_id = $3";
+      try(PreparedStatement ps = con.prepareStatement(sql)) {
+        ps.setInt(1, 0);
+        ps.setInt(2, 2);
+        ps.setInt(3, 1);
+        ps.executeUpdate();
+      }
+    }
+  }
+
+  @Test
   public void testHistory() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
     Properties props = new Properties();
