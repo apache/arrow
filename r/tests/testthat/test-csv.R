@@ -688,7 +688,7 @@ test_that("CSV reading/parsing/convert options can be passed in as lists", {
   expect_equal(tab1, tab2)
 })
 
-test_that("Read literal data directory", {
+test_that("Read literal data directly", {
   expected <- tibble::tibble(x = c(1L, 3L), y = c(2L, 4L))
 
   expect_identical(read_csv_arrow(I("x,y\n1,2\n3,4")), expected)
