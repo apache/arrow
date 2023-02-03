@@ -17,9 +17,9 @@
 
 #include "double_array_proxy.h"
 
-using namespace libmexclass::proxy;
-
-void DoubleArrayProxy::Print(method::Context& context) {
+namespace proxy::array {
+void DoubleArrayProxy::Print(libmexclass::proxy::method::Context& context) {
     // TODO: Return an MDA string representation of the Arrow array. 
     std::cout << array->ToString() << std::endl;
 }
+} // namespace proxy::array

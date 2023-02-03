@@ -1,4 +1,4 @@
-classdef DoubleArray
+classdef DoubleArray < arrow.array.internal.CustomDisplay
 
     properties (Access=private)
         Proxy
@@ -10,7 +10,7 @@ classdef DoubleArray
 
     methods
         function obj = DoubleArray(matlabArray)
-            obj.Proxy = arrow.proxy.array.DoubleArrayProxy();
+            obj.Proxy = arrow.proxy.array.DoubleArrayProxy(matlabArray);
             obj.MatlabArray = matlabArray;
         end
 

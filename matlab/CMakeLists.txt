@@ -202,13 +202,17 @@ endif()
 
 option(MATLAB_BUILD_TESTS "Build the C++ tests for the MATLAB interface" OFF)
 
-# Grab CMAKE Modules from the CPP interface.
-set(CPP_CMAKE_MODULES "${CMAKE_SOURCE_DIR}/../cpp/cmake_modules")
-if(EXISTS "${CPP_CMAKE_MODULES}")
-  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CPP_CMAKE_MODULES})
-endif()
+# # Grab CMAKE Modules from the CPP interface.
+# set(CPP_CMAKE_MODULES "${CMAKE_SOURCE_DIR}/../cpp/cmake_modules")
+# if(EXISTS "${CPP_CMAKE_MODULES}")
+#   set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CPP_CMAKE_MODULES})
+# endif()
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake_modules)
+# set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake_modules)
+
+# Get find_package(Arrow) by setting Arrow_DIR to CPP interface ArrowConfig.cmake
+# TODO: Make sure this works on all platforms submitting
+set(CMAKE_PREFIX_PATH "${ARROW_HOME}/lib/cmake/Arrow")
 
 # Multi-Configuration generators (e.g. Visual Studio or XCode) place their build artifacts
 # in a subdirectory named ${CMAKE_BUILD_TYPE} by default, where ${CMAKE_BUILD_TYPE} varies
@@ -323,16 +327,22 @@ target_include_directories(mexcall PRIVATE ${CPP_SOURCE_DIR})
 if(WIN32)
 	get_target_property(ARROW_LINK_LIB arrow_shared IMPORTED_IMPLIB)
 else()
-	# On Linux and macOS, it is the arrow.dll in the newly built arrow_shared library used for linking.
+	# On Linux and macOS, it is the arrow.so/dylib in the newly built arrow_shared library used for linking.
 	# This is available in IMPORTED_LOCATION.
-	get_target_property(ARROW_LINK_LIB arrow_shared IMPORTED_LOCATION)
+  # TODO: Why does this not return a value? Returns NOT-FOUND
+	# get_target_property(ARROW_LINK_LIB arrow_shared IMPORTED_LOCATION)
+  # message(STATUS "**************** ARROW_SHARED_LIB: ${ARROW_SHARED_LIB}")
+
+  set(ARROW_LINK_LIB "${ARROW_SHARED_LIB}")
 endif()
 get_target_property(ARROW_INCLUDE_DIR arrow_shared INTERFACE_INCLUDE_DIRECTORIES)
+
+
 
 set(CUSTOM_PROXY_FACTORY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy;${CMAKE_SOURCE_DIR}/src/cpp")
 set(CUSTOM_PROXY_FACTORY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy/CustomProxyFactory.cc")
 set(CUSTOM_PROXY_SOURCES_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy")
-set(CUSTOM_PROXY_SOURCES "${CUSTOM_PROXY_SOURCES_DIR}/array/double_array_proxy.cc")
+set(CUSTOM_PROXY_SOURCES "${CUSTOM_PROXY_SOURCES_DIR}/array/double_array_proxy.cc" "${CUSTOM_PROXY_SOURCES_DIR}/array/uint64_array_proxy.cc")
 set(CUSTOM_PROXY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp;${ARROW_INCLUDE_DIR}")
 set(CUSTOM_PROXY_LINK_LIBRARIES ${ARROW_LINK_LIB})
 
