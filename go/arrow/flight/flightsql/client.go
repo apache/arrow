@@ -85,6 +85,17 @@ func schemaForCommand(ctx context.Context, cl *Client, cmd proto.Message, opts .
 	return cl.getSchema(ctx, desc, opts...)
 }
 
+func packAction(actionType string, msg proto.Message) (action pb.Action, err error) {
+	var cmd anypb.Any
+
+	if err = cmd.MarshalFrom(msg); err != nil {
+		return
+	}
+	action.Type = actionType
+	action.Body, err = proto.Marshal(&cmd)
+	return
+}
+
 // Execute executes the desired query on the server and returns a FlightInfo
 // object describing where to retrieve the results.
 func (c *Client) Execute(ctx context.Context, query string, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
@@ -99,6 +110,18 @@ func (c *Client) GetExecuteSchema(ctx context.Context, query string, opts ...grp
 	return schemaForCommand(ctx, c, &cmd, opts...)
 }
 
+func (c *Client) ExecuteSubstrait(ctx context.Context, plan SubstraitPlan, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
+	cmd := pb.CommandStatementSubstraitPlan{
+		Plan: &pb.SubstraitPlan{Plan: plan.Plan, Version: plan.Version}}
+	return flightInfoForCommand(ctx, c, &cmd, opts...)
+}
+
+func (c *Client) GetExecuteSubstraitSchema(ctx context.Context, plan SubstraitPlan, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	cmd := pb.CommandStatementSubstraitPlan{
+		Plan: &pb.SubstraitPlan{Plan: plan.Plan, Version: plan.Version}}
+	return schemaForCommand(ctx, c, &cmd, opts...)
+}
+
 // ExecuteUpdate is for executing an update query and only returns the number of affected rows.
 func (c *Client) ExecuteUpdate(ctx context.Context, query string, opts ...grpc.CallOption) (n int64, err error) {
 	var (
@@ -110,6 +133,44 @@ func (c *Client) ExecuteUpdate(ctx context.Context, query string, opts ...grpc.C
 	)
 
 	cmd.Query = query
+	if desc, err = descForCommand(&cmd); err != nil {
+		return
+	}
+
+	if stream, err = c.Client.DoPut(ctx, opts...); err != nil {
+		return
+	}
+
+	if err = stream.Send(&flight.FlightData{FlightDescriptor: desc}); err != nil {
+		return
+	}
+
+	if err = stream.CloseSend(); err != nil {
+		return
+	}
+
+	if res, err = stream.Recv(); err != nil {
+		return
+	}
+
+	if err = proto.Unmarshal(res.GetAppMetadata(), &updateResult); err != nil {
+		return
+	}
+
+	return updateResult.GetRecordCount(), nil
+}
+
+func (c *Client) ExecuteSubstraitUpdate(ctx context.Context, plan SubstraitPlan, opts ...grpc.CallOption) (n int64, err error) {
+	var (
+		desc         *flight.FlightDescriptor
+		stream       pb.FlightService_DoPutClient
+		res          *pb.PutResult
+		updateResult pb.DoPutUpdateResult
+	)
+
+	cmd := pb.CommandStatementSubstraitPlan{
+		Plan: &pb.SubstraitPlan{Plan: plan.Plan, Version: plan.Version}}
+
 	if desc, err = descForCommand(&cmd); err != nil {
 		return
 	}
@@ -305,28 +366,124 @@ func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string
 	const actionType = CreatePreparedStatementActionType
 
 	var (
-		cmd, cmdResult        anypb.Any
-		res                   *pb.Result
-		request               pb.ActionCreatePreparedStatementRequest
-		result                pb.ActionCreatePreparedStatementResult
-		action                pb.Action
-		stream                pb.FlightService_DoActionClient
-		dsSchema, paramSchema *arrow.Schema
+		request pb.ActionCreatePreparedStatementRequest
+		action  pb.Action
+		stream  pb.FlightService_DoActionClient
 	)
 
 	request.Query = query
-	if err = cmd.MarshalFrom(&request); err != nil {
-		return
-	}
-
-	action.Type = actionType
-	if action.Body, err = proto.Marshal(&cmd); err != nil {
+	if action, err = packAction(actionType, &request); err != nil {
 		return
 	}
 
 	if stream, err = c.Client.DoAction(ctx, &action, opts...); err != nil {
 		return
 	}
+	defer stream.CloseSend()
+
+	return parsePreparedStatementResponse(c, mem, stream)
+}
+
+func (c *Client) PrepareSubstrait(ctx context.Context, mem memory.Allocator, plan SubstraitPlan, opts ...grpc.CallOption) (stmt *PreparedStatement, err error) {
+	const actionType = CreatePreparedSubstraitPlanActionType
+
+	var (
+		request pb.ActionCreatePreparedSubstraitPlanRequest
+		action  pb.Action
+		stream  pb.FlightService_DoActionClient
+	)
+
+	request.Plan = &pb.SubstraitPlan{
+		Plan:    plan.Plan,
+		Version: plan.Version,
+	}
+	if action, err = packAction(actionType, &request); err != nil {
+		return
+	}
+
+	if stream, err = c.Client.DoAction(ctx, &action, opts...); err != nil {
+		return
+	}
+	defer stream.CloseSend()
+
+	return parsePreparedStatementResponse(c, mem, stream)
+}
+
+func parsePreparedStatementResponse(c *Client, mem memory.Allocator, results pb.FlightService_DoActionClient) (*PreparedStatement, error) {
+	res, err := results.Recv()
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		container             anypb.Any
+		message               pb.ActionCreatePreparedStatementResult
+		dsSchema, paramSchema *arrow.Schema
+	)
+	if err = proto.Unmarshal(res.Body, &container); err != nil {
+		return nil, err
+	}
+
+	if err = container.UnmarshalTo(&message); err != nil {
+		return nil, err
+	}
+
+	if message.DatasetSchema != nil {
+		dsSchema, err = flight.DeserializeSchema(message.DatasetSchema, mem)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if message.ParameterSchema != nil {
+		paramSchema, err = flight.DeserializeSchema(message.ParameterSchema, mem)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &PreparedStatement{
+		client:        c,
+		handle:        message.PreparedStatementHandle,
+		datasetSchema: dsSchema,
+		paramSchema:   paramSchema,
+	}, nil
+}
+
+func (c *Client) getFlightInfo(ctx context.Context, desc *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
+	return c.Client.GetFlightInfo(ctx, desc, opts...)
+}
+
+func (c *Client) getSchema(ctx context.Context, desc *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	return c.Client.GetSchema(ctx, desc, opts...)
+}
+
+// Close will close the underlying flight Client in use by this flightsql.Client
+func (c *Client) Close() error { return c.Client.Close() }
+
+func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts ...grpc.CallOption) (cancelResult CancelResult, err error) {
+	const actionType = CancelQueryActionType
+
+	var (
+		req       pb.ActionCancelQueryRequest
+		result    pb.ActionCancelQueryResult
+		action    pb.Action
+		stream    pb.FlightService_DoActionClient
+		cmdResult anypb.Any
+		res       *pb.Result
+	)
+
+	if req.Info, err = proto.Marshal(info); err != nil {
+		return
+	}
+
+	if action, err = packAction(actionType, &req); err != nil {
+		return
+	}
+
+	if stream, err = c.Client.DoAction(ctx, &action, opts...); err != nil {
+		return
+	}
+	defer stream.CloseSend()
 
 	if res, err = stream.Recv(); err != nil {
 		return
@@ -340,38 +497,9 @@ func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string
 		return
 	}
 
-	if result.DatasetSchema != nil {
-		dsSchema, err = flight.DeserializeSchema(result.DatasetSchema, mem)
-		if err != nil {
-			return
-		}
-	}
-	if result.ParameterSchema != nil {
-		paramSchema, err = flight.DeserializeSchema(result.ParameterSchema, mem)
-		if err != nil {
-			return
-		}
-	}
-
-	prep = &PreparedStatement{
-		client:        c,
-		handle:        result.PreparedStatementHandle,
-		datasetSchema: dsSchema,
-		paramSchema:   paramSchema,
-	}
+	cancelResult = result.GetResult()
 	return
 }
-
-func (c *Client) getFlightInfo(ctx context.Context, desc *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
-	return c.Client.GetFlightInfo(ctx, desc, opts...)
-}
-
-func (c *Client) getSchema(ctx context.Context, desc *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
-	return c.Client.GetSchema(ctx, desc, opts...)
-}
-
-// Close will close the underlying flight Client in use by this flightsql.Client
-func (c *Client) Close() error { return c.Client.Close() }
 
 // PreparedStatement represents a constructed PreparedStatement on the server
 // and maintains a reference to the Client that created it along with the
