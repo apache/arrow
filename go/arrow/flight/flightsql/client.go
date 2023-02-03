@@ -517,6 +517,34 @@ func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts 
 	return
 }
 
+func (c *Client) BeginTransaction(ctx context.Context, opts ...grpc.CallOption) (*Txn, error) {
+	request := &pb.ActionBeginTransactionRequest{}
+	action, err := packAction(BeginTransactionActionType, request)
+	if err != nil {
+		return nil, err
+	}
+
+	stream, err := c.Client.DoAction(ctx, &action, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := stream.CloseSend(); err != nil {
+		return nil, err
+	}
+
+	var txn pb.ActionBeginTransactionResult
+	if err = readResult(stream, &txn); err != nil {
+		return nil, err
+	}
+
+	if len(txn.TransactionId) == 0 {
+		return nil, ErrBadServerTxn
+	}
+
+	return &Txn{c: c, txn: txn.TransactionId}, nil
+}
+
 // Savepoint is a handle for a server-side savepoint
 type Savepoint []byte
 
@@ -528,14 +556,18 @@ type Transaction []byte
 func (tx Transaction) IsValid() bool { return len(tx) != 0 }
 
 var (
-	ErrInvalidTxn       = fmt.Errorf("%w: missing a valid transaction", arrow.ErrInvalid)
-	ErrInvalidSavepoint = fmt.Errorf("%w: server returned an empty savepoint ID", arrow.ErrInvalid)
+	ErrInvalidTxn         = fmt.Errorf("%w: missing a valid transaction", arrow.ErrInvalid)
+	ErrInvalidSavepoint   = fmt.Errorf("%w: missing a valid savepoint", arrow.ErrInvalid)
+	ErrBadServerTxn       = fmt.Errorf("%w: server returned an empty transaction ID", arrow.ErrInvalid)
+	ErrBadServerSavepoint = fmt.Errorf("%w: server returned an empty savepoint ID", arrow.ErrInvalid)
 )
 
 type Txn struct {
 	c   *Client
 	txn Transaction
 }
+
+func (tx *Txn) ID() Transaction { return tx.txn }
 
 func (tx *Txn) Execute(ctx context.Context, query string, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	if !tx.txn.IsValid() {
@@ -806,18 +838,68 @@ func (tx *Txn) BeginSavepoint(ctx context.Context, name string, opts ...grpc.Cal
 	}
 
 	if len(savepoint.SavepointId) == 0 {
-		return nil, ErrInvalidSavepoint
+		return nil, ErrBadServerSavepoint
 	}
 
 	return Savepoint(savepoint.SavepointId), nil
 }
 
 func (tx *Txn) ReleaseSavepoint(ctx context.Context, sp Savepoint, opts ...grpc.CallOption) error {
-	return nil
+	if !sp.IsValid() {
+		return ErrInvalidSavepoint
+	}
+
+	request := &pb.ActionEndSavepointRequest{
+		SavepointId: sp,
+		Action:      EndSavepointRelease,
+	}
+
+	action, err := packAction(EndSavepointActionType, request)
+	if err != nil {
+		return err
+	}
+
+	stream, err := tx.c.Client.DoAction(ctx, &action, opts...)
+	if err != nil {
+		return err
+	}
+
+	if err := stream.CloseSend(); err != nil {
+		return err
+	}
+
+	tx.txn = nil
+	_, err = stream.Recv()
+	return err
 }
 
 func (tx *Txn) RollbackSavepoint(ctx context.Context, sp Savepoint, opts ...grpc.CallOption) error {
-	return nil
+	if !sp.IsValid() {
+		return ErrInvalidSavepoint
+	}
+
+	request := &pb.ActionEndSavepointRequest{
+		SavepointId: sp,
+		Action:      EndSavepointRollback,
+	}
+
+	action, err := packAction(EndSavepointActionType, request)
+	if err != nil {
+		return err
+	}
+
+	stream, err := tx.c.Client.DoAction(ctx, &action, opts...)
+	if err != nil {
+		return err
+	}
+
+	if err := stream.CloseSend(); err != nil {
+		return err
+	}
+
+	tx.txn = nil
+	_, err = stream.Recv()
+	return err
 }
 
 // PreparedStatement represents a constructed PreparedStatement on the server
