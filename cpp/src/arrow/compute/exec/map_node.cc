@@ -36,7 +36,8 @@ namespace compute {
 MapNode::MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                  std::shared_ptr<Schema> output_schema)
     : ExecNode(plan, std::move(inputs), /*input_labels=*/{"target"},
-               std::move(output_schema)) {}
+               std::move(output_schema)),
+      TracedNode(this) {}
 
 Status MapNode::InputFinished(ExecNode* input, int total_batches) {
   DCHECK_EQ(input, inputs_[0]);
