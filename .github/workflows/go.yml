@@ -362,7 +362,7 @@ jobs:
           cache: true
           cache-dependency-path: go/go.sum
       - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+        run: go install honnef.co/go/tools/cmd/staticcheck@v0.3.3
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh $(pwd)
