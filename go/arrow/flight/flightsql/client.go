@@ -19,6 +19,7 @@ package flightsql
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/apache/arrow/go/v12/arrow"
@@ -94,6 +95,21 @@ func packAction(actionType string, msg proto.Message) (action pb.Action, err err
 	action.Type = actionType
 	action.Body, err = proto.Marshal(&cmd)
 	return
+}
+
+func readResult(stream pb.FlightService_DoActionClient, msg proto.Message) error {
+	var container anypb.Any
+
+	res, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+
+	if err = proto.Unmarshal(res.Body, &container); err != nil {
+		return err
+	}
+
+	return container.UnmarshalTo(msg)
 }
 
 // Execute executes the desired query on the server and returns a FlightInfo
@@ -362,7 +378,7 @@ func (c *Client) GetSqlInfoSchema(ctx context.Context, opts ...grpc.CallOption) 
 // The resulting PreparedStatement object should be Closed when no longer
 // needed. It will maintain a reference to this Client for use to execute
 // and use the specified allocator for any allocations it needs to perform.
-func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string, opts ...grpc.CallOption) (prep *PreparedStatement, err error) {
+func (c *Client) Prepare(ctx context.Context, query string, opts ...grpc.CallOption) (prep *PreparedStatement, err error) {
 	const actionType = CreatePreparedStatementActionType
 
 	var (
@@ -381,10 +397,10 @@ func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string
 	}
 	defer stream.CloseSend()
 
-	return parsePreparedStatementResponse(c, mem, stream)
+	return parsePreparedStatementResponse(c, c.Alloc, stream)
 }
 
-func (c *Client) PrepareSubstrait(ctx context.Context, mem memory.Allocator, plan SubstraitPlan, opts ...grpc.CallOption) (stmt *PreparedStatement, err error) {
+func (c *Client) PrepareSubstrait(ctx context.Context, plan SubstraitPlan, opts ...grpc.CallOption) (stmt *PreparedStatement, err error) {
 	const actionType = CreatePreparedSubstraitPlanActionType
 
 	var (
@@ -406,7 +422,7 @@ func (c *Client) PrepareSubstrait(ctx context.Context, mem memory.Allocator, pla
 	}
 	defer stream.CloseSend()
 
-	return parsePreparedStatementResponse(c, mem, stream)
+	return parsePreparedStatementResponse(c, c.Alloc, stream)
 }
 
 func parsePreparedStatementResponse(c *Client, mem memory.Allocator, results pb.FlightService_DoActionClient) (*PreparedStatement, error) {
@@ -499,6 +515,309 @@ func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts 
 
 	cancelResult = result.GetResult()
 	return
+}
+
+// Savepoint is a handle for a server-side savepoint
+type Savepoint []byte
+
+func (sp Savepoint) IsValid() bool { return len(sp) != 0 }
+
+// Transaction is a handle for a server-side transaction
+type Transaction []byte
+
+func (tx Transaction) IsValid() bool { return len(tx) != 0 }
+
+var (
+	ErrInvalidTxn       = fmt.Errorf("%w: missing a valid transaction", arrow.ErrInvalid)
+	ErrInvalidSavepoint = fmt.Errorf("%w: server returned an empty savepoint ID", arrow.ErrInvalid)
+)
+
+type Txn struct {
+	c   *Client
+	txn Transaction
+}
+
+func (tx *Txn) Execute(ctx context.Context, query string, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
+	if !tx.txn.IsValid() {
+		return nil, ErrInvalidTxn
+	}
+	cmd := &pb.CommandStatementQuery{Query: query, TransactionId: tx.txn}
+	return flightInfoForCommand(ctx, tx.c, cmd, opts...)
+}
+
+func (tx *Txn) ExecuteSubstrait(ctx context.Context, plan SubstraitPlan, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
+	if !tx.txn.IsValid() {
+		return nil, ErrInvalidTxn
+	}
+	cmd := &pb.CommandStatementSubstraitPlan{
+		Plan:          &pb.SubstraitPlan{Plan: plan.Plan, Version: plan.Version},
+		TransactionId: tx.txn}
+	return flightInfoForCommand(ctx, tx.c, cmd, opts...)
+}
+
+func (tx *Txn) GetExecuteSchema(ctx context.Context, query string, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	if !tx.txn.IsValid() {
+		return nil, ErrInvalidTxn
+	}
+	cmd := &pb.CommandStatementQuery{Query: query, TransactionId: tx.txn}
+	return schemaForCommand(ctx, tx.c, cmd, opts...)
+}
+
+func (tx *Txn) GetExecuteSubstraitSchema(ctx context.Context, plan SubstraitPlan, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	if !tx.txn.IsValid() {
+		return nil, ErrInvalidTxn
+	}
+	cmd := &pb.CommandStatementSubstraitPlan{
+		Plan:          &pb.SubstraitPlan{Plan: plan.Plan, Version: plan.Version},
+		TransactionId: tx.txn}
+	return schemaForCommand(ctx, tx.c, cmd, opts...)
+}
+
+func (tx *Txn) ExecuteUpdate(ctx context.Context, query string, opts ...grpc.CallOption) (n int64, err error) {
+	if !tx.txn.IsValid() {
+		return 0, ErrInvalidTxn
+	}
+
+	var (
+		cmd = &pb.CommandStatementUpdate{
+			Query:         query,
+			TransactionId: tx.txn,
+		}
+		desc         *flight.FlightDescriptor
+		stream       pb.FlightService_DoPutClient
+		res          *pb.PutResult
+		updateResult pb.DoPutUpdateResult
+	)
+	if desc, err = descForCommand(cmd); err != nil {
+		return
+	}
+
+	if stream, err = tx.c.Client.DoPut(ctx, opts...); err != nil {
+		return
+	}
+
+	if err = stream.Send(&flight.FlightData{FlightDescriptor: desc}); err != nil {
+		return
+	}
+
+	if err = stream.CloseSend(); err != nil {
+		return
+	}
+
+	if res, err = stream.Recv(); err != nil {
+		return
+	}
+
+	if err = proto.Unmarshal(res.GetAppMetadata(), &updateResult); err != nil {
+		return
+	}
+
+	return updateResult.GetRecordCount(), nil
+}
+
+func (tx *Txn) ExecuteSubstraitUpdate(ctx context.Context, plan SubstraitPlan, opts ...grpc.CallOption) (n int64, err error) {
+	if !tx.txn.IsValid() {
+		return 0, ErrInvalidTxn
+	}
+
+	var (
+		desc         *flight.FlightDescriptor
+		stream       pb.FlightService_DoPutClient
+		res          *pb.PutResult
+		updateResult pb.DoPutUpdateResult
+	)
+
+	cmd := pb.CommandStatementSubstraitPlan{
+		Plan:          &pb.SubstraitPlan{Plan: plan.Plan, Version: plan.Version},
+		TransactionId: tx.txn,
+	}
+
+	if desc, err = descForCommand(&cmd); err != nil {
+		return
+	}
+
+	if stream, err = tx.c.Client.DoPut(ctx, opts...); err != nil {
+		return
+	}
+
+	if err = stream.Send(&flight.FlightData{FlightDescriptor: desc}); err != nil {
+		return
+	}
+
+	if err = stream.CloseSend(); err != nil {
+		return
+	}
+
+	if res, err = stream.Recv(); err != nil {
+		return
+	}
+
+	if err = proto.Unmarshal(res.GetAppMetadata(), &updateResult); err != nil {
+		return
+	}
+
+	return updateResult.GetRecordCount(), nil
+}
+
+func (tx *Txn) Prepare(ctx context.Context, query string, opts ...grpc.CallOption) (prep *PreparedStatement, err error) {
+	if !tx.txn.IsValid() {
+		return nil, ErrInvalidTxn
+	}
+
+	const actionType = CreatePreparedStatementActionType
+
+	var (
+		request = pb.ActionCreatePreparedStatementRequest{
+			Query:         query,
+			TransactionId: tx.txn,
+		}
+		action pb.Action
+		stream pb.FlightService_DoActionClient
+	)
+
+	if action, err = packAction(actionType, &request); err != nil {
+		return
+	}
+
+	if stream, err = tx.c.Client.DoAction(ctx, &action, opts...); err != nil {
+		return
+	}
+	defer stream.CloseSend()
+
+	return parsePreparedStatementResponse(tx.c, tx.c.Alloc, stream)
+}
+
+func (tx *Txn) PrepareSubstrait(ctx context.Context, plan SubstraitPlan, opts ...grpc.CallOption) (stmt *PreparedStatement, err error) {
+	if !tx.txn.IsValid() {
+		return nil, ErrInvalidTxn
+	}
+
+	const actionType = CreatePreparedSubstraitPlanActionType
+
+	var (
+		request = pb.ActionCreatePreparedSubstraitPlanRequest{
+			TransactionId: tx.txn,
+			Plan: &pb.SubstraitPlan{
+				Plan:    plan.Plan,
+				Version: plan.Version,
+			},
+		}
+		action pb.Action
+		stream pb.FlightService_DoActionClient
+	)
+
+	if action, err = packAction(actionType, &request); err != nil {
+		return
+	}
+
+	if stream, err = tx.c.Client.DoAction(ctx, &action, opts...); err != nil {
+		return
+	}
+	defer stream.CloseSend()
+
+	return parsePreparedStatementResponse(tx.c, tx.c.Alloc, stream)
+}
+
+func (tx *Txn) Commit(ctx context.Context, opts ...grpc.CallOption) error {
+	if !tx.txn.IsValid() {
+		return ErrInvalidTxn
+	}
+
+	request := &pb.ActionEndTransactionRequest{
+		TransactionId: tx.txn,
+		Action:        EndTransactionCommit,
+	}
+
+	action, err := packAction(EndTransactionActionType, request)
+	if err != nil {
+		return err
+	}
+
+	stream, err := tx.c.Client.DoAction(ctx, &action, opts...)
+	if err != nil {
+		return err
+	}
+
+	if err := stream.CloseSend(); err != nil {
+		return err
+	}
+
+	tx.txn = nil
+	_, err = stream.Recv()
+	return err
+}
+
+func (tx *Txn) Rollback(ctx context.Context, opts ...grpc.CallOption) error {
+	if !tx.txn.IsValid() {
+		return ErrInvalidTxn
+	}
+
+	request := &pb.ActionEndTransactionRequest{
+		TransactionId: tx.txn,
+		Action:        EndTransactionRollback,
+	}
+
+	action, err := packAction(EndTransactionActionType, request)
+	if err != nil {
+		return err
+	}
+
+	stream, err := tx.c.Client.DoAction(ctx, &action, opts...)
+	if err != nil {
+		return err
+	}
+
+	if err := stream.CloseSend(); err != nil {
+		return err
+	}
+
+	tx.txn = nil
+	_, err = stream.Recv()
+	return err
+}
+
+func (tx *Txn) BeginSavepoint(ctx context.Context, name string, opts ...grpc.CallOption) (Savepoint, error) {
+	if !tx.txn.IsValid() {
+		return nil, ErrInvalidTxn
+	}
+
+	request := &pb.ActionBeginSavepointRequest{
+		TransactionId: tx.txn,
+		Name:          name,
+	}
+
+	action, err := packAction(BeginSavepointActionType, request)
+	if err != nil {
+		return nil, err
+	}
+
+	stream, err := tx.c.Client.DoAction(ctx, &action, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := stream.CloseSend(); err != nil {
+		return nil, err
+	}
+
+	var savepoint pb.ActionBeginSavepointResult
+	if err = readResult(stream, &savepoint); err != nil {
+		return nil, err
+	}
+
+	if len(savepoint.SavepointId) == 0 {
+		return nil, ErrInvalidSavepoint
+	}
+
+	return Savepoint(savepoint.SavepointId), nil
+}
+
+func (tx *Txn) ReleaseSavepoint(ctx context.Context, sp Savepoint, opts ...grpc.CallOption) error {
+	return nil
+}
+
+func (tx *Txn) RollbackSavepoint(ctx context.Context, sp Savepoint, opts ...grpc.CallOption) error {
+	return nil
 }
 
 // PreparedStatement represents a constructed PreparedStatement on the server

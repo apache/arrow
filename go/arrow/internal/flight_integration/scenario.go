@@ -852,7 +852,7 @@ func (m *flightSqlScenarioTester) ValidateStatementExecution(client *flightsql.C
 
 func (m *flightSqlScenarioTester) ValidatePreparedStatementExecution(client *flightsql.Client) error {
 	ctx := context.Background()
-	prepared, err := client.Prepare(ctx, memory.DefaultAllocator, "SELECT PREPARED STATEMENT")
+	prepared, err := client.Prepare(ctx, "SELECT PREPARED STATEMENT")
 	if err != nil {
 		return err
 	}
@@ -881,7 +881,7 @@ func (m *flightSqlScenarioTester) ValidatePreparedStatementExecution(client *fli
 		return err
 	}
 
-	updatePrepared, err := client.Prepare(ctx, memory.DefaultAllocator, "UPDATE PREPARED STATEMENT")
+	updatePrepared, err := client.Prepare(ctx, "UPDATE PREPARED STATEMENT")
 	if err != nil {
 		return err
 	}
@@ -1623,7 +1623,7 @@ func (m *flightSqlExtensionScenarioTester) ValidatePreparedStatementExecution(cl
 	defer params.Release()
 
 	ctx := context.Background()
-	stmt, err := client.PrepareSubstrait(ctx, memory.DefaultAllocator, substraitPlan)
+	stmt, err := client.PrepareSubstrait(ctx, substraitPlan)
 	if err != nil {
 		return err
 	}
@@ -1651,7 +1651,7 @@ func (m *flightSqlExtensionScenarioTester) ValidatePreparedStatementExecution(cl
 		return err
 	}
 
-	updateStmt, err := client.PrepareSubstrait(ctx, memory.DefaultAllocator, substraitPlan)
+	updateStmt, err := client.PrepareSubstrait(ctx, substraitPlan)
 	if err != nil {
 		return err
 	}
