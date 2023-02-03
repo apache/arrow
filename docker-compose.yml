@@ -877,11 +877,7 @@ services:
     #   docker-compose build ubuntu-swift
     #   docker-compose run --rm ubuntu-swift
     # Parameters:
-    #   ARCH: amd64, arm64v8, ...
-    image: ${REPO}:${ARCH}-ubuntu-swift
-    build:
-      context: .
-      dockerfile: ci/docker/ubuntu-swift.dockerfile
+    image: swift:5.7.3
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     command: >
