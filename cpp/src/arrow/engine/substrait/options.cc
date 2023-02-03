@@ -66,7 +66,7 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     if (rel.Is<substrait_ext::AsOfJoinRel>()) {
       substrait_ext::AsOfJoinRel as_of_join_rel;
       rel.UnpackTo(&as_of_join_rel);
-      return MakeAsOfJoinRel(conv_opts, inputs, as_of_join_rel, ext_set);
+      return MakeAsOfJoinRel(inputs, as_of_join_rel, ext_set);
     }
     if (rel.Is<substrait_ext::NamedTapRel>()) {
       substrait_ext::NamedTapRel named_tap_rel;
@@ -78,8 +78,7 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
   }
 
  private:
-  Result<RelationInfo> MakeAsOfJoinRel(const ConversionOptions& conv_opts,
-                                       const std::vector<DeclarationInfo>& inputs,
+  Result<RelationInfo> MakeAsOfJoinRel(const std::vector<DeclarationInfo>& inputs,
                                        const substrait_ext::AsOfJoinRel& as_of_join_rel,
                                        const ExtensionSet& ext_set) {
     if (inputs.size() < 2) {
