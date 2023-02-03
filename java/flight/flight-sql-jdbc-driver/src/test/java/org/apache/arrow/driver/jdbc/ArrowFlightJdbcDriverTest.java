@@ -185,6 +185,36 @@ public class ArrowFlightJdbcDriverTest {
   }
 
   @Test
+  public void testHistory() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    Properties props = new Properties();
+    props.setProperty("user", "admin");
+    props.setProperty("password", "password");
+    props.setProperty("useEncryption", "false");
+    String conString = "jdbc:arrow-flight://127.0.0.1:50060";
+    try (Connection con = driver.connect(conString, props); Statement stmt = con.createStatement()) {
+      try {
+        stmt.execute("create table history (\n" +
+                "h_c_id int,\n" +
+                "h_date timestamp,\n" +
+                "h_amount float,\n" +
+                "h_data varchar,\n" +
+                "PRIMARY KEY(h_c_id)\n" +
+                ");");
+      } catch (Exception ignored) {}
+      String sql = "INSERT INTO history(h_c_id, h_date, h_amount, h_data) VALUES($1, $2, $3, $4)";
+      try(PreparedStatement ps = con.prepareStatement(sql)) {
+        ps.setInt(1, 1);
+        ps.setString(2, "2023-02-03 12:31:00.16");
+        ps.setFloat(3, 1.0f);
+        ps.setString(4, "test");
+        ResultSet rs = ps.executeQuery();
+        assertNotNull(rs);
+      }
+    }
+  }
+
+  @Test
   public void testCustomer() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
     Properties props = new Properties();
