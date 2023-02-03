@@ -980,7 +980,7 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 		var (
 			request pb.ActionCancelQueryRequest
 			result  pb.ActionCancelQueryResult
-			info    *flight.FlightInfo
+			info    flight.FlightInfo
 			err     error
 		)
 
@@ -988,11 +988,11 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 			return status.Errorf(codes.InvalidArgument, "unable to unmarshal google.protobuf.Any: %s", err.Error())
 		}
 
-		if err = proto.Unmarshal(request.Info, info); err != nil {
+		if err = proto.Unmarshal(request.Info, &info); err != nil {
 			return status.Errorf(codes.InvalidArgument, "unable to unmarshal FlightInfo for CancelQuery: %s", err)
 		}
 
-		if result.Result, err = f.srv.CancelQuery(stream.Context(), &cancelQueryRequest{info}); err != nil {
+		if result.Result, err = f.srv.CancelQuery(stream.Context(), &cancelQueryRequest{&info}); err != nil {
 			return err
 		}
 

@@ -1005,11 +1005,11 @@ func (m *flightSqlScenarioTester) DoGetStatement(ctx context.Context, cmd flight
 	switch string(cmd.GetStatementHandle()) {
 	case "SELECT STATEMENT HANDLE", "PLAN HANDLE":
 		return getQuerySchema(), m.doGetForTestCase(getQuerySchema()), nil
-	case "SELECT PREPARED STATEMENT WITH TXN HANDLE", "PLAN WITH TXN HANDLE":
+	case "SELECT STATEMENT WITH TXN HANDLE", "PLAN WITH TXN HANDLE":
 		return getQueryWithTransactionSchema(), m.doGetForTestCase(getQueryWithTransactionSchema()), nil
 	}
 
-	return nil, nil, fmt.Errorf("%w: unknown handle", arrow.ErrInvalid)
+	return nil, nil, fmt.Errorf("%w: unknown handle %s", arrow.ErrInvalid, string(cmd.GetStatementHandle()))
 }
 
 func (m *flightSqlScenarioTester) GetFlightInfoPreparedStatement(_ context.Context, cmd flightsql.PreparedStatementQuery, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
@@ -1745,7 +1745,7 @@ func (m *flightSqlExtensionScenarioTester) ValidateTransactions(client *flightsq
 
 	arr, _, _ := array.FromJSON(memory.DefaultAllocator, arrow.PrimitiveTypes.Int64, strings.NewReader("[1]"))
 	defer arr.Release()
-	params := array.NewRecord(QuerySchema, []arrow.Array{arr}, 1)
+	params := array.NewRecord(getQuerySchema(), []arrow.Array{arr}, 1)
 	defer params.Release()
 
 	prepared, err := txn.Prepare(ctx, "SELECT PREPARED STATEMENT")

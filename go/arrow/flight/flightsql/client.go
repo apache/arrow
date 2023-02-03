@@ -868,7 +868,6 @@ func (tx *Txn) ReleaseSavepoint(ctx context.Context, sp Savepoint, opts ...grpc.
 		return err
 	}
 
-	tx.txn = nil
 	_, err = stream.Recv()
 	return err
 }
@@ -897,7 +896,6 @@ func (tx *Txn) RollbackSavepoint(ctx context.Context, sp Savepoint, opts ...grpc
 		return err
 	}
 
-	tx.txn = nil
 	_, err = stream.Recv()
 	return err
 }
