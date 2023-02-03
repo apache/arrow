@@ -35,7 +35,6 @@
 
 namespace arrow {
 namespace compute {
-
 struct BenchmarkSettings {
   int num_threads = 1;
   JoinType join_type = JoinType::INNER;
