@@ -36,6 +36,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/mutex.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/type_fwd.h"
 
 #if defined(__clang__) || defined(__GNUC__)
 #define BYTESWAP(x) __builtin_bswap64(x)
@@ -56,15 +57,6 @@
 #endif
 
 namespace arrow {
-
-namespace internal {
-namespace tracing {
-
-struct Scope;
-
-}  // namespace tracing
-}  // namespace internal
-
 namespace util {
 
 template <typename T>
@@ -241,8 +233,6 @@ class bit_util {
 
 }  // namespace util
 namespace compute {
-
-class ExecNode;
 
 ARROW_EXPORT
 Status ValidateExecNodeInputs(ExecPlan* plan, const std::vector<ExecNode*>& inputs,
