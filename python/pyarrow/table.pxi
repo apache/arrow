@@ -4726,7 +4726,29 @@ cdef class Table(_PandasConvertible):
         return table
 
     def drop(self, columns):
-        """Alias of Table.drop_columns, but kept for backwards compatibility."""
+        """
+        Drop one or more columns and return a new table.
+
+        Alias of Table.drop_columns, but kept for backwards compatibility.
+
+        Parameters
+        ----------
+        columns : str or list[str]
+            Field name(s) referencing existing column(s).
+
+        Raises
+        ------
+        KeyError
+            If any of the passed column names do not exist.
+
+        Returns
+        -------
+        Table
+            New table without the column(s).
+        """
+        import warnings
+        warnings.warn(
+            'Table.drop is deprecated, use Table.drop_columns', FutureWarning)
         return self.drop_columns(columns)
 
     def group_by(self, keys):
