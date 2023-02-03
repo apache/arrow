@@ -207,6 +207,7 @@ read_delim_arrow <- function(file,
 
   if (inherits(file, "AsIs")) {
     if (is.raw(file)) {
+      # If a raw vector is wrapped by `I()`, we need to unclass the `AsIs` class to read the raw vector.
       file <- unclass(file)
     } else {
       file <- charToRaw(paste(file, collapse = "\n"))
