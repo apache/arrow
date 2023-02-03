@@ -246,11 +246,24 @@ func (g grpcCredentials) RequireTransportSecurity() bool {
 }
 
 type Driver struct {
-	client *Client
+	addr    string
+	options []grpc.DialOption
+	client  *Client
 }
 
 // Open returns a new connection to the database.
 func (d *Driver) Open(name string) (driver.Conn, error) {
+	if _, err := d.OpenConnector(name); err != nil {
+		return nil, err
+	}
+
+	ctx := context.Background()
+	return d.Connect(ctx)
+}
+
+// OpenConnector must parse the name in the same format that Driver.Open
+// parses the name parameter.
+func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
 	u, err := url.Parse(name)
 	if err != nil {
 		return nil, err
@@ -277,14 +290,14 @@ func (d *Driver) Open(name string) (driver.Conn, error) {
 	if _, set := u.User.Password(); set {
 		return nil, fmt.Errorf("invalid DSN %q; has to follow pattern %q", name, dsnPattern)
 	}
-	addr := u.Host
+	d.addr = u.Host
 	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 	if len(parts) != 1 || parts[0] == "" {
 		return nil, fmt.Errorf("invalid path in DSN; has to follow pattern %q", dsnPattern)
 	}
 	bucket := parts[0]
 
-	options := []grpc.DialOption{
+	d.options = []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
 		grpc.WithPerRPCCredentials(grpcCredentials{token: token, bucketName: bucket}),
 		grpc.WithBlock(),
@@ -299,12 +312,24 @@ func (d *Driver) Open(name string) (driver.Conn, error) {
 		ctx, _ = context.WithTimeout(ctx, timeout)
 	}
 
-	d.client, err = NewClientCtx(ctx, addr, nil, nil, options...)
+	return d, nil
+}
+
+// Connect returns a connection to the database.
+func (d *Driver) Connect(ctx context.Context) (driver.Conn, error) {
+	client, err := NewClientCtx(ctx, d.addr, nil, nil, d.options...)
 	if err != nil {
 		return nil, err
 	}
-
+	d.client = client
 	return d, nil
+}
+
+// Driver returns the underlying Driver of the Connector,
+// mainly to maintain compatibility with the Driver method
+// on sql.DB.
+func (d *Driver) Driver() driver.Driver {
+	return d
 }
 
 // Prepare returns a prepared statement, bound to this connection.
@@ -322,9 +347,18 @@ func (d *Driver) Prepare(query string) (driver.Stmt, error) {
 // prepared statements and transactions, marking this
 // connection as no longer in use.
 func (d *Driver) Close() error {
+	d.addr = ""
+	d.options = nil
+	if d.client == nil {
+		return nil
+	}
+
 	// Drivers must ensure all network calls made by Close
 	// do not block indefinitely (e.g. apply a timeout).
-	return d.client.Close()
+	err := d.client.Close()
+	d.client = nil
+
+	return err
 }
 
 // Begin starts and returns a new transaction.
