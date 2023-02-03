@@ -159,6 +159,41 @@ public class ArrowFlightJdbcDriverTest {
     String conString = "jdbc:arrow-flight://127.0.0.1:50060";
     try (Connection con = driver.connect(conString, props); Statement stmt = con.createStatement()) {
       try {
+        stmt.execute("create table warehouse (\n" +
+                "w_id int,\n" +
+                "w_name string,\n" +
+                "w_street_1 string,\n" +
+                "w_street_2 string,\n" +
+                "w_city string,\n" +
+                "w_state string,\n" +
+                "w_zip string,\n" +
+                "w_tax float,\n" +
+                "w_ytd float,\n" +
+                "primary key (w_id)\n" +
+                ");\n");
+      } catch (Exception ignored) {}
+      String sql = "SELECT w_street_1, w_street_2, w_city, w_state, w_zip, w_name FROM warehouse WHERE w_id = $1";
+      try(PreparedStatement ps = con.prepareStatement(sql)) {
+        ParameterMetaData md = ps.getParameterMetaData();
+        assertEquals(1, md.getParameterCount());
+        assertEquals("Int", md.getParameterTypeName(1));
+        ps.setInt(1, 1);
+        ResultSet rs = ps.executeQuery();
+        assertNotNull(rs);
+      }
+    }
+  }
+
+  @Test
+  public void testWarehouse() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    Properties props = new Properties();
+    props.setProperty("user", "admin");
+    props.setProperty("password", "password");
+    props.setProperty("useEncryption", "false");
+    String conString = "jdbc:arrow-flight://127.0.0.1:50060";
+    try (Connection con = driver.connect(conString, props); Statement stmt = con.createStatement()) {
+      try {
         stmt.execute("create table person (id int, name varchar, primary key(id))");
       } catch (Exception ignored) {}
       try(PreparedStatement ps = con.prepareStatement("insert into person (id, name) values ($1, $2)")) {
