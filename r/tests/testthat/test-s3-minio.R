@@ -61,6 +61,11 @@ fs$CreateDir(now)
 # Clean up when we're all done
 withr::defer(fs$DeleteDir(now))
 
+test_that("Confirm s3_bucket works with endpoint_override", {
+  bucket <- s3_bucket(now, endpoint_override = paste0("localhost:", minio_port))
+  expect_r6_class(bucket, "SubTreeFileSystem")
+})
+
 test_filesystem("s3", fs, minio_path, minio_uri)
 
 test_that("CreateDir fails on bucket if allow_bucket_creation=False", {
