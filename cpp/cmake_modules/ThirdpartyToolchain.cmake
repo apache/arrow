@@ -3997,6 +3997,13 @@ if(ARROW_WITH_GRPC)
     else()
       message(FATAL_ERROR "Cannot find grpc++ headers in ${GRPC_INCLUDE_DIR}")
     endif()
+    if(ARROW_USE_ASAN)
+      # Disable ASAN in system gRPC.
+      add_library(gRPC::grpc_asan_suppressed INTERFACE IMPORTED)
+      target_compile_definitions(gRPC::grpc_asan_suppressed
+                                 INTERFACE "GRPC_ASAN_SUPPRESSED")
+      target_link_libraries(gRPC::grpc++ INTERFACE gRPC::grpc_asan_suppressed)
+    endif()
   endif()
 endif()
 
