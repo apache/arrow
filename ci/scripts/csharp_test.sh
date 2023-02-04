@@ -21,14 +21,8 @@ set -ex
 
 source_dir=${1}/csharp
 
-if [ ${DOTNET_VERSION} = '6.0.x' ]; then
-  FRAMEWORK='net6.0'
-elif [ ${DOTNET_VERSION} = '7.0.x' ]; then
-  FRAMEWORK='net7.0'
-fi
-
 pushd ${source_dir}
-dotnet test --framework ${FRAMEWORK}
+dotnet test
 for pdb in artifacts/Apache.Arrow/*/*/Apache.Arrow.pdb; do
   sourcelink test ${pdb}
 done

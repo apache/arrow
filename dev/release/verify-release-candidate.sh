@@ -823,16 +823,7 @@ test_csharp() {
 
   pushd csharp
 
-  # Have to use --list-sdks and not --list-runtimes because the
-  # flight tests use asp net core and it will only run if the SDK
-  # is present
-  if dotnet --list-sdks | grep 6\.0; then
-    dotnet test --framework net6.0
-    TESTS_RUN=1
-  fi
-
-  dotnet test --framework net7.0
-  TESTS_RUN=1
+  dotnet test
 
   if [ "${SOURCE_KIND}" = "local" -o "${SOURCE_KIND}" = "git" ]; then
     dotnet pack -c Release

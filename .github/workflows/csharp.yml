@@ -20,14 +20,14 @@ name: C#
 on:
   push:
     paths:
-      - '.github/workflows/csharp.yml'
-      - 'ci/scripts/csharp_*'
-      - 'csharp/**'
+      - ".github/workflows/csharp.yml"
+      - "ci/scripts/csharp_*"
+      - "csharp/**"
   pull_request:
     paths:
-      - '.github/workflows/csharp.yml'
-      - 'ci/scripts/csharp_*'
-      - 'csharp/**'
+      - ".github/workflows/csharp.yml"
+      - "ci/scripts/csharp_*"
+      - "csharp/**"
 
 concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
@@ -37,7 +37,6 @@ permissions:
   contents: read
 
 jobs:
-
   ubuntu:
     name: AMD64 Ubuntu 18.04 C# ${{ matrix.dotnet }}
     runs-on: ubuntu-latest
@@ -46,13 +45,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['6.0.x', '7.0.x']
+        dotnet: ["7.0.x"]
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v2
         with:
           dotnet-version: |
-            6.0.x
             7.0.x
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -78,13 +76,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['6.0.x', '7.0.x']
+        dotnet: ["7.0.x"]
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v2
         with:
           dotnet-version: |
-            6.0.x
             7.0.x
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -109,13 +106,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['6.0.x', '7.0.x']
+        dotnet: ["7.0.x"]
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v2
         with:
           dotnet-version: |
-            6.0.x
             7.0.x
       - name: Checkout Arrow
         uses: actions/checkout@v3
