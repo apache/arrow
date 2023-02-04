@@ -85,7 +85,7 @@ struct SourceNode : ExecNode, public TracedNode<SourceNode> {
       batch_count_ += num_batches;
     }
     plan_->query_context()->ScheduleTask(
-        [=]() {
+        [=, this]() {
           int64_t offset = 0;
           do {
             int64_t batch_size =
