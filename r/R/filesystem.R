@@ -472,7 +472,7 @@ s3_bucket <- function(bucket, ...) {
     fs <- exec(S3FileSystem$create, !!!args)
   }
   # Return a subtree pointing at that bucket path
-  SubTreeFileSystem$create(fs_and_path$path, fs)
+  SubTreeFileSystem$create(bucket, fs)
 }
 
 #' Connect to a Google Cloud Storage (GCS) bucket
