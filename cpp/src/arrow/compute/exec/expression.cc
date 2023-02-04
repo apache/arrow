@@ -221,7 +221,11 @@ bool Expression::Equals(const Expression& other) const {
   }
 
   if (auto lit = literal()) {
-    return lit->Equals(*other.literal());
+    // The scalar NaN is not equal to the scalar NaN but the literal NaN
+    // is equal to the literal NaN (e.g. the expressions are equal even if
+    // the values are not)
+    EqualOptions equal_options = EqualOptions::Defaults().nans_equal(true);
+    return lit->scalar()->Equals(other.literal()->scalar(), equal_options);
   }
 
   if (auto ref = field_ref()) {
@@ -368,6 +372,158 @@ bool Expression::IsSatisfiable() const {
 
 namespace {
 
+TypeHolder SmallestTypeFor(const arrow::Datum& value) {
+  switch (value.type()->id()) {
+    case Type::INT8:
+      return int8();
+    case Type::UINT8:
+      return uint8();
+    case Type::INT16: {
+      int16_t i16 = value.scalar_as<Int16Scalar>().value;
+      if (i16 <= std::numeric_limits<int8_t>::max() &&
+          i16 >= std::numeric_limits<int8_t>::min()) {
+        return int8();
+      }
+      return int16();
+    }
+    case Type::UINT16: {
+      uint16_t ui16 = value.scalar_as<UInt16Scalar>().value;
+      if (ui16 <= std::numeric_limits<uint8_t>::max()) {
+        return uint8();
+      }
+      return uint16();
+    }
+    case Type::INT32: {
+      int32_t i32 = value.scalar_as<Int32Scalar>().value;
+      if (i32 <= std::numeric_limits<int8_t>::max() &&
+          i32 >= std::numeric_limits<int8_t>::min()) {
+        return int8();
+      }
+      if (i32 <= std::numeric_limits<int16_t>::max() &&
+          i32 >= std::numeric_limits<int16_t>::min()) {
+        return int16();
+      }
+      return int32();
+    }
+    case Type::UINT32: {
+      uint32_t ui32 = value.scalar_as<UInt32Scalar>().value;
+      if (ui32 <= std::numeric_limits<uint8_t>::max()) {
+        return uint8();
+      }
+      if (ui32 <= std::numeric_limits<uint16_t>::max()) {
+        return uint16();
+      }
+      return uint32();
+    }
+    case Type::INT64: {
+      int64_t i64 = value.scalar_as<Int64Scalar>().value;
+      if (i64 <= std::numeric_limits<int8_t>::max() &&
+          i64 >= std::numeric_limits<int8_t>::min()) {
+        return int8();
+      }
+      if (i64 <= std::numeric_limits<int16_t>::max() &&
+          i64 >= std::numeric_limits<int16_t>::min()) {
+        return int16();
+      }
+      if (i64 <= std::numeric_limits<int32_t>::max() &&
+          i64 >= std::numeric_limits<int32_t>::min()) {
+        return int32();
+      }
+      return int64();
+    }
+    case Type::UINT64: {
+      uint64_t ui64 = value.scalar_as<UInt64Scalar>().value;
+      if (ui64 <= std::numeric_limits<uint8_t>::max()) {
+        return uint8();
+      }
+      if (ui64 <= std::numeric_limits<uint16_t>::max()) {
+        return uint16();
+      }
+      if (ui64 <= std::numeric_limits<uint32_t>::max()) {
+        return uint32();
+      }
+      return uint64();
+    }
+    case Type::DOUBLE: {
+      double doub = value.scalar_as<DoubleScalar>().value;
+      if (!std::isfinite(doub)) {
+        // Special values can be float
+        return float32();
+      }
+      // Test if float representation is the same
+      if (static_cast<double>(static_cast<float>(doub)) == doub) {
+        return float32();
+      }
+      return float64();
+    }
+    case Type::LARGE_STRING: {
+      if (value.scalar_as<LargeStringScalar>().value->size() <=
+          std::numeric_limits<int32_t>::max()) {
+        return utf8();
+      }
+      return large_utf8();
+    }
+    case Type::LARGE_BINARY:
+      if (value.scalar_as<LargeBinaryScalar>().value->size() <=
+          std::numeric_limits<int32_t>::max()) {
+        return binary();
+      }
+      return large_binary();
+    case Type::TIMESTAMP: {
+      const auto& ts_type = checked_pointer_cast<TimestampType>(value.type());
+      uint64_t ts = value.scalar_as<TimestampScalar>().value;
+      switch (ts_type->unit()) {
+        case TimeUnit::SECOND:
+          return value.type();
+        case TimeUnit::MILLI:
+          if (ts % 1000 == 0) {
+            return timestamp(TimeUnit::SECOND);
+          }
+          return value.type();
+        case TimeUnit::MICRO:
+          if (ts % 1000000 == 0) {
+            return timestamp(TimeUnit::SECOND);
+          }
+          if (ts % 1000 == 0) {
+            return timestamp(TimeUnit::MILLI);
+          }
+          return value.type();
+        case TimeUnit::NANO:
+          if (ts % 1000000000 == 0) {
+            return timestamp(TimeUnit::SECOND);
+          }
+          if (ts % 1000000 == 0) {
+            return timestamp(TimeUnit::MILLI);
+          }
+          if (ts % 1000 == 0) {
+            return timestamp(TimeUnit::MICRO);
+          }
+          return value.type();
+        default:
+          return value.type();
+      }
+    }
+    default:
+      return value.type();
+  }
+}
+
+inline std::vector<TypeHolder> GetTypesWithSmallestLiteralRepresentation(
+    const std::vector<Expression>& exprs) {
+  std::vector<TypeHolder> types(exprs.size());
+  for (size_t i = 0; i < exprs.size(); ++i) {
+    DCHECK(exprs[i].IsBound());
+    if (const Datum* literal = exprs[i].literal()) {
+      if (literal->is_scalar()) {
+        types[i] = SmallestTypeFor(*literal);
+      }
+    } else {
+      types[i] = exprs[i].type();
+    }
+  }
+  return types;
+}
+
 // Produce a bound Expression from unbound Call and bound arguments.
 Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_casts,
                                     compute::ExecContext* exec_context) {
@@ -377,9 +533,18 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
   std::vector<TypeHolder> types = GetTypes(call.arguments);
   ARROW_ASSIGN_OR_RAISE(call.function, GetFunction(call, exec_context));
 
-  if (!insert_implicit_casts) {
-    ARROW_ASSIGN_OR_RAISE(call.kernel, call.function->DispatchExact(types));
+  // First try and bind exactly
+  Result<const Kernel*> maybe_exact_match = call.function->DispatchExact(types);
+  if (maybe_exact_match.ok()) {
+    call.kernel = *maybe_exact_match;
   } else {
+    if (!insert_implicit_casts) {
+      return maybe_exact_match.status();
+    }
+    // If exact binding fails, and we are allowed to cast, then prefer casting literals
+    // first.  Since DispatchBest generally prefers up-casting the best way to do this is
+    // first down-cast the literals as much as possible
+    types = GetTypesWithSmallestLiteralRepresentation(call.arguments);
     ARROW_ASSIGN_OR_RAISE(call.kernel, call.function->DispatchBest(&types));
 
     for (size_t i = 0; i < types.size(); ++i) {
