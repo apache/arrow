@@ -284,6 +284,42 @@ public class ArrowFlightJdbcDriverTest {
   }
 
   @Test
+  public void testOrders() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    Properties props = new Properties();
+    props.setProperty("user", "admin");
+    props.setProperty("password", "password");
+    props.setProperty("useEncryption", "false");
+    String conString = "jdbc:arrow-flight://127.0.0.1:50060";
+    try (Connection con = driver.connect(conString, props); Statement stmt = con.createStatement()) {
+      try {
+        stmt.execute("create table orders (\n" +
+                "o_id int, \n" +
+                "o_d_id int, \n" +
+                "o_w_id int,\n" +
+                "o_c_id int,\n" +
+                "o_entry_d timestamp,\n" +
+                "o_carrier_id int,\n" +
+                "o_ol_cnt int, \n" +
+                "o_all_local int,\n" +
+                "PRIMARY KEY(o_w_id, o_d_id, o_id) \n" +
+                ")");
+      } catch (Exception ignored) {}
+      String sql = "INSERT INTO orders (o_id, o_d_id, o_w_id, o_c_id, o_entry_d, o_ol_cnt, o_all_local) VALUES($1, $2, $3, $4, $5, $6, $7)";
+      try(PreparedStatement ps = con.prepareStatement(sql)) {
+        ps.setInt(1, 1);
+        ps.setInt(2, 1);
+        ps.setInt(3, 1);
+        ps.setInt(4, 1);
+        ps.setString(5, "2023-02-03 12:31:00.16");
+        ps.setInt(6, 1);
+        ps.setInt(7, 1);
+        ps.executeUpdate();
+      }
+    }
+  }
+
+  @Test
   public void testCustomer() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
     Properties props = new Properties();
