@@ -55,7 +55,7 @@ class ARROW_TESTING_EXPORT MemoryMapFixture {
   std::vector<std::string> tmp_files_;
 };
 
-class TrackedRandomAccessFile : public io::RandomAccessFile {
+class ARROW_TESTING_EXPORT TrackedRandomAccessFile : public io::RandomAccessFile {
  public:
   virtual int64_t num_reads() const = 0;
   virtual int64_t bytes_read() const = 0;
