@@ -3757,7 +3757,7 @@ TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
 
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
-  auto output_schema = schema({field("A", float64()), field("B", float64())});
+  auto output_schema = schema({field("A", float32()), field("B", float32())});
   auto expected_table = TableFromJSON(output_schema, {R"([
       [20, 20],
       [30, 30],

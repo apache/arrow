@@ -110,7 +110,7 @@ def run_query(plan, *, table_provider=None, use_threads=True):
     ...         }
     ... '''
     >>> buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
-    >>> reader = pa.substrait.run_query(buf, table_provider)
+    >>> reader = pa.substrait.run_query(buf, table_provider=table_provider)
     >>> reader.read_all()
     pyarrow.Table
     x: int64

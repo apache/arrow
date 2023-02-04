@@ -21,7 +21,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/result.h"

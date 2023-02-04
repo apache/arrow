@@ -32,7 +32,7 @@
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/plan.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/async_test_util.h"

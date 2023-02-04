@@ -50,10 +50,11 @@ using internal::MapVector;
 namespace compute {
 namespace {
 
-struct SourceNode : ExecNode, public TracedNode<SourceNode> {
+struct SourceNode : ExecNode, public TracedNode {
   SourceNode(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
              AsyncGenerator<std::optional<ExecBatch>> generator)
       : ExecNode(plan, {}, {}, std::move(output_schema)),
+        TracedNode(this),
         generator_(std::move(generator)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,

@@ -26,7 +26,7 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/plan.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/io/compressed.h"
 #include "arrow/io/memory.h"
