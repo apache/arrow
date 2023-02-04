@@ -122,11 +122,23 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
   }
 };
 
-std::shared_ptr<ExtensionProvider> ExtensionProvider::kDefaultExtensionProvider =
+namespace {
+
+std::shared_ptr<ExtensionProvider> kDefaultExtensionProvider =
     std::make_shared<DefaultExtensionProvider>();
 
+std::mutex kDefaultExtensionProviderMutex;
+
+}  // namespace
+
 std::shared_ptr<ExtensionProvider> default_extension_provider() {
-  return ExtensionProvider::kDefaultExtensionProvider;
+  std::unique_lock<std::mutex> lock(kDefaultExtensionProviderMutex);
+  return kDefaultExtensionProvider;
+}
+
+void set_default_extension_provider(const std::shared_ptr<ExtensionProvider>& provider) {
+  std::unique_lock<std::mutex> lock(kDefaultExtensionProviderMutex);
+  kDefaultExtensionProvider = provider;
 }
 
 }  // namespace engine
