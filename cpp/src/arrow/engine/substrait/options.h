@@ -84,7 +84,7 @@ class ARROW_ENGINE_EXPORT ExtensionProvider {
 ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionProvider> default_extension_provider();
 /// \brief Set the default extension provider
 ///
-/// \input[in] provider the new provider to be set as default
+/// \param[in] provider the new provider to be set as default
 ARROW_ENGINE_EXPORT void set_default_extension_provider(
     const std::shared_ptr<ExtensionProvider>& provider);
 
