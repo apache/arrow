@@ -19,8 +19,10 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <random>
 
 #include <gtest/gtest.h>
+#include <boost/crc.hpp>
 
 #include "arrow/util/crc32.h"
 
@@ -38,6 +40,67 @@ TEST(Crc32Test, Basic) {
   for (size_t i = 1; i < std_data_len - 1; ++i) {
     uint32_t crc1 = internal::crc32(0, &std_data[0], i);
     EXPECT_EQ(TEST_CRC32_RESULT, internal::crc32(crc1, &std_data[i], std_data_len - i));
+  }
+}
+
+TEST(Crc32Test, matchesBoost32Type) {
+  const size_t BUFFER_SIZE = 512 * 1024 * sizeof(uint64_t);
+  std::array<uint8_t, BUFFER_SIZE> buffer{};
+
+  // Populate a buffer with a deterministic pattern
+  // on which to compute checksums
+  std::random_device r;
+  std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()};
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<uint8_t> dist;
+
+  for (size_t i = 0; i < BUFFER_SIZE; ++i) {
+    buffer[i] = dist(gen);
+  }
+
+  struct TestCrcGroup {
+    size_t offset;
+    size_t length;
+  };
+
+  // NOLINTNEXTLINE
+  TestCrcGroup testCrcGroups[] = {
+      // Zero-byte input
+      {0, 0},
+      {8, 1},
+      {8, 2},
+      {8, 3},
+      {8, 4},
+      {8, 5},
+      {8, 6},
+      {8, 7},
+      {9, 1},
+      {10, 2},
+      {11, 3},
+      {12, 4},
+      {13, 5},
+      {14, 6},
+      {15, 7},
+      {8, 8},
+      {8, 9},
+      {8, 10},
+      {8, 11},
+      {8, 12},
+      {8, 13},
+      {8, 14},
+      {8, 15},
+      {8, 16},
+      {8, 17},
+      // Much larger inputs
+      {0, BUFFER_SIZE},
+      {1, BUFFER_SIZE / 2},
+  };
+
+  for (TestCrcGroup group : testCrcGroups) {
+    uint32_t crc = internal::crc32(0, &buffer[group.offset], group.length);
+    boost::crc_32_type boost_crc;
+    boost_crc.process_bytes(&buffer[group.offset], group.length);
+    EXPECT_EQ(boost_crc.checksum(), crc);
   }
 }
 
