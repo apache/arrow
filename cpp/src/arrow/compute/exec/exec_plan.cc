@@ -575,6 +575,52 @@ bool Declaration::IsValid(ExecFactoryRegistry* registry) const {
   return !this->factory_name.empty() && this->options != nullptr;
 }
 
+namespace {
+
+Result<ExecNode*> EnsureSink(ExecNode* last_node, ExecPlan* plan) {
+  if (!last_node->is_sink()) {
+    Declaration null_sink =
+        Declaration("consuming_sink", {last_node},
+                    ConsumingSinkNodeOptions(NullSinkNodeConsumer::Make()));
+    return null_sink.AddToPlan(plan);
+  }
+  return last_node;
+}
+
+}  // namespace
+
+Result<std::shared_ptr<Schema>> DeclarationToSchema(const Declaration& declaration,
+                                                    FunctionRegistry* function_registry) {
+  // We pass in the default memory pool and the CPU executor but nothing we are doing
+  // should be starting new thread tasks or making large allocations.
+  ExecContext exec_context(default_memory_pool(), ::arrow::internal::GetCpuThreadPool(),
+                           function_registry);
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
+                        ExecPlan::Make(exec_context));
+  ARROW_ASSIGN_OR_RAISE(ExecNode * last_node, declaration.AddToPlan(exec_plan.get()));
+  ARROW_ASSIGN_OR_RAISE(last_node, EnsureSink(last_node, exec_plan.get()));
+  ARROW_RETURN_NOT_OK(exec_plan->Validate());
+  if (last_node->inputs().size() != 1) {
+    // Every sink node today has exactly one input
+    return Status::Invalid("Unexpected sink node with more than one input");
+  }
+  return last_node->inputs()[0]->output_schema();
+}
+
+Result<std::string> DeclarationToString(const Declaration& declaration,
+                                        FunctionRegistry* function_registry) {
+  // We pass in the default memory pool and the CPU executor but nothing we are doing
+  // should be starting new thread tasks or making large allocations.
+  ExecContext exec_context(default_memory_pool(), ::arrow::internal::GetCpuThreadPool(),
+                           function_registry);
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
+                        ExecPlan::Make(exec_context));
+  ARROW_ASSIGN_OR_RAISE(ExecNode * last_node, declaration.AddToPlan(exec_plan.get()));
+  ARROW_ASSIGN_OR_RAISE(last_node, EnsureSink(last_node, exec_plan.get()));
+  ARROW_RETURN_NOT_OK(exec_plan->Validate());
+  return exec_plan->ToString();
+}
+
 Future<std::shared_ptr<Table>> DeclarationToTableAsync(Declaration declaration,
                                                        ExecContext exec_context) {
   std::shared_ptr<std::shared_ptr<Table>> output_table =
@@ -817,11 +863,17 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
     std::shared_ptr<Schema> schema() const override { return schema_; }
 
     Status ReadNext(std::shared_ptr<RecordBatch>* record_batch) override {
-      DCHECK(!!iterator_) << "call to ReadNext on already closed reader";
+      if (!iterator_) {
+        return Status::Invalid("call to ReadNext on already closed reader");
+      }
       return iterator_->Next().Value(record_batch);
     }
 
     Status Close() override {
+      if (!iterator_) {
+        // Already closed
+        return Status::OK();
+      }
       // End plan and read from generator until finished
       std::shared_ptr<RecordBatch> batch;
       do {

@@ -40,6 +40,7 @@
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
 #include "parquet/metadata.h"
+#include "parquet/page_index.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
@@ -302,6 +303,22 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   std::shared_ptr<FileMetaData> metadata() const override { return file_metadata_; }
 
+  std::shared_ptr<PageIndexReader> GetPageIndexReader() override {
+    if (!file_metadata_) {
+      // Usually this won't happen if user calls one of the static Open() functions
+      // to create a ParquetFileReader instance. But if user calls the constructor
+      // directly and calls GetPageIndexReader() before Open() then this could happen.
+      throw ParquetException(
+          "Cannot call GetPageIndexReader() due to missing file metadata. Did you "
+          "forget to call ParquetFileReader::Open() first?");
+    }
+    if (!page_index_reader_) {
+      page_index_reader_ = PageIndexReader::Make(source_.get(), file_metadata_,
+                                                 properties_, file_decryptor_);
+    }
+    return page_index_reader_;
+  }
+
   void set_metadata(std::shared_ptr<FileMetaData> metadata) {
     file_metadata_ = std::move(metadata);
   }
@@ -522,7 +539,7 @@ class SerializedFile : public ParquetFileReader::Contents {
   int64_t source_size_;
   std::shared_ptr<FileMetaData> file_metadata_;
   ReaderProperties properties_;
-
+  std::shared_ptr<PageIndexReader> page_index_reader_;
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 
   // \return The true length of the metadata in bytes
@@ -782,6 +799,10 @@ void ParquetFileReader::Close() {
 
 std::shared_ptr<FileMetaData> ParquetFileReader::metadata() const {
   return contents_->metadata();
+}
+
+std::shared_ptr<PageIndexReader> ParquetFileReader::GetPageIndexReader() {
+  return contents_->GetPageIndexReader();
 }
 
 std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {

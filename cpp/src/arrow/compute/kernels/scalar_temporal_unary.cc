@@ -21,7 +21,7 @@
 
 #include "arrow/builder.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/time.h"
@@ -1248,7 +1248,7 @@ struct Strptime {
     const ArraySpan& in = batch[0].array;
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
 
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     int64_t* out_data = out_span->GetValues<int64_t>(1);
 
     if (self.error_is_null) {

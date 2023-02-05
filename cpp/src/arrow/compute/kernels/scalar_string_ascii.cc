@@ -860,7 +860,7 @@ struct BinaryLength {
   static Status FixedSizeExec(KernelContext*, const ExecSpan& batch, ExecResult* out) {
     // Output is preallocated and validity buffer is precomputed
     const int32_t width = batch[0].type()->byte_width();
-    int32_t* buffer = out->array_span()->GetValues<int32_t>(1);
+    int32_t* buffer = out->array_span_mutable()->GetValues<int32_t>(1);
     std::fill(buffer, buffer + batch.length, width);
     return Status::OK();
   }
@@ -1206,7 +1206,7 @@ void StringBoolTransform(KernelContext* ctx, const ExecSpan& batch,
                          StrToBoolTransformFunc transform, ExecResult* out) {
   using offset_type = typename Type::offset_type;
   const ArraySpan& input = batch[0].array;
-  ArraySpan* out_arr = out->array_span();
+  ArraySpan* out_arr = out->array_span_mutable();
   if (input.length > 0) {
     transform(reinterpret_cast<const offset_type*>(input.buffers[1].data) + input.offset,
               input.buffers[2].data, input.length, out_arr->offset,

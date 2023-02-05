@@ -17,7 +17,7 @@
 
 #include <immintrin.h>
 
-#include "arrow/compute/exec/swiss_join.h"
+#include "arrow/compute/exec/swiss_join_internal.h"
 #include "arrow/util/bit_util.h"
 
 namespace arrow {

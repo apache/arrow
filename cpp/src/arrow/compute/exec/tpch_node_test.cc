@@ -27,7 +27,7 @@
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/tpch_node.h"
 #include "arrow/compute/exec/util.h"
-#include "arrow/compute/kernels/row_encoder.h"
+#include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
