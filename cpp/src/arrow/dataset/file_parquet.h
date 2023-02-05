@@ -119,8 +119,16 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Result<std::shared_ptr<parquet::arrow::FileReader>> GetReader(
       const FileSource& source, const std::shared_ptr<ScanOptions>& options) const;
 
+  Result<std::shared_ptr<parquet::arrow::FileReader>> GetReader(
+      const FileSource& source, const std::shared_ptr<ScanOptions>& options,
+      const std::shared_ptr<parquet::FileMetaData>& metadata) const;
+
   Future<std::shared_ptr<parquet::arrow::FileReader>> GetReaderAsync(
       const FileSource& source, const std::shared_ptr<ScanOptions>& options) const;
+
+  Future<std::shared_ptr<parquet::arrow::FileReader>> GetReaderAsync(
+      const FileSource& source, const std::shared_ptr<ScanOptions>& options,
+      const std::shared_ptr<parquet::FileMetaData>& metadata) const;
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,

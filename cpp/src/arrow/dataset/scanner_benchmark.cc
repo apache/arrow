@@ -24,7 +24,7 @@
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"

@@ -70,7 +70,7 @@ void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
   *ss << ']';
 }
 
-class ScalarAggregateNode : public ExecNode, public TracedNode<ScalarAggregateNode> {
+class ScalarAggregateNode : public ExecNode, public TracedNode {
  public:
   ScalarAggregateNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                       std::shared_ptr<Schema> output_schema,
@@ -80,6 +80,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode<ScalarAggregateNo
                       std::vector<std::vector<std::unique_ptr<KernelState>>> states)
       : ExecNode(plan, std::move(inputs), {"target"},
                  /*output_schema=*/std::move(output_schema)),
+        TracedNode(this),
         target_fieldsets_(std::move(target_fieldsets)),
         aggs_(std::move(aggs)),
         kernels_(std::move(kernels)),
@@ -250,7 +251,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode<ScalarAggregateNo
   AtomicCounter input_counter_;
 };
 
-class GroupByNode : public ExecNode, public TracedNode<GroupByNode> {
+class GroupByNode : public ExecNode, public TracedNode {
  public:
   GroupByNode(ExecNode* input, std::shared_ptr<Schema> output_schema,
               std::vector<int> key_field_ids,
@@ -258,6 +259,7 @@ class GroupByNode : public ExecNode, public TracedNode<GroupByNode> {
               std::vector<Aggregate> aggs,
               std::vector<const HashAggregateKernel*> agg_kernels)
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema)),
+        TracedNode(this),
         key_field_ids_(std::move(key_field_ids)),
         agg_src_fieldsets_(std::move(agg_src_fieldsets)),
         aggs_(std::move(aggs)),

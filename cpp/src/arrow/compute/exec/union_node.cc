@@ -46,11 +46,12 @@ std::vector<std::string> GetInputLabels(const ExecNode::NodeVector& inputs) {
 }
 }  // namespace
 
-class UnionNode : public ExecNode, public TracedNode<UnionNode> {
+class UnionNode : public ExecNode, public TracedNode {
  public:
   UnionNode(ExecPlan* plan, std::vector<ExecNode*> inputs)
       : ExecNode(plan, inputs, GetInputLabels(inputs),
-                 /*output_schema=*/inputs[0]->output_schema()) {
+                 /*output_schema=*/inputs[0]->output_schema()),
+        TracedNode(this) {
     bool counter_completed = input_count_.SetTotal(static_cast<int>(inputs.size()));
     ARROW_DCHECK(counter_completed == false);
   }
