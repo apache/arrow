@@ -122,6 +122,8 @@ class PARQUET_EXPORT BloomFilter {
 class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
  public:
   /// The constructor of BlockSplitBloomFilter. It uses XXH64 as hash function.
+  ///
+  /// \param pool memory pool to use.
   explicit BlockSplitBloomFilter(
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
