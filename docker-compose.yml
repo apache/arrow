@@ -522,7 +522,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 22.04, ...
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     cap_add:
       # For LeakSanitizer
@@ -543,14 +543,18 @@ services:
       CC: clang-${CLANG_TOOLS}
       CXX: clang++-${CLANG_TOOLS}
       ARROW_ENABLE_TIMING_TESTS:  # inherit
+      # GH-33920: Disable Flight SQL to reduce build time.
+      # We'll be able to re-enable this with Ubuntu 24.04 because
+      # Ubuntu 24.04 will ship ProtoBuf 3.15.0 or later that is required
+      # by Flight SQL.
+      ARROW_FLIGHT_SQL: "OFF"
       ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
       ARROW_ORC: "OFF"
       ARROW_S3: "OFF"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
-      # utf8proc 2.1.0 in Ubuntu Bionic has test failures
-      utf8proc_SOURCE: "BUNDLED"
+      Protobuf_SOURCE: "AUTO"
     command: *cpp-command
 
   ubuntu-cpp-thread-sanitizer:
