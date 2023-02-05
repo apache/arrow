@@ -44,8 +44,9 @@ TEST(Crc32Test, Basic) {
 }
 
 TEST(Crc32Test, matchesBoost32Type) {
-  const size_t BUFFER_SIZE = 512 * 1024;
-  std::array<uint8_t, BUFFER_SIZE> buffer{};
+  const size_t BUFFER_SIZE = 512 * 1024 * sizeof(uint64_t);
+  std::vector<uint8_t> buffer;
+  buffer.resize(BUFFER_SIZE, 0);
 
   // Populate a buffer with a deterministic pattern
   // on which to compute checksums
