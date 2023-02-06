@@ -526,18 +526,6 @@ func (m *middlewareScenarioTester) GetFlightInfo(ctx context.Context, desc *flig
 	}, nil
 }
 
-// var (
-// 	// Schema to be returned for mocking the statement/prepared statement
-// 	// results. Must be the same across all languages
-// 	QuerySchema = arrow.NewSchema([]arrow.Field{{
-// 		Name: "id", Type: arrow.PrimitiveTypes.Int64, Nullable: true,
-// 		Metadata: flightsql.NewColumnMetadataBuilder().
-// 			TableName("test").IsAutoIncrement(true).IsCaseSensitive(false).
-// 			TypeName("type_test").SchemaName("schema_test").IsSearchable(true).
-// 			CatalogName("catalog_test").Precision(100).Metadata(),
-// 	}}, nil)
-// )
-
 const (
 	updateStatementExpectedRows                        int64 = 10000
 	updateStatementWithTransactionExpectedRows         int64 = 15000
