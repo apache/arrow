@@ -321,12 +321,26 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
     }
 
     case substrait::Expression::kCast: {
-      const auto& cast_exp = expr.cast()
+      const auto& cast_exp = expr.cast();
       ARROW_ASSIGN_OR_RAISE(auto input,
                             FromProto(cast_exp.input(), ext_set, conversion_options));
 
+      // need to convert from the Substrait type spec to the relevant Arrow thing
+      // do we need a switch/case or can we just get code similar to the below FromProto?
+      // the type should come from cast_expr.type()
+      
+      // this will be a Result<std::pair<std::shared_ptr<DataType>
+      ARROW_ASSIGN_OR_RAISE(auto type,
+                            FromProto(cast_exp.type(), ext_set, conversion_options));
 
-      return compute::call("cast", std::move(input), );
+
+      // do we want safe or unsafe?  
+      // e.g. compute::CastOptions::Safe(int64())
+      // e.g. compute::CastOptions::Unsafe(int32())
+      // e.g. compute::CastOptions::Safe(timestamp(TimeUnit::NANO))
+
+      compute::CastOptions cast_options;
+      return compute::call("cast", std::move(input), compute::CastOptions::Safe(type));
     }
 
     default:
