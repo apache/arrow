@@ -188,6 +188,10 @@ class MemoryPoolMemoryManager : public benchmark::MemoryManager {
 /// allocated, and the total number of allocations. If no allocations were seen,
 /// (for example, if you forgot to pass down the memory pool), then these metrics
 /// will not be saved.
+///
+/// Since this is used as one global variable, this will not work if multiple
+/// benchmarks are run concurrently or for multi-threaded benchmarks (ones
+/// that use `->ThreadRange(...)`).
 class BenchmarkMemoryTracker {
  public:
   BenchmarkMemoryTracker() : manager_() { ::benchmark::RegisterMemoryManager(&manager_); }
