@@ -57,6 +57,8 @@ func GetScenario(name string, args ...string) Scenario {
 		return &middlewareScenarioTester{}
 	case "flight_sql":
 		return &flightSqlScenarioTester{}
+	case "flight_sql:extension":
+		return &flightSqlExtensionScenarioTester{}
 	case "":
 		if len(args) > 0 {
 			return &defaultIntegrationTester{path: args[0]}
@@ -524,21 +526,11 @@ func (m *middlewareScenarioTester) GetFlightInfo(ctx context.Context, desc *flig
 	}, nil
 }
 
-var (
-	// Schema to be returned for mocking the statement/prepared statement
-	// results. Must be the same across all languages
-	QuerySchema = arrow.NewSchema([]arrow.Field{{
-		Name: "id", Type: arrow.PrimitiveTypes.Int64, Nullable: true,
-		Metadata: flightsql.NewColumnMetadataBuilder().
-			TableName("test").IsAutoIncrement(true).IsCaseSensitive(false).
-			TypeName("type_test").SchemaName("schema_test").IsSearchable(true).
-			CatalogName("catalog_test").Precision(100).Metadata(),
-	}}, nil)
-)
-
 const (
-	updateStatementExpectedRows         int64 = 10000
-	updatePreparedStatementExpectedRows int64 = 20000
+	updateStatementExpectedRows                        int64 = 10000
+	updateStatementWithTransactionExpectedRows         int64 = 15000
+	updatePreparedStatementExpectedRows                int64 = 20000
+	updatePreparedStatementWithTransactionExpectedRows int64 = 25000
 )
 
 type flightSqlScenarioTester struct {
@@ -559,6 +551,15 @@ func (m *flightSqlScenarioTester) flightInfoForCommand(desc *flight.FlightDescri
 
 func (m *flightSqlScenarioTester) MakeServer(port int) flight.Server {
 	srv := flight.NewServerWithMiddleware(nil)
+	m.RegisterSqlInfo(flightsql.SqlInfoFlightSqlServerSql, false)
+	m.RegisterSqlInfo(flightsql.SqlInfoFlightSqlServerSubstrait, true)
+	m.RegisterSqlInfo(flightsql.SqlInfoFlightSqlServerSubstraitMinVersion, "min_version")
+	m.RegisterSqlInfo(flightsql.SqlInfoFlightSqlServerSubstraitMaxVersion, "max_version")
+	m.RegisterSqlInfo(flightsql.SqlInfoFlightSqlServerTransaction, int32(flightsql.SqlTransactionSavepoint))
+	m.RegisterSqlInfo(flightsql.SqlInfoFlightSqlServerCancel, true)
+	m.RegisterSqlInfo(flightsql.SqlInfoFlightSqlServerStatementTimeout, int32(42))
+	m.RegisterSqlInfo(flightsql.SqlInfoFlightSqlServerTransactionTimeout, int32(7))
+
 	srv.RegisterFlightService(flightsql.NewFlightServer(m))
 	initServer(port, srv)
 	return srv
@@ -601,8 +602,12 @@ func (m *flightSqlScenarioTester) validate(expected *arrow.Schema, result *fligh
 	}
 	for {
 		_, err := rdr.Read()
-		if err == io.EOF { break }
-		if err != nil { return err }
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -811,7 +816,7 @@ func (m *flightSqlScenarioTester) ValidateStatementExecution(client *flightsql.C
 	if err != nil {
 		return err
 	}
-	if err = m.validate(QuerySchema, info, client); err != nil {
+	if err = m.validate(getQuerySchema(), info, client); err != nil {
 		return err
 	}
 
@@ -819,7 +824,7 @@ func (m *flightSqlScenarioTester) ValidateStatementExecution(client *flightsql.C
 	if err != nil {
 		return err
 	}
-	if err = m.validateSchema(QuerySchema, schema); err != nil {
+	if err = m.validateSchema(getQuerySchema(), schema); err != nil {
 		return err
 	}
 
@@ -835,28 +840,29 @@ func (m *flightSqlScenarioTester) ValidateStatementExecution(client *flightsql.C
 
 func (m *flightSqlScenarioTester) ValidatePreparedStatementExecution(client *flightsql.Client) error {
 	ctx := context.Background()
-	prepared, err := client.Prepare(ctx, memory.DefaultAllocator, "SELECT PREPARED STATEMENT")
+	prepared, err := client.Prepare(ctx, "SELECT PREPARED STATEMENT")
 	if err != nil {
 		return err
 	}
 
 	arr, _, _ := array.FromJSON(memory.DefaultAllocator, arrow.PrimitiveTypes.Int64, strings.NewReader("[1]"))
 	defer arr.Release()
-	params := array.NewRecord(QuerySchema, []arrow.Array{arr}, 1)
+	params := array.NewRecord(getQuerySchema(), []arrow.Array{arr}, 1)
+	defer params.Release()
 	prepared.SetParameters(params)
 
 	info, err := prepared.Execute(ctx)
 	if err != nil {
 		return err
 	}
-	if err = m.validate(QuerySchema, info, client); err != nil {
+	if err = m.validate(getQuerySchema(), info, client); err != nil {
 		return err
 	}
 	schema, err := prepared.GetSchema(ctx)
 	if err != nil {
 		return err
 	}
-	if err = m.validateSchema(QuerySchema, schema); err != nil {
+	if err = m.validateSchema(getQuerySchema(), schema); err != nil {
 		return err
 	}
 
@@ -864,7 +870,7 @@ func (m *flightSqlScenarioTester) ValidatePreparedStatementExecution(client *fli
 		return err
 	}
 
-	updatePrepared, err := client.Prepare(ctx, memory.DefaultAllocator, "UPDATE PREPARED STATEMENT")
+	updatePrepared, err := client.Prepare(ctx, "UPDATE PREPARED STATEMENT")
 	if err != nil {
 		return err
 	}
@@ -886,11 +892,23 @@ func (m *flightSqlScenarioTester) doGetForTestCase(schema *arrow.Schema) chan fl
 }
 
 func (m *flightSqlScenarioTester) GetFlightInfoStatement(ctx context.Context, cmd flightsql.StatementQuery, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
-	if err := assertEq("SELECT STATEMENT", cmd.GetQuery()); err != nil {
+	if err := assertEq(selectStatement, cmd.GetQuery()); err != nil {
 		return nil, err
 	}
 
-	handle, err := flightsql.CreateStatementQueryTicket([]byte("SELECT STATEMENT HANDLE"))
+	var (
+		ticket []byte
+		schema *arrow.Schema
+	)
+	if len(cmd.GetTransactionId()) == 0 {
+		ticket = []byte("SELECT STATEMENT HANDLE")
+		schema = getQuerySchema()
+	} else {
+		ticket = []byte("SELECT STATEMENT WITH TXN HANDLE")
+		schema = getQueryWithTransactionSchema()
+	}
+
+	handle, err := flightsql.CreateStatementQueryTicket(ticket)
 	if err != nil {
 		return nil, err
 	}
@@ -899,7 +917,44 @@ func (m *flightSqlScenarioTester) GetFlightInfoStatement(ctx context.Context, cm
 		Endpoint: []*flight.FlightEndpoint{
 			{Ticket: &flight.Ticket{Ticket: handle}},
 		},
-		Schema:           flight.SerializeSchema(QuerySchema, memory.DefaultAllocator),
+		Schema:           flight.SerializeSchema(schema, memory.DefaultAllocator),
+		FlightDescriptor: desc,
+		TotalRecords:     -1,
+		TotalBytes:       -1,
+	}, nil
+}
+
+func (m *flightSqlScenarioTester) GetFlightInfoSubstraitPlan(ctx context.Context, cmd flightsql.StatementSubstraitPlan, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	if err := assertEq([]byte(substraitPlanText), cmd.GetPlan().Plan); err != nil {
+		return nil, fmt.Errorf("%w: unexpected plan in GetFlightInfoSubstraitPlan", err)
+	}
+
+	if err := assertEq(substraitPlanVersion, cmd.GetPlan().Version); err != nil {
+		return nil, fmt.Errorf("%w: unexpected version in GetFlightInfoSubstraitPlan", err)
+	}
+
+	var (
+		ticket []byte
+		schema *arrow.Schema
+	)
+	if len(cmd.GetTransactionId()) == 0 {
+		ticket = []byte("PLAN HANDLE")
+		schema = getQuerySchema()
+	} else {
+		ticket = []byte("PLAN WITH TXN HANDLE")
+		schema = getQueryWithTransactionSchema()
+	}
+
+	handle, err := flightsql.CreateStatementQueryTicket(ticket)
+	if err != nil {
+		return nil, err
+	}
+
+	return &flight.FlightInfo{
+		Endpoint: []*flight.FlightEndpoint{
+			{Ticket: &flight.Ticket{Ticket: handle}},
+		},
+		Schema:           flight.SerializeSchema(schema, memory.DefaultAllocator),
 		FlightDescriptor: desc,
 		TotalRecords:     -1,
 		TotalBytes:       -1,
@@ -907,27 +962,75 @@ func (m *flightSqlScenarioTester) GetFlightInfoStatement(ctx context.Context, cm
 }
 
 func (m *flightSqlScenarioTester) GetSchemaStatement(ctx context.Context, cmd flightsql.StatementQuery, desc *flight.FlightDescriptor) (*flight.SchemaResult, error) {
-	return &flight.SchemaResult{Schema: flight.SerializeSchema(QuerySchema, memory.DefaultAllocator)}, nil
+	if err := assertEq(selectStatement, cmd.GetQuery()); err != nil {
+		return nil, fmt.Errorf("%w: unexpected statement in GetSchemaStatement", err)
+	}
+
+	if len(cmd.GetTransactionId()) == 0 {
+		return &flight.SchemaResult{Schema: flight.SerializeSchema(getQuerySchema(), memory.DefaultAllocator)}, nil
+	}
+
+	return &flight.SchemaResult{Schema: flight.SerializeSchema(getQueryWithTransactionSchema(), memory.DefaultAllocator)}, nil
+}
+
+func (m *flightSqlScenarioTester) GetSchemaSubstraitPlan(ctx context.Context, cmd flightsql.StatementSubstraitPlan, desc *flight.FlightDescriptor) (*flight.SchemaResult, error) {
+	if err := assertEq([]byte(substraitPlanText), cmd.GetPlan().Plan); err != nil {
+		return nil, fmt.Errorf("%w: unexpected plan in GetFlightInfoSubstraitPlan", err)
+	}
+
+	if err := assertEq(substraitPlanVersion, cmd.GetPlan().Version); err != nil {
+		return nil, fmt.Errorf("%w: unexpected version in GetFlightInfoSubstraitPlan", err)
+	}
+
+	if len(cmd.GetTransactionId()) == 0 {
+		return &flight.SchemaResult{Schema: flight.SerializeSchema(getQuerySchema(), memory.DefaultAllocator)}, nil
+	}
+
+	return &flight.SchemaResult{Schema: flight.SerializeSchema(getQueryWithTransactionSchema(), memory.DefaultAllocator)}, nil
 }
 
 func (m *flightSqlScenarioTester) DoGetStatement(ctx context.Context, cmd flightsql.StatementQueryTicket) (*arrow.Schema, <-chan flight.StreamChunk, error) {
-	return QuerySchema, m.doGetForTestCase(QuerySchema), nil
+	switch string(cmd.GetStatementHandle()) {
+	case "SELECT STATEMENT HANDLE", "PLAN HANDLE":
+		return getQuerySchema(), m.doGetForTestCase(getQuerySchema()), nil
+	case "SELECT STATEMENT WITH TXN HANDLE", "PLAN WITH TXN HANDLE":
+		return getQueryWithTransactionSchema(), m.doGetForTestCase(getQueryWithTransactionSchema()), nil
+	}
+
+	return nil, nil, fmt.Errorf("%w: unknown handle %s", arrow.ErrInvalid, string(cmd.GetStatementHandle()))
 }
 
 func (m *flightSqlScenarioTester) GetFlightInfoPreparedStatement(_ context.Context, cmd flightsql.PreparedStatementQuery, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
-	err := assertEq([]byte("SELECT PREPARED STATEMENT HANDLE"), cmd.GetPreparedStatementHandle())
-	if err != nil {
-		return nil, err
+	switch string(cmd.GetPreparedStatementHandle()) {
+	case "SELECT PREPARED STATEMENT HANDLE", "PLAN HANDLE":
+		return m.flightInfoForCommand(desc, getQuerySchema()), nil
+	case "SELECT PREPARED STATEMENT WITH TXN HANDLE", "PLAN WITH TXN HANDLE":
+		return m.flightInfoForCommand(desc, getQueryWithTransactionSchema()), nil
 	}
-	return m.flightInfoForCommand(desc, QuerySchema), nil
+	return nil, fmt.Errorf("%w: invalid handle for GetFlightInfoPreparedStatement %s",
+		arrow.ErrInvalid, string(cmd.GetPreparedStatementHandle()))
 }
 
 func (m *flightSqlScenarioTester) GetSchemaPreparedStatement(ctx context.Context, cmd flightsql.PreparedStatementQuery, desc *flight.FlightDescriptor) (*flight.SchemaResult, error) {
-	return &flight.SchemaResult{Schema: flight.SerializeSchema(QuerySchema, memory.DefaultAllocator)}, nil
+	switch string(cmd.GetPreparedStatementHandle()) {
+	case "SELECT PREPARED STATEMENT HANDLE", "PLAN HANDLE":
+		return &flight.SchemaResult{Schema: flight.SerializeSchema(getQuerySchema(), memory.DefaultAllocator)}, nil
+	case "SELECT PREPARED STATEMENT WITH TXN HANDLE", "PLAN WITH TXN HANDLE":
+		return &flight.SchemaResult{Schema: flight.SerializeSchema(getQueryWithTransactionSchema(), memory.DefaultAllocator)}, nil
+	}
+	return nil, fmt.Errorf("%w: invalid handle for GetSchemaPreparedStaement %s",
+		arrow.ErrInvalid, string(cmd.GetPreparedStatementHandle()))
 }
 
 func (m *flightSqlScenarioTester) DoGetPreparedStatement(_ context.Context, cmd flightsql.PreparedStatementQuery) (*arrow.Schema, <-chan flight.StreamChunk, error) {
-	return QuerySchema, m.doGetForTestCase(QuerySchema), nil
+	switch string(cmd.GetPreparedStatementHandle()) {
+	case "SELECT PREPARED STATEMENT HANDLE", "PLAN HANDLE":
+		return getQuerySchema(), m.doGetForTestCase(getQuerySchema()), nil
+	case "SELECT PREPARED STATEMENT WITH TXN HANDLE", "PLAN WITH TXN HANDLE":
+		return getQueryWithTransactionSchema(), m.doGetForTestCase(getQueryWithTransactionSchema()), nil
+	}
+	return nil, nil, fmt.Errorf("%w: invalid handle: %s",
+		arrow.ErrInvalid, string(cmd.GetPreparedStatementHandle()))
 }
 
 func (m *flightSqlScenarioTester) GetFlightInfoCatalogs(_ context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
@@ -946,22 +1049,33 @@ func (m *flightSqlScenarioTester) DoGetXdbcTypeInfo(context.Context, flightsql.G
 	return schema_ref.XdbcTypeInfo, m.doGetForTestCase(schema_ref.XdbcTypeInfo), nil
 }
 
-func (m *flightSqlScenarioTester) GetFlightInfoSqlInfo(_ context.Context, cmd flightsql.GetSqlInfo, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
-	if err := assertEq(int(2), len(cmd.GetInfo())); err != nil {
-		return nil, err
-	}
-	if err := assertEq(flightsql.SqlInfoFlightSqlServerName, flightsql.SqlInfo(cmd.GetInfo()[0])); err != nil {
-		return nil, err
-	}
-	if err := assertEq(flightsql.SqlInfoFlightSqlServerReadOnly, flightsql.SqlInfo(cmd.GetInfo()[1])); err != nil {
-		return nil, err
+func (m *flightSqlScenarioTester) GetFlightInfoSqlInfo(ctx context.Context, cmd flightsql.GetSqlInfo, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	if len(cmd.GetInfo()) == 2 {
+		// integration test for the protocol messages
+
+		if err := assertEq(int(2), len(cmd.GetInfo())); err != nil {
+			return nil, err
+		}
+		if err := assertEq(flightsql.SqlInfoFlightSqlServerName, flightsql.SqlInfo(cmd.GetInfo()[0])); err != nil {
+			return nil, err
+		}
+		if err := assertEq(flightsql.SqlInfoFlightSqlServerReadOnly, flightsql.SqlInfo(cmd.GetInfo()[1])); err != nil {
+			return nil, err
+		}
+
+		return m.flightInfoForCommand(desc, schema_ref.SqlInfo), nil
 	}
 
-	return m.flightInfoForCommand(desc, schema_ref.SqlInfo), nil
+	// integration test for the values themselves
+	return m.BaseServer.GetFlightInfoSqlInfo(ctx, cmd, desc)
 }
 
-func (m *flightSqlScenarioTester) DoGetSqlInfo(context.Context, flightsql.GetSqlInfo) (*arrow.Schema, <-chan flight.StreamChunk, error) {
-	return schema_ref.SqlInfo, m.doGetForTestCase(schema_ref.SqlInfo), nil
+func (m *flightSqlScenarioTester) DoGetSqlInfo(ctx context.Context, cmd flightsql.GetSqlInfo) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	if len(cmd.GetInfo()) == 2 {
+		return schema_ref.SqlInfo, m.doGetForTestCase(schema_ref.SqlInfo), nil
+	}
+
+	return m.BaseServer.DoGetSqlInfo(ctx, cmd)
 }
 
 func (m *flightSqlScenarioTester) GetFlightInfoSchemas(_ context.Context, cmd flightsql.GetDBSchemas, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
@@ -1121,42 +1235,628 @@ func (m *flightSqlScenarioTester) DoPutCommandStatementUpdate(_ context.Context,
 		return 0, err
 	}
 
-	return updateStatementExpectedRows, nil
+	if len(cmd.GetTransactionId()) == 0 {
+		return updateStatementExpectedRows, nil
+	}
+	return updateStatementWithTransactionExpectedRows, nil
+}
+
+func (m *flightSqlScenarioTester) DoPutCommandSubstraitPlan(_ context.Context, cmd flightsql.StatementSubstraitPlan) (int64, error) {
+	if err := assertEq([]byte(substraitPlanText), cmd.GetPlan().Plan); err != nil {
+		return 0, fmt.Errorf("%w: wrong plan for DoPutCommandSubstraitPlan", err)
+	}
+
+	if err := assertEq(substraitPlanVersion, cmd.GetPlan().Version); err != nil {
+		return 0, fmt.Errorf("%w: unexpected version in DoPutCommandSubstraitPlan", err)
+	}
+
+	if len(cmd.GetTransactionId()) == 0 {
+		return updateStatementExpectedRows, nil
+	}
+	return updateStatementWithTransactionExpectedRows, nil
 }
 
 func (m *flightSqlScenarioTester) CreatePreparedStatement(_ context.Context, request flightsql.ActionCreatePreparedStatementRequest) (res flightsql.ActionCreatePreparedStatementResult, err error) {
-	err = assertEq(true, request.GetQuery() == "SELECT PREPARED STATEMENT" || request.GetQuery() == "UPDATE PREPARED STATEMENT")
-	if err != nil {
-		return
+	switch request.GetQuery() {
+	case "SELECT PREPARED STATEMENT", "UPDATE PREPARED STATEMENT":
+	default:
+		return res, fmt.Errorf("%w: unexpected query %s", arrow.ErrInvalid, request.GetQuery())
 	}
 
-	res.Handle = []byte(request.GetQuery() + " HANDLE")
+	handle := request.GetQuery()
+	if len(request.GetTransactionId()) != 0 {
+		handle += " WITH TXN"
+	}
+	res.Handle = []byte(handle + " HANDLE")
 	return
 }
 
-func (m *flightSqlScenarioTester) ClosePreparedStatement(context.Context, flightsql.ActionClosePreparedStatementRequest) error {
+func (m *flightSqlScenarioTester) CreatePreparedSubstraitPlan(_ context.Context, request flightsql.ActionCreatePreparedSubstraitPlanRequest) (res flightsql.ActionCreatePreparedStatementResult, err error) {
+	if err := assertEq([]byte(substraitPlanText), request.GetPlan().Plan); err != nil {
+		return res, fmt.Errorf("%w: wrong plan for CreatePreparedSubstraitPlan", err)
+	}
+
+	if err := assertEq(substraitPlanVersion, request.GetPlan().Version); err != nil {
+		return res, fmt.Errorf("%w: unexpected version in DoPutCommandSubstraitPlan", err)
+	}
+
+	if len(request.GetTransactionId()) == 0 {
+		res.Handle = []byte("PLAN HANDLE")
+	} else {
+		res.Handle = []byte("PLAN WITH TXN HANDLE")
+	}
+	return
+}
+
+func (m *flightSqlScenarioTester) ClosePreparedStatement(_ context.Context, request flightsql.ActionClosePreparedStatementRequest) error {
+	switch string(request.GetPreparedStatementHandle()) {
+	case "SELECT PREPARED STATEMENT HANDLE",
+		"UPDATE PREPARED STATEMENT HANDLE",
+		"PLAN HANDLE",
+		"SELECT PREPARED STATEMENT WITH TXN HANDLE",
+		"UPDATE PREPARED STATEMENT WITH TXN HANDLE",
+		"PLAN WITH TXN HANDLE":
+	default:
+		return fmt.Errorf("%w: invalid handle for ClosePreparedStatement: %s",
+			arrow.ErrInvalid, string(request.GetPreparedStatementHandle()))
+	}
+
 	return nil
 }
 
 func (m *flightSqlScenarioTester) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql.PreparedStatementQuery, rdr flight.MessageReader, _ flight.MetadataWriter) error {
-	err := assertEq([]byte("SELECT PREPARED STATEMENT HANDLE"), cmd.GetPreparedStatementHandle())
+	switch string(cmd.GetPreparedStatementHandle()) {
+	case "SELECT PREPARED STATEMENT HANDLE",
+		"SELECT PREPARED STATEMENT WITH TXN HANDLE",
+		"PLAN HANDLE", "PLAN WITH TXN HANDLE":
+		actualSchema := rdr.Schema()
+		return assertEq(true, actualSchema.Equal(getQuerySchema()))
+	}
+
+	return fmt.Errorf("%w: handle for DoPutPreparedStatementQuery '%s'",
+		arrow.ErrInvalid, string(cmd.GetPreparedStatementHandle()))
+}
+
+func (m *flightSqlScenarioTester) DoPutPreparedStatementUpdate(_ context.Context, cmd flightsql.PreparedStatementUpdate, _ flight.MessageReader) (int64, error) {
+	switch string(cmd.GetPreparedStatementHandle()) {
+	case "UPDATE PREPARED STATEMENT HANDLE", "PLAN HANDLE":
+		return updatePreparedStatementExpectedRows, nil
+	case "UPDATE PREPARED STATEMENT WITH TXN HANDLE", "PLAN WITH TXN HANDLE":
+		return updatePreparedStatementWithTransactionExpectedRows, nil
+	}
+
+	return 0, fmt.Errorf("%w: handle for DoPutPreparedStatementUpdate '%s'",
+		arrow.ErrInvalid, string(cmd.GetPreparedStatementHandle()))
+}
+
+func (m *flightSqlScenarioTester) BeginSavepoint(_ context.Context, request flightsql.ActionBeginSavepointRequest) ([]byte, error) {
+	if err := assertEq(savepointName, request.GetName()); err != nil {
+		return nil, fmt.Errorf("%w: unexpected savepoint name in BeginSavepoint", err)
+	}
+
+	if err := assertEq([]byte(transactionID), request.GetTransactionId()); err != nil {
+		return nil, fmt.Errorf("%w: unexpected transaction ID in BeginSavepoint", err)
+	}
+
+	return []byte(savepointID), nil
+}
+
+func (m *flightSqlScenarioTester) BeginTransaction(context.Context, flightsql.ActionBeginTransactionRequest) ([]byte, error) {
+	return []byte(transactionID), nil
+}
+
+func (m *flightSqlScenarioTester) CancelQuery(_ context.Context, request flightsql.ActionCancelQueryRequest) (flightsql.CancelResult, error) {
+	if err := assertEq(1, len(request.GetInfo().Endpoint)); err != nil {
+		return flightsql.CancelResultUnspecified, fmt.Errorf("%w: expected 1 endpoint for CancelQuery", err)
+	}
+
+	endpoint := request.GetInfo().Endpoint[0]
+	tkt, err := flightsql.GetStatementQueryTicket(endpoint.Ticket)
+	if err != nil {
+		return flightsql.CancelResultUnspecified, err
+	}
+
+	if err := assertEq([]byte("PLAN HANDLE"), tkt.GetStatementHandle()); err != nil {
+		return flightsql.CancelResultUnspecified, fmt.Errorf("%w: unexpected ticket in CancelQuery", err)
+	}
+
+	return flightsql.CancelResultCancelled, nil
+}
+
+func (m *flightSqlScenarioTester) EndSavepoint(_ context.Context, request flightsql.ActionEndSavepointRequest) error {
+	switch request.GetAction() {
+	case flightsql.EndSavepointRelease, flightsql.EndSavepointRollback:
+		if err := assertEq([]byte(savepointID), request.GetSavepointId()); err != nil {
+			return fmt.Errorf("%w: unexpected savepoint ID in EndSavepoint", err)
+		}
+		return nil
+	}
+
+	return fmt.Errorf("%w: unknown action %v", arrow.ErrInvalid, request.GetAction())
+}
+
+func (m *flightSqlScenarioTester) EndTransaction(_ context.Context, request flightsql.ActionEndTransactionRequest) error {
+	switch request.GetAction() {
+	case flightsql.EndTransactionCommit, flightsql.EndTransactionRollback:
+		if err := assertEq([]byte(transactionID), request.GetTransactionId()); err != nil {
+			return fmt.Errorf("%w: unexpected transaction ID in EndTransaction", err)
+		}
+		return nil
+	}
+
+	return fmt.Errorf("%w: unknown action %v", arrow.ErrInvalid, request.GetAction())
+}
+
+// schema to be returned for mocking the statement/prepared statement results
+func getQuerySchema() *arrow.Schema {
+	return arrow.NewSchema([]arrow.Field{
+		{Name: "id", Type: arrow.PrimitiveTypes.Int64, Nullable: true,
+			Metadata: *flightsql.NewColumnMetadataBuilder().
+				TableName("test").
+				IsAutoIncrement(true).
+				IsCaseSensitive(false).
+				TypeName("type_test").
+				SchemaName("schema_test").
+				IsSearchable(true).
+				CatalogName("catalog_test").
+				Precision(100).
+				Build().Data}}, nil)
+}
+
+func getQueryWithTransactionSchema() *arrow.Schema {
+	return arrow.NewSchema([]arrow.Field{
+		{Name: "pkey", Type: arrow.PrimitiveTypes.Int32, Nullable: true,
+			Metadata: *flightsql.NewColumnMetadataBuilder().
+				TableName("test").
+				IsAutoIncrement(true).
+				IsCaseSensitive(false).
+				TypeName("type_test").
+				SchemaName("schema_test").
+				IsSearchable(true).
+				CatalogName("catalog_test").
+				Precision(100).Build().Data}}, nil)
+}
+
+const (
+	substraitPlanText    = "plan"
+	substraitPlanVersion = "version"
+	selectStatement      = "SELECT STATEMENT"
+	savepointID          = "savepoint_id"
+	savepointName        = "savepoint_name"
+	transactionID        = "transaction_id"
+)
+
+var substraitPlan = flightsql.SubstraitPlan{
+	Plan: []byte(substraitPlanText), Version: substraitPlanVersion}
+
+type flightSqlExtensionScenarioTester struct {
+	flightSqlScenarioTester
+}
+
+func (m *flightSqlExtensionScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flightsql.NewClient(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	if err := m.ValidateMetadataRetrieval(client); err != nil {
+		return err
+	}
+
+	if err := m.ValidateStatementExecution(client); err != nil {
+		return err
+	}
+	if err := m.ValidatePreparedStatementExecution(client); err != nil {
+		return err
+	}
+
+	return m.ValidateTransactions(client)
+}
+
+func (m *flightSqlExtensionScenarioTester) ValidateMetadataRetrieval(client *flightsql.Client) error {
+	sqlInfo := []flightsql.SqlInfo{
+		flightsql.SqlInfoFlightSqlServerSql,
+		flightsql.SqlInfoFlightSqlServerSubstrait,
+		flightsql.SqlInfoFlightSqlServerSubstraitMinVersion,
+		flightsql.SqlInfoFlightSqlServerSubstraitMaxVersion,
+		flightsql.SqlInfoFlightSqlServerTransaction,
+		flightsql.SqlInfoFlightSqlServerCancel,
+		flightsql.SqlInfoFlightSqlServerStatementTimeout,
+		flightsql.SqlInfoFlightSqlServerTransactionTimeout,
+	}
+	ctx := context.Background()
+
+	info, err := client.GetSqlInfo(ctx, sqlInfo)
 	if err != nil {
 		return err
 	}
 
-	actualSchema := rdr.Schema()
-	if err = assertEq(true, actualSchema.Equal(QuerySchema)); err != nil {
+	rdr, err := client.DoGet(ctx, info.Endpoint[0].Ticket)
+	if err != nil {
 		return err
+	}
+	defer rdr.Release()
+
+	actualSchema := rdr.Schema()
+	if !schema_ref.SqlInfo.Equal(actualSchema) {
+		return fmt.Errorf("%w: schemas did not match. expected: %s\n got: %s",
+			arrow.ErrInvalid, schema_ref.SqlInfo, actualSchema)
+	}
+
+	infoValues := make(flightsql.SqlInfoResultMap)
+	for rdr.Next() {
+		rec := rdr.Record()
+		names, values := rec.Column(0).(*array.Uint32), rec.Column(1).(*array.DenseUnion)
+
+		for i := 0; i < int(rec.NumRows()); i++ {
+			code := names.Value(i)
+			if _, ok := infoValues[code]; ok {
+				return fmt.Errorf("%w: duplicate SqlInfo value %d", arrow.ErrInvalid, code)
+			}
+
+			switch values.TypeCode(i) {
+			case 0: // string
+				infoValues[code] = values.Field(0).(*array.String).
+					Value(int(values.ValueOffset(i)))
+			case 1: // bool
+				infoValues[code] = values.Field(1).(*array.Boolean).
+					Value(int(values.ValueOffset(i)))
+			case 2: // int64
+				infoValues[code] = values.Field(2).(*array.Int64).
+					Value(int(values.ValueOffset(i)))
+			case 3: // int32
+				infoValues[code] = values.Field(3).(*array.Int32).
+					Value(int(values.ValueOffset(i)))
+			default:
+				return fmt.Errorf("%w: decoding SqlInfoResult of type code %d",
+					arrow.ErrNotImplemented, values.TypeCode(i))
+			}
+		}
+	}
+
+	if rdr.Err() != nil {
+		return rdr.Err()
+	}
+
+	for k, v := range infoValues {
+		switch k {
+		case uint32(flightsql.SqlInfoFlightSqlServerSql):
+			if err := assertEq(false, v); err != nil {
+				return fmt.Errorf("%w: %v did not match", err, k)
+			}
+		case uint32(flightsql.SqlInfoFlightSqlServerSubstrait):
+			if err := assertEq(true, v); err != nil {
+				return fmt.Errorf("%w: %v did not match", err, k)
+			}
+		case uint32(flightsql.SqlInfoFlightSqlServerSubstraitMinVersion):
+			if err := assertEq("min_version", v); err != nil {
+				return fmt.Errorf("%w: %v did not match", err, k)
+			}
+		case uint32(flightsql.SqlInfoFlightSqlServerSubstraitMaxVersion):
+			if err := assertEq("max_version", v); err != nil {
+				return fmt.Errorf("%w: %v did not match", err, k)
+			}
+		case uint32(flightsql.SqlInfoFlightSqlServerTransaction):
+			if err := assertEq(int32(flightsql.SqlTransactionSavepoint), v); err != nil {
+				return fmt.Errorf("%w: %v did not match", err, k)
+			}
+		case uint32(flightsql.SqlInfoFlightSqlServerCancel):
+			if err := assertEq(true, v); err != nil {
+				return fmt.Errorf("%w: %v did not match", err, k)
+			}
+		case uint32(flightsql.SqlInfoFlightSqlServerStatementTimeout):
+			if err := assertEq(int32(42), v); err != nil {
+				return fmt.Errorf("%w: %v did not match", err, k)
+			}
+		case uint32(flightsql.SqlInfoFlightSqlServerTransactionTimeout):
+			if err := assertEq(int32(7), v); err != nil {
+				return fmt.Errorf("%w: %v did not match", err, k)
+			}
+		}
+
 	}
 
 	return nil
 }
 
-func (m *flightSqlScenarioTester) DoPutPreparedStatementUpdate(_ context.Context, cmd flightsql.PreparedStatementUpdate, _ flight.MessageReader) (int64, error) {
-	err := assertEq([]byte("UPDATE PREPARED STATEMENT HANDLE"), cmd.GetPreparedStatementHandle())
+func (m *flightSqlExtensionScenarioTester) ValidateStatementExecution(client *flightsql.Client) error {
+	ctx := context.Background()
+	info, err := client.ExecuteSubstrait(ctx, substraitPlan)
 	if err != nil {
-		return 0, err
+		return err
+	}
+	if err := m.validate(getQuerySchema(), info, client); err != nil {
+		return err
 	}
 
-	return updatePreparedStatementExpectedRows, nil
+	schema, err := client.GetExecuteSubstraitSchema(ctx, substraitPlan)
+	if err != nil {
+		return err
+	}
+
+	if err := m.validateSchema(getQuerySchema(), schema); err != nil {
+		return err
+	}
+
+	info, err = client.ExecuteSubstrait(ctx, substraitPlan)
+	if err != nil {
+		return err
+	}
+
+	cancelResult, err := client.CancelQuery(ctx, info)
+	if err != nil {
+		return err
+	}
+
+	if err := assertEq(flightsql.CancelResultCancelled, cancelResult); err != nil {
+		return fmt.Errorf("%w: wrong cancel result", err)
+	}
+
+	updatedRows, err := client.ExecuteSubstraitUpdate(ctx, substraitPlan)
+	if err != nil {
+		return err
+	}
+
+	if err := assertEq(updateStatementExpectedRows, updatedRows); err != nil {
+		return fmt.Errorf("%w: wrong number of updated rows for ExecuteSubstraitUpdate", err)
+	}
+
+	return nil
+}
+
+func (m *flightSqlExtensionScenarioTester) ValidatePreparedStatementExecution(client *flightsql.Client) error {
+	arr, _, _ := array.FromJSON(memory.DefaultAllocator, arrow.PrimitiveTypes.Int64, strings.NewReader("[1]"))
+	defer arr.Release()
+	params := array.NewRecord(getQuerySchema(), []arrow.Array{arr}, 1)
+	defer params.Release()
+
+	ctx := context.Background()
+	stmt, err := client.PrepareSubstrait(ctx, substraitPlan)
+	if err != nil {
+		return err
+	}
+
+	stmt.SetParameters(params)
+	info, err := stmt.Execute(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := m.validate(getQuerySchema(), info, client); err != nil {
+		return err
+	}
+
+	schema, err := stmt.GetSchema(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := m.validateSchema(getQuerySchema(), schema); err != nil {
+		return err
+	}
+
+	if err := stmt.Close(ctx); err != nil {
+		return err
+	}
+
+	updateStmt, err := client.PrepareSubstrait(ctx, substraitPlan)
+	if err != nil {
+		return err
+	}
+
+	updatedRows, err := updateStmt.ExecuteUpdate(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := assertEq(updatePreparedStatementExpectedRows, updatedRows); err != nil {
+		return err
+	}
+
+	return updateStmt.Close(ctx)
+}
+
+func (m *flightSqlExtensionScenarioTester) ValidateTransactions(client *flightsql.Client) error {
+	ctx := context.Background()
+	txn, err := client.BeginTransaction(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := assertEq([]byte(transactionID), []byte(txn.ID())); err != nil {
+		return err
+	}
+
+	sp, err := txn.BeginSavepoint(ctx, savepointName)
+	if err != nil {
+		return err
+	}
+
+	if err := assertEq([]byte(savepointID), []byte(sp)); err != nil {
+		return err
+	}
+
+	info, err := txn.Execute(ctx, selectStatement)
+	if err != nil {
+		return err
+	}
+
+	if err := m.validate(getQueryWithTransactionSchema(), info, client); err != nil {
+		return err
+	}
+
+	info, err = txn.ExecuteSubstrait(ctx, substraitPlan)
+	if err != nil {
+		return err
+	}
+
+	if err := m.validate(getQueryWithTransactionSchema(), info, client); err != nil {
+		return err
+	}
+
+	schema, err := txn.GetExecuteSchema(ctx, selectStatement)
+	if err != nil {
+		return err
+	}
+
+	if err := m.validateSchema(getQueryWithTransactionSchema(), schema); err != nil {
+		return err
+	}
+
+	schema, err = txn.GetExecuteSubstraitSchema(ctx, substraitPlan)
+	if err != nil {
+		return err
+	}
+
+	if err := m.validateSchema(getQueryWithTransactionSchema(), schema); err != nil {
+		return err
+	}
+
+	updated, err := txn.ExecuteUpdate(ctx, "UPDATE STATEMENT")
+	if err != nil {
+		return err
+	}
+
+	if err := assertEq(updateStatementWithTransactionExpectedRows, updated); err != nil {
+		return err
+	}
+
+	updated, err = txn.ExecuteSubstraitUpdate(ctx, substraitPlan)
+	if err != nil {
+		return err
+	}
+
+	if err := assertEq(updateStatementWithTransactionExpectedRows, updated); err != nil {
+		return err
+	}
+
+	arr, _, _ := array.FromJSON(memory.DefaultAllocator, arrow.PrimitiveTypes.Int64, strings.NewReader("[1]"))
+	defer arr.Release()
+	params := array.NewRecord(getQuerySchema(), []arrow.Array{arr}, 1)
+	defer params.Release()
+
+	prepared, err := txn.Prepare(ctx, "SELECT PREPARED STATEMENT")
+	if err != nil {
+		return err
+	}
+	prepared.SetParameters(params)
+
+	info, err = prepared.Execute(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := m.validate(getQueryWithTransactionSchema(), info, client); err != nil {
+		return err
+	}
+
+	schema, err = prepared.GetSchema(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := m.validateSchema(getQueryWithTransactionSchema(), schema); err != nil {
+		return err
+	}
+
+	if err := prepared.Close(ctx); err != nil {
+		return err
+	}
+
+	prepared, err = txn.PrepareSubstrait(ctx, substraitPlan)
+	if err != nil {
+		return err
+	}
+	prepared.SetParameters(params)
+
+	info, err = prepared.Execute(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := m.validate(getQueryWithTransactionSchema(), info, client); err != nil {
+		return err
+	}
+
+	schema, err = prepared.GetSchema(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := m.validateSchema(getQueryWithTransactionSchema(), schema); err != nil {
+		return err
+	}
+
+	if err := prepared.Close(ctx); err != nil {
+		return err
+	}
+
+	prepared, err = txn.Prepare(ctx, "UPDATE PREPARED STATEMENT")
+	if err != nil {
+		return err
+	}
+
+	updated, err = prepared.ExecuteUpdate(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := assertEq(updatePreparedStatementWithTransactionExpectedRows, updated); err != nil {
+		return err
+	}
+
+	if err := prepared.Close(ctx); err != nil {
+		return err
+	}
+
+	prepared, err = txn.PrepareSubstrait(ctx, substraitPlan)
+	if err != nil {
+		return err
+	}
+
+	updated, err = prepared.ExecuteUpdate(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := assertEq(updatePreparedStatementWithTransactionExpectedRows, updated); err != nil {
+		return err
+	}
+
+	if err := prepared.Close(ctx); err != nil {
+		return err
+	}
+
+	if err := txn.RollbackSavepoint(ctx, sp); err != nil {
+		return err
+	}
+
+	sp2, err := txn.BeginSavepoint(ctx, savepointName)
+	if err != nil {
+		return err
+	}
+
+	if err := assertEq([]byte(savepointID), []byte(sp2)); err != nil {
+		return err
+	}
+
+	if err := txn.ReleaseSavepoint(ctx, sp); err != nil {
+		return err
+	}
+
+	if err := txn.Commit(ctx); err != nil {
+		return err
+	}
+
+	txn, err = client.BeginTransaction(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := assertEq([]byte(transactionID), []byte(txn.ID())); err != nil {
+		return err
+	}
+
+	return txn.Rollback(ctx)
 }
