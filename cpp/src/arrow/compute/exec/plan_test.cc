@@ -440,6 +440,8 @@ TEST(ExecPlan, ToString) {
   auto basic_data = MakeBasicBatches();
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
+  // Cannot test the following mini-plans with DeclarationToString since validation
+  // would fail (no sink)
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
   ASSERT_OK(Declaration::Sequence(
                 {
@@ -456,40 +458,36 @@ TEST(ExecPlan, ToString) {
   :SourceNode{}
 )");
 
-  ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
   std::shared_ptr<CountOptions> options =
       std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
-  ASSERT_OK(
-      Declaration::Sequence(
-          {
-              {"source",
-               SourceNodeOptions{basic_data.schema,
-                                 basic_data.gen(/*parallel=*/false, /*slow=*/false)},
-               "custom_source_label"},
-              {"filter", FilterNodeOptions{greater_equal(field_ref("i32"), literal(0))}},
-              {"project", ProjectNodeOptions{{
-                              field_ref("bool"),
-                              call("multiply", {field_ref("i32"), literal(2)}),
-                          }}},
-              {"aggregate",
-               AggregateNodeOptions{
-                   /*aggregates=*/{
-                       {"hash_sum", nullptr, "multiply(i32, 2)", "sum(multiply(i32, 2))"},
-                       {"hash_count", options, "multiply(i32, 2)",
-                        "count(multiply(i32, 2))"},
-                       {"hash_count_all", "count(*)"},
-                   },
-                   /*keys=*/{"bool"}}},
-              {"filter", FilterNodeOptions{greater(field_ref("sum(multiply(i32, 2))"),
-                                                   literal(10))}},
-              {"order_by_sink",
-               OrderBySinkNodeOptions{
-                   SortOptions({SortKey{"sum(multiply(i32, 2))", SortOrder::Ascending}}),
-                   &sink_gen},
-               "custom_sink_label"},
-          })
-          .AddToPlan(plan.get()));
-  EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 6 nodes:
+  Declaration declaration = Declaration::Sequence({
+      {"source",
+       SourceNodeOptions{basic_data.schema,
+                         basic_data.gen(/*parallel=*/false, /*slow=*/false)},
+       "custom_source_label"},
+      {"filter", FilterNodeOptions{greater_equal(field_ref("i32"), literal(0))}},
+      {"project", ProjectNodeOptions{{
+                      field_ref("bool"),
+                      call("multiply", {field_ref("i32"), literal(2)}),
+                  }}},
+      {"aggregate",
+       AggregateNodeOptions{
+           /*aggregates=*/{
+               {"hash_sum", nullptr, "multiply(i32, 2)", "sum(multiply(i32, 2))"},
+               {"hash_count", options, "multiply(i32, 2)", "count(multiply(i32, 2))"},
+               {"hash_count_all", "count(*)"},
+           },
+           /*keys=*/{"bool"}}},
+      {"filter",
+       FilterNodeOptions{greater(field_ref("sum(multiply(i32, 2))"), literal(10))}},
+      {"order_by_sink",
+       OrderBySinkNodeOptions{
+           SortOptions({SortKey{"sum(multiply(i32, 2))", SortOrder::Ascending}}),
+           &sink_gen},
+       "custom_sink_label"},
+  });
+  ASSERT_OK_AND_ASSIGN(std::string plan_str, DeclarationToString(declaration));
+  EXPECT_EQ(plan_str, R"a(ExecPlan with 6 nodes:
 custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32, 2))) ASC], null_placement=AtEnd}}
   :FilterNode{filter=(sum(multiply(i32, 2)) > 10)}
     :GroupByNode{keys=["bool"], aggregates=[
@@ -502,8 +500,6 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
           custom_source_label:SourceNode{}
 )a");
 
-  ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
-
   Declaration union_node{"union", ExecNodeOptions{}};
   Declaration lhs{"source",
                   SourceNodeOptions{basic_data.schema,
@@ -515,19 +511,17 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
   rhs.label = "rhs";
   union_node.inputs.emplace_back(lhs);
   union_node.inputs.emplace_back(rhs);
-  ASSERT_OK(Declaration::Sequence(
-                {
-                    union_node,
-                    {"aggregate",
-                     AggregateNodeOptions{/*aggregates=*/{
-                                              {"count", options, "i32", "count(i32)"},
-                                              {"count_all", "count(*)"},
-                                          },
-                                          /*keys=*/{}}},
-                    {"sink", SinkNodeOptions{&sink_gen}},
-                })
-                .AddToPlan(plan.get()));
-  EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 5 nodes:
+  declaration = Declaration::Sequence({
+      union_node,
+      {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                                             {"count", options, "i32", "count(i32)"},
+                                             {"count_all", "count(*)"},
+                                         },
+                                         /*keys=*/{}}},
+      {"sink", SinkNodeOptions{&sink_gen}},
+  });
+  ASSERT_OK_AND_ASSIGN(plan_str, DeclarationToString(declaration));
+  EXPECT_EQ(plan_str, R"a(ExecPlan with 5 nodes:
 :SinkNode{}
   :ScalarAggregateNode{aggregates=[
 	count(i32, {mode=NON_NULL}),
@@ -672,6 +666,34 @@ TEST(ExecPlanExecution, SourceTableConsumingSink) {
       AssertTablesEqualIgnoringOrder(expected, out);
     }
   }
+}
+
+TEST(ExecPlanExecution, DeclarationToSchema) {
+  auto basic_data = MakeBasicBatches();
+  auto plan = Declaration::Sequence(
+      {{"source", SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))},
+       {"aggregate", AggregateNodeOptions({{"hash_sum", "i32", "int32_sum"}}, {"bool"})},
+       {"project",
+        ProjectNodeOptions({field_ref("int32_sum"),
+                            call("multiply", {field_ref("int32_sum"), literal(2)})})}});
+  auto expected_out_schema =
+      schema({field("int32_sum", int64()), field("multiply(int32_sum, 2)", int64())});
+  ASSERT_OK_AND_ASSIGN(auto actual_out_schema, DeclarationToSchema(std::move(plan)));
+  AssertSchemaEqual(expected_out_schema, actual_out_schema);
+}
+
+TEST(ExecPlanExecution, DeclarationToReader) {
+  auto basic_data = MakeBasicBatches();
+  auto plan = Declaration::Sequence(
+      {{"source", SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))}});
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> reader,
+                       DeclarationToReader(plan));
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> out, reader->ToTable());
+  ASSERT_EQ(5, out->num_rows());
+  ASSERT_OK(reader->Close());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("already closed reader"),
+                                  reader->Next());
 }
 
 TEST(ExecPlanExecution, ConsumingSinkNames) {

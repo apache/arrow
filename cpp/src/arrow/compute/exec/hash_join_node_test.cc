@@ -26,7 +26,7 @@
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"
-#include "arrow/compute/kernels/row_encoder.h"
+#include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
@@ -2103,8 +2103,12 @@ void TestSingleChainOfHashJoins(Random64Bit& rng) {
 
 TEST(HashJoin, ChainedIntegerHashJoins) {
   Random64Bit rng(42);
-  int num_tests = 30;
-  for (int i = 0; i < num_tests; i++) {
+#ifdef ARROW_VALGRIND
+  constexpr int kNumTests = 3;
+#else
+  constexpr int kNumTests = 30;
+#endif
+  for (int i = 0; i < kNumTests; i++) {
     ARROW_SCOPED_TRACE("Test ", std::to_string(i));
     TestSingleChainOfHashJoins(rng);
   }

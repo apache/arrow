@@ -34,7 +34,7 @@ TEST(TestDispatchBest, CastBinaryDecimalArgs) {
 
   // Any float -> all float
   for (auto mode : modes) {
-    args = {decimal128(3, 2), float64()};
+    args = {decimal128(3, 2), float32(), float64()};
     ASSERT_OK(CastBinaryDecimalArgs(mode, &args));
     AssertTypeEqual(*args[0], *float64());
     AssertTypeEqual(*args[1], *float64());

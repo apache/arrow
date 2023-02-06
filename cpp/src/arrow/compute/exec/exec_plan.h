@@ -408,6 +408,36 @@ struct ARROW_EXPORT Declaration {
   std::string label;
 };
 
+/// \brief Calculate the output schema of a declaration
+///
+/// This does not actually execute the plan.  This operation may fail if the
+/// declaration represents an invalid plan (e.g. a project node with multiple inputs)
+///
+/// \param declaration A declaration describing an execution plan
+/// \param function_registry The function registry to use for function execution.  If null
+///                          then the default function registry will be used.
+///
+/// \return the schema that batches would have after going through the execution plan
+ARROW_EXPORT Result<std::shared_ptr<Schema>> DeclarationToSchema(
+    const Declaration& declaration, FunctionRegistry* function_registry = NULLPTR);
+
+/// \brief Create a string representation of a plan
+///
+/// This representation is for debug purposes only.
+///
+/// Conversion to a string may fail if the declaration represents an
+/// invalid plan.
+///
+/// Use Substrait for complete serialization of plans
+///
+/// \param declaration A declaration describing an execution plan
+/// \param function_registry The function registry to use for function execution.  If null
+///                          then the default function registry will be used.
+///
+/// \return a string representation of the plan suitable for debugging output
+ARROW_EXPORT Result<std::string> DeclarationToString(
+    const Declaration& declaration, FunctionRegistry* function_registry = NULLPTR);
+
 /// \brief Utility method to run a declaration and collect the results into a table
 ///
 /// \param declaration A declaration describing the plan to run

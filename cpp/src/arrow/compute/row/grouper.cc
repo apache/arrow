@@ -25,7 +25,7 @@
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function.h"
-#include "arrow/compute/kernels/row_encoder.h"
+#include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/light_array.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/compare_internal.h"

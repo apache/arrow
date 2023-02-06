@@ -453,9 +453,16 @@ using ArraySortFunc = std::function<NullPartitionResult(
 
 Result<ArraySortFunc> GetArraySorter(const DataType& type);
 
-Status SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
-                        const ChunkedArray& values, SortOrder sort_order,
-                        NullPlacement null_placement);
+Result<NullPartitionResult> SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin,
+                                             uint64_t* indices_end,
+                                             const ChunkedArray& chunked_array,
+                                             SortOrder sort_order,
+                                             NullPlacement null_placement);
+
+Result<NullPartitionResult> SortChunkedArray(
+    ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+    const std::shared_ptr<DataType>& physical_type, const ArrayVector& physical_chunks,
+    SortOrder sort_order, NullPlacement null_placement);
 
 // ----------------------------------------------------------------------
 // Helpers for Sort/SelectK/Rank implementations
