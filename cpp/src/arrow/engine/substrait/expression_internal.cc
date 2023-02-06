@@ -320,6 +320,13 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       return function_converter(substrait_call);
     }
 
+    case substrait::Expression::kCast: {
+      const auto& cast_exp = expr.cast()
+
+
+      return compute::call("cast");
+    }
+
     default:
       break;
   }
