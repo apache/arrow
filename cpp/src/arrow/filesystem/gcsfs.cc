@@ -282,9 +282,6 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
     ARROW_RETURN_NOT_OK(InitializeStream());
     return stream_->Read(nbytes);
   }
-  const arrow::io::IOContext& io_context() const override {
-    return stream_->io_context();
-  }
   //@}
 
   //@{
