@@ -526,17 +526,17 @@ func (m *middlewareScenarioTester) GetFlightInfo(ctx context.Context, desc *flig
 	}, nil
 }
 
-var (
-	// Schema to be returned for mocking the statement/prepared statement
-	// results. Must be the same across all languages
-	QuerySchema = arrow.NewSchema([]arrow.Field{{
-		Name: "id", Type: arrow.PrimitiveTypes.Int64, Nullable: true,
-		Metadata: flightsql.NewColumnMetadataBuilder().
-			TableName("test").IsAutoIncrement(true).IsCaseSensitive(false).
-			TypeName("type_test").SchemaName("schema_test").IsSearchable(true).
-			CatalogName("catalog_test").Precision(100).Metadata(),
-	}}, nil)
-)
+// var (
+// 	// Schema to be returned for mocking the statement/prepared statement
+// 	// results. Must be the same across all languages
+// 	QuerySchema = arrow.NewSchema([]arrow.Field{{
+// 		Name: "id", Type: arrow.PrimitiveTypes.Int64, Nullable: true,
+// 		Metadata: flightsql.NewColumnMetadataBuilder().
+// 			TableName("test").IsAutoIncrement(true).IsCaseSensitive(false).
+// 			TypeName("type_test").SchemaName("schema_test").IsSearchable(true).
+// 			CatalogName("catalog_test").Precision(100).Metadata(),
+// 	}}, nil)
+// )
 
 const (
 	updateStatementExpectedRows                        int64 = 10000
@@ -828,7 +828,7 @@ func (m *flightSqlScenarioTester) ValidateStatementExecution(client *flightsql.C
 	if err != nil {
 		return err
 	}
-	if err = m.validate(QuerySchema, info, client); err != nil {
+	if err = m.validate(getQuerySchema(), info, client); err != nil {
 		return err
 	}
 
@@ -836,7 +836,7 @@ func (m *flightSqlScenarioTester) ValidateStatementExecution(client *flightsql.C
 	if err != nil {
 		return err
 	}
-	if err = m.validateSchema(QuerySchema, schema); err != nil {
+	if err = m.validateSchema(getQuerySchema(), schema); err != nil {
 		return err
 	}
 
@@ -859,7 +859,7 @@ func (m *flightSqlScenarioTester) ValidatePreparedStatementExecution(client *fli
 
 	arr, _, _ := array.FromJSON(memory.DefaultAllocator, arrow.PrimitiveTypes.Int64, strings.NewReader("[1]"))
 	defer arr.Release()
-	params := array.NewRecord(QuerySchema, []arrow.Array{arr}, 1)
+	params := array.NewRecord(getQuerySchema(), []arrow.Array{arr}, 1)
 	defer params.Release()
 	prepared.SetParameters(params)
 
@@ -867,14 +867,14 @@ func (m *flightSqlScenarioTester) ValidatePreparedStatementExecution(client *fli
 	if err != nil {
 		return err
 	}
-	if err = m.validate(QuerySchema, info, client); err != nil {
+	if err = m.validate(getQuerySchema(), info, client); err != nil {
 		return err
 	}
 	schema, err := prepared.GetSchema(ctx)
 	if err != nil {
 		return err
 	}
-	if err = m.validateSchema(QuerySchema, schema); err != nil {
+	if err = m.validateSchema(getQuerySchema(), schema); err != nil {
 		return err
 	}
 
@@ -1402,31 +1402,31 @@ func (m *flightSqlScenarioTester) EndTransaction(_ context.Context, request flig
 // schema to be returned for mocking the statement/prepared statement results
 func getQuerySchema() *arrow.Schema {
 	return arrow.NewSchema([]arrow.Field{
-		{Name: "id", Type: arrow.PrimitiveTypes.Int64, Nullable: true}},
-		flightsql.NewColumnMetadataBuilder().
-			TableName("test").
-			IsAutoIncrement(true).
-			IsCaseSensitive(false).
-			TypeName("type_test").
-			SchemaName("schema_test").
-			IsSearchable(true).
-			CatalogName("catalog_test").
-			Precision(100).
-			Build().Data)
+		{Name: "id", Type: arrow.PrimitiveTypes.Int64, Nullable: true,
+			Metadata: *flightsql.NewColumnMetadataBuilder().
+				TableName("test").
+				IsAutoIncrement(true).
+				IsCaseSensitive(false).
+				TypeName("type_test").
+				SchemaName("schema_test").
+				IsSearchable(true).
+				CatalogName("catalog_test").
+				Precision(100).
+				Build().Data}}, nil)
 }
 
 func getQueryWithTransactionSchema() *arrow.Schema {
 	return arrow.NewSchema([]arrow.Field{
-		{Name: "pkey", Type: arrow.PrimitiveTypes.Int32, Nullable: true}},
-		flightsql.NewColumnMetadataBuilder().
-			TableName("test").
-			IsAutoIncrement(true).
-			IsCaseSensitive(false).
-			TypeName("type_test").
-			SchemaName("schema_test").
-			IsSearchable(true).
-			CatalogName("catalog_test").
-			Precision(100).Build().Data)
+		{Name: "pkey", Type: arrow.PrimitiveTypes.Int32, Nullable: true,
+			Metadata: *flightsql.NewColumnMetadataBuilder().
+				TableName("test").
+				IsAutoIncrement(true).
+				IsCaseSensitive(false).
+				TypeName("type_test").
+				SchemaName("schema_test").
+				IsSearchable(true).
+				CatalogName("catalog_test").
+				Precision(100).Build().Data}}, nil)
 }
 
 const (

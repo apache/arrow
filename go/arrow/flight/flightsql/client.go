@@ -775,7 +775,9 @@ func (tx *Txn) Commit(ctx context.Context, opts ...grpc.CallOption) error {
 	}
 
 	tx.txn = nil
-	_, err = stream.Recv()
+	if _, err = stream.Recv(); err == io.EOF {
+		err = nil
+	}
 	return err
 }
 
@@ -804,7 +806,10 @@ func (tx *Txn) Rollback(ctx context.Context, opts ...grpc.CallOption) error {
 	}
 
 	tx.txn = nil
-	_, err = stream.Recv()
+	if _, err = stream.Recv(); err == io.EOF {
+		err = nil
+	}
+
 	return err
 }
 
@@ -868,7 +873,9 @@ func (tx *Txn) ReleaseSavepoint(ctx context.Context, sp Savepoint, opts ...grpc.
 		return err
 	}
 
-	_, err = stream.Recv()
+	if _, err = stream.Recv(); err == io.EOF {
+		err = nil
+	}
 	return err
 }
 
@@ -896,7 +903,9 @@ func (tx *Txn) RollbackSavepoint(ctx context.Context, sp Savepoint, opts ...grpc
 		return err
 	}
 
-	_, err = stream.Recv()
+	if _, err = stream.Recv(); err == io.EOF {
+		err = nil
+	}
 	return err
 }
 
