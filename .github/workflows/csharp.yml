@@ -20,14 +20,14 @@ name: C#
 on:
   push:
     paths:
-      - ".github/workflows/csharp.yml"
-      - "ci/scripts/csharp_*"
-      - "csharp/**"
+      - '.github/workflows/csharp.yml'
+      - 'ci/scripts/csharp_*'
+      - 'csharp/**'
   pull_request:
     paths:
-      - ".github/workflows/csharp.yml"
-      - "ci/scripts/csharp_*"
-      - "csharp/**"
+      - '.github/workflows/csharp.yml'
+      - 'ci/scripts/csharp_*'
+      - 'csharp/**'
 
 concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
@@ -37,6 +37,7 @@ permissions:
   contents: read
 
 jobs:
+
   ubuntu:
     name: AMD64 Ubuntu 18.04 C# ${{ matrix.dotnet }}
     runs-on: ubuntu-latest
@@ -45,13 +46,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ["7.0.x"]
+        dotnet: ['7.0.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v2
         with:
-          dotnet-version: |
-            7.0.x
+          dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
@@ -65,8 +65,6 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/csharp_test.sh $(pwd)
-        env:
-          DOTNET_VERSION: ${{ matrix.dotnet }}
 
   windows:
     name: AMD64 Windows 2019 18.04 C# ${{ matrix.dotnet }}
@@ -76,13 +74,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ["7.0.x"]
+        dotnet: ['7.0.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v2
         with:
-          dotnet-version: |
-            7.0.x
+          dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
@@ -95,8 +92,6 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/csharp_test.sh $(pwd)
-        env:
-          DOTNET_VERSION: ${{ matrix.dotnet }}
 
   macos:
     name: AMD64 macOS 11 C# ${{ matrix.dotnet }}
@@ -106,13 +101,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ["7.0.x"]
+        dotnet: ['7.0.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v2
         with:
-          dotnet-version: |
-            7.0.x
+          dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
@@ -126,5 +120,3 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/csharp_test.sh $(pwd)
-        env:
-          DOTNET_VERSION: ${{ matrix.dotnet }}
