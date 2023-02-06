@@ -28,7 +28,6 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/internal/debug"
 	"github.com/apache/arrow/go/v12/arrow/ipc"
 	"github.com/apache/arrow/go/v12/arrow/memory"
-	"golang.org/x/exp/maps"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -383,23 +382,26 @@ func (b *BaseServer) DoGetSqlInfo(_ context.Context, cmd GetSqlInfo) (*arrow.Sch
 	sqlInfoResultBldr := newSqlInfoResultBuilder(valFieldBldr)
 
 	keys := cmd.GetInfo()
-	// if no keys are sent, fetch all the info
-	if len(keys) == 0 {
-		keys = maps.Keys(b.sqlInfoToResult)
-	}
 
 	// populate both the nameFieldBldr and the values for each
 	// element on command.info.
 	// valueFieldBldr is populated depending on the data type
 	// since it's a dense union. The population for each
 	// data type is handled by the sqlInfoResultBuilder.
-	for _, info := range keys {
-		val, ok := b.sqlInfoToResult[info]
-		if !ok {
-			return nil, nil, status.Errorf(codes.NotFound, "no information for sql info number %d", info)
+	if len(keys) > 0 {
+		for _, info := range keys {
+			val, ok := b.sqlInfoToResult[info]
+			if !ok {
+				return nil, nil, status.Errorf(codes.NotFound, "no information for sql info number %d", info)
+			}
+			nameFieldBldr.Append(info)
+			sqlInfoResultBldr.Append(val)
 		}
-		nameFieldBldr.Append(info)
-		sqlInfoResultBldr.Append(val)
+	} else {
+		for k, v := range b.sqlInfoToResult {
+			nameFieldBldr.Append(k)
+			sqlInfoResultBldr.Append(v)
+		}
 	}
 
 	batch := bldr.NewRecord()
