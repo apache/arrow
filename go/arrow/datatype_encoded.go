@@ -25,13 +25,13 @@ type EncodedType interface {
 // array of data. ValueNullable defaults to true, but can be set false
 // if this should represent a type with a non-nullable value field.
 type RunEndEncodedType struct {
-	ends          DataType
+	runEnds       DataType
 	values        DataType
 	ValueNullable bool
 }
 
 func RunEndEncodedOf(runEnds, values DataType) *RunEndEncodedType {
-	return &RunEndEncodedType{ends: runEnds, values: values, ValueNullable: true}
+	return &RunEndEncodedType{runEnds: runEnds, values: values, ValueNullable: true}
 }
 
 func (*RunEndEncodedType) ID() Type     { return RUN_END_ENCODED }
@@ -41,19 +41,19 @@ func (*RunEndEncodedType) Layout() DataTypeLayout {
 }
 
 func (t *RunEndEncodedType) String() string {
-	return t.Name() + "<run_ends: " + t.ends.String() + ", values: " + t.values.String() + ">"
+	return t.Name() + "<run_ends: " + t.runEnds.String() + ", values: " + t.values.String() + ">"
 }
 
 func (t *RunEndEncodedType) Fingerprint() string {
-	return typeFingerprint(t) + "{" + t.ends.Fingerprint() + ";" + t.values.Fingerprint() + ";}"
+	return typeFingerprint(t) + "{" + t.runEnds.Fingerprint() + ";" + t.values.Fingerprint() + ";}"
 }
 
-func (t *RunEndEncodedType) RunEnds() DataType { return t.ends }
+func (t *RunEndEncodedType) RunEnds() DataType { return t.runEnds }
 func (t *RunEndEncodedType) Encoded() DataType { return t.values }
 
 func (t *RunEndEncodedType) Fields() []Field {
 	return []Field{
-		{Name: "run_ends", Type: t.ends},
+		{Name: "run_ends", Type: t.runEnds},
 		{Name: "values", Type: t.values, Nullable: t.ValueNullable},
 	}
 }
