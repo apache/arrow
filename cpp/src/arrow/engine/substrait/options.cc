@@ -124,21 +124,21 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
 
 namespace {
 
-std::shared_ptr<ExtensionProvider> kDefaultExtensionProvider =
+std::shared_ptr<ExtensionProvider> g_default_extension_provider =
     std::make_shared<DefaultExtensionProvider>();
 
-std::mutex kDefaultExtensionProviderMutex;
+std::mutex g_default_extension_provider_mutex;
 
 }  // namespace
 
 std::shared_ptr<ExtensionProvider> default_extension_provider() {
-  std::unique_lock<std::mutex> lock(kDefaultExtensionProviderMutex);
-  return kDefaultExtensionProvider;
+  std::unique_lock<std::mutex> lock(g_default_extension_provider_mutex);
+  return g_default_extension_provider;
 }
 
 void set_default_extension_provider(const std::shared_ptr<ExtensionProvider>& provider) {
-  std::unique_lock<std::mutex> lock(kDefaultExtensionProviderMutex);
-  kDefaultExtensionProvider = provider;
+  std::unique_lock<std::mutex> lock(g_default_extension_provider_mutex);
+  g_default_extension_provider = provider;
 }
 
 }  // namespace engine
