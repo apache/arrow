@@ -13,12 +13,15 @@ read_json_arrow(
 )
 }
 \arguments{
-\item{file}{A character file name or URI, \code{raw} vector, an Arrow input stream,
-or a \code{FileSystem} with path (\code{SubTreeFileSystem}).
+\item{file}{A character file name or URI, literal data (either a single string or a \link{raw} vector),
+an Arrow input stream, or a \code{FileSystem} with path (\code{SubTreeFileSystem}).
+
 If a file name, a memory-mapped Arrow \link{InputStream} will be opened and
 closed when finished; compression will be detected from the file extension
 and handled automatically. If an input stream is provided, it will be left
-open.}
+open.
+
+To be recognised as literal data, the input must be wrapped with \code{I()}.}
 
 \item{col_select}{A character vector of column names to keep, as in the
 "select" argument to \code{data.table::fread()}, or a
@@ -60,11 +63,16 @@ When \code{as_data_frame = TRUE}, Arrow types are further converted to R types.
 \dontshow{if (arrow_with_json()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 tf <- tempfile()
 on.exit(unlink(tf))
-writeLines('
-    { "hello": 3.5, "world": false, "yo": "thing" }
-    { "hello": 3.25, "world": null }
-    { "hello": 0.0, "world": true, "yo": null }
-  ', tf, useBytes = TRUE)
+json <- '
+  { "hello": 3.5, "world": false, "yo": "thing" }
+  { "hello": 3.25, "world": null }
+  { "hello": 0.0, "world": true, "yo": null }
+'
+writeLines(json, tf, useBytes = TRUE)
+
 read_json_arrow(tf)
+
+# Read directly from strings with `I()`
+read_json_arrow(I(json))
 \dontshow{\}) # examplesIf}
 }
