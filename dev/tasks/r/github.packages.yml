@@ -64,7 +64,6 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { os: ubuntu, version: "18.04" }
           - { os: ubuntu, version: "22.04" }
           - { os: centos, version: "7" }
     env:
