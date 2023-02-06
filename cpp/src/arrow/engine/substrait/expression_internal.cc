@@ -322,9 +322,11 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
 
     case substrait::Expression::kCast: {
       const auto& cast_exp = expr.cast()
+      ARROW_ASSIGN_OR_RAISE(auto input,
+                            FromProto(cast_exp.input(), ext_set, conversion_options));
 
 
-      return compute::call("cast");
+      return compute::call("cast", std::move(input), );
     }
 
     default:
