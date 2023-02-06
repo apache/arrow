@@ -225,7 +225,7 @@ bool Expression::Equals(const Expression& other) const {
     // is equal to the literal NaN (e.g. the expressions are equal even if
     // the values are not)
     EqualOptions equal_options = EqualOptions::Defaults().nans_equal(true);
-    return lit->scalar()->Equals(other.literal()->scalar(), equal_options);
+    return lit->scalar()->Equals(*other.literal()->scalar(), equal_options);
   }
 
   if (auto ref = field_ref()) {
