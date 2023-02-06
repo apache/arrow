@@ -71,8 +71,7 @@ class DatasetWriterTestFixture : public testing::Test {
     filesystem_ = std::dynamic_pointer_cast<MockFileSystem>(fs);
     schema_ = schema({field("int64", int64())});
     std::shared_ptr<FileFormat> format = std::make_shared<IpcFileFormat>();
-    auto write_options = std::make_shared<FileSystemDatasetWriteOptions>(format);
-    write_options_ = write_options;
+    write_options_ = std::make_shared<FileSystemDatasetWriteOptions>(format);
     write_options_->filesystem = filesystem_;
     write_options_->basename_template = "chunk-{i}.arrow";
     write_options_->base_dir = "testdir";

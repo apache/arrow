@@ -653,8 +653,8 @@ Result<std::unique_ptr<DatasetWriter>> DatasetWriter::Make(
     util::AsyncTaskScheduler* scheduler, std::function<void()> pause_callback,
     std::function<void()> resume_callback, std::function<void()> finish_callback,
     uint64_t max_rows_queued) {
-  RETURN_NOT_OK(ValidateOptions(*write_options.get()));
-  RETURN_NOT_OK(EnsureDestinationValid(*write_options.get()));
+  RETURN_NOT_OK(ValidateOptions(*write_options));
+  RETURN_NOT_OK(EnsureDestinationValid(*write_options));
   return std::unique_ptr<DatasetWriter>(new DatasetWriter(
       std::move(write_options), scheduler, std::move(pause_callback),
       std::move(resume_callback), std::move(finish_callback), max_rows_queued));
