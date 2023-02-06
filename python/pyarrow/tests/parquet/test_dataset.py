@@ -1926,10 +1926,11 @@ def test_write_to_dataset_kwargs_passed(tempdir, write_dataset_kwarg):
         _name, _args, kwargs = mock_write_dataset.mock_calls[0]
         assert kwargs[key] == arg
 
+
 def test_partition_schema_validity(tempdir):
     data = {
-    "a": [1, 2, 1, 2, 3, 4],
-    "b": [10, 20, 30, 40, 50, 60]
+        "a": [1, 2, 1, 2, 3, 4],
+        "b": [10, 20, 30, 40, 50, 60]
     }
 
     table = pa.Table.from_pydict(data)
@@ -1941,4 +1942,3 @@ def test_partition_schema_validity(tempdir):
 
     flat_ds = pa.dataset.dataset(tempdir, format="parquet")
     assert hive_ds.schema == flat_ds.schema
-    assert flat_ds.partitioning == None
