@@ -605,8 +605,12 @@ endif()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set(GLIBCXX_USE_CXX11_ABI_SOURCE
       ${CMAKE_CURRENT_BINARY_DIR}/try_compile_glibcxx_use_cxx_abi.cc)
-  file(WRITE ${GLIBCXX_USE_CXX11_ABI_SOURCE} "#if !_GLIBCXX_USE_CXX11_ABI\n"
-                                             "#error Not using CXX11 ABI\n" "#endif\n")
+  file(WRITE ${GLIBCXX_USE_CXX11_ABI_SOURCE}
+       "#include <string>\n"
+       "#if !_GLIBCXX_USE_CXX11_ABI\n"
+       "#error Not using CXX11 ABI\n"
+       "#endif\n"
+       "int main(void) {return 0;}\n")
   try_compile(IS_GLIBCXX_USE_CXX11_ABI ${CMAKE_CURRENT_BINARY_DIR}/try_compile
               SOURCES ${GLIBCXX_USE_CXX11_ABI_SOURCE})
   if(NOT IS_GLIBCXX_USE_CXX11_ABI)
