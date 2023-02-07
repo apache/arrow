@@ -238,14 +238,14 @@ Result<std::shared_ptr<Array>> ScalarVectorToArray(const ScalarVector& scalars);
 
 namespace gen {
 
-class ArrayGenerator {
+class ARROW_TESTING_EXPORT ArrayGenerator {
  public:
   virtual ~ArrayGenerator() = default;
   virtual Result<std::shared_ptr<Array>> Generate(int64_t num_rows) = 0;
   virtual std::shared_ptr<DataType> type() const = 0;
 };
 
-class DataGenerator {
+class ARROW_TESTING_EXPORT DataGenerator {
  public:
   virtual ~DataGenerator() = default;
   virtual Result<std::shared_ptr<::arrow::RecordBatch>> RecordBatch(int64_t num_rows) = 0;
@@ -260,7 +260,7 @@ class DataGenerator {
 };
 
 // Same as DataGenerator but instead of returning Result an ok status is EXPECT'd
-class GTestDataGenerator {
+class ARROW_TESTING_EXPORT GTestDataGenerator {
  public:
   virtual ~GTestDataGenerator() = default;
   virtual std::shared_ptr<::arrow::RecordBatch> RecordBatch(int64_t num_rows) = 0;
@@ -274,31 +274,36 @@ class GTestDataGenerator {
   virtual std::shared_ptr<::arrow::Schema> Schema() = 0;
 };
 
-struct GeneratorField {
+struct ARROW_TESTING_EXPORT GeneratorField {
   std::string name;
   std::shared_ptr<ArrayGenerator> gen;
 };
 
-std::unique_ptr<DataGenerator> Gen(
+ARROW_TESTING_EXPORT std::unique_ptr<DataGenerator> Gen(
     std::vector<std::shared_ptr<ArrayGenerator>> column_gens);
-std::unique_ptr<DataGenerator> Gen(std::vector<GeneratorField> column_gens);
+ARROW_TESTING_EXPORT std::unique_ptr<DataGenerator> Gen(
+    std::vector<GeneratorField> column_gens);
 // For generating batches with 0 columns (though they can still have length)
-std::unique_ptr<DataGenerator> EmptyGen();
+ARROW_TESTING_EXPORT std::unique_ptr<DataGenerator> EmptyGen();
 
-std::unique_ptr<GTestDataGenerator> TestGen(
+ARROW_TESTING_EXPORT std::unique_ptr<GTestDataGenerator> TestGen(
     std::vector<std::shared_ptr<ArrayGenerator>> column_gens);
-std::unique_ptr<GTestDataGenerator> TestGen(std::vector<GeneratorField> column_gens);
+ARROW_TESTING_EXPORT std::unique_ptr<GTestDataGenerator> TestGen(
+    std::vector<GeneratorField> column_gens);
 // For generating batches with 0 columns (though they can still have length)
-std::unique_ptr<GTestDataGenerator> EmptyTestGen();
+ARROW_TESTING_EXPORT std::unique_ptr<GTestDataGenerator> EmptyTestGen();
 
 /// make a generator that returns a constant value
-std::unique_ptr<ArrayGenerator> Constant(std::shared_ptr<Scalar> value);
+ARROW_TESTING_EXPORT std::unique_ptr<ArrayGenerator> Constant(
+    std::shared_ptr<Scalar> value);
 /// make a generator that returns an incrementing value
 ///
 /// Note: overflow is not prevented standard unsigned integer overflow applies
-std::unique_ptr<ArrayGenerator> Step(uint32_t start = 0, uint32_t step = 1);
+ARROW_TESTING_EXPORT std::unique_ptr<ArrayGenerator> Step(uint32_t start = 0,
+                                                          uint32_t step = 1);
 /// make a generator that returns a random value
-std::unique_ptr<ArrayGenerator> Random(std::shared_ptr<DataType> type);
+ARROW_TESTING_EXPORT std::unique_ptr<ArrayGenerator> Random(
+    std::shared_ptr<DataType> type);
 /// TODO(if-needed) could add a repeat-scalars generator, e.g. Repeat({1, 2, 3}) for
 /// 1,2,3,1,2,3,1
 ///
