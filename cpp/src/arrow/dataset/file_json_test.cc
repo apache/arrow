@@ -17,7 +17,7 @@
 
 #include "arrow/dataset/file_json.h"
 
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/json/parser.h"
 #include "arrow/json/rapidjson_defs.h"
