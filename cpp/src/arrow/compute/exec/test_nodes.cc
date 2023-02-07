@@ -93,6 +93,8 @@ AsyncGenerator<std::optional<ExecBatch>> MakeDelayedGen(BatchesWithSchema src,
   return MakeDelayedGen(MakeVectorIterator(opt_batches), label, delay_sec, noisy);
 }
 
+namespace {
+
 class ARROW_EXPORT JitterNode : public ExecNode {
  public:
   struct QueuedBatch {
@@ -193,6 +195,8 @@ class ARROW_EXPORT JitterNode : public ExecNode {
   std::uniform_int_distribution<int> jitter_dist_;
   std::priority_queue<QueuedBatch, std::vector<QueuedBatch>, QueuedBatchCompare> queue_;
 };
+
+}  // namespace
 
 void RegisterTestNodes() {
   static std::once_flag registered;

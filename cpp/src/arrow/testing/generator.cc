@@ -266,8 +266,13 @@ class DataGeneratorImpl : public DataGenerator {
   }
 
   Result<std::shared_ptr<::arrow::RecordBatch>> RecordBatch(int64_t num_rows) override {
-    ARROW_ASSIGN_OR_RAISE(::arrow::compute::ExecBatch exec_batch, ExecBatch(num_rows));
-    return exec_batch.ToRecordBatch(schema_);
+    std::vector<std::shared_ptr<Array>> columns;
+    columns.reserve(generators_.size());
+    for (auto& field : generators_) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> arr, field.gen->Generate(num_rows));
+      columns.push_back(std::move(arr));
+    }
+    return RecordBatch::Make(schema_, num_rows, std::move(columns));
   }
 
   Result<std::vector<std::shared_ptr<::arrow::RecordBatch>>> RecordBatches(
@@ -282,6 +287,7 @@ class DataGeneratorImpl : public DataGenerator {
     return batches;
   }
 
+#ifdef ARROW_COMPUTE
   Result<::arrow::compute::ExecBatch> ExecBatch(int64_t num_rows) override {
     std::vector<Datum> values;
     values.reserve(generators_.size());
@@ -301,6 +307,7 @@ class DataGeneratorImpl : public DataGenerator {
     }
     return batches;
   }
+#endif
 
   Result<std::shared_ptr<::arrow::Table>> Table(int64_t rows_per_chunk,
                                                 int num_chunks = 1) override {
@@ -338,6 +345,7 @@ class GTestDataGeneratorImpl : public GTestDataGenerator {
                          target_->RecordBatches(rows_per_batch, num_batches));
     return batches;
   }
+#ifdef ARROW_COMPUTE
   ::arrow::compute::ExecBatch ExecBatch(int64_t num_rows) override {
     EXPECT_OK_AND_ASSIGN(auto batch, target_->ExecBatch(num_rows));
     return batch;
@@ -347,6 +355,7 @@ class GTestDataGeneratorImpl : public GTestDataGenerator {
     EXPECT_OK_AND_ASSIGN(auto batches, target_->ExecBatches(rows_per_batch, num_batches));
     return batches;
   }
+#endif
   std::shared_ptr<::arrow::Table> Table(int64_t rows_per_chunk, int num_chunks) override {
     EXPECT_OK_AND_ASSIGN(auto table, target_->Table(rows_per_chunk, num_chunks));
     return table;
