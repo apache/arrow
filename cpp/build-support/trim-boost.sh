@@ -24,22 +24,22 @@
 #
 # To test building Arrow locally with the boost bundle this creates, add:
 #
-#     set(BOOST_SOURCE_URL /path/to/arrow/cpp/build-support/boost_1_75_0/boost_1_75_0.tar.gz)
+#     set(BOOST_SOURCE_URL /path/to/arrow/cpp/build-support/boost_1_81_0/boost_1_81_0.tar.gz)
 #
 # to the beginning of the build_boost() macro in ThirdpartyToolchain.cmake,
 #
 # or set the env var ARROW_BOOST_URL before calling cmake, like:
 #
-#     ARROW_BOOST_URL=/path/to/arrow/cpp/build-support/boost_1_75_0/boost_1_75_0.tar.gz cmake ...
+#     ARROW_BOOST_URL=/path/to/arrow/cpp/build-support/boost_1_81_0/boost_1_81_0.tar.gz cmake ...
 #
 # After running this script, upload the bundle to
-# https://github.com/ursa-labs/thirdparty/releases/edit/latest
+# https://apache.jfrog.io/artifactory/arrow/thirdparty/
 # TODO(ARROW-6407) automate uploading to github
 
 set -eu
 
 # if version is not defined by the caller, set a default.
-: ${BOOST_VERSION:=1.75.0}
+: ${BOOST_VERSION:=1.81.0}
 : ${BOOST_FILE:=boost_${BOOST_VERSION//./_}}
 : ${BOOST_URL:=https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/${BOOST_FILE}.tar.gz}
 
@@ -65,6 +65,9 @@ if [ ! -f "dist/bin/bcp" ]; then
 fi
 mkdir -p ${BOOST_FILE}
 ./dist/bin/bcp ${BOOST_LIBS} ${BOOST_FILE}
+
+# These files are assumed by the thirdparty toolchain but are not copied by bcp
+cp bootstrap.sh bootstrap.bat boostcpp.jam boost-build.jam Jamroot LICENSE_1_0.txt INSTALL ${BOOST_FILE}/
 
 tar -czf ${BOOST_FILE}.tar.gz ${BOOST_FILE}/
 # Resulting tarball is in ${BOOST_FILE}/${BOOST_FILE}.tar.gz
