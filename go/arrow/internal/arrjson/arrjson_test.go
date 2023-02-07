@@ -45,7 +45,7 @@ func TestReadWrite(t *testing.T) {
 	wantJSONs["extension"] = makeExtensionsWantJSONs()
 	wantJSONs["dictionary"] = makeDictionaryWantJSONs()
 	wantJSONs["union"] = makeUnionWantJSONs()
-
+	wantJSONs["run_end_encoded"] = makeRunEndEncodedWantJSONs()
 	tempDir := t.TempDir()
 
 	for name, recs := range arrdata.Records {
@@ -5421,6 +5421,379 @@ func makeUnionWantJSONs() string {
                 101,
                 104,
                 105
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}`
+}
+
+func makeRunEndEncodedWantJSONs() string {
+	return `{
+  "schema": {
+    "fields": [
+      {
+        "name": "ree16",
+        "type": {
+          "name": "runendencoded"
+        },
+        "nullable": false,
+        "children": [
+          {
+            "name": "run_ends",
+            "type": {
+              "name": "int",
+              "isSigned": true,
+              "bitWidth": 16
+            },
+            "nullable": false,
+            "children": []
+          },
+          {
+            "name": "values",
+            "type": {
+              "name": "utf8"
+            },
+            "nullable": true,
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "ree32",
+        "type": {
+          "name": "runendencoded"
+        },
+        "nullable": false,
+        "children": [
+          {
+            "name": "run_ends",
+            "type": {
+              "name": "int",
+              "isSigned": true,
+              "bitWidth": 32
+            },
+            "nullable": false,
+            "children": []
+          },
+          {
+            "name": "values",
+            "type": {
+              "name": "int",
+              "isSigned": true,
+              "bitWidth": 32
+            },
+            "nullable": false,
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "ree64",
+        "type": {
+          "name": "runendencoded"
+        },
+        "nullable": false,
+        "children": [
+          {
+            "name": "run_ends",
+            "type": {
+              "name": "int",
+              "isSigned": true,
+              "bitWidth": 64
+            },
+            "nullable": false,
+            "children": []
+          },
+          {
+            "name": "values",
+            "type": {
+              "name": "binary"
+            },
+            "nullable": true,
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 1100,
+      "columns": [
+        {
+          "name": "ree16",
+          "count": 1100,
+          "children": [
+            {
+              "name": "run_ends",
+              "count": 2,
+              "VALIDITY": [
+                1,
+                1
+              ],
+              "DATA": [
+                1000,
+                1100
+              ]
+            },
+            {
+              "name": "values",
+              "count": 2,
+              "VALIDITY": [
+                0,
+                1
+              ],
+              "DATA": [
+                "foo",
+                ""
+              ],
+              "OFFSET": [
+                9,
+                12,
+                12
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ree32",
+          "count": 1100,
+          "children": [
+            {
+              "name": "run_ends",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "DATA": [
+                100,
+                200,
+                800,
+                1000,
+                1100
+              ]
+            },
+            {
+              "name": "values",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "DATA": [
+                -1,
+                -2,
+                -3,
+                -4,
+                -5
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ree64",
+          "count": 1100,
+          "children": [
+            {
+              "name": "run_ends",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "DATA": [
+                "100",
+                "250",
+                "450",
+                "800",
+                "1100"
+              ]
+            },
+            {
+              "name": "values",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                0,
+                1,
+                0,
+                1
+              ],
+              "DATA": [
+                "DEAD",
+                "BEEF",
+                "DEADBEEF",
+                "",
+                "BAADF00D"
+              ],
+              "OFFSET": [
+                0,
+                2,
+                4,
+                8,
+                8,
+                12
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "count": 1100,
+      "columns": [
+        {
+          "name": "ree16",
+          "count": 1100,
+          "children": [
+            {
+              "name": "run_ends",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "DATA": [
+                90,
+                140,
+                150,
+                1050,
+                1100
+              ]
+            },
+            {
+              "name": "values",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                0,
+                1,
+                0,
+                1
+              ],
+              "DATA": [
+                "super",
+                "dee",
+                "",
+                "duper",
+                "doo"
+              ],
+              "OFFSET": [
+                0,
+                5,
+                8,
+                8,
+                13,
+                16
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ree32",
+          "count": 1100,
+          "children": [
+            {
+              "name": "run_ends",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "DATA": [
+                100,
+                120,
+                710,
+                810,
+                1100
+              ]
+            },
+            {
+              "name": "values",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "DATA": [
+                -1,
+                -2,
+                -3,
+                -4,
+                -5
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ree64",
+          "count": 1100,
+          "children": [
+            {
+              "name": "run_ends",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "DATA": [
+                "100",
+                "250",
+                "450",
+                "800",
+                "1100"
+              ]
+            },
+            {
+              "name": "values",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                0,
+                1,
+                0,
+                1
+              ],
+              "DATA": [
+                "DEAD",
+                "BEEF",
+                "DEADBEEF",
+                "",
+                "BAADF00D"
+              ],
+              "OFFSET": [
+                0,
+                2,
+                4,
+                8,
+                8,
+                12
               ]
             }
           ]

@@ -499,6 +499,17 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
 		defer storage.Release()
 		return array.NewData(dt, storage.Len(), storage.Buffers(), storage.Children(), storage.NullN(), storage.Offset())
 
+	case *arrow.RunEndEncodedType:
+		field, buffers := ctx.loadCommon(dt.ID(), 1)
+		defer releaseBuffers(buffers)
+
+		runEnds := ctx.loadChild(dt.RunEnds())
+		defer runEnds.Release()
+		values := ctx.loadChild(dt.Encoded())
+		defer values.Release()
+
+		return array.NewData(dt, int(field.Length()), buffers, []arrow.ArrayData{runEnds, values}, int(field.NullCount()), 0)
+
 	case arrow.UnionType:
 		return ctx.loadUnion(dt)
 

@@ -466,7 +466,7 @@ func (s *FlightSqliteServerSuite) TestCommandStatementUpdate() {
 
 func (s *FlightSqliteServerSuite) TestCommandPreparedStatementQuery() {
 	ctx := context.Background()
-	prep, err := s.cl.Prepare(ctx, s.mem, "SELECT * FROM intTable")
+	prep, err := s.cl.Prepare(ctx, "SELECT * FROM intTable")
 	s.NoError(err)
 	defer prep.Close(ctx)
 
@@ -501,7 +501,7 @@ func (s *FlightSqliteServerSuite) TestCommandPreparedStatementQuery() {
 
 func (s *FlightSqliteServerSuite) TestCommandPreparedStatementQueryWithParams() {
 	ctx := context.Background()
-	stmt, err := s.cl.Prepare(ctx, s.mem, "SELECT * FROM intTable WHERE keyName LIKE ?")
+	stmt, err := s.cl.Prepare(ctx, "SELECT * FROM intTable WHERE keyName LIKE ?")
 	s.NoError(err)
 	defer stmt.Close(ctx)
 
@@ -560,7 +560,7 @@ func (s *FlightSqliteServerSuite) TestCommandPreparedStatementQueryWithParams() 
 
 func (s *FlightSqliteServerSuite) TestCommandPreparedStatementUpdateWithParams() {
 	ctx := context.Background()
-	stmt, err := s.cl.Prepare(ctx, s.mem, "INSERT INTO intTable (keyName, value) VALUES ('new_value', ?)")
+	stmt, err := s.cl.Prepare(ctx, "INSERT INTO intTable (keyName, value) VALUES ('new_value', ?)")
 	s.NoError(err)
 	defer stmt.Close(ctx)
 
@@ -602,7 +602,7 @@ func (s *FlightSqliteServerSuite) TestCommandPreparedStatementUpdateWithParams()
 
 func (s *FlightSqliteServerSuite) TestCommandPreparedStatementUpdate() {
 	ctx := context.Background()
-	stmt, err := s.cl.Prepare(ctx, s.mem, "INSERT INTO intTable (keyName, value) VALUES ('new_value', 999)")
+	stmt, err := s.cl.Prepare(ctx, "INSERT INTO intTable (keyName, value) VALUES ('new_value', 999)")
 	s.NoError(err)
 	defer stmt.Close(ctx)
 
