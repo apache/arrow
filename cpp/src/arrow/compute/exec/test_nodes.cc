@@ -95,7 +95,7 @@ AsyncGenerator<std::optional<ExecBatch>> MakeDelayedGen(BatchesWithSchema src,
 
 namespace {
 
-class ARROW_EXPORT JitterNode : public ExecNode {
+class JitterNode : public ExecNode {
  public:
   struct QueuedBatch {
     int adjusted_order;
