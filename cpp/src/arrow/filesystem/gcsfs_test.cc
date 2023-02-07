@@ -1320,6 +1320,22 @@ TEST_F(GcsIntegrationTest, OpenInputFileRandomSeek) {
   }
 }
 
+TEST_F(GcsIntegrationTest, OpenInputFileIoContext) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+
+  // Create a test file.
+  const auto path = PreexistingBucketPath() + "OpenInputFileIoContext/object-name";
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
+  const std::string contents = "The quick brown fox jumps over the lazy dog";
+  ASSERT_OK(output->Write(contents.data(), contents.size()));
+  ASSERT_OK(output->Close());
+
+  std::shared_ptr<io::RandomAccessFile> file;
+  ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile(path));
+  EXPECT_EQ(fs->io_context().external_id(), file->io_context().external_id());
+}
+
 TEST_F(GcsIntegrationTest, OpenInputFileInfo) {
   auto fs = GcsFileSystem::Make(TestGcsOptions());
 

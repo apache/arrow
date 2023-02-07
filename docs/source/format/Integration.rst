@@ -309,6 +309,17 @@ Null: ::
       "name": "null"
     }
 
+RunEndEncoded: ::
+
+    {
+      "name": "runendencoded"
+    }
+
+The ``Field``'s "children" should be exactly two child fields. The first
+child must be named "run_ends", be non-nullable and be either an ``int16``,
+``int32``, or ``int64`` type field. The second child must be named "values",
+but can be of any type.
+
 Extension types are, as in the IPC format, represented as their underlying
 storage type plus some dedicated field metadata to reconstruct the extension
 type.  For example, assuming a "uuid" extension type backed by a

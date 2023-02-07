@@ -352,7 +352,7 @@ func (s *UnimplementedFlightSqlServerSuite) TestDoGet() {
 }
 
 func (s *UnimplementedFlightSqlServerSuite) TestDoAction() {
-	prep, err := s.cl.Prepare(context.TODO(), memory.DefaultAllocator, "IRRELEVANT")
+	prep, err := s.cl.Prepare(context.TODO(), "IRRELEVANT")
 	s.Nil(prep)
 	st, ok := status.FromError(err)
 	s.True(ok)
