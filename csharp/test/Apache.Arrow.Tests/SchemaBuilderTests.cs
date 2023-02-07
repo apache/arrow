@@ -60,6 +60,17 @@ namespace Apache.Arrow.Tests
             }
 
             [Fact]
+            public void FieldNamesAreCaseSensitive()
+            {
+                var schema = new Schema.Builder()
+                    .Field(f => f.Name("f0").DataType(Int32Type.Default))
+                    .Field(f => f.Name("F0").DataType(Int8Type.Default))
+                    .Build();
+
+                Assert.Equal(2, schema.Fields.Count);
+            }
+
+            [Fact]
             public void GetFieldIndex()
             {
                 var schema = new Schema.Builder()
@@ -67,6 +78,16 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("f1").DataType(Int8Type.Default))
                     .Build();
                 Assert.True(schema.GetFieldIndex("f0") == 0 && schema.GetFieldIndex("f1") == 1);
+            }
+
+            [Fact]
+            public void GetFieldIndexIsCaseSensitive()
+            {
+                var schema = new Schema.Builder()
+                    .Field(f => f.Name("f0").DataType(Int32Type.Default))
+                    .Field(f => f.Name("F0").DataType(Int8Type.Default))
+                    .Build();
+                Assert.True(schema.GetFieldIndex("f0") == 0 && schema.GetFieldIndex("F0") == 1);
             }
 
 
@@ -81,6 +102,19 @@ namespace Apache.Arrow.Tests
                     .Field(f1)
                     .Build();
                 Assert.True(schema.GetFieldByName("f0") == f0 && schema.GetFieldByName("f1") == f1);
+            }
+
+            [Fact]
+            public void GetFieldByNameIsCaseSensitive()
+            {
+                var f0 = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
+                var f0Uppercase = new Field.Builder().Name("F0").DataType(Int8Type.Default).Build();
+
+                var schema = new Schema.Builder()
+                    .Field(f0)
+                    .Field(f0Uppercase)
+                    .Build();
+                Assert.True(schema.GetFieldByName("f0") == f0 && schema.GetFieldByName("F0") == f0Uppercase);
             }
 
             [Fact]

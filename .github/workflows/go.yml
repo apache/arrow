@@ -54,7 +54,7 @@ jobs:
           - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
-            staticcheck: latest
+            staticcheck: v0.3.3
     env:
       GO: ${{ matrix.go }}
       STATICCHECK: ${{ matrix.staticcheck }}
@@ -114,7 +114,7 @@ jobs:
           - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
-            staticcheck: latest
+            staticcheck: v0.3.3
     env:
       GO: ${{ matrix.go }}
       STATICCHECK: ${{ matrix.staticcheck }}
@@ -157,7 +157,7 @@ jobs:
           - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
-            staticcheck: latest
+            staticcheck: v0.3.3
     env:
       GO: ${{ matrix.go }}
       STATICCHECK: ${{ matrix.staticcheck }}
@@ -198,7 +198,7 @@ jobs:
           - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
-            staticcheck: latest
+            staticcheck: v0.3.3
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -233,7 +233,7 @@ jobs:
           - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
-            staticcheck: latest
+            staticcheck: v0.3.3
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -286,7 +286,7 @@ jobs:
           - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
-            staticcheck: latest
+            staticcheck: v0.3.3
     env:
       ARROW_GO_TESTCGO: "1"
     steps:
@@ -362,7 +362,7 @@ jobs:
           cache: true
           cache-dependency-path: go/go.sum
       - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+        run: go install honnef.co/go/tools/cmd/staticcheck@v0.3.3
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh $(pwd)

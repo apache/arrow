@@ -247,31 +247,40 @@ using InputStreamFactory = std::function<Result<std::shared_ptr<GcsInputStream>>
 
 class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
  public:
-  GcsRandomAccessFile(InputStreamFactory factory, gcs::ObjectMetadata metadata,
-                      std::shared_ptr<GcsInputStream> stream)
-      : factory_(std::move(factory)),
-        metadata_(std::move(metadata)),
-        stream_(std::move(stream)) {}
+  GcsRandomAccessFile(InputStreamFactory factory, gcs::ObjectMetadata metadata)
+      : factory_(std::move(factory)), metadata_(std::move(metadata)) {}
   ~GcsRandomAccessFile() override = default;
 
   //@{
   // @name FileInterface
-  Status Close() override { return stream_->Close(); }
-  Status Abort() override { return stream_->Abort(); }
-  Result<int64_t> Tell() const override { return stream_->TellOr(metadata_.size()); }
-  bool closed() const override { return stream_->closed(); }
+  Status Close() override {
+    ARROW_RETURN_NOT_OK(InitializeStream());
+    return stream_->Close();
+  }
+  Status Abort() override {
+    ARROW_RETURN_NOT_OK(InitializeStream());
+    return stream_->Abort();
+  }
+  Result<int64_t> Tell() const override {
+    ARROW_RETURN_NOT_OK(InitializeStream());
+    return stream_->TellOr(metadata_.size());
+  }
+  bool closed() const override {
+    auto status = InitializeStream();
+    if (!status.ok()) return true;
+    return stream_->closed();
+  }
   //@}
 
   //@{
   // @name Readable
   Result<int64_t> Read(int64_t nbytes, void* out) override {
+    ARROW_RETURN_NOT_OK(InitializeStream());
     return stream_->Read(nbytes, out);
   }
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
+    ARROW_RETURN_NOT_OK(InitializeStream());
     return stream_->Read(nbytes);
-  }
-  const arrow::io::IOContext& io_context() const override {
-    return stream_->io_context();
   }
   //@}
 
@@ -310,9 +319,16 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
   }
 
  private:
+  Status InitializeStream() const {
+    if (!stream_) {
+      ARROW_ASSIGN_OR_RAISE(stream_, factory_(gcs::Generation(metadata_.generation()),
+                                              gcs::ReadFromOffset()));
+    }
+    return Status::OK();
+  }
   InputStreamFactory factory_;
   gcs::ObjectMetadata metadata_;
-  std::shared_ptr<GcsInputStream> stream_;
+  std::shared_ptr<GcsInputStream> mutable stream_;
 };
 
 google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
@@ -929,12 +945,9 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
   auto open_stream = [impl, p](gcs::Generation g, gcs::ReadFromOffset offset) {
     return impl->OpenInputStream(p, g, offset);
   };
-  ARROW_ASSIGN_OR_RAISE(auto stream,
-                        impl_->OpenInputStream(p, gcs::Generation(metadata->generation()),
-                                               gcs::ReadFromOffset()));
 
   return std::make_shared<GcsRandomAccessFile>(std::move(open_stream),
-                                               *std::move(metadata), std::move(stream));
+                                               *std::move(metadata));
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
@@ -947,16 +960,11 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(info.path()));
   auto metadata = impl_->GetObjectMetadata(p);
   ARROW_GCS_RETURN_NOT_OK(metadata.status());
-  auto impl = impl_;
-  auto open_stream = [impl, p](gcs::Generation g, gcs::ReadFromOffset offset) {
+  auto open_stream = [impl = impl_, p](gcs::Generation g, gcs::ReadFromOffset offset) {
     return impl->OpenInputStream(p, g, offset);
   };
-  ARROW_ASSIGN_OR_RAISE(auto stream,
-                        impl_->OpenInputStream(p, gcs::Generation(metadata->generation()),
-                                               gcs::ReadFromOffset()));
-
   return std::make_shared<GcsRandomAccessFile>(std::move(open_stream),
-                                               *std::move(metadata), std::move(stream));
+                                               *std::move(metadata));
 }
 
 Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenOutputStream(

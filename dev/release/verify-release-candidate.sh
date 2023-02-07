@@ -347,18 +347,15 @@ install_csharp() {
 
   show_info "Ensuring that C# is installed..."
 
-  if which dotnet > /dev/null 2>&1; then
+  if dotnet --version | grep 7\.0 > /dev/null 2>&1; then
     local csharp_bin=$(dirname $(which dotnet))
-    if ! which sourcelink > /dev/null 2>&1; then
-      local dotnet_tools_dir=$HOME/.dotnet/tools
-      if [ -d "${dotnet_tools_dir}" ]; then
-        PATH="${dotnet_tools_dir}:$PATH"
-      fi
-    fi
     show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
   else
+    if which dotnet > /dev/null 2>&1; then
+      show_info "dotnet found but it is the wrong version and will be ignored."
+    fi
     local csharp_bin=${ARROW_TMPDIR}/csharp/bin
-    local dotnet_version=6.0.202
+    local dotnet_version=7.0.102
     local dotnet_platform=
     case "$(uname)" in
       Linux)
@@ -382,10 +379,11 @@ install_csharp() {
   fi
 
   # Ensure to have sourcelink installed
-  if ! which sourcelink > /dev/null 2>&1; then
-    dotnet tool install --tool-path ${csharp_bin} sourcelink
+  if ! dotnet tool list | grep sourcelink > /dev/null 2>&1; then
+    dotnet new tool-manifest
+    dotnet tool install --local sourcelink
     PATH=${csharp_bin}:${PATH}
-    if ! sourcelink --help > /dev/null 2>&1; then
+    if ! dotnet tool run sourcelink --help > /dev/null 2>&1; then
       export DOTNET_ROOT=${csharp_bin}
     fi
   fi
@@ -835,8 +833,12 @@ test_csharp() {
     mv ../.git dummy.git
   fi
 
-  sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
-  sourcelink test artifacts/Apache.Arrow/Release/netcoreapp3.1/Apache.Arrow.pdb
+  if [ "${SOURCE_KIND}" = "local" ]; then
+    echo "Skipping sourelink verification on local build"
+  else
+    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
+    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netcoreapp3.1/Apache.Arrow.pdb
+  fi
 
   popd
 }

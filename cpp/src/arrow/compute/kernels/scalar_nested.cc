@@ -21,7 +21,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"

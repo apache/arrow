@@ -287,22 +287,24 @@ macro(resolve_dependency DEPENDENCY_NAME)
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_IS_RUNTIME_DEPENDENCY)
     provide_find_module(${PACKAGE_NAME} "Arrow")
     list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
-    find_package(PkgConfig QUIET)
-    foreach(ARG_PC_PACKAGE_NAME ${ARG_PC_PACKAGE_NAMES})
-      pkg_check_modules(${ARG_PC_PACKAGE_NAME}_PC
-                        ${ARG_PC_PACKAGE_NAME}
-                        NO_CMAKE_PATH
-                        NO_CMAKE_ENVIRONMENT_PATH
-                        QUIET)
-      if(${${ARG_PC_PACKAGE_NAME}_PC_FOUND})
-        message(STATUS "Using pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link"
-        )
-        string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARG_PC_PACKAGE_NAME}")
-      else()
-        message(STATUS "pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link isn't found"
-        )
-      endif()
-    endforeach()
+    if(ARROW_BUILD_STATIC)
+      find_package(PkgConfig QUIET)
+      foreach(ARG_PC_PACKAGE_NAME ${ARG_PC_PACKAGE_NAMES})
+        pkg_check_modules(${ARG_PC_PACKAGE_NAME}_PC
+                          ${ARG_PC_PACKAGE_NAME}
+                          NO_CMAKE_PATH
+                          NO_CMAKE_ENVIRONMENT_PATH
+                          QUIET)
+        if(${${ARG_PC_PACKAGE_NAME}_PC_FOUND})
+          message(STATUS "Using pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link"
+          )
+          string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARG_PC_PACKAGE_NAME}")
+        else()
+          message(STATUS "pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link isn't found"
+          )
+        endif()
+      endforeach()
+    endif()
   endif()
 endmacro()
 
@@ -987,6 +989,18 @@ if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
 set(Boost_ADDITIONAL_VERSIONS
+    "1.81.0"
+    "1.81"
+    "1.80.0"
+    "1.80"
+    "1.79.0"
+    "1.79"
+    "1.78.0"
+    "1.78"
+    "1.77.0"
+    "1.77"
+    "1.76.0"
+    "1.76"
     "1.75.0"
     "1.75"
     "1.74.0"
@@ -1189,21 +1203,12 @@ if(ARROW_WITH_SNAPPY)
                      TRUE
                      PC_PACKAGE_NAMES
                      snappy)
-  if(${Snappy_SOURCE} STREQUAL "SYSTEM" AND NOT snappy_PC_FOUND)
+  if(${Snappy_SOURCE} STREQUAL "SYSTEM"
+     AND NOT snappy_PC_FOUND
+     AND ARROW_BUILD_STATIC)
     get_target_property(SNAPPY_TYPE ${Snappy_TARGET} TYPE)
     if(NOT SNAPPY_TYPE STREQUAL "INTERFACE_LIBRARY")
-      get_target_property(SNAPPY_LIB ${Snappy_TARGET}
-                          IMPORTED_LOCATION_${UPPERCASE_BUILD_TYPE})
-      if(NOT SNAPPY_LIB)
-        get_target_property(SNAPPY_LIB ${Snappy_TARGET} IMPORTED_LOCATION_RELEASE)
-      endif()
-      if(NOT SNAPPY_LIB)
-        get_target_property(SNAPPY_LIB ${Snappy_TARGET} IMPORTED_LOCATION_NOCONFIG)
-      endif()
-      if(NOT SNAPPY_LIB)
-        get_target_property(SNAPPY_LIB ${Snappy_TARGET} IMPORTED_LOCATION)
-      endif()
-      string(APPEND ARROW_PC_LIBS_PRIVATE " ${SNAPPY_LIB}")
+      string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:${Snappy_TARGET}>")
     endif()
   endif()
 endif()
@@ -1649,8 +1654,8 @@ macro(build_protobuf)
 endmacro()
 
 if(ARROW_WITH_PROTOBUF)
-  if(ARROW_WITH_GRPC)
-    # FlightSQL uses proto3 optionals, which require 3.15 or later.
+  if(ARROW_FLIGHT_SQL)
+    # Flight SQL uses proto3 optionals, which require 3.15 or later.
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.15.0")
   elseif(ARROW_SUBSTRAIT)
     # Substrait protobuf files use proto3 syntax
@@ -2529,17 +2534,10 @@ if(ARROW_WITH_RE2)
   # include -std=c++11. It's not compatible with C source and C++
   # source not uses C++ 11.
   resolve_dependency(re2 HAVE_ALT TRUE)
-  if(${re2_SOURCE} STREQUAL "SYSTEM")
+  if(${re2_SOURCE} STREQUAL "SYSTEM" AND ARROW_BUILD_STATIC)
     get_target_property(RE2_TYPE re2::re2 TYPE)
     if(NOT RE2_TYPE STREQUAL "INTERFACE_LIBRARY")
-      get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION_${UPPERCASE_BUILD_TYPE})
-      if(NOT RE2_LIB)
-        get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION_RELEASE)
-      endif()
-      if(NOT RE2_LIB)
-        get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION)
-      endif()
-      string(APPEND ARROW_PC_LIBS_PRIVATE " ${RE2_LIB}")
+      string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:re2::re2>")
     endif()
   endif()
   add_definitions(-DARROW_WITH_RE2)
@@ -2603,7 +2601,9 @@ if(ARROW_WITH_BZ2)
                                      INTERFACE_INCLUDE_DIRECTORIES "${BZIP2_INCLUDE_DIR}")
   endif()
 
-  if(${BZip2_SOURCE} STREQUAL "SYSTEM" AND NOT bzip2_PC_FOUND)
+  if(${BZip2_SOURCE} STREQUAL "SYSTEM"
+     AND NOT bzip2_PC_FOUND
+     AND ARROW_BUILD_STATIC)
     get_target_property(BZIP2_TYPE BZip2::BZip2 TYPE)
     if(BZIP2_TYPE STREQUAL "INTERFACE_LIBRARY")
       # Conan
@@ -3997,6 +3997,13 @@ if(ARROW_WITH_GRPC)
     else()
       message(FATAL_ERROR "Cannot find grpc++ headers in ${GRPC_INCLUDE_DIR}")
     endif()
+    if(ARROW_USE_ASAN)
+      # Disable ASAN in system gRPC.
+      add_library(gRPC::grpc_asan_suppressed INTERFACE IMPORTED)
+      target_compile_definitions(gRPC::grpc_asan_suppressed
+                                 INTERFACE "GRPC_ASAN_SUPPRESSED")
+      target_link_libraries(gRPC::grpc++ INTERFACE gRPC::grpc_asan_suppressed)
+    endif()
   endif()
 endif()
 
@@ -4798,15 +4805,17 @@ if(ARROW_S3)
   message(STATUS "Found AWS SDK headers: ${AWSSDK_INCLUDE_DIR}")
   message(STATUS "Found AWS SDK libraries: ${AWSSDK_LINK_LIBRARIES}")
 
-  if(${AWSSDK_SOURCE} STREQUAL "SYSTEM")
-    foreach(AWSSDK_LINK_LIBRARY ${AWSSDK_LINK_LIBRARIES})
-      string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:${AWSSDK_LINK_LIBRARY}>")
-    endforeach()
+  if(ARROW_BUILD_STATIC)
+    if(${AWSSDK_SOURCE} STREQUAL "SYSTEM")
+      foreach(AWSSDK_LINK_LIBRARY ${AWSSDK_LINK_LIBRARIES})
+        string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:${AWSSDK_LINK_LIBRARY}>")
+      endforeach()
+    endif()
+    if(UNIX)
+      string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
+    endif()
+    string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
   endif()
-  if(UNIX)
-    string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
-  endif()
-  string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
 
   if(APPLE)
     # CoreFoundation's path is hardcoded in the CMake files provided by

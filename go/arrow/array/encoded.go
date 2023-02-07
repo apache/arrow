@@ -20,12 +20,14 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"reflect"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/encoded"
 	"github.com/apache/arrow/go/v12/arrow/internal/debug"
 	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/internal/utils"
 	"github.com/goccy/go-json"
 )
 
@@ -68,6 +70,102 @@ func (r *RunEndEncoded) Release() {
 	r.ends.Release()
 }
 
+// LogicalValuesArray returns an array holding the values of each
+// run, only over the range of run values inside the logical offset/length
+// range of the parent array.
+//
+// Example
+//
+// For this array:
+//     RunEndEncoded: { Offset: 150, Length: 1500 }
+//         RunEnds: [ 1, 2, 4, 6, 10, 1000, 1750, 2000 ]
+//         Values:  [ "a", "b", "c", "d", "e", "f", "g", "h" ]
+//
+// LogicalValuesArray will return the following array:
+//     [ "f", "g" ]
+//
+// This is because the offset of 150 tells it to skip the values until
+// "f" which corresponds with the logical offset (the run from 10 - 1000),
+// and stops after "g" because the length + offset goes to 1650 which is
+// within the run from 1000 - 1750, corresponding to the "g" value.
+//
+// Note
+//
+// The return from this needs to be Released.
+func (r *RunEndEncoded) LogicalValuesArray() arrow.Array {
+	physOffset := r.GetPhysicalOffset()
+	physLength := r.GetPhysicalLength()
+	data := NewSliceData(r.data.Children()[1], int64(physOffset), int64(physOffset+physLength))
+	defer data.Release()
+	return MakeFromData(data)
+}
+
+// LogicalRunEndsArray returns an array holding the logical indexes
+// of each run end, only over the range of run end values relative
+// to the logical offset/length range of the parent array.
+//
+// For arrays with an offset, this is not a slice of the existing
+// internal run ends array. Instead a new array is created with run-ends
+// that are adjusted so the new array can have an offset of 0. As a result
+// this method can be expensive to call for an array with a non-zero offset.
+//
+// Example
+//
+// For this array:
+//     RunEndEncoded: { Offset: 150, Length: 1500 }
+//         RunEnds: [ 1, 2, 4, 6, 10, 1000, 1750, 2000 ]
+//         Values:  [ "a", "b", "c", "d", "e", "f", "g", "h" ]
+//
+// LogicalRunEndsArray will return the following array:
+//     [ 850, 1500 ]
+//
+// This is because the offset of 150 tells us to skip all run-ends less
+// than 150 (by finding the physical offset), and we adjust the run-ends
+// accordingly (1000 - 150 = 850). The logical length of the array is 1500,
+// so we know we don't want to go past the 1750 run end. Thus the last
+// run-end is determined by doing: min(1750 - 150, 1500) = 1500.
+//
+// Note
+//
+// The return from this needs to be Released
+func (r *RunEndEncoded) LogicalRunEndsArray(mem memory.Allocator) arrow.Array {
+	physOffset := r.GetPhysicalOffset()
+	physLength := r.GetPhysicalLength()
+
+	if r.data.offset == 0 {
+		data := NewSliceData(r.data.childData[0], 0, int64(physLength))
+		defer data.Release()
+		return MakeFromData(data)
+	}
+
+	bldr := NewBuilder(mem, r.data.childData[0].DataType())
+	defer bldr.Release()
+	bldr.Resize(physLength)
+
+	switch e := r.ends.(type) {
+	case *Int16:
+		for _, v := range e.Int16Values()[physOffset : physOffset+physLength] {
+			v -= int16(r.data.offset)
+			v = int16(utils.MinInt(int(v), r.data.length))
+			bldr.(*Int16Builder).Append(v)
+		}
+	case *Int32:
+		for _, v := range e.Int32Values()[physOffset : physOffset+physLength] {
+			v -= int32(r.data.offset)
+			v = int32(utils.MinInt(int(v), r.data.length))
+			bldr.(*Int32Builder).Append(v)
+		}
+	case *Int64:
+		for _, v := range e.Int64Values()[physOffset : physOffset+physLength] {
+			v -= int64(r.data.offset)
+			v = int64(utils.MinInt(int(v), r.data.length))
+			bldr.(*Int64Builder).Append(v)
+		}
+	}
+
+	return bldr.NewArray()
+}
+
 func (r *RunEndEncoded) setData(data *Data) {
 	if len(data.childData) != 2 {
 		panic(fmt.Errorf("%w: arrow/array: RLE array must have exactly 2 children", arrow.ErrInvalid))
@@ -101,9 +199,14 @@ func (r *RunEndEncoded) String() string {
 		if i != 0 {
 			buf.WriteByte(',')
 		}
-		fmt.Fprintf(&buf, "{%v -> %v}",
+
+		value := r.values.(arraymarshal).getOneForMarshal(i)
+		if byts, ok := value.(json.RawMessage); ok {
+			value = string(byts)
+		}
+		fmt.Fprintf(&buf, "{%d -> %v}",
 			r.ends.(arraymarshal).getOneForMarshal(i),
-			r.values.(arraymarshal).getOneForMarshal(i))
+			value)
 	}
 
 	buf.WriteByte(']')
@@ -111,15 +214,15 @@ func (r *RunEndEncoded) String() string {
 }
 
 func (r *RunEndEncoded) getOneForMarshal(i int) interface{} {
-	return [2]interface{}{r.ends.(arraymarshal).getOneForMarshal(i),
-		r.values.(arraymarshal).getOneForMarshal(i)}
+	physIndex := encoded.FindPhysicalIndex(r.data, i+r.data.offset)
+	return r.values.(arraymarshal).getOneForMarshal(physIndex)
 }
 
 func (r *RunEndEncoded) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	buf.WriteByte('[')
-	for i := 0; i < r.ends.Len(); i++ {
+	for i := 0; i < r.Len(); i++ {
 		if i != 0 {
 			buf.WriteByte(',')
 		}
@@ -166,6 +269,8 @@ type RunEndEncodedBuilder struct {
 	runEnds   Builder
 	values    Builder
 	maxRunEnd uint64
+
+	lastUnmarshalled interface{}
 }
 
 func NewRunEndEncodedBuilder(mem memory.Allocator, runEnds, encoded arrow.DataType) *RunEndEncodedBuilder {
@@ -184,11 +289,12 @@ func NewRunEndEncodedBuilder(mem memory.Allocator, runEnds, encoded arrow.DataTy
 		maxEnd = math.MaxInt64
 	}
 	return &RunEndEncodedBuilder{
-		builder:   builder{refCount: 1, mem: mem},
-		dt:        dt,
-		runEnds:   NewBuilder(mem, runEnds),
-		values:    NewBuilder(mem, encoded),
-		maxRunEnd: maxEnd,
+		builder:          builder{refCount: 1, mem: mem},
+		dt:               dt,
+		runEnds:          NewBuilder(mem, runEnds),
+		values:           NewBuilder(mem, encoded),
+		maxRunEnd:        maxEnd,
+		lastUnmarshalled: nil,
 	}
 }
 
@@ -214,6 +320,7 @@ func (b *RunEndEncodedBuilder) addLength(n uint64) {
 }
 
 func (b *RunEndEncodedBuilder) finishRun() {
+	b.lastUnmarshalled = nil
 	if b.length == 0 {
 		return
 	}
@@ -232,6 +339,12 @@ func (b *RunEndEncodedBuilder) ValueBuilder() Builder { return b.values }
 func (b *RunEndEncodedBuilder) Append(n uint64) {
 	b.finishRun()
 	b.addLength(n)
+}
+func (b *RunEndEncodedBuilder) AppendRuns(runs []uint64) {
+	for _, r := range runs {
+		b.finishRun()
+		b.addLength(r)
+	}
 }
 func (b *RunEndEncodedBuilder) ContinueRun(n uint64) {
 	b.addLength(n)
@@ -285,10 +398,35 @@ func (b *RunEndEncodedBuilder) newData() (data *Data) {
 }
 
 func (b *RunEndEncodedBuilder) unmarshalOne(dec *json.Decoder) error {
-	return arrow.ErrNotImplemented
+	var value interface{}
+	if err := dec.Decode(&value); err != nil {
+		return err
+	}
+
+	// if we unmarshalled the same value as the previous one, we want to
+	// continue the run. However, there's an edge case. At the start of
+	// unmarshalling, lastUnmarshalled will be nil, but we might get
+	// nil as the first value we unmarshal. In that case we want to
+	// make sure we add a new run instead. We can detect that case by
+	// checking that the number of runEnds matches the number of values
+	// we have, which means no matter what we have to start a new run
+	if reflect.DeepEqual(value, b.lastUnmarshalled) && (value != nil || b.runEnds.Len() != b.values.Len()) {
+		b.ContinueRun(1)
+		return nil
+	}
+
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+
+	b.Append(1)
+	b.lastUnmarshalled = value
+	return b.ValueBuilder().unmarshalOne(json.NewDecoder(bytes.NewReader(data)))
 }
 
 func (b *RunEndEncodedBuilder) unmarshal(dec *json.Decoder) error {
+	b.finishRun()
 	for dec.More() {
 		if err := b.unmarshalOne(dec); err != nil {
 			return err

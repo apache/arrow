@@ -347,11 +347,23 @@ Result<std::shared_ptr<Schema>> ParquetFileFormat::Inspect(
 
 Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader(
     const FileSource& source, const std::shared_ptr<ScanOptions>& options) const {
-  return GetReaderAsync(source, options).result();
+  return GetReaderAsync(source, options, nullptr).result();
+}
+
+Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader(
+    const FileSource& source, const std::shared_ptr<ScanOptions>& options,
+    const std::shared_ptr<parquet::FileMetaData>& metadata) const {
+  return GetReaderAsync(source, options, metadata).result();
 }
 
 Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReaderAsync(
     const FileSource& source, const std::shared_ptr<ScanOptions>& options) const {
+  return GetReaderAsync(source, options, nullptr);
+}
+
+Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReaderAsync(
+    const FileSource& source, const std::shared_ptr<ScanOptions>& options,
+    const std::shared_ptr<parquet::FileMetaData>& metadata) const {
   ARROW_ASSIGN_OR_RAISE(
       auto parquet_scan_options,
       GetFragmentScanOptions<ParquetFragmentScanOptions>(kParquetTypeName, options.get(),
@@ -360,8 +372,8 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
       MakeReaderProperties(*this, parquet_scan_options.get(), options->pool);
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
   // TODO(ARROW-12259): workaround since we have Future<(move-only type)>
-  auto reader_fut =
-      parquet::ParquetFileReader::OpenAsync(std::move(input), std::move(properties));
+  auto reader_fut = parquet::ParquetFileReader::OpenAsync(
+      std::move(input), std::move(properties), metadata);
   auto path = source.path();
   auto self = checked_pointer_cast<const ParquetFileFormat>(shared_from_this());
   return reader_fut.Then(
@@ -443,7 +455,7 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
   // If RowGroup metadata is cached completely we can pre-filter RowGroups before opening
   // a FileReader, potentially avoiding IO altogether if all RowGroups are excluded due to
   // prior statistics knowledge. In the case where a RowGroup doesn't have statistics
-  // metdata, it will not be excluded.
+  // metadata, it will not be excluded.
   if (parquet_fragment->metadata() != nullptr) {
     ARROW_ASSIGN_OR_RAISE(row_groups, parquet_fragment->FilterRowGroups(options->filter));
     pre_filtered = true;
@@ -483,8 +495,9 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
         MakeSerialReadaheadGenerator(std::move(sliced), batch_readahead);
     return sliced_readahead;
   };
-  auto generator = MakeFromFuture(GetReaderAsync(parquet_fragment->source(), options)
-                                      .Then(std::move(make_generator)));
+  auto generator = MakeFromFuture(
+      GetReaderAsync(parquet_fragment->source(), options, parquet_fragment->metadata())
+          .Then(std::move(make_generator)));
   WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(
       generator, "arrow::dataset::ParquetFileFormat::ScanBatchesAsync::Next");
   return generator;

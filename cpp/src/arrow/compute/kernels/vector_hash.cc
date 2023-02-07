@@ -27,7 +27,7 @@
 #include "arrow/array/dict_internal.h"
 #include "arrow/array/util.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/hashing.h"
 
