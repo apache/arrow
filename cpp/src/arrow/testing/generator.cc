@@ -241,7 +241,7 @@ static constexpr random::SeedType kTestSeed = 42;
 
 class RandomGenerator : public ArrayGenerator {
  public:
-  RandomGenerator(std::shared_ptr<DataType> type) : type_(std::move(type)) {}
+  explicit RandomGenerator(std::shared_ptr<DataType> type) : type_(std::move(type)) {}
 
   random::RandomArrayGenerator* generator() {
     static random::RandomArrayGenerator instance(kTestSeed);
@@ -260,7 +260,7 @@ class RandomGenerator : public ArrayGenerator {
 
 class DataGeneratorImpl : public DataGenerator {
  public:
-  DataGeneratorImpl(std::vector<GeneratorField> generators)
+  explicit DataGeneratorImpl(std::vector<GeneratorField> generators)
       : generators_(std::move(generators)) {
     schema_ = DeriveSchemaFromGenerators();
   }
@@ -326,7 +326,7 @@ class DataGeneratorImpl : public DataGenerator {
 
 class GTestDataGeneratorImpl : public GTestDataGenerator {
  public:
-  GTestDataGeneratorImpl(std::vector<GeneratorField> fields)
+  explicit GTestDataGeneratorImpl(std::vector<GeneratorField> fields)
       : target_(Gen(std::move(fields))) {}
   std::shared_ptr<::arrow::RecordBatch> RecordBatch(int64_t num_rows) override {
     EXPECT_OK_AND_ASSIGN(auto batch, target_->RecordBatch(num_rows));

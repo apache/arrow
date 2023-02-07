@@ -70,7 +70,7 @@ struct LowestBatchIndexAtTop {
 
 class SequencingQueueImpl : public SequencingQueue {
  public:
-  SequencingQueueImpl(Processor* processor) : processor_(processor) {}
+  explicit SequencingQueueImpl(Processor* processor) : processor_(processor) {}
 
   Status InsertBatch(ExecBatch batch) override {
     std::unique_lock lk(mutex_);
@@ -119,7 +119,7 @@ class SequencingQueueImpl : public SequencingQueue {
 
 class SerialSequencingQueueImpl : public SerialSequencingQueue {
  public:
-  SerialSequencingQueueImpl(Processor* processor) : processor_(processor) {}
+  explicit SerialSequencingQueueImpl(Processor* processor) : processor_(processor) {}
 
   Status InsertBatch(ExecBatch batch) override {
     std::unique_lock lk(mutex_);

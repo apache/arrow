@@ -117,7 +117,7 @@ class ARROW_EXPORT JitterNode : public ExecNode {
                                          jitter_options.max_jitter_modifier);
   }
 
-  virtual const char* kind_name() const override { return "JitterNode"; }
+  const char* kind_name() const override { return "JitterNode"; }
 
   Status StartProducing() override { return Status::OK(); }
 
