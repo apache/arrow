@@ -1691,7 +1691,7 @@ split_row_groups : bool, default False
     Divide files into pieces for each row group in the file.
 validate_schema : bool, default True
     Check that individual file schemas are all the same / compatible.
-filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]] or None (default)
+filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], default None
     Rows which do not match the filter predicate will be removed from scanned
     data. Partition keys embedded in a nested directory structure will be
     exploited to avoid loading files at all if they contain no matching rows.
@@ -2772,7 +2772,7 @@ filesystem : FileSystem, default None
     If nothing passed, will be inferred based on path.
     Path will try to be found in the local on-disk filesystem otherwise
     it will be parsed as an URI to determine the filesystem.
-filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]] or None (default)
+filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], default None
     Rows which do not match the filter predicate will be removed from scanned
     data. Partition keys embedded in a nested directory structure will be
     exploited to avoid loading files at all if they contain no matching rows.
