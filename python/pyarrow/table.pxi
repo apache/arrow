@@ -4726,7 +4726,42 @@ cdef class Table(_PandasConvertible):
         return table
 
     def drop(self, columns):
-        """Alias of Table.drop_columns, but kept for backwards compatibility."""
+        """Alias of Table.drop_columns, but kept for backwards compatibility.
+
+        Parameters
+        ----------
+        columns : str or list[str]
+            Field name(s) referencing existing column(s).
+
+        Returns
+        -------
+        Table
+            New table without the column(s).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Drop one column:
+
+        >>> table.drop("animals")
+        pyarrow.Table
+        n_legs: int64
+        ----
+        n_legs: [[2,4,5,100]]
+
+        Drop one or more columns:
+
+        >>> table.drop(["n_legs", "animals"])
+        pyarrow.Table
+        ...
+        ----
+
+        """
         return self.drop_columns(columns)
 
     def group_by(self, keys):
