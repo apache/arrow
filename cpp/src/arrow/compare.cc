@@ -479,12 +479,17 @@ class RangeDataEqualsImpl {
     auto right_span = ArraySpan(right_);
     left_span.SetSlice(left_.offset + left_start_idx_, range_length_);
     right_span.SetSlice(right_.offset + right_start_idx_, range_length_);
-    for (auto it = ree_util::MergedRunsIterator<RunEndsType, RunEndsType>(left_span,
-                                                                          right_span);
-         it != ree_util::MergedRunsIterator(); ++it) {
-      RangeDataEqualsImpl impl(options_, floating_approximate_, *left_.child_data[1],
-                               *right_.child_data[1], it.template index_into_array<0>(),
-                               it.template index_into_array<1>(), 1);
+    const ree_util::RunEndEncodedArraySpan<RunEndsType> left(left_span);
+    const ree_util::RunEndEncodedArraySpan<RunEndsType> right(right_span);
+
+    const auto& left_values = *left_.child_data[1];
+    const auto& right_values = *right_.child_data[1];
+
+    auto it = ree_util::MergedRunsIterator(left, right);
+    for (; !it.isEnd(); ++it) {
+      RangeDataEqualsImpl impl(options_, floating_approximate_, left_values, right_values,
+                               it.index_into_left_array(), it.index_into_right_array(),
+                               /*range_length=*/1);
       if (!impl.Compare()) {
         result_ = false;
         return Status::OK();

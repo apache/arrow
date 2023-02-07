@@ -134,7 +134,7 @@ class RunEndEncodedArraySpan {
    public:
     Iterator(PrivateTag, const RunEndEncodedArraySpan& span, int64_t logical_pos,
              int64_t physical_pos)
-        : span_(span), logical_pos_(logical_pos), physical_pos_(physical_pos) {}
+        : span(span), logical_pos_(logical_pos), physical_pos_(physical_pos) {}
 
     /// \brief Return the physical index of the run
     ///
@@ -143,7 +143,7 @@ class RunEndEncodedArraySpan {
     ///
     /// NOTE: if this Iterator was produced by RunEndEncodedArraySpan::end(),
     /// the value returned is undefined.
-    int64_t physical_position() const { return physical_pos_; }
+    int64_t index_into_array() const { return physical_pos_; }
 
     /// \brief Return the initial logical position of the run
     ///
@@ -154,7 +154,7 @@ class RunEndEncodedArraySpan {
     /// \brief Return the logical position immediately after the run.
     ///
     /// Pre-condition: *this != RunEndEncodedArraySpan::end()
-    int64_t run_end() const { return span_.run_end(physical_pos_); }
+    int64_t run_end() const { return span.run_end(physical_pos_); }
 
     /// \brief Returns the logical length of the run.
     ///
@@ -162,7 +162,7 @@ class RunEndEncodedArraySpan {
     int64_t run_length() const { return run_end() - logical_pos_; }
 
     Iterator& operator++() {
-      logical_pos_ = span_.run_end(physical_pos_);
+      logical_pos_ = span.run_end(physical_pos_);
       physical_pos_ += 1;
       return *this;
     }
@@ -181,8 +181,10 @@ class RunEndEncodedArraySpan {
       return logical_pos_ != other.logical_pos_;
     }
 
+   public:
+    const RunEndEncodedArraySpan& span;
+
    private:
-    const RunEndEncodedArraySpan& span_;
     int64_t logical_pos_;
     int64_t physical_pos_;
   };
@@ -190,17 +192,17 @@ class RunEndEncodedArraySpan {
   explicit RunEndEncodedArraySpan(const ArrayData& data)
       : RunEndEncodedArraySpan(ArraySpan{data}) {}
 
-  explicit RunEndEncodedArraySpan(ArraySpan array_span)
-      : array_span_{std::move(array_span)}, run_ends_(RunEnds<RunEndsType>(array_span_)) {
-    assert(array_span_.type->id() == Type::RUN_END_ENCODED);
+  explicit RunEndEncodedArraySpan(const ArraySpan& array_span)
+      : array_span{array_span}, run_ends_(RunEnds<RunEndsType>(array_span)) {
+    assert(array_span.type->id() == Type::RUN_END_ENCODED);
   }
 
-  int64_t length() const { return array_span_.length; }
-  int64_t offset() const { return array_span_.offset; }
+  int64_t length() const { return array_span.length; }
+  int64_t offset() const { return array_span.offset; }
 
-  int64_t PhysicalIndex(int64_t logical_pos = 0) const {
-    return internal::FindPhysicalIndex(run_ends_, RunEndsArray(array_span_).length,
-                                       offset() + logical_pos);
+  int64_t PhysicalIndex(int64_t logical_pos) const {
+    return internal::FindPhysicalIndex(run_ends_, RunEndsArray(array_span).length,
+                                       logical_pos, offset());
   }
 
   /// \brief Create an iterator from a logical position and its
@@ -232,182 +234,117 @@ class RunEndEncodedArraySpan {
     // NOTE: the run ends array length is not necessarily what
     // PhysicalIndex(length()) would return but it is a cheap to obtain
     // physical offset that is invalid.
-    return iterator(length(), RunEndsArray(array_span_).length);
+    return iterator(length(), RunEndsArray(array_span).length);
   }
 
-  // Pre-condition: physical_pos < RunEndsArray(array_span_).length);
+  // Pre-condition: physical_pos < RunEndsArray(array_span).length);
   inline int64_t run_end(int64_t physical_pos) const {
-    assert(physical_pos < RunEndsArray(array_span_).length);
+    assert(physical_pos < RunEndsArray(array_span).length);
     // Logical index of the end of the currently active run
     const int64_t logical_run_end = run_ends_[physical_pos] - offset();
     // The current run may go further than the logical length, cap it
     return std::min(logical_run_end, length());
   }
 
+ public:
+  const ArraySpan array_span;
+
  private:
-  const ArraySpan array_span_;
   const RunEndsType* run_ends_;
 };
 
-/// \brief Iterate over two run-end encoded arrays in segments of runs that are inside
-/// run boundaries in each input
-template <typename... RunEndsTypes>
+/// \brief Iterate over two run-end encoded arrays in runs or sub-runs that are
+/// inside run boundaries on both inputs
+///
+/// Both RunEndEncodedArraySpan should have the same logical length. Instances
+/// of this iterator only hold references to the RunEndEncodedArraySpan inputs.
+template <typename Left, typename Right>
 class MergedRunsIterator {
+ private:
+  using LeftIterator = typename Left::Iterator;
+  using RightIterator = typename Right::Iterator;
+
  public:
-  static constexpr size_t NUM_INPUTS = sizeof...(RunEndsTypes);
-  template <typename... InputTypes>
-  explicit MergedRunsIterator(InputTypes&... array_spans) : inputs(array_spans...) {
-    static_assert(sizeof...(InputTypes) == sizeof...(RunEndsTypes),
-                  "number of run ends types and input ArraySpans must be the same");
-    if constexpr (NUM_INPUTS == 0) {
-      // end interator
-      logical_length_ = 0;
-    } else {
-      logical_length_ = FindCommonLength();
-      if (!isEnd()) {
-        FindMergedRun();
-      }
-    }
+  MergedRunsIterator(const Left& left, const Right& right)
+      : ree_iterators_{left.begin(), right.begin()}, logical_length_(left.length()) {
+    assert(left.length() == right.length());
   }
 
-  /*explicit MergedRunsIterator(ArraySpan array_span) : inputs(Input<int32_t>(array_span))
-  {
-    //static_assert(sizeof...(InputTypes) == sizeof...(RunEndsTypes), "number of run ends
-  types and input ArraySpans must be the same"); if constexpr (NUM_INPUTS == 0) {
-      // end interator
-      logical_length_ = 0;
-    } else {
-      logical_length_ = FindCommonLength();
-      if (!isEnd()) {
-        FindMergedRun();
-      }
-    }
-  }
-  explicit MergedRunsIterator(ArraySpan array_span_a, ArraySpan array_span_b) :
-  inputs(Input<int32_t>(array_span_a), Input<int32_t>(array_span_b)) {
-    //static_assert(sizeof...(InputTypes) == sizeof...(RunEndsTypes), "number of run ends
-  types and input ArraySpans must be the same"); if constexpr (NUM_INPUTS == 0) {
-      // end interator
-      logical_length_ = 0;
-    } else {
-      logical_length_ = FindCommonLength();
-      if (!isEnd()) {
-        FindMergedRun();
-      }
-    }
-  }*/
+  /// \brief Return the left RunEndEncodedArraySpan child
+  const Left& left() const { return std::get<0>(ree_iterators_).span; }
 
-  MergedRunsIterator(const MergedRunsIterator& other) = default;
+  /// \brief Return the right RunEndEncodedArraySpan child
+  const Right& right() const { return std::get<1>(ree_iterators_).span; }
+
+  /// \brief Return the initial logical position of the run
+  ///
+  /// If isEnd(), this is the same as length().
+  int64_t logical_position() const { return logical_pos_; }
+
+  /// \brief Whether the iterator has reached the end of both arrays
+  bool isEnd() const { return logical_pos_ == logical_length_; }
+
+  /// \brief Return the logical position immediately after the run.
+  ///
+  /// Pre-condition: !isEnd()
+  int64_t run_end() const {
+    const auto& left_it = std::get<0>(ree_iterators_);
+    const auto& right_it = std::get<1>(ree_iterators_);
+    return std::min(left_it.run_end(), right_it.run_end());
+  }
+
+  /// \brief returns the logical length of the current run
+  ///
+  /// Pre-condition: !isEnd()
+  int64_t run_length() const { return run_end() - logical_pos_; }
+
+  /// \brief Return a physical index into the values array of a given input,
+  /// pointing to the value of the current run
+  template <size_t input_id>
+  int64_t index_into_array() const {
+    return std::get<input_id>(ree_iterators_).index_into_array();
+  }
+
+  int64_t index_into_left_array() const { return index_into_array<0>(); }
+  int64_t index_into_right_array() const { return index_into_array<1>(); }
 
   MergedRunsIterator& operator++() {
-    logical_position_ = merged_run_end_;
-    IncrementInputs();
-    if (!isEnd()) {
-      FindMergedRun();
+    auto& left_it = std::get<0>(ree_iterators_);
+    auto& right_it = std::get<1>(ree_iterators_);
+
+    const int64_t left_run_end = left_it.run_end();
+    const int64_t right_run_end = right_it.run_end();
+
+    if (left_run_end < right_run_end) {
+      logical_pos_ = left_run_end;
+      ++left_it;
+    } else if (left_run_end > right_run_end) {
+      logical_pos_ = right_run_end;
+      ++right_it;
+    } else {
+      logical_pos_ = left_run_end;
+      ++left_it;
+      ++right_it;
     }
     return *this;
   }
 
-  MergedRunsIterator& operator++(int) {
+  MergedRunsIterator operator++(int) {
     MergedRunsIterator prev = *this;
     ++(*this);
     return prev;
   }
 
-  template <typename... OthersInputs>
-  bool operator==(const MergedRunsIterator<OthersInputs...>& other) const {
-    return (isEnd() && other.isEnd()) ||
-           (!isEnd() && !other.isEnd() && logical_position_ == other.logical_position());
+  bool operator==(const MergedRunsIterator& other) const {
+    return logical_pos_ == other.logical_position();
   }
 
-  template <typename... OthersInputs>
-  bool operator!=(const MergedRunsIterator<OthersInputs...>& other) const {
-    return !(*this == other);
-  }
-
-  /// \brief returns a physical index into the values array buffers of a given input,
-  /// pointing to the value of the current run. The index includes the array offset, so it
-  /// can be used to access a buffer directly
-  template <size_t input_id>
-  int64_t index_into_buffer() const {
-    auto& input = std::get<input_id>(inputs);
-    return input.run_index + ValuesArray(input.array_span).offset;
-  }
-  /// \brief returns a physical index into the values array of a given input, pointing to
-  /// the value of the current run
-  template <size_t input_id>
-  int64_t index_into_array() const {
-    return std::get<input_id>(inputs).run_index;
-  }
-  /// \brief returns the logical length of the current run
-  int64_t run_length() const { return merged_run_end_ - logical_position_; }
-  /// \brief returns the accumulated length of all runs from the beginning of the array
-  /// including the current one
-  int64_t accumulated_run_length() const { return merged_run_end_; }
-
-  bool isEnd() const { return logical_position_ == logical_length_; }
-  int64_t logical_position() const { return logical_position_; }
+  bool operator!=(const MergedRunsIterator& other) const { return !(*this == other); }
 
  private:
-  template <typename RunEndsType>
-  struct Input {
-    explicit Input(const ArraySpan& array_span) : array_span{array_span} {
-      run_ends = RunEnds<RunEndsType>(array_span);
-      run_index = ree_util::internal::FindPhysicalIndex(
-          run_ends, RunEndsArray(array_span).length, array_span.offset);
-      // actual value found later by FindMergedRun:
-      current_run_end = 0;
-    }
-
-    const ArraySpan& array_span;
-    const RunEndsType* run_ends;
-    int64_t run_index;
-    int64_t current_run_end;
-  };
-
-  template <size_t input_id = 0>
-  void FindMergedRun() {
-    if constexpr (input_id == 0) {
-      merged_run_end_ = std::numeric_limits<int64_t>::max();
-    }
-    auto& input = std::get<input_id>(inputs);
-    // logical indices of the end of the run we are currently in each input
-    input.current_run_end = input.run_ends[input.run_index] - input.array_span.offset;
-    // the logical length may end in the middle of a run, in case the array was sliced
-    input.current_run_end = std::min(input.current_run_end, logical_length_);
-    assert(input.current_run_end > logical_position_);
-    merged_run_end_ = std::min(merged_run_end_, input.current_run_end);
-    if constexpr (input_id < NUM_INPUTS - 1) {
-      FindMergedRun<input_id + 1>();
-    }
-  }
-
-  template <size_t input_id = 0>
-  int64_t FindCommonLength() {
-    int64_t our_length = std::get<input_id>(inputs).array_span.length;
-    if constexpr (input_id < NUM_INPUTS - 1) {
-      [[maybe_unused]] int64_t other_length = FindCommonLength<input_id + 1>();
-      assert(our_length == other_length &&
-             "MergedRunsIteratror can only be used on arrays of the same length");
-    }
-    return our_length;
-  }
-
-  template <size_t input_id = 0>
-  void IncrementInputs() {
-    auto& input = std::get<input_id>(inputs);
-    if (logical_position_ == input.current_run_end) {
-      input.run_index++;
-    }
-    if constexpr (input_id < NUM_INPUTS - 1) {
-      IncrementInputs<input_id + 1>();
-    }
-  }
-
-  std::tuple<Input<RunEndsTypes>...> inputs;
-  int64_t logical_position_ = 0;
-  int64_t logical_length_ = 0;
-  int64_t merged_run_end_ = 0;
+  std::tuple<LeftIterator, RightIterator> ree_iterators_;
+  const int64_t logical_length_;
+  int64_t logical_pos_ = 0;
 };
 
 }  // namespace ree_util

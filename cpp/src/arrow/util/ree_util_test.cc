@@ -146,8 +146,8 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
   const auto right_run_ends =
       ArrayFromJSON(run_end_type, "[1, 2, 3, 4, 5, 2005, 2009, 2025, 2050]");
   const std::vector<int32_t> expected_run_ends = {5, 4, 6, 5, 5, 25};
-  const std::vector<int32_t> expected_left_visits = {110, 111, 111, 112, 113, 114};
-  const std::vector<int32_t> expected_right_visits = {205, 206, 207, 207, 207, 208};
+  const std::vector<int32_t> expected_left_visits = {10, 11, 11, 12, 13, 14};
+  const std::vector<int32_t> expected_right_visits = {5, 6, 7, 7, 7, 8};
   const int32_t left_parent_offset = 1000;
   const int32_t left_child_offset = 100;
   const int32_t right_parent_offset = 2000;
@@ -167,87 +167,88 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
                        RunEndEncodedArray::Make(2050, right_run_ends, right_child));
   left_array = left_array->Slice(left_parent_offset);
   right_array = right_array->Slice(right_parent_offset);
-  ArraySpan left_span(*left_array->data());
-  ArraySpan right_span(*right_array->data());
+  const RunEndEncodedArraySpan<TypeParam> left_ree_span(*left_array->data());
+  const RunEndEncodedArraySpan<TypeParam> right_ree_span(*right_array->data());
 
-  size_t position = 0;
-  size_t logical_position = 0;
-  for (auto it = MergedRunsIterator<TypeParam, TypeParam>(left_span, right_span);
-       it != MergedRunsIterator(); ++it) {
-    ASSERT_EQ(it.run_length(), expected_run_ends[position]);
-    ASSERT_EQ(it.template index_into_buffer<0>(), expected_left_visits[position]);
-    ASSERT_EQ(it.template index_into_buffer<1>(), expected_right_visits[position]);
-    ASSERT_EQ(it.template index_into_array<0>(),
-              expected_left_visits[position] - left_child_offset);
-    ASSERT_EQ(it.template index_into_array<1>(),
-              expected_right_visits[position] - right_child_offset);
-    position++;
-    logical_position += it.run_length();
-    ASSERT_EQ(it.accumulated_run_length(), logical_position);
+  // Left array on one side and right on the other side
+  {
+    size_t i = 0;
+    size_t logical_pos = 0;
+    auto it = MergedRunsIterator(left_ree_span, right_ree_span);
+    ASSERT_EQ(it.logical_position(), 0);
+    ASSERT_TRUE(!it.isEnd());
+    ASSERT_EQ(&it.left(), &left_ree_span);
+    ASSERT_EQ(&it.right(), &right_ree_span);
+    for (; !it.isEnd(); ++it, ++i) {
+      ASSERT_EQ(it.run_length(), expected_run_ends[i]);
+      ASSERT_EQ(it.index_into_left_array(), expected_left_visits[i]);
+      ASSERT_EQ(it.index_into_right_array(), expected_right_visits[i]);
+      ASSERT_EQ(it.logical_position(), logical_pos);
+      logical_pos += it.run_length();
+    }
+    ASSERT_EQ(i, expected_run_ends.size());
   }
-  ASSERT_EQ(position, expected_run_ends.size());
 
-  // left array only
-  const std::vector<int32_t> left_only_run_lengths = {5, 10, 5, 5, 25};
-
-  position = 0;
-  logical_position = 0;
-  for (auto it = MergedRunsIterator<TypeParam, TypeParam>(left_span, left_span);
-       it != MergedRunsIterator(); ++it) {
-    ASSERT_EQ(it.run_length(), left_only_run_lengths[position]);
-    ASSERT_EQ(it.template index_into_buffer<0>(), 110 + position);
-    ASSERT_EQ(it.template index_into_buffer<1>(), 110 + position);
-    ASSERT_EQ(it.template index_into_array<0>(), 10 + position);
-    ASSERT_EQ(it.template index_into_array<1>(), 10 + position);
-    position++;
-    logical_position += it.run_length();
-    ASSERT_EQ(it.accumulated_run_length(), logical_position);
+  // Left child array on both sides
+  const int32_t left_only_run_lengths[] = {5, 10, 5, 5, 25};
+  {
+    int64_t i = 0;
+    int64_t logical_pos = 0;
+    auto it = MergedRunsIterator(left_ree_span, left_ree_span);
+    ASSERT_EQ(it.logical_position(), 0);
+    ASSERT_TRUE(!it.isEnd());
+    ASSERT_EQ(&it.left(), &left_ree_span);
+    ASSERT_EQ(&it.right(), &left_ree_span);
+    for (; !it.isEnd(); ++it, ++i) {
+      ASSERT_EQ(it.run_length(), left_only_run_lengths[i]);
+      ASSERT_EQ(it.index_into_left_array(), 10 + i);
+      ASSERT_EQ(it.index_into_right_array(), 10 + i);
+      ASSERT_EQ(it.logical_position(), logical_pos);
+      logical_pos += it.run_length();
+    }
+    ASSERT_EQ(i, std::size(left_only_run_lengths));
   }
-  ASSERT_EQ(position, left_only_run_lengths.size());
 
-  position = 0;
-  logical_position = 0;
-  for (auto it = MergedRunsIterator<TypeParam>(left_span); it != MergedRunsIterator();
-       ++it) {
-    ASSERT_EQ(it.run_length(), left_only_run_lengths[position]);
-    ASSERT_EQ(it.template index_into_buffer<0>(), 110 + position);
-    ASSERT_EQ(it.template index_into_array<0>(), 10 + position);
-    position++;
-    logical_position += it.run_length();
-    ASSERT_EQ(it.accumulated_run_length(), logical_position);
+  // Stand-alone left array
+  {
+    int64_t i = 0;
+    int64_t logical_pos = 0;
+    for (auto it = left_ree_span.begin(); it != left_ree_span.end(); ++it, ++i) {
+      ASSERT_EQ(it.run_length(), left_only_run_lengths[i]);
+      ASSERT_EQ(it.index_into_array(), 10 + i);
+      ASSERT_EQ(it.logical_position(), logical_pos);
+      logical_pos += it.run_length();
+    }
+    ASSERT_EQ(i, std::size(left_only_run_lengths));
   }
-  ASSERT_EQ(position, left_only_run_lengths.size());
 
-  // right array only
-  const std::vector<int32_t> right_only_run_lengths = {5, 4, 16, 25};
-
-  position = 0;
-  logical_position = 0;
-  for (auto it = MergedRunsIterator<TypeParam, TypeParam>(right_span, right_span);
-       it != MergedRunsIterator(); ++it) {
-    ASSERT_EQ(it.run_length(), right_only_run_lengths[position]);
-    ASSERT_EQ(it.template index_into_buffer<0>(), 205 + position);
-    ASSERT_EQ(it.template index_into_buffer<1>(), 205 + position);
-    ASSERT_EQ(it.template index_into_array<0>(), 5 + position);
-    ASSERT_EQ(it.template index_into_array<1>(), 5 + position);
-    position++;
-    logical_position += it.run_length();
-    ASSERT_EQ(it.accumulated_run_length(), logical_position);
+  // Right array on both sides
+  const int32_t right_only_run_lengths[] = {5, 4, 16, 25};
+  {
+    int64_t i = 0;
+    int64_t logical_pos = 0;
+    auto it = MergedRunsIterator(right_ree_span, right_ree_span);
+    for (; !it.isEnd(); ++it, ++i) {
+      ASSERT_EQ(it.run_length(), right_only_run_lengths[i]);
+      ASSERT_EQ(it.index_into_left_array(), 5 + i);
+      ASSERT_EQ(it.index_into_right_array(), 5 + i);
+      ASSERT_EQ(it.logical_position(), logical_pos);
+      logical_pos += it.run_length();
+    }
+    ASSERT_EQ(i, std::size(right_only_run_lengths));
   }
-  ASSERT_EQ(position, right_only_run_lengths.size());
 
-  position = 0;
-  logical_position = 0;
-  for (auto it = MergedRunsIterator<TypeParam>(right_span); it != MergedRunsIterator();
-       ++it) {
-    ASSERT_EQ(it.run_length(), right_only_run_lengths[position]);
-    ASSERT_EQ(it.template index_into_buffer<0>(), 205 + position);
-    ASSERT_EQ(it.template index_into_array<0>(), 5 + position);
-    position++;
-    logical_position += it.run_length();
-    ASSERT_EQ(it.accumulated_run_length(), logical_position);
+  {
+    int64_t i = 0;
+    int64_t logical_pos = 0;
+    for (auto it = right_ree_span.begin(); it != right_ree_span.end(); ++it, ++i) {
+      ASSERT_EQ(it.run_length(), right_only_run_lengths[i]);
+      ASSERT_EQ(it.index_into_array(), 5 + i);
+      ASSERT_EQ(it.logical_position(), logical_pos);
+      logical_pos += it.run_length();
+    }
+    ASSERT_EQ(i, std::size(right_only_run_lengths));
   }
-  ASSERT_EQ(position, right_only_run_lengths.size());
 }
 
 REGISTER_TYPED_TEST_SUITE_P(ReeUtilTest, PhysicalOffset, PhysicalLength,
