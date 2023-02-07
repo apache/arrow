@@ -292,7 +292,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
   }
 
   std::shared_ptr<Scalar> min, max;
-  if (!StatisticsAsScalars(*statistics, &min, &max).ok()) {
+  if (!StatisticsAsScalars(statistics, &min, &max).ok()) {
     return std::nullopt;
   }
 
