@@ -2297,9 +2297,3 @@ def test_record_batch_sort():
     assert sorted_rb_dict["a"] == [5, 7, 7, 35]
     assert sorted_rb_dict["b"] == [2, 3, 4, 1]
     assert sorted_rb_dict["c"] == ["foobar", "bar", "foo", "car"]
-
-
-def test_drop_deprecated():
-    table = pa.table([pa.array([1, 2, 3, 4])], names=['a'])
-    with pytest.warns(FutureWarning):
-        table.drop(['a'])
