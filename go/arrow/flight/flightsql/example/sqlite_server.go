@@ -140,19 +140,7 @@ func prepareQueryForGetKeys(filter string) string {
 		` ORDER BY pk_catalog_name, pk_schema_name, pk_table_name, pk_key_name, key_sequence`
 }
 
-type Statement struct {
-	stmt   *sql.Stmt
-	params [][]interface{}
-}
-
-type SQLiteFlightSQLServer struct {
-	flightsql.BaseServer
-	db *sql.DB
-
-	prepared sync.Map
-}
-
-func NewSQLiteFlightSQLServer() (*SQLiteFlightSQLServer, error) {
+func CreateDB() (*sql.DB, error) {
 	db, err := sql.Open("sqlite", "file::memory:?cache=shared")
 	if err != nil {
 		return nil, err
@@ -178,20 +166,33 @@ func NewSQLiteFlightSQLServer() (*SQLiteFlightSQLServer, error) {
 	INSERT INTO intTable (keyName, value, foreignId) VALUES ('negative one', -1, 1);
 	INSERT INTO intTable (keyName, value, foreignId) VALUES (NULL, NULL, NULL);
 	`)
-
 	if err != nil {
+		db.Close()
 		return nil, err
 	}
+
+	return db, nil
+}
+
+type Statement struct {
+	stmt   *sql.Stmt
+	params [][]interface{}
+}
+
+type SQLiteFlightSQLServer struct {
+	flightsql.BaseServer
+	db *sql.DB
+
+	prepared sync.Map
+}
+
+func NewSQLiteFlightSQLServer(db *sql.DB) (*SQLiteFlightSQLServer, error) {
 	ret := &SQLiteFlightSQLServer{db: db}
 	ret.Alloc = memory.DefaultAllocator
 	for k, v := range SqlInfoResultMap() {
 		ret.RegisterSqlInfo(flightsql.SqlInfo(k), v)
 	}
 	return ret, nil
-}
-
-func (s *SQLiteFlightSQLServer) Shutdown() error {
-	return s.db.Close()
 }
 
 func (s *SQLiteFlightSQLServer) flightInfoForCommand(desc *flight.FlightDescriptor, schema *arrow.Schema) *flight.FlightInfo {
