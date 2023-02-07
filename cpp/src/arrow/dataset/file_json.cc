@@ -16,6 +16,9 @@
 // under the License.
 
 #include "arrow/dataset/file_json.h"
+
+#include <unordered_set>
+
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/io/buffered.h"
 #include "arrow/json/chunker.h"
@@ -28,12 +31,88 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using internal::Executor;
 
 namespace dataset {
 
 namespace {
 
 using ReaderPtr = std::shared_ptr<json::StreamingReader>;
+
+struct JsonInspectedFragment : public InspectedFragment {
+  JsonInspectedFragment() : InspectedFragment({}) {}
+  JsonInspectedFragment(std::vector<std::string> column_names,
+                        std::shared_ptr<io::InputStream> stream, int64_t size)
+      : InspectedFragment(std::move(column_names)),
+        stream(std::move(stream)),
+        size(size) {}
+  std::shared_ptr<io::InputStream> stream;
+  int64_t size;
+};
+
+class JsonFragmentScanner : public FragmentScanner {
+ public:
+  JsonFragmentScanner(ReaderPtr reader, int num_batches, int64_t block_size)
+      : reader_(std::move(reader)), block_size_(block_size), num_batches_(num_batches) {}
+
+  int NumBatches() override { return num_batches_; }
+
+  Future<std::shared_ptr<RecordBatch>> ScanBatch(int index) override {
+    DCHECK_EQ(num_scanned_++, index);
+    return reader_->ReadNextAsync();
+  }
+
+  int64_t EstimatedDataBytes(int) override { return block_size_; }
+
+  static Result<std::shared_ptr<Schema>> GetSchema(
+      const FragmentScanRequest& scan_request, const JsonInspectedFragment& inspected) {
+    FieldVector fields;
+    fields.reserve(inspected.column_names.size());
+    std::unordered_set<int> indices;
+    indices.reserve(inspected.column_names.size());
+
+    for (const auto& scan_column : scan_request.columns) {
+      const auto index = scan_column.path[0];
+
+      if (!indices.emplace(index).second) continue;
+
+      const auto& name = inspected.column_names.at(index);
+      auto type = scan_column.requested_type->GetSharedPtr();
+      fields.push_back(field((name), std::move(type)));
+    }
+
+    return ::arrow::schema(std::move(fields));
+  }
+
+  static Future<std::shared_ptr<FragmentScanner>> Make(
+      const FragmentScanRequest& scan_request,
+      const JsonFragmentScanOptions& format_options,
+      const JsonInspectedFragment& inspected, Executor* cpu_executor) {
+    auto parse_options = format_options.parse_options;
+    ARROW_ASSIGN_OR_RAISE(parse_options.explicit_schema,
+                          GetSchema(scan_request, inspected));
+    parse_options.unexpected_field_behavior = json::UnexpectedFieldBehavior::Ignore;
+
+    int64_t block_size = format_options.read_options.block_size;
+    auto num_batches = static_cast<int>(bit_util::CeilDiv(inspected.size, block_size));
+
+    auto future = json::StreamingReader::MakeAsync(
+        inspected.stream, format_options.read_options, parse_options,
+        io::default_io_context(), cpu_executor);
+    return future.Then(
+        [num_batches, block_size](
+            const ReaderPtr& reader) -> Result<std::shared_ptr<FragmentScanner>> {
+          return std::make_shared<JsonFragmentScanner>(reader, num_batches, block_size);
+        },
+        [](const Status& e) -> Result<std::shared_ptr<FragmentScanner>> { return e; });
+  }
+
+ private:
+  ReaderPtr reader_;
+  int64_t block_size_;
+  int num_batches_;
+  int num_scanned_ = 0;
+};
 
 Result<std::shared_ptr<StructType>> ParseToStructType(
     std::string_view data, const json::ParseOptions& parse_options, MemoryPool* pool) {
@@ -245,6 +324,30 @@ Result<RecordBatchGenerator> MakeBatchGenerator(
   return [reader = *std::move(maybe_reader)] { return reader->ReadNextAsync(); };
 }
 
+Result<std::shared_ptr<InspectedFragment>> DoInspectFragment(
+    const FileSource& source, const JsonFragmentScanOptions& format_options,
+    MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(auto stream, source.OpenCompressed());
+  ARROW_ASSIGN_OR_RAISE(
+      stream, io::BufferedInputStream::Create(format_options.read_options.block_size,
+                                              default_memory_pool(), std::move(stream)));
+
+  ARROW_ASSIGN_OR_RAISE(auto first_block,
+                        stream->Peek(format_options.read_options.block_size));
+  ARROW_ASSIGN_OR_RAISE(
+      auto struct_type,
+      ParseToStructType(first_block, format_options.parse_options, pool));
+
+  std::vector<std::string> column_names;
+  column_names.reserve(struct_type->num_fields());
+  for (const auto& f : struct_type->fields()) {
+    column_names.push_back(f->name());
+  }
+
+  return std::make_shared<JsonInspectedFragment>(std::move(column_names),
+                                                 std::move(stream), source.Size());
+}
+
 }  // namespace
 
 JsonFileFormat::JsonFileFormat()
@@ -285,6 +388,26 @@ Future<std::optional<int64_t>> JsonFileFormat::CountRows(
                                return Status::OK();
                              })
       .Then([count]() -> std::optional<int64_t> { return *count; });
+}
+
+Future<std::shared_ptr<InspectedFragment>> JsonFileFormat::InspectFragment(
+    const FileSource& source, const FragmentScanOptions* format_options,
+    compute::ExecContext* exec_context) const {
+  auto json_options = static_cast<const JsonFragmentScanOptions*>(format_options);
+  auto* executor = source.filesystem() ? source.filesystem()->io_context().executor()
+                                       : exec_context->executor();
+  return DeferNotOk(
+      executor->Submit([source, json_options, pool = exec_context->memory_pool()] {
+        return DoInspectFragment(source, *json_options, pool);
+      }));
+}
+
+Future<std::shared_ptr<FragmentScanner>> JsonFileFormat::BeginScan(
+    const FragmentScanRequest& scan_request, const InspectedFragment& inspected,
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) const {
+  return JsonFragmentScanner::Make(
+      scan_request, static_cast<const JsonFragmentScanOptions&>(*format_options),
+      static_cast<const JsonInspectedFragment&>(inspected), exec_context->executor());
 }
 
 }  // namespace dataset

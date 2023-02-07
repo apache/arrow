@@ -50,6 +50,15 @@ class ARROW_DS_EXPORT JsonFileFormat : public FileFormat {
 
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
+  Future<std::shared_ptr<InspectedFragment>> InspectFragment(
+      const FileSource& source, const FragmentScanOptions* format_options,
+      compute::ExecContext* exec_context) const override;
+
+  Future<std::shared_ptr<FragmentScanner>> BeginScan(
+      const FragmentScanRequest& scan_request, const InspectedFragment& inspected,
+      const FragmentScanOptions* format_options,
+      compute::ExecContext* exec_context) const override;
+
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& scan_options,
       const std::shared_ptr<FileFragment>& file) const override;

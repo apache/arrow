@@ -17,6 +17,7 @@
 
 #include "arrow/dataset/file_json.h"
 
+#include "arrow/dataset/plan.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/json/parser.h"
@@ -159,6 +160,15 @@ class TestJsonFormat
 
 class TestJsonFormatScan : public FileFormatScanMixin<JsonFormatHelper> {};
 
+class TestJsonFormatScanNode : public FileFormatScanNodeMixin<JsonFormatHelper> {
+  void SetUp() override { internal::Initialize(); }
+
+  const FragmentScanOptions* GetFormatOptions() override { return &json_options_; }
+
+ protected:
+  JsonFragmentScanOptions json_options_;
+};
+
 TEST_F(TestJsonFormat, Equals) {
   JsonFileFormat format;
   ASSERT_TRUE(format.Equals(JsonFileFormat()));
@@ -185,6 +195,17 @@ TEST_P(TestJsonFormatScan, ScanProjectedMissingCols) { TestScanProjectedMissingC
 TEST_P(TestJsonFormatScan, ScanProjectedNested) { TestScanProjectedNested(); }
 
 INSTANTIATE_TEST_SUITE_P(TestJsonScan, TestJsonFormatScan,
+                         ::testing::ValuesIn(TestFormatParams::Values()),
+                         TestFormatParams::ToTestNameString);
+
+TEST_P(TestJsonFormatScanNode, Scan) { TestScan(); }
+TEST_P(TestJsonFormatScanNode, ScanMissingFilterField) { TestScanMissingFilterField(); }
+TEST_P(TestJsonFormatScanNode, ScanProjected) { TestScanProjected(); }
+TEST_P(TestJsonFormatScanNode, ScanProjectedMissingColumns) {
+  TestScanProjectedMissingCols();
+}
+
+INSTANTIATE_TEST_SUITE_P(TestJsonScanNode, TestJsonFormatScanNode,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);
 
