@@ -16,7 +16,6 @@
 // under the License.
 
 #include "gandiva/function_registry_math_ops.h"
-
 #include "gandiva/function_registry_common.h"
 
 namespace gandiva {
