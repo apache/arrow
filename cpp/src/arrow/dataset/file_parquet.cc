@@ -126,7 +126,12 @@ std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
   auto column_metadata = metadata.ColumnChunk(schema_field.column_index);
   auto statistics = column_metadata->statistics();
   const auto& field = schema_field.field;
-  return ParquetFileFragment::EvaluateStatisticsAsExpression(field, statistics);
+
+  if (statistics == nullptr) {
+    return std::nullopt;
+  }
+
+  return ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics);
 }
 
 void AddColumnIndices(const SchemaField& schema_field,
@@ -278,15 +283,11 @@ Result<bool> IsSupportedParquetFile(const ParquetFileFormat& format,
 }  // namespace
 
 std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpression(
-    std::shared_ptr<Field> field, std::shared_ptr<parquet::Statistics> statistics) {
-  if (statistics == nullptr) {
-    return std::nullopt;
-  }
-
-  auto field_expr = compute::field_ref(field->name());
+    const Field& field, const parquet::Statistics& statistics) {
+  auto field_expr = compute::field_ref(field.name());
 
   // Optimize for corner case where all values are nulls
-  if (statistics->num_values() == 0 && statistics->null_count() > 0) {
+  if (statistics.num_values() == 0 && statistics.null_count() > 0) {
     return is_null(std::move(field_expr));
   }
 
@@ -295,8 +296,8 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     return std::nullopt;
   }
 
-  auto maybe_min = min->CastTo(field->type());
-  auto maybe_max = max->CastTo(field->type());
+  auto maybe_min = min->CastTo(field.type());
+  auto maybe_max = max->CastTo(field.type());
 
   if (maybe_min.ok() && maybe_max.ok()) {
     min = maybe_min.MoveValueUnsafe();
@@ -312,7 +313,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     if (min->Equals(max)) {
       auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
 
-      if (statistics->null_count() == 0) {
+      if (statistics.null_count() == 0) {
         return single_value;
       }
       return compute::or_(std::move(single_value), is_null(std::move(field_expr)));
@@ -332,7 +333,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
       in_range = compute::and_(std::move(lower_bound), std::move(upper_bound));
     }
 
-    if (statistics->null_count() != 0) {
+    if (statistics.null_count() != 0) {
       return compute::or_(std::move(in_range), compute::is_null(field_expr));
     }
     return in_range;

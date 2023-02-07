@@ -644,7 +644,7 @@ TEST(TestParquetStatistics, NullMax) {
       parquet::ParquetFileReader::OpenFile(dir_string + "/nan_in_stats.parquet");
   auto statistics = reader->RowGroup(0)->metadata()->ColumnChunk(0)->statistics();
   auto stat_expression =
-      ParquetFileFragment::EvaluateStatisticsAsExpression(field, statistics);
+      ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics);
   EXPECT_EQ(stat_expression->ToString(), "(x >= 1)");
 }
 
