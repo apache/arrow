@@ -23,6 +23,41 @@ import (
 	"github.com/apache/arrow/go/v12/arrow"
 )
 
+// FindPhysicalIndex performs a binary search on the run-ends to return
+// the appropriate physical offset into the values/run-ends that corresponds
+// with the logical index provided when called. If the array's logical offset
+// is provided, this is equivalent to calling FindPhysicalOffset.
+//
+// For example, an array with run-ends [10, 20, 30, 40, 50] and a logicalIdx
+// of 25 will return the value 2. This returns the smallest offset
+// whose run-end is greater than the logicalIdx requested, which would
+// also be the index into the values that contains the correct value.
+//
+// This function assumes it receives Run End Encoded array data
+func FindPhysicalIndex(arr arrow.ArrayData, logicalIdx int) int {
+	data := arr.Children()[0]
+	if data.Len() == 0 {
+		return 0
+	}
+
+	switch data.DataType().ID() {
+	case arrow.INT16:
+		runEnds := arrow.Int16Traits.CastFromBytes(data.Buffers()[1].Bytes())
+		runEnds = runEnds[data.Offset() : data.Offset()+data.Len()]
+		return sort.Search(len(runEnds), func(i int) bool { return runEnds[i] > int16(logicalIdx) })
+	case arrow.INT32:
+		runEnds := arrow.Int32Traits.CastFromBytes(data.Buffers()[1].Bytes())
+		runEnds = runEnds[data.Offset() : data.Offset()+data.Len()]
+		return sort.Search(len(runEnds), func(i int) bool { return runEnds[i] > int32(logicalIdx) })
+	case arrow.INT64:
+		runEnds := arrow.Int64Traits.CastFromBytes(data.Buffers()[1].Bytes())
+		runEnds = runEnds[data.Offset() : data.Offset()+data.Len()]
+		return sort.Search(len(runEnds), func(i int) bool { return runEnds[i] > int64(logicalIdx) })
+	default:
+		panic("only int16, int32, and int64 are allowed for the run-ends")
+	}
+}
+
 // FindPhysicalOffset performs a binary search on the run-ends to return
 // the appropriate physical offset into the values/run-ends that corresponds
 // with the logical offset defined in the array.
@@ -34,25 +69,7 @@ import (
 //
 // This function assumes it receives Run End Encoded array data
 func FindPhysicalOffset(arr arrow.ArrayData) int {
-	data := arr.Children()[0]
-	logicalOffset := arr.Offset()
-
-	switch data.DataType().ID() {
-	case arrow.INT16:
-		runEnds := arrow.Int16Traits.CastFromBytes(data.Buffers()[1].Bytes())
-		runEnds = runEnds[data.Offset() : data.Offset()+data.Len()]
-		return sort.Search(len(runEnds), func(i int) bool { return runEnds[i] > int16(logicalOffset) })
-	case arrow.INT32:
-		runEnds := arrow.Int32Traits.CastFromBytes(data.Buffers()[1].Bytes())
-		runEnds = runEnds[data.Offset() : data.Offset()+data.Len()]
-		return sort.Search(len(runEnds), func(i int) bool { return runEnds[i] > int32(logicalOffset) })
-	case arrow.INT64:
-		runEnds := arrow.Int64Traits.CastFromBytes(data.Buffers()[1].Bytes())
-		runEnds = runEnds[data.Offset() : data.Offset()+data.Len()]
-		return sort.Search(len(runEnds), func(i int) bool { return runEnds[i] > int64(logicalOffset) })
-	default:
-		panic("only int16, int32, and int64 are allowed for the run-ends")
-	}
+	return FindPhysicalIndex(arr, arr.Offset())
 }
 
 // GetPhysicalLength returns the physical number of values which are in
