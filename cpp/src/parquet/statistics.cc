@@ -163,7 +163,7 @@ struct BinaryLikeComparer<T, /*is_signed=*/false> {
     int a_length = value_length(type_length, a);
     int b_length = value_length(type_length, b);
     // Unsigned comparison is used for non-numeric types so straight
-    // lexiographic comparison makes sense. (a.ptr is always unsigned)....
+    // lexicographic comparison makes sense. (a.ptr is always unsigned)....
     return std::lexicographical_compare(a.ptr, a.ptr + a_length, b.ptr, b.ptr + b_length);
   }
 };
@@ -186,7 +186,7 @@ struct BinaryLikeComparer<T, /*is_signed=*/true> {
     // We can short circuit for different signed numbers or
     // for equal length bytes arrays that have different first bytes.
     // The equality requirement is necessary for sign extension cases.
-    // 0xFF10 should be eqaul to 0x10 (due to big endian sign extension).
+    // 0xFF10 should be equal to 0x10 (due to big endian sign extension).
     if ((0x80 & first_a) != (0x80 & first_b) ||
         (a_length == b_length && first_a != first_b)) {
       return first_a < first_b;
@@ -228,7 +228,7 @@ struct BinaryLikeComparer<T, /*is_signed=*/true> {
         //        a must be the lesser value: return true
         //
         //    positive values:
-        //      b  is the longer value.
+        //      b is the longer value.
         //        values in b must be greater than a: return true
         //      else:
         //        values in a must be greater than b: return false
@@ -470,7 +470,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
         max_buffer_(AllocateBuffer(pool_, 0)) {
     auto comp = Comparator::Make(descr);
     comparator_ = std::static_pointer_cast<TypedComparator<DType>>(comp);
-    Reset();
+    TypedStatisticsImpl::Reset();
     has_null_count_ = true;
     has_distinct_count_ = true;
   }
@@ -480,8 +480,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       : pool_(default_memory_pool()),
         min_buffer_(AllocateBuffer(pool_, 0)),
         max_buffer_(AllocateBuffer(pool_, 0)) {
-    IncrementNumValues(num_values);
-    IncrementNullCount(null_count);
+    TypedStatisticsImpl::IncrementNumValues(num_values);
+    TypedStatisticsImpl::IncrementNullCount(null_count);
     IncrementDistinctCount(distinct_count);
 
     Copy(min, &min_, min_buffer_.get());
@@ -494,9 +494,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
                       int64_t null_count, int64_t distinct_count, bool has_min_max,
                       bool has_null_count, bool has_distinct_count, MemoryPool* pool)
       : TypedStatisticsImpl(descr, pool) {
-    IncrementNumValues(num_values);
+    TypedStatisticsImpl::IncrementNumValues(num_values);
     if (has_null_count_) {
-      IncrementNullCount(null_count);
+      TypedStatisticsImpl::IncrementNullCount(null_count);
     }
     if (has_distinct_count) {
       IncrementDistinctCount(distinct_count);
