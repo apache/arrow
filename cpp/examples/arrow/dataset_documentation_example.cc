@@ -147,11 +147,11 @@ arrow::Result<std::string> CreateExampleParquetHivePartitionedDataset(
   auto partitioning = std::make_shared<ds::HivePartitioning>(partition_schema);
   // We'll write Parquet files.
   auto format = std::make_shared<ds::ParquetFileFormat>();
-  auto write_options = std::make_shared<ds::FileSystemDatasetWriteOptions>(format);
-  write_options->filesystem = filesystem;
-  write_options->base_dir = base_path;
-  write_options->partitioning = partitioning;
-  write_options->basename_template = "part{i}.parquet";
+  ds::FileSystemDatasetWriteOptions write_options(format);
+  write_options.filesystem = filesystem;
+  write_options.base_dir = base_path;
+  write_options.partitioning = partitioning;
+  write_options.basename_template = "part{i}.parquet";
   ARROW_RETURN_NOT_OK(ds::FileSystemDataset::Write(write_options, scanner));
   return base_path;
 }

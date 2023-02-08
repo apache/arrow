@@ -104,7 +104,7 @@ class DatasetWriterTestFixture : public testing::Test {
       uint64_t max_rows = kDefaultDatasetWriterMaxRowsQueued) {
     EXPECT_OK_AND_ASSIGN(auto dataset_writer,
                          DatasetWriter::Make(
-                             write_options_, scheduler_, [] {}, [] {}, [] {}, max_rows));
+                             *write_options_, scheduler_, [] {}, [] {}, [] {}, max_rows));
     return dataset_writer;
   }
 
@@ -392,7 +392,7 @@ TEST_F(DatasetWriterTestFixture, MaxOpenFiles) {
   write_options_->max_open_files = 2;
   EXPECT_OK_AND_ASSIGN(auto dataset_writer,
                        DatasetWriter::Make(
-                           write_options_, scheduler_, [&] { paused = true; },
+                           *write_options_, scheduler_, [&] { paused = true; },
                            [&] { paused = false; }, [] {}));
 
   dataset_writer->WriteRecordBatch(MakeBatch(10), "part0");
@@ -496,7 +496,7 @@ TEST_F(DatasetWriterTestFixture, ErrOnExistingData) {
   filesystem_ = std::dynamic_pointer_cast<MockFileSystem>(fs);
   write_options_->filesystem = filesystem_;
   ASSERT_RAISES(Invalid, DatasetWriter::Make(
-                             write_options_, scheduler_, [] {}, [] {}, [] {}));
+                             *write_options_, scheduler_, [] {}, [] {}, [] {}));
   AssertEmptyFiles(
       {"testdir/chunk-0.arrow", "testdir/chunk-5.arrow", "testdir/blah.txt"});
 
@@ -510,7 +510,7 @@ TEST_F(DatasetWriterTestFixture, ErrOnExistingData) {
   write_options_->filesystem = filesystem_;
   write_options_->base_dir = "testdir";
   ASSERT_RAISES(Invalid, DatasetWriter::Make(
-                             write_options_, scheduler_, [] {}, [] {}, [] {}));
+                             *write_options_, scheduler_, [] {}, [] {}, [] {}));
   AssertEmptyFiles({"testdir/part-0.arrow"});
 }
 

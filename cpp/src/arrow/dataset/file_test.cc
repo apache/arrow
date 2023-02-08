@@ -328,7 +328,7 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
       {"a_plus_one"}));
   ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
 
-  ASSERT_OK(FileSystemDataset::Write(write_options, scanner));
+  ASSERT_OK(FileSystemDataset::Write(*write_options, scanner));
 
   ASSERT_OK_AND_ASSIGN(auto dataset_factory, FileSystemDatasetFactory::Make(
                                                  fs, {"root/0.feather"}, format, {}));
@@ -425,7 +425,7 @@ TEST_P(FileSystemWriteTest, Write) {
   auto plan_factory =
       [](const std::shared_ptr<FileSystemDatasetWriteOptions>& write_options,
          std::function<Future<std::optional<cp::ExecBatch>>()>* sink_gen) {
-        return std::vector<cp::Declaration>{{"write", WriteNodeOptions{write_options}}};
+        return std::vector<cp::Declaration>{{"write", WriteNodeOptions{*write_options}}};
       };
   TestDatasetWriteRoundTrip(plan_factory, /*has_output=*/false);
 }
@@ -435,7 +435,7 @@ TEST_P(FileSystemWriteTest, TeeWrite) {
       [](const std::shared_ptr<FileSystemDatasetWriteOptions>& write_options,
          std::function<Future<std::optional<cp::ExecBatch>>()>* sink_gen) {
         return std::vector<cp::Declaration>{
-            {"tee", WriteNodeOptions{write_options}},
+            {"tee", WriteNodeOptions{*write_options}},
             {"sink", cp::SinkNodeOptions{sink_gen}},
         };
       };

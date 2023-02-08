@@ -1847,7 +1847,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     write_options_->partitioning = desired_partitioning;
     auto scanner_builder = ScannerBuilder(dataset_, scan_options_);
     ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder.Finish());
-    ASSERT_OK(FileSystemDataset::Write(write_options_, scanner));
+    ASSERT_OK(FileSystemDataset::Write(*write_options_, scanner));
 
     // re-discover the written dataset
     fs::FileSelector s;

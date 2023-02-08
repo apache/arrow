@@ -1125,11 +1125,11 @@ TEST(Substrait, DeserializeWithWriteOptionsFactory) {
   auto write_options_factory = [&fs] {
     std::shared_ptr<dataset::IpcFileFormat> format =
         std::make_shared<dataset::IpcFileFormat>();
-    auto options = std::make_shared<dataset::FileSystemDatasetWriteOptions>(format);
-    options->filesystem = fs;
-    options->basename_template = "chunk-{i}.arrow";
-    options->base_dir = "testdir";
-    options->partitioning =
+    dataset::FileSystemDatasetWriteOptions options(format);
+    options.filesystem = fs;
+    options.basename_template = "chunk-{i}.arrow";
+    options.base_dir = "testdir";
+    options.partitioning =
         std::make_shared<dataset::DirectoryPartitioning>(arrow::schema({}));
     return std::make_shared<dataset::WriteNodeOptions>(options);
   };

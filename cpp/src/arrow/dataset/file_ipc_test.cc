@@ -129,7 +129,7 @@ TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
   auto scanner_builder = ScannerBuilder(dataset_, scan_options_);
   EXPECT_OK_AND_ASSIGN(auto scanner, scanner_builder.Finish());
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("This exceeds the maximum"),
-                                  FileSystemDataset::Write(write_options_, scanner));
+                                  FileSystemDataset::Write(*write_options_, scanner));
 }
 
 class TestIpcFileFormatScan : public FileFormatScanMixin<IpcFormatHelper> {};

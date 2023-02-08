@@ -281,7 +281,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
       std::shared_ptr<Partitioning> partitioning = NULLPTR);
 
   /// \brief Write a dataset.
-  static Status Write(const std::shared_ptr<FileSystemDatasetWriteOptions>& write_options,
+  static Status Write(const FileSystemDatasetWriteOptions& write_options,
                       std::shared_ptr<Scanner> scanner);
 
   /// \brief Return the type name of the dataset.
@@ -389,18 +389,12 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
  public:
   explicit FileSystemDatasetWriteOptions(
       const std::shared_ptr<FileFormat>& format,
-      const std::shared_ptr<FileWriteOptions> file_write_options = NULLPTR) {
-    if (file_write_options == NULLPTR) {
-      file_write_options_ = format->DefaultWriteOptions();
-    } else {
-      file_write_options_ = file_write_options;
-    }
-  }
+      std::shared_ptr<FileWriteOptions> file_write_options = NULLPTR)
+      : file_write_options(file_write_options == NULLPTR ? format->DefaultWriteOptions()
+                                                         : file_write_options) {}
 
   /// Options for individual fragment writing.
-  std::shared_ptr<FileWriteOptions> fileWriteOptions() const {
-    return file_write_options_;
-  }
+  std::shared_ptr<FileWriteOptions> file_write_options;
 
   /// FileSystem into which a dataset will be written.
   std::shared_ptr<fs::FileSystem> filesystem =
@@ -465,25 +459,20 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   };
 
   const std::shared_ptr<FileFormat>& format() const {
-    return file_write_options_->format();
+    return file_write_options->format();
   }
-
- private:
-  FileSystemDatasetWriteOptions() = delete;
-  std::shared_ptr<FileFormat> format_;
-  std::shared_ptr<FileWriteOptions> file_write_options_;
 };
 
 /// \brief Wraps FileSystemDatasetWriteOptions for consumption as compute::ExecNodeOptions
 class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
  public:
   explicit WriteNodeOptions(
-      std::shared_ptr<FileSystemDatasetWriteOptions> options,
+      FileSystemDatasetWriteOptions options,
       std::shared_ptr<const KeyValueMetadata> custom_metadata = NULLPTR)
       : write_options(std::move(options)), custom_metadata(std::move(custom_metadata)) {}
 
   /// \brief Options to control how to write the dataset
-  std::shared_ptr<FileSystemDatasetWriteOptions> write_options;
+  FileSystemDatasetWriteOptions write_options;
   /// \brief Optional metadata to attach to written batches
   std::shared_ptr<const KeyValueMetadata> custom_metadata;
 };
