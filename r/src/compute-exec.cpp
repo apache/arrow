@@ -333,7 +333,7 @@ void ExecPlan_Write(
   // TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
   // and encapsulate this logic better
   ds::FileSystemDatasetWriteOptions opts(file_write_options->format(),
-                                                          file_write_options);
+                                         file_write_options);
   opts.existing_data_behavior = existing_data_behavior;
   opts.filesystem = filesystem;
   opts.base_dir = base_dir;
