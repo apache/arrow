@@ -4827,11 +4827,34 @@ macro(build_awssdk)
                       DEPENDS aws_c_common_ep)
   add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
+  set(S2N_TLS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
+  if(APPLE AND NOT OPENSSL_ROOT_DIR)
+    find_program(BREW brew)
+    if(BREW)
+      execute_process(COMMAND ${BREW} --prefix "openssl@1.1"
+                      OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
+                      OUTPUT_STRIP_TRAILING_WHITESPACE)
+      if(OPENSSL11_BREW_PREFIX)
+        set(OPENSSL_ROOT_DIR ${OPENSSL11_BREW_PREFIX})
+      else()
+        execute_process(COMMAND ${BREW} --prefix "openssl"
+                        OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
+                        OUTPUT_STRIP_TRAILING_WHITESPACE)
+        if(OPENSSL_BREW_PREFIX)
+          set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
+        endif()
+      endif()
+    endif()
+  endif()
+  if(OPENSSL_ROOT_DIR)
+    # For Findcrypto.cmake in s2n-tls.
+    list(APPEND S2N_TLS_CMAKE_ARGS -DCMAKE_PREFIX_PATH=${OPENSSL_ROOT_DIR})
+  endif()
   externalproject_add(s2n_tls_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${S2N_TLS_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_S2N_TLS_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      CMAKE_ARGS ${S2N_TLS_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${S2N_TLS_STATIC_LIBRARY})
   add_dependencies(AWS::s2n-tls s2n_tls_ep)
 
