@@ -336,7 +336,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       if(cast_exp.failure_behavior() == substrait::Expression_Cast_FailureBehavior::Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_THROW_EXCEPTION){
         return compute::call("cast", std::move(input), compute::CastOptions::Safe(type));
       } else if(cast_exp.failure_behavior() == substrait::Expression_Cast_FailureBehavior::Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL){
-
+        return Status::NotImplemented("Unsupported cast failure behavior: Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL");
       // e.g. if unspecified  
       } else {
         return compute::call("cast", std::move(input), compute::CastOptions::Unsafe(type));
