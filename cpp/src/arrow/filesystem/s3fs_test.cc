@@ -150,12 +150,6 @@ class AwsTestMixin : public ::testing::Test {
   // EC2 metadata endpoint
   AwsTestMixin() : ec2_metadata_disabled_guard_("AWS_EC2_METADATA_DISABLED", "true") {}
 
-  void SetUp() override {
-  }
-
-  void TearDown() override {
-  }
-
  private:
   EnvVarGuard ec2_metadata_disabled_guard_;
 };
