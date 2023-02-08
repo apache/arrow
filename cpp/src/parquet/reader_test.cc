@@ -37,6 +37,7 @@
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
 #include "parquet/metadata.h"
+#include "parquet/page_index.h"
 #include "parquet/platform.h"
 #include "parquet/printer.h"
 #include "parquet/test_util.h"
@@ -1057,6 +1058,161 @@ TEST(TestFileReader, TestOverflowInt16PageOrdinal) {
     }
     EXPECT_EQ(40000, page_ordinal);
   }
+}
+
+struct PageIndexReaderParam {
+  std::vector<int32_t> row_group_indices;
+  std::vector<int32_t> column_indices;
+  PageIndexSelection index_selection;
+};
+
+class ParameterizedPageIndexReaderTest
+    : public ::testing::TestWithParam<PageIndexReaderParam> {};
+
+// Test reading a data file with page index.
+TEST_P(ParameterizedPageIndexReaderTest, TestReadPageIndex) {
+  ReaderProperties properties;
+  auto file_reader = ParquetFileReader::OpenFile(data_file("alltypes_tiny_pages.parquet"),
+                                                 /*memory_map=*/false, properties);
+  auto metadata = file_reader->metadata();
+  EXPECT_EQ(1, metadata->num_row_groups());
+  EXPECT_EQ(13, metadata->num_columns());
+
+  // Create the page index reader and provide different read hints.
+  auto page_index_reader = file_reader->GetPageIndexReader();
+  ASSERT_NE(nullptr, page_index_reader);
+  const auto params = GetParam();
+  const bool call_will_need = !params.row_group_indices.empty();
+  if (call_will_need) {
+    page_index_reader->WillNeed(params.row_group_indices, params.column_indices,
+                                params.index_selection);
+  }
+
+  auto row_group_index_reader = page_index_reader->RowGroup(0);
+  if (!call_will_need || params.index_selection.offset_index ||
+      params.index_selection.column_index) {
+    ASSERT_NE(nullptr, row_group_index_reader);
+  } else {
+    // None of page index is requested.
+    ASSERT_EQ(nullptr, row_group_index_reader);
+    return;
+  }
+
+  auto column_index_requested = [&](int32_t column_id) {
+    return !call_will_need ||
+           (params.index_selection.column_index &&
+            (params.column_indices.empty() ||
+             (std::find(params.column_indices.cbegin(), params.column_indices.cend(),
+                        column_id) != params.column_indices.cend())));
+  };
+
+  auto offset_index_requested = [&](int32_t column_id) {
+    return !call_will_need ||
+           (params.index_selection.offset_index &&
+            (params.column_indices.empty() ||
+             (std::find(params.column_indices.cbegin(), params.column_indices.cend(),
+                        column_id) != params.column_indices.cend())));
+  };
+
+  if (offset_index_requested(0)) {
+    // Verify offset index of column 0 and only partial data as it contains 325 pages.
+    const size_t num_pages = 325;
+    const std::vector<size_t> page_indices = {0, 100, 200, 300};
+    const std::vector<PageLocation> page_locations = {
+        PageLocation{4, 109, 0}, PageLocation{11480, 133, 2244},
+        PageLocation{22980, 133, 4494}, PageLocation{34480, 133, 6744}};
+
+    auto offset_index = row_group_index_reader->GetOffsetIndex(0);
+    ASSERT_NE(nullptr, offset_index);
+
+    EXPECT_EQ(num_pages, offset_index->page_locations().size());
+    for (size_t i = 0; i < page_indices.size(); ++i) {
+      size_t page_id = page_indices.at(i);
+      const auto& read_page_location = offset_index->page_locations().at(page_id);
+      const auto& expected_page_location = page_locations.at(i);
+      EXPECT_EQ(expected_page_location.offset, read_page_location.offset);
+      EXPECT_EQ(expected_page_location.compressed_page_size,
+                read_page_location.compressed_page_size);
+      EXPECT_EQ(expected_page_location.first_row_index,
+                read_page_location.first_row_index);
+    }
+  } else {
+    EXPECT_THROW(row_group_index_reader->GetOffsetIndex(0), ParquetException);
+  }
+
+  if (column_index_requested(5)) {
+    // Verify column index of column 5 and only partial data as it contains 528 pages.
+    const size_t num_pages = 528;
+    const BoundaryOrder::type boundary_order = BoundaryOrder::Unordered;
+    const std::vector<size_t> page_indices = {0, 99, 426, 520};
+    const std::vector<bool> null_pages = {false, false, false, false};
+    const bool has_null_counts = true;
+    const std::vector<int64_t> null_counts = {0, 0, 0, 0};
+    const std::vector<int64_t> min_values = {0, 10, 0, 0};
+    const std::vector<int64_t> max_values = {90, 90, 80, 70};
+
+    auto column_index = row_group_index_reader->GetColumnIndex(5);
+    ASSERT_NE(nullptr, column_index);
+    auto typed_column_index = std::dynamic_pointer_cast<Int64ColumnIndex>(column_index);
+    ASSERT_NE(nullptr, typed_column_index);
+
+    EXPECT_EQ(num_pages, column_index->null_pages().size());
+    EXPECT_EQ(has_null_counts, column_index->has_null_counts());
+    EXPECT_EQ(boundary_order, column_index->boundary_order());
+    for (size_t i = 0; i < page_indices.size(); ++i) {
+      size_t page_id = page_indices.at(i);
+      EXPECT_EQ(null_pages.at(i), column_index->null_pages().at(page_id));
+      if (has_null_counts) {
+        EXPECT_EQ(null_counts.at(i), column_index->null_counts().at(page_id));
+      }
+      if (!null_pages.at(i)) {
+        EXPECT_EQ(min_values.at(i), typed_column_index->min_values().at(page_id));
+        EXPECT_EQ(max_values.at(i), typed_column_index->max_values().at(page_id));
+      }
+    }
+  } else {
+    EXPECT_THROW(row_group_index_reader->GetColumnIndex(5), ParquetException);
+  }
+
+  // Verify null is returned if column index does not exist.
+  auto column_index = row_group_index_reader->GetColumnIndex(10);
+  EXPECT_EQ(nullptr, column_index);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    PageIndexReaderTests, ParameterizedPageIndexReaderTest,
+    ::testing::Values(PageIndexReaderParam{{}, {}, {true, true}},
+                      PageIndexReaderParam{{}, {}, {true, false}},
+                      PageIndexReaderParam{{}, {}, {false, true}},
+                      PageIndexReaderParam{{}, {}, {false, false}},
+                      PageIndexReaderParam{{0}, {}, {true, true}},
+                      PageIndexReaderParam{{0}, {}, {true, false}},
+                      PageIndexReaderParam{{0}, {}, {false, true}},
+                      PageIndexReaderParam{{0}, {}, {false, false}},
+                      PageIndexReaderParam{{0}, {0}, {true, true}},
+                      PageIndexReaderParam{{0}, {0}, {true, false}},
+                      PageIndexReaderParam{{0}, {0}, {false, true}},
+                      PageIndexReaderParam{{0}, {0}, {false, false}},
+                      PageIndexReaderParam{{0}, {5}, {true, true}},
+                      PageIndexReaderParam{{0}, {5}, {true, false}},
+                      PageIndexReaderParam{{0}, {5}, {false, true}},
+                      PageIndexReaderParam{{0}, {5}, {false, false}},
+                      PageIndexReaderParam{{0}, {0, 5}, {true, true}},
+                      PageIndexReaderParam{{0}, {0, 5}, {true, false}},
+                      PageIndexReaderParam{{0}, {0, 5}, {false, true}},
+                      PageIndexReaderParam{{0}, {0, 5}, {false, false}}));
+
+TEST(PageIndexReaderTest, ReadFileWithoutPageIndex) {
+  ReaderProperties properties;
+  auto file_reader = ParquetFileReader::OpenFile(data_file("int32_decimal.parquet"),
+                                                 /*memory_map=*/false, properties);
+  auto metadata = file_reader->metadata();
+  EXPECT_EQ(1, metadata->num_row_groups());
+
+  auto page_index_reader = file_reader->GetPageIndexReader();
+  ASSERT_NE(nullptr, page_index_reader);
+  auto row_group_index_reader = page_index_reader->RowGroup(0);
+  ASSERT_EQ(nullptr, row_group_index_reader);
 }
 
 }  // namespace parquet

@@ -27,7 +27,7 @@
 
 #include "arrow/compute/exec/hash_join_dict.h"
 #include "arrow/compute/exec/task_util.h"
-#include "arrow/compute/kernels/row_encoder.h"
+#include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/row/encode_internal.h"
 #include "arrow/util/tracing_internal.h"
 

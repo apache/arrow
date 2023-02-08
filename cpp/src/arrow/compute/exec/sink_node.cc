@@ -97,13 +97,14 @@ class BackpressureReservoir : public BackpressureMonitor {
   const uint64_t pause_if_above_;
 };
 
-class SinkNode : public ExecNode, public TracedNode<SinkNode> {
+class SinkNode : public ExecNode, public TracedNode {
  public:
   SinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
            AsyncGenerator<std::optional<ExecBatch>>* generator,
            std::shared_ptr<Schema>* schema, BackpressureOptions backpressure,
            BackpressureMonitor** backpressure_monitor_out)
       : ExecNode(plan, std::move(inputs), {"collected"}, {}),
+        TracedNode(this),
         backpressure_queue_(backpressure.resume_if_below, backpressure.pause_if_above),
         push_gen_(),
         producer_(push_gen_.producer()),
@@ -260,14 +261,13 @@ class SinkNode : public ExecNode, public TracedNode<SinkNode> {
 // is finished.  Use SinkNode if you are transferring the ownership of the data to another
 // system.  Use ConsumingSinkNode if the data is being consumed within the exec plan (i.e.
 // the exec plan should not complete until the consumption has completed).
-class ConsumingSinkNode : public ExecNode,
-                          public BackpressureControl,
-                          public TracedNode<ConsumingSinkNode> {
+class ConsumingSinkNode : public ExecNode, public BackpressureControl, public TracedNode {
  public:
   ConsumingSinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                     std::shared_ptr<SinkNodeConsumer> consumer,
                     std::vector<std::string> names)
       : ExecNode(plan, std::move(inputs), {"to_consume"}, {}),
+        TracedNode(this),
         consumer_(std::move(consumer)),
         names_(std::move(names)) {}
 

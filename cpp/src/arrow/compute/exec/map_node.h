@@ -41,7 +41,7 @@ namespace compute {
 ///
 /// An AtomicCounter is used to keep track of when all data has arrived.  When it
 /// has the Finish() method will be invoked
-class ARROW_EXPORT MapNode : public ExecNode, public TracedNode<MapNode> {
+class ARROW_EXPORT MapNode : public ExecNode, public TracedNode {
  public:
   MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
           std::shared_ptr<Schema> output_schema);

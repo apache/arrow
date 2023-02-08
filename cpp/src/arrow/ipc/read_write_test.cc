@@ -1913,54 +1913,6 @@ TEST_F(TestFileFormatGeneratorCoalesced, Errors) {
                              reader->GetRecordBatchGenerator(/*coalesce=*/true));
 }
 
-class TrackedRandomAccessFile : public io::RandomAccessFile {
- public:
-  explicit TrackedRandomAccessFile(io::RandomAccessFile* delegate)
-      : delegate_(delegate) {}
-
-  Status Close() override { return delegate_->Close(); }
-  bool closed() const override { return delegate_->closed(); }
-  Result<int64_t> Tell() const override { return delegate_->Tell(); }
-  Status Seek(int64_t position) override { return delegate_->Seek(position); }
-  Result<int64_t> Read(int64_t nbytes, void* out) override {
-    ARROW_ASSIGN_OR_RAISE(auto position, delegate_->Tell());
-    SaveReadRange(position, nbytes);
-    return delegate_->Read(nbytes, out);
-  }
-  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
-    ARROW_ASSIGN_OR_RAISE(auto position, delegate_->Tell());
-    SaveReadRange(position, nbytes);
-    return delegate_->Read(nbytes);
-  }
-  bool supports_zero_copy() const override { return delegate_->supports_zero_copy(); }
-  Result<int64_t> GetSize() override { return delegate_->GetSize(); }
-  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override {
-    SaveReadRange(position, nbytes);
-    return delegate_->ReadAt(position, nbytes, out);
-  }
-  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override {
-    SaveReadRange(position, nbytes);
-    return delegate_->ReadAt(position, nbytes);
-  }
-  Future<std::shared_ptr<Buffer>> ReadAsync(const io::IOContext& io_context,
-                                            int64_t position, int64_t nbytes) override {
-    SaveReadRange(position, nbytes);
-    return delegate_->ReadAsync(io_context, position, nbytes);
-  }
-
-  int64_t num_reads() const { return read_ranges_.size(); }
-
-  const std::vector<io::ReadRange>& get_read_ranges() const { return read_ranges_; }
-
- private:
-  io::RandomAccessFile* delegate_;
-  std::vector<io::ReadRange> read_ranges_;
-
-  void SaveReadRange(int64_t offset, int64_t length) {
-    read_ranges_.emplace_back(io::ReadRange{offset, length});
-  }
-};
-
 TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
   // ARROW-6006
   auto f0 = arrow::field("f0", arrow::dictionary(arrow::int8(), arrow::utf8()));
@@ -2801,19 +2753,21 @@ void GetReadRecordBatchReadRanges(
   auto buffer = MakeBooleanInt32Int64File(num_rows, /*num_batches=*/1);
 
   io::BufferReader buffer_reader(buffer);
-  TrackedRandomAccessFile tracked(&buffer_reader);
+  std::unique_ptr<io::TrackedRandomAccessFile> tracked =
+      io::TrackedRandomAccessFile::Make(&buffer_reader);
 
   auto read_options = IpcReadOptions::Defaults();
   // if empty, return all fields
   read_options.included_fields = included_fields;
-  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchFileReader::Open(&tracked, read_options));
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchFileReader::Open(tracked.get(), read_options));
   ASSERT_OK_AND_ASSIGN(auto out_batch, reader->ReadRecordBatch(0));
 
   ASSERT_EQ(out_batch->num_rows(), num_rows);
   ASSERT_EQ(out_batch->num_columns(),
             included_fields.empty() ? 3 : included_fields.size());
 
-  auto read_ranges = tracked.get_read_ranges();
+  auto read_ranges = tracked->get_read_ranges();
 
   // there are 3 read IOs before reading body:
   // 1) read magic and footer length IO
@@ -2917,7 +2871,7 @@ class PreBufferingTest : public ::testing::TestWithParam<bool> {
 
   void OpenReader() {
     buffer_reader_ = std::make_shared<io::BufferReader>(file_buffer_);
-    tracked_ = std::make_shared<TrackedRandomAccessFile>(buffer_reader_.get());
+    tracked_ = io::TrackedRandomAccessFile::Make(buffer_reader_.get());
     auto read_options = IpcReadOptions::Defaults();
     if (ReadsArePlugged()) {
       // This will ensure that all reads get globbed together into one large read
@@ -2994,7 +2948,7 @@ class PreBufferingTest : public ::testing::TestWithParam<bool> {
   std::vector<std::shared_ptr<RecordBatch>> batches_;
   std::shared_ptr<Buffer> file_buffer_;
   std::shared_ptr<io::BufferReader> buffer_reader_;
-  std::shared_ptr<TrackedRandomAccessFile> tracked_;
+  std::shared_ptr<io::TrackedRandomAccessFile> tracked_;
   std::shared_ptr<RecordBatchFileReader> reader_;
 };
 

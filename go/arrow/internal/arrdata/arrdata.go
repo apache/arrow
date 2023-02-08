@@ -50,6 +50,7 @@ func init() {
 	Records["maps"] = makeMapsRecords()
 	Records["extension"] = makeExtensionRecords()
 	Records["union"] = makeUnionRecords()
+	Records["run_end_encoded"] = makeRunEndEncodedRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)
@@ -997,6 +998,57 @@ func makeUnionRecords() []arrow.Record {
 		array.NewRecord(schema, []arrow.Array{sparse2, dense2}, -1)}
 }
 
+func makeRunEndEncodedRecords() []arrow.Record {
+	mem := memory.NewGoAllocator()
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "ree16", Type: arrow.RunEndEncodedOf(arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)},
+		{Name: "ree32", Type: arrow.RunEndEncodedOf(arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int32)},
+		{Name: "ree64", Type: arrow.RunEndEncodedOf(arrow.PrimitiveTypes.Int64, arrow.BinaryTypes.Binary)},
+	}, nil)
+
+	schema.Field(1).Type.(*arrow.RunEndEncodedType).ValueNullable = false
+	isValid := []bool{true, false, true, false, true}
+	chunks := [][]arrow.Array{
+		{
+			runEndEncodedOf(
+				arrayOf(mem, []int16{5, 10, 20, 1020, 1120}, nil),
+				arrayOf(mem, []string{"foo", "bar", "baz", "foo", ""}, isValid), 1100, 20),
+			runEndEncodedOf(
+				arrayOf(mem, []int32{100, 200, 800, 1000, 1100}, nil),
+				arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil), 1100, 0),
+			runEndEncodedOf(
+				arrayOf(mem, []int64{100, 250, 450, 800, 1100}, nil),
+				arrayOf(mem, [][]byte{{0xde, 0xad}, {0xbe, 0xef}, {0xde, 0xad, 0xbe, 0xef}, {}, {0xba, 0xad, 0xf0, 0x0d}}, isValid), 1100, 0),
+		},
+		{
+			runEndEncodedOf(
+				arrayOf(mem, []int16{110, 160, 170, 1070, 1120}, nil),
+				arrayOf(mem, []string{"super", "dee", "", "duper", "doo"}, isValid), 1100, 20),
+			runEndEncodedOf(
+				arrayOf(mem, []int32{100, 120, 710, 810, 1100}, nil),
+				arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil), 1100, 0),
+			runEndEncodedOf(
+				arrayOf(mem, []int64{100, 250, 450, 800, 1100}, nil),
+				arrayOf(mem, [][]byte{{0xde, 0xad}, {0xbe, 0xef}, {0xde, 0xad, 0xbe, 0xef}, {}, {0xba, 0xad, 0xf0, 0x0d}}, isValid), 1100, 0),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]arrow.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
 func extArray(mem memory.Allocator, dt arrow.ExtensionType, a interface{}, valids []bool) arrow.Array {
 	var storage arrow.Array
 	switch st := dt.StorageType().(type) {
@@ -1406,6 +1458,12 @@ func mapOf(mem memory.Allocator, sortedKeys bool, values []arrow.Array, valids [
 	}
 
 	return bldr.NewMapArray()
+}
+
+func runEndEncodedOf(runEnds, values arrow.Array, logicalLen, offset int) arrow.Array {
+	defer runEnds.Release()
+	defer values.Release()
+	return array.NewRunEndEncodedArray(runEnds, values, logicalLen, offset)
 }
 
 func buildArray(bldr array.Builder, data arrow.Array) {
