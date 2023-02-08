@@ -148,9 +148,6 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
           "substrait_ext::NamedTapRel requires a single input but got: ", inputs.size());
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto tap_func_name,
-                          conv_opts.named_tap_mapper(named_tap_rel.kind()));
-
     auto schema = inputs[0].output_schema;
     int num_fields = schema->num_fields();
     if (named_tap_rel.columns_size() != num_fields) {
@@ -164,10 +161,10 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
         std::make_shared<NamedTapNodeOptions>(named_tap_rel.name(),
                                               std::move(renamed_schema));
     auto input_decls = MakeDeclarationInputs(inputs);
-    return RelationInfo{
-        {compute::Declaration(tap_func_name, input_decls, std::move(named_tap_opts)),
-         std::move(renamed_schema)},
-        std::nullopt};
+    ARROW_ASSIGN_OR_RAISE(auto decl,
+                          conv_opts.named_tap_mapper(named_tap_rel.kind(), input_decls,
+                                                     std::move(named_tap_opts)));
+    return RelationInfo{{std::move(decl), std::move(renamed_schema)}, std::nullopt};
   }
 };
 

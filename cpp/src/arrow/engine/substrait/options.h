@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/type_fwd.h"
@@ -68,9 +69,15 @@ using NamedTableProvider =
     std::function<Result<compute::Declaration>(const std::vector<std::string>&)>;
 static NamedTableProvider kDefaultNamedTableProvider;
 
-using NamedTapKindMapper = std::function<Result<std::string>(const std::string&)>;
+using NamedTapKindMapper = std::function<Result<compute::Declaration>(
+    const std::string&, std::vector<compute::Declaration::Input>,
+    std::shared_ptr<compute::ExecNodeOptions>)>;
 static NamedTapKindMapper kDefaultNamedTapKindMapper =
-    [](const std::string& kind) -> Result<std::string> { return kind; };
+    [](const std::string& kind, std::vector<compute::Declaration::Input> inputs,
+       std::shared_ptr<compute::ExecNodeOptions> options)
+    -> Result<compute::Declaration> {
+  return compute::Declaration(kind, inputs, options);
+};
 
 class ARROW_ENGINE_EXPORT ExtensionDetails {
  public:
@@ -109,7 +116,7 @@ struct ARROW_ENGINE_EXPORT ConversionOptions {
   NamedTableProvider named_table_provider = kDefaultNamedTableProvider;
   /// \brief A custom strategy to be used for mapping a tap kind to a function name
   ///
-  /// The default mapper is the identity mapping.
+  /// The default mapper returns a declaration whose factory name is equal to the tap kind
   NamedTapKindMapper named_tap_mapper = kDefaultNamedTapKindMapper;
   std::shared_ptr<ExtensionProvider> extension_provider = default_extension_provider();
 };
