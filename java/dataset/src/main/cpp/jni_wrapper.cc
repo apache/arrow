@@ -562,18 +562,18 @@ Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
 
   std::shared_ptr<arrow::dataset::FileFormat> file_format =
       JniGetOrThrow(GetFileFormat(file_format_id));
-  auto options = std::make_shared<arrow::dataset::FileSystemDatasetWriteOptions>(file_format);
+  arrow::dataset::FileSystemDatasetWriteOptions options(file_format);
   std::string output_path;
   auto filesystem = JniGetOrThrow(
       arrow::fs::FileSystemFromUri(JStringToCString(env, uri), &output_path));
   std::vector<std::string> partition_column_vector =
       ToStringVector(env, partition_columns);
-  options->filesystem = filesystem;
-  options->base_dir = output_path;
-  options->basename_template = JStringToCString(env, base_name_template);
-  options->partitioning = std::make_shared<arrow::dataset::HivePartitioning>(
+  options.filesystem = filesystem;
+  options.base_dir = output_path;
+  options.basename_template = JStringToCString(env, base_name_template);
+  options.partitioning = std::make_shared<arrow::dataset::HivePartitioning>(
       SchemaFromColumnNames(schema, partition_column_vector).ValueOrDie());
-  options->max_partitions = max_partitions;
+  options.max_partitions = max_partitions;
   JniAssertOkOrThrow(arrow::dataset::FileSystemDataset::Write(options, scanner));
   JNI_METHOD_END()
 }
