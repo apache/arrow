@@ -53,6 +53,7 @@ On Ubuntu/Debian you can install the requirements with:
 
    sudo apt-get install \
         build-essential \
+        ninja-build \
         cmake
 
 On Alpine Linux:
@@ -64,6 +65,7 @@ On Alpine Linux:
            cmake \
            g++ \
            gcc \
+           ninja \
            make
            
 On Fedora Linux:
@@ -74,6 +76,7 @@ On Fedora Linux:
         cmake \
         gcc \
         gcc-c++ \
+        ninja-build \
         make
 
 On Arch Linux:
@@ -82,6 +85,7 @@ On Arch Linux:
 
    sudo pacman -S --needed \
         base-devel \
+        ninja \
         cmake
 
 On macOS, you can use `Homebrew <https://brew.sh/>`_:

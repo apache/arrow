@@ -40,11 +40,37 @@ import (
 // StatementQuery represents a Sql Query
 type StatementQuery interface {
 	GetQuery() string
+	GetTransactionId() []byte
+}
+
+type statementSubstraitPlan struct {
+	*pb.CommandStatementSubstraitPlan
+}
+
+func (s *statementSubstraitPlan) GetPlan() SubstraitPlan {
+	var (
+		plan    []byte
+		version string
+	)
+	if s.Plan != nil {
+		plan = s.Plan.Plan
+		version = s.Plan.Version
+	}
+	return SubstraitPlan{
+		Plan:    plan,
+		Version: version,
+	}
+}
+
+type StatementSubstraitPlan interface {
+	GetTransactionId() []byte
+	GetPlan() SubstraitPlan
 }
 
 // StatementUpdate represents a SQL update query
 type StatementUpdate interface {
 	GetQuery() string
+	GetTransactionId() []byte
 }
 
 // StatementQueryTicket represents a request to execute a query
@@ -52,6 +78,21 @@ type StatementQueryTicket interface {
 	// GetStatementHandle returns the server-generated opaque
 	// identifier for the query
 	GetStatementHandle() []byte
+}
+
+func GetStatementQueryTicket(ticket *flight.Ticket) (result StatementQueryTicket, err error) {
+	var anycmd anypb.Any
+	if err = proto.Unmarshal(ticket.Ticket, &anycmd); err != nil {
+		return
+	}
+
+	var out pb.TicketStatementQuery
+	if err = anycmd.UnmarshalTo(&out); err != nil {
+		return
+	}
+
+	result = &out
+	return
 }
 
 // PreparedStatementQuery represents a prepared query statement
@@ -80,6 +121,31 @@ type ActionClosePreparedStatementRequest interface {
 // a new prepared statement
 type ActionCreatePreparedStatementRequest interface {
 	GetQuery() string
+	GetTransactionId() []byte
+}
+
+type ActionCreatePreparedSubstraitPlanRequest interface {
+	GetPlan() SubstraitPlan
+	GetTransactionId() []byte
+}
+
+type createPreparedSubstraitPlanReq struct {
+	*pb.ActionCreatePreparedSubstraitPlanRequest
+}
+
+func (c *createPreparedSubstraitPlanReq) GetPlan() SubstraitPlan {
+	var (
+		plan    []byte
+		version string
+	)
+	if c.Plan != nil {
+		plan = c.Plan.Plan
+		version = c.Plan.Version
+	}
+	return SubstraitPlan{
+		Plan:    plan,
+		Version: version,
+	}
 }
 
 // ActionCreatePreparedStatementResult is the result of creating a new
@@ -89,6 +155,41 @@ type ActionCreatePreparedStatementResult struct {
 	Handle          []byte
 	DatasetSchema   *arrow.Schema
 	ParameterSchema *arrow.Schema
+}
+
+type ActionBeginTransactionRequest interface{}
+
+type ActionBeginSavepointRequest interface {
+	GetTransactionId() []byte
+	GetName() string
+}
+
+type ActionBeginSavepointResult interface {
+	GetSavepointId() []byte
+}
+
+type ActionBeginTransactionResult interface {
+	GetTransactionId() []byte
+}
+
+type ActionCancelQueryRequest interface {
+	GetInfo() *flight.FlightInfo
+}
+
+type cancelQueryRequest struct {
+	info *flight.FlightInfo
+}
+
+func (c *cancelQueryRequest) GetInfo() *flight.FlightInfo { return c.info }
+
+type ActionEndTransactionRequest interface {
+	GetTransactionId() []byte
+	GetAction() EndTransactionRequestType
+}
+
+type ActionEndSavepointRequest interface {
+	GetSavepointId() []byte
+	GetAction() EndSavepointRequestType
 }
 
 type getXdbcTypeInfo struct {
@@ -140,6 +241,23 @@ type GetTables interface {
 	GetIncludeSchema() bool
 }
 
+func packActionResult(msg proto.Message) (*pb.Result, error) {
+	var (
+		anycmd anypb.Any
+		err    error
+	)
+
+	if err = anycmd.MarshalFrom(msg); err != nil {
+		return nil, fmt.Errorf("%w: unable to marshal final response", err)
+	}
+
+	ret := &pb.Result{}
+	if ret.Body, err = proto.Marshal(&anycmd); err != nil {
+		return nil, fmt.Errorf("%w: unable to marshal final response", err)
+	}
+	return ret, nil
+}
+
 // BaseServer must be embedded into any FlightSQL Server implementation
 // and provides default implementations of all methods returning an
 // unimplemented error if called. This allows consumers to gradually
@@ -181,8 +299,16 @@ func (BaseServer) GetFlightInfoStatement(context.Context, StatementQuery, *fligh
 	return nil, status.Errorf(codes.Unimplemented, "GetFlightInfoStatement not implemented")
 }
 
+func (BaseServer) GetFlightInfoSubstraitPlan(context.Context, StatementSubstraitPlan, *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "GetFlightInfoSubstraitPlan not implemented")
+}
+
 func (BaseServer) GetSchemaStatement(context.Context, StatementQuery, *flight.FlightDescriptor) (*flight.SchemaResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "GetSchemaStatement not implemented")
+}
+
+func (BaseServer) GetSchemaSubstraitPlan(context.Context, StatementSubstraitPlan, *flight.FlightDescriptor) (*flight.SchemaResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "GetSchemaSubstraitPlan not implemented")
 }
 
 func (BaseServer) DoGetStatement(context.Context, StatementQueryTicket) (*arrow.Schema, <-chan flight.StreamChunk, error) {
@@ -255,18 +381,27 @@ func (b *BaseServer) DoGetSqlInfo(_ context.Context, cmd GetSqlInfo) (*arrow.Sch
 	// extra releases.
 	sqlInfoResultBldr := newSqlInfoResultBuilder(valFieldBldr)
 
+	keys := cmd.GetInfo()
+
 	// populate both the nameFieldBldr and the values for each
 	// element on command.info.
 	// valueFieldBldr is populated depending on the data type
 	// since it's a dense union. The population for each
 	// data type is handled by the sqlInfoResultBuilder.
-	for _, info := range cmd.GetInfo() {
-		val, ok := b.sqlInfoToResult[info]
-		if !ok {
-			return nil, nil, status.Errorf(codes.NotFound, "no information for sql info number %d", info)
+	if len(keys) > 0 {
+		for _, info := range keys {
+			val, ok := b.sqlInfoToResult[info]
+			if !ok {
+				return nil, nil, status.Errorf(codes.NotFound, "no information for sql info number %d", info)
+			}
+			nameFieldBldr.Append(info)
+			sqlInfoResultBldr.Append(val)
 		}
-		nameFieldBldr.Append(info)
-		sqlInfoResultBldr.Append(val)
+	} else {
+		for k, v := range b.sqlInfoToResult {
+			nameFieldBldr.Append(k)
+			sqlInfoResultBldr.Append(v)
+		}
 	}
 
 	batch := bldr.NewRecord()
@@ -344,6 +479,10 @@ func (BaseServer) CreatePreparedStatement(context.Context, ActionCreatePreparedS
 	return res, status.Error(codes.Unimplemented, "CreatePreparedStatement not implemented")
 }
 
+func (BaseServer) CreatePreparedSubstraitPlan(context.Context, ActionCreatePreparedSubstraitPlanRequest) (res ActionCreatePreparedStatementResult, err error) {
+	return res, status.Error(codes.Unimplemented, "CreatePreparedSubstraitPlan not implemented")
+}
+
 func (BaseServer) ClosePreparedStatement(context.Context, ActionClosePreparedStatementRequest) error {
 	return status.Error(codes.Unimplemented, "ClosePreparedStatement not implemented")
 }
@@ -351,12 +490,37 @@ func (BaseServer) ClosePreparedStatement(context.Context, ActionClosePreparedSta
 func (BaseServer) DoPutCommandStatementUpdate(context.Context, StatementUpdate) (int64, error) {
 	return 0, status.Error(codes.Unimplemented, "DoPutCommandStatementUpdate not implemented")
 }
+
+func (BaseServer) DoPutCommandSubstraitPlan(context.Context, StatementSubstraitPlan) (int64, error) {
+	return 0, status.Error(codes.Unimplemented, "DoPutCommandSubstraitPlan not implemented")
+}
+
 func (BaseServer) DoPutPreparedStatementQuery(context.Context, PreparedStatementQuery, flight.MessageReader, flight.MetadataWriter) error {
 	return status.Error(codes.Unimplemented, "DoPutPreparedStatementQuery not implemented")
 }
 
 func (BaseServer) DoPutPreparedStatementUpdate(context.Context, PreparedStatementUpdate, flight.MessageReader) (int64, error) {
 	return 0, status.Error(codes.Unimplemented, "DoPutPreparedStatementUpdate not implemented")
+}
+
+func (BaseServer) BeginTransaction(context.Context, ActionBeginTransactionRequest) ([]byte, error) {
+	return nil, status.Error(codes.Unimplemented, "BeginTransaction not implemented")
+}
+
+func (BaseServer) BeginSavepoint(context.Context, ActionBeginSavepointRequest) ([]byte, error) {
+	return nil, status.Error(codes.Unimplemented, "BeginSavepoint not implemented")
+}
+
+func (BaseServer) CancelQuery(context.Context, ActionCancelQueryRequest) (CancelResult, error) {
+	return CancelResultUnspecified, status.Error(codes.Unimplemented, "CancelQuery not implemented")
+}
+
+func (BaseServer) EndTransaction(context.Context, ActionEndTransactionRequest) error {
+	return status.Error(codes.Unimplemented, "EndTransaction not implemented")
+}
+
+func (BaseServer) EndSavepoint(context.Context, ActionEndSavepointRequest) error {
+	return status.Error(codes.Unimplemented, "EndSavepoint not implemented")
 }
 
 // Server is the required interface for a FlightSQL server. It is implemented by
@@ -375,8 +539,12 @@ func (BaseServer) DoPutPreparedStatementUpdate(context.Context, PreparedStatemen
 type Server interface {
 	// GetFlightInfoStatement returns a FlightInfo for executing the requested sql query
 	GetFlightInfoStatement(context.Context, StatementQuery, *flight.FlightDescriptor) (*flight.FlightInfo, error)
-	// GetFlightInfoStatement returns the schema of the result set of the requested sql query
+	// GetFlightInfoSubstraitPlan returns a FlightInfo for executing the requested substrait plan
+	GetFlightInfoSubstraitPlan(context.Context, StatementSubstraitPlan, *flight.FlightDescriptor) (*flight.FlightInfo, error)
+	// GetSchemaStatement returns the schema of the result set of the requested sql query
 	GetSchemaStatement(context.Context, StatementQuery, *flight.FlightDescriptor) (*flight.SchemaResult, error)
+	// GetSchemaSubstraitPlan returns the schema of the result set for the requested substrait plan
+	GetSchemaSubstraitPlan(context.Context, StatementSubstraitPlan, *flight.FlightDescriptor) (*flight.SchemaResult, error)
 	// DoGetStatement returns a stream containing the query results for the
 	// requested statement handle that was populated by GetFlightInfoStatement
 	DoGetStatement(context.Context, StatementQueryTicket) (*arrow.Schema, <-chan flight.StreamChunk, error)
@@ -435,9 +603,15 @@ type Server interface {
 	// DoPutCommandStatementUpdate executes a sql update statement and returns
 	// the number of affected rows
 	DoPutCommandStatementUpdate(context.Context, StatementUpdate) (int64, error)
+	// DoPutCommandSubstraitPlan executes a substrait plan and returns the number
+	// of affected rows.
+	DoPutCommandSubstraitPlan(context.Context, StatementSubstraitPlan) (int64, error)
 	// CreatePreparedStatement constructs a prepared statement from a sql query
 	// and returns an opaque statement handle for use.
 	CreatePreparedStatement(context.Context, ActionCreatePreparedStatementRequest) (ActionCreatePreparedStatementResult, error)
+	// CreatePreparedSubstraitPlan constructs a prepared statement from a substrait
+	// plan, and returns an opaque statement handle for use.
+	CreatePreparedSubstraitPlan(context.Context, ActionCreatePreparedSubstraitPlanRequest) (ActionCreatePreparedStatementResult, error)
 	// ClosePreparedStatement closes the prepared statement identified by the requested
 	// opaque statement handle.
 	ClosePreparedStatement(context.Context, ActionClosePreparedStatementRequest) error
@@ -457,6 +631,16 @@ type Server interface {
 	// of uploaded record batches to bind the parameters to. Returns the number
 	// of affected records.
 	DoPutPreparedStatementUpdate(context.Context, PreparedStatementUpdate, flight.MessageReader) (int64, error)
+	// BeginTransaction starts a new transaction and returns the id
+	BeginTransaction(context.Context, ActionBeginTransactionRequest) (id []byte, err error)
+	// BeginSavepoint initializes a new savepoint and returns the id
+	BeginSavepoint(context.Context, ActionBeginSavepointRequest) (id []byte, err error)
+	// EndSavepoint releases or rolls back a savepoint
+	EndSavepoint(context.Context, ActionEndSavepointRequest) error
+	// EndTransaction commits or rollsback a transaction
+	EndTransaction(context.Context, ActionEndTransactionRequest) error
+	// CancelQuery attempts to explicitly cancel a query
+	CancelQuery(context.Context, ActionCancelQueryRequest) (CancelResult, error)
 
 	mustEmbedBaseServer()
 }
@@ -505,6 +689,8 @@ func (f *flightSqlServer) GetFlightInfo(ctx context.Context, request *flight.Fli
 	switch cmd := cmd.(type) {
 	case *pb.CommandStatementQuery:
 		return f.srv.GetFlightInfoStatement(ctx, cmd, request)
+	case *pb.CommandStatementSubstraitPlan:
+		return f.srv.GetFlightInfoSubstraitPlan(ctx, &statementSubstraitPlan{cmd}, request)
 	case *pb.CommandPreparedStatementQuery:
 		return f.srv.GetFlightInfoPreparedStatement(ctx, cmd, request)
 	case *pb.CommandGetCatalogs:
@@ -549,6 +735,8 @@ func (f *flightSqlServer) GetSchema(ctx context.Context, request *flight.FlightD
 	switch cmd := cmd.(type) {
 	case *pb.CommandStatementQuery:
 		return f.srv.GetSchemaStatement(ctx, cmd, request)
+	case *pb.CommandStatementSubstraitPlan:
+		return f.srv.GetSchemaSubstraitPlan(ctx, &statementSubstraitPlan{cmd}, request)
 	case *pb.CommandPreparedStatementQuery:
 		return f.srv.GetSchemaPreparedStatement(ctx, cmd, request)
 	case *pb.CommandGetCatalogs:
@@ -688,6 +876,18 @@ func (f *flightSqlServer) DoPut(stream flight.FlightService_DoPutServer) error {
 			return status.Errorf(codes.Internal, "failed to marshal PutResult: %s", err.Error())
 		}
 		return stream.Send(out)
+	case *pb.CommandStatementSubstraitPlan:
+		recordCount, err := f.srv.DoPutCommandSubstraitPlan(stream.Context(), &statementSubstraitPlan{cmd})
+		if err != nil {
+			return err
+		}
+
+		result := pb.DoPutUpdateResult{RecordCount: recordCount}
+		out := &flight.PutResult{}
+		if out.AppMetadata, err = proto.Marshal(&result); err != nil {
+			return status.Errorf(codes.Internal, "failed to marshal PutResult: %s", err.Error())
+		}
+		return stream.Send(out)
 	case *pb.CommandPreparedStatementQuery:
 		return f.srv.DoPutPreparedStatementQuery(stream.Context(), cmd, rdr, &putMetadataWriter{stream})
 	case *pb.CommandPreparedStatementUpdate:
@@ -708,7 +908,16 @@ func (f *flightSqlServer) DoPut(stream flight.FlightService_DoPutServer) error {
 }
 
 func (f *flightSqlServer) ListActions(_ *flight.Empty, stream flight.FlightService_ListActionsServer) error {
-	actions := []string{CreatePreparedStatementActionType, ClosePreparedStatementActionType}
+	actions := []string{
+		CreatePreparedStatementActionType,
+		ClosePreparedStatementActionType,
+		BeginSavepointActionType,
+		BeginTransactionActionType,
+		CancelQueryActionType,
+		CreatePreparedSubstraitPlanActionType,
+		EndSavepointActionType,
+		EndTransactionActionType,
+	}
 
 	for _, a := range actions {
 		if err := stream.Send(&flight.ActionType{Type: a}); err != nil {
@@ -722,6 +931,85 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 	var anycmd anypb.Any
 
 	switch cmd.Type {
+	case BeginSavepointActionType:
+		if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
+		}
+
+		var (
+			request pb.ActionBeginSavepointRequest
+			result  pb.ActionBeginSavepointResult
+			id      []byte
+			err     error
+		)
+		if err = anycmd.UnmarshalTo(&request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal google.protobuf.Any: %s", err.Error())
+		}
+
+		if id, err = f.srv.BeginSavepoint(stream.Context(), &request); err != nil {
+			return err
+		}
+
+		result.SavepointId = id
+		out, err := packActionResult(&result)
+		if err != nil {
+			return err
+		}
+		return stream.Send(out)
+	case BeginTransactionActionType:
+		if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
+		}
+
+		var (
+			request pb.ActionBeginTransactionRequest
+			result  pb.ActionBeginTransactionResult
+			id      []byte
+			err     error
+		)
+		if err = anycmd.UnmarshalTo(&request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal google.protobuf.Any: %s", err.Error())
+		}
+
+		if id, err = f.srv.BeginTransaction(stream.Context(), &request); err != nil {
+			return err
+		}
+
+		result.TransactionId = id
+		out, err := packActionResult(&result)
+		if err != nil {
+			return err
+		}
+		return stream.Send(out)
+	case CancelQueryActionType:
+		if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
+		}
+
+		var (
+			request pb.ActionCancelQueryRequest
+			result  pb.ActionCancelQueryResult
+			info    flight.FlightInfo
+			err     error
+		)
+
+		if err = anycmd.UnmarshalTo(&request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal google.protobuf.Any: %s", err.Error())
+		}
+
+		if err = proto.Unmarshal(request.Info, &info); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal FlightInfo for CancelQuery: %s", err)
+		}
+
+		if result.Result, err = f.srv.CancelQuery(stream.Context(), &cancelQueryRequest{&info}); err != nil {
+			return err
+		}
+
+		out, err := packActionResult(&result)
+		if err != nil {
+			return err
+		}
+		return stream.Send(out)
 	case CreatePreparedStatementActionType:
 		if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
 			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
@@ -757,6 +1045,41 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 			return status.Errorf(codes.Internal, "unable to marshal result: %s", err.Error())
 		}
 		return stream.Send(&ret)
+	case CreatePreparedSubstraitPlanActionType:
+		if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
+		}
+
+		var (
+			request pb.ActionCreatePreparedSubstraitPlanRequest
+			result  pb.ActionCreatePreparedStatementResult
+			ret     pb.Result
+		)
+		if err := anycmd.UnmarshalTo(&request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal google.protobuf.Any: %s", err.Error())
+		}
+
+		output, err := f.srv.CreatePreparedSubstraitPlan(stream.Context(), &createPreparedSubstraitPlanReq{&request})
+		if err != nil {
+			return err
+		}
+
+		result.PreparedStatementHandle = output.Handle
+		if output.DatasetSchema != nil {
+			result.DatasetSchema = flight.SerializeSchema(output.DatasetSchema, f.mem)
+		}
+		if output.ParameterSchema != nil {
+			result.ParameterSchema = flight.SerializeSchema(output.ParameterSchema, f.mem)
+		}
+
+		if err := anycmd.MarshalFrom(&result); err != nil {
+			return status.Errorf(codes.Internal, "unable to marshal final response: %s", err.Error())
+		}
+
+		if ret.Body, err = proto.Marshal(&anycmd); err != nil {
+			return status.Errorf(codes.Internal, "unable to marshal result: %s", err.Error())
+		}
+		return stream.Send(&ret)
 	case ClosePreparedStatementActionType:
 		if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
 			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
@@ -768,6 +1091,36 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 		}
 
 		if err := f.srv.ClosePreparedStatement(stream.Context(), &request); err != nil {
+			return err
+		}
+
+		return stream.Send(&pb.Result{})
+	case EndTransactionActionType:
+		if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
+		}
+
+		var request pb.ActionEndTransactionRequest
+		if err := anycmd.UnmarshalTo(&request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal google.protobuf.Any: %s", err.Error())
+		}
+
+		if err := f.srv.EndTransaction(stream.Context(), &request); err != nil {
+			return err
+		}
+
+		return stream.Send(&pb.Result{})
+	case EndSavepointActionType:
+		if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
+		}
+
+		var request pb.ActionEndSavepointRequest
+		if err := anycmd.UnmarshalTo(&request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal google.protobuf.Any: %s", err.Error())
+		}
+
+		if err := f.srv.EndSavepoint(stream.Context(), &request); err != nil {
 			return err
 		}
 

@@ -2320,7 +2320,17 @@ class TestAdaptiveIntBuilder : public TestBuilder {
     builder_ = std::make_shared<AdaptiveIntBuilder>(pool_);
   }
 
-  void Done() { FinishAndCheckPadding(builder_.get(), &result_); }
+  void EnsureValuesBufferNotNull(const ArrayData& data) {
+    // The values buffer should be initialized
+    ASSERT_EQ(2, data.buffers.size());
+    ASSERT_NE(nullptr, data.buffers[1]);
+    ASSERT_NE(nullptr, data.buffers[1]->data());
+  }
+
+  void Done() {
+    FinishAndCheckPadding(builder_.get(), &result_);
+    EnsureValuesBufferNotNull(*result_->data());
+  }
 
   template <typename ExpectedType>
   void TestAppendValues() {
@@ -2570,6 +2580,8 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendEmptyValue) {
   // NOTE: The fact that we get 0 is really an implementation detail
   AssertArraysEqual(*result_, *ArrayFromJSON(int8(), "[null, null, 0, 42, 0, 0]"));
 }
+
+TEST_F(TestAdaptiveIntBuilder, Empty) { Done(); }
 
 TEST(TestAdaptiveIntBuilderWithStartIntSize, TestReset) {
   auto builder = std::make_shared<AdaptiveIntBuilder>(

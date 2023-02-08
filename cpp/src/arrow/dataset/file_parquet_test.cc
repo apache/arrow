@@ -25,6 +25,7 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/io/memory.h"
+#include "arrow/io/test_common.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -290,6 +291,51 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
     ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(4),
                               fragment->CountRows(predicate, options));
   }
+}
+
+TEST_F(TestParquetFileFormat, CachedMetadata) {
+  // Create a test file
+  auto mock_fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+  std::shared_ptr<Schema> test_schema = schema({field("x", int32())});
+  std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(test_schema, "[[0]]");
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<io::OutputStream> out_stream,
+                       mock_fs->OpenOutputStream("/foo.parquet"));
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<FileWriter> writer,
+      format_->MakeWriter(out_stream, test_schema, format_->DefaultWriteOptions(),
+                          {mock_fs, "/foo.parquet"}));
+  ASSERT_OK(writer->Write(batch));
+  ASSERT_FINISHES_OK(writer->Finish());
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<io::RandomAccessFile> test_file,
+                       mock_fs->OpenInputFile("/foo.parquet"));
+  std::shared_ptr<io::TrackedRandomAccessFile> tracked_input =
+      io::TrackedRandomAccessFile::Make(test_file.get());
+
+  FileSource source(tracked_input);
+  ASSERT_OK_AND_ASSIGN(auto fragment,
+                       format_->MakeFragment(std::move(source), literal(true)));
+
+  // Read the file the first time, will read metadata
+  auto options = std::make_shared<ScanOptions>();
+  options->filter = literal(true);
+  ASSERT_OK_AND_ASSIGN(auto projection_descr,
+                       ProjectionDescr::FromNames({"x"}, *test_schema));
+  options->projected_schema = projection_descr.schema;
+  options->projection = projection_descr.expression;
+  ASSERT_OK_AND_ASSIGN(auto generator, fragment->ScanBatchesAsync(options));
+  ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(generator)));
+
+  ASSERT_GT(tracked_input->bytes_read(), 0);
+  int64_t bytes_read_first_time = tracked_input->bytes_read();
+
+  ASSERT_OK(tracked_input->Seek(0));
+
+  // Read the file the second time, should not read metadata
+  ASSERT_OK_AND_ASSIGN(generator, fragment->ScanBatchesAsync(options));
+  ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(generator)));
+  int64_t bytes_read_second_time = tracked_input->bytes_read() - bytes_read_first_time;
+  ASSERT_LT(bytes_read_second_time, bytes_read_first_time);
 }
 
 TEST_F(TestParquetFileFormat, MultithreadedScan) {
