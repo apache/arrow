@@ -440,6 +440,23 @@ func (n *nullArrayFactory) create() *Data {
 			childData[i] = n.createChild(dt, i, n.len)
 			defer childData[i].Release()
 		}
+	case *arrow.RunEndEncodedType:
+		bldr := NewBuilder(n.mem, dt.RunEnds())
+		defer bldr.Release()
+
+		switch b := bldr.(type) {
+		case *Int16Builder:
+			b.Append(int16(n.len))
+		case *Int32Builder:
+			b.Append(int32(n.len))
+		case *Int64Builder:
+			b.Append(int64(n.len))
+		}
+
+		childData[0] = bldr.newData()
+		defer childData[0].Release()
+		childData[1] = n.createChild(dt.Encoded(), 1, 1)
+		defer childData[1].Release()
 	case arrow.UnionType:
 		bufs[0].Release()
 		bufs[0] = nil

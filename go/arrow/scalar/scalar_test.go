@@ -31,6 +31,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/apache/arrow/go/v12/arrow/scalar"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -867,6 +868,8 @@ func getScalars(mem memory.Allocator) []scalar.Scalar {
 		scalar.NewFixedSizeListScalar(int8Arr),
 		scalar.NewStructScalar([]scalar.Scalar{scalar.NewInt32Scalar(2), scalar.NewInt32Scalar(6)},
 			arrow.StructOf([]arrow.Field{{Name: "min", Type: arrow.PrimitiveTypes.Int32}, {Name: "max", Type: arrow.PrimitiveTypes.Int32}}...)),
+		scalar.NewRunEndEncodedScalar(scalar.NewStringScalarFromBuffer(hello), 10,
+			arrow.RunEndEncodedOf(arrow.PrimitiveTypes.Int32, arrow.BinaryTypes.String)),
 	}
 }
 
@@ -894,12 +897,20 @@ func TestMakeArrayFromScalar(t *testing.T) {
 				assert.NoError(t, err)
 				defer arr.Release()
 
-				assert.Equal(t, length, arr.Len())
+				if s.DataType().ID() != arrow.RUN_END_ENCODED {
+					assert.Equal(t, length, arr.Len())
+				} else {
+					assert.Equal(t, length*int(s.(*scalar.RunEndEncoded).RunLength), arr.Len())
+				}
 				assert.Zero(t, arr.NullN())
 
 				for _, i := range []int{0, length / 2, length - 1} {
 					scalarCompare, err := scalar.GetScalar(arr, i)
 					assert.NoError(t, err)
+					if s.DataType().ID() == arrow.RUN_END_ENCODED {
+						v := s.(*scalar.RunEndEncoded).Value
+						s = scalar.NewRunEndEncodedScalar(v, int64(arr.Len()-i), s.DataType().(*arrow.RunEndEncodedType))
+					}
 					assert.True(t, scalar.Equals(s, scalarCompare))
 					if ls, ok := scalarCompare.(scalar.Releasable); ok {
 						ls.Release()
@@ -1415,4 +1426,57 @@ func (s *DenseUnionSuite) TestGetScalar() {
 func TestUnionScalars(t *testing.T) {
 	suite.Run(t, new(SparseUnionSuite))
 	suite.Run(t, new(DenseUnionSuite))
+}
+
+func TestRunEndEncodedGetScalar(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	runEnds, _, _ := array.FromJSON(mem, arrow.PrimitiveTypes.Int32, strings.NewReader(`[100, 200, 300, 400, 500]`))
+	defer runEnds.Release()
+
+	values, _, _ := array.FromJSON(mem, arrow.BinaryTypes.String, strings.NewReader(`["Hello", "beautiful", "world", "of", "RLE"]`))
+	defer values.Release()
+
+	reeArray := array.NewRunEndEncodedArray(runEnds, values, 500, 0)
+	defer reeArray.Release()
+
+	slice := array.NewSlice(reeArray, 199, 404).(*array.RunEndEncoded)
+	defer slice.Release()
+
+	tests := []struct {
+		name  string
+		arr   arrow.Array
+		idx   int
+		exval string
+		exrun int64
+	}{
+		{"simple", reeArray, 225, "world", 75},
+		{"offset", slice, 125, "of", 76},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sc, err := scalar.GetScalar(tt.arr, tt.idx)
+			require.NoError(t, err)
+			reeScalar := sc.(*scalar.RunEndEncoded)
+			defer reeScalar.Release()
+
+			assert.NoError(t, reeScalar.Validate())
+			assert.Equal(t, tt.exrun, reeScalar.RunLength)
+			expectedType := tt.arr.DataType().(*arrow.RunEndEncodedType).Encoded()
+			assert.Truef(t, arrow.TypeEqual(expectedType, reeScalar.Value.DataType()),
+				"expected: %s\ngot: %s", expectedType, reeScalar.Value.DataType())
+			assert.Equal(t, tt.exval, reeScalar.Value.String())
+		})
+	}
+}
+
+func TestRunEndEncodedNullScalar(t *testing.T) {
+	dt := arrow.RunEndEncodedOf(arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
+	sc := scalar.MakeNullScalar(dt)
+
+	assert.False(t, sc.IsValid())
+	assert.Truef(t, arrow.TypeEqual(dt, sc.DataType()), "expected: %s\ngot: %s", dt, sc.DataType())
+	assert.IsType(t, (*scalar.RunEndEncoded)(nil), sc)
 }

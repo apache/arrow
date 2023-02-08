@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
@@ -743,4 +744,73 @@ func (s *DenseUnion) ChildValue() Scalar { return s.Value }
 
 func NewDenseUnionScalar(v Scalar, code arrow.UnionTypeCode, dt *arrow.DenseUnionType) *DenseUnion {
 	return &DenseUnion{scalar: scalar{dt, v.IsValid()}, TypeCode: code, Value: v}
+}
+
+type RunEndEncoded struct {
+	scalar
+
+	RunLength int64
+	Value     Scalar
+}
+
+func NewRunEndEncodedScalar(v Scalar, runLength int64, dt *arrow.RunEndEncodedType) *RunEndEncoded {
+	return &RunEndEncoded{scalar: scalar{dt, true}, RunLength: runLength, Value: v}
+}
+
+func (s *RunEndEncoded) Release() {
+	if r, ok := s.Value.(Releasable); ok {
+		r.Release()
+	}
+}
+
+func (s *RunEndEncoded) value() interface{} { return s.Value.value() }
+
+func (s *RunEndEncoded) Validate() (err error) {
+	if err = s.Value.Validate(); err != nil {
+		return
+	}
+
+	if err = validateOptional(&s.scalar, s.value(), "value"); err != nil {
+		return
+	}
+
+	if !s.Valid {
+		return
+	}
+
+	if s.Type.ID() != arrow.RUN_END_ENCODED {
+		err = fmt.Errorf("%w: run-end-encoded scalar should not have type %s",
+			arrow.ErrInvalid, s.Type)
+	}
+	return
+}
+
+func (s *RunEndEncoded) ValidateFull() error { return s.Validate() }
+
+func (s *RunEndEncoded) equals(rhs Scalar) bool {
+	other := rhs.(*RunEndEncoded)
+	return s.RunLength == other.RunLength && Equals(s.Value, other.Value)
+}
+
+func (s *RunEndEncoded) String() string {
+	return fmt.Sprintf("{run_length=%d, value=%v}",
+		s.RunLength, s.Value)
+}
+
+func (s *RunEndEncoded) CastTo(to arrow.DataType) (Scalar, error) {
+	if !s.Valid {
+		return MakeNullScalar(to), nil
+	}
+
+	if arrow.TypeEqual(s.Type, to) {
+		return s, nil
+	}
+
+	if to.ID() == arrow.STRING {
+		return NewStringScalar("[" +
+			strings.Repeat(s.Value.String(), int(s.RunLength)) + "]"), nil
+	}
+
+	return nil, fmt.Errorf("%w: cannot convert non-nil run-end-encoded scalar to type %s",
+		arrow.ErrInvalid, to)
 }
