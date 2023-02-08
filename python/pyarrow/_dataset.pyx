@@ -23,7 +23,6 @@ from cython.operator cimport dereference as deref
 
 import codecs
 import collections
-import warnings
 from libcpp cimport bool
 
 import pyarrow as pa
