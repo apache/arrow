@@ -2966,4 +2966,4 @@ def _filesystemdataset_write(
 
     c_scanner = data.unwrap()
     with nogil:
-        check_status(CFileSystemDataset.Write(c_options, c_scanner))
+        check_status(CFileSystemDataset.Write(deref(c_options), c_scanner))

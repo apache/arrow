@@ -215,6 +215,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::FileSystemDatasetWriteOptions":
         CFileSystemDatasetWriteOptions(const shared_ptr[CFileFormat]& format, const shared_ptr[CFileWriteOptions] file_write_options)
         shared_ptr[CFileSystem] filesystem
+        shared_ptr[CFileWriteOptions] file_write_options
         c_string base_dir
         shared_ptr[CPartitioning] partitioning
         int max_partitions
@@ -240,7 +241,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
         @staticmethod
         CStatus Write(
-            const shared_ptr[CFileSystemDatasetWriteOptions]& write_options,
+            const CFileSystemDatasetWriteOptions& write_options,
             shared_ptr[CScanner] scanner)
 
         c_string type()
