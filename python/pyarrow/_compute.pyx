@@ -888,6 +888,7 @@ cdef class _RoundBinaryOptions(FunctionOptions):
             new CRoundBinaryOptions(unwrap_round_mode(round_mode))
         )
 
+
 class RoundBinaryOptions(_RoundBinaryOptions):
     """
     Options for rounding numbers when ndigits is provided by a second array
@@ -903,6 +904,7 @@ class RoundBinaryOptions(_RoundBinaryOptions):
 
     def __init__(self, round_mode="half_to_even"):
         self._set_options(round_mode)
+
 
 cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
     if unit == "nanosecond":

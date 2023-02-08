@@ -645,6 +645,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kPadOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSubstringOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRoundBinaryOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundTemporalOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundToMultipleOptionsType));
