@@ -47,7 +47,26 @@ if(ARROW_GCS)
                  Boost::system)
 endif()
 
+set(ARROW_S3_BUILD_TESTS ${ARROW_BUILD_TESTS})
 if(ARROW_S3)
+  get_target_property(AWS_CPP_SDK_S3_TYPE aws-cpp-sdk-s3 TYPE)
+  # We need to initialize AWS C++ SDK for direct use (not via
+  # arrow::fs::S3FileSystem) in arrow-s3fs-test if we use static AWS
+  # C++ SDK. Because AWS C++ SDK has internal static variables that
+  # aren't shared in libarrow and arrow-s3fs-test. It means that
+  # arrow::fs::InitializeS3() doesn't initialize AWS C++ SDK that is
+  # directly used in arrow-s3fs-test.
+  #
+  # But it seems that internal static variables in AWS C++ SDK are
+  # shared on macOS even if we link static AWS C++ SDK to both
+  # libarrow and arrow-s3fs-test. So we don't need to initialize AWS
+  # C++ SDK in arrow-s3fs-test on macOS.
+  if(AWS_CPP_SDK_S3_TYPE STREQUAL "STATIC_LIBRARY" AND NOT APPLE)
+    set(ARROW_S3_BUILD_TESTS OFF)
+  endif()
+endif()
+
+if(ARROW_S3_BUILD_TESTS)
   add_arrow_test(s3fs_test
                  SOURCES
                  s3fs_test.cc
@@ -57,33 +76,10 @@ if(ARROW_S3)
                  EXTRA_LINK_LIBS
                  Boost::filesystem
                  Boost::system)
-  if(TARGET arrow-s3fs-test)
-    set(ARROW_S3FS_TEST_COMPILE_DEFINITIONS)
-    get_target_property(AWS_CPP_SDK_S3_TYPE aws-cpp-sdk-s3 TYPE)
-    # We need to initialize AWS C++ SDK for direct use (not via
-    # arrow::fs::S3FileSystem) in arrow-s3fs-test if we use static AWS
-    # C++ SDK. Because AWS C++ SDK has internal static variables that
-    # aren't shared in libarrow and arrow-s3fs-test. It means that
-    # arrow::fs::InitializeS3() doesn't initialize AWS C++ SDK that is
-    # directly used in arrow-s3fs-test.
-    #
-    # But it seems that internal static variables in AWS C++ SDK are
-    # shared on macOS even if we link static AWS C++ SDK to both
-    # libarrow and arrow-s3fs-test. So we don't need to initialize AWS
-    # C++ SDK in arrow-s3fs-test on macOS.
-    if(AWS_CPP_SDK_S3_TYPE STREQUAL "STATIC_LIBRARY" AND NOT APPLE)
-      list(APPEND ARROW_S3FS_TEST_COMPILE_DEFINITIONS "AWS_CPP_SDK_S3_NOT_SHARED")
-    endif()
-    target_compile_definitions(arrow-s3fs-test
-                               PRIVATE ${ARROW_S3FS_TEST_COMPILE_DEFINITIONS})
-  endif()
-
-  if(ARROW_BUILD_TESTS)
-    add_executable(arrow-s3fs-narrative-test s3fs_narrative_test.cc)
-    target_link_libraries(arrow-s3fs-narrative-test ${ARROW_TEST_LINK_LIBS}
-                          ${GFLAGS_LIBRARIES} GTest::gtest)
-    add_dependencies(arrow-tests arrow-s3fs-narrative-test)
-  endif()
+  add_executable(arrow-s3fs-narrative-test s3fs_narrative_test.cc)
+  target_link_libraries(arrow-s3fs-narrative-test ${ARROW_TEST_LINK_LIBS}
+                        ${GFLAGS_LIBRARIES} GTest::gtest)
+  add_dependencies(arrow-tests arrow-s3fs-narrative-test)
 
   if(ARROW_BUILD_BENCHMARKS AND ARROW_PARQUET)
     add_arrow_benchmark(s3fs_benchmark
