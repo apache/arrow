@@ -303,13 +303,6 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     min = maybe_min.MoveValueUnsafe();
     max = maybe_max.MoveValueUnsafe();
 
-    // Since the minimum & maximum values are NaN, useful statistics
-    // cannot be extracted for checking the presence of a value within
-    // range
-    if (IsNan(*min) && IsNan(*max)) {
-      return std::nullopt;
-    }
-
     if (min->Equals(max)) {
       auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
 
@@ -322,6 +315,13 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     auto lower_bound = compute::greater_equal(field_expr, compute::literal(min));
     auto upper_bound = compute::less_equal(field_expr, compute::literal(max));
     compute::Expression in_range;
+
+    // Since the minimum & maximum values are NaN, useful statistics
+    // cannot be extracted for checking the presence of a value within
+    // range
+    if (IsNan(*min) && IsNan(*max)) {
+      return std::nullopt;
+    }
 
     // If either minimum or maximum is NaN, it should be ignored for the
     // range computation
