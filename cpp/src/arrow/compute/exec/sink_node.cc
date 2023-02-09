@@ -177,10 +177,16 @@ class SinkNode : public ExecNode,
   }
 
   Status Validate() const override {
+    ARROW_RETURN_NOT_OK(ExecNode::Validate());
     if (output_ != nullptr) {
       return Status::Invalid("Sink node '", label(), "' has an output");
     }
-    return ExecNode::Validate();
+    if (!inputs_[0]->ordering().has_value() && !!sequencer_) {
+      return Status::Invalid("Sink node '", label(),
+                             "' is configured to sequence output but there is no "
+                             "meaningful ordering in the input");
+    }
+    return Status::OK();
   }
 
   void RecordBackpressureBytesUsed(const ExecBatch& batch) {
@@ -328,6 +334,19 @@ class ConsumingSinkNode : public ExecNode,
       output_schema = schema(std::move(fields));
     }
     RETURN_NOT_OK(consumer_->Init(output_schema, this, plan_));
+    return Status::OK();
+  }
+
+  Status Validate() const override {
+    ARROW_RETURN_NOT_OK(ExecNode::Validate());
+    if (output_ != nullptr) {
+      return Status::Invalid("Consuming sink node '", label(), "' has an output");
+    }
+    if (!inputs_[0]->ordering().has_value() && !!sequencer_) {
+      return Status::Invalid("Consuming sink node '", label(),
+                             "' is configured to sequence output but there is no "
+                             "meaningful ordering in the input");
+    }
     return Status::OK();
   }
 

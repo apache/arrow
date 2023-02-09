@@ -111,8 +111,18 @@ template <typename ItMaker>
 class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
  public:
   SchemaSourceNodeOptions(std::shared_ptr<Schema> schema, ItMaker it_maker,
-                          arrow::internal::Executor* io_executor = NULLPTR)
-      : schema(schema), it_maker(std::move(it_maker)), io_executor(io_executor) {}
+                          arrow::internal::Executor* io_executor)
+      : schema(schema),
+        it_maker(std::move(it_maker)),
+        io_executor(io_executor),
+        requires_io(true) {}
+
+  SchemaSourceNodeOptions(std::shared_ptr<Schema> schema, ItMaker it_maker,
+                          bool requires_io = false)
+      : schema(schema),
+        it_maker(std::move(it_maker)),
+        io_executor(NULLPTR),
+        requires_io(requires_io) {}
 
   /// \brief The schema of the record batches from the iterator
   std::shared_ptr<Schema> schema;
@@ -122,8 +132,13 @@ class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
 
   /// \brief The executor to use for scanning the iterator
   ///
-  /// Defaults to the default I/O executor.
+  /// Defaults to the default I/O executor.  Only used if requires_io is true.
+  /// If requires_io is false then this MUST be nullptr.
   arrow::internal::Executor* io_executor;
+
+  /// \brief If true then items will be fetched from the iterator on a dedicated I/O
+  ///        thread to keep I/O off the CPU thread
+  bool requires_io;
 };
 
 class ARROW_EXPORT RecordBatchReaderSourceNodeOptions : public ExecNodeOptions {
@@ -152,7 +167,13 @@ using ExecBatchIteratorMaker = std::function<Iterator<std::shared_ptr<ExecBatch>
 /// \brief An extended Source node which accepts a schema and exec-batches
 class ARROW_EXPORT ExecBatchSourceNodeOptions
     : public SchemaSourceNodeOptions<ExecBatchIteratorMaker> {
+ public:
   using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
+  ExecBatchSourceNodeOptions(std::shared_ptr<Schema> schema,
+                             std::vector<ExecBatch> batches,
+                             ::arrow::internal::Executor* io_executor);
+  ExecBatchSourceNodeOptions(std::shared_ptr<Schema> schema,
+                             std::vector<ExecBatch> batches, bool requires_io = false);
 };
 
 using RecordBatchIteratorMaker = std::function<Iterator<std::shared_ptr<RecordBatch>>()>;

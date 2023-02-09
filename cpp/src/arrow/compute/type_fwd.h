@@ -31,6 +31,8 @@ class FunctionExecutor;
 class FunctionOptions;
 class FunctionRegistry;
 
+FunctionRegistry* GetFunctionRegistry();
+
 class CastOptions;
 
 struct ExecBatch;

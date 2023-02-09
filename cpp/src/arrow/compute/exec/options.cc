@@ -73,5 +73,29 @@ Result<std::shared_ptr<SourceNodeOptions>> SourceNodeOptions::FromRecordBatchRea
   return std::make_shared<SourceNodeOptions>(std::move(schema), std::move(batch_gen));
 }
 
+namespace {
+ExecBatchIteratorMaker VecToItMaker(std::vector<ExecBatch> batches) {
+  auto batches_ptr = std::make_shared<std::vector<std::shared_ptr<ExecBatch>>>();
+  batches_ptr->reserve(batches.size());
+  for (auto batch : batches) {
+    batches_ptr->push_back(std::make_shared<ExecBatch>(std::move(batch)));
+  }
+  return
+      [batches_ptr = std::move(batches_ptr)] { return MakeVectorIterator(*batches_ptr); };
+}
+}  // namespace
+
+ExecBatchSourceNodeOptions::ExecBatchSourceNodeOptions(
+    std::shared_ptr<Schema> schema, std::vector<ExecBatch> batches,
+    ::arrow::internal::Executor* io_executor)
+    : SchemaSourceNodeOptions(std::move(schema), VecToItMaker(std::move(batches)),
+                              io_executor) {}
+
+ExecBatchSourceNodeOptions::ExecBatchSourceNodeOptions(std::shared_ptr<Schema> schema,
+                                                       std::vector<ExecBatch> batches,
+                                                       bool requires_io)
+    : SchemaSourceNodeOptions(std::move(schema), VecToItMaker(std::move(batches)),
+                              requires_io) {}
+
 }  // namespace compute
 }  // namespace arrow

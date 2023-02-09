@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
@@ -109,6 +110,9 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   std::string ToString() const;
 };
 
+static const std::optional<std::vector<SortKey>> kImplicitOrdering = {{}};
+static const std::optional<std::vector<SortKey>> kUnordered = std::nullopt;
+
 class ARROW_EXPORT ExecNode {
  public:
   using NodeVector = std::vector<ExecNode*>;
@@ -145,6 +149,48 @@ class ARROW_EXPORT ExecNode {
   void SetLabel(std::string label) { label_ = std::move(label); }
 
   virtual Status Validate() const;
+
+  /// \brief the ordering of the output batches
+  ///
+  /// This does not guarantee the batches will be emitted by this node
+  /// in order.  Instead it guarantees that the batches will have their
+  /// ExecBatch::index property set in a way that respects this ordering.
+  ///
+  /// In other words, given the ordering {{"x", SortOrder::Ascending}} we
+  /// know that all values of x in a batch with index N will be less than
+  /// or equal to all values of x in a batch with index N+k (assuming k > 0)
+  ///
+  /// Note that there is an important distinction between std::nullopt and
+  /// an empty vector.  If the value is std::nullopt then the node is asserting
+  /// that there is no predictable output order to its batches.  For example,
+  /// a hash-join has no predictable output order.
+  ///
+  /// If the value is an empty vector then the data is "implicitly ordered".
+  /// This means there is a meaningful order but that odering is not represented
+  /// by any column in the data.  The most common case for this is when reading
+  /// data from an in-memory table.  The data has an implicit "row order" which
+  /// is not neccesarily represented in the data set.
+  ///
+  /// A typical map node will not modify the ordering.  Nothing needs to be done
+  /// other than ensure the index assigned to output batches is the same as the
+  /// input batch that was mapped.
+  ///
+  /// Other nodes may introduce order.  For example, an order-by node will emit
+  /// a brand new ordering independent of the input ordering.
+  ///
+  /// Finally, as described above, such as a hash-join or aggregation may may
+  /// destroy ordering (although these nodes could also choose to establish a
+  /// new ordering based on the hash keys).
+  ///
+  /// Some nodes will require an ordering.  For example, a fetch node or an
+  /// asof join node will only function if the input data is ordered (for fetch
+  /// it is enough to be implicitly ordered.  For an asof join the ordering must
+  /// be explicit and compatible with the on key.)
+  ///
+  /// Nodes that maintain ordering should be careful to avoid introducing gaps
+  /// in the batch index.  This may require emitting empty batches in order to
+  /// maintain continuity.
+  virtual const std::optional<std::vector<SortKey>>& ordering() const;
 
   /// Upstream API:
   /// These functions are called by input nodes that want to inform this node
@@ -443,15 +489,13 @@ struct ARROW_EXPORT QueryOptions {
 
   /// \brief a memory pool to use for allocations
   ///
-  /// Must be null or remain valid for the duration of the plan.  If this is null then
-  /// the arrow::default_memory_pool() will be used.
-  MemoryPool* memory_pool = NULLPTR;
+  /// Must remain valid for the duration of the plan.
+  MemoryPool* memory_pool = default_memory_pool();
 
   /// \brief a function registry to use for the plan
   ///
-  /// Must be null or remain valid for the duration of the plan.  If this is null then
-  /// defaults to arrow::compute::GetFunctionRegistry()
-  FunctionRegistry* function_registry = NULLPTR;
+  /// Must remain valid for the duration of the plan.
+  FunctionRegistry* function_registry = GetFunctionRegistry();
 };
 
 /// \brief Calculate the output schema of a declaration
@@ -544,6 +588,9 @@ ARROW_EXPORT Result<BatchesWithCommonSchema> DeclarationToExecBatches(
     MemoryPool* memory_pool = default_memory_pool(),
     FunctionRegistry* function_registry = NULLPTR);
 
+ARROW_EXPORT Result<BatchesWithCommonSchema> DeclarationToExecBatches(
+    Declaration declaration, QueryOptions query_options);
+
 /// \brief Asynchronous version of \see DeclarationToExecBatches
 ///
 /// \see DeclarationToTableAsync for details on threading & execution
@@ -613,6 +660,9 @@ ARROW_EXPORT Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
 ARROW_EXPORT Status DeclarationToStatus(Declaration declaration, bool use_threads = true,
                                         MemoryPool* memory_pool = default_memory_pool(),
                                         FunctionRegistry* function_registry = NULLPTR);
+
+ARROW_EXPORT Status DeclarationToStatus(Declaration declaration,
+                                        QueryOptions query_options);
 
 /// \brief Asynchronous version of \see DeclarationToStatus
 ///

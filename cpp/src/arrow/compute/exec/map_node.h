@@ -56,6 +56,8 @@ class ARROW_EXPORT MapNode : public ExecNode, public TracedNode {
 
   Status InputReceived(ExecNode* input, ExecBatch batch) override;
 
+  const std::optional<std::vector<SortKey>>& ordering() const override;
+
  protected:
   Status StopProducingImpl() override;
 

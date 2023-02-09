@@ -48,7 +48,7 @@ struct JitterNodeOptions : public ExecNodeOptions {
   /// The max amount to add to a node's "cost".
   int max_jitter_modifier;
 
-  JitterNodeOptions(random::SeedType seed, int max_jitter_modifier)
+  explicit JitterNodeOptions(random::SeedType seed, int max_jitter_modifier = 5)
       : seed(seed), max_jitter_modifier(max_jitter_modifier) {}
   static constexpr std::string_view kName = "jitter";
 };
