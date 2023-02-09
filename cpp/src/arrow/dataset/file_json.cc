@@ -103,8 +103,7 @@ class JsonFragmentScanner : public FragmentScanner {
         [num_batches, block_size](
             const ReaderPtr& reader) -> Result<std::shared_ptr<FragmentScanner>> {
           return std::make_shared<JsonFragmentScanner>(reader, num_batches, block_size);
-        },
-        [](const Status& e) -> Result<std::shared_ptr<FragmentScanner>> { return e; });
+        });
   }
 
  private:
