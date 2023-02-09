@@ -286,8 +286,10 @@ class ARROW_TESTING_EXPORT DataGenerator {
 /// If name is not specified then a name will be generated automatically (e.g. f0, f1)
 struct ARROW_TESTING_EXPORT GeneratorField {
  public:
-  GeneratorField(std::shared_ptr<ArrayGenerator> gen) : name(), gen(std::move(gen)) {}
-  GeneratorField(std::unique_ptr<ArrayGenerator> gen) : name(), gen(std::move(gen)) {}
+  explicit GeneratorField(std::shared_ptr<ArrayGenerator> gen)
+      : name(), gen(std::move(gen)) {}
+  explicit GeneratorField(std::unique_ptr<ArrayGenerator> gen)
+      : name(), gen(std::move(gen)) {}
   GeneratorField(std::string name, std::shared_ptr<ArrayGenerator> gen)
       : name(std::move(name)), gen(std::move(gen)) {}
   GeneratorField(std::string name, std::unique_ptr<ArrayGenerator> gen)
