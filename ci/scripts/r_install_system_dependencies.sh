@@ -37,10 +37,10 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
   # Install curl and OpenSSL for S3/GCS support
   case "$PACKAGE_MANAGER" in
     apt-get)
-      apt-get install -y libcurl4-openssl-dev libssl-dev pkg-config
+      apt-get install -y libcurl4-openssl-dev libssl-dev
       ;;
     *)
-      $PACKAGE_MANAGER install -y libcurl-devel openssl-devel pkg-config
+      $PACKAGE_MANAGER install -y libcurl-devel openssl-devel
       ;;
   esac
 
