@@ -42,7 +42,7 @@ jobs:
           github3.py \
           jinja2 \
           jira \
-          pygit2=1.5.0 \
+          pygit2 \
           ruamel.yaml \
           setuptools_scm \
           toolz
