@@ -18,6 +18,7 @@
 #include "arrow/engine/substrait/options.h"
 
 #include <google/protobuf/util/json_util.h>
+#include <mutex>
 #include "arrow/compute/exec/asof_join_node.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/engine/substrait/expression_internal.h"
@@ -157,13 +158,11 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     std::vector<std::string> columns(named_tap_rel.columns().begin(),
                                      named_tap_rel.columns().end());
     ARROW_ASSIGN_OR_RAISE(auto renamed_schema, schema->WithNames(columns));
-    std::shared_ptr<compute::ExecNodeOptions> named_tap_opts =
-        std::make_shared<NamedTapNodeOptions>(named_tap_rel.name(),
-                                              std::move(renamed_schema));
     auto input_decls = MakeDeclarationInputs(inputs);
-    ARROW_ASSIGN_OR_RAISE(auto decl,
-                          conv_opts.named_tap_mapper(named_tap_rel.kind(), input_decls,
-                                                     std::move(named_tap_opts)));
+    ARROW_ASSIGN_OR_RAISE(
+        auto decl,
+        conv_opts.named_tap_provider(named_tap_rel.kind(), input_decls,
+                                     named_tap_rel.name(), std::move(renamed_schema)));
     return RelationInfo{{std::move(decl), std::move(renamed_schema)}, std::nullopt};
   }
 };
@@ -173,6 +172,29 @@ std::shared_ptr<ExtensionProvider> ExtensionProvider::kDefaultExtensionProvider 
 
 std::shared_ptr<ExtensionProvider> default_extension_provider() {
   return ExtensionProvider::kDefaultExtensionProvider;
+}
+
+NamedTapProvider kDefaultNamedTapProvider =
+    [](const std::string& tap_kind, std::vector<compute::Declaration::Input> inputs,
+       const std::string& tap_name,
+       std::shared_ptr<Schema> tap_schema) -> Result<compute::Declaration> {
+  return Status::NotImplemented("Named tap provider must be given");
+};
+
+namespace {
+
+std::mutex g_default_named_tap_provider_mutex;
+
+}
+
+NamedTapProvider default_named_tap_provider() {
+  std::unique_lock lock(g_default_named_tap_provider_mutex);
+  return kDefaultNamedTapProvider;
+}
+
+void set_default_named_tap_provider(NamedTapProvider provider) {
+  std::unique_lock lock(g_default_named_tap_provider_mutex);
+  kDefaultNamedTapProvider = provider;
 }
 
 }  // namespace engine

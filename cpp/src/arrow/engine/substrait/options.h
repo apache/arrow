@@ -69,15 +69,9 @@ using NamedTableProvider =
     std::function<Result<compute::Declaration>(const std::vector<std::string>&)>;
 static NamedTableProvider kDefaultNamedTableProvider;
 
-using NamedTapKindMapper = std::function<Result<compute::Declaration>(
-    const std::string&, std::vector<compute::Declaration::Input>,
-    std::shared_ptr<compute::ExecNodeOptions>)>;
-static NamedTapKindMapper kDefaultNamedTapKindMapper =
-    [](const std::string& kind, std::vector<compute::Declaration::Input> inputs,
-       std::shared_ptr<compute::ExecNodeOptions> options)
-    -> Result<compute::Declaration> {
-  return compute::Declaration(kind, inputs, options);
-};
+using NamedTapProvider = std::function<Result<compute::Declaration>(
+    const std::string&, std::vector<compute::Declaration::Input>, const std::string&,
+    std::shared_ptr<Schema>)>;
 
 class ARROW_ENGINE_EXPORT ExtensionDetails {
  public:
@@ -96,13 +90,9 @@ class ARROW_ENGINE_EXPORT ExtensionProvider {
 
 ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionProvider> default_extension_provider();
 
-struct ARROW_ENGINE_EXPORT NamedTapNodeOptions : public compute::ExecNodeOptions {
-  NamedTapNodeOptions(const std::string& name, std::shared_ptr<Schema> schema)
-      : name(name), schema(std::move(schema)) {}
+ARROW_ENGINE_EXPORT NamedTapProvider default_named_tap_provider();
 
-  std::string name;
-  std::shared_ptr<Schema> schema;
-};
+ARROW_ENGINE_EXPORT void set_default_named_tap_provider(NamedTapProvider provider);
 
 /// Options that control the conversion between Substrait and Acero representations of a
 /// plan.
@@ -114,10 +104,10 @@ struct ARROW_ENGINE_EXPORT ConversionOptions {
   /// The default behavior will return an invalid status if the plan has any
   /// named table relations.
   NamedTableProvider named_table_provider = kDefaultNamedTableProvider;
-  /// \brief A custom strategy to be used for mapping a tap kind to a function name
+  /// \brief A custom strategy to be used for obtaining a tap declaration
   ///
-  /// The default mapper returns a declaration whose factory name is equal to the tap kind
-  NamedTapKindMapper named_tap_mapper = kDefaultNamedTapKindMapper;
+  /// The default provider returns an error
+  NamedTapProvider named_tap_provider = default_named_tap_provider();
   std::shared_ptr<ExtensionProvider> extension_provider = default_extension_provider();
 };
 

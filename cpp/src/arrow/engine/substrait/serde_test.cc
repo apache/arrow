@@ -5451,6 +5451,12 @@ TEST(Substrait, PlanWithNamedTapExtension) {
       TableFromJSON(input_schema, {"[[2, 1, 1.1], [4, 1, 2.1], [6, 2, 3.1]]"}));
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
+  conversion_options.named_tap_provider =
+      [](const std::string& tap_kind, std::vector<compute::Declaration::Input> inputs,
+         const std::string& tap_name,
+         std::shared_ptr<Schema> tap_schema) -> Result<compute::Declaration> {
+    return compute::Declaration{tap_kind, std::move(inputs), compute::ExecNodeOptions{}};
+  };
 
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
