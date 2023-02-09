@@ -19,6 +19,7 @@
 
 #include <google/protobuf/util/json_util.h>
 #include <mutex>
+
 #include "arrow/compute/exec/asof_join_node.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/engine/substrait/expression_internal.h"
@@ -174,27 +175,27 @@ std::shared_ptr<ExtensionProvider> default_extension_provider() {
   return ExtensionProvider::kDefaultExtensionProvider;
 }
 
-NamedTapProvider kDefaultNamedTapProvider =
+namespace {
+
+NamedTapProvider g_default_named_tap_provider =
     [](const std::string& tap_kind, std::vector<compute::Declaration::Input> inputs,
        const std::string& tap_name,
        std::shared_ptr<Schema> tap_schema) -> Result<compute::Declaration> {
   return Status::NotImplemented("Named tap provider must be given");
 };
 
-namespace {
-
 std::mutex g_default_named_tap_provider_mutex;
 
-}
+}  // namespace
 
 NamedTapProvider default_named_tap_provider() {
-  std::unique_lock lock(g_default_named_tap_provider_mutex);
-  return kDefaultNamedTapProvider;
+  std::unique_lock<std::mutex> lock(g_default_named_tap_provider_mutex);
+  return g_default_named_tap_provider;
 }
 
 void set_default_named_tap_provider(NamedTapProvider provider) {
-  std::unique_lock lock(g_default_named_tap_provider_mutex);
-  kDefaultNamedTapProvider = provider;
+  std::unique_lock<std::mutex> lock(g_default_named_tap_provider_mutex);
+  g_default_named_tap_provider = provider;
 }
 
 }  // namespace engine
