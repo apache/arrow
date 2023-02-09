@@ -1060,7 +1060,7 @@ endmacro()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION
                                               VERSION_GREATER_EQUAL 16)
   # GH-34094 we require newer Boost versions for Clang 16 or newer 
-  set(ARROW_BOOST_REQUIRED_VERSION "1.81.0")
+  set(ARROW_BOOST_REQUIRED_VERSION "1.81")
 elseif(ARROW_BUILD_TESTS)
   set(ARROW_BOOST_REQUIRED_VERSION "1.64")
 else()
