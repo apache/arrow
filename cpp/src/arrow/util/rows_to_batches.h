@@ -113,7 +113,7 @@ template <class Range, class DataPointConvertor,
 
     for (size_t i = 0; i < batch_size and (rows_ittr != rows_ittr_end);
          i++, std::advance(rows_ittr, 1)) {
-      size_t col_index = 0;
+      int col_index = 0;
       ARROW_ASSIGN_OR_RAISE(auto row, row_accessor(*rows_ittr));
       for (auto& data_point : row.get()) {
         ArrayBuilder* array_builder = record_batch_builder->GetField(col_index);
