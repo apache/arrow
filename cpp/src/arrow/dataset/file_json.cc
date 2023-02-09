@@ -42,12 +42,12 @@ using ReaderPtr = std::shared_ptr<json::StreamingReader>;
 struct JsonInspectedFragment : public InspectedFragment {
   JsonInspectedFragment() : InspectedFragment({}) {}
   JsonInspectedFragment(std::vector<std::string> column_names,
-                        std::shared_ptr<io::InputStream> stream, int64_t size)
+                        std::shared_ptr<io::InputStream> stream, int64_t num_bytes)
       : InspectedFragment(std::move(column_names)),
         stream(std::move(stream)),
-        size(size) {}
+        num_bytes(num_bytes) {}
   std::shared_ptr<io::InputStream> stream;
-  int64_t size;
+  int64_t num_bytes;
 };
 
 class JsonFragmentScanner : public FragmentScanner {
@@ -81,7 +81,7 @@ class JsonFragmentScanner : public FragmentScanner {
       fields.push_back(field((name), std::move(type)));
     }
 
-    return ::arrow::schema(std::move(fields));
+    return schema(std::move(fields));
   }
 
   static Future<std::shared_ptr<FragmentScanner>> Make(
@@ -94,7 +94,8 @@ class JsonFragmentScanner : public FragmentScanner {
     parse_options.unexpected_field_behavior = json::UnexpectedFieldBehavior::Ignore;
 
     int64_t block_size = format_options.read_options.block_size;
-    auto num_batches = static_cast<int>(bit_util::CeilDiv(inspected.size, block_size));
+    auto num_batches =
+        static_cast<int>(bit_util::CeilDiv(inspected.num_bytes, block_size));
 
     auto future = json::StreamingReader::MakeAsync(
         inspected.stream, format_options.read_options, parse_options,
@@ -114,8 +115,6 @@ class JsonFragmentScanner : public FragmentScanner {
 
 Result<std::shared_ptr<StructType>> ParseToStructType(
     std::string_view data, const json::ParseOptions& parse_options, MemoryPool* pool) {
-  if (!pool) pool = default_memory_pool();
-
   auto full_buffer = std::make_shared<Buffer>(data);
   std::shared_ptr<Buffer> buffer, partial;
   auto chunker = json::MakeChunker(parse_options);
@@ -134,7 +133,7 @@ Result<std::shared_ptr<Schema>> ParseToSchema(std::string_view data,
                                               const json::ParseOptions& parse_options,
                                               MemoryPool* pool) {
   ARROW_ASSIGN_OR_RAISE(auto type, ParseToStructType(data, parse_options, pool));
-  return ::arrow::schema(type->fields());
+  return schema(type->fields());
 }
 
 // Converts a FieldPath to a FieldRef consisting exclusively of field names.
@@ -227,7 +226,7 @@ Result<std::shared_ptr<Schema>> GetPartialSchema(const ScanOptions& scan_options
     fields.push_back(dataset_schema->field(index));
   }
 
-  return ::arrow::schema(std::move(fields));
+  return schema(std::move(fields));
 }
 
 Result<std::shared_ptr<JsonFragmentScanOptions>> GetJsonFormatOptions(
@@ -252,12 +251,6 @@ Result<Future<ReaderPtr>> DoOpenReader(
       // output schema.
       parse_options.explicit_schema = nullptr;
       parse_options.unexpected_field_behavior = json::UnexpectedFieldBehavior::InferType;
-      // We don't wish to contend with the scanner's CPU threads if multiple fragments are
-      // being scanned in parallel, so fragment-level parallelism gets conditionally
-      // disabled.
-      if (this->scan_options && this->scan_options->use_threads) {
-        read_options.use_threads = false;
-      }
     }
     json::ParseOptions parse_options;
     json::ReadOptions read_options;

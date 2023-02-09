@@ -25,6 +25,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
+#include "rapidjson/ostreamwrapper.h"
 #include "rapidjson/writer.h"
 
 namespace arrow {
@@ -112,16 +113,14 @@ struct WriteVisitor {
     return Status::OK();
   }
 
-  rj::Writer<rj::StringBuffer>& writer_;
+  rj::Writer<rj::OStreamWrapper>& writer_;
   const Scalar& scalar_;
 };
 
-Result<std::string> WriteJson(const StructScalar& scalar) {
-  rj::StringBuffer sink;
-  rj::Writer<rj::StringBuffer> writer(sink);
+Status WriteJson(const StructScalar& scalar, rj::OStreamWrapper* sink) {
+  rj::Writer<rj::OStreamWrapper> writer(*sink);
   WriteVisitor visitor{writer, scalar};
-  RETURN_NOT_OK(VisitWriteableTypeId(Type::STRUCT, &visitor));
-  return sink.GetString();
+  return VisitWriteableTypeId(Type::STRUCT, &visitor);
 }
 
 class JsonFormatHelper {
@@ -130,12 +129,13 @@ class JsonFormatHelper {
 
   static Result<std::shared_ptr<Buffer>> Write(RecordBatchReader* reader) {
     ARROW_ASSIGN_OR_RAISE(auto scalars, ToScalars(reader));
-    std::string out;
+    std::stringstream ss;
+    rj::OStreamWrapper sink(ss);
     for (const auto& scalar : scalars) {
-      ARROW_ASSIGN_OR_RAISE(auto json, WriteJson(*scalar));
-      out += json + "\n";
+      RETURN_NOT_OK(WriteJson(*scalar, &sink));
+      ss << "\n";
     }
-    return Buffer::FromString(std::move(out));
+    return Buffer::FromString(ss.str());
   }
 
   static std::shared_ptr<FormatType> MakeFormat() {
