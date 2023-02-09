@@ -375,8 +375,9 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       ASSERT_EQ(array->type(), type);
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
-      if (is_union(type->id())) {
-        // For unions, MakeArrayOfNull places the nulls in the children
+      if (is_union(type->id()) || type->id() == Type::RUN_END_ENCODED) {
+        // For unions and run-end encoded, MakeArrayOfNull places the nulls in the
+        // children
         ASSERT_EQ(array->null_count(), 0);
         const auto& union_array = checked_cast<const UnionArray&>(*array);
         for (int i = 0; i < union_array.num_fields(); ++i) {
@@ -575,6 +576,8 @@ static ScalarVector GetScalars() {
                              ArrayFromJSON(utf8(), R"(["foo", "bar"])")),
       DictionaryScalar::Make(ScalarFromJSON(uint8(), "1"),
                              ArrayFromJSON(utf8(), R"(["foo", "bar"])")),
+      std::make_shared<RunEndEncodedScalar>(ScalarFromJSON(int8(), "1"),
+                                            run_end_encoded(int16(), int8())),
   };
 }
 
@@ -718,22 +721,24 @@ TEST_F(TestArray, TestAppendArraySlice) {
     span.SetMembers(*nulls->data());
     ASSERT_OK(builder->AppendArraySlice(span, 0, 4));
     ASSERT_EQ(12, builder->length());
-    if (!is_union(scalar->type->id())) {
+    const bool can_trust_null_count =
+        !is_union(scalar->type->id()) && scalar->type->id() != Type::RUN_END_ENCODED;
+    if (can_trust_null_count) {
       ASSERT_EQ(4, builder->null_count());
     }
     ASSERT_OK(builder->AppendArraySlice(span, 0, 0));
     ASSERT_EQ(12, builder->length());
-    if (!is_union(scalar->type->id())) {
+    if (can_trust_null_count) {
       ASSERT_EQ(4, builder->null_count());
     }
     ASSERT_OK(builder->AppendArraySlice(span, 1, 0));
     ASSERT_EQ(12, builder->length());
-    if (!is_union(scalar->type->id())) {
+    if (can_trust_null_count) {
       ASSERT_EQ(4, builder->null_count());
     }
     ASSERT_OK(builder->AppendArraySlice(span, 1, 4));
     ASSERT_EQ(16, builder->length());
-    if (!is_union(scalar->type->id())) {
+    if (can_trust_null_count) {
       ASSERT_EQ(8, builder->null_count());
     }
 
@@ -741,7 +746,7 @@ TEST_F(TestArray, TestAppendArraySlice) {
     ASSERT_OK(builder->Finish(&result));
     ASSERT_OK(result->ValidateFull());
     ASSERT_EQ(16, result->length());
-    if (!is_union(scalar->type->id())) {
+    if (can_trust_null_count) {
       ASSERT_EQ(8, result->null_count());
     }
   }

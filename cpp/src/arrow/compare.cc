@@ -849,6 +849,12 @@ class ScalarEqualsVisitor {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedScalar& left) {
+    const auto& right = checked_cast<const RunEndEncodedScalar&>(right_);
+    result_ = ScalarEquals(*left.value, *right.value, options_, floating_approximate_);
+    return Status::OK();
+  }
+
   Status Visit(const ExtensionScalar& left) {
     const auto& right = checked_cast<const ExtensionScalar&>(right_);
     result_ = ScalarEquals(*left.value, *right.value, options_, floating_approximate_);
