@@ -205,8 +205,26 @@ namespace Apache.Arrow.Tests
             var codecFactory = new Compression.CompressionCodecFactory();
             using var reader = new ArrowStreamReader(stream, codecFactory);
 
-            var batch = reader.ReadNextRecordBatch();
+            VerifyCompressedIpcFileBatch(reader.ReadNextRecordBatch());
+        }
 
+        [Theory]
+        [InlineData("ipc_lz4_compression.arrow_stream")]
+        [InlineData("ipc_zstd_compression.arrow_stream")]
+        public void CanReadCompressedIpcStreamFromMemoryBuffer(string fileName)
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            using var stream = assembly.GetManifestResourceStream($"Apache.Arrow.Tests.Resources.{fileName}");
+            var buffer = new byte[stream.Length];
+            stream.ReadExactly(buffer);
+            var codecFactory = new Compression.CompressionCodecFactory();
+            using var reader = new ArrowStreamReader(buffer, codecFactory);
+
+            VerifyCompressedIpcFileBatch(reader.ReadNextRecordBatch());
+        }
+
+        private static void VerifyCompressedIpcFileBatch(RecordBatch batch)
+        {
             var intArray = (Int32Array) batch.Column("integers");
             var floatArray = (FloatArray) batch.Column("floats");
 
