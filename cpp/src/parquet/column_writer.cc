@@ -861,18 +861,6 @@ void ColumnWriterImpl::AddDataPage() {
   num_buffered_rows_ = 0;
 }
 
-namespace {
-
-int32_t safe_cast_64_to_32(int64_t value) {
-  if (value > std::numeric_limits<int32_t>::max() ||
-      value < std::numeric_limits<int32_t>::min()) {
-    throw ParquetException("Cannot cast ", value, " to int32_t");
-  }
-  return static_cast<int32_t>(value);
-}
-
-}  // namespace
-
 void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
                                        int64_t repetition_levels_rle_size,
                                        int64_t uncompressed_size,
@@ -896,7 +884,7 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
     compressed_data = uncompressed_data_;
   }
 
-  const int32_t num_values = safe_cast_64_to_32(num_buffered_values_);
+  int32_t num_values = static_cast<int32_t>(num_buffered_values_);
 
   // Write the page to OutputStream eagerly if there is no dictionary or
   // if dictionary encoding has fallen back to PLAIN
@@ -944,11 +932,11 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
   page_stats.set_is_signed(SortOrder::SIGNED == descr_->sort_order());
   ResetPageStatistics();
 
-  const int32_t num_values = safe_cast_64_to_32(num_buffered_values_);
-  const int32_t null_count = safe_cast_64_to_32(page_stats.null_count);
-  const int32_t num_rows = safe_cast_64_to_32(num_buffered_rows_);
-  const int32_t def_levels_byte_length = safe_cast_64_to_32(definition_levels_rle_size);
-  const int32_t rep_levels_byte_length = safe_cast_64_to_32(repetition_levels_rle_size);
+  int32_t num_values = static_cast<int32_t>(num_buffered_values_);
+  int32_t null_count = static_cast<int32_t>(page_stats.null_count);
+  int32_t num_rows = static_cast<int32_t>(num_buffered_rows_);
+  int32_t def_levels_byte_length = static_cast<int32_t>(definition_levels_rle_size);
+  int32_t rep_levels_byte_length = static_cast<int32_t>(repetition_levels_rle_size);
 
   // Write the page to OutputStream eagerly if there is no dictionary or
   // if dictionary encoding has fallen back to PLAIN
