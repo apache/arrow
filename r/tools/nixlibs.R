@@ -17,7 +17,6 @@
 
 args <- commandArgs(TRUE)
 VERSION <- args[1]
-dst_dir <- paste0("libarrow/arrow-", VERSION)
 
 # TESTING is set in test-nixlibs.R; it won't be set when called from configure
 test_mode <- exists("TESTING")
@@ -36,6 +35,8 @@ if (is.na(dev_version) || dev_version < 100) {
 } else {
   arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
 }
+
+dst_dir <- paste0("libarrow/arrow-", VERSION)
 
 options(.arrow.cleanup = character()) # To collect dirs to rm on exit
 on.exit(unlink(getOption(".arrow.cleanup")))
