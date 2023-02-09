@@ -4243,6 +4243,40 @@ TEST_P(TestArrowWriteDictionary, StatisticsUnifiedDictionary) {
   ASSERT_EQ(stats1->EncodeMin(), "b");
   ASSERT_EQ(stats0->EncodeMax(), "b");
   ASSERT_EQ(stats1->EncodeMax(), "c");
+
+  // Check page statistics
+  const auto expected_page_type =
+      GetParquetDataPageVersion() == ParquetDataPageVersion::V1 ? PageType::DATA_PAGE
+                                                                : PageType::DATA_PAGE_V2;
+  auto rg0_page_reader = parquet_reader->RowGroup(0)->GetColumnPageReader(0);
+  ASSERT_EQ(PageType::DICTIONARY_PAGE, rg0_page_reader->NextPage()->type());
+  const std::vector<std::string> rg0_min_values = {"a", "a", "a"};
+  const std::vector<std::string> rg0_max_values = {"a", "a", "b"};
+  for (int i = 0; i < 3; ++i) {
+    auto page = rg0_page_reader->NextPage();
+    ASSERT_EQ(expected_page_type, page->type());
+    auto data_page = std::static_pointer_cast<DataPage>(page);
+    ASSERT_EQ(3, data_page->num_values());
+    const auto& stats = data_page->statistics();
+    EXPECT_EQ(1, stats.null_count);
+    EXPECT_EQ(rg0_min_values[i], stats.min());
+    EXPECT_EQ(rg0_max_values[i], stats.max());
+  }
+  ASSERT_EQ(rg0_page_reader->NextPage(), nullptr);
+
+  auto rg1_page_reader = parquet_reader->RowGroup(1)->GetColumnPageReader(0);
+  ASSERT_EQ(PageType::DICTIONARY_PAGE, rg1_page_reader->NextPage()->type());
+  {
+    auto page = rg1_page_reader->NextPage();
+    ASSERT_EQ(expected_page_type, page->type());
+    auto data_page = std::static_pointer_cast<DataPage>(page);
+    ASSERT_EQ(3, data_page->num_values());
+    const auto& stats = data_page->statistics();
+    EXPECT_EQ(1, stats.null_count);
+    EXPECT_EQ("b", stats.min());
+    EXPECT_EQ("c", stats.max());
+  }
+  ASSERT_EQ(rg1_page_reader->NextPage(), nullptr);
 }
 
 // ----------------------------------------------------------------------
