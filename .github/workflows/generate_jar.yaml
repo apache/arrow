@@ -51,6 +51,7 @@ jobs:
           rm -rf ~/work/arrow/arrow
           rm -rf ~/work/arrow
           mkdir ~/work/arrow
+          mkdir ~/work/arrow/arrow
           set -e
           pushd ..
           source /home/runner/miniconda3/bin/activate root
