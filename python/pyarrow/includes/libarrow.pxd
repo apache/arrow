@@ -2575,6 +2575,7 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
         pass
 
     cdef cppclass CTableSourceNodeOptions "arrow::compute::TableSourceNodeOptions"(CExecNodeOptions):
+        CTableSourceNodeOptions(shared_ptr[CTable] table)
         CTableSourceNodeOptions(shared_ptr[CTable] table, int64_t max_batch_size)
 
     cdef cppclass CSinkNodeOptions "arrow::compute::SinkNodeOptions"(CExecNodeOptions):
@@ -2657,6 +2658,16 @@ cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nog
     CResult[CExecNode*] MakeExecNode(c_string factory_name, CExecPlan* plan,
                                      vector[CExecNode*] inputs,
                                      const CExecNodeOptions& options)
+
+    CResult[shared_ptr[CTable]] DeclarationToTable(
+        CDeclaration declaration, c_bool use_threads
+    )
+    CResult[shared_ptr[CTable]] DeclarationToTable(
+        CDeclaration declaration, c_bool use_threads,
+        CMemoryPool* memory_pool, CFunctionRegistry* function_registry
+    )
+
+    CResult[c_string] DeclarationToString(const CDeclaration& declaration)
 
 
 cdef extern from "arrow/extension_type.h" namespace "arrow":
