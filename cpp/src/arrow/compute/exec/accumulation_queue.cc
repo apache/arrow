@@ -138,9 +138,9 @@ class SerialSequencingQueueImpl : public SerialSequencingQueue {
       queue_.pop();
       next_index_++;
       lk.unlock();
-      // If we bail here we don't hold the lock so that is ok.  is_processing_ will
-      // never switch to true so no other threads can process but that should be ok
-      // since we failed anyways.
+      // ARROW_RETURN_NOT_OK may return early here.  In that case  is_processing_ will
+      // never switch to false so no other threads can process but that should be ok
+      // since we failed anyways.  It is important however, that we do not hold the lock.
       ARROW_RETURN_NOT_OK(processor_->Process(std::move(next)));
       lk.lock();
     }

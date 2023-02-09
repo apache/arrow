@@ -245,23 +245,7 @@ class ARROW_TESTING_EXPORT ArrayGenerator {
   virtual std::shared_ptr<DataType> type() const = 0;
 };
 
-class ARROW_TESTING_EXPORT DataGenerator {
- public:
-  virtual ~DataGenerator() = default;
-  virtual Result<std::shared_ptr<::arrow::RecordBatch>> RecordBatch(int64_t num_rows) = 0;
-  virtual Result<std::vector<std::shared_ptr<::arrow::RecordBatch>>> RecordBatches(
-      int64_t rows_per_batch, int num_batches) = 0;
-#ifdef ARROW_COMPUTE
-  virtual Result<::arrow::compute::ExecBatch> ExecBatch(int64_t num_rows) = 0;
-  virtual Result<std::vector<::arrow::compute::ExecBatch>> ExecBatches(
-      int64_t rows_per_batch, int num_batches) = 0;
-#endif
-  virtual Result<std::shared_ptr<::arrow::Table>> Table(int64_t rows_per_chunk,
-                                                        int num_chunks = 1) = 0;
-  virtual std::shared_ptr<::arrow::Schema> Schema() = 0;
-};
-
-// Same as DataGenerator but instead of returning Result an ok status is EXPECT'd
+// Same as DataGenerator below but instead of returning Result an ok status is EXPECT'd
 class ARROW_TESTING_EXPORT GTestDataGenerator {
  public:
   virtual ~GTestDataGenerator() = default;
@@ -278,24 +262,44 @@ class ARROW_TESTING_EXPORT GTestDataGenerator {
   virtual std::shared_ptr<::arrow::Schema> Schema() = 0;
 };
 
+class ARROW_TESTING_EXPORT DataGenerator {
+ public:
+  virtual ~DataGenerator() = default;
+  virtual Result<std::shared_ptr<::arrow::RecordBatch>> RecordBatch(int64_t num_rows) = 0;
+  virtual Result<std::vector<std::shared_ptr<::arrow::RecordBatch>>> RecordBatches(
+      int64_t rows_per_batch, int num_batches) = 0;
+#ifdef ARROW_COMPUTE
+  virtual Result<::arrow::compute::ExecBatch> ExecBatch(int64_t num_rows) = 0;
+  virtual Result<std::vector<::arrow::compute::ExecBatch>> ExecBatches(
+      int64_t rows_per_batch, int num_batches) = 0;
+#endif
+  virtual Result<std::shared_ptr<::arrow::Table>> Table(int64_t rows_per_chunk,
+                                                        int num_chunks = 1) = 0;
+  virtual std::shared_ptr<::arrow::Schema> Schema() = 0;
+  /// @brief Converts this generator to a variant that fails (in a googletest sense)
+  ///        if any error is encountered.
+  virtual std::unique_ptr<GTestDataGenerator> FailOnError() = 0;
+};
+
+/// @brief A potentially named field
+///
+/// If name is not specified then a name will be generated automatically (e.g. f0, f1)
 struct ARROW_TESTING_EXPORT GeneratorField {
-  std::string name;
+ public:
+  GeneratorField(std::shared_ptr<ArrayGenerator> gen) : name(), gen(std::move(gen)) {}
+  GeneratorField(std::unique_ptr<ArrayGenerator> gen) : name(), gen(std::move(gen)) {}
+  GeneratorField(std::string name, std::shared_ptr<ArrayGenerator> gen)
+      : name(std::move(name)), gen(std::move(gen)) {}
+  GeneratorField(std::string name, std::unique_ptr<ArrayGenerator> gen)
+      : name(std::move(name)), gen(std::move(gen)) {}
+
+  std::optional<std::string> name;
   std::shared_ptr<ArrayGenerator> gen;
 };
 
-ARROW_TESTING_EXPORT std::unique_ptr<DataGenerator> Gen(
-    std::vector<std::shared_ptr<ArrayGenerator>> column_gens);
-ARROW_TESTING_EXPORT std::unique_ptr<DataGenerator> Gen(
+/// Create a table generator with the given fields
+ARROW_TESTING_EXPORT std::shared_ptr<DataGenerator> Gen(
     std::vector<GeneratorField> column_gens);
-// For generating batches with 0 columns (though they can still have length)
-ARROW_TESTING_EXPORT std::unique_ptr<DataGenerator> EmptyGen();
-
-ARROW_TESTING_EXPORT std::unique_ptr<GTestDataGenerator> TestGen(
-    std::vector<std::shared_ptr<ArrayGenerator>> column_gens);
-ARROW_TESTING_EXPORT std::unique_ptr<GTestDataGenerator> TestGen(
-    std::vector<GeneratorField> column_gens);
-// For generating batches with 0 columns (though they can still have length)
-ARROW_TESTING_EXPORT std::unique_ptr<GTestDataGenerator> EmptyTestGen();
 
 /// make a generator that returns a constant value
 ARROW_TESTING_EXPORT std::unique_ptr<ArrayGenerator> Constant(

@@ -258,7 +258,8 @@ class RandomGenerator : public ArrayGenerator {
   std::shared_ptr<DataType> type_;
 };
 
-class DataGeneratorImpl : public DataGenerator {
+class DataGeneratorImpl : public DataGenerator,
+                          public std::enable_shared_from_this<DataGeneratorImpl> {
  public:
   explicit DataGeneratorImpl(std::vector<GeneratorField> generators)
       : generators_(std::move(generators)) {
@@ -318,11 +319,20 @@ class DataGeneratorImpl : public DataGenerator {
 
   std::shared_ptr<::arrow::Schema> Schema() override { return schema_; }
 
+  std::unique_ptr<GTestDataGenerator> FailOnError() override;
+
  private:
   std::shared_ptr<::arrow::Schema> DeriveSchemaFromGenerators() {
     FieldVector fields;
-    for (const auto& gen : generators_) {
-      fields.push_back(field(gen.name, gen.gen->type()));
+    for (std::size_t i = 0; i < generators_.size(); i++) {
+      const GeneratorField& gen = generators_[i];
+      std::string name;
+      if (gen.name) {
+        name = *gen.name;
+      } else {
+        name = "f" + internal::ToChars(i);
+      }
+      fields.push_back(field(std::move(name), gen.gen->type()));
     }
     return schema(std::move(fields));
   }
@@ -333,8 +343,8 @@ class DataGeneratorImpl : public DataGenerator {
 
 class GTestDataGeneratorImpl : public GTestDataGenerator {
  public:
-  explicit GTestDataGeneratorImpl(std::vector<GeneratorField> fields)
-      : target_(Gen(std::move(fields))) {}
+  explicit GTestDataGeneratorImpl(std::shared_ptr<DataGenerator> target)
+      : target_(std::move(target)) {}
   std::shared_ptr<::arrow::RecordBatch> RecordBatch(int64_t num_rows) override {
     EXPECT_OK_AND_ASSIGN(auto batch, target_->RecordBatch(num_rows));
     return batch;
@@ -363,18 +373,13 @@ class GTestDataGeneratorImpl : public GTestDataGenerator {
   std::shared_ptr<::arrow::Schema> Schema() override { return target_->Schema(); }
 
  private:
-  std::unique_ptr<DataGenerator> target_;
+  std::shared_ptr<DataGenerator> target_;
 };
 
-std::vector<GeneratorField> AutoNameFields(
-    std::vector<std::shared_ptr<ArrayGenerator>> gens) {
-  std::vector<GeneratorField> fields;
-  fields.reserve(gens.size());
-  for (std::size_t idx = 0; idx < gens.size(); idx++) {
-    std::string name = "f" + internal::ToChars(idx);
-    fields.push_back({std::move(name), std::move(gens[idx])});
-  }
-  return fields;
+// Defined down here to avoid circular dependency between DataGeneratorImpl and
+// GTestDataGeneratorImpl
+std::unique_ptr<GTestDataGenerator> DataGeneratorImpl::FailOnError() {
+  return std::make_unique<GTestDataGeneratorImpl>(shared_from_this());
 }
 
 }  // namespace
@@ -391,29 +396,8 @@ std::unique_ptr<ArrayGenerator> Random(std::shared_ptr<DataType> type) {
   return std::make_unique<RandomGenerator>(std::move(type));
 }
 
-std::unique_ptr<DataGenerator> Gen(std::vector<GeneratorField> fields) {
-  return std::make_unique<DataGeneratorImpl>(std::move(fields));
-}
-
-std::unique_ptr<DataGenerator> EmptyGen() {
-  return std::make_unique<DataGeneratorImpl>(std::vector<GeneratorField>());
-}
-
-std::unique_ptr<DataGenerator> Gen(std::vector<std::shared_ptr<ArrayGenerator>> gens) {
-  return Gen(AutoNameFields(std::move(gens)));
-}
-
-std::unique_ptr<GTestDataGenerator> TestGen(std::vector<GeneratorField> fields) {
-  return std::make_unique<GTestDataGeneratorImpl>(std::move(fields));
-}
-
-std::unique_ptr<GTestDataGenerator> TestGen(
-    std::vector<std::shared_ptr<ArrayGenerator>> gens) {
-  return TestGen(AutoNameFields(std::move(gens)));
-}
-
-std::unique_ptr<GTestDataGenerator> EmptyTestGen() {
-  return std::make_unique<GTestDataGeneratorImpl>(std::vector<GeneratorField>());
+std::shared_ptr<DataGenerator> Gen(std::vector<GeneratorField> fields) {
+  return std::make_shared<DataGeneratorImpl>(std::move(fields));
 }
 
 }  // namespace gen

@@ -409,8 +409,6 @@ struct ARROW_EXPORT Declaration {
 };
 
 struct ARROW_EXPORT QueryOptions {
-  QueryOptions();
-
   /// \brief Should the plan use a legacy batching strategy
   ///
   /// This is currently in place only to support the Scanner::ToTable
@@ -420,7 +418,7 @@ struct ARROW_EXPORT QueryOptions {
   ///
   /// However, it still works for simple plans and this is the only way
   /// we have at the moment for maintaining implicit order.
-  bool use_legacy_batching;
+  bool use_legacy_batching = false;
 
   /// If the output has a meaningful order then sequence the output of the plan
   ///

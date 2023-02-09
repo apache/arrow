@@ -214,7 +214,8 @@ struct ARROW_EXPORT ExecBatch {
 
   /// \brief index of this batch in a sorted stream of batches
   ///
-  /// This index must be strictly monotoic starting at 0 without gaps
+  /// This index must be strictly monotonic starting at 0 without gaps or
+  /// it can be set to kUnsequencedIndex if there is no meaningful order
   int64_t index = kUnsequencedIndex;
 
   /// \brief The sum of bytes in each buffer referenced by the batch

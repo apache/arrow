@@ -33,7 +33,8 @@ TEST(JitterNode, Basic) {
   static constexpr int kNumBatches = 256;
   RegisterTestNodes();
   std::shared_ptr<Table> input =
-      gen::TestGen({gen::Constant(std::make_shared<Int32Scalar>(0))})
+      gen::Gen({gen::Constant(std::make_shared<Int32Scalar>(0))})
+          ->FailOnError()
           ->Table(1, kNumBatches);
   Declaration plan =
       Declaration::Sequence({{"table_source", TableSourceNodeOptions(input)},

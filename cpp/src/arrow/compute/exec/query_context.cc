@@ -22,7 +22,6 @@
 namespace arrow {
 using internal::CpuInfo;
 namespace compute {
-QueryOptions::QueryOptions() : use_legacy_batching(false) {}
 
 QueryContext::QueryContext(QueryOptions opts, ExecContext exec_context)
     : options_(opts),

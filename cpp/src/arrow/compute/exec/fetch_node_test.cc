@@ -34,7 +34,7 @@ static constexpr int kRowsPerBatch = 16;
 static constexpr int kNumBatches = 32;
 
 std::shared_ptr<Table> TestTable() {
-  return gen::TestGen({gen::Step()})->Table(kRowsPerBatch, kNumBatches);
+  return gen::Gen({gen::Step()})->FailOnError()->Table(kRowsPerBatch, kNumBatches);
 }
 
 void CheckFetch(FetchNodeOptions options) {
