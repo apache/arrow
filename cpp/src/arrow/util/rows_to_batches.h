@@ -99,18 +99,17 @@ template <class Range, class DataPointConvertor,
     const std::shared_ptr<Schema>& schema, std::reference_wrapper<Range> rows,
     DataPointConvertor&& data_point_convertor,
     RowAccessor&& row_accessor = detail::MakeDefaultRowAccessor(),
-    MemoryPool* pool = default_memory_pool()) {
-  const std::size_t batch_size = 1024;
+    MemoryPool* pool = default_memory_pool(), const std::size_t batch_size = 1024) {
   auto make_next_batch =
-      [rows_ittr = std::begin(rows.get()), rows_ittr_end = std::end(rows.get()),
-       schema = schema, row_accessor = std::forward<RowAccessor>(row_accessor),
+      [pool = pool, batch_size = batch_size, rows_ittr = std::begin(rows.get()),
+       rows_ittr_end = std::end(rows.get()), schema = schema,
+       row_accessor = std::forward<RowAccessor>(row_accessor),
        data_point_convertor = std::forward<DataPointConvertor>(
            data_point_convertor)]() mutable -> Result<std::shared_ptr<RecordBatch>> {
     if (rows_ittr == rows_ittr_end) return NULLPTR;
 
-    ARROW_ASSIGN_OR_RAISE(
-        auto record_batch_builder,
-        RecordBatchBuilder::Make(schema, pool, batch_size));
+    ARROW_ASSIGN_OR_RAISE(auto record_batch_builder,
+                          RecordBatchBuilder::Make(schema, pool, batch_size));
 
     for (size_t i = 0; i < batch_size and (rows_ittr != rows_ittr_end);
          i++, std::advance(rows_ittr, 1)) {
