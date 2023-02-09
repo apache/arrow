@@ -98,7 +98,8 @@ template <class Range, class DataPointConvertor,
 /* Result<std::shared_ptr<RecordBatchReader>>> */ RowsToBatches(
     const std::shared_ptr<Schema>& schema, std::reference_wrapper<Range> rows,
     DataPointConvertor&& data_point_convertor,
-    RowAccessor&& row_accessor = detail::MakeDefaultRowAccessor()) {
+    RowAccessor&& row_accessor = detail::MakeDefaultRowAccessor(),
+    MemoryPool* pool = default_memory_pool()) {
   const std::size_t batch_size = 1024;
   auto make_next_batch =
       [rows_ittr = std::begin(rows.get()), rows_ittr_end = std::end(rows.get()),
