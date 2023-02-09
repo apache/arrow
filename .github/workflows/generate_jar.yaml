@@ -48,6 +48,8 @@ jobs:
           toolz
       - name: Run Crossbow script
         run: |
+          rm -rf ~/work/arrow/arrow
+          rm -rf ~/work/arrow
           set -e
           pushd ..
           source /home/runner/miniconda3/bin/activate root
