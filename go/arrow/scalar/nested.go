@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
@@ -749,12 +748,11 @@ func NewDenseUnionScalar(v Scalar, code arrow.UnionTypeCode, dt *arrow.DenseUnio
 type RunEndEncoded struct {
 	scalar
 
-	RunLength int64
-	Value     Scalar
+	Value Scalar
 }
 
-func NewRunEndEncodedScalar(v Scalar, runLength int64, dt *arrow.RunEndEncodedType) *RunEndEncoded {
-	return &RunEndEncoded{scalar: scalar{dt, true}, RunLength: runLength, Value: v}
+func NewRunEndEncodedScalar(v Scalar, dt *arrow.RunEndEncodedType) *RunEndEncoded {
+	return &RunEndEncoded{scalar: scalar{dt, v.IsValid()}, Value: v}
 }
 
 func (s *RunEndEncoded) Release() {
@@ -779,8 +777,13 @@ func (s *RunEndEncoded) Validate() (err error) {
 	}
 
 	if s.Type.ID() != arrow.RUN_END_ENCODED {
-		err = fmt.Errorf("%w: run-end-encoded scalar should not have type %s",
+		return fmt.Errorf("%w: run-end-encoded scalar should not have type %s",
 			arrow.ErrInvalid, s.Type)
+	}
+
+	if !arrow.TypeEqual(s.Value.DataType(), s.Type.(*arrow.RunEndEncodedType).Encoded()) {
+		return fmt.Errorf("%w: run-end-encoded scalar value type %s does not match type %s",
+			arrow.ErrInvalid, s.Value.DataType(), s.Type)
 	}
 	return
 }
@@ -789,12 +792,11 @@ func (s *RunEndEncoded) ValidateFull() error { return s.Validate() }
 
 func (s *RunEndEncoded) equals(rhs Scalar) bool {
 	other := rhs.(*RunEndEncoded)
-	return s.RunLength == other.RunLength && Equals(s.Value, other.Value)
+	return Equals(s.Value, other.Value)
 }
 
 func (s *RunEndEncoded) String() string {
-	return fmt.Sprintf("{run_length=%d, value=%v}",
-		s.RunLength, s.Value)
+	return s.Value.String()
 }
 
 func (s *RunEndEncoded) CastTo(to arrow.DataType) (Scalar, error) {
@@ -806,11 +808,14 @@ func (s *RunEndEncoded) CastTo(to arrow.DataType) (Scalar, error) {
 		return s, nil
 	}
 
-	if to.ID() == arrow.STRING {
-		return NewStringScalar("[" +
-			strings.Repeat(s.Value.String(), int(s.RunLength)) + "]"), nil
+	if otherREE, ok := to.(*arrow.RunEndEncodedType); ok {
+		sc, err := s.Value.CastTo(otherREE.Encoded())
+		if err != nil {
+			return nil, err
+		}
+
+		return NewRunEndEncodedScalar(sc, otherREE), nil
 	}
 
-	return nil, fmt.Errorf("%w: cannot convert non-nil run-end-encoded scalar to type %s",
-		arrow.ErrInvalid, to)
+	return s.Value.CastTo(to)
 }

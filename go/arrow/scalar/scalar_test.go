@@ -868,7 +868,7 @@ func getScalars(mem memory.Allocator) []scalar.Scalar {
 		scalar.NewFixedSizeListScalar(int8Arr),
 		scalar.NewStructScalar([]scalar.Scalar{scalar.NewInt32Scalar(2), scalar.NewInt32Scalar(6)},
 			arrow.StructOf([]arrow.Field{{Name: "min", Type: arrow.PrimitiveTypes.Int32}, {Name: "max", Type: arrow.PrimitiveTypes.Int32}}...)),
-		scalar.NewRunEndEncodedScalar(scalar.NewStringScalarFromBuffer(hello), 10,
+		scalar.NewRunEndEncodedScalar(scalar.NewStringScalarFromBuffer(hello),
 			arrow.RunEndEncodedOf(arrow.PrimitiveTypes.Int32, arrow.BinaryTypes.String)),
 	}
 }
@@ -897,20 +897,12 @@ func TestMakeArrayFromScalar(t *testing.T) {
 				assert.NoError(t, err)
 				defer arr.Release()
 
-				if s.DataType().ID() != arrow.RUN_END_ENCODED {
-					assert.Equal(t, length, arr.Len())
-				} else {
-					assert.Equal(t, length*int(s.(*scalar.RunEndEncoded).RunLength), arr.Len())
-				}
+				assert.Equal(t, length, arr.Len())
 				assert.Zero(t, arr.NullN())
 
 				for _, i := range []int{0, length / 2, length - 1} {
 					scalarCompare, err := scalar.GetScalar(arr, i)
 					assert.NoError(t, err)
-					if s.DataType().ID() == arrow.RUN_END_ENCODED {
-						v := s.(*scalar.RunEndEncoded).Value
-						s = scalar.NewRunEndEncodedScalar(v, int64(arr.Len()-i), s.DataType().(*arrow.RunEndEncodedType))
-					}
 					assert.True(t, scalar.Equals(s, scalarCompare))
 					if ls, ok := scalarCompare.(scalar.Releasable); ok {
 						ls.Release()
@@ -1449,10 +1441,9 @@ func TestRunEndEncodedGetScalar(t *testing.T) {
 		arr   arrow.Array
 		idx   int
 		exval string
-		exrun int64
 	}{
-		{"simple", reeArray, 225, "world", 75},
-		{"offset", slice, 125, "of", 76},
+		{"simple", reeArray, 225, "world"},
+		{"offset", slice, 125, "of"},
 	}
 
 	for _, tt := range tests {
@@ -1463,7 +1454,6 @@ func TestRunEndEncodedGetScalar(t *testing.T) {
 			defer reeScalar.Release()
 
 			assert.NoError(t, reeScalar.Validate())
-			assert.Equal(t, tt.exrun, reeScalar.RunLength)
 			expectedType := tt.arr.DataType().(*arrow.RunEndEncodedType).Encoded()
 			assert.Truef(t, arrow.TypeEqual(expectedType, reeScalar.Value.DataType()),
 				"expected: %s\ngot: %s", expectedType, reeScalar.Value.DataType())

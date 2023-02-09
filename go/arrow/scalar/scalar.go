@@ -678,21 +678,7 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 			return nil, err
 		}
 
-		var runLength int64
-
-		runEnds := arr.RunEndsArr()
-		switch ends := runEnds.(type) {
-		case *array.Int16:
-			runLength = int64(ends.Value(physicalIndex))
-		case *array.Int32:
-			runLength = int64(ends.Value(physicalIndex))
-		case *array.Int64:
-			runLength = int64(ends.Value(physicalIndex))
-		}
-
-		runLength = runLength - int64(idx) - int64(arr.Offset())
-		return NewRunEndEncodedScalar(value, runLength,
-			arr.DataType().(*arrow.RunEndEncodedType)), nil
+		return NewRunEndEncodedScalar(value, arr.DataType().(*arrow.RunEndEncodedType)), nil
 	case *array.Dictionary:
 		ty := arr.DataType().(*arrow.DictionaryType)
 		valid := arr.IsValid(idx)
@@ -939,30 +925,25 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (arrow.Arr
 		return array.MakeFromData(data), nil
 	case *RunEndEncoded:
 		dt := s.DataType().(*arrow.RunEndEncodedType)
-		totalLen := uint64(s.RunLength * int64(length))
 
 		var endBytes []byte
 		switch dt.RunEnds().ID() {
 		case arrow.INT16:
-			if totalLen > math.MaxInt16 {
-				return nil, fmt.Errorf("%w: final length overflows int16 run ends", arrow.ErrInvalid)
+			if length > math.MaxInt16 {
+				return nil, fmt.Errorf("%w: length overflows int16 run ends", arrow.ErrInvalid)
 			}
 
-			v := int16(totalLen)
+			v := int16(length)
 			endBytes = (*[2]byte)(unsafe.Pointer(&v))[:]
 		case arrow.INT32:
-			if totalLen > math.MaxInt32 {
-				return nil, fmt.Errorf("%w: final length overflows int16 run ends", arrow.ErrInvalid)
+			if length > math.MaxInt32 {
+				return nil, fmt.Errorf("%w: final length overflows int32 run ends", arrow.ErrInvalid)
 			}
 
-			v := int32(totalLen)
+			v := int32(length)
 			endBytes = (*[4]byte)(unsafe.Pointer(&v))[:]
 		case arrow.INT64:
-			if totalLen > math.MaxInt64 {
-				return nil, fmt.Errorf("%w: final length overflows int16 run ends", arrow.ErrInvalid)
-			}
-
-			v := int64(totalLen)
+			v := int64(length)
 			endBytes = (*[8]byte)(unsafe.Pointer(&v))[:]
 		}
 
@@ -978,7 +959,7 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (arrow.Arr
 		runEndsData := array.NewData(dt.RunEnds(), 1, []*memory.Buffer{nil, endBuf}, nil, 0, 0)
 		defer runEndsData.Release()
 
-		finalData := array.NewData(s.DataType(), int(totalLen), []*memory.Buffer{nil},
+		finalData := array.NewData(s.DataType(), length, []*memory.Buffer{nil},
 			[]arrow.ArrayData{runEndsData, valueArr.Data()}, 0, 0)
 		defer finalData.Release()
 		return array.NewRunEndEncodedData(finalData), nil
@@ -1062,7 +1043,7 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 			out ^= Hash(seed, s.Value.Index)
 		}
 	case *RunEndEncoded:
-		return valueHash(s.RunLength) & Hash(seed, s.Value)
+		return Hash(seed, s.Value)
 	case PrimitiveScalar:
 		h.Write(s.Data())
 		hash()
