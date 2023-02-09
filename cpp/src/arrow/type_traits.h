@@ -385,6 +385,7 @@ template <>
 struct TypeTraits<RunEndEncodedType> {
   using ArrayType = RunEndEncodedArray;
   // TODO(felipecrv): using BuilderType = RunEndEncodedBuilder;
+  using ScalarType = RunEndEncodedScalar;
 
   constexpr static bool is_parameter_free = false;
 };

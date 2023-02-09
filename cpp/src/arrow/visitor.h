@@ -164,6 +164,7 @@ class ARROW_EXPORT ScalarVisitor {
   virtual Status Visit(const DictionaryScalar& scalar);
   virtual Status Visit(const SparseUnionScalar& scalar);
   virtual Status Visit(const DenseUnionScalar& scalar);
+  virtual Status Visit(const RunEndEncodedScalar& scalar);
   virtual Status Visit(const ExtensionScalar& scalar);
 };
 

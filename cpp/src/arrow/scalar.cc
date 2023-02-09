@@ -583,6 +583,17 @@ Result<std::shared_ptr<Scalar>> StructScalar::field(FieldRef ref) const {
   }
 }
 
+RunEndEncodedScalar::RunEndEncodedScalar(std::shared_ptr<Scalar> value,
+                                         std::shared_ptr<DataType> type)
+    : Scalar{std::move(type), value->is_valid}, value{std::move(value)} {}
+
+RunEndEncodedScalar::RunEndEncodedScalar(const std::shared_ptr<DataType>& type)
+    : RunEndEncodedScalar(
+          MakeNullScalar(checked_cast<const RunEndEncodedType&>(*type).value_type()),
+          type) {}
+
+RunEndEncodedScalar::~RunEndEncodedScalar() = default;
+
 DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)
     : internal::PrimitiveScalarBase(std::move(type)),
       value{MakeNullScalar(checked_cast<const DictionaryType&>(*this->type).index_type()),
