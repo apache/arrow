@@ -62,7 +62,9 @@ fs$CreateDir(now)
 withr::defer(fs$DeleteDir(now))
 
 test_that("Confirm s3_bucket works with endpoint_override", {
-  bucket <- s3_bucket(now, endpoint_override = paste0("localhost:", minio_port))
+  
+  
+  bucket <- s3_bucket("test", endpoint_override = "https://play.min.io")
   expect_r6_class(bucket, "SubTreeFileSystem")
 })
 
