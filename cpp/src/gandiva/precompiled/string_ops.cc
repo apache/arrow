@@ -828,6 +828,29 @@ const char* substr_utf8_int64(gdv_int64 context, const char* input, gdv_int32 in
 }
 
 FORCE_INLINE
+const char* gdv_fn_geo_hash_encode_float64_float64(gdv_int64 context, gdv_float64 lat, gdv_float64 lon,
+                              gdv_int32* out_len) {
+  //if (repeat_number == 0 || in_len <= 0) {
+  //  *out_len = 0;
+  //  return "";
+  //}
+
+
+  //Gandiva-blarg
+  *out_len = 14;
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  std::string out_string = "Gandiva-blarg";
+  memcpy(ret, out_string.c_str(), *out_len);
+  return ret;
+}
+
+FORCE_INLINE
 const char* repeat_utf8_int32(gdv_int64 context, const char* in, gdv_int32 in_len,
                               gdv_int32 repeat_number, gdv_int32* out_len) {
   // if the repeat number is zero, then return empty string
