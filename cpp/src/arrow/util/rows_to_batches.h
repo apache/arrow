@@ -112,7 +112,7 @@ template <class Range, class DataPointConvertor,
     ARROW_ASSIGN_OR_RAISE(auto record_batch_builder,
                           RecordBatchBuilder::Make(schema, pool, batch_size));
 
-    for (size_t i = 0; i < batch_size and (rows_ittr != rows_ittr_end);
+    for (size_t i = 0; i < batch_size && (rows_ittr != rows_ittr_end);
          i++, std::advance(rows_ittr, 1)) {
       int col_index = 0;
       ARROW_ASSIGN_OR_RAISE(auto row, row_accessor(*rows_ittr));
