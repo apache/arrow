@@ -714,8 +714,7 @@ def test_struct_from_arrays():
         pa.StructArray.from_arrays(
             arrays, fields, mask=pa.chunked_array([mask]))
 
-    # Non-empty array with no fields
-    # https://github.com/apache/arrow/issues/15109
+    # Non-empty array with no fields https://github.com/apache/arrow/issues/15109
     arr = pa.StructArray.from_arrays([], [], mask=mask)
     assert arr.is_null() == mask
     assert arr.to_pylist() == [None, {}, {}]
