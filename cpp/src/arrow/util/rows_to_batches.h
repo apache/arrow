@@ -85,7 +85,7 @@ struct is_range<T, std::void_t<decltype(std::begin(std::declval<T>())),
 
 /// \param[in] row_accessor - In the common case where the value of each row iterated
 /// over is it's self also directly iterable, the client can just use the default.
-/// The provided callable must take the values of the otter `rows` range and return a
+/// The provided callable must take the values of the `rows` range and return a
 /// `std::reference_wrapper<Range>` to the data points in a given row. The data points
 /// must be in order of their corresponding fields in the schema.
 /// see: /ref `MakeDefaultRowAccessor`
