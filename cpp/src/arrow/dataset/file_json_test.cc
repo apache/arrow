@@ -58,7 +58,10 @@ static Status VisitWriteableTypeId(Type::type id, VISITOR* visitor) {
 // dataset API as well. However, this ad-hoc implementation is good enough for the shared
 // format test fixtures
 struct WriteVisitor {
-  static Status OK(bool ok) { return ok ? Status::OK() : Status::Invalid("Unexpected false return from JSON writer"); }
+  static Status OK(bool ok) {
+    return ok ? Status::OK()
+              : Status::Invalid("Unexpected false return from JSON writer");
+  }
 
   template <typename T>
   enable_if_physical_signed_integer<T, Status> Visit(const T*) {

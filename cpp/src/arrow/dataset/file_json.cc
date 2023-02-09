@@ -99,11 +99,10 @@ class JsonFragmentScanner : public FragmentScanner {
     auto future = json::StreamingReader::MakeAsync(
         inspected.stream, format_options.read_options, parse_options,
         io::default_io_context(), cpu_executor);
-    return future.Then(
-        [num_batches, block_size](
-            const ReaderPtr& reader) -> Result<std::shared_ptr<FragmentScanner>> {
-          return std::make_shared<JsonFragmentScanner>(reader, num_batches, block_size);
-        });
+    return future.Then([num_batches, block_size](const ReaderPtr& reader)
+                           -> Result<std::shared_ptr<FragmentScanner>> {
+      return std::make_shared<JsonFragmentScanner>(reader, num_batches, block_size);
+    });
   }
 
  private:
