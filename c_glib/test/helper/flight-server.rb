@@ -27,7 +27,7 @@ module Helper
     end
 
     def virtual_do_is_valid(token)
-      GLib::Bytes.new("identity")
+      "identity"
     end
   end
 
