@@ -163,8 +163,6 @@ def test_cython_api(tmpdir):
                               env=subprocess_env)
 
 
-
-
 @pytest.mark.cython
 def test_visit_strings(tmpdir):
     with tmpdir.as_cwd():
