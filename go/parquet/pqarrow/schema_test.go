@@ -342,9 +342,12 @@ func TestListStructBackwardCompatible(t *testing.T) {
 	pqSchema := schema.NewSchema(schema.MustGroup(schema.NewGroupNode("root", parquet.Repetitions.Required, schema.FieldList{
 		schema.Must(schema.NewGroupNodeLogical("answers", parquet.Repetitions.Optional, schema.FieldList{
 			schema.Must(schema.NewGroupNode("array", parquet.Repetitions.Repeated, schema.FieldList{
-				schema.MustPrimitive(schema.NewPrimitiveNodeLogical("type", parquet.Repetitions.Optional, schema.StringLogicalType{}, parquet.Types.ByteArray, -1, -1)),
-				schema.MustPrimitive(schema.NewPrimitiveNodeLogical("rdata", parquet.Repetitions.Optional, schema.StringLogicalType{}, parquet.Types.ByteArray, -1, -1)),
-				schema.MustPrimitive(schema.NewPrimitiveNodeLogical("class", parquet.Repetitions.Optional, schema.StringLogicalType{}, parquet.Types.ByteArray, -1, -1)),
+				schema.MustPrimitive(schema.NewPrimitiveNodeLogical("type", parquet.Repetitions.Optional,
+					schema.StringLogicalType{}, parquet.Types.ByteArray, -1, -1)),
+				schema.MustPrimitive(schema.NewPrimitiveNodeLogical("rdata", parquet.Repetitions.Optional,
+					schema.StringLogicalType{}, parquet.Types.ByteArray, -1, -1)),
+				schema.MustPrimitive(schema.NewPrimitiveNodeLogical("class", parquet.Repetitions.Optional,
+					schema.StringLogicalType{}, parquet.Types.ByteArray, -1, -1)),
 			}, -1)),
 		}, schema.NewListLogicalType(), -1)),
 	}, -1)))
