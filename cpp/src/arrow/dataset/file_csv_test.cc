@@ -26,7 +26,7 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/plan.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/io/compressed.h"
 #include "arrow/io/memory.h"
@@ -457,6 +457,11 @@ INSTANTIATE_TEST_SUITE_P(TestUncompressedCsv, TestCsvFileFormat,
 INSTANTIATE_TEST_SUITE_P(TestUncompressedCsvV2, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::UNCOMPRESSED,
                                                                true}));
+
+// Writing even small CSV files takes a lot of time in valgrind.  The various compression
+// codecs should be independently tested and so we do not need to cover those with
+// valgrind here.
+#ifndef ARROW_VALGRIND
 #ifdef ARROW_WITH_BZ2
 INSTANTIATE_TEST_SUITE_P(TestBZ2Csv, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::BZ2, false}));
@@ -486,6 +491,7 @@ INSTANTIATE_TEST_SUITE_P(TestZSTDCsv, TestCsvFileFormat,
 INSTANTIATE_TEST_SUITE_P(TestZSTDCsvV2, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::ZSTD, true}));
 #endif
+#endif  // ARROW_VALGRIND
 
 class TestCsvFileFormatScan : public FileFormatScanMixin<CsvFormatHelper> {};
 

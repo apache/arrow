@@ -18,7 +18,7 @@
 // by FlightSQL servers and clients.
 package schema_ref
 
-import "github.com/apache/arrow/go/v11/arrow"
+import "github.com/apache/arrow/go/v12/arrow"
 
 var (
 	Catalogs = arrow.NewSchema(

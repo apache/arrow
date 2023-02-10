@@ -74,14 +74,19 @@ class ARROW_ENGINE_EXPORT ExtensionDetails {
 
 class ARROW_ENGINE_EXPORT ExtensionProvider {
  public:
-  static std::shared_ptr<ExtensionProvider> kDefaultExtensionProvider;
   virtual ~ExtensionProvider() = default;
   virtual Result<RelationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
                                        const ExtensionDetails& ext_details,
                                        const ExtensionSet& ext_set) = 0;
 };
 
+/// \brief Get the default extension provider
 ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionProvider> default_extension_provider();
+/// \brief Set the default extension provider
+///
+/// \param[in] provider the new provider to be set as default
+ARROW_ENGINE_EXPORT void set_default_extension_provider(
+    const std::shared_ptr<ExtensionProvider>& provider);
 
 /// Options that control the conversion between Substrait and Acero representations of a
 /// plan.

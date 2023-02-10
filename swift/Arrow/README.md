@@ -1,0 +1,49 @@
+<!---
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+-->
+
+# Apache Arrow Swift
+
+An implementation of Arrow targeting Swift.
+
+## Status
+
+## Memory Management
+
+- Allocations are 64-byte aligned and padded to 8-bytes.
+- Allocations are automatically garbage collected
+
+## Arrays
+
+### Primitive Types
+
+- Int8, Int16, Int32, Int64
+- UInt8, UInt16, UInt32, UInt64
+- Float, Double
+- String (utf-8)
+
+### Parametric Types
+
+- Date32
+- Date64
+
+### Type Metadata
+
+- Data Types
+- Fields
+- Schema

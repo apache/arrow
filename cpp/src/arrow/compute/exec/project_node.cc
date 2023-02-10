@@ -39,7 +39,7 @@ using internal::checked_cast;
 namespace compute {
 namespace {
 
-class ProjectNode : public MapNode, public TracedNode<ProjectNode> {
+class ProjectNode : public MapNode {
  public:
   ProjectNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
               std::shared_ptr<Schema> output_schema, std::vector<Expression> exprs)

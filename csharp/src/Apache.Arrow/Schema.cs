@@ -47,9 +47,7 @@ namespace Apache.Arrow
 
             _fields = fields.ToList();
 
-            _fieldsDictionary = fields.ToDictionary(
-                field => field.Name, field => field,
-                StringComparer.OrdinalIgnoreCase);
+            _fieldsDictionary = fields.ToDictionary(field => field.Name, field => field);
 
             Metadata = metadata?.ToDictionary(kv => kv.Key, kv => kv.Value);
         }
@@ -61,9 +59,7 @@ namespace Apache.Arrow
 
             _fields = fields;
 
-            _fieldsDictionary = fields.ToDictionary(
-                field => field.Name, field => field,
-                StringComparer.OrdinalIgnoreCase);
+            _fieldsDictionary = fields.ToDictionary(field => field.Name, field => field);
 
             Metadata = metadata;
         }

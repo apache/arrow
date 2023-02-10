@@ -23,7 +23,7 @@
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"
-#include "arrow/compute/kernels/row_encoder.h"
+#include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/thread_pool.h"
 
@@ -160,7 +160,8 @@ class JoinBenchmark {
         &ctx_, settings.join_type, settings.num_threads, &(schema_mgr_->proj_maps[0]),
         &(schema_mgr_->proj_maps[1]), std::move(key_cmp), std::move(filter),
         std::move(register_task_group_callback), std::move(start_task_group_callback),
-        [](int64_t, ExecBatch) {}, [](int64_t x) {}));
+        [](int64_t, ExecBatch) { return Status::OK(); },
+        [](int64_t) { return Status::OK(); }));
 
     task_group_probe_ = scheduler_->RegisterTaskGroup(
         [this](size_t thread_index, int64_t task_id) -> Status {

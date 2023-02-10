@@ -81,7 +81,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
                    const ArrowWriterProperties& arrow_properties, NodePtr* out);
 
 Status ListToNode(const std::shared_ptr<::arrow::BaseListType>& type,
-                  const std::string& name, bool nullable,
+                  const std::string& name, bool nullable, int field_id,
                   const WriterProperties& properties,
                   const ArrowWriterProperties& arrow_properties, NodePtr* out) {
   NodePtr element;
@@ -92,12 +92,12 @@ Status ListToNode(const std::shared_ptr<::arrow::BaseListType>& type,
 
   NodePtr list = GroupNode::Make("list", Repetition::REPEATED, {element});
   *out = GroupNode::Make(name, RepetitionFromNullable(nullable), {list},
-                         LogicalType::List());
+                         LogicalType::List(), field_id);
   return Status::OK();
 }
 
 Status MapToNode(const std::shared_ptr<::arrow::MapType>& type, const std::string& name,
-                 bool nullable, const WriterProperties& properties,
+                 bool nullable, int field_id, const WriterProperties& properties,
                  const ArrowWriterProperties& arrow_properties, NodePtr* out) {
   // TODO: Should we offer a non-compliant mode that forwards the type names?
   NodePtr key_node;
@@ -111,12 +111,12 @@ Status MapToNode(const std::shared_ptr<::arrow::MapType>& type, const std::strin
   NodePtr key_value =
       GroupNode::Make("key_value", Repetition::REPEATED, {key_node, value_node});
   *out = GroupNode::Make(name, RepetitionFromNullable(nullable), {key_value},
-                         LogicalType::Map());
+                         LogicalType::Map(), field_id);
   return Status::OK();
 }
 
 Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
-                    const std::string& name, bool nullable,
+                    const std::string& name, bool nullable, int field_id,
                     const WriterProperties& properties,
                     const ArrowWriterProperties& arrow_properties, NodePtr* out) {
   std::vector<NodePtr> children(type->num_fields());
@@ -134,7 +134,8 @@ Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
                                   "Consider adding a dummy child field.");
   }
 
-  *out = GroupNode::Make(name, RepetitionFromNullable(nullable), std::move(children));
+  *out = GroupNode::Make(name, RepetitionFromNullable(nullable), std::move(children),
+                         nullptr, field_id);
   return Status::OK();
 }
 
@@ -281,6 +282,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
   std::shared_ptr<const LogicalType> logical_type = LogicalType::None();
   ParquetType::type type;
   Repetition::type repetition = RepetitionFromNullable(field->nullable());
+  int field_id = FieldIdFromMetadata(field->metadata());
 
   int length = -1;
   int precision = -1;
@@ -399,15 +401,15 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
       break;
     case ArrowTypeId::STRUCT: {
       auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type());
-      return StructToNode(struct_type, name, field->nullable(), properties,
+      return StructToNode(struct_type, name, field->nullable(), field_id, properties,
                           arrow_properties, out);
     }
     case ArrowTypeId::FIXED_SIZE_LIST:
     case ArrowTypeId::LARGE_LIST:
     case ArrowTypeId::LIST: {
       auto list_type = std::static_pointer_cast<::arrow::BaseListType>(field->type());
-      return ListToNode(list_type, name, field->nullable(), properties, arrow_properties,
-                        out);
+      return ListToNode(list_type, name, field->nullable(), field_id, properties,
+                        arrow_properties, out);
     }
     case ArrowTypeId::DICTIONARY: {
       // Parquet has no Dictionary type, dictionary-encoded is handled on
@@ -426,8 +428,8 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
     case ArrowTypeId::MAP: {
       auto map_type = std::static_pointer_cast<::arrow::MapType>(field->type());
-      return MapToNode(map_type, name, field->nullable(), properties, arrow_properties,
-                       out);
+      return MapToNode(map_type, name, field->nullable(), field_id, properties,
+                       arrow_properties, out);
     }
 
     default: {
@@ -438,7 +440,6 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
   }
 
-  int field_id = FieldIdFromMetadata(field->metadata());
   PARQUET_CATCH_NOT_OK(*out = PrimitiveNode::Make(name, repetition, logical_type, type,
                                                   length, field_id));
 

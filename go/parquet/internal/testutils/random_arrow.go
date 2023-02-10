@@ -17,9 +17,9 @@
 package testutils
 
 import (
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"golang.org/x/exp/rand"
 )
 
@@ -136,8 +136,15 @@ func RandomNonNull(dt arrow.DataType, size int) arrow.Array {
 			bldr.Append("test-string")
 		}
 		return bldr.NewArray()
-	case arrow.BINARY:
-		bldr := array.NewBinaryBuilder(memory.DefaultAllocator, arrow.BinaryTypes.Binary)
+	case arrow.LARGE_STRING:
+		bldr := array.NewLargeStringBuilder(memory.DefaultAllocator)
+		defer bldr.Release()
+		for i := 0; i < size; i++ {
+			bldr.Append("test-large-string")
+		}
+		return bldr.NewArray()
+	case arrow.BINARY, arrow.LARGE_BINARY:
+		bldr := array.NewBinaryBuilder(memory.DefaultAllocator, dt.(arrow.BinaryDataType))
 		defer bldr.Release()
 
 		buf := make([]byte, 12)

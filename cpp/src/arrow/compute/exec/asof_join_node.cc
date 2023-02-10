@@ -77,26 +77,26 @@ struct TolType {
   constexpr static OnType kMaxValue = std::numeric_limits<OnType>::max();
 
   explicit TolType(int64_t tol)
-      : value(static_cast<uint64_t>(tol < 0 ? -tol : tol)), negative(tol < 0) {}
+      : value(static_cast<uint64_t>(tol > 0 ? tol : -tol)), positive(tol > 0) {}
 
   OnType value;
-  bool negative;
+  bool positive;
 
   // an entry with a time below this threshold expires
   inline OnType Expiry(OnType left_value) {
-    return negative ? left_value
+    return positive ? left_value
                     : (left_value < kMinValue + value ? kMinValue : left_value - value);
   }
 
   // an entry with a time after this threshold is distant
   inline OnType Horizon(OnType left_value) {
-    return negative ? (left_value > kMaxValue - value ? kMaxValue : left_value + value)
+    return positive ? (left_value > kMaxValue - value ? kMaxValue : left_value + value)
                     : left_value;
   }
 
   // true when the tolerance accepts the RHS time given the LHS one
   inline bool Accepts(OnType left_value, OnType right_value) {
-    return negative
+    return positive
                ? (left_value > right_value ? false : right_value - left_value <= value)
                : (left_value < right_value ? false : left_value - right_value <= value);
   }
@@ -223,9 +223,9 @@ struct MemoStore {
       : no_future_(no_future), current_time_(std::numeric_limits<OnType>::lowest()) {}
 
   // true when there are no future entries, which is the case for the LHS table and the
-  // case for when the tolerance is positive. A regular non-negative-tolerance as-of-join
+  // case for when the tolerance is non-positive. A non-positive-tolerance as-of-join
   // operation requires memorizing only the most recently observed entry per key. OTOH, a
-  // negative-tolerance (future) as-of-join operation requires memorizing per-key queues
+  // positive-tolerance (future) as-of-join operation requires memorizing per-key queues
   // of entries up to the tolerance's horizon and in particular distinguishes between the
   // current (front-of-queue) and latest (back-of-queue) entries per key.
   bool no_future_;
@@ -501,7 +501,7 @@ class InputState {
         must_hash_(must_hash),
         may_rehash_(may_rehash),
         tolerance_(tolerance),
-        memo_(/*no_future=*/index == 0 || !tolerance.negative) {
+        memo_(/*no_future=*/index == 0 || !tolerance.positive) {
     for (size_t k = 0; k < key_col_index_.size(); k++) {
       key_type_id_[k] = schema_->fields()[key_col_index_[k]]->type()->id();
     }
@@ -552,13 +552,13 @@ class InputState {
   }
 
   // true when the queue is empty and, when memo may have future entries (the case of a
-  // negative tolerance), when the memo is empty.
+  // positive tolerance), when the memo is empty.
   // used when checking whether RHS is up to date with LHS.
   bool CurrentEmpty() const {
     return memo_.no_future_ ? Empty() : memo_.times_.empty() && Empty();
   }
 
-  // in case memo may not have future entries (the case of a non-negative tolerance),
+  // in case memo may not have future entries (the case of a non-positive tolerance),
   // returns the latest time (which is current); otherwise, returns the current time.
   // used when checking whether RHS is up to date with LHS.
   OnType GetCurrentTime() const {

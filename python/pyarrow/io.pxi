@@ -1832,7 +1832,7 @@ cdef get_writer(object source, shared_ptr[COutputStream]* writer):
         nf = source
         writer[0] = nf.get_output_stream()
     else:
-        raise TypeError('Unable to read from object of type: {0}'
+        raise TypeError('Unable to write to object of type: {0}'
                         .format(type(source)))
 
 
