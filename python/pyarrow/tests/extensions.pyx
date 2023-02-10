@@ -57,8 +57,13 @@ cdef extern from * namespace "arrow::py" nogil:
         std::string Serialize() const override { return ""; }
     };
 
+
     std::shared_ptr<DataType> MakeUuidType() {
         return std::make_shared<UuidType>();
+    }
+
+    void RegisterUuidType() {
+        RegisterExtensionType(std::make_shared<UuidType>());
     }
 
     std::shared_ptr<Array> MakeUuidArray() {
@@ -74,6 +79,11 @@ cdef extern from * namespace "arrow::py" nogil:
 
     cdef shared_ptr[CDataType] CMakeUuidType" arrow::py::MakeUuidType"()
     cdef shared_ptr[CArray] CMakeUuidArray" arrow::py::MakeUuidArray"()
+    cdef void CRegisterUuidType" arrow::py::RegisterUuidType"()
+
+
+def _register_uuid_type():
+    CRegisterUuidType()
 
 
 def _make_uuid_type():

@@ -1111,6 +1111,7 @@ def test_cpp_extension_in_python(tmpdir):
     sys.path.insert(0, str(tmpdir))
     mod = __import__('extensions')
 
+    mod._register_uuid_type()
     uuid_type = mod._make_uuid_type()
     assert uuid_type.extension_name == "uuid"
     assert uuid_type.storage_type == pa.binary(16)
@@ -1120,8 +1121,6 @@ def test_cpp_extension_in_python(tmpdir):
     assert array.to_pylist() == [b'abcdefghijklmno0', b'0onmlkjihgfedcba']
     assert array[0].as_py() == b'abcdefghijklmno0'
     assert array[1].as_py() == b'0onmlkjihgfedcba'
-
-    pa.register_extension_type(uuid_type)
 
     buf = ipc_write_batch(pa.RecordBatch.from_arrays([array], ["uuid"]))
     del array
