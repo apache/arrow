@@ -39,6 +39,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/crc32.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
@@ -471,6 +472,20 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       ParquetException::EofException(ss.str());
     }
 
+    const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
+
+    // TODO(PARQUET-594) crc checksum for DATA_PAGE_V2 and DICT_PAGE
+    if (properties_.page_checksum_verification() && page_type == PageType::DATA_PAGE &&
+        current_page_header_.__isset.crc) {
+      // verify crc
+      uint32_t checksum =
+          ::arrow::internal::crc32(/* prev */ 0, page_buffer->data(), compressed_len);
+      if (static_cast<int32_t>(checksum) != current_page_header_.crc) {
+        throw ParquetException(
+            "could not verify page integrity, CRC checksum verification failed");
+      }
+    }
+
     // Decrypt it if we need to
     if (crypto_ctx_.data_decryptor != nullptr) {
       PARQUET_THROW_NOT_OK(decryption_buffer_->Resize(
@@ -482,8 +497,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       page_buffer = decryption_buffer_;
     }
 
-    // Uncompress and construct the pages to return.
-    const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
     if (page_type == PageType::DICTIONARY_PAGE) {
       crypto_ctx_.start_decrypt_with_dictionary_page = false;
       const format::DictionaryPageHeader& dict_header =

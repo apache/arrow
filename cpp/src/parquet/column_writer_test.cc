@@ -81,11 +81,14 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   Type::type type_num() { return TestType::type_num; }
 
   void BuildReader(int64_t num_rows,
-                   Compression::type compression = Compression::UNCOMPRESSED) {
+                   Compression::type compression = Compression::UNCOMPRESSED,
+                   bool page_checksum_verify = false) {
     ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
     auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+    ReaderProperties readerProperties;
+    readerProperties.set_page_checksum_verification(page_checksum_verify);
     std::unique_ptr<PageReader> page_reader =
-        PageReader::Open(std::move(source), num_rows, compression);
+        PageReader::Open(std::move(source), num_rows, compression, readerProperties);
     reader_ = std::static_pointer_cast<TypedColumnReader<TestType>>(
         ColumnReader::Make(this->descr_, std::move(page_reader)));
   }
@@ -93,7 +96,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   std::shared_ptr<TypedColumnWriter<TestType>> BuildWriter(
       int64_t output_size = SMALL_SIZE,
       const ColumnProperties& column_properties = ColumnProperties(),
-      const ParquetVersion::type version = ParquetVersion::PARQUET_1_0) {
+      const ParquetVersion::type version = ParquetVersion::PARQUET_1_0,
+      bool enable_checksum = false) {
     sink_ = CreateOutputStream();
     WriterProperties::Builder wp_builder;
     wp_builder.version(version);
@@ -105,27 +109,35 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       wp_builder.disable_dictionary();
       wp_builder.encoding(column_properties.encoding());
     }
+    if (enable_checksum) {
+      wp_builder.enable_page_checksum();
+    }
     wp_builder.max_statistics_size(column_properties.max_statistics_size());
     writer_properties_ = wp_builder.build();
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
-    std::unique_ptr<PageWriter> pager =
-        PageWriter::Open(sink_, column_properties.compression(),
-                         Codec::UseDefaultCompressionLevel(), metadata_.get());
+    std::unique_ptr<PageWriter> pager = PageWriter::Open(
+        sink_, column_properties.compression(), Codec::UseDefaultCompressionLevel(),
+        metadata_.get(), /* row_group_ordinal */ -1, /* column_chunk_ordinal*/ -1,
+        ::arrow::default_memory_pool(), /* buffered_row_group */ false,
+        /* header_encryptor */ NULLPTR, /* data_encryptor */ NULLPTR, enable_checksum);
     std::shared_ptr<ColumnWriter> writer =
         ColumnWriter::Make(metadata_.get(), std::move(pager), writer_properties_.get());
     return std::static_pointer_cast<TypedColumnWriter<TestType>>(writer);
   }
 
-  void ReadColumn(Compression::type compression = Compression::UNCOMPRESSED) {
-    BuildReader(static_cast<int64_t>(this->values_out_.size()), compression);
+  void ReadColumn(Compression::type compression = Compression::UNCOMPRESSED,
+                  bool page_checksum_verify = false) {
+    BuildReader(static_cast<int64_t>(this->values_out_.size()), compression,
+                page_checksum_verify);
     reader_->ReadBatch(static_cast<int>(this->values_out_.size()),
                        definition_levels_out_.data(), repetition_levels_out_.data(),
                        this->values_out_ptr_, &values_read_);
     this->SyncValuesOut();
   }
 
-  void ReadColumnFully(Compression::type compression = Compression::UNCOMPRESSED);
+  void ReadColumnFully(Compression::type compression = Compression::UNCOMPRESSED,
+                       bool page_checksum_verify = false);
 
   void TestRequiredWithEncoding(Encoding::type encoding) {
     return TestRequiredWithSettings(encoding, Compression::UNCOMPRESSED, false, false);
@@ -134,16 +146,19 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   void TestRequiredWithSettings(
       Encoding::type encoding, Compression::type compression, bool enable_dictionary,
       bool enable_statistics, int64_t num_rows = SMALL_SIZE,
-      int compression_level = Codec::UseDefaultCompressionLevel()) {
+      int compression_level = Codec::UseDefaultCompressionLevel(),
+      bool enable_checksum = false) {
     this->GenerateData(num_rows);
 
     this->WriteRequiredWithSettings(encoding, compression, enable_dictionary,
-                                    enable_statistics, compression_level, num_rows);
-    ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows));
+                                    enable_statistics, compression_level, num_rows,
+                                    enable_checksum);
+    ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows, enable_checksum));
 
     this->WriteRequiredWithSettingsSpaced(encoding, compression, enable_dictionary,
-                                          enable_statistics, num_rows, compression_level);
-    ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows));
+                                          enable_statistics, num_rows, compression_level,
+                                          enable_checksum);
+    ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows, enable_checksum));
   }
 
   void TestDictionaryFallbackEncoding(ParquetVersion::type version) {
@@ -217,12 +232,13 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
   void WriteRequiredWithSettings(Encoding::type encoding, Compression::type compression,
                                  bool enable_dictionary, bool enable_statistics,
-                                 int compression_level, int64_t num_rows) {
+                                 int compression_level, int64_t num_rows,
+                                 bool enable_checksum) {
     ColumnProperties column_properties(encoding, compression, enable_dictionary,
                                        enable_statistics);
     column_properties.set_compression_level(compression_level);
-    std::shared_ptr<TypedColumnWriter<TestType>> writer =
-        this->BuildWriter(num_rows, column_properties);
+    std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
+        num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
     writer->Close();
@@ -232,14 +248,15 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   void WriteRequiredWithSettingsSpaced(Encoding::type encoding,
                                        Compression::type compression,
                                        bool enable_dictionary, bool enable_statistics,
-                                       int64_t num_rows, int compression_level) {
+                                       int64_t num_rows, int compression_level,
+                                       bool enable_checksum) {
     std::vector<uint8_t> valid_bits(
         bit_util::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1, 255);
     ColumnProperties column_properties(encoding, compression, enable_dictionary,
                                        enable_statistics);
     column_properties.set_compression_level(compression_level);
-    std::shared_ptr<TypedColumnWriter<TestType>> writer =
-        this->BuildWriter(num_rows, column_properties);
+    std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
+        num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
     writer->WriteBatchSpaced(this->values_.size(), nullptr, nullptr, valid_bits.data(), 0,
                              this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
@@ -247,9 +264,10 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     writer->Close();
   }
 
-  void ReadAndCompare(Compression::type compression, int64_t num_rows) {
+  void ReadAndCompare(Compression::type compression, int64_t num_rows,
+                      bool page_checksum_verify) {
     this->SetupValuesOut(num_rows);
-    this->ReadColumnFully(compression);
+    this->ReadColumnFully(compression, page_checksum_verify);
     auto comparator = MakeComparator<TestType>(this->descr_);
     for (size_t i = 0; i < this->values_.size(); i++) {
       if (comparator->Compare(this->values_[i], this->values_out_[i]) ||
@@ -329,9 +347,10 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 };
 
 template <typename TestType>
-void TestPrimitiveWriter<TestType>::ReadColumnFully(Compression::type compression) {
+void TestPrimitiveWriter<TestType>::ReadColumnFully(Compression::type compression,
+                                                    bool page_checksum_verify) {
   int64_t total_values = static_cast<int64_t>(this->values_out_.size());
-  BuildReader(total_values, compression);
+  BuildReader(total_values, compression, page_checksum_verify);
   values_read_ = 0;
   while (values_read_ < total_values) {
     int64_t values_read_recently = 0;
@@ -347,9 +366,10 @@ void TestPrimitiveWriter<TestType>::ReadColumnFully(Compression::type compressio
 
 template <>
 void TestPrimitiveWriter<Int96Type>::ReadAndCompare(Compression::type compression,
-                                                    int64_t num_rows) {
+                                                    int64_t num_rows,
+                                                    bool page_checksum_verify) {
   this->SetupValuesOut(num_rows);
-  this->ReadColumnFully(compression);
+  this->ReadColumnFully(compression, page_checksum_verify);
 
   auto comparator = MakeComparator<Int96Type>(Type::INT96, SortOrder::SIGNED);
   for (size_t i = 0; i < this->values_.size(); i++) {
@@ -364,9 +384,10 @@ void TestPrimitiveWriter<Int96Type>::ReadAndCompare(Compression::type compressio
 }
 
 template <>
-void TestPrimitiveWriter<FLBAType>::ReadColumnFully(Compression::type compression) {
+void TestPrimitiveWriter<FLBAType>::ReadColumnFully(Compression::type compression,
+                                                    bool page_checksum_verify) {
   int64_t total_values = static_cast<int64_t>(this->values_out_.size());
-  BuildReader(total_values, compression);
+  BuildReader(total_values, compression, page_checksum_verify);
   this->data_buffer_.clear();
 
   values_read_ = 0;
@@ -650,6 +671,21 @@ TEST(TestWriter, NullValuesBuffer) {
 
   typed_writer->WriteBatchSpaced(num_values, def_levels, rep_levels, valid_bits,
                                  valid_bits_offset, values);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainChecksum) {
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::UNCOMPRESSED,
+                                 /* enable_dictionary */ false, false, SMALL_SIZE,
+                                 Codec::UseDefaultCompressionLevel(),
+                                 /* enable_checksum */ true);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredDictChecksum) {
+  // Note: DictionaryPage will not have checksum.
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::UNCOMPRESSED,
+                                 /* enable_dictionary */ true, false, SMALL_SIZE,
+                                 Codec::UseDefaultCompressionLevel(),
+                                 /* enable_checksum */ true);
 }
 
 // PARQUET-719

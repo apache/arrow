@@ -206,6 +206,7 @@ set(ARROW_SRCS
     util/compression.cc
     util/counting_semaphore.cc
     util/cpu_info.cc
+    util/crc32.cc
     util/debug.cc
     util/decimal.cc
     util/delimiting.cc
