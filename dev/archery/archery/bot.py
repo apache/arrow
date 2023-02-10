@@ -15,10 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import enum
 import os
 import shlex
 from pathlib import Path
-from functools import partial
+from functools import lru_cache, partial
 import tempfile
 
 import click
@@ -27,6 +28,10 @@ import github
 from .utils.git import git
 from .utils.logger import logger
 from .crossbow import Repo, Queue, Config, Target, Job, CommentReport
+
+
+def cached_property(fn):
+    return property(lru_cache(maxsize=1)(fn))
 
 
 class EventError(Exception):
@@ -80,6 +85,122 @@ class Group(_CommandMixin, click.Group):
 
 command = partial(click.command, cls=Command)
 group = partial(click.group, cls=Group)
+
+
+LABEL_PREFIX = "awaiting"
+
+
+@enum.unique
+class PullRequestState(enum.Enum):
+    """State of a pull request."""
+
+    review = f"{LABEL_PREFIX} review"
+    committer_review = f"{LABEL_PREFIX} comitter review"
+    changes = f"{LABEL_PREFIX} changes"
+    change_review = f"{LABEL_PREFIX} change review"
+    merge = f"{LABEL_PREFIX} merge"
+
+
+COMMITTER_ROLES = {'OWNER', 'MEMBER'}
+
+
+class PullRequestWorkflowBot:
+
+    def __init__(self, event_name, event_payload, token=None):
+        self.github = github.Github(token)
+        self.event_name = event_name
+        self.event_payload = event_payload
+
+    @cached_property
+    def pull(self):
+        if self.event_name == 'push':
+            return self._get_pr_for_commit()
+        else:
+            return self.repo.get_pull(self.event_payload['pull_request']['number'])
+
+    @cached_property
+    def repo(self):
+        return self.github.get_repo(self.event_payload['repository']['id'], lazy=True)
+
+    def handle(self):
+        current_state = None
+        try:
+            current_state = self.get_current_state()
+        except EventError:
+            # In case of error (more than one state) we clear state labels
+            # only possible if a label has been manually added.
+            self.clear_current_state()
+        new_state = self.get_target_state(current_state)
+        if current_state != new_state.value:
+            if current_state:
+                self.clear_current_state()
+            self.set_state(new_state)
+
+    def get_current_state(self):
+        states = [label.name for label in self.pull.get_labels()
+                  if label.name.startswith(LABEL_PREFIX)]
+        if len(states) > 1:
+            raise EventError(f"PR cannot be on more than one states - {states}")
+        elif states:
+            return states[0]
+
+    def clear_current_state(self):
+        for label in self.pull.get_labels():
+            if label.name.startswith(LABEL_PREFIX):
+                self.pull.remove_from_labels(label)
+
+    def get_target_state(self, current_state):
+        if (self.event_name == "pull_request" and
+                self.event_payload['action'] == 'opened'):
+            if (self.event_payload['pull_request']['author_association'] in
+                    COMMITTER_ROLES):
+                return PullRequestState.committer_review
+            else:
+                return PullRequestState.review
+        elif (self.event_name == "pull_request_review" and
+                self.event_payload["action"] == "submitted"):
+            review_state = self.event_payload["review"]["state"].lower()
+            is_committer_review = (self.event_payload['review']['author_association']
+                                   in COMMITTER_ROLES)
+            if not is_committer_review:
+                # Non-committer reviews cannot change state once committer has already
+                # reviewed and requested changes.
+                if current_state in (
+                        PullRequestState.change_review.value,
+                        PullRequestState.changes.value):
+                    return PullRequestState(current_state)
+                else:
+                    return PullRequestState.committer_review
+            if review_state == 'approved':
+                return PullRequestState.merge
+            elif review_state in ("changes_requested", "commented"):
+                return PullRequestState.changes
+        elif (self.event_name == "push" and
+              current_state == PullRequestState.changes.value):
+            return PullRequestState.change_review
+        # TODO: Test push on awaiting review!
+        # TODO: Implement case of PRs already opened
+        return PullRequestState(current_state)
+
+    def set_state(self, state):
+        self.pull.add_to_labels(state.value)
+
+    def _get_pr_for_commit(self):
+        """Find the PR containing the specific commit hash."""
+        sha = self.event_payload['commits'][-1]['id']
+        # TODO: Validate this query is working on PR
+        prs_for_commit = self.github.search_issues(
+            "",
+            qualifiers={"type": "pr",
+                        "repo": "raulcd/arrow",
+                        "sha": sha}
+        )
+        pull = None
+        try:
+            pull = self.repo.get_pull(prs_for_commit[0].number)
+        except IndexError:
+            pass
+        return pull
 
 
 class CommentBot:

@@ -781,20 +781,16 @@ def integration(with_all=False, random_seed=12345, **args):
 @click.option('--arrow-token', envvar='ARROW_GITHUB_TOKEN',
               help='OAuth token for responding comment in the arrow repo')
 def trigger_bot(event_name, event_payload, arrow_token):
-    from .bot import CommentBot, actions
-
-    class PullRequestWorkflowBot:
-        def handle(self, event_name, event_payload):
-            print(f"PullRequestWorkflowBot handle: {event_name} - {event_payload}")
-
+    from .bot import CommentBot, PullRequestWorkflowBot, actions
 
     event_payload = json.loads(event_payload.read())
     if 'comment' in event_name:
         bot = CommentBot(name='github-actions', handler=actions, token=arrow_token)
         bot.handle(event_name, event_payload)
     else:
-        bot = PullRequestWorkflowBot()
-        bot.handle(event_name, event_payload)
+        # TODO: Make API for both classes more consistent
+        bot = PullRequestWorkflowBot(event_name, event_payload, token=arrow_token)
+        bot.handle()
 
 
 @archery.group("linking")

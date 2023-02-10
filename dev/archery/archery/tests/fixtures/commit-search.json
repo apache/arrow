@@ -1,0 +1,80 @@
+{
+    "total_count": 1,
+    "incomplete_results": false,
+    "items": [
+      {
+        "url": "https://api.github.com/repos/raulcd/arrow/issues/74",
+        "repository_url": "https://api.github.com/repos/raulcd/arrow",
+        "labels_url": "https://api.github.com/repos/raulcd/arrow/issues/74/labels{/name}",
+        "comments_url": "https://api.github.com/repos/raulcd/arrow/issues/74/comments",
+        "events_url": "https://api.github.com/repos/raulcd/arrow/issues/74/events",
+        "html_url": "https://github.com/raulcd/arrow/pull/74",
+        "id": 1572348024,
+        "node_id": "PR_kwDOHHgT285JU-KQ",
+        "number": 74,
+        "title": "Pr workflow automation poc",
+        "user": {
+          "login": "raulcd",
+          "id": 639755,
+          "node_id": "MDQ6VXNlcjYzOTc1NQ==",
+          "avatar_url": "https://avatars.githubusercontent.com/u/639755?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/raulcd",
+          "html_url": "https://github.com/raulcd",
+          "followers_url": "https://api.github.com/users/raulcd/followers",
+          "following_url": "https://api.github.com/users/raulcd/following{/other_user}",
+          "gists_url": "https://api.github.com/users/raulcd/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/raulcd/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/raulcd/subscriptions",
+          "organizations_url": "https://api.github.com/users/raulcd/orgs",
+          "repos_url": "https://api.github.com/users/raulcd/repos",
+          "events_url": "https://api.github.com/users/raulcd/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/raulcd/received_events",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+  
+        ],
+        "state": "open",
+        "locked": false,
+        "assignee": null,
+        "assignees": [
+  
+        ],
+        "milestone": null,
+        "comments": 1,
+        "created_at": "2023-02-06T10:56:32Z",
+        "updated_at": "2023-02-10T11:30:31Z",
+        "closed_at": null,
+        "author_association": "OWNER",
+        "active_lock_reason": null,
+        "draft": true,
+        "pull_request": {
+          "url": "https://api.github.com/repos/raulcd/arrow/pulls/74",
+          "html_url": "https://github.com/raulcd/arrow/pull/74",
+          "diff_url": "https://github.com/raulcd/arrow/pull/74.diff",
+          "patch_url": "https://github.com/raulcd/arrow/pull/74.patch",
+          "merged_at": null
+        },
+        "body": "<!--\r\nThanks for opening a pull request!\r\nIf this is your first pull request you can find detailed information on how \r\nto contribute here:\r\n  * [New Contributor's Guide](https://arrow.apache.org/docs/dev/developers/guide/step_by_step/pr_lifecycle.html#reviews-and-merge-of-the-pull-request)\r\n  * [Contributing Overview](https://arrow.apache.org/docs/dev/developers/overview.html)\r\n\r\n\r\nIf this is not a [minor PR](https://github.com/apache/arrow/blob/master/CONTRIBUTING.md#Minor-Fixes). Could you open an issue for this pull request on GitHub? https://github.com/apache/arrow/issues/new/choose\r\n\r\nOpening GitHub issues ahead of time contributes to the [Openness](http://theapacheway.com/open/#:~:text=Openness%20allows%20new%20users%20the,must%20happen%20in%20the%20open.) of the Apache Arrow project.\r\n\r\nThen could you also rename the pull request title in the following format?\r\n\r\n    GH-${GITHUB_ISSUE_ID}: [${COMPONENT}] ${SUMMARY}\r\n\r\nor\r\n\r\n    MINOR: [${COMPONENT}] ${SUMMARY}\r\n\r\nIn the case of PARQUET issues on JIRA the title also supports:\r\n\r\n    PARQUET-${JIRA_ISSUE_ID}: [${COMPONENT}] ${SUMMARY}\r\n\r\n-->\r\n\r\n### Rationale for this change\r\n\r\n<!--\r\n Why are you proposing this change? If this is already explained clearly in the issue then this section is not needed.\r\n Explaining clearly why changes are proposed helps reviewers understand your changes and offer better suggestions for fixes.  \r\n-->\r\n\r\n### What changes are included in this PR?\r\n\r\n<!--\r\nThere is no need to duplicate the description in the issue here but it is sometimes worth providing a summary of the individual changes in this PR.\r\n-->\r\n\r\n### Are these changes tested?\r\n\r\n<!--\r\nWe typically require tests for all PRs in order to:\r\n1. Prevent the code from being accidentally broken by subsequent changes\r\n2. Serve as another way to document the expected behavior of the code\r\n\r\nIf tests are not included in your PR, please explain why (for example, are they covered by existing tests)?\r\n-->\r\n\r\n### Are there any user-facing changes?\r\n\r\n<!--\r\nIf there are user-facing changes then we may require documentation to be updated before approving the PR.\r\n-->\r\n\r\n<!--\r\nIf there are any breaking changes to public APIs, please uncomment the line below and explain which changes are breaking.\r\n-->\r\n<!-- **This PR includes breaking changes to public APIs.** -->\r\n\r\n<!--\r\nPlease uncomment the line below (and provide explanation) if the changes fix either (a) a security vulnerability, (b) a bug that caused incorrect or invalid data to be produced, or (c) a bug that causes a crash (even when the API contract is upheld). We use this to highlight fixes to issues that may affect users without their knowledge. For this reason, fixing bugs that cause errors don't count, since those are usually obvious.\r\n-->\r\n<!-- **This PR contains a \"Critical Fix\".** -->",
+        "reactions": {
+          "url": "https://api.github.com/repos/raulcd/arrow/issues/74/reactions",
+          "total_count": 0,
+          "+1": 0,
+          "-1": 0,
+          "laugh": 0,
+          "hooray": 0,
+          "confused": 0,
+          "heart": 0,
+          "rocket": 0,
+          "eyes": 0
+        },
+        "timeline_url": "https://api.github.com/repos/raulcd/arrow/issues/74/timeline",
+        "performed_via_github_app": null,
+        "state_reason": null,
+        "score": 1.0
+      }
+    ]
+  }
+  
