@@ -458,19 +458,20 @@ s3_bucket <- function(bucket, ...) {
   assert_that(is.string(bucket))
   args <- list2(...)
 
-  # Use FileSystemFromUri to detect the bucket's region
-  if (!is_url(bucket)) {
-    bucket <- paste0("s3://", bucket)
-  }
+  # If user specifies args, they must specify region as arg, env var, or config
+  if (length(args) == 0) {
+    # Use FileSystemFromUri to detect the bucket's region
+    if (!is_url(bucket)) {
+      bucket <- paste0("s3://", bucket)
+    }
 
-  if (!length(args)) {
     fs_and_path <- FileSystem$from_uri(bucket)
     fs <- fs_and_path$fs
   } else {
-  # If there are no additional S3Options, we can use that filesystem
-  # If user specifies args, they must specify region as arg, env var, or config
+    # If there are no additional S3Options, we can use that filesystem
     fs <- exec(S3FileSystem$create, !!!args)
   }
+
   # Return a subtree pointing at that bucket path
   SubTreeFileSystem$create(bucket, fs)
 }

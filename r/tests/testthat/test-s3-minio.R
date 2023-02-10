@@ -61,13 +61,6 @@ fs$CreateDir(now)
 # Clean up when we're all done
 withr::defer(fs$DeleteDir(now))
 
-test_that("Confirm s3_bucket works with endpoint_override", {
-  
-  
-  bucket <- s3_bucket("test", endpoint_override = "https://play.min.io")
-  expect_r6_class(bucket, "SubTreeFileSystem")
-})
-
 test_filesystem("s3", fs, minio_path, minio_uri)
 
 test_that("CreateDir fails on bucket if allow_bucket_creation=False", {
@@ -111,6 +104,24 @@ test_that("S3FileSystem input validation", {
     S3FileSystem$create(external_id = "foo"),
     'Cannot specify "external_id" without providing a role_arn string'
   )
+})
+
+test_that("Confirm s3_bucket works with endpoint_override", {
+  bucket <- s3_bucket(
+    now,
+    access_key = minio_key,
+    secret_key = minio_secret,
+    scheme = "http",
+    endpoint_override = paste0("localhost:", minio_port)
+  )
+
+  expect_r6_class(bucket, "SubTreeFileSystem")
+
+  os <- bucket$OpenOutputStream("bucket-test.csv")
+  write_csv_arrow(example_data, os)
+  os$close()
+  expect_true("bucket-test.csv" %in% bucket$ls())
+  bucket$DeleteFile("bucket-test.csv")
 })
 
 # Cleanup
