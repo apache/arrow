@@ -1057,7 +1057,12 @@ macro(build_boost)
   set(BOOST_VENDORED TRUE)
 endmacro()
 
-if(ARROW_BUILD_TESTS)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER
+                                              15)
+  # GH-34094 Older versions of Boost use the deprecated std::unary_function in
+  # boost/container_hash/hash.hpp and support for that was removed in clang 16
+  set(ARROW_BOOST_REQUIRED_VERSION "1.81")
+elseif(ARROW_BUILD_TESTS)
   set(ARROW_BOOST_REQUIRED_VERSION "1.64")
 else()
   set(ARROW_BOOST_REQUIRED_VERSION "1.58")
