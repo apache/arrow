@@ -704,6 +704,13 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedType& left) {
+    const auto& right = checked_cast<const RunEndEncodedType&>(right_);
+    result_ = left.value_type()->Equals(right.value_type()) &&
+              left.run_end_type()->Equals(right.run_end_type());
+    return Status::OK();
+  }
+
   Status Visit(const ExtensionType& left) {
     result_ = left.ExtensionEquals(static_cast<const ExtensionType&>(right_));
     return Status::OK();
