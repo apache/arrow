@@ -384,16 +384,16 @@ std::unique_ptr<GTestDataGenerator> DataGeneratorImpl::FailOnError() {
 
 }  // namespace
 
-std::unique_ptr<ArrayGenerator> Constant(std::shared_ptr<Scalar> value) {
-  return std::make_unique<ConstantGenerator>(std::move(value));
+std::shared_ptr<ArrayGenerator> Constant(std::shared_ptr<Scalar> value) {
+  return std::make_shared<ConstantGenerator>(std::move(value));
 }
 
-std::unique_ptr<ArrayGenerator> Step(uint32_t start, uint32_t step) {
-  return std::make_unique<StepGenerator>(start, step);
+std::shared_ptr<ArrayGenerator> Step(uint32_t start, uint32_t step) {
+  return std::make_shared<StepGenerator>(start, step);
 }
 
-std::unique_ptr<ArrayGenerator> Random(std::shared_ptr<DataType> type) {
-  return std::make_unique<RandomGenerator>(std::move(type));
+std::shared_ptr<ArrayGenerator> Random(std::shared_ptr<DataType> type) {
+  return std::make_shared<RandomGenerator>(std::move(type));
 }
 
 std::shared_ptr<DataGenerator> Gen(std::vector<GeneratorField> fields) {

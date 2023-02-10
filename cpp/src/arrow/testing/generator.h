@@ -286,13 +286,9 @@ class ARROW_TESTING_EXPORT DataGenerator {
 /// If name is not specified then a name will be generated automatically (e.g. f0, f1)
 struct ARROW_TESTING_EXPORT GeneratorField {
  public:
-  explicit GeneratorField(std::shared_ptr<ArrayGenerator> gen)
-      : name(), gen(std::move(gen)) {}
-  explicit GeneratorField(std::unique_ptr<ArrayGenerator> gen)
+  GeneratorField(std::shared_ptr<ArrayGenerator> gen)  // NOLINT implicit conversion
       : name(), gen(std::move(gen)) {}
   GeneratorField(std::string name, std::shared_ptr<ArrayGenerator> gen)
-      : name(std::move(name)), gen(std::move(gen)) {}
-  GeneratorField(std::string name, std::unique_ptr<ArrayGenerator> gen)
       : name(std::move(name)), gen(std::move(gen)) {}
 
   std::optional<std::string> name;
@@ -304,15 +300,15 @@ ARROW_TESTING_EXPORT std::shared_ptr<DataGenerator> Gen(
     std::vector<GeneratorField> column_gens);
 
 /// make a generator that returns a constant value
-ARROW_TESTING_EXPORT std::unique_ptr<ArrayGenerator> Constant(
+ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Constant(
     std::shared_ptr<Scalar> value);
 /// make a generator that returns an incrementing value
 ///
 /// Note: overflow is not prevented standard unsigned integer overflow applies
-ARROW_TESTING_EXPORT std::unique_ptr<ArrayGenerator> Step(uint32_t start = 0,
+ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Step(uint32_t start = 0,
                                                           uint32_t step = 1);
 /// make a generator that returns a random value
-ARROW_TESTING_EXPORT std::unique_ptr<ArrayGenerator> Random(
+ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Random(
     std::shared_ptr<DataType> type);
 /// TODO(if-needed) could add a repeat-scalars generator, e.g. Repeat({1, 2, 3}) for
 /// 1,2,3,1,2,3,1
