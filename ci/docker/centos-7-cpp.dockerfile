@@ -25,6 +25,7 @@ RUN yum install -y \
   libcurl-devel \
   make \
   openssl-devel \
+  openssl-static \
   wget \
   which
 
