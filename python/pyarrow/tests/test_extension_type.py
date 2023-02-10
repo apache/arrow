@@ -1123,8 +1123,8 @@ def test_cpp_extension_in_python(tmpdir):
     assert array[1].as_py() == b'0onmlkjihgfedcba'
 
     buf = ipc_write_batch(pa.RecordBatch.from_arrays([array], ["uuid"]))
-    del array
 
     batch = ipc_read_batch(buf)
-    array = batch.column(0)
-    assert array.type == uuid_type
+    reconstructed_array = batch.column(0)
+    assert reconstructed_array.type == uuid_type
+    assert reconstructed_array == array
