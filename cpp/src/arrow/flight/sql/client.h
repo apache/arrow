@@ -21,6 +21,7 @@
 #include <memory>
 #include <string>
 
+#include "arrow/flight/sql/FlightSql.pb.h"
 #include "arrow/flight/client.h"
 #include "arrow/flight/sql/types.h"
 #include "arrow/flight/sql/visibility.h"
@@ -334,7 +335,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   ///
   /// \param[in] options            RPC-layer hints for this call.
   /// \param[in] session_options    The session options to set.
-  ::arrow::Result<std::vector<SetSessionOptionResult>> SetSessionOptions(const FlightCallOptions& options,
+  ::arrow::Result<std::vector<ActionSetSessionOptionResult.SetSessionOptionResult>> SetSessionOptions(const FlightCallOptions& options,
                                                                          const std::vector<SessionOption>& session_options);
 
   /// \brief Explicitly closes the session if applicable.

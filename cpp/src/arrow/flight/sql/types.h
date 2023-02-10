@@ -51,7 +51,7 @@ using SessionOptionValue =
 struct ARROW_FLIGHT_SQL_EXPORT SessionOption {
   std::string option_key;
   SessionOptionValue option_value;
-}
+};
 
 /// \brief Options to be set in the SqlInfo.
 struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
