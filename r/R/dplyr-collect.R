@@ -184,10 +184,7 @@ implicit_schema <- function(.data) {
     # The group_by vars come first (this can't be done by summarize; they have
     # to be last per the aggregate node signature, and they get projected to
     # this order after aggregation)
-    new_fields <- c(
-      group_types(.data, old_schm),
-      aggregate_types(.data, hash, old_schm)
-    )
+    new_fields <- c(group_types(.data), aggregate_types(.data, hash))
   }
   schema(!!!new_fields)
 }

@@ -336,7 +336,7 @@ aggregate_target_names <- function(data, name) {
 
 # This function returns a named list of the data types of the aggregate columns
 # returned by an aggregation
-aggregate_types <- function(.data, hash) {
+aggregate_types <- function(.data, hash, schema = NULL) {
   if (hash) dummy_groups <- Scalar$create(1L, uint32())
   map(
     .data$aggregations,
@@ -348,21 +348,21 @@ aggregate_types <- function(.data, hash) {
         # groups will not affect the type that an aggregation returns
         args = c(.$data, dummy_groups),
         options = .$options
-      )$type(schema)
+      )$type()
     } else {
       Expression$create(
         .$fun,
         args = .$data,
         options = .$options
-      )$type(schema)
+      )$type()
     }
   )
 }
 
 # This function returns a named list of the data types of the group columns
 # returned by an aggregation
-group_types <- function(.data, schema = NULL) {
-  map(.data$selected_columns[.data$group_by_vars], ~.$type(schema))
+group_types <- function(.data) {
+  map(.data$selected_columns[.data$group_by_vars], ~.$type())
 }
 
 format_aggregation <- function(x) {
