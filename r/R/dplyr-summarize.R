@@ -348,21 +348,21 @@ aggregate_types <- function(.data, hash, schema = NULL) {
         # groups will not affect the type that an aggregation returns
         args = c(.$data, dummy_groups),
         options = .$options
-      )$type()
+      )$type(schema)
     } else {
       Expression$create(
         .$fun,
         args = .$data,
         options = .$options
-      )$type()
+      )$type(schema)
     }
   )
 }
 
 # This function returns a named list of the data types of the group columns
 # returned by an aggregation
-group_types <- function(.data) {
-  map(.data$selected_columns[.data$group_by_vars], ~.$type())
+group_types <- function(.data, schema = NULL) {
+  map(.data$selected_columns[.data$group_by_vars], ~.$type(schema))
 }
 
 format_aggregation <- function(x) {
