@@ -47,6 +47,20 @@ struct is_range<T, std::void_t<decltype(std::begin(std::declval<T>())),
 
 }  // namespace detail
 
+/// Delete overload for `const Range&& rows` because the data's lifetime must exceed
+/// the lifetime of the function call. `data` will be read when client uses the
+/// `RecordBatchReader`
+template <class Range, class DataPointConvertor,
+          class RowAccessor = decltype(detail::MakeDefaultRowAccessor())>
+[[nodiscard]] typename std::enable_if_t<detail::is_range<Range>::value,
+                                        Result<std::shared_ptr<RecordBatchReader>>>
+/* Result<std::shared_ptr<RecordBatchReader>>> */ RowsToBatches(
+    const std::shared_ptr<Schema>& schema, const Range&& rows,
+    DataPointConvertor&& data_point_convertor,
+    RowAccessor&& row_accessor = detail::MakeDefaultRowAccessor(),
+    MemoryPool* pool = default_memory_pool(),
+    const std::size_t batch_size = 1024) = delete;
+
 /// \brief Utility function for converting any row-based structure into an
 /// `arrow::RecordBatchReader` (this can be easily converted to an `arrow::Table` using
 /// `arrow::RecordBatchReader::ToTable()`).
@@ -71,7 +85,7 @@ struct is_range<T, std::void_t<decltype(std::begin(std::declval<T>())),
 ///  return static_cast<Int64Builder&>(array_builder).Append(value);
 /// };
 /// std::vector<std::vector<int>> data = {{1, 2, 4}, {5, 6, 7}};
-/// auto batches = RowsToBatches(kTestSchema, std::ref(data), IntConvertor);
+/// auto batches = RowsToBatches(kTestSchema, data, IntConvertor);
 /// \endcode
 
 /// \param[in] schema - the schema to be used in the `RecordBatchReader`
@@ -97,13 +111,13 @@ template <class Range, class DataPointConvertor,
 [[nodiscard]] typename std::enable_if_t<detail::is_range<Range>::value,
                                         Result<std::shared_ptr<RecordBatchReader>>>
 /* Result<std::shared_ptr<RecordBatchReader>>> */ RowsToBatches(
-    const std::shared_ptr<Schema>& schema, std::reference_wrapper<Range> rows,
+    const std::shared_ptr<Schema>& schema, const Range& rows,
     DataPointConvertor&& data_point_convertor,
     RowAccessor&& row_accessor = detail::MakeDefaultRowAccessor(),
     MemoryPool* pool = default_memory_pool(), const std::size_t batch_size = 1024) {
   auto make_next_batch =
-      [pool = pool, batch_size = batch_size, rows_ittr = std::begin(rows.get()),
-       rows_ittr_end = std::end(rows.get()), schema = schema,
+      [pool = pool, batch_size = batch_size, rows_ittr = std::begin(rows),
+       rows_ittr_end = std::end(rows), schema = schema,
        row_accessor = std::forward<RowAccessor>(row_accessor),
        data_point_convertor = std::forward<DataPointConvertor>(
            data_point_convertor)]() mutable -> Result<std::shared_ptr<RecordBatch>> {

@@ -43,7 +43,7 @@ bool CompareJson(const arrow::Table& arrow_table, const std::string& json,
 
 TEST(RowsToBatches, BasicUsage) {
   std::vector<std::vector<int>> data = {{1, 2, 4}, {5, 6, 7}};
-  auto batches = RowsToBatches(kTestSchema, std::ref(data), IntConvertor).ValueOrDie();
+  auto batches = RowsToBatches(kTestSchema, data, IntConvertor).ValueOrDie();
   auto table = batches->ToTable().ValueOrDie();
 
   EXPECT_TRUE(CompareJson(*table, R"([1, 5])", "field_1"));
@@ -53,7 +53,7 @@ TEST(RowsToBatches, BasicUsage) {
 
 TEST(RowsToBatches, ConstRange) {
   const std::vector<std::vector<int>> data = {{1, 2, 4}, {5, 6, 7}};
-  auto batches = RowsToBatches(kTestSchema, std::cref(data), IntConvertor).ValueOrDie();
+  auto batches = RowsToBatches(kTestSchema, data, IntConvertor).ValueOrDie();
   auto table = batches->ToTable().ValueOrDie();
 
   EXPECT_TRUE(CompareJson(*table, R"([1, 5])", "field_1"));
@@ -72,8 +72,7 @@ TEST(RowsToBatches, StructAccessor) {
     return std::cref(s.values);
   };
 
-  auto batches =
-      RowsToBatches(kTestSchema, std::ref(data), IntConvertor, accessor).ValueOrDie();
+  auto batches = RowsToBatches(kTestSchema, data, IntConvertor, accessor).ValueOrDie();
 
   auto table = batches->ToTable().ValueOrDie();
 
@@ -97,8 +96,8 @@ TEST(RowsToBatches, Variant) {
   std::vector<std::vector<std::variant<int, std::string>>> data = {{1, std::string("2")},
                                                                    {4, std::string("5")}};
 
-  auto batches =
-      RowsToBatches(test_schema, std::ref(data), VariantConvertor).ValueOrDie();
+  auto batches = RowsToBatches(test_schema, data, VariantConvertor).ValueOrDie();
+
   auto table = batches->ToTable().ValueOrDie();
 
   EXPECT_TRUE(CompareJson(*table, R"([1, 4])", "x"));
