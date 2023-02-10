@@ -27,6 +27,7 @@
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
+#include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
@@ -1055,6 +1056,90 @@ TEST(TestLevelEncoder, MinimumBufferSize2) {
     int encode_count = encoder.Encode(kNumToEncode, levels.data());
 
     ASSERT_EQ(kNumToEncode, encode_count);
+  }
+}
+
+TEST(TestColumnWriter, WriteDataPageV2Header) {
+  auto sink = CreateOutputStream();
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED,
+                      {
+                          schema::Int32("required", Repetition::REQUIRED),
+                          schema::Int32("optional", Repetition::OPTIONAL),
+                          schema::Int32("repeated", Repetition::REPEATED),
+                      }));
+  auto properties = WriterProperties::Builder()
+                        .disable_dictionary()
+                        ->data_page_version(ParquetDataPageVersion::V2)
+                        ->build();
+  auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
+  auto rg_writer = file_writer->AppendRowGroup();
+
+  constexpr int32_t num_rows = 100;
+
+  auto required_writer = static_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
+  for (int32_t i = 0; i < num_rows; i++) {
+    required_writer->WriteBatch(1, nullptr, nullptr, &i);
+  }
+
+  // Write a null value at every other row.
+  auto optional_writer = static_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
+  for (int32_t i = 0; i < num_rows; i++) {
+    int16_t definition_level = i % 2 == 0 ? 1 : 0;
+    optional_writer->WriteBatch(1, &definition_level, nullptr, &i);
+  }
+
+  // Each row has repeated twice.
+  auto repeated_writer = static_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
+  for (int i = 0; i < 2 * num_rows; i++) {
+    int32_t value = i * 1000;
+    int16_t definition_level = 1;
+    int16_t repetition_level = i % 2 == 0 ? 1 : 0;
+    repeated_writer->WriteBatch(1, &definition_level, &repetition_level, &value);
+  }
+
+  ASSERT_NO_THROW(file_writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  auto file_reader = ParquetFileReader::Open(
+      std::make_shared<::arrow::io::BufferReader>(buffer), default_reader_properties());
+  auto metadata = file_reader->metadata();
+  ASSERT_EQ(1, metadata->num_row_groups());
+  auto row_group_reader = file_reader->RowGroup(0);
+
+  // Verify required column.
+  {
+    auto page_reader = row_group_reader->GetColumnPageReader(0);
+    auto page = page_reader->NextPage();
+    ASSERT_NE(page, nullptr);
+    auto data_page = std::static_pointer_cast<DataPageV2>(page);
+    EXPECT_EQ(num_rows, data_page->num_rows());
+    EXPECT_EQ(num_rows, data_page->num_values());
+    EXPECT_EQ(0, data_page->num_nulls());
+    EXPECT_EQ(page_reader->NextPage(), nullptr);
+  }
+
+  // Verify optional column.
+  {
+    auto page_reader = row_group_reader->GetColumnPageReader(1);
+    auto page = page_reader->NextPage();
+    ASSERT_NE(page, nullptr);
+    auto data_page = std::static_pointer_cast<DataPageV2>(page);
+    EXPECT_EQ(num_rows, data_page->num_rows());
+    EXPECT_EQ(num_rows, data_page->num_values());
+    EXPECT_EQ(num_rows / 2, data_page->num_nulls());
+    EXPECT_EQ(page_reader->NextPage(), nullptr);
+  }
+
+  // Verify repeated column.
+  {
+    auto page_reader = row_group_reader->GetColumnPageReader(2);
+    auto page = page_reader->NextPage();
+    ASSERT_NE(page, nullptr);
+    auto data_page = std::static_pointer_cast<DataPageV2>(page);
+    EXPECT_EQ(num_rows, data_page->num_rows());
+    EXPECT_EQ(num_rows * 2, data_page->num_values());
+    EXPECT_EQ(0, data_page->num_nulls());
+    EXPECT_EQ(page_reader->NextPage(), nullptr);
   }
 }
 
