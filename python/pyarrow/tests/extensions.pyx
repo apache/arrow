@@ -62,10 +62,6 @@ cdef extern from * namespace "arrow::py" nogil:
         return std::make_shared<UuidType>();
     }
 
-    void RegisterUuidType() {
-        RegisterExtensionType(std::make_shared<UuidType>());
-    }
-
     std::shared_ptr<Array> MakeUuidArray() {
         auto uuid_type = MakeUuidType();
         auto json = "[\\"abcdefghijklmno0\\", \\"0onmlkjihgfedcba\\"]";
@@ -73,17 +69,22 @@ cdef extern from * namespace "arrow::py" nogil:
         return ExtensionType::WrapArray(uuid_type, result.ValueOrDie());
     }
 
+    std::once_flag uuid_registered;
+
+    static bool RegisterUuidType() {
+        std::call_once(uuid_registered, RegisterExtensionType,
+                       std::make_shared<UuidType>());
+        return true;
+    }
+
+    static auto uuid_type_registered = RegisterUuidType();
+
     }  // namespace py
     }  // namespace arrow
     """
 
     cdef shared_ptr[CDataType] CMakeUuidType" arrow::py::MakeUuidType"()
     cdef shared_ptr[CArray] CMakeUuidArray" arrow::py::MakeUuidArray"()
-    cdef void CRegisterUuidType" arrow::py::RegisterUuidType"()
-
-
-def _register_uuid_type():
-    CRegisterUuidType()
 
 
 def _make_uuid_type():

@@ -1111,7 +1111,6 @@ def test_cpp_extension_in_python(tmpdir):
     sys.path.insert(0, str(tmpdir))
     mod = __import__('extensions')
 
-    mod._register_uuid_type()
     uuid_type = mod._make_uuid_type()
     assert uuid_type.extension_name == "uuid"
     assert uuid_type.storage_type == pa.binary(16)
