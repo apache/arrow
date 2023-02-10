@@ -413,6 +413,10 @@ struct ValidateArrayImpl {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedType& type) {
+    return Status::NotImplemented("run-end encoded validation");
+  }
+
   Status Visit(const ExtensionType& type) {
     // Visit storage
     return ValidateWithType(*type.storage_type());

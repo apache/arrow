@@ -388,6 +388,10 @@ class RangeDataEqualsImpl {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedType& type) {
+    return Status::NotImplemented("comparing run-end encoded data");
+  }
+
   Status Visit(const ExtensionType& type) {
     // Compare storages
     result_ &= CompareWithType(*type.storage_type());

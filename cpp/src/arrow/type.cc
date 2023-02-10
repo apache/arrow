@@ -135,7 +135,8 @@ std::vector<Type::type> AllTypeIds() {
           Type::SPARSE_UNION,
           Type::DICTIONARY,
           Type::EXTENSION,
-          Type::INTERVAL_MONTH_DAY_NANO};
+          Type::INTERVAL_MONTH_DAY_NANO,
+          Type::RUN_END_ENCODED};
 }
 
 namespace internal {
@@ -200,6 +201,7 @@ std::string ToString(Type::type id) {
     TO_STRING_CASE(DENSE_UNION)
     TO_STRING_CASE(SPARSE_UNION)
     TO_STRING_CASE(DICTIONARY)
+    TO_STRING_CASE(RUN_END_ENCODED)
     TO_STRING_CASE(EXTENSION)
 
 #undef TO_STRING_CASE

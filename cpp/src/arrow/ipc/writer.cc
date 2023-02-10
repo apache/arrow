@@ -522,6 +522,10 @@ class RecordBatchSerializer {
     return VisitType(*array.indices());
   }
 
+  Status Visit(const RunEndEncodedArray& type) {
+    return Status::NotImplemented("run-end encoded array in IPC");
+  }
+
   Status Visit(const ExtensionArray& array) { return VisitType(*array.storage()); }
 
   Status VisitType(const Array& values) { return VisitArrayInline(values, this); }
