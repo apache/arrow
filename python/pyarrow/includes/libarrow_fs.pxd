@@ -129,6 +129,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef struct CS3GlobalOptions "arrow::fs::S3GlobalOptions":
         CS3LogLevel log_level
+        int num_event_loop_threads
 
     cdef cppclass CS3ProxyOptions "arrow::fs::S3ProxyOptions":
         c_string scheme
@@ -208,6 +209,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef CStatus CInitializeS3 "arrow::fs::InitializeS3"(
         const CS3GlobalOptions& options)
+    cdef CStatus CEnsureS3Initialized "arrow::fs::EnsureS3Initialized"()
     cdef CStatus CFinalizeS3 "arrow::fs::FinalizeS3"()
 
     cdef CResult[c_string] ResolveS3BucketRegion(const c_string& bucket)
