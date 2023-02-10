@@ -117,11 +117,18 @@ func (r *Result) RowsAffected() (int64, error) {
 type Stmt struct {
 	stmt   *PreparedStatement
 	client *Client
+
+	timeout time.Duration
 }
 
 // Close closes the statement.
 func (s *Stmt) Close() error {
 	ctx := context.Background()
+	if s.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, s.timeout)
+		defer cancel()
+	}
 	return s.stmt.Close(ctx)
 }
 
@@ -148,7 +155,6 @@ func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 
 // Query executes a query that may return rows, such as a SELECT.
 func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
-	ctx := context.Background()
 	var params []driver.NamedValue
 	for i, arg := range args {
 		params = append(params, driver.NamedValue{
@@ -156,6 +162,13 @@ func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 			Ordinal: i,
 			Value:   arg,
 		})
+	}
+
+	ctx := context.Background()
+	if s.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, s.timeout)
+		defer cancel()
 	}
 	return s.QueryContext(ctx, params)
 }
@@ -264,7 +277,9 @@ func (g grpcCredentials) RequireTransportSecurity() bool {
 type Driver struct {
 	addr    string
 	options []grpc.DialOption
-	client  *Client
+	timeout time.Duration
+
+	client *Client
 }
 
 // Open returns a new connection to the database.
@@ -274,6 +289,12 @@ func (d *Driver) Open(name string) (driver.Conn, error) {
 	}
 
 	ctx := context.Background()
+	if d.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, d.timeout)
+		defer cancel()
+	}
+
 	return d.Connect(ctx)
 }
 
@@ -319,13 +340,12 @@ func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
 		grpc.WithBlock(),
 	}
 
-	ctx := context.Background()
 	if u.Query().Has("timeout") {
 		timeout, err := time.ParseDuration(u.Query().Get("timeout"))
 		if err != nil {
 			return nil, err
 		}
-		ctx, _ = context.WithTimeout(ctx, timeout)
+		d.timeout = timeout
 	}
 
 	return d, nil
@@ -351,12 +371,25 @@ func (d *Driver) Driver() driver.Driver {
 // Prepare returns a prepared statement, bound to this connection.
 func (d *Driver) Prepare(query string) (driver.Stmt, error) {
 	ctx := context.Background()
-	stmt, err := d.client.Prepare(ctx, nil, query)
+	if d.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, d.timeout)
+		defer cancel()
+	}
+
+	s, err := d.client.Prepare(ctx, nil, query)
 	if err != nil {
 		fmt.Printf("%v (%T)\n", err, err)
 		return nil, err
 	}
-	return &Stmt{stmt: stmt, client: d.client}, nil
+
+	stmt := &Stmt{
+		stmt:    s,
+		client:  d.client,
+		timeout: d.timeout,
+	}
+
+	return stmt, nil
 }
 
 // Close invalidates and potentially stops any current
