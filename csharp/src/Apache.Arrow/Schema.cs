@@ -47,7 +47,7 @@ namespace Apache.Arrow
 
             _fields = fields.ToList();
 
-            _fieldsDictionary = fields.ToDictionary(field => field.Name, field => field);
+            _fieldsDictionary = _fields.GroupBy(f => f.Name).ToDictionary(g => g.Key, g => g.First());
 
             Metadata = metadata?.ToDictionary(kv => kv.Key, kv => kv.Value);
         }
@@ -59,7 +59,7 @@ namespace Apache.Arrow
 
             _fields = fields;
 
-            _fieldsDictionary = fields.ToDictionary(field => field.Name, field => field);
+            _fieldsDictionary = _fields.GroupBy(f => f.Name).ToDictionary(g => g.Key, g => g.First());
 
             Metadata = metadata;
         }
