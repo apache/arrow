@@ -71,6 +71,17 @@ namespace Apache.Arrow.Tests
             }
 
             [Fact]
+            public void FieldNamesCanBeTheSame()
+            {
+                var schema = new Schema.Builder()
+                    .Field(f => f.Name("f0").DataType(Int32Type.Default))
+                    .Field(f => f.Name("f0").DataType(Int8Type.Default))
+                    .Build();
+
+                Assert.Equal(2, schema.Fields.Count);
+            }
+
+            [Fact]
             public void GetFieldIndex()
             {
                 var schema = new Schema.Builder()
@@ -90,6 +101,17 @@ namespace Apache.Arrow.Tests
                 Assert.True(schema.GetFieldIndex("f0") == 0 && schema.GetFieldIndex("F0") == 1);
             }
 
+            [Fact]
+            public void GetFieldIndexGetsFirstMatch()
+            {
+                var schema = new Schema.Builder()
+                    .Field(f => f.Name("f0").DataType(Int32Type.Default))
+                    .Field(f => f.Name("f0").DataType(Int8Type.Default))
+                    .Field(f => f.Name("f1").DataType(Int32Type.Default))
+                    .Field(f => f.Name("f1").DataType(Int8Type.Default))
+                    .Build();
+                Assert.True(schema.GetFieldIndex("f0") == 0 && schema.GetFieldIndex("f1") == 2);
+            }
 
             [Fact]
             public void GetFieldByName()
@@ -115,6 +137,23 @@ namespace Apache.Arrow.Tests
                     .Field(f0Uppercase)
                     .Build();
                 Assert.True(schema.GetFieldByName("f0") == f0 && schema.GetFieldByName("F0") == f0Uppercase);
+            }
+
+            [Fact]
+            public void GetFieldByNameGetsFirstMatch()
+            {
+                var f0First = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
+                var f0Second = new Field.Builder().Name("f0").DataType(Int8Type.Default).Build();
+                var f1First = new Field.Builder().Name("f1").DataType(Int32Type.Default).Build();
+                var f1Second = new Field.Builder().Name("f1").DataType(Int8Type.Default).Build();
+
+                var schema = new Schema.Builder()
+                    .Field(f0First)
+                    .Field(f0Second)
+                    .Field(f1First)
+                    .Field(f1Second)
+                    .Build();
+                Assert.True(schema.GetFieldByName("f0") == f0First && schema.GetFieldByName("f1") == f1First);
             }
 
             [Fact]
