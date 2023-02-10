@@ -180,18 +180,14 @@ implicit_schema <- function(.data) {
     }
   } else {
     hash <- length(.data$group_by_vars) > 0
-    # The output schema is based on the aggregations and any group_by vars
+    # The output schema is based on the aggregations and any group_by vars.
+    # The group_by vars come first (this can't be done by summarize; they have
+    # to be last per the aggregate node signature, and they get projected to
+    # this order after aggregation)
     new_fields <- c(
-      aggregate_types(.data, hash, old_schm),
-      group_types(.data, old_schm)
+      group_types(.data, old_schm),
+      aggregate_types(.data, hash, old_schm)
     )
-    # * Put group_by_vars first (this can't be done by summarize,
-    #   they have to be last per the aggregate node signature,
-    #   and they get projected to this order after aggregation)
-    # * Determine the output types of the aggregations
-    group_fields <- new_fields[.data$group_by_vars]
-    agg_fields <- new_fields[setdiff(names(new_fields), .data$group_by_vars)]
-    new_fields <- c(group_fields, agg_fields)
   }
   schema(!!!new_fields)
 }
