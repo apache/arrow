@@ -366,13 +366,13 @@ TEST_F(TestParquetFileFormat, MultithreadedScan) {
 class TestParquetFileSystemDataset : public WriteFileSystemDatasetMixin,
                                      public testing::Test {
  public:
+  TestParquetFileSystemDataset()
+      : WriteFileSystemDatasetMixin(
+            FileSystemDatasetWriteOptions(std::make_shared<ParquetFileFormat>())) {}
   void SetUp() override {
     MakeSourceDataset();
     check_metadata_ = false;
-    auto parquet_format = std::make_shared<ParquetFileFormat>();
-    format_ = parquet_format;
-    write_options_ = std::make_shared<FileSystemDatasetWriteOptions>(format_);
-    write_options_->file_write_options = parquet_format->DefaultWriteOptions();
+    format_ = write_options_.file_write_options->format();
     SetWriteOptions();
   }
 };

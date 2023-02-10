@@ -94,11 +94,12 @@ TEST_F(TestIpcFileFormat, FragmentEquals) { TestFragmentEquals(); }
 class TestIpcFileSystemDataset : public testing::Test,
                                  public WriteFileSystemDatasetMixin {
  public:
+  TestIpcFileSystemDataset()
+      : WriteFileSystemDatasetMixin(
+            FileSystemDatasetWriteOptions(std::make_shared<IpcFileFormat>())) {}
   void SetUp() override {
     MakeSourceDataset();
-    auto ipc_format = std::make_shared<IpcFileFormat>();
-    format_ = ipc_format;
-    write_options_ = std::make_shared<FileSystemDatasetWriteOptions>(format_);
+    format_ = write_options_.file_write_options->format();
     SetWriteOptions();
   }
 };
@@ -120,16 +121,16 @@ TEST_F(TestIpcFileSystemDataset, WriteWithEmptyPartitioningSchema) {
 }
 
 TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
-  write_options_->partitioning = std::make_shared<DirectoryPartitioning>(
+  write_options_.partitioning = std::make_shared<DirectoryPartitioning>(
       SchemaFromColumnNames(source_schema_, {"model"}));
 
   // require that no batch be grouped into more than 2 written batches:
-  write_options_->max_partitions = 2;
+  write_options_.max_partitions = 2;
 
   auto scanner_builder = ScannerBuilder(dataset_, scan_options_);
   EXPECT_OK_AND_ASSIGN(auto scanner, scanner_builder.Finish());
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("This exceeds the maximum"),
-                                  FileSystemDataset::Write(*write_options_, scanner));
+                                  FileSystemDataset::Write(write_options_, scanner));
 }
 
 class TestIpcFileFormatScan : public FileFormatScanMixin<IpcFormatHelper> {};

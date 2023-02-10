@@ -1762,6 +1762,8 @@ struct ArithmeticDatasetFixture {
 
 class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
  public:
+  explicit WriteFileSystemDatasetMixin(FileSystemDatasetWriteOptions write_options)
+      : write_options_(write_options) {}
   using PathAndContent = std::unordered_map<std::string, std::string>;
 
   void MakeSourceDataset() {
@@ -1834,20 +1836,20 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
   }
 
   void SetWriteOptions() {
-    write_options_->filesystem = fs_;
-    write_options_->base_dir = "/new_root/";
-    write_options_->basename_template = "dat_{i}";
-    write_options_->writer_pre_finish = [this](FileWriter* writer) {
+    write_options_.filesystem = fs_;
+    write_options_.base_dir = "/new_root/";
+    write_options_.basename_template = "dat_{i}";
+    write_options_.writer_pre_finish = [this](FileWriter* writer) {
       visited_paths_.push_back(writer->destination().path);
       return Status::OK();
     };
   }
 
   void DoWrite(std::shared_ptr<Partitioning> desired_partitioning) {
-    write_options_->partitioning = desired_partitioning;
+    write_options_.partitioning = desired_partitioning;
     auto scanner_builder = ScannerBuilder(dataset_, scan_options_);
     ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder.Finish());
-    ASSERT_OK(FileSystemDataset::Write(*write_options_, scanner));
+    ASSERT_OK(FileSystemDataset::Write(write_options_, scanner));
 
     // re-discover the written dataset
     fs::FileSelector s;
@@ -2053,7 +2055,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
   std::shared_ptr<Schema> expected_physical_schema_;
   std::shared_ptr<Dataset> written_;
   std::vector<std::string> visited_paths_;
-  std::shared_ptr<FileSystemDatasetWriteOptions> write_options_;
+  FileSystemDatasetWriteOptions write_options_;
   std::shared_ptr<ScanOptions> scan_options_;
 };
 
