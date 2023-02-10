@@ -142,6 +142,7 @@ set(ARROW_SRCS
     array/array_dict.cc
     array/array_nested.cc
     array/array_primitive.cc
+    array/array_run_end.cc
     array/builder_adaptive.cc
     array/builder_base.cc
     array/builder_binary.cc

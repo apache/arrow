@@ -180,6 +180,7 @@ class DenseUnionBuilder;
 struct DenseUnionScalar;
 
 class RunEndEncodedType;
+class RunEndEncodedArray;
 
 template <typename TypeClass>
 class NumericArray;

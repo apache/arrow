@@ -381,6 +381,14 @@ struct TypeTraits<LargeStringType> {
   static inline std::shared_ptr<DataType> type_singleton() { return large_utf8(); }
 };
 
+template <>
+struct TypeTraits<RunEndEncodedType> {
+  using ArrayType = RunEndEncodedArray;
+  // TODO(felipecrv): using BuilderType = RunEndEncodedBuilder;
+
+  constexpr static bool is_parameter_free = false;
+};
+
 /// @}
 
 /// \addtogroup c-type-traits
