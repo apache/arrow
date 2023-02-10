@@ -956,26 +956,6 @@ cdef class ExtensionType(BaseExtensionType):
         fmt = '{0.__class__.__name__}({1})'
         return fmt.format(self, repr(self.storage_type))
 
-    def __arrow_ext_class__(self):
-        """Return an extension array class to be used for building or
-        deserializing arrays with this extension type.
-
-        This method should return a subclass of the ExtensionArray class. By
-        default, if not specialized in the extension implementation, an
-        extension type array will be a built-in ExtensionArray instance.
-        """
-        return ExtensionArray
-
-    def __arrow_ext_scalar_class__(self):
-        """Return an extension scalar class for building scalars with this
-        extension type.
-
-        This method should return subclass of the ExtensionScalar class. By
-        default, if not specialized in the extension implementation, an
-        extension type scalar will be a built-in ExtensionScalar instance.
-        """
-        return ExtensionScalar
-
     def __arrow_ext_serialize__(self):
         """
         Serialized representation of metadata to reconstruct the type object.
@@ -999,6 +979,26 @@ cdef class ExtensionType(BaseExtensionType):
         return value of ``__arrow_ext_serialize__``).
         """
         return NotImplementedError
+
+    def __arrow_ext_class__(self):
+        """Return an extension array class to be used for building or
+        deserializing arrays with this extension type.
+
+        This method should return a subclass of the ExtensionArray class. By
+        default, if not specialized in the extension implementation, an
+        extension type array will be a built-in ExtensionArray instance.
+        """
+        return ExtensionArray
+
+    def __arrow_ext_scalar_class__(self):
+        """Return an extension scalar class for building scalars with this
+        extension type.
+
+        This method should return subclass of the ExtensionScalar class. By
+        default, if not specialized in the extension implementation, an
+        extension type scalar will be a built-in ExtensionScalar instance.
+        """
+        return ExtensionScalar
 
 cdef class PyExtensionType(ExtensionType):
     """
