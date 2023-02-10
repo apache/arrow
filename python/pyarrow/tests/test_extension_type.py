@@ -1120,3 +1120,10 @@ def test_cpp_extension_in_python(tmpdir):
     assert array.to_pylist() == [b'abcdefghijklmno0', b'0onmlkjihgfedcba']
     assert array[0].as_py() == b'abcdefghijklmno0'
     assert array[1].as_py() == b'0onmlkjihgfedcba'
+
+    buf = ipc_write_batch(pa.RecordBatch.from_arrays([array], ["uuid"]))
+    del array
+
+    batch = ipc_read_batch(buf)
+    array = batch.column(0)
+    assert array.type == uuid_type
