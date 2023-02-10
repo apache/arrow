@@ -786,6 +786,29 @@ Result<std::shared_ptr<DataType>> DenseUnionType::Make(
 }
 
 // ----------------------------------------------------------------------
+// Run-end encoded type
+
+RunEndEncodedType::RunEndEncodedType(std::shared_ptr<DataType> run_end_type,
+                                     std::shared_ptr<DataType> value_type)
+    : NestedType(Type::RUN_END_ENCODED) {
+  DCHECK(RunEndTypeValid(*run_end_type));
+  children_ = {std::make_shared<Field>("run_ends", std::move(run_end_type), false),
+               std::make_shared<Field>("values", std::move(value_type), true)};
+}
+
+std::string RunEndEncodedType::ToString() const {
+  std::stringstream s;
+  s << name() << "<run_ends: " << run_end_type()->ToString()
+    << ", values: " << value_type()->ToString() << ">";
+  return s.str();
+}
+
+bool RunEndEncodedType::RunEndTypeValid(const DataType& run_end_type) {
+  return run_end_type.id() == Type::INT16 || run_end_type.id() == Type::INT32 ||
+         run_end_type.id() == Type::INT64;
+}
+
+// ----------------------------------------------------------------------
 // Struct type
 
 namespace {
@@ -2264,6 +2287,15 @@ std::string DecimalType::ComputeFingerprint() const {
   return ss.str();
 }
 
+std::string RunEndEncodedType::ComputeFingerprint() const {
+  std::stringstream ss;
+  ss << TypeIdFingerprint(*this) << "{";
+  ss << run_end_type()->fingerprint() << ";";
+  ss << value_type()->fingerprint() << ";";
+  ss << "}";
+  return ss.str();
+}
+
 std::string StructType::ComputeFingerprint() const {
   std::stringstream ss;
   ss << TypeIdFingerprint(*this) << "{";
@@ -2441,6 +2473,12 @@ std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_fi
 
 std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fields) {
   return std::make_shared<StructType>(fields);
+}
+
+std::shared_ptr<DataType> run_end_encoded(std::shared_ptr<arrow::DataType> run_end_type,
+                                          std::shared_ptr<DataType> value_type) {
+  return std::make_shared<RunEndEncodedType>(std::move(run_end_type),
+                                             std::move(value_type));
 }
 
 std::shared_ptr<DataType> sparse_union(FieldVector child_fields,
