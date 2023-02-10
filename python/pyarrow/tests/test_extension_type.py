@@ -1087,7 +1087,8 @@ def test_array_constructor_from_pandas():
 
 @pytest.mark.cython
 def test_cpp_extension_in_python(tmpdir):
-    from .test_cython import setup_template, compiler_opts, test_ld_path, test_util, here
+    from .test_cython import (
+        setup_template, compiler_opts, test_ld_path, test_util, here)
     with tmpdir.as_cwd():
         # Set up temporary workspace
         pyx_file = 'extensions.pyx'
