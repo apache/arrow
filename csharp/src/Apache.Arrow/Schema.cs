@@ -23,30 +23,23 @@ namespace Apache.Arrow
     public partial class Schema
     {
         [Obsolete("Use `FieldList` instead")]
-        public IReadOnlyDictionary<string, Field> Fields
-        {
-            get => _fieldsDictionary;
-        }
+        public IReadOnlyDictionary<string, Field> Fields => _fieldsDictionary;
 
         private readonly Dictionary<string, Field> _fieldsDictionary;
 
-        public IReadOnlyList<Field> FieldList
-        {
-            get => _fields;
-        }
+        public IReadOnlyList<Field> FieldList => _fields;
 
         private readonly List<Field> _fields;
 
         public IReadOnlyDictionary<string, string> Metadata { get; }
 
-        public bool HasMetadata =>
-            Metadata != null && Metadata.Count > 0;
+        public bool HasMetadata => Metadata != null && Metadata.Count > 0;
 
         public Schema(
             IEnumerable<Field> fields,
             IEnumerable<KeyValuePair<string, string>> metadata)
         {
-            if (fields == null)
+            if (fields is null)
             {
                 throw new ArgumentNullException(nameof(fields));
             }
@@ -70,10 +63,7 @@ namespace Apache.Arrow
             Metadata = metadata;
         }
 
-        public Field GetFieldByIndex(int i)
-        {
-            return _fields[i];
-        }
+        public Field GetFieldByIndex(int i) => _fields[i];
 
         public Field GetFieldByName(string name) => FieldList.FirstOrDefault(x => x.Name == name);
 
