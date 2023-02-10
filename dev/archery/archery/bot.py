@@ -178,8 +178,10 @@ class PullRequestWorkflowBot:
         elif (self.event_name == "push" and
               current_state == PullRequestState.changes.value):
             return PullRequestState.change_review
-        # TODO: Test push on awaiting review!
-        # TODO: Implement case of PRs already opened
+        # TODO: Test push on awaiting review or push without label
+        # Default already opened PRs to Review state.
+        if current_state is None:
+            current_state = PullRequestState.review.value
         return PullRequestState(current_state)
 
     def set_state(self, state):
