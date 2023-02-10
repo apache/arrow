@@ -334,14 +334,10 @@ aggregate_target_names <- function(data, name) {
   }
 }
 
-# .dummy_groups is used inside the aggregate_types() function, but there is
-# a compute cost in creating it, so for efficiency, we create it just once
-# here outside of the function
-.dummy_groups <- Scalar$create(1L, uint32())
-
 # This function returns a named list of the data types of the aggregate columns
 # returned by an aggregation
-aggregate_types <- function(.data, hash, schema = NULL) {
+aggregate_types <- function(.data, hash) {
+  if (hash) dummy_groups <- Scalar$create(1L, uint32())
   map(
     .data$aggregations,
     ~if (hash) {
@@ -350,7 +346,7 @@ aggregate_types <- function(.data, hash, schema = NULL) {
         # hash aggregate kernels must be passed an additional argument
         # representing the groups, so we pass in a dummy scalar, since the
         # groups will not affect the type that an aggregation returns
-        args = c(.$data, .dummy_groups),
+        args = c(.$data, dummy_groups),
         options = .$options
       )$type(schema)
     } else {
