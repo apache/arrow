@@ -26,6 +26,7 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
+#include "arrow/compute/cast.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -35,7 +36,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/string.h"
-
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
@@ -910,6 +910,7 @@ TYPED_TEST(EncodingAdHocTyped, ByteStreamSplitArrowDirectPut) {
 }
 
 TYPED_TEST(EncodingAdHocTyped, DeltaBitPackArrowDirectPut) {
+  // TODO: test with nulls once DeltaBitPackDecoder::DecodeArrow supports them
   this->null_probability_ = 0;
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
     this->DeltaBitPack(seed);
@@ -1593,18 +1594,32 @@ TYPED_TEST(TestDeltaLengthByteArrayEncoding, BasicRoundTrip) {
       /*null_probability*/ 0.1));
 }
 
+std::shared_ptr<::arrow::Array> CastBinaryTypesHelper(
+    std::shared_ptr<::arrow::Array> result, std::shared_ptr<::arrow::DataType> type) {
+  if (::arrow::is_large_binary_like(type->id())) {
+    ::arrow::compute::CastOptions options;
+    if (::arrow::is_string(type->id())) {
+      options.to_type = ::arrow::large_utf8();
+    } else {
+      options.to_type = ::arrow::large_binary();
+    }
+    EXPECT_OK_AND_ASSIGN(
+        auto tmp, CallFunction("cast", {::arrow::Datum{result}}, &options, nullptr));
+    result = tmp.make_array();
+  }
+  return result;
+}
+
 TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
   const int64_t size = 50;
   const int32_t min_length = 0;
   const int32_t max_length = 10;
+  const int32_t num_unique = 10;
   const double null_probability = 0.25;
   auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
   auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
 
-  auto CheckSeed = [&](int seed, int64_t size) {
-    ::arrow::random::RandomArrayGenerator rag(seed);
-    auto values = rag.String(size, min_length, max_length, null_probability);
-
+  auto CheckSeed = [&](std::shared_ptr<::arrow::Array> values) {
     ASSERT_NO_THROW(encoder->Put(*values));
     auto buf = encoder->FlushValues();
 
@@ -1612,7 +1627,11 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
     typename EncodingTraits<ByteArrayType>::Accumulator acc;
-    acc.builder.reset(new ::arrow::StringBuilder);
+    if (::arrow::is_string(values->type()->id())) {
+      acc.builder = std::make_unique<::arrow::StringBuilder>();
+    } else {
+      acc.builder = std::make_unique<::arrow::BinaryBuilder>();
+    }
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
@@ -1620,15 +1639,92 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
 
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.builder->Finish(&result));
-    ASSERT_EQ(size, result->length());
+    ASSERT_EQ(values->length(), result->length());
     ASSERT_OK(result->ValidateFull());
+
+    auto upcast_result = CastBinaryTypesHelper(result, values->type());
     ::arrow::AssertArraysEqual(*values, *result);
   };
 
-  CheckSeed(/*seed=*/42, /*size=*/0);
+  ::arrow::random::RandomArrayGenerator rag(42);
+  auto values = rag.String(0, min_length, max_length, null_probability);
+  CheckSeed(values);
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
-    CheckSeed(seed, size);
+    rag = ::arrow::random::RandomArrayGenerator(seed);
+
+    values = rag.String(size, min_length, max_length, null_probability);
+    CheckSeed(values);
+
+    values =
+        rag.BinaryWithRepeats(size, num_unique, min_length, max_length, null_probability);
+    CheckSeed(values);
   }
+}
+
+TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowDirectPut) {
+  auto CheckEncode = [](std::shared_ptr<::arrow::Array> values,
+                        std::shared_ptr<::arrow::Array> lengths) {
+    auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    auto lengths_encoder = MakeTypedEncoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
+    ASSERT_NO_THROW(lengths_encoder->Put(*lengths));
+    auto lengths_buf = lengths_encoder->FlushValues();
+
+    auto encoded_lengths_buf = SliceBuffer(buf, 0, lengths_buf->size());
+    auto encoded_values_buf = SliceBuffer(buf, lengths_buf->size());
+
+    ASSERT_TRUE(encoded_lengths_buf->Equals(*lengths_buf));
+    ASSERT_TRUE(encoded_values_buf->Equals(*values->data()->buffers[2]));
+  };
+
+  auto CheckDecode = [](std::shared_ptr<Buffer> buf,
+                        std::shared_ptr<::arrow::Array> values) {
+    int num_values = static_cast<int>(values->length());
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
+    if (::arrow::is_string(values->type()->id())) {
+      acc.builder = std::make_unique<::arrow::StringBuilder>();
+    } else {
+      acc.builder = std::make_unique<::arrow::BinaryBuilder>();
+    }
+
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.builder->Finish(&result));
+    ASSERT_EQ(num_values, result->length());
+    ASSERT_OK(result->ValidateFull());
+
+    auto upcast_result = CastBinaryTypesHelper(result, values->type());
+    ::arrow::AssertArraysEqual(*values, *upcast_result);
+  };
+
+  auto values = R"(["Hello", "World", "Foobar", "ADBCEF"])";
+  auto lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([5, 5, 6, 6])");
+
+  CheckEncode(::arrow::ArrayFromJSON(::arrow::utf8(), values), lengths);
+  CheckEncode(::arrow::ArrayFromJSON(::arrow::large_utf8(), values), lengths);
+  CheckEncode(::arrow::ArrayFromJSON(::arrow::binary(), values), lengths);
+  CheckEncode(::arrow::ArrayFromJSON(::arrow::large_binary(), values), lengths);
+
+  const uint8_t data[] = {
+      0x80, 0x01, 0x04, 0x04, 0x0a, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00,
+      0x00, 0x00, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x57, 0x6f, 0x72, 0x6c, 0x64,
+      0x46, 0x6f, 0x6f, 0x62, 0x61, 0x72, 0x41, 0x44, 0x42, 0x43, 0x45, 0x46,
+  };
+  auto encoded = Buffer::Wrap(data, sizeof(data));
+
+  CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::utf8(), values));
+  CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_utf8(), values));
+  CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::binary(), values));
+  CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_binary(), values));
 }
 
 }  // namespace test

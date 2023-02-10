@@ -3254,7 +3254,7 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
   } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
     switch (type_num) {
       case Type::BYTE_ARRAY:
-        return std::make_unique<DeltaLengthByteArrayEncoder<ByteArray>>(descr, pool);
+        return std::make_unique<DeltaLengthByteArrayEncoder<ByteArrayType>>(descr, pool);
       default:
         throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
     }
