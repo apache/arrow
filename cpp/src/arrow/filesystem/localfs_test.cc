@@ -472,6 +472,24 @@ TYPED_TEST(TestLocalFS, StressGetFileInfoGenerator) {
   }
 }
 
+TYPED_TEST(TestLocalFS, NeedsExtendedFileInfo) {
+  // Test setting needs_extended_file_info to true and false
+  ASSERT_OK(this->fs_->CreateDir("AB/CD"));
+  CreateFile(this->fs_.get(), "AB/cd", "data");
+
+  std::vector<FileInfo> infos;
+  FileSelector selector;
+  selector.base_dir = "AB";
+  selector.needs_extended_file_info = false;
+
+  ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetFileInfo(selector));
+  AssertFileInfo(infos[0], "AB/cd", FileType::File);
+  AssertFileInfo(infos[1], "AB/CD", FileType::Directory);
+
+  ASSERT_EQ(infos[0].size(), -1);
+  ASSERT_EQ(infos[1].size(), -1);
+}
+
 // TODO Should we test backslash paths on Windows?
 // SubTreeFileSystem isn't compatible with them.
 

@@ -17,6 +17,7 @@
 
 #include <chrono>
 #include <cstring>
+#include <filesystem>
 #include <memory>
 #include <sstream>
 #include <utility>
@@ -210,6 +211,22 @@ Result<FileInfo> StatFile(const std::string& path) {
   return info;
 }
 
+Result<FileInfo> IdentifyFile(const std::string& path) {
+  FileInfo info;
+
+  if (std::filesystem::is_directory(path)) {
+    info.set_type(FileType::Directory);
+  } else if (std::filesystem::is_regular_file(path)) {
+    info.set_type(FileType::File);
+  }
+
+  info.set_mtime(kNoTime);
+  info.set_size(kNoSize);
+  info.set_path(path);
+
+  return info;
+}
+
 #endif
 
 Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
@@ -228,7 +245,12 @@ Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
 
   for (const auto& child_fn : *result) {
     PlatformFilename full_fn = dir_fn.Join(child_fn);
-    ARROW_ASSIGN_OR_RAISE(FileInfo info, StatFile(full_fn.ToNative()));
+    FileInfo info;
+    if (select.needs_extended_file_info == true) {
+      ARROW_ASSIGN_OR_RAISE(info, StatFile(full_fn.ToNative()));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(info, IdentifyFile(full_fn.ToNative()));
+    }
     if (info.type() != FileType::NotFound) {
       out->push_back(std::move(info));
     }
