@@ -22,6 +22,7 @@ namespace Apache.Arrow
 {
     public partial class Schema
     {
+        [Obsolete("Use `FieldList` instead")]
         public IReadOnlyDictionary<string, Field> Fields
         {
             get => _fieldsDictionary;
@@ -29,12 +30,17 @@ namespace Apache.Arrow
 
         private readonly Dictionary<string, Field> _fieldsDictionary;
 
+        public IReadOnlyList<Field> FieldList
+        {
+            get => _fields;
+        }
+
+        private readonly List<Field> _fields;
+
         public IReadOnlyDictionary<string, string> Metadata { get; }
 
         public bool HasMetadata =>
             Metadata != null && Metadata.Count > 0;
-
-        private readonly IList<Field> _fields;
 
         public Schema(
             IEnumerable<Field> fields,
@@ -69,16 +75,13 @@ namespace Apache.Arrow
             return _fields[i];
         }
 
-        public Field GetFieldByName(string name) =>
-            Fields.TryGetValue(name, out Field field) ? field : null;
+        public Field GetFieldByName(string name) => FieldList.FirstOrDefault(x => x.Name == name);
 
         public int GetFieldIndex(string name, StringComparer comparer = default)
         {
-            if (comparer == null)
-                comparer = StringComparer.CurrentCulture;
+            comparer ??= StringComparer.CurrentCulture;
 
-            return _fields.IndexOf(
-                _fields.Single(x => comparer.Compare(x.Name, name) == 0));
+            return _fields.IndexOf(_fields.First(x => comparer.Compare(x.Name, name) == 0));
         }
 
         public Schema RemoveField(int fieldIndex)
@@ -108,7 +111,7 @@ namespace Apache.Arrow
 
         public Schema SetField(int fieldIndex, Field newField)
         {
-            if (fieldIndex <0 || fieldIndex >= Fields.Count)
+            if (fieldIndex < 0 || fieldIndex >= _fields.Count)
             {
                 throw new ArgumentException($"Invalid fieldIndex {fieldIndex} passed in to Schema.SetColumn");
             }
