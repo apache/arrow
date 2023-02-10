@@ -29,8 +29,6 @@ namespace Apache.Arrow.Tests
             [Fact]
             public void FieldsAreNullableByDefault()
             {
-                var b = new Schema.Builder();
-
                 var schema = new Schema.Builder()
                     .Field(f => f.Name("f0").DataType(Int32Type.Default))
                     .Build();
@@ -45,7 +43,7 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("f0"))
                     .Build();
 
-                Assert.True(schema.FieldList[0].DataType.GetType() == typeof(NullType));
+                Assert.Equal(typeof(NullType), schema.FieldList[0].DataType.GetType());
             }
 
             [Fact]
@@ -78,7 +76,7 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("f0").DataType(Int8Type.Default))
                     .Build();
 
-                Assert.Equal(2, schema.Fields.Count);
+                Assert.Equal(2, schema.FieldList.Count);
             }
 
             [Fact]
@@ -88,7 +86,9 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("f0").DataType(Int32Type.Default))
                     .Field(f => f.Name("f1").DataType(Int8Type.Default))
                     .Build();
-                Assert.True(schema.GetFieldIndex("f0") == 0 && schema.GetFieldIndex("f1") == 1);
+
+                Assert.Equal(0, schema.GetFieldIndex("f0"));
+                Assert.Equal(1, schema.GetFieldIndex("f1"));
             }
 
             [Fact]
@@ -98,7 +98,9 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("f0").DataType(Int32Type.Default))
                     .Field(f => f.Name("F0").DataType(Int8Type.Default))
                     .Build();
-                Assert.True(schema.GetFieldIndex("f0") == 0 && schema.GetFieldIndex("F0") == 1);
+
+                Assert.Equal(0, schema.GetFieldIndex("f0"));
+                Assert.Equal(1, schema.GetFieldIndex("F0"));
             }
 
             [Fact]
@@ -110,7 +112,9 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("f1").DataType(Int32Type.Default))
                     .Field(f => f.Name("f1").DataType(Int8Type.Default))
                     .Build();
-                Assert.True(schema.GetFieldIndex("f0") == 0 && schema.GetFieldIndex("f1") == 2);
+
+                Assert.Equal(0, schema.GetFieldIndex("f0"));
+                Assert.Equal(2, schema.GetFieldIndex("f1"));
             }
 
             [Fact]
@@ -123,7 +127,9 @@ namespace Apache.Arrow.Tests
                     .Field(f0)
                     .Field(f1)
                     .Build();
-                Assert.True(schema.GetFieldByName("f0") == f0 && schema.GetFieldByName("f1") == f1);
+
+                Assert.Equal(f0, schema.GetFieldByName("f0"));
+                Assert.Equal(f1, schema.GetFieldByName("f1"));
             }
 
             [Fact]
@@ -136,7 +142,9 @@ namespace Apache.Arrow.Tests
                     .Field(f0)
                     .Field(f0Uppercase)
                     .Build();
-                Assert.True(schema.GetFieldByName("f0") == f0 && schema.GetFieldByName("F0") == f0Uppercase);
+
+                Assert.Equal(f0, schema.GetFieldByName("f0"));
+                Assert.Equal(f0Uppercase, schema.GetFieldByName("F0"));
             }
 
             [Fact]
@@ -153,7 +161,9 @@ namespace Apache.Arrow.Tests
                     .Field(f1First)
                     .Field(f1Second)
                     .Build();
-                Assert.True(schema.GetFieldByName("f0") == f0First && schema.GetFieldByName("f1") == f1First);
+
+                Assert.Equal(f0First, schema.GetFieldByName("f0"));
+                Assert.Equal(f1First, schema.GetFieldByName("f1"));
             }
 
             [Fact]
