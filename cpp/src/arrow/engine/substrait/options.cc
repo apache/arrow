@@ -181,7 +181,7 @@ NamedTapProvider g_default_named_tap_provider =
     [](const std::string& tap_kind, std::vector<compute::Declaration::Input> inputs,
        const std::string& tap_name,
        std::shared_ptr<Schema> tap_schema) -> Result<compute::Declaration> {
-  return Status::NotImplemented("Named tap provider must be given");
+  return Status::NotImplemented("Plan contained a NamedTapRel but no provider configured");
 };
 
 std::mutex g_default_named_tap_provider_mutex;
