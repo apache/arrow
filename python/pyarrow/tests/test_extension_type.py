@@ -1115,6 +1115,7 @@ def test_cpp_extension_in_python(tmpdir):
     assert uuid_type.storage_type == pa.binary(16)
 
     array = mod._make_uuid_array()
+    assert array.type == uuid_type
     assert array.to_pylist() == [b'abcdefghijklmno0', b'0onmlkjihgfedcba']
     assert array[0].as_py() == b'abcdefghijklmno0'
     assert array[1].as_py() == b'0onmlkjihgfedcba'
