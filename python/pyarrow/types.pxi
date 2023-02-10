@@ -837,22 +837,14 @@ cdef class BaseExtensionType(DataType):
         self.ext_type = <const CExtensionType*> type.get()
 
     def __arrow_ext_class__(self):
-        """Return an extension array class to be used for building or
-        deserializing arrays with this extension type.
-
-        This method should return a subclass of the ExtensionArray class. By
-        default, if not specialized in the extension implementation, an
-        extension type array will be a built-in ExtensionArray instance.
+        """
+        The associated array extension class
         """
         return ExtensionArray
 
     def __arrow_ext_scalar_class__(self):
-        """Return an extension scalar class for building scalars with this
-        extension type.
-
-        This method should return subclass of the ExtensionScalar class. By
-        default, if not specialized in the extension implementation, an
-        extension type scalar will be a built-in ExtensionScalar instance.
+        """
+        The associated scalar class
         """
         return ExtensionScalar
 
@@ -963,6 +955,26 @@ cdef class ExtensionType(BaseExtensionType):
     def __repr__(self):
         fmt = '{0.__class__.__name__}({1})'
         return fmt.format(self, repr(self.storage_type))
+
+    def __arrow_ext_class__(self):
+        """Return an extension array class to be used for building or
+        deserializing arrays with this extension type.
+
+        This method should return a subclass of the ExtensionArray class. By
+        default, if not specialized in the extension implementation, an
+        extension type array will be a built-in ExtensionArray instance.
+        """
+        return ExtensionArray
+
+    def __arrow_ext_scalar_class__(self):
+        """Return an extension scalar class for building scalars with this
+        extension type.
+
+        This method should return subclass of the ExtensionScalar class. By
+        default, if not specialized in the extension implementation, an
+        extension type scalar will be a built-in ExtensionScalar instance.
+        """
+        return ExtensionScalar
 
     def __arrow_ext_serialize__(self):
         """
@@ -1450,8 +1462,8 @@ cdef class Schema(_Weakrefable):
     """
     A named collection of types a.k.a schema. A schema defines the
     column names and types in a record batch or table data structure.
-    They also contain metadata about the columns. For example, schemas 
-    converted from Pandas contain metadata about their original Pandas 
+    They also contain metadata about the columns. For example, schemas
+    converted from Pandas contain metadata about their original Pandas
     types so they can be converted back to the same types.
 
     Warnings
