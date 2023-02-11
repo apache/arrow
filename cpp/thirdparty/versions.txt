@@ -113,8 +113,8 @@ ARROW_XSIMD_BUILD_VERSION=9.0.1
 ARROW_XSIMD_BUILD_SHA256_CHECKSUM=b1bb5f92167fd3a4f25749db0be7e61ed37e0a5d943490f3accdcd2cd2918cc0
 ARROW_ZLIB_BUILD_VERSION=1.2.13
 ARROW_ZLIB_BUILD_SHA256_CHECKSUM=b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30
-ARROW_ZSTD_BUILD_VERSION=v1.5.2
-ARROW_ZSTD_BUILD_SHA256_CHECKSUM=f7de13462f7a82c29ab865820149e778cbfe01087b3a55b5332707abf9db4a6e
+ARROW_ZSTD_BUILD_VERSION=1.5.4
+ARROW_ZSTD_BUILD_SHA256_CHECKSUM=0f470992aedad543126d06efab344dc5f3e171893810455787d38347343a4424
 
 
 # The first field is the name of the environment variable expected by cmake.
@@ -164,7 +164,7 @@ DEPENDENCIES=(
   "ARROW_UTF8PROC_URL utf8proc-${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
   "ARROW_XSIMD_URL xsimd-${ARROW_XSIMD_BUILD_VERSION}.tar.gz https://github.com/xtensor-stack/xsimd/archive/${ARROW_XSIMD_BUILD_VERSION}.tar.gz"
   "ARROW_ZLIB_URL zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
-  "ARROW_ZSTD_URL zstd-${ARROW_ZSTD_BUILD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
+  "ARROW_ZSTD_URL zstd-${ARROW_ZSTD_BUILD_VERSION}.tar.gz https://github.com/facebook/zstd/releases/download/v${ARROW_ZSTD_BUILD_VERSION}/zstd-${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
 )
 
 # vim: set filetype=sh:
