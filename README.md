@@ -28,6 +28,12 @@
 Apache Arrow is a development platform for in-memory analytics. It contains a
 set of technologies that enable big data systems to process and move data fast.
 
+## Usage
+
+The reason for this development platform is to allow users to easily access technologies that process data within large data systems quickly and efficiently.  The goal of this platform is for in-memory analytics to move data fast. Apache Arrow utilizes an in-memory format that allows users to store various data types while allowing communication between processes and environments by using the IPC format. The Arrow flight RPC protocol is based on the IPC format which allows remote services to exchange Arrow data with application-defined semantics. 
+
+With versatile access to numerous data types, the Arrow libraries allow for table-like containers. The fast metadata messaging layer is suitable for processing information from large data systems such as databases and storage servers. The self-describing binary format allows users to use remote procedure calls and interprocess communication. Large data systems are not effectively compatible with traditional data processing application software due to the numerous fields and attributes. The Arrow libraries support flat or nested data types which are imperative for conversation to and from other data formats. This allows the processing of large amounts of data to have fast and efficient data transport.
+
 Major components of the project include:
 
  - [The Arrow Columnar In-Memory Format](https://github.com/apache/arrow/blob/master/docs/source/format/Columnar.rst):
@@ -83,7 +89,7 @@ on git master.
 
 ## How to Contribute
 
-Please read our latest [project contribution guide][5].
+Apache Arrow is not only a development platform for in-memory analytics but an ever-growing community of users and data system developers. To contribute to the project, please read our latest [project contribution guide][5].
 
 ## Getting involved
 
