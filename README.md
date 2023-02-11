@@ -34,7 +34,7 @@ The reason for this development platform is to allow users to easily access tech
 
 With versatile access to numerous data types, the Arrow libraries allow for table-like containers. The fast metadata messaging layer is suitable for processing information from large data systems such as databases and storage servers. The self-describing binary format allows users to use remote procedure calls and interprocess communication. Large data systems are not effectively compatible with traditional data processing application software due to the numerous fields and attributes. The Arrow libraries support flat or nested data types which are imperative for conversation to and from other data formats. This allows the processing of large amounts of data to have fast and efficient data transport.
 
-Major components of the project include:
+## Major Components of The Project
 
  - [The Arrow Columnar In-Memory Format](https://github.com/apache/arrow/blob/master/docs/source/format/Columnar.rst):
    a standard and efficient in-memory representation of various datatypes, plain or nested
