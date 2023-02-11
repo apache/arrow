@@ -90,6 +90,8 @@ add_arrow_test(threading-utility-test
                test_common.cc
                thread_pool_test.cc)
 
+add_arrow_test(crc32-test SOURCES crc32_test.cc)
+
 add_arrow_benchmark(bit_block_counter_benchmark)
 add_arrow_benchmark(bit_util_benchmark)
 add_arrow_benchmark(bitmap_reader_benchmark)
