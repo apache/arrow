@@ -393,6 +393,7 @@ if(ARROW_COMPUTE)
        compute/exec/bloom_filter.cc
        compute/exec/exec_plan.cc
        compute/exec/expression.cc
+       compute/exec/fetch_node.cc
        compute/exec/filter_node.cc
        compute/exec/hash_join.cc
        compute/exec/hash_join_dict.cc

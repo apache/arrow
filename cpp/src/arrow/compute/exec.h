@@ -151,6 +151,9 @@ class ARROW_EXPORT SelectionVector {
   const int32_t* indices_;
 };
 
+/// An index to represent that a batch does not belong to an ordered stream
+constexpr int64_t kUnsequencedIndex = -1;
+
 /// \brief A unit of work for kernel execution. It contains a collection of
 /// Array and Scalar values and an optional SelectionVector indicating that
 /// there is an unmaterialized filter that either must be materialized, or (if
@@ -208,6 +211,12 @@ struct ARROW_EXPORT ExecBatch {
   /// If the array values are of length 0 then the length is 0 regardless of
   /// whether any values are Scalar.
   int64_t length = 0;
+
+  /// \brief index of this batch in a sorted stream of batches
+  ///
+  /// This index must be strictly monotonic starting at 0 without gaps or
+  /// it can be set to kUnsequencedIndex if there is no meaningful order
+  int64_t index = kUnsequencedIndex;
 
   /// \brief The sum of bytes in each buffer referenced by the batch
   ///

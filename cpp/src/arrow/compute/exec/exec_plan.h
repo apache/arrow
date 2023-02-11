@@ -408,6 +408,52 @@ struct ARROW_EXPORT Declaration {
   std::string label;
 };
 
+struct ARROW_EXPORT QueryOptions {
+  /// \brief Should the plan use a legacy batching strategy
+  ///
+  /// This is currently in place only to support the Scanner::ToTable
+  /// method.  This method relies on batch indices from the scanner
+  /// remaining consistent.  This is impractical in the ExecPlan which
+  /// might slice batches as needed (e.g. for a join)
+  ///
+  /// However, it still works for simple plans and this is the only way
+  /// we have at the moment for maintaining implicit order.
+  bool use_legacy_batching = false;
+
+  /// If the output has a meaningful order then sequence the output of the plan
+  ///
+  /// If the output has no meaningful order then this option will be ignored.
+  bool sequence_output = false;
+
+  /// \brief should the plan use multiple background threads for CPU-intensive work
+  ///
+  /// If this is false then all CPU work will be done on the calling thread.  I/O tasks
+  /// will still happen on the I/O executor and may be multi-threaded (but should not use
+  /// significant CPU resources).
+  ///
+  /// Will be ignored if custom_cpu_executor is set
+  bool use_threads = true;
+
+  /// \brief custom executor to use for CPU-intensive work
+  ///
+  /// Must be null or remain valid for the duration of the plan.  If this is null then
+  /// a default thread pool will be chosen whose behavior will be controlled by
+  /// the `use_threads` option.
+  ::arrow::internal::Executor* custom_cpu_executor = NULLPTR;
+
+  /// \brief a memory pool to use for allocations
+  ///
+  /// Must be null or remain valid for the duration of the plan.  If this is null then
+  /// the arrow::default_memory_pool() will be used.
+  MemoryPool* memory_pool = NULLPTR;
+
+  /// \brief a function registry to use for the plan
+  ///
+  /// Must be null or remain valid for the duration of the plan.  If this is null then
+  /// defaults to arrow::compute::GetFunctionRegistry()
+  FunctionRegistry* function_registry = NULLPTR;
+};
+
 /// \brief Calculate the output schema of a declaration
 ///
 /// This does not actually execute the plan.  This operation may fail if the
@@ -456,6 +502,9 @@ ARROW_EXPORT Result<std::shared_ptr<Table>> DeclarationToTable(
     Declaration declaration, bool use_threads = true,
     MemoryPool* memory_pool = default_memory_pool(),
     FunctionRegistry* function_registry = NULLPTR);
+
+ARROW_EXPORT Result<std::shared_ptr<Table>> DeclarationToTable(
+    Declaration declaration, QueryOptions query_options);
 
 /// \brief Asynchronous version of \see DeclarationToTable
 ///
