@@ -4876,8 +4876,11 @@ macro(build_awssdk)
   add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
   set(AWS_LC_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
-  list(APPEND AWS_LC_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
-       -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX})
+  list(APPEND
+       AWS_LC_CMAKE_ARGS
+       -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
+       -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX}
+       -DCMAKE_INSTALL_INCLUDEDIR=include)
   externalproject_add(aws_lc_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${AWS_LC_SOURCE_URL}
