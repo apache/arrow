@@ -20,6 +20,7 @@
 #include "arrow/util/concurrent_map.h"
 
 #include "parquet/encryption/encryption.h"
+#include "parquet/encryption/file_system_key_material_store.h"
 #include "parquet/encryption/key_material.h"
 #include "parquet/encryption/key_toolkit.h"
 #include "parquet/encryption/key_toolkit_internal.h"
@@ -46,12 +47,14 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   /// KmsClient in the cache.
   FileKeyUnwrapper(KeyToolkit* key_toolkit,
                    const KmsConnectionConfig& kms_connection_config,
-                   double cache_lifetime_seconds);
+                   double cache_lifetime_seconds,
+                   const std::shared_ptr<FilePath>& parquet_file_path = NULLPTR,
+                   std::shared_ptr<FileKeyMaterialStore> key_material_store = NULLPTR);
 
   std::string GetKey(const std::string& key_metadata) override;
+  internal::KeyWithMasterId GetDataEncryptionKey(const KeyMaterial& key_material);
 
  private:
-  internal::KeyWithMasterId GetDataEncryptionKey(const KeyMaterial& key_material);
   std::shared_ptr<KmsClient> GetKmsClientFromConfigOrKeyMaterial(
       const KeyMaterial& key_material);
 
@@ -60,6 +63,9 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   KeyToolkit* key_toolkit_;
   KmsConnectionConfig kms_connection_config_;
   const double cache_entry_lifetime_seconds_;
+  std::shared_ptr<FileKeyMaterialStore> key_material_store_;
+  bool checked_key_material_internal_storage_;
+  std::shared_ptr<FilePath> parquet_file_path_;
 };
 
 }  // namespace encryption

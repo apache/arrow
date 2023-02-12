@@ -23,6 +23,7 @@
 
 #include "arrow/filesystem/filesystem.h"
 
+#include "parquet/encryption/file_key_material_store.h"
 #include "parquet/encryption/file_path.h"
 
 namespace parquet {
@@ -32,32 +33,52 @@ namespace encryption {
 /// file in the same folder. This is important for “key rotation”, when MEKs have to be
 /// changed (if compromised; or periodically, just in case) - without modifying the
 /// Parquet files (often  immutable).
-class PARQUET_EXPORT FileKeyMaterialStore {
+class PARQUET_EXPORT FileSystemKeyMaterialStore : public FileKeyMaterialStore {
  public:
+  static constexpr const char kKetMaterialFilePrefix[] = "_KEY_MATERIAL_FOR_";
+  static constexpr const char kTempFilePrefix[] = "_TMP";
+  static constexpr const char kKeyMaterialFileSuffix[] = ".json";
+
+  FileSystemKeyMaterialStore() {}
+
   /// Initializes key material store for a parquet file.
-  virtual void initialize(const std::shared_ptr<FilePath>& parquet_file_path,
-                          bool temp_store) = 0;
+  void initialize(const std::shared_ptr<FilePath>& parquet_file_path, bool temp_store);
 
   /// Add key material for one encryption key.
-  virtual void AddKeyMaterial(std::string key_id_in_file, std::string key_material) = 0;
+  void AddKeyMaterial(std::string key_id_in_file, std::string key_material) {
+    key_material_map_.insert({key_id_in_file, key_material});
+  }
 
   /// Get key material
-  virtual std::string GetKeyMaterial(std::string key_id_in_file) = 0;
+  std::string GetKeyMaterial(std::string key_id_in_file) {
+    if (key_material_map_.empty()) {
+      LoadKeyMaterialMap();
+    }
+    auto found = key_material_map_.find(key_id_in_file);
+    return found->second;
+  }
 
   /// After key material was added for all keys in the given Parquet file,
   /// save material in persistent store.
-  virtual void SaveMaterial() = 0;
+  void SaveMaterial();
 
   /// Remove key material from persistent store. Used in key rotation.
-  virtual void RemoveMaterial() = 0;
+  void RemoveMaterial();
 
   /// Move key material to another store. Used in key rotation.
-  virtual void MoveMaterialTo(std::shared_ptr<FileKeyMaterialStore> target_key_store) = 0;
+  void MoveMaterialTo(std::shared_ptr<FileKeyMaterialStore> target_key_store);
 
   ///  Returns the Set of all key IDs in this store (for the given Parquet file)
-  virtual std::vector<std::string> GetKeyIDSet() = 0;
+  std::vector<std::string> GetKeyIDSet();
 
-  virtual ~FileKeyMaterialStore() {}
+ private:
+  std::string GetStorageFilePath() { return key_material_file_->path(); }
+
+  std::string BuildKeyMaterialMapJson();
+  void LoadKeyMaterialMap();
+  std::shared_ptr<FilePath> key_material_file_;
+  /// Maps ID of a key in Parquet file and key material
+  std::unordered_map<std::string, std::string> key_material_map_;
 };
 
 }  // namespace encryption

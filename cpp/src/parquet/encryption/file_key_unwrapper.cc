@@ -27,14 +27,22 @@ namespace encryption {
 
 using internal::KeyWithMasterId;
 
-FileKeyUnwrapper::FileKeyUnwrapper(KeyToolkit* key_toolkit,
-                                   const KmsConnectionConfig& kms_connection_config,
-                                   double cache_lifetime_seconds)
+FileKeyUnwrapper::FileKeyUnwrapper(
+    KeyToolkit* key_toolkit, const KmsConnectionConfig& kms_connection_config,
+    double cache_lifetime_seconds, const std::shared_ptr<FilePath>& parquet_file_path,
+    std::shared_ptr<FileKeyMaterialStore> key_material_store)
     : key_toolkit_(key_toolkit),
       kms_connection_config_(kms_connection_config),
-      cache_entry_lifetime_seconds_(cache_lifetime_seconds) {
+      cache_entry_lifetime_seconds_(cache_lifetime_seconds),
+      checked_key_material_internal_storage_(false),
+      parquet_file_path_(parquet_file_path) {
   kek_per_kek_id_ = key_toolkit_->kek_read_cache_per_token().GetOrCreateInternalCache(
       kms_connection_config.key_access_token(), cache_entry_lifetime_seconds_);
+
+  if (key_material_store != nullptr) {
+    key_material_store_ = key_material_store;
+    checked_key_material_internal_storage_ = true;
+  }
 }
 
 std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
@@ -47,11 +55,26 @@ std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
   }
   KeyMetadata key_metadata = KeyMetadata::Parse(key_metadata_bytes);
 
-  if (!key_metadata.key_material_stored_internally()) {
-    throw ParquetException("External key material store is not supported yet.");
+  if (!checked_key_material_internal_storage_) {
+    if (!key_metadata.key_material_stored_internally()) {
+      key_material_store_ = std::make_shared<FileSystemKeyMaterialStore>();
+      key_material_store_->initialize(std::move(parquet_file_path_), false);
+    }
+    checked_key_material_internal_storage_ = true;
   }
-
-  const KeyMaterial& key_material = key_metadata.key_material();
+  KeyMaterial key_material;
+  if (key_metadata.key_material_stored_internally()) {
+    key_material = key_metadata.key_material();
+  } else {
+    // External key material storage: key metadata contains a reference
+    // to a key in the material store
+    std::string key_id_in_file = key_metadata.key_reference();
+    std::string key_material_string = key_material_store_->GetKeyMaterial(key_id_in_file);
+    if (key_material_string.empty()) {
+      throw ParquetException("Null key material for keyIDinFile: " + key_id_in_file);
+    }
+    key_material = KeyMaterial::Parse(key_material_string);
+  }
 
   return GetDataEncryptionKey(key_material).data_key();
 }

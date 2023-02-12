@@ -107,7 +107,8 @@ class PARQUET_EXPORT CryptoFactory {
 
   std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
-      const EncryptionConfiguration& encryption_config);
+      const EncryptionConfiguration& encryption_config,
+      const std::shared_ptr<FilePath>& parquet_file_path = NULLPTR);
 
   /// The returned FileDecryptionProperties object will use the cache inside this
   /// CryptoFactory object, so please keep this
@@ -115,13 +116,19 @@ class PARQUET_EXPORT CryptoFactory {
   /// FileDecryptionProperties object.
   std::shared_ptr<FileDecryptionProperties> GetFileDecryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
-      const DecryptionConfiguration& decryption_config);
+      const DecryptionConfiguration& decryption_config,
+      const std::shared_ptr<FilePath>& parquet_file_path = NULLPTR);
 
   void RemoveCacheEntriesForToken(const std::string& access_token) {
     key_toolkit_.RemoveCacheEntriesForToken(access_token);
   }
 
   void RemoveCacheEntriesForAllTokens() { key_toolkit_.RemoveCacheEntriesForAllTokens(); }
+
+  void RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
+                        const std::shared_ptr<FilePath>& folder_path,
+                        bool double_wrapping = kDefaultDoubleWrapping,
+                        double cache_lifetime_seconds = kDefaultCacheLifetimeSeconds);
 
  private:
   ColumnPathToEncryptionPropertiesMap GetColumnEncryptionProperties(
