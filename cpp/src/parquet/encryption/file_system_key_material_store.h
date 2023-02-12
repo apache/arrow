@@ -35,7 +35,7 @@ namespace encryption {
 /// Parquet files (often  immutable).
 class PARQUET_EXPORT FileSystemKeyMaterialStore : public FileKeyMaterialStore {
  public:
-  static constexpr const char kKetMaterialFilePrefix[] = "_KEY_MATERIAL_FOR_";
+  static constexpr const char kKeyMaterialFilePrefix[] = "_KEY_MATERIAL_FOR_";
   static constexpr const char kTempFilePrefix[] = "_TMP";
   static constexpr const char kKeyMaterialFileSuffix[] = ".json";
 

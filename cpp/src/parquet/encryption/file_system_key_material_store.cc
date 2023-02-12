@@ -28,7 +28,7 @@
 namespace parquet {
 namespace encryption {
 
-constexpr const char FileSystemKeyMaterialStore::kKetMaterialFilePrefix[];
+constexpr const char FileSystemKeyMaterialStore::kKeyMaterialFilePrefix[];
 constexpr const char FileSystemKeyMaterialStore::kTempFilePrefix[];
 constexpr const char FileSystemKeyMaterialStore::kKeyMaterialFileSuffix[];
 
@@ -37,7 +37,7 @@ void FileSystemKeyMaterialStore::initialize(
   std::string full_prefix =
       (temp_store ? std::string(FileSystemKeyMaterialStore::kTempFilePrefix) : "");
   full_prefix =
-      full_prefix + std::string(FileSystemKeyMaterialStore::kKetMaterialFilePrefix);
+      full_prefix + std::string(FileSystemKeyMaterialStore::kKeyMaterialFilePrefix);
   std::string key_material_file_name =
       full_prefix + parquet_file_path->base_name() +
       std::string(FileSystemKeyMaterialStore::kKeyMaterialFileSuffix);
