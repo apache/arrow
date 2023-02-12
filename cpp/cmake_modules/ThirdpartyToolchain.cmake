@@ -2505,8 +2505,8 @@ endif()
 
 macro(build_zstd)
   message(STATUS "Building Zstandard from source")
-  if(CMAKE_VERSION VERSION_LESS 3.7)
-    message(FATAL_ERROR "Building Zstandard using ExternalProject requires at least CMake 3.7"
+  if(CMAKE_VERSION VERSION_LESS 3.18)
+    message(FATAL_ERROR "Building Zstandard using ExternalProject requires at least CMake 3.18"
     )
   endif()
 
