@@ -4591,7 +4591,7 @@ macro(build_opentelemetry)
        -DWITH_OTLP_GRPC=OFF
        "-DProtobuf_INCLUDE_DIR=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
        "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
-       "-DProtobuf_PROTOC_EXECUTABLE=${OPENTELEMETRY_PROTOC_EXECUTABLE}")
+       "-DPROTOBUF_PROTOC_EXECUTABLE=${OPENTELEMETRY_PROTOC_EXECUTABLE}")
 
   # OpenTelemetry with OTLP enabled requires Protobuf definitions from a
   # submodule. This submodule path is hardcoded into their CMake definitions,
