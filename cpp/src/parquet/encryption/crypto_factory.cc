@@ -52,7 +52,7 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
   if (!encryption_config.internal_key_material) {
     if (parquet_file_path == nullptr) {
       std::stringstream ss;
-      ss << "Output file path cannot be null"
+      ss << "Output file path cannot be null when using external key material"
          << "\n";
       throw ParquetException(ss.str());
     }
