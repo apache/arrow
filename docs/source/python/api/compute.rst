@@ -500,6 +500,7 @@ Structural Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   fill_null
    fill_null_backward
    fill_null_forward
    list_element
