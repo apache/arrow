@@ -529,6 +529,14 @@ else()
   )
 endif()
 
+if(DEFINED ENV{ARROW_AWS_LC_URL})
+  set(AWS_LC_SOURCE_URL "$ENV{ARROW_AWS_LC_URL}")
+else()
+  set_urls(AWS_LC_SOURCE_URL
+           "https://github.com/awslabs/aws-lc/archive/${ARROW_AWS_LC_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
 if(DEFINED ENV{ARROW_AWSSDK_URL})
   set(AWSSDK_SOURCE_URL "$ENV{ARROW_AWSSDK_URL}")
 else()
@@ -4727,20 +4735,38 @@ macro(build_awssdk)
     set(AWSSDK_BUILD_TYPE release)
   endif()
 
+  # provide hint for AWS SDK to link with the already located openssl
+  get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
+  if(APPLE AND NOT OPENSSL_ROOT_HINT)
+    find_program(BREW brew)
+    if(BREW)
+      execute_process(COMMAND ${BREW} --prefix "openssl@1.1"
+                      OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
+                      OUTPUT_STRIP_TRAILING_WHITESPACE)
+      if(OPENSSL11_BREW_PREFIX)
+        set(OPENSSL_ROOT_HINT ${OPENSSL11_BREW_PREFIX})
+      else()
+        execute_process(COMMAND ${BREW} --prefix "openssl"
+                        OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
+                        OUTPUT_STRIP_TRAILING_WHITESPACE)
+        if(OPENSSL_BREW_PREFIX)
+          set(OPENSSL_ROOT_HINT ${OPENSSL_BREW_PREFIX})
+        endif()
+      endif()
+    endif()
+  endif()
+
   set(AWSSDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       -DCMAKE_BUILD_TYPE=${AWSSDK_BUILD_TYPE}
       -DENABLE_TESTING=OFF
       -DENABLE_UNITY_BUILD=ON
+      -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT}
       "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
       "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
 
-  # provide hint for AWS SDK to link with the already located openssl
-  get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
-
   set(AWSSDK_CMAKE_ARGS
       ${AWSSDK_COMMON_CMAKE_ARGS}
-      -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT}
       -DBUILD_DEPS=OFF
       -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
       -DMINIMIZE_SIZE=ON)
@@ -4762,6 +4788,11 @@ macro(build_awssdk)
 
   file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
 
+  # aws-lc needs to be installed on a separate folder to hide from unintended use
+  set(AWS_LC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/aws_lc_ep-install")
+  set(AWS_LC_INCLUDE_DIR "${AWS_LC_PREFIX}/include")
+  file(MAKE_DIRECTORY ${AWS_LC_INCLUDE_DIR})
+
   # AWS C++ SDK related libraries to link statically
   set(_AWSSDK_LIBS
       aws-cpp-sdk-identity-management
@@ -4780,6 +4811,8 @@ macro(build_awssdk)
       aws-c-io
       aws-c-cal
       s2n-tls
+      crypto
+      ssl
       aws-checksums
       aws-c-common)
   set(AWSSDK_LIBRARIES)
@@ -4796,6 +4829,11 @@ macro(build_awssdk)
           "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}s2n${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     endif()
+    if(${_AWSSDK_LIB} STREQUAL "crypto" OR ${_AWSSDK_LIB} STREQUAL "ssl")
+      set(_AWSSDK_STATIC_LIBRARY
+          "${AWS_LC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_AWSSDK_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    endif()
     if(${_AWSSDK_LIB} MATCHES "^aws-cpp-sdk-")
       set(_AWSSDK_TARGET_NAME ${_AWSSDK_LIB})
     else()
@@ -4806,8 +4844,18 @@ macro(build_awssdk)
                           PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY}
                                      INTERFACE_INCLUDE_DIRECTORIES
                                      "${AWSSDK_INCLUDE_DIR}")
+    if(${_AWSSDK_LIB} STREQUAL "crypto" OR ${_AWSSDK_LIB} STREQUAL "ssl")
+      set_target_properties(${_AWSSDK_TARGET_NAME}
+                            PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY}
+                                       INTERFACE_INCLUDE_DIRECTORIES
+                                       "${AWS_LC_INCLUDE_DIR}")
+    endif()
     set("${_AWSSDK_LIB_NAME_PREFIX}_STATIC_LIBRARY" ${_AWSSDK_STATIC_LIBRARY})
-    list(APPEND AWSSDK_LIBRARIES ${_AWSSDK_TARGET_NAME})
+
+    if(NOT ${_AWSSDK_LIB} STREQUAL "crypto" AND NOT ${_AWSSDK_LIB} STREQUAL "ssl"
+    )# aws vendored crypto and ssl only linked against s2n
+      list(APPEND AWSSDK_LIBRARIES ${_AWSSDK_TARGET_NAME})
+    endif()
   endforeach()
 
   externalproject_add(aws_c_common_ep
@@ -4827,37 +4875,35 @@ macro(build_awssdk)
                       DEPENDS aws_c_common_ep)
   add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
+  set(AWS_LC_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
+  list(APPEND AWS_LC_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
+       -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX})
+  externalproject_add(aws_lc_ep
+                      ${EP_COMMON_OPTIONS}
+                      URL ${AWS_LC_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AWS_LC_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AWS_LC_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${SSL_STATIC_LIBRARY} ${CRYPTO_STATIC_LIBRARY})
+  add_dependencies(AWS::crypto aws_lc_ep)
+  add_dependencies(AWS::ssl aws_lc_ep)
+
   set(S2N_TLS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
-  if(APPLE AND NOT OPENSSL_ROOT_DIR)
-    find_program(BREW brew)
-    if(BREW)
-      execute_process(COMMAND ${BREW} --prefix "openssl@1.1"
-                      OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
-                      OUTPUT_STRIP_TRAILING_WHITESPACE)
-      if(OPENSSL11_BREW_PREFIX)
-        set(OPENSSL_ROOT_DIR ${OPENSSL11_BREW_PREFIX})
-      else()
-        execute_process(COMMAND ${BREW} --prefix "openssl"
-                        OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
-                        OUTPUT_STRIP_TRAILING_WHITESPACE)
-        if(OPENSSL_BREW_PREFIX)
-          set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
-        endif()
-      endif()
-    endif()
-  endif()
-  if(OPENSSL_ROOT_DIR)
-    # For Findcrypto.cmake in s2n-tls.
-    list(APPEND S2N_TLS_CMAKE_ARGS -DCMAKE_PREFIX_PATH=${OPENSSL_ROOT_DIR})
-  endif()
+  list(APPEND
+       S2N_TLS_CMAKE_ARGS
+       -DS2N_INTERN_LIBCRYPTO=ON # internalize libcrypto to avoid name conflict with openssl
+       -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX}) # path to find crypto provided by aws-lc
   externalproject_add(s2n_tls_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${S2N_TLS_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_S2N_TLS_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${S2N_TLS_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${S2N_TLS_STATIC_LIBRARY})
+                      BUILD_BYPRODUCTS ${S2N_TLS_STATIC_LIBRARY}
+                      DEPENDS aws_lc_ep)
   add_dependencies(AWS::s2n-tls s2n_tls_ep)
 
+  set(AWS_C_CAL_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
+  list(APPEND AWS_C_CAL_CMAKE_ARGS -DUSE_OPENSSL=ON
+  )# Because aws-c-cal doesn't provide ability to hide libcrypto, we have to use openssl
   externalproject_add(aws_c_cal_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${AWS_C_CAL_SOURCE_URL}
