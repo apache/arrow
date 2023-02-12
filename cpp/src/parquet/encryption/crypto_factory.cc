@@ -17,9 +17,7 @@
 
 #include <string_view>
 
-#include "arrow/result.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/string.h"
 
 #include "parquet/encryption/crypto_factory.h"

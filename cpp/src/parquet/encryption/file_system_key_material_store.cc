@@ -15,11 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <string_view>
+
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/testing/json_integration.h"
 #include "arrow/testing/json_internal.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/make_unique.h"
 
 #include "parquet/encryption/file_system_key_material_store.h"
 #include "parquet/encryption/key_material.h"
@@ -40,7 +41,7 @@ void FileSystemKeyMaterialStore::initialize(
   std::string key_material_file_name =
       full_prefix + parquet_file_path->base_name() +
       std::string(FileSystemKeyMaterialStore::kKeyMaterialFileSuffix);
-  key_material_file_ = ::arrow::internal::make_unique<FilePath>(
+  key_material_file_ = std::make_unique<FilePath>(
       parquet_file_path->dir_name() + "/" + key_material_file_name,
       parquet_file_path->filesystem());
 }
@@ -53,7 +54,7 @@ void FileSystemKeyMaterialStore::LoadKeyMaterialMap() {
   ::arrow::Result<std::shared_ptr<Buffer>> buff =
       input->ReadAt(0, input->GetSize().ValueOrDie());
   std::string buff_str = buff.ValueOrDie()->ToString();
-  ::arrow::util::string_view sv(buff_str);
+  ::std::string_view sv(buff_str);
   document.Parse(sv.data(), sv.size());
   for (rj::Value::ConstMemberIterator itr = document.MemberBegin();
        itr != document.MemberEnd(); ++itr) {
