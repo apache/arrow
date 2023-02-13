@@ -91,14 +91,22 @@ ARROW_ENGINE_EXPORT void set_default_extension_provider(
 /// Options that control the conversion between Substrait and Acero representations of a
 /// plan.
 struct ARROW_ENGINE_EXPORT ConversionOptions {
+  ConversionOptions()
+      : strictness(ConversionStrictness::BEST_EFFORT),
+        named_table_provider(kDefaultNamedTableProvider),
+        extension_provider(default_extension_provider()) {}
+
   /// \brief How strictly the converter should adhere to the structure of the input.
-  ConversionStrictness strictness = ConversionStrictness::BEST_EFFORT;
+  ConversionStrictness strictness;
   /// \brief A custom strategy to be used for providing named tables
   ///
   /// The default behavior will return an invalid status if the plan has any
   /// named table relations.
-  NamedTableProvider named_table_provider = kDefaultNamedTableProvider;
-  std::shared_ptr<ExtensionProvider> extension_provider = default_extension_provider();
+  NamedTableProvider named_table_provider;
+  /// \brief A custom strategy to be used for providing relation infos.
+  ///
+  /// The default behavior will provide for relations known to Arrow.
+  std::shared_ptr<ExtensionProvider> extension_provider;
 };
 
 }  // namespace engine

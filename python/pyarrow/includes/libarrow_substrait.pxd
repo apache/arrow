@@ -34,10 +34,25 @@ cdef extern from "arrow/engine/substrait/options.h" namespace "arrow::engine" no
         BEST_EFFORT \
             "arrow::engine::ConversionStrictness::BEST_EFFORT"
 
+    cdef cppclass CExtensionDetails \
+            "arrow::ending::ExtensionDetails"
+
+    cdef cppclass ExtensionProvider \
+            CResult[CRelationInfo] MakeRel(
+                    const vector[CDeclarationInfo]& inputs,
+                    const CExtensionDetails& ext_details,
+                    const CExtensionSet& ext_set)
+
+    cdef shared_ptr<CExtensionProvider> default_extension_provider()
+    cdef void set_default_extension_provider(
+            const shared_ptr[CExtensionProvider]& provider)
+
     cdef cppclass CConversionOptions \
             "arrow::engine::ConversionOptions":
+        CConversionOptions()
         ConversionStrictness conversion_strictness
         function[CNamedTableProvider] named_table_provider
+        shared_ptr[CExtensionProvider] extension_provider
 
 cdef extern from "arrow/engine/substrait/extension_set.h" \
         namespace "arrow::engine" nogil:
