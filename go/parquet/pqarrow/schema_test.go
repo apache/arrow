@@ -18,7 +18,6 @@ package pqarrow_test
 
 import (
 	"encoding/base64"
-	"fmt"
 	"testing"
 
 	"github.com/apache/arrow/go/v12/arrow"
@@ -366,7 +365,5 @@ func TestListStructBackwardCompatible(t *testing.T) {
 
 	arrsc, err := pqarrow.FromParquet(pqSchema, nil, metadata.KeyValueMetadata{})
 	assert.NoError(t, err)
-	fmt.Println(arrowSchema)
-	fmt.Println(arrsc)
 	assert.True(t, arrowSchema.Equal(arrsc))
 }
