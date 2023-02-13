@@ -187,7 +187,7 @@ func (s *Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (drive
 		return nil, err
 	}
 
-	if s.timeout > 0 {
+	if _, set := ctx.Deadline(); !set && s.timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, s.timeout)
 		defer cancel()
@@ -225,7 +225,7 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 		return nil, err
 	}
 
-	if s.timeout > 0 {
+	if _, set := ctx.Deadline(); !set && s.timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, s.timeout)
 		defer cancel()
@@ -359,7 +359,7 @@ func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
 
 // Connect returns a connection to the database.
 func (d *Driver) Connect(ctx context.Context) (driver.Conn, error) {
-	if d.timeout > 0 {
+	if _, set := ctx.Deadline(); !set && d.timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, d.timeout)
 		defer cancel()
@@ -417,7 +417,7 @@ func (d *Driver) Prepare(query string) (driver.Stmt, error) {
 // context is for the preparation of the statement,
 // it must not store the context within the statement itself.
 func (d *Driver) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	if d.timeout > 0 {
+	if _, set := ctx.Deadline(); !set && d.timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, d.timeout)
 		defer cancel()
