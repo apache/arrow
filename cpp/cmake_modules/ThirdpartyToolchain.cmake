@@ -4788,11 +4788,6 @@ macro(build_awssdk)
 
   file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
 
-  # aws-lc needs to be installed on a separate folder to hide from unintended use
-  set(AWS_LC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/aws_lc_ep-install")
-  set(AWS_LC_INCLUDE_DIR "${AWS_LC_PREFIX}/include")
-  file(MAKE_DIRECTORY ${AWS_LC_INCLUDE_DIR})
-
   # AWS C++ SDK related libraries to link statically
   set(_AWSSDK_LIBS
       aws-cpp-sdk-identity-management
@@ -4812,6 +4807,11 @@ macro(build_awssdk)
       aws-c-cal
       aws-checksums
       aws-c-common)
+
+  # aws-lc needs to be installed on a separate folder to hide from unintended use
+  set(AWS_LC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/aws_lc_ep-install")
+  set(AWS_LC_INCLUDE_DIR "${AWS_LC_PREFIX}/include")
+  file(MAKE_DIRECTORY ${AWS_LC_INCLUDE_DIR})
 
   if(UNIX AND NOT APPLE) # aws-lc and s2n-tls only needed on linux
     list(APPEND
@@ -4923,7 +4923,7 @@ macro(build_awssdk)
   add_dependencies(AWS::aws-c-cal aws_c_cal_ep)
 
   set(AWS_C_IO_DEPENDS aws_c_common_ep aws_c_cal_ep)
-  if(UNIX AND NOT APPLE) 
+  if(UNIX AND NOT APPLE)
     list(APPEND AWS_C_IO_DEPENDS s2n_tls_ep)
   endif()
   externalproject_add(aws_c_io_ep
@@ -5044,6 +5044,9 @@ macro(build_awssdk)
     set_property(TARGET CURL::libcurl
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::SSL)
+    set_property(TARGET AWS::aws-c-cal
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::Crypto OpenSSL::SSL)
     if(ZLIB_VENDORED)
       set_property(TARGET aws-cpp-sdk-core
                    APPEND
