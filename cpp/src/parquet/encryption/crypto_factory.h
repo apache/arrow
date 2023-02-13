@@ -105,29 +105,27 @@ class PARQUET_EXPORT CryptoFactory {
   /// GetFileEncryptionProperties()/GetFileDecryptionProperties() methods.
   void RegisterKmsClientFactory(std::shared_ptr<KmsClientFactory> kms_client_factory);
 
-  std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
-      const KmsConnectionConfig& kms_connection_config,
-      const EncryptionConfiguration& encryption_config);
-
+  /// Get the encryption properties for a Parquet file.
+  /// If external key material is used then a file system and path to the
+  /// parquet file must be provided.
   std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
       const EncryptionConfiguration& encryption_config,
-      const std::string& file_path,
-      const std::shared_ptr<::arrow::fs::FileSystem>& file_system);
+      const std::string& file_path = "",
+      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = nullptr);
 
+  /// Get decryption properties for a Parquet file.
   /// The returned FileDecryptionProperties object will use the cache inside this
   /// CryptoFactory object, so please keep this
   /// CryptoFactory object alive along with the returned
   /// FileDecryptionProperties object.
-  std::shared_ptr<FileDecryptionProperties> GetFileDecryptionProperties(
-      const KmsConnectionConfig& kms_connection_config,
-      const DecryptionConfiguration& decryption_config);
-
+  /// If external key material is used then a file system and path to the
+  /// parquet file must be provided.
   std::shared_ptr<FileDecryptionProperties> GetFileDecryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
       const DecryptionConfiguration& decryption_config,
-      const std::string& file_path,
-      const std::shared_ptr<::arrow::fs::FileSystem>& file_system);
+      const std::string& file_path = "",
+      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = nullptr);
 
   void RemoveCacheEntriesForToken(const std::string& access_token) {
     key_toolkit_.RemoveCacheEntriesForToken(access_token);
@@ -140,7 +138,7 @@ class PARQUET_EXPORT CryptoFactory {
   /// and then re-encrypted with new master keys.
   /// In double wrapping mode, key encryption keys are decrypted with the old master keys
   /// and then re-encrypted with new master keys.
-  /// This relies on the KMS supporting versioning, such that the old master key value is
+  /// This relies on the KMS supporting versioning, such that the old master key is
   /// used when unwrapping a key, and the latest version is used when wrapping a key.
   void RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
                         const std::string& parquet_file_path,

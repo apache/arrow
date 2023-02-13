@@ -32,9 +32,7 @@ namespace encryption {
 
 // This class will retrieve the key from "key metadata", following these steps:
 // 1. Parse "key metadata" (see structure in KeyMetadata class).
-// 2. Retrieve "key material" which can be stored inside or outside "key metadata"
-//    Currently we don't support the case "key material" stores outside "key metadata"
-//    yet.
+// 2. Retrieve "key material" which can be stored inside or outside "key metadata".
 // 3. Unwrap the "data encryption key" from "key material". There are 2 modes:
 // 3.1. single wrapping: decrypt the wrapped "data encryption key" directly with "master
 // encryption key" 3.2. double wrapping: 2 steps: 3.2.1. "key encryption key" is decrypted
@@ -45,12 +43,14 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   /// key_toolkit and kms_connection_config is to get KmsClient from cache or create
   /// KmsClient if it's not in the cache yet. cache_entry_lifetime_seconds is life time of
   /// KmsClient in the cache.
+  /// If the file uses external key material then either the Parquet file path and file system
+  /// must be specified, or a key material store provided.
   FileKeyUnwrapper(KeyToolkit* key_toolkit,
                    const KmsConnectionConfig& kms_connection_config,
                    double cache_lifetime_seconds,
                    const std::string& file_path,
-                   const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR,
-                   std::shared_ptr<FileKeyMaterialStore> key_material_store = NULLPTR);
+                   const std::shared_ptr<::arrow::fs::FileSystem>& file_system = nullptr,
+                   std::shared_ptr<FileKeyMaterialStore> key_material_store = nullptr);
 
   std::string GetKey(const std::string& key_metadata) override;
   internal::KeyWithMasterId GetDataEncryptionKey(const KeyMaterial& key_material);

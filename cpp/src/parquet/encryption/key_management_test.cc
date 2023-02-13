@@ -313,6 +313,19 @@ TEST_F(TestEncryptionKeyManagement, CheckKeyRotationSingleWrapping) {
   }
 }
 
+TEST_F(TestEncryptionKeyManagement, KeyRotationWithInternalMaterial) {
+  bool internal_key_material = true;
+  bool double_wrapping = false;
+  this->SetupCryptoFactory(false);
+  int encryption_no = 0;
+
+  TestOnlyInServerWrapKms::InitializeMasterKeys(key_list_);
+  this->WriteEncryptedParquetFile(double_wrapping, internal_key_material, encryption_no);
+  // Key rotation requires external key material so this should throw an exception
+  EXPECT_THROW(this->RotateKeys(double_wrapping, encryption_no),
+               ParquetException);
+}
+
 TEST_F(TestEncryptionKeyManagementMultiThread, WrapLocally) {
   this->SetupCryptoFactory(true);
 

@@ -18,6 +18,7 @@
 #include <string_view>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/result.h"
 #include "arrow/testing/json_integration.h"
 #include "arrow/testing/json_internal.h"
@@ -41,29 +42,39 @@ FileSystemKeyMaterialStore::FileSystemKeyMaterialStore(
 
 std::shared_ptr<FileSystemKeyMaterialStore> FileSystemKeyMaterialStore::Make(
     const std::string& parquet_file_path,
-    const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool temp_store) {
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
+    bool temp_store) {
+  if (parquet_file_path.empty()) {
+    throw ParquetException("The Parquet file path must be specified when using external key material");
+  }
+  if (file_system == nullptr) {
+    throw ParquetException("A file system must be specified when using external key material");
+  }
+
   ::arrow::fs::FileInfo file_info(parquet_file_path);
-  std::string full_prefix =
-      (temp_store ? std::string(FileSystemKeyMaterialStore::kTempFilePrefix) : "");
-  full_prefix =
-      full_prefix + std::string(FileSystemKeyMaterialStore::kKeyMaterialFilePrefix);
-  std::string key_material_file_name =
-      full_prefix + file_info.base_name() +
-      std::string(FileSystemKeyMaterialStore::kKeyMaterialFileSuffix);
-  std::string key_material_file_path = file_info.dir_name() + "/" + key_material_file_name;
+  std::stringstream key_material_file_name;
+  if (temp_store) {
+    key_material_file_name << FileSystemKeyMaterialStore::kTempFilePrefix;
+  }
+  key_material_file_name << FileSystemKeyMaterialStore::kKeyMaterialFilePrefix
+                         << file_info.base_name()
+                         << FileSystemKeyMaterialStore::kKeyMaterialFileSuffix;
+
+  std::string key_material_file_path = ::arrow::fs::internal::ConcatAbstractPath(
+      file_info.dir_name(), key_material_file_name.str());
   return std::make_shared<FileSystemKeyMaterialStore>(key_material_file_path, file_system);
 }
 
 void FileSystemKeyMaterialStore::LoadKeyMaterialMap() {
-  ::arrow::Result<std::shared_ptr<::arrow::io::RandomAccessFile>> file =
-      file_system_->OpenInputFile(key_material_file_path_);
-  std::shared_ptr<::arrow::io::RandomAccessFile> input = file.ValueOrDie();
+  std::shared_ptr<::arrow::io::RandomAccessFile> input;
+  PARQUET_ASSIGN_OR_THROW(input, file_system_->OpenInputFile(key_material_file_path_));
+  int64_t input_size;
+  std::shared_ptr<Buffer> buff;
+  PARQUET_ASSIGN_OR_THROW(input_size, input->GetSize());
+  PARQUET_ASSIGN_OR_THROW(buff, input->ReadAt(0, input_size));
+  std::string buff_str = buff->ToString();
   rj::Document document;
-  ::arrow::Result<std::shared_ptr<Buffer>> buff =
-      input->ReadAt(0, input->GetSize().ValueOrDie());
-  std::string buff_str = buff.ValueOrDie()->ToString();
-  ::std::string_view sv(buff_str);
-  document.Parse(sv.data(), sv.size());
+  document.Parse(buff_str);
   for (rj::Value::ConstMemberIterator itr = document.MemberBegin();
        itr != document.MemberEnd(); ++itr) {
     key_material_map_.insert({itr->name.GetString(), itr->value.GetString()});
@@ -89,9 +100,8 @@ std::string FileSystemKeyMaterialStore::BuildKeyMaterialMapJson() {
 }
 
 void FileSystemKeyMaterialStore::SaveMaterial() {
-  ::arrow::Result<std::shared_ptr<::arrow::io::OutputStream>> sink =
-      file_system_->OpenOutputStream(key_material_file_path_);
-  auto stream = sink.ValueOrDie();
+  std::shared_ptr<::arrow::io::OutputStream> stream;
+  PARQUET_ASSIGN_OR_THROW(stream, file_system_->OpenOutputStream(key_material_file_path_));
   std::string key_material_json = BuildKeyMaterialMapJson();
   PARQUET_THROW_NOT_OK(stream->Write(key_material_json));
   PARQUET_THROW_NOT_OK(stream->Flush());
@@ -99,8 +109,12 @@ void FileSystemKeyMaterialStore::SaveMaterial() {
 }
 
 void FileSystemKeyMaterialStore::RemoveMaterial() {
-  if (file_system_->DeleteFile(key_material_file_path_) != ::arrow::Status::OK()) {
-    throw ParquetException("Failed to delete key material file " + key_material_file_path_);
+  auto status = file_system_->DeleteFile(key_material_file_path_);
+  if (!status.ok()) {
+    std::stringstream ss;
+    ss << "Failed to delete key material file '" << key_material_file_path_ << "': "
+       << status;
+    throw ParquetException(ss.str());
   }
 }
 
@@ -111,7 +125,7 @@ std::vector<std::string> FileSystemKeyMaterialStore::GetKeyIDSet() {
   std::vector<std::string> keys;
   keys.reserve(key_material_map_.size());
 
-  for (auto kv : key_material_map_) {
+  for (const auto& kv : key_material_map_) {
     keys.push_back(kv.first);
   }
   return keys;
@@ -119,11 +133,18 @@ std::vector<std::string> FileSystemKeyMaterialStore::GetKeyIDSet() {
 
 void FileSystemKeyMaterialStore::MoveMaterialTo(
     std::shared_ptr<FileKeyMaterialStore> target_key_store) {
-  std::shared_ptr<FileSystemKeyMaterialStore> target_key_file_store =
-      std::static_pointer_cast<FileSystemKeyMaterialStore>(target_key_store);
+  auto target_key_file_store = std::dynamic_pointer_cast<FileSystemKeyMaterialStore>(target_key_store);
+  if (target_key_file_store == nullptr) {
+    throw ParquetException("Cannot move key material to a store that is not a FileSystemKeyMaterialStore");
+  }
   std::string target_key_material_file = target_key_file_store->GetStorageFilePath();
-  if (file_system_->Move(key_material_file_path_, target_key_material_file) != ::arrow::Status::OK()) {
-    throw ParquetException("Failed to rename key material file " + key_material_file_path_);
+  auto status = file_system_->Move(key_material_file_path_, target_key_material_file);
+  if (!status.ok()) {
+    std::stringstream ss;
+    ss << "Failed to move key material file '" << key_material_file_path_
+       << "' to '" << target_key_material_file << "': "
+       << status;
+    throw ParquetException(ss.str());
   }
 }
 

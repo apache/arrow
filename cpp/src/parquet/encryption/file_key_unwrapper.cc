@@ -66,7 +66,7 @@ std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
     std::string key_id_in_file = key_metadata.key_reference();
     std::string key_material_string = key_material_store_->GetKeyMaterial(key_id_in_file);
     if (key_material_string.empty()) {
-      throw ParquetException("Null key material for key with ID: " + key_id_in_file);
+      throw ParquetException("Could not find key material with ID '" + key_id_in_file + "' in external key material file");
     }
     key_material = KeyMaterial::Parse(key_material_string);
   }

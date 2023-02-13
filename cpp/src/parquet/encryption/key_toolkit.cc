@@ -30,9 +30,6 @@
 namespace parquet {
 namespace encryption {
 
-static constexpr const char kPeriod = '.';
-static constexpr const char kUnderscore = '_';
-
 std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
     const KmsConnectionConfig& kms_connection_config, double cache_entry_lifetime_ms) {
   if (kms_client_factory_ == NULL) {
@@ -66,10 +63,13 @@ void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_conf
   std::shared_ptr<FileKeyMaterialStore> key_material_store = FileSystemKeyMaterialStore::Make(
       parquet_file_path, file_system, false);
 
+  // Unwrapper for decrypting encrypted keys
   FileKeyUnwrapper file_key_unwrapper(this, kms_connection_config,
                                       cache_lifetime_seconds, parquet_file_path, file_system,
                                       key_material_store);
 
+  // Create a temporary store to hold new key material during rotation,
+  // and wrapper that will write material to this store when getting key metadata.
   std::shared_ptr<FileKeyMaterialStore> temp_key_material_store = FileSystemKeyMaterialStore::Make(
       parquet_file_path, file_system, true);
   FileKeyWrapper file_key_wrapper(this, kms_connection_config, temp_key_material_store,
@@ -77,7 +77,10 @@ void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_conf
 
   std::vector<std::string> file_key_id_set = key_material_store->GetKeyIDSet();
 
-  // Start with footer key (to get KMS ID, URL, if needed)
+  // When writing new encryption material, we re-use the same key identifiers
+  // so that key metadata does not need to change.
+  // Start with footer key (to get KMS ID, URL, if needed).
+  // We can rely on the footer key using a standardised key identifier.
   std::string footer_key_id_str = std::string(KeyMaterial::kFooterKeyIdInFile);
   std::string key_material_string =
       key_material_store->GetKeyMaterial(footer_key_id_str);
@@ -89,7 +92,9 @@ void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_conf
 
   // Rotate column keys
   for (auto const& key_id_in_file : file_key_id_set) {
-    if (key_id_in_file == std::string(KeyMaterial::kFooterKeyIdInFile)) continue;
+    if (key_id_in_file == std::string(KeyMaterial::kFooterKeyIdInFile)) {
+      continue;
+    }
     key_material_string = key_material_store->GetKeyMaterial(key_id_in_file);
     internal::KeyWithMasterId column_key = file_key_unwrapper.GetDataEncryptionKey(
         KeyMaterial::Parse(key_material_string));
@@ -97,10 +102,9 @@ void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_conf
         column_key.data_key(), column_key.master_id(), false, key_id_in_file);
   }
 
+  // Save material to the temporary store then move it to the original store location
   temp_key_material_store->SaveMaterial();
-
   key_material_store->RemoveMaterial();
-
   temp_key_material_store->MoveMaterialTo(key_material_store);
 }
 

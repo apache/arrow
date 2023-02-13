@@ -36,12 +36,6 @@ void CryptoFactory::RegisterKmsClientFactory(
 
 std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
-    const EncryptionConfiguration& encryption_config) {
-  return GetFileEncryptionProperties(kms_connection_config, encryption_config, "", nullptr);
-}
-
-std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProperties(
-    const KmsConnectionConfig& kms_connection_config,
     const EncryptionConfiguration& encryption_config,
     const std::string& file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
@@ -54,14 +48,8 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
   const std::string& footer_key_id = encryption_config.footer_key;
   const std::string& column_key_str = encryption_config.column_keys;
 
-  std::shared_ptr<FileKeyMaterialStore> key_material_store = NULL;
+  std::shared_ptr<FileKeyMaterialStore> key_material_store = nullptr;
   if (!encryption_config.internal_key_material) {
-    if (file_path.empty()) {
-      std::stringstream ss;
-      ss << "Output file path must be specified when using external key material"
-         << "\n";
-      throw ParquetException(ss.str());
-    }
     try {
       key_material_store = FileSystemKeyMaterialStore::Make(file_path, file_system, false);
     } catch (ParquetException& e) {
@@ -106,7 +94,9 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
     }
   }
 
-  if (key_material_store != nullptr) key_material_store->SaveMaterial();
+  if (key_material_store != nullptr) {
+    key_material_store->SaveMaterial();
+  }
   return properties_builder.build();
 }
 
@@ -181,18 +171,12 @@ ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties
 
 std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
-    const DecryptionConfiguration& decryption_config) {
-  return GetFileDecryptionProperties(kms_connection_config, decryption_config, "", nullptr);
-}
-
-std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProperties(
-    const KmsConnectionConfig& kms_connection_config,
     const DecryptionConfiguration& decryption_config,
     const std::string& file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
-  std::shared_ptr<DecryptionKeyRetriever> key_retriever(
-      new FileKeyUnwrapper(&key_toolkit_, kms_connection_config,
-                           decryption_config.cache_lifetime_seconds, file_path, file_system));
+  auto key_retriever = std::make_shared<FileKeyUnwrapper>(
+      &key_toolkit_, kms_connection_config, decryption_config.cache_lifetime_seconds,
+      file_path, file_system);
 
   return FileDecryptionProperties::Builder()
       .key_retriever(key_retriever)
