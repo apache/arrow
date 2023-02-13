@@ -29,6 +29,13 @@ add_arrow_compute_test(plan_test
                        "arrow-compute"
                        SOURCES
                        plan_test.cc
+                       test_nodes_test.cc
+                       test_nodes.cc)
+add_arrow_compute_test(fetch_node_test
+                       PREFIX
+                       "arrow-compute"
+                       SOURCES
+                       fetch_node_test.cc
                        test_nodes.cc)
 add_arrow_compute_test(hash_join_node_test
                        PREFIX

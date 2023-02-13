@@ -23,6 +23,8 @@
 #include <string>
 #include <vector>
 
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
@@ -67,6 +69,10 @@ using NamedTableProvider =
     std::function<Result<compute::Declaration>(const std::vector<std::string>&)>;
 static NamedTableProvider kDefaultNamedTableProvider;
 
+using NamedTapProvider = std::function<Result<compute::Declaration>(
+    const std::string&, std::vector<compute::Declaration::Input>, const std::string&,
+    std::shared_ptr<Schema>)>;
+
 class ARROW_ENGINE_EXPORT ExtensionDetails {
  public:
   virtual ~ExtensionDetails() = default;
@@ -75,7 +81,8 @@ class ARROW_ENGINE_EXPORT ExtensionDetails {
 class ARROW_ENGINE_EXPORT ExtensionProvider {
  public:
   virtual ~ExtensionProvider() = default;
-  virtual Result<RelationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
+  virtual Result<RelationInfo> MakeRel(const ConversionOptions& conv_opts,
+                                       const std::vector<DeclarationInfo>& inputs,
                                        const ExtensionDetails& ext_details,
                                        const ExtensionSet& ext_set) = 0;
 };
@@ -88,12 +95,17 @@ ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionProvider> default_extension_provide
 ARROW_ENGINE_EXPORT void set_default_extension_provider(
     const std::shared_ptr<ExtensionProvider>& provider);
 
+ARROW_ENGINE_EXPORT NamedTapProvider default_named_tap_provider();
+
+ARROW_ENGINE_EXPORT void set_default_named_tap_provider(NamedTapProvider provider);
+
 /// Options that control the conversion between Substrait and Acero representations of a
 /// plan.
 struct ARROW_ENGINE_EXPORT ConversionOptions {
   ConversionOptions()
       : strictness(ConversionStrictness::BEST_EFFORT),
         named_table_provider(kDefaultNamedTableProvider),
+        named_tap_provider(default_named_tap_provider()),
         extension_provider(default_extension_provider()) {}
 
   /// \brief How strictly the converter should adhere to the structure of the input.
@@ -103,6 +115,10 @@ struct ARROW_ENGINE_EXPORT ConversionOptions {
   /// The default behavior will return an invalid status if the plan has any
   /// named table relations.
   NamedTableProvider named_table_provider;
+  /// \brief A custom strategy to be used for obtaining a tap declaration
+  ///
+  /// The default provider returns an error
+  NamedTapProvider named_tap_provider;
   /// \brief A custom strategy to be used for providing relation infos.
   ///
   /// The default behavior will provide for relations known to Arrow.

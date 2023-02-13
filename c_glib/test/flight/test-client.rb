@@ -27,6 +27,7 @@ class TestFlightClient < Test::Unit::TestCase
     host = "127.0.0.1"
     location = ArrowFlight::Location.new("grpc://#{host}:0")
     options = ArrowFlight::ServerOptions.new(location)
+    options.auth_handler = Helper::FlightAuthHandler.new
     @server.listen(options)
     @location = ArrowFlight::Location.new("grpc://#{host}:#{@server.port}")
   end
@@ -41,6 +42,13 @@ class TestFlightClient < Test::Unit::TestCase
     client.close
     # Idempotent
     client.close
+  end
+
+  def test_authenticate_basic_token
+    client = ArrowFlight::Client.new(@location)
+    generator = Helper::FlightInfoGenerator.new
+    assert_equal([true, "", ""],
+                 client.authenticate_basic_token("user", "password"))
   end
 
   def test_list_flights
