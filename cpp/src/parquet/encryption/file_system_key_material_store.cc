@@ -18,12 +18,13 @@
 #include <string_view>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/result.h"
 #include "arrow/testing/json_integration.h"
 #include "arrow/testing/json_internal.h"
-#include "arrow/util/io_util.h"
 
 #include "parquet/encryption/file_system_key_material_store.h"
 #include "parquet/encryption/key_material.h"
+#include "parquet/exception.h"
 
 namespace parquet {
 namespace encryption {
@@ -33,22 +34,22 @@ constexpr const char FileSystemKeyMaterialStore::kTempFilePrefix[];
 constexpr const char FileSystemKeyMaterialStore::kKeyMaterialFileSuffix[];
 
 void FileSystemKeyMaterialStore::initialize(
-    const std::shared_ptr<FilePath>& parquet_file_path, bool temp_store) {
+    const std::string& file_path, const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool temp_store) {
+  ::arrow::fs::FileInfo file_info(file_path);
   std::string full_prefix =
       (temp_store ? std::string(FileSystemKeyMaterialStore::kTempFilePrefix) : "");
   full_prefix =
       full_prefix + std::string(FileSystemKeyMaterialStore::kKeyMaterialFilePrefix);
   std::string key_material_file_name =
-      full_prefix + parquet_file_path->base_name() +
+      full_prefix + file_info.base_name() +
       std::string(FileSystemKeyMaterialStore::kKeyMaterialFileSuffix);
-  key_material_file_ = std::make_unique<FilePath>(
-      parquet_file_path->dir_name() + "/" + key_material_file_name,
-      parquet_file_path->filesystem());
+  key_material_file_path_ = file_info.dir_name() + "/" + key_material_file_name;
+  file_system_ = file_system;
 }
 
 void FileSystemKeyMaterialStore::LoadKeyMaterialMap() {
   ::arrow::Result<std::shared_ptr<::arrow::io::RandomAccessFile>> file =
-      key_material_file_->OpenReadable();
+      file_system_->OpenInputFile(key_material_file_path_);
   std::shared_ptr<::arrow::io::RandomAccessFile> input = file.ValueOrDie();
   rj::Document document;
   ::arrow::Result<std::shared_ptr<Buffer>> buff =
@@ -82,7 +83,7 @@ std::string FileSystemKeyMaterialStore::BuildKeyMaterialMapJson() {
 
 void FileSystemKeyMaterialStore::SaveMaterial() {
   ::arrow::Result<std::shared_ptr<::arrow::io::OutputStream>> sink =
-      key_material_file_->OpenWriteable();
+      file_system_->OpenOutputStream(key_material_file_path_);
   auto stream = sink.ValueOrDie();
   std::string key_material_json = BuildKeyMaterialMapJson();
   if (!::arrow::internal::GenericToStatus(stream->Write(key_material_json)).ok())
@@ -93,7 +94,11 @@ void FileSystemKeyMaterialStore::SaveMaterial() {
     throw ParquetException("Error closing stream in SaveMaterial");
 }
 
-void FileSystemKeyMaterialStore::RemoveMaterial() { key_material_file_->DeleteFile(); }
+void FileSystemKeyMaterialStore::RemoveMaterial() {
+  if (file_system_->DeleteFile(key_material_file_path_) != ::arrow::Status::OK()) {
+    throw ParquetException("Failed to delete key material file " + key_material_file_path_);
+  }
+}
 
 std::vector<std::string> FileSystemKeyMaterialStore::GetKeyIDSet() {
   if (key_material_map_.empty()) {
@@ -113,8 +118,9 @@ void FileSystemKeyMaterialStore::MoveMaterialTo(
   std::shared_ptr<FileSystemKeyMaterialStore> target_key_file_store =
       std::static_pointer_cast<FileSystemKeyMaterialStore>(target_key_store);
   std::string target_key_material_file = target_key_file_store->GetStorageFilePath();
-  std::string source_key_material_file = key_material_file_->path();
-  key_material_file_->Move(source_key_material_file, target_key_material_file);
+  if (file_system_->Move(key_material_file_path_, target_key_material_file) != ::arrow::Status::OK()) {
+    throw ParquetException("Failed to rename key material file " + key_material_file_path_);
+  }
 }
 
 }  // namespace encryption

@@ -23,7 +23,6 @@
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/file_key_unwrapper.h"
-#include "parquet/encryption/file_path.h"
 #include "parquet/encryption/file_system_key_material_store.h"
 #include "parquet/encryption/key_toolkit_internal.h"
 
@@ -37,8 +36,15 @@ void CryptoFactory::RegisterKmsClientFactory(
 
 std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
+    const EncryptionConfiguration& encryption_config) {
+  return GetFileEncryptionProperties(kms_connection_config, encryption_config, "", nullptr);
+}
+
+std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProperties(
+    const KmsConnectionConfig& kms_connection_config,
     const EncryptionConfiguration& encryption_config,
-    const std::shared_ptr<FilePath>& parquet_file_path) {
+    const std::string& file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
   if (!encryption_config.uniform_encryption && encryption_config.column_keys.empty()) {
     throw ParquetException("Either column_keys or uniform_encryption must be set");
   } else if (encryption_config.uniform_encryption &&
@@ -50,15 +56,15 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
 
   std::shared_ptr<FileKeyMaterialStore> key_material_store = NULL;
   if (!encryption_config.internal_key_material) {
-    if (parquet_file_path == nullptr) {
+    if (file_path.empty()) {
       std::stringstream ss;
-      ss << "Output file path cannot be null when using external key material"
+      ss << "Output file path must be specified when using external key material"
          << "\n";
       throw ParquetException(ss.str());
     }
     try {
       key_material_store = std::make_shared<FileSystemKeyMaterialStore>();
-      key_material_store->initialize(parquet_file_path, false);
+      key_material_store->initialize(file_path, file_system, false);
     } catch (ParquetException& e) {
       std::stringstream ss;
       ss << "Failed to get key material store" << e.what() << "\n";
@@ -176,11 +182,18 @@ ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties
 
 std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
+    const DecryptionConfiguration& decryption_config) {
+  return GetFileDecryptionProperties(kms_connection_config, decryption_config, "", nullptr);
+}
+
+std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProperties(
+    const KmsConnectionConfig& kms_connection_config,
     const DecryptionConfiguration& decryption_config,
-    const std::shared_ptr<FilePath>& parquet_file_path) {
+    const std::string& file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
   std::shared_ptr<DecryptionKeyRetriever> key_retriever(
       new FileKeyUnwrapper(&key_toolkit_, kms_connection_config,
-                           decryption_config.cache_lifetime_seconds, parquet_file_path));
+                           decryption_config.cache_lifetime_seconds, file_path, file_system));
 
   return FileDecryptionProperties::Builder()
       .key_retriever(key_retriever)
@@ -189,10 +202,11 @@ std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProper
 }
 
 void CryptoFactory::RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
-                                     const std::shared_ptr<FilePath>& folder_path,
+                                     const std::string& directory_path,
+                                     const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
                                      bool double_wrapping,
                                      double cache_lifetime_seconds) {
-  key_toolkit_.RotateMasterKeys(kms_connection_config, folder_path, double_wrapping,
+  key_toolkit_.RotateMasterKeys(kms_connection_config, directory_path, file_system, double_wrapping,
                                 cache_lifetime_seconds);
 }
 

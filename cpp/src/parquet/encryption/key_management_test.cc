@@ -152,12 +152,10 @@ class TestEncryptionKeyManagement : public ::testing::Test {
           kms_connection_config_, encryption_config);
       encryptor_.EncryptFile(file, file_encryption_properties);
     } else {
-      ::arrow::Result<std::shared_ptr<::arrow::fs::FileSystem>> filesystem =
-          MakeLocalFileSystem();
-      std::shared_ptr<FilePath> writable = std::make_shared<FilePath>(
-          temp_dir_->path().ToString() + file_name, filesystem.ValueOrDie());
+      std::shared_ptr<::arrow::fs::FileSystem> file_system = MakeLocalFileSystem().ValueOrDie();
+      std::string file_path = temp_dir_->path().ToString() + file_name;
       auto file_encryption_properties = crypto_factory_.GetFileEncryptionProperties(
-          kms_connection_config_, encryption_config, writable);
+          kms_connection_config_, encryption_config, file_path, file_system);
       encryptor_.EncryptFile(file, file_encryption_properties);
     }
   }
@@ -174,31 +172,26 @@ class TestEncryptionKeyManagement : public ::testing::Test {
 
       decryptor_.DecryptFile(file, file_decryption_properties);
     } else {
-      ::arrow::Result<std::shared_ptr<::arrow::fs::FileSystem>> filesystem =
-          MakeLocalFileSystem();
-      std::string file_name = GetFileName(double_wrapping, wrap_locally_,
-                                          internal_key_material, encryption_no);
-      std::shared_ptr<FilePath> readable = std::make_shared<FilePath>(
-          temp_dir_->path().ToString() + file_name, filesystem.ValueOrDie());
+      std::shared_ptr<::arrow::fs::FileSystem> file_system =
+          MakeLocalFileSystem().ValueOrDie();
+      std::string file_path = temp_dir_->path().ToString() + GetFileName(
+          double_wrapping, wrap_locally_, internal_key_material, encryption_no);
       auto file_decryption_properties = crypto_factory_.GetFileDecryptionProperties(
-          kms_connection_config_, decryption_config, readable);
+          kms_connection_config_, decryption_config, file_path, file_system);
 
       decryptor_.DecryptFile(file, file_decryption_properties);
     }
   }
 
   void RotateKeys(bool double_wrapping) {
-    ::arrow::Result<std::shared_ptr<::arrow::fs::FileSystem>> filesystem =
-        MakeLocalFileSystem();
-
-    std::shared_ptr<FilePath> readable =
-        std::make_shared<FilePath>(temp_dir_->path().ToString(), filesystem.ValueOrDie());
+    std::shared_ptr<::arrow::fs::FileSystem> file_system = MakeLocalFileSystem().ValueOrDie();
+    std::string data_directory = temp_dir_->path().ToString();
 
     TestOnlyInServerWrapKms::StartKeyRotation(new_key_list_);
     std::cout << "Start master key rotation" << std::endl;
     std::cout << "Rotate master keys in folder: " + temp_dir_->path().ToString()
               << std::endl;
-    crypto_factory_.RotateMasterKeys(kms_connection_config_, readable, double_wrapping);
+    crypto_factory_.RotateMasterKeys(kms_connection_config_, data_directory, file_system, double_wrapping);
     TestOnlyInServerWrapKms::FinishKeyRotation();
     std::cout << "--> Finish master key rotation" << std::endl;
     crypto_factory_.RemoveCacheEntriesForAllTokens();

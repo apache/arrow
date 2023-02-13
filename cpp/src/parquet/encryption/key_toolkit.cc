@@ -16,6 +16,8 @@
 // under the License.
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/path_util.h"
+#include "arrow/result.h"
 
 #include "parquet/encryption/file_key_unwrapper.h"
 #include "parquet/encryption/file_key_wrapper.h"
@@ -56,7 +58,8 @@ inline bool filter_out_file(std::string child) {
 }
 
 void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
-                                  const std::shared_ptr<FilePath>& folder_path,
+                                  const std::string& directory_path,
+                                  const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
                                   bool double_wrapping, double cache_lifetime_seconds) {
   // If process wrote files with double-wrapped keys, clean KEK cache (since master keys
   // are changing). Only once for each key rotation cycle; not for every folder
@@ -70,32 +73,32 @@ void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_conf
   lock.Unlock();
   std::vector<::arrow::fs::FileInfo> parquet_files_in_folder;
   ::arrow::fs::FileSelector s;
-  s.base_dir = folder_path->dir_name();
-  parquet_files_in_folder = folder_path->filesystem()->GetFileInfo(s).ValueOrDie();
+  s.base_dir = directory_path;
+  parquet_files_in_folder = file_system->GetFileInfo(s).ValueOrDie();
 
   if (parquet_files_in_folder.size() == 0) {
-    throw ParquetException("Couldn't rotate keys - no parquet files in folder " +
-                           folder_path->dir_name());
+    throw ParquetException("Couldn't rotate keys - no parquet files in folder " + directory_path);
   }
 
   for (auto const& parquet_file : parquet_files_in_folder) {
     if (parquet_file.type() != ::arrow::fs::FileType::File)
-      throw ParquetException("Expecting file type in " + folder_path->dir_name());
+      throw ParquetException("Expecting file type in " + directory_path);
     std::string child = parquet_file.base_name();
     if (filter_out_file(child)) continue;
 
     std::shared_ptr<FileKeyMaterialStore> key_material_store =
         std::make_shared<FileSystemKeyMaterialStore>();
-    folder_path->set_path(folder_path->dir_name() + "/" + parquet_file.base_name());
-    key_material_store->initialize(folder_path, false);
+    std::string parquet_file_path = ::arrow::fs::internal::ConcatAbstractPath(
+        directory_path, parquet_file.base_name());
+    key_material_store->initialize(parquet_file_path, file_system, false);
 
     FileKeyUnwrapper file_key_unwrapper(this, kms_connection_config,
-                                        cache_lifetime_seconds, folder_path,
+                                        cache_lifetime_seconds, parquet_file_path, file_system,
                                         key_material_store);
 
     std::shared_ptr<FileKeyMaterialStore> temp_key_material_store =
         std::make_shared<FileSystemKeyMaterialStore>();
-    temp_key_material_store->initialize(folder_path, true);
+    temp_key_material_store->initialize(parquet_file_path, file_system, true);
     FileKeyWrapper file_key_wrapper(this, kms_connection_config, temp_key_material_store,
                                     cache_lifetime_seconds, double_wrapping);
 

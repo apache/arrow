@@ -20,7 +20,6 @@
 #include <memory>
 #include <string>
 
-#include "parquet/encryption/file_path.h"
 #include "parquet/encryption/key_encryption_key.h"
 #include "parquet/encryption/kms_client.h"
 #include "parquet/encryption/kms_client_factory.h"
@@ -77,7 +76,8 @@ class PARQUET_EXPORT KeyToolkit {
   /// footers. Not supported in local key wrapping mode. Method can be run by multiple
   /// threads, but each thread must work on a different folder.
   void RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
-                        const std::shared_ptr<FilePath>& folder_path,
+                        const std::string& directory_path,
+                        const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
                         bool double_wrapping, double cache_lifetime_seconds);
 
  private:

@@ -44,7 +44,7 @@ class KeyWrappingTest : public ::testing::Test {
                       bool is_wrap_locally) {
     double cache_entry_lifetime_seconds = 600;
     std::shared_ptr<FileKeyMaterialStore> key_material_store;
-    ::arrow::Result<std::shared_ptr<::arrow::fs::FileSystem>> filesystem = nullptr;
+    std::shared_ptr<::arrow::fs::FileSystem> file_system = nullptr;
     std::string file_name;
     if (internal_key_material) {
       key_material_store = nullptr;
@@ -54,12 +54,11 @@ class KeyWrappingTest : public ::testing::Test {
       file_name +=
           internal_key_material ? "-internal_key_material" : "-external_key_metrial";
 
-      filesystem = MakeLocalFileSystem();
-      std::shared_ptr<FilePath> writable = std::make_shared<FilePath>(
-          temp_dir_->path().ToString() + file_name, filesystem.ValueOrDie());
+      file_system = MakeLocalFileSystem().ValueOrDie();
+      std::string writeable_file_path(temp_dir_->path().ToString() + file_name);
       try {
         key_material_store = std::make_shared<FileSystemKeyMaterialStore>();
-        key_material_store->initialize(writable, false);
+        key_material_store->initialize(writeable_file_path, file_system, false);
       } catch (ParquetException& e) {
         std::stringstream ss;
         ss << "Failed to get key material store" << e.what() << "\n";
@@ -81,14 +80,13 @@ class KeyWrappingTest : public ::testing::Test {
 
     if (key_material_store != nullptr) key_material_store->SaveMaterial();
 
-    std::shared_ptr<FilePath> readable = nullptr;
+    std::string readable_file_path;
     if (!internal_key_material) {
-      readable = std::make_shared<FilePath>(temp_dir_->path().ToString() + file_name,
-                                            filesystem.ValueOrDie());
+      readable_file_path = temp_dir_->path().ToString() + file_name;
     }
 
     FileKeyUnwrapper unwrapper(&key_toolkit, kms_connection_config_,
-                               cache_entry_lifetime_seconds, readable);
+                               cache_entry_lifetime_seconds, readable_file_path, file_system);
     std::string footer_key = unwrapper.GetKey(key_metadata_json_footer);
     ASSERT_EQ(footer_key, kFooterEncryptionKey);
 

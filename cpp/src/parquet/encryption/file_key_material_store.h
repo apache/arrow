@@ -22,8 +22,7 @@
 #include <unordered_map>
 
 #include "arrow/filesystem/filesystem.h"
-
-#include "parquet/encryption/file_path.h"
+#include "parquet/platform.h"
 
 namespace parquet {
 namespace encryption {
@@ -35,7 +34,7 @@ namespace encryption {
 class PARQUET_EXPORT FileKeyMaterialStore {
  public:
   /// Initializes key material store for a parquet file.
-  virtual void initialize(const std::shared_ptr<FilePath>& parquet_file_path,
+  virtual void initialize(const std::string& file_path, const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
                           bool temp_store) = 0;
 
   /// Add key material for one encryption key.

@@ -48,7 +48,8 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   FileKeyUnwrapper(KeyToolkit* key_toolkit,
                    const KmsConnectionConfig& kms_connection_config,
                    double cache_lifetime_seconds,
-                   const std::shared_ptr<FilePath>& parquet_file_path = NULLPTR,
+                   const std::string& file_path,
+                   const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR,
                    std::shared_ptr<FileKeyMaterialStore> key_material_store = NULLPTR);
 
   std::string GetKey(const std::string& key_metadata) override;
@@ -65,7 +66,8 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   const double cache_entry_lifetime_seconds_;
   std::shared_ptr<FileKeyMaterialStore> key_material_store_;
   bool checked_key_material_internal_storage_;
-  std::shared_ptr<FilePath> parquet_file_path_;
+  const std::string file_path_;
+  std::shared_ptr<::arrow::fs::FileSystem> file_system_;
 };
 
 }  // namespace encryption
