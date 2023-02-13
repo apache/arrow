@@ -16,6 +16,7 @@
 // under the License.
 
 #include "parquet/arrow/writer.h"
+#include "arrow/util/tracing_internal.h"
 
 #include <algorithm>
 #include <deque>
@@ -130,6 +131,8 @@ class ArrowColumnWriterV2 {
   //
   // Columns are written in DFS order.
   Status Write(ArrowWriteContext* ctx) {
+    ::arrow::util::tracing::Span span;
+    START_SPAN(span, "ArrowColumnWriterV2::Write", {{"threadpool", "IO"}});
     for (int leaf_idx = 0; leaf_idx < leaf_count_; leaf_idx++) {
       ColumnWriter* column_writer;
       if (row_group_writer_->buffered()) {
