@@ -95,7 +95,7 @@ class PullRequestState(enum.Enum):
     """State of a pull request."""
 
     review = f"{LABEL_PREFIX} review"
-    committer_review = f"{LABEL_PREFIX} comitter review"
+    committer_review = f"{LABEL_PREFIX} committer review"
     changes = f"{LABEL_PREFIX} changes"
     change_review = f"{LABEL_PREFIX} change review"
     merge = f"{LABEL_PREFIX} merge"
