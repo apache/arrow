@@ -211,7 +211,7 @@ class PullRequestWorkflowBot:
         prs_for_commit = self.github.search_issues(
             "",
             qualifiers={"type": "pr",
-                        "repo": repo,
+                        "repo": "apache/arrow",
                         "sha": sha}
         )
         pull = None
