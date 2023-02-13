@@ -43,18 +43,36 @@ class MemoryPoolStats {
 
   int64_t bytes_allocated() const { return bytes_allocated_.load(); }
 
-  inline void UpdateAllocatedBytes(int64_t diff) {
+  int64_t total_bytes_allocated() const { return total_allocated_bytes_.load(); }
+
+  int64_t num_allocations() const { return num_allocs_.load(); }
+
+  inline void UpdateAllocatedBytes(int64_t diff, bool is_free = false) {
     auto allocated = bytes_allocated_.fetch_add(diff) + diff;
     // "maximum" allocated memory is ill-defined in multi-threaded code,
     // so don't try to be too rigorous here
     if (diff > 0 && allocated > max_memory_) {
       max_memory_ = allocated;
     }
+
+    // Reallocations might just expand/contract the allocation in place or might
+    // copy to a new location. We can't really know, so we just represent the
+    // optimistic case.
+    if (diff > 0) {
+      total_allocated_bytes_ += diff;
+    }
+
+    // We count any reallocation as a allocation.
+    if (!is_free) {
+      num_allocs_ += 1;
+    }
   }
 
  protected:
-  std::atomic<int64_t> bytes_allocated_;
-  std::atomic<int64_t> max_memory_;
+  std::atomic<int64_t> bytes_allocated_ = 0;
+  std::atomic<int64_t> max_memory_ = 0;
+  std::atomic<int64_t> total_allocated_bytes_ = 0;
+  std::atomic<int64_t> num_allocs_ = 0;
 };
 
 }  // namespace internal
@@ -119,6 +137,12 @@ class ARROW_EXPORT MemoryPool {
   /// returns -1
   virtual int64_t max_memory() const;
 
+  /// The number of bytes that were allocated.
+  virtual int64_t total_bytes_allocated() const = 0;
+
+  /// The number of allocations or reallocations that were requested.
+  virtual int64_t num_allocations() const = 0;
+
   /// The name of the backend used by this MemoryPool (e.g. "system" or "jemalloc").
   virtual std::string backend_name() const = 0;
 
@@ -143,6 +167,10 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
   int64_t bytes_allocated() const override;
 
   int64_t max_memory() const override;
+
+  int64_t total_bytes_allocated() const override;
+
+  int64_t num_allocations() const override;
 
   std::string backend_name() const override;
 
@@ -171,6 +199,10 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
   int64_t bytes_allocated() const override;
 
   int64_t max_memory() const override;
+
+  int64_t total_bytes_allocated() const override;
+
+  int64_t num_allocations() const override;
 
   std::string backend_name() const override;
 
