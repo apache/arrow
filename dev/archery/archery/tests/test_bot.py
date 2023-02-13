@@ -544,7 +544,7 @@ def test_push_event_on_awaiting_changes(
         load_fixture, responses):
     payload = load_fixture('event-push.json')
     sha = '27313fc220561ef6b0d5edb485b29684b405c80b'
-    qualifiers = {'qualifiers': {'type': 'pr', 'repo': 'raulcd/arrow', 'sha': sha}}
+    qualifiers = {'qualifiers': {'type': 'pr', 'repo': 'ursa-labs/ursabot', 'sha': sha}}
     url_parameters = " ".join(
         [f"{qualifier}:{value}" for qualifier, value in qualifiers.items()]
     )
@@ -593,7 +593,7 @@ def test_push_event_on_awaiting_review(
         load_fixture, responses):
     payload = load_fixture('event-push.json')
     sha = '27313fc220561ef6b0d5edb485b29684b405c80b'
-    qualifiers = {'qualifiers': {'type': 'pr', 'repo': 'raulcd/arrow', 'sha': sha}}
+    qualifiers = {'qualifiers': {'type': 'pr', 'repo': 'ursa-labs/ursabot', 'sha': sha}}
     url_parameters = " ".join(
         [f"{qualifier}:{value}" for qualifier, value in qualifiers.items()]
     )
@@ -628,7 +628,7 @@ def test_push_event_on_existing_pr_without_state(
         load_fixture, responses):
     payload = load_fixture('event-push.json')
     sha = '27313fc220561ef6b0d5edb485b29684b405c80b'
-    qualifiers = {'qualifiers': {'type': 'pr', 'repo': 'raulcd/arrow', 'sha': sha}}
+    qualifiers = {'qualifiers': {'type': 'pr', 'repo': 'ursa-labs/ursabot', 'sha': sha}}
     url_parameters = " ".join(
         [f"{qualifier}:{value}" for qualifier, value in qualifiers.items()]
     )
