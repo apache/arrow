@@ -4810,11 +4810,17 @@ macro(build_awssdk)
       aws-c-event-stream
       aws-c-io
       aws-c-cal
-      s2n-tls
-      crypto
-      ssl
       aws-checksums
       aws-c-common)
+
+  if(UNIX AND NOT APPLE) # aws-lc and s2n-tls only needed on linux
+    list(APPEND
+         _AWSSDK_LIBS
+         s2n-tls
+         crypto
+         ssl)
+  endif()
+
   set(AWSSDK_LIBRARIES)
   foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
     # aws-c-common -> AWS-C-COMMON
@@ -4875,38 +4881,38 @@ macro(build_awssdk)
                       DEPENDS aws_c_common_ep)
   add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
-  set(AWS_LC_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
-  list(APPEND
-       AWS_LC_CMAKE_ARGS
-       -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
-       -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX}
-       -DCMAKE_INSTALL_INCLUDEDIR=include)
-  externalproject_add(aws_lc_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${AWS_LC_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AWS_LC_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWS_LC_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${SSL_STATIC_LIBRARY} ${CRYPTO_STATIC_LIBRARY})
-  add_dependencies(AWS::crypto aws_lc_ep)
-  add_dependencies(AWS::ssl aws_lc_ep)
+  if(UNIX AND NOT APPLE) # aws-lc and s2n-tls only needed on linux
+    set(AWS_LC_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
+    list(APPEND AWS_LC_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
+         -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX})
+    externalproject_add(aws_lc_ep
+                        ${EP_COMMON_OPTIONS}
+                        URL ${AWS_LC_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_AWS_LC_BUILD_SHA256_CHECKSUM}"
+                        CMAKE_ARGS ${AWS_LC_CMAKE_ARGS}
+                        BUILD_BYPRODUCTS ${SSL_STATIC_LIBRARY} ${CRYPTO_STATIC_LIBRARY})
+    add_dependencies(AWS::crypto aws_lc_ep)
+    add_dependencies(AWS::ssl aws_lc_ep)
 
-  set(S2N_TLS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
-  list(APPEND
-       S2N_TLS_CMAKE_ARGS
-       -DS2N_INTERN_LIBCRYPTO=ON # internalize libcrypto to avoid name conflict with openssl
-       -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX}) # path to find crypto provided by aws-lc
-  externalproject_add(s2n_tls_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${S2N_TLS_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_S2N_TLS_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${S2N_TLS_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${S2N_TLS_STATIC_LIBRARY}
-                      DEPENDS aws_lc_ep)
-  add_dependencies(AWS::s2n-tls s2n_tls_ep)
+    set(S2N_TLS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
+    list(APPEND
+         S2N_TLS_CMAKE_ARGS
+         -DS2N_INTERN_LIBCRYPTO=ON # internalize libcrypto to avoid name conflict with openssl
+         -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX}) # path to find crypto provided by aws-lc
+
+    externalproject_add(s2n_tls_ep
+                        ${EP_COMMON_OPTIONS}
+                        URL ${S2N_TLS_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_S2N_TLS_BUILD_SHA256_CHECKSUM}"
+                        CMAKE_ARGS ${S2N_TLS_CMAKE_ARGS}
+                        BUILD_BYPRODUCTS ${S2N_TLS_STATIC_LIBRARY}
+                        DEPENDS aws_lc_ep)
+    add_dependencies(AWS::s2n-tls s2n_tls_ep)
+  endif()
 
   set(AWS_C_CAL_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
-  list(APPEND AWS_C_CAL_CMAKE_ARGS -DUSE_OPENSSL=ON
-  )# Because aws-c-cal doesn't provide ability to hide libcrypto, we have to use openssl
+  # Because aws-c-cal doesn't provide ability to hide libcrypto, we have to always use openssl
+  list(APPEND AWS_C_CAL_CMAKE_ARGS -DUSE_OPENSSL=ON)
   externalproject_add(aws_c_cal_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${AWS_C_CAL_SOURCE_URL}
@@ -4916,13 +4922,17 @@ macro(build_awssdk)
                       DEPENDS aws_c_common_ep)
   add_dependencies(AWS::aws-c-cal aws_c_cal_ep)
 
+  set(AWS_C_IO_DEPENDS aws_c_common_ep aws_c_cal_ep)
+  if(UNIX AND NOT APPLE) 
+    list(APPEND AWS_C_IO_DEPENDS s2n_tls_ep)
+  endif()
   externalproject_add(aws_c_io_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${AWS_C_IO_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWS_C_IO_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_IO_STATIC_LIBRARY}
-                      DEPENDS aws_c_common_ep s2n_tls_ep aws_c_cal_ep)
+                      DEPENDS ${AWS_C_IO_DEPENDS})
   add_dependencies(AWS::aws-c-io aws_c_io_ep)
 
   externalproject_add(aws_c_event_stream_ep
