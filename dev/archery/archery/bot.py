@@ -190,7 +190,6 @@ class PullRequestWorkflowBot:
     def _get_pr_for_commit(self):
         """Find the PR containing the specific commit hash."""
         sha = self.event_payload['commits'][-1]['id']
-        # TODO: Validate this query is working on PR
         prs_for_commit = self.github.search_issues(
             "",
             qualifiers={"type": "pr",

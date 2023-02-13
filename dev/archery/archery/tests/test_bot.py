@@ -22,6 +22,7 @@ from unittest.mock import Mock
 
 import click
 import pytest
+from responses import matchers
 import responses as rsps
 
 from archery.bot import (
@@ -542,10 +543,16 @@ def test_pull_request_non_committer_review_awaiting_change_review(
 def test_push_event(
         load_fixture, responses):
     payload = load_fixture('event-push.json')
-    # TODO: Fix lint and improve fixtures
+    sha = '27313fc220561ef6b0d5edb485b29684b405c80b'
+    qualifiers = {'qualifiers': {'type': 'pr', 'repo': 'raulcd/arrow', 'sha': sha}}
+    url_parameters = " ".join(
+        [f"{qualifier}:{value}" for qualifier, value in qualifiers.items()]
+    )
+
     responses.add(
         responses.GET,
-        github_url('/search/issues?q=qualifiers%3A%7B%27type%27%3A+%27pr%27%2C+%27repo%27%3A+%27raulcd%2Farrow%27%2C+%27sha%27%3A+%2727313fc220561ef6b0d5edb485b29684b405c80b%27%7D'),
+        github_url('/search/issues'),
+        match=[matchers.query_string_matcher("q=" + url_parameters)],
         json=load_fixture('commit-search.json'),
         status=200
     )
