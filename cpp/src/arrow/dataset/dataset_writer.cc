@@ -155,6 +155,8 @@ class DatasetWriterFileQueue {
   Result<std::shared_ptr<RecordBatch>> PopStagedBatch() {
     std::vector<std::shared_ptr<RecordBatch>> batches_to_write;
     uint64_t num_rows = 0;
+    util::tracing::Span span;
+    START_SPAN(span, "DatasetWriter::PopStagedBatch");
     while (!staged_batches_.empty()) {
       std::shared_ptr<RecordBatch> next = std::move(staged_batches_.front());
       staged_batches_.pop_front();
@@ -232,6 +234,8 @@ class DatasetWriterFileQueue {
     return DeferNotOk(options_.filesystem->io_context().executor()->Submit(
         [self = this, batch = std::move(next)]() {
           int64_t rows_to_release = batch->num_rows();
+          util::tracing::Span span;
+          START_SPAN(span, "DatasetWriter::WriteNext", {{"threadpool", "IO"}});
           Status status = self->writer_->Write(batch);
           self->writer_state_->rows_in_flight_throttle.Release(rows_to_release);
           return status;
