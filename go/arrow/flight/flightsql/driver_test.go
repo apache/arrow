@@ -521,12 +521,11 @@ func (s *SqlTestSuite) TestTxRollback() {
 	require.NoError(t, err)
 	defer db.Close()
 
-	// Create the table
-	_, err = db.Exec(fmt.Sprintf(s.Statements["create table"], s.TableName))
+	tx, err := db.Begin()
 	require.NoError(t, err)
 
-	// Insert a test row to be sure the test works
-	_, err = db.Exec(fmt.Sprintf(s.Statements["insert"], s.TableName, "test", 42))
+	// Create the table
+	_, err = tx.Exec(fmt.Sprintf(s.Statements["create table"], s.TableName))
 	require.NoError(t, err)
 
 	// Insert data in transaction
@@ -536,29 +535,29 @@ func (s *SqlTestSuite) TestTxRollback() {
 		"minus one": -1,
 		"twelve":    12,
 	}
-	tx, err := db.Begin()
-	require.NoError(t, err)
+
 	for k, v := range data {
-		_, err := tx.Exec(fmt.Sprintf(s.Statements["insert"], s.TableName, k, v))
+		query := fmt.Sprintf(s.Statements["insert"], s.TableName, k, v)
+		_, err := tx.Exec(query)
 		require.NoError(t, err)
 	}
+
 	// Rollback the transaction
 	require.NoError(t, tx.Rollback())
 
 	// Check result
-	rows, err := db.Query(fmt.Sprintf(s.Statements["query"], s.TableName))
+	tbls := `SELECT name FROM sqlite_schema WHERE type ='table' AND name NOT LIKE 'sqlite_%';`
+	tblrows, err := db.Query(tbls)
 	require.NoError(t, err)
-
-	expected := map[string]int{"test": 42}
-	actual := make(map[string]int, len(expected))
-	for rows.Next() {
+	var tables []string
+	for tblrows.Next() {
 		var name string
-		var id, value int
-		require.NoError(t, rows.Scan(&id, &name, &value))
-		actual[name] = value
+		require.NoError(t, tblrows.Scan(&name))
+		tables = append(tables, name)
 	}
 	require.NoError(t, db.Close())
-	require.EqualValues(t, expected, actual)
+
+	require.NotContains(t, tables, s.TableName)
 
 	// Tear-down server
 	s.stopServer(server)
