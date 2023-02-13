@@ -33,9 +33,16 @@ constexpr const char FileSystemKeyMaterialStore::kKeyMaterialFilePrefix[];
 constexpr const char FileSystemKeyMaterialStore::kTempFilePrefix[];
 constexpr const char FileSystemKeyMaterialStore::kKeyMaterialFileSuffix[];
 
-void FileSystemKeyMaterialStore::initialize(
-    const std::string& file_path, const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool temp_store) {
-  ::arrow::fs::FileInfo file_info(file_path);
+FileSystemKeyMaterialStore::FileSystemKeyMaterialStore(
+    const std::string& key_material_file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system) :
+  key_material_file_path_{key_material_file_path}, file_system_{file_system} {
+}
+
+std::shared_ptr<FileSystemKeyMaterialStore> FileSystemKeyMaterialStore::Make(
+    const std::string& parquet_file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool temp_store) {
+  ::arrow::fs::FileInfo file_info(parquet_file_path);
   std::string full_prefix =
       (temp_store ? std::string(FileSystemKeyMaterialStore::kTempFilePrefix) : "");
   full_prefix =
@@ -43,8 +50,8 @@ void FileSystemKeyMaterialStore::initialize(
   std::string key_material_file_name =
       full_prefix + file_info.base_name() +
       std::string(FileSystemKeyMaterialStore::kKeyMaterialFileSuffix);
-  key_material_file_path_ = file_info.dir_name() + "/" + key_material_file_name;
-  file_system_ = file_system;
+  std::string key_material_file_path = file_info.dir_name() + "/" + key_material_file_name;
+  return std::make_shared<FileSystemKeyMaterialStore>(key_material_file_path, file_system);
 }
 
 void FileSystemKeyMaterialStore::LoadKeyMaterialMap() {
@@ -71,8 +78,8 @@ std::string FileSystemKeyMaterialStore::BuildKeyMaterialMapJson() {
   rj::Value key(rj::kStringType);
   rj::Value value(rj::kStringType);
   for (auto it = key_material_map_.begin(); it != key_material_map_.end(); it++) {
-    key.SetString(it->first.c_str(), allocator);
-    value.SetString(it->second.c_str(), allocator);
+    key.SetString(it->first, allocator);
+    value.SetString(it->second, allocator);
     json_map.AddMember(key, value, allocator);
   }
   rj::StringBuffer buffer;
@@ -86,12 +93,9 @@ void FileSystemKeyMaterialStore::SaveMaterial() {
       file_system_->OpenOutputStream(key_material_file_path_);
   auto stream = sink.ValueOrDie();
   std::string key_material_json = BuildKeyMaterialMapJson();
-  if (!::arrow::internal::GenericToStatus(stream->Write(key_material_json)).ok())
-    throw ParquetException("Error writing stream in SaveMaterial");
-  if (!::arrow::internal::GenericToStatus(stream->Flush()).ok())
-    throw ParquetException("Error flusing stream in SaveMaterial");
-  if (!::arrow::internal::GenericToStatus(stream->Close()).ok())
-    throw ParquetException("Error closing stream in SaveMaterial");
+  PARQUET_THROW_NOT_OK(stream->Write(key_material_json));
+  PARQUET_THROW_NOT_OK(stream->Flush());
+  PARQUET_THROW_NOT_OK(stream->Close());
 }
 
 void FileSystemKeyMaterialStore::RemoveMaterial() {

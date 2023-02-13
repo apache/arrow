@@ -63,11 +63,10 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
       throw ParquetException(ss.str());
     }
     try {
-      key_material_store = std::make_shared<FileSystemKeyMaterialStore>();
-      key_material_store->initialize(file_path, file_system, false);
+      key_material_store = FileSystemKeyMaterialStore::Make(file_path, file_system, false);
     } catch (ParquetException& e) {
       std::stringstream ss;
-      ss << "Failed to get key material store" << e.what() << "\n";
+      ss << "Failed to get key material store.\n" << e.what() << "\n";
       throw ParquetException(ss.str());
     }
   }

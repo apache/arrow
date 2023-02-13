@@ -37,16 +37,11 @@ FileKeyUnwrapper::FileKeyUnwrapper(
     : key_toolkit_(key_toolkit),
       kms_connection_config_(kms_connection_config),
       cache_entry_lifetime_seconds_(cache_lifetime_seconds),
-      checked_key_material_internal_storage_(false),
+      key_material_store_(std::move(key_material_store)),
       file_path_(file_path),
       file_system_(file_system) {
   kek_per_kek_id_ = key_toolkit_->kek_read_cache_per_token().GetOrCreateInternalCache(
       kms_connection_config.key_access_token(), cache_entry_lifetime_seconds_);
-
-  if (key_material_store != nullptr) {
-    key_material_store_ = key_material_store;
-    checked_key_material_internal_storage_ = true;
-  }
 }
 
 std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
@@ -59,23 +54,19 @@ std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
   }
   KeyMetadata key_metadata = KeyMetadata::Parse(key_metadata_bytes);
 
-  if (!checked_key_material_internal_storage_) {
-    if (!key_metadata.key_material_stored_internally()) {
-      key_material_store_ = std::make_shared<FileSystemKeyMaterialStore>();
-      key_material_store_->initialize(file_path_, file_system_, false);
-    }
-    checked_key_material_internal_storage_ = true;
-  }
   KeyMaterial key_material;
   if (key_metadata.key_material_stored_internally()) {
     key_material = key_metadata.key_material();
   } else {
+    if (key_material_store_ == nullptr) {
+      key_material_store_ = FileSystemKeyMaterialStore::Make(file_path_, file_system_, false);
+    }
     // External key material storage: key metadata contains a reference
     // to a key in the material store
     std::string key_id_in_file = key_metadata.key_reference();
     std::string key_material_string = key_material_store_->GetKeyMaterial(key_id_in_file);
     if (key_material_string.empty()) {
-      throw ParquetException("Null key material for keyIDinFile: " + key_id_in_file);
+      throw ParquetException("Null key material for key with ID: " + key_id_in_file);
     }
     key_material = KeyMaterial::Parse(key_material_string);
   }

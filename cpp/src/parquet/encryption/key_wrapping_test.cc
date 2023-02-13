@@ -54,11 +54,10 @@ class KeyWrappingTest : public ::testing::Test {
       file_name +=
           internal_key_material ? "-internal_key_material" : "-external_key_metrial";
 
-      file_system = MakeLocalFileSystem().ValueOrDie();
+      file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
       std::string writeable_file_path(temp_dir_->path().ToString() + file_name);
       try {
-        key_material_store = std::make_shared<FileSystemKeyMaterialStore>();
-        key_material_store->initialize(writeable_file_path, file_system, false);
+        key_material_store = FileSystemKeyMaterialStore::Make(writeable_file_path, file_system, false);
       } catch (ParquetException& e) {
         std::stringstream ss;
         ss << "Failed to get key material store" << e.what() << "\n";

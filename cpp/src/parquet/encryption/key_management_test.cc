@@ -152,7 +152,7 @@ class TestEncryptionKeyManagement : public ::testing::Test {
           kms_connection_config_, encryption_config);
       encryptor_.EncryptFile(file, file_encryption_properties);
     } else {
-      std::shared_ptr<::arrow::fs::FileSystem> file_system = MakeLocalFileSystem().ValueOrDie();
+      auto file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
       std::string file_path = temp_dir_->path().ToString() + file_name;
       auto file_encryption_properties = crypto_factory_.GetFileEncryptionProperties(
           kms_connection_config_, encryption_config, file_path, file_system);
@@ -172,8 +172,7 @@ class TestEncryptionKeyManagement : public ::testing::Test {
 
       decryptor_.DecryptFile(file, file_decryption_properties);
     } else {
-      std::shared_ptr<::arrow::fs::FileSystem> file_system =
-          MakeLocalFileSystem().ValueOrDie();
+      auto file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
       std::string file_path = temp_dir_->path().ToString() + GetFileName(
           double_wrapping, wrap_locally_, internal_key_material, encryption_no);
       auto file_decryption_properties = crypto_factory_.GetFileDecryptionProperties(
@@ -184,19 +183,13 @@ class TestEncryptionKeyManagement : public ::testing::Test {
   }
 
   void RotateKeys(bool double_wrapping) {
-    std::shared_ptr<::arrow::fs::FileSystem> file_system = MakeLocalFileSystem().ValueOrDie();
+    auto file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
     std::string data_directory = temp_dir_->path().ToString();
 
     TestOnlyInServerWrapKms::StartKeyRotation(new_key_list_);
-    std::cout << "Start master key rotation" << std::endl;
-    std::cout << "Rotate master keys in folder: " + temp_dir_->path().ToString()
-              << std::endl;
     crypto_factory_.RotateMasterKeys(kms_connection_config_, data_directory, file_system, double_wrapping);
     TestOnlyInServerWrapKms::FinishKeyRotation();
-    std::cout << "--> Finish master key rotation" << std::endl;
     crypto_factory_.RemoveCacheEntriesForAllTokens();
-    std::cout << "--> Read files again with new keys " << temp_dir_->path().ToString()
-              << std::endl;
   }
 };
 

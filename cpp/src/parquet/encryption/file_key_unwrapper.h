@@ -65,7 +65,6 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   KmsConnectionConfig kms_connection_config_;
   const double cache_entry_lifetime_seconds_;
   std::shared_ptr<FileKeyMaterialStore> key_material_store_;
-  bool checked_key_material_internal_storage_;
   const std::string file_path_;
   std::shared_ptr<::arrow::fs::FileSystem> file_system_;
 };

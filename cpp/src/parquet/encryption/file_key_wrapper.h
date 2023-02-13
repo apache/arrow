@@ -43,7 +43,6 @@ namespace encryption {
 // 2. Create "key material" (see structure in KeyMaterial class)
 // 3. Create "key metadata" with "key material" inside or a reference to outside "key
 //    material" (see structure in KeyMetadata class).
-//    We don't support the case "key material" stores outside "key metadata" yet.
 class PARQUET_EXPORT FileKeyWrapper {
  public:
   static constexpr int kKeyEncryptionKeyLength = 16;
@@ -59,7 +58,9 @@ class PARQUET_EXPORT FileKeyWrapper {
                  double cache_entry_lifetime_seconds, bool double_wrapping);
 
   /// Creates key_metadata field for a given data key, via wrapping the key with the
-  /// master key
+  /// master key.
+  /// When external key material is used, an identifier is usually generated automatically
+  /// but may be specified explicitly to support key rotation.
   std::string GetEncryptionKeyMetadata(const std::string& data_key,
                                        const std::string& master_key_id,
                                        bool is_footer_key,

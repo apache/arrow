@@ -59,8 +59,6 @@ inline ::arrow::Result<std::unique_ptr<TemporaryDir>> temp_data_dir() {
   return TemporaryDir::Make("parquet-encryption-test-");
 }
 
-::arrow::Result<std::shared_ptr<::arrow::fs::FileSystem>> MakeLocalFileSystem();
-
 const char kDoubleFieldName[] = "double_field";
 const char kFloatFieldName[] = "float_field";
 const char kBooleanFieldName[] = "boolean_field";

@@ -28,10 +28,8 @@
 namespace parquet {
 namespace encryption {
 
-/// Key material can be stored outside the Parquet file, for example in a separate small
-/// file in the same folder. This is important for “key rotation”, when MEKs have to be
-/// changed (if compromised; or periodically, just in case) - without modifying the
-/// Parquet files (often  immutable).
+/// A FileKeyMaterialStore that stores key material in a file system file in the same
+/// folder as the Parquet file.
 class PARQUET_EXPORT FileSystemKeyMaterialStore : public FileKeyMaterialStore {
  public:
   static constexpr const char kKeyMaterialFilePrefix[] = "_KEY_MATERIAL_FOR_";
@@ -39,9 +37,14 @@ class PARQUET_EXPORT FileSystemKeyMaterialStore : public FileKeyMaterialStore {
   static constexpr const char kKeyMaterialFileSuffix[] = ".json";
 
   FileSystemKeyMaterialStore() {}
+  FileSystemKeyMaterialStore(const std::string& key_material_file_path, const std::shared_ptr<::arrow::fs::FileSystem>& file_system);
 
-  /// Initializes key material store for a parquet file.
-  void initialize(const std::string& file_path, const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool temp_store);
+  /// Creates a new file system key material store for a parquet file.
+  /// When temp_store is true, files are saved with an extra _TMP prefix so they don't conflict with existing
+  /// external material files. This is useful during key rotation so that temporary key material files can
+  /// be created while using the existing key material, before moving the key material to the non-temporary location.
+  static std::shared_ptr<FileSystemKeyMaterialStore> Make(
+      const std::string& parquet_file_path, const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool temp_store);
 
   /// Add key material for one encryption key.
   void AddKeyMaterial(std::string key_id_in_file, std::string key_material) {

@@ -86,19 +86,17 @@ void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_conf
     std::string child = parquet_file.base_name();
     if (filter_out_file(child)) continue;
 
-    std::shared_ptr<FileKeyMaterialStore> key_material_store =
-        std::make_shared<FileSystemKeyMaterialStore>();
     std::string parquet_file_path = ::arrow::fs::internal::ConcatAbstractPath(
         directory_path, parquet_file.base_name());
-    key_material_store->initialize(parquet_file_path, file_system, false);
+    std::shared_ptr<FileKeyMaterialStore> key_material_store = FileSystemKeyMaterialStore::Make(
+        parquet_file_path, file_system, false);
 
     FileKeyUnwrapper file_key_unwrapper(this, kms_connection_config,
                                         cache_lifetime_seconds, parquet_file_path, file_system,
                                         key_material_store);
 
-    std::shared_ptr<FileKeyMaterialStore> temp_key_material_store =
-        std::make_shared<FileSystemKeyMaterialStore>();
-    temp_key_material_store->initialize(parquet_file_path, file_system, true);
+    std::shared_ptr<FileKeyMaterialStore> temp_key_material_store = FileSystemKeyMaterialStore::Make(
+        parquet_file_path, file_system, true);
     FileKeyWrapper file_key_wrapper(this, kms_connection_config, temp_key_material_store,
                                     cache_lifetime_seconds, double_wrapping);
 

@@ -92,9 +92,13 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key
   // External key material storage: key metadata is a reference to a key in the material
   // store
   if (key_id_in_file.empty()) {
+    // The key id may be specified explicitly to support key rotation, but usually
+    // we generate an arbitrary identifier that just needs to be unique across
+    // columns and the footer.
     if (is_footer_key) {
       key_id_in_file = KeyMaterial::kFooterKeyIdInFile;
     } else {
+      // Generate a new unique identifier using an incrementing counter
       key_id_in_file =
           KeyMaterial::kColumnKeyIdInFilePrefix + std::to_string(key_counter_);
       key_counter_++;
