@@ -43,8 +43,10 @@ CREATE TABLE %s (
   name varchar(100),
   value int
 );`,
-	"insert": `INSERT INTO %s (name, value) VALUES ('%s', %d);`,
-	"query":  `SELECT * FROM %s;`,
+	"insert":            `INSERT INTO %s (name, value) VALUES ('%s', %d);`,
+	"query":             `SELECT * FROM %s;`,
+	"constraint query":  `SELECT * FROM %s WHERE name LIKE '%%%s%%'`,
+	"placeholder query": `SELECT * FROM %s WHERE name LIKE ?`,
 }
 
 type SqlTestSuite struct {
@@ -53,6 +55,9 @@ type SqlTestSuite struct {
 	Config     flightsql.DriverConfig
 	TableName  string
 	Statements map[string]string
+
+	// Feature map of the backend
+	supportsNumInputs bool
 
 	createServer func() (flight.Server, string, error)
 	startServer  func(flight.Server) error
@@ -78,6 +83,8 @@ func (s *SqlTestSuite) SetupSuite() {
 	require.Contains(s.T(), s.Statements, "create table")
 	require.Contains(s.T(), s.Statements, "insert")
 	require.Contains(s.T(), s.Statements, "query")
+	require.Contains(s.T(), s.Statements, "constraint query")
+	require.Contains(s.T(), s.Statements, "placeholder query")
 }
 
 func (s *SqlTestSuite) TestOpenClose() {
@@ -257,6 +264,7 @@ func (s *SqlTestSuite) TestQuery() {
 	rows, err := db.Query(fmt.Sprintf(s.Statements["query"], s.TableName))
 	require.NoError(t, err)
 
+	// Check result
 	actual := make(map[string]int, len(expected))
 	for rows.Next() {
 		var name string
@@ -271,6 +279,222 @@ func (s *SqlTestSuite) TestQuery() {
 	s.stopServer(server)
 	wg.Wait()
 }
+
+func (s *SqlTestSuite) TestPreparedQuery() {
+	t := s.T()
+
+	// Create and start the server
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+	defer s.stopServer(server)
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+	dsn, err := cfg.ToDSN()
+	require.NoError(t, err)
+
+	// Actual test
+	db, err := sql.Open("flightsql", dsn)
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Create the table
+	_, err = db.Exec(fmt.Sprintf(s.Statements["create table"], s.TableName))
+	require.NoError(t, err)
+
+	// Insert data
+	expected := map[string]int{
+		"zero":      0,
+		"one":       1,
+		"minus one": -1,
+		"twelve":    12,
+	}
+	var stmts []string
+	for k, v := range expected {
+		stmts = append(stmts, fmt.Sprintf(s.Statements["insert"], s.TableName, k, v))
+	}
+	_, err = db.Exec(strings.Join(stmts, "\n"))
+	require.NoError(t, err)
+
+	// Do query
+	stmt, err := db.Prepare(fmt.Sprintf(s.Statements["query"], s.TableName))
+	require.NoError(t, err)
+
+	rows, err := stmt.Query()
+	require.NoError(t, err)
+
+	// Check result
+	actual := make(map[string]int, len(expected))
+	for rows.Next() {
+		var name string
+		var id, value int
+		require.NoError(t, rows.Scan(&id, &name, &value))
+		actual[name] = value
+	}
+	require.NoError(t, db.Close())
+	require.EqualValues(t, expected, actual)
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
+func (s *SqlTestSuite) TestPreparedQueryWithConstraint() {
+	t := s.T()
+
+	// Create and start the server
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+	defer s.stopServer(server)
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+	dsn, err := cfg.ToDSN()
+	require.NoError(t, err)
+
+	// Actual test
+	db, err := sql.Open("flightsql", dsn)
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Create the table
+	_, err = db.Exec(fmt.Sprintf(s.Statements["create table"], s.TableName))
+	require.NoError(t, err)
+
+	// Insert data
+	data := map[string]int{
+		"zero":      0,
+		"one":       1,
+		"minus one": -1,
+		"twelve":    12,
+	}
+	var stmts []string
+	for k, v := range data {
+		stmts = append(stmts, fmt.Sprintf(s.Statements["insert"], s.TableName, k, v))
+	}
+	_, err = db.Exec(strings.Join(stmts, "\n"))
+	require.NoError(t, err)
+
+	// Do query
+	stmt, err := db.Prepare(fmt.Sprintf(s.Statements["constraint query"], s.TableName, "one"))
+	require.NoError(t, err)
+
+	rows, err := stmt.Query()
+	require.NoError(t, err)
+
+	// Check result
+	expected := map[string]int{
+		"one":       1,
+		"minus one": -1,
+	}
+	actual := make(map[string]int, len(expected))
+	for rows.Next() {
+		var name string
+		var id, value int
+		require.NoError(t, rows.Scan(&id, &name, &value))
+		actual[name] = value
+	}
+	require.NoError(t, db.Close())
+	require.EqualValues(t, expected, actual)
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
+func (s *SqlTestSuite) TestPreparedQueryWithPlaceholder() {
+	t := s.T()
+
+	// Create and start the server
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+	defer s.stopServer(server)
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+	dsn, err := cfg.ToDSN()
+	require.NoError(t, err)
+
+	// Actual test
+	db, err := sql.Open("flightsql", dsn)
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Create the table
+	_, err = db.Exec(fmt.Sprintf(s.Statements["create table"], s.TableName))
+	require.NoError(t, err)
+
+	// Insert data
+	data := map[string]int{
+		"zero":      0,
+		"one":       1,
+		"minus one": -1,
+		"twelve":    12,
+	}
+	var stmts []string
+	for k, v := range data {
+		stmts = append(stmts, fmt.Sprintf(s.Statements["insert"], s.TableName, k, v))
+	}
+	_, err = db.Exec(strings.Join(stmts, "\n"))
+	require.NoError(t, err)
+
+	// Do query
+	query := fmt.Sprintf(s.Statements["placeholder query"], s.TableName)
+	stmt, err := db.Prepare(query)
+	require.NoError(t, err)
+
+	params := []interface{}{"%%one%%"}
+	rows, err := stmt.Query(params...)
+	require.NoError(t, err)
+
+	// Check result
+	expected := map[string]int{
+		"one":       1,
+		"minus one": -1,
+	}
+	actual := make(map[string]int, len(expected))
+	for rows.Next() {
+		var name string
+		var id, value int
+		require.NoError(t, rows.Scan(&id, &name, &value))
+		actual[name] = value
+	}
+	require.NoError(t, db.Close())
+	require.EqualValues(t, expected, actual)
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
+/*** BACKEND tests ***/
 
 func TestSqliteBackend(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -303,9 +527,6 @@ func TestSqliteBackend(t *testing.T) {
 	s.stopServer = func(server flight.Server) { server.Shutdown() }
 
 	suite.Run(t, s)
-}
-
-type realServer struct {
 }
 
 func TestIOxBackend(t *testing.T) {
