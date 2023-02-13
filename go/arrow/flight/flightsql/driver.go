@@ -18,7 +18,6 @@ package flightsql
 import (
 	"bytes"
 	"context"
-	"crypto/x509"
 	"database/sql"
 	"database/sql/driver"
 	"errors"
@@ -35,8 +34,6 @@ import (
 	"github.com/goccy/go-json"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (
@@ -44,8 +41,6 @@ var (
 	ErrNotSupported   = errors.New("not supported")
 	ErrOutOfRange     = errors.New("index out of range")
 )
-
-const dsnPattern = "flightsql://token@address[:port]/bucket[?param1=value1&...&paramN=valueN]"
 
 type Rows struct {
 	schema        *arrow.Schema
@@ -116,17 +111,26 @@ func (r *Rows) Next(dest []driver.Value) error {
 	return nil
 }
 
-type Result struct{}
+type Result struct {
+	affected   int64
+	lastinsert int64
+}
 
 // LastInsertId returns the database's auto-generated ID after, for example,
 // an INSERT into a table with primary key.
 func (r *Result) LastInsertId() (int64, error) {
-	return 0, ErrNotImplemented
+	if r.lastinsert < 0 {
+		return -1, ErrNotSupported
+	}
+	return r.lastinsert, nil
 }
 
 // RowsAffected returns the number of rows affected by the query.
 func (r *Result) RowsAffected() (int64, error) {
-	return 0, ErrNotImplemented
+	if r.affected < 0 {
+		return -1, ErrNotSupported
+	}
+	return r.affected, ErrNotSupported
 }
 
 type Stmt struct {
@@ -144,6 +148,7 @@ func (s *Stmt) Close() error {
 		ctx, cancel = context.WithTimeout(ctx, s.timeout)
 		defer cancel()
 	}
+
 	return s.stmt.Close(ctx)
 }
 
@@ -164,8 +169,40 @@ func (s *Stmt) NumInput() int {
 //
 // Deprecated: Drivers should implement StmtExecContext instead (or additionally).
 func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
-	//s.stmt.Execute(ctx)
-	return nil, ErrNotImplemented
+	var params []driver.NamedValue
+	for i, arg := range args {
+		params = append(params, driver.NamedValue{
+			Name:    fmt.Sprintf("arg_%d", i),
+			Ordinal: i,
+			Value:   arg,
+		})
+	}
+
+	return s.ExecContext(context.Background(), params)
+}
+
+// ExecContext executes a query that doesn't return rows, such as an INSERT or UPDATE.
+func (s *Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	if err := s.setParameters(args); err != nil {
+		return nil, err
+	}
+
+	if s.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, s.timeout)
+		defer cancel()
+	}
+
+	n, err := s.stmt.ExecuteUpdate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// FIXME: For now we ignore the number of affected records as it seems like
+	// the returned value is always one.
+	_ = n
+
+	return &Result{affected: -1, lastinsert: -1}, nil
 }
 
 // Query executes a query that may return rows, such as a SELECT.
@@ -179,56 +216,19 @@ func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 		})
 	}
 
-	ctx := context.Background()
-	if s.timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, s.timeout)
-		defer cancel()
-	}
-	return s.QueryContext(ctx, params)
+	return s.QueryContext(context.Background(), params)
 }
 
 // QueryContext executes a query that may return rows, such as a SELECT.
 func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	if len(args) > 0 {
-		values := make(map[string]interface{})
-		var fields []arrow.Field
-		sort.SliceStable(args, func(i, j int) bool {
-			return args[i].Ordinal < args[j].Ordinal
-		})
-		for _, arg := range args {
-			dt, err := toArrowDataType(arg.Value)
-			if err != nil {
-				return nil, fmt.Errorf("schema: %w", err)
-			}
-			fields = append(fields, arrow.Field{
-				Name:     arg.Name,
-				Type:     dt,
-				Nullable: true,
-			})
-			values[arg.Name] = arg.Value
-		}
+	if err := s.setParameters(args); err != nil {
+		return nil, err
+	}
 
-		schema := s.stmt.ParameterSchema()
-		if schema == nil {
-			schema = arrow.NewSchema(fields, nil)
-		}
-		data, err := json.Marshal([]map[string]interface{}{values})
-		if err != nil {
-			return nil, fmt.Errorf("marshalling: %w", err)
-		}
-		rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, schema, bytes.NewBuffer(data))
-		if err != nil {
-			return nil, fmt.Errorf("record: %w", err)
-		}
-		s.stmt.SetParameters(rec)
-	} else if s.stmt.paramBinding != nil {
-		// Hack as there is no UnsetParameters() function yet and setting
-		// the parameters to `nil` will panic due to Retain being called.
-		// This is required to make sure we do not reuse a previous argument
-		// list.
-		s.stmt.paramBinding.Release()
-		s.stmt.paramBinding = nil
+	if s.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, s.timeout)
+		defer cancel()
 	}
 
 	info, err := s.stmt.Execute(ctx)
@@ -259,40 +259,74 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 	return &rows, nil
 }
 
+func (s *Stmt) setParameters(args []driver.NamedValue) error {
+	if len(args) <= 0 {
+		if s.stmt.paramBinding != nil {
+			// Hack as there is no UnsetParameters() function yet and setting
+			// the parameters to `nil` will panic due to Retain being called.
+			// This is required to make sure we do not reuse a previous argument
+			// list.
+			s.stmt.paramBinding.Release()
+			s.stmt.paramBinding = nil
+		}
+		return nil
+	}
+
+	values := make(map[string]interface{})
+	var fields []arrow.Field
+	sort.SliceStable(args, func(i, j int) bool {
+		return args[i].Ordinal < args[j].Ordinal
+	})
+
+	for _, arg := range args {
+		dt, err := toArrowDataType(arg.Value)
+		if err != nil {
+			return fmt.Errorf("schema: %w", err)
+		}
+		fields = append(fields, arrow.Field{
+			Name:     arg.Name,
+			Type:     dt,
+			Nullable: true,
+		})
+		values[arg.Name] = arg.Value
+	}
+
+	schema := s.stmt.ParameterSchema()
+	if schema == nil {
+		schema = arrow.NewSchema(fields, nil)
+	}
+
+	data, err := json.Marshal([]map[string]interface{}{values})
+	if err != nil {
+		return fmt.Errorf("marshalling: %w", err)
+	}
+
+	rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, schema, bytes.NewBuffer(data))
+	if err != nil {
+		return fmt.Errorf("record: %w", err)
+	}
+	s.stmt.SetParameters(rec)
+
+	return nil
+}
+
 type Tx struct {
 }
 
 func (t *Tx) Commit() error {
+	panic(ErrNotImplemented)
 	return ErrNotImplemented
 }
 
 func (t *Tx) Rollback() error {
+	panic(ErrNotImplemented)
 	return ErrNotImplemented
-}
-
-type grpcCredentials struct {
-	token      string
-	bucketName string
-}
-
-func (g grpcCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
-	md := map[string]string{
-		"iox-namespace-name": g.bucketName,
-	}
-	if g.token != "" {
-		md["authorization"] = "Bearer " + g.token
-	}
-	return md, nil
-}
-
-func (g grpcCredentials) RequireTransportSecurity() bool {
-	return g.token != ""
 }
 
 type Driver struct {
 	addr    string
-	options []grpc.DialOption
 	timeout time.Duration
+	options []grpc.DialOption
 
 	client *Client
 }
@@ -303,64 +337,19 @@ func (d *Driver) Open(name string) (driver.Conn, error) {
 		return nil, err
 	}
 
-	ctx := context.Background()
-	if d.timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, d.timeout)
-		defer cancel()
-	}
-
-	return d.Connect(ctx)
+	return d.Connect(context.Background())
 }
 
 // OpenConnector must parse the name in the same format that Driver.Open
 // parses the name parameter.
 func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
-	u, err := url.Parse(name)
+	config, err := NewDriverConfigFromDSN(name)
 	if err != nil {
 		return nil, err
 	}
 
-	// Sanity checks on the given connection string
-	var creds credentials.TransportCredentials
-	switch u.Scheme {
-	case "flightsql":
-		creds = insecure.NewCredentials()
-	case "flightsqls":
-		pool, err := x509.SystemCertPool()
-		if err != nil {
-			return nil, err
-		}
-		credentials.NewClientTLSFromCert(pool, "")
-	default:
-		return nil, fmt.Errorf("invalid scheme %q; has to be 'flightsql' or 'flightsqls", u.Scheme)
-	}
-	var token string
-	if u.User != nil {
-		token = u.User.Username()
-	}
-	if _, set := u.User.Password(); set {
-		return nil, fmt.Errorf("invalid DSN %q; has to follow pattern %q", name, dsnPattern)
-	}
-	d.addr = u.Host
-	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-	if len(parts) != 1 || parts[0] == "" {
-		return nil, fmt.Errorf("invalid path in DSN; has to follow pattern %q", dsnPattern)
-	}
-	bucket := parts[0]
-
-	d.options = []grpc.DialOption{
-		grpc.WithTransportCredentials(creds),
-		grpc.WithPerRPCCredentials(grpcCredentials{token: token, bucketName: bucket}),
-		grpc.WithBlock(),
-	}
-
-	if u.Query().Has("timeout") {
-		timeout, err := time.ParseDuration(u.Query().Get("timeout"))
-		if err != nil {
-			return nil, err
-		}
-		d.timeout = timeout
+	if err := d.Configure(config); err != nil {
+		return nil, err
 	}
 
 	return d, nil
@@ -368,12 +357,46 @@ func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
 
 // Connect returns a connection to the database.
 func (d *Driver) Connect(ctx context.Context) (driver.Conn, error) {
+	if d.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, d.timeout)
+		defer cancel()
+	}
+
 	client, err := NewClientCtx(ctx, d.addr, nil, nil, d.options...)
 	if err != nil {
 		return nil, err
 	}
 	d.client = client
+
 	return d, nil
+}
+
+// Configure the driver with the corresponding config
+func (d *Driver) Configure(config *DriverConfig) error {
+	// Set the driver properties
+	d.addr = config.Address
+	d.timeout = config.Timeout
+
+	// Create GRPC options necessary for the backend
+	var err error
+	switch config.Backend {
+	case "sqlite":
+		d.options, err = newSqliteBackend(config)
+		if err != nil {
+			return err
+		}
+	case "iox", "ioxs":
+		d.options, err = newIOxBackend(config)
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("invalid backend %q", config.Backend)
+	}
+	d.options = append(d.options, grpc.WithBlock())
+
+	return nil
 }
 
 // Driver returns the underlying Driver of the Connector,
@@ -385,7 +408,13 @@ func (d *Driver) Driver() driver.Driver {
 
 // Prepare returns a prepared statement, bound to this connection.
 func (d *Driver) Prepare(query string) (driver.Stmt, error) {
-	ctx := context.Background()
+	return d.PrepareContext(context.Background(), query)
+}
+
+// PrepareContext returns a prepared statement, bound to this connection.
+// context is for the preparation of the statement,
+// it must not store the context within the statement itself.
+func (d *Driver) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	if d.timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, d.timeout)
@@ -394,7 +423,6 @@ func (d *Driver) Prepare(query string) (driver.Stmt, error) {
 
 	s, err := d.client.Prepare(ctx, nil, query)
 	if err != nil {
-		fmt.Printf("%v (%T)\n", err, err)
 		return nil, err
 	}
 
@@ -427,6 +455,7 @@ func (d *Driver) Close() error {
 
 // Begin starts and returns a new transaction.
 func (d *Driver) Begin() (driver.Tx, error) {
+	panic(ErrNotImplemented)
 	return nil, ErrNotImplemented
 }
 
@@ -506,6 +535,74 @@ func toArrowDataType(value any) (arrow.DataType, error) {
 		return &arrow.Time64Type{Unit: arrow.Nanosecond}, nil
 	}
 	return nil, fmt.Errorf("type %T: %w", value, ErrNotSupported)
+}
+
+type DriverConfig struct {
+	Backend  string
+	Address  string
+	Username string
+	Password string
+	Database string
+	Token    string
+	Timeout  time.Duration
+}
+
+func NewDriverConfigFromDSN(dsn string) (*DriverConfig, error) {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	// Sanity checks on the given connection string
+	switch u.Scheme {
+	case "sqlite", "iox", "ioxs":
+	default:
+		return nil, fmt.Errorf("invalid scheme %q", u.Scheme)
+	}
+
+	// Determine the URL parameters
+	var username, password string
+	if u.User != nil {
+		username = u.User.Username()
+		if v, set := u.User.Password(); set {
+			password = v
+		}
+	}
+
+	var database string
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) >= 1 && parts[0] != "" {
+		database = parts[0]
+	}
+
+	var timeout time.Duration
+	if u.Query().Has("timeout") {
+		timeout, err = time.ParseDuration(u.Query().Get("timeout"))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	config := &DriverConfig{
+		Backend:  u.Scheme,
+		Address:  u.Host,
+		Username: username,
+		Password: password,
+		Database: database,
+		Timeout:  timeout,
+	}
+
+	return config, nil
+}
+
+func (config *DriverConfig) ToDSN() (string, error) {
+	switch config.Backend {
+	case "sqlite":
+		return generateSqliteDSN(config)
+	case "iox", "ioxs":
+		return generateIOxDSN(config)
+	}
+	return "", fmt.Errorf("invalid backend %q", config.Backend)
 }
 
 // Register the driver on load.
