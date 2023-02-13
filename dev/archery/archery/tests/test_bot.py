@@ -558,7 +558,7 @@ def test_push_event(
     )
     responses.add(
         responses.GET,
-        github_url('/repositories/477631451/pulls/74'),
+        github_url('/repositories/169101701/pulls/26'),
         json=load_fixture('pull-request-26-awaiting-review.json'),
         status=200
     )
