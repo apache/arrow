@@ -313,16 +313,30 @@ func (s *Stmt) setParameters(args []driver.NamedValue) error {
 }
 
 type Tx struct {
+	tx      *Txn
+	timeout time.Duration
 }
 
 func (t *Tx) Commit() error {
-	panic(ErrNotImplemented)
-	return ErrNotImplemented
+	ctx := context.Background()
+	if t.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, t.timeout)
+		defer cancel()
+	}
+
+	return t.tx.Commit(ctx)
 }
 
 func (t *Tx) Rollback() error {
-	panic(ErrNotImplemented)
-	return ErrNotImplemented
+	ctx := context.Background()
+	if t.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, t.timeout)
+		defer cancel()
+	}
+
+	return t.tx.Rollback(ctx)
 }
 
 type Driver struct {
@@ -457,8 +471,16 @@ func (d *Driver) Close() error {
 
 // Begin starts and returns a new transaction.
 func (d *Driver) Begin() (driver.Tx, error) {
-	panic(ErrNotImplemented)
-	return nil, ErrNotImplemented
+	return d.BeginTx(context.Background(), sql.TxOptions{})
+}
+
+func (d *Driver) BeginTx(ctx context.Context, opts sql.TxOptions) (driver.Tx, error) {
+	tx, err := d.client.BeginTransaction(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Tx{tx: tx, timeout: d.timeout}, nil
 }
 
 func fromArrowType(arr arrow.Array, idx int) (any, error) {
