@@ -125,6 +125,7 @@ echo "=== Checking shared dependencies for libraries ==="
 pushd ${dist_dir}
 archery linking check-dependencies \
   --allow CoreFoundation \
+  --allow Security \
   --allow libSystem \
   --allow libarrow_cdata_jni \
   --allow libarrow_dataset_jni \

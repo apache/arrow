@@ -4811,9 +4811,9 @@ macro(build_awssdk)
   # aws-lc needs to be installed on a separate folder to hide from unintended use
   set(AWS_LC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/aws_lc_ep-install")
   set(AWS_LC_INCLUDE_DIR "${AWS_LC_PREFIX}/include")
-  file(MAKE_DIRECTORY ${AWS_LC_INCLUDE_DIR})
 
   if(UNIX AND NOT APPLE) # aws-lc and s2n-tls only needed on linux
+    file(MAKE_DIRECTORY ${AWS_LC_INCLUDE_DIR})
     list(APPEND
          _AWSSDK_LIBS
          s2n-tls
@@ -4882,9 +4882,12 @@ macro(build_awssdk)
   add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
   if(UNIX AND NOT APPLE) # aws-lc and s2n-tls only needed on linux
+    set(AWS_LC_C_FLAGS ${EP_C_FLAGS})
+    list(APPEND AWS_LC_C_FLAGS "-Wno-error=overlength-strings")
+
     set(AWS_LC_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
     list(APPEND AWS_LC_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
-         -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX})
+         -DCMAKE_C_FLAGS=${AWS_LC_C_FLAGS})
     externalproject_add(aws_lc_ep
                         ${EP_COMMON_OPTIONS}
                         URL ${AWS_LC_SOURCE_URL}
@@ -5047,6 +5050,11 @@ macro(build_awssdk)
     set_property(TARGET AWS::aws-c-cal
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::Crypto OpenSSL::SSL)
+    if(APPLE)
+      set_property(TARGET AWS::aws-c-cal
+                   APPEND
+                   PROPERTY INTERFACE_LINK_LIBRARIES "-framework Security")
+    endif()
     if(ZLIB_VENDORED)
       set_property(TARGET aws-cpp-sdk-core
                    APPEND
@@ -5062,6 +5070,13 @@ macro(build_awssdk)
                           "wininet.lib"
                           "userenv.lib"
                           "version.lib")
+    set_property(TARGET AWS::aws-c-cal
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          "bcrypt.lib"
+                          "ncrypt.lib"
+                          "Secur32.lib"
+                          "Shlwapi.lib")
   endif()
 
   # AWSSDK is static-only build
