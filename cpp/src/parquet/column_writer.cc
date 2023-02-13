@@ -1531,7 +1531,9 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> writeable_indices =
         indices->Slice(value_offset, batch_num_spaced_values);
-    update_stats(/*num_chunk_levels=*/batch_size, writeable_indices);
+    if (page_statistics_) {
+      update_stats(/*num_chunk_levels=*/batch_size, writeable_indices);
+    }
     PARQUET_ASSIGN_OR_THROW(
         writeable_indices,
         MaybeReplaceValidity(writeable_indices, null_count, ctx->memory_pool));
