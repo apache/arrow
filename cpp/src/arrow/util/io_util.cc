@@ -32,6 +32,7 @@
 #endif
 
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
+#include "arrow/util/tracing_internal.h"
 
 #include <algorithm>
 #include <array>
@@ -1626,6 +1627,13 @@ Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes) {
   HANDLE handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
 #endif
   int64_t total_bytes_read = 0;
+  ::arrow::util::tracing::Span span;
+  START_SPAN(span, "FileRead",
+             {
+               {"nbytes", nbytes},
+               {"fd", fd}
+             });
+
 
   while (total_bytes_read < nbytes) {
     const int64_t chunksize =
@@ -1664,6 +1672,12 @@ Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes) {
 
 Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes) {
   int64_t bytes_read = 0;
+  ::arrow::util::tracing::Span span;
+  START_SPAN(span, "FileReadAt",
+             {
+               {"nbytes", nbytes},
+               {"fd", fd}
+             });
 
   while (bytes_read < nbytes) {
     int64_t chunksize =
@@ -1690,6 +1704,12 @@ Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nb
 
 Status FileWrite(int fd, const uint8_t* buffer, const int64_t nbytes) {
   int64_t bytes_written = 0;
+  ::arrow::util::tracing::Span span;
+  START_SPAN(span, "FileWrite",
+             {
+              {"nbytes", nbytes},
+               {"fd", fd}
+             });
 
   while (bytes_written < nbytes) {
     const int64_t chunksize =
