@@ -139,9 +139,6 @@ struct SourceNode : ExecNode, public TracedNode {
       }
       lock.unlock();
 
-      util::tracing::Span fetch_batch_span;
-      auto fetch_batch_scope =
-          START_SCOPED_SPAN(fetch_batch_span, "SourceNode::ReadBatch");
       return generator_().Then(
           [this](
               const std::optional<ExecBatch>& morsel_or_end) -> Future<ControlFlow<int>> {
@@ -153,7 +150,7 @@ struct SourceNode : ExecNode, public TracedNode {
             SliceAndDeliverMorsel(*morsel_or_end);
             lock.lock();
             if (!backpressure_future_.is_finished()) {
-              EVENT_ON_CURRENT_SPAN("SourceNode::BackpressureApplied");
+              EVENT_ON_CURRENT_SPAN("SourceNode::BackpressureApplied"); //TODO: This should probably be posted to the SourceNode::DatasetScan span but we may need to do that manually because we don't know if that span is active
               return backpressure_future_.Then(
                   []() -> ControlFlow<int> { return Continue(); });
             }
