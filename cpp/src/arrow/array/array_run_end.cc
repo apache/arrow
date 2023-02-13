@@ -51,6 +51,9 @@ Result<std::shared_ptr<RunEndEncodedArray>> RunEndEncodedArray::Make(
   if (run_ends->null_count() != 0) {
     return Status::Invalid("Run ends array cannot contain null values");
   }
+  if (values->length() < run_ends->length()) {
+    return Status::Invalid("Values array has to be at least as long as run ends array");
+  }
 
   return std::make_shared<RunEndEncodedArray>(
       run_end_encoded(std::move(run_end_type), std::move(values_type)), logical_length,
@@ -70,6 +73,8 @@ void RunEndEncodedArray::SetData(const std::shared_ptr<ArrayData>& data) {
   // a non-zero number of runs and values.
   DCHECK(data->offset + data->length == 0 || data->child_data[0]->length > 0);
   DCHECK(data->offset + data->length == 0 || data->child_data[1]->length > 0);
+  // At least as many values as run_ends
+  DCHECK_GE(data->child_data[1]->length, data->child_data[0]->length);
 
   // The null count for run-end encoded arrays is always 0. Actual number of
   // nulls needs to be calculated through other means.

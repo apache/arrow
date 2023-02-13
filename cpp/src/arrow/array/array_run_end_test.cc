@@ -118,6 +118,9 @@ TEST_P(TestRunEndEncodedArray, FromRunEndsAndValues) {
   ASSERT_RAISES_WITH_MESSAGE(
       Invalid, "Invalid: Run ends array cannot contain null values",
       RunEndEncodedArray::Make(30, run_end_only_null, int32_values));
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid, "Invalid: Values array has to be at least as long as run ends array",
+      RunEndEncodedArray::Make(30, run_end_values, ArrayFromJSON(int32(), "[2, 0]")));
 }
 
 TEST_P(TestRunEndEncodedArray, FindOffsetAndLength) {
@@ -467,12 +470,6 @@ TEST_P(TestRunEndEncodedArray, Validate) {
                              "Invalid: Last run end is 39 but it should match 40"
                              " (offset: 0, length: 40)",
                              run_ends_too_low_array->Validate());
-
-  ASSERT_OK_AND_ASSIGN(auto values_too_short_array,
-                       RunEndEncodedArray::Make(40, run_ends_good, values->Slice(1)));
-  ASSERT_RAISES_WITH_MESSAGE(
-      Invalid, "Invalid: Length of run_ends is greater than the length of values: 4 > 3",
-      values_too_short_array->Validate());
 }
 
 TEST_P(TestRunEndEncodedArray, Compare) {
