@@ -36,6 +36,51 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
+func checkUniqueDict[I exec.IntTypes | exec.UintTypes](t *testing.T, input compute.ArrayLikeDatum, expected arrow.Array) {
+	out, err := compute.Unique(context.TODO(), input)
+	require.NoError(t, err)
+	defer out.Release()
+
+	result := out.(*compute.ArrayDatum).MakeArray().(*array.Dictionary)
+	defer result.Release()
+
+	require.Truef(t, arrow.TypeEqual(result.DataType(), expected.DataType()),
+		"wanted: %s\ngot: %s", expected.DataType(), result.DataType())
+
+	exDict := expected.(*array.Dictionary).Dictionary()
+	resultDict := result.Dictionary()
+
+	require.Truef(t, array.Equal(exDict, resultDict), "wanted: %s\ngot: %s", exDict, resultDict)
+
+	want := exec.GetValues[I](expected.(*array.Dictionary).Indices().Data(), 1)
+	got := exec.GetValues[I](result.Indices().Data(), 1)
+	assert.ElementsMatchf(t, got, want, "wanted: %s\ngot: %s", want, got)
+}
+
+func checkDictionaryUnique(t *testing.T, input compute.ArrayLikeDatum, expected arrow.Array) {
+	require.Truef(t, arrow.TypeEqual(input.Type(), expected.DataType()),
+		"wanted: %s\ngot: %s", expected.DataType(), input.Type())
+
+	switch input.Type().(*arrow.DictionaryType).IndexType.ID() {
+	case arrow.INT8:
+		checkUniqueDict[int8](t, input, expected)
+	case arrow.INT16:
+		checkUniqueDict[int16](t, input, expected)
+	case arrow.INT32:
+		checkUniqueDict[int32](t, input, expected)
+	case arrow.INT64:
+		checkUniqueDict[int64](t, input, expected)
+	case arrow.UINT8:
+		checkUniqueDict[uint8](t, input, expected)
+	case arrow.UINT16:
+		checkUniqueDict[uint16](t, input, expected)
+	case arrow.UINT32:
+		checkUniqueDict[uint32](t, input, expected)
+	case arrow.UINT64:
+		checkUniqueDict[uint64](t, input, expected)
+	}
+}
+
 func checkUniqueFixedWidth[T exec.FixedWidthTypes](t *testing.T, input, expected arrow.Array) {
 	result, err := compute.UniqueArray(context.TODO(), input)
 	require.NoError(t, err)
@@ -381,4 +426,115 @@ func TestUniqueChunkedArrayInvoke(t *testing.T) {
 	defer out.Release()
 
 	assertArraysEqual(t, exDict, out)
+
+	// // dict-encode
+	// var (
+	// 	dictType = &arrow.DictionaryType{
+	// 		IndexType: arrow.PrimitiveTypes.Int32, ValueType: typ}
+	// 	i1 = makeArray(mem, arrow.PrimitiveTypes.Int32, []int32{0, 1, 0}, nil)
+	// 	i2 = makeArray(mem, arrow.PrimitiveTypes.Int32, []int32{1, 2, 3, 0}, nil)
+	// )
+
+	// defer i1.Release()
+	// defer i2.Release()
+
+	// dictArrays := []arrow.Array{
+	// 	array.NewDictionaryArray(dictType, i1, exDict),
+	// 	array.NewDictionaryArray(dictType, i2, exDict),
+	// }
+	// dictCarr := arrow.NewChunked(dictType, dictArrays)
+
+	// defer dictArrays[0].Release()
+	// defer dictArrays[1].Release()
+	// defer dictCarr.Release()
+
+}
+
+func TestDictionaryUnique(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	const dictJSON = `[10, 20, 30, 40]`
+	dict, _, err := array.FromJSON(mem, arrow.PrimitiveTypes.Int64, strings.NewReader(dictJSON))
+	require.NoError(t, err)
+	defer dict.Release()
+
+	for _, idxTyp := range integerTypes {
+		t.Run("index_type="+idxTyp.Name(), func(t *testing.T) {
+			scope := memory.NewCheckedAllocatorScope(mem)
+			defer scope.CheckSize(t)
+
+			indices, _, _ := array.FromJSON(mem, idxTyp, strings.NewReader(`[3, 0, 0, 0, 1, 1, 3, 0, 1, 3, 0, 1]`))
+			defer indices.Release()
+			dictType := &arrow.DictionaryType{
+				IndexType: idxTyp, ValueType: arrow.PrimitiveTypes.Int64}
+			exIndices, _, _ := array.FromJSON(mem, idxTyp, strings.NewReader(`[3, 0, 1]`))
+			defer exIndices.Release()
+
+			input := array.NewDictionaryArray(dictType, indices, dict)
+			defer input.Release()
+			exUniques := array.NewDictionaryArray(dictType, exIndices, dict)
+			defer exUniques.Release()
+
+			checkDictionaryUnique(t, &compute.ArrayDatum{Value: input.Data()}, exUniques)
+
+			t.Run("empty array", func(t *testing.T) {
+				scope := memory.NewCheckedAllocatorScope(mem)
+				defer scope.CheckSize(t)
+
+				// executor never gives the kernel any batches
+				// so result dictionary is empty
+				emptyInput, _ := array.DictArrayFromJSON(mem, dictType, `[]`, dictJSON)
+				defer emptyInput.Release()
+				exEmpty, _ := array.DictArrayFromJSON(mem, dictType, `[]`, `[]`)
+				defer exEmpty.Release()
+				checkDictionaryUnique(t, &compute.ArrayDatum{Value: emptyInput.Data()}, exEmpty)
+			})
+
+			t.Run("different chunk dictionaries", func(t *testing.T) {
+				scope := memory.NewCheckedAllocatorScope(mem)
+				defer scope.CheckSize(t)
+
+				input2, _ := array.DictArrayFromJSON(mem, dictType, `[1, null, 2, 3]`, `[30, 40, 50, 60]`)
+				defer input2.Release()
+
+				diffCarr := arrow.NewChunked(dictType, []arrow.Array{input, input2})
+				defer diffCarr.Release()
+
+				exUnique2, _ := array.DictArrayFromJSON(mem, dictType, `[3, 0, 1, null, 4, 5]`, `[10, 20, 30, 40, 50, 60]`)
+				defer exUnique2.Release()
+
+				checkDictionaryUnique(t, &compute.ChunkedDatum{Value: diffCarr}, exUnique2)
+			})
+
+			t.Run("encoded nulls", func(t *testing.T) {
+				scope := memory.NewCheckedAllocatorScope(mem)
+				defer scope.CheckSize(t)
+
+				dictWithNull, _, _ := array.FromJSON(mem, arrow.PrimitiveTypes.Int64, strings.NewReader(`[10, null, 30, 40]`))
+				defer dictWithNull.Release()
+				input := array.NewDictionaryArray(dictType, indices, dictWithNull)
+				defer input.Release()
+				exUniques := array.NewDictionaryArray(dictType, exIndices, dictWithNull)
+				defer exUniques.Release()
+				checkDictionaryUnique(t, &compute.ArrayDatum{Value: input.Data()}, exUniques)
+			})
+
+			t.Run("masked nulls", func(t *testing.T) {
+				scope := memory.NewCheckedAllocatorScope(mem)
+				defer scope.CheckSize(t)
+
+				indicesWithNull, _, _ := array.FromJSON(mem, idxTyp, strings.NewReader(`[3, 0, 0, 0, null, null, 3, 0, null, 3, 0, null]`))
+				defer indicesWithNull.Release()
+				exIndicesWithNull, _, _ := array.FromJSON(mem, idxTyp, strings.NewReader(`[3, 0, null]`))
+				defer exIndicesWithNull.Release()
+				exUniques := array.NewDictionaryArray(dictType, exIndicesWithNull, dict)
+				defer exUniques.Release()
+				input := array.NewDictionaryArray(dictType, indicesWithNull, dict)
+				defer input.Release()
+
+				checkDictionaryUnique(t, &compute.ArrayDatum{Value: input.Data()}, exUniques)
+			})
+		})
+	}
 }

@@ -276,7 +276,7 @@ func (dhs *dictionaryHashState) DictionaryValueType() arrow.DataType { return dh
 func (dhs *dictionaryHashState) Dictionary() arrow.Array             { return dhs.dictionary }
 func (dhs *dictionaryHashState) Append(ctx *exec.KernelCtx, arr *exec.ArraySpan) error {
 	arrDict := arr.Dictionary().MakeArray()
-	if dhs.dictionary == nil {
+	if dhs.dictionary == nil || array.Equal(dhs.dictionary, arrDict) {
 		dhs.dictionary = arrDict
 		return dhs.indicesKernel.Append(ctx, arr)
 	}
@@ -304,7 +304,7 @@ func (dhs *dictionaryHashState) Append(ctx *exec.KernelCtx, arr *exec.ArraySpan)
 		return err
 	}
 	defer transposeMap.Release()
-	outDictType, outDict, err := unifier.GetResult()
+	_, outDict, err := unifier.GetResult()
 	if err != nil {
 		return err
 	}
@@ -315,7 +315,7 @@ func (dhs *dictionaryHashState) Append(ctx *exec.KernelCtx, arr *exec.ArraySpan)
 
 	inDict := arr.MakeData()
 	defer inDict.Release()
-	tmp, err := array.TransposeDictIndices(dhs.Allocator(), inDict, dhs.dictionary.DataType(), outDictType, outDict.Data(), arrow.Int32Traits.CastFromBytes(transposeMap.Bytes()))
+	tmp, err := array.TransposeDictIndices(dhs.Allocator(), inDict, arr.Type, arr.Type, outDict.Data(), arrow.Int32Traits.CastFromBytes(transposeMap.Bytes()))
 	if err != nil {
 		return err
 	}
@@ -371,6 +371,7 @@ func regularHashInit(dt arrow.DataType, actionInit initAction, appendFn func(Act
 		if err != nil {
 			return nil, err
 		}
+
 		ret := &regularHashState{
 			mem:       mem,
 			typ:       args.Inputs[0],
@@ -479,7 +480,8 @@ func ensureHashDictionary(ctx *exec.KernelCtx, hash *dictionaryHashState) (*exec
 	out := &exec.ArraySpan{}
 
 	if hash.dictionary != nil {
-		out.SetMembers(hash.dictionary.Data())
+		out.TakeOwnership(hash.dictionary.Data())
+		hash.dictionary.Release()
 		return out, nil
 	}
 
