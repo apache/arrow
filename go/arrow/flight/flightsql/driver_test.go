@@ -580,7 +580,11 @@ func TestSqliteBackend(t *testing.T) {
 		server := flight.NewServerWithMiddleware(nil)
 
 		// Setup the SQLite backend
-		sqliteServer, err := example.NewSQLiteFlightSQLServer()
+		db, err := sql.Open("sqlite", "file::memory:?cache=shared")
+		if err != nil {
+			return nil, "", err
+		}
+		sqliteServer, err := example.NewSQLiteFlightSQLServer(db)
 		if err != nil {
 			return nil, "", err
 		}

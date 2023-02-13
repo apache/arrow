@@ -423,7 +423,7 @@ func (d *Driver) PrepareContext(ctx context.Context, query string) (driver.Stmt,
 		defer cancel()
 	}
 
-	s, err := d.client.Prepare(ctx, nil, query)
+	s, err := d.client.Prepare(ctx, query)
 	if err != nil {
 		return nil, err
 	}
