@@ -494,6 +494,77 @@ func (s *SqlTestSuite) TestPreparedQueryWithPlaceholder() {
 	wg.Wait()
 }
 
+func (s *SqlTestSuite) TestTxRollback() {
+	t := s.T()
+
+	// Create and start the server
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+	defer s.stopServer(server)
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+	dsn, err := cfg.ToDSN()
+	require.NoError(t, err)
+
+	// Actual test
+	db, err := sql.Open("flightsql", dsn)
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Create the table
+	_, err = db.Exec(fmt.Sprintf(s.Statements["create table"], s.TableName))
+	require.NoError(t, err)
+
+	// Insert a test row to be sure the test works
+	_, err = db.Exec(fmt.Sprintf(s.Statements["insert"], s.TableName, "test", 42))
+	require.NoError(t, err)
+
+	// Insert data in transaction
+	data := map[string]int{
+		"zero":      0,
+		"one":       1,
+		"minus one": -1,
+		"twelve":    12,
+	}
+	tx, err := db.Begin()
+	require.NoError(t, err)
+	for k, v := range data {
+		_, err := tx.Exec(fmt.Sprintf(s.Statements["insert"], s.TableName, k, v))
+		require.NoError(t, err)
+	}
+	// Rollback the transaction
+	require.NoError(t, tx.Rollback())
+
+	// Check result
+	rows, err := db.Query(fmt.Sprintf(s.Statements["query"], s.TableName))
+	require.NoError(t, err)
+
+	expected := map[string]int{"test": 42}
+	actual := make(map[string]int, len(expected))
+	for rows.Next() {
+		var name string
+		var id, value int
+		require.NoError(t, rows.Scan(&id, &name, &value))
+		actual[name] = value
+	}
+	require.NoError(t, db.Close())
+	require.EqualValues(t, expected, actual)
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
 /*** BACKEND tests ***/
 
 func TestSqliteBackend(t *testing.T) {
