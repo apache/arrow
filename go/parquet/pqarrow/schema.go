@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"strings"
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/flight"
@@ -653,13 +652,13 @@ func listToSchemaField(n *schema.GroupNode, currentLevels file.LevelInfo, ctx *s
 		//   If the name is array or ends in _tuple, this should be a list of struct
 		//   even for single child elements.
 		listGroup := listNode.(*schema.GroupNode)
-		if listGroup.NumFields() == 1 && (listGroup.Name() == "array" || strings.HasSuffix(listGroup.Name(), "_tuple")) {
+		if listGroup.NumFields() == 1 && !(listGroup.Name() == "array" || listGroup.Name() == (n.Name()+"_tuple")) {
 			// list of primitive type
-			if err := groupToStructField(listGroup, currentLevels, ctx, out, &out.Children[0]); err != nil {
+			if err := nodeToSchemaField(listGroup.Field(0), currentLevels, ctx, out, &out.Children[0]); err != nil {
 				return err
 			}
 		} else {
-			if err := nodeToSchemaField(listGroup.Field(0), currentLevels, ctx, out, &out.Children[0]); err != nil {
+			if err := groupToStructField(listGroup, currentLevels, ctx, out, &out.Children[0]); err != nil {
 				return err
 			}
 		}
@@ -680,8 +679,10 @@ func listToSchemaField(n *schema.GroupNode, currentLevels file.LevelInfo, ctx *s
 		populateLeaf(colIndex, &itemField, currentLevels, ctx, out, &out.Children[0])
 	}
 
-	out.Field = &arrow.Field{Name: n.Name(), Type: arrow.ListOf(out.Children[0].Field.Type),
+	out.Field = &arrow.Field{Name: n.Name(), Type: arrow.ListOfField(
+		arrow.Field{Name: listNode.Name(), Type: out.Children[0].Field.Type, Nullable: true}),
 		Nullable: n.RepetitionType() == parquet.Repetitions.Optional, Metadata: createFieldMeta(int(n.FieldID()))}
+
 	out.LevelInfo = currentLevels
 	// At this point current levels contains the def level for this list,
 	// we need to reset to the prior parent.
