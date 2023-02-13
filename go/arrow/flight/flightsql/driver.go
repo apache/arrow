@@ -16,7 +16,6 @@
 package flightsql
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"database/sql/driver"
@@ -31,7 +30,6 @@ import (
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/goccy/go-json"
 
 	"google.golang.org/grpc"
 )
@@ -272,7 +270,6 @@ func (s *Stmt) setParameters(args []driver.NamedValue) error {
 		return nil
 	}
 
-	values := make(map[string]interface{})
 	var fields []arrow.Field
 	sort.SliceStable(args, func(i, j int) bool {
 		return args[i].Ordinal < args[j].Ordinal
@@ -288,7 +285,6 @@ func (s *Stmt) setParameters(args []driver.NamedValue) error {
 			Type:     dt,
 			Nullable: true,
 		})
-		values[arg.Name] = arg.Value
 	}
 
 	schema := s.stmt.ParameterSchema()
@@ -296,15 +292,19 @@ func (s *Stmt) setParameters(args []driver.NamedValue) error {
 		schema = arrow.NewSchema(fields, nil)
 	}
 
-	data, err := json.Marshal([]map[string]interface{}{values})
-	if err != nil {
-		return fmt.Errorf("marshalling: %w", err)
+	recBuilder := array.NewRecordBuilder(memory.DefaultAllocator, schema)
+	defer recBuilder.Release()
+
+	for i, arg := range args {
+		fieldBuilder := recBuilder.Field(i)
+		if err := setFieldValue(fieldBuilder, arg.Value); err != nil {
+			return err
+		}
 	}
 
-	rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, schema, bytes.NewBuffer(data))
-	if err != nil {
-		return fmt.Errorf("record: %w", err)
-	}
+	rec := recBuilder.NewRecord()
+	defer rec.Release()
+
 	s.stmt.SetParameters(rec)
 
 	return nil
@@ -535,6 +535,139 @@ func toArrowDataType(value any) (arrow.DataType, error) {
 		return &arrow.Time64Type{Unit: arrow.Nanosecond}, nil
 	}
 	return nil, fmt.Errorf("type %T: %w", value, ErrNotSupported)
+}
+
+func setFieldValue(builder array.Builder, arg any) error {
+	switch b := builder.(type) {
+	case *array.BooleanBuilder:
+		switch v := arg.(type) {
+		case bool:
+			b.Append(v)
+		case []bool:
+			b.AppendValues(v, nil)
+		default:
+			return fmt.Errorf("invalid value type %T for builder %T", arg, builder)
+		}
+	case *array.Float32Builder:
+		switch v := arg.(type) {
+		case float32:
+			b.Append(v)
+		case []float32:
+			b.AppendValues(v, nil)
+		default:
+			return fmt.Errorf("invalid value type %T for builder %T", arg, builder)
+		}
+	case *array.Float64Builder:
+		switch v := arg.(type) {
+		case float64:
+			b.Append(v)
+		case []float64:
+			b.AppendValues(v, nil)
+		default:
+			return fmt.Errorf("invalid value type %T for builder %T", arg, builder)
+		}
+	case *array.Int8Builder:
+		switch v := arg.(type) {
+		case int8:
+			b.Append(v)
+		case []int8:
+			b.AppendValues(v, nil)
+		default:
+			return fmt.Errorf("invalid value type %T for builder %T", arg, builder)
+		}
+	case *array.Int16Builder:
+		switch v := arg.(type) {
+		case int16:
+			b.Append(v)
+		case []int16:
+			b.AppendValues(v, nil)
+		default:
+			return fmt.Errorf("invalid value type %T for builder %T", arg, builder)
+		}
+	case *array.Int32Builder:
+		switch v := arg.(type) {
+		case int32:
+			b.Append(v)
+		case []int32:
+			b.AppendValues(v, nil)
+		default:
+			return fmt.Errorf("invalid value type %T for builder %T", arg, builder)
+		}
+	case *array.Int64Builder:
+		switch v := arg.(type) {
+		case int64:
+			b.Append(v)
+		case []int64:
+			b.AppendValues(v, nil)
+		default:
+			return fmt.Errorf("invalid value type %T for builder %T", arg, builder)
+		}
+	case *array.Uint8Builder:
+		switch v := arg.(type) {
+		case uint8:
+			b.Append(v)
+		case []uint8:
+			b.AppendValues(v, nil)
+		default:
+			return fmt.Errorf("invalid value type %T for builder %T", arg, builder)
+		}
+	case *array.Uint16Builder:
+		switch v := arg.(type) {
+		case uint16:
+			b.Append(v)
+		case []uint16:
+			b.AppendValues(v, nil)
+		default:
+			return fmt.Errorf("invalid value type %T for builder %T", arg, builder)
+		}
+	case *array.Uint32Builder:
+		switch v := arg.(type) {
+		case uint32:
+			b.Append(v)
+		case []uint32:
+			b.AppendValues(v, nil)
+		default:
+			return fmt.Errorf("invalid value type %T for builder %T", arg, builder)
+		}
+	case *array.Uint64Builder:
+		switch v := arg.(type) {
+		case uint64:
+			b.Append(v)
+		case []uint64:
+			b.AppendValues(v, nil)
+		default:
+			return fmt.Errorf("invalid value type %T for builder %T", arg, builder)
+		}
+	case *array.StringBuilder:
+		switch v := arg.(type) {
+		case string:
+			b.Append(v)
+		case []string:
+			b.AppendValues(v, nil)
+		default:
+			return fmt.Errorf("invalid value type %T for builder %T", arg, builder)
+		}
+	case *array.Time64Builder:
+		switch v := arg.(type) {
+		case int64:
+			b.Append(arrow.Time64(v))
+		case []int64:
+			for _, x := range v {
+				b.Append(arrow.Time64(x))
+			}
+		case uint64:
+			b.Append(arrow.Time64(v))
+		case []uint64:
+			for _, x := range v {
+				b.Append(arrow.Time64(x))
+			}
+		case time.Time:
+			b.Append(arrow.Time64(v.Nanosecond()))
+		default:
+			return fmt.Errorf("invalid value type %T for builder %T", arg, builder)
+		}
+	}
+	return nil
 }
 
 type DriverConfig struct {
