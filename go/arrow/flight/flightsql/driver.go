@@ -152,20 +152,22 @@ func (s *Stmt) Close() error {
 
 // NumInput returns the number of placeholder parameters.
 func (s *Stmt) NumInput() int {
-	// If NumInput returns >= 0, the sql package will sanity check
-	// argument counts from callers and return errors to the caller
-	// before the statement's Exec or Query methods are called.
-	//
-	// NumInput may also return -1, if the driver doesn't know
-	// its number of placeholders. In that case, the sql package
-	// will not sanity check Exec or Query argument counts.
-	return -1
+	schema := s.stmt.ParameterSchema()
+	if schema == nil {
+		// NumInput may also return -1, if the driver doesn't know its number
+		// of placeholders. In that case, the sql package will not sanity check
+		// Exec or Query argument counts.
+		return -1
+	}
+
+	// If NumInput returns >= 0, the sql package will sanity check argument
+	// counts from callers and return errors to the caller before the
+	// statement's Exec or Query methods are called.
+	return len(schema.Fields())
 }
 
 // Exec executes a query that doesn't return rows, such
 // as an INSERT or UPDATE.
-//
-// Deprecated: Drivers should implement StmtExecContext instead (or additionally).
 func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 	var params []driver.NamedValue
 	for i, arg := range args {
