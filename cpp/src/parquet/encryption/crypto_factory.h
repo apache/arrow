@@ -135,8 +135,15 @@ class PARQUET_EXPORT CryptoFactory {
 
   void RemoveCacheEntriesForAllTokens() { key_toolkit_.RemoveCacheEntriesForAllTokens(); }
 
+  /// Rotates master encryption keys for a Parquet file that uses external key material.
+  /// In single wrapping mode, data encryption keys are decrypted with the old master keys
+  /// and then re-encrypted with new master keys.
+  /// In double wrapping mode, key encryption keys are decrypted with the old master keys
+  /// and then re-encrypted with new master keys.
+  /// This relies on the KMS supporting versioning, such that the old master key value is
+  /// used when unwrapping a key, and the latest version is used when wrapping a key.
   void RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
-                        const std::string& directory_path,
+                        const std::string& parquet_file_path,
                         const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
                         bool double_wrapping = kDefaultDoubleWrapping,
                         double cache_lifetime_seconds = kDefaultCacheLifetimeSeconds);

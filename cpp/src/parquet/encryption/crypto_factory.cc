@@ -201,11 +201,11 @@ std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProper
 }
 
 void CryptoFactory::RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
-                                     const std::string& directory_path,
+                                     const std::string& parquet_file_path,
                                      const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
                                      bool double_wrapping,
                                      double cache_lifetime_seconds) {
-  key_toolkit_.RotateMasterKeys(kms_connection_config, directory_path, file_system, double_wrapping,
+  key_toolkit_.RotateMasterKeys(kms_connection_config, parquet_file_path, file_system, double_wrapping,
                                 cache_lifetime_seconds);
 }
 

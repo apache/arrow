@@ -74,9 +74,9 @@ class PARQUET_EXPORT KeyToolkit {
   /// (key encryption keys) with old master keys, generates new KEKs and encrypts them
   /// with new master keys. Works only if key material is not stored internally in file
   /// footers. Not supported in local key wrapping mode. Method can be run by multiple
-  /// threads, but each thread must work on a different folder.
+  /// threads, but each thread must work on different files.
   void RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
-                        const std::string& directory_path,
+                        const std::string& parquet_file_path,
                         const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
                         bool double_wrapping, double cache_lifetime_seconds);
 

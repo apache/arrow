@@ -182,12 +182,15 @@ class TestEncryptionKeyManagement : public ::testing::Test {
     }
   }
 
-  void RotateKeys(bool double_wrapping) {
+  void RotateKeys(bool double_wrapping, int encryption_no) {
     auto file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
-    std::string data_directory = temp_dir_->path().ToString();
+    std::string file_name =
+        GetFileName(double_wrapping, wrap_locally_, false, encryption_no);
+    std::string file = temp_dir_->path().ToString() + file_name;
 
+    crypto_factory_.RemoveCacheEntriesForAllTokens();
     TestOnlyInServerWrapKms::StartKeyRotation(new_key_list_);
-    crypto_factory_.RotateMasterKeys(kms_connection_config_, data_directory, file_system, double_wrapping);
+    crypto_factory_.RotateMasterKeys(kms_connection_config_, file, file_system, double_wrapping);
     TestOnlyInServerWrapKms::FinishKeyRotation();
     crypto_factory_.RemoveCacheEntriesForAllTokens();
   }
@@ -284,16 +287,11 @@ TEST_F(TestEncryptionKeyManagement, CheckKeyRotationDoubleWrapping) {
       false);  // key rotation is not supported with local key wrapping
 
   for (int encryption_no = 0; encryption_no < 4; encryption_no++) {
+    TestOnlyInServerWrapKms::InitializeMasterKeys(key_list_);
     this->WriteEncryptedParquetFile(double_wrapping, internal_key_material,
                                     encryption_no);
-  }
-
-  for (int encryption_no = 0; encryption_no < 4; encryption_no++) {
     this->ReadEncryptedParquetFile(double_wrapping, internal_key_material, encryption_no);
-  }
-
-  this->RotateKeys(double_wrapping);
-  for (int encryption_no = 0; encryption_no < 4; encryption_no++) {
+    this->RotateKeys(double_wrapping, encryption_no);
     this->ReadEncryptedParquetFile(double_wrapping, internal_key_material, encryption_no);
   }
 }
@@ -306,16 +304,11 @@ TEST_F(TestEncryptionKeyManagement, CheckKeyRotationSingleWrapping) {
       false);  // key rotation is not supported with local key wrapping
 
   for (int encryption_no = 0; encryption_no < 4; encryption_no++) {
+    TestOnlyInServerWrapKms::InitializeMasterKeys(key_list_);
     this->WriteEncryptedParquetFile(double_wrapping, internal_key_material,
                                     encryption_no);
-  }
-
-  for (int encryption_no = 0; encryption_no < 4; encryption_no++) {
     this->ReadEncryptedParquetFile(double_wrapping, internal_key_material, encryption_no);
-  }
-
-  this->RotateKeys(double_wrapping);
-  for (int encryption_no = 0; encryption_no < 4; encryption_no++) {
+    this->RotateKeys(double_wrapping, encryption_no);
     this->ReadEncryptedParquetFile(double_wrapping, internal_key_material, encryption_no);
   }
 }

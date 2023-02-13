@@ -48,21 +48,12 @@ std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
       });
 }
 
-// Filter out files that are not suitable for key rotation.
-inline bool filter_out_file(std::string child) {
-  // Filters out hidden files. A file is considered to
-  // be hidden, and should not be considered for processing, when the file name
-  // starts with a period ('.') or an underscore ('_').
-  if (child.at(0) == kPeriod || child.at(0) == kUnderscore) return true;
-  return false;
-}
-
 void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
-                                  const std::string& directory_path,
+                                  const std::string& parquet_file_path,
                                   const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
                                   bool double_wrapping, double cache_lifetime_seconds) {
   // If process wrote files with double-wrapped keys, clean KEK cache (since master keys
-  // are changing). Only once for each key rotation cycle; not for every folder
+  // are changing). Only once for each key rotation cycle; not for every file.
   const auto now = internal::CurrentTimePoint();
   auto lock = last_cache_clean_for_key_rotation_time_mutex_.Lock();
   if (now > last_cache_clean_for_key_rotation_time_ +
@@ -71,63 +62,46 @@ void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_conf
     last_cache_clean_for_key_rotation_time_ = now;
   }
   lock.Unlock();
-  std::vector<::arrow::fs::FileInfo> parquet_files_in_folder;
-  ::arrow::fs::FileSelector s;
-  s.base_dir = directory_path;
-  parquet_files_in_folder = file_system->GetFileInfo(s).ValueOrDie();
 
-  if (parquet_files_in_folder.size() == 0) {
-    throw ParquetException("Couldn't rotate keys - no parquet files in folder " + directory_path);
-  }
+  std::shared_ptr<FileKeyMaterialStore> key_material_store = FileSystemKeyMaterialStore::Make(
+      parquet_file_path, file_system, false);
 
-  for (auto const& parquet_file : parquet_files_in_folder) {
-    if (parquet_file.type() != ::arrow::fs::FileType::File)
-      throw ParquetException("Expecting file type in " + directory_path);
-    std::string child = parquet_file.base_name();
-    if (filter_out_file(child)) continue;
+  FileKeyUnwrapper file_key_unwrapper(this, kms_connection_config,
+                                      cache_lifetime_seconds, parquet_file_path, file_system,
+                                      key_material_store);
 
-    std::string parquet_file_path = ::arrow::fs::internal::ConcatAbstractPath(
-        directory_path, parquet_file.base_name());
-    std::shared_ptr<FileKeyMaterialStore> key_material_store = FileSystemKeyMaterialStore::Make(
-        parquet_file_path, file_system, false);
+  std::shared_ptr<FileKeyMaterialStore> temp_key_material_store = FileSystemKeyMaterialStore::Make(
+      parquet_file_path, file_system, true);
+  FileKeyWrapper file_key_wrapper(this, kms_connection_config, temp_key_material_store,
+                                  cache_lifetime_seconds, double_wrapping);
 
-    FileKeyUnwrapper file_key_unwrapper(this, kms_connection_config,
-                                        cache_lifetime_seconds, parquet_file_path, file_system,
-                                        key_material_store);
+  std::vector<std::string> file_key_id_set = key_material_store->GetKeyIDSet();
 
-    std::shared_ptr<FileKeyMaterialStore> temp_key_material_store = FileSystemKeyMaterialStore::Make(
-        parquet_file_path, file_system, true);
-    FileKeyWrapper file_key_wrapper(this, kms_connection_config, temp_key_material_store,
-                                    cache_lifetime_seconds, double_wrapping);
+  // Start with footer key (to get KMS ID, URL, if needed)
+  std::string footer_key_id_str = std::string(KeyMaterial::kFooterKeyIdInFile);
+  std::string key_material_string =
+      key_material_store->GetKeyMaterial(footer_key_id_str);
+  internal::KeyWithMasterId key =
+      file_key_unwrapper.GetDataEncryptionKey(KeyMaterial::Parse(key_material_string));
+  file_key_wrapper.GetEncryptionKeyMetadata(
+      key.data_key(), key.master_id(), true,
+      std::string(KeyMaterial::kFooterKeyIdInFile));
 
-    std::vector<std::string> file_key_id_set = key_material_store->GetKeyIDSet();
-
-    // Start with footer key (to get KMS ID, URL, if needed)
-    std::string footer_key_id_str = std::string(KeyMaterial::kFooterKeyIdInFile);
-    std::string key_material_string =
-        key_material_store->GetKeyMaterial(footer_key_id_str);
-    internal::KeyWithMasterId key =
-        file_key_unwrapper.GetDataEncryptionKey(KeyMaterial::Parse(key_material_string));
+  // Rotate column keys
+  for (auto const& key_id_in_file : file_key_id_set) {
+    if (key_id_in_file == std::string(KeyMaterial::kFooterKeyIdInFile)) continue;
+    key_material_string = key_material_store->GetKeyMaterial(key_id_in_file);
+    internal::KeyWithMasterId column_key = file_key_unwrapper.GetDataEncryptionKey(
+        KeyMaterial::Parse(key_material_string));
     file_key_wrapper.GetEncryptionKeyMetadata(
-        key.data_key(), key.master_id(), true,
-        std::string(KeyMaterial::kFooterKeyIdInFile));
-
-    // Rotate column keys
-    for (auto const& key_id_in_file : file_key_id_set) {
-      if (key_id_in_file == std::string(KeyMaterial::kFooterKeyIdInFile)) continue;
-      key_material_string = key_material_store->GetKeyMaterial(key_id_in_file);
-      internal::KeyWithMasterId column_key = file_key_unwrapper.GetDataEncryptionKey(
-          KeyMaterial::Parse(key_material_string));
-      file_key_wrapper.GetEncryptionKeyMetadata(
-          column_key.data_key(), column_key.master_id(), false, key_id_in_file);
-    }
-
-    temp_key_material_store->SaveMaterial();
-
-    key_material_store->RemoveMaterial();
-
-    temp_key_material_store->MoveMaterialTo(key_material_store);
+        column_key.data_key(), column_key.master_id(), false, key_id_in_file);
   }
+
+  temp_key_material_store->SaveMaterial();
+
+  key_material_store->RemoveMaterial();
+
+  temp_key_material_store->MoveMaterialTo(key_material_store);
 }
 
 // Flush any caches that are tied to the (compromised) access_token
