@@ -113,6 +113,10 @@ class PullRequestWorkflowBot:
 
     @cached_property
     def pull(self):
+        """
+        Returns a github.PullRequest object associated with the event.
+        In case of a commit we search the PR associated with the commit.
+        """
         if self.event_name == 'push':
             return self._get_pr_for_commit()
         else:
@@ -137,6 +141,12 @@ class PullRequestWorkflowBot:
             self.set_state(new_state)
 
     def get_current_state(self):
+        """
+        Returns a string with the current PR state label
+        based on label starting with LABEL_PREFIX.
+        If more than one label is found raises EventError.
+        If no label is found returns None.
+        """
         states = [label.name for label in self.pull.get_labels()
                   if label.name.startswith(LABEL_PREFIX)]
         if len(states) > 1:
@@ -145,11 +155,18 @@ class PullRequestWorkflowBot:
             return states[0]
 
     def clear_current_state(self):
+        """
+        Removes all existing labels starting with LABEL_PREFIX
+        """
         for label in self.pull.get_labels():
             if label.name.startswith(LABEL_PREFIX):
                 self.pull.remove_from_labels(label)
 
     def get_target_state(self, current_state):
+        """
+        Returns the expected target state based on the event and
+        the current state.
+        """
         if (self.event_name == "pull_request" and
                 self.event_payload['action'] == 'opened'):
             if (self.event_payload['pull_request']['author_association'] in
@@ -178,13 +195,13 @@ class PullRequestWorkflowBot:
         elif (self.event_name == "push" and
               current_state == PullRequestState.changes.value):
             return PullRequestState.change_review
-        # TODO: Test push on awaiting review or push without label
         # Default already opened PRs to Review state.
         if current_state is None:
             current_state = PullRequestState.review.value
         return PullRequestState(current_state)
 
     def set_state(self, state):
+        """Sets the State label to the PR."""
         self.pull.add_to_labels(state.value)
 
     def _get_pr_for_commit(self):

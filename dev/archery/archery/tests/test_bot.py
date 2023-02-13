@@ -536,11 +536,11 @@ def test_pull_request_non_committer_review_awaiting_change_review(
     bot = PullRequestWorkflowBot('pull_request_review', payload, token='')
     bot.handle()
 
-    # No requests to delete / set new labels on non-committer reviews
+    # No requests to delete post new labels on non-committer reviews
     assert len(responses.calls) == 2
 
 
-def test_push_event(
+def test_push_event_on_awaiting_changes(
         load_fixture, responses):
     payload = load_fixture('event-push.json')
     sha = '27313fc220561ef6b0d5edb485b29684b405c80b'
@@ -584,6 +584,84 @@ def test_push_event(
 
     bot = PullRequestWorkflowBot('push', payload, token='')
     bot.handle()
-    # after push event label changes
+    # after push event label changes.
     post = responses.calls[-1]
     assert json.loads(post.request.body) == ["awaiting change review"]
+
+
+def test_push_event_on_awaiting_review(
+        load_fixture, responses):
+    payload = load_fixture('event-push.json')
+    sha = '27313fc220561ef6b0d5edb485b29684b405c80b'
+    qualifiers = {'qualifiers': {'type': 'pr', 'repo': 'raulcd/arrow', 'sha': sha}}
+    url_parameters = " ".join(
+        [f"{qualifier}:{value}" for qualifier, value in qualifiers.items()]
+    )
+
+    responses.add(
+        responses.GET,
+        github_url('/search/issues'),
+        match=[matchers.query_string_matcher("q=" + url_parameters)],
+        json=load_fixture('commit-search.json'),
+        status=200
+    )
+    responses.add(
+        responses.GET,
+        github_url('/repositories/169101701/pulls/26'),
+        json=load_fixture('pull-request-26-awaiting-review.json'),
+        status=200
+    )
+    responses.add(
+        responses.GET,
+        github_url('/repos/ursa-labs/ursabot/issues/26/labels'),
+        json=load_fixture('label-awaiting-review.json'),
+        status=200
+    )
+
+    bot = PullRequestWorkflowBot('push', payload, token='')
+    bot.handle()
+    # No requests to delete or post new labels on push awaiting review
+    assert len(responses.calls) == 3
+
+
+def test_push_event_on_existing_pr_without_state(
+        load_fixture, responses):
+    payload = load_fixture('event-push.json')
+    sha = '27313fc220561ef6b0d5edb485b29684b405c80b'
+    qualifiers = {'qualifiers': {'type': 'pr', 'repo': 'raulcd/arrow', 'sha': sha}}
+    url_parameters = " ".join(
+        [f"{qualifier}:{value}" for qualifier, value in qualifiers.items()]
+    )
+
+    responses.add(
+        responses.GET,
+        github_url('/search/issues'),
+        match=[matchers.query_string_matcher("q=" + url_parameters)],
+        json=load_fixture('commit-search.json'),
+        status=200
+    )
+    responses.add(
+        responses.GET,
+        github_url('/repositories/169101701/pulls/26'),
+        json=load_fixture('pull-request-26.json'),
+        status=200
+    )
+    responses.add(
+        responses.GET,
+        github_url('/repos/ursa-labs/ursabot/issues/26/labels'),
+        json=[],
+        status=200
+    )
+    responses.add(
+        responses.POST,
+        github_url(
+            '/repos/ursa-labs/ursabot/issues/26/labels'
+        ),
+        status=201
+    )
+
+    bot = PullRequestWorkflowBot('push', payload, token='')
+    bot.handle()
+    # after push event label get set to default
+    post = responses.calls[-1]
+    assert json.loads(post.request.body) == ["awaiting review"]

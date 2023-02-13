@@ -788,7 +788,6 @@ def trigger_bot(event_name, event_payload, arrow_token):
         bot = CommentBot(name='github-actions', handler=actions, token=arrow_token)
         bot.handle(event_name, event_payload)
     else:
-        # TODO: Make API for both classes more consistent
         bot = PullRequestWorkflowBot(event_name, event_payload, token=arrow_token)
         bot.handle()
 
