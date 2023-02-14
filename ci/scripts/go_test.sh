@@ -66,15 +66,14 @@ if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
     TAGS="${TAGS},ccalloc"
 fi
 
-if [[ -n "${ARROW_GO_NOASM}" ]]; then
-    TAGS="${TAGS},noasm"
-fi
-
 # the cgo implementation of the c data interface requires the "test"
 # tag in order to run its tests so that the testing functions implemented
 # in .c files don't get included in non-test builds.
 
 go test $testargs -tags $TAGS ./...
+
+# run it again but with the noasm tag
+go test $testargs -tags $TAGS,noasm ./...
 
 popd
 
@@ -82,12 +81,9 @@ export PARQUET_TEST_DATA=${1}/cpp/submodules/parquet-testing/data
 export ARROW_TEST_DATA=${1}/testing/data
 pushd ${source_dir}/parquet
 
-TAGS="assert"
-if [[ -n "${ARROW_GO_NOASM}" ]]; then
-    TAGS="${TAGS},noasm"
-fi
+go test $testargs -tags assert ./...
 
-
-go test $testargs -tags $TAGS ./...
+# run the tests again but with the noasm tag
+go test $testargs -tags assert,noasm ./...
 
 popd
