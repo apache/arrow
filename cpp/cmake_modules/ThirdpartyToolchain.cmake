@@ -4856,8 +4856,8 @@ macro(build_awssdk)
     endif()
     set("${_AWSSDK_LIB_NAME_PREFIX}_STATIC_LIBRARY" ${_AWSSDK_STATIC_LIBRARY})
 
-    if(NOT ${_AWSSDK_LIB} STREQUAL "aws-lc"
-    )# AWS::crypto only linked against s2n but not arrow
+    if(NOT ${_AWSSDK_LIB} STREQUAL "aws-lc")
+      # aws-lc only linked against s2n but not arrow
       list(APPEND AWSSDK_LIBRARIES ${_AWSSDK_TARGET_NAME})
     endif()
   endforeach()
@@ -4881,17 +4881,11 @@ macro(build_awssdk)
 
   if("s2n-tls" IN_LIST _AWSSDK_LIBS)
     set(AWS_LC_C_FLAGS ${EP_C_FLAGS})
-    list(APPEND AWS_LC_C_FLAGS "-Wno-error=overlength-strings" "-Wno-error=pedantic")
-
-    set(AWS_LC_CPP_FLAGS ${EP_CPP_FLAGS})
-    list(APPEND AWS_LC_CPP_FLAGS "-Wno-error=overlength-strings" "-Wno-error=pedantic")
+    string(APPEND AWS_LC_C_FLAGS " -Wno-error=overlength-strings -Wno-error=pedantic")
 
     set(AWS_LC_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
-    list(APPEND
-         AWS_LC_CMAKE_ARGS
-         -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
-         -DCMAKE_C_FLAGS=${AWS_LC_C_FLAGS}
-         -DCMAKE_CPP_FLAGS=${AWS_LC_CPP_FLAGS})
+    list(APPEND AWS_LC_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
+         -DCMAKE_C_FLAGS=${AWS_LC_C_FLAGS})
 
     externalproject_add(aws_lc_ep
                         ${EP_COMMON_OPTIONS}
