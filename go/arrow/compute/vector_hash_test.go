@@ -426,28 +426,6 @@ func TestUniqueChunkedArrayInvoke(t *testing.T) {
 	defer out.Release()
 
 	assertArraysEqual(t, exDict, out)
-
-	// // dict-encode
-	// var (
-	// 	dictType = &arrow.DictionaryType{
-	// 		IndexType: arrow.PrimitiveTypes.Int32, ValueType: typ}
-	// 	i1 = makeArray(mem, arrow.PrimitiveTypes.Int32, []int32{0, 1, 0}, nil)
-	// 	i2 = makeArray(mem, arrow.PrimitiveTypes.Int32, []int32{1, 2, 3, 0}, nil)
-	// )
-
-	// defer i1.Release()
-	// defer i2.Release()
-
-	// dictArrays := []arrow.Array{
-	// 	array.NewDictionaryArray(dictType, i1, exDict),
-	// 	array.NewDictionaryArray(dictType, i2, exDict),
-	// }
-	// dictCarr := arrow.NewChunked(dictType, dictArrays)
-
-	// defer dictArrays[0].Release()
-	// defer dictArrays[1].Release()
-	// defer dictCarr.Release()
-
 }
 
 func TestDictionaryUnique(t *testing.T) {
