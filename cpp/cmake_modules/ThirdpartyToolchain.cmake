@@ -4881,7 +4881,7 @@ macro(build_awssdk)
                       DEPENDS aws_c_common_ep)
   add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
-  if(UNIX AND NOT APPLE) # aws-lc and s2n-tls only needed on linux
+  if("s2n-tls" IN_LIST _AWSSDK_LIBS)
     set(AWS_LC_C_FLAGS ${EP_C_FLAGS})
     list(APPEND AWS_LC_C_FLAGS "-Wno-error=overlength-strings")
 
