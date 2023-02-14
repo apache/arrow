@@ -2879,9 +2879,12 @@ def _get_partition_keys(Expression partition_expression):
     return out
 
 
-Scanner.from_batches.__doc__ = Scanner.from_batches.__doc__.format(_scanner_arguments_doc)
-Scanner.from_fragment.__doc__ = Scanner.from_fragment.__doc__.format(_scanner_arguments_doc)
-Scanner.from_dataset.__doc__ = Scanner.from_dataset.__doc__.format(_scanner_arguments_doc)
+Scanner.from_batches.__doc__ = Scanner.from_batches.__doc__.format(
+    _scanner_arguments_doc)
+Scanner.from_fragment.__doc__ = Scanner.from_fragment.__doc__.format(
+    _scanner_arguments_doc)
+Scanner.from_dataset.__doc__ = Scanner.from_dataset.__doc__.format(
+    _scanner_arguments_doc)
 
 
 cdef class WrittenFile(_Weakrefable):
