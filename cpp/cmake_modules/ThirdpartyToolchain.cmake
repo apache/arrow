@@ -1246,8 +1246,9 @@ macro(find_curl)
       add_library(CURL::libcurl UNKNOWN IMPORTED)
       set_target_properties(CURL::libcurl
                             PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
-                                                              "${CURL_LIBRARIES}")
+                                       "${CURL_INCLUDE_DIRS}"
+                                       IMPORTED_LOCATION "${CURL_LIBRARIES}"
+                                       INTERFACE_LINK_LIBRARIES OpenSSL::SSL)
     endif()
   endif()
 endmacro()
@@ -5044,9 +5045,6 @@ macro(build_awssdk)
     set_property(TARGET aws-cpp-sdk-core
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl)
-    set_property(TARGET CURL::libcurl
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::SSL)
     set_property(TARGET AWS::aws-c-cal
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::Crypto OpenSSL::SSL)
