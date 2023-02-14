@@ -375,9 +375,10 @@ class DictionaryPageBuilder {
   using SpecializedEncoder = typename EncodingTraits<TYPE>::Encoder;
 
   // This class writes data and metadata to the passed inputs
-  explicit DictionaryPageBuilder(const ColumnDescriptor* d)
+  explicit DictionaryPageBuilder(const ColumnDescriptor* d,
+                                 Encoding::type dict_index_encoding)
       : num_dict_values_(0), have_values_(false) {
-    auto encoder = MakeTypedEncoder<TYPE>(Encoding::PLAIN, true, d);
+    auto encoder = MakeTypedEncoder<TYPE>(dict_index_encoding, true, d);
     dict_traits_ = dynamic_cast<DictEncoder<TYPE>*>(encoder.get());
     encoder_.reset(dynamic_cast<SpecializedEncoder*>(encoder.release()));
   }
@@ -411,7 +412,7 @@ class DictionaryPageBuilder {
 
 template <>
 inline DictionaryPageBuilder<BooleanType>::DictionaryPageBuilder(
-    const ColumnDescriptor* d) {
+    const ColumnDescriptor* d, Encoding::type dict_encoding) {
   ParquetException::NYI("only plain encoding currently implemented for boolean");
 }
 
@@ -433,7 +434,7 @@ inline static std::shared_ptr<DictionaryPage> MakeDictPage(
     const ColumnDescriptor* d, const std::vector<typename Type::c_type>& values,
     const std::vector<int>& values_per_page, Encoding::type encoding,
     std::vector<std::shared_ptr<Buffer>>& rle_indices) {
-  test::DictionaryPageBuilder<Type> page_builder(d);
+  test::DictionaryPageBuilder<Type> page_builder(d, encoding);
   int num_pages = static_cast<int>(values_per_page.size());
   int value_start = 0;
 
