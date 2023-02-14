@@ -380,7 +380,8 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
     std::vector<uint8_t> valid_bits(::arrow::bit_util::BytesForBits(num_values_) + 1,
                                     255);
 
-    auto base_encoder = MakeEncoder(Type::type_num, Encoding::PLAIN, true, descr_.get());
+    auto base_encoder =
+        MakeEncoder(Type::type_num, Encoding::PLAIN_DICTIONARY, true, descr_.get());
     auto encoder =
         dynamic_cast<typename EncodingTraits<Type>::Encoder*>(base_encoder.get());
     auto dict_traits = dynamic_cast<DictEncoder<Type>*>(base_encoder.get());
@@ -392,7 +393,7 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
     std::shared_ptr<Buffer> indices = encoder->FlushValues();
 
     auto base_spaced_encoder =
-        MakeEncoder(Type::type_num, Encoding::PLAIN, true, descr_.get());
+        MakeEncoder(Type::type_num, Encoding::PLAIN_DICTIONARY, true, descr_.get());
     auto spaced_encoder =
         dynamic_cast<typename EncodingTraits<Type>::Encoder*>(base_spaced_encoder.get());
 
@@ -749,7 +750,7 @@ class EncodingAdHocTyped : public ::testing::Test {
     auto values = GetValues(seed);
 
     auto owned_encoder =
-        MakeTypedEncoder<ParquetType>(Encoding::PLAIN,
+        MakeTypedEncoder<ParquetType>(Encoding::PLAIN_DICTIONARY,
                                       /*use_dictionary=*/true, column_descr());
     auto encoder = dynamic_cast<DictEncoder<ParquetType>*>(owned_encoder.get());
 
@@ -793,7 +794,7 @@ class EncodingAdHocTyped : public ::testing::Test {
                             "120, -37, null, 47]");
 
     auto owned_encoder =
-        MakeTypedEncoder<ParquetType>(Encoding::PLAIN,
+        MakeTypedEncoder<ParquetType>(Encoding::PLAIN_DICTIONARY,
                                       /*use_dictionary=*/true, column_descr());
     auto owned_decoder = MakeDictDecoder<ParquetType>();
 
@@ -888,7 +889,7 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
   ::arrow::random::RandomArrayGenerator rag(0);
   auto values = rag.String(size, min_length, max_length, null_probability);
 
-  auto owned_encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN,
+  auto owned_encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN_DICTIONARY,
                                                        /*use_dictionary=*/true);
 
   auto encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(owned_encoder.get());
@@ -927,7 +928,7 @@ TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
                                            "[\"foo\", \"bar\", \"baz\", null, "
                                            "\"foo\", \"bar\", null, \"baz\"]");
 
-    auto owned_encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN,
+    auto owned_encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN_DICTIONARY,
                                                          /*use_dictionary=*/true);
     auto owned_decoder = MakeDictDecoder<ByteArrayType>();
 
@@ -970,8 +971,8 @@ class DictEncoding : public TestArrowBuilderDecoding {
   void SetupEncoderDecoder() override {
     auto node = schema::ByteArray("name");
     descr_ = std::make_unique<ColumnDescriptor>(node, 0, 0);
-    encoder_ = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN, /*use_dictionary=*/true,
-                                               descr_.get());
+    encoder_ = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN_DICTIONARY,
+                                               /*use_dictionary=*/true, descr_.get());
     if (null_count_ == 0) {
       ASSERT_NO_THROW(encoder_->Put(input_data_.data(), num_values_));
     } else {

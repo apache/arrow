@@ -1043,7 +1043,7 @@ Status ConvertDictionaryToDense(const ::arrow::Array& array, MemoryPool* pool,
 }
 
 static inline bool IsDictionaryEncoding(Encoding::type encoding) {
-  return encoding == Encoding::PLAIN_DICTIONARY;
+  return encoding == Encoding::PLAIN_DICTIONARY || encoding == Encoding::RLE_DICTIONARY;
 }
 
 template <typename DType>

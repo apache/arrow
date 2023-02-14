@@ -480,11 +480,18 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
  public:
   typedef typename DType::c_type T;
 
-  explicit DictEncoderImpl(const ColumnDescriptor* desc, MemoryPool* pool)
-      : EncoderImpl(desc, Encoding::PLAIN_DICTIONARY, pool),
+  explicit DictEncoderImpl(const ColumnDescriptor* desc, Encoding::type dict_encoding,
+                           MemoryPool* pool)
+      : EncoderImpl(desc, dict_encoding, pool),
         buffered_indices_(::arrow::stl::allocator<int32_t>(pool)),
         dict_encoded_size_(0),
-        memo_table_(pool, kInitialHashTableSize) {}
+        memo_table_(pool, kInitialHashTableSize) {
+    if (dict_encoding != Encoding::PLAIN_DICTIONARY &&
+        dict_encoding != Encoding::RLE_DICTIONARY) {
+      throw ParquetException("Pass Non-Dictionary encoding " +
+                             EncodingToString(dict_encoding) + " to DictEncoder");
+    }
+  }
 
   ~DictEncoderImpl() override { DCHECK(buffered_indices_.empty()); }
 
@@ -3028,19 +3035,19 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
   if (use_dictionary) {
     switch (type_num) {
       case Type::INT32:
-        return std::make_unique<DictEncoderImpl<Int32Type>>(descr, pool);
+        return std::make_unique<DictEncoderImpl<Int32Type>>(descr, encoding, pool);
       case Type::INT64:
-        return std::make_unique<DictEncoderImpl<Int64Type>>(descr, pool);
+        return std::make_unique<DictEncoderImpl<Int64Type>>(descr, encoding, pool);
       case Type::INT96:
-        return std::make_unique<DictEncoderImpl<Int96Type>>(descr, pool);
+        return std::make_unique<DictEncoderImpl<Int96Type>>(descr, encoding, pool);
       case Type::FLOAT:
-        return std::make_unique<DictEncoderImpl<FloatType>>(descr, pool);
+        return std::make_unique<DictEncoderImpl<FloatType>>(descr, encoding, pool);
       case Type::DOUBLE:
-        return std::make_unique<DictEncoderImpl<DoubleType>>(descr, pool);
+        return std::make_unique<DictEncoderImpl<DoubleType>>(descr, encoding, pool);
       case Type::BYTE_ARRAY:
-        return std::make_unique<DictEncoderImpl<ByteArrayType>>(descr, pool);
+        return std::make_unique<DictEncoderImpl<ByteArrayType>>(descr, encoding, pool);
       case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::make_unique<DictEncoderImpl<FLBAType>>(descr, pool);
+        return std::make_unique<DictEncoderImpl<FLBAType>>(descr, encoding, pool);
       default:
         DCHECK(false) << "Encoder not implemented";
         break;
