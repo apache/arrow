@@ -4893,11 +4893,14 @@ macro(build_awssdk)
     add_dependencies(AWS::s2n-tls s2n_tls_ep)
   endif()
 
+  set(AWS_C_CAL_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
+  list(APPEND AWS_C_CAL_CMAKE_ARGS -DUSE_OPENSSL=ON)
+
   externalproject_add(aws_c_cal_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${AWS_C_CAL_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWS_C_CAL_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      CMAKE_ARGS ${AWS_C_CAL_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_CAL_STATIC_LIBRARY}
                       DEPENDS aws_c_common_ep)
   add_dependencies(AWS::aws-c-cal aws_c_cal_ep)
