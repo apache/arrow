@@ -38,6 +38,7 @@ set(GANDIVA_PROTO_DIR ${CMAKE_CURRENT_SOURCE_DIR}/proto)
 get_filename_component(GANDIVA_PROTO_FILE_ABSOLUTE ${GANDIVA_PROTO_DIR}/Types.proto
                        ABSOLUTE)
 
+set(Protobuf_USE_STATIC_LIBS ON)
 find_package(Protobuf REQUIRED)
 if(MSVC)
   add_definitions(-DPROTOBUF_USE_DLLS)
