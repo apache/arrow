@@ -4736,25 +4736,6 @@ macro(build_awssdk)
 
   # provide hint for AWS SDK to link with the already located openssl
   get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
-  if(APPLE AND NOT OPENSSL_ROOT_HINT)
-    find_program(BREW brew)
-    if(BREW)
-      execute_process(COMMAND ${BREW} --prefix "openssl@1.1"
-                      OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
-                      OUTPUT_STRIP_TRAILING_WHITESPACE)
-      if(OPENSSL11_BREW_PREFIX)
-        set(OPENSSL_ROOT_HINT ${OPENSSL11_BREW_PREFIX})
-      else()
-        execute_process(COMMAND ${BREW} --prefix "openssl"
-                        OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
-                        OUTPUT_STRIP_TRAILING_WHITESPACE)
-        if(OPENSSL_BREW_PREFIX)
-          set(OPENSSL_ROOT_HINT ${OPENSSL_BREW_PREFIX})
-        endif()
-      endif()
-    endif()
-  endif()
-
   set(AWSSDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       -DCMAKE_BUILD_TYPE=${AWSSDK_BUILD_TYPE}
