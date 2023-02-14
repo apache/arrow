@@ -118,7 +118,7 @@ namespace Apache.Arrow.Tests
             }
 
             [Fact]
-            public void SquareBracketOperatorWithIndexReturnsGetFieldByName()
+            public void SquareBracketOperatorWithStringReturnsGetFieldByName()
             {
                 Field f0 = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
                 Field f1 = new Field.Builder().Name("f1").DataType(Int8Type.Default).Build();
