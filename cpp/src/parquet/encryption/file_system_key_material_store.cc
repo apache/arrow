@@ -19,9 +19,9 @@
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/json/object_parser.h"
+#include "arrow/json/object_writer.h"
 #include "arrow/result.h"
-#include "arrow/testing/json_integration.h"
-#include "arrow/testing/json_internal.h"
 
 #include "parquet/encryption/file_system_key_material_store.h"
 #include "parquet/encryption/key_material.h"
@@ -73,30 +73,18 @@ void FileSystemKeyMaterialStore::LoadKeyMaterialMap() {
   PARQUET_ASSIGN_OR_THROW(input_size, input->GetSize());
   PARQUET_ASSIGN_OR_THROW(buff, input->ReadAt(0, input_size));
   std::string buff_str = buff->ToString();
-  rj::Document document;
-  document.Parse(buff_str);
-  for (rj::Value::ConstMemberIterator itr = document.MemberBegin();
-       itr != document.MemberEnd(); ++itr) {
-    key_material_map_.insert({itr->name.GetString(), itr->value.GetString()});
-  }
+  ::arrow::json::internal::ObjectParser parser;
+  auto status = parser.Parse(buff_str);
+  PARQUET_THROW_NOT_OK(status);
+  PARQUET_ASSIGN_OR_THROW(key_material_map_, parser.GetStringMap());
 }
 
 std::string FileSystemKeyMaterialStore::BuildKeyMaterialMapJson() {
-  rj::Document d;
-  auto& allocator = d.GetAllocator();
-  rj::Value json_map(rj::kObjectType);
-
-  rj::Value key(rj::kStringType);
-  rj::Value value(rj::kStringType);
-  for (auto it = key_material_map_.begin(); it != key_material_map_.end(); it++) {
-    key.SetString(it->first, allocator);
-    value.SetString(it->second, allocator);
-    json_map.AddMember(key, value, allocator);
+  ::arrow::json::internal::ObjectWriter writer;
+  for (const auto& it : key_material_map_) {
+    writer.SetString(it.first, it.second);
   }
-  rj::StringBuffer buffer;
-  rj::Writer<rj::StringBuffer> writer(buffer);
-  json_map.Accept(writer);
-  return buffer.GetString();
+  return writer.Serialize();
 }
 
 void FileSystemKeyMaterialStore::SaveMaterial() {
