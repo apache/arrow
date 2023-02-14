@@ -108,7 +108,7 @@ fi
 
 popd
 
-
+export JAVA_JNI_CMAKE_ARGS="-DProtobuf_ROOT=${build_dir}/cpp/protobuf_ep-install"
 ${arrow_dir}/ci/scripts/java_jni_build.sh \
   ${arrow_dir} \
   ${install_dir} \
