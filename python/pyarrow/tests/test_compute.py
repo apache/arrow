@@ -1634,6 +1634,10 @@ def test_is_null():
     expected = pa.array([False, False, False, True, True])
     assert result.equals(expected)
 
+    result = arr.is_nan()
+    expected = pa.array([False, False, False, False, True])
+    assert result.equals(expected)
+
 
 def test_fill_null():
     arr = pa.array([1, 2, None, 4], type=pa.int8())
