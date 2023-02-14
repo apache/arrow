@@ -23,8 +23,6 @@ from cython.operator cimport dereference as deref
 
 import codecs
 import collections
-import os
-import warnings
 from libcpp cimport bool
 
 import pyarrow as pa
@@ -371,7 +369,7 @@ cdef class Dataset(_Weakrefable):
         year: [[2022,2021,2022,2021]]
         n_legs: [[2,4,4,100]]
         animal: [["Parrot","Dog","Horse","Centipede"]]
-        """.format(_scanner_arguments_doc)
+        """
         return Scanner.from_dataset(self, **kwargs)
 
     def to_batches(self, **kwargs):
@@ -385,7 +383,7 @@ cdef class Dataset(_Weakrefable):
         Returns
         -------
         record_batches : iterator of RecordBatch
-        """.format(_scanner_arguments_doc)
+        """
         return self.scanner(**kwargs).to_batches()
 
     def to_table(self, **kwargs):
@@ -402,7 +400,7 @@ cdef class Dataset(_Weakrefable):
         Returns
         -------
         table : Table
-        """.format(_scanner_arguments_doc)
+        """
         return self.scanner(**kwargs).to_table()
 
     def take(self, object indices, **kwargs):
@@ -418,7 +416,7 @@ cdef class Dataset(_Weakrefable):
         Returns
         -------
         table : Table
-        """.format(_scanner_arguments_doc)
+        """
         return self.scanner(**kwargs).take(indices)
 
     def head(self, int num_rows, **kwargs):
@@ -434,7 +432,7 @@ cdef class Dataset(_Weakrefable):
         Returns
         -------
         table : Table
-        """.format(_scanner_arguments_doc)
+        """
         return self.scanner(**kwargs).head(num_rows)
 
     def count_rows(self, **kwargs):
@@ -448,7 +446,7 @@ cdef class Dataset(_Weakrefable):
         Returns
         -------
         count : int
-        """.format(_scanner_arguments_doc)
+        """
         return self.scanner(**kwargs).count_rows()
 
     @property
@@ -558,6 +556,14 @@ cdef class Dataset(_Weakrefable):
                                               left_suffix=left_suffix, right_suffix=right_suffix,
                                               use_threads=use_threads, coalesce_keys=coalesce_keys,
                                               output_type=InMemoryDataset)
+
+
+Dataset.scanner.__doc__ = Dataset.scanner.__doc__.format(_scanner_arguments_doc)
+Dataset.to_batches.__doc__ = Dataset.to_batches.__doc__.format(_scanner_arguments_doc)
+Dataset.to_table.__doc__ = Dataset.to_table.__doc__.format(_scanner_arguments_doc)
+Dataset.take.__doc__ = Dataset.take.__doc__.format(_scanner_arguments_doc)
+Dataset.head.__doc__ = Dataset.head.__doc__.format(_scanner_arguments_doc)
+Dataset.count_rows.__doc__ = Dataset.count_rows.__doc__.format(_scanner_arguments_doc)
 
 
 cdef class InMemoryDataset(Dataset):
@@ -1072,7 +1078,7 @@ cdef class Fragment(_Weakrefable):
         Returns
         -------
         scanner : Scanner
-        """.format(_scanner_arguments_doc)
+        """
         return Scanner.from_fragment(
             self,
             schema=schema,
@@ -1108,7 +1114,7 @@ cdef class Fragment(_Weakrefable):
         Returns
         -------
         record_batches : iterator of RecordBatch
-        """.format(_scanner_arguments_doc)
+        """
         return Scanner.from_fragment(
             self,
             schema=schema,
@@ -1147,7 +1153,7 @@ cdef class Fragment(_Weakrefable):
         Returns
         -------
         table : Table
-        """.format(_scanner_arguments_doc)
+        """
         return self.scanner(
             schema=schema,
             columns=columns,
@@ -1182,7 +1188,7 @@ cdef class Fragment(_Weakrefable):
         Returns
         -------
         Table
-        """.format(_scanner_arguments_doc)
+        """
         return self.scanner(
             columns=columns,
             filter=filter,
@@ -1216,7 +1222,7 @@ cdef class Fragment(_Weakrefable):
         Returns
         -------
         Table
-        """.format(_scanner_arguments_doc)
+        """
         return self.scanner(
             columns=columns,
             filter=filter,
@@ -1247,7 +1253,7 @@ cdef class Fragment(_Weakrefable):
         Returns
         -------
         count : int
-        """.format(_scanner_arguments_doc)
+        """
         return self.scanner(
             columns=columns,
             filter=filter,
@@ -1258,6 +1264,14 @@ cdef class Fragment(_Weakrefable):
             use_threads=use_threads,
             memory_pool=memory_pool
         ).count_rows()
+
+
+Fragment.scanner.__doc__ = Fragment.scanner.__doc__.format(_scanner_arguments_doc)
+Fragment.to_batches.__doc__ = Fragment.to_batches.__doc__.format(_scanner_arguments_doc)
+Fragment.to_table.__doc__ = Fragment.to_table.__doc__.format(_scanner_arguments_doc)
+Fragment.take.__doc__ = Fragment.take.__doc__.format(_scanner_arguments_doc)
+Fragment.head.__doc__ = Fragment.head.__doc__.format(_scanner_arguments_doc)
+Fragment.count_rows.__doc__ = Fragment.count_rows.__doc__.format(_scanner_arguments_doc)
 
 
 cdef class FileFragment(Fragment):
@@ -2599,7 +2613,7 @@ cdef class Scanner(_Weakrefable):
         dataset : Dataset
             Dataset to scan.
         {0}
-        """.format(_scanner_arguments_doc)
+        """
         cdef:
             shared_ptr[CScanOptions] options
             shared_ptr[CScannerBuilder] builder
@@ -2634,7 +2648,7 @@ cdef class Scanner(_Weakrefable):
         schema : Schema, optional
             The schema of the fragment.
         {0}
-        """.format(_scanner_arguments_doc)
+        """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
             shared_ptr[CScannerBuilder] builder
@@ -2676,7 +2690,7 @@ cdef class Scanner(_Weakrefable):
         schema : Schema
             The schema of the batches.
         {0}
-        """.format(_scanner_arguments_doc)
+        """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
             shared_ptr[CScannerBuilder] builder
@@ -2863,6 +2877,11 @@ def _get_partition_keys(Expression partition_expression):
         val = pyarrow_wrap_scalar(ref_val.second.scalar())
         out[frombytes(deref(ref_val.first.name()))] = val.as_py()
     return out
+
+
+Scanner.from_batches.__doc__ = Scanner.from_batches.__doc__.format(_scanner_arguments_doc)
+Scanner.from_fragment.__doc__ = Scanner.from_fragment.__doc__.format(_scanner_arguments_doc)
+Scanner.from_dataset.__doc__ = Scanner.from_dataset.__doc__.format(_scanner_arguments_doc)
 
 
 cdef class WrittenFile(_Weakrefable):
