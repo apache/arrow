@@ -30,7 +30,7 @@
             // Path of the page
             var location_array = location.pathname.split('/');
             var versionPath = location_array[2];
-            var versionNumber = Number(versionPath.match(/^\d+/))
+            var majorVersionNumber = Number(versionPath.match(/^\d+/))
             var subPath = location_array[3];
             var filePath = location_array.slice(3).join('/');
             // Links to stable or dev versions
@@ -55,7 +55,7 @@
                         $('.container-fluid').prepend(`${showWarning}`)
                     }
                 });
-            } else if (versionNumber < 4) {
+            } else if (majorVersionNumber < 4) {
                 // old versions 1.0, 2.0 or 3.0
                 $.ajax({
                     type: 'HEAD',
@@ -86,7 +86,7 @@
                         });
                     }
                 });
-            } else if (versionNumber && subPath == 'developers') {
+            } else if (majorVersionNumber && subPath == 'developers') {
                 // older versions of developers section (with numbered version in the URL)
                 $.ajax({
                     type: 'HEAD',
@@ -102,7 +102,7 @@
                         $('.container-fluid').prepend(`${showWarning}`)
                     }
                 });
-            } else if (versionNumber) {
+            } else if (majorVersionNumber) {
                 // older versions (with numbered version in the URL)
                 $.ajax({
                     type: 'HEAD',
