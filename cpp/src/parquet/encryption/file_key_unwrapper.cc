@@ -25,8 +25,6 @@
 namespace parquet {
 namespace encryption {
 
-using internal::KeyWithMasterId;
-
 FileKeyUnwrapper::FileKeyUnwrapper(
     KeyToolkit* key_toolkit,
     const KmsConnectionConfig& kms_connection_config,

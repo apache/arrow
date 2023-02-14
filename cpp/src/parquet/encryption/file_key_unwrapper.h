@@ -52,8 +52,11 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
                    const std::shared_ptr<::arrow::fs::FileSystem>& file_system = nullptr,
                    std::shared_ptr<FileKeyMaterialStore> key_material_store = nullptr);
 
+  /// Get the data key from key metadata
   std::string GetKey(const std::string& key_metadata) override;
-  internal::KeyWithMasterId GetDataEncryptionKey(const KeyMaterial& key_material);
+
+  /// Get the data key along with the master key id from key material
+  KeyWithMasterId GetDataEncryptionKey(const KeyMaterial& key_material);
 
  private:
   std::shared_ptr<KmsClient> GetKmsClientFromConfigOrKeyMaterial(

@@ -89,5 +89,20 @@ class PARQUET_EXPORT KeyToolkit {
   internal::TimePoint last_cache_clean_for_key_rotation_time_;
 };
 
+// "data encryption key" and "master key identifier" are paired together as output when
+// parsing from "key material"
+class PARQUET_EXPORT KeyWithMasterId {
+ public:
+  KeyWithMasterId(std::string key_bytes, std::string master_id)
+      : key_bytes_(std::move(key_bytes)), master_id_(std::move(master_id)) {}
+
+  const std::string& data_key() const { return key_bytes_; }
+  const std::string& master_id() const { return master_id_; }
+
+ private:
+  const std::string key_bytes_;
+  const std::string master_id_;
+};
+
 }  // namespace encryption
 }  // namespace parquet

@@ -84,7 +84,7 @@ void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_conf
   std::string footer_key_id_str = std::string(KeyMaterial::kFooterKeyIdInFile);
   std::string key_material_string =
       key_material_store->GetKeyMaterial(footer_key_id_str);
-  internal::KeyWithMasterId key =
+  KeyWithMasterId key =
       file_key_unwrapper.GetDataEncryptionKey(KeyMaterial::Parse(key_material_string));
   file_key_wrapper.GetEncryptionKeyMetadata(
       key.data_key(), key.master_id(), true,
@@ -96,7 +96,7 @@ void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_conf
       continue;
     }
     key_material_string = key_material_store->GetKeyMaterial(key_id_in_file);
-    internal::KeyWithMasterId column_key = file_key_unwrapper.GetDataEncryptionKey(
+    KeyWithMasterId column_key = file_key_unwrapper.GetDataEncryptionKey(
         KeyMaterial::Parse(key_material_string));
     file_key_wrapper.GetEncryptionKeyMetadata(
         column_key.data_key(), column_key.master_id(), false, key_id_in_file);
