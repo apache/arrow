@@ -4814,11 +4814,7 @@ macro(build_awssdk)
 
   if(UNIX AND NOT APPLE) # aws-lc and s2n-tls only needed on linux
     file(MAKE_DIRECTORY ${AWS_LC_INCLUDE_DIR})
-    list(APPEND
-         _AWSSDK_LIBS
-         s2n-tls
-         crypto
-         ssl)
+    list(APPEND _AWSSDK_LIBS s2n-tls aws-lc)
   endif()
 
   set(AWSSDK_LIBRARIES)
@@ -4834,14 +4830,15 @@ macro(build_awssdk)
       set(_AWSSDK_STATIC_LIBRARY
           "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}s2n${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
-    endif()
-    if(${_AWSSDK_LIB} STREQUAL "crypto" OR ${_AWSSDK_LIB} STREQUAL "ssl")
+    elseif(${_AWSSDK_LIB} STREQUAL "aws-lc") # We only need libcrypto from aws-lc
       set(_AWSSDK_STATIC_LIBRARY
-          "${AWS_LC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_AWSSDK_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+          "${AWS_LC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}crypto${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     endif()
     if(${_AWSSDK_LIB} MATCHES "^aws-cpp-sdk-")
       set(_AWSSDK_TARGET_NAME ${_AWSSDK_LIB})
+    elseif(${_AWSSDK_LIB} STREQUAL "aws-lc")
+      set(_AWSSDK_TARGET_NAME AWS::crypto)
     else()
       set(_AWSSDK_TARGET_NAME AWS::${_AWSSDK_LIB})
     endif()
@@ -4850,7 +4847,7 @@ macro(build_awssdk)
                           PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY}
                                      INTERFACE_INCLUDE_DIRECTORIES
                                      "${AWSSDK_INCLUDE_DIR}")
-    if(${_AWSSDK_LIB} STREQUAL "crypto" OR ${_AWSSDK_LIB} STREQUAL "ssl")
+    if(${_AWSSDK_LIB} STREQUAL "aws-lc")
       set_target_properties(${_AWSSDK_TARGET_NAME}
                             PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY}
                                        INTERFACE_INCLUDE_DIRECTORIES
@@ -4858,8 +4855,8 @@ macro(build_awssdk)
     endif()
     set("${_AWSSDK_LIB_NAME_PREFIX}_STATIC_LIBRARY" ${_AWSSDK_STATIC_LIBRARY})
 
-    if(NOT ${_AWSSDK_LIB} STREQUAL "crypto" AND NOT ${_AWSSDK_LIB} STREQUAL "ssl"
-    )# aws vendored crypto and ssl only linked against s2n
+    if(NOT ${_AWSSDK_LIB} STREQUAL "aws-lc"
+    )# AWS::crypto only linked against s2n but not arrow
       list(APPEND AWSSDK_LIBRARIES ${_AWSSDK_TARGET_NAME})
     endif()
   endforeach()
@@ -4883,19 +4880,25 @@ macro(build_awssdk)
 
   if("s2n-tls" IN_LIST _AWSSDK_LIBS)
     set(AWS_LC_C_FLAGS ${EP_C_FLAGS})
-    list(APPEND AWS_LC_C_FLAGS "-Wno-error=overlength-strings")
+    list(APPEND AWS_LC_C_FLAGS "-Wno-error=overlength-strings" "-Wno-error=pedantic")
+
+    set(AWS_LC_CPP_FLAGS ${EP_CPP_FLAGS})
+    list(APPEND AWS_LC_CPP_FLAGS "-Wno-error=overlength-strings" "-Wno-error=pedantic")
 
     set(AWS_LC_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
-    list(APPEND AWS_LC_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
-         -DCMAKE_C_FLAGS=${AWS_LC_C_FLAGS})
+    list(APPEND
+         AWS_LC_CMAKE_ARGS
+         -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
+         -DCMAKE_C_FLAGS=${AWS_LC_C_FLAGS}
+         -DCMAKE_CPP_FLAGS=${AWS_LC_CPP_FLAGS})
+
     externalproject_add(aws_lc_ep
                         ${EP_COMMON_OPTIONS}
                         URL ${AWS_LC_SOURCE_URL}
                         URL_HASH "SHA256=${ARROW_AWS_LC_BUILD_SHA256_CHECKSUM}"
                         CMAKE_ARGS ${AWS_LC_CMAKE_ARGS}
-                        BUILD_BYPRODUCTS ${SSL_STATIC_LIBRARY} ${CRYPTO_STATIC_LIBRARY})
+                        BUILD_BYPRODUCTS ${AWS_LC_STATIC_LIBRARY})
     add_dependencies(AWS::crypto aws_lc_ep)
-    add_dependencies(AWS::ssl aws_lc_ep)
 
     set(S2N_TLS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
     list(APPEND
@@ -4913,9 +4916,6 @@ macro(build_awssdk)
     add_dependencies(AWS::s2n-tls s2n_tls_ep)
   endif()
 
-  set(AWS_C_CAL_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
-  # Because aws-c-cal doesn't provide ability to hide libcrypto, we have to always use openssl
-  list(APPEND AWS_C_CAL_CMAKE_ARGS -DUSE_OPENSSL=ON)
   externalproject_add(aws_c_cal_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${AWS_C_CAL_SOURCE_URL}
