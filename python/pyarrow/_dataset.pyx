@@ -132,53 +132,6 @@ cdef CSegmentEncoding _get_segment_encoding(str segment_encoding):
 cdef Expression _true = Expression._scalar(True)
 
 
-_scanner_arguments_doc = """columns : list of str, default None
-            The columns to project. This can be a list of column names to
-            include (order and duplicates will be preserved), or a dictionary
-            with {new_column_name: expression} values for more advanced
-            projections.
-
-            The list of columns or expressions may use the special fields
-            `__batch_index` (the index of the batch within the fragment),
-            `__fragment_index` (the index of the fragment within the dataset),
-            `__last_in_fragment` (whether the batch is last in fragment), and
-            `__filename` (the name of the source file or a description of the
-            source fragment).
-
-            The columns will be passed down to Datasets and corresponding data
-            fragments to avoid loading, copying, and deserializing columns
-            that will not be required further down the compute chain.
-            By default all of the available columns are projected. Raises
-            an exception if any of the referenced column names does not exist
-            in the dataset's Schema.
-        filter : Expression, default None
-            Scan will return only the rows matching the filter.
-            If possible the predicate will be pushed down to exploit the
-            partition information or internal metadata found in the data
-            source, e.g. Parquet statistics. Otherwise filters the loaded
-            RecordBatches before yielding them.
-        batch_size : int, default 128Ki
-            The maximum row count for scanned record batches. If scanned
-            record batches are overflowing memory then this method can be
-            called to reduce their size.
-        batch_readahead : int, default 16
-            The number of batches to read ahead in a file. This might not work
-            for all file formats. Increasing this number will increase
-            RAM usage but could also improve IO utilization.
-        fragment_readahead : int, default 4
-            The number of files to read ahead. Increasing this number will increase
-            RAM usage but could also improve IO utilization.
-        fragment_scan_options : FragmentScanOptions, default None
-            Options specific to a particular scan and fragment type, which
-            can change between different scans of the same dataset.
-        use_threads : bool, default True
-            If enabled, then maximum parallelism will be used determined by
-            the number of available CPU cores.
-        memory_pool : MemoryPool, default None
-            For memory allocations, if required. If not specified, uses the
-            default pool.
-"""
-
 cdef class Dataset(_Weakrefable):
     """
     Collection of data fragments and potentially child datasets.
@@ -306,7 +259,15 @@ cdef class Dataset(_Weakrefable):
 
         return new_options
 
-    def scanner(self, **kwargs):
+    def scanner(self,
+                object columns=None,
+                Expression filter=None,
+                int batch_size=_DEFAULT_BATCH_SIZE,
+                int batch_readahead=_DEFAULT_BATCH_READAHEAD,
+                int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
+                FragmentScanOptions fragment_scan_options=None,
+                bint use_threads=True,
+                MemoryPool memory_pool=None):
         """
         Build a scan operation against the dataset.
 
@@ -318,7 +279,51 @@ cdef class Dataset(_Weakrefable):
 
         Parameters
         ----------
-        {0}
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment),
+            `__fragment_index` (the index of the fragment within the dataset),
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
 
         Returns
         -------
@@ -370,23 +375,102 @@ cdef class Dataset(_Weakrefable):
         n_legs: [[2,4,4,100]]
         animal: [["Parrot","Dog","Horse","Centipede"]]
         """
-        return Scanner.from_dataset(self, **kwargs)
+        return Scanner.from_dataset(
+            self,
+            columns=columns,
+            filter=filter,
+            batch_size=batch_size,
+            batch_readahead=batch_readahead,
+            fragment_readahead=fragment_readahead,
+            fragment_scan_options=fragment_scan_options,
+            use_threads=use_threads,
+            memory_pool=memory_pool
+        )
 
-    def to_batches(self, **kwargs):
+    def to_batches(self,
+                   object columns=None,
+                   Expression filter=None,
+                   int batch_size=_DEFAULT_BATCH_SIZE,
+                   int batch_readahead=_DEFAULT_BATCH_READAHEAD,
+                   int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
+                   FragmentScanOptions fragment_scan_options=None,
+                   bint use_threads=True,
+                   MemoryPool memory_pool=None):
         """
         Read the dataset as materialized record batches.
 
         Parameters
         ----------
-        {0}
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment),
+            `__fragment_index` (the index of the fragment within the dataset),
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
 
         Returns
         -------
         record_batches : iterator of RecordBatch
         """
-        return self.scanner(**kwargs).to_batches()
+        return self.scanner(
+            columns=columns,
+            filter=filter,
+            batch_size=batch_size,
+            batch_readahead=batch_readahead,
+            fragment_readahead=fragment_readahead,
+            fragment_scan_options=fragment_scan_options,
+            use_threads=use_threads,
+            memory_pool=memory_pool
+        ).to_batches()
 
-    def to_table(self, **kwargs):
+    def to_table(self,
+                 object columns=None,
+                 Expression filter=None,
+                 int batch_size=_DEFAULT_BATCH_SIZE,
+                 int batch_readahead=_DEFAULT_BATCH_READAHEAD,
+                 int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
+                 FragmentScanOptions fragment_scan_options=None,
+                 bint use_threads=True,
+                 MemoryPool memory_pool=None):
         """
         Read the dataset to an Arrow table.
 
@@ -395,13 +479,66 @@ cdef class Dataset(_Weakrefable):
 
         Parameters
         ----------
-        {0}
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment),
+            `__fragment_index` (the index of the fragment within the dataset),
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
 
         Returns
         -------
         table : Table
         """
-        return self.scanner(**kwargs).to_table()
+        return self.scanner(
+            columns=columns,
+            filter=filter,
+            batch_size=batch_size,
+            batch_readahead=batch_readahead,
+            fragment_readahead=fragment_readahead,
+            fragment_scan_options=fragment_scan_options,
+            use_threads=use_threads,
+            memory_pool=memory_pool
+        ).to_table()
 
     def take(self, object indices, **kwargs):
         """
@@ -411,7 +548,51 @@ cdef class Dataset(_Weakrefable):
         ----------
         indices : Array or array-like
             indices of rows to select in the dataset.
-        {0}
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment),
+            `__fragment_index` (the index of the fragment within the dataset),
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
 
         Returns
         -------
@@ -419,7 +600,16 @@ cdef class Dataset(_Weakrefable):
         """
         return self.scanner(**kwargs).take(indices)
 
-    def head(self, int num_rows, **kwargs):
+    def head(self,
+             int num_rows,
+             object columns=None,
+             Expression filter=None,
+             int batch_size=_DEFAULT_BATCH_SIZE,
+             int batch_readahead=_DEFAULT_BATCH_READAHEAD,
+             int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
+             FragmentScanOptions fragment_scan_options=None,
+             bint use_threads=True,
+             MemoryPool memory_pool=None):
         """
         Load the first N rows of the dataset.
 
@@ -427,27 +617,141 @@ cdef class Dataset(_Weakrefable):
         ----------
         num_rows : int
             The number of rows to load.
-        {0}
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment),
+            `__fragment_index` (the index of the fragment within the dataset),
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
 
         Returns
         -------
         table : Table
         """
-        return self.scanner(**kwargs).head(num_rows)
+        return self.scanner(
+            columns=columns,
+            filter=filter,
+            batch_size=batch_size,
+            batch_readahead=batch_readahead,
+            fragment_readahead=fragment_readahead,
+            fragment_scan_options=fragment_scan_options,
+            use_threads=use_threads,
+            memory_pool=memory_pool
+        ).head(num_rows)
 
-    def count_rows(self, **kwargs):
+    def count_rows(self,
+                   object columns=None,
+                   Expression filter=None,
+                   int batch_size=_DEFAULT_BATCH_SIZE,
+                   int batch_readahead=_DEFAULT_BATCH_READAHEAD,
+                   int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
+                   FragmentScanOptions fragment_scan_options=None,
+                   bint use_threads=True,
+                   MemoryPool memory_pool=None):
         """
         Count rows matching the scanner filter.
 
         Parameters
         ----------
-        {0}
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment),
+            `__fragment_index` (the index of the fragment within the dataset),
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
 
         Returns
         -------
         count : int
         """
-        return self.scanner(**kwargs).count_rows()
+        return self.scanner(
+            columns=columns,
+            filter=filter,
+            batch_size=batch_size,
+            batch_readahead=batch_readahead,
+            fragment_readahead=fragment_readahead,
+            fragment_scan_options=fragment_scan_options,
+            use_threads=use_threads,
+            memory_pool=memory_pool
+        ).count_rows()
 
     @property
     def schema(self):
@@ -556,14 +860,6 @@ cdef class Dataset(_Weakrefable):
                                               left_suffix=left_suffix, right_suffix=right_suffix,
                                               use_threads=use_threads, coalesce_keys=coalesce_keys,
                                               output_type=InMemoryDataset)
-
-
-Dataset.scanner.__doc__ = Dataset.scanner.__doc__.format(_scanner_arguments_doc)
-Dataset.to_batches.__doc__ = Dataset.to_batches.__doc__.format(_scanner_arguments_doc)
-Dataset.to_table.__doc__ = Dataset.to_table.__doc__.format(_scanner_arguments_doc)
-Dataset.take.__doc__ = Dataset.take.__doc__.format(_scanner_arguments_doc)
-Dataset.head.__doc__ = Dataset.head.__doc__.format(_scanner_arguments_doc)
-Dataset.count_rows.__doc__ = Dataset.count_rows.__doc__.format(_scanner_arguments_doc)
 
 
 cdef class InMemoryDataset(Dataset):
@@ -1073,7 +1369,51 @@ cdef class Fragment(_Weakrefable):
             Schema to use for scanning. This is used to unify a Fragment to
             its Dataset's schema. If not specified this will use the
             Fragment's physical schema which might differ for each Fragment.
-        {0}
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment),
+            `__fragment_index` (the index of the fragment within the dataset),
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
 
         Returns
         -------
@@ -1109,7 +1449,51 @@ cdef class Fragment(_Weakrefable):
         ----------
         schema : Schema, optional
             Concrete schema to use for scanning.
-        {0}
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment),
+            `__fragment_index` (the index of the fragment within the dataset),
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
 
         Returns
         -------
@@ -1148,7 +1532,51 @@ cdef class Fragment(_Weakrefable):
         ----------
         schema : Schema, optional
             Concrete schema to use for scanning.
-        {0}
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment),
+            `__fragment_index` (the index of the fragment within the dataset),
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
 
         Returns
         -------
@@ -1183,7 +1611,51 @@ cdef class Fragment(_Weakrefable):
         ----------
         indices : Array or array-like
             The indices of row to select in the dataset.
-        {0}
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment),
+            `__fragment_index` (the index of the fragment within the dataset),
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
 
         Returns
         -------
@@ -1217,7 +1689,51 @@ cdef class Fragment(_Weakrefable):
         ----------
         num_rows : int
             The number of rows to load.
-        {0}
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment),
+            `__fragment_index` (the index of the fragment within the dataset),
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
 
         Returns
         -------
@@ -1248,7 +1764,51 @@ cdef class Fragment(_Weakrefable):
 
         Parameters
         ----------
-        {0}
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment),
+            `__fragment_index` (the index of the fragment within the dataset),
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
 
         Returns
         -------
@@ -1264,14 +1824,6 @@ cdef class Fragment(_Weakrefable):
             use_threads=use_threads,
             memory_pool=memory_pool
         ).count_rows()
-
-
-Fragment.scanner.__doc__ = Fragment.scanner.__doc__.format(_scanner_arguments_doc)
-Fragment.to_batches.__doc__ = Fragment.to_batches.__doc__.format(_scanner_arguments_doc)
-Fragment.to_table.__doc__ = Fragment.to_table.__doc__.format(_scanner_arguments_doc)
-Fragment.take.__doc__ = Fragment.take.__doc__.format(_scanner_arguments_doc)
-Fragment.head.__doc__ = Fragment.head.__doc__.format(_scanner_arguments_doc)
-Fragment.count_rows.__doc__ = Fragment.count_rows.__doc__.format(_scanner_arguments_doc)
 
 
 cdef class FileFragment(Fragment):
@@ -2612,7 +3164,51 @@ cdef class Scanner(_Weakrefable):
         ----------
         dataset : Dataset
             Dataset to scan.
-        {0}
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment),
+            `__fragment_index` (the index of the fragment within the dataset),
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
         """
         cdef:
             shared_ptr[CScanOptions] options
@@ -2647,7 +3243,51 @@ cdef class Scanner(_Weakrefable):
             fragment to scan.
         schema : Schema, optional
             The schema of the fragment.
-        {0}
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment),
+            `__fragment_index` (the index of the fragment within the dataset),
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
         """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
@@ -2689,7 +3329,51 @@ cdef class Scanner(_Weakrefable):
             The iterator of Batches.
         schema : Schema
             The schema of the batches.
-        {0}
+        columns : list of str, default None
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment),
+            `__fragment_index` (the index of the fragment within the dataset),
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the
+            source fragment).
+
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
         """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
@@ -2877,14 +3561,6 @@ def _get_partition_keys(Expression partition_expression):
         val = pyarrow_wrap_scalar(ref_val.second.scalar())
         out[frombytes(deref(ref_val.first.name()))] = val.as_py()
     return out
-
-
-Scanner.from_batches.__doc__ = Scanner.from_batches.__doc__.format(
-    _scanner_arguments_doc)
-Scanner.from_fragment.__doc__ = Scanner.from_fragment.__doc__.format(
-    _scanner_arguments_doc)
-Scanner.from_dataset.__doc__ = Scanner.from_dataset.__doc__.format(
-    _scanner_arguments_doc)
 
 
 cdef class WrittenFile(_Weakrefable):
