@@ -66,17 +66,14 @@ if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
     TAGS="${TAGS},ccalloc"
 fi
 
-
 # the cgo implementation of the c data interface requires the "test"
 # tag in order to run its tests so that the testing functions implemented
 # in .c files don't get included in non-test builds.
 
 go test $testargs -tags $TAGS ./...
 
-# only test compute when Go is >= 1.18
-if verlte "1.18" "${ver#go}"; then
-    go test $testargs -tags $TAGS ./compute/...
-fi
+# run it again but with the noasm tag
+go test $testargs -tags $TAGS,noasm ./...
 
 popd
 
@@ -85,5 +82,8 @@ export ARROW_TEST_DATA=${1}/testing/data
 pushd ${source_dir}/parquet
 
 go test $testargs -tags assert ./...
+
+# run the tests again but with the noasm tag
+go test $testargs -tags assert,noasm ./...
 
 popd
