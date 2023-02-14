@@ -24,6 +24,7 @@
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
+#include <arrow/io/file.h>
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
@@ -33,6 +34,7 @@
 #include "parquet/encryption/key_toolkit.h"
 #include "parquet/encryption/test_encryption_util.h"
 #include "parquet/encryption/test_in_memory_kms.h"
+#include "parquet/file_reader.h"
 #include "parquet/test_util.h"
 
 namespace parquet {
@@ -338,6 +340,51 @@ TEST_F(TestEncryptionKeyManagementMultiThread, WrapOnServer) {
 
   this->WriteEncryptedParquetFiles();
   this->ReadEncryptedParquetFiles();
+}
+
+// Test reading a file written with parquet-mr using external key material
+TEST_F(TestEncryptionKeyManagement, ReadParquetMRExternalKeyMaterialFile) {
+  // This test file was created using the same key identifiers used in the test KMS,
+  // so we don't need to modify the setup.
+  this->SetupCryptoFactory(false);
+  auto file_path = data_file("external_key_material_java.parquet.encrypted");
+  auto file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
+  auto decryption_config = GetDecryptionConfiguration();
+  auto file_decryption_properties = crypto_factory_.GetFileDecryptionProperties(
+      kms_connection_config_, decryption_config, file_path, file_system);
+
+  parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
+  reader_properties.file_decryption_properties(file_decryption_properties->DeepClone());
+
+  std::shared_ptr<::arrow::io::RandomAccessFile> source;
+  PARQUET_ASSIGN_OR_THROW(
+      source, ::arrow::io::ReadableFile::Open(file_path, reader_properties.memory_pool()));
+  auto file_reader = parquet::ParquetFileReader::Open(source, reader_properties);
+  auto file_metadata = file_reader->metadata();
+  ASSERT_EQ(file_metadata->num_row_groups(), 1);
+  ASSERT_EQ(file_metadata->num_columns(), 2);
+  auto row_group = file_reader->RowGroup(0);
+  auto num_rows = row_group->metadata()->num_rows();
+  ASSERT_EQ(num_rows, 100);
+  auto int_values = new int[num_rows];
+  auto string_values = new parquet::ByteArray[num_rows];
+  int64_t values_read;
+
+  auto int_reader = std::dynamic_pointer_cast<parquet::Int32Reader>(row_group->Column(0));
+  int_reader->ReadBatch(num_rows, nullptr, nullptr, int_values, &values_read);
+  ASSERT_EQ(values_read, num_rows);
+
+  auto string_reader = std::dynamic_pointer_cast<parquet::ByteArrayReader>(row_group->Column(1));
+  string_reader->ReadBatch(num_rows, nullptr, nullptr, string_values, &values_read);
+  ASSERT_EQ(values_read, num_rows);
+
+  std::vector<std::string> prefixes = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"};
+  for (int64_t row = 0; row < num_rows; ++row) {
+    ASSERT_EQ(int_values[row], row);
+    std::string expected_string = prefixes[row % prefixes.size()] + std::to_string(row);
+    std::string_view read_string(reinterpret_cast<const char*>(string_values[row].ptr), string_values[row].len);
+    ASSERT_EQ(read_string, expected_string);
+  }
 }
 
 }  // namespace test
