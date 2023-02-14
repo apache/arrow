@@ -362,9 +362,7 @@ if(ARROW_JSON)
   set(ARROW_WITH_RAPIDJSON ON)
 endif()
 
-if(ARROW_ORC
-   OR ARROW_FLIGHT
-   OR ARROW_GANDIVA)
+if(ARROW_ORC OR ARROW_FLIGHT)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
@@ -1649,7 +1647,7 @@ if(ARROW_WITH_THRIFT)
 endif()
 
 # ----------------------------------------------------------------------
-# Protocol Buffers (required for ORC, Flight, Gandiva and Substrait libraries)
+# Protocol Buffers (required for ORC, Flight and Substrait libraries)
 
 macro(build_protobuf)
   message(STATUS "Building Protocol Buffers from source")
