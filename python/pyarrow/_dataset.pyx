@@ -332,10 +332,10 @@ cdef class Dataset(_Weakrefable):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.table({{'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
         ...                   'n_legs': [2, 2, 4, 4, 5, 100],
         ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                              "Brittle stars", "Centipede"]}})
+        ...                              "Brittle stars", "Centipede"]})
         >>>
         >>> import pyarrow.parquet as pq
         >>> pq.write_table(table, "dataset_scanner.parquet")
@@ -355,9 +355,9 @@ cdef class Dataset(_Weakrefable):
 
         Projecting selected columns using an expression:
 
-        >>> dataset.scanner(columns={{
+        >>> dataset.scanner(columns={
         ...     "n_legs_uint": ds.field("n_legs").cast("uint8"),
-        ... }}).to_table()
+        ... }).to_table()
         pyarrow.Table
         n_legs_uint: uint8
         ----
