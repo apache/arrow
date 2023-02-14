@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "arrow/dataset/dataset.h"
@@ -26,8 +27,10 @@
 #include "arrow/dataset/visibility.h"
 #include "arrow/ipc/type_fwd.h"
 #include "arrow/json/options.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/compression.h"
+#include "arrow/util/future.h"
+#include "arrow/util/macros.h"
 
 namespace arrow::dataset {
 

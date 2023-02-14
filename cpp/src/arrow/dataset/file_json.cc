@@ -17,15 +17,29 @@
 
 #include "arrow/dataset/file_json.h"
 
+#include <algorithm>
 #include <unordered_set>
+#include <vector>
 
+#include "arrow/compute/exec.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/scanner.h"
+#include "arrow/dataset/type_fwd.h"
 #include "arrow/io/buffered.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/io/type_fwd.h"
 #include "arrow/json/chunker.h"
 #include "arrow/json/parser.h"
 #include "arrow/json/reader.h"
+#include "arrow/record_batch.h"
+#include "arrow/type.h"
+#include "arrow/util/async_generator.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/delimiting.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
@@ -149,7 +163,7 @@ FieldRef ToUniversalRef(const FieldPath& path, const Schema& schema) {
   for (auto it = path.begin(); it != path.end(); ++it) {
     DCHECK_LT(*it, static_cast<int>(fields->size()));
     const auto& child_field = *(*fields)[*it];
-    refs.push_back(FieldRef(child_field.name()));
+    refs.emplace_back(child_field.name());
     if (it + 1 != path.end()) {
       auto&& child_type = checked_cast<const StructType&>(*child_field.type());
       fields = &child_type.fields();
