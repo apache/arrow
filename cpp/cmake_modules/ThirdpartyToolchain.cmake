@@ -4926,7 +4926,7 @@ macro(build_awssdk)
   add_dependencies(AWS::aws-c-cal aws_c_cal_ep)
 
   set(AWS_C_IO_DEPENDS aws_c_common_ep aws_c_cal_ep)
-  if(UNIX AND NOT APPLE)
+  if(TARGET s2n_tls_ep)
     list(APPEND AWS_C_IO_DEPENDS s2n_tls_ep)
   endif()
   externalproject_add(aws_c_io_ep
