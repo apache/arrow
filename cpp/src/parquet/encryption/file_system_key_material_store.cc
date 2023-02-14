@@ -36,19 +36,19 @@ constexpr const char FileSystemKeyMaterialStore::kKeyMaterialFileSuffix[];
 
 FileSystemKeyMaterialStore::FileSystemKeyMaterialStore(
     const std::string& key_material_file_path,
-    const std::shared_ptr<::arrow::fs::FileSystem>& file_system) :
-  key_material_file_path_{key_material_file_path}, file_system_{file_system} {
-}
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system)
+    : key_material_file_path_{key_material_file_path}, file_system_{file_system} {}
 
 std::shared_ptr<FileSystemKeyMaterialStore> FileSystemKeyMaterialStore::Make(
     const std::string& parquet_file_path,
-    const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
-    bool temp_store) {
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool temp_store) {
   if (parquet_file_path.empty()) {
-    throw ParquetException("The Parquet file path must be specified when using external key material");
+    throw ParquetException(
+        "The Parquet file path must be specified when using external key material");
   }
   if (file_system == nullptr) {
-    throw ParquetException("A file system must be specified when using external key material");
+    throw ParquetException(
+        "A file system must be specified when using external key material");
   }
 
   ::arrow::fs::FileInfo file_info(parquet_file_path);
@@ -62,7 +62,8 @@ std::shared_ptr<FileSystemKeyMaterialStore> FileSystemKeyMaterialStore::Make(
 
   std::string key_material_file_path = ::arrow::fs::internal::ConcatAbstractPath(
       file_info.dir_name(), key_material_file_name.str());
-  return std::make_shared<FileSystemKeyMaterialStore>(key_material_file_path, file_system);
+  return std::make_shared<FileSystemKeyMaterialStore>(key_material_file_path,
+                                                      file_system);
 }
 
 void FileSystemKeyMaterialStore::LoadKeyMaterialMap() {
@@ -89,7 +90,8 @@ std::string FileSystemKeyMaterialStore::BuildKeyMaterialMapJson() {
 
 void FileSystemKeyMaterialStore::SaveMaterial() {
   std::shared_ptr<::arrow::io::OutputStream> stream;
-  PARQUET_ASSIGN_OR_THROW(stream, file_system_->OpenOutputStream(key_material_file_path_));
+  PARQUET_ASSIGN_OR_THROW(stream,
+                          file_system_->OpenOutputStream(key_material_file_path_));
   std::string key_material_json = BuildKeyMaterialMapJson();
   PARQUET_THROW_NOT_OK(stream->Write(key_material_json));
   PARQUET_THROW_NOT_OK(stream->Flush());
@@ -100,8 +102,8 @@ void FileSystemKeyMaterialStore::RemoveMaterial() {
   auto status = file_system_->DeleteFile(key_material_file_path_);
   if (!status.ok()) {
     std::stringstream ss;
-    ss << "Failed to delete key material file '" << key_material_file_path_ << "': "
-       << status;
+    ss << "Failed to delete key material file '" << key_material_file_path_
+       << "': " << status;
     throw ParquetException(ss.str());
   }
 }
@@ -121,17 +123,18 @@ std::vector<std::string> FileSystemKeyMaterialStore::GetKeyIDSet() {
 
 void FileSystemKeyMaterialStore::MoveMaterialTo(
     std::shared_ptr<FileKeyMaterialStore> target_key_store) {
-  auto target_key_file_store = std::dynamic_pointer_cast<FileSystemKeyMaterialStore>(target_key_store);
+  auto target_key_file_store =
+      std::dynamic_pointer_cast<FileSystemKeyMaterialStore>(target_key_store);
   if (target_key_file_store == nullptr) {
-    throw ParquetException("Cannot move key material to a store that is not a FileSystemKeyMaterialStore");
+    throw ParquetException(
+        "Cannot move key material to a store that is not a FileSystemKeyMaterialStore");
   }
   std::string target_key_material_file = target_key_file_store->GetStorageFilePath();
   auto status = file_system_->Move(key_material_file_path_, target_key_material_file);
   if (!status.ok()) {
     std::stringstream ss;
-    ss << "Failed to move key material file '" << key_material_file_path_
-       << "' to '" << target_key_material_file << "': "
-       << status;
+    ss << "Failed to move key material file '" << key_material_file_path_ << "' to '"
+       << target_key_material_file << "': " << status;
     throw ParquetException(ss.str());
   }
 }

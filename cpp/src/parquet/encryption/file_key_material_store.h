@@ -27,9 +27,9 @@
 namespace parquet {
 namespace encryption {
 
-/// Stores encryption key material outside the Parquet file, for example in a separate small
-/// file in the same folder. This is important for “key rotation”, when MEKs have to be
-/// changed (if compromised; or periodically, just in case) - without modifying the
+/// Stores encryption key material outside the Parquet file, for example in a separate
+/// small file in the same folder. This is important for “key rotation”, when MEKs have to
+/// be changed (if compromised; or periodically, just in case) - without modifying the
 /// Parquet files (often  immutable).
 class PARQUET_EXPORT FileKeyMaterialStore {
  public:

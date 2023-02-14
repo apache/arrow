@@ -65,7 +65,7 @@ class ObjectParser::Impl {
         return Status::TypeError("Key '", name, "' does not have a string value");
       }
       std::string value = json_value.GetString();
-      map.insert({std::move(name), std::move(value) });
+      map.insert({std::move(name), std::move(value)});
     }
     return map;
   }

@@ -26,8 +26,10 @@ namespace encryption {
 
 std::unordered_map<std::string, std::string>
     TestOnlyLocalWrapInMemoryKms::master_key_map_;
-std::unordered_map<std::string, std::string> TestOnlyInServerWrapKms::unwrapping_master_key_map_;
-std::unordered_map<std::string, std::string> TestOnlyInServerWrapKms::wrapping_master_key_map_;
+std::unordered_map<std::string, std::string>
+    TestOnlyInServerWrapKms::unwrapping_master_key_map_;
+std::unordered_map<std::string, std::string>
+    TestOnlyInServerWrapKms::wrapping_master_key_map_;
 
 void TestOnlyLocalWrapInMemoryKms::InitializeMasterKeys(
     const std::unordered_map<std::string, std::string>& master_keys_map) {
@@ -65,7 +67,8 @@ void TestOnlyInServerWrapKms::FinishKeyRotation() {
 std::string TestOnlyInServerWrapKms::WrapKey(const std::string& key_bytes,
                                              const std::string& master_key_identifier) {
   // Always use the latest key version for writing
-  if (wrapping_master_key_map_.find(master_key_identifier) == wrapping_master_key_map_.end()) {
+  if (wrapping_master_key_map_.find(master_key_identifier) ==
+      wrapping_master_key_map_.end()) {
     throw ParquetException("Key not found: " + master_key_identifier);
   }
   const std::string& master_key = wrapping_master_key_map_.at(master_key_identifier);
@@ -76,7 +79,8 @@ std::string TestOnlyInServerWrapKms::WrapKey(const std::string& key_bytes,
 
 std::string TestOnlyInServerWrapKms::UnwrapKey(const std::string& wrapped_key,
                                                const std::string& master_key_identifier) {
-  if (unwrapping_master_key_map_.find(master_key_identifier) == unwrapping_master_key_map_.end()) {
+  if (unwrapping_master_key_map_.find(master_key_identifier) ==
+      unwrapping_master_key_map_.end()) {
     throw ParquetException("Key not found: " + master_key_identifier);
   }
   const std::string& master_key = unwrapping_master_key_map_.at(master_key_identifier);

@@ -45,10 +45,11 @@ std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
       });
 }
 
-void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
-                                  const std::string& parquet_file_path,
-                                  const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
-                                  bool double_wrapping, double cache_lifetime_seconds) {
+void KeyToolkit::RotateMasterKeys(
+    const KmsConnectionConfig& kms_connection_config,
+    const std::string& parquet_file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool double_wrapping,
+    double cache_lifetime_seconds) {
   // If process wrote files with double-wrapped keys, clean KEK cache (since master keys
   // are changing). Only once for each key rotation cycle; not for every file.
   const auto now = internal::CurrentTimePoint();
@@ -60,18 +61,17 @@ void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_conf
   }
   lock.Unlock();
 
-  std::shared_ptr<FileKeyMaterialStore> key_material_store = FileSystemKeyMaterialStore::Make(
-      parquet_file_path, file_system, false);
+  std::shared_ptr<FileKeyMaterialStore> key_material_store =
+      FileSystemKeyMaterialStore::Make(parquet_file_path, file_system, false);
 
   // Unwrapper for decrypting encrypted keys
-  FileKeyUnwrapper file_key_unwrapper(this, kms_connection_config,
-                                      cache_lifetime_seconds, parquet_file_path, file_system,
-                                      key_material_store);
+  FileKeyUnwrapper file_key_unwrapper(this, kms_connection_config, cache_lifetime_seconds,
+                                      parquet_file_path, file_system, key_material_store);
 
   // Create a temporary store to hold new key material during rotation,
   // and wrapper that will write material to this store when getting key metadata.
-  std::shared_ptr<FileKeyMaterialStore> temp_key_material_store = FileSystemKeyMaterialStore::Make(
-      parquet_file_path, file_system, true);
+  std::shared_ptr<FileKeyMaterialStore> temp_key_material_store =
+      FileSystemKeyMaterialStore::Make(parquet_file_path, file_system, true);
   FileKeyWrapper file_key_wrapper(this, kms_connection_config, temp_key_material_store,
                                   cache_lifetime_seconds, double_wrapping);
 
@@ -82,13 +82,11 @@ void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_conf
   // Start with footer key (to get KMS ID, URL, if needed).
   // We can rely on the footer key using a standardised key identifier.
   std::string footer_key_id_str = std::string(KeyMaterial::kFooterKeyIdInFile);
-  std::string key_material_string =
-      key_material_store->GetKeyMaterial(footer_key_id_str);
+  std::string key_material_string = key_material_store->GetKeyMaterial(footer_key_id_str);
   KeyWithMasterId key =
       file_key_unwrapper.GetDataEncryptionKey(KeyMaterial::Parse(key_material_string));
-  file_key_wrapper.GetEncryptionKeyMetadata(
-      key.data_key(), key.master_id(), true,
-      std::string(KeyMaterial::kFooterKeyIdInFile));
+  file_key_wrapper.GetEncryptionKeyMetadata(key.data_key(), key.master_id(), true,
+                                            std::string(KeyMaterial::kFooterKeyIdInFile));
 
   // Rotate column keys
   for (auto const& key_id_in_file : file_key_id_set) {
@@ -96,8 +94,8 @@ void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_conf
       continue;
     }
     key_material_string = key_material_store->GetKeyMaterial(key_id_in_file);
-    KeyWithMasterId column_key = file_key_unwrapper.GetDataEncryptionKey(
-        KeyMaterial::Parse(key_material_string));
+    KeyWithMasterId column_key =
+        file_key_unwrapper.GetDataEncryptionKey(KeyMaterial::Parse(key_material_string));
     file_key_wrapper.GetEncryptionKeyMetadata(
         column_key.data_key(), column_key.master_id(), false, key_id_in_file);
   }

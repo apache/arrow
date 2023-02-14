@@ -110,9 +110,8 @@ class PARQUET_EXPORT CryptoFactory {
   /// parquet file must be provided.
   std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
-      const EncryptionConfiguration& encryption_config,
-      const std::string& file_path = "",
-      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = nullptr);
+      const EncryptionConfiguration& encryption_config, const std::string& file_path = "",
+      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
 
   /// Get decryption properties for a Parquet file.
   /// The returned FileDecryptionProperties object will use the cache inside this
@@ -123,9 +122,8 @@ class PARQUET_EXPORT CryptoFactory {
   /// parquet file must be provided.
   std::shared_ptr<FileDecryptionProperties> GetFileDecryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
-      const DecryptionConfiguration& decryption_config,
-      const std::string& file_path = "",
-      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = nullptr);
+      const DecryptionConfiguration& decryption_config, const std::string& file_path = "",
+      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
 
   void RemoveCacheEntriesForToken(const std::string& access_token) {
     key_toolkit_.RemoveCacheEntriesForToken(access_token);

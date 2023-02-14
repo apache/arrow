@@ -26,10 +26,8 @@ namespace parquet {
 namespace encryption {
 
 FileKeyUnwrapper::FileKeyUnwrapper(
-    KeyToolkit* key_toolkit,
-    const KmsConnectionConfig& kms_connection_config,
-    double cache_lifetime_seconds,
-    const std::string& file_path,
+    KeyToolkit* key_toolkit, const KmsConnectionConfig& kms_connection_config,
+    double cache_lifetime_seconds, const std::string& file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
     std::shared_ptr<FileKeyMaterialStore> key_material_store)
     : key_toolkit_(key_toolkit),
@@ -57,14 +55,16 @@ std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
     key_material = key_metadata.key_material();
   } else {
     if (key_material_store_ == nullptr) {
-      key_material_store_ = FileSystemKeyMaterialStore::Make(file_path_, file_system_, false);
+      key_material_store_ =
+          FileSystemKeyMaterialStore::Make(file_path_, file_system_, false);
     }
     // External key material storage: key metadata contains a reference
     // to a key in the material store
     std::string key_id_in_file = key_metadata.key_reference();
     std::string key_material_string = key_material_store_->GetKeyMaterial(key_id_in_file);
     if (key_material_string.empty()) {
-      throw ParquetException("Could not find key material with ID '" + key_id_in_file + "' in external key material file");
+      throw ParquetException("Could not find key material with ID '" + key_id_in_file +
+                             "' in external key material file");
     }
     key_material = KeyMaterial::Parse(key_material_string);
   }

@@ -22,9 +22,9 @@
 #include <thread>
 #include <unordered_map>
 
+#include <arrow/io/file.h>
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
-#include <arrow/io/file.h>
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
@@ -175,8 +175,9 @@ class TestEncryptionKeyManagement : public ::testing::Test {
       decryptor_.DecryptFile(file, file_decryption_properties);
     } else {
       auto file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
-      std::string file_path = temp_dir_->path().ToString() + GetFileName(
-          double_wrapping, wrap_locally_, internal_key_material, encryption_no);
+      std::string file_path = temp_dir_->path().ToString() +
+                              GetFileName(double_wrapping, wrap_locally_,
+                                          internal_key_material, encryption_no);
       auto file_decryption_properties = crypto_factory_.GetFileDecryptionProperties(
           kms_connection_config_, decryption_config, file_path, file_system);
 
@@ -192,7 +193,8 @@ class TestEncryptionKeyManagement : public ::testing::Test {
 
     crypto_factory_.RemoveCacheEntriesForAllTokens();
     TestOnlyInServerWrapKms::StartKeyRotation(new_key_list_);
-    crypto_factory_.RotateMasterKeys(kms_connection_config_, file, file_system, double_wrapping);
+    crypto_factory_.RotateMasterKeys(kms_connection_config_, file, file_system,
+                                     double_wrapping);
     TestOnlyInServerWrapKms::FinishKeyRotation();
     crypto_factory_.RemoveCacheEntriesForAllTokens();
   }
@@ -324,8 +326,7 @@ TEST_F(TestEncryptionKeyManagement, KeyRotationWithInternalMaterial) {
   TestOnlyInServerWrapKms::InitializeMasterKeys(key_list_);
   this->WriteEncryptedParquetFile(double_wrapping, internal_key_material, encryption_no);
   // Key rotation requires external key material so this should throw an exception
-  EXPECT_THROW(this->RotateKeys(double_wrapping, encryption_no),
-               ParquetException);
+  EXPECT_THROW(this->RotateKeys(double_wrapping, encryption_no), ParquetException);
 }
 
 TEST_F(TestEncryptionKeyManagementMultiThread, WrapLocally) {
@@ -357,8 +358,8 @@ TEST_F(TestEncryptionKeyManagement, ReadParquetMRExternalKeyMaterialFile) {
   reader_properties.file_decryption_properties(file_decryption_properties->DeepClone());
 
   std::shared_ptr<::arrow::io::RandomAccessFile> source;
-  PARQUET_ASSIGN_OR_THROW(
-      source, ::arrow::io::ReadableFile::Open(file_path, reader_properties.memory_pool()));
+  PARQUET_ASSIGN_OR_THROW(source, ::arrow::io::ReadableFile::Open(
+                                      file_path, reader_properties.memory_pool()));
   auto file_reader = parquet::ParquetFileReader::Open(source, reader_properties);
   auto file_metadata = file_reader->metadata();
   ASSERT_EQ(file_metadata->num_row_groups(), 1);
@@ -374,7 +375,8 @@ TEST_F(TestEncryptionKeyManagement, ReadParquetMRExternalKeyMaterialFile) {
   int_reader->ReadBatch(num_rows, nullptr, nullptr, int_values, &values_read);
   ASSERT_EQ(values_read, num_rows);
 
-  auto string_reader = std::dynamic_pointer_cast<parquet::ByteArrayReader>(row_group->Column(1));
+  auto string_reader =
+      std::dynamic_pointer_cast<parquet::ByteArrayReader>(row_group->Column(1));
   string_reader->ReadBatch(num_rows, nullptr, nullptr, string_values, &values_read);
   ASSERT_EQ(values_read, num_rows);
 
@@ -382,7 +384,8 @@ TEST_F(TestEncryptionKeyManagement, ReadParquetMRExternalKeyMaterialFile) {
   for (int64_t row = 0; row < num_rows; ++row) {
     ASSERT_EQ(int_values[row], row);
     std::string expected_string = prefixes[row % prefixes.size()] + std::to_string(row);
-    std::string_view read_string(reinterpret_cast<const char*>(string_values[row].ptr), string_values[row].len);
+    std::string_view read_string(reinterpret_cast<const char*>(string_values[row].ptr),
+                                 string_values[row].len);
     ASSERT_EQ(read_string, expected_string);
   }
 }

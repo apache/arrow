@@ -43,14 +43,13 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   /// key_toolkit and kms_connection_config is to get KmsClient from cache or create
   /// KmsClient if it's not in the cache yet. cache_entry_lifetime_seconds is life time of
   /// KmsClient in the cache.
-  /// If the file uses external key material then either the Parquet file path and file system
-  /// must be specified, or a key material store provided.
+  /// If the file uses external key material then either the Parquet file path and file
+  /// system must be specified, or a key material store provided.
   FileKeyUnwrapper(KeyToolkit* key_toolkit,
                    const KmsConnectionConfig& kms_connection_config,
-                   double cache_lifetime_seconds,
-                   const std::string& file_path,
-                   const std::shared_ptr<::arrow::fs::FileSystem>& file_system = nullptr,
-                   std::shared_ptr<FileKeyMaterialStore> key_material_store = nullptr);
+                   double cache_lifetime_seconds, const std::string& file_path,
+                   const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR,
+                   std::shared_ptr<FileKeyMaterialStore> key_material_store = NULLPTR);
 
   /// Get the data key from key metadata
   std::string GetKey(const std::string& key_metadata) override;

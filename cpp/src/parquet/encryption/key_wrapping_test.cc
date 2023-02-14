@@ -57,7 +57,8 @@ class KeyWrappingTest : public ::testing::Test {
       file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
       std::string writeable_file_path(temp_dir_->path().ToString() + file_name);
       try {
-        key_material_store = FileSystemKeyMaterialStore::Make(writeable_file_path, file_system, false);
+        key_material_store =
+            FileSystemKeyMaterialStore::Make(writeable_file_path, file_system, false);
       } catch (ParquetException& e) {
         std::stringstream ss;
         ss << "Failed to get key material store" << e.what() << "\n";
@@ -85,7 +86,8 @@ class KeyWrappingTest : public ::testing::Test {
     }
 
     FileKeyUnwrapper unwrapper(&key_toolkit, kms_connection_config_,
-                               cache_entry_lifetime_seconds, readable_file_path, file_system);
+                               cache_entry_lifetime_seconds, readable_file_path,
+                               file_system);
     std::string footer_key = unwrapper.GetKey(key_metadata_json_footer);
     ASSERT_EQ(footer_key, kFooterEncryptionKey);
 

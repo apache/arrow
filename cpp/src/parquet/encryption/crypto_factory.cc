@@ -36,8 +36,7 @@ void CryptoFactory::RegisterKmsClientFactory(
 
 std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
-    const EncryptionConfiguration& encryption_config,
-    const std::string& file_path,
+    const EncryptionConfiguration& encryption_config, const std::string& file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
   if (!encryption_config.uniform_encryption && encryption_config.column_keys.empty()) {
     throw ParquetException("Either column_keys or uniform_encryption must be set");
@@ -51,7 +50,8 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
   std::shared_ptr<FileKeyMaterialStore> key_material_store = nullptr;
   if (!encryption_config.internal_key_material) {
     try {
-      key_material_store = FileSystemKeyMaterialStore::Make(file_path, file_system, false);
+      key_material_store =
+          FileSystemKeyMaterialStore::Make(file_path, file_system, false);
     } catch (ParquetException& e) {
       std::stringstream ss;
       ss << "Failed to get key material store.\n" << e.what() << "\n";
@@ -171,8 +171,7 @@ ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties
 
 std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
-    const DecryptionConfiguration& decryption_config,
-    const std::string& file_path,
+    const DecryptionConfiguration& decryption_config, const std::string& file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
   auto key_retriever = std::make_shared<FileKeyUnwrapper>(
       &key_toolkit_, kms_connection_config, decryption_config.cache_lifetime_seconds,
@@ -184,13 +183,13 @@ std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProper
       ->build();
 }
 
-void CryptoFactory::RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
-                                     const std::string& parquet_file_path,
-                                     const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
-                                     bool double_wrapping,
-                                     double cache_lifetime_seconds) {
-  key_toolkit_.RotateMasterKeys(kms_connection_config, parquet_file_path, file_system, double_wrapping,
-                                cache_lifetime_seconds);
+void CryptoFactory::RotateMasterKeys(
+    const KmsConnectionConfig& kms_connection_config,
+    const std::string& parquet_file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool double_wrapping,
+    double cache_lifetime_seconds) {
+  key_toolkit_.RotateMasterKeys(kms_connection_config, parquet_file_path, file_system,
+                                double_wrapping, cache_lifetime_seconds);
 }
 
 }  // namespace encryption
