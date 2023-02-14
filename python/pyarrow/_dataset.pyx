@@ -540,7 +540,16 @@ cdef class Dataset(_Weakrefable):
             memory_pool=memory_pool
         ).to_table()
 
-    def take(self, object indices, **kwargs):
+    def take(self,
+             object indices,
+             object columns=None,
+             Expression filter=None,
+             int batch_size=_DEFAULT_BATCH_SIZE,
+             int batch_readahead=_DEFAULT_BATCH_READAHEAD,
+             int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
+             FragmentScanOptions fragment_scan_options=None,
+             bint use_threads=True,
+             MemoryPool memory_pool=None):
         """
         Select rows of data by index.
 
@@ -598,7 +607,16 @@ cdef class Dataset(_Weakrefable):
         -------
         table : Table
         """
-        return self.scanner(**kwargs).take(indices)
+        return self.scanner(
+            columns=columns,
+            filter=filter,
+            batch_size=batch_size,
+            batch_readahead=batch_readahead,
+            fragment_readahead=fragment_readahead,
+            fragment_scan_options=fragment_scan_options,
+            use_threads=use_threads,
+            memory_pool=memory_pool
+        ).take(indices)
 
     def head(self,
              int num_rows,
