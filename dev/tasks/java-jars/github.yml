@@ -110,6 +110,8 @@ jobs:
           if [ "{{ arch }}" = "aarch_64" ]; then
             export JAVA_HOME=$(brew --prefix openjdk@11)/libexec/openjdk.jdk/Contents/Home
           fi
+          # make brew protobuf available to CMake
+          export Protobuf_ROOT=$(brew --prefix protobuf)
           arrow/ci/scripts/java_jni_macos_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/cpp-build \
