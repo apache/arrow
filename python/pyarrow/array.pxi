@@ -721,7 +721,7 @@ cdef class _PandasConvertible(_Weakrefable):
             If False, all timestamps are converted to datetime64[ns] dtype.
         use_threads : bool, default True
             Whether to parallelize the conversion using multiple threads.
-        deduplicate_objects : bool, default False
+        deduplicate_objects : bool, default True
             Do not create multiple copies Python objects when created, to save
             on memory use. Conversion will be slower.
         ignore_metadata : bool, default False
