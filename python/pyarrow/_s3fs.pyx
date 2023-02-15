@@ -44,6 +44,8 @@ def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal, int num_event_loop_thre
     ----------
     log_level : S3LogLevel
         level of logging
+    num_event_loop_threads
+        how many threads to use for the AWS SDK's I/O event loop
 
     Examples
     --------
