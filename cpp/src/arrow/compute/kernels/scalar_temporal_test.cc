@@ -1811,6 +1811,21 @@ TEST_F(ScalarTemporalTest, TestTemporalDifferenceErrors) {
       CallFunction("weeks_between", {arr1, arr1}, &options));
 }
 
+TEST_F(ScalarTemporalTest, TestLocalTime) {
+  const char* expected_local_us_central =
+      R"(["1969-12-31 18:00:59", "2000-02-29 17:23:23", "1898-12-31 19:08:20",
+          "2033-05-17 22:33:20", "2019-12-31 19:05:05", "2019-12-30 20:10:10",
+          "2019-12-29 21:15:15", "2009-12-30 22:20:20", "2009-12-31 23:25:25",
+          "2010-01-03 00:30:30", "2010-01-04 01:35:35", "2006-01-01 02:40:40",
+          "2005-12-31 03:45:45", "2008-12-27 18:00:00", "2008-12-28 18:00:00",
+          "2011-12-31 19:02:03", null])";
+
+  for (auto u : TimeUnit::values()) {
+    CheckScalarUnary("local_time", timestamp(u, "US/Central"), times_seconds_precision,
+                     timestamp(u), expected_local_us_central);
+  }
+}
+
 TEST_F(ScalarTemporalTest, TestAssumeTimezone) {
   std::string timezone_utc = "UTC";
   std::string timezone_kolkata = "Asia/Kolkata";
