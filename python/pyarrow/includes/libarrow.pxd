@@ -2594,6 +2594,9 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
         CProjectNodeOptions(vector[CExpression] expressions,
                             vector[c_string] names)
 
+    cdef cppclass CAggregateNodeOptions "arrow::compute::AggregateNodeOptions"(CExecNodeOptions):
+        CAggregateNodeOptions(vector[CAggregate] aggregates, vector[CFieldRef] names)
+
     cdef cppclass COrderBySinkNodeOptions "arrow::compute::OrderBySinkNodeOptions"(CExecNodeOptions):
         COrderBySinkNodeOptions(vector[CSortOptions] options,
                                 CAsyncExecBatchGenerator generator)

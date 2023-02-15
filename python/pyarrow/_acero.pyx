@@ -28,7 +28,8 @@ from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table,
                           RecordBatchReader)
 from pyarrow.lib import frombytes, tobytes
-from pyarrow._compute cimport Expression
+from pyarrow._compute cimport Expression, FunctionOptions, _ensure_field_ref
+from pyarrow.compute import field
 
 # Initialize()  # Initialise support for Datasets in ExecPlan
 
@@ -152,6 +153,67 @@ class ProjectNodeOptions(_ProjectNodeOptions):
     """
     def __init__(self, expressions, names=None):
         self._set_options(expressions, names)
+
+
+cdef class _AggregateNodeOptions(ExecNodeOptions):
+
+    def _set_options(self, aggregates, keys=None):
+        cdef:
+            CAggregate c_aggr
+            vector[CAggregate] c_aggregations
+            vector[CFieldRef] c_keys
+
+        for arg_names, func_name, opts, name in aggregates:
+            c_aggr.function = tobytes(func_name)
+            if opts is not None:
+                c_aggr.options = (<FunctionOptions?>opts).wrapped
+            else:
+                c_aggr.options = <shared_ptr[CFunctionOptions]>nullptr
+            for arg in arg_names:
+                c_aggr.target.push_back(_ensure_field_ref(arg))
+            c_aggr.name = tobytes(name)
+
+            c_aggregations.push_back(move(c_aggr))
+
+        if keys is None:
+            keys = []
+        for name in keys:
+            c_keys.push_back(_ensure_field_ref(name))
+
+        self.wrapped.reset(
+                new CAggregateNodeOptions(c_aggregations, c_keys)
+            )
+
+
+class AggregateNodeOptions(_AggregateNodeOptions):
+    """
+    Make a node which aggregates input batches, optionally grouped by keys.
+
+    Acero supports two types of aggregates: "scalar" aggregates,
+    and "hash" aggregates. Scalar aggregates reduce an array or scalar
+    input to a single scalar output (e.g. computing the mean of a column).
+    Hash aggregates act like GROUP BY in SQL and first partition data
+    based on one or more key columns, then reduce the data in each partition.
+    The aggregate node supports both types of computation, and can compute
+    any number of aggregations at once.
+
+    Parameters
+    ----------
+    aggregates : list of tuples
+        Aggregations which will be applied to the targetted fields.
+        Specified as a list of tuples, where each tuple is one aggregation
+        specification and consists of: aggregation column name followed
+        by function name, aggregation function options object and the
+        output field name.
+        The column name can be a string, an empty list or a list of
+        column names, for unary, nullary and n-ary aggregation functions
+        respectively.
+    keys : list, optional
+        Keys by which aggregations will be grouped.
+
+    """
+    def __init__(self, aggregates, keys=None):
+        self._set_options(aggregates, keys)
 
 
 cdef class Declaration(_Weakrefable):
