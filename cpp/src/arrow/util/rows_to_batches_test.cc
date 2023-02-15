@@ -79,6 +79,19 @@ TEST(RowsToBatches, StructAccessor) {
   EXPECT_TRUE(CompareJson(*table, R"([1, 5])", "field_1"));
   EXPECT_TRUE(CompareJson(*table, R"([2, 6])", "field_2"));
   EXPECT_TRUE(CompareJson(*table, R"([4, 7])", "field_3"));
+
+  // Test accessor that returns by value instead of using `std::reference_wrapper`
+  auto accessor_by_value = [](const TestStruct& s) -> Result<std::set<int>> {
+    return std::set(std::begin(s.values), std::end(s.values));
+  };
+  auto batches_by_value =
+      RowsToBatches(kTestSchema, data, IntConvertor, accessor_by_value).ValueOrDie();
+
+  auto table_by_value = batches_by_value->ToTable().ValueOrDie();
+
+  EXPECT_TRUE(CompareJson(*table_by_value, R"([1, 5])", "field_1"));
+  EXPECT_TRUE(CompareJson(*table_by_value, R"([2, 6])", "field_2"));
+  EXPECT_TRUE(CompareJson(*table_by_value, R"([4, 7])", "field_3"));
 }
 
 TEST(RowsToBatches, Variant) {

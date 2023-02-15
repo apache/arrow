@@ -129,8 +129,17 @@ template <class Range, class DataPointConvertor,
     for (size_t i = 0; i < batch_size && (rows_ittr != rows_ittr_end);
          i++, std::advance(rows_ittr, 1)) {
       int col_index = 0;
-      ARROW_ASSIGN_OR_RAISE(auto row, row_accessor(*rows_ittr));
-      for (auto& data_point : row.get()) {
+      ARROW_ASSIGN_OR_RAISE(const auto row, row_accessor(*rows_ittr));
+
+      // If the accessor returns a `std::reference_wrapper` unwrap if
+      const auto& row_unwrapped = [&]() {
+        if constexpr (detail::is_range<decltype(row)>::value)
+          return row;
+        else
+          return row.get();
+      }();
+
+      for (auto& data_point : row_unwrapped) {
         ArrayBuilder* array_builder = record_batch_builder->GetField(col_index);
         ARROW_RETURN_IF(array_builder == NULLPTR,
                         Status::Invalid("array_builder == NULLPTR"));
