@@ -236,6 +236,7 @@ Be sure to go through on the following checklist:
 #. Update version in Apache Arrow Cookbook
 #. Announce the new release
 #. Publish release blog posts
+#. Announce the release on Twitter
 #. Remove old artifacts
 
 .. dropdown:: Mark the released version as "RELEASED" on JIRA
