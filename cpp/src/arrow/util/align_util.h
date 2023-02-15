@@ -19,9 +19,6 @@
 
 #include <algorithm>
 
-#include "arrow/array.h"
-
-#include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/util/bit_util.h"
 
@@ -67,24 +64,23 @@ inline BitmapWordAlignParams BitmapWordAlign(const uint8_t* data, int64_t bit_of
   p.aligned_start = data + (bit_offset + p.leading_bits) / 8;
   return p;
 }
-
-Result<std::shared_ptr<Array>> EnsureAlignment(const std::shared_ptr<Array>& object, int64_t alignment,
-                       MemoryPool* memory_pool) {
-  std::vector<std::shared_ptr<Buffer>> buffers_ = object->data()->buffers;
-  for (size_t i = 0; i < buffers_.size(); ++i) {
-    if (buffers_[i]) {
-      auto buffer_address = buffers_[i]->address();
-      if ((buffer_address % alignment) != 0) {
-        ARROW_ASSIGN_OR_RAISE(
-            auto new_buffer, AllocateBuffer(buffers_[i]->size(), alignment, memory_pool));
-          std::memcpy(new_buffer->mutable_data(), buffers_[i]->data(), buffers_[i]->size());
-          buffers_[i] = std::move(new_buffer);
-      } 
-    }
-  }
-  auto new_array_data = ArrayData::Make(object->data()->type,object->data()->length,std::move(buffers_),object->data()->GetNullCount(), object->data()->offset);
-  return MakeArray(new_array_data);
-}
-
 }  // namespace internal
+
+namespace util {
+
+Result<std::shared_ptr<Array>> EnsureAlignment(const Array& object, int64_t alignment,
+                                               MemoryPool* memory_pool);
+
+Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(const ChunkedArray& object,
+                                                      int64_t alignment,
+                                                      MemoryPool* memory_pool);
+
+Result<std::shared_ptr<RecordBatch>> EnsureAlignment(const RecordBatch& object,
+                                                     int64_t alignment,
+                                                     MemoryPool* memory_pool);
+
+Result<std::shared_ptr<Table>> EnsureAlignment(const Table& object, int64_t alignment,
+                                               MemoryPool* memory_pool);
+
+}  // namespace util
 }  // namespace arrow

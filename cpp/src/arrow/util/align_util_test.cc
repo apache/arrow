@@ -148,13 +148,15 @@ TEST(BitmapWordAlign, UnalignedDataStart) {
   CheckBitmapWordAlign<8>(P, 1017, 64, {63, 1, 1080, A, 0, 0});
   CheckBitmapWordAlign<8>(P, 1017, 128, {63, 1, 1144, A + 128, 64, 1});
 }
+}  // namespace internal
 
 TEST(DefaultMemoryPool, EnsureAlignment) {
   MemoryPool* pool = default_memory_pool();
   auto rand = ::arrow::random::RandomArrayGenerator(1923);
   auto random_array = rand.UInt8(/*size*/ 50, /*min*/ 0, /*max*/ 100,
                                  /*null_probability*/ 0, /*alignment*/ 512, pool);
-  ASSERT_OK_AND_ASSIGN(auto aligned_array, EnsureAlignment(random_array, 1024, pool));
+  ASSERT_OK_AND_ASSIGN(auto aligned_array,
+                       util::EnsureAlignment(*random_array, 1024, pool));
   std::vector<std::shared_ptr<Buffer>> buffers_ = aligned_array->data()->buffers;
   for (auto& it : buffers_) {
     if (it) {
@@ -163,5 +165,4 @@ TEST(DefaultMemoryPool, EnsureAlignment) {
   }
 }
 
-}  // namespace internal
 }  // namespace arrow
