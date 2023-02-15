@@ -19,6 +19,8 @@
 
 #include <algorithm>
 
+#include "arrow/array.h"
+
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/util/bit_util.h"
@@ -66,8 +68,7 @@ inline BitmapWordAlignParams BitmapWordAlign(const uint8_t* data, int64_t bit_of
   return p;
 }
 
-template <typename T>
-Status EnsureAlignment(std::shared_ptr<T> object, int64_t alignment,
+Result<std::shared_ptr<Array>> EnsureAlignment(const std::shared_ptr<Array>& object, int64_t alignment,
                        MemoryPool* memory_pool) {
   std::vector<std::shared_ptr<Buffer>> buffers_ = object->data()->buffers;
   for (size_t i = 0; i < buffers_.size(); ++i) {
@@ -76,12 +77,13 @@ Status EnsureAlignment(std::shared_ptr<T> object, int64_t alignment,
       if ((buffer_address % alignment) != 0) {
         ARROW_ASSIGN_OR_RAISE(
             auto new_buffer, AllocateBuffer(buffers_[i]->size(), alignment, memory_pool));
-        std::memcpy(new_buffer->mutable_data(), buffers_[i]->data(), buffers_[i]->size());
-        object->data()->buffers[i] = std::move(new_buffer);
-      }
+          std::memcpy(new_buffer->mutable_data(), buffers_[i]->data(), buffers_[i]->size());
+          buffers_[i] = std::move(new_buffer);
+      } 
     }
   }
-  return Status::OK();
+  auto new_array_data = ArrayData::Make(object->data()->type,object->data()->length,std::move(buffers_),object->data()->GetNullCount(), object->data()->offset);
+  return MakeArray(new_array_data);
 }
 
 }  // namespace internal
