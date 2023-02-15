@@ -109,9 +109,10 @@ Fixed shape tensor
     **Permutation is only needed in case the logical order of
     the tensor is a permutation of the physical order (row-major).**
 
-    When logical and physical layout are equal, the permutation will
-    always equal to the original layout of dimensions ([0, 1, .., N-1])
-    and therefore doesn't need to be defined.
+    When logical and physical layout are equal, the permutation will always
+    be ([0, 1, .., N-1]) and is therefore absent. Same holds the other way
+    round: if permutation parameter is absent, it is assumed that logical
+    layout matches the physical one.
 
 * Description of the serialization:
 
