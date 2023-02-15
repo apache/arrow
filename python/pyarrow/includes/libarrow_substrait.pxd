@@ -25,6 +25,7 @@ from pyarrow.includes.libarrow cimport *
 cdef extern from "arrow/engine/substrait/extension_set.h" namespace "arrow::engine" nogil:
     cdef cppclass CExtensionSet \
             "arrow::engine::ExtensionSet":
+        CExtensionSet()
         CExtensionSet(const ExtensionIdRegistry*)
 
 cdef extern from "arrow/engine/substrait/relation.h" namespace "arrow::engine" nogil:
@@ -51,18 +52,19 @@ cdef extern from "arrow/engine/substrait/options.h" namespace "arrow::engine" no
             "arrow::engine::ConversionStrictness::BEST_EFFORT"
 
     cdef cppclass CExtensionDetails \
-            "arrow::ending::ExtensionDetails"
+        "arrow::engine::ExtensionDetails"
 
     cdef cppclass CExtensionProvider \
-            "arrow::ending::ExtensionProvider":
+            "arrow::engine::ExtensionProvider":
         CResult[CRelationInfo] MakeRel(
-                const vector[CDeclarationInfo]& inputs,
-                const CExtensionDetails& ext_details,
-                const CExtensionSet& ext_set)
+            const CConversionOptions conv_opts,
+            const vector[CDeclarationInfo]& inputs,
+            const CExtensionDetails& ext_details,
+            const CExtensionSet& ext_set)
 
     cdef shared_ptr[CExtensionProvider] default_extension_provider()
     cdef void set_default_extension_provider(
-            const shared_ptr[CExtensionProvider]& provider)
+        const shared_ptr[CExtensionProvider]& provider)
 
     cdef cppclass CConversionOptions \
             "arrow::engine::ConversionOptions":
