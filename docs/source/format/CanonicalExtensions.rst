@@ -95,22 +95,22 @@ Fixed shape tensor
     length and equal to the number of dimensions.
 
     ``dim_names`` are used if the dimensions have well-known
-    names and they map to the physical order (row-major).
+    names and they map to the physical layout (row-major).
 
   * **permutation**  = indices of the desired ordering of the
     original dimensions, defined as an array.
 
     The indices contain a permutation of the values [0, 1, .., N-1] where
     N is the number of dimensions. The permutation indicates which
-    dimension of the logical order corresponds to which dimension of the
+    dimension of the logical layout corresponds to which dimension of the
     physical tensor (the i-th dimension of the logical view corresponds
     to the dimension with number permutations[i] of the physical tensor).
 
     **Permutation is only needed in case the logical order of
     the tensor is a permutation of the physical order (row-major).**
 
-    When logical and physical order are equal, the permutation will
-    always equal to the original order of dimensions ([0, 1, .., N-1])
+    When logical and physical layout are equal, the permutation will
+    always equal to the original layout of dimensions ([0, 1, .., N-1])
     and therefore doesn't need to be defined.
 
 * Description of the serialization:
