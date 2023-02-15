@@ -22,7 +22,6 @@ from unittest.mock import Mock
 
 import click
 import pytest
-from responses import matchers
 import responses as rsps
 
 from archery.bot import (
@@ -349,8 +348,10 @@ def test_issue_comment_with_commands_bot_not_first(load_fixture, responses):
 
 
 @pytest.mark.parametrize(('fixture_name', 'expected_label'), [
-    ('event-pull-request-opened.json', PullRequestState.committer_review.value),
-    ('event-pull-request-opened-non-committer.json', PullRequestState.review.value),
+    ('event-pull-request-target-opened-committer.json',
+     PullRequestState.committer_review.value),
+    ('event-pull-request-target-opened-non-committer.json',
+     PullRequestState.review.value),
 ])
 def test_open_pull_request(load_fixture, responses, fixture_name, expected_label):
     responses.add(
@@ -374,7 +375,7 @@ def test_open_pull_request(load_fixture, responses, fixture_name, expected_label
     )
     payload = load_fixture(fixture_name)
 
-    bot = PullRequestWorkflowBot('pull_request', payload, token='')
+    bot = PullRequestWorkflowBot('pull_request_target', payload, token='')
     bot.handle()
 
     # Setting awaiting committer review or awaiting review label
@@ -383,7 +384,8 @@ def test_open_pull_request(load_fixture, responses, fixture_name, expected_label
 
 
 @pytest.mark.parametrize(('fixture_name', 'expected_label'), [
-    ('event-pull-request-opened.json', PullRequestState.committer_review.value),
+    ('event-pull-request-target-opened-committer.json',
+     PullRequestState.committer_review.value),
 ])
 def test_open_pull_request_with_existing_label(
         load_fixture, responses, fixture_name, expected_label):
@@ -414,7 +416,7 @@ def test_open_pull_request_with_existing_label(
     payload = load_fixture(fixture_name)
     payload['pull_request']['labels'] = ['awaiting review']
 
-    bot = PullRequestWorkflowBot('pull_request', payload, token='')
+    bot = PullRequestWorkflowBot('pull_request_target', payload, token='')
     bot.handle()
 
     post = responses.calls[-1]
@@ -540,22 +542,10 @@ def test_pull_request_non_committer_review_awaiting_change_review(
     assert len(responses.calls) == 2
 
 
-def test_push_event_on_awaiting_changes(
+def test_pull_request_synchronize_event_on_awaiting_changes(
         load_fixture, responses):
-    payload = load_fixture('event-push.json')
-    sha = '27313fc220561ef6b0d5edb485b29684b405c80b'
-    qualifiers = {'qualifiers': {'type': 'pr', 'repo': 'ursa-labs/ursabot', 'sha': sha}}
-    url_parameters = " ".join(
-        [f"{qualifier}:{value}" for qualifier, value in qualifiers.items()]
-    )
+    payload = load_fixture('event-pull-request-target-synchronize.json')
 
-    responses.add(
-        responses.GET,
-        github_url('/search/issues'),
-        match=[matchers.query_string_matcher("q=" + url_parameters)],
-        json=load_fixture('commit-search.json'),
-        status=200
-    )
     responses.add(
         responses.GET,
         github_url('/repositories/169101701/pulls/26'),
@@ -582,29 +572,17 @@ def test_push_event_on_awaiting_changes(
         status=201
     )
 
-    bot = PullRequestWorkflowBot('push', payload, token='')
+    bot = PullRequestWorkflowBot('pull_request_target', payload, token='')
     bot.handle()
     # after push event label changes.
     post = responses.calls[-1]
     assert json.loads(post.request.body) == ["awaiting change review"]
 
 
-def test_push_event_on_awaiting_review(
+def test_pull_request_synchronize_event_on_awaiting_review(
         load_fixture, responses):
-    payload = load_fixture('event-push.json')
-    sha = '27313fc220561ef6b0d5edb485b29684b405c80b'
-    qualifiers = {'qualifiers': {'type': 'pr', 'repo': 'ursa-labs/ursabot', 'sha': sha}}
-    url_parameters = " ".join(
-        [f"{qualifier}:{value}" for qualifier, value in qualifiers.items()]
-    )
+    payload = load_fixture('event-pull-request-target-synchronize.json')
 
-    responses.add(
-        responses.GET,
-        github_url('/search/issues'),
-        match=[matchers.query_string_matcher("q=" + url_parameters)],
-        json=load_fixture('commit-search.json'),
-        status=200
-    )
     responses.add(
         responses.GET,
         github_url('/repositories/169101701/pulls/26'),
@@ -618,28 +596,16 @@ def test_push_event_on_awaiting_review(
         status=200
     )
 
-    bot = PullRequestWorkflowBot('push', payload, token='')
+    bot = PullRequestWorkflowBot('pull_request_target', payload, token='')
     bot.handle()
     # No requests to delete or post new labels on push awaiting review
-    assert len(responses.calls) == 3
+    assert len(responses.calls) == 2
 
 
-def test_push_event_on_existing_pr_without_state(
+def test_pull_request_synchronize_event_on_existing_pr_without_state(
         load_fixture, responses):
-    payload = load_fixture('event-push.json')
-    sha = '27313fc220561ef6b0d5edb485b29684b405c80b'
-    qualifiers = {'qualifiers': {'type': 'pr', 'repo': 'ursa-labs/ursabot', 'sha': sha}}
-    url_parameters = " ".join(
-        [f"{qualifier}:{value}" for qualifier, value in qualifiers.items()]
-    )
+    payload = load_fixture('event-pull-request-target-synchronize.json')
 
-    responses.add(
-        responses.GET,
-        github_url('/search/issues'),
-        match=[matchers.query_string_matcher("q=" + url_parameters)],
-        json=load_fixture('commit-search.json'),
-        status=200
-    )
     responses.add(
         responses.GET,
         github_url('/repositories/169101701/pulls/26'),
@@ -660,7 +626,7 @@ def test_push_event_on_existing_pr_without_state(
         status=201
     )
 
-    bot = PullRequestWorkflowBot('push', payload, token='')
+    bot = PullRequestWorkflowBot('pull_request_target', payload, token='')
     bot.handle()
     # after push event label get set to default
     post = responses.calls[-1]
