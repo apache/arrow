@@ -48,6 +48,7 @@ if(ARROW_GCS)
 endif()
 
 if(ARROW_S3)
+
   add_arrow_test(s3fs_test
                  SOURCES
                  s3fs_test.cc
