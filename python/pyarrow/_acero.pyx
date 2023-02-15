@@ -77,6 +77,7 @@ class TableSourceNodeOptions(_TableSourceNodeOptions):
     table : pyarrow.Table
         The table which acts as the data source.
     """
+
     def __init__(self, Table table):
         self._set_options(table)
 
@@ -102,6 +103,7 @@ class FilterNodeOptions(_FilterNodeOptions):
     filter_expression : pyarrow.compute.Expression
 
     """
+
     def __init__(self, Expression filter_expression):
         self._set_options(filter_expression)
 
@@ -151,6 +153,7 @@ class ProjectNodeOptions(_ProjectNodeOptions):
         `expressions`). If `names` is not provided, the string
         representations of exprs will be used.
     """
+
     def __init__(self, expressions, names=None):
         self._set_options(expressions, names)
 
@@ -181,8 +184,8 @@ cdef class _AggregateNodeOptions(ExecNodeOptions):
             c_keys.push_back(_ensure_field_ref(name))
 
         self.wrapped.reset(
-                new CAggregateNodeOptions(c_aggregations, c_keys)
-            )
+            new CAggregateNodeOptions(c_aggregations, c_keys)
+        )
 
 
 class AggregateNodeOptions(_AggregateNodeOptions):
@@ -212,6 +215,7 @@ class AggregateNodeOptions(_AggregateNodeOptions):
         Keys by which aggregations will be grouped.
 
     """
+
     def __init__(self, aggregates, keys=None):
         self._set_options(aggregates, keys)
 
