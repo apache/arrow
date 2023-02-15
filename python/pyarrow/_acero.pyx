@@ -347,7 +347,27 @@ class HashJoinNodeOptions(_HashJoinNodeOptions):
 
 cdef class Declaration(_Weakrefable):
     """
+    Helper class for declaring the nodes of an ExecPlan.
 
+    A Declaration represents an unconstructed ExecNode, and potentially
+    more since its inputs may also be Declarations or when constructed
+    with ``from_sequence``.
+
+    Parameters
+    ----------
+    factory_name : str
+        The ExecNode factory name, such as "table_source", "filter",
+        "project" etc.
+    options : ExecNodeOptions
+        Corresponding ExecNodeOptions subclass (matching the factory name).
+    inputs : list of Declaration, optional
+        Input nodes for this declaration. Optional if the node is a source
+        node, or when the declaration gets combined later with
+        `from_sequence`.
+
+    Returns
+    -------
+    Declaration
     """
     cdef void init(self, const CDeclaration& c_decl):
         self.decl = c_decl
@@ -380,6 +400,21 @@ cdef class Declaration(_Weakrefable):
 
     @staticmethod
     def from_sequence(decls):
+        """
+        Convenience factory for the common case of a simple sequence of nodes.
+
+        Each of the declarations will be appended to the inputs of the
+        subsequent declaration, and the final modified declaration will
+        be returned.
+
+        Parameters
+        ----------
+        decls : list of Declaration
+
+        Returns
+        -------
+        Declaration
+        """
         cdef:
             vector[CDeclaration] c_decls
             CDeclaration c_decl
@@ -397,6 +432,26 @@ cdef class Declaration(_Weakrefable):
         return "<pyarrow.acero.Declaration>\n{0}".format(str(self))
 
     def to_table(self, use_threads=True):
+        """
+        Run the declaration and collect the results into a table.
+
+        This method will implicitly add a sink node to the declaration
+        to collect results into a table. It will then create an ExecPlan
+        from the declaration, start the exec plan, block until the plan
+        has finished, and return the created table.
+
+        Parameters
+        ----------
+        use_threads : bool, default True
+            If set to False, then all CPU work will be done on the calling
+            thread. I/O tasks will still happen on the I/O executor
+            and may be multi-threaded (but should not use significant CPU
+            resources).
+
+        Returns
+        -------
+        pyarrow.Table
+        """
         cdef:
             shared_ptr[CTable] c_table
 
