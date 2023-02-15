@@ -106,7 +106,7 @@ Fixed shape tensor
     ``{ "shape": [100, 200, 500], "dim_names": ["C", "H", "W"]}``
 
     The ``dim_names`` metadata can be added if the dimensions have
-    well-known names that can map to the physical order (row-major).
+    well-known names and map to the physical order (row-major).
 
   - **"permutation"** holds indexes of the desired ordering of the
     original dimensions. Also defined as an array.
