@@ -567,6 +567,11 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
       target_link_libraries(${BENCHMARK_NAME} PRIVATE ${ARROW_BENCHMARK_LINK_LIBS})
     endif()
     add_dependencies(benchmark ${BENCHMARK_NAME})
+
+    # print the link libraries of target ${BENCHMARK_NAME}
+    get_target_property(BENCHMARK_LINK_LIBS ${BENCHMARK_NAME} LINK_LIBRARIES)
+    message(STATUS "BENCHMARK_LINK_LIBS of ${BENCHMARK_NAME}: ${BENCHMARK_LINK_LIBS}")
+
     set(NO_COLOR "--color_print=false")
 
     if(ARG_EXTRA_LINK_LIBS)
