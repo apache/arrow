@@ -26,7 +26,8 @@ from pyarrow._acero import (
     FilterNodeOptions,
     ProjectNodeOptions,
     AggregateNodeOptions,
-    Declaration
+    HashJoinNodeOptions,
+    Declaration,
 )
 
 
@@ -161,3 +162,58 @@ def test_aggregate_hash():
     ])
     with pytest.raises(ValueError):
         _ = decl.to_table()
+
+
+def test_hash_join():
+    left = pa.table({'key': [1, 2, 3], 'a': [4, 5, 6]})
+    left_source = Declaration("table_source", options=TableSourceNodeOptions(left))
+    right = pa.table({'key': [2, 3, 4], 'b': [4, 5, 6]})
+    right_source = Declaration("table_source", options=TableSourceNodeOptions(right))
+
+    # inner join
+    join_opts = HashJoinNodeOptions("inner", left_keys="key", right_keys="key")
+    joined = Declaration(
+        "hashjoin", options=join_opts, inputs=[left_source, right_source])
+    result = joined.to_table()
+    expected = pa.table(
+        [[2, 3], [5, 6], [2, 3], [4, 5]],
+        names=["key", "a", "key", "b"])
+    assert result.equals(expected)
+
+    # left join
+    join_opts = HashJoinNodeOptions(
+        "left outer", left_keys="key", right_keys="key")
+    joined = Declaration(
+        "hashjoin", options=join_opts, inputs=[left_source, right_source])
+    result = joined.to_table()
+    expected = pa.table(
+        [[1, 2, 3], [4, 5, 6], [None, 2, 3], [None, 4, 5]],
+        names=["key", "a", "key", "b"]
+    )
+    assert result.sort_by("a").equals(expected)
+
+    # suffixes
+    join_opts = HashJoinNodeOptions(
+        "left outer", left_keys="key", right_keys="key",
+        output_suffix_for_left="_left", output_suffix_for_right="_right")
+    joined = Declaration(
+        "hashjoin", options=join_opts, inputs=[left_source, right_source])
+    result = joined.to_table()
+    expected = pa.table(
+        [[1, 2, 3], [4, 5, 6], [None, 2, 3], [None, 4, 5]],
+        names=["key_left", "a", "key_right", "b"]
+    )
+    assert result.sort_by("a").equals(expected)
+
+    # manually specifying output columns
+    join_opts = HashJoinNodeOptions(
+        "left outer", left_keys="key", right_keys="key",
+        left_output=["key", "a"], right_output=["b"])
+    joined = Declaration(
+        "hashjoin", options=join_opts, inputs=[left_source, right_source])
+    result = joined.to_table()
+    expected = pa.table(
+        [[1, 2, 3], [4, 5, 6], [None, 4, 5]],
+        names=["key", "a", "b"]
+    )
+    assert result.sort_by("a").equals(expected)

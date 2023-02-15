@@ -28,7 +28,7 @@ from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table,
                           RecordBatchReader)
 from pyarrow.lib import frombytes, tobytes
-from pyarrow._compute cimport Expression, FunctionOptions, _ensure_field_ref
+from pyarrow._compute cimport Expression, FunctionOptions, _ensure_field_ref, _true
 from pyarrow.compute import field
 
 # Initialize()  # Initialise support for Datasets in ExecPlan
@@ -218,6 +218,131 @@ class AggregateNodeOptions(_AggregateNodeOptions):
 
     def __init__(self, aggregates, keys=None):
         self._set_options(aggregates, keys)
+
+
+cdef class _HashJoinNodeOptions(ExecNodeOptions):
+    # _join_type_map = {
+    #     "left semi": CJoinType_LEFT_SEMI,
+    #     "right semi": CJoinType_RIGHT_SEMI,
+    #     "left anti": CJoinType_LEFT_ANTI,
+    #     "right anti": CJoinType_RIGHT_ANTI,
+    #     "inner": CJoinType_INNER,
+    #     "left outer": CJoinType_LEFT_OUTER,
+    #     "right outer": CJoinType_RIGHT_OUTER,
+    #     "full outer": CJoinType_FULL_OUTER,
+    # }
+
+    def _set_options(
+        self, join_type, left_keys, right_keys, left_output=None, right_output=None,
+        output_suffix_for_left="", output_suffix_for_right="",
+    ):
+        cdef:
+            CJoinType c_join_type
+            vector[CFieldRef] c_left_keys
+            vector[CFieldRef] c_right_keys
+            vector[CFieldRef] c_left_output
+            vector[CFieldRef] c_right_output
+
+        # join type
+        # try:
+        #     c_join_type = self._join_type_map[join_type]
+        # except KeyError:
+        #     raise ValueError("Unsupported join type")
+        if join_type == "left semi":
+            c_join_type = CJoinType_LEFT_SEMI
+        elif join_type == "right semi":
+            c_join_type = CJoinType_RIGHT_SEMI
+        elif join_type == "left anti":
+            c_join_type = CJoinType_LEFT_ANTI
+        elif join_type == "right anti":
+            c_join_type = CJoinType_RIGHT_ANTI
+        elif join_type == "inner":
+            c_join_type = CJoinType_INNER
+        elif join_type == "left outer":
+            c_join_type = CJoinType_LEFT_OUTER
+        elif join_type == "right outer":
+            c_join_type = CJoinType_RIGHT_OUTER
+        elif join_type == "full outer":
+            c_join_type = CJoinType_FULL_OUTER
+        else:
+            raise ValueError("Unsupported join type")
+
+        # left/right keys
+        if isinstance(left_keys, str):
+            left_keys = [left_keys]
+        for key in left_keys:
+            c_left_keys.push_back(_ensure_field_ref(key))
+        if isinstance(right_keys, str):
+            right_keys = [right_keys]
+        for key in right_keys:
+            c_right_keys.push_back(_ensure_field_ref(key))
+
+        # left/right output fields
+        if left_output is not None and right_output is not None:
+            for colname in left_output:
+                c_left_output.push_back(_ensure_field_ref(colname))
+            for colname in right_output:
+                c_right_output.push_back(_ensure_field_ref(colname))
+
+            self.wrapped.reset(
+                new CHashJoinNodeOptions(
+                    c_join_type, c_left_keys, c_right_keys,
+                    c_left_output, c_right_output,
+                    _true,
+                    <c_string>tobytes(output_suffix_for_left),
+                    <c_string>tobytes(output_suffix_for_right)
+                )
+            )
+        else:
+            self.wrapped.reset(
+                new CHashJoinNodeOptions(
+                    c_join_type, c_left_keys, c_right_keys,
+                    _true,
+                    <c_string>tobytes(output_suffix_for_left),
+                    <c_string>tobytes(output_suffix_for_right)
+                )
+            )
+
+
+class HashJoinNodeOptions(_HashJoinNodeOptions):
+    """
+    Make a node which implements join operation using hash join strategy.
+
+    Parameters
+    ----------
+    join_type : str
+        Type of join. One of "left semi", "right semi", "left anti",
+        "right anti", "inner", "left outer", "right outer", "full outer".
+    left_keys
+        Key fields from left input.
+    right_keys
+        key fields from right input.
+    left_output
+        Output fields passed from left input. If left and right output
+        fields are not specified, all valid fields from both left and
+        right input will be output
+    right_output
+        Output fields passed from right input. If left and right output
+        fields are not specified, all valid fields from both left and
+        right input will be output
+    output_suffix_for_left : str
+        Suffix added to names of output fields coming from left input
+        (used to distinguish, if necessary, between fields of the same
+        name in left and right input and can be left empty if there are
+        no name collisions).
+    output_suffix_for_right : str
+        Suffix added to names of output fields coming from right input,
+        see `output_suffix_for_left`.
+    """
+
+    def __init__(
+        self, join_type, left_keys, right_keys, left_output=None, right_output=None,
+        output_suffix_for_left="", output_suffix_for_right=""
+    ):
+        self._set_options(
+            join_type, left_keys, right_keys, left_output, right_output,
+            output_suffix_for_left, output_suffix_for_right
+        )
 
 
 cdef class Declaration(_Weakrefable):
