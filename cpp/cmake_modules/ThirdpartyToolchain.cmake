@@ -4745,9 +4745,8 @@ macro(build_awssdk)
       -DENABLE_TESTING=OFF
       -DENABLE_UNITY_BUILD=ON
       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT}
-      -DUSE_OPENSSL=ON
       "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
-      "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
+      "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX};${OPENSSL_ROOT_HINT}")
 
   set(AWSSDK_CMAKE_ARGS
       ${AWSSDK_COMMON_CMAKE_ARGS}
@@ -4792,7 +4791,12 @@ macro(build_awssdk)
       aws-checksums
       aws-c-common)
 
+  # aws-lc needs to be installed on a separate folder to hide from unintended use
+  set(AWS_LC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/aws_lc_ep-install")
+  set(AWS_LC_INCLUDE_DIR "${AWS_LC_PREFIX}/include")
+
   if(UNIX AND NOT APPLE) # aws-lc and s2n-tls only needed on linux
+    file(MAKE_DIRECTORY ${AWS_LC_INCLUDE_DIR})
     list(APPEND _AWSSDK_LIBS s2n-tls aws-lc)
   endif()
 
@@ -4826,6 +4830,12 @@ macro(build_awssdk)
                           PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY}
                                      INTERFACE_INCLUDE_DIRECTORIES
                                      "${AWSSDK_INCLUDE_DIR}")
+    if(${_AWSSDK_LIB} STREQUAL "aws-lc")
+      set_target_properties(${_AWSSDK_TARGET_NAME}
+                            PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY}
+                                       INTERFACE_INCLUDE_DIRECTORIES
+                                       "${AWS_LC_INCLUDE_DIR}")
+    endif()
     set("${_AWSSDK_LIB_NAME_PREFIX}_STATIC_LIBRARY" ${_AWSSDK_STATIC_LIBRARY})
 
     if(NOT ${_AWSSDK_LIB} STREQUAL "aws-lc")
@@ -4856,7 +4866,8 @@ macro(build_awssdk)
     string(APPEND AWS_LC_C_FLAGS " -Wno-error=overlength-strings -Wno-error=pedantic")
 
     set(AWS_LC_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
-    list(APPEND AWS_LC_CMAKE_ARGS -DCMAKE_C_FLAGS=${AWS_LC_C_FLAGS})
+    list(APPEND AWS_LC_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
+         -DCMAKE_C_FLAGS=${AWS_LC_C_FLAGS})
 
     externalproject_add(aws_lc_ep
                         ${EP_COMMON_OPTIONS}
@@ -4870,8 +4881,7 @@ macro(build_awssdk)
     list(APPEND
          S2N_TLS_CMAKE_ARGS
          -DS2N_INTERN_LIBCRYPTO=ON # internalize libcrypto to avoid name conflict with openssl
-         -DUSE_OPENSSL=OFF # s2n-tls uses aws-lc instead of OpenSSL
-    )
+         -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX}) # path to find crypto provided by aws-lc
 
     externalproject_add(s2n_tls_ep
                         ${EP_COMMON_OPTIONS}
