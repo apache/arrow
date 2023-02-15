@@ -2289,6 +2289,7 @@ macro(build_benchmark)
                         PROPERTIES IMPORTED_LOCATION "${GBENCHMARK_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${GBENCHMARK_INCLUDE_DIR}")
+  target_compile_definitions(benchmark::benchmark INTERFACE "BENCHMARK_STATIC_DEFINE")
 
   add_library(benchmark::benchmark_main STATIC IMPORTED)
   set_target_properties(benchmark::benchmark_main
