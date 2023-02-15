@@ -115,18 +115,15 @@ class PullRequestWorkflowBot:
     def pull(self):
         """
         Returns a github.PullRequest object associated with the event.
-        In case of a commit we search the PR associated with the commit.
         """
-        if self.event_name == 'push':
-            return self._get_pr_for_commit()
-        else:
-            return self.repo.get_pull(self.event_payload['pull_request']['number'])
+        return self.repo.get_pull(self.event_payload['pull_request']['number'])
 
     @cached_property
     def repo(self):
         return self.github.get_repo(self.event_payload['repository']['id'], lazy=True)
 
     def handle(self):
+        print(f"event_name: {self.event_name} - event_payload: {self.event_payload}")
         current_state = None
         try:
             current_state = self.get_current_state()
@@ -167,7 +164,7 @@ class PullRequestWorkflowBot:
         Returns the expected target state based on the event and
         the current state.
         """
-        if (self.event_name == "pull_request" and
+        if (self.event_name == "pull_request_target" and
                 self.event_payload['action'] == 'opened'):
             if (self.event_payload['pull_request']['author_association'] in
                     COMMITTER_ROLES):
@@ -192,7 +189,8 @@ class PullRequestWorkflowBot:
                 return PullRequestState.merge
             elif review_state in ("changes_requested", "commented"):
                 return PullRequestState.changes
-        elif (self.event_name == "push" and
+        elif (self.event_name == "pull_request_target" and
+              self.event_payload['action'] == 'synchronize' and
               current_state == PullRequestState.changes.value):
             return PullRequestState.change_review
         # Default already opened PRs to Review state.
@@ -203,23 +201,6 @@ class PullRequestWorkflowBot:
     def set_state(self, state):
         """Sets the State label to the PR."""
         self.pull.add_to_labels(state.value)
-
-    def _get_pr_for_commit(self):
-        """Find the PR containing the specific commit hash."""
-        sha = self.event_payload['commits'][-1]['id']
-        repo = self.event_payload['repository']['full_name']
-        prs_for_commit = self.github.search_issues(
-            "",
-            qualifiers={"type": "pr",
-                        "repo": "apache/arrow",
-                        "sha": sha}
-        )
-        pull = None
-        try:
-            pull = self.repo.get_pull(prs_for_commit[0].number)
-        except IndexError:
-            pass
-        return pull
 
 
 class CommentBot:
