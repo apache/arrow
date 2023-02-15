@@ -780,8 +780,8 @@ TEST(Substrait, CallCast) {
     auto expr,
     compute::call(
       "cast",
-      {compute::field_ref("i64")}, compute::CastOptions::Safe(float64()))
-  ).Bind(*kBoringSchema);
+      {compute::field_ref("i64")}, compute::CastOptions::Safe(float64())).Bind(*kBoringSchema)
+  );
 
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
