@@ -1093,7 +1093,11 @@ class FixedShapeTensorType(pa.ExtensionType):
     value_type : DataType or Field
         The data type of an individual tensor
     shape : tuple
-        shape of the tensors
+        Shape of the tensors
+    dim_names : tuple, default: None
+        Explicit names of the dimensions.
+    permutation : tuple, default: None
+        Indices of the dimensions ordering.
 
     Examples
     --------
@@ -1104,10 +1108,12 @@ class FixedShapeTensorType(pa.ExtensionType):
     >>> pa.register_extension_type(tensor_type)
     """
 
-    def __init__(self, value_type, shape):
+    def __init__(self, value_type, shape, dim_names=None, permutation=None):
         self._value_type = value_type
         self._shape = shape
         size = math.prod(shape)
+        self._dim_names = dim_names
+        self._permutation = permutation
         pa.ExtensionType.__init__(self, pa.list_(self._value_type, size),
                                   'arrow.fixed_size_tensor')
 
@@ -1125,8 +1131,24 @@ class FixedShapeTensorType(pa.ExtensionType):
         """
         return self._shape
 
+    @property
+    def dim_names(self):
+        """
+        Explicit names of the dimensions.
+        """
+        return self._dim_names
+
+    @property
+    def permutation(self):
+        """
+        Indices of the dimensions ordering.
+        """
+        return self._permutation
+
     def __arrow_ext_serialize__(self):
-        metadata = {"shape": str(self._shape)}
+        metadata = {"shape": str(self._shape),
+                    "dim_names": str(self._dim_names),
+                    "permutation": str(self._permutation)}
         return json.dumps(metadata).encode()
 
     @classmethod
@@ -1137,8 +1159,11 @@ class FixedShapeTensorType(pa.ExtensionType):
 
         metadata = json.loads(serialized.decode())
         shape = ast.literal_eval(metadata['shape'])
+        dim_names = ast.literal_eval(metadata['dim_names'])
+        permutation = ast.literal_eval(metadata['permutation'])
 
-        return FixedShapeTensorType(storage_type.value_type, shape)
+        return FixedShapeTensorType(storage_type.value_type, shape,
+                                    dim_names, permutation)
 
     def __arrow_ext_class__(self):
         return FixedShapeTensorArray
@@ -1191,6 +1216,7 @@ class FixedShapeTensorArray(pa.ExtensionArray):
         np_flat = np.array(self.storage.values)
         numpy_tensor = np_flat.reshape((len(self),) + self.type.shape,
                                        order='C')
+
         return numpy_tensor
 
     def from_numpy_tensor(obj):
@@ -1310,7 +1336,8 @@ def test_tensor_type_ipc_unknown(registered_tensor_type):
     assert result.type.list_size == 12
     ext_field = batch.schema.field('ext')
     assert ext_field.metadata == {
-        b'ARROW:extension:metadata': b'{"shape": "(2, 2, 3)"}',
+        b'ARROW:extension:metadata':
+        b'{"shape": "(2, 2, 3)", "dim_names": "None", "permutation": "None"}',
         b'ARROW:extension:name': b'arrow.fixed_size_tensor'
     }
 
