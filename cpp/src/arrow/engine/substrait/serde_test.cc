@@ -774,6 +774,25 @@ TEST(Substrait, CallExtensionFunction) {
   }
 }
 
+TEST(Substrait, CallCast) {
+
+  ASSERT_OK_AND_ASSIGN(
+    auto expr,
+    compute::call(
+      "cast",
+      {compute::field_ref("i64")}, compute::CastOptions::Safe(float64()))
+  ).Bind(*kBoringSchema);
+
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
+
+  ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
+  ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*kBoringSchema));
+  
+  EXPECT_EQ(UseBoringRefs(roundtripped), UseBoringRefs(expr));
+  
+}
+
 TEST(Substrait, ReadRel) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Rel", R"({
