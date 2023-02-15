@@ -216,8 +216,8 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     // Column is encrypted only if crypto_metadata exists.
     if (!crypto_metadata) {
-      return PageReader::Open(stream, col->num_values(), col->compression(),
-                              always_compressed, properties_.memory_pool());
+      return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
+                              always_compressed);
     }
 
     if (file_decryptor_ == nullptr) {
@@ -238,8 +238,8 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       data_decryptor = file_decryptor_->GetFooterDecryptorForColumnData();
       CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
                         static_cast<int16_t>(i), meta_decryptor, data_decryptor);
-      return PageReader::Open(stream, col->num_values(), col->compression(),
-                              always_compressed, properties_.memory_pool(), &ctx);
+      return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
+                              always_compressed, &ctx);
     }
 
     // The column is encrypted with its own key
@@ -253,8 +253,8 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
                       static_cast<int16_t>(i), meta_decryptor, data_decryptor);
-    return PageReader::Open(stream, col->num_values(), col->compression(),
-                            always_compressed, properties_.memory_pool(), &ctx);
+    return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
+                            always_compressed, &ctx);
   }
 
  private:

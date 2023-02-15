@@ -111,12 +111,18 @@ class PARQUET_EXPORT ReaderProperties {
     return file_decryption_properties_;
   }
 
+  bool page_checksum_verification() const { return page_checksum_verification_; }
+  void set_page_checksum_verification(bool check_crc) {
+    page_checksum_verification_ = check_crc;
+  }
+
  private:
   MemoryPool* pool_;
   int64_t buffer_size_ = kDefaultBufferSize;
   int32_t thrift_string_size_limit_ = kDefaultThriftStringSizeLimit;
   int32_t thrift_container_size_limit_ = kDefaultThriftContainerSizeLimit;
   bool buffered_stream_enabled_ = false;
+  bool page_checksum_verification_ = false;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };
 
@@ -201,7 +207,8 @@ class PARQUET_EXPORT WriterProperties {
           version_(ParquetVersion::PARQUET_2_4),
           data_page_version_(ParquetDataPageVersion::V1),
           created_by_(DEFAULT_CREATED_BY),
-          store_decimal_as_integer_(false) {}
+          store_decimal_as_integer_(false),
+          page_checksum_enabled_(false) {}
     virtual ~Builder() {}
 
     /// Specify the memory pool for the writer. Default default_memory_pool.
@@ -287,6 +294,16 @@ class PARQUET_EXPORT WriterProperties {
 
     Builder* created_by(const std::string& created_by) {
       created_by_ = created_by;
+      return this;
+    }
+
+    Builder* enable_page_checksum() {
+      page_checksum_enabled_ = true;
+      return this;
+    }
+
+    Builder* disable_page_checksum() {
+      page_checksum_enabled_ = false;
       return this;
     }
 
@@ -507,9 +524,9 @@ class PARQUET_EXPORT WriterProperties {
 
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
-          pagesize_, version_, created_by_, std::move(file_encryption_properties_),
-          default_column_properties_, column_properties, data_page_version_,
-          store_decimal_as_integer_));
+          pagesize_, version_, created_by_, page_checksum_enabled_,
+          std::move(file_encryption_properties_), default_column_properties_,
+          column_properties, data_page_version_, store_decimal_as_integer_));
     }
 
    private:
@@ -522,6 +539,7 @@ class PARQUET_EXPORT WriterProperties {
     ParquetDataPageVersion data_page_version_;
     std::string created_by_;
     bool store_decimal_as_integer_;
+    bool page_checksum_enabled_;
 
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
@@ -553,6 +571,8 @@ class PARQUET_EXPORT WriterProperties {
   inline std::string created_by() const { return parquet_created_by_; }
 
   inline bool store_decimal_as_integer() const { return store_decimal_as_integer_; }
+
+  inline bool page_checksum_enabled() const { return page_checksum_enabled_; }
 
   inline Encoding::type dictionary_index_encoding() const {
     if (parquet_version_ == ParquetVersion::PARQUET_1_0) {
@@ -618,7 +638,7 @@ class PARQUET_EXPORT WriterProperties {
   explicit WriterProperties(
       MemoryPool* pool, int64_t dictionary_pagesize_limit, int64_t write_batch_size,
       int64_t max_row_group_length, int64_t pagesize, ParquetVersion::type version,
-      const std::string& created_by,
+      const std::string& created_by, bool page_write_checksum_enabled,
       std::shared_ptr<FileEncryptionProperties> file_encryption_properties,
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
@@ -632,6 +652,7 @@ class PARQUET_EXPORT WriterProperties {
         parquet_version_(version),
         parquet_created_by_(created_by),
         store_decimal_as_integer_(store_short_decimal_as_integer),
+        page_checksum_enabled_(page_write_checksum_enabled),
         file_encryption_properties_(file_encryption_properties),
         default_column_properties_(default_column_properties),
         column_properties_(column_properties) {}
@@ -645,6 +666,7 @@ class PARQUET_EXPORT WriterProperties {
   ParquetVersion::type parquet_version_;
   std::string parquet_created_by_;
   bool store_decimal_as_integer_;
+  bool page_checksum_enabled_;
 
   std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 

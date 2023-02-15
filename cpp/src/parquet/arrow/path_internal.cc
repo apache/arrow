@@ -201,7 +201,7 @@ struct PathWriteContext {
 
   // Incorporates |range| into visited elements. If the |range| is contiguous
   // with the last range, extend the last range, otherwise add |range| separately
-  // tot he list.
+  // to the list.
   void RecordPostListVisit(const ElementRange& range) {
     if (!visited_elements.empty() && range.start == visited_elements.back().end) {
       visited_elements.back().end = range.end;

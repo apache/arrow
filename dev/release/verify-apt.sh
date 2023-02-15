@@ -68,6 +68,12 @@ have_plasma=yes
 have_python=yes
 workaround_missing_packages=()
 case "${distribution}-${code_name}" in
+  debian-bookworm)
+    sed \
+      -i"" \
+      -e "s/ main$/ main contrib non-free/g" \
+      /etc/apt/sources.list.d/debian.sources
+    ;;
   debian-*)
     sed \
       -i"" \

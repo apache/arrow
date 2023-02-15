@@ -206,6 +206,7 @@ set(ARROW_SRCS
     util/compression.cc
     util/counting_semaphore.cc
     util/cpu_info.cc
+    util/crc32.cc
     util/debug.cc
     util/decimal.cc
     util/delimiting.cc
@@ -392,6 +393,7 @@ if(ARROW_COMPUTE)
        compute/exec/bloom_filter.cc
        compute/exec/exec_plan.cc
        compute/exec/expression.cc
+       compute/exec/fetch_node.cc
        compute/exec/filter_node.cc
        compute/exec/hash_join.cc
        compute/exec/hash_join_dict.cc

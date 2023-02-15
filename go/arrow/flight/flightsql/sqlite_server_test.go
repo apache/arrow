@@ -21,6 +21,7 @@ package flightsql_test
 
 import (
 	"context"
+	"database/sql"
 	"os"
 	"strings"
 	"testing"
@@ -42,6 +43,7 @@ import (
 type FlightSqliteServerSuite struct {
 	suite.Suite
 
+	db  *sql.DB
 	srv *example.SQLiteFlightSQLServer
 	s   flight.Server
 	cl  *flightsql.Client
@@ -71,7 +73,9 @@ func (s *FlightSqliteServerSuite) SetupTest() {
 	var err error
 	s.mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
 	s.s = flight.NewServerWithMiddleware(nil)
-	s.srv, err = example.NewSQLiteFlightSQLServer()
+	s.db, err = example.CreateDB()
+	s.Require().NoError(err)
+	s.srv, err = example.NewSQLiteFlightSQLServer(s.db)
 	s.Require().NoError(err)
 	s.srv.Alloc = s.mem
 
@@ -89,6 +93,8 @@ func (s *FlightSqliteServerSuite) TearDownTest() {
 	s.Require().NoError(s.cl.Close())
 	s.s.Shutdown()
 	s.srv = nil
+	err := s.db.Close()
+	s.Require().NoError(err)
 	s.mem.AssertSize(s.T(), 0)
 }
 

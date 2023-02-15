@@ -2022,6 +2022,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         int64_t ndigits
         CRoundMode round_mode
 
+    cdef cppclass CRoundBinaryOptions \
+            "arrow::compute::RoundBinaryOptions"(CFunctionOptions):
+        CRoundBinaryOptions(CRoundMode round_mode)
+        CRoundMode round_mode
+
     ctypedef enum CCalendarUnit \
             "arrow::compute::CalendarUnit":
         CCalendarUnit_NANOSECOND \

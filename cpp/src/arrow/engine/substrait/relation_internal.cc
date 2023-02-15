@@ -206,7 +206,7 @@ Result<RelationInfo> GetExtensionRelationInfo(const substrait::Rel& rel,
     case substrait::Rel::RelTypeCase::kExtensionLeaf: {
       const auto& ext = rel.extension_leaf();
       DefaultExtensionDetails detail{ext.detail()};
-      return conv_opts.extension_provider->MakeRel(inputs, detail, ext_set);
+      return conv_opts.extension_provider->MakeRel(conv_opts, inputs, detail, ext_set);
     }
 
     case substrait::Rel::RelTypeCase::kExtensionSingle: {
@@ -215,7 +215,7 @@ Result<RelationInfo> GetExtensionRelationInfo(const substrait::Rel& rel,
                             FromProto(ext.input(), ext_set, conv_opts));
       inputs.push_back(std::move(input_info));
       DefaultExtensionDetails detail{ext.detail()};
-      return conv_opts.extension_provider->MakeRel(inputs, detail, ext_set);
+      return conv_opts.extension_provider->MakeRel(conv_opts, inputs, detail, ext_set);
     }
 
     case substrait::Rel::RelTypeCase::kExtensionMulti: {
@@ -225,7 +225,7 @@ Result<RelationInfo> GetExtensionRelationInfo(const substrait::Rel& rel,
         inputs.push_back(std::move(input_info));
       }
       DefaultExtensionDetails detail{ext.detail()};
-      return conv_opts.extension_provider->MakeRel(inputs, detail, ext_set);
+      return conv_opts.extension_provider->MakeRel(conv_opts, inputs, detail, ext_set);
     }
 
     default: {
