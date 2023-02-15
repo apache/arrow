@@ -91,9 +91,26 @@ Fixed shape tensor
 * Description of the serialization:
 
   The metadata must be a valid JSON object including shape of
-  the contained tensors as an array with key "shape".
+  the contained tensors as an array with key **"shape"**
 
-  For example: `{ "shape": [2, 5]}`
+  - example: ``{ "shape": [2, 5]}``
+
+  and optional:
+
+  - **"dim_names"** holds explicit names to tensor dimensions
+    as an array. The length of it should be equal to the shape
+    length and equal to the number of dimensions.
+
+    Example of dim_names metadata for NCHW ordered data:
+
+    ``{ "shape": [100, 200, 500], "dim_names": ["C", "H", "W"]}``
+
+  - **"permutation"** holds indexes of the desired ordering of the
+    original dimensions. Also defined as an array.
+
+    Example of permuted 3-dimensional tensor:
+
+    ``{ "shape": [100, 200, 500], "permutation": [2, 0, 1]}``
 
 .. note::
 
