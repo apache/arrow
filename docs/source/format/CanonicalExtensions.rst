@@ -86,34 +86,19 @@ Fixed shape tensor
 * Extension type parameters:
 
   * **value_type** = Arrow DataType of the tensor elements
-  * **shape** = shape of the contained tensors as a tuple
+  * **shape** = shape of the contained tensors as an array
 
-* Description of the serialization:
+  Optional parameters:
 
-  The metadata must be a valid JSON object including shape of
-  the contained tensors as an array with key **"shape"**
-
-  - example: ``{ "shape": [2, 5]}``
-
-  and optional:
-
-  - **"dim_names"** holds explicit names to tensor dimensions
+  * **dim_names** = explicit names to tensor dimensions
     as an array. The length of it should be equal to the shape
     length and equal to the number of dimensions.
 
-    Example of dim_names metadata for NCHW ordered data:
+    ``dim_names`` are used if the dimensions have well-known
+    names and map to the physical order (row-major).
 
-    ``{ "shape": [100, 200, 500], "dim_names": ["C", "H", "W"]}``
-
-    The ``dim_names`` metadata can be added if the dimensions have
-    well-known names and map to the physical order (row-major).
-
-  - **"permutation"** holds indexes of the desired ordering of the
+  * **permutation**  = indexes of the desired ordering of the
     original dimensions. Also defined as an array.
-
-    Example of permuted 3-dimensional tensor:
-
-    ``{ "shape": [100, 200, 500], "permutation": [2, 0, 1]}``
 
     **Permutation key in the metadata is needed only in case the logical
     order of the tensor doesn't equal the physical order (row-major).**
@@ -121,6 +106,22 @@ Fixed shape tensor
     When logical and physical order are equal, the permutation metadata
     is not added as it will always equal the original order of dimensions
     (example ``[0, 1, 2]``).
+
+* Description of the serialization:
+
+  The metadata must be a valid JSON object including shape of
+  the contained tensors as an array with key **"shape"** plus optional
+  dimension names with keys **"dim_names"** and ordering of the
+  dimensions with key **"permutation"**.
+
+  - Example: ``{ "shape": [2, 5]}``
+  - Example with ``dim_names`` metadata for NCHW ordered data:
+
+    ``{ "shape": [100, 200, 500], "dim_names": ["C", "H", "W"]}``
+
+  - Example of permuted 3-dimensional tensor:
+
+    ``{ "shape": [100, 200, 500], "permutation": [2, 0, 1]}``
 
 .. note::
 
