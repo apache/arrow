@@ -1,4 +1,4 @@
-classdef DoubleArray < arrow.array.internal.CustomDisplay
+classdef UInt8Array
 
     properties (Access=private)
         Proxy
@@ -9,9 +9,9 @@ classdef DoubleArray < arrow.array.internal.CustomDisplay
     end
 
     methods
-        function obj = DoubleArray(matlabArray)
-            obj.MatlabArray = matlabArray;
-            obj.Proxy = arrow.proxy.array.DoubleArrayProxy(obj.MatlabArray);
+        function obj = UInt8Array(matlabArray)
+            obj.MatlabArray = uint8(matlabArray);
+            obj.Proxy = arrow.proxy.array.UInt8ArrayProxy(obj.MatlabArray);
         end
 
         function Print(obj)

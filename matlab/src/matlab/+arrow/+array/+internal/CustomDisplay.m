@@ -1,7 +1,11 @@
 classdef CustomDisplay < matlab.mixin.CustomDisplay
     methods (Access = protected)
-        function s = getFooter(~)
-            s = 'Here is my custom footer';
+        function [pg] = getPropertyGroups(obj)
+            pg = [];
+        end
+
+        function displayNonScalarObject(obj)
+            obj.Print();
         end
     end
 end

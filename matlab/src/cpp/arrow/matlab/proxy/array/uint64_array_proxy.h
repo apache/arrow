@@ -27,18 +27,14 @@ namespace proxy::array {
 class UInt64ArrayProxy : public libmexclass::proxy::Proxy {
     public:
         UInt64ArrayProxy(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-            // TODO: Implement initialization of Array from the MATLAB mxArray passed to the constructor.
-            std::cout << "UInt64ArrayProxy constructor: " << std::endl;
 
             // Get the mxArray from constructor arguments
-            matlab::data::TypedArray<uint64_t> uint64_mda = constructor_arguments[0];
+            const matlab::data::TypedArray<uint64_t> uint64_mda = constructor_arguments[0];
 
-            std::cout << "1. Get raw pointer of mxArray" << std::endl;
             // Get raw pointer of mxArray
-            matlab::data::TypedIterator<uint64_t> it(uint64_mda.begin());
+            auto it(uint64_mda.cbegin());
             auto dt = it.operator->();
 
-            std::cout << "2. Pass raw pointer to construct array" << std::endl;
             // Pass pointer to Arrow array constructor that takes a buffer
             // Do not make a copy when creating arrow::Buffer
             std::shared_ptr<arrow::Buffer> buffer(
@@ -52,7 +48,6 @@ class UInt64ArrayProxy : public libmexclass::proxy::Proxy {
                                                        nullptr, // TODO: fill validity bitmap with data
                                                        -1));
 
-            std::cout << "3. Return array to be stored in LifetimeManager" << std::endl;
             array = array_wrapper;
 
             // Register Proxy methods.

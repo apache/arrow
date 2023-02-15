@@ -23,39 +23,43 @@
 #include "arrow/builder.h"
 
 namespace proxy::array {
-class DoubleArrayProxy : public libmexclass::proxy::Proxy {
+class UInt8ArrayProxy : public libmexclass::proxy::Proxy {
+    private:
+        // const matlab::data::TypedArray<uint8_t> uint8_mda;
+
     public:
-        DoubleArrayProxy(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-            // No copy version
+        UInt8ArrayProxy(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+            // Fewer copy version
 
             // Get the mxArray from constructor arguments
-            const matlab::data::TypedArray<double> double_mda = constructor_arguments[0];
+            const matlab::data::TypedArray<uint8_t> uint8_mda = constructor_arguments[0];
 
-            for (auto& elem : double_mda) {
+            for (auto& elem : uint8_mda) {
                 std::cout << elem << std::endl;
             }
 
+            // Create a shared data copy of uint8_mda and store it as a property of proxy class 
             // Get raw pointer of mxArray
-            auto it(double_mda.cbegin());
+            auto it = uint8_mda.cbegin();
             auto dt = it.operator->();
 
             // Pass pointer to Arrow array constructor that takes a buffer
             // Do not make a copy when creating arrow::Buffer
             std::shared_ptr<arrow::Buffer> buffer(
                   new arrow::Buffer(reinterpret_cast<const uint8_t*>(dt), 
-                                    sizeof(double) * double_mda.getNumberOfElements()));
+                                    sizeof(uint8_t) * uint8_mda.getNumberOfElements()));
             
             // Construct arrow::NumericArray specialization using arrow::Buffer.
             // pass in nulls information...we could compute and provide the number of nulls here too
             std::shared_ptr<arrow::Array> array_wrapper(
-                new arrow::NumericArray<arrow::DoubleType>(double_mda.getNumberOfElements(), buffer,
+                new arrow::NumericArray<arrow::UInt8Type>(uint8_mda.getNumberOfElements(), buffer,
                                                        nullptr, // TODO: fill validity bitmap with data
                                                        -1));
 
             array = array_wrapper;
-
+            
             // Register Proxy methods.
-            registerMethod(DoubleArrayProxy, Print);
+            registerMethod(UInt8ArrayProxy, Print);
         }
     private:
         void Print(libmexclass::proxy::method::Context& context);

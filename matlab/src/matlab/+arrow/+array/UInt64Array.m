@@ -10,8 +10,8 @@ classdef UInt64Array
 
     methods
         function obj = UInt64Array(matlabArray)
-            obj.Proxy = arrow.proxy.array.UInt64ArrayProxy(uint64(matlabArray));
-            obj.MatlabArray = matlabArray;
+            obj.MatlabArray = uint64(matlabArray);
+            obj.Proxy = arrow.proxy.array.UInt64ArrayProxy(obj.MatlabArray);
         end
 
         function Print(obj)
