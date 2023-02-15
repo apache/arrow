@@ -94,7 +94,7 @@ Fixed shape tensor
     as an array. The length of it should be equal to the shape
     length and equal to the number of dimensions.
 
-    ``dim_names`` are used if the dimensions have well-known
+    ``dim_names`` can be used if the dimensions have well-known
     names and they map to the physical layout (row-major).
 
   * **permutation**  = indices of the desired ordering of the
@@ -104,13 +104,13 @@ Fixed shape tensor
     N is the number of dimensions. The permutation indicates which
     dimension of the logical layout corresponds to which dimension of the
     physical tensor (the i-th dimension of the logical view corresponds
-    to the dimension with number permutations[i] of the physical tensor).
+    to the dimension with number ``permutations[i]`` of the physical tensor).
 
-    **Permutation is only needed in case the logical order of
-    the tensor is a permutation of the physical order (row-major).**
+    Permutation can be useful in case the logical order of
+    the tensor is a permutation of the physical order (row-major).
 
     When logical and physical layout are equal, the permutation will always
-    be ([0, 1, .., N-1]) and is therefore absent. Same holds the other way
+    be ([0, 1, .., N-1]) and can therefore be left out. Same holds the other way
     round: if permutation parameter is absent, it is assumed that logical
     layout matches the physical one.
 
@@ -132,5 +132,5 @@ Fixed shape tensor
 
 .. note::
 
-  Elements in an fixed shape tensor extension array are stored
+  Elements in a fixed shape tensor extension array are stored
   in row-major/C-contiguous order.
