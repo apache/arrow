@@ -78,27 +78,27 @@ TYPED_TEST_P(ReeUtilTest, PhysicalLength) {
   using RE = TypeParam;  // Run-end type
 
   const RE run_ends0[] = {-1};  // used as zero-length array
-  ASSERT_EQ(internal::FindPhysicalLength(0, 0, run_ends0, 0), 0);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends0, 0, 0, 0), 0);
 
   const RE run_ends1[] = {1};
-  ASSERT_EQ(internal::FindPhysicalLength(1, 0, run_ends1, 1), 1);
-  ASSERT_EQ(internal::FindPhysicalLength(0, 1, run_ends1, 1), 0);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends1, 1, 1, 0), 1);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends1, 1, 0, 1), 0);
 
   const RE run_ends124[] = {1, 2, 4};  // run-lengths: 1, 1, 2
-  ASSERT_EQ(internal::FindPhysicalLength(4, 0, run_ends124, 3), 3);
-  ASSERT_EQ(internal::FindPhysicalLength(3, 1, run_ends124, 3), 2);
-  ASSERT_EQ(internal::FindPhysicalLength(2, 2, run_ends124, 3), 1);
-  ASSERT_EQ(internal::FindPhysicalLength(1, 3, run_ends124, 3), 1);
-  ASSERT_EQ(internal::FindPhysicalLength(0, 4, run_ends124, 3), 0);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends124, 3, 4, 0), 3);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends124, 3, 3, 1), 2);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends124, 3, 2, 2), 1);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends124, 3, 1, 3), 1);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends124, 3, 0, 4), 0);
   const RE run_ends246[] = {2, 4, 6, 7};  // run-lengths: 2, 2, 2, 1
-  ASSERT_EQ(internal::FindPhysicalLength(7, 0, run_ends246, 4), 4);
-  ASSERT_EQ(internal::FindPhysicalLength(6, 1, run_ends246, 4), 4);
-  ASSERT_EQ(internal::FindPhysicalLength(5, 2, run_ends246, 4), 3);
-  ASSERT_EQ(internal::FindPhysicalLength(4, 3, run_ends246, 4), 3);
-  ASSERT_EQ(internal::FindPhysicalLength(3, 4, run_ends246, 4), 2);
-  ASSERT_EQ(internal::FindPhysicalLength(2, 5, run_ends246, 4), 2);
-  ASSERT_EQ(internal::FindPhysicalLength(1, 6, run_ends246, 4), 1);
-  ASSERT_EQ(internal::FindPhysicalLength(0, 7, run_ends246, 4), 0);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends246, 4, 7, 0), 4);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends246, 4, 6, 1), 4);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends246, 4, 5, 2), 3);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends246, 4, 4, 3), 3);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends246, 4, 3, 4), 2);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends246, 4, 2, 5), 2);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends246, 4, 1, 6), 1);
+  ASSERT_EQ(internal::FindPhysicalLength(run_ends246, 4, 0, 7), 0);
 }
 
 TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {

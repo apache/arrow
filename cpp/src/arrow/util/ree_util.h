@@ -61,8 +61,8 @@ int64_t FindPhysicalIndex(const RunEndsType* run_ends, int64_t run_ends_size, in
 /// run-ends) necessary to represent the logical range of values from
 /// offset to length
 template <typename RunEndsType>
-int64_t FindPhysicalLength(int64_t length, int64_t offset, const RunEndsType* run_ends,
-                           int64_t run_ends_size) {
+int64_t FindPhysicalLength(const RunEndsType* run_ends, int64_t run_ends_size,
+                           int64_t length, int64_t offset) {
   // The physical length is calculated by finding the offset of the last element
   // and adding 1 to it, so first we ensure there is at least one element.
   if (length == 0) {
@@ -98,10 +98,10 @@ int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i, int64_t absolute_off
 template <typename RunEndsType>
 int64_t FindPhysicalLength(const ArraySpan& span) {
   return FindPhysicalLength(
-      /*logical_length=*/span.length,
-      /*logical_offset=*/span.offset,
       /*run_ends=*/RunEnds<RunEndsType>(span),
-      /*run_ends_size=*/RunEndsArray(span).length);
+      /*run_ends_size=*/RunEndsArray(span).length,
+      /*length=*/span.length,
+      /*offset=*/span.offset);
 }
 
 }  // namespace internal
