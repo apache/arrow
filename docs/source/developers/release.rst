@@ -236,6 +236,7 @@ Be sure to go through on the following checklist:
 #. Update version in Apache Arrow Cookbook
 #. Announce the new release
 #. Publish release blog posts
+#. Announce the release on Twitter
 #. Remove old artifacts
 
 .. dropdown:: Mark the released version as "RELEASED" on JIRA
@@ -536,7 +537,26 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   TODO
+   Open a pull request to vcpkg:
+
+   .. code-block:: Bash
+
+      ## Fork https://github.com/conan-io/conan-center-index on GitHub.
+      ## You need to do this only once.
+      ##
+      ## Prepare your fork of https://github.com/conan-io/conan-center-index .
+      ## You need to do this only once.
+      # git clone git@github.com:kou/conan-center-index.git ../
+      git clone git@github.com:<YOUR_GITHUB_ID>/conan-center-index.git ../
+      cd ../conan-center-index
+      ## Add https://github.com/conan-io/conan-center-index.git as "upstream" remote.
+      git remote add upstream https://github.com/conan-io/conan-center-index.git
+      cd -
+
+      # dev/release/post-15-conan.sh 10.0.1 ../conan-center-index
+      dev/release/post-15-conan.sh X.Y.Z <YOUR_CONAN_CENTER_INDEX_FORK>
+
+   This script pushes a ``arrow-X.Y.Z`` branch to your ``conan-io/conan-center-index`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch on your Web browser.
 
 .. dropdown:: Bump versions
    :animate: fade-in-slide-down
@@ -603,6 +623,15 @@ Be sure to go through on the following checklist:
    :class-container: sd-shadow-md
 
    TODO
+
+.. dropdown:: Announce the release on Twitter
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   Post the release blog post on Twitter from the `@ApacheArrow <https://twitter.com/ApacheArrow>`_ handle.
+
+   PMC members have access or can request access, after which they can post via `TweetDeck <https://tweetdeck.twitter.com>`_.
 
 .. dropdown:: Remove old artifacts
    :animate: fade-in-slide-down

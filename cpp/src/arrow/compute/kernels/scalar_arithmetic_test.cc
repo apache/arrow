@@ -1763,9 +1763,9 @@ TEST_F(TestBinaryArithmeticDecimal, DispatchBest) {
     for (std::string suffix : {"", "_checked"}) {
       name += suffix;
 
-      CheckDispatchBest(name, {decimal128(1, 0), float32()}, {float32(), float32()});
+      CheckDispatchBest(name, {decimal128(1, 0), float32()}, {float64(), float64()});
       CheckDispatchBest(name, {decimal256(1, 0), float64()}, {float64(), float64()});
-      CheckDispatchBest(name, {float32(), decimal256(1, 0)}, {float32(), float32()});
+      CheckDispatchBest(name, {float32(), decimal256(1, 0)}, {float64(), float64()});
       CheckDispatchBest(name, {float64(), decimal128(1, 0)}, {float64(), float64()});
     }
   }

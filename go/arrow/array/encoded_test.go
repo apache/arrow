@@ -17,6 +17,7 @@
 package array_test
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -270,4 +272,141 @@ func TestREEBuilderOverflow(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestLogicalRunEndsValuesArray(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	bldr := array.NewRunEndEncodedBuilder(mem, arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
+	defer bldr.Release()
+
+	valBldr := bldr.ValueBuilder().(*array.StringBuilder)
+	// produces run-ends 1, 2, 4, 6, 10, 1000, 1750, 2000
+	bldr.AppendRuns([]uint64{1, 1, 2, 2, 4, 990, 750, 250})
+	valBldr.AppendValues([]string{"a", "b", "c", "d", "e", "f", "g", "h"}, nil)
+
+	arr := bldr.NewRunEndEncodedArray()
+	defer arr.Release()
+
+	sl := array.NewSlice(arr, 150, 1650)
+	defer sl.Release()
+
+	assert.EqualValues(t, 150, sl.Data().Offset())
+	assert.EqualValues(t, 1500, sl.Len())
+
+	logicalValues := sl.(*array.RunEndEncoded).LogicalValuesArray()
+	defer logicalValues.Release()
+	logicalRunEnds := sl.(*array.RunEndEncoded).LogicalRunEndsArray(mem)
+	defer logicalRunEnds.Release()
+
+	expectedValues, _, err := array.FromJSON(mem, arrow.BinaryTypes.String, strings.NewReader(`["f", "g"]`))
+	require.NoError(t, err)
+	defer expectedValues.Release()
+	expectedRunEnds := []int16{850, 1500}
+
+	assert.Truef(t, array.Equal(logicalValues, expectedValues), "expected: %s\ngot: %s", expectedValues, logicalValues)
+	assert.Equal(t, expectedRunEnds, logicalRunEnds.(*array.Int16).Int16Values())
+}
+
+func TestLogicalRunEndsValuesArrayEmpty(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	bldr := array.NewRunEndEncodedBuilder(mem, arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
+	defer bldr.Release()
+
+	valBldr := bldr.ValueBuilder().(*array.StringBuilder)
+	// produces run-ends 1, 2, 4, 6, 10, 1000, 1750, 2000
+	bldr.AppendRuns([]uint64{1, 1, 2, 2, 4, 990, 750, 250})
+	valBldr.AppendValues([]string{"a", "b", "c", "d", "e", "f", "g", "h"}, nil)
+
+	arr := bldr.NewRunEndEncodedArray()
+	defer arr.Release()
+
+	emptySlice := array.NewSlice(arr, 2000, 2000)
+	defer emptySlice.Release()
+
+	assert.EqualValues(t, 2000, emptySlice.Data().Offset())
+	assert.EqualValues(t, 0, emptySlice.Len())
+
+	logicalValues := emptySlice.(*array.RunEndEncoded).LogicalValuesArray()
+	defer logicalValues.Release()
+	logicalRunEnds := emptySlice.(*array.RunEndEncoded).LogicalRunEndsArray(mem)
+	defer logicalRunEnds.Release()
+
+	assert.Zero(t, logicalValues.Len())
+	assert.Zero(t, logicalRunEnds.Len())
+
+	empty := bldr.NewRunEndEncodedArray()
+	defer empty.Release()
+
+	assert.EqualValues(t, 0, empty.Data().Offset())
+	assert.EqualValues(t, 0, empty.Len())
+
+	logicalValues = empty.LogicalValuesArray()
+	defer logicalValues.Release()
+	logicalRunEnds = empty.LogicalRunEndsArray(mem)
+	defer logicalRunEnds.Release()
+
+	assert.Zero(t, logicalValues.Len())
+	assert.Zero(t, logicalRunEnds.Len())
+}
+
+func TestRunEndEncodedUnmarshalJSON(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	bldr := array.NewRunEndEncodedBuilder(mem, arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
+	defer bldr.Release()
+
+	const testJSON = `
+		[ null, "a", "a", "a", "b", "b", "b", null, null, "c", "d", "d", "d", null, null, null, "e", "e"]`
+
+	require.NoError(t, json.Unmarshal([]byte(testJSON), bldr))
+	arr := bldr.NewRunEndEncodedArray()
+	defer arr.Release()
+
+	expectedValues, _, err := array.FromJSON(mem, arrow.BinaryTypes.String,
+		strings.NewReader(`[null, "a", "b", null, "c", "d", null, "e"]`))
+	require.NoError(t, err)
+	defer expectedValues.Release()
+
+	assert.EqualValues(t, 18, arr.Len())
+	assert.Equal(t, []int16{1, 4, 7, 9, 10, 13, 16, 18}, arr.RunEndsArr().(*array.Int16).Int16Values())
+	logicalValues := arr.LogicalValuesArray()
+	defer logicalValues.Release()
+
+	assert.Truef(t, array.Equal(logicalValues, expectedValues), "expected: %s\ngot: %s", expectedValues, logicalValues)
+}
+
+func TestRunEndEncodedUnmarshalNestedJSON(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	bldr := array.NewRunEndEncodedBuilder(mem, arrow.PrimitiveTypes.Int16,
+		arrow.ListOf(arrow.PrimitiveTypes.Int32))
+	defer bldr.Release()
+
+	const testJSON = `
+		[null, [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, null, 3], [4, 5, null], null, null, 
+		[4, 5, null], [4, 5, null], [4, 5, null]]
+	`
+
+	require.NoError(t, json.Unmarshal([]byte(testJSON), bldr))
+	arr := bldr.NewRunEndEncodedArray()
+	defer arr.Release()
+
+	assert.EqualValues(t, 11, arr.Len())
+	assert.Equal(t, []int16{1, 4, 5, 6, 8, 11}, arr.RunEndsArr().(*array.Int16).Int16Values())
+
+	expectedValues, _, err := array.FromJSON(mem, arrow.ListOf(arrow.PrimitiveTypes.Int32),
+		strings.NewReader(`[null, [1, 2, 3], [1, null, 3], [4, 5, null], null, [4, 5, null]]`))
+	require.NoError(t, err)
+	defer expectedValues.Release()
+
+	logicalValues := arr.LogicalValuesArray()
+	defer logicalValues.Release()
+
+	assert.Truef(t, array.Equal(logicalValues, expectedValues), "expected: %s\ngot: %s", expectedValues, logicalValues)
 }

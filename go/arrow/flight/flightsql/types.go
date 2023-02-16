@@ -24,8 +24,14 @@ import (
 
 // Constants for Action types
 const (
-	CreatePreparedStatementActionType = "CreatePreparedStatement"
-	ClosePreparedStatementActionType  = "ClosePreparedStatement"
+	CreatePreparedStatementActionType     = "CreatePreparedStatement"
+	ClosePreparedStatementActionType      = "ClosePreparedStatement"
+	CreatePreparedSubstraitPlanActionType = "CreatePreparedSubstraitPlan"
+	CancelQueryActionType                 = "CancelQuery"
+	BeginSavepointActionType              = "BeginSavepoint"
+	BeginTransactionActionType            = "BeginTransaction"
+	EndTransactionActionType              = "EndTransaction"
+	EndSavepointActionType                = "EndSavepoint"
 )
 
 func toCrossTableRef(cmd *pb.CommandGetCrossReference) CrossTableRef {
@@ -119,6 +125,15 @@ type (
 	// since we are hiding the Protobuf internals in an internal
 	// package, we need to provide enum values for the SqlInfo enum here
 	SqlInfo uint32
+
+	// SubstraitPlan represents a plan to be executed, along with
+	// the associated metadata
+	SubstraitPlan struct {
+		// the serialized plan
+		Plan []byte
+		// the substrait release, e.g. "0.23.0"
+		Version string
+	}
 )
 
 // SqlInfo enum values
@@ -139,6 +154,49 @@ const (
 	// - false: if read-write
 	// - true: if read only
 	SqlInfoFlightSqlServerReadOnly = SqlInfo(pb.SqlInfo_FLIGHT_SQL_SERVER_READ_ONLY)
+
+	// Retrieves a boolean value indicating whether the Flight SQL Server supports executing
+	// SQL queries.
+	//
+	// Note that the absence of this info (as opposed to a false value) does not necessarily
+	// mean that SQL is not supported, as this property was not originally defined.
+	SqlInfoFlightSqlServerSql = SqlInfo(pb.SqlInfo_FLIGHT_SQL_SERVER_SQL)
+
+	// Retrieves a boolean value indicating whether the Flight SQL Server supports executing
+	// Substrait plans.
+	SqlInfoFlightSqlServerSubstrait = SqlInfo(pb.SqlInfo_FLIGHT_SQL_SERVER_SUBSTRAIT)
+
+	// Retrieves a string value indicating the minimum supported Substrait version, or null
+	// if Substrait is not supported.
+	SqlInfoFlightSqlServerSubstraitMinVersion = SqlInfo(pb.SqlInfo_FLIGHT_SQL_SERVER_SUBSTRAIT_MIN_VERSION)
+
+	// Retrieves a string value indicating the maximum supported Substrait version, or null
+	// if Substrait is not supported.
+	SqlInfoFlightSqlServerSubstraitMaxVersion = SqlInfo(pb.SqlInfo_FLIGHT_SQL_SERVER_SUBSTRAIT_MAX_VERSION)
+
+	// Retrieves an int32 indicating whether the Flight SQL Server supports the
+	// BeginTransaction/EndTransaction/BeginSavepoint/EndSavepoint actions.
+	//
+	// Even if this is not supported, the database may still support explicit "BEGIN
+	// TRANSACTION"/"COMMIT" SQL statements (see SQL_TRANSACTIONS_SUPPORTED); this property
+	// is only about whether the server implements the Flight SQL API endpoints.
+	//
+	// The possible values are listed in `SqlSupportedTransaction`.
+	SqlInfoFlightSqlServerTransaction = SqlInfo(pb.SqlInfo_FLIGHT_SQL_SERVER_TRANSACTION)
+
+	// Retrieves a boolean value indicating whether the Flight SQL Server supports explicit
+	// query cancellation (the CancelQuery action).
+	SqlInfoFlightSqlServerCancel = SqlInfo(pb.SqlInfo_FLIGHT_SQL_SERVER_CANCEL)
+
+	// Retrieves an int32 indicating the timeout (in milliseconds) for prepared statement handles.
+	//
+	// If 0, there is no timeout.  Servers should reset the timeout when the handle is used in a command.
+	SqlInfoFlightSqlServerStatementTimeout = SqlInfo(pb.SqlInfo_FLIGHT_SQL_SERVER_STATEMENT_TIMEOUT)
+
+	// Retrieves an int32 indicating the timeout (in milliseconds) for transactions, since transactions are not tied to a connection.
+	//
+	// If 0, there is no timeout.  Servers should reset the timeout when the handle is used in a command.
+	SqlInfoFlightSqlServerTransactionTimeout = SqlInfo(pb.SqlInfo_FLIGHT_SQL_SERVER_TRANSACTION_TIMEOUT)
 
 	// SQL Syntax Information
 	// Values [500-1000): provide information about the supported SQL Syntax
@@ -687,6 +745,19 @@ const (
 
 func (s SqlInfo) String() string { return pb.SqlInfo(int32(s)).String() }
 
+type SqlSupportedTransaction = pb.SqlSupportedTransaction
+
+const (
+	// Unknown/not indicated/no support
+	SqlTransactionNone = pb.SqlSupportedTransaction_SQL_SUPPORTED_TRANSACTION_NONE
+	// Transactions, but not savepoints.
+	// a savepoint is a mark within a transaction that can be individually
+	// rolled back to. Not all databases support savepoints.
+	SqlTransactionTransaction = pb.SqlSupportedTransaction_SQL_SUPPORTED_TRANSACTION_TRANSACTION
+	// Transactions AND Savepoints supported
+	SqlTransactionSavepoint = pb.SqlSupportedTransaction_SQL_SUPPORTED_TRANSACTION_SAVEPOINT
+)
+
 // SqlSupportedCaseSensitivity indicates whether something
 // (e.g. an identifier) is case-sensitive
 //
@@ -742,4 +813,42 @@ const (
 	SqlConvertTinyInt           = pb.SqlSupportsConvert_SQL_CONVERT_TINYINT
 	SqlConvertVarbinary         = pb.SqlSupportsConvert_SQL_CONVERT_VARBINARY
 	SqlConvertVarchar           = pb.SqlSupportsConvert_SQL_CONVERT_VARCHAR
+)
+
+type EndTransactionRequestType = pb.ActionEndTransactionRequest_EndTransaction
+
+const (
+	EndTransactionUnspecified = pb.ActionEndTransactionRequest_END_TRANSACTION_UNSPECIFIED
+	// Commit the transaction
+	EndTransactionCommit = pb.ActionEndTransactionRequest_END_TRANSACTION_COMMIT
+	// Roll back the transaction
+	EndTransactionRollback = pb.ActionEndTransactionRequest_END_TRANSACTION_ROLLBACK
+)
+
+type EndSavepointRequestType = pb.ActionEndSavepointRequest_EndSavepoint
+
+const (
+	EndSavepointUnspecified = pb.ActionEndSavepointRequest_END_SAVEPOINT_UNSPECIFIED
+	// Release the savepoint
+	EndSavepointRelease = pb.ActionEndSavepointRequest_END_SAVEPOINT_RELEASE
+	// Roll back to a savepoint
+	EndSavepointRollback = pb.ActionEndSavepointRequest_END_SAVEPOINT_ROLLBACK
+)
+
+type CancelResult = pb.ActionCancelQueryResult_CancelResult
+
+const (
+	// The cancellation status is unknown. Servers should avoid using
+	// this value (send a NOT_FOUND error if the requested query is
+	// not known). Clients can retry the request.
+	CancelResultUnspecified = pb.ActionCancelQueryResult_CANCEL_RESULT_UNSPECIFIED
+	// The cancellation request is complete. Subsequent requests with
+	// the same payload may return CANCELLED or a NOT_FOUND error.
+	CancelResultCancelled = pb.ActionCancelQueryResult_CANCEL_RESULT_CANCELLED
+	// The cancellation request is in progress. The client may retry
+	// the cancellation request.
+	CancelResultCancelling = pb.ActionCancelQueryResult_CANCEL_RESULT_CANCELLING
+	// The query is not cancellable. The client should not retry the
+	// cancellation request.
+	CancelResultNotCancellable = pb.ActionCancelQueryResult_CANCEL_RESULT_NOT_CANCELLABLE
 )

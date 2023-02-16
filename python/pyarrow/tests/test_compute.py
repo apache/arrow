@@ -157,6 +157,7 @@ def test_option_class_equality():
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
+        pc.RoundBinaryOptions("towards_infinity"),
         pc.RoundTemporalOptions(1, "second", week_starts_monday=True),
         pc.RoundToMultipleOptions(100, "towards_infinity"),
         pc.ScalarAggregateOptions(),
@@ -1586,6 +1587,23 @@ def test_round_to_multiple():
     for multiple in [object, 99999999999999999999999]:
         with pytest.raises(TypeError, match="is not a valid multiple type"):
             pc.round_to_multiple(values, multiple=multiple)
+
+
+def test_round_binary():
+    values = [123.456, 234.567, 345.678, 456.789, 123.456, 234.567, 345.678]
+    scales = pa.array([-3, -2, -1, 0, 1, 2, 3], pa.int32())
+    expected = pa.array(
+        [0, 200, 350, 457, 123.5, 234.57, 345.678], pa.float64())
+    assert pc.round_binary(values, scales) == expected
+
+    expect_zero = pa.scalar(0, pa.float64())
+    expect_inf = pa.scalar(10, pa.float64())
+    scale = pa.scalar(-1, pa.int32())
+
+    assert pc.round_binary(
+        5, scale, round_mode="half_towards_zero") == expect_zero
+    assert pc.round_binary(
+        5, scale, round_mode="half_towards_infinity") == expect_inf
 
 
 def test_is_null():

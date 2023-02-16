@@ -157,6 +157,18 @@ TYPED_TEST(TestDictionaryBuilder, MakeBuilder) {
   AssertArraysEqual(expected, *result);
 }
 
+TYPED_TEST(TestDictionaryBuilder, Empty) {
+  DictionaryBuilder<TypeParam> dictionary_builder;
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> empty_arr, dictionary_builder.Finish());
+  std::shared_ptr<DictionaryArray> empty_dict_arr =
+      checked_pointer_cast<DictionaryArray>(empty_arr);
+  // Ensure that the indices value buffer is initialized
+  ASSERT_NE(nullptr, empty_dict_arr->data()->buffers[1]);
+  // Ensure that the dictionary's value buffer is initialized
+  ASSERT_NE(nullptr, empty_dict_arr->dictionary());
+  ASSERT_NE(nullptr, empty_dict_arr->dictionary()->data()->buffers[1]);
+}
+
 TYPED_TEST(TestDictionaryBuilder, ArrayConversion) {
   auto type = std::make_shared<TypeParam>();
 

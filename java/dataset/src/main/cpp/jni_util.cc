@@ -115,6 +115,10 @@ class ReservationListenableMemoryPool::Impl {
 
   int64_t max_memory() { return stats_.max_memory(); }
 
+  int64_t total_bytes_allocated() { return stats_.total_bytes_allocated(); }
+
+  int64_t num_allocations() { return stats_.num_allocations(); }
+
   std::string backend_name() { return pool_->backend_name(); }
 
   std::shared_ptr<ReservationListener> get_listener() { return listener_; }
@@ -156,6 +160,14 @@ int64_t ReservationListenableMemoryPool::bytes_allocated() const {
 
 int64_t ReservationListenableMemoryPool::max_memory() const {
   return impl_->max_memory();
+}
+
+int64_t ReservationListenableMemoryPool::total_bytes_allocated() const {
+  return impl_->total_bytes_allocated();
+}
+
+int64_t ReservationListenableMemoryPool::num_allocations() const {
+  return impl_->num_allocations();
 }
 
 std::string ReservationListenableMemoryPool::backend_name() const {

@@ -18,7 +18,7 @@
 # Aggregation functions
 # These all return a list of:
 # @param fun string function name
-# @param data Expression (these are all currently a single field)
+# @param data list of 0 or more Expressions
 # @param options list of function options, as passed to call_function
 # For group-by aggregation, `hash_` gets prepended to the function name.
 # So to see a list of available hash aggregation functions,
@@ -31,28 +31,7 @@ ensure_one_arg <- function(args, fun) {
   } else if (length(args) > 1) {
     arrow_not_supported(paste0("Multiple arguments to ", fun, "()"))
   }
-  args[[1]]
-}
-
-agg_fun_output_type <- function(fun, input_type, hash) {
-  # These are quick and dirty heuristics.
-  if (fun %in% c("any", "all")) {
-    bool()
-  } else if (fun %in% "sum") {
-    # It may upcast to a bigger type but this is close enough
-    input_type
-  } else if (fun %in% c("mean", "stddev", "variance", "approximate_median")) {
-    float64()
-  } else if (fun %in% "tdigest") {
-    if (hash) {
-      fixed_size_list_of(float64(), 1L)
-    } else {
-      float64()
-    }
-  } else {
-    # Just so things don't error, assume the resulting type is the same
-    input_type
-  }
+  args
 }
 
 register_bindings_aggregate <- function() {
@@ -80,21 +59,21 @@ register_bindings_aggregate <- function() {
   register_binding_agg("base::mean", function(x, na.rm = FALSE) {
     list(
       fun = "mean",
-      data = x,
+      data = list(x),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
   register_binding_agg("stats::sd", function(x, na.rm = FALSE, ddof = 1) {
     list(
       fun = "stddev",
-      data = x,
+      data = list(x),
       options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
     )
   })
   register_binding_agg("stats::var", function(x, na.rm = FALSE, ddof = 1) {
     list(
       fun = "variance",
-      data = x,
+      data = list(x),
       options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
     )
   })
@@ -114,7 +93,7 @@ register_bindings_aggregate <- function() {
       )
       list(
         fun = "tdigest",
-        data = x,
+        data = list(x),
         options = list(skip_nulls = na.rm, q = probs)
       )
     },
@@ -136,7 +115,7 @@ register_bindings_aggregate <- function() {
       )
       list(
         fun = "approximate_median",
-        data = x,
+        data = list(x),
         options = list(skip_nulls = na.rm)
       )
     },
@@ -151,8 +130,8 @@ register_bindings_aggregate <- function() {
   })
   register_binding_agg("dplyr::n", function() {
     list(
-      fun = "sum",
-      data = Expression$scalar(1L),
+      fun = "count_all",
+      data = list(),
       options = list()
     )
   })
@@ -322,15 +301,72 @@ arrow_eval_or_stop <- function(expr, mask) {
   out
 }
 
+# This function returns a list of expressions which is used to project the data
+# before an aggregation. This list includes the fields used in the aggregation
+# expressions (the "targets") and the group fields. The names of the returned
+# list are used to ensure that the projection node is wired up correctly to the
+# aggregation node.
 summarize_projection <- function(.data) {
   c(
-    map(.data$aggregations, ~ .$data),
+    unlist(unname(imap(
+      .data$aggregations,
+      ~set_names(
+        .x$data,
+        aggregate_target_names(.x$data, .y)
+      )
+    ))),
     .data$selected_columns[.data$group_by_vars]
   )
 }
 
+# This function determines what names to give to the fields used in an
+# aggregation expression (the "targets"). When an aggregate function takes 2 or
+# more fields as targets, this function gives the fields unique names by
+# appending `..1`, `..2`, etc. When an aggregate function is nullary, this
+# function returns a zero-length character vector.
+aggregate_target_names <- function(data, name) {
+  if (length(data) > 1) {
+    paste(name, seq_along(data), sep = "..")
+  } else if (length(data) > 0) {
+    name
+  } else {
+    character(0)
+  }
+}
+
+# This function returns a named list of the data types of the aggregate columns
+# returned by an aggregation
+aggregate_types <- function(.data, hash, schema = NULL) {
+  if (hash) dummy_groups <- Scalar$create(1L, uint32())
+  map(
+    .data$aggregations,
+    ~if (hash) {
+      Expression$create(
+        paste0("hash_", .$fun),
+        # hash aggregate kernels must be passed an additional argument
+        # representing the groups, so we pass in a dummy scalar, since the
+        # groups will not affect the type that an aggregation returns
+        args = c(.$data, dummy_groups),
+        options = .$options
+      )$type(schema)
+    } else {
+      Expression$create(
+        .$fun,
+        args = .$data,
+        options = .$options
+      )$type(schema)
+    }
+  )
+}
+
+# This function returns a named list of the data types of the group columns
+# returned by an aggregation
+group_types <- function(.data, schema = NULL) {
+  map(.data$selected_columns[.data$group_by_vars], ~.$type(schema))
+}
+
 format_aggregation <- function(x) {
-  paste0(x$fun, "(", x$data$ToString(), ")")
+  paste0(x$fun, "(", paste(map(x$data, ~.$ToString()), collapse = ","), ")")
 }
 
 # This function handles each summarize expression and turns it into the
@@ -414,7 +450,7 @@ summarize_eval <- function(name, quosure, ctx, hash) {
     # Something like: fun(agg(x), agg(y))
     # So based on the aggregations that have been extracted, mutate after
     agg_field_refs <- make_field_refs(names(ctx$aggregations))
-    agg_field_types <- lapply(ctx$aggregations, function(x) x$data$type())
+    agg_field_types <- aggregate_types(ctx$aggregations, hash)
 
     mutate_mask <- arrow_mask(
       list(
