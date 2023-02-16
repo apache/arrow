@@ -29,6 +29,8 @@ namespace Apache.Arrow
         public IReadOnlyList<Field> FieldsList => _fieldsList;
         private readonly List<Field> _fieldsList;
 
+        public ILookup<string, Field> FieldsLookup { get; }
+
         public IReadOnlyDictionary<string, string> Metadata { get; }
 
         public bool HasMetadata => Metadata != null && Metadata.Count > 0;
@@ -43,7 +45,8 @@ namespace Apache.Arrow
             }
 
             _fieldsList = fields.ToList();
-            _fieldsDictionary = _fieldsList.ToLookup(f => f.Name).ToDictionary(g => g.Key, g => g.First());
+            FieldsLookup = _fieldsList.ToLookup(f => f.Name);
+            _fieldsDictionary = FieldsLookup.ToDictionary(g => g.Key, g => g.First());
 
             Metadata = metadata?.ToDictionary(kv => kv.Key, kv => kv.Value);
         }
@@ -54,14 +57,15 @@ namespace Apache.Arrow
             Debug.Assert(copyCollections == false, "This internal constructor is to not copy the collections.");
 
             _fieldsList = fieldsList;
-            _fieldsDictionary = _fieldsList.ToLookup(f => f.Name).ToDictionary(g => g.Key, g => g.First());
+            FieldsLookup = _fieldsList.ToLookup(f => f.Name);
+            _fieldsDictionary = FieldsLookup.ToDictionary(g => g.Key, g => g.First());
 
             Metadata = metadata;
         }
 
         public Field GetFieldByIndex(int i) => _fieldsList[i];
 
-        public Field GetFieldByName(string name) => FieldsList.FirstOrDefault(x => x.Name == name);
+        public Field GetFieldByName(string name) => FieldsLookup[name].First();
 
         public int GetFieldIndex(string name, StringComparer comparer = default)
         {
