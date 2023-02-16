@@ -122,7 +122,7 @@ namespace Apache.Arrow
 
             public Builder Append(RecordBatch batch)
             {
-                foreach (Field field in batch.Schema.FieldList)
+                foreach (Field field in batch.Schema.FieldsList)
                 {
                     _schemaBuilder.Field(field);
                 }

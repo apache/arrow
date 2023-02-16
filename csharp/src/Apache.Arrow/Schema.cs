@@ -22,14 +22,12 @@ namespace Apache.Arrow
 {
     public partial class Schema
     {
-        [Obsolete("Use `FieldList` instead")]
+        [Obsolete("Use `FieldsList` instead")]
         public IReadOnlyDictionary<string, Field> Fields => _fieldsDictionary;
-
         private readonly Dictionary<string, Field> _fieldsDictionary;
 
-        public IReadOnlyList<Field> FieldList => _fields;
-
-        private readonly List<Field> _fields;
+        public IReadOnlyList<Field> FieldsList => _fieldsList;
+        private readonly List<Field> _fieldsList;
 
         public IReadOnlyDictionary<string, string> Metadata { get; }
 
@@ -44,44 +42,42 @@ namespace Apache.Arrow
                 throw new ArgumentNullException(nameof(fields));
             }
 
-            _fields = fields.ToList();
-
-            _fieldsDictionary = _fields.GroupBy(f => f.Name).ToDictionary(g => g.Key, g => g.First());
+            _fieldsList = fields.ToList();
+            _fieldsDictionary = _fieldsList.ToLookup(f => f.Name).ToDictionary(g => g.Key, g => g.First());
 
             Metadata = metadata?.ToDictionary(kv => kv.Key, kv => kv.Value);
         }
 
-        internal Schema(List<Field> fields, IReadOnlyDictionary<string, string> metadata, bool copyCollections)
+        internal Schema(List<Field> fieldsList, IReadOnlyDictionary<string, string> metadata, bool copyCollections)
         {
-            Debug.Assert(fields != null);
+            Debug.Assert(fieldsList != null);
             Debug.Assert(copyCollections == false, "This internal constructor is to not copy the collections.");
 
-            _fields = fields;
-
-            _fieldsDictionary = _fields.GroupBy(f => f.Name).ToDictionary(g => g.Key, g => g.First());
+            _fieldsList = fieldsList;
+            _fieldsDictionary = _fieldsList.ToLookup(f => f.Name).ToDictionary(g => g.Key, g => g.First());
 
             Metadata = metadata;
         }
 
-        public Field GetFieldByIndex(int i) => _fields[i];
+        public Field GetFieldByIndex(int i) => _fieldsList[i];
 
-        public Field GetFieldByName(string name) => FieldList.FirstOrDefault(x => x.Name == name);
+        public Field GetFieldByName(string name) => FieldsList.FirstOrDefault(x => x.Name == name);
 
         public int GetFieldIndex(string name, StringComparer comparer = default)
         {
             comparer ??= StringComparer.CurrentCulture;
 
-            return _fields.IndexOf(_fields.First(x => comparer.Compare(x.Name, name) == 0));
+            return _fieldsList.IndexOf(_fieldsList.First(x => comparer.Compare(x.Name, name) == 0));
         }
 
         public Schema RemoveField(int fieldIndex)
         {
-            if (fieldIndex < 0 || fieldIndex >= _fields.Count)
+            if (fieldIndex < 0 || fieldIndex >= _fieldsList.Count)
             {
                 throw new ArgumentException("Invalid fieldIndex", nameof(fieldIndex));
             }
 
-            IList<Field> fields = Utility.DeleteListElement(_fields, fieldIndex);
+            IList<Field> fields = Utility.DeleteListElement(_fieldsList, fieldIndex);
 
             return new Schema(fields, Metadata);
         }
@@ -89,24 +85,24 @@ namespace Apache.Arrow
         public Schema InsertField(int fieldIndex, Field newField)
         {
             newField = newField ?? throw new ArgumentNullException(nameof(newField));
-            if (fieldIndex < 0 || fieldIndex > _fields.Count)
+            if (fieldIndex < 0 || fieldIndex > _fieldsList.Count)
             {
                 throw new ArgumentException(nameof(fieldIndex), $"Invalid fieldIndex {fieldIndex} passed in to Schema.AddField");
             }
 
-            IList<Field> fields = Utility.AddListElement(_fields, fieldIndex, newField);
+            IList<Field> fields = Utility.AddListElement(_fieldsList, fieldIndex, newField);
 
             return new Schema(fields, Metadata);
         }
 
         public Schema SetField(int fieldIndex, Field newField)
         {
-            if (fieldIndex < 0 || fieldIndex >= _fields.Count)
+            if (fieldIndex < 0 || fieldIndex >= _fieldsList.Count)
             {
                 throw new ArgumentException($"Invalid fieldIndex {fieldIndex} passed in to Schema.SetColumn");
             }
 
-            IList<Field> fields = Utility.SetListElement(_fields, fieldIndex, newField);
+            IList<Field> fields = Utility.SetListElement(_fieldsList, fieldIndex, newField);
 
             return new Schema(fields, Metadata);
         }

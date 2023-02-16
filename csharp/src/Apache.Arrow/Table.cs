@@ -32,7 +32,7 @@ namespace Apache.Arrow
         public static Table TableFromRecordBatches(Schema schema, IList<RecordBatch> recordBatches)
         {
             int nBatches = recordBatches.Count;
-            int nColumns = schema.FieldList.Count;
+            int nColumns = schema.FieldsList.Count;
 
             List<Column> columns = new List<Column>(nColumns);
             for (int icol = 0; icol < nColumns; icol++)

@@ -409,7 +409,7 @@ namespace Apache.Arrow.Ipc
 
         private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(RecordBatch recordBatch)
         {
-            return PreparingWritingRecordBatch(recordBatch.Schema.FieldList, recordBatch.ArrayList);
+            return PreparingWritingRecordBatch(recordBatch.Schema.FieldsList, recordBatch.ArrayList);
         }
 
         private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(IReadOnlyList<Field> fields, IReadOnlyList<IArrowArray> arrays)
@@ -456,7 +456,7 @@ namespace Apache.Arrow.Ipc
 
         private protected void WriteDictionaries(RecordBatch recordBatch)
         {
-            foreach (Field field in recordBatch.Schema.FieldList)
+            foreach (Field field in recordBatch.Schema.FieldsList)
             {
                 WriteDictionary(field);
             }
@@ -487,7 +487,7 @@ namespace Apache.Arrow.Ipc
 
         private protected async Task WriteDictionariesAsync(RecordBatch recordBatch, CancellationToken cancellationToken)
         {
-            foreach (Field field in recordBatch.Schema.FieldList)
+            foreach (Field field in recordBatch.Schema.FieldsList)
             {
                 await WriteDictionaryAsync(field, cancellationToken).ConfigureAwait(false);
             }
@@ -644,7 +644,7 @@ namespace Apache.Arrow.Ipc
             }
 
             // Build fields
-            var fieldOffsets = new Offset<Flatbuf.Field>[schema.FieldList.Count];
+            var fieldOffsets = new Offset<Flatbuf.Field>[schema.FieldsList.Count];
             for (int i = 0; i < fieldOffsets.Length; i++)
             {
                 Field field = schema.GetFieldByIndex(i);
@@ -928,7 +928,7 @@ namespace Apache.Arrow.Ipc
         internal static void Collect(RecordBatch recordBatch, ref DictionaryMemo dictionaryMemo)
         {
             Schema schema = recordBatch.Schema;
-            for (int i = 0; i < schema.FieldList.Count; i++)
+            for (int i = 0; i < schema.FieldsList.Count; i++)
             {
                 Field field = schema.GetFieldByIndex(i);
                 IArrowArray array = recordBatch.Column(i);

@@ -33,7 +33,7 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("f0").DataType(Int32Type.Default))
                     .Build();
 
-                Assert.True(schema.FieldList[0].IsNullable);
+                Assert.True(schema.FieldsList[0].IsNullable);
             }
 
             [Fact]
@@ -43,7 +43,7 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("f0"))
                     .Build();
 
-                Assert.Equal(typeof(NullType), schema.FieldList[0].DataType.GetType());
+                Assert.Equal(typeof(NullType), schema.FieldsList[0].DataType.GetType());
             }
 
             [Fact]
@@ -65,7 +65,7 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("F0").DataType(Int8Type.Default))
                     .Build();
 
-                Assert.Equal(2, schema.FieldList.Count);
+                Assert.Equal(2, schema.FieldsList.Count);
             }
 
             [Fact]
@@ -76,7 +76,7 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("f0").DataType(Int8Type.Default))
                     .Build();
 
-                Assert.Equal(2, schema.FieldList.Count);
+                Assert.Equal(2, schema.FieldsList.Count);
             }
 
             [Fact]
@@ -221,7 +221,7 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name(name).DataType(type).Nullable(nullable))
                     .Build();
 
-                var field = schema.FieldList[0];
+                var field = schema.FieldsList[0];
 
                 Assert.Equal(name, field.Name);
                 Assert.Equal(type.Name, field.DataType.Name);
