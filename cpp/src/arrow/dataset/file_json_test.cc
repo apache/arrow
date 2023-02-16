@@ -158,17 +158,97 @@ class JsonFormatHelper {
   }
 };
 
+std::shared_ptr<FileSource> ToFileSource(std::string json) {
+  return std::make_shared<FileSource>(Buffer::FromString(std::move(json)));
+}
+
+// Mixin for additional JSON-specific tests, compatibile with both format APIs.
+template <typename T>
+class JsonScanMixin {
+ public:
+  void TestCustomParseOptions() {
+    auto source = ToFileSource("{\n\"i\":0\n}\n{\n\"i\":1\n}");
+    auto fragment = this_->MakeFragment(*source);
+    this_->SetSchema({field("i", int64())});
+
+    JsonFragmentScanOptions json_options;
+    json_options.parse_options.newlines_in_values = true;
+    this_->SetJsonOptions(std::move(json_options));
+
+    int64_t num_rows = 0;
+    for (auto maybe_batch : this_->Batches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      num_rows += batch->num_rows();
+    }
+
+    ASSERT_EQ(num_rows, 2);
+  }
+
+  void TestCustomBlockSize() {
+    auto source = ToFileSource("{\"i\":0}\n{\"i\":1}\n{\"i\":2}");
+    auto fragment = this_->MakeFragment(*source);
+    this_->SetSchema({field("i", int64())});
+
+    JsonFragmentScanOptions json_options;
+    json_options.read_options.block_size = 8;
+    this_->SetJsonOptions(std::move(json_options));
+
+    int64_t num_rows = 0;
+    for (auto maybe_batch : this_->Batches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      // The reader should yield one row per batch, so the scanned batch size shouldn't
+      // exceed that.
+      EXPECT_LE(batch->num_rows(), 1);
+      num_rows += batch->num_rows();
+    }
+
+    ASSERT_EQ(num_rows, 3);
+  }
+
+  void TestScanWithParallelDecoding() {
+    // Test intra-fragment parallelism, which the JSON reader supports independent of the
+    // scanner. We set a small block size to stress thread usage alongside the scanner's
+    // inter-fragment parallelism (when threading is enabled).
+    JsonFragmentScanOptions json_options;
+    json_options.read_options.use_threads = true;
+    json_options.read_options.block_size = 256;
+    this_->SetJsonOptions(std::move(json_options));
+    this_->TestScan();
+  }
+
+ private:
+  T* const this_ = static_cast<T*>(this);
+};
+
 class TestJsonFormat
     : public FileFormatFixtureMixin<JsonFormatHelper, json::kMaxParserNumRows> {};
 
-class TestJsonFormatScan : public FileFormatScanMixin<JsonFormatHelper> {};
+class TestJsonFormatV2
+    : public FileFormatFixtureMixinV2<JsonFormatHelper, json::kMaxParserNumRows> {};
 
-class TestJsonFormatScanNode : public FileFormatScanNodeMixin<JsonFormatHelper> {
+class TestJsonFormatScan : public FileFormatScanMixin<JsonFormatHelper>,
+                           public JsonScanMixin<TestJsonFormatScan> {
+ public:
+  void SetJsonOptions(JsonFragmentScanOptions options = {}) {
+    opts_->fragment_scan_options =
+        std::make_shared<JsonFragmentScanOptions>(std::move(options));
+  }
+};
+
+class TestJsonFormatScanNode : public FileFormatScanNodeMixin<JsonFormatHelper>,
+                               public JsonScanMixin<TestJsonFormatScanNode> {
+ public:
+  void SetSchema(FieldVector fields) { SetDatasetSchema(std::move(fields)); }
+
+  void SetJsonOptions(JsonFragmentScanOptions options = {}) {
+    json_options_ = std::move(options);
+  }
+
+ protected:
   void SetUp() override { internal::Initialize(); }
 
   const FragmentScanOptions* GetFormatOptions() override { return &json_options_; }
 
- protected:
   JsonFragmentScanOptions json_options_;
 };
 
@@ -178,6 +258,7 @@ TEST_F(TestJsonFormat, Equals) {
   ASSERT_FALSE(format.Equals(DummyFileFormat()));
 }
 
+// Common tests for old API
 TEST_F(TestJsonFormat, IsSupported) { TestIsSupported(); }
 TEST_F(TestJsonFormat, Inspect) { TestInspect(); }
 TEST_F(TestJsonFormat, FragmentEquals) { TestFragmentEquals(); }
@@ -186,6 +267,16 @@ TEST_F(TestJsonFormat, InspectFailureWithRelevantError) {
 }
 TEST_F(TestJsonFormat, CountRows) { TestCountRows(); }
 
+// Common tests for new API
+TEST_F(TestJsonFormatV2, IsSupported) { TestIsSupported(); }
+TEST_F(TestJsonFormatV2, Inspect) { TestInspect(); }
+TEST_F(TestJsonFormatV2, FragmentEquals) { TestFragmentEquals(); }
+TEST_F(TestJsonFormatV2, InspectFailureWithRelevantError) {
+  TestInspectFailureWithRelevantError(StatusCode::Invalid, "JSON");
+}
+TEST_F(TestJsonFormatV2, CountRows) { TestCountRows(); }
+
+// Common tests for old scanner
 TEST_P(TestJsonFormatScan, Scan) { TestScan(); }
 TEST_P(TestJsonFormatScan, ScanBatchSize) { TestScanBatchSize(); }
 TEST_P(TestJsonFormatScan, ScanProjected) { TestScanProjected(); }
@@ -196,16 +287,27 @@ TEST_P(TestJsonFormatScan, ScanWithVirtualColumn) { TestScanWithVirtualColumn();
 TEST_P(TestJsonFormatScan, ScanWithPushdownNulls) { TestScanWithPushdownNulls(); }
 TEST_P(TestJsonFormatScan, ScanProjectedMissingCols) { TestScanProjectedMissingCols(); }
 TEST_P(TestJsonFormatScan, ScanProjectedNested) { TestScanProjectedNested(); }
+// JSON-specific tests for old scanner
+TEST_P(TestJsonFormatScan, CustomParseOptions) { TestCustomParseOptions(); }
+TEST_P(TestJsonFormatScan, CustomBlockSize) { TestCustomBlockSize(); }
+TEST_P(TestJsonFormatScan, ScanWithParallelDecoding) { TestScanWithParallelDecoding(); }
 
 INSTANTIATE_TEST_SUITE_P(TestJsonScan, TestJsonFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);
 
+// Common tests for new scanner
 TEST_P(TestJsonFormatScanNode, Scan) { TestScan(); }
 TEST_P(TestJsonFormatScanNode, ScanMissingFilterField) { TestScanMissingFilterField(); }
 TEST_P(TestJsonFormatScanNode, ScanProjected) { TestScanProjected(); }
 TEST_P(TestJsonFormatScanNode, ScanProjectedMissingColumns) {
   TestScanProjectedMissingCols();
+}
+// JSON-specific tests for new scanner
+TEST_P(TestJsonFormatScanNode, CustomParseOptions) { TestCustomParseOptions(); }
+TEST_P(TestJsonFormatScanNode, CustomBlockSize) { TestCustomBlockSize(); }
+TEST_P(TestJsonFormatScanNode, ScanWithParallelDecoding) {
+  TestScanWithParallelDecoding();
 }
 
 INSTANTIATE_TEST_SUITE_P(TestJsonScanNode, TestJsonFormatScanNode,
