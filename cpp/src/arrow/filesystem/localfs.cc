@@ -211,6 +211,8 @@ Result<FileInfo> StatFile(const std::string& path) {
   return info;
 }
 
+#endif
+
 Result<FileInfo> IdentifyFile(const std::string& path) {
   FileInfo info;
 
@@ -226,8 +228,6 @@ Result<FileInfo> IdentifyFile(const std::string& path) {
 
   return info;
 }
-
-#endif
 
 Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
                     int32_t nesting_depth, std::vector<FileInfo>* out) {

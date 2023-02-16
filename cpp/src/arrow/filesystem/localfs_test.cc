@@ -473,7 +473,7 @@ TYPED_TEST(TestLocalFS, StressGetFileInfoGenerator) {
 }
 
 TYPED_TEST(TestLocalFS, NeedsExtendedFileInfo) {
-  // Test setting needs_extended_file_info to true and false
+  // Test setting needs_extended_file_info to false
   ASSERT_OK(this->fs_->CreateDir("AB/CD"));
   CreateFile(this->fs_.get(), "AB/cd", "data");
 
@@ -488,6 +488,9 @@ TYPED_TEST(TestLocalFS, NeedsExtendedFileInfo) {
 
   ASSERT_EQ(infos[0].size(), -1);
   ASSERT_EQ(infos[1].size(), -1);
+
+  ASSERT_EQ(infos[0].mtime(), -1);
+  ASSERT_EQ(infos[1].mtime(), -1);
 }
 
 // TODO Should we test backslash paths on Windows?
