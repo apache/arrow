@@ -131,12 +131,15 @@ class FifoQueue : public ThrottledAsyncTaskScheduler::Queue {
   }
 
   return START_SCOPED_SPAN_WITH_PARENT_SV(task->span, parent, task->name(),
-                                          {{"task.cost", task->cost()}});
+                                          {{"task.cost", task->cost()},
+                                          {"span.type", "AsyncTask"}});
 }
 
 void TraceTaskQueued(AsyncTaskScheduler::Task* task, const util::tracing::Span& parent) {
   START_SCOPED_SPAN_WITH_PARENT_SV(task->span, parent, task->name(),
-                                   {{"task.cost", task->cost()}});
+                                   {{"task.cost", task->cost()},
+                                    {"span.type", "AsyncTask"},
+                                    {"task.queued", true}});
 }
 
 void TraceTaskFinished(AsyncTaskScheduler::Task* task) { END_SPAN(task->span); }
