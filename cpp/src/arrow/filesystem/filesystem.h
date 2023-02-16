@@ -132,7 +132,10 @@ struct ARROW_EXPORT FileSelector {
   bool recursive;
   /// The maximum number of subdirectories to recurse into.
   int32_t max_recursion;
-  /// If true, use stat() to obtain extended file metadata.
+  /// If false, may skip retrieving size and modification time metadata.
+  ///
+  /// On local filesystem, setting to false avoids an additional system call.
+  /// On other filesystems, this may have no effect.
   bool needs_extended_file_info;
 
   FileSelector()
