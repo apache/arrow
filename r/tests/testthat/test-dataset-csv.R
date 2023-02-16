@@ -552,8 +552,11 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   # schema
   ds <- open_csv_dataset(
     csv_dir,
-    schema = schema(int = int64(), dbl = int64(), lgl = bool(), chr = utf8(),
-    fct = utf8(), ts = timestamp(unit = "s"))
+    schema = schema(
+      int = int64(), dbl = int64(), lgl = bool(), chr = utf8(),
+      fct = utf8(), ts = timestamp(unit = "s")
+    ),
+    skip = 1
   ) %>% collect()
 
   expect_named(ds, c("int", "dbl", "lgl", "chr", "fct", "ts"))
@@ -571,4 +574,3 @@ test_that("open_delim_dataset params passed through to open_dataset", {
 
   expect_equal(ds$time, "16-01-2023")
 })
-
