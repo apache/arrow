@@ -1037,7 +1037,11 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
 
         RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
             reader_properties_.use_threads(), static_cast<int>(readers.size()),
-            [&](int i) { return readers[i]->NextBatch(batch_size, &columns[i]); }));
+            [&](int i) {
+                ::arrow::util::tracing::Span span;
+              START_SPAN(span, "parquet::arrow::GetRecordBatchReader::NextBatch");
+              return readers[i]->NextBatch(batch_size, &columns[i]);
+            }));
 
         for (const auto& column : columns) {
           if (column == nullptr || column->length() == 0) {
