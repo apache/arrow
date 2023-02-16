@@ -79,12 +79,16 @@ class ProjectNode : public MapNode {
 
   Result<ExecBatch> ProcessBatch(ExecBatch batch) override {
     std::vector<Datum> values{exprs_.size()};
+    util::tracing::Span span;
+    START_COMPUTE_SPAN(span, "Project", {{"project.length", batch.length }});
     for (size_t i = 0; i < exprs_.size(); ++i) {
-      util::tracing::Span span;
-      START_COMPUTE_SPAN(span, "Project",
-                         {{"project.type", exprs_[i].type()->ToString()},
-                          {"project.length", batch.length},
-                          {"project.expression", exprs_[i].ToString()}});
+#ifdef ARROW_WITH_OPENTELEMETRY
+    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
+            ::arrow::internal::tracing::UnwrapSpan(span.details.get());
+    std::string project_name = "project[" + std::to_string(i) + "]";
+    raw_span->SetAttribute(project_name + ".type", exprs_[i].type()->ToString());
+    raw_span->SetAttribute(project_name + ".expression", exprs_[i].ToString());
+#endif
       ARROW_ASSIGN_OR_RAISE(Expression simplified_expr,
                             SimplifyWithGuarantee(exprs_[i], batch.guarantee));
 
