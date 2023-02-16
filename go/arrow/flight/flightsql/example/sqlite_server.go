@@ -675,7 +675,6 @@ func (s *SQLiteFlightSQLServer) DoGetPrimaryKeys(ctx context.Context, cmd flight
 	// being set to null following the same pattern for catalog name and schema_name
 	var b strings.Builder
 
-	b.WriteByte(':')
 	b.WriteString(`
 	SELECT null AS catalog_name, null AS schema_name, table_name, name AS column_name, pk AS key_sequence, null as key_name
 	FROM pragma_table_info(table_name)
