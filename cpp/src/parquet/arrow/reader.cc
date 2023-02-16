@@ -286,7 +286,7 @@ class FileReaderImpl : public FileReader {
     std::string phys_type =
         TypeToString(reader_->metadata()->schema()->Column(i)->physical_type());
     ::arrow::util::tracing::Span span;
-    START_SPAN(span, "parquet::arrow::read_column",
+    START_SPAN(span, "parquet::arrow::ReadColumn",
                {{"parquet.arrow.columnindex", i},
                 {"parquet.arrow.columnname", column_name},
                 {"parquet.arrow.physicaltype", phys_type},
