@@ -166,7 +166,7 @@ std::shared_ptr<FileSource> ToFileSource(std::string json) {
 template <typename T>
 class JsonScanMixin {
  public:
-  void TestCustomParseOptions() {
+  void TestScanWithCustomParseOptions() {
     auto source = ToFileSource("{\n\"i\":0\n}\n{\n\"i\":1\n}");
     auto fragment = this_->MakeFragment(*source);
     this_->SetSchema({field("i", int64())});
@@ -184,7 +184,7 @@ class JsonScanMixin {
     ASSERT_EQ(num_rows, 2);
   }
 
-  void TestCustomBlockSize() {
+  void TestScanWithCustomBlockSize() {
     auto source = ToFileSource("{\"i\":0}\n{\"i\":1}\n{\"i\":2}");
     auto fragment = this_->MakeFragment(*source);
     this_->SetSchema({field("i", int64())});
@@ -226,8 +226,8 @@ class TestJsonFormat
 class TestJsonFormatV2
     : public FileFormatFixtureMixinV2<JsonFormatHelper, json::kMaxParserNumRows> {};
 
-class TestJsonFormatScan : public FileFormatScanMixin<JsonFormatHelper>,
-                           public JsonScanMixin<TestJsonFormatScan> {
+class TestJsonScan : public FileFormatScanMixin<JsonFormatHelper>,
+                     public JsonScanMixin<TestJsonScan> {
  public:
   void SetJsonOptions(JsonFragmentScanOptions options = {}) {
     opts_->fragment_scan_options =
@@ -235,8 +235,8 @@ class TestJsonFormatScan : public FileFormatScanMixin<JsonFormatHelper>,
   }
 };
 
-class TestJsonFormatScanNode : public FileFormatScanNodeMixin<JsonFormatHelper>,
-                               public JsonScanMixin<TestJsonFormatScanNode> {
+class TestJsonScanNode : public FileFormatScanNodeMixin<JsonFormatHelper>,
+                         public JsonScanMixin<TestJsonScanNode> {
  public:
   void SetSchema(FieldVector fields) { SetDatasetSchema(std::move(fields)); }
 
@@ -277,40 +277,34 @@ TEST_F(TestJsonFormatV2, InspectFailureWithRelevantError) {
 TEST_F(TestJsonFormatV2, CountRows) { TestCountRows(); }
 
 // Common tests for old scanner
-TEST_P(TestJsonFormatScan, Scan) { TestScan(); }
-TEST_P(TestJsonFormatScan, ScanBatchSize) { TestScanBatchSize(); }
-TEST_P(TestJsonFormatScan, ScanProjected) { TestScanProjected(); }
-TEST_P(TestJsonFormatScan, ScanWithDuplicateColumnError) {
-  TestScanWithDuplicateColumnError();
-}
-TEST_P(TestJsonFormatScan, ScanWithVirtualColumn) { TestScanWithVirtualColumn(); }
-TEST_P(TestJsonFormatScan, ScanWithPushdownNulls) { TestScanWithPushdownNulls(); }
-TEST_P(TestJsonFormatScan, ScanProjectedMissingCols) { TestScanProjectedMissingCols(); }
-TEST_P(TestJsonFormatScan, ScanProjectedNested) { TestScanProjectedNested(); }
+TEST_P(TestJsonScan, Scan) { TestScan(); }
+TEST_P(TestJsonScan, ScanBatchSize) { TestScanBatchSize(); }
+TEST_P(TestJsonScan, ScanProjected) { TestScanProjected(); }
+TEST_P(TestJsonScan, ScanWithDuplicateColumnError) { TestScanWithDuplicateColumnError(); }
+TEST_P(TestJsonScan, ScanWithVirtualColumn) { TestScanWithVirtualColumn(); }
+TEST_P(TestJsonScan, ScanWithPushdownNulls) { TestScanWithPushdownNulls(); }
+TEST_P(TestJsonScan, ScanProjectedMissingCols) { TestScanProjectedMissingCols(); }
+TEST_P(TestJsonScan, ScanProjectedNested) { TestScanProjectedNested(); }
 // JSON-specific tests for old scanner
-TEST_P(TestJsonFormatScan, CustomParseOptions) { TestCustomParseOptions(); }
-TEST_P(TestJsonFormatScan, CustomBlockSize) { TestCustomBlockSize(); }
-TEST_P(TestJsonFormatScan, ScanWithParallelDecoding) { TestScanWithParallelDecoding(); }
+TEST_P(TestJsonScan, ScanWithCustomParseOptions) { TestScanWithCustomParseOptions(); }
+TEST_P(TestJsonScan, ScanWithCustomBlockSize) { TestScanWithCustomBlockSize(); }
+TEST_P(TestJsonScan, ScanWithParallelDecoding) { TestScanWithParallelDecoding(); }
 
-INSTANTIATE_TEST_SUITE_P(TestJsonScan, TestJsonFormatScan,
+INSTANTIATE_TEST_SUITE_P(TestJsonScan, TestJsonScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);
 
 // Common tests for new scanner
-TEST_P(TestJsonFormatScanNode, Scan) { TestScan(); }
-TEST_P(TestJsonFormatScanNode, ScanMissingFilterField) { TestScanMissingFilterField(); }
-TEST_P(TestJsonFormatScanNode, ScanProjected) { TestScanProjected(); }
-TEST_P(TestJsonFormatScanNode, ScanProjectedMissingColumns) {
-  TestScanProjectedMissingCols();
-}
+TEST_P(TestJsonScanNode, Scan) { TestScan(); }
+TEST_P(TestJsonScanNode, ScanMissingFilterField) { TestScanMissingFilterField(); }
+TEST_P(TestJsonScanNode, ScanProjected) { TestScanProjected(); }
+TEST_P(TestJsonScanNode, ScanProjectedMissingColumns) { TestScanProjectedMissingCols(); }
 // JSON-specific tests for new scanner
-TEST_P(TestJsonFormatScanNode, CustomParseOptions) { TestCustomParseOptions(); }
-TEST_P(TestJsonFormatScanNode, CustomBlockSize) { TestCustomBlockSize(); }
-TEST_P(TestJsonFormatScanNode, ScanWithParallelDecoding) {
-  TestScanWithParallelDecoding();
-}
+TEST_P(TestJsonScanNode, ScanWithCustomParseOptions) { TestScanWithCustomParseOptions(); }
+TEST_P(TestJsonScanNode, ScanWithCustomBlockSize) { TestScanWithCustomBlockSize(); }
+TEST_P(TestJsonScanNode, ScanWithParallelDecoding) { TestScanWithParallelDecoding(); }
 
-INSTANTIATE_TEST_SUITE_P(TestJsonScanNode, TestJsonFormatScanNode,
+INSTANTIATE_TEST_SUITE_P(TestJsonScanNode, TestJsonScanNode,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);
 
