@@ -298,7 +298,7 @@ class ThrottledAsyncTaskSchedulerImpl
     if (maybe_backoff) {
 #ifdef ARROW_WITH_OPENTELEMETRY
       EVENT(span(), "Task submission throttled", {
-        {"task.name", task->name()},
+        {"task.name", ::opentelemetry::nostd::string_view(task->name().data(), task->name().size())},
         {"task.cost", task->cost()}});
 #endif
       queue_->Push(std::move(task));
