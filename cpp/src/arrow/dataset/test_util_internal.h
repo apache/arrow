@@ -377,12 +377,11 @@ class FileFormatWriterMixin {
 /// FormatHelper should be a class with these static methods:
 /// std::shared_ptr<Buffer> Write(RecordBatchReader* reader);
 /// std::shared_ptr<FileFormat> MakeFormat();
-template <typename FormatHelper, int64_t MaxNumRows = -1>
+template <typename FormatHelper, int64_t MaxNumRows = (1UL << 17)>
 class FileFormatFixtureMixin : public ::testing::Test {
  public:
   constexpr static int64_t kBatchRepetitions = 1 << 5;
-  constexpr static int64_t kBatchSize =
-      MaxNumRows < 0 ? 1UL << 12 : MaxNumRows / kBatchRepetitions;
+  constexpr static int64_t kBatchSize = MaxNumRows / kBatchRepetitions;
   static_assert(kBatchSize > 0);
 
   FileFormatFixtureMixin()
@@ -937,11 +936,12 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
   using FileFormatFixtureMixin<FormatHelper>::opts_;
 };
 
-template <typename FormatHelper>
+template <typename FormatHelper, int64_t MaxNumRows = (1UL << 17)>
 class FileFormatFixtureMixinV2 : public ::testing::Test {
  public:
-  constexpr static int64_t kBatchSize = 1UL << 12;
   constexpr static int64_t kBatchRepetitions = 1 << 5;
+  constexpr static int64_t kBatchSize = MaxNumRows / kBatchRepetitions;
+  static_assert(kBatchSize > 0);
 
   FileFormatFixtureMixinV2()
       : format_(FormatHelper::MakeFormat()),
@@ -1051,7 +1051,7 @@ class FileFormatFixtureMixinV2 : public ::testing::Test {
         ::testing::AllOf(
             ::testing::HasSubstr(make_error_message("/herp/derp")),
             ::testing::HasSubstr(
-                "Error creating dataset. Could not read schema from '/herp/derp':"),
+                "Error creating dataset. Could not read schema from '/herp/derp'."),
             ::testing::HasSubstr("Is this a '" + format_->type_name() + "' file?")));
   }
 
@@ -1194,6 +1194,23 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
         compute::DeclarationToReader(compute::Declaration("scan2", *opts_),
                                      GetParam().use_threads));
     return reader;
+  }
+
+  // Return a batch iterator which scans the fragment through the scanner.
+  //
+  // For interface compatibility with `FileFormatScanMixin`
+  RecordBatchIterator Batches(const std::shared_ptr<Fragment>& fragment,
+                              bool use_readahead = true) {
+    if (!use_readahead) {
+      opts_->target_bytes_readahead = 0;
+      opts_->fragment_readahead = 0;
+    }
+    EXPECT_OK_AND_ASSIGN(auto reader, this->Scan(fragment));
+    struct ReaderIterator {
+      Result<std::shared_ptr<RecordBatch>> Next() { return reader->Next(); }
+      std::unique_ptr<RecordBatchReader> reader;
+    };
+    return RecordBatchIterator(ReaderIterator{std::move(reader)});
   }
 
   // Shared test cases
