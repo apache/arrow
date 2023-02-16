@@ -56,6 +56,7 @@
 #include "arrow/util/parallel.h"
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/util/vector.h"
 #include "arrow/visit_type_inline.h"
@@ -503,6 +504,12 @@ Status DecompressBuffers(Compression::type compression, const IpcReadOptions& op
 
   return ::arrow::internal::OptionalParallelFor(
       options.use_threads, static_cast<int>(buffers.size()), [&](int i) {
+        ::arrow::util::tracing::Span span;
+        START_SPAN(span, "arrow::ipc::DecompressBuffers",
+                   {{"buffer_index", i},
+                    {"ipc.compression.codec", codec.get()->name().c_str()},
+                    {"ipc.options.use_threads", options.use_threads},
+                    {"size.uncompressed", (*buffers[i])->size() - sizeof(int64_t)}});
         ARROW_ASSIGN_OR_RAISE(*buffers[i],
                               DecompressBuffer(*buffers[i], options, codec.get()));
         return Status::OK();

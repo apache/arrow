@@ -54,6 +54,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parallel.h"
+#include "arrow/util/tracing_internal.h"
 #include "arrow/visit_array_inline.h"
 #include "arrow/visit_type_inline.h"
 
@@ -198,6 +199,12 @@ class RecordBatchSerializer {
 
     auto CompressOne = [&](size_t i) {
       if (out_->body_buffers[i]->size() > 0) {
+        ::arrow::util::tracing::Span span;
+        START_SPAN(span, "arrow::ipc::DecompressBuffers",
+                   {{"buffer_index", i},
+                    {"ipc.compression.codec", options_.codec.get()->name().c_str()},
+                    {"ipc.options.use_threads", options_.use_threads},
+                    {"size.uncompressed", out_->body_buffers[i]->size()}});
         RETURN_NOT_OK(CompressBuffer(*out_->body_buffers[i], options_.codec.get(),
                                      &out_->body_buffers[i]));
       }
