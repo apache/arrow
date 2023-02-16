@@ -191,6 +191,10 @@ class JsonScanMixin {
 
     JsonFragmentScanOptions json_options;
     json_options.parse_options.newlines_in_values = true;
+    // These options would raise errors if used, but they should be ignored
+    json_options.parse_options.explicit_schema = schema({field("x", utf8())});
+    json_options.parse_options.unexpected_field_behavior =
+        json::UnexpectedFieldBehavior::Error;
     this_->SetJsonOptions(std::move(json_options));
 
     int64_t num_rows = 0;

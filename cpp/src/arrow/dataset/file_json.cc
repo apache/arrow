@@ -127,6 +127,14 @@ class JsonFragmentScanner : public FragmentScanner {
   int num_scanned_ = 0;
 };
 
+// Return the same parse options, but disable any options that could interfere with
+// fragment inspection
+json::ParseOptions GetInitialParseOptions(json::ParseOptions options) {
+  options.explicit_schema = nullptr;
+  options.unexpected_field_behavior = json::UnexpectedFieldBehavior::InferType;
+  return options;
+}
+
 Result<std::shared_ptr<StructType>> ParseToStructType(
     std::string_view data, const json::ParseOptions& parse_options, MemoryPool* pool) {
   auto full_buffer = std::make_shared<Buffer>(data);
@@ -258,14 +266,9 @@ Result<Future<ReaderPtr>> DoOpenReader(
   struct State {
     State(const JsonFragmentScanOptions& json_options,
           const std::shared_ptr<ScanOptions>& scan_options)
-        : parse_options(json_options.parse_options),
+        : parse_options(GetInitialParseOptions(json_options.parse_options)),
           read_options(json_options.read_options),
-          scan_options(scan_options) {
-      // We selectively ignore some user options, primarily those that will influence the
-      // output schema.
-      parse_options.explicit_schema = nullptr;
-      parse_options.unexpected_field_behavior = json::UnexpectedFieldBehavior::InferType;
-    }
+          scan_options(scan_options) {}
     json::ParseOptions parse_options;
     json::ReadOptions read_options;
     std::shared_ptr<const ScanOptions> scan_options;
@@ -339,9 +342,10 @@ Result<std::shared_ptr<InspectedFragment>> DoInspectFragment(
 
   ARROW_ASSIGN_OR_RAISE(auto first_block,
                         stream->Peek(format_options.read_options.block_size));
-  ARROW_ASSIGN_OR_RAISE(
-      auto struct_type,
-      ParseToStructType(first_block, format_options.parse_options, pool));
+
+  auto parse_options = GetInitialParseOptions(format_options.parse_options);
+  ARROW_ASSIGN_OR_RAISE(auto struct_type,
+                        ParseToStructType(first_block, parse_options, pool));
 
   std::vector<std::string> column_names;
   column_names.reserve(struct_type->num_fields());
