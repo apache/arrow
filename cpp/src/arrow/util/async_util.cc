@@ -125,21 +125,9 @@ class FifoQueue : public ThrottledAsyncTaskScheduler::Queue {
 #ifdef ARROW_WITH_OPENTELEMETRY
 ::arrow::internal::tracing::Scope TraceTaskSubmitted(AsyncTaskScheduler::Task* task,
                                                      const util::tracing::Span& parent) {
-  if (task->span.valid()) {
-    EVENT(task->span, "task submitted");
-    return ACTIVATE_SPAN(task->span);
-  }
-
   return START_SCOPED_SPAN_WITH_PARENT_SV(task->span, parent, task->name(),
                                           {{"task.cost", task->cost()},
                                           {"span.type", "AsyncTask"}});
-}
-
-void TraceTaskQueued(AsyncTaskScheduler::Task* task, const util::tracing::Span& parent) {
-  START_SCOPED_SPAN_WITH_PARENT_SV(task->span, parent, task->name(),
-                                   {{"task.cost", task->cost()},
-                                    {"span.type", "AsyncTask"},
-                                    {"task.queued", true}});
 }
 
 void TraceTaskFinished(AsyncTaskScheduler::Task* task) { END_SPAN(task->span); }
@@ -309,7 +297,9 @@ class ThrottledAsyncTaskSchedulerImpl
     std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(latched_cost);
     if (maybe_backoff) {
 #ifdef ARROW_WITH_OPENTELEMETRY
-      TraceTaskQueued(task.get(), span());
+      EVENT(span(), "Task submission throttled", {
+        {"task.name", task->name()},
+        {"task.cost", task->cost()}});
 #endif
       queue_->Push(std::move(task));
       lk.unlock();
