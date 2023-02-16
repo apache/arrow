@@ -218,8 +218,10 @@ Result<FileInfo> IdentifyFile(const std::string& path) {
 
   if (std::filesystem::is_directory(path)) {
     info.set_type(FileType::Directory);
-  } else if (std::filesystem::is_regular_file(path)) {
+  } else if (std::filesystem::is_regular_file(path) || std::filesystem::is_symlink(path)) {
     info.set_type(FileType::File);
+  } else {
+    info.set_type(FileType::Unknown);
   }
 
   info.set_mtime(kNoTime);
