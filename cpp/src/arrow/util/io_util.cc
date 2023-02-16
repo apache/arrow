@@ -1630,7 +1630,6 @@ Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes) {
   ::arrow::util::tracing::Span span;
   START_SPAN(span, "FileRead",
              {
-               {"nbytes", nbytes},
                {"fd", fd}
              });
 
@@ -1667,6 +1666,11 @@ Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes) {
     buffer += bytes_read;
     total_bytes_read += bytes_read;
   }
+#ifdef ARROW_WITH_OPENTELEMETRY
+  opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
+          ::arrow::internal::tracing::UnwrapSpan(span.details.get());
+  raw_span->SetAttribute("bytes_read", total_bytes_read);
+#endif
   return total_bytes_read;
 }
 
@@ -1675,7 +1679,6 @@ Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nb
   ::arrow::util::tracing::Span span;
   START_SPAN(span, "FileReadAt",
              {
-               {"nbytes", nbytes},
                {"fd", fd}
              });
 
@@ -1695,6 +1698,11 @@ Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nb
     position += ret;
     bytes_read += ret;
   }
+#ifdef ARROW_WITH_OPENTELEMETRY
+  opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
+          ::arrow::internal::tracing::UnwrapSpan(span.details.get());
+  raw_span->SetAttribute("bytes_read", bytes_read);
+#endif
   return bytes_read;
 }
 
