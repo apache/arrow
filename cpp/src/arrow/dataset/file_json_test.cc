@@ -166,6 +166,24 @@ std::shared_ptr<FileSource> ToFileSource(std::string json) {
 template <typename T>
 class JsonScanMixin {
  public:
+  void TestScanWithBOM() {
+    auto source = ToFileSource(
+        "\xef\xbb\xbf{\"ab\":0,\"cd\":\"foo\"}\n{\"ab\":1,\"cd\":\"bar\"}\n");
+    auto fragment = this_->MakeFragment(*source);
+    auto dataset_schema = schema({field("ab", int64()), field("cd", utf8())});
+    this_->SetSchema(dataset_schema->fields());
+    this_->SetJsonOptions();
+
+    int64_t num_rows = 0;
+    for (auto maybe_batch : this_->Batches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      AssertSchemaEqual(dataset_schema, batch->schema());
+      num_rows += batch->num_rows();
+    }
+
+    ASSERT_EQ(num_rows, 2);
+  }
+
   void TestScanWithCustomParseOptions() {
     auto source = ToFileSource("{\n\"i\":0\n}\n{\n\"i\":1\n}");
     auto fragment = this_->MakeFragment(*source);
@@ -286,6 +304,7 @@ TEST_P(TestJsonScan, ScanWithPushdownNulls) { TestScanWithPushdownNulls(); }
 TEST_P(TestJsonScan, ScanProjectedMissingCols) { TestScanProjectedMissingCols(); }
 TEST_P(TestJsonScan, ScanProjectedNested) { TestScanProjectedNested(); }
 // JSON-specific tests for old scanner
+TEST_P(TestJsonScan, ScanWithBOM) { TestScanWithBOM(); }
 TEST_P(TestJsonScan, ScanWithCustomParseOptions) { TestScanWithCustomParseOptions(); }
 TEST_P(TestJsonScan, ScanWithCustomBlockSize) { TestScanWithCustomBlockSize(); }
 TEST_P(TestJsonScan, ScanWithParallelDecoding) { TestScanWithParallelDecoding(); }
@@ -300,6 +319,7 @@ TEST_P(TestJsonScanNode, ScanMissingFilterField) { TestScanMissingFilterField();
 TEST_P(TestJsonScanNode, ScanProjected) { TestScanProjected(); }
 TEST_P(TestJsonScanNode, ScanProjectedMissingColumns) { TestScanProjectedMissingCols(); }
 // JSON-specific tests for new scanner
+TEST_P(TestJsonScanNode, ScanWithBOM) { TestScanWithBOM(); }
 TEST_P(TestJsonScanNode, ScanWithCustomParseOptions) { TestScanWithCustomParseOptions(); }
 TEST_P(TestJsonScanNode, ScanWithCustomBlockSize) { TestScanWithCustomBlockSize(); }
 TEST_P(TestJsonScanNode, ScanWithParallelDecoding) { TestScanWithParallelDecoding(); }
