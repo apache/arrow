@@ -2799,7 +2799,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 
     std::vector<ByteArray> values(num_values - null_count);
     const int num_valid_values = Decode(values.data(), num_values - null_count);
-    if (ARROW_PREDICT_TRUE(num_values - null_count != num_valid_values)) {
+    if (ARROW_PREDICT_FALSE(num_values - null_count != num_valid_values)) {
       throw ParquetException("Expected to decode ", num_values - null_count,
                              " values, but decoded ", num_valid_values, " values.");
     }
