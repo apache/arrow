@@ -29,16 +29,8 @@ from pyarrow.includes.libarrow_substrait cimport *
 # touch symbols in libarrow_substrait.pxd to get them compiled
 cdef CStatus _touch_substrait_symbols():
     cdef:
-        shared_ptr[CExtensionProvider] c_extension_provider
         CConversionOptions conv_opts
-        vector[CDeclarationInfo] inputs
-        CExtensionDetails* ext_details = NULL
-        CExtensionSet ext_set
-        CRelationInfo c_relation_info
 
-    c_extension_provider = default_extension_provider()
-    deref(c_extension_provider).MakeRel(conv_opts, inputs, deref(ext_details), ext_set)
-    c_relation_info.decl_info = inputs[0]
     return CStatus_OK()
 
 

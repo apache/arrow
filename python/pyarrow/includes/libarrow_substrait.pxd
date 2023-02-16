@@ -22,23 +22,6 @@ from libcpp.vector cimport vector as std_vector
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
-cdef extern from "arrow/engine/substrait/extension_set.h" namespace "arrow::engine" nogil:
-    cdef cppclass CExtensionSet \
-            "arrow::engine::ExtensionSet":
-        CExtensionSet()
-        CExtensionSet(const ExtensionIdRegistry*)
-
-cdef extern from "arrow/engine/substrait/relation.h" namespace "arrow::engine" nogil:
-    cdef cppclass CDeclarationInfo \
-            "arrow::engine::DeclarationInfo":
-        CDeclaration declaration
-        shared_ptr[CSchema] output_schema
-
-    cdef cppclass CRelationInfo \
-            "arrow::engine::RelationInfo":
-        CDeclarationInfo decl_info
-        optional[vector[int]] field_output_indices
-
 ctypedef CResult[CDeclaration] CNamedTableProvider(const std_vector[c_string]&)
 
 cdef extern from "arrow/engine/substrait/options.h" namespace "arrow::engine" nogil:
@@ -51,27 +34,11 @@ cdef extern from "arrow/engine/substrait/options.h" namespace "arrow::engine" no
         BEST_EFFORT \
             "arrow::engine::ConversionStrictness::BEST_EFFORT"
 
-    cdef cppclass CExtensionDetails \
-        "arrow::engine::ExtensionDetails"
-
-    cdef cppclass CExtensionProvider \
-            "arrow::engine::ExtensionProvider":
-        CResult[CRelationInfo] MakeRel(
-            const CConversionOptions conv_opts,
-            const vector[CDeclarationInfo]& inputs,
-            const CExtensionDetails& ext_details,
-            const CExtensionSet& ext_set)
-
-    cdef shared_ptr[CExtensionProvider] default_extension_provider()
-    cdef void set_default_extension_provider(
-        const shared_ptr[CExtensionProvider]& provider)
-
     cdef cppclass CConversionOptions \
             "arrow::engine::ConversionOptions":
         CConversionOptions()
         ConversionStrictness conversion_strictness
         function[CNamedTableProvider] named_table_provider
-        shared_ptr[CExtensionProvider] extension_provider
 
 cdef extern from "arrow/engine/substrait/extension_set.h" \
         namespace "arrow::engine" nogil:
