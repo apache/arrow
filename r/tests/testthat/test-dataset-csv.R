@@ -549,6 +549,15 @@ test_that("open_delim_dataset params passed through to open_dataset", {
 
   expect_named(ds, c("col_1", "col_2", "col_3", "col_4", "col_5", "col_6"))
 
+  # schema
+  ds <- open_csv_dataset(
+    csv_dir,
+    schema = schema(int = int64(), dbl = int64(), lgl = bool(), chr = utf8(),
+    fct = utf8(), ts = timestamp(unit = "s"))
+  ) %>% collect()
+
+  expect_named(ds, c("int", "dbl", "lgl", "chr", "fct", "ts"))
+
   # timestamp_parsers
   skip("GH-33708: timestamp_parsers don't appear to be working properly")
 
@@ -562,3 +571,4 @@ test_that("open_delim_dataset params passed through to open_dataset", {
 
   expect_equal(ds$time, "16-01-2023")
 })
+
