@@ -34,10 +34,6 @@ class UInt8ArrayProxy : public libmexclass::proxy::Proxy {
             // Get the mxArray from constructor arguments
             const matlab::data::TypedArray<uint8_t> uint8_mda = constructor_arguments[0];
 
-            for (auto& elem : uint8_mda) {
-                std::cout << elem << std::endl;
-            }
-
             // Create a shared data copy of uint8_mda and store it as a property of proxy class 
             // Get raw pointer of mxArray
             auto it = uint8_mda.cbegin();
@@ -57,7 +53,7 @@ class UInt8ArrayProxy : public libmexclass::proxy::Proxy {
                                                        -1));
 
             array = array_wrapper;
-            
+
             // Register Proxy methods.
             registerMethod(UInt8ArrayProxy, Print);
         }
