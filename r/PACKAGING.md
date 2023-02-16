@@ -52,19 +52,19 @@ use the release candidate as the source.
 - [ ] Pull request to modify
   [the apache-arrow autobrew formula]( https://github.com/autobrew/homebrew-core/blob/high-sierra/Formula/apache-arrow.rb) 
   to update the release version, SHA256 checksum of the release source file (which can be found in the same directory as the release source file), and any changes to dependencies and build steps that have changed in the
-  [copy of the formula we have of that formula in the Arrow repo](https://github.com/apache/arrow/blob/master/dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb)
+  [copy of the formula we have of that formula in the Arrow repo](https://github.com/apache/arrow/blob/main/dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb)
 - [ ] Pull request to modify
   [the apache-arrow-static autobrew formula](https://github.com/autobrew/homebrew-cran/blob/master/Formula/apache-arrow-static.rb)
   to update the version, SHA, and any changes to dependencies and build steps that have changed in the
-  [copy of the formula we have of that formula in the Arrow repo](https://github.com/apache/arrow/blob/master/dev/tasks/homebrew-formulae/autobrew/apache-arrow-static.rb)
+  [copy of the formula we have of that formula in the Arrow repo](https://github.com/apache/arrow/blob/main/dev/tasks/homebrew-formulae/autobrew/apache-arrow-static.rb)
 - [ ] Pull request to modify the 
   [autobrew script](https://github.com/autobrew/scripts/blob/master/apache-arrow)
   to include any additions made to
-  [r/tools/autobrew](https://github.com/apache/arrow/blob/master/r/tools/autobrew).
+  [r/tools/autobrew](https://github.com/apache/arrow/blob/main/r/tools/autobrew).
 - [ ] Pull request to modify the
   [RTools PKGBUILD script](https://github.com/r-windows/rtools-packages/blob/master/mingw-w64-arrow/PKGBUILD)
   to reflect changes in
-  [ci/PKGBUILD](https://github.com/apache/arrow/blob/master/ci/scripts/PKGBUILD),
+  [ci/PKGBUILD](https://github.com/apache/arrow/blob/main/ci/scripts/PKGBUILD),
   uncommenting the line that says "uncomment to test the rc".
 
 Prepare and check the .tar.gz that will be released to CRAN.
@@ -85,7 +85,7 @@ Wait for the official release...
 - [ ] Release vote passed!
 - [ ] If the release candidate commit updated, rebase the CRAN release branch
   on that commit.
-- [ ] Pick any commits that were made to master since the release commit that
+- [ ] Pick any commits that were made to main since the release commit that
   were needed to fix CRAN-related submission issues identified in the above
   steps.
 - [ ] Remove badges from README.md
@@ -126,7 +126,7 @@ Wait for CRAN...
 
 - [ ] Accepted!
 - [ ] Tag the tip of the CRAN-specific release branch
-- [ ] Add a new line to the matrix in the [backwards compatability job](https://github.com/apache/arrow/blob/master/dev/tasks/r/github.linux.arrow.version.back.compat.yml)
+- [ ] Add a new line to the matrix in the [backwards compatability job](https://github.com/apache/arrow/blob/main/dev/tasks/r/github.linux.arrow.version.back.compat.yml)
 - [ ] (patch releases only) Update the package version in `ci/scripts/PKGBUILD`, `dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb`, `r/DESCRIPTION`, and `r/NEWS.md`
 - [ ] Update the packaging checklist template to reflect any new realities of the
   packaging process.
