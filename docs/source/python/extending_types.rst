@@ -465,3 +465,52 @@ Convert a list of numpy ndarrays (tensors) to a tensor array:
        400
      ]
    ]
+
+Example of using permutation parameter when converting to numpy ndarray:
+
+.. code-block:: python
+
+   >>> tensor_type = FixedShapeTensorType(pa.int32(), (2, 2), permutation=[1,0])
+   >>> pa.register_extension_type(tensor_type)
+   >>> arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
+   >>> storage = pa.array(arr, pa.list_(pa.int32(), 4))
+   >>> tensor = pa.ExtensionArray.from_storage(tensor_type, storage)
+
+Converting tensor to ndarray without the use of permutation parameter:
+
+.. code-block:: python
+
+   >>> tensor.to_numpy_tensor()
+   array([[[  1,   2],
+         [  3,   4]],
+
+         [[ 10,  20],
+         [ 30,  40]],
+
+         [[100, 200],
+         [300, 400]]], dtype=int32)
+
+Converting tensor to ndarray with permutation parameter needs recalculation of
+the permutation parameter.
+
+The dimension of the ndarray is one dimension higher as the first dimension is
+always the array of tensors. For that we need to increment the values of the
+permutation parameter and add the first dimension (dimension of the array of tensors):
+
+.. code-block:: python
+
+   >>> permutation = [x+1 for x in tensor.type.permutation]
+   >>> permutation
+   [2, 1]
+   >>> permutation.insert(0,0)
+   >>> permutation
+   [0, 2, 1]
+   >>> tensor.to_numpy_tensor().transpose(permutation)
+   array([[[  1,   3],
+         [  2,   4]],
+
+         [[ 10,  30],
+         [ 20,  40]],
+
+         [[100, 300],
+         [200, 400]]], dtype=int32)
