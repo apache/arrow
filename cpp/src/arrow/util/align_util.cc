@@ -26,56 +26,63 @@ namespace arrow {
 
 namespace util {
 
-Result<std::shared_ptr<Array>> EnsureAlignment(const Array& object, int64_t alignment,
+Result<std::shared_ptr<Buffer>> EnsureAlignment(const std::shared_ptr<Buffer>& object, int64_t alignment,
                                                MemoryPool* memory_pool) {
-  std::vector<std::shared_ptr<Buffer>> buffers_ = object.data()->buffers;
+    auto buffer_address = object->address();
+    if ((buffer_address % alignment) != 0) {
+        ARROW_ASSIGN_OR_RAISE(
+                auto new_buffer, AllocateBuffer(object->size(), alignment, memory_pool));
+        std::memcpy(new_buffer->mutable_data(), object->data(), object->size());
+        return new_buffer;
+    } else {
+        return object;
+    }
+}
+
+Result<std::shared_ptr<Array>> EnsureAlignment(const std::shared_ptr<Array>& object, int64_t alignment,
+                                               MemoryPool* memory_pool) {
+  std::vector<std::shared_ptr<Buffer>> buffers_ = object->data()->buffers;
   for (size_t i = 0; i < buffers_.size(); ++i) {
     if (buffers_[i]) {
-      auto buffer_address = buffers_[i]->address();
-      if ((buffer_address % alignment) != 0) {
-        ARROW_ASSIGN_OR_RAISE(
-            auto new_buffer, AllocateBuffer(buffers_[i]->size(), alignment, memory_pool));
-        std::memcpy(new_buffer->mutable_data(), buffers_[i]->data(), buffers_[i]->size());
-        buffers_[i] = std::move(new_buffer);
+        ARROW_ASSIGN_OR_RAISE(buffers_[i], EnsureAlignment(buffers_[i], alignment, memory_pool));
       }
-    }
   }
   auto new_array_data =
-      ArrayData::Make(object.data()->type, object.data()->length, std::move(buffers_),
-                      object.data()->GetNullCount(), object.data()->offset);
+      ArrayData::Make(object->data()->type, object->data()->length, std::move(buffers_),
+                      object->data()->GetNullCount(), object->data()->offset);
   return MakeArray(new_array_data);
 }
 
-Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(const ChunkedArray& object,
+Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(const std::shared_ptr<ChunkedArray>& object,
                                                       int64_t alignment,
                                                       MemoryPool* memory_pool) {
-  ArrayVector chunks_ = object.chunks();
-  for (int i = 0; i < object.num_chunks(); ++i) {
+  ArrayVector chunks_ = object->chunks();
+  for (int i = 0; i < object->num_chunks(); ++i) {
     ARROW_ASSIGN_OR_RAISE(chunks_[i],
-                          EnsureAlignment(*object.chunk(i), alignment, memory_pool));
+                          EnsureAlignment(object->chunk(i), alignment, memory_pool));
   }
-  return ChunkedArray::Make(std::move(chunks_), object.type());
+  return ChunkedArray::Make(std::move(chunks_), object->type());
 }
 
-Result<std::shared_ptr<RecordBatch>> EnsureAlignment(const RecordBatch& object,
+Result<std::shared_ptr<RecordBatch>> EnsureAlignment(const std::shared_ptr<RecordBatch>& object,
                                                      int64_t alignment,
                                                      MemoryPool* memory_pool) {
-  ArrayVector columns_ = object.columns();
-  for (int i = 0; i < object.num_columns(); ++i) {
+  ArrayVector columns_ = object->columns();
+  for (int i = 0; i < object->num_columns(); ++i) {
     ARROW_ASSIGN_OR_RAISE(columns_[i],
-                          EnsureAlignment(*object.column(i), alignment, memory_pool));
+                          EnsureAlignment(object->column(i), alignment, memory_pool));
   }
-  return RecordBatch::Make(object.schema(), object.num_rows(), std::move(columns_));
+  return RecordBatch::Make(object->schema(), object->num_rows(), std::move(columns_));
 }
 
-Result<std::shared_ptr<Table>> EnsureAlignment(const Table& object, int64_t alignment,
+Result<std::shared_ptr<Table>> EnsureAlignment(const std::shared_ptr<Table>& object, int64_t alignment,
                                                MemoryPool* memory_pool) {
-  std::vector<std::shared_ptr<ChunkedArray>> columns_ = object.columns();
-  for (int i = 0; i < object.num_columns(); ++i) {
+  std::vector<std::shared_ptr<ChunkedArray>> columns_ = object->columns();
+  for (int i = 0; i < object->num_columns(); ++i) {
     ARROW_ASSIGN_OR_RAISE(columns_[i],
-                          EnsureAlignment(*object.column(i), alignment, memory_pool));
+                          EnsureAlignment(object->column(i), alignment, memory_pool));
   }
-  return Table::Make(object.schema(), std::move(columns_), object.num_rows());
+  return Table::Make(object->schema(), std::move(columns_), object->num_rows());
 }
 
 }  // namespace util

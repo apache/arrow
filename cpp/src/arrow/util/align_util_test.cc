@@ -156,7 +156,7 @@ TEST(DefaultMemoryPool, EnsureAlignment) {
   auto random_array = rand.UInt8(/*size*/ 50, /*min*/ 0, /*max*/ 100,
                                  /*null_probability*/ 0, /*alignment*/ 512, pool);
   ASSERT_OK_AND_ASSIGN(auto aligned_array,
-                       util::EnsureAlignment(*random_array, 1024, pool));
+                       util::EnsureAlignment(random_array, 1024, pool));
   std::vector<std::shared_ptr<Buffer>> buffers_ = aligned_array->data()->buffers;
   for (auto& it : buffers_) {
     if (it) {

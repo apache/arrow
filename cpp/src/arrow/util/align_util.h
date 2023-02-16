@@ -68,19 +68,25 @@ inline BitmapWordAlignParams BitmapWordAlign(const uint8_t* data, int64_t bit_of
 
 namespace util {
 
-Result<std::shared_ptr<Array>> EnsureAlignment(const Array& object, int64_t alignment,
-                                               MemoryPool* memory_pool);
+Result<std::shared_ptr<Buffer>> EnsureAlignment(const std::shared_ptr<Buffer>& object,
+                                                int64_t alignment,
+                                                MemoryPool* memory_pool);
 
-Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(const ChunkedArray& object,
-                                                      int64_t alignment,
-                                                      MemoryPool* memory_pool);
+Result<std::shared_ptr<Array>> EnsureAlignment(const std::shared_ptr<Array>& object,
+                                               int64_t alignment,
+                                                MemoryPool* memory_pool);
 
-Result<std::shared_ptr<RecordBatch>> EnsureAlignment(const RecordBatch& object,
-                                                     int64_t alignment,
-                                                     MemoryPool* memory_pool);
+Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(
+    const std::shared_ptr<ChunkedArray>& object, int64_t alignment,
+    MemoryPool* memory_pool);
 
-Result<std::shared_ptr<Table>> EnsureAlignment(const Table& object, int64_t alignment,
-                                               MemoryPool* memory_pool);
+Result<std::shared_ptr<RecordBatch>> EnsureAlignment(
+    const std::shared_ptr<RecordBatch>& object, int64_t alignment,
+    MemoryPool* memory_pool);
+
+Result<std::shared_ptr<Table>> EnsureAlignment(const std::shared_ptr<Table>& object,
+                                               int64_t alignment,
+                                                MemoryPool* memory_pool);
 
 }  // namespace util
 }  // namespace arrow
