@@ -673,7 +673,7 @@ struct IsDaylightSavings {
 };
 
 // ----------------------------------------------------------------------
-// Extract timezone naive time of a given timestamp in it's timezone
+// Extract local time of a given timestamp given its timezone
 
 template <typename Duration, typename Localizer>
 struct LocalTime {
@@ -1808,10 +1808,11 @@ const FunctionDoc is_dst_doc{
     {"values"}};
 
 const FunctionDoc local_time_doc{
-    "Converts a timezone-aware timestamp to a timezone-naive timestamp",
-    ("LocalTime returns a timestamp without a timezone.\n"
-     "Null values emit null.\n"
-     "An error is returned if the values do not have a defined timezone."),
+    "Convert timestamp to a timezone-naive local time timestamp",
+    ("LocalTime converts a timestamp to a local time of timestamps timezone\n"
+     "and removes timezone metadata. If input is in UTC or doesn't have\n"
+     "timezone metadata, it is returned as is.\n"
+     "Null values emit null."),
     {"values"}};
 const FunctionDoc floor_temporal_doc{
     "Round temporal values down to nearest multiple of specified time unit",

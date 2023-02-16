@@ -1518,8 +1518,7 @@ ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
 ARROW_EXPORT Result<Datum> IsDaylightSavings(const Datum& values,
                                              ExecContext* ctx = NULLPTR);
 
-/// \brief LocalTime converts timestamps from timezone aware to timezone naive
-/// local timestamps
+/// \brief LocalTime converts timestamp to timezone naive local timestamp
 ///
 /// \param[in] values input to convert to local time
 /// \param[in] ctx the function execution context, optional

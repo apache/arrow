@@ -1951,6 +1951,7 @@ def _check_datetime_components(timestamps, timezone=None):
     assert pc.microsecond(tsa).equals(pa.array(ts.dt.microsecond % 10 ** 3))
     assert pc.nanosecond(tsa).equals(pa.array(ts.dt.nanosecond))
     assert pc.subsecond(tsa).equals(pa.array(subseconds))
+    assert pc.local_time(tsa).equals(pa.array(ts.dt.tz_localize(None)))
 
     if ts.dt.tz:
         if ts.dt.tz is datetime.timezone.utc:
