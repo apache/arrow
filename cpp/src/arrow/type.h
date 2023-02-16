@@ -1234,8 +1234,7 @@ class ARROW_EXPORT RunEndEncodedType : public NestedType {
                              std::shared_ptr<DataType> value_type);
 
   DataTypeLayout layout() const override {
-    // NOTE(felipecrv): his can be removed once we ensure existing code does not
-    // assume the existence of at least one buffer.
+    // A lot of existing code expects at least one buffer
     return DataTypeLayout({DataTypeLayout::AlwaysNull()});
   }
 
