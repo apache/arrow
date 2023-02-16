@@ -1146,9 +1146,11 @@ class FixedShapeTensorType(pa.ExtensionType):
         return self._permutation
 
     def __arrow_ext_serialize__(self):
-        metadata = {"shape": str(self._shape),
-                    "dim_names": str(self._dim_names),
-                    "permutation": str(self._permutation)}
+        metadata_full = {"shape": str(self._shape),
+                         "dim_names": self._dim_names,
+                         "permutation": str(self._permutation)}
+        metadata = {k: v for k, v in metadata_full.items() if v !=
+                    "None" and v is not None}
         return json.dumps(metadata).encode()
 
     @classmethod
@@ -1159,8 +1161,10 @@ class FixedShapeTensorType(pa.ExtensionType):
 
         metadata = json.loads(serialized.decode())
         shape = ast.literal_eval(metadata['shape'])
-        dim_names = ast.literal_eval(metadata['dim_names'])
-        permutation = ast.literal_eval(metadata['permutation'])
+        dim_names = ast.literal_eval(metadata.get(
+            'dim_names')) if metadata.get('dim_names') else None
+        permutation = ast.literal_eval(metadata.get(
+            'permutation')) if metadata.get('permutation') else None
 
         return FixedShapeTensorType(storage_type.value_type, shape,
                                     dim_names, permutation)
@@ -1239,6 +1243,34 @@ class FixedShapeTensorArray(pa.ExtensionArray):
 def registered_tensor_type():
     # setup
     tensor_type = FixedShapeTensorType(pa.int8(), (2, 2, 3))
+    tensor_class = tensor_type.__arrow_ext_class__()
+    pa.register_extension_type(tensor_type)
+    yield tensor_type, tensor_class
+    # teardown
+    try:
+        pa.unregister_extension_type('arrow.fixed_size_tensor')
+    except KeyError:
+        pass
+
+
+@pytest.fixture
+def registered_tensor_type_permutation():
+    # setup
+    tensor_type = FixedShapeTensorType(pa.int8(), (2, 2, 3), permutation=[0, 2, 1])
+    tensor_class = tensor_type.__arrow_ext_class__()
+    pa.register_extension_type(tensor_type)
+    yield tensor_type, tensor_class
+    # teardown
+    try:
+        pa.unregister_extension_type('arrow.fixed_size_tensor')
+    except KeyError:
+        pass
+
+
+@pytest.fixture
+def registered_tensor_type_dim_names():
+    # setup
+    tensor_type = FixedShapeTensorType(pa.int8(), (2, 2, 3), dim_names=['C', 'H', 'W'])
     tensor_class = tensor_type.__arrow_ext_class__()
     pa.register_extension_type(tensor_type)
     yield tensor_type, tensor_class
@@ -1336,8 +1368,59 @@ def test_tensor_type_ipc_unknown(registered_tensor_type):
     assert result.type.list_size == 12
     ext_field = batch.schema.field('ext')
     assert ext_field.metadata == {
+        b'ARROW:extension:metadata': b'{"shape": "(2, 2, 3)"}',
+        b'ARROW:extension:name': b'arrow.fixed_size_tensor'
+    }
+
+
+def test_tensor_type_permutation_ipc_unknown(registered_tensor_type_permutation):
+    tensor_type, _ = registered_tensor_type_permutation
+    storage = pa.array([[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]], pa.list_(pa.int8(), 12))
+    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
+    batch = pa.RecordBatch.from_arrays([arr], ["ext"])
+
+    buf = ipc_write_batch(batch)
+    del batch
+
+    # unregister type before loading again => reading unknown extension type
+    # as plain array (but metadata in schema's field are preserved)
+    pa.unregister_extension_type('arrow.fixed_size_tensor')
+
+    batch = ipc_read_batch(buf)
+    result = batch.column(0)
+    assert isinstance(result.type, pa.FixedSizeListType)
+    assert pa.types.is_int8(result.type.value_type)
+    assert result.type.list_size == 12
+    ext_field = batch.schema.field('ext')
+    assert ext_field.metadata == {
         b'ARROW:extension:metadata':
-        b'{"shape": "(2, 2, 3)", "dim_names": "None", "permutation": "None"}',
+        b'{"shape": "(2, 2, 3)", "permutation": "[0, 2, 1]"}',
+        b'ARROW:extension:name': b'arrow.fixed_size_tensor'
+    }
+
+
+def test_tensor_type_dim_names_ipc_unknown(registered_tensor_type_dim_names):
+    tensor_type, _ = registered_tensor_type_dim_names
+    storage = pa.array([[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]], pa.list_(pa.int8(), 12))
+    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
+    batch = pa.RecordBatch.from_arrays([arr], ["ext"])
+
+    buf = ipc_write_batch(batch)
+    del batch
+
+    # unregister type before loading again => reading unknown extension type
+    # as plain array (but metadata in schema's field are preserved)
+    pa.unregister_extension_type('arrow.fixed_size_tensor')
+
+    batch = ipc_read_batch(buf)
+    result = batch.column(0)
+    assert isinstance(result.type, pa.FixedSizeListType)
+    assert pa.types.is_int8(result.type.value_type)
+    assert result.type.list_size == 12
+    ext_field = batch.schema.field('ext')
+    assert ext_field.metadata == {
+        b'ARROW:extension:metadata':
+        b'{"shape": "(2, 2, 3)", "dim_names": ["C", "H", "W"]}',
         b'ARROW:extension:name': b'arrow.fixed_size_tensor'
     }
 
