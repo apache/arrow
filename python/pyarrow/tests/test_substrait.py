@@ -34,6 +34,10 @@ except ImportError:
 pytestmark = [pytest.mark.dataset, pytest.mark.substrait]
 
 
+def test_conversion_options():
+    assert substrait._check_conversion_options()
+
+
 def _write_dummy_data_to_disk(tmpdir, file_name, table):
     path = os.path.join(str(tmpdir), file_name)
     with pa.ipc.RecordBatchFileWriter(path, schema=table.schema) as writer:

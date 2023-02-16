@@ -18,6 +18,7 @@
 # cython: language_level = 3
 from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector as std_vector
+from libcpp cimport bool
 
 from pyarrow import Buffer, py_buffer
 from pyarrow.lib import frombytes, tobytes
@@ -26,12 +27,11 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_substrait cimport *
 
 
-# touch symbols in libarrow_substrait.pxd to get them compiled
-cdef CStatus _touch_substrait_symbols():
+def _check_conversion_options():
     cdef:
         CConversionOptions conv_opts
 
-    return CStatus_OK()
+    return conv_opts.strictness == BEST_EFFORT
 
 
 cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector[c_string]& names):
