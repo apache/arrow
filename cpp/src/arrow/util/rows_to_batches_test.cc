@@ -39,7 +39,7 @@ bool CompareJson(const arrow::Table& arrow_table, const std::string& json,
                  const std::string& field_name) {
   const auto col = arrow_table.GetColumnByName(field_name);
   return arrow::ChunkedArrayFromJSON(col->type(), {json})->Equals(col);
-};
+}
 
 TEST(RowsToBatches, BasicUsage) {
   std::vector<std::vector<int>> data = {{1, 2, 4}, {5, 6, 7}};
