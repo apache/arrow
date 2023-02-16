@@ -110,9 +110,7 @@ Fixed shape tensor
     the tensor is a permutation of the physical order (row-major).
 
     When logical and physical layout are equal, the permutation will always
-    be ([0, 1, .., N-1]) and can therefore be left out. Same holds the other way
-    round: if permutation parameter is absent, it is assumed that logical
-    layout matches the physical one.
+    be ([0, 1, .., N-1]) and can therefore be left out.
 
 * Description of the serialization:
 
