@@ -5026,6 +5026,119 @@ cdef class Table(_PandasConvertible):
                                               use_threads=use_threads, coalesce_keys=coalesce_keys,
                                               output_type=Table)
 
+    def join_asof(self, right_table, on, by, tolerance, right_on=None, right_by=None):
+        """
+        Perform a join between this table and another one.
+
+        Result of the join will be a new Table, where further
+        operations can be applied.
+
+        Parameters
+        ----------
+        right_table : Table
+            The table to join to the current one, acting as the right table
+            in the join operation.
+        keys : str or list[str]
+            The columns from current table that should be used as keys
+            of the join operation left side.
+        right_keys : str or list[str], default None
+            The columns from the right_table that should be used as keys
+            on the join operation right side.
+            When ``None`` use the same key names as the left table.
+        join_type : str, default "left outer"
+            The kind of join that should be performed, one of
+            ("left semi", "right semi", "left anti", "right anti",
+            "inner", "left outer", "right outer", "full outer")
+        left_suffix : str, default None
+            Which suffix to add to left column names. This prevents confusion
+            when the columns in left and right tables have colliding names.
+        right_suffix : str, default None
+            Which suffix to add to the right column names. This prevents confusion
+            when the columns in left and right tables have colliding names.
+        coalesce_keys : bool, default True
+            If the duplicated keys should be omitted from one of the sides
+            in the join result.
+        use_threads : bool, default True
+            Whether to use multithreading or not.
+
+        Returns
+        -------
+        Table
+
+        Examples
+        --------
+        >>> import pandas as pd
+        >>> import pyarrow as pa
+        >>> df1 = pd.DataFrame({'id': [1, 2, 3],
+        ...                     'year': [2020, 2022, 2019]})
+        >>> df2 = pd.DataFrame({'id': [3, 4],
+        ...                     'n_legs': [5, 100],
+        ...                     'animal': ["Brittle stars", "Centipede"]})
+        >>> t1 = pa.Table.from_pandas(df1)
+        >>> t2 = pa.Table.from_pandas(df2)
+
+        Left outer join:
+
+        >>> t1.join(t2, 'id').combine_chunks().sort_by('year')
+        pyarrow.Table
+        id: int64
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        id: [[3,1,2]]
+        year: [[2019,2020,2022]]
+        n_legs: [[5,null,null]]
+        animal: [["Brittle stars",null,null]]
+
+        Full outer join:
+
+        >>> t1.join(t2, 'id', join_type="full outer").combine_chunks().sort_by('year')
+        pyarrow.Table
+        id: int64
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        id: [[3,1,2,4]]
+        year: [[2019,2020,2022,null]]
+        n_legs: [[5,null,null,100]]
+        animal: [["Brittle stars",null,null,"Centipede"]]
+
+        Right outer join:
+
+        >>> t1.join(t2, 'id', join_type="right outer").combine_chunks().sort_by('year')
+        pyarrow.Table
+        year: int64
+        id: int64
+        n_legs: int64
+        animal: string
+        ----
+        year: [[2019,null]]
+        id: [[3,4]]
+        n_legs: [[5,100]]
+        animal: [["Brittle stars","Centipede"]]
+
+        Right anti join
+
+        >>> t1.join(t2, 'id', join_type="right anti")
+        pyarrow.Table
+        id: int64
+        n_legs: int64
+        animal: string
+        ----
+        id: [[4]]
+        n_legs: [[100]]
+        animal: [["Centipede"]]
+        """
+        if right_on is None:
+            right_on = on
+        if right_by is None:
+            right_by = by
+        return _pc()._exec_plan._perform_join_asof(self, on, by, right_table, right_on, right_by,
+                                                   tolerance, output_type=Table)
+
+
 
 def _reconstruct_table(arrays, schema):
     """

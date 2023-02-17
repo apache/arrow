@@ -2621,6 +2621,13 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
                              c_string output_suffix_for_left,
                              c_string output_suffix_for_right)
 
+    cdef struct CAsofJoinKeys "arrow::compute::AsofJoinNodeOptions::Keys":
+        CFieldRef on_key
+        vector[CFieldRef] by_key
+
+    cdef cppclass CAsofJoinNodeOptions "arrow::compute::AsofJoinNodeOptions"(CExecNodeOptions):
+        CAsofJoinNodeOptions(vector[CAsofJoinKeys] keys, int64_t tolerance)
+
 
 cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nogil:
     cdef cppclass CDeclaration "arrow::compute::Declaration":

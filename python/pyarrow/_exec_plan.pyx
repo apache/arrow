@@ -390,6 +390,84 @@ def _perform_join(join_type, left_operand not None, left_keys,
     return result_table
 
 
+def _perform_join_asof(left_operand not None, left_on, left_by,
+                  right_operand not None, right_on, right_by,
+                  tolerance, output_type=Table):
+    """
+    Perform asof join of two tables or datasets.
+
+    The result will be an output table with the result of the join operation
+
+    Parameters
+    ----------
+    left_operand : Table or Dataset
+        The left operand for the join operation.
+    left_on : str
+        The left key (or keys) on which the join operation should be performed.
+    left_by: str or list[str]
+        The left key (or keys) on which the join operation should be performed.
+    right_operand : Table or Dataset
+        The right operand for the join operation.
+    right_on : str or list[str]
+        The right key (or keys) on which the join operation should be performed.
+    right_by: str or list[str]
+        The right key (or keys) on which the join operation should be performed.
+    tolerance : int
+        The tolerance to use for the asof join. The tolerance is interpreted in
+        the same units as the "on" key.
+    output_type: Table or InMemoryDataset
+        The output type for the exec plan result.
+
+    Returns
+    -------
+    result_table : Table or InMemoryDataset
+    """
+    cdef:
+        vector[CFieldRef] c_left_by
+        vector[CFieldRef] c_right_by
+        CAsofJoinKeys c_left_keys
+        CAsofJoinKeys c_right_keys
+        vector[CAsofJoinKeys] c_input_keys
+        vector[CDeclaration] c_decl_plan
+
+    # Prepare left AsofJoinNodeOption::Keys
+    if isinstance(left_by, str):
+        left_by = [left_by]
+    for key in left_by:
+        c_left_by.push_back(CFieldRef(<c_string>tobytes(key)))
+
+    c_left_keys.on_key = CFieldRef(<c_string>tobytes(left_on))
+    c_left_keys.by_key = c_left_by
+
+    c_input_keys.push_back(c_left_keys)
+
+    # Prepare right AsofJoinNodeOption::Keys
+    right_by_order = {}
+    if isinstance(right_by, str):
+        right_by = [right_by]
+    for key in right_by:
+        c_right_by.push_back(CFieldRef(<c_string>tobytes(key)))
+
+    c_right_keys.on_key = CFieldRef(<c_string>tobytes(right_on))
+    c_right_keys.by_key = c_right_by
+
+    c_input_keys.push_back(c_right_keys)
+
+    c_decl_plan.push_back(
+        CDeclaration(
+            tobytes("asofjoin"),
+            CAsofJoinNodeOptions(c_input_keys, tolerance)
+        )
+    )
+
+    result_table = execplan([left_operand, right_operand],
+                            plan=c_decl_plan,
+                            output_type=output_type,
+                            use_threads=False)
+
+    return result_table
+
+
 def _filter_table(table, expression, output_type=Table):
     """Filter rows of a table or dataset based on the provided expression.
 
