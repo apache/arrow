@@ -1557,10 +1557,10 @@ UTC-relative timestamps with the timezone metadata set to the above value.
 An error is returned if the timestamps already have the timezone metadata set.
 
 `local_time` function converts UTC-relative timestamps to local "timezone-naive"
-timestamp. The timezone is taken from the timezone metadata of the input
+timestamps. The timezone is taken from the timezone metadata of the input
 timestamps. This function is the inverse of `assume_timezone`. Please note:
 **all temporal functions already operate on timestamps as if they were in local
-time of metadata provided timezone**. Using `local_time` is only meant to be
+time of the metadata provided timezone**. Using `local_time` is only meant to be
 used when an external system expects local timestamps.
 
 +--------------------+------------+-------------------+---------------+----------------------------------+-------+
