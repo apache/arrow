@@ -46,7 +46,6 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <iostream>
 #include <random>
 #include <string>
 #include <thread>
@@ -61,10 +60,6 @@
 
 namespace arrow {
 namespace fs {
-/// Custom comparison for FileInfo, we need this to use complex googletest matchers.
-inline bool operator==(const FileInfo& a, const FileInfo& b) {
-  return a.path() == b.path() && a.type() == b.type();
-}
 
 namespace {
 
@@ -268,7 +263,8 @@ class GcsIntegrationTest : public ::testing::Test {
         const auto filename =
             internal::ConcatAbstractPath(folder, "test-file-" + std::to_string(i));
         CreateFile(fs.get(), filename, filename);
-        result.contents.push_back(arrow::fs::File(filename));
+        ARROW_ASSIGN_OR_RAISE(auto file_info, fs->GetFileInfo(filename));
+        result.contents.push_back(std::move(file_info));
       }
     }
     return result;

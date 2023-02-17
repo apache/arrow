@@ -60,8 +60,6 @@ struct ARROW_EXPORT Scalar : public std::enable_shared_from_this<Scalar>,
   /// \brief Whether the value is valid (not null) or not
   bool is_valid = false;
 
-  using util::EqualityComparable<Scalar>::operator==;
-  using util::EqualityComparable<Scalar>::Equals;
   bool Equals(const Scalar& other,
               const EqualOptions& options = EqualOptions::Defaults()) const;
 
