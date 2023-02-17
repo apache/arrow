@@ -59,7 +59,7 @@ One goal with benchmarking is to detect performance regressions. To this end,
 diff`` sub-command.
 
 In the default invocation, it will compare the current source (known as the
-current workspace in git) with local master branch:
+current workspace in git) with local main branch:
 
 .. code-block:: shell
 

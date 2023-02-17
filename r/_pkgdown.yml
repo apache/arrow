@@ -75,15 +75,15 @@ home:
         text: >
           [C GLib](https://arrow.apache.org/docs/c_glib) <br>
           [C++](https://arrow.apache.org/docs/cpp) <br>
-          [C#](https://github.com/apache/arrow/blob/master/csharp/README.md) <br>
+          [C#](https://github.com/apache/arrow/blob/main/csharp/README.md) <br>
           [Go](https://pkg.go.dev/github.com/apache/arrow/go) <br>
           [Java](https://arrow.apache.org/docs/java) <br>
           [JavaScript](https://arrow.apache.org/docs/js) <br>
           [Julia](https://github.com/apache/arrow-julia/blob/main/README.md) <br>
-          [MATLAB](https://github.com/apache/arrow/blob/master/matlab/README.md) <br>
+          [MATLAB](https://github.com/apache/arrow/blob/main/matlab/README.md) <br>
           [Python](https://arrow.apache.org/docs/python) <br>
           [R](index.html) <br>
-          [Ruby](https://github.com/apache/arrow/blob/master/ruby/README.md) <br>
+          [Ruby](https://github.com/apache/arrow/blob/main/ruby/README.md) <br>
           [Rust](https://docs.rs/crate/arrow/latest)
 
 navbar:
@@ -278,5 +278,5 @@ reference:
 repo:
   jira_projects: [ARROW]
   url:
-    source: https://github.com/apache/arrow/blob/master/r/
+    source: https://github.com/apache/arrow/blob/main/r/
     issue: https://issues.apache.org/jira/browse/

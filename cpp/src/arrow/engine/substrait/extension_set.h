@@ -283,7 +283,7 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
 };
 
 constexpr std::string_view kArrowExtTypesUri =
-    "https://github.com/apache/arrow/blob/master/format/substrait/"
+    "https://github.com/apache/arrow/blob/main/format/substrait/"
     "extension_types.yaml";
 
 /// A default registry with all supported functions and data types registered

@@ -21,7 +21,7 @@
 
 An implementation of Arrow targeting .NET Standard.
 
-See our current [feature matrix](https://github.com/apache/arrow/blob/master/docs/source/status.rst)
+See our current [feature matrix](https://github.com/apache/arrow/blob/main/docs/source/status.rst)
 for currently available features.
 
 # Implementation

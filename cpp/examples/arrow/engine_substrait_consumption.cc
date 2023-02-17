@@ -89,7 +89,7 @@ arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer(
     "extension_uris": [
       {
         "extension_uri_anchor": 7,
-        "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+        "uri": "https://github.com/apache/arrow/blob/main/format/substrait/extension_types.yaml"
       }
     ],
     "extensions": [

@@ -22,4 +22,4 @@
 See the "Build Dependency Management" section in the [C++ Developer
 Documentation][1].
 
-[1]: https://github.com/apache/arrow/blob/master/docs/source/developers/cpp/building.rst
+[1]: https://github.com/apache/arrow/blob/main/docs/source/developers/cpp/building.rst

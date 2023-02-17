@@ -55,7 +55,7 @@ To contribute a patch:
 harder to merge in a large change with a lot of disjoint features.
 2. If one doesn't already exist, create a JIRA for your patch on the [Arrow Project
 JIRA](https://issues.apache.org/jira/browse/ARROW).
-3. Submit the patch as a GitHub pull request against the master branch. For a
+3. Submit the patch as a GitHub pull request against the main branch. For a
 tutorial, see the GitHub guides on [forking a repo](https://help.github.com/en/articles/fork-a-repo)
 and [sending a pull request](https://help.github.com/en/articles/creating-a-pull-request-from-a-fork). So that your pull request syncs with the JIRA issue, prefix your pull request
 name with the JIRA issue id (ex: [ARROW-767: [C++] Filesystem abstraction](https://github.com/apache/arrow/pull/4225))
@@ -67,6 +67,6 @@ file.
 Thank you in advance for your contributions!
 
 [1]: mailto:dev-subscribe@arrow.apache.org
-[2]: https://github.com/apache/arrow/tree/master/format
+[2]: https://github.com/apache/arrow/tree/main/format
 [3]: https://issues.apache.org/jira/browse/ARROW
 [4]: https://github.com/apache/arrow
