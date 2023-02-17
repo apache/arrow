@@ -25,6 +25,7 @@
 
 #include "arrow/scalar.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
 
@@ -319,7 +320,10 @@ Status RunEndEncodedBuilder::CloseRun(const std::shared_ptr<const Scalar>& value
     return Status::Invalid(
         "Run-length of run-encoded arrays must fit in a 32-bit signed integer.");
   }
-  const int64_t run_end = committed_logical_length_ + run_length;
+  int64_t run_end;
+  if (internal::AddWithOverflow(committed_logical_length_, run_length, &run_end)) {
+    return Status::Invalid("Run end value must fit on run ends type.");
+  }
   RETURN_NOT_OK(AppendRunEnd(/*run_end=*/run_end));
   UpdateDimensions(run_end, 0);
   return Status::OK();
