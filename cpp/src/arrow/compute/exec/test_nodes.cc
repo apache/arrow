@@ -121,9 +121,7 @@ class JitterNode : public ExecNode {
 
   const char* kind_name() const override { return "JitterNode"; }
 
-  const std::optional<std::vector<SortKey>>& ordering() const override {
-    return inputs_[0]->ordering();
-  }
+  const Ordering& ordering() const override { return inputs_[0]->ordering(); }
 
   Status StartProducing() override { return Status::OK(); }
 

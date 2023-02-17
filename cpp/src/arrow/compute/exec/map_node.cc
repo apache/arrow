@@ -51,9 +51,7 @@ Status MapNode::InputFinished(ExecNode* input, int total_batches) {
 
 // Right now this assumes the map operation will always maintain ordering.  This
 // may change in the future but is true for the current map nodes (filter/project)
-const std::optional<std::vector<SortKey>>& MapNode::ordering() const {
-  return inputs_[0]->ordering();
-}
+const Ordering& MapNode::ordering() const { return inputs_[0]->ordering(); }
 
 Status MapNode::StartProducing() {
   NoteStartProducing(ToStringExtra());

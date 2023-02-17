@@ -181,7 +181,7 @@ class SinkNode : public ExecNode,
     if (output_ != nullptr) {
       return Status::Invalid("Sink node '", label(), "' has an output");
     }
-    if (!inputs_[0]->ordering().has_value() && !!sequencer_) {
+    if (inputs_[0]->ordering().is_unordered() && !!sequencer_) {
       return Status::Invalid("Sink node '", label(),
                              "' is configured to sequence output but there is no "
                              "meaningful ordering in the input");
@@ -342,7 +342,7 @@ class ConsumingSinkNode : public ExecNode,
     if (output_ != nullptr) {
       return Status::Invalid("Consuming sink node '", label(), "' has an output");
     }
-    if (!inputs_[0]->ordering().has_value() && !!sequencer_) {
+    if (inputs_[0]->ordering().is_unordered() && !!sequencer_) {
       return Status::Invalid("Consuming sink node '", label(),
                              "' is configured to sequence output but there is no "
                              "meaningful ordering in the input");

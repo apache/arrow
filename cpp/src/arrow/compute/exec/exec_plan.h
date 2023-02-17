@@ -28,6 +28,7 @@
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/ordering.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/future.h"
@@ -110,9 +111,6 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   std::string ToString() const;
 };
 
-static const std::optional<std::vector<SortKey>> kImplicitOrdering = {{}};
-static const std::optional<std::vector<SortKey>> kUnordered = std::nullopt;
-
 class ARROW_EXPORT ExecNode {
  public:
   using NodeVector = std::vector<ExecNode*>;
@@ -160,16 +158,14 @@ class ARROW_EXPORT ExecNode {
   /// know that all values of x in a batch with index N will be less than
   /// or equal to all values of x in a batch with index N+k (assuming k > 0)
   ///
-  /// Note that there is an important distinction between std::nullopt and
-  /// an empty vector.  If the value is std::nullopt then the node is asserting
-  /// that there is no predictable output order to its batches.  For example,
-  /// a hash-join has no predictable output order.
+  /// Note that an ordering can be both Ordering::Unordered and Ordering::Implicit.
+  /// A node's output should be marked Ordering::Unordered if the order is
+  /// non-deterministic.  For example, a hash-join has no predictable output order.
   ///
-  /// If the value is an empty vector then the data is "implicitly ordered".
-  /// This means there is a meaningful order but that odering is not represented
-  /// by any column in the data.  The most common case for this is when reading
-  /// data from an in-memory table.  The data has an implicit "row order" which
-  /// is not neccesarily represented in the data set.
+  /// If the ordering is Ordering::Implicit then there is a meaningful order but that
+  /// odering is not represented by any column in the data.  The most common case for this
+  /// is when reading data from an in-memory table.  The data has an implicit "row order"
+  /// which is not neccesarily represented in the data set.
   ///
   /// A typical map node will not modify the ordering.  Nothing needs to be done
   /// other than ensure the index assigned to output batches is the same as the
@@ -190,7 +186,7 @@ class ARROW_EXPORT ExecNode {
   /// Nodes that maintain ordering should be careful to avoid introducing gaps
   /// in the batch index.  This may require emitting empty batches in order to
   /// maintain continuity.
-  virtual const std::optional<std::vector<SortKey>>& ordering() const;
+  virtual const Ordering& ordering() const;
 
   /// Upstream API:
   /// These functions are called by input nodes that want to inform this node

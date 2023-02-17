@@ -406,9 +406,9 @@ if(ARROW_COMPUTE)
        compute/exec/key_hash.cc
        compute/exec/key_map.cc
        compute/exec/map_node.cc
+       compute/exec/options.cc
        compute/exec/order_by_impl.cc
        compute/exec/partition_util.cc
-       compute/exec/options.cc
        compute/exec/project_node.cc
        compute/exec/query_context.cc
        compute/exec/sink_node.cc
@@ -422,6 +422,7 @@ if(ARROW_COMPUTE)
        compute/function_internal.cc
        compute/kernel.cc
        compute/light_array.cc
+       compute/ordering.cc
        compute/registry.cc
        compute/kernels/aggregate_basic.cc
        compute/kernels/aggregate_mode.cc

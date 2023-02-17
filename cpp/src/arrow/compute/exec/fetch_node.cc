@@ -106,9 +106,7 @@ class FetchNode : public ExecNode, public TracedNode, util::SequencingQueue::Pro
 
   const char* kind_name() const override { return "FetchNode"; }
 
-  const std::optional<std::vector<SortKey>>& ordering() const override {
-    return inputs_[0]->ordering();
-  }
+  const Ordering& ordering() const override { return inputs_[0]->ordering(); }
 
   Status InputFinished(ExecNode* input, int total_batches) override {
     DCHECK_EQ(input, inputs_[0]);
@@ -128,7 +126,7 @@ class FetchNode : public ExecNode, public TracedNode, util::SequencingQueue::Pro
 
   Status Validate() const override {
     ARROW_RETURN_NOT_OK(ExecNode::Validate());
-    if (!inputs_[0]->ordering().has_value()) {
+    if (inputs_[0]->ordering().is_unordered()) {
       return Status::Invalid(
           "Fetch node's input has no meaningful ordering and so limit/offset will be "
           "non-deterministic.  Please establish order in some way (e.g. by inserting an "

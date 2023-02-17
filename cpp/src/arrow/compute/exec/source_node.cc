@@ -53,7 +53,7 @@ namespace {
 struct SourceNode : ExecNode, public TracedNode {
   SourceNode(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
              AsyncGenerator<std::optional<ExecBatch>> generator,
-             std::optional<std::vector<SortKey>> ordering = kUnordered)
+             Ordering ordering = Ordering::Unordered())
       : ExecNode(plan, {}, {}, std::move(output_schema)),
         TracedNode(this),
         generator_(std::move(generator)),
@@ -90,7 +90,7 @@ struct SourceNode : ExecNode, public TracedNode {
     }
     plan_->query_context()->ScheduleTask(
         [this, morsel_length, use_legacy_batching, initial_batch_index, morsel,
-         has_ordering = ordering_.has_value()]() {
+         has_ordering = !ordering_.is_unordered()]() {
           int64_t offset = 0;
           int batch_index = initial_batch_index;
           do {
@@ -185,9 +185,7 @@ struct SourceNode : ExecNode, public TracedNode {
     return Status::OK();
   }
 
-  const std::optional<std::vector<SortKey>>& ordering() const override {
-    return ordering_;
-  }
+  const Ordering& ordering() const override { return ordering_; }
 
   void PauseProducing(ExecNode* output, int32_t counter) override {
     std::lock_guard<std::mutex> lg(mutex_);
@@ -232,13 +230,13 @@ struct SourceNode : ExecNode, public TracedNode {
   bool started_ = false;
   int batch_count_{0};
   const AsyncGenerator<std::optional<ExecBatch>> generator_;
-  const std::optional<std::vector<SortKey>> ordering_;
+  const Ordering ordering_;
 };
 
 struct TableSourceNode : public SourceNode {
   TableSourceNode(ExecPlan* plan, std::shared_ptr<Table> table, int64_t batch_size)
       : SourceNode(plan, table->schema(), TableGenerator(*table, batch_size),
-                   kImplicitOrdering) {}
+                   Ordering::Imiplicit()) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -307,7 +305,7 @@ template <typename This, typename Options>
 struct SchemaSourceNode : public SourceNode {
   SchemaSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
                    arrow::AsyncGenerator<std::optional<ExecBatch>> generator)
-      : SourceNode(plan, schema, generator, kImplicitOrdering) {}
+      : SourceNode(plan, schema, generator, Ordering::Imiplicit()) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {

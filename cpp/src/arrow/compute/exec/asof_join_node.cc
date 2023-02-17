@@ -1491,9 +1491,7 @@ class AsofJoinNode : public ExecNode {
   }
 
   const char* kind_name() const override { return "AsofJoinNode"; }
-  const std::optional<std::vector<SortKey>>& ordering() const override {
-    return ordering_;
-  }
+  const Ordering& ordering() const override { return ordering_; }
 
   Status InputReceived(ExecNode* input, ExecBatch batch) override {
     // Get the input
@@ -1544,7 +1542,7 @@ class AsofJoinNode : public ExecNode {
 
  private:
   // Outputs from this node are always in ascending order according to the on key
-  const std::optional<std::vector<SortKey>> ordering_;
+  const Ordering ordering_;
   std::vector<col_index_t> indices_of_on_key_;
   std::vector<std::vector<col_index_t>> indices_of_by_key_;
   std::vector<std::unique_ptr<KeyHasher>> key_hashers_;

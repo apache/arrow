@@ -437,9 +437,9 @@ ExecNode::ExecNode(ExecPlan* plan, NodeVector inputs,
   }
 }
 
-const std::optional<std::vector<SortKey>>& ExecNode::ordering() const {
+const Ordering& ExecNode::ordering() const {
   // The safest default is to assume a node destroys ordering
-  return kUnordered;
+  return Ordering::Unordered();
 }
 
 Status ExecNode::Init() { return Status::OK(); }
