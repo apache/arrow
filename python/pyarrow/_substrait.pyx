@@ -18,7 +18,6 @@
 # cython: language_level = 3
 from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector as std_vector
-from libcpp cimport bool
 
 from pyarrow import Buffer, py_buffer
 from pyarrow.lib import frombytes, tobytes
