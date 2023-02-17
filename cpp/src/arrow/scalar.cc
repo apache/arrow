@@ -610,7 +610,9 @@ Result<std::shared_ptr<Scalar>> StructScalar::field(FieldRef ref) const {
 
 RunEndEncodedScalar::RunEndEncodedScalar(std::shared_ptr<Scalar> value,
                                          std::shared_ptr<DataType> type)
-    : Scalar{std::move(type), value->is_valid}, value{std::move(value)} {}
+    : Scalar{std::move(type), value->is_valid}, value{std::move(value)} {
+  ARROW_CHECK_EQ(this->type->id(), Type::RUN_END_ENCODED);
+}
 
 RunEndEncodedScalar::RunEndEncodedScalar(const std::shared_ptr<DataType>& type)
     : RunEndEncodedScalar(
