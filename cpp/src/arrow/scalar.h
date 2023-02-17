@@ -558,6 +558,29 @@ struct ARROW_EXPORT DenseUnionScalar : public UnionScalar {
         value(std::move(value)) {}
 };
 
+struct ARROW_EXPORT RunEndEncodedScalar : public Scalar {
+  using TypeClass = RunEndEncodedType;
+  using ValueType = std::shared_ptr<Scalar>;
+
+  ValueType value;
+
+  RunEndEncodedScalar(std::shared_ptr<Scalar> value, std::shared_ptr<DataType> type);
+
+  /// \brief Constructs a NULL RunEndEncodedScalar
+  explicit RunEndEncodedScalar(const std::shared_ptr<DataType>& type);
+
+  ~RunEndEncodedScalar() override;
+
+  const std::shared_ptr<DataType>& run_end_type() const {
+    return ree_type().run_end_type();
+  }
+
+  const std::shared_ptr<DataType>& value_type() const { return ree_type().value_type(); }
+
+ private:
+  const TypeClass& ree_type() const { return internal::checked_cast<TypeClass&>(*type); }
+};
+
 /// \brief A Scalar value for DictionaryType
 ///
 /// `is_valid` denotes the validity of the `index`, regardless of

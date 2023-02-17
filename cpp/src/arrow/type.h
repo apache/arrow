@@ -1223,6 +1223,34 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
   std::string name() const override { return "dense_union"; }
 };
 
+/// \brief Type class for run-end encoded data
+class ARROW_EXPORT RunEndEncodedType : public NestedType {
+ public:
+  static constexpr Type::type type_id = Type::RUN_END_ENCODED;
+
+  static constexpr const char* type_name() { return "run_end_encoded"; }
+
+  explicit RunEndEncodedType(std::shared_ptr<DataType> run_end_type,
+                             std::shared_ptr<DataType> value_type);
+
+  DataTypeLayout layout() const override {
+    // A lot of existing code expects at least one buffer
+    return DataTypeLayout({DataTypeLayout::AlwaysNull()});
+  }
+
+  const std::shared_ptr<DataType>& run_end_type() const { return fields()[0]->type(); }
+  const std::shared_ptr<DataType>& value_type() const { return fields()[1]->type(); }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "run_end_encoded"; }
+
+  static bool RunEndTypeValid(const DataType& run_end_type);
+
+ private:
+  std::string ComputeFingerprint() const override;
+};
+
 /// @}
 
 // ----------------------------------------------------------------------
@@ -2137,6 +2165,7 @@ constexpr bool HasValidityBitmap(Type::type id) {
     case Type::NA:
     case Type::DENSE_UNION:
     case Type::SPARSE_UNION:
+    case Type::RUN_END_ENCODED:
       return false;
     default:
       return true;

@@ -1622,6 +1622,117 @@ TEST_F(TestDenseUnionScalar, GetScalar) {
   CheckGetValidUnionScalar(arr, 4, *union_three_, *three_);
 }
 
+template <typename RunEndType>
+class TestRunEndEncodedScalar : public ::testing::Test {
+ public:
+  using RunEndArrowType = typename CTypeTraits<RunEndType>::ArrowType;
+
+  void SetUp() override {
+    run_end_type_ = std::make_shared<RunEndArrowType>();
+    value_type_ = utf8();
+    type_.reset(new RunEndEncodedType(run_end_type_, value_type_));
+
+    alpha_ = MakeScalar("alpha");
+    beta_ = MakeScalar("beta");
+  }
+
+  void TestBasics() {
+    RunEndEncodedScalar scalar_alpha{alpha_, type_};
+    ASSERT_OK(scalar_alpha.ValidateFull());
+    ASSERT_TRUE(scalar_alpha.is_valid);
+    AssertTypeEqual(scalar_alpha.type, type_);
+    ASSERT_EQ(scalar_alpha.ToString(),
+              "\n-- run_ends:\n"
+              "  [\n"
+              "    1\n"
+              "  ]\n"
+              "-- values:\n"
+              "  [\n"
+              "    \"alpha\"\n"
+              "  ]");
+
+    auto null_scalar = CheckMakeNullScalar(type_);
+    ASSERT_OK(null_scalar->ValidateFull());
+    ASSERT_FALSE(null_scalar->is_valid);
+    AssertTypeEqual(null_scalar->type, type_);
+    ASSERT_EQ(null_scalar->ToString(), "null");
+
+    RunEndEncodedScalar scalar_beta{beta_, type_};
+    ASSERT_TRUE(scalar_alpha.Equals(scalar_alpha));
+    ASSERT_FALSE(scalar_alpha.Equals(scalar_beta));
+    ASSERT_FALSE(scalar_beta.Equals(scalar_alpha));
+    ASSERT_TRUE(scalar_beta.Equals(scalar_beta));
+    ASSERT_FALSE(null_scalar->Equals(scalar_alpha));
+    ASSERT_FALSE(scalar_alpha.Equals(*null_scalar));
+  }
+
+  void TestValidateErrors() {
+    // Inconsistent is_valid / value
+    RunEndEncodedScalar scalar_alpha{alpha_, type_};
+    scalar_alpha.is_valid = false;
+    ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                               std::string("Invalid: null run_end_encoded<run_ends: ") +
+                                   run_end_type_->ToString() +
+                                   ", values: string> scalar has non-null storage value",
+                               scalar_alpha.Validate());
+
+    auto null_scalar = MakeNullScalar(type_);
+    null_scalar->is_valid = true;
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid,
+        std::string("Invalid: non-null run_end_encoded<run_ends: ") +
+            run_end_type_->ToString() + ", values: string> scalar has null storage value",
+        null_scalar->Validate());
+
+    // Bad value type
+    auto ree_type = run_end_encoded(run_end_type_, int64());
+    RunEndEncodedScalar scalar_beta(beta_, ree_type);
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid,
+        std::string("Invalid: run_end_encoded<run_ends: ") + run_end_type_->ToString() +
+            ", values: int64> scalar should have an underlying value of type int64, got "
+            "string",
+        scalar_beta.Validate());
+
+    // Invalid UTF8
+    auto bad_utf8 = std::make_shared<StringScalar>(Buffer::FromString("\xff"));
+    RunEndEncodedScalar scalar(std::move(bad_utf8), type_);
+    ASSERT_OK(scalar.Validate());
+    ASSERT_RAISES(Invalid, scalar.ValidateFull());
+  }
+
+  void TestHashing() {
+    std::unordered_set<std::shared_ptr<Scalar>, Scalar::Hash, Scalar::PtrsEqual> set;
+    set.emplace(std::make_shared<RunEndEncodedScalar>(type_));
+    for (int i = 0; i < 10; ++i) {
+      const auto value = std::make_shared<StringScalar>(std::to_string(i));
+      set.emplace(std::make_shared<RunEndEncodedScalar>(std::move(value), type_));
+    }
+
+    ASSERT_FALSE(set.emplace(std::make_shared<RunEndEncodedScalar>(type_)).second);
+    for (int i = 0; i < 10; ++i) {
+      const auto value = std::make_shared<StringScalar>(std::to_string(i));
+      ASSERT_FALSE(
+          set.emplace(std::make_shared<RunEndEncodedScalar>(std::move(value), type_))
+              .second);
+    }
+  }
+
+ private:
+  std::shared_ptr<DataType> run_end_type_;
+  std::shared_ptr<DataType> value_type_;
+  std::shared_ptr<DataType> type_;
+  std::shared_ptr<Scalar> alpha_;
+  std::shared_ptr<Scalar> beta_;
+};
+
+using RunEndTestTypes = ::testing::Types<int16_t, int32_t, int64_t>;
+TYPED_TEST_SUITE(TestRunEndEncodedScalar, RunEndTestTypes);
+
+TYPED_TEST(TestRunEndEncodedScalar, Basics) { this->TestBasics(); }
+TYPED_TEST(TestRunEndEncodedScalar, ValidateErrors) { this->TestValidateErrors(); }
+TYPED_TEST(TestRunEndEncodedScalar, Hashing) { this->TestHashing(); }
+
 #define UUID_STRING1 "abcdefghijklmnop"
 #define UUID_STRING2 "zyxwvutsrqponmlk"
 

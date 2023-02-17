@@ -1231,6 +1231,7 @@ struct ObjectWriterVisitor {
   enable_if_t<is_floating_type<Type>::value ||
                   std::is_same<DictionaryType, Type>::value ||
                   std::is_same<DurationType, Type>::value ||
+                  std::is_same<RunEndEncodedType, Type>::value ||
                   std::is_same<ExtensionType, Type>::value ||
                   (std::is_base_of<IntervalType, Type>::value &&
                    !std::is_same<MonthDayNanoIntervalType, Type>::value) ||

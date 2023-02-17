@@ -237,6 +237,9 @@ class ArrayDataEndianSwapper {
   Status Visit(const FixedSizeBinaryType& type) { return Status::OK(); }
   Status Visit(const FixedSizeListType& type) { return Status::OK(); }
   Status Visit(const StructType& type) { return Status::OK(); }
+  Status Visit(const RunEndEncodedType& type) {
+    return Status::NotImplemented("swapping endianness of run-end encoded array");
+  }
   Status Visit(const UnionType& type) {
     out_->buffers[1] = data_->buffers[1];
     if (type.mode() == UnionMode::DENSE) {
@@ -317,6 +320,28 @@ std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
 
 namespace {
 
+static Result<std::shared_ptr<Scalar>> MakeScalarForRunEndValue(
+    const DataType& run_end_type, int64_t run_end) {
+  switch (run_end_type.id()) {
+    case Type::INT16:
+      if (run_end > std::numeric_limits<int16_t>::max()) {
+        return Status::Invalid("Array construction with int16 run end type cannot fit ",
+                               run_end);
+      }
+      return std::make_shared<Int16Scalar>(static_cast<int16_t>(run_end));
+    case Type::INT32:
+      if (run_end > std::numeric_limits<int32_t>::max()) {
+        return Status::Invalid("Array construction with int32 run end type cannot fit ",
+                               run_end);
+      }
+      return std::make_shared<Int32Scalar>(static_cast<int32_t>(run_end));
+    default:
+      break;
+  }
+  DCHECK_EQ(run_end_type.id(), Type::INT64);
+  return std::make_shared<Int64Scalar>(run_end);
+}
+
 // get the maximum buffer length required, then allocate a single zeroed buffer
 // to use anywhere a buffer is required
 class NullArrayFactory {
@@ -389,6 +414,12 @@ class NullArrayFactory {
       return MaxOf(GetBufferLength(type.index_type(), length_));
     }
 
+    Status Visit(const RunEndEncodedType& type) {
+      // RunEndEncodedType has no buffers, only child arrays
+      buffer_length_ = 0;
+      return Status::OK();
+    }
+
     Status Visit(const ExtensionType& type) {
       // XXX is an extension array's length always == storage length
       return MaxOf(GetBufferLength(type.storage_type(), length_));
@@ -420,6 +451,10 @@ class NullArrayFactory {
       : pool_(pool), type_(type), length_(length) {}
 
   Status CreateBuffer() {
+    if (type_->id() == Type::RUN_END_ENCODED) {
+      buffer_ = NULLPTR;
+      return Status::OK();
+    }
     ARROW_ASSIGN_OR_RAISE(int64_t buffer_length,
                           GetBufferLength(type_, length_).Finish());
     ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(buffer_length, pool_));
@@ -432,9 +467,10 @@ class NullArrayFactory {
       RETURN_NOT_OK(CreateBuffer());
     }
     std::vector<std::shared_ptr<ArrayData>> child_data(type_->num_fields());
-    out_ = ArrayData::Make(type_, length_,
-                           {SliceBuffer(buffer_, 0, bit_util::BytesForBits(length_))},
-                           child_data, length_, 0);
+    auto buffer_slice =
+        buffer_ ? SliceBuffer(buffer_, 0, bit_util::BytesForBits(length_)) : NULLPTR;
+    out_ = ArrayData::Make(type_, length_, {std::move(buffer_slice)}, child_data, length_,
+                           0);
     RETURN_NOT_OK(VisitTypeInline(*type_, this));
     return out_;
   }
@@ -509,6 +545,17 @@ class NullArrayFactory {
     out_->buffers.resize(2, buffer_);
     ARROW_ASSIGN_OR_RAISE(auto typed_null_dict, MakeArrayOfNull(type.value_type(), 0));
     out_->dictionary = typed_null_dict->data();
+    return Status::OK();
+  }
+
+  Status Visit(const RunEndEncodedType& type) {
+    ARROW_ASSIGN_OR_RAISE(auto values, MakeArrayOfNull(type.value_type(), 1, pool_));
+    ARROW_ASSIGN_OR_RAISE(auto run_end_scalar,
+                          MakeScalarForRunEndValue(*type.run_end_type(), length_));
+    ARROW_ASSIGN_OR_RAISE(auto run_ends, MakeArrayFromScalar(*run_end_scalar, 1, pool_));
+    ARROW_ASSIGN_OR_RAISE(auto ree_array,
+                          RunEndEncodedArray::Make(length_, run_ends, values));
+    out_ = ree_array->data();
     return Status::OK();
   }
 
@@ -726,6 +773,19 @@ class RepeatedArrayFactory {
     out_ = std::make_shared<DenseUnionArray>(scalar_.type, length_, std::move(fields),
                                              std::move(type_codes_buffer),
                                              std::move(offsets_buffer));
+    return Status::OK();
+  }
+
+  Status Visit(const RunEndEncodedType& type) {
+    const auto& ree_scalar = checked_cast<const RunEndEncodedScalar&>(scalar_);
+    ARROW_ASSIGN_OR_RAISE(auto values,
+                          ree_scalar.is_valid
+                              ? MakeArrayFromScalar(*ree_scalar.value, 1, pool_)
+                              : MakeArrayOfNull(ree_scalar.value_type(), 1, pool_));
+    ARROW_ASSIGN_OR_RAISE(auto run_end_scalar,
+                          MakeScalarForRunEndValue(*ree_scalar.run_end_type(), length_));
+    ARROW_ASSIGN_OR_RAISE(auto run_ends, MakeArrayFromScalar(*run_end_scalar, 1, pool_));
+    ARROW_ASSIGN_OR_RAISE(out_, RunEndEncodedArray::Make(length_, run_ends, values));
     return Status::OK();
   }
 
