@@ -1036,11 +1036,36 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
   int64_t offset = 0;
   while (offset < num_levels) {
     int64_t end_offset = std::min(offset + batch_size, num_levels);
+
     // Find next record boundary (i.e. ref_level = 0)
     while (end_offset < num_levels && rep_levels[end_offset] != 0) {
       end_offset++;
     }
-    action(offset, end_offset - offset, /*check_page=*/end_offset < num_levels);
+
+    if (end_offset < num_levels) {
+      // This is not the last chunk of batch and end_offset is a record boundary.
+      // It is a good chance to check the page size.
+      action(offset, end_offset - offset, /*check_page=*/true);
+    } else {
+      // This is the last chunk of batch, and we do not know whether end_offset is a
+      // record boundary. Find the offset to beginning of last record in this chunk,
+      // so we can check page size.
+      int64_t last_record_begin_offset = num_levels - 1;
+      while (last_record_begin_offset >= offset &&
+             rep_levels[last_record_begin_offset] != 0) {
+        last_record_begin_offset--;
+      }
+
+      if (offset < last_record_begin_offset) {
+        // We have found the beginning of last record and can check page size.
+        action(offset, last_record_begin_offset - offset, /*check_page=*/true);
+        offset = last_record_begin_offset;
+      }
+
+      // There is no record boundary in this chunk and cannot check page size.
+      action(offset, end_offset - offset, /*check_page=*/false);
+    }
+
     offset = end_offset;
   }
 }
