@@ -39,9 +39,6 @@ get_filename_component(GANDIVA_PROTO_FILE_ABSOLUTE ${GANDIVA_PROTO_DIR}/Types.pr
                        ABSOLUTE)
 
 find_package(Protobuf REQUIRED)
-if(MSVC)
-  add_definitions(-DPROTOBUF_USE_DLLS)
-endif()
 add_custom_command(OUTPUT ${GANDIVA_PROTO_OUTPUT_FILES}
                    COMMAND protobuf::protoc --proto_path ${GANDIVA_PROTO_DIR} --cpp_out
                            ${GANDIVA_PROTO_OUTPUT_DIR} ${GANDIVA_PROTO_FILE_ABSOLUTE}

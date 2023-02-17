@@ -771,7 +771,7 @@ func (b *dictionaryBuilder) newWithDictOffset(offset int) (indices, dict *Data, 
 	indices.Retain()
 
 	b.deltaOffset = b.memoTable.Size()
-	dict, err = getDictArrayData(b.mem, b.dt.ValueType, b.memoTable, offset)
+	dict, err = GetDictArrayData(b.mem, b.dt.ValueType, b.memoTable, offset)
 	b.reset()
 	return
 }
@@ -1471,7 +1471,7 @@ func (u *unifier) GetResult() (outType arrow.DataType, outDict arrow.Array, err 
 	}
 	outType = &arrow.DictionaryType{IndexType: indexType, ValueType: u.valueType}
 
-	dictData, err := getDictArrayData(u.mem, u.valueType, u.memoTable, 0)
+	dictData, err := GetDictArrayData(u.mem, u.valueType, u.memoTable, 0)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1509,7 +1509,7 @@ func (u *unifier) GetResultWithIndexType(indexType arrow.DataType) (arrow.Array,
 		return nil, errors.New("arrow/array: cannot combine dictionaries. unified dictionary requires a larger index type")
 	}
 
-	dictData, err := getDictArrayData(u.mem, u.valueType, u.memoTable, 0)
+	dictData, err := GetDictArrayData(u.mem, u.valueType, u.memoTable, 0)
 	if err != nil {
 		return nil, err
 	}

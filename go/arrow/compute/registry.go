@@ -51,6 +51,7 @@ func GetFunctionRegistry() FunctionRegistry {
 		RegisterScalarBoolean(registry)
 		RegisterScalarArithmetic(registry)
 		RegisterScalarComparisons(registry)
+		RegisterVectorHash(registry)
 	})
 	return registry
 }

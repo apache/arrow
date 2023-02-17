@@ -28,11 +28,11 @@ There are many ways to contribute to Apache Arrow:
 
 ## Reporting bugs and asking questions
 
-We support GitHub issues as a lightweight way to ask questions and engage with
-the Arrow developer community. We use [JIRA][3] for maintaining a queue of
-development work and as the public record for work on the project. So, feel
-free to open GitHub issues, but bugs and feature requests will eventually need
-to end up in JIRA, either before or after completing a pull request.
+We use GitHub issues for questions, maintaining a queue of development
+work, and as the public record for work on the project. Feel free to
+open issues for discussions, bugs, and feature requests. Questions may
+also be asked on the user mailing list
+[user@arrow.apache.org](https://lists.apache.org/list.html?user@arrow.apache.org).
 
 ## How to contribute patches
 

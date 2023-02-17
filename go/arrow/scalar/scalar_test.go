@@ -31,6 +31,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/apache/arrow/go/v12/arrow/scalar"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -867,6 +868,8 @@ func getScalars(mem memory.Allocator) []scalar.Scalar {
 		scalar.NewFixedSizeListScalar(int8Arr),
 		scalar.NewStructScalar([]scalar.Scalar{scalar.NewInt32Scalar(2), scalar.NewInt32Scalar(6)},
 			arrow.StructOf([]arrow.Field{{Name: "min", Type: arrow.PrimitiveTypes.Int32}, {Name: "max", Type: arrow.PrimitiveTypes.Int32}}...)),
+		scalar.NewRunEndEncodedScalar(scalar.NewStringScalarFromBuffer(hello),
+			arrow.RunEndEncodedOf(arrow.PrimitiveTypes.Int32, arrow.BinaryTypes.String)),
 	}
 }
 
@@ -1415,4 +1418,55 @@ func (s *DenseUnionSuite) TestGetScalar() {
 func TestUnionScalars(t *testing.T) {
 	suite.Run(t, new(SparseUnionSuite))
 	suite.Run(t, new(DenseUnionSuite))
+}
+
+func TestRunEndEncodedGetScalar(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	runEnds, _, _ := array.FromJSON(mem, arrow.PrimitiveTypes.Int32, strings.NewReader(`[100, 200, 300, 400, 500]`))
+	defer runEnds.Release()
+
+	values, _, _ := array.FromJSON(mem, arrow.BinaryTypes.String, strings.NewReader(`["Hello", "beautiful", "world", "of", "RLE"]`))
+	defer values.Release()
+
+	reeArray := array.NewRunEndEncodedArray(runEnds, values, 500, 0)
+	defer reeArray.Release()
+
+	slice := array.NewSlice(reeArray, 199, 404).(*array.RunEndEncoded)
+	defer slice.Release()
+
+	tests := []struct {
+		name  string
+		arr   arrow.Array
+		idx   int
+		exval string
+	}{
+		{"simple", reeArray, 225, "world"},
+		{"offset", slice, 125, "of"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sc, err := scalar.GetScalar(tt.arr, tt.idx)
+			require.NoError(t, err)
+			reeScalar := sc.(*scalar.RunEndEncoded)
+			defer reeScalar.Release()
+
+			assert.NoError(t, reeScalar.Validate())
+			expectedType := tt.arr.DataType().(*arrow.RunEndEncodedType).Encoded()
+			assert.Truef(t, arrow.TypeEqual(expectedType, reeScalar.Value.DataType()),
+				"expected: %s\ngot: %s", expectedType, reeScalar.Value.DataType())
+			assert.Equal(t, tt.exval, reeScalar.Value.String())
+		})
+	}
+}
+
+func TestRunEndEncodedNullScalar(t *testing.T) {
+	dt := arrow.RunEndEncodedOf(arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
+	sc := scalar.MakeNullScalar(dt)
+
+	assert.False(t, sc.IsValid())
+	assert.Truef(t, arrow.TypeEqual(dt, sc.DataType()), "expected: %s\ngot: %s", dt, sc.DataType())
+	assert.IsType(t, (*scalar.RunEndEncoded)(nil), sc)
 }

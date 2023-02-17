@@ -36,6 +36,10 @@ namespace Apache.Arrow
 
         private readonly IList<Field> _fields;
 
+        public Field this[int index] => GetFieldByIndex(index);
+
+        public Field this[string name] => GetFieldByName(name);
+
         public Schema(
             IEnumerable<Field> fields,
             IEnumerable<KeyValuePair<string, string>> metadata)

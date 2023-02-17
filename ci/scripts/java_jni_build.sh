@@ -60,6 +60,7 @@ cmake \
   -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_INSTALL_PREFIX=${prefix_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
+  -DProtobuf_USE_STATIC_LIBS=ON \
   -GNinja \
   ${JAVA_JNI_CMAKE_ARGS:-} \
   ${arrow_dir}/java

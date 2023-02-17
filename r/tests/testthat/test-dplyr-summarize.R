@@ -1119,12 +1119,20 @@ test_that("We don't add unnecessary ProjectNodes when aggregating", {
     1
   )
 
-  # 0 Projections only if
+  # 0 Projections if
   # (a) input only contains the col you're aggregating, and
   # (b) the output col name is the same as the input name, and
   # (c) no grouping
   expect_project_nodes(
     tab[, "int"] %>% summarize(int = mean(int, na.rm = TRUE)),
+    0
+  )
+
+  # 0 Projections if
+  # (a) only nullary functions in summarize()
+  # (b) no grouping
+  expect_project_nodes(
+    tab[, "int"] %>% summarize(n()),
     0
   )
 
