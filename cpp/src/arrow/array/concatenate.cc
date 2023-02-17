@@ -443,9 +443,7 @@ class ConcatenateImpl {
     for (const auto& input : in_) {
       if (internal::AddWithOverflow(physical_length,
                                     ree_util::FindPhysicalLength(ArraySpan(*input)),
-                                    &physical_length) ||
-          // Make sure we can safely downcast to int32_t
-          physical_length > std::numeric_limits<int32_t>::max()) {
+                                    &physical_length)) {
         return Status::Invalid("Length overflow when concatenating arrays");
       }
     }
