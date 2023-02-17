@@ -43,12 +43,14 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/byte_size.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 #include "arrow/util/utf8_internal.h"
 #include "arrow/util/vector.h"
 
@@ -401,6 +403,8 @@ class BlockParsingOperator {
         num_rows_seen_(first_row) {}
 
   Result<ParsedBlock> operator()(const CSVBlock& block) {
+    util::tracing::Span span;
+    START_SPAN(span, "arrow::csv::BlockParsingOperator");
     constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
     auto parser = std::make_shared<BlockParser>(
         io_context_.pool(), parse_options_, num_csv_cols_, num_rows_seen_, max_num_rows);
@@ -431,6 +435,11 @@ class BlockParsingOperator {
       num_rows_seen_ += parser->total_num_rows();
     }
     RETURN_NOT_OK(block.consume_bytes(parsed_size));
+#ifdef ARROW_WITH_OPENTELEMETRY
+    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
+            ::arrow::internal::tracing::UnwrapSpan(span.details.get());
+    raw_span->SetAttribute("parsed_size", parsed_size);
+#endif
     return ParsedBlock{std::move(parser), block.block_index,
                        static_cast<int64_t>(parsed_size) + block.bytes_skipped};
   }
@@ -448,6 +457,8 @@ class BlockParsingOperator {
 class BlockDecodingOperator {
  public:
   Future<DecodedBlock> operator()(const ParsedBlock& block) {
+    util::tracing::Span span;
+    START_SPAN(span, "arrow::csv::BlockDecodingOperator");
     DCHECK(!state_->column_decoders.empty());
     std::vector<Future<std::shared_ptr<Array>>> decoded_array_futs;
     for (auto& decoder : state_->column_decoders) {
@@ -456,6 +467,22 @@ class BlockDecodingOperator {
     auto bytes_parsed_or_skipped = block.bytes_parsed_or_skipped;
     auto decoded_arrays_fut = All(std::move(decoded_array_futs));
     auto state = state_;
+#ifdef ARROW_WITH_OPENTELEMETRY
+    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
+            ::arrow::internal::tracing::UnwrapSpan(span.details.get());
+    return decoded_arrays_fut.Then(
+        [state, bytes_parsed_or_skipped, raw_span](
+            const std::vector<Result<std::shared_ptr<Array>>>& maybe_decoded_arrays)
+            -> Result<DecodedBlock> {
+          ARROW_ASSIGN_OR_RAISE(auto decoded_arrays,
+                                arrow::internal::UnwrapOrRaise(maybe_decoded_arrays));
+
+          ARROW_ASSIGN_OR_RAISE(auto batch,
+                                state->DecodedArraysToBatch(std::move(decoded_arrays)));
+          raw_span->SetAttribute("arrow.csv.output_batch_size_bytes", util::TotalBufferSize(*batch));
+          return DecodedBlock{std::move(batch), bytes_parsed_or_skipped};
+        });
+#else
     return decoded_arrays_fut.Then(
         [state, bytes_parsed_or_skipped](
             const std::vector<Result<std::shared_ptr<Array>>>& maybe_decoded_arrays)
@@ -465,8 +492,10 @@ class BlockDecodingOperator {
 
           ARROW_ASSIGN_OR_RAISE(auto batch,
                                 state->DecodedArraysToBatch(std::move(decoded_arrays)));
+          raw_span->SetAttribute("parsed_size", parsed_size);
           return DecodedBlock{std::move(batch), bytes_parsed_or_skipped};
         });
+#endif
   }
 
   static Result<BlockDecodingOperator> Make(io::IOContext io_context,

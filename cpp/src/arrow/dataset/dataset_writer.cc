@@ -26,6 +26,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
+#include "arrow/util/byte_size.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/map.h"
@@ -234,8 +235,18 @@ class DatasetWriterFileQueue {
     return DeferNotOk(options_.filesystem->io_context().executor()->Submit(
         [self = this, batch = std::move(next)]() {
           int64_t rows_to_release = batch->num_rows();
+#ifdef ARROW_WITH_OPENTELEMETRY
+          uint64_t size_bytes = util::TotalBufferSize(*batch);
+          uint64_t num_buffers = 0;
+          for (auto column: batch->columns()) {
+            num_buffers += column->data()->buffers.size();
+          }
           util::tracing::Span span;
-          START_SPAN(span, "DatasetWriter::WriteNext", {{"threadpool", "IO"}});
+          START_SPAN(span, "DatasetWriter::WriteNext",
+                     {{"threadpool", "IO"},
+                       {"batch.size_bytes", size_bytes},
+                       {"batch.num_buffers", num_buffers}});
+#endif
           Status status = self->writer_->Write(batch);
           self->writer_state_->rows_in_flight_throttle.Release(rows_to_release);
           return status;

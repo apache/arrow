@@ -33,6 +33,7 @@
 #include "arrow/type.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/byte_size.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
@@ -291,8 +292,17 @@ class FileReaderImpl : public FileReader {
                 {"parquet.arrow.columnname", column_name},
                 {"parquet.arrow.physicaltype", phys_type},
                 {"parquet.arrow.records_to_read", records_to_read}});
-#endif
+
+    auto status = reader->NextBatch(records_to_read, out);
+
+    uint64_t size_bytes = ::arrow::util::TotalBufferSize(*out->get());
+    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
+            ::arrow::internal::tracing::UnwrapSpan(span.details.get());
+    raw_span->SetAttribute("parquet.arrow.output_batch_size_bytes", size_bytes);
+    return status;
+#else
     return reader->NextBatch(records_to_read, out);
+#endif
     END_PARQUET_CATCH_EXCEPTIONS
   }
 

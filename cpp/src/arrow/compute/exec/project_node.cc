@@ -80,7 +80,8 @@ class ProjectNode : public MapNode {
   Result<ExecBatch> ProcessBatch(ExecBatch batch) override {
     std::vector<Datum> values{exprs_.size()};
     util::tracing::Span span;
-    START_COMPUTE_SPAN(span, "Project", {{"project.length", batch.length }});
+    START_COMPUTE_SPAN(span, "Project", {{"project.length", batch.length },
+      {"input_batch.size_bytes", batch.TotalBufferSize()}});
     for (size_t i = 0; i < exprs_.size(); ++i) {
 #ifdef ARROW_WITH_OPENTELEMETRY
     opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
@@ -96,6 +97,11 @@ class ProjectNode : public MapNode {
           values[i], ExecuteScalarExpression(simplified_expr, batch,
                                              plan()->query_context()->exec_context()));
     }
+#ifdef ARROW_WITH_OPENTELEMETRY
+    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
+            ::arrow::internal::tracing::UnwrapSpan(span.details.get());
+    raw_span->SetAttribute("output_batch.size_bytes", batch.TotalBufferSize());
+#endif
     return ExecBatch{std::move(values), batch.length};
   }
 
