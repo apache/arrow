@@ -44,7 +44,7 @@ struct ReeUtilTest : public ::testing::Test {
 };
 TYPED_TEST_SUITE_P(ReeUtilTest);
 
-TYPED_TEST_P(ReeUtilTest, PhysicalOffset) {
+TYPED_TEST_P(ReeUtilTest, PhysicalIndex) {
   using RE = TypeParam;  // Run-end type
   const RE run_ends1[] = {1};
   ASSERT_EQ(internal::FindPhysicalIndex(run_ends1, 1, 0, 0), 0);
@@ -251,7 +251,7 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
   }
 }
 
-REGISTER_TYPED_TEST_SUITE_P(ReeUtilTest, PhysicalOffset, PhysicalLength,
+REGISTER_TYPED_TEST_SUITE_P(ReeUtilTest, PhysicalIndex, PhysicalLength,
                             MergedRunsInterator);
 
 using RunEndsTypes = testing::Types<int16_t, int32_t, int64_t>;
