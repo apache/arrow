@@ -2938,7 +2938,9 @@ template <typename DType>
 void ByteStreamSplitDecoder<DType>::SetData(int num_values, const uint8_t* data,
                                             int len) {
   if (num_values * static_cast<int64_t>(sizeof(T)) < len) {
-    throw ParquetException("Data size too large for number of values (padding file?)");
+    throw ParquetException(
+        "Data size too large for number of values (padding in byte stream split data "
+        "page?)");
   }
   if (len % sizeof(T) != 0) {
     throw ParquetException("ByteStreamSplit data size " + std::to_string(len) +
