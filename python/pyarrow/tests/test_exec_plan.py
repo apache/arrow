@@ -119,6 +119,59 @@ def test_joins(jointype, expected, use_threads, use_datasets):
     assert r == expected
 
 
+@pytest.mark.parametrize("tolerance,expected", [
+    (
+        1,
+        {
+            "colA": [1, 1, 5, 6, 7],
+            "col2": ["a", "b", "a", "b", "f"],
+            "colC": [1., None, None, None, None],
+        },
+    ),
+    (
+        3,
+        {
+            "colA": [1, 1, 5, 6, 7],
+            "col2": ["a", "b", "a", "b", "f"],
+            "colC": [1., None, None, 3., None],
+        },
+    ),
+    (
+        -5,
+        {
+            "colA": [1, 1, 5, 6, 7],
+            "col2": ["a", "b", "a", "b", "f"],
+            "colC": [None, None, 1., None, None],
+        },
+    ),
+])
+@pytest.mark.parametrize("use_datasets", [False, True])
+def test_join_asof(tolerance, expected, use_datasets):
+    # Allocate table here instead of using parametrize
+    # this prevents having arrow allocated memory forever around.
+    expected = pa.table(expected)
+
+    t1 = pa.Table.from_pydict({
+        "colA": [1, 1, 5, 6, 7],
+        "col2": ["a", "b", "a", "b", "f"]
+    })
+
+    t2 = pa.Table.from_pydict({
+        "colB": [2, 9, 15],
+        "col3": ["a", "b", "g"],
+        "colC": [1., 3., 5.]
+    })
+
+    if use_datasets:
+        t1 = ds.dataset([t1])
+        t2 = ds.dataset([t2])
+
+    r = ep._perform_join_asof(t1, "colA", "col2", t2, "colB", "col3", tolerance)
+    r = r.combine_chunks()
+    r = r.sort_by("colA")
+    assert r == expected
+
+
 def test_table_join_collisions():
     t1 = pa.table({
         "colA": [1, 2, 6],
