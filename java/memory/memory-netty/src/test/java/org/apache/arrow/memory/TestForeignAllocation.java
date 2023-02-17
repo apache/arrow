@@ -66,7 +66,9 @@ public class TestForeignAllocation {
         assertEquals(0, listenedAllocator.getAllocatedMemory());
         ArrowBuf buf = listenedAllocator.wrapForeignAllocation(allocation);
         assertEquals(bufferSize, buf.capacity());
+        assertEquals(16, listener.getCurrentMem());
         buf.close();
+        assertEquals(0, listener.getCurrentMem());
         assertTrue(allocation.released);
       } finally {
         allocation.release0();

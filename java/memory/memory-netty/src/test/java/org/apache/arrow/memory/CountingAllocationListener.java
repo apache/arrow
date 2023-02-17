@@ -26,6 +26,7 @@ final class CountingAllocationListener implements AllocationListener {
   private int numReleaseCalls;
   private int numChildren;
   private long totalMem;
+  private long currentMem;
   private boolean expandOnFail;
   BufferAllocator expandAlloc;
   long expandLimit;
@@ -34,6 +35,7 @@ final class CountingAllocationListener implements AllocationListener {
     this.numCalls = 0;
     this.numChildren = 0;
     this.totalMem = 0;
+    this.currentMem = 0;
     this.expandOnFail = false;
     this.expandAlloc = null;
     this.expandLimit = 0;
@@ -48,6 +50,7 @@ final class CountingAllocationListener implements AllocationListener {
   public void onAllocation(long size) {
     numCalls++;
     totalMem += size;
+    currentMem += size;
   }
 
   @Override
@@ -63,6 +66,7 @@ final class CountingAllocationListener implements AllocationListener {
   @Override
   public void onRelease(long size) {
     numReleaseCalls++;
+    currentMem -= size;
   }
 
   @Override
@@ -99,5 +103,9 @@ final class CountingAllocationListener implements AllocationListener {
 
   long getTotalMem() {
     return totalMem;
+  }
+
+  long getCurrentMem() {
+    return currentMem;
   }
 }
