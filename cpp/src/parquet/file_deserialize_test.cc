@@ -514,11 +514,7 @@ TEST_F(TestPageSerde, DataPageV2) {
 
 TEST_F(TestPageSerde, TestLargePageHeaders) {
   int stats_size = 256 * 1024;  // 256 KB
-  AddDummyStats(stats_size, data_page_header_, /*fill_all_stats=*/false);
-
-  // AddDummyStats() above has only set max which results in an invalid statistics.
-  // Set min explicitly here to make it valid.
-  data_page_header_.statistics.__set_min("");
+  AddDummyStats(stats_size, data_page_header_);
 
   // Any number to verify metadata roundtrip
   const int32_t num_rows = 4141;
