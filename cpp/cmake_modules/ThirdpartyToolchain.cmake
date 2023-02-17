@@ -362,9 +362,7 @@ if(ARROW_JSON)
   set(ARROW_WITH_RAPIDJSON ON)
 endif()
 
-if(ARROW_ORC
-   OR ARROW_FLIGHT
-   OR ARROW_GANDIVA)
+if(ARROW_ORC OR ARROW_FLIGHT)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
@@ -433,11 +431,83 @@ else()
   )
 endif()
 
+if(DEFINED ENV{ARROW_AWS_C_AUTH_URL})
+  set(AWS_C_AUTH_SOURCE_URL "$ENV{ARROW_AWS_C_AUTH_URL}")
+else()
+  set_urls(AWS_C_AUTH_SOURCE_URL
+           "https://github.com/awslabs/aws-c-auth/archive/${ARROW_AWS_C_AUTH_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_AWS_C_CAL_URL})
+  set(AWS_C_CAL_SOURCE_URL "$ENV{ARROW_AWS_C_CAL_URL}")
+else()
+  set_urls(AWS_C_CAL_SOURCE_URL
+           "https://github.com/awslabs/aws-c-cal/archive/${ARROW_AWS_C_CAL_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
 if(DEFINED ENV{ARROW_AWS_C_COMMON_URL})
   set(AWS_C_COMMON_SOURCE_URL "$ENV{ARROW_AWS_C_COMMON_URL}")
 else()
   set_urls(AWS_C_COMMON_SOURCE_URL
            "https://github.com/awslabs/aws-c-common/archive/${ARROW_AWS_C_COMMON_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_AWS_C_COMPRESSION_URL})
+  set(AWS_C_COMPRESSION_SOURCE_URL "$ENV{ARROW_AWS_C_COMPRESSION_URL}")
+else()
+  set_urls(AWS_C_COMPRESSION_SOURCE_URL
+           "https://github.com/awslabs/aws-c-compression/archive/${ARROW_AWS_C_COMPRESSION_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_AWS_C_EVENT_STREAM_URL})
+  set(AWS_C_EVENT_STREAM_SOURCE_URL "$ENV{ARROW_AWS_C_EVENT_STREAM_URL}")
+else()
+  set_urls(AWS_C_EVENT_STREAM_SOURCE_URL
+           "https://github.com/awslabs/aws-c-event-stream/archive/${ARROW_AWS_C_EVENT_STREAM_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_AWS_C_HTTP_URL})
+  set(AWS_C_HTTP_SOURCE_URL "$ENV{ARROW_AWS_C_HTTP_URL}")
+else()
+  set_urls(AWS_C_HTTP_SOURCE_URL
+           "https://github.com/awslabs/aws-c-http/archive/${ARROW_AWS_C_HTTP_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_AWS_C_IO_URL})
+  set(AWS_C_IO_SOURCE_URL "$ENV{ARROW_AWS_C_IO_URL}")
+else()
+  set_urls(AWS_C_IO_SOURCE_URL
+           "https://github.com/awslabs/aws-c-io/archive/${ARROW_AWS_C_IO_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_AWS_C_MQTT_URL})
+  set(AWS_C_MQTT_SOURCE_URL "$ENV{ARROW_AWS_C_MQTT_URL}")
+else()
+  set_urls(AWS_C_MQTT_SOURCE_URL
+           "https://github.com/awslabs/aws-c-mqtt/archive/${ARROW_AWS_C_MQTT_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_AWS_C_S3_URL})
+  set(AWS_C_S3_SOURCE_URL "$ENV{ARROW_AWS_C_S3_URL}")
+else()
+  set_urls(AWS_C_S3_SOURCE_URL
+           "https://github.com/awslabs/aws-c-s3/archive/${ARROW_AWS_C_S3_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_AWS_C_SDKUTILS_URL})
+  set(AWS_C_SDKUTILS_SOURCE_URL "$ENV{ARROW_AWS_C_SDKUTILS_URL}")
+else()
+  set_urls(AWS_C_SDKUTILS_SOURCE_URL
+           "https://github.com/awslabs/aws-c-sdkutils/archive/${ARROW_AWS_C_SDKUTILS_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -449,11 +519,19 @@ else()
   )
 endif()
 
-if(DEFINED ENV{ARROW_AWS_C_EVENT_STREAM_URL})
-  set(AWS_C_EVENT_STREAM_SOURCE_URL "$ENV{ARROW_AWS_C_EVENT_STREAM_URL}")
+if(DEFINED ENV{ARROW_AWS_CRT_CPP_URL})
+  set(AWS_CRT_CPP_SOURCE_URL "$ENV{ARROW_AWS_CRT_CPP_URL}")
 else()
-  set_urls(AWS_C_EVENT_STREAM_SOURCE_URL
-           "https://github.com/awslabs/aws-c-event-stream/archive/${ARROW_AWS_C_EVENT_STREAM_BUILD_VERSION}.tar.gz"
+  set_urls(AWS_CRT_CPP_SOURCE_URL
+           "https://github.com/awslabs/aws-crt-cpp/archive/${ARROW_AWS_CRT_CPP_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_AWS_LC_URL})
+  set(AWS_LC_SOURCE_URL "$ENV{ARROW_AWS_LC_URL}")
+else()
+  set_urls(AWS_LC_SOURCE_URL
+           "https://github.com/awslabs/aws-lc/archive/${ARROW_AWS_LC_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -651,6 +729,13 @@ else()
            "${THIRDPARTY_MIRROR_URL}/rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz")
 endif()
 
+if(DEFINED ENV{ARROW_S2N_TLS_URL})
+  set(S2N_TLS_SOURCE_URL "$ENV{ARROW_S2N_TLS_URL}")
+else()
+  set_urls(S2N_TLS_SOURCE_URL
+           "https://github.com/aws/s2n-tls/archive/${ARROW_S2N_TLS_BUILD_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_SNAPPY_URL})
   set(SNAPPY_SOURCE_URL "$ENV{ARROW_SNAPPY_URL}")
 else()
@@ -723,7 +808,8 @@ if(DEFINED ENV{ARROW_ZSTD_URL})
   set(ZSTD_SOURCE_URL "$ENV{ARROW_ZSTD_URL}")
 else()
   set_urls(ZSTD_SOURCE_URL
-           "https://github.com/facebook/zstd/archive/${ARROW_ZSTD_BUILD_VERSION}.tar.gz")
+           "https://github.com/facebook/zstd/releases/download/v${ARROW_ZSTD_BUILD_VERSION}/zstd-${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
+  )
 endif()
 
 # ----------------------------------------------------------------------
@@ -978,7 +1064,12 @@ macro(build_boost)
   set(BOOST_VENDORED TRUE)
 endmacro()
 
-if(ARROW_BUILD_TESTS)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER
+                                              15)
+  # GH-34094 Older versions of Boost use the deprecated std::unary_function in
+  # boost/container_hash/hash.hpp and support for that was removed in clang 16
+  set(ARROW_BOOST_REQUIRED_VERSION "1.81")
+elseif(ARROW_BUILD_TESTS)
   set(ARROW_BOOST_REQUIRED_VERSION "1.64")
 else()
   set(ARROW_BOOST_REQUIRED_VERSION "1.58")
@@ -1153,8 +1244,9 @@ macro(find_curl)
       add_library(CURL::libcurl UNKNOWN IMPORTED)
       set_target_properties(CURL::libcurl
                             PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
-                                                              "${CURL_LIBRARIES}")
+                                       "${CURL_INCLUDE_DIRS}"
+                                       IMPORTED_LOCATION "${CURL_LIBRARIES}"
+                                       INTERFACE_LINK_LIBRARIES OpenSSL::SSL)
     endif()
   endif()
 endmacro()
@@ -1555,7 +1647,7 @@ if(ARROW_WITH_THRIFT)
 endif()
 
 # ----------------------------------------------------------------------
-# Protocol Buffers (required for ORC, Flight, Gandiva and Substrait libraries)
+# Protocol Buffers (required for ORC, Flight and Substrait libraries)
 
 macro(build_protobuf)
   message(STATUS "Building Protocol Buffers from source")
@@ -2204,6 +2296,7 @@ macro(build_benchmark)
                         PROPERTIES IMPORTED_LOCATION "${GBENCHMARK_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${GBENCHMARK_INCLUDE_DIR}")
+  target_compile_definitions(benchmark::benchmark INTERFACE "BENCHMARK_STATIC_DEFINE")
 
   add_library(benchmark::benchmark_main STATIC IMPORTED)
   set_target_properties(benchmark::benchmark_main
@@ -4361,7 +4454,9 @@ macro(build_orc)
       "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
       "-DPROTOC_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
       "-DLZ4_HOME=${ORC_LZ4_ROOT}"
-      "-DZSTD_HOME=${ORZ_ZSTD_ROOT}")
+      "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
+      "-DZSTD_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_ZSTD_LIBZSTD},INTERFACE_INCLUDE_DIRECTORIES>"
+      "-DZSTD_LIBRARY=$<TARGET_FILE:${ARROW_ZSTD_LIBZSTD}>")
   if(ORC_PROTOBUF_EXECUTABLE)
     set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS}
                        "-DPROTOBUF_EXECUTABLE:FILEPATH=${ORC_PROTOBUF_EXECUTABLE}")
@@ -4642,25 +4737,18 @@ macro(build_awssdk)
     set(AWSSDK_BUILD_TYPE release)
   endif()
 
+  # provide hint for AWS SDK to link with the already located openssl
+  get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
   set(AWSSDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       -DCMAKE_BUILD_TYPE=${AWSSDK_BUILD_TYPE}
+      -DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}
+      -DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}\\$<SEMICOLON>${OPENSSL_ROOT_HINT}
       -DENABLE_TESTING=OFF
       -DENABLE_UNITY_BUILD=ON
-      "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
-      "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
-  if(NOT MSVC)
-    list(APPEND AWSSDK_COMMON_CMAKE_ARGS
-         # Workaround for https://github.com/aws/aws-sdk-cpp/issues/1582
-         "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS} -Wno-error=deprecated-declarations")
-  endif()
-
-  # provide hint for AWS SDK to link with the already located openssl
-  get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
-
+      -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT})
   set(AWSSDK_CMAKE_ARGS
       ${AWSSDK_COMMON_CMAKE_ARGS}
-      -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT}
       -DBUILD_DEPS=OFF
       -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
       -DMINIMIZE_SIZE=ON)
@@ -4689,9 +4777,28 @@ macro(build_awssdk)
       aws-cpp-sdk-cognito-identity
       aws-cpp-sdk-s3
       aws-cpp-sdk-core
+      aws-crt-cpp
+      aws-c-s3
+      aws-c-auth
+      aws-c-mqtt
+      aws-c-http
+      aws-c-compression
+      aws-c-sdkutils
       aws-c-event-stream
+      aws-c-io
+      aws-c-cal
       aws-checksums
       aws-c-common)
+
+  # aws-lc needs to be installed on a separate folder to hide from unintended use
+  set(AWS_LC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/aws_lc_ep-install")
+  set(AWS_LC_INCLUDE_DIR "${AWS_LC_PREFIX}/include")
+
+  if(UNIX AND NOT APPLE) # aws-lc and s2n-tls only needed on linux
+    file(MAKE_DIRECTORY ${AWS_LC_INCLUDE_DIR})
+    list(APPEND _AWSSDK_LIBS s2n-tls aws-lc)
+  endif()
+
   set(AWSSDK_LIBRARIES)
   foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
     # aws-c-common -> AWS-C-COMMON
@@ -4701,8 +4808,19 @@ macro(build_awssdk)
     set(_AWSSDK_STATIC_LIBRARY
         "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_AWSSDK_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
+    if(${_AWSSDK_LIB} STREQUAL "s2n-tls") # Build output of s2n-tls is libs2n.a
+      set(_AWSSDK_STATIC_LIBRARY
+          "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}s2n${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    elseif(${_AWSSDK_LIB} STREQUAL "aws-lc") # We only need libcrypto from aws-lc
+      set(_AWSSDK_STATIC_LIBRARY
+          "${AWS_LC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}crypto${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    endif()
     if(${_AWSSDK_LIB} MATCHES "^aws-cpp-sdk-")
       set(_AWSSDK_TARGET_NAME ${_AWSSDK_LIB})
+    elseif(${_AWSSDK_LIB} STREQUAL "aws-lc")
+      set(_AWSSDK_TARGET_NAME AWS::crypto)
     else()
       set(_AWSSDK_TARGET_NAME AWS::${_AWSSDK_LIB})
     endif()
@@ -4711,8 +4829,18 @@ macro(build_awssdk)
                           PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY}
                                      INTERFACE_INCLUDE_DIRECTORIES
                                      "${AWSSDK_INCLUDE_DIR}")
+    if(${_AWSSDK_LIB} STREQUAL "aws-lc")
+      set_target_properties(${_AWSSDK_TARGET_NAME}
+                            PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY}
+                                       INTERFACE_INCLUDE_DIRECTORIES
+                                       "${AWS_LC_INCLUDE_DIR}")
+    endif()
     set("${_AWSSDK_LIB_NAME_PREFIX}_STATIC_LIBRARY" ${_AWSSDK_STATIC_LIBRARY})
-    list(APPEND AWSSDK_LIBRARIES ${_AWSSDK_TARGET_NAME})
+
+    if(NOT ${_AWSSDK_LIB} STREQUAL "aws-lc")
+      # aws-lc only linked against s2n but not arrow
+      list(APPEND AWSSDK_LIBRARIES ${_AWSSDK_TARGET_NAME})
+    endif()
   endforeach()
 
   externalproject_add(aws_c_common_ep
@@ -4732,35 +4860,151 @@ macro(build_awssdk)
                       DEPENDS aws_c_common_ep)
   add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
+  if("s2n-tls" IN_LIST _AWSSDK_LIBS)
+    set(AWS_LC_C_FLAGS ${EP_C_FLAGS})
+    string(APPEND AWS_LC_C_FLAGS " -Wno-error=overlength-strings -Wno-error=pedantic")
+
+    set(AWS_LC_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
+    list(APPEND AWS_LC_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
+         -DCMAKE_C_FLAGS=${AWS_LC_C_FLAGS})
+
+    externalproject_add(aws_lc_ep
+                        ${EP_COMMON_OPTIONS}
+                        URL ${AWS_LC_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_AWS_LC_BUILD_SHA256_CHECKSUM}"
+                        CMAKE_ARGS ${AWS_LC_CMAKE_ARGS}
+                        BUILD_BYPRODUCTS ${AWS_LC_STATIC_LIBRARY})
+    add_dependencies(AWS::crypto aws_lc_ep)
+
+    set(S2N_TLS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
+    list(APPEND
+         S2N_TLS_CMAKE_ARGS
+         -DS2N_INTERN_LIBCRYPTO=ON # internalize libcrypto to avoid name conflict with openssl
+         -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX}) # path to find crypto provided by aws-lc
+
+    externalproject_add(s2n_tls_ep
+                        ${EP_COMMON_OPTIONS}
+                        URL ${S2N_TLS_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_S2N_TLS_BUILD_SHA256_CHECKSUM}"
+                        CMAKE_ARGS ${S2N_TLS_CMAKE_ARGS}
+                        BUILD_BYPRODUCTS ${S2N_TLS_STATIC_LIBRARY}
+                        DEPENDS aws_lc_ep)
+    add_dependencies(AWS::s2n-tls s2n_tls_ep)
+  endif()
+
+  externalproject_add(aws_c_cal_ep
+                      ${EP_COMMON_OPTIONS}
+                      URL ${AWS_C_CAL_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AWS_C_CAL_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_C_CAL_STATIC_LIBRARY}
+                      DEPENDS aws_c_common_ep)
+  add_dependencies(AWS::aws-c-cal aws_c_cal_ep)
+
+  set(AWS_C_IO_DEPENDS aws_c_common_ep aws_c_cal_ep)
+  if(TARGET s2n_tls_ep)
+    list(APPEND AWS_C_IO_DEPENDS s2n_tls_ep)
+  endif()
+  externalproject_add(aws_c_io_ep
+                      ${EP_COMMON_OPTIONS}
+                      URL ${AWS_C_IO_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AWS_C_IO_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_C_IO_STATIC_LIBRARY}
+                      DEPENDS ${AWS_C_IO_DEPENDS})
+  add_dependencies(AWS::aws-c-io aws_c_io_ep)
+
   externalproject_add(aws_c_event_stream_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${AWS_C_EVENT_STREAM_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWS_C_EVENT_STREAM_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_EVENT_STREAM_STATIC_LIBRARY}
-                      DEPENDS aws_checksums_ep)
+                      DEPENDS aws_checksums_ep aws_c_io_ep)
   add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
 
-  set(AWSSDK_PATCH_COMMAND)
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER
-                                              "10")
-    # Workaround for https://github.com/aws/aws-sdk-cpp/issues/1750
-    set(AWSSDK_PATCH_COMMAND "sed" "-i.bak" "-e" "s/\"-Werror\"//g"
-                             "<SOURCE_DIR>/cmake/compiler_settings.cmake")
-  endif()
+  externalproject_add(aws_c_sdkutils_ep
+                      ${EP_COMMON_OPTIONS}
+                      URL ${AWS_C_SDKUTILS_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AWS_C_SDKUTILS_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_C_SDKUTILS_STATIC_LIBRARY}
+                      DEPENDS aws_c_common_ep)
+  add_dependencies(AWS::aws-c-sdkutils aws_c_sdkutils_ep)
+
+  externalproject_add(aws_c_compression_ep
+                      ${EP_COMMON_OPTIONS}
+                      URL ${AWS_C_COMPRESSION_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AWS_C_COMPRESSION_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_C_COMPRESSION_STATIC_LIBRARY}
+                      DEPENDS aws_c_common_ep)
+  add_dependencies(AWS::aws-c-compression aws_c_compression_ep)
+
+  externalproject_add(aws_c_http_ep
+                      ${EP_COMMON_OPTIONS}
+                      URL ${AWS_C_HTTP_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AWS_C_HTTP_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_C_HTTP_STATIC_LIBRARY}
+                      DEPENDS aws_c_io_ep aws_c_compression_ep)
+  add_dependencies(AWS::aws-c-http aws_c_http_ep)
+
+  externalproject_add(aws_c_mqtt_ep
+                      ${EP_COMMON_OPTIONS}
+                      URL ${AWS_C_MQTT_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AWS_C_MQTT_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_C_MQTT_STATIC_LIBRARY}
+                      DEPENDS aws_c_http_ep)
+  add_dependencies(AWS::aws-c-mqtt aws_c_mqtt_ep)
+
+  externalproject_add(aws_c_auth_ep
+                      ${EP_COMMON_OPTIONS}
+                      URL ${AWS_C_AUTH_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AWS_C_AUTH_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_C_AUTH_STATIC_LIBRARY}
+                      DEPENDS aws_c_sdkutils_ep aws_c_cal_ep aws_c_http_ep)
+  add_dependencies(AWS::aws-c-auth aws_c_auth_ep)
+
+  externalproject_add(aws_c_s3_ep
+                      ${EP_COMMON_OPTIONS}
+                      URL ${AWS_C_S3_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AWS_C_S3_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_C_S3_STATIC_LIBRARY}
+                      DEPENDS aws_checksums_ep aws_c_auth_ep)
+  add_dependencies(AWS::aws-c-s3 aws_c_s3_ep)
+
+  externalproject_add(aws_crt_cpp_ep
+                      ${EP_COMMON_OPTIONS}
+                      URL ${AWS_CRT_CPP_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AWS_CRT_CPP_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_CRT_CPP_STATIC_LIBRARY}
+                      DEPENDS aws_c_auth_ep
+                              aws_c_cal_ep
+                              aws_c_common_ep
+                              aws_c_event_stream_ep
+                              aws_c_http_ep
+                              aws_c_io_ep
+                              aws_c_mqtt_ep
+                              aws_c_s3_ep
+                              aws_checksums_ep)
+  add_dependencies(AWS::aws-crt-cpp aws_crt_cpp_ep)
 
   externalproject_add(awssdk_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWSSDK_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-                      PATCH_COMMAND ${AWSSDK_PATCH_COMMAND}
                       BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_S3_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_STS_STATIC_LIBRARY}
-                      DEPENDS aws_c_event_stream_ep)
+                      DEPENDS aws_crt_cpp_ep)
   add_dependencies(toolchain awssdk_ep)
   foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
     if(${_AWSSDK_LIB} MATCHES "^aws-cpp-sdk-")
@@ -4776,9 +5020,14 @@ macro(build_awssdk)
     set_property(TARGET aws-cpp-sdk-core
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl)
-    set_property(TARGET CURL::libcurl
+    set_property(TARGET AWS::aws-c-cal
                  APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::SSL)
+                 PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::Crypto OpenSSL::SSL)
+    if(APPLE)
+      set_property(TARGET AWS::aws-c-cal
+                   APPEND
+                   PROPERTY INTERFACE_LINK_LIBRARIES "-framework Security")
+    endif()
     if(ZLIB_VENDORED)
       set_property(TARGET aws-cpp-sdk-core
                    APPEND
@@ -4794,6 +5043,13 @@ macro(build_awssdk)
                           "wininet.lib"
                           "userenv.lib"
                           "version.lib")
+    set_property(TARGET AWS::aws-c-cal
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          "bcrypt.lib"
+                          "ncrypt.lib"
+                          "Secur32.lib"
+                          "Shlwapi.lib")
   endif()
 
   # AWSSDK is static-only build

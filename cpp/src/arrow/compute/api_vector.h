@@ -101,9 +101,6 @@ class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
   explicit SortKey(FieldRef target, SortOrder order = SortOrder::Ascending)
       : target(std::move(target)), order(order) {}
 
-  using util::EqualityComparable<SortKey>::Equals;
-  using util::EqualityComparable<SortKey>::operator==;
-  using util::EqualityComparable<SortKey>::operator!=;
   bool Equals(const SortKey& other) const;
   std::string ToString() const;
 

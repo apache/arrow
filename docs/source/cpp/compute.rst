@@ -1545,7 +1545,7 @@ is the same, even though the UTC years would be different.
 Timezone handling
 ~~~~~~~~~~~~~~~~~
 
-This function is meant to be used when an external system produces
+`assume_timezone` function is meant to be used when an external system produces
 "timezone-naive" timestamps which need to be converted to "timezone-aware"
 timestamps (see for example the `definition
 <https://docs.python.org/3/library/datetime.html#aware-and-naive-objects>`__
@@ -1556,10 +1556,19 @@ Input timestamps are assumed to be relative to the timezone given in
 UTC-relative timestamps with the timezone metadata set to the above value.
 An error is returned if the timestamps already have the timezone metadata set.
 
+`local_time` function converts UTC-relative timestamps to local "timezone-naive"
+timestamps. The timezone is taken from the timezone metadata of the input
+timestamps. This function is the inverse of `assume_timezone`. Please note:
+**all temporal functions already operate on timestamps as if they were in local
+time of the metadata provided timezone**. Using `local_time` is only meant to be
+used when an external system expects local timestamps.
+
 +--------------------+------------+-------------------+---------------+----------------------------------+-------+
 | Function name      | Arity      | Input types       | Output type   | Options class                    | Notes |
 +====================+============+===================+===============+==================================+=======+
 | assume_timezone    | Unary      | Timestamp         | Timestamp     | :struct:`AssumeTimezoneOptions`  | \(1)  |
++--------------------+------------+-------------------+---------------+----------------------------------+-------+
+| local_time         | Unary      | Timestamp         | Timestamp     |                                  | \(2)  |
 +--------------------+------------+-------------------+---------------+----------------------------------+-------+
 
 * \(1) In addition to the timezone value, :struct:`AssumeTimezoneOptions`

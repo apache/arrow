@@ -836,6 +836,18 @@ cdef class BaseExtensionType(DataType):
         DataType.init(self, type)
         self.ext_type = <const CExtensionType*> type.get()
 
+    def __arrow_ext_class__(self):
+        """
+        The associated array extension class
+        """
+        return ExtensionArray
+
+    def __arrow_ext_scalar_class__(self):
+        """
+        The associated scalar class
+        """
+        return ExtensionScalar
+
     @property
     def extension_name(self):
         """
@@ -987,7 +999,6 @@ cdef class ExtensionType(BaseExtensionType):
         extension type scalar will be a built-in ExtensionScalar instance.
         """
         return ExtensionScalar
-
 
 cdef class PyExtensionType(ExtensionType):
     """

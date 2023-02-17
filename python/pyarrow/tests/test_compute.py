@@ -157,6 +157,7 @@ def test_option_class_equality():
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
+        pc.RoundBinaryOptions("towards_infinity"),
         pc.RoundTemporalOptions(1, "second", week_starts_monday=True),
         pc.RoundToMultipleOptions(100, "towards_infinity"),
         pc.ScalarAggregateOptions(),
@@ -1588,6 +1589,23 @@ def test_round_to_multiple():
             pc.round_to_multiple(values, multiple=multiple)
 
 
+def test_round_binary():
+    values = [123.456, 234.567, 345.678, 456.789, 123.456, 234.567, 345.678]
+    scales = pa.array([-3, -2, -1, 0, 1, 2, 3], pa.int32())
+    expected = pa.array(
+        [0, 200, 350, 457, 123.5, 234.57, 345.678], pa.float64())
+    assert pc.round_binary(values, scales) == expected
+
+    expect_zero = pa.scalar(0, pa.float64())
+    expect_inf = pa.scalar(10, pa.float64())
+    scale = pa.scalar(-1, pa.int32())
+
+    assert pc.round_binary(
+        5, scale, round_mode="half_towards_zero") == expect_zero
+    assert pc.round_binary(
+        5, scale, round_mode="half_towards_infinity") == expect_inf
+
+
 def test_is_null():
     arr = pa.array([1, 2, 3, None])
     result = arr.is_null()
@@ -1933,6 +1951,7 @@ def _check_datetime_components(timestamps, timezone=None):
     assert pc.microsecond(tsa).equals(pa.array(ts.dt.microsecond % 10 ** 3))
     assert pc.nanosecond(tsa).equals(pa.array(ts.dt.nanosecond))
     assert pc.subsecond(tsa).equals(pa.array(subseconds))
+    assert pc.local_time(tsa).equals(pa.array(ts.dt.tz_localize(None)))
 
     if ts.dt.tz:
         if ts.dt.tz is datetime.timezone.utc:

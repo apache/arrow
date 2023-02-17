@@ -30,8 +30,8 @@
 namespace parquet {
 constexpr uint32_t BlockSplitBloomFilter::SALT[kBitsSetPerBlock];
 
-BlockSplitBloomFilter::BlockSplitBloomFilter()
-    : pool_(::arrow::default_memory_pool()),
+BlockSplitBloomFilter::BlockSplitBloomFilter(::arrow::MemoryPool* pool)
+    : pool_(pool),
       hash_strategy_(HashStrategy::XXHASH),
       algorithm_(Algorithm::BLOCK),
       compression_strategy_(CompressionStrategy::UNCOMPRESSED) {}

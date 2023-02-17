@@ -122,7 +122,10 @@ class PARQUET_EXPORT BloomFilter {
 class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
  public:
   /// The constructor of BlockSplitBloomFilter. It uses XXH64 as hash function.
-  BlockSplitBloomFilter();
+  ///
+  /// \param pool memory pool to use.
+  explicit BlockSplitBloomFilter(
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   /// Initialize the BlockSplitBloomFilter. The range of num_bytes should be within
   /// [kMinimumBloomFilterBytes, kMaximumBloomFilterBytes], it will be
@@ -152,6 +155,19 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// @param fpp The false positive probability.
   /// @return it always return a value between kMinimumBloomFilterBytes and
   /// kMaximumBloomFilterBytes, and the return value is always a power of 2
+  static uint32_t OptimalNumOfBytes(uint32_t ndv, double fpp) {
+    uint32_t optimal_num_of_bits = OptimalNumOfBits(ndv, fpp);
+    DCHECK(::arrow::bit_util::IsMultipleOf8(optimal_num_of_bits));
+    return optimal_num_of_bits >> 3;
+  }
+
+  /// Calculate optimal size according to the number of distinct values and false
+  /// positive probability.
+  ///
+  /// @param ndv The number of distinct values.
+  /// @param fpp The false positive probability.
+  /// @return it always return a value between kMinimumBloomFilterBytes * 8 and
+  /// kMaximumBloomFilterBytes * 8, and the return value is always a power of 16
   static uint32_t OptimalNumOfBits(uint32_t ndv, double fpp) {
     DCHECK(fpp > 0.0 && fpp < 1.0);
     const double m = -8.0 * ndv / log(1 - pow(fpp, 1.0 / 8));

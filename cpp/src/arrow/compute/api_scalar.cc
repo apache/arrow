@@ -645,6 +645,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kPadOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSubstringOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRoundBinaryOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundTemporalOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundToMultipleOptionsType));
@@ -833,6 +834,7 @@ SCALAR_EAGER_UNARY(DayOfYear, "day_of_year")
 SCALAR_EAGER_UNARY(Hour, "hour")
 SCALAR_EAGER_UNARY(YearMonthDay, "year_month_day")
 SCALAR_EAGER_UNARY(IsDaylightSavings, "is_dst")
+SCALAR_EAGER_UNARY(LocalTime, "local_time")
 SCALAR_EAGER_UNARY(IsLeapYear, "is_leap_year")
 SCALAR_EAGER_UNARY(ISOCalendar, "iso_calendar")
 SCALAR_EAGER_UNARY(ISOWeek, "iso_week")

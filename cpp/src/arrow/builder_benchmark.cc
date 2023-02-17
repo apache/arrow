@@ -29,10 +29,13 @@
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/benchmark_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/decimal.h"
 
 namespace arrow {
+
+::arrow::BenchmarkMemoryTracker memory_tracker;
 
 using ValueType = int64_t;
 using VectorType = std::vector<ValueType>;
@@ -59,7 +62,7 @@ static std::string_view kBinaryView(kBinaryString);
 
 static void BuildIntArrayNoNulls(benchmark::State& state) {  // NOLINT non-const reference
   for (auto _ : state) {
-    Int64Builder builder;
+    Int64Builder builder(memory_tracker.memory_pool());
 
     for (int i = 0; i < kRounds; i++) {
       ABORT_NOT_OK(builder.AppendValues(kData.data(), kData.size(), nullptr));
@@ -75,7 +78,7 @@ static void BuildIntArrayNoNulls(benchmark::State& state) {  // NOLINT non-const
 static void BuildAdaptiveIntNoNulls(
     benchmark::State& state) {  // NOLINT non-const reference
   for (auto _ : state) {
-    AdaptiveIntBuilder builder;
+    AdaptiveIntBuilder builder(memory_tracker.memory_pool());
 
     for (int i = 0; i < kRounds; i++) {
       ABORT_NOT_OK(builder.AppendValues(kData.data(), kData.size(), nullptr));
@@ -91,7 +94,7 @@ static void BuildAdaptiveIntNoNulls(
 static void BuildAdaptiveIntNoNullsScalarAppend(
     benchmark::State& state) {  // NOLINT non-const reference
   for (auto _ : state) {
-    AdaptiveIntBuilder builder;
+    AdaptiveIntBuilder builder(memory_tracker.memory_pool());
 
     for (int i = 0; i < kRounds; i++) {
       for (size_t j = 0; j < kData.size(); j++) {
@@ -113,7 +116,7 @@ static void BuildBooleanArrayNoNulls(
   const uint8_t* data = reinterpret_cast<const uint8_t*>(kData.data());
 
   for (auto _ : state) {
-    BooleanBuilder builder;
+    BooleanBuilder builder(memory_tracker.memory_pool());
 
     for (int i = 0; i < kRounds; i++) {
       ABORT_NOT_OK(builder.AppendValues(data, n_bytes));
@@ -128,7 +131,7 @@ static void BuildBooleanArrayNoNulls(
 
 static void BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const reference
   for (auto _ : state) {
-    BinaryBuilder builder;
+    BinaryBuilder builder(memory_tracker.memory_pool());
 
     for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
       ABORT_NOT_OK(builder.Append(kBinaryView));
@@ -147,7 +150,7 @@ static void BuildChunkedBinaryArray(
   const int32_t kChunkSize = 1 << 20;
 
   for (auto _ : state) {
-    internal::ChunkedBinaryBuilder builder(kChunkSize);
+    internal::ChunkedBinaryBuilder builder(kChunkSize, memory_tracker.memory_pool());
 
     for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
       ABORT_NOT_OK(builder.Append(kBinaryView));
@@ -165,7 +168,7 @@ static void BuildFixedSizeBinaryArray(
   auto type = fixed_size_binary(static_cast<int32_t>(kBinaryView.size()));
 
   for (auto _ : state) {
-    FixedSizeBinaryBuilder builder(type);
+    FixedSizeBinaryBuilder builder(type, memory_tracker.memory_pool());
 
     for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
       ABORT_NOT_OK(builder.Append(kBinaryView));
@@ -185,7 +188,7 @@ static void BuildDecimalArray(benchmark::State& state) {  // NOLINT non-const re
   int32_t scale = 0;
   ABORT_NOT_OK(Decimal128::FromString("1234.1234", &value, &precision, &scale));
   for (auto _ : state) {
-    Decimal128Builder builder(type);
+    Decimal128Builder builder(type, memory_tracker.memory_pool());
 
     for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
       ABORT_NOT_OK(builder.Append(value));
@@ -298,7 +301,7 @@ static void BenchmarkDictionaryArray(
     benchmark::State& state,  // NOLINT non-const reference
     const std::vector<Scalar>& fodder, size_t fodder_nbytes = 0) {
   for (auto _ : state) {
-    DictionaryBuilderType builder(default_memory_pool());
+    DictionaryBuilderType builder(memory_tracker.memory_pool());
 
     for (int64_t i = 0; i < kRounds; i++) {
       for (const auto& value : fodder) {
@@ -371,7 +374,7 @@ static void BenchmarkBufferBuilder(
   // Write approx. 256 MB to BufferBuilder
   int64_t num_raw_values = (1 << 28) / raw_nbytes;
   for (auto _ : state) {
-    BufferBuilder builder;
+    BufferBuilder builder(memory_tracker.memory_pool());
     std::shared_ptr<Buffer> buf;
     for (int64_t i = 0; i < num_raw_values; ++i) {
       ABORT_NOT_OK(builder.Append(raw_data, raw_nbytes));

@@ -171,7 +171,7 @@ reload_arrow <- function() {
 #'
 #' ### Using a computer with internet access, pre-download the dependencies:
 #' * Install the `arrow` package _or_ run
-#'   `source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")`
+#'   `source("https://raw.githubusercontent.com/apache/arrow/main/r/R/install-arrow.R")`
 #' * Run `create_package_with_all_dependencies("my_arrow_pkg.tar.gz")`
 #' * Copy the newly created `my_arrow_pkg.tar.gz` to the computer without internet access
 #'

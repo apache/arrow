@@ -882,6 +882,30 @@ class RoundOptions(_RoundOptions):
         self._set_options(ndigits, round_mode)
 
 
+cdef class _RoundBinaryOptions(FunctionOptions):
+    def _set_options(self, round_mode):
+        self.wrapped.reset(
+            new CRoundBinaryOptions(unwrap_round_mode(round_mode))
+        )
+
+
+class RoundBinaryOptions(_RoundBinaryOptions):
+    """
+    Options for rounding numbers when ndigits is provided by a second array
+
+    Parameters
+    ----------
+    round_mode : str, default "half_to_even"
+        Rounding and tie-breaking mode.
+        Accepted values are "down", "up", "towards_zero", "towards_infinity",
+        "half_down", "half_up", "half_towards_zero", "half_towards_infinity",
+        "half_to_even", "half_to_odd".
+    """
+
+    def __init__(self, round_mode="half_to_even"):
+        self._set_options(round_mode)
+
+
 cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
     if unit == "nanosecond":
         return CCalendarUnit_NANOSECOND

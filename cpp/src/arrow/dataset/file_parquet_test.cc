@@ -33,10 +33,14 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/range.h"
 
 #include "parquet/arrow/writer.h"
+#include "parquet/file_reader.h"
 #include "parquet/metadata.h"
+#include "parquet/statistics.h"
+#include "parquet/types.h"
 
 namespace arrow {
 
@@ -677,6 +681,18 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingStringC
 INSTANTIATE_TEST_SUITE_P(TestScan, TestParquetFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);
+
+TEST(TestParquetStatistics, NullMax) {
+  auto field = ::arrow::field("x", float32());
+  ASSERT_OK_AND_ASSIGN(std::string dir_string,
+                       arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
+  auto reader =
+      parquet::ParquetFileReader::OpenFile(dir_string + "/nan_in_stats.parquet");
+  auto statistics = reader->RowGroup(0)->metadata()->ColumnChunk(0)->statistics();
+  auto stat_expression =
+      ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics);
+  EXPECT_EQ(stat_expression->ToString(), "(x >= 1)");
+}
 
 }  // namespace dataset
 }  // namespace arrow

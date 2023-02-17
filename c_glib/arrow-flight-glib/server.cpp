@@ -41,6 +41,15 @@ G_BEGIN_DECLS
  * IPC payloads to be sent in `FlightData` protobuf messages by
  * #GArrowRecordBatchReader`.
  *
+ * #GAFlightServerAuthSender is a class for sending messages to the
+ * client during an authentication handshake.
+ *
+ * #GAFlightServerAuthReader is a class for reading messages from the
+ * client during an authentication handshake.
+ *
+ * #GAFlightServerAuthHandler is an abstract class to implement
+ * authentication for a Flight service.
+ *
  * #GAFlightServerOptions is a class for options of each server.
  *
  * #GAFlightServerCallContext is a class for context of each server call.
@@ -249,13 +258,402 @@ gaflight_record_batch_stream_new(GArrowRecordBatchReader *reader,
 }
 
 
+struct GAFlightServerAuthSenderPrivate {
+  arrow::flight::ServerAuthSender *sender;
+};
+
+enum {
+  PROP_SERVER_AUTH_SENDER = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightServerAuthSender,
+                           gaflight_server_auth_sender,
+                           G_TYPE_OBJECT)
+
+#define GAFLIGHT_SERVER_AUTH_SENDER_GET_PRIVATE(obj)        \
+  static_cast<GAFlightServerAuthSenderPrivate *>(           \
+    gaflight_server_auth_sender_get_instance_private(       \
+      GAFLIGHT_SERVER_AUTH_SENDER(obj)))
+
+static void
+gaflight_server_auth_sender_set_property(GObject *object,
+                                         guint prop_id,
+                                         const GValue *value,
+                                         GParamSpec *pspec)
+{
+  auto priv = GAFLIGHT_SERVER_AUTH_SENDER_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_SERVER_AUTH_SENDER:
+    priv->sender =
+      static_cast<arrow::flight::ServerAuthSender *>(g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gaflight_server_auth_sender_init(GAFlightServerAuthSender *object)
+{
+}
+
+static void
+gaflight_server_auth_sender_class_init(GAFlightServerAuthSenderClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = gaflight_server_auth_sender_set_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_pointer("sender",
+                              "Sender",
+                              "The raw arrow::flight::ServerAuthSender *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_SERVER_AUTH_SENDER, spec);
+}
+
+/**
+ * gaflight_server_auth_sender_write:
+ * @sender: A #GAFlightServerAuthSender.
+ * @message: A #GBytes to be sent.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Writes a message to the client.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 12.0.0
+ */
+gboolean
+gaflight_server_auth_sender_write(GAFlightServerAuthSender *sender,
+                                  GBytes *message,
+                                  GError **error)
+{
+  auto flight_sender = gaflight_server_auth_sender_get_raw(sender);
+  gsize size;
+  auto data = g_bytes_get_data(message, &size);
+  const std::string flight_message(static_cast<const char *>(data), size);
+  auto status = flight_sender->Write(flight_message);
+  return garrow::check(error, status, "[flight-server-auth-sender][write]");
+}
+
+
+struct GAFlightServerAuthReaderPrivate {
+  arrow::flight::ServerAuthReader *reader;
+};
+
+enum {
+  PROP_SERVER_AUTH_READER = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightServerAuthReader,
+                           gaflight_server_auth_reader,
+                           G_TYPE_OBJECT)
+
+#define GAFLIGHT_SERVER_AUTH_READER_GET_PRIVATE(obj)        \
+  static_cast<GAFlightServerAuthReaderPrivate *>(           \
+    gaflight_server_auth_reader_get_instance_private(       \
+      GAFLIGHT_SERVER_AUTH_READER(obj)))
+
+static void
+gaflight_server_auth_reader_set_property(GObject *object,
+                                         guint prop_id,
+                                         const GValue *value,
+                                         GParamSpec *pspec)
+{
+  auto priv = GAFLIGHT_SERVER_AUTH_READER_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_SERVER_AUTH_READER:
+    priv->reader =
+      static_cast<arrow::flight::ServerAuthReader *>(g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gaflight_server_auth_reader_init(GAFlightServerAuthReader *object)
+{
+}
+
+static void
+gaflight_server_auth_reader_class_init(GAFlightServerAuthReaderClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = gaflight_server_auth_reader_set_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_pointer("reader",
+                              "Reader",
+                              "The raw arrow::flight::ServerAuthReader *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_SERVER_AUTH_READER, spec);
+}
+
+/**
+ * gaflight_server_auth_reader_read:
+ * @reader: A #GAFlightServerAuthReader.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Reads a message from the client.
+ *
+ * Returns: (nullable) (transfer full): Read data as #GBytes on
+ *   success, %NULL on error.
+ *
+ * Since: 12.0.0
+ */
+GBytes *
+gaflight_server_auth_reader_read(GAFlightServerAuthReader *reader,
+                                 GError **error)
+{
+  auto flight_reader = gaflight_server_auth_reader_get_raw(reader);
+  std::string flight_message;
+  auto status = flight_reader->Read(&flight_message);
+  if (!garrow::check(error, status, "[flight-server-auth-reader][read]")) {
+    return nullptr;
+  }
+  return g_bytes_new(flight_message.data(), flight_message.size());
+}
+
+
+struct GAFlightServerAuthHandlerPrivate {
+  std::shared_ptr<arrow::flight::ServerAuthHandler> handler;
+};
+
+enum {
+  PROP_SERVER_AUTH_HANDLER = 1,
+};
+
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GAFlightServerAuthHandler,
+                                    gaflight_server_auth_handler,
+                                    G_TYPE_OBJECT)
+
+#define GAFLIGHT_SERVER_AUTH_HANDLER_GET_PRIVATE(obj)        \
+  static_cast<GAFlightServerAuthHandlerPrivate *>(           \
+    gaflight_server_auth_handler_get_instance_private(       \
+      GAFLIGHT_SERVER_AUTH_HANDLER(obj)))
+
+static void
+gaflight_server_auth_handler_finalize(GObject *object)
+{
+  auto priv = GAFLIGHT_SERVER_AUTH_HANDLER_GET_PRIVATE(object);
+  priv->handler.~shared_ptr();
+  G_OBJECT_CLASS(gaflight_server_auth_handler_parent_class)->finalize(object);
+}
+
+static void
+gaflight_server_auth_handler_set_property(GObject *object,
+                                          guint prop_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto priv = GAFLIGHT_SERVER_AUTH_HANDLER_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_SERVER_AUTH_HANDLER:
+    if (g_value_get_pointer(value)) {
+      priv->handler =
+        *static_cast<std::shared_ptr<arrow::flight::ServerAuthHandler>*>(
+          g_value_get_pointer(value));
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gaflight_server_auth_handler_init(GAFlightServerAuthHandler *object)
+{
+  auto priv = GAFLIGHT_SERVER_AUTH_HANDLER_GET_PRIVATE(object);
+  new(&priv->handler) std::shared_ptr<arrow::flight::ServerAuthHandler>;
+}
+
+static void
+gaflight_server_auth_handler_class_init(GAFlightServerAuthHandlerClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize = gaflight_server_auth_handler_finalize;
+  gobject_class->set_property = gaflight_server_auth_handler_set_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_pointer("handler",
+                              "Handler",
+                              "The raw std::shared_ptr<"
+                              "arrow::flight::ServerAuthHandler>",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_SERVER_AUTH_HANDLER, spec);
+}
+
+
+G_END_DECLS
+namespace gaflight {
+  class ServerCustomAuthHandler : public arrow::flight::ServerAuthHandler {
+  public:
+    explicit ServerCustomAuthHandler(GAFlightServerCustomAuthHandler *handler)
+      : arrow::flight::ServerAuthHandler(),
+        handler_(handler) {
+    }
+
+    arrow::Status
+    Authenticate(arrow::flight::ServerAuthSender *sender,
+                 arrow::flight::ServerAuthReader *reader) override {
+      auto klass = GAFLIGHT_SERVER_CUSTOM_AUTH_HANDLER_GET_CLASS(handler_);
+      auto gsender = gaflight_server_auth_sender_new_raw(sender);
+      auto greader = gaflight_server_auth_reader_new_raw(reader);
+      GError *error = nullptr;
+      klass->authenticate(handler_, gsender, greader, &error);
+      g_object_unref(greader);
+      g_object_unref(gsender);
+      if (error) {
+        return garrow_error_to_status(error,
+                                      arrow::StatusCode::Invalid,
+                                      "[flight-server-custom-auth-handler]"
+                                      "[authenticate]");
+      } else {
+        return arrow::Status::OK();
+      }
+    }
+
+    arrow::Status
+    IsValid(const std::string &token,
+            std::string *peer_identity) override {
+      auto klass = GAFLIGHT_SERVER_CUSTOM_AUTH_HANDLER_GET_CLASS(handler_);
+      auto gtoken = g_bytes_new_static(token.data(), token.size());
+      GBytes *gpeer_identity = nullptr;
+      GError *error = nullptr;
+      klass->is_valid(handler_, gtoken, &gpeer_identity, &error);
+      g_bytes_unref(gtoken);
+      if (gpeer_identity) {
+        gsize gpeer_identity_size;
+        auto gpeer_identity_data = g_bytes_get_data(gpeer_identity,
+                                                    &gpeer_identity_size);
+        *peer_identity =
+          std::string(static_cast<const char *>(gpeer_identity_data),
+                      gpeer_identity_size);
+        g_bytes_unref(gpeer_identity);
+      }
+      if (error) {
+        return garrow_error_to_status(error,
+                                      arrow::StatusCode::Invalid,
+                                      "[flight-server-custom-auth-handler]"
+                                      "[is-valid]");
+      } else {
+        return arrow::Status::OK();
+      }
+    }
+
+  private:
+    GAFlightServerCustomAuthHandler *handler_;
+  };
+}
+G_BEGIN_DECLS
+
+G_DEFINE_TYPE(GAFlightServerCustomAuthHandler,
+              gaflight_server_custom_auth_handler,
+              GAFLIGHT_TYPE_SERVER_AUTH_HANDLER)
+
+static void
+gaflight_server_custom_auth_handler_init(GAFlightServerCustomAuthHandler *object)
+{
+  auto priv = GAFLIGHT_SERVER_AUTH_HANDLER_GET_PRIVATE(object);
+  priv->handler = std::make_shared<gaflight::ServerCustomAuthHandler>(object);
+}
+
+static void
+gaflight_server_custom_auth_handler_class_init(
+  GAFlightServerCustomAuthHandlerClass *klass)
+{
+}
+
+/**
+ * gaflight_server_custom_auth_handler_authenticate:
+ * @handler: A #GAFlightServerCustomAuthHandler.
+ * @sender: A #GAFlightServerAuthSender.
+ * @reader: A #GAFlightServerAuthReader.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Authenticates the client on initial connection. The server can send
+ * and read responses from the client at any time.
+ *
+ * Since: 12.0.0
+ */
+void
+gaflight_server_custom_auth_handler_authenticate(
+  GAFlightServerCustomAuthHandler *handler,
+  GAFlightServerAuthSender *sender,
+  GAFlightServerAuthReader *reader,
+  GError **error)
+{
+  auto flight_handler =
+    gaflight_server_auth_handler_get_raw(
+      GAFLIGHT_SERVER_AUTH_HANDLER(handler));
+  auto flight_sender = gaflight_server_auth_sender_get_raw(sender);
+  auto flight_reader = gaflight_server_auth_reader_get_raw(reader);
+  auto status = flight_handler->Authenticate(flight_sender, flight_reader);
+  garrow::check(error,
+                status,
+                "[flight-server-custom-auth-handler][authenticate]");
+}
+
+/**
+ * gaflight_server_custom_auth_handler_is_valid:
+ * @handler: A #GAFlightServerCustomAuthHandler.
+ * @token: The client token. May be the empty string if the client does not
+ *   provide a token.
+ * @peer_identity: (out): The identity of the peer, if this authentication
+ *   method supports it.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Validates a per-call client token.
+ *
+ * Since: 12.0.0
+ */
+void
+gaflight_server_custom_auth_handler_is_valid(
+  GAFlightServerCustomAuthHandler *handler,
+  GBytes *token,
+  GBytes **peer_identity,
+  GError **error)
+{
+  auto flight_handler =
+    gaflight_server_auth_handler_get_raw(
+      GAFLIGHT_SERVER_AUTH_HANDLER(handler));
+  gsize token_size;
+  auto token_data = g_bytes_get_data(token, &token_size);
+  std::string flight_token(static_cast<const char *>(token_data), token_size);
+  std::string flight_peer_identity;
+  auto status = flight_handler->IsValid(flight_token, &flight_peer_identity);
+  if (garrow::check(error,
+                    status,
+                    "[flight-server-custom-auth-handler]"
+                    "[is-valid]")) {
+    *peer_identity = g_bytes_new(flight_peer_identity.data(),
+                                 flight_peer_identity.size());
+  }
+}
+
+
 typedef struct GAFlightServerOptionsPrivate_ {
   arrow::flight::FlightServerOptions options;
   GAFlightLocation *location;
+  GAFlightServerAuthHandler *auth_handler;
 } GAFlightServerOptionsPrivate;
 
 enum {
   PROP_LOCATION = 1,
+  PROP_AUTH_HANDLER,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GAFlightServerOptions,
@@ -274,7 +672,12 @@ gaflight_server_options_dispose(GObject *object)
 
   if (priv->location) {
     g_object_unref(priv->location);
-    priv->location = NULL;
+    priv->location = nullptr;
+  }
+
+  if (priv->auth_handler) {
+    g_object_unref(priv->auth_handler);
+    priv->auth_handler = nullptr;
   }
 
   G_OBJECT_CLASS(gaflight_server_options_parent_class)->dispose(object);
@@ -306,6 +709,21 @@ gaflight_server_options_set_property(GObject *object,
       new(&(priv->options)) arrow::flight::FlightServerOptions(*flight_location);
     }
     break;
+  case PROP_AUTH_HANDLER:
+    if (priv->auth_handler != g_value_get_object(value)) {
+      if (priv->auth_handler) {
+        g_object_unref(priv->auth_handler);
+      }
+      priv->auth_handler =
+        GAFLIGHT_SERVER_AUTH_HANDLER(g_value_dup_object(value));
+      if (priv->auth_handler) {
+        priv->options.auth_handler =
+          gaflight_server_auth_handler_get_raw(priv->auth_handler);
+      } else {
+        priv->options.auth_handler = nullptr;
+      }
+    }
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -323,6 +741,9 @@ gaflight_server_options_get_property(GObject *object,
   switch (prop_id) {
   case PROP_LOCATION:
     g_value_set_object(value, priv->location);
+    break;
+  case PROP_AUTH_HANDLER:
+    g_value_set_object(value, priv->auth_handler);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -346,6 +767,13 @@ gaflight_server_options_class_init(GAFlightServerOptionsClass *klass)
   gobject_class->get_property = gaflight_server_options_get_property;
 
   GParamSpec *spec;
+  /**
+   * GAFlightServerOptions:location:
+   *
+   * The location to be listened.
+   *
+   * Since: 5.0.0
+   */
   spec = g_param_spec_object("location",
                              "Location",
                              "The location to be listened",
@@ -353,6 +781,20 @@ gaflight_server_options_class_init(GAFlightServerOptionsClass *klass)
                              static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_LOCATION, spec);
+
+  /**
+   * GAFlightServerOptions:auth-handler:
+   *
+   * The authentication handler.
+   *
+   * Since: 12.0.0
+   */
+  spec = g_param_spec_object("auth-handler",
+                             "Authentication handler",
+                             "The authentication handler",
+                             GAFLIGHT_TYPE_SERVER_AUTH_HANDLER,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_AUTH_HANDLER, spec);
 }
 
 /**
@@ -755,6 +1197,47 @@ gaflight_data_stream_get_raw(GAFlightDataStream *stream)
 {
   auto priv = GAFLIGHT_DATA_STREAM_GET_PRIVATE(stream);
   return priv->stream;
+}
+
+GAFlightServerAuthSender *
+gaflight_server_auth_sender_new_raw(
+  arrow::flight::ServerAuthSender *flight_sender)
+{
+  return GAFLIGHT_SERVER_AUTH_SENDER(
+    g_object_new(GAFLIGHT_TYPE_SERVER_AUTH_SENDER,
+                 "sender", flight_sender,
+                 nullptr));
+}
+
+arrow::flight::ServerAuthSender *
+gaflight_server_auth_sender_get_raw(GAFlightServerAuthSender *sender)
+{
+  auto priv = GAFLIGHT_SERVER_AUTH_SENDER_GET_PRIVATE(sender);
+  return priv->sender;
+}
+
+GAFlightServerAuthReader *
+gaflight_server_auth_reader_new_raw(
+  arrow::flight::ServerAuthReader *flight_reader)
+{
+  return GAFLIGHT_SERVER_AUTH_READER(
+    g_object_new(GAFLIGHT_TYPE_SERVER_AUTH_READER,
+                 "reader", flight_reader,
+                 nullptr));
+}
+
+arrow::flight::ServerAuthReader *
+gaflight_server_auth_reader_get_raw(GAFlightServerAuthReader *reader)
+{
+  auto priv = GAFLIGHT_SERVER_AUTH_READER_GET_PRIVATE(reader);
+  return priv->reader;
+}
+
+std::shared_ptr<arrow::flight::ServerAuthHandler>
+gaflight_server_auth_handler_get_raw(GAFlightServerAuthHandler *handler)
+{
+  auto priv = GAFLIGHT_SERVER_AUTH_HANDLER_GET_PRIVATE(handler);
+  return priv->handler;
 }
 
 arrow::flight::FlightServerOptions *
