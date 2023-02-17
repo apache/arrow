@@ -27,13 +27,6 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_substrait cimport *
 
 
-def _check_conversion_options():
-    cdef:
-        CConversionOptions conv_opts
-
-    return conv_opts.strictness == BEST_EFFORT
-
-
 cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector[c_string]& names):
     cdef:
         c_string c_name

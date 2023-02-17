@@ -18,5 +18,4 @@
 from pyarrow._substrait import (  # noqa
     get_supported_functions,
     run_query,
-    _check_conversion_options,
 )
