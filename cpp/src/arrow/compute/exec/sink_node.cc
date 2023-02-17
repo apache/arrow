@@ -479,6 +479,7 @@ struct OrderBySinkNode final : public SinkNode {
 
   Status Finish() override {
     util::tracing::Span span;
+    START_SPAN(span, std::string(kind_name()) + "::Finish");
     ARROW_RETURN_NOT_OK(DoFinish());
     return SinkNode::Finish();
   }
