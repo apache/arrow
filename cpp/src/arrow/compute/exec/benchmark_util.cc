@@ -34,18 +34,18 @@ namespace compute {
 // an isolated node. We do this by passing in batches through a task scheduler, and
 // calling InputFinished and InputReceived.
 
-Status BenchmarkIsolatedNodeOverhead(benchmark::State& state,
-                                     arrow::compute::Expression expr, int32_t num_batches,
-                                     int32_t batch_size,
-                                     arrow::compute::BatchesWithSchema data,
-                                     std::string factory_name,
-                                     arrow::compute::ExecNodeOptions& options) {
+Status BenchmarkIsolatedNodeOverhead(
+    benchmark::State& state, arrow::compute::Expression expr, int32_t num_batches,
+    int32_t batch_size, arrow::compute::BatchesWithSchema data, std::string factory_name,
+    arrow::compute::ExecNodeOptions& options, arrow::MemoryPool* pool) {
   for (auto _ : state) {
     state.PauseTiming();
     AsyncGenerator<std::optional<arrow::compute::ExecBatch>> sink_gen;
 
+    ExecContext ctx(pool, ::arrow::internal::GetCpuThreadPool());
+
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::compute::ExecPlan> plan,
-                          arrow::compute::ExecPlan::Make());
+                          arrow::compute::ExecPlan::Make(ctx));
     // Source and sink nodes have no effect on the benchmark.
     // Used for dummy purposes as they are referenced in InputReceived and InputFinished.
     ARROW_ASSIGN_OR_RAISE(arrow::compute::ExecNode * source_node,
@@ -108,14 +108,15 @@ Status BenchmarkIsolatedNodeOverhead(benchmark::State& state,
 // Generates batches from data, then benchmark rows_per_second and batches_per_second for
 // a source -> node_declarations -> sink sequence.
 
-Status BenchmarkNodeOverhead(
-    benchmark::State& state, int32_t num_batches, int32_t batch_size,
-    arrow::compute::BatchesWithSchema data,
-    std::vector<arrow::compute::Declaration>& node_declarations) {
+Status BenchmarkNodeOverhead(benchmark::State& state, int32_t num_batches,
+                             int32_t batch_size, arrow::compute::BatchesWithSchema data,
+                             std::vector<arrow::compute::Declaration>& node_declarations,
+                             MemoryPool* pool) {
+  ExecContext ctx(pool, ::arrow::internal::GetCpuThreadPool());
   for (auto _ : state) {
     state.PauseTiming();
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::compute::ExecPlan> plan,
-                          arrow::compute::ExecPlan::Make());
+                          arrow::compute::ExecPlan::Make(ctx));
     AsyncGenerator<std::optional<arrow::compute::ExecBatch>> sink_gen;
     arrow::compute::Declaration source = arrow::compute::Declaration(
         {"source",

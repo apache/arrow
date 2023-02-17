@@ -243,6 +243,8 @@ set(ARROW_SRCS
 
 if(ARROW_JEMALLOC)
   list(APPEND ARROW_SRCS memory_pool_jemalloc.cc)
+  set_source_files_properties(memory_pool_jemalloc.cc
+                              PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 endif()
 
 append_avx2_src(util/bpacking_avx2.cc)
@@ -393,6 +395,7 @@ if(ARROW_COMPUTE)
        compute/exec/bloom_filter.cc
        compute/exec/exec_plan.cc
        compute/exec/expression.cc
+       compute/exec/fetch_node.cc
        compute/exec/filter_node.cc
        compute/exec/hash_join.cc
        compute/exec/hash_join_dict.cc

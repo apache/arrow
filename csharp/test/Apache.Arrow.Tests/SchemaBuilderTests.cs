@@ -167,6 +167,36 @@ namespace Apache.Arrow.Tests
             }
 
             [Fact]
+            public void SquareBracketOperatorWithStringReturnsGetFieldByName()
+            {
+                Field f0 = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
+                Field f1 = new Field.Builder().Name("f1").DataType(Int8Type.Default).Build();
+
+                var schema = new Schema.Builder()
+                    .Field(f0)
+                    .Field(f1)
+                    .Build();
+
+                Assert.Equal(schema.GetFieldByName("f0"), schema["f0"]);
+                Assert.Equal(schema.GetFieldByName("f1"), schema["f1"]);
+            }
+
+            [Fact]
+            public void SquareBracketOperatorWithIntReturnsGetFieldByIndex()
+            {
+                Field f0 = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
+                Field f1 = new Field.Builder().Name("f1").DataType(Int8Type.Default).Build();
+
+                var schema = new Schema.Builder()
+                    .Field(f0)
+                    .Field(f1)
+                    .Build();
+
+                Assert.Equal(schema.GetFieldByIndex(0), schema[0]);
+                Assert.Equal(schema.GetFieldByIndex(1), schema[1]);
+            }
+
+            [Fact]
             public void MetadataConstruction()
             {
 

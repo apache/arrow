@@ -236,6 +236,7 @@ Be sure to go through on the following checklist:
 #. Update version in Apache Arrow Cookbook
 #. Announce the new release
 #. Publish release blog posts
+#. Announce the release on Twitter
 #. Remove old artifacts
 
 .. dropdown:: Mark the released version as "RELEASED" on JIRA
@@ -622,6 +623,15 @@ Be sure to go through on the following checklist:
    :class-container: sd-shadow-md
 
    TODO
+
+.. dropdown:: Announce the release on Twitter
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   Post the release blog post on Twitter from the `@ApacheArrow <https://twitter.com/ApacheArrow>`_ handle.
+
+   PMC members have access or can request access, after which they can post via `TweetDeck <https://tweetdeck.twitter.com>`_.
 
 .. dropdown:: Remove old artifacts
    :animate: fade-in-slide-down

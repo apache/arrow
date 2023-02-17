@@ -607,6 +607,94 @@ Result<std::shared_ptr<Schema>> DeclarationToSchema(const Declaration& declarati
   return last_node->inputs()[0]->output_schema();
 }
 
+namespace {
+
+Future<std::shared_ptr<Table>> DeclarationToTableImpl(
+    Declaration declaration, QueryOptions query_options,
+    ::arrow::internal::Executor* cpu_executor) {
+  ExecContext exec_ctx(query_options.memory_pool, cpu_executor,
+                       query_options.function_registry);
+  std::shared_ptr<std::shared_ptr<Table>> output_table =
+      std::make_shared<std::shared_ptr<Table>>();
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
+  TableSinkNodeOptions sink_options(output_table.get());
+  sink_options.sequence_output = query_options.sequence_output;
+  Declaration with_sink =
+      Declaration::Sequence({declaration, {"table_sink", sink_options}});
+  ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
+  ARROW_RETURN_NOT_OK(exec_plan->Validate());
+  exec_plan->StartProducing();
+  return exec_plan->finished().Then([exec_plan, output_table] { return *output_table; });
+}
+
+Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesImpl(
+    Declaration declaration, QueryOptions options,
+    ::arrow::internal::Executor* cpu_executor) {
+  return DeclarationToTableImpl(std::move(declaration), options, cpu_executor)
+      .Then([](const std::shared_ptr<Table>& table) {
+        return TableBatchReader(table).ToRecordBatches();
+      });
+}
+
+Future<BatchesWithCommonSchema> DeclarationToExecBatchesImpl(
+    Declaration declaration, QueryOptions options,
+    ::arrow::internal::Executor* cpu_executor) {
+  std::shared_ptr<Schema> out_schema;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+  ExecContext exec_ctx(options.memory_pool, cpu_executor, options.function_registry);
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
+  SinkNodeOptions sink_options(&sink_gen, &out_schema);
+  sink_options.sequence_delivery = options.sequence_output;
+  Declaration with_sink = Declaration::Sequence({declaration, {"sink", sink_options}});
+  ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
+  ARROW_RETURN_NOT_OK(exec_plan->Validate());
+  exec_plan->StartProducing();
+  auto collected_fut = CollectAsyncGenerator(sink_gen);
+  return AllFinished({exec_plan->finished(), Future<>(collected_fut)})
+      .Then([collected_fut, exec_plan,
+             schema = std::move(out_schema)]() -> Result<BatchesWithCommonSchema> {
+        ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
+        std::vector<ExecBatch> exec_batches = ::arrow::internal::MapVector(
+            [](std::optional<ExecBatch> batch) { return batch.value_or(ExecBatch()); },
+            std::move(collected));
+        return BatchesWithCommonSchema{std::move(exec_batches), schema};
+      });
+}
+
+Future<> DeclarationToStatusImpl(Declaration declaration, QueryOptions options,
+                                 ::arrow::internal::Executor* cpu_executor) {
+  ExecContext exec_ctx(options.memory_pool, cpu_executor, options.function_registry);
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(ExecNode * last_node, declaration.AddToPlan(exec_plan.get()));
+  if (!last_node->is_sink()) {
+    Declaration null_sink =
+        Declaration("consuming_sink", {last_node},
+                    ConsumingSinkNodeOptions(NullSinkNodeConsumer::Make()));
+    ARROW_RETURN_NOT_OK(null_sink.AddToPlan(exec_plan.get()));
+  }
+  ARROW_RETURN_NOT_OK(exec_plan->Validate());
+  exec_plan->StartProducing();
+  // Keep the exec_plan alive until it finishes
+  return exec_plan->finished().Then([exec_plan]() {});
+}
+
+QueryOptions QueryOptionsFromCustomExecContext(ExecContext exec_context) {
+  QueryOptions options;
+  options.memory_pool = exec_context.memory_pool();
+  options.function_registry = exec_context.func_registry();
+  return options;
+}
+
+QueryOptions QueryOptionsFromArgs(MemoryPool* memory_pool,
+                                  FunctionRegistry* function_registry) {
+  QueryOptions options;
+  options.memory_pool = memory_pool;
+  options.function_registry = function_registry;
+  return options;
+}
+
+}  // namespace
+
 Result<std::string> DeclarationToString(const Declaration& declaration,
                                         FunctionRegistry* function_registry) {
   // We pass in the default memory pool and the CPU executor but nothing we are doing
@@ -623,29 +711,21 @@ Result<std::string> DeclarationToString(const Declaration& declaration,
 
 Future<std::shared_ptr<Table>> DeclarationToTableAsync(Declaration declaration,
                                                        ExecContext exec_context) {
-  std::shared_ptr<std::shared_ptr<Table>> output_table =
-      std::make_shared<std::shared_ptr<Table>>();
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
-                        ExecPlan::Make(exec_context));
-  Declaration with_sink = Declaration::Sequence(
-      {declaration, {"table_sink", TableSinkNodeOptions(output_table.get())}});
-  ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
-  ARROW_RETURN_NOT_OK(exec_plan->Validate());
-  exec_plan->StartProducing();
-  return exec_plan->finished().Then([exec_plan, output_table] { return *output_table; });
+  return DeclarationToTableImpl(declaration,
+                                QueryOptionsFromCustomExecContext(exec_context),
+                                exec_context.executor());
 }
 
 Future<std::shared_ptr<Table>> DeclarationToTableAsync(
     Declaration declaration, bool use_threads, MemoryPool* memory_pool,
     FunctionRegistry* function_registry) {
+  QueryOptions query_options = QueryOptionsFromArgs(memory_pool, function_registry);
   if (use_threads) {
-    ExecContext ctx(memory_pool, ::arrow::internal::GetCpuThreadPool(),
-                    function_registry);
-    return DeclarationToTableAsync(std::move(declaration), ctx);
+    return DeclarationToTableImpl(std::move(declaration), query_options,
+                                  ::arrow::internal::GetCpuThreadPool());
   } else {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
-    ExecContext ctx(memory_pool, tpool.get(), function_registry);
-    return DeclarationToTableAsync(std::move(declaration), ctx)
+    return DeclarationToTableImpl(std::move(declaration), query_options, tpool.get())
         .Then([tpool](const std::shared_ptr<Table>& table) { return table; });
   }
 }
@@ -656,31 +736,42 @@ Result<std::shared_ptr<Table>> DeclarationToTable(Declaration declaration,
                                                   FunctionRegistry* function_registry) {
   return ::arrow::internal::RunSynchronously<Future<std::shared_ptr<Table>>>(
       [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
-        ExecContext ctx(memory_pool, executor, function_registry);
-        return DeclarationToTableAsync(std::move(declaration), ctx);
+        return DeclarationToTableImpl(
+            std::move(declaration), QueryOptionsFromArgs(memory_pool, function_registry),
+            executor);
       },
       use_threads);
 }
 
+Result<std::shared_ptr<Table>> DeclarationToTable(Declaration declaration,
+                                                  QueryOptions query_options) {
+  if (query_options.custom_cpu_executor != nullptr) {
+    return Status::Invalid("Cannot use synchronous methods with a custom CPU executor");
+  }
+  return ::arrow::internal::RunSynchronously<Future<std::shared_ptr<Table>>>(
+      [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
+        return DeclarationToTableImpl(std::move(declaration), query_options, executor);
+      },
+      query_options.use_threads);
+}
+
 Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
     Declaration declaration, ExecContext exec_context) {
-  return DeclarationToTableAsync(std::move(declaration), exec_context)
-      .Then([](const std::shared_ptr<Table>& table) {
-        return TableBatchReader(table).ToRecordBatches();
-      });
+  return DeclarationToBatchesImpl(std::move(declaration),
+                                  QueryOptionsFromCustomExecContext(exec_context),
+                                  exec_context.executor());
 }
 
 Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
     Declaration declaration, bool use_threads, MemoryPool* memory_pool,
     FunctionRegistry* function_registry) {
+  QueryOptions query_options = QueryOptionsFromArgs(memory_pool, function_registry);
   if (use_threads) {
-    ExecContext ctx(memory_pool, ::arrow::internal::GetCpuThreadPool(),
-                    function_registry);
-    return DeclarationToBatchesAsync(std::move(declaration), ctx);
+    return DeclarationToBatchesImpl(std::move(declaration), query_options,
+                                    ::arrow::internal::GetCpuThreadPool());
   } else {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
-    ExecContext ctx(memory_pool, tpool.get(), function_registry);
-    return DeclarationToBatchesAsync(std::move(declaration), ctx)
+    return DeclarationToBatchesImpl(std::move(declaration), query_options, tpool.get())
         .Then([tpool](const std::vector<std::shared_ptr<RecordBatch>>& batches) {
           return batches;
         });
@@ -693,46 +784,31 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatches(
   return ::arrow::internal::RunSynchronously<
       Future<std::vector<std::shared_ptr<RecordBatch>>>>(
       [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
-        ExecContext ctx(memory_pool, executor, function_registry);
-        return DeclarationToBatchesAsync(std::move(declaration), ctx);
+        return DeclarationToBatchesImpl(
+            std::move(declaration), QueryOptionsFromArgs(memory_pool, function_registry),
+            executor);
       },
       use_threads);
 }
 
 Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(Declaration declaration,
                                                               ExecContext exec_context) {
-  std::shared_ptr<Schema> out_schema;
-  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
-                        ExecPlan::Make(exec_context));
-  Declaration with_sink = Declaration::Sequence(
-      {declaration, {"sink", SinkNodeOptions(&sink_gen, &out_schema)}});
-  ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
-  ARROW_RETURN_NOT_OK(exec_plan->Validate());
-  exec_plan->StartProducing();
-  auto collected_fut = CollectAsyncGenerator(sink_gen);
-  return AllFinished({exec_plan->finished(), Future<>(collected_fut)})
-      .Then([collected_fut, exec_plan,
-             schema = std::move(out_schema)]() -> Result<BatchesWithCommonSchema> {
-        ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
-        std::vector<ExecBatch> exec_batches = ::arrow::internal::MapVector(
-            [](std::optional<ExecBatch> batch) { return batch.value_or(ExecBatch()); },
-            std::move(collected));
-        return BatchesWithCommonSchema{std::move(exec_batches), schema};
-      });
+  return DeclarationToExecBatchesImpl(std::move(declaration),
+                                      QueryOptionsFromCustomExecContext(exec_context),
+                                      exec_context.executor());
 }
 
 Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(
     Declaration declaration, bool use_threads, MemoryPool* memory_pool,
     FunctionRegistry* function_registry) {
+  QueryOptions query_options = QueryOptionsFromArgs(memory_pool, function_registry);
   if (use_threads) {
-    ExecContext ctx(memory_pool, ::arrow::internal::GetCpuThreadPool(),
-                    function_registry);
-    return DeclarationToExecBatchesAsync(std::move(declaration), ctx);
+    return DeclarationToExecBatchesImpl(std::move(declaration), query_options,
+                                        ::arrow::internal::GetCpuThreadPool());
   } else {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
-    ExecContext ctx(memory_pool, tpool.get(), function_registry);
-    return DeclarationToExecBatchesAsync(std::move(declaration), ctx)
+    return DeclarationToExecBatchesImpl(std::move(declaration), query_options,
+                                        tpool.get())
         .Then([tpool](const BatchesWithCommonSchema& batches) { return batches; });
   }
 }
@@ -743,38 +819,30 @@ Result<BatchesWithCommonSchema> DeclarationToExecBatches(
   return ::arrow::internal::RunSynchronously<Future<BatchesWithCommonSchema>>(
       [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
         ExecContext ctx(memory_pool, executor, function_registry);
-        return DeclarationToExecBatchesAsync(std::move(declaration), ctx);
+        return DeclarationToExecBatchesImpl(
+            std::move(declaration), QueryOptionsFromArgs(memory_pool, function_registry),
+            executor);
       },
       use_threads);
 }
 
 Future<> DeclarationToStatusAsync(Declaration declaration, ExecContext exec_context) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
-                        ExecPlan::Make(exec_context));
-  ARROW_ASSIGN_OR_RAISE(ExecNode * last_node, declaration.AddToPlan(exec_plan.get()));
-  if (!last_node->is_sink()) {
-    Declaration null_sink =
-        Declaration("consuming_sink", {last_node},
-                    ConsumingSinkNodeOptions(NullSinkNodeConsumer::Make()));
-    ARROW_RETURN_NOT_OK(null_sink.AddToPlan(exec_plan.get()));
-  }
-  ARROW_RETURN_NOT_OK(exec_plan->Validate());
-  exec_plan->StartProducing();
-  // Keep the exec_plan alive until it finishes
-  return exec_plan->finished().Then([exec_plan]() {});
+  return DeclarationToStatusImpl(std::move(declaration),
+                                 QueryOptionsFromCustomExecContext(exec_context),
+                                 exec_context.executor());
 }
 
 Future<> DeclarationToStatusAsync(Declaration declaration, bool use_threads,
                                   MemoryPool* memory_pool,
                                   FunctionRegistry* function_registry) {
+  QueryOptions query_options = QueryOptionsFromArgs(memory_pool, function_registry);
   if (use_threads) {
-    ExecContext ctx(memory_pool, ::arrow::internal::GetCpuThreadPool(),
-                    function_registry);
-    return DeclarationToStatusAsync(std::move(declaration), ctx);
+    return DeclarationToStatusImpl(std::move(declaration), query_options,
+                                   ::arrow::internal::GetCpuThreadPool());
   } else {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
-    ExecContext ctx(memory_pool, tpool.get(), function_registry);
-    return DeclarationToStatusAsync(std::move(declaration), ctx).Then([tpool]() {});
+    return DeclarationToStatusImpl(std::move(declaration), query_options, tpool.get())
+        .Then([tpool]() {});
   }
 }
 
@@ -783,7 +851,9 @@ Status DeclarationToStatus(Declaration declaration, bool use_threads,
   return ::arrow::internal::RunSynchronously<Future<>>(
       [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
         ExecContext ctx(memory_pool, executor, function_registry);
-        return DeclarationToStatusAsync(std::move(declaration), ctx);
+        return DeclarationToStatusImpl(
+            std::move(declaration), QueryOptionsFromArgs(memory_pool, function_registry),
+            executor);
       },
       use_threads);
 }
@@ -893,6 +963,7 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
 namespace internal {
 
 void RegisterSourceNode(ExecFactoryRegistry*);
+void RegisterFetchNode(ExecFactoryRegistry*);
 void RegisterFilterNode(ExecFactoryRegistry*);
 void RegisterProjectNode(ExecFactoryRegistry*);
 void RegisterUnionNode(ExecFactoryRegistry*);
@@ -908,6 +979,7 @@ ExecFactoryRegistry* default_exec_factory_registry() {
    public:
     DefaultRegistry() {
       internal::RegisterSourceNode(this);
+      internal::RegisterFetchNode(this);
       internal::RegisterFilterNode(this);
       internal::RegisterProjectNode(this);
       internal::RegisterUnionNode(this);

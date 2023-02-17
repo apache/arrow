@@ -46,6 +46,10 @@ if(ARROW_CSV)
   set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_csv.cc)
 endif()
 
+if(ARROW_JSON)
+  set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_json.cc)
+endif()
+
 if(ARROW_ORC)
   set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_orc.cc)
 endif()
@@ -146,6 +150,10 @@ add_arrow_dataset_test(scanner_test)
 
 if(ARROW_CSV)
   add_arrow_dataset_test(file_csv_test)
+endif()
+
+if(ARROW_JSON)
+  add_arrow_dataset_test(file_json_test)
 endif()
 
 if(ARROW_ORC)
