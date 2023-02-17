@@ -112,13 +112,18 @@ if(TARGET Arrow::arrow_static AND NOT TARGET Arrow::arrow_bundled_dependencies)
       find_library(CORE_FOUNDATION CoreFoundation)
       target_link_libraries(Arrow::arrow_bundled_dependencies
                             INTERFACE ${CORE_FOUNDATION})
+      find_library(SECURITY Security)
+      target_link_libraries(Arrow::arrow_bundled_dependencies INTERFACE ${SECURITY})
     elseif(WIN32)
       target_link_libraries(Arrow::arrow_bundled_dependencies
                             INTERFACE "winhttp.lib"
                                       "bcrypt.lib"
                                       "wininet.lib"
                                       "userenv.lib"
-                                      "version.lib")
+                                      "version.lib"
+                                      "ncrypt.lib"
+                                      "Secur32.lib"
+                                      "Shlwapi.lib")
     endif()
   endif()
   cmake_policy(POP)

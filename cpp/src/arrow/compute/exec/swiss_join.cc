@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/swiss_join.h"
 #include <sys/stat.h>
 #include <algorithm>  // std::upper_bound
 #include <cstdio>
@@ -24,8 +23,9 @@
 #include "arrow/array/util.h"  // MakeArrayFromScalar
 #include "arrow/compute/exec/hash_join.h"
 #include "arrow/compute/exec/key_hash.h"
+#include "arrow/compute/exec/swiss_join_internal.h"
 #include "arrow/compute/exec/util.h"
-#include "arrow/compute/kernels/row_encoder.h"
+#include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/row/compare_internal.h"
 #include "arrow/compute/row/encode_internal.h"
 #include "arrow/util/bit_util.h"
@@ -1934,7 +1934,9 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
 
         RETURN_NOT_OK(materialize_[thread_id]->AppendProbeOnly(
             keypayload_batch, num_passing_ids, materialize_batch_ids_buf.mutable_data(),
-            [&](ExecBatch batch) { output_batch_fn_(thread_id, std::move(batch)); }));
+            [&](ExecBatch batch) {
+              return output_batch_fn_(thread_id, std::move(batch));
+            }));
       }
     } else {
       // We need to output matching pairs of rows from both sides of the join.
@@ -1972,8 +1974,9 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
         //
         RETURN_NOT_OK(materialize_[thread_id]->Append(
             keypayload_batch, num_matches_next, materialize_batch_ids,
-            materialize_key_ids, materialize_payload_ids,
-            [&](ExecBatch batch) { output_batch_fn_(thread_id, std::move(batch)); }));
+            materialize_key_ids, materialize_payload_ids, [&](ExecBatch batch) {
+              return output_batch_fn_(thread_id, std::move(batch));
+            }));
       }
 
       // For left-outer and full-outer joins output non-matches.
@@ -1997,7 +2000,9 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
 
         RETURN_NOT_OK(materialize_[thread_id]->AppendProbeOnly(
             keypayload_batch, num_passing_ids, materialize_batch_ids_buf.mutable_data(),
-            [&](ExecBatch batch) { output_batch_fn_(thread_id, std::move(batch)); }));
+            [&](ExecBatch batch) {
+              return output_batch_fn_(thread_id, std::move(batch));
+            }));
       }
     }
 
@@ -2014,7 +2019,7 @@ Status JoinProbeProcessor::OnFinished() {
   for (size_t i = 0; i < materialize_.size(); ++i) {
     JoinResultMaterialize& materialize = *materialize_[i];
     RETURN_NOT_OK(materialize.Flush(
-        [&](ExecBatch batch) { output_batch_fn_(i, std::move(batch)); }));
+        [&](ExecBatch batch) { return output_batch_fn_(i, std::move(batch)); }));
   }
 
   return Status::OK();
@@ -2368,7 +2373,8 @@ class SwissJoin : public HashJoinImpl {
         Status status = local_states_[thread_id].materialize.AppendBuildOnly(
             num_output_rows, key_ids_buf.mutable_data(), payload_ids_buf.mutable_data(),
             [&](ExecBatch batch) {
-              output_batch_callback_(static_cast<int64_t>(thread_id), std::move(batch));
+              return output_batch_callback_(static_cast<int64_t>(thread_id),
+                                            std::move(batch));
             });
         RETURN_NOT_OK(CancelIfNotOK(status));
         if (!status.ok()) {
@@ -2406,9 +2412,7 @@ class SwissJoin : public HashJoinImpl {
       num_produced_batches += materialize.num_produced_batches();
     }
 
-    finished_callback_(num_produced_batches);
-
-    return Status::OK();
+    return finished_callback_(num_produced_batches);
   }
 
   Result<ExecBatch> KeyPayloadFromInput(int side, ExecBatch* input) {

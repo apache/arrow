@@ -18,7 +18,7 @@
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_basic_internal.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/hashing.h"
@@ -67,7 +67,28 @@ void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
 namespace {
 
 // ----------------------------------------------------------------------
-// Count implementation
+// Count implementations
+
+struct CountAllImpl : public ScalarAggregator {
+  Status Consume(KernelContext*, const ExecSpan& batch) override {
+    this->count += batch.length;
+    return Status::OK();
+  }
+
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
+    const auto& other_state = checked_cast<const CountAllImpl&>(src);
+    this->count += other_state.count;
+    return Status::OK();
+  }
+
+  Status Finalize(KernelContext* ctx, Datum* out) override {
+    const auto& state = checked_cast<const CountAllImpl&>(*ctx->state());
+    *out = Datum(state.count);
+    return Status::OK();
+  }
+
+  int64_t count = 0;
+};
 
 struct CountImpl : public ScalarAggregator {
   explicit CountImpl(CountOptions options) : options(std::move(options)) {}
@@ -117,6 +138,11 @@ struct CountImpl : public ScalarAggregator {
   int64_t non_nulls = 0;
   int64_t nulls = 0;
 };
+
+Result<std::unique_ptr<KernelState>> CountAllInit(KernelContext*,
+                                                  const KernelInitArgs& args) {
+  return std::make_unique<CountAllImpl>();
+}
 
 Result<std::unique_ptr<KernelState>> CountInit(KernelContext*,
                                                const KernelInitArgs& args) {
@@ -825,6 +851,9 @@ void AddMinMaxKernels(KernelInit init,
 
 namespace {
 
+const FunctionDoc count_all_doc{
+    "Count the number of rows", "This version of count takes no arguments.", {}};
+
 const FunctionDoc count_doc{"Count the number of null / non-null values",
                             ("By default, only non-null values are counted.\n"
                              "This can be changed through CountOptions."),
@@ -907,8 +936,15 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
   static auto default_count_options = CountOptions::Defaults();
 
-  auto func = std::make_shared<ScalarAggregateFunction>(
-      "count", Arity::Unary(), count_doc, &default_count_options);
+  auto func = std::make_shared<ScalarAggregateFunction>("count_all", Arity::Nullary(),
+                                                        count_all_doc, NULLPTR);
+
+  // Takes no input (counts all rows), outputs int64 scalar
+  AddAggKernel(KernelSignature::Make({}, int64()), CountAllInit, func.get());
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  func = std::make_shared<ScalarAggregateFunction>("count", Arity::Unary(), count_doc,
+                                                   &default_count_options);
 
   // Takes any input, outputs int64 scalar
   InputType any_input;

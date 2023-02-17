@@ -21,12 +21,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/flight"
-	"github.com/apache/arrow/go/v11/arrow/flight/flightsql"
-	pb "github.com/apache/arrow/go/v11/arrow/flight/internal/flight"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/flight"
+	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
+	pb "github.com/apache/arrow/go/v12/arrow/flight/internal/flight"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
@@ -132,6 +132,7 @@ func getAction(cmd proto.Message) *flight.Action {
 func (s *FlightSqlClientSuite) SetupTest() {
 	s.mockClient = FlightServiceClientMock{}
 	s.sqlClient.Client = &s.mockClient
+	s.callOpts = []grpc.CallOption{grpc.EmptyCallOption{}}
 }
 
 func (s *FlightSqlClientSuite) TearDownTest() {
@@ -346,6 +347,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecute() {
 	out.MarshalFrom(result)
 	data, _ := proto.Marshal(&out)
 	rsp.On("Recv").Return(&pb.Result{Body: data}, nil)
+	rsp.On("CloseSend").Return(nil)
 
 	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).
 		Return(rsp, nil)
@@ -356,11 +358,11 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecute() {
 	desc := getDesc(infoCmd)
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
 
-	prepared, err := s.sqlClient.Prepare(context.TODO(), memory.DefaultAllocator, query, s.callOpts...)
+	prepared, err := s.sqlClient.Prepare(context.TODO(), query, s.callOpts...)
 	s.NoError(err)
-	defer prepared.Close(context.TODO())
+	defer prepared.Close(context.TODO(), s.callOpts...)
 
-	info, err := prepared.Execute(context.TODO())
+	info, err := prepared.Execute(context.TODO(), s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
 }
@@ -389,6 +391,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	rsp := &mockDoActionClient{}
 	defer rsp.AssertExpectations(s.T())
 	rsp.On("Recv").Return(&pb.Result{Body: data}, nil)
+	rsp.On("CloseSend").Return(nil)
 
 	// expect two actions: one to create and one to close the prepared statement
 	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).Return(rsp, nil)
@@ -409,9 +412,9 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	desc := getDesc(infoCmd)
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
 
-	prepared, err := s.sqlClient.Prepare(context.TODO(), memory.DefaultAllocator, query, s.callOpts...)
+	prepared, err := s.sqlClient.Prepare(context.TODO(), query, s.callOpts...)
 	s.NoError(err)
-	defer prepared.Close(context.TODO())
+	defer prepared.Close(context.TODO(), s.callOpts...)
 
 	paramSchema := prepared.ParameterSchema()
 	rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, paramSchema, strings.NewReader(`[{"id": 1}]`))
@@ -419,7 +422,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	defer rec.Release()
 
 	prepared.SetParameters(rec)
-	info, err := prepared.Execute(context.TODO())
+	info, err := prepared.Execute(context.TODO(), s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
 }
@@ -448,6 +451,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 	rsp := &mockDoActionClient{}
 	defer rsp.AssertExpectations(s.T())
 	rsp.On("Recv").Return(&pb.Result{Body: data}, nil)
+	rsp.On("CloseSend").Return(nil)
 
 	// expect two actions: one to create and one to close the prepared statement
 	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).Return(rsp, nil)
@@ -473,9 +477,9 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 	desc := getDesc(infoCmd)
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
 
-	prepared, err := s.sqlClient.Prepare(context.TODO(), memory.DefaultAllocator, query, s.callOpts...)
+	prepared, err := s.sqlClient.Prepare(context.TODO(), query, s.callOpts...)
 	s.NoError(err)
-	defer prepared.Close(context.TODO())
+	defer prepared.Close(context.TODO(), s.callOpts...)
 
 	paramSchema := prepared.ParameterSchema()
 	rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, paramSchema, strings.NewReader(`[{"id": 1}]`))
@@ -486,7 +490,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 	s.NoError(err)
 	prepared.SetRecordReader(rdr)
 
-	info, err := prepared.Execute(context.TODO())
+	info, err := prepared.Execute(context.TODO(), s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
 }

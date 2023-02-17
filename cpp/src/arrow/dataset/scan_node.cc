@@ -114,12 +114,12 @@ Future<AsyncGenerator<std::shared_ptr<Fragment>>> GetFragments(Dataset* dataset,
 /// fragments.  On destruction we continue consuming the fragments until they complete
 /// (which should be fairly quick since we cancelled the fragment).  This ensures the
 /// I/O work is completely finished before the node is destroyed.
-class ScanNode : public cp::ExecNode, public cp::TracedNode<ScanNode> {
+class ScanNode : public cp::ExecNode, public cp::TracedNode {
  public:
   ScanNode(cp::ExecPlan* plan, ScanV2Options options,
            std::shared_ptr<Schema> output_schema)
-      : cp::ExecNode(plan, {}, {}, std::move(output_schema),
-                     /*num_outputs=*/1),
+      : cp::ExecNode(plan, {}, {}, std::move(output_schema)),
+        cp::TracedNode(this),
         options_(options) {}
 
   static Result<ScanV2Options> NormalizeAndValidate(const ScanV2Options& options,
@@ -181,9 +181,8 @@ class ScanNode : public cp::ExecNode, public cp::TracedNode<ScanNode> {
   [[noreturn]] static void NoInputs() {
     Unreachable("no inputs; this should never be called");
   }
-  [[noreturn]] void InputReceived(cp::ExecNode*, cp::ExecBatch) override { NoInputs(); }
-  [[noreturn]] void ErrorReceived(cp::ExecNode*, Status) override { NoInputs(); }
-  [[noreturn]] void InputFinished(cp::ExecNode*, int) override { NoInputs(); }
+  [[noreturn]] Status InputReceived(cp::ExecNode*, cp::ExecBatch) override { NoInputs(); }
+  [[noreturn]] Status InputFinished(cp::ExecNode*, int) override { NoInputs(); }
 
   Status Init() override { return Status::OK(); }
 
@@ -224,12 +223,12 @@ class ScanNode : public cp::ExecNode, public cp::TracedNode<ScanNode> {
           compute::ExecBatch evolved_batch,
           scan_->fragment_evolution->EvolveBatch(batch, node_->options_.columns,
                                                  scan_->scan_request.columns));
-      return node_->plan_->query_context()->ScheduleTask(
+      node_->plan_->query_context()->ScheduleTask(
           [node = node_, evolved_batch = std::move(evolved_batch)] {
-            node->outputs_[0]->InputReceived(node, std::move(evolved_batch));
-            return Status::OK();
+            return node->output_->InputReceived(node, std::move(evolved_batch));
           },
           "ScanNode::ProcessMorsel");
+      return Status::OK();
     }
 
     int cost() const override { return cost_; }
@@ -330,11 +329,8 @@ class ScanNode : public cp::ExecNode, public cp::TracedNode<ScanNode> {
     std::shared_ptr<util::AsyncTaskScheduler> fragment_tasks =
         util::MakeThrottledAsyncTaskGroup(
             plan_->query_context()->async_scheduler(), options_.fragment_readahead + 1,
-            /*queue=*/nullptr, [this]() {
-              outputs_[0]->InputFinished(this, num_batches_.load());
-              finished_.MarkFinished();
-              return Status::OK();
-            });
+            /*queue=*/nullptr,
+            [this]() { return output_->InputFinished(this, num_batches_.load()); });
     fragment_tasks->AddAsyncGenerator<std::shared_ptr<Fragment>>(
         std::move(frag_gen),
         [this, fragment_tasks =
@@ -368,12 +364,7 @@ class ScanNode : public cp::ExecNode, public cp::TracedNode<ScanNode> {
     // TODO(ARROW-17755)
   }
 
-  void StopProducing(ExecNode* output) override {
-    DCHECK_EQ(output, outputs_[0]);
-    StopProducing();
-  }
-
-  void StopProducing() override {}
+  Status StopProducingImpl() override { return Status::OK(); }
 
  private:
   ScanV2Options options_;

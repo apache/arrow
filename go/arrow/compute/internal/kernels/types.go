@@ -21,10 +21,10 @@ package kernels
 import (
 	"fmt"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v11/arrow/internal/debug"
-	"github.com/apache/arrow/go/v11/arrow/scalar"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/scalar"
 )
 
 var (
@@ -52,6 +52,9 @@ var (
 		arrow.BinaryTypes.LargeBinary,
 		arrow.BinaryTypes.String,
 		arrow.BinaryTypes.LargeString}
+	primitiveTypes = append(append([]arrow.DataType{arrow.Null,
+		arrow.FixedWidthTypes.Date32, arrow.FixedWidthTypes.Date64},
+		numericTypes...), baseBinaryTypes...)
 )
 
 //go:generate stringer -type=CompareOperator -linecomment

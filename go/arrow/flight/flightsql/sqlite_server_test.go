@@ -21,18 +21,19 @@ package flightsql_test
 
 import (
 	"context"
+	"database/sql"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/flight"
-	"github.com/apache/arrow/go/v11/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v11/arrow/flight/flightsql/example"
-	"github.com/apache/arrow/go/v11/arrow/flight/flightsql/schema_ref"
-	"github.com/apache/arrow/go/v11/arrow/memory"
-	"github.com/apache/arrow/go/v11/arrow/scalar"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/flight"
+	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v12/arrow/flight/flightsql/example"
+	"github.com/apache/arrow/go/v12/arrow/flight/flightsql/schema_ref"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/protobuf/proto"
@@ -42,6 +43,7 @@ import (
 type FlightSqliteServerSuite struct {
 	suite.Suite
 
+	db  *sql.DB
 	srv *example.SQLiteFlightSQLServer
 	s   flight.Server
 	cl  *flightsql.Client
@@ -71,7 +73,9 @@ func (s *FlightSqliteServerSuite) SetupTest() {
 	var err error
 	s.mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
 	s.s = flight.NewServerWithMiddleware(nil)
-	s.srv, err = example.NewSQLiteFlightSQLServer()
+	s.db, err = example.CreateDB()
+	s.Require().NoError(err)
+	s.srv, err = example.NewSQLiteFlightSQLServer(s.db)
 	s.Require().NoError(err)
 	s.srv.Alloc = s.mem
 
@@ -89,6 +93,8 @@ func (s *FlightSqliteServerSuite) TearDownTest() {
 	s.Require().NoError(s.cl.Close())
 	s.s.Shutdown()
 	s.srv = nil
+	err := s.db.Close()
+	s.Require().NoError(err)
 	s.mem.AssertSize(s.T(), 0)
 }
 
@@ -466,7 +472,7 @@ func (s *FlightSqliteServerSuite) TestCommandStatementUpdate() {
 
 func (s *FlightSqliteServerSuite) TestCommandPreparedStatementQuery() {
 	ctx := context.Background()
-	prep, err := s.cl.Prepare(ctx, s.mem, "SELECT * FROM intTable")
+	prep, err := s.cl.Prepare(ctx, "SELECT * FROM intTable")
 	s.NoError(err)
 	defer prep.Close(ctx)
 
@@ -501,7 +507,7 @@ func (s *FlightSqliteServerSuite) TestCommandPreparedStatementQuery() {
 
 func (s *FlightSqliteServerSuite) TestCommandPreparedStatementQueryWithParams() {
 	ctx := context.Background()
-	stmt, err := s.cl.Prepare(ctx, s.mem, "SELECT * FROM intTable WHERE keyName LIKE ?")
+	stmt, err := s.cl.Prepare(ctx, "SELECT * FROM intTable WHERE keyName LIKE ?")
 	s.NoError(err)
 	defer stmt.Close(ctx)
 
@@ -560,7 +566,7 @@ func (s *FlightSqliteServerSuite) TestCommandPreparedStatementQueryWithParams() 
 
 func (s *FlightSqliteServerSuite) TestCommandPreparedStatementUpdateWithParams() {
 	ctx := context.Background()
-	stmt, err := s.cl.Prepare(ctx, s.mem, "INSERT INTO intTable (keyName, value) VALUES ('new_value', ?)")
+	stmt, err := s.cl.Prepare(ctx, "INSERT INTO intTable (keyName, value) VALUES ('new_value', ?)")
 	s.NoError(err)
 	defer stmt.Close(ctx)
 
@@ -602,7 +608,7 @@ func (s *FlightSqliteServerSuite) TestCommandPreparedStatementUpdateWithParams()
 
 func (s *FlightSqliteServerSuite) TestCommandPreparedStatementUpdate() {
 	ctx := context.Background()
-	stmt, err := s.cl.Prepare(ctx, s.mem, "INSERT INTO intTable (keyName, value) VALUES ('new_value', 999)")
+	stmt, err := s.cl.Prepare(ctx, "INSERT INTO intTable (keyName, value) VALUES ('new_value', 999)")
 	s.NoError(err)
 	defer stmt.Close(ctx)
 

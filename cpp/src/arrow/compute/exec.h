@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -150,6 +151,9 @@ class ARROW_EXPORT SelectionVector {
   const int32_t* indices_;
 };
 
+/// An index to represent that a batch does not belong to an ordered stream
+constexpr int64_t kUnsequencedIndex = -1;
+
 /// \brief A unit of work for kernel execution. It contains a collection of
 /// Array and Scalar values and an optional SelectionVector indicating that
 /// there is an unmaterialized filter that either must be materialized, or (if
@@ -174,7 +178,10 @@ struct ARROW_EXPORT ExecBatch {
 
   explicit ExecBatch(const RecordBatch& batch);
 
-  static Result<ExecBatch> Make(std::vector<Datum> values);
+  /// \brief Infer the ExecBatch length from values.
+  static Result<int64_t> InferLength(const std::vector<Datum>& values);
+
+  static Result<ExecBatch> Make(std::vector<Datum> values, int64_t length = -1);
 
   Result<std::shared_ptr<RecordBatch>> ToRecordBatch(
       std::shared_ptr<Schema> schema, MemoryPool* pool = default_memory_pool()) const;
@@ -204,6 +211,12 @@ struct ARROW_EXPORT ExecBatch {
   /// If the array values are of length 0 then the length is 0 regardless of
   /// whether any values are Scalar.
   int64_t length = 0;
+
+  /// \brief index of this batch in a sorted stream of batches
+  ///
+  /// This index must be strictly monotonic starting at 0 without gaps or
+  /// it can be set to kUnsequencedIndex if there is no meaningful order
+  int64_t index = kUnsequencedIndex;
 
   /// \brief The sum of bytes in each buffer referenced by the batch
   ///
@@ -320,9 +333,9 @@ struct ARROW_EXPORT ExecResult {
     }
   }
 
-  ArraySpan* array_span() const {
-    return const_cast<ArraySpan*>(&std::get<ArraySpan>(this->value));
-  }
+  const ArraySpan* array_span() const { return &std::get<ArraySpan>(this->value); }
+  ArraySpan* array_span_mutable() { return &std::get<ArraySpan>(this->value); }
+
   bool is_array_span() const { return this->value.index() == 0; }
 
   const std::shared_ptr<ArrayData>& array_data() const {

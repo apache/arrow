@@ -19,8 +19,8 @@ package schema
 import (
 	"fmt"
 
-	"github.com/apache/arrow/go/v11/parquet"
-	format "github.com/apache/arrow/go/v11/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v12/parquet"
+	format "github.com/apache/arrow/go/v12/parquet/internal/gen-go/parquet"
 	"github.com/apache/thrift/lib/go/thrift"
 	"golang.org/x/xerrors"
 )

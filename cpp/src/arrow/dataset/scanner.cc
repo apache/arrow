@@ -457,7 +457,7 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
           })
           .AddToPlan(plan.get()));
 
-  RETURN_NOT_OK(plan->StartProducing());
+  plan->StartProducing();
 
   auto options = scan_options_;
   ARROW_ASSIGN_OR_RAISE(auto fragments_it, dataset_->GetFragments(scan_options_->filter));
@@ -475,13 +475,24 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
         }
       }};
 
-  return MakeMappedGenerator(
+  EnumeratedRecordBatchGenerator mapped_gen = MakeMappedGenerator(
       std::move(sink_gen),
-      [sink_gen, options, stop_producing,
+      [sink_gen, options,
        shared_fragments](const std::optional<compute::ExecBatch>& batch)
           -> Future<EnumeratedRecordBatch> {
         return ToEnumeratedRecordBatch(batch, *options, *shared_fragments);
       });
+
+  return [mapped_gen = std::move(mapped_gen), plan = std::move(plan),
+          stop_producing = std::move(stop_producing)] {
+    auto next = mapped_gen();
+    return next.Then([plan](const EnumeratedRecordBatch& value) {
+      if (IsIterationEnd(value)) {
+        return plan->finished().Then([value] { return value; });
+      }
+      return Future<EnumeratedRecordBatch>::MakeFinished(value);
+    });
+  };
 }
 
 Result<std::shared_ptr<Table>> AsyncScanner::TakeRows(const Array& indices) {

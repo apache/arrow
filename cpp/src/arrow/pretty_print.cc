@@ -377,6 +377,18 @@ class ArrayPrinter : public PrettyPrinter {
     return PrettyPrint(*array.indices(), ChildOptions(true), sink_);
   }
 
+  Status Visit(const RunEndEncodedArray& array) {
+    Newline();
+    Indent();
+    Write("-- run_ends:\n");
+    RETURN_NOT_OK(PrettyPrint(*array.run_ends(), ChildOptions(true), sink_));
+
+    Newline();
+    Indent();
+    Write("-- values:\n");
+    return PrettyPrint(*array.values(), ChildOptions(true), sink_);
+  }
+
   Status Print(const Array& array) {
     RETURN_NOT_OK(VisitArrayInline(array, this));
     Flush();

@@ -379,7 +379,7 @@ Common Errors
      -DORC_SOURCE=BUNDLED \
      -DZLIB_SOURCE=BUNDLED
 
-.. _Archery: https://github.com/apache/arrow/blob/master/dev/archery/README.md
+.. _Archery: https://github.com/apache/arrow/blob/main/dev/archery/README.md
 .. _Dependency Resolution: https://arrow.apache.org/docs/developers/cpp/building.html#individual-dependency-resolution
 .. _C++ shared libraries: https://arrow.apache.org/docs/cpp/build_system.html
 

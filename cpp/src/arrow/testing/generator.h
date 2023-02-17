@@ -23,6 +23,8 @@
 #include <vector>
 
 #include "arrow/array/array_base.h"
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
@@ -233,5 +235,87 @@ class ARROW_TESTING_EXPORT ConstantArrayGenerator {
 
 ARROW_TESTING_EXPORT
 Result<std::shared_ptr<Array>> ScalarVectorToArray(const ScalarVector& scalars);
+
+namespace gen {
+
+class ARROW_TESTING_EXPORT ArrayGenerator {
+ public:
+  virtual ~ArrayGenerator() = default;
+  virtual Result<std::shared_ptr<Array>> Generate(int64_t num_rows) = 0;
+  virtual std::shared_ptr<DataType> type() const = 0;
+};
+
+// Same as DataGenerator below but instead of returning Result an ok status is EXPECT'd
+class ARROW_TESTING_EXPORT GTestDataGenerator {
+ public:
+  virtual ~GTestDataGenerator() = default;
+  virtual std::shared_ptr<::arrow::RecordBatch> RecordBatch(int64_t num_rows) = 0;
+  virtual std::vector<std::shared_ptr<::arrow::RecordBatch>> RecordBatches(
+      int64_t rows_per_batch, int num_batches) = 0;
+#ifdef ARROW_COMPUTE
+  virtual ::arrow::compute::ExecBatch ExecBatch(int64_t num_rows) = 0;
+  virtual std::vector<::arrow::compute::ExecBatch> ExecBatches(int64_t rows_per_batch,
+                                                               int num_batches) = 0;
+#endif
+  virtual std::shared_ptr<::arrow::Table> Table(int64_t rows_per_chunk,
+                                                int num_chunks = 1) = 0;
+  virtual std::shared_ptr<::arrow::Schema> Schema() = 0;
+};
+
+class ARROW_TESTING_EXPORT DataGenerator {
+ public:
+  virtual ~DataGenerator() = default;
+  virtual Result<std::shared_ptr<::arrow::RecordBatch>> RecordBatch(int64_t num_rows) = 0;
+  virtual Result<std::vector<std::shared_ptr<::arrow::RecordBatch>>> RecordBatches(
+      int64_t rows_per_batch, int num_batches) = 0;
+#ifdef ARROW_COMPUTE
+  virtual Result<::arrow::compute::ExecBatch> ExecBatch(int64_t num_rows) = 0;
+  virtual Result<std::vector<::arrow::compute::ExecBatch>> ExecBatches(
+      int64_t rows_per_batch, int num_batches) = 0;
+#endif
+  virtual Result<std::shared_ptr<::arrow::Table>> Table(int64_t rows_per_chunk,
+                                                        int num_chunks = 1) = 0;
+  virtual std::shared_ptr<::arrow::Schema> Schema() = 0;
+  /// @brief Converts this generator to a variant that fails (in a googletest sense)
+  ///        if any error is encountered.
+  virtual std::unique_ptr<GTestDataGenerator> FailOnError() = 0;
+};
+
+/// @brief A potentially named field
+///
+/// If name is not specified then a name will be generated automatically (e.g. f0, f1)
+struct ARROW_TESTING_EXPORT GeneratorField {
+ public:
+  GeneratorField(std::shared_ptr<ArrayGenerator> gen)  // NOLINT implicit conversion
+      : name(), gen(std::move(gen)) {}
+  GeneratorField(std::string name, std::shared_ptr<ArrayGenerator> gen)
+      : name(std::move(name)), gen(std::move(gen)) {}
+
+  std::optional<std::string> name;
+  std::shared_ptr<ArrayGenerator> gen;
+};
+
+/// Create a table generator with the given fields
+ARROW_TESTING_EXPORT std::shared_ptr<DataGenerator> Gen(
+    std::vector<GeneratorField> column_gens);
+
+/// make a generator that returns a constant value
+ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Constant(
+    std::shared_ptr<Scalar> value);
+/// make a generator that returns an incrementing value
+///
+/// Note: overflow is not prevented standard unsigned integer overflow applies
+ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Step(uint32_t start = 0,
+                                                          uint32_t step = 1);
+/// make a generator that returns a random value
+ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Random(
+    std::shared_ptr<DataType> type);
+/// TODO(if-needed) could add a repeat-scalars generator, e.g. Repeat({1, 2, 3}) for
+/// 1,2,3,1,2,3,1
+///
+/// TODO(if-needed) could add a repeat-from-json generator e.g. Repeat(int32(), "[1, 2,
+/// 3]")), same behavior as repeat-scalars
+
+}  // namespace gen
 
 }  // namespace arrow

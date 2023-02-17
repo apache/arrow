@@ -117,13 +117,13 @@ Start the work on a new branch
 ------------------------------
 
 Before we start working on adding the binding we should
-create a new branch from the updated master.
+create a new branch from the updated main.
 
 .. code:: console
 
-   $ git checkout master
+   $ git checkout main
    $ git fetch upstream
-   $ git pull --ff-only upstream master
+   $ git pull --ff-only upstream main
    $ git checkout -b ARROW-14816
 
 Now we can start with researching the R function and the C++ Arrow
@@ -371,7 +371,7 @@ We can use ``git log`` to check the history of commits:
 
        Adding a binding and a test for mday() lubridate
 
-   commit c5358787ee8f7b80f067292f49e5f032854041b9 (upstream/master, upstream/HEAD, master, ARROW-15346, ARROW-10643)
+   commit c5358787ee8f7b80f067292f49e5f032854041b9 (upstream/main, upstream/HEAD, main, ARROW-15346, ARROW-10643)
    Author: Krisztián Szűcs <szucs.krisztian@gmail.com>
    Date:   Thu Jan 20 09:45:59 2022 +0900
 
@@ -385,11 +385,11 @@ We can use ``git log`` to check the history of commits:
        Signed-off-by: Sutou Kouhei <kou@clear-code.com>
 
 If we started the branch some time ago, we may need to rebase
-to upstream master to make sure there are no merge conflicts:
+to upstream main to make sure there are no merge conflicts:
 
 .. code:: console
 
-   $ git pull upstream master --rebase
+   $ git pull upstream main --rebase
 
 And now we can push our work to the forked Arrow repository
 on GitHub called origin.

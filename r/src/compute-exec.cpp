@@ -100,7 +100,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     // If this is the first batch getting pulled, tell the exec plan to
     // start producing
     if (plan_status_ == PLAN_NOT_STARTED) {
-      ARROW_RETURN_NOT_OK(StartProducing());
+      StartProducing();
     }
 
     // If we've closed the reader, keep sending nullptr
@@ -134,7 +134,8 @@ class ExecPlanReader : public arrow::RecordBatchReader {
       *batch_out = batch_result.ValueUnsafe();
     } else {
       batch_out->reset();
-      StopProducing();
+      plan_status_ = PLAN_FINISHED;
+      return plan_->finished().status();
     }
 
     return arrow::Status::OK();
@@ -156,10 +157,9 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   ExecPlanReaderStatus plan_status_;
   arrow::StopToken stop_token_;
 
-  arrow::Status StartProducing() {
-    ARROW_RETURN_NOT_OK(plan_->StartProducing());
+  void StartProducing() {
+    plan_->StartProducing();
     plan_status_ = PLAN_RUNNING;
-    return arrow::Status::OK();
   }
 
   void StopProducing() {
@@ -352,9 +352,8 @@ void ExecPlan_Write(
   StopIfNotOk(plan->Validate());
 
   arrow::Status result = RunWithCapturedRIfPossibleVoid([&]() {
-    RETURN_NOT_OK(plan->StartProducing());
-    RETURN_NOT_OK(plan->finished().status());
-    return arrow::Status::OK();
+    plan->StartProducing();
+    return plan->finished().status();
   });
 
   StopIfNotOk(result);
@@ -394,11 +393,15 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
   for (cpp11::list name_opts : options) {
     auto function = cpp11::as_cpp<std::string>(name_opts["fun"]);
     auto opts = make_compute_options(function, name_opts["options"]);
-    auto target = cpp11::as_cpp<std::string>(name_opts["target"]);
+    auto target_names = cpp11::as_cpp<std::vector<std::string>>(name_opts["targets"]);
     auto name = cpp11::as_cpp<std::string>(name_opts["name"]);
 
+    std::vector<arrow::FieldRef> targets;
+    for (auto&& target : target_names) {
+      targets.emplace_back(std::move(target));
+    }
     aggregates.push_back(arrow::compute::Aggregate{std::move(function), opts,
-                                                   std::move(target), std::move(name)});
+                                                   std::move(targets), std::move(name)});
   }
 
   std::vector<arrow::FieldRef> keys;
@@ -540,7 +543,7 @@ std::shared_ptr<arrow::Table> ExecPlan_run_substrait(
   }
 
   StopIfNotOk(plan->Validate());
-  StopIfNotOk(plan->StartProducing());
+  plan->StartProducing();
   StopIfNotOk(plan->finished().status());
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> all_batches;

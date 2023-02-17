@@ -22,7 +22,6 @@
 namespace arrow {
 using internal::CpuInfo;
 namespace compute {
-QueryOptions::QueryOptions() : use_legacy_batching(false) {}
 
 QueryContext::QueryContext(QueryOptions opts, ExecContext exec_context)
     : options_(opts),
@@ -60,28 +59,25 @@ Result<Future<>> QueryContext::BeginExternalTask(std::string_view name) {
   return Future<>{};
 }
 
-Status QueryContext::ScheduleTask(std::function<Status()> fn, std::string_view name) {
+void QueryContext::ScheduleTask(std::function<Status()> fn, std::string_view name) {
   ::arrow::internal::Executor* exec = executor();
   // Adds a task which submits fn to the executor and tracks its progress.  If we're
   // already stopping then the task is ignored and fn is not executed.
-  async_scheduler_->AddSimpleTask([exec, fn]() { return exec->Submit(std::move(fn)); },
-                                  name);
-  return Status::OK();
+  async_scheduler_->AddSimpleTask(
+      [exec, fn = std::move(fn)]() mutable { return exec->Submit(std::move(fn)); }, name);
 }
 
-Status QueryContext::ScheduleTask(std::function<Status(size_t)> fn,
-                                  std::string_view name) {
+void QueryContext::ScheduleTask(std::function<Status(size_t)> fn, std::string_view name) {
   std::function<Status()> indexed_fn = [this, fn]() {
     size_t thread_index = GetThreadIndex();
     return fn(thread_index);
   };
-  return ScheduleTask(std::move(indexed_fn), name);
+  ScheduleTask(std::move(indexed_fn), name);
 }
 
-Status QueryContext::ScheduleIOTask(std::function<Status()> fn, std::string_view name) {
+void QueryContext::ScheduleIOTask(std::function<Status()> fn, std::string_view name) {
   async_scheduler_->AddSimpleTask(
       [this, fn]() { return io_context_.executor()->Submit(std::move(fn)); }, name);
-  return Status::OK();
 }
 
 int QueryContext::RegisterTaskGroup(std::function<Status(size_t, int64_t)> task,

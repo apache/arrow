@@ -22,10 +22,10 @@ import (
 	"io"
 	"strings"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/memory"
-	"github.com/apache/arrow/go/v11/internal/hashing"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/internal/hashing"
 	"github.com/goccy/go-json"
 )
 
@@ -250,7 +250,7 @@ func TableFromJSON(mem memory.Allocator, sc *arrow.Schema, recJSON []string, opt
 	return NewTableFromRecords(sc, batches), nil
 }
 
-func getDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable hashing.MemoTable, startOffset int) (*Data, error) {
+func GetDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable hashing.MemoTable, startOffset int) (*Data, error) {
 	dictLen := memoTable.Size() - startOffset
 	buffers := []*memory.Buffer{nil, nil}
 
@@ -271,6 +271,17 @@ func getDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable 
 			buffers[1].Resize(arrow.Int32Traits.BytesRequired(dictLen + 1))
 			offsets := arrow.Int32Traits.CastFromBytes(buffers[1].Bytes())
 			tbl.CopyOffsetsSubset(startOffset, offsets)
+
+			valuesz := offsets[len(offsets)-1] - offsets[0]
+			buffers[2].Resize(int(valuesz))
+			tbl.CopyValuesSubset(startOffset, buffers[2].Bytes())
+		case arrow.LARGE_BINARY, arrow.LARGE_STRING:
+			buffers = append(buffers, memory.NewResizableBuffer(mem))
+			defer buffers[2].Release()
+
+			buffers[1].Resize(arrow.Int64Traits.BytesRequired(dictLen + 1))
+			offsets := arrow.Int64Traits.CastFromBytes(buffers[1].Bytes())
+			tbl.CopyLargeOffsetsSubset(startOffset, offsets)
 
 			valuesz := offsets[len(offsets)-1] - offsets[0]
 			buffers[2].Resize(int(valuesz))
@@ -440,6 +451,23 @@ func (n *nullArrayFactory) create() *Data {
 			childData[i] = n.createChild(dt, i, n.len)
 			defer childData[i].Release()
 		}
+	case *arrow.RunEndEncodedType:
+		bldr := NewBuilder(n.mem, dt.RunEnds())
+		defer bldr.Release()
+
+		switch b := bldr.(type) {
+		case *Int16Builder:
+			b.Append(int16(n.len))
+		case *Int32Builder:
+			b.Append(int32(n.len))
+		case *Int64Builder:
+			b.Append(int64(n.len))
+		}
+
+		childData[0] = bldr.newData()
+		defer childData[0].Release()
+		childData[1] = n.createChild(dt.Encoded(), 1, 1)
+		defer childData[1].Release()
 	case arrow.UnionType:
 		bufs[0].Release()
 		bufs[0] = nil

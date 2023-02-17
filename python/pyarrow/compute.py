@@ -54,6 +54,7 @@ from pyarrow._compute import (  # noqa
     RankOptions,
     ReplaceSliceOptions,
     ReplaceSubstringOptions,
+    RoundBinaryOptions,
     RoundOptions,
     RoundTemporalOptions,
     RoundToMultipleOptions,
@@ -80,7 +81,9 @@ from pyarrow._compute import (  # noqa
     list_functions,
     _group_by,
     # Udf
+    call_tabular_function,
     register_scalar_function,
+    register_tabular_function,
     ScalarUdfContext,
     # Expressions
     Expression,
@@ -316,6 +319,10 @@ def _make_global_functions():
         if func.kind == "hash_aggregate":
             # Hash aggregate functions are not callable,
             # so let's not expose them at module level.
+            continue
+        if func.kind == "scalar_aggregate" and func.arity == 0:
+            # Nullary scalar aggregate functions are not callable
+            # directly so let's not expose them at module level.
             continue
         assert name not in g, name
         g[cpp_name] = g[name] = _wrap_function(name, func)

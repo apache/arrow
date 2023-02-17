@@ -196,6 +196,8 @@ int GetNumBuffers(const DataType& type) {
     case Type::STRUCT:
     case Type::FIXED_SIZE_LIST:
       return 1;
+    case Type::RUN_END_ENCODED:
+      return 0;
     case Type::BINARY:
     case Type::LARGE_BINARY:
     case Type::STRING:
@@ -428,7 +430,7 @@ std::shared_ptr<Array> ArraySpan::ToArray() const {
 }
 
 // ----------------------------------------------------------------------
-// Implement ArrayData::View
+// Implement internal::GetArrayView
 
 namespace {
 

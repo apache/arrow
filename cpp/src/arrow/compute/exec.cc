@@ -147,9 +147,21 @@ ExecBatch ExecBatch::Slice(int64_t offset, int64_t length) const {
   return out;
 }
 
-Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
+namespace {
+
+enum LengthInferenceError {
+  kEmptyInput = -1,
+  kInvalidValues = -2,
+};
+
+/// \brief Infer the ExecBatch length from values.
+///
+/// \return the inferred length of the batch. If there are no values in the
+/// batch then kEmptyInput (-1) is returned. If the values in the batch have
+/// different lengths then kInvalidValues (-2) is returned.
+int64_t DoInferLength(const std::vector<Datum>& values) {
   if (values.empty()) {
-    return Status::Invalid("Cannot infer ExecBatch length without at least one value");
+    return kEmptyInput;
   }
 
   int64_t length = -1;
@@ -164,13 +176,52 @@ Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
     }
 
     if (length != value.length()) {
-      return Status::Invalid(
-          "Arrays used to construct an ExecBatch must have equal length");
+      // all the arrays should have the same length
+      return kInvalidValues;
     }
   }
 
-  if (length == -1) {
-    length = 1;
+  return length == -1 ? 1 : length;
+}
+
+}  // namespace
+
+Result<int64_t> ExecBatch::InferLength(const std::vector<Datum>& values) {
+  const int64_t length = DoInferLength(values);
+  switch (length) {
+    case kInvalidValues:
+      return Status::Invalid(
+          "Arrays used to construct an ExecBatch must have equal length");
+    case kEmptyInput:
+      return Status::Invalid("Cannot infer ExecBatch length without at least one value");
+    default:
+      break;
+  }
+  return {length};
+}
+
+Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values, int64_t length) {
+  // Infer the length again and/or validate the given length.
+  const int64_t inferred_length = DoInferLength(values);
+  switch (inferred_length) {
+    case kEmptyInput:
+      if (length < 0) {
+        return Status::Invalid(
+            "Cannot infer ExecBatch length without at least one value");
+      }
+      break;
+
+    case kInvalidValues:
+      return Status::Invalid(
+          "Arrays used to construct an ExecBatch must have equal length");
+
+    default:
+      if (length < 0) {
+        length = inferred_length;
+      } else if (length != inferred_length) {
+        return Status::Invalid("Length used to construct an ExecBatch is invalid");
+      }
+      break;
   }
 
   return ExecBatch(std::move(values), length);
@@ -179,7 +230,7 @@ Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
 Result<std::shared_ptr<RecordBatch>> ExecBatch::ToRecordBatch(
     std::shared_ptr<Schema> schema, MemoryPool* pool) const {
   if (static_cast<size_t>(schema->num_fields()) > values.size()) {
-    return Status::Invalid("ExecBatch::ToTRecordBatch mismatching schema size");
+    return Status::Invalid("ExecBatch::ToRecordBatch mismatching schema size");
   }
   ArrayVector columns(schema->num_fields());
 
@@ -780,7 +831,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     std::shared_ptr<ArrayData> preallocation;
     ExecSpan input;
     ExecResult output;
-    ArraySpan* output_span = output.array_span();
+    ArraySpan* output_span = output.array_span_mutable();
 
     if (preallocate_contiguous_) {
       // Make one big output allocation
@@ -815,7 +866,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
   }
 
   Status ExecuteSingleSpan(const ExecSpan& input, ExecResult* out) {
-    ArraySpan* result_span = out->array_span();
+    ArraySpan* result_span = out->array_span_mutable();
     if (output_type_.type->id() == Type::NA) {
       result_span->null_count = result_span->length;
     } else if (kernel_->null_handling == NullHandling::INTERSECTION) {

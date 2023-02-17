@@ -264,6 +264,9 @@ struct ARROW_EXPORT TypeHolder {
   }
 
   static std::string ToString(const std::vector<TypeHolder>&);
+
+  static std::vector<TypeHolder> FromTypes(
+      const std::vector<std::shared_ptr<DataType>>& types);
 };
 
 ARROW_EXPORT
@@ -288,24 +291,36 @@ std::shared_ptr<DataType> GetPhysicalType(const std::shared_ptr<DataType>& type)
 class ARROW_EXPORT FixedWidthType : public DataType {
  public:
   using DataType::DataType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~FixedWidthType() override;
 };
 
 /// \brief Base class for all data types representing primitive values
 class ARROW_EXPORT PrimitiveCType : public FixedWidthType {
  public:
   using FixedWidthType::FixedWidthType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~PrimitiveCType() override;
 };
 
 /// \brief Base class for all numeric data types
 class ARROW_EXPORT NumberType : public PrimitiveCType {
  public:
   using PrimitiveCType::PrimitiveCType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~NumberType() override;
 };
 
 /// \brief Base class for all integral data types
 class ARROW_EXPORT IntegerType : public NumberType {
  public:
   using NumberType::NumberType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~IntegerType() override;
   virtual bool is_signed() const = 0;
 };
 
@@ -313,6 +328,9 @@ class ARROW_EXPORT IntegerType : public NumberType {
 class ARROW_EXPORT FloatingPointType : public NumberType {
  public:
   using NumberType::NumberType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~FloatingPointType() override;
   enum Precision { HALF, SINGLE, DOUBLE };
   virtual Precision precision() const = 0;
 };
@@ -323,6 +341,9 @@ class ParametricType {};
 class ARROW_EXPORT NestedType : public DataType, public ParametricType {
  public:
   using DataType::DataType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~NestedType() override;
 };
 
 /// \brief The combination of a field name and data type, with optional metadata
@@ -650,6 +671,9 @@ class ARROW_EXPORT DoubleType
 class ARROW_EXPORT BaseBinaryType : public DataType {
  public:
   using DataType::DataType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~BaseBinaryType() override;
 };
 
 constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
@@ -893,6 +917,9 @@ class ARROW_EXPORT Decimal256Type : public DecimalType {
 class ARROW_EXPORT BaseListType : public NestedType {
  public:
   using NestedType::NestedType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~BaseListType() override;
   const std::shared_ptr<Field>& value_field() const { return children_[0]; }
 
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
@@ -1196,6 +1223,34 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
   std::string name() const override { return "dense_union"; }
 };
 
+/// \brief Type class for run-end encoded data
+class ARROW_EXPORT RunEndEncodedType : public NestedType {
+ public:
+  static constexpr Type::type type_id = Type::RUN_END_ENCODED;
+
+  static constexpr const char* type_name() { return "run_end_encoded"; }
+
+  explicit RunEndEncodedType(std::shared_ptr<DataType> run_end_type,
+                             std::shared_ptr<DataType> value_type);
+
+  DataTypeLayout layout() const override {
+    // A lot of existing code expects at least one buffer
+    return DataTypeLayout({DataTypeLayout::AlwaysNull()});
+  }
+
+  const std::shared_ptr<DataType>& run_end_type() const { return fields()[0]->type(); }
+  const std::shared_ptr<DataType>& value_type() const { return fields()[1]->type(); }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "run_end_encoded"; }
+
+  static bool RunEndTypeValid(const DataType& run_end_type);
+
+ private:
+  std::string ComputeFingerprint() const override;
+};
+
 /// @}
 
 // ----------------------------------------------------------------------
@@ -1209,6 +1264,9 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
 class ARROW_EXPORT TemporalType : public FixedWidthType {
  public:
   using FixedWidthType::FixedWidthType;
+  // This is only for preventing defining this class in each
+  // translation unit to avoid one-definition-rule violation.
+  ~TemporalType() override;
 
   DataTypeLayout layout() const override {
     return DataTypeLayout(
@@ -1938,6 +1996,12 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   Result<std::shared_ptr<Schema>> SetField(int i,
                                            const std::shared_ptr<Field>& field) const;
 
+  /// \brief Replace field names with new names
+  ///
+  /// \param[in] names new names
+  /// \return new Schema
+  Result<std::shared_ptr<Schema>> WithNames(const std::vector<std::string>& names) const;
+
   /// \brief Replace key-value metadata with new metadata
   ///
   /// \param[in] metadata new KeyValueMetadata
@@ -2096,11 +2160,12 @@ Result<std::shared_ptr<Schema>> UnifySchemas(
 
 namespace internal {
 
-static inline bool HasValidityBitmap(Type::type id) {
+constexpr bool HasValidityBitmap(Type::type id) {
   switch (id) {
     case Type::NA:
     case Type::DENSE_UNION:
     case Type::SPARSE_UNION:
+    case Type::RUN_END_ENCODED:
       return false;
     default:
       return true;

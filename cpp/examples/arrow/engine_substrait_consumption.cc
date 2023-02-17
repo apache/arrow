@@ -89,7 +89,7 @@ arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer(
     "extension_uris": [
       {
         "extension_uri_anchor": 7,
-        "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+        "uri": "https://github.com/apache/arrow/blob/main/format/substrait/extension_types.yaml"
       }
     ],
     "extensions": [
@@ -162,7 +162,7 @@ arrow::Status RunSubstraitConsumer(int argc, char** argv) {
 
   // Start the plan...
   std::cout << std::string(50, '#') << " consuming batches:" << std::endl;
-  ARROW_RETURN_NOT_OK(plan->StartProducing());
+  plan->StartProducing();
 
   // ... and wait for it to finish
   ARROW_RETURN_NOT_OK(plan->finished().status());

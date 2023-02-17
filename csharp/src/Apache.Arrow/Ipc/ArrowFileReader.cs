@@ -35,18 +35,33 @@ namespace Apache.Arrow.Ipc
         {
         }
 
+        public ArrowFileReader(Stream stream, ICompressionCodecFactory compressionCodecFactory)
+            : this(stream, allocator: null, compressionCodecFactory, leaveOpen: false)
+        {
+        }
+
         public ArrowFileReader(Stream stream, MemoryAllocator allocator)
             : this(stream, allocator, leaveOpen: false)
         {
         }
 
+        public ArrowFileReader(Stream stream, MemoryAllocator allocator, ICompressionCodecFactory compressionCodecFactory)
+            : this(stream, allocator, compressionCodecFactory, leaveOpen: false)
+        {
+        }
+
         public ArrowFileReader(Stream stream, bool leaveOpen)
-            : this(stream, allocator: null, leaveOpen)
+            : this(stream, allocator: null, compressionCodecFactory: null, leaveOpen)
         {
         }
 
         public ArrowFileReader(Stream stream, MemoryAllocator allocator, bool leaveOpen)
-            : base(new ArrowFileReaderImplementation(stream, allocator, leaveOpen))
+            : this(stream, allocator, compressionCodecFactory: null, leaveOpen)
+        {
+        }
+
+        public ArrowFileReader(Stream stream, MemoryAllocator allocator, ICompressionCodecFactory compressionCodecFactory, bool leaveOpen)
+            : base(new ArrowFileReaderImplementation(stream, allocator, compressionCodecFactory, leaveOpen))
         {
         }
 

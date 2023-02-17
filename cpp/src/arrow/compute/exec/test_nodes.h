@@ -21,6 +21,7 @@
 
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
+#include "arrow/testing/random.h"
 
 namespace arrow {
 namespace compute {
@@ -40,6 +41,19 @@ AsyncGenerator<std::optional<ExecBatch>> MakeDelayedGen(BatchesWithSchema src,
                                                         std::string label,
                                                         double delay_sec,
                                                         bool noisy = false);
+
+/// A node that slightly resequences the input at random
+struct JitterNodeOptions : public ExecNodeOptions {
+  random::SeedType seed;
+  /// The max amount to add to a node's "cost".
+  int max_jitter_modifier;
+
+  JitterNodeOptions(random::SeedType seed, int max_jitter_modifier)
+      : seed(seed), max_jitter_modifier(max_jitter_modifier) {}
+  static constexpr std::string_view kName = "jitter";
+};
+
+void RegisterTestNodes();
 
 }  // namespace compute
 }  // namespace arrow

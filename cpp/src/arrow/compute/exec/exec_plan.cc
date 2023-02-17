@@ -28,6 +28,7 @@
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/task_util.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
@@ -40,6 +41,8 @@
 #include "arrow/util/string.h"
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/vector.h"
+
+using namespace std::string_view_literals;  // NOLINT
 
 namespace arrow {
 
@@ -67,16 +70,13 @@ struct ExecPlanImpl : public ExecPlan {
     }
   }
 
+  const NodeVector& nodes() const { return node_ptrs_; }
+
   ExecNode* AddNode(std::unique_ptr<ExecNode> node) {
     if (node->label().empty()) {
       node->SetLabel(ToChars(auto_label_counter_++));
     }
-    if (node->num_inputs() == 0) {
-      sources_.push_back(node.get());
-    }
-    if (node->num_outputs() == 0) {
-      sinks_.push_back(node.get());
-    }
+    node_ptrs_.push_back(node.get());
     nodes_.push_back(std::move(node));
     return nodes_.back().get();
   }
@@ -91,18 +91,28 @@ struct ExecPlanImpl : public ExecPlan {
     return Status::OK();
   }
 
-  Status StartProducing() {
+  void StartProducing() {
+    if (finished_.is_finished()) {
+      finished_ = Future<>::MakeFinished(
+          Status::Invalid("StartProducing called after plan had already finished"));
+      return;
+    }
     if (started_) {
-      return Status::Invalid("restarted ExecPlan");
+      finished_.MarkFinished(
+          Status::Invalid("StartProducing called on a plan that had already started."));
+      return;
     }
     if (query_context_.exec_context()->executor() == nullptr) {
-      return Status::Invalid(
+      finished_.MarkFinished(Status::Invalid(
           "An exec plan must have an executor for CPU tasks.  To run without threads use "
           "a SerialExeuctor (the arrow::compute::DeclarationTo... methods should take "
-          "care of this for you and are an easier way to execute an ExecPlan.)");
+          "care of this for you and are an easier way to execute an ExecPlan.)"));
+      return;
     }
     if (query_context_.io_context()->executor() == nullptr) {
-      return Status::Invalid("An exec plan must have an I/O executor for I/O tasks.");
+      finished_.MarkFinished(
+          Status::Invalid("An exec plan must have an I/O executor for I/O tasks."));
+      return;
     }
 
     started_ = true;
@@ -130,17 +140,8 @@ struct ExecPlanImpl : public ExecPlan {
                           });
           }
 #endif
-          // TODO(weston) The entire concept of ExecNode::finished() will hopefully go
-          // away soon (or at least be replaced by a sub-scheduler to facilitate OT)
           for (auto& n : nodes_) {
             RETURN_NOT_OK(n->Init());
-          }
-          for (auto& n : nodes_) {
-            std::string qualified_label = std::string(n->kind_name()) + ":" + n->label();
-            std::string wait_for_finish =
-                "ExecPlan::WaitForFinish(" + qualified_label + ")";
-            async_scheduler->AddSimpleTask([&] { return n->finished(); },
-                                           std::move(wait_for_finish));
           }
 
           ctx->scheduler()->RegisterEnd();
@@ -155,7 +156,8 @@ struct ExecPlanImpl : public ExecPlan {
               [ctx](std::function<Status(size_t)> fn) -> Status {
                 // TODO(weston) add names to synchronous scheduler so we can use something
                 // better than sync-scheduler-task here
-                return ctx->ScheduleTask(std::move(fn), "sync-scheduler-task");
+                ctx->ScheduleTask(std::move(fn), "sync-scheduler-task");
+                return Status::OK();
               },
               /*concurrent_tasks=*/2 * num_threads, sync_execution));
 
@@ -175,32 +177,39 @@ struct ExecPlanImpl : public ExecPlan {
               bool expected = false;
               if (stopped_.compare_exchange_strong(expected, true)) {
                 StopProducingImpl(it.base(), sorted_nodes_.end());
-                for (NodeVector::iterator fw_it = sorted_nodes_.begin();
-                     fw_it != it.base(); ++fw_it) {
-                  Future<> fut = (*fw_it)->finished();
-                  if (!fut.is_finished()) fut.MarkFinished();
-                }
               }
               return st;
             }
           }
           return st;
         },
-        [this](const Status& st) { StopProducing(); });
-    scheduler_finished.AddCallback(
-        [this](const Status& st) { finished_.MarkFinished(st); });
-    // TODO(weston) Do we really need to return status here?  Could we change this return
-    // to void?
-    if (finished_.is_finished()) {
-      return finished_.status();
-    } else {
-      return Status::OK();
-    }
+        [this](const Status& st) {
+          // If an error occurs we call StopProducing.  The scheduler will already have
+          // stopped scheduling new tasks at this point.  However, any nodes that are
+          // dealing with external tasks will need to trigger those external tasks to end
+          // early.
+          StopProducing();
+        });
+    scheduler_finished.AddCallback([this](const Status& st) {
+      if (st.ok()) {
+        if (stopped_.load()) {
+          finished_.MarkFinished(Status::Cancelled("Plan was cancelled early."));
+        } else {
+          finished_.MarkFinished();
+        }
+      } else {
+        finished_.MarkFinished(st);
+      }
+    });
   }
 
   void StopProducing() {
-    DCHECK(started_) << "stopped an ExecPlan which never started";
-    EVENT(span_, "ExecPlan::StopProducing");
+    if (!started_) {
+      started_ = true;
+      finished_.MarkFinished(Status::Invalid(
+          "StopProducing was called before StartProducing.  The plan never ran."));
+    }
+    EVENT(span_, "StopProducing");
     bool expected = false;
     if (stopped_.compare_exchange_strong(expected, true)) {
       query_context()->scheduler()->Abort(
@@ -212,7 +221,17 @@ struct ExecPlanImpl : public ExecPlan {
   void StopProducingImpl(It begin, It end) {
     for (auto it = begin; it != end; ++it) {
       auto node = *it;
-      node->StopProducing();
+      EVENT_ON_CURRENT_SPAN(
+          "StopProducing:" + node->label(),
+          {{"node.label", node->label()}, {"node.kind_name", node->kind_name()}});
+      Status st = node->StopProducing();
+      if (!st.ok()) {
+        // If an error occurs during StopProducing then we submit a task to fail.  If we
+        // have already aborted then this will be ignored.  This way the failing status
+        // will get communicated to finished_.
+        query_context()->async_scheduler()->AddSimpleTask(
+            [st] { return st; }, "ExecPlan::StopProducingErrorReporter"sv);
+      }
     }
   }
 
@@ -314,7 +333,7 @@ struct ExecPlanImpl : public ExecPlan {
   bool started_ = false;
   std::atomic<bool> stopped_{false};
   std::vector<std::unique_ptr<ExecNode>> nodes_;
-  NodeVector sources_, sinks_;
+  NodeVector node_ptrs_;
   NodeVector sorted_nodes_;
   uint32_t auto_label_counter_ = 0;
   util::tracing::Span span_;
@@ -380,17 +399,15 @@ ExecNode* ExecPlan::AddNode(std::unique_ptr<ExecNode> node) {
   return ToDerived(this)->AddNode(std::move(node));
 }
 
-const ExecPlan::NodeVector& ExecPlan::sources() const {
-  return ToDerived(this)->sources_;
-}
-
-const ExecPlan::NodeVector& ExecPlan::sinks() const { return ToDerived(this)->sinks_; }
-
 QueryContext* ExecPlan::query_context() { return &ToDerived(this)->query_context_; }
+
+const ExecPlanImpl::NodeVector& ExecPlan::nodes() const {
+  return ToDerived(this)->nodes();
+}
 
 Status ExecPlan::Validate() { return ToDerived(this)->Validate(); }
 
-Status ExecPlan::StartProducing() { return ToDerived(this)->StartProducing(); }
+void ExecPlan::StartProducing() { return ToDerived(this)->StartProducing(); }
 
 void ExecPlan::StopProducing() { ToDerived(this)->StopProducing(); }
 
@@ -406,14 +423,17 @@ std::string ExecPlan::ToString() const { return ToDerived(this)->ToString(); }
 
 ExecNode::ExecNode(ExecPlan* plan, NodeVector inputs,
                    std::vector<std::string> input_labels,
-                   std::shared_ptr<Schema> output_schema, int num_outputs)
-    : plan_(plan),
+                   std::shared_ptr<Schema> output_schema)
+    : stopped_(false),
+      plan_(plan),
       inputs_(std::move(inputs)),
       input_labels_(std::move(input_labels)),
-      output_schema_(std::move(output_schema)),
-      num_outputs_(num_outputs) {
+      output_schema_(std::move(output_schema)) {
   for (auto input : inputs_) {
-    input->outputs_.push_back(this);
+    DCHECK_NE(input, nullptr) << " null input";
+    DCHECK_EQ(input->output_, nullptr) << " attempt to add a second output to a node";
+    DCHECK(!input->is_sink()) << " attempt to add a sink node as input";
+    input->output_ = this;
   }
 }
 
@@ -425,19 +445,33 @@ Status ExecNode::Validate() const {
                            num_inputs(), ", actual ", input_labels_.size(), ")");
   }
 
-  if (static_cast<int>(outputs_.size()) != num_outputs_) {
-    return Status::Invalid("Invalid number of outputs for '", label(), "' (expected ",
-                           num_outputs(), ", actual ", outputs_.size(), ")");
-  }
-
-  for (auto out : outputs_) {
-    auto input_index = GetNodeIndex(out->inputs(), this);
+  if (is_sink()) {
+    if (output_ != nullptr) {
+      return Status::Invalid("Sink node, '", label(), "' has an output");
+    }
+    return Status::OK();
+  } else {
+    if (output_ == nullptr) {
+      return Status::Invalid("No output for node, '", label(), "'");
+    }
+    auto input_index = GetNodeIndex(output_->inputs(), this);
     if (!input_index) {
-      return Status::Invalid("Node '", label(), "' outputs to node '", out->label(),
+      return Status::Invalid("Node '", label(), "' outputs to node '", output_->label(),
                              "' but is not listed as an input.");
     }
   }
 
+  return Status::OK();
+}
+
+Status ExecNode::StopProducing() {
+  bool expected = false;
+  if (stopped_.compare_exchange_strong(expected, true)) {
+    ARROW_RETURN_NOT_OK(StopProducingImpl());
+    for (auto* input : inputs_) {
+      ARROW_RETURN_NOT_OK(input->StopProducing());
+    }
+  }
   return Status::OK();
 }
 
@@ -461,15 +495,6 @@ std::string ExecNode::ToString(int indent) const {
 }
 
 std::string ExecNode::ToStringExtra(int indent) const { return ""; }
-
-bool ExecNode::ErrorIfNotOk(Status status) {
-  if (status.ok()) return false;
-
-  for (auto out : outputs_) {
-    out->ErrorReceived(this, out == outputs_.back() ? std::move(status) : status);
-  }
-  return true;
-}
 
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
     std::shared_ptr<Schema> schema, std::function<Future<std::optional<ExecBatch>>()> gen,
@@ -550,95 +575,80 @@ bool Declaration::IsValid(ExecFactoryRegistry* registry) const {
   return !this->factory_name.empty() && this->options != nullptr;
 }
 
-Future<std::shared_ptr<Table>> DeclarationToTableAsync(Declaration declaration,
-                                                       ExecContext exec_context) {
-  std::shared_ptr<std::shared_ptr<Table>> output_table =
-      std::make_shared<std::shared_ptr<Table>>();
+namespace {
+
+Result<ExecNode*> EnsureSink(ExecNode* last_node, ExecPlan* plan) {
+  if (!last_node->is_sink()) {
+    Declaration null_sink =
+        Declaration("consuming_sink", {last_node},
+                    ConsumingSinkNodeOptions(NullSinkNodeConsumer::Make()));
+    return null_sink.AddToPlan(plan);
+  }
+  return last_node;
+}
+
+}  // namespace
+
+Result<std::shared_ptr<Schema>> DeclarationToSchema(const Declaration& declaration,
+                                                    FunctionRegistry* function_registry) {
+  // We pass in the default memory pool and the CPU executor but nothing we are doing
+  // should be starting new thread tasks or making large allocations.
+  ExecContext exec_context(default_memory_pool(), ::arrow::internal::GetCpuThreadPool(),
+                           function_registry);
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
                         ExecPlan::Make(exec_context));
-  Declaration with_sink = Declaration::Sequence(
-      {declaration, {"table_sink", TableSinkNodeOptions(output_table.get())}});
+  ARROW_ASSIGN_OR_RAISE(ExecNode * last_node, declaration.AddToPlan(exec_plan.get()));
+  ARROW_ASSIGN_OR_RAISE(last_node, EnsureSink(last_node, exec_plan.get()));
+  ARROW_RETURN_NOT_OK(exec_plan->Validate());
+  if (last_node->inputs().size() != 1) {
+    // Every sink node today has exactly one input
+    return Status::Invalid("Unexpected sink node with more than one input");
+  }
+  return last_node->inputs()[0]->output_schema();
+}
+
+namespace {
+
+Future<std::shared_ptr<Table>> DeclarationToTableImpl(
+    Declaration declaration, QueryOptions query_options,
+    ::arrow::internal::Executor* cpu_executor) {
+  ExecContext exec_ctx(query_options.memory_pool, cpu_executor,
+                       query_options.function_registry);
+  std::shared_ptr<std::shared_ptr<Table>> output_table =
+      std::make_shared<std::shared_ptr<Table>>();
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
+  TableSinkNodeOptions sink_options(output_table.get());
+  sink_options.sequence_output = query_options.sequence_output;
+  Declaration with_sink =
+      Declaration::Sequence({declaration, {"table_sink", sink_options}});
   ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
   ARROW_RETURN_NOT_OK(exec_plan->Validate());
-  ARROW_RETURN_NOT_OK(exec_plan->StartProducing());
+  exec_plan->StartProducing();
   return exec_plan->finished().Then([exec_plan, output_table] { return *output_table; });
 }
 
-Future<std::shared_ptr<Table>> DeclarationToTableAsync(
-    Declaration declaration, bool use_threads, MemoryPool* memory_pool,
-    FunctionRegistry* function_registry) {
-  if (use_threads) {
-    ExecContext ctx(memory_pool, ::arrow::internal::GetCpuThreadPool(),
-                    function_registry);
-    return DeclarationToTableAsync(std::move(declaration), ctx);
-  } else {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
-    ExecContext ctx(memory_pool, tpool.get(), function_registry);
-    return DeclarationToTableAsync(std::move(declaration), ctx)
-        .Then([tpool](const std::shared_ptr<Table>& table) { return table; });
-  }
-}
-
-Result<std::shared_ptr<Table>> DeclarationToTable(Declaration declaration,
-                                                  bool use_threads,
-                                                  MemoryPool* memory_pool,
-                                                  FunctionRegistry* function_registry) {
-  return ::arrow::internal::RunSynchronously<Future<std::shared_ptr<Table>>>(
-      [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
-        ExecContext ctx(memory_pool, executor, function_registry);
-        return DeclarationToTableAsync(std::move(declaration), ctx);
-      },
-      use_threads);
-}
-
-Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
-    Declaration declaration, ExecContext exec_context) {
-  return DeclarationToTableAsync(std::move(declaration), exec_context)
+Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesImpl(
+    Declaration declaration, QueryOptions options,
+    ::arrow::internal::Executor* cpu_executor) {
+  return DeclarationToTableImpl(std::move(declaration), options, cpu_executor)
       .Then([](const std::shared_ptr<Table>& table) {
         return TableBatchReader(table).ToRecordBatches();
       });
 }
 
-Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
-    Declaration declaration, bool use_threads, MemoryPool* memory_pool,
-    FunctionRegistry* function_registry) {
-  if (use_threads) {
-    ExecContext ctx(memory_pool, ::arrow::internal::GetCpuThreadPool(),
-                    function_registry);
-    return DeclarationToBatchesAsync(std::move(declaration), ctx);
-  } else {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
-    ExecContext ctx(memory_pool, tpool.get(), function_registry);
-    return DeclarationToBatchesAsync(std::move(declaration), ctx)
-        .Then([tpool](const std::vector<std::shared_ptr<RecordBatch>>& batches) {
-          return batches;
-        });
-  }
-}
-
-Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatches(
-    Declaration declaration, bool use_threads, MemoryPool* memory_pool,
-    FunctionRegistry* function_registry) {
-  return ::arrow::internal::RunSynchronously<
-      Future<std::vector<std::shared_ptr<RecordBatch>>>>(
-      [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
-        ExecContext ctx(memory_pool, executor, function_registry);
-        return DeclarationToBatchesAsync(std::move(declaration), ctx);
-      },
-      use_threads);
-}
-
-Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(Declaration declaration,
-                                                              ExecContext exec_context) {
+Future<BatchesWithCommonSchema> DeclarationToExecBatchesImpl(
+    Declaration declaration, QueryOptions options,
+    ::arrow::internal::Executor* cpu_executor) {
   std::shared_ptr<Schema> out_schema;
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
-                        ExecPlan::Make(exec_context));
-  Declaration with_sink = Declaration::Sequence(
-      {declaration, {"sink", SinkNodeOptions(&sink_gen, &out_schema)}});
+  ExecContext exec_ctx(options.memory_pool, cpu_executor, options.function_registry);
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
+  SinkNodeOptions sink_options(&sink_gen, &out_schema);
+  sink_options.sequence_delivery = options.sequence_output;
+  Declaration with_sink = Declaration::Sequence({declaration, {"sink", sink_options}});
   ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
   ARROW_RETURN_NOT_OK(exec_plan->Validate());
-  ARROW_RETURN_NOT_OK(exec_plan->StartProducing());
+  exec_plan->StartProducing();
   auto collected_fut = CollectAsyncGenerator(sink_gen);
   return AllFinished({exec_plan->finished(), Future<>(collected_fut)})
       .Then([collected_fut, exec_plan,
@@ -651,17 +661,154 @@ Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(Declaration declar
       });
 }
 
+Future<> DeclarationToStatusImpl(Declaration declaration, QueryOptions options,
+                                 ::arrow::internal::Executor* cpu_executor) {
+  ExecContext exec_ctx(options.memory_pool, cpu_executor, options.function_registry);
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(ExecNode * last_node, declaration.AddToPlan(exec_plan.get()));
+  if (!last_node->is_sink()) {
+    Declaration null_sink =
+        Declaration("consuming_sink", {last_node},
+                    ConsumingSinkNodeOptions(NullSinkNodeConsumer::Make()));
+    ARROW_RETURN_NOT_OK(null_sink.AddToPlan(exec_plan.get()));
+  }
+  ARROW_RETURN_NOT_OK(exec_plan->Validate());
+  exec_plan->StartProducing();
+  // Keep the exec_plan alive until it finishes
+  return exec_plan->finished().Then([exec_plan]() {});
+}
+
+QueryOptions QueryOptionsFromCustomExecContext(ExecContext exec_context) {
+  QueryOptions options;
+  options.memory_pool = exec_context.memory_pool();
+  options.function_registry = exec_context.func_registry();
+  return options;
+}
+
+QueryOptions QueryOptionsFromArgs(MemoryPool* memory_pool,
+                                  FunctionRegistry* function_registry) {
+  QueryOptions options;
+  options.memory_pool = memory_pool;
+  options.function_registry = function_registry;
+  return options;
+}
+
+}  // namespace
+
+Result<std::string> DeclarationToString(const Declaration& declaration,
+                                        FunctionRegistry* function_registry) {
+  // We pass in the default memory pool and the CPU executor but nothing we are doing
+  // should be starting new thread tasks or making large allocations.
+  ExecContext exec_context(default_memory_pool(), ::arrow::internal::GetCpuThreadPool(),
+                           function_registry);
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
+                        ExecPlan::Make(exec_context));
+  ARROW_ASSIGN_OR_RAISE(ExecNode * last_node, declaration.AddToPlan(exec_plan.get()));
+  ARROW_ASSIGN_OR_RAISE(last_node, EnsureSink(last_node, exec_plan.get()));
+  ARROW_RETURN_NOT_OK(exec_plan->Validate());
+  return exec_plan->ToString();
+}
+
+Future<std::shared_ptr<Table>> DeclarationToTableAsync(Declaration declaration,
+                                                       ExecContext exec_context) {
+  return DeclarationToTableImpl(declaration,
+                                QueryOptionsFromCustomExecContext(exec_context),
+                                exec_context.executor());
+}
+
+Future<std::shared_ptr<Table>> DeclarationToTableAsync(
+    Declaration declaration, bool use_threads, MemoryPool* memory_pool,
+    FunctionRegistry* function_registry) {
+  QueryOptions query_options = QueryOptionsFromArgs(memory_pool, function_registry);
+  if (use_threads) {
+    return DeclarationToTableImpl(std::move(declaration), query_options,
+                                  ::arrow::internal::GetCpuThreadPool());
+  } else {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
+    return DeclarationToTableImpl(std::move(declaration), query_options, tpool.get())
+        .Then([tpool](const std::shared_ptr<Table>& table) { return table; });
+  }
+}
+
+Result<std::shared_ptr<Table>> DeclarationToTable(Declaration declaration,
+                                                  bool use_threads,
+                                                  MemoryPool* memory_pool,
+                                                  FunctionRegistry* function_registry) {
+  return ::arrow::internal::RunSynchronously<Future<std::shared_ptr<Table>>>(
+      [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
+        return DeclarationToTableImpl(
+            std::move(declaration), QueryOptionsFromArgs(memory_pool, function_registry),
+            executor);
+      },
+      use_threads);
+}
+
+Result<std::shared_ptr<Table>> DeclarationToTable(Declaration declaration,
+                                                  QueryOptions query_options) {
+  if (query_options.custom_cpu_executor != nullptr) {
+    return Status::Invalid("Cannot use synchronous methods with a custom CPU executor");
+  }
+  return ::arrow::internal::RunSynchronously<Future<std::shared_ptr<Table>>>(
+      [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
+        return DeclarationToTableImpl(std::move(declaration), query_options, executor);
+      },
+      query_options.use_threads);
+}
+
+Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
+    Declaration declaration, ExecContext exec_context) {
+  return DeclarationToBatchesImpl(std::move(declaration),
+                                  QueryOptionsFromCustomExecContext(exec_context),
+                                  exec_context.executor());
+}
+
+Future<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatchesAsync(
+    Declaration declaration, bool use_threads, MemoryPool* memory_pool,
+    FunctionRegistry* function_registry) {
+  QueryOptions query_options = QueryOptionsFromArgs(memory_pool, function_registry);
+  if (use_threads) {
+    return DeclarationToBatchesImpl(std::move(declaration), query_options,
+                                    ::arrow::internal::GetCpuThreadPool());
+  } else {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
+    return DeclarationToBatchesImpl(std::move(declaration), query_options, tpool.get())
+        .Then([tpool](const std::vector<std::shared_ptr<RecordBatch>>& batches) {
+          return batches;
+        });
+  }
+}
+
+Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatches(
+    Declaration declaration, bool use_threads, MemoryPool* memory_pool,
+    FunctionRegistry* function_registry) {
+  return ::arrow::internal::RunSynchronously<
+      Future<std::vector<std::shared_ptr<RecordBatch>>>>(
+      [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
+        return DeclarationToBatchesImpl(
+            std::move(declaration), QueryOptionsFromArgs(memory_pool, function_registry),
+            executor);
+      },
+      use_threads);
+}
+
+Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(Declaration declaration,
+                                                              ExecContext exec_context) {
+  return DeclarationToExecBatchesImpl(std::move(declaration),
+                                      QueryOptionsFromCustomExecContext(exec_context),
+                                      exec_context.executor());
+}
+
 Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(
     Declaration declaration, bool use_threads, MemoryPool* memory_pool,
     FunctionRegistry* function_registry) {
+  QueryOptions query_options = QueryOptionsFromArgs(memory_pool, function_registry);
   if (use_threads) {
-    ExecContext ctx(memory_pool, ::arrow::internal::GetCpuThreadPool(),
-                    function_registry);
-    return DeclarationToExecBatchesAsync(std::move(declaration), ctx);
+    return DeclarationToExecBatchesImpl(std::move(declaration), query_options,
+                                        ::arrow::internal::GetCpuThreadPool());
   } else {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
-    ExecContext ctx(memory_pool, tpool.get(), function_registry);
-    return DeclarationToExecBatchesAsync(std::move(declaration), ctx)
+    return DeclarationToExecBatchesImpl(std::move(declaration), query_options,
+                                        tpool.get())
         .Then([tpool](const BatchesWithCommonSchema& batches) { return batches; });
   }
 }
@@ -672,38 +819,30 @@ Result<BatchesWithCommonSchema> DeclarationToExecBatches(
   return ::arrow::internal::RunSynchronously<Future<BatchesWithCommonSchema>>(
       [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
         ExecContext ctx(memory_pool, executor, function_registry);
-        return DeclarationToExecBatchesAsync(std::move(declaration), ctx);
+        return DeclarationToExecBatchesImpl(
+            std::move(declaration), QueryOptionsFromArgs(memory_pool, function_registry),
+            executor);
       },
       use_threads);
 }
 
 Future<> DeclarationToStatusAsync(Declaration declaration, ExecContext exec_context) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
-                        ExecPlan::Make(exec_context));
-  ARROW_ASSIGN_OR_RAISE(ExecNode * last_node, declaration.AddToPlan(exec_plan.get()));
-  for (int i = 0; i < last_node->num_outputs(); i++) {
-    ARROW_RETURN_NOT_OK(
-        Declaration("consuming_sink", {last_node},
-                    ConsumingSinkNodeOptions(NullSinkNodeConsumer::Make()))
-            .AddToPlan(exec_plan.get()));
-  }
-  ARROW_RETURN_NOT_OK(exec_plan->Validate());
-  ARROW_RETURN_NOT_OK(exec_plan->StartProducing());
-  // Keep the exec_plan alive until it finishes
-  return exec_plan->finished().Then([exec_plan]() {});
+  return DeclarationToStatusImpl(std::move(declaration),
+                                 QueryOptionsFromCustomExecContext(exec_context),
+                                 exec_context.executor());
 }
 
 Future<> DeclarationToStatusAsync(Declaration declaration, bool use_threads,
                                   MemoryPool* memory_pool,
                                   FunctionRegistry* function_registry) {
+  QueryOptions query_options = QueryOptionsFromArgs(memory_pool, function_registry);
   if (use_threads) {
-    ExecContext ctx(memory_pool, ::arrow::internal::GetCpuThreadPool(),
-                    function_registry);
-    return DeclarationToStatusAsync(std::move(declaration), ctx);
+    return DeclarationToStatusImpl(std::move(declaration), query_options,
+                                   ::arrow::internal::GetCpuThreadPool());
   } else {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
-    ExecContext ctx(memory_pool, tpool.get(), function_registry);
-    return DeclarationToStatusAsync(std::move(declaration), ctx).Then([tpool]() {});
+    return DeclarationToStatusImpl(std::move(declaration), query_options, tpool.get())
+        .Then([tpool]() {});
   }
 }
 
@@ -712,7 +851,9 @@ Status DeclarationToStatus(Declaration declaration, bool use_threads,
   return ::arrow::internal::RunSynchronously<Future<>>(
       [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
         ExecContext ctx(memory_pool, executor, function_registry);
-        return DeclarationToStatusAsync(std::move(declaration), ctx);
+        return DeclarationToStatusImpl(
+            std::move(declaration), QueryOptionsFromArgs(memory_pool, function_registry),
+            executor);
       },
       use_threads);
 }
@@ -763,7 +904,8 @@ Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> DeclarationToRecordBatchGen
       {declaration,
        {"sink", SinkNodeOptions(&converter->exec_batch_gen, &converter->schema)}});
   ARROW_RETURN_NOT_OK(with_sink.AddToPlan(plan.get()));
-  ARROW_RETURN_NOT_OK(plan->StartProducing());
+  ARROW_RETURN_NOT_OK(plan->Validate());
+  plan->StartProducing();
   converter->exec_plan = std::move(plan);
   *out_schema = converter->schema;
   return [conv = std::move(converter)] { return (*conv)(); };
@@ -791,11 +933,17 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
     std::shared_ptr<Schema> schema() const override { return schema_; }
 
     Status ReadNext(std::shared_ptr<RecordBatch>* record_batch) override {
-      DCHECK(!!iterator_) << "call to ReadNext on already closed reader";
+      if (!iterator_) {
+        return Status::Invalid("call to ReadNext on already closed reader");
+      }
       return iterator_->Next().Value(record_batch);
     }
 
     Status Close() override {
+      if (!iterator_) {
+        // Already closed
+        return Status::OK();
+      }
       // End plan and read from generator until finished
       std::shared_ptr<RecordBatch> batch;
       do {
@@ -815,6 +963,7 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
 namespace internal {
 
 void RegisterSourceNode(ExecFactoryRegistry*);
+void RegisterFetchNode(ExecFactoryRegistry*);
 void RegisterFilterNode(ExecFactoryRegistry*);
 void RegisterProjectNode(ExecFactoryRegistry*);
 void RegisterUnionNode(ExecFactoryRegistry*);
@@ -830,6 +979,7 @@ ExecFactoryRegistry* default_exec_factory_registry() {
    public:
     DefaultRegistry() {
       internal::RegisterSourceNode(this);
+      internal::RegisterFetchNode(this);
       internal::RegisterFilterNode(this);
       internal::RegisterProjectNode(this);
       internal::RegisterUnionNode(this);

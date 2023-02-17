@@ -140,7 +140,7 @@ void CheckValidTestCases(const std::vector<FunctionTestCase>& valid_cases) {
     std::shared_ptr<Table> output_table;
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
                          PlanFromTestCase(test_case, &output_table));
-    ASSERT_OK(plan->StartProducing());
+    plan->StartProducing();
     ASSERT_FINISHES_OK(plan->finished());
 
     // Could also modify the Substrait plan with an emit to drop the leading columns
@@ -161,18 +161,13 @@ void CheckErrorTestCases(const std::vector<FunctionTestCase>& error_cases) {
     std::shared_ptr<Table> output_table;
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
                          PlanFromTestCase(test_case, &output_table));
-    Status start_st = plan->StartProducing();
-    // The plan can fail in start producing or when running the plan
-    if (!start_st.ok()) {
-      ASSERT_TRUE(start_st.IsInvalid());
-      return;
-    }
+    plan->StartProducing();
     ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
   }
 }
 
 template <typename ErrorMatcher>
-void CheckNonYetImplementedTestCase(const FunctionTestCase& test_case,
+void CheckNotYetImplementedTestCase(const FunctionTestCase& test_case,
                                     ErrorMatcher error_matcher) {
   ARROW_SCOPED_TRACE("func=", test_case.function_id.uri, "#", test_case.function_id.name);
   std::shared_ptr<Table> output_table;
@@ -456,7 +451,41 @@ TEST(FunctionMapping, ValidCases) {
        kNoOptions,
        {float64()},
        "4",
-       float64()}};
+       float64()},
+      {{kSubstraitRoundingFunctionsUri, "round"},
+       {"323.125", "2"},
+       {
+           {"rounding", {"TIE_AWAY_FROM_ZERO"}},
+           {"function", {"0"}},
+       },
+       {float32(), int32()},
+       "323.13",
+       float32()},
+      {{kSubstraitRoundingFunctionsUri, "round"},
+       {"323.125", "-2"},
+       {
+           {"rounding", {"TIE_AWAY_FROM_ZERO"}},
+           {"function", {"0"}},
+       },
+       {float64(), int32()},
+       "300",
+       float64()},
+      {{kSubstraitRoundingFunctionsUri, "round"},
+       {"323.135", "2"},
+       {
+           {"rounding", {"TIE_TO_EVEN"}},
+           {"function", {"0"}},
+       },
+       {float64(), int32()},
+       "323.14",
+       float64()},
+      {{kSubstraitRoundingFunctionsUri, "round"},
+       {"323", "-2"},
+       {{"rounding", {"TIE_AWAY_FROM_ZERO"}}},
+       {int64(), int32()},
+       "300",
+       float64()},
+  };
   CheckValidTestCases(valid_test_cases);
 }
 
@@ -490,7 +519,7 @@ TEST(FunctionMapping, ErrorCases) {
 }
 
 TEST(FunctionMapping, UnrecognizedOptions) {
-  CheckNonYetImplementedTestCase(
+  CheckNotYetImplementedTestCase(
       {{kSubstraitArithmeticFunctionsUri, "add"},
        {"-119", "10"},
        {{"overflow", {"NEW_OVERFLOW_TYPE", "SILENT"}}},
@@ -498,7 +527,7 @@ TEST(FunctionMapping, UnrecognizedOptions) {
        "",
        int8()},
       ::testing::HasSubstr("The value NEW_OVERFLOW_TYPE is not an expected enum value"));
-  CheckNonYetImplementedTestCase(
+  CheckNotYetImplementedTestCase(
       {{kSubstraitArithmeticFunctionsUri, "add"},
        {"-119", "10"},
        {{"overflow", {"SATURATE"}}},
@@ -531,6 +560,8 @@ struct AggregateTestCase {
   std::string group_outputs;
   // The data type of the outputs
   std::shared_ptr<DataType> output_type;
+  // The aggregation takes zero columns as input
+  bool nullary = false;
 };
 
 std::shared_ptr<Table> GetInputTableForAggregateCase(const AggregateTestCase& test_case) {
@@ -565,8 +596,10 @@ std::shared_ptr<compute::ExecPlan> PlanFromAggregateCase(
   }
   EXPECT_OK_AND_ASSIGN(
       std::shared_ptr<Buffer> substrait,
-      internal::CreateScanAggSubstrait(test_case.function_id, input_table, key_idxs,
-                                       /*arg_idx=*/1, *test_case.output_type));
+      internal::CreateScanAggSubstrait(
+          test_case.function_id, input_table, key_idxs,
+          /*arg_idxs=*/test_case.nullary ? std::vector<int>{} : std::vector<int>{1},
+          *test_case.output_type));
   std::shared_ptr<compute::SinkNodeConsumer> consumer =
       std::make_shared<compute::TableSinkNodeConsumer>(output_table,
                                                        default_memory_pool());
@@ -593,7 +626,7 @@ void CheckWholeAggregateCase(const AggregateTestCase& test_case) {
   std::shared_ptr<compute::ExecPlan> plan =
       PlanFromAggregateCase(test_case, &output_table, /*with_keys=*/false);
 
-  ASSERT_OK(plan->StartProducing());
+  plan->StartProducing();
   ASSERT_FINISHES_OK(plan->finished());
 
   ASSERT_OK_AND_ASSIGN(output_table,
@@ -609,7 +642,7 @@ void CheckGroupedAggregateCase(const AggregateTestCase& test_case) {
   std::shared_ptr<compute::ExecPlan> plan =
       PlanFromAggregateCase(test_case, &output_table, /*with_keys=*/true);
 
-  ASSERT_OK(plan->StartProducing());
+  plan->StartProducing();
   ASSERT_FINISHES_OK(plan->finished());
 
   // The aggregate node's output is unpredictable so we sort by the key column
@@ -669,7 +702,15 @@ TEST(FunctionMapping, AggregateCases) {
        {int8()},
        "[3]",
        "[2, 1]",
-       int64()}};
+       int64()},
+      {{kSubstraitAggregateGenericFunctionsUri, "count"},
+       {"[1, null, 30]"},
+       {int8()},
+       "[3]",
+       "[2, 1]",
+       int64(),
+       /*nullary=*/true},
+  };
   CheckAggregateCases(test_cases);
 }
 

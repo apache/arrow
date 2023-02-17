@@ -21,15 +21,14 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"strings"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/flight"
-	"github.com/apache/arrow/go/v11/arrow/memory"
-	"github.com/apache/arrow/go/v11/parquet"
-	"github.com/apache/arrow/go/v11/parquet/file"
-	"github.com/apache/arrow/go/v11/parquet/metadata"
-	"github.com/apache/arrow/go/v11/parquet/schema"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/flight"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v12/parquet/file"
+	"github.com/apache/arrow/go/v12/parquet/metadata"
+	"github.com/apache/arrow/go/v12/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -292,10 +291,10 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		typ = parquet.Types.Float
 	case arrow.FLOAT64:
 		typ = parquet.Types.Double
-	case arrow.STRING:
+	case arrow.STRING, arrow.LARGE_STRING:
 		logicalType = schema.StringLogicalType{}
 		fallthrough
-	case arrow.BINARY:
+	case arrow.BINARY, arrow.LARGE_BINARY:
 		typ = parquet.Types.ByteArray
 	case arrow.FIXED_SIZE_BINARY:
 		typ = parquet.Types.FixedLenByteArray
@@ -653,13 +652,13 @@ func listToSchemaField(n *schema.GroupNode, currentLevels file.LevelInfo, ctx *s
 		//   If the name is array or ends in _tuple, this should be a list of struct
 		//   even for single child elements.
 		listGroup := listNode.(*schema.GroupNode)
-		if listGroup.NumFields() == 1 && (listGroup.Name() == "array" || strings.HasSuffix(listGroup.Name(), "_tuple")) {
+		if listGroup.NumFields() == 1 && !(listGroup.Name() == "array" || listGroup.Name() == (n.Name()+"_tuple")) {
 			// list of primitive type
-			if err := groupToStructField(listGroup, currentLevels, ctx, out, &out.Children[0]); err != nil {
+			if err := nodeToSchemaField(listGroup.Field(0), currentLevels, ctx, out, &out.Children[0]); err != nil {
 				return err
 			}
 		} else {
-			if err := nodeToSchemaField(listGroup.Field(0), currentLevels, ctx, out, &out.Children[0]); err != nil {
+			if err := groupToStructField(listGroup, currentLevels, ctx, out, &out.Children[0]); err != nil {
 				return err
 			}
 		}
@@ -680,8 +679,10 @@ func listToSchemaField(n *schema.GroupNode, currentLevels file.LevelInfo, ctx *s
 		populateLeaf(colIndex, &itemField, currentLevels, ctx, out, &out.Children[0])
 	}
 
-	out.Field = &arrow.Field{Name: n.Name(), Type: arrow.ListOf(out.Children[0].Field.Type),
+	out.Field = &arrow.Field{Name: n.Name(), Type: arrow.ListOfField(
+		arrow.Field{Name: listNode.Name(), Type: out.Children[0].Field.Type, Nullable: true}),
 		Nullable: n.RepetitionType() == parquet.Repetitions.Optional, Metadata: createFieldMeta(int(n.FieldID()))}
+
 	out.LevelInfo = currentLevels
 	// At this point current levels contains the def level for this list,
 	// we need to reset to the prior parent.
@@ -1000,6 +1001,9 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 		if tsOtype.Unit == tsInfType.Unit && tsInfType.TimeZone == "UTC" && tsOtype.TimeZone != "" {
 			inferred.Field.Type = origin.Type
 		}
+		modified = true
+	case arrow.LARGE_STRING, arrow.LARGE_BINARY:
+		inferred.Field.Type = origin.Type
 		modified = true
 	}
 

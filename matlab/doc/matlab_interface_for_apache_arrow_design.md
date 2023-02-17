@@ -354,13 +354,13 @@ The table below provides a high-level roadmap for the development of specific ca
 [`test_cffi.py` test cases for PyArrow]: https://github.com/apache/arrow/blob/97879eb970bac52d93d2247200b9ca7acf6f3f93/python/pyarrow/tests/test_cffi.py#L109
 [MATLAB supports running Python code in a separate process]: https://www.mathworks.com/help/matlab/matlab_external/out-of-process-execution-of-python-functionality.html
 [Plasma Object Store]: https://arrow.apache.org/docs/python/plasma.html
-[tutorial]: https://github.com/apache/arrow/blob/master/cpp/apidoc/tutorials/plasma.md#getting-an-object
+[tutorial]: https://github.com/apache/arrow/blob/main/cpp/apidoc/tutorials/plasma.md#getting-an-object
 [MATLAB Class-Based Unit Tests]: https://www.mathworks.com/help/matlab/class-based-unit-tests.html
 [Integration Testing]: https://arrow.apache.org/docs/format/Integration.html
 [MATLAB Help Text]: https://www.mathworks.com/help/matlab/matlab_prog/add-help-for-your-program.html
 [MEX]: https://www.mathworks.com/help/matlab/call-mex-files-1.html
 [Add-On Explorer]: https://www.mathworks.com/help/matlab/matlab_env/get-add-ons.html
-[JavaScript user]: https://github.com/apache/arrow/tree/master/js
+[JavaScript user]: https://github.com/apache/arrow/tree/main/js
 [`apache-arrow` package via the `npm` package manager]: https://www.npmjs.com/package/apache-arrow
 [Rust user]: https://github.com/apache/arrow-rs
 [`arrow` crate via the `cargo` package manager]: https://crates.io/crates/arrow
