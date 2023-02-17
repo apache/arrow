@@ -38,6 +38,8 @@ namespace compute {
 #include <iostream>
 #include <random>
 
+using arrow::internal::ToChars;
+
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 
 namespace bit_util = arrow::bit_util;
@@ -308,12 +310,46 @@ BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapVectorizeUnroll<int64_t>)
 // GroupBy
 //
 
-static void BenchmarkGroupBy(benchmark::State& state,
-                             std::vector<SimpleAggregate> aggregates,
+std::shared_ptr<RecordBatch> RecordBatchFromArrays(
+    const std::vector<std::shared_ptr<Array>>& arguments,
+    const std::vector<std::shared_ptr<Array>>& keys) {
+  std::vector<std::shared_ptr<Field>> fields;
+  std::vector<std::shared_ptr<Array>> all_arrays;
+  int64_t length = -1;
+  if (arguments.empty()) {
+    DCHECK(!keys.empty());
+    length = keys[0]->length();
+  } else {
+    length = arguments[0]->length();
+  }
+  for (std::size_t arg_idx = 0; arg_idx < arguments.size(); arg_idx++) {
+    const auto& arg = arguments[arg_idx];
+    DCHECK_EQ(arg->length(), length);
+    fields.push_back(field("arg" + ToChars(arg_idx), arg->type()));
+    all_arrays.push_back(arg);
+  }
+  for (std::size_t key_idx = 0; key_idx < keys.size(); key_idx++) {
+    const auto& key = keys[key_idx];
+    DCHECK_EQ(key->length(), length);
+    fields.push_back(field("key" + ToChars(key_idx), key->type()));
+    all_arrays.push_back(key);
+  }
+  return RecordBatch::Make(schema(std::move(fields)), length, std::move(all_arrays));
+}
+
+static void BenchmarkGroupBy(benchmark::State& state, std::vector<Aggregate> aggregates,
                              const std::vector<std::shared_ptr<Array>>& arguments,
                              const std::vector<std::shared_ptr<Array>>& keys) {
+  std::shared_ptr<RecordBatch> batch = RecordBatchFromArrays(arguments, keys);
+  std::vector<FieldRef> key_refs;
+  for (std::size_t key_idx = 0; key_idx < keys.size(); key_idx++) {
+    key_refs.emplace_back(static_cast<int>(key_idx + arguments.size()));
+  }
+  for (std::size_t arg_idx = 0; arg_idx < arguments.size(); arg_idx++) {
+    aggregates[arg_idx].target = {FieldRef(static_cast<int>(arg_idx))};
+  }
   for (auto _ : state) {
-    ABORT_NOT_OK(GroupBy(arguments, keys, aggregates));
+    ABORT_NOT_OK(BatchGroupBy(batch, aggregates, key_refs));
   }
 }
 
@@ -341,7 +377,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedByTinyStringSet, [&] {
                                    /*min_length=*/3,
                                    /*max_length=*/32);
 
-  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {key});
+  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallStringSet, [&] {
@@ -356,7 +392,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallStringSet, [&] {
                                    /*min_length=*/3,
                                    /*max_length=*/32);
 
-  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {key});
+  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumStringSet, [&] {
@@ -371,7 +407,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumStringSet, [&] {
                                    /*min_length=*/3,
                                    /*max_length=*/32);
 
-  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {key});
+  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedByTinyIntegerSet, [&] {
@@ -385,7 +421,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedByTinyIntegerSet, [&] {
                        /*min=*/0,
                        /*max=*/15);
 
-  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {key});
+  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallIntegerSet, [&] {
@@ -399,7 +435,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallIntegerSet, [&] {
                        /*min=*/0,
                        /*max=*/255);
 
-  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {key});
+  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumIntegerSet, [&] {
@@ -413,7 +449,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumIntegerSet, [&] {
                        /*min=*/0,
                        /*max=*/4095);
 
-  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {key});
+  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedByTinyIntStringPairSet, [&] {
@@ -431,7 +467,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedByTinyIntStringPairSet, [&] {
                                        /*min_length=*/3,
                                        /*max_length=*/32);
 
-  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {int_key, str_key});
+  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {int_key, str_key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallIntStringPairSet, [&] {
@@ -449,7 +485,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallIntStringPairSet, [&] {
                                        /*min_length=*/3,
                                        /*max_length=*/32);
 
-  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {int_key, str_key});
+  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {int_key, str_key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumIntStringPairSet, [&] {
@@ -467,7 +503,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumIntStringPairSet, [&] {
                                        /*min_length=*/3,
                                        /*max_length=*/32);
 
-  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {int_key, str_key});
+  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {int_key, str_key});
 });
 
 // Grouped MinMax
@@ -480,7 +516,7 @@ GROUP_BY_BENCHMARK(MinMaxDoublesGroupedByMediumInt, [&] {
                            /*nan_probability=*/args.null_proportion / 10);
   auto int_key = rng.Int64(args.size, /*min=*/0, /*max=*/63);
 
-  BenchmarkGroupBy(state, {{"hash_min_max", NULLPTR}}, {input}, {int_key});
+  BenchmarkGroupBy(state, {{"hash_min_max", ""}}, {input}, {int_key});
 });
 
 GROUP_BY_BENCHMARK(MinMaxShortStringsGroupedByMediumInt, [&] {
@@ -490,7 +526,7 @@ GROUP_BY_BENCHMARK(MinMaxShortStringsGroupedByMediumInt, [&] {
                           /*null_probability=*/args.null_proportion);
   auto int_key = rng.Int64(args.size, /*min=*/0, /*max=*/63);
 
-  BenchmarkGroupBy(state, {{"hash_min_max", NULLPTR}}, {input}, {int_key});
+  BenchmarkGroupBy(state, {{"hash_min_max", ""}}, {input}, {int_key});
 });
 
 GROUP_BY_BENCHMARK(MinMaxLongStringsGroupedByMediumInt, [&] {
@@ -500,7 +536,7 @@ GROUP_BY_BENCHMARK(MinMaxLongStringsGroupedByMediumInt, [&] {
                           /*null_probability=*/args.null_proportion);
   auto int_key = rng.Int64(args.size, /*min=*/0, /*max=*/63);
 
-  BenchmarkGroupBy(state, {{"hash_min_max", NULLPTR}}, {input}, {int_key});
+  BenchmarkGroupBy(state, {{"hash_min_max", ""}}, {input}, {int_key});
 });
 
 //

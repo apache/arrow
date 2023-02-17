@@ -45,10 +45,12 @@ Result<std::shared_ptr<Table>> TableGroupBy(std::shared_ptr<Table> table,
   return DeclarationToTable(std::move(plan), use_threads, memory_pool);
 }
 
-Result<std::shared_ptr<Table>> BatchGroupBy(std::shared_ptr<Table> table,
+Result<std::shared_ptr<Table>> BatchGroupBy(std::shared_ptr<RecordBatch> batch,
                                             std::vector<Aggregate> aggregates,
                                             std::vector<FieldRef> keys, bool use_threads,
                                             MemoryPool* memory_pool) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table,
+                        Table::FromRecordBatches({std::move(batch)}));
   Declaration plan = Declaration::Sequence(
       {{"table_source", TableSourceNodeOptions(std::move(table))},
        {"aggregate", AggregateNodeOptions(std::move(aggregates), std::move(keys))}});
