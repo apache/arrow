@@ -31,4 +31,4 @@ to install pre-compiled binary versions of the library.
 
 Please refer to our latest [C++ Development Documentation][1].
 
-[1]: https://github.com/apache/arrow/blob/master/docs/source/developers/cpp
+[1]: https://github.com/apache/arrow/blob/main/docs/source/developers/cpp
