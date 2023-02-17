@@ -22,7 +22,7 @@ namespace Apache.Arrow
 {
     public partial class Schema
     {
-        [Obsolete("Use `FieldsList` instead")]
+        [Obsolete("Use `FieldsList` or `FieldsLookup` instead")]
         public IReadOnlyDictionary<string, Field> Fields => _fieldsDictionary;
         private readonly Dictionary<string, Field> _fieldsDictionary;
 
