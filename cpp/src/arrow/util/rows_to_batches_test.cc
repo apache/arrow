@@ -101,8 +101,7 @@ TEST(RowsToBatches, Variant) {
       return dynamic_cast<Int64Builder&>(array_builder).Append(std::get<int>(value));
     else
       return dynamic_cast<arrow::StringBuilder&>(array_builder)
-          .Append(std::get<std::string>(value).c_str(),
-                  std::get<std::string>(value).length());
+          .Append(std::get<std::string>(value));
   };
 
   const auto test_schema = schema({field("x", int64()), field("y", utf8())});
