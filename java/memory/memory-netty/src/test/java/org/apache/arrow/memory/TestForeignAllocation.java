@@ -54,6 +54,53 @@ public class TestForeignAllocation {
     assertEquals(0, allocator.getAllocatedMemory());
   }
 
+  @Test
+  public void wrapForeignAllocationWithAllocationListener() {
+    final long bufferSize = 16;
+
+    final CountingAllocationListener listener = new CountingAllocationListener();
+    try (BufferAllocator listenedAllocator =
+        allocator.newChildAllocator("child", listener, 0L, allocator.getLimit())) {
+      UnsafeForeignAllocation allocation = new UnsafeForeignAllocation(bufferSize);
+      try {
+        assertEquals(0, listenedAllocator.getAllocatedMemory());
+        ArrowBuf buf = listenedAllocator.wrapForeignAllocation(allocation);
+        assertEquals(bufferSize, buf.capacity());
+        buf.close();
+        assertTrue(allocation.released);
+      } finally {
+        allocation.release0();
+      }
+      assertEquals(0, listenedAllocator.getAllocatedMemory());
+    }
+    assertEquals(1, listener.getNumPreCalls());
+    assertEquals(1, listener.getNumCalls());
+    assertEquals(1, listener.getNumReleaseCalls());
+    assertEquals(16, listener.getTotalMem());
+  }
+
+  @Test(expected = OutOfMemoryException.class)
+  public void wrapForeignAllocationFailedWithAllocationListener() {
+    final long bufferSize = 16;
+    final long limit = bufferSize - 1;
+
+    final CountingAllocationListener listener = new CountingAllocationListener();
+    try (BufferAllocator listenedAllocator =
+        allocator.newChildAllocator("child", listener, 0L, limit)) {
+      UnsafeForeignAllocation allocation = new UnsafeForeignAllocation(bufferSize);
+      try {
+        assertEquals(0, listenedAllocator.getAllocatedMemory());
+        ArrowBuf buf = listenedAllocator.wrapForeignAllocation(allocation);
+        assertEquals(bufferSize, buf.capacity());
+        buf.close();
+        assertTrue(allocation.released);
+      } finally {
+        allocation.release0();
+      }
+      assertEquals(0, listenedAllocator.getAllocatedMemory());
+    }
+  }
+
   private static class UnsafeForeignAllocation extends ForeignAllocation {
     boolean released = false;
 
