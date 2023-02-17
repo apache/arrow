@@ -35,7 +35,7 @@ namespace detail {
   return [](auto& x) -> Result<decltype(std::ref(x))> { return std::ref(x); };
 }
 
-// Meta-funciton to check if a type `T` is a range (iterable using `std::begin()` /
+// Meta-function to check if a type `T` is a range (iterable using `std::begin()` /
 // `std::end()`). `is_range<T>::value` will be false if `T` is not a valid range.
 template <typename T, typename = void>
 struct is_range : std::false_type {};
