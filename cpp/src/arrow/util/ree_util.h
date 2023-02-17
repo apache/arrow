@@ -51,6 +51,7 @@ namespace internal {
 template <typename RunEndsType>
 int64_t FindPhysicalIndex(const RunEndsType* run_ends, int64_t run_ends_size, int64_t i,
                           int64_t absolute_offset) {
+  assert(absolute_offset + i >= 0);
   auto it = std::upper_bound(run_ends, run_ends + run_ends_size, absolute_offset + i);
   int64_t result = std::distance(run_ends, it);
   assert(result <= run_ends_size);
