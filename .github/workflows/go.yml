@@ -301,9 +301,9 @@ jobs:
           go-version: ${{ matrix.go }}
           cache: true
           cache-dependency-path: go/go.sum
-      - name: Brew Install Arrow
+      - name: Brew Install Arrow and pkg-config
         shell: bash
-        run: brew install apache-arrow
+        run: brew install apache-arrow pkg-config
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@${{ matrix.staticcheck }}
       - name: Build
