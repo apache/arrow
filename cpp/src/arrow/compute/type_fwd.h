@@ -31,6 +31,8 @@ class FunctionExecutor;
 class FunctionOptions;
 class FunctionRegistry;
 
+/// \brief Return the process-global function registry.
+// Defined in registry.cc
 FunctionRegistry* GetFunctionRegistry();
 
 class CastOptions;
