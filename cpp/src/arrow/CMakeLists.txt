@@ -702,7 +702,7 @@ if(ARROW_TESTING)
                 DEPENDENCIES
                 arrow_test_dependencies
                 SHARED_LINK_LIBS
-                arrow::flatbuffers
+                flatbuffers::flatbuffers
                 rapidjson::rapidjson
                 arrow_shared
                 GTest::gtest
@@ -710,7 +710,7 @@ if(ARROW_TESTING)
                 Arrow::arrow_shared
                 GTest::gtest
                 STATIC_LINK_LIBS
-                arrow::flatbuffers
+                flatbuffers::flatbuffers
                 rapidjson::rapidjson
                 arrow_static
                 GTest::gtest

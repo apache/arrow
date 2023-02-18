@@ -541,7 +541,20 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/src)
 include_directories(src)
 
 # Compiled flatbuffers files
-include_directories(src/generated)
+if("${flatbuffers_SOURCE}" STREQUAL "SYSTEM")
+  file(GLOB _flatbuffers_files "${CMAKE_CURRENT_SOURCE_DIR}/../format/*.fbs")
+  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/src/generated
+                     COMMAND "${BUILD_SUPPORT_DIR}/update-flatbuffers.sh"
+                             "${CMAKE_CURRENT_BINARY_DIR}/src/generated"
+                     DEPENDS ${_flatbuffers_files}
+                     VERBATIM)
+  unset(_flatbuffers_files)
+  add_custom_target(generate-flatbuffers
+                    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/src/generated)
+  include_directories(${CMAKE_CURRENT_BINARY_DIR}/src/generated)
+else()
+  include_directories(src/generated)
+endif()
 
 #
 # Visibility
@@ -652,9 +665,9 @@ endif()
 # Note that arrow::hadoop is a header only target that refers
 # cpp/thirdparty/hadoop/include/. See
 # cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
-set(ARROW_SHARED_LINK_LIBS arrow::flatbuffers arrow::hadoop)
+set(ARROW_SHARED_LINK_LIBS flatbuffers::flatbuffers arrow::hadoop)
 set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
-set(ARROW_STATIC_LINK_LIBS arrow::flatbuffers arrow::hadoop)
+set(ARROW_STATIC_LINK_LIBS flatbuffers::flatbuffers arrow::hadoop)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
 if(ARROW_USE_BOOST)
@@ -818,6 +831,10 @@ add_custom_target(arrow_test_dependencies)
 add_dependencies(arrow_dependencies toolchain)
 add_dependencies(arrow_test_dependencies toolchain-tests)
 
+if(TARGET generate-flatbuffers)
+  add_dependencies(arrow_dependencies generate-flatbuffers)
+endif()
+
 if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
   if(ARROW_HDFS OR ARROW_ORC)
@@ -837,7 +854,7 @@ if(NOT MSVC_TOOLCHAIN)
   list(APPEND ARROW_SHARED_LINK_LIBS ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN arrow::flatbuffers GTest::gtest_main GTest::gtest
+set(ARROW_TEST_LINK_TOOLCHAIN flatbuffers::flatbuffers GTest::gtest_main GTest::gtest
                               GTest::gmock)
 
 if(ARROW_BUILD_TESTS)

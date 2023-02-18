@@ -52,8 +52,8 @@ set(PLASMA_STORE_SRCS
     store.cc
     thirdparty/ae/ae.c)
 
-set(PLASMA_SHARED_LINK_LIBS arrow::flatbuffers)
-set(PLASMA_STATIC_LINK_LIBS arrow::flatbuffers)
+set(PLASMA_SHARED_LINK_LIBS flatbuffers::flatbuffers)
+set(PLASMA_STATIC_LINK_LIBS flatbuffers::flatbuffers)
 set(PLASMA_SHARED_INSTALL_INTERFACE_LIBS)
 set(PLASMA_STATIC_INSTALL_INTERFACE_LIBS)
 

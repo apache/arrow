@@ -74,6 +74,11 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     ZLIB
     zstd)
 
+# For backward compatibility. We use bundled flatbuffers by default.
+if("${flatbuffers_SOURCE}" STREQUAL "")
+  set(flatbuffers_SOURCE "BUNDLED")
+endif()
+
 # For backward compatibility. We use "BOOST_SOURCE" if "Boost_SOURCE"
 # isn't specified and "BOOST_SOURCE" is specified.
 # We renamed "BOOST" dependency name to "Boost" in 3.0.0 because
@@ -161,6 +166,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_bzip2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "c-ares")
     build_cares()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "flatbuffers")
+    build_flatbuffers()
   elseif("${DEPENDENCY_NAME}" STREQUAL "gflags")
     build_gflags()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GLOG")
@@ -313,15 +320,23 @@ endmacro()
 
 set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
 
-add_library(arrow::flatbuffers INTERFACE IMPORTED)
-if(CMAKE_VERSION VERSION_LESS 3.11)
-  set_target_properties(arrow::flatbuffers
-                        PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                   "${THIRDPARTY_DIR}/flatbuffers/include")
-else()
-  target_include_directories(arrow::flatbuffers
-                             INTERFACE "${THIRDPARTY_DIR}/flatbuffers/include")
-endif()
+macro(build_flatbuffers)
+  add_library(flatbuffers::flatbuffers INTERFACE IMPORTED)
+  if(CMAKE_VERSION VERSION_LESS 3.11)
+    set_target_properties(flatbuffers::flatbuffers
+                          PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                     "${THIRDPARTY_DIR}/flatbuffers/include")
+  else()
+    target_include_directories(flatbuffers::flatbuffers
+                               INTERFACE "${THIRDPARTY_DIR}/flatbuffers/include")
+  endif()
+endmacro()
+
+resolve_dependency(flatbuffers
+                   IS_RUNTIME_DEPENDENCY
+                   FALSE
+                   USE_CONFIG
+                   TRUE)
 
 # ----------------------------------------------------------------------
 # Some EP's require other EP's

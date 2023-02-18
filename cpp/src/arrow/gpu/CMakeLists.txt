@@ -29,7 +29,7 @@ if(DEFINED ENV{CUDA_HOME})
   set(CUDA_TOOLKIT_ROOT_DIR "$ENV{CUDA_HOME}")
 endif()
 
-set(ARROW_CUDA_LINK_LIBS arrow::flatbuffers)
+set(ARROW_CUDA_LINK_LIBS flatbuffers::flatbuffers)
 if(CMAKE_VERSION VERSION_LESS 3.17)
   find_package(CUDA REQUIRED)
   set(ARROW_CUDA_SHARED_LINK_LIBS ${CUDA_CUDA_LIBRARY})

@@ -18,19 +18,19 @@
 # under the License.
 #
 
-# Run this from cpp/ directory. flatc is expected to be in your path
+# Run this from cpp/ directory. flatc is expected to be in your path.
+# The output directory can be passed as a positional argumenet,
+# it defaults to /cpp/src/generated.
 
 set -euo pipefail
 
 CWD="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SOURCE_DIR="$CWD/../src"
-PYTHON_SOURCE_DIR="$CWD/../../python"
 FORMAT_DIR="$CWD/../../format"
-TOP="$FORMAT_DIR/.."
 FLATC="flatc"
 
-OUT_DIR="$SOURCE_DIR/generated"
-FILES=($(find $FORMAT_DIR -name '*.fbs'))
+OUT_DIR="${1:-$SOURCE_DIR/generated}"
+FILES=($(find "$FORMAT_DIR" -name '*.fbs'))
 FILES+=("$SOURCE_DIR/arrow/ipc/feather.fbs")
 
 $FLATC --cpp --cpp-std c++11 \
