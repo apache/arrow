@@ -33,7 +33,7 @@ class FunctionRegistry;
 
 /// \brief Return the process-global function registry.
 // Defined in registry.cc
-FunctionRegistry* GetFunctionRegistry();
+ARROW_EXPORT FunctionRegistry* GetFunctionRegistry();
 
 class CastOptions;
 

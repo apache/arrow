@@ -107,7 +107,7 @@ class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
   }
 
  private:
-  Ordering(bool is_implicit)
+  explicit Ordering(bool is_implicit)
       : null_placement_(NullPlacement::AtStart), is_implicit_(is_implicit) {}
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys_;
