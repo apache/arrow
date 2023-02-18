@@ -420,6 +420,14 @@ class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
   SortOptions sort_options;
 };
 
+class ARROW_EXPORT OrderByNodeOptions : public ExecNodeOptions {
+ public:
+  static constexpr std::string_view kName = "order_by";
+  explicit OrderByNodeOptions(Ordering ordering) : ordering(std::move(ordering)) {}
+
+  Ordering ordering;
+};
+
 /// @}
 
 enum class JoinType {
