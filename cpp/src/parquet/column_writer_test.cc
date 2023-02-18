@@ -1143,5 +1143,143 @@ TEST(TestColumnWriter, WriteDataPageV2Header) {
   }
 }
 
+class TestSizeEstimated : public ::testing::Test {
+ public:
+  void SetUp() {
+    sink_ = CreateOutputStream();
+    node_ = std::static_pointer_cast<GroupNode>(
+        GroupNode::Make("schema", Repetition::REQUIRED,
+                        {
+                            schema::Int32("required", Repetition::REQUIRED),
+                        }));
+    std::vector<schema::NodePtr> fields;
+    schema_descriptor_ = std::make_unique<SchemaDescriptor>();
+    schema_descriptor_->Init(node_);
+  }
+
+  std::shared_ptr<parquet::Int32Writer> BuildWriter(Compression::type compression,
+                                                    bool buffered,
+                                                    bool enable_dictionary = false) {
+    auto builder = WriterProperties::Builder();
+    builder.disable_dictionary()
+        ->disable_dictionary()
+        ->compression(compression)
+        ->data_pagesize(100 * sizeof(int));
+    if (enable_dictionary) {
+      builder.enable_dictionary();
+    } else {
+      builder.disable_dictionary();
+    }
+    writer_properties_ = builder.build();
+    metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_,
+                                                 schema_descriptor_->Column(0));
+
+    std::unique_ptr<PageWriter> pager = PageWriter::Open(
+        sink_, compression, Codec::UseDefaultCompressionLevel(), metadata_.get(),
+        /* row_group_ordinal */ -1, /* column_chunk_ordinal*/ -1,
+        ::arrow::default_memory_pool(), /* buffered_row_group */ buffered,
+        /* header_encryptor */ NULLPTR, /* data_encryptor */ NULLPTR,
+        /* enable_checksum */ false);
+    return std::static_pointer_cast<parquet::Int32Writer>(
+        ColumnWriter::Make(metadata_.get(), std::move(pager), writer_properties_.get()));
+  }
+
+  std::shared_ptr<::arrow::io::BufferOutputStream> sink_;
+  std::shared_ptr<GroupNode> node_;
+  std::unique_ptr<SchemaDescriptor> schema_descriptor_;
+
+  std::shared_ptr<WriterProperties> writer_properties_;
+  std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
+};
+
+TEST_F(TestSizeEstimated, NonBuffered) {
+  auto required_writer = this->BuildWriter(Compression::UNCOMPRESSED, false);
+
+  // Write half page
+  for (int32_t i = 0; i < 50; i++) {
+    required_writer->WriteBatch(1, nullptr, nullptr, &i);
+  }
+  // Page flushed, check size
+  EXPECT_EQ(0, required_writer->total_bytes_written());
+  EXPECT_EQ(0, required_writer->total_compressed_bytes());  // unbuffered
+  EXPECT_EQ(0, required_writer->total_compressed_bytes_written());
+  for (int32_t i = 0; i < 50; i++) {
+    required_writer->WriteBatch(1, nullptr, nullptr, &i);
+  }
+  // Page flushed, check size
+  EXPECT_LT(400, required_writer->total_bytes_written());
+  EXPECT_EQ(0, required_writer->total_compressed_bytes());
+  EXPECT_LT(400, required_writer->total_compressed_bytes_written());
+}
+
+TEST_F(TestSizeEstimated, Buffered) {
+  auto required_writer = this->BuildWriter(Compression::UNCOMPRESSED, true);
+
+  // Write half page
+  for (int32_t i = 0; i < 50; i++) {
+    required_writer->WriteBatch(1, nullptr, nullptr, &i);
+  }
+  // Page flushed, check size
+  EXPECT_EQ(0, required_writer->total_bytes_written());
+  EXPECT_EQ(0, required_writer->total_compressed_bytes());  // buffered
+  EXPECT_EQ(0, required_writer->total_compressed_bytes_written());
+  for (int32_t i = 0; i < 50; i++) {
+    required_writer->WriteBatch(1, nullptr, nullptr, &i);
+  }
+  // Page flushed, check size
+  EXPECT_LT(400, required_writer->total_bytes_written());
+  EXPECT_EQ(0, required_writer->total_compressed_bytes());
+  EXPECT_LT(400, required_writer->total_compressed_bytes_written());
+}
+
+TEST_F(TestSizeEstimated, NonBufferedDictionary) {
+  auto required_writer = this->BuildWriter(Compression::UNCOMPRESSED, false, true);
+
+  // Write half page
+  // for dict, keep value equal
+  int32_t dict_value = 1;
+  for (int32_t i = 0; i < 50; i++) {
+    required_writer->WriteBatch(1, nullptr, nullptr, &dict_value);
+  }
+  // Page flushed, check size
+  EXPECT_EQ(0, required_writer->total_bytes_written());
+  EXPECT_EQ(0, required_writer->total_compressed_bytes());
+  EXPECT_EQ(0, required_writer->total_compressed_bytes_written());
+  // write a huge batch to trigger page flush
+  for (int32_t i = 0; i < 50000; i++) {
+    required_writer->WriteBatch(1, nullptr, nullptr, &dict_value);
+  }
+  // Page flushed, check size
+  EXPECT_EQ(0, required_writer->total_bytes_written());
+  EXPECT_LT(400, required_writer->total_compressed_bytes());
+  EXPECT_EQ(0, required_writer->total_compressed_bytes_written());
+
+  required_writer->Close();
+}
+
+TEST_F(TestSizeEstimated, BufferedCompression) {
+#ifndef ARROW_WITH_SNAPPY
+  GTEST_SKIP() << "Test requires snappy compression";
+#endif
+  auto required_writer = this->BuildWriter(Compression::SNAPPY, true);
+
+  // Write half page
+  for (int32_t i = 0; i < 50; i++) {
+    required_writer->WriteBatch(1, nullptr, nullptr, &i);
+  }
+  // Page flushed, check size
+  EXPECT_EQ(0, required_writer->total_bytes_written());
+  EXPECT_EQ(0, required_writer->total_compressed_bytes());  // buffered
+  EXPECT_EQ(0, required_writer->total_compressed_bytes_written());
+  for (int32_t i = 0; i < 50; i++) {
+    required_writer->WriteBatch(1, nullptr, nullptr, &i);
+  }
+  // Page flushed, check size
+  EXPECT_LT(400, required_writer->total_bytes_written());
+  EXPECT_EQ(0, required_writer->total_compressed_bytes());
+  EXPECT_LT(required_writer->total_compressed_bytes_written(),
+            required_writer->total_bytes_written());
+}
+
 }  // namespace test
 }  // namespace parquet

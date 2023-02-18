@@ -135,7 +135,7 @@ class PARQUET_EXPORT ColumnWriter {
   virtual int64_t rows_written() const = 0;
 
   /// \brief The total size of the compressed pages + page headers. Values
-  /// are still buffered and not written to a page yet
+  /// are still buffered and not written to a pager yet
   ///
   /// So in un-buffered mode, it always returns 0
   virtual int64_t total_compressed_bytes() const = 0;
