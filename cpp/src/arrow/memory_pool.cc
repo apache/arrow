@@ -509,7 +509,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
 #endif
     Allocator::DeallocateAligned(buffer, size, alignment);
 
-    stats_.UpdateAllocatedBytes(-size);
+    stats_.UpdateAllocatedBytes(-size, /*is_free*/ true);
   }
 
   void ReleaseUnused() override { Allocator::ReleaseUnused(); }
@@ -517,6 +517,12 @@ class BaseMemoryPoolImpl : public MemoryPool {
   int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
 
   int64_t max_memory() const override { return stats_.max_memory(); }
+
+  int64_t total_bytes_allocated() const override {
+    return stats_.total_bytes_allocated();
+  }
+
+  int64_t num_allocations() const override { return stats_.num_allocations(); }
 
  protected:
   internal::MemoryPoolStats stats_;
@@ -732,6 +738,18 @@ int64_t LoggingMemoryPool::max_memory() const {
   return mem;
 }
 
+int64_t LoggingMemoryPool::total_bytes_allocated() const {
+  int64_t mem = pool_->total_bytes_allocated();
+  std::cout << "total_bytes_allocated: " << mem << std::endl;
+  return mem;
+}
+
+int64_t LoggingMemoryPool::num_allocations() const {
+  int64_t mem = pool_->num_allocations();
+  std::cout << "num_allocations: " << mem << std::endl;
+  return mem;
+}
+
 std::string LoggingMemoryPool::backend_name() const { return pool_->backend_name(); }
 
 ///////////////////////////////////////////////////////////////////////
@@ -756,12 +774,16 @@ class ProxyMemoryPool::ProxyMemoryPoolImpl {
 
   void Free(uint8_t* buffer, int64_t size, int64_t alignment) {
     pool_->Free(buffer, size, alignment);
-    stats_.UpdateAllocatedBytes(-size);
+    stats_.UpdateAllocatedBytes(-size, /*is_free=*/true);
   }
 
   int64_t bytes_allocated() const { return stats_.bytes_allocated(); }
 
   int64_t max_memory() const { return stats_.max_memory(); }
+
+  int64_t total_bytes_allocated() const { return stats_.total_bytes_allocated(); }
+
+  int64_t num_allocations() const { return stats_.num_allocations(); }
 
   std::string backend_name() const { return pool_->backend_name(); }
 
@@ -792,6 +814,12 @@ void ProxyMemoryPool::Free(uint8_t* buffer, int64_t size, int64_t alignment) {
 int64_t ProxyMemoryPool::bytes_allocated() const { return impl_->bytes_allocated(); }
 
 int64_t ProxyMemoryPool::max_memory() const { return impl_->max_memory(); }
+
+int64_t ProxyMemoryPool::total_bytes_allocated() const {
+  return impl_->total_bytes_allocated();
+}
+
+int64_t ProxyMemoryPool::num_allocations() const { return impl_->num_allocations(); }
 
 std::string ProxyMemoryPool::backend_name() const { return impl_->backend_name(); }
 

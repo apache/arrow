@@ -40,6 +40,16 @@
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
 
+// https://github.com/google/googletest/pull/2904 might not be available
+// in our version of gtest/gmock
+#define EXPECT_THROW_THAT(callable, ex_type, property)   \
+  EXPECT_THROW(                                          \
+      try { (callable)(); } catch (const ex_type& err) { \
+        EXPECT_THAT(err, (property));                    \
+        throw;                                           \
+      },                                                 \
+      ex_type)
+
 namespace parquet {
 
 static constexpr int FLBA_LENGTH = 12;

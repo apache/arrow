@@ -22,7 +22,6 @@
 namespace arrow {
 using internal::CpuInfo;
 namespace compute {
-QueryOptions::QueryOptions() : use_legacy_batching(false) {}
 
 QueryContext::QueryContext(QueryOptions opts, ExecContext exec_context)
     : options_(opts),
@@ -64,8 +63,8 @@ void QueryContext::ScheduleTask(std::function<Status()> fn, std::string_view nam
   ::arrow::internal::Executor* exec = executor();
   // Adds a task which submits fn to the executor and tracks its progress.  If we're
   // already stopping then the task is ignored and fn is not executed.
-  async_scheduler_->AddSimpleTask([exec, fn]() { return exec->Submit(std::move(fn)); },
-                                  name);
+  async_scheduler_->AddSimpleTask(
+      [exec, fn = std::move(fn)]() mutable { return exec->Submit(std::move(fn)); }, name);
 }
 
 void QueryContext::ScheduleTask(std::function<Status(size_t)> fn, std::string_view name) {

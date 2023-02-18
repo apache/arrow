@@ -344,7 +344,7 @@ TYPED_TEST_SUITE(TestPlainEncoding, ParquetTypes);
 TYPED_TEST(TestPlainEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(10000, 1));
 
-  // Spaced test with different sizes and offest to guarantee SIMD implementation
+  // Spaced test with different sizes and offset to guarantee SIMD implementation
   constexpr int kAvx512Size = 64;         // sizeof(__m512i) for Avx512
   constexpr int kSimdSize = kAvx512Size;  // Current the max is Avx512
   constexpr int kMultiSimdSize = kSimdSize * 33;
