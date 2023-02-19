@@ -363,17 +363,17 @@ TEST_F(TestEncryptionKeyManagement, ReadParquetMRExternalKeyMaterialFile) {
   auto row_group = file_reader->RowGroup(0);
   auto num_rows = row_group->metadata()->num_rows();
   ASSERT_EQ(num_rows, 100);
-  auto int_values = new int[num_rows];
-  auto string_values = new parquet::ByteArray[num_rows];
+  std::vector<int> int_values(num_rows);
+  std::vector<parquet::ByteArray> string_values(num_rows);
   int64_t values_read;
 
   auto int_reader = std::dynamic_pointer_cast<parquet::Int32Reader>(row_group->Column(0));
-  int_reader->ReadBatch(num_rows, nullptr, nullptr, int_values, &values_read);
+  int_reader->ReadBatch(num_rows, nullptr, nullptr, int_values.data(), &values_read);
   ASSERT_EQ(values_read, num_rows);
 
   auto string_reader =
       std::dynamic_pointer_cast<parquet::ByteArrayReader>(row_group->Column(1));
-  string_reader->ReadBatch(num_rows, nullptr, nullptr, string_values, &values_read);
+  string_reader->ReadBatch(num_rows, nullptr, nullptr, string_values.data(), &values_read);
   ASSERT_EQ(values_read, num_rows);
 
   std::vector<std::string> prefixes = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"};
