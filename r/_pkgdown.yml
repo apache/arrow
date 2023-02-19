@@ -276,7 +276,6 @@ reference:
       - create_package_with_all_dependencies
 
 repo:
-  jira_projects: [ARROW]
   url:
     source: https://github.com/apache/arrow/blob/main/r/
-    issue: https://issues.apache.org/jira/browse/
+    issue: https://github.com/apache/arrow/issues/
