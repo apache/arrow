@@ -41,7 +41,7 @@ FileSystemKeyMaterialStore::FileSystemKeyMaterialStore(
 
 std::shared_ptr<FileSystemKeyMaterialStore> FileSystemKeyMaterialStore::Make(
     const std::string& parquet_file_path,
-    const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool temp_store) {
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool use_tmp_prefix) {
   if (parquet_file_path.empty()) {
     throw ParquetException(
         "The Parquet file path must be specified when using external key material");
@@ -53,7 +53,7 @@ std::shared_ptr<FileSystemKeyMaterialStore> FileSystemKeyMaterialStore::Make(
 
   ::arrow::fs::FileInfo file_info(parquet_file_path);
   std::stringstream key_material_file_name;
-  if (temp_store) {
+  if (use_tmp_prefix) {
     key_material_file_name << FileSystemKeyMaterialStore::kTempFilePrefix;
   }
   key_material_file_name << FileSystemKeyMaterialStore::kKeyMaterialFilePrefix

@@ -79,7 +79,7 @@ class TestEncryptionKeyManagement : public ::testing::Test {
     file_name += double_wrapping ? "double_wrapping" : "no_double_wrapping";
     file_name += wrap_locally ? "-wrap_locally" : "-wrap_on_server";
     file_name +=
-        internal_key_material ? "-internal_key_material" : "-external_key_metrial";
+        internal_key_material ? "-internal_key_material" : "-external_key_material";
     switch (encryption_no) {
       case 0:
         file_name += "-encrypt_columns_and_footer_diff_keys";
@@ -148,17 +148,16 @@ class TestEncryptionKeyManagement : public ::testing::Test {
     auto encryption_config =
         GetEncryptionConfiguration(double_wrapping, internal_key_material, encryption_no);
 
-    std::string file = temp_dir_->path().ToString() + file_name;
+    std::string file_path = temp_dir_->path().ToString() + file_name;
     if (internal_key_material) {
       auto file_encryption_properties = crypto_factory_.GetFileEncryptionProperties(
           kms_connection_config_, encryption_config);
-      encryptor_.EncryptFile(file, file_encryption_properties);
+      encryptor_.EncryptFile(file_path, file_encryption_properties);
     } else {
       auto file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
-      std::string file_path = temp_dir_->path().ToString() + file_name;
       auto file_encryption_properties = crypto_factory_.GetFileEncryptionProperties(
           kms_connection_config_, encryption_config, file_path, file_system);
-      encryptor_.EncryptFile(file, file_encryption_properties);
+      encryptor_.EncryptFile(file_path, file_encryption_properties);
     }
   }
 
@@ -167,21 +166,18 @@ class TestEncryptionKeyManagement : public ::testing::Test {
     auto decryption_config = GetDecryptionConfiguration();
     std::string file_name =
         GetFileName(double_wrapping, wrap_locally_, internal_key_material, encryption_no);
-    std::string file = temp_dir_->path().ToString() + file_name;
+    std::string file_path = temp_dir_->path().ToString() + file_name;
     if (internal_key_material) {
       auto file_decryption_properties = crypto_factory_.GetFileDecryptionProperties(
           kms_connection_config_, decryption_config);
 
-      decryptor_.DecryptFile(file, file_decryption_properties);
+      decryptor_.DecryptFile(file_path, file_decryption_properties);
     } else {
       auto file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
-      std::string file_path = temp_dir_->path().ToString() +
-                              GetFileName(double_wrapping, wrap_locally_,
-                                          internal_key_material, encryption_no);
       auto file_decryption_properties = crypto_factory_.GetFileDecryptionProperties(
           kms_connection_config_, decryption_config, file_path, file_system);
 
-      decryptor_.DecryptFile(file, file_decryption_properties);
+      decryptor_.DecryptFile(file_path, file_decryption_properties);
     }
   }
 

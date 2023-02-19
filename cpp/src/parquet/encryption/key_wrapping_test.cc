@@ -52,7 +52,7 @@ class KeyWrappingTest : public ::testing::Test {
       file_name += double_wrapping ? "double_wrapping" : "no_double_wrapping";
       file_name += is_wrap_locally ? "-wrap_locally" : "-wrap_on_server";
       file_name +=
-          internal_key_material ? "-internal_key_material" : "-external_key_metrial";
+          internal_key_material ? "-internal_key_material" : "-external_key_material";
 
       file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
       std::string writeable_file_path(temp_dir_->path().ToString() + file_name);

@@ -49,7 +49,7 @@ class PARQUET_EXPORT FileKeyMaterialStore {
   /// Move key material to another store. Used in key rotation.
   virtual void MoveMaterialTo(std::shared_ptr<FileKeyMaterialStore> target_key_store) = 0;
 
-  ///  Returns the Set of all key IDs in this store (for the given Parquet file)
+  /// Returns the Set of all key IDs in this store (for the given Parquet file)
   virtual std::vector<std::string> GetKeyIDSet() = 0;
 
   virtual ~FileKeyMaterialStore() {}
