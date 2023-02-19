@@ -373,7 +373,8 @@ TEST_F(TestEncryptionKeyManagement, ReadParquetMRExternalKeyMaterialFile) {
 
   auto string_reader =
       std::dynamic_pointer_cast<parquet::ByteArrayReader>(row_group->Column(1));
-  string_reader->ReadBatch(num_rows, nullptr, nullptr, string_values.data(), &values_read);
+  string_reader->ReadBatch(num_rows, nullptr, nullptr, string_values.data(),
+                           &values_read);
   ASSERT_EQ(values_read, num_rows);
 
   std::vector<std::string> prefixes = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"};
