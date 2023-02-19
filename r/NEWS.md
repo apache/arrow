@@ -31,83 +31,83 @@
 
 ### Docs
 
-* A substantial reorganisation, rewrite of and addition to, many of the 
-  vignettes and README. (@djnavarro, 
-  #14514)  
+* A substantial reorganisation, rewrite of and addition to, many of the
+  vignettes and README. (@djnavarro,
+  #14514)
 
 ### Reading/writing data
 
-* New functions `open_csv_dataset()`, `open_tsv_dataset()`, and 
-  `open_delim_dataset()` all wrap `open_dataset()`- they don't provide new 
-  functionality, but allow for readr-style options to be supplied, making it 
-  simpler to switch between individual file-reading and dataset 
+* New functions `open_csv_dataset()`, `open_tsv_dataset()`, and
+  `open_delim_dataset()` all wrap `open_dataset()`- they don't provide new
+  functionality, but allow for readr-style options to be supplied, making it
+  simpler to switch between individual file-reading and dataset
   functionality. (#33614)
-* User-defined null values can be set when writing CSVs both as datasets 
-  and as individual files. (@wjones127, 
+* User-defined null values can be set when writing CSVs both as datasets
+  and as individual files. (@wjones127,
   #14679)
-* The new `col_names` parameter allows specification of column names when 
-  opening a CSV dataset. (@wjones127, 
+* The new `col_names` parameter allows specification of column names when
+  opening a CSV dataset. (@wjones127,
   #14705)
-* The `parse_options`, `read_options`, and `convert_options` parameters for 
-  reading individual files (`read_*_arrow()` functions) and datasets 
-  (`open_dataset()` and the new `open_*_dataset()` functions) can be passed 
+* The `parse_options`, `read_options`, and `convert_options` parameters for
+  reading individual files (`read_*_arrow()` functions) and datasets
+  (`open_dataset()` and the new `open_*_dataset()` functions) can be passed
   in as lists. (#15270)
-* File paths containing accents can be read by `read_csv_arrow()`. 
+* File paths containing accents can be read by `read_csv_arrow()`.
   (#14930)
 
 ### dplyr compatibility
 
-* New dplyr (1.1.0) function `join_by()` has been implemented for dplyr joins 
-  on Arrow objects (equality conditions only).  
+* New dplyr (1.1.0) function `join_by()` has been implemented for dplyr joins
+  on Arrow objects (equality conditions only).
   (#33664)
-* Output is accurate when multiple `dplyr::group_by()`/`dplyr::summarise()` 
+* Output is accurate when multiple `dplyr::group_by()`/`dplyr::summarise()`
   calls are used. (#14905)
-* `dplyr::summarize()` works with division when divisor is a variable. 
+* `dplyr::summarize()` works with division when divisor is a variable.
   (#14933)
-* `dplyr::right_join()` correctly coalesces keys. 
+* `dplyr::right_join()` correctly coalesces keys.
   (#15077)
-* Multiple changes to ensure compatibility with dplyr 1.1.0. 
+* Multiple changes to ensure compatibility with dplyr 1.1.0.
   (@lionel-, #14948)
 
 ### Function bindings
 
 * The following functions can be used in queries on Arrow objects:
-  * `lubridate::with_tz()` and `lubridate::force_tz()` (@eitsupi, 
+  * `lubridate::with_tz()` and `lubridate::force_tz()` (@eitsupi,
   #14093)
-  * `stringr::str_remove()` and `stringr::str_remove_all()` 
+  * `stringr::str_remove()` and `stringr::str_remove_all()`
   (#14644)
 
 ### Arrow object creation
 
-* Arrow Scalars can be created from `POSIXlt` objects. 
+* Arrow Scalars can be created from `POSIXlt` objects.
   (#15277)
-* `Array$create()` can create Decimal arrays. 
+* `Array$create()` can create Decimal arrays.
   (#15211)
-* `StructArray$create()` can be used to create StructArray objects. 
+* `StructArray$create()` can be used to create StructArray objects.
   (#14922)
-* Creating an Array from an object bigger than 2^31 has correct length 
+* Creating an Array from an object bigger than 2^31 has correct length
   (#14929)
 
 ### Installation
 
-* Improved offline installation using pre-downloaded binaries. 
+* Improved offline installation using pre-downloaded binaries.
   (@pgramme, #14086)
 * The package can automatically link to system installations of the AWS SDK
   for C++. (@kou, #14235)
 
 ## Minor improvements and fixes
 
-* Calling `lubridate::as_datetime()` on Arrow objects can handle time in 
-  sub-seconds. (@eitsupi, 
+* Calling `lubridate::as_datetime()` on Arrow objects can handle time in
+  sub-seconds. (@eitsupi,
   #13890)
-* `head()` can be called after `as_record_batch_reader()`. 
+* `head()` can be called after `as_record_batch_reader()`.
   (#14518)
-* `as.Date()` can go from `timestamp[us]` to `timestamp[s]`. 
+* `as.Date()` can go from `timestamp[us]` to `timestamp[s]`.
   (#14935)
-* curl timeout policy can be configured for S3. 
+* curl timeout policy can be configured for S3.
   (#15166)
-* rlang dependency must be at least version 1.0.0 because of 
-  `check_dots_empty()`. (@daattali, 
+* rlang dependency must be at least version 1.0.0 because of
+  `check_dots_empty()`. (@daattali,
   #14744)
 
 # arrow 10.0.1
@@ -230,7 +230,6 @@ As of version 10.0.0, `arrow` requires C++17 to build. This means that:
 * By default, `S3FileSystem` will not create or delete buckets. To enable that, pass the configuration option `allow_bucket_creation` or `allow_bucket_deletion`. (#13206)
 * `GcsFileSystem` and `gs_bucket()` allow connecting to Google Cloud Storage. (#10999, #13601)
 
-
 ## Arrays and tables
 
 * Table and RecordBatch `$num_rows()` method returns a double (previously integer), avoiding integer overflow on larger tables. (#13482, #13514)
@@ -238,7 +237,7 @@ As of version 10.0.0, `arrow` requires C++17 to build. This means that:
 ## Packaging
 
 * The `arrow.dev_repo` for nightly builds of the R package and prebuilt
-  libarrow binaries is now https://nightlies.apache.org/arrow/r/.
+  libarrow binaries is now <https://nightlies.apache.org/arrow/r/>.
 * Brotli and BZ2 are shipped with MacOS binaries. BZ2 is shipped with Windows binaries. (#13484)
 
 # arrow 8.0.0
@@ -246,16 +245,16 @@ As of version 10.0.0, `arrow` requires C++17 to build. This means that:
 ## Enhancements to dplyr and datasets
 
 * `open_dataset()`:
-  - correctly supports the `skip` argument for skipping header rows in CSV datasets.
-  - can take a list of datasets with differing schemas and attempt to unify the
+  * correctly supports the `skip` argument for skipping header rows in CSV datasets.
+  * can take a list of datasets with differing schemas and attempt to unify the
     schemas to produce a `UnionDataset`.
 * Arrow `{dplyr}` queries:
-  - are supported on `RecordBatchReader`. This allows, for example, results from DuckDB
+  * are supported on `RecordBatchReader`. This allows, for example, results from DuckDB
   to be streamed back into Arrow rather than materialized before continuing the pipeline.
-  - no longer need to materialize the entire result table before writing to a dataset
+  * no longer need to materialize the entire result table before writing to a dataset
     if the query contains aggregations or joins.
-  - supports `dplyr::rename_with()`.
-  - `dplyr::count()` returns an ungrouped dataframe.
+  * supports `dplyr::rename_with()`.
+  * `dplyr::count()` returns an ungrouped dataframe.
 * `write_dataset()` has more options for controlling row group and file sizes when
   writing partitioned datasets, such as `max_open_files`, `max_rows_per_file`,
   `min_rows_per_group`, and `max_rows_per_group`.
@@ -318,11 +317,11 @@ As of version 10.0.0, `arrow` requires C++17 to build. This means that:
 
 Arrow arrays and tables can be easily concatenated:
 
- * Arrays can be concatenated with `concat_arrays()` or, if zero-copy is desired
+* Arrays can be concatenated with `concat_arrays()` or, if zero-copy is desired
    and chunking is acceptable, using `ChunkedArray$create()`.
- * ChunkedArrays can be concatenated with `c()`.
- * RecordBatches and Tables support `cbind()`.
- * Tables support `rbind()`. `concat_tables()` is also provided to
+* ChunkedArrays can be concatenated with `c()`.
+* RecordBatches and Tables support `cbind()`.
+* Tables support `rbind()`. `concat_tables()` is also provided to
    concatenate tables while unifying schemas.
 
 ## Other improvements and fixes
@@ -440,7 +439,6 @@ You can also take a duckdb `tbl` and call `to_arrow()` to stream data to Arrow's
 * Simple Feature (SF) columns no longer save all of their metadata when converting to Arrow tables (and thus when saving to Parquet or Feather). This also includes any dataframe column that has attributes on each element (in other words: row-level metadata). Our previous approach to saving this metadata is both (computationally) inefficient and unreliable with Arrow queries + datasets. This will most impact saving SF columns. For saving these columns we recommend either converting the columns to well-known binary representations (using `sf::st_as_binary(col)`) or using the [sfarrow package](https://CRAN.R-project.org/package=sfarrow) which handles some of the intricacies of this conversion process. We have plans to improve this and re-enable custom metadata like this in the future when we can implement the saving in a safe and efficient way. If you need to preserve the pre-6.0.0 behavior of saving this metadata, you can set `options(arrow.preserve_row_level_metadata = TRUE)`. We will be removing this option in a coming release. We strongly recommend avoiding using this workaround if possible since the results will not be supported in the future and can lead to surprising and inaccurate results. If you run into a custom class besides sf columns that are impacted by this please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues).
 * Datasets are officially no longer supported on 32-bit Windows on R < 4.0 (Rtools 3.5). 32-bit Windows users should upgrade to a newer version of R in order to use datasets.
 
-
 ## Installation on Linux
 
 * Package installation now fails if the Arrow C++ library does not compile. In previous versions, if the C++ library failed to compile, you would get a successful R package installation that wouldn't do much useful.
@@ -516,9 +514,9 @@ This patch version contains fixes for some sanitizer and compiler warnings.
 
 # arrow 4.0.0.1
 
- * The mimalloc memory allocator is the default memory allocator when using a static source build of the package on Linux. This is because it has better behavior under valgrind than jemalloc does. A full-featured build (installed with `LIBARROW_MINIMAL=false`) includes both jemalloc and mimalloc, and it has still has jemalloc as default, though this is configurable at runtime with the `ARROW_DEFAULT_MEMORY_POOL` environment variable.
- * Environment variables `LIBARROW_MINIMAL`, `LIBARROW_DOWNLOAD`, and `NOT_CRAN` are now case-insensitive in the Linux build script.
- * A build configuration issue in the macOS binary package has been resolved.
+* The mimalloc memory allocator is the default memory allocator when using a static source build of the package on Linux. This is because it has better behavior under valgrind than jemalloc does. A full-featured build (installed with `LIBARROW_MINIMAL=false`) includes both jemalloc and mimalloc, and it has still has jemalloc as default, though this is configurable at runtime with the `ARROW_DEFAULT_MEMORY_POOL` environment variable.
+* Environment variables `LIBARROW_MINIMAL`, `LIBARROW_DOWNLOAD`, and `NOT_CRAN` are now case-insensitive in the Linux build script.
+* A build configuration issue in the macOS binary package has been resolved.
 
 # arrow 4.0.0
 
