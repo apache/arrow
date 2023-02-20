@@ -391,8 +391,8 @@ def _perform_join(join_type, left_operand not None, left_keys,
 
 
 def _perform_join_asof(left_operand not None, left_on, left_by,
-                  right_operand not None, right_on, right_by,
-                  tolerance, output_type=Table):
+                       right_operand not None, right_on, right_by,
+                       tolerance, output_type=Table):
     """
     Perform asof join of two tables or datasets.
 

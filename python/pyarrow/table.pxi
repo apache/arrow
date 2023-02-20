@@ -5139,7 +5139,6 @@ cdef class Table(_PandasConvertible):
                                                    tolerance, output_type=Table)
 
 
-
 def _reconstruct_table(arrays, schema):
     """
     Internal: reconstruct pa.Table from pickled components.
