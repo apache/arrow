@@ -20,6 +20,8 @@
 #include <limits>
 
 #include "arrow/array/builder_time.h"
+#include "arrow/compute/exec.h"
+#include "arrow/compute/exec_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
@@ -153,8 +155,12 @@ struct CastFunctor<
     const auto& in_type = checked_cast<const I&>(*batch[0].type());
     const auto& out_type = checked_cast<const O&>(*output->type);
 
-    // The units may be equal if the time zones are different. We might go to
-    // lengths to make this zero copy in the future but we leave it for now
+    if (I::type_id == Type::TIMESTAMP && in_type.unit() == out_type.unit()) {
+      std::shared_ptr<const ArrayData> array_data = input.ToArrayData();
+      output->SetMembers(*array_data);
+      arrow::compute::detail::PropagateNullsSpans(batch, output);
+      return Status::OK();
+    }
     auto conversion = util::GetTimestampConversion(in_type.unit(), out_type.unit());
     return ShiftTime<int64_t, int64_t>(ctx, conversion.first, conversion.second, input,
                                        output);
