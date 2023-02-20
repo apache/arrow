@@ -929,6 +929,22 @@ enum class CancelResult : int8_t {
   kNotCancellable,
 };
 
+/// \brief The result of setting a session option.
+enum class SetSessionOptionResult : int8_t {
+  kUnspecified,
+  kOk,
+  kInvalidResult,
+  kError
+};
+
+/// \brief The result of closing a session.
+enum class CloseSessionResult : int8_t {
+  kUnspecified,
+  kClosed,
+  kClosing,
+  kNotClosable
+};
+
 ARROW_FLIGHT_SQL_EXPORT
 std::ostream& operator<<(std::ostream& os, CancelResult result);
 
