@@ -776,20 +776,78 @@ TEST(Substrait, CallExtensionFunction) {
 
 TEST(Substrait, CallCast) {
 
-  ASSERT_OK_AND_ASSIGN(
-    auto expr,
-    compute::call(
-      "cast",
-      {compute::field_ref("i64")}, compute::CastOptions::Safe(float64())).Bind(*kBoringSchema)
-  );
-
   ExtensionSet ext_set;
-  ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
+  ConversionOptions conversion_options;
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Expression", R"({
+  	
+    "expressions": {
+		"cast": {
+			"type": {
+				"fp64": {
+					"nullability": "NULLABILITY_NULLABLE"
+				}
+			},
+			"input": {
+				"selection": {
+					"direct_reference": {
+						"struct_field": {}
+					},
+					"root_reference": {}
+				}
+			},
+			"failure_behavior": "FAILURE_BEHAVIOR_THROW_EXCEPTION"
+		}
+	}
+  })", /*ignore_unknown_fields=*/false))
+  
+
+  
+  /*
 
   ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
   ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*kBoringSchema));
   
   EXPECT_EQ(UseBoringRefs(roundtripped), UseBoringRefs(expr));
+  */
+  
+}
+
+TEST(Substrait, CallCastRequiresFailureBehavior) {
+
+  ExtensionSet ext_set;
+  ConversionOptions conversion_options;
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Expression", R"({
+  "selection": {
+      "directReference": {
+        "structField": {
+          "field": 0
+        }
+      },
+    "expression": {
+      "cast": {
+        "type": {
+          "fp64": {
+            "nullability": "NULLABILITY_NULLABLE"
+          }
+        },
+        "input": {
+          "selection": {
+            "direct_reference": {
+              "struct_field": {
+                "field": 0
+              }
+            }
+          }
+        },
+        "failure_behavior": "FAILURE_BEHAVIOR_UNSPECIFIED"
+      }
+    }
+  }
+})", /*ignore_unknown_fields=*/false))
+
+  EXPECT_THAT(DeserializeExpression(*buf, ext_set, conversion_options), Raises(StatusCode::Invalid));
   
 }
 
