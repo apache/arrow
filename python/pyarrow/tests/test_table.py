@@ -2297,6 +2297,49 @@ def test_table_join_many_columns():
     })
 
 
+@pytest.mark.dataset
+def test_table_join_asof():
+    t1 = pa.Table.from_pydict({
+        "colA": [1, 1, 5, 6, 7],
+        "col2": ["a", "b", "a", "b", "f"]
+    })
+
+    t2 = pa.Table.from_pydict({
+        "colB": [2, 9, 15],
+        "col3": ["a", "b", "g"],
+        "colC": [1., 3., 5.]
+    })
+
+    r = t1.join_asof(t2, "colA", "col2", 1, "colB", "col3")
+    assert r.combine_chunks() == pa.table({
+        "colA": [1, 1, 5, 6, 7],
+        "col2": ["a", "b", "a", "b", "f"],
+        "colC": [1., None, None, None, None],
+    })
+
+
+@pytest.mark.dataset
+def test_table_join_asof_collisions():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+        "colVals": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300],
+        "colA": [99, 2, 1],
+        "on": [2, 3, 4],
+    })
+
+    msg = "colVals present in both tables. AsofJoin does not support column collisions."
+    with pytest.raises(ValueError, match=msg):
+        t1.join_asof(t2, "on", ["colA", "colB"], 1, "on", ["colA", "colB"])
+
+
 def test_table_cast_invalid():
     # Casting a nullable field to non-nullable should be invalid!
     table = pa.table({'a': [None, 1], 'b': [None, True]})

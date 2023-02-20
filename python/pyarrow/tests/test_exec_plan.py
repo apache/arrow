@@ -376,7 +376,7 @@ def test_join_asof(tolerance, expected, use_datasets):
     assert r == expected
 
 
-def test_table_asof_join_collisions():
+def test_table_join_asof_collisions():
     t1 = pa.table({
         "colA": [1, 2, 6],
         "colB": [10, 20, 60],
