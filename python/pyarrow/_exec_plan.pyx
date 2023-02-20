@@ -489,13 +489,17 @@ def _perform_join_asof(left_operand not None, left_on, left_by,
 
     result_table = execplan([left_operand, right_operand],
                             plan=c_decl_plan,
-                            output_type=output_type,
+                            output_type=Table,
                             use_threads=False)
 
-    # If the output_type is InMemoryDataset we need to get rid of the
-    # special dataset columns
-    # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
-    return result_table.select(left_columns + right_columns)
+    if output_type == Table:
+        return result_table
+    elif output_type == InMemoryDataset:
+        # Get rid of special dataset columns
+        # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
+        return InMemoryDataset(result_table.select(left_columns + right_columns))
+    else:
+        raise TypeError("Unsupported output type")
 
 
 def _filter_table(table, expression, output_type=Table):
