@@ -453,6 +453,26 @@ def _perform_join_asof(left_operand not None, left_on, left_by,
 
     c_input_keys.push_back(c_right_keys)
 
+    # By default expose all columns on both left and right table
+    if isinstance(left_operand, Table):
+        left_columns = left_operand.column_names
+    elif isinstance(left_operand, Dataset):
+        left_columns = left_operand.schema.names
+    else:
+        raise TypeError("Unsupported left join member type")
+
+    if isinstance(right_operand, Table):
+        right_columns = right_operand.column_names
+    elif isinstance(right_operand, Dataset):
+        right_columns = right_operand.schema.names
+    else:
+        raise TypeError("Unsupported right join member type")
+
+    # AsofJoin does not return on or by columns for right_operand.
+    right_columns = [
+        col for col in right_columns if col not in [right_on] + right_by
+    ]
+
     c_decl_plan.push_back(
         CDeclaration(
             tobytes("asofjoin"),
@@ -465,7 +485,10 @@ def _perform_join_asof(left_operand not None, left_on, left_by,
                             output_type=output_type,
                             use_threads=False)
 
-    return result_table
+    # If the output_type is InMemoryDataset we need to get rid of the
+    # special dataset columns
+    # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
+    return result_table.select(left_columns + right_columns)
 
 
 def _filter_table(table, expression, output_type=Table):
