@@ -2416,8 +2416,8 @@ def bool_():
     Create a ``Field`` type with a boolean type
     and a name:
 
-    >>> pa.field('null_field', pa.bool_())
-    pyarrow.Field<null_field: bool>
+    >>> pa.field('bool_field', pa.bool_())
+    pyarrow.Field<bool_field: bool>
     """
     return primitive_type(_Type_BOOL)
 
@@ -2984,6 +2984,19 @@ def float16():
     DataType(halffloat)
     >>> print(pa.float16())
     halffloat
+
+    Create an array with float16 type:
+
+    >>> arr = np.array([1.5, np.nan], dtype=np.float16)
+    >>> a = pa.array(arr, type=pa.float16())
+    >>> a
+    <pyarrow.lib.HalfFloatArray object at ...>
+    [
+      15872,
+      32256
+    ]
+    >>> a.to_pylist()
+    [1.5, nan]
     """
     return primitive_type(_Type_HALF_FLOAT)
 
