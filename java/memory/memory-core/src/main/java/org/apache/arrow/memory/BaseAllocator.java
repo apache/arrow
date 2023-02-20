@@ -260,6 +260,10 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     } catch (Throwable t) {
       try {
         releaseBytes(size);
+      } catch (Throwable e) {
+        t.addSuppressed(e);
+      }
+      try {
         allocation.release0();
       } catch (Throwable e) {
         t.addSuppressed(e);
