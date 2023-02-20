@@ -1213,7 +1213,7 @@ class FixedShapeTensorArray(pa.ExtensionArray):
     ]
     """
 
-    def to_numpy_tensor(self):
+    def to_numpy_ndarray(self):
         """
         Convert tensor extension array to a numpy array (with dim+1).
         """
@@ -1223,7 +1223,7 @@ class FixedShapeTensorArray(pa.ExtensionArray):
 
         return numpy_tensor
 
-    def from_numpy_tensor(obj):
+    def from_numpy_ndarray(obj):
         """
         Convert numpy tensors (ndarrays) to a tensor extension array.
         """
@@ -1295,10 +1295,10 @@ def test_tensor_class_methods():
     expected = np.array(
         [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]], dtype=np.float32)
 
-    result = arr.to_numpy_tensor()
+    result = arr.to_numpy_ndarray()
     np.testing.assert_array_equal(result, expected)
 
-    tensor_array_from_numpy = FixedShapeTensorArray.from_numpy_tensor(expected)
+    tensor_array_from_numpy = FixedShapeTensorArray.from_numpy_ndarray(expected)
     assert isinstance(tensor_array_from_numpy.type, FixedShapeTensorType)
     assert tensor_array_from_numpy.type.value_type == pa.float32()
     assert tensor_array_from_numpy.type.shape == (2, 3)

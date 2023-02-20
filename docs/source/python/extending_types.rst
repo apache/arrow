@@ -428,7 +428,7 @@ Convert a tensor array to numpy ndarray (tensor):
 
 .. code-block:: python
 
-   >>> numpy_tensor = table.column("tensors_float").chunk(0).to_numpy_tensor()
+   >>> numpy_tensor = table.column("tensors_float").chunk(0).to_numpy_ndarray()
    >>> numpy_tensor
    array([[[  1.,   2.],
          [  3.,   4.]],
@@ -443,7 +443,7 @@ Convert a list of numpy ndarrays (tensors) to a tensor array:
 
 .. code-block:: python
 
-   >>> FixedShapeTensorArray.from_numpy_tensor(numpy_tensor)
+   >>> FixedShapeTensorArray.from_numpy_ndarray(numpy_tensor)
    <__main__.FixedShapeTensorArray object at ...>
    [
      [
@@ -480,7 +480,7 @@ Converting tensor to ndarray without the use of permutation parameter:
 
 .. code-block:: python
 
-   >>> tensor.to_numpy_tensor()
+   >>> tensor.to_numpy_ndarray()
    array([[[  1,   2],
          [  3,   4]],
 
@@ -505,7 +505,7 @@ permutation parameter and add the first dimension (dimension of the array of ten
    >>> permutation.insert(0,0)
    >>> permutation
    [0, 2, 1]
-   >>> tensor.to_numpy_tensor().transpose(permutation)
+   >>> tensor.to_numpy_ndarray().transpose(permutation)
    array([[[  1,   3],
          [  2,   4]],
 
