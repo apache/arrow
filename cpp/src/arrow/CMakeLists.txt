@@ -407,6 +407,7 @@ list(APPEND
      compute/exec/options.cc
      compute/exec/order_by_impl.cc
      compute/exec/partition_util.cc
+     compute/exec/pivot_longer_node.cc
      compute/exec/project_node.cc
      compute/exec/query_context.cc
      compute/exec/sink_node.cc
