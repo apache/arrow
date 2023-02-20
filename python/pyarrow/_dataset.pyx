@@ -857,9 +857,9 @@ cdef class Dataset(_Weakrefable):
                                               use_threads=use_threads, coalesce_keys=coalesce_keys,
                                               output_type=InMemoryDataset)
 
-    def join_asof(self, right_table, on, by, tolerance, right_on=None, right_by=None):
+    def join_asof(self, right_dataset, on, by, tolerance, right_on=None, right_by=None):
         """
-        Perform a join between this dataset and another one.
+        Perform an asof join between this dataset and another one.
 
         Result of the join will be a new dataset, where further
         operations can be applied.
@@ -869,28 +869,29 @@ cdef class Dataset(_Weakrefable):
         right_dataset : dataset
             The dataset to join to the current one, acting as the right dataset
             in the join operation.
-        keys : str or list[str]
-            The columns from current dataset that should be used as keys
+        on : str
+            The column from current dataset that should be used as the on key
             of the join operation left side.
-        right_keys : str or list[str], default None
-            The columns from the right_dataset that should be used as keys
+        by : str or list[str]
+            The columns from current dataset that should be used as the by keys
+            of the join operation left side.
+        tolerance : int
+            The tolerance for inexact "on" key matching. A right row is considered
+            a match with the left row `right.on - left.on <= tolerance`. The
+            `tolerance` may be:
+                - negative, in which case a past-as-of-join occurs;
+                - or positive, in which case a future-as-of-join occurs;
+                - or zero, in which case an exact-as-of-join occurs.
+
+            The tolerance is interpreted in the same units as the "on" key.
+        right_on : str or list[str], default None
+            The columns from the right_dataset that should be used as the on key
+            on the join operation right side.
+            When ``None`` use the same key name as the left dataset.
+        right_by : str or list[str], default None
+            The columns from the right_dataset that should be used as by keys
             on the join operation right side.
             When ``None`` use the same key names as the left dataset.
-        join_type : str, default "left outer"
-            The kind of join that should be performed, one of
-            ("left semi", "right semi", "left anti", "right anti",
-            "inner", "left outer", "right outer", "full outer")
-        left_suffix : str, default None
-            Which suffix to add to right column names. This prevents confusion
-            when the columns in left and right datasets have colliding names.
-        right_suffix : str, default None
-            Which suffic to add to the left column names. This prevents confusion
-            when the columns in left and right datasets have colliding names.
-        coalesce_keys : bool, default True
-            If the duplicated keys should be omitted from one of the sides
-            in the join result.
-        use_threads : bool, default True
-            Whenever to use multithreading or not.
 
         Returns
         -------
@@ -900,7 +901,7 @@ cdef class Dataset(_Weakrefable):
             right_on = on
         if right_by is None:
             right_by = by
-        return _pc()._exec_plan._perform_join_asof(self, on, by, right_table, right_on, right_by,
+        return _pc()._exec_plan._perform_join_asof(self, on, by, right_dataset, right_on, right_by,
                                                    tolerance, output_type=InMemoryDataset)
 
 
