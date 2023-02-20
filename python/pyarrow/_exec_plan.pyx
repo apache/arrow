@@ -473,6 +473,13 @@ def _perform_join_asof(left_operand not None, left_on, left_by,
         col for col in right_columns if col not in [right_on] + right_by
     ]
 
+    for col in right_columns:
+        if col in left_columns:
+            raise ValueError(
+                "{} present in both tables. AsofJoin does not support "
+                "column collisions.".format(col),
+            )
+
     c_decl_plan.push_back(
         CDeclaration(
             tobytes("asofjoin"),
