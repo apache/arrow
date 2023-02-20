@@ -340,6 +340,7 @@ class PARQUET_EXPORT RecordReader {
 
   /// \brief Clear consumed values and repetition/definition levels as the
   /// result of calling ReadRecords
+  /// For FLBA and ByteArray types, call GetBuilderChunks() to reset them.
   virtual void Reset() = 0;
 
   /// \brief Transfer filled values buffer to caller. A new one will be
@@ -372,13 +373,17 @@ class PARQUET_EXPORT RecordReader {
   }
 
   /// \brief Decoded values, including nulls, if any
+  /// FLBA and ByteArray types do not use this array and read into their own
+  /// builders.
   uint8_t* values() const { return values_->mutable_data(); }
 
   /// \brief Number of values written. If this Reader was constructed
   /// with read_dense_for_nullable set to true, this will not include number of
-  /// null values, otherwise it will since we have left spaces for the null
+  /// null values. Otherwise it will since we have left spaces for the null
   /// values.
   /// There is no read-ahead/buffering for values.
+  /// For FLBA and ByteArray types this value reflects the values written with
+  /// the last ReadRecords call.
   int64_t values_written() const { return values_written_; }
 
   /// \brief Number of definition / repetition levels (from those that have
@@ -392,7 +397,12 @@ class PARQUET_EXPORT RecordReader {
   int64_t levels_written() const { return levels_written_; }
 
   /// \brief Number of nulls in the leaf that we have read so far.
-  /// This is valid and set even if read_dense_for_nullable_ is set to true.
+  /// This is valid and set even if read_dense_for_nullable().
+  /// For FLBA and ByteArray types this value reflects the values written with
+  /// the last ReadRecords call.
+  /// Also, for FLBA and ByteArray types, if read_dense_for_nullable()
+  /// this must be used to determine the number of nulls, since the underlying
+  /// builder will show a 0 null count.
   int64_t null_count() const { return null_count_; }
 
   /// \brief True if the leaf values are nullable

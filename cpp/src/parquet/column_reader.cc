@@ -1305,7 +1305,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       // Pager must be set using SetPageReader.
       : BASE(descr, /* pager = */ nullptr, pool) {
     leaf_info_ = leaf_info;
-    nullable_values_ = leaf_info.HasNullableValues();
+    nullable_values_ = leaf_info_.HasNullableValues();
     at_record_start_ = true;
     values_written_ = 0;
     null_count_ = 0;
@@ -1639,7 +1639,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   std::shared_ptr<ResizableBuffer> ReleaseIsValid() override {
-    if (leaf_info_.HasNullableValues()) {
+    if (nullable_values()) {
       auto result = valid_bits_;
       PARQUET_THROW_NOT_OK(result->Resize(bit_util::BytesForBits(values_written_),
                                           /*shrink_to_fit=*/true));
@@ -1753,7 +1753,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       }
       values_capacity_ = new_values_capacity;
     }
-    if (leaf_info_.HasNullableValues() && !read_dense_for_nullable_) {
+    if (nullable_values() && !read_dense_for_nullable_) {
       int64_t valid_bytes_new = bit_util::BytesForBits(values_capacity_);
       if (valid_bits_->size() < valid_bytes_new) {
         int64_t valid_bytes_old = bit_util::BytesForBits(values_written_);
@@ -1810,10 +1810,18 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   int64_t ReadRepeatedRecords(int64_t num_records, int64_t* values_to_read,
                               int64_t* null_count) {
     const int64_t start_levels_position = levels_position_;
-    // For repeated fields, DelimitRecords will update both records_read and
-    // values_to_read.
+    // Note that repeated records may be required or nullable. If they have
+    // an optional parent in the path, they will be nullable, otherwise,
+    // they are required. We use leaf_info_->HasNullableValues() that looks
+    // at repeated_ancestor_def_level to determine if it is required or
+    // nullable. Even if they are required, we may have to read ahead and
+    // delimit the records to get the right number of values and they will
+    // have associated levels.
     int64_t records_read = DelimitRecords(num_records, values_to_read);
-    if (read_dense_for_nullable_) {
+    if (!nullable_values()) {
+      ReadValuesDense(*values_to_read);
+      *null_count = 0;
+    } else if (read_dense_for_nullable_) {
       ReadValuesDense(*values_to_read);
       // Any values with def_level < max_def_level is considered null.
       // This behavior is consistent with reading spaced below. When reading
@@ -1838,9 +1846,10 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // null or not null entry
     int64_t records_read =
         std::min<int64_t>(levels_written_ - levels_position_, num_records);
-    // This is advanced by DelimitRecords, which we skipped
+    // This is advanced by DelimitRecords for the repeated field case above.
     levels_position_ += records_read;
 
+    // Optional fields are always nullable.
     if (read_dense_for_nullable_) {
       ReadDenseForOptional(start_levels_position, values_to_read, null_count);
     } else {
@@ -1849,14 +1858,10 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     return records_read;
   }
 
-  // Reads optional records and returns number of records read. Fills in
-  // values_to_read and null_count.
-  // null_count will be always 0. Kept the argument to be consistent with the
-  // other functions for repeated/optional.
-  int64_t ReadRequiredRecords(int64_t num_records, int64_t* values_to_read,
-                              int64_t* null_count) {
+  // Reads required records and returns number of records read. Fills in
+  // values_to_read.
+  int64_t ReadRequiredRecords(int64_t num_records, int64_t* values_to_read) {
     *values_to_read = num_records;
-    *null_count = 0;
     ReadValuesDense(*values_to_read);
     return num_records;
   }
@@ -1920,11 +1925,18 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     int64_t values_to_read = 0;
     int64_t null_count = 0;
     if (this->max_rep_level_ > 0) {
+      // Repeated fields may be nullable or not.
+      // This call updates levels_position_.
       records_read = ReadRepeatedRecords(num_records, &values_to_read, &null_count);
     } else if (this->max_def_level_ > 0) {
+      // Non-repeated optional values are always nullable.
+      // This call updates levels_position_.
+      ARROW_DCHECK(nullable_values());
       records_read = ReadOptionalRecords(num_records, &values_to_read, &null_count);
     } else {
-      records_read = ReadRequiredRecords(num_records, &values_to_read, &null_count);
+      ARROW_DCHECK(!nullable_values());
+      records_read = ReadRequiredRecords(num_records, &values_to_read);
+      // We don't need to update null_count, since it is 0.
     }
 
     ARROW_DCHECK_GE(records_read, 0);
@@ -2026,7 +2038,9 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
     for (int64_t i = 0; i < num_decoded; i++) {
       PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
     }
+    std::cout << "here " << "values_to_read " << values_to_read << " values_written " << values_written_ << std::endl;
     ResetValues();
+    std::cout << "After reset here " << "values_to_read " << values_to_read << " values_written " << values_written_ << std::endl;
   }
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
@@ -2227,8 +2241,11 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
       return std::make_shared<TypedRecordReader<DoubleType>>(descr, leaf_info, pool,
                                                              read_dense_for_nullable);
     case Type::BYTE_ARRAY:
+      {
+        std::cout << "BYE " << std::endl;
       return MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
                                        read_dense_for_nullable);
+      }
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<FLBARecordReader>(descr, leaf_info, pool,
                                                 read_dense_for_nullable);
