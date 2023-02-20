@@ -21,7 +21,6 @@
 #include <memory>
 #include <string>
 
-#include "arrow/flight/sql/FlightSql.pb.h"
 #include "arrow/flight/client.h"
 #include "arrow/flight/sql/types.h"
 #include "arrow/flight/sql/visibility.h"
