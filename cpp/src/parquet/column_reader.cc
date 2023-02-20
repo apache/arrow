@@ -2238,11 +2238,10 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
     case Type::DOUBLE:
       return std::make_shared<TypedRecordReader<DoubleType>>(descr, leaf_info, pool,
                                                              read_dense_for_nullable);
-    case Type::BYTE_ARRAY:
-      {
+    case Type::BYTE_ARRAY: {
       return MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
                                        read_dense_for_nullable);
-      }
+    }
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<FLBARecordReader>(descr, leaf_info, pool,
                                                 read_dense_for_nullable);

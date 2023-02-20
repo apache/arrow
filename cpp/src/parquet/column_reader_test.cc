@@ -1586,11 +1586,10 @@ TEST_P(FLBARecordReaderTest, ReadAndSkipOptional) {
   record_reader_->Reset();
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    ByteArrayRecordReaderTests, ByteArrayRecordReaderTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(ByteArrayRecordReaderTests, ByteArrayRecordReaderTest,
+                         testing::Bool());
 
-INSTANTIATE_TEST_SUITE_P(
-    FLBARecordReaderTests, FLBARecordReaderTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(FLBARecordReaderTests, FLBARecordReaderTest, testing::Bool());
 
 }  // namespace test
 }  // namespace parquet
