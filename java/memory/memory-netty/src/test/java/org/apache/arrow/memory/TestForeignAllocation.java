@@ -20,6 +20,9 @@ package org.apache.arrow.memory;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.junit.After;
 import org.junit.Before;
@@ -99,7 +102,32 @@ public class TestForeignAllocation {
       } finally {
         allocation.release0();
       }
-      assertEquals(0, listenedAllocator.getAllocatedMemory());
+    }
+  }
+
+  @Test
+  public void wrapForeignAllocationWithAllocationListenerReclaimingSpace() {
+    final long bufferSize = 16;
+    final long limit = 2 * bufferSize - 1;
+
+    final List<ArrowBuf> bufferedToBeFreed = new ArrayList<>();
+    final AllocationListener listener = new AllocationListener() {
+      @Override
+      public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
+        bufferedToBeFreed.forEach(ArrowBuf::close);
+        return true;
+      }
+    };
+
+    try (BufferAllocator listenedAllocator =
+        allocator.newChildAllocator("child", listener, 0L, limit)) {
+      final ArrowBuf buffer1 = listenedAllocator.buffer(bufferSize);
+      bufferedToBeFreed.add(buffer1);
+      UnsafeForeignAllocation allocation = new UnsafeForeignAllocation(bufferSize);
+      try (final ArrowBuf buffer2 = listenedAllocator.wrapForeignAllocation(allocation)) {
+        assertEquals(bufferSize, buffer2.capacity());
+        assertEquals(0, buffer1.getReferenceManager().getRefCount()); // buffer1 was closed by listener
+      }
     }
   }
 

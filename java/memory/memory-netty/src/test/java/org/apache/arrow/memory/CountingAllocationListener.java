@@ -17,9 +17,11 @@
 
 package org.apache.arrow.memory;
 
-// Allocation listener
-// It counts the number of times it has been invoked, and how much memory allocation it has seen
-// When set to 'expand on fail', it attempts to expand the associated allocator's limit
+/**
+ * Allocation listener.
+ * It counts the number of times it has been invoked, and how much memory allocation it has seen
+ * When set to 'expand on fail', it attempts to expand the associated allocator's limit.
+ */
 final class CountingAllocationListener implements AllocationListener {
   private int numPreCalls;
   private int numCalls;

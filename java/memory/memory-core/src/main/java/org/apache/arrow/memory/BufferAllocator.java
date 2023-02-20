@@ -248,5 +248,7 @@ public interface BufferAllocator extends AutoCloseable {
    *
    * @param allocation The underlying allocation.
    */
-  ArrowBuf wrapForeignAllocation(ForeignAllocation allocation);
+  default ArrowBuf wrapForeignAllocation(ForeignAllocation allocation) {
+    throw new UnsupportedOperationException();
+  }
 }
