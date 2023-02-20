@@ -249,7 +249,7 @@ html_context = {
     # "switcher_template_url": "http://0.0.0.0:8000/docs/{version}",
     "github_user": "apache",
     "github_repo": "arrow",
-    "github_version": "master",
+    "github_version": "main",
     "doc_path": "docs/source",
 }
 

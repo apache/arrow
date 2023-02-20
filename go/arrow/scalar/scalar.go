@@ -31,6 +31,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/bitutil"
 	"github.com/apache/arrow/go/v12/arrow/decimal128"
 	"github.com/apache/arrow/go/v12/arrow/decimal256"
+	"github.com/apache/arrow/go/v12/arrow/encoded"
 	"github.com/apache/arrow/go/v12/arrow/endian"
 	"github.com/apache/arrow/go/v12/arrow/float16"
 	"github.com/apache/arrow/go/v12/arrow/internal/debug"
@@ -546,6 +547,7 @@ func init() {
 		},
 		arrow.FIXED_SIZE_LIST: func(dt arrow.DataType) Scalar { return &FixedSizeList{&List{scalar: scalar{dt, false}}} },
 		arrow.DURATION:        func(dt arrow.DataType) Scalar { return &Duration{scalar: scalar{dt, false}} },
+		arrow.RUN_END_ENCODED: func(dt arrow.DataType) Scalar { return &RunEndEncoded{scalar: scalar{dt, false}} },
 		// invalid data types to fill out array size 2^6 - 1
 		63: invalidScalarType,
 	}
@@ -561,6 +563,11 @@ func init() {
 func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 	if arr.DataType().ID() != arrow.DICTIONARY && arr.IsNull(idx) {
 		return MakeNullScalar(arr.DataType()), nil
+	}
+
+	if idx >= arr.Len() {
+		return nil, fmt.Errorf("%w: called GetScalar with index larger than array len",
+			arrow.ErrIndex)
 	}
 
 	switch arr := arr.(type) {
@@ -664,6 +671,14 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 		return NewTime64Scalar(arr.Value(idx), arr.DataType()), nil
 	case *array.Timestamp:
 		return NewTimestampScalar(arr.Value(idx), arr.DataType()), nil
+	case *array.RunEndEncoded:
+		physicalIndex := encoded.FindPhysicalIndex(arr.Data(), arr.Offset()+idx)
+		value, err := GetScalar(arr.Values(), physicalIndex)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewRunEndEncodedScalar(value, arr.DataType().(*arrow.RunEndEncodedType)), nil
 	case *array.Dictionary:
 		ty := arr.DataType().(*arrow.DictionaryType)
 		valid := arr.IsValid(idx)
@@ -908,6 +923,46 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (arrow.Arr
 			data.Release()
 		}()
 		return array.MakeFromData(data), nil
+	case *RunEndEncoded:
+		dt := s.DataType().(*arrow.RunEndEncodedType)
+
+		var endBytes []byte
+		switch dt.RunEnds().ID() {
+		case arrow.INT16:
+			if length > math.MaxInt16 {
+				return nil, fmt.Errorf("%w: length overflows int16 run ends", arrow.ErrInvalid)
+			}
+
+			v := int16(length)
+			endBytes = (*[2]byte)(unsafe.Pointer(&v))[:]
+		case arrow.INT32:
+			if length > math.MaxInt32 {
+				return nil, fmt.Errorf("%w: final length overflows int32 run ends", arrow.ErrInvalid)
+			}
+
+			v := int32(length)
+			endBytes = (*[4]byte)(unsafe.Pointer(&v))[:]
+		case arrow.INT64:
+			v := int64(length)
+			endBytes = (*[8]byte)(unsafe.Pointer(&v))[:]
+		}
+
+		endBuf := createBuffer(endBytes)
+		defer endBuf.Release()
+
+		valueArr, err := MakeArrayFromScalar(s.Value, 1, mem)
+		if err != nil {
+			return nil, err
+		}
+		defer valueArr.Release()
+
+		runEndsData := array.NewData(dt.RunEnds(), 1, []*memory.Buffer{nil, endBuf}, nil, 0, 0)
+		defer runEndsData.Release()
+
+		finalData := array.NewData(s.DataType(), length, []*memory.Buffer{nil},
+			[]arrow.ArrayData{runEndsData, valueArr.Data()}, 0, 0)
+		defer finalData.Release()
+		return array.NewRunEndEncodedData(finalData), nil
 	default:
 		return nil, fmt.Errorf("array from scalar not yet implemented for type %s", sc.DataType())
 	}
@@ -987,6 +1042,8 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 		if s.Value.Index.IsValid() {
 			out ^= Hash(seed, s.Value.Index)
 		}
+	case *RunEndEncoded:
+		return Hash(seed, s.Value)
 	case PrimitiveScalar:
 		h.Write(s.Data())
 		hash()

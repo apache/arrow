@@ -373,9 +373,7 @@ class Repo:
                 target_name_tokenized = target_name.split("/")
                 default_branch_name = target_name_tokenized[-1]
             except KeyError:
-                # TODO: ARROW-18011 to track changing the hard coded default
-                # value from "master" to "main".
-                default_branch_name = "master"
+                default_branch_name = "main"
                 warnings.warn('Unable to determine default branch name: '
                               'ARCHERY_DEFAULT_BRANCH environment variable is '
                               'not set. Git repository does not contain a '
@@ -792,9 +790,6 @@ class Target(Serializable):
         self.r_version = r_version
         self.no_rc_version = re.sub(r'-rc\d+\Z', '', version)
         self.no_rc_r_version = re.sub(r'-rc\d+\Z', '', r_version)
-        # TODO(ARROW-17552): Remove "master" from default_branch after
-        #                    migration to "main".
-        self.default_branch = ['main', 'master']
         # Semantic Versioning 1.0.0: https://semver.org/spec/v1.0.0.html
         #
         # > A pre-release version number MAY be denoted by appending an
@@ -872,9 +867,7 @@ class Target(Serializable):
                    version=version, r_version=r_version)
 
     def is_default_branch(self):
-        # TODO(ARROW-17552): Switch the condition to "is" instead of "in"
-        #                    once "master" is removed from "default_branch".
-        return self.branch in self.default_branch
+        return self.branch == 'main'
 
 
 class Task(Serializable):

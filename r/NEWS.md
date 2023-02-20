@@ -19,7 +19,7 @@
 
 # arrow 11.0.0.9000
 
-# arrow 11.0.0
+# arrow 11.0.0.2
 
 ## Breaking changes
 

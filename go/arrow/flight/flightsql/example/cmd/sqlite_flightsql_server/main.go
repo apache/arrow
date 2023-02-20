@@ -40,7 +40,13 @@ func main() {
 
 	flag.Parse()
 
-	srv, err := example.NewSQLiteFlightSQLServer()
+	db, err := example.CreateDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	srv, err := example.NewSQLiteFlightSQLServer(db)
 	if err != nil {
 		log.Fatal(err)
 	}

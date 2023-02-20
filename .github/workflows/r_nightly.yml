@@ -50,7 +50,7 @@ jobs:
           fetch-depth: 1
           path: arrow
           repository: apache/arrow
-          ref: master
+          ref: main
           submodules: recursive
       - name: Checkout Crossbow
         uses: actions/checkout@v3

@@ -39,7 +39,7 @@ Apache Arrow is the emerging standard for large in-memory columnar data ([Spark]
 
 Check out our [API documentation][5] to learn more about how to use Apache Arrow's JS implementation. You can also learn by example by checking out some of the following resources:
 
-* [/js/test/unit](https://github.com/apache/arrow/tree/master/js/test/unit) - Unit tests for Table and Vector
+* [/js/test/unit](https://github.com/apache/arrow/tree/main/js/test/unit) - Unit tests for Table and Vector
 
 ## Cookbook
 
@@ -247,10 +247,10 @@ Full list of broader Apache Arrow [projects & organizations](https://arrow.apach
 
 # License
 
-[Apache 2.0](https://github.com/apache/arrow/blob/master/LICENSE)
+[Apache 2.0](https://github.com/apache/arrow/blob/main/LICENSE)
 
 [1]: mailto:dev-subscribe@arrow.apache.org
-[2]: https://github.com/apache/arrow/tree/master/format
+[2]: https://github.com/apache/arrow/tree/main/format
 [3]: https://github.com/apache/arrow/issues
 [4]: https://github.com/apache/arrow
 [5]: https://arrow.apache.org/docs/js/

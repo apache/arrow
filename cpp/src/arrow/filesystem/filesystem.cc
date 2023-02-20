@@ -116,7 +116,8 @@ std::string FileInfo::ToString() const {
 }
 
 std::ostream& operator<<(std::ostream& os, const FileInfo& info) {
-  return os << "FileInfo(" << info.type() << ", " << info.path() << ")";
+  return os << "FileInfo(" << info.type() << ", " << info.path() << ", " << info.size()
+            << ", " << info.mtime().time_since_epoch().count() << ")";
 }
 
 std::string FileInfo::extension() const {

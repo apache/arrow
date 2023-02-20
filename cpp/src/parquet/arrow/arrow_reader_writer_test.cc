@@ -4083,6 +4083,16 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
   std::vector<std::vector<std::string>> expected_min_max_ = {
       {"a", "b"}, {"b", "c"}, {"a", "d"}, {"", ""}};
 
+  const std::vector<std::vector<std::vector<std::string>>> expected_min_by_page = {
+      {{"b", "a"}, {"b", "a"}}, {{"b", "b"}, {"b", "b"}}, {{"c", "a"}, {"c", "a"}}};
+  const std::vector<std::vector<std::vector<std::string>>> expected_max_by_page = {
+      {{"b", "a"}, {"b", "a"}}, {{"c", "c"}, {"c", "c"}}, {{"d", "a"}, {"d", "a"}}};
+  const std::vector<std::vector<std::vector<bool>>> expected_has_min_max_by_page = {
+      {{true, true}, {true, true}},
+      {{true, true}, {true, true}},
+      {{true, true}, {true, true}},
+      {{false}, {false}}};
+
   for (std::size_t case_index = 0; case_index < test_dictionaries.size(); case_index++) {
     SCOPED_TRACE(test_dictionaries[case_index]->type()->ToString());
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<::arrow::Array> dict_encoded,
@@ -4143,8 +4153,18 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
         DataPage* data_page = (DataPage*)page.get();
         const EncodedStatistics& stats = data_page->statistics();
         EXPECT_EQ(stats.null_count, expected_null_by_page[case_index][page_index]);
-        EXPECT_EQ(stats.has_min, false);
-        EXPECT_EQ(stats.has_max, false);
+
+        auto expect_has_min_max =
+            expected_has_min_max_by_page[case_index][row_group_index][page_index];
+        EXPECT_EQ(stats.has_min, expect_has_min_max);
+        EXPECT_EQ(stats.has_max, expect_has_min_max);
+        if (expect_has_min_max) {
+          EXPECT_EQ(stats.min(),
+                    expected_min_by_page[case_index][row_group_index][page_index]);
+          EXPECT_EQ(stats.max(),
+                    expected_max_by_page[case_index][row_group_index][page_index]);
+        }
+
         EXPECT_EQ(data_page->num_values(),
                   expected_valid_by_page[case_index][page_index] +
                       expected_null_by_page[case_index][page_index]);
@@ -5070,6 +5090,26 @@ TEST(TestArrowReadWrite, MultithreadedWrite) {
   ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer), pool, &reader));
   ASSERT_OK_NO_THROW(reader->ReadTable(&result));
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
+}
+
+TEST(TestArrowReadWrite, FuzzReader) {
+  constexpr size_t kMaxFileSize = 1024 * 1024 * 1;
+  {
+    auto path = test::get_data_file("PARQUET-1481.parquet", /*is_good=*/false);
+    PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
+                                             path, ::arrow::io::FileMode::READ));
+    PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
+    auto s = internal::FuzzReader(buffer->data(), buffer->size());
+    ASSERT_NOT_OK(s);
+  }
+  {
+    auto path = test::get_data_file("alltypes_plain.parquet", /*is_good=*/true);
+    PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
+                                             path, ::arrow::io::FileMode::READ));
+    PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
+    auto s = internal::FuzzReader(buffer->data(), buffer->size());
+    ASSERT_OK(s);
+  }
 }
 
 }  // namespace arrow

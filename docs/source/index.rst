@@ -43,15 +43,15 @@ target environment.**
 
    C/GLib <c_glib/index>
    C++ <cpp/index>
-   C# <https://github.com/apache/arrow/blob/master/csharp/README.md>
+   C# <https://github.com/apache/arrow/blob/main/csharp/README.md>
    Go <https://pkg.go.dev/github.com/apache/arrow/go>
    Java <java/index>
    JavaScript <js/index>
    Julia <https://github.com/apache/arrow-julia/blob/main/README.md>
-   MATLAB <https://github.com/apache/arrow/blob/master/matlab/README.md>
+   MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>
    Python <python/index>
    R <r/index>
-   Ruby <https://github.com/apache/arrow/blob/master/ruby/README.md>
+   Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
    Rust <https://docs.rs/crate/arrow/>
    status
 

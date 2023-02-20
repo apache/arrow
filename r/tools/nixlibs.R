@@ -125,7 +125,7 @@ identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()
   }
 }
 
-check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apache/arrow/master/r/tools/nixlibs-allowlist.txt") {
+check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apache/arrow/main/r/tools/nixlibs-allowlist.txt") {
   allowlist <- tryCatch(
     # Try a remote allowlist so that we can add/remove without a release
     suppressWarnings(readLines(allowed)),
@@ -555,7 +555,7 @@ turn_off_all_optional_features <- function(env_var_list) {
   # check the existing value.
   # Some features turn on other features (e.g. substrait -> protobuf),
   # So the list of things to turn off is long. See:
-  # https://github.com/apache/arrow/blob/master/cpp/cmake_modules/ThirdpartyToolchain.cmake#L275
+  # https://github.com/apache/arrow/blob/main/cpp/cmake_modules/ThirdpartyToolchain.cmake#L275
   turn_off <- c(
     "ARROW_MIMALLOC" = "OFF",
     "ARROW_JEMALLOC" = "OFF",

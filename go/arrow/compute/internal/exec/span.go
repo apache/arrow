@@ -437,6 +437,12 @@ func (a *ArraySpan) FillFromScalar(val scalar.Scalar) {
 	}
 }
 
+func (a *ArraySpan) SetDictionary(span *ArraySpan) {
+	a.resizeChildren(1)
+	a.Children[0].Release()
+	a.Children[0] = *span
+}
+
 // TakeOwnership is like SetMembers only this takes ownership of
 // the buffers by calling Retain on them so that the passed in
 // ArrayData can be released without negatively affecting this
@@ -479,18 +485,13 @@ func (a *ArraySpan) TakeOwnership(data arrow.ArrayData) {
 	}
 
 	if typeID == arrow.DICTIONARY {
-		if cap(a.Children) >= 1 {
-			a.Children = a.Children[:1]
-		} else {
-			a.Children = make([]ArraySpan, 1)
+		a.resizeChildren(1)
+		dict := data.Dictionary()
+		if dict != (*array.Data)(nil) {
+			a.Children[0].TakeOwnership(dict)
 		}
-		a.Children[0].TakeOwnership(data.Dictionary())
 	} else {
-		if cap(a.Children) >= len(data.Children()) {
-			a.Children = a.Children[:len(data.Children())]
-		} else {
-			a.Children = make([]ArraySpan, len(data.Children()))
-		}
+		a.resizeChildren(len(data.Children()))
 		for i, c := range data.Children() {
 			a.Children[i].TakeOwnership(c)
 		}
@@ -538,12 +539,11 @@ func (a *ArraySpan) SetMembers(data arrow.ArrayData) {
 	}
 
 	if typeID == arrow.DICTIONARY {
-		if cap(a.Children) >= 1 {
-			a.Children = a.Children[:1]
-		} else {
-			a.Children = make([]ArraySpan, 1)
+		a.resizeChildren(1)
+		dict := data.Dictionary()
+		if dict != (*array.Data)(nil) {
+			a.Children[0].SetMembers(dict)
 		}
-		a.Children[0].SetMembers(data.Dictionary())
 	} else {
 		if cap(a.Children) >= len(data.Children()) {
 			a.Children = a.Children[:len(data.Children())]
@@ -619,6 +619,12 @@ func FillZeroLength(dt arrow.DataType, span *ArraySpan) {
 		span.Buffers[i].Buf, span.Buffers[i].Owner = nil, nil
 	}
 
+	if dt.ID() == arrow.DICTIONARY {
+		span.resizeChildren(1)
+		FillZeroLength(dt.(*arrow.DictionaryType).ValueType, &span.Children[0])
+		return
+	}
+
 	nt, ok := dt.(arrow.NestedType)
 	if !ok {
 		if len(span.Children) > 0 {
@@ -627,11 +633,7 @@ func FillZeroLength(dt arrow.DataType, span *ArraySpan) {
 		return
 	}
 
-	if cap(span.Children) >= len(nt.Fields()) {
-		span.Children = span.Children[:len(nt.Fields())]
-	} else {
-		span.Children = make([]ArraySpan, len(nt.Fields()))
-	}
+	span.resizeChildren(len(nt.Fields()))
 	for i, f := range nt.Fields() {
 		FillZeroLength(f.Type, &span.Children[i])
 	}

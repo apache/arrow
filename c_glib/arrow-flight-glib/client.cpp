@@ -405,6 +405,53 @@ gaflight_client_close(GAFlightClient *client,
 }
 
 /**
+ * gaflight_client_authenticate_basic_token:
+ * @client: A #GAFlightClient.
+ * @user: User name to be used.
+ * @password: Password to be used.
+ * @options: (nullable): A #GAFlightCallOptions.
+ * @bearer_name: (out) (transfer full): Bearer token name on success.
+ * @bearer_value: (out) (transfer full): Bearer token value on success.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Authenticates to the server using basic HTTP style authentication.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 12.0.0
+ */
+gboolean
+gaflight_client_authenticate_basic_token(GAFlightClient *client,
+                                         const gchar *user,
+                                         const gchar *password,
+                                         GAFlightCallOptions *options,
+                                         gchar **bearer_name,
+                                         gchar **bearer_value,
+                                         GError **error)
+{
+  auto flight_client = gaflight_client_get_raw(client);
+  arrow::flight::FlightCallOptions flight_default_options;
+  auto flight_options = &flight_default_options;
+  if (options) {
+    flight_options = gaflight_call_options_get_raw(options);
+  }
+  auto result = flight_client->AuthenticateBasicToken(*flight_options,
+                                                      user,
+                                                      password);
+  if (!garrow::check(error,
+                     result,
+                     "[flight-client][authenticate-basic-token]")) {
+    return FALSE;
+  }
+  auto bearer_token = *result;
+  *bearer_name = g_strndup(bearer_token.first.data(),
+                           bearer_token.first.size());
+  *bearer_value = g_strndup(bearer_token.second.data(),
+                            bearer_token.second.size());
+  return TRUE;
+}
+
+/**
  * gaflight_client_list_flights:
  * @client: A #GAFlightClient.
  * @criteria: (nullable): A #GAFlightCriteria.

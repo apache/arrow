@@ -32,6 +32,7 @@ namespace parquet {
 
 class ColumnReader;
 class FileMetaData;
+class PageIndexReader;
 class PageReader;
 class RowGroupMetaData;
 
@@ -98,6 +99,7 @@ class PARQUET_EXPORT ParquetFileReader {
     virtual void Close() = 0;
     virtual std::shared_ptr<RowGroupReader> GetRowGroup(int i) = 0;
     virtual std::shared_ptr<FileMetaData> metadata() const = 0;
+    virtual std::shared_ptr<PageIndexReader> GetPageIndexReader() = 0;
   };
 
   ParquetFileReader();
@@ -132,6 +134,17 @@ class PARQUET_EXPORT ParquetFileReader {
 
   // Returns the file metadata. Only one instance is ever created
   std::shared_ptr<FileMetaData> metadata() const;
+
+  /// Returns the PageIndexReader. Only one instance is ever created.
+  ///
+  /// If the file does not have the page index, nullptr may be returned.
+  /// Because it pays to check existence of page index in the file, it
+  /// is possible to return a non null value even if page index does
+  /// not exist. It is the caller's responsibility to check the return
+  /// value and follow-up calls to PageIndexReader.
+  ///
+  /// WARNING: The returned PageIndexReader must not outlive the ParquetFileReader.
+  std::shared_ptr<PageIndexReader> GetPageIndexReader();
 
   /// Pre-buffer the specified column indices in all row groups.
   ///

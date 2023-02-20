@@ -371,7 +371,7 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
     if (ok()) {
       return MoveValueUnsafe();
     }
-    return generate_alternative();
+    return std::forward<G>(generate_alternative)();
   }
 
   /// Apply a function to the internally stored value to produce a new result or propagate

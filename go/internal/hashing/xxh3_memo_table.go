@@ -381,6 +381,31 @@ func (b *BinaryMemoTable) CopyOffsetsSubset(start int, out []int32) {
 	out[sz-start] = int32(b.builder.DataLen() - (int(delta) - int(first)))
 }
 
+// CopyLargeOffsets copies the list of offsets into the passed in slice, the offsets
+// being the start and end values of the underlying allocated bytes in the builder
+// for the individual values of the table. out should be at least sized to Size()+1
+func (b *BinaryMemoTable) CopyLargeOffsets(out []int64) {
+	b.CopyLargeOffsetsSubset(0, out)
+}
+
+// CopyLargeOffsetsSubset is like CopyOffsets but instead of copying all of the offsets,
+// it gets a subset of the offsets in the table starting at the index provided by "start".
+func (b *BinaryMemoTable) CopyLargeOffsetsSubset(start int, out []int64) {
+	if b.builder.Len() <= start {
+		return
+	}
+
+	first := b.findOffset(0)
+	delta := b.findOffset(start)
+	sz := b.Size()
+	for i := start; i < sz; i++ {
+		offset := int64(b.findOffset(i) - delta)
+		out[i-start] = offset
+	}
+
+	out[sz-start] = int64(b.builder.DataLen() - (int(delta) - int(first)))
+}
+
 // CopyValues copies the raw binary data bytes out, out should be a []byte
 // with at least ValuesSize bytes allocated to copy into.
 func (b *BinaryMemoTable) CopyValues(out interface{}) {
@@ -428,19 +453,20 @@ func (b *BinaryMemoTable) CopyFixedWidthValues(start, width int, out []byte) {
 	}
 
 	var (
-		leftOffset = b.findOffset(start)
-		nullOffset = b.findOffset(null)
-		leftSize   = nullOffset - leftOffset
+		leftOffset  = b.findOffset(start)
+		nullOffset  = b.findOffset(null)
+		leftSize    = nullOffset - leftOffset
+		rightOffset = leftOffset + uintptr(b.ValuesSize())
 	)
 
 	if leftSize > 0 {
 		copy(out, b.builder.Value(start)[0:leftSize])
 	}
 
-	rightSize := b.ValuesSize() - int(nullOffset)
+	rightSize := rightOffset - nullOffset
 	if rightSize > 0 {
 		// skip the null fixed size value
-		copy(out[int(leftSize)+width:], b.builder.Value(int(nullOffset))[0:rightSize])
+		copy(out[int(leftSize)+width:], b.builder.Value(null + 1)[0:rightSize])
 	}
 }
 

@@ -78,16 +78,39 @@ func TestMapArray(t *testing.T) {
 	unequalArr = bldr.NewMapArray()
 	defer unequalArr.Release()
 
-	assert.True(t, array.ArrayEqual(arr, arr))
-	assert.True(t, array.ArrayEqual(arr, equalArr))
-	assert.True(t, array.ArrayEqual(equalArr, arr))
-	assert.False(t, array.ArrayEqual(equalArr, unequalArr))
-	assert.False(t, array.ArrayEqual(unequalArr, equalArr))
+	assert.True(t, array.Equal(arr, arr))
+	assert.True(t, array.Equal(arr, equalArr))
+	assert.True(t, array.Equal(equalArr, arr))
+	assert.False(t, array.Equal(equalArr, unequalArr))
+	assert.False(t, array.Equal(unequalArr, equalArr))
 
 	assert.True(t, array.SliceEqual(arr, 0, 1, unequalArr, 0, 1))
 	assert.False(t, array.SliceEqual(arr, 0, 2, unequalArr, 0, 2))
 	assert.False(t, array.SliceEqual(arr, 1, 2, unequalArr, 1, 2))
 	assert.True(t, array.SliceEqual(arr, 2, 3, unequalArr, 2, 3))
+
+	t.Run("items non nullable", func(t *testing.T) {
+		mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+		defer mem.AssertSize(t, 0)
+
+		dt := arrow.MapOf(arrow.PrimitiveTypes.Int16, arrow.PrimitiveTypes.Int16)
+		dt.KeysSorted = true
+		dt.SetItemNullable(false)
+
+		bldr := array.NewBuilder(pool, dt).(*array.MapBuilder)
+		defer bldr.Release()
+
+		kb := bldr.KeyBuilder().(*array.Int16Builder)
+		ib := bldr.ItemBuilder().(*array.Int16Builder)
+
+		bldr.Append(true)
+		kb.Append(1)
+		ib.AppendNull()
+
+		assert.Panics(t, func() {
+			_ = bldr.NewArray()
+		})
+	})
 }
 
 func TestMapArrayBuildIntToInt(t *testing.T) {

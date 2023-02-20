@@ -439,7 +439,6 @@ TEST(BloomFilter, Basic) {
   constexpr int log_min = 8;
   constexpr int log_max = 16;
 #endif
-  constexpr int log_large = 22;
   for (int log_num_build = log_min; log_num_build < log_max; ++log_num_build) {
     constexpr int num_intermediate_points = 2;
     for (int i = 0; i < num_intermediate_points; ++i) {
@@ -449,8 +448,11 @@ TEST(BloomFilter, Basic) {
                           num_intermediate_points);
     }
   }
+#ifndef ARROW_VALGRIND
   num_build.push_back(1LL << log_max);
+  constexpr int log_large = 22;
   num_build.push_back(1LL << log_large);
+#endif
 
   constexpr int num_param_sets = 3;
   struct {
@@ -466,7 +468,9 @@ TEST(BloomFilter, Basic) {
 
   std::vector<BloomFilterBuildStrategy> strategy;
   strategy.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
+#ifndef ARROW_VALGRIND
   strategy.push_back(BloomFilterBuildStrategy::PARALLEL);
+#endif
 
   static constexpr int64_t min_rows_for_large = 2 * 1024 * 1024;
 
@@ -492,6 +496,7 @@ TEST(BloomFilter, Basic) {
   }
 }
 
+#ifndef ARROW_VALGRIND
 TEST(BloomFilter, Scaling) {
   std::vector<int64_t> num_build;
   num_build.push_back(1000000);
@@ -515,6 +520,7 @@ TEST(BloomFilter, Scaling) {
     }
   }
 }
+#endif
 
 }  // namespace compute
 }  // namespace arrow

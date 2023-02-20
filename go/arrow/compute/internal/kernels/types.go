@@ -52,6 +52,9 @@ var (
 		arrow.BinaryTypes.LargeBinary,
 		arrow.BinaryTypes.String,
 		arrow.BinaryTypes.LargeString}
+	primitiveTypes = append(append([]arrow.DataType{arrow.Null,
+		arrow.FixedWidthTypes.Date32, arrow.FixedWidthTypes.Date64},
+		numericTypes...), baseBinaryTypes...)
 )
 
 //go:generate stringer -type=CompareOperator -linecomment

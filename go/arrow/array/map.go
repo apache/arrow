@@ -112,7 +112,7 @@ func arrayEqualMap(left, right *Map) bool {
 type MapBuilder struct {
 	listBuilder *ListBuilder
 
-	etype                   arrow.DataType
+	etype                   *arrow.MapType
 	keytype, itemtype       arrow.DataType
 	keyBuilder, itemBuilder Builder
 	keysSorted              bool
@@ -131,21 +131,20 @@ type MapBuilder struct {
 // Simple example provided of converting a []map[string]int32 to an array.Map
 // by using a MapBuilder:
 //
-//   /* assume maplist == []map[string]int32 */
-//   bldr := array.NewMapBuilder(memory.DefaultAllocator, arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32, false)
-//   defer bldr.Release()
-//   kb := bldr.KeyBuilder().(*array.StringBuilder)
-//   ib := bldr.ItemBuilder().(*array.Int32Builder)
-//   for _, m := range maplist {
-//       bldr.Append(true)
-//       for k, v := range m {
-//            kb.Append(k)
-//            ib.Append(v)
-//       }
-//   }
-//   maparr := bldr.NewMapArray()
-//   defer maparr.Release()
-//
+//	/* assume maplist == []map[string]int32 */
+//	bldr := array.NewMapBuilder(memory.DefaultAllocator, arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32, false)
+//	defer bldr.Release()
+//	kb := bldr.KeyBuilder().(*array.StringBuilder)
+//	ib := bldr.ItemBuilder().(*array.Int32Builder)
+//	for _, m := range maplist {
+//	    bldr.Append(true)
+//	    for k, v := range m {
+//	         kb.Append(k)
+//	         ib.Append(v)
+//	    }
+//	}
+//	maparr := bldr.NewMapArray()
+//	defer maparr.Release()
 func NewMapBuilder(mem memory.Allocator, keytype, itemtype arrow.DataType, keysSorted bool) *MapBuilder {
 	etype := arrow.MapOf(keytype, itemtype)
 	etype.KeysSorted = keysSorted
@@ -162,6 +161,23 @@ func NewMapBuilder(mem memory.Allocator, keytype, itemtype arrow.DataType, keysS
 		keytype:     keytype,
 		itemtype:    itemtype,
 		keysSorted:  keysSorted,
+	}
+}
+
+func NewMapBuilderWithType(mem memory.Allocator, dt *arrow.MapType) *MapBuilder {
+	listBldr := NewListBuilder(mem, dt.ValueType())
+	keyBldr := listBldr.ValueBuilder().(*StructBuilder).FieldBuilder(0)
+	keyBldr.Retain()
+	itemBldr := listBldr.ValueBuilder().(*StructBuilder).FieldBuilder(1)
+	itemBldr.Retain()
+	return &MapBuilder{
+		listBuilder: listBldr,
+		keyBuilder:  keyBldr,
+		itemBuilder: itemBldr,
+		etype:       dt,
+		keytype:     dt.KeyType(),
+		itemtype:    dt.ValueType(),
+		keysSorted:  dt.KeysSorted,
 	}
 }
 
@@ -249,6 +265,10 @@ func (b *MapBuilder) NewArray() arrow.Array {
 // NewMapArray creates a new Map array from the memory buffers used by the builder, and
 // resets the builder so it can be used again to build a new Map array.
 func (b *MapBuilder) NewMapArray() (a *Map) {
+	if !b.etype.ItemField().Nullable && b.ItemBuilder().NullN() > 0 {
+		panic("arrow/array: item not nullable")
+	}
+
 	data := b.newData()
 	defer data.Release()
 	a = NewMapData(data)
