@@ -779,37 +779,44 @@ TEST(Substrait, CallCast) {
   ExtensionSet ext_set;
   ConversionOptions conversion_options;
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Expression", R"({
-  	
-    "expressions": {
-		"cast": {
-			"type": {
-				"fp64": {
-					"nullability": "NULLABILITY_NULLABLE"
-				}
-			},
-			"input": {
-				"selection": {
-					"direct_reference": {
-						"struct_field": {}
-					},
-					"root_reference": {}
-				}
-			},
-			"failure_behavior": "FAILURE_BEHAVIOR_THROW_EXCEPTION"
-		}
-	}
-  })", /*ignore_unknown_fields=*/false))
+  ASSERT_OK_AND_ASSIGN(auto expr, internal::SubstraitFromJSON("Expression", R"({
+  "selection": {
+      "directReference": {
+        "structField": {
+          "field": 0
+        }
+      },
+    "expression": {
+      "cast": {
+        "type": {
+          "fp64": {
+            "nullability": "NULLABILITY_NULLABLE"
+          }
+        },
+        "input": {
+          "selection": {
+            "direct_reference": {
+              "struct_field": {
+                "field": 0
+              }
+            }
+          }
+        },
+        "failure_behavior": "FAILURE_BEHAVIOR_THROW_EXCEPTION"
+      }
+    }
+  }
+})", /*ignore_unknown_fields=*/false))
   
 
+  ASSERT_OK_AND_ASSIGN(
+    auto expected_expression,
+    compute::call(
+      "cast",
+      {compute::field_ref("i64")}, compute::CastOptions::Safe(float64())).Bind(*kBoringSchema)
+  );
   
-  /*
-
-  ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
-  ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*kBoringSchema));
-  
-  EXPECT_EQ(UseBoringRefs(roundtripped), UseBoringRefs(expr));
-  */
+  EXPECT_EQ(*expr, expected_expression);
   
 }
 
