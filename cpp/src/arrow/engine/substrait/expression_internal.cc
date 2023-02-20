@@ -337,9 +337,10 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
         return compute::call("cast", std::move(input), compute::CastOptions::Safe(type));
       } else if(cast_exp.failure_behavior() == substrait::Expression_Cast_FailureBehavior::Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL){
         return Status::NotImplemented("Unsupported cast failure behavior: Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL");
-      // e.g. if unspecified  
+      // i.e. if unspecified  
       } else {
-        return compute::call("cast", std::move(input), compute::CastOptions::Unsafe(type));
+        return Status::Invalid(
+            "substrait::Expression::Cast::FailureBehavior unspecified; must be FAILURE_BEHAVIOR_RETURN_NULL or FAILURE_BEHAVIOR_THROW_EXCEPTION)";
       }
       
     }
@@ -1015,7 +1016,6 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
   }
 
   auto out = std::make_unique<substrait::Expression>();
-
   if (auto datum = expr.literal()) {
     ARROW_ASSIGN_OR_RAISE(auto literal, ToProto(*datum, ext_set, conversion_options));
     out->set_allocated_literal(literal.release());
