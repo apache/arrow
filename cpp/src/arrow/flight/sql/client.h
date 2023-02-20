@@ -342,11 +342,6 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \param[in] options      RPC-layer hints for this call.
   ::arrow::Result<CloseSessionResult> CloseSession(const FlightCallOptions& options);
 
-  /// \brief Explicitly closes the session if applicable.
-  ///
-  /// \param[in] options      RPC-layer hints for this call.
-  ::arrow::Result<CloseSessionResult> CloseSession(const FlightCallOptions& options);
-
   /// \brief Explicitly shut down and clean up the client.
   Status Close();
 
