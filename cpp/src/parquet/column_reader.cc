@@ -2038,9 +2038,7 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
     for (int64_t i = 0; i < num_decoded; i++) {
       PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
     }
-    std::cout << "here " << "values_to_read " << values_to_read << " values_written " << values_written_ << std::endl;
     ResetValues();
-    std::cout << "After reset here " << "values_to_read " << values_to_read << " values_written " << values_written_ << std::endl;
   }
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
@@ -2242,7 +2240,6 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
                                                              read_dense_for_nullable);
     case Type::BYTE_ARRAY:
       {
-        std::cout << "BYE " << std::endl;
       return MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
                                        read_dense_for_nullable);
       }
