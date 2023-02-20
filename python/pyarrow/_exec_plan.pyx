@@ -492,12 +492,14 @@ def _perform_join_asof(left_operand not None, left_on, left_by,
                             output_type=Table,
                             use_threads=False)
 
+    # Get rid of special dataset columns
+    # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
+    result_table = result_table.select(left_columns + right_columns)
+
     if output_type == Table:
         return result_table
     elif output_type == InMemoryDataset:
-        # Get rid of special dataset columns
-        # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
-        return InMemoryDataset(result_table.select(left_columns + right_columns))
+        return InMemoryDataset(result_table)
     else:
         raise TypeError("Unsupported output type")
 
