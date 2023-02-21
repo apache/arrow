@@ -1810,7 +1810,8 @@ const FunctionDoc is_dst_doc{
 const FunctionDoc local_timestamp_doc{
     "Convert timestamp to a timezone-naive local time timestamp",
     ("LocalTimestamp converts timezone-aware timestamp to local timestamp\n"
-     "of the given timestamps timezone and removes timezone metadata.\n"
+     "of the given timestamp's timezone and removes timezone metadata.\n"
+     "Alternative name for this timestamp is also wall clock time.\n"
      "If input is in UTC or without timezone, then unchanged input values\n"
      "without timezone metadata are returned.\n"
      "Null values emit null."),
