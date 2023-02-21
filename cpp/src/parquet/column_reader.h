@@ -304,17 +304,17 @@ namespace internal {
 /// \brief Stateful column reader that delimits semantic records for both flat
 /// and nested columns
 ///
-/// @param column descriptor
-/// @param level info
-/// @param memory pool to use for buffering values and rep/def levels
-/// @param True if reading directly as Arrow dictionary-encoded
-/// @param True if reading dense and not leaving space for null values
-///
-///
 /// \note API EXPERIMENTAL
 /// \since 1.3.0
 class PARQUET_EXPORT RecordReader {
  public:
+  /// \brief Creates a record reader.
+  /// @param descr Column descriptor
+  /// @param leaf_info Level info, used to determine if a column is nullable or not
+  /// @param pool Memory pool to use for buffering values and rep/def levels
+  /// @param read_dictionary True if reading directly as Arrow dictionary-encoded
+  /// @param read_dense_for_nullable True if reading dense and not leaving space for null
+  /// values
   static std::shared_ptr<RecordReader> Make(
       const ColumnDescriptor* descr, LevelInfo leaf_info,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
