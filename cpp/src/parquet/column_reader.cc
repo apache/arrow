@@ -1820,19 +1820,14 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     int64_t records_read = DelimitRecords(num_records, values_to_read);
     if (!nullable_values()) {
       ReadValuesDense(*values_to_read);
-      *null_count = 0;
+      // null_count is always 0 for required.
+      ARROW_DCHECK_EQ(*null_count, 0);
     } else if (read_dense_for_nullable_) {
       ReadValuesDense(*values_to_read);
-      // Any values with def_level < max_def_level is considered null.
-      // This behavior is consistent with reading spaced below. When reading
-      // spaced, we leave a space for an empty list with parent present, and it
-      // counts as null. So we do the same when counting nulls with reading
-      // dense.
-      *null_count = levels_position_ - start_levels_position - *values_to_read;
+      // null_count is always 0 for reading dense.
+      ARROW_DCHECK_EQ(*null_count, 0);
     } else {
       ReadSpacedForOptionalOrRepeated(start_levels_position, values_to_read, null_count);
-      ARROW_DCHECK_EQ(*null_count,
-                      levels_position_ - start_levels_position - *values_to_read);
     }
     return records_read;
   }
@@ -1851,7 +1846,10 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     // Optional fields are always nullable.
     if (read_dense_for_nullable_) {
-      ReadDenseForOptional(start_levels_position, values_to_read, null_count);
+      ReadDenseForOptional(start_levels_position, values_to_read);
+      // We don't need to update null_count when reading dense. It should be
+      // already set to 0.
+      ARROW_DCHECK_EQ(*null_count, 0);
     } else {
       ReadSpacedForOptionalOrRepeated(start_levels_position, values_to_read, null_count);
     }
@@ -1866,10 +1864,9 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     return num_records;
   }
 
-  // Reads dense for optional records. First, it figures out number of values to
-  // read and null count.
-  void ReadDenseForOptional(int64_t start_levels_position, int64_t* values_to_read,
-                            int64_t* null_count) {
+  // Reads dense for optional records. First it figures out how many values to
+  // read.
+  void ReadDenseForOptional(int64_t start_levels_position, int64_t* values_to_read) {
     // levels_position_ must already be incremented based on number of records
     // read.
     ARROW_DCHECK_GE(levels_position_, start_levels_position);
@@ -1879,14 +1876,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     for (int i = start_levels_position; i < levels_position_; ++i) {
       if (def_levels[i] == this->max_def_level_) {
         ++(*values_to_read);
-      } else {
-        ++(*null_count);
       }
     }
-    // Any values with def_level < max_def_level is considered null.
-    // This behavior is consistent with reading spaced for optional fields.
-    ARROW_DCHECK_EQ(*null_count,
-                    levels_position_ - start_levels_position - *values_to_read);
     ReadValuesDense(*values_to_read);
   }
 
@@ -1906,6 +1897,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     *values_to_read = validity_io.values_read - validity_io.null_count;
     *null_count = validity_io.null_count;
     ARROW_DCHECK_GE(*values_to_read, 0);
+    ARROW_DCHECK_GE(*null_count, 0);
     ReadValuesSpaced(validity_io.values_read, *null_count);
   }
 
@@ -1943,11 +1935,12 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     ARROW_DCHECK_GE(values_to_read, 0);
     ARROW_DCHECK_GE(null_count, 0);
 
-    null_count_ += null_count;
     if (read_dense_for_nullable_) {
       values_written_ += values_to_read;
+      ARROW_DCHECK_EQ(null_count, 0);
     } else {
       values_written_ += values_to_read + null_count;
+      null_count_ += null_count;
     }
     // Total values, including null spaces, if any
     if (this->max_def_level_ > 0) {
@@ -1996,10 +1989,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       PARQUET_THROW_NOT_OK(valid_bits_->Resize(0, /*shrink_to_fit=*/false));
       values_written_ = 0;
       values_capacity_ = 0;
+      null_count_ = 0;
     }
-    // When reading dense, we might not write any values, but null_count_ may be
-    // greater than 0.
-    null_count_ = 0;
   }
 
  protected:

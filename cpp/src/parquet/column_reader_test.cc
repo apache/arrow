@@ -1418,8 +1418,7 @@ class FLBARecordReaderTest : public ::testing::TestWithParam<bool> {
     ASSERT_EQ(binary_array->length(), record_reader_->values_written());
     if (read_dense_for_nullable()) {
       ASSERT_EQ(binary_array->null_count(), 0);
-      ASSERT_EQ(record_reader_->null_count(),
-                end - start - record_reader_->values_written());
+      ASSERT_EQ(record_reader_->null_count(), 0);
     } else {
       ASSERT_EQ(binary_array->null_count(), record_reader_->null_count());
     }
@@ -1513,8 +1512,7 @@ class ByteArrayRecordReaderTest : public ::testing::TestWithParam<bool> {
     ASSERT_EQ(binary_array->length(), record_reader_->values_written());
     if (read_dense_for_nullable()) {
       ASSERT_EQ(binary_array->null_count(), 0);
-      ASSERT_EQ(record_reader_->null_count(),
-                end - start - record_reader_->values_written());
+      ASSERT_EQ(record_reader_->null_count(), 0);
     } else {
       ASSERT_EQ(binary_array->null_count(), record_reader_->null_count());
     }
