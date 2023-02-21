@@ -88,12 +88,12 @@ template <class Range, class DataPointConvertor,
 /// auto batches = RowsToBatches(kTestSchema, data, IntConvertor);
 /// \endcode
 
-/// \param[in] schema - the schema to be used in the `RecordBatchReader`
+/// \param[in] schema - The schema to be used in the `RecordBatchReader`
 
-/// \param[in] rows - iterable row-based structure that will be converted to arrow
+/// \param[in] rows - Iterable row-based structure that will be converted to arrow
 /// batches
 
-/// \param[in] data_point_convertor - client provided callable type that will convert
+/// \param[in] data_point_convertor - Client provided callable type that will convert
 /// the structure’s data points into the corresponding arrow types. The convertor must
 /// return an error `Status` if an error happens during conversion.
 
@@ -103,6 +103,10 @@ template <class Range, class DataPointConvertor,
 /// `std::reference_wrapper<Range>` to the data points in a given row. The data points
 /// must be in order of their corresponding fields in the schema.
 /// see: /ref `MakeDefaultRowAccessor`
+
+/// \param[in] pool - The MemoryPool to use for allocations.
+
+/// \param[in] batch_size - Number of rows to insert into each RecordBatch.
 
 /// \return `Result<std::shared_ptr<RecordBatchReader>>>` result will be a
 /// `std::shared_ptr<RecordBatchReader>>` if not errors occurred, else an error status.
