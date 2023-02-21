@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/extension/tensor_array.h"
+#include "arrow/extension/fixed_shape_tensor.h"
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
@@ -44,7 +44,9 @@ std::vector<int64_t> FixedShapeTensorType::strides() const {
   std::vector<int64_t> strides;
   const auto& value_type = internal::checked_cast<const FixedWidthType&>(*value_type_);
   DCHECK_OK(internal::ComputeRowMajorStrides(value_type, shape_, &strides));
-  internal::Permute(permutation_, &strides);
+  if (!permutation_.empty()) {
+    internal::Permute(permutation_, &strides);
+  }
   return strides;
 }
 
@@ -126,7 +128,7 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
     ARROW_CHECK_EQ(shape.size(), dim_names.size()) << "Invalid dim_names";
   }
 
-  return tensor_array(value_type, shape, permutation, dim_names);
+  return fixed_shape_tensor(value_type, shape, permutation, dim_names);
 }
 
 std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
@@ -148,7 +150,7 @@ Result<std::shared_ptr<Array>> FixedShapeTensorType::MakeArray(
   permutation.erase(permutation.begin());
 
   auto ext_type =
-      tensor_array(tensor->type(), cell_shape, permutation, tensor->dim_names());
+      fixed_shape_tensor(tensor->type(), cell_shape, permutation, tensor->dim_names());
 
   std::shared_ptr<FixedSizeListArray> arr;
   std::shared_ptr<Array> value_array;
@@ -238,10 +240,11 @@ std::shared_ptr<DataType> FixedShapeTensorType::get_storage_type(
   return fixed_size_list(value_type, static_cast<int32_t>(size));
 }
 
-std::shared_ptr<FixedShapeTensorType> tensor_array(
+std::shared_ptr<FixedShapeTensorType> fixed_shape_tensor(
     const std::shared_ptr<DataType>& value_type, const std::vector<int64_t>& shape,
     const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names) {
   ARROW_CHECK(is_tensor_supported(value_type->id()));
+
   if (!permutation.empty()) {
     ARROW_CHECK_EQ(shape.size(), permutation.size())
         << "permutation.size() == " << permutation.size()

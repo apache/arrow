@@ -78,7 +78,7 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
 };
 
 /// \brief Return a TensorArrayType instance.
-ARROW_EXPORT std::shared_ptr<FixedShapeTensorType> tensor_array(
+ARROW_EXPORT std::shared_ptr<FixedShapeTensorType> fixed_shape_tensor(
     const std::shared_ptr<DataType>& storage_type, const std::vector<int64_t>& shape,
     const std::vector<int64_t>& permutation = {},
     const std::vector<std::string>& dim_names = {});

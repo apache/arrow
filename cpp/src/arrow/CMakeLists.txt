@@ -549,8 +549,10 @@ if(ARROW_IPC)
 endif()
 
 if(ARROW_JSON)
+  add_definitions(-DARROW_WITH_JSON)
   list(APPEND
        ARROW_SRCS
+       extension/fixed_shape_tensor.cc
        json/options.cc
        json/chunked_builder.cc
        json/chunker.cc
@@ -558,8 +560,7 @@ if(ARROW_JSON)
        json/object_parser.cc
        json/object_writer.cc
        json/parser.cc
-       json/reader.cc
-       extension/tensor_array.cc)
+       json/reader.cc)
 endif()
 
 if(ARROW_ORC)
@@ -804,6 +805,10 @@ add_arrow_test(buffer_test)
 if(ARROW_IPC)
   # The extension type unit tests require IPC / Flatbuffers support
   add_arrow_test(extension_type_test)
+endif()
+
+if(ARROW_JSON)
+  add_arrow_test(canonical_extension_test SOURCES extension/fixed_shape_tensor_test.cc)
 endif()
 
 add_arrow_test(misc_test
