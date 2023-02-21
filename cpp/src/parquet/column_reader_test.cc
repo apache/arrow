@@ -1367,7 +1367,7 @@ class FLBARecordReaderTest : public ::testing::TestWithParam<bool> {
     level_info.rep_level = 0;
     NodePtr type = ::parquet::schema::PrimitiveNode::Make(
         "b", Repetition::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::NONE,
-        FLBA_type_length);
+        FLBA_type_length_);
     descr_ = std::make_unique<ColumnDescriptor>(type, level_info.def_level,
                                                 level_info.rep_level);
     MakePages<FLBAType>(descr_.get(), num_pages, levels_per_page, def_levels_,
@@ -1533,7 +1533,6 @@ class ByteArrayRecordReaderTest : public ::testing::TestWithParam<bool> {
 
  private:
   int levels_per_page_;
-  int FLBA_type_length_;
   std::vector<std::shared_ptr<Page>> pages_;
   std::vector<int16_t> def_levels_;
   std::vector<int16_t> rep_levels_;
