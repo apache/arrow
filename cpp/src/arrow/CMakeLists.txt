@@ -391,7 +391,7 @@ if(ARROW_COMPUTE)
        compute/api_vector.cc
        compute/cast.cc
        compute/exec.cc
-       compute/exec/aggregate.cc
+       compute/exec/groupby.cc
        compute/exec/accumulation_queue.cc
        compute/exec/aggregate_node.cc
        compute/exec/asof_join_node.cc

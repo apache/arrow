@@ -2082,6 +2082,17 @@ def test_table_group_by():
         "count_all": [3]
     }
 
+    table = pa.table({
+        'keys': ['a', 'b', 'a', 'b', 'a', 'b'],
+        'values': range(6)})
+    table_with_chunks = pa.Table.from_batches(
+        table.to_batches(max_chunksize=3))
+    r = table_with_chunks.group_by('keys').aggregate([('values', 'sum')])
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b"],
+        "values_sum": [6, 9]
+    }
+
 
 def test_table_to_recordbatchreader():
     table = pa.Table.from_pydict({'x': [1, 2, 3]})
