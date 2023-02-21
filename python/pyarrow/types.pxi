@@ -3489,6 +3489,14 @@ cpdef MapType map_(key_type, item_type, keys_sorted=False):
       [
         1,
         2
+      ],
+      keys:
+      [
+        "c"
+      ]
+      values:
+      [
+        3
       ]
     ]
     """
