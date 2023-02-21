@@ -110,7 +110,7 @@ public class TestForeignAllocation {
     final long bufferSize = 16;
     final long limit = 2 * bufferSize - 1;
 
-    final List<ArrowBuf> bufferedToBeFreed = new ArrayList<>();
+    final List<ArrowBuf> buffersToBeFreed = new ArrayList<>();
     final AllocationListener listener = new AllocationListener() {
       @Override
       public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
