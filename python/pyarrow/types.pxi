@@ -2941,8 +2941,8 @@ def date32():
 
     Create a scalar with 32-bit date type:
 
-    >>> from datetime import datetime
-    >>> pa.scalar(datetime(2012, 1, 1), type=pa.date32())
+    >>> from datetime import date
+    >>> pa.scalar(date(2012, 1, 1), type=pa.date32())
     <pyarrow.Date32Scalar: datetime.date(2012, 1, 1)>
     """
     return primitive_type(_Type_DATE32)
