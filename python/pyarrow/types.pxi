@@ -2738,11 +2738,9 @@ def timestamp(unit, tz=None):
     Use timestamp type when creating a scalar object:
 
     >>> from datetime import datetime
-    >>> pa.scalar(datetime(2012, 1, 1),
-    ...           type=pa.timestamp('s', tz='+07:30'))
+    >>> pa.scalar(datetime(2012, 1, 1), type=pa.timestamp('s', tz='+07:30'))
     <pyarrow.TimestampScalar: datetime.datetime(2012, 1, 1, 7, 30, tzinfo=pytz.FixedOffset(450))>
-    >>> pa.scalar(datetime(2012, 1, 1),
-    ...           type=pa.timestamp('us'))
+    >>> pa.scalar(datetime(2012, 1, 1), type=pa.timestamp('us'))
     <pyarrow.TimestampScalar: datetime.datetime(2012, 1, 1, 0, 0)>
 
     Returns
@@ -3478,7 +3476,7 @@ cpdef MapType map_(key_type, item_type, keys_sorted=False):
 
     Use MapType to create an array:
 
-    >>> data = [[{'key': 'a', 'value': 1}, {'key': 'b', 'value': 2}]]
+    >>> data = [[{'key': 'a', 'value': 1}, {'key': 'b', 'value': 2}], [{'key': 'c', 'value': 3}]]
     >>> pa.array(data, type=pa.map_(pa.string(), pa.int32(), keys_sorted=True))
     <pyarrow.lib.MapArray object at ...>
     [
