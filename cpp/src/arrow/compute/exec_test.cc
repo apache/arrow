@@ -1401,7 +1401,7 @@ TEST(Ordering, IsSuborderOf) {
   Ordering b{{SortKey{3}, SortKey{1}}};
   Ordering c{{SortKey{1}, SortKey{7}}};
   Ordering d{{SortKey{1}, SortKey{7}}, NullPlacement::AtEnd};
-  Ordering imp = Ordering::Imiplicit();
+  Ordering imp = Ordering::Implicit();
   Ordering unordered = Ordering::Unordered();
 
   std::vector<Ordering> orderings = {a, b, c, d, imp, unordered};

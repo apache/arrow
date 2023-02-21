@@ -236,7 +236,7 @@ struct SourceNode : ExecNode, public TracedNode {
 struct TableSourceNode : public SourceNode {
   TableSourceNode(ExecPlan* plan, std::shared_ptr<Table> table, int64_t batch_size)
       : SourceNode(plan, table->schema(), TableGenerator(*table, batch_size),
-                   Ordering::Imiplicit()) {}
+                   Ordering::Implicit()) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -305,7 +305,7 @@ template <typename This, typename Options>
 struct SchemaSourceNode : public SourceNode {
   SchemaSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
                    arrow::AsyncGenerator<std::optional<ExecBatch>> generator)
-      : SourceNode(plan, schema, generator, Ordering::Imiplicit()) {}
+      : SourceNode(plan, schema, generator, Ordering::Implicit()) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {

@@ -93,7 +93,7 @@ class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
   std::vector<SortKey> sort_keys() { return sort_keys_; }
   NullPlacement null_placement() { return null_placement_; }
 
-  static const Ordering& Imiplicit() {
+  static const Ordering& Implicit() {
     static const Ordering kImplicit(true);
     return kImplicit;
   }
