@@ -271,6 +271,24 @@ struct AppendScalarImpl {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedType&) {
+    auto builder = checked_cast<RunEndEncodedBuilder*>(builder_);
+
+    RETURN_NOT_OK(builder->Reserve(n_repeats_ * (scalars_end_ - scalars_begin_)));
+
+    for (int64_t i = 0; i < n_repeats_; i++) {
+      for (auto it = scalars_begin_; it != scalars_end_; ++it) {
+        if (it->is_valid) {
+          const auto& scalar_value = *checked_cast<const RunEndEncodedScalar&>(*it).value;
+          RETURN_NOT_OK(builder->AppendScalar(scalar_value, 1));
+        } else {
+          RETURN_NOT_OK(builder_->AppendNull());
+        }
+      }
+    }
+    return Status::OK();
+  }
+
   Status Visit(const DataType& type) {
     return Status::NotImplemented("AppendScalar for type ", type);
   }

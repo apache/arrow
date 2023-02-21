@@ -690,6 +690,10 @@ class FieldToFlatbufferVisitor {
     return VisitType(*checked_cast<const DictionaryType&>(type).value_type());
   }
 
+  Status Visit(const RunEndEncodedType& type) {
+    return Status::NotImplemented("run-end encoded type in IPC");
+  }
+
   Status Visit(const ExtensionType& type) {
     RETURN_NOT_OK(VisitType(*type.storage_type()));
     extra_type_metadata_[kExtensionTypeKeyName] = type.extension_name();

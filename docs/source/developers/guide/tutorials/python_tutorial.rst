@@ -102,13 +102,13 @@ Start the work on a new branch
 ------------------------------
 
 Before we start working on adding the feature we should
-create a new branch from the updated master branch.
+create a new branch from the updated main branch.
 
 .. code:: console
 
-   $ git checkout master
+   $ git checkout main
    $ git fetch upstream
-   $ git pull --ff-only upstream master
+   $ git pull --ff-only upstream main
    $ git checkout -b ARROW-14977
 
 Let's research the Arrow library to see where the ``pc.min_max``
@@ -443,7 +443,7 @@ We can use ``git log`` to check the history of commits:
 
        Adding a new compute feature for tutorial purposes
 
-   commit 8cebc4948ab5c5792c20a3f463e2043e01c49828 (master)
+   commit 8cebc4948ab5c5792c20a3f463e2043e01c49828 (main)
    Author: Sutou Kouhei <kou@clear-code.com>
    Date:   Sun Dec 5 15:19:46 2021 +0900
 
@@ -459,11 +459,11 @@ We can use ``git log`` to check the history of commits:
    ...
 
 If we would started the branch some time ago, we may need to rebase to
-upstream master to make sure there are no merge conflicts:
+upstream main to make sure there are no merge conflicts:
 
 .. code:: console
 
-   $ git pull upstream master --rebase
+   $ git pull upstream main --rebase
 
 And now we can push our work to the forked Arrow repository on GitHub
 called ``origin``.
