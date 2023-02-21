@@ -235,9 +235,9 @@ void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
 
   if (type->id() == Type::DICTIONARY) {
     span->child_data.resize(1);
-    const std::shared_ptr<DataType>& values_type =
+    const std::shared_ptr<DataType>& value_type =
         checked_cast<const DictionaryType*>(type)->value_type();
-    FillZeroLengthArray(values_type.get(), &span->child_data[0]);
+    FillZeroLengthArray(value_type.get(), &span->child_data[0]);
   } else {
     // Fill children
     span->child_data.resize(type->num_fields());
