@@ -3257,15 +3257,13 @@ def large_binary():
 
     and use the type to create an array:
 
-    >>> pa.array(['foo', 'bar'] * 50, type=pa.large_binary())
+    >>> pa.array(['foo', 'bar', 'baz'], type=pa.large_binary())
     <pyarrow.lib.LargeBinaryArray object at ...>
     [
       666F6F,
       626172,
-      666F6F,
-      626172,
-      666F6F,
-    ...
+      62617A
+    ]
     """
     return primitive_type(_Type_LARGE_BINARY)
 
