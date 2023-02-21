@@ -122,7 +122,7 @@ public class TestForeignAllocation {
     try (BufferAllocator listenedAllocator =
         allocator.newChildAllocator("child", listener, 0L, limit)) {
       final ArrowBuf buffer1 = listenedAllocator.buffer(bufferSize);
-      bufferedToBeFreed.add(buffer1);
+      buffersToBeFreed.add(buffer1);
       UnsafeForeignAllocation allocation = new UnsafeForeignAllocation(bufferSize);
       try (final ArrowBuf buffer2 = listenedAllocator.wrapForeignAllocation(allocation)) {
         assertEquals(bufferSize, buffer2.capacity());
