@@ -3072,23 +3072,6 @@ cdef class ExtensionArray(Array):
         # otherwise convert the storage array with the base implementation
         return Array._to_pandas(self.storage, options, **kwargs)
 
-    def to_numpy(self, **kwargs):
-        """
-        Convert extension array to a numpy ndarray.
-
-        This method simply delegates to the underlying storage array.
-
-        Parameters
-        ----------
-        **kwargs : dict, optional
-            See `Array.to_numpy` for parameter description.
-
-        See Also
-        --------
-        Array.to_numpy
-        """
-        return self.storage.to_numpy(**kwargs)
-
 
 cdef dict _array_classes = {
     _Type_NA: NullArray,

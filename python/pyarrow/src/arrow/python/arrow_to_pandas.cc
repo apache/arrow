@@ -2321,6 +2321,16 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
   // Table->DataFrame
   modified_options.allow_zero_copy_blocks = true;
 
+  if (arr->type()->id() == Type::EXTENSION) {
+      auto value_type = checked_cast<const ExtensionType&>(*arr->type()).storage_type();
+      ArrayVector storage_arrays;
+      for (int c = 0; c < arr->num_chunks(); c++) {
+        const auto& arr_ext = checked_cast<const ExtensionArray&>(*arr->chunk(c));
+        storage_arrays.emplace_back(arr_ext.storage());
+      }
+      arr = std::make_shared<ChunkedArray>(std::move(storage_arrays), value_type);
+  }
+
   PandasWriter::type output_type;
   RETURN_NOT_OK(GetPandasWriterType(*arr, modified_options, &output_type));
   if (options.decode_dictionaries) {
