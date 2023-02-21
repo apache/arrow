@@ -782,7 +782,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadOptional) {
   int64_t records_read = record_reader_->ReadRecords(/*num_records=*/2);
   ASSERT_EQ(records_read, 2);
   if (GetParam() == /*read_dense_for_nullable=*/true) {
-    CheckState(/*values_written=*/1, /*null_count=*/1, /*levels_written=*/9,
+    CheckState(/*values_written=*/1, /*null_count=*/0, /*levels_written=*/9,
                /*levels_position=*/2);
     CheckReadValues(/*expected_values=*/{10}, /*expected_defs=*/{2, 0},
                     /*expected_reps=*/{});
@@ -800,7 +800,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadOptional) {
   records_read = record_reader_->ReadRecords(/*num_records=*/6);
   ASSERT_EQ(records_read, 6);
   if (GetParam() == /*read_dense_for_nullable=*/true) {
-    CheckState(/*values_written=*/5, /*null_count=*/1, /*levels_written=*/7,
+    CheckState(/*values_written=*/5, /*null_count=*/0, /*levels_written=*/7,
                /*levels_position=*/6);
     CheckReadValues(/*expected_values=*/{20, 20, 30, 30, 30},
                     /*expected_defs=*/{2, 2, 1, 2, 2, 2},
@@ -820,7 +820,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadOptional) {
   records_read = record_reader_->ReadRecords(/*num_records=*/3);
   ASSERT_EQ(records_read, 1);
   if (GetParam() == /*read_dense_for_nullable=*/true) {
-    CheckState(/*values_written=*/0, /*null_count=*/1, /*levels_written=*/1,
+    CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
                /*levels_position=*/1);
     CheckReadValues(/*expected_values=*/{},
                     /*expected_defs=*/{0},
@@ -912,7 +912,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
   int64_t records_read = record_reader_->ReadRecords(/*num_records=*/2);
   ASSERT_EQ(records_read, 2);
   if (GetParam() == /*read_dense_for_nullable=*/true) {
-    CheckState(/*values_written=*/1, /*null_count=*/1, /*levels_written=*/9,
+    CheckState(/*values_written=*/1, /*null_count=*/0, /*levels_written=*/9,
                /*levels_position=*/2);
     CheckReadValues(/*expected_values=*/{10}, /*expected_defs=*/{1, 0},
                     /*expected_reps=*/{0, 0});
@@ -930,7 +930,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
   records_read = record_reader_->ReadRecords(/*num_records=*/3);
   ASSERT_EQ(records_read, 3);
   if (GetParam() == /*read_dense_for_nullable=*/true) {
-    CheckState(/*values_written=*/5, /*null_count=*/1, /*levels_written=*/7,
+    CheckState(/*values_written=*/5, /*null_count=*/0, /*levels_written=*/7,
                /*levels_position=*/6);
     CheckReadValues(/*expected_values=*/{20, 20, 30, 30, 30},
                     /*expected_defs=*/{1, 1, 0, 1, 1, 1},
@@ -950,7 +950,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
   records_read = record_reader_->ReadRecords(/*num_records=*/3);
   ASSERT_EQ(records_read, 1);
   if (GetParam() == /*read_dense_for_nullable=*/true) {
-    CheckState(/*values_written=*/0, /*null_count=*/1, /*levels_written=*/1,
+    CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
                /*levels_position=*/1);
     CheckReadValues(/*expected_values=*/{},
                     /*expected_defs=*/{0},
@@ -1035,7 +1035,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipOptional) {
     if (GetParam() == /*read_dense_for_nullable=*/true) {
       // We had skipped 2 of the levels above. So there is only 6 left in total to
       // read, and we read 3 of them here.
-      CheckState(/*values_written=*/2, /*null_count=*/1, /*levels_written=*/6,
+      CheckState(/*values_written=*/2, /*null_count=*/0, /*levels_written=*/6,
                  /*levels_position=*/3);
       CheckReadValues(/*expected_values=*/{20, 30}, /*expected_defs=*/{1, 0, 1},
                       /*expected_reps=*/{});

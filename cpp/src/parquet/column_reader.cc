@@ -1873,7 +1873,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     // When reading dense we need to figure out number of values to read.
     const int16_t* def_levels = this->def_levels();
-    for (int i = start_levels_position; i < levels_position_; ++i) {
+    for (int64_t i = start_levels_position; i < levels_position_; ++i) {
       if (def_levels[i] == this->max_def_level_) {
         ++(*values_to_read);
       }
