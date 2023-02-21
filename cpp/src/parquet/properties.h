@@ -265,7 +265,7 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// Specify the max number of rows to put in a single row group.
-    /// Default 64Mi rows.
+    /// Default 1Mi rows.
     Builder* max_row_group_length(int64_t max_row_group_length) {
       max_row_group_length_ = max_row_group_length;
       return this;

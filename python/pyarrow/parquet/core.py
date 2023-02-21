@@ -1038,7 +1038,7 @@ Examples
         ----------
         table_or_batch : {RecordBatch, Table}
         row_group_size : int, default None
-            Maximum # of rows in each written row group. If None,
+            Maximum number of rows in each written row group. If None,
             the row group size will be the minimum of the input
             table or batch length and 1024 * 1024.
         """
@@ -1057,7 +1057,7 @@ Examples
         ----------
         batch : RecordBatch
         row_group_size : int, default None
-            Maximum # of rows in written row group. If None, the
+            Maximum number of rows in written row group. If None, the
             row group size will be the minimum of the RecordBatch
             size and 1024 * 1024.
         """
@@ -1072,8 +1072,8 @@ Examples
         ----------
         table : Table
         row_group_size : int, default None
-            Maximum # of rows in each written row group. If None, the
-            row group size will be the minimum of the Table size
+            Maximum number of rows in each written row group. If None,
+            the row group size will be the minimum of the Table size
             and 1024 * 1024.
 
         """
@@ -3153,9 +3153,9 @@ Parameters
 table : pyarrow.Table
 where : string or pyarrow.NativeFile
 row_group_size : int
-    Maximum # of rows in each written row group. If None, the
-    row group size will be the minimum of the Table size
-    and 1024 * 1024.
+    Maximum number of rows in each written row group. If None, the
+    row group size will be the minimum of the Table size and
+    1024 * 1024.
 {}
 **kwargs : optional
     Additional options for ParquetWriter
