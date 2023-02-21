@@ -2310,12 +2310,16 @@ TEST(SubstraitRoundTrip, FilterNamedTable) {
   ])"});
 
   NamedTableProvider table_provider =
-      [&input_table, &table_names](
+    [&input_table, &table_names, &dummy_schema](
           const std::vector<std::string>& names,
-          const std::shared_ptr<Schema>) -> Result<compute::Declaration> {
+          const std::shared_ptr<Schema> schema) -> Result<compute::Declaration> {
     if (table_names != names) {
       return Status::Invalid("Table name mismatch");
     }
+    if (!dummy_schema->Equals(*schema)) {
+      return Status::Invalid("Table schema mismatch");
+    }
+
     std::shared_ptr<compute::ExecNodeOptions> options =
         std::make_shared<compute::TableSourceNodeOptions>(input_table);
     return compute::Declaration("table_source", {}, std::move(options), "mock_source");
