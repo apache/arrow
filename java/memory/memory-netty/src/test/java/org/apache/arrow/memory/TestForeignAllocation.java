@@ -114,7 +114,7 @@ public class TestForeignAllocation {
     final AllocationListener listener = new AllocationListener() {
       @Override
       public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
-        bufferedToBeFreed.forEach(ArrowBuf::close);
+        buffersToBeFreed.forEach(ArrowBuf::close);
         return true;
       }
     };
