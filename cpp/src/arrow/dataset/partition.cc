@@ -825,17 +825,17 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
   }
 
   Result<std::shared_ptr<Partitioning>> Finish(
-      const std::shared_ptr<Schema>& schema) const override {
+      const std::shared_ptr<Schema>& dataset_schema) const override {
     if (dictionaries_.empty()) {
-      return std::make_shared<HivePartitioning>(arrow::schema({}), dictionaries_);
+      return std::make_shared<HivePartitioning>(schema({}), dictionaries_);
     } else {
       for (FieldRef ref : field_names_) {
         // ensure all of field_names_ are present in schema
-        RETURN_NOT_OK(ref.FindOne(*schema));
+        RETURN_NOT_OK(ref.FindOne(*dataset_schema));
       }
 
       // drop fields which aren't in field_names_
-      auto out_schema = SchemaFromColumnNames(schema, field_names_);
+      auto out_schema = SchemaFromColumnNames(dataset_schema, field_names_);
 
       return std::make_shared<HivePartitioning>(std::move(out_schema), dictionaries_,
                                                 options_.AsHivePartitioningOptions());
