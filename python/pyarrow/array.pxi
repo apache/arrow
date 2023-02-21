@@ -232,6 +232,11 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     else:
         c_from_pandas = from_pandas
 
+    if isinstance(obj, Array):
+        if type is not None and not obj.type.equals(type):
+            obj = obj.cast(type)
+        return obj
+
     if hasattr(obj, '__arrow_array__'):
         return _handle_arrow_array_protocol(obj, type, mask, size)
     elif _is_array_like(obj):

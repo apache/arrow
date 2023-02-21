@@ -3381,3 +3381,15 @@ def test_struct_array_sort():
         {"a": 5, "b": "foo"},
         None
     ]
+
+
+def test_array_accepts_pyarrow_array():
+    arr = pa.array([1, 2, 3])
+    result = pa.array(arr)
+
+    assert arr == result
+
+    arr_uint = pa.array([1, 2, 3], type=pa.uint8())
+    result = pa.array(arr, type=pa.uint8())
+
+    assert arr_uint == result
