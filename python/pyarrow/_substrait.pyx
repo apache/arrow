@@ -27,7 +27,7 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_substrait cimport *
 
 
-cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector[c_string]& names):
+cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector[c_string]& names, const shared_ptr[CSchema] schema):
     cdef:
         c_string c_name
         shared_ptr[CTable] c_in_table
@@ -86,7 +86,7 @@ def run_query(plan, *, table_provider=None, use_threads=True):
     ...        return test_table_2
     ...     else:
     ...        raise Exception("Unrecognized table name")
-    ... 
+    ...
     >>> substrait_query = '''
     ...         {
     ...             "relations": [

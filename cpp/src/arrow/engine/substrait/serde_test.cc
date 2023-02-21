@@ -831,7 +831,8 @@ TEST(Substrait, ReadRel) {
 
 /// \brief Create a NamedTableProvider that provides `table` regardless of the name
 NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
-  return [table = std::move(table)](const std::vector<std::string>&) {
+  return [table = std::move(table)](const std::vector<std::string>&,
+                                    const std::shared_ptr<Schema>) {
     std::shared_ptr<compute::ExecNodeOptions> options =
         std::make_shared<compute::TableSourceNodeOptions>(table);
     return compute::Declaration("table_source", {}, options, "mock_source");
@@ -2310,7 +2311,8 @@ TEST(SubstraitRoundTrip, FilterNamedTable) {
 
   NamedTableProvider table_provider =
       [&input_table, &table_names](
-          const std::vector<std::string>& names) -> Result<compute::Declaration> {
+          const std::vector<std::string>& names,
+          const std::shared_ptr<Schema>) -> Result<compute::Declaration> {
     if (table_names != names) {
       return Status::Invalid("Table name mismatch");
     }
@@ -3049,21 +3051,22 @@ TEST(SubstraitRoundTrip, JoinRel) {
       [10, 1, 10, 11]
   ])"});
 
-  NamedTableProvider table_provider =
-      [left_table, right_table](const std::vector<std::string>& names) {
-        std::shared_ptr<Table> output_table;
-        for (const auto& name : names) {
-          if (name == "left") {
-            output_table = left_table;
-          }
-          if (name == "right") {
-            output_table = right_table;
-          }
-        }
-        std::shared_ptr<compute::ExecNodeOptions> options =
-            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
-        return compute::Declaration("table_source", {}, options, "mock_source");
-      };
+  NamedTableProvider table_provider = [left_table, right_table](
+                                          const std::vector<std::string>& names,
+                                          const std::shared_ptr<Schema>) {
+    std::shared_ptr<Table> output_table;
+    for (const auto& name : names) {
+      if (name == "left") {
+        output_table = left_table;
+      }
+      if (name == "right") {
+        output_table = right_table;
+      }
+    }
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
@@ -3200,21 +3203,22 @@ TEST(SubstraitRoundTrip, JoinRelWithEmit) {
       [10, 1, 11]
   ])"});
 
-  NamedTableProvider table_provider =
-      [left_table, right_table](const std::vector<std::string>& names) {
-        std::shared_ptr<Table> output_table;
-        for (const auto& name : names) {
-          if (name == "left") {
-            output_table = left_table;
-          }
-          if (name == "right") {
-            output_table = right_table;
-          }
-        }
-        std::shared_ptr<compute::ExecNodeOptions> options =
-            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
-        return compute::Declaration("table_source", {}, options, "mock_source");
-      };
+  NamedTableProvider table_provider = [left_table, right_table](
+                                          const std::vector<std::string>& names,
+                                          const std::shared_ptr<Schema>) {
+    std::shared_ptr<Table> output_table;
+    for (const auto& name : names) {
+      if (name == "left") {
+        output_table = left_table;
+      }
+      if (name == "right") {
+        output_table = right_table;
+      }
+    }
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
@@ -3551,7 +3555,8 @@ TEST(Substrait, IsthmusPlan) {
 
 NamedTableProvider ProvideMadeTable(
     std::function<Result<std::shared_ptr<Table>>(const std::vector<std::string>&)> make) {
-  return [make](const std::vector<std::string>& names) -> Result<compute::Declaration> {
+  return [make](const std::vector<std::string>& names,
+                const std::shared_ptr<Schema>) -> Result<compute::Declaration> {
     ARROW_ASSIGN_OR_RAISE(auto table, make(names));
     std::shared_ptr<compute::ExecNodeOptions> options =
         std::make_shared<compute::TableSourceNodeOptions>(table);
@@ -4114,21 +4119,21 @@ TEST(Substrait, SetRelationBasic) {
       [112, 7, 32]
   ])"});
 
-  NamedTableProvider table_provider = [table1,
-                                       table2](const std::vector<std::string>& names) {
-    std::shared_ptr<Table> output_table;
-    for (const auto& name : names) {
-      if (name == "T1") {
-        output_table = table1;
-      }
-      if (name == "T2") {
-        output_table = table2;
-      }
-    }
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
+  NamedTableProvider table_provider =
+      [table1, table2](const std::vector<std::string>& names, std::shared_ptr<Schema>) {
+        std::shared_ptr<Table> output_table;
+        for (const auto& name : names) {
+          if (name == "T1") {
+            output_table = table1;
+          }
+          if (name == "T2") {
+            output_table = table2;
+          }
+        }
+        std::shared_ptr<compute::ExecNodeOptions> options =
+            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
+        return compute::Declaration("table_source", {}, options, "mock_source");
+      };
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
@@ -4656,21 +4661,22 @@ TEST(Substrait, CompoundEmitFilterless) {
       [80, 21, 23, 80, 25, 46]
   ])"});
 
-  NamedTableProvider table_provider =
-      [left_table, right_table](const std::vector<std::string>& names) {
-        std::shared_ptr<Table> output_table;
-        for (const auto& name : names) {
-          if (name == "left") {
-            output_table = left_table;
-          }
-          if (name == "right") {
-            output_table = right_table;
-          }
-        }
-        std::shared_ptr<compute::ExecNodeOptions> options =
-            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
-        return compute::Declaration("table_source", {}, options, "mock_source");
-      };
+  NamedTableProvider table_provider = [left_table, right_table](
+                                          const std::vector<std::string>& names,
+                                          const std::shared_ptr<Schema>) {
+    std::shared_ptr<Table> output_table;
+    for (const auto& name : names) {
+      if (name == "left") {
+        output_table = left_table;
+      }
+      if (name == "right") {
+        output_table = right_table;
+      }
+    }
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
@@ -4985,7 +4991,8 @@ TEST(Substrait, CompoundEmitWithFilter) {
 
   NamedTableProvider table_provider =
       [left_table, right_table](
-          const std::vector<std::string>& names) -> Result<compute::Declaration> {
+          const std::vector<std::string>& names,
+          const std::shared_ptr<Schema>) -> Result<compute::Declaration> {
     std::shared_ptr<Table> output_table;
     for (const auto& name : names) {
       if (name == "left") {
