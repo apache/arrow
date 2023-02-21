@@ -279,3 +279,4 @@ repo:
   url:
     source: https://github.com/apache/arrow/blob/main/r/
     issue: https://github.com/apache/arrow/issues/
+    user: https://github.com/
