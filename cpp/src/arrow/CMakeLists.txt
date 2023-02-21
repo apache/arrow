@@ -504,14 +504,13 @@ if(ARROW_FILESYSTEM)
     list(APPEND ARROW_SRCS filesystem/hdfs.cc)
   endif()
   if(ARROW_S3)
-
     try_compile(S3_HAS_CRT ${CMAKE_CURRENT_BINARY_DIR}/try_compile
                 SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/filesystem/try_compile/check_s3fs_crt.cc"
                 CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
                 LINK_LIBRARIES ${AWSSDK_LINK_LIBRARIES} CXX_STANDARD 17)
 
     if(S3_HAS_CRT)
-      message(STATUS "AWS SDK is new enought to have CRT support")
+      message(STATUS "AWS SDK is new enough to have CRT support")
       add_definitions(-DARROW_S3_HAS_CRT)
     endif()
 
