@@ -129,6 +129,9 @@ Fixed shape tensor
 
     ``{ "shape": [100, 200, 500], "permutation": [2, 0, 1]}``
 
+    This is the physical layout shape and the the shape of the logical
+    layout would in this case be ``[500, 100, 200]``.
+
 .. note::
 
   Elements in a fixed shape tensor extension array are stored
