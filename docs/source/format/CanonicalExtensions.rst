@@ -85,10 +85,11 @@ Fixed shape tensor
 
 * Extension type parameters:
 
-  * **value_type** = Arrow DataType of the tensor elements
-  * **shape** = shape of the contained tensors as an array
+  * **value_type** = Arrow DataType or Field of the tensor elements.
+  * **shape** = the physical shape of the contained tensors
+    as an array.
 
-  Optional parameters:
+  Optional parameters describing the logical layout:
 
   * **dim_names** = explicit names to tensor dimensions
     as an array. The length of it should be equal to the shape
