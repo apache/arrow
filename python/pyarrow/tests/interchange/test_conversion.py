@@ -85,7 +85,6 @@ def test_offset_of_sliced_array():
     assert col.offset == 2
 
     result = _from_dataframe(table_sliced.__dataframe__())
-    result = pa.Table.from_batches([result])
     assert table_sliced.equals(result)
     assert not table.equals(result)
 
@@ -177,7 +176,6 @@ def test_pandas_roundtrip(uint, int, float, np_float):
     )
     pandas_df = pandas_from_dataframe(table)
     result = pi.from_dataframe(pandas_df)
-    result = pa.Table.from_batches([result])
     assert table.equals(result)
 
     table_protocol = table.__dataframe__()
@@ -203,7 +201,6 @@ def test_roundtrip_pandas_string():
     )
     pandas_df = pandas_from_dataframe(table)
     result = pi.from_dataframe(pandas_df)
-    result = pa.Table.from_batches([result])
 
     assert result[0].to_pylist() == table[0].to_pylist()
     assert pa.types.is_string(table[0].type)
@@ -230,7 +227,6 @@ def test_roundtrip_pandas_boolean():
     )
     pandas_df = pandas_from_dataframe(table)
     result = pi.from_dataframe(pandas_df)
-    result = pa.Table.from_batches([result])
 
     assert table.equals(result)
 
@@ -267,7 +263,6 @@ def test_roundtrip_pandas_datetime(unit):
     )
     pandas_df = pandas_from_dataframe(table)
     result = pi.from_dataframe(pandas_df)
-    result = pa.Table.from_batches([result])
 
     assert expected.equals(result)
 
@@ -318,7 +313,6 @@ def test_pandas_to_pyarrow_with_missing(np_float):
         "dt": pa.array(datetime_array, type=pa.timestamp("ns"))
     })
     result = pi.from_dataframe(df)
-    result = pa.Table.from_batches([result])
 
     assert result.equals(expected)
 
@@ -373,8 +367,8 @@ def test_pandas_to_pyarrow_categorical_with_missing():
     expected_indices = pa.array([1, 4, 1, 5, 1, 3, 0, 2, None], type=pa.int8())
 
     assert result[0].to_pylist() == arr
-    assert result[0].dictionary.to_pylist() == expected_dictionary
-    assert result[0].indices.equals(expected_indices)
+    assert result[0].chunk(0).dictionary.to_pylist() == expected_dictionary
+    assert result[0].chunk(0).indices.equals(expected_indices)
 
 
 @pytest.mark.parametrize(
@@ -414,7 +408,6 @@ def test_pyarrow_roundtrip(uint, int, float, np_float,
     )
     table = table.slice(offset, length)
     result = _from_dataframe(table.__dataframe__())
-    result = pa.Table.from_batches([result])
 
     assert table.equals(result)
 
@@ -435,7 +428,6 @@ def test_pyarrow_roundtrip_categorical(offset, length):
     )
     table = table.slice(offset, length)
     result = _from_dataframe(table.__dataframe__())
-    result = pa.Table.from_batches([result])
 
     assert table.equals(result)
 
