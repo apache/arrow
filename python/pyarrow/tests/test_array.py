@@ -3389,7 +3389,18 @@ def test_array_accepts_pyarrow_array():
 
     assert arr == result
 
+    # Test casting to a different type
     result = pa.array(arr, type=pa.uint8())
     expected = pa.array([1, 2, 3], type=pa.uint8())
-
     assert expected == result
+    assert expected.type == pa.uint8()
+
+    # Test casting with safe keyward
+    arr = pa.array([2 ** 63 - 1], type=pa.int64())
+
+    with pytest.raises(pa.ArrowInvalid):
+        pa.array(arr, type=pa.int32())
+
+    expected = pa.array([-1], type=pa.int32())
+    result = pa.array(arr, type=pa.int32(), safe=False)
+    assert result == expected

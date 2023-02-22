@@ -234,7 +234,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     if isinstance(obj, Array):
         if type is not None and not obj.type.equals(type):
-            obj = obj.cast(type)
+            obj = obj.cast(type, safe=safe)
         return obj
 
     if hasattr(obj, '__arrow_array__'):
