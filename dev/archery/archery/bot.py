@@ -123,7 +123,6 @@ class PullRequestWorkflowBot:
         return self.github.get_repo(self.event_payload['repository']['id'], lazy=True)
 
     def handle(self):
-        print(f"event_name: {self.event_name} - event_payload: {self.event_payload}")
         current_state = None
         try:
             current_state = self.get_current_state()
