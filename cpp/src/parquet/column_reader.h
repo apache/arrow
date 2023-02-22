@@ -324,7 +324,7 @@ class PARQUET_EXPORT RecordReader {
 
   /// \brief Attempt to read indicated number of records from column chunk
   /// Note that for repeated fields, a record may have more than one value
-  /// and all of them are read. If read_dense_for_nullable it will
+  /// and all of them are read. If read_dense_for_nullable() it will
   /// not leave any space for null values. Otherwise, it will read spaced.
   /// \return number of records read
   virtual int64_t ReadRecords(int64_t num_records) = 0;
@@ -378,7 +378,7 @@ class PARQUET_EXPORT RecordReader {
   uint8_t* values() const { return values_->mutable_data(); }
 
   /// \brief Number of values written, including space left for nulls if any.
-  /// If this Reader was constructed with read_dense_for_nullable, there is no space for
+  /// If this Reader was constructed with read_dense_for_nullable(), there is no space for
   /// nulls and null_count() will be 0. There is no read-ahead/buffering for values. For
   /// FLBA and ByteArray types this value reflects the values written with the last
   /// ReadRecords call since thoser readers will reset the values after each call.
@@ -395,8 +395,8 @@ class PARQUET_EXPORT RecordReader {
   int64_t levels_written() const { return levels_written_; }
 
   /// \brief Number of nulls in the leaf that we have read so far into the
-  /// values vector. This is only valid when !read_dense_for_nullable. When
-  /// read_dense_for_nullable it will always be 0.
+  /// values vector. This is only valid when !read_dense_for_nullable(). When
+  /// read_dense_for_nullable() it will always be 0.
   int64_t null_count() const { return null_count_; }
 
   /// \brief True if the leaf values are nullable
@@ -404,6 +404,9 @@ class PARQUET_EXPORT RecordReader {
 
   /// \brief True if reading directly as Arrow dictionary-encoded
   bool read_dictionary() const { return read_dictionary_; }
+
+  /// \brief True if reading dense for nullable columns.
+  bool read_dense_for_nullable() const { return read_dense_for_nullable_; }
 
  protected:
   /// \brief Indicates if we can have nullable values. Note that repeated fields
