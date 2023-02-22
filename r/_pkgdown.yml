@@ -277,5 +277,7 @@ reference:
 
 repo:
   url:
+    home: https://github.com/apache/arrow/
     source: https://github.com/apache/arrow/blob/main/r/
     issue: https://github.com/apache/arrow/issues/
+    user: https://github.com/
