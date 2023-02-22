@@ -65,9 +65,12 @@ struct ARROW_DS_EXPORT FragmentSelectionColumn {
 /// The paths in this selection should be referring to the fragment schema.  This class
 /// contains a virtual destructor as it is expected evolution strategies will need to
 /// extend this to add any information needed to later evolve the batches.
-class FragmentSelection {
+///
+/// For example, in the basic evolution strategy, we keep track of which columns
+/// were missing from the file so that we can fill those in with null when evolving.
+class ARROW_DS_EXPORT FragmentSelection {
  public:
-  FragmentSelection(std::vector<FragmentSelectionColumn> columns)
+  explicit FragmentSelection(std::vector<FragmentSelectionColumn> columns)
       : columns_(std::move(columns)) {}
   virtual ~FragmentSelection() = default;
   /// The columns that should be loaded from the fragment
