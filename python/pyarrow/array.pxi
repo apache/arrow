@@ -111,6 +111,8 @@ def _handle_arrow_array_protocol(obj, type, mask, size):
     if not isinstance(res, (Array, ChunkedArray)):
         raise TypeError("The object's __arrow_array__ method does not "
                         "return a pyarrow Array or ChunkedArray.")
+    if isinstance(res, ChunkedArray) and res.num_chunks==1:
+        res = res.chunk(0)
     return res
 
 
