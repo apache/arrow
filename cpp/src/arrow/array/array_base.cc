@@ -118,7 +118,7 @@ struct ScalarFromArraySlotImpl {
   }
 
   Status Visit(const DenseUnionArray& a) {
-    const auto type_code = a.type_code(index_);
+    const auto type_code = a.type_code(index_) ;
     // child array which stores the actual value
     auto arr = a.field(a.child_id(index_));
     // need to look up the value based on offsets
