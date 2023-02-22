@@ -22,7 +22,7 @@ from libcpp.vector cimport vector as std_vector
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
-ctypedef CResult[CDeclaration] CNamedTableProvider(const std_vector[c_string]&)
+ctypedef CResult[CDeclaration] CNamedTableProvider(const std_vector[c_string]&, const CSchema&)
 
 cdef extern from "arrow/engine/substrait/options.h" namespace "arrow::engine" nogil:
     cdef enum ConversionStrictness \
