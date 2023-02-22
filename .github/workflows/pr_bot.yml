@@ -42,7 +42,7 @@ jobs:
         with:
           path: arrow
           repository: apache/arrow
-          ref: master
+          ref: main
           persist-credentials: false
           # fetch the tags for version number generation
           fetch-depth: 0
