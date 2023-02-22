@@ -120,7 +120,7 @@ Result<std::shared_ptr<compute::ExecPlan>> PlanFromTestCase(
 
   // Mock table provider that ignores the table name and returns input_table
   NamedTableProvider table_provider = [input_table](const std::vector<std::string>&,
-                                                    const std::shared_ptr<Schema>) {
+                                                    const Schema&) {
     std::shared_ptr<compute::ExecNodeOptions> options =
         std::make_shared<compute::TableSourceNodeOptions>(input_table);
     return compute::Declaration("table_source", {}, options, "mock_source");
@@ -607,7 +607,7 @@ std::shared_ptr<compute::ExecPlan> PlanFromAggregateCase(
 
   // Mock table provider that ignores the table name and returns input_table
   NamedTableProvider table_provider = [input_table](const std::vector<std::string>&,
-                                                    const std::shared_ptr<Schema>) {
+                                                    const Schema&) {
     std::shared_ptr<compute::ExecNodeOptions> options =
         std::make_shared<compute::TableSourceNodeOptions>(input_table);
     return compute::Declaration("table_source", {}, options, "mock_source");

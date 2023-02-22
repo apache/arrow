@@ -66,7 +66,7 @@ enum class ARROW_ENGINE_EXPORT ConversionStrictness {
 };
 
 using NamedTableProvider = std::function<Result<compute::Declaration>(
-    const std::vector<std::string>&, const std::shared_ptr<Schema>)>;
+    const std::vector<std::string>&, const Schema&)>;
 static NamedTableProvider kDefaultNamedTableProvider;
 
 using NamedTapProvider = std::function<Result<compute::Declaration>(
