@@ -28,14 +28,24 @@ namespace encryption {
 FileKeyUnwrapper::FileKeyUnwrapper(
     KeyToolkit* key_toolkit, const KmsConnectionConfig& kms_connection_config,
     double cache_lifetime_seconds, const std::string& file_path,
-    const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system)
+    : key_toolkit_(key_toolkit),
+      kms_connection_config_(kms_connection_config),
+      cache_entry_lifetime_seconds_(cache_lifetime_seconds),
+      file_path_(file_path),
+      file_system_(file_system) {
+  kek_per_kek_id_ = key_toolkit_->kek_read_cache_per_token().GetOrCreateInternalCache(
+      kms_connection_config.key_access_token(), cache_entry_lifetime_seconds_);
+}
+
+FileKeyUnwrapper::FileKeyUnwrapper(
+    KeyToolkit* key_toolkit, const KmsConnectionConfig& kms_connection_config,
+    double cache_lifetime_seconds,
     std::shared_ptr<FileKeyMaterialStore> key_material_store)
     : key_toolkit_(key_toolkit),
       kms_connection_config_(kms_connection_config),
       cache_entry_lifetime_seconds_(cache_lifetime_seconds),
-      key_material_store_(std::move(key_material_store)),
-      file_path_(file_path),
-      file_system_(file_system) {
+      key_material_store_(std::move(key_material_store)) {
   kek_per_kek_id_ = key_toolkit_->kek_read_cache_per_token().GetOrCreateInternalCache(
       kms_connection_config.key_access_token(), cache_entry_lifetime_seconds_);
 }

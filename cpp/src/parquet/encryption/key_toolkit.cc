@@ -66,7 +66,7 @@ void KeyToolkit::RotateMasterKeys(
 
   // Unwrapper for decrypting encrypted keys
   FileKeyUnwrapper file_key_unwrapper(this, kms_connection_config, cache_lifetime_seconds,
-                                      parquet_file_path, file_system, key_material_store);
+                                      key_material_store);
 
   // Create a temporary store to hold new key material during rotation,
   // and wrapper that will write material to this store when getting key metadata.
