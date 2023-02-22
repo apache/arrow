@@ -79,8 +79,7 @@ Fixed shape tensor
 
 * The storage type of the extension: ``FixedSizeList`` where:
 
-  * **value_type** is the data type of individual tensor elements
-    and is an instance of Arrow ``DataType`` or ``Field``.
+  * **value_type** is the data type of individual tensor elements.
   * **list_size** is the product of all the elements in tensor shape.
 
 * Extension type parameters:
