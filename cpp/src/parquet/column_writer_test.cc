@@ -1162,7 +1162,6 @@ class TestSizeEstimated : public ::testing::Test {
                                                     bool enable_dictionary = false) {
     auto builder = WriterProperties::Builder();
     builder.disable_dictionary()
-        ->disable_dictionary()
         ->compression(compression)
         ->data_pagesize(100 * sizeof(int));
     if (enable_dictionary) {
@@ -1193,16 +1192,17 @@ class TestSizeEstimated : public ::testing::Test {
 };
 
 TEST_F(TestSizeEstimated, NonBuffered) {
-  auto required_writer = this->BuildWriter(Compression::UNCOMPRESSED, false);
-
-  // Write half page
+  auto required_writer =
+      this->BuildWriter(Compression::UNCOMPRESSED, /* buffered*/ false);
+  // Write half page, page will not be flushed after loop
   for (int32_t i = 0; i < 50; i++) {
     required_writer->WriteBatch(1, nullptr, nullptr, &i);
   }
-  // Page flushed, check size
+  // Page not flushed, check size
   EXPECT_EQ(0, required_writer->total_bytes_written());
   EXPECT_EQ(0, required_writer->total_compressed_bytes());  // unbuffered
   EXPECT_EQ(0, required_writer->total_compressed_bytes_written());
+  // Write half page, page be flushed after loop
   for (int32_t i = 0; i < 50; i++) {
     required_writer->WriteBatch(1, nullptr, nullptr, &i);
   }
@@ -1213,16 +1213,16 @@ TEST_F(TestSizeEstimated, NonBuffered) {
 }
 
 TEST_F(TestSizeEstimated, Buffered) {
-  auto required_writer = this->BuildWriter(Compression::UNCOMPRESSED, true);
-
-  // Write half page
+  auto required_writer = this->BuildWriter(Compression::UNCOMPRESSED, /* buffered*/ true);
+  // Write half page, page will not be flushed after loop
   for (int32_t i = 0; i < 50; i++) {
     required_writer->WriteBatch(1, nullptr, nullptr, &i);
   }
-  // Page flushed, check size
+  // Page not flushed, check size
   EXPECT_EQ(0, required_writer->total_bytes_written());
   EXPECT_EQ(0, required_writer->total_compressed_bytes());  // buffered
   EXPECT_EQ(0, required_writer->total_compressed_bytes_written());
+  // Write half page, page be flushed after loop
   for (int32_t i = 0; i < 50; i++) {
     required_writer->WriteBatch(1, nullptr, nullptr, &i);
   }
@@ -1233,15 +1233,14 @@ TEST_F(TestSizeEstimated, Buffered) {
 }
 
 TEST_F(TestSizeEstimated, NonBufferedDictionary) {
-  auto required_writer = this->BuildWriter(Compression::UNCOMPRESSED, false, true);
-
-  // Write half page
-  // for dict, keep value equal
+  auto required_writer =
+      this->BuildWriter(Compression::UNCOMPRESSED, /* buffered*/ false, true);
+  // for dict, keep all values equal
   int32_t dict_value = 1;
   for (int32_t i = 0; i < 50; i++) {
     required_writer->WriteBatch(1, nullptr, nullptr, &dict_value);
   }
-  // Page flushed, check size
+  // Page not flushed, check size
   EXPECT_EQ(0, required_writer->total_bytes_written());
   EXPECT_EQ(0, required_writer->total_compressed_bytes());
   EXPECT_EQ(0, required_writer->total_compressed_bytes_written());
@@ -1267,7 +1266,7 @@ TEST_F(TestSizeEstimated, BufferedCompression) {
   for (int32_t i = 0; i < 50; i++) {
     required_writer->WriteBatch(1, nullptr, nullptr, &i);
   }
-  // Page flushed, check size
+  // Page not flushed, check size
   EXPECT_EQ(0, required_writer->total_bytes_written());
   EXPECT_EQ(0, required_writer->total_compressed_bytes());  // buffered
   EXPECT_EQ(0, required_writer->total_compressed_bytes_written());

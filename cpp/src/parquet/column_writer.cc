@@ -531,10 +531,10 @@ class SerializedPageWriter : public PageWriter {
   int64_t num_values_;
   int64_t dictionary_page_offset_;
   int64_t data_page_offset_;
-  // The uncompressed page size the page writer already
+  // The uncompressed page size the page writer has already
   //  written.
   int64_t total_uncompressed_size_;
-  // The compressed page size the page writer already
+  // The compressed page size the page writer has already
   //  written.
   // If the column is UNCOMPRESSED, the size would be
   //  equal to `total_uncompressed_size_`.
