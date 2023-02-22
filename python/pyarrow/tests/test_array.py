@@ -3389,7 +3389,7 @@ def test_array_accepts_pyarrow_array():
 
     assert arr == result
 
-    arr_uint = pa.array([1, 2, 3], type=pa.uint8())
     result = pa.array(arr, type=pa.uint8())
+    expected = pa.array([1, 2, 3], type=pa.uint8())
 
-    assert arr_uint == result
+    assert expected == result
