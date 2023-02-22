@@ -1340,7 +1340,6 @@ void TestSequencing(BatchesMaker maker, int num_batches, int batch_size) {
       "asofjoin", {l_src, r_src}, GetRepeatedOptions(2, "time", {"key"}, 1000)};
 
   QueryOptions query_options;
-  query_options.sequence_output = true;
   query_options.use_threads = false;
   ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema batches,
                        DeclarationToExecBatches(asofjoin, query_options));

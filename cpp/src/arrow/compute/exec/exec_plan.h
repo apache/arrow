@@ -156,7 +156,10 @@ class ARROW_EXPORT ExecNode {
   ///
   /// In other words, given the ordering {{"x", SortOrder::Ascending}} we
   /// know that all values of x in a batch with index N will be less than
-  /// or equal to all values of x in a batch with index N+k (assuming k > 0)
+  /// or equal to all values of x in a batch with index N+k (assuming k > 0).
+  /// Furthermore, we also know that values will be sorted within a batch.
+  /// Any row N will have a value of x that is less than the value for
+  /// any row N+k.
   ///
   /// Note that an ordering can be both Ordering::Unordered and Ordering::Implicit.
   /// A node's output should be marked Ordering::Unordered if the order is
@@ -167,7 +170,7 @@ class ARROW_EXPORT ExecNode {
   /// is when reading data from an in-memory table.  The data has an implicit "row order"
   /// which is not neccesarily represented in the data set.
   ///
-  /// A typical map node will not modify the ordering.  Nothing needs to be done
+  /// A filter or project node will not modify the ordering.  Nothing needs to be done
   /// other than ensure the index assigned to output batches is the same as the
   /// input batch that was mapped.
   ///
@@ -464,8 +467,18 @@ struct ARROW_EXPORT QueryOptions {
 
   /// If the output has a meaningful order then sequence the output of the plan
   ///
-  /// If the output has no meaningful order then this option will be ignored.
-  bool sequence_output = false;
+  /// The default behavior (std::nullopt) will sequence output batches if there
+  /// is a meaningful ordering in the final node and will emit batches immediately
+  /// otherwise.
+  ///
+  /// If explicitly set to true then plan execution will fail if there is no
+  /// meaningful ordering.  This can be useful to valdiate a query that should
+  /// be emitting ordered results.
+  ///
+  /// If explicitly set to false then batches will be emit immediately even if there
+  /// is a meaningful ordering.  This could cause batches to be emit out of order but
+  /// may offer a small decrease to latency.
+  std::optional<bool> sequence_output = std::nullopt;
 
   /// \brief should the plan use multiple background threads for CPU-intensive work
   ///

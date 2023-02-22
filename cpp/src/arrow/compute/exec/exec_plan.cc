@@ -649,7 +649,7 @@ Future<BatchesWithCommonSchema> DeclarationToExecBatchesImpl(
   ExecContext exec_ctx(options.memory_pool, cpu_executor, options.function_registry);
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
   SinkNodeOptions sink_options(&sink_gen, &out_schema);
-  sink_options.sequence_delivery = options.sequence_output;
+  sink_options.sequence_output = options.sequence_output;
   Declaration with_sink = Declaration::Sequence({declaration, {"sink", sink_options}});
   ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
   ARROW_RETURN_NOT_OK(exec_plan->Validate());

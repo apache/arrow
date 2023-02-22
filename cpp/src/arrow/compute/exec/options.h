@@ -274,29 +274,29 @@ struct ARROW_EXPORT BackpressureOptions {
 /// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
 ///
 /// Emitted batches will only be ordered if there is a meaningful ordering
-/// and sequence_delivery is set to true.
+/// and sequence_output is not set to false.
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
   explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
                            std::shared_ptr<Schema>* schema,
                            BackpressureOptions backpressure = {},
                            BackpressureMonitor** backpressure_monitor = NULLPTR,
-                           bool sequence_delivery = false)
+                           std::optional<bool> sequence_output = std::nullopt)
       : generator(generator),
         schema(schema),
         backpressure(backpressure),
         backpressure_monitor(backpressure_monitor),
-        sequence_delivery(false) {}
+        sequence_output(sequence_output) {}
 
   explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
                            BackpressureOptions backpressure = {},
                            BackpressureMonitor** backpressure_monitor = NULLPTR,
-                           bool sequence_delivery = false)
+                           std::optional<bool> sequence_output = std::nullopt)
       : generator(generator),
         schema(NULLPTR),
         backpressure(std::move(backpressure)),
         backpressure_monitor(backpressure_monitor),
-        sequence_delivery(false) {}
+        sequence_output(sequence_output) {}
 
   /// \brief A pointer to a generator of batches.
   ///
@@ -320,8 +320,10 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   /// the amount of data currently queued in the sink node.  This is an optional utility
   /// and backpressure can be applied even if this is not used.
   BackpressureMonitor** backpressure_monitor;
-  /// \brief If true and there is a meaningful ordering then sequence delivered batches
-  bool sequence_delivery;
+  /// \brief Controls whether batches should be emitted immediately or sequenced in order
+  ///
+  /// \see QueryOptions for more details
+  std::optional<bool> sequence_output;
 };
 
 /// \brief Control used by a SinkNodeConsumer to pause & resume
@@ -367,8 +369,11 @@ class ARROW_EXPORT SinkNodeConsumer {
 class ARROW_EXPORT ConsumingSinkNodeOptions : public ExecNodeOptions {
  public:
   explicit ConsumingSinkNodeOptions(std::shared_ptr<SinkNodeConsumer> consumer,
-                                    std::vector<std::string> names = {})
-      : consumer(std::move(consumer)), names(std::move(names)) {}
+                                    std::vector<std::string> names = {},
+                                    std::optional<bool> sequence_output = std::nullopt)
+      : consumer(std::move(consumer)),
+        names(std::move(names)),
+        sequence_output(sequence_output) {}
 
   std::shared_ptr<SinkNodeConsumer> consumer;
   /// \brief Names to rename the sink's schema fields to
@@ -376,7 +381,10 @@ class ARROW_EXPORT ConsumingSinkNodeOptions : public ExecNodeOptions {
   /// If specified then names must be provided for all fields. Currently, only a flat
   /// schema is supported (see ARROW-15901).
   std::vector<std::string> names;
-  bool sequence_output = false;
+  /// \brief Controls whether batches should be emitted immediately or sequenced in order
+  ///
+  /// \see QueryOptions for more details
+  std::optional<bool> sequence_output;
 };
 
 /// \brief Make a node which sorts rows passed through it
@@ -596,11 +604,15 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
 /// a table pointer.
 class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
  public:
-  explicit TableSinkNodeOptions(std::shared_ptr<Table>* output_table)
-      : output_table(output_table) {}
+  explicit TableSinkNodeOptions(std::shared_ptr<Table>* output_table,
+                                std::optional<bool> sequence_output = std::nullopt)
+      : output_table(output_table), sequence_output(sequence_output) {}
 
   std::shared_ptr<Table>* output_table;
-  bool sequence_output = false;
+  /// \brief Controls whether batches should be emitted immediately or sequenced in order
+  ///
+  /// \see QueryOptions for more details
+  std::optional<bool> sequence_output;
 };
 
 /// @}

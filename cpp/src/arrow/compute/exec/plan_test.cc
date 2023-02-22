@@ -302,7 +302,6 @@ void TestSourceSink(
       Declaration plan(source_factory_name,
                        OptionsType{exp_batches.schema, element_it_maker, requires_io});
       QueryOptions query_options;
-      query_options.sequence_output = true;
       query_options.use_threads = use_threads;
       ASSERT_OK_AND_ASSIGN(auto result,
                            DeclarationToExecBatches(std::move(plan), query_options));
@@ -995,10 +994,8 @@ TEST(ExecPlanExecution, ProjectMaintainsOrder) {
                              {"jitter", JitterNodeOptions(kRandomSeed)},
                              {"project", ProjectNodeOptions({field_ref("x")})}});
 
-  QueryOptions query_options;
-  query_options.sequence_output = true;
   ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema batches,
-                       DeclarationToExecBatches(std::move(plan), query_options));
+                       DeclarationToExecBatches(std::move(plan)));
 
   AssertExecBatchesSequenced(batches.batches);
 }
@@ -1018,10 +1015,8 @@ TEST(ExecPlanExecution, FilterMaintainsOrder) {
         // The filter x > 50 should result in a few empty batches
         FilterNodeOptions({call("greater", {field_ref("x"), literal(50)})})}});
 
-  QueryOptions query_options;
-  query_options.sequence_output = true;
   ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema batches,
-                       DeclarationToExecBatches(std::move(plan), query_options));
+                       DeclarationToExecBatches(std::move(plan)));
 
   // Sanity check that some filtering took place
   ASSERT_EQ(0, batches.batches[0].length);
