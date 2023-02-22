@@ -1143,7 +1143,7 @@ TEST(TestColumnWriter, WriteDataPageV2Header) {
   }
 }
 
-class TestSizeEstimated : public ::testing::Test {
+class ColumnWriterTestSizeEstimated : public ::testing::Test {
  public:
   void SetUp() {
     sink_ = CreateOutputStream();
@@ -1191,7 +1191,7 @@ class TestSizeEstimated : public ::testing::Test {
   std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
 };
 
-TEST_F(TestSizeEstimated, NonBuffered) {
+TEST_F(ColumnWriterTestSizeEstimated, NonBuffered) {
   auto required_writer =
       this->BuildWriter(Compression::UNCOMPRESSED, /* buffered*/ false);
   // Write half page, page will not be flushed after loop
@@ -1210,9 +1210,16 @@ TEST_F(TestSizeEstimated, NonBuffered) {
   EXPECT_LT(400, required_writer->total_bytes_written());
   EXPECT_EQ(0, required_writer->total_compressed_bytes());
   EXPECT_LT(400, required_writer->total_compressed_bytes_written());
+
+  // Test after closed
+  int64_t written_size = required_writer->Close();
+  EXPECT_EQ(0, required_writer->total_compressed_bytes());
+  EXPECT_EQ(written_size, required_writer->total_bytes_written());
+  // uncompressed writer should be equal
+  EXPECT_EQ(written_size, required_writer->total_compressed_bytes_written());
 }
 
-TEST_F(TestSizeEstimated, Buffered) {
+TEST_F(ColumnWriterTestSizeEstimated, Buffered) {
   auto required_writer = this->BuildWriter(Compression::UNCOMPRESSED, /* buffered*/ true);
   // Write half page, page will not be flushed after loop
   for (int32_t i = 0; i < 50; i++) {
@@ -1230,9 +1237,16 @@ TEST_F(TestSizeEstimated, Buffered) {
   EXPECT_LT(400, required_writer->total_bytes_written());
   EXPECT_EQ(0, required_writer->total_compressed_bytes());
   EXPECT_LT(400, required_writer->total_compressed_bytes_written());
+
+  // Test after closed
+  int64_t written_size = required_writer->Close();
+  EXPECT_EQ(0, required_writer->total_compressed_bytes());
+  EXPECT_EQ(written_size, required_writer->total_bytes_written());
+  // uncompressed writer should be equal
+  EXPECT_EQ(written_size, required_writer->total_compressed_bytes_written());
 }
 
-TEST_F(TestSizeEstimated, NonBufferedDictionary) {
+TEST_F(ColumnWriterTestSizeEstimated, NonBufferedDictionary) {
   auto required_writer =
       this->BuildWriter(Compression::UNCOMPRESSED, /* buffered*/ false, true);
   // for dict, keep all values equal
@@ -1254,9 +1268,16 @@ TEST_F(TestSizeEstimated, NonBufferedDictionary) {
   EXPECT_EQ(0, required_writer->total_compressed_bytes_written());
 
   required_writer->Close();
+
+  // Test after closed
+  int64_t written_size = required_writer->Close();
+  EXPECT_EQ(0, required_writer->total_compressed_bytes());
+  EXPECT_EQ(written_size, required_writer->total_bytes_written());
+  // uncompressed writer should be equal
+  EXPECT_EQ(written_size, required_writer->total_compressed_bytes_written());
 }
 
-TEST_F(TestSizeEstimated, BufferedCompression) {
+TEST_F(ColumnWriterTestSizeEstimated, BufferedCompression) {
 #ifndef ARROW_WITH_SNAPPY
   GTEST_SKIP() << "Test requires snappy compression";
 #endif
@@ -1278,6 +1299,12 @@ TEST_F(TestSizeEstimated, BufferedCompression) {
   EXPECT_EQ(0, required_writer->total_compressed_bytes());
   EXPECT_LT(required_writer->total_compressed_bytes_written(),
             required_writer->total_bytes_written());
+
+  // Test after closed
+  int64_t written_size = required_writer->Close();
+  EXPECT_EQ(0, required_writer->total_compressed_bytes());
+  EXPECT_EQ(written_size, required_writer->total_bytes_written());
+  EXPECT_GT(written_size, required_writer->total_compressed_bytes_written());
 }
 
 }  // namespace test

@@ -168,9 +168,6 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   int current_column() const override { return metadata_->current_column(); }
 
   int64_t total_compressed_bytes() const override {
-    if (closed_) {
-      return total_bytes_written_;
-    }
     int64_t total_compressed_bytes = 0;
     for (size_t i = 0; i < column_writers_.size(); i++) {
       if (column_writers_[i]) {
@@ -181,6 +178,9 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   }
 
   int64_t total_bytes_written() const override {
+    if (closed_) {
+      return total_bytes_written_;
+    }
     int64_t total_bytes_written = 0;
     for (size_t i = 0; i < column_writers_.size(); i++) {
       if (column_writers_[i]) {
