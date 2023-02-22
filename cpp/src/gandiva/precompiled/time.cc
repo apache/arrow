@@ -1055,4 +1055,14 @@ gdv_int32 datediff_timestamp_timestamp(gdv_timestamp start_millis,
 CAST_NULLABLE_INTERVAL_YEAR(int32)
 CAST_NULLABLE_INTERVAL_YEAR(int64)
 
+
+gdv_date64 current_day() {
+    using namespace std::chrono;
+    auto now = std::chrono::system_clock::now();
+    auto now_ms = std::chrono::time_point_cast<std::chrono::milliseconds>(now);
+    auto epoch = now_ms.time_since_epoch();
+    auto value = std::chrono::duration_cast<std::chrono::milliseconds>(epoch);
+    return value.count();
+}
+
 }  // extern "C"

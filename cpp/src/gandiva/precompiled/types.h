@@ -250,7 +250,9 @@ gdv_int32 round_int32_int32(gdv_int32 number, gdv_int32 precision);
 gdv_int64 round_int64_int32(gdv_int64 number, gdv_int32 precision);
 gdv_int32 round_int32(gdv_int32);
 gdv_int64 round_int64(gdv_int64);
+gdv_float64 round_float64_int32_int32(gdv_float64 number, gdv_int32 out_scale, gdv_int32 rounding_mode);
 gdv_int64 get_power_of_10(gdv_int32);
+gdv_float64 avg_float64_float64(gdv_float64 number1, gdv_float64 number2);
 
 const char* bin_int32(int64_t context, gdv_int32 value, int32_t* out_len);
 const char* bin_int64(int64_t context, gdv_int64 value, int32_t* out_len);
@@ -454,6 +456,7 @@ gdv_date64 last_day_from_timestamp(gdv_date64 millis);
 
 gdv_date64 next_day_from_timestamp(gdv_int64 context, gdv_date64 millis, const char* in,
                                    int32_t in_len);
+gdv_date64 current_day();
 
 gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale);
 

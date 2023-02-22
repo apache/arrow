@@ -308,6 +308,87 @@ gdv_float64 bround_float64(gdv_float64 num) {
 ROUND_DECIMAL_TO_SCALE(float32)
 ROUND_DECIMAL_TO_SCALE(float64)
 
+
+enum RoundType {
+  UP,         // +1 if +ve and trailing value is > 0, else no rounding.
+  DOWN,        // -1 if -ve and trailing value is < 0, else no rounding.
+  HALF_UP,     // no rounding, truncate the trailing digits.
+  HALF_DOWN,   // if +ve and trailing value is >= half of base, +1.
+  HALF_EVEN,    // else if -ve and trailing value is >= half of base, -1.
+  FLOOR,        //
+  CEILING       //
+};
+
+FORCE_INLINE                                                              
+  gdv_float64 round_float64_int32_int32(gdv_float64 number, gdv_int32 out_scale, gdv_int32 type) { 
+  RoundType round_type = static_cast<RoundType>(type);                
+  gdv_float64 scale_multiplier = get_scale_multiplier(out_scale);
+  switch (round_type) {                                                     
+    case UP: {
+      return static_cast<gdv_float64>(trunc(number * scale_multiplier + ((number >= 0) ? 1.0 : -1.0)) /   scale_multiplier);                                                  
+    }                                                                 
+    case DOWN: {
+      //printf ("%f\n", d2);
+      return static_cast<gdv_float64>(trunc(number * scale_multiplier) / scale_multiplier);                
+    }                                                            
+    case HALF_UP:{                                                             
+      gdv_float64 scaled_number = number * scale_multiplier;
+      gdv_float64 round_scaled_number = trunc(scaled_number);
+      gdv_float64 diff_num = scaled_number - round_scaled_number;
+      if (abs(diff_num) >= 0.5) {
+        return static_cast<gdv_float64>(trunc(scaled_number + ((number >= 0) ? 1.0 : -1.0)) / scale_multiplier);
+       }
+      return static_cast<gdv_float64>(trunc(number * scale_multiplier ) / scale_multiplier);
+    }
+    case HALF_DOWN: {
+      gdv_float64 scaled_number = number * scale_multiplier;
+      gdv_float64 round_scaled_number = trunc(scaled_number);
+      gdv_float64 diff_num = scaled_number - round_scaled_number;
+      if (abs(diff_num) > 0.5) {
+        return static_cast<gdv_float64>(trunc(scaled_number + ((number >= 0) ? 1.0 : -1.0)) / scale_multiplier);
+       }
+      return static_cast<gdv_float64>(trunc(number * scale_multiplier ) / scale_multiplier);  
+    }
+    case HALF_EVEN: {
+      gdv_float64 scaled_number = number * scale_multiplier;
+      gdv_float64 round_scaled_number = trunc(scaled_number);
+      gdv_float64 diff_num = scaled_number - round_scaled_number;
+      if (abs(diff_num) >= 0.5) {
+        bool digit_before_rounding_even = ((static_cast<gdv_int64>(round_scaled_number) % 10) % 2) == 0 ? true : false;
+        if ((abs(diff_num) == 0.5 && !digit_before_rounding_even) || abs(diff_num) > 0.5 ) {
+        return static_cast<gdv_float64>(trunc(scaled_number + ((number >= 0) ? 1.0 : -1.0)) / scale_multiplier);
+        }else {
+          return static_cast<gdv_float64>(trunc(number * scale_multiplier ) / scale_multiplier);      
+        }
+      } else {
+        return static_cast<gdv_float64>(trunc(number * scale_multiplier ) / scale_multiplier);  
+      }
+    }
+    case FLOOR: {
+        if (number >= 0){
+          return round_float64_int32_int32(number,out_scale, 1);
+        } else {
+          return round_float64_int32_int32(number,out_scale, 0);
+        }
+      }
+    case CEILING: {
+        if (number >= 0){
+          return round_float64_int32_int32(number,out_scale, 0);
+        } else {
+          return round_float64_int32_int32(number,out_scale, 1);
+        }
+      }
+    }
+    return round(number);
+  }
+
+FORCE_INLINE                                                              
+  gdv_float64 avg_float64_float64(gdv_float64 number1, gdv_float64 number2) { 
+      return static_cast<gdv_float64>((number1 + number2 )/2);
+  }
+
+
+
 FORCE_INLINE
 gdv_int32 round_int32_int32(gdv_int32 number, gdv_int32 precision) {
   // for integers, there is nothing following the decimal point,
