@@ -20,8 +20,6 @@
 #include <limits>
 
 #include "arrow/array/builder_time.h"
-#include "arrow/compute/exec.h"
-#include "arrow/compute/exec_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
@@ -158,7 +156,6 @@ struct CastFunctor<
     if (I::type_id == Type::TIMESTAMP && in_type.unit() == out_type.unit()) {
       std::shared_ptr<const ArrayData> array_data = input.ToArrayData();
       output->SetMembers(*array_data);
-      arrow::compute::detail::PropagateNullsSpans(batch, output);
       return Status::OK();
     }
     auto conversion = util::GetTimestampConversion(in_type.unit(), out_type.unit());
