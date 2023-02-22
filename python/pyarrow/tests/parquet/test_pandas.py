@@ -26,6 +26,7 @@ from pyarrow.fs import LocalFileSystem, SubTreeFileSystem
 from pyarrow.tests.parquet.common import (
     parametrize_legacy_dataset, parametrize_legacy_dataset_not_supported)
 from pyarrow.util import guid
+from pyarrow.vendored.version import Version
 
 try:
     import pyarrow.parquet as pq
@@ -559,6 +560,9 @@ def test_pandas_categorical_roundtrip(use_legacy_dataset):
 @pytest.mark.pandas
 def test_categories_with_string_pyarrow_dtype(tempdir):
     # gh-33727: writing to parquet should not fail
+    if Version(pd.__version__) < Version("1.3.0"):
+        pytest.skip("PyArrow backed string data type introduced in pandas 1.3.0")
+
     df1 = pd.DataFrame({"x": ["foo", "bar", "foo"]}, dtype="string[pyarrow]")
     df1 = df1.astype("category")
 

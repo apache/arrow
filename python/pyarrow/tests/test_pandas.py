@@ -3926,6 +3926,8 @@ def test_dictionary_from_pandas_specified_type():
 
 def test_convert_categories_to_array_with_string_pyarrow_dtype():
     # gh-33727: categories should be converted to pa.Array
+    if Version(pd.__version__) < Version("1.3.0"):
+        pytest.skip("PyArrow backed string data type introduced in pandas 1.3.0")
 
     df = pd.DataFrame({"x": ["foo", "bar", "foo"]}, dtype="string[pyarrow]")
     df = df.astype("category")
