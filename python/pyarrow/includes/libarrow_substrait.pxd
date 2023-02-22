@@ -36,7 +36,8 @@ cdef extern from "arrow/engine/substrait/options.h" namespace "arrow::engine" no
 
     cdef cppclass CConversionOptions \
             "arrow::engine::ConversionOptions":
-        ConversionStrictness conversion_strictness
+        CConversionOptions()
+        ConversionStrictness strictness
         function[CNamedTableProvider] named_table_provider
 
 cdef extern from "arrow/engine/substrait/extension_set.h" \

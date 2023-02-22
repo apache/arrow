@@ -762,6 +762,8 @@ struct ScalarToProtoImpl {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedScalar& s) { return (*this)(*s.value); }
+
   Status Visit(const ExtensionScalar& s) {
     if (UnwrapUuid(*s.type)) {
       return FromBuffer([](Lit* lit, std::string&& s) { lit->set_uuid(std::move(s)); },

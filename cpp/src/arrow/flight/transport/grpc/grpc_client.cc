@@ -510,8 +510,12 @@ class GrpcResultStream : public ResultStream {
   ~GrpcResultStream() override {
     if (stream_) {
       rpc_.context.TryCancel();
-      ARROW_WARN_NOT_OK(FromGrpcStatus(stream_->Finish(), &rpc_.context),
-                        "DoAction result was not fully consumed");
+      auto status = FromGrpcStatus(stream_->Finish(), &rpc_.context);
+      if (!status.ok() && !status.IsCancelled()) {
+        ARROW_LOG(DEBUG)
+            << "DoAction result was not fully consumed, server returned error: "
+            << status.ToString();
+      }
     }
   }
 

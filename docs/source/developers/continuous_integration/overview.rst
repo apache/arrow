@@ -54,7 +54,7 @@ The ``.yml`` files in ``.github/worflows`` are workflows which are run on GitHub
 
   - ``@github-actions crossbow submit ...`` - runs the specified Crossbow command
   - ``@github-actions autotune`` - runs a number of stylers/formatters, builds some of the docs, and commits the results
-  - ``@github-actions rebase`` - rebases the PR onto the master branch
+  - ``@github-actions rebase`` - rebases the PR onto the main branch
 - ``dev.yml`` - runs any time there is activity on a PR, or a PR is merged; it runs the linter and tests that the PR can be merged
 - ``dev_pr.yml`` - runs any time a PR is opened or updated; checks the formatting of the PR title, adds assignee to the appropriate GitHub issue if needed (or adds a comment requesting the user to include the issue id in the title), and adds any relevant GitHub labels
 

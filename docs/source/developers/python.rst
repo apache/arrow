@@ -83,9 +83,9 @@ and look for the "custom options" section.
 .. note::
 
    There are a few low-level tests written directly in C++. These tests are
-   implemented in `pyarrow/src/python_test.cc <https://github.com/apache/arrow/blob/master/python/pyarrow/src/python_test.cc>`_,
+   implemented in `pyarrow/src/python_test.cc <https://github.com/apache/arrow/blob/main/python/pyarrow/src/python_test.cc>`_,
    but they are also wrapped in a ``pytest``-based
-   `test module <https://github.com/apache/arrow/blob/master/python/pyarrow/tests/test_cpp_internals.py>`_
+   `test module <https://github.com/apache/arrow/blob/main/python/pyarrow/tests/test_cpp_internals.py>`_
    run automatically as part of the PyArrow test suite.
 
 Test Groups
@@ -382,7 +382,7 @@ For any other C++ build challenges, see :ref:`cpp-development`.
 In case you may need to rebuild the C++ part due to errors in the process it is
 advisable to delete the build folder with command ``rm -rf arrow/cpp/build``.
 If the build has passed successfully and you need to rebuild due to latest pull
-from git master, then this step is not needed.
+from git main, then this step is not needed.
 
 Now, build pyarrow:
 

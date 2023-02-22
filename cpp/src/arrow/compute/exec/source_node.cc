@@ -86,7 +86,7 @@ struct SourceNode : ExecNode, public TracedNode {
       batch_count_ += num_batches;
     }
     plan_->query_context()->ScheduleTask(
-        [=]() {
+        [this, morsel_length, use_legacy_batching, morsel]() {
           int64_t offset = 0;
           do {
             int64_t batch_size =
@@ -304,9 +304,6 @@ struct SchemaSourceNode : public SourceNode {
     auto& schema = cast_options.schema;
     auto io_executor = cast_options.io_executor;
 
-    if (io_executor == NULLPTR) {
-      io_executor = plan->query_context()->exec_context()->executor();
-    }
     auto it = it_maker();
 
     if (schema == NULLPTR) {
