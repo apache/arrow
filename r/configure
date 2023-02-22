@@ -110,6 +110,7 @@ else
     PKG_CFLAGS="$PKGCONFIG_CFLAGS $PKG_CFLAGS"
     PKG_LIBS="${PKGCONFIG_LIBS}"
     PKG_DIRS="${PKGCONFIG_DIRS}"
+    LIB_DIR=${FOUND_LIB_DIR}
 
     # Check for version mismatch
     PC_LIB_VERSION=`pkg-config --modversion arrow`

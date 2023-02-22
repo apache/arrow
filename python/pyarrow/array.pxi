@@ -362,7 +362,7 @@ def nulls(size, type=None, MemoryPool memory_pool=None):
         Explicit type for the array. By default use NullType.
     memory_pool : MemoryPool, default None
         Arrow MemoryPool to use for allocations. Uses the default memory
-        pool is not passed.
+        pool if not passed.
 
     Returns
     -------
@@ -412,7 +412,7 @@ def repeat(value, size, MemoryPool memory_pool=None):
         Number of times to repeat the scalar in the output Array.
     memory_pool : MemoryPool, default None
         Arrow MemoryPool to use for allocations. Uses the default memory
-        pool is not passed.
+        pool if not passed.
 
     Returns
     -------
@@ -701,7 +701,7 @@ cdef class _PandasConvertible(_Weakrefable):
         ----------
         memory_pool : MemoryPool, default None
             Arrow MemoryPool to use for allocations. Uses the default memory
-            pool is not passed.
+            pool if not passed.
         categories : list, default empty
             List of fields that should be returned as pandas.Categorical. Only
             applies to table-like data structures.

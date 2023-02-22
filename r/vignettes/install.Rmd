@@ -114,7 +114,7 @@ conda install -c conda-forge --strict-channel-priority r-arrow
 knitr::include_graphics("./r_source_libarrow_binary.png")
 ```
 
-Another way of achieving faster installation with all key features enabled is to use static libarrow binaries we host. These are used automatically on many Linux distributions (x86_64 architecture only), according to the [allowlist](https://github.com/apache/arrow/blob/master/r/tools/nixlibs-allowlist.txt). If your distribution isn't in the list, you can opt-in by setting the `NOT_CRAN` environment variable before you call `install.packages()`:
+Another way of achieving faster installation with all key features enabled is to use static libarrow binaries we host. These are used automatically on many Linux distributions (x86_64 architecture only), according to the [allowlist](https://github.com/apache/arrow/blob/main/r/tools/nixlibs-allowlist.txt). If your distribution isn't in the list, you can opt-in by setting the `NOT_CRAN` environment variable before you call `install.packages()`:
 
 ```{r, eval = FALSE}
 Sys.setenv("NOT_CRAN" = "true")
@@ -221,7 +221,7 @@ already present (when set to `AUTO`, the default).
 
 These dependencies vary by platform; however, if you wish to install these
 yourself prior to libarrow installation, we recommend that you take a look at
-the [docker file for whichever of our CI builds](https://github.com/apache/arrow/tree/master/ci/docker)
+the [docker file for whichever of our CI builds](https://github.com/apache/arrow/tree/main/ci/docker)
 (the ones ending in "cpp" are for building Arrow's C++ libaries, aka libarrow)
 corresponds most closely to your setup.  This will contain the most up-to-date
 information about dependencies and minimum versions.
@@ -354,7 +354,7 @@ Although this function is part of the arrow package, it is also available as
 a standalone script, so you can access it without first installing the package:
 
 ```r
-source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")
+source("https://raw.githubusercontent.com/apache/arrow/main/r/R/install-arrow.R")
 ```
 
 Notes:
@@ -378,7 +378,7 @@ on a computer without internet access. The process is as follows:
 * Install the arrow package **or** source the script directly using the following command:
   
   ```r
-  source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")
+  source("https://raw.githubusercontent.com/apache/arrow/main/r/R/install-arrow.R")
   ```
   
 * Use the `create_package_with_all_dependencies()` function to create the installation bundle:

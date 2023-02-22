@@ -132,7 +132,7 @@ set of unit tests that use a dplyr pipeline and `compare_dplyr_binding()` (and
 perhaps even `compare_dplyr_error()` if necessary.  These functions compare the 
 output of the original function with the dplyr bindings and make sure they match.  
 We recommend looking at the [documentation next to the source code for these 
-functions](https://github.com/apache/arrow/blob/master/r/tests/testthat/helper-expectation.R)
+functions](https://github.com/apache/arrow/blob/main/r/tests/testthat/helper-expectation.R)
 to get a better understanding of how they work.
 
 You should make sure you're testing all parameters of the R function in your 

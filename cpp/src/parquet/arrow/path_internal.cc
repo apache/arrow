@@ -828,8 +828,9 @@ class PathBuilder {
                                   " not supported yet");                   \
   }
 
-  // Union types aren't supported in Parquet.
+  // Types not yet supported in Parquet.
   NOT_IMPLEMENTED_VISIT(Union)
+  NOT_IMPLEMENTED_VISIT(RunEndEncoded);
 
 #undef NOT_IMPLEMENTED_VISIT
   std::vector<PathInfo>& paths() { return paths_; }

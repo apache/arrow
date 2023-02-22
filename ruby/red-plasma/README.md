@@ -27,9 +27,9 @@ Plasma is an in-memory object store and cache for big data.
 
 [GObject Introspection](https://wiki.gnome.org/action/show/Projects/GObjectIntrospection) is a middleware for language bindings of C library. GObject Introspection can generate language bindings automatically at runtime.
 
-Red Plasma uses [Plasma GLib](https://github.com/apache/arrow/tree/master/c_glib/plasma-glib) and [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection) to generate Ruby bindings of Plasma.
+Red Plasma uses [Plasma GLib](https://github.com/apache/arrow/tree/main/c_glib/plasma-glib) and [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection) to generate Ruby bindings of Plasma.
 
-Plasma GLib is a C wrapper for [Plasma C++](https://github.com/apache/arrow/tree/master/cpp/plasma). GObject Introspection can't use Plasma C++ directly. Plasma GLib is a bridge between Plasma C++ and GObject Introspection.
+Plasma GLib is a C wrapper for [Plasma C++](https://github.com/apache/arrow/tree/main/cpp/plasma). GObject Introspection can't use Plasma C++ directly. Plasma GLib is a bridge between Plasma C++ and GObject Introspection.
 
 gobject-introspection gem is a Ruby bindings of GObject Introspection. Red Plasma uses GObject Introspection via gobject-introspection gem.
 
