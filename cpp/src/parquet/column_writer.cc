@@ -1015,11 +1015,11 @@ template <typename Action>
 inline void DoInBatches(int64_t total, int64_t batch_size, Action&& action) {
   int64_t num_batches = static_cast<int>(total / batch_size);
   for (int round = 0; round < num_batches; round++) {
-    action(round * batch_size, batch_size, /*check_page=*/true);
+    action(round * batch_size, batch_size, /*check_page_size=*/true);
   }
   // Write the remaining values
   if (total % batch_size > 0) {
-    action(num_batches * batch_size, total % batch_size, /*check_page=*/true);
+    action(num_batches * batch_size, total % batch_size, /*check_page_size=*/true);
   }
 }
 
@@ -1045,8 +1045,9 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
     if (end_offset < num_levels) {
       // This is not the last chunk of batch and end_offset is a record boundary.
       // It is a good chance to check the page size.
-      action(offset, end_offset - offset, /*check_page=*/true);
+      action(offset, end_offset - offset, /*check_page_size=*/true);
     } else {
+      DCHECK_EQ(end_offset, num_levels);
       // This is the last chunk of batch, and we do not know whether end_offset is a
       // record boundary. Find the offset to beginning of last record in this chunk,
       // so we can check page size.
@@ -1058,12 +1059,12 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
 
       if (offset < last_record_begin_offset) {
         // We have found the beginning of last record and can check page size.
-        action(offset, last_record_begin_offset - offset, /*check_page=*/true);
+        action(offset, last_record_begin_offset - offset, /*check_page_size=*/true);
         offset = last_record_begin_offset;
       }
 
       // There is no record boundary in this chunk and cannot check page size.
-      action(offset, end_offset - offset, /*check_page=*/false);
+      action(offset, end_offset - offset, /*check_page_size=*/false);
     }
 
     offset = end_offset;
@@ -1428,11 +1429,11 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   }
 
   void CommitWriteAndCheckPageLimit(int64_t num_levels, int64_t num_values,
-                                    bool check_page) {
+                                    bool check_page_size) {
     num_buffered_values_ += num_levels;
     num_buffered_encoded_values_ += num_values;
 
-    if (check_page &&
+    if (check_page_size &&
         current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize()) {
       AddDataPage();
     }
