@@ -79,7 +79,7 @@ def run_query(plan, *, table_provider=None, use_threads=True):
     >>> import pyarrow.substrait as substrait
     >>> test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
     >>> test_table_2 = pa.Table.from_pydict({"x": [4, 5, 6]})
-    >>> def table_provider(names):
+    >>> def table_provider(names, schema):
     ...     if not names:
     ...        raise Exception("No names provided")
     ...     elif names[0] == "t1":
