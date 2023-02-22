@@ -79,8 +79,8 @@ Fixed shape tensor
 
 * The storage type of the extension: ``FixedSizeList`` where:
 
-  * **value_type** is the data type of individual tensors and
-    is an instance of ``pyarrow.DataType`` or ``pyarrow.Field``.
+  * **value_type** is the data type of individual tensor elements
+    and is an instance of Arrow ``DataType`` or ``Field``.
   * **list_size** is the product of all the elements in tensor shape.
 
 * Extension type parameters:
