@@ -831,8 +831,7 @@ TEST(Substrait, ReadRel) {
 
 /// \brief Create a NamedTableProvider that provides `table` regardless of the name
 NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
-  return [table = std::move(table)](const std::vector<std::string>&,
-                                    const Schema&) {
+  return [table = std::move(table)](const std::vector<std::string>&, const Schema&) {
     std::shared_ptr<compute::ExecNodeOptions> options =
         std::make_shared<compute::TableSourceNodeOptions>(table);
     return compute::Declaration("table_source", {}, options, "mock_source");
@@ -2310,7 +2309,7 @@ TEST(SubstraitRoundTrip, FilterNamedTable) {
   ])"});
 
   NamedTableProvider table_provider =
-    [&input_table, &table_names, &dummy_schema](
+      [&input_table, &table_names, &dummy_schema](
           const std::vector<std::string>& names,
           const Schema& schema) -> Result<compute::Declaration> {
     if (table_names != names) {
@@ -3055,22 +3054,21 @@ TEST(SubstraitRoundTrip, JoinRel) {
       [10, 1, 10, 11]
   ])"});
 
-  NamedTableProvider table_provider = [left_table, right_table](
-                                          const std::vector<std::string>& names,
-                                          const Schema&) {
-    std::shared_ptr<Table> output_table;
-    for (const auto& name : names) {
-      if (name == "left") {
-        output_table = left_table;
-      }
-      if (name == "right") {
-        output_table = right_table;
-      }
-    }
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
+  NamedTableProvider table_provider =
+      [left_table, right_table](const std::vector<std::string>& names, const Schema&) {
+        std::shared_ptr<Table> output_table;
+        for (const auto& name : names) {
+          if (name == "left") {
+            output_table = left_table;
+          }
+          if (name == "right") {
+            output_table = right_table;
+          }
+        }
+        std::shared_ptr<compute::ExecNodeOptions> options =
+            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
+        return compute::Declaration("table_source", {}, options, "mock_source");
+      };
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
@@ -3207,22 +3205,21 @@ TEST(SubstraitRoundTrip, JoinRelWithEmit) {
       [10, 1, 11]
   ])"});
 
-  NamedTableProvider table_provider = [left_table, right_table](
-                                          const std::vector<std::string>& names,
-                                          const Schema&) {
-    std::shared_ptr<Table> output_table;
-    for (const auto& name : names) {
-      if (name == "left") {
-        output_table = left_table;
-      }
-      if (name == "right") {
-        output_table = right_table;
-      }
-    }
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
+  NamedTableProvider table_provider =
+      [left_table, right_table](const std::vector<std::string>& names, const Schema&) {
+        std::shared_ptr<Table> output_table;
+        for (const auto& name : names) {
+          if (name == "left") {
+            output_table = left_table;
+          }
+          if (name == "right") {
+            output_table = right_table;
+          }
+        }
+        std::shared_ptr<compute::ExecNodeOptions> options =
+            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
+        return compute::Declaration("table_source", {}, options, "mock_source");
+      };
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
@@ -4665,22 +4662,21 @@ TEST(Substrait, CompoundEmitFilterless) {
       [80, 21, 23, 80, 25, 46]
   ])"});
 
-  NamedTableProvider table_provider = [left_table, right_table](
-                                          const std::vector<std::string>& names,
-                                          const Schema&) {
-    std::shared_ptr<Table> output_table;
-    for (const auto& name : names) {
-      if (name == "left") {
-        output_table = left_table;
-      }
-      if (name == "right") {
-        output_table = right_table;
-      }
-    }
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
+  NamedTableProvider table_provider =
+      [left_table, right_table](const std::vector<std::string>& names, const Schema&) {
+        std::shared_ptr<Table> output_table;
+        for (const auto& name : names) {
+          if (name == "left") {
+            output_table = left_table;
+          }
+          if (name == "right") {
+            output_table = right_table;
+          }
+        }
+        std::shared_ptr<compute::ExecNodeOptions> options =
+            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
+        return compute::Declaration("table_source", {}, options, "mock_source");
+      };
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
@@ -4993,10 +4989,9 @@ TEST(Substrait, CompoundEmitWithFilter) {
       [10, 42, 16]
   ])"});
 
-  NamedTableProvider table_provider =
-      [left_table, right_table](
-          const std::vector<std::string>& names,
-          const Schema&) -> Result<compute::Declaration> {
+  NamedTableProvider table_provider = [left_table, right_table](
+                                          const std::vector<std::string>& names,
+                                          const Schema&) -> Result<compute::Declaration> {
     std::shared_ptr<Table> output_table;
     for (const auto& name : names) {
       if (name == "left") {
