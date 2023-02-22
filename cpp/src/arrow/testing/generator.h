@@ -252,13 +252,13 @@ class ARROW_TESTING_EXPORT GTestDataGenerator {
   virtual std::shared_ptr<::arrow::RecordBatch> RecordBatch(int64_t num_rows) = 0;
   virtual std::vector<std::shared_ptr<::arrow::RecordBatch>> RecordBatches(
       int64_t rows_per_batch, int num_batches) = 0;
-#ifdef ARROW_COMPUTE
+
   virtual ::arrow::compute::ExecBatch ExecBatch(int64_t num_rows) = 0;
   virtual std::vector<::arrow::compute::ExecBatch> ExecBatches(int64_t rows_per_batch,
                                                                int num_batches) = 0;
   virtual ::arrow::compute::Declaration SourceNode(int64_t rows_per_batch,
                                                    int num_batches) = 0;
-#endif
+
   virtual std::shared_ptr<::arrow::Table> Table(int64_t rows_per_chunk,
                                                 int num_chunks = 1) = 0;
   virtual std::shared_ptr<::arrow::Schema> Schema() = 0;
@@ -270,13 +270,13 @@ class ARROW_TESTING_EXPORT DataGenerator {
   virtual Result<std::shared_ptr<::arrow::RecordBatch>> RecordBatch(int64_t num_rows) = 0;
   virtual Result<std::vector<std::shared_ptr<::arrow::RecordBatch>>> RecordBatches(
       int64_t rows_per_batch, int num_batches) = 0;
-#ifdef ARROW_COMPUTE
+
   virtual Result<::arrow::compute::ExecBatch> ExecBatch(int64_t num_rows) = 0;
   virtual Result<std::vector<::arrow::compute::ExecBatch>> ExecBatches(
       int64_t rows_per_batch, int num_batches) = 0;
   virtual Result<::arrow::compute::Declaration> SourceNode(int64_t rows_per_batch,
                                                            int num_batches) = 0;
-#endif
+
   virtual Result<std::shared_ptr<::arrow::Table>> Table(int64_t rows_per_chunk,
                                                         int num_chunks = 1) = 0;
   virtual std::shared_ptr<::arrow::Schema> Schema() = 0;
