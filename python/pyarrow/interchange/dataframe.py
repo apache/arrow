@@ -162,9 +162,14 @@ class _PyArrowDataFrame:
         """
         Create a new DataFrame by selecting a subset of columns by index.
         """
-        return _PyArrowDataFrame(
-            self._df.select(list(indices)), self._nan_as_null, self._allow_copy
-        )
+        if isinstance(self._df, pa.RecordBatch):
+            columns = [self._df.column(i) for i in indices]
+            names = [self._df.schema.names[i] for i in indices]
+            return _PyArrowDataFrame(pa.record_batch(columns, names=names))
+        else:
+            return _PyArrowDataFrame(
+                self._df.select(list(indices)), self._nan_as_null, self._allow_copy
+            )
 
     def select_columns_by_name(
         self, names: Sequence[str]
@@ -172,9 +177,13 @@ class _PyArrowDataFrame:
         """
         Create a new DataFrame by selecting a subset of columns by name.
         """
-        return _PyArrowDataFrame(
-            self._df.select(list(names)), self._nan_as_null, self._allow_copy
-        )
+        if isinstance(self._df, pa.RecordBatch):
+            columns = [self._df[i] for i in names]
+            return _PyArrowDataFrame(pa.record_batch(columns, names=names))
+        else:
+            return _PyArrowDataFrame(
+                self._df.select(list(names)), self._nan_as_null, self._allow_copy
+            )
 
     def get_chunks(
         self, n_chunks: Optional[int] = None
@@ -200,7 +209,7 @@ class _PyArrowDataFrame:
             else:
                 batches = []
                 for start in range(0, chunk_size * n_chunks, chunk_size):
-                    batches.append(self.slice(start, chunk_size))
+                    batches.append(self._df.slice(start, chunk_size))
             # In case when the size of the chunk is such that the resulting
             # list is one less chunk then n_chunks -> append an empty chunk
             if len(batches) == n_chunks - 1:
