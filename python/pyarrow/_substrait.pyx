@@ -31,7 +31,6 @@ cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector
     cdef:
         c_string c_name
         shared_ptr[CTable] c_in_table
-        shared_ptr[CSchema] c_in_schema
         shared_ptr[CTableSourceNodeOptions] c_tablesourceopts
         shared_ptr[CExecNodeOptions] c_input_node_opts
         vector[CDeclaration.Input] no_c_inputs
@@ -40,8 +39,7 @@ cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector
     for i in range(names.size()):
         c_name = names[i]
         py_names.append(frombytes(c_name))
-    c_in_schema = make_shared[CSchema](move(schema))
-    py_schema = pyarrow_wrap_schema(c_in_schema)
+    py_schema = pyarrow_wrap_schema(make_shared[CSchema](schema))
 
     py_table = named_args["provider"](py_names, py_schema)
     c_in_table = pyarrow_unwrap_table(py_table)
