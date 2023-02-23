@@ -727,6 +727,9 @@ TEST_F(RecordReaderTest, BasicReadRepeatedField) {
   int64_t records_read = record_reader_->ReadRecords(/*num_records=*/0);
   ASSERT_EQ(records_read, 0);
 
+  // Test the descr() accessor.
+  ASSERT_EQ(record_reader_->descr()->max_definition_level(), 1);
+
   // Read [10], null
   records_read = record_reader_->ReadRecords(/*num_records=*/2);
   ASSERT_EQ(records_read, 2);
