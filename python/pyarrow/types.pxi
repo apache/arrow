@@ -384,8 +384,6 @@ cdef class ListType(DataType):
     >>> import pyarrow as pa
     >>> pa.list_(pa.string())
     ListType(list<item: string>)
-    >>> pa.list_(pa.int32(), 2)
-    FixedSizeListType(fixed_size_list<item: int32>[2])
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -539,6 +537,14 @@ cdef class MapType(DataType):
 cdef class FixedSizeListType(DataType):
     """
     Concrete class for fixed size list data types.
+
+    Examples
+    --------
+    Create an instance of FixedSizeListType:
+
+    >>> import pyarrow as pa
+    >>> pa.list_(pa.int32(), 2)
+    FixedSizeListType(fixed_size_list<item: int32>[2])
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -550,12 +556,27 @@ cdef class FixedSizeListType(DataType):
 
     @property
     def value_field(self):
+        """
+        The field for list values.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.list_(pa.int32(), 2).value_field
+        pyarrow.Field<item: int32>
+        """
         return pyarrow_wrap_field(self.list_type.value_field())
 
     @property
     def value_type(self):
         """
         The data type of large list values.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.list_(pa.int32(), 2).value_type
+        DataType(int32)
         """
         return pyarrow_wrap_data_type(self.list_type.value_type())
 
@@ -563,6 +584,12 @@ cdef class FixedSizeListType(DataType):
     def list_size(self):
         """
         The size of the fixed size lists.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.list_(pa.int32(), 2).list_size
+        2
         """
         return self.list_type.list_size()
 
