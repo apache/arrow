@@ -723,6 +723,9 @@ TEST_F(RecordReaderTest, BasicReadRepeatedField) {
   auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
 
+  // Test the descr() accessor.
+  ASSERT_EQ(record_reader_->descr()->max_definition_level(), 1);
+
   // Read [10], null
   int64_t records_read = record_reader_->ReadRecords(/*num_records=*/2);
   ASSERT_EQ(records_read, 2);
