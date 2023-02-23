@@ -1148,5 +1148,175 @@ TEST(TestColumnWriter, WriteDataPageV2Header) {
   }
 }
 
+// The test below checks that data page v2 changes on record boundaries for
+// all repetition types (i.e. required, optional, and repeated)
+TEST(TestColumnWriter, WriteDataPagesChangeOnRecordBoundaries) {
+  auto sink = CreateOutputStream();
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED,
+                      {schema::Int32("required", Repetition::REQUIRED),
+                       schema::Int32("optional", Repetition::OPTIONAL),
+                       schema::Int32("repeated", Repetition::REPEATED)}));
+  // Write at most 11 levels per batch.
+  constexpr int64_t batch_size = 11;
+  auto properties = WriterProperties::Builder()
+                        .disable_dictionary()
+                        ->data_page_version(ParquetDataPageVersion::V2)
+                        ->write_batch_size(batch_size)
+                        ->data_pagesize(1) /* every page size check creates a new page */
+                        ->build();
+  auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
+  auto rg_writer = file_writer->AppendRowGroup();
+
+  constexpr int32_t num_levels = 100;
+  const std::vector<int32_t> values(num_levels, 1024);
+  std::array<int16_t, num_levels> def_levels;
+  std::array<int16_t, num_levels> rep_levels;
+  for (int32_t i = 0; i < num_levels; i++) {
+    def_levels[i] = i % 2 == 0 ? 1 : 0;
+    rep_levels[i] = i % 2 == 0 ? 0 : 1;
+  }
+
+  auto required_writer = static_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
+  required_writer->WriteBatch(num_levels, nullptr, nullptr, values.data());
+
+  // Write a null value at every other row.
+  auto optional_writer = static_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
+  optional_writer->WriteBatch(num_levels, def_levels.data(), nullptr, values.data());
+
+  // Each row has repeated twice.
+  auto repeated_writer = static_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
+  repeated_writer->WriteBatch(num_levels, def_levels.data(), rep_levels.data(),
+                              values.data());
+  repeated_writer->WriteBatch(num_levels, def_levels.data(), rep_levels.data(),
+                              values.data());
+
+  ASSERT_NO_THROW(file_writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  auto file_reader = ParquetFileReader::Open(
+      std::make_shared<::arrow::io::BufferReader>(buffer), default_reader_properties());
+  auto metadata = file_reader->metadata();
+  ASSERT_EQ(1, metadata->num_row_groups());
+  auto row_group_reader = file_reader->RowGroup(0);
+
+  // Check if pages are changed on record boundaries.
+  constexpr int num_columns = 3;
+  const std::array<int64_t, num_columns> expected_num_pages = {10, 10, 19};
+  for (int i = 0; i < num_columns; ++i) {
+    auto page_reader = row_group_reader->GetColumnPageReader(i);
+    int64_t num_rows = 0;
+    int64_t num_pages = 0;
+    std::shared_ptr<Page> page;
+    while ((page = page_reader->NextPage()) != nullptr) {
+      auto data_page = std::static_pointer_cast<DataPageV2>(page);
+      if (i < 2) {
+        EXPECT_EQ(data_page->num_values(), data_page->num_rows());
+      } else {
+        // Make sure repeated column has 2 values per row and not span multiple pages.
+        EXPECT_EQ(data_page->num_values(), 2 * data_page->num_rows());
+      }
+      num_rows += data_page->num_rows();
+      num_pages++;
+    }
+    EXPECT_EQ(num_levels, num_rows);
+    EXPECT_EQ(expected_num_pages[i], num_pages);
+  }
+}
+
+// The test below checks that data page v2 changes on record boundaries for
+// repeated columns with small batches.
+TEST(TestColumnWriter, WriteDataPagesChangeOnRecordBoundariesWithSmallBatches) {
+  auto sink = CreateOutputStream();
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED,
+                      {schema::Int32("tiny_repeat", Repetition::REPEATED),
+                       schema::Int32("small_repeat", Repetition::REPEATED),
+                       schema::Int32("medium_repeat", Repetition::REPEATED),
+                       schema::Int32("large_repeat", Repetition::REPEATED)}));
+
+  // The batch_size is large enough so each WriteBatch call checks page size at most once.
+  constexpr int64_t batch_size = std::numeric_limits<int64_t>::max();
+  auto properties = WriterProperties::Builder()
+                        .disable_dictionary()
+                        ->data_page_version(ParquetDataPageVersion::V2)
+                        ->write_batch_size(batch_size)
+                        ->data_pagesize(1) /* every page size check creates a new page */
+                        ->build();
+  auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
+  auto rg_writer = file_writer->AppendRowGroup();
+
+  constexpr int32_t num_cols = 4;
+  constexpr int64_t num_rows = 400;
+  constexpr int64_t num_levels = 100;
+  constexpr std::array<int64_t, num_cols> num_levels_per_row_by_col = {1, 50, 99, 150};
+
+  // All values are not null and fixed to 1024 for simplicity.
+  const std::vector<int32_t> values(num_levels, 1024);
+  const std::vector<int16_t> def_levels(num_levels, 1);
+  std::vector<int16_t> rep_levels(num_levels, 0);
+
+  for (int32_t i = 0; i < num_cols; ++i) {
+    auto writer = static_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
+    const auto num_levels_per_row = num_levels_per_row_by_col[i];
+    int64_t num_rows_written = 0;
+    int64_t num_levels_written_curr_row = 0;
+    while (num_rows_written < num_rows) {
+      int32_t num_levels_to_write = 0;
+      while (num_levels_to_write < num_levels) {
+        if (num_levels_written_curr_row == 0) {
+          // A new record.
+          rep_levels[num_levels_to_write++] = 0;
+        } else {
+          rep_levels[num_levels_to_write++] = 1;
+        }
+
+        if (++num_levels_written_curr_row == num_levels_per_row) {
+          // Current row has enough levels.
+          num_levels_written_curr_row = 0;
+          if (++num_rows_written == num_rows) {
+            // Enough rows have been written.
+            break;
+          }
+        }
+      }
+
+      writer->WriteBatch(num_levels_to_write, def_levels.data(), rep_levels.data(),
+                         values.data());
+    }
+  }
+
+  ASSERT_NO_THROW(file_writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  auto file_reader = ParquetFileReader::Open(
+      std::make_shared<::arrow::io::BufferReader>(buffer), default_reader_properties());
+  auto metadata = file_reader->metadata();
+  ASSERT_EQ(1, metadata->num_row_groups());
+  auto row_group_reader = file_reader->RowGroup(0);
+
+  // Check if pages are changed on record boundaries.
+  const std::array<int64_t, num_cols> expect_num_pages_by_col = {5, 201, 397, 201};
+  const std::array<int64_t, num_cols> expect_num_rows_1st_page_by_col = {99, 1, 1, 1};
+  const std::array<int64_t, num_cols> expect_num_vals_1st_page_by_col = {99, 50, 99, 150};
+  for (int32_t i = 0; i < num_cols; ++i) {
+    auto page_reader = row_group_reader->GetColumnPageReader(i);
+    int64_t num_rows_read = 0;
+    int64_t num_pages_read = 0;
+    int64_t num_values_read = 0;
+    std::shared_ptr<Page> page;
+    while ((page = page_reader->NextPage()) != nullptr) {
+      auto data_page = std::static_pointer_cast<DataPageV2>(page);
+      num_values_read += data_page->num_values();
+      num_rows_read += data_page->num_rows();
+      if (num_pages_read++ == 0) {
+        EXPECT_EQ(expect_num_rows_1st_page_by_col[i], data_page->num_rows());
+        EXPECT_EQ(expect_num_vals_1st_page_by_col[i], data_page->num_values());
+      }
+    }
+    EXPECT_EQ(num_rows, num_rows_read);
+    EXPECT_EQ(expect_num_pages_by_col[i], num_pages_read);
+    EXPECT_EQ(num_levels_per_row_by_col[i] * num_rows, num_values_read);
+  }
+}
+
 }  // namespace test
 }  // namespace parquet
