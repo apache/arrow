@@ -25,174 +25,229 @@ namespace {
 // ----------------------------------------------------------------------
 // Rank implementation
 
+template <typename ValueSelector,
+          typename T = std::decay_t<std::invoke_result_t<ValueSelector, int64_t>>>
+Result<Datum> CreateRankings(ExecContext* ctx, const NullPartitionResult& sorted,
+                             const NullPlacement null_placement,
+                             const RankOptions::Tiebreaker tiebreaker,
+                             ValueSelector&& value_selector) {
+  auto length = sorted.overall_end() - sorted.overall_begin();
+  ARROW_ASSIGN_OR_RAISE(auto rankings,
+                        MakeMutableUInt64Array(length, ctx->memory_pool()));
+  auto out_begin = rankings->GetMutableValues<uint64_t>(1);
+  uint64_t rank;
+
+  switch (tiebreaker) {
+    case RankOptions::Dense: {
+      T curr_value, prev_value{};
+      rank = 0;
+
+      if (null_placement == NullPlacement::AtStart && sorted.null_count() > 0) {
+        rank++;
+        for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+          out_begin[*it] = rank;
+        }
+      }
+
+      for (auto it = sorted.non_nulls_begin; it < sorted.non_nulls_end; it++) {
+        curr_value = value_selector(*it);
+        if (it == sorted.non_nulls_begin || curr_value != prev_value) {
+          rank++;
+        }
+
+        out_begin[*it] = rank;
+        prev_value = curr_value;
+      }
+
+      if (null_placement == NullPlacement::AtEnd) {
+        rank++;
+        for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+          out_begin[*it] = rank;
+        }
+      }
+      break;
+    }
+
+    case RankOptions::First: {
+      rank = 0;
+      for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
+        out_begin[*it] = ++rank;
+      }
+      break;
+    }
+
+    case RankOptions::Min: {
+      T curr_value, prev_value{};
+      rank = 0;
+
+      if (null_placement == NullPlacement::AtStart) {
+        rank++;
+        for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+          out_begin[*it] = rank;
+        }
+      }
+
+      for (auto it = sorted.non_nulls_begin; it < sorted.non_nulls_end; it++) {
+        curr_value = value_selector(*it);
+        if (it == sorted.non_nulls_begin || curr_value != prev_value) {
+          rank = (it - sorted.overall_begin()) + 1;
+        }
+        out_begin[*it] = rank;
+        prev_value = curr_value;
+      }
+
+      if (null_placement == NullPlacement::AtEnd) {
+        rank = sorted.non_null_count() + 1;
+        for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+          out_begin[*it] = rank;
+        }
+      }
+      break;
+    }
+
+    case RankOptions::Max: {
+      // The algorithm for Max is just like Min, but in reverse order.
+      T curr_value, prev_value{};
+      rank = length;
+
+      if (null_placement == NullPlacement::AtEnd) {
+        for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+          out_begin[*it] = rank;
+        }
+      }
+
+      for (auto it = sorted.non_nulls_end - 1; it >= sorted.non_nulls_begin; it--) {
+        curr_value = value_selector(*it);
+
+        if (it == sorted.non_nulls_end - 1 || curr_value != prev_value) {
+          rank = (it - sorted.overall_begin()) + 1;
+        }
+        out_begin[*it] = rank;
+        prev_value = curr_value;
+      }
+
+      if (null_placement == NullPlacement::AtStart) {
+        rank = sorted.null_count();
+        for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+          out_begin[*it] = rank;
+        }
+      }
+
+      break;
+    }
+  }
+
+  return Datum(rankings);
+}
+
 const RankOptions* GetDefaultRankOptions() {
   static const auto kDefaultRankOptions = RankOptions::Defaults();
   return &kDefaultRankOptions;
 }
 
-class ArrayRanker : public TypeVisitor {
+template <typename InputType, typename RankerType>
+class RankerMixin : public TypeVisitor {
  public:
-  ArrayRanker(ExecContext* ctx, const Array& array, const RankOptions& options,
-              Datum* output)
+  RankerMixin(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+              const InputType& input, const SortOrder order,
+              const NullPlacement null_placement,
+              const RankOptions::Tiebreaker tiebreaker, Datum* output)
       : TypeVisitor(),
         ctx_(ctx),
-        array_(array),
-        options_(options),
-        null_placement_(options.null_placement),
-        tiebreaker_(options.tiebreaker),
-        physical_type_(GetPhysicalType(array.type())),
+        indices_begin_(indices_begin),
+        indices_end_(indices_end),
+        input_(input),
+        order_(order),
+        null_placement_(null_placement),
+        tiebreaker_(tiebreaker),
+        physical_type_(GetPhysicalType(input.type())),
         output_(output) {}
 
   Status Run() { return physical_type_->Accept(this); }
 
-#define VISIT(TYPE) \
-  Status Visit(const TYPE& type) { return RankInternal<TYPE>(); }
+#define VISIT(TYPE)                                                       \
+  Status Visit(const TYPE& type) {                                        \
+    return static_cast<RankerType*>(this)->template RankInternal<TYPE>(); \
+  }
 
   VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
 
 #undef VISIT
 
-  template <typename InType>
-  Status RankInternal() {
-    using GetView = GetViewType<InType>;
-    using T = typename GetViewType<InType>::T;
-    using ArrayType = typename TypeTraits<InType>::ArrayType;
-
-    ArrayType arr(array_.data());
-
-    SortOrder order = SortOrder::Ascending;
-    if (!options_.sort_keys.empty()) {
-      order = options_.sort_keys[0].order;
-    }
-    ArraySortOptions array_options(order, null_placement_);
-
-    auto length = array_.length();
-    ARROW_ASSIGN_OR_RAISE(auto sort_indices,
-                          MakeMutableUInt64Array(length, ctx_->memory_pool()));
-    auto sort_begin = sort_indices->GetMutableValues<uint64_t>(1);
-    auto sort_end = sort_begin + length;
-    std::iota(sort_begin, sort_end, 0);
-
-    ARROW_ASSIGN_OR_RAISE(auto array_sorter, GetArraySorter(*physical_type_));
-
-    NullPartitionResult sorted =
-        array_sorter(sort_begin, sort_end, arr, 0, array_options);
-    uint64_t rank;
-
-    ARROW_ASSIGN_OR_RAISE(auto rankings,
-                          MakeMutableUInt64Array(length, ctx_->memory_pool()));
-    auto out_begin = rankings->GetMutableValues<uint64_t>(1);
-
-    switch (tiebreaker_) {
-      case RankOptions::Dense: {
-        T curr_value, prev_value{};
-        rank = 0;
-
-        if (null_placement_ == NullPlacement::AtStart && sorted.null_count() > 0) {
-          rank++;
-          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-
-        for (auto it = sorted.non_nulls_begin; it < sorted.non_nulls_end; it++) {
-          curr_value = GetView::LogicalValue(arr.GetView(*it));
-          if (it == sorted.non_nulls_begin || curr_value != prev_value) {
-            rank++;
-          }
-
-          out_begin[*it] = rank;
-          prev_value = curr_value;
-        }
-
-        if (null_placement_ == NullPlacement::AtEnd) {
-          rank++;
-          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-        break;
-      }
-
-      case RankOptions::First: {
-        rank = 0;
-        for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
-          out_begin[*it] = ++rank;
-        }
-        break;
-      }
-
-      case RankOptions::Min: {
-        T curr_value, prev_value{};
-        rank = 0;
-
-        if (null_placement_ == NullPlacement::AtStart) {
-          rank++;
-          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-
-        for (auto it = sorted.non_nulls_begin; it < sorted.non_nulls_end; it++) {
-          curr_value = GetView::LogicalValue(arr.GetView(*it));
-          if (it == sorted.non_nulls_begin || curr_value != prev_value) {
-            rank = (it - sorted.overall_begin()) + 1;
-          }
-          out_begin[*it] = rank;
-          prev_value = curr_value;
-        }
-
-        if (null_placement_ == NullPlacement::AtEnd) {
-          rank = sorted.non_null_count() + 1;
-          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-        break;
-      }
-
-      case RankOptions::Max: {
-        // The algorithm for Max is just like Min, but in reverse order.
-        T curr_value, prev_value{};
-        rank = length;
-
-        if (null_placement_ == NullPlacement::AtEnd) {
-          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-
-        for (auto it = sorted.non_nulls_end - 1; it >= sorted.non_nulls_begin; it--) {
-          curr_value = GetView::LogicalValue(arr.GetView(*it));
-          if (it == sorted.non_nulls_end - 1 || curr_value != prev_value) {
-            rank = (it - sorted.overall_begin()) + 1;
-          }
-          out_begin[*it] = rank;
-          prev_value = curr_value;
-        }
-
-        if (null_placement_ == NullPlacement::AtStart) {
-          rank = sorted.null_count();
-          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
-            out_begin[*it] = rank;
-          }
-        }
-
-        break;
-      }
-    }
-
-    *output_ = Datum(rankings);
-    return Status::OK();
-  }
-
+ protected:
   ExecContext* ctx_;
-  const Array& array_;
-  const RankOptions& options_;
+  uint64_t* indices_begin_;
+  uint64_t* indices_end_;
+  const InputType& input_;
+  const SortOrder order_;
   const NullPlacement null_placement_;
   const RankOptions::Tiebreaker tiebreaker_;
   const std::shared_ptr<DataType> physical_type_;
   Datum* output_;
+};
+
+template <typename T>
+class Ranker;
+
+template <>
+class Ranker<Array> : public RankerMixin<Array, Ranker<Array>> {
+ public:
+  using RankerMixin::RankerMixin;
+
+  template <typename InType>
+  Status RankInternal() {
+    using GetView = GetViewType<InType>;
+    using ArrayType = typename TypeTraits<InType>::ArrayType;
+
+    ARROW_ASSIGN_OR_RAISE(auto array_sorter, GetArraySorter(*physical_type_));
+
+    ArrayType array(input_.data());
+    NullPartitionResult sorted = array_sorter(indices_begin_, indices_end_, array, 0,
+                                              ArraySortOptions(order_, null_placement_));
+
+    auto value_selector = [&array](int64_t index) {
+      return GetView::LogicalValue(array.GetView(index));
+    };
+    ARROW_ASSIGN_OR_RAISE(*output_, CreateRankings(ctx_, sorted, null_placement_,
+                                                   tiebreaker_, value_selector));
+
+    return Status::OK();
+  }
+};
+
+template <>
+class Ranker<ChunkedArray> : public RankerMixin<ChunkedArray, Ranker<ChunkedArray>> {
+ public:
+  template <typename... Args>
+  explicit Ranker(Args&&... args)
+      : RankerMixin(std::forward<Args>(args)...),
+        physical_chunks_(GetPhysicalChunks(input_, physical_type_)) {}
+
+  template <typename InType>
+  Status RankInternal() {
+    using ArrayType = typename TypeTraits<InType>::ArrayType;
+
+    if (physical_chunks_.empty()) {
+      return Status::OK();
+    }
+
+    ARROW_ASSIGN_OR_RAISE(
+        NullPartitionResult sorted,
+        SortChunkedArray(ctx_, indices_begin_, indices_end_, physical_type_,
+                         physical_chunks_, order_, null_placement_));
+
+    const auto arrays = GetArrayPointers(physical_chunks_);
+    auto value_selector = [resolver = ChunkedArrayResolver(arrays)](int64_t index) {
+      return resolver.Resolve<ArrayType>(index).Value();
+    };
+    ARROW_ASSIGN_OR_RAISE(*output_, CreateRankings(ctx_, sorted, null_placement_,
+                                                   tiebreaker_, value_selector));
+
+    return Status::OK();
+  }
+
+ private:
+  const ArrayVector physical_chunks_;
 };
 
 const FunctionDoc rank_doc(
@@ -220,6 +275,9 @@ class RankMetaFunction : public MetaFunction {
       case Datum::ARRAY: {
         return Rank(*args[0].make_array(), rank_options, ctx);
       } break;
+      case Datum::CHUNKED_ARRAY: {
+        return Rank(*args[0].chunked_array(), rank_options, ctx);
+      } break;
       default:
         break;
     }
@@ -230,10 +288,24 @@ class RankMetaFunction : public MetaFunction {
   }
 
  private:
-  Result<Datum> Rank(const Array& array, const RankOptions& options,
-                     ExecContext* ctx) const {
+  template <typename T>
+  static Result<Datum> Rank(const T& input, const RankOptions& options,
+                            ExecContext* ctx) {
+    SortOrder order = SortOrder::Ascending;
+    if (!options.sort_keys.empty()) {
+      order = options.sort_keys[0].order;
+    }
+
+    int64_t length = input.length();
+    ARROW_ASSIGN_OR_RAISE(auto indices,
+                          MakeMutableUInt64Array(length, ctx->memory_pool()));
+    auto* indices_begin = indices->GetMutableValues<uint64_t>(1);
+    auto* indices_end = indices_begin + length;
+    std::iota(indices_begin, indices_end, 0);
+
     Datum output;
-    ArrayRanker ranker(ctx, array, options, &output);
+    Ranker<T> ranker(ctx, indices_begin, indices_end, input, order,
+                     options.null_placement, options.tiebreaker, &output);
     ARROW_RETURN_NOT_OK(ranker.Run());
     return output;
   }

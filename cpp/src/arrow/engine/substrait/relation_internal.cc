@@ -206,7 +206,7 @@ Result<RelationInfo> GetExtensionRelationInfo(const substrait::Rel& rel,
     case substrait::Rel::RelTypeCase::kExtensionLeaf: {
       const auto& ext = rel.extension_leaf();
       DefaultExtensionDetails detail{ext.detail()};
-      return conv_opts.extension_provider->MakeRel(inputs, detail, ext_set);
+      return conv_opts.extension_provider->MakeRel(conv_opts, inputs, detail, ext_set);
     }
 
     case substrait::Rel::RelTypeCase::kExtensionSingle: {
@@ -215,7 +215,7 @@ Result<RelationInfo> GetExtensionRelationInfo(const substrait::Rel& rel,
                             FromProto(ext.input(), ext_set, conv_opts));
       inputs.push_back(std::move(input_info));
       DefaultExtensionDetails detail{ext.detail()};
-      return conv_opts.extension_provider->MakeRel(inputs, detail, ext_set);
+      return conv_opts.extension_provider->MakeRel(conv_opts, inputs, detail, ext_set);
     }
 
     case substrait::Rel::RelTypeCase::kExtensionMulti: {
@@ -225,7 +225,7 @@ Result<RelationInfo> GetExtensionRelationInfo(const substrait::Rel& rel,
         inputs.push_back(std::move(input_info));
       }
       DefaultExtensionDetails detail{ext.detail()};
-      return conv_opts.extension_provider->MakeRel(inputs, detail, ext_set);
+      return conv_opts.extension_provider->MakeRel(conv_opts, inputs, detail, ext_set);
     }
 
     default: {
@@ -339,7 +339,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         std::vector<std::string> table_names(named_table.names().begin(),
                                              named_table.names().end());
         ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
-                              named_table_provider(table_names));
+                              named_table_provider(table_names, *base_schema));
 
         if (!source_decl.IsValid()) {
           return Status::Invalid("Invalid NamedTable Source");

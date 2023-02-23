@@ -376,12 +376,15 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       if (is_union(type->id())) {
-        // For unions, MakeArrayOfNull places the nulls in the children
         ASSERT_EQ(array->null_count(), 0);
         const auto& union_array = checked_cast<const UnionArray&>(*array);
         for (int i = 0; i < union_array.num_fields(); ++i) {
           ASSERT_EQ(union_array.field(i)->null_count(), union_array.field(i)->length());
         }
+      } else if (type->id() == Type::RUN_END_ENCODED) {
+        ASSERT_EQ(array->null_count(), 0);
+        const auto& ree_array = checked_cast<const RunEndEncodedArray&>(*array);
+        ASSERT_EQ(ree_array.values()->null_count(), ree_array.values()->length());
       } else {
         ASSERT_EQ(array->null_count(), length);
         for (int64_t i = 0; i < length; ++i) {
@@ -575,6 +578,8 @@ static ScalarVector GetScalars() {
                              ArrayFromJSON(utf8(), R"(["foo", "bar"])")),
       DictionaryScalar::Make(ScalarFromJSON(uint8(), "1"),
                              ArrayFromJSON(utf8(), R"(["foo", "bar"])")),
+      std::make_shared<RunEndEncodedScalar>(ScalarFromJSON(int8(), "1"),
+                                            run_end_encoded(int16(), int8())),
   };
 }
 
@@ -718,22 +723,23 @@ TEST_F(TestArray, TestAppendArraySlice) {
     span.SetMembers(*nulls->data());
     ASSERT_OK(builder->AppendArraySlice(span, 0, 4));
     ASSERT_EQ(12, builder->length());
-    if (!is_union(scalar->type->id())) {
+    const bool has_validity_bitmap = internal::HasValidityBitmap(scalar->type->id());
+    if (has_validity_bitmap) {
       ASSERT_EQ(4, builder->null_count());
     }
     ASSERT_OK(builder->AppendArraySlice(span, 0, 0));
     ASSERT_EQ(12, builder->length());
-    if (!is_union(scalar->type->id())) {
+    if (has_validity_bitmap) {
       ASSERT_EQ(4, builder->null_count());
     }
     ASSERT_OK(builder->AppendArraySlice(span, 1, 0));
     ASSERT_EQ(12, builder->length());
-    if (!is_union(scalar->type->id())) {
+    if (has_validity_bitmap) {
       ASSERT_EQ(4, builder->null_count());
     }
     ASSERT_OK(builder->AppendArraySlice(span, 1, 4));
     ASSERT_EQ(16, builder->length());
-    if (!is_union(scalar->type->id())) {
+    if (has_validity_bitmap) {
       ASSERT_EQ(8, builder->null_count());
     }
 
@@ -741,7 +747,7 @@ TEST_F(TestArray, TestAppendArraySlice) {
     ASSERT_OK(builder->Finish(&result));
     ASSERT_OK(result->ValidateFull());
     ASSERT_EQ(16, result->length());
-    if (!is_union(scalar->type->id())) {
+    if (has_validity_bitmap) {
       ASSERT_EQ(8, result->null_count());
     }
   }
@@ -1218,6 +1224,22 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
       // Validates current implementation, algorithms shouldn't rely on this
       ASSERT_EQ(0, *(buffer->data() + i)) << i;
     }
+  }
+}
+
+TYPED_TEST(TestPrimitiveBuilder, TestAppendOptional) {
+  int64_t size = 1000;
+  for (int64_t i = 0; i < size; ++i) {
+    ASSERT_OK(this->builder_->AppendOrNull(std::nullopt));
+    ASSERT_EQ(i + 1, this->builder_->null_count());
+  }
+
+  std::shared_ptr<Array> out;
+  FinishAndCheckPadding(this->builder_.get(), &out);
+  auto result = checked_pointer_cast<typename TypeParam::ArrayType>(out);
+
+  for (int64_t i = 0; i < size; ++i) {
+    ASSERT_TRUE(result->IsNull(i)) << i;
   }
 }
 
@@ -2304,7 +2326,17 @@ class TestAdaptiveIntBuilder : public TestBuilder {
     builder_ = std::make_shared<AdaptiveIntBuilder>(pool_);
   }
 
-  void Done() { FinishAndCheckPadding(builder_.get(), &result_); }
+  void EnsureValuesBufferNotNull(const ArrayData& data) {
+    // The values buffer should be initialized
+    ASSERT_EQ(2, data.buffers.size());
+    ASSERT_NE(nullptr, data.buffers[1]);
+    ASSERT_NE(nullptr, data.buffers[1]->data());
+  }
+
+  void Done() {
+    FinishAndCheckPadding(builder_.get(), &result_);
+    EnsureValuesBufferNotNull(*result_->data());
+  }
 
   template <typename ExpectedType>
   void TestAppendValues() {
@@ -2554,6 +2586,8 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendEmptyValue) {
   // NOTE: The fact that we get 0 is really an implementation detail
   AssertArraysEqual(*result_, *ArrayFromJSON(int8(), "[null, null, 0, 42, 0, 0]"));
 }
+
+TEST_F(TestAdaptiveIntBuilder, Empty) { Done(); }
 
 TEST(TestAdaptiveIntBuilderWithStartIntSize, TestReset) {
   auto builder = std::make_shared<AdaptiveIntBuilder>(

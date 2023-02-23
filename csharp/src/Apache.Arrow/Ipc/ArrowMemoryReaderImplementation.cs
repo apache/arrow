@@ -28,7 +28,7 @@ namespace Apache.Arrow.Ipc
         private readonly ReadOnlyMemory<byte> _buffer;
         private int _bufferPosition;
 
-        public ArrowMemoryReaderImplementation(ReadOnlyMemory<byte> buffer) : base()
+        public ArrowMemoryReaderImplementation(ReadOnlyMemory<byte> buffer, ICompressionCodecFactory compressionCodecFactory) : base(null, compressionCodecFactory)
         {
             _buffer = buffer;
         }

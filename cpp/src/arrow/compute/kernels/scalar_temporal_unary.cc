@@ -21,7 +21,7 @@
 
 #include "arrow/builder.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/time.h"
@@ -673,6 +673,23 @@ struct IsDaylightSavings {
 };
 
 // ----------------------------------------------------------------------
+// Extract local timestamp of a given timestamp given its timezone
+
+template <typename Duration, typename Localizer>
+struct LocalTimestamp {
+  explicit LocalTimestamp(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    const auto t = localizer_.template ConvertTimePoint<Duration>(arg);
+    return static_cast<T>(t.time_since_epoch().count());
+  }
+
+  Localizer localizer_;
+};
+
+// ----------------------------------------------------------------------
 // Round temporal values to given frequency
 
 template <typename Duration, typename Localizer>
@@ -1248,7 +1265,7 @@ struct Strptime {
     const ArraySpan& in = batch[0].array;
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
 
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     int64_t* out_data = out_span->GetValues<int64_t>(1);
 
     if (self.error_is_null) {
@@ -1325,6 +1342,12 @@ Result<TypeHolder> ResolveAssumeTimezoneOutput(KernelContext* ctx,
                                                const std::vector<TypeHolder>& args) {
   const auto& in_type = checked_cast<const TimestampType&>(*args[0]);
   return timestamp(in_type.unit(), AssumeTimezoneState::Get(ctx).timezone);
+}
+
+Result<TypeHolder> ResolveLocalTimestampOutput(KernelContext* ctx,
+                                               const std::vector<TypeHolder>& args) {
+  const auto& in_type = checked_cast<const TimestampType&>(*args[0]);
+  return timestamp(in_type.unit());
 }
 
 template <typename Duration>
@@ -1784,6 +1807,15 @@ const FunctionDoc is_dst_doc{
      "An error is returned if the values do not have a defined timezone."),
     {"values"}};
 
+const FunctionDoc local_timestamp_doc{
+    "Convert timestamp to a timezone-naive local time timestamp",
+    ("LocalTimestamp converts timezone-aware timestamp to local timestamp\n"
+     "of the given timestamp's timezone and removes timezone metadata.\n"
+     "Alternative name for this timestamp is also wall clock time.\n"
+     "If input is in UTC or without timezone, then unchanged input values\n"
+     "without timezone metadata are returned.\n"
+     "Null values emit null."),
+    {"values"}};
 const FunctionDoc floor_temporal_doc{
     "Round temporal values down to nearest multiple of specified time unit",
     ("Null values emit null.\n"
@@ -1968,6 +2000,13 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
                            BooleanType>::Make<WithTimestamps>("is_dst", boolean(),
                                                               is_dst_doc);
   DCHECK_OK(registry->AddFunction(std::move(is_dst)));
+
+  auto local_timestamp =
+      UnaryTemporalFactory<LocalTimestamp, TemporalComponentExtract, TimestampType>::Make<
+          WithTimestamps>("local_timestamp",
+                          OutputType::Resolver(ResolveLocalTimestampOutput),
+                          local_timestamp_doc);
+  DCHECK_OK(registry->AddFunction(std::move(local_timestamp)));
 
   // Temporal rounding functions
   // Note: UnaryTemporalFactory will not correctly resolve OutputType(FirstType) to

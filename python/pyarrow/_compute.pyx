@@ -882,6 +882,30 @@ class RoundOptions(_RoundOptions):
         self._set_options(ndigits, round_mode)
 
 
+cdef class _RoundBinaryOptions(FunctionOptions):
+    def _set_options(self, round_mode):
+        self.wrapped.reset(
+            new CRoundBinaryOptions(unwrap_round_mode(round_mode))
+        )
+
+
+class RoundBinaryOptions(_RoundBinaryOptions):
+    """
+    Options for rounding numbers when ndigits is provided by a second array
+
+    Parameters
+    ----------
+    round_mode : str, default "half_to_even"
+        Rounding and tie-breaking mode.
+        Accepted values are "down", "up", "towards_zero", "towards_infinity",
+        "half_down", "half_up", "half_towards_zero", "half_towards_infinity",
+        "half_to_even", "half_to_odd".
+    """
+
+    def __init__(self, round_mode="half_to_even"):
+        self._set_options(round_mode)
+
+
 cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
     if unit == "nanosecond":
         return CCalendarUnit_NANOSECOND
@@ -2203,37 +2227,37 @@ class RankOptions(_RankOptions):
         self._set_options(sort_keys, null_placement, tiebreaker)
 
 
-def _group_by(args, keys, aggregations):
+def _group_by(table, aggregates, keys):
     cdef:
-        vector[CDatum] c_args
-        vector[CDatum] c_keys
-        vector[CAggregate] c_aggregations
-        CDatum result
+        shared_ptr[CTable] c_table
+        vector[CAggregate] c_aggregates
+        vector[CFieldRef] c_keys
         CAggregate c_aggr
+        shared_ptr[CTable] sp_out_table
 
-    _pack_compute_args(args, &c_args)
-    _pack_compute_args(keys, &c_keys)
+    c_table = (<Table> table).sp_table
 
-    # reference into the flattened list of arguments for the aggregations
-    field_ref = 0
-    for aggr_arg_names, aggr_func_name, aggr_opts in aggregations:
+    for aggr_arg_indices, aggr_func_name, aggr_opts, aggr_name in aggregates:
         c_aggr.function = tobytes(aggr_func_name)
         if aggr_opts is not None:
             c_aggr.options = (<FunctionOptions?>aggr_opts).wrapped
         else:
             c_aggr.options = <shared_ptr[CFunctionOptions]>nullptr
-        for _ in aggr_arg_names:
-            c_aggr.target.push_back(CFieldRef(<int> field_ref))
-            field_ref += 1
+        for field_idx in aggr_arg_indices:
+            c_aggr.target.push_back(CFieldRef(<int> field_idx))
 
-        c_aggregations.push_back(move(c_aggr))
+        c_aggr.name = tobytes(aggr_name)
+        c_aggregates.push_back(move(c_aggr))
+
+    for key_idx in keys:
+        c_keys.push_back(CFieldRef(<int> key_idx))
 
     with nogil:
-        result = GetResultValue(
-            GroupBy(c_args, c_keys, c_aggregations)
+        sp_table = GetResultValue(
+            CTableGroupBy(c_table, c_aggregates, c_keys)
         )
 
-    return wrap_datum(result)
+    return pyarrow_wrap_table(sp_table)
 
 
 cdef class Expression(_Weakrefable):

@@ -90,3 +90,5 @@ java-native-cpp/
 
 # archery files
 dev/archery/build
+
+swift/Arrow/.build

@@ -451,9 +451,7 @@ class Release:
                 default_branch_name = origin_head_name_tokenized[-1]
             except (KeyError, IndexError):
                 # Use a hard-coded default value to set default_branch_name
-                # TODO: ARROW-18011 to track changing the hard coded default
-                # value from "master" to "main".
-                default_branch_name = "master"
+                default_branch_name = "main"
                 warnings.warn('Unable to determine default branch name: '
                               'ARCHERY_DEFAULT_BRANCH environment variable is '
                               'not set. Git repository does not contain a '

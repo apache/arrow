@@ -381,6 +381,15 @@ struct TypeTraits<LargeStringType> {
   static inline std::shared_ptr<DataType> type_singleton() { return large_utf8(); }
 };
 
+template <>
+struct TypeTraits<RunEndEncodedType> {
+  using ArrayType = RunEndEncodedArray;
+  using BuilderType = RunEndEncodedBuilder;
+  using ScalarType = RunEndEncodedScalar;
+
+  constexpr static bool is_parameter_free = false;
+};
+
 /// @}
 
 /// \addtogroup c-type-traits
@@ -755,6 +764,12 @@ using is_interval_type = std::is_base_of<IntervalType, T>;
 
 template <typename T, typename R = void>
 using enable_if_interval = enable_if_t<is_interval_type<T>::value, R>;
+
+template <typename T>
+using is_run_end_encoded_type = std::is_base_of<RunEndEncodedType, T>;
+
+template <typename T, typename R = void>
+using enable_if_run_end_encoded = enable_if_t<is_run_end_encoded_type<T>::value, R>;
 
 template <typename T>
 using is_dictionary_type = std::is_base_of<DictionaryType, T>;
@@ -1177,6 +1192,7 @@ constexpr bool is_nested(Type::type type_id) {
     case Type::STRUCT:
     case Type::SPARSE_UNION:
     case Type::DENSE_UNION:
+    case Type::RUN_END_ENCODED:
       return true;
     default:
       break;

@@ -179,6 +179,11 @@ class DenseUnionArray;
 class DenseUnionBuilder;
 struct DenseUnionScalar;
 
+class RunEndEncodedType;
+class RunEndEncodedArray;
+class RunEndEncodedBuilder;
+struct RunEndEncodedScalar;
+
 template <typename TypeClass>
 class NumericArray;
 
@@ -405,6 +410,9 @@ struct Type {
     /// Calendar interval type with three fields.
     INTERVAL_MONTH_DAY_NANO,
 
+    /// Run-end encoded data.
+    RUN_END_ENCODED,
+
     // Leave this at the end
     MAX_ID
   };
@@ -549,6 +557,10 @@ ARROW_EXPORT std::shared_ptr<DataType> time64(TimeUnit::type unit);
 /// \brief Create a StructType instance
 ARROW_EXPORT std::shared_ptr<DataType> struct_(
     const std::vector<std::shared_ptr<Field>>& fields);
+
+/// \brief Create a RunEndEncodedType instance
+ARROW_EXPORT std::shared_ptr<DataType> run_end_encoded(
+    std::shared_ptr<DataType> run_end_type, std::shared_ptr<DataType> value_type);
 
 /// \brief Create a SparseUnionType instance
 ARROW_EXPORT std::shared_ptr<DataType> sparse_union(FieldVector child_fields,

@@ -222,6 +222,8 @@ func typeToJSON(arrowType arrow.DataType) (json.RawMessage, error) {
 		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision), 256}
 	case arrow.UnionType:
 		typ = unionJSON{"union", dt.Mode().String(), dt.TypeCodes()}
+	case *arrow.RunEndEncodedType:
+		typ = nameJSON{"runendencoded"}
 	default:
 		return nil, fmt.Errorf("unknown arrow.DataType %v", arrowType)
 	}
@@ -475,6 +477,35 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 		case "DENSE":
 			arrowType = arrow.DenseUnionOf(fieldsFromJSON(children), t.TypeIDs)
 		}
+	case "runendencoded":
+		if len(children) != 2 {
+			err = fmt.Errorf("%w: run-end encoded array must have exactly 2 fields, but got %d",
+				arrow.ErrInvalid, len(children))
+			return
+		}
+		if children[0].Name != "run_ends" {
+			err = fmt.Errorf("%w: first child of run-end encoded array must be called run_ends, but got: %s",
+				arrow.ErrInvalid, children[0].Name)
+			return
+		}
+		switch children[0].arrowType.ID() {
+		case arrow.INT16, arrow.INT32, arrow.INT64:
+		default:
+			err = fmt.Errorf("%w: only int16, int32 and int64 type are supported as run ends array, but got: %s",
+				arrow.ErrInvalid, children[0].Type)
+			return
+		}
+
+		if children[0].Nullable {
+			err = fmt.Errorf("%w: run ends array cannot be nullable", arrow.ErrInvalid)
+			return
+		}
+		if children[1].Name != "values" {
+			err = fmt.Errorf("%w: second child of run-end encoded array must be called values, got: %s",
+				arrow.ErrInvalid, children[1].Name)
+			return
+		}
+		arrowType = arrow.RunEndEncodedOf(children[0].arrowType, children[1].arrowType)
 	}
 
 	if arrowType == nil {
@@ -1176,6 +1207,13 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		defer indices.Release()
 		return array.NewData(dt, indices.Len(), indices.Buffers(), indices.Children(), indices.NullN(), indices.Offset())
 
+	case *arrow.RunEndEncodedType:
+		runEnds := arrayFromJSON(mem, dt.RunEnds(), arr.Children[0])
+		defer runEnds.Release()
+		values := arrayFromJSON(mem, dt.Encoded(), arr.Children[1])
+		defer values.Release()
+		return array.NewData(dt, arr.Count, []*memory.Buffer{nil}, []arrow.ArrayData{runEnds, values}, 0, 0)
+
 	case arrow.UnionType:
 		fields := make([]arrow.ArrayData, len(dt.Fields()))
 		for i, f := range dt.Fields() {
@@ -1544,6 +1582,22 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			o.Children[i] = arrayToJSON(fields[i], arr.Field(i))
 		}
 		return o
+
+	case *array.RunEndEncoded:
+		dt := arr.DataType().(*arrow.RunEndEncodedType)
+		fields := dt.Fields()
+		runEnds := arr.LogicalRunEndsArray(memory.DefaultAllocator)
+		defer runEnds.Release()
+		values := arr.LogicalValuesArray()
+		defer values.Release()
+		return Array{
+			Name:  field.Name,
+			Count: arr.Len(),
+			Children: []Array{
+				arrayToJSON(fields[0], runEnds),
+				arrayToJSON(fields[1], values),
+			},
+		}
 
 	default:
 		panic(fmt.Errorf("unknown array type %T", arr))

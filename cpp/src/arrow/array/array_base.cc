@@ -39,6 +39,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/ree_util.h"
 #include "arrow/visit_array_inline.h"
 #include "arrow/visitor.h"
 
@@ -143,6 +144,15 @@ struct ScalarFromArraySlotImpl {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedArray& a) {
+    ArraySpan span{*a.data()};
+    const int64_t physical_index = ree_util::FindPhysicalIndex(span, index_, span.offset);
+    ScalarFromArraySlotImpl scalar_from_values(*a.values(), physical_index);
+    ARROW_ASSIGN_OR_RAISE(auto value, std::move(scalar_from_values).Finish());
+    out_ = std::make_shared<RunEndEncodedScalar>(std::move(value), a.type());
+    return Status::OK();
+  }
+
   Status Visit(const ExtensionArray& a) {
     ARROW_ASSIGN_OR_RAISE(auto storage, a.storage()->GetScalar(index_));
     out_ = std::make_shared<ExtensionScalar>(std::move(storage), a.type());
@@ -165,7 +175,7 @@ struct ScalarFromArraySlotImpl {
                                 array_.length());
     }
 
-    if (array_.IsNull(index_)) {
+    if (array_.type()->id() != Type::RUN_END_ENCODED && array_.IsNull(index_)) {
       auto null = MakeNullScalar(array_.type());
       if (is_dictionary(array_.type()->id())) {
         auto& dict_null = checked_cast<DictionaryScalar&>(*null);

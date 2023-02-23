@@ -32,7 +32,7 @@
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/plan.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/async_test_util.h"
@@ -460,7 +460,7 @@ std::ostream& operator<<(std::ostream& out, const ScannerTestParams& params) {
   return out;
 }
 
-constexpr int kRowsPerTestBatch = 1024;
+constexpr int kRowsPerTestBatch = 16;
 
 std::shared_ptr<Schema> ScannerTestSchema() {
   return schema({field("row_num", int32()), field("filterable", int16()),

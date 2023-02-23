@@ -70,7 +70,12 @@ namespace Apache.Arrow.Ipc
 
         public ArrowStreamReader(ReadOnlyMemory<byte> buffer)
         {
-            _implementation = new ArrowMemoryReaderImplementation(buffer);
+            _implementation = new ArrowMemoryReaderImplementation(buffer, compressionCodecFactory: null);
+        }
+
+        public ArrowStreamReader(ReadOnlyMemory<byte> buffer, ICompressionCodecFactory compressionCodecFactory)
+        {
+            _implementation = new ArrowMemoryReaderImplementation(buffer, compressionCodecFactory);
         }
 
         private protected ArrowStreamReader(ArrowReaderImplementation implementation)

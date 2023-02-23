@@ -77,12 +77,15 @@
 #' `col_names`, and the CSV file has a header row that would otherwise be used
 #' to idenfity column names, you'll need to add `skip = 1` to skip that row.
 #'
-#' @param file A character file name or URI, `raw` vector, an Arrow input stream,
-#' or a `FileSystem` with path (`SubTreeFileSystem`).
+#' @param file A character file name or URI, literal data (either a single string or a [raw] vector),
+#' an Arrow input stream, or a `FileSystem` with path (`SubTreeFileSystem`).
+#'
 #' If a file name, a memory-mapped Arrow [InputStream] will be opened and
 #' closed when finished; compression will be detected from the file extension
 #' and handled automatically. If an input stream is provided, it will be left
 #' open.
+#'
+#' To be recognised as literal data, the input must be wrapped with `I()`.
 #' @param delim Single character used to separate fields within a record.
 #' @param quote Single character used to quote strings.
 #' @param escape_double Does the file escape quotes by doubling them?
@@ -154,6 +157,10 @@
 #'   tf,
 #'   col_types = schema(x = timestamp(unit = "us", timezone = "UTC"))
 #' )
+#'
+#' # Read directly from strings with `I()`
+#' read_csv_arrow(I("x,y\n1,2\n3,4"))
+#' read_delim_arrow(I(c("x y", "1 2", "3 4")), delim = " ")
 read_delim_arrow <- function(file,
                              delim = ",",
                              quote = '"',
@@ -196,6 +203,15 @@ read_delim_arrow <- function(file,
       col_names = read_options$column_names,
       timestamp_parsers = timestamp_parsers
     )
+  }
+
+  if (inherits(file, "AsIs")) {
+    if (is.raw(file)) {
+      # If a raw vector is wrapped by `I()`, we need to unclass the `AsIs` class to read the raw vector.
+      file <- unclass(file)
+    } else {
+      file <- charToRaw(paste(file, collapse = "\n"))
+    }
   }
 
   if (!inherits(file, "InputStream")) {

@@ -338,12 +338,11 @@ Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<TypeHolder>
   const DataType& right_type = *(*types)[1];
   DCHECK(is_decimal(left_type.id()) || is_decimal(right_type.id()));
 
-  // decimal + float = float
-  if (is_floating(left_type.id())) {
-    (*types)[1] = (*types)[0];
-    return Status::OK();
-  } else if (is_floating(right_type.id())) {
-    (*types)[0] = (*types)[1];
+  // decimal + float64 = float64
+  // decimal + float32 is roughly float64 + float32 so we choose float64
+  if (is_floating(left_type.id()) || is_floating(right_type.id())) {
+    (*types)[0] = float64();
+    (*types)[1] = float64();
     return Status::OK();
   }
 

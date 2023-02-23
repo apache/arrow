@@ -421,6 +421,10 @@ class ArrayLoader {
     return LoadType(*type.index_type());
   }
 
+  Status Visit(const RunEndEncodedType& type) {
+    return Status::NotImplemented("run-end encoded array in IPC");
+  }
+
   Status Visit(const ExtensionType& type) { return LoadType(*type.storage_type()); }
 
   BatchDataReadRequest& read_request() { return read_request_; }

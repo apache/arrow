@@ -85,7 +85,7 @@ void CheckScalar(std::string func_name, const ScalarVector& inputs,
                  std::shared_ptr<Scalar> expected, const FunctionOptions* options) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, GetDatums(inputs), options));
   ValidateOutput(out);
-  if (!out.scalar()->Equals(expected)) {
+  if (!out.scalar()->Equals(*expected)) {
     std::string summary = func_name + "(";
     for (const auto& input : inputs) {
       summary += input->ToString() + ",";
@@ -282,26 +282,26 @@ void CheckScalarBinaryCommutative(std::string func_name, Datum left_input,
 
 namespace {
 
-void ValidateOutput(const ArrayData& output) {
+void ValidateOutputImpl(const ArrayData& output) {
   ASSERT_OK(::arrow::internal::ValidateArrayFull(output));
   TestInitialized(output);
 }
 
-void ValidateOutput(const ChunkedArray& output) {
+void ValidateOutputImpl(const ChunkedArray& output) {
   ASSERT_OK(output.ValidateFull());
   for (const auto& chunk : output.chunks()) {
     TestInitialized(*chunk);
   }
 }
 
-void ValidateOutput(const RecordBatch& output) {
+void ValidateOutputImpl(const RecordBatch& output) {
   ASSERT_OK(output.ValidateFull());
   for (const auto& column : output.column_data()) {
     TestInitialized(*column);
   }
 }
 
-void ValidateOutput(const Table& output) {
+void ValidateOutputImpl(const Table& output) {
   ASSERT_OK(output.ValidateFull());
   for (const auto& column : output.columns()) {
     for (const auto& chunk : column->chunks()) {
@@ -310,26 +310,26 @@ void ValidateOutput(const Table& output) {
   }
 }
 
-void ValidateOutput(const Scalar& output) { ASSERT_OK(output.ValidateFull()); }
+void ValidateOutputImpl(const Scalar& output) { ASSERT_OK(output.ValidateFull()); }
 
 }  // namespace
 
 void ValidateOutput(const Datum& output) {
   switch (output.kind()) {
     case Datum::ARRAY:
-      ValidateOutput(*output.array());
+      ValidateOutputImpl(*output.array());
       break;
     case Datum::CHUNKED_ARRAY:
-      ValidateOutput(*output.chunked_array());
+      ValidateOutputImpl(*output.chunked_array());
       break;
     case Datum::RECORD_BATCH:
-      ValidateOutput(*output.record_batch());
+      ValidateOutputImpl(*output.record_batch());
       break;
     case Datum::TABLE:
-      ValidateOutput(*output.table());
+      ValidateOutputImpl(*output.table());
       break;
     case Datum::SCALAR:
-      ValidateOutput(*output.scalar());
+      ValidateOutputImpl(*output.scalar());
       break;
     default:
       break;

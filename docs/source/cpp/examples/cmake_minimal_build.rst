@@ -24,5 +24,5 @@ Minimal build using CMake
 The folder ``cpp/examples/minimal_build/`` located inside the source tree
 contains a Docker-based example of building and using Arrow from a
 third-party project, using CMake.  The
-`README <https://github.com/apache/arrow/tree/master/cpp/examples/minimal_build/README.md>`_
+`README <https://github.com/apache/arrow/tree/main/cpp/examples/minimal_build/README.md>`_
 file in that folder has more information.

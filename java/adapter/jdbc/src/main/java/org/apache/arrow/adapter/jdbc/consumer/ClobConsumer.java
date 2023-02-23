@@ -23,10 +23,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.VarCharVector;
-
-import io.netty.util.internal.PlatformDependent;
 
 /**
  * Consumer which consume clob type values from {@link ResultSet}.
@@ -97,8 +96,12 @@ public abstract class ClobConsumer extends BaseConsumer<VarCharVector> {
             while ((dataBuffer.writerIndex() + bytes.length) > dataBuffer.capacity()) {
               vector.reallocDataBuffer();
             }
-            PlatformDependent.copyMemory(bytes, 0,
-                dataBuffer.memoryAddress() + startIndex + totalBytes, bytes.length);
+            MemoryUtil.UNSAFE.copyMemory(
+                    bytes,
+                    MemoryUtil.BYTE_ARRAY_BASE_OFFSET,
+                    null,
+                    dataBuffer.memoryAddress() + startIndex + totalBytes,
+                    bytes.length);
 
             totalBytes += bytes.length;
             read += readSize;
@@ -144,8 +147,12 @@ public abstract class ClobConsumer extends BaseConsumer<VarCharVector> {
           while ((dataBuffer.writerIndex() + bytes.length) > dataBuffer.capacity()) {
             vector.reallocDataBuffer();
           }
-          PlatformDependent.copyMemory(bytes, 0,
-              dataBuffer.memoryAddress() + startIndex + totalBytes, bytes.length);
+          MemoryUtil.UNSAFE.copyMemory(
+                  bytes,
+                  MemoryUtil.BYTE_ARRAY_BASE_OFFSET,
+                  null,
+                  dataBuffer.memoryAddress() + startIndex + totalBytes,
+                  bytes.length);
 
           totalBytes += bytes.length;
           read += readSize;
