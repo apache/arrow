@@ -678,6 +678,13 @@ cdef class StructType(DataType):
             The index of the field with the given name; -1 if the
             name isn't found or there are several fields with the given
             name.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> struct_type = pa.struct({'x': pa.int32(), 'y': pa.string()})
+        >>> struct_type.get_field_index('y')
+        1
         """
         return self.struct_type.GetFieldIndex(tobytes(name))
 
@@ -728,6 +735,13 @@ cdef class StructType(DataType):
         Returns
         -------
         indices : List[int]
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> struct_type = pa.struct({'x': pa.int32(), 'y': pa.string()})
+        >>> struct_type.get_all_field_indices('x')
+        [0]
         """
         return self.struct_type.GetAllFieldIndices(tobytes(name))
 
