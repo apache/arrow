@@ -22,15 +22,10 @@ FROM ${repo}:${arch}-conda-python-${python}
 
 ARG jdk=8
 ARG maven=3.5
-# https://github.com/apache/arrow/issues/33697
-# numpy version pin should be removed with new apache spark release
-# that includes https://github.com/apache/spark/pull/37817
-ARG numpy=1.23
 
 RUN mamba install -q -y \
         openjdk=${jdk} \
         maven=${maven} \
-        numpy=${numpy} \
         pandas && \
     mamba clean --all
 
