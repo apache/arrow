@@ -304,9 +304,6 @@ struct SchemaSourceNode : public SourceNode {
     auto& schema = cast_options.schema;
     auto io_executor = cast_options.io_executor;
 
-    if (io_executor == NULLPTR) {
-      io_executor = plan->query_context()->exec_context()->executor();
-    }
     auto it = it_maker();
 
     if (schema == NULLPTR) {

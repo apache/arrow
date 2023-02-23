@@ -170,45 +170,60 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
 
 namespace {
 
-std::shared_ptr<ExtensionProvider> g_default_extension_provider =
-    std::make_shared<DefaultExtensionProvider>();
+template <typename T>
+class ConfigurableSingleton {
+ public:
+  explicit ConfigurableSingleton(T new_value) : instance(std::move(new_value)) {}
 
-std::mutex g_default_extension_provider_mutex;
+  T Get() {
+    std::lock_guard lk(mutex);
+    return instance;
+  }
+
+  void Set(T new_value) {
+    std::lock_guard lk(mutex);
+    instance = std::move(new_value);
+  }
+
+ private:
+  T instance;
+  std::mutex mutex;
+};
+
+ConfigurableSingleton<std::shared_ptr<ExtensionProvider>>&
+default_extension_provider_singleton() {
+  static ConfigurableSingleton<std::shared_ptr<ExtensionProvider>> singleton(
+      std::make_shared<DefaultExtensionProvider>());
+  return singleton;
+}
+
+ConfigurableSingleton<NamedTapProvider>& default_named_tap_provider_singleton() {
+  static ConfigurableSingleton<NamedTapProvider> singleton(
+      [](const std::string& tap_kind, std::vector<compute::Declaration::Input> inputs,
+         const std::string& tap_name,
+         std::shared_ptr<Schema> tap_schema) -> Result<compute::Declaration> {
+        return Status::NotImplemented(
+            "Plan contained a NamedTapRel but no provider configured");
+      });
+  return singleton;
+}
 
 }  // namespace
 
 std::shared_ptr<ExtensionProvider> default_extension_provider() {
-  std::unique_lock<std::mutex> lock(g_default_extension_provider_mutex);
-  return g_default_extension_provider;
+  return default_extension_provider_singleton().Get();
 }
 
 void set_default_extension_provider(const std::shared_ptr<ExtensionProvider>& provider) {
-  std::unique_lock<std::mutex> lock(g_default_extension_provider_mutex);
-  g_default_extension_provider = provider;
+  default_extension_provider_singleton().Set(provider);
 }
 
-namespace {
-
-NamedTapProvider g_default_named_tap_provider =
-    [](const std::string& tap_kind, std::vector<compute::Declaration::Input> inputs,
-       const std::string& tap_name,
-       std::shared_ptr<Schema> tap_schema) -> Result<compute::Declaration> {
-  return Status::NotImplemented(
-      "Plan contained a NamedTapRel but no provider configured");
-};
-
-std::mutex g_default_named_tap_provider_mutex;
-
-}  // namespace
-
 NamedTapProvider default_named_tap_provider() {
-  std::unique_lock<std::mutex> lock(g_default_named_tap_provider_mutex);
-  return g_default_named_tap_provider;
+  return default_named_tap_provider_singleton().Get();
 }
 
 void set_default_named_tap_provider(NamedTapProvider provider) {
-  std::unique_lock<std::mutex> lock(g_default_named_tap_provider_mutex);
-  g_default_named_tap_provider = provider;
+  default_named_tap_provider_singleton().Set(std::move(provider));
 }
 
 }  // namespace engine

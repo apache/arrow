@@ -339,7 +339,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         std::vector<std::string> table_names(named_table.names().begin(),
                                              named_table.names().end());
         ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
-                              named_table_provider(table_names));
+                              named_table_provider(table_names, *base_schema));
 
         if (!source_decl.IsValid()) {
           return Status::Invalid("Invalid NamedTable Source");

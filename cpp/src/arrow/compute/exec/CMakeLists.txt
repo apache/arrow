@@ -52,6 +52,7 @@ add_arrow_compute_test(asof_join_node_test
                        test_nodes.cc)
 add_arrow_compute_test(tpch_node_test PREFIX "arrow-compute")
 add_arrow_compute_test(union_node_test PREFIX "arrow-compute")
+add_arrow_compute_test(groupby_test PREFIX "arrow-compute")
 add_arrow_compute_test(util_test
                        PREFIX
                        "arrow-compute"
