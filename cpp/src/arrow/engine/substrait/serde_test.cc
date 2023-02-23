@@ -779,7 +779,7 @@ TEST(Substrait, CallCast) {
   ExtensionSet ext_set;
   ConversionOptions conversion_options;
 
-  ASSERT_OK_AND_ASSIGN(auto expr, internal::SubstraitFromJSON("Expression", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Expression", R"({
   "selection": {
       "directReference": {
         "structField": {
@@ -816,7 +816,10 @@ TEST(Substrait, CallCast) {
       {compute::field_ref("i64")}, compute::CastOptions::Safe(float64())).Bind(*kBoringSchema)
   );
   
-  EXPECT_EQ(*expr, expected_expression);
+  ASSERT_OK_AND_ASSIGN(auto expr, DeserializeExpression(*buf, ext_set));
+
+  ASSERT_TRUE(expr.call());
+  ASSERT_THAT(expr, expected_expression);
   
 }
 
