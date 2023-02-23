@@ -1012,6 +1012,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
     return Status::Invalid("ToProto requires a bound Expression");
   }
 
+
   auto out = std::make_unique<substrait::Expression>();
   if (auto datum = expr.literal()) {
     ARROW_ASSIGN_OR_RAISE(auto literal, ToProto(*datum, ext_set, conversion_options));
