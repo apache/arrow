@@ -35,6 +35,7 @@ except ImportError:
 
 import pyarrow as pa
 import pyarrow.compute as pc
+from pyarrow.lib import ArrowNotImplementedError
 
 all_array_types = [
     ('bool', [True, False, False, True, True]),
@@ -1634,9 +1635,22 @@ def test_is_null():
     expected = pa.array([False, False, False, True, True])
     assert result.equals(expected)
 
+
+def test_is_nan():
+    arr = pa.array([1, 2, 3, None, np.nan])
     result = arr.is_nan()
     expected = pa.array([False, False, False, None, True])
     assert result.equals(expected)
+
+    with pytest.raises(
+            ArrowNotImplementedError, match="has no kernel matching input types"):
+        arr = pa.array(["1", "2", None], type=pa.string())
+        _ = arr.is_nan()
+
+    with pytest.raises(
+            ArrowNotImplementedError, match="has no kernel matching input types"):
+        arr = pa.array([b'a', b'bb', None], type=pa.large_binary())
+        _ = arr.is_nan()
 
 
 def test_fill_null():
