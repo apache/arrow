@@ -773,6 +773,31 @@ cdef class StructType(DataType):
 cdef class UnionType(DataType):
     """
     Base class for union data types.
+
+    Examples
+    --------
+    Create an instance of a dense UnionType using ``pa.union``:
+
+    >>> import pyarrow as pa
+    >>> pa.union([pa.field('a', pa.binary(10)), pa.field('b', pa.string())],
+    ...          mode=pa.lib.UnionMode_DENSE),
+    (DenseUnionType(dense_union<a: fixed_size_binary[10]=0, b: string=1>),)
+
+    Create an instance of a dense UnionType using ``pa.dense_union``:
+
+    >>> pa.dense_union([pa.field('a', pa.binary(10)), pa.field('b', pa.string())])
+    DenseUnionType(dense_union<a: fixed_size_binary[10]=0, b: string=1>)
+
+    Create an instance of a sparse UnionType using ``pa.union``:
+
+    >>> pa.union([pa.field('a', pa.binary(10)), pa.field('b', pa.string())],
+    ...          mode=pa.lib.UnionMode_SPARSE),
+    (SparseUnionType(sparse_union<a: fixed_size_binary[10]=0, b: string=1>),)
+
+    Create an instance of a sparse UnionType using ``pa.sparse_union``:
+
+    >>> pa.sparse_union([pa.field('a', pa.binary(10)), pa.field('b', pa.string())])
+    SparseUnionType(sparse_union<a: fixed_size_binary[10]=0, b: string=1>)
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -782,6 +807,13 @@ cdef class UnionType(DataType):
     def mode(self):
         """
         The mode of the union ("dense" or "sparse").
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> union = pa.sparse_union([pa.field('a', pa.binary(10)), pa.field('b', pa.string())])
+        >>> union.mode
+        'sparse'
         """
         cdef CUnionType* type = <CUnionType*> self.sp_type.get()
         cdef int mode = type.mode()
@@ -795,6 +827,13 @@ cdef class UnionType(DataType):
     def type_codes(self):
         """
         The type code to indicate each data type in this union.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> union = pa.sparse_union([pa.field('a', pa.binary(10)), pa.field('b', pa.string())])
+        >>> union.type_codes
+        [0, 1]
         """
         cdef CUnionType* type = <CUnionType*> self.sp_type.get()
         return type.type_codes()
@@ -823,6 +862,13 @@ cdef class UnionType(DataType):
         Returns
         -------
         pyarrow.Field
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> union = pa.sparse_union([pa.field('a', pa.binary(10)), pa.field('b', pa.string())])
+        >>> union[0]
+        pyarrow.Field<a: fixed_size_binary[10]>
         """
         if isinstance(i, int):
             return DataType.field(self, i)
@@ -844,12 +890,39 @@ cdef class UnionType(DataType):
 cdef class SparseUnionType(UnionType):
     """
     Concrete class for sparse union types.
+
+    Examples
+    --------
+    Create an instance of a sparse UnionType using ``pa.union``:
+
+    >>> pa.union([pa.field('a', pa.binary(10)), pa.field('b', pa.string())],
+    ...          mode=pa.lib.UnionMode_SPARSE),
+    (SparseUnionType(sparse_union<a: fixed_size_binary[10]=0, b: string=1>),)
+
+    Create an instance of a sparse UnionType using ``pa.sparse_union``:
+
+    >>> pa.sparse_union([pa.field('a', pa.binary(10)), pa.field('b', pa.string())])
+    SparseUnionType(sparse_union<a: fixed_size_binary[10]=0, b: string=1>)
     """
 
 
 cdef class DenseUnionType(UnionType):
     """
     Concrete class for dense union types.
+
+    Examples
+    --------
+    Create an instance of a dense UnionType using ``pa.union``:
+
+    >>> import pyarrow as pa
+    >>> pa.union([pa.field('a', pa.binary(10)), pa.field('b', pa.string())],
+    ...          mode=pa.lib.UnionMode_DENSE),
+    (DenseUnionType(dense_union<a: fixed_size_binary[10]=0, b: string=1>),)
+
+    Create an instance of a dense UnionType using ``pa.dense_union``:
+
+    >>> pa.dense_union([pa.field('a', pa.binary(10)), pa.field('b', pa.string())])
+    DenseUnionType(dense_union<a: fixed_size_binary[10]=0, b: string=1>)
     """
 
 
