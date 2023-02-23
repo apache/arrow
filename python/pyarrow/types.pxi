@@ -125,6 +125,14 @@ cdef class DataType(_Weakrefable):
     Base class of all Arrow data types.
 
     Each data type is an *instance* of this class.
+
+    Examples
+    --------
+    Instance of int64 type:
+
+    >>> import pyarrow as pa
+    >>> pa.int64()
+    DataType(int64)
     """
 
     def __cinit__(self):
@@ -153,6 +161,17 @@ cdef class DataType(_Weakrefable):
 
     @property
     def bit_width(self):
+        """
+        Bit width for fixed width type.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.int64()
+        DataType(int64)
+        >>> pa.int64().bit_width
+        64
+        """
         cdef _CFixedWidthTypePtr ty
         ty = dynamic_cast[_CFixedWidthTypePtr](self.type)
         if ty == nullptr:
@@ -163,6 +182,18 @@ cdef class DataType(_Weakrefable):
     def num_fields(self):
         """
         The number of child fields.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.int64()
+        DataType(int64)
+        >>> pa.int64().num_fields
+        0
+        >>> pa.list_(pa.string())
+        ListType(list<item: string>)
+        >>> pa.list_(pa.string()).num_fields
+        1
         """
         return self.type.num_fields()
 
@@ -171,6 +202,14 @@ cdef class DataType(_Weakrefable):
         """
         Number of data buffers required to construct Array type
         excluding children.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.int64().num_buffers
+        2
+        >>> pa.string().num_buffers
+        3
         """
         return self.type.layout().buffers.size()
 
@@ -205,6 +244,14 @@ cdef class DataType(_Weakrefable):
         Returns
         -------
         is_equal : bool
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.int64().equals(pa.string())
+        False
+        >>> pa.int64().equals(pa.int64())
+        True
         """
         cdef:
             DataType other_type
@@ -217,6 +264,12 @@ cdef class DataType(_Weakrefable):
     def to_pandas_dtype(self):
         """
         Return the equivalent NumPy / Pandas dtype.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.int64().to_pandas_dtype()
+        <class 'numpy.int64'>
         """
         cdef Type type_id = self.type.id()
         if type_id in _pandas_type_map:
