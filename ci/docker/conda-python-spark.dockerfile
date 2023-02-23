@@ -22,10 +22,13 @@ FROM ${repo}:${arch}-conda-python-${python}
 
 ARG jdk=8
 ARG maven=3.5
+ARG numpy=latest
 
+RUN mamba uninstall -q -y numpy
 RUN mamba install -q -y \
         openjdk=${jdk} \
         maven=${maven} \
+        numpy=${numpy} \
         pandas && \
     mamba clean --all
 
