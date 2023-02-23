@@ -337,6 +337,23 @@ func MapOf(key, item DataType) *MapType {
 	return &MapType{value: ListOf(StructOf(Field{Name: "key", Type: key}, Field{Name: "value", Type: item, Nullable: true}))}
 }
 
+func MapOfWithMetadata(key DataType, keyMetadata Metadata, item DataType, itemMetadata Metadata) *MapType {
+	if key == nil || item == nil {
+		panic("arrow: nil key or item type for MapType")
+	}
+
+	return &MapType{value: ListOf(StructOf(Field{
+		Name:     "key",
+		Type:     key,
+		Metadata: keyMetadata,
+	}, Field{
+		Name:     "value",
+		Type:     item,
+		Nullable: true,
+		Metadata: itemMetadata,
+	}))}
+}
+
 func (*MapType) ID() Type     { return MAP }
 func (*MapType) Name() string { return "map" }
 

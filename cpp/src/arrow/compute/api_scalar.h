@@ -1518,6 +1518,16 @@ ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
 ARROW_EXPORT Result<Datum> IsDaylightSavings(const Datum& values,
                                              ExecContext* ctx = NULLPTR);
 
+/// \brief LocalTime converts timestamp to timezone naive local timestamp
+///
+/// \param[in] values input to convert to local time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 12.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> LocalTime(const Datum& values, ExecContext* ctx = NULLPTR);
+
 /// \brief Years Between finds the number of years between two values
 ///
 /// \param[in] left input treated as the start time

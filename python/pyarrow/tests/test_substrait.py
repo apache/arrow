@@ -188,11 +188,13 @@ def test_get_supported_functions():
 def test_named_table(use_threads):
     test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
     test_table_2 = pa.Table.from_pydict({"x": [4, 5, 6]})
+    schema_1 = pa.schema([pa.field("x", pa.int64())])
 
-    def table_provider(names):
+    def table_provider(names, schema):
         if not names:
             raise Exception("No names provided")
         elif names[0] == "t1":
+            assert schema == schema_1
             return test_table_1
         elif names[1] == "t2":
             return test_table_2
@@ -234,7 +236,7 @@ def test_named_table(use_threads):
 def test_named_table_invalid_table_name():
     test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
 
-    def table_provider(names):
+    def table_provider(names, _):
         if not names:
             raise Exception("No names provided")
         elif names[0] == "t1":
@@ -276,7 +278,7 @@ def test_named_table_invalid_table_name():
 def test_named_table_empty_names():
     test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
 
-    def table_provider(names):
+    def table_provider(names, _):
         if not names:
             raise Exception("No names provided")
         elif names[0] == "t1":

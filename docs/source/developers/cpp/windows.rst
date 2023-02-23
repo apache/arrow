@@ -114,7 +114,7 @@ Using vcpkg for build dependencies
 `vcpkg <https://github.com/microsoft/vcpkg>`_ is an open source package manager
 from Microsoft. It hosts community-contributed ports of C and C++ packages and
 their dependencies. Arrow includes a manifest file `cpp/vcpkg.json
-<https://github.com/apache/arrow/blob/master/cpp/vcpkg.json>`_ that specifies
+<https://github.com/apache/arrow/blob/main/cpp/vcpkg.json>`_ that specifies
 which vcpkg packages are required to build the C++ library.
 
 To use vcpkg for C++ build dependencies on Windows, first
@@ -341,7 +341,7 @@ linking some dependencies, we provide some options
 * ``-ZSTD_MSVC_STATIC_LIB_SUFFIX=%ZSTD_SUFFIX%``
 
 To get the latest build instructions, you can reference `ci/appveyor-built.bat
-<https://github.com/apache/arrow/blob/master/ci/appveyor-cpp-build.bat>`_,
+<https://github.com/apache/arrow/blob/main/ci/appveyor-cpp-build.bat>`_,
 which is used by automated Appveyor builds.
 
 Statically linking to Arrow on Windows

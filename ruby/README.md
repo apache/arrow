@@ -21,17 +21,17 @@
 
 Here are the official Ruby bindings for Apache Arrow.
 
-[Red Arrow](https://github.com/apache/arrow/tree/master/ruby/red-arrow) is the base Apache Arrow bindings.
+[Red Arrow](https://github.com/apache/arrow/tree/main/ruby/red-arrow) is the base Apache Arrow bindings.
 
-[Red Arrow CUDA](https://github.com/apache/arrow/tree/master/ruby/red-arrow-cuda) is the Apache Arrow bindings of CUDA part.
+[Red Arrow CUDA](https://github.com/apache/arrow/tree/main/ruby/red-arrow-cuda) is the Apache Arrow bindings of CUDA part.
 
-[Red Arrow Dataset](https://github.com/apache/arrow/tree/master/ruby/red-arrow-dataset) is the Apache Arrow Dataset bindings.
+[Red Arrow Dataset](https://github.com/apache/arrow/tree/main/ruby/red-arrow-dataset) is the Apache Arrow Dataset bindings.
 
-[Red Gandiva](https://github.com/apache/arrow/tree/master/ruby/red-gandiva) is the Gandiva bindings.
+[Red Gandiva](https://github.com/apache/arrow/tree/main/ruby/red-gandiva) is the Gandiva bindings.
 
-[Red Plasma](https://github.com/apache/arrow/tree/master/ruby/red-plasma) is the Plasma bindings. (This is deprecated since 10.0.0. This will be removed from 12.0.0 or so.)
+[Red Plasma](https://github.com/apache/arrow/tree/main/ruby/red-plasma) is the Plasma bindings. (This is deprecated since 10.0.0. This will be removed from 12.0.0 or so.)
 
-[Red Parquet](https://github.com/apache/arrow/tree/master/ruby/red-parquet) is the Parquet bindings.
+[Red Parquet](https://github.com/apache/arrow/tree/main/ruby/red-parquet) is the Parquet bindings.
 
 
 ## Cookbook

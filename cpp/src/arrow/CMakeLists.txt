@@ -142,11 +142,13 @@ set(ARROW_SRCS
     array/array_dict.cc
     array/array_nested.cc
     array/array_primitive.cc
+    array/array_run_end.cc
     array/builder_adaptive.cc
     array/builder_base.cc
     array/builder_binary.cc
     array/builder_decimal.cc
     array/builder_dict.cc
+    array/builder_run_end.cc
     array/builder_nested.cc
     array/builder_primitive.cc
     array/builder_union.cc
@@ -218,6 +220,7 @@ set(ARROW_SRCS
     util/key_value_metadata.cc
     util/memory.cc
     util/mutex.cc
+    util/ree_util.cc
     util/string.cc
     util/string_builder.cc
     util/task_group.cc
@@ -243,6 +246,8 @@ set(ARROW_SRCS
 
 if(ARROW_JEMALLOC)
   list(APPEND ARROW_SRCS memory_pool_jemalloc.cc)
+  set_source_files_properties(memory_pool_jemalloc.cc
+                              PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 endif()
 
 append_avx2_src(util/bpacking_avx2.cc)
@@ -386,7 +391,7 @@ if(ARROW_COMPUTE)
        compute/api_vector.cc
        compute/cast.cc
        compute/exec.cc
-       compute/exec/aggregate.cc
+       compute/exec/groupby.cc
        compute/exec/accumulation_queue.cc
        compute/exec/aggregate_node.cc
        compute/exec/asof_join_node.cc
@@ -499,6 +504,16 @@ if(ARROW_FILESYSTEM)
     list(APPEND ARROW_SRCS filesystem/hdfs.cc)
   endif()
   if(ARROW_S3)
+    try_compile(S3_HAS_CRT ${CMAKE_CURRENT_BINARY_DIR}/try_compile
+                SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/filesystem/try_compile/check_s3fs_crt.cc"
+                CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
+                LINK_LIBRARIES ${AWSSDK_LINK_LIBRARIES} CXX_STANDARD 17)
+
+    if(S3_HAS_CRT)
+      message(STATUS "AWS SDK is new enough to have CRT support")
+      add_definitions(-DARROW_S3_HAS_CRT)
+    endif()
+
     list(APPEND ARROW_SRCS filesystem/s3fs.cc)
     set_source_files_properties(filesystem/s3fs.cc
                                 PROPERTIES SKIP_PRECOMPILE_HEADERS ON
@@ -744,6 +759,7 @@ add_arrow_test(array_test
                array/array_binary_test.cc
                array/array_dict_test.cc
                array/array_list_test.cc
+               array/array_run_end_test.cc
                array/array_struct_test.cc
                array/array_union_test.cc
                array/array_view_test.cc
