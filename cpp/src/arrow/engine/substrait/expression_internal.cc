@@ -325,16 +325,12 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       ARROW_ASSIGN_OR_RAISE(auto input,
                             FromProto(cast_exp.input(), ext_set, conversion_options));
 
-      // need to convert from the Substrait type spec to the relevant Arrow thing
-      // do we need a switch/case or can we just get code similar to the below FromProto?
-      // the type should come from cast_expr.type()
       
-      // this will be a Result<std::pair<std::shared_ptr<DataType>
       ARROW_ASSIGN_OR_RAISE(auto type,
                             FromProto(cast_exp.type(), ext_set, conversion_options));
 
       if(cast_exp.failure_behavior() == substrait::Expression_Cast_FailureBehavior::Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_THROW_EXCEPTION){
-        //return compute::call("cast", std::move(input), compute::CastOptions::Safe(type.first));
+        return compute::call("cast", {std::move(input)}, compute::CastOptions::Safe(type.first));
       } else if(cast_exp.failure_behavior() == substrait::Expression_Cast_FailureBehavior::Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL){
         return Status::NotImplemented("Unsupported cast failure behavior: Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL");
       // i.e. if unspecified  
