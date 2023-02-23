@@ -426,6 +426,14 @@ cdef class LargeListType(DataType):
     """
     Concrete class for large list data types
     (like ListType, but with 64-bit offsets).
+
+    Examples
+    --------
+    Create an instance of LargeListType:
+
+    >>> import pyarrow as pa
+    >>> pa.large_list(pa.string())
+    LargeListType(large_list<item: string>)
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -443,6 +451,12 @@ cdef class LargeListType(DataType):
     def value_type(self):
         """
         The data type of large list values.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.large_list(pa.string()).value_type
+        DataType(string)
         """
         return pyarrow_wrap_data_type(self.list_type.value_type())
 
