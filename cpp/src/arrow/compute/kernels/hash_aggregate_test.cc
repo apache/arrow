@@ -71,6 +71,42 @@ using internal::checked_pointer_cast;
 namespace compute {
 namespace {
 
+bool kDefaultUseThreads = false;
+ExecContext* kDefaultCtx = default_exec_context();
+
+using GroupByFunction = std::function<Result<Datum>(
+    const std::vector<Datum>&, const std::vector<Datum>&, const std::vector<Datum>&,
+    const std::vector<Aggregate>&, bool, ExecContext*, bool)>;
+
+Result<Datum> GroupByDirectImpl(const std::vector<Datum>& arguments,
+                                const std::vector<Datum>& keys,
+                                const std::vector<Datum>& segment_keys,
+                                const std::vector<Aggregate>& aggregates,
+                                bool use_threads = kDefaultUseThreads,
+                                ExecContext* ctx = kDefaultCtx, bool naive = false) {
+  return internal::GroupBy(arguments, keys, segment_keys, aggregates, use_threads, ctx);
+}
+
+Result<Datum> GroupByWithArrays(const std::vector<Datum>& arguments,
+                                const std::vector<Datum>& keys,
+                                const std::vector<Datum>& segment_keys,
+                                const std::vector<Aggregate>& aggregates,
+                                bool use_threads, ExecContext* ctx, bool naive) {
+  ArrayVector arrays;
+  ARROW_RETURN_NOT_OK(internal::GroupBy(
+      arguments, keys, segment_keys, aggregates,
+      [&arrays](const Datum& datum) {
+        arrays.push_back(datum.make_array());
+        return Status::OK();
+      },
+      use_threads, ctx));
+  if (arrays.size() == 1) {
+    return arrays[0];
+  } else {
+    return ChunkedArray::Make(arrays);
+  }
+}
+
 Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys,
                            const std::vector<Aggregate>& aggregates) {
   ARROW_ASSIGN_OR_RAISE(auto key_batch, ExecBatch::Make(std::move(keys)));
@@ -121,23 +157,96 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
   return StructArray::Make(std::move(out_columns), std::move(out_names));
 }
 
+Result<Datum> MakeGroupByOutput(const std::vector<ExecBatch>& output_batches,
+                                const std::shared_ptr<Schema> output_schema,
+                                size_t num_aggregates, size_t num_keys, bool naive) {
+  ArrayVector out_arrays(num_aggregates + num_keys);
+  for (size_t i = 0; i < out_arrays.size(); ++i) {
+    std::vector<std::shared_ptr<Array>> arrays(output_batches.size());
+    for (size_t j = 0; j < output_batches.size(); ++j) {
+      arrays[j] = output_batches[j].values[i].make_array();
+    }
+    if (arrays.empty()) {
+      ARROW_ASSIGN_OR_RAISE(
+          out_arrays[i],
+          MakeArrayOfNull(output_schema->field(static_cast<int>(i))->type(),
+                          /*length=*/0));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(out_arrays[i], Concatenate(arrays));
+    }
+  }
+
+  ARROW_ASSIGN_OR_RAISE(
+      std::shared_ptr<Array> struct_arr,
+      StructArray::Make(std::move(out_arrays), output_schema->fields()));
+
+  bool need_sort = !naive;
+  for (size_t i = num_aggregates; need_sort && i < out_arrays.size(); i++) {
+    if (output_schema->field(i)->type()->id() == Type::DICTIONARY) {
+      need_sort = false;
+    }
+  }
+  if (!need_sort) {
+    return struct_arr;
+  }
+
+  // The exec plan may reorder the output rows.  The tests are all setup to expect ouptut
+  // in ascending order of keys.  So we need to sort the result by the key columns.  To do
+  // that we create a table using the key columns, calculate the sort indices from that
+  // table (sorting on all fields) and then use those indices to calculate our result.
+  std::vector<std::shared_ptr<Field>> key_fields;
+  std::vector<std::shared_ptr<Array>> key_columns;
+  std::vector<SortKey> sort_keys;
+  for (std::size_t i = 0; i < num_keys; i++) {
+    const std::shared_ptr<Array>& arr = out_arrays[i + num_aggregates];
+    key_columns.push_back(arr);
+    key_fields.push_back(field("name_does_not_matter", arr->type()));
+    sort_keys.emplace_back(static_cast<int>(i));
+  }
+  std::shared_ptr<Schema> key_schema = schema(std::move(key_fields));
+  std::shared_ptr<Table> key_table = Table::Make(std::move(key_schema), key_columns);
+  SortOptions sort_options(std::move(sort_keys));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> sort_indices,
+                        SortIndices(key_table, sort_options));
+
+  return Take(struct_arr, sort_indices);
+}
+
 Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
                                    const std::vector<std::string>& key_names,
+                                   const std::vector<std::string>& segment_key_names,
                                    const std::vector<Aggregate>& aggregates,
-                                   bool use_threads) {
+                                   bool use_threads, bool segmented = false,
+                                   bool naive = false, ExecContext* ctx = nullptr) {
+  if (ctx == nullptr) {
+    if (segment_key_names.size() > 0) {
+      ARROW_ASSIGN_OR_RAISE(auto thread_pool, arrow::internal::ThreadPool::Make(1));
+      ExecContext seq_ctx(default_memory_pool(), thread_pool.get());
+      return GroupByUsingExecPlan(input, key_names, segment_key_names, aggregates,
+                                  use_threads, segmented, naive, &seq_ctx);
+    } else {
+      return GroupByUsingExecPlan(input, key_names, segment_key_names, aggregates,
+                                  use_threads, segmented, naive, threaded_exec_context());
+    }
+  }
   std::vector<FieldRef> keys(key_names.size());
   for (size_t i = 0; i < key_names.size(); ++i) {
     keys[i] = FieldRef(key_names[i]);
   }
+  std::vector<FieldRef> segment_keys(segment_key_names.size());
+  for (size_t i = 0; i < segment_key_names.size(); ++i) {
+    segment_keys[i] = FieldRef(segment_key_names[i]);
+  }
 
-  ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(*threaded_exec_context()));
+  ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(*ctx));
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   RETURN_NOT_OK(
       Declaration::Sequence(
           {
               {"source",
                SourceNodeOptions{input.schema, input.gen(use_threads, /*slow=*/false)}},
-              {"aggregate", AggregateNodeOptions{std::move(aggregates), std::move(keys)}},
+              {"aggregate", AggregateNodeOptions{std::move(aggregates), std::move(keys),
+                                                 std::move(segment_keys)}},
               {"sink", SinkNodeOptions{&sink_gen}},
           })
           .AddToPlan(plan.get()));
@@ -161,71 +270,103 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
   ARROW_ASSIGN_OR_RAISE(std::vector<ExecBatch> output_batches,
                         start_and_collect.MoveResult());
 
-  ArrayVector out_arrays(aggregates.size() + key_names.size());
   const auto& output_schema = plan->nodes()[0]->output()->output_schema();
+  if (!segmented) {
+    return MakeGroupByOutput(output_batches, output_schema, aggregates.size(),
+                             key_names.size(), naive);
+  }
+
+  std::vector<ArrayVector> out_arrays(aggregates.size() + key_names.size() +
+                                      segment_key_names.size());
   for (size_t i = 0; i < out_arrays.size(); ++i) {
     std::vector<std::shared_ptr<Array>> arrays(output_batches.size());
     for (size_t j = 0; j < output_batches.size(); ++j) {
-      arrays[j] = output_batches[j].values[i].make_array();
+      auto& value = output_batches[j].values[i];
+      if (value.is_scalar()) {
+        ARROW_ASSIGN_OR_RAISE(
+            arrays[j], MakeArrayFromScalar(*value.scalar(), output_batches[j].length));
+      } else if (value.is_array()) {
+        arrays[j] = value.make_array();
+      } else {
+        return Status::Invalid("GroupByUsingExecPlan unsupported value kind ",
+                               ToString(value.kind()));
+      }
     }
     if (arrays.empty()) {
+      arrays.resize(1);
       ARROW_ASSIGN_OR_RAISE(
-          out_arrays[i],
-          MakeArrayOfNull(output_schema->field(static_cast<int>(i))->type(),
-                          /*length=*/0));
-    } else {
-      ARROW_ASSIGN_OR_RAISE(out_arrays[i], Concatenate(arrays));
+          arrays[0], MakeArrayOfNull(output_schema->field(static_cast<int>(i))->type(),
+                                     /*length=*/0));
     }
+    out_arrays[i] = {std::move(arrays)};
   }
 
-  // The exec plan may reorder the output rows.  The tests are all setup to expect ouptut
-  // in ascending order of keys.  So we need to sort the result by the key columns.  To do
-  // that we create a table using the key columns, calculate the sort indices from that
-  // table (sorting on all fields) and then use those indices to calculate our result.
-  std::vector<std::shared_ptr<Field>> key_fields;
-  std::vector<std::shared_ptr<Array>> key_columns;
-  std::vector<SortKey> sort_keys;
-  for (std::size_t i = 0; i < key_names.size(); i++) {
-    const std::shared_ptr<Array>& arr = out_arrays[i + aggregates.size()];
-    key_columns.push_back(arr);
-    key_fields.push_back(field("name_does_not_matter", arr->type()));
-    sort_keys.emplace_back(static_cast<int>(i));
+  if (segmented && segment_key_names.size() > 0) {
+    ArrayVector struct_arrays;
+    struct_arrays.reserve(output_batches.size());
+    for (size_t j = 0; j < output_batches.size(); ++j) {
+      ArrayVector struct_fields;
+      struct_fields.reserve(out_arrays.size());
+      for (auto out_array : out_arrays) {
+        struct_fields.push_back(out_array[j]);
+      }
+      ARROW_ASSIGN_OR_RAISE(auto struct_array,
+                            StructArray::Make(struct_fields, output_schema->fields()));
+      struct_arrays.push_back(struct_array);
+    }
+    return ChunkedArray::Make(struct_arrays);
+  } else {
+    ArrayVector struct_fields(out_arrays.size());
+    for (size_t i = 0; i < out_arrays.size(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(struct_fields[i], Concatenate(out_arrays[i]));
+    }
+    return StructArray::Make(std::move(struct_fields), output_schema->fields());
   }
-  std::shared_ptr<Schema> key_schema = schema(std::move(key_fields));
-  std::shared_ptr<Table> key_table = Table::Make(std::move(key_schema), key_columns);
-  SortOptions sort_options(std::move(sort_keys));
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> sort_indices,
-                        SortIndices(key_table, sort_options));
+}
 
-  ARROW_ASSIGN_OR_RAISE(
-      std::shared_ptr<Array> struct_arr,
-      StructArray::Make(std::move(out_arrays), output_schema->fields()));
-
-  return Take(struct_arr, sort_indices);
+Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
+                                   const std::vector<std::string>& key_names,
+                                   const std::vector<Aggregate>& aggregates,
+                                   bool use_threads, bool segmented = false,
+                                   bool naive = false) {
+  return GroupByUsingExecPlan(input, key_names, {}, aggregates, use_threads, segmented);
 }
 
 /// Simpler overload where you can give the columns as datums
 Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
                                    const std::vector<Datum>& keys,
+                                   const std::vector<Datum>& segment_keys,
                                    const std::vector<Aggregate>& aggregates,
-                                   bool use_threads) {
+                                   bool use_threads, bool segmented = false,
+                                   bool naive = false) {
   using arrow::compute::detail::ExecSpanIterator;
 
-  FieldVector scan_fields(arguments.size() + keys.size());
+  FieldVector scan_fields(arguments.size() + keys.size() + segment_keys.size());
   std::vector<std::string> key_names(keys.size());
+  std::vector<std::string> segment_key_names(segment_keys.size());
   for (size_t i = 0; i < arguments.size(); ++i) {
     auto name = std::string("agg_") + std::to_string(i);
     scan_fields[i] = field(name, arguments[i].type());
   }
+  size_t base = arguments.size();
   for (size_t i = 0; i < keys.size(); ++i) {
     auto name = std::string("key_") + std::to_string(i);
-    scan_fields[arguments.size() + i] = field(name, keys[i].type());
+    scan_fields[base + i] = field(name, keys[i].type());
     key_names[i] = std::move(name);
+  }
+  base += keys.size();
+  size_t j = segmented ? keys.size() : keys.size();
+  std::string prefix(segmented ? "key_" : "key_");
+  for (size_t i = 0; i < segment_keys.size(); ++i) {
+    auto name = prefix + std::to_string(j++);
+    scan_fields[base + i] = field(name, segment_keys[i].type());
+    segment_key_names[i] = std::move(name);
   }
 
   std::vector<Datum> inputs = arguments;
-  inputs.reserve(inputs.size() + keys.size());
+  inputs.reserve(inputs.size() + keys.size() + segment_keys.size());
   inputs.insert(inputs.end(), keys.begin(), keys.end());
+  inputs.insert(inputs.end(), segment_keys.begin(), segment_keys.end());
 
   ExecSpanIterator span_iterator;
   ARROW_ASSIGN_OR_RAISE(auto batch, ExecBatch::Make(inputs));
@@ -238,14 +379,37 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
     input.batches.push_back(span.ToExecBatch());
   }
 
-  return GroupByUsingExecPlan(input, key_names, aggregates, use_threads);
+  return GroupByUsingExecPlan(input, key_names, segment_key_names, aggregates,
+                              use_threads, segmented, naive);
 }
 
-void ValidateGroupBy(const std::vector<Aggregate>& aggregates,
+Result<Datum> GroupByUsingExecPlanImpl(const std::vector<Datum>& arguments,
+                                       const std::vector<Datum>& keys,
+                                       const std::vector<Datum>& segment_keys,
+                                       const std::vector<Aggregate>& aggregates,
+                                       bool use_threads, ExecContext* ctx,
+                                       bool naive = false) {
+  return GroupByUsingExecPlan(arguments, keys, segment_keys, aggregates, use_threads,
+                              ctx);
+}
+
+Result<Datum> SegmentedGroupByUsingExecPlan(const std::vector<Datum>& arguments,
+                                            const std::vector<Datum>& keys,
+                                            const std::vector<Datum>& segment_keys,
+                                            const std::vector<Aggregate>& aggregates,
+                                            bool use_threads, ExecContext* ctx,
+                                            bool naive = false) {
+  return GroupByUsingExecPlan(arguments, keys, segment_keys, aggregates, use_threads,
+                              /*segmented=*/true, naive);
+}
+
+void ValidateGroupBy(GroupByFunction group_by, const std::vector<Aggregate>& aggregates,
                      std::vector<Datum> arguments, std::vector<Datum> keys) {
   ASSERT_OK_AND_ASSIGN(Datum expected, NaiveGroupBy(arguments, keys, aggregates));
 
-  ASSERT_OK_AND_ASSIGN(Datum actual, internal::GroupBy(arguments, keys, aggregates));
+  ASSERT_OK_AND_ASSIGN(Datum actual, group_by(arguments, keys, {}, aggregates,
+                                              kDefaultUseThreads, kDefaultCtx,
+                                              /*naive=*/true));
 
   ASSERT_OK(expected.make_array()->ValidateFull());
   ValidateOutput(actual);
@@ -266,8 +430,9 @@ struct TestAggregate {
   std::shared_ptr<FunctionOptions> options;
 };
 
-Result<Datum> GroupByTest(const std::vector<Datum>& arguments,
+Result<Datum> GroupByTest(GroupByFunction group_by, const std::vector<Datum>& arguments,
                           const std::vector<Datum>& keys,
+                          const std::vector<Datum>& segment_keys,
                           const std::vector<TestAggregate>& aggregates, bool use_threads,
                           bool use_exec_plan = false) {
   std::vector<Aggregate> internal_aggregates;
@@ -278,31 +443,39 @@ Result<Datum> GroupByTest(const std::vector<Datum>& arguments,
     idx = idx + 1;
   }
   if (use_exec_plan) {
-    return GroupByUsingExecPlan(arguments, keys, internal_aggregates, use_threads);
+    return GroupByUsingExecPlan(arguments, keys, segment_keys, internal_aggregates,
+                                use_threads);
   } else {
-    return internal::GroupBy(arguments, keys, internal_aggregates, use_threads,
-                             default_exec_context());
+    return group_by(arguments, keys, segment_keys, internal_aggregates, use_threads,
+                    default_exec_context(), /*naive=*/false);
   }
 }
 
-}  // namespace
+Result<Datum> GroupByTest(GroupByFunction group_by, const std::vector<Datum>& arguments,
+                          const std::vector<Datum>& keys,
+                          const std::vector<TestAggregate>& aggregates, bool use_threads,
+                          bool use_exec_plan = false) {
+  return GroupByTest(group_by, arguments, keys, {}, aggregates, use_threads,
+                     use_exec_plan);
+}
 
-TEST(Grouper, SupportedKeys) {
-  ASSERT_OK(Grouper::Make({boolean()}));
+template <typename GroupClass>
+void TestGroupClassSupportedKeys() {
+  ASSERT_OK(GroupClass::Make({boolean()}));
 
-  ASSERT_OK(Grouper::Make({int8(), uint16(), int32(), uint64()}));
+  ASSERT_OK(GroupClass::Make({int8(), uint16(), int32(), uint64()}));
 
-  ASSERT_OK(Grouper::Make({dictionary(int64(), utf8())}));
+  ASSERT_OK(GroupClass::Make({dictionary(int64(), utf8())}));
 
-  ASSERT_OK(Grouper::Make({float16(), float32(), float64()}));
+  ASSERT_OK(GroupClass::Make({float16(), float32(), float64()}));
 
-  ASSERT_OK(Grouper::Make({utf8(), binary(), large_utf8(), large_binary()}));
+  ASSERT_OK(GroupClass::Make({utf8(), binary(), large_utf8(), large_binary()}));
 
-  ASSERT_OK(Grouper::Make({fixed_size_binary(16), fixed_size_binary(32)}));
+  ASSERT_OK(GroupClass::Make({fixed_size_binary(16), fixed_size_binary(32)}));
 
-  ASSERT_OK(Grouper::Make({decimal128(32, 10), decimal256(76, 20)}));
+  ASSERT_OK(GroupClass::Make({decimal128(32, 10), decimal256(76, 20)}));
 
-  ASSERT_OK(Grouper::Make({date32(), date64()}));
+  ASSERT_OK(GroupClass::Make({date32(), date64()}));
 
   for (auto unit : {
            TimeUnit::SECOND,
@@ -310,24 +483,148 @@ TEST(Grouper, SupportedKeys) {
            TimeUnit::MICRO,
            TimeUnit::NANO,
        }) {
-    ASSERT_OK(Grouper::Make({timestamp(unit), duration(unit)}));
+    ASSERT_OK(GroupClass::Make({timestamp(unit), duration(unit)}));
   }
 
-  ASSERT_OK(
-      Grouper::Make({day_time_interval(), month_interval(), month_day_nano_interval()}));
+  ASSERT_OK(GroupClass::Make(
+      {day_time_interval(), month_interval(), month_day_nano_interval()}));
 
-  ASSERT_OK(Grouper::Make({null()}));
+  ASSERT_OK(GroupClass::Make({null()}));
 
-  ASSERT_RAISES(NotImplemented, Grouper::Make({struct_({field("", int64())})}));
+  ASSERT_RAISES(NotImplemented, GroupClass::Make({struct_({field("", int64())})}));
 
-  ASSERT_RAISES(NotImplemented, Grouper::Make({struct_({})}));
+  ASSERT_RAISES(NotImplemented, GroupClass::Make({struct_({})}));
 
-  ASSERT_RAISES(NotImplemented, Grouper::Make({list(int32())}));
+  ASSERT_RAISES(NotImplemented, GroupClass::Make({list(int32())}));
 
-  ASSERT_RAISES(NotImplemented, Grouper::Make({fixed_size_list(int32(), 5)}));
+  ASSERT_RAISES(NotImplemented, GroupClass::Make({fixed_size_list(int32(), 5)}));
 
-  ASSERT_RAISES(NotImplemented, Grouper::Make({dense_union({field("", int32())})}));
+  ASSERT_RAISES(NotImplemented, GroupClass::Make({dense_union({field("", int32())})}));
 }
+
+template <typename Batch>
+void TestSegments(std::unique_ptr<GroupingSegmenter>& segmenter, const Batch& batch,
+                  std::vector<GroupingSegment> expected_segments) {
+  int64_t offset = 0;
+  for (auto expected_segment : expected_segments) {
+    ASSERT_OK_AND_ASSIGN(auto segment, segmenter->GetNextSegment(batch, offset));
+    ASSERT_EQ(expected_segment, segment);
+    offset = segment.offset + segment.length;
+  }
+}
+
+}  // namespace
+
+TEST(GroupingSegmenter, SupportedKeys) {
+  TestGroupClassSupportedKeys<GroupingSegmenter>();
+}
+
+namespace {
+
+template <typename SetupBatch, typename ConvertBatch>
+void test_grouping_segmenter_basics(SetupBatch setup, ConvertBatch convert) {
+  std::vector<TypeHolder> bad_types2 = {int32(), float32()};
+  std::vector<TypeHolder> types2 = {int32(), int32()};
+  std::vector<TypeHolder> bad_types1 = {float32()};
+  std::vector<TypeHolder> types1 = {int32()};
+  std::vector<TypeHolder> types0 = {};
+  ASSERT_OK_AND_ASSIGN(auto batch2,
+                       setup(ExecBatchFromJSON(types2, "[[1, 1], [1, 2], [2, 2]]")));
+  ASSERT_OK_AND_ASSIGN(auto batch1, setup(ExecBatchFromJSON(types1, "[[1], [1], [2]]")));
+  ExecBatch batch0({}, 3);
+  {
+    SCOPED_TRACE("offset");
+    ASSERT_OK_AND_ASSIGN(auto segmenter, GroupingSegmenter::Make(types0));
+    ASSERT_OK_AND_ASSIGN(auto converted0, convert(batch0));
+    for (int64_t offset : {-1, 4}) {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                      HasSubstr("invalid grouping segmenter offset"),
+                                      segmenter->GetNextSegment(converted0, offset));
+    }
+  }
+  {
+    SCOPED_TRACE("types0 segmenting of batch2");
+    ASSERT_OK_AND_ASSIGN(auto segmenter, GroupingSegmenter::Make(types0));
+    ASSERT_OK_AND_ASSIGN(auto converted2, convert(batch2));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 0 "),
+                                    segmenter->GetNextSegment(converted2, 0));
+    ASSERT_OK_AND_ASSIGN(auto converted0, convert(batch0));
+    TestSegments(segmenter, converted0, {{0, 3, true, true}, {3, 0, true, true}});
+  }
+  {
+    SCOPED_TRACE("bad_types1 segmenting of batch1");
+    ASSERT_OK_AND_ASSIGN(auto segmenter, GroupingSegmenter::Make(bad_types1));
+    ASSERT_OK_AND_ASSIGN(auto converted1, convert(batch1));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch value 0 of type "),
+                                    segmenter->GetNextSegment(converted1, 0));
+  }
+  {
+    SCOPED_TRACE("types1 segmenting of batch2");
+    ASSERT_OK_AND_ASSIGN(auto segmenter, GroupingSegmenter::Make(types1));
+    ASSERT_OK_AND_ASSIGN(auto converted2, convert(batch2));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 1 "),
+                                    segmenter->GetNextSegment(converted2, 0));
+    ASSERT_OK_AND_ASSIGN(auto converted1, convert(batch1));
+    TestSegments(segmenter, converted1,
+                 {{0, 2, false, true}, {2, 1, true, false}, {3, 0, true, true}});
+  }
+  {
+    SCOPED_TRACE("bad_types2 segmenting of batch2");
+    ASSERT_OK_AND_ASSIGN(auto segmenter, GroupingSegmenter::Make(bad_types2));
+    ASSERT_OK_AND_ASSIGN(auto converted2, convert(batch2));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch value 1 of type "),
+                                    segmenter->GetNextSegment(converted2, 0));
+  }
+  {
+    SCOPED_TRACE("types2 segmenting of batch1");
+    ASSERT_OK_AND_ASSIGN(auto segmenter, GroupingSegmenter::Make(types2));
+    ASSERT_OK_AND_ASSIGN(auto converted1, convert(batch1));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 2 "),
+                                    segmenter->GetNextSegment(converted1, 0));
+    ASSERT_OK_AND_ASSIGN(auto converted2, convert(batch2));
+    TestSegments(segmenter, converted2,
+                 {{0, 1, false, true},
+                  {1, 1, false, false},
+                  {2, 1, true, false},
+                  {3, 0, true, true}});
+  }
+}
+
+auto batch_identity = [](const ExecBatch& batch) -> Result<ExecBatch> { return batch; };
+
+auto batch_to_span = [](const ExecBatch& batch) -> Result<ExecSpan> {
+  return ExecSpan(batch);
+};
+
+auto batch_make_chunked = [](const ExecBatch& batch) -> Result<ExecBatch> {
+  int64_t length = batch.length;
+  DCHECK_GT(length, 1);
+  std::vector<Datum> values;
+  for (auto value : batch.values) {
+    DCHECK(value.is_array());
+    auto array = value.make_array();
+    ARROW_ASSIGN_OR_RAISE(
+        auto chunked, ChunkedArray::Make({array->Slice(0, 1), array->Slice(1, length)}));
+    values.emplace_back(chunked);
+  }
+  return ExecBatch(values, length);
+};
+
+}  // namespace
+
+TEST(GroupingSegmenter, Basics) {
+  test_grouping_segmenter_basics(batch_identity, batch_identity);
+}
+
+TEST(GroupingSegmenter, SpanBasics) {
+  test_grouping_segmenter_basics(batch_identity, batch_to_span);
+}
+
+TEST(GroupingSegmenter, ChunkedBasics) {
+  test_grouping_segmenter_basics(batch_make_chunked, batch_identity);
+}
+
+TEST(Grouper, SupportedKeys) { TestGroupClassSupportedKeys<Grouper>(); }
 
 struct TestGrouper {
   explicit TestGrouper(std::vector<TypeHolder> types, std::vector<ArgShape> shapes = {})
@@ -764,7 +1061,50 @@ TEST(Grouper, ScalarValues) {
   }
 }
 
-TEST(GroupBy, Errors) {
+void TestSegmentKey(GroupByFunction group_by, const std::shared_ptr<Table>& table,
+                    Datum output, const std::vector<Datum>& segment_keys);
+
+class GroupBy : public ::testing::TestWithParam<GroupByFunction> {
+ public:
+  void ValidateGroupBy(const std::vector<Aggregate>& aggregates,
+                       std::vector<Datum> arguments, std::vector<Datum> keys) {
+    compute::ValidateGroupBy(GetParam(), aggregates, arguments, keys);
+  }
+
+  Result<Datum> GroupByTest(const std::vector<Datum>& arguments,
+                            const std::vector<Datum>& keys,
+                            const std::vector<Datum>& segment_keys,
+                            const std::vector<TestAggregate>& aggregates,
+                            bool use_threads, bool use_exec_plan = false) {
+    return compute::GroupByTest(GetParam(), arguments, keys, segment_keys, aggregates,
+                                use_threads, use_exec_plan);
+  }
+
+  Result<Datum> GroupByTest(const std::vector<Datum>& arguments,
+                            const std::vector<Datum>& keys,
+                            const std::vector<TestAggregate>& aggregates,
+                            bool use_threads, bool use_exec_plan = false) {
+    return compute::GroupByTest(GetParam(), arguments, keys, aggregates, use_threads,
+                                use_exec_plan);
+  }
+
+  Result<Datum> AlternatorGroupBy(const std::vector<Datum>& arguments,
+                                  const std::vector<Datum>& keys,
+                                  const std::vector<Datum>& segment_keys,
+                                  const std::vector<Aggregate>& aggregates,
+                                  bool use_threads = false,
+                                  ExecContext* ctx = default_exec_context()) {
+    return GetParam()(arguments, keys, segment_keys, aggregates, use_threads, ctx,
+                      /*naive=*/false);
+  }
+
+  void TestSegmentKey(const std::shared_ptr<Table>& table, Datum output,
+                      const std::vector<Datum>& segment_keys) {
+    return compute::TestSegmentKey(GetParam(), table, output, segment_keys);
+  }
+};
+
+TEST_P(GroupBy, Errors) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("group_id", uint32())}), R"([
     [1.0,   1],
@@ -785,18 +1125,18 @@ TEST(GroupBy, Errors) {
                      HasSubstr("Direct execution of HASH_AGGREGATE functions")));
 }
 
-TEST(GroupBy, NoBatches) {
+TEST_P(GroupBy, NoBatches) {
   // Regression test for ARROW-14583: handle when no batches are
   // passed to the group by node before finalizing
   auto table =
       TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {});
-  ASSERT_OK_AND_ASSIGN(
-      Datum aggregated_and_grouped,
-      GroupByTest({table->GetColumnByName("argument")}, {table->GetColumnByName("key")},
-                  {
-                      {"hash_count", nullptr},
-                  },
-                  /*use_threads=*/true, /*use_exec_plan=*/true));
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       GroupByTest({table->GetColumnByName("argument")},
+                                   {table->GetColumnByName("key")}, {},
+                                   {
+                                       {"hash_count", nullptr},
+                                   },
+                                   /*use_threads=*/true, /*use_exec_plan=*/true));
   AssertDatumsEqual(ArrayFromJSON(struct_({
                                       field("hash_count", int64()),
                                       field("key_0", int64()),
@@ -832,7 +1172,7 @@ void SortBy(std::vector<std::string> names, Datum* aggregated_and_grouped) {
 }
 }  // namespace
 
-TEST(GroupBy, CountOnly) {
+TEST_P(GroupBy, CountOnly) {
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
@@ -880,7 +1220,7 @@ TEST(GroupBy, CountOnly) {
   }
 }
 
-TEST(GroupBy, CountScalar) {
+TEST_P(GroupBy, CountScalar) {
   BatchesWithSchema input;
   input.batches = {
       ExecBatchFromJSON({int32(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
@@ -920,7 +1260,7 @@ TEST(GroupBy, CountScalar) {
   }
 }
 
-TEST(GroupBy, SumOnly) {
+TEST_P(GroupBy, SumOnly) {
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
@@ -968,7 +1308,7 @@ TEST(GroupBy, SumOnly) {
   }
 }
 
-TEST(GroupBy, SumMeanProductDecimal) {
+TEST_P(GroupBy, SumMeanProductDecimal) {
   auto in_schema = schema({
       field("argument0", decimal128(3, 2)),
       field("argument1", decimal256(3, 2)),
@@ -1044,7 +1384,7 @@ TEST(GroupBy, SumMeanProductDecimal) {
   }
 }
 
-TEST(GroupBy, MeanOnly) {
+TEST_P(GroupBy, MeanOnly) {
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
@@ -1095,7 +1435,7 @@ TEST(GroupBy, MeanOnly) {
   }
 }
 
-TEST(GroupBy, SumMeanProductScalar) {
+TEST_P(GroupBy, SumMeanProductScalar) {
   BatchesWithSchema input;
   input.batches = {
       ExecBatchFromJSON({int32(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
@@ -1133,7 +1473,7 @@ TEST(GroupBy, SumMeanProductScalar) {
   }
 }
 
-TEST(GroupBy, VarianceAndStddev) {
+TEST_P(GroupBy, VarianceAndStddev) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", int32()), field("key", int64())}), R"([
     [1,   1],
@@ -1157,6 +1497,7 @@ TEST(GroupBy, VarianceAndStddev) {
                            {
                                batch->GetColumnByName("key"),
                            },
+                           {},
                            {
                                {"hash_variance", nullptr},
                                {"hash_stddev", nullptr},
@@ -1199,6 +1540,7 @@ TEST(GroupBy, VarianceAndStddev) {
                                                    {
                                                        batch->GetColumnByName("key"),
                                                    },
+                                                   {},
                                                    {
                                                        {"hash_variance", nullptr},
                                                        {"hash_stddev", nullptr},
@@ -1230,6 +1572,7 @@ TEST(GroupBy, VarianceAndStddev) {
                            {
                                batch->GetColumnByName("key"),
                            },
+                           {},
                            {
                                {"hash_variance", variance_options},
                                {"hash_stddev", variance_options},
@@ -1251,7 +1594,7 @@ TEST(GroupBy, VarianceAndStddev) {
                           /*verbose=*/true);
 }
 
-TEST(GroupBy, VarianceAndStddevDecimal) {
+TEST_P(GroupBy, VarianceAndStddevDecimal) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument0", decimal128(3, 2)), field("argument1", decimal128(3, 2)),
               field("key", int64())}),
@@ -1277,6 +1620,7 @@ TEST(GroupBy, VarianceAndStddevDecimal) {
                            {
                                batch->GetColumnByName("key"),
                            },
+                           {},
                            {
                                {"hash_variance", nullptr},
                                {"hash_stddev", nullptr},
@@ -1301,7 +1645,7 @@ TEST(GroupBy, VarianceAndStddevDecimal) {
                           /*verbose=*/true);
 }
 
-TEST(GroupBy, TDigest) {
+TEST_P(GroupBy, TDigest) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
     [1,    1],
@@ -1346,6 +1690,7 @@ TEST(GroupBy, TDigest) {
                            {
                                batch->GetColumnByName("key"),
                            },
+                           {},
                            {
                                {"hash_tdigest", nullptr},
                                {"hash_tdigest", options1},
@@ -1377,7 +1722,7 @@ TEST(GroupBy, TDigest) {
       /*verbose=*/true);
 }
 
-TEST(GroupBy, TDigestDecimal) {
+TEST_P(GroupBy, TDigestDecimal) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument0", decimal128(3, 2)), field("argument1", decimal256(3, 2)),
               field("key", int64())}),
@@ -1420,7 +1765,7 @@ TEST(GroupBy, TDigestDecimal) {
       /*verbose=*/true);
 }
 
-TEST(GroupBy, ApproximateMedian) {
+TEST_P(GroupBy, ApproximateMedian) {
   for (const auto& type : {float64(), int8()}) {
     auto batch =
         RecordBatchFromJSON(schema({field("argument", type), field("key", int64())}), R"([
@@ -1458,6 +1803,7 @@ TEST(GroupBy, ApproximateMedian) {
                              {
                                  batch->GetColumnByName("key"),
                              },
+                             {},
                              {
                                  {"hash_approximate_median", options},
                                  {"hash_approximate_median", keep_nulls},
@@ -1485,7 +1831,7 @@ TEST(GroupBy, ApproximateMedian) {
   }
 }
 
-TEST(GroupBy, StddevVarianceTDigestScalar) {
+TEST_P(GroupBy, StddevVarianceTDigestScalar) {
   BatchesWithSchema input;
   input.batches = {
       ExecBatchFromJSON({int32(), float32(), int64()},
@@ -1534,7 +1880,7 @@ TEST(GroupBy, StddevVarianceTDigestScalar) {
   }
 }
 
-TEST(GroupBy, VarianceOptions) {
+TEST_P(GroupBy, VarianceOptions) {
   BatchesWithSchema input;
   input.batches = {
       ExecBatchFromJSON(
@@ -1628,7 +1974,7 @@ TEST(GroupBy, VarianceOptions) {
   }
 }
 
-TEST(GroupBy, MinMaxOnly) {
+TEST_P(GroupBy, MinMaxOnly) {
   auto in_schema = schema({
       field("argument", float64()),
       field("argument1", null()),
@@ -1701,7 +2047,7 @@ TEST(GroupBy, MinMaxOnly) {
   }
 }
 
-TEST(GroupBy, MinMaxTypes) {
+TEST_P(GroupBy, MinMaxTypes) {
   std::vector<std::shared_ptr<DataType>> types;
   types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
   types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
@@ -1789,7 +2135,7 @@ TEST(GroupBy, MinMaxTypes) {
   }
 }
 
-TEST(GroupBy, MinMaxDecimal) {
+TEST_P(GroupBy, MinMaxDecimal) {
   auto in_schema = schema({
       field("argument0", decimal128(3, 2)),
       field("argument1", decimal256(3, 2)),
@@ -1858,7 +2204,7 @@ TEST(GroupBy, MinMaxDecimal) {
   }
 }
 
-TEST(GroupBy, MinMaxBinary) {
+TEST_P(GroupBy, MinMaxBinary) {
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
       for (const auto& ty : BaseBinaryTypes()) {
@@ -1912,7 +2258,7 @@ TEST(GroupBy, MinMaxBinary) {
   }
 }
 
-TEST(GroupBy, MinMaxFixedSizeBinary) {
+TEST_P(GroupBy, MinMaxFixedSizeBinary) {
   const auto ty = fixed_size_binary(3);
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
@@ -1965,7 +2311,7 @@ TEST(GroupBy, MinMaxFixedSizeBinary) {
   }
 }
 
-TEST(GroupBy, MinOrMax) {
+TEST_P(GroupBy, MinOrMax) {
   auto table =
       TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
     [1.0,   1],
@@ -2018,7 +2364,7 @@ TEST(GroupBy, MinOrMax) {
                     /*verbose=*/true);
 }
 
-TEST(GroupBy, MinMaxScalar) {
+TEST_P(GroupBy, MinMaxScalar) {
   BatchesWithSchema input;
   input.batches = {
       ExecBatchFromJSON({int32(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
@@ -2052,7 +2398,7 @@ TEST(GroupBy, MinMaxScalar) {
   }
 }
 
-TEST(GroupBy, AnyAndAll) {
+TEST_P(GroupBy, AnyAndAll) {
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
@@ -2086,7 +2432,7 @@ TEST(GroupBy, AnyAndAll) {
     auto keep_nulls_min_count =
         std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/3);
     ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                         internal::GroupBy(
+                         AlternatorGroupBy(
                              {
                                  table->GetColumnByName("argument"),
                                  table->GetColumnByName("argument"),
@@ -2097,7 +2443,7 @@ TEST(GroupBy, AnyAndAll) {
                                  table->GetColumnByName("argument"),
                                  table->GetColumnByName("argument"),
                              },
-                             {table->GetColumnByName("key")},
+                             {table->GetColumnByName("key")}, {},
                              {
                                  {"hash_any", no_min, "agg_0", "hash_any"},
                                  {"hash_any", min_count, "agg_1", "hash_any"},
@@ -2141,7 +2487,7 @@ TEST(GroupBy, AnyAndAll) {
   }
 }
 
-TEST(GroupBy, AnyAllScalar) {
+TEST_P(GroupBy, AnyAllScalar) {
   BatchesWithSchema input;
   input.batches = {
       ExecBatchFromJSON({boolean(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
@@ -2183,7 +2529,7 @@ TEST(GroupBy, AnyAllScalar) {
   }
 }
 
-TEST(GroupBy, CountDistinct) {
+TEST_P(GroupBy, CountDistinct) {
   auto all = std::make_shared<CountOptions>(CountOptions::ALL);
   auto only_valid = std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
   auto only_null = std::make_shared<CountOptions>(CountOptions::ONLY_NULL);
@@ -2223,7 +2569,7 @@ TEST(GroupBy, CountDistinct) {
 
     ASSERT_OK_AND_ASSIGN(
         Datum aggregated_and_grouped,
-        internal::GroupBy(
+        AlternatorGroupBy(
             {
                 table->GetColumnByName("argument"),
                 table->GetColumnByName("argument"),
@@ -2232,6 +2578,7 @@ TEST(GroupBy, CountDistinct) {
             {
                 table->GetColumnByName("key"),
             },
+            {},
             {
                 {"hash_count_distinct", all, "agg_0", "hash_count_distinct"},
                 {"hash_count_distinct", only_valid, "agg_1", "hash_count_distinct"},
@@ -2290,7 +2637,7 @@ TEST(GroupBy, CountDistinct) {
 
     ASSERT_OK_AND_ASSIGN(
         aggregated_and_grouped,
-        internal::GroupBy(
+        AlternatorGroupBy(
             {
                 table->GetColumnByName("argument"),
                 table->GetColumnByName("argument"),
@@ -2299,6 +2646,7 @@ TEST(GroupBy, CountDistinct) {
             {
                 table->GetColumnByName("key"),
             },
+            {},
             {
                 {"hash_count_distinct", all, "agg_0", "hash_count_distinct"},
                 {"hash_count_distinct", only_valid, "agg_1", "hash_count_distinct"},
@@ -2337,7 +2685,7 @@ TEST(GroupBy, CountDistinct) {
 
     ASSERT_OK_AND_ASSIGN(
         aggregated_and_grouped,
-        internal::GroupBy(
+        AlternatorGroupBy(
             {
                 table->GetColumnByName("argument"),
                 table->GetColumnByName("argument"),
@@ -2346,6 +2694,7 @@ TEST(GroupBy, CountDistinct) {
             {
                 table->GetColumnByName("key"),
             },
+            {},
             {
                 {"hash_count_distinct", all, "agg_0", "hash_count_distinct"},
                 {"hash_count_distinct", only_valid, "agg_1", "hash_count_distinct"},
@@ -2370,7 +2719,7 @@ TEST(GroupBy, CountDistinct) {
   }
 }
 
-TEST(GroupBy, Distinct) {
+TEST_P(GroupBy, Distinct) {
   auto all = std::make_shared<CountOptions>(CountOptions::ALL);
   auto only_valid = std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
   auto only_null = std::make_shared<CountOptions>(CountOptions::ONLY_NULL);
@@ -2409,7 +2758,7 @@ TEST(GroupBy, Distinct) {
   ])"});
 
     ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped,
-                         internal::GroupBy(
+                         AlternatorGroupBy(
                              {
                                  table->GetColumnByName("argument"),
                                  table->GetColumnByName("argument"),
@@ -2418,6 +2767,7 @@ TEST(GroupBy, Distinct) {
                              {
                                  table->GetColumnByName("key"),
                              },
+                             {},
                              {
                                  {"hash_distinct", all, "agg_0", "hash_distinct"},
                                  {"hash_distinct", only_valid, "agg_1", "hash_distinct"},
@@ -2482,7 +2832,7 @@ TEST(GroupBy, Distinct) {
 ])",
                                                                                   });
     ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
-                         internal::GroupBy(
+                         AlternatorGroupBy(
                              {
                                  table->GetColumnByName("argument"),
                                  table->GetColumnByName("argument"),
@@ -2491,6 +2841,7 @@ TEST(GroupBy, Distinct) {
                              {
                                  table->GetColumnByName("key"),
                              },
+                             {},
                              {
                                  {"hash_distinct", all, "agg_0", "hash_distinct"},
                                  {"hash_distinct", only_valid, "agg_1", "hash_distinct"},
@@ -2513,7 +2864,7 @@ TEST(GroupBy, Distinct) {
   }
 }
 
-TEST(GroupBy, OneMiscTypes) {
+TEST_P(GroupBy, OneMiscTypes) {
   auto in_schema = schema({
       field("floats", float64()),
       field("nulls", null()),
@@ -2632,7 +2983,7 @@ TEST(GroupBy, OneMiscTypes) {
   }
 }
 
-TEST(GroupBy, OneNumericTypes) {
+TEST_P(GroupBy, OneNumericTypes) {
   std::vector<std::shared_ptr<DataType>> types;
   types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
   types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
@@ -2720,7 +3071,7 @@ TEST(GroupBy, OneNumericTypes) {
   }
 }
 
-TEST(GroupBy, OneBinaryTypes) {
+TEST_P(GroupBy, OneBinaryTypes) {
   for (bool use_exec_plan : {true, false}) {
     for (bool use_threads : {true, false}) {
       for (const auto& type : BaseBinaryTypes()) {
@@ -2771,7 +3122,7 @@ TEST(GroupBy, OneBinaryTypes) {
   }
 }
 
-TEST(GroupBy, OneScalar) {
+TEST_P(GroupBy, OneScalar) {
   BatchesWithSchema input;
   input.batches = {
       ExecBatchFromJSON({int32(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
@@ -2801,7 +3152,7 @@ TEST(GroupBy, OneScalar) {
   }
 }
 
-TEST(GroupBy, ListNumeric) {
+TEST_P(GroupBy, ListNumeric) {
   for (const auto& type : NumericTypes()) {
     for (auto use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
@@ -2839,13 +3190,14 @@ TEST(GroupBy, ListNumeric) {
   ])"});
 
         ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped,
-                             internal::GroupBy(
+                             AlternatorGroupBy(
                                  {
                                      table->GetColumnByName("argument"),
                                  },
                                  {
                                      table->GetColumnByName("key"),
                                  },
+                                 {},
                                  {
                                      {"hash_list", nullptr, "agg_0", "hash_list"},
                                  },
@@ -2910,13 +3262,14 @@ TEST(GroupBy, ListNumeric) {
   ])"});
 
         ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped,
-                             internal::GroupBy(
+                             AlternatorGroupBy(
                                  {
                                      table->GetColumnByName("argument"),
                                  },
                                  {
                                      table->GetColumnByName("key"),
                                  },
+                                 {},
                                  {
                                      {"hash_list", nullptr, "agg_0", "hash_list"},
                                  },
@@ -2951,7 +3304,7 @@ TEST(GroupBy, ListNumeric) {
   }
 }
 
-TEST(GroupBy, ListBinaryTypes) {
+TEST_P(GroupBy, ListBinaryTypes) {
   for (bool use_threads : {true, false}) {
     for (const auto& type : BaseBinaryTypes()) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
@@ -2979,13 +3332,14 @@ TEST(GroupBy, ListBinaryTypes) {
 ])"});
 
         ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                             internal::GroupBy(
+                             AlternatorGroupBy(
                                  {
                                      table->GetColumnByName("argument0"),
                                  },
                                  {
                                      table->GetColumnByName("key"),
                                  },
+                                 {},
                                  {
                                      {"hash_list", nullptr, "agg_0", "hash_list"},
                                  },
@@ -3041,13 +3395,14 @@ TEST(GroupBy, ListBinaryTypes) {
 ])"});
 
         ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                             internal::GroupBy(
+                             AlternatorGroupBy(
                                  {
                                      table->GetColumnByName("argument0"),
                                  },
                                  {
                                      table->GetColumnByName("key"),
                                  },
+                                 {},
                                  {
                                      {"hash_list", nullptr, "agg_0", "hash_list"},
                                  },
@@ -3083,7 +3438,7 @@ TEST(GroupBy, ListBinaryTypes) {
   }
 }
 
-TEST(GroupBy, ListMiscTypes) {
+TEST_P(GroupBy, ListMiscTypes) {
   auto in_schema = schema({
       field("floats", float64()),
       field("nulls", null()),
@@ -3244,7 +3599,7 @@ TEST(GroupBy, ListMiscTypes) {
   }
 }
 
-TEST(GroupBy, CountAndSum) {
+TEST_P(GroupBy, CountAndSum) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
     [1.0,   1],
@@ -3266,7 +3621,7 @@ TEST(GroupBy, CountAndSum) {
       std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(
       Datum aggregated_and_grouped,
-      internal::GroupBy(
+      AlternatorGroupBy(
           {
               // NB: passing an argument twice or also using it as a key is legal
               batch->GetColumnByName("argument"),
@@ -3279,6 +3634,7 @@ TEST(GroupBy, CountAndSum) {
           {
               batch->GetColumnByName("key"),
           },
+          {},
           {
               {"hash_count", count_opts, "agg_0", "hash_count"},
               {"hash_count", count_nulls_opts, "agg_1", "hash_count"},
@@ -3334,6 +3690,7 @@ TEST(GroupBy, StandAloneNullaryCount) {
                            {
                                batch->GetColumnByName("key"),
                            },
+                           {},
                            {
                                {"hash_count_all", "hash_count_all"},
                            }));
@@ -3352,7 +3709,7 @@ TEST(GroupBy, StandAloneNullaryCount) {
                     /*verbose=*/true);
 }
 
-TEST(GroupBy, Product) {
+TEST_P(GroupBy, Product) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
     [-1.0,  1],
@@ -3370,7 +3727,7 @@ TEST(GroupBy, Product) {
   auto min_count =
       std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy(
+                       AlternatorGroupBy(
                            {
                                batch->GetColumnByName("argument"),
                                batch->GetColumnByName("key"),
@@ -3379,6 +3736,7 @@ TEST(GroupBy, Product) {
                            {
                                batch->GetColumnByName("key"),
                            },
+                           {},
                            {
                                {"hash_product", nullptr, "agg_0", "hash_product"},
                                {"hash_product", nullptr, "agg_1", "hash_product"},
@@ -3408,13 +3766,14 @@ TEST(GroupBy, Product) {
   ])");
 
   ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
-                       internal::GroupBy(
+                       AlternatorGroupBy(
                            {
                                batch->GetColumnByName("argument"),
                            },
                            {
                                batch->GetColumnByName("key"),
                            },
+                           {},
                            {
                                {"hash_product", nullptr, "agg_0", "hash_product"},
                            }));
@@ -3428,7 +3787,7 @@ TEST(GroupBy, Product) {
                           /*verbose=*/true);
 }
 
-TEST(GroupBy, SumMeanProductKeepNulls) {
+TEST_P(GroupBy, SumMeanProductKeepNulls) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
     [-1.0,  1],
@@ -3447,7 +3806,7 @@ TEST(GroupBy, SumMeanProductKeepNulls) {
   auto min_count =
       std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy(
+                       AlternatorGroupBy(
                            {
                                batch->GetColumnByName("argument"),
                                batch->GetColumnByName("argument"),
@@ -3459,6 +3818,7 @@ TEST(GroupBy, SumMeanProductKeepNulls) {
                            {
                                batch->GetColumnByName("key"),
                            },
+                           {},
                            {
                                {"hash_sum", keep_nulls, "agg_0", "hash_sum"},
                                {"hash_sum", min_count, "agg_1", "hash_sum"},
@@ -3487,7 +3847,7 @@ TEST(GroupBy, SumMeanProductKeepNulls) {
                           /*verbose=*/true);
 }
 
-TEST(GroupBy, SumOnlyStringAndDictKeys) {
+TEST_P(GroupBy, SumOnlyStringAndDictKeys) {
   for (auto key_type : {utf8(), dictionary(int32(), utf8())}) {
     SCOPED_TRACE("key type: " + key_type->ToString());
 
@@ -3506,8 +3866,8 @@ TEST(GroupBy, SumOnlyStringAndDictKeys) {
     ])");
 
     ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                         internal::GroupBy({batch->GetColumnByName("argument")},
-                                           {batch->GetColumnByName("key")},
+                         AlternatorGroupBy({batch->GetColumnByName("argument")},
+                                           {batch->GetColumnByName("key")}, {},
                                            {
                                                {"hash_sum", nullptr, "agg_0", "hash_sum"},
                                            }));
@@ -3528,7 +3888,7 @@ TEST(GroupBy, SumOnlyStringAndDictKeys) {
   }
 }
 
-TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
+TEST_P(GroupBy, ConcreteCaseWithValidateGroupBy) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", utf8())}), R"([
     [1.0,   "alfa"],
@@ -3552,10 +3912,10 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
 
   for (auto agg : {
            Aggregate{"hash_sum", nullptr, "agg_0", "hash_sum"},
-           Aggregate{"hash_count", non_null, "agg_1", "hash_count"},
-           Aggregate{"hash_count", nulls, "agg_2", "hash_count"},
-           Aggregate{"hash_min_max", nullptr, "agg_3", "hash_min_max"},
-           Aggregate{"hash_min_max", keepna, "agg_4", "hash_min_max"},
+           Aggregate{"hash_count", non_null, "agg_0", "hash_count"},
+           Aggregate{"hash_count", nulls, "agg_0", "hash_count"},
+           Aggregate{"hash_min_max", nullptr, "agg_0", "hash_min_max"},
+           Aggregate{"hash_min_max", keepna, "agg_0", "hash_min_max"},
        }) {
     SCOPED_TRACE(agg.function);
     ValidateGroupBy({agg}, {batch->GetColumnByName("argument")},
@@ -3564,7 +3924,7 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
 }
 
 // Count nulls/non_nulls from record batch with no nulls
-TEST(GroupBy, CountNull) {
+TEST_P(GroupBy, CountNull) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", utf8())}), R"([
     [1.0, "alfa"],
@@ -3579,7 +3939,7 @@ TEST(GroupBy, CountNull) {
 
   for (auto agg : {
            Aggregate{"hash_count", keepna, "agg_0", "hash_count"},
-           Aggregate{"hash_count", skipna, "agg_1", "hash_count"},
+           Aggregate{"hash_count", skipna, "agg_0", "hash_count"},
        }) {
     SCOPED_TRACE(agg.function);
     ValidateGroupBy({agg}, {batch->GetColumnByName("argument")},
@@ -3587,7 +3947,7 @@ TEST(GroupBy, CountNull) {
   }
 }
 
-TEST(GroupBy, RandomArraySum) {
+TEST_P(GroupBy, RandomArraySum) {
   std::shared_ptr<ScalarAggregateOptions> options =
       std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/0);
   for (int64_t length : {1 << 10, 1 << 12, 1 << 15}) {
@@ -3610,7 +3970,7 @@ TEST(GroupBy, RandomArraySum) {
   }
 }
 
-TEST(GroupBy, WithChunkedArray) {
+TEST_P(GroupBy, WithChunkedArray) {
   auto table =
       TableFromJSON(schema({field("argument", float64()), field("key", int64())}),
                     {R"([{"argument": 1.0,   "key": 1},
@@ -3626,7 +3986,7 @@ TEST(GroupBy, WithChunkedArray) {
                          {"argument": null,  "key": 3}
                         ])"});
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy(
+                       AlternatorGroupBy(
                            {
                                table->GetColumnByName("argument"),
                                table->GetColumnByName("argument"),
@@ -3635,6 +3995,7 @@ TEST(GroupBy, WithChunkedArray) {
                            {
                                table->GetColumnByName("key"),
                            },
+                           {},
                            {
                                {"hash_count", nullptr, "agg_0", "hash_count"},
                                {"hash_sum", nullptr, "agg_1", "hash_sum"},
@@ -3660,21 +4021,22 @@ TEST(GroupBy, WithChunkedArray) {
                     /*verbose=*/true);
 }
 
-TEST(GroupBy, MinMaxWithNewGroupsInChunkedArray) {
+TEST_P(GroupBy, MinMaxWithNewGroupsInChunkedArray) {
   auto table = TableFromJSON(
       schema({field("argument", int64()), field("key", int64())}),
       {R"([{"argument": 1, "key": 0}])", R"([{"argument": 0,   "key": 1}])"});
   ScalarAggregateOptions count_options;
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy(
+                       AlternatorGroupBy(
                            {
                                table->GetColumnByName("argument"),
                            },
                            {
                                table->GetColumnByName("key"),
                            },
+                           {},
                            {
-                               {"hash_min_max", nullptr, "agg_1", "hash_min_max"},
+                               {"hash_min_max", nullptr, "agg_0", "hash_min_max"},
                            }));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
@@ -3692,7 +4054,7 @@ TEST(GroupBy, MinMaxWithNewGroupsInChunkedArray) {
                     /*verbose=*/true);
 }
 
-TEST(GroupBy, SmallChunkSizeSumOnly) {
+TEST_P(GroupBy, SmallChunkSizeSumOnly) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
     [1.0,   1],
@@ -3707,8 +4069,8 @@ TEST(GroupBy, SmallChunkSizeSumOnly) {
     [null,  3]
   ])");
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({batch->GetColumnByName("argument")},
-                                         {batch->GetColumnByName("key")},
+                       AlternatorGroupBy({batch->GetColumnByName("argument")},
+                                         {batch->GetColumnByName("key")}, {},
                                          {
                                              {"hash_sum", nullptr, "agg_0", "hash_sum"},
                                          },
@@ -3727,7 +4089,7 @@ TEST(GroupBy, SmallChunkSizeSumOnly) {
                     /*verbose=*/true);
 }
 
-TEST(GroupBy, CountWithNullType) {
+TEST_P(GroupBy, CountWithNullType) {
   auto table =
       TableFromJSON(schema({field("argument", null()), field("key", int64())}), {R"([
     [null,  1],
@@ -3787,7 +4149,7 @@ TEST(GroupBy, CountWithNullType) {
   }
 }
 
-TEST(GroupBy, CountWithNullTypeEmptyTable) {
+TEST_P(GroupBy, CountWithNullTypeEmptyTable) {
   auto table = TableFromJSON(schema({field("argument", null()), field("key", int64())}),
                              {R"([])"});
 
@@ -3820,7 +4182,7 @@ TEST(GroupBy, CountWithNullTypeEmptyTable) {
   }
 }
 
-TEST(GroupBy, SingleNullTypeKey) {
+TEST_P(GroupBy, SingleNullTypeKey) {
   auto table =
       TableFromJSON(schema({field("argument", int64()), field("key", null())}), {R"([
     [1,    null],
@@ -3879,7 +4241,7 @@ TEST(GroupBy, SingleNullTypeKey) {
   }
 }
 
-TEST(GroupBy, MultipleKeysIncludesNullType) {
+TEST_P(GroupBy, MultipleKeysIncludesNullType) {
   auto table = TableFromJSON(schema({field("argument", float64()), field("key_0", utf8()),
                                      field("key_1", null())}),
                              {R"([
@@ -3942,7 +4304,7 @@ TEST(GroupBy, MultipleKeysIncludesNullType) {
   }
 }
 
-TEST(GroupBy, SumNullType) {
+TEST_P(GroupBy, SumNullType) {
   auto table =
       TableFromJSON(schema({field("argument", null()), field("key", int64())}), {R"([
     [null,  1],
@@ -4010,7 +4372,7 @@ TEST(GroupBy, SumNullType) {
   }
 }
 
-TEST(GroupBy, ProductNullType) {
+TEST_P(GroupBy, ProductNullType) {
   auto table =
       TableFromJSON(schema({field("argument", null()), field("key", int64())}), {R"([
     [null,  1],
@@ -4078,7 +4440,7 @@ TEST(GroupBy, ProductNullType) {
   }
 }
 
-TEST(GroupBy, MeanNullType) {
+TEST_P(GroupBy, MeanNullType) {
   auto table =
       TableFromJSON(schema({field("argument", null()), field("key", int64())}), {R"([
     [null,  1],
@@ -4146,7 +4508,7 @@ TEST(GroupBy, MeanNullType) {
   }
 }
 
-TEST(GroupBy, NullTypeEmptyTable) {
+TEST_P(GroupBy, NullTypeEmptyTable) {
   auto table = TableFromJSON(schema({field("argument", null()), field("key", int64())}),
                              {R"([])"});
 
@@ -4187,7 +4549,7 @@ TEST(GroupBy, NullTypeEmptyTable) {
   }
 }
 
-TEST(GroupBy, OnlyKeys) {
+TEST_P(GroupBy, OnlyKeys) {
   auto table =
       TableFromJSON(schema({field("key_0", int64()), field("key_1", utf8())}), {R"([
     [1,    "a"],
@@ -4234,5 +4596,265 @@ TEST(GroupBy, OnlyKeys) {
     }
   }
 }
+
+INSTANTIATE_TEST_SUITE_P(GroupBy, GroupBy,
+                         ::testing::Values(GroupByDirectImpl, GroupByWithArrays,
+                                           GroupByUsingExecPlanImpl));
+
+class SegmentedScalarGroupBy : public GroupBy {};
+
+class SegmentedKeyGroupBy : public GroupBy {};
+
+void TestSegment(GroupByFunction group_by, const std::shared_ptr<Table>& table,
+                 Datum output, const std::vector<Datum>& keys,
+                 const std::vector<Datum>& segment_keys, bool scalar) {
+  const char* names[] = {
+      scalar ? "count" : "hash_count",
+      scalar ? "sum" : "hash_sum",
+      scalar ? "min_max" : "hash_min_max",
+  };
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       group_by(
+                           {
+                               table->GetColumnByName("argument"),
+                               table->GetColumnByName("argument"),
+                               table->GetColumnByName("argument"),
+                           },
+                           keys, segment_keys,
+                           {
+                               {names[0], nullptr, "agg_0", names[0]},
+                               {names[1], nullptr, "agg_1", names[1]},
+                               {names[2], nullptr, "agg_2", names[2]},
+                           },
+                           kDefaultUseThreads, kDefaultCtx, /*naive=*/false));
+
+  AssertDatumsEqual(output, aggregated_and_grouped, /*verbose=*/true);
+}
+
+void TestSegmentScalar(GroupByFunction group_by, const std::shared_ptr<Table>& table,
+                       Datum output, const std::vector<Datum>& segment_keys) {
+  TestSegment(group_by, table, output, {}, segment_keys, /*scalar=*/true);
+}
+
+void TestSegmentKey(GroupByFunction group_by, const std::shared_ptr<Table>& table,
+                    Datum output, const std::vector<Datum>& segment_keys) {
+  TestSegment(group_by, table, output, {table->GetColumnByName("key")}, segment_keys,
+              /*scalar=*/false);
+}
+
+Result<std::shared_ptr<Table>> GetSingleSegmentInputAsChunked() {
+  auto table = TableFromJSON(schema({field("argument", float64()), field("key", int64()),
+                                     field("segment_key", int64())}),
+                             {R"([{"argument": 1.0,   "key": 1,    "segment_key": 1},
+                         {"argument": null,  "key": 1,    "segment_key": 1}
+                        ])",
+                              R"([{"argument": 0.0,   "key": 2,    "segment_key": 1},
+                         {"argument": null,  "key": 3,    "segment_key": 1},
+                         {"argument": 4.0,   "key": null, "segment_key": 1},
+                         {"argument": 3.25,  "key": 1,    "segment_key": 1},
+                         {"argument": 0.125, "key": 2,    "segment_key": 1},
+                         {"argument": -0.25, "key": 2,    "segment_key": 1},
+                         {"argument": 0.75,  "key": null, "segment_key": 1},
+                         {"argument": null,  "key": 3,    "segment_key": 1}
+                        ])",
+                              R"([{"argument": 1.0,   "key": 1,    "segment_key": 0},
+                         {"argument": null,  "key": 1,    "segment_key": 0}
+                        ])",
+                              R"([{"argument": 0.0,   "key": 2,    "segment_key": 0},
+                         {"argument": null,  "key": 3,    "segment_key": 0},
+                         {"argument": 4.0,   "key": null, "segment_key": 0},
+                         {"argument": 3.25,  "key": 1,    "segment_key": 0},
+                         {"argument": 0.125, "key": 2,    "segment_key": 0},
+                         {"argument": -0.25, "key": 2,    "segment_key": 0},
+                         {"argument": 0.75,  "key": null, "segment_key": 0},
+                         {"argument": null,  "key": 3,    "segment_key": 0}
+                        ])"});
+  return table;
+}
+
+Result<std::shared_ptr<Table>> GetSingleSegmentInputAsCombined() {
+  ARROW_ASSIGN_OR_RAISE(auto table, GetSingleSegmentInputAsChunked());
+  return table->CombineChunks();
+}
+
+Result<std::shared_ptr<ChunkedArray>> GetSingleSegmentScalarOutput() {
+  return ChunkedArrayFromJSON(struct_({
+                                  field("count", int64()),
+                                  field("sum", float64()),
+                                  field("min_max", struct_({
+                                                       field("min", float64()),
+                                                       field("max", float64()),
+                                                   })),
+                                  field("key_0", int64()),
+                              }),
+                              {R"([
+    [7, 8.875, {"min": -0.25, "max": 4.0}, 1]
+  ])",
+                               R"([
+    [7, 8.875, {"min": -0.25, "max": 4.0}, 0]
+  ])"});
+}
+
+Result<std::shared_ptr<ChunkedArray>> GetSingleSegmentKeyOutput() {
+  return ChunkedArrayFromJSON(struct_({
+                                  field("hash_count", int64()),
+                                  field("hash_sum", float64()),
+                                  field("hash_min_max", struct_({
+                                                            field("min", float64()),
+                                                            field("max", float64()),
+                                                        })),
+                                  field("key_0", int64()),
+                                  field("key_1", int64()),
+                              }),
+                              {R"([
+    [2, 4.25,   {"min": 1.0,   "max": 3.25},  1, 1],
+    [3, -0.125, {"min": -0.25, "max": 0.125}, 2, 1],
+    [0, null,   {"min": null,  "max": null},  3, 1],
+    [2, 4.75,   {"min": 0.75,  "max": 4.0},   null, 1]
+  ])",
+                               R"([
+    [2, 4.25,   {"min": 1.0,   "max": 3.25},  1, 0],
+    [3, -0.125, {"min": -0.25, "max": 0.125}, 2, 0],
+    [0, null,   {"min": null,  "max": null},  3, 0],
+    [2, 4.75,   {"min": 0.75,  "max": 4.0},   null, 0]
+  ])"});
+}
+
+void TestSingleSegmentScalar(GroupByFunction group_by,
+                             std::function<Result<std::shared_ptr<Table>>()> get_table) {
+  ASSERT_OK_AND_ASSIGN(auto table, get_table());
+  ASSERT_OK_AND_ASSIGN(auto output, GetSingleSegmentScalarOutput());
+  TestSegmentScalar(group_by, table, output, {table->GetColumnByName("segment_key")});
+}
+
+void TestSingleSegmentKey(GroupByFunction group_by,
+                          std::function<Result<std::shared_ptr<Table>>()> get_table) {
+  ASSERT_OK_AND_ASSIGN(auto table, get_table());
+  ASSERT_OK_AND_ASSIGN(auto output, GetSingleSegmentKeyOutput());
+  TestSegmentKey(group_by, table, output, {table->GetColumnByName("segment_key")});
+}
+
+TEST_P(SegmentedScalarGroupBy, SingleSegmentScalarChunked) {
+  TestSingleSegmentScalar(GetParam(), GetSingleSegmentInputAsChunked);
+}
+
+TEST_P(SegmentedScalarGroupBy, SingleSegmentScalarCombined) {
+  TestSingleSegmentScalar(GetParam(), GetSingleSegmentInputAsCombined);
+}
+
+TEST_P(SegmentedKeyGroupBy, SingleSegmentKeyChunked) {
+  TestSingleSegmentKey(GetParam(), GetSingleSegmentInputAsChunked);
+}
+
+TEST_P(SegmentedKeyGroupBy, SingleSegmentKeyCombined) {
+  TestSingleSegmentKey(GetParam(), GetSingleSegmentInputAsCombined);
+}
+
+// extracts one segment of the obtained (single-segment-key) table
+Result<std::shared_ptr<Table>> GetEmptySegmentInput(
+    std::function<Result<std::shared_ptr<Table>>()> get_table) {
+  ARROW_ASSIGN_OR_RAISE(auto table, get_table());
+  auto sliced = table->Slice(0, 10);
+  ARROW_ASSIGN_OR_RAISE(auto batch, sliced->CombineChunksToBatch());
+  ARROW_ASSIGN_OR_RAISE(auto array, batch->ToStructArray());
+  ARROW_ASSIGN_OR_RAISE(auto chunked, ChunkedArray::Make({array}, array->type()));
+  return Table::FromChunkedStructArray(chunked);
+}
+
+Result<std::shared_ptr<Table>> GetEmptySegmentInputAsChunked() {
+  return GetEmptySegmentInput(GetSingleSegmentInputAsChunked);
+}
+
+Result<std::shared_ptr<Table>> GetEmptySegmentInputAsCombined() {
+  return GetEmptySegmentInput(GetSingleSegmentInputAsCombined);
+}
+
+// extracts the expected output for one segment
+Result<std::shared_ptr<Array>> GetEmptySegmentKeyOutput() {
+  ARROW_ASSIGN_OR_RAISE(auto chunked, GetSingleSegmentKeyOutput());
+  ARROW_ASSIGN_OR_RAISE(auto table, Table::FromChunkedStructArray(chunked));
+  ARROW_ASSIGN_OR_RAISE(auto removed, table->RemoveColumn(table->num_columns() - 1));
+  auto sliced = removed->Slice(0, 4);
+  ARROW_ASSIGN_OR_RAISE(auto batch, sliced->CombineChunksToBatch());
+  return batch->ToStructArray();
+}
+
+void TestEmptySegmentKey(GroupByFunction group_by,
+                         std::function<Result<std::shared_ptr<Table>>()> get_table) {
+  ASSERT_OK_AND_ASSIGN(auto table, get_table());
+  ASSERT_OK_AND_ASSIGN(auto output, GetEmptySegmentKeyOutput());
+  TestSegmentKey(group_by, table, output, {});
+}
+
+TEST_P(SegmentedKeyGroupBy, EmptySegmentKeyChunked) {
+  TestEmptySegmentKey(GetParam(), GetEmptySegmentInputAsChunked);
+}
+
+TEST_P(SegmentedKeyGroupBy, EmptySegmentKeyCombined) {
+  TestEmptySegmentKey(GetParam(), GetEmptySegmentInputAsCombined);
+}
+
+// adds a named copy of the last (single-segment-key) column to the obtained table
+Result<std::shared_ptr<Table>> GetMultiSegmentInput(
+    std::function<Result<std::shared_ptr<Table>>()> get_table,
+    const std::string& add_name) {
+  ARROW_ASSIGN_OR_RAISE(auto table, get_table());
+  int last = table->num_columns() - 1;
+  auto add_field = field(add_name, table->schema()->field(last)->type());
+  return table->AddColumn(table->num_columns(), add_field, table->column(last));
+}
+
+Result<std::shared_ptr<Table>> GetMultiSegmentInputAsChunked(
+    const std::string& add_name) {
+  return GetMultiSegmentInput(GetSingleSegmentInputAsChunked, add_name);
+}
+
+Result<std::shared_ptr<Table>> GetMultiSegmentInputAsCombined(
+    const std::string& add_name) {
+  return GetMultiSegmentInput(GetSingleSegmentInputAsCombined, add_name);
+}
+
+// adds a named copy of the last (single-segment-key) column to the expected output table
+Result<std::shared_ptr<ChunkedArray>> GetMultiSegmentKeyOutput(
+    const std::string& add_name) {
+  ARROW_ASSIGN_OR_RAISE(auto chunked, GetSingleSegmentKeyOutput());
+  ARROW_ASSIGN_OR_RAISE(auto table, Table::FromChunkedStructArray(chunked));
+  int last = table->num_columns() - 1;
+  auto add_field = field(add_name, table->schema()->field(last)->type());
+  ARROW_ASSIGN_OR_RAISE(auto added,
+                        table->AddColumn(last + 1, add_field, table->column(last)));
+  ARROW_ASSIGN_OR_RAISE(auto batch, added->CombineChunksToBatch());
+  ARROW_ASSIGN_OR_RAISE(auto array, batch->ToStructArray());
+  return ChunkedArray::Make({array->Slice(0, 4), array->Slice(4, 4)}, array->type());
+}
+
+void TestMultiSegmentKey(
+    GroupByFunction group_by,
+    std::function<Result<std::shared_ptr<Table>>(const std::string&)> get_table) {
+  std::string add_name = "segment_key2";
+  ASSERT_OK_AND_ASSIGN(auto table, get_table(add_name));
+  ASSERT_OK_AND_ASSIGN(auto output, GetMultiSegmentKeyOutput("key_2"));
+  TestSegmentKey(
+      group_by, table, output,
+      {table->GetColumnByName("segment_key"), table->GetColumnByName(add_name)});
+}
+
+TEST_P(SegmentedKeyGroupBy, MultiSegmentKeyChunked) {
+  TestMultiSegmentKey(GetParam(), GetMultiSegmentInputAsChunked);
+}
+
+TEST_P(SegmentedKeyGroupBy, MultiSegmentKeyCombined) {
+  TestMultiSegmentKey(GetParam(), GetMultiSegmentInputAsCombined);
+}
+
+// GroupByDirectImpl and GroupByWithArrays are not included in the testing values because
+// they would lead to passing 2 arguments to a single-argument kernel (like `count`)
+INSTANTIATE_TEST_SUITE_P(SegmentedScalarGroupBy, SegmentedScalarGroupBy,
+                         ::testing::Values(SegmentedGroupByUsingExecPlan));
+
+INSTANTIATE_TEST_SUITE_P(SegmentedKeyGroupBy, SegmentedKeyGroupBy,
+                         ::testing::Values(GroupByDirectImpl, GroupByWithArrays,
+                                           SegmentedGroupByUsingExecPlan));
+
 }  // namespace compute
 }  // namespace arrow

@@ -30,6 +30,49 @@
 namespace arrow {
 namespace compute {
 
+/// \brief A segment of contiguous rows for grouping
+struct ARROW_EXPORT GroupingSegment {
+  int64_t offset;
+  int64_t length;
+  bool is_open;
+  bool extends;
+};
+
+inline bool operator==(const GroupingSegment& segment1, const GroupingSegment& segment2) {
+  return segment1.offset == segment2.offset && segment1.length == segment2.length &&
+         segment1.is_open == segment2.is_open && segment1.extends == segment2.extends;
+}
+inline bool operator!=(const GroupingSegment& segment1, const GroupingSegment& segment2) {
+  return !(segment1 == segment2);
+}
+
+/// \brief Computes grouping segments for a batch. Each segment covers rows with identical
+/// values in the batch. The values in the batch are often selected as keys from a larger
+/// batch.
+class ARROW_EXPORT GroupingSegmenter {
+ public:
+  virtual ~GroupingSegmenter() = default;
+
+  /// \brief Construct a GroupingSegmenter which receives the specified key types
+  static Result<std::unique_ptr<GroupingSegmenter>> Make(
+      const std::vector<TypeHolder>& key_types, bool nullable_keys = false,
+      ExecContext* ctx = default_exec_context());
+
+  /// \brief Return the key types of this segmenter
+  virtual const std::vector<TypeHolder>& key_types() const = 0;
+
+  /// \brief Reset this grouping segmenter
+  virtual Status Reset() = 0;
+
+  /// \brief Get the next segment for the given batch starting from the given offset
+  virtual Result<GroupingSegment> GetNextSegment(const ExecSpan& batch,
+                                                 int64_t offset) = 0;
+
+  /// \brief Get the next segment for the given batch starting from the given offset
+  virtual Result<GroupingSegment> GetNextSegment(const ExecBatch& batch,
+                                                 int64_t offset) = 0;
+};
+
 /// Consumes batches of keys and yields batches of the group ids.
 class ARROW_EXPORT Grouper {
  public:
@@ -39,10 +82,19 @@ class ARROW_EXPORT Grouper {
   static Result<std::unique_ptr<Grouper>> Make(const std::vector<TypeHolder>& key_types,
                                                ExecContext* ctx = default_exec_context());
 
-  /// Consume a batch of keys, producing the corresponding group ids as an integer array.
+  /// Consume a batch of keys, producing the corresponding group ids as an integer array,
+  /// over a slice defined by an offset and length, which defaults to the batch length.
   /// Currently only uint32 indices will be produced, eventually the bit width will only
   /// be as wide as necessary.
-  virtual Result<Datum> Consume(const ExecSpan& batch) = 0;
+  virtual Result<Datum> Consume(const ExecSpan& batch, int64_t consume_offset = 0,
+                                int64_t consume_length = -1) = 0;
+
+  /// Consume a batch of keys, producing the corresponding group ids as an integer array,
+  /// over a slice defined by an offset and length, which defaults to the batch length.
+  /// Currently only uint32 indices will be produced, eventually the bit width will only
+  /// be as wide as necessary.
+  virtual Result<Datum> Consume(const ExecBatch& batch, int64_t consume_offset = 0,
+                                int64_t consume_length = -1) = 0;
 
   /// Get current unique keys. May be called multiple times.
   virtual Result<ExecBatch> GetUniques() = 0;
