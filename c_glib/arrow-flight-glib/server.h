@@ -55,6 +55,101 @@ gaflight_record_batch_stream_new(GArrowRecordBatchReader *reader,
                                  GArrowWriteOptions *options);
 
 
+#define GAFLIGHT_TYPE_SERVER_AUTH_SENDER        \
+  (gaflight_server_auth_sender_get_type())
+G_DECLARE_DERIVABLE_TYPE(GAFlightServerAuthSender,
+                         gaflight_server_auth_sender,
+                         GAFLIGHT,
+                         SERVER_AUTH_SENDER,
+                         GObject)
+struct _GAFlightServerAuthSenderClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_12_0
+gboolean
+gaflight_server_auth_sender_write(GAFlightServerAuthSender *sender,
+                                  GBytes *message,
+                                  GError **error);
+
+
+#define GAFLIGHT_TYPE_SERVER_AUTH_READER        \
+  (gaflight_server_auth_reader_get_type())
+G_DECLARE_DERIVABLE_TYPE(GAFlightServerAuthReader,
+                         gaflight_server_auth_reader,
+                         GAFLIGHT,
+                         SERVER_AUTH_READER,
+                         GObject)
+struct _GAFlightServerAuthReaderClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_12_0
+GBytes *
+gaflight_server_auth_reader_read(GAFlightServerAuthReader *reader,
+                                 GError **error);
+
+
+#define GAFLIGHT_TYPE_SERVER_AUTH_HANDLER       \
+  (gaflight_server_auth_handler_get_type())
+G_DECLARE_DERIVABLE_TYPE(GAFlightServerAuthHandler,
+                         gaflight_server_auth_handler,
+                         GAFLIGHT,
+                         SERVER_AUTH_HANDLER,
+                         GObject)
+struct _GAFlightServerAuthHandlerClass
+{
+  GObjectClass parent_class;
+};
+
+#define GAFLIGHT_TYPE_SERVER_CUSTOM_AUTH_HANDLER       \
+  (gaflight_server_custom_auth_handler_get_type())
+G_DECLARE_DERIVABLE_TYPE(GAFlightServerCustomAuthHandler,
+                         gaflight_server_custom_auth_handler,
+                         GAFLIGHT,
+                         SERVER_CUSTOM_AUTH_HANDLER,
+                         GAFlightServerAuthHandler)
+/**
+ * GAFlightServerCustomAuthHandlerClass:
+ * @authenticate: Authenticates the client on initial connection. The server
+ *   can send and read responses from the client at any time.
+ * @is_valid: Validates a per-call client token.
+ *
+ * Since: 12.0.0
+ */
+struct _GAFlightServerCustomAuthHandlerClass
+{
+  GAFlightServerAuthHandlerClass parent_class;
+
+  void (*authenticate)(GAFlightServerCustomAuthHandler *handler,
+                       GAFlightServerAuthSender *sender,
+                       GAFlightServerAuthReader *reader,
+                       GError **error);
+  void (*is_valid)(GAFlightServerCustomAuthHandler *handler,
+                   GBytes *token,
+                   GBytes **peer_identity,
+                   GError **error);
+};
+
+GARROW_AVAILABLE_IN_12_0
+void
+gaflight_server_custom_auth_handler_authenticate(
+  GAFlightServerCustomAuthHandler *handler,
+  GAFlightServerAuthSender *sender,
+  GAFlightServerAuthReader *reader,
+  GError **error);
+
+GARROW_AVAILABLE_IN_12_0
+void
+gaflight_server_custom_auth_handler_is_valid(
+  GAFlightServerCustomAuthHandler *handler,
+  GBytes *token,
+  GBytes **peer_identity,
+  GError **error);
+
+
 #define GAFLIGHT_TYPE_SERVER_OPTIONS (gaflight_server_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GAFlightServerOptions,
                          gaflight_server_options,

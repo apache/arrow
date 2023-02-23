@@ -47,6 +47,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/memory.h"
+#include "arrow/util/ree_util.h"
 #include "arrow/visit_scalar_inline.h"
 #include "arrow/visit_type_inline.h"
 
@@ -388,6 +389,19 @@ class RangeDataEqualsImpl {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedType& type) {
+    switch (type.run_end_type()->id()) {
+      case Type::INT16:
+        return CompareRunEndEncoded<int16_t>();
+      case Type::INT32:
+        return CompareRunEndEncoded<int32_t>();
+      case Type::INT64:
+        return CompareRunEndEncoded<int64_t>();
+      default:
+        return Status::Invalid("invalid run ends type: ", *type.run_end_type());
+    }
+  }
+
   Status Visit(const ExtensionType& type) {
     // Compare storages
     result_ &= CompareWithType(*type.storage_type());
@@ -456,6 +470,31 @@ class RangeDataEqualsImpl {
     };
 
     CompareWithOffsets<typename TypeClass::offset_type>(1, compare_ranges);
+    return Status::OK();
+  }
+
+  template <typename RunEndsType>
+  Status CompareRunEndEncoded() {
+    auto left_span = ArraySpan(left_);
+    auto right_span = ArraySpan(right_);
+    left_span.SetSlice(left_.offset + left_start_idx_, range_length_);
+    right_span.SetSlice(right_.offset + right_start_idx_, range_length_);
+    const ree_util::RunEndEncodedArraySpan<RunEndsType> left(left_span);
+    const ree_util::RunEndEncodedArraySpan<RunEndsType> right(right_span);
+
+    const auto& left_values = *left_.child_data[1];
+    const auto& right_values = *right_.child_data[1];
+
+    auto it = ree_util::MergedRunsIterator(left, right);
+    for (; !it.isEnd(); ++it) {
+      RangeDataEqualsImpl impl(options_, floating_approximate_, left_values, right_values,
+                               it.index_into_left_array(), it.index_into_right_array(),
+                               /*range_length=*/1);
+      if (!impl.Compare()) {
+        result_ = false;
+        return Status::OK();
+      }
+    }
     return Status::OK();
   }
 
@@ -700,6 +739,13 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedType& left) {
+    const auto& right = checked_cast<const RunEndEncodedType&>(right_);
+    result_ = left.value_type()->Equals(right.value_type()) &&
+              left.run_end_type()->Equals(right.run_end_type());
+    return Status::OK();
+  }
+
   Status Visit(const ExtensionType& left) {
     result_ = left.ExtensionEquals(static_cast<const ExtensionType&>(right_));
     return Status::OK();
@@ -835,6 +881,12 @@ class ScalarEqualsVisitor {
                            floating_approximate_) &&
               ArrayEquals(*left.value.dictionary, *right.value.dictionary, options_,
                           floating_approximate_);
+    return Status::OK();
+  }
+
+  Status Visit(const RunEndEncodedScalar& left) {
+    const auto& right = checked_cast<const RunEndEncodedScalar&>(right_);
+    result_ = ScalarEquals(*left.value, *right.value, options_, floating_approximate_);
     return Status::OK();
   }
 

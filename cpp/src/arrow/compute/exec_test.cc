@@ -829,6 +829,10 @@ TEST_F(TestExecSpanIterator, ChunkedArrays) {
 
 TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
   auto carr = std::make_shared<ChunkedArray>(ArrayVector{}, int32());
+  auto dict_arr =
+      std::make_shared<ChunkedArray>(ArrayVector{}, dictionary(int32(), utf8()));
+  auto nested_arr = std::make_shared<ChunkedArray>(
+      ArrayVector{}, struct_({field("x", int32()), field("y", int64())}));
 
   auto CheckArgs = [&](const ExecBatch& batch) {
     ExecSpanIterator iterator;
@@ -836,6 +840,19 @@ TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
     ExecSpan iter_span;
     ASSERT_TRUE(iterator.Next(&iter_span));
     ASSERT_EQ(0, iter_span.length);
+    for (int col_idx = 0; col_idx < iter_span.num_values(); col_idx++) {
+      const ExecValue& val = iter_span.values[col_idx];
+      ASSERT_TRUE(val.is_array());
+      const ArraySpan& span = val.array;
+      if (span.type->id() == Type::DICTIONARY) {
+        ASSERT_EQ(1, span.child_data.size());
+        ASSERT_EQ(0, span.dictionary().length);
+      } else {
+        for (const auto& child : span.child_data) {
+          ASSERT_EQ(0, child.length);
+        }
+      }
+    }
     ASSERT_FALSE(iterator.Next(&iter_span));
   };
 
@@ -844,6 +861,14 @@ TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
 
   // Zero-length ChunkedArray with zero chunks
   input.values = {Datum(carr)};
+  CheckArgs(input);
+
+  // Zero-length ChunkedArray with zero chunks, dictionary
+  input.values = {Datum(dict_arr)};
+  CheckArgs(input);
+
+  // Zero-length ChunkedArray with zero chunks, nested
+  input.values = {Datum(nested_arr)};
   CheckArgs(input);
 
   // Zero-length array

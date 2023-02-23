@@ -2937,11 +2937,18 @@ ByteStreamSplitDecoder<DType>::ByteStreamSplitDecoder(const ColumnDescriptor* de
 template <typename DType>
 void ByteStreamSplitDecoder<DType>::SetData(int num_values, const uint8_t* data,
                                             int len) {
-  DecoderImpl::SetData(num_values, data, len);
-  if (num_values * static_cast<int64_t>(sizeof(T)) > len) {
-    throw ParquetException("Data size too small for number of values (corrupted file?)");
+  if (num_values * static_cast<int64_t>(sizeof(T)) < len) {
+    throw ParquetException(
+        "Data size too large for number of values (padding in byte stream split data "
+        "page?)");
   }
-  num_values_in_buffer_ = num_values;
+  if (len % sizeof(T) != 0) {
+    throw ParquetException("ByteStreamSplit data size " + std::to_string(len) +
+                           " not aligned with type " + TypeToString(DType::type_num));
+  }
+  num_values = len / sizeof(T);
+  DecoderImpl::SetData(num_values, data, len);
+  num_values_in_buffer_ = num_values_;
 }
 
 template <typename DType>

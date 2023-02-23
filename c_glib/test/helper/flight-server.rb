@@ -18,6 +18,19 @@
 require_relative "flight-info-generator"
 
 module Helper
+  class FlightAuthHandler < ArrowFlight::ServerCustomAuthHandler
+    type_register
+
+    private
+    def virtual_do_authenticate(sender, reader)
+      true
+    end
+
+    def virtual_do_is_valid(token)
+      "identity"
+    end
+  end
+
   class FlightServer < ArrowFlight::Server
     type_register
 

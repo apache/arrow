@@ -488,7 +488,7 @@ from source, set
 
 This variable is unfortunately case-sensitive; the name used for each package
 is listed above, but the most up-to-date listing can be found in
-`cpp/cmake_modules/ThirdpartyToolchain.cmake <https://github.com/apache/arrow/blob/master/cpp/cmake_modules/ThirdpartyToolchain.cmake>`_.
+`cpp/cmake_modules/ThirdpartyToolchain.cmake <https://github.com/apache/arrow/blob/main/cpp/cmake_modules/ThirdpartyToolchain.cmake>`_.
 
 Bundled Dependency Versions
 ---------------------------
@@ -555,7 +555,7 @@ If you are using CMake, the bundled dependencies will automatically be included
 when linking if you use the ``arrow_static`` CMake target. In other build
 systems, you may need to explicitly link to the dependency bundle. We created
 an `example CMake-based build configuration
-<https://github.com/apache/arrow/tree/master/cpp/examples/minimal_build>`_ to
+<https://github.com/apache/arrow/tree/main/cpp/examples/minimal_build>`_ to
 show you a working example.
 
 On Linux and macOS, if your application does not link to the ``pthread``

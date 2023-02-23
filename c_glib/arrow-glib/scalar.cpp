@@ -340,10 +340,10 @@ garrow_scalar_equal_options(GArrowScalar *scalar,
     if (is_approx) {
       return arrow_scalar->ApproxEquals(*arrow_other_scalar, *arrow_options);
     } else {
-      return arrow_scalar->Equals(arrow_other_scalar, *arrow_options);
+      return arrow_scalar->Equals(*arrow_other_scalar, *arrow_options);
     }
   } else {
-    return arrow_scalar->Equals(arrow_other_scalar);
+    return arrow_scalar->Equals(*arrow_other_scalar);
   }
 }
 

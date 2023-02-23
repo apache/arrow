@@ -86,7 +86,7 @@ struct SourceNode : ExecNode, public TracedNode {
       batch_count_ += num_batches;
     }
     plan_->query_context()->ScheduleTask(
-        [=]() {
+        [this, morsel_length, use_legacy_batching, morsel]() {
           int64_t offset = 0;
           do {
             int64_t batch_size =
@@ -274,6 +274,7 @@ struct TableSourceNode : public SourceNode {
 
     std::shared_ptr<RecordBatch> batch;
     std::vector<ExecBatch> exec_batches;
+    int index = 0;
     while (true) {
       auto batch_res = reader->Next();
       if (batch_res.ok()) {
@@ -283,6 +284,7 @@ struct TableSourceNode : public SourceNode {
         break;
       }
       exec_batches.emplace_back(*batch);
+      exec_batches[exec_batches.size() - 1].index = index++;
     }
     return exec_batches;
   }
@@ -302,9 +304,6 @@ struct SchemaSourceNode : public SourceNode {
     auto& schema = cast_options.schema;
     auto io_executor = cast_options.io_executor;
 
-    if (io_executor == NULLPTR) {
-      io_executor = plan->query_context()->exec_context()->executor();
-    }
     auto it = it_maker();
 
     if (schema == NULLPTR) {

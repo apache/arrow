@@ -60,8 +60,6 @@ struct ARROW_EXPORT Scalar : public std::enable_shared_from_this<Scalar>,
   /// \brief Whether the value is valid (not null) or not
   bool is_valid = false;
 
-  using util::EqualityComparable<Scalar>::operator==;
-  using util::EqualityComparable<Scalar>::Equals;
   bool Equals(const Scalar& other,
               const EqualOptions& options = EqualOptions::Defaults()) const;
 
@@ -558,6 +556,29 @@ struct ARROW_EXPORT DenseUnionScalar : public UnionScalar {
   DenseUnionScalar(ValueType value, int8_t type_code, std::shared_ptr<DataType> type)
       : UnionScalar(std::move(type), type_code, value->is_valid),
         value(std::move(value)) {}
+};
+
+struct ARROW_EXPORT RunEndEncodedScalar : public Scalar {
+  using TypeClass = RunEndEncodedType;
+  using ValueType = std::shared_ptr<Scalar>;
+
+  ValueType value;
+
+  RunEndEncodedScalar(std::shared_ptr<Scalar> value, std::shared_ptr<DataType> type);
+
+  /// \brief Constructs a NULL RunEndEncodedScalar
+  explicit RunEndEncodedScalar(const std::shared_ptr<DataType>& type);
+
+  ~RunEndEncodedScalar() override;
+
+  const std::shared_ptr<DataType>& run_end_type() const {
+    return ree_type().run_end_type();
+  }
+
+  const std::shared_ptr<DataType>& value_type() const { return ree_type().value_type(); }
+
+ private:
+  const TypeClass& ree_type() const { return internal::checked_cast<TypeClass&>(*type); }
 };
 
 /// \brief A Scalar value for DictionaryType

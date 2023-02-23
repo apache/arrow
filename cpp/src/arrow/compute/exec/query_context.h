@@ -19,29 +19,17 @@
 #include <string_view>
 
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/task_util.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/util/async_util.h"
+#include "arrow/util/type_fwd.h"
 
 namespace arrow {
 
 using io::IOContext;
 namespace compute {
-struct ARROW_EXPORT QueryOptions {
-  QueryOptions();
-
-  /// \brief Should the plan use a legacy batching strategy
-  ///
-  /// This is currently in place only to support the Scanner::ToTable
-  /// method.  This method relies on batch indices from the scanner
-  /// remaining consistent.  This is impractical in the ExecPlan which
-  /// might slice batches as needed (e.g. for a join)
-  ///
-  /// However, it still works for simple plans and this is the only way
-  /// we have at the moment for maintaining implicit order.
-  bool use_legacy_batching;
-};
 
 class ARROW_EXPORT QueryContext {
  public:

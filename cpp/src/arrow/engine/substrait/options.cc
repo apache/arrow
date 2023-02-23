@@ -30,29 +30,50 @@
 namespace arrow {
 namespace engine {
 
+namespace {
+
+std::vector<compute::Declaration::Input> MakeDeclarationInputs(
+    const std::vector<DeclarationInfo>& inputs) {
+  std::vector<compute::Declaration::Input> input_decls(inputs.size());
+  for (size_t i = 0; i < inputs.size(); i++) {
+    input_decls[i] = inputs[i].declaration;
+  }
+  return input_decls;
+}
+
+}  // namespace
+
 class BaseExtensionProvider : public ExtensionProvider {
  public:
-  Result<RelationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
+  Result<RelationInfo> MakeRel(const ConversionOptions& conv_opts,
+                               const std::vector<DeclarationInfo>& inputs,
                                const ExtensionDetails& ext_details,
                                const ExtensionSet& ext_set) override {
     auto details = dynamic_cast<const DefaultExtensionDetails&>(ext_details);
-    return MakeRel(inputs, details.rel, ext_set);
+    return MakeRel(conv_opts, inputs, details.rel, ext_set);
   }
 
-  virtual Result<RelationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
+  virtual Result<RelationInfo> MakeRel(const ConversionOptions& conv_opts,
+                                       const std::vector<DeclarationInfo>& inputs,
                                        const google::protobuf::Any& rel,
                                        const ExtensionSet& ext_set) = 0;
 };
 
 class DefaultExtensionProvider : public BaseExtensionProvider {
  public:
-  Result<RelationInfo> MakeRel(const std::vector<DeclarationInfo>& inputs,
+  Result<RelationInfo> MakeRel(const ConversionOptions& conv_opts,
+                               const std::vector<DeclarationInfo>& inputs,
                                const google::protobuf::Any& rel,
                                const ExtensionSet& ext_set) override {
     if (rel.Is<substrait_ext::AsOfJoinRel>()) {
       substrait_ext::AsOfJoinRel as_of_join_rel;
       rel.UnpackTo(&as_of_join_rel);
       return MakeAsOfJoinRel(inputs, as_of_join_rel, ext_set);
+    }
+    if (rel.Is<substrait_ext::NamedTapRel>()) {
+      substrait_ext::NamedTapRel named_tap_rel;
+      rel.UnpackTo(&named_tap_rel);
+      return MakeNamedTapRel(conv_opts, inputs, named_tap_rel, ext_set);
     }
     return Status::NotImplemented("Unrecognized extension in Susbstrait plan: ",
                                   rel.DebugString());
@@ -113,34 +134,96 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     compute::AsofJoinNodeOptions asofjoin_node_opts{std::move(input_keys), tolerance};
 
     // declaration
-    std::vector<compute::Declaration::Input> input_decls(inputs.size());
-    for (size_t i = 0; i < inputs.size(); i++) {
-      input_decls[i] = inputs[i].declaration;
-    }
+    auto input_decls = MakeDeclarationInputs(inputs);
     return RelationInfo{
         {compute::Declaration("asofjoin", input_decls, std::move(asofjoin_node_opts)),
          std::move(schema)},
         std::move(field_output_indices)};
   }
+
+  Result<RelationInfo> MakeNamedTapRel(const ConversionOptions& conv_opts,
+                                       const std::vector<DeclarationInfo>& inputs,
+                                       const substrait_ext::NamedTapRel& named_tap_rel,
+                                       const ExtensionSet& ext_set) {
+    if (inputs.size() != 1) {
+      return Status::Invalid(
+          "substrait_ext::NamedTapRel requires a single input but got: ", inputs.size());
+    }
+
+    auto schema = inputs[0].output_schema;
+    int num_fields = schema->num_fields();
+    if (named_tap_rel.columns_size() != num_fields) {
+      return Status::Invalid("Got ", named_tap_rel.columns_size(),
+                             " NamedTapRel columns but expected ", num_fields);
+    }
+    std::vector<std::string> columns(named_tap_rel.columns().begin(),
+                                     named_tap_rel.columns().end());
+    ARROW_ASSIGN_OR_RAISE(auto renamed_schema, schema->WithNames(columns));
+    auto input_decls = MakeDeclarationInputs(inputs);
+    ARROW_ASSIGN_OR_RAISE(
+        auto decl,
+        conv_opts.named_tap_provider(named_tap_rel.kind(), input_decls,
+                                     named_tap_rel.name(), std::move(renamed_schema)));
+    return RelationInfo{{std::move(decl), std::move(renamed_schema)}, std::nullopt};
+  }
 };
 
 namespace {
 
-std::shared_ptr<ExtensionProvider> g_default_extension_provider =
-    std::make_shared<DefaultExtensionProvider>();
+template <typename T>
+class ConfigurableSingleton {
+ public:
+  explicit ConfigurableSingleton(T new_value) : instance(std::move(new_value)) {}
 
-std::mutex g_default_extension_provider_mutex;
+  T Get() {
+    std::lock_guard lk(mutex);
+    return instance;
+  }
+
+  void Set(T new_value) {
+    std::lock_guard lk(mutex);
+    instance = std::move(new_value);
+  }
+
+ private:
+  T instance;
+  std::mutex mutex;
+};
+
+ConfigurableSingleton<std::shared_ptr<ExtensionProvider>>&
+default_extension_provider_singleton() {
+  static ConfigurableSingleton<std::shared_ptr<ExtensionProvider>> singleton(
+      std::make_shared<DefaultExtensionProvider>());
+  return singleton;
+}
+
+ConfigurableSingleton<NamedTapProvider>& default_named_tap_provider_singleton() {
+  static ConfigurableSingleton<NamedTapProvider> singleton(
+      [](const std::string& tap_kind, std::vector<compute::Declaration::Input> inputs,
+         const std::string& tap_name,
+         std::shared_ptr<Schema> tap_schema) -> Result<compute::Declaration> {
+        return Status::NotImplemented(
+            "Plan contained a NamedTapRel but no provider configured");
+      });
+  return singleton;
+}
 
 }  // namespace
 
 std::shared_ptr<ExtensionProvider> default_extension_provider() {
-  std::unique_lock<std::mutex> lock(g_default_extension_provider_mutex);
-  return g_default_extension_provider;
+  return default_extension_provider_singleton().Get();
 }
 
 void set_default_extension_provider(const std::shared_ptr<ExtensionProvider>& provider) {
-  std::unique_lock<std::mutex> lock(g_default_extension_provider_mutex);
-  g_default_extension_provider = provider;
+  default_extension_provider_singleton().Set(provider);
+}
+
+NamedTapProvider default_named_tap_provider() {
+  return default_named_tap_provider_singleton().Get();
+}
+
+void set_default_named_tap_provider(NamedTapProvider provider) {
+  default_named_tap_provider_singleton().Set(std::move(provider));
 }
 
 }  // namespace engine

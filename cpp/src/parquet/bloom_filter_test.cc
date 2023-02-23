@@ -159,7 +159,7 @@ TEST(FPPTest, TestBloomFilter) {
 
   std::vector<std::string> members;
   BlockSplitBloomFilter bloom_filter;
-  bloom_filter.Init(BlockSplitBloomFilter::OptimalNumOfBits(total_count, fpp));
+  bloom_filter.Init(BlockSplitBloomFilter::OptimalNumOfBytes(total_count, fpp));
 
   // Insert elements into the Bloom filter
   for (int i = 0; i < total_count; i++) {
@@ -249,36 +249,39 @@ TEST(CompatibilityTest, TestBloomFilter) {
 // Also it is used to test whether OptimalNumOfBits returns value between
 // [MINIMUM_BLOOM_FILTER_SIZE, MAXIMUM_BLOOM_FILTER_SIZE].
 TEST(OptimalValueTest, TestBloomFilter) {
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(256, 0.01), UINT32_C(4096));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(512, 0.01), UINT32_C(8192));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(1024, 0.01), UINT32_C(16384));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(2048, 0.01), UINT32_C(32768));
+  auto testOptimalNumEstimation = [](uint32_t ndv, double fpp, uint32_t num_bits) {
+    EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(ndv, fpp), num_bits);
+    EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBytes(ndv, fpp), num_bits / 8);
+  };
 
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(200, 0.01), UINT32_C(2048));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(300, 0.01), UINT32_C(4096));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(700, 0.01), UINT32_C(8192));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(1500, 0.01), UINT32_C(16384));
+  testOptimalNumEstimation(256, 0.01, UINT32_C(4096));
+  testOptimalNumEstimation(512, 0.01, UINT32_C(8192));
+  testOptimalNumEstimation(1024, 0.01, UINT32_C(16384));
+  testOptimalNumEstimation(2048, 0.01, UINT32_C(32768));
 
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(200, 0.025), UINT32_C(2048));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(300, 0.025), UINT32_C(4096));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(700, 0.025), UINT32_C(8192));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(1500, 0.025), UINT32_C(16384));
+  testOptimalNumEstimation(200, 0.01, UINT32_C(2048));
+  testOptimalNumEstimation(300, 0.01, UINT32_C(4096));
+  testOptimalNumEstimation(700, 0.01, UINT32_C(8192));
+  testOptimalNumEstimation(1500, 0.01, UINT32_C(16384));
 
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(200, 0.05), UINT32_C(2048));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(300, 0.05), UINT32_C(4096));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(700, 0.05), UINT32_C(8192));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(1500, 0.05), UINT32_C(16384));
+  testOptimalNumEstimation(200, 0.025, UINT32_C(2048));
+  testOptimalNumEstimation(300, 0.025, UINT32_C(4096));
+  testOptimalNumEstimation(700, 0.025, UINT32_C(8192));
+  testOptimalNumEstimation(1500, 0.025, UINT32_C(16384));
+
+  testOptimalNumEstimation(200, 0.05, UINT32_C(2048));
+  testOptimalNumEstimation(300, 0.05, UINT32_C(4096));
+  testOptimalNumEstimation(700, 0.05, UINT32_C(8192));
+  testOptimalNumEstimation(1500, 0.05, UINT32_C(16384));
 
   // Boundary check
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(4, 0.01), UINT32_C(256));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(4, 0.25), UINT32_C(256));
+  testOptimalNumEstimation(4, 0.01, BlockSplitBloomFilter::kMinimumBloomFilterBytes * 8);
+  testOptimalNumEstimation(4, 0.25, BlockSplitBloomFilter::kMinimumBloomFilterBytes * 8);
 
-  EXPECT_EQ(
-      BlockSplitBloomFilter::OptimalNumOfBits(std::numeric_limits<uint32_t>::max(), 0.01),
-      UINT32_C(1073741824));
-  EXPECT_EQ(
-      BlockSplitBloomFilter::OptimalNumOfBits(std::numeric_limits<uint32_t>::max(), 0.25),
-      UINT32_C(1073741824));
+  testOptimalNumEstimation(std::numeric_limits<uint32_t>::max(), 0.01,
+                           BlockSplitBloomFilter::kMaximumBloomFilterBytes * 8);
+  testOptimalNumEstimation(std::numeric_limits<uint32_t>::max(), 0.25,
+                           BlockSplitBloomFilter::kMaximumBloomFilterBytes * 8);
 }
 
 // The test below is plainly copied from parquet-mr and serves as a basic sanity
