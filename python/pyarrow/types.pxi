@@ -313,6 +313,14 @@ cdef class DictionaryMemo(_Weakrefable):
 cdef class DictionaryType(DataType):
     """
     Concrete class for dictionary data types.
+
+    Examples
+    --------
+    Create an instance of dictionary type:
+
+    >>> import pyarrow as pa
+    >>> pa.dictionary(pa.int64(), pa.utf8())
+    DictionaryType(dictionary<values=string, indices=int64, ordered=0>)
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -327,6 +335,12 @@ cdef class DictionaryType(DataType):
         """
         Whether the dictionary is ordered, i.e. whether the ordering of values
         in the dictionary is important.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.dictionary(pa.int64(), pa.utf8()).ordered
+        False
         """
         return self.dict_type.ordered()
 
@@ -334,6 +348,12 @@ cdef class DictionaryType(DataType):
     def index_type(self):
         """
         The data type of dictionary indices (a signed integer type).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.dictionary(pa.int16(), pa.utf8()).index_type
+        DataType(int16)
         """
         return pyarrow_wrap_data_type(self.dict_type.index_type())
 
@@ -343,6 +363,12 @@ cdef class DictionaryType(DataType):
         The dictionary value type.
 
         The dictionary values are found in an instance of DictionaryArray.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.dictionary(pa.int16(), pa.utf8()).value_type
+        DataType(string)
         """
         return pyarrow_wrap_data_type(self.dict_type.value_type())
 
