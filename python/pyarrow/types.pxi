@@ -398,7 +398,7 @@ cdef class ListType(DataType):
     @property
     def value_field(self):
         """
-        A field of list values.
+        The field for list values.
 
         Examples
         --------
@@ -464,6 +464,16 @@ cdef class LargeListType(DataType):
 cdef class MapType(DataType):
     """
     Concrete class for map data types.
+
+    Examples
+    --------
+    Create an instance of MapType:
+
+    >>> import pyarrow as pa
+    >>> pa.map_(pa.string(), pa.int32())
+    MapType(map<string, int32>)
+    >>> pa.map_(pa.string(), pa.int32(), keys_sorted=True)
+    MapType(map<string, int32, keys_sorted>)
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -477,6 +487,12 @@ cdef class MapType(DataType):
     def key_field(self):
         """
         The field for keys in the map entries.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.map_(pa.string(), pa.int32()).key_field
+        pyarrow.Field<key: string not null>
         """
         return pyarrow_wrap_field(self.map_type.key_field())
 
@@ -484,6 +500,12 @@ cdef class MapType(DataType):
     def key_type(self):
         """
         The data type of keys in the map entries.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.map_(pa.string(), pa.int32()).key_type
+        DataType(string)
         """
         return pyarrow_wrap_data_type(self.map_type.key_type())
 
@@ -491,6 +513,12 @@ cdef class MapType(DataType):
     def item_field(self):
         """
         The field for items in the map entries.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.map_(pa.string(), pa.int32()).item_field
+        pyarrow.Field<value: int32>
         """
         return pyarrow_wrap_field(self.map_type.item_field())
 
@@ -498,6 +526,12 @@ cdef class MapType(DataType):
     def item_type(self):
         """
         The data type of items in the map entries.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.map_(pa.string(), pa.int32()).item_type
+        DataType(int32)
         """
         return pyarrow_wrap_data_type(self.map_type.item_type())
 
