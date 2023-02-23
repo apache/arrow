@@ -1635,7 +1635,7 @@ def test_is_null():
     assert result.equals(expected)
 
     result = arr.is_nan()
-    expected = pa.array([False, False, False, False, True])
+    expected = pa.array([False, False, False, None, True])
     assert result.equals(expected)
 
 
