@@ -424,6 +424,8 @@ TYPED_TEST_SUITE(TestPrimitiveWriter, TestTypes);
 
 using TestValuesWriterInt32Type = TestPrimitiveWriter<Int32Type>;
 using TestValuesWriterInt64Type = TestPrimitiveWriter<Int64Type>;
+using TestByteArrayValuesWriter = TestPrimitiveWriter<ByteArrayType>;
+using TestFixedLengthByteArrayValuesWriter = TestPrimitiveWriter<FLBAType>;
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlain) {
   this->TestRequiredWithEncoding(Encoding::PLAIN);
@@ -451,12 +453,16 @@ TEST_F(TestValuesWriterInt64Type, RequiredDeltaBinaryPacked) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BINARY_PACKED);
 }
 
-/*
-TYPED_TEST(TestPrimitiveWriter, RequiredDeltaLengthByteArray) {
+TEST_F(TestByteArrayValuesWriter, RequiredDeltaLengthByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
-TYPED_TEST(TestPrimitiveWriter, RequiredDeltaByteArray) {
+/*
+TYPED_TEST(TestByteArrayValuesWriter, RequiredDeltaByteArray) {
+  this->TestRequiredWithEncoding(Encoding::DELTA_BYTE_ARRAY);
+}
+
+TEST_F(TestFixedLengthByteArrayValuesWriter, RequiredDeltaByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BYTE_ARRAY);
 }
 */
@@ -729,7 +735,6 @@ TEST_F(TestBooleanValuesWriter, AlternateBooleanValues) {
 
 // PARQUET-979
 // Prevent writing large MIN, MAX stats
-using TestByteArrayValuesWriter = TestPrimitiveWriter<ByteArrayType>;
 TEST_F(TestByteArrayValuesWriter, OmitStats) {
   int min_len = 1024 * 4;
   int max_len = 1024 * 8;
