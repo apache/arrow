@@ -486,11 +486,11 @@ TYPED_TEST(TestLocalFS, NeedsExtendedFileInfo) {
   AssertFileInfo(infos[0], "AB/cd", FileType::File);
   AssertFileInfo(infos[1], "AB/CD", FileType::Directory);
 
-  ASSERT_EQ(infos[0].size(), -1);
-  ASSERT_EQ(infos[1].size(), -1);
+  ASSERT_EQ(infos[0].size(), kNoSize);
+  ASSERT_EQ(infos[1].size(), kNoSize);
 
-  ASSERT_EQ(infos[0].mtime(), -1);
-  ASSERT_EQ(infos[1].mtime(), -1);
+  ASSERT_EQ(infos[0].mtime(), kNoTime);
+  ASSERT_EQ(infos[1].mtime(), kNoTime);
 }
 
 // TODO Should we test backslash paths on Windows?
