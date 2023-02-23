@@ -325,21 +325,26 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       ARROW_ASSIGN_OR_RAISE(auto input,
                             FromProto(cast_exp.input(), ext_set, conversion_options));
 
-      
       ARROW_ASSIGN_OR_RAISE(auto type,
                             FromProto(cast_exp.type(), ext_set, conversion_options));
 
-      if(cast_exp.failure_behavior() == substrait::Expression_Cast_FailureBehavior::Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_THROW_EXCEPTION){
-        return compute::call("cast", {std::move(input)}, compute::CastOptions::Safe(type.first));
-      } else if(cast_exp.failure_behavior() == substrait::Expression_Cast_FailureBehavior::Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL){
-        return Status::NotImplemented("Unsupported cast failure behavior: Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL");
-      // i.e. if unspecified  
+      if (cast_exp.failure_behavior() ==
+          substrait::Expression_Cast_FailureBehavior::
+              Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_THROW_EXCEPTION) {
+        return compute::call("cast", {std::move(input)},
+                             compute::CastOptions::Safe(type.first));
+      } else if (cast_exp.failure_behavior() ==
+                 substrait::Expression_Cast_FailureBehavior::
+                     Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL) {
+        return Status::NotImplemented(
+            "Unsupported cast failure behavior: "
+            "Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL");
+        // i.e. if unspecified
       } else {
         return Status::Invalid(
-            "substrait::Expression::Cast::FailureBehavior unspecified; must be FAILURE_BEHAVIOR_RETURN_NULL or FAILURE_BEHAVIOR_THROW_EXCEPTION"
-        );
+            "substrait::Expression::Cast::FailureBehavior unspecified; must be "
+            "FAILURE_BEHAVIOR_RETURN_NULL or FAILURE_BEHAVIOR_THROW_EXCEPTION");
       }
-      
     }
 
     default:
@@ -1011,7 +1016,6 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
   if (!expr.IsBound()) {
     return Status::Invalid("ToProto requires a bound Expression");
   }
-
 
   auto out = std::make_unique<substrait::Expression>();
   if (auto datum = expr.literal()) {

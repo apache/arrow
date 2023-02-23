@@ -775,11 +775,11 @@ TEST(Substrait, CallExtensionFunction) {
 }
 
 TEST(Substrait, CallCast) {
-
   ExtensionSet ext_set;
   ConversionOptions conversion_options;
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Expression", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Expression", R"({
   "selection": {
       "directReference": {
         "structField": {
@@ -806,22 +806,22 @@ TEST(Substrait, CallCast) {
       }
     }
   }
-})", /*ignore_unknown_fields=*/false))
-  
+})",
+                                                   /*ignore_unknown_fields=*/false))
+
   ASSERT_OK_AND_ASSIGN(auto expr, DeserializeExpression(*buf, ext_set));
 
   ASSERT_TRUE(expr.call());
 
   ASSERT_THAT(expr.call()->arguments[0].call()->function_name, "cast");
-  
 }
 
 TEST(Substrait, CallCastRequiresFailureBehavior) {
-
   ExtensionSet ext_set;
   ConversionOptions conversion_options;
 
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Expression", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Expression", R"({
   "selection": {
       "directReference": {
         "structField": {
@@ -848,10 +848,11 @@ TEST(Substrait, CallCastRequiresFailureBehavior) {
       }
     }
   }
-})", /*ignore_unknown_fields=*/false))
+})",
+                                                   /*ignore_unknown_fields=*/false))
 
-  EXPECT_THAT(DeserializeExpression(*buf, ext_set, conversion_options), Raises(StatusCode::Invalid));
-  
+  EXPECT_THAT(DeserializeExpression(*buf, ext_set, conversion_options),
+              Raises(StatusCode::Invalid));
 }
 
 TEST(Substrait, ReadRel) {
