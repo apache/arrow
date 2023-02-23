@@ -29,7 +29,7 @@ public class CsvWriteSupport {
   private final Random random = new Random();
 
   public CsvWriteSupport(File outputFolder) throws URISyntaxException {
-    uri = new URI("file", outputFolder.getPath() + File.separator + "generated-" + random.nextLong() + ".csv", null);
+    uri = new URI("file", outputFolder.getPath() + "/" + "generated-" + random.nextLong() + ".csv", null);
   }
 
   public static CsvWriteSupport writeTempFile(File outputFolder, String... values)
