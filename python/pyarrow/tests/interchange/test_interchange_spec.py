@@ -50,6 +50,15 @@ def test_dtypes(arr):
     assert df.get_column(0).size() == 3
     assert df.get_column(0).offset == 0
 
+    batch = pa.record_batch([arr], names=["a"])
+    df = batch.__dataframe__()
+
+    null_count = df.get_column(0).null_count
+    assert null_count == arr.null_count
+    assert isinstance(null_count, int)
+    assert df.get_column(0).size() == 3
+    assert df.get_column(0).offset == 0
+
 
 @pytest.mark.parametrize(
     "uint, uint_bw",
@@ -109,6 +118,21 @@ def test_mixed_dtypes(uint, uint_bw, int, int_bw,
     assert df.get_column_by_name("b").dtype[1] == int_bw
     assert df.get_column_by_name("c").dtype[1] == float_bw
 
+    batch = table.to_batches()[0]
+    df = batch.__dataframe__()
+
+    for column, kind in columns.items():
+        col = df.get_column_by_name(column)
+
+        assert col.null_count == 0
+        assert col.size() == 3
+        assert col.offset == 0
+        assert col.dtype[0] == kind
+
+    assert df.get_column_by_name("a").dtype[1] == uint_bw
+    assert df.get_column_by_name("b").dtype[1] == int_bw
+    assert df.get_column_by_name("c").dtype[1] == float_bw
+
 
 def test_na_float():
     table = pa.table({"a": [1.0, None, 2.0]})
@@ -117,10 +141,22 @@ def test_na_float():
     assert col.null_count == 1
     assert isinstance(col.null_count, int)
 
+    batch = table.to_batches()[0]
+    df = batch.__dataframe__()
+    col = df.get_column_by_name("a")
+    assert col.null_count == 1
+    assert isinstance(col.null_count, int)
+
 
 def test_noncategorical():
     table = pa.table({"a": [1, 2, 3]})
     df = table.__dataframe__()
+    col = df.get_column_by_name("a")
+    with pytest.raises(TypeError, match=".*categorical.*"):
+        col.describe_categorical
+
+    batch = table.to_batches()[0]
+    df = batch.__dataframe__()
     col = df.get_column_by_name("a")
     with pytest.raises(TypeError, match=".*categorical.*"):
         col.describe_categorical
@@ -134,6 +170,12 @@ def test_categorical():
     )
 
     col = table.__dataframe__().get_column_by_name("weekday")
+    categorical = col.describe_categorical
+    assert isinstance(categorical["is_ordered"], bool)
+    assert isinstance(categorical["is_dictionary"], bool)
+
+    batch = table.to_batches()[0]
+    col = batch.__dataframe__().get_column_by_name("weekday")
     categorical = col.describe_categorical
     assert isinstance(categorical["is_ordered"], bool)
     assert isinstance(categorical["is_dictionary"], bool)
@@ -154,6 +196,17 @@ def test_dataframe():
         df.select_columns_by_name(("animals",)).column_names()
     )
 
+    batch = table.combine_chunks().to_batches()[0]
+    df = batch.__dataframe__()
+
+    assert df.num_columns() == 2
+    assert df.num_rows() == 6
+    assert df.num_chunks() == 1
+    assert list(df.column_names()) == ['n_legs', 'animals']
+    assert list(df.select_columns((1,)).column_names()) == list(
+        df.select_columns_by_name(("animals",)).column_names()
+    )
+
 
 @pytest.mark.parametrize(["size", "n_chunks"], [(10, 3), (12, 3), (12, 5)])
 def test_df_get_chunks(size, n_chunks):
@@ -163,11 +216,23 @@ def test_df_get_chunks(size, n_chunks):
     assert len(chunks) == n_chunks
     assert sum(chunk.num_rows() for chunk in chunks) == size
 
+    batch = table.to_batches()[0]
+    df = batch.__dataframe__()
+    chunks = list(df.get_chunks(n_chunks))
+    assert len(chunks) == n_chunks
+    assert sum(chunk.num_rows() for chunk in chunks) == size
+
 
 @pytest.mark.parametrize(["size", "n_chunks"], [(10, 3), (12, 3), (12, 5)])
 def test_column_get_chunks(size, n_chunks):
     table = pa.table({"x": list(range(size))})
     df = table.__dataframe__()
+    chunks = list(df.get_column(0).get_chunks(n_chunks))
+    assert len(chunks) == n_chunks
+    assert sum(chunk.size() for chunk in chunks) == size
+
+    batch = table.to_batches()[0]
+    df = batch.__dataframe__()
     chunks = list(df.get_column(0).get_chunks(n_chunks))
     assert len(chunks) == n_chunks
     assert sum(chunk.size() for chunk in chunks) == size
@@ -208,6 +273,16 @@ def test_get_columns(uint, int, float, np_float):
     assert df.get_column(1).dtype[0] == 0  # INT
     assert df.get_column(2).dtype[0] == 2  # FLOAT
 
+    batch = table.combine_chunks().to_batches()[0]
+    df = batch.__dataframe__()
+    for col in df.get_columns():
+        assert col.size() == 5
+        assert col.num_chunks() == 1
+
+    assert df.get_column(0).dtype[0] == 1
+    assert df.get_column(1).dtype[0] == 0
+    assert df.get_column(2).dtype[0] == 2
+
 
 @pytest.mark.parametrize(
     "int", [pa.int8(), pa.int16(), pa.int32(), pa.int64()]
@@ -216,6 +291,34 @@ def test_buffer(int):
     arr = [0, 1, -1]
     table = pa.table({"a": pa.array(arr, type=int)})
     df = table.__dataframe__()
+    col = df.get_column(0)
+    buf = col.get_buffers()
+
+    dataBuf, dataDtype = buf["data"]
+
+    assert dataBuf.bufsize > 0
+    assert dataBuf.ptr != 0
+    device, _ = dataBuf.__dlpack_device__()
+
+    # 0 = DtypeKind.INT
+    # see DtypeKind class in column.py
+    assert dataDtype[0] == 0
+
+    if device == 1:  # CPU-only as we're going to directly read memory here
+        bitwidth = dataDtype[1]
+        ctype = {
+            8: ctypes.c_int8,
+            16: ctypes.c_int16,
+            32: ctypes.c_int32,
+            64: ctypes.c_int64,
+        }[bitwidth]
+
+        for idx, truth in enumerate(arr):
+            val = ctype.from_address(dataBuf.ptr + idx * (bitwidth // 8)).value
+            assert val == truth, f"Buffer at index {idx} mismatch"
+
+    batch = table.to_batches()[0]
+    df = batch.__dataframe__()
     col = df.get_column(0)
     buf = col.get_buffers()
 

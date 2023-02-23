@@ -219,7 +219,7 @@ class _PyArrowDataFrame:
             if isinstance(self._df, pa.Table):
                 batches = self._df.to_batches()
             else:
-                batches = self._df
+                batches = [self._df]
 
         # Create an iterator of RecordBatches
         iterator = [_PyArrowDataFrame(batch,
