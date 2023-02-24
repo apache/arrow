@@ -892,7 +892,7 @@ TEST(Substrait, CallCastNonNullableFails) {
                                                    /*ignore_unknown_fields=*/false))
 
   EXPECT_THAT(DeserializeExpression(*buf, ext_set, conversion_options),
-              Raises(StatusCode::Invalid));
+              Raises(StatusCode::Invalid, HasSubstr("must be of nullable type")));
 }
 
 TEST(Substrait, ReadRel) {
