@@ -2749,7 +2749,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     }
     int64_t current_bytes_offset = current_bits_offset / 8;
     // Check overflow
-    if (ARROW_PREDICT_FALSE(!decoder_->Advance(data_size * 8))) {
+    if (ARROW_PREDICT_FALSE(!decoder_->Advance(static_cast<int64_t>(data_size) * 8))) {
       ParquetException::EofException();
     }
 
