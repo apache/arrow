@@ -633,7 +633,6 @@ TEST(TestArithmeticOps, TestAbsIntFloatDouble) {
   // abs from int32
   EXPECT_EQ(abs_int32(43), 43);
   EXPECT_EQ(abs_int32(-54), 54);
-  EXPECT_EQ(abs_int32(63), 63);
   EXPECT_EQ(abs_int32(INT32_MAX), INT32_MAX);
 
   // abs from int64
