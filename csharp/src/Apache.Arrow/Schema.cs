@@ -69,7 +69,7 @@ namespace Apache.Arrow
 
         public Field GetFieldByIndex(int i) => _fieldsList[i];
 
-        public Field GetFieldByName(string name) => FieldsLookup[name].First();
+        public Field GetFieldByName(string name) => FieldsLookup[name].FirstOrDefault();
 
         public int GetFieldIndex(string name, StringComparer comparer = default)
         {

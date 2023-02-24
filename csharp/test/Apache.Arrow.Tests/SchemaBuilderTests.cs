@@ -167,6 +167,16 @@ namespace Apache.Arrow.Tests
             }
 
             [Fact]
+            public void GetFieldByNameReturnsNullWhenFieldDoesNotExist()
+            {
+                var schema = new Schema.Builder()
+                    .Field(f => f.Name("f0").DataType(Int32Type.Default))
+                    .Build();
+
+                Assert.Null(schema.GetFieldByName("f1"));
+            }
+
+            [Fact]
             public void SquareBracketOperatorWithStringReturnsGetFieldByName()
             {
                 Field f0 = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
