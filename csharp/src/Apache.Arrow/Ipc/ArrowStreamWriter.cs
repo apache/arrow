@@ -522,12 +522,12 @@ namespace Apache.Arrow.Ipc
             long id = DictionaryMemo.GetId(field);
             IArrowArray dictionary = DictionaryMemo.GetDictionary(id);
 
-            var fieldsList = new List<Field> { dictionaryField };
+            var fields = new Field[] { dictionaryField };
 
             var arrays = new List<IArrowArray> { dictionary };
 
             (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
-                PreparingWritingRecordBatch(fieldsList, arrays);
+                PreparingWritingRecordBatch(fields, arrays);
 
             VectorOffset buffersVectorOffset = Builder.EndVector();
 
