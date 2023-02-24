@@ -474,7 +474,7 @@ TYPED_TEST(TestLocalFS, StressGetFileInfoGenerator) {
 
 TYPED_TEST(TestLocalFS, NeedsExtendedFileInfo) {
   ASSERT_OK(this->fs_->CreateDir("AB/CD"));
-  CreateFile(this->fs_.get(), "ab", "data");
+  CreateFile(this->fs_.get(), "AB/ab", "data");
 
   FileSelector selector;
   selector.base_dir = "";
@@ -482,13 +482,11 @@ TYPED_TEST(TestLocalFS, NeedsExtendedFileInfo) {
   std::vector<FileInfo> infos;
 
   ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetFileInfo(selector));
-  ASSERT_EQ(infos.size(), 2);
+  ASSERT_EQ(infos.size(), 1);
 
   for (FileInfo info : infos) {
     if (info.path() == "AB") {
       AssertFileInfo(info, "AB", FileType::Directory);
-    } else if (info.path() == "ab") {
-      AssertFileInfo(info, "ab", FileType::File);
     } else {
       // TODO how would I raise an error in a test?
       ASSERT_TRUE(false);
@@ -507,8 +505,8 @@ TYPED_TEST(TestLocalFS, NeedsExtendedFileInfo) {
       AssertFileInfo(info, "AB", FileType::Directory);
     } else if (info.path() == "AB/CD") {
       AssertFileInfo(info, "AB/CD", FileType::Directory);
-    } else if (info.path() == "ab") {
-      AssertFileInfo(info, "ab", FileType::File);
+    } else if (info.path() == "AB/ab") {
+      AssertFileInfo(info, "AB/ab", FileType::File);
     } else {
       // TODO how would I raise an error in a test?
       ASSERT_TRUE(false);
