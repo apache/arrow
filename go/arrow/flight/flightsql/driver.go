@@ -260,15 +260,8 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 }
 
 func (s *Stmt) setParameters(args []driver.NamedValue) error {
-	if len(args) <= 0 {
-		if s.stmt.paramBinding != nil {
-			// Hack as there is no UnsetParameters() function yet and setting
-			// the parameters to `nil` will panic due to Retain being called.
-			// This is required to make sure we do not reuse a previous argument
-			// list.
-			s.stmt.paramBinding.Release()
-			s.stmt.paramBinding = nil
-		}
+	if len(args) == 0 {
+		s.stmt.SetParameters(nil)
 		return nil
 	}
 

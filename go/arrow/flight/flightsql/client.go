@@ -1114,7 +1114,9 @@ func (p *PreparedStatement) clearParameters() {
 func (p *PreparedStatement) SetParameters(binding arrow.Record) {
 	p.clearParameters()
 	p.paramBinding = binding
-	p.paramBinding.Retain()
+	if p.paramBinding != nil {
+		p.paramBinding.Retain()
+	}
 }
 
 // SetRecordReader takes a RecordReader to send as the parameter bindings when
