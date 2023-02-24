@@ -455,7 +455,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         Encodings used for column (tuple of str).
 
         One of 'PLAIN', 'BIT_PACKED', 'RLE', 'BYTE_STREAM_SPLIT', 'DELTA_BINARY_PACKED',
-        'DELTA_BYTE_ARRAY'.
+        'DELTA_LENGTH_BYTE_ARRAY', 'DELTA_BYTE_ARRAY'.
         """
         return tuple(map(encoding_name_from_enum, self.metadata.encodings()))
 
@@ -1104,6 +1104,7 @@ cdef encoding_enum_from_name(str encoding_name):
         'RLE': ParquetEncoding_RLE,
         'BYTE_STREAM_SPLIT': ParquetEncoding_BYTE_STREAM_SPLIT,
         'DELTA_BINARY_PACKED': ParquetEncoding_DELTA_BINARY_PACKED,
+        'DELTA_LENGTH_BYTE_ARRAY': ParquetEncoding_DELTA_LENGTH_BYTE_ARRAY,
         'DELTA_BYTE_ARRAY': ParquetEncoding_DELTA_BYTE_ARRAY,
         'RLE_DICTIONARY': 'dict',
         'PLAIN_DICTIONARY': 'dict',
