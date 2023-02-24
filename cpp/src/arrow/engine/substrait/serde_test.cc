@@ -816,7 +816,7 @@ TEST(Substrait, Cast) {
   ASSERT_THAT(expr.call()->arguments[0].call()->function_name, "cast");
 }
 
-TEST(Substrait, CallCastRequiresFailureBehavior) {
+TEST(Substrait, CastRequiresFailureBehavior) {
   ExtensionSet ext_set;
   ConversionOptions conversion_options;
 
