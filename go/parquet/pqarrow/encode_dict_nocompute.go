@@ -19,6 +19,8 @@
 package pqarrow
 
 import (
+	"errors"
+
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/parquet/file"
 )
