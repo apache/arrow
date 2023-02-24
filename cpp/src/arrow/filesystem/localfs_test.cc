@@ -473,24 +473,55 @@ TYPED_TEST(TestLocalFS, StressGetFileInfoGenerator) {
 }
 
 TYPED_TEST(TestLocalFS, NeedsExtendedFileInfo) {
-  // Test setting needs_extended_file_info to false
   ASSERT_OK(this->fs_->CreateDir("AB/CD"));
-  CreateFile(this->fs_.get(), "AB/cd", "data");
+  CreateFile(this->fs_.get(), "ab", "data");
 
-  std::vector<FileInfo> infos;
   FileSelector selector;
-  selector.base_dir = "AB";
+  selector.base_dir = "";
   selector.needs_extended_file_info = false;
+  std::vector<FileInfo> infos;
 
   ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetFileInfo(selector));
-  AssertFileInfo(infos[0], "AB/cd", FileType::File);
-  AssertFileInfo(infos[1], "AB/CD", FileType::Directory);
+  ASSERT_EQ(infos.size(), 2);
 
-  ASSERT_EQ(infos[0].size(), kNoSize);
-  ASSERT_EQ(infos[1].size(), kNoSize);
+  for (FileInfo info : infos) {
+    if (info.path() == "AB") {
+      AssertFileInfo(info, "AB", FileType::Directory);
+    } else if (info.path() == "ab") {
+      AssertFileInfo(info, "ab", FileType::File);
+    } else {
+      // TODO how would I raise an error in a test?
+      ASSERT_TRUE(false);
+    }
 
-  ASSERT_EQ(infos[0].mtime(), kNoTime);
-  ASSERT_EQ(infos[1].mtime(), kNoTime);
+    ASSERT_EQ(info.size(), kNoSize);
+    ASSERT_EQ(info.mtime(), kNoTime);
+  }
+
+  selector.recursive = true;
+  ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetFileInfo(selector));
+  ASSERT_EQ(infos.size(), 3);
+
+  for (FileInfo info : infos) {
+    if (info.path() == "AB") {
+      AssertFileInfo(info, "AB", FileType::Directory);
+    } else if (info.path() == "AB/CD") {
+      AssertFileInfo(info, "AB/CD", FileType::Directory);
+    } else if (info.path() == "ab") {
+      AssertFileInfo(info, "ab", FileType::File);
+    } else {
+      // TODO how would I raise an error in a test?
+      ASSERT_TRUE(false);
+    }
+
+    ASSERT_EQ(info.size(), kNoSize);
+    ASSERT_EQ(info.mtime(), kNoTime);
+  }
+
+
+  // Invalid path
+  //selector.base_dir = "//foo//bar//baz//";
+  //ASSERT_RAISES(Invalid, this->fs_->GetFileInfo(selector));
 }
 
 // TODO Should we test backslash paths on Windows?
