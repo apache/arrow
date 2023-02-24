@@ -255,14 +255,12 @@ public class FlightClient implements AutoCloseable {
                                        CallOption... options) {
     Preconditions.checkNotNull(descriptor, "descriptor must not be null");
     Preconditions.checkNotNull(metadataListener, "metadataListener must not be null");
-    FlightServiceStub stub = CallOptions.wrapStub(asyncStub, options);
-    final io.grpc.CallOptions callOptions = stub.getCallOptions();
 
     try {
+      final ClientCall<ArrowMessage, Flight.PutResult> call = asyncStubNewCall(doPutDescriptor, options);
       final SetStreamObserver resultObserver = new SetStreamObserver(allocator, metadataListener);
       ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
-          ClientCalls.asyncBidiStreamingCall(
-              stub.getChannel().newCall(doPutDescriptor, callOptions), resultObserver);
+          ClientCalls.asyncBidiStreamingCall(call, resultObserver);
       return new PutObserver(
           descriptor, observer, metadataListener::isCancelled, metadataListener::getResult);
     } catch (StatusRuntimeException sre) {
@@ -307,9 +305,7 @@ public class FlightClient implements AutoCloseable {
    * @param options RPC-layer hints for this call.
    */
   public FlightStream getStream(Ticket ticket, CallOption... options) {
-    FlightServiceStub stub = CallOptions.wrapStub(asyncStub, options);
-    final io.grpc.CallOptions callOptions = stub.getCallOptions();
-    ClientCall<Flight.Ticket, ArrowMessage> call = stub.getChannel().newCall(doGetDescriptor, callOptions);
+    final ClientCall<Flight.Ticket, ArrowMessage> call = asyncStubNewCall(doGetDescriptor, options);
     FlightStream stream = new FlightStream(
         allocator,
         PENDING_REQUESTS,
@@ -355,11 +351,9 @@ public class FlightClient implements AutoCloseable {
    */
   public ExchangeReaderWriter doExchange(FlightDescriptor descriptor, CallOption... options) {
     Preconditions.checkNotNull(descriptor, "descriptor must not be null");
-    FlightServiceStub stub = CallOptions.wrapStub(asyncStub, options);
-    final io.grpc.CallOptions callOptions = stub.getCallOptions();
 
     try {
-      final ClientCall<ArrowMessage, ArrowMessage> call = stub.getChannel().newCall(doExchangeDescriptor, callOptions);
+      final ClientCall<ArrowMessage, ArrowMessage> call = asyncStubNewCall(doExchangeDescriptor, options);
       final FlightStream stream = new FlightStream(allocator, PENDING_REQUESTS, call::cancel, call::request);
       final ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
               ClientCalls.asyncBidiStreamingCall(call, stream.asObserver());
@@ -725,5 +719,15 @@ public class FlightClient implements AutoCloseable {
           .maxInboundMessageSize(maxInboundMessageSize);
       return new FlightClient(allocator, builder.build(), middleware);
     }
+  }
+
+  /**
+   * Helper method to create a call from the asyncStub, method descriptor, and list of calling options.
+   */
+  private <RequestT, ResponseT> ClientCall<RequestT, ResponseT> asyncStubNewCall(
+          MethodDescriptor<RequestT, ResponseT> descriptor,
+          CallOption... options) {
+    FlightServiceStub wrappedStub = CallOptions.wrapStub(asyncStub, options);
+    return wrappedStub.getChannel().newCall(descriptor, wrappedStub.getCallOptions());
   }
 }
