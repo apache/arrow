@@ -131,18 +131,18 @@ func Example_writer() {
 
 var (
 	fullData = [][]string{
-		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64", "dec128", "dec256"},
-		{"true", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45"},
-		{"false", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0"},
-		{"true", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45"},
-		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
+		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64", "dec128", "dec256", "list(i64)"},
+		{"true", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45", "{1,2,3}"},
+		{"false", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0", "{4,5,6}"},
+		{"true", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45", "{7,8,9}"},
+		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
 	}
 	bananaData = [][]string{
-		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64", "dec128", "dec256"},
-		{"BANANA", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45"},
-		{"MANGO", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0"},
-		{"BANANA", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45"},
-		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
+		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64", "dec128", "dec256", "list(i64)"},
+		{"BANANA", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45", "{1,2,3}"},
+		{"MANGO", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0", "{4,5,6}"},
+		{"BANANA", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45", "{7,8,9}"},
+		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
 	}
 )
 
@@ -173,7 +173,8 @@ func TestCSVWriter(t *testing.T) {
 				return "MANGO"
 			},
 			data: bananaData,
-		}}
+		},
+	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			testCSVWriter(t, test.data, test.header, test.boolFormat)
@@ -217,6 +218,7 @@ func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bo
 			{Name: "d64", Type: arrow.FixedWidthTypes.Date64},
 			{Name: "dec128", Type: &arrow.Decimal128Type{Precision: 5, Scale: 2}},
 			{Name: "dec256", Type: &arrow.Decimal256Type{Precision: 5, Scale: 2}},
+			{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
 		},
 		nil,
 	)
@@ -241,6 +243,14 @@ func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bo
 	b.Field(14).(*array.Date64Builder).AppendValues([]arrow.Date64{1840400000000, 1940400000000, 2040400000000}, nil)
 	b.Field(15).(*array.Decimal128Builder).AppendValues([]decimal128.Num{decimal128.FromI64(-12345), decimal128.FromI64(0), decimal128.FromI64(12345)}, nil)
 	b.Field(16).(*array.Decimal256Builder).AppendValues([]decimal256.Num{decimal256.FromI64(-12345), decimal256.FromI64(0), decimal256.FromI64(12345)}, nil)
+	listBuilder := b.Field(17).(*array.ListBuilder)
+	listBuilderInt64 := listBuilder.ValueBuilder().(*array.Int64Builder)
+	listBuilder.Append(true)
+	listBuilderInt64.AppendValues([]int64{1, 2, 3}, nil)
+	listBuilder.Append(true)
+	listBuilderInt64.AppendValues([]int64{4, 5, 6}, nil)
+	listBuilder.Append(true)
+	listBuilderInt64.AppendValues([]int64{7, 8, 9}, nil)
 
 	for _, field := range b.Fields() {
 		field.AppendNull()

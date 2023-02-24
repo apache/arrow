@@ -1,0 +1,198 @@
+package csv
+
+import (
+	"fmt"
+	"math"
+	"math/big"
+	"strconv"
+	"strings"
+
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+)
+
+func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []string {
+	res := make([]string, col.Len())
+	switch typ.(type) {
+	case *arrow.BooleanType:
+		arr := col.(*array.Boolean)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = w.boolFormatter(arr.Value(i))
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.Int8Type:
+		arr := col.(*array.Int8)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.Int16Type:
+		arr := col.(*array.Int16)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.Int32Type:
+		arr := col.(*array.Int32)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.Int64Type:
+		arr := col.(*array.Int64)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.Uint8Type:
+		arr := col.(*array.Uint8)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = strconv.FormatUint(uint64(arr.Value(i)), 10)
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.Uint16Type:
+		arr := col.(*array.Uint16)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = strconv.FormatUint(uint64(arr.Value(i)), 10)
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.Uint32Type:
+		arr := col.(*array.Uint32)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = strconv.FormatUint(uint64(arr.Value(i)), 10)
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.Uint64Type:
+		arr := col.(*array.Uint64)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = strconv.FormatUint(uint64(arr.Value(i)), 10)
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.Float32Type:
+		arr := col.(*array.Float32)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = strconv.FormatFloat(float64(arr.Value(i)), 'g', -1, 32)
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.Float64Type:
+		arr := col.(*array.Float64)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = strconv.FormatFloat(float64(arr.Value(i)), 'g', -1, 64)
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.StringType:
+		arr := col.(*array.String)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = arr.Value(i)
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.Date32Type:
+		arr := col.(*array.Date32)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = arr.Value(i).FormattedString()
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.Date64Type:
+		arr := col.(*array.Date64)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = arr.Value(i).FormattedString()
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+
+	case *arrow.TimestampType:
+		arr := col.(*array.Timestamp)
+		t := typ.(*arrow.TimestampType)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = arr.Value(i).ToTime(t.Unit).Format("2006-01-02 15:04:05.999999999")
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.Decimal128Type:
+		fieldType := typ.(*arrow.Decimal128Type)
+		scale := fieldType.Scale
+		precision := fieldType.Precision
+		arr := col.(*array.Decimal128)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				f := (&big.Float{}).SetInt(arr.Value(i).BigInt())
+				f.Quo(f, big.NewFloat(math.Pow10(int(scale))))
+				res[i] = f.Text('g', int(precision))
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.Decimal256Type:
+		fieldType := typ.(*arrow.Decimal256Type)
+		scale := fieldType.Scale
+		precision := fieldType.Precision
+		arr := col.(*array.Decimal256)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				f := (&big.Float{}).SetInt(arr.Value(i).BigInt())
+				f.Quo(f, big.NewFloat(math.Pow10(int(scale))))
+				res[i] = f.Text('g', int(precision))
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.ListType:
+		arr := col.(*array.List)
+		listVals, offsets := arr.ListValues(), arr.Offsets()
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				list := array.NewSlice(listVals, int64(offsets[i]), int64(offsets[i+1]))
+				res[i] = "{" + strings.Join(w.transformColToStringArr(list.DataType(), list), ",") + "}"
+				list.Release()
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	default:
+		panic(fmt.Errorf("arrow/csv: field has unsupported data type %s", typ.String()))
+	}
+	return res
+}

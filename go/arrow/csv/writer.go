@@ -19,13 +19,10 @@ package csv
 import (
 	"encoding/csv"
 	"io"
-	"math"
-	"math/big"
 	"strconv"
 	"sync"
 
 	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
 )
 
 // Writer wraps encoding/csv.Writer and writes arrow.Record based on a schema.
@@ -83,172 +80,9 @@ func (w *Writer) Write(record arrow.Record) error {
 	}
 
 	for j, col := range record.Columns() {
-		switch w.schema.Field(j).Type.(type) {
-		case *arrow.BooleanType:
-			arr := col.(*array.Boolean)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = w.boolFormatter(arr.Value(i))
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Int8Type:
-			arr := col.(*array.Int8)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Int16Type:
-			arr := col.(*array.Int16)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Int32Type:
-			arr := col.(*array.Int32)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Int64Type:
-			arr := col.(*array.Int64)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Uint8Type:
-			arr := col.(*array.Uint8)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Uint16Type:
-			arr := col.(*array.Uint16)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Uint32Type:
-			arr := col.(*array.Uint32)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Uint64Type:
-			arr := col.(*array.Uint64)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Float32Type:
-			arr := col.(*array.Float32)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatFloat(float64(arr.Value(i)), 'g', -1, 32)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Float64Type:
-			arr := col.(*array.Float64)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatFloat(float64(arr.Value(i)), 'g', -1, 64)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.StringType:
-			arr := col.(*array.String)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = arr.Value(i)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Date32Type:
-			arr := col.(*array.Date32)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = arr.Value(i).FormattedString()
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Date64Type:
-			arr := col.(*array.Date64)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = arr.Value(i).FormattedString()
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-
-		case *arrow.TimestampType:
-			arr := col.(*array.Timestamp)
-			t := w.schema.Field(j).Type.(*arrow.TimestampType)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = arr.Value(i).ToTime(t.Unit).Format("2006-01-02 15:04:05.999999999")
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Decimal128Type:
-			fieldType := w.schema.Field(j).Type.(*arrow.Decimal128Type)
-			scale := fieldType.Scale
-			precision := fieldType.Precision
-			arr := col.(*array.Decimal128)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					f := (&big.Float{}).SetInt(arr.Value(i).BigInt())
-					f.Quo(f, big.NewFloat(math.Pow10(int(scale))))
-					recs[i][j] = f.Text('g', int(precision))
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Decimal256Type:
-			fieldType := w.schema.Field(j).Type.(*arrow.Decimal256Type)
-			scale := fieldType.Scale
-			precision := fieldType.Precision
-			arr := col.(*array.Decimal256)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					f := (&big.Float{}).SetInt(arr.Value(i).BigInt())
-					f.Quo(f, big.NewFloat(math.Pow10(int(scale))))
-					recs[i][j] = f.Text('g', int(precision))
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
+		rows := w.transformColToStringArr(w.schema.Field(j).Type, col)
+		for i, row := range rows {
+			recs[i][j] = row
 		}
 	}
 
