@@ -148,7 +148,7 @@ std::string WideStringToUTF8Internal(const std::wstring& source) {
 
 }  // namespace
 
-Result<std::wstring> UTF8ToWideString(const std::string_view& source) {
+Result<std::wstring> UTF8ToWideString(std::string_view source) {
   try {
     return UTF8ToWideStringInternal(source);
   } catch (std::exception& e) {
