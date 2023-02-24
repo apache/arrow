@@ -347,6 +347,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecute() {
 	out.MarshalFrom(result)
 	data, _ := proto.Marshal(&out)
 	rsp.On("Recv").Return(&pb.Result{Body: data}, nil)
+	rsp.On("CloseSend").Return(nil)
 
 	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).
 		Return(rsp, nil)
@@ -357,7 +358,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecute() {
 	desc := getDesc(infoCmd)
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
 
-	prepared, err := s.sqlClient.Prepare(context.TODO(), memory.DefaultAllocator, query, s.callOpts...)
+	prepared, err := s.sqlClient.Prepare(context.TODO(), query, s.callOpts...)
 	s.NoError(err)
 	defer prepared.Close(context.TODO(), s.callOpts...)
 
@@ -390,6 +391,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	rsp := &mockDoActionClient{}
 	defer rsp.AssertExpectations(s.T())
 	rsp.On("Recv").Return(&pb.Result{Body: data}, nil)
+	rsp.On("CloseSend").Return(nil)
 
 	// expect two actions: one to create and one to close the prepared statement
 	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).Return(rsp, nil)
@@ -410,7 +412,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	desc := getDesc(infoCmd)
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
 
-	prepared, err := s.sqlClient.Prepare(context.TODO(), memory.DefaultAllocator, query, s.callOpts...)
+	prepared, err := s.sqlClient.Prepare(context.TODO(), query, s.callOpts...)
 	s.NoError(err)
 	defer prepared.Close(context.TODO(), s.callOpts...)
 
@@ -449,6 +451,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 	rsp := &mockDoActionClient{}
 	defer rsp.AssertExpectations(s.T())
 	rsp.On("Recv").Return(&pb.Result{Body: data}, nil)
+	rsp.On("CloseSend").Return(nil)
 
 	// expect two actions: one to create and one to close the prepared statement
 	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).Return(rsp, nil)
@@ -474,7 +477,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 	desc := getDesc(infoCmd)
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
 
-	prepared, err := s.sqlClient.Prepare(context.TODO(), memory.DefaultAllocator, query, s.callOpts...)
+	prepared, err := s.sqlClient.Prepare(context.TODO(), query, s.callOpts...)
 	s.NoError(err)
 	defer prepared.Close(context.TODO(), s.callOpts...)
 

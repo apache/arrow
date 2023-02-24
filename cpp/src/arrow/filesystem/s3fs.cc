@@ -51,6 +51,11 @@
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/core/utils/stream/PreallocatedStreamBuf.h>
 #include <aws/core/utils/xml/XmlSerializer.h>
+#ifdef ARROW_S3_HAS_CRT
+#include <aws/crt/io/Bootstrap.h>
+#include <aws/crt/io/EventLoopGroup.h>
+#include <aws/crt/io/HostResolver.h>
+#endif
 #include <aws/identity-management/auth/STSAssumeRoleCredentialsProvider.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/AbortMultipartUploadRequest.h>
@@ -2590,6 +2595,20 @@ Status DoInitializeS3(const S3GlobalOptions& options) {
   }
 
 #undef LOG_LEVEL_CASE
+
+#ifdef ARROW_S3_HAS_CRT
+  aws_options.ioOptions.clientBootstrap_create_fn =
+      [ev_threads = options.num_event_loop_threads]() {
+        // https://github.com/aws/aws-sdk-cpp/blob/1.11.15/src/aws-cpp-sdk-core/source/Aws.cpp#L65
+        Aws::Crt::Io::EventLoopGroup event_loop_group(ev_threads);
+        Aws::Crt::Io::DefaultHostResolver default_host_resolver(
+            event_loop_group, /*maxHosts=*/8, /*maxTTL=*/30);
+        auto client_bootstrap = Aws::MakeShared<Aws::Crt::Io::ClientBootstrap>(
+            "Aws_Init_Cleanup", event_loop_group, default_host_resolver);
+        client_bootstrap->EnableBlockingShutdown();
+        return client_bootstrap;
+      };
+#endif
 
   aws_options.loggingOptions.logLevel = aws_log_level;
   // By default the AWS SDK logs to files, log to console instead

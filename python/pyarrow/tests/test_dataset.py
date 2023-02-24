@@ -513,32 +513,6 @@ def test_scanner_memory_pool(dataset):
 
 
 @pytest.mark.parquet
-def test_scanner_async_deprecated(dataset):
-    with pytest.warns(FutureWarning):
-        dataset.scanner(use_async=False)
-    with pytest.warns(FutureWarning):
-        dataset.scanner(use_async=True)
-    with pytest.warns(FutureWarning):
-        dataset.to_table(use_async=False)
-    with pytest.warns(FutureWarning):
-        dataset.to_table(use_async=True)
-    with pytest.warns(FutureWarning):
-        dataset.head(1, use_async=False)
-    with pytest.warns(FutureWarning):
-        dataset.head(1, use_async=True)
-    with pytest.warns(FutureWarning):
-        ds.Scanner.from_dataset(dataset, use_async=False)
-    with pytest.warns(FutureWarning):
-        ds.Scanner.from_dataset(dataset, use_async=True)
-    with pytest.warns(FutureWarning):
-        ds.Scanner.from_fragment(
-            next(dataset.get_fragments()), use_async=False)
-    with pytest.warns(FutureWarning):
-        ds.Scanner.from_fragment(
-            next(dataset.get_fragments()), use_async=True)
-
-
-@pytest.mark.parquet
 def test_head(dataset, dataset_reader):
     result = dataset_reader.head(dataset, 0)
     assert result == pa.Table.from_batches([], schema=dataset.schema)
@@ -3906,7 +3880,7 @@ def test_write_dataset_with_scanner(tempdir):
         load_back = ds.dataset(tempdir2, format='ipc', partitioning=["b"])
         load_back_table = load_back.to_table()
         assert dict(load_back_table.to_pydict()
-                    ) == table.drop(["a"]).to_pydict()
+                    ) == table.drop_columns("a").to_pydict()
 
 
 @pytest.mark.parquet

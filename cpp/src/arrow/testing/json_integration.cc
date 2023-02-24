@@ -146,7 +146,7 @@ class IntegrationJsonReader::Impl {
 
     RETURN_NOT_OK(json::ReadSchema(doc_, pool_, &dictionary_memo_, &schema_));
 
-    auto it = doc_.FindMember("batches");
+    auto it = std::as_const(doc_).FindMember("batches");
     RETURN_NOT_ARRAY("batches", it, doc_);
     record_batches_ = &it->value;
 

@@ -196,6 +196,8 @@ int GetNumBuffers(const DataType& type) {
     case Type::STRUCT:
     case Type::FIXED_SIZE_LIST:
       return 1;
+    case Type::RUN_END_ENCODED:
+      return 0;
     case Type::BINARY:
     case Type::LARGE_BINARY:
     case Type::STRING:
@@ -231,10 +233,17 @@ void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
     span->buffers[i] = {};
   }
 
-  // Fill children
-  span->child_data.resize(type->num_fields());
-  for (int i = 0; i < type->num_fields(); ++i) {
-    FillZeroLengthArray(type->field(i)->type().get(), &span->child_data[i]);
+  if (type->id() == Type::DICTIONARY) {
+    span->child_data.resize(1);
+    const std::shared_ptr<DataType>& value_type =
+        checked_cast<const DictionaryType*>(type)->value_type();
+    FillZeroLengthArray(value_type.get(), &span->child_data[0]);
+  } else {
+    // Fill children
+    span->child_data.resize(type->num_fields());
+    for (int i = 0; i < type->num_fields(); ++i) {
+      FillZeroLengthArray(type->field(i)->type().get(), &span->child_data[i]);
+    }
   }
 }
 
@@ -428,7 +437,7 @@ std::shared_ptr<Array> ArraySpan::ToArray() const {
 }
 
 // ----------------------------------------------------------------------
-// Implement ArrayData::View
+// Implement internal::GetArrayView
 
 namespace {
 

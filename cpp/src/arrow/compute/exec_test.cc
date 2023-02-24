@@ -829,6 +829,10 @@ TEST_F(TestExecSpanIterator, ChunkedArrays) {
 
 TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
   auto carr = std::make_shared<ChunkedArray>(ArrayVector{}, int32());
+  auto dict_arr =
+      std::make_shared<ChunkedArray>(ArrayVector{}, dictionary(int32(), utf8()));
+  auto nested_arr = std::make_shared<ChunkedArray>(
+      ArrayVector{}, struct_({field("x", int32()), field("y", int64())}));
 
   auto CheckArgs = [&](const ExecBatch& batch) {
     ExecSpanIterator iterator;
@@ -836,6 +840,19 @@ TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
     ExecSpan iter_span;
     ASSERT_TRUE(iterator.Next(&iter_span));
     ASSERT_EQ(0, iter_span.length);
+    for (int col_idx = 0; col_idx < iter_span.num_values(); col_idx++) {
+      const ExecValue& val = iter_span.values[col_idx];
+      ASSERT_TRUE(val.is_array());
+      const ArraySpan& span = val.array;
+      if (span.type->id() == Type::DICTIONARY) {
+        ASSERT_EQ(1, span.child_data.size());
+        ASSERT_EQ(0, span.dictionary().length);
+      } else {
+        for (const auto& child : span.child_data) {
+          ASSERT_EQ(0, child.length);
+        }
+      }
+    }
     ASSERT_FALSE(iterator.Next(&iter_span));
   };
 
@@ -844,6 +861,14 @@ TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
 
   // Zero-length ChunkedArray with zero chunks
   input.values = {Datum(carr)};
+  CheckArgs(input);
+
+  // Zero-length ChunkedArray with zero chunks, dictionary
+  input.values = {Datum(dict_arr)};
+  CheckArgs(input);
+
+  // Zero-length ChunkedArray with zero chunks, nested
+  input.values = {Datum(nested_arr)};
   CheckArgs(input);
 
   // Zero-length array
@@ -874,7 +899,7 @@ Status ExecCopyArraySpan(KernelContext*, const ExecSpan& batch, ExecResult* out)
   DCHECK_EQ(1, batch.num_values());
   int value_size = batch[0].type()->byte_width();
   const ArraySpan& arg0 = batch[0].array;
-  ArraySpan* out_arr = out->array_span();
+  ArraySpan* out_arr = out->array_span_mutable();
   uint8_t* dst = out_arr->buffers[1].data + out_arr->offset * value_size;
   const uint8_t* src = arg0.buffers[1].data + arg0.offset * value_size;
   std::memcpy(dst, src, batch.length * value_size);
@@ -885,7 +910,7 @@ Status ExecComputedBitmap(KernelContext* ctx, const ExecSpan& batch, ExecResult*
   // Propagate nulls not used. Check that the out bitmap isn't the same already
   // as the input bitmap
   const ArraySpan& arg0 = batch[0].array;
-  ArraySpan* out_arr = out->array_span();
+  ArraySpan* out_arr = out->array_span_mutable();
   if (CountSetBits(arg0.buffers[0].data, arg0.offset, batch.length) > 0) {
     // Check that the bitmap has not been already copied over
     DCHECK(!BitmapEquals(arg0.buffers[0].data, arg0.offset, out_arr->buffers[0].data,
@@ -968,7 +993,7 @@ Status ExecStateful(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   int32_t multiplier = checked_cast<const Int32Scalar&>(*state->value).value;
 
   const ArraySpan& arg0 = batch[0].array;
-  ArraySpan* out_arr = out->array_span();
+  ArraySpan* out_arr = out->array_span_mutable();
   const int32_t* arg0_data = arg0.GetValues<int32_t>(1);
   int32_t* dst = out_arr->GetValues<int32_t>(1);
   for (int64_t i = 0; i < arg0.length; ++i) {
@@ -980,7 +1005,7 @@ Status ExecStateful(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
 Status ExecAddInt32(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const int32_t* left_data = batch[0].array.GetValues<int32_t>(1);
   const int32_t* right_data = batch[1].array.GetValues<int32_t>(1);
-  int32_t* out_data = out->array_span()->GetValues<int32_t>(1);
+  int32_t* out_data = out->array_span_mutable()->GetValues<int32_t>(1);
   for (int64_t i = 0; i < batch.length; ++i) {
     *out_data++ = *left_data++ + *right_data++;
   }

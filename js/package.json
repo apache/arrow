@@ -37,7 +37,7 @@
   "bugs": {
     "url": "https://issues.apache.org/jira/projects/ARROW"
   },
-  "homepage": "https://github.com/apache/arrow/blob/master/js/README.md",
+  "homepage": "https://github.com/apache/arrow/blob/main/js/README.md",
   "files": [
     "bin",
     "src",

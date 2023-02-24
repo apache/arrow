@@ -89,7 +89,7 @@ void BM_CastDispatchBaseline(benchmark::State& state) {
   ExecResult result;
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result_space,
                        MakeArrayOfNull(double_type, 1));
-  result.array_span()->SetMembers(*result_space->data());
+  result.array_span_mutable()->SetMembers(*result_space->data());
   for (auto _ : state) {
     ABORT_NOT_OK(exec(&kernel_context, input, &result));
   }
@@ -163,7 +163,7 @@ void BM_ExecuteScalarKernelOnScalar(benchmark::State& state) {
 
   ExecResult output;
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> output_arr, MakeArrayOfNull(int64(), 1));
-  output.array_span()->SetMembers(*output_arr->data());
+  output.array_span_mutable()->SetMembers(*output_arr->data());
 
   const int64_t N = 10000;
   for (auto _ : state) {

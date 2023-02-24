@@ -36,6 +36,10 @@ namespace Apache.Arrow
 
         private readonly IList<Field> _fields;
 
+        public Field this[int index] => GetFieldByIndex(index);
+
+        public Field this[string name] => GetFieldByName(name);
+
         public Schema(
             IEnumerable<Field> fields,
             IEnumerable<KeyValuePair<string, string>> metadata)
@@ -47,9 +51,7 @@ namespace Apache.Arrow
 
             _fields = fields.ToList();
 
-            _fieldsDictionary = fields.ToDictionary(
-                field => field.Name, field => field,
-                StringComparer.OrdinalIgnoreCase);
+            _fieldsDictionary = fields.ToDictionary(field => field.Name, field => field);
 
             Metadata = metadata?.ToDictionary(kv => kv.Key, kv => kv.Value);
         }
@@ -61,9 +63,7 @@ namespace Apache.Arrow
 
             _fields = fields;
 
-            _fieldsDictionary = fields.ToDictionary(
-                field => field.Name, field => field,
-                StringComparer.OrdinalIgnoreCase);
+            _fieldsDictionary = fields.ToDictionary(field => field.Name, field => field);
 
             Metadata = metadata;
         }

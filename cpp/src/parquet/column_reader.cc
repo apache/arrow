@@ -39,6 +39,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/crc32.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
@@ -211,11 +212,24 @@ EncodedStatistics ExtractStatsFromHeader(const H& header) {
     return page_statistics;
   }
   const format::Statistics& stats = header.statistics;
-  if (stats.__isset.max) {
-    page_statistics.set_max(stats.max);
-  }
-  if (stats.__isset.min) {
-    page_statistics.set_min(stats.min);
+  // Use the new V2 min-max statistics over the former one if it is filled
+  if (stats.__isset.max_value || stats.__isset.min_value) {
+    // TODO: check if the column_order is TYPE_DEFINED_ORDER.
+    if (stats.__isset.max_value) {
+      page_statistics.set_max(stats.max_value);
+    }
+    if (stats.__isset.min_value) {
+      page_statistics.set_min(stats.min_value);
+    }
+  } else if (stats.__isset.max || stats.__isset.min) {
+    // TODO: check created_by to see if it is corrupted for some types.
+    // TODO: check if the sort_order is SIGNED.
+    if (stats.__isset.max) {
+      page_statistics.set_max(stats.max);
+    }
+    if (stats.__isset.min) {
+      page_statistics.set_min(stats.min);
+    }
   }
   if (stats.__isset.null_count) {
     page_statistics.set_null_count(stats.null_count);
@@ -471,6 +485,20 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       ParquetException::EofException(ss.str());
     }
 
+    const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
+
+    // TODO(PARQUET-594) crc checksum for DATA_PAGE_V2 and DICT_PAGE
+    if (properties_.page_checksum_verification() && page_type == PageType::DATA_PAGE &&
+        current_page_header_.__isset.crc) {
+      // verify crc
+      uint32_t checksum =
+          ::arrow::internal::crc32(/* prev */ 0, page_buffer->data(), compressed_len);
+      if (static_cast<int32_t>(checksum) != current_page_header_.crc) {
+        throw ParquetException(
+            "could not verify page integrity, CRC checksum verification failed");
+      }
+    }
+
     // Decrypt it if we need to
     if (crypto_ctx_.data_decryptor != nullptr) {
       PARQUET_THROW_NOT_OK(decryption_buffer_->Resize(
@@ -482,8 +510,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       page_buffer = decryption_buffer_;
     }
 
-    // Uncompress and construct the pages to return.
-    const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
     if (page_type == PageType::DICTIONARY_PAGE) {
       crypto_ctx_.start_decrypt_with_dictionary_page = false;
       const format::DictionaryPageHeader& dict_header =
@@ -1336,6 +1362,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   int64_t ReadRecords(int64_t num_records) override {
+    if (num_records == 0) return 0;
     // Delimit records, then read values at the end
     int64_t records_read = 0;
 
@@ -1597,6 +1624,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   int64_t SkipRecords(int64_t num_records) override {
+    if (num_records == 0) return 0;
+
     // Top level required field. Number of records equals to number of levels,
     // and there is not read-ahead for levels.
     if (this->max_rep_level_ == 0 && this->max_def_level_ == 0) {

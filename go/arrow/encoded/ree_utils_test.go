@@ -60,6 +60,14 @@ func TestFindPhysicalOffset(t *testing.T) {
 	}
 }
 
+func TestFindPhysicalOffsetEmpty(t *testing.T) {
+	child := array.NewData(arrow.PrimitiveTypes.Int32, 0, []*memory.Buffer{nil, nil}, nil, 0, 0)
+	arr := array.NewData(arrow.RunEndEncodedOf(arrow.PrimitiveTypes.Int32, arrow.BinaryTypes.String), -1, nil, []arrow.ArrayData{child}, 0, 0)
+	assert.NotPanics(t, func() {
+		assert.Equal(t, 0, encoded.FindPhysicalOffset(arr))
+	})
+}
+
 func TestMergedRunsIter(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)

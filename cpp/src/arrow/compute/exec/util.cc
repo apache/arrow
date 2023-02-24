@@ -21,6 +21,7 @@
 #include "arrow/table.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/tracing_internal.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
@@ -402,6 +403,44 @@ Status TableSinkNodeConsumer::Consume(ExecBatch batch) {
 Future<> TableSinkNodeConsumer::Finish() {
   ARROW_ASSIGN_OR_RAISE(*out_, Table::FromRecordBatches(schema_, batches_));
   return Status::OK();
+}
+
+[[nodiscard]] ::arrow::internal::tracing::Scope TracedNode::TraceStartProducing(
+    std::string extra_details) const {
+  std::string node_kind(node_->kind_name());
+  util::tracing::Span span;
+  return START_SCOPED_SPAN(
+      span, node_kind + "::StartProducing",
+      {{"node.details", extra_details}, {"node.label", node_->label()}});
+}
+
+void TracedNode::NoteStartProducing(std::string extra_details) const {
+  std::string node_kind(node_->kind_name());
+  EVENT_ON_CURRENT_SPAN(node_kind + "::StartProducing", {{"node.details", extra_details},
+                                                         {"node.label", node_->label()}});
+}
+
+[[nodiscard]] ::arrow::internal::tracing::Scope TracedNode::TraceInputReceived(
+    const ExecBatch& batch) const {
+  std::string node_kind(node_->kind_name());
+  util::tracing::Span span;
+  return START_SCOPED_SPAN(
+      span, node_kind + "::InputReceived",
+      {{"node.label", node_->label()}, {"node.batch_length", batch.length}});
+}
+
+void TracedNode::NoteInputReceived(const ExecBatch& batch) const {
+  std::string node_kind(node_->kind_name());
+  EVENT_ON_CURRENT_SPAN(
+      node_kind + "::InputReceived",
+      {{"node.label", node_->label()}, {"node.batch_length", batch.length}});
+}
+
+[[nodiscard]] ::arrow::internal::tracing::Scope TracedNode::TraceFinish() const {
+  std::string node_kind(node_->kind_name());
+  util::tracing::Span span;
+  return START_SCOPED_SPAN(span, node_kind + "::Finish",
+                           {{"node.label", node_->label()}});
 }
 
 }  // namespace compute

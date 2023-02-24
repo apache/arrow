@@ -111,13 +111,13 @@ def _check_filters(filters, check_null_strings=True):
     return filters
 
 
-_DNF_filter_doc = """Predicates are expressed in disjunctive normal form (DNF),
-    like ``[[('x', '=', 0), ...], ...]``. DNF allows arbitrary boolean logical
-    combinations of single column predicates. The innermost tuples each
-    describe a single column predicate. The list of inner predicates is
-    interpreted as a conjunction (AND), forming a more selective and multiple
-    column predicate. Finally, the most outer list combines these filters as a
-    disjunction (OR).
+_DNF_filter_doc = """Predicates are expressed using an ``Expression`` or using
+    the disjunctive normal form (DNF), like ``[[('x', '=', 0), ...], ...]``.
+    DNF allows arbitrary boolean logical combinations of single column predicates.
+    The innermost tuples each describe a single column predicate. The list of inner
+    predicates is interpreted as a conjunction (AND), forming a more selective and
+    multiple column predicate. Finally, the most outer list combines these filters
+    as a disjunction (OR).
 
     Predicates may also be passed as List[Tuple]. This form is interpreted
     as a single conjunction. To express OR in predicates, one must
@@ -131,6 +131,17 @@ _DNF_filter_doc = """Predicates are expressed in disjunctive normal form (DNF),
     ``tuple``.
 
     Examples:
+
+    Using the ``Expression`` API:
+
+    .. code-block:: python
+
+        import pyarrow.compute as pc
+        pc.field('x') = 0
+        pc.field('y').isin(['a', 'b', 'c'])
+        ~pc.field('y').isin({'a', 'b'})
+
+    Using the DNF format:
 
     .. code-block:: python
 
@@ -1691,7 +1702,7 @@ split_row_groups : bool, default False
     Divide files into pieces for each row group in the file.
 validate_schema : bool, default True
     Check that individual file schemas are all the same / compatible.
-filters : List[Tuple] or List[List[Tuple]] or None (default)
+filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], default None
     Rows which do not match the filter predicate will be removed from scanned
     data. Partition keys embedded in a nested directory structure will be
     exploited to avoid loading files at all if they contain no matching rows.
@@ -2772,7 +2783,7 @@ filesystem : FileSystem, default None
     If nothing passed, will be inferred based on path.
     Path will try to be found in the local on-disk filesystem otherwise
     it will be parsed as an URI to determine the filesystem.
-filters : List[Tuple] or List[List[Tuple]] or None (default)
+filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], default None
     Rows which do not match the filter predicate will be removed from scanned
     data. Partition keys embedded in a nested directory structure will be
     exploited to avoid loading files at all if they contain no matching rows.

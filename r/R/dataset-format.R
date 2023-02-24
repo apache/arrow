@@ -429,7 +429,11 @@ csv_file_format_read_opts <- function(schema = NULL, ...) {
 
   check_ambiguous_options(opt_names, arrow_opts, readr_opts)
 
-  if (!is.null(schema) && is.null(opts[["column_names"]]) && is.null(opts[["col_names"]])) {
+  null_or_true <- function(x) {
+    is.null(x) || isTRUE(x)
+  }
+
+  if (!is.null(schema) && null_or_true(opts[["column_names"]]) && null_or_true(opts[["col_names"]])) {
     if (any(is_readr_opt)) {
       opts[["col_names"]] <- names(schema)
     } else {

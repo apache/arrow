@@ -46,7 +46,7 @@ jobs:
         run: arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
       - name: Install Arrow
         env:
-        {{ macros.github_set_sccache_envvars()|indent(8) }}  
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           cd arrow/r
           R CMD INSTALL .
@@ -73,6 +73,9 @@ jobs:
         config:
         # We use the R version that was released at the time of the arrow release in order
         # to make sure we can download binaries from RSPM.
+        - { old_arrow_version: '10.0.1', r: '4.2' }
+        - { old_arrow_version: '9.0.0', r: '4.2' }
+        - { old_arrow_version: '8.0.0', r: '4.2' }
         - { old_arrow_version: '7.0.0', r: '4.1' }
         - { old_arrow_version: '6.0.1', r: '4.1' }
         - { old_arrow_version: '5.0.0', r: '4.1' }

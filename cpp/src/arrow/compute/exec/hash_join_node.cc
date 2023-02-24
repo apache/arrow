@@ -678,7 +678,7 @@ bool HashJoinSchema::HasLargeBinary() const {
   return false;
 }
 
-class HashJoinNode : public ExecNode, public TracedNode<HashJoinNode> {
+class HashJoinNode : public ExecNode, public TracedNode {
  public:
   HashJoinNode(ExecPlan* plan, NodeVector inputs, const HashJoinNodeOptions& join_options,
                std::shared_ptr<Schema> output_schema,
@@ -686,6 +686,7 @@ class HashJoinNode : public ExecNode, public TracedNode<HashJoinNode> {
                std::unique_ptr<HashJoinImpl> impl)
       : ExecNode(plan, inputs, {"left", "right"},
                  /*output_schema=*/std::move(output_schema)),
+        TracedNode(this),
         join_type_(join_options.join_type),
         key_cmp_(join_options.key_cmp),
         filter_(std::move(filter)),

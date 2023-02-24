@@ -1,0 +1,72 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Swift
+
+on:
+  push:
+    paths:
+      - '.github/workflows/swift.yml'
+      - 'ci/docker/*swift*'
+      - 'ci/scripts/swift_*'
+      - 'swift/**'
+  pull_request:
+    paths:
+      - '.github/workflows/swift.yml'
+      - 'ci/docker/*swift*'
+      - 'ci/scripts/swift_*'
+      - 'swift/**'
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOCKER_VOLUME_PREFIX: ".docker/"
+
+jobs:
+  docker:
+      name: AMD 64 Ubuntu Swift 5.7
+      runs-on: ubuntu-latest
+      if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+      timeout-minutes: 15
+      steps:
+        - name: Checkout Arrow
+          uses: actions/checkout@v3
+          with:
+            fetch-depth: 0
+            submodules: recursive
+        - name: Setup Archery
+          run: pip install -e dev/archery[docker]
+        - name: Execute Docker Build
+          env:
+            ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+            ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          run: |
+            sudo sysctl -w kernel.core_pattern="core.%e.%p"
+            ulimit -c unlimited
+            archery docker run ubuntu-swift
+        - name: Docker Push
+          if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+          env:
+            ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+            ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          continue-on-error: true
+          run: archery docker push ubuntu-swift

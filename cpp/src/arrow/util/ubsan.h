@@ -53,34 +53,33 @@ inline T* MakeNonNull(T* maybe_null = NULLPTR) {
 }
 
 template <typename T>
-inline typename std::enable_if<std::is_trivial<T>::value, T>::type SafeLoadAs(
+inline std::enable_if_t<std::is_trivially_copyable_v<T>, T> SafeLoadAs(
     const uint8_t* unaligned) {
-  typename std::remove_const<T>::type ret;
+  std::remove_const_t<T> ret;
   std::memcpy(&ret, unaligned, sizeof(T));
   return ret;
 }
 
 template <typename T>
-inline typename std::enable_if<std::is_trivial<T>::value, T>::type SafeLoad(
-    const T* unaligned) {
-  typename std::remove_const<T>::type ret;
+inline std::enable_if_t<std::is_trivially_copyable_v<T>, T> SafeLoad(const T* unaligned) {
+  std::remove_const_t<T> ret;
   std::memcpy(&ret, unaligned, sizeof(T));
   return ret;
 }
 
 template <typename U, typename T>
-inline typename std::enable_if<std::is_trivial<T>::value && std::is_trivial<U>::value &&
-                                   sizeof(T) == sizeof(U),
-                               U>::type
+inline std::enable_if_t<std::is_trivially_copyable_v<T> &&
+                            std::is_trivially_copyable_v<U> && sizeof(T) == sizeof(U),
+                        U>
 SafeCopy(T value) {
-  typename std::remove_const<U>::type ret;
+  std::remove_const_t<U> ret;
   std::memcpy(&ret, &value, sizeof(T));
   return ret;
 }
 
 template <typename T>
-inline typename std::enable_if<std::is_trivial<T>::value, void>::type SafeStore(
-    void* unaligned, T value) {
+inline std::enable_if_t<std::is_trivially_copyable_v<T>, void> SafeStore(void* unaligned,
+                                                                         T value) {
   std::memcpy(unaligned, &value, sizeof(T));
 }
 

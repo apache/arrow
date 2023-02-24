@@ -26,7 +26,11 @@ RUN \
   echo 'APT::Install-Recommends "false";' > \
     /etc/apt/apt.conf.d/disable-install-recommends
 
-RUN sed -i'' -e 's/main$/main contrib non-free/g' /etc/apt/sources.list
+RUN \
+  sed \
+    -i'' \
+    -e 's/main$/main contrib non-free/g' \
+    /etc/apt/sources.list.d/debian.sources
 
 ARG DEBUG
 RUN \
@@ -64,6 +68,7 @@ RUN \
     libzstd-dev \
     llvm-dev \
     lsb-release \
+    meson \
     ninja-build \
     nlohmann-json3-dev \
     pkg-config \
@@ -77,6 +82,4 @@ RUN \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
-  pip3 install --upgrade meson && \
-  ln -s /usr/local/bin/meson /usr/bin/ && \
   apt clean
