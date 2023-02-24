@@ -457,3 +457,20 @@ cdef class Declaration(_Weakrefable):
         with nogil:
             c_table = GetResultValue(DeclarationToTable(self.unwrap(), use_threads))
         return pyarrow_wrap_table(c_table)
+
+    def to_reader(self, bint use_threads=True):
+        """Run the declaration and return results as a RecordBatchReader.
+
+        For details about the parameters, see `to_table`.
+
+        Returns
+        -------
+        pyarrow.RecordBatchReader
+        """
+        cdef:
+            RecordBatchReader reader
+        reader = RecordBatchReader.__new__(RecordBatchReader)
+        reader.reader.reset(
+            GetResultValue(DeclarationToReader(self.unwrap(), use_threads)).release()
+        )
+        return reader

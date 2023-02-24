@@ -2675,6 +2675,9 @@ cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nog
         CDeclaration declaration, c_bool use_threads,
         CMemoryPool* memory_pool, CFunctionRegistry* function_registry
     )
+    CResult[unique_ptr[CRecordBatchReader]] DeclarationToReader(
+        CDeclaration declaration, c_bool use_threads
+    )
 
     CResult[c_string] DeclarationToString(const CDeclaration& declaration)
 

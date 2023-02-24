@@ -66,6 +66,14 @@ def test_declaration_repr(table_source):
     assert "TableSourceNode" in repr(table_source)
 
 
+def test_declaration_to_reader(table_source):
+    with table_source.to_reader() as reader:
+        assert reader.schema == pa.schema([("a", pa.int64()), ("b", pa.int64())])
+        result = reader.read_all()
+    expected = pa.table({'a': [1, 2, 3], 'b': [4, 5, 6]})
+    assert result.equals(expected)
+
+
 def test_table_source():
     with pytest.raises(TypeError):
         TableSourceNodeOptions(pa.record_batch([pa.array([1, 2, 3])], ["a"]))
