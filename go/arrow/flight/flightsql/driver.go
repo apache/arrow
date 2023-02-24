@@ -345,6 +345,7 @@ type Driver struct {
 	options []grpc.DialOption
 
 	client *Client
+	txn    *Txn
 }
 
 // Open returns a new connection to the database.
@@ -437,18 +438,23 @@ func (d *Driver) PrepareContext(ctx context.Context, query string) (driver.Stmt,
 		defer cancel()
 	}
 
-	s, err := d.client.Prepare(ctx, query)
+	var err error
+	var stmt *PreparedStatement
+	if d.txn != nil && d.txn.txn.IsValid() {
+		stmt, err = d.txn.Prepare(ctx, query)
+	} else {
+		stmt, err = d.client.Prepare(ctx, query)
+		d.txn = nil
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	stmt := &Stmt{
-		stmt:    s,
+	return &Stmt{
+		stmt:    stmt,
 		client:  d.client,
 		timeout: d.timeout,
-	}
-
-	return stmt, nil
+	}, nil
 }
 
 // Close invalidates and potentially stops any current
@@ -479,6 +485,7 @@ func (d *Driver) BeginTx(ctx context.Context, opts sql.TxOptions) (driver.Tx, er
 	if err != nil {
 		return nil, err
 	}
+	d.txn = tx
 
 	return &Tx{tx: tx, timeout: d.timeout}, nil
 }
