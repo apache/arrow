@@ -343,7 +343,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
                      Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL) {
         return Status::NotImplemented(
             "Unsupported cast failure behavior: "
-            "Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL");
+            "FAILURE_BEHAVIOR_RETURN_NULL");
         // i.e. if unspecified
       } else {
         return Status::Invalid(
