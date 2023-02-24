@@ -531,10 +531,10 @@ static inline int MakePages(const ColumnDescriptor* d, int num_pages, int levels
                             std::vector<typename Type::c_type>& values,
                             std::vector<uint8_t>& buffer,
                             std::vector<std::shared_ptr<Page>>& pages,
-                            Encoding::type encoding = Encoding::PLAIN) {
+                            Encoding::type encoding = Encoding::PLAIN,
+                            uint32_t seed = 0) {
   int num_levels = levels_per_page * num_pages;
   int num_values = 0;
-  uint32_t seed = 0;
   int16_t zero = 0;
   int16_t max_def_level = d->max_definition_level();
   int16_t max_rep_level = d->max_repetition_level();
@@ -556,10 +556,22 @@ static inline int MakePages(const ColumnDescriptor* d, int num_pages, int levels
   } else {
     num_values = num_levels;
   }
-  // Create repetition levels
+  // Create repitition levels
   if (max_rep_level > 0) {
     rep_levels.resize(num_levels);
-    random_numbers(num_levels, seed, zero, max_rep_level, rep_levels.data());
+    // Using a different seed so that def_levels and rep_levels are different.
+    random_numbers(num_levels, seed + 789, zero, max_rep_level, rep_levels.data());
+    // The generated levels are random. Force the very first page to start with a new
+    // record.
+    rep_levels[0] = 0;
+    // For a null value, rep_levels and def_levels are both 0.
+    // If we have a repeated value right after this, it needs to start with
+    // rep_level = 0 to indicate a new record.
+    for (int i = 0; i < num_levels - 1; ++i) {
+      if (rep_levels[i] == 0 && def_levels[i] == 0) {
+        rep_levels[i + 1] = 0;
+      }
+    }
   }
   // Create values
   values.resize(num_values);

@@ -1360,6 +1360,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   int64_t ReadRecords(int64_t num_records) override {
+    if (num_records == 0) return 0;
     // Delimit records, then read values at the end
     int64_t records_read = 0;
 
@@ -1621,6 +1622,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   int64_t SkipRecords(int64_t num_records) override {
+    if (num_records == 0) return 0;
+
     // Top level required field. Number of records equals to number of levels,
     // and there is not read-ahead for levels.
     if (this->max_rep_level_ == 0 && this->max_def_level_ == 0) {

@@ -723,8 +723,12 @@ TEST_F(RecordReaderTest, BasicReadRepeatedField) {
   auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
 
+  // Test reading 0 records.
+  int64_t records_read = record_reader_->ReadRecords(/*num_records=*/0);
+  ASSERT_EQ(records_read, 0);
+
   // Read [10], null
-  int64_t records_read = record_reader_->ReadRecords(/*num_records=*/2);
+  records_read = record_reader_->ReadRecords(/*num_records=*/2);
   ASSERT_EQ(records_read, 2);
   CheckState(/*values_written=*/2, /*null_count=*/1, /*levels_written=*/9,
              /*levels_position=*/2);
@@ -744,6 +748,11 @@ TEST_F(RecordReaderTest, BasicReadRepeatedField) {
   record_reader_->Reset();
   CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
              /*levels_position=*/0);
+
+  // Test reading 0 records.
+  records_read = record_reader_->ReadRecords(/*num_records=*/0);
+  ASSERT_EQ(records_read, 0);
+
   // Read the last null value and read past the end.
   records_read = record_reader_->ReadRecords(/*num_records=*/3);
   ASSERT_EQ(records_read, 1);
@@ -888,6 +897,12 @@ TEST_F(RecordReaderTest, SkipRepeated) {
   record_reader_->SetPageReader(std::move(pager));
 
   {
+    // Skip 0 records.
+    int64_t records_skipped = record_reader_->SkipRecords(/*num_records=*/0);
+    ASSERT_EQ(records_skipped, 0);
+  }
+
+  {
     // This should skip the first null record.
     int64_t records_skipped = record_reader_->SkipRecords(/*num_records=*/1);
     ASSERT_EQ(records_skipped, 1);
@@ -913,6 +928,12 @@ TEST_F(RecordReaderTest, SkipRepeated) {
     CheckReadValues(/*expected_values=*/{20, 20, 20},
                     /*expected_defs=*/{1, 1, 1},
                     /*expected_reps=*/{0, 1, 1});
+  }
+
+  {
+    // Skip 0 records.
+    int64_t records_skipped = record_reader_->SkipRecords(/*num_records=*/0);
+    ASSERT_EQ(records_skipped, 0);
   }
 
   {
@@ -1210,6 +1231,183 @@ TEST(RecordReaderByteArrayTest, SkipByteArray) {
     ASSERT_EQ(def_levels[i] == 0, binary_array->IsNull(i - 30));
   }
 }
+
+// Test random combination of ReadRecords and SkipRecords.
+class RecordReaderStressTest : public ::testing::TestWithParam<Repetition::type> {};
+
+TEST_P(RecordReaderStressTest, StressTest) {
+  internal::LevelInfo level_info;
+  // Define these boolean variables for improving readability below.
+  bool repeated = false, required = false;
+  if (GetParam() == Repetition::REQUIRED) {
+    level_info.def_level = 0;
+    level_info.rep_level = 0;
+    required = true;
+  } else if (GetParam() == Repetition::OPTIONAL) {
+    level_info.def_level = 1;
+    level_info.rep_level = 0;
+  } else {
+    level_info.def_level = 1;
+    level_info.rep_level = 1;
+    repeated = true;
+  }
+
+  NodePtr type = schema::Int32("b", GetParam());
+  const ColumnDescriptor descr(type, level_info.def_level, level_info.rep_level);
+
+  auto seed1 = static_cast<uint32_t>(time(0));
+  std::default_random_engine gen(seed1);
+  // Generate random number of pages with random number of values per page.
+  std::uniform_int_distribution<int> d(0, 2000);
+  const int num_pages = d(gen);
+  const int levels_per_page = d(gen);
+  std::vector<int32_t> values;
+  std::vector<int16_t> def_levels;
+  std::vector<int16_t> rep_levels;
+  std::vector<uint8_t> data_buffer;
+  std::vector<std::shared_ptr<Page>> pages;
+  auto seed2 = static_cast<uint32_t>(time(0));
+  // Uses time(0) as seed so it would run a different test every time it is
+  // run.
+  MakePages<Int32Type>(&descr, num_pages, levels_per_page, def_levels, rep_levels, values,
+                       data_buffer, pages, Encoding::PLAIN, seed2);
+  std::unique_ptr<PageReader> pager;
+  pager.reset(new test::MockPageReader(pages));
+
+  // Set up the RecordReader.
+  std::shared_ptr<internal::RecordReader> record_reader =
+      internal::RecordReader::Make(&descr, level_info);
+  record_reader->SetPageReader(std::move(pager));
+
+  // Figure out how many total records.
+  int total_records = 0;
+  if (repeated) {
+    for (int16_t rep : rep_levels) {
+      if (rep == 0) {
+        ++total_records;
+      }
+    }
+  } else {
+    total_records = static_cast<int>(def_levels.size());
+  }
+
+  // Generate a sequence of reads and skips.
+  int records_left = total_records;
+  // The first element of the pair is 1 if SkipRecords and 0 if ReadRecords.
+  // The second element indicates the number of records for reading or
+  // skipping.
+  std::vector<std::pair<bool, int>> sequence;
+  while (records_left > 0) {
+    std::uniform_int_distribution<int> d(0, records_left);
+    // Generate a number to decide if this is a skip or read.
+    bool is_skip = d(gen) < records_left / 2;
+    int num_records = d(gen);
+
+    sequence.emplace_back(is_skip, num_records);
+    records_left -= num_records;
+  }
+
+  // The levels_index and values_index are over the original vectors that have
+  // all the rep/def values for all the records. In the following loop, we will
+  // read/skip a numebr of records and Reset the reader after each iteration.
+  // This is on-par with how the record reader is used.
+  size_t levels_index = 0;
+  size_t values_index = 0;
+  for (const auto& [is_skip, num_records] : sequence) {
+    // Reset the reader before the next round of read/skip.
+    record_reader->Reset();
+
+    // Prepare the expected result and do the SkipRecords and ReadRecords.
+    std::vector<int32_t> expected_values;
+    std::vector<int16_t> expected_def_levels;
+    std::vector<int16_t> expected_rep_levels;
+    bool inside_repeated_field = false;
+
+    int read_records = 0;
+    while (read_records < num_records || inside_repeated_field) {
+      if (!repeated || (repeated && rep_levels[levels_index] == 0)) {
+        ++read_records;
+      }
+
+      bool has_value =
+          required || (!required && def_levels[levels_index] == level_info.def_level);
+
+      // If we are not skipping, we need to update the expected values and
+      // rep/defs. If we are skipping, we just keep going.
+      if (!is_skip) {
+        if (!required) {
+          expected_def_levels.push_back(def_levels[levels_index]);
+          if (!has_value) {
+            expected_values.push_back(-1);
+          }
+        }
+        if (repeated) {
+          expected_rep_levels.push_back(rep_levels[levels_index]);
+        }
+        if (has_value) {
+          expected_values.push_back(values[values_index]);
+        }
+      }
+
+      if (has_value) {
+        ++values_index;
+      }
+
+      // If we are in the middle of a repeated field, we should keep going
+      // until we consume it all.
+      if (repeated && levels_index + 1 < rep_levels.size() &&
+          rep_levels[levels_index + 1] == 1) {
+        inside_repeated_field = true;
+      } else {
+        inside_repeated_field = false;
+      }
+
+      ++levels_index;
+    }
+
+    // Print out the seeds with each failing ASSERT to easily reproduce the bug.
+    std::string seeds = "seeds: " + std::to_string(seed1) + " " + std::to_string(seed2);
+
+    // Perform the actual read/skip.
+    if (is_skip) {
+      int64_t skipped_records = record_reader->SkipRecords(num_records);
+      ASSERT_EQ(skipped_records, num_records) << seeds;
+    } else {
+      int64_t read_records = record_reader->ReadRecords(num_records);
+      ASSERT_EQ(read_records, num_records) << seeds;
+    }
+
+    const auto read_values = reinterpret_cast<const int32_t*>(record_reader->values());
+    if (required) {
+      ASSERT_EQ(record_reader->null_count(), 0) << seeds;
+    }
+    std::vector<int32_t> read_vals(read_values,
+                                   read_values + record_reader->values_written());
+    for (size_t i = 0; i < expected_values.size(); ++i) {
+      if (expected_values[i] != -1) {
+        ASSERT_EQ(read_vals[i], expected_values[i]) << seeds;
+      }
+    }
+
+    if (!required) {
+      std::vector<int16_t> read_def_levels(
+          record_reader->def_levels(),
+          record_reader->def_levels() + record_reader->levels_position());
+      ASSERT_TRUE(vector_equal(read_def_levels, expected_def_levels)) << seeds;
+    }
+
+    if (repeated) {
+      std::vector<int16_t> read_rep_levels(
+          record_reader->rep_levels(),
+          record_reader->rep_levels() + record_reader->levels_position());
+      ASSERT_TRUE(vector_equal(read_rep_levels, expected_rep_levels)) << seeds;
+    }
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(Repetition_type, RecordReaderStressTest,
+                         ::testing::Values(Repetition::REQUIRED, Repetition::OPTIONAL,
+                                           Repetition::REPEATED));
 
 }  // namespace test
 }  // namespace parquet
