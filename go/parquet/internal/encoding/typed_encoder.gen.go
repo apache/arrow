@@ -202,8 +202,7 @@ func (d *DictInt32Decoder) Decode(out []int32) (int, error) {
 	}
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict eof exception")
-	}
-	d.nvals -= vals
+	}	
 	return vals, nil
 }
 
