@@ -35,9 +35,9 @@ import (
 )
 
 var (
-	ErrNotImplemented = errors.New("not implemented")
-	ErrNotSupported   = errors.New("not supported")
-	ErrOutOfRange     = errors.New("index out of range")
+	ErrNotSupported          = errors.New("not supported")
+	ErrOutOfRange            = errors.New("index out of range")
+	ErrTransactionInProgress = errors.New("transaction still in progress")
 )
 
 type Rows struct {
@@ -458,6 +458,10 @@ func (d *Driver) Close() error {
 	d.options = nil
 	if d.client == nil {
 		return nil
+	}
+
+	if d.txn != nil && d.txn.txn.IsValid() {
+		return ErrTransactionInProgress
 	}
 
 	// Drivers must ensure all network calls made by Close
