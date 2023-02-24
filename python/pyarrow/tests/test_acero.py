@@ -117,6 +117,14 @@ def test_project(table_source):
     with pytest.raises(ValueError):
         ProjectNodeOptions([pc.multiply(field("a"), 2)], ["a2", "b2"])
 
+    # no scalar expression
+    decl = Declaration.from_sequence([
+        table_source,
+        Declaration("project", ProjectNodeOptions([pc.sum(field("a"))]))
+    ])
+    with pytest.raises(ValueError, match="cannot Execute non-scalar expression"):
+        _ = decl.to_table()
+
 
 def test_aggregate_scalar(table_source):
     decl = Declaration.from_sequence([
@@ -126,6 +134,47 @@ def test_aggregate_scalar(table_source):
     result = decl.to_table()
     assert result.schema.names == ["a_sum"]
     assert result["a_sum"].to_pylist() == [6]
+
+    # with options class
+    table = pa.table({'a': [1, 2, None]})
+    aggr_opts = AggregateNodeOptions(
+        [("a", "sum", pc.ScalarAggregateOptions(skip_nulls=False), "a_sum")]
+    )
+    decl = Declaration.from_sequence([
+        Declaration("table_source", TableSourceNodeOptions(table)),
+        Declaration("aggregate", aggr_opts),
+    ])
+    result = decl.to_table()
+    assert result.schema.names == ["a_sum"]
+    assert result["a_sum"].to_pylist() == [None]
+
+    # test various ways of specifying the target column
+    for target in ["a", field("a"), 0, field(0), ["a"], [field("a")], [0]]:
+        aggr_opts = AggregateNodeOptions([(target, "sum", None, "a_sum")])
+        decl = Declaration.from_sequence(
+            [table_source, Declaration("aggregate", aggr_opts)]
+        )
+        result = decl.to_table()
+        assert result.schema.names == ["a_sum"]
+        assert result["a_sum"].to_pylist() == [6]
+
+    # proper error when specifying the wrong number of target columns
+    aggr_opts = AggregateNodeOptions([(["a", "b"], "sum", None, "a_sum")])
+    decl = Declaration.from_sequence(
+        [table_source, Declaration("aggregate", aggr_opts)]
+    )
+    with pytest.raises(
+        ValueError, match="Function 'sum' accepts 1 arguments but 2 passed"
+    ):
+        _ = decl.to_table()
+
+    # proper error when using hash aggregation without keys
+    aggr_opts = AggregateNodeOptions([("a", "hash_sum", None, "a_sum")])
+    decl = Declaration.from_sequence(
+        [table_source, Declaration("aggregate", aggr_opts)]
+    )
+    with pytest.raises(ValueError, match="is a hash aggregate function"):
+        _ = decl.to_table()
 
 
 def test_aggregate_hash():
@@ -151,7 +200,17 @@ def test_aggregate_hash():
         table_source, Declaration("aggregate", aggr_opts)
     ])
     result = decl.to_table()
-    expected = pa.table({"count(a)": [2, 1], "b": ["foo", "bar"]})
+    expected_all = pa.table({"count(a)": [2, 1], "b": ["foo", "bar"]})
+    assert result.equals(expected_all)
+
+    # specify keys as field references
+    aggr_opts = AggregateNodeOptions(
+        [("a", "hash_count", None, "count(a)")], keys=[field("b")]
+    )
+    decl = Declaration.from_sequence([
+        table_source, Declaration("aggregate", aggr_opts)
+    ])
+    result = decl.to_table()
     assert result.equals(expected)
 
     # wrong type of (aggregation) function
@@ -179,6 +238,13 @@ def test_hash_join():
         [[2, 3], [5, 6], [2, 3], [4, 5]],
         names=["key", "a", "key", "b"])
     assert result.equals(expected)
+
+    for keys in [field("key"), ["key"], [field("key")]]:
+        join_opts = HashJoinNodeOptions("inner", left_keys=keys, right_keys=keys)
+        joined = Declaration(
+            "hashjoin", options=join_opts, inputs=[left_source, right_source])
+        result = joined.to_table()
+        assert result.equals(expected)
 
     # left join
     join_opts = HashJoinNodeOptions(
@@ -208,7 +274,7 @@ def test_hash_join():
     # manually specifying output columns
     join_opts = HashJoinNodeOptions(
         "left outer", left_keys="key", right_keys="key",
-        left_output=["key", "a"], right_output=["b"])
+        left_output=["key", "a"], right_output=[field("b")])
     joined = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source])
     result = joined.to_table()

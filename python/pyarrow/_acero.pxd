@@ -26,9 +26,8 @@ cdef class ExecNodeOptions(_Weakrefable):
     cdef:
         shared_ptr[CExecNodeOptions] wrapped
 
-    cdef const CExecNodeOptions* get_options(self) except NULL
     cdef void init(self, const shared_ptr[CExecNodeOptions]& sp)
-    cdef inline shared_ptr[CExecNodeOptions] unwrap(self)
+    cdef inline shared_ptr[CExecNodeOptions] unwrap(self) nogil
 
 
 cdef class Declaration(_Weakrefable):

@@ -37,23 +37,11 @@ from pyarrow.compute import field
 cdef class ExecNodeOptions(_Weakrefable):
     __slots__ = ()  # avoid mistakingly creating attributes
 
-    cdef const CExecNodeOptions* get_options(self) except NULL:
-        return self.wrapped.get()
-
     cdef void init(self, const shared_ptr[CExecNodeOptions]& sp):
         self.wrapped = sp
 
-    cdef inline shared_ptr[CExecNodeOptions] unwrap(self):
+    cdef inline shared_ptr[CExecNodeOptions] unwrap(self) nogil:
         return self.wrapped
-
-    # def __repr__(self):
-    #     type_name = self.__class__.__name__
-    #     # Remove {} so we can use our own braces
-    #     string_repr = frombytes(self.get_options().ToString())[1:-1]
-    #     return f"{type_name}({string_repr})"
-
-    # def __eq__(self, FunctionOptions other):
-    #     return self.get_options().Equals(deref(other.get_options()))
 
 
 cdef class _TableSourceNodeOptions(ExecNodeOptions):
@@ -95,13 +83,13 @@ class FilterNodeOptions(_FilterNodeOptions):
     Make a node which excludes some rows from batches passed through it.
 
     The "filter" operation provides an option to define data filtering
-    criteria. It selects rows matching a given expression. Filters can
-    be written using pyarrow.compute.Expression.
+    criteria. It selects rows where the given expression evaluates to true.
+    Filters can be written using pyarrow.compute.Expression, and the
+    expression must have a return type of boolean.
 
     Parameters
     ----------
     filter_expression : pyarrow.compute.Expression
-
     """
 
     def __init__(self, Expression filter_expression):
@@ -121,7 +109,9 @@ cdef class _ProjectNodeOptions(ExecNodeOptions):
 
         if names is not None:
             if len(names) != len(expressions):
-                raise ValueError("dd")
+                raise ValueError(
+                    "The number of names should be equal to the number of expressions"
+                )
 
             for name in names:
                 c_names.push_back(<c_string>tobytes(name))
@@ -138,17 +128,22 @@ cdef class _ProjectNodeOptions(ExecNodeOptions):
 class ProjectNodeOptions(_ProjectNodeOptions):
     """
     Make a node which executes expressions on input batches,
-    producing new batches.
+    producing batches of the same length with new columns.
 
     The "project" operation rearranges, deletes, transforms, and
     creates columns. Each output column is computed by evaluating
-    an expression against the source record batch.
+    an expression against the source record batch. These must be
+    scalar expressions (expressions consisting of scalar literals,
+    field references and scalar functions, i.e. elementwise functions
+    that return one value for each input row independent of the value
+    of all other rows).
 
     Parameters
     ----------
     expressions : list of pyarrow.compute.Expression
-        List of expressions to evaluate against the source batch.
-    names : list of str
+        List of expressions to evaluate against the source batch. This must
+        be scalar expressions.
+    names : list of str, optional
         List of names for each of the ouptut columns (same length as
         `expressions`). If `names` is not provided, the string
         representations of exprs will be used.
@@ -172,6 +167,8 @@ cdef class _AggregateNodeOptions(ExecNodeOptions):
                 c_aggr.options = (<FunctionOptions?>opts).wrapped
             else:
                 c_aggr.options = <shared_ptr[CFunctionOptions]>nullptr
+            if not isinstance(arg_names, (list, tuple)):
+                arg_names = [arg_names]
             for arg in arg_names:
                 c_aggr.target.push_back(_ensure_field_ref(arg))
             c_aggr.name = tobytes(name)
@@ -205,15 +202,16 @@ class AggregateNodeOptions(_AggregateNodeOptions):
     aggregates : list of tuples
         Aggregations which will be applied to the targetted fields.
         Specified as a list of tuples, where each tuple is one aggregation
-        specification and consists of: aggregation column name followed
+        specification and consists of: aggregation target column(s) followed
         by function name, aggregation function options object and the
         output field name.
-        The column name can be a string, an empty list or a list of
-        column names, for unary, nullary and n-ary aggregation functions
-        respectively.
-    keys : list, optional
-        Keys by which aggregations will be grouped.
-
+        The target column(s) specification can be a single field reference,
+        an empty list or a list of fields unary, nullary and n-ary aggregation
+        functions respectively. Each field reference can be a string
+        column name or expression.
+    keys : list of field references, optional
+        Keys by which aggregations will be grouped. Each key can reference
+        a field using a string name or expression.
     """
 
     def __init__(self, aggregates, keys=None):
@@ -268,11 +266,11 @@ cdef class _HashJoinNodeOptions(ExecNodeOptions):
             raise ValueError("Unsupported join type")
 
         # left/right keys
-        if isinstance(left_keys, str):
+        if not isinstance(left_keys, (list, tuple)):
             left_keys = [left_keys]
         for key in left_keys:
             c_left_keys.push_back(_ensure_field_ref(key))
-        if isinstance(right_keys, str):
+        if not isinstance(right_keys, (list, tuple)):
             right_keys = [right_keys]
         for key in right_keys:
             c_right_keys.push_back(_ensure_field_ref(key))
@@ -313,15 +311,16 @@ class HashJoinNodeOptions(_HashJoinNodeOptions):
     join_type : str
         Type of join. One of "left semi", "right semi", "left anti",
         "right anti", "inner", "left outer", "right outer", "full outer".
-    left_keys
-        Key fields from left input.
-    right_keys
-        key fields from right input.
-    left_output
+    left_keys : str, Expression or list
+        Key fields from left input. Each key can be a string column name
+        or a field expression, or a list of such field references.
+    right_keys : str, Expression or list
+        Key fields from right input. See `left_keys` for details.
+    left_output : list, optional
         Output fields passed from left input. If left and right output
         fields are not specified, all valid fields from both left and
         right input will be output
-    right_output
+    right_output : list, optional
         Output fields passed from right input. If left and right output
         fields are not specified, all valid fields from both left and
         right input will be output
@@ -332,7 +331,7 @@ class HashJoinNodeOptions(_HashJoinNodeOptions):
         no name collisions).
     output_suffix_for_right : str
         Suffix added to names of output fields coming from right input,
-        see `output_suffix_for_left`.
+        see `output_suffix_for_left` for details.
     """
 
     def __init__(
@@ -431,7 +430,7 @@ cdef class Declaration(_Weakrefable):
     def __repr__(self):
         return "<pyarrow.acero.Declaration>\n{0}".format(str(self))
 
-    def to_table(self, use_threads=True):
+    def to_table(self, bint use_threads=True):
         """
         Run the declaration and collect the results into a table.
 
@@ -455,5 +454,6 @@ cdef class Declaration(_Weakrefable):
         cdef:
             shared_ptr[CTable] c_table
 
-        c_table = GetResultValue(DeclarationToTable(self.decl, use_threads))
+        with nogil:
+            c_table = GetResultValue(DeclarationToTable(self.unwrap(), use_threads))
         return pyarrow_wrap_table(c_table)
