@@ -123,7 +123,8 @@ static void BM_PlainEncodingDouble(benchmark::State& state) {
   auto encoder = MakeTypedEncoder<DoubleType>(Encoding::PLAIN);
   for (auto _ : state) {
     encoder->Put(values.data(), static_cast<int>(values.size()));
-    encoder->FlushValues();
+    std::shared_ptr<Buffer> buf = encoder->FlushValues();
+    ::benchmark::DoNotOptimize(buf);
   }
   state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(double));
 }
@@ -483,7 +484,8 @@ static void BM_DeltaBitPackingEncode(benchmark::State& state, NumberGenerator ge
   auto encoder = MakeTypedEncoder<DType>(Encoding::DELTA_BINARY_PACKED);
   for (auto _ : state) {
     encoder->Put(values.data(), static_cast<int>(values.size()));
-    encoder->FlushValues();
+    auto buf = encoder->FlushValues();
+    ::benchmark::DoNotOptimize(buf);
   }
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(T));
   state.SetItemsProcessed(state.iterations() * values.size());
@@ -571,19 +573,19 @@ BENCHMARK(BM_DeltaBitPackingDecode_Int64_Wide)->Range(MIN_RANGE, MAX_RANGE);
 
 void EncodingByteArrayBenchmark(benchmark::State& state, Encoding::type encoding) {
   ::arrow::random::RandomArrayGenerator rag(0);
-  MemoryPool* allocator = default_memory_pool();
   // Using arrow to write, because we just benchmark decoding here.
-  auto array = rag.String(1024, 0, 1024, /* null_probability */ 0, 64, allocator);
-  auto stringArray = dynamic_cast<::arrow::StringArray*>(array.get());
+  auto array = rag.String(1024, 0, 1024, /* null_probability */ 0);
+  auto string_array = ::arrow::internal::checked_cast<::arrow::StringArray*>(array.get());
   auto encoder = MakeTypedEncoder<ByteArrayType>(encoding);
   std::vector<ByteArray> values;
-  for (int i = 0; i < stringArray->length(); ++i) {
-    values.emplace_back(stringArray->GetView(i));
+  for (int i = 0; i < string_array->length(); ++i) {
+    values.emplace_back(string_array->GetView(i));
   }
 
   for (auto _ : state) {
     encoder->Put(values.data(), static_cast<int>(values.size()));
-    encoder->FlushValues();
+    auto buf = encoder->FlushValues();
+    ::benchmark::DoNotOptimize(buf);
   }
 }
 
@@ -597,9 +599,8 @@ static void BM_PlainEncodingByteArray(benchmark::State& state) {
 
 void DecodingByteArrayBenchmark(benchmark::State& state, Encoding::type encoding) {
   ::arrow::random::RandomArrayGenerator rag(0);
-  MemoryPool* allocator = default_memory_pool();
   // Using arrow to write, because we just benchmark decoding here.
-  auto array = rag.String(1024, 0, 1024, /* null_probability */ 0, 64, allocator);
+  auto array = rag.String(1024, 0, 1024, /* null_probability */ 0);
   auto encoder = MakeTypedEncoder<ByteArrayType>(encoding);
   encoder->Put(*array);
   std::shared_ptr<Buffer> buf = encoder->FlushValues();
@@ -611,11 +612,12 @@ void DecodingByteArrayBenchmark(benchmark::State& state, Encoding::type encoding
     decoder->SetData(static_cast<int>(array->length()), buf->data(),
                      static_cast<int>(buf->size()));
     decoder->Decode(values.data(), static_cast<int>(values.size()));
+    ::benchmark::DoNotOptimize(values);
   }
 }
 
 static void BM_PlainDecodingByteArray(benchmark::State& state) {
-  DecodingByteArrayBenchmark(state, Encoding::DELTA_LENGTH_BYTE_ARRAY);
+  DecodingByteArrayBenchmark(state, Encoding::PLAIN);
 }
 
 static void BM_DeltaBitLengthDecodingByteArray(benchmark::State& state) {
@@ -626,6 +628,48 @@ BENCHMARK(BM_PlainEncodingByteArray);
 BENCHMARK(BM_DeltaBitLengthEncodingByteArray);
 BENCHMARK(BM_PlainDecodingByteArray);
 BENCHMARK(BM_DeltaBitLengthDecodingByteArray);
+
+static void BM_DecodingByteArraySpaced(benchmark::State& state, Encoding::type encoding) {
+  const int num_values = 1024;
+  const double null_percent = 0.02;
+
+  auto rand = ::arrow::random::RandomArrayGenerator(0);
+  const auto array = rand.String(num_values, 0, 1024, null_percent);
+  const auto valid_bits = array->null_bitmap_data();
+  const int null_count = static_cast<int>(array->null_count());
+  const auto array_actual = ::arrow::internal::checked_pointer_cast<::arrow::StringArray>(array);
+
+  std::vector<ByteArray> byte_arrays;
+  byte_arrays.reserve(array_actual->length());
+  for (int i = 0; i < array_actual->length(); ++i) {
+    byte_arrays.emplace_back(array_actual->GetView(i));
+  }
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(encoding);
+  encoder->PutSpaced(byte_arrays.data(), num_values, valid_bits, 0);
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<ByteArrayType>(encoding);
+  std::vector<uint8_t> decode_values(num_values * sizeof(ByteArray));
+  auto decode_buf = reinterpret_cast<ByteArray*>(decode_values.data());
+  for (auto _ : state) {
+    decoder->SetData(num_values - null_count, buf->data(), static_cast<int>(buf->size()));
+    decoder->DecodeSpaced(decode_buf, num_values, null_count, valid_bits, 0);
+  }
+  state.counters["null_percent"] = null_percent * 100;
+  // state.SetBytesProcessed(state.iterations() * num_values * sizeof(CType));
+}
+
+static void BM_PlainDecodingSpacedByteArray(benchmark::State& state) {
+  BM_DecodingByteArraySpaced(state, Encoding::PLAIN);
+}
+
+static void BM_DeltaBitLengthDecodingSpacedByteArray(benchmark::State& state) {
+  BM_DecodingByteArraySpaced(state, Encoding::DELTA_LENGTH_BYTE_ARRAY);
+}
+
+BENCHMARK(BM_PlainDecodingSpacedByteArray);
+BENCHMARK(BM_DeltaBitLengthDecodingSpacedByteArray);
 
 template <typename Type>
 static void DecodeDict(std::vector<typename Type::c_type>& values,
