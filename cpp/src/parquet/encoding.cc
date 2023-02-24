@@ -2715,7 +2715,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 
   void SetDecoder(int num_values, std::shared_ptr<::arrow::bit_util::BitReader> decoder) {
     num_values_ = num_values;
-    decoder_ = decoder;
+    decoder_ = std::move(decoder);
     DecodeLengths();
   }
 
@@ -2736,14 +2736,14 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
         throw ParquetException("negative string delta length");
       }
       buffer[i].len = len;
-      if (AddWithOverflow(data_size, len, &data_size)) {
+      if (ARROW_PREDICT_FALSE(AddWithOverflow(data_size, len, &data_size))) {
         throw ParquetException("excess expansion in DELTA_(LENGTH_)BYTE_ARRAY");
       }
     }
     length_idx_ += max_values;
 
     PARQUET_THROW_NOT_OK(buffered_data_->Resize(data_size));
-    if (decoder_->GetBatch(8, buffered_data_->mutable_data(), data_size) != data_size) {
+    if (ARROW_PREDICT_FALSE(!decoder_->Advance(data_size * 8))) {
       ParquetException::EofException();
     }
     const uint8_t* data_ptr = buffered_data_->data();
