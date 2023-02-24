@@ -202,7 +202,7 @@ func (d *DictInt32Decoder) Decode(out []int32) (int, error) {
 	}
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict eof exception")
-	}	
+	}
 	return vals, nil
 }
 
@@ -217,7 +217,6 @@ func (d *DictInt32Decoder) DecodeSpaced(out []int32, nullCount int, validBits []
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict spaced eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -441,7 +440,6 @@ func (d *DictInt64Decoder) Decode(out []int64) (int, error) {
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -456,7 +454,6 @@ func (d *DictInt64Decoder) DecodeSpaced(out []int64, nullCount int, validBits []
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict spaced eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -658,7 +655,6 @@ func (d *DictInt96Decoder) Decode(out []parquet.Int96) (int, error) {
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -673,7 +669,6 @@ func (d *DictInt96Decoder) DecodeSpaced(out []parquet.Int96, nullCount int, vali
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict spaced eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -885,7 +880,6 @@ func (d *DictFloat32Decoder) Decode(out []float32) (int, error) {
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -900,7 +894,6 @@ func (d *DictFloat32Decoder) DecodeSpaced(out []float32, nullCount int, validBit
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict spaced eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -1112,7 +1105,6 @@ func (d *DictFloat64Decoder) Decode(out []float64) (int, error) {
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -1127,7 +1119,6 @@ func (d *DictFloat64Decoder) DecodeSpaced(out []float64, nullCount int, validBit
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict spaced eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -1378,7 +1369,6 @@ func (d *DictByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) {
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -1393,7 +1383,6 @@ func (d *DictByteArrayDecoder) DecodeSpaced(out []parquet.ByteArray, nullCount i
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict spaced eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -1559,7 +1548,6 @@ func (d *DictFixedLenByteArrayDecoder) Decode(out []parquet.FixedLenByteArray) (
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -1574,7 +1562,6 @@ func (d *DictFixedLenByteArrayDecoder) DecodeSpaced(out []parquet.FixedLenByteAr
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict spaced eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
