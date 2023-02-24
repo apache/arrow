@@ -2703,8 +2703,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
                                        MemoryPool* pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY),
         len_decoder_(nullptr, pool),
-        buffered_length_(AllocateBuffer(pool, 0)),
-        buffered_data_(AllocateBuffer(pool, 0)) {}
+        buffered_length_(AllocateBuffer(pool, 0)) {}
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     num_values_ = num_values;
@@ -2713,6 +2712,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     DecodeLengths();
   }
 
+  // SetDecoder will be used by DeltaByteArrayDecoder.
   void SetDecoder(int num_values, std::shared_ptr<::arrow::bit_util::BitReader> decoder) {
     num_values_ = num_values;
     decoder_ = std::move(decoder);
@@ -2742,15 +2742,20 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     }
     length_idx_ += max_values;
 
-    PARQUET_THROW_NOT_OK(buffered_data_->Resize(data_size));
+    const uint8_t* begin = decoder_->begins();
+    int64_t current_bits_offset = decoder_->sum_bit_offsets();
+    if (ARROW_PREDICT_FALSE(current_bits_offset % 8 != 0)) {
+      throw ParquetException("Invalid DELTA_(LENGTH_)BYTE_ARRAY");
+    }
+    int64_t current_bytes_offset = current_bits_offset / 8;
+    // Check overflow
     if (ARROW_PREDICT_FALSE(!decoder_->Advance(data_size * 8))) {
       ParquetException::EofException();
     }
-    const uint8_t* data_ptr = buffered_data_->data();
 
     for (int i = 0; i < max_values; ++i) {
-      buffer[i].ptr = data_ptr;
-      data_ptr += buffer[i].len;
+      buffer[i].ptr = begin + current_bytes_offset;
+      current_bytes_offset += buffer[i].len;
     }
     this->num_values_ -= max_values;
     num_valid_values_ -= max_values;
@@ -2835,7 +2840,6 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   int num_valid_values_;
   uint32_t length_idx_;
   std::shared_ptr<ResizableBuffer> buffered_length_;
-  std::shared_ptr<ResizableBuffer> buffered_data_;
 };
 
 // ----------------------------------------------------------------------

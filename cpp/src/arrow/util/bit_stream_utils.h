@@ -178,10 +178,14 @@ class BitReader {
 
   /// Returns the number of bytes left in the stream, not including the current
   /// byte (i.e., there may be an additional fraction of a byte).
-  int bytes_left() {
+  int bytes_left() const {
     return max_bytes_ -
            (byte_offset_ + static_cast<int>(bit_util::BytesForBits(bit_offset_)));
   }
+
+  const uint8_t* begins() const { return buffer_; }
+
+  int64_t sum_bit_offsets() const { return byte_offset_ * 8 + bit_offset_; }
 
   /// Maximum byte length of a vlq encoded int
   static constexpr int kMaxVlqByteLength = 5;
