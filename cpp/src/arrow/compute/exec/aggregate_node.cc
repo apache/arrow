@@ -20,6 +20,7 @@
 #include <sstream>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
@@ -36,6 +37,25 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 
+// This file implements both regular and segmented group-by aggregation, which is a
+// generalization of ordered aggregation in which the key columns are not required to be
+// ordered.
+//
+// In (regular) group-by aggregation, the input rows are partitioned into groups using a
+// set of columns called keys, where in a given group each row has the same values for
+// these columns. In segmented group-by aggregation, a second set of columns called
+// segment-keys is used to refine the partitioning. However, segment-keys are different in
+// that they partition only consecutive rows into a single group. Such a partition of
+// consecutive rows is called a segment. For example, consider a column X with values
+// [A, B, A] at row-indices [0, 1, 2]. A regular group-by aggregation with keys [X] yields
+// a row-index partitioning [[0, 2], [1]] whereas a segmented-group-by aggregation with
+// segment-keys [X] yields [[0], [1], [2]].
+//
+// The implementation first segments the input using the segment-keys, then groups by the
+// keys. When a segment end is reached while scanning the input, output is pushed and the
+// accumulating state is cleared. If no segment-keys are given, then the entire input is
+// taken as one segment.
+
 namespace arrow {
 
 using internal::checked_cast;
@@ -43,46 +63,6 @@ using internal::checked_cast;
 namespace compute {
 
 namespace {
-
-/// \brief A gated shared mutex is similar to a shared mutex, in that it allows either
-/// multiple shared readers or a unique writer access to the mutex, except that a waiting
-/// writer gates future readers by preventing them from reacquiring shared access until it
-/// has acquired and released the mutex. This is useful for ensuring a writer is never
-/// starved by readers.
-struct GatedSharedMutex {
-  std::mutex gate;
-  std::shared_mutex mutex;
-};
-
-/// \brief Acquires unique access to a gatex mutex. This is useful for a unique writer.
-class GatedUniqueLock {
- public:
-  // acquires the gate first, to ensure future readers will wait for its release
-  explicit GatedUniqueLock(GatedSharedMutex& gated_shared_mutex)
-      : lock_gate_(gated_shared_mutex.gate), lock_mutex_(gated_shared_mutex.mutex) {}
-
- private:
-  std::unique_lock<std::mutex> lock_gate_;
-  std::unique_lock<std::shared_mutex> lock_mutex_;
-};
-
-/// \brief Acquires shared access to a gatex mutex. This is useful for a shared reader.
-class GatedSharedLock {
-  struct TouchGate {
-    explicit TouchGate(GatedSharedMutex& gated_shared_mutex) {
-      std::unique_lock lock_gate(gated_shared_mutex.gate);
-    }
-  };
-
- public:
-  // acquires and immediately releases the gate first, to ensure no writer is waiting
-  explicit GatedSharedLock(GatedSharedMutex& gated_shared_mutex)
-      : touch_gate_(gated_shared_mutex), lock_mutex_(gated_shared_mutex.mutex) {}
-
- private:
-  TouchGate touch_gate_;
-  std::shared_lock<std::shared_mutex> lock_mutex_;
-};
 
 std::vector<TypeHolder> ExtendWithGroupIdType(const std::vector<TypeHolder>& in_types) {
   std::vector<TypeHolder> aggr_in_types;
@@ -221,9 +201,10 @@ Status HandleSegments(std::unique_ptr<GroupingSegmenter>& segmenter,
   return Status::OK();
 }
 
-Status GetScalarFields(std::vector<Datum>& values, const ExecBatch& input_batch,
+Status GetScalarFields(std::vector<Datum>* values_ptr, const ExecBatch& input_batch,
                        const std::vector<int>& field_ids) {
   DCHECK_GT(input_batch.length, 0);
+  std::vector<Datum>& values = *values_ptr;
   int64_t row = input_batch.length - 1;
   values.clear();
   values.resize(field_ids.size());
@@ -371,7 +352,6 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
   const char* kind_name() const override { return "ScalarAggregateNode"; }
 
   Status DoConsume(const ExecSpan& batch, size_t thread_index) {
-    GatedSharedLock lock(gated_shared_mutex_);
     for (size_t i = 0; i < kernels_.size(); ++i) {
       util::tracing::Span span;
       START_COMPUTE_SPAN(span, aggs_[i].function,
@@ -396,12 +376,13 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     auto scope = TraceInputReceived(batch);
     DCHECK_EQ(input, inputs_[0]);
 
-    auto handler = [this](const ExecBatch& full_batch, const GroupingSegment& segment) {
+    auto thread_index = plan_->query_context()->GetThreadIndex();
+    auto handler = [this, thread_index](const ExecBatch& full_batch,
+                                        const GroupingSegment& segment) {
       if (!segment.extends && segment.offset == 0) RETURN_NOT_OK(OutputResult());
       auto exec_batch = full_batch.Slice(segment.offset, segment.length);
-      auto batch = ExecSpan(exec_batch);
-      RETURN_NOT_OK(DoConsume(batch, plan_->query_context()->GetThreadIndex()));
-      RETURN_NOT_OK(GetScalarFields(segmenter_values_, exec_batch, segment_field_ids_));
+      RETURN_NOT_OK(DoConsume(ExecSpan(exec_batch), thread_index));
+      RETURN_NOT_OK(GetScalarFields(&segmenter_values_, exec_batch, segment_field_ids_));
       if (!segment.is_open) RETURN_NOT_OK(OutputResult());
       return Status::OK();
     };
@@ -414,6 +395,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
   }
 
   Status InputFinished(ExecNode* input, int total_batches) override {
+    auto scope = TraceFinish();
     EVENT_ON_CURRENT_SPAN("InputFinished", {{"batches.length", total_batches}});
     DCHECK_EQ(input, inputs_[0]);
     if (input_counter_.SetTotal(total_batches)) {
@@ -446,7 +428,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
   }
 
  private:
-  Status ReconstructAggregates() {
+  Status ResetAggregates() {
     const auto& input_schema = *inputs()[0]->output_schema();
     auto exec_ctx = plan()->query_context()->exec_context();
     for (size_t i = 0; i < kernels_.size(); ++i) {
@@ -463,12 +445,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     return Status::OK();
   }
 
-  Status OutputResult(bool is_last = false, bool traced = false) {
-    if (is_last && !traced) {
-      auto scope = TraceFinish();
-      return OutputResult(is_last, /*traced=*/true);
-    }
-    GatedUniqueLock lock(gated_shared_mutex_);
+  Status OutputResult(bool is_last = false) {
     ExecBatch batch{{}, 1};
     batch.values.resize(kernels_.size() + segment_field_ids_.size());
 
@@ -491,7 +468,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     if (is_last) {
       ARROW_RETURN_NOT_OK(output_->InputFinished(this, total_output_batches_));
     } else {
-      ARROW_RETURN_NOT_OK(ReconstructAggregates());
+      ARROW_RETURN_NOT_OK(ResetAggregates());
     }
     return Status::OK();
   }
@@ -507,8 +484,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
 
   AtomicCounter input_counter_;
-  int64_t total_output_batches_ = 0;
-  GatedSharedMutex gated_shared_mutex_;
+  int total_output_batches_ = 0;
 };
 
 class GroupByNode : public ExecNode, public TracedNode {
@@ -568,6 +544,16 @@ class GroupByNode : public ExecNode, public TracedNode {
     for (size_t i = 0; i < segment_keys.size(); ++i) {
       ARROW_ASSIGN_OR_RAISE(auto match, segment_keys[i].FindOne(*input_schema));
       segment_key_field_ids[i] = match[0];
+    }
+
+    // Check key fields and segment key fields are disjoint
+    std::unordered_set<int> key_field_id_set(key_field_ids.begin(), key_field_ids.end());
+    for (const auto& segment_key_field_id : segment_key_field_ids) {
+      if (key_field_id_set.find(segment_key_field_id) != key_field_id_set.end()) {
+        return Status::Invalid("Group-by aggregation with field '",
+                               input_schema->field(segment_key_field_id)->name(),
+                               "' as both key and segment key");
+      }
     }
 
     // Find input field indices for aggregates
@@ -635,7 +621,7 @@ class GroupByNode : public ExecNode, public TracedNode {
         std::move(agg_src_fieldsets), std::move(aggs), std::move(agg_kernels));
   }
 
-  Status ReconstructAggregates() {
+  Status ResetAggregates() {
     auto ctx = plan()->query_context()->exec_context();
 
     ARROW_ASSIGN_OR_RAISE(agg_kernels_, GetKernels(ctx, aggs_, agg_src_types_));
@@ -649,7 +635,6 @@ class GroupByNode : public ExecNode, public TracedNode {
   const char* kind_name() const override { return "GroupByNode"; }
 
   Status Consume(ExecSpan batch) {
-    GatedSharedLock lock(gated_shared_mutex_);
     size_t thread_index = plan_->query_context()->GetThreadIndex();
     if (thread_index >= local_states_.size()) {
       return Status::IndexError("thread index ", thread_index, " is out of range [0, ",
@@ -773,12 +758,7 @@ class GroupByNode : public ExecNode, public TracedNode {
     return output_->InputReceived(this, out_data_.Slice(batch_size * n, batch_size));
   }
 
-  Status OutputResult(bool is_last = false, bool traced = false) {
-    if (is_last && !traced) {
-      auto scope = TraceFinish();
-      return OutputResult(is_last, /*traced=*/true);
-    }
-    GatedUniqueLock lock(gated_shared_mutex_);
+  Status OutputResult(bool is_last = false) {
     // To simplify merging, ensure that the first grouper is nonempty
     for (size_t i = 0; i < local_states_.size(); i++) {
       if (local_states_[i].grouper) {
@@ -793,15 +773,14 @@ class GroupByNode : public ExecNode, public TracedNode {
     int64_t num_output_batches = bit_util::CeilDiv(out_data_.length, output_batch_size());
     total_output_batches_ += num_output_batches;
     if (is_last) {
-      ARROW_RETURN_NOT_OK(
-          output_->InputFinished(this, static_cast<int>(total_output_batches_)));
+      ARROW_RETURN_NOT_OK(output_->InputFinished(this, total_output_batches_));
       RETURN_NOT_OK(plan_->query_context()->StartTaskGroup(output_task_group_id_,
                                                            num_output_batches));
     } else {
       for (int64_t i = 0; i < num_output_batches; i++) {
         ARROW_RETURN_NOT_OK(OutputNthBatch(i));
       }
-      ARROW_RETURN_NOT_OK(ReconstructAggregates());
+      ARROW_RETURN_NOT_OK(ResetAggregates());
     }
     return Status::OK();
   }
@@ -817,7 +796,7 @@ class GroupByNode : public ExecNode, public TracedNode {
       auto batch = ExecSpan(exec_batch);
       RETURN_NOT_OK(Consume(batch));
       RETURN_NOT_OK(
-          GetScalarFields(segmenter_values_, exec_batch, segment_key_field_ids_));
+          GetScalarFields(&segmenter_values_, exec_batch, segment_key_field_ids_));
       if (!segment.is_open) RETURN_NOT_OK(OutputResult());
       return Status::OK();
     };
@@ -831,6 +810,7 @@ class GroupByNode : public ExecNode, public TracedNode {
   }
 
   Status InputFinished(ExecNode* input, int total_batches) override {
+    auto scope = TraceFinish();
     DCHECK_EQ(input, inputs_[0]);
 
     if (input_counter_.SetTotal(total_batches)) {
@@ -936,11 +916,10 @@ class GroupByNode : public ExecNode, public TracedNode {
   std::vector<const HashAggregateKernel*> agg_kernels_;
 
   AtomicCounter input_counter_;
-  int64_t total_output_batches_ = 0;
+  int total_output_batches_ = 0;
 
   std::vector<ThreadLocalState> local_states_;
   ExecBatch out_data_;
-  GatedSharedMutex gated_shared_mutex_;
 };
 
 }  // namespace

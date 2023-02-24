@@ -32,9 +32,13 @@ namespace compute {
 
 /// \brief A segment of contiguous rows for grouping
 struct ARROW_EXPORT GroupingSegment {
+  /// \brief the offset into the batch where the segment starts
   int64_t offset;
+  /// \brief the length of the segment
   int64_t length;
+  /// \brief whether the segment may be extended by a next one
   bool is_open;
+  /// \brief whether the segment extends a preceeding one
   bool extends;
 };
 
@@ -46,14 +50,34 @@ inline bool operator!=(const GroupingSegment& segment1, const GroupingSegment& s
   return !(segment1 == segment2);
 }
 
-/// \brief Computes grouping segments for a batch. Each segment covers rows with identical
-/// values in the batch. The values in the batch are often selected as keys from a larger
-/// batch.
+/// \brief a helper class to divide a batch into segments of equal values
+///
+/// For example, given a batch with two rows:
+///
+/// A A
+/// A A
+/// A B
+/// A B
+/// A A
+///
+/// Then the batch could be divided into 3 segments.  The first would be rows 0 & 1,
+/// the second would be rows 2 & 3, and the third would be row 4.
+///
+/// Further, a segmenter keeps track of the last value seen.  This allows it to calculate
+/// segments which span batches.  In our above example the last batch we emit would set
+/// the "open" flag, which indicates whether the segment may extend into the next batch.
+///
+/// If the next call to the segmenter starts with `A A` then that segment would set the
+/// "extends" flag, which indicates whether the segment continues the last open batch.
 class ARROW_EXPORT GroupingSegmenter {
  public:
   virtual ~GroupingSegmenter() = default;
 
-  /// \brief Construct a GroupingSegmenter which receives the specified key types
+  /// \brief Construct a GroupingSegmenter which segments on the specified key types
+  ///
+  /// \param[in] key_types the specified key types
+  /// \param[in] nullable_keys whether values of the specified keys may be null
+  /// \param[in] ctx the execution context to use
   static Result<std::unique_ptr<GroupingSegmenter>> Make(
       const std::vector<TypeHolder>& key_types, bool nullable_keys = false,
       ExecContext* ctx = default_exec_context());

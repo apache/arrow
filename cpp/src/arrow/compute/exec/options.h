@@ -210,6 +210,13 @@ class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
 /// If the keys attribute is a non-empty vector, then each aggregate in `aggregates` is
 /// expected to be a HashAggregate function. If the keys attribute is an empty vector,
 /// then each aggregate is assumed to be a ScalarAggregate function.
+///
+/// If the segment_keys attribute is a non-empty vector, then segmented aggregation, as
+/// described above, applies.
+///
+/// The keys and segment_keys vectors must be disjoint.
+///
+/// See also doc in `aggregate_node.cc`
 class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
  public:
   explicit AggregateNodeOptions(std::vector<Aggregate> aggregates,
@@ -221,9 +228,9 @@ class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
 
   // aggregations which will be applied to the targetted fields
   std::vector<Aggregate> aggregates;
-  // keys by which aggregations will be grouped
+  // keys by which aggregations will be grouped (optional)
   std::vector<FieldRef> keys;
-  // keys by which aggregations will be segmented
+  // keys by which aggregations will be segmented (optional)
   std::vector<FieldRef> segment_keys;
 };
 

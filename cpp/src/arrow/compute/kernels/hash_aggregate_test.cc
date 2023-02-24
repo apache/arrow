@@ -166,7 +166,7 @@ Result<Datum> MakeGroupByOutput(const std::vector<ExecBatch>& output_batches,
 
   bool need_sort = !naive;
   for (size_t i = num_aggregates; need_sort && i < out_arrays.size(); i++) {
-    if (output_schema->field(i)->type()->id() == Type::DICTIONARY) {
+    if (output_schema->field(static_cast<int>(i))->type()->id() == Type::DICTIONARY) {
       need_sort = false;
     }
   }
@@ -341,8 +341,8 @@ Result<Datum> RunGroupBy(const std::vector<Datum>& arguments,
     key_names[i] = std::move(name);
   }
   base += keys.size();
-  size_t j = segmented ? keys.size() : keys.size();
-  std::string prefix(segmented ? "key_" : "key_");
+  size_t j = keys.size();
+  std::string prefix("key_");
   for (size_t i = 0; i < segment_keys.size(); ++i) {
     auto name = prefix + std::to_string(j++);
     scan_fields[base + i] = field(name, segment_keys[i].type());
@@ -574,20 +574,6 @@ auto batch_to_span = [](const ExecBatch& batch) -> Result<ExecSpan> {
   return ExecSpan(batch);
 };
 
-auto batch_make_chunked = [](const ExecBatch& batch) -> Result<ExecBatch> {
-  int64_t length = batch.length;
-  DCHECK_GT(length, 1);
-  std::vector<Datum> values;
-  for (auto value : batch.values) {
-    DCHECK(value.is_array());
-    auto array = value.make_array();
-    ARROW_ASSIGN_OR_RAISE(
-        auto chunked, ChunkedArray::Make({array->Slice(0, 1), array->Slice(1, length)}));
-    values.emplace_back(chunked);
-  }
-  return ExecBatch(values, length);
-};
-
 }  // namespace
 
 TEST(GroupingSegmenter, Basics) {
@@ -596,10 +582,6 @@ TEST(GroupingSegmenter, Basics) {
 
 TEST(GroupingSegmenter, SpanBasics) {
   test_grouping_segmenter_basics(batch_identity, batch_to_span);
-}
-
-TEST(GroupingSegmenter, ChunkedBasics) {
-  test_grouping_segmenter_basics(batch_make_chunked, batch_identity);
 }
 
 TEST(Grouper, SupportedKeys) { TestGroupClassSupportedKeys<Grouper>(); }

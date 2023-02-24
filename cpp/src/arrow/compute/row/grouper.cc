@@ -127,41 +127,6 @@ using ExtendFunc = std::function<bool(const void*)>;
 constexpr bool kDefaultExtends = true;
 constexpr bool kEmptyExtends = true;
 
-Result<GroupingSegment> GetNextSegmentChunked(
-    const std::shared_ptr<ChunkedArray>& chunked_array, int64_t offset,
-    ExtendFunc extend) {
-  if (offset >= chunked_array->length()) {
-    return MakeSegment(chunked_array->length(), chunked_array->length(), 0,
-                       kEmptyExtends);
-  }
-  int64_t remaining_offset = offset;
-  const auto& arrays = chunked_array->chunks();
-  for (size_t i = 0; remaining_offset >= 0 && i < arrays.size(); i++) {
-    // look up chunk containing offset
-    int64_t array_length = arrays[i]->length();
-    if (remaining_offset < array_length) {
-      // found - switch to matching
-      int64_t match_width = arrays[i]->type()->byte_width();
-      const uint8_t* match_bytes = GetValuesAsBytes(*arrays[i]->data(), remaining_offset);
-      int64_t total_match_length = 0;
-      for (; i < arrays.size(); i++) {
-        int64_t array_length = arrays[i]->length();
-        if (array_length <= 0) continue;
-        const uint8_t* array_bytes = GetValuesAsBytes(*arrays[i]->data());
-        int64_t match_length = GetMatchLength(match_bytes, match_width, array_bytes,
-                                              remaining_offset, array_length);
-        total_match_length += match_length;
-        remaining_offset = 0;
-        if (match_length < array_length - remaining_offset) break;
-      }
-      bool extends = extend(match_bytes);
-      return MakeSegment(chunked_array->length(), offset, total_match_length, extends);
-    }
-    remaining_offset -= array_length;
-  }
-  return Status::Invalid("segmenting invalid chunked array value");
-}
-
 struct NoKeysGroupingSegmenter : public BaseGroupingSegmenter {
   static std::unique_ptr<GroupingSegmenter> Make() {
     return std::make_unique<NoKeysGroupingSegmenter>();
@@ -207,6 +172,8 @@ struct SimpleKeyGroupingSegmenter : public BaseGroupingSegmenter {
     return Status::OK();
   }
 
+  // Checks whether the given grouping data extends the current segment, i.e., is equal to
+  // previously seen grouping data, which is updated with each invocation.
   bool Extend(const void* data) {
     size_t byte_width = static_cast<size_t>(key_type_.type->byte_width());
     bool extends = save_key_data_.size() != byte_width
@@ -225,7 +192,7 @@ struct SimpleKeyGroupingSegmenter : public BaseGroupingSegmenter {
     }
     auto data = checked_cast<const PrimitiveScalarBase&>(scalar).data();
     bool extends = length > 0 ? Extend(data) : kEmptyExtends;
-    return MakeSegment(length, 0, length, extends);
+    return MakeSegment(length, offset, length, extends);
   }
 
   Result<GroupingSegment> GetNextSegment(const DataType& array_type,
@@ -273,20 +240,12 @@ struct SimpleKeyGroupingSegmenter : public BaseGroupingSegmenter {
       }
       return GetNextSegment(*array->type, GetValuesAsBytes(*array), offset, batch.length);
     }
-    if (value.is_chunked_array()) {
-      auto array = value.chunked_array();
-      if (array->null_count() > 0) {
-        return Status::NotImplemented("segmenting a nullable array");
-      }
-      return GetNextSegmentChunked(array, offset, bound_extend_);
-    }
     return Status::Invalid("segmenting unsupported value kind ", value.kind());
   }
 
  private:
   TypeHolder key_type_;
   std::vector<uint8_t> save_key_data_;
-  ExtendFunc bound_extend_ = [this](const void* data) { return Extend(data); };
 };
 
 struct AnyKeysGroupingSegmenter : public BaseGroupingSegmenter {
@@ -318,13 +277,10 @@ struct AnyKeysGroupingSegmenter : public BaseGroupingSegmenter {
 
   template <typename Batch>
   Result<group_id_t> MapGroupIdAt(const Batch& batch, int64_t offset) {
-    if (offset < 0 || offset >= batch.length) {
-      return Status::Invalid("requesting group id out of bounds");
-    }
     if (!grouper_) return kNoGroupId;
     ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch, offset,
                                                         /*consume_length=*/1));
-    if (!(datum.is_array() || datum.is_chunked_array())) {
+    if (!datum.is_array()) {
       return Status::Invalid("accessing unsupported datum kind ", datum.kind());
     }
     const std::shared_ptr<ArrayData>& data =
@@ -367,11 +323,6 @@ struct AnyKeysGroupingSegmenter : public BaseGroupingSegmenter {
       int64_t length = std::min(cursor, batch.length - offset);
       bool extends = length > 0 ? bound_extend(values) : kEmptyExtends;
       return MakeSegment(batch.length, offset, length, extends);
-    } else if (datum.is_chunked_array()) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto segment, GetNextSegmentChunked(datum.chunked_array(), 0, bound_extend));
-      segment.offset += offset;
-      return segment;
     } else {
       return Status::Invalid("segmenting unsupported datum kind ", datum.kind());
     }
@@ -421,102 +372,11 @@ Result<std::unique_ptr<GroupingSegmenter>> GroupingSegmenter::Make(
 namespace {
 
 struct BaseGrouper : public Grouper {
-  int IndexOfChunk(const ExecBatch& batch) {
-    int i = 0;
-    for (const auto& value : batch.values) {
-      if (value.is_chunked_array()) {
-        return i;
-      }
-      ++i;
-    }
-    return -1;
-  }
-
-  bool HasConsistentChunks(const ExecBatch& batch, int index_of_chunk) {
-    auto first_chunked_array = batch.values[index_of_chunk].chunked_array();
-    if (first_chunked_array < 0) {
-      // having no chunks is considered consistent
-      return true;
-    }
-    int num_chunks = first_chunked_array->num_chunks();
-    int64_t length = first_chunked_array->length();
-    for (const auto& value : batch.values) {
-      if (!value.is_chunked_array()) {
-        continue;
-      }
-      auto curr_chunk = value.chunked_array();
-      if (num_chunks != curr_chunk->num_chunks() || length != curr_chunk->length()) {
-        return false;
-      }
-    }
-    if (num_chunks > 0) {
-      for (int i = 0; i < num_chunks; i++) {
-        int64_t chunk_length = first_chunked_array->chunk(i)->length();
-        for (const auto& value : batch.values) {
-          if (!value.is_chunked_array()) {
-            continue;
-          }
-          auto curr_chunk = value.chunked_array();
-          if (chunk_length != curr_chunk->chunk(i)->length()) {
-            return false;
-          }
-        }
-      }
-    }
-    return true;
-  }
-
   using Grouper::Consume;
 
   Result<Datum> Consume(const ExecBatch& batch, int64_t consume_offset,
                         int64_t consume_length) override {
-    ARROW_RETURN_NOT_OK(CheckForConsume(batch.length, consume_offset, &consume_length));
-    int index_of_chunk = IndexOfChunk(batch);
-    if (index_of_chunk < 0) {
-      return Consume(ExecSpan(batch), consume_offset, consume_length);
-    }
-    if (!HasConsistentChunks(batch, index_of_chunk)) {
-      return Status::Invalid("consuming inconsistent chunks");
-    }
-    auto first_chunked_array = batch.values[index_of_chunk].chunked_array();
-    int num_chunks = first_chunked_array->num_chunks();
-    ArrayVector chunks;
-    chunks.reserve(num_chunks);
-    int64_t length_passed = 0, consume_remain = consume_length;
-    for (int chunk_idx = 0; chunk_idx < num_chunks && consume_remain > 0; chunk_idx++) {
-      int64_t chunk_length = first_chunked_array->chunk(chunk_idx)->length();
-      int64_t offset = length_passed;
-      length_passed += chunk_length;
-      if (length_passed <= consume_offset) continue;
-      if (offset >= consume_offset + consume_length) break;
-      std::vector<ExecValue> values;
-      int64_t array_offset = std::max((int64_t)0, consume_offset - offset);
-      int64_t array_length = std::min(chunk_length - array_offset, consume_remain);
-      consume_remain -= array_length;
-      size_t i = 0;
-      for (const auto& batch_value : batch.values) {
-        if (batch_value.is_scalar()) {
-          values.emplace_back(batch_value.scalar().get());
-        } else if (batch_value.is_chunked_array()) {
-          const auto& data = *batch_value.chunked_array()->chunk(chunk_idx)->data();
-          DCHECK_LE(array_offset + array_length, data.length);
-          ArraySpan array_span(data);
-          array_span.offset = data.offset + array_offset;
-          array_span.length = array_length;
-          values.emplace_back(array_span);
-        } else {
-          return Status::Invalid("consuming batch value ", i, " of unsupported kind ",
-                                 batch_value.kind());
-        }
-        ++i;
-      }
-      ARROW_ASSIGN_OR_RAISE(auto consume, Consume(ExecSpan(values, array_length), 0, -1));
-      DCHECK(consume.is_array());
-      auto chunk = consume.make_array();
-      chunks.push_back(chunk);
-    }
-    ARROW_ASSIGN_OR_RAISE(auto chunked_array, ChunkedArray::Make(std::move(chunks)));
-    return Datum(chunked_array);
+    return Consume(ExecSpan(batch), consume_offset, consume_length);
   }
 };
 
