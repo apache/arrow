@@ -2,7 +2,7 @@ package flightsql
 
 import (
 	"context"
-	"crypto/x509"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/url"
@@ -31,7 +31,7 @@ func (g grpcCredentials) RequireTransportSecurity() bool {
 	return g.token != ""
 }
 
-const dsnPatternIOx = "iox[s]://token@address[:port]/bucket[?param1=value1&...&paramN=valueN]"
+const dsnPatternIOx = "iox[s]://[token@]address[:port]/bucket[?param1=value1&...&paramN=valueN]"
 
 func checkIOxConfig(config *DriverConfig) error {
 	// Check for a valid backend
@@ -76,11 +76,8 @@ func newIOxBackend(config *DriverConfig) ([]grpc.DialOption, error) {
 	case "iox":
 		transportCreds = insecure.NewCredentials()
 	case "ioxs":
-		pool, err := x509.SystemCertPool()
-		if err != nil {
-			return nil, err
-		}
-		transportCreds = credentials.NewClientTLSFromCert(pool, "")
+		cfg := &tls.Config{}
+		transportCreds = credentials.NewTLS(cfg)
 	default:
 		return nil, fmt.Errorf("invalid backend %q", config.Backend)
 	}
