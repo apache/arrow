@@ -23,14 +23,21 @@ using System.Runtime.InteropServices;
 using Apache.Arrow.Types;
 
 [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-public delegate void ReleaseFFIArrowSchema(IntPtr schema);
+public delegate void ReleaseCArrowSchema(IntPtr schema);
 
 namespace Apache.Arrow.C
 {
-
-
+    /// <summary>
+    /// An Arrow C Data Interface Schema, which represents a type, field, or schema.
+    /// </summary>
+    /// 
+    /// <remarks>
+    /// This is used to export <see cref="ArrowType"/>, <see cref="Field"/>, or
+    /// <see cref="Schema"/> to other languages. It matches the layout of the
+    /// ArrowSchema struct described in https://github.com/apache/arrow/blob/main/cpp/src/arrow/c/abi.h.
+    /// </remarks
     [StructLayout(LayoutKind.Sequential)]
-    unsafe public struct FFIArrowSchema
+    unsafe public struct CArrowSchema
     {
         [MarshalAs(UnmanagedType.LPStr)]
         public string format;
@@ -44,7 +51,7 @@ namespace Apache.Arrow.C
         public IntPtr dictionary;
         [MarshalAs(UnmanagedType.FunctionPtr)]
 
-        public ReleaseFFIArrowSchema release;
+        public ReleaseCArrowSchema release;
         // Check this out: https://github.com/G-Research/ParquetSharp/blob/386d91bd5e6fe6cb81583803447023c1359957c8/csharp/ParquetHandle.cs#L8
         public IntPtr private_data;
 
@@ -87,9 +94,9 @@ namespace Apache.Arrow.C
 
                 for (var i = 0; i < n_fields; i++)
                 {
-                    var ffi_schema = new FFIArrowSchema();
-                    FFIArrowSchema.ExportField(fields[i], out ffi_schema);
-                    IntPtr exported_schema = ffi_schema.AllocateAsPtr();
+                    var c_schema = new CArrowSchema();
+                    CArrowSchema.ExportField(fields[i], out c_schema);
+                    IntPtr exported_schema = c_schema.AllocateAsPtr();
                     pointer_list[i] = exported_schema;
                 }
 
@@ -105,10 +112,10 @@ namespace Apache.Arrow.C
         {
             if (datatype is DictionaryType)
             {
-                var ffi_schema = new FFIArrowSchema();
+                var c_schema = new CArrowSchema();
                 var value_type = ((DictionaryType)datatype).ValueType;
-                FFIArrowSchema.ExportDataType(value_type, out ffi_schema);
-                return ffi_schema.AllocateAsPtr();
+                CArrowSchema.ExportDataType(value_type, out c_schema);
+                return c_schema.AllocateAsPtr();
             }
             else
             {
@@ -116,7 +123,12 @@ namespace Apache.Arrow.C
             }
         }
 
-        public static void ExportDataType(IArrowType datatype, out FFIArrowSchema schema)
+        /// <summary>
+        /// Initialize the exported C schema as an Arrow type.
+        /// </summary>
+        /// <param name="datatype">The Arrow type to export.</param>
+        /// <param name="schema">An uninitialized CArrowSchema.</param>
+        public static void ExportDataType(IArrowType datatype, out CArrowSchema schema)
         {
             schema.format = GetFormat(datatype);
             schema.name = null;
@@ -130,26 +142,32 @@ namespace Apache.Arrow.C
 
             schema.release = (IntPtr self) =>
             {
-                var schema = Marshal.PtrToStructure<FFIArrowSchema>(self);
+                var schema = Marshal.PtrToStructure<CArrowSchema>(self);
                 if (schema.n_children > 0)
                 {
                     for (int i = 0; i < schema.n_children; i++)
                     {
                         FreePtr(schema.children[i]);
                     }
+                    Marshal.FreeHGlobal((IntPtr)schema.children);
                 }
 
                 if (schema.dictionary != IntPtr.Zero)
                 {
                     FreePtr(schema.dictionary);
                 }
-                Marshal.DestroyStructure<FFIArrowSchema>(self);
+                Marshal.DestroyStructure<CArrowSchema>(self);
             };
 
             schema.private_data = IntPtr.Zero;
         }
 
-        public static void ExportField(Field field, out FFIArrowSchema schema)
+        /// <summary>
+        /// Initialize the exported C schema as a field.
+        /// </summary>
+        /// <param name="field">Field to export.</param>
+        /// <param name="schema">An uninitialized CArrowSchema.</param>
+        public static void ExportField(Field field, out CArrowSchema schema)
         {
             ExportDataType(field.DataType, out schema);
             schema.name = field.Name;
@@ -158,23 +176,41 @@ namespace Apache.Arrow.C
             schema.flags = GetFlags(field.DataType, field.IsNullable);
         }
 
-        public static void ExportSchema(Schema schema, out FFIArrowSchema out_schema)
+        /// <summary>
+        /// Initialize the exported C schema as a schema.
+        /// </summary>
+        /// <param name="schema">Schema to export.</param>
+        /// <param name="out_schema">An uninitialized CArrowSchema</param>
+        public static void ExportSchema(Schema schema, out CArrowSchema out_schema)
         {
             // TODO: top-level metadata
             var struct_type = new StructType(schema.Fields.Values.ToList());
             ExportDataType(struct_type, out out_schema);
         }
 
+        /// <summary>
+        /// Allocate an unmanaged pointer and copy this instances data to it.
+        /// </summary>
+        /// <remarks>
+        /// To avoid a memory leak, you must call <see cref="FreePtr"/> on this
+        /// pointer when done using it.
+        /// </remarks>
         public IntPtr AllocateAsPtr()
         {
             IntPtr ptr = Marshal.AllocHGlobal(Marshal.SizeOf(this));
-            Marshal.StructureToPtr<FFIArrowSchema>(this, ptr, false);
+            Marshal.StructureToPtr<CArrowSchema>(this, ptr, false);
             return ptr;
         }
 
+        /// <summary>
+        /// Free a pointer that was allocated in <see cref="AllocateAsPtr"/>.
+        /// </summary>
+        /// <remarks>
+        /// Do not call this on a pointer that was allocated elsewhere.
+        /// </remarks>
         public static void FreePtr(IntPtr ptr)
         {
-            var schema = Marshal.PtrToStructure<FFIArrowSchema>(ptr);
+            var schema = Marshal.PtrToStructure<CArrowSchema>(ptr);
             if (schema.release != null)
             {
                 // Call release if not already called.
@@ -190,7 +226,7 @@ namespace Apache.Arrow.C
         /// <returns></returns>
         public IntPtr Export(IntPtr ptr)
         {
-            Marshal.StructureToPtr<FFIArrowSchema>(this, ptr, false);
+            Marshal.StructureToPtr<CArrowSchema>(this, ptr, false);
             return ptr;
         }
 
@@ -302,15 +338,32 @@ namespace Apache.Arrow.C
         }
     }
 
-    public class ImportedArrowSchema : IDisposable
+    /// <summary>
+    /// A <see cref="CArrowSchema"/> imported from somewhere else.
+    /// </summary>
+    ///
+    /// <example>
+    /// Typically, when importing a schema we will allocate an uninitialized 
+    /// <see cref="CArrowSchema"/>, pass the pointer to the foreign function,
+    /// then construct this class with the initialized pointer.
+    /// 
+    /// <code>
+    /// var c_schema = new CArrowSchema();
+    /// IntPtr imported_ptr = c_schema.AllocateAsPtr();
+    /// foreign_export_function(imported_ptr);
+    /// var imported_type = new ImportedArrowSchema(imported_ptr);
+    /// ArrowType arrow_type = imported_type.GetAsType();
+    /// <code>
+    /// </example>
+    public sealed class ImportedArrowSchema : IDisposable
     {
-        private FFIArrowSchema _data;
+        private CArrowSchema _data;
         private IntPtr _handle;
         private bool _is_root;
 
         public ImportedArrowSchema(IntPtr handle)
         {
-            _data = Marshal.PtrToStructure<FFIArrowSchema>(handle);
+            _data = Marshal.PtrToStructure<CArrowSchema>(handle);
             if (_data.release == null)
             {
                 throw new Exception("Tried to import a schema that has already been released.");
@@ -353,7 +406,7 @@ namespace Apache.Arrow.C
                 var dictionary_schema = new ImportedArrowSchema(_data.dictionary, /*is_root*/ false);
                 var dictionary_type = dictionary_schema.GetAsType();
 
-                bool ordered = (_data.flags & FFIArrowSchema.ARROW_FLAG_NULLABLE) == FFIArrowSchema.ARROW_FLAG_NULLABLE;
+                bool ordered = (_data.flags & CArrowSchema.ARROW_FLAG_NULLABLE) == CArrowSchema.ARROW_FLAG_NULLABLE;
 
                 return new DictionaryType(indices_type, dictionary_type, ordered);
             }
@@ -444,7 +497,7 @@ namespace Apache.Arrow.C
         {
             string field_name = string.IsNullOrEmpty(_data.name) ? "" : _data.name;
 
-            bool nullable = (_data.flags & FFIArrowSchema.ARROW_FLAG_NULLABLE) == FFIArrowSchema.ARROW_FLAG_NULLABLE;
+            bool nullable = (_data.flags & CArrowSchema.ARROW_FLAG_NULLABLE) == CArrowSchema.ARROW_FLAG_NULLABLE;
 
             return new Field(field_name, GetAsType(), nullable);
         }

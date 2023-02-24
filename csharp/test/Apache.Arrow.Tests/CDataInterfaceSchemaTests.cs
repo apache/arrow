@@ -134,8 +134,8 @@ namespace Apache.Arrow.Tests
             foreach ((Field field, dynamic py_field) in schema.Fields.Values.AsEnumerable()
                 .Zip(py_fields))
             {
-                var ffi_schema = new FFIArrowSchema();
-                IntPtr imported_ptr = ffi_schema.AllocateAsPtr();
+                var c_schema = new CArrowSchema();
+                IntPtr imported_ptr = c_schema.AllocateAsPtr();
 
                 using (Py.GIL())
                 {
@@ -148,7 +148,7 @@ namespace Apache.Arrow.Tests
                 dataTypeComparer.Visit(imported_type.GetAsType());
 
                 // Since we allocated, we are responsible for freeing the pointer.
-                FFIArrowSchema.FreePtr(imported_ptr);
+                CArrowSchema.FreePtr(imported_ptr);
             }
         }
 
@@ -162,8 +162,8 @@ namespace Apache.Arrow.Tests
             foreach ((Field field, dynamic py_field) in schema.Fields.Values.AsEnumerable()
                 .Zip(py_fields))
             {
-                var ffi_schema = new FFIArrowSchema();
-                IntPtr imported_ptr = ffi_schema.AllocateAsPtr();
+                var c_schema = new CArrowSchema();
+                IntPtr imported_ptr = c_schema.AllocateAsPtr();
 
                 using (Py.GIL())
                 {
@@ -174,7 +174,7 @@ namespace Apache.Arrow.Tests
                 FieldComparer.Compare(field, imported_field.GetAsField());
 
                 // Since we allocated, we are responsible for freeing the pointer.
-                FFIArrowSchema.FreePtr(imported_ptr);
+                CArrowSchema.FreePtr(imported_ptr);
             }
         }
 
@@ -185,8 +185,8 @@ namespace Apache.Arrow.Tests
             Schema schema = GetTestSchema();
             dynamic py_schema = GetPythonSchema();
 
-            var ffi_schema = new FFIArrowSchema();
-            IntPtr imported_ptr = ffi_schema.AllocateAsPtr();
+            var c_schema = new CArrowSchema();
+            IntPtr imported_ptr = c_schema.AllocateAsPtr();
 
             using (Py.GIL())
             {
@@ -197,7 +197,7 @@ namespace Apache.Arrow.Tests
             SchemaComparer.Compare(schema, imported_field.GetAsSchema());
 
             // Since we allocated, we are responsible for freeing the pointer.
-            FFIArrowSchema.FreePtr(imported_ptr);
+            CArrowSchema.FreePtr(imported_ptr);
         }
 
 
@@ -213,8 +213,8 @@ namespace Apache.Arrow.Tests
                 .Zip(py_fields))
             {
                 IArrowType datatype = field.DataType;
-                var exported_type = new FFIArrowSchema();
-                FFIArrowSchema.ExportDataType(datatype, out exported_type);
+                var exported_type = new CArrowSchema();
+                CArrowSchema.ExportDataType(datatype, out exported_type);
 
                 // For Python, we need to provide the pointer
                 IntPtr exported_ptr = exported_type.AllocateAsPtr();
@@ -228,15 +228,15 @@ namespace Apache.Arrow.Tests
                 }
 
                 // Python should have called release once `exported_py_type` went out-of-scope.
-                var ffi_schema = Marshal.PtrToStructure<FFIArrowSchema>(exported_ptr);
-                Assert.Null(ffi_schema.release);
-                Assert.Null(ffi_schema.format);
-                Assert.Equal(0, ffi_schema.flags);
-                Assert.Equal(0, ffi_schema.n_children);
-                Assert.Equal(IntPtr.Zero, ffi_schema.dictionary);
+                var c_schema = Marshal.PtrToStructure<CArrowSchema>(exported_ptr);
+                Assert.Null(c_schema.release);
+                Assert.Null(c_schema.format);
+                Assert.Equal(0, c_schema.flags);
+                Assert.Equal(0, c_schema.n_children);
+                Assert.Equal(IntPtr.Zero, c_schema.dictionary);
 
                 // Since we allocated, we are responsible for freeing the pointer.
-                FFIArrowSchema.FreePtr(exported_ptr);
+                CArrowSchema.FreePtr(exported_ptr);
             }
         }
 
@@ -250,8 +250,8 @@ namespace Apache.Arrow.Tests
             foreach ((Field field, dynamic py_field) in schema.Fields.Values.AsEnumerable()
                 .Zip(py_fields))
             {
-                var exported_field = new FFIArrowSchema();
-                FFIArrowSchema.ExportField(field, out exported_field);
+                var exported_field = new CArrowSchema();
+                CArrowSchema.ExportField(field, out exported_field);
 
                 // For Python, we need to provide the pointer
                 var exported_ptr = exported_field.AllocateAsPtr();
@@ -264,13 +264,13 @@ namespace Apache.Arrow.Tests
                 }
 
                 // Python should have called release once `exported_py_type` went out-of-scope.
-                var ffi_schema = Marshal.PtrToStructure<FFIArrowSchema>(exported_ptr);
+                var ffi_schema = Marshal.PtrToStructure<CArrowSchema>(exported_ptr);
                 Assert.Null(ffi_schema.name);
                 Assert.Null(ffi_schema.release);
                 Assert.Null(ffi_schema.format);
 
                 // Since we allocated, we are responsible for freeing the pointer.
-                FFIArrowSchema.FreePtr(exported_ptr);
+                CArrowSchema.FreePtr(exported_ptr);
             }
         }
 
@@ -281,8 +281,8 @@ namespace Apache.Arrow.Tests
             Schema schema = GetTestSchema();
             dynamic py_schema = GetPythonSchema();
 
-            var exported_schema = new FFIArrowSchema();
-            FFIArrowSchema.ExportSchema(schema, out exported_schema);
+            var exported_schema = new CArrowSchema();
+            CArrowSchema.ExportSchema(schema, out exported_schema);
 
             // For Python, we need to provide the pointer
             var exported_ptr = exported_schema.AllocateAsPtr();
@@ -295,7 +295,7 @@ namespace Apache.Arrow.Tests
             }
 
             // Since we allocated, we are responsible for freeing the pointer.
-            FFIArrowSchema.FreePtr(exported_ptr);
+            CArrowSchema.FreePtr(exported_ptr);
         }
 
     }
