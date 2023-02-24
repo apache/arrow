@@ -57,9 +57,6 @@ type SqlTestSuite struct {
 	TableName  string
 	Statements map[string]string
 
-	// Feature map of the backend
-	supportsNumInputs bool
-
 	createServer func() (flight.Server, string, error)
 	startServer  func(flight.Server) error
 	stopServer   func(flight.Server)
@@ -529,17 +526,16 @@ func (s *SqlTestSuite) TestTxRollback() {
 	_, err = tx.Exec(fmt.Sprintf(s.Statements["create table"], s.TableName))
 	require.NoError(t, err)
 
-	// Insert data in transaction
+	// Insert data
 	data := map[string]int{
 		"zero":      0,
 		"one":       1,
 		"minus one": -1,
 		"twelve":    12,
 	}
-
 	for k, v := range data {
-		query := fmt.Sprintf(s.Statements["insert"], s.TableName, k, v)
-		_, err := tx.Exec(query)
+		stmt := fmt.Sprintf(s.Statements["insert"], s.TableName, k, v)
+		_, err = tx.Exec(stmt)
 		require.NoError(t, err)
 	}
 
@@ -549,20 +545,95 @@ func (s *SqlTestSuite) TestTxRollback() {
 	// Check result
 	tbls := `SELECT name FROM sqlite_schema WHERE type ='table' AND name NOT LIKE 'sqlite_%';`
 	tblrows, err := db.Query(tbls)
-	if err == nil {
-		require.NoError(t, err)
-		var tables []string
-		for tblrows.Next() {
-			var name string
-			require.NoError(t, tblrows.Scan(&name))
-			tables = append(tables, name)
-		}
-		require.NoError(t, db.Close())
+	require.ErrorIs(t, err, io.EOF)
+	require.Nil(t, tblrows)
+	require.NoError(t, db.Close())
 
-		require.NotContains(t, tables, s.TableName)
-	} else {
-		require.ErrorIs(t, err, io.EOF)
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
+func (s *SqlTestSuite) TestTxCommit() {
+	t := s.T()
+
+	// Create and start the server
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+	defer s.stopServer(server)
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+	dsn, err := cfg.ToDSN()
+	require.NoError(t, err)
+
+	// Actual test
+	db, err := sql.Open("flightsql", dsn)
+	require.NoError(t, err)
+	defer db.Close()
+
+	tx, err := db.Begin()
+	require.NoError(t, err)
+
+	// Create the table
+	_, err = tx.Exec(fmt.Sprintf(s.Statements["create table"], s.TableName))
+	require.NoError(t, err)
+
+	// Insert data
+	data := map[string]int{
+		"zero":      0,
+		"one":       1,
+		"minus one": -1,
+		"twelve":    12,
 	}
+	for k, v := range data {
+		stmt := fmt.Sprintf(s.Statements["insert"], s.TableName, k, v)
+		_, err = tx.Exec(stmt)
+		require.NoError(t, err)
+	}
+
+	// Commit the transaction
+	require.NoError(t, tx.Commit())
+
+	// Check if the table exists
+	tbls := `SELECT name FROM sqlite_schema WHERE type ='table' AND name NOT LIKE 'sqlite_%';`
+	rows, err := db.Query(tbls)
+	require.NoError(t, err)
+
+	var tables []string
+	for rows.Next() {
+		var name string
+		require.NoError(t, rows.Scan(&name))
+		tables = append(tables, name)
+	}
+	require.Contains(t, tables, "drivertest")
+
+	// Check the actual data
+	stmt, err := db.Prepare(fmt.Sprintf(s.Statements["query"], s.TableName))
+	require.NoError(t, err)
+
+	rows, err = stmt.Query()
+	require.NoError(t, err)
+
+	// Check result
+	actual := make(map[string]int, len(data))
+	for rows.Next() {
+		var name string
+		var id, value int
+		require.NoError(t, rows.Scan(&id, &name, &value))
+		actual[name] = value
+	}
+	require.NoError(t, db.Close())
+	require.EqualValues(t, data, actual)
 
 	// Tear-down server
 	s.stopServer(server)
