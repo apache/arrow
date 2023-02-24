@@ -35,7 +35,7 @@ namespace Apache.Arrow.C
     /// This is used to export <see cref="ArrowType"/>, <see cref="Field"/>, or
     /// <see cref="Schema"/> to other languages. It matches the layout of the
     /// ArrowSchema struct described in https://github.com/apache/arrow/blob/main/cpp/src/arrow/c/abi.h.
-    /// </remarks
+    /// </remarks>
     [StructLayout(LayoutKind.Sequential)]
     unsafe public struct CArrowSchema
     {
