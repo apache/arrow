@@ -774,7 +774,7 @@ TEST(Substrait, CallExtensionFunction) {
   }
 }
 
-TEST(Substrait, CallCast) {
+TEST(Substrait, Cast) {
   ExtensionSet ext_set;
   ConversionOptions conversion_options;
 
