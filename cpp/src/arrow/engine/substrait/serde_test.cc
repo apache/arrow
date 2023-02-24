@@ -781,8 +781,8 @@ TEST(Substrait, Cast) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Expression", R"({
   "selection": {
-      "directReference": {
-        "structField": {
+      "direct_reference": {
+        "struct_field": {
           "field": 0
         }
       },
@@ -823,8 +823,8 @@ TEST(Substrait, CastRequiresFailureBehavior) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Expression", R"({
   "selection": {
-      "directReference": {
-        "structField": {
+      "direct_reference": {
+        "struct_field": {
           "field": 0
         }
       },
@@ -863,8 +863,8 @@ TEST(Substrait, CallCastNonNullableFails) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Expression", R"({
   "selection": {
-      "directReference": {
-        "structField": {
+      "direct_reference": {
+        "struct_field": {
           "field": 0
         }
       },
