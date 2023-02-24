@@ -213,12 +213,13 @@ Result<FileInfo> StatFile(const std::string& path) {
 
 #endif
 
-Result<FileInfo> IdentifyFile(const std::string& path) {
+Result<FileInfo> IdentifyFile(const std::filesystem::path path) {
   FileInfo info;
 
   if (std::filesystem::is_directory(path)) {
     info.set_type(FileType::Directory);
-  } else if (std::filesystem::is_regular_file(path) || std::filesystem::is_symlink(path)) {
+  } else if (std::filesystem::is_regular_file(path) ||
+             std::filesystem::is_symlink(path)) {
     info.set_type(FileType::File);
   } else {
     info.set_type(FileType::Unknown);
@@ -226,7 +227,8 @@ Result<FileInfo> IdentifyFile(const std::string& path) {
 
   info.set_mtime(kNoTime);
   info.set_size(kNoSize);
-  info.set_path(path);
+  // TODO does it need to be wstring in windows?
+  info.set_path(path.generic_string());
 
   return info;
 }
@@ -247,12 +249,7 @@ Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
 
   for (const auto& child_fn : *result) {
     PlatformFilename full_fn = dir_fn.Join(child_fn);
-    FileInfo info;
-    if (select.needs_extended_file_info == true) {
-      ARROW_ASSIGN_OR_RAISE(info, StatFile(full_fn.ToNative()));
-    } else {
-      ARROW_ASSIGN_OR_RAISE(info, IdentifyFile(full_fn.ToNative()));
-    }
+    ARROW_ASSIGN_OR_RAISE(FileInfo info, StatFile(full_fn.ToNative()));
     if (info.type() != FileType::NotFound) {
       out->push_back(std::move(info));
     }
@@ -261,6 +258,29 @@ Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
       RETURN_NOT_OK(StatSelector(full_fn, select, nesting_depth + 1, out));
     }
   }
+  return Status::OK();
+}
+
+Status IdentifyFileSelector(const PlatformFilename& dir_fn, const FileSelector& select,
+                            int32_t nesting_depth, std::vector<FileInfo>* out) {
+  // TODO handle case where it does not exist
+  auto result = std::filesystem::directory_iterator(dir_fn.ToString());
+
+  for (const auto& path : result) {
+    ARROW_ASSIGN_OR_RAISE(FileInfo info, IdentifyFile(path));
+
+    if (info.type() != FileType::NotFound) {
+      out->push_back(std::move(info));
+    }
+    if (nesting_depth < select.max_recursion && select.recursive &&
+        info.type() == FileType::Directory) {
+      // TODO again, does the Windows wstring case need to be handledS
+      ARROW_ASSIGN_OR_RAISE(auto path_pf,
+                            PlatformFilename::FromString(path.path().generic_string()));
+      RETURN_NOT_OK(IdentifyFileSelector(path_pf, select, nesting_depth + 1, out));
+    }
+  }
+
   return Status::OK();
 }
 
@@ -334,7 +354,11 @@ Result<std::vector<FileInfo>> LocalFileSystem::GetFileInfo(const FileSelector& s
   RETURN_NOT_OK(ValidatePath(select.base_dir));
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(select.base_dir));
   std::vector<FileInfo> results;
-  RETURN_NOT_OK(StatSelector(fn, select, 0, &results));
+  if (select.needs_extended_file_info == true) {
+    RETURN_NOT_OK(StatSelector(fn, select, 0, &results));
+  } else {
+    RETURN_NOT_OK(IdentifyFileSelector(fn, select, 0, &results));
+  }
   return results;
 }
 
