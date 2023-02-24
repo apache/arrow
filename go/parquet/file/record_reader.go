@@ -86,6 +86,7 @@ type RecordReader interface {
 type BinaryRecordReader interface {
 	RecordReader
 	GetBuilderChunks() []arrow.Array
+	ReadDictionary() bool
 }
 
 // recordReaderImpl is the internal interface implemented for different types
@@ -111,6 +112,7 @@ type recordReaderImpl interface {
 type binaryRecordReaderImpl interface {
 	recordReaderImpl
 	GetBuilderChunks() []arrow.Array
+	ReadDictionary() bool
 }
 
 // primitiveRecordReader is a record reader for primitive types, ie: not byte array or fixed len byte array
@@ -321,6 +323,10 @@ type recordReader struct {
 // binaryRecordReader is the recordReaderImpl for non-primitive data
 type binaryRecordReader struct {
 	*recordReader
+}
+
+func (b *binaryRecordReader) ReadDictionary() bool {
+	return b.recordReaderImpl.(binaryRecordReaderImpl).ReadDictionary()
 }
 
 func (b *binaryRecordReader) GetBuilderChunks() []arrow.Array {
@@ -723,6 +729,8 @@ func (fr *flbaRecordReader) GetBuilderChunks() []arrow.Array {
 	return []arrow.Array{fr.bldr.NewArray()}
 }
 
+func (fr *flbaRecordReader) ReadDictionary() bool { return false }
+
 func newFLBARecordReader(descr *schema.Column, info LevelInfo, mem memory.Allocator, bufferPool *sync.Pool) RecordReader {
 	if mem == nil {
 		mem = memory.DefaultAllocator
@@ -747,7 +755,7 @@ func newFLBARecordReader(descr *schema.Column, info LevelInfo, mem memory.Alloca
 type byteArrayRecordReader struct {
 	primitiveRecordReader
 
-	bldr     *array.BinaryBuilder
+	bldr     array.Builder
 	valueBuf []parquet.ByteArray
 }
 
@@ -803,9 +811,19 @@ func (br *byteArrayRecordReader) ReadValuesDense(toRead int64) error {
 		return err
 	}
 
-	for _, val := range values {
-		br.bldr.Append(val)
+	switch bldr := br.bldr.(type) {
+	case *array.BinaryBuilder:
+		for _, val := range values {
+			bldr.Append(val)
+		}
+	case *array.BinaryDictionaryBuilder:
+		for _, val := range values {
+			if err := bldr.Append(val); err != nil {
+				return err
+			}
+		}
 	}
+
 	br.ResetValues()
 	return nil
 }
@@ -825,13 +843,27 @@ func (br *byteArrayRecordReader) ReadValuesSpaced(valuesWithNulls, nullCount int
 		return err
 	}
 
-	for idx, val := range values {
-		if bitutil.BitIsSet(validBits, int(offset)+idx) {
-			br.bldr.Append(val)
-		} else {
-			br.bldr.AppendNull()
+	switch bldr := br.bldr.(type) {
+	case *array.BinaryBuilder:
+		for idx, val := range values {
+			if bitutil.BitIsSet(validBits, int(offset)+idx) {
+				bldr.Append(val)
+			} else {
+				bldr.AppendNull()
+			}
+		}
+	case *array.BinaryDictionaryBuilder:
+		for idx, val := range values {
+			if bitutil.BitIsSet(validBits, int(offset)+idx) {
+				if err := bldr.Append(val); err != nil {
+					return err
+				}
+			} else {
+				bldr.AppendNull()
+			}
 		}
 	}
+
 	br.ResetValues()
 	return nil
 }
@@ -840,11 +872,111 @@ func (br *byteArrayRecordReader) GetBuilderChunks() []arrow.Array {
 	return []arrow.Array{br.bldr.NewArray()}
 }
 
-// TODO(mtopol): create optimized readers for dictionary types after ARROW-7286 is done
+func (br *byteArrayRecordReader) ReadDictionary() bool { return false }
+
+type byteArrayDictRecordReader struct {
+	byteArrayRecordReader
+
+	resultChunks []arrow.Array
+}
+
+func newByteArrayDictRecordReader(descr *schema.Column, info LevelInfo, dtype arrow.DataType, mem memory.Allocator, bufferPool *sync.Pool) RecordReader {
+	if mem == nil {
+		mem = memory.DefaultAllocator
+	}
+
+	dt := dtype.(*arrow.DictionaryType)
+	if _, ok := dt.ValueType.(arrow.BinaryDataType); !ok {
+		dt.ValueType = arrow.BinaryTypes.Binary
+	}
+
+	return &binaryRecordReader{&recordReader{
+		recordReaderImpl: &byteArrayDictRecordReader{
+			byteArrayRecordReader: byteArrayRecordReader{
+				createPrimitiveRecordReader(descr, mem, bufferPool),
+				array.NewDictionaryBuilder(mem, dt),
+				nil,
+			},
+			resultChunks: make([]arrow.Array, 0),
+		},
+		leafInfo:  info,
+		defLevels: memory.NewResizableBuffer(mem),
+		repLevels: memory.NewResizableBuffer(mem),
+		refCount:  1,
+	}}
+}
+
+func (bd *byteArrayDictRecordReader) GetBuilderChunks() []arrow.Array {
+	bd.flushBuilder()
+	chunks := bd.resultChunks
+	bd.resultChunks = make([]arrow.Array, 0, 1)
+	return chunks
+}
+
+func (bd *byteArrayDictRecordReader) flushBuilder() {
+	if bd.bldr.Len() > 0 {
+		chunk := bd.bldr.NewArray()
+		bd.resultChunks = append(bd.resultChunks, chunk)
+	}
+}
+
+func (bd *byteArrayDictRecordReader) maybeWriteNewDictionary() error {
+	rdr := bd.ColumnChunkReader.(*ByteArrayColumnChunkReader)
+	if rdr.newDictionary {
+		// if there is a new dictionary, we may need to flush the builder,
+		// then insert the new dictionary values
+		bd.flushBuilder()
+		bd.bldr.(*array.BinaryDictionaryBuilder).ResetFull()
+		dec := rdr.curDecoder.(*encoding.DictByteArrayDecoder)
+		if err := dec.InsertDictionary(bd.bldr); err != nil {
+			return err
+		}
+		rdr.newDictionary = false
+	}
+	return nil
+}
+
+func (bd *byteArrayDictRecordReader) ReadValuesDense(toRead int64) error {
+	dec := bd.ColumnChunkReader.(*ByteArrayColumnChunkReader).curDecoder.(encoding.ByteArrayDecoder)
+	if dec.Encoding() == parquet.Encodings.RLEDict {
+		if err := bd.maybeWriteNewDictionary(); err != nil {
+			return err
+		}
+
+		rdr := bd.ColumnChunkReader.(*ByteArrayColumnChunkReader)
+		_, err := rdr.curDecoder.(*encoding.DictByteArrayDecoder).DecodeIndices(int(toRead), bd.bldr)
+		return err
+	}
+	return bd.byteArrayRecordReader.ReadValuesDense(toRead)
+}
+
+func (bd *byteArrayDictRecordReader) ReadValuesSpaced(valuesWithNulls, nullCount int64) error {
+	validBits := bd.validBits.Bytes()
+	offset := bd.valuesWritten
+
+	dec := bd.ColumnChunkReader.(*ByteArrayColumnChunkReader).curDecoder.(encoding.ByteArrayDecoder)
+	if dec.Encoding() == parquet.Encodings.RLEDict {
+		if err := bd.maybeWriteNewDictionary(); err != nil {
+			return err
+		}
+
+		rdr := bd.ColumnChunkReader.(*ByteArrayColumnChunkReader)
+		_, err := rdr.curDecoder.(*encoding.DictByteArrayDecoder).DecodeIndicesSpaced(int(valuesWithNulls), int(nullCount), validBits, offset, bd.bldr)
+		return err
+
+	}
+
+	return bd.byteArrayRecordReader.ReadValuesSpaced(valuesWithNulls, int64(nullCount))
+}
+
+func (bd *byteArrayDictRecordReader) ReadDictionary() bool { return true }
 
 func NewRecordReader(descr *schema.Column, info LevelInfo, dtype arrow.DataType, mem memory.Allocator, bufferPool *sync.Pool) RecordReader {
 	switch descr.PhysicalType() {
 	case parquet.Types.ByteArray:
+		if dtype.ID() == arrow.DICTIONARY {
+			return newByteArrayDictRecordReader(descr, info, dtype, mem, bufferPool)
+		}
 		return newByteArrayRecordReader(descr, info, dtype, mem, bufferPool)
 	case parquet.Types.FixedLenByteArray:
 		return newFLBARecordReader(descr, info, mem, bufferPool)

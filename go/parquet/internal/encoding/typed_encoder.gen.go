@@ -19,9 +19,11 @@
 package encoding
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/apache/arrow/go/v12/internal/bitutils"
 	shared_utils "github.com/apache/arrow/go/v12/internal/utils"
@@ -154,6 +156,29 @@ func (enc *DictInt32Encoder) PutSpaced(in []int32, validBits []byte, validBitsOf
 		}
 		return nil
 	})
+}
+
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *DictInt32Encoder) PutDictionary(values arrow.Array) error {
+	if err := enc.canPutDictionary(values); err != nil {
+		return err
+	}
+
+	enc.dictEncodedSize += values.Len() * arrow.Int32SizeBytes
+	data := values.(*array.Int32).Int32Values()
+	for _, v := range data {
+		if _, _, err := enc.memo.GetOrInsert(v); err != nil {
+			return err
+		}
+	}
+
+	values.Retain()
+	enc.preservedDict = values
+	return nil
 }
 
 // DictInt32Decoder is a decoder for decoding dictionary encoded data for int32 columns
@@ -372,6 +397,29 @@ func (enc *DictInt64Encoder) PutSpaced(in []int64, validBits []byte, validBitsOf
 	})
 }
 
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *DictInt64Encoder) PutDictionary(values arrow.Array) error {
+	if err := enc.canPutDictionary(values); err != nil {
+		return err
+	}
+
+	enc.dictEncodedSize += values.Len() * arrow.Int64SizeBytes
+	data := values.(*array.Int64).Int64Values()
+	for _, v := range data {
+		if _, _, err := enc.memo.GetOrInsert(v); err != nil {
+			return err
+		}
+	}
+
+	values.Retain()
+	enc.preservedDict = values
+	return nil
+}
+
 // DictInt64Decoder is a decoder for decoding dictionary encoded data for int64 columns
 type DictInt64Decoder struct {
 	dictDecoder
@@ -580,6 +628,15 @@ func (enc *DictInt96Encoder) PutSpaced(in []parquet.Int96, validBits []byte, val
 	})
 }
 
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *DictInt96Encoder) PutDictionary(arrow.Array) error {
+	return fmt.Errorf("%w: direct PutDictionary to Int96", arrow.ErrNotImplemented)
+}
+
 // DictInt96Decoder is a decoder for decoding dictionary encoded data for parquet.Int96 columns
 type DictInt96Decoder struct {
 	dictDecoder
@@ -784,6 +841,29 @@ func (enc *DictFloat32Encoder) PutSpaced(in []float32, validBits []byte, validBi
 	})
 }
 
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *DictFloat32Encoder) PutDictionary(values arrow.Array) error {
+	if err := enc.canPutDictionary(values); err != nil {
+		return err
+	}
+
+	enc.dictEncodedSize += values.Len() * arrow.Float32SizeBytes
+	data := values.(*array.Float32).Float32Values()
+	for _, v := range data {
+		if _, _, err := enc.memo.GetOrInsert(v); err != nil {
+			return err
+		}
+	}
+
+	values.Retain()
+	enc.preservedDict = values
+	return nil
+}
+
 // DictFloat32Decoder is a decoder for decoding dictionary encoded data for float32 columns
 type DictFloat32Decoder struct {
 	dictDecoder
@@ -986,6 +1066,29 @@ func (enc *DictFloat64Encoder) PutSpaced(in []float64, validBits []byte, validBi
 		}
 		return nil
 	})
+}
+
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *DictFloat64Encoder) PutDictionary(values arrow.Array) error {
+	if err := enc.canPutDictionary(values); err != nil {
+		return err
+	}
+
+	enc.dictEncodedSize += values.Len() * arrow.Float64SizeBytes
+	data := values.(*array.Float64).Float64Values()
+	for _, v := range data {
+		if _, _, err := enc.memo.GetOrInsert(v); err != nil {
+			return err
+		}
+	}
+
+	values.Retain()
+	enc.preservedDict = values
+	return nil
 }
 
 // DictFloat64Decoder is a decoder for decoding dictionary encoded data for float64 columns
