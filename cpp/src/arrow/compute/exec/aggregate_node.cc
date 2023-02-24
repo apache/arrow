@@ -771,7 +771,7 @@ class GroupByNode : public ExecNode, public TracedNode {
     ARROW_ASSIGN_OR_RAISE(out_data_, Finalize());
 
     int64_t num_output_batches = bit_util::CeilDiv(out_data_.length, output_batch_size());
-    total_output_batches_ += num_output_batches;
+    total_output_batches_ += static_cast<int>(num_output_batches);
     if (is_last) {
       ARROW_RETURN_NOT_OK(output_->InputFinished(this, total_output_batches_));
       RETURN_NOT_OK(plan_->query_context()->StartTaskGroup(output_task_group_id_,
