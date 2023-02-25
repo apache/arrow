@@ -191,10 +191,11 @@ Status HandleSegments(std::unique_ptr<GroupingSegmenter>& segmenter,
                       const ExecBatch& batch, const std::vector<int>& ids,
                       const BatchHandler& handle_batch) {
   int64_t offset = 0;
-  ARROW_ASSIGN_OR_RAISE(auto segment_batch, batch.SelectValues(ids));
+  ARROW_ASSIGN_OR_RAISE(auto segment_exec_batch, batch.SelectValues(ids));
+  ExecSpan segment_batch(segment_exec_batch);
   while (true) {
     ARROW_ASSIGN_OR_RAISE(auto segment, segmenter->GetNextSegment(segment_batch, offset));
-    if (segment.offset >= segment_batch.length) break;
+    if (segment.offset >= segment_batch.length) break;  // condition of no-next-segment
     ARROW_RETURN_NOT_OK(handle_batch(batch, segment));
     offset = segment.offset + segment.length;
   }
@@ -247,7 +248,16 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
         target_fieldsets_(std::move(target_fieldsets)),
         aggs_(std::move(aggs)),
         kernels_(std::move(kernels)),
-        states_(std::move(states)) {}
+        states_(std::move(states)) {
+    const auto& input_schema = *this->inputs()[0]->output_schema();
+    for (size_t i = 0; i < kernels_.size(); ++i) {
+      std::vector<TypeHolder> in_types;
+      for (const auto& target : target_fieldsets_[i]) {
+        in_types.emplace_back(input_schema.field(target)->type().get());
+      }
+      in_typesets_.push_back(std::move(in_types));
+    }
+  }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -429,13 +439,9 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
 
  private:
   Status ResetAggregates() {
-    const auto& input_schema = *inputs()[0]->output_schema();
     auto exec_ctx = plan()->query_context()->exec_context();
     for (size_t i = 0; i < kernels_.size(); ++i) {
-      std::vector<TypeHolder> in_types;
-      for (const auto& target : target_fieldsets_[i]) {
-        in_types.emplace_back(input_schema.field(target)->type().get());
-      }
+      const std::vector<TypeHolder>& in_types = in_typesets_[i];
       states_[i].resize(plan()->query_context()->max_concurrency());
       KernelContext kernel_ctx{exec_ctx};
       RETURN_NOT_OK(Kernel::InitAll(
@@ -481,6 +487,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
   const std::vector<Aggregate> aggs_;
   const std::vector<const ScalarAggregateKernel*> kernels_;
 
+  std::vector<std::vector<TypeHolder>> in_typesets_;
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
 
   AtomicCounter input_counter_;

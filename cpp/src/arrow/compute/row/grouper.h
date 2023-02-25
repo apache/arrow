@@ -91,10 +91,6 @@ class ARROW_EXPORT GroupingSegmenter {
   /// \brief Get the next segment for the given batch starting from the given offset
   virtual Result<GroupingSegment> GetNextSegment(const ExecSpan& batch,
                                                  int64_t offset) = 0;
-
-  /// \brief Get the next segment for the given batch starting from the given offset
-  virtual Result<GroupingSegment> GetNextSegment(const ExecBatch& batch,
-                                                 int64_t offset) = 0;
 };
 
 /// Consumes batches of keys and yields batches of the group ids.

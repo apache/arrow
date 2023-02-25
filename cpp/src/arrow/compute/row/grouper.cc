@@ -136,19 +136,9 @@ struct NoKeysGroupingSegmenter : public BaseGroupingSegmenter {
 
   Status Reset() override { return Status::OK(); }
 
-  template <typename Batch>
-  Result<GroupingSegment> GetNextSegmentImpl(const Batch& batch, int64_t offset) {
+  Result<GroupingSegment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
     ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {}));
     return MakeSegment(batch.length, offset, batch.length - offset, kDefaultExtends);
-  }
-
-  Result<GroupingSegment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
-    return GetNextSegmentImpl(batch, offset);
-  }
-
-  Result<GroupingSegment> GetNextSegment(const ExecBatch& batch,
-                                         int64_t offset) override {
-    return GetNextSegmentImpl(batch, offset);
   }
 };
 
@@ -223,26 +213,6 @@ struct SimpleKeyGroupingSegmenter : public BaseGroupingSegmenter {
     return GetNextSegment(*array.type, GetValuesAsBytes(array), offset, batch.length);
   }
 
-  Result<GroupingSegment> GetNextSegment(const ExecBatch& batch,
-                                         int64_t offset) override {
-    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {key_type_}));
-    if (offset == batch.length) {
-      return MakeSegment(batch.length, offset, 0, kEmptyExtends);
-    }
-    const auto& value = batch.values[0];
-    if (value.is_scalar()) {
-      return GetNextSegment(*value.scalar(), offset, batch.length);
-    }
-    if (value.is_array()) {
-      auto array = value.array();
-      if (array->GetNullCount() > 0) {
-        return Status::NotImplemented("segmenting a nullable array");
-      }
-      return GetNextSegment(*array->type, GetValuesAsBytes(*array), offset, batch.length);
-    }
-    return Status::Invalid("segmenting unsupported value kind ", value.kind());
-  }
-
  private:
   TypeHolder key_type_;
   std::vector<uint8_t> save_key_data_;
@@ -275,6 +245,8 @@ struct AnyKeysGroupingSegmenter : public BaseGroupingSegmenter {
     return extends;
   }
 
+  // Runs the grouper on a single row.  This is used to determine the group id of the
+  // first row of a new segment to see if it extends the previous segment.
   template <typename Batch>
   Result<group_id_t> MapGroupIdAt(const Batch& batch, int64_t offset) {
     if (!grouper_) return kNoGroupId;
@@ -283,8 +255,7 @@ struct AnyKeysGroupingSegmenter : public BaseGroupingSegmenter {
     if (!datum.is_array()) {
       return Status::Invalid("accessing unsupported datum kind ", datum.kind());
     }
-    const std::shared_ptr<ArrayData>& data =
-        datum.is_array() ? datum.array() : datum.chunked_array()->chunk(0)->data();
+    const std::shared_ptr<ArrayData>& data = datum.array();
     ARROW_DCHECK(data->GetNullCount() == 0);
     DCHECK_EQ(data->type->id(), GroupIdType::type_id);
     DCHECK_EQ(1, data->length);
@@ -292,8 +263,7 @@ struct AnyKeysGroupingSegmenter : public BaseGroupingSegmenter {
     return values[0];
   }
 
-  template <typename Batch>
-  Result<GroupingSegment> GetNextSegmentImpl(const Batch& batch, int64_t offset) {
+  Result<GroupingSegment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
     ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, key_types_));
     if (offset == batch.length) {
       return MakeSegment(batch.length, offset, 0, kEmptyExtends);
@@ -326,15 +296,6 @@ struct AnyKeysGroupingSegmenter : public BaseGroupingSegmenter {
     } else {
       return Status::Invalid("segmenting unsupported datum kind ", datum.kind());
     }
-  }
-
-  Result<GroupingSegment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
-    return GetNextSegmentImpl(batch, offset);
-  }
-
-  Result<GroupingSegment> GetNextSegment(const ExecBatch& batch,
-                                         int64_t offset) override {
-    return GetNextSegmentImpl(batch, offset);
   }
 
  private:
