@@ -731,9 +731,18 @@ func (r *Reader) parseList(field array.Builder, str string) {
 		field.AppendNull()
 		return
 	}
+	if !(strings.HasPrefix(str, "{") || strings.HasSuffix(str, "}")) {
+		r.err = errors.New("invalid list format. should start with '{' and end with '}'")
+		field.AppendNull()
+		return
+	}
 	str = strings.TrimPrefix(str, "{")
 	str = strings.TrimSuffix(str, "}")
 	strs := strings.Split(str, ",")
+	if len(strs) == 0 {
+		field.AppendNull()
+		return
+	}
 	listBldr := field.(*array.ListBuilder)
 	listBldr.Append(true)
 	valueBldr := listBldr.ValueBuilder()
