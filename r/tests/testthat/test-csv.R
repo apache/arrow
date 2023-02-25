@@ -714,7 +714,7 @@ test_that("skip_rows and skip_rows_after_names option", {
       txt_raw,
       read_options = list(skip_rows_after_names = 10)
     ),
-    tibble::tibble(a = unspecified())
+    tibble::tibble(a = vctrs::unspecified())
   )
   expect_identical(
     read_csv_arrow(
