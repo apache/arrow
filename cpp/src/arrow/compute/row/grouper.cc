@@ -55,12 +55,6 @@ using group_id_t = std::remove_const<decltype(kNoGroupId)>::type;
 using GroupIdType = CTypeTraits<group_id_t>::ArrowType;
 auto group_id_type = std::make_shared<GroupIdType>();
 
-inline const uint8_t* GetValuesAsBytes(const ArrayData& data, int64_t offset = 0) {
-  DCHECK_GT(data.type->byte_width(), 0);
-  int64_t absolute_byte_offset = (data.offset + offset) * data.type->byte_width();
-  return data.GetValues<uint8_t>(1, absolute_byte_offset);
-}
-
 inline const uint8_t* GetValuesAsBytes(const ArraySpan& data, int64_t offset = 0) {
   DCHECK_GT(data.type->byte_width(), 0);
   int64_t absolute_byte_offset = (data.offset + offset) * data.type->byte_width();
