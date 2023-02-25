@@ -4855,6 +4855,9 @@ macro(build_awssdk)
   if("s2n-tls" IN_LIST _AWSSDK_LIBS)
     set(AWS_LC_C_FLAGS ${EP_C_FLAGS})
     string(APPEND AWS_LC_C_FLAGS " -Wno-error=overlength-strings -Wno-error=pedantic")
+    # Link time optimization is causing trouble like #34349
+    string(REPLACE "-flto=auto" "" AWS_LC_C_FLAGS "${AWS_LC_C_FLAGS}")
+    string(REPLACE "-ffat-lto-objects" "" AWS_LC_C_FLAGS "${AWS_LC_C_FLAGS}")
 
     set(AWS_LC_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
     list(APPEND AWS_LC_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
