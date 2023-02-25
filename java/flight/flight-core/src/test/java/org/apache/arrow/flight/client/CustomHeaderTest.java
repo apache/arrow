@@ -17,10 +17,28 @@
 
 package org.apache.arrow.flight.client;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
-import org.apache.arrow.flight.*;
+import org.apache.arrow.flight.Action;
+import org.apache.arrow.flight.CallHeaders;
+import org.apache.arrow.flight.CallInfo;
+import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.Criteria;
+import org.apache.arrow.flight.FlightCallHeaders;
+import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClient.ClientStreamListener;
+import org.apache.arrow.flight.FlightDescriptor;
+import org.apache.arrow.flight.FlightMethod;
+import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.FlightServerMiddleware;
+import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.FlightTestUtil;
+import org.apache.arrow.flight.HeaderCallOption;
+import org.apache.arrow.flight.NoOpFlightProducer;
+import org.apache.arrow.flight.RequestContext;
+import org.apache.arrow.flight.SyncPutListener;
+import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -32,7 +50,7 @@ import org.junit.Test;
 
 
 /**
- * Tests to ensure custom headers are passed along to the server for each command
+ * Tests to ensure custom headers are passed along to the server for each command.
  */
 public class CustomHeaderTest {
   FlightServer server;
@@ -55,11 +73,10 @@ public class CustomHeaderTest {
       callHeaders.insert(entry.getKey(), entry.getValue());
     }
     headers = new HeaderCallOption(callHeaders);
-    server = FlightTestUtil.getStartedServer(
-            location -> FlightServer.builder(allocator, location, new NoOpFlightProducer())
+    server = FlightTestUtil.getStartedServer(location ->
+            FlightServer.builder(allocator, location, new NoOpFlightProducer())
                     .middleware(FlightServerMiddleware.Key.of("customHeader"), headersMiddleware)
-                    .build()
-    );
+                    .build());
     client = FlightClient.builder(allocator, server.getLocation()).build();
   }
 
@@ -73,7 +90,7 @@ public class CustomHeaderTest {
   public void testHandshake() {
     try {
       client.handshake(headers);
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) { }
 
     assertHeadersMatch(FlightMethod.HANDSHAKE);
   }
@@ -82,7 +99,7 @@ public class CustomHeaderTest {
   public void testGetSchema() {
     try {
       client.getSchema(FlightDescriptor.command(new byte[0]), headers);
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) { }
 
     assertHeadersMatch(FlightMethod.GET_SCHEMA);
   }
@@ -91,7 +108,7 @@ public class CustomHeaderTest {
   public void testGetFlightInfo() {
     try {
       client.getInfo(FlightDescriptor.command(new byte[0]), headers);
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) { }
 
     assertHeadersMatch(FlightMethod.GET_FLIGHT_INFO);
   }
@@ -100,7 +117,7 @@ public class CustomHeaderTest {
   public void testListActions() {
     try {
       client.listActions(headers).iterator().next();
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) { }
 
     assertHeadersMatch(FlightMethod.LIST_ACTIONS);
   }
@@ -109,7 +126,7 @@ public class CustomHeaderTest {
   public void testListFlights() {
     try {
       client.listFlights(new Criteria(new byte[]{1}), headers).iterator().next();
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) { }
 
     assertHeadersMatch(FlightMethod.LIST_FLIGHTS);
   }
@@ -118,7 +135,7 @@ public class CustomHeaderTest {
   public void testDoAction() {
     try {
       client.doAction(new Action("test"), headers).next();
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) { }
 
     assertHeadersMatch(FlightMethod.DO_ACTION);
   }
@@ -130,7 +147,7 @@ public class CustomHeaderTest {
               new SyncPutListener(),
               headers);
       listener.getResult();
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) { }
 
     assertHeadersMatch(FlightMethod.DO_PUT);
   }
@@ -139,16 +156,19 @@ public class CustomHeaderTest {
   public void testGetStream() {
     try (final FlightStream stream = client.getStream(new Ticket(new byte[0]), headers)) {
       stream.next();
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) { }
 
     assertHeadersMatch(FlightMethod.DO_GET);
   }
 
   @Test
   public void testDoExchange() {
-    try (final FlightClient.ExchangeReaderWriter stream = client.doExchange(FlightDescriptor.command(new byte[0]), headers)) {
+    try (final FlightClient.ExchangeReaderWriter stream = client.doExchange(
+            FlightDescriptor.command(new byte[0]),
+            headers)
+    ) {
       String ignored = stream.toString();
-    } catch (Exception ignored){}
+    } catch (Exception ignored) { }
 
     assertHeadersMatch(FlightMethod.DO_EXCHANGE);
   }
@@ -158,6 +178,7 @@ public class CustomHeaderTest {
       Assert.assertEquals(entry.getValue(), headersMiddleware.getCustomHeader(method, entry.getKey()));
     }
   }
+  
   /**
    * A middleware used to test if customHeaders are being sent to the server properly.
    */
