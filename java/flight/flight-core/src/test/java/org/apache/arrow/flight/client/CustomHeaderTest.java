@@ -17,7 +17,6 @@
 
 package org.apache.arrow.flight.client;
 
-import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -48,6 +47,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.google.common.collect.ImmutableMap;
 
 
 /**
