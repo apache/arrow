@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight.client;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -58,7 +59,7 @@ public class CustomHeaderTest {
   BufferAllocator allocator;
   TestCustomHeaderMiddleware.Factory headersMiddleware;
   HeaderCallOption headers;
-  Map<String, String> testHeaders = Map.of(
+  Map<String, String> testHeaders = ImmutableMap.of(
           "foo", "bar",
           "bar", "foo",
           "answer", "42"
@@ -178,7 +179,7 @@ public class CustomHeaderTest {
       Assert.assertEquals(entry.getValue(), headersMiddleware.getCustomHeader(method, entry.getKey()));
     }
   }
-  
+
   /**
    * A middleware used to test if customHeaders are being sent to the server properly.
    */
