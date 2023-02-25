@@ -34,10 +34,12 @@ struct REETestData {
                           std::string expected_values_json,
                           std::string expected_run_ends_json, int64_t input_offset = 0) {
     auto input_array = ArrayFromJSON(data_type, input_json);
-    return {.input = input_array->Slice(input_offset),
-            .expected_values = ArrayFromJSON(data_type, expected_values_json),
-            .expected_run_ends_json = std::move(expected_run_ends_json),
-            .string = input_json};
+    REETestData result;
+    result.input = input_array->Slice(input_offset);
+    result.expected_values = ArrayFromJSON(data_type, expected_values_json);
+    result.expected_run_ends_json = std::move(expected_run_ends_json);
+    result.string = input_json;
+    return result;
   }
 
   template <typename ArrowType>
@@ -64,8 +66,8 @@ struct REETestData {
 
 }  // namespace
 
-class TestRunEndEncode : public ::testing::TestWithParam<
-                             std::tuple<REETestData, std::shared_ptr<DataType>>> {
+class TestRunEndEncodeDecode : public ::testing::TestWithParam<
+                                   std::tuple<REETestData, std::shared_ptr<DataType>>> {
  public:
   void AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
     auto& child = array->child_data[1];
@@ -76,7 +78,7 @@ class TestRunEndEncode : public ::testing::TestWithParam<
   }
 };
 
-TEST_P(TestRunEndEncode, EncodeDecodeArray) {
+TEST_P(TestRunEndEncodeDecode, EncodeDecodeArray) {
   auto [data, run_ends_type] = GetParam();
 
   ASSERT_OK_AND_ASSIGN(Datum encoded_datum,
@@ -110,12 +112,9 @@ TEST_P(TestRunEndEncode, EncodeDecodeArray) {
 // offset. This means The EncodeDecodeArray test will never actually decode an array
 // with an offset, even though we have inputs with offsets. This test slices one element
 // off the encoded array and decodes that.
-TEST_P(TestRunEndEncode, DecodeWithOffset) {
+TEST_P(TestRunEndEncodeDecode, DecodeWithOffset) {
   auto [data, run_ends_type] = GetParam();
   if (data.input->length() == 0) {
-    // this test slices off one run, so it makes no sense on a 0-length input.
-    // make sure to run it on an input with only one run to test the case where a 0-length
-    // slice is created.
     return;
   }
 
@@ -138,7 +137,7 @@ TEST_P(TestRunEndEncode, DecodeWithOffset) {
 
 // This test creates an run-end encoded array with an offset in the child array, which
 // removes the first run in the test data.
-TEST_P(TestRunEndEncode, DecodeWithOffsetInChildArray) {
+TEST_P(TestRunEndEncodeDecode, DecodeWithOffsetInChildArray) {
   auto [data, run_ends_type] = GetParam();
 
   ASSERT_OK_AND_ASSIGN(Datum encoded_datum,
@@ -153,7 +152,7 @@ TEST_P(TestRunEndEncode, DecodeWithOffsetInChildArray) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    EncodeArrayTests, TestRunEndEncode,
+    EncodeArrayTests, TestRunEndEncodeDecode,
     ::testing::Combine(
         ::testing::Values(
             REETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]",

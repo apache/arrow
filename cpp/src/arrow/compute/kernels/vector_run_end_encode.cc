@@ -27,263 +27,344 @@ namespace compute {
 namespace internal {
 
 template <typename ArrowType, bool has_validity_buffer>
-struct EncodeDecodeCommonExec {
+struct ReadValueImpl {
   using CType = typename ArrowType::c_type;
 
-  struct Element {
-    bool valid;
-    CType value;
-
-    bool operator!=(const Element& other) const {
-      return valid != other.valid || value != other.value;
+  [[nodiscard]] bool ReadValue(const uint8_t* input_validity, const void* input_values,
+                               CType* out, int64_t read_offset) const {
+    bool valid = true;
+    if constexpr (has_validity_buffer) {
+      valid = bit_util::GetBit(input_validity, read_offset);
     }
-  };
-
-  EncodeDecodeCommonExec(KernelContext* kernel_context, const ExecSpan& span,
-                         ExecResult* result)
-      : kernel_context{kernel_context},
-        input_array{span.values[0].array},
-        exec_result{result} {
-    ARROW_DCHECK(span.num_values() == 1);
+    if (valid) {
+      *out = (reinterpret_cast<const CType*>(input_values))[read_offset];
+    }
+    return valid;
   }
-
-  Element ReadValue() {
-    Element result;
-    if (has_validity_buffer) {
-      result.valid = bit_util::GetBit(input_validity, read_offset);
-    } else {
-      result.valid = true;
-    }
-    if (result.valid) {
-      result.value = (reinterpret_cast<const CType*>(input_values))[read_offset];
-    } else {
-      result.value = {};
-    }
-    return result;
-  }
-
-  void WriteValue(Element element) {
-    if (has_validity_buffer) {
-      bit_util::SetBitsTo(output_validity, write_offset, 1, element.valid);
-    }
-    (reinterpret_cast<CType*>(output_values))[write_offset] = element.value;
-  }
-
-  KernelContext* kernel_context;
-  const ArraySpan input_array;
-  ExecResult* exec_result;
-  const uint8_t* input_validity;
-  const void* input_values;
-  uint8_t* output_validity;
-  void* output_values;
-  // read offset is a physical index into the values buffer, including array offsets
-  int64_t read_offset;
-  int64_t write_offset;
 };
 
 template <>
-EncodeDecodeCommonExec<BooleanType, true>::Element
-EncodeDecodeCommonExec<BooleanType, true>::ReadValue() {
-  Element result;
-  result.valid = bit_util::GetBit(input_validity, read_offset);
-  if (result.valid) {
-    result.value =
-        bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), read_offset);
-  } else {
-    result.value = false;
+bool ReadValueImpl<BooleanType, true>::ReadValue(const uint8_t* input_validity,
+                                                 const void* input_values, CType* out,
+                                                 int64_t read_offset) const {
+  const bool valid = bit_util::GetBit(input_validity, read_offset);
+  *out = valid &&
+         bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), read_offset);
+  return valid;
+}
+
+template <>
+bool ReadValueImpl<BooleanType, false>::ReadValue(const uint8_t* input_validity,
+                                                  const void* input_values, CType* out,
+                                                  int64_t read_offset) const {
+  *out = bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), read_offset);
+  return true;
+}
+
+template <typename ArrowType, bool has_validity_buffer>
+struct WriteValueImpl {
+  using CType = typename ArrowType::c_type;
+
+  void WriteValue(uint8_t* output_validity, void* output_values, int64_t write_offset,
+                  bool valid, CType value) const {
+    if constexpr (has_validity_buffer) {
+      bit_util::SetBitsTo(output_validity, write_offset, 1, valid);
+    }
+    (reinterpret_cast<CType*>(output_values))[write_offset] = value;
   }
-  return result;
-}
+
+  void WriteRun(uint8_t* output_validity, void* output_values, int64_t write_offset,
+                int64_t run_length, bool valid, CType value) const {
+    if constexpr (has_validity_buffer) {
+      bit_util::SetBitsTo(output_validity, write_offset, run_length, valid);
+    }
+    auto* output_values_c = reinterpret_cast<CType*>(output_values);
+    std::fill(output_values_c + write_offset, output_values_c + write_offset + run_length,
+              value);
+  }
+};
 
 template <>
-EncodeDecodeCommonExec<BooleanType, false>::Element
-EncodeDecodeCommonExec<BooleanType, false>::ReadValue() {
-  return {true,
-          bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), read_offset)};
-}
-
-template <>
-void EncodeDecodeCommonExec<BooleanType, true>::WriteValue(Element element) {
-  bit_util::SetBitTo(output_validity, write_offset, element.valid);
-  if (element.valid) {
-    bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), write_offset,
-                       element.value);
+void WriteValueImpl<BooleanType, true>::WriteValue(uint8_t* output_validity,
+                                                   void* output_values,
+                                                   int64_t write_offset, bool valid,
+                                                   CType value) const {
+  bit_util::SetBitTo(output_validity, write_offset, valid);
+  if (valid) {
+    bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), write_offset, value);
   }
 }
 
 template <>
-void EncodeDecodeCommonExec<BooleanType, false>::WriteValue(Element element) {
-  bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), write_offset,
-                     element.value);
+void WriteValueImpl<BooleanType, true>::WriteRun(uint8_t* output_validity,
+                                                 void* output_values,
+                                                 int64_t write_offset, int64_t run_length,
+                                                 bool valid, CType value) const {
+  bit_util::SetBitsTo(output_validity, write_offset, run_length, valid);
+  if (valid) {
+    bit_util::SetBitsTo(reinterpret_cast<uint8_t*>(output_values), write_offset,
+                        run_length, value);
+  }
 }
 
-struct RunEndEncodeState : public KernelState {
-  explicit RunEndEncodeState(std::shared_ptr<DataType> run_end_type)
+template <>
+void WriteValueImpl<BooleanType, false>::WriteValue(uint8_t*, void* output_values,
+                                                    int64_t write_offset, bool,
+                                                    CType value) const {
+  bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), write_offset, value);
+}
+
+template <>
+void WriteValueImpl<BooleanType, false>::WriteRun(uint8_t*, void* output_values,
+                                                  int64_t write_offset,
+                                                  int64_t run_length, bool,
+                                                  CType value) const {
+  bit_util::SetBitsTo(reinterpret_cast<uint8_t*>(output_values), write_offset, run_length,
+                      value);
+}
+
+struct RunEndEncondingState : public KernelState {
+  explicit RunEndEncondingState(std::shared_ptr<DataType> run_end_type)
       : run_end_type{std::move(run_end_type)} {}
+
+  ~RunEndEncondingState() override = default;
 
   std::shared_ptr<DataType> run_end_type;
 };
 
-template <typename ArrowType, typename RunEndsType, bool has_validity_buffer>
-struct RunEndEncodeExec : public EncodeDecodeCommonExec<ArrowType, has_validity_buffer> {
-  using EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::EncodeDecodeCommonExec;
-  using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::CType;
-  using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::Element;
-  using RunEndsCType = typename RunEndsType::c_type;
+template <typename RunEndType, typename ValueType, bool has_validity_buffer>
+class RunEndEncodingLoop {
+ public:
+  using RunEndCType = typename RunEndType::c_type;
+  using CType = typename ValueType::c_type;
+
+ private:
+  const int64_t input_length_;
+  const int64_t input_offset_;
+
+  const uint8_t* input_validity_;
+  const void* input_values_;
+
+  // Needed only by WriteEncodedRuns()
+  uint8_t* output_validity_;
+  void* output_values_;
+  RunEndCType* output_run_ends_;
+
+ public:
+  RunEndEncodingLoop(int64_t input_length, int64_t input_offset,
+                     const uint8_t* input_validity, const void* input_values,
+                     uint8_t* output_validity = NULLPTR, void* output_values = NULLPTR,
+                     RunEndCType* output_run_ends = NULLPTR)
+      : input_length_(input_length),
+        input_offset_(input_offset),
+        input_validity_(input_validity),
+        input_values_(input_values),
+        output_validity_(output_validity),
+        output_values_(output_values),
+        output_run_ends_(output_run_ends) {
+    DCHECK_GT(input_length, 0);
+  }
+
+ private:
+  [[nodiscard]] inline bool ReadValue(CType* out, int64_t read_offset) const {
+    return ReadValueImpl<ValueType, has_validity_buffer>{}.ReadValue(
+        input_validity_, input_values_, out, read_offset);
+  }
+
+  void WriteValue(int64_t write_offset, bool valid, CType value) {
+    WriteValueImpl<ValueType, has_validity_buffer>{}.WriteValue(
+        output_validity_, output_values_, write_offset, valid, value);
+  }
+
+ public:
+  /// \brief Give a pass over the input data and count the number of runs
+  ///
+  /// \return a pair with the number of non-null run values and total number of runs
+  std::pair<int64_t, int64_t> CountNumberOfRuns() const {
+    int64_t read_offset = input_offset_;
+    CType current_run;
+    bool current_run_valid = ReadValue(&current_run, read_offset);
+    read_offset += 1;
+    int64_t num_valid_runs = current_run_valid ? 1 : 0;
+    int64_t num_output_runs = 1;
+    for (; read_offset < input_offset_ + input_length_; read_offset += 1) {
+      CType value;
+      const bool valid = ReadValue(&value, read_offset);
+
+      const bool open_new_run = valid != current_run_valid || value != current_run;
+      if (open_new_run) {
+        // Open the new run
+        current_run = value;
+        current_run_valid = valid;
+        // Count the new run
+        num_output_runs += 1;
+        num_valid_runs += valid ? 1 : 0;
+      }
+    }
+    return std::make_pair(num_valid_runs, num_output_runs);
+  }
+
+  int64_t WriteEncodedRuns() {
+    DCHECK(output_values_);
+    DCHECK(output_run_ends_);
+    int64_t read_offset = input_offset_;
+    int64_t write_offset = 0;
+    CType current_run;
+    bool current_run_valid = ReadValue(&current_run, read_offset);
+    read_offset += 1;
+    for (; read_offset < input_offset_ + input_length_; read_offset += 1) {
+      CType value;
+      const bool valid = ReadValue(&value, read_offset);
+
+      const bool open_new_run = valid != current_run_valid || value != current_run;
+      if (open_new_run) {
+        // Close the current run first by writing it out
+        WriteValue(write_offset, current_run_valid, current_run);
+        const int64_t run_end = read_offset - input_offset_;
+        output_run_ends_[write_offset] = static_cast<RunEndCType>(run_end);
+        write_offset += 1;
+        // Open the new run
+        current_run_valid = valid;
+        current_run = value;
+      }
+    }
+    WriteValue(write_offset, current_run_valid, current_run);
+    DCHECK_EQ(input_length_, read_offset - input_offset_);
+    output_run_ends_[write_offset] = static_cast<RunEndCType>(input_length_);
+    return write_offset + 1;
+  }
+};
+
+template <typename RunEndType, typename ValueType, bool has_validity_buffer>
+class RunEndEncodeImpl {
+ private:
+  KernelContext* ctx_;
+  const ArraySpan input_array_;
+  ExecResult* output_;
+
+ public:
+  using RunEndCType = typename RunEndType::c_type;
+  using CType = typename ValueType::c_type;
+
+  RunEndEncodeImpl(KernelContext* ctx, const ExecSpan& batch, ExecResult* out)
+      : ctx_{ctx}, input_array_{batch.values[0].array}, output_{out} {}
 
   Status Exec() {
-    ArrayData* output_array_data = this->exec_result->array_data().get();
-    if (this->input_array.length == 0) {
+    const int64_t input_length = input_array_.length;
+    const int64_t input_offset = input_array_.offset;
+    const auto* input_validity = input_array_.buffers[0].data;
+    const auto* input_values = input_array_.buffers[1].data;
+
+    // First pass: count the number of runs
+    int64_t num_valid_runs = 0;
+    int64_t num_output_runs = 0;
+    if (input_length > 0) {
+      // Abort if run-end type cannot hold the input length
+      constexpr int64_t kRunEndMax = std::numeric_limits<RunEndCType>::max();
+      if (input_length > kRunEndMax) {
+        return Status::Invalid(
+            "Cannot run-end encode Arrays with more elements than the "
+            "run end type can hold: ",
+            kRunEndMax);
+      }
+
+      RunEndEncodingLoop<RunEndType, ValueType, has_validity_buffer> counting_loop(
+          input_array_.length, input_array_.offset, input_validity, input_values);
+      std::tie(num_valid_runs, num_output_runs) = counting_loop.CountNumberOfRuns();
+    }
+
+    // Allocate the output array data
+    std::shared_ptr<ArrayData> output_array_data;
+    int64_t validity_buffer_size = 0;  // in bytes
+    {
       ARROW_ASSIGN_OR_RAISE(auto run_ends_buffer,
-                            AllocateBitmap(0, this->kernel_context->memory_pool()));
-      output_array_data->length = 0;
-      output_array_data->offset = 0;
-      output_array_data->null_count = 0;
-      output_array_data->buffers = {NULLPTR};
-      output_array_data->child_data.resize(2);
-      output_array_data->child_data[0] =
-          ArrayData::Make(std::make_shared<RunEndsType>(),
-                          /*length =*/0,
-                          /*buffers =*/{NULLPTR, run_ends_buffer},
-                          /*null_count =*/0);
-      output_array_data->child_data[1] = this->input_array.ToArrayData();
-      return Status::OK();
-    }
-    if (this->input_array.length > std::numeric_limits<RunEndsCType>::max()) {
-      return Status::Invalid(
-          "Cannot run-end encode Arrays with more elements than the run ends type can "
-          "hold");
-    }
-    this->input_validity = this->input_array.buffers[0].data;
-    this->input_values = this->input_array.buffers[1].data;
-    int64_t input_offset = this->input_array.offset;
-
-    this->read_offset = input_offset;
-    Element element = this->ReadValue();
-    int64_t num_values_output = 1;
-
-    // calculate input null count by ourselves. The input span likely got sliced by an
-    // ExecSpanIterator using SetOffset right before this code executes. SetOffset leaves
-    // the null_count value of the ArraySpan as kUnknownNullCount.
-    int64_t input_null_count = element.valid ? 0 : 1;
-    int64_t output_null_count = input_null_count;
-    for (int64_t input_position = 1; input_position < this->input_array.length;
-         input_position++) {
-      this->read_offset = input_offset + input_position;
-      Element previous_element = element;
-      element = this->ReadValue();
-      if (element != previous_element) {
-        num_values_output++;
-        if (!element.valid) {
-          output_null_count++;
-        }
+                            AllocateBuffer(num_output_runs * RunEndType().bit_width(),
+                                           ctx_->memory_pool()));
+      std::shared_ptr<Buffer> validity_buffer = NULLPTR;
+      if constexpr (has_validity_buffer) {
+        validity_buffer_size = bit_util::BytesForBits(num_output_runs);
+        ARROW_ASSIGN_OR_RAISE(validity_buffer,
+                              AllocateBuffer(validity_buffer_size, ctx_->memory_pool()));
       }
-      if (!element.valid) {
-        input_null_count++;
+      ARROW_ASSIGN_OR_RAISE(auto values_buffer,
+                            AllocateBuffer(bit_util::BytesForBits(
+                                               num_output_runs * ValueType().bit_width()),
+                                           ctx_->memory_pool()));
+
+      auto ree_type = std::make_shared<RunEndEncodedType>(
+          std::make_shared<RunEndType>(), input_array_.type->GetSharedPtr());
+      auto run_ends_data =
+          ArrayData::Make(ree_type->run_end_type(), num_output_runs,
+                          {NULLPTR, std::move(run_ends_buffer)}, /*null_count=*/0);
+      auto values_data =
+          ArrayData::Make(ree_type->value_type(), num_output_runs,
+                          {std::move(validity_buffer), std::move(values_buffer)},
+                          /*null_count=*/num_output_runs - num_valid_runs);
+
+      output_array_data =
+          ArrayData::Make(std::move(ree_type), input_length, {NULLPTR},
+                          {std::move(run_ends_data), std::move(values_data)},
+                          /*null_count=*/0);
+    }
+
+    if (input_length > 0) {
+      // Initialize the output pointers
+      auto* output_run_ends =
+          output_array_data->child_data[0]->template GetMutableValues<RunEndCType>(1);
+      auto* output_validity =
+          output_array_data->child_data[1]->template GetMutableValues<uint8_t>(0);
+      auto* output_values =
+          output_array_data->child_data[1]->template GetMutableValues<uint8_t>(1);
+
+      if constexpr (has_validity_buffer) {
+        // Clear last byte in validity buffer to ensure padding bits are zeroed
+        output_validity[validity_buffer_size - 1] = 0;
       }
+
+      // Second pass: write the runs
+      RunEndEncodingLoop<RunEndType, ValueType, has_validity_buffer> writing_loop(
+          input_length, input_offset, input_validity, input_values, output_validity,
+          output_values, output_run_ends);
+      [[maybe_unused]] int64_t num_written_runs = writing_loop.WriteEncodedRuns();
+      DCHECK_EQ(num_written_runs, num_output_runs);
     }
 
-    std::shared_ptr<Buffer> validity_buffer = NULLPTR;
-    // in bytes
-    int64_t validity_buffer_size = 0;
-    if (has_validity_buffer) {
-      validity_buffer_size = bit_util::BytesForBits(num_values_output);
-      ARROW_ASSIGN_OR_RAISE(
-          validity_buffer,
-          AllocateBuffer(validity_buffer_size, this->kernel_context->memory_pool()));
-    }
-    ARROW_ASSIGN_OR_RAISE(auto values_buffer,
-                          AllocateBuffer(bit_util::BytesForBits(num_values_output *
-                                                                ArrowType().bit_width()),
-                                         this->kernel_context->memory_pool()));
-    ARROW_ASSIGN_OR_RAISE(auto run_ends_buffer,
-                          AllocateBuffer(num_values_output * sizeof(RunEndsCType),
-                                         this->kernel_context->memory_pool()));
-
-    output_array_data->length = this->input_array.length;
-    output_array_data->offset = 0;
-    output_array_data->buffers = {NULLPTR};
-    output_array_data->null_count.store(0);
-    auto values_array_data = ArrayData::Make(
-        this->input_array.type->GetSharedPtr(), num_values_output,
-        {std::move(validity_buffer), std::move(values_buffer)}, output_null_count);
-    auto run_ends_array_data =
-        ArrayData::Make(std::make_shared<RunEndsType>(), num_values_output,
-                        {NULLPTR, std::move(run_ends_buffer)}, 0);
-
-    // set mutable pointers for output; `WriteValue` uses member `output_` variables
-    this->output_validity = values_array_data->template GetMutableValues<uint8_t>(0);
-    this->output_values = values_array_data->template GetMutableValues<uint8_t>(1);
-    RunEndsCType* output_run_ends =
-        run_ends_array_data->template GetMutableValues<RunEndsCType>(1);
-
-    output_array_data->child_data.resize(2);
-    output_array_data->child_data[1] = std::move(values_array_data);
-    output_array_data->child_data[0] = std::move(run_ends_array_data);
-
-    if (has_validity_buffer) {
-      // clear last byte in validity buffer, which won't completely be overwritten with
-      // validity values
-      this->output_validity[validity_buffer_size - 1] = 0;
-    }
-
-    this->read_offset = input_offset;
-    this->write_offset = 0;
-    element = this->ReadValue();
-    this->WriteValue(element);
-    this->write_offset = 1;
-    for (int64_t input_position = 1; input_position < this->input_array.length;
-         input_position++) {
-      this->read_offset = input_offset + input_position;
-      Element previous_element = element;
-      element = this->ReadValue();
-      if (element != previous_element) {
-        this->WriteValue(element);
-        // run ends buffer holds accumulated run end values
-        output_run_ends[this->write_offset - 1] =
-            static_cast<RunEndsCType>(this->read_offset - input_offset);
-        this->write_offset++;
-      }
-    }
-    output_run_ends[this->write_offset - 1] =
-        static_cast<RunEndsCType>(this->input_array.length);
-    ARROW_DCHECK(this->write_offset == num_values_output);
+    output_->value = std::move(output_array_data);
     return Status::OK();
   }
 };
 
-template <typename ValuesType, typename RunEndsType>
-static Status RunEndEncodeValidiyGenerate(KernelContext* ctx, const ExecSpan& span,
-                                          ExecResult* result) {
-  bool has_validity_buffer = span.values[0].array.MayHaveNulls();
-  if (has_validity_buffer) {
-    return RunEndEncodeExec<ValuesType, RunEndsType, true>(ctx, span, result).Exec();
-  } else {
-    return RunEndEncodeExec<ValuesType, RunEndsType, false>(ctx, span, result).Exec();
+template <typename ValueType>
+struct RunEndEncodeExec {
+  template <typename RunEndType>
+  static Status DoExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
+    const bool has_validity_buffer = span.values[0].array.MayHaveNulls();
+    if (has_validity_buffer) {
+      return RunEndEncodeImpl<RunEndType, ValueType, true>(ctx, span, result).Exec();
+    }
+    return RunEndEncodeImpl<RunEndType, ValueType, false>(ctx, span, result).Exec();
   }
-}
 
-template <typename ValuesType>
-struct RunEndEncodeGenerator {
   static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
-    auto state = checked_cast<const RunEndEncodeState*>(ctx->state());
+    auto state = checked_cast<const RunEndEncondingState*>(ctx->state());
     switch (state->run_end_type->id()) {
       case Type::INT16:
-        return RunEndEncodeValidiyGenerate<ValuesType, Int16Type>(ctx, span, result);
+        return DoExec<Int16Type>(ctx, span, result);
       case Type::INT32:
-        return RunEndEncodeValidiyGenerate<ValuesType, Int32Type>(ctx, span, result);
+        return DoExec<Int32Type>(ctx, span, result);
       case Type::INT64:
-        return RunEndEncodeValidiyGenerate<ValuesType, Int64Type>(ctx, span, result);
+        return DoExec<Int64Type>(ctx, span, result);
       default:
-        return Status::Invalid("Invalid run ends type: ", *state->run_end_type);
+        break;
     }
+    return Status::Invalid("Invalid run end type: ", *state->run_end_type);
   }
 };
 
 template <>
-struct RunEndEncodeGenerator<NullType> {
+struct RunEndEncodeExec<NullType> {
   static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
-    // TODO
+    // TODO(felipecrv): implement RunEndEncodeExec for NullType
     return Status::NotImplemented("TODO");
   }
 };
@@ -291,149 +372,195 @@ struct RunEndEncodeGenerator<NullType> {
 Result<std::unique_ptr<KernelState>> RunEndEncodeInit(KernelContext*,
                                                       const KernelInitArgs& args) {
   auto options = checked_cast<const RunEndEncodeOptions*>(args.options);
-  return std::make_unique<RunEndEncodeState>(options->run_end_type);
+  return std::make_unique<RunEndEncondingState>(options->run_end_type);
 }
 
-template <typename ArrowType, typename RunEndsType, bool has_validity_buffer>
-struct RunEndDecodeExec : public EncodeDecodeCommonExec<ArrowType, has_validity_buffer> {
-  using EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::EncodeDecodeCommonExec;
-  using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::CType;
-  using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::Element;
-  using RunEndsCType = typename RunEndsType::c_type;
+template <typename RunEndType, typename ValueType, bool has_validity_buffer>
+class RunEndDecodingLoop {
+ public:
+  using RunEndCType = typename RunEndType::c_type;
+  using CType = typename ValueType::c_type;
 
-  Status Exec() {
-    ArrayData* output_array_data = this->exec_result->array_data().get();
-    const ArraySpan& data_array = ree_util::ValuesArray(this->input_array);
-    this->input_validity = data_array.buffers[0].data;
-    this->input_values = data_array.buffers[1].data;
+ private:
+  const ArraySpan& input_array_;
 
-    const int64_t num_values_output = this->input_array.length;
+  const uint8_t* input_validity_;
+  const void* input_values_;
+  int64_t values_offset_;
 
-    std::shared_ptr<Buffer> validity_buffer = NULLPTR;
-    // in bytes
-    int64_t validity_buffer_size = 0;
-    if (has_validity_buffer) {
-      validity_buffer_size = bit_util::BytesForBits(num_values_output);
-      ARROW_ASSIGN_OR_RAISE(
-          validity_buffer,
-          AllocateBuffer(validity_buffer_size, this->kernel_context->memory_pool()));
-    }
-    ARROW_ASSIGN_OR_RAISE(auto values_buffer,
-                          AllocateBuffer(bit_util::BytesForBits(num_values_output *
-                                                                ArrowType().bit_width()),
-                                         this->kernel_context->memory_pool()));
+  uint8_t* output_validity_;
+  void* output_values_;
 
-    output_array_data->length = num_values_output;
-    output_array_data->buffers.resize(2);
-    output_array_data->offset = 0;
-    output_array_data->buffers[0] = std::move(validity_buffer);
-    output_array_data->buffers[1] = std::move(values_buffer);
+ public:
+  explicit RunEndDecodingLoop(const ArraySpan& input_array, ArrayData* output_array_data)
+      : input_array_(input_array) {
+    const ArraySpan& values = ree_util::ValuesArray(input_array);
+    input_validity_ = values.buffers[0].data;
+    input_values_ = values.buffers[1].data;
+    values_offset_ = values.offset;
 
-    this->output_validity = output_array_data->template GetMutableValues<uint8_t>(0);
-    this->output_values = output_array_data->template GetMutableValues<CType>(1);
-
-    if (has_validity_buffer) {
-      // clear last byte in validity buffer, which won't completely be overwritten with
-      // validity values
-      this->output_validity[validity_buffer_size - 1] = 0;
-    }
-
-    this->write_offset = 0;
-    int64_t output_null_count = 0;
-    for (auto it = ree_util::MergedRunsIterator<RunEndsCType>(this->input_array);
-         it != ree_util::MergedRunsIterator(); it++) {
-      this->read_offset = it.template index_into_buffer<0>();
-      Element element = this->ReadValue();
-      if (element.valid) {
-        for (int64_t run_element = 0; run_element < it.run_length(); run_element++) {
-          this->WriteValue(element);
-          this->write_offset++;
-        }
-      } else {  // !valid
-        bit_util::SetBitsTo(this->output_validity, this->write_offset, it.run_length(),
-                            false);
-        this->write_offset += it.run_length();
-        output_null_count += it.run_length();
-      }
-    }
-    ARROW_DCHECK(this->write_offset == num_values_output);
-    output_array_data->null_count.store(output_null_count);
-    return Status::OK();
+    output_validity_ = output_array_data->template GetMutableValues<uint8_t>(0);
+    output_values_ = output_array_data->template GetMutableValues<CType>(1);
   }
 
-  const RunEndsCType* input_accumulated_run_end;
+ private:
+  [[nodiscard]] inline bool ReadValue(CType* out, int64_t read_offset) const {
+    return ReadValueImpl<ValueType, has_validity_buffer>{}.ReadValue(
+        input_validity_, input_values_, out, read_offset);
+  }
+
+  void WriteRun(int64_t write_offset, int64_t run_length, bool valid, CType value) {
+    WriteValueImpl<ValueType, has_validity_buffer>{}.WriteRun(
+        output_validity_, output_values_, write_offset, run_length, valid, value);
+  }
+
+ public:
+  /// \brief Expand all runs into the output array
+  ///
+  /// \return the number of non-null values written.
+  int64_t ExpandAllRuns() {
+    // Ensure padding is zeroed in validity bitmap
+    if constexpr (has_validity_buffer) {
+      const int64_t validity_buffer_size = bit_util::BytesForBits(input_array_.length);
+      output_validity_[validity_buffer_size - 1] = 0;
+    }
+
+    const ree_util::RunEndEncodedArraySpan<RunEndCType> ree_array_span(input_array_);
+    int64_t write_offset = 0;
+    int64_t output_valid_count = 0;
+    for (auto it = ree_array_span.begin(); it != ree_array_span.end(); ++it) {
+      const int64_t read_offset = values_offset_ + it.index_into_array();
+      const int64_t run_length = it.run_length();
+      CType value;
+      const bool valid = ReadValue(&value, read_offset);
+      WriteRun(write_offset, run_length, valid, value);
+      write_offset += run_length;
+      output_valid_count += valid ? run_length : 0;
+    }
+    DCHECK(write_offset == ree_array_span.length());
+    return output_valid_count;
+  }
 };
 
-template <typename ValuesType, typename RunEndsType>
-static Status RunEndDecodeValidiyGenerate(KernelContext* ctx, const ExecSpan& span,
-                                          ExecResult* result) {
-  bool has_validity_buffer = ree_util::ValuesArray(span.values[0].array).MayHaveNulls();
-  if (has_validity_buffer) {
-    return RunEndDecodeExec<ValuesType, RunEndsType, true>(ctx, span, result).Exec();
-  } else {
-    return RunEndDecodeExec<ValuesType, RunEndsType, false>(ctx, span, result).Exec();
-  }
-}
+template <typename RunEndType, typename ValueType, bool has_validity_buffer>
+class RunEndDecodeImpl {
+ private:
+  KernelContext* ctx_;
+  const ArraySpan input_array_;
+  ExecResult* output_;
 
-template <typename ValuesType>
-struct RunEndDecodeGenerator {
-  static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
-    auto& run_end_type =
-        checked_cast<const RunEndEncodedType&>(*span.GetTypes()[0]).run_end_type();
-    switch (run_end_type->id()) {
-      case Type::INT16:
-        return RunEndDecodeValidiyGenerate<ValuesType, Int16Type>(ctx, span, result);
-      case Type::INT32:
-        return RunEndDecodeValidiyGenerate<ValuesType, Int32Type>(ctx, span, result);
-      case Type::INT64:
-        return RunEndDecodeValidiyGenerate<ValuesType, Int64Type>(ctx, span, result);
-      default:
-        return Status::Invalid("Invalid run ends type: ", *run_end_type);
+ public:
+  using RunEndCType = typename RunEndType::c_type;
+  using CType = typename ValueType::c_type;
+
+  RunEndDecodeImpl(KernelContext* ctx, const ExecSpan& batch, ExecResult* out)
+      : ctx_{ctx}, input_array_{batch.values[0].array}, output_{out} {}
+
+ public:
+  Status Exec() {
+    const auto* ree_type = checked_cast<const RunEndEncodedType*>(input_array_.type);
+    const int64_t length = input_array_.length;
+    std::shared_ptr<Buffer> validity_buffer = NULLPTR;
+    if constexpr (has_validity_buffer) {
+      // in bytes
+      int64_t validity_buffer_size = 0;
+      validity_buffer_size = bit_util::BytesForBits(length);
+      ARROW_ASSIGN_OR_RAISE(validity_buffer,
+                            AllocateBuffer(validity_buffer_size, ctx_->memory_pool()));
     }
+    ARROW_ASSIGN_OR_RAISE(
+        auto values_buffer,
+        AllocateBuffer(
+            bit_util::BytesForBits(length * ree_type->value_type()->bit_width()),
+            ctx_->memory_pool()));
+
+    auto output_array_data =
+        ArrayData::Make(ree_type->value_type(), length,
+                        {std::move(validity_buffer), std::move(values_buffer)},
+                        /*child_data=*/std::vector<std::shared_ptr<ArrayData>>{});
+
+    int64_t output_null_count = 0;
+    if (length > 0) {
+      RunEndDecodingLoop<RunEndType, ValueType, has_validity_buffer> loop(
+          input_array_, output_array_data.get());
+      output_null_count = length - loop.ExpandAllRuns();
+    }
+    output_array_data->null_count = output_null_count;
+
+    output_->value = std::move(output_array_data);
+    return Status::OK();
+  }
+};
+
+template <typename ValueType>
+struct RunEndDecodeExec {
+  template <typename RunEndType>
+  static Status DoExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
+    const bool has_validity_buffer =
+        ree_util::ValuesArray(span.values[0].array).MayHaveNulls();
+    if (has_validity_buffer) {
+      return RunEndDecodeImpl<RunEndType, ValueType, true>(ctx, span, result).Exec();
+    }
+    return RunEndDecodeImpl<RunEndType, ValueType, false>(ctx, span, result).Exec();
+  }
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
+    const auto& ree_type = checked_cast<const RunEndEncodedType*>(span.values[0].type());
+    switch (ree_type->run_end_type()->id()) {
+      case Type::INT16:
+        return DoExec<Int16Type>(ctx, span, result);
+      case Type::INT32:
+        return DoExec<Int32Type>(ctx, span, result);
+      case Type::INT64:
+        return DoExec<Int64Type>(ctx, span, result);
+      default:
+        break;
+    }
+    return Status::Invalid("Invalid run end type: ", *ree_type->run_end_type());
   }
 };
 
 template <>
-struct RunEndDecodeGenerator<NullType> {
+struct RunEndDecodeExec<NullType> {
   static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
-    // TODO
+    // TODO(felipecrv): Implement this.
     return Status::NotImplemented("TODO");
   }
 };
 
 static const FunctionDoc run_end_encode_doc(
-    "Run-end encode array", ("Return a run-end-encoded version of the input array."),
+    "Run-end encode array", ("Return a run-end encoded version of the input array."),
     {"array"}, "RunEndEncodeOptions", true);
 static const FunctionDoc run_end_decode_doc(
     "Decode run-end encoded array",
-    ("Return a decoded version of a run-end-encoded input array."), {"array"});
+    ("Return a decoded version of a run-end encoded input array."), {"array"});
 
-static Result<TypeHolder> VectorRunEndEncodeResolver(
-    KernelContext* ctx, const std::vector<TypeHolder>& inputTypes) {
-  auto state = checked_cast<const RunEndEncodeState*>(ctx->state());
+static Result<TypeHolder> VectorRunEndEncodedResolver(
+    KernelContext* ctx, const std::vector<TypeHolder>& input_types) {
+  auto state = checked_cast<const RunEndEncondingState*>(ctx->state());
   return TypeHolder(std::make_shared<RunEndEncodedType>(state->run_end_type,
-                                                        inputTypes[0].GetSharedPtr()));
+                                                        input_types[0].GetSharedPtr()));
 }
 
 void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   auto function = std::make_shared<VectorFunction>("run_end_encode", Arity::Unary(),
                                                    run_end_encode_doc);
 
+  auto add_kernel = [&function](const std::shared_ptr<DataType>& ty) {
+    auto sig =
+        KernelSignature::Make({InputType(ty)}, OutputType(VectorRunEndEncodedResolver));
+    auto exec = GenerateTypeAgnosticPrimitive<RunEndEncodeExec>(ty);
+    VectorKernel kernel(sig, exec, RunEndEncodeInit);
+    // A REE has null_count=0, so no need to allocate a validity bitmap for them.
+    kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+    DCHECK_OK(function->AddKernel(std::move(kernel)));
+  };
+
   for (const auto& ty : NumericTypes()) {
-    auto exec = GenerateTypeAgnosticPrimitive<RunEndEncodeGenerator>(ty);
-    auto sig =
-        KernelSignature::Make({InputType(ty)}, OutputType(VectorRunEndEncodeResolver));
-    VectorKernel kernel(sig, exec, RunEndEncodeInit);
-    DCHECK_OK(function->AddKernel(std::move(kernel)));
+    add_kernel(ty);
   }
-  {
-    const auto ty = boolean();
-    auto exec = GenerateTypeAgnosticPrimitive<RunEndEncodeGenerator>(ty);
-    auto sig =
-        KernelSignature::Make({InputType(ty)}, OutputType(VectorRunEndEncodeResolver));
-    VectorKernel kernel(sig, exec, RunEndEncodeInit);
-    DCHECK_OK(function->AddKernel(std::move(kernel)));
-  }
+  add_kernel(boolean());
+  add_kernel(null());
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
@@ -442,23 +569,21 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
   auto function = std::make_shared<VectorFunction>("run_end_decode", Arity::Unary(),
                                                    run_end_decode_doc);
 
-  for (const auto& run_end_type : {int16(), int32(), int64()}) {
-    for (const auto& ty : NumericTypes()) {
-      auto exec = GenerateTypeAgnosticPrimitive<RunEndDecodeGenerator>(ty);
+  auto add_kernel = [&function](const std::shared_ptr<DataType>& ty) {
+    for (const auto& run_end_type : {int16(), int32(), int64()}) {
+      auto exec = GenerateTypeAgnosticPrimitive<RunEndDecodeExec>(ty);
       auto input_type = std::make_shared<RunEndEncodedType>(run_end_type, ty);
       auto sig = KernelSignature::Make({InputType(input_type)}, OutputType({ty}));
       VectorKernel kernel(sig, exec);
       DCHECK_OK(function->AddKernel(std::move(kernel)));
     }
-    {
-      const auto ty = boolean();
-      auto exec = GenerateTypeAgnosticPrimitive<RunEndDecodeGenerator>(ty);
-      auto input_type = std::make_shared<RunEndEncodedType>(run_end_type, ty);
-      auto sig = KernelSignature::Make({InputType(input_type)}, OutputType(ty));
-      VectorKernel kernel(sig, exec);
-      DCHECK_OK(function->AddKernel(std::move(kernel)));
-    }
+  };
+
+  for (const auto& ty : NumericTypes()) {
+    add_kernel(ty);
   }
+  add_kernel(boolean());
+  add_kernel(null());
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
