@@ -219,7 +219,11 @@ public class CustomHeaderTest {
       }
 
       public String getCustomHeader(FlightMethod method, String key) {
-        return receivedCallHeaders.get(method).get(key);
+        CallHeaders headers = receivedCallHeaders.get(method);
+        if (headers == null){
+          return null;
+        }
+        return headers.get(key);
       }
     }
   }   
