@@ -168,7 +168,7 @@ public class CustomHeaderTest {
             FlightDescriptor.command(new byte[0]),
             headers)
     ) {
-      String ignored = stream.toString();
+      stream.getReader().next();
     } catch (Exception ignored) { }
 
     assertHeadersMatch(FlightMethod.DO_EXCHANGE);
