@@ -240,13 +240,11 @@ func TestCSVReader(t *testing.T) {
 		Name:   "NoHeader",
 		File:   "testdata/types.csv",
 		Header: false,
-	},
-		{
-			Name:   "Header",
-			File:   "testdata/header.csv",
-			Header: true,
-		},
-	}
+	}, {
+		Name:   "Header",
+		File:   "testdata/header.csv",
+		Header: true,
+	}}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
 			testCSVReader(t, test.File, test.Header)
