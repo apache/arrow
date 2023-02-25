@@ -240,11 +240,13 @@ func TestCSVReader(t *testing.T) {
 		Name:   "NoHeader",
 		File:   "testdata/types.csv",
 		Header: false,
-	}, {
+	},
+	{
 		Name:   "Header",
 		File:   "testdata/header.csv",
 		Header: true,
-	}}
+	},
+}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
 			testCSVReader(t, test.File, test.Header)
@@ -278,6 +280,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
 			{Name: "str", Type: arrow.BinaryTypes.String},
 			{Name: "ts", Type: arrow.FixedWidthTypes.Timestamp_ms},
+			{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
 		},
 		nil,
 	)
@@ -324,6 +327,7 @@ rec[0]["f32"]: [1.1]
 rec[0]["f64"]: [1.1]
 rec[0]["str"]: ["str-1"]
 rec[0]["ts"]: [1652054461000]
+rec[0]["list(i64)"]: [[1 2 3]]
 rec[1]["bool"]: [false]
 rec[1]["i8"]: [-2]
 rec[1]["i16"]: [-2]
@@ -337,6 +341,7 @@ rec[1]["f32"]: [2.2]
 rec[1]["f64"]: [2.2]
 rec[1]["str"]: ["str-2"]
 rec[1]["ts"]: [1652140799000]
+rec[1]["list(i64)"]: [[4 5 6]]
 rec[2]["bool"]: [(null)]
 rec[2]["i8"]: [(null)]
 rec[2]["i16"]: [(null)]
@@ -350,6 +355,7 @@ rec[2]["f32"]: [(null)]
 rec[2]["f64"]: [(null)]
 rec[2]["str"]: [(null)]
 rec[2]["ts"]: [(null)]
+rec[2]["list(i64)"]: [(null)]
 `
 
 	if got, want := out.String(), want; got != want {

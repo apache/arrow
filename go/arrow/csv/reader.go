@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -464,6 +465,10 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(str string) {
 			r.parseDecimal256(bldr, str, dt.Precision, dt.Scale)
 		}
+	case *arrow.ListType:
+		return func(s string) {
+			r.parseList(bldr, s)
+		}
 	default:
 		panic(fmt.Errorf("arrow/csv: unhandled field type %T", bldr.Type()))
 	}
@@ -719,6 +724,22 @@ func (r *Reader) parseDecimal256(field array.Builder, str string, prec, scale in
 		return
 	}
 	field.(*array.Decimal256Builder).Append(val)
+}
+
+func (r *Reader) parseList(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+	str = strings.TrimPrefix(str, "{")
+	str = strings.TrimSuffix(str, "}")
+	strs := strings.Split(str, ",")
+	listBldr := field.(*array.ListBuilder)
+	listBldr.Append(true)
+	valueBldr := listBldr.ValueBuilder()
+	for _, str := range strs {
+		r.initFieldConverter(valueBldr)(str)
+	}
 }
 
 // Retain increases the reference count by 1.
