@@ -220,7 +220,7 @@ public class CustomHeaderTest {
 
       public String getCustomHeader(FlightMethod method, String key) {
         CallHeaders headers = receivedCallHeaders.get(method);
-        if (headers == null){
+        if (headers == null) {
           return null;
         }
         return headers.get(key);
