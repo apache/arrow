@@ -4886,8 +4886,8 @@ macro(build_awssdk)
                         DEPENDS aws_lc_ep)
     add_dependencies(AWS::s2n-tls s2n_tls_ep)
     set_property(TARGET AWS::s2n-tls
-                  APPEND
-                  PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::Crypto)
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::Crypto)
   endif()
 
   externalproject_add(aws_c_cal_ep
