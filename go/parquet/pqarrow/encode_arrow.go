@@ -37,7 +37,9 @@ import (
 // get the count of the number of leaf arrays for the type
 func calcLeafCount(dt arrow.DataType) int {
 	switch dt.ID() {
-	case arrow.EXTENSION, arrow.SPARSE_UNION, arrow.DENSE_UNION:
+	case arrow.EXTENSION:
+		return calcLeafCount(dt.(arrow.ExtensionType).StorageType())
+	case arrow.SPARSE_UNION, arrow.DENSE_UNION:
 		panic("arrow type not implemented")
 	case arrow.DICTIONARY:
 		return calcLeafCount(dt.(*arrow.DictionaryType).ValueType)

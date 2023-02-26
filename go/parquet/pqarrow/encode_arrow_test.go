@@ -798,6 +798,7 @@ func (ps *ParquetIOTestSuite) TestSingleColumnRequiredRead() {
 		arrow.PrimitiveTypes.Int64,
 		arrow.PrimitiveTypes.Float32,
 		arrow.PrimitiveTypes.Float64,
+		pqarrow.NewUUIDType(),
 	}
 
 	nchunks := []int{1, 4}
@@ -1526,6 +1527,7 @@ func TestWriteTableMemoryAllocation(t *testing.T) {
 			arrow.Field{Name: "i64", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
 			arrow.Field{Name: "f64", Type: arrow.PrimitiveTypes.Float64, Nullable: true})},
 		{Name: "arr_i64", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
+		{Name: "uuid", Type: pqarrow.NewUUIDType(), Nullable: true},
 	}, nil)
 
 	bld := array.NewRecordBuilder(allocator, sc)
@@ -1538,6 +1540,7 @@ func TestWriteTableMemoryAllocation(t *testing.T) {
 	abld := bld.Field(3).(*array.ListBuilder)
 	abld.Append(true)
 	abld.ValueBuilder().(*array.Int64Builder).Append(2)
+	bld.Field(4).(*array.ExtensionBuilder).StorageBuilder().(*array.FixedSizeBinaryBuilder).Append([]byte("1234567890123456"))
 
 	rec := bld.NewRecord()
 	bld.Release()
