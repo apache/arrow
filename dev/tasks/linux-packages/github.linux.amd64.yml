@@ -30,12 +30,8 @@ jobs:
       - name: Free up disk space
         run: |
           df -h
-          sudo du -hsc /* || :
-          sudo du -hsc /usr/* || :
-          sudo du -hsc /usr/local/* || :
-          sudo du -hsc /opt/* || :
-          sudo du -hsc /opt/hostedtoolcache/* || :
-          sudo du -hsc /mnt/* || :
+          # 5.3GB
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || :
           df -h
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
