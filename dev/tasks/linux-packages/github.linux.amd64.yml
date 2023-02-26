@@ -27,6 +27,12 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
 
+      - name: Free up disk space
+        run: |
+          df -h
+          sudo du -hsc /opt/*
+          sudo rm -rf /opt/ghc
+          df -h
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
