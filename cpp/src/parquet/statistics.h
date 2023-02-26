@@ -119,15 +119,14 @@ std::shared_ptr<TypedComparator<DType>> MakeComparator(const ColumnDescriptor* d
 /// \brief Structure represented encoded statistics to be written to
 /// and from Parquet serialized metadata
 class PARQUET_EXPORT EncodedStatistics {
-  std::shared_ptr<std::string> max_, min_;
+  std::string max_, min_;
   bool is_signed_ = false;
 
  public:
-  EncodedStatistics()
-      : max_(std::make_shared<std::string>()), min_(std::make_shared<std::string>()) {}
+  EncodedStatistics() = default;
 
-  const std::string& max() const { return *max_; }
-  const std::string& min() const { return *min_; }
+  const std::string& max() const { return max_; }
+  const std::string& min() const { return min_; }
 
   int64_t null_count = 0;
   int64_t distinct_count = 0;
@@ -143,10 +142,10 @@ class PARQUET_EXPORT EncodedStatistics {
   // the true minimum for aggregations and there is no way to mark that a
   // value has been truncated and is a lower bound and not in the page.
   void ApplyStatSizeLimits(size_t length) {
-    if (max_->length() > length) {
+    if (max_.length() > length) {
       has_max = false;
     }
-    if (min_->length() > length) {
+    if (min_.length() > length) {
       has_min = false;
     }
   }
@@ -160,13 +159,13 @@ class PARQUET_EXPORT EncodedStatistics {
   void set_is_signed(bool is_signed) { is_signed_ = is_signed; }
 
   EncodedStatistics& set_max(const std::string& value) {
-    *max_ = value;
+    max_ = value;
     has_max = true;
     return *this;
   }
 
   EncodedStatistics& set_min(const std::string& value) {
-    *min_ = value;
+    min_ = value;
     has_min = true;
     return *this;
   }

@@ -374,10 +374,8 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
         valid_bits, valid_bits_offset, length, [&](int64_t position, int64_t length) {
           for (int64_t i = 0; i < length; i++) {
             const auto val = SafeLoad(values + i + position);
-            min = Helper::Min(type_length_, min,
-                              Helper::Coalesce(val, Helper::DefaultMin()));
-            max = Helper::Max(type_length_, max,
-                              Helper::Coalesce(val, Helper::DefaultMax()));
+            min = Helper::Min(type_length_, min, Helper::Coalesce(val, min));
+            max = Helper::Max(type_length_, max, Helper::Coalesce(val, max));
           }
         });
 
@@ -495,9 +493,12 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
                       bool has_null_count, bool has_distinct_count, MemoryPool* pool)
       : TypedStatisticsImpl(descr, pool) {
     TypedStatisticsImpl::IncrementNumValues(num_values);
+    // Currently, `has_null_count` argument is not used.
+    // Internal has_null_count_ would always be true.
     if (has_null_count_) {
       TypedStatisticsImpl::IncrementNullCount(null_count);
     }
+    has_distinct_count_ = has_distinct_count;
     if (has_distinct_count) {
       IncrementDistinctCount(distinct_count);
     }
@@ -553,10 +554,10 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void Merge(const TypedStatistics<DType>& other) override {
     this->num_values_ += other.num_values();
     if (other.HasNullCount()) {
-      this->statistics_.null_count += other.null_count();
+      this->IncrementNullCount(other.null_count());
     }
     if (other.HasDistinctCount()) {
-      this->statistics_.distinct_count += other.distinct_count();
+      this->IncrementDistinctCount(other.distinct_count());
     }
     if (other.HasMinMax()) {
       SetMinMax(other.min(), other.max());
@@ -620,7 +621,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
  private:
   const ColumnDescriptor* descr_;
   bool has_min_max_ = false;
+  // Currently, has_null_count_ is always true, and would
+  // be collected and encoded to `EncodedStatistics`.
   bool has_null_count_ = false;
+  // Currently, has_distinct_count_ would not be encoded
+  // to `EncodedStatistics`.
   bool has_distinct_count_ = false;
   T min_;
   T max_;
