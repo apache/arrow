@@ -22,6 +22,7 @@
 #include <memory>
 #include <random>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -31,22 +32,13 @@
 
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
-#include "parquet/murmur3.h"
 #include "parquet/platform.h"
 #include "parquet/test_util.h"
 #include "parquet/types.h"
+#include "parquet/xxhasher.h"
 
 namespace parquet {
 namespace test {
-
-TEST(Murmur3Test, TestBloomFilter) {
-  uint64_t result;
-  const uint8_t bitset[8] = {0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7};
-  ByteArray byteArray(8, bitset);
-  MurmurHash3 murmur3;
-  result = murmur3.Hash(&byteArray);
-  EXPECT_EQ(result, UINT64_C(913737700387071329));
-}
 
 TEST(ConstructorTest, TestBloomFilter) {
   BlockSplitBloomFilter bloom_filter;
@@ -64,29 +56,74 @@ TEST(ConstructorTest, TestBloomFilter) {
 // The BasicTest is used to test basic operations including InsertHash, FindHash and
 // serializing and de-serializing.
 TEST(BasicTest, TestBloomFilter) {
-  BlockSplitBloomFilter bloom_filter;
-  bloom_filter.Init(1024);
+  const std::vector<uint32_t> kBloomFilterSizes = {32, 64, 128, 256, 512, 1024, 2048};
+  const std::vector<int32_t> kIntInserts = {1, 2,  3,  5,  6,       7,      8,
+                                            9, 10, 42, -1, 1 << 29, 1 << 30};
+  const std::vector<double> kFloatInserts = {1.5,     -1.5, 3.0, 6.0, 0.0,
+                                             123.456, 1e6,  1e7, 1e8};
+  const std::vector<int32_t> kNegativeIntLookups = {0,  11, 12,      13,     -2,
+                                                    -3, 43, 1 << 27, 1 << 28};
 
-  for (int i = 0; i < 10; i++) {
-    bloom_filter.InsertHash(bloom_filter.Hash(i));
-  }
+  for (const auto bloom_filter_bytes : kBloomFilterSizes) {
+    BlockSplitBloomFilter bloom_filter;
+    bloom_filter.Init(bloom_filter_bytes);
 
-  for (int i = 0; i < 10; i++) {
-    EXPECT_TRUE(bloom_filter.FindHash(bloom_filter.Hash(i)));
-  }
+    // Empty bloom filter deterministically returns false
+    for (const auto v : kIntInserts) {
+      EXPECT_FALSE(bloom_filter.FindHash(bloom_filter.Hash(v)));
+    }
+    for (const auto v : kFloatInserts) {
+      EXPECT_FALSE(bloom_filter.FindHash(bloom_filter.Hash(v)));
+    }
 
-  // Serialize Bloom filter to memory output stream
-  auto sink = CreateOutputStream();
-  bloom_filter.WriteTo(sink.get());
+    // Insert all values
+    for (const auto v : kIntInserts) {
+      bloom_filter.InsertHash(bloom_filter.Hash(v));
+    }
+    for (const auto v : kFloatInserts) {
+      bloom_filter.InsertHash(bloom_filter.Hash(v));
+    }
 
-  // Deserialize Bloom filter from memory
-  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
-  ::arrow::io::BufferReader source(buffer);
+    // They should always lookup successfully
+    for (const auto v : kIntInserts) {
+      EXPECT_TRUE(bloom_filter.FindHash(bloom_filter.Hash(v)));
+    }
+    for (const auto v : kFloatInserts) {
+      EXPECT_TRUE(bloom_filter.FindHash(bloom_filter.Hash(v)));
+    }
 
-  BlockSplitBloomFilter de_bloom = BlockSplitBloomFilter::Deserialize(&source);
+    // Values not inserted in the filter should only rarely lookup successfully
+    int false_positives = 0;
+    for (const auto v : kNegativeIntLookups) {
+      false_positives += bloom_filter.FindHash(bloom_filter.Hash(v));
+    }
+    // (this is a crude check, see FPPTest below for a more rigourous formula)
+    EXPECT_LE(false_positives, 2);
 
-  for (int i = 0; i < 10; i++) {
-    EXPECT_TRUE(de_bloom.FindHash(de_bloom.Hash(i)));
+    // Serialize Bloom filter to memory output stream
+    auto sink = CreateOutputStream();
+    bloom_filter.WriteTo(sink.get());
+
+    // Deserialize Bloom filter from memory
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+    ::arrow::io::BufferReader source(buffer);
+
+    ReaderProperties reader_properties;
+    BlockSplitBloomFilter de_bloom =
+        BlockSplitBloomFilter::Deserialize(reader_properties, &source);
+
+    // Lookup previously inserted values
+    for (const auto v : kIntInserts) {
+      EXPECT_TRUE(de_bloom.FindHash(de_bloom.Hash(v)));
+    }
+    for (const auto v : kFloatInserts) {
+      EXPECT_TRUE(de_bloom.FindHash(de_bloom.Hash(v)));
+    }
+    false_positives = 0;
+    for (const auto v : kNegativeIntLookups) {
+      false_positives += de_bloom.FindHash(de_bloom.Hash(v));
+    }
+    EXPECT_LE(false_positives, 2);
   }
 }
 
@@ -122,7 +159,7 @@ TEST(FPPTest, TestBloomFilter) {
 
   std::vector<std::string> members;
   BlockSplitBloomFilter bloom_filter;
-  bloom_filter.Init(BlockSplitBloomFilter::OptimalNumOfBits(total_count, fpp));
+  bloom_filter.Init(BlockSplitBloomFilter::OptimalNumOfBytes(total_count, fpp));
 
   // Insert elements into the Bloom filter
   for (int i = 0; i < total_count; i++) {
@@ -159,20 +196,22 @@ TEST(FPPTest, TestBloomFilter) {
 TEST(CompatibilityTest, TestBloomFilter) {
   const std::string test_string[4] = {"hello", "parquet", "bloom", "filter"};
   const std::string bloom_filter_test_binary =
-      std::string(test::get_data_dir()) + "/bloom_filter.bin";
+      std::string(test::get_data_dir()) + "/bloom_filter.xxhash.bin";
 
   PARQUET_ASSIGN_OR_THROW(auto handle,
                           ::arrow::io::ReadableFile::Open(bloom_filter_test_binary));
   PARQUET_ASSIGN_OR_THROW(int64_t size, handle->GetSize());
 
-  // 1024 bytes (bitset) + 4 bytes (hash) + 4 bytes (algorithm) + 4 bytes (length)
-  EXPECT_EQ(size, 1036);
+  // 16 bytes (thrift header) + 1024 bytes (bitset)
+  EXPECT_EQ(size, 1040);
 
   std::unique_ptr<uint8_t[]> bitset(new uint8_t[size]());
   PARQUET_ASSIGN_OR_THROW(auto buffer, handle->Read(size));
 
   ::arrow::io::BufferReader source(buffer);
-  BlockSplitBloomFilter bloom_filter1 = BlockSplitBloomFilter::Deserialize(&source);
+  ReaderProperties reader_properties;
+  BlockSplitBloomFilter bloom_filter1 =
+      BlockSplitBloomFilter::Deserialize(reader_properties, &source);
 
   for (int i = 0; i < 4; i++) {
     const ByteArray tmp(static_cast<uint32_t>(test_string[i].length()),
@@ -210,38 +249,91 @@ TEST(CompatibilityTest, TestBloomFilter) {
 // Also it is used to test whether OptimalNumOfBits returns value between
 // [MINIMUM_BLOOM_FILTER_SIZE, MAXIMUM_BLOOM_FILTER_SIZE].
 TEST(OptimalValueTest, TestBloomFilter) {
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(256, 0.01), UINT32_C(4096));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(512, 0.01), UINT32_C(8192));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(1024, 0.01), UINT32_C(16384));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(2048, 0.01), UINT32_C(32768));
+  auto testOptimalNumEstimation = [](uint32_t ndv, double fpp, uint32_t num_bits) {
+    EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(ndv, fpp), num_bits);
+    EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBytes(ndv, fpp), num_bits / 8);
+  };
 
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(200, 0.01), UINT32_C(2048));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(300, 0.01), UINT32_C(4096));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(700, 0.01), UINT32_C(8192));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(1500, 0.01), UINT32_C(16384));
+  testOptimalNumEstimation(256, 0.01, UINT32_C(4096));
+  testOptimalNumEstimation(512, 0.01, UINT32_C(8192));
+  testOptimalNumEstimation(1024, 0.01, UINT32_C(16384));
+  testOptimalNumEstimation(2048, 0.01, UINT32_C(32768));
 
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(200, 0.025), UINT32_C(2048));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(300, 0.025), UINT32_C(4096));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(700, 0.025), UINT32_C(8192));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(1500, 0.025), UINT32_C(16384));
+  testOptimalNumEstimation(200, 0.01, UINT32_C(2048));
+  testOptimalNumEstimation(300, 0.01, UINT32_C(4096));
+  testOptimalNumEstimation(700, 0.01, UINT32_C(8192));
+  testOptimalNumEstimation(1500, 0.01, UINT32_C(16384));
 
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(200, 0.05), UINT32_C(2048));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(300, 0.05), UINT32_C(4096));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(700, 0.05), UINT32_C(8192));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(1500, 0.05), UINT32_C(16384));
+  testOptimalNumEstimation(200, 0.025, UINT32_C(2048));
+  testOptimalNumEstimation(300, 0.025, UINT32_C(4096));
+  testOptimalNumEstimation(700, 0.025, UINT32_C(8192));
+  testOptimalNumEstimation(1500, 0.025, UINT32_C(16384));
+
+  testOptimalNumEstimation(200, 0.05, UINT32_C(2048));
+  testOptimalNumEstimation(300, 0.05, UINT32_C(4096));
+  testOptimalNumEstimation(700, 0.05, UINT32_C(8192));
+  testOptimalNumEstimation(1500, 0.05, UINT32_C(16384));
 
   // Boundary check
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(4, 0.01), UINT32_C(256));
-  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBits(4, 0.25), UINT32_C(256));
+  testOptimalNumEstimation(4, 0.01, BlockSplitBloomFilter::kMinimumBloomFilterBytes * 8);
+  testOptimalNumEstimation(4, 0.25, BlockSplitBloomFilter::kMinimumBloomFilterBytes * 8);
 
-  EXPECT_EQ(
-      BlockSplitBloomFilter::OptimalNumOfBits(std::numeric_limits<uint32_t>::max(), 0.01),
-      UINT32_C(1073741824));
-  EXPECT_EQ(
-      BlockSplitBloomFilter::OptimalNumOfBits(std::numeric_limits<uint32_t>::max(), 0.25),
-      UINT32_C(1073741824));
+  testOptimalNumEstimation(std::numeric_limits<uint32_t>::max(), 0.01,
+                           BlockSplitBloomFilter::kMaximumBloomFilterBytes * 8);
+  testOptimalNumEstimation(std::numeric_limits<uint32_t>::max(), 0.25,
+                           BlockSplitBloomFilter::kMaximumBloomFilterBytes * 8);
+}
+
+// The test below is plainly copied from parquet-mr and serves as a basic sanity
+// check of our XXH64 wrapper.
+const int64_t HASHES_OF_LOOPING_BYTES_WITH_SEED_0[32] = {
+    -1205034819632174695L, -1642502924627794072L, 5216751715308240086L,
+    -1889335612763511331L, -13835840860730338L,   -2521325055659080948L,
+    4867868962443297827L,  1498682999415010002L,  -8626056615231480947L,
+    7482827008138251355L,  -617731006306969209L,  7289733825183505098L,
+    4776896707697368229L,  1428059224718910376L,  6690813482653982021L,
+    -6248474067697161171L, 4951407828574235127L,  6198050452789369270L,
+    5776283192552877204L,  -626480755095427154L,  -6637184445929957204L,
+    8370873622748562952L,  -1705978583731280501L, -7898818752540221055L,
+    -2516210193198301541L, 8356900479849653862L,  -4413748141896466000L,
+    -6040072975510680789L, 1451490609699316991L,  -7948005844616396060L,
+    8567048088357095527L,  -4375578310507393311L};
+
+/**
+ * Test data is output of the following program with xxHash implementation
+ * from https://github.com/Cyan4973/xxHash with commit
+ * c8c4cc0f812719ce1f5b2c291159658980e7c255
+ *
+ * #define XXH_INLINE_ALL
+ * #include "xxhash.h"
+ * #include <stdlib.h>
+ * #include <stdio.h>
+ * int main()
+ * {
+ *     char* src = (char*) malloc(32);
+ *     const int N = 32;
+ *     for (int i = 0; i < N; i++) {
+ *         src[i] = (char) i;
+ *     }
+ *
+ *     printf("without seed\n");
+ *     for (int i = 0; i <= N; i++) {
+ *        printf("%lldL,\n", (long long) XXH64(src, i, 0));
+ *     }
+ * }
+ */
+TEST(XxHashTest, TestBloomFilter) {
+  uint8_t bytes[32] = {};
+
+  for (int i = 0; i < 32; i++) {
+    ByteArray byteArray(i, bytes);
+    bytes[i] = i;
+
+    auto hasher_seed_0 = std::make_unique<XxHasher>();
+    EXPECT_EQ(HASHES_OF_LOOPING_BYTES_WITH_SEED_0[i], hasher_seed_0->Hash(&byteArray))
+        << "Hash with seed 0 Error: " << i;
+  }
 }
 
 }  // namespace test
-
 }  // namespace parquet

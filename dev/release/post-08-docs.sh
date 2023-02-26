@@ -103,4 +103,5 @@ if [ ${PUSH} -gt 0 ]; then
   echo "Success!"
   echo "Create a pull request:"
   echo "  ${github_url}/pull/new/${branch_name}"
+  echo "Note! Use the 'asf-site' base branch for the PR!"
 fi

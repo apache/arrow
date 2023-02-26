@@ -30,7 +30,7 @@
 #include "arrow/buffer_builder.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/extension_type.h"
 #include "arrow/record_batch.h"

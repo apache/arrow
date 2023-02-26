@@ -21,7 +21,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/apache/arrow/go/v11/arrow/endian"
+	"github.com/apache/arrow/go/v12/arrow/endian"
 )
 
 type Metadata struct {

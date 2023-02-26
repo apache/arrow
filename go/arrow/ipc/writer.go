@@ -26,14 +26,14 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/internal"
-	"github.com/apache/arrow/go/v11/arrow/internal/debug"
-	"github.com/apache/arrow/go/v11/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v11/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/internal"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v12/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 type swriter struct {
@@ -706,6 +706,21 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 
 		if err != nil {
 			return fmt.Errorf("could not visit list element for array %T: %w", arr, err)
+		}
+		w.depth++
+
+	case *arrow.RunEndEncodedType:
+		arr := arr.(*array.RunEndEncoded)
+		w.depth--
+		child := arr.LogicalRunEndsArray(w.mem)
+		defer child.Release()
+		if err := w.visit(p, child); err != nil {
+			return err
+		}
+		child = arr.LogicalValuesArray()
+		defer child.Release()
+		if err := w.visit(p, child); err != nil {
+			return err
 		}
 		w.depth++
 

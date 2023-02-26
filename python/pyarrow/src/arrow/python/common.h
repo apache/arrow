@@ -17,15 +17,15 @@
 
 #pragma once
 
-#include <memory>
 #include <functional>
+#include <memory>
 #include <utility>
 
 #include "arrow/buffer.h"
-#include "arrow/result.h"
-#include "arrow/util/macros.h"
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/visibility.h"
+#include "arrow/result.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 
@@ -202,7 +202,7 @@ struct BoundFunction<void(PyObject*, Args...)> {
   using Bound = Status(Args...);
 
   BoundFunction(Unbound* unbound, PyObject* bound_arg)
-      : bound_arg_(bound_arg), unbound_(unbound) {}
+      : unbound_(unbound), bound_arg_(bound_arg) {}
 
   Status Invoke(Args... args) const {
     PyAcquireGIL lock;
@@ -224,7 +224,7 @@ struct BoundFunction<Return(PyObject*, Args...)> {
   using Bound = Result<Return>(Args...);
 
   BoundFunction(Unbound* unbound, PyObject* bound_arg)
-      : bound_arg_(bound_arg), unbound_(unbound) {}
+      : unbound_(unbound), bound_arg_(bound_arg) {}
 
   Result<Return> Invoke(Args... args) const {
     PyAcquireGIL lock;

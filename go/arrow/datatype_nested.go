@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
 )
 
 type NestedType interface {
@@ -205,6 +205,8 @@ func (t *FixedSizeListType) String() string {
 	return fmt.Sprintf("fixed_size_list<%s: %s>[%d]", t.elem.Name, t.elem.Type, t.n)
 }
 
+func (t *FixedSizeListType) SetElemNullable(n bool) { t.elem.Nullable = n }
+
 // Elem returns the FixedSizeListType's element type.
 func (t *FixedSizeListType) Elem() DataType { return t.elem.Type }
 
@@ -345,6 +347,11 @@ func (t *MapType) String() string {
 		t.value.Elem().(*StructType).Field(1).Type))
 	if t.KeysSorted {
 		o.WriteString(", keys_sorted")
+	}
+	if t.ItemField().Nullable {
+		o.WriteString(", items_nullable")
+	} else {
+		o.WriteString(", items_non_nullable")
 	}
 	o.WriteString(">")
 	return o.String()

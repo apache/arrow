@@ -464,6 +464,16 @@ std::vector<TypeHolder> TypeHolder::FromTypes(
 
 // ----------------------------------------------------------------------
 
+FixedWidthType::~FixedWidthType() {}
+
+PrimitiveCType::~PrimitiveCType() {}
+
+NumberType::~NumberType() {}
+
+IntegerType::~IntegerType() {}
+
+FloatingPointType::~FloatingPointType() {}
+
 FloatingPointType::Precision HalfFloatType::precision() const {
   return FloatingPointType::HALF;
 }
@@ -487,6 +497,12 @@ std::ostream& operator<<(std::ostream& os,
   os << interval.months << "M" << interval.days << "d" << interval.nanoseconds << "ns";
   return os;
 }
+
+NestedType::~NestedType() {}
+
+BaseBinaryType::~BaseBinaryType() {}
+
+BaseListType::~BaseListType() {}
 
 std::string ListType::ToString() const {
   std::stringstream s;
@@ -598,6 +614,8 @@ std::string FixedSizeBinaryType::ToString() const {
   ss << "fixed_size_binary[" << byte_width_ << "]";
   return ss.str();
 }
+
+TemporalType::~TemporalType() {}
 
 // ----------------------------------------------------------------------
 // Date types
@@ -1694,6 +1712,21 @@ bool Schema::HasDistinctFieldNames() const {
   auto fields = field_names();
   std::unordered_set<std::string> names{fields.cbegin(), fields.cend()};
   return names.size() == fields.size();
+}
+
+Result<std::shared_ptr<Schema>> Schema::WithNames(
+    const std::vector<std::string>& names) const {
+  if (names.size() != impl_->fields_.size()) {
+    return Status::Invalid("attempted to rename schema with ", impl_->fields_.size(),
+                           " fields but only ", names.size(), " new names were given");
+  }
+  FieldVector new_fields;
+  new_fields.reserve(names.size());
+  auto names_itr = names.begin();
+  for (const auto& field : impl_->fields_) {
+    new_fields.push_back(field->WithName(*names_itr++));
+  }
+  return schema(std::move(new_fields));
 }
 
 std::shared_ptr<Schema> Schema::WithMetadata(

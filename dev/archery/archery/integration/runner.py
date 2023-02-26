@@ -438,7 +438,7 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "flight_sql:extension",
             description="Ensure Flight SQL extensions work as expected.",
-            skip={"Rust", "Go"}
+            skip={"Rust"}
         ),
     ]
 

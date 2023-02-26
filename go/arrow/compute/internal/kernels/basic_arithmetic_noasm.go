@@ -19,18 +19,14 @@
 package kernels
 
 import (
-	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
 	"golang.org/x/exp/constraints"
 )
 
 func getArithmeticOpFloating[InT, OutT constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
-	return getGoArithmeticOpFloatingSameType[InT, OutT](op)
+	return getGoArithmeticOpFloating[InT, OutT](op)
 }
 
 func getArithmeticOpIntegral[InT, OutT exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
 	return getGoArithmeticOpIntegral[InT, OutT](op)
-}
-
-func getArithmeticUnaryFixedIntOut[InT exec.NumericTypes, OutT exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
-	return getGoArithmeticFixedIntOut[InT, OutT](op)
 }

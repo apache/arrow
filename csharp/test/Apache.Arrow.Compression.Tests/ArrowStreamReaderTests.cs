@@ -33,20 +33,24 @@ namespace Apache.Arrow.Compression.Tests
             var codecFactory = new CompressionCodecFactory();
             using var reader = new ArrowStreamReader(stream, codecFactory);
 
-            var batch = reader.ReadNextRecordBatch();
+            VerifyCompressedIpcFileBatch(reader.ReadNextRecordBatch());
 
-            var intArray = (Int32Array) batch.Column("integers");
-            var floatArray = (FloatArray) batch.Column("floats");
+        }
 
-            const int numRows = 100;
-            Assert.Equal(numRows, intArray.Length);
-            Assert.Equal(numRows, floatArray.Length);
+        [Theory]
+        [InlineData("ipc_lz4_compression.arrow_stream")]
+        [InlineData("ipc_zstd_compression.arrow_stream")]
+        public void CanReadCompressedIpcStreamFromMemoryBuffer(string fileName)
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            using var stream = assembly.GetManifestResourceStream($"Apache.Arrow.Compression.Tests.Resources.{fileName}");
+            Assert.NotNull(stream);
+            var buffer = new byte[stream.Length];
+            stream.ReadExactly(buffer);
+            var codecFactory = new Compression.CompressionCodecFactory();
+            using var reader = new ArrowStreamReader(buffer, codecFactory);
 
-            for (var i = 0; i < numRows; ++i)
-            {
-                Assert.Equal(i, intArray.GetValue(i));
-                Assert.True(Math.Abs(floatArray.GetValue(i).Value - 0.1f * i) < 1.0e-6);
-            }
+            VerifyCompressedIpcFileBatch(reader.ReadNextRecordBatch());
         }
 
         [Fact]
@@ -59,6 +63,22 @@ namespace Apache.Arrow.Compression.Tests
 
             var exception = Assert.Throws<Exception>(() => reader.ReadNextRecordBatch());
             Assert.Contains("no ICompressionCodecFactory has been configured", exception.Message);
+        }
+
+        private static void VerifyCompressedIpcFileBatch(RecordBatch batch)
+        {
+            var intArray = (Int32Array) batch.Column("integers");
+            var floatArray = (FloatArray) batch.Column("floats");
+
+            const int numRows = 100;
+            Assert.Equal(numRows, intArray.Length);
+            Assert.Equal(numRows, floatArray.Length);
+
+            for (var i = 0; i < numRows; ++i)
+            {
+                Assert.Equal(i, intArray.GetValue(i));
+                Assert.True(Math.Abs(floatArray.GetValue(i).Value - 0.1f * i) < 1.0e-6);
+            }
         }
     }
 }

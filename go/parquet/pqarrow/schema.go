@@ -23,13 +23,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/flight"
-	"github.com/apache/arrow/go/v11/arrow/memory"
-	"github.com/apache/arrow/go/v11/parquet"
-	"github.com/apache/arrow/go/v11/parquet/file"
-	"github.com/apache/arrow/go/v11/parquet/metadata"
-	"github.com/apache/arrow/go/v11/parquet/schema"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/flight"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v12/parquet/file"
+	"github.com/apache/arrow/go/v12/parquet/metadata"
+	"github.com/apache/arrow/go/v12/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -292,10 +292,10 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		typ = parquet.Types.Float
 	case arrow.FLOAT64:
 		typ = parquet.Types.Double
-	case arrow.STRING:
+	case arrow.STRING, arrow.LARGE_STRING:
 		logicalType = schema.StringLogicalType{}
 		fallthrough
-	case arrow.BINARY:
+	case arrow.BINARY, arrow.LARGE_BINARY:
 		typ = parquet.Types.ByteArray
 	case arrow.FIXED_SIZE_BINARY:
 		typ = parquet.Types.FixedLenByteArray
@@ -1000,6 +1000,9 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 		if tsOtype.Unit == tsInfType.Unit && tsInfType.TimeZone == "UTC" && tsOtype.TimeZone != "" {
 			inferred.Field.Type = origin.Type
 		}
+		modified = true
+	case arrow.LARGE_STRING, arrow.LARGE_BINARY:
+		inferred.Field.Type = origin.Type
 		modified = true
 	}
 

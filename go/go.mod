@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module github.com/apache/arrow/go/v11
+module github.com/apache/arrow/go/v12
 
 go 1.18
 

@@ -22,8 +22,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v11/parquet"
-	"github.com/apache/arrow/go/v11/parquet/schema"
+	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v12/parquet/schema"
 	"github.com/stretchr/testify/assert"
 )
 

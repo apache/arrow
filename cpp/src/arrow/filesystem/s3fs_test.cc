@@ -150,28 +150,8 @@ class AwsTestMixin : public ::testing::Test {
   // EC2 metadata endpoint
   AwsTestMixin() : ec2_metadata_disabled_guard_("AWS_EC2_METADATA_DISABLED", "true") {}
 
-  void SetUp() override {
-#ifdef AWS_CPP_SDK_S3_NOT_SHARED
-    auto aws_log_level = Aws::Utils::Logging::LogLevel::Fatal;
-    aws_options_.loggingOptions.logLevel = aws_log_level;
-    aws_options_.loggingOptions.logger_create_fn = [&aws_log_level] {
-      return std::make_shared<Aws::Utils::Logging::ConsoleLogSystem>(aws_log_level);
-    };
-    Aws::InitAPI(aws_options_);
-#endif
-  }
-
-  void TearDown() override {
-#ifdef AWS_CPP_SDK_S3_NOT_SHARED
-    Aws::ShutdownAPI(aws_options_);
-#endif
-  }
-
  private:
   EnvVarGuard ec2_metadata_disabled_guard_;
-#ifdef AWS_CPP_SDK_S3_NOT_SHARED
-  Aws::SDKOptions aws_options_;
-#endif
 };
 
 class S3TestMixin : public AwsTestMixin {
@@ -191,7 +171,11 @@ class S3TestMixin : public AwsTestMixin {
     ASSERT_OK(connect_status);
   }
 
-  void TearDown() override { AwsTestMixin::TearDown(); }
+  void TearDown() override {
+    client_.reset();  // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
+                      // reset before Aws::ShutdownAPI
+    AwsTestMixin::TearDown();
+  }
 
  protected:
   void InitServerAndClient() {

@@ -230,7 +230,7 @@ Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values, int64_t length) {
 Result<std::shared_ptr<RecordBatch>> ExecBatch::ToRecordBatch(
     std::shared_ptr<Schema> schema, MemoryPool* pool) const {
   if (static_cast<size_t>(schema->num_fields()) > values.size()) {
-    return Status::Invalid("ExecBatch::ToTRecordBatch mismatching schema size");
+    return Status::Invalid("ExecBatch::ToRecordBatch mismatching schema size");
   }
   ArrayVector columns(schema->num_fields());
 
@@ -831,7 +831,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     std::shared_ptr<ArrayData> preallocation;
     ExecSpan input;
     ExecResult output;
-    ArraySpan* output_span = output.array_span();
+    ArraySpan* output_span = output.array_span_mutable();
 
     if (preallocate_contiguous_) {
       // Make one big output allocation
@@ -866,7 +866,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
   }
 
   Status ExecuteSingleSpan(const ExecSpan& input, ExecResult* out) {
-    ArraySpan* result_span = out->array_span();
+    ArraySpan* result_span = out->array_span_mutable();
     if (output_type_.type->id() == Type::NA) {
       result_span->null_count = result_span->length;
     } else if (kernel_->null_handling == NullHandling::INTERSECTION) {

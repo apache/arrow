@@ -223,14 +223,18 @@ template <typename Type>
 void RunTestVectorHash() {
   random::pcg32_fast gen(/*seed=*/0);
 
-  int numtest = 40;
+#ifdef ARROW_VALGRIND
+  constexpr int kNumTests = 5;
+#else
+  constexpr int kNumTests = 40;
+#endif
 
   constexpr int min_length = 0;
   constexpr int max_length = 50;
 
   for (bool use_32bit_hash : {true, false}) {
     for (bool use_varlen_input : {false, true}) {
-      for (int itest = 0; itest < numtest; ++itest) {
+      for (int itest = 0; itest < kNumTests; ++itest) {
         TestVectorHash::RunSingle<Type>(&gen, use_32bit_hash, use_varlen_input,
                                         min_length, max_length);
       }

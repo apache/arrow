@@ -23,11 +23,11 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/memory"
-	"github.com/apache/arrow/go/v11/arrow/scalar"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow/scalar"
 )
 
 // BufferSpan is a lightweight Buffer holder for ArraySpans that does not

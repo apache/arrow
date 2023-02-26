@@ -21,10 +21,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/encoded"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/encoded"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -58,6 +58,14 @@ func TestFindPhysicalOffset(t *testing.T) {
 			assert.Equal(t, tt.exp, encoded.FindPhysicalOffset(arr))
 		})
 	}
+}
+
+func TestFindPhysicalOffsetEmpty(t *testing.T) {
+	child := array.NewData(arrow.PrimitiveTypes.Int32, 0, []*memory.Buffer{nil, nil}, nil, 0, 0)
+	arr := array.NewData(arrow.RunEndEncodedOf(arrow.PrimitiveTypes.Int32, arrow.BinaryTypes.String), -1, nil, []arrow.ArrayData{child}, 0, 0)
+	assert.NotPanics(t, func() {
+		assert.Equal(t, 0, encoded.FindPhysicalOffset(arr))
+	})
 }
 
 func TestMergedRunsIter(t *testing.T) {

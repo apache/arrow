@@ -25,15 +25,15 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/decimal128"
-	"github.com/apache/arrow/go/v11/arrow/memory"
-	"github.com/apache/arrow/go/v11/internal/utils"
-	"github.com/apache/arrow/go/v11/parquet"
-	"github.com/apache/arrow/go/v11/parquet/file"
-	"github.com/apache/arrow/go/v11/parquet/schema"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/decimal128"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/internal/utils"
+	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v12/parquet/file"
+	"github.com/apache/arrow/go/v12/parquet/schema"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/xerrors"
 )
@@ -57,7 +57,7 @@ func newLeafReader(rctx *readerCtx, field *arrow.Field, input *columnIterator, l
 		field:     field,
 		input:     input,
 		descr:     input.Descr(),
-		recordRdr: file.NewRecordReader(input.Descr(), leafInfo, field.Type.ID() == arrow.DICTIONARY, rctx.mem, bufferPool),
+		recordRdr: file.NewRecordReader(input.Descr(), leafInfo, field.Type, rctx.mem, bufferPool),
 		props:     props,
 		refCount:  1,
 	}
@@ -480,7 +480,7 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 		data = transferInt(rdr, valueType)
 	case arrow.DATE64:
 		data = transferDate64(rdr, valueType)
-	case arrow.FIXED_SIZE_BINARY, arrow.BINARY, arrow.STRING:
+	case arrow.FIXED_SIZE_BINARY, arrow.BINARY, arrow.STRING, arrow.LARGE_BINARY, arrow.LARGE_STRING:
 		return transferBinary(rdr, valueType), nil
 	case arrow.DECIMAL:
 		switch descr.PhysicalType() {
@@ -534,7 +534,7 @@ func transferZeroCopy(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData 
 func transferBinary(rdr file.RecordReader, dt arrow.DataType) *arrow.Chunked {
 	brdr := rdr.(file.BinaryRecordReader)
 	chunks := brdr.GetBuilderChunks()
-	if dt == arrow.BinaryTypes.String {
+	if dt == arrow.BinaryTypes.String || dt == arrow.BinaryTypes.LargeString {
 		// convert chunks from binary to string without copying data,
 		// just changing the interpretation of the metadata
 		for idx := range chunks {

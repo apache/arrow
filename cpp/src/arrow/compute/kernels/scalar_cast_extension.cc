@@ -16,7 +16,7 @@
 // under the License.
 
 // Implementation of casting to extension types
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/scalar.h"
 
