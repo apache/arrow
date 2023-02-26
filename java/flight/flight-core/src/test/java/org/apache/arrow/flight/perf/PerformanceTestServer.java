@@ -86,7 +86,7 @@ public class PerformanceTestServer implements AutoCloseable {
   }
 
   public Location getLocation() {
-    return location;
+    return flightServer.getLocation();
   }
 
   public void start() throws IOException {

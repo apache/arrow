@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
@@ -85,13 +88,13 @@ public class TestBackPressure {
                                                   serverConstructor) throws Exception {
     try (
         final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-        final PerformanceTestServer server = FlightTestUtil.getStartedServer(
-            (location) -> (serverConstructor.apply(a).apply(location)));
-        final FlightClient client = FlightClient.builder(a, server.getLocation()).build()
+        final PerformanceTestServer server = serverConstructor.apply(a).apply(forGrpcInsecure(LOCALHOST, 0))
     ) {
-      try (FlightStream fs1 = client.getStream(client.getInfo(
-          TestPerf.getPerfFlightDescriptor(110L * BATCH_SIZE, BATCH_SIZE, 1))
-          .getEndpoints().get(0).getTicket())) {
+      server.start();
+      try (final FlightClient client = FlightClient.builder(a, server.getLocation()).build();
+           FlightStream fs1 = client.getStream(client.getInfo(
+                   TestPerf.getPerfFlightDescriptor(110L * BATCH_SIZE, BATCH_SIZE, 1))
+               .getEndpoints().get(0).getTicket())) {
         consume(fs1, 10);
 
         // stop consuming fs1 but make sure we can consume a large amount of fs2.
@@ -160,9 +163,8 @@ public class TestBackPressure {
 
       try (
           BufferAllocator serverAllocator = allocator.newChildAllocator("server", 0, Long.MAX_VALUE);
-          FlightServer server =
-              FlightTestUtil.getStartedServer((location) -> FlightServer.builder(serverAllocator, location, producer)
-                  .build());
+          FlightServer server = FlightServer.builder(serverAllocator, forGrpcInsecure(LOCALHOST, 0), producer)
+              .build().start();
           BufferAllocator clientAllocator = allocator.newChildAllocator("client", 0, Long.MAX_VALUE);
           FlightClient client =
               FlightClient

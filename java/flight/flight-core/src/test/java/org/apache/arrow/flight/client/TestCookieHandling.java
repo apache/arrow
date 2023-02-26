@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight.client;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.io.IOException;
 
 import org.apache.arrow.flight.CallHeaders;
@@ -30,7 +33,6 @@ import org.apache.arrow.flight.FlightMethod;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.FlightServerMiddleware;
-import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.RequestContext;
 import org.apache.arrow.memory.BufferAllocator;
@@ -255,10 +257,10 @@ public class TestCookieHandling {
       }
     };
 
-    this.server = FlightTestUtil.getStartedServer((location) -> FlightServer
-            .builder(allocator, location, flightProducer)
-            .middleware(FlightServerMiddleware.Key.of("test"), new SetCookieHeaderInjector.Factory())
-            .build());
+    this.server = FlightServer
+        .builder(allocator, forGrpcInsecure(LOCALHOST, 0), flightProducer)
+        .middleware(FlightServerMiddleware.Key.of("test"), new SetCookieHeaderInjector.Factory())
+        .build().start();
 
     this.client = FlightClient.builder(allocator, server.getLocation())
             .intercept(testFactory)
