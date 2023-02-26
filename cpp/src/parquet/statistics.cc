@@ -558,8 +558,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (other.HasNullCount()) {
       this->IncrementNullCount(other.null_count());
     }
-    if (other.HasDistinctCount()) {
+    if (HasDistinctCount() && other.HasDistinctCount()) {
       this->IncrementDistinctCount(other.distinct_count());
+    } else {
+      this->has_distinct_count_ = false;
+      this->has_distinct_count_ = 0;
     }
     if (other.HasMinMax()) {
       SetMinMax(other.min(), other.max());

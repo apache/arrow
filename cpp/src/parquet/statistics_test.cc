@@ -402,8 +402,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     total->Merge(*s1);
     total->Merge(*s2);
 
-    EXPECT_TRUE(total->HasDistinctCount());
-    EXPECT_EQ(500, total->distinct_count());
+    EXPECT_FALSE(total->HasDistinctCount());
     EXPECT_EQ(2000, total->num_values());
   }
 
