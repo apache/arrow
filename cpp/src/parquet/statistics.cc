@@ -374,8 +374,10 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
         valid_bits, valid_bits_offset, length, [&](int64_t position, int64_t length) {
           for (int64_t i = 0; i < length; i++) {
             const auto val = SafeLoad(values + i + position);
-            min = Helper::Min(type_length_, min, Helper::Coalesce(val, min));
-            max = Helper::Max(type_length_, max, Helper::Coalesce(val, max));
+            min = Helper::Min(type_length_, min,
+                              Helper::Coalesce(val, Helper::DefaultMin()));
+            max = Helper::Max(type_length_, max,
+                              Helper::Coalesce(val, Helper::DefaultMax()));
           }
         });
 

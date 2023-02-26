@@ -1247,5 +1247,21 @@ TEST(TestStatisticsSortOrderMinMax, Unsigned) {
   ASSERT_EQ(0x0b, stats->EncodeMax()[0]);
 }
 
+TEST(TestEncodedStatistics, CopySafe) {
+  EncodedStatistics encoded_statistics;
+  encoded_statistics.set_max("abc");
+  encoded_statistics.has_max = true;
+
+  encoded_statistics.set_min("abc");
+  encoded_statistics.has_min = true;
+
+  EncodedStatistics copy_statistics = encoded_statistics;
+  copy_statistics.set_max("abcd");
+  copy_statistics.set_min("a");
+
+  EXPECT_EQ("abc", encoded_statistics.min());
+  EXPECT_EQ("abc", encoded_statistics.max());
+}
+
 }  // namespace test
 }  // namespace parquet
