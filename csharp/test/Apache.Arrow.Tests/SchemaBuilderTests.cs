@@ -167,6 +167,15 @@ namespace Apache.Arrow.Tests
             }
 
             [Fact]
+            public void GetFieldByNameReturnsNullWhenSchemaIsEmpty()
+            {
+                var schema = new Schema.Builder()
+                    .Build();
+
+                Assert.Null(schema.GetFieldByName("f0"));
+            }
+
+            [Fact]
             public void GetFieldByNameReturnsNullWhenFieldDoesNotExist()
             {
                 var schema = new Schema.Builder()
