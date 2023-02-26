@@ -30,19 +30,16 @@ jobs:
       - name: Free up disk space
         run: |
           df -h
+          sudo du -hsc /*
+          sudo du -hsc /usr/local/*
           sudo du -hsc /opt/*
-          sudo rm -rf /opt/ghc
+          sudo du -hsc /opt/hostedtoolcache/*
+          sudo du -hsc /mnt/*
           df -h
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.1'
-      - name: Cache ccache
-        uses: actions/cache@v2
-        with:
-          path: arrow/dev/tasks/linux-packages/apache-arrow/{{ task_namespace }}/build/{{ target }}/ccache
-          key: linux-{{ task_namespace }}-ccache-{{ target }}-{{ "${{ hashFiles('arrow/cpp/**') }}" }}
-          restore-keys: linux-{{ task_namespace }}-ccache-{{ target }}-
       - name: Build
         run: |
           set -e
