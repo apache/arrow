@@ -85,7 +85,7 @@ class JsonFragmentScanner : public FragmentScanner {
     std::unordered_set<int> indices;
     indices.reserve(inspected.column_names.size());
 
-    for (const auto& scan_column : scan_request.columns) {
+    for (const auto& scan_column : scan_request.fragment_selection->columns()) {
       const auto index = scan_column.path[0];
 
       if (!indices.emplace(index).second) continue;
