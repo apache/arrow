@@ -4882,7 +4882,7 @@ macro(build_awssdk)
          S2N_TLS_CMAKE_ARGS
          -DS2N_INTERN_LIBCRYPTO=ON # internalize libcrypto to avoid name conflict with openssl
          -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX} # path to find crypto provided by aws-lc
-         -DCMAKE_C_FLAGS=${S2N_TLS_C_FLAGS}) 
+         -DCMAKE_C_FLAGS=${S2N_TLS_C_FLAGS})
 
     externalproject_add(s2n_tls_ep
                         ${EP_COMMON_OPTIONS}
