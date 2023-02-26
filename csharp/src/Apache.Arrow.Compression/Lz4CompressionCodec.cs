@@ -22,6 +22,11 @@ namespace Apache.Arrow.Compression
 {
     internal sealed class Lz4CompressionCodec : ICompressionCodec
     {
+        /// <summary>
+        /// Singleton instance, used as this class doesn't need to be disposed and has no state
+        /// </summary>
+        public static readonly Lz4CompressionCodec Instance = new Lz4CompressionCodec();
+
         public int Decompress(ReadOnlyMemory<byte> source, Memory<byte> destination)
         {
             using var sourceStream = source.AsStream();

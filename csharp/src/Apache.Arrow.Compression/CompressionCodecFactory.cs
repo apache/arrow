@@ -27,7 +27,7 @@ namespace Apache.Arrow.Compression
         {
             return compressionCodecType switch
             {
-                CompressionCodecType.Lz4Frame => new Lz4CompressionCodec(),
+                CompressionCodecType.Lz4Frame => Lz4CompressionCodec.Instance,
                 CompressionCodecType.Zstd => new ZstdCompressionCodec(),
                 _ => throw new NotImplementedException($"Compression type {compressionCodecType} is not supported")
             };
