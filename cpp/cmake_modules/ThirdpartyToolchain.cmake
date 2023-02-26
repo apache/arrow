@@ -4872,7 +4872,6 @@ macro(build_awssdk)
     add_dependencies(AWS::crypto aws_lc_ep)
 
     set(S2N_TLS_C_FLAGS ${EP_C_FLAGS})
-    string(APPEND S2N_TLS_C_FLAGS " -Wno-error=overlength-strings -Wno-error=pedantic")
     # Link time optimization is causing trouble like #34349
     string(REPLACE "-flto=auto" "" S2N_TLS_C_FLAGS "${S2N_TLS_C_FLAGS}")
     string(REPLACE "-ffat-lto-objects" "" S2N_TLS_C_FLAGS "${S2N_TLS_C_FLAGS}")
