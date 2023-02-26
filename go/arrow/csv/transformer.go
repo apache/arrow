@@ -218,9 +218,7 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 		}
 	case arrow.ExtensionType:
 		extRes :=  w.transformColToStringArr(col.(array.ExtensionArray).Storage().DataType(), col.(array.ExtensionArray).Storage())
-		for i, r := range extRes {
-			res[i] = r
-		}
+		copy(res, extRes)
 	default:
 		panic(fmt.Errorf("arrow/csv: field has unsupported data type %s", typ.String()))
 	}
