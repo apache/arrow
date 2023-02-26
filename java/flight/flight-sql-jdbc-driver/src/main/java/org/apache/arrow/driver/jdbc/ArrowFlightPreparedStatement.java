@@ -39,12 +39,12 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
 
   private final ArrowFlightSqlClientHandler.PreparedStatement preparedStatement;
 
-  private ArrowFlightPreparedStatement(final ArrowFlightConnection connection,
-                                       final ArrowFlightSqlClientHandler.PreparedStatement preparedStatement,
-                                       final StatementHandle handle,
-                                       final Signature signature, final int resultSetType,
-                                       final int resultSetConcurrency,
-                                       final int resultSetHoldability)
+  public ArrowFlightPreparedStatement(final ArrowFlightConnection connection,
+                                      final ArrowFlightSqlClientHandler.PreparedStatement preparedStatement,
+                                      final StatementHandle handle,
+                                      final Signature signature, final int resultSetType,
+                                      final int resultSetConcurrency,
+                                      final int resultSetHoldability)
       throws SQLException {
     super(connection, handle, signature, resultSetType, resultSetConcurrency, resultSetHoldability);
     this.preparedStatement = Preconditions.checkNotNull(preparedStatement);
