@@ -94,6 +94,8 @@ override_dh_auto_install:
 	  --builddirectory=c_glib_build		\
 	  --buildsystem=meson+ninja
 
+	df -h
+	du -hsc cpp_build/release/* || :
 	dh_auto_install				\
 	  --sourcedirectory=cpp			\
 	  --builddirectory=cpp_build
