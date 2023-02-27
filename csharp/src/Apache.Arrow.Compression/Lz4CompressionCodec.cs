@@ -15,7 +15,6 @@
 
 using System;
 using Apache.Arrow.Ipc;
-using CommunityToolkit.HighPerformance;
 using K4os.Compression.LZ4.Streams;
 
 namespace Apache.Arrow.Compression
@@ -29,11 +28,8 @@ namespace Apache.Arrow.Compression
 
         public int Decompress(ReadOnlyMemory<byte> source, Memory<byte> destination)
         {
-            using var sourceStream = source.AsStream();
-            using var destStream = destination.AsStream();
-            using var decompressedStream = LZ4Stream.Decode(sourceStream);
-            decompressedStream.CopyTo(destStream);
-            return (int) destStream.Length;
+            using var decoder = LZ4Frame.Decode(source);
+            return decoder.ReadManyBytes(destination.Span);
         }
 
         public void Dispose()
