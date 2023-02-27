@@ -68,7 +68,7 @@ struct ARROW_EXPORT IpcWriteOptions {
   /// May only be UNCOMPRESSED, LZ4_FRAME and ZSTD.
   std::shared_ptr<util::Codec> codec;
 
-  /// @brief Minimum space savings percentage required for compression to be applied
+  /// \brief Minimum space savings percentage required for compression to be applied
   ///
   /// Space savings is calculated as (1.0 - compressed_size / uncompressed_size).
   ///
