@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <iomanip>
 #include <limits>
 #include <memory>
 #include <sstream>
@@ -177,9 +178,11 @@ class RecordBatchSerializer {
   }
 
   bool ShouldCompress(int64_t uncompressed_size, int64_t compressed_size) const {
-    auto max_compressed_size = static_cast<int64_t>(
-        std::floor((1.0 - options_.min_space_savings) * uncompressed_size));
-    return compressed_size <= max_compressed_size;
+    DCHECK_GT(uncompressed_size, 0);
+    if (!options_.min_space_savings) return true;
+    const double space_savings =
+        1.0 - static_cast<double>(compressed_size) / uncompressed_size;
+    return space_savings >= *options_.min_space_savings;
   }
 
   Status CompressBuffer(const Buffer& buffer, util::Codec* codec,
@@ -256,6 +259,14 @@ class RecordBatchSerializer {
     out_->raw_body_length = raw_size;
 
     if (options_.codec != nullptr) {
+      if (options_.min_space_savings) {
+        double percentage = *options_.min_space_savings;
+        if (percentage < 0 || percentage > 1) {
+          return Status::Invalid(
+              "min_space_savings not in range [0,1]. Provided: ",
+              std::setprecision(std::numeric_limits<double>::max_digits10), percentage);
+        }
+      }
       RETURN_NOT_OK(CompressBodyBuffers());
     }
 
