@@ -27,7 +27,7 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_substrait cimport *
 
 
-cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector[c_string]& names):
+cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector[c_string]& names, const CSchema& schema):
     cdef:
         c_string c_name
         shared_ptr[CTable] c_in_table
@@ -39,8 +39,9 @@ cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector
     for i in range(names.size()):
         c_name = names[i]
         py_names.append(frombytes(c_name))
+    py_schema = pyarrow_wrap_schema(make_shared[CSchema](schema))
 
-    py_table = named_args["provider"](py_names)
+    py_table = named_args["provider"](py_names, py_schema)
     c_in_table = pyarrow_unwrap_table(py_table)
     c_tablesourceopts = make_shared[CTableSourceNodeOptions](c_in_table)
     c_input_node_opts = static_pointer_cast[CExecNodeOptions, CTableSourceNodeOptions](
@@ -59,8 +60,9 @@ def run_query(plan, *, table_provider=None, use_threads=True):
         The serialized Substrait plan to execute.
     table_provider : object (optional)
         A function to resolve any NamedTable relation to a table.
-        The function will receive a single argument which will be a list
-        of strings representing the table name and should return a pyarrow.Table.
+        The function will receive two arguments which will be a list
+        of strings representing the table name and a pyarrow.Schema representing
+        the expected schema and should return a pyarrow.Table.
     use_threads : bool, default True
         If True then multiple threads will be used to run the query.  If False then
         all CPU intensive work will be done on the calling thread.
@@ -77,7 +79,7 @@ def run_query(plan, *, table_provider=None, use_threads=True):
     >>> import pyarrow.substrait as substrait
     >>> test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
     >>> test_table_2 = pa.Table.from_pydict({"x": [4, 5, 6]})
-    >>> def table_provider(names):
+    >>> def table_provider(names, schema):
     ...     if not names:
     ...        raise Exception("No names provided")
     ...     elif names[0] == "t1":
@@ -86,7 +88,7 @@ def run_query(plan, *, table_provider=None, use_threads=True):
     ...        return test_table_2
     ...     else:
     ...        raise Exception("Unrecognized table name")
-    ... 
+    ...
     >>> substrait_query = '''
     ...         {
     ...             "relations": [

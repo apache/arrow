@@ -46,6 +46,7 @@ jobs:
             let repo_labels = await github.rest.issues.listLabelsForRepo({
               "owner": context.repo.owner,
               "repo": context.repo.repo,
+              "per_page": 100,
             });
 
             // this removes non-existent labels

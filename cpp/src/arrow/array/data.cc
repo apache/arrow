@@ -233,10 +233,17 @@ void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
     span->buffers[i] = {};
   }
 
-  // Fill children
-  span->child_data.resize(type->num_fields());
-  for (int i = 0; i < type->num_fields(); ++i) {
-    FillZeroLengthArray(type->field(i)->type().get(), &span->child_data[i]);
+  if (type->id() == Type::DICTIONARY) {
+    span->child_data.resize(1);
+    const std::shared_ptr<DataType>& value_type =
+        checked_cast<const DictionaryType*>(type)->value_type();
+    FillZeroLengthArray(value_type.get(), &span->child_data[0]);
+  } else {
+    // Fill children
+    span->child_data.resize(type->num_fields());
+    for (int i = 0; i < type->num_fields(); ++i) {
+      FillZeroLengthArray(type->field(i)->type().get(), &span->child_data[i]);
+    }
   }
 }
 

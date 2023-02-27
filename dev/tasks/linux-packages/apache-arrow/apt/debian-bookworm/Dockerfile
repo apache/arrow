@@ -68,6 +68,7 @@ RUN \
     libzstd-dev \
     llvm-dev \
     lsb-release \
+    meson \
     ninja-build \
     nlohmann-json3-dev \
     pkg-config \
@@ -81,6 +82,4 @@ RUN \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
-  pip3 install --upgrade meson && \
-  ln -s /usr/local/bin/meson /usr/bin/ && \
   apt clean
