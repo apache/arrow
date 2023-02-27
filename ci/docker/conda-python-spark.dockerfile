@@ -24,6 +24,7 @@ ARG jdk=8
 ARG maven=3.5
 
 ARG numpy=latest
+COPY ci/scripts/install_numpy.sh /arrow/ci/scripts/
 RUN mamba uninstall -q -y numpy && \
     /arrow/ci/scripts/install_numpy.sh ${numpy}
 
