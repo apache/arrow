@@ -52,9 +52,9 @@ class PARQUET_EXPORT RowGroupWriter {
     virtual int current_column() const = 0;
     virtual void Close() = 0;
 
-    // total uncompressed bytes written by the page writer
+    /// \brief total uncompressed bytes written by the page writer
     virtual int64_t total_bytes_written() const = 0;
-    // total bytes still compressed but not written
+    /// \brief total bytes still compressed but not written by the page writer
     virtual int64_t total_compressed_bytes() const = 0;
     /// \brief total compressed bytes written by the page writer
     virtual int64_t total_compressed_bytes_written() const = 0;
@@ -94,8 +94,8 @@ class PARQUET_EXPORT RowGroupWriter {
 
   /// \brief total uncompressed bytes written by the page writer
   int64_t total_bytes_written() const;
-  /// \brief total bytes still compressed but not written
-  /// It will always be 0 in un-buffered mode.
+  /// \brief total bytes still compressed but not written by the page writer.
+  /// It will always return 0 from the SerializedPageWriter.
   int64_t total_compressed_bytes() const;
   /// \brief total compressed bytes written by the page writer
   int64_t total_compressed_bytes_written() const;
