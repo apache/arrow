@@ -37,9 +37,13 @@
 
 namespace parquet {
 
-using parquet::Repetition;
-using parquet::internal::BinaryRecordReader;
+using ParquetType = parquet::Type;
+
+using internal::BinaryRecordReader;
+using internal::LevelInfo;
+using schema::GroupNode;
 using schema::NodePtr;
+using schema::PrimitiveNode;
 using testing::ElementsAre;
 
 namespace test {
@@ -644,25 +648,38 @@ TEST_F(TestPrimitiveReader, TestNonDictionaryEncodedPagesWithExposeEncoding) {
   pages_.clear();
 }
 
-class RecordReaderPrimitiveTypeTest : public ::testing::TestWithParam<bool> {
+namespace {
+
+internal::LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
+  internal::LevelInfo level_info;
+  level_info.def_level = descr->max_definition_level();
+  level_info.rep_level = descr->max_repetition_level();
+
+  int16_t min_spaced_def_level = descr->max_definition_level();
+  const ::parquet::schema::Node* node = descr->schema_node().get();
+  while (node != nullptr && !node->is_repeated()) {
+    if (node->is_optional()) {
+      min_spaced_def_level--;
+    }
+    node = node->parent();
+  }
+  level_info.repeated_ancestor_def_level = min_spaced_def_level;
+  return level_info;
+}
+
+}  // namespace
+
+using ReadDenseForNullable = bool;
+class RecordReaderPrimitiveTypeTest
+    : public ::testing::TestWithParam<ReadDenseForNullable> {
  public:
   const int32_t kNullValue = -1;
 
-  void Init(int32_t max_def_level, int32_t max_rep_level, Repetition::type repetition,
-            int16_t repeated_ancestor_def_level = 0) {
-    level_info_.def_level = max_def_level;
-    level_info_.rep_level = max_rep_level;
-    // A repeated_ancestor_def_level < max_def_level will make a repeated field
-    // nullable, otherwise it is required and does not have any rep/def levels
-    // associated with it.
-    level_info_.repeated_ancestor_def_level = repeated_ancestor_def_level;
-    repetition_type_ = repetition;
-
-    NodePtr type = schema::Int32("b", repetition);
-    descr_ = std::make_unique<ColumnDescriptor>(type, level_info_.def_level,
-                                                level_info_.rep_level);
-
-    record_reader_ = internal::RecordReader::Make(descr_.get(), level_info_,
+  void Init(NodePtr column) {
+    NodePtr root = GroupNode::Make("root", Repetition::REQUIRED, {column});
+    schema_descriptor_.Init(root);
+    descr_ = schema_descriptor_.Column(0);
+    record_reader_ = internal::RecordReader::Make(descr_, ComputeLevelInfo(descr_),
                                                   ::arrow::default_memory_pool(),
                                                   /*read_dictionary=*/false, GetParam());
   }
@@ -680,14 +697,14 @@ class RecordReaderPrimitiveTypeTest : public ::testing::TestWithParam<bool> {
       }
     }
 
-    if (repetition_type_ != Repetition::REQUIRED) {
+    if (descr_->schema_node()->is_required()) {
       std::vector<int16_t> read_defs(
           record_reader_->def_levels(),
           record_reader_->def_levels() + record_reader_->levels_position());
       ASSERT_TRUE(vector_equal(expected_defs, read_defs));
     }
 
-    if (repetition_type_ == Repetition::REPEATED) {
+    if (descr_->schema_node()->is_repeated()) {
       std::vector<int16_t> read_reps(
           record_reader_->rep_levels(),
           record_reader_->rep_levels() + record_reader_->levels_position());
@@ -704,17 +721,15 @@ class RecordReaderPrimitiveTypeTest : public ::testing::TestWithParam<bool> {
   }
 
  protected:
+  SchemaDescriptor schema_descriptor_;
   std::shared_ptr<internal::RecordReader> record_reader_;
-  std::unique_ptr<ColumnDescriptor> descr_;
-  internal::LevelInfo level_info_;
-  Repetition::type repetition_type_;
+  const ColumnDescriptor* descr_;
 };
 
 // Tests reading a required field. The expected results are the same for
 // reading dense and spaced.
 TEST_P(RecordReaderPrimitiveTypeTest, ReadRequired) {
-  Init(/*max_def_level=*/0, /*max_rep_level=*/0, Repetition::REQUIRED,
-       /*repeated_ancestor_def_level=*/0);
+  Init(schema::Int32("b", Repetition::REQUIRED));
 
   // Records look like: {10, 20, 20, 30, 30, 30}
   std::vector<std::shared_ptr<Page>> pages;
@@ -723,11 +738,10 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadRequired) {
   std::vector<int16_t> rep_levels = {};
 
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-      descr_.get(), values, /*num_values=*/static_cast<int>(def_levels.size()),
-      Encoding::PLAIN,
+      descr_, values, /*num_values=*/static_cast<int>(def_levels.size()), Encoding::PLAIN,
       /*indices=*/{},
-      /*indices_size=*/0, def_levels, level_info_.def_level, rep_levels,
-      level_info_.rep_level);
+      /*indices_size=*/0, def_levels, descr_->max_definition_level(), rep_levels,
+      descr_->max_repetition_level());
   pages.push_back(std::move(page));
   auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
@@ -760,8 +774,10 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadRequired) {
 // Use a max definition field > 1 to test both cases where parent is present or
 // parent is missing.
 TEST_P(RecordReaderPrimitiveTypeTest, ReadOptional) {
-  Init(/*max_def_level=*/2, /*max_rep_level=*/0, Repetition::OPTIONAL,
-       /*repeated_ancestor_def_level=*/0);
+  NodePtr column = GroupNode::Make(
+      "a", Repetition::OPTIONAL,
+      {PrimitiveNode::Make("element", Repetition::OPTIONAL, ParquetType::INT32)});
+  Init(column);
 
   // Records look like: {10, null, 20, 20, null, 30, 30, 30, null}
   std::vector<std::shared_ptr<Page>> pages;
@@ -769,11 +785,10 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadOptional) {
   std::vector<int16_t> def_levels = {2, 0, 2, 2, 1, 2, 2, 2, 0};
 
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-      descr_.get(), values, /*num_values=*/static_cast<int>(def_levels.size()),
-      Encoding::PLAIN,
+      descr_, values, /*num_values=*/static_cast<int>(def_levels.size()), Encoding::PLAIN,
       /*indices=*/{},
-      /*indices_size=*/0, def_levels, level_info_.def_level, /*rep_levels=*/{},
-      level_info_.rep_level);
+      /*indices_size=*/0, def_levels, descr_->max_definition_level(), /*rep_levels=*/{},
+      descr_->max_repetition_level());
   pages.push_back(std::move(page));
   auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
@@ -840,10 +855,12 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadOptional) {
 // Tests reading a required repeated field. The results are the same for reading
 // dense or spaced.
 TEST_P(RecordReaderPrimitiveTypeTest, ReadRequiredRepeated) {
-  // Set repeated_ancestor_def_level = max_def_level so that the repeated field
-  // is not nullable.
-  Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED,
-       /*repeated_ancestor_def_level=*/1);
+  NodePtr column = GroupNode::Make(
+      "p", Repetition::REQUIRED,
+      {GroupNode::Make(
+          "list", Repetition::REPEATED,
+          {PrimitiveNode::Make("element", Repetition::REQUIRED, ParquetType::INT32)})});
+  Init(column);
 
   // Records look like: {[10], [20, 20], [30, 30, 30]}
   std::vector<std::shared_ptr<Page>> pages;
@@ -852,11 +869,10 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadRequiredRepeated) {
   std::vector<int16_t> rep_levels = {0, 0, 1, 0, 1, 1};
 
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-      descr_.get(), values, /*num_values=*/static_cast<int>(def_levels.size()),
-      Encoding::PLAIN,
+      descr_, values, /*num_values=*/static_cast<int>(def_levels.size()), Encoding::PLAIN,
       /*indices=*/{},
-      /*indices_size=*/0, def_levels, level_info_.def_level, rep_levels,
-      level_info_.rep_level);
+      /*indices_size=*/0, def_levels, descr_->max_definition_level(), rep_levels,
+      descr_->max_repetition_level());
   pages.push_back(std::move(page));
   auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
@@ -885,25 +901,32 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadRequiredRepeated) {
              /*levels_position=*/0);
 }
 
-// Tests reading a nullable repeated field.
+// Tests reading a nullable repeated field. Tests reading null values at
+// differnet levels and reading an empty list.
 TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
-  // Set repeated_ancestor_def_level < max_def_level so that the repeated field
-  // is nullable.
-  Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED,
-       /*repeated_ancestor_def_level=*/0);
+  NodePtr column = GroupNode::Make(
+      "p", Repetition::OPTIONAL,
+      {GroupNode::Make(
+          "list", Repetition::REPEATED,
+          {PrimitiveNode::Make("element", Repetition::OPTIONAL, ParquetType::INT32)})});
+  Init(column);
 
-  // Records look like: {[10], null, [20, 20], null, [30, 30, 30], null}
+  // Records look like: {[10], null, [20, 20], [], [30, 30, null, 30]}
+  // Some explanation regarding the behavior. When reading spaced, for an empty list or
+  // for a top-level null, we do not leave a space and we do not count it towards
+  // null_count.  For a leaf-level null, we leave a space for it and we count it towards
+  // null_count. When reading dense, null_count is always 0, and we do not leave any space
+  // for values.
   std::vector<std::shared_ptr<Page>> pages;
   std::vector<int32_t> values = {10, 20, 20, 30, 30, 30};
-  std::vector<int16_t> def_levels = {1, 0, 1, 1, 0, 1, 1, 1, 0};
-  std::vector<int16_t> rep_levels = {0, 0, 0, 1, 0, 0, 1, 1, 0};
+  std::vector<int16_t> def_levels = {3, 0, 3, 3, 1, 3, 3, 2, 3};
+  std::vector<int16_t> rep_levels = {0, 0, 0, 1, 0, 0, 1, 1, 1};
 
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-      descr_.get(), values, /*num_values=*/static_cast<int>(def_levels.size()),
-      Encoding::PLAIN,
+      descr_, values, /*num_values=*/static_cast<int>(def_levels.size()), Encoding::PLAIN,
       /*indices=*/{},
-      /*indices_size=*/0, def_levels, level_info_.def_level, rep_levels,
-      level_info_.rep_level);
+      /*indices_size=*/0, def_levels, descr_->max_definition_level(), rep_levels,
+      descr_->max_repetition_level());
   pages.push_back(std::move(page));
   auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
@@ -913,62 +936,65 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
   ASSERT_EQ(records_read, 0);
 
   // Read [10], null
+  // We do not read this null for both reading dense and spaced.
   records_read = record_reader_->ReadRecords(/*num_records=*/2);
   ASSERT_EQ(records_read, 2);
   if (GetParam() == /*read_dense_for_nullable=*/true) {
     CheckState(/*values_written=*/1, /*null_count=*/0, /*levels_written=*/9,
                /*levels_position=*/2);
-    CheckReadValues(/*expected_values=*/{10}, /*expected_defs=*/{1, 0},
+    CheckReadValues(/*expected_values=*/{10}, /*expected_defs=*/{3, 0},
                     /*expected_reps=*/{0, 0});
   } else {
-    CheckState(/*values_written=*/2, /*null_count=*/1, /*levels_written=*/9,
+    CheckState(/*values_written=*/1, /*null_count=*/0, /*levels_written=*/9,
                /*levels_position=*/2);
-    CheckReadValues(/*expected_values=*/{10, kNullValue}, /*expected_defs=*/{1, 0},
+    CheckReadValues(/*expected_values=*/{10}, /*expected_defs=*/{3, 0},
                     /*expected_reps=*/{0, 0});
   }
   record_reader_->Reset();
   CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/7,
              /*levels_position=*/0);
 
-  // Read [20, 20], null, [30, 30, 30]
-  records_read = record_reader_->ReadRecords(/*num_records=*/3);
-  ASSERT_EQ(records_read, 3);
+  // Read [20, 20], []
+  // We do not read any value for this, it will be counted towards null count
+  // when reading spaced.
+  records_read = record_reader_->ReadRecords(/*num_records=*/2);
+  ASSERT_EQ(records_read, 2);
   if (GetParam() == /*read_dense_for_nullable=*/true) {
-    CheckState(/*values_written=*/5, /*null_count=*/0, /*levels_written=*/7,
-               /*levels_position=*/6);
-    CheckReadValues(/*expected_values=*/{20, 20, 30, 30, 30},
-                    /*expected_defs=*/{1, 1, 0, 1, 1, 1},
-                    /*expected_reps=*/{0, 1, 0, 0, 1, 1});
+    CheckState(/*values_written=*/2, /*null_count=*/0, /*levels_written=*/7,
+               /*levels_position=*/3);
+    CheckReadValues(/*expected_values=*/{20, 20},
+                    /*expected_defs=*/{3, 3, 1},
+                    /*expected_reps=*/{0, 1, 0});
   } else {
-    CheckState(/*values_written=*/6, /*null_count=*/1, /*levels_written=*/7,
-               /*levels_position=*/6);
-    CheckReadValues(/*expected_values=*/{20, 20, kNullValue, 30, 30, 30},
-                    /*expected_defs=*/{1, 1, 0, 1, 1, 1},
-                    /*expected_reps=*/{0, 1, 0, 0, 1, 1});
+    CheckState(/*values_written=*/2, /*null_count=*/0, /*levels_written=*/7,
+               /*levels_position=*/3);
+    CheckReadValues(/*expected_values=*/{20, 20},
+                    /*expected_defs=*/{3, 3, 1},
+                    /*expected_reps=*/{0, 1, 0});
   }
   record_reader_->Reset();
-  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
+  CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/4,
              /*levels_position=*/0);
 
   // Test reading 0 records.
   records_read = record_reader_->ReadRecords(/*num_records=*/0);
   ASSERT_EQ(records_read, 0);
 
-  // Read the last null value and read past the end.
-  records_read = record_reader_->ReadRecords(/*num_records=*/3);
+  // Read the last record.
+  records_read = record_reader_->ReadRecords(/*num_records=*/1);
   ASSERT_EQ(records_read, 1);
   if (GetParam() == /*read_dense_for_nullable=*/true) {
-    CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
-               /*levels_position=*/1);
-    CheckReadValues(/*expected_values=*/{},
-                    /*expected_defs=*/{0},
-                    /*expected_reps=*/{0});
+    CheckState(/*values_written=*/3, /*null_count=*/0, /*levels_written=*/4,
+               /*levels_position=*/4);
+    CheckReadValues(/*expected_values=*/{30, 30, 30},
+                    /*expected_defs=*/{3, 3, 2, 3},
+                    /*expected_reps=*/{0, 1, 1, 1});
   } else {
-    CheckState(/*values_written=*/1, /*null_count=*/1, /*levels_written=*/1,
-               /*levels_position=*/1);
-    CheckReadValues(/*expected_values=*/{kNullValue},
-                    /*expected_defs=*/{0},
-                    /*expected_reps=*/{0});
+    CheckState(/*values_written=*/4, /*null_count=*/1, /*levels_written=*/4,
+               /*levels_position=*/4);
+    CheckReadValues(/*expected_values=*/{30, 30, kNullValue, 30},
+                    /*expected_defs=*/{3, 3, 2, 3},
+                    /*expected_reps=*/{0, 1, 1, 1});
   }
   record_reader_->Reset();
   CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/0,
@@ -977,16 +1003,15 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
 
 // Test that we can skip required top level field.
 TEST_P(RecordReaderPrimitiveTypeTest, SkipRequiredTopLevel) {
-  Init(/*max_def_level=*/0, /*max_rep_level=*/0, Repetition::REQUIRED);
+  Init(schema::Int32("b", Repetition::REQUIRED));
 
   std::vector<std::shared_ptr<Page>> pages;
   std::vector<int32_t> values = {10, 20, 20, 30, 30, 30};
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-      descr_.get(), values, /*num_values=*/static_cast<int>(values.size()),
-      Encoding::PLAIN,
+      descr_, values, /*num_values=*/static_cast<int>(values.size()), Encoding::PLAIN,
       /*indices=*/{},
-      /*indices_size=*/0, /*def_levels=*/{}, level_info_.def_level,
-      /*rep_levels=*/{}, level_info_.rep_level);
+      /*indices_size=*/0, /*def_levels=*/{}, descr_->max_definition_level(),
+      /*rep_levels=*/{}, descr_->max_repetition_level());
   pages.push_back(std::move(page));
   auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
@@ -1009,7 +1034,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipRequiredTopLevel) {
 
 // Skip an optional field. Intentionally included some null values.
 TEST_P(RecordReaderPrimitiveTypeTest, SkipOptional) {
-  Init(/*max_def_level=*/1, /*max_rep_level=*/0, Repetition::OPTIONAL);
+  Init(schema::Int32("b", Repetition::OPTIONAL));
 
   // Records look like {null, 10, 20, 30, null, 40, 50, 60}
   std::vector<std::shared_ptr<Page>> pages;
@@ -1017,11 +1042,10 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipOptional) {
   std::vector<int16_t> def_levels = {0, 1, 1, 0, 1, 1, 1, 1};
 
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-      descr_.get(), values, /*num_values=*/static_cast<int>(values.size()),
-      Encoding::PLAIN,
+      descr_, values, /*num_values=*/static_cast<int>(values.size()), Encoding::PLAIN,
       /*indices=*/{},
-      /*indices_size=*/0, def_levels, level_info_.def_level,
-      /*rep_levels=*/{}, level_info_.rep_level);
+      /*indices_size=*/0, def_levels, descr_->max_definition_level(),
+      /*rep_levels=*/{}, descr_->max_repetition_level());
   pages.push_back(std::move(page));
   auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
@@ -1093,7 +1117,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipOptional) {
 
 // Test skipping for repeated fields.
 TEST_P(RecordReaderPrimitiveTypeTest, SkipRepeated) {
-  Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED);
+  Init(schema::Int32("b", Repetition::REPEATED));
 
   // Records look like {null, [20, 20, 20], null, [30, 30], [40]}
   std::vector<std::shared_ptr<Page>> pages;
@@ -1102,11 +1126,10 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipRepeated) {
   std::vector<int16_t> rep_levels = {0, 0, 1, 1, 0, 0, 1, 0};
 
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-      descr_.get(), values, /*num_values=*/static_cast<int>(values.size()),
-      Encoding::PLAIN,
+      descr_, values, /*num_values=*/static_cast<int>(values.size()), Encoding::PLAIN,
       /*indices=*/{},
-      /*indices_size=*/0, def_levels, level_info_.def_level, rep_levels,
-      level_info_.rep_level);
+      /*indices_size=*/0, def_levels, descr_->max_definition_level(), rep_levels,
+      descr_->max_repetition_level());
   pages.push_back(std::move(page));
   auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
@@ -1178,7 +1201,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipRepeated) {
 // Tests that for repeated fields, we first consume what is in the buffer
 // before reading more levels.
 TEST_P(RecordReaderPrimitiveTypeTest, SkipRepeatedConsumeBufferFirst) {
-  Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED);
+  Init(schema::Int32("b", Repetition::REPEATED));
 
   std::vector<std::shared_ptr<Page>> pages;
   std::vector<int32_t> values(2048, 10);
@@ -1186,11 +1209,10 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipRepeatedConsumeBufferFirst) {
   std::vector<int16_t> rep_levels(2048, 0);
 
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-      descr_.get(), values, /*num_values=*/static_cast<int>(values.size()),
-      Encoding::PLAIN,
+      descr_, values, /*num_values=*/static_cast<int>(values.size()), Encoding::PLAIN,
       /*indices=*/{},
-      /*indices_size=*/0, def_levels, level_info_.def_level, rep_levels,
-      level_info_.rep_level);
+      /*indices_size=*/0, def_levels, descr_->max_definition_level(), rep_levels,
+      descr_->max_repetition_level());
   pages.push_back(std::move(page));
   auto pager = std::make_unique<MockPageReader>(pages);
   record_reader_->SetPageReader(std::move(pager));
@@ -1223,37 +1245,37 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipRepeatedConsumeBufferFirst) {
 
 // Test reading when one record spans multiple pages for a repeated field.
 TEST_P(RecordReaderPrimitiveTypeTest, ReadPartialRecord) {
-  Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED);
+  Init(schema::Int32("b", Repetition::REPEATED));
 
   std::vector<std::shared_ptr<Page>> pages;
 
   // Page 1: {[10], [20, 20, 20 ... } continues to next page.
   {
     std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-        descr_.get(), /*values=*/{10, 20, 20, 20}, /*num_values=*/4, Encoding::PLAIN,
+        descr_, /*values=*/{10, 20, 20, 20}, /*num_values=*/4, Encoding::PLAIN,
         /*indices=*/{},
-        /*indices_size=*/0, /*def_levels=*/{1, 1, 1, 1}, level_info_.def_level,
-        /*rep_levels=*/{0, 0, 1, 1}, level_info_.rep_level);
+        /*indices_size=*/0, /*def_levels=*/{1, 1, 1, 1}, descr_->max_definition_level(),
+        /*rep_levels=*/{0, 0, 1, 1}, descr_->max_repetition_level());
     pages.push_back(std::move(page));
   }
 
   // Page 2: {... 20, 20, ...} continues from previous page and to next page.
   {
     std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-        descr_.get(), /*values=*/{20, 20}, /*num_values=*/2, Encoding::PLAIN,
+        descr_, /*values=*/{20, 20}, /*num_values=*/2, Encoding::PLAIN,
         /*indices=*/{},
-        /*indices_size=*/0, /*def_levels=*/{1, 1}, level_info_.def_level,
-        /*rep_levels=*/{1, 1}, level_info_.rep_level);
+        /*indices_size=*/0, /*def_levels=*/{1, 1}, descr_->max_definition_level(),
+        /*rep_levels=*/{1, 1}, descr_->max_repetition_level());
     pages.push_back(std::move(page));
   }
 
   // Page 3: { ... 20], [30]} continues from previous page.
   {
     std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-        descr_.get(), /*values=*/{20, 30}, /*num_values=*/2, Encoding::PLAIN,
+        descr_, /*values=*/{20, 30}, /*num_values=*/2, Encoding::PLAIN,
         /*indices=*/{},
-        /*indices_size=*/0, /*def_levels=*/{1, 1}, level_info_.def_level,
-        /*rep_levels=*/{1, 0}, level_info_.rep_level);
+        /*indices_size=*/0, /*def_levels=*/{1, 1}, descr_->max_definition_level(),
+        /*rep_levels=*/{1, 0}, descr_->max_repetition_level());
     pages.push_back(std::move(page));
   }
 
@@ -1297,37 +1319,37 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadPartialRecord) {
 // Test skipping for repeated fields for the case when one record spans multiple
 // pages.
 TEST_P(RecordReaderPrimitiveTypeTest, SkipPartialRecord) {
-  Init(/*max_def_level=*/1, /*max_rep_level=*/1, Repetition::REPEATED);
+  Init(schema::Int32("b", Repetition::REPEATED));
 
   std::vector<std::shared_ptr<Page>> pages;
 
   // Page 1: {[10], [20, 20, 20 ... } continues to next page.
   {
     std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-        descr_.get(), /*values=*/{10, 20, 20, 20}, /*num_values=*/4, Encoding::PLAIN,
+        descr_, /*values=*/{10, 20, 20, 20}, /*num_values=*/4, Encoding::PLAIN,
         /*indices=*/{},
-        /*indices_size=*/0, /*def_levels=*/{1, 1, 1, 1}, level_info_.def_level,
-        /*rep_levels=*/{0, 0, 1, 1}, level_info_.rep_level);
+        /*indices_size=*/0, /*def_levels=*/{1, 1, 1, 1}, descr_->max_definition_level(),
+        /*rep_levels=*/{0, 0, 1, 1}, descr_->max_repetition_level());
     pages.push_back(std::move(page));
   }
 
   // Page 2: {... 20, 20, ...} continues from previous page and to next page.
   {
     std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-        descr_.get(), /*values=*/{20, 20}, /*num_values=*/2, Encoding::PLAIN,
+        descr_, /*values=*/{20, 20}, /*num_values=*/2, Encoding::PLAIN,
         /*indices=*/{},
-        /*indices_size=*/0, /*def_levels=*/{1, 1}, level_info_.def_level,
-        /*rep_levels=*/{1, 1}, level_info_.rep_level);
+        /*indices_size=*/0, /*def_levels=*/{1, 1}, descr_->max_definition_level(),
+        /*rep_levels=*/{1, 1}, descr_->max_repetition_level());
     pages.push_back(std::move(page));
   }
 
   // Page 3: { ... 20, [30]} continues from previous page.
   {
     std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
-        descr_.get(), /*values=*/{20, 30}, /*num_values=*/2, Encoding::PLAIN,
+        descr_, /*values=*/{20, 30}, /*num_values=*/2, Encoding::PLAIN,
         /*indices=*/{},
-        /*indices_size=*/0, /*def_levels=*/{1, 1}, level_info_.def_level,
-        /*rep_levels=*/{1, 0}, level_info_.rep_level);
+        /*indices_size=*/0, /*def_levels=*/{1, 1}, descr_->max_definition_level(),
+        /*rep_levels=*/{1, 0}, descr_->max_repetition_level());
     pages.push_back(std::move(page));
   }
 

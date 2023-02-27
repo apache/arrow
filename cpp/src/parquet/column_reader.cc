@@ -1847,13 +1847,9 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // delimit the records to get the right number of values and they will
     // have associated levels.
     int64_t records_read = DelimitRecords(num_records, values_to_read);
-    if (!nullable_values()) {
+    if (!nullable_values() || read_dense_for_nullable_) {
       ReadValuesDense(*values_to_read);
       // null_count is always 0 for required.
-      ARROW_DCHECK_EQ(*null_count, 0);
-    } else if (read_dense_for_nullable_) {
-      ReadValuesDense(*values_to_read);
-      // null_count is always 0 for reading dense.
       ARROW_DCHECK_EQ(*null_count, 0);
     } else {
       ReadSpacedForOptionalOrRepeated(start_levels_position, values_to_read, null_count);

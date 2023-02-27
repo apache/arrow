@@ -73,8 +73,7 @@ class BenchmarkHelper {
     level_info.rep_level = descr_->max_repetition_level();
     record_reader_ = internal::RecordReader::Make(
         descr_.get(), level_info, ::arrow::default_memory_pool(),
-        /*read_dictionary=*/false,
-        /*read_dense_for_nullable=*/read_dense_for_nullable);
+        /*read_dictionary=*/false, read_dense_for_nullable);
     record_reader_->SetPageReader(std::move(pager));
     return record_reader_.get();
   }
@@ -180,7 +179,8 @@ static void RecordReaderSkipRecords(::benchmark::State& state) {
   // Vectors to read the values into.
   for (auto _ : state) {
     state.PauseTiming();
-    RecordReader* reader = helper.ResetRecordReader(/*read_dense_for_nullable=*/true);
+    // read_dense_for_nullable should not matter for skip.
+    RecordReader* reader = helper.ResetRecordReader(/*read_dense_for_nullable=*/false);
     int64_t records_skipped = -1;
     state.ResumeTiming();
     while (records_skipped != 0) {
