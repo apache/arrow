@@ -235,6 +235,19 @@ class RunEndEncodingLoop {
   }
 };
 
+template <typename RunEndType>
+Status ValidateRunEndType(int64_t input_length) {
+  using RunEndCType = typename RunEndType::c_type;
+  constexpr int64_t kRunEndMax = std::numeric_limits<RunEndCType>::max();
+  if (input_length > kRunEndMax) {
+    return Status::Invalid(
+        "Cannot run-end encode Arrays with more elements than the "
+        "run end type can hold: ",
+        kRunEndMax);
+  }
+  return Status::OK();
+}
+
 template <typename RunEndType, typename ValueType, bool has_validity_buffer>
 class RunEndEncodeImpl {
  private:
@@ -259,14 +272,7 @@ class RunEndEncodeImpl {
     int64_t num_valid_runs = 0;
     int64_t num_output_runs = 0;
     if (input_length > 0) {
-      // Abort if run-end type cannot hold the input length
-      constexpr int64_t kRunEndMax = std::numeric_limits<RunEndCType>::max();
-      if (input_length > kRunEndMax) {
-        return Status::Invalid(
-            "Cannot run-end encode Arrays with more elements than the "
-            "run end type can hold: ",
-            kRunEndMax);
-      }
+      RETURN_NOT_OK(ValidateRunEndType<RunEndType>(input_length));
 
       RunEndEncodingLoop<RunEndType, ValueType, has_validity_buffer> counting_loop(
           input_array_.length, input_array_.offset, input_validity, input_values);
@@ -334,15 +340,69 @@ class RunEndEncodeImpl {
   }
 };
 
+template <typename RunEndType>
+Status RunEndEncodeNullArray(KernelContext* ctx, const ExecSpan& span,
+                             ExecResult* output) {
+  using RunEndCType = typename RunEndType::c_type;
+
+  const auto& input_array = span.values[0].array;
+  const int64_t input_length = input_array.length;
+  auto input_array_type = input_array.type->GetSharedPtr();
+  DCHECK(input_array_type->id() == Type::NA);
+
+  int64_t num_output_runs = 0;
+  if (input_length > 0) {
+    // Abort if run-end type cannot hold the input length
+    RETURN_NOT_OK(ValidateRunEndType<RunEndType>(input_array.length));
+    num_output_runs = 1;
+  }
+
+  // Allocate the output array data
+  std::shared_ptr<ArrayData> output_array_data;
+  {
+    ARROW_ASSIGN_OR_RAISE(
+        auto run_ends_buffer,
+        AllocateBuffer(num_output_runs * RunEndType().bit_width(), ctx->memory_pool()));
+
+    auto ree_type = std::make_shared<RunEndEncodedType>(std::make_shared<RunEndType>(),
+                                                        input_array_type);
+    auto run_ends_data = ArrayData::Make(std::make_shared<RunEndType>(), num_output_runs,
+                                         {NULLPTR, std::move(run_ends_buffer)},
+                                         /*null_count=*/0);
+    auto values_data = ArrayData::Make(input_array_type, num_output_runs, {NULLPTR},
+                                       /*null_count=*/num_output_runs);
+
+    output_array_data =
+        ArrayData::Make(std::move(ree_type), input_length, {NULLPTR},
+                        {std::move(run_ends_data), std::move(values_data)},
+                        /*null_count=*/0);
+  }
+
+  if (input_length > 0) {
+    auto* output_run_ends =
+        output_array_data->child_data[0]->template GetMutableValues<RunEndCType>(1);
+
+    // Write the single run-end this REE has
+    output_run_ends[0] = static_cast<RunEndCType>(input_length);
+  }
+
+  output->value = std::move(output_array_data);
+  return Status::OK();
+}
+
 template <typename ValueType>
 struct RunEndEncodeExec {
   template <typename RunEndType>
   static Status DoExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
-    const bool has_validity_buffer = span.values[0].array.MayHaveNulls();
-    if (has_validity_buffer) {
-      return RunEndEncodeImpl<RunEndType, ValueType, true>(ctx, span, result).Exec();
+    if constexpr (ValueType::type_id == Type::NA) {
+      return RunEndEncodeNullArray<RunEndType>(ctx, span, result);
+    } else {
+      const bool has_validity_buffer = span.values[0].array.MayHaveNulls();
+      if (has_validity_buffer) {
+        return RunEndEncodeImpl<RunEndType, ValueType, true>(ctx, span, result).Exec();
+      }
+      return RunEndEncodeImpl<RunEndType, ValueType, false>(ctx, span, result).Exec();
     }
-    return RunEndEncodeImpl<RunEndType, ValueType, false>(ctx, span, result).Exec();
   }
 
   static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
@@ -358,14 +418,6 @@ struct RunEndEncodeExec {
         break;
     }
     return Status::Invalid("Invalid run end type: ", *state->run_end_type);
-  }
-};
-
-template <>
-struct RunEndEncodeExec<NullType> {
-  static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
-    // TODO(felipecrv): implement RunEndEncodeExec for NullType
-    return Status::NotImplemented("TODO");
   }
 };
 
@@ -492,16 +544,31 @@ class RunEndDecodeImpl {
   }
 };
 
+Status RunEndDecodeNullREEArray(KernelContext* ctx, const ExecSpan& span,
+                                ExecResult* out) {
+  auto& input_array = span.values[0].array;
+  auto ree_type = checked_cast<const RunEndEncodedType*>(input_array.type);
+  ARROW_ASSIGN_OR_RAISE(auto output_array,
+                        arrow::MakeArrayOfNull(ree_type->value_type(), input_array.length,
+                                               ctx->memory_pool()));
+  out->value = output_array->data();
+  return Status::OK();
+}
+
 template <typename ValueType>
 struct RunEndDecodeExec {
   template <typename RunEndType>
   static Status DoExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
-    const bool has_validity_buffer =
-        ree_util::ValuesArray(span.values[0].array).MayHaveNulls();
-    if (has_validity_buffer) {
-      return RunEndDecodeImpl<RunEndType, ValueType, true>(ctx, span, result).Exec();
+    if constexpr (ValueType::type_id == Type::NA) {
+      return RunEndDecodeNullREEArray(ctx, span, result);
+    } else {
+      const bool has_validity_buffer =
+          ree_util::ValuesArray(span.values[0].array).MayHaveNulls();
+      if (has_validity_buffer) {
+        return RunEndDecodeImpl<RunEndType, ValueType, true>(ctx, span, result).Exec();
+      }
+      return RunEndDecodeImpl<RunEndType, ValueType, false>(ctx, span, result).Exec();
     }
-    return RunEndDecodeImpl<RunEndType, ValueType, false>(ctx, span, result).Exec();
   }
 
   static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
@@ -517,14 +584,6 @@ struct RunEndDecodeExec {
         break;
     }
     return Status::Invalid("Invalid run end type: ", *ree_type->run_end_type());
-  }
-};
-
-template <>
-struct RunEndDecodeExec<NullType> {
-  static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
-    // TODO(felipecrv): Implement this.
-    return Status::NotImplemented("TODO");
   }
 };
 

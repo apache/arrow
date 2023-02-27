@@ -42,6 +42,19 @@ struct REETestData {
     return result;
   }
 
+  static REETestData NullArray(int64_t input_length, int64_t input_offset = 0) {
+    auto input_array = std::make_shared<arrow::NullArray>(input_length);
+    REETestData result;
+    result.input = input_array->Slice(input_offset);
+    const int64_t input_slice_length = result.input->length();
+    result.expected_values =
+        std::make_shared<arrow::NullArray>(input_slice_length > 0 ? 1 : 0);
+    result.expected_run_ends_json =
+        input_slice_length > 0 ? "[" + std::to_string(input_slice_length) + "]" : "[]";
+    result.string = "[null * " + std::to_string(input_slice_length) + "]";
+    return result;
+  }
+
   template <typename ArrowType>
   static REETestData TypeMinMaxNull() {
     using CType = typename ArrowType::c_type;
@@ -178,7 +191,9 @@ INSTANTIATE_TEST_SUITE_P(
             REETestData::JSON(boolean(), "[true, true, true, false, null, null, false]",
                               "[null, false]", "[1, 2]", 5),
             REETestData::JSON(float64(), "[]", "[]", "[]"),
-            REETestData::JSON(boolean(), "[]", "[]", "[]"),
+            REETestData::JSON(boolean(), "[]", "[]", "[]"), REETestData::NullArray(4),
+            REETestData::NullArray(std::numeric_limits<int16_t>::max()),
+            REETestData::NullArray(std::numeric_limits<int16_t>::max(), 1000),
 
             REETestData::TypeMinMaxNull<Int8Type>(),
             REETestData::TypeMinMaxNull<UInt8Type>(),
