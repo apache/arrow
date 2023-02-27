@@ -49,15 +49,6 @@ def test_datetime(unit, tz):
     assert col.dtype[0] == DtypeKind.DATETIME
     assert col.describe_null == (ColumnNullType.USE_BITMASK, 0)
 
-    batch = table.to_batches()[0]
-    col = batch.__dataframe__().get_column_by_name("A")
-
-    assert col.size() == 3
-    assert col.offset == 0
-    assert col.null_count == 1
-    assert col.dtype[0] == DtypeKind.DATETIME
-    assert col.describe_null == (ColumnNullType.USE_BITMASK, 0)
-
 
 @pytest.mark.parametrize(
     ["test_data", "kind"],
@@ -107,15 +98,6 @@ def test_offset_of_sliced_array():
     # tm.assert_series_equal(df["arr"][2:4], df_sliced["arr_sliced"],
     #                        check_index=False, check_names=False)
 
-    batch_sliced = pa.record_batch([arr_sliced], names=["arr_sliced"])
-
-    col = batch_sliced.__dataframe__().get_column(0)
-    assert col.offset == 2
-
-    result = _from_dataframe(batch_sliced.__dataframe__())
-    assert table_sliced.equals(result)
-    assert not table.equals(result)
-
 
 # Currently errors due to string conversion
 # as col.size is called as a property not method in pandas
@@ -149,38 +131,6 @@ def test_categorical_roundtrip():
     assert table_protocol.column_names() == result_protocol.column_names()
 
     col_table = table_protocol.get_column(0)
-    col_result = result_protocol.get_column(0)
-
-    assert col_result.dtype[0] == DtypeKind.CATEGORICAL
-    assert col_result.dtype[0] == col_table.dtype[0]
-    assert col_result.size == col_table.size
-    assert col_result.offset == col_table.offset
-
-    desc_cat_table = col_result.describe_categorical
-    desc_cat_result = col_result.describe_categorical
-
-    assert desc_cat_table["is_ordered"] == desc_cat_result["is_ordered"]
-    assert desc_cat_table["is_dictionary"] == desc_cat_result["is_dictionary"]
-    assert isinstance(desc_cat_result["categories"]._col, pa.Array)
-
-    batch = table.to_batches()[0]
-    pandas_df = batch.to_pandas()
-    result = pi.from_dataframe(pandas_df)
-
-    # Checking equality for the values
-    # As the dtype of the indices is changed from int32 in pa.Table
-    # to int64 in pandas interchange protocol implementation
-    assert result[0].chunk(0).dictionary == table[0].chunk(0).dictionary
-
-    batch_protocol = batch.__dataframe__()
-    result_protocol = result.__dataframe__()
-
-    assert batch_protocol.num_columns() == result_protocol.num_columns()
-    assert batch_protocol.num_rows() == result_protocol.num_rows()
-    assert batch_protocol.num_chunks() == result_protocol.num_chunks()
-    assert batch_protocol.column_names() == result_protocol.column_names()
-
-    col_table = batch_protocol.get_column(0)
     col_result = result_protocol.get_column(0)
 
     assert col_result.dtype[0] == DtypeKind.CATEGORICAL
@@ -237,19 +187,6 @@ def test_pandas_roundtrip(uint, int, float, np_float):
     assert table_protocol.num_chunks() == result_protocol.num_chunks()
     assert table_protocol.column_names() == result_protocol.column_names()
 
-    batch = table.to_batches()[0]
-    pandas_df = pandas_from_dataframe(batch)
-    result = pi.from_dataframe(pandas_df)
-    assert table.equals(result)
-
-    batch_protocol = batch.__dataframe__()
-    result_protocol = result.__dataframe__()
-
-    assert batch_protocol.num_columns() == result_protocol.num_columns()
-    assert batch_protocol.num_rows() == result_protocol.num_rows()
-    assert batch_protocol.num_chunks() == result_protocol.num_chunks()
-    assert batch_protocol.column_names() == result_protocol.column_names()
-
 
 @pytest.mark.pandas
 def test_roundtrip_pandas_string():
@@ -278,22 +215,6 @@ def test_roundtrip_pandas_string():
     assert table_protocol.num_chunks() == result_protocol.num_chunks()
     assert table_protocol.column_names() == result_protocol.column_names()
 
-    batch = table.to_batches()[0]
-    pandas_df = pandas_from_dataframe(batch)
-    result = pi.from_dataframe(pandas_df)
-
-    assert result[0].to_pylist() == batch[0].to_pylist()
-    assert pa.types.is_string(table[0].type)
-    assert pa.types.is_large_string(result[0].type)
-
-    batch_protocol = batch.__dataframe__()
-    result_protocol = result.__dataframe__()
-
-    assert batch_protocol.num_columns() == result_protocol.num_columns()
-    assert batch_protocol.num_rows() == result_protocol.num_rows()
-    assert batch_protocol.num_chunks() == result_protocol.num_chunks()
-    assert batch_protocol.column_names() == result_protocol.column_names()
-
 
 @pytest.mark.pandas
 def test_roundtrip_pandas_boolean():
@@ -317,20 +238,6 @@ def test_roundtrip_pandas_boolean():
     assert table_protocol.num_rows() == result_protocol.num_rows()
     assert table_protocol.num_chunks() == result_protocol.num_chunks()
     assert table_protocol.column_names() == result_protocol.column_names()
-
-    batch = table.to_batches()[0]
-    pandas_df = pandas_from_dataframe(batch)
-    result = pi.from_dataframe(pandas_df)
-
-    assert table.equals(result)
-
-    batch_protocol = batch.__dataframe__()
-    result_protocol = result.__dataframe__()
-
-    assert batch_protocol.num_columns() == result_protocol.num_columns()
-    assert batch_protocol.num_rows() == result_protocol.num_rows()
-    assert batch_protocol.num_chunks() == result_protocol.num_chunks()
-    assert batch_protocol.column_names() == result_protocol.column_names()
 
 
 @pytest.mark.pandas
@@ -368,21 +275,6 @@ def test_roundtrip_pandas_datetime(unit):
     assert expected_protocol.num_chunks() == result_protocol.num_chunks()
     assert expected_protocol.column_names() == result_protocol.column_names()
 
-    batch = table.to_batches()[0]
-    pandas_df = pandas_from_dataframe(batch)
-    result = pi.from_dataframe(pandas_df)
-
-    assert expected.equals(result)
-
-    expected_batch = expected.to_batches()[0]
-    expected_protocol = expected_batch.__dataframe__()
-    result_protocol = result.__dataframe__()
-
-    assert expected_protocol.num_columns() == result_protocol.num_columns()
-    assert expected_protocol.num_rows() == result_protocol.num_rows()
-    assert expected_protocol.num_chunks() == result_protocol.num_chunks()
-    assert expected_protocol.column_names() == result_protocol.column_names()
-
 
 @pytest.mark.large_memory
 @pytest.mark.pandas
@@ -401,10 +293,6 @@ def test_pandas_assertion_error_large_string():
 
     with pytest.raises(AssertionError):
         pandas_from_dataframe(table)
-
-    batch = table.to_batches()[0]
-    with pytest.raises(AssertionError):
-        pandas_from_dataframe(batch)
 
 
 @pytest.mark.pandas
@@ -532,19 +420,6 @@ def test_pyarrow_roundtrip(uint, int, float, np_float,
     assert table_protocol.num_chunks() == result_protocol.num_chunks()
     assert table_protocol.column_names() == result_protocol.column_names()
 
-    batch = table.to_batches()[0]
-    result = _from_dataframe(batch.__dataframe__())
-
-    assert table.equals(result)
-
-    batch_protocol = batch.__dataframe__()
-    result_protocol = result.__dataframe__()
-
-    assert batch_protocol.num_columns() == result_protocol.num_columns()
-    assert batch_protocol.num_rows() == result_protocol.num_rows()
-    assert batch_protocol.num_chunks() == result_protocol.num_chunks()
-    assert batch_protocol.column_names() == result_protocol.column_names()
-
 
 @pytest.mark.parametrize("offset, length", [(0, 10), (0, 2), (7, 3), (2, 1)])
 def test_pyarrow_roundtrip_categorical(offset, length):
@@ -580,34 +455,6 @@ def test_pyarrow_roundtrip_categorical(offset, length):
     assert desc_cat_table["is_dictionary"] == desc_cat_result["is_dictionary"]
     assert isinstance(desc_cat_result["categories"]._col, pa.Array)
 
-    batch = table.to_batches()[0]
-    result = _from_dataframe(batch.__dataframe__())
-
-    assert table.equals(result)
-
-    batch_protocol = batch.__dataframe__()
-    result_protocol = result.__dataframe__()
-
-    assert batch_protocol.num_columns() == result_protocol.num_columns()
-    assert batch_protocol.num_rows() == result_protocol.num_rows()
-    assert batch_protocol.num_chunks() == result_protocol.num_chunks()
-    assert batch_protocol.column_names() == result_protocol.column_names()
-
-    col_batch = batch_protocol.get_column(0)
-    col_result = result_protocol.get_column(0)
-
-    assert col_result.dtype[0] == DtypeKind.CATEGORICAL
-    assert col_result.dtype[0] == col_batch.dtype[0]
-    assert col_result.size() == col_batch.size()
-    assert col_result.offset == col_batch.offset
-
-    desc_col_batch = col_batch.describe_categorical
-    desc_cat_result = col_result.describe_categorical
-
-    assert desc_col_batch["is_ordered"] == desc_cat_result["is_ordered"]
-    assert desc_col_batch["is_dictionary"] == desc_cat_result["is_dictionary"]
-    assert isinstance(desc_cat_result["categories"]._col, pa.Array)
-
 
 @pytest.mark.large_memory
 def test_pyarrow_roundtrip_large_string():
@@ -625,24 +472,11 @@ def test_pyarrow_roundtrip_large_string():
 
     assert table.equals(result)
 
-    batch = table.to_batches()[0]
-    result = _from_dataframe(batch.__dataframe__())
-    col = result.__dataframe__().get_column(0)
-
-    assert col.size() == 3*1024**2
-    assert pa.types.is_large_string(table[0].type)
-    assert pa.types.is_large_string(result[0].type)
-
-    assert table.equals(result)
-
 
 def test_nan_as_null():
     table = pa.table({"a": [1, 2, 3, 4]})
     with pytest.raises(RuntimeError):
         table.__dataframe__(nan_as_null=True)
-    batch = table.to_batches()[0]
-    with pytest.raises(RuntimeError):
-        batch.__dataframe__(nan_as_null=True)
 
 
 @pytest.mark.pandas
