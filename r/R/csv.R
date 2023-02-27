@@ -387,11 +387,11 @@ CsvTableReader$create <- function(file,
 #'
 #' - `skip_rows` Number of lines to skip before reading data (default 0).
 #' - `skip_rows_after_names` Number of lines to skip after the column names (default 0).
-#' This number can be larger than the number of rows in one block, and empty rows are counted.
-#' The order of application is as follows:
-#'   - `skip_rows` is applied (if non-zero);
-#'   - column names aread (unless `column_names` is set);
-#'   - `skip_rows_after_names` is applied (if non-zero).
+#'    This number can be larger than the number of rows in one block, and empty rows are counted.
+#'    The order of application is as follows:
+#'      - `skip_rows` is applied (if non-zero);
+#'      - column names are read (unless `column_names` is set);
+#'      - `skip_rows_after_names` is applied (if non-zero).
 #' - `column_names` Character vector to supply column names. If length-0
 #' (the default), the first non-skipped row will be parsed to generate column
 #' names, unless `autogenerate_column_names` is `TRUE`.
