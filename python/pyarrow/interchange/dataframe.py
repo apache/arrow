@@ -130,10 +130,7 @@ class _PyArrowDataFrame:
         """
         Return an iterator yielding the column names.
         """
-        if isinstance(self._df, pa.RecordBatch):
-            return self._df.schema.names
-        else:
-            return self._df.column_names
+        return self._df.schema.names
 
     def get_column(self, i: int) -> _PyArrowColumn:
         """
