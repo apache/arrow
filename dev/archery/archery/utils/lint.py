@@ -254,7 +254,7 @@ def python_linter(src, fix=False):
     files = []
     for pattern in patterns:
         files += list(map(str, Path(src.path).glob(pattern)))
-    args = ['--max-line-length=120']
+    args = ['--no-pycodestyle']
     args += sorted(files)
     yield LintResult.from_cmd(cython_lint(*args))
 

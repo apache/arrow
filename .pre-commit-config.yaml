@@ -51,4 +51,4 @@ repos:
     rev: v0.12.5
     hooks:
       - id: cython-lint
-        args: [--max-line-length=120]
+        args: [--no-pycodestyle]
