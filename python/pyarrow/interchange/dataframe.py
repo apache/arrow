@@ -159,14 +159,9 @@ class _PyArrowDataFrame:
         """
         Create a new DataFrame by selecting a subset of columns by index.
         """
-        if isinstance(self._df, pa.RecordBatch):
-            columns = [self._df.column(i) for i in indices]
-            names = [self._df.schema.names[i] for i in indices]
-            return _PyArrowDataFrame(pa.record_batch(columns, names=names))
-        else:
-            return _PyArrowDataFrame(
-                self._df.select(list(indices)), self._nan_as_null, self._allow_copy
-            )
+        return _PyArrowDataFrame(
+            self._df.select(list(indices)), self._nan_as_null, self._allow_copy
+        )
 
     def select_columns_by_name(
         self, names: Sequence[str]
@@ -174,13 +169,9 @@ class _PyArrowDataFrame:
         """
         Create a new DataFrame by selecting a subset of columns by name.
         """
-        if isinstance(self._df, pa.RecordBatch):
-            columns = [self._df[i] for i in names]
-            return _PyArrowDataFrame(pa.record_batch(columns, names=names))
-        else:
-            return _PyArrowDataFrame(
-                self._df.select(list(names)), self._nan_as_null, self._allow_copy
-            )
+        return _PyArrowDataFrame(
+            self._df.select(list(names)), self._nan_as_null, self._allow_copy
+        )
 
     def get_chunks(
         self, n_chunks: Optional[int] = None
