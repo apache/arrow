@@ -23,10 +23,10 @@ source_dir=${1}/csharp
 
 # Python and PyArrow are required for C Data Interface tests.
 if [ -z "${PYTHON}" ]; then
-  if [ ! which python3 > /dev/null 2>&1 ]; then
-    export PYTHON=python
-  else
+  if type python3 > /dev/null 2>&1; then
     export PYTHON=python3
+  else
+    export PYTHON=python
   fi 
 fi
 ${PYTHON} -m pip install pyarrow find-libpython
