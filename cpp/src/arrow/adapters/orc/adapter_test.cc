@@ -840,6 +840,23 @@ TEST_F(TestORCWriterSingleArray, WriteListOfMap) {
   AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 10);
 }
 
+TEST_F(TestORCWriterSingleArray, WriteSparseUnion) {
+  const int64_t num_rows = 1024;
+  auto type =
+      sparse_union({field("_union_0", utf8()), field("_union_1", int32())}, {0, 1});
+  auto array = checked_pointer_cast<SparseUnionArray>(rand.ArrayOf(type, num_rows, 0.4));
+  ArrayVector children;
+  for (int i = 0; i < array->num_fields(); ++i) {
+    ASSERT_OK_AND_ASSIGN(auto flattened_child, array->GetFlattenedField(i));
+    children.emplace_back(std::move(flattened_child));
+  }
+  auto flattened_array = std::make_shared<SparseUnionArray>(
+      array->type(), array->length(), std::move(children), array->type_codes(),
+      array->offset());
+  AssertArrayWriteReadEqual(flattened_array, flattened_array,
+                            kDefaultSmallMemStreamSize * 10);
+}
+
 class TestORCWriterMultipleWrite : public ::testing::Test {
  public:
   TestORCWriterMultipleWrite() : rand(kRandomSeed) {}
