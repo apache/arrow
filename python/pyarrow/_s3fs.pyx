@@ -36,7 +36,7 @@ cpdef enum S3LogLevel:
     Trace = <int8_t> CS3LogLevel_Trace
 
 
-def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal):
+def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal, int num_event_loop_threads=1):
     """
     Initialize S3 support
 
@@ -44,6 +44,8 @@ def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal):
     ----------
     log_level : S3LogLevel
         level of logging
+    num_event_loop_threads : int, default 1
+        how many threads to use for the AWS SDK's I/O event loop
 
     Examples
     --------
@@ -51,7 +53,15 @@ def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal):
     """
     cdef CS3GlobalOptions options
     options.log_level = <CS3LogLevel> log_level
+    options.num_event_loop_threads = num_event_loop_threads
     check_status(CInitializeS3(options))
+
+
+def ensure_s3_initialized():
+    """
+    Initialize S3 (with default options) if not already initialized
+    """
+    check_status(CEnsureS3Initialized())
 
 
 def finalize_s3():

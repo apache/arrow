@@ -673,11 +673,11 @@ struct IsDaylightSavings {
 };
 
 // ----------------------------------------------------------------------
-// Extract local time of a given timestamp given its timezone
+// Extract local timestamp of a given timestamp given its timezone
 
 template <typename Duration, typename Localizer>
-struct LocalTime {
-  explicit LocalTime(const FunctionOptions* options, Localizer&& localizer)
+struct LocalTimestamp {
+  explicit LocalTimestamp(const FunctionOptions* options, Localizer&& localizer)
       : localizer_(std::move(localizer)) {}
 
   template <typename T, typename Arg0>
@@ -1344,8 +1344,8 @@ Result<TypeHolder> ResolveAssumeTimezoneOutput(KernelContext* ctx,
   return timestamp(in_type.unit(), AssumeTimezoneState::Get(ctx).timezone);
 }
 
-Result<TypeHolder> ResolveLocalTimeOutput(KernelContext* ctx,
-                                          const std::vector<TypeHolder>& args) {
+Result<TypeHolder> ResolveLocalTimestampOutput(KernelContext* ctx,
+                                               const std::vector<TypeHolder>& args) {
   const auto& in_type = checked_cast<const TimestampType&>(*args[0]);
   return timestamp(in_type.unit());
 }
@@ -1807,11 +1807,13 @@ const FunctionDoc is_dst_doc{
      "An error is returned if the values do not have a defined timezone."),
     {"values"}};
 
-const FunctionDoc local_time_doc{
+const FunctionDoc local_timestamp_doc{
     "Convert timestamp to a timezone-naive local time timestamp",
-    ("LocalTime converts a timestamp to a local time of timestamps timezone\n"
-     "and removes timezone metadata. If input is in UTC or doesn't have\n"
-     "timezone metadata, it is returned as is.\n"
+    ("LocalTimestamp converts timezone-aware timestamp to local timestamp\n"
+     "of the given timestamp's timezone and removes timezone metadata.\n"
+     "Alternative name for this timestamp is also wall clock time.\n"
+     "If input is in UTC or without timezone, then unchanged input values\n"
+     "without timezone metadata are returned.\n"
      "Null values emit null."),
     {"values"}};
 const FunctionDoc floor_temporal_doc{
@@ -1831,9 +1833,8 @@ const FunctionDoc ceil_temporal_doc{
 const FunctionDoc round_temporal_doc{
     "Round temporal values to the nearest multiple of specified time unit",
     ("Null values emit null.\n"
-     "If timezone is not given then timezone naive timestamp in UTC are\n"
-     "returned. An error is returned if the values have a defined timezone\n"
-     "but it cannot be found in the timezone database."),
+     "An error is returned if the values have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
     {"timestamps"},
     "RoundTemporalOptions"};
 
@@ -2000,11 +2001,12 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
                                                               is_dst_doc);
   DCHECK_OK(registry->AddFunction(std::move(is_dst)));
 
-  auto local_time =
-      UnaryTemporalFactory<LocalTime, TemporalComponentExtract, TimestampType>::Make<
-          WithTimestamps>("local_time", OutputType::Resolver(ResolveLocalTimeOutput),
-                          local_time_doc);
-  DCHECK_OK(registry->AddFunction(std::move(local_time)));
+  auto local_timestamp =
+      UnaryTemporalFactory<LocalTimestamp, TemporalComponentExtract, TimestampType>::Make<
+          WithTimestamps>("local_timestamp",
+                          OutputType::Resolver(ResolveLocalTimestampOutput),
+                          local_timestamp_doc);
+  DCHECK_OK(registry->AddFunction(std::move(local_timestamp)));
 
   // Temporal rounding functions
   // Note: UnaryTemporalFactory will not correctly resolve OutputType(FirstType) to

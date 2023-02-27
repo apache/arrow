@@ -24,6 +24,7 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec/expression_internal.h"
 #include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/dataset/scanner.h"
@@ -87,6 +88,12 @@ Future<AsyncGenerator<std::shared_ptr<Fragment>>> GetFragments(Dataset* dataset,
 /// simple iteration of paths or, if the dataset is described with wildcards, this may
 /// involve I/O for listing and walking directory paths.  There is one listing io-task
 /// per dataset.
+///
+/// If a fragment has a guarantee we may use that expression to reduce the columns that
+/// we need to load from disk.  For example, if the guarantee is x==7 then we don't need
+/// to load the column x from disk and can instead populate x with the scalar 7.  If the
+/// fragment on disk actually had a column x, and the value was not 7, then we will prefer
+/// the guarantee in this invalid case.
 ///
 /// Ths next step is to fetch the metadata for the fragment.  For some formats (e.g.
 /// CSV) this may be quite simple (get the size of the file).  For other formats (e.g.
@@ -186,10 +193,16 @@ class ScanNode : public cp::ExecNode, public cp::TracedNode {
 
   Status Init() override { return Status::OK(); }
 
+  struct KnownValue {
+    std::size_t index;
+    Datum value;
+  };
+
   struct ScanState {
     std::mutex mutex;
     std::shared_ptr<FragmentScanner> fragment_scanner;
     std::unique_ptr<FragmentEvolutionStrategy> fragment_evolution;
+    std::vector<KnownValue> known_values;
     FragmentScanRequest scan_request;
   };
 
@@ -218,14 +231,38 @@ class ScanNode : public cp::ExecNode, public cp::TracedNode {
 
     std::string_view name() const override { return name_; }
 
+    compute::ExecBatch AddKnownValues(compute::ExecBatch batch) {
+      if (scan_->known_values.empty()) {
+        return batch;
+      }
+      std::vector<Datum> with_known_values;
+      int num_combined_cols =
+          static_cast<int>(batch.values.size() + scan_->known_values.size());
+      with_known_values.reserve(num_combined_cols);
+      auto known_values_itr = scan_->known_values.cbegin();
+      auto batch_itr = batch.values.begin();
+      for (int i = 0; i < num_combined_cols; i++) {
+        if (known_values_itr != scan_->known_values.end() &&
+            static_cast<int>(known_values_itr->index) == i) {
+          with_known_values.push_back(known_values_itr->value);
+          known_values_itr++;
+        } else {
+          with_known_values.push_back(std::move(*batch_itr));
+          batch_itr++;
+        }
+      }
+      return compute::ExecBatch(std::move(with_known_values), batch.length);
+    }
+
     Status HandleBatch(const std::shared_ptr<RecordBatch>& batch) {
       ARROW_ASSIGN_OR_RAISE(
           compute::ExecBatch evolved_batch,
-          scan_->fragment_evolution->EvolveBatch(batch, node_->options_.columns,
-                                                 scan_->scan_request.columns));
+          scan_->fragment_evolution->EvolveBatch(
+              batch, node_->options_.columns, *scan_->scan_request.fragment_selection));
+      compute::ExecBatch with_known_values = AddKnownValues(std::move(evolved_batch));
       node_->plan_->query_context()->ScheduleTask(
-          [node = node_, evolved_batch = std::move(evolved_batch)] {
-            return node->output_->InputReceived(node, std::move(evolved_batch));
+          [node = node_, output_batch = std::move(with_known_values)] {
+            return node->output_->InputReceived(node, output_batch);
           },
           "ScanNode::ProcessMorsel");
       return Status::OK();
@@ -257,13 +294,67 @@ class ScanNode : public cp::ExecNode, public cp::TracedNode {
 
     std::string_view name() const override { return name_; }
 
+    struct ExtractedKnownValues {
+      // Columns that must be loaded from the fragment
+      std::vector<FieldPath> remaining_columns;
+      // Columns whose value is already known from the partition guarantee
+      std::vector<KnownValue> known_values;
+    };
+
+    Result<ExtractedKnownValues> ExtractKnownValuesFromGuarantee(
+        const compute::Expression& guarantee) {
+      ARROW_ASSIGN_OR_RAISE(
+          compute::KnownFieldValues part_values,
+          compute::ExtractKnownFieldValues(fragment->partition_expression()));
+      ExtractedKnownValues extracted;
+      for (std::size_t i = 0; i < node->options_.columns.size(); i++) {
+        const auto& field_path = node->options_.columns[i];
+        FieldRef field_ref(field_path);
+        auto existing = part_values.map.find(FieldRef(field_path));
+        if (existing == part_values.map.end()) {
+          // Column not in our known values, we must load from fragment
+          extracted.remaining_columns.push_back(field_path);
+        } else {
+          ARROW_ASSIGN_OR_RAISE(const std::shared_ptr<Field>& field,
+                                field_path.Get(*node->options_.dataset->schema()));
+          Result<Datum> maybe_casted = compute::Cast(existing->second, field->type());
+          if (!maybe_casted.ok()) {
+            // TODO(weston) In theory this should be preventable.  The dataset and
+            // partitioning schemas are known at the beginning of the scan and we could
+            // compare the two and discover that they are incompatible.
+            //
+            // Provide some context here as this error can be confusing
+            return Status::Invalid(
+                "The dataset schema defines the field ", field_path, " as type ",
+                field->type()->ToString(), " but a partition column was found with type ",
+                existing->second.type()->ToString(), " which cannot be safely cast");
+          }
+          extracted.known_values.push_back({i, *maybe_casted});
+        }
+      }
+      return std::move(extracted);
+    }
+
     Future<> BeginScan(const std::shared_ptr<InspectedFragment>& inspected_fragment) {
+      // Based on the fragment's guarantee we may not need to retrieve all the columns
+      compute::Expression fragment_filter = node->options_.filter;
+      ARROW_ASSIGN_OR_RAISE(
+          compute::Expression filter_minus_part,
+          compute::SimplifyWithGuarantee(std::move(fragment_filter),
+                                         fragment->partition_expression()));
+
+      ARROW_ASSIGN_OR_RAISE(
+          ExtractedKnownValues extracted,
+          ExtractKnownValuesFromGuarantee(fragment->partition_expression()));
+
       // Now that we have an inspected fragment we need to use the dataset's evolution
       // strategy to figure out how to scan it
       scan_state->fragment_evolution =
           node->options_.dataset->evolution_strategy()->GetStrategy(
               *node->options_.dataset, *fragment, *inspected_fragment);
-      ARROW_RETURN_NOT_OK(InitFragmentScanRequest());
+      ARROW_RETURN_NOT_OK(InitFragmentScanRequest(extracted.remaining_columns,
+                                                  filter_minus_part,
+                                                  std::move(extracted.known_values)));
       return fragment
           ->BeginScan(scan_state->scan_request, *inspected_fragment,
                       node->options_.format_options,
@@ -302,20 +393,22 @@ class ScanNode : public cp::ExecNode, public cp::TracedNode {
 
     // Take the dataset options, and the fragment evolution, and figure out exactly how
     // we should scan the fragment itself.
-    Status InitFragmentScanRequest() {
+    Status InitFragmentScanRequest(const std::vector<FieldPath>& desired_columns,
+                                   const compute::Expression& filter,
+                                   std::vector<KnownValue> known_values) {
       ARROW_ASSIGN_OR_RAISE(
-          scan_state->scan_request.columns,
-          scan_state->fragment_evolution->DevolveSelection(node->options_.columns));
+          scan_state->scan_request.fragment_selection,
+          scan_state->fragment_evolution->DevolveSelection(desired_columns));
       ARROW_ASSIGN_OR_RAISE(
           compute::Expression devolution_guarantee,
-          scan_state->fragment_evolution->GetGuarantee(node->options_.columns));
-      ARROW_ASSIGN_OR_RAISE(
-          compute::Expression simplified_filter,
-          compute::SimplifyWithGuarantee(node->options_.filter, devolution_guarantee));
+          scan_state->fragment_evolution->GetGuarantee(desired_columns));
+      ARROW_ASSIGN_OR_RAISE(compute::Expression simplified_filter,
+                            compute::SimplifyWithGuarantee(filter, devolution_guarantee));
       ARROW_ASSIGN_OR_RAISE(
           scan_state->scan_request.filter,
           scan_state->fragment_evolution->DevolveFilter(std::move(simplified_filter)));
       scan_state->scan_request.format_scan_options = node->options_.format_options;
+      scan_state->known_values = std::move(known_values);
       return Status::OK();
     }
 

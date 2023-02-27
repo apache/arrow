@@ -41,7 +41,7 @@ class ApacheArrowReleasePackageTask < PackageTask
       rm_rf(@archive_base_name)
       mkdir(@archive_base_name)
       keys_path = "#{@archive_base_name}/KEYS"
-      download("https://downloads.apache.org/arrow/KEYS",
+      download("https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/KEYS",
                keys_path)
       keys = File.read(keys_path)
       File.open(keys_path, "w") do |keys_file|
