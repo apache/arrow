@@ -35,6 +35,7 @@ import org.apache.arrow.flight.FlightServerMiddleware;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.HeaderCallOption;
+import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.RequestContext;
 import org.apache.arrow.flight.SyncPutListener;
@@ -74,10 +75,12 @@ public class CustomHeaderTest {
       callHeaders.insert(entry.getKey(), entry.getValue());
     }
     headers = new HeaderCallOption(callHeaders);
-    server = FlightTestUtil.getStartedServer(location ->
-            FlightServer.builder(allocator, location, new NoOpFlightProducer())
-                    .middleware(FlightServerMiddleware.Key.of("customHeader"), headersMiddleware)
-                    .build());
+    server = FlightServer.builder(allocator,
+            Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, /*port*/ 0),
+            new NoOpFlightProducer())
+        .middleware(FlightServerMiddleware.Key.of("customHeader"), headersMiddleware)
+        .build();
+    server.start();
     client = FlightClient.builder(allocator, server.getLocation()).build();
   }
 
