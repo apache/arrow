@@ -19,6 +19,11 @@
 
 set -e
 
+if [ "$#" -lt 1 ]; then
+  echo "Usage: $0 <optional numpy version = latest>"
+  exit 1
+fi
+
 numpy=${1:-"latest"}
 
 if [ "${numpy}" = "latest" ]; then
