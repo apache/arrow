@@ -96,7 +96,7 @@ override_dh_auto_install:
 
 	df -h
 	du -hsc cpp_build/release/* || :
-	dh_auto_install				\
+	: dh_auto_install				\
 	  --sourcedirectory=cpp			\
 	  --builddirectory=cpp_build
 	# Remove built files to reduce disk usage
