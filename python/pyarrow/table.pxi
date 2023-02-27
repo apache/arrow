@@ -1521,6 +1521,7 @@ cdef class RecordBatch(_PandasConvertible):
     def __dataframe__(self, nan_as_null: bool = False, allow_copy: bool = True):
         """
         Return the dataframe interchange object implementing the interchange protocol.
+
         Parameters
         ----------
         nan_as_null : bool, default False
@@ -1529,10 +1530,12 @@ cdef class RecordBatch(_PandasConvertible):
         allow_copy : bool, default True
             Whether to allow memory copying when exporting. If set to False
             it would cause non-zero-copy exports to fail.
+
         Returns
         -------
         DataFrame interchange object
             The object which consuming library can use to ingress the dataframe.
+
         Notes
         -----
         Details on the interchange protocol:
