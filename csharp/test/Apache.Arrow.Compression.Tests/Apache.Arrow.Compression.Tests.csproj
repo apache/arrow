@@ -18,13 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="Resources\ipc_lz4_compression.arrow" />
     <EmbeddedResource Include="Resources\ipc_lz4_compression.arrow" />
-    <None Remove="Resources\ipc_lz4_compression.arrow_stream" />
     <EmbeddedResource Include="Resources\ipc_lz4_compression.arrow_stream" />
-    <None Remove="Resources\ipc_zstd_compression.arrow" />
     <EmbeddedResource Include="Resources\ipc_zstd_compression.arrow" />
-    <None Remove="Resources\ipc_zstd_compression.arrow_stream" />
     <EmbeddedResource Include="Resources\ipc_zstd_compression.arrow_stream" />
   </ItemGroup>
 
