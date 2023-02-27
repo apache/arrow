@@ -31,6 +31,7 @@ import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.perf.impl.PerfOuterClass.Perf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -89,36 +90,34 @@ public class TestPerf {
     for (int i = 0; i < numRuns; i++) {
       try (
           final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-          final PerformanceTestServer server = new PerformanceTestServer(a, forGrpcInsecure(LOCALHOST, 0));
+          final PerformanceTestServer server = new PerformanceTestServer(a, forGrpcInsecure(LOCALHOST, 0)).start();
+          final FlightClient client = FlightClient.builder(a, server.getLocation()).build();
       ) {
-        server.start();
-        try (final FlightClient client = FlightClient.builder(a, server.getLocation()).build()) {
-          final FlightInfo info = client.getInfo(getPerfFlightDescriptor(50_000_000L, 4095, 2));
-          List<ListenableFuture<Result>> results = info.getEndpoints()
-              .stream()
-              .map(t -> new Consumer(client, t.getTicket()))
-              .map(t -> pool.submit(t))
-              .collect(Collectors.toList());
+        final FlightInfo info = client.getInfo(getPerfFlightDescriptor(50_000_000L, 4095, 2));
+        List<ListenableFuture<Result>> results = info.getEndpoints()
+            .stream()
+            .map(t -> new Consumer(client, t.getTicket()))
+            .map(t -> pool.submit(t))
+            .collect(Collectors.toList());
 
-          final Result r = Futures.whenAllSucceed(results).call(() -> {
-            Result res = new Result();
-            for (ListenableFuture<Result> f : results) {
-              res.add(f.get());
-            }
-            return res;
-          }, pool).get();
+        final Result r = Futures.whenAllSucceed(results).call(() -> {
+          Result res = new Result();
+          for (ListenableFuture<Result> f : results) {
+            res.add(f.get());
+          }
+          return res;
+        }, pool).get();
 
-          double seconds = r.nanos * 1.0d / 1000 / 1000 / 1000;
-          throughPuts[i] = (r.bytes * 1.0d / 1024 / 1024) / seconds;
-          System.out.println(String.format(
-              "Transferred %d records totaling %s bytes at %f MiB/s. %f record/s. %f batch/s.",
-              r.rows,
-              r.bytes,
-              throughPuts[i],
-              (r.rows * 1.0d) / seconds,
-              (r.batches * 1.0d) / seconds
-          ));
-        }
+        double seconds = r.nanos * 1.0d / 1000 / 1000 / 1000;
+        throughPuts[i] = (r.bytes * 1.0d / 1024 / 1024) / seconds;
+        System.out.println(String.format(
+            "Transferred %d records totaling %s bytes at %f MiB/s. %f record/s. %f batch/s.",
+            r.rows,
+            r.bytes,
+            throughPuts[i],
+            (r.rows * 1.0d) / seconds,
+            (r.batches * 1.0d) / seconds
+        ));
       }
     }
     pool.shutdown();

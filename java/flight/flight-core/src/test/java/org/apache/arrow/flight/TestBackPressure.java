@@ -88,13 +88,12 @@ public class TestBackPressure {
                                                   serverConstructor) throws Exception {
     try (
         final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-        final PerformanceTestServer server = serverConstructor.apply(a).apply(forGrpcInsecure(LOCALHOST, 0))
+        final PerformanceTestServer server = serverConstructor.apply(a).apply(forGrpcInsecure(LOCALHOST, 0)).start();
+        final FlightClient client = FlightClient.builder(a, server.getLocation()).build()
     ) {
-      server.start();
-      try (final FlightClient client = FlightClient.builder(a, server.getLocation()).build();
-           FlightStream fs1 = client.getStream(client.getInfo(
-                   TestPerf.getPerfFlightDescriptor(110L * BATCH_SIZE, BATCH_SIZE, 1))
-               .getEndpoints().get(0).getTicket())) {
+      try (FlightStream fs1 = client.getStream(client.getInfo(
+          TestPerf.getPerfFlightDescriptor(110L * BATCH_SIZE, BATCH_SIZE, 1))
+          .getEndpoints().get(0).getTicket())) {
         consume(fs1, 10);
 
         // stop consuming fs1 but make sure we can consume a large amount of fs2.
