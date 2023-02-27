@@ -976,9 +976,7 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
 
   // page_stats.null_count is not set when page_statistics_ is nullptr. It is only used
   // here for safety check.
-  if (page_stats.has_null_count && page_stats.null_count != num_buffered_nulls_) {
-    throw ParquetException("Null count mismatch between page stats and column writer");
-  }
+  DCHECK(!page_stats.has_null_count || page_stats.null_count == null_count);
 
   // Write the page to OutputStream eagerly if there is no dictionary or
   // if dictionary encoding has fallen back to PLAIN
