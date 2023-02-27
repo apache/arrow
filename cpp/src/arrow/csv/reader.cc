@@ -492,7 +492,6 @@ class BlockDecodingOperator {
 
           ARROW_ASSIGN_OR_RAISE(auto batch,
                                 state->DecodedArraysToBatch(std::move(decoded_arrays)));
-          raw_span->SetAttribute("parsed_size", parsed_size);
           return DecodedBlock{std::move(batch), bytes_parsed_or_skipped};
         });
 #endif
