@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -59,7 +59,7 @@ namespace Apache.Arrow.C
         {
             TypeFormatter formatter = new TypeFormatter();
             datatype.Accept(formatter);
-            return formatter.format_string;
+            return formatter.formatString;
         }
 
         private static long GetFlags(IArrowType datatype, bool nullable = true)
@@ -68,14 +68,14 @@ namespace Apache.Arrow.C
 
             if (nullable)
             {
-                flags |= ARROW_FLAG_NULLABLE;
+                flags |= ArrowFlagNullable;
             }
 
             if (datatype is DictionaryType)
             {
                 if (((DictionaryType)datatype).Ordered)
                 {
-                    flags |= ARROW_FLAG_DICTIONARY_ORDERED;
+                    flags |= ArrowFlagDictionaryOrdered;
                 }
             }
 
@@ -87,20 +87,20 @@ namespace Apache.Arrow.C
         {
             if (datatype is NestedType)
             {
-                var fields = ((NestedType)datatype).Fields;
-                int n_fields = fields.Count;
+                IReadOnlyList<Field> fields = ((NestedType)datatype).Fields;
+                int numFields = fields.Count;
 
-                IntPtr* pointer_list = (IntPtr*)Marshal.AllocHGlobal(n_fields * sizeof(IntPtr));
+                IntPtr* pointerList = (IntPtr*)Marshal.AllocHGlobal(numFields * sizeof(IntPtr));
 
-                for (var i = 0; i < n_fields; i++)
+                for (var i = 0; i < numFields; i++)
                 {
-                    var c_schema = new CArrowSchema();
-                    CArrowSchema.ExportField(fields[i], out c_schema);
-                    IntPtr exported_schema = c_schema.AllocateAsPtr();
-                    pointer_list[i] = exported_schema;
+                    var cSchema = new CArrowSchema();
+                    CArrowSchema.ExportField(fields[i], out cSchema);
+                    IntPtr exportedSchema = cSchema.AllocateAsPtr();
+                    pointerList[i] = exportedSchema;
                 }
 
-                return pointer_list;
+                return pointerList;
             }
             else
             {
@@ -112,10 +112,10 @@ namespace Apache.Arrow.C
         {
             if (datatype is DictionaryType)
             {
-                var c_schema = new CArrowSchema();
-                var value_type = ((DictionaryType)datatype).ValueType;
-                CArrowSchema.ExportDataType(value_type, out c_schema);
-                return c_schema.AllocateAsPtr();
+                var cSchema = new CArrowSchema();
+                IArrowType valueType = ((DictionaryType)datatype).ValueType;
+                CArrowSchema.ExportDataType(valueType, out cSchema);
+                return cSchema.AllocateAsPtr();
             }
             else
             {
@@ -180,12 +180,12 @@ namespace Apache.Arrow.C
         /// Initialize the exported C schema as a schema.
         /// </summary>
         /// <param name="schema">Schema to export.</param>
-        /// <param name="out_schema">An uninitialized CArrowSchema</param>
-        public static void ExportSchema(Schema schema, out CArrowSchema out_schema)
+        /// <param name="outSchema">An uninitialized CArrowSchema</param>
+        public static void ExportSchema(Schema schema, out CArrowSchema outSchema)
         {
             // TODO: top-level metadata
-            var struct_type = new StructType(schema.Fields.Values.ToList());
-            ExportDataType(struct_type, out out_schema);
+            var structType = new StructType(schema.Fields.Values.ToList());
+            ExportDataType(structType, out outSchema);
         }
 
         /// <summary>
@@ -222,17 +222,16 @@ namespace Apache.Arrow.C
         /// <summary>
         /// Export to an existing pointer
         /// </summary>
-        /// <param name="ptr"></param>
-        /// <returns></returns>
+        /// <param name="ptr">An allocated but uninitialized pointer.</param>
         public IntPtr Export(IntPtr ptr)
         {
             Marshal.StructureToPtr<CArrowSchema>(this, ptr, false);
             return ptr;
         }
 
-        public const int ARROW_FLAG_DICTIONARY_ORDERED = 1;
-        public const int ARROW_FLAG_NULLABLE = 2;
-        public const int ARROW_FLAG_MAP_KEYS_SORTED = 4;
+        public const int ArrowFlagDictionaryOrdered = 1;
+        public const int ArrowFlagNullable = 2;
+        public const int ArrowFlagMapKeysSorted = 4;
 
         private class TypeFormatter :
         IArrowTypeVisitor<NullType>,
@@ -262,41 +261,41 @@ namespace Apache.Arrow.C
         IArrowTypeVisitor<StructType>,
         IArrowTypeVisitor<DictionaryType>
         {
-            public string format_string;
-            public void Visit(NullType _) => format_string = "n";
-            public void Visit(BooleanType _) => format_string = "b";
+            public string formatString;
+            public void Visit(NullType _) => formatString = "n";
+            public void Visit(BooleanType _) => formatString = "b";
             // Integers
-            public void Visit(Int8Type _) => format_string = "c";
-            public void Visit(UInt8Type _) => format_string = "C";
-            public void Visit(Int16Type _) => format_string = "s";
-            public void Visit(UInt16Type _) => format_string = "S";
-            public void Visit(Int32Type _) => format_string = "i";
-            public void Visit(UInt32Type _) => format_string = "I";
-            public void Visit(Int64Type _) => format_string = "l";
-            public void Visit(UInt64Type _) => format_string = "L";
+            public void Visit(Int8Type _) => formatString = "c";
+            public void Visit(UInt8Type _) => formatString = "C";
+            public void Visit(Int16Type _) => formatString = "s";
+            public void Visit(UInt16Type _) => formatString = "S";
+            public void Visit(Int32Type _) => formatString = "i";
+            public void Visit(UInt32Type _) => formatString = "I";
+            public void Visit(Int64Type _) => formatString = "l";
+            public void Visit(UInt64Type _) => formatString = "L";
             // Floats
-            public void Visit(HalfFloatType _) => format_string = "e";
-            public void Visit(FloatType _) => format_string = "f";
-            public void Visit(DoubleType _) => format_string = "g";
+            public void Visit(HalfFloatType _) => formatString = "e";
+            public void Visit(FloatType _) => formatString = "f";
+            public void Visit(DoubleType _) => formatString = "g";
             // Binary
-            public void Visit(BinaryType _) => format_string = "z";
-            public void Visit(StringType _) => format_string = "u";
+            public void Visit(BinaryType _) => formatString = "z";
+            public void Visit(StringType _) => formatString = "u";
             public void Visit(FixedSizeBinaryType datatype)
             {
-                format_string = $"w:{datatype.ByteWidth}";
+                formatString = $"w:{datatype.ByteWidth}";
             }
             // Decimal
             public void Visit(Decimal128Type datatype)
             {
-                format_string = $"d:{datatype.Precision},{datatype.Scale}";
+                formatString = $"d:{datatype.Precision},{datatype.Scale}";
             }
             public void Visit(Decimal256Type datatype)
             {
-                format_string = $"w:{datatype.Precision},{datatype.Scale},256";
+                formatString = $"w:{datatype.Precision},{datatype.Scale},256";
             }
             // Date
-            public void Visit(Date32Type _) => format_string = "tdD";
-            public void Visit(Date64Type _) => format_string = "tdm";
+            public void Visit(Date32Type _) => formatString = "tdD";
+            public void Visit(Date64Type _) => formatString = "tdm";
 
             private char TimeUnitComponent(TimeUnit unit) => unit switch
             {
@@ -309,20 +308,20 @@ namespace Apache.Arrow.C
             // Time
             public void Visit(Time32Type datatype)
             {
-                format_string = String.Format("tt{0}", TimeUnitComponent(datatype.Unit));
+                formatString = String.Format("tt{0}", TimeUnitComponent(datatype.Unit));
             }
             public void Visit(Time64Type datatype)
             {
-                format_string = String.Format("tt{0}", TimeUnitComponent(datatype.Unit));
+                formatString = String.Format("tt{0}", TimeUnitComponent(datatype.Unit));
             }
             // Timestamp type
             public void Visit(TimestampType datatype)
             {
-                format_string = String.Format("ts{0}:{1}", TimeUnitComponent(datatype.Unit), datatype.Timezone);
+                formatString = String.Format("ts{0}:{1}", TimeUnitComponent(datatype.Unit), datatype.Timezone);
             }
             // Nested
-            public void Visit(ListType _) => format_string = "+l";
-            public void Visit(StructType _) => format_string = "+s";
+            public void Visit(ListType _) => formatString = "+l";
+            public void Visit(StructType _) => formatString = "+s";
             // Dictionary
             public void Visit(DictionaryType datatype)
             {
@@ -334,185 +333,6 @@ namespace Apache.Arrow.C
             public void Visit(IArrowType type)
             {
                 throw new NotImplementedException($"Exporting {type.Name} not implemented");
-            }
-        }
-    }
-
-    /// <summary>
-    /// A <see cref="CArrowSchema"/> imported from somewhere else.
-    /// </summary>
-    ///
-    /// <example>
-    /// Typically, when importing a schema we will allocate an uninitialized 
-    /// <see cref="CArrowSchema"/>, pass the pointer to the foreign function,
-    /// then construct this class with the initialized pointer.
-    /// 
-    /// <code>
-    /// var c_schema = new CArrowSchema();
-    /// IntPtr imported_ptr = c_schema.AllocateAsPtr();
-    /// foreign_export_function(imported_ptr);
-    /// var imported_type = new ImportedArrowSchema(imported_ptr);
-    /// ArrowType arrow_type = imported_type.GetAsType();
-    /// <code>
-    /// </example>
-    public sealed class ImportedArrowSchema : IDisposable
-    {
-        private CArrowSchema _data;
-        private IntPtr _handle;
-        private bool _is_root;
-
-        public ImportedArrowSchema(IntPtr handle)
-        {
-            _data = Marshal.PtrToStructure<CArrowSchema>(handle);
-            if (_data.release == null)
-            {
-                throw new Exception("Tried to import a schema that has already been released.");
-            }
-            _handle = handle;
-            _is_root = true;
-        }
-
-        private ImportedArrowSchema(IntPtr handle, bool is_root) : this(handle)
-        {
-            _is_root = is_root;
-        }
-
-        public void Dispose()
-        {
-            // We only call release on a root-level schema, not child ones.
-            if (_is_root)
-            {
-                _data.release(_handle);
-            }
-        }
-
-        public ArrowType GetAsType()
-        {
-            if (_data.dictionary != IntPtr.Zero)
-            {
-                ArrowType indices_type = _data.format switch
-                {
-                    "c" => new Int8Type(),
-                    "C" => new UInt8Type(),
-                    "s" => new Int16Type(),
-                    "S" => new UInt16Type(),
-                    "i" => new Int32Type(),
-                    "I" => new UInt32Type(),
-                    "l" => new Int64Type(),
-                    "L" => new UInt64Type(),
-                    _ => throw new InvalidDataException($"Indices must be an integer, but got format string {_data.format}"),
-                };
-
-                var dictionary_schema = new ImportedArrowSchema(_data.dictionary, /*is_root*/ false);
-                var dictionary_type = dictionary_schema.GetAsType();
-
-                bool ordered = (_data.flags & CArrowSchema.ARROW_FLAG_NULLABLE) == CArrowSchema.ARROW_FLAG_NULLABLE;
-
-                return new DictionaryType(indices_type, dictionary_type, ordered);
-            }
-
-            // Special handling for nested types
-            if (_data.format == "+l")
-            {
-                if (_data.n_children != 1)
-                {
-                    throw new Exception("Expected list type to have exactly one child.");
-                }
-                ImportedArrowSchema child_schema;
-                unsafe
-                {
-                    if (_data.children[0] == null)
-                    {
-                        throw new Exception("Expected list type child to be non-null.");
-                    }
-                    child_schema = new ImportedArrowSchema(_data.children[0]);
-                }
-
-                var child_field = child_schema.GetAsField();
-
-                return new ListType(child_field);
-            }
-            else if (_data.format == "+s")
-            {
-                var child_schemas = new ImportedArrowSchema[_data.n_children];
-                unsafe
-                {
-                    for (int i = 0; i < _data.n_children; i++)
-                    {
-                        if (_data.children[i] == null)
-                        {
-                            throw new Exception("Expected struct type child to be non-null.");
-                        }
-                        child_schemas[i] = new ImportedArrowSchema(_data.children[i]);
-                    }
-
-                }
-
-                var child_fields = child_schemas.Select(schema => schema.GetAsField()).ToList();
-
-                return new StructType(child_fields);
-            }
-            // TODO: Map type and large list type
-
-            return _data.format switch
-            {
-                // Primitives
-                "n" => new NullType(),
-                "b" => new BooleanType(),
-                "c" => new Int8Type(),
-                "C" => new UInt8Type(),
-                "s" => new Int16Type(),
-                "S" => new UInt16Type(),
-                "i" => new Int32Type(),
-                "I" => new UInt32Type(),
-                "l" => new Int64Type(),
-                "L" => new UInt64Type(),
-                "e" => new HalfFloatType(),
-                "f" => new FloatType(),
-                "g" => new DoubleType(),
-                // Binary data
-                "z" => new BinaryType(),
-                //"Z" => new LargeBinaryType() // Not yet implemented
-                "u" => new StringType(),
-                //"U" => new LargeStringType(), // Not yet implemented
-                // TODO: decimal
-                // TODO: fixed-width binary
-                // Date and time
-                "tdD" => new Date32Type(),
-                "tdm" => new Date64Type(),
-                "tts" => new Time32Type(TimeUnit.Second),
-                "ttm" => new Time32Type(TimeUnit.Millisecond),
-                "ttu" => new Time64Type(TimeUnit.Microsecond),
-                "ttn" => new Time64Type(TimeUnit.Nanosecond),
-                // TODO: timestamp with timezone,
-                // TODO: duration not yet implemented
-                "tiM" => new IntervalType(IntervalUnit.YearMonth),
-                "tiD" => new IntervalType(IntervalUnit.DayTime),
-                //"tin" => new IntervalType(IntervalUnit.MonthDayNanosecond), // Not yet implemented
-                _ => throw new NotSupportedException("Data type is not yet supported in import.")
-            };
-        }
-
-        public Field GetAsField()
-        {
-            string field_name = string.IsNullOrEmpty(_data.name) ? "" : _data.name;
-
-            bool nullable = (_data.flags & CArrowSchema.ARROW_FLAG_NULLABLE) == CArrowSchema.ARROW_FLAG_NULLABLE;
-
-            return new Field(field_name, GetAsType(), nullable);
-        }
-
-        public Schema GetAsSchema()
-        {
-            ArrowType full_type = GetAsType();
-            if (full_type is StructType)
-            {
-                StructType struct_type = (StructType)full_type;
-                return new Schema(struct_type.Fields, default);
-            }
-            else
-            {
-                throw new Exception("Imported type is not a struct type, so it cannot be converted to a schema.");
             }
         }
     }
