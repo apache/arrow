@@ -37,21 +37,6 @@ jobs:
     name: "PR Workflow bot"
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v3
-        with:
-          path: arrow
-          repository: apache/arrow
-          ref: main
-          persist-credentials: false
-          # fetch the tags for version number generation
-          fetch-depth: 0
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.8
-      - name: Install Archery and Crossbow dependencies
-        run: pip install -e arrow/dev/archery[bot]
       - name: 'Download PR review payload'
         id: 'download'
         if: github.event_name == 'workflow_run'
@@ -81,17 +66,32 @@ jobs:
         run: |
           unzip pr_review.zip
           echo "pr_review_path=$(pwd)/event.json" >> $GITHUB_OUTPUT
+      - name: Checkout Arrow
+        uses: actions/checkout@v3
+        with:
+          path: arrow
+          repository: apache/arrow
+          ref: main
+          persist-credentials: false
+          # fetch the tags for version number generation
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+      - name: Install Archery and Crossbow dependencies
+        run: pip install -e arrow/dev/archery[bot]
       - name: Handle PR workflow event
         env:
           ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if ${{ github.event_name == 'workflow_run' }}; then
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_run" ]; then
             # workflow_run is executed on PR review. Update to original event.
             archery trigger-bot \
               --event-name "pull_request_review" \
-              --event-payload ${{ steps.extract.outputs.pr_review_path }}
+              --event-payload "${{ steps.extract.outputs.pr_review_path }}"
           else
             archery trigger-bot \
-              --event-name ${{ github.event_name }} \
-              --event-payload ${{ github.event_path }}
+              --event-name "${{ github.event_name }}" \
+              --event-payload "${{ github.event_path }}"
           fi
