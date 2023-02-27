@@ -548,7 +548,7 @@ cdef class FlightDescriptor(_Weakrefable):
         elif self.descriptor_type == DescriptorType.CMD:
             return f"<pyarrow.flight.FlightDescriptor cmd={self.command!r}>"
         else:
-            return f"<pyarrow.flight.FlightDescriptor UNKNOWN>"
+            return "<pyarrow.flight.FlightDescriptor UNKNOWN>"
 
     @staticmethod
     cdef CFlightDescriptor unwrap(descriptor) except *:

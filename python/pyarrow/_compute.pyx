@@ -2233,7 +2233,6 @@ def _group_by(table, aggregates, keys):
         vector[CAggregate] c_aggregates
         vector[CFieldRef] c_keys
         CAggregate c_aggr
-        shared_ptr[CTable] sp_out_table
 
     c_table = (<Table> table).sp_table
 
