@@ -402,6 +402,7 @@ type DictionaryBuilder interface {
 	NewDictionaryArray() *Dictionary
 	NewDelta() (indices, delta arrow.Array, err error)
 	AppendArray(arrow.Array) error
+	AppendIndices([]int, []bool)
 	ResetFull()
 }
 
