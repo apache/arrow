@@ -58,10 +58,9 @@ _PYARROW_DTYPES: dict[DtypeKind, dict[int, Any]] = {
 }
 
 
-def from_dataframe(df: DataFrameObject, allow_copy=True) -> pa.Table | pa.RecordBatch:
+def from_dataframe(df: DataFrameObject, allow_copy=True) -> pa.Table:
     """
-    Build a ``pa.Table`` or a ``pa.RecordBatch`` from any DataFrame supporting
-    the interchange protocol.
+    Build a ``pa.Table`` from any DataFrame supporting the interchange protocol.
 
     Parameters
     ----------
@@ -74,10 +73,12 @@ def from_dataframe(df: DataFrameObject, allow_copy=True) -> pa.Table | pa.Record
 
     Returns
     -------
-    pa.Table or pa.RecordBatch
+    pa.Table
     """
-    if isinstance(df, (pa.Table, pa.RecordBatch)):
+    if isinstance(df, pa.Table):
         return df
+    elif isinstance(df, pa.RecordBatch):
+        return pa.Table.from_batches([df])
 
     if not hasattr(df, "__dataframe__"):
         raise ValueError("`df` does not support __dataframe__")
