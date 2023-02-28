@@ -620,6 +620,7 @@ void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   }
   add_kernel(boolean());
   add_kernel(null());
+  // TODO(GH-34195): Add support for more types
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
@@ -643,6 +644,7 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
   }
   add_kernel(boolean());
   add_kernel(null());
+  // TODO(GH-34195): Add support for more types
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
