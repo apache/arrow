@@ -591,7 +591,7 @@ void EncodingByteArrayBenchmark(benchmark::State& state, Encoding::type encoding
   }
   state.SetItemsProcessed(state.iterations() * array_actual->length());
   state.counters["byte_array_bytes"] =
-      state.iterations() * array_actual->total_values_length();
+      static_cast<double>(state.iterations() * array_actual->total_values_length());
 }
 
 static void BM_DeltaBitLengthEncodingByteArray(benchmark::State& state) {
@@ -627,7 +627,7 @@ void DecodingByteArrayBenchmark(benchmark::State& state, Encoding::type encoding
   }
   state.SetItemsProcessed(state.iterations() * array->length());
   state.counters["byte_array_bytes"] =
-      state.iterations() * array_actual->total_values_length();
+      static_cast<double>(state.iterations() * array_actual->total_values_length());
 }
 
 static void BM_PlainDecodingByteArray(benchmark::State& state) {
@@ -685,7 +685,7 @@ static void BM_DecodingByteArraySpaced(benchmark::State& state, Encoding::type e
   state.counters["null_percent"] = null_percent * 100;
   state.SetItemsProcessed(state.iterations() * array_actual->length());
   state.counters["byte_array_bytes"] =
-      state.iterations() * array_actual->total_values_length();
+      static_cast<double>(state.iterations() * array_actual->total_values_length());
 }
 
 static void BM_PlainDecodingSpacedByteArray(benchmark::State& state) {
