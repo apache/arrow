@@ -335,8 +335,8 @@ cdef class ChunkedArray(_PandasConvertible):
         --------
         >>> import pyarrow as pa
         >>> import numpy as np
-        >>> n_legs = pa.chunked_array([[2, np.nan, 4], [4, None, 100]])
-        >>> n_legs.is_nan()
+        >>> arr = pa.chunked_array([[2, np.nan, 4], [4, None, 100]])
+        >>> arr.is_nan()
         <pyarrow.lib.ChunkedArray object at ...>
         [
           [
@@ -351,7 +351,7 @@ cdef class ChunkedArray(_PandasConvertible):
           ]
         ]
         """
-        return _pc().is_valid(self)
+        return _pc().is_nan(self)
 
     def is_valid(self):
         """
