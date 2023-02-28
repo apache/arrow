@@ -100,7 +100,7 @@ override_dh_auto_install:
 	rm -rf cpp_build/*_ep-prefix/src/*.tar.gz
 	rm -rf cpp_build/*_ep-prefix/src/*_ep-build/
 	df -h
-	: dh_auto_install			\
+	dh_auto_install				\
 	  --sourcedirectory=cpp			\
 	  --builddirectory=cpp_build
 	# Remove built files to reduce disk usage
