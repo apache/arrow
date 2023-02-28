@@ -638,10 +638,18 @@ static void BM_DeltaBitLengthDecodingByteArray(benchmark::State& state) {
   DecodingByteArrayBenchmark(state, Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
-BENCHMARK(BM_PlainEncodingByteArray)->Ranges({{8, 1024}, {8, 1024}});
-BENCHMARK(BM_DeltaBitLengthEncodingByteArray)->Ranges({{8, 1024}, {8, 1024}});
-BENCHMARK(BM_PlainDecodingByteArray)->Ranges({{8, 1024}, {8, 1024}});
-BENCHMARK(BM_DeltaBitLengthDecodingByteArray)->Ranges({{8, 1024}, {8, 1024}});
+BENCHMARK(BM_PlainEncodingByteArray)
+    ->Ranges({{8, 1024}, {8, 1024}})
+    ->ArgNames({"max-string-length", "batch-size"});
+BENCHMARK(BM_DeltaBitLengthEncodingByteArray)
+    ->Ranges({{8, 1024}, {8, 1024}})
+    ->ArgNames({"max-string-length", "batch-size"});
+BENCHMARK(BM_PlainDecodingByteArray)
+    ->Ranges({{8, 1024}, {8, 1024}})
+    ->ArgNames({"max-string-length", "batch-size"});
+BENCHMARK(BM_DeltaBitLengthDecodingByteArray)
+    ->Ranges({{8, 1024}, {8, 1024}})
+    ->ArgNames({"max-string-length", "batch-size"});
 
 static void BM_DecodingByteArraySpaced(benchmark::State& state, Encoding::type encoding) {
   const double null_percent = 0.02;
@@ -688,8 +696,12 @@ static void BM_DeltaBitLengthDecodingSpacedByteArray(benchmark::State& state) {
   BM_DecodingByteArraySpaced(state, Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
-BENCHMARK(BM_PlainDecodingSpacedByteArray)->Ranges({{8, 1024}, {8, 1024}});
-BENCHMARK(BM_DeltaBitLengthDecodingSpacedByteArray)->Ranges({{8, 1024}, {8, 1024}});
+BENCHMARK(BM_PlainDecodingSpacedByteArray)
+    ->Ranges({{8, 1024}, {8, 1024}})
+    ->ArgNames({"max-string-length", "batch-size"});
+BENCHMARK(BM_DeltaBitLengthDecodingSpacedByteArray)
+    ->Ranges({{8, 1024}, {8, 1024}})
+    ->ArgNames({"max-string-length", "batch-size"});
 
 template <typename Type>
 static void DecodeDict(std::vector<typename Type::c_type>& values,
@@ -774,7 +786,9 @@ static void BM_DictDecodingByteArray(benchmark::State& state) {
   DecodeDict<ByteArrayType>(values, state);
 }
 
-BENCHMARK(BM_DictDecodingByteArray)->Ranges({{8, 1024}, {8, 1024}});
+BENCHMARK(BM_DictDecodingByteArray)
+    ->Ranges({{8, 1024}, {8, 1024}})
+    ->ArgNames({"max-string-length", "batch-size"});
 
 // ----------------------------------------------------------------------
 // Shared benchmarks for decoding using arrow builders
