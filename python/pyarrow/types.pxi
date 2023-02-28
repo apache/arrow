@@ -1663,6 +1663,27 @@ cdef class Field(_Weakrefable):
     Notes
     -----
     Do not use this class's constructor directly; use pyarrow.field
+
+    Examples
+    --------
+    Create an instance of pyarrow.Field:
+
+    >>> import pyarrow as pa
+    >>> pa.field('key', pa.int32())
+    pyarrow.Field<key: int32>
+    >>> pa.field('key', pa.int32(), nullable=False)
+    pyarrow.Field<key: int32 not null>
+    >>> field = pa.field('key', pa.int32(),
+    ...                  metadata={"key": "Something important"})
+    >>> field
+    pyarrow.Field<key: int32>
+    >>> field.metadata
+    {b'key': b'Something important'}
+
+    Use the field to create a struct type:
+
+    >>> pa.struct([field])
+    StructType(struct<key: int32>)
     """
 
     def __cinit__(self):
@@ -1690,6 +1711,16 @@ cdef class Field(_Weakrefable):
         Returns
         -------
         is_equal : bool
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> f1 = pa.field('key', pa.int32())
+        >>> f2 = pa.field('key', pa.int32(), nullable=False)
+        >>> f1.equals(f2)
+        False
+        >>> f1.equals(f1)
+        True
         """
         return self.field.Equals(deref(other.field), check_metadata)
 
@@ -1714,14 +1745,48 @@ cdef class Field(_Weakrefable):
 
     @property
     def nullable(self):
+        """
+        The field nullability.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> f1 = pa.field('key', pa.int32())
+        >>> f2 = pa.field('key', pa.int32(), nullable=False)
+        >>> f1.nullable
+        True
+        >>> f2.nullable
+        False
+        """
         return self.field.nullable()
 
     @property
     def name(self):
+        """
+        The field name.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> field = pa.field('key', pa.int32())
+        >>> field.name
+        'key'
+        """
         return frombytes(self.field.name())
 
     @property
     def metadata(self):
+        """
+        The field metadata.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> field = pa.field('key', pa.int32(),
+        ...                  metadata={"key": "Something important"})
+        >>> field.metadata
+        {b'key': b'Something important'}
+        """
         wrapped = pyarrow_wrap_metadata(self.field.metadata())
         if wrapped is not None:
             return wrapped.to_dict()
@@ -1740,6 +1805,19 @@ cdef class Field(_Weakrefable):
         Returns
         -------
         field : pyarrow.Field
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> field = pa.field('key', pa.int32())
+
+        Create new field by adding metadata to existing one:
+
+        >>> field_new = field.with_metadata({"key": "Something important"})
+        >>> field_new
+        pyarrow.Field<key: int32>
+        >>> field_new.metadata
+        {b'key': b'Something important'}
         """
         cdef shared_ptr[CField] c_field
 
@@ -1756,6 +1834,19 @@ cdef class Field(_Weakrefable):
         Returns
         -------
         field : pyarrow.Field
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> field = pa.field('key', pa.int32(),
+        ...                  metadata={"key": "Something important"})
+        >>> field.metadata
+        {b'key': b'Something important'}
+
+        Create new field by removing the metadata from the existing one:
+
+        >>> field_new = field.remove_metadata()
+        >>> field_new.metadata
         """
         cdef shared_ptr[CField] new_field
         with nogil:
@@ -1773,6 +1864,19 @@ cdef class Field(_Weakrefable):
         Returns
         -------
         field : pyarrow.Field
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> field = pa.field('key', pa.int32())
+        >>> field
+        pyarrow.Field<key: int32>
+
+        Create new field by replacing type of an existing one:
+
+        >>> field_new = field.with_type(pa.int64())
+        >>> field_new
+        pyarrow.Field<key: int64>
         """
         cdef:
             shared_ptr[CField] c_field
@@ -1795,6 +1899,19 @@ cdef class Field(_Weakrefable):
         Returns
         -------
         field : pyarrow.Field
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> field = pa.field('key', pa.int32())
+        >>> field
+        pyarrow.Field<key: int32>
+
+        Create new field by replacing the name of an existing one:
+
+        >>> field_new = field.with_name('lock')
+        >>> field_new
+        pyarrow.Field<lock: int32>
         """
         cdef:
             shared_ptr[CField] c_field
@@ -1814,6 +1931,23 @@ cdef class Field(_Weakrefable):
         Returns
         -------
         field: pyarrow.Field
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> field = pa.field('key', pa.int32())
+        >>> field
+        pyarrow.Field<key: int32>
+        >>> field.nullable
+        True
+
+        Create new field by replacing the nullability of an existing one:
+
+        >>> field_new = field.with_nullable(False)
+        >>> field_new
+        pyarrow.Field<key: int32 not null>
+        >>> field_new.nullable
+        False
         """
         cdef:
             shared_ptr[CField] field
@@ -1833,6 +1967,20 @@ cdef class Field(_Weakrefable):
         Returns
         -------
         fields : List[pyarrow.Field]
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> f1 = pa.field('bar', pa.float64(), nullable=False)
+        >>> f2 = pa.field('foo', pa.int32()).with_metadata({"key": "Something important"})
+        >>> ff = pa.field('ff', pa.struct([f0, f1]), nullable=False)
+
+        Flatten a struct field:
+
+        >>> ff
+        pyarrow.Field<ff: struct<foo: int32, bar: double not null> not null>
+        >>> ff.flatten()
+        [pyarrow.Field<ff.foo: int32>, pyarrow.Field<ff.bar: double not null>]
         """
         cdef vector[shared_ptr[CField]] flattened
         with nogil:
