@@ -895,6 +895,7 @@ cdef class SparseUnionType(UnionType):
     --------
     Create an instance of a sparse UnionType using ``pa.union``:
 
+    >>> import pyarrow as pa
     >>> pa.union([pa.field('a', pa.binary(10)), pa.field('b', pa.string())],
     ...          mode=pa.lib.UnionMode_SPARSE),
     (SparseUnionType(sparse_union<a: fixed_size_binary[10]=0, b: string=1>),)
@@ -1367,6 +1368,10 @@ cdef class ExtensionType(BaseExtensionType):
     [
       ...
     ]
+
+    Unregister the extension type:
+
+    >>> pa.unregister_extension_type("my_package.uuid")
     """
 
     def __cinit__(self):
@@ -1478,35 +1483,6 @@ cdef class PyExtensionType(ExtensionType):
     ...     def __reduce__(self):
     ...         return UuidType, ()
     ...
-
-    Create an instance of UuidType extension type:
-
-    >>> uuid_type = UuidType()
-
-    Inspect the extension type:
-
-    >>> uuid_type.extension_name
-    'arrow.py_extension_type'
-    >>> uuid_type.storage_type
-    FixedSizeBinaryType(fixed_size_binary[16])
-
-    Wrap an array as an extension array:
-
-    >>> import uuid
-    >>> storage_array = pa.array([uuid.uuid4().bytes for _ in range(4)], pa.binary(16))
-    >>> uuid_type.wrap_array(storage_array)
-    <pyarrow.lib.ExtensionArray object at ...>
-    [
-      ...
-    ]
-
-    Or do the same with creating an ExtensionArray:
-
-    >>> pa.ExtensionArray.from_storage(uuid_type, storage_array)
-    <pyarrow.lib.ExtensionArray object at ...>
-    [
-      ...
-    ]
     """
 
     def __cinit__(self):
@@ -1605,6 +1581,10 @@ def register_extension_type(ext_type):
     Register the extension type:
 
     >>> pa.register_extension_type(UuidType())
+
+    Unregister the extension type:
+
+    >>> pa.unregister_extension_type("my_package.uuid")
     """
     cdef:
         DataType _type = ensure_type(ext_type, allow_none=False)
@@ -1654,7 +1634,7 @@ def unregister_extension_type(type_name):
 
     Unregister the extension type:
 
-    >>> pa.unregister_extension_type(UuidType())
+    >>> pa.unregister_extension_type("my_package.uuid")
     """
     cdef:
         c_string c_type_name = tobytes(type_name)
@@ -2114,14 +2094,14 @@ cdef class Field(_Weakrefable):
         >>> import pyarrow as pa
         >>> f1 = pa.field('bar', pa.float64(), nullable=False)
         >>> f2 = pa.field('foo', pa.int32()).with_metadata({"key": "Something important"})
-        >>> ff = pa.field('ff', pa.struct([f0, f1]), nullable=False)
+        >>> ff = pa.field('ff', pa.struct([f1, f2]), nullable=False)
 
         Flatten a struct field:
 
         >>> ff
-        pyarrow.Field<ff: struct<foo: int32, bar: double not null> not null>
+        pyarrow.Field<ff: struct<bar: double not null, foo: int32> not null>
         >>> ff.flatten()
-        [pyarrow.Field<ff.foo: int32>, pyarrow.Field<ff.bar: double not null>]
+        [pyarrow.Field<ff.bar: double not null>, pyarrow.Field<ff.foo: int32>]
         """
         cdef vector[shared_ptr[CField]] flattened
         with nogil:
