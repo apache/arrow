@@ -81,12 +81,12 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
   }
 
   static ArrowFlightPreparedStatement newPreparedStatement(final ArrowFlightConnection connection,
-                                                           final ArrowFlightSqlClientHandler.PreparedStatement preparedStmt,
-                                                           final StatementHandle statementHandle,
-                                                           final Signature signature,
-                                                           final int resultSetType,
-                                                           final int resultSetConcurrency,
-                                                           final int resultSetHoldability) throws SQLException {
+      final ArrowFlightSqlClientHandler.PreparedStatement preparedStmt,
+      final StatementHandle statementHandle,
+      final Signature signature,
+      final int resultSetType,
+      final int resultSetConcurrency,
+      final int resultSetHoldability) throws SQLException {
     return new ArrowFlightPreparedStatement(
         connection, preparedStmt, statementHandle,
         signature, resultSetType, resultSetConcurrency, resultSetHoldability);
