@@ -19,6 +19,7 @@
 import pytest
 
 import pyarrow as pa
+import pyarrow._substrait
 from pyarrow import compute as pc
 
 # UDFs are all tested with a dataset scan
