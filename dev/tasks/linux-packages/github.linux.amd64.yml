@@ -32,6 +32,8 @@ jobs:
           df -h
           # 5.3GB
           sudo rm -rf /opt/hostedtoolcache/CodeQL || :
+          # 1.4GB
+          sudo rm -rf /opt/hostedtoolcache/go || :
           df -h
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
