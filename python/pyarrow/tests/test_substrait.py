@@ -454,7 +454,7 @@ def test_udf_via_substrait_wrong_udf_name():
         if not names:
             raise Exception("No names provided")
         elif names[0] == "t1":
-            return test_table_1
+            return test_table
         else:
             raise Exception("Unrecognized table name")
 
