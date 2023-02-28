@@ -804,11 +804,15 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
 
 ::arrow::Result<std::vector<SetSessionOptionResult>> FlightSqlClient::SetSessionOptions(const FlightCallOptions& options,
                                                                          const std::vector<SessionOption>& session_options) {
-
-                                                                         }
+  // FIXME
+  std::vector<SetSessionOptionResult> result = {};
+  return result;
+}
 
 ::arrow::Result<CloseSessionResult> FlightSqlClient::CloseSession(const FlightCallOptions& options) {
-  
+  // FIXME
+  CloseSessionResult result;
+  return result;
 }
   
 Status FlightSqlClient::Close() { return impl_->Close(); }

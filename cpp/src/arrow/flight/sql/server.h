@@ -225,6 +225,14 @@ struct ARROW_FLIGHT_SQL_EXPORT ActionCreatePreparedStatementResult {
   std::string prepared_statement_handle;
 };
 
+/// \brief A request to close the open client session.
+struct ARROW_FLIGHT_SQL_EXPORT ActionCloseSessionRequest {};
+
+/// \brief A request to set a set of session options by key/value.
+struct ARROW_FLIGHT_SQL_EXPORT ActionSetSessionOptionRequest {
+  std::vector<SessionOption> session_options;
+};
+
 /// @}
 
 /// \brief A utility function to create a ticket (a opaque binary

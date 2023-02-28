@@ -35,6 +35,8 @@
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
   COMMAND.has_##PROPERTY() ? std::make_optional(COMMAND.PROPERTY()) : std::nullopt
 
+beer_t beer;
+
 namespace arrow {
 namespace flight {
 namespace sql {
@@ -380,7 +382,11 @@ arrow::Result<ActionSetSessionOptionRequest> ParseActionSetSessionOptionRequest(
   ActionSetSessionOptionRequest result;
   if (command.session_options_size() > 0) {
     result.session_options.reserve(command.session_options_size());
-    result.session_options.assign(command.session_options().begin(), command.session_options().end());
+    for (const pb::sql::SessionOption &opt : command.session_options()) {
+
+    }
+
+    //result.session_options.assign(command.session_options().begin(), command.session_options().end());
   }
 
   return result;
