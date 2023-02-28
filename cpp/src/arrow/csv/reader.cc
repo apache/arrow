@@ -909,6 +909,8 @@ class StreamingReaderImpl : public ReaderMixin,
   }
 
   Future<std::shared_ptr<RecordBatch>> ReadNextAsync() override {
+    util::tracing::Span span;
+    START_SPAN(span, "arrow::csv::ReadNextAsync");
     return record_batch_gen_();
   }
 

@@ -384,8 +384,6 @@ Result<RecordBatchGenerator> CsvFileFormat::ScanBatchesAsync(
   auto reader_fut =
       OpenReaderAsync(source, *this, scan_options, ::arrow::internal::GetCpuThreadPool());
   auto generator = GeneratorFromReader(std::move(reader_fut), scan_options->batch_size);
-  WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(
-      generator, "arrow::dataset::CsvFileFormat::ScanBatchesAsync::Next");
   return generator;
 }
 
