@@ -911,7 +911,22 @@ class StreamingReaderImpl : public ReaderMixin,
   Future<std::shared_ptr<RecordBatch>> ReadNextAsync() override {
     util::tracing::Span span;
     START_SPAN(span, "arrow::csv::ReadNextAsync");
-    return record_batch_gen_();
+    auto future = record_batch_gen_();
+#ifdef ARROW_WITH_OPENTELEMETRY
+    auto longer_living_span = std::make_unique<util::tracing::Span>(std::move(span));
+    future.AddCallback([span = std::move(longer_living_span)](const arrow::Result<std::shared_ptr<arrow::RecordBatch>>& result){
+      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
+              ::arrow::internal::tracing::UnwrapSpan(span->details.get());
+      if (result.ok()) {
+        auto result_batch = result.ValueOrDie();
+        if (result_batch) {
+          raw_span->SetAttribute("batch.size_byte", ::arrow::util::TotalBufferSize(*result_batch));
+        }
+      }
+      END_SPAN((*span));
+    });
+#endif
+    return future;
   }
 
  protected:
@@ -921,6 +936,9 @@ class StreamingReaderImpl : public ReaderMixin,
     if (first_buffer == nullptr) {
       return Status::Invalid("Empty CSV file");
     }
+
+    util::tracing::Span span;
+    START_SPAN(span, "arrow::csv::InitAfterFirstBuffer");
 
     std::shared_ptr<Buffer> after_header;
     ARROW_ASSIGN_OR_RAISE(auto header_bytes_consumed,
@@ -941,9 +959,12 @@ class StreamingReaderImpl : public ReaderMixin,
     auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op));
 
     auto self = shared_from_this();
-    return rb_gen().Then([self, rb_gen, max_readahead](const DecodedBlock& first_block) {
-      return self->InitFromBlock(first_block, std::move(rb_gen), max_readahead, 0);
+    auto init_finished = rb_gen().Then([self, rb_gen, max_readahead, span = std::move(span)](const DecodedBlock& first_block) {
+        auto fut = self->InitFromBlock(first_block, std::move(rb_gen), max_readahead, 0);
+        END_SPAN(span);
+        return fut;
     });
+    return init_finished;
   }
 
   Future<> InitFromBlock(const DecodedBlock& block,
