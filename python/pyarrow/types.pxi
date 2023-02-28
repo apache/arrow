@@ -1101,6 +1101,14 @@ cdef class DurationType(DataType):
 cdef class FixedSizeBinaryType(DataType):
     """
     Concrete class for fixed-size binary data types.
+
+    Examples
+    --------
+    Create an instance of fixed-size binary type:
+
+    >>> import pyarrow as pa
+    >>> pa.binary(3)
+    FixedSizeBinaryType(fixed_size_binary[3])
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -1115,6 +1123,13 @@ cdef class FixedSizeBinaryType(DataType):
     def byte_width(self):
         """
         The binary size in bytes.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.binary(3)
+        >>> t.byte_width
+        3
         """
         return self.fixed_size_binary_type.byte_width()
 
