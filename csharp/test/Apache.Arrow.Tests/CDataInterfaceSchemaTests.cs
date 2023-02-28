@@ -31,7 +31,7 @@ namespace Apache.Arrow.Tests
             PythonEngine.Initialize();
         }
 
-        public static Schema GetTestSchema()
+        private static Schema GetTestSchema()
         {
             // TODO: Add more types
             using (Py.GIL())
@@ -74,7 +74,7 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        public static IEnumerable<dynamic> GetPythonFields()
+        private static IEnumerable<dynamic> GetPythonFields()
         {
             using (Py.GIL())
             {
@@ -113,7 +113,7 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        public static dynamic GetPythonSchema()
+        private static dynamic GetPythonSchema()
         {
             using (Py.GIL())
             {
@@ -126,7 +126,6 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void ImportType()
         {
-            PythonEngine.Initialize();
             Schema schema = GetTestSchema();
             IEnumerable<dynamic> pyFields = GetPythonFields();
 
@@ -138,13 +137,13 @@ namespace Apache.Arrow.Tests
 
                 using (Py.GIL())
                 {
-                    dynamic py_datatype = pyField.type;
-                    py_datatype._export_to_c(importedPtr.ToInt64());
+                    dynamic pyDatatype = pyField.type;
+                    pyDatatype._export_to_c(importedPtr.ToInt64());
                 }
 
                 var dataTypeComparer = new ArrayTypeComparer(field.DataType);
-                var importedType = new ImportedArrowSchema(importedPtr);
-                dataTypeComparer.Visit(importedType.GetAsType());
+                ArrowType importedType = CArrowSchema.ImportType(importedPtr);
+                dataTypeComparer.Visit(importedType);
 
                 // Since we allocated, we are responsible for freeing the pointer.
                 CArrowSchema.FreePtr(importedPtr);
@@ -154,7 +153,6 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void ImportField()
         {
-            PythonEngine.Initialize();
             Schema schema = GetTestSchema();
             IEnumerable<dynamic> pyFields = GetPythonFields();
 
@@ -169,8 +167,8 @@ namespace Apache.Arrow.Tests
                     pyField._export_to_c(importedPtr.ToInt64());
                 }
 
-                var importedField = new ImportedArrowSchema(importedPtr);
-                FieldComparer.Compare(field, importedField.GetAsField());
+                Field importedField = CArrowSchema.ImportField(importedPtr);
+                FieldComparer.Compare(field, importedField);
 
                 // Since we allocated, we are responsible for freeing the pointer.
                 CArrowSchema.FreePtr(importedPtr);
@@ -180,7 +178,6 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void ImportSchema()
         {
-            PythonEngine.Initialize();
             Schema schema = GetTestSchema();
             dynamic pySchema = GetPythonSchema();
 
@@ -192,8 +189,8 @@ namespace Apache.Arrow.Tests
                 pySchema._export_to_c(importedPtr.ToInt64());
             }
 
-            var importedField = new ImportedArrowSchema(importedPtr);
-            SchemaComparer.Compare(schema, importedField.GetAsSchema());
+            Schema importedSchema = CArrowSchema.ImportSchema(importedPtr);
+            SchemaComparer.Compare(schema, importedSchema);
 
             // Since we allocated, we are responsible for freeing the pointer.
             CArrowSchema.FreePtr(importedPtr);
@@ -204,7 +201,6 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void ExportType()
         {
-            PythonEngine.Initialize();
             Schema schema = GetTestSchema();
             IEnumerable<dynamic> pyFields = GetPythonFields();
 
@@ -212,8 +208,7 @@ namespace Apache.Arrow.Tests
                 .Zip(pyFields))
             {
                 IArrowType datatype = field.DataType;
-                var exportedType = new CArrowSchema();
-                CArrowSchema.ExportDataType(datatype, out exportedType);
+                var exportedType = new CArrowSchema(datatype);
 
                 // For Python, we need to provide the pointer
                 IntPtr exportedPtr = exportedType.AllocateAsPtr();
@@ -242,15 +237,13 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void ExportField()
         {
-            PythonEngine.Initialize();
             Schema schema = GetTestSchema();
             IEnumerable<dynamic> pyFields = GetPythonFields();
 
             foreach ((Field field, dynamic pyField) in schema.Fields.Values.AsEnumerable()
                 .Zip(pyFields))
             {
-                var exportedField = new CArrowSchema();
-                CArrowSchema.ExportField(field, out exportedField);
+                var exportedField = new CArrowSchema(field);
 
                 // For Python, we need to provide the pointer
                 IntPtr exportedPtr = exportedField.AllocateAsPtr();
@@ -276,12 +269,10 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void ExportSchema()
         {
-            PythonEngine.Initialize();
             Schema schema = GetTestSchema();
             dynamic pySchema = GetPythonSchema();
 
-            var exportedSchema = new CArrowSchema();
-            CArrowSchema.ExportSchema(schema, out exportedSchema);
+            var exportedSchema = new CArrowSchema(schema);
 
             // For Python, we need to provide the pointer
             IntPtr exportedPtr = exportedSchema.AllocateAsPtr();
