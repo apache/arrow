@@ -1315,6 +1315,58 @@ cdef class ExtensionType(BaseExtensionType):
     ----------
     storage_type : DataType
     extension_name : str
+
+    Examples
+    --------
+    Define a UuidType extension type subclassing ExtensionType:
+
+    >>> import pyarrow as pa
+    >>> class UuidType(pa.ExtensionType):
+    ...    def __init__(self):
+    ...       pa.ExtensionType.__init__(self, pa.binary(16), "my_package.uuid")
+    ...    def __arrow_ext_serialize__(self):
+    ...       # since we don't have a parameterized type, we don't need extra
+    ...       # metadata to be deserialized
+    ...       return b''
+    ...    @classmethod
+    ...    def __arrow_ext_deserialize__(self, storage_type, serialized):
+    ...       # return an instance of this subclass given the serialized
+    ...       # metadata.
+    ...       return UuidType()
+    ...
+
+    Register the extension type:
+
+    >>> pa.register_extension_type(UuidType())
+
+    Create an instance of UuidType extension type:
+
+    >>> uuid_type = UuidType()
+
+    Inspect the extension type:
+
+    >>> uuid_type.extension_name
+    'my_package.uuid'
+    >>> uuid_type.storage_type
+    FixedSizeBinaryType(fixed_size_binary[16])
+
+    Wrap an array as an extension array:
+
+    >>> import uuid
+    >>> storage_array = pa.array([uuid.uuid4().bytes for _ in range(4)], pa.binary(16))
+    >>> uuid_type.wrap_array(storage_array)
+    <pyarrow.lib.ExtensionArray object at ...>
+    [
+      ...
+    ]
+
+    Or do the same with creating an ExtensionArray:
+
+    >>> pa.ExtensionArray.from_storage(uuid_type, storage_array)
+    <pyarrow.lib.ExtensionArray object at ...>
+    [
+      ...
+    ]
     """
 
     def __cinit__(self):
@@ -1414,6 +1466,47 @@ cdef class PyExtensionType(ExtensionType):
     ----------
     storage_type : DataType
         The storage type for which the extension is built.
+
+    Examples
+    --------
+    Define a UuidType extension type subclassing PyExtensionType:
+
+    >>> import pyarrow as pa
+    >>> class UuidType(pa.PyExtensionType):
+    ...     def __init__(self):
+    ...         pa.PyExtensionType.__init__(self, pa.binary(16))
+    ...     def __reduce__(self):
+    ...         return UuidType, ()
+    ...
+
+    Create an instance of UuidType extension type:
+
+    >>> uuid_type = UuidType()
+
+    Inspect the extension type:
+
+    >>> uuid_type.extension_name
+    'arrow.py_extension_type'
+    >>> uuid_type.storage_type
+    FixedSizeBinaryType(fixed_size_binary[16])
+
+    Wrap an array as an extension array:
+
+    >>> import uuid
+    >>> storage_array = pa.array([uuid.uuid4().bytes for _ in range(4)], pa.binary(16))
+    >>> uuid_type.wrap_array(storage_array)
+    <pyarrow.lib.ExtensionArray object at ...>
+    [
+      ...
+    ]
+
+    Or do the same with creating an ExtensionArray:
+
+    >>> pa.ExtensionArray.from_storage(uuid_type, storage_array)
+    <pyarrow.lib.ExtensionArray object at ...>
+    [
+      ...
+    ]
     """
 
     def __cinit__(self):
@@ -1490,6 +1583,28 @@ def register_extension_type(ext_type):
     ext_type : BaseExtensionType instance
         The ExtensionType subclass to register.
 
+    Examples
+    --------
+    Define a UuidType extension type subclassing ExtensionType:
+
+    >>> import pyarrow as pa
+    >>> class UuidType(pa.ExtensionType):
+    ...    def __init__(self):
+    ...       pa.ExtensionType.__init__(self, pa.binary(16), "my_package.uuid")
+    ...    def __arrow_ext_serialize__(self):
+    ...       # since we don't have a parameterized type, we don't need extra
+    ...       # metadata to be deserialized
+    ...       return b''
+    ...    @classmethod
+    ...    def __arrow_ext_deserialize__(self, storage_type, serialized):
+    ...       # return an instance of this subclass given the serialized
+    ...       # metadata.
+    ...       return UuidType()
+    ...
+
+    Register the extension type:
+
+    >>> pa.register_extension_type(UuidType())
     """
     cdef:
         DataType _type = ensure_type(ext_type, allow_none=False)
@@ -1514,6 +1629,32 @@ def unregister_extension_type(type_name):
     type_name : str
         The name of the ExtensionType subclass to unregister.
 
+    Examples
+    --------
+    Define a UuidType extension type subclassing ExtensionType:
+
+    >>> import pyarrow as pa
+    >>> class UuidType(pa.ExtensionType):
+    ...    def __init__(self):
+    ...       pa.ExtensionType.__init__(self, pa.binary(16), "my_package.uuid")
+    ...    def __arrow_ext_serialize__(self):
+    ...       # since we don't have a parameterized type, we don't need extra
+    ...       # metadata to be deserialized
+    ...       return b''
+    ...    @classmethod
+    ...    def __arrow_ext_deserialize__(self, storage_type, serialized):
+    ...       # return an instance of this subclass given the serialized
+    ...       # metadata.
+    ...       return UuidType()
+    ...
+
+    Register the extension type:
+
+    >>> pa.register_extension_type(UuidType())
+
+    Unregister the extension type:
+
+    >>> pa.unregister_extension_type(UuidType())
     """
     cdef:
         c_string c_type_name = tobytes(type_name)
