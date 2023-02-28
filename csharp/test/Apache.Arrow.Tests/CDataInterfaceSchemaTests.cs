@@ -74,6 +74,9 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("dict_string_ordered").DataType(new DictionaryType(Int32Type.Default, StringType.Default, true)).Nullable(false))
                     .Field(f => f.Name("list_dict_string").DataType(new ListType(new DictionaryType(Int32Type.Default, StringType.Default, false))).Nullable(false))
 
+                    // Checking wider characters.
+                    .Field(f => f.Name("hello 你好 😄").DataType(BooleanType.Default).Nullable(true))
+
                     .Build();
                 return schema;
             }
@@ -115,6 +118,8 @@ namespace Apache.Arrow.Tests
                 yield return pa.field("dict_string", pa.dictionary(pa.int32(), pa.utf8(), false), false);
                 yield return pa.field("dict_string_ordered", pa.dictionary(pa.int32(), pa.utf8(), true), false);
                 yield return pa.field("list_dict_string", pa.list_(pa.dictionary(pa.int32(), pa.utf8(), false)), false);
+
+                yield return pa.field("hello 你好 😄", pa.bool_(), true);
             }
         }
 
@@ -226,10 +231,10 @@ namespace Apache.Arrow.Tests
                     Assert.True(exportedPyType == expectedPyType);
                 }
 
-                // Python should have called release once `exported_py_type` went out-of-scope.
+                // Python should have called release once `exportedPyType` went out-of-scope.
                 var cSchema = Marshal.PtrToStructure<CArrowSchema>(exportedPtr);
                 Assert.Null(cSchema.release);
-                Assert.Null(cSchema.format);
+                Assert.Equal(IntPtr.Zero, cSchema.format);
                 Assert.Equal(0, cSchema.flags);
                 Assert.Equal(0, cSchema.n_children);
                 Assert.Equal(IntPtr.Zero, cSchema.dictionary);
@@ -260,11 +265,11 @@ namespace Apache.Arrow.Tests
                     Assert.True(exportedPyField == pyField);
                 }
 
-                // Python should have called release once `exported_py_type` went out-of-scope.
+                // Python should have called release once `exportedPyField` went out-of-scope.
                 var ffiSchema = Marshal.PtrToStructure<CArrowSchema>(exportedPtr);
-                Assert.Null(ffiSchema.name);
+                Assert.Equal(IntPtr.Zero, ffiSchema.name);
                 Assert.Null(ffiSchema.release);
-                Assert.Null(ffiSchema.format);
+                Assert.Equal(IntPtr.Zero, ffiSchema.format);
 
                 // Since we allocated, we are responsible for freeing the pointer.
                 CArrowSchema.FreePtr(exportedPtr);

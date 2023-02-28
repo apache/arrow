@@ -39,10 +39,8 @@ namespace Apache.Arrow.C
     [StructLayout(LayoutKind.Sequential)]
     unsafe public struct CArrowSchema
     {
-        [MarshalAs(UnmanagedType.LPStr)]
-        public string format;
-        [MarshalAs(UnmanagedType.LPStr)]
-        public string name;
+        public IntPtr format;
+        public IntPtr name;
         public IntPtr metadata;
         public long flags;
         public long n_children;
@@ -125,8 +123,8 @@ namespace Apache.Arrow.C
         /// <param name="datatype">The Arrow type to export.</param>
         public CArrowSchema(IArrowType datatype)
         {
-            format = GetFormat(datatype);
-            name = null;
+            format = StringUtil.ToCStringUtf8(GetFormat(datatype));
+            name = IntPtr.Zero;
             metadata = IntPtr.Zero;
             flags = GetFlags(datatype);
 
@@ -138,6 +136,11 @@ namespace Apache.Arrow.C
             release = (IntPtr self) =>
             {
                 var schema = Marshal.PtrToStructure<CArrowSchema>(self);
+
+                Marshal.FreeHGlobal(schema.format);
+                Marshal.FreeHGlobal(schema.name);
+                Marshal.FreeHGlobal(schema.metadata);
+
                 if (schema.n_children > 0)
                 {
                     for (int i = 0; i < schema.n_children; i++)
@@ -163,7 +166,7 @@ namespace Apache.Arrow.C
         /// <param name="field">Field to export.</param>
         public CArrowSchema(Field field) : this(field.DataType)
         {
-            name = field.Name;
+            name = StringUtil.ToCStringUtf8(field.Name);
             // TODO: field metadata
             metadata = IntPtr.Zero;
             flags = GetFlags(field.DataType, field.IsNullable);
@@ -423,9 +426,10 @@ namespace Apache.Arrow.C
 
             public ArrowType GetAsType()
             {
+                var format = StringUtil.PtrToStringUtf8(_data.format);
                 if (_data.dictionary != IntPtr.Zero)
                 {
-                    ArrowType indicesType = _data.format switch
+                    ArrowType indicesType = format switch
                     {
                         "c" => new Int8Type(),
                         "C" => new UInt8Type(),
@@ -435,7 +439,7 @@ namespace Apache.Arrow.C
                         "I" => new UInt32Type(),
                         "l" => new Int64Type(),
                         "L" => new UInt64Type(),
-                        _ => throw new InvalidDataException($"Indices must be an integer, but got format string {_data.format}"),
+                        _ => throw new InvalidDataException($"Indices must be an integer, but got format string {format}"),
                     };
 
                     var dictionarySchema = new ImportedArrowSchema(_data.dictionary, /*is_root*/ false);
@@ -447,7 +451,7 @@ namespace Apache.Arrow.C
                 }
 
                 // Special handling for nested types
-                if (_data.format == "+l")
+                if (format == "+l")
                 {
                     if (_data.n_children != 1)
                     {
@@ -467,7 +471,7 @@ namespace Apache.Arrow.C
 
                     return new ListType(childField);
                 }
-                else if (_data.format == "+s")
+                else if (format == "+s")
                 {
                     var child_schemas = new ImportedArrowSchema[_data.n_children];
                     unsafe
@@ -489,7 +493,7 @@ namespace Apache.Arrow.C
                 }
                 // TODO: Map type and large list type
 
-                return _data.format switch
+                return format switch
                 {
                     // Primitives
                     "n" => new NullType(),
@@ -530,7 +534,8 @@ namespace Apache.Arrow.C
 
             public Field GetAsField()
             {
-                string fieldName = string.IsNullOrEmpty(_data.name) ? "" : _data.name;
+                string name = StringUtil.PtrToStringUtf8(_data.name);
+                string fieldName = string.IsNullOrEmpty(name) ? "" : name;
 
                 bool nullable = (_data.flags & CArrowSchema.ArrowFlagNullable) == CArrowSchema.ArrowFlagNullable;
 
