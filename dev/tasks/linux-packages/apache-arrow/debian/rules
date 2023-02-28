@@ -96,6 +96,7 @@ override_dh_auto_install:
 
 	df -h
 	du -hsc cpp_build/release/* || :
+	du -hsc cpp_build/src/arrow/CMakeFiles/arrow_objlib.dir/**/*.o || :
 	rm -rf cpp_build/*_ep-prefix/src/*.tar.gz
 	rm -rf cpp_build/*_ep-prefix/src/*_ep-build/
 	df -h
