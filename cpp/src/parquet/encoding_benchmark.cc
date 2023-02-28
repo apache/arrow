@@ -572,9 +572,10 @@ BENCHMARK(BM_DeltaBitPackingDecode_Int64_Wide)->Range(MIN_RANGE, MAX_RANGE);
 void EncodingByteArrayBenchmark(benchmark::State& state, Encoding::type encoding) {
   ::arrow::random::RandomArrayGenerator rag(0);
   // Using arrow generator to generate random data.
-  int32_t max_length = state.range(0);
+  int32_t max_length = static_cast<int32_t>(state.range(0));
+  int32_t array_size = static_cast<int32_t>(state.range(1));
   auto array =
-      rag.String(/* size */ 1024, /* min_length */ 0, /* max_length */ max_length,
+      rag.String(/* size */ array_size, /* min_length */ 0, /* max_length */ max_length,
                  /* null_probability */ 0);
   const auto array_actual =
       ::arrow::internal::checked_pointer_cast<::arrow::StringArray>(array);
@@ -603,10 +604,11 @@ static void BM_PlainEncodingByteArray(benchmark::State& state) {
 
 void DecodingByteArrayBenchmark(benchmark::State& state, Encoding::type encoding) {
   ::arrow::random::RandomArrayGenerator rag(0);
-  int32_t max_length = state.range(0);
+  int32_t max_length = static_cast<int32_t>(state.range(0));
+  int32_t array_size = static_cast<int32_t>(state.range(1));
   // Using arrow to write, because we just benchmark decoding here.
   auto array =
-      rag.String(/* size */ 1024, /* min_length */ 0, /* max_length */ max_length,
+      rag.String(/* size */ array_size, /* min_length */ 0, /* max_length */ max_length,
                  /* null_probability */ 0);
   const auto array_actual =
       ::arrow::internal::checked_pointer_cast<::arrow::StringArray>(array);
@@ -636,17 +638,17 @@ static void BM_DeltaBitLengthDecodingByteArray(benchmark::State& state) {
   DecodingByteArrayBenchmark(state, Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
-BENCHMARK(BM_PlainEncodingByteArray)->Range(8, 1024);
-BENCHMARK(BM_DeltaBitLengthEncodingByteArray)->Range(8, 1024);
-BENCHMARK(BM_PlainDecodingByteArray)->Range(8, 1024);
-BENCHMARK(BM_DeltaBitLengthDecodingByteArray)->Range(8, 1024);
+BENCHMARK(BM_PlainEncodingByteArray)->Ranges({{8, 1024}, {8, 1024}});
+BENCHMARK(BM_DeltaBitLengthEncodingByteArray)->Ranges({{8, 1024}, {8, 1024}});
+BENCHMARK(BM_PlainDecodingByteArray)->Ranges({{8, 1024}, {8, 1024}});
+BENCHMARK(BM_DeltaBitLengthDecodingByteArray)->Ranges({{8, 1024}, {8, 1024}});
 
 static void BM_DecodingByteArraySpaced(benchmark::State& state, Encoding::type encoding) {
-  const int num_values = 1024;
   const double null_percent = 0.02;
 
   auto rand = ::arrow::random::RandomArrayGenerator(0);
-  int32_t max_length = state.range(0);
+  int32_t max_length = static_cast<int32_t>(state.range(0));
+  int32_t num_values = static_cast<int32_t>(state.range(1));
   const auto array = rand.String(num_values, /* min_length */ 0,
                                  /* max_length */ max_length, null_percent);
   const auto valid_bits = array->null_bitmap_data();
@@ -686,8 +688,8 @@ static void BM_DeltaBitLengthDecodingSpacedByteArray(benchmark::State& state) {
   BM_DecodingByteArraySpaced(state, Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
-BENCHMARK(BM_PlainDecodingSpacedByteArray)->Range(8, 1024);
-BENCHMARK(BM_DeltaBitLengthDecodingSpacedByteArray)->Range(8, 1024);
+BENCHMARK(BM_PlainDecodingSpacedByteArray)->Ranges({{8, 1024}, {8, 1024}});
+BENCHMARK(BM_DeltaBitLengthDecodingSpacedByteArray)->Ranges({{8, 1024}, {8, 1024}});
 
 template <typename Type>
 static void DecodeDict(std::vector<typename Type::c_type>& values,
@@ -753,6 +755,26 @@ static void BM_DictDecodingInt64_literals(benchmark::State& state) {
 }
 
 BENCHMARK(BM_DictDecodingInt64_literals)->Range(MIN_RANGE, MAX_RANGE);
+
+static void BM_DictDecodingByteArray(benchmark::State& state) {
+  ::arrow::random::RandomArrayGenerator rag(0);
+  // Using arrow generator to generate random data.
+  int32_t max_length = static_cast<int32_t>(state.range(0));
+  int32_t array_size = static_cast<int32_t>(state.range(1));
+  auto array =
+      rag.String(/* size */ array_size, /* min_length */ 0, /* max_length */ max_length,
+                 /* null_probability */ 0);
+  const auto array_actual =
+      ::arrow::internal::checked_pointer_cast<::arrow::StringArray>(array);
+  auto encoder = MakeDictDecoder<ByteArrayType>();
+  std::vector<ByteArray> values;
+  for (int i = 0; i < array_actual->length(); ++i) {
+    values.emplace_back(array_actual->GetView(i));
+  }
+  DecodeDict<ByteArrayType>(values, state);
+}
+
+BENCHMARK(BM_DictDecodingByteArray)->Ranges({{8, 1024}, {8, 1024}});
 
 // ----------------------------------------------------------------------
 // Shared benchmarks for decoding using arrow builders
