@@ -95,7 +95,7 @@ class CsvFileScanner : public FragmentScanner {
     auto convert_options = csv_options.convert_options;
     std::vector<std::string> columns;
     std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
-    for (const auto& scan_column : scan_request.columns) {
+    for (const auto& scan_column : scan_request.fragment_selection->columns()) {
       if (scan_column.path.indices().size() != 1) {
         return Status::Invalid("CSV reader does not supported nested references");
       }

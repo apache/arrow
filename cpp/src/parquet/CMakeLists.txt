@@ -224,6 +224,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
       encryption/crypto_factory.cc
       encryption/file_key_unwrapper.cc
       encryption/file_key_wrapper.cc
+      encryption/file_system_key_material_store.cc
       encryption/kms_client.cc
       encryption/key_material.cc
       encryption/key_metadata.cc

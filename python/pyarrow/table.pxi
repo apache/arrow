@@ -2254,6 +2254,56 @@ cdef class RecordBatch(_PandasConvertible):
         """
         return _pc().drop_null(self)
 
+    def select(self, object columns):
+        """
+        Select columns of the RecordBatch.
+
+        Returns a new RecordBatch with the specified columns, and metadata
+        preserved.
+
+        Parameters
+        ----------
+        columns : list-like
+            The column names or integer indices to select.
+
+        Returns
+        -------
+        RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.record_batch([n_legs, animals],
+        ...                          names=["n_legs", "animals"])
+
+        Select columns my indices:
+
+        >>> batch.select([1])
+        pyarrow.RecordBatch
+        animals: string
+
+        Select columns by names:
+
+        >>> batch.select(["n_legs"])
+        pyarrow.RecordBatch
+        n_legs: int64
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+            vector[int] c_indices
+
+        for idx in columns:
+            idx = self._ensure_integer_index(idx)
+            idx = _normalize_index(idx, self.num_columns)
+            c_indices.push_back(<int> idx)
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.SelectColumns(move(c_indices)))
+
+        return pyarrow_wrap_batch(c_batch)
+
     def sort_by(self, sorting, **kwargs):
         """
         Sort the RecordBatch by one or multiple columns.

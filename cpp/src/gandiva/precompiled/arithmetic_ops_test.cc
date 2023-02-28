@@ -629,6 +629,37 @@ TEST(TestArithmeticOps, TestSignIntFloatDouble) {
   EXPECT_EQ(sign_float64(-2147483647), -1.0);
 }
 
+TEST(TestArithmeticOps, TestAbsIntFloatDouble) {
+  // abs from int32
+  EXPECT_EQ(abs_int32(43), 43);
+  EXPECT_EQ(abs_int32(-54), 54);
+  EXPECT_EQ(abs_int32(INT32_MAX), INT32_MAX);
+
+  // abs from int64
+  EXPECT_EQ(abs_int64(90), 90);
+  EXPECT_EQ(abs_int64(-7), 7);
+  EXPECT_EQ(abs_int64(INT64_MAX), INT64_MAX);
+
+  // abs from floats
+  EXPECT_EQ(abs_float32(6.6f), 6.6f);
+  EXPECT_EQ(abs_float32(-6.6f), 6.6f);
+  EXPECT_EQ(abs_float32(0.0f), 0.0f);
+  EXPECT_EQ(abs_float32(-0.0f), 0.0f);
+  EXPECT_EQ(abs_float32(INFINITY), INFINITY);
+  EXPECT_EQ(abs_float32(-INFINITY), INFINITY);
+
+  // abs from doubles
+  EXPECT_EQ(abs_float64(6.6), 6.6);
+  EXPECT_EQ(abs_float64(-6.6), 6.6);
+  EXPECT_EQ(abs_float64(0.0), 0.);
+  EXPECT_EQ(abs_float64(-0), 0.);
+  EXPECT_EQ(abs_float64(999999.99999999999999999999999), 999999.99999999999999999999999);
+  EXPECT_EQ(abs_float64(-999999.99999999999999999999999), 999999.99999999999999999999999);
+  EXPECT_EQ(abs_float64(INFINITY), INFINITY);
+  EXPECT_EQ(abs_float64(-INFINITY), INFINITY);
+  EXPECT_TRUE(std::isnan(abs_float64(std::numeric_limits<double>::quiet_NaN())));
+}
+
 TEST(TestArithmeticOps, TestCeilingFloatDouble) {
   // ceiling from floats
   EXPECT_EQ(ceiling_float32(6.6f), 7.0f);
