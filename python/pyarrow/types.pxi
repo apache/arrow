@@ -929,6 +929,20 @@ cdef class DenseUnionType(UnionType):
 cdef class TimestampType(DataType):
     """
     Concrete class for timestamp data types.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+
+    Create an instance of timestamp type:
+
+    >>> pa.timestamp('us')
+    TimestampType(timestamp[us])
+
+    Create an instance of timestamp type with timezone:
+
+    >>> pa.timestamp('s', tz='UTC')
+    TimestampType(timestamp[s, tz=UTC])
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -939,6 +953,13 @@ cdef class TimestampType(DataType):
     def unit(self):
         """
         The timestamp unit ('s', 'ms', 'us' or 'ns').
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.timestamp('us')
+        >>> t.unit
+        'us'
         """
         return timeunit_to_string(self.ts_type.unit())
 
@@ -946,6 +967,13 @@ cdef class TimestampType(DataType):
     def tz(self):
         """
         The timestamp time zone, if any, or None.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.timestamp('s', tz='UTC')
+        >>> t.tz
+        'UTC'
         """
         if self.ts_type.timezone().size() > 0:
             return frombytes(self.ts_type.timezone())
@@ -955,6 +983,13 @@ cdef class TimestampType(DataType):
     def to_pandas_dtype(self):
         """
         Return the equivalent NumPy / Pandas dtype.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.timestamp('s', tz='UTC')
+        >>> t.to_pandas_dtype()
+        datetime64[ns, UTC]
         """
         if self.tz is None:
             return _pandas_type_map[_Type_TIMESTAMP]
@@ -970,6 +1005,14 @@ cdef class TimestampType(DataType):
 cdef class Time32Type(DataType):
     """
     Concrete class for time32 data types.
+
+    Examples
+    --------
+    Create an instance of time32 type:
+
+    >>> import pyarrow as pa
+    >>> pa.time32('ms')
+    Time32Type(time32[ms])
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -980,6 +1023,13 @@ cdef class Time32Type(DataType):
     def unit(self):
         """
         The time unit ('s', 'ms', 'us' or 'ns').
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.time32('ms')
+        >>> t.unit
+        'ms'
         """
         return timeunit_to_string(self.time_type.unit())
 
@@ -987,6 +1037,14 @@ cdef class Time32Type(DataType):
 cdef class Time64Type(DataType):
     """
     Concrete class for time64 data types.
+
+    Examples
+    --------
+    Create an instance of time64 type:
+
+    >>> import pyarrow as pa
+    >>> pa.time64('us')
+    Time64Type(time64[us])
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -997,6 +1055,13 @@ cdef class Time64Type(DataType):
     def unit(self):
         """
         The time unit ('s', 'ms', 'us' or 'ns').
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.time64('us')
+        >>> t.unit
+        'us'
         """
         return timeunit_to_string(self.time_type.unit())
 
@@ -1004,6 +1069,14 @@ cdef class Time64Type(DataType):
 cdef class DurationType(DataType):
     """
     Concrete class for duration data types.
+
+    Examples
+    --------
+    Create an instance of duration type:
+
+    >>> import pyarrow as pa
+    >>> pa.duration('s')
+    DurationType(duration[s])
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -1014,6 +1087,13 @@ cdef class DurationType(DataType):
     def unit(self):
         """
         The duration unit ('s', 'ms', 'us' or 'ns').
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.duration('s')
+        >>> t.unit
+        's'
         """
         return timeunit_to_string(self.duration_type.unit())
 
