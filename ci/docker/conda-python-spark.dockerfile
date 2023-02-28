@@ -25,14 +25,14 @@ ARG maven=3.5
 
 ARG numpy=latest
 COPY ci/scripts/install_numpy.sh /arrow/ci/scripts/
-RUN mamba uninstall -q -y numpy && \
-    /arrow/ci/scripts/install_numpy.sh ${numpy}
 
 RUN mamba install -q -y \
         openjdk=${jdk} \
         maven=${maven} \
         pandas && \
     mamba clean --all
+RUN mamba uninstall -q -y numpy && \
+    /arrow/ci/scripts/install_numpy.sh ${numpy}
 
 # installing specific version of spark
 ARG spark=master
