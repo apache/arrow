@@ -39,12 +39,12 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
 
   private final ArrowFlightSqlClientHandler.PreparedStatement preparedStatement;
 
-  public ArrowFlightPreparedStatement(final ArrowFlightConnection connection,
-                                      final ArrowFlightSqlClientHandler.PreparedStatement preparedStatement,
-                                      final StatementHandle handle,
-                                      final Signature signature, final int resultSetType,
-                                      final int resultSetConcurrency,
-                                      final int resultSetHoldability)
+  private ArrowFlightPreparedStatement(final ArrowFlightConnection connection,
+                                       final ArrowFlightSqlClientHandler.PreparedStatement preparedStatement,
+                                       final StatementHandle handle,
+                                       final Signature signature, final int resultSetType,
+                                       final int resultSetConcurrency,
+                                       final int resultSetHoldability)
       throws SQLException {
     super(connection, handle, signature, resultSetType, resultSetConcurrency, resultSetHoldability);
     this.preparedStatement = Preconditions.checkNotNull(preparedStatement);
@@ -77,6 +77,18 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
 
     return new ArrowFlightPreparedStatement(
         connection, prepare, statementHandle,
+        signature, resultSetType, resultSetConcurrency, resultSetHoldability);
+  }
+
+  static ArrowFlightPreparedStatement newPreparedStatement(final ArrowFlightConnection connection,
+                                                           final ArrowFlightSqlClientHandler.PreparedStatement preparedStmt,
+                                                           final StatementHandle statementHandle,
+                                                           final Signature signature,
+                                                           final int resultSetType,
+                                                           final int resultSetConcurrency,
+                                                           final int resultSetHoldability) throws SQLException {
+    return new ArrowFlightPreparedStatement(
+        connection, preparedStmt, statementHandle,
         signature, resultSetType, resultSetConcurrency, resultSetHoldability);
   }
 

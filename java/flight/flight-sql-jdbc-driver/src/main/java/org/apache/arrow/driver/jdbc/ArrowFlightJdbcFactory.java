@@ -95,7 +95,7 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
     final Schema resultSetSchema = preparedStatement.getDataSetSchema();
     signature.columns.addAll(convertArrowFieldsToColumnMetaDataList(resultSetSchema.getFields()));
 
-    return new ArrowFlightPreparedStatement(
+    return ArrowFlightPreparedStatement.newPreparedStatement(
         flightConnection, preparedStatement, statementHandle,
         signature, resultType, resultSetConcurrency, resultSetHoldability);
   }
