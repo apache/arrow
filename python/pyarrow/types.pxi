@@ -1137,6 +1137,14 @@ cdef class FixedSizeBinaryType(DataType):
 cdef class Decimal128Type(FixedSizeBinaryType):
     """
     Concrete class for decimal128 data types.
+
+    Examples
+    --------
+    Create an instance of decimal128 type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal128(5, 2)
+    Decimal128Type(decimal128(5, 2))
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -1150,6 +1158,13 @@ cdef class Decimal128Type(FixedSizeBinaryType):
     def precision(self):
         """
         The decimal precision, in number of decimal digits (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal128(5, 2)
+        >>> t.precision
+        5
         """
         return self.decimal128_type.precision()
 
@@ -1157,13 +1172,28 @@ cdef class Decimal128Type(FixedSizeBinaryType):
     def scale(self):
         """
         The decimal scale (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal128(5, 2)
+        >>> t.scale
+        2
         """
         return self.decimal128_type.scale()
 
 
 cdef class Decimal256Type(FixedSizeBinaryType):
     """
-    Concrete class for Decimal256 data types.
+    Concrete class for decimal256 data types.
+
+    Examples
+    --------
+    Create an instance of decimal256 type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal256(76, 38)
+    Decimal256Type(decimal256(76, 38))
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -1177,6 +1207,13 @@ cdef class Decimal256Type(FixedSizeBinaryType):
     def precision(self):
         """
         The decimal precision, in number of decimal digits (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal256(76, 38)
+        >>> t.precision
+        76
         """
         return self.decimal256_type.precision()
 
@@ -1184,6 +1221,13 @@ cdef class Decimal256Type(FixedSizeBinaryType):
     def scale(self):
         """
         The decimal scale (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal256(76, 38)
+        >>> t.scale
+        38
         """
         return self.decimal256_type.scale()
 
