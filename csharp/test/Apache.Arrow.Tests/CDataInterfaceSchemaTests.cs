@@ -28,6 +28,11 @@ namespace Apache.Arrow.Tests
     {
         public CDataSchemaTest()
         {
+            bool inCIJob = Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
+            bool pythonSet = Environment.GetEnvironmentVariable("PYTHONNET_PYDLL") != null;
+            // We only skip if this is not in CI
+            Skip.If(!pythonSet && !inCIJob, "PYTHONNET_PYDLL not set; skipping C Data Interface tests.");
+
             PythonEngine.Initialize();
         }
 
@@ -123,7 +128,7 @@ namespace Apache.Arrow.Tests
         }
 
         // Schemas created in Python, used in CSharp
-        [Fact]
+        [SkippableFact]
         public void ImportType()
         {
             Schema schema = GetTestSchema();
@@ -150,7 +155,7 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        [Fact]
+        [SkippableFact]
         public void ImportField()
         {
             Schema schema = GetTestSchema();
@@ -175,7 +180,7 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        [Fact]
+        [SkippableFact]
         public void ImportSchema()
         {
             Schema schema = GetTestSchema();
@@ -198,7 +203,7 @@ namespace Apache.Arrow.Tests
 
 
         // Schemas created in CSharp, exported to Python
-        [Fact]
+        [SkippableFact]
         public void ExportType()
         {
             Schema schema = GetTestSchema();
@@ -234,7 +239,7 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        [Fact]
+        [SkippableFact]
         public void ExportField()
         {
             Schema schema = GetTestSchema();
@@ -266,7 +271,7 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        [Fact]
+        [SkippableFact]
         public void ExportSchema()
         {
             Schema schema = GetTestSchema();
