@@ -20,6 +20,7 @@
 #include "arrow/util/concurrent_map.h"
 
 #include "parquet/encryption/encryption.h"
+#include "parquet/encryption/file_system_key_material_store.h"
 #include "parquet/encryption/key_material.h"
 #include "parquet/encryption/key_toolkit.h"
 #include "parquet/encryption/key_toolkit_internal.h"
@@ -31,9 +32,7 @@ namespace encryption {
 
 // This class will retrieve the key from "key metadata", following these steps:
 // 1. Parse "key metadata" (see structure in KeyMetadata class).
-// 2. Retrieve "key material" which can be stored inside or outside "key metadata"
-//    Currently we don't support the case "key material" stores outside "key metadata"
-//    yet.
+// 2. Retrieve "key material" which can be stored inside or outside "key metadata".
 // 3. Unwrap the "data encryption key" from "key material". There are 2 modes:
 // 3.1. single wrapping: decrypt the wrapped "data encryption key" directly with "master
 // encryption key" 3.2. double wrapping: 2 steps: 3.2.1. "key encryption key" is decrypted
@@ -44,14 +43,28 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   /// key_toolkit and kms_connection_config is to get KmsClient from cache or create
   /// KmsClient if it's not in the cache yet. cache_entry_lifetime_seconds is life time of
   /// KmsClient in the cache.
+  /// If the file uses external key material then the Parquet file path and file
+  /// system must be specified.
   FileKeyUnwrapper(KeyToolkit* key_toolkit,
                    const KmsConnectionConfig& kms_connection_config,
-                   double cache_lifetime_seconds);
+                   double cache_lifetime_seconds, const std::string& file_path = "",
+                   const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
 
+  /// Constructor overload that accepts an existing key_material_store rather than using
+  /// the file path and file system to create one when needed. This is useful for key
+  /// rotation to allow accessing the key material store after it is used.
+  FileKeyUnwrapper(KeyToolkit* key_toolkit,
+                   const KmsConnectionConfig& kms_connection_config,
+                   double cache_lifetime_seconds,
+                   std::shared_ptr<FileKeyMaterialStore> key_material_store);
+
+  /// Get the data key from key metadata
   std::string GetKey(const std::string& key_metadata) override;
 
+  /// Get the data key along with the master key id from key material
+  KeyWithMasterId GetDataEncryptionKey(const KeyMaterial& key_material);
+
  private:
-  internal::KeyWithMasterId GetDataEncryptionKey(const KeyMaterial& key_material);
   std::shared_ptr<KmsClient> GetKmsClientFromConfigOrKeyMaterial(
       const KeyMaterial& key_material);
 
@@ -60,6 +73,9 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   KeyToolkit* key_toolkit_;
   KmsConnectionConfig kms_connection_config_;
   const double cache_entry_lifetime_seconds_;
+  std::shared_ptr<FileKeyMaterialStore> key_material_store_;
+  const std::string file_path_;
+  std::shared_ptr<::arrow::fs::FileSystem> file_system_;
 };
 
 }  // namespace encryption

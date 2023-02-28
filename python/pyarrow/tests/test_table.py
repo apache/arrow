@@ -697,6 +697,57 @@ def test_recordbatch_select_column():
         batch.column(4)
 
 
+def test_recordbatch_select():
+    a1 = pa.array([1, 2, 3, None, 5])
+    a2 = pa.array(['a', 'b', 'c', 'd', 'e'])
+    a3 = pa.array([[1, 2], [3, 4], [5, 6], None, [9, 10]])
+    batch = pa.record_batch([a1, a2, a3], ['f1', 'f2', 'f3'])
+
+    # selecting with string names
+    result = batch.select(['f1'])
+    expected = pa.record_batch([a1], ['f1'])
+    assert result.equals(expected)
+
+    result = batch.select(['f3', 'f2'])
+    expected = pa.record_batch([a3, a2], ['f3', 'f2'])
+    assert result.equals(expected)
+
+    # selecting with integer indices
+    result = batch.select([0])
+    expected = pa.record_batch([a1], ['f1'])
+    assert result.equals(expected)
+
+    result = batch.select([2, 1])
+    expected = pa.record_batch([a3, a2], ['f3', 'f2'])
+    assert result.equals(expected)
+
+    # preserve metadata
+    batch2 = batch.replace_schema_metadata({"a": "test"})
+    result = batch2.select(["f1", "f2"])
+    assert b"a" in result.schema.metadata
+
+    # selecting non-existing column raises
+    with pytest.raises(KeyError, match='Field "f5" does not exist'):
+        batch.select(['f5'])
+
+    with pytest.raises(IndexError, match="index out of bounds"):
+        batch.select([5])
+
+    # duplicate selection gives duplicated names in resulting recordbatch
+    result = batch.select(['f2', 'f2'])
+    expected = pa.record_batch([a2, a2], ['f2', 'f2'])
+    assert result.equals(expected)
+
+    # selection duplicated column raises
+    batch = pa.record_batch([a1, a2, a3], ['f1', 'f2', 'f1'])
+    with pytest.raises(KeyError, match='Field "f1" exists 2 times'):
+        batch.select(['f1'])
+
+    result = batch.select(['f2'])
+    expected = pa.record_batch([a2], ['f2'])
+    assert result.equals(expected)
+
+
 def test_recordbatch_from_struct_array_invalid():
     with pytest.raises(TypeError):
         pa.RecordBatch.from_struct_array(pa.array(range(5)))

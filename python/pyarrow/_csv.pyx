@@ -110,7 +110,7 @@ cdef class ReadOptions(_Weakrefable):
         block, and empty rows are counted.
         The order of application is as follows:
         - `skip_rows` is applied (if non-zero);
-        - column names aread (unless `column_names` is set);
+        - column names are read (unless `column_names` is set);
         - `skip_rows_after_names` is applied (if non-zero).
     column_names : list, optional
         The column names of the target table.  If empty, fall back on
@@ -251,7 +251,7 @@ cdef class ReadOptions(_Weakrefable):
         block, and empty rows are counted.
         The order of application is as follows:
         - `skip_rows` is applied (if non-zero);
-        - column names aread (unless `column_names` is set);
+        - column names are read (unless `column_names` is set);
         - `skip_rows_after_names` is applied (if non-zero).
         """
         return deref(self.options).skip_rows_after_names
