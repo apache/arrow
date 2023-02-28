@@ -569,6 +569,11 @@ BENCHMARK(BM_DeltaBitPackingDecode_Int64_Narrow)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingDecode_Int32_Wide)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingDecode_Int64_Wide)->Range(MIN_RANGE, MAX_RANGE);
 
+static void ByteArrayCustomArguments(benchmark::internal::Benchmark* b) {
+  b->ArgsProduct({{8, 64, 1024}, {512, 2048}})
+      ->ArgNames({"max-string-length", "batch-size"});
+}
+
 void EncodingByteArrayBenchmark(benchmark::State& state, Encoding::type encoding) {
   ::arrow::random::RandomArrayGenerator rag(0);
   // Using arrow generator to generate random data.
@@ -638,18 +643,10 @@ static void BM_DeltaBitLengthDecodingByteArray(benchmark::State& state) {
   DecodingByteArrayBenchmark(state, Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
-BENCHMARK(BM_PlainEncodingByteArray)
-    ->Ranges({{8, 1024}, {8, 1024}})
-    ->ArgNames({"max-string-length", "batch-size"});
-BENCHMARK(BM_DeltaBitLengthEncodingByteArray)
-    ->Ranges({{8, 1024}, {8, 1024}})
-    ->ArgNames({"max-string-length", "batch-size"});
-BENCHMARK(BM_PlainDecodingByteArray)
-    ->Ranges({{8, 1024}, {8, 1024}})
-    ->ArgNames({"max-string-length", "batch-size"});
-BENCHMARK(BM_DeltaBitLengthDecodingByteArray)
-    ->Ranges({{8, 1024}, {8, 1024}})
-    ->ArgNames({"max-string-length", "batch-size"});
+BENCHMARK(BM_PlainEncodingByteArray)->Apply(ByteArrayCustomArguments);
+BENCHMARK(BM_DeltaBitLengthEncodingByteArray)->Apply(ByteArrayCustomArguments);
+BENCHMARK(BM_PlainDecodingByteArray)->Apply(ByteArrayCustomArguments);
+BENCHMARK(BM_DeltaBitLengthDecodingByteArray)->Apply(ByteArrayCustomArguments);
 
 static void BM_DecodingByteArraySpaced(benchmark::State& state, Encoding::type encoding) {
   const double null_percent = 0.02;
@@ -696,12 +693,8 @@ static void BM_DeltaBitLengthDecodingSpacedByteArray(benchmark::State& state) {
   BM_DecodingByteArraySpaced(state, Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
-BENCHMARK(BM_PlainDecodingSpacedByteArray)
-    ->Ranges({{8, 1024}, {8, 1024}})
-    ->ArgNames({"max-string-length", "batch-size"});
-BENCHMARK(BM_DeltaBitLengthDecodingSpacedByteArray)
-    ->Ranges({{8, 1024}, {8, 1024}})
-    ->ArgNames({"max-string-length", "batch-size"});
+BENCHMARK(BM_PlainDecodingSpacedByteArray)->Apply(ByteArrayCustomArguments);
+BENCHMARK(BM_DeltaBitLengthDecodingSpacedByteArray)->Apply(ByteArrayCustomArguments);
 
 template <typename Type>
 static void DecodeDict(std::vector<typename Type::c_type>& values,
@@ -786,9 +779,7 @@ static void BM_DictDecodingByteArray(benchmark::State& state) {
   DecodeDict<ByteArrayType>(values, state);
 }
 
-BENCHMARK(BM_DictDecodingByteArray)
-    ->Ranges({{8, 1024}, {8, 1024}})
-    ->ArgNames({"max-string-length", "batch-size"});
+BENCHMARK(BM_DictDecodingByteArray)->Apply(ByteArrayCustomArguments);
 
 // ----------------------------------------------------------------------
 // Shared benchmarks for decoding using arrow builders
