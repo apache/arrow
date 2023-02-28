@@ -595,11 +595,10 @@ void EncodingByteArrayBenchmark(benchmark::State& state, Encoding::type encoding
     encoder->FlushValues();
   }
   state.SetItemsProcessed(state.iterations() * array_actual->length());
-  state.counters["byte_array_bytes"] =
-      static_cast<double>(state.iterations() * array_actual->total_values_length());
+  state.SetBytesProcessed(state.iterations() * array_actual->total_values_length());
 }
 
-static void BM_DeltaBitLengthEncodingByteArray(benchmark::State& state) {
+static void BM_DeltaLengthEncodingByteArray(benchmark::State& state) {
   EncodingByteArrayBenchmark(state, Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
@@ -631,22 +630,21 @@ void DecodingByteArrayBenchmark(benchmark::State& state, Encoding::type encoding
     ::benchmark::DoNotOptimize(values);
   }
   state.SetItemsProcessed(state.iterations() * array->length());
-  state.counters["byte_array_bytes"] =
-      static_cast<double>(state.iterations() * array_actual->total_values_length());
+  state.SetBytesProcessed(state.iterations() * array_actual->total_values_length());
 }
 
 static void BM_PlainDecodingByteArray(benchmark::State& state) {
   DecodingByteArrayBenchmark(state, Encoding::PLAIN);
 }
 
-static void BM_DeltaBitLengthDecodingByteArray(benchmark::State& state) {
+static void BM_DeltaLengthDecodingByteArray(benchmark::State& state) {
   DecodingByteArrayBenchmark(state, Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
 BENCHMARK(BM_PlainEncodingByteArray)->Apply(ByteArrayCustomArguments);
-BENCHMARK(BM_DeltaBitLengthEncodingByteArray)->Apply(ByteArrayCustomArguments);
+BENCHMARK(BM_DeltaLengthEncodingByteArray)->Apply(ByteArrayCustomArguments);
 BENCHMARK(BM_PlainDecodingByteArray)->Apply(ByteArrayCustomArguments);
-BENCHMARK(BM_DeltaBitLengthDecodingByteArray)->Apply(ByteArrayCustomArguments);
+BENCHMARK(BM_DeltaLengthDecodingByteArray)->Apply(ByteArrayCustomArguments);
 
 static void BM_DecodingByteArraySpaced(benchmark::State& state, Encoding::type encoding) {
   const double null_percent = 0.02;
@@ -681,20 +679,19 @@ static void BM_DecodingByteArraySpaced(benchmark::State& state, Encoding::type e
   }
   state.counters["null_percent"] = null_percent * 100;
   state.SetItemsProcessed(state.iterations() * array_actual->length());
-  state.counters["byte_array_bytes"] =
-      static_cast<double>(state.iterations() * array_actual->total_values_length());
+  state.SetBytesProcessed(state.iterations() * array_actual->total_values_length());
 }
 
 static void BM_PlainDecodingSpacedByteArray(benchmark::State& state) {
   BM_DecodingByteArraySpaced(state, Encoding::PLAIN);
 }
 
-static void BM_DeltaBitLengthDecodingSpacedByteArray(benchmark::State& state) {
+static void BM_DeltaLengthDecodingSpacedByteArray(benchmark::State& state) {
   BM_DecodingByteArraySpaced(state, Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
 BENCHMARK(BM_PlainDecodingSpacedByteArray)->Apply(ByteArrayCustomArguments);
-BENCHMARK(BM_DeltaBitLengthDecodingSpacedByteArray)->Apply(ByteArrayCustomArguments);
+BENCHMARK(BM_DeltaLengthDecodingSpacedByteArray)->Apply(ByteArrayCustomArguments);
 
 template <typename Type>
 static void DecodeDict(std::vector<typename Type::c_type>& values,
@@ -777,6 +774,8 @@ static void BM_DictDecodingByteArray(benchmark::State& state) {
     values.emplace_back(array_actual->GetView(i));
   }
   DecodeDict<ByteArrayType>(values, state);
+  state.SetItemsProcessed(state.iterations() * array_actual->length());
+  state.SetBytesProcessed(state.iterations() * array_actual->total_values_length());
 }
 
 BENCHMARK(BM_DictDecodingByteArray)->Apply(ByteArrayCustomArguments);
