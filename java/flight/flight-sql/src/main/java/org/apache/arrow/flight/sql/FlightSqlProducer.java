@@ -48,9 +48,7 @@ import static org.apache.arrow.vector.types.Types.MinorType.VARCHAR;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
@@ -76,7 +74,6 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.TicketStatementQuery;
-import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -93,8 +90,6 @@ import com.google.protobuf.InvalidProtocolBufferException;
  * API to Implement an Arrow Flight SQL producer.
  */
 public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
-
-  Map<String, Integer> actionTypeCounter = new HashMap<>();
   /**
    * Depending on the provided command, method either:
    * 1. Return information about a SQL query, or
@@ -314,7 +309,6 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
   @Override
   default void doAction(CallContext context, Action action, StreamListener<Result> listener) {
     final String actionType = action.getType();
-    actionTypeCounter.put(actionType, actionTypeCounter.getOrDefault(actionType, 0) + 1);
 
     if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_BEGIN_SAVEPOINT.getType())) {
       final ActionBeginSavepointRequest request =
@@ -398,14 +392,6 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    */
   default void cancelQuery(FlightInfo info, CallContext context, StreamListener<CancelResult> listener) {
     listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
-  }
-
-  /**
-   * Clear the `actionTypeCounter` map and restore to its default state. Intended to be used in tests.
-   */
-  @VisibleForTesting
-  default void clearActionTypeCounter() {
-    actionTypeCounter.clear();
   }
 
   /**

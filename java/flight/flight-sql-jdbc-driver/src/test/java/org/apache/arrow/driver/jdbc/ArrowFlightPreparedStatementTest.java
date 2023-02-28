@@ -76,9 +76,9 @@ public class ArrowFlightPreparedStatementTest {
   public void testPreparedStatementExecutionOnce() throws SQLException {
     final PreparedStatement statement = connection.prepareStatement(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD);
     // Expect that there is one entry in the map -- {prepared statement action type, invocation count}.
-    assertEquals(PRODUCER.actionTypeCounter.size(), 1);
+    assertEquals(PRODUCER.getActionTypeCounter().size(), 1);
     // Expect that the prepared statement was executed exactly once.
-    assertEquals(PRODUCER.actionTypeCounter.get(FlightSqlUtils.FLIGHT_SQL_CREATE_PREPARED_STATEMENT.getType()), 1);
+    assertEquals(PRODUCER.getActionTypeCounter().get(FlightSqlUtils.FLIGHT_SQL_CREATE_PREPARED_STATEMENT.getType()), 1);
     statement.close();
   }
 
