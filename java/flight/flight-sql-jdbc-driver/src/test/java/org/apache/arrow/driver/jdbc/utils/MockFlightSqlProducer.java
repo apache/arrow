@@ -75,7 +75,6 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -515,12 +514,10 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   /**
    * Clear the `actionTypeCounter` map and restore to its default state. Intended to be used in tests.
    */
-  @VisibleForTesting
   public void clearActionTypeCounter() {
     actionTypeCounter.clear();
   }
 
-  @VisibleForTesting
   public Map<String, Integer> getActionTypeCounter() {
     return actionTypeCounter;
   }
