@@ -324,13 +324,13 @@ def test_named_table_empty_names():
 
 @pytest.mark.parametrize("use_threads", [True, False])
 def test_udf_via_substrait(unary_func_fixture, use_threads):
-    test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
+    test_table = pa.Table.from_pydict({"x": [1, 2, 3]})
 
     def table_provider(names, _):
         if not names:
             raise Exception("No names provided")
         elif names[0] == "t1":
-            return test_table_1
+            return test_table
         else:
             raise Exception("Unrecognized table name")
 
@@ -441,14 +441,14 @@ def test_udf_via_substrait(unary_func_fixture, use_threads):
     res_tb = reader.read_all()
 
     function, name = unary_func_fixture
-    expected_tb = test_table_1.add_column(1, 'y', function(
+    expected_tb = test_table.add_column(1, 'y', function(
         mock_scalar_udf_context(10), test_table['x']))
     res_tb = res_tb.rename_columns(['x', 'y'])
     assert res_tb == expected_tb
 
 
 def test_udf_via_substrait_wrong_udf_name():
-    test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
+    test_table = pa.Table.from_pydict({"x": [1, 2, 3]})
 
     def table_provider(names, _):
         if not names:
