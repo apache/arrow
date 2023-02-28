@@ -442,7 +442,7 @@ def test_udf_via_substrait(unary_func_fixture, use_threads):
 
     function, name = unary_func_fixture
     expected_tb = test_table_1.add_column(1, 'y', function(
-        mock_scalar_udf_context(10), test_table_1['x']))
+        mock_scalar_udf_context(10), test_table['x']))
     res_tb = res_tb.rename_columns(['x', 'y'])
     assert res_tb == expected_tb
 
