@@ -130,7 +130,7 @@ IPC Format
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
 | Sparse tensors              | ✓     |       |       |            |       |       |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
-| Buffer compression          | ✓     | ✓ (3) | ✓     |            |       |  ✓    | ✓     |
+| Buffer compression          | ✓     | ✓ (3) | ✓     |            | ✓ (4) |  ✓    | ✓     |
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
 | Endianness conversion       | ✓ (2) |       | ✓ (2) |            |       |       |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
@@ -144,6 +144,8 @@ Notes:
 * \(2) Data with non-native endianness can be byte-swapped automatically when reading.
 
 * \(3) LZ4 Codec currently is quite inefficient. ARROW-11901 tracks improving performance.
+
+* \(4) Compression when writing is not supported, only decompression when reading.
 
 .. seealso::
    The :ref:`format-ipc` specification.
