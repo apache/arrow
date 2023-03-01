@@ -31,6 +31,10 @@ class FunctionExecutor;
 class FunctionOptions;
 class FunctionRegistry;
 
+/// \brief Return the process-global function registry.
+// Defined in registry.cc
+ARROW_EXPORT FunctionRegistry* GetFunctionRegistry();
+
 class CastOptions;
 
 struct ExecBatch;

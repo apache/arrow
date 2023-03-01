@@ -1788,6 +1788,7 @@ services:
         # be set to ${MAVEN}
         maven: 3.5
         spark: ${SPARK}
+        numpy: ${NUMPY}
     shm_size: *shm-size
     environment:
       <<: *ccache

@@ -437,6 +437,11 @@ ExecNode::ExecNode(ExecPlan* plan, NodeVector inputs,
   }
 }
 
+const Ordering& ExecNode::ordering() const {
+  // The safest default is to assume a node destroys ordering
+  return Ordering::Unordered();
+}
+
 Status ExecNode::Init() { return Status::OK(); }
 
 Status ExecNode::Validate() const {
@@ -644,15 +649,19 @@ Future<BatchesWithCommonSchema> DeclarationToExecBatchesImpl(
   ExecContext exec_ctx(options.memory_pool, cpu_executor, options.function_registry);
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
   SinkNodeOptions sink_options(&sink_gen, &out_schema);
-  sink_options.sequence_delivery = options.sequence_output;
+  sink_options.sequence_output = options.sequence_output;
   Declaration with_sink = Declaration::Sequence({declaration, {"sink", sink_options}});
   ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
   ARROW_RETURN_NOT_OK(exec_plan->Validate());
   exec_plan->StartProducing();
   auto collected_fut = CollectAsyncGenerator(sink_gen);
-  return AllFinished({exec_plan->finished(), Future<>(collected_fut)})
-      .Then([collected_fut, exec_plan,
-             schema = std::move(out_schema)]() -> Result<BatchesWithCommonSchema> {
+  return exec_plan->finished().Then(
+      [collected_fut, exec_plan,
+       schema = std::move(out_schema)]() -> Result<BatchesWithCommonSchema> {
+        if (!collected_fut.is_finished()) {
+          return Status::Invalid(
+              "Plan finished but it did not emit the expected number of batches.");
+        }
         ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
         std::vector<ExecBatch> exec_batches = ::arrow::internal::MapVector(
             [](std::optional<ExecBatch> batch) { return batch.value_or(ExecBatch()); },
@@ -667,9 +676,9 @@ Future<> DeclarationToStatusImpl(Declaration declaration, QueryOptions options,
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
   ARROW_ASSIGN_OR_RAISE(ExecNode * last_node, declaration.AddToPlan(exec_plan.get()));
   if (!last_node->is_sink()) {
-    Declaration null_sink =
-        Declaration("consuming_sink", {last_node},
-                    ConsumingSinkNodeOptions(NullSinkNodeConsumer::Make()));
+    ConsumingSinkNodeOptions sink_options(NullSinkNodeConsumer::Make());
+    sink_options.sequence_output = options.sequence_output;
+    Declaration null_sink = Declaration("consuming_sink", {last_node}, sink_options);
     ARROW_RETURN_NOT_OK(null_sink.AddToPlan(exec_plan.get()));
   }
   ARROW_RETURN_NOT_OK(exec_plan->Validate());
@@ -826,6 +835,20 @@ Result<BatchesWithCommonSchema> DeclarationToExecBatches(
       use_threads);
 }
 
+Result<BatchesWithCommonSchema> DeclarationToExecBatches(Declaration declaration,
+                                                         QueryOptions query_options) {
+  if (query_options.custom_cpu_executor != nullptr) {
+    return Status::Invalid("Cannot use synchronous methods with a custom CPU executor");
+  }
+  return ::arrow::internal::RunSynchronously<Future<BatchesWithCommonSchema>>(
+      [=, declaration =
+              std::move(declaration)](::arrow::internal::Executor* executor) mutable {
+        return DeclarationToExecBatchesImpl(std::move(declaration), query_options,
+                                            executor);
+      },
+      query_options.use_threads);
+}
+
 Future<> DeclarationToStatusAsync(Declaration declaration, ExecContext exec_context) {
   return DeclarationToStatusImpl(std::move(declaration),
                                  QueryOptionsFromCustomExecContext(exec_context),
@@ -856,6 +879,17 @@ Status DeclarationToStatus(Declaration declaration, bool use_threads,
             executor);
       },
       use_threads);
+}
+
+Status DeclarationToStatus(Declaration declaration, QueryOptions query_options) {
+  if (query_options.custom_cpu_executor != nullptr) {
+    return Status::Invalid("Cannot use synchronous methods with a custom CPU executor");
+  }
+  return ::arrow::internal::RunSynchronously<Future<>>(
+      [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
+        return DeclarationToStatusImpl(std::move(declaration), query_options, executor);
+      },
+      query_options.use_threads);
 }
 
 namespace {

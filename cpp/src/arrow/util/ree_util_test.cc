@@ -28,11 +28,11 @@
 namespace arrow {
 namespace ree_util {
 
-template <typename RunEndsType>
+template <typename RunEndCType>
 struct ReeUtilTest : public ::testing::Test {
   // Re-implementation of FindPhysicalIndex that uses trivial linear-search
   // instead of the more efficient implementation.
-  int64_t FindPhysicalIndexTestImpl(const RunEndsType* run_ends, int64_t run_ends_size,
+  int64_t FindPhysicalIndexTestImpl(const RunEndCType* run_ends, int64_t run_ends_size,
                                     int64_t i, int64_t absolute_offset = 0) {
     for (int64_t j = 0; j < run_ends_size; j++) {
       if (absolute_offset + i < run_ends[j]) {

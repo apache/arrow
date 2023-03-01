@@ -28,6 +28,7 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
@@ -308,6 +309,15 @@ class DataGeneratorImpl : public DataGenerator,
     }
     return batches;
   }
+
+  Result<::arrow::compute::Declaration> SourceNode(int64_t rows_per_batch,
+                                                   int num_batches) override {
+    ARROW_ASSIGN_OR_RAISE(std::vector<::arrow::compute::ExecBatch> batches,
+                          ExecBatches(rows_per_batch, num_batches));
+    return ::arrow::compute::Declaration(
+        "exec_batch_source",
+        ::arrow::compute::ExecBatchSourceNodeOptions(schema_, std::move(batches)));
+  }
 #endif
 
   Result<std::shared_ptr<::arrow::Table>> Table(int64_t rows_per_chunk,
@@ -364,6 +374,12 @@ class GTestDataGeneratorImpl : public GTestDataGenerator {
                                                        int num_batches) override {
     EXPECT_OK_AND_ASSIGN(auto batches, target_->ExecBatches(rows_per_batch, num_batches));
     return batches;
+  }
+  ::arrow::compute::Declaration SourceNode(int64_t rows_per_batch,
+                                           int num_batches) override {
+    EXPECT_OK_AND_ASSIGN(auto source_node,
+                         target_->SourceNode(rows_per_batch, num_batches));
+    return source_node;
   }
 #endif
   std::shared_ptr<::arrow::Table> Table(int64_t rows_per_chunk, int num_chunks) override {

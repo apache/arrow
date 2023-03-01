@@ -1625,10 +1625,10 @@ TEST_F(TestDenseUnionScalar, GetScalar) {
 template <typename RunEndType>
 class TestRunEndEncodedScalar : public ::testing::Test {
  public:
-  using RunEndArrowType = typename CTypeTraits<RunEndType>::ArrowType;
+  using RunEndCType = typename RunEndType::c_type;
 
   void SetUp() override {
-    run_end_type_ = std::make_shared<RunEndArrowType>();
+    run_end_type_ = std::make_shared<RunEndType>();
     value_type_ = utf8();
     type_.reset(new RunEndEncodedType(run_end_type_, value_type_));
 
@@ -1726,7 +1726,7 @@ class TestRunEndEncodedScalar : public ::testing::Test {
   std::shared_ptr<Scalar> beta_;
 };
 
-using RunEndTestTypes = ::testing::Types<int16_t, int32_t, int64_t>;
+using RunEndTestTypes = ::testing::Types<Int16Type, Int32Type, Int64Type>;
 TYPED_TEST_SUITE(TestRunEndEncodedScalar, RunEndTestTypes);
 
 TYPED_TEST(TestRunEndEncodedScalar, Basics) { this->TestBasics(); }

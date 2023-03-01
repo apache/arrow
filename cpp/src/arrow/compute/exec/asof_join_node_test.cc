@@ -1314,6 +1314,43 @@ TEST(AsofJoinTest, BackpressureWithBatches) {
                           /*fast_delay=*/0.01, /*slow_delay=*/0.1, /*noisy=*/false);
 }
 
+template <typename BatchesMaker>
+void TestSequencing(BatchesMaker maker, int num_batches, int batch_size) {
+  auto l_schema =
+      schema({field("time", int32()), field("key", int32()), field("l_value", int32())});
+  auto r_schema =
+      schema({field("time", int32()), field("key", int32()), field("r0_value", int32())});
+
+  auto make_shift = [&maker, num_batches, batch_size](
+                        const std::shared_ptr<Schema>& schema, int shift) {
+    return maker({[](int row) -> int64_t { return row; },
+                  [num_batches](int row) -> int64_t { return row / num_batches; },
+                  [shift](int row) -> int64_t { return row * 10 + shift; }},
+                 schema, num_batches, batch_size);
+  };
+  ASSERT_OK_AND_ASSIGN(auto l_batches, make_shift(l_schema, 0));
+  ASSERT_OK_AND_ASSIGN(auto r_batches, make_shift(r_schema, 1));
+
+  compute::Declaration l_src = {"source",
+                                SourceNodeOptions(l_schema, l_batches.gen(false, false))};
+  compute::Declaration r_src = {"source",
+                                SourceNodeOptions(r_schema, r_batches.gen(false, false))};
+
+  compute::Declaration asofjoin = {
+      "asofjoin", {l_src, r_src}, GetRepeatedOptions(2, "time", {"key"}, 1000)};
+
+  QueryOptions query_options;
+  query_options.use_threads = false;
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema batches,
+                       DeclarationToExecBatches(asofjoin, query_options));
+
+  AssertExecBatchesSequenced(batches.batches);
+}
+
+TEST(AsofJoinTest, BatchSequencing) {
+  return TestSequencing(MakeIntegerBatches, /*num_batches=*/32, /*batch_size=*/1);
+}
+
 namespace {
 
 Result<AsyncGenerator<std::optional<ExecBatch>>> MakeIntegerBatchGenForTest(

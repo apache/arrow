@@ -473,14 +473,14 @@ class RangeDataEqualsImpl {
     return Status::OK();
   }
 
-  template <typename RunEndsType>
+  template <typename RunEndCType>
   Status CompareRunEndEncoded() {
     auto left_span = ArraySpan(left_);
     auto right_span = ArraySpan(right_);
     left_span.SetSlice(left_.offset + left_start_idx_, range_length_);
     right_span.SetSlice(right_.offset + right_start_idx_, range_length_);
-    const ree_util::RunEndEncodedArraySpan<RunEndsType> left(left_span);
-    const ree_util::RunEndEncodedArraySpan<RunEndsType> right(right_span);
+    const ree_util::RunEndEncodedArraySpan<RunEndCType> left(left_span);
+    const ree_util::RunEndEncodedArraySpan<RunEndCType> right(right_span);
 
     const auto& left_values = *left_.child_data[1];
     const auto& right_values = *right_.child_data[1];
