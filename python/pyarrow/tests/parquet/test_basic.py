@@ -426,6 +426,14 @@ def test_column_encoding(use_legacy_dataset):
                                       'c': "DELTA_LENGTH_BYTE_ARRAY"},
                      use_legacy_dataset=use_legacy_dataset)
 
+    # Check "DELTA_BYTE_ARRAY" for byte columns.
+    _check_roundtrip(mixed_table, expected=mixed_table,
+                     use_dictionary=False,
+                     column_encoding={'a': "PLAIN",
+                                      'b': "DELTA_BINARY_PACKED",
+                                      'c': "DELTA_BYTE_ARRAY"},
+                     use_legacy_dataset=use_legacy_dataset)
+
     # Try to pass "BYTE_STREAM_SPLIT" column encoding for integer column 'b'.
     # This should throw an error as it is only supports FLOAT and DOUBLE.
     with pytest.raises(IOError,

@@ -2977,6 +2977,125 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
 // ----------------------------------------------------------------------
 // DELTA_BYTE_ARRAY
 
+// This is also known as incremental encoding or front compression: for each element in a
+// sequence of strings, store the prefix length of the previous entry plus the suffix.
+//
+// This is stored as a sequence of delta-encoded prefix lengths (DELTA_BINARY_PACKED),
+// followed by the suffixes encoded as delta length byte arrays (DELTA_LENGTH_BYTE_ARRAY).
+
+// ----------------------------------------------------------------------
+// DeltaByteArrayEncoder
+
+template <typename DType>
+class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
+ public:
+  using T = typename DType::c_type;
+
+  explicit DeltaByteArrayEncoder(const ColumnDescriptor* descr, MemoryPool* pool)
+      : EncoderImpl(descr, Encoding::DELTA_BYTE_ARRAY,
+                    pool = ::arrow::default_memory_pool()),
+        sink_(pool),
+        prefix_length_encoder_(nullptr, pool),
+        suffix_encoder_(nullptr, pool) {}
+
+  std::shared_ptr<Buffer> FlushValues() override;
+
+  int64_t EstimatedDataEncodedSize() override {
+    return prefix_length_encoder_.EstimatedDataEncodedSize() +
+           suffix_encoder_.EstimatedDataEncodedSize();
+  }
+
+  using TypedEncoder<DType>::Put;
+
+  void Put(const ::arrow::Array& values) override {
+    AssertBaseBinary(values);
+    const auto& data = values.data();
+    auto src = data->GetValues<T>(1);
+
+    if (values.null_count() == 0) {
+      Put(src, static_cast<int>(values.length()));
+    } else {
+      PutSpaced(src, static_cast<int>(data->length), data->GetValues<uint8_t>(0, 0),
+                data->offset);
+    }
+  }
+
+  void Put(const T* buffer, int num_values) override;
+
+  void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
+                 int64_t valid_bits_offset) override {
+    if (valid_bits != NULLPTR) {
+      PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateBuffer(num_values * sizeof(T),
+                                                                   this->memory_pool()));
+      T* data = reinterpret_cast<T*>(buffer->mutable_data());
+      int num_valid_values = ::arrow::util::internal::SpacedCompress<T>(
+          src, num_values, valid_bits, valid_bits_offset, data);
+      Put(data, num_valid_values);
+    } else {
+      Put(src, num_values);
+    }
+  }
+
+  uint32_t total_value_count_{0};
+  ::arrow::BufferBuilder sink_;
+  DeltaBitPackEncoder<Int32Type> prefix_length_encoder_;
+  DeltaLengthByteArrayEncoder<ByteArrayType> suffix_encoder_;
+  string_view last_value_;
+};
+
+template <typename DType>
+void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
+  if (num_values == 0) {
+    return;
+  }
+  ArrowPoolVector<int32_t> prefix_lengths(num_values);
+
+  if (ARROW_PREDICT_TRUE(last_value_.empty())) {
+    last_value_ = string_view{reinterpret_cast<const char*>(src[0].ptr), src[0].len};
+    suffix_encoder_.Put(&src[0], 1);
+    prefix_lengths[0] = 0;
+  }
+  total_value_count_ += num_values;
+
+  for (int32_t i = 1; i < num_values; i++) {
+    auto prefix = string_view{reinterpret_cast<const char*>(src[i].ptr), src[i].len};
+
+    size_t j = 0;
+    while (j < std::min(src[i - 1].len, src[i].len)) {
+      if (last_value_[j] != prefix[j]) {
+        break;
+      }
+      j++;
+    }
+
+    prefix_lengths[i] = j;
+    const uint8_t* suffix_ptr = src[i].ptr + j;
+    const uint32_t suffix_length = static_cast<uint32_t>(src[i].len - j);
+    last_value_ = string_view{reinterpret_cast<const char*>(suffix_ptr), suffix_length};
+    const ByteArray suffix(suffix_length, suffix_ptr);
+    suffix_encoder_.Put(&suffix, 1);
+  }
+  prefix_length_encoder_.Put(prefix_lengths.data(), num_values);
+}
+
+template <typename DType>
+std::shared_ptr<Buffer> DeltaByteArrayEncoder<DType>::FlushValues() {
+  PARQUET_THROW_NOT_OK(sink_.Resize(EstimatedDataEncodedSize(), false));
+
+  std::shared_ptr<Buffer> prefix_lengths = prefix_length_encoder_.FlushValues();
+  PARQUET_THROW_NOT_OK(sink_.Append(prefix_lengths->data(), prefix_lengths->size()));
+
+  std::shared_ptr<Buffer> suffixes = suffix_encoder_.FlushValues();
+  PARQUET_THROW_NOT_OK(sink_.Append(suffixes->data(), suffixes->size()));
+
+  std::shared_ptr<Buffer> buffer;
+  PARQUET_THROW_NOT_OK(sink_.Finish(&buffer, true));
+  return buffer;
+}
+
+// ----------------------------------------------------------------------
+// DeltaByteArrayDecoder
+
 class DeltaByteArrayDecoder : public DecoderImpl,
                               virtual public TypedDecoder<ByteArrayType> {
  public:
@@ -3352,6 +3471,14 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
         return std::make_unique<RleBooleanEncoder>(descr, pool);
       default:
         throw ParquetException("RLE only supports BOOLEAN");
+    }
+  } else if (encoding == Encoding::DELTA_BYTE_ARRAY) {
+    switch (type_num) {
+      case Type::BYTE_ARRAY:
+        return std::make_unique<DeltaByteArrayEncoder<ByteArrayType>>(descr, pool);
+      default:
+        throw ParquetException("DELTA_BYTE_ARRAY only supports BYTE_ARRAY");
+        break;
     }
   } else {
     ParquetException::NYI("Selected encoding is not supported");
