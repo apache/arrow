@@ -19,6 +19,12 @@
 
 # arrow 11.0.0.9000
 
+# arrow 11.0.0.3
+
+## Minor improvements and fixes
+* `open_csv_datast()` allows a schema to be specified. (#34217)
+* to ensure compatibility with an upcoming dplyr release, we no longer call `dplyr:::check_names()` (#34369)
+
 # arrow 11.0.0.2
 
 ## Breaking changes
