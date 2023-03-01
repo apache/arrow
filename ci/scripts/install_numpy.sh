@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,38 +17,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG repo
-ARG arch=amd64
-ARG python=3.8
-FROM ${repo}:${arch}-conda-python-${python}
+set -e
 
-ARG jdk=8
-ARG maven=3.5
+if [ $# -gt 1 ]; then
+  echo "Usage: $0 <optional numpy version = latest>"
+  exit 1
+fi
 
-ARG numpy=latest
-COPY ci/scripts/install_numpy.sh /arrow/ci/scripts/
+numpy=${1:-"latest"}
 
-RUN mamba install -q -y \
-        openjdk=${jdk} \
-        maven=${maven} \
-        pandas && \
-    mamba clean --all && \
-    mamba uninstall -q -y numpy && \
-    /arrow/ci/scripts/install_numpy.sh ${numpy}
-
-# installing specific version of spark
-ARG spark=master
-COPY ci/scripts/install_spark.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_spark.sh ${spark} /spark
-
-# build cpp with tests
-ENV CC=gcc \
-    CXX=g++ \
-    ARROW_BUILD_TESTS=OFF \
-    ARROW_COMPUTE=ON \
-    ARROW_CSV=ON \
-    ARROW_DATASET=ON \
-    ARROW_FILESYSTEM=ON \
-    ARROW_HDFS=ON \
-    ARROW_JSON=ON \
-    SPARK_VERSION=${spark}
+if [ "${numpy}" = "latest" ]; then
+  pip install numpy
+else
+  pip install numpy==${numpy}
+fi
