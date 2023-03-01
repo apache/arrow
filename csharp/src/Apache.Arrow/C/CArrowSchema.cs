@@ -221,6 +221,13 @@ namespace Apache.Arrow.C
             Marshal.StructureToPtr<CArrowSchema>(this, ptr, false);
         }
 
+        /// <summary>
+        /// Allocated a new pointer to an uninitialized CArrowSchema.
+        /// </summary>
+        /// <remarks>This is used to import schemas. See  <see cref="ImportType"/>,
+        /// <see cref="ImportField"/>, and <see cref="ImportSchema"/>. Once data 
+        /// is imported, this pointer must be cleaned up with <see cref="FreePtr"/>.
+        /// </remarks>
         public static IntPtr AllocateUninitialized()
         {
             return Marshal.AllocHGlobal(Marshal.SizeOf<CArrowSchema>());
@@ -238,6 +245,7 @@ namespace Apache.Arrow.C
         /// IntPtr importedPtr = CArrowSchema.AllocateUninitialized();
         /// foreign_export_function(importedPtr);
         /// ArrowType importedType = CArrowSchema.ImportType(importedPtr);
+        /// CArrowSchema.FreePtr(importedPtr);
         /// </code>
         /// </examples>
         public static ArrowType ImportType(IntPtr ptr)
@@ -258,6 +266,7 @@ namespace Apache.Arrow.C
         /// IntPtr importedPtr = CArrowSchema.AllocateUninitialized();
         /// foreign_export_function(importedPtr);
         /// Field importedField = CArrowSchema.ImportField(importedPtr);
+        /// CArrowSchema.FreePtr(importedPtr);
         /// </code>
         /// </examples>
         public static Field ImportField(IntPtr ptr)
@@ -278,6 +287,7 @@ namespace Apache.Arrow.C
         /// IntPtr importedPtr = CArrowSchema.AllocateUninitialized();
         /// foreign_export_function(importedPtr);
         /// Field importedSchema = CArrowSchema.ImportSchema(importedPtr);
+        /// CArrowSchema.FreePtr(importedPtr);
         /// </code>
         /// </examples>
         public static Schema ImportSchema(IntPtr ptr)
