@@ -3007,18 +3007,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 
   using TypedEncoder<DType>::Put;
 
-  void Put(const ::arrow::Array& values) override {
-    AssertBaseBinary(values);
-    const auto& data = values.data();
-    auto src = data->GetValues<T>(1);
-
-    if (values.null_count() == 0) {
-      Put(src, static_cast<int>(values.length()));
-    } else {
-      PutSpaced(src, static_cast<int>(data->length), data->GetValues<uint8_t>(0, 0),
-                data->offset);
-    }
-  }
+  void Put(const ::arrow::Array& values) override;
 
   void Put(const T* buffer, int num_values) override;
 
@@ -3036,12 +3025,60 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
     }
   }
 
-  uint32_t total_value_count_{0};
+ protected:
+  template <typename ArrayType>
+  void PutBinaryArray(const ArrayType& array) {
+    // TODO: optimize using ArrowPoolVector<int32_t> prefix_lengths(num_values);
+    PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
+        *array.data(),
+        [&](::std::string_view view) {
+          if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
+            return Status::Invalid("Parquet cannot store strings with size 2GB or more");
+          }
+          uint32_t previous_len = 0;
+          const ByteArray src{view};
+          if (ARROW_PREDICT_TRUE(last_value_.empty())) {
+            last_value_ = view;
+            suffix_encoder_.Put(&src, 1);
+            prefix_length_encoder_.Put({static_cast<int32_t>(0)}, 1);
+          } else {
+            uint32_t j = 0;
+            while (j < std::min(previous_len, src.len)) {
+              if (last_value_[j] != view[j]) {
+                break;
+              }
+              j++;
+            }
+            previous_len = j;
+            prefix_length_encoder_.Put({static_cast<int32_t>(j)}, 1);
+
+            const uint8_t* suffix_ptr = src.ptr + j;
+            const uint32_t suffix_length = static_cast<uint32_t>(src.len - j);
+            last_value_ =
+                string_view{reinterpret_cast<const char*>(suffix_ptr), suffix_length};
+            const ByteArray suffix(suffix_length, suffix_ptr);
+            suffix_encoder_.Put(&suffix, 1);
+          }
+          return Status::OK();
+        },
+        []() { return Status::OK(); }));
+  }
+
   ::arrow::BufferBuilder sink_;
   DeltaBitPackEncoder<Int32Type> prefix_length_encoder_;
   DeltaLengthByteArrayEncoder<ByteArrayType> suffix_encoder_;
   string_view last_value_;
 };
+
+template <typename DType>
+void DeltaByteArrayEncoder<DType>::Put(const ::arrow::Array& values) {
+  AssertBaseBinary(values);
+  if (::arrow::is_binary_like(values.type_id())) {
+    PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
+  } else {
+    PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
+  }
+}
 
 template <typename DType>
 void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
@@ -3055,12 +3092,11 @@ void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
     suffix_encoder_.Put(&src[0], 1);
     prefix_lengths[0] = 0;
   }
-  total_value_count_ += num_values;
 
   for (int32_t i = 1; i < num_values; i++) {
     auto prefix = string_view{reinterpret_cast<const char*>(src[i].ptr), src[i].len};
 
-    size_t j = 0;
+    uint32_t j = 0;
     while (j < std::min(src[i - 1].len, src[i].len)) {
       if (last_value_[j] != prefix[j]) {
         break;

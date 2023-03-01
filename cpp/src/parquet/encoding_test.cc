@@ -2041,4 +2041,55 @@ TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
       /*nvalues*/ 1234, /*repeats*/ 10, /*valid_bits_offset*/ 64,
       /*null_probability*/ 0.1));
 }
+
+TEST(DeltaByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
+  const int64_t size = 50;
+  const int32_t min_length = 0;
+  const int32_t max_length = 10;
+  const int32_t num_unique = 10;
+  const double null_probability = 0.25;
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+
+  auto CheckSeed = [&](std::shared_ptr<::arrow::Array> values) {
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
+    if (::arrow::is_string(values->type()->id())) {
+      acc.builder = std::make_unique<::arrow::StringBuilder>();
+    } else {
+      acc.builder = std::make_unique<::arrow::BinaryBuilder>();
+    }
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.builder->Finish(&result));
+    ASSERT_EQ(values->length(), result->length());
+    ASSERT_OK(result->ValidateFull());
+
+    auto upcast_result = CastBinaryTypesHelper(result, values->type());
+    ::arrow::AssertArraysEqual(*values, *result);
+  };
+
+  ::arrow::random::RandomArrayGenerator rag(42);
+  auto values = rag.String(0, min_length, max_length, null_probability);
+  CheckSeed(values);
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    rag = ::arrow::random::RandomArrayGenerator(seed);
+
+    values = rag.String(size, min_length, max_length, null_probability);
+    CheckSeed(values);
+
+    values =
+        rag.BinaryWithRepeats(size, num_unique, min_length, max_length, null_probability);
+    CheckSeed(values);
+  }
+}
 }  // namespace parquet::test
