@@ -87,6 +87,8 @@ struct SourceNode : ExecNode, public TracedNode {
     }
     plan_->query_context()->ScheduleTask(
         [=]() {
+          util::tracing::Span span;
+          START_SPAN(span, "SourceNode::ProcessMorsel");
           int64_t offset = 0;
           do {
             int64_t batch_size =
@@ -107,6 +109,7 @@ struct SourceNode : ExecNode, public TracedNode {
 
   Status StartProducing() override {
     NoteStartProducing(ToStringExtra());
+
     {
       // If another exec node encountered an error during its StartProducing call
       // it might have already called StopProducing on all of its inputs (including this
@@ -128,6 +131,9 @@ struct SourceNode : ExecNode, public TracedNode {
     options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     ARROW_ASSIGN_OR_RAISE(Future<> scan_task, plan_->query_context()->BeginExternalTask(
                                                   "SourceNode::DatasetScan"));
+    util::tracing::Span span;
+    START_SPAN(span, "SourceNode::DatasetScan");
+
     if (!scan_task.is_valid()) {
       // Plan has already been aborted, no need to start scanning
       return Status::OK();
