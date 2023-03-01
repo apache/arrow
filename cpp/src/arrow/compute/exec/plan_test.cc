@@ -549,6 +549,36 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
 )a");
 }
 
+TEST(ExecPlanExecution, CustomFieldNames) {
+  Declaration source = gen::Gen({{"x", gen::Step()}})
+                           ->FailOnError()
+                           ->SourceNode(/*rows_per_batch=*/1, /*num_batches=*/1);
+
+  QueryOptions opts;
+  opts.field_names = {"y"};
+
+  ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
+                       DeclarationToBatches(source, opts));
+
+  std::shared_ptr<Schema> expected_schema = schema({field("y", uint32())});
+
+  for (const auto& batch : batches) {
+    AssertSchemaEqual(*expected_schema, *batch->schema());
+  }
+
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema batches_with_schema,
+                       DeclarationToExecBatches(source, opts));
+
+  AssertSchemaEqual(*expected_schema, *batches_with_schema.schema);
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> table, DeclarationToTable(source, opts));
+  AssertSchemaEqual(*expected_schema, *table->schema());
+
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> reader,
+                       DeclarationToReader(source, opts));
+  AssertSchemaEqual(*expected_schema, *reader->schema());
+}
+
 TEST(ExecPlanExecution, SourceOrderBy) {
   std::vector<ExecBatch> expected = {
       ExecBatchFromJSON({int32(), boolean()},

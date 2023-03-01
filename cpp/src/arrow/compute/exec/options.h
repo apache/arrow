@@ -381,6 +381,8 @@ class ARROW_EXPORT ConsumingSinkNodeOptions : public ExecNodeOptions {
   ///
   /// If specified then names must be provided for all fields. Currently, only a flat
   /// schema is supported (see ARROW-15901).
+  ///
+  /// If not specified then names will be generated based on the source data.
   std::vector<std::string> names;
   /// \brief Controls whether batches should be emitted immediately or sequenced in order
   ///
@@ -614,6 +616,13 @@ class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
   ///
   /// \see QueryOptions for more details
   std::optional<bool> sequence_output;
+  /// \brief Custom names to use for the columns.
+  ///
+  /// If specified then names must be provided for all fields. Currently, only a flat
+  /// schema is supported (see ARROW-15901).
+  ///
+  /// If not specified then names will be generated based on the source data.
+  std::vector<std::string> names;
 };
 
 struct ARROW_EXPORT PivotLongerRowTemplate {
