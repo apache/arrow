@@ -52,6 +52,10 @@ class ExtensionArray;
 
 int64_t Array::null_count() const { return data_->GetNullCount(); }
 
+int64_t Array::ComputeLogicalNullCount() const {
+  return data_->ComputeLogicalNullCount();
+}
+
 namespace internal {
 
 struct ScalarFromArraySlotImpl {

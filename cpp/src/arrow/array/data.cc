@@ -60,6 +60,35 @@ static inline void AdjustNonNullable(Type::type type_id, int64_t length,
   }
 }
 
+namespace internal {
+
+bool IsNullSparseUnion(const ArrayData& data, int64_t i) {
+  // TODO(felipecrv): Implement IsNullSparseUnion
+  return data.null_count == data.length;  // mimics the old behavior
+}
+
+bool IsNullDenseUnion(const ArrayData& data, int64_t i) {
+  // TODO(felipecrv): Implement IsNullDenseUnion
+  return data.null_count == data.length;  // mimics the old behavior
+}
+
+bool IsNullRunEndEncoded(const ArrayData& data, int64_t i) {
+  // TODO(felipecrv): Implement IsNullDenseUnion
+  return data.null_count == data.length;  // mimics the old behavior
+}
+
+bool UnionMayHaveLogicalNulls(const ArrayData& data) {
+  // TODO(felipecrv): Implement UnionMayHaveLogicalNulls
+  return false;  // mimics the old behavior
+}
+
+bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data) {
+  // TODO(felipecrv): Implement RunEndEncodedMayHaveLogicalNulls
+  return false;  // mimics the old behavior
+}
+
+}  // namespace internal
+
 std::shared_ptr<ArrayData> ArrayData::Make(std::shared_ptr<DataType> type, int64_t length,
                                            std::vector<std::shared_ptr<Buffer>> buffers,
                                            int64_t null_count, int64_t offset) {
@@ -130,6 +159,13 @@ int64_t ArrayData::GetNullCount() const {
     this->null_count.store(precomputed);
   }
   return precomputed;
+}
+
+int64_t ArrayData::ComputeLogicalNullCount() const {
+  if (this->buffers[0]) {
+    return GetNullCount();
+  }
+  return ArraySpan(*this).ComputeLogicalNullCount();
 }
 
 // ----------------------------------------------------------------------
@@ -407,6 +443,18 @@ int64_t ArraySpan::GetNullCount() const {
   return precomputed;
 }
 
+int64_t ArraySpan::ComputeLogicalNullCount() const {
+  const auto t = this->type->id();
+  // TODO(felipecrv): implement logical null count for unions and REEs
+  if (t == Type::SPARSE_UNION || t == Type::DENSE_UNION) {
+    ;  // mimic old behavior
+  }
+  if (t == Type::RUN_END_ENCODED) {
+    ;  // mimic old behavior
+  }
+  return GetNullCount();
+}
+
 int ArraySpan::num_buffers() const { return GetNumBuffers(*this->type); }
 
 std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
@@ -443,6 +491,31 @@ std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
 
 std::shared_ptr<Array> ArraySpan::ToArray() const {
   return MakeArray(this->ToArrayData());
+}
+
+bool ArraySpan::IsNullSparseUnion(int64_t i) const {
+  // TODO(felipecrv): Implement IsNullSparseUnion
+  return null_count == length;  // mimics the old behavior
+}
+
+bool ArraySpan::IsNullDenseUnion(int64_t i) const {
+  // TODO(felipecrv): Implement IsNullDenseUnion
+  return null_count == length;  // mimics the old behavior
+}
+
+bool ArraySpan::IsNullRunEndEncoded(int64_t i) const {
+  // TODO(felipecrv): Implement IsNullRunEndEncoded
+  return null_count == length;  // mimics the old behavior
+}
+
+bool ArraySpan::UnionMayHaveLogicalNulls() const {
+  // TODO(felipecrv): Implement UnionMayHaveLogicalNulls
+  return false;  // mimics the old behavior
+}
+
+bool ArraySpan::RunEndEncodedMayHaveLogicalNulls() const {
+  // TODO(felipecrv): Implement RunEndEncodedMayHaveLogicalNulls
+  return false;  // mimics the old behavior
 }
 
 // ----------------------------------------------------------------------
