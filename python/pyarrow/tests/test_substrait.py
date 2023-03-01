@@ -34,6 +34,11 @@ except ImportError:
 pytestmark = [pytest.mark.dataset, pytest.mark.substrait]
 
 
+def mock_scalar_udf_context(batch_length=10):
+    from pyarrow._compute import _get_scalar_udf_context
+    return _get_scalar_udf_context(pa.default_memory_pool(), batch_length)
+
+
 def _write_dummy_data_to_disk(tmpdir, file_name, table):
     path = os.path.join(str(tmpdir), file_name)
     with pa.ipc.RecordBatchFileWriter(path, schema=table.schema) as writer:
@@ -315,3 +320,246 @@ def test_named_table_empty_names():
     exec_message = "names for NamedTable not provided"
     with pytest.raises(ArrowInvalid, match=exec_message):
         substrait.run_query(buf, table_provider=table_provider)
+
+
+@pytest.mark.parametrize("use_threads", [True, False])
+def test_udf_via_substrait(unary_func_fixture, use_threads):
+    test_table = pa.Table.from_pydict({"x": [1, 2, 3]})
+
+    def table_provider(names, _):
+        if not names:
+            raise Exception("No names provided")
+        elif names[0] == "t1":
+            return test_table
+        else:
+            raise Exception("Unrecognized table name")
+
+    substrait_query = b"""
+    {
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1
+    },
+    {
+      "extensionUriAnchor": 2,
+      "uri": "urn:arrow:substrait_simple_extension_function"
+    }
+  ],
+  "extensions": [
+    {
+      "extensionFunction": {
+        "extensionUriReference": 2,
+        "functionAnchor": 1,
+        "name": "y=x+1"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "root": {
+        "input": {
+          "project": {
+            "common": {
+              "emit": {
+                "outputMapping": [
+                  1,
+                  2,
+                ]
+              }
+            },
+            "input": {
+              "read": {
+                "baseSchema": {
+                  "names": [
+                    "t",
+                  ],
+                  "struct": {
+                    "types": [
+                      {
+                        "i64": {
+                          "nullability": "NULLABILITY_REQUIRED"
+                        }
+                      },
+                    ],
+                    "nullability": "NULLABILITY_REQUIRED"
+                  }
+                },
+                "namedTable": {
+                  "names": [
+                    "t1"
+                  ]
+                }
+              }
+            },
+            "expressions": [
+              {
+                "selection": {
+                  "directReference": {
+                    "structField": {}
+                  },
+                  "rootReference": {}
+                }
+              },
+              {
+                "scalarFunction": {
+                  "functionReference": 1,
+                  "outputType": {
+                    "i64": {
+                      "nullability": "NULLABILITY_NULLABLE"
+                    }
+                  },
+                  "arguments": [
+                    {
+                      "value": {
+                        "selection": {
+                          "directReference": {
+                            "structField": {}
+                          },
+                          "rootReference": {}
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "names": [
+          "x",
+          "y",
+        ]
+      }
+    }
+  ]
+}
+    """
+
+    buf = pa._substrait._parse_json_plan(substrait_query)
+    reader = pa.substrait.run_query(
+        buf, table_provider=table_provider, use_threads=use_threads)
+    res_tb = reader.read_all()
+
+    function, name = unary_func_fixture
+    expected_tb = test_table.add_column(1, 'y', function(
+        mock_scalar_udf_context(10), test_table['x']))
+    res_tb = res_tb.rename_columns(['x', 'y'])
+    assert res_tb == expected_tb
+
+
+def test_udf_via_substrait_wrong_udf_name():
+    test_table = pa.Table.from_pydict({"x": [1, 2, 3]})
+
+    def table_provider(names, _):
+        if not names:
+            raise Exception("No names provided")
+        elif names[0] == "t1":
+            return test_table
+        else:
+            raise Exception("Unrecognized table name")
+
+    substrait_query = b"""
+    {
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1
+    },
+    {
+      "extensionUriAnchor": 2,
+      "uri": "urn:arrow:substrait_simple_extension_function"
+    }
+  ],
+  "extensions": [
+    {
+      "extensionFunction": {
+        "extensionUriReference": 2,
+        "functionAnchor": 1,
+        "name": "wrong_udf_name"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "root": {
+        "input": {
+          "project": {
+            "common": {
+              "emit": {
+                "outputMapping": [
+                  1,
+                  2,
+                ]
+              }
+            },
+            "input": {
+              "read": {
+                "baseSchema": {
+                  "names": [
+                    "t",
+                  ],
+                  "struct": {
+                    "types": [
+                      {
+                        "i64": {
+                          "nullability": "NULLABILITY_REQUIRED"
+                        }
+                      },
+                    ],
+                    "nullability": "NULLABILITY_REQUIRED"
+                  }
+                },
+                "namedTable": {
+                  "names": [
+                    "t1"
+                  ]
+                }
+              }
+            },
+            "expressions": [
+              {
+                "selection": {
+                  "directReference": {
+                    "structField": {}
+                  },
+                  "rootReference": {}
+                }
+              },
+              {
+                "scalarFunction": {
+                  "functionReference": 1,
+                  "outputType": {
+                    "i64": {
+                      "nullability": "NULLABILITY_NULLABLE"
+                    }
+                  },
+                  "arguments": [
+                    {
+                      "value": {
+                        "selection": {
+                          "directReference": {
+                            "structField": {}
+                          },
+                          "rootReference": {}
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "names": [
+          "x",
+          "y",
+        ]
+      }
+    }
+  ]
+}
+    """
+
+    buf = pa._substrait._parse_json_plan(substrait_query)
+    with pytest.raises(pa.ArrowKeyError) as excinfo:
+        pa.substrait.run_query(buf, table_provider=table_provider)
+    assert "No function registered" in str(excinfo.value)
