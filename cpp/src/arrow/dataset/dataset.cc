@@ -315,6 +315,24 @@ Result<FragmentIterator> UnionDataset::GetFragmentsImpl(compute::Expression pred
 
 namespace {
 
+struct MissingColumn {
+  std::size_t idx;
+  std::shared_ptr<DataType> type;
+};
+
+class BasicFragmentSelection : public FragmentSelection {
+ public:
+  BasicFragmentSelection(std::vector<FragmentSelectionColumn> columns,
+                         std::vector<MissingColumn> missing_columns)
+      : FragmentSelection(std::move(columns)),
+        missing_columns_(std::move(missing_columns)) {}
+
+  const std::vector<MissingColumn>& missing_columns() const { return missing_columns_; }
+
+ private:
+  std::vector<MissingColumn> missing_columns_;
+};
+
 class BasicFragmentEvolution : public FragmentEvolutionStrategy {
  public:
   BasicFragmentEvolution(std::vector<int> ds_to_frag_map, Schema* dataset_schema)
@@ -339,12 +357,14 @@ class BasicFragmentEvolution : public FragmentEvolutionStrategy {
     return compute::and_(std::move(missing_fields));
   }
 
-  Result<std::vector<FragmentSelectionColumn>> DevolveSelection(
+  Result<std::unique_ptr<FragmentSelection>> DevolveSelection(
       const std::vector<FieldPath>& dataset_schema_selection) const override {
     std::vector<FragmentSelectionColumn> desired_columns;
+    std::vector<MissingColumn> missing_columns;
     for (std::size_t selection_idx = 0; selection_idx < dataset_schema_selection.size();
          selection_idx++) {
       const FieldPath& path = dataset_schema_selection[selection_idx];
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Field> field, path.Get(*dataset_schema));
       int top_level_field_idx = path[0];
       int dest_top_level_idx = ds_to_frag_map[top_level_field_idx];
       if (dest_top_level_idx >= 0) {
@@ -352,11 +372,13 @@ class BasicFragmentEvolution : public FragmentEvolutionStrategy {
         std::vector<int> dest_path_indices(path.indices());
         dest_path_indices[0] = dest_top_level_idx;
         desired_columns.push_back(
-            FragmentSelectionColumn{FieldPath(dest_path_indices), field->type().get(),
-                                    static_cast<int>(selection_idx)});
+            FragmentSelectionColumn{FieldPath(dest_path_indices), field->type().get()});
+      } else {
+        missing_columns.push_back({selection_idx, field->type()});
       }
     }
-    return std::move(desired_columns);
+    return std::make_unique<BasicFragmentSelection>(std::move(desired_columns),
+                                                    std::move(missing_columns));
   };
 
   Result<compute::Expression> DevolveFilter(
@@ -375,7 +397,8 @@ class BasicFragmentEvolution : public FragmentEvolutionStrategy {
                   "Filter cannot be applied.  It refers to a missing field ",
                   ref->ToString(),
                   " in a way that cannot be satisfied even though we know that field is "
-                  "null");
+                  "null filter=",
+                  filter.ToString());
             }
             return compute::field_ref(FieldRef(std::move(modified_indices)));
           }
@@ -387,23 +410,32 @@ class BasicFragmentEvolution : public FragmentEvolutionStrategy {
   Result<compute::ExecBatch> EvolveBatch(
       const std::shared_ptr<RecordBatch>& batch,
       const std::vector<FieldPath>& dataset_selection,
-      const std::vector<FragmentSelectionColumn>& selection) const override {
-    std::vector<Datum> columns(dataset_selection.size());
-    DCHECK_EQ(batch->num_columns(), static_cast<int>(selection.size()));
-    // First go through and populate the columns we retrieved
-    for (int idx = 0; idx < batch->num_columns(); idx++) {
-      columns[selection[idx].selection_index] = batch->column(idx);
-    }
-    // Next go through and fill in the null columns
-    for (std::size_t idx = 0; idx < dataset_selection.size(); idx++) {
-      int top_level_idx = dataset_selection[idx][0];
-      if (ds_to_frag_map[top_level_idx] < 0) {
-        columns[idx] = MakeNullScalar(
-            dataset_schema->field(static_cast<int>(top_level_idx))->type());
+      const FragmentSelection& selection) const override {
+    // In this simple evolution strategy every column is either missing from the fragment
+    // or included in our load of the fragment.  For the columns that are missing we
+    // populate a null array and the columns that we loaded we populate in the correct
+    // spot.
+    DCHECK_EQ(batch->num_columns(), static_cast<int>(selection.columns().size()));
+    const BasicFragmentSelection& selection_cast =
+        dynamic_cast<const BasicFragmentSelection&>(selection);
+    std::size_t num_out_columns =
+        selection_cast.columns().size() + selection_cast.missing_columns().size();
+    std::vector<Datum> columns;
+    columns.reserve(num_out_columns);
+    auto missing_itr = selection_cast.missing_columns().begin();
+    auto batch_itr = batch->columns().begin();
+    for (std::size_t idx = 0; idx < num_out_columns; idx++) {
+      if (missing_itr != selection_cast.missing_columns().end() &&
+          missing_itr->idx == idx) {
+        columns.push_back(MakeNullScalar(missing_itr->type));
+        missing_itr++;
+      } else {
+        columns.push_back(*batch_itr);
+        batch_itr++;
       }
     }
     return compute::ExecBatch(columns, batch->num_rows());
-  };
+  }
 
   std::string ToString() const override { return "basic-fragment-evolution"; }
 

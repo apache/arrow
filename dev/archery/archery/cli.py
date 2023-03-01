@@ -781,12 +781,15 @@ def integration(with_all=False, random_seed=12345, **args):
 @click.option('--arrow-token', envvar='ARROW_GITHUB_TOKEN',
               help='OAuth token for responding comment in the arrow repo')
 def trigger_bot(event_name, event_payload, arrow_token):
-    from .bot import CommentBot, actions
+    from .bot import CommentBot, PullRequestWorkflowBot, actions
 
     event_payload = json.loads(event_payload.read())
-
-    bot = CommentBot(name='github-actions', handler=actions, token=arrow_token)
-    bot.handle(event_name, event_payload)
+    if 'comment' in event_name:
+        bot = CommentBot(name='github-actions', handler=actions, token=arrow_token)
+        bot.handle(event_name, event_payload)
+    else:
+        bot = PullRequestWorkflowBot(event_name, event_payload, token=arrow_token)
+        bot.handle()
 
 
 @archery.group("linking")

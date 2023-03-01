@@ -86,11 +86,12 @@ public class PerformanceTestServer implements AutoCloseable {
   }
 
   public Location getLocation() {
-    return location;
+    return flightServer.getLocation();
   }
 
-  public void start() throws IOException {
+  public PerformanceTestServer start() throws IOException {
     flightServer.start();
+    return this;
   }
 
   @Override

@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.util.Iterator;
 import java.util.Optional;
 
@@ -34,10 +37,9 @@ public class TestAuth {
   public void noMessages() throws Exception {
     Assertions.assertThrows(RuntimeException.class, () -> {
       try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-           final FlightServer s = FlightTestUtil
-               .getStartedServer(
-                   location -> FlightServer.builder(allocator, location, new NoOpFlightProducer()).authHandler(
-                       new OneshotAuthHandler()).build());
+           final FlightServer s = FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0),
+               new NoOpFlightProducer()).authHandler(
+               new OneshotAuthHandler()).build().start();
            final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
         client.authenticate(new ClientAuthHandler() {
           @Override
@@ -58,10 +60,9 @@ public class TestAuth {
   public void clientError() throws Exception {
     Assertions.assertThrows(RuntimeException.class, () -> {
       try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-           final FlightServer s = FlightTestUtil
-               .getStartedServer(
-                   location -> FlightServer.builder(allocator, location, new NoOpFlightProducer()).authHandler(
-                       new OneshotAuthHandler()).build());
+           final FlightServer s = FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0),
+               new NoOpFlightProducer()).authHandler(
+               new OneshotAuthHandler()).build().start();
            final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
         client.authenticate(new ClientAuthHandler() {
           @Override

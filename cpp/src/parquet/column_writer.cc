@@ -466,6 +466,10 @@ class SerializedPageWriter : public PageWriter {
 
   int64_t total_uncompressed_size() { return total_uncompressed_size_; }
 
+  int64_t total_compressed_bytes_written() const override {
+    return total_compressed_size_;
+  }
+
   bool page_checksum_verification() { return page_checksum_verification_; }
 
  private:
@@ -527,7 +531,13 @@ class SerializedPageWriter : public PageWriter {
   int64_t num_values_;
   int64_t dictionary_page_offset_;
   int64_t data_page_offset_;
+  // The uncompressed page size the page writer has already
+  //  written.
   int64_t total_uncompressed_size_;
+  // The compressed page size the page writer has already
+  //  written.
+  // If the column is UNCOMPRESSED, the size would be
+  //  equal to `total_uncompressed_size_`.
   int64_t total_compressed_size_;
   int32_t page_ordinal_;
   int16_t row_group_ordinal_;
@@ -606,6 +616,10 @@ class BufferedPageWriter : public PageWriter {
   }
 
   bool has_compressor() override { return pager_->has_compressor(); }
+
+  int64_t total_compressed_bytes_written() const override {
+    return pager_->total_compressed_bytes_written();
+  }
 
  private:
   std::shared_ptr<ArrowOutputStream> final_sink_;
@@ -773,6 +787,7 @@ class ColumnWriterImpl {
   int64_t total_bytes_written_;
 
   // Records the current number of compressed bytes in a column
+  // These bytes are unwritten to `pager_` yet
   int64_t total_compressed_bytes_;
 
   // Flag to check if the Writer has been closed
@@ -1275,6 +1290,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   int64_t total_compressed_bytes() const override { return total_compressed_bytes_; }
 
   int64_t total_bytes_written() const override { return total_bytes_written_; }
+
+  int64_t total_compressed_bytes_written() const override {
+    return pager_->total_compressed_bytes_written();
+  }
 
   const WriterProperties* properties() override { return properties_; }
 

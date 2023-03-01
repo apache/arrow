@@ -27,16 +27,18 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
 
+      - name: Free up disk space
+        run: |
+          df -h
+          # 5.3GB
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || :
+          # 1.4GB
+          sudo rm -rf /opt/hostedtoolcache/go || :
+          df -h
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.1'
-      - name: Cache ccache
-        uses: actions/cache@v2
-        with:
-          path: arrow/dev/tasks/linux-packages/apache-arrow/{{ task_namespace }}/build/{{ target }}/ccache
-          key: linux-{{ task_namespace }}-ccache-{{ target }}-{{ "${{ hashFiles('arrow/cpp/**') }}" }}
-          restore-keys: linux-{{ task_namespace }}-ccache-{{ target }}-
       - name: Build
         run: |
           set -e
