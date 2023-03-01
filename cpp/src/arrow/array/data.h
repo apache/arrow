@@ -527,6 +527,8 @@ struct ARROW_EXPORT ArraySpan {
   int64_t ComputeLogicalNullCount() const;
 
  private:
+  friend bool internal::IsNullRunEndEncoded(const ArrayData& span, int64_t i);
+
   bool IsNullSparseUnion(int64_t i) const;
   bool IsNullDenseUnion(int64_t i) const;
 

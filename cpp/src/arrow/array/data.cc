@@ -34,7 +34,9 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/ree_util.h"
 #include "arrow/util/slice_util_internal.h"
+#include "arrow/util/union_util.h"
 
 namespace arrow {
 
@@ -63,28 +65,31 @@ static inline void AdjustNonNullable(Type::type type_id, int64_t length,
 namespace internal {
 
 bool IsNullSparseUnion(const ArrayData& data, int64_t i) {
-  // TODO(felipecrv): Implement IsNullSparseUnion
-  return data.null_count == data.length;  // mimics the old behavior
+  auto* union_type = checked_cast<const SparseUnionType*>(data.type.get());
+  const auto* types = reinterpret_cast<const int8_t*>(data.buffers[1]->data());
+  const int child_id = union_type->child_ids()[types[data.offset + i]];
+  return data.child_data[child_id]->IsNull(i);
 }
 
 bool IsNullDenseUnion(const ArrayData& data, int64_t i) {
-  // TODO(felipecrv): Implement IsNullDenseUnion
-  return data.null_count == data.length;  // mimics the old behavior
+  auto* union_type = checked_cast<const DenseUnionType*>(data.type.get());
+  const auto* types = reinterpret_cast<const int8_t*>(data.buffers[1]->data());
+  const int child_id = union_type->child_ids()[types[data.offset + i]];
+  const auto* offsets = reinterpret_cast<const int32_t*>(data.buffers[2]->data());
+  const int64_t child_offset = offsets[data.offset + i];
+  return data.child_data[child_id]->IsNull(child_offset);
 }
 
 bool IsNullRunEndEncoded(const ArrayData& data, int64_t i) {
-  // TODO(felipecrv): Implement IsNullDenseUnion
-  return data.null_count == data.length;  // mimics the old behavior
+  return ArraySpan(data).IsNullRunEndEncoded(i);
 }
 
 bool UnionMayHaveLogicalNulls(const ArrayData& data) {
-  // TODO(felipecrv): Implement UnionMayHaveLogicalNulls
-  return false;  // mimics the old behavior
+  return ArraySpan(data).MayHaveLogicalNulls();
 }
 
 bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data) {
-  // TODO(felipecrv): Implement RunEndEncodedMayHaveLogicalNulls
-  return false;  // mimics the old behavior
+  return ArraySpan(data).MayHaveLogicalNulls();
 }
 
 }  // namespace internal
@@ -445,12 +450,14 @@ int64_t ArraySpan::GetNullCount() const {
 
 int64_t ArraySpan::ComputeLogicalNullCount() const {
   const auto t = this->type->id();
-  // TODO(felipecrv): implement logical null count for unions and REEs
-  if (t == Type::SPARSE_UNION || t == Type::DENSE_UNION) {
-    ;  // mimic old behavior
+  if (t == Type::SPARSE_UNION) {
+    return union_util::LogicalSparseUnionNullCount(*this);
+  }
+  if (t == Type::DENSE_UNION) {
+    return union_util::LogicalDenseUnionNullCount(*this);
   }
   if (t == Type::RUN_END_ENCODED) {
-    ;  // mimic old behavior
+    return ree_util::LogicalNullCount(*this);
   }
   return GetNullCount();
 }
@@ -494,28 +501,41 @@ std::shared_ptr<Array> ArraySpan::ToArray() const {
 }
 
 bool ArraySpan::IsNullSparseUnion(int64_t i) const {
-  // TODO(felipecrv): Implement IsNullSparseUnion
-  return null_count == length;  // mimics the old behavior
+  auto* union_type = checked_cast<const SparseUnionType*>(this->type);
+  const auto* types = reinterpret_cast<const int8_t*>(this->buffers[1].data);
+  const int child_id = union_type->child_ids()[types[this->offset + i]];
+  return this->child_data[child_id].IsNull(i);
 }
 
 bool ArraySpan::IsNullDenseUnion(int64_t i) const {
-  // TODO(felipecrv): Implement IsNullDenseUnion
-  return null_count == length;  // mimics the old behavior
+  auto* union_type = checked_cast<const DenseUnionType*>(this->type);
+  const auto* types = reinterpret_cast<const int8_t*>(this->buffers[1].data);
+  const auto* offsets = reinterpret_cast<const int32_t*>(this->buffers[2].data);
+  const int64_t child_id = union_type->child_ids()[types[this->offset + i]];
+  const int64_t child_offset = offsets[this->offset + i];
+  return this->child_data[child_id].IsNull(child_offset);
 }
 
 bool ArraySpan::IsNullRunEndEncoded(int64_t i) const {
-  // TODO(felipecrv): Implement IsNullRunEndEncoded
-  return null_count == length;  // mimics the old behavior
+  const auto& values = ree_util::ValuesArray(*this);
+  if (values.MayHaveLogicalNulls()) {
+    const int64_t physical_offset = ree_util::FindPhysicalIndex(*this, i, this->offset);
+    return ree_util::ValuesArray(*this).IsNull(physical_offset);
+  }
+  return false;
 }
 
 bool ArraySpan::UnionMayHaveLogicalNulls() const {
-  // TODO(felipecrv): Implement UnionMayHaveLogicalNulls
-  return false;  // mimics the old behavior
+  for (auto& child : this->child_data) {
+    if (child.MayHaveLogicalNulls()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool ArraySpan::RunEndEncodedMayHaveLogicalNulls() const {
-  // TODO(felipecrv): Implement RunEndEncodedMayHaveLogicalNulls
-  return false;  // mimics the old behavior
+  return ree_util::ValuesArray(*this).MayHaveLogicalNulls();
 }
 
 // ----------------------------------------------------------------------
