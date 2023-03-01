@@ -442,7 +442,6 @@ def test_udf_via_substrait(unary_func_fixture, use_threads):
     function, name = unary_func_fixture
     expected_tb = test_table.add_column(1, 'y', function(
         mock_scalar_udf_context(10), test_table['x']))
-    res_tb = res_tb.rename_columns(['x', 'y'])
     assert res_tb == expected_tb
 
 
@@ -598,6 +597,10 @@ def test_output_field_names(use_threads):
     """
 
     buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
+    reader = pa.substrait.run_query(
+        buf, table_provider=table_provider, use_threads=use_threads)
+    res_tb = reader.read_all()
+
     expected = pa.Table.from_pydict({"out": [1, 2, 3]})
 
     assert res_tb == expected
