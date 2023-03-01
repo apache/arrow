@@ -127,8 +127,8 @@ def _pc():
     if __pc is None:
         import pyarrow.compute as pc
         try:
-            from pyarrow import _exec_plan
-            pc._exec_plan = _exec_plan
+            from pyarrow import _acero
+            pc._acero = _acero
         except ImportError:
             pass
         __pc = pc

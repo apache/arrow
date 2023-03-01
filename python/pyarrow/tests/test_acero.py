@@ -22,7 +22,7 @@ from .test_extension_type import IntegerType
 
 try:
     import pyarrow.dataset as ds
-    import pyarrow._exec_plan as ep
+    import pyarrow._acero as ep
 except ImportError:
     pass
 

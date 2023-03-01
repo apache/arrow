@@ -524,7 +524,7 @@ set(CYTHON_EXTENSIONS
     lib
     _compute
     _csv
-    _exec_plan
+    _acero
     _feather
     _fs
     _hdfsio
@@ -784,7 +784,7 @@ endif()
 
 if(PYARROW_BUILD_DATASET)
   target_link_libraries(_dataset PRIVATE ${DATASET_LINK_LIBS})
-  target_link_libraries(_exec_plan PRIVATE ${DATASET_LINK_LIBS})
+  target_link_libraries(_acero PRIVATE ${DATASET_LINK_LIBS})
   if(PYARROW_BUILD_ORC)
     target_link_libraries(_dataset_orc PRIVATE ${DATASET_LINK_LIBS})
   endif()

@@ -803,10 +803,10 @@ cdef class Dataset(_Weakrefable):
         if isinstance(sorting, str):
             sorting = [(sorting, "ascending")]
 
-        res = _pc()._exec_plan._sort_source(self, output_type=InMemoryDataset,
-                                            sort_options=_pc().SortOptions(
-                                                sort_keys=sorting, **kwargs
-                                            ))
+        res = _pc()._acero._sort_source(
+            self, output_type=InMemoryDataset,
+            sort_options=_pc().SortOptions(sort_keys=sorting, **kwargs)
+        )
         return res
 
     def join(self, right_dataset, keys, right_keys=None, join_type="left outer",
@@ -852,10 +852,12 @@ cdef class Dataset(_Weakrefable):
         """
         if right_keys is None:
             right_keys = keys
-        return _pc()._exec_plan._perform_join(join_type, self, keys, right_dataset, right_keys,
-                                              left_suffix=left_suffix, right_suffix=right_suffix,
-                                              use_threads=use_threads, coalesce_keys=coalesce_keys,
-                                              output_type=InMemoryDataset)
+        return _pc()._acero._perform_join(
+            join_type, self, keys, right_dataset, right_keys,
+            left_suffix=left_suffix, right_suffix=right_suffix,
+            use_threads=use_threads, coalesce_keys=coalesce_keys,
+            output_type=InMemoryDataset
+        )
 
 
 cdef class InMemoryDataset(Dataset):

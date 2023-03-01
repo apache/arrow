@@ -3121,8 +3121,7 @@ cdef class Table(_PandasConvertible):
         animals: [["Flamingo","Horse",null]]
         """
         if isinstance(mask, _pc().Expression):
-            return _pc()._exec_plan._filter_table(self, mask,
-                                                  output_type=Table)
+            return _pc()._acero._filter_table(self, mask, output_type=Table)
         else:
             return _pc().filter(self, mask, null_selection_behavior)
 
@@ -5021,10 +5020,11 @@ cdef class Table(_PandasConvertible):
         """
         if right_keys is None:
             right_keys = keys
-        return _pc()._exec_plan._perform_join(join_type, self, keys, right_table, right_keys,
-                                              left_suffix=left_suffix, right_suffix=right_suffix,
-                                              use_threads=use_threads, coalesce_keys=coalesce_keys,
-                                              output_type=Table)
+        return _pc()._acero._perform_join(
+            join_type, self, keys, right_table, right_keys,
+            left_suffix=left_suffix, right_suffix=right_suffix,
+            use_threads=use_threads, coalesce_keys=coalesce_keys, output_type=Table
+        )
 
 
 def _reconstruct_table(arrays, schema):
