@@ -37,14 +37,14 @@ namespace Apache.Arrow.C
     /// ArrowSchema struct described in https://github.com/apache/arrow/blob/main/cpp/src/arrow/c/abi.h.
     /// </remarks>
     [StructLayout(LayoutKind.Sequential)]
-    unsafe public struct CArrowSchema
+    public struct CArrowSchema
     {
         public IntPtr format;
         public IntPtr name;
         public IntPtr metadata;
         public long flags;
         public long n_children;
-        public IntPtr* children;
+        public IntPtr children;
         public IntPtr dictionary;
         [MarshalAs(UnmanagedType.FunctionPtr)]
         public ReleaseCArrowSchema release;
@@ -78,7 +78,7 @@ namespace Apache.Arrow.C
             return flags;
         }
 
-        private static IntPtr* ConstructChildren(IArrowType datatype, out long numChildren)
+        private static IntPtr ConstructChildren(IArrowType datatype, out long numChildren)
         {
             if (datatype is NestedType nestedType)
             {
@@ -86,21 +86,41 @@ namespace Apache.Arrow.C
                 int numFields = fields.Count;
                 numChildren = numFields;
 
-                IntPtr* pointerList = (IntPtr*)Marshal.AllocHGlobal(numFields * sizeof(IntPtr));
-
-                for (var i = 0; i < numChildren; i++)
+                unsafe
                 {
-                    var cSchema = new CArrowSchema(fields[i]);
-                    IntPtr exportedSchema = cSchema.AllocateAsPtr();
-                    pointerList[i] = exportedSchema;
+                    IntPtr* pointerList = (IntPtr*)Marshal.AllocHGlobal(numFields * IntPtr.Size);
+
+                    for (var i = 0; i < numChildren; i++)
+                    {
+                        var cSchema = new CArrowSchema(fields[i]);
+                        IntPtr exportedSchema = cSchema.AllocateAsPtr();
+                        pointerList[i] = exportedSchema;
+                    }
+
+                    return (IntPtr)pointerList;
                 }
 
-                return pointerList;
             }
             else
             {
                 numChildren = 0;
-                return (IntPtr*)IntPtr.Zero;
+                return IntPtr.Zero;
+            }
+        }
+
+        private IntPtr GetChild(int i)
+        {
+            if (i >= n_children)
+            {
+                throw new Exception("Child index out of bounds.");
+            }
+            if (children == IntPtr.Zero)
+            {
+                throw new Exception("Children array is null.");
+            }
+            unsafe
+            {
+                return ((IntPtr*)children)[i];
             }
         }
 
@@ -145,7 +165,7 @@ namespace Apache.Arrow.C
                 {
                     for (int i = 0; i < schema.n_children; i++)
                     {
-                        FreePtr(schema.children[i]);
+                        FreePtr(schema.GetChild(i));
                     }
                     Marshal.FreeHGlobal((IntPtr)schema.children);
                 }
@@ -468,14 +488,11 @@ namespace Apache.Arrow.C
                         throw new Exception("Expected list type to have exactly one child.");
                     }
                     ImportedArrowSchema childSchema;
-                    unsafe
+                    if (_data.GetChild(0) == IntPtr.Zero)
                     {
-                        if (_data.children[0] == null)
-                        {
-                            throw new Exception("Expected list type child to be non-null.");
-                        }
-                        childSchema = new ImportedArrowSchema(_data.children[0]);
+                        throw new Exception("Expected list type child to be non-null.");
                     }
+                    childSchema = new ImportedArrowSchema(_data.GetChild(0));
 
                     Field childField = childSchema.GetAsField();
 
@@ -484,18 +501,16 @@ namespace Apache.Arrow.C
                 else if (format == "+s")
                 {
                     var child_schemas = new ImportedArrowSchema[_data.n_children];
-                    unsafe
-                    {
-                        for (int i = 0; i < _data.n_children; i++)
-                        {
-                            if (_data.children[i] == null)
-                            {
-                                throw new Exception("Expected struct type child to be non-null.");
-                            }
-                            child_schemas[i] = new ImportedArrowSchema(_data.children[i]);
-                        }
 
+                    for (int i = 0; i < _data.n_children; i++)
+                    {
+                        if (_data.GetChild(i) == IntPtr.Zero)
+                        {
+                            throw new Exception("Expected struct type child to be non-null.");
+                        }
+                        child_schemas[i] = new ImportedArrowSchema(_data.GetChild(i));
                     }
+
 
                     List<Field> childFields = child_schemas.Select(schema => schema.GetAsField()).ToList();
 
