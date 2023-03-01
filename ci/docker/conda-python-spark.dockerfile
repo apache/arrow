@@ -30,8 +30,8 @@ RUN mamba install -q -y \
         openjdk=${jdk} \
         maven=${maven} \
         pandas && \
-    mamba clean --all
-RUN mamba uninstall -q -y numpy && \
+    mamba clean --all && \
+    mamba uninstall -q -y numpy && \
     /arrow/ci/scripts/install_numpy.sh ${numpy}
 
 # installing specific version of spark
