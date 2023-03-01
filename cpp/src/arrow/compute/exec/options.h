@@ -204,7 +204,7 @@ class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
 /// However segment-keys are also used for determining grouping segments, which should be
 /// large, and allow streaming a partial aggregation result after processing each segment.
 /// One common use-case for segment-keys is ordered aggregation, in which the segment-key
-/// attribute specifies a column with non-decreasing values or a lexigographically-ordered
+/// attribute specifies a column with non-decreasing values or a lexicographically-ordered
 /// set of such columns.
 ///
 /// If the keys attribute is a non-empty vector, then each aggregate in `aggregates` is

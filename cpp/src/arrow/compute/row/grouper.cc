@@ -53,7 +53,7 @@ constexpr uint32_t kNoGroupId = std::numeric_limits<uint32_t>::max();
 
 using group_id_t = std::remove_const<decltype(kNoGroupId)>::type;
 using GroupIdType = CTypeTraits<group_id_t>::ArrowType;
-auto group_id_type = std::make_shared<GroupIdType>();
+auto g_group_id_type = std::make_shared<GroupIdType>();
 
 inline const uint8_t* GetValuesAsBytes(const ArraySpan& data, int64_t offset = 0) {
   DCHECK_GT(data.type->byte_width(), 0);
@@ -339,7 +339,7 @@ struct GrouperNoKeysImpl : Grouper {
   Result<std::shared_ptr<Array>> MakeConstantGroupIdArray(int64_t length,
                                                           group_id_t value) {
     std::unique_ptr<ArrayBuilder> a_builder;
-    RETURN_NOT_OK(MakeBuilder(default_memory_pool(), group_id_type, &a_builder));
+    RETURN_NOT_OK(MakeBuilder(default_memory_pool(), g_group_id_type, &a_builder));
     using GroupIdBuilder = typename TypeTraits<GroupIdType>::BuilderType;
     auto builder = checked_cast<GroupIdBuilder*>(a_builder.get());
     if (length != 0) {

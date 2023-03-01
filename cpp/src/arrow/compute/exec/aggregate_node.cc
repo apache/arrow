@@ -16,7 +16,6 @@
 // under the License.
 
 #include <mutex>
-#include <shared_mutex>
 #include <sstream>
 #include <thread>
 #include <unordered_map>
@@ -461,7 +460,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
                          {{"function.name", aggs_[i].function},
                           {"function.options",
                            aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
-                          {"function.kind", std::string(kind_name()) + "::Output"}});
+                          {"function.kind", std::string(kind_name()) + "::Finalize"}});
       KernelContext ctx{plan()->query_context()->exec_context()};
       ARROW_ASSIGN_OR_RAISE(auto merged, ScalarAggregateKernel::MergeAll(
                                              kernels_[i], &ctx, std::move(states_[i])));
@@ -473,10 +472,8 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     total_output_batches_++;
     if (is_last) {
       ARROW_RETURN_NOT_OK(output_->InputFinished(this, total_output_batches_));
-    } else {
-      ARROW_RETURN_NOT_OK(ResetAggregates());
     }
-    return Status::OK();
+    return ResetAggregates();
   }
 
   std::unique_ptr<GroupingSegmenter> segmenter_;
