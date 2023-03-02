@@ -612,13 +612,21 @@ class DatasetWriter::DatasetWriterImpl {
       backpressure =
           writer_state_.rows_in_flight_throttle.Acquire(next_chunk->num_rows());
       if (!backpressure.is_finished()) {
-        EVENT_ON_CURRENT_SPAN("DatasetWriter::Backpressure::TooManyRowsQueued");
+#ifdef ARROW_WITH_OPENTELEMETRY
+        opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> scheduler_span =
+                ::arrow::internal::tracing::UnwrapSpan(scheduler_->span().details.get());
+        scheduler_span->AddEvent("DatasetWriter::Backpressure::TooManyRowsQueued");
+#endif
         break;
       }
       if (will_open_file) {
         backpressure = writer_state_.open_files_throttle.Acquire(1);
         if (!backpressure.is_finished()) {
-          EVENT_ON_CURRENT_SPAN("DatasetWriter::Backpressure::TooManyOpenFiles");
+#ifdef ARROW_WITH_OPENTELEMETRY
+          opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> scheduler_span =
+                  ::arrow::internal::tracing::UnwrapSpan(scheduler_->span().details.get());
+          scheduler_span->AddEvent("DatasetWriter::Backpressure::TooManyOpenFiles");
+#endif
           RETURN_NOT_OK(CloseLargestFile());
           break;
         }
