@@ -133,6 +133,10 @@ Result<std::shared_ptr<Array>> FixedShapeTensorType::MakeArray(
 
   auto cell_shape = tensor->shape();
   cell_shape.erase(cell_shape.begin());
+  if (cell_shape != shape_) {
+    return Status::Invalid("Expected cell shape does not match input tensor shape");
+  }
+
   permutation.erase(permutation.begin());
   for (auto& x : permutation) {
     x--;
