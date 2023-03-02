@@ -21,7 +21,9 @@ import java.sql.*;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
+import com.codahale.metrics.ConsoleReporter;
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
@@ -33,6 +35,7 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 
+import static org.apache.arrow.flight.sql.FlightSqlUtils.metrics;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -396,6 +399,11 @@ public class ArrowFlightJdbcDriverTest {
           }
         }
         System.out.format("Average time=%dms\n", sum / cnt);
+        ConsoleReporter reporter = ConsoleReporter.forRegistry(metrics)
+                .convertRatesTo(TimeUnit.SECONDS)
+                .convertDurationsTo(TimeUnit.MILLISECONDS)
+                .build();
+        reporter.report();
       }
     }
   }

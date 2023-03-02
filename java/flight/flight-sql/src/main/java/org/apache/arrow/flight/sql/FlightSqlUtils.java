@@ -19,6 +19,7 @@ package org.apache.arrow.flight.sql;
 
 import java.util.List;
 
+import com.codahale.metrics.MetricRegistry;
 import org.apache.arrow.flight.ActionType;
 import org.apache.arrow.flight.CallStatus;
 
@@ -31,6 +32,8 @@ import com.google.protobuf.Message;
  * Utilities to work with Flight SQL semantics.
  */
 public final class FlightSqlUtils {
+
+  public static final MetricRegistry metrics = new MetricRegistry();
 
   public static final ActionType FLIGHT_SQL_BEGIN_SAVEPOINT =
       new ActionType("BeginSavepoint",

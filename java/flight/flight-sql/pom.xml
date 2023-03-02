@@ -108,6 +108,11 @@
       <artifactId>commons-cli</artifactId>
       <version>1.4</version>
     </dependency>
+    <dependency>
+      <groupId>io.dropwizard.metrics</groupId>
+      <artifactId>metrics-core</artifactId>
+      <version>4.2.16</version>
+    </dependency>
   </dependencies>
 
 </project>
