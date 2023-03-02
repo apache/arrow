@@ -29,8 +29,8 @@
 #include <opentelemetry/context/propagation/global_propagator.h>
 #include <opentelemetry/context/propagation/text_map_propagator.h>
 #include <opentelemetry/trace/context.h>
-#include <opentelemetry/trace/experimental_semantic_conventions.h>
 #include <opentelemetry/trace/propagation/http_trace_context.h>
+#include <opentelemetry/trace/semantic_conventions.h>
 #endif
 
 namespace arrow {
@@ -38,6 +38,8 @@ namespace flight {
 
 #ifdef ARROW_WITH_OPENTELEMETRY
 namespace otel = opentelemetry;
+namespace SemanticConventions = otel::trace::SemanticConventions;
+
 namespace {
 class FlightServerCarrier : public otel::context::propagation::TextMapCarrier {
  public:
@@ -81,11 +83,11 @@ class TracingServerMiddleware::Impl {
     if (!status.ok()) {
       auto grpc_status = transport::grpc::ToGrpcStatus(status, /*ctx=*/nullptr);
       span_->SetStatus(otel::trace::StatusCode::kError, status.ToString());
-      span_->SetAttribute(OTEL_GET_TRACE_ATTR(AttrRpcGrpcStatusCode),
+      span_->SetAttribute(SemanticConventions::kRpcGrpcStatusCode,
                           static_cast<int32_t>(grpc_status.error_code()));
     } else {
       span_->SetStatus(otel::trace::StatusCode::kOk, "");
-      span_->SetAttribute(OTEL_GET_TRACE_ATTR(AttrRpcGrpcStatusCode), int32_t(0));
+      span_->SetAttribute(SemanticConventions::kRpcGrpcStatusCode, int32_t(0));
     }
     span_->End();
   }
@@ -108,7 +110,6 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
   virtual ~TracingServerMiddlewareFactory() = default;
   Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
-    constexpr char kRpcSystem[] = "grpc";
     constexpr char kServiceName[] = "arrow.flight.protocol.FlightService";
 
     FlightServerCarrier carrier(incoming_headers);
@@ -126,11 +127,12 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
     auto span = tracer->StartSpan(
         method_name,
         {
-            // Attributes from experimental trace semantic conventions spec
+            // Attributes from trace semantic conventions spec
             // https://github.com/open-telemetry/opentelemetry-specification/blob/main/semantic_conventions/trace/rpc.yaml
-            {OTEL_GET_TRACE_ATTR(AttrRpcSystem), kRpcSystem},
-            {OTEL_GET_TRACE_ATTR(AttrRpcService), kServiceName},
-            {OTEL_GET_TRACE_ATTR(AttrRpcMethod), method_name},
+            {SemanticConventions::kRpcSystem,
+             SemanticConventions::RpcSystemValues::kGrpc},
+            {SemanticConventions::kRpcService, kServiceName},
+            {SemanticConventions::kRpcMethod, method_name},
         },
         options);
     auto scope = tracer->WithActiveSpan(span);
