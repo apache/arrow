@@ -424,20 +424,18 @@ void TracedNode::NoteStartProducing(std::string extra_details) const {
     const ExecBatch& batch) const {
   std::string node_kind(node_->kind_name());
   util::tracing::Span span;
-  return START_SCOPED_SPAN(
-      span, node_kind + "::InputReceived",
-      {{"node.label", node_->label()},
-       {"node.batch_length", batch.length},
-       {"batch.size_bytes", batch.TotalBufferSize()}});
+  return START_SCOPED_SPAN(span, node_kind + "::InputReceived",
+                           {{"node.label", node_->label()},
+                            {"node.batch_length", batch.length},
+                            {"batch.size_bytes", batch.TotalBufferSize()}});
 }
 
 void TracedNode::NoteInputReceived(const ExecBatch& batch) const {
   std::string node_kind(node_->kind_name());
-  EVENT_ON_CURRENT_SPAN(
-      node_kind + "::InputReceived",
-      {{"node.label", node_->label()},
-       {"node.batch_length", batch.length},
-       {"batch.size_bytes", batch.TotalBufferSize()}});
+  EVENT_ON_CURRENT_SPAN(node_kind + "::InputReceived",
+                        {{"node.label", node_->label()},
+                         {"node.batch_length", batch.length},
+                         {"batch.size_bytes", batch.TotalBufferSize()}});
 }
 
 [[nodiscard]] ::arrow::internal::tracing::Scope TracedNode::TraceFinish() const {

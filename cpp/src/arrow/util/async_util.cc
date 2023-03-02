@@ -125,9 +125,9 @@ class FifoQueue : public ThrottledAsyncTaskScheduler::Queue {
 #ifdef ARROW_WITH_OPENTELEMETRY
 ::arrow::internal::tracing::Scope TraceTaskSubmitted(AsyncTaskScheduler::Task* task,
                                                      const util::tracing::Span& parent) {
-  return START_SCOPED_SPAN_WITH_PARENT_SV(task->span, parent, task->name(),
-                                          {{"task.cost", task->cost()},
-                                          {"span.type", "AsyncTask"}});
+  return START_SCOPED_SPAN_WITH_PARENT_SV(
+      task->span, parent, task->name(),
+      {{"task.cost", task->cost()}, {"span.type", "AsyncTask"}});
 }
 
 void TraceTaskFinished(AsyncTaskScheduler::Task* task) { END_SPAN(task->span); }
@@ -194,7 +194,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     if (!submit_result->TryAddCallback([this, task_inner = std::move(task)]() mutable {
           return [this, task_inner2 = std::move(task_inner)](const Status& st) {
 #ifdef ARROW_WITH_OPENTELEMETRY
-            //TraceTaskFinished(task_inner2.get());
+      // TraceTaskFinished(task_inner2.get());
 #endif
             OnTaskFinished(st);
           };
@@ -245,7 +245,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     // It's important that the task's span be active while we run the submit function.
     // Normally the submit function should transfer the span to the thread task as the
     // active span.
-    //auto scope = TraceTaskSubmitted(task.get(), span_);
+    // auto scope = TraceTaskSubmitted(task.get(), span_);
 #endif
     running_tasks_++;
     lk.unlock();
@@ -297,9 +297,10 @@ class ThrottledAsyncTaskSchedulerImpl
     std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(latched_cost);
     if (maybe_backoff) {
 #ifdef ARROW_WITH_OPENTELEMETRY
-      EVENT(span(), "Task submission throttled", {
-        {"task.name", ::opentelemetry::nostd::string_view(task->name().data(), task->name().size())},
-        {"task.cost", task->cost()}});
+      EVENT(span(), "Task submission throttled",
+            {{"task.name", ::opentelemetry::nostd::string_view(task->name().data(),
+                                                               task->name().size())},
+             {"task.cost", task->cost()}});
 #endif
       queue_->Push(std::move(task));
       lk.unlock();

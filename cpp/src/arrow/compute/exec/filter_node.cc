@@ -79,7 +79,7 @@ class FilterNode : public MapNode {
                         {"filter.length", batch.length},
                         {"input_batch.size_bytes", batch.TotalBufferSize()}});
     opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
-            ::arrow::internal::tracing::UnwrapSpan(span.details.get());
+        ::arrow::internal::tracing::UnwrapSpan(span.details.get());
 #endif
 
     ARROW_ASSIGN_OR_RAISE(

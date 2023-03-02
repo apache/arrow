@@ -31,8 +31,8 @@
 #define __EXTENSIONS__
 #endif
 
-#include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 #include "arrow/util/tracing_internal.h"
+#include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
 #include <algorithm>
 #include <array>
@@ -1628,11 +1628,7 @@ Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes) {
 #endif
   int64_t total_bytes_read = 0;
   ::arrow::util::tracing::Span span;
-  START_SPAN(span, "FileRead",
-             {
-               {"fd", fd}
-             });
-
+  START_SPAN(span, "FileRead", {{"fd", fd}});
 
   while (total_bytes_read < nbytes) {
     const int64_t chunksize =
@@ -1668,7 +1664,7 @@ Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes) {
   }
 #ifdef ARROW_WITH_OPENTELEMETRY
   opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
-          ::arrow::internal::tracing::UnwrapSpan(span.details.get());
+      ::arrow::internal::tracing::UnwrapSpan(span.details.get());
   raw_span->SetAttribute("bytes_read", total_bytes_read);
 #endif
   return total_bytes_read;
@@ -1677,10 +1673,7 @@ Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes) {
 Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes) {
   int64_t bytes_read = 0;
   ::arrow::util::tracing::Span span;
-  START_SPAN(span, "FileReadAt",
-             {
-               {"fd", fd}
-             });
+  START_SPAN(span, "FileReadAt", {{"fd", fd}});
 
   while (bytes_read < nbytes) {
     int64_t chunksize =
@@ -1700,7 +1693,7 @@ Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nb
   }
 #ifdef ARROW_WITH_OPENTELEMETRY
   opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
-          ::arrow::internal::tracing::UnwrapSpan(span.details.get());
+      ::arrow::internal::tracing::UnwrapSpan(span.details.get());
   raw_span->SetAttribute("bytes_read", bytes_read);
 #endif
   return bytes_read;
@@ -1713,11 +1706,7 @@ Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nb
 Status FileWrite(int fd, const uint8_t* buffer, const int64_t nbytes) {
   int64_t bytes_written = 0;
   ::arrow::util::tracing::Span span;
-  START_SPAN(span, "FileWrite",
-             {
-              {"nbytes", nbytes},
-               {"fd", fd}
-             });
+  START_SPAN(span, "FileWrite", {{"nbytes", nbytes}, {"fd", fd}});
 
   while (bytes_written < nbytes) {
     const int64_t chunksize =

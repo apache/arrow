@@ -310,10 +310,11 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
             auto convert_options,
             GetConvertOptions(format, scan_options ? scan_options.get() : nullptr,
                               first_block));
-        auto fut = csv::StreamingReader::MakeAsync(io::default_io_context(), std::move(input),
-                                                   cpu_executor, reader_options,
-                                                   parse_options, convert_options);
-        return fut.Then([lambda_span = std::move(lambda_span)](const std::shared_ptr<csv::StreamingReader>& reader){
+        auto fut = csv::StreamingReader::MakeAsync(
+            io::default_io_context(), std::move(input), cpu_executor, reader_options,
+            parse_options, convert_options);
+        return fut.Then([lambda_span = std::move(lambda_span)](
+                            const std::shared_ptr<csv::StreamingReader>& reader) {
           END_SPAN(lambda_span);
           return reader;
         });

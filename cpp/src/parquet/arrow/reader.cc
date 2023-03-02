@@ -291,13 +291,14 @@ class FileReaderImpl : public FileReader {
                {{"parquet.arrow.columnindex", i},
                 {"parquet.arrow.columnname", column_name},
                 {"parquet.arrow.physicaltype", phys_type},
-                {"parquet.arrow.records_to_read", records_to_read}});
+                { "parquet.arrow.records_to_read",
+                  records_to_read }});
 
     auto status = reader->NextBatch(records_to_read, out);
 
     uint64_t size_bytes = ::arrow::util::TotalBufferSize(*out->get());
     opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
-            ::arrow::internal::tracing::UnwrapSpan(span.details.get());
+        ::arrow::internal::tracing::UnwrapSpan(span.details.get());
     raw_span->SetAttribute("parquet.arrow.output_batch_size_bytes", size_bytes);
     return status;
 #else
@@ -1048,7 +1049,7 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
         RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
             reader_properties_.use_threads(), static_cast<int>(readers.size()),
             [&](int i) {
-                ::arrow::util::tracing::Span span;
+              ::arrow::util::tracing::Span span;
               START_SPAN(span, "parquet::arrow::GetRecordBatchReader::NextBatch");
               return readers[i]->NextBatch(batch_size, &columns[i]);
             }));

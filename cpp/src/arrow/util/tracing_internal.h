@@ -72,10 +72,11 @@ AsyncGenerator<T> WrapAsyncGenerator(AsyncGenerator<T> wrapped,
   return [=]() mutable -> Future<T> {
     auto span = active_span;
     auto scope = GetTracer()->WithActiveSpan(active_span);
-    auto fut = wrapped();
     if (create_childspan) {
       span = GetTracer()->StartSpan(span_name);
+      scope = GetTracer()->WithActiveSpan(span);
     }
+    auto fut = wrapped();
     fut.AddCallback([span](const Result<T>& result) {
       MarkSpan(result.status(), span.get());
       span->End();

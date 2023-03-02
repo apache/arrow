@@ -197,8 +197,10 @@ class DatasetWriterFileQueue {
     int64_t rows_popped = next_batch->num_rows();
     rows_currently_staged_ -= next_batch->num_rows();
 #ifdef ARROW_WITH_OPENTELEMETRY
-    ::arrow::internal::tracing::UnwrapSpan(span.details.get())->SetAttribute("batch.size_rows", next_batch->num_rows());
-    ::arrow::internal::tracing::UnwrapSpan(span.details.get())->SetAttribute("rows_currently_staged", rows_currently_staged_);
+    ::arrow::internal::tracing::UnwrapSpan(span.details.get())
+        ->SetAttribute("batch.size_rows", next_batch->num_rows());
+    ::arrow::internal::tracing::UnwrapSpan(span.details.get())
+        ->SetAttribute("rows_currently_staged", rows_currently_staged_);
 #endif
     ScheduleBatch(std::move(next_batch));
     return rows_popped;
@@ -206,18 +208,18 @@ class DatasetWriterFileQueue {
 
   // Stage batches, popping and delivering batches if enough data has arrived
   Status Push(std::shared_ptr<RecordBatch> batch) {
-      uint64_t delta_staged = batch->num_rows();
-      rows_currently_staged_ += delta_staged;
+    uint64_t delta_staged = batch->num_rows();
+    rows_currently_staged_ += delta_staged;
     {
       util::tracing::Span span;
-      START_SPAN(span, "DatasetWriter::Push", {
-        {"batch.size_rows", batch->num_rows()},
-        {"rows_currently_staged", rows_currently_staged_},
-        // staged_rows_count is updated at the end, after this push and possibly multiple pops
-//        {"staged_rows_count", writer_state_->staged_rows_count},
-        {"options_.min_rows_per_group", options_.min_rows_per_group},
-        {"max_rows_staged", writer_state_->max_rows_staged}
-      });
+      START_SPAN(span, "DatasetWriter::Push",
+                 {{"batch.size_rows", batch->num_rows()},
+                  {"rows_currently_staged", rows_currently_staged_},
+                  // staged_rows_count is updated at the end, after this push and possibly
+                  // multiple pops
+                  //        {"staged_rows_count", writer_state_->staged_rows_count},
+                  {"options_.min_rows_per_group", options_.min_rows_per_group},
+                  {"max_rows_staged", writer_state_->max_rows_staged}});
       staged_batches_.push_back(std::move(batch));
     }
     while (!staged_batches_.empty() &&
@@ -253,14 +255,14 @@ class DatasetWriterFileQueue {
 #ifdef ARROW_WITH_OPENTELEMETRY
           uint64_t size_bytes = util::TotalBufferSize(*batch);
           uint64_t num_buffers = 0;
-          for (auto column: batch->columns()) {
+          for (auto column : batch->columns()) {
             num_buffers += column->data()->buffers.size();
           }
           util::tracing::Span span;
           START_SPAN(span, "DatasetWriter::WriteNext",
                      {{"threadpool", "IO"},
-                       {"batch.size_bytes", size_bytes},
-                       {"batch.num_buffers", num_buffers}});
+                      {"batch.size_bytes", size_bytes},
+                      {"batch.num_buffers", num_buffers}});
 #endif
           Status status = self->writer_->Write(batch);
           self->writer_state_->rows_in_flight_throttle.Release(rows_to_release);

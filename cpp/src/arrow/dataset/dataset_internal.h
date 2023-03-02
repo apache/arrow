@@ -147,11 +147,11 @@ inline RecordBatchGenerator MakeChunkedBatchGenerator(RecordBatchGenerator gen,
           -> ::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>> {
         const int64_t rows = batch->num_rows();
         util::tracing::Span span;
-        START_SPAN(span, "MakeChunkedBatchGenerator", {
-          {"target_batch_size_rows", batch_size},
-          {"batch.size_rows", rows},
-          {"batch.size_bytes", util::TotalBufferSize(*batch)},
-          {"output_batches", rows / batch_size + (rows % batch_size != 0)}});
+        START_SPAN(span, "MakeChunkedBatchGenerator",
+                   {{"target_batch_size_rows", batch_size},
+                    {"batch.size_rows", rows},
+                    {"batch.size_bytes", util::TotalBufferSize(*batch)},
+                    {"output_batches", rows / batch_size + (rows % batch_size != 0)}});
         if (rows <= batch_size) {
           return ::arrow::MakeVectorGenerator<std::shared_ptr<RecordBatch>>({batch});
         }

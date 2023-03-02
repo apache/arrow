@@ -437,7 +437,7 @@ class BlockParsingOperator {
     RETURN_NOT_OK(block.consume_bytes(parsed_size));
 #ifdef ARROW_WITH_OPENTELEMETRY
     opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
-            ::arrow::internal::tracing::UnwrapSpan(span.details.get());
+        ::arrow::internal::tracing::UnwrapSpan(span.details.get());
     raw_span->SetAttribute("parsed_size", parsed_size);
 #endif
     return ParsedBlock{std::move(parser), block.block_index,
@@ -469,7 +469,7 @@ class BlockDecodingOperator {
     auto state = state_;
 #ifdef ARROW_WITH_OPENTELEMETRY
     opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
-            ::arrow::internal::tracing::UnwrapSpan(span.details.get());
+        ::arrow::internal::tracing::UnwrapSpan(span.details.get());
     return decoded_arrays_fut.Then(
         [state, bytes_parsed_or_skipped, raw_span](
             const std::vector<Result<std::shared_ptr<Array>>>& maybe_decoded_arrays)
@@ -479,7 +479,8 @@ class BlockDecodingOperator {
 
           ARROW_ASSIGN_OR_RAISE(auto batch,
                                 state->DecodedArraysToBatch(std::move(decoded_arrays)));
-          raw_span->SetAttribute("arrow.csv.output_batch_size_bytes", util::TotalBufferSize(*batch));
+          raw_span->SetAttribute("arrow.csv.output_batch_size_bytes",
+                                 util::TotalBufferSize(*batch));
           return DecodedBlock{std::move(batch), bytes_parsed_or_skipped};
         });
 #else
@@ -914,17 +915,20 @@ class StreamingReaderImpl : public ReaderMixin,
     auto future = record_batch_gen_();
 #ifdef ARROW_WITH_OPENTELEMETRY
     auto longer_living_span = std::make_unique<util::tracing::Span>(std::move(span));
-    future.AddCallback([span = std::move(longer_living_span)](const arrow::Result<std::shared_ptr<arrow::RecordBatch>>& result){
-      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
+    future.AddCallback(
+        [span = std::move(longer_living_span)](
+            const arrow::Result<std::shared_ptr<arrow::RecordBatch>>& result) {
+          opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
               ::arrow::internal::tracing::UnwrapSpan(span->details.get());
-      if (result.ok()) {
-        auto result_batch = result.ValueOrDie();
-        if (result_batch) {
-          raw_span->SetAttribute("batch.size_byte", ::arrow::util::TotalBufferSize(*result_batch));
-        }
-      }
-      END_SPAN((*span));
-    });
+          if (result.ok()) {
+            auto result_batch = result.ValueOrDie();
+            if (result_batch) {
+              raw_span->SetAttribute("batch.size_byte",
+                                     ::arrow::util::TotalBufferSize(*result_batch));
+            }
+          }
+          END_SPAN((*span));
+        });
 #endif
     return future;
   }
@@ -959,11 +963,14 @@ class StreamingReaderImpl : public ReaderMixin,
     auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op));
 
     auto self = shared_from_this();
-    auto init_finished = rb_gen().Then([self, rb_gen, max_readahead, span = std::move(span)](const DecodedBlock& first_block) {
-        auto fut = self->InitFromBlock(first_block, std::move(rb_gen), max_readahead, 0);
-        END_SPAN(span);
-        return fut;
-    });
+    auto init_finished =
+        rb_gen().Then([self, rb_gen, max_readahead,
+                       span = std::move(span)](const DecodedBlock& first_block) {
+          auto fut =
+              self->InitFromBlock(first_block, std::move(rb_gen), max_readahead, 0);
+          END_SPAN(span);
+          return fut;
+        });
     return init_finished;
   }
 
