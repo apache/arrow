@@ -36,7 +36,7 @@ using extension::fixed_shape_tensor;
 
 class TestExtensionType : public ::testing::Test {
  public:
-  void SetUp() {
+  void SetUp() override {
     shape = {3, 3, 4};
     cell_shape = {3, 4};
     value_type = int64();
