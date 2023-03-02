@@ -329,7 +329,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def is_nan(self):
         """
-        Return boolean array indicating the nan values.
+        Return boolean array indicating the NaN values.
 
         Examples
         --------

@@ -1642,9 +1642,9 @@ def test_is_nan():
     expected = pa.array([False, False, False, None, True])
     assert result.equals(expected)
 
+    arr = pa.array(["1", "2", None], type=pa.string())
     with pytest.raises(
             ArrowNotImplementedError, match="has no kernel matching input types"):
-        arr = pa.array(["1", "2", None], type=pa.string())
         _ = arr.is_nan()
 
     with pytest.raises(
