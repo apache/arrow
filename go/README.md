@@ -28,6 +28,23 @@ for flat and hierarchical data, organized for efficient analytic operations on
 modern hardware. It also provides computational libraries and zero-copy
 streaming messaging and inter-process communication.
 
+### A note about FlightSQL drivers
+
+Go FlightSQL drivers live in the
+[ADBC repository](https://github.com/apache/arrow-adbc/tree/main/go/adbc).
+In particular, to use the Golang `database/sql` interface:
+```golang
+import (
+    "database/sql"
+    _ "github.com/apache/arrow-adbc/go/adbc/sqldriver/flightsql"
+)
+
+func main() {
+    db, err := sql.Open("flightsql", "uri=grpc://localhost:12345")
+    ...
+}
+```
+
 
 Reference Counting
 ------------------
