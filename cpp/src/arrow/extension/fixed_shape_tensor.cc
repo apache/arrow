@@ -32,28 +32,6 @@ namespace rj = arrow::rapidjson;
 namespace arrow {
 namespace extension {
 
-std::string FixedShapeTensorType::extension_name() const {
-  return "arrow.fixed_shape_tensor";
-}
-
-size_t FixedShapeTensorType::ndim() const { return shape_.size(); }
-
-std::vector<int64_t> FixedShapeTensorType::shape() const { return shape_; }
-
-std::vector<int64_t> FixedShapeTensorType::strides() const {
-  std::vector<int64_t> strides;
-  const auto& value_type = internal::checked_cast<const FixedWidthType&>(*value_type_);
-  DCHECK_OK(internal::ComputeRowMajorStrides(value_type, shape_, &strides));
-  if (!permutation_.empty()) {
-    internal::Permute(permutation_, &strides);
-  }
-  return strides;
-}
-
-std::vector<int64_t> FixedShapeTensorType::permutation() const { return permutation_; }
-
-std::vector<std::string> FixedShapeTensorType::dim_names() const { return dim_names_; }
-
 bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   if (extension_name() != other.extension_name()) {
     return false;
@@ -101,6 +79,10 @@ std::string FixedShapeTensorType::Serialize() const {
 
 Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
     std::shared_ptr<DataType> storage_type, const std::string& serialized_data) const {
+  if (storage_type->id() != Type::FIXED_SIZE_LIST) {
+    return Status::Invalid("Expected FixedSizeList storage type, got ",
+                           storage_type->ToString());
+  }
   auto value_type =
       internal::checked_pointer_cast<FixedSizeListType>(storage_type)->value_type();
   rj::Document document;
@@ -118,14 +100,18 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
     for (auto& x : document["permutation"].GetArray()) {
       permutation.emplace_back(x.GetInt64());
     }
-    ARROW_CHECK_EQ(shape.size(), permutation.size()) << "Invalid permutation";
+    if (shape.size() != permutation.size()) {
+      return Status::Invalid("Invalid permutation");
+    }
   }
   std::vector<std::string> dim_names;
   if (document.HasMember("dim_names")) {
     for (auto& x : document["dim_names"].GetArray()) {
       dim_names.emplace_back(x.GetString());
     }
-    ARROW_CHECK_EQ(shape.size(), dim_names.size()) << "Invalid dim_names";
+    if (shape.size() != dim_names.size()) {
+      return Status::Invalid("Invalid dim_names");
+    }
   }
 
   return fixed_shape_tensor(value_type, shape, permutation, dim_names);
@@ -148,6 +134,9 @@ Result<std::shared_ptr<Array>> FixedShapeTensorType::MakeArray(
   auto cell_shape = tensor->shape();
   cell_shape.erase(cell_shape.begin());
   permutation.erase(permutation.begin());
+  for (auto& x : permutation) {
+    x--;
+  }
 
   auto ext_type =
       fixed_shape_tensor(tensor->type(), cell_shape, permutation, tensor->dim_names());
@@ -232,7 +221,19 @@ Result<std::shared_ptr<Tensor>> FixedShapeTensorType::ToTensor(
   return *Tensor::Make(ext_arr->value_type(), buffer, shape, tensor_strides, dim_names());
 }
 
-std::shared_ptr<DataType> FixedShapeTensorType::get_storage_type(
+const std::vector<int64_t> FixedShapeTensorType::ComputeStrides(
+    const std::shared_ptr<DataType> value_type, const std::vector<int64_t> shape,
+    const std::vector<int64_t> permutation) const {
+  std::vector<int64_t> strides;
+  const auto& element_type = internal::checked_cast<const FixedWidthType&>(*value_type);
+  DCHECK_OK(internal::ComputeRowMajorStrides(element_type, shape, &strides));
+  if (!permutation.empty()) {
+    internal::Permute(permutation, &strides);
+  }
+  return strides;
+}
+
+std::shared_ptr<DataType> FixedShapeTensorType::GetStorageType(
     const std::shared_ptr<DataType>& value_type,
     const std::vector<int64_t>& shape) const {
   const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),

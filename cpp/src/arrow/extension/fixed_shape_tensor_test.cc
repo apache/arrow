@@ -83,16 +83,19 @@ TEST_F(TestExtensionType, FixedShapeTensorType) {
   std::shared_ptr<ExtensionType> deserialized =
       std::reinterpret_pointer_cast<ExtensionType>(ds);
 
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Invalid: Expected FixedSizeList storage type"),
+      ext_type->Deserialize(boolean(), serialized));
   ASSERT_TRUE(tensor->is_row_major());
   ASSERT_EQ(tensor->strides(), strides);
   ASSERT_EQ(tensor_partial->strides(), strides);
 
   // Test ExtensionType methods
   ASSERT_EQ(ext_type->extension_name(), "arrow.fixed_shape_tensor");
-  ASSERT_TRUE(ext_type->ExtensionEquals(*exact_ext_type));
+  ASSERT_TRUE(ext_type->Equals(*exact_ext_type));
   ASSERT_TRUE(ext_type->storage_type()->Equals(*cell_type));
   ASSERT_EQ(ext_type->Serialize(), serialized);
-  ASSERT_TRUE(deserialized->ExtensionEquals(*ext_type));
+  ASSERT_TRUE(deserialized->Equals(*ext_type));
   ASSERT_EQ(exact_ext_type->id(), Type::EXTENSION);
 
   // Test FixedShapeTensorType methods
@@ -145,8 +148,8 @@ TEST_F(TestExtensionType, FixedShapeTensorType) {
   auto ext_type_1 = fixed_shape_tensor(int64(), cell_shape, {}, dim_names);
   auto ext_type_2 = fixed_shape_tensor(int64(), cell_shape, {}, dim_names);
   auto ext_type_3 = fixed_shape_tensor(int32(), cell_shape, {}, dim_names);
-  ASSERT_TRUE(ext_type_1->ExtensionEquals(*ext_type_2));
-  ASSERT_FALSE(ext_type_1->ExtensionEquals(*ext_type_3));
+  ASSERT_TRUE(ext_type_1->Equals(*ext_type_2));
+  ASSERT_FALSE(ext_type_1->Equals(*ext_type_3));
 
   auto ext_type_4 = fixed_shape_tensor(int64(), {3, 4, 7}, {}, {"x", "y", "z"});
   ASSERT_EQ(ext_type_4->strides(), (std::vector<int64_t>{224, 56, 8}));

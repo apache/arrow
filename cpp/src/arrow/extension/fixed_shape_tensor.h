@@ -23,7 +23,7 @@
 namespace arrow {
 namespace extension {
 
-class ARROW_EXPORT FixedShapeTensor : public ExtensionArray {
+class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
 };
@@ -35,25 +35,33 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
                        const std::vector<int64_t>& shape,
                        const std::vector<int64_t>& permutation = {},
                        const std::vector<std::string>& dim_names = {})
-      : ExtensionType(get_storage_type(value_type, shape)),
+      : ExtensionType(GetStorageType(value_type, shape)),
         value_type_(value_type),
         shape_(shape),
+        strides_(ComputeStrides(value_type, shape, permutation)),
         permutation_(permutation),
         dim_names_(dim_names) {}
 
-  std::string extension_name() const override;
+  std::string extension_name() const override { return "arrow.fixed_shape_tensor"; }
 
-  size_t ndim() const;
+  // TODO: docs
+  const size_t ndim() const { return shape_.size(); }
 
-  std::vector<int64_t> shape() const;
+  // TODO: docs
+  const std::vector<int64_t>& shape() const { return shape_; }
 
-  std::vector<int64_t> strides() const;
+  // TODO: docs
+  const std::vector<int64_t> strides() const { return strides_; }
 
-  std::vector<int64_t> permutation() const;
+  // TODO: docs
+  const std::vector<int64_t>& permutation() const { return permutation_; }
 
-  std::vector<std::string> dim_names() const;
+  // TODO: docs
+  const std::vector<std::string>& dim_names() const { return dim_names_; }
 
   bool ExtensionEquals(const ExtensionType& other) const override;
+
+  bool Equals(const ExtensionType& other) const { return ExtensionEquals(other); };
 
   std::string Serialize() const override;
 
@@ -68,11 +76,15 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
   Result<std::shared_ptr<Tensor>> ToTensor(std::shared_ptr<Array> arr) const;
 
  private:
-  std::shared_ptr<DataType> get_storage_type(const std::shared_ptr<DataType>& value_type,
-                                             const std::vector<int64_t>& shape) const;
+  const std::vector<int64_t> ComputeStrides(const std::shared_ptr<DataType> type,
+                                            const std::vector<int64_t> shape,
+                                            const std::vector<int64_t> permutation) const;
+  std::shared_ptr<DataType> GetStorageType(const std::shared_ptr<DataType>& value_type,
+                                           const std::vector<int64_t>& shape) const;
   std::shared_ptr<DataType> storage_type_;
   std::shared_ptr<DataType> value_type_;
   std::vector<int64_t> shape_;
+  std::vector<int64_t> strides_;
   std::vector<int64_t> permutation_;
   std::vector<std::string> dim_names_;
 };
