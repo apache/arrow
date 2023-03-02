@@ -31,14 +31,28 @@
 #include <opentelemetry/trace/context.h>
 #include <opentelemetry/trace/propagation/http_trace_context.h>
 #include <opentelemetry/trace/semantic_conventions.h>
-#endif
+#endif  // ARROW_WITH_OPENTELEMETRY
 
 namespace arrow {
 namespace flight {
 
 #ifdef ARROW_WITH_OPENTELEMETRY
 namespace otel = opentelemetry;
-namespace SemanticConventions = otel::trace::SemanticConventions;
+
+// TODO: Update this once opentelemetry-cpp exposes minor version as a macro
+// https://github.com/open-telemetry/opentelemetry-cpp/issues/2012
+// TODO: Remove once we drop support for opentelemetry-cpp < 1.8.0
+// They switched from ALL_CAPS to kConstantFormat in 1.8.0. But we can't check
+// the minor version until they expose that. So, for now, we vendor these constants.
+namespace SemanticConventions {
+static constexpr const char* kRpcGrpcStatusCode = "rpc.grpc.status_code";
+static constexpr const char* kRpcSystem = "rpc.system";
+static constexpr const char* kRpcService = "rpc.service";
+static constexpr const char* kRpcMethod = "rpc.method";
+namespace RpcSystemValues {
+static constexpr const char* kGrpc = "grpc";
+}
+}  // namespace SemanticConventions
 
 namespace {
 class FlightServerCarrier : public otel::context::propagation::TextMapCarrier {
