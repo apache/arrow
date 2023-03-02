@@ -103,8 +103,11 @@ func (ad *ArrowWriteDictionarySuite) TestStatisticsWithFallback() {
 	}
 
 	testIndices := []arrow.Array{
+        // ["b", null, "a", "b", null, "a"]
 		ad.fromJSON(mem, arrow.PrimitiveTypes.Int32, `[0, null, 3, 0, null, 3]`),
+		// ["b", "c", null, "b", "c", null]
 		ad.fromJSON(mem, arrow.PrimitiveTypes.Int32, `[0, 1, null, 0, 1, null]`),
+		// ["ZA==", "Yw==", "YQ==", "ZA==", "Yw==", "YQ=="]
 		ad.fromJSON(mem, arrow.PrimitiveTypes.Int32, `[0, 1, 3, 0, 1, 3]`),
 		ad.fromJSON(mem, arrow.PrimitiveTypes.Int32, `[null, null, null, null, null, null]`),
 	}
