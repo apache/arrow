@@ -301,10 +301,8 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
   // input->Peek call blocks so we run the whole thing on the I/O thread pool.
   auto reader_fut = DeferNotOk(input->io_context().executor()->Submit(
       [=]() -> Future<std::shared_ptr<csv::StreamingReader>> {
-        util::tracing::Span span;
-        // Name this span after the the one in scanner.cc:ReadNext(),
-        // because that allows grouping all the CSV reading work by that span name
-        START_SPAN(span, "arrow::csv::ReadNextAsync", {{"threadpool", "IO"}});
+        util::tracing::Span lambda_span;
+        START_SPAN(lambda_span, "arrow::csv::PeekAndMakeAsync", {{"threadpool", "IO"}});
 
         ARROW_ASSIGN_OR_RAISE(auto first_block, input->Peek(reader_options.block_size));
         const auto& parse_options = format.parse_options;
@@ -315,8 +313,8 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
         auto fut = csv::StreamingReader::MakeAsync(io::default_io_context(), std::move(input),
                                                    cpu_executor, reader_options,
                                                    parse_options, convert_options);
-        return fut.Then([span = std::move(span)](const std::shared_ptr<csv::StreamingReader>& reader){
-          END_SPAN(span);
+        return fut.Then([lambda_span = std::move(lambda_span)](const std::shared_ptr<csv::StreamingReader>& reader){
+          END_SPAN(lambda_span);
           return reader;
         });
       }));
