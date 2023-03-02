@@ -484,34 +484,21 @@ TYPED_TEST(TestLocalFS, NeedsExtendedFileInfo) {
   ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetFileInfo(selector));
   ASSERT_EQ(infos.size(), 1);
 
-  for (FileInfo info : infos) {
-    if (info.path() == "AB") {
-      AssertFileInfo(info, "AB", FileType::Directory);
-    } else {
-      // TODO how would I raise an error in a test?
-      ASSERT_TRUE(false);
-    }
+  AssertFileInfo(infos[0], "AB", FileType::Directory);
 
-    ASSERT_EQ(info.size(), kNoSize);
-    ASSERT_EQ(info.mtime(), kNoTime);
-  }
+  ASSERT_EQ(infos[0].size(), kNoSize);
+  ASSERT_EQ(infos[0].mtime(), kNoTime);
 
   selector.recursive = true;
   ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetFileInfo(selector));
   ASSERT_EQ(infos.size(), 3);
 
-  for (FileInfo info : infos) {
-    if (info.path() == "AB") {
-      AssertFileInfo(info, "AB", FileType::Directory);
-    } else if (info.path() == "AB/CD") {
-      AssertFileInfo(info, "AB/CD", FileType::Directory);
-    } else if (info.path() == "AB/ab") {
-      AssertFileInfo(info, "AB/ab", FileType::File);
-    } else {
-      // TODO how would I raise an error in a test?
-      ASSERT_TRUE(false);
-    }
+  SortInfos(&infos);
+  AssertFileInfo(infos[0], "AB", FileType::Directory);
+  AssertFileInfo(infos[1], "AB/CD", FileType::Directory);
+  AssertFileInfo(infos[2], "AB/ab", FileType::File);
 
+  for (FileInfo info : infos) {
     ASSERT_EQ(info.size(), kNoSize);
     ASSERT_EQ(info.mtime(), kNoTime);
   }
