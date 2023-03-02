@@ -4705,17 +4705,7 @@ if(ARROW_WITH_OPENTELEMETRY)
   # (OTel's cmake files do not call find_curl for you)
   find_curl()
   set(opentelemetry-cpp_SOURCE "AUTO")
-
-  if(ARROW_FLIGHT)
-    # In 1.5.0 they introduced the stable semantic convention header that we require
-    # in Flight.
-    set(OPENTELEMETRY_REQUIRED_VERSION 1.5.0)
-  else()
-    set(OPENTELEMETRY_REQUIRED_VERSION 1.0.0)
-  endif()
-
-  resolve_dependency(opentelemetry-cpp
-                     REQUIRED_VERSION ${OPENTELEMETRY_REQUIRED_VERSION})
+  resolve_dependency(opentelemetry-cpp)
   get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
                       INTERFACE_INCLUDE_DIRECTORIES)
   message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")
