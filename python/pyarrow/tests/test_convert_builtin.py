@@ -1134,6 +1134,7 @@ def test_sequence_timestamp_with_timezone_inference():
 
 
 def test_sequence_timestamp_with_zoneinfo_timezone_inference():
+    pytest.importorskip("zoneinfo")
     import zoneinfo
 
     data = [
