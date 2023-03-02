@@ -3386,7 +3386,6 @@ def test_struct_array_sort():
 def test_array_accepts_pyarrow_array():
     arr = pa.array([1, 2, 3])
     result = pa.array(arr)
-
     assert arr == result
 
     # Test casting to a different type
@@ -3395,7 +3394,7 @@ def test_array_accepts_pyarrow_array():
     assert expected == result
     assert expected.type == pa.uint8()
 
-    # Test casting with safe keyward
+    # Test casting with safe keyword
     arr = pa.array([2 ** 63 - 1], type=pa.int64())
 
     with pytest.raises(pa.ArrowInvalid):
@@ -3404,3 +3403,7 @@ def test_array_accepts_pyarrow_array():
     expected = pa.array([-1], type=pa.int32())
     result = pa.array(arr, type=pa.int32(), safe=False)
     assert result == expected
+
+    # Test memory_pool keyword is accepted
+    result = pa.array(arr, memory_pool=pa.default_memory_pool())
+    assert arr == result

@@ -234,7 +234,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     if isinstance(obj, Array):
         if type is not None and not obj.type.equals(type):
-            obj = obj.cast(type, safe=safe)
+            obj = obj.cast(type, safe=safe, memory_pool=memory_pool)
         return obj
 
     if hasattr(obj, '__arrow_array__'):
@@ -909,7 +909,7 @@ cdef class Array(_PandasConvertible):
             result = self.ap.Diff(deref(other.ap))
         return frombytes(result, safe=True)
 
-    def cast(self, object target_type=None, safe=None, options=None):
+    def cast(self, object target_type=None, safe=None, options=None, memory_pool=None):
         """
         Cast array values to another data type
 
@@ -923,12 +923,15 @@ cdef class Array(_PandasConvertible):
             Whether to check for conversion errors such as overflow.
         options : CastOptions, default None
             Additional checks pass by CastOptions
+        memory_pool : MemoryPool, optional
+            memory pool to use for allocations during function execution.
 
         Returns
         -------
         cast : Array
         """
-        return _pc().cast(self, target_type, safe=safe, options=options)
+        return _pc().cast(self, target_type, safe=safe,
+                          options=options, memory_pool=memory_pool)
 
     def view(self, object target_type):
         """
