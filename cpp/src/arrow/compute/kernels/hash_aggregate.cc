@@ -315,26 +315,41 @@ struct GroupedCountImpl : public GroupedAggregator {
       }
     } else if (batch[0].is_array()) {
       const ArraySpan& input = batch[0].array;
-      if (options_.mode == CountOptions::ONLY_VALID) {
+      if (options_.mode == CountOptions::ONLY_VALID) {  // ONLY_VALID
         if (input.type->id() != arrow::Type::NA) {
-          arrow::internal::VisitSetBitRunsVoid(
-              input.buffers[0].data, input.offset, input.length,
-              [&](int64_t offset, int64_t length) {
-                auto g = g_begin + offset;
-                for (int64_t i = 0; i < length; ++i, ++g) {
-                  counts[*g] += 1;
-                }
-              });
+          const uint8_t* bitmap = input.buffers[0].data;
+          if (bitmap) {
+            arrow::internal::VisitSetBitRunsVoid(
+                bitmap, input.offset, input.length, [&](int64_t offset, int64_t length) {
+                  auto g = g_begin + offset;
+                  for (int64_t i = 0; i < length; ++i, ++g) {
+                    counts[*g] += 1;
+                  }
+                });
+          } else {
+            // Types without validity bitmaps require special handling of nulls.
+            const bool all_valid = !input.MayHaveLogicalNulls();
+            for (int64_t i = 0; i < input.length; ++i, ++g_begin) {
+              counts[*g_begin] += all_valid || input.IsValid(i);
+            }
+          }
         }
       } else {  // ONLY_NULL
         if (input.type->id() == arrow::Type::NA) {
           for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
             counts[*g_begin] += 1;
           }
-        } else if (input.MayHaveNulls()) {
-          auto end = input.offset + input.length;
-          for (int64_t i = input.offset; i < end; ++i, ++g_begin) {
-            counts[*g_begin] += !bit_util::GetBit(input.buffers[0].data, i);
+        } else if (input.MayHaveLogicalNulls()) {
+          if (input.HasValidityBitmap()) {
+            auto end = input.offset + input.length;
+            for (int64_t i = input.offset; i < end; ++i, ++g_begin) {
+              counts[*g_begin] += !bit_util::GetBit(input.buffers[0].data, i);
+            }
+          } else {
+            // Arrays without validity bitmaps require special handling of nulls.
+            for (int64_t i = 0; i < input.length; ++i, ++g_begin) {
+              counts[*g_begin] += input.IsNull(i);
+            }
           }
         }
       }
