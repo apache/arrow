@@ -362,14 +362,27 @@ public class ArrowFlightJdbcDriverTest {
     props.setProperty("password", "password");
     props.setProperty("useEncryption", "false");
     String conString = "jdbc:arrow-flight://127.0.0.1:50060";
-    String sql = "SELECT s_quantity, s_data, s_dist_01, s_dist_02, s_dist_03, s_dist_04, s_dist_05, s_dist_06, s_dist_07, s_dist_08, s_dist_09, s_dist_10 FROM stock WHERE s_i_id = $1 AND s_w_id = $2 FOR UPDATE";
+    String sql = "SELECT\n" +
+            "    27 as s_quantity,\n" +
+            "    's_data' as s_data,\n" +
+            "    's_dist_01' as s_dist_01,\n" +
+            "    's_dist_02' as s_dist_02,\n" +
+            "    's_dist_03' as s_dist_03,\n" +
+            "    's_dist_04' as s_dist_04,\n" +
+            "    's_dist_05' as s_dist_05,\n" +
+            "    's_dist_06' as s_dist_06,\n" +
+            "    's_dist_07' as s_dist_07,\n" +
+            "    's_dist_08' as s_dist_08,\n" +
+            "    's_dist_09' as s_dist_09,\n" +
+            "    's_dist_10' as s_dist_10\n" +
+            ";\n";
     try (Connection con = driver.connect(conString, props)) {
       try(PreparedStatement stmt = con.prepareStatement(sql)) {
         long sum = 0;
         long cnt = 100;
         for(long i = 0; i < cnt; i++) {
-          stmt.setInt(1, 1);
-          stmt.setInt(2, 1);
+//          stmt.setInt(1, 1);
+//          stmt.setInt(2, 1);
           long start = System.currentTimeMillis();
           try(ResultSet rs = stmt.executeQuery()) {
             assertTrue(rs.next());
