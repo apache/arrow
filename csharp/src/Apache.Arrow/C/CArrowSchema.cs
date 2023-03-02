@@ -50,11 +50,64 @@ namespace Apache.Arrow.C
         public ReleaseCArrowSchema release;
         public IntPtr private_data;
 
+        private static char FormatTimeUnit(TimeUnit unit) => unit switch
+        {
+            TimeUnit.Second => 's',
+            TimeUnit.Millisecond => 'm',
+            TimeUnit.Microsecond => 'u',
+            TimeUnit.Nanosecond => 'n',
+            _ => throw new InvalidDataException($"Unsupported time unit for export: {unit}"),
+        };
+
         private static string GetFormat(IArrowType datatype)
         {
-            TypeFormatter formatter = new TypeFormatter();
-            datatype.Accept(formatter);
-            return formatter.FormatString;
+            switch (datatype)
+            {
+                case NullType _: return "n";
+                case BooleanType _: return "b";
+                // Integers
+                case Int8Type _: return "c";
+                case UInt8Type _: return "C";
+                case Int16Type _: return "s";
+                case UInt16Type _: return "S";
+                case Int32Type _: return "i";
+                case UInt32Type _: return "I";
+                case Int64Type _: return "l";
+                case UInt64Type _: return "L";
+                // Floats
+                case HalfFloatType _: return "e";
+                case FloatType _: return "f";
+                case DoubleType _: return "g";
+                // Decimal
+                case Decimal128Type decimalType:
+                    return $"d:{decimalType.Precision},{decimalType.Scale}";
+                case Decimal256Type decimalType:
+                    return $"d:{decimalType.Precision},{decimalType.Scale},256";
+                // Binary
+                case BinaryType _: return "z";
+                case StringType _: return "u";
+                case FixedSizeBinaryType binaryType:
+                    return $"w:{binaryType.ByteWidth}";
+                // Date
+                case Date32Type _: return "tdD";
+                case Date64Type _: return "tdm";
+                // Time
+                case Time32Type timeType:
+                    return String.Format("tt{0}", FormatTimeUnit(timeType.Unit));
+                case Time64Type timeType:
+                    // Same prefix as Time32, but allowed time units are different.
+                    return String.Format("tt{0}", FormatTimeUnit(timeType.Unit));
+                // Timestamp
+                case TimestampType timestampType:
+                    return String.Format("ts{0}:{1}", FormatTimeUnit(timestampType.Unit), timestampType.Timezone);
+                // Nested
+                case ListType _: return "+l";
+                case StructType _: return "+s";
+                // Dictionary
+                case DictionaryType dictionaryType:
+                    return GetFormat(dictionaryType.IndexType);
+                default: throw new NotImplementedException($"Exporting {datatype.Name} not implemented");
+            };
         }
 
         private static long GetFlags(IArrowType datatype, bool nullable = true)
@@ -316,112 +369,9 @@ namespace Apache.Arrow.C
             return importedSchema.GetAsSchema();
         }
 
-        public const int ArrowFlagDictionaryOrdered = 1;
-        public const int ArrowFlagNullable = 2;
-        public const int ArrowFlagMapKeysSorted = 4;
-
-        private class TypeFormatter :
-        IArrowTypeVisitor<NullType>,
-        IArrowTypeVisitor<BooleanType>,
-        IArrowTypeVisitor<Int8Type>,
-        IArrowTypeVisitor<Int16Type>,
-        IArrowTypeVisitor<Int32Type>,
-        IArrowTypeVisitor<Int64Type>,
-        IArrowTypeVisitor<UInt8Type>,
-        IArrowTypeVisitor<UInt16Type>,
-        IArrowTypeVisitor<UInt32Type>,
-        IArrowTypeVisitor<UInt64Type>,
-        IArrowTypeVisitor<HalfFloatType>,
-        IArrowTypeVisitor<FloatType>,
-        IArrowTypeVisitor<DoubleType>,
-        IArrowTypeVisitor<Decimal128Type>,
-        IArrowTypeVisitor<Decimal256Type>,
-        IArrowTypeVisitor<Date32Type>,
-        IArrowTypeVisitor<Date64Type>,
-        IArrowTypeVisitor<Time32Type>,
-        IArrowTypeVisitor<Time64Type>,
-        IArrowTypeVisitor<TimestampType>,
-        IArrowTypeVisitor<StringType>,
-        IArrowTypeVisitor<BinaryType>,
-        IArrowTypeVisitor<FixedSizeBinaryType>,
-        IArrowTypeVisitor<ListType>,
-        IArrowTypeVisitor<StructType>,
-        IArrowTypeVisitor<DictionaryType>
-        {
-            public string FormatString;
-            public void Visit(NullType _) => FormatString = "n";
-            public void Visit(BooleanType _) => FormatString = "b";
-            // Integers
-            public void Visit(Int8Type _) => FormatString = "c";
-            public void Visit(UInt8Type _) => FormatString = "C";
-            public void Visit(Int16Type _) => FormatString = "s";
-            public void Visit(UInt16Type _) => FormatString = "S";
-            public void Visit(Int32Type _) => FormatString = "i";
-            public void Visit(UInt32Type _) => FormatString = "I";
-            public void Visit(Int64Type _) => FormatString = "l";
-            public void Visit(UInt64Type _) => FormatString = "L";
-            // Floats
-            public void Visit(HalfFloatType _) => FormatString = "e";
-            public void Visit(FloatType _) => FormatString = "f";
-            public void Visit(DoubleType _) => FormatString = "g";
-            // Binary
-            public void Visit(BinaryType _) => FormatString = "z";
-            public void Visit(StringType _) => FormatString = "u";
-            public void Visit(FixedSizeBinaryType datatype)
-            {
-                FormatString = $"w:{datatype.ByteWidth}";
-            }
-            // Decimal
-            public void Visit(Decimal128Type datatype)
-            {
-                FormatString = $"d:{datatype.Precision},{datatype.Scale}";
-            }
-            public void Visit(Decimal256Type datatype)
-            {
-                FormatString = $"w:{datatype.Precision},{datatype.Scale},256";
-            }
-            // Date
-            public void Visit(Date32Type _) => FormatString = "tdD";
-            public void Visit(Date64Type _) => FormatString = "tdm";
-
-            private char TimeUnitComponent(TimeUnit unit) => unit switch
-            {
-                TimeUnit.Second => 's',
-                TimeUnit.Millisecond => 'm',
-                TimeUnit.Microsecond => 'u',
-                TimeUnit.Nanosecond => 'n',
-                _ => throw new InvalidDataException($"Unsupported time unit for export: {unit}"),
-            };
-            // Time
-            public void Visit(Time32Type datatype)
-            {
-                FormatString = String.Format("tt{0}", TimeUnitComponent(datatype.Unit));
-            }
-            public void Visit(Time64Type datatype)
-            {
-                FormatString = String.Format("tt{0}", TimeUnitComponent(datatype.Unit));
-            }
-            // Timestamp type
-            public void Visit(TimestampType datatype)
-            {
-                FormatString = String.Format("ts{0}:{1}", TimeUnitComponent(datatype.Unit), datatype.Timezone);
-            }
-            // Nested
-            public void Visit(ListType _) => FormatString = "+l";
-            public void Visit(StructType _) => FormatString = "+s";
-            // Dictionary
-            public void Visit(DictionaryType datatype)
-            {
-                // format string is that of the indices
-                datatype.IndexType.Accept(this);
-            }
-
-            // Unsupported
-            public void Visit(IArrowType type)
-            {
-                throw new NotImplementedException($"Exporting {type.Name} not implemented");
-            }
-        }
+        public const long ArrowFlagDictionaryOrdered = 1;
+        public const long ArrowFlagNullable = 2;
+        public const long ArrowFlagMapKeysSorted = 4;
 
         private sealed class ImportedArrowSchema : IDisposable
         {
@@ -448,7 +398,7 @@ namespace Apache.Arrow.C
             public void Dispose()
             {
                 // We only call release on a root-level schema, not child ones.
-                if (_isRoot)
+                if (_isRoot && _data.release != null)
                 {
                     _data.release(_handle);
                 }
@@ -472,10 +422,10 @@ namespace Apache.Arrow.C
                         _ => throw new InvalidDataException($"Indices must be an integer, but got format string {format}"),
                     };
 
-                    var dictionarySchema = new ImportedArrowSchema(_data.dictionary, /*is_root*/ false);
+                    var dictionarySchema = new ImportedArrowSchema(_data.dictionary, isRoot: false);
                     ArrowType dictionaryType = dictionarySchema.GetAsType();
 
-                    bool ordered = (_data.flags & CArrowSchema.ArrowFlagNullable) == CArrowSchema.ArrowFlagNullable;
+                    bool ordered = (_data.flags & CArrowSchema.ArrowFlagDictionaryOrdered) == CArrowSchema.ArrowFlagDictionaryOrdered;
 
                     return new DictionaryType(indicesType, dictionaryType, ordered);
                 }
@@ -492,7 +442,7 @@ namespace Apache.Arrow.C
                     {
                         throw new Exception("Expected list type child to be non-null.");
                     }
-                    childSchema = new ImportedArrowSchema(_data.GetChild(0));
+                    childSchema = new ImportedArrowSchema(_data.GetChild(0), isRoot: false);
 
                     Field childField = childSchema.GetAsField();
 
@@ -508,7 +458,7 @@ namespace Apache.Arrow.C
                         {
                             throw new Exception("Expected struct type child to be non-null.");
                         }
-                        child_schemas[i] = new ImportedArrowSchema(_data.GetChild(i));
+                        child_schemas[i] = new ImportedArrowSchema(_data.GetChild(i), isRoot: false);
                     }
 
 
@@ -517,6 +467,41 @@ namespace Apache.Arrow.C
                     return new StructType(childFields);
                 }
                 // TODO: Map type and large list type
+
+                // Decimals
+                if (format.StartsWith("d:"))
+                {
+                    bool is256 = format.EndsWith(",256");
+                    string parameters_part = format.Remove(0, 2);
+                    if (is256) parameters_part.Substring(0, parameters_part.Length - 5);
+                    string[] parameters = parameters_part.Split(',');
+                    int precision = Int32.Parse(parameters[0]);
+                    int scale = Int32.Parse(parameters[1]);
+                    if (is256)
+                    {
+                        return new Decimal256Type(precision, scale);
+                    }
+                    else
+                    {
+                        return new Decimal128Type(precision, scale);
+                    }
+                }
+
+                // Timestamps
+                if (format.StartsWith("ts"))
+                {
+                    TimeUnit timeUnit = format[2] switch
+                    {
+                        's' => TimeUnit.Second,
+                        'm' => TimeUnit.Millisecond,
+                        'u' => TimeUnit.Microsecond,
+                        'n' => TimeUnit.Nanosecond,
+                        _ => throw new InvalidDataException($"Unsupported time unit for import: {format[2]}"),
+                    };
+
+                    string timezone = format.Split(':')[1];
+                    return new TimestampType(timeUnit, timezone);
+                }
 
                 return format switch
                 {

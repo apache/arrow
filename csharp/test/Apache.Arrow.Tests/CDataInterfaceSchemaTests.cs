@@ -57,6 +57,10 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("f32").DataType(FloatType.Default).Nullable(true))
                     .Field(f => f.Name("f64").DataType(DoubleType.Default).Nullable(true))
 
+                    .Field(f => f.Name("decmial128_19_3").DataType(new Decimal128Type(19, 3)).Nullable(true))
+                    .Field(f => f.Name("decmial256_19_3").DataType(new Decimal256Type(19, 3)).Nullable(true))
+                    .Field(f => f.Name("decmial256_40_2").DataType(new Decimal256Type(40, 2)).Nullable(false))
+
                     .Field(f => f.Name("binary").DataType(BinaryType.Default).Nullable(false))
                     .Field(f => f.Name("string").DataType(StringType.Default).Nullable(false))
 
@@ -66,6 +70,10 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("time32_ms").DataType(new Time32Type(TimeUnit.Millisecond)).Nullable(false))
                     .Field(f => f.Name("time64_us").DataType(new Time64Type(TimeUnit.Microsecond)).Nullable(false))
                     .Field(f => f.Name("time64_ns").DataType(new Time64Type(TimeUnit.Nanosecond)).Nullable(false))
+
+                    .Field(f => f.Name("timestamp_ns").DataType(new TimestampType(TimeUnit.Nanosecond, "")).Nullable(false))
+                    .Field(f => f.Name("timestamp_us").DataType(new TimestampType(TimeUnit.Microsecond, "")).Nullable(false))
+                    .Field(f => f.Name("timestamp_us_paris").DataType(new TimestampType(TimeUnit.Microsecond, "Europe/Paris")).Nullable(true))
 
                     .Field(f => f.Name("list_string").DataType(new ListType(StringType.Default)).Nullable(false))
                     .Field(f => f.Name("list_list_i32").DataType(new ListType(new ListType(Int32Type.Default))).Nullable(false))
@@ -102,6 +110,10 @@ namespace Apache.Arrow.Tests
                 yield return pa.field("f32", pa.float32(), true);
                 yield return pa.field("f64", pa.float64(), true);
 
+                yield return pa.field("decmial128_19_3", pa.decimal128(19, 3), true);
+                yield return pa.field("decmial256_19_3", pa.decimal256(19, 3), true);
+                yield return pa.field("decmial256_40_2", pa.decimal256(40, 2), false);
+
                 yield return pa.field("binary", pa.binary(), false);
                 yield return pa.field("string", pa.utf8(), false);
 
@@ -111,6 +123,10 @@ namespace Apache.Arrow.Tests
                 yield return pa.field("time32_ms", pa.time32("ms"), false);
                 yield return pa.field("time64_us", pa.time64("us"), false);
                 yield return pa.field("time64_ns", pa.time64("ns"), false);
+
+                yield return pa.field("timestamp_ns", pa.timestamp("ns"), false);
+                yield return pa.field("timestamp_us", pa.timestamp("us"), false);
+                yield return pa.field("timestamp_us_paris", pa.timestamp("us", "Europe/Paris"), true);
 
                 yield return pa.field("list_string", pa.list_(pa.utf8()), false);
                 yield return pa.field("list_list_i32", pa.list_(pa.list_(pa.int32())), false);
@@ -154,6 +170,11 @@ namespace Apache.Arrow.Tests
                 var dataTypeComparer = new ArrayTypeComparer(field.DataType);
                 ArrowType importedType = CArrowSchema.ImportType(importedPtr);
                 dataTypeComparer.Visit(importedType);
+
+                if (importedType is DictionaryType importedDictType)
+                {
+                    Assert.Equal(((DictionaryType)field.DataType).Ordered, importedDictType.Ordered);
+                }
 
                 // Since we allocated, we are responsible for freeing the pointer.
                 CArrowSchema.FreePtr(importedPtr);
@@ -229,6 +250,11 @@ namespace Apache.Arrow.Tests
                     dynamic expectedPyType = pyField.type;
                     dynamic exportedPyType = pa.DataType._import_from_c(exportedPtr.ToInt64());
                     Assert.True(exportedPyType == expectedPyType);
+
+                    if (pa.types.is_dictionary(exportedPyType))
+                    {
+                        Assert.Equal(expectedPyType.ordered, exportedPyType.ordered);
+                    }
                 }
 
                 // Python should have called release once `exportedPyType` went out-of-scope.
