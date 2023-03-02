@@ -30,23 +30,30 @@
 namespace arrow {
 namespace compute {
 
-/// \brief A segment of contiguous rows for grouping
-struct ARROW_EXPORT GroupingSegment {
+/// \brief A segment piece.
+/// A segment is a chunk of continous rows that has the same segment key. (For example,
+/// in ordered time series processing, segment key can be "date", and a segment can
+/// be rows that belong to the same date.) A segment can span across multiple exec
+/// batches. A segment piece is a chunk of continous rows that has the same segment key
+/// within a given batch. When a segment span cross batches, it will have multiple segment
+/// pieces. Segment piece never span cross batches. The segment piece data structure only
+/// makes sense when used along with a exec batch.
+struct ARROW_EXPORT SegmentPiece {
   /// \brief the offset into the batch where the segment starts
   int64_t offset;
   /// \brief the length of the segment
   int64_t length;
-  /// \brief whether the segment may be extended by a next one
+  /// \brief whether the segment piece may be extended by a next one
   bool is_open;
-  /// \brief whether the segment extends a preceeding one
+  /// \brief whether the segment piece extends a preceeding one
   bool extends;
 };
 
-inline bool operator==(const GroupingSegment& segment1, const GroupingSegment& segment2) {
+inline bool operator==(const SegmentPiece& segment1, const SegmentPiece& segment2) {
   return segment1.offset == segment2.offset && segment1.length == segment2.length &&
          segment1.is_open == segment2.is_open && segment1.extends == segment2.extends;
 }
-inline bool operator!=(const GroupingSegment& segment1, const GroupingSegment& segment2) {
+inline bool operator!=(const SegmentPiece& segment1, const SegmentPiece& segment2) {
   return !(segment1 == segment2);
 }
 
@@ -69,28 +76,28 @@ inline bool operator!=(const GroupingSegment& segment1, const GroupingSegment& s
 ///
 /// If the next call to the segmenter starts with `A A` then that segment would set the
 /// "extends" flag, which indicates whether the segment continues the last open batch.
-class ARROW_EXPORT GroupingSegmenter {
+class ARROW_EXPORT RowSegmenter {
  public:
-  virtual ~GroupingSegmenter() = default;
+  virtual ~RowSegmenter() = default;
 
   /// \brief Construct a GroupingSegmenter which segments on the specified key types
   ///
   /// \param[in] key_types the specified key types
   /// \param[in] nullable_keys whether values of the specified keys may be null
   /// \param[in] ctx the execution context to use
-  static Result<std::unique_ptr<GroupingSegmenter>> Make(
+  static Result<std::unique_ptr<RowSegmenter>> Make(
       const std::vector<TypeHolder>& key_types, bool nullable_keys = false,
       ExecContext* ctx = default_exec_context());
 
   /// \brief Return the key types of this segmenter
   virtual const std::vector<TypeHolder>& key_types() const = 0;
 
-  /// \brief Reset this grouping segmenter
+  /// \brief Reset this segmenter
   virtual Status Reset() = 0;
 
-  /// \brief Get the next segment for the given batch starting from the given offset
-  virtual Result<GroupingSegment> GetNextSegment(const ExecSpan& batch,
-                                                 int64_t offset) = 0;
+  /// \brief Get the next segment piece for the given batch starting from the given offset
+  virtual Result<SegmentPiece> GetNextSegmentPiece(const ExecSpan& batch,
+                                                   int64_t offset) = 0;
 };
 
 /// Consumes batches of keys and yields batches of the group ids.
@@ -106,15 +113,15 @@ class ARROW_EXPORT Grouper {
   /// over a slice defined by an offset and length, which defaults to the batch length.
   /// Currently only uint32 indices will be produced, eventually the bit width will only
   /// be as wide as necessary.
-  virtual Result<Datum> Consume(const ExecSpan& batch, int64_t consume_offset = 0,
-                                int64_t consume_length = -1) = 0;
+  virtual Result<Datum> Consume(const ExecSpan& batch, int64_t offset = 0,
+                                int64_t length = -1) = 0;
 
   /// Consume a batch of keys, producing the corresponding group ids as an integer array,
   /// over a slice defined by an offset and length, which defaults to the batch length.
   /// Currently only uint32 indices will be produced, eventually the bit width will only
   /// be as wide as necessary.
-  virtual Result<Datum> Consume(const ExecBatch& batch, int64_t consume_offset = 0,
-                                int64_t consume_length = -1) = 0;
+  virtual Result<Datum> Consume(const ExecBatch& batch, int64_t offset = 0,
+                                int64_t length = -1) = 0;
 
   /// Get current unique keys. May be called multiple times.
   virtual Result<ExecBatch> GetUniques() = 0;
