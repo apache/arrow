@@ -109,7 +109,7 @@ TEST(OrderByNode, Large) {
 }
 
 TEST(OrderByNode, Invalid) {
-  CheckOrderByInvalid(OrderByNodeOptions(Ordering::Imiplicit()),
+  CheckOrderByInvalid(OrderByNodeOptions(Ordering::Implicit()),
                       "`ordering` must be an explicit non-empty ordering");
   CheckOrderByInvalid(OrderByNodeOptions(Ordering::Unordered()),
                       "`ordering` must be an explicit non-empty ordering");
