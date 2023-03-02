@@ -225,26 +225,6 @@ Result<std::shared_ptr<Tensor>> FixedShapeTensorType::ToTensor(
   return *Tensor::Make(ext_arr->value_type(), buffer, shape, tensor_strides, dim_names());
 }
 
-const std::vector<int64_t> FixedShapeTensorType::ComputeStrides(
-    const std::shared_ptr<DataType> value_type, const std::vector<int64_t> shape,
-    const std::vector<int64_t> permutation) const {
-  std::vector<int64_t> strides;
-  const auto& element_type = internal::checked_cast<const FixedWidthType&>(*value_type);
-  DCHECK_OK(internal::ComputeRowMajorStrides(element_type, shape, &strides));
-  if (!permutation.empty()) {
-    internal::Permute(permutation, &strides);
-  }
-  return strides;
-}
-
-std::shared_ptr<DataType> FixedShapeTensorType::GetStorageType(
-    const std::shared_ptr<DataType>& value_type,
-    const std::vector<int64_t>& shape) const {
-  const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
-                                    std::multiplies<>());
-  return fixed_size_list(value_type, static_cast<int32_t>(size));
-}
-
 std::shared_ptr<FixedShapeTensorType> fixed_shape_tensor(
     const std::shared_ptr<DataType>& value_type, const std::vector<int64_t>& shape,
     const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names) {
@@ -262,6 +242,25 @@ std::shared_ptr<FixedShapeTensorType> fixed_shape_tensor(
   }
   return std::make_shared<FixedShapeTensorType>(value_type, shape, permutation,
                                                 dim_names);
+}
+
+const std::shared_ptr<DataType> GetStorageType(
+    const std::shared_ptr<DataType>& value_type, const std::vector<int64_t>& shape) {
+  const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
+                                    std::multiplies<>());
+  return fixed_size_list(value_type, static_cast<int32_t>(size));
+}
+
+const std::vector<int64_t> ComputeStrides(const std::shared_ptr<DataType>& value_type,
+                                          const std::vector<int64_t>& shape,
+                                          const std::vector<int64_t>& permutation) {
+  std::vector<int64_t> strides;
+  const auto& element_type = internal::checked_cast<const FixedWidthType&>(*value_type);
+  DCHECK_OK(internal::ComputeRowMajorStrides(element_type, shape, &strides));
+  if (!permutation.empty()) {
+    internal::Permute(permutation, &strides);
+  }
+  return strides;
 }
 
 }  // namespace extension

@@ -37,33 +37,35 @@ using extension::fixed_shape_tensor;
 class TestExtensionType : public ::testing::Test {
  public:
   void SetUp() override {
-    shape = {3, 3, 4};
-    cell_shape = {3, 4};
-    value_type = int64();
-    cell_type = fixed_size_list(value_type, 12);
-    dim_names = {"x", "y"};
-    values = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17,
-              18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
-    values_partial = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
-                      12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23};
-    shape_partial = {2, 3, 4};
-    tensor_strides = {96, 32, 8};
-    cell_strides = {32, 8};
-    serialized = R"({"shape":[3,4],"dim_names":["x","y"]})";
+    shape_ = {3, 3, 4};
+    cell_shape_ = {3, 4};
+    value_type_ = int64();
+    cell_type_ = fixed_size_list(value_type_, 12);
+    dim_names_ = {"x", "y"};
+    ext_type_ = fixed_shape_tensor(value_type_, cell_shape_, {}, dim_names_);
+    values_ = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17,
+               18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
+    values_partial_ = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
+                       12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23};
+    shape_partial_ = {2, 3, 4};
+    tensor_strides_ = {96, 32, 8};
+    cell_strides_ = {32, 8};
+    serialized_ = R"({"shape":[3,4],"dim_names":["x","y"]})";
   }
 
  protected:
-  std::vector<int64_t> shape;
-  std::vector<int64_t> shape_partial;
-  std::vector<int64_t> cell_shape;
-  std::shared_ptr<DataType> value_type;
-  std::shared_ptr<DataType> cell_type;
-  std::vector<std::string> dim_names;
-  std::vector<int64_t> values;
-  std::vector<int64_t> values_partial;
-  std::vector<int64_t> tensor_strides;
-  std::vector<int64_t> cell_strides;
-  std::string serialized;
+  std::vector<int64_t> shape_;
+  std::vector<int64_t> shape_partial_;
+  std::vector<int64_t> cell_shape_;
+  std::shared_ptr<DataType> value_type_;
+  std::shared_ptr<DataType> cell_type_;
+  std::vector<std::string> dim_names_;
+  std::shared_ptr<ExtensionType> ext_type_;
+  std::vector<int64_t> values_;
+  std::vector<int64_t> values_partial_;
+  std::vector<int64_t> tensor_strides_;
+  std::vector<int64_t> cell_strides_;
+  std::string serialized_;
 };
 
 auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,
@@ -88,39 +90,37 @@ TEST_F(TestExtensionType, CheckDummyRegistration) {
 }
 
 TEST_F(TestExtensionType, CreateExtensionType) {
-  auto ext_type = fixed_shape_tensor(value_type, cell_shape, {}, dim_names);
-  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
+  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
 
   // Test ExtensionType methods
-  ASSERT_EQ(ext_type->extension_name(), "arrow.fixed_shape_tensor");
-  ASSERT_TRUE(ext_type->Equals(*exact_ext_type));
-  ASSERT_TRUE(ext_type->storage_type()->Equals(*cell_type));
-  ASSERT_EQ(ext_type->Serialize(), serialized);
+  ASSERT_EQ(ext_type_->extension_name(), "arrow.fixed_shape_tensor");
+  ASSERT_TRUE(ext_type_->Equals(*exact_ext_type));
+  ASSERT_TRUE(ext_type_->storage_type()->Equals(*cell_type_));
+  ASSERT_EQ(ext_type_->Serialize(), serialized_);
   ASSERT_OK_AND_ASSIGN(auto ds,
-                       ext_type->Deserialize(ext_type->storage_type(), serialized));
+                       ext_type_->Deserialize(ext_type_->storage_type(), serialized_));
   auto deserialized = std::reinterpret_pointer_cast<ExtensionType>(ds);
-  ASSERT_TRUE(deserialized->Equals(*ext_type));
+  ASSERT_TRUE(deserialized->Equals(*ext_type_));
 
   // Test FixedShapeTensorType methods
   ASSERT_EQ(exact_ext_type->id(), Type::EXTENSION);
-  ASSERT_EQ(exact_ext_type->ndim(), cell_shape.size());
-  ASSERT_EQ(exact_ext_type->shape(), cell_shape);
-  ASSERT_EQ(exact_ext_type->strides(), cell_strides);
-  ASSERT_EQ(exact_ext_type->dim_names(), dim_names);
+  ASSERT_EQ(exact_ext_type->ndim(), cell_shape_.size());
+  ASSERT_EQ(exact_ext_type->shape(), cell_shape_);
+  ASSERT_EQ(exact_ext_type->strides(), cell_strides_);
+  ASSERT_EQ(exact_ext_type->dim_names(), dim_names_);
 }
 
 TEST_F(TestExtensionType, CreateFromArray) {
-  auto ext_type = fixed_shape_tensor(value_type, cell_shape, {}, dim_names);
-  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
+  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
 
-  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, Buffer::Wrap(values)};
-  auto arr_data = std::make_shared<ArrayData>(value_type, values.size(), buffers, 0, 0);
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, Buffer::Wrap(values_)};
+  auto arr_data = std::make_shared<ArrayData>(value_type_, values_.size(), buffers, 0, 0);
   auto arr = std::make_shared<Int64Array>(arr_data);
-  EXPECT_OK_AND_ASSIGN(auto fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type));
+  EXPECT_OK_AND_ASSIGN(auto fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type_));
   auto data = fsla_arr->data();
-  data->type = ext_type;
+  data->type = ext_type_;
   auto ext_arr = exact_ext_type->MakeArray(data);
-  ASSERT_EQ(ext_arr->length(), shape[0]);
+  ASSERT_EQ(ext_arr->length(), shape_[0]);
   ASSERT_EQ(ext_arr->null_count(), 0);
 }
 
@@ -129,23 +129,22 @@ TEST_F(TestExtensionType, CreateFromTensor) {
   std::vector<int64_t> neither_major_strides = {96, 8, 32};
 
   ASSERT_OK_AND_ASSIGN(auto tensor,
-                       Tensor::Make(value_type, Buffer::Wrap(values), shape));
+                       Tensor::Make(value_type_, Buffer::Wrap(values_), shape_));
 
-  auto ext_type = fixed_shape_tensor(value_type, cell_shape, {}, dim_names);
-  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
+  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
   EXPECT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
 
   ASSERT_OK(ext_arr->ValidateFull());
   ASSERT_TRUE(tensor->is_row_major());
-  ASSERT_EQ(tensor->strides(), tensor_strides);
-  ASSERT_EQ(ext_arr->length(), shape[0]);
+  ASSERT_EQ(tensor->strides(), tensor_strides_);
+  ASSERT_EQ(ext_arr->length(), shape_[0]);
 
   auto ext_type_2 = fixed_shape_tensor(int64(), {3, 4}, {0, 1});
   EXPECT_OK_AND_ASSIGN(auto ext_arr_2, ext_type_2->MakeArray(tensor));
 
   ASSERT_OK_AND_ASSIGN(
       auto column_major_tensor,
-      Tensor::Make(value_type, Buffer::Wrap(values), shape, column_major_strides));
+      Tensor::Make(value_type_, Buffer::Wrap(values_), shape_, column_major_strides));
   auto ext_type_3 = fixed_shape_tensor(int64(), {3, 4}, {0, 1});
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
@@ -154,17 +153,16 @@ TEST_F(TestExtensionType, CreateFromTensor) {
       ext_type_3->MakeArray(column_major_tensor));
   ASSERT_THAT(ext_type_3->MakeArray(column_major_tensor), Raises(StatusCode::Invalid));
 
-  auto neither_major_tensor = std::make_shared<Tensor>(value_type, Buffer::Wrap(values),
-                                                       shape, neither_major_strides);
+  auto neither_major_tensor = std::make_shared<Tensor>(value_type_, Buffer::Wrap(values_),
+                                                       shape_, neither_major_strides);
   auto ext_type_4 = fixed_shape_tensor(int64(), {3, 4}, {1, 0});
   ASSERT_OK_AND_ASSIGN(auto ext_arr_4, ext_type_4->MakeArray(neither_major_tensor));
 }
 
 TEST_F(TestExtensionType, RoundtripTensor) {
   ASSERT_OK_AND_ASSIGN(auto tensor,
-                       Tensor::Make(value_type, Buffer::Wrap(values), shape));
-  auto ext_type = fixed_shape_tensor(value_type, cell_shape, {}, dim_names);
-  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
+                       Tensor::Make(value_type_, Buffer::Wrap(values_), shape_));
+  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
   EXPECT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
 
   EXPECT_OK_AND_ASSIGN(auto tensor_from_array, exact_ext_type->ToTensor(ext_arr));
@@ -175,14 +173,14 @@ TEST_F(TestExtensionType, RoundtripTensor) {
 
 TEST_F(TestExtensionType, SliceTensor) {
   ASSERT_OK_AND_ASSIGN(auto tensor,
-                       Tensor::Make(value_type, Buffer::Wrap(values), shape));
+                       Tensor::Make(value_type_, Buffer::Wrap(values_), shape_));
   ASSERT_OK_AND_ASSIGN(
       auto tensor_partial,
-      Tensor::Make(value_type, Buffer::Wrap(values_partial), shape_partial));
-  ASSERT_EQ(tensor->strides(), tensor_strides);
-  ASSERT_EQ(tensor_partial->strides(), tensor_strides);
-  auto ext_type = fixed_shape_tensor(value_type, cell_shape, {}, dim_names);
-  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
+      Tensor::Make(value_type_, Buffer::Wrap(values_partial_), shape_partial_));
+  ASSERT_EQ(tensor->strides(), tensor_strides_);
+  ASSERT_EQ(tensor_partial->strides(), tensor_strides_);
+  auto ext_type = fixed_shape_tensor(value_type_, cell_shape_, {}, dim_names_);
+  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
 
   EXPECT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
   EXPECT_OK_AND_ASSIGN(auto ext_arr_partial, exact_ext_type->MakeArray(tensor_partial));
@@ -207,34 +205,38 @@ void CheckSerializationRoundtrip(const std::shared_ptr<ExtensionType>& ext_type)
 }
 
 TEST_F(TestExtensionType, MetadataSerializationRoundtrip) {
-  CheckSerializationRoundtrip(fixed_shape_tensor(value_type, {}, {}, {}));
-  CheckSerializationRoundtrip(fixed_shape_tensor(value_type, {0}, {}, {}));
+  CheckSerializationRoundtrip(fixed_shape_tensor(value_type_, {}, {}, {}));
+  CheckSerializationRoundtrip(fixed_shape_tensor(value_type_, {0}, {}, {}));
+  CheckSerializationRoundtrip(fixed_shape_tensor(value_type_, {1}, {0}, {"x"}));
+  CheckSerializationRoundtrip(
+      fixed_shape_tensor(value_type_, {256, 256, 3}, {0, 1, 2}, {"H", "W", "C"}));
+  CheckSerializationRoundtrip(
+      fixed_shape_tensor(value_type_, {256, 256, 3}, {2, 0, 1}, {"C", "H", "W"}));
 
-  auto ext_type = fixed_shape_tensor(value_type, cell_shape, {0, 1}, dim_names);
-  CheckSerializationRoundtrip(ext_type);
+  auto ext_type = fixed_shape_tensor(value_type_, cell_shape_, {0, 1}, dim_names_);
+  CheckSerializationRoundtrip(ext_type_);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, testing::HasSubstr("Invalid: Expected FixedSizeList storage type"),
-      ext_type->Deserialize(boolean(), serialized));
+      ext_type->Deserialize(boolean(), serialized_));
 }
 
 TEST_F(TestExtensionType, RoudtripBatch) {
-  auto ext_type = fixed_shape_tensor(value_type, cell_shape, {}, dim_names);
-  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
+  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
 
-  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, Buffer::Wrap(values)};
-  auto arr_data = std::make_shared<ArrayData>(value_type, values.size(), buffers, 0, 0);
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, Buffer::Wrap(values_)};
+  auto arr_data = std::make_shared<ArrayData>(value_type_, values_.size(), buffers, 0, 0);
   auto arr = std::make_shared<Int64Array>(arr_data);
-  EXPECT_OK_AND_ASSIGN(auto fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type));
+  EXPECT_OK_AND_ASSIGN(auto fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type_));
   auto data = fsla_arr->data();
-  data->type = ext_type;
+  data->type = ext_type_;
   auto ext_arr = exact_ext_type->MakeArray(data);
 
-  ASSERT_OK(UnregisterExtensionType(ext_type->extension_name()));
-  ASSERT_OK(RegisterExtensionType(ext_type));
+  ASSERT_OK(UnregisterExtensionType(ext_type_->extension_name()));
+  ASSERT_OK(RegisterExtensionType(ext_type_));
   auto ext_metadata =
       key_value_metadata({{"ARROW:extension:name", exact_ext_type->extension_name()},
-                          {"ARROW:extension:metadata", serialized}});
+                          {"ARROW:extension:metadata", serialized_}});
   auto ext_field = field("f0", exact_ext_type, true, ext_metadata);
   auto batch = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {ext_arr});
   std::shared_ptr<RecordBatch> read_batch;
@@ -243,19 +245,18 @@ TEST_F(TestExtensionType, RoudtripBatch) {
 }
 
 TEST_F(TestExtensionType, RoudtripBatchFromTensor) {
-  auto ext_type = fixed_shape_tensor(value_type, cell_shape, {}, dim_names);
-  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
-  ASSERT_OK_AND_ASSIGN(
-      auto tensor, Tensor::Make(value_type, Buffer::Wrap(values), shape, {}, dim_names));
+  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
+  ASSERT_OK_AND_ASSIGN(auto tensor, Tensor::Make(value_type_, Buffer::Wrap(values_),
+                                                 shape_, {}, dim_names_));
   EXPECT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
   ext_arr->data()->type = exact_ext_type;
 
-  ASSERT_OK(UnregisterExtensionType(ext_type->extension_name()));
-  ASSERT_OK(RegisterExtensionType(ext_type));
+  ASSERT_OK(UnregisterExtensionType(ext_type_->extension_name()));
+  ASSERT_OK(RegisterExtensionType(ext_type_));
   auto ext_metadata =
-      key_value_metadata({{"ARROW:extension:name", ext_type->extension_name()},
-                          {"ARROW:extension:metadata", serialized}});
-  auto ext_field = field("f0", ext_type, true, ext_metadata);
+      key_value_metadata({{"ARROW:extension:name", ext_type_->extension_name()},
+                          {"ARROW:extension:metadata", serialized_}});
+  auto ext_field = field("f0", ext_type_, true, ext_metadata);
   auto batch = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {ext_arr});
   std::shared_ptr<RecordBatch> read_batch;
   RoundtripBatch(batch, &read_batch);
@@ -263,12 +264,11 @@ TEST_F(TestExtensionType, RoudtripBatchFromTensor) {
 }
 
 TEST_F(TestExtensionType, ComputeStrides) {
-  auto ext_type = fixed_shape_tensor(value_type, cell_shape, {}, dim_names);
-  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
+  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
 
-  auto ext_type_1 = fixed_shape_tensor(int64(), cell_shape, {}, dim_names);
-  auto ext_type_2 = fixed_shape_tensor(int64(), cell_shape, {}, dim_names);
-  auto ext_type_3 = fixed_shape_tensor(int32(), cell_shape, {}, dim_names);
+  auto ext_type_1 = fixed_shape_tensor(int64(), cell_shape_, {}, dim_names_);
+  auto ext_type_2 = fixed_shape_tensor(int64(), cell_shape_, {}, dim_names_);
+  auto ext_type_3 = fixed_shape_tensor(int32(), cell_shape_, {}, dim_names_);
   ASSERT_TRUE(ext_type_1->Equals(*ext_type_2));
   ASSERT_FALSE(ext_type_1->Equals(*ext_type_3));
 

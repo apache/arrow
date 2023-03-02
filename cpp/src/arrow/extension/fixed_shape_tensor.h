@@ -23,6 +23,13 @@
 namespace arrow {
 namespace extension {
 
+const std::shared_ptr<DataType> GetStorageType(
+    const std::shared_ptr<DataType>& value_type, const std::vector<int64_t>& shape);
+
+const std::vector<int64_t> ComputeStrides(const std::shared_ptr<DataType>& value_type,
+                                          const std::vector<int64_t>& shape,
+                                          const std::vector<int64_t>& permutation);
+
 class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
@@ -92,11 +99,6 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
   Result<std::shared_ptr<Tensor>> ToTensor(std::shared_ptr<Array> arr) const;
 
  private:
-  const std::vector<int64_t> ComputeStrides(const std::shared_ptr<DataType> type,
-                                            const std::vector<int64_t> shape,
-                                            const std::vector<int64_t> permutation) const;
-  std::shared_ptr<DataType> GetStorageType(const std::shared_ptr<DataType>& value_type,
-                                           const std::vector<int64_t>& shape) const;
   std::shared_ptr<DataType> storage_type_;
   std::shared_ptr<DataType> value_type_;
   std::vector<int64_t> shape_;
