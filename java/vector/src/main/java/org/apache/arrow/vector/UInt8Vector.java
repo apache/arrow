@@ -291,7 +291,8 @@ public final class UInt8Vector extends BaseFixedWidthVector implements BaseIntVe
    * Construct a TransferPair comprising of this and a target vector of
    * the same type.
    *
-   * @param field Field object used by the vector
+   * @param field Field object used by the target vector
+   * @param allocator allocator for the target vector
    * @return {@link TransferPair}
    */
   @Override
