@@ -495,8 +495,13 @@ TYPED_TEST(TestLocalFS, NeedsExtendedFileInfo) {
 
   SortInfos(&infos);
   AssertFileInfo(infos[0], "AB", FileType::Directory);
+#ifdef _WIN32
+  AssertFileInfo(infos[1], "AB\\CD", FileType::Directory);
+  AssertFileInfo(infos[2], "AB\\ab", FileType::File);
+#else
   AssertFileInfo(infos[1], "AB/CD", FileType::Directory);
   AssertFileInfo(infos[2], "AB/ab", FileType::File);
+#endif
 
   for (FileInfo info : infos) {
     ASSERT_EQ(info.size(), kNoSize);
