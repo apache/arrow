@@ -1813,6 +1813,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
   bool HasMoreData() const override { return this->pager_ != nullptr; }
 
+  const ColumnDescriptor* descr() const override { return this->descr_; }
+
   // Dictionary decoders must be reset when advancing row groups
   void ResetDecoders() { this->decoders_.clear(); }
 
