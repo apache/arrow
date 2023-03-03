@@ -90,8 +90,8 @@ CheckForGetNextSegment(const Batch& batch, int64_t offset,
   return CheckForGetNextSegment(batch.values, batch.length, offset, key_types);
 }
 
-struct BaseGroupingSegmenter : public GroupingSegmenter {
-  explicit BaseGroupingSegmenter(const std::vector<TypeHolder>& key_types)
+struct BaseRowSegmenter : public RowSegmenter {
+  explicit BaseRowSegmenter(const std::vector<TypeHolder>& key_types)
       : key_types_(key_types) {}
 
   const std::vector<TypeHolder>& key_types() const override { return key_types_; }
@@ -99,9 +99,8 @@ struct BaseGroupingSegmenter : public GroupingSegmenter {
   std::vector<TypeHolder> key_types_;
 };
 
-GroupingSegment MakeSegment(int64_t batch_length, int64_t offset, int64_t length,
-                            bool extends) {
-  return GroupingSegment{offset, length, offset + length >= batch_length, extends};
+Segment MakeSegment(int64_t batch_length, int64_t offset, int64_t length, bool extends) {
+  return Segment{offset, length, offset + length >= batch_length, extends};
 }
 
 int64_t GetMatchLength(const uint8_t* match_bytes, int64_t match_width,
@@ -121,32 +120,32 @@ using ExtendFunc = std::function<bool(const void*)>;
 constexpr bool kDefaultExtends = true;
 constexpr bool kEmptyExtends = true;
 
-struct NoKeysGroupingSegmenter : public BaseGroupingSegmenter {
-  static std::unique_ptr<GroupingSegmenter> Make() {
-    return std::make_unique<NoKeysGroupingSegmenter>();
+struct NoKeysSegmenter : public BaseRowSegmenter {
+  static std::unique_ptr<RowSegmenter> Make() {
+    return std::make_unique<NoKeysSegmenter>();
   }
 
-  NoKeysGroupingSegmenter() : BaseGroupingSegmenter({}) {}
+  NoKeysSegmenter() : BaseRowSegmenter({}) {}
 
   Status Reset() override { return Status::OK(); }
 
-  Result<GroupingSegment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
+  Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
     ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {}));
     return MakeSegment(batch.length, offset, batch.length - offset, kDefaultExtends);
   }
 };
 
-struct SimpleKeyGroupingSegmenter : public BaseGroupingSegmenter {
-  static Result<std::unique_ptr<GroupingSegmenter>> Make(TypeHolder key_type) {
-    return std::make_unique<SimpleKeyGroupingSegmenter>(key_type);
+struct SimpleKeySegmenter : public BaseRowSegmenter {
+  static Result<std::unique_ptr<RowSegmenter>> Make(TypeHolder key_type) {
+    return std::make_unique<SimpleKeySegmenter>(key_type);
   }
 
-  explicit SimpleKeyGroupingSegmenter(TypeHolder key_type)
-      : BaseGroupingSegmenter({key_type}), key_type_(key_types_[0]), save_key_data_() {}
+  explicit SimpleKeySegmenter(TypeHolder key_type)
+      : BaseRowSegmenter({key_type}), key_type_(key_types_[0]), save_key_data_() {}
 
   Status CheckType(const DataType& type) {
     if (!is_fixed_width(type)) {
-      return Status::Invalid("SimpleKeyGroupingSegmenter does not support type ", type);
+      return Status::Invalid("SimpleKeySegmenter does not support type ", type);
     }
     return Status::OK();
   }
@@ -168,8 +167,7 @@ struct SimpleKeyGroupingSegmenter : public BaseGroupingSegmenter {
     return extends;
   }
 
-  Result<GroupingSegment> GetNextSegment(const Scalar& scalar, int64_t offset,
-                                         int64_t length) {
+  Result<Segment> GetNextSegment(const Scalar& scalar, int64_t offset, int64_t length) {
     ARROW_RETURN_NOT_OK(CheckType(*scalar.type));
     if (!scalar.is_valid) {
       return Status::Invalid("segmenting an invalid scalar");
@@ -179,9 +177,8 @@ struct SimpleKeyGroupingSegmenter : public BaseGroupingSegmenter {
     return MakeSegment(length, offset, length, extends);
   }
 
-  Result<GroupingSegment> GetNextSegment(const DataType& array_type,
-                                         const uint8_t* array_bytes, int64_t offset,
-                                         int64_t length) {
+  Result<Segment> GetNextSegment(const DataType& array_type, const uint8_t* array_bytes,
+                                 int64_t offset, int64_t length) {
     RETURN_NOT_OK(CheckType(array_type));
     int64_t byte_width = array_type.byte_width();
     int64_t match_length = GetMatchLength(array_bytes + offset * byte_width, byte_width,
@@ -190,7 +187,7 @@ struct SimpleKeyGroupingSegmenter : public BaseGroupingSegmenter {
     return MakeSegment(length, offset, match_length, extends);
   }
 
-  Result<GroupingSegment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
+  Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
     ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {key_type_}));
     if (offset == batch.length) {
       return MakeSegment(batch.length, offset, 0, kEmptyExtends);
@@ -212,15 +209,15 @@ struct SimpleKeyGroupingSegmenter : public BaseGroupingSegmenter {
   std::vector<uint8_t> save_key_data_;
 };
 
-struct AnyKeysGroupingSegmenter : public BaseGroupingSegmenter {
-  static Result<std::unique_ptr<GroupingSegmenter>> Make(
+struct AnyKeysSegmenter : public BaseRowSegmenter {
+  static Result<std::unique_ptr<RowSegmenter>> Make(
       const std::vector<TypeHolder>& key_types, ExecContext* ctx) {
     ARROW_RETURN_NOT_OK(Grouper::Make(key_types, ctx));  // check types
-    return std::make_unique<AnyKeysGroupingSegmenter>(key_types, ctx);
+    return std::make_unique<AnyKeysSegmenter>(key_types, ctx);
   }
 
-  AnyKeysGroupingSegmenter(const std::vector<TypeHolder>& key_types, ExecContext* ctx)
-      : BaseGroupingSegmenter(key_types),
+  AnyKeysSegmenter(const std::vector<TypeHolder>& key_types, ExecContext* ctx)
+      : BaseRowSegmenter(key_types),
         ctx_(ctx),
         grouper_(nullptr),
         save_group_id_(kNoGroupId) {}
@@ -245,7 +242,7 @@ struct AnyKeysGroupingSegmenter : public BaseGroupingSegmenter {
   Result<group_id_t> MapGroupIdAt(const Batch& batch, int64_t offset) {
     if (!grouper_) return kNoGroupId;
     ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch, offset,
-                                                        /*consume_length=*/1));
+                                                        /*length=*/1));
     if (!datum.is_array()) {
       return Status::Invalid("accessing unsupported datum kind ", datum.kind());
     }
@@ -257,7 +254,7 @@ struct AnyKeysGroupingSegmenter : public BaseGroupingSegmenter {
     return values[0];
   }
 
-  Result<GroupingSegment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
+  Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
     ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, key_types_));
     if (offset == batch.length) {
       return MakeSegment(batch.length, offset, 0, kEmptyExtends);
@@ -311,17 +308,17 @@ Status CheckForConsume(int64_t batch_length, int64_t& consume_offset,
 
 }  // namespace
 
-Result<std::unique_ptr<GroupingSegmenter>> GroupingSegmenter::Make(
+Result<std::unique_ptr<RowSegmenter>> RowSegmenter::Make(
     const std::vector<TypeHolder>& key_types, bool nullable_keys, ExecContext* ctx) {
   if (key_types.size() == 0) {
-    return NoKeysGroupingSegmenter::Make();
+    return NoKeysSegmenter::Make();
   } else if (!nullable_keys && key_types.size() == 1) {
     const DataType* type = key_types[0].type;
     if (type != NULLPTR && is_fixed_width(*type)) {
-      return SimpleKeyGroupingSegmenter::Make(key_types[0]);
+      return SimpleKeySegmenter::Make(key_types[0]);
     }
   }
-  return AnyKeysGroupingSegmenter::Make(key_types, ctx);
+  return AnyKeysSegmenter::Make(key_types, ctx);
 }
 
 namespace {
@@ -329,9 +326,8 @@ namespace {
 struct BaseGrouper : public Grouper {
   using Grouper::Consume;
 
-  Result<Datum> Consume(const ExecBatch& batch, int64_t consume_offset,
-                        int64_t consume_length) override {
-    return Consume(ExecSpan(batch), consume_offset, consume_length);
+  Result<Datum> Consume(const ExecBatch& batch, int64_t offset, int64_t length) override {
+    return Consume(ExecSpan(batch), offset, length);
   }
 };
 
@@ -352,14 +348,12 @@ struct GrouperNoKeysImpl : Grouper {
     RETURN_NOT_OK(builder->Finish(&array));
     return std::move(array);
   }
-  Result<Datum> Consume(const ExecSpan& batch, int64_t consume_offset,
-                        int64_t consume_length) override {
-    ARROW_ASSIGN_OR_RAISE(auto array, MakeConstantGroupIdArray(consume_length, 0));
+  Result<Datum> Consume(const ExecSpan& batch, int64_t offset, int64_t length) override {
+    ARROW_ASSIGN_OR_RAISE(auto array, MakeConstantGroupIdArray(length, 0));
     return Datum(array);
   }
-  Result<Datum> Consume(const ExecBatch& batch, int64_t consume_offset,
-                        int64_t consume_length) override {
-    ARROW_ASSIGN_OR_RAISE(auto array, MakeConstantGroupIdArray(consume_length, 0));
+  Result<Datum> Consume(const ExecBatch& batch, int64_t offset, int64_t length) override {
+    ARROW_ASSIGN_OR_RAISE(auto array, MakeConstantGroupIdArray(length, 0));
     return Datum(array);
   }
   Result<ExecBatch> GetUniques() override {
@@ -425,11 +419,10 @@ struct GrouperImpl : public BaseGrouper {
 
   using BaseGrouper::Consume;
 
-  Result<Datum> Consume(const ExecSpan& batch, int64_t consume_offset,
-                        int64_t consume_length) override {
-    ARROW_RETURN_NOT_OK(CheckForConsume(batch.length, consume_offset, &consume_length));
-    if (consume_offset != 0 || consume_length != batch.length) {
-      auto batch_slice = batch.ToExecBatch().Slice(consume_offset, consume_length);
+  Result<Datum> Consume(const ExecSpan& batch, int64_t offset, int64_t length) override {
+    ARROW_RETURN_NOT_OK(CheckForConsume(batch.length, offset, &length));
+    if (offset != 0 || length != batch.length) {
+      auto batch_slice = batch.ToExecBatch().Slice(offset, length);
       return Consume(ExecSpan(batch_slice), 0, -1);
     }
     std::vector<int32_t> offsets_batch(batch.length + 1);
@@ -606,11 +599,10 @@ struct GrouperFastImpl : public BaseGrouper {
 
   using BaseGrouper::Consume;
 
-  Result<Datum> Consume(const ExecSpan& batch, int64_t consume_offset,
-                        int64_t consume_length) override {
-    ARROW_RETURN_NOT_OK(CheckForConsume(batch.length, consume_offset, &consume_length));
-    if (consume_offset != 0 || consume_length != batch.length) {
-      auto batch_slice = batch.ToExecBatch().Slice(consume_offset, consume_length);
+  Result<Datum> Consume(const ExecSpan& batch, int64_t offset, int64_t length) override {
+    ARROW_RETURN_NOT_OK(CheckForConsume(batch.length, offset, &length));
+    if (offset != 0 || length != batch.length) {
+      auto batch_slice = batch.ToExecBatch().Slice(offset, length);
       return Consume(ExecSpan(batch_slice), 0, -1);
     }
     // ARROW-14027: broadcast scalar arguments for now
