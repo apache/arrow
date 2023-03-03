@@ -649,6 +649,8 @@ class TestConvertMetadata:
 
     @pytest.mark.parametrize("index", ["a", ["a", "b"]])
     def test_to_pandas_types_mapper_index(self, index):
+        if Version(pd.__version__) < Version("1.5.0"):
+            pytest.skip("ArrowDtype missing")
         df = pd.DataFrame(
             {
                 "a": [1, 2],
