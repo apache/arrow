@@ -60,6 +60,8 @@ class TableSourceNodeOptions(_TableSourceNodeOptions):
     """
     A Source node which accepts a table.
 
+    This is the option class for the "table_source" node factory.
+
     Parameters
     ----------
     table : pyarrow.Table
@@ -81,6 +83,8 @@ cdef class _FilterNodeOptions(ExecNodeOptions):
 class FilterNodeOptions(_FilterNodeOptions):
     """
     Make a node which excludes some rows from batches passed through it.
+
+    This is the option class for the "filter" node factory.
 
     The "filter" operation provides an option to define data filtering
     criteria. It selects rows where the given expression evaluates to true.
@@ -129,6 +133,8 @@ class ProjectNodeOptions(_ProjectNodeOptions):
     """
     Make a node which executes expressions on input batches,
     producing batches of the same length with new columns.
+
+    This is the option class for the "project" node factory.
 
     The "project" operation rearranges, deletes, transforms, and
     creates columns. Each output column is computed by evaluating
@@ -188,6 +194,8 @@ cdef class _AggregateNodeOptions(ExecNodeOptions):
 class AggregateNodeOptions(_AggregateNodeOptions):
     """
     Make a node which aggregates input batches, optionally grouped by keys.
+
+    This is the option class for the "aggregate" node factory.
 
     Acero supports two types of aggregates: "scalar" aggregates,
     and "hash" aggregates. Scalar aggregates reduce an array or scalar
@@ -306,6 +314,8 @@ class HashJoinNodeOptions(_HashJoinNodeOptions):
     """
     Make a node which implements join operation using hash join strategy.
 
+    This is the option class for the "hashjoin" node factory.
+
     Parameters
     ----------
     join_type : str
@@ -317,13 +327,15 @@ class HashJoinNodeOptions(_HashJoinNodeOptions):
     right_keys : str, Expression or list
         Key fields from right input. See `left_keys` for details.
     left_output : list, optional
-        Output fields passed from left input. If left and right output
-        fields are not specified, all valid fields from both left and
-        right input will be output
+        List of output fields passed from left input. If left and right
+        output fields are not specified, all valid fields from both left and
+        right input will be output. Each field can be a string column name
+        or a field expression.
     right_output : list, optional
-        Output fields passed from right input. If left and right output
-        fields are not specified, all valid fields from both left and
-        right input will be output
+        List of output fields passed from right input. If left and right
+        output fields are not specified, all valid fields from both left and
+        right input will be output. Each field can be a string column name
+        or a field expression.
     output_suffix_for_left : str
         Suffix added to names of output fields coming from left input
         (used to distinguish, if necessary, between fields of the same
@@ -352,17 +364,22 @@ cdef class Declaration(_Weakrefable):
     more since its inputs may also be Declarations or when constructed
     with ``from_sequence``.
 
+    The possible ExecNodes to use are registered with a name,
+    the "factory name", and need to be specified using this name, together
+    with its corresponding ExecNodeOptions subclass.
+
     Parameters
     ----------
     factory_name : str
         The ExecNode factory name, such as "table_source", "filter",
-        "project" etc.
+        "project" etc. See the ExecNodeOptions subclasses for the exact
+        factory names to use.
     options : ExecNodeOptions
         Corresponding ExecNodeOptions subclass (matching the factory name).
     inputs : list of Declaration, optional
         Input nodes for this declaration. Optional if the node is a source
         node, or when the declaration gets combined later with
-        `from_sequence`.
+        ``from_sequence``.
 
     Returns
     -------
