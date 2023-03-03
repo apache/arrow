@@ -487,7 +487,7 @@ func (d *Driver) BeginTx(ctx context.Context, opts sql.TxOptions) (driver.Tx, er
 	return &Tx{tx: tx, timeout: d.timeout}, nil
 }
 
-func fromArrowType(arr arrow.Array, idx int) (any, error) {
+func fromArrowType(arr arrow.Array, idx int) (interface{}, error) {
 	switch c := arr.(type) {
 	case *array.Boolean:
 		return c.Value(idx), nil
@@ -533,7 +533,7 @@ func fromArrowType(arr arrow.Array, idx int) (any, error) {
 	return nil, fmt.Errorf("type %T: %w", arr, ErrNotSupported)
 }
 
-func toArrowDataType(value any) (arrow.DataType, error) {
+func toArrowDataType(value interface{}) (arrow.DataType, error) {
 	switch value.(type) {
 	case bool:
 		return &arrow.BooleanType{}, nil
@@ -565,7 +565,7 @@ func toArrowDataType(value any) (arrow.DataType, error) {
 	return nil, fmt.Errorf("type %T: %w", value, ErrNotSupported)
 }
 
-func setFieldValue(builder array.Builder, arg any) error {
+func setFieldValue(builder array.Builder, arg interface{}) error {
 	switch b := builder.(type) {
 	case *array.BooleanBuilder:
 		switch v := arg.(type) {
