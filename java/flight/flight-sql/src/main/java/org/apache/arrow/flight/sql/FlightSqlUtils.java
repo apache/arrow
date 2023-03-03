@@ -33,8 +33,6 @@ import com.google.protobuf.Message;
  */
 public final class FlightSqlUtils {
 
-  public static final MetricRegistry metrics = new MetricRegistry();
-
   public static final ActionType FLIGHT_SQL_BEGIN_SAVEPOINT =
       new ActionType("BeginSavepoint",
           "Create a new savepoint.\n" +

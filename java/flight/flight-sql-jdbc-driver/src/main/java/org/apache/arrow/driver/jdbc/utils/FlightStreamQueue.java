@@ -20,7 +20,7 @@ package org.apache.arrow.driver.jdbc.utils;
 import static com.codahale.metrics.MetricRegistry.name;
 import static java.lang.String.format;
 import static java.util.Collections.synchronizedSet;
-import static org.apache.arrow.flight.sql.FlightSqlUtils.metrics;
+import static org.apache.arrow.flight.FlightStream.metrics;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 import static org.apache.arrow.util.Preconditions.checkState;
 

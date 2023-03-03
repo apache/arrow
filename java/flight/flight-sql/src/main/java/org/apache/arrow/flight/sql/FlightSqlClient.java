@@ -18,7 +18,6 @@
 package org.apache.arrow.flight.sql;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import static org.apache.arrow.flight.sql.FlightSqlUtils.metrics;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionBeginSavepointRequest;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionBeginSavepointResult;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionBeginTransactionRequest;

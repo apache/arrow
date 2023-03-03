@@ -35,7 +35,7 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 
-import static org.apache.arrow.flight.sql.FlightSqlUtils.metrics;
+import static org.apache.arrow.flight.FlightStream.metrics;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**

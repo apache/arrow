@@ -56,7 +56,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import static org.apache.arrow.flight.sql.FlightSqlUtils.metrics;
 
 /**
  * A {@link FlightSqlClient} handler.

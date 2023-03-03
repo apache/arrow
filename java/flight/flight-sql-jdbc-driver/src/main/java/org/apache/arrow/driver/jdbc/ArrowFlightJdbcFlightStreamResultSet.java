@@ -19,7 +19,7 @@ package org.apache.arrow.driver.jdbc;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import static org.apache.arrow.driver.jdbc.utils.FlightStreamQueue.createNewQueue;
-import static org.apache.arrow.flight.sql.FlightSqlUtils.metrics;
+import static org.apache.arrow.flight.FlightStream.metrics;
 
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
