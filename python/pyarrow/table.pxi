@@ -342,11 +342,9 @@ cdef class ChunkedArray(_PandasConvertible):
           [
             false,
             true,
-            false
-          ],
-          [
             false,
-            None,
+            false,
+            null,
             false
           ]
         ]
