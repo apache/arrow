@@ -51,7 +51,7 @@ struct ARROW_ENGINE_EXPORT RelationInfo {
 };
 
 /// Information resulting from converting a Substrait plan
-struct PlanInfo {
+struct ARROW_ENGINE_EXPORT PlanInfo {
   /// The root declaration.
   ///
   /// Only plans containing a single top-level relation are supported and so this will
