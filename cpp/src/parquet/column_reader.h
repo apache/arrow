@@ -351,6 +351,9 @@ class PARQUET_EXPORT RecordReader {
   /// \param[in] reader obtained from RowGroupReader::GetColumnPageReader
   virtual void SetPageReader(std::unique_ptr<PageReader> reader) = 0;
 
+  /// \brief Returns the underlying column reader's descriptor.
+  virtual const ColumnDescriptor* descr() const = 0;
+
   virtual void DebugPrintState() = 0;
 
   /// \brief Decoded definition levels

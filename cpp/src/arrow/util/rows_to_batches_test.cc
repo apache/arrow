@@ -82,7 +82,7 @@ TEST(RowsToBatches, StructAccessor) {
 
   // Test accessor that returns by value instead of using `std::reference_wrapper`
   auto accessor_by_value = [](const TestStruct& s) -> Result<std::set<int>> {
-    return std::set(std::begin(s.values), std::end(s.values));
+    return std::set<int>(std::begin(s.values), std::end(s.values));
   };
   auto batches_by_value =
       RowsToBatches(kTestSchema, data, IntConvertor, accessor_by_value).ValueOrDie();

@@ -1038,9 +1038,9 @@ Examples
         ----------
         table_or_batch : {RecordBatch, Table}
         row_group_size : int, default None
-            Maximum size of each written row group. If None, the
-            row group size will be the minimum of the input
-            table or batch length and 64 * 1024 * 1024.
+            Maximum number of rows in each written row group. If None,
+            the row group size will be the minimum of the input
+            table or batch length and 1024 * 1024.
         """
         if isinstance(table_or_batch, pa.RecordBatch):
             self.write_batch(table_or_batch, row_group_size)
@@ -1057,9 +1057,9 @@ Examples
         ----------
         batch : RecordBatch
         row_group_size : int, default None
-            Maximum size of each written row group. If None, the
+            Maximum number of rows in written row group. If None, the
             row group size will be the minimum of the RecordBatch
-            size and 64 * 1024 * 1024.
+            size and 1024 * 1024.
         """
         table = pa.Table.from_batches([batch], batch.schema)
         self.write_table(table, row_group_size)
@@ -1072,9 +1072,9 @@ Examples
         ----------
         table : Table
         row_group_size : int, default None
-            Maximum size of each written row group. If None, the
-            row group size will be the minimum of the Table size
-            and 64 * 1024 * 1024.
+            Maximum number of rows in each written row group. If None,
+            the row group size will be the minimum of the Table size
+            and 1024 * 1024.
 
         """
         if self.schema_changed:
@@ -3153,9 +3153,9 @@ Parameters
 table : pyarrow.Table
 where : string or pyarrow.NativeFile
 row_group_size : int
-    Maximum size of each written row group. If None, the
-    row group size will be the minimum of the Table size
-    and 64 * 1024 * 1024.
+    Maximum number of rows in each written row group. If None, the
+    row group size will be the minimum of the Table size and
+    1024 * 1024.
 {}
 **kwargs : optional
     Additional options for ParquetWriter

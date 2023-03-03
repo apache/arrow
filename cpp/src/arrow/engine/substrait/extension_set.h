@@ -67,6 +67,12 @@ constexpr const char* kSubstraitAggregateGenericFunctionsUri =
     "https://github.com/substrait-io/substrait/blob/main/extensions/"
     "functions_aggregate_generic.yaml";
 
+/// If a function call contains this URI then the function is looked up
+/// in the registry directly, all arguments are mapped as value arguments,
+/// and any options are ignored.
+constexpr const char* kArrowSimpleExtensionFunctionsUri =
+    "urn:arrow:substrait_simple_extension_function";
+
 struct ARROW_ENGINE_EXPORT Id {
   std::string_view uri, name;
   bool empty() const { return uri.empty() && name.empty(); }
@@ -136,6 +142,7 @@ class ARROW_ENGINE_EXPORT SubstraitCall {
       std::string_view option_name) const;
   void SetOption(std::string_view option_name,
                  const std::vector<std::string_view>& option_preferences);
+  bool HasOptions() const;
   int size() const { return size_; }
 
  private:

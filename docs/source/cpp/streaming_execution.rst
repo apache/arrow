@@ -405,10 +405,6 @@ their completion::
 Constructing ``ExecPlan`` objects
 =================================
 
-.. warning::
-
-    The following will be superceded by construction from Compute IR, see ARROW-14074.
-
 None of the concrete implementations of :class:`ExecNode` are exposed
 in headers, so they can't be constructed directly outside the
 translation unit where they are defined. Instead, factories to

@@ -17,6 +17,10 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/localfs.h"
+#include "arrow/status.h"
+
 #include "parquet/encryption/file_key_unwrapper.h"
 #include "parquet/encryption/file_key_wrapper.h"
 #include "parquet/encryption/test_encryption_util.h"
@@ -27,16 +31,40 @@ namespace encryption {
 namespace test {
 
 class KeyWrappingTest : public ::testing::Test {
- public:
+ protected:
+  std::unique_ptr<TemporaryDir> temp_dir_;
+
   void SetUp() {
     key_list_ = BuildKeyMap(kColumnMasterKeyIds, kColumnMasterKeys, kFooterMasterKeyId,
                             kFooterMasterKey);
+    temp_dir_ = temp_data_dir().ValueOrDie();
   }
 
- protected:
-  void WrapThenUnwrap(std::shared_ptr<FileKeyMaterialStore> key_material_store,
-                      bool double_wrapping, bool is_wrap_locally) {
+  void WrapThenUnwrap(bool internal_key_material, bool double_wrapping,
+                      bool is_wrap_locally) {
     double cache_entry_lifetime_seconds = 600;
+    std::shared_ptr<FileKeyMaterialStore> key_material_store;
+    std::shared_ptr<::arrow::fs::FileSystem> file_system = nullptr;
+    std::string file_name;
+    if (internal_key_material) {
+      key_material_store = nullptr;
+    } else {
+      file_name += double_wrapping ? "double_wrapping" : "no_double_wrapping";
+      file_name += is_wrap_locally ? "-wrap_locally" : "-wrap_on_server";
+      file_name +=
+          internal_key_material ? "-internal_key_material" : "-external_key_material";
+
+      file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
+      std::string writeable_file_path(temp_dir_->path().ToString() + file_name);
+      try {
+        key_material_store =
+            FileSystemKeyMaterialStore::Make(writeable_file_path, file_system, false);
+      } catch (ParquetException& e) {
+        std::stringstream ss;
+        ss << "Failed to get key material store" << e.what() << "\n";
+        throw ParquetException(ss.str());
+      }
+    }
 
     KeyToolkit key_toolkit;
     key_toolkit.RegisterKmsClientFactory(
@@ -50,8 +78,16 @@ class KeyWrappingTest : public ::testing::Test {
     std::string key_metadata_json_column = wrapper.GetEncryptionKeyMetadata(
         kColumnEncryptionKey1, kColumnMasterKeyIds[0], false);
 
+    if (key_material_store != nullptr) key_material_store->SaveMaterial();
+
+    std::string readable_file_path;
+    if (!internal_key_material) {
+      readable_file_path = temp_dir_->path().ToString() + file_name;
+    }
+
     FileKeyUnwrapper unwrapper(&key_toolkit, kms_connection_config_,
-                               cache_entry_lifetime_seconds);
+                               cache_entry_lifetime_seconds, readable_file_path,
+                               file_system);
     std::string footer_key = unwrapper.GetKey(key_metadata_json_footer);
     ASSERT_EQ(footer_key, kFooterEncryptionKey);
 
@@ -59,43 +95,22 @@ class KeyWrappingTest : public ::testing::Test {
     ASSERT_EQ(column_key, kColumnEncryptionKey1);
   }
 
-  // TODO: this method will be removed when material external storage is supported
-  void WrapThenUnwrapWithUnsupportedExternalStorage(bool double_wrapping,
-                                                    bool is_wrap_locally) {
-    double cache_entry_lifetime_seconds = 600;
-
-    KeyToolkit key_toolkit;
-    key_toolkit.RegisterKmsClientFactory(
-        std::make_shared<TestOnlyInMemoryKmsClientFactory>(is_wrap_locally, key_list_));
-
-    std::shared_ptr<FileKeyMaterialStore> unsupported_material_store =
-        std::make_shared<FileKeyMaterialStore>();
-
-    FileKeyWrapper wrapper(&key_toolkit, kms_connection_config_,
-                           unsupported_material_store, cache_entry_lifetime_seconds,
-                           double_wrapping);
-
-    EXPECT_THROW(
-        wrapper.GetEncryptionKeyMetadata(kFooterEncryptionKey, kFooterMasterKeyId, true),
-        ParquetException);
-  }
-
   std::unordered_map<std::string, std::string> key_list_;
   KmsConnectionConfig kms_connection_config_;
 };
 
 TEST_F(KeyWrappingTest, InternalMaterialStorage) {
-  // key_material_store = NULL indicates that "key material" is stored inside parquet
-  // file.
-  this->WrapThenUnwrap(NULL, true, true);
-  this->WrapThenUnwrap(NULL, true, false);
-  this->WrapThenUnwrap(NULL, false, true);
-  this->WrapThenUnwrap(NULL, false, false);
+  this->WrapThenUnwrap(true, true, true);
+  this->WrapThenUnwrap(true, true, false);
+  this->WrapThenUnwrap(true, false, true);
+  this->WrapThenUnwrap(true, false, false);
 }
 
-// TODO: this test should be updated when material external storage is supported
 TEST_F(KeyWrappingTest, ExternalMaterialStorage) {
-  this->WrapThenUnwrapWithUnsupportedExternalStorage(true, true);
+  this->WrapThenUnwrap(false, true, true);
+  this->WrapThenUnwrap(false, true, false);
+  this->WrapThenUnwrap(false, false, true);
+  this->WrapThenUnwrap(false, false, false);
 }
 
 }  // namespace test

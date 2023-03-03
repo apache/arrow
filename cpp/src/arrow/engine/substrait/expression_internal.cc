@@ -320,6 +320,38 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       return function_converter(substrait_call);
     }
 
+    case substrait::Expression::kCast: {
+      const auto& cast_exp = expr.cast();
+      ARROW_ASSIGN_OR_RAISE(auto input,
+                            FromProto(cast_exp.input(), ext_set, conversion_options));
+
+      ARROW_ASSIGN_OR_RAISE(auto type_nullable,
+                            FromProto(cast_exp.type(), ext_set, conversion_options));
+
+      if (!type_nullable.second &&
+          conversion_options.strictness == ConversionStrictness::EXACT_ROUNDTRIP) {
+        return Status::Invalid("Substrait cast type must be of nullable type");
+      }
+
+      if (cast_exp.failure_behavior() ==
+          substrait::Expression::Cast::FailureBehavior::
+              Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_THROW_EXCEPTION) {
+        return compute::call("cast", {std::move(input)},
+                             compute::CastOptions::Safe(std::move(type_nullable.first)));
+      } else if (cast_exp.failure_behavior() ==
+                 substrait::Expression::Cast::FailureBehavior::
+                     Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL) {
+        return Status::NotImplemented(
+            "Unsupported cast failure behavior: "
+            "FAILURE_BEHAVIOR_RETURN_NULL");
+        // i.e. if unspecified
+      } else {
+        return Status::Invalid(
+            "substrait::Expression::Cast::FailureBehavior unspecified; must be "
+            "FAILURE_BEHAVIOR_RETURN_NULL or FAILURE_BEHAVIOR_THROW_EXCEPTION");
+      }
+    }
+
     default:
       break;
   }

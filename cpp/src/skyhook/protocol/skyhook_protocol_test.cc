@@ -17,7 +17,7 @@
 #include "skyhook/protocol/skyhook_protocol.h"
 
 #include "arrow/compute/exec/expression.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 

@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import org.apache.arrow.flight.perf.impl.PerfOuterClass;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -46,11 +49,8 @@ public class TestErrorMetadata {
                 .build();
     StatusRuntimeExceptionProducer producer = new StatusRuntimeExceptionProducer(perf);
     try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         final FlightServer s =
-             FlightTestUtil.getStartedServer(
-               (location) -> {
-                 return FlightServer.builder(allocator, location, producer).build();
-               });
+         final FlightServer s = FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0), producer).build()
+             .start();
          final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
       final CallStatus flightStatus = FlightTestUtil.assertCode(FlightStatusCode.CANCELLED, () -> {
         FlightStream stream = client.getStream(new Ticket("abs".getBytes()));
@@ -80,9 +80,8 @@ public class TestErrorMetadata {
   @Test
   public void testFlightMetadata() throws Exception {
     try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         final FlightServer s =
-                 FlightTestUtil.getStartedServer(
-                   (location) -> FlightServer.builder(allocator, location, new CallStatusProducer()).build());
+         final FlightServer s = FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0), new CallStatusProducer())
+             .build().start();
          final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
       CallStatus flightStatus = FlightTestUtil.assertCode(FlightStatusCode.INVALID_ARGUMENT, () -> {
         FlightStream stream = client.getStream(new Ticket(new byte[0]));

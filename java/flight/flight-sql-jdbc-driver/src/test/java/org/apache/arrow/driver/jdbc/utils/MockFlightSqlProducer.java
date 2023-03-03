@@ -39,6 +39,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
+import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -97,6 +98,8 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
       updateResultProviders =
       new HashMap<>();
   private SqlInfoBuilder sqlInfoBuilder = new SqlInfoBuilder();
+
+  private final Map<String, Integer> actionTypeCounter = new HashMap<>();
 
   private static FlightInfo getFightInfoExportedAndImportedKeys(final Message message,
                                                                 final FlightDescriptor descriptor) {
@@ -501,6 +504,24 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
     // TODO Implement this method.
     throw CallStatus.UNIMPLEMENTED.toRuntimeException();
   }
+
+  @Override
+  public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
+    FlightSqlProducer.super.doAction(context, action, listener);
+    actionTypeCounter.put(action.getType(), actionTypeCounter.getOrDefault(action.getType(), 0) + 1);
+  }
+
+  /**
+   * Clear the `actionTypeCounter` map and restore to its default state. Intended to be used in tests.
+   */
+  public void clearActionTypeCounter() {
+    actionTypeCounter.clear();
+  }
+
+  public Map<String, Integer> getActionTypeCounter() {
+    return actionTypeCounter;
+  }
+
 
   private void getStreamCatalogFunctions(final Message ticket,
                                          final ServerStreamListener serverStreamListener) {
