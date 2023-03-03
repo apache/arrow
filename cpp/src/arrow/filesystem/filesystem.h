@@ -476,6 +476,24 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
                                                       const io::IOContext& io_context,
                                                       std::string* out_path = NULLPTR);
 
+/// \brief Ensure a URI (or path) is compatible with the given filesystem and return the
+///        path
+///
+/// \param filesystem A filesystem that should be capable of fetching the URI
+/// \param uri A URI representing a resource in the given filesystem.
+///
+/// This method will check to ensure the given filesystem is compatible with the
+/// URI.  If that behavior is not desired then NULLPTR can be specified for the
+/// filesystem and that check will be skipped.
+///
+/// uri can be an absolute path instead of a URI.  In that case it will ensure the
+/// filesystem (if supplied) is the local filesystem and will normalize the path's
+/// file separators.
+///
+/// \return The path inside the filesystem that is indicated by the URI.
+Result<std::string> PathFromUriOrPath(const FileSystem* filesystem,
+                                      const std::string& uri);
+
 /// \brief Create a new FileSystem by URI
 ///
 /// Same as FileSystemFromUri, but in addition also recognize non-URIs

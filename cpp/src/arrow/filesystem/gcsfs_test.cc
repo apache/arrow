@@ -1383,9 +1383,15 @@ TEST_F(GcsIntegrationTest, OpenInputFileClosed) {
 
 TEST_F(GcsIntegrationTest, TestFileSystemFromUri) {
   // Smoke test for FileSystemFromUri
-  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri(std::string("gs://anonymous@") +
-                                                  PreexistingBucketPath()));
+  std::string path;
+  ASSERT_OK_AND_ASSIGN(
+      auto fs,
+      FileSystemFromUri(std::string("gs://anonymous@") + PreexistingBucketPath(), &path));
   EXPECT_EQ(fs->type_name(), "gcs");
+  EXPECT_EQ(path, PreexistingBucketName());
+  ASSERT_OK_AND_ASSIGN(path, PathFromUriOrPath(fs.get(), std::string("gs://anonymous@") +
+                                                             PreexistingBucketPath()));
+  EXPECT_EQ(path, PreexistingBucketName());
   ASSERT_OK_AND_ASSIGN(auto fs2, FileSystemFromUri(std::string("gcs://anonymous@") +
                                                    PreexistingBucketPath()));
   EXPECT_EQ(fs2->type_name(), "gcs");

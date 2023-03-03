@@ -1143,6 +1143,9 @@ TEST_F(TestS3FS, FileSystemFromUri) {
   ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri(ss.str(), &path));
   ASSERT_EQ(path, "bucket/somedir/subdir/subfile");
 
+  ASSERT_OK_AND_ASSIGN(path, PathFromUriOrPath(fs.get(), ss.str()));
+  ASSERT_EQ(path, "bucket/somedir/subdir/subfile");
+
   // Check the filesystem has the right connection parameters
   AssertFileInfo(fs.get(), path, FileType::File, 8);
 }

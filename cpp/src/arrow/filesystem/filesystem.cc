@@ -738,7 +738,56 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
   return Status::Invalid("Unrecognized filesystem type in URI: ", uri_string);
 }
 
+Status CheckFileSystem(const FileSystem* filesystem,
+                       const std::string& expected_type_name, const std::string& uri) {
+  if (filesystem && filesystem->type_name() != expected_type_name) {
+    return Status::Invalid("URI ", uri, " is not compatible with filesystem of type ",
+                           filesystem->type_name());
+  }
+  return Status::OK();
+}
+
 }  // namespace
+
+Result<std::string> PathFromUriOrPath(const FileSystem* filesystem,
+                                      const std::string& uri_string) {
+  if (internal::DetectAbsolutePath(uri_string)) {
+    RETURN_NOT_OK(CheckFileSystem(filesystem, "local", uri_string));
+    // Normalize path separators
+    return ToSlashes(uri_string);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto uri, ParseFileSystemUri(uri_string));
+  const auto scheme = uri.scheme();
+  std::string path;
+  if (scheme == "file") {
+    RETURN_NOT_OK(CheckFileSystem(filesystem, "local", uri_string));
+    RETURN_NOT_OK(LocalFileSystemOptions::FromUri(uri, &path));
+  } else if (scheme == "gs" || scheme == "gcs") {
+    RETURN_NOT_OK(CheckFileSystem(filesystem, "gcs", uri_string));
+#ifdef ARROW_GCS
+    RETURN_NOT_OK(GcsOptions::FromUri(uri, &path));
+#else
+    return Status::NotImplemented("Got GCS URI but Arrow compiled without GCS support");
+#endif
+  } else if (scheme == "hdfs" || scheme == "viewfs") {
+    RETURN_NOT_OK(CheckFileSystem(filesystem, "hdfs", uri_string));
+    path = uri.path();
+  } else if (scheme == "s3") {
+    RETURN_NOT_OK(CheckFileSystem(filesystem, "s3", uri_string));
+#ifdef ARROW_S3
+    RETURN_NOT_OK(S3Options::FromUri(uri, &path));
+#else
+    return Status::NotImplemented("Got S3 URI but Arrow compiled without S3 support");
+#endif
+  } else if (scheme == "mock") {
+    RETURN_NOT_OK(CheckFileSystem(filesystem, "mock", uri_string));
+    path = std::string(RemoveLeadingSlash(uri.path()));
+  } else {
+    return Status::Invalid("Unrecognized filesystem type in URI: ", uri_string);
+  }
+  return path;
+}
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_string,
                                                       std::string* out_path) {

@@ -210,13 +210,24 @@ class TestLocalFS : public LocalFSTestMixin {
     ASSERT_EQ(path, expected_path);
   }
 
+  void CheckLocalPathFromUriOrPath(const std::string& uri,
+                                   const std::string& expected_path) {
+    ASSERT_OK_AND_ASSIGN(std::string actual_path, PathFromUriOrPath(nullptr, uri));
+    ASSERT_EQ(actual_path, expected_path);
+    LocalFileSystem lfs;
+    ASSERT_OK_AND_ASSIGN(actual_path, PathFromUriOrPath(&lfs, uri));
+    ASSERT_EQ(actual_path, expected_path);
+  }
+
   // Like TestFileSystemFromUri, but with an arbitrary non-existing path
   void TestLocalUri(const std::string& uri, const std::string& expected_path) {
     CheckLocalUri(uri, expected_path, FSFromUri);
+    CheckLocalPathFromUriOrPath(uri, expected_path);
   }
 
   void TestLocalUriOrPath(const std::string& uri, const std::string& expected_path) {
     CheckLocalUri(uri, expected_path, FSFromUriOrPath);
+    CheckLocalPathFromUriOrPath(uri, expected_path);
   }
 
   void TestInvalidUri(const std::string& uri) {
@@ -231,6 +242,14 @@ class TestLocalFS : public LocalFSTestMixin {
       return;  // skip
     }
     ASSERT_RAISES(Invalid, FileSystemFromUriOrPath(uri));
+    LocalFileSystem lfs;
+    ASSERT_RAISES(Invalid, PathFromUriOrPath(&lfs, uri));
+  }
+
+  void TestNonMatchingUri(const std::string& uri) {
+    // Legitimate URI for the wrong filesystem
+    LocalFileSystem lfs;
+    ASSERT_RAISES(Invalid, PathFromUriOrPath(&lfs, uri));
   }
 
   void CheckConcreteFile(const std::string& path, int64_t expected_size) {
@@ -358,6 +377,10 @@ TYPED_TEST(TestLocalFS, FileSystemFromUriNoSchemeBackslashes) {
   // Relative paths
   this->TestInvalidUriOrPath("C:foo\\bar");
   this->TestInvalidUriOrPath("foo\\bar");
+}
+
+TYPED_TEST(TestLocalFS, MismatchedFilesystemPathFromUri) {
+  this->TestNonMatchingUri("s3://foo");
 }
 
 TYPED_TEST(TestLocalFS, DirectoryMTime) {
