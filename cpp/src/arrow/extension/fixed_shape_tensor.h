@@ -64,7 +64,7 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
   /// Permutation mapping from logical to physical memory layout of tensor elements
   const std::vector<int64_t>& permutation() const { return permutation_; }
 
-  /// Dimension names of tensor elements. Dimensions are ordered logically.
+  /// Dimension names of tensor elements. Dimensions are ordered physically.
   const std::vector<std::string>& dim_names() const { return dim_names_; }
 
   bool ExtensionEquals(const ExtensionType& other) const override;
@@ -80,7 +80,7 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
 
   /// \brief Create a FixedShapeTensorArray from a Tensor
   ///
-  /// This function will create a FixedShapeTensorArray from a Tensor, taking it's
+  /// This function will create a FixedShapeTensorArray from a Tensor, taking its
   /// first dimension as the "element dimension" and the remaining dimensions as the
   /// "tensor dimensions". The tensor dimensions must match the FixedShapeTensorType's
   /// element shape. This function assumes that the tensor's memory layout is
@@ -91,7 +91,7 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
 
   /// \brief Create a Tensor from FixedShapeTensorArray
   ///
-  /// This function will create a Tensor from a FixedShapeTensorArray, setting it's
+  /// This function will create a Tensor from a FixedShapeTensorArray, setting its
   /// first dimension as length equal to the FixedShapeTensorArray's length and the
   /// remaining dimensions as the FixedShapeTensorType's element shape.
   ///

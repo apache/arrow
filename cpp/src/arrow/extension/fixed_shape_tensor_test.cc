@@ -95,6 +95,7 @@ TEST_F(TestExtensionType, CreateExtensionType) {
   // Test ExtensionType methods
   ASSERT_EQ(ext_type_->extension_name(), "arrow.fixed_shape_tensor");
   ASSERT_TRUE(ext_type_->Equals(*exact_ext_type));
+  ASSERT_FALSE(ext_type_->Equals(*cell_type_));
   ASSERT_TRUE(ext_type_->storage_type()->Equals(*cell_type_));
   ASSERT_EQ(ext_type_->Serialize(), serialized_);
   ASSERT_OK_AND_ASSIGN(auto ds,
@@ -285,7 +286,7 @@ TEST_F(TestExtensionType, ComputeStrides) {
   ASSERT_EQ(ext_type_6->strides(), (std::vector<int64_t>{56, 8, 224}));
   ASSERT_EQ(ext_type_6->Serialize(), R"({"shape":[3,4,7],"permutation":[1,2,0]})");
 
-  auto ext_type_7 = fixed_shape_tensor(int64(), {3, 4, 7}, {2, 0, 1}, {});
+  auto ext_type_7 = fixed_shape_tensor(int32(), {3, 4, 7}, {2, 0, 1}, {});
   ASSERT_EQ(ext_type_7->strides(), (std::vector<int64_t>{8, 224, 56}));
   ASSERT_EQ(ext_type_7->Serialize(), R"({"shape":[3,4,7],"permutation":[2,0,1]})");
 }
