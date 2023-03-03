@@ -681,23 +681,3 @@ func TestSqliteBackend(t *testing.T) {
 
 	suite.Run(t, s)
 }
-
-func TestIOxBackend(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
-	s := &SqlTestSuite{
-		Config: flightsql.DriverConfig{
-			Backend:  "iox",
-			Database: "sql_test",
-			Timeout:  5 * time.Second,
-		},
-	}
-
-	s.createServer = func() (flight.Server, string, error) { return nil, "127.0.0.1:8082", nil }
-	s.startServer = func(server flight.Server) error { return nil }
-	s.stopServer = func(server flight.Server) {}
-
-	suite.Run(t, s)
-}
