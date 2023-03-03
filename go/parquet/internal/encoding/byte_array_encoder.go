@@ -18,9 +18,11 @@ package encoding
 
 import (
 	"encoding/binary"
+	"fmt"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/internal/bitutils"
 	"github.com/apache/arrow/go/v12/internal/utils"
 	"github.com/apache/arrow/go/v12/parquet"
@@ -121,4 +123,39 @@ func (enc *DictByteArrayEncoder) PutSpaced(in []parquet.ByteArray, validBits []b
 		}
 		return nil
 	})
+}
+
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *DictByteArrayEncoder) PutDictionary(values arrow.Array) error {
+	if err := enc.canPutDictionary(values); err != nil {
+		return err
+	}
+
+	if !arrow.IsBaseBinary(values.DataType().ID()) {
+		return fmt.Errorf("%w: only binary and string arrays are supported", arrow.ErrInvalid)
+	}
+
+	arr := values.(array.BinaryLike)
+	data := arr.ValueBytes()
+	for i := 0; i < arr.Len(); i++ {
+		curOffset := arr.ValueOffset64(i)
+		var v []byte
+		if i == arr.Len()-1 {
+			v = data[curOffset:]
+		} else {
+			v = data[curOffset:arr.ValueOffset64(i+1)]
+		}
+		enc.dictEncodedSize += len(v) + arrow.Uint32SizeBytes
+		if _, _, err := enc.memo.GetOrInsert(v); err != nil {
+			return err
+		}
+	}
+
+	values.Retain()
+	enc.preservedDict = values
+	return nil
 }
