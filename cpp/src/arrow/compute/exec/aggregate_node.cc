@@ -45,15 +45,15 @@
 // these columns. In segmented group-by aggregation, a second set of columns called
 // segment-keys is used to refine the partitioning. However, segment-keys are different in
 // that they partition only consecutive rows into a single group. Such a partition of
-// consecutive rows is called a segment group. For example, consider a column X with values
-// [A, B, A] at row-indices [0, 1, 2]. A regular group-by aggregation with keys [X] yields
-// a row-index partitioning [[0, 2], [1]] whereas a segmented-group-by aggregation with
-// segment-keys [X] yields [[0], [1], [2]].
+// consecutive rows is called a segment group. For example, consider a column X with
+// values [A, B, A] at row-indices [0, 1, 2]. A regular group-by aggregation with keys [X]
+// yields a row-index partitioning [[0, 2], [1]] whereas a segmented-group-by aggregation
+// with segment-keys [X] yields [[0], [1], [2]].
 //
 // The implementation first segments the input using the segment-keys, then groups by the
-// keys. When a segment group end is reached while scanning the input, output is pushed and
-// the accumulating state is cleared. If no segment-keys are given, then the entire input is
-// taken as one segment group.
+// keys. When a segment group end is reached while scanning the input, output is pushed
+// and the accumulating state is cleared. If no segment-keys are given, then the entire
+// input is taken as one segment group.
 
 namespace arrow {
 

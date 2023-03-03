@@ -31,14 +31,13 @@ namespace arrow {
 namespace compute {
 
 /// \brief A segment.
-/// A segment group is a chunk of continous rows that has the same segment key. (For example,
-/// in ordered time series processing, segment key can be "date", and a segment group can
-/// be all the rows that belong to the same date.) A segment group can span across multiple exec
-/// batches.
-/// A segment is a chunk of continous rows that has the same segment key
-/// within a given batch. When a ? span cross batches, it will have multiple segments.
-/// A segment never span cross batches. The segment data structure only
-/// makes sense when used along with a exec batch.
+/// A segment group is a chunk of continous rows that has the same segment key. (For
+/// example, in ordered time series processing, segment key can be "date", and a segment
+/// group can be all the rows that belong to the same date.) A segment group can span
+/// across multiple exec batches. A segment is a chunk of continous rows that has the same
+/// segment key within a given batch. When a ? span cross batches, it will have multiple
+/// segments. A segment never span cross batches. The segment data structure only makes
+/// sense when used along with a exec batch.
 struct ARROW_EXPORT Segment {
   /// \brief the offset into the batch where the segment starts
   int64_t offset;
@@ -97,8 +96,7 @@ class ARROW_EXPORT RowSegmenter {
   virtual Status Reset() = 0;
 
   /// \brief Get the next segment for the given batch starting from the given offset
-  virtual Result<Segment> GetNextSegment(const ExecSpan& batch,
-                                                   int64_t offset) = 0;
+  virtual Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) = 0;
 };
 
 /// Consumes batches of keys and yields batches of the group ids.

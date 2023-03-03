@@ -62,9 +62,8 @@ inline const uint8_t* GetValuesAsBytes(const ArraySpan& data, int64_t offset = 0
 }
 
 template <typename Value>
-Status CheckForGetNextSegmentPiece(const std::vector<Value>& values, int64_t length,
-                                   int64_t offset,
-                                   const std::vector<TypeHolder>& key_types) {
+Status CheckForGetNextSegment(const std::vector<Value>& values, int64_t length,
+                              int64_t offset, const std::vector<TypeHolder>& key_types) {
   if (offset < 0 || offset > length) {
     return Status::Invalid("invalid grouping segmenter offset: ", offset);
   }
@@ -86,9 +85,9 @@ Status CheckForGetNextSegmentPiece(const std::vector<Value>& values, int64_t len
 template <typename Batch>
 enable_if_t<std::is_same<Batch, ExecSpan>::value || std::is_same<Batch, ExecBatch>::value,
             Status>
-CheckForGetNextSegmentPiece(const Batch& batch, int64_t offset,
-                            const std::vector<TypeHolder>& key_types) {
-  return CheckForGetNextSegmentPiece(batch.values, batch.length, offset, key_types);
+CheckForGetNextSegment(const Batch& batch, int64_t offset,
+                       const std::vector<TypeHolder>& key_types) {
+  return CheckForGetNextSegment(batch.values, batch.length, offset, key_types);
 }
 
 struct BaseRowSegmenter : public RowSegmenter {
@@ -100,8 +99,7 @@ struct BaseRowSegmenter : public RowSegmenter {
   std::vector<TypeHolder> key_types_;
 };
 
-Segment MakeSegmentPiece(int64_t batch_length, int64_t offset, int64_t length,
-                              bool extends) {
+Segment MakeSegment(int64_t batch_length, int64_t offset, int64_t length, bool extends) {
   return Segment{offset, length, offset + length >= batch_length, extends};
 }
 
@@ -131,10 +129,9 @@ struct NoKeysSegmenter : public BaseRowSegmenter {
 
   Status Reset() override { return Status::OK(); }
 
-  Result<Segment> GetNextSegment(const ExecSpan& batch,
-                                           int64_t offset) override {
-    ARROW_RETURN_NOT_OK(CheckForGetNextSegmentPiece(batch, offset, {}));
-    return MakeSegmentPiece(batch.length, offset, batch.length - offset, kDefaultExtends);
+  Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
+    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {}));
+    return MakeSegment(batch.length, offset, batch.length - offset, kDefaultExtends);
   }
 };
 
@@ -148,7 +145,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
 
   Status CheckType(const DataType& type) {
     if (!is_fixed_width(type)) {
-      return Status::Invalid("SimpleKeyGroupingSegmenter does not support type ", type);
+      return Status::Invalid("SimpleKeySegmenter does not support type ", type);
     }
     return Status::OK();
   }
@@ -170,33 +167,30 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     return extends;
   }
 
-  Result<Segment> GetNextSegment(const Scalar& scalar, int64_t offset,
-                                           int64_t length) {
+  Result<Segment> GetNextSegment(const Scalar& scalar, int64_t offset, int64_t length) {
     ARROW_RETURN_NOT_OK(CheckType(*scalar.type));
     if (!scalar.is_valid) {
       return Status::Invalid("segmenting an invalid scalar");
     }
     auto data = checked_cast<const PrimitiveScalarBase&>(scalar).data();
     bool extends = length > 0 ? Extend(data) : kEmptyExtends;
-    return MakeSegmentPiece(length, offset, length, extends);
+    return MakeSegment(length, offset, length, extends);
   }
 
-  Result<Segment> GetNextSegment(const DataType& array_type,
-                                           const uint8_t* array_bytes, int64_t offset,
-                                           int64_t length) {
+  Result<Segment> GetNextSegment(const DataType& array_type, const uint8_t* array_bytes,
+                                 int64_t offset, int64_t length) {
     RETURN_NOT_OK(CheckType(array_type));
     int64_t byte_width = array_type.byte_width();
     int64_t match_length = GetMatchLength(array_bytes + offset * byte_width, byte_width,
                                           array_bytes, offset, length);
     bool extends = length > 0 ? Extend(array_bytes + offset * byte_width) : kEmptyExtends;
-    return MakeSegmentPiece(length, offset, match_length, extends);
+    return MakeSegment(length, offset, match_length, extends);
   }
 
-  Result<Segment> GetNextSegment(const ExecSpan& batch,
-                                           int64_t offset) override {
-    ARROW_RETURN_NOT_OK(CheckForGetNextSegmentPiece(batch, offset, {key_type_}));
+  Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
+    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {key_type_}));
     if (offset == batch.length) {
-      return MakeSegmentPiece(batch.length, offset, 0, kEmptyExtends);
+      return MakeSegment(batch.length, offset, 0, kEmptyExtends);
     }
     const auto& value = batch.values[0];
     if (value.is_scalar()) {
@@ -207,8 +201,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     if (array.GetNullCount() > 0) {
       return Status::NotImplemented("segmenting a nullable array");
     }
-    return GetNextSegment(*array.type, GetValuesAsBytes(array), offset,
-                               batch.length);
+    return GetNextSegment(*array.type, GetValuesAsBytes(array), offset, batch.length);
   }
 
  private:
@@ -261,11 +254,10 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     return values[0];
   }
 
-  Result<Segment> GetNextSegment(const ExecSpan& batch,
-                                           int64_t offset) override {
-    ARROW_RETURN_NOT_OK(CheckForGetNextSegmentPiece(batch, offset, key_types_));
+  Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
+    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, key_types_));
     if (offset == batch.length) {
-      return MakeSegmentPiece(batch.length, offset, 0, kEmptyExtends);
+      return MakeSegment(batch.length, offset, 0, kEmptyExtends);
     }
     // ARROW-18311: make Grouper support Reset()
     // so it can be cached instead of recreated below
@@ -291,7 +283,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
       }
       int64_t length = std::min(cursor, batch.length - offset);
       bool extends = length > 0 ? bound_extend(values) : kEmptyExtends;
-      return MakeSegmentPiece(batch.length, offset, length, extends);
+      return MakeSegment(batch.length, offset, length, extends);
     } else {
       return Status::Invalid("segmenting unsupported datum kind ", datum.kind());
     }
