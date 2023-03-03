@@ -131,6 +131,31 @@ namespace Apache.Arrow.C
             return flags;
         }
 
+        /// <summary>
+        /// Whether this field is semantically nullable (regardless of whether it actually has null values)
+        /// </summary>
+        public const long ArrowFlagDictionaryOrdered = 1;
+        /// <summary>
+        /// For dictionary-encoded types, whether the ordering of dictionary indices is semantically meaningful.
+        /// </summary>
+        public const long ArrowFlagNullable = 2;
+        /// <summary>
+        /// For map types, whether the keys within each map value are sorted.
+        /// </summary>
+        public const long ArrowFlagMapKeysSorted = 4;
+
+        /// <summary>
+        /// Get the value of a particular flag.
+        /// </summary>
+        /// <remarks>
+        /// Known valid flags are <see cref="ArrowFlagDictionaryOrdered" />,
+        /// <see cref="ArrowFlagNullable" />, and <see cref="ArrowFlagMapKeysSorted" />.
+        /// </remarks>
+        public bool GetFlag(long flag)
+        {
+            return (flags & flag) == flag;
+        }
+
         private static IntPtr ConstructChildren(IArrowType datatype, out long numChildren)
         {
             if (datatype is NestedType nestedType)
@@ -291,6 +316,11 @@ namespace Apache.Arrow.C
         /// <param name="ptr">An allocated but uninitialized pointer.</param>
         public void Export(IntPtr ptr)
         {
+            var schema = Marshal.PtrToStructure<CArrowSchema>(ptr);
+            if (schema.release != null)
+            {
+                throw new Exception("Cannot export to a ArrowSchema pointer is that is already initialized.");
+            }
             Marshal.StructureToPtr<CArrowSchema>(this, ptr, false);
         }
 
@@ -369,10 +399,6 @@ namespace Apache.Arrow.C
             return importedSchema.GetAsSchema();
         }
 
-        public const long ArrowFlagDictionaryOrdered = 1;
-        public const long ArrowFlagNullable = 2;
-        public const long ArrowFlagMapKeysSorted = 4;
-
         private sealed class ImportedArrowSchema : IDisposable
         {
             private readonly CArrowSchema _data;
@@ -425,7 +451,7 @@ namespace Apache.Arrow.C
                     var dictionarySchema = new ImportedArrowSchema(_data.dictionary, isRoot: false);
                     ArrowType dictionaryType = dictionarySchema.GetAsType();
 
-                    bool ordered = (_data.flags & CArrowSchema.ArrowFlagDictionaryOrdered) == CArrowSchema.ArrowFlagDictionaryOrdered;
+                    bool ordered = _data.GetFlag(CArrowSchema.ArrowFlagDictionaryOrdered);
 
                     return new DictionaryType(indicesType, dictionaryType, ordered);
                 }
@@ -503,6 +529,13 @@ namespace Apache.Arrow.C
                     return new TimestampType(timeUnit, timezone);
                 }
 
+                // Fixed-width binary
+                if (format.StartsWith("w:"))
+                {
+                    int width = Int32.Parse(format.Substring(2));
+                    return new FixedSizeBinaryType(width);
+                }
+
                 return format switch
                 {
                     // Primitives
@@ -524,8 +557,6 @@ namespace Apache.Arrow.C
                     //"Z" => new LargeBinaryType() // Not yet implemented
                     "u" => new StringType(),
                     //"U" => new LargeStringType(), // Not yet implemented
-                    // TODO: decimal
-                    // TODO: fixed-width binary
                     // Date and time
                     "tdD" => new Date32Type(),
                     "tdm" => new Date64Type(),
@@ -533,7 +564,6 @@ namespace Apache.Arrow.C
                     "ttm" => new Time32Type(TimeUnit.Millisecond),
                     "ttu" => new Time64Type(TimeUnit.Microsecond),
                     "ttn" => new Time64Type(TimeUnit.Nanosecond),
-                    // TODO: timestamp with timezone,
                     // TODO: duration not yet implemented
                     "tiM" => new IntervalType(IntervalUnit.YearMonth),
                     "tiD" => new IntervalType(IntervalUnit.DayTime),
@@ -547,7 +577,7 @@ namespace Apache.Arrow.C
                 string name = StringUtil.PtrToStringUtf8(_data.name);
                 string fieldName = string.IsNullOrEmpty(name) ? "" : name;
 
-                bool nullable = (_data.flags & CArrowSchema.ArrowFlagNullable) == CArrowSchema.ArrowFlagNullable;
+                bool nullable = _data.GetFlag(CArrowSchema.ArrowFlagNullable);
 
                 return new Field(fieldName, GetAsType(), nullable);
             }

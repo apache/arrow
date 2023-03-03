@@ -63,6 +63,7 @@ namespace Apache.Arrow.Tests
 
                     .Field(f => f.Name("binary").DataType(BinaryType.Default).Nullable(false))
                     .Field(f => f.Name("string").DataType(StringType.Default).Nullable(false))
+                    .Field(f => f.Name("fw_binary_10").DataType(new FixedSizeBinaryType(10)).Nullable(false))
 
                     .Field(f => f.Name("date32").DataType(Date32Type.Default).Nullable(false))
                     .Field(f => f.Name("date64").DataType(Date64Type.Default).Nullable(false))
@@ -116,6 +117,7 @@ namespace Apache.Arrow.Tests
 
                 yield return pa.field("binary", pa.binary(), false);
                 yield return pa.field("string", pa.utf8(), false);
+                yield return pa.field("fw_binary_10", pa.binary(10), false);
 
                 yield return pa.field("date32", pa.date32(), false);
                 yield return pa.field("date64", pa.date64(), false);
