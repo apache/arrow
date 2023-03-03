@@ -92,22 +92,18 @@ import com.google.protobuf.InvalidProtocolBufferException;
 public class FlightSqlClient implements AutoCloseable {
   private final FlightClient client;
 
-  private static final Timer stmtGetInfo = metrics.timer(name(FlightSqlClient.class, "stmtGetInfo"));
-  private static final Timer stmtGetSchema = metrics.timer(name(FlightSqlClient.class, "stmtGetSchema"));
-  private static final Timer stmtExecUpdate = metrics.timer(name(FlightSqlClient.class, "stmtExecUpdate"));
-  private static final Timer beginTxn = metrics.timer(name(FlightSqlClient.class, "beginTxn"));
-  private static final Timer commitTxn = metrics.timer(name(FlightSqlClient.class, "commitTxn"));
-  private static final Timer rollbackTxn = metrics.timer(name(FlightSqlClient.class, "rollbackTxn"));
-  private static final Timer psFetchSchema = metrics.timer(name(FlightSqlClient.class, "psFetchSchema"));
-  private static final Timer psExec = metrics.timer(name(FlightSqlClient.class, "psExec"));
-  private static final Timer psUpdate = metrics.timer(name(FlightSqlClient.class, "psUpdate"));
-  private static final Timer psClose = metrics.timer(name(FlightSqlClient.class, "psClose"));
-  private static final Timer getSchema = metrics.timer(name(FlightSqlClient.class, "getSchema"));
-  private static final Timer getStream = metrics.timer(name(FlightSqlClient.class, "getStream"));
-  private static final Timer prepare = metrics.timer(name(FlightSqlClient.class, "prepare"));
-  private static final Timer getPsSchema = metrics.timer(name(FlightSqlClient.class, "getPsSchema"));
-  private static final Timer getRsSchema = metrics.timer(name(FlightSqlClient.class, "getRsSchema"));
-  private static final Timer psInit = metrics.timer(name(FlightSqlClient.class, "psInit"));
+//  private static final Timer stmtGetInfo = metrics.timer(name(FlightSqlClient.class, "stmtGetInfo"));
+//  private static final Timer stmtGetSchema = metrics.timer(name(FlightSqlClient.class, "stmtGetSchema"));
+//  private static final Timer stmtExecUpdate = metrics.timer(name(FlightSqlClient.class, "stmtExecUpdate"));
+//  private static final Timer beginTxn = metrics.timer(name(FlightSqlClient.class, "beginTxn"));
+//  private static final Timer commitTxn = metrics.timer(name(FlightSqlClient.class, "commitTxn"));
+//  private static final Timer rollbackTxn = metrics.timer(name(FlightSqlClient.class, "rollbackTxn"));
+//  private static final Timer psFetchSchema = metrics.timer(name(FlightSqlClient.class, "psFetchSchema"));
+//  private static final Timer psUpdate = metrics.timer(name(FlightSqlClient.class, "psUpdate"));
+//  private static final Timer psClose = metrics.timer(name(FlightSqlClient.class, "psClose"));
+//  private static final Timer getSchema = metrics.timer(name(FlightSqlClient.class, "getSchema"));
+//  private static final Timer getPsSchema = metrics.timer(name(FlightSqlClient.class, "getPsSchema"));
+//  private static final Timer getRsSchema = metrics.timer(name(FlightSqlClient.class, "getRsSchema"));
 
   public FlightSqlClient(final FlightClient client) {
     this.client = Objects.requireNonNull(client, "Client cannot be null!");
@@ -138,9 +134,9 @@ public class FlightSqlClient implements AutoCloseable {
       builder.setTransactionId(ByteString.copyFrom(transaction.getTransactionId()));
     }
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
-    try(final Timer.Context context = stmtGetInfo.time()) {
+//    try(final Timer.Context context = stmtGetInfo.time()) {
       return client.getInfo(descriptor, options);
-    }
+//    }
   }
 
   /**
@@ -182,9 +178,9 @@ public class FlightSqlClient implements AutoCloseable {
       builder.setTransactionId(ByteString.copyFrom(transaction.getTransactionId()));
     }
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
-    try(final Timer.Context context = stmtGetSchema.time()) {
+//    try(final Timer.Context context = stmtGetSchema.time()) {
       return client.getSchema(descriptor, options);
-    }
+//    }
   }
 
   /**
@@ -235,7 +231,7 @@ public class FlightSqlClient implements AutoCloseable {
    * @return the number of rows affected.
    */
   public long executeUpdate(final String query, Transaction transaction, final CallOption... options) {
-    try(final Timer.Context context = stmtExecUpdate.time()) {
+//    try(final Timer.Context context = stmtExecUpdate.time()) {
       final CommandStatementUpdate.Builder builder = CommandStatementUpdate.newBuilder().setQuery(query);
       if (transaction != null) {
         builder.setTransactionId(ByteString.copyFrom(transaction.getTransactionId()));
@@ -257,7 +253,7 @@ public class FlightSqlClient implements AutoCloseable {
       } catch (final InvalidProtocolBufferException e) {
         throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
       }
-    }
+//    }
   }
 
   /**
@@ -368,9 +364,9 @@ public class FlightSqlClient implements AutoCloseable {
    * @param options    RPC-layer hints for this call.
    */
   public SchemaResult getSchema(FlightDescriptor descriptor, CallOption... options) {
-    try(final Timer.Context context = getSchema.time()) {
+//    try(final Timer.Context context = getSchema.time()) {
       return client.getSchema(descriptor, options);
-    }
+//    }
   }
 
   /**
@@ -380,9 +376,9 @@ public class FlightSqlClient implements AutoCloseable {
    * @param options RPC-layer hints for this call.
    */
   public FlightStream getStream(Ticket ticket, CallOption... options) {
-    try(final Timer.Context context = getStream.time()) {
+//    try(final Timer.Context context = getStream.time()) {
       return client.getStream(ticket, options);
-    }
+//    }
   }
 
   /**
@@ -743,7 +739,7 @@ public class FlightSqlClient implements AutoCloseable {
    * @return The representation of the prepared statement which exists on the server.
    */
   public PreparedStatement prepare(String query, Transaction transaction, CallOption... options) {
-    try(final Timer.Context context = prepare.time()) {
+//    try(final Timer.Context context = prepare.time()) {
       ActionCreatePreparedStatementRequest.Builder builder =
               ActionCreatePreparedStatementRequest.newBuilder().setQuery(query);
       if (transaction != null) {
@@ -754,7 +750,7 @@ public class FlightSqlClient implements AutoCloseable {
                       FlightSqlUtils.FLIGHT_SQL_CREATE_PREPARED_STATEMENT.getType(),
                       Any.pack(builder.build()).toByteArray()),
               options);
-    }
+//    }
   }
 
   /**
@@ -792,7 +788,7 @@ public class FlightSqlClient implements AutoCloseable {
 
   /** Begin a transaction. */
   public Transaction beginTransaction(CallOption... options) {
-    try(final Timer.Context context = beginTxn.time()) {
+//    try(final Timer.Context context = beginTxn.time()) {
       final Action action = new Action(
               FlightSqlUtils.FLIGHT_SQL_BEGIN_TRANSACTION.getType(),
               Any.pack(ActionBeginTransactionRequest.getDefaultInstance()).toByteArray());
@@ -806,7 +802,7 @@ public class FlightSqlClient implements AutoCloseable {
         throw CallStatus.INTERNAL.withDescription("Server returned an empty transaction ID").toRuntimeException();
       }
       return new Transaction(result.getTransactionId().toByteArray());
-    }
+//    }
   }
 
   /** Create a savepoint within a transaction. */
@@ -832,7 +828,7 @@ public class FlightSqlClient implements AutoCloseable {
 
   /** Commit a transaction. */
   public void commit(Transaction transaction, CallOption... options) {
-    try(final Timer.Context context = commitTxn.time()) {
+//    try(final Timer.Context context = commitTxn.time()) {
       Preconditions.checkArgument(transaction.getTransactionId().length != 0, "Transaction must be initialized");
       ActionEndTransactionRequest request = ActionEndTransactionRequest.newBuilder()
               .setTransactionId(ByteString.copyFrom(transaction.getTransactionId()))
@@ -844,7 +840,7 @@ public class FlightSqlClient implements AutoCloseable {
       final Iterator<Result> preparedStatementResults = client.doAction(action, options);
       preparedStatementResults.forEachRemaining((ignored) -> {
       });
-    }
+//    }
   }
 
   /** Release a savepoint. */
@@ -863,7 +859,7 @@ public class FlightSqlClient implements AutoCloseable {
 
   /** Rollback a transaction. */
   public void rollback(Transaction transaction, CallOption... options) {
-    try(final Timer.Context context = rollbackTxn.time()) {
+//    try(final Timer.Context context = rollbackTxn.time()) {
       Preconditions.checkArgument(transaction.getTransactionId().length != 0, "Transaction must be initialized");
       ActionEndTransactionRequest request = ActionEndTransactionRequest.newBuilder()
               .setTransactionId(ByteString.copyFrom(transaction.getTransactionId()))
@@ -875,7 +871,7 @@ public class FlightSqlClient implements AutoCloseable {
       final Iterator<Result> preparedStatementResults = client.doAction(action, options);
       preparedStatementResults.forEachRemaining((ignored) -> {
       });
-    }
+//    }
   }
 
   /** Rollback to a savepoint. */
@@ -948,13 +944,13 @@ public class FlightSqlClient implements AutoCloseable {
     PreparedStatement(FlightClient client, Action action, CallOption... options) {
       this.client = client;
 
-      try(final Timer.Context context = psInit.time()) {
+//      try(final Timer.Context context = psInit.time()) {
         final Iterator<Result> preparedStatementResults = client.doAction(action, options);
         preparedStatementResult = FlightSqlUtils.unpackAndParseOrThrow(
                 preparedStatementResults.next().getBody(),
                 ActionCreatePreparedStatementResult.class);
         isClosed = false;
-      }
+//      }
     }
 
     /**
@@ -990,13 +986,13 @@ public class FlightSqlClient implements AutoCloseable {
      * @return the Schema of the resultset.
      */
     public Schema getResultSetSchema() {
-      try(final Timer.Context context = getRsSchema.time()) {
+//      try(final Timer.Context context = getRsSchema.time()) {
         if (resultSetSchema == null) {
           final ByteString bytes = preparedStatementResult.getDatasetSchema();
           resultSetSchema = deserializeSchema(bytes);
         }
         return resultSetSchema;
-      }
+//      }
     }
 
     /**
@@ -1005,13 +1001,13 @@ public class FlightSqlClient implements AutoCloseable {
      * @return the Schema of the parameters.
      */
     public Schema getParameterSchema() {
-      try(final Timer.Context context = getPsSchema.time()) {
+//      try(final Timer.Context context = getPsSchema.time()) {
         if (parameterSchema == null) {
           final ByteString bytes = preparedStatementResult.getParameterSchema();
           parameterSchema = deserializeSchema(bytes);
         }
         return parameterSchema;
-      }
+//      }
     }
 
     /**
@@ -1020,14 +1016,14 @@ public class FlightSqlClient implements AutoCloseable {
     public SchemaResult fetchSchema(CallOption... options) {
       checkOpen();
 
-      try(final Timer.Context context = psFetchSchema.time()) {
+//      try(final Timer.Context context = psFetchSchema.time()) {
         final FlightDescriptor descriptor = FlightDescriptor
                 .command(Any.pack(CommandPreparedStatementQuery.newBuilder()
                                 .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
                                 .build())
                         .toByteArray());
         return client.getSchema(descriptor, options);
-      }
+//      }
     }
 
     private Schema deserializeSchema(final ByteString bytes) {
@@ -1051,7 +1047,7 @@ public class FlightSqlClient implements AutoCloseable {
     public FlightInfo execute(final CallOption... options) {
       checkOpen();
 
-      try(final Timer.Context context = psExec.time()) {
+//      try(final Timer.Context context = psExec.time()) {
         final FlightDescriptor descriptor = FlightDescriptor
                 .command(Any.pack(CommandPreparedStatementQuery.newBuilder()
                                 .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
@@ -1070,7 +1066,7 @@ public class FlightSqlClient implements AutoCloseable {
         }
 
         return client.getInfo(descriptor, options);
-      }
+//      }
     }
 
     /**
@@ -1090,7 +1086,7 @@ public class FlightSqlClient implements AutoCloseable {
      */
     public long executeUpdate(final CallOption... options) {
       checkOpen();
-      try(final Timer.Context context = psUpdate.time()) {
+//      try(final Timer.Context context = psUpdate.time()) {
         final FlightDescriptor descriptor = FlightDescriptor
                 .command(Any.pack(CommandPreparedStatementUpdate.newBuilder()
                                 .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
@@ -1114,7 +1110,7 @@ public class FlightSqlClient implements AutoCloseable {
         } catch (final InvalidProtocolBufferException e) {
           throw CallStatus.INVALID_ARGUMENT.withCause(e).toRuntimeException();
         }
-      }
+//      }
     }
 
     /**
@@ -1127,7 +1123,7 @@ public class FlightSqlClient implements AutoCloseable {
         return;
       }
       isClosed = true;
-      try(final Timer.Context context = psClose.time()) {
+//      try(final Timer.Context context = psClose.time()) {
         final Action action = new Action(
                 FlightSqlUtils.FLIGHT_SQL_CLOSE_PREPARED_STATEMENT.getType(),
                 Any.pack(ActionClosePreparedStatementRequest.newBuilder()
@@ -1140,7 +1136,7 @@ public class FlightSqlClient implements AutoCloseable {
         if (parameterBindingRoot != null) {
           parameterBindingRoot.close();
         }
-      }
+//      }
     }
 
     @Override

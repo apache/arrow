@@ -66,8 +66,6 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
   private final FlightSqlClient sqlClient;
   private final Set<CallOption> options = new HashSet<>();
 
-  private static final Timer handlerGetStreams = metrics.timer(name(FlightSqlClient.class, "handlerGetStreams"));
-
   ArrowFlightSqlClientHandler(final FlightSqlClient sqlClient,
                               final Collection<CallOption> options) {
     this.options.addAll(options);
@@ -103,12 +101,12 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
    * @return a {@code FlightStream} of results.
    */
   public List<FlightStream> getStreams(final FlightInfo flightInfo) {
-    try(final Timer.Context context = handlerGetStreams.time()) {
+//    try(final Timer.Context context = handlerGetStreams.time()) {
       return flightInfo.getEndpoints().stream()
               .map(FlightEndpoint::getTicket)
               .map(ticket -> sqlClient.getStream(ticket, getOptions()))
               .collect(Collectors.toList());
-    }
+//    }
   }
 
   /**

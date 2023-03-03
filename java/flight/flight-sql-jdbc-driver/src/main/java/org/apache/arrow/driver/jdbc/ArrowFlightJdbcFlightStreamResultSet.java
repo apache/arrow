@@ -63,6 +63,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet
 
   private static final Timer rsExec = metrics.timer(name(FlightSqlClient.class, "rsExec"));
   private static final Timer getStreams = metrics.timer(name(FlightSqlClient.class, "getStreams"));
+  private static final Timer getNextFlightStream = metrics.timer(name(FlightStreamQueue.class, "getNextFlightStream"));
 
   ArrowFlightJdbcFlightStreamResultSet(final AvaticaStatement statement,
                                        final QueryState state,
@@ -254,12 +255,14 @@ public final class ArrowFlightJdbcFlightStreamResultSet
   }
 
   private FlightStream getNextFlightStream(final boolean isExecution) throws SQLException {
-    if (isExecution) {
-      final int statementTimeout = statement != null ? statement.getQueryTimeout() : 0;
-      return statementTimeout != 0 ?
-          flightStreamQueue.next(statementTimeout, TimeUnit.SECONDS) : flightStreamQueue.next();
-    } else {
-      return flightStreamQueue.next();
+    try (final Timer.Context context = getNextFlightStream.time()) {
+      if (isExecution) {
+        final int statementTimeout = statement != null ? statement.getQueryTimeout() : 0;
+        return statementTimeout != 0 ?
+                flightStreamQueue.next(statementTimeout, TimeUnit.SECONDS) : flightStreamQueue.next();
+      } else {
+        return flightStreamQueue.next();
+      }
     }
   }
 }

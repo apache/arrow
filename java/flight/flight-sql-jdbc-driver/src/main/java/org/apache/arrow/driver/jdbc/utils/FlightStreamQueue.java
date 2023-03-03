@@ -17,8 +17,10 @@
 
 package org.apache.arrow.driver.jdbc.utils;
 
+import static com.codahale.metrics.MetricRegistry.name;
 import static java.lang.String.format;
 import static java.util.Collections.synchronizedSet;
+import static org.apache.arrow.flight.sql.FlightSqlUtils.metrics;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 import static org.apache.arrow.util.Preconditions.checkState;
 
@@ -36,9 +38,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.codahale.metrics.Timer;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,6 +65,9 @@ public class FlightStreamQueue implements AutoCloseable {
   private final Set<Future<FlightStream>> futures = synchronizedSet(new HashSet<>());
   private final Set<FlightStream> allStreams = synchronizedSet(new HashSet<>());
   private final AtomicBoolean closed = new AtomicBoolean();
+
+  private static final Timer next = metrics.timer(name(FlightStreamQueue.class, "next"));
+  private static final Timer take = metrics.timer(name(FlightStreamQueue.class, "take"));
 
   /**
    * Instantiate a new FlightStreamQueue.
@@ -97,20 +104,22 @@ public class FlightStreamQueue implements AutoCloseable {
   }
 
   private FlightStream next(final FlightStreamSupplier flightStreamSupplier) throws SQLException {
-    checkOpen();
-    while (!futures.isEmpty()) {
-      final Future<FlightStream> future = flightStreamSupplier.get();
-      futures.remove(future);
-      try {
-        final FlightStream stream = future.get();
-        if (stream.getRoot().getRowCount() > 0) {
-          return stream;
+    try (final Timer.Context context = next.time()) {
+      checkOpen();
+      while (!futures.isEmpty()) {
+        final Future<FlightStream> future = flightStreamSupplier.get();
+        futures.remove(future);
+        try {
+          final FlightStream stream = future.get();
+          if (stream.getRoot().getRowCount() > 0) {
+            return stream;
+          }
+        } catch (final ExecutionException | InterruptedException | CancellationException e) {
+          throw AvaticaConnection.HELPER.wrap(e.getMessage(), e);
         }
-      } catch (final ExecutionException | InterruptedException | CancellationException e) {
-        throw AvaticaConnection.HELPER.wrap(e.getMessage(), e);
       }
+      return null;
     }
-    return null;
   }
 
   /**
@@ -145,7 +154,9 @@ public class FlightStreamQueue implements AutoCloseable {
   public FlightStream next() throws SQLException {
     return next(() -> {
       try {
-        return completionService.take();
+        try (final Timer.Context context = take.time()) {
+          return completionService.take();
+        }
       } catch (final InterruptedException e) {
         throw AvaticaConnection.HELPER.wrap(e.getMessage(), e);
       }
