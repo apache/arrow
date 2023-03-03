@@ -389,17 +389,17 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     auto thread_index = plan_->query_context()->GetThreadIndex();
     auto handler = [this, thread_index](const ExecBatch& full_batch,
                                         const Segment& segment) {
-      // (1) The segment piece is starting of a new segment and points to
+      // (1) The segment is starting of a new segment group and points to
       // the beginning of the batch, then it means no data in the batch belongs
-      // to the current segment. We can output and reset kernel states.
+      // to the current segment group. We can output and reset kernel states.
       if (!segment.extends && segment.offset == 0) RETURN_NOT_OK(OutputResult(false));
 
-      // We add segment piece to the current segment aggregation
+      // We add segment to the current segment group aggregation
       auto exec_batch = full_batch.Slice(segment.offset, segment.length);
       RETURN_NOT_OK(DoConsume(ExecSpan(exec_batch), thread_index));
       RETURN_NOT_OK(GetScalarFields(&segmenter_values_, exec_batch, segment_field_ids_));
 
-      // If the segment piece closes the current segment, we can output segment
+      // If the segment closes the current segment group, we can output segment group
       // aggregation.
       if (!segment.is_open) RETURN_NOT_OK(OutputResult(false));
 
