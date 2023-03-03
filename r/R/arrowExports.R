@@ -1344,6 +1344,10 @@ fs___GcsFileSystem__Make <- function(anonymous, options) {
   .Call(`_arrow_fs___GcsFileSystem__Make`, anonymous, options)
 }
 
+fs___GcsFileSystem__options <- function(fs) {
+  .Call(`_arrow_fs___GcsFileSystem__options`, fs)
+}
+
 io___Readable__Read <- function(x, nbytes) {
   .Call(`_arrow_io___Readable__Read`, x, nbytes)
 }

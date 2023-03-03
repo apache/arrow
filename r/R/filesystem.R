@@ -503,7 +503,10 @@ gs_bucket <- function(bucket, ...) {
 #' @rdname FileSystem
 #' @export
 GcsFileSystem <- R6Class("GcsFileSystem",
-  inherit = FileSystem
+  inherit = FileSystem,
+  active = list(
+    options = function() fs___GcsFileSystem__options(self)
+  )
 )
 GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ...) {
   # The default retry limit in C++ is 15 minutes, but that is experienced as

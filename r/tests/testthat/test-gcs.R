@@ -24,19 +24,36 @@ test_that("FileSystem$from_uri with gs://", {
 })
 
 test_that("GcsFileSystem$create() options", {
-  # TODO: expose options as a list so we can confirm they are set?
   expect_r6_class(GcsFileSystem$create(), "GcsFileSystem")
   expect_r6_class(GcsFileSystem$create(anonymous = TRUE), "GcsFileSystem")
+
+  # Verify default options
+  expect_equal(GcsFileSystem$create()$options, list(
+    anonymous = FALSE,
+    scheme = "https",
+    retry_limit_seconds = 15
+  ))
+
+  # Verify a more complete set of options round-trips
+  options <- list(
+    anonymous = TRUE,
+    endpoint_override = "localhost:8888",
+    scheme = "http",
+    default_bucket_location = "here",
+    retry_limit_seconds = 30,
+    default_metadata = c(a = "list", of = "stuff")
+  )
+
+  fs <- do.call(GcsFileSystem$create, options)
+
   expect_r6_class(
-    GcsFileSystem$create(
-      anonymous = TRUE,
-      scheme = "http",
-      endpoint_override = "localhost:8888",
-      default_bucket_location = "here",
-      retry_limit_seconds = 30,
-      default_metadata = c(a = "list", of = "stuff")
-    ),
+    fs,
     "GcsFileSystem"
+  )
+
+  expect_equal(
+    fs$options,
+    options
   )
 })
 
