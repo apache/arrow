@@ -17,7 +17,9 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static com.codahale.metrics.MetricRegistry.name;
 import static org.apache.arrow.driver.jdbc.utils.FlightStreamQueue.createNewQueue;
+import static org.apache.arrow.flight.sql.FlightSqlUtils.metrics;
 
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -26,10 +28,12 @@ import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import com.codahale.metrics.Timer;
 import org.apache.arrow.driver.jdbc.utils.FlightStreamQueue;
 import org.apache.arrow.driver.jdbc.utils.VectorSchemaRootTransformer;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -46,6 +50,8 @@ import org.apache.calcite.avatica.QueryState;
 public final class ArrowFlightJdbcFlightStreamResultSet
     extends ArrowFlightJdbcVectorSchemaRootResultSet {
 
+  private static final Timer nextStream = metrics.timer(name(FlightSqlClient.class, "nextStream"));
+
   private final ArrowFlightConnection connection;
   private FlightStream currentFlightStream;
   private FlightStreamQueue flightStreamQueue;
@@ -54,6 +60,9 @@ public final class ArrowFlightJdbcFlightStreamResultSet
   private VectorSchemaRoot currentVectorSchemaRoot;
 
   private Schema schema;
+
+  private static final Timer rsExec = metrics.timer(name(FlightSqlClient.class, "rsExec"));
+  private static final Timer getStreams = metrics.timer(name(FlightSqlClient.class, "getStreams"));
 
   ArrowFlightJdbcFlightStreamResultSet(final AvaticaStatement statement,
                                        final QueryState state,
@@ -112,31 +121,37 @@ public final class ArrowFlightJdbcFlightStreamResultSet
   }
 
   private void loadNewFlightStream() throws SQLException {
-    if (currentFlightStream != null) {
-      AutoCloseables.closeNoChecked(currentFlightStream);
+    try(final Timer.Context context = nextStream.time()) {
+      if (currentFlightStream != null) {
+        AutoCloseables.closeNoChecked(currentFlightStream);
+      }
+      this.currentFlightStream = getNextFlightStream(true);
     }
-    this.currentFlightStream = getNextFlightStream(true);
   }
 
   @Override
   protected AvaticaResultSet execute() throws SQLException {
-    final FlightInfo flightInfo = ((ArrowFlightInfoStatement) statement).executeFlightInfoQuery();
+    try(final Timer.Context context = rsExec.time()) {
+      final FlightInfo flightInfo = ((ArrowFlightInfoStatement) statement).executeFlightInfoQuery();
 
-    if (flightInfo != null) {
-      schema = flightInfo.getSchema();
-      execute(flightInfo);
+      if (flightInfo != null) {
+        schema = flightInfo.getSchema();
+        execute(flightInfo);
+      }
+      return this;
     }
-    return this;
   }
 
   private void execute(final FlightInfo flightInfo) throws SQLException {
-    loadNewQueue();
-    flightStreamQueue.enqueue(connection.getClientHandler().getStreams(flightInfo));
-    loadNewFlightStream();
+    try(final Timer.Context context = getStreams.time()) {
+      loadNewQueue();
+      flightStreamQueue.enqueue(connection.getClientHandler().getStreams(flightInfo));
+      loadNewFlightStream();
 
-    // Ownership of the root will be passed onto the cursor.
-    if (currentFlightStream != null) {
-      executeForCurrentFlightStream();
+      // Ownership of the root will be passed onto the cursor.
+      if (currentFlightStream != null) {
+        executeForCurrentFlightStream();
+      }
     }
   }
 
