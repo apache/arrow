@@ -93,6 +93,16 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
   /// \param[in] arr The FixedShapeTensorArray to convert to a Tensor
   Result<std::shared_ptr<Tensor>> ToTensor(std::shared_ptr<Array> arr);
 
+  /// \brief Create a FixedShapeTensorType instance
+  static Result<std::shared_ptr<DataType>> Make(
+      const std::shared_ptr<DataType>& value_type, const std::vector<int64_t>& shape,
+      const std::vector<int64_t>& permutation = {},
+      const std::vector<std::string>& dim_names = {});
+
+  /// \brief Compute strides of FixedShapeTensorType
+  static Status ComputeStrides(const FixedShapeTensorType& type,
+                               std::vector<int64_t>& strides);
+
  private:
   std::shared_ptr<DataType> storage_type_;
   std::shared_ptr<DataType> value_type_;

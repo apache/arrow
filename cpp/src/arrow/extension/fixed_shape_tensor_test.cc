@@ -110,9 +110,12 @@ TEST_F(TestExtensionType, CreateExtensionType) {
   ASSERT_EQ(exact_ext_type->strides(), cell_strides_);
   ASSERT_EQ(exact_ext_type->dim_names(), dim_names_);
 
-  // TODO: Test invalid constructor input
-  // ASSERT_DEATH(fixed_shape_tensor(value_type_, cell_shape_, {0}), "");
-  // ASSERT_DEATH(fixed_shape_tensor(value_type_, cell_shape_, {}, {"x"}), "");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Invalid: permutation size must match shape size."),
+      FixedShapeTensorType::Make(value_type_, cell_shape_, {0}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Invalid: dim_names size must match shape size."),
+      FixedShapeTensorType::Make(value_type_, cell_shape_, {}, {"x"}));
 }
 
 TEST_F(TestExtensionType, CreateFromArray) {

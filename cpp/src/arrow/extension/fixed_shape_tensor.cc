@@ -32,18 +32,6 @@ namespace rj = arrow::rapidjson;
 namespace arrow {
 namespace extension {
 
-const std::vector<int64_t>& FixedShapeTensorType::strides() {
-  if (this->strides_.empty()) {
-    const auto& element_type =
-        internal::checked_cast<const FixedWidthType&>(*value_type_);
-    DCHECK_OK(internal::ComputeRowMajorStrides(element_type, shape_, &strides_));
-    if (!permutation_.empty()) {
-      internal::Permute(permutation_, &strides_);
-    }
-  }
-  return this->strides_;
-}
-
 bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   if (extension_name() != other.extension_name()) {
     return false;
@@ -251,22 +239,46 @@ Result<std::shared_ptr<Tensor>> FixedShapeTensorType::ToTensor(
   return *Tensor::Make(ext_arr->value_type(), buffer, shape, tensor_strides, dim_names());
 }
 
+Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
+    const std::shared_ptr<DataType>& value_type, const std::vector<int64_t>& shape,
+    const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names) {
+  if (!permutation.empty() && shape.size() != permutation.size()) {
+    return Status::Invalid("permutation size must match shape size. Expected: ",
+                           shape.size(), " Got: ", permutation.size());
+  }
+  if (!dim_names.empty() && shape.size() != dim_names.size()) {
+    return Status::Invalid("dim_names size must match shape size. Expected: ",
+                           shape.size(), " Got: ", dim_names.size());
+  }
+  return std::make_shared<FixedShapeTensorType>(value_type, shape, permutation,
+                                                dim_names);
+}
+
+Status FixedShapeTensorType::ComputeStrides(const FixedShapeTensorType& type,
+                                            std::vector<int64_t>& strides) {
+  auto element_type = internal::checked_pointer_cast<FixedWidthType>(type.value_type_);
+  ARROW_RETURN_NOT_OK(
+      internal::ComputeRowMajorStrides(*element_type.get(), type.shape(), &strides));
+  if (!type.permutation().empty()) {
+    internal::Permute(type.permutation(), &strides);
+  }
+  return Status::OK();
+}
+
+const std::vector<int64_t>& FixedShapeTensorType::strides() {
+  if (strides_.empty()) {
+    ARROW_CHECK_OK(ComputeStrides(*this, strides_));
+  }
+  return strides_;
+}
+
 std::shared_ptr<DataType> fixed_shape_tensor(const std::shared_ptr<DataType>& value_type,
                                              const std::vector<int64_t>& shape,
                                              const std::vector<int64_t>& permutation,
                                              const std::vector<std::string>& dim_names) {
-  if (!permutation.empty()) {
-    ARROW_CHECK_EQ(shape.size(), permutation.size())
-        << "permutation.size() == " << permutation.size()
-        << " must be empty or have the same length as shape.size() " << shape.size();
-  }
-  if (!dim_names.empty()) {
-    ARROW_CHECK_EQ(shape.size(), dim_names.size())
-        << "dim_names.size() == " << dim_names.size()
-        << " must be empty or have the same length as shape.size() " << shape.size();
-  }
-  return std::make_shared<FixedShapeTensorType>(value_type, shape, permutation,
-                                                dim_names);
+  auto maybe_type = FixedShapeTensorType::Make(value_type, shape, permutation, dim_names);
+  ARROW_DCHECK_OK(maybe_type.status());
+  return maybe_type.MoveValueUnsafe();
 }
 
 const std::shared_ptr<DataType> GetStorageType(
