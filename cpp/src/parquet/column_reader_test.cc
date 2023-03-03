@@ -936,7 +936,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
   ASSERT_EQ(records_read, 0);
 
   // Test the descr() accessor.
-  ASSERT_EQ(record_reader_->descr()->max_definition_level(), 1);
+  ASSERT_EQ(record_reader_->descr()->max_definition_level(), 3);
 
   // Read [10], null
   // We do not read this null for both reading dense and spaced.
