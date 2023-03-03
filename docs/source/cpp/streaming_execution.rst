@@ -652,7 +652,7 @@ Example of using ``table_source``
 ----------
 
 ``filter`` operation, as the name suggests, provides an option to define data filtering 
-criteria. It selects rows where the given expression evaluates to true. Filters can bewritten using
+criteria. It selects rows where the given expression evaluates to true. Filters can be written using
 :class:`arrow::compute::Expression`, and the expression should have a return type of boolean.
 For example, if we wish to keep rows where the value
 of column ``b`` is greater than 3,  then we can use the following expression.
