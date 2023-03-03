@@ -109,6 +109,10 @@ TEST_F(TestExtensionType, CreateExtensionType) {
   ASSERT_EQ(exact_ext_type->shape(), cell_shape_);
   ASSERT_EQ(exact_ext_type->strides(), cell_strides_);
   ASSERT_EQ(exact_ext_type->dim_names(), dim_names_);
+
+  // TODO: Test invalid constructor input
+  // ASSERT_DEATH(fixed_shape_tensor(value_type_, cell_shape_, {0}), "");
+  // ASSERT_DEATH(fixed_shape_tensor(value_type_, cell_shape_, {}, {"x"}), "");
 }
 
 TEST_F(TestExtensionType, CreateFromArray) {
@@ -201,32 +205,44 @@ TEST_F(TestExtensionType, SliceTensor) {
   ASSERT_EQ(sliced->length(), partial->length());
 }
 
-void CheckSerializationRoundtrip(const std::shared_ptr<ExtensionType>& ext_type) {
-  auto serialized = ext_type->Serialize();
+void CheckSerializationRoundtrip(const std::shared_ptr<DataType>& ext_type) {
+  auto fst_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
+  auto serialized = fst_type->Serialize();
   ASSERT_OK_AND_ASSIGN(auto deserialized,
-                       ext_type->Deserialize(ext_type->storage_type(), serialized));
-  ASSERT_TRUE(ext_type->Equals(*deserialized));
+                       fst_type->Deserialize(fst_type->storage_type(), serialized));
+  ASSERT_TRUE(fst_type->Equals(*deserialized));
+}
+
+void CheckDeserializationRaises(const std::shared_ptr<DataType>& storage_type,
+                                const std::string& serialized,
+                                const std::string& expected_message) {
+  auto fst_type = internal::checked_pointer_cast<FixedShapeTensorType>(
+      fixed_shape_tensor(int64(), {3, 4}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr(expected_message),
+                                  fst_type->Deserialize(storage_type, serialized));
 }
 
 TEST_F(TestExtensionType, MetadataSerializationRoundtrip) {
-  CheckSerializationRoundtrip(internal::checked_pointer_cast<FixedShapeTensorType>(
-      fixed_shape_tensor(value_type_, {}, {}, {})));
-  CheckSerializationRoundtrip(internal::checked_pointer_cast<FixedShapeTensorType>(
-      fixed_shape_tensor(value_type_, {0}, {}, {})));
-  CheckSerializationRoundtrip(internal::checked_pointer_cast<FixedShapeTensorType>(
-      fixed_shape_tensor(value_type_, {1}, {0}, {"x"})));
-  CheckSerializationRoundtrip(internal::checked_pointer_cast<FixedShapeTensorType>(
-      fixed_shape_tensor(value_type_, {256, 256, 3}, {0, 1, 2}, {"H", "W", "C"})));
-  CheckSerializationRoundtrip(internal::checked_pointer_cast<FixedShapeTensorType>(
-      fixed_shape_tensor(value_type_, {256, 256, 3}, {2, 0, 1}, {"C", "H", "W"})));
-
-  auto ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(
-      fixed_shape_tensor(value_type_, cell_shape_, {0, 1}, dim_names_));
   CheckSerializationRoundtrip(ext_type_);
+  CheckSerializationRoundtrip(fixed_shape_tensor(value_type_, {}, {}, {}));
+  CheckSerializationRoundtrip(fixed_shape_tensor(value_type_, {0}, {}, {}));
+  CheckSerializationRoundtrip(fixed_shape_tensor(value_type_, {1}, {0}, {"x"}));
+  CheckSerializationRoundtrip(
+      fixed_shape_tensor(value_type_, {256, 256, 3}, {0, 1, 2}, {"H", "W", "C"}));
+  CheckSerializationRoundtrip(
+      fixed_shape_tensor(value_type_, {256, 256, 3}, {2, 0, 1}, {"C", "H", "W"}));
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("Invalid: Expected FixedSizeList storage type"),
-      ext_type->Deserialize(boolean(), serialized_));
+  auto storage_type = fixed_size_list(int64(), 12);
+  CheckDeserializationRaises(boolean(), R"({"shape":[3,4]})",
+                             "Expected FixedSizeList storage type, got bool");
+  CheckDeserializationRaises(storage_type, R"({"dim_names":["x","y"]})",
+                             "Invalid serialized JSON data");
+  CheckDeserializationRaises(storage_type, R"({"shape":(3,4)})",
+                             "Invalid serialized JSON data");
+  CheckDeserializationRaises(storage_type, R"({"shape":[3,4],"permutation":[1,0,2]})",
+                             "Invalid permutation");
+  CheckDeserializationRaises(storage_type, R"({"shape":[3],"dim_names":["x","y"]})",
+                             "Invalid dim_names");
 }
 
 TEST_F(TestExtensionType, RoudtripBatch) {

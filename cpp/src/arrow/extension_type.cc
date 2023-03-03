@@ -145,10 +145,10 @@ static void CreateGlobalRegistry() {
 
 #ifdef ARROW_WITH_JSON
   // Register canonical extension types
-  auto ext_type = checked_pointer_cast<ExtensionType>(extension::fixed_shape_tensor(int64(), {}));
+  auto ext_type =
+      checked_pointer_cast<ExtensionType>(extension::fixed_shape_tensor(int64(), {}));
 
-  ARROW_CHECK_OK(
-      g_registry->RegisterType(ext_type));
+  ARROW_CHECK_OK(g_registry->RegisterType(ext_type));
 #endif
 }
 
