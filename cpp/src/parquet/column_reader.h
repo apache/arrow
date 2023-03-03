@@ -308,16 +308,24 @@ namespace internal {
 /// \since 1.3.0
 class PARQUET_EXPORT RecordReader {
  public:
+  /// \brief Creates a record reader.
+  /// @param descr Column descriptor
+  /// @param leaf_info Level info, used to determine if a column is nullable or not
+  /// @param pool Memory pool to use for buffering values and rep/def levels
+  /// @param read_dictionary True if reading directly as Arrow dictionary-encoded
+  /// @param read_dense_for_nullable True if reading dense and not leaving space for null
+  /// values
   static std::shared_ptr<RecordReader> Make(
       const ColumnDescriptor* descr, LevelInfo leaf_info,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      const bool read_dictionary = false);
+      bool read_dictionary = false, bool read_dense_for_nullable = false);
 
   virtual ~RecordReader() = default;
 
   /// \brief Attempt to read indicated number of records from column chunk
   /// Note that for repeated fields, a record may have more than one value
-  /// and all of them are read.
+  /// and all of them are read. If read_dense_for_nullable() it will
+  /// not leave any space for null values. Otherwise, it will read spaced.
   /// \return number of records read
   virtual int64_t ReadRecords(int64_t num_records) = 0;
 
@@ -332,6 +340,7 @@ class PARQUET_EXPORT RecordReader {
 
   /// \brief Clear consumed values and repetition/definition levels as the
   /// result of calling ReadRecords
+  /// For FLBA and ByteArray types, call GetBuilderChunks() to reset them.
   virtual void Reset() = 0;
 
   /// \brief Transfer filled values buffer to caller. A new one will be
@@ -367,10 +376,15 @@ class PARQUET_EXPORT RecordReader {
   }
 
   /// \brief Decoded values, including nulls, if any
+  /// FLBA and ByteArray types do not use this array and read into their own
+  /// builders.
   uint8_t* values() const { return values_->mutable_data(); }
 
-  /// \brief Number of values written including nulls (if any)
-  /// There is no read-ahead/buffering for values.
+  /// \brief Number of values written, including space left for nulls if any.
+  /// If this Reader was constructed with read_dense_for_nullable(), there is no space for
+  /// nulls and null_count() will be 0. There is no read-ahead/buffering for values. For
+  /// FLBA and ByteArray types this value reflects the values written with the last
+  /// ReadRecords call since thoser readers will reset the values after each call.
   int64_t values_written() const { return values_written_; }
 
   /// \brief Number of definition / repetition levels (from those that have
@@ -383,7 +397,9 @@ class PARQUET_EXPORT RecordReader {
   /// the record boundaries.
   int64_t levels_written() const { return levels_written_; }
 
-  /// \brief Number of nulls in the leaf that we have read so far.
+  /// \brief Number of nulls in the leaf that we have read so far into the
+  /// values vector. This is only valid when !read_dense_for_nullable(). When
+  /// read_dense_for_nullable() it will always be 0.
   int64_t null_count() const { return null_count_; }
 
   /// \brief True if the leaf values are nullable
@@ -392,8 +408,12 @@ class PARQUET_EXPORT RecordReader {
   /// \brief True if reading directly as Arrow dictionary-encoded
   bool read_dictionary() const { return read_dictionary_; }
 
+  /// \brief True if reading dense for nullable columns.
+  bool read_dense_for_nullable() const { return read_dense_for_nullable_; }
+
  protected:
-  /// \brief Indicates if we can have nullable values.
+  /// \brief Indicates if we can have nullable values. Note that repeated fields
+  /// may or may not be nullable.
   bool nullable_values_;
 
   bool at_record_start_;
@@ -413,7 +433,7 @@ class PARQUET_EXPORT RecordReader {
   int64_t null_count_;
 
   /// \brief Each bit corresponds to one element in 'values_' and specifies if it
-  /// is null or not null.
+  /// is null or not null. Not set if read_dense_for_nullable_ is true.
   std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
 
   /// \brief Buffer for definition levels. May contain more levels than
@@ -437,6 +457,9 @@ class PARQUET_EXPORT RecordReader {
   int64_t levels_capacity_;
 
   bool read_dictionary_ = false;
+  // If true, we will not leave any space for the null values in the values_
+  // vector.
+  bool read_dense_for_nullable_ = false;
 };
 
 class BinaryRecordReader : virtual public RecordReader {

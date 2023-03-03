@@ -340,13 +340,13 @@ class SerializedPageReader : public PageReader {
 void SerializedPageReader::InitDecryption() {
   // Prepare the AAD for quick update later.
   if (crypto_ctx_.data_decryptor != nullptr) {
-    DCHECK(!crypto_ctx_.data_decryptor->file_aad().empty());
+    ARROW_DCHECK(!crypto_ctx_.data_decryptor->file_aad().empty());
     data_page_aad_ = encryption::CreateModuleAad(
         crypto_ctx_.data_decryptor->file_aad(), encryption::kDataPage,
         crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
   }
   if (crypto_ctx_.meta_decryptor != nullptr) {
-    DCHECK(!crypto_ctx_.meta_decryptor->file_aad().empty());
+    ARROW_DCHECK(!crypto_ctx_.meta_decryptor->file_aad().empty());
     data_page_header_aad_ = encryption::CreateModuleAad(
         crypto_ctx_.meta_decryptor->file_aad(), encryption::kDataPageHeader,
         crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
@@ -355,7 +355,7 @@ void SerializedPageReader::InitDecryption() {
 
 void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor,
                                             int8_t module_type, std::string* page_aad) {
-  DCHECK(decryptor != nullptr);
+  ARROW_DCHECK(decryptor != nullptr);
   if (crypto_ctx_.start_decrypt_with_dictionary_page) {
     std::string aad = encryption::CreateModuleAad(
         decryptor->file_aad(), module_type, crypto_ctx_.row_group_ordinal,
@@ -768,7 +768,7 @@ class ColumnReaderImplBase {
 
     new_dictionary_ = true;
     current_decoder_ = decoders_[encoding].get();
-    DCHECK(current_decoder_);
+    ARROW_DCHECK(current_decoder_);
   }
 
   // Initialize repetition and definition level decoders on the next data page.
@@ -868,7 +868,7 @@ class ColumnReaderImplBase {
 
     auto it = decoders_.find(static_cast<int>(encoding));
     if (it != decoders_.end()) {
-      DCHECK(it->second.get() != nullptr);
+      ARROW_DCHECK(it->second.get() != nullptr);
       current_decoder_ = it->second.get();
     } else {
       switch (encoding) {
@@ -1326,11 +1326,12 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
  public:
   using T = typename DType::c_type;
   using BASE = TypedColumnReaderImpl<DType>;
-  TypedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool)
+  TypedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
+                    bool read_dense_for_nullable)
       // Pager must be set using SetPageReader.
       : BASE(descr, /* pager = */ nullptr, pool) {
     leaf_info_ = leaf_info;
-    nullable_values_ = leaf_info.HasNullableValues();
+    nullable_values_ = leaf_info_.HasNullableValues();
     at_record_start_ = true;
     values_written_ = 0;
     null_count_ = 0;
@@ -1338,6 +1339,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     levels_written_ = 0;
     levels_position_ = 0;
     levels_capacity_ = 0;
+    read_dense_for_nullable_ = read_dense_for_nullable;
     uses_values_ = !(descr->physical_type() == Type::BYTE_ARRAY);
 
     if (uses_values_) {
@@ -1666,7 +1668,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   std::shared_ptr<ResizableBuffer> ReleaseIsValid() override {
-    if (leaf_info_.HasNullableValues()) {
+    if (nullable_values()) {
       auto result = valid_bits_;
       PARQUET_THROW_NOT_OK(result->Resize(bit_util::BytesForBits(values_written_),
                                           /*shrink_to_fit=*/true));
@@ -1690,7 +1692,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     const int16_t* def_levels = this->def_levels() + levels_position_;
     const int16_t* rep_levels = this->rep_levels() + levels_position_;
 
-    DCHECK_GT(this->max_rep_level_, 0);
+    ARROW_DCHECK_GT(this->max_rep_level_, 0);
 
     // Count logical records and number of values to read
     while (levels_position_ < levels_written_) {
@@ -1780,7 +1782,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       }
       values_capacity_ = new_values_capacity;
     }
-    if (leaf_info_.HasNullableValues()) {
+    if (nullable_values() && !read_dense_for_nullable_) {
       int64_t valid_bytes_new = bit_util::BytesForBits(values_capacity_);
       if (valid_bits_->size() < valid_bytes_new) {
         int64_t valid_bytes_old = bit_util::BytesForBits(values_written_);
@@ -1834,7 +1836,100 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     CheckNumberDecoded(num_decoded, values_to_read);
   }
 
-  // Return number of logical records read
+  // Reads repeated records and returns number of records read. Fills in
+  // values_to_read and null_count.
+  int64_t ReadRepeatedRecords(int64_t num_records, int64_t* values_to_read,
+                              int64_t* null_count) {
+    const int64_t start_levels_position = levels_position_;
+    // Note that repeated records may be required or nullable. If they have
+    // an optional parent in the path, they will be nullable, otherwise,
+    // they are required. We use leaf_info_->HasNullableValues() that looks
+    // at repeated_ancestor_def_level to determine if it is required or
+    // nullable. Even if they are required, we may have to read ahead and
+    // delimit the records to get the right number of values and they will
+    // have associated levels.
+    int64_t records_read = DelimitRecords(num_records, values_to_read);
+    if (!nullable_values() || read_dense_for_nullable_) {
+      ReadValuesDense(*values_to_read);
+      // null_count is always 0 for required.
+      ARROW_DCHECK_EQ(*null_count, 0);
+    } else {
+      ReadSpacedForOptionalOrRepeated(start_levels_position, values_to_read, null_count);
+    }
+    return records_read;
+  }
+
+  // Reads optional records and returns number of records read. Fills in
+  // values_to_read and null_count.
+  int64_t ReadOptionalRecords(int64_t num_records, int64_t* values_to_read,
+                              int64_t* null_count) {
+    const int64_t start_levels_position = levels_position_;
+    // No repetition levels, skip delimiting logic. Each level represents a
+    // null or not null entry
+    int64_t records_read =
+        std::min<int64_t>(levels_written_ - levels_position_, num_records);
+    // This is advanced by DelimitRecords for the repeated field case above.
+    levels_position_ += records_read;
+
+    // Optional fields are always nullable.
+    if (read_dense_for_nullable_) {
+      ReadDenseForOptional(start_levels_position, values_to_read);
+      // We don't need to update null_count when reading dense. It should be
+      // already set to 0.
+      ARROW_DCHECK_EQ(*null_count, 0);
+    } else {
+      ReadSpacedForOptionalOrRepeated(start_levels_position, values_to_read, null_count);
+    }
+    return records_read;
+  }
+
+  // Reads required records and returns number of records read. Fills in
+  // values_to_read.
+  int64_t ReadRequiredRecords(int64_t num_records, int64_t* values_to_read) {
+    *values_to_read = num_records;
+    ReadValuesDense(*values_to_read);
+    return num_records;
+  }
+
+  // Reads dense for optional records. First it figures out how many values to
+  // read.
+  void ReadDenseForOptional(int64_t start_levels_position, int64_t* values_to_read) {
+    // levels_position_ must already be incremented based on number of records
+    // read.
+    ARROW_DCHECK_GE(levels_position_, start_levels_position);
+
+    // When reading dense we need to figure out number of values to read.
+    const int16_t* def_levels = this->def_levels();
+    for (int64_t i = start_levels_position; i < levels_position_; ++i) {
+      if (def_levels[i] == this->max_def_level_) {
+        ++(*values_to_read);
+      }
+    }
+    ReadValuesDense(*values_to_read);
+  }
+
+  // Reads spaced for optional or repeated fields.
+  void ReadSpacedForOptionalOrRepeated(int64_t start_levels_position,
+                                       int64_t* values_to_read, int64_t* null_count) {
+    // levels_position_ must already be incremented based on number of records
+    // read.
+    ARROW_DCHECK_GE(levels_position_, start_levels_position);
+    ValidityBitmapInputOutput validity_io;
+    validity_io.values_read_upper_bound = levels_position_ - start_levels_position;
+    validity_io.valid_bits = valid_bits_->mutable_data();
+    validity_io.valid_bits_offset = values_written_;
+
+    DefLevelsToBitmap(def_levels() + start_levels_position,
+                      levels_position_ - start_levels_position, leaf_info_, &validity_io);
+    *values_to_read = validity_io.values_read - validity_io.null_count;
+    *null_count = validity_io.null_count;
+    ARROW_DCHECK_GE(*values_to_read, 0);
+    ARROW_DCHECK_GE(*null_count, 0);
+    ReadValuesSpaced(validity_io.values_read, *null_count);
+  }
+
+  // Return number of logical records read.
+  // Updates levels_position_, values_written_, and null_count_.
   int64_t ReadRecordData(int64_t num_records) {
     // Conservative upper bound
     const int64_t possible_num_values =
@@ -1843,49 +1938,45 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     const int64_t start_levels_position = levels_position_;
 
-    int64_t values_to_read = 0;
+    // To be updated by the function calls below for each of the repetition
+    // types.
     int64_t records_read = 0;
-    if (this->max_rep_level_ > 0) {
-      records_read = DelimitRecords(num_records, &values_to_read);
-    } else if (this->max_def_level_ > 0) {
-      // No repetition levels, skip delimiting logic. Each level represents a
-      // null or not null entry
-      records_read = std::min<int64_t>(levels_written_ - levels_position_, num_records);
-
-      // This is advanced by DelimitRecords, which we skipped
-      levels_position_ += records_read;
-    } else {
-      records_read = values_to_read = num_records;
-    }
-
+    int64_t values_to_read = 0;
     int64_t null_count = 0;
-    if (leaf_info_.HasNullableValues()) {
-      ValidityBitmapInputOutput validity_io;
-      validity_io.values_read_upper_bound = levels_position_ - start_levels_position;
-      validity_io.valid_bits = valid_bits_->mutable_data();
-      validity_io.valid_bits_offset = values_written_;
-
-      DefLevelsToBitmap(def_levels() + start_levels_position,
-                        levels_position_ - start_levels_position, leaf_info_,
-                        &validity_io);
-      values_to_read = validity_io.values_read - validity_io.null_count;
-      null_count = validity_io.null_count;
-      DCHECK_GE(values_to_read, 0);
-      ReadValuesSpaced(validity_io.values_read, null_count);
+    if (this->max_rep_level_ > 0) {
+      // Repeated fields may be nullable or not.
+      // This call updates levels_position_.
+      records_read = ReadRepeatedRecords(num_records, &values_to_read, &null_count);
+    } else if (this->max_def_level_ > 0) {
+      // Non-repeated optional values are always nullable.
+      // This call updates levels_position_.
+      ARROW_DCHECK(nullable_values());
+      records_read = ReadOptionalRecords(num_records, &values_to_read, &null_count);
     } else {
-      DCHECK_GE(values_to_read, 0);
-      ReadValuesDense(values_to_read);
+      ARROW_DCHECK(!nullable_values());
+      records_read = ReadRequiredRecords(num_records, &values_to_read);
+      // We don't need to update null_count, since it is 0.
     }
-    if (this->leaf_info_.def_level > 0) {
+
+    ARROW_DCHECK_GE(records_read, 0);
+    ARROW_DCHECK_GE(values_to_read, 0);
+    ARROW_DCHECK_GE(null_count, 0);
+
+    if (read_dense_for_nullable_) {
+      values_written_ += values_to_read;
+      ARROW_DCHECK_EQ(null_count, 0);
+    } else {
+      values_written_ += values_to_read + null_count;
+      null_count_ += null_count;
+    }
+    // Total values, including null spaces, if any
+    if (this->max_def_level_ > 0) {
       // Optional, repeated, or some mix thereof
       this->ConsumeBufferedValues(levels_position_ - start_levels_position);
     } else {
       // Flat, non-repeated
       this->ConsumeBufferedValues(values_to_read);
     }
-    // Total values, including null spaces, if any
-    values_written_ += values_to_read + null_count;
-    null_count_ += null_count;
 
     return records_read;
   }
@@ -1941,9 +2032,10 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
                          virtual public BinaryRecordReader {
  public:
   FLBARecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
-                   ::arrow::MemoryPool* pool)
-      : TypedRecordReader<FLBAType>(descr, leaf_info, pool), builder_(nullptr) {
-    DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
+                   ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+      : TypedRecordReader<FLBAType>(descr, leaf_info, pool, read_dense_for_nullable),
+        builder_(nullptr) {
+    ARROW_DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
     int byte_width = descr_->type_length();
     std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
     builder_ = std::make_unique<::arrow::FixedSizeBinaryBuilder>(type, this->pool_);
@@ -1975,7 +2067,7 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
     int64_t num_decoded = this->current_decoder_->DecodeSpaced(
         values, static_cast<int>(values_to_read), static_cast<int>(null_count),
         valid_bits, valid_bits_offset);
-    DCHECK_EQ(num_decoded, values_to_read);
+    ARROW_DCHECK_EQ(num_decoded, values_to_read);
 
     for (int64_t i = 0; i < num_decoded; i++) {
       if (::arrow::bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
@@ -1995,9 +2087,10 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
                                      virtual public BinaryRecordReader {
  public:
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
-                               ::arrow::MemoryPool* pool)
-      : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool) {
-    DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
+                               ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+      : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool,
+                                         read_dense_for_nullable) {
+    ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
     accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
   }
 
@@ -2036,8 +2129,9 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
                                         virtual public DictionaryRecordReader {
  public:
   ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
-                                  ::arrow::MemoryPool* pool)
-      : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool), builder_(pool) {
+                                  ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+      : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool, read_dense_for_nullable),
+        builder_(pool) {
     this->read_dictionary_ = true;
   }
 
@@ -2103,7 +2197,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
       /// Flush values since they have been copied into the builder
       ResetValues();
     }
-    DCHECK_EQ(num_decoded, values_to_read - null_count);
+    ARROW_DCHECK_EQ(num_decoded, values_to_read - null_count);
   }
 
  private:
@@ -2126,11 +2220,14 @@ void TypedRecordReader<FLBAType>::DebugPrintState() {}
 std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* descr,
                                                         LevelInfo leaf_info,
                                                         ::arrow::MemoryPool* pool,
-                                                        bool read_dictionary) {
+                                                        bool read_dictionary,
+                                                        bool read_dense_for_nullable) {
   if (read_dictionary) {
-    return std::make_shared<ByteArrayDictionaryRecordReader>(descr, leaf_info, pool);
+    return std::make_shared<ByteArrayDictionaryRecordReader>(descr, leaf_info, pool,
+                                                             read_dense_for_nullable);
   } else {
-    return std::make_shared<ByteArrayChunkedRecordReader>(descr, leaf_info, pool);
+    return std::make_shared<ByteArrayChunkedRecordReader>(descr, leaf_info, pool,
+                                                          read_dense_for_nullable);
   }
 }
 
@@ -2138,24 +2235,34 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* 
 
 std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
                                                  LevelInfo leaf_info, MemoryPool* pool,
-                                                 const bool read_dictionary) {
+                                                 bool read_dictionary,
+                                                 bool read_dense_for_nullable) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
-      return std::make_shared<TypedRecordReader<BooleanType>>(descr, leaf_info, pool);
+      return std::make_shared<TypedRecordReader<BooleanType>>(descr, leaf_info, pool,
+                                                              read_dense_for_nullable);
     case Type::INT32:
-      return std::make_shared<TypedRecordReader<Int32Type>>(descr, leaf_info, pool);
+      return std::make_shared<TypedRecordReader<Int32Type>>(descr, leaf_info, pool,
+                                                            read_dense_for_nullable);
     case Type::INT64:
-      return std::make_shared<TypedRecordReader<Int64Type>>(descr, leaf_info, pool);
+      return std::make_shared<TypedRecordReader<Int64Type>>(descr, leaf_info, pool,
+                                                            read_dense_for_nullable);
     case Type::INT96:
-      return std::make_shared<TypedRecordReader<Int96Type>>(descr, leaf_info, pool);
+      return std::make_shared<TypedRecordReader<Int96Type>>(descr, leaf_info, pool,
+                                                            read_dense_for_nullable);
     case Type::FLOAT:
-      return std::make_shared<TypedRecordReader<FloatType>>(descr, leaf_info, pool);
+      return std::make_shared<TypedRecordReader<FloatType>>(descr, leaf_info, pool,
+                                                            read_dense_for_nullable);
     case Type::DOUBLE:
-      return std::make_shared<TypedRecordReader<DoubleType>>(descr, leaf_info, pool);
-    case Type::BYTE_ARRAY:
-      return MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary);
+      return std::make_shared<TypedRecordReader<DoubleType>>(descr, leaf_info, pool,
+                                                             read_dense_for_nullable);
+    case Type::BYTE_ARRAY: {
+      return MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
+                                       read_dense_for_nullable);
+    }
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::make_shared<FLBARecordReader>(descr, leaf_info, pool);
+      return std::make_shared<FLBARecordReader>(descr, leaf_info, pool,
+                                                read_dense_for_nullable);
     default: {
       // PARQUET-1481: This can occur if the file is corrupt
       std::stringstream ss;
