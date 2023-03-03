@@ -151,11 +151,11 @@ func (s *SqlTestSuite) TestCreateTable() {
 	require.NoError(t, err)
 
 	affected, err := result.RowsAffected()
-	require.Equal(t, affected, int64(-1))
-	require.ErrorIs(t, err, flightsql.ErrNotSupported)
+	require.Equal(t, int64(0), affected)
+	require.NoError(t, err)
 
 	last, err := result.LastInsertId()
-	require.Equal(t, last, int64(-1))
+	require.Equal(t, int64(-1), last)
 	require.ErrorIs(t, err, flightsql.ErrNotSupported)
 
 	require.NoError(t, db.Close())
@@ -207,7 +207,11 @@ func (s *SqlTestSuite) TestInsert() {
 	for k, v := range values {
 		stmts = append(stmts, fmt.Sprintf(s.Statements["insert"], s.TableName, k, v))
 	}
-	_, err = db.Exec(strings.Join(stmts, "\n"))
+	result, err := db.Exec(strings.Join(stmts, "\n"))
+	require.NoError(t, err)
+
+	affected, err := result.RowsAffected()
+	require.Equal(t, int64(1), affected)
 	require.NoError(t, err)
 
 	require.NoError(t, db.Close())

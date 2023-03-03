@@ -197,11 +197,7 @@ func (s *Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (drive
 		return nil, err
 	}
 
-	// FIXME: For now we ignore the number of affected records as it seems like
-	// the returned value is always one.
-	_ = n
-
-	return &Result{affected: -1, lastinsert: -1}, nil
+	return &Result{affected: n, lastinsert: -1}, nil
 }
 
 // Query executes a query that may return rows, such as a SELECT.
