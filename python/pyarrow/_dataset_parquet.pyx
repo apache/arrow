@@ -209,6 +209,26 @@ cdef class ParquetFileFormat(FileFormat):
 
     def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None, row_groups=None):
+        """
+        Make a FileFragment from a given file.
+
+        Parameters
+        ----------
+        file : file-like object, path-like or str
+            The file or file path to make a fragment from.
+        filesystem : Filesystem, optional
+            If `filesystem` is given, `file` must be a string and specifies
+            the path of the file to read from the filesystem.
+        partition_expression : Expression, optional
+            The filter expression.
+        row_groups : Iterable, optional
+            The row groups to include
+
+        Returns
+        -------
+        fragment : Fragment
+            The file fragment
+        """
         cdef:
             vector[int] c_row_groups
 

@@ -891,8 +891,13 @@ cdef class FileFormat(_Weakrefable):
         filesystem : Filesystem, optional
             If `filesystem` is given, `file` must be a string and specifies
             the path of the file to read from the filesystem.
-        partition_expression : Expression
+        partition_expression : Expression, optional
             The filter expression.
+
+        Returns
+        -------
+        fragment : Fragment
+            The file fragment
         """
         if partition_expression is None:
             partition_expression = _true
