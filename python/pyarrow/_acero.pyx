@@ -31,8 +31,6 @@ from pyarrow.lib import frombytes, tobytes
 from pyarrow._compute cimport Expression, FunctionOptions, _ensure_field_ref, _true
 from pyarrow.compute import field
 
-# Initialize()  # Initialise support for Datasets in ExecPlan
-
 
 cdef class ExecNodeOptions(_Weakrefable):
     __slots__ = ()  # avoid mistakingly creating attributes
@@ -227,16 +225,6 @@ class AggregateNodeOptions(_AggregateNodeOptions):
 
 
 cdef class _HashJoinNodeOptions(ExecNodeOptions):
-    # _join_type_map = {
-    #     "left semi": CJoinType_LEFT_SEMI,
-    #     "right semi": CJoinType_RIGHT_SEMI,
-    #     "left anti": CJoinType_LEFT_ANTI,
-    #     "right anti": CJoinType_RIGHT_ANTI,
-    #     "inner": CJoinType_INNER,
-    #     "left outer": CJoinType_LEFT_OUTER,
-    #     "right outer": CJoinType_RIGHT_OUTER,
-    #     "full outer": CJoinType_FULL_OUTER,
-    # }
 
     def _set_options(
         self, join_type, left_keys, right_keys, left_output=None, right_output=None,
@@ -250,10 +238,6 @@ cdef class _HashJoinNodeOptions(ExecNodeOptions):
             vector[CFieldRef] c_right_output
 
         # join type
-        # try:
-        #     c_join_type = self._join_type_map[join_type]
-        # except KeyError:
-        #     raise ValueError("Unsupported join type")
         if join_type == "left semi":
             c_join_type = CJoinType_LEFT_SEMI
         elif join_type == "right semi":
