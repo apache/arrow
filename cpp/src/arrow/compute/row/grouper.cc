@@ -100,9 +100,9 @@ struct BaseRowSegmenter : public RowSegmenter {
   std::vector<TypeHolder> key_types_;
 };
 
-SegmentPiece MakeSegmentPiece(int64_t batch_length, int64_t offset, int64_t length,
+Segment MakeSegmentPiece(int64_t batch_length, int64_t offset, int64_t length,
                               bool extends) {
-  return SegmentPiece{offset, length, offset + length >= batch_length, extends};
+  return Segment{offset, length, offset + length >= batch_length, extends};
 }
 
 int64_t GetMatchLength(const uint8_t* match_bytes, int64_t match_width,
@@ -131,7 +131,7 @@ struct NoKeysSegmenter : public BaseRowSegmenter {
 
   Status Reset() override { return Status::OK(); }
 
-  Result<SegmentPiece> GetNextSegmentPiece(const ExecSpan& batch,
+  Result<Segment> GetNextSegment(const ExecSpan& batch,
                                            int64_t offset) override {
     ARROW_RETURN_NOT_OK(CheckForGetNextSegmentPiece(batch, offset, {}));
     return MakeSegmentPiece(batch.length, offset, batch.length - offset, kDefaultExtends);
@@ -170,7 +170,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     return extends;
   }
 
-  Result<SegmentPiece> GetNextSegmentPiece(const Scalar& scalar, int64_t offset,
+  Result<Segment> GetNextSegment(const Scalar& scalar, int64_t offset,
                                            int64_t length) {
     ARROW_RETURN_NOT_OK(CheckType(*scalar.type));
     if (!scalar.is_valid) {
@@ -181,7 +181,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     return MakeSegmentPiece(length, offset, length, extends);
   }
 
-  Result<SegmentPiece> GetNextSegmentPiece(const DataType& array_type,
+  Result<Segment> GetNextSegment(const DataType& array_type,
                                            const uint8_t* array_bytes, int64_t offset,
                                            int64_t length) {
     RETURN_NOT_OK(CheckType(array_type));
@@ -192,7 +192,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     return MakeSegmentPiece(length, offset, match_length, extends);
   }
 
-  Result<SegmentPiece> GetNextSegmentPiece(const ExecSpan& batch,
+  Result<Segment> GetNextSegment(const ExecSpan& batch,
                                            int64_t offset) override {
     ARROW_RETURN_NOT_OK(CheckForGetNextSegmentPiece(batch, offset, {key_type_}));
     if (offset == batch.length) {
@@ -200,14 +200,14 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     }
     const auto& value = batch.values[0];
     if (value.is_scalar()) {
-      return GetNextSegmentPiece(*value.scalar, offset, batch.length);
+      return GetNextSegment(*value.scalar, offset, batch.length);
     }
     ARROW_DCHECK(value.is_array());
     const auto& array = value.array;
     if (array.GetNullCount() > 0) {
       return Status::NotImplemented("segmenting a nullable array");
     }
-    return GetNextSegmentPiece(*array.type, GetValuesAsBytes(array), offset,
+    return GetNextSegment(*array.type, GetValuesAsBytes(array), offset,
                                batch.length);
   }
 
@@ -261,7 +261,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     return values[0];
   }
 
-  Result<SegmentPiece> GetNextSegmentPiece(const ExecSpan& batch,
+  Result<Segment> GetNextSegment(const ExecSpan& batch,
                                            int64_t offset) override {
     ARROW_RETURN_NOT_OK(CheckForGetNextSegmentPiece(batch, offset, key_types_));
     if (offset == batch.length) {

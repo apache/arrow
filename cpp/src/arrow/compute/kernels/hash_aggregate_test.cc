@@ -481,10 +481,10 @@ void TestGroupClassSupportedKeys() {
 }
 
 void TestSegments(std::unique_ptr<RowSegmenter>& segmenter, const ExecSpan& batch,
-                  std::vector<SegmentPiece> expected_segments) {
+                  std::vector<Segment> expected_segments) {
   int64_t offset = 0;
   for (auto expected_segment : expected_segments) {
-    ASSERT_OK_AND_ASSIGN(auto segment, segmenter->GetNextSegmentPiece(batch, offset));
+    ASSERT_OK_AND_ASSIGN(auto segment, segmenter->GetNextSegment(batch, offset));
     ASSERT_EQ(expected_segment, segment);
     offset = segment.offset + segment.length;
   }
@@ -510,7 +510,7 @@ TEST(RowSegmenter, Basics) {
     for (int64_t offset : {-1, 4}) {
       EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                       HasSubstr("invalid grouping segmenter offset"),
-                                      segmenter->GetNextSegmentPiece(span0, offset));
+                                      segmenter->GetNextSegment(span0, offset));
     }
   }
   {
@@ -518,7 +518,7 @@ TEST(RowSegmenter, Basics) {
     ASSERT_OK_AND_ASSIGN(auto segmenter, RowSegmenter::Make(types0));
     ExecSpan span2(batch2);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 0 "),
-                                    segmenter->GetNextSegmentPiece(span2, 0));
+                                    segmenter->GetNextSegment(span2, 0));
     ExecSpan span0(batch0);
     TestSegments(segmenter, span0, {{0, 3, true, true}, {3, 0, true, true}});
   }
@@ -527,14 +527,14 @@ TEST(RowSegmenter, Basics) {
     ASSERT_OK_AND_ASSIGN(auto segmenter, RowSegmenter::Make(bad_types1));
     ExecSpan span1(batch1);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch value 0 of type "),
-                                    segmenter->GetNextSegmentPiece(span1, 0));
+                                    segmenter->GetNextSegment(span1, 0));
   }
   {
     SCOPED_TRACE("types1 segmenting of batch2");
     ASSERT_OK_AND_ASSIGN(auto segmenter, RowSegmenter::Make(types1));
     ExecSpan span2(batch2);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 1 "),
-                                    segmenter->GetNextSegmentPiece(span2, 0));
+                                    segmenter->GetNextSegment(span2, 0));
     ExecSpan span1(batch1);
     TestSegments(segmenter, span1,
                  {{0, 2, false, true}, {2, 1, true, false}, {3, 0, true, true}});
@@ -544,14 +544,14 @@ TEST(RowSegmenter, Basics) {
     ASSERT_OK_AND_ASSIGN(auto segmenter, RowSegmenter::Make(bad_types2));
     ExecSpan span2(batch2);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch value 1 of type "),
-                                    segmenter->GetNextSegmentPiece(span2, 0));
+                                    segmenter->GetNextSegment(span2, 0));
   }
   {
     SCOPED_TRACE("types2 segmenting of batch1");
     ASSERT_OK_AND_ASSIGN(auto segmenter, RowSegmenter::Make(types2));
     ExecSpan span1(batch1);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 2 "),
-                                    segmenter->GetNextSegmentPiece(span1, 0));
+                                    segmenter->GetNextSegment(span1, 0));
     ExecSpan span2(batch2);
     TestSegments(segmenter, span2,
                  {{0, 1, false, true},

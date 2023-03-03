@@ -30,30 +30,31 @@
 namespace arrow {
 namespace compute {
 
-/// \brief A segment piece.
-/// A segment is a chunk of continous rows that has the same segment key. (For example,
-/// in ordered time series processing, segment key can be "date", and a segment can
-/// be rows that belong to the same date.) A segment can span across multiple exec
-/// batches. A segment piece is a chunk of continous rows that has the same segment key
-/// within a given batch. When a segment span cross batches, it will have multiple segment
-/// pieces. Segment piece never span cross batches. The segment piece data structure only
+/// \brief A segment.
+/// A segment group is a chunk of continous rows that has the same segment key. (For example,
+/// in ordered time series processing, segment key can be "date", and a segment group can
+/// be all the rows that belong to the same date.) A segment group can span across multiple exec
+/// batches.
+/// A segment is a chunk of continous rows that has the same segment key
+/// within a given batch. When a ? span cross batches, it will have multiple segments.
+/// A segment never span cross batches. The segment data structure only
 /// makes sense when used along with a exec batch.
-struct ARROW_EXPORT SegmentPiece {
+struct ARROW_EXPORT Segment {
   /// \brief the offset into the batch where the segment starts
   int64_t offset;
   /// \brief the length of the segment
   int64_t length;
-  /// \brief whether the segment piece may be extended by a next one
+  /// \brief whether the segment may be extended by a next one
   bool is_open;
-  /// \brief whether the segment piece extends a preceeding one
+  /// \brief whether the segment extends a preceeding one
   bool extends;
 };
 
-inline bool operator==(const SegmentPiece& segment1, const SegmentPiece& segment2) {
+inline bool operator==(const Segment& segment1, const Segment& segment2) {
   return segment1.offset == segment2.offset && segment1.length == segment2.length &&
          segment1.is_open == segment2.is_open && segment1.extends == segment2.extends;
 }
-inline bool operator!=(const SegmentPiece& segment1, const SegmentPiece& segment2) {
+inline bool operator!=(const Segment& segment1, const Segment& segment2) {
   return !(segment1 == segment2);
 }
 
@@ -80,7 +81,7 @@ class ARROW_EXPORT RowSegmenter {
  public:
   virtual ~RowSegmenter() = default;
 
-  /// \brief Construct a GroupingSegmenter which segments on the specified key types
+  /// \brief Construct a Segmenter which segments on the specified key types
   ///
   /// \param[in] key_types the specified key types
   /// \param[in] nullable_keys whether values of the specified keys may be null
@@ -95,8 +96,8 @@ class ARROW_EXPORT RowSegmenter {
   /// \brief Reset this segmenter
   virtual Status Reset() = 0;
 
-  /// \brief Get the next segment piece for the given batch starting from the given offset
-  virtual Result<SegmentPiece> GetNextSegmentPiece(const ExecSpan& batch,
+  /// \brief Get the next segment for the given batch starting from the given offset
+  virtual Result<Segment> GetNextSegment(const ExecSpan& batch,
                                                    int64_t offset) = 0;
 };
 

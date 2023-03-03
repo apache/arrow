@@ -45,15 +45,15 @@
 // these columns. In segmented group-by aggregation, a second set of columns called
 // segment-keys is used to refine the partitioning. However, segment-keys are different in
 // that they partition only consecutive rows into a single group. Such a partition of
-// consecutive rows is called a segment. For example, consider a column X with values
+// consecutive rows is called a segment group. For example, consider a column X with values
 // [A, B, A] at row-indices [0, 1, 2]. A regular group-by aggregation with keys [X] yields
 // a row-index partitioning [[0, 2], [1]] whereas a segmented-group-by aggregation with
 // segment-keys [X] yields [[0], [1], [2]].
 //
 // The implementation first segments the input using the segment-keys, then groups by the
-// keys. When a segment end is reached while scanning the input, output is pushed and the
-// accumulating state is cleared. If no segment-keys are given, then the entire input is
-// taken as one segment.
+// keys. When a segment group end is reached while scanning the input, output is pushed and
+// the accumulating state is cleared. If no segment-keys are given, then the entire input is
+// taken as one segment group.
 
 namespace arrow {
 
@@ -196,8 +196,8 @@ Status HandleSegments(std::unique_ptr<RowSegmenter>& segmenter, const ExecBatch&
   ExecSpan segment_batch(segment_exec_batch);
 
   while (true) {
-    ARROW_ASSIGN_OR_RAISE(compute::SegmentPiece segment,
-                          segmenter->GetNextSegmentPiece(segment_batch, offset));
+    ARROW_ASSIGN_OR_RAISE(compute::Segment segment,
+                          segmenter->GetNextSegment(segment_batch, offset));
     if (segment.offset >= segment_batch.length) break;  // condition of no-next-segment
     ARROW_RETURN_NOT_OK(handle_batch(batch, segment));
     offset = segment.offset + segment.length;
@@ -388,7 +388,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
 
     auto thread_index = plan_->query_context()->GetThreadIndex();
     auto handler = [this, thread_index](const ExecBatch& full_batch,
-                                        const SegmentPiece& segment) {
+                                        const Segment& segment) {
       // (1) The segment piece is starting of a new segment and points to
       // the beginning of the batch, then it means no data in the batch belongs
       // to the current segment. We can output and reset kernel states.
@@ -638,7 +638,7 @@ class GroupByNode : public ExecNode, public TracedNode {
         std::move(agg_src_fieldsets), std::move(aggs), std::move(agg_kernels));
   }
 
-  Status ResetAggregates() {
+  Status ResetKernelStates() {
     auto ctx = plan()->query_context()->exec_context();
     ARROW_RETURN_NOT_OK(InitKernels(agg_kernels_, ctx, aggs_, agg_src_types_));
     return Status::OK();
@@ -770,7 +770,7 @@ class GroupByNode : public ExecNode, public TracedNode {
     return output_->InputReceived(this, out_data_.Slice(batch_size * n, batch_size));
   }
 
-  Status OutputResult(bool is_last = false) {
+  Status OutputResult(bool is_last) {
     // To simplify merging, ensure that the first grouper is nonempty
     for (size_t i = 0; i < local_states_.size(); i++) {
       if (local_states_[i].grouper) {
@@ -792,7 +792,7 @@ class GroupByNode : public ExecNode, public TracedNode {
       for (int64_t i = 0; i < num_output_batches; i++) {
         ARROW_RETURN_NOT_OK(OutputNthBatch(i));
       }
-      ARROW_RETURN_NOT_OK(ResetAggregates());
+      ARROW_RETURN_NOT_OK(ResetKernelStates());
     }
     return Status::OK();
   }
@@ -802,14 +802,14 @@ class GroupByNode : public ExecNode, public TracedNode {
 
     DCHECK_EQ(input, inputs_[0]);
 
-    auto handler = [this](const ExecBatch& full_batch, const SegmentPiece& segment) {
-      if (!segment.extends && segment.offset == 0) RETURN_NOT_OK(OutputResult());
+    auto handler = [this](const ExecBatch& full_batch, const Segment& segment) {
+      if (!segment.extends && segment.offset == 0) RETURN_NOT_OK(OutputResult(false));
       auto exec_batch = full_batch.Slice(segment.offset, segment.length);
       auto batch = ExecSpan(exec_batch);
       RETURN_NOT_OK(Consume(batch));
       RETURN_NOT_OK(
           GetScalarFields(&segmenter_values_, exec_batch, segment_key_field_ids_));
-      if (!segment.is_open) RETURN_NOT_OK(OutputResult());
+      if (!segment.is_open) RETURN_NOT_OK(OutputResult(false));
       return Status::OK();
     };
     ARROW_RETURN_NOT_OK(
