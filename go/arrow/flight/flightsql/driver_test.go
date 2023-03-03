@@ -656,7 +656,6 @@ func TestSqliteBackend(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	s := &SqlTestSuite{
 		Config: flightsql.DriverConfig{
-			Backend: "sqlite",
 			Timeout: 5 * time.Second,
 		},
 	}

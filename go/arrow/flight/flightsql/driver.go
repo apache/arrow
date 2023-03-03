@@ -17,14 +17,15 @@ package flightsql
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/apache/arrow/go/v12/arrow"
@@ -32,7 +33,11 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/memory"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
+
+const dsnPattern = "flightsq://[username[:password]@]address[:port][?param1=value1&...&paramN=valueN]"
 
 var (
 	ErrNotSupported          = errors.New("not supported")
@@ -394,24 +399,25 @@ func (d *Driver) Configure(config *DriverConfig) error {
 	// Set the driver properties
 	d.addr = config.Address
 	d.timeout = config.Timeout
+	d.options = []grpc.DialOption{grpc.WithBlock()}
 
 	// Create GRPC options necessary for the backend
-	var err error
-	switch config.Backend {
-	case "sqlite":
-		d.options, err = newSqliteBackend(config)
-		if err != nil {
-			return err
-		}
-	case "iox", "ioxs":
-		d.options, err = newIOxBackend(config)
-		if err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("invalid backend %q", config.Backend)
+	var transportCreds credentials.TransportCredentials
+	if !config.TLSEnabled {
+		transportCreds = insecure.NewCredentials()
+	} else {
+		transportCreds = credentials.NewTLS(config.TLSConfig)
 	}
-	d.options = append(d.options, grpc.WithBlock())
+	d.options = append(d.options, grpc.WithTransportCredentials(transportCreds))
+
+	// Set authentication credentials
+	rpcCreds := grpcCredentials{
+		username: config.Username,
+		password: config.Password,
+		token:    config.Token,
+		params:   config.Params,
+	}
+	d.options = append(d.options, grpc.WithPerRPCCredentials(rpcCreds))
 
 	return nil
 }
@@ -492,6 +498,37 @@ func (d *Driver) BeginTx(ctx context.Context, opts sql.TxOptions) (driver.Tx, er
 	d.txn = tx
 
 	return &Tx{tx: tx, timeout: d.timeout}, nil
+}
+
+// *** Internal functions and structures ***
+type grpcCredentials struct {
+	username string
+	password string
+	token    string
+	params   map[string]string
+}
+
+func (g grpcCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+	md := make(map[string]string, len(g.params)+1)
+
+	// Authentication parameters
+	switch {
+	case g.token != "":
+		md["authorization"] = "Bearer " + g.token
+	case g.username != "":
+
+		md["authorization"] = "Basic " + base64.StdEncoding.EncodeToString([]byte(g.username+":"+g.password))
+	}
+
+	for k, v := range g.params {
+		md[k] = v
+	}
+
+	return md, nil
+}
+
+func (g grpcCredentials) RequireTransportSecurity() bool {
+	return g.token != "" || g.username != ""
 }
 
 func fromArrowType(arr arrow.Array, idx int) (interface{}, error) {
@@ -705,14 +742,17 @@ func setFieldValue(builder array.Builder, arg interface{}) error {
 	return nil
 }
 
+// *** Config related code ***
 type DriverConfig struct {
-	Backend  string
 	Address  string
 	Username string
 	Password string
-	Database string
 	Token    string
 	Timeout  time.Duration
+	Params   map[string]string
+
+	TLSEnabled bool
+	TLSConfig  *tls.Config
 }
 
 func NewDriverConfigFromDSN(dsn string) (*DriverConfig, error) {
@@ -722,13 +762,14 @@ func NewDriverConfigFromDSN(dsn string) (*DriverConfig, error) {
 	}
 
 	// Sanity checks on the given connection string
-	switch u.Scheme {
-	case "sqlite", "iox", "ioxs":
-	default:
+	if u.Scheme != "flightsql" {
 		return nil, fmt.Errorf("invalid scheme %q", u.Scheme)
 	}
+	if u.Path != "" {
+		return nil, fmt.Errorf("unexpected path %q", u.Path)
+	}
 
-	// Determine the URL parameters
+	// Extract the settings
 	var username, password string
 	if u.User != nil {
 		username = u.User.Username()
@@ -737,40 +778,71 @@ func NewDriverConfigFromDSN(dsn string) (*DriverConfig, error) {
 		}
 	}
 
-	var database string
-	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-	if len(parts) >= 1 && parts[0] != "" {
-		database = parts[0]
-	}
-
-	var timeout time.Duration
-	if u.Query().Has("timeout") {
-		timeout, err = time.ParseDuration(u.Query().Get("timeout"))
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	config := &DriverConfig{
-		Backend:  u.Scheme,
 		Address:  u.Host,
 		Username: username,
 		Password: password,
-		Database: database,
-		Timeout:  timeout,
+		Params:   make(map[string]string),
+	}
+
+	// Determine the parameters
+	for key, values := range u.Query() {
+		// We only support single instances
+		if len(values) > 1 {
+			return nil, fmt.Errorf("too many values for %q", key)
+		}
+		var v string
+		if len(values) > 0 {
+			v = values[0]
+		}
+
+		switch key {
+		case "token":
+			config.Token = v
+		case "timeout":
+			config.Timeout, err = time.ParseDuration(v)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			config.Params[key] = v
+		}
 	}
 
 	return config, nil
 }
 
 func (config *DriverConfig) ToDSN() (string, error) {
-	switch config.Backend {
-	case "sqlite":
-		return generateSqliteDSN(config)
-	case "iox", "ioxs":
-		return generateIOxDSN(config)
+	u := url.URL{
+		Scheme: "flightsql",
+		Host:   config.Address,
 	}
-	return "", fmt.Errorf("invalid backend %q", config.Backend)
+	if config.Username != "" {
+		if config.Password == "" {
+			u.User = url.User(config.Username)
+		} else {
+			u.User = url.UserPassword(config.Username, config.Password)
+		}
+	}
+
+	// Set the parameters
+	values := url.Values{}
+	if config.Token != "" {
+		values.Add("token", config.Token)
+	}
+	if config.Timeout > 0 {
+		values.Add("timeout", config.Timeout.String())
+	}
+	for k, v := range config.Params {
+		values.Add(k, v)
+	}
+
+	// Check if we do have parameters at all and set them
+	if len(values) > 0 {
+		u.RawQuery = values.Encode()
+	}
+
+	return u.String(), nil
 }
 
 // Register the driver on load.
