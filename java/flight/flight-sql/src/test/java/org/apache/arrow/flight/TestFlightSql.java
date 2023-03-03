@@ -37,6 +37,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;
@@ -54,14 +56,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedCaseSensitivity;
 import org.apache.arrow.flight.sql.util.TableRef;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.UInt1Vector;
-import org.apache.arrow.vector.UInt4Vector;
-import org.apache.arrow.vector.VarBinaryVector;
-import org.apache.arrow.vector.VarCharVector;
-import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.ipc.ReadChannel;
@@ -193,7 +188,28 @@ public class TestFlightSql {
     flightClient.handshake(basic);
 
     FlightSqlClient sqlClient = new FlightSqlClient(flightClient);
-    PreparedStatement ps = sqlClient.prepare("select 1", authFactory.getCredentialCallOption());
+    FlightSqlClient.PreparedStatement ps = sqlClient.prepare("select 1", authFactory.getCredentialCallOption());
+    Schema resultSetSchema = ps.getResultSetSchema();
+    Schema parameterSchema = ps.getParameterSchema();
+    FlightInfo fi = ps.execute(authFactory.getCredentialCallOption());
+    Schema schema = fi.getSchema();
+    for(FlightEndpoint ep : fi.getEndpoints()) {
+      Ticket ticket = ep.getTicket();
+      FlightStream stream = sqlClient.getStream(ticket, authFactory.getCredentialCallOption());
+      final VectorSchemaRoot root = stream.getRoot();
+      try {
+        BigIntVector a = (BigIntVector) root.getVector(0);
+        while (stream.next()) {
+          int rows = root.getRowCount();
+          for (int i = 0; i < rows; i++) {
+              long res = a.get(i);
+              System.out.format("s_quantity=%d\n", res);
+          }
+        }
+      } finally {
+        root.clear();
+      }
+    }
     sqlClient.close();
   }
 
