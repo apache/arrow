@@ -128,7 +128,7 @@ func (r *Result) RowsAffected() (int64, error) {
 	if r.affected < 0 {
 		return -1, ErrNotSupported
 	}
-	return r.affected, ErrNotSupported
+	return r.affected, nil
 }
 
 type Stmt struct {
