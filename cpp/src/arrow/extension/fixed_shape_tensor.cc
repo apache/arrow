@@ -32,6 +32,18 @@ namespace rj = arrow::rapidjson;
 namespace arrow {
 namespace extension {
 
+const std::vector<int64_t>& FixedShapeTensorType::strides() {
+  if (this->strides_.empty()) {
+    const auto& element_type =
+        internal::checked_cast<const FixedWidthType&>(*value_type_);
+    DCHECK_OK(internal::ComputeRowMajorStrides(element_type, shape_, &strides_));
+    if (!permutation_.empty()) {
+      internal::Permute(permutation_, &strides_);
+    }
+  }
+  return this->strides_;
+}
+
 bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   if (extension_name() != other.extension_name()) {
     return false;
@@ -142,8 +154,8 @@ Result<std::shared_ptr<Array>> FixedShapeTensorType::MakeArray(
     x--;
   }
 
-  auto ext_type =
-      fixed_shape_tensor(tensor->type(), cell_shape, permutation, tensor->dim_names());
+  auto ext_type = internal::checked_pointer_cast<ExtensionType>(
+      fixed_shape_tensor(tensor->type(), cell_shape, permutation, tensor->dim_names()));
 
   std::shared_ptr<FixedSizeListArray> arr;
   std::shared_ptr<Array> value_array;
@@ -205,31 +217,32 @@ Result<std::shared_ptr<Array>> FixedShapeTensorType::MakeArray(
 }
 
 Result<std::shared_ptr<Tensor>> FixedShapeTensorType::ToTensor(
-    std::shared_ptr<Array> arr) const {
+    std::shared_ptr<Array> arr) {
   // To convert an array of n dimensional tensors to a n+1 dimensional tensor we
   // interpret the array's length as the first dimension the new tensor. Further, we
   // define n+1 dimensional tensor's strides by front appending a new stride to the n
   // dimensional tensor's strides.
 
+  ARROW_CHECK(is_tensor_supported(this->value_type_->id()));
+
   ARROW_DCHECK_EQ(arr->null_count(), 0) << "Null values not supported in tensors.";
   auto ext_arr = internal::checked_pointer_cast<FixedSizeListArray>(
       internal::checked_pointer_cast<ExtensionArray>(arr)->storage());
 
-  std::vector<int64_t> shape = shape_;
+  std::vector<int64_t> shape = this->shape();
   shape.insert(shape.begin(), 1, arr->length());
 
-  std::vector<int64_t> tensor_strides = strides();
+  std::vector<int64_t> tensor_strides = this->strides();
   tensor_strides.insert(tensor_strides.begin(), 1, arr->length() * tensor_strides[0]);
 
   std::shared_ptr<Buffer> buffer = ext_arr->values()->data()->buffers[1];
   return *Tensor::Make(ext_arr->value_type(), buffer, shape, tensor_strides, dim_names());
 }
 
-std::shared_ptr<FixedShapeTensorType> fixed_shape_tensor(
-    const std::shared_ptr<DataType>& value_type, const std::vector<int64_t>& shape,
-    const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names) {
-  ARROW_CHECK(is_tensor_supported(value_type->id()));
-
+std::shared_ptr<DataType> fixed_shape_tensor(const std::shared_ptr<DataType>& value_type,
+                                             const std::vector<int64_t>& shape,
+                                             const std::vector<int64_t>& permutation,
+                                             const std::vector<std::string>& dim_names) {
   if (!permutation.empty()) {
     ARROW_CHECK_EQ(shape.size(), permutation.size())
         << "permutation.size() == " << permutation.size()
@@ -249,18 +262,6 @@ const std::shared_ptr<DataType> GetStorageType(
   const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
                                     std::multiplies<>());
   return fixed_size_list(value_type, static_cast<int32_t>(size));
-}
-
-const std::vector<int64_t> ComputeStrides(const std::shared_ptr<DataType>& value_type,
-                                          const std::vector<int64_t>& shape,
-                                          const std::vector<int64_t>& permutation) {
-  std::vector<int64_t> strides;
-  const auto& element_type = internal::checked_cast<const FixedWidthType&>(*value_type);
-  DCHECK_OK(internal::ComputeRowMajorStrides(element_type, shape, &strides));
-  if (!permutation.empty()) {
-    internal::Permute(permutation, &strides);
-  }
-  return strides;
 }
 
 }  // namespace extension

@@ -26,10 +26,6 @@ namespace extension {
 const std::shared_ptr<DataType> GetStorageType(
     const std::shared_ptr<DataType>& value_type, const std::vector<int64_t>& shape);
 
-const std::vector<int64_t> ComputeStrides(const std::shared_ptr<DataType>& value_type,
-                                          const std::vector<int64_t>& shape,
-                                          const std::vector<int64_t>& permutation);
-
 class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
@@ -45,7 +41,6 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
       : ExtensionType(GetStorageType(value_type, shape)),
         value_type_(value_type),
         shape_(shape),
-        strides_(ComputeStrides(value_type, shape, permutation)),
         permutation_(permutation),
         dim_names_(dim_names) {}
 
@@ -59,7 +54,7 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
 
   /// Strides of tensor elements. Strides state offset in bytes between adjacent
   /// elements along each dimension.
-  const std::vector<int64_t>& strides() const { return strides_; }
+  const std::vector<int64_t>& strides();
 
   /// Permutation mapping from logical to physical memory layout of tensor elements
   const std::vector<int64_t>& permutation() const { return permutation_; }
@@ -96,7 +91,7 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
   /// remaining dimensions as the FixedShapeTensorType's element shape.
   ///
   /// \param[in] arr The FixedShapeTensorArray to convert to a Tensor
-  Result<std::shared_ptr<Tensor>> ToTensor(std::shared_ptr<Array> arr) const;
+  Result<std::shared_ptr<Tensor>> ToTensor(std::shared_ptr<Array> arr);
 
  private:
   std::shared_ptr<DataType> storage_type_;
@@ -108,7 +103,7 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
 };
 
 /// \brief Return a FixedShapeTensorType instance.
-ARROW_EXPORT std::shared_ptr<FixedShapeTensorType> fixed_shape_tensor(
+ARROW_EXPORT std::shared_ptr<DataType> fixed_shape_tensor(
     const std::shared_ptr<DataType>& storage_type, const std::vector<int64_t>& shape,
     const std::vector<int64_t>& permutation = {},
     const std::vector<std::string>& dim_names = {});
