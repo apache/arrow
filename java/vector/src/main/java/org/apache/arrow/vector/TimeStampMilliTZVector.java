@@ -19,6 +19,8 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import java.util.function.Supplier;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeStampMilliTZReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -37,7 +39,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * (bit vector) is maintained to track which elements in the vector are null.
  */
 public final class TimeStampMilliTZVector extends TimeStampVector {
-  private final FieldReader reader;
+  private Supplier<FieldReader> reader;
   private final String timeZone;
 
   /**
@@ -63,7 +65,11 @@ public final class TimeStampMilliTZVector extends TimeStampVector {
     super(name, fieldType, allocator);
     ArrowType.Timestamp arrowType = (ArrowType.Timestamp) fieldType.getType();
     timeZone = arrowType.getTimezone();
-    reader = new TimeStampMilliTZReaderImpl(TimeStampMilliTZVector.this);
+    reader = () -> {
+      final FieldReader fieldReader = new TimeStampMilliTZReaderImpl(TimeStampMilliTZVector.this);
+      reader = () -> fieldReader;
+      return fieldReader;
+    };
   }
 
   /**
@@ -77,7 +83,11 @@ public final class TimeStampMilliTZVector extends TimeStampVector {
     super(field, allocator);
     ArrowType.Timestamp arrowType = (ArrowType.Timestamp) field.getFieldType().getType();
     timeZone = arrowType.getTimezone();
-    reader = new TimeStampMilliTZReaderImpl(TimeStampMilliTZVector.this);
+    reader = () -> {
+      final FieldReader fieldReader = new TimeStampMilliTZReaderImpl(TimeStampMilliTZVector.this);
+      reader = () -> fieldReader;
+      return fieldReader;
+    };
   }
 
   /**
@@ -87,7 +97,7 @@ public final class TimeStampMilliTZVector extends TimeStampVector {
    */
   @Override
   public FieldReader getReader() {
-    return reader;
+    return reader.get();
   }
 
   /**
@@ -231,6 +241,19 @@ public final class TimeStampMilliTZVector extends TimeStampVector {
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     TimeStampMilliTZVector to = new TimeStampMilliTZVector(ref,
             field.getFieldType(), allocator);
+    return new TransferImpl(to);
+  }
+
+  /**
+   * Construct a TransferPair comprising of this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    TimeStampMilliTZVector to = new TimeStampMilliTZVector(field, allocator);
     return new TransferImpl(to);
   }
 

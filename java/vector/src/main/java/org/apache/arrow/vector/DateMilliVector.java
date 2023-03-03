@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.time.LocalDateTime;
+import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -40,7 +41,7 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public final class DateMilliVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 8;
-  private final FieldReader reader;
+  private Supplier<FieldReader> reader;
 
   /**
    * Instantiate a DateMilliVector. This doesn't allocate any memory for
@@ -74,7 +75,11 @@ public final class DateMilliVector extends BaseFixedWidthVector {
    */
   public DateMilliVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = new DateMilliReaderImpl(DateMilliVector.this);
+    reader = () -> {
+      final FieldReader fieldReader = new DateMilliReaderImpl(DateMilliVector.this);
+      reader = () -> fieldReader;
+      return fieldReader;
+    };
   }
 
   /**
@@ -84,7 +89,7 @@ public final class DateMilliVector extends BaseFixedWidthVector {
    */
   @Override
   public FieldReader getReader() {
-    return reader;
+    return reader.get();
   }
 
   /**
@@ -306,6 +311,18 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   }
 
   /**
+   * Construct a TransferPair comprising of this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
+  }
+
+  /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
    * @param to target vector
@@ -321,6 +338,10 @@ public final class DateMilliVector extends BaseFixedWidthVector {
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new DateMilliVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new DateMilliVector(field, allocator);
     }
 
     public TransferImpl(DateMilliVector to) {

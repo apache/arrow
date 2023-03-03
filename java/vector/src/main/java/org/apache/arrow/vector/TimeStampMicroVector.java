@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.time.LocalDateTime;
+import java.util.function.Supplier;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeStampMicroReaderImpl;
@@ -38,7 +39,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * (bit vector) is maintained to track which elements in the vector are null.
  */
 public final class TimeStampMicroVector extends TimeStampVector {
-  private final FieldReader reader;
+  private Supplier<FieldReader> reader;
 
   /**
    * Instantiate a TimeStampMicroVector. This doesn't allocate any memory for
@@ -61,7 +62,11 @@ public final class TimeStampMicroVector extends TimeStampVector {
    */
   public TimeStampMicroVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, fieldType, allocator);
-    reader = new TimeStampMicroReaderImpl(TimeStampMicroVector.this);
+    reader = () -> {
+      final FieldReader fieldReader = new TimeStampMicroReaderImpl(TimeStampMicroVector.this);
+      reader = () -> fieldReader;
+      return fieldReader;
+    };
   }
 
   /**
@@ -73,7 +78,11 @@ public final class TimeStampMicroVector extends TimeStampVector {
    */
   public TimeStampMicroVector(Field field, BufferAllocator allocator) {
     super(field, allocator);
-    reader = new TimeStampMicroReaderImpl(TimeStampMicroVector.this);
+    reader = () -> {
+      final FieldReader fieldReader = new TimeStampMicroReaderImpl(TimeStampMicroVector.this);
+      reader = () -> fieldReader;
+      return fieldReader;
+    };
   }
 
   /**
@@ -83,7 +92,7 @@ public final class TimeStampMicroVector extends TimeStampVector {
    */
   @Override
   public FieldReader getReader() {
-    return reader;
+    return reader.get();
   }
 
   /**
@@ -220,6 +229,19 @@ public final class TimeStampMicroVector extends TimeStampVector {
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     TimeStampMicroVector to = new TimeStampMicroVector(ref,
             field.getFieldType(), allocator);
+    return new TransferImpl(to);
+  }
+
+  /**
+   * Construct a TransferPair comprising of this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    TimeStampMicroVector to = new TimeStampMicroVector(field, allocator);
     return new TransferImpl(to);
   }
 

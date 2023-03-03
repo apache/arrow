@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.time.Period;
+import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -39,7 +40,7 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public final class IntervalYearVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 4;
-  private final FieldReader reader;
+  private Supplier<FieldReader> reader;
 
   /**
    * Instantiate a IntervalYearVector. This doesn't allocate any memory for
@@ -73,7 +74,11 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
    */
   public IntervalYearVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = new IntervalYearReaderImpl(IntervalYearVector.this);
+    reader = () -> {
+      final FieldReader fieldReader = new IntervalYearReaderImpl(IntervalYearVector.this);
+      reader = () -> fieldReader;
+      return fieldReader;
+    };
   }
 
   /**
@@ -83,7 +88,7 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
    */
   @Override
   public FieldReader getReader() {
-    return reader;
+    return reader.get();
   }
 
   /**
@@ -338,6 +343,18 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
   }
 
   /**
+   * Construct a TransferPair comprising of this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
+  }
+
+  /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
    * @param to target vector
@@ -353,6 +370,10 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new IntervalYearVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new IntervalYearVector(field, allocator);
     }
 
     public TransferImpl(IntervalYearVector to) {

@@ -19,6 +19,8 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import java.util.function.Supplier;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.BigIntReaderImpl;
@@ -37,7 +39,7 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public final class BigIntVector extends BaseFixedWidthVector implements BaseIntVector {
   public static final byte TYPE_WIDTH = 8;
-  private final FieldReader reader;
+  private Supplier<FieldReader> reader;
 
   /**
    * Instantiate a BigIntVector. This doesn't allocate any memory for
@@ -71,7 +73,11 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
    */
   public BigIntVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = new BigIntReaderImpl(BigIntVector.this);
+    reader = () -> {
+      final FieldReader fieldReader = new BigIntReaderImpl(BigIntVector.this);
+      reader = () -> fieldReader;
+      return fieldReader;
+    };
   }
 
   /**
@@ -81,7 +87,7 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
    */
   @Override
   public FieldReader getReader() {
-    return reader;
+    return reader.get();
   }
 
   /**
@@ -299,6 +305,18 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   }
 
   /**
+   * Construct a TransferPair comprising of this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
+  }
+
+  /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
    * @param to target vector
@@ -329,6 +347,10 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new BigIntVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new BigIntVector(field, allocator);
     }
 
     public TransferImpl(BigIntVector to) {

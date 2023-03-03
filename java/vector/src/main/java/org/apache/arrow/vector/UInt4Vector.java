@@ -19,6 +19,8 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import java.util.function.Supplier;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.UInt4ReaderImpl;
@@ -49,7 +51,7 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
   public static final int MAX_UINT4 = 0XFFFFFFFF;
 
   public static final byte TYPE_WIDTH = 4;
-  private final FieldReader reader;
+  private Supplier<FieldReader> reader;
 
   public UInt4Vector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(MinorType.UINT4.getType()), allocator);
@@ -59,14 +61,23 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
     this(new Field(name, fieldType, null), allocator);
   }
 
+  /**
+   * Constructor for UInt4Vector.
+   * @param field Field type
+   * @param allocator Allocator type
+   */
   public UInt4Vector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = new UInt4ReaderImpl(UInt4Vector.this);
+    reader = () -> {
+      final FieldReader fieldReader = new UInt4ReaderImpl(UInt4Vector.this);
+      reader = () -> fieldReader;
+      return fieldReader;
+    };
   }
 
   @Override
   public FieldReader getReader() {
-    return reader;
+    return reader.get();
   }
 
   @Override
@@ -281,6 +292,18 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
     return new TransferImpl(ref, allocator);
   }
 
+  /**
+   * Construct a TransferPair comprising of this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
+  }
+
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
     return new TransferImpl((UInt4Vector) to);
@@ -311,6 +334,10 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new UInt4Vector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new UInt4Vector(field, allocator);
     }
 
     public TransferImpl(UInt4Vector to) {

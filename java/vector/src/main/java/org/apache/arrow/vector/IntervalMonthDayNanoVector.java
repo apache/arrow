@@ -21,6 +21,7 @@ import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.time.Duration;
 import java.time.Period;
+import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -46,7 +47,7 @@ public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 16;
   private static final byte DAY_OFFSET = 4;
   private static final byte NANOSECOND_OFFSET = 8;
-  private final FieldReader reader;
+  private Supplier<FieldReader> reader;
 
 
   /**
@@ -81,7 +82,11 @@ public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
    */
   public IntervalMonthDayNanoVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = new IntervalMonthDayNanoReaderImpl(IntervalMonthDayNanoVector.this);
+    reader = () -> {
+      final FieldReader fieldReader = new IntervalMonthDayNanoReaderImpl(IntervalMonthDayNanoVector.this);
+      reader = () -> fieldReader;
+      return fieldReader;
+    };
   }
 
   /**
@@ -91,7 +96,7 @@ public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
    */
   @Override
   public FieldReader getReader() {
-    return reader;
+    return reader.get();
   }
 
   /**
@@ -398,6 +403,18 @@ public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
   }
 
   /**
+   * Construct a TransferPair comprising of this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
+  }
+
+  /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
    * @param to target vector
@@ -413,6 +430,10 @@ public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new IntervalMonthDayNanoVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new IntervalMonthDayNanoVector(field, allocator);
     }
 
     public TransferImpl(IntervalMonthDayNanoVector to) {

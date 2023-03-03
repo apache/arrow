@@ -19,6 +19,8 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import java.util.function.Supplier;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeStampNanoTZReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -37,7 +39,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * (bit vector) is maintained to track which elements in the vector are null.
  */
 public final class TimeStampNanoTZVector extends TimeStampVector {
-  private final FieldReader reader;
+  private Supplier<FieldReader> reader;
   private final String timeZone;
 
   /**
@@ -63,7 +65,11 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
     super(name, fieldType, allocator);
     ArrowType.Timestamp arrowType = (ArrowType.Timestamp) fieldType.getType();
     timeZone = arrowType.getTimezone();
-    reader = new TimeStampNanoTZReaderImpl(TimeStampNanoTZVector.this);
+    reader = () -> {
+      final FieldReader fieldReader = new TimeStampNanoTZReaderImpl(TimeStampNanoTZVector.this);
+      reader = () -> fieldReader;
+      return fieldReader;
+    };
   }
 
   /**
@@ -77,7 +83,11 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
     super(field, allocator);
     ArrowType.Timestamp arrowType = (ArrowType.Timestamp) field.getFieldType().getType();
     timeZone = arrowType.getTimezone();
-    reader = new TimeStampNanoTZReaderImpl(TimeStampNanoTZVector.this);
+    reader = () -> {
+      final FieldReader fieldReader = new TimeStampNanoTZReaderImpl(TimeStampNanoTZVector.this);
+      reader = () -> fieldReader;
+      return fieldReader;
+    };
   }
 
   /**
@@ -87,7 +97,7 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
    */
   @Override
   public FieldReader getReader() {
-    return reader;
+    return reader.get();
   }
 
   /**
@@ -234,6 +244,19 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     TimeStampNanoTZVector to = new TimeStampNanoTZVector(ref,
             field.getFieldType(), allocator);
+    return new TransferImpl(to);
+  }
+
+  /**
+   * Construct a TransferPair comprising of this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    TimeStampNanoTZVector to = new TimeStampNanoTZVector(field, allocator);
     return new TransferImpl(to);
   }
 

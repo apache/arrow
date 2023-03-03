@@ -21,6 +21,7 @@ import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.math.BigDecimal;
 import java.nio.ByteOrder;
+import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -45,7 +46,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
   public static final int MAX_PRECISION = 38;
   public static final byte TYPE_WIDTH = 16;
   private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
-  private final FieldReader reader;
+  private Supplier<FieldReader> reader;
 
   private final int precision;
   private final int scale;
@@ -84,7 +85,11 @@ public final class DecimalVector extends BaseFixedWidthVector {
   public DecimalVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
     ArrowType.Decimal arrowType = (ArrowType.Decimal) field.getFieldType().getType();
-    reader = new DecimalReaderImpl(DecimalVector.this);
+    reader = () -> {
+      final FieldReader fieldReader = new DecimalReaderImpl(DecimalVector.this);
+      reader = () -> fieldReader;
+      return fieldReader;
+    };
     this.precision = arrowType.getPrecision();
     this.scale = arrowType.getScale();
   }
@@ -96,7 +101,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
    */
   @Override
   public FieldReader getReader() {
-    return reader;
+    return reader.get();
   }
 
   /**
@@ -544,6 +549,18 @@ public final class DecimalVector extends BaseFixedWidthVector {
   }
 
   /**
+   * Construct a TransferPair comprising of this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
+  }
+
+  /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
    * @param to target vector
@@ -560,6 +577,10 @@ public final class DecimalVector extends BaseFixedWidthVector {
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new DecimalVector(ref, allocator, DecimalVector.this.precision,
               DecimalVector.this.scale);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new DecimalVector(field, allocator);
     }
 
     public TransferImpl(DecimalVector to) {

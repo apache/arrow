@@ -20,6 +20,8 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import java.util.function.Supplier;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
@@ -46,7 +48,7 @@ public final class BitVector extends BaseFixedWidthVector {
 
   private static final int HASH_CODE_FOR_ONE = 19;
 
-  private final FieldReader reader;
+  private Supplier<FieldReader> reader;
 
   /**
    * Instantiate a BitVector. This doesn't allocate any memory for
@@ -80,7 +82,11 @@ public final class BitVector extends BaseFixedWidthVector {
    */
   public BitVector(Field field, BufferAllocator allocator) {
     super(field, allocator, 0);
-    reader = new BitReaderImpl(BitVector.this);
+    reader = () -> {
+      final FieldReader fieldReader = new BitReaderImpl(BitVector.this);
+      reader = () -> fieldReader;
+      return fieldReader;
+    };
   }
 
   /**
@@ -90,7 +96,7 @@ public final class BitVector extends BaseFixedWidthVector {
    */
   @Override
   public FieldReader getReader() {
-    return reader;
+    return reader.get();
   }
 
   /**
@@ -555,6 +561,18 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
+   * Construct a TransferPair comprising of this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
+  }
+
+  /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
    * @param to target vector
@@ -570,6 +588,10 @@ public final class BitVector extends BaseFixedWidthVector {
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new BitVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new BitVector(field, allocator);
     }
 
     public TransferImpl(BitVector to) {

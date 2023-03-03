@@ -19,6 +19,8 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import java.util.function.Supplier;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
@@ -39,7 +41,7 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public class FixedSizeBinaryVector extends BaseFixedWidthVector {
   private final int byteWidth;
-  private final FieldReader reader;
+  private Supplier<FieldReader> reader;
 
   /**
    * Instantiate a FixedSizeBinaryVector. This doesn't allocate any memory for
@@ -74,7 +76,11 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    */
   public FixedSizeBinaryVector(Field field, BufferAllocator allocator) {
     super(field, allocator, ((FixedSizeBinary) field.getFieldType().getType()).getByteWidth());
-    reader = new FixedSizeBinaryReaderImpl(FixedSizeBinaryVector.this);
+    reader = () -> {
+      final FieldReader fieldReader = new FixedSizeBinaryReaderImpl(FixedSizeBinaryVector.this);
+      reader = () -> fieldReader;
+      return fieldReader;
+    };
     byteWidth = ((FixedSizeBinary) field.getFieldType().getType()).getByteWidth();
   }
 
@@ -85,7 +91,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    */
   @Override
   public FieldReader getReader() {
-    return reader;
+    return reader.get();
   }
 
   /**
@@ -342,6 +348,18 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
   }
 
   /**
+   * Construct a TransferPair comprising of this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
+  }
+
+  /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
    * @param to target vector
@@ -357,6 +375,10 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new FixedSizeBinaryVector(ref, allocator, FixedSizeBinaryVector.this.byteWidth);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new FixedSizeBinaryVector(field, allocator);
     }
 
     public TransferImpl(FixedSizeBinaryVector to) {

@@ -21,6 +21,7 @@ import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.math.BigDecimal;
 import java.nio.ByteOrder;
+import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -46,7 +47,7 @@ public final class Decimal256Vector extends BaseFixedWidthVector {
   public static final int MAX_PRECISION = 76;
   public static final byte TYPE_WIDTH = 32;
   private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
-  private final FieldReader reader;
+  private Supplier<FieldReader> reader;
 
   private final int precision;
   private final int scale;
@@ -85,7 +86,11 @@ public final class Decimal256Vector extends BaseFixedWidthVector {
   public Decimal256Vector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
     ArrowType.Decimal arrowType = (ArrowType.Decimal) field.getFieldType().getType();
-    reader = new Decimal256ReaderImpl(Decimal256Vector.this);
+    reader = () -> {
+      final FieldReader fieldReader = new Decimal256ReaderImpl(Decimal256Vector.this);
+      reader = () -> fieldReader;
+      return fieldReader;
+    };
     this.precision = arrowType.getPrecision();
     this.scale = arrowType.getScale();
   }
@@ -97,7 +102,7 @@ public final class Decimal256Vector extends BaseFixedWidthVector {
    */
   @Override
   public FieldReader getReader() {
-    return reader;
+    return reader.get();
   }
 
   /**
@@ -545,6 +550,18 @@ public final class Decimal256Vector extends BaseFixedWidthVector {
   }
 
   /**
+   * Construct a TransferPair comprising of this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
+  }
+
+  /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
    * @param to target vector
@@ -561,6 +578,10 @@ public final class Decimal256Vector extends BaseFixedWidthVector {
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new Decimal256Vector(ref, allocator, Decimal256Vector.this.precision,
               Decimal256Vector.this.scale);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new Decimal256Vector(field, allocator);
     }
 
     public TransferImpl(Decimal256Vector to) {
