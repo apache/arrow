@@ -1255,11 +1255,11 @@ cdef class Array(_PandasConvertible):
 
     def is_nan(self):
         """
-        Return BooleanArray indicating the nan values.
+        Return BooleanArray indicating the NaN values.
 
         Returns
         -------
-        array : boolean Array, where null values are None
+        array : boolean Array
         """
         return _pc().call_function('is_nan', [self])
 

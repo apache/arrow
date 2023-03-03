@@ -2438,7 +2438,7 @@ cdef class Expression(_Weakrefable):
 
     def is_nan(self):
         """
-        Check whether the expression is nan.
+        Check whether the expression is NaN.
 
         This creates a new expression equivalent to calling the
         `is_nan` compute function on this expression.
