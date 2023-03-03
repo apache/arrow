@@ -1259,7 +1259,7 @@ cdef class Array(_PandasConvertible):
 
         Returns
         -------
-        array : boolean Array, where null values are None
+        array : boolean Array
         """
         return _pc().call_function('is_nan', [self])
 
