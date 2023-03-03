@@ -16,7 +16,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 using Apache.Arrow.C;
 using Apache.Arrow.Types;
 using Python.Runtime;
@@ -26,7 +25,28 @@ namespace Apache.Arrow.Tests
 {
     public class CDataSchemaTest
     {
-        public CDataSchemaTest()
+        [Fact]
+        public unsafe void InitializeZeroed()
+        {
+            CArrowSchema* cSchema = CArrowSchema.New();
+
+            Assert.True(cSchema->format == null);
+            Assert.True(cSchema->name == null);
+            Assert.True(cSchema->metadata == null);
+            Assert.Equal(0, cSchema->flags);
+            Assert.Equal(0, cSchema->n_children);
+            Assert.True(cSchema->children == null);
+            Assert.True(cSchema->dictionary == null);
+            Assert.True(cSchema->release == null);
+            Assert.True(cSchema->private_data == null);
+
+            CArrowSchema.Free(cSchema);
+        } 
+    }
+
+    public class CDataSchemaPythonTest
+    {
+        public CDataSchemaPythonTest()
         {
             bool inCIJob = Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
             bool pythonSet = Environment.GetEnvironmentVariable("PYTHONNET_PYDLL") != null;
@@ -152,7 +172,7 @@ namespace Apache.Arrow.Tests
 
         // Schemas created in Python, used in CSharp
         [SkippableFact]
-        public void ImportType()
+        public unsafe void ImportType()
         {
             Schema schema = GetTestSchema();
             IEnumerable<dynamic> pyFields = GetPythonFields();
@@ -160,17 +180,18 @@ namespace Apache.Arrow.Tests
             foreach ((Field field, dynamic pyField) in schema.Fields.Values.AsEnumerable()
                 .Zip(pyFields))
             {
-                var cSchema = new CArrowSchema();
-                IntPtr importedPtr = cSchema.AllocateAsPtr();
+                CArrowSchema* cSchema = CArrowSchema.New();
 
                 using (Py.GIL())
                 {
                     dynamic pyDatatype = pyField.type;
-                    pyDatatype._export_to_c(importedPtr.ToInt64());
+                    // Python expects the pointer as an integer
+                    long longPtr = ((IntPtr)cSchema).ToInt64();
+                    pyDatatype._export_to_c(longPtr);
                 }
 
                 var dataTypeComparer = new ArrayTypeComparer(field.DataType);
-                ArrowType importedType = CArrowSchema.ImportType(importedPtr);
+                ArrowType importedType = CArrowSchemaImporter.ImportType(cSchema);
                 dataTypeComparer.Visit(importedType);
 
                 if (importedType is DictionaryType importedDictType)
@@ -179,12 +200,12 @@ namespace Apache.Arrow.Tests
                 }
 
                 // Since we allocated, we are responsible for freeing the pointer.
-                CArrowSchema.FreePtr(importedPtr);
+                CArrowSchema.Free(cSchema);
             }
         }
 
         [SkippableFact]
-        public void ImportField()
+        public unsafe void ImportField()
         {
             Schema schema = GetTestSchema();
             IEnumerable<dynamic> pyFields = GetPythonFields();
@@ -192,47 +213,47 @@ namespace Apache.Arrow.Tests
             foreach ((Field field, dynamic pyField) in schema.Fields.Values.AsEnumerable()
                 .Zip(pyFields))
             {
-                var cSchema = new CArrowSchema();
-                IntPtr importedPtr = cSchema.AllocateAsPtr();
+                CArrowSchema* cSchema = CArrowSchema.New();
 
                 using (Py.GIL())
                 {
-                    pyField._export_to_c(importedPtr.ToInt64());
+                    long longPtr = ((IntPtr)cSchema).ToInt64();
+                    pyField._export_to_c(longPtr);
                 }
 
-                Field importedField = CArrowSchema.ImportField(importedPtr);
+                Field importedField = CArrowSchemaImporter.ImportField(cSchema);
                 FieldComparer.Compare(field, importedField);
 
                 // Since we allocated, we are responsible for freeing the pointer.
-                CArrowSchema.FreePtr(importedPtr);
+                CArrowSchema.Free(cSchema);
             }
         }
 
         [SkippableFact]
-        public void ImportSchema()
+        public unsafe void ImportSchema()
         {
             Schema schema = GetTestSchema();
             dynamic pySchema = GetPythonSchema();
 
-            var cSchema = new CArrowSchema();
-            IntPtr importedPtr = cSchema.AllocateAsPtr();
+            CArrowSchema* cSchema = CArrowSchema.New();
 
             using (Py.GIL())
             {
-                pySchema._export_to_c(importedPtr.ToInt64());
+                long longPtr = ((IntPtr)cSchema).ToInt64();
+                pySchema._export_to_c(longPtr);
             }
 
-            Schema importedSchema = CArrowSchema.ImportSchema(importedPtr);
+            Schema importedSchema = CArrowSchemaImporter.ImportSchema(cSchema);
             SchemaComparer.Compare(schema, importedSchema);
 
             // Since we allocated, we are responsible for freeing the pointer.
-            CArrowSchema.FreePtr(importedPtr);
+            CArrowSchema.Free(cSchema);
         }
 
 
         // Schemas created in CSharp, exported to Python
         [SkippableFact]
-        public void ExportType()
+        public unsafe void ExportType()
         {
             Schema schema = GetTestSchema();
             IEnumerable<dynamic> pyFields = GetPythonFields();
@@ -241,16 +262,17 @@ namespace Apache.Arrow.Tests
                 .Zip(pyFields))
             {
                 IArrowType datatype = field.DataType;
-                var exportedType = new CArrowSchema(datatype);
+                CArrowSchema* cSchema = CArrowSchema.New();
+                CArrowSchemaExporter.ExportType(datatype, cSchema);
 
                 // For Python, we need to provide the pointer
-                IntPtr exportedPtr = exportedType.AllocateAsPtr();
+                long longPtr = ((IntPtr)cSchema).ToInt64();
 
                 using (Py.GIL())
                 {
                     dynamic pa = Py.Import("pyarrow");
                     dynamic expectedPyType = pyField.type;
-                    dynamic exportedPyType = pa.DataType._import_from_c(exportedPtr.ToInt64());
+                    dynamic exportedPyType = pa.DataType._import_from_c(longPtr);
                     Assert.True(exportedPyType == expectedPyType);
 
                     if (pa.types.is_dictionary(exportedPyType))
@@ -260,20 +282,19 @@ namespace Apache.Arrow.Tests
                 }
 
                 // Python should have called release once `exportedPyType` went out-of-scope.
-                var cSchema = Marshal.PtrToStructure<CArrowSchema>(exportedPtr);
-                Assert.Null(cSchema.release);
-                Assert.Equal(IntPtr.Zero, cSchema.format);
-                Assert.Equal(0, cSchema.flags);
-                Assert.Equal(0, cSchema.n_children);
-                Assert.Equal(IntPtr.Zero, cSchema.dictionary);
+                Assert.True(cSchema->release == null);
+                Assert.True(cSchema->format == null);
+                Assert.Equal(0, cSchema->flags);
+                Assert.Equal(0, cSchema->n_children);
+                Assert.True(cSchema->dictionary == null);
 
                 // Since we allocated, we are responsible for freeing the pointer.
-                CArrowSchema.FreePtr(exportedPtr);
+                CArrowSchema.Free(cSchema);
             }
         }
 
         [SkippableFact]
-        public void ExportField()
+        public unsafe void ExportField()
         {
             Schema schema = GetTestSchema();
             IEnumerable<dynamic> pyFields = GetPythonFields();
@@ -281,49 +302,50 @@ namespace Apache.Arrow.Tests
             foreach ((Field field, dynamic pyField) in schema.Fields.Values.AsEnumerable()
                 .Zip(pyFields))
             {
-                var exportedField = new CArrowSchema(field);
+                CArrowSchema* cSchema = CArrowSchema.New();
+                CArrowSchemaExporter.ExportField(field, cSchema);
 
                 // For Python, we need to provide the pointer
-                IntPtr exportedPtr = exportedField.AllocateAsPtr();
+                long longPtr = ((IntPtr)cSchema).ToInt64();
 
                 using (Py.GIL())
                 {
                     dynamic pa = Py.Import("pyarrow");
-                    dynamic exportedPyField = pa.Field._import_from_c(exportedPtr.ToInt64());
+                    dynamic exportedPyField = pa.Field._import_from_c(longPtr);
                     Assert.True(exportedPyField == pyField);
                 }
 
                 // Python should have called release once `exportedPyField` went out-of-scope.
-                var ffiSchema = Marshal.PtrToStructure<CArrowSchema>(exportedPtr);
-                Assert.Equal(IntPtr.Zero, ffiSchema.name);
-                Assert.Null(ffiSchema.release);
-                Assert.Equal(IntPtr.Zero, ffiSchema.format);
+                Assert.True(cSchema->name == null);
+                Assert.True(cSchema->release == null);
+                Assert.True(cSchema->format == null);
 
                 // Since we allocated, we are responsible for freeing the pointer.
-                CArrowSchema.FreePtr(exportedPtr);
+                CArrowSchema.Free(cSchema);
             }
         }
 
         [SkippableFact]
-        public void ExportSchema()
+        public unsafe void ExportSchema()
         {
             Schema schema = GetTestSchema();
             dynamic pySchema = GetPythonSchema();
 
-            var exportedSchema = new CArrowSchema(schema);
+            CArrowSchema* cSchema = CArrowSchema.New();
+            CArrowSchemaExporter.ExportSchema(schema, cSchema);
 
             // For Python, we need to provide the pointer
-            IntPtr exportedPtr = exportedSchema.AllocateAsPtr();
+            long longPtr = ((IntPtr)cSchema).ToInt64();
 
             using (Py.GIL())
             {
                 dynamic pa = Py.Import("pyarrow");
-                dynamic exportedPySchema = pa.Schema._import_from_c(exportedPtr.ToInt64());
+                dynamic exportedPySchema = pa.Schema._import_from_c(longPtr);
                 Assert.True(exportedPySchema == pySchema);
             }
 
             // Since we allocated, we are responsible for freeing the pointer.
-            CArrowSchema.FreePtr(exportedPtr);
+            CArrowSchema.Free(cSchema);
         }
     }
 }

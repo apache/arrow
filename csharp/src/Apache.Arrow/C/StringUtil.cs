@@ -24,7 +24,7 @@ namespace Apache.Arrow.C
 
     internal static class StringUtil
     {
-        public static unsafe IntPtr ToCStringUtf8(string str)
+        public static unsafe byte* ToCStringUtf8(string str)
         {
             var utf8 = System.Text.Encoding.UTF8;
             int byteCount = utf8.GetByteCount(str);
@@ -38,28 +38,27 @@ namespace Apache.Arrow.C
             // Need to make sure it is nul-terminated.
             byteArray[byteCount] = 0;
 
-            return (IntPtr)byteArray;
+            return byteArray;
         }
 
-        public static string PtrToStringUtf8(IntPtr ptr)
+        public static unsafe string PtrToStringUtf8(byte* ptr)
         {
 #if NETSTANDARD2_1_OR_GREATER
             return Marshal.PtrToStringUTF8(ptr);
 #else
-            if (ptr == IntPtr.Zero)
+            if (ptr == null)
             {
                 return null;
             }
 
             unsafe
             {
-                var s = (byte*)ptr;
                 int length;
-                for (length = 0; s[length] != '\0'; ++length)
+                for (length = 0; ptr[length] != '\0'; ++length)
                 {
                 }
 
-                return System.Text.Encoding.UTF8.GetString(s, length);
+                return System.Text.Encoding.UTF8.GetString(ptr, length);
             }
 #endif
         }
