@@ -172,7 +172,6 @@ func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 	var params []driver.NamedValue
 	for i, arg := range args {
 		params = append(params, driver.NamedValue{
-			Name:    fmt.Sprintf("arg_%d", i),
 			Ordinal: i,
 			Value:   arg,
 		})
@@ -210,7 +209,6 @@ func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 	var params []driver.NamedValue
 	for i, arg := range args {
 		params = append(params, driver.NamedValue{
-			Name:    fmt.Sprintf("arg_%d", i),
 			Ordinal: i,
 			Value:   arg,
 		})
