@@ -58,6 +58,16 @@ public class NullVector implements FieldVector {
   }
 
   /**
+   * Instantiate a NullVector with the given number of values
+   *
+   * @param name name of the vector
+   * @param valueCount number of values (i.e., nulls) in this vector
+   */
+  public NullVector(String name, int valueCount) {
+    this(new Field(name, FieldType.nullable(Types.MinorType.NULL.getType()), null), valueCount);
+  }
+
+  /**
    * Instantiate a NullVector.
    *
    * @param name      name of the vector
@@ -73,8 +83,18 @@ public class NullVector implements FieldVector {
    * @param field field materialized by this vector.
    */
   public NullVector(Field field) {
-    this.valueCount = 0;
+    this(field, 0);
+  }
+
+  /**
+   * Instantiate a NullVector with the given number of values
+   *
+   * @param field field materialized by this vector.
+   * @param valueCount number of values (i.e., nulls) in this vector
+   */
+  public NullVector(Field field, int valueCount) {
     this.field = field;
+    this.valueCount = valueCount;
   }
 
   @Deprecated
@@ -192,6 +212,7 @@ public class NullVector implements FieldVector {
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     Preconditions.checkArgument(ownBuffers.isEmpty(), "Null vector has no buffers");
+    this.valueCount = fieldNode.getLength();
   }
 
   @Override
