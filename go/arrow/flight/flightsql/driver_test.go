@@ -22,7 +22,6 @@ package flightsql_test
 import (
 	"database/sql"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"sync"
@@ -551,9 +550,13 @@ func (s *SqlTestSuite) TestTxRollback() {
 
 	// Check result
 	tbls := `SELECT name FROM sqlite_schema WHERE type ='table' AND name NOT LIKE 'sqlite_%';`
-	tblrows, err := db.Query(tbls)
-	require.ErrorIs(t, err, io.EOF)
-	require.Nil(t, tblrows)
+	rows, err := db.Query(tbls)
+	require.NoError(t, err)
+	count := 0
+	for rows.Next() {
+		count++
+	}
+	require.Equal(t, 0, count)
 	require.NoError(t, db.Close())
 
 	// Tear-down server

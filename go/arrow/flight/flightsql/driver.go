@@ -236,18 +236,31 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 		if err != nil {
 			return nil, fmt.Errorf("getting ticket failed: %w", err)
 		}
-		record, err := reader.Read()
-		if err != nil {
-			return nil, fmt.Errorf("reading record failed: %w", err)
-		}
 
-		if rows.schema == nil {
-			rows.schema = record.Schema()
+		for {
+			record, err := reader.Read()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				return nil, fmt.Errorf("reading record failed: %w", err)
+			}
+			record.Retain()
+
+			// Check the schemata
+			if rows.schema == nil {
+				rows.schema = record.Schema()
+			}
+			if !rows.schema.Equal(record.Schema()) {
+				return nil, fmt.Errorf("mixed schemas %w", ErrNotSupported)
+			}
+			rows.records = append(rows.records, record)
+
+			reader.Next()
 		}
-		if !rows.schema.Equal(record.Schema()) {
-			return nil, fmt.Errorf("mixed schemas %w", ErrNotSupported)
+		if err := reader.Err(); err != nil {
+			return &rows, err
 		}
-		rows.records = append(rows.records, record)
 	}
 
 	return &rows, nil
