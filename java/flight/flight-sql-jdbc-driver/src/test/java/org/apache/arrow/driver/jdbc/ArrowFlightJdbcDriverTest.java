@@ -395,8 +395,9 @@ public class ArrowFlightJdbcDriverTest {
             long end = System.currentTimeMillis();
             long delta = end - start;
             sum += delta;
-            System.out.format("Selected single row in %dms\n", delta);
+            System.out.format("Selected single row in %dms\n\n", delta);
           }
+          Thread.sleep(100);
         }
         System.out.format("Average time=%dms\n", sum / cnt);
         ConsoleReporter reporter = ConsoleReporter.forRegistry(metrics)

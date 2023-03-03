@@ -39,6 +39,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.IntStream;
 
+import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;
+import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
+import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
+import org.apache.arrow.flight.client.ClientCookieMiddleware;
+import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.FlightSqlClient.PreparedStatement;
 import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
@@ -170,6 +175,26 @@ public class TestFlightSql {
       }
     }
     return nonConformingResults;
+  }
+
+  @Test
+  public void testStmt() throws Exception {
+    String username = "admin";
+    String password = "password";
+    final Location clientLocation = Location.forGrpcInsecure("127.0.0.1", 50060);
+    FlightClient.Builder flightBuilder = FlightClient.builder(allocator, clientLocation);
+    ClientIncomingAuthHeaderMiddleware.Factory authFactory =
+            new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+    flightBuilder.intercept(authFactory);
+    FlightClientMiddleware.Factory cookieFactory = new ClientCookieMiddleware.Factory();
+    flightBuilder.intercept(cookieFactory);
+    FlightClient flightClient = flightBuilder.build();
+    CredentialCallOption basic = new CredentialCallOption(new BasicAuthCredentialWriter(username, password));
+    flightClient.handshake(basic);
+
+    FlightSqlClient sqlClient = new FlightSqlClient(flightClient);
+    PreparedStatement ps = sqlClient.prepare("select 1", authFactory.getCredentialCallOption());
+    sqlClient.close();
   }
 
   @Test

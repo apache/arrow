@@ -92,6 +92,9 @@ public class FlightStream implements AutoCloseable {
   public static final MetricRegistry metrics = new MetricRegistry();
 
   private static final Timer fsNext = metrics.timer(name(FlightStream.class, "fsNext"));
+  private static final Timer fsTake = metrics.timer(name(FlightStream.class, "fsTake"));
+  private static final Timer fsRb = metrics.timer(name(FlightStream.class, "fsRb"));
+  private static final Timer fsDict = metrics.timer(name(FlightStream.class, "fsDict"));
 
   /**
    * Constructs a new instance.
@@ -237,7 +240,12 @@ public class FlightStream implements AutoCloseable {
         pending--;
         requestOutstanding();
 
-        Object data = queue.take();
+        Object data;
+        try (final Timer.Context takeCtx = fsTake.time()) {
+          System.out.format("Trying to take @ %dms\n", System.currentTimeMillis());
+          data = queue.take();
+          System.out.format("Took @ %dms\n", System.currentTimeMillis());
+        }
         if (DONE == data) {
           queue.put(DONE);
           // Other code ignores the value of this CompletableFuture, only whether it's completed (or has an exception)
@@ -259,34 +267,38 @@ public class FlightStream implements AutoCloseable {
                 fulfilledRoot.clear();
               }
             } else if (msg.getMessageType() == HeaderType.RECORD_BATCH) {
-              checkMetadataVersion(msg);
-              // Ensure we have the root
-              root.get().clear();
-              try (ArrowRecordBatch arb = msg.asRecordBatch()) {
-                loader.load(arb);
+              try (final Timer.Context rbCtx = fsRb.time()) {
+                checkMetadataVersion(msg);
+                // Ensure we have the root
+                root.get().clear();
+                try (ArrowRecordBatch arb = msg.asRecordBatch()) {
+                  loader.load(arb);
+                }
+                updateMetadata(msg);
               }
-              updateMetadata(msg);
             } else if (msg.getMessageType() == HeaderType.DICTIONARY_BATCH) {
-              checkMetadataVersion(msg);
-              // Ensure we have the root
-              root.get().clear();
-              try (ArrowDictionaryBatch arb = msg.asDictionaryBatch()) {
-                final long id = arb.getDictionaryId();
-                if (dictionaries == null) {
-                  throw new IllegalStateException("Dictionary ownership was claimed by the application.");
-                }
-                final Dictionary dictionary = dictionaries.lookup(id);
-                if (dictionary == null) {
-                  throw new IllegalArgumentException("Dictionary not defined in schema: ID " + id);
-                }
+              try (final Timer.Context dictCtx = fsRb.time()) {
+                checkMetadataVersion(msg);
+                // Ensure we have the root
+                root.get().clear();
+                try (ArrowDictionaryBatch arb = msg.asDictionaryBatch()) {
+                  final long id = arb.getDictionaryId();
+                  if (dictionaries == null) {
+                    throw new IllegalStateException("Dictionary ownership was claimed by the application.");
+                  }
+                  final Dictionary dictionary = dictionaries.lookup(id);
+                  if (dictionary == null) {
+                    throw new IllegalArgumentException("Dictionary not defined in schema: ID " + id);
+                  }
 
-                final FieldVector vector = dictionary.getVector();
-                final VectorSchemaRoot dictionaryRoot = new VectorSchemaRoot(Collections.singletonList(vector.getField()),
-                        Collections.singletonList(vector), 0);
-                final VectorLoader dictionaryLoader = new VectorLoader(dictionaryRoot);
-                dictionaryLoader.load(arb.getDictionary());
+                  final FieldVector vector = dictionary.getVector();
+                  final VectorSchemaRoot dictionaryRoot = new VectorSchemaRoot(Collections.singletonList(vector.getField()),
+                          Collections.singletonList(vector), 0);
+                  final VectorLoader dictionaryLoader = new VectorLoader(dictionaryRoot);
+                  dictionaryLoader.load(arb.getDictionary());
+                }
+                return next();
               }
-              return next();
             } else {
               throw new UnsupportedOperationException("Message type is unsupported: " + msg.getMessageType());
             }
@@ -393,6 +405,7 @@ public class FlightStream implements AutoCloseable {
 
     @Override
     public void onNext(ArrowMessage msg) {
+      System.out.format("FlightStream.onNext() @ %dms\n", System.currentTimeMillis());
       // Operations here have to be under a lock so that we don't add a message to the queue while in the middle of
       // close().
       requestOutstanding();
