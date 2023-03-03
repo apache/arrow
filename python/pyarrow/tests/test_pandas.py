@@ -647,6 +647,21 @@ class TestConvertMetadata:
             result = new_table.to_pandas()
             tm.assert_frame_equal(result, expected)
 
+    @pytest.mark.parametrize("index", ["a", ["a", "b"]])
+    def test_to_pandas_types_mapper_index(self, index):
+        df = pd.DataFrame(
+            {
+                "a": [1, 2],
+                "b": [3, 4],
+                "c": [5, 6],
+            },
+            dtype=pd.ArrowDtype(pa.int64()),
+        ).set_index(index)
+        expected = df.copy()
+        table = pa.table(df)
+        result = table.to_pandas(types_mapper=pd.ArrowDtype)
+        tm.assert_frame_equal(result, expected)
+
 
 class TestConvertPrimitiveTypes:
     """
