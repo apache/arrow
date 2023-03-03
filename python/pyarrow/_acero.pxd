@@ -21,46 +21,23 @@ from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
-cdef class ScalarUdfContext(_Weakrefable):
+
+cdef class ExecNodeOptions(_Weakrefable):
     cdef:
-        CScalarUdfContext c_context
+        shared_ptr[CExecNodeOptions] wrapped
 
-    cdef void init(self, const CScalarUdfContext& c_context)
-
-
-cdef class FunctionOptions(_Weakrefable):
-    cdef:
-        shared_ptr[CFunctionOptions] wrapped
-
-    cdef const CFunctionOptions* get_options(self) except NULL
-    cdef void init(self, const shared_ptr[CFunctionOptions]& sp)
-
-    cdef inline shared_ptr[CFunctionOptions] unwrap(self)
+    cdef void init(self, const shared_ptr[CExecNodeOptions]& sp)
+    cdef inline shared_ptr[CExecNodeOptions] unwrap(self) nogil
 
 
-cdef class _SortOptions(FunctionOptions):
-    pass
-
-
-cdef CExpression _bind(Expression filter, Schema schema) except *
-
-
-cdef class Expression(_Weakrefable):
+cdef class Declaration(_Weakrefable):
 
     cdef:
-        CExpression expr
+        CDeclaration decl
 
-    cdef void init(self, const CExpression& sp)
+    cdef void init(self, const CDeclaration& c_decl)
 
     @staticmethod
-    cdef wrap(const CExpression& sp)
+    cdef wrap(const CDeclaration& c_decl)
 
-    cdef inline CExpression unwrap(self)
-
-    @staticmethod
-    cdef Expression _expr_or_scalar(object expr)
-
-
-cdef CExpression _true
-
-cdef CFieldRef _ensure_field_ref(value) except *
+    cdef inline CDeclaration unwrap(self) nogil

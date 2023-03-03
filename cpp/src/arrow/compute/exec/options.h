@@ -204,7 +204,8 @@ class ARROW_EXPORT FetchNodeOptions : public ExecNodeOptions {
   int64_t count;
 };
 
-/// \brief Make a node which executes expressions on input batches, producing new batches.
+/// \brief Make a node which executes expressions on input batches, producing batches
+/// of the same length with new columns.
 ///
 /// Each expression will be evaluated against each batch which is pushed to
 /// this node to produce a corresponding output column.

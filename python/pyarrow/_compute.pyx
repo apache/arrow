@@ -1395,38 +1395,43 @@ class MakeStructOptions(_MakeStructOptions):
         self._set_options(field_names, field_nullability, field_metadata)
 
 
+cdef CFieldRef _ensure_field_ref(value) except *:
+    cdef:
+        CFieldRef field_ref
+        const CFieldRef* field_ref_ptr
+
+    if isinstance(value, (list, tuple)):
+        value = Expression._nested_field(tuple(value))
+
+    if isinstance(value, Expression):
+        field_ref_ptr = (<Expression>value).unwrap().field_ref()
+        if field_ref_ptr is NULL:
+            raise ValueError("Unable to get FieldRef from Expression")
+        field_ref = <CFieldRef>deref(field_ref_ptr)
+    elif isinstance(value, (bytes, str)):
+        if value.startswith(b'.' if isinstance(value, bytes) else '.'):
+            field_ref = GetResultValue(
+                CFieldRef.FromDotPath(<c_string>tobytes(value)))
+        else:
+            field_ref = CFieldRef(<c_string>tobytes(value))
+    elif isinstance(value, int):
+        field_ref = CFieldRef(<int> value)
+    else:
+        raise TypeError("Expected a field reference as a str or int, list of "
+                        f"str or int, or Expression. Got {type(value)} instead.")
+    return field_ref
+
+
 cdef class _StructFieldOptions(FunctionOptions):
     def _set_options(self, indices):
-        cdef:
-            CFieldRef field_ref
-            const CFieldRef* field_ref_ptr
 
-        if isinstance(indices, (list, tuple)):
-            if len(indices):
-                indices = Expression._nested_field(tuple(indices))
-            else:
-                # Allow empty indices; effecitively return same array
-                self.wrapped.reset(
-                    new CStructFieldOptions(<vector[int]>indices))
-                return
+        if isinstance(indices, (list, tuple)) and not len(indices):
+            # Allow empty indices; effecitively return same array
+            self.wrapped.reset(
+                new CStructFieldOptions(<vector[int]>indices))
+            return
 
-        if isinstance(indices, Expression):
-            field_ref_ptr = (<Expression>indices).unwrap().field_ref()
-            if field_ref_ptr is NULL:
-                raise ValueError("Unable to get CFieldRef from Expression")
-            field_ref = <CFieldRef>deref(field_ref_ptr)
-        elif isinstance(indices, (bytes, str)):
-            if indices.startswith(b'.' if isinstance(indices, bytes) else '.'):
-                field_ref = GetResultValue(
-                    CFieldRef.FromDotPath(<c_string>tobytes(indices)))
-            else:
-                field_ref = CFieldRef(<c_string>tobytes(indices))
-        elif isinstance(indices, int):
-            field_ref = CFieldRef(<int> indices)
-        else:
-            raise TypeError("Expected List[str], List[int], List[bytes], "
-                            "Expression, bytes, str, or int. "
-                            f"Got: {type(indices)}")
+        cdef CFieldRef field_ref = _ensure_field_ref(indices)
         self.wrapped.reset(new CStructFieldOptions(field_ref))
 
 

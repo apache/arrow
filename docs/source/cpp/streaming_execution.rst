@@ -648,8 +648,9 @@ Example of using ``table_source``
 ----------
 
 ``filter`` operation, as the name suggests, provides an option to define data filtering 
-criteria. It selects rows matching a given expression. Filters can be written using 
-:class:`arrow::compute::Expression`. For example, if we wish to keep rows where the value 
+criteria. It selects rows where the given expression evaluates to true. Filters can be written using
+:class:`arrow::compute::Expression`, and the expression should have a return type of boolean.
+For example, if we wish to keep rows where the value
 of column ``b`` is greater than 3,  then we can use the following expression.
 
 Filter example:
@@ -668,8 +669,11 @@ Filter example:
 
 ``project`` operation rearranges, deletes, transforms, and creates columns.
 Each output column is computed by evaluating an expression
-against the source record batch. This is exposed via 
-:class:`arrow::compute::ProjectNodeOptions` which requires,
+against the source record batch. These must be scalar expressions
+(expressions consisting of scalar literals, field references and scalar
+functions, i.e. elementwise functions that return one value for each input
+row independent of the value of all other rows).
+This is exposed via :class:`arrow::compute::ProjectNodeOptions` which requires,
 an :class:`arrow::compute::Expression` and name for each of the output columns (if names are not
 provided, the string representations of exprs will be used).  
 
