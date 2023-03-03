@@ -26,7 +26,7 @@ arrow_add_pkg_config("arrow-compute")
 # Unit tests
 #
 
-# As of 2023-02-28, the following kernels are always present:
+# The following kernels are always present:
 #  - array_filter
 #  - array_take
 #  - cast
