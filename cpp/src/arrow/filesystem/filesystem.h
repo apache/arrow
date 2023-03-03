@@ -491,6 +491,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 /// file separators.
 ///
 /// \return The path inside the filesystem that is indicated by the URI.
+ARROW_EXPORT
 Result<std::string> PathFromUriOrPath(const FileSystem* filesystem,
                                       const std::string& uri);
 
