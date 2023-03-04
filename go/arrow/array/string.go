@@ -132,7 +132,7 @@ func (a *String) setData(data *Data) {
 	}
 }
 
-func (a *String) getOneForMarshal(i int) interface{} {
+func (a *String) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.Value(i)
 	}
@@ -267,7 +267,7 @@ func (a *LargeString) setData(data *Data) {
 	}
 }
 
-func (a *LargeString) getOneForMarshal(i int) interface{} {
+func (a *LargeString) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.Value(i)
 	}
@@ -349,7 +349,7 @@ func (b *StringBuilder) NewStringArray() (a *String) {
 	return
 }
 
-func (b *StringBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *StringBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -370,9 +370,9 @@ func (b *StringBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *StringBuilder) unmarshal(dec *json.Decoder) error {
+func (b *StringBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -390,7 +390,7 @@ func (b *StringBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("string builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 // A LargeStringBuilder is used to build a LargeString array using the Append methods.
@@ -446,7 +446,7 @@ func (b *LargeStringBuilder) NewLargeStringArray() (a *LargeString) {
 	return
 }
 
-func (b *LargeStringBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *LargeStringBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -467,9 +467,9 @@ func (b *LargeStringBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *LargeStringBuilder) unmarshal(dec *json.Decoder) error {
+func (b *LargeStringBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -487,7 +487,7 @@ func (b *LargeStringBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("string builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type StringLikeBuilder interface {

@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 var (
@@ -122,7 +124,9 @@ type ExtensionType interface {
 	// If the storage type is incorrect or something else is invalid with the data this should
 	// return nil and an appropriate error.
 	Deserialize(storageType DataType, data string) (ExtensionType, error)
-
+	// this should return array.Builder interface but we cannot import due to cycle import, so we use 
+	// interface{} instead. At least for 
+	NewBuilder(mem memory.Allocator, dt ExtensionType) interface{}
 	mustEmbedExtensionBase()
 }
 
@@ -159,6 +163,10 @@ func (e *ExtensionBase) Fields() []Field {
 	if nested, ok := e.Storage.(NestedType); ok {
 		return nested.Fields()
 	}
+	return nil
+}
+
+func (e *ExtensionBase) NewBuilder(mem memory.Allocator, dt ExtensionType) interface{} {
 	return nil
 }
 
