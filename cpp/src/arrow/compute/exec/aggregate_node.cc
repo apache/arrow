@@ -53,7 +53,7 @@
 // The implementation first segments the input using the segment-keys, then groups by the
 // keys. When a segment group end is reached while scanning the input, output is pushed
 // and the accumulating state is cleared. If no segment-keys are given, then the entire
-// input is taken as one segment group.
+// input is taken as one segment group. One batch per segment group is sent to output.
 
 namespace arrow {
 
@@ -205,8 +205,8 @@ Status HandleSegments(std::unique_ptr<RowSegmenter>& segmenter, const ExecBatch&
   return Status::OK();
 }
 
-Status GetScalarFields(std::vector<Datum>* values_ptr, const ExecBatch& input_batch,
-                       const std::vector<int>& field_ids) {
+Status SelectConstantFields(std::vector<Datum>* values_ptr, const ExecBatch& input_batch,
+                            const std::vector<int>& field_ids) {
   DCHECK_GT(input_batch.length, 0);
   std::vector<Datum>& values = *values_ptr;
   int64_t row = input_batch.length - 1;
@@ -397,7 +397,8 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
       // We add segment to the current segment group aggregation
       auto exec_batch = full_batch.Slice(segment.offset, segment.length);
       RETURN_NOT_OK(DoConsume(ExecSpan(exec_batch), thread_index));
-      RETURN_NOT_OK(GetScalarFields(&segmenter_values_, exec_batch, segment_field_ids_));
+      RETURN_NOT_OK(
+          SelectConstantFields(&segmenter_values_, exec_batch, segment_field_ids_));
 
       // If the segment closes the current segment group, we can output segment group
       // aggregation.
@@ -450,7 +451,6 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
   Status ResetKernelStates() {
     auto exec_ctx = plan()->query_context()->exec_context();
     for (size_t i = 0; i < kernels_.size(); ++i) {
-      states_[i].resize(plan()->query_context()->max_concurrency());
       KernelContext kernel_ctx{exec_ctx};
       RETURN_NOT_OK(Kernel::InitAll(
           &kernel_ctx,
@@ -488,8 +488,11 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     return Status::OK();
   }
 
+  /// \brief A segmenter for the segment-keys
   std::unique_ptr<RowSegmenter> segmenter_;
+  /// \brief Field indices corresponding to the segment-keys
   const std::vector<int> segment_field_ids_;
+  /// \brief Holds values of the current batch that were selected for the segment-keys
   std::vector<Datum> segmenter_values_;
 
   const std::vector<std::vector<int>> target_fieldsets_;
@@ -501,6 +504,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
 
   AtomicCounter input_counter_;
+  /// \brief Total number of output batches produced
   int total_output_batches_ = 0;
 };
 
@@ -808,7 +812,7 @@ class GroupByNode : public ExecNode, public TracedNode {
       auto batch = ExecSpan(exec_batch);
       RETURN_NOT_OK(Consume(batch));
       RETURN_NOT_OK(
-          GetScalarFields(&segmenter_values_, exec_batch, segment_key_field_ids_));
+          SelectConstantFields(&segmenter_values_, exec_batch, segment_key_field_ids_));
       if (!segment.is_open) RETURN_NOT_OK(OutputResult(false));
       return Status::OK();
     };
@@ -917,17 +921,22 @@ class GroupByNode : public ExecNode, public TracedNode {
   }
 
   int output_task_group_id_;
+  /// \brief A segmenter for the segment-keys
   std::unique_ptr<RowSegmenter> segmenter_;
+  /// \brief Holds values of the current batch that were selected for the segment-keys
   std::vector<Datum> segmenter_values_;
 
   const std::vector<int> key_field_ids_;
+  /// \brief Field indices corresponding to the segment-keys
   const std::vector<int> segment_key_field_ids_;
+  /// \brief Types of input fields per aggregate
   const std::vector<std::vector<TypeHolder>> agg_src_types_;
   const std::vector<std::vector<int>> agg_src_fieldsets_;
   const std::vector<Aggregate> aggs_;
   const std::vector<const HashAggregateKernel*> agg_kernels_;
 
   AtomicCounter input_counter_;
+  /// \brief Total number of output batches produced
   int total_output_batches_ = 0;
 
   std::vector<ThreadLocalState> local_states_;
