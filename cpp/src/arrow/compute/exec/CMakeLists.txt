@@ -48,6 +48,13 @@ add_arrow_compute_test(hash_join_node_test
                        hash_join_node_test.cc
                        bloom_filter_test.cc
                        key_hash_test.cc)
+add_arrow_compute_test(pivot_longer_node_test
+                       PREFIX
+                       "arrow-compute"
+                       SOURCES
+                       pivot_longer_node_test.cc
+                       test_nodes.cc)
+
 add_arrow_compute_test(asof_join_node_test
                        REQUIRE_ALL_KERNELS
                        PREFIX

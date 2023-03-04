@@ -616,6 +616,94 @@ class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
   std::optional<bool> sequence_output;
 };
 
+struct ARROW_EXPORT PivotLongerRowTemplate {
+  PivotLongerRowTemplate(std::vector<std::string> feature_values,
+                         std::vector<std::optional<FieldRef>> measurement_values)
+      : feature_values(std::move(feature_values)),
+        measurement_values(std::move(measurement_values)) {}
+  /// A (typically unique) set of feature values for the template, usually derived from a
+  /// column name
+  ///
+  /// These will be used to populate the feature columns
+  std::vector<std::string> feature_values;
+  /// The fields containing the measurements to use for this row
+  ///
+  /// These will be used to populate the measurement columns.  If nullopt then nulls
+  /// will be inserted for the given value.
+  std::vector<std::optional<FieldRef>> measurement_values;
+};
+
+/// \brief Reshape a table by turning some columns into additional rows
+///
+/// This operation is sometimes also referred to as UNPIVOT
+///
+/// This is typically done when there are multiple observations in each row in order to
+/// transform to a table containing a single observation per row.
+///
+/// For example:
+///
+/// | time | left_temp | right_temp |
+/// | ---- | --------- | ---------- |
+/// | 1    | 10        | 20         |
+/// | 2    | 15        | 18         |
+///
+/// The above table contains two observations per row.  There is an implicit feature
+/// "location" (left vs right) and a measurement "temp".  What we really want is:
+///
+/// | time | location | temp |
+/// | 1    | left     | 10   |
+/// | 1    | right    | 20   |
+/// | 2    | left     | 15   |
+/// | 2    | right    | 18   |
+///
+/// For a more complex example consider:
+///
+/// | time | ax1 | ay1 | bx1 | ay2 |
+/// | ---- | --- | --- | --- | --- |
+/// | 0    | 1   | 2   | 3   | 4   |
+///
+/// We can pretend a vs b and x vs y are features while 1 and 2 are two different
+/// kinds of measurements.  We thus want to pivot to
+///
+/// | time | a/b | x/y |  f1  |  f2  |
+/// | ---- | --- | --- | ---- | ---- |
+/// | 0    | a   | x   | 1    | null |
+/// | 0    | a   | y   | 2    | 4    |
+/// | 0    | b   | x   | 3    | null |
+///
+/// To do this we create a row template for each combination of features.  One should
+/// be able to do this purely by looking at the column names.  For example, given the
+/// above columns "ax1", "ay1", "bx1", and "ay2" we know we have three feature
+/// combinations (a, x), (a, y), and (b, x).  Similarly, we know we have two possible
+/// measurements, "1" and "2".
+///
+/// For each combination of features we create a row template.  In each row template we
+/// describe the combination and then list which columns to use for the measurements.
+/// If a measurement doesn't exist for a given combination then we use nullopt.
+///
+/// So, for our above example, we have:
+///
+/// (a, x): names={"a", "x"}, values={"ax1", nullopt}
+/// (a, y): names={"a", "y"}, values={"ay1", "ay2"}
+/// (b, x): names={"b", "x"}, values={"bx1", nullopt}
+///
+/// Finishing it off we name our new columns:
+/// feature_field_names={"a/b","x/y"}
+/// measurement_field_names={"f1", "f2"}
+class ARROW_EXPORT PivotLongerNodeOptions : public ExecNodeOptions {
+ public:
+  static constexpr std::string_view kName = "pivot_longer";
+  /// One or more row templates to create new output rows
+  ///
+  /// Normally there are at least two row templates.  The output # of rows
+  /// will be the input # of rows * the number of row templates
+  std::vector<PivotLongerRowTemplate> row_templates;
+  /// The names of the columns which describe the new features
+  std::vector<std::string> feature_field_names;
+  /// The names of the columns which represent the measurements
+  std::vector<std::string> measurement_field_names;
+};
+
 /// @}
 
 }  // namespace compute
