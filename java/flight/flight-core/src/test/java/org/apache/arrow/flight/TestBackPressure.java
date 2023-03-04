@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
@@ -85,8 +88,7 @@ public class TestBackPressure {
                                                   serverConstructor) throws Exception {
     try (
         final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-        final PerformanceTestServer server = FlightTestUtil.getStartedServer(
-            (location) -> (serverConstructor.apply(a).apply(location)));
+        final PerformanceTestServer server = serverConstructor.apply(a).apply(forGrpcInsecure(LOCALHOST, 0)).start();
         final FlightClient client = FlightClient.builder(a, server.getLocation()).build()
     ) {
       try (FlightStream fs1 = client.getStream(client.getInfo(
@@ -160,9 +162,8 @@ public class TestBackPressure {
 
       try (
           BufferAllocator serverAllocator = allocator.newChildAllocator("server", 0, Long.MAX_VALUE);
-          FlightServer server =
-              FlightTestUtil.getStartedServer((location) -> FlightServer.builder(serverAllocator, location, producer)
-                  .build());
+          FlightServer server = FlightServer.builder(serverAllocator, forGrpcInsecure(LOCALHOST, 0), producer)
+              .build().start();
           BufferAllocator clientAllocator = allocator.newChildAllocator("client", 0, Long.MAX_VALUE);
           FlightClient client =
               FlightClient

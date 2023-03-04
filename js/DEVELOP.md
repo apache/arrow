@@ -115,6 +115,6 @@ Run `yarn gulp bundle:webpack:analyze` to open [Webpack Bundle Analyzer](https:/
 4. Execute `yarn lint` from the `js` directory to fix the linting errors
 
 [1]: mailto:dev-subscribe@arrow.apache.org
-[2]: https://github.com/apache/arrow/tree/master/format
+[2]: https://github.com/apache/arrow/tree/main/format
 [3]: https://github.com/apache/arrow/issues
 [4]: https://github.com/apache/arrow

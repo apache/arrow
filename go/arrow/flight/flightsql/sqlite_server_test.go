@@ -36,6 +36,8 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	sqlite3 "modernc.org/sqlite/lib"
 )
@@ -828,6 +830,67 @@ func (s *FlightSqliteServerSuite) TestCommandGetSqlInfo() {
 
 		sc.(*scalar.DenseUnion).Release()
 	}
+}
+
+func (s *FlightSqliteServerSuite) TestTransactions() {
+	ctx := context.Background()
+	tx, err := s.cl.BeginTransaction(ctx)
+	s.Require().NoError(err)
+	s.Require().NotNil(tx)
+
+	s.True(tx.ID().IsValid())
+	s.NotEmpty(tx.ID())
+
+	_, err = tx.BeginSavepoint(ctx, "foobar")
+	s.Equal(codes.Unimplemented, status.Code(err))
+
+	info, err := tx.Execute(ctx, "SELECT * FROM intTable")
+	s.Require().NoError(err)
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.Require().NoError(err)
+
+	toTable := func(r *flight.Reader) arrow.Table {
+		defer r.Release()
+		recs := make([]arrow.Record, 0)
+		for rdr.Next() {
+			r := rdr.Record()
+			r.Retain()
+			defer r.Release()
+			recs = append(recs, r)
+		}
+
+		return array.NewTableFromRecords(rdr.Schema(), recs)
+	}
+	tbl := toTable(rdr)
+	defer tbl.Release()
+
+	rowCount := tbl.NumRows()
+
+	result, err := tx.ExecuteUpdate(ctx, `INSERT INTO intTable (keyName, value) VALUES
+						   ('KEYNAME1', 1001), ('KEYNAME2', 1002), ('KEYNAME3', 1003)`)
+	s.Require().NoError(err)
+	s.EqualValues(3, result)
+
+	info, err = tx.Execute(ctx, "SELECT * FROM intTable")
+	s.Require().NoError(err)
+	rdr, err = s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.Require().NoError(err)
+	tbl = toTable(rdr)
+	defer tbl.Release()
+	s.EqualValues(rowCount+3, tbl.NumRows())
+
+	s.Require().NoError(tx.Rollback(ctx))
+	// commit/rollback invalidates the transaction handle
+	s.ErrorIs(tx.Commit(ctx), flightsql.ErrInvalidTxn)
+	s.ErrorIs(tx.Rollback(ctx), flightsql.ErrInvalidTxn)
+
+	info, err = s.cl.Execute(ctx, "SELECT * FROM intTable")
+	s.Require().NoError(err)
+	rdr, err = s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.Require().NoError(err)
+	tbl = toTable(rdr)
+	defer tbl.Release()
+	s.EqualValues(rowCount, tbl.NumRows())
 }
 
 func TestSqliteServer(t *testing.T) {

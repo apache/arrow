@@ -200,7 +200,7 @@ namespace Apache.Arrow.Ipc
         {
             if (!compression.HasValue)
             {
-                return new NoOpBufferCreator();
+                return NoOpBufferCreator.Instance;
             }
 
             var method = compression.Value.Method;

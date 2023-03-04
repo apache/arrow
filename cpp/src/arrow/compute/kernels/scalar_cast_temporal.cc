@@ -147,17 +147,24 @@ struct CastFunctor<
     enable_if_t<(is_timestamp_type<O>::value && is_timestamp_type<I>::value) ||
                 (is_duration_type<O>::value && is_duration_type<I>::value)>> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    const ArraySpan& input = batch[0].array;
-    ArraySpan* output = out->array_span_mutable();
-
     const auto& in_type = checked_cast<const I&>(*batch[0].type());
-    const auto& out_type = checked_cast<const O&>(*output->type);
+    const auto& out_type = checked_cast<const O&>(*out->type());
 
-    // The units may be equal if the time zones are different. We might go to
-    // lengths to make this zero copy in the future but we leave it for now
+    if (in_type.unit() == out_type.unit()) {
+      return ZeroCopyCastExec(ctx, batch, out);
+    }
+
+    ArrayData* out_arr = out->array_data().get();
+    DCHECK_EQ(0, out_arr->offset);
+    int value_size = batch[0].type()->byte_width();
+    DCHECK_OK(ctx->Allocate(out_arr->length * value_size).Value(&out_arr->buffers[1]));
+
+    ArraySpan output_span;
+    output_span.SetMembers(*out_arr);
+    const ArraySpan& input = batch[0].array;
     auto conversion = util::GetTimestampConversion(in_type.unit(), out_type.unit());
     return ShiftTime<int64_t, int64_t>(ctx, conversion.first, conversion.second, input,
-                                       output);
+                                       &output_span);
   }
 };
 
@@ -452,6 +459,16 @@ void AddCrossUnitCast(CastFunction* func) {
   DCHECK_OK(func->AddKernel(Type::type_id, std::move(kernel)));
 }
 
+template <typename Type>
+void AddCrossUnitCastNoPreallocate(CastFunction* func) {
+  ScalarKernel kernel;
+  kernel.exec = CastFunctor<Type, Type>::Exec;
+  kernel.null_handling = NullHandling::INTERSECTION;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  kernel.signature = KernelSignature::Make({InputType(Type::type_id)}, kOutputTargetType);
+  DCHECK_OK(func->AddKernel(Type::type_id, std::move(kernel)));
+}
+
 std::shared_ptr<CastFunction> GetDate32Cast() {
   auto func = std::make_shared<CastFunction>("cast_date32", Type::DATE32);
   auto out_ty = date32();
@@ -499,7 +516,7 @@ std::shared_ptr<CastFunction> GetDurationCast() {
   AddZeroCopyCast(Type::INT64, /*in_type=*/int64(), kOutputTargetType, func.get());
 
   // Between durations
-  AddCrossUnitCast<DurationType>(func.get());
+  AddCrossUnitCastNoPreallocate<DurationType>(func.get());
 
   return func;
 }
@@ -574,7 +591,7 @@ std::shared_ptr<CastFunction> GetTimestampCast() {
                                                 func.get());
 
   // From one timestamp to another
-  AddCrossUnitCast<TimestampType>(func.get());
+  AddCrossUnitCastNoPreallocate<TimestampType>(func.get());
 
   return func;
 }

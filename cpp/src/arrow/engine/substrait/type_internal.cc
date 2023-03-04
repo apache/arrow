@@ -329,6 +329,7 @@ struct DataTypeToProtoImpl {
   Status Visit(const SparseUnionType& t) { return NotImplemented(t); }
   Status Visit(const DenseUnionType& t) { return NotImplemented(t); }
   Status Visit(const DictionaryType& t) { return NotImplemented(t); }
+  Status Visit(const RunEndEncodedType& t) { return NotImplemented(t); }
 
   Status Visit(const MapType& t) {
     // FIXME assert default field names; custom ones won't roundtrip

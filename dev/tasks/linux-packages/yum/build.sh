@@ -129,6 +129,8 @@ run cp \
     /host/tmp/${PACKAGE}.spec \
     rpmbuild/SPECS/
 
+df -h
+
 run cat <<BUILD > build.sh
 #!/usr/bin/env bash
 
@@ -157,6 +159,8 @@ else
     run ./build.sh > /dev/null
   fi
 fi
+
+df -h
 
 if which ccache > /dev/null 2>&1; then
   ccache --show-stats --verbose || :

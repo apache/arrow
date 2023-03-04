@@ -118,23 +118,6 @@ namespace compute {
 // ----------------------------------------------------------------------
 // Function options
 
-bool SortKey::Equals(const SortKey& other) const {
-  return target == other.target && order == other.order;
-}
-std::string SortKey::ToString() const {
-  std::stringstream ss;
-  ss << target.ToString() << ' ';
-  switch (order) {
-    case SortOrder::Ascending:
-      ss << "ASC";
-      break;
-    case SortOrder::Descending:
-      ss << "DESC";
-      break;
-  }
-  return ss.str();
-}
-
 namespace internal {
 namespace {
 using ::arrow::internal::DataMember;

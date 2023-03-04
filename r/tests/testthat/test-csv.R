@@ -698,3 +698,29 @@ test_that("Read literal data directly", {
   expect_identical(read_csv_arrow(I(charToRaw("x,y\n1,2\n3,4"))), expected)
   expect_identical(read_csv_arrow(I(c("x,y", "1,2", "3,4"))), expected)
 })
+
+test_that("skip_rows and skip_rows_after_names option", {
+  txt_raw <- charToRaw(paste0(c("a", 1:4), collapse = "\n"))
+
+  expect_identical(
+    read_csv_arrow(
+      txt_raw,
+      read_options = list(skip_rows_after_names = 1)
+    ),
+    tibble::tibble(a = 2:4)
+  )
+  expect_identical(
+    read_csv_arrow(
+      txt_raw,
+      read_options = list(skip_rows_after_names = 10)
+    ),
+    tibble::tibble(a = vctrs::unspecified())
+  )
+  expect_identical(
+    read_csv_arrow(
+      txt_raw,
+      read_options = list(skip = 1, skip_rows_after_names = 1)
+    ),
+    tibble::tibble(`1` = 3:4)
+  )
+})

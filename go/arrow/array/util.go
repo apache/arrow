@@ -250,7 +250,7 @@ func TableFromJSON(mem memory.Allocator, sc *arrow.Schema, recJSON []string, opt
 	return NewTableFromRecords(sc, batches), nil
 }
 
-func getDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable hashing.MemoTable, startOffset int) (*Data, error) {
+func GetDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable hashing.MemoTable, startOffset int) (*Data, error) {
 	dictLen := memoTable.Size() - startOffset
 	buffers := []*memory.Buffer{nil, nil}
 
@@ -271,6 +271,17 @@ func getDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable 
 			buffers[1].Resize(arrow.Int32Traits.BytesRequired(dictLen + 1))
 			offsets := arrow.Int32Traits.CastFromBytes(buffers[1].Bytes())
 			tbl.CopyOffsetsSubset(startOffset, offsets)
+
+			valuesz := offsets[len(offsets)-1] - offsets[0]
+			buffers[2].Resize(int(valuesz))
+			tbl.CopyValuesSubset(startOffset, buffers[2].Bytes())
+		case arrow.LARGE_BINARY, arrow.LARGE_STRING:
+			buffers = append(buffers, memory.NewResizableBuffer(mem))
+			defer buffers[2].Release()
+
+			buffers[1].Resize(arrow.Int64Traits.BytesRequired(dictLen + 1))
+			offsets := arrow.Int64Traits.CastFromBytes(buffers[1].Bytes())
+			tbl.CopyLargeOffsetsSubset(startOffset, offsets)
 
 			valuesz := offsets[len(offsets)-1] - offsets[0]
 			buffers[2].Resize(int(valuesz))

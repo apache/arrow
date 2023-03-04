@@ -15,20 +15,21 @@
 
 using System;
 using Apache.Arrow.Ipc;
-using CommunityToolkit.HighPerformance;
 using K4os.Compression.LZ4.Streams;
 
-namespace Apache.Arrow.Tests.Compression
+namespace Apache.Arrow.Compression
 {
     internal sealed class Lz4CompressionCodec : ICompressionCodec
     {
+        /// <summary>
+        /// Singleton instance, used as this class doesn't need to be disposed and has no state
+        /// </summary>
+        public static readonly Lz4CompressionCodec Instance = new Lz4CompressionCodec();
+
         public int Decompress(ReadOnlyMemory<byte> source, Memory<byte> destination)
         {
-            using var sourceStream = source.AsStream();
-            using var destStream = destination.AsStream();
-            using var decompressedStream = LZ4Stream.Decode(sourceStream);
-            decompressedStream.CopyTo(destStream);
-            return (int) destStream.Length;
+            using var decoder = LZ4Frame.Decode(source);
+            return decoder.ReadManyBytes(destination.Span);
         }
 
         public void Dispose()

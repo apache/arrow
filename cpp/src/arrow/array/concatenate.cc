@@ -27,6 +27,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/array/builder_run_end.h"
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
@@ -41,6 +42,7 @@
 #include "arrow/util/int_util.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/ree_util.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -433,6 +435,26 @@ class ConcatenateImpl {
       ARROW_ASSIGN_OR_RAISE(out_->buffers[2], builder.Finish());
     }
 
+    return Status::OK();
+  }
+
+  Status Visit(const RunEndEncodedType& type) {
+    int64_t physical_length = 0;
+    for (const auto& input : in_) {
+      if (internal::AddWithOverflow(physical_length,
+                                    ree_util::FindPhysicalLength(ArraySpan(*input)),
+                                    &physical_length)) {
+        return Status::Invalid("Length overflow when concatenating arrays");
+      }
+    }
+    ARROW_ASSIGN_OR_RAISE(auto builder, MakeBuilder(in_[0]->type, pool_));
+    RETURN_NOT_OK(internal::checked_cast<RunEndEncodedBuilder&>(*builder).ReservePhysical(
+        physical_length));
+    for (const auto& input : in_) {
+      RETURN_NOT_OK(builder->AppendArraySlice(ArraySpan(*input), 0, input->length));
+    }
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> out_array, builder->Finish());
+    out_ = out_array->data();
     return Status::OK();
   }
 

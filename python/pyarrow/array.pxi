@@ -232,6 +232,11 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     else:
         c_from_pandas = from_pandas
 
+    if isinstance(obj, Array):
+        if type is not None and not obj.type.equals(type):
+            obj = obj.cast(type, safe=safe, memory_pool=memory_pool)
+        return obj
+
     if hasattr(obj, '__arrow_array__'):
         return _handle_arrow_array_protocol(obj, type, mask, size)
     elif _is_array_like(obj):
@@ -362,7 +367,7 @@ def nulls(size, type=None, MemoryPool memory_pool=None):
         Explicit type for the array. By default use NullType.
     memory_pool : MemoryPool, default None
         Arrow MemoryPool to use for allocations. Uses the default memory
-        pool is not passed.
+        pool if not passed.
 
     Returns
     -------
@@ -412,7 +417,7 @@ def repeat(value, size, MemoryPool memory_pool=None):
         Number of times to repeat the scalar in the output Array.
     memory_pool : MemoryPool, default None
         Arrow MemoryPool to use for allocations. Uses the default memory
-        pool is not passed.
+        pool if not passed.
 
     Returns
     -------
@@ -701,7 +706,7 @@ cdef class _PandasConvertible(_Weakrefable):
         ----------
         memory_pool : MemoryPool, default None
             Arrow MemoryPool to use for allocations. Uses the default memory
-            pool is not passed.
+            pool if not passed.
         categories : list, default empty
             List of fields that should be returned as pandas.Categorical. Only
             applies to table-like data structures.
@@ -721,7 +726,7 @@ cdef class _PandasConvertible(_Weakrefable):
             If False, all timestamps are converted to datetime64[ns] dtype.
         use_threads : bool, default True
             Whether to parallelize the conversion using multiple threads.
-        deduplicate_objects : bool, default False
+        deduplicate_objects : bool, default True
             Do not create multiple copies Python objects when created, to save
             on memory use. Conversion will be slower.
         ignore_metadata : bool, default False
@@ -904,7 +909,7 @@ cdef class Array(_PandasConvertible):
             result = self.ap.Diff(deref(other.ap))
         return frombytes(result, safe=True)
 
-    def cast(self, object target_type=None, safe=None, options=None):
+    def cast(self, object target_type=None, safe=None, options=None, memory_pool=None):
         """
         Cast array values to another data type
 
@@ -918,12 +923,15 @@ cdef class Array(_PandasConvertible):
             Whether to check for conversion errors such as overflow.
         options : CastOptions, default None
             Additional checks pass by CastOptions
+        memory_pool : MemoryPool, optional
+            memory pool to use for allocations during function execution.
 
         Returns
         -------
         cast : Array
         """
-        return _pc().cast(self, target_type, safe=safe, options=options)
+        return _pc().cast(self, target_type, safe=safe,
+                          options=options, memory_pool=memory_pool)
 
     def view(self, object target_type):
         """

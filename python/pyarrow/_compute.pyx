@@ -1395,38 +1395,43 @@ class MakeStructOptions(_MakeStructOptions):
         self._set_options(field_names, field_nullability, field_metadata)
 
 
+cdef CFieldRef _ensure_field_ref(value) except *:
+    cdef:
+        CFieldRef field_ref
+        const CFieldRef* field_ref_ptr
+
+    if isinstance(value, (list, tuple)):
+        value = Expression._nested_field(tuple(value))
+
+    if isinstance(value, Expression):
+        field_ref_ptr = (<Expression>value).unwrap().field_ref()
+        if field_ref_ptr is NULL:
+            raise ValueError("Unable to get FieldRef from Expression")
+        field_ref = <CFieldRef>deref(field_ref_ptr)
+    elif isinstance(value, (bytes, str)):
+        if value.startswith(b'.' if isinstance(value, bytes) else '.'):
+            field_ref = GetResultValue(
+                CFieldRef.FromDotPath(<c_string>tobytes(value)))
+        else:
+            field_ref = CFieldRef(<c_string>tobytes(value))
+    elif isinstance(value, int):
+        field_ref = CFieldRef(<int> value)
+    else:
+        raise TypeError("Expected a field reference as a str or int, list of "
+                        f"str or int, or Expression. Got {type(value)} instead.")
+    return field_ref
+
+
 cdef class _StructFieldOptions(FunctionOptions):
     def _set_options(self, indices):
-        cdef:
-            CFieldRef field_ref
-            const CFieldRef* field_ref_ptr
 
-        if isinstance(indices, (list, tuple)):
-            if len(indices):
-                indices = Expression._nested_field(tuple(indices))
-            else:
-                # Allow empty indices; effecitively return same array
-                self.wrapped.reset(
-                    new CStructFieldOptions(<vector[int]>indices))
-                return
+        if isinstance(indices, (list, tuple)) and not len(indices):
+            # Allow empty indices; effecitively return same array
+            self.wrapped.reset(
+                new CStructFieldOptions(<vector[int]>indices))
+            return
 
-        if isinstance(indices, Expression):
-            field_ref_ptr = (<Expression>indices).unwrap().field_ref()
-            if field_ref_ptr is NULL:
-                raise ValueError("Unable to get CFieldRef from Expression")
-            field_ref = <CFieldRef>deref(field_ref_ptr)
-        elif isinstance(indices, (bytes, str)):
-            if indices.startswith(b'.' if isinstance(indices, bytes) else '.'):
-                field_ref = GetResultValue(
-                    CFieldRef.FromDotPath(<c_string>tobytes(indices)))
-            else:
-                field_ref = CFieldRef(<c_string>tobytes(indices))
-        elif isinstance(indices, int):
-            field_ref = CFieldRef(<int> indices)
-        else:
-            raise TypeError("Expected List[str], List[int], List[bytes], "
-                            "Expression, bytes, str, or int. "
-                            f"Got: {type(indices)}")
+        cdef CFieldRef field_ref = _ensure_field_ref(indices)
         self.wrapped.reset(new CStructFieldOptions(field_ref))
 
 
@@ -2227,37 +2232,37 @@ class RankOptions(_RankOptions):
         self._set_options(sort_keys, null_placement, tiebreaker)
 
 
-def _group_by(args, keys, aggregations):
+def _group_by(table, aggregates, keys):
     cdef:
-        vector[CDatum] c_args
-        vector[CDatum] c_keys
-        vector[CAggregate] c_aggregations
-        CDatum result
+        shared_ptr[CTable] c_table
+        vector[CAggregate] c_aggregates
+        vector[CFieldRef] c_keys
         CAggregate c_aggr
+        shared_ptr[CTable] sp_out_table
 
-    _pack_compute_args(args, &c_args)
-    _pack_compute_args(keys, &c_keys)
+    c_table = (<Table> table).sp_table
 
-    # reference into the flattened list of arguments for the aggregations
-    field_ref = 0
-    for aggr_arg_names, aggr_func_name, aggr_opts in aggregations:
+    for aggr_arg_indices, aggr_func_name, aggr_opts, aggr_name in aggregates:
         c_aggr.function = tobytes(aggr_func_name)
         if aggr_opts is not None:
             c_aggr.options = (<FunctionOptions?>aggr_opts).wrapped
         else:
             c_aggr.options = <shared_ptr[CFunctionOptions]>nullptr
-        for _ in aggr_arg_names:
-            c_aggr.target.push_back(CFieldRef(<int> field_ref))
-            field_ref += 1
+        for field_idx in aggr_arg_indices:
+            c_aggr.target.push_back(CFieldRef(<int> field_idx))
 
-        c_aggregations.push_back(move(c_aggr))
+        c_aggr.name = tobytes(aggr_name)
+        c_aggregates.push_back(move(c_aggr))
+
+    for key_idx in keys:
+        c_keys.push_back(CFieldRef(<int> key_idx))
 
     with nogil:
-        result = GetResultValue(
-            GroupBy(c_args, c_keys, c_aggregations)
+        sp_table = GetResultValue(
+            CTableGroupBy(c_table, c_aggregates, c_keys)
         )
 
-    return wrap_datum(result)
+    return pyarrow_wrap_table(sp_table)
 
 
 cdef class Expression(_Weakrefable):

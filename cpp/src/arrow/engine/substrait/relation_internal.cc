@@ -339,7 +339,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         std::vector<std::string> table_names(named_table.names().begin(),
                                              named_table.names().end());
         ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
-                              named_table_provider(table_names));
+                              named_table_provider(table_names, *base_schema));
 
         if (!source_decl.IsValid()) {
           return Status::Invalid("Invalid NamedTable Source");
@@ -547,8 +547,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         std::shared_ptr<Field> project_field;
         ARROW_ASSIGN_OR_RAISE(compute::Expression des_expr,
                               FromProto(expr, ext_set, conversion_options));
-        auto bound_expr = des_expr.Bind(*input.output_schema);
-        if (auto* expr_call = bound_expr->call()) {
+        ARROW_ASSIGN_OR_RAISE(compute::Expression bound_expr,
+                              des_expr.Bind(*input.output_schema));
+        if (auto* expr_call = bound_expr.call()) {
           project_field = field(expr_call->function_name,
                                 expr_call->kernel->signature->out_type().type());
         } else if (auto* field_ref = des_expr.field_ref()) {

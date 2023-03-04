@@ -95,7 +95,7 @@ Creating a Release Candidate
 
 These are the different steps that are required to create a Release Candidate.
 
-For the initial Release Candidate, we will create a maintenance branch from master.
+For the initial Release Candidate, we will create a maintenance branch from main.
 Follow up Release Candidates will update the maintenance branch by cherry-picking
 specific commits.
 
@@ -113,7 +113,7 @@ Create or update the corresponding maintenance branch
 
       .. code-block::
 
-            # Execute the following from an up to date master branch.
+            # Execute the following from an up to date main branch.
             # This will create a branch locally called maint-X.Y.Z.
             # X.Y.Z corresponds with the Major, Minor and Patch version number
             # of the release respectively. As an example 9.0.0
@@ -236,6 +236,7 @@ Be sure to go through on the following checklist:
 #. Update version in Apache Arrow Cookbook
 #. Announce the new release
 #. Publish release blog posts
+#. Announce the release on Twitter
 #. Remove old artifacts
 
 .. dropdown:: Mark the released version as "RELEASED" on JIRA
@@ -486,7 +487,7 @@ Be sure to go through on the following checklist:
    to point to the official (non-rc) URL and mark them as ready for review.
    Jeroen will merge, build the binary artifacts, and publish them in the
    right places. See the
-   `packaging checklist <https://github.com/apache/arrow/blob/master/r/PACKAGING.md>`_.
+   `packaging checklist <https://github.com/apache/arrow/blob/main/r/PACKAGING.md>`_.
    for a precise list of pull requests that must be made prior to submission
    to CRAN.
 
@@ -498,7 +499,7 @@ Be sure to go through on the following checklist:
    binaries will work and that everything runs on the same infrastructure that
    CRAN has, which is difficult/impossible to emulate fully on Travis or with
    Docker. For a precise list of checks, see the
-   `packaging checklist <https://github.com/apache/arrow/blob/master/r/PACKAGING.md>`_.
+   `packaging checklist <https://github.com/apache/arrow/blob/main/r/PACKAGING.md>`_.
 
    Once all checks are clean, we submit to CRAN, which has a web form for
    uploading packages. The release process requires email confirmation
@@ -622,6 +623,15 @@ Be sure to go through on the following checklist:
    :class-container: sd-shadow-md
 
    TODO
+
+.. dropdown:: Announce the release on Twitter
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   Post the release blog post on Twitter from the `@ApacheArrow <https://twitter.com/ApacheArrow>`_ handle.
+
+   PMC members have access or can request access, after which they can post via `TweetDeck <https://tweetdeck.twitter.com>`_.
 
 .. dropdown:: Remove old artifacts
    :animate: fade-in-slide-down

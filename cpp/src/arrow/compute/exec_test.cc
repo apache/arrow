@@ -33,6 +33,7 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/ordering.h"
 #include "arrow/compute/registry.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
@@ -829,6 +830,10 @@ TEST_F(TestExecSpanIterator, ChunkedArrays) {
 
 TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
   auto carr = std::make_shared<ChunkedArray>(ArrayVector{}, int32());
+  auto dict_arr =
+      std::make_shared<ChunkedArray>(ArrayVector{}, dictionary(int32(), utf8()));
+  auto nested_arr = std::make_shared<ChunkedArray>(
+      ArrayVector{}, struct_({field("x", int32()), field("y", int64())}));
 
   auto CheckArgs = [&](const ExecBatch& batch) {
     ExecSpanIterator iterator;
@@ -836,6 +841,19 @@ TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
     ExecSpan iter_span;
     ASSERT_TRUE(iterator.Next(&iter_span));
     ASSERT_EQ(0, iter_span.length);
+    for (int col_idx = 0; col_idx < iter_span.num_values(); col_idx++) {
+      const ExecValue& val = iter_span.values[col_idx];
+      ASSERT_TRUE(val.is_array());
+      const ArraySpan& span = val.array;
+      if (span.type->id() == Type::DICTIONARY) {
+        ASSERT_EQ(1, span.child_data.size());
+        ASSERT_EQ(0, span.dictionary().length);
+      } else {
+        for (const auto& child : span.child_data) {
+          ASSERT_EQ(0, child.length);
+        }
+      }
+    }
     ASSERT_FALSE(iterator.Next(&iter_span));
   };
 
@@ -844,6 +862,14 @@ TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
 
   // Zero-length ChunkedArray with zero chunks
   input.values = {Datum(carr)};
+  CheckArgs(input);
+
+  // Zero-length ChunkedArray with zero chunks, dictionary
+  input.values = {Datum(dict_arr)};
+  CheckArgs(input);
+
+  // Zero-length ChunkedArray with zero chunks, nested
+  input.values = {Datum(nested_arr)};
   CheckArgs(input);
 
   // Zero-length array
@@ -1368,6 +1394,35 @@ TEST_F(TestCallScalarFunctionScalarFunction, SimpleCall) {
 
 TEST_F(TestCallScalarFunctionScalarFunction, ExecCall) {
   TestCallScalarFunctionScalarFunction::DoTest(ExecFunctionCaller::Maker);
+}
+
+TEST(Ordering, IsSuborderOf) {
+  Ordering a{{SortKey{3}, SortKey{1}, SortKey{7}}};
+  Ordering b{{SortKey{3}, SortKey{1}}};
+  Ordering c{{SortKey{1}, SortKey{7}}};
+  Ordering d{{SortKey{1}, SortKey{7}}, NullPlacement::AtEnd};
+  Ordering imp = Ordering::Implicit();
+  Ordering unordered = Ordering::Unordered();
+
+  std::vector<Ordering> orderings = {a, b, c, d, imp, unordered};
+
+  auto CheckOrdering = [&](const Ordering& ordering, std::vector<bool> expected) {
+    for (std::size_t other_idx = 0; other_idx < orderings.size(); other_idx++) {
+      const auto& other = orderings[other_idx];
+      if (expected[other_idx]) {
+        ASSERT_TRUE(ordering.IsSuborderOf(other));
+      } else {
+        ASSERT_FALSE(ordering.IsSuborderOf(other));
+      }
+    }
+  };
+
+  CheckOrdering(a, {true, false, false, false, false, false});
+  CheckOrdering(b, {true, true, false, false, false, false});
+  CheckOrdering(c, {false, false, true, false, false, false});
+  CheckOrdering(d, {false, false, false, true, false, false});
+  CheckOrdering(imp, {false, false, false, false, false, false});
+  CheckOrdering(unordered, {true, true, true, true, true, true});
 }
 
 }  // namespace detail

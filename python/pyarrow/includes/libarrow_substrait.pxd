@@ -22,7 +22,7 @@ from libcpp.vector cimport vector as std_vector
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
-ctypedef CResult[CDeclaration] CNamedTableProvider(const std_vector[c_string]&)
+ctypedef CResult[CDeclaration] CNamedTableProvider(const std_vector[c_string]&, const CSchema&)
 
 cdef extern from "arrow/engine/substrait/options.h" namespace "arrow::engine" nogil:
     cdef enum ConversionStrictness \
@@ -36,7 +36,8 @@ cdef extern from "arrow/engine/substrait/options.h" namespace "arrow::engine" no
 
     cdef cppclass CConversionOptions \
             "arrow::engine::ConversionOptions":
-        ConversionStrictness conversion_strictness
+        CConversionOptions()
+        ConversionStrictness strictness
         function[CNamedTableProvider] named_table_provider
 
 cdef extern from "arrow/engine/substrait/extension_set.h" \
