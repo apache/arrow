@@ -1728,6 +1728,25 @@ class TestConvertStringLikeTypes:
             table.to_pandas(strings_to_categorical=True,
                             zero_copy_only=True)
 
+    def test_categorical_with_arrow_backed_ea_to_array(self):
+        if Version(pd.__version__) < Version("1.5.0"):
+            pytest.skip("ArrowDtype missing")
+
+        ser = pd.Series([1, 2, 1], dtype=pd.ArrowDtype(pa.int64())).astype("category")
+        result = pa.array(ser)
+        expected = pa.DictionaryArray.from_arrays(
+            pa.array([0, 1, 0], type=pa.int8()), pa.array([1, 2]))
+        assert result.equals(expected)
+
+        ser = pd.Series(
+            ["a", "b", "a"],
+            dtype=pd.ArrowDtype(pa.string()),
+        ).astype("category")
+        result = pa.array(ser)
+        expected = pa.DictionaryArray.from_arrays(
+            pa.array([0, 1, 0], type=pa.int8()), pa.array(["a", "b"]))
+        assert result.equals(expected)
+
     # Regression test for ARROW-2101
     def test_array_of_bytes_to_strings(self):
         converted = pa.array(np.array([b'x'], dtype=object), pa.string())
