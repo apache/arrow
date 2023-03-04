@@ -125,7 +125,7 @@ class RecordBatchFileReaderTest < Test::Unit::TestCase
                        to_a: [
                          Arrow::RecordBatch.new(number: [1, 2, 3]),
                        ],
-                     }.
+                     },
                      {
                        size: each.size,
                        to_a: each.to_a,
