@@ -15,31 +15,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowFlight
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("ArrowFlight", ArrowFlight)
-      end
-    end
+class TestRecordBatchReader < Test::Unit::TestCase
+  def setup
+    @server = nil
+    omit("Unstable on Windows") if Gem.win_platform?
+    @server = Helper::Server.new
+    @server.listen("grpc://127.0.0.1:0")
+    @location = "grpc://127.0.0.1:#{@server.port}"
+  end
 
-    private
-    def post_load(repository, namespace)
-      require_libraries
-    end
+  def teardown
+    return if @server.nil?
+    @server.shutdown
+  end
 
-    def require_libraries
-      require "arrow-flight/call-options"
-      require "arrow-flight/client-options"
-      require "arrow-flight/location"
-      require "arrow-flight/record-batch-reader"
-      require "arrow-flight/server-options"
-      require "arrow-flight/ticket"
-    end
-
-    def prepare_function_info_lock_gvl(function_info, klass)
-      super
-      function_info.lock_gvl_default = false
+  sub_test_case("#each") do
+    def test_without_block
+      client = ArrowFlight::Client.new(@location)
+      generator = Helper::InfoGenerator.new
+      reader = client.do_get(generator.page_view_ticket)
+      assert_equal(generator.page_view_table.each_record_batch.to_a,
+                   reader.each.collect(&:data))
     end
   end
 end

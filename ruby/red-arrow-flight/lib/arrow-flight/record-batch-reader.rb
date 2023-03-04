@@ -16,30 +16,17 @@
 # under the License.
 
 module ArrowFlight
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("ArrowFlight", ArrowFlight)
+  class RecordBatchReader
+    include Enumerable
+
+    def each
+      return to_enum(__method__) unless block_given?
+
+      loop do
+        record_batch = read_next
+        break if record_batch.nil?
+        yield(record_batch)
       end
-    end
-
-    private
-    def post_load(repository, namespace)
-      require_libraries
-    end
-
-    def require_libraries
-      require "arrow-flight/call-options"
-      require "arrow-flight/client-options"
-      require "arrow-flight/location"
-      require "arrow-flight/record-batch-reader"
-      require "arrow-flight/server-options"
-      require "arrow-flight/ticket"
-    end
-
-    def prepare_function_info_lock_gvl(function_info, klass)
-      super
-      function_info.lock_gvl_default = false
     end
   end
 end
