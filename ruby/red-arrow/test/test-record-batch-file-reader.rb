@@ -119,10 +119,17 @@ class RecordBatchFileReaderTest < Test::Unit::TestCase
       Arrow::Table.new(number: [1, 2, 3]).save(buffer)
       Arrow::BufferInputStream.open(buffer) do |input|
         reader = Arrow::RecordBatchFileReader.new(input)
-        assert_equal([
-                       Arrow::RecordBatch.new(number: [1, 2, 3]),
-                     ],
-                     reader.each.to_a)
+        each = reader.each
+        assert_equal({
+                       size: 1,
+                       to_a: [
+                         Arrow::RecordBatch.new(number: [1, 2, 3]),
+                       ],
+                     }.
+                     {
+                       size: each.size,
+                       to_a: each.to_a,
+                     })
       end
     end
   end
