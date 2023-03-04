@@ -375,73 +375,93 @@ if(ARROW_CSV)
        csv/column_decoder.cc
        csv/options.cc
        csv/parser.cc
-       csv/reader.cc)
-  if(ARROW_COMPUTE)
-    list(APPEND ARROW_SRCS csv/writer.cc)
-  endif()
+       csv/reader.cc
+       csv/writer.cc)
 
   list(APPEND ARROW_TESTING_SRCS csv/test_common.cc)
 endif()
 
+# Baseline Compute functionality + scalar casts and a few select kernels
+list(APPEND
+     ARROW_SRCS
+     compute/api_aggregate.cc
+     compute/api_scalar.cc
+     compute/api_vector.cc
+     compute/cast.cc
+     compute/exec.cc
+     compute/exec/groupby.cc
+     compute/exec/accumulation_queue.cc
+     compute/exec/aggregate_node.cc
+     compute/exec/asof_join_node.cc
+     compute/exec/bloom_filter.cc
+     compute/exec/exec_plan.cc
+     compute/exec/expression.cc
+     compute/exec/fetch_node.cc
+     compute/exec/filter_node.cc
+     compute/exec/hash_join.cc
+     compute/exec/hash_join_dict.cc
+     compute/exec/hash_join_node.cc
+     compute/exec/key_hash.cc
+     compute/exec/key_map.cc
+     compute/exec/map_node.cc
+     compute/exec/options.cc
+     compute/exec/order_by_impl.cc
+     compute/exec/partition_util.cc
+     compute/exec/project_node.cc
+     compute/exec/query_context.cc
+     compute/exec/sink_node.cc
+     compute/exec/source_node.cc
+     compute/exec/swiss_join.cc
+     compute/exec/task_util.cc
+     compute/exec/tpch_node.cc
+     compute/exec/union_node.cc
+     compute/exec/util.cc
+     compute/function.cc
+     compute/function_internal.cc
+     compute/kernel.cc
+     compute/light_array.cc
+     compute/ordering.cc
+     compute/registry.cc
+     compute/kernels/codegen_internal.cc
+     compute/kernels/row_encoder.cc
+     compute/kernels/scalar_cast_boolean.cc
+     compute/kernels/scalar_cast_dictionary.cc
+     compute/kernels/scalar_cast_extension.cc
+     compute/kernels/scalar_cast_internal.cc
+     compute/kernels/scalar_cast_nested.cc
+     compute/kernels/scalar_cast_numeric.cc
+     compute/kernels/scalar_cast_string.cc
+     compute/kernels/scalar_cast_temporal.cc
+     compute/kernels/util_internal.cc
+     compute/kernels/vector_hash.cc
+     compute/kernels/vector_selection.cc
+     compute/row/encode_internal.cc
+     compute/row/compare_internal.cc
+     compute/row/grouper.cc
+     compute/row/row_internal.cc)
+
+append_avx2_src(compute/exec/bloom_filter_avx2.cc)
+append_avx2_src(compute/exec/key_hash_avx2.cc)
+append_avx2_src(compute/exec/key_map_avx2.cc)
+append_avx2_src(compute/exec/swiss_join_avx2.cc)
+append_avx2_src(compute/exec/util_avx2.cc)
+append_avx2_src(compute/row/compare_internal_avx2.cc)
+append_avx2_src(compute/row/encode_internal_avx2.cc)
+
+list(APPEND ARROW_TESTING_SRCS compute/exec/test_util.cc)
+
 if(ARROW_COMPUTE)
+  # Include the remaining kernels
   list(APPEND
        ARROW_SRCS
-       compute/api_aggregate.cc
-       compute/api_scalar.cc
-       compute/api_vector.cc
-       compute/cast.cc
-       compute/exec.cc
-       compute/exec/groupby.cc
-       compute/exec/accumulation_queue.cc
-       compute/exec/aggregate_node.cc
-       compute/exec/asof_join_node.cc
-       compute/exec/bloom_filter.cc
-       compute/exec/exec_plan.cc
-       compute/exec/expression.cc
-       compute/exec/fetch_node.cc
-       compute/exec/filter_node.cc
-       compute/exec/hash_join.cc
-       compute/exec/hash_join_dict.cc
-       compute/exec/hash_join_node.cc
-       compute/exec/key_hash.cc
-       compute/exec/key_map.cc
-       compute/exec/map_node.cc
-       compute/exec/options.cc
-       compute/exec/order_by_impl.cc
-       compute/exec/partition_util.cc
-       compute/exec/project_node.cc
-       compute/exec/query_context.cc
-       compute/exec/sink_node.cc
-       compute/exec/source_node.cc
-       compute/exec/swiss_join.cc
-       compute/exec/task_util.cc
-       compute/exec/tpch_node.cc
-       compute/exec/union_node.cc
-       compute/exec/util.cc
-       compute/function.cc
-       compute/function_internal.cc
-       compute/kernel.cc
-       compute/light_array.cc
-       compute/ordering.cc
-       compute/registry.cc
        compute/kernels/aggregate_basic.cc
        compute/kernels/aggregate_mode.cc
        compute/kernels/aggregate_quantile.cc
        compute/kernels/aggregate_tdigest.cc
        compute/kernels/aggregate_var_std.cc
-       compute/kernels/codegen_internal.cc
        compute/kernels/hash_aggregate.cc
-       compute/kernels/row_encoder.cc
        compute/kernels/scalar_arithmetic.cc
        compute/kernels/scalar_boolean.cc
-       compute/kernels/scalar_cast_boolean.cc
-       compute/kernels/scalar_cast_dictionary.cc
-       compute/kernels/scalar_cast_extension.cc
-       compute/kernels/scalar_cast_internal.cc
-       compute/kernels/scalar_cast_nested.cc
-       compute/kernels/scalar_cast_numeric.cc
-       compute/kernels/scalar_cast_string.cc
-       compute/kernels/scalar_cast_temporal.cc
        compute/kernels/scalar_compare.cc
        compute/kernels/scalar_if_else.cc
        compute/kernels/scalar_nested.cc
@@ -453,33 +473,16 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_temporal_binary.cc
        compute/kernels/scalar_temporal_unary.cc
        compute/kernels/scalar_validity.cc
-       compute/kernels/util_internal.cc
        compute/kernels/vector_array_sort.cc
        compute/kernels/vector_cumulative_ops.cc
-       compute/kernels/vector_hash.cc
        compute/kernels/vector_nested.cc
        compute/kernels/vector_rank.cc
        compute/kernels/vector_replace.cc
        compute/kernels/vector_select_k.cc
-       compute/kernels/vector_selection.cc
-       compute/kernels/vector_sort.cc
-       compute/row/encode_internal.cc
-       compute/row/compare_internal.cc
-       compute/row/grouper.cc
-       compute/row/row_internal.cc)
+       compute/kernels/vector_sort.cc)
 
   append_avx2_src(compute/kernels/aggregate_basic_avx2.cc)
   append_avx512_src(compute/kernels/aggregate_basic_avx512.cc)
-
-  append_avx2_src(compute/exec/bloom_filter_avx2.cc)
-  append_avx2_src(compute/exec/key_hash_avx2.cc)
-  append_avx2_src(compute/exec/key_map_avx2.cc)
-  append_avx2_src(compute/exec/swiss_join_avx2.cc)
-  append_avx2_src(compute/exec/util_avx2.cc)
-  append_avx2_src(compute/row/compare_internal_avx2.cc)
-  append_avx2_src(compute/row/encode_internal_avx2.cc)
-
-  list(APPEND ARROW_TESTING_SRCS compute/exec/test_util.cc)
 endif()
 
 if(ARROW_FILESYSTEM)
@@ -800,12 +803,7 @@ add_arrow_test(table_test
 add_arrow_test(tensor_test)
 add_arrow_test(sparse_tensor_test)
 
-set(STL_TEST_SRCS stl_iterator_test.cc)
-if(ARROW_COMPUTE)
-  # This unit test uses compute code
-  list(APPEND STL_TEST_SRCS stl_test.cc)
-endif()
-add_arrow_test(stl_test SOURCES ${STL_TEST_SRCS})
+add_arrow_test(stl_test SOURCES stl_iterator_test.cc stl_test.cc)
 
 add_arrow_benchmark(builder_benchmark)
 add_arrow_benchmark(compare_benchmark)
@@ -821,6 +819,7 @@ add_subdirectory(testing)
 
 add_subdirectory(array)
 add_subdirectory(c)
+add_subdirectory(compute)
 add_subdirectory(io)
 add_subdirectory(tensor)
 add_subdirectory(util)
@@ -828,10 +827,6 @@ add_subdirectory(vendored)
 
 if(ARROW_CSV)
   add_subdirectory(csv)
-endif()
-
-if(ARROW_COMPUTE)
-  add_subdirectory(compute)
 endif()
 
 if(ARROW_SUBSTRAIT)

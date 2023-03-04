@@ -289,7 +289,6 @@ class DataGeneratorImpl : public DataGenerator,
     return batches;
   }
 
-#ifdef ARROW_COMPUTE
   Result<::arrow::compute::ExecBatch> ExecBatch(int64_t num_rows) override {
     std::vector<Datum> values;
     values.reserve(generators_.size());
@@ -318,7 +317,6 @@ class DataGeneratorImpl : public DataGenerator,
         "exec_batch_source",
         ::arrow::compute::ExecBatchSourceNodeOptions(schema_, std::move(batches)));
   }
-#endif
 
   Result<std::shared_ptr<::arrow::Table>> Table(int64_t rows_per_chunk,
                                                 int num_chunks = 1) override {
@@ -365,7 +363,7 @@ class GTestDataGeneratorImpl : public GTestDataGenerator {
                          target_->RecordBatches(rows_per_batch, num_batches));
     return batches;
   }
-#ifdef ARROW_COMPUTE
+
   ::arrow::compute::ExecBatch ExecBatch(int64_t num_rows) override {
     EXPECT_OK_AND_ASSIGN(auto batch, target_->ExecBatch(num_rows));
     return batch;
@@ -381,7 +379,7 @@ class GTestDataGeneratorImpl : public GTestDataGenerator {
                          target_->SourceNode(rows_per_batch, num_batches));
     return source_node;
   }
-#endif
+
   std::shared_ptr<::arrow::Table> Table(int64_t rows_per_chunk, int num_chunks) override {
     EXPECT_OK_AND_ASSIGN(auto table, target_->Table(rows_per_chunk, num_chunks));
     return table;
