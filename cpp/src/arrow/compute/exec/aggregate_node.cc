@@ -451,6 +451,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
   Status ResetKernelStates() {
     auto exec_ctx = plan()->query_context()->exec_context();
     for (size_t i = 0; i < kernels_.size(); ++i) {
+      states_[i].resize(plan()->query_context()->max_concurrency());
       KernelContext kernel_ctx{exec_ctx};
       RETURN_NOT_OK(Kernel::InitAll(
           &kernel_ctx,
