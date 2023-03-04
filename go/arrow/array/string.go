@@ -50,8 +50,11 @@ func (a *String) Reset(data arrow.ArrayData) {
 
 // Value returns the slice at index i. This value should not be mutated.
 func (a *String) Value(i int) string {
+	sb := strings.Builder{}
+
 	i = i + a.array.data.offset
-	return a.values[a.offsets[i]:a.offsets[i+1]]
+	sb.WriteString(a.values[a.offsets[i]:a.offsets[i+1]])
+	return sb.String()
 }
 
 // ValueOffset returns the offset of the value at index i.
@@ -246,7 +249,7 @@ func (a *LargeString) setData(data *Data) {
 
 	if vdata := data.buffers[2]; vdata != nil {
 		b := vdata.Bytes()
-		a.values = *(*string)(unsafe.Pointer(&b))
+		a.values = string(b[:])
 	}
 
 	if offsets := data.buffers[1]; offsets != nil {
