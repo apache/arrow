@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class RecordBatchFileReaderTest < Test::Unit::TestCase
+class RecordBatchStreamReaderTest < Test::Unit::TestCase
   test("write/read") do
     fields = [
       Arrow::Field.new("uint8",  :uint8),
@@ -31,9 +31,9 @@ class RecordBatchFileReaderTest < Test::Unit::TestCase
     ]
     schema = Arrow::Schema.new(fields)
 
-    tempfile = Tempfile.new(["batch", ".arrow"])
+    tempfile = Tempfile.new(["batch", ".arrows"])
     Arrow::FileOutputStream.open(tempfile.path, false) do |output|
-      Arrow::RecordBatchFileWriter.open(output, schema) do |writer|
+      Arrow::RecordBatchStreamWriter.open(output, schema) do |writer|
         uints = [1, 2, 4, 8]
         ints = [1, -2, 4, -8]
         floats = [1.1, -2.2, 4.4, -8.8]
@@ -56,7 +56,7 @@ class RecordBatchFileReaderTest < Test::Unit::TestCase
     end
 
     Arrow::MemoryMappedInputStream.open(tempfile.path) do |input|
-      reader = Arrow::RecordBatchFileReader.new(input)
+      reader = Arrow::RecordBatchStreamReader.new(input)
       reader.each do |record_batch|
         assert_equal([
                        {
@@ -116,20 +116,13 @@ class RecordBatchFileReaderTest < Test::Unit::TestCase
   sub_test_case("#each") do
     test("without block") do
       buffer = Arrow::ResizableBuffer.new(1024)
-      Arrow::Table.new(number: [1, 2, 3]).save(buffer)
+      Arrow::Table.new(number: [1, 2, 3]).save(buffer, format: :arrows)
       Arrow::BufferInputStream.open(buffer) do |input|
-        reader = Arrow::RecordBatchFileReader.new(input)
-        each = reader.each
-        assert_equal({
-                       size: 1,
-                       to_a: [
-                         Arrow::RecordBatch.new(number: [1, 2, 3]),
-                       ],
-                     },
-                     {
-                       size: each.size,
-                       to_a: each.to_a,
-                     })
+        reader = Arrow::RecordBatchStreamReader.new(input)
+        assert_equal([
+                       Arrow::RecordBatch.new(number: [1, 2, 3]),
+                     ],
+                     reader.each.to_a)
       end
     end
   end
