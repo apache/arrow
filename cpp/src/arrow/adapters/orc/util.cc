@@ -1122,9 +1122,8 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
       if (precision == 0) {
         // In HIVE 0.11/0.12 precision is set as 0, but means max precision
         return decimal128(38, 6);
-      } else {
-        return decimal128(precision, scale);
       }
+      return decimal128(precision, scale);
     }
     case liborc::LIST: {
       if (subtype_count != 1) {
