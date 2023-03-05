@@ -4856,7 +4856,10 @@ def test_dataset_join_asof(tempdir):
     ds.write_dataset(t2, tempdir / "t2", format="ipc")
     ds2 = ds.dataset(tempdir / "t2", format="ipc")
 
-    result = ds1.join_asof(ds2, "colA", "col2", 1, "colB", "col3")
+    result = ds1.join_asof(
+        ds2, on="colA", by="col2", tolerance=1,
+        right_on="colB", right_by="col3",
+    )
     assert result.to_table().sort_by("colA") == pa.table({
         "colA": [1, 1, 5, 6, 7],
         "col2": ["a", "b", "a", "b", "f"],
@@ -4887,7 +4890,10 @@ def test_dataset_join_asof_collisions(tempdir):
 
     msg = "colVals present in both tables. AsofJoin does not support column collisions."
     with pytest.raises(ValueError, match=msg):
-        ds1.join_asof(ds2, "on", ["colA", "colB"], 1, "on", ["colA", "colB"])
+        ds1.join_asof(
+            ds2, on="on", by=["colA", "colB"], tolerance=1,
+            right_on="on", right_by=["colA", "colB"],
+        )
 
 
 @pytest.mark.parametrize('dstype', [

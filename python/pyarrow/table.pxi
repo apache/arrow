@@ -5079,7 +5079,9 @@ cdef class Table(_PandasConvertible):
         >>> t1 = pa.Table.from_pandas(df1).sort_by('year')
         >>> t2 = pa.Table.from_pandas(df2).sort_by('year')
 
-        >>> t1.join_asof(t2, 'year', 'id', 1).combine_chunks().sort_by('year')
+        >>> t1.join_asof(
+        ...     t2, on='year', by='id', tolerance=1
+        ... ).combine_chunks().sort_by('year')
         pyarrow.Table
         id: int64
         year: int64

@@ -2310,7 +2310,10 @@ def test_table_join_asof():
         "colC": [1., 3., 5.]
     })
 
-    r = t1.join_asof(t2, "colA", "col2", 1, "colB", "col3")
+    r = t1.join_asof(
+        t2, on="colA", by="col2", tolerance=1,
+        right_on="colB", right_by="col3",
+    )
     assert r.combine_chunks() == pa.table({
         "colA": [1, 1, 5, 6, 7],
         "col2": ["a", "b", "a", "b", "f"],
@@ -2337,7 +2340,10 @@ def test_table_join_asof_collisions():
 
     msg = "colVals present in both tables. AsofJoin does not support column collisions."
     with pytest.raises(ValueError, match=msg):
-        t1.join_asof(t2, "on", ["colA", "colB"], 1, "on", ["colA", "colB"])
+        t1.join_asof(
+            t2, on="on", by=["colA", "colB"], tolerance=1,
+            right_on="on", right_by=["colA", "colB"],
+        )
 
 
 def test_table_cast_invalid():
