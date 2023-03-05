@@ -5048,9 +5048,10 @@ cdef class Table(_PandasConvertible):
             The tolerance for inexact "on" key matching. A right row is considered
             a match with the left row ``right.on - left.on <= tolerance``. The
             ``tolerance`` may be:
-                - negative, in which case a past-as-of-join occurs;
-                - or positive, in which case a future-as-of-join occurs;
-                - or zero, in which case an exact-as-of-join occurs.
+
+            - negative, in which case a past-as-of-join occurs;
+            - or positive, in which case a future-as-of-join occurs;
+            - or zero, in which case an exact-as-of-join occurs.
 
             The tolerance is interpreted in the same units as the "on" key.
         right_on : str or list[str], default None
