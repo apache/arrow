@@ -572,9 +572,10 @@ void test_row_segmenter_constant_batch(std::function<ArgShape(size_t i)> shape_f
   auto full_batch = ExecBatchFromJSON(types, shapes, "[[1, 1, 1], [1, 1, 1], [1, 1, 1]]");
   auto test_by_size = [&](size_t size) -> Status {
     SCOPED_TRACE("constant-batch with " + ToChars(size) + " key(s)");
-    std::vector<Datum> values(&full_batch.values[0], &full_batch.values[size]);
+    std::vector<Datum> values(full_batch.values.begin(),
+                              full_batch.values.begin() + size);
     ExecBatch batch(values, full_batch.length);
-    std::vector<TypeHolder> key_types(&types[0], &types[size]);
+    std::vector<TypeHolder> key_types(types.begin(), types.begin() + size);
     ARROW_ASSIGN_OR_RAISE(auto segmenter, RowSegmenter::Make(key_types));
     TestSegments(segmenter, ExecSpan(batch), {{0, 3, true, true}, {3, 0, true, true}});
     return Status::OK();
@@ -609,9 +610,10 @@ TEST(RowSegmenter, RowConstantBatch) {
       {0, 1, false, true}, {1, 1, false, false}, {2, 1, true, false}, {3, 0, true, true}};
   auto test_by_size = [&](size_t size) -> Status {
     SCOPED_TRACE("constant-batch with " + ToChars(size) + " key(s)");
-    std::vector<Datum> values(&full_batch.values[0], &full_batch.values[size]);
+    std::vector<Datum> values(full_batch.values.begin(),
+                              full_batch.values.begin() + size);
     ExecBatch batch(values, full_batch.length);
-    std::vector<TypeHolder> key_types(&types[0], &types[size]);
+    std::vector<TypeHolder> key_types(types.begin(), types.begin() + size);
     ARROW_ASSIGN_OR_RAISE(auto segmenter, RowSegmenter::Make(key_types));
     TestSegments(segmenter, ExecSpan(batch),
                  size == 0 ? expected_segments_for_size_0 : expected_segments);
