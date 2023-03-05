@@ -229,8 +229,13 @@ struct ARROW_FLIGHT_SQL_EXPORT ActionCreatePreparedStatementResult {
 struct ARROW_FLIGHT_SQL_EXPORT ActionCloseSessionRequest {};
 
 /// \brief A request to set a set of session options by key/value.
-struct ARROW_FLIGHT_SQL_EXPORT ActionSetSessionOptionRequest {
+struct ARROW_FLIGHT_SQL_EXPORT ActionSetSessionOptionsRequest {
   std::vector<SessionOption> session_options;
+};
+
+/// \brief The result(s) of setting session option(s).
+struct ARROW_FLIGHT_SQL_EXPORT ActionSetSessionOptionsResult {
+  std::vector<SetSessionOptionResult> results;
 };
 
 /// @}
@@ -602,6 +607,13 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   virtual Status EndTransaction(const ServerCallContext& context,
                                 const ActionEndTransactionRequest& request);
 
+  /// \brief Set server session option(s).
+  /// \param[in] context  The call context.
+  /// \param[in] request  The session options to set.
+  virtual arrow::Result<ActionSetSessionOptionsResult> SetSessionOptions(
+      const ServerCallContext& context,
+      const ActionSetSessionOptionsRequest& request);
+
   /// \brief Attempt to explicitly cancel a query.
   /// \param[in] context  The call context.
   /// \param[in] request  The query to cancel.
@@ -684,11 +696,11 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
                  "End a savepoint.\n"
                  "Request Message: ActionEndTransactionRequest\n"
                  "Response Message: N/A"};
-  const ActionType kSetSessionOptionActionType =
-      ActionType{"SetSessionOption",
+  const ActionType kSetSessionOptionsActionType =
+      ActionType{"SetSessionOptions",
                  "Set a series of session options.\n"
-                 "Request Message: ActionSetSessionOptionRequest\n"
-                 "Response Message: ActionSetSessionOptionResult"};
+                 "Request Message: ActionSetSessionOptionsRequest\n"
+                 "Response Message: ActionSetSessionOptionsResult"};
   const ActionType kGetSessionOptionActionType =
       ActionType{"GetSessionOption",
                  "Get a series of session options.\n"

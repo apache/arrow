@@ -35,8 +35,6 @@
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
   COMMAND.has_##PROPERTY() ? std::make_optional(COMMAND.PROPERTY()) : std::nullopt
 
-beer_t beer;
-
 namespace arrow {
 namespace flight {
 namespace sql {
@@ -372,18 +370,18 @@ arrow::Result<ActionEndTransactionRequest> ParseActionEndTransactionRequest(
   return result;
 }
 
-arrow::Result<ActionSetSessionOptionRequest> ParseActionSetSessionOptionRequest(
+arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsRequest(
     const google::protobuf::Any& any) {
-  pb::sql::ActionSetSessionOptionRequest command;
+  pb::sql::ActionSetSessionOptionsRequest command;
   if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack ActionCloseSessionRequest");
+    return Status::Invalid("Unable to unpack ActionSetSessionOptionsRequest");
   }
 
-  ActionSetSessionOptionRequest result;
+  ActionSetSessionOptionsRequest result;
   if (command.session_options_size() > 0) {
     result.session_options.reserve(command.session_options_size());
     for (const pb::sql::SessionOption &opt : command.session_options()) {
-
+      //FIXME implement me
     }
 
     //result.session_options.assign(command.session_options().begin(), command.session_options().end());
@@ -783,7 +781,7 @@ Status FlightSqlServerBase::ListActions(const ServerCallContext& context,
       FlightSqlServerBase::kCloseSessionActionType,
       FlightSqlServerBase::kEndSavepointActionType,
       FlightSqlServerBase::kEndTransactionActionType,
-      FlightSqlServerBase::kSetSessionOptionActionType
+      FlightSqlServerBase::kSetSessionOptionsActionType
   };
   return Status::OK();
 }
@@ -858,10 +856,10 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(ActionEndTransactionRequest internal_command,
                           ParseActionEndTransactionRequest(any));
     ARROW_RETURN_NOT_OK(EndTransaction(context, internal_command));
-  } else if (action.type == FlightSqlServerBase::kSetSessionOptionActionType.type) {
-    ARROW_ASSIGN_OR_RAISE(ActionSetSessionOptionRequest internal_command,
-                          ParseActionSetSessionOptionRequest(any));
-    ARROW_ASSIGN_OR_RAISE(SetSessionOptionResult result, SetSessionOption(context, internal_command));
+  } else if (action.type == FlightSqlServerBase::kSetSessionOptionsActionType.type) {
+    ARROW_ASSIGN_OR_RAISE(ActionSetSessionOptionsRequest internal_command,
+                          ParseActionSetSessionOptionsRequest(any));
+    ARROW_ASSIGN_OR_RAISE(SetSessionOptionResult result, SetSessionOptions(context, internal_command));
     ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(result));
 
     results.push_back(std::move(packed_result));
@@ -1120,6 +1118,13 @@ Status FlightSqlServerBase::EndSavepoint(const ServerCallContext& context,
 Status FlightSqlServerBase::EndTransaction(const ServerCallContext& context,
                                            const ActionEndTransactionRequest& request) {
   return Status::NotImplemented("EndTransaction not implemented");
+}
+
+arrow::Result<ActionSetSessionOptionsResult> FlightSqlServerBase::SetSessionOptions (
+    const ServerCallContext& context,
+    const ActionSetSessionOptionsRequest& request) {
+  //FIXME
+  return Status::NotImplemented("SetSessionOptions stubbed pending implementation");
 }
 
 Status FlightSqlServerBase::DoPutPreparedStatementQuery(

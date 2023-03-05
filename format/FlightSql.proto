@@ -1883,13 +1883,13 @@ message SessionOption {
   bytes option_value = 2;
 }
 
-message ActionSetSessionOptionRequest {
+message ActionSetSessionOptionsRequest {
   option (experimental) = true;
 
   repeated SessionOption session_options = 1;
 }
 
-message ActionSetSessionOptionResult {
+message ActionSetSessionOptionsResult {
   option (experimental) = true;
 
   enum SetSessionOptionResult {
@@ -1905,7 +1905,7 @@ message ActionSetSessionOptionResult {
     SET_SESSION_OPTION_RESULT_ERROR = 3;
   }
 
-  SetSessionOptionResult result = 1;
+  repeated SetSessionOptionResult result = 1;
 }
 
 extend google.protobuf.MessageOptions {

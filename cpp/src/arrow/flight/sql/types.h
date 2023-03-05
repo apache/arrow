@@ -53,6 +53,10 @@ struct ARROW_FLIGHT_SQL_EXPORT SessionOption {
   SessionOptionValue option_value;
 };
 
+struct ARROW_FLIGHT_SQL_EXPORT SetSessionOptionResult {
+  //FIXME implement--convert to enum struct(?) consistent with Proto
+};
+
 /// \brief Options to be set in the SqlInfo.
 struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
   /// \brief Predefined info values for GetSqlInfo.
