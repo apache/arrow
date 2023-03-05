@@ -113,7 +113,7 @@ int64_t GetMatchLength(const uint8_t* match_bytes, int64_t match_width,
       break;
     }
   }
-  return std::min(cursor, length - offset);
+  return std::min(cursor, length) - offset;
 }
 
 using ExtendFunc = std::function<bool(const void*)>;

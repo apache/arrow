@@ -482,8 +482,9 @@ void TestGroupClassSupportedKeys() {
 
 void TestSegments(std::unique_ptr<RowSegmenter>& segmenter, const ExecSpan& batch,
                   std::vector<Segment> expected_segments) {
-  int64_t offset = 0;
+  int64_t offset = 0, segment_num = 0;
   for (auto expected_segment : expected_segments) {
+    SCOPED_TRACE("segment #" + ToChars(segment_num++));
     ASSERT_OK_AND_ASSIGN(auto segment, segmenter->GetNextSegment(batch, offset));
     ASSERT_EQ(expected_segment, segment);
     offset = segment.offset + segment.length;
@@ -558,6 +559,66 @@ TEST(RowSegmenter, Basics) {
                   {1, 1, false, false},
                   {2, 1, true, false},
                   {3, 0, true, true}});
+  }
+}
+
+namespace {
+
+void test_row_segmenter_constant_batch(std::function<ArgShape(size_t i)> shape_func) {
+  constexpr size_t n = 3;
+  std::vector<TypeHolder> types = {int32(), int32(), int32()};
+  std::vector<ArgShape> shapes(n);
+  for (size_t i = 0; i < n; i++) shapes[i] = shape_func(i);
+  auto full_batch = ExecBatchFromJSON(types, shapes, "[[1, 1, 1], [1, 1, 1], [1, 1, 1]]");
+  auto test_by_size = [&](size_t size) -> Status {
+    SCOPED_TRACE("constant-batch with " + ToChars(size) + " key(s)");
+    std::vector<Datum> values(&full_batch.values[0], &full_batch.values[size]);
+    ExecBatch batch(values, full_batch.length);
+    std::vector<TypeHolder> key_types(&types[0], &types[size]);
+    ARROW_ASSIGN_OR_RAISE(auto segmenter, RowSegmenter::Make(key_types));
+    TestSegments(segmenter, ExecSpan(batch), {{0, 3, true, true}, {3, 0, true, true}});
+    return Status::OK();
+  };
+  for (size_t i = 0; i <= 3; i++) {
+    ASSERT_OK(test_by_size(i));
+  }
+}
+
+}  // namespace
+
+TEST(RowSegmenter, ConstantArrayBatch) {
+  test_row_segmenter_constant_batch([](size_t i) { return ArgShape::ARRAY; });
+}
+
+TEST(RowSegmenter, ConstantScalarBatch) {
+  test_row_segmenter_constant_batch([](size_t i) { return ArgShape::SCALAR; });
+}
+
+TEST(RowSegmenter, ConstantMixedBatch) {
+  test_row_segmenter_constant_batch(
+      [](size_t i) { return i % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; });
+}
+
+TEST(RowSegmenter, RowConstantBatch) {
+  constexpr size_t n = 3;
+  std::vector<TypeHolder> types = {int32(), int32(), int32()};
+  auto full_batch = ExecBatchFromJSON(types, "[[1, 1, 1], [2, 2, 2], [3, 3, 3]]");
+  std::vector<Segment> expected_segments_for_size_0 = {{0, 3, true, true},
+                                                       {3, 0, true, true}};
+  std::vector<Segment> expected_segments = {
+      {0, 1, false, true}, {1, 1, false, false}, {2, 1, true, false}, {3, 0, true, true}};
+  auto test_by_size = [&](size_t size) -> Status {
+    SCOPED_TRACE("constant-batch with " + ToChars(size) + " key(s)");
+    std::vector<Datum> values(&full_batch.values[0], &full_batch.values[size]);
+    ExecBatch batch(values, full_batch.length);
+    std::vector<TypeHolder> key_types(&types[0], &types[size]);
+    ARROW_ASSIGN_OR_RAISE(auto segmenter, RowSegmenter::Make(key_types));
+    TestSegments(segmenter, ExecSpan(batch),
+                 size == 0 ? expected_segments_for_size_0 : expected_segments);
+    return Status::OK();
+  };
+  for (size_t i = 0; i <= n; i++) {
+    ASSERT_OK(test_by_size(i));
   }
 }
 
