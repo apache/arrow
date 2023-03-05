@@ -2322,6 +2322,52 @@ def test_table_join_asof():
 
 
 @pytest.mark.dataset
+def test_table_join_asof_multiple_by():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+    })
+
+    t2 = pa.table({
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"],
+        "colA": [99, 2, 1],
+        "on": [2, 3, 4],
+    })
+
+    result = t1.join_asof(
+        t2, on="on", by=["colA", "colB"], tolerance=1
+    )
+    assert result.sort_by("colA") == pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+        "colVals": [None, "B", None],
+    })
+
+
+@pytest.mark.dataset
+def test_table_join_asof_empty_by():
+    t1 = pa.table({
+        "on": [1, 2, 3],
+    })
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "on": [2, 3, 4],
+    })
+
+    result = t1.join_asof(
+        t2, on="on", by=[], tolerance=1
+    )
+    assert result == pa.table({
+        "on": [1, 2, 3],
+        "colVals": ["Z", "Z", "B"],
+    })
+
+
+@pytest.mark.dataset
 def test_table_join_asof_collisions():
     t1 = pa.table({
         "colA": [1, 2, 6],
