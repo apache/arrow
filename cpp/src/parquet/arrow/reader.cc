@@ -311,6 +311,13 @@ class FileReaderImpl : public FileReader {
     return ReadTable(Iota(reader_->metadata()->num_columns()), table);
   }
 
+  Status WillNeedRowGroups(const std::vector<int>& row_groups,
+                          const std::vector<int>& column_indices) override;
+
+  Status DecodeRowGroups(const std::vector<int>& row_groups,
+                         const std::vector<int>& column_indices,
+                         std::shared_ptr<::arrow::Table>* out) override;
+
   Status ReadRowGroups(const std::vector<int>& row_groups,
                        const std::vector<int>& indices,
                        std::shared_ptr<Table>* table) override;
@@ -1216,9 +1223,8 @@ Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_facto
   return Status::OK();
 }
 
-Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
-                                     const std::vector<int>& column_indices,
-                                     std::shared_ptr<Table>* out) {
+Status FileReaderImpl::WillNeedRowGroups(const std::vector<int>& row_groups,
+                                         const std::vector<int>& column_indices) {
   RETURN_NOT_OK(BoundsCheck(row_groups, column_indices));
 
   // PARQUET-1698/PARQUET-1820: pre-buffer row groups/column chunks if enabled
@@ -1229,6 +1235,24 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
                                 reader_properties_.cache_options());
     END_PARQUET_CATCH_EXCEPTIONS
   }
+  return Status::OK();
+}
+
+Status FileReaderImpl::DecodeRowGroups(const std::vector<int>& row_groups,
+                       const std::vector<int>& column_indices,
+                       std::shared_ptr<::arrow::Table>* out) {
+  RETURN_NOT_OK(BoundsCheck(row_groups, column_indices));
+
+  auto fut = DecodeRowGroups(/*self=*/nullptr, row_groups, column_indices,
+                             /*cpu_executor=*/nullptr);
+  ARROW_ASSIGN_OR_RAISE(*out, fut.MoveResult());
+  return Status::OK();
+}
+
+Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
+                                     const std::vector<int>& column_indices,
+                                     std::shared_ptr<Table>* out) {
+  RETURN_NOT_OK(WillNeedRowGroups(row_groups, column_indices));
 
   auto fut = DecodeRowGroups(/*self=*/nullptr, row_groups, column_indices,
                              /*cpu_executor=*/nullptr);
