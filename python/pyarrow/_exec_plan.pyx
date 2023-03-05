@@ -34,6 +34,8 @@ from pyarrow._compute cimport Expression, _true, _SortOptions
 from pyarrow._dataset cimport Dataset, Scanner
 from pyarrow._dataset import InMemoryDataset
 
+from pyarrow._acero import Declaration, TableSourceNodeOptions, AsofJoinNodeOptions
+
 Initialize()  # Initialise support for Datasets in ExecPlan
 
 
@@ -422,36 +424,10 @@ def _perform_join_asof(left_operand not None, left_on, left_by,
     -------
     result_table : Table or InMemoryDataset
     """
-    cdef:
-        vector[CFieldRef] c_left_by
-        vector[CFieldRef] c_right_by
-        CAsofJoinKeys c_left_keys
-        CAsofJoinKeys c_right_keys
-        vector[CAsofJoinKeys] c_input_keys
-        vector[CDeclaration] c_decl_plan
-
-    # Prepare left AsofJoinNodeOption::Keys
-    if isinstance(left_by, str):
+    if not isinstance(left_by, (list, tuple)):
         left_by = [left_by]
-    for key in left_by:
-        c_left_by.push_back(CFieldRef(<c_string>tobytes(key)))
-
-    c_left_keys.on_key = CFieldRef(<c_string>tobytes(left_on))
-    c_left_keys.by_key = c_left_by
-
-    c_input_keys.push_back(c_left_keys)
-
-    # Prepare right AsofJoinNodeOption::Keys
-    right_by_order = {}
-    if isinstance(right_by, str):
+    if not isinstance(right_by, (list, tuple)):
         right_by = [right_by]
-    for key in right_by:
-        c_right_by.push_back(CFieldRef(<c_string>tobytes(key)))
-
-    c_right_keys.on_key = CFieldRef(<c_string>tobytes(right_on))
-    c_right_keys.by_key = c_right_by
-
-    c_input_keys.push_back(c_right_keys)
 
     # By default expose all columns on both left and right table
     if isinstance(left_operand, Table):
@@ -480,21 +456,19 @@ def _perform_join_asof(left_operand not None, left_on, left_by,
                 "column collisions.".format(col),
             )
 
-    c_decl_plan.push_back(
-        CDeclaration(
-            tobytes("asofjoin"),
-            CAsofJoinNodeOptions(c_input_keys, tolerance)
-        )
-    )
+    # TEMP
+    if isinstance(left_operand, Dataset):
+        left_operand = left_operand.to_table()
+    if isinstance(right_operand, Dataset):
+        right_operand = right_operand.to_table()
 
-    result_table = execplan([left_operand, right_operand],
-                            plan=c_decl_plan,
-                            output_type=Table,
-                            use_threads=False)
+    left_source = Declaration("table_source", TableSourceNodeOptions(left_operand))
+    right_source = Declaration("table_source", TableSourceNodeOptions(right_operand))
 
-    # Get rid of special dataset columns
-    # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
-    result_table = result_table.select(left_columns + right_columns)
+    join_opts = AsofJoinNodeOptions(left_on, left_by, right_on, right_by, tolerance)
+    decl = Declaration("asofjoin", options=join_opts,
+                       inputs=[left_source, right_source])
+    result_table = decl.to_table(use_threads=False)
 
     if output_type == Table:
         return result_table
