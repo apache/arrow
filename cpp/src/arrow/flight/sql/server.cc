@@ -818,7 +818,7 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
   } else if (action.type == FlightSqlServerBase::kCloseSessionActionType.type) {
     ARROW_ASSIGN_OR_RAISE(ActionCloseSessionRequest internal_command,
                           ParseActionCloseSessionRequest(any));
-    ARROW_ASSIGN_OR_RAISE(CloseSessionResult result, CloseSession(context, internal_command));
+    ARROW_ASSIGN_OR_RAISE(ActionCloseSessionResult result, CloseSession(context, internal_command));
     ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(result));
 
     results.push_back(std::move(packed_result));
@@ -859,7 +859,7 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
   } else if (action.type == FlightSqlServerBase::kSetSessionOptionsActionType.type) {
     ARROW_ASSIGN_OR_RAISE(ActionSetSessionOptionsRequest internal_command,
                           ParseActionSetSessionOptionsRequest(any));
-    ARROW_ASSIGN_OR_RAISE(SetSessionOptionResult result, SetSessionOptions(context, internal_command));
+    ARROW_ASSIGN_OR_RAISE(ActionSetSessionOptionsResult result, SetSessionOptions(context, internal_command));
     ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(result));
 
     results.push_back(std::move(packed_result));
@@ -1088,6 +1088,13 @@ arrow::Result<ActionBeginTransactionResult> FlightSqlServerBase::BeginTransactio
 arrow::Result<CancelResult> FlightSqlServerBase::CancelQuery(
     const ServerCallContext& context, const ActionCancelQueryRequest& request) {
   return Status::NotImplemented("CancelQuery not implemented");
+}
+
+arrow::Result<ActionCloseSessionResult> FlightSqlServerBase::CloseSession(
+    const ServerCallContext& context,
+    const ActionCloseSessionRequest& request) {
+  //FIXME
+  return Status::NotImplemented("CloseSession not implemented pending ");
 }
 
 arrow::Result<ActionCreatePreparedStatementResult>

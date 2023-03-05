@@ -228,6 +228,11 @@ struct ARROW_FLIGHT_SQL_EXPORT ActionCreatePreparedStatementResult {
 /// \brief A request to close the open client session.
 struct ARROW_FLIGHT_SQL_EXPORT ActionCloseSessionRequest {};
 
+/// \brief The result of a request to close the session.
+struct ARROW_FLIGHT_SQL_EXPORT ActionCloseSessionResult {
+  CloseSessionResult result;
+};
+
 /// \brief A request to set a set of session options by key/value.
 struct ARROW_FLIGHT_SQL_EXPORT ActionSetSessionOptionsRequest {
   std::vector<SessionOption> session_options;
@@ -613,6 +618,11 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   virtual arrow::Result<ActionSetSessionOptionsResult> SetSessionOptions(
       const ServerCallContext& context,
       const ActionSetSessionOptionsRequest& request);
+
+  virtual arrow::Result<ActionCloseSessionResult> CloseSession(
+      const ServerCallContext& context,
+      const ActionCloseSessionRequest& request
+      );
 
   /// \brief Attempt to explicitly cancel a query.
   /// \param[in] context  The call context.
