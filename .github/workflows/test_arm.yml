@@ -1,0 +1,12 @@
+name: "Test arm"
+on:
+  pull_request_target:
+    types:
+      - opened
+jobs:
+  arm:
+    name: "Arm"
+    runs-on: ["arm", "linux"]
+    steps:
+      - name: check architecture
+        run: uname -m
