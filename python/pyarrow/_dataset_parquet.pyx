@@ -223,7 +223,7 @@ cdef class ParquetFileFormat(FileFormat):
             An expression that is guaranteed true for all rows in the fragment.  Allows
             fragment to be potentially skipped while scanning with a filter.
         row_groups : Iterable, optional
-            The row groups to include
+            The indices of the row groups to include
 
         Returns
         -------
