@@ -1,7 +1,6 @@
 name: "Test arm"
 on:
   pull_request:
-  pull_request:
     paths:
       - '.github/workflows/test_arm.yml'
 
