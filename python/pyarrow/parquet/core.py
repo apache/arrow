@@ -1059,7 +1059,8 @@ Examples
         row_group_size : int, default None
             Maximum number of rows in written row group. If None, the
             row group size will be the minimum of the RecordBatch
-            size and 1024 * 1024.
+            size and 1024 * 1024.  If set larger than 64Mi then 64Mi
+            will be used instead.
         """
         table = pa.Table.from_batches([batch], batch.schema)
         self.write_table(table, row_group_size)
@@ -1074,7 +1075,8 @@ Examples
         row_group_size : int, default None
             Maximum number of rows in each written row group. If None,
             the row group size will be the minimum of the Table size
-            and 1024 * 1024.
+            and 1024 * 1024.  If set larger than 64Mi then 64Mi will
+            be used instead.
 
         """
         if self.schema_changed:
