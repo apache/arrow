@@ -22,6 +22,7 @@
 #include <string>
 
 #include "arrow/adapters/orc/adapter.h"
+#include "arrow/adapters/orc/util.h"
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
@@ -34,7 +35,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace liborc = orc;
@@ -838,6 +838,74 @@ TEST_F(TestORCWriterSingleArray, WriteListOfMap) {
       rand.Map(value_key_array, value_item_array, 2 * num_rows, 0.2);
   std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 0.4);
   AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 10);
+}
+
+namespace {
+
+// The random array generator fills random unselected values in the child arrays
+// of SparseUnionArray. However, orc file only contains dense union type meaning
+// that these unselected values will not be written to the file (so we can never
+// read them back and compare equality in the unit test). Because the orc reader
+// fills unselected values to nulls when reading from the file. So flattening
+// the SparseUnionArray before writing makes it easy for the array equality check.
+std::shared_ptr<Array> FlattenSparseUnionArray(std::shared_ptr<Array> array) {
+  auto union_array = checked_pointer_cast<SparseUnionArray>(array);
+  ArrayVector children;
+  for (int i = 0; i < array->num_fields(); ++i) {
+    ASSIGN_OR_ABORT(auto flattened_child, union_array->GetFlattenedField(i));
+    children.emplace_back(std::move(flattened_child));
+  }
+  return std::make_shared<SparseUnionArray>(array->type(), array->length(),
+                                            std::move(children),
+                                            union_array->type_codes(), array->offset());
+}
+
+void TestUnionConversion(std::shared_ptr<Array> array) {
+  auto length = array->length();
+  auto orc_type = liborc::Type::buildTypeFromString("uniontype<string,int>");
+  auto orc_batch = orc_type->createRowBatch(array->length(), *liborc::getDefaultPool());
+
+  // Convert from arrow to orc
+  int arrow_chunk_offset = 0;
+  int64_t arrow_index_offset = 0;
+  ASSERT_OK(adapters::orc::WriteBatch(ChunkedArray{array}, length, &arrow_chunk_offset,
+                                      &arrow_index_offset, orc_batch.get()));
+
+  // Convert from orc to arrow
+  ASSIGN_OR_ABORT(auto array_builder, MakeBuilder(array->type()));
+  ASSERT_OK(adapters::orc::AppendBatch(orc_type.get(), orc_batch.get(), 0, length,
+                                       array_builder.get()));
+  std::shared_ptr<Array> result;
+  ASSERT_OK(array_builder->Finish(&result));
+
+  // Compare the result
+  AssertArraysEqual(*array, *result);
+}
+
+}  // namespace
+
+TEST_F(TestORCWriterSingleArray, WriteSparseUnion) {
+  constexpr int64_t num_rows = 1024;
+  auto type =
+      sparse_union({field("_union_0", utf8()), field("_union_1", int32())}, {0, 1});
+  auto array =
+      FlattenSparseUnionArray(rand.ArrayOf(type, num_rows, /*null_probability=*/0.4));
+  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 10);
+}
+
+TEST(TestWriteReadORCBatch, SparseUnionConversion) {
+  random::RandomArrayGenerator rand(kRandomSeed);
+  auto type = sparse_union({field("a", utf8()), field("b", int32())}, {0, 1});
+  auto array = FlattenSparseUnionArray(
+      rand.ArrayOf(type, /*size=*/1024, /*null_probability=*/0.4));
+  TestUnionConversion(std::move(array));
+}
+
+TEST(TestWriteReadORCBatch, DenseUnionConversion) {
+  random::RandomArrayGenerator rand(kRandomSeed);
+  auto type = dense_union({field("a", utf8()), field("b", int32())}, {0, 1});
+  auto array = rand.ArrayOf(type, /*size=*/1024, /*null_probability=*/0.4);
+  TestUnionConversion(std::move(array));
 }
 
 class TestORCWriterMultipleWrite : public ::testing::Test {
