@@ -100,8 +100,7 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
       const std::vector<std::string>& dim_names = {});
 
   /// \brief Compute strides of FixedShapeTensorType
-  static Status ComputeStrides(const FixedShapeTensorType& type,
-                               std::vector<int64_t>& strides);
+  static Result<std::vector<int64_t>> ComputeStrides(const FixedShapeTensorType& type);
 
  private:
   std::shared_ptr<DataType> storage_type_;

@@ -254,20 +254,27 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
                                                 dim_names);
 }
 
-Status FixedShapeTensorType::ComputeStrides(const FixedShapeTensorType& type,
-                                            std::vector<int64_t>& strides) {
-  auto element_type = internal::checked_pointer_cast<FixedWidthType>(type.value_type_);
+Result<std::vector<int64_t>> FixedShapeTensorType::ComputeStrides(
+    const FixedShapeTensorType& type) {
+  std::vector<int64_t> strides;
+  auto element_type =
+      internal::checked_pointer_cast<FixedSizeListType>(type.storage_type());
+  auto value_type =
+      internal::checked_pointer_cast<FixedWidthType>(element_type->value_type());
+
   ARROW_RETURN_NOT_OK(
-      internal::ComputeRowMajorStrides(*element_type.get(), type.shape(), &strides));
+      internal::ComputeRowMajorStrides(*value_type.get(), type.shape(), &strides));
   if (!type.permutation().empty()) {
     internal::Permute(type.permutation(), &strides);
   }
-  return Status::OK();
+  return strides;
 }
 
 const std::vector<int64_t>& FixedShapeTensorType::strides() {
   if (strides_.empty()) {
-    ARROW_CHECK_OK(ComputeStrides(*this, strides_));
+    auto maybe_strides = ComputeStrides(*this);
+    ARROW_CHECK_OK(maybe_strides.status());
+    strides_ = maybe_strides.MoveValueUnsafe();
   }
   return strides_;
 }
