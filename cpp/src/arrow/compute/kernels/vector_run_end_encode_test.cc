@@ -85,8 +85,8 @@ class TestRunEndEncodeDecode : public ::testing::TestWithParam<
   void AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
     auto& child = array->child_data[1];
     auto builder = MakeBuilder(child->type).ValueOrDie();
-    ARROW_CHECK_OK(builder->AppendNulls(offset));
-    ARROW_CHECK_OK(builder->AppendArraySlice(ArraySpan(*child), 0, child->length));
+    ASSERT_OK(builder->AppendNulls(offset));
+    ASSERT_OK(builder->AppendArraySlice(ArraySpan(*child), 0, child->length));
     array->child_data[1] = builder->Finish().ValueOrDie()->Slice(offset)->data();
   }
 };
@@ -157,7 +157,7 @@ TEST_P(TestRunEndEncodeDecode, DecodeWithOffsetInChildArray) {
                        RunEndEncode(data.input, RunEndEncodeOptions(run_ends_type)));
 
   auto encoded = encoded_datum.array();
-  this->AddArtificialOffsetInChildArray(encoded.get(), 100);
+  ASSERT_NO_FATAL_FAILURE(this->AddArtificialOffsetInChildArray(encoded.get(), 100));
   ASSERT_OK_AND_ASSIGN(Datum datum_without_first, RunEndDecode(encoded));
   auto array_without_first = datum_without_first.make_array();
   ASSERT_OK(array_without_first->ValidateFull());
