@@ -91,13 +91,15 @@ class AceroFlightSqlServer : public FlightSqlServerBase {
     // GetFlightInfoSubstraitPlan encodes the plan into the ticket
     std::shared_ptr<Buffer> serialized_plan =
         Buffer::FromString(command.statement_handle);
-    ARROW_ASSIGN_OR_RAISE(compute::Declaration plan,
+    ARROW_ASSIGN_OR_RAISE(engine::PlanInfo plan,
                           engine::DeserializePlan(*serialized_plan));
 
-    ARROW_LOG(INFO) << "DoGetStatement: executing plan "
-                    << compute::DeclarationToString(plan).ValueOr("Invalid plan");
+    ARROW_LOG(INFO)
+        << "DoGetStatement: executing plan "
+        << compute::DeclarationToString(plan.root.declaration).ValueOr("Invalid plan");
 
-    ARROW_ASSIGN_OR_RAISE(auto reader, compute::DeclarationToReader(plan));
+    ARROW_ASSIGN_OR_RAISE(auto reader,
+                          compute::DeclarationToReader(plan.root.declaration));
     return std::make_unique<RecordBatchStream>(std::move(reader));
   }
 
@@ -157,8 +159,8 @@ class AceroFlightSqlServer : public FlightSqlServerBase {
   arrow::Result<std::shared_ptr<arrow::Schema>> GetPlanSchema(
       const std::string& serialized_plan) {
     std::shared_ptr<Buffer> plan_buf = Buffer::FromString(serialized_plan);
-    ARROW_ASSIGN_OR_RAISE(compute::Declaration plan, engine::DeserializePlan(*plan_buf));
-    return compute::DeclarationToSchema(plan);
+    ARROW_ASSIGN_OR_RAISE(engine::PlanInfo plan, engine::DeserializePlan(*plan_buf));
+    return compute::DeclarationToSchema(plan.root.declaration);
   }
 
   arrow::Result<std::unique_ptr<FlightInfo>> MakeFlightInfo(
