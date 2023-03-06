@@ -466,6 +466,10 @@ class SerializedPageWriter : public PageWriter {
 
   int64_t total_uncompressed_size() { return total_uncompressed_size_; }
 
+  int64_t total_compressed_bytes_written() const override {
+    return total_compressed_size_;
+  }
+
   bool page_checksum_verification() { return page_checksum_verification_; }
 
  private:
@@ -527,7 +531,13 @@ class SerializedPageWriter : public PageWriter {
   int64_t num_values_;
   int64_t dictionary_page_offset_;
   int64_t data_page_offset_;
+  // The uncompressed page size the page writer has already
+  //  written.
   int64_t total_uncompressed_size_;
+  // The compressed page size the page writer has already
+  //  written.
+  // If the column is UNCOMPRESSED, the size would be
+  //  equal to `total_uncompressed_size_`.
   int64_t total_compressed_size_;
   int32_t page_ordinal_;
   int16_t row_group_ordinal_;
@@ -607,6 +617,10 @@ class BufferedPageWriter : public PageWriter {
 
   bool has_compressor() override { return pager_->has_compressor(); }
 
+  int64_t total_compressed_bytes_written() const override {
+    return pager_->total_compressed_bytes_written();
+  }
+
  private:
   std::shared_ptr<ArrowOutputStream> final_sink_;
   ColumnChunkMetaDataBuilder* metadata_;
@@ -658,6 +672,7 @@ class ColumnWriterImpl {
         allocator_(properties->memory_pool()),
         num_buffered_values_(0),
         num_buffered_encoded_values_(0),
+        num_buffered_nulls_(0),
         num_buffered_rows_(0),
         rows_written_(0),
         total_bytes_written_(0),
@@ -763,6 +778,9 @@ class ColumnWriterImpl {
   // values, this number may be lower than num_buffered_values_.
   int64_t num_buffered_encoded_values_;
 
+  // The total number of nulls stored in the data page.
+  int64_t num_buffered_nulls_;
+
   // Total number of rows buffered in the data page.
   int64_t num_buffered_rows_;
 
@@ -773,6 +791,7 @@ class ColumnWriterImpl {
   int64_t total_bytes_written_;
 
   // Records the current number of compressed bytes in a column
+  // These bytes are unwritten to `pager_` yet
   int64_t total_compressed_bytes_;
 
   // Flag to check if the Writer has been closed
@@ -875,6 +894,7 @@ void ColumnWriterImpl::AddDataPage() {
   num_buffered_values_ = 0;
   num_buffered_encoded_values_ = 0;
   num_buffered_rows_ = 0;
+  num_buffered_nulls_ = 0;
 }
 
 void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
@@ -949,10 +969,14 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
   ResetPageStatistics();
 
   int32_t num_values = static_cast<int32_t>(num_buffered_values_);
-  int32_t null_count = static_cast<int32_t>(page_stats.null_count);
+  int32_t null_count = static_cast<int32_t>(num_buffered_nulls_);
   int32_t num_rows = static_cast<int32_t>(num_buffered_rows_);
   int32_t def_levels_byte_length = static_cast<int32_t>(definition_levels_rle_size);
   int32_t rep_levels_byte_length = static_cast<int32_t>(repetition_levels_rle_size);
+
+  // page_stats.null_count is not set when page_statistics_ is nullptr. It is only used
+  // here for safety check.
+  DCHECK(!page_stats.has_null_count || page_stats.null_count == null_count);
 
   // Write the page to OutputStream eagerly if there is no dictionary or
   // if dictionary encoding has fallen back to PLAIN
@@ -1015,11 +1039,59 @@ template <typename Action>
 inline void DoInBatches(int64_t total, int64_t batch_size, Action&& action) {
   int64_t num_batches = static_cast<int>(total / batch_size);
   for (int round = 0; round < num_batches; round++) {
-    action(round * batch_size, batch_size);
+    action(round * batch_size, batch_size, /*check_page_size=*/true);
   }
   // Write the remaining values
   if (total % batch_size > 0) {
-    action(num_batches * batch_size, total % batch_size);
+    action(num_batches * batch_size, total % batch_size, /*check_page_size=*/true);
+  }
+}
+
+template <typename Action>
+inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
+                        int64_t num_levels, int64_t batch_size, Action&& action,
+                        bool pages_change_on_record_boundaries) {
+  if (!pages_change_on_record_boundaries || !rep_levels) {
+    // If rep_levels is null, then we are writing a non-repeated column.
+    // In this case, every record contains only one level.
+    return DoInBatches(num_levels, batch_size, std::forward<Action>(action));
+  }
+
+  int64_t offset = 0;
+  while (offset < num_levels) {
+    int64_t end_offset = std::min(offset + batch_size, num_levels);
+
+    // Find next record boundary (i.e. ref_level = 0)
+    while (end_offset < num_levels && rep_levels[end_offset] != 0) {
+      end_offset++;
+    }
+
+    if (end_offset < num_levels) {
+      // This is not the last chunk of batch and end_offset is a record boundary.
+      // It is a good chance to check the page size.
+      action(offset, end_offset - offset, /*check_page_size=*/true);
+    } else {
+      DCHECK_EQ(end_offset, num_levels);
+      // This is the last chunk of batch, and we do not know whether end_offset is a
+      // record boundary. Find the offset to beginning of last record in this chunk,
+      // so we can check page size.
+      int64_t last_record_begin_offset = num_levels - 1;
+      while (last_record_begin_offset >= offset &&
+             rep_levels[last_record_begin_offset] != 0) {
+        last_record_begin_offset--;
+      }
+
+      if (offset < last_record_begin_offset) {
+        // We have found the beginning of last record and can check page size.
+        action(offset, last_record_begin_offset - offset, /*check_page_size=*/true);
+        offset = last_record_begin_offset;
+      }
+
+      // There is no record boundary in this chunk and cannot check page size.
+      action(offset, end_offset - offset, /*check_page_size=*/false);
+    }
+
+    offset = end_offset;
   }
 }
 
@@ -1083,7 +1155,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     // pagesize limit
     int64_t value_offset = 0;
 
-    auto WriteChunk = [&](int64_t offset, int64_t batch_size) {
+    auto WriteChunk = [&](int64_t offset, int64_t batch_size, bool check_page) {
       int64_t values_to_write = WriteLevels(batch_size, AddIfNotNull(def_levels, offset),
                                             AddIfNotNull(rep_levels, offset));
 
@@ -1091,16 +1163,17 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       if (values_to_write > 0) {
         DCHECK_NE(nullptr, values);
       }
-      WriteValues(AddIfNotNull(values, value_offset), values_to_write,
-                  batch_size - values_to_write);
-      CommitWriteAndCheckPageLimit(batch_size, values_to_write);
+      const int64_t num_nulls = batch_size - values_to_write;
+      WriteValues(AddIfNotNull(values, value_offset), values_to_write, num_nulls);
+      CommitWriteAndCheckPageLimit(batch_size, values_to_write, num_nulls, check_page);
       value_offset += values_to_write;
 
       // Dictionary size checked separately from data page size since we
       // circumvent this check when writing ::arrow::DictionaryArray directly
       CheckDictionarySizeLimit();
     };
-    DoInBatches(num_values, properties_->write_batch_size(), WriteChunk);
+    DoInBatches(def_levels, rep_levels, num_values, properties_->write_batch_size(),
+                WriteChunk, pages_change_on_record_boundaries());
     return value_offset;
   }
 
@@ -1109,7 +1182,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                         int64_t valid_bits_offset, const T* values) override {
     // Like WriteBatch, but for spaced values
     int64_t value_offset = 0;
-    auto WriteChunk = [&](int64_t offset, int64_t batch_size) {
+    auto WriteChunk = [&](int64_t offset, int64_t batch_size, bool check_page) {
       int64_t batch_num_values = 0;
       int64_t batch_num_spaced_values = 0;
       int64_t null_count;
@@ -1122,20 +1195,23 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       if (bits_buffer_ != nullptr) {
         WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
                           batch_num_spaced_values, bits_buffer_->data(), /*offset=*/0,
-                          /*num_levels=*/batch_size);
+                          /*num_levels=*/batch_size, null_count);
       } else {
         WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
                           batch_num_spaced_values, valid_bits,
-                          valid_bits_offset + value_offset, /*num_levels=*/batch_size);
+                          valid_bits_offset + value_offset, /*num_levels=*/batch_size,
+                          null_count);
       }
-      CommitWriteAndCheckPageLimit(batch_size, batch_num_spaced_values);
+      CommitWriteAndCheckPageLimit(batch_size, batch_num_spaced_values, null_count,
+                                   check_page);
       value_offset += batch_num_spaced_values;
 
       // Dictionary size checked separately from data page size since we
       // circumvent this check when writing ::arrow::DictionaryArray directly
       CheckDictionarySizeLimit();
     };
-    DoInBatches(num_values, properties_->write_batch_size(), WriteChunk);
+    DoInBatches(def_levels, rep_levels, num_values, properties_->write_batch_size(),
+                WriteChunk, pages_change_on_record_boundaries());
   }
 
   Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
@@ -1226,7 +1302,15 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
   int64_t total_bytes_written() const override { return total_bytes_written_; }
 
+  int64_t total_compressed_bytes_written() const override {
+    return pager_->total_compressed_bytes_written();
+  }
+
   const WriterProperties* properties() override { return properties_; }
+
+  bool pages_change_on_record_boundaries() const {
+    return properties_->data_page_version() == ParquetDataPageVersion::V2;
+  }
 
  private:
   using ValueEncoderType = typename EncodingTraits<DType>::Encoder;
@@ -1308,7 +1392,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
           *out_spaced_values_to_write +=
               def_levels[x] >= level_info_.repeated_ancestor_def_level ? 1 : 0;
         }
-        *null_count = *out_values_to_write - *out_spaced_values_to_write;
+        *null_count = batch_size - *out_values_to_write;
       }
       return;
     }
@@ -1374,11 +1458,14 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
   }
 
-  void CommitWriteAndCheckPageLimit(int64_t num_levels, int64_t num_values) {
+  void CommitWriteAndCheckPageLimit(int64_t num_levels, int64_t num_values,
+                                    int64_t num_nulls, bool check_page_size) {
     num_buffered_values_ += num_levels;
     num_buffered_encoded_values_ += num_values;
+    num_buffered_nulls_ += num_nulls;
 
-    if (current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize()) {
+    if (check_page_size &&
+        current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize()) {
       AddDataPage();
     }
   }
@@ -1426,7 +1513,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
   void WriteValuesSpaced(const T* values, int64_t num_values, int64_t num_spaced_values,
                          const uint8_t* valid_bits, int64_t valid_bits_offset,
-                         int64_t num_levels) {
+                         int64_t num_levels, int64_t num_nulls) {
     if (num_values != num_spaced_values) {
       current_value_encoder_->PutSpaced(values, static_cast<int>(num_spaced_values),
                                         valid_bits, valid_bits_offset);
@@ -1434,7 +1521,6 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       current_value_encoder_->Put(values, static_cast<int>(num_values));
     }
     if (page_statistics_ != nullptr) {
-      const int64_t num_nulls = num_levels - num_values;
       page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
                                      num_spaced_values, num_values, num_nulls);
     }
@@ -1518,7 +1604,7 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
   };
 
   int64_t value_offset = 0;
-  auto WriteIndicesChunk = [&](int64_t offset, int64_t batch_size) {
+  auto WriteIndicesChunk = [&](int64_t offset, int64_t batch_size, bool check_page) {
     int64_t batch_num_values = 0;
     int64_t batch_num_spaced_values = 0;
     int64_t null_count = ::arrow::kUnknownNullCount;
@@ -1538,7 +1624,7 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
         writeable_indices,
         MaybeReplaceValidity(writeable_indices, null_count, ctx->memory_pool));
     dict_encoder->PutIndices(*writeable_indices);
-    CommitWriteAndCheckPageLimit(batch_size, batch_num_values);
+    CommitWriteAndCheckPageLimit(batch_size, batch_num_values, null_count, check_page);
     value_offset += batch_num_spaced_values;
   };
 
@@ -1562,8 +1648,9 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     return WriteDense();
   }
 
-  PARQUET_CATCH_NOT_OK(
-      DoInBatches(num_levels, properties_->write_batch_size(), WriteIndicesChunk));
+  PARQUET_CATCH_NOT_OK(DoInBatches(def_levels, rep_levels, num_levels,
+                                   properties_->write_batch_size(), WriteIndicesChunk,
+                                   pages_change_on_record_boundaries()));
   return Status::OK();
 }
 
@@ -1995,7 +2082,7 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
   }
 
   int64_t value_offset = 0;
-  auto WriteChunk = [&](int64_t offset, int64_t batch_size) {
+  auto WriteChunk = [&](int64_t offset, int64_t batch_size, bool check_page) {
     int64_t batch_num_values = 0;
     int64_t batch_num_spaced_values = 0;
     int64_t null_count = 0;
@@ -2010,20 +2097,22 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
         data_slice, MaybeReplaceValidity(data_slice, null_count, ctx->memory_pool));
 
     current_encoder_->Put(*data_slice);
+    // Null values in ancestors count as nulls.
+    const int64_t non_null = data_slice->length() - data_slice->null_count();
     if (page_statistics_ != nullptr) {
       page_statistics_->Update(*data_slice, /*update_counts=*/false);
-      // Null values in ancestors count as nulls.
-      int64_t non_null = data_slice->length() - data_slice->null_count();
       page_statistics_->IncrementNullCount(batch_size - non_null);
       page_statistics_->IncrementNumValues(non_null);
     }
-    CommitWriteAndCheckPageLimit(batch_size, batch_num_values);
+    CommitWriteAndCheckPageLimit(batch_size, batch_num_values, batch_size - non_null,
+                                 check_page);
     CheckDictionarySizeLimit();
     value_offset += batch_num_spaced_values;
   };
 
-  PARQUET_CATCH_NOT_OK(
-      DoInBatches(num_levels, properties_->write_batch_size(), WriteChunk));
+  PARQUET_CATCH_NOT_OK(DoInBatches(def_levels, rep_levels, num_levels,
+                                   properties_->write_batch_size(), WriteChunk,
+                                   pages_change_on_record_boundaries()));
   return Status::OK();
 }
 

@@ -19,6 +19,11 @@
 
 # arrow 11.0.0.9000
 
+## Minor improvements and fixes
+
+* `open_csv_dataset()` allows a schema to be specified. (#34217)
+* To ensure compatibility with an upcoming dplyr release, we no longer call `dplyr:::check_names()` (#34369)
+
 # arrow 11.0.0.2
 
 ## Breaking changes

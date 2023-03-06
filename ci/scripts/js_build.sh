@@ -27,7 +27,7 @@ build_dir=${2}
 
 pushd ${source_dir}
 
-yarn --frozen-lockfile
+yarn --immutable
 yarn lint:ci
 yarn build
 

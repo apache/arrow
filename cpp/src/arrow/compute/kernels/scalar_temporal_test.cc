@@ -1811,7 +1811,7 @@ TEST_F(ScalarTemporalTest, TestTemporalDifferenceErrors) {
       CallFunction("weeks_between", {arr1, arr1}, &options));
 }
 
-TEST_F(ScalarTemporalTest, TestLocalTime) {
+TEST_F(ScalarTemporalTest, TestLocalTimestamp) {
   const char* times_seconds_precision =
       R"(["1970-01-01T00:00:59", "2000-02-29T23:23:23", "2033-05-18T03:33:20",
           "2020-01-01T01:05:05", "2019-12-31T02:10:10", "2019-12-30T03:15:15",
@@ -1833,13 +1833,13 @@ TEST_F(ScalarTemporalTest, TestLocalTime) {
           "2008-12-27 14:30:00", "2008-12-28 14:30:00", "2011-12-31 15:32:03", null])";
 
   for (auto u : TimeUnit::values()) {
-    CheckScalarUnary("local_time", timestamp(u), times_seconds_precision, timestamp(u),
-                     times_seconds_precision);
-    CheckScalarUnary("local_time", timestamp(u, "UTC"), times_seconds_precision,
+    CheckScalarUnary("local_timestamp", timestamp(u), times_seconds_precision,
                      timestamp(u), times_seconds_precision);
-    CheckScalarUnary("local_time", timestamp(u, "Asia/Kolkata"), times_seconds_precision,
-                     timestamp(u), expected_local_kolkata);
-    CheckScalarUnary("local_time", timestamp(u, "Pacific/Marquesas"),
+    CheckScalarUnary("local_timestamp", timestamp(u, "UTC"), times_seconds_precision,
+                     timestamp(u), times_seconds_precision);
+    CheckScalarUnary("local_timestamp", timestamp(u, "Asia/Kolkata"),
+                     times_seconds_precision, timestamp(u), expected_local_kolkata);
+    CheckScalarUnary("local_timestamp", timestamp(u, "Pacific/Marquesas"),
                      times_seconds_precision, timestamp(u), expected_local_marquesas);
   }
 }

@@ -15,27 +15,22 @@
 
 using System;
 using Apache.Arrow.Ipc;
-using ZstdSharp;
 
-namespace Apache.Arrow.Tests.Compression
+namespace Apache.Arrow.Compression
 {
-    internal sealed class ZstdCompressionCodec : ICompressionCodec
+    /// <summary>
+    /// Creates compression codec implementations for decompressing Arrow IPC data
+    /// </summary>
+    public sealed class CompressionCodecFactory : ICompressionCodecFactory
     {
-        private readonly Decompressor _decompressor;
-
-        public ZstdCompressionCodec()
+        public ICompressionCodec CreateCodec(CompressionCodecType compressionCodecType)
         {
-            _decompressor = new Decompressor();
-        }
-
-        public int Decompress(ReadOnlyMemory<byte> source, Memory<byte> destination)
-        {
-            return _decompressor.Unwrap(source.Span, destination.Span);
-        }
-
-        public void Dispose()
-        {
-            _decompressor.Dispose();
+            return compressionCodecType switch
+            {
+                CompressionCodecType.Lz4Frame => Lz4CompressionCodec.Instance,
+                CompressionCodecType.Zstd => new ZstdCompressionCodec(),
+                _ => throw new NotImplementedException($"Compression type {compressionCodecType} is not supported")
+            };
         }
     }
 }

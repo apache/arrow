@@ -22,6 +22,7 @@ FROM ${repo}:${arch}-conda-cpp
 ARG arch=amd64
 ARG maven=3.5
 ARG node=16
+ARG yarn=1.22
 ARG jdk=8
 ARG go=1.15
 
@@ -35,7 +36,7 @@ RUN mamba install -q -y \
         compilers \
         maven=${maven} \
         nodejs=${node} \
-        yarn \
+        yarn=${yarn} \
         openjdk=${jdk} && \
     mamba clean --all --force-pkgs-dirs
 

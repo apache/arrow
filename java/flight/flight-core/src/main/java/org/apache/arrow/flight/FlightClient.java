@@ -79,7 +79,7 @@ public class FlightClient implements AutoCloseable {
   private static final int MAX_CHANNEL_TRACE_EVENTS = 0;
   private final BufferAllocator allocator;
   private final ManagedChannel channel;
-  private final Channel interceptedChannel;
+
   private final FlightServiceBlockingStub blockingStub;
   private final FlightServiceStub asyncStub;
   private final ClientAuthInterceptor authInterceptor = new ClientAuthInterceptor();
@@ -101,7 +101,7 @@ public class FlightClient implements AutoCloseable {
     interceptors = new ClientInterceptor[]{authInterceptor, new ClientInterceptorAdapter(middleware)};
 
     // Create a channel with interceptors pre-applied for DoGet and DoPut
-    this.interceptedChannel = ClientInterceptors.intercept(channel, interceptors);
+    Channel interceptedChannel = ClientInterceptors.intercept(channel, interceptors);
 
     blockingStub = FlightServiceGrpc.newBlockingStub(interceptedChannel);
     asyncStub = FlightServiceGrpc.newStub(interceptedChannel);
@@ -255,13 +255,12 @@ public class FlightClient implements AutoCloseable {
                                        CallOption... options) {
     Preconditions.checkNotNull(descriptor, "descriptor must not be null");
     Preconditions.checkNotNull(metadataListener, "metadataListener must not be null");
-    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
 
     try {
+      final ClientCall<ArrowMessage, Flight.PutResult> call = asyncStubNewCall(doPutDescriptor, options);
       final SetStreamObserver resultObserver = new SetStreamObserver(allocator, metadataListener);
       ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
-          ClientCalls.asyncBidiStreamingCall(
-              interceptedChannel.newCall(doPutDescriptor, callOptions), resultObserver);
+          ClientCalls.asyncBidiStreamingCall(call, resultObserver);
       return new PutObserver(
           descriptor, observer, metadataListener::isCancelled, metadataListener::getResult);
     } catch (StatusRuntimeException sre) {
@@ -306,8 +305,7 @@ public class FlightClient implements AutoCloseable {
    * @param options RPC-layer hints for this call.
    */
   public FlightStream getStream(Ticket ticket, CallOption... options) {
-    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
-    ClientCall<Flight.Ticket, ArrowMessage> call = interceptedChannel.newCall(doGetDescriptor, callOptions);
+    final ClientCall<Flight.Ticket, ArrowMessage> call = asyncStubNewCall(doGetDescriptor, options);
     FlightStream stream = new FlightStream(
         allocator,
         PENDING_REQUESTS,
@@ -353,10 +351,9 @@ public class FlightClient implements AutoCloseable {
    */
   public ExchangeReaderWriter doExchange(FlightDescriptor descriptor, CallOption... options) {
     Preconditions.checkNotNull(descriptor, "descriptor must not be null");
-    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
 
     try {
-      final ClientCall<ArrowMessage, ArrowMessage> call = interceptedChannel.newCall(doExchangeDescriptor, callOptions);
+      final ClientCall<ArrowMessage, ArrowMessage> call = asyncStubNewCall(doExchangeDescriptor, options);
       final FlightStream stream = new FlightStream(allocator, PENDING_REQUESTS, call::cancel, call::request);
       final ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
               ClientCalls.asyncBidiStreamingCall(call, stream.asObserver());
@@ -722,5 +719,15 @@ public class FlightClient implements AutoCloseable {
           .maxInboundMessageSize(maxInboundMessageSize);
       return new FlightClient(allocator, builder.build(), middleware);
     }
+  }
+
+  /**
+   * Helper method to create a call from the asyncStub, method descriptor, and list of calling options.
+   */
+  private <RequestT, ResponseT> ClientCall<RequestT, ResponseT> asyncStubNewCall(
+          MethodDescriptor<RequestT, ResponseT> descriptor,
+          CallOption... options) {
+    FlightServiceStub wrappedStub = CallOptions.wrapStub(asyncStub, options);
+    return wrappedStub.getChannel().newCall(descriptor, wrappedStub.getCallOptions());
   }
 }

@@ -26,7 +26,9 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/ordering.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/future.h"
@@ -145,6 +147,49 @@ class ARROW_EXPORT ExecNode {
   void SetLabel(std::string label) { label_ = std::move(label); }
 
   virtual Status Validate() const;
+
+  /// \brief the ordering of the output batches
+  ///
+  /// This does not guarantee the batches will be emitted by this node
+  /// in order.  Instead it guarantees that the batches will have their
+  /// ExecBatch::index property set in a way that respects this ordering.
+  ///
+  /// In other words, given the ordering {{"x", SortOrder::Ascending}} we
+  /// know that all values of x in a batch with index N will be less than
+  /// or equal to all values of x in a batch with index N+k (assuming k > 0).
+  /// Furthermore, we also know that values will be sorted within a batch.
+  /// Any row N will have a value of x that is less than the value for
+  /// any row N+k.
+  ///
+  /// Note that an ordering can be both Ordering::Unordered and Ordering::Implicit.
+  /// A node's output should be marked Ordering::Unordered if the order is
+  /// non-deterministic.  For example, a hash-join has no predictable output order.
+  ///
+  /// If the ordering is Ordering::Implicit then there is a meaningful order but that
+  /// odering is not represented by any column in the data.  The most common case for this
+  /// is when reading data from an in-memory table.  The data has an implicit "row order"
+  /// which is not neccesarily represented in the data set.
+  ///
+  /// A filter or project node will not modify the ordering.  Nothing needs to be done
+  /// other than ensure the index assigned to output batches is the same as the
+  /// input batch that was mapped.
+  ///
+  /// Other nodes may introduce order.  For example, an order-by node will emit
+  /// a brand new ordering independent of the input ordering.
+  ///
+  /// Finally, as described above, such as a hash-join or aggregation may may
+  /// destroy ordering (although these nodes could also choose to establish a
+  /// new ordering based on the hash keys).
+  ///
+  /// Some nodes will require an ordering.  For example, a fetch node or an
+  /// asof join node will only function if the input data is ordered (for fetch
+  /// it is enough to be implicitly ordered.  For an asof join the ordering must
+  /// be explicit and compatible with the on key.)
+  ///
+  /// Nodes that maintain ordering should be careful to avoid introducing gaps
+  /// in the batch index.  This may require emitting empty batches in order to
+  /// maintain continuity.
+  virtual const Ordering& ordering() const;
 
   /// Upstream API:
   /// These functions are called by input nodes that want to inform this node
@@ -422,8 +467,18 @@ struct ARROW_EXPORT QueryOptions {
 
   /// If the output has a meaningful order then sequence the output of the plan
   ///
-  /// If the output has no meaningful order then this option will be ignored.
-  bool sequence_output = false;
+  /// The default behavior (std::nullopt) will sequence output batches if there
+  /// is a meaningful ordering in the final node and will emit batches immediately
+  /// otherwise.
+  ///
+  /// If explicitly set to true then plan execution will fail if there is no
+  /// meaningful ordering.  This can be useful to valdiate a query that should
+  /// be emitting ordered results.
+  ///
+  /// If explicitly set to false then batches will be emit immediately even if there
+  /// is a meaningful ordering.  This could cause batches to be emit out of order but
+  /// may offer a small decrease to latency.
+  std::optional<bool> sequence_output = std::nullopt;
 
   /// \brief should the plan use multiple background threads for CPU-intensive work
   ///
@@ -443,15 +498,13 @@ struct ARROW_EXPORT QueryOptions {
 
   /// \brief a memory pool to use for allocations
   ///
-  /// Must be null or remain valid for the duration of the plan.  If this is null then
-  /// the arrow::default_memory_pool() will be used.
-  MemoryPool* memory_pool = NULLPTR;
+  /// Must remain valid for the duration of the plan.
+  MemoryPool* memory_pool = default_memory_pool();
 
   /// \brief a function registry to use for the plan
   ///
-  /// Must be null or remain valid for the duration of the plan.  If this is null then
-  /// defaults to arrow::compute::GetFunctionRegistry()
-  FunctionRegistry* function_registry = NULLPTR;
+  /// Must remain valid for the duration of the plan.
+  FunctionRegistry* function_registry = GetFunctionRegistry();
 };
 
 /// \brief Calculate the output schema of a declaration
@@ -544,6 +597,9 @@ ARROW_EXPORT Result<BatchesWithCommonSchema> DeclarationToExecBatches(
     MemoryPool* memory_pool = default_memory_pool(),
     FunctionRegistry* function_registry = NULLPTR);
 
+ARROW_EXPORT Result<BatchesWithCommonSchema> DeclarationToExecBatches(
+    Declaration declaration, QueryOptions query_options);
+
 /// \brief Asynchronous version of \see DeclarationToExecBatches
 ///
 /// \see DeclarationToTableAsync for details on threading & execution
@@ -613,6 +669,9 @@ ARROW_EXPORT Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
 ARROW_EXPORT Status DeclarationToStatus(Declaration declaration, bool use_threads = true,
                                         MemoryPool* memory_pool = default_memory_pool(),
                                         FunctionRegistry* function_registry = NULLPTR);
+
+ARROW_EXPORT Status DeclarationToStatus(Declaration declaration,
+                                        QueryOptions query_options);
 
 /// \brief Asynchronous version of \see DeclarationToStatus
 ///

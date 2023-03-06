@@ -637,15 +637,15 @@ struct ValidateArrayImpl {
     return Status::OK();
   }
 
-  template <typename RunEndsType>
+  template <typename RunEndCType>
   Status ValidateRunEndEncoded(const RunEndEncodedType& type) {
     // Overflow was already checked at this point
-    if (data.offset + data.length > std::numeric_limits<RunEndsType>::max()) {
+    if (data.offset + data.length > std::numeric_limits<RunEndCType>::max()) {
       return Status::Invalid(
           "Offset + length of a run-end encoded array must fit in a value"
           " of the run end type ",
           *type.run_end_type(), ", but offset + length is ", data.offset + data.length,
-          " while the allowed maximum is ", std::numeric_limits<RunEndsType>::max());
+          " while the allowed maximum is ", std::numeric_limits<RunEndCType>::max());
     }
     if (!data.child_data[0]) {
       return Status::Invalid("Run ends array is null pointer");
@@ -695,7 +695,7 @@ struct ValidateArrayImpl {
       return Status::OK();
     }
     ArraySpan span(data);
-    const auto* run_ends = ree_util::RunEnds<RunEndsType>(span);
+    const auto* run_ends = ree_util::RunEnds<RunEndCType>(span);
     // The last run-end is the logical offset + the logical length.
     if (run_ends[run_ends_data.length - 1] < data.offset + data.length) {
       return Status::Invalid("Last run end is ", run_ends[run_ends_data.length - 1],

@@ -33,6 +33,7 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/ordering.h"
 #include "arrow/compute/registry.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
@@ -1393,6 +1394,35 @@ TEST_F(TestCallScalarFunctionScalarFunction, SimpleCall) {
 
 TEST_F(TestCallScalarFunctionScalarFunction, ExecCall) {
   TestCallScalarFunctionScalarFunction::DoTest(ExecFunctionCaller::Maker);
+}
+
+TEST(Ordering, IsSuborderOf) {
+  Ordering a{{SortKey{3}, SortKey{1}, SortKey{7}}};
+  Ordering b{{SortKey{3}, SortKey{1}}};
+  Ordering c{{SortKey{1}, SortKey{7}}};
+  Ordering d{{SortKey{1}, SortKey{7}}, NullPlacement::AtEnd};
+  Ordering imp = Ordering::Implicit();
+  Ordering unordered = Ordering::Unordered();
+
+  std::vector<Ordering> orderings = {a, b, c, d, imp, unordered};
+
+  auto CheckOrdering = [&](const Ordering& ordering, std::vector<bool> expected) {
+    for (std::size_t other_idx = 0; other_idx < orderings.size(); other_idx++) {
+      const auto& other = orderings[other_idx];
+      if (expected[other_idx]) {
+        ASSERT_TRUE(ordering.IsSuborderOf(other));
+      } else {
+        ASSERT_FALSE(ordering.IsSuborderOf(other));
+      }
+    }
+  };
+
+  CheckOrdering(a, {true, false, false, false, false, false});
+  CheckOrdering(b, {true, true, false, false, false, false});
+  CheckOrdering(c, {false, false, true, false, false, false});
+  CheckOrdering(d, {false, false, false, true, false, false});
+  CheckOrdering(imp, {false, false, false, false, false, false});
+  CheckOrdering(unordered, {true, true, true, true, true, true});
 }
 
 }  // namespace detail

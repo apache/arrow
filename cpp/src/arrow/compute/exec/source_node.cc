@@ -52,10 +52,12 @@ namespace {
 
 struct SourceNode : ExecNode, public TracedNode {
   SourceNode(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
-             AsyncGenerator<std::optional<ExecBatch>> generator)
+             AsyncGenerator<std::optional<ExecBatch>> generator,
+             Ordering ordering = Ordering::Unordered())
       : ExecNode(plan, {}, {}, std::move(output_schema)),
         TracedNode(this),
-        generator_(std::move(generator)) {}
+        generator_(std::move(generator)),
+        ordering_(ordering) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -76,6 +78,7 @@ struct SourceNode : ExecNode, public TracedNode {
   void SliceAndDeliverMorsel(const ExecBatch& morsel) {
     bool use_legacy_batching = plan_->query_context()->options().use_legacy_batching;
     int64_t morsel_length = static_cast<int64_t>(morsel.length);
+    int initial_batch_index = batch_count_;
     if (use_legacy_batching || morsel_length == 0) {
       // For various reasons (e.g. ARROW-13982) we pass empty batches
       // through
@@ -86,8 +89,10 @@ struct SourceNode : ExecNode, public TracedNode {
       batch_count_ += num_batches;
     }
     plan_->query_context()->ScheduleTask(
-        [this, morsel_length, use_legacy_batching, morsel]() {
+        [this, morsel_length, use_legacy_batching, initial_batch_index, morsel,
+         has_ordering = !ordering_.is_unordered()]() {
           int64_t offset = 0;
+          int batch_index = initial_batch_index;
           do {
             int64_t batch_size =
                 std::min<int64_t>(morsel_length - offset, ExecPlan::kMaxBatchSize);
@@ -97,7 +102,11 @@ struct SourceNode : ExecNode, public TracedNode {
               batch_size = morsel_length;
             }
             ExecBatch batch = morsel.Slice(offset, batch_size);
+            if (has_ordering) {
+              batch.index = batch_index;
+            }
             offset += batch_size;
+            batch_index++;
             ARROW_RETURN_NOT_OK(output_->InputReceived(this, std::move(batch)));
           } while (offset < morsel.length);
           return Status::OK();
@@ -176,6 +185,8 @@ struct SourceNode : ExecNode, public TracedNode {
     return Status::OK();
   }
 
+  const Ordering& ordering() const override { return ordering_; }
+
   void PauseProducing(ExecNode* output, int32_t counter) override {
     std::lock_guard<std::mutex> lg(mutex_);
     if (counter <= backpressure_counter_) {
@@ -218,12 +229,14 @@ struct SourceNode : ExecNode, public TracedNode {
   bool stop_requested_{false};
   bool started_ = false;
   int batch_count_{0};
-  AsyncGenerator<std::optional<ExecBatch>> generator_;
+  const AsyncGenerator<std::optional<ExecBatch>> generator_;
+  const Ordering ordering_;
 };
 
 struct TableSourceNode : public SourceNode {
   TableSourceNode(ExecPlan* plan, std::shared_ptr<Table> table, int64_t batch_size)
-      : SourceNode(plan, table->schema(), TableGenerator(*table, batch_size)) {}
+      : SourceNode(plan, table->schema(), TableGenerator(*table, batch_size),
+                   Ordering::Implicit()) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -274,7 +287,6 @@ struct TableSourceNode : public SourceNode {
 
     std::shared_ptr<RecordBatch> batch;
     std::vector<ExecBatch> exec_batches;
-    int index = 0;
     while (true) {
       auto batch_res = reader->Next();
       if (batch_res.ok()) {
@@ -284,7 +296,6 @@ struct TableSourceNode : public SourceNode {
         break;
       }
       exec_batches.emplace_back(*batch);
-      exec_batches[exec_batches.size() - 1].index = index++;
     }
     return exec_batches;
   }
@@ -294,7 +305,7 @@ template <typename This, typename Options>
 struct SchemaSourceNode : public SourceNode {
   SchemaSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
                    arrow::AsyncGenerator<std::optional<ExecBatch>> generator)
-      : SourceNode(plan, schema, generator) {}
+      : SourceNode(plan, schema, generator, Ordering::Implicit()) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -306,11 +317,20 @@ struct SchemaSourceNode : public SourceNode {
 
     auto it = it_maker();
 
-    if (schema == NULLPTR) {
+    if (schema == nullptr) {
       return Status::Invalid(This::kKindName, " requires schema which is not null");
     }
-    if (io_executor == NULLPTR) {
-      io_executor = io::internal::GetIOThreadPool();
+
+    if (cast_options.requires_io) {
+      if (io_executor == nullptr) {
+        io_executor = io::internal::GetIOThreadPool();
+      }
+    } else {
+      if (io_executor != nullptr) {
+        return Status::Invalid(
+            This::kKindName,
+            " specified with requires_io=false but io_executor was not nullptr");
+      }
     }
 
     ARROW_ASSIGN_OR_RAISE(auto generator, This::MakeGenerator(it, io_executor, schema));
@@ -356,6 +376,9 @@ struct RecordBatchReaderSourceNode : public SourceNode {
     };
     Iterator<std::shared_ptr<RecordBatch>> batch_it = MakeIteratorFromReader(reader);
     auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
+    if (io_executor == nullptr) {
+      return MakeBlockingGenerator(std::move(exec_batch_it));
+    }
     return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
   }
 
@@ -389,6 +412,9 @@ struct RecordBatchSourceNode
       return std::optional<ExecBatch>(ExecBatch(*batch));
     };
     auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
+    if (io_executor == nullptr) {
+      return MakeBlockingGenerator(std::move(exec_batch_it));
+    }
     return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
   }
 
@@ -419,6 +445,9 @@ struct ExecBatchSourceNode
       return batch == NULLPTR ? std::nullopt : std::optional<ExecBatch>(*batch);
     };
     auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
+    if (io_executor == nullptr) {
+      return MakeBlockingGenerator(std::move(exec_batch_it));
+    }
     return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
   }
 
@@ -457,6 +486,9 @@ struct ArrayVectorSourceNode
           ExecBatch(std::move(datumvec), (*arrayvec)[0]->length()));
     };
     auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(arrayvec_it));
+    if (io_executor == nullptr) {
+      return MakeBlockingGenerator(std::move(exec_batch_it));
+    }
     return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
   }
 

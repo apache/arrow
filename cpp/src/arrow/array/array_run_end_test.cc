@@ -577,7 +577,7 @@ TEST_P(TestRunEndEncodedArray, Printing) {
 
   ASSERT_OK_AND_ASSIGN(auto string_array,
                        RunEndEncodedArray::Make(30, run_end_values, string_values));
-  ss = {};
+  ss.str("");
   ASSERT_OK(PrettyPrint(*string_array, {}, &ss));
   ASSERT_EQ(ss.str(),
             "\n"
@@ -595,7 +595,7 @@ TEST_P(TestRunEndEncodedArray, Printing) {
             "  ]");
 
   auto sliced_array = string_array->Slice(15, 6);
-  ss = {};
+  ss.str("");
   ASSERT_OK(PrettyPrint(*sliced_array, {}, &ss));
   ASSERT_EQ(ss.str(),
             "\n"
@@ -616,7 +616,7 @@ TEST_P(TestRunEndEncodedArray, Printing) {
                        RunEndEncodedArray::Make(0, ArrayFromJSON(run_end_type, "[]"),
                                                 ArrayFromJSON(binary(), "[]")));
 
-  ss = {};
+  ss.str("");
   ASSERT_OK(PrettyPrint(*empty_array, {}, &ss));
   ASSERT_EQ(ss.str(),
             "\n"

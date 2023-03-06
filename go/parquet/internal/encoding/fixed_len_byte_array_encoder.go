@@ -17,6 +17,9 @@
 package encoding
 
 import (
+	"fmt"
+
+	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/internal/bitutils"
 	"github.com/apache/arrow/go/v12/parquet"
 )
@@ -101,4 +104,37 @@ func (enc *DictFixedLenByteArrayEncoder) PutSpaced(in []parquet.FixedLenByteArra
 		enc.Put(in[pos : pos+length])
 		return nil
 	})
+}
+
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *DictFixedLenByteArrayEncoder) PutDictionary(values arrow.Array) error {
+	if values.DataType().ID() != arrow.FIXED_SIZE_BINARY && values.DataType().ID() != arrow.DECIMAL {
+		return fmt.Errorf("%w: only fixed size binary and decimal128 arrays are supported", arrow.ErrInvalid)
+	}
+
+	if values.DataType().(arrow.FixedWidthDataType).Bytes() != enc.typeLen {
+		return fmt.Errorf("%w: size mismatch: %s should have been %d wide",
+			arrow.ErrInvalid, values.DataType(), enc.typeLen)
+	}
+
+	if err := enc.canPutDictionary(values); err != nil {
+		return err
+	}
+
+	enc.dictEncodedSize += enc.typeLen * values.Len()
+	data := values.Data().Buffers()[1].Bytes()[values.Data().Offset()*enc.typeLen:]
+	for i := 0; i < values.Len(); i++ {
+		_, _, err := enc.memo.GetOrInsert(data[i*enc.typeLen : (i+1)*enc.typeLen])
+		if err != nil {
+			return err
+		}
+	}
+
+	values.Retain()
+	enc.preservedDict = values
+	return nil
 }
