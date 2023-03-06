@@ -556,7 +556,7 @@ void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar)
   }
 
   for (const auto index : {0, 1, 3, 5, 6}) {
-    ASSERT_FALSE(out->IsNull(index) && scalar->is_valid);
+    ASSERT_NE(out->IsNull(index), scalar->is_valid);
     ASSERT_OK_AND_ASSIGN(auto scalar_i, out->GetScalar(index));
     ASSERT_OK(scalar_i->ValidateFull());
     if (can_check_values) AssertScalarsEqual(*scalar, *scalar_i, /*verbose=*/true);
