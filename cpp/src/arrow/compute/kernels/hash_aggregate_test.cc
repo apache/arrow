@@ -201,6 +201,18 @@ Result<Datum> RunGroupBy(const BatchesWithSchema& input,
                          const std::vector<std::string>& segment_key_names,
                          const std::vector<Aggregate>& aggregates, ExecContext* ctx,
                          bool use_threads, bool segmented = false, bool naive = false) {
+  // When segment_keys is non-empty the `segmented` flag is always true; otherwise (when
+  // empty), it may still be set to true. In this case, the tester restructures (without
+  // changing the data of) the result of RunGroupBy from `std::vector<ExecBatch>`
+  // (output_batches) to `std::vector<ArrayVector>` (out_arrays), which have the structure
+  // typical of the case of a non-empty segment_keys (with multiple arrays per column, one
+  // array per segment) but only one array per column (because, technically, there is only
+  // one segment in this case). Thus, this case focuses on the structure of the result.
+  //
+  // The `naive` flag means that the output is expected to be that of like `NaiveGroupBy`,
+  // which in particular doesn't require sorting. The reason for the naive flag is that
+  // the expected output of some test-cases is naive and of some others it is not. The
+  // current `RunGroupBy` function deals with both kinds of expected output.
   std::vector<FieldRef> keys(key_names.size());
   for (size_t i = 0; i < key_names.size(); ++i) {
     keys[i] = FieldRef(key_names[i]);
@@ -438,22 +450,24 @@ Result<Datum> GroupByTest(GroupByFunction group_by, const std::vector<Datum>& ar
 }
 
 template <typename GroupClass>
-void TestGroupClassSupportedKeys() {
-  ASSERT_OK(GroupClass::Make({boolean()}));
+void TestGroupClassSupportedKeys(
+    std::function<Result<std::unique_ptr<GroupClass>>(const std::vector<TypeHolder>&)>
+        make_func) {
+  ASSERT_OK(make_func({boolean()}));
 
-  ASSERT_OK(GroupClass::Make({int8(), uint16(), int32(), uint64()}));
+  ASSERT_OK(make_func({int8(), uint16(), int32(), uint64()}));
 
-  ASSERT_OK(GroupClass::Make({dictionary(int64(), utf8())}));
+  ASSERT_OK(make_func({dictionary(int64(), utf8())}));
 
-  ASSERT_OK(GroupClass::Make({float16(), float32(), float64()}));
+  ASSERT_OK(make_func({float16(), float32(), float64()}));
 
-  ASSERT_OK(GroupClass::Make({utf8(), binary(), large_utf8(), large_binary()}));
+  ASSERT_OK(make_func({utf8(), binary(), large_utf8(), large_binary()}));
 
-  ASSERT_OK(GroupClass::Make({fixed_size_binary(16), fixed_size_binary(32)}));
+  ASSERT_OK(make_func({fixed_size_binary(16), fixed_size_binary(32)}));
 
-  ASSERT_OK(GroupClass::Make({decimal128(32, 10), decimal256(76, 20)}));
+  ASSERT_OK(make_func({decimal128(32, 10), decimal256(76, 20)}));
 
-  ASSERT_OK(GroupClass::Make({date32(), date64()}));
+  ASSERT_OK(make_func({date32(), date64()}));
 
   for (auto unit : {
            TimeUnit::SECOND,
@@ -461,23 +475,23 @@ void TestGroupClassSupportedKeys() {
            TimeUnit::MICRO,
            TimeUnit::NANO,
        }) {
-    ASSERT_OK(GroupClass::Make({timestamp(unit), duration(unit)}));
+    ASSERT_OK(make_func({timestamp(unit), duration(unit)}));
   }
 
-  ASSERT_OK(GroupClass::Make(
-      {day_time_interval(), month_interval(), month_day_nano_interval()}));
+  ASSERT_OK(
+      make_func({day_time_interval(), month_interval(), month_day_nano_interval()}));
 
-  ASSERT_OK(GroupClass::Make({null()}));
+  ASSERT_OK(make_func({null()}));
 
-  ASSERT_RAISES(NotImplemented, GroupClass::Make({struct_({field("", int64())})}));
+  ASSERT_RAISES(NotImplemented, make_func({struct_({field("", int64())})}));
 
-  ASSERT_RAISES(NotImplemented, GroupClass::Make({struct_({})}));
+  ASSERT_RAISES(NotImplemented, make_func({struct_({})}));
 
-  ASSERT_RAISES(NotImplemented, GroupClass::Make({list(int32())}));
+  ASSERT_RAISES(NotImplemented, make_func({list(int32())}));
 
-  ASSERT_RAISES(NotImplemented, GroupClass::Make({fixed_size_list(int32(), 5)}));
+  ASSERT_RAISES(NotImplemented, make_func({fixed_size_list(int32(), 5)}));
 
-  ASSERT_RAISES(NotImplemented, GroupClass::Make({dense_union({field("", int32())})}));
+  ASSERT_RAISES(NotImplemented, make_func({dense_union({field("", int32())})}));
 }
 
 void TestSegments(std::unique_ptr<RowSegmenter>& segmenter, const ExecSpan& batch,
@@ -491,9 +505,20 @@ void TestSegments(std::unique_ptr<RowSegmenter>& segmenter, const ExecSpan& batc
   }
 }
 
+Result<std::unique_ptr<Grouper>> MakeGrouper(const std::vector<TypeHolder>& key_types) {
+  return Grouper::Make(key_types, default_exec_context());
+}
+
+Result<std::unique_ptr<RowSegmenter>> MakeRowSegmenter(
+    const std::vector<TypeHolder>& key_types) {
+  return RowSegmenter::Make(key_types, /*nullable_leys=*/false, default_exec_context());
+}
+
 }  // namespace
 
-TEST(RowSegmenter, SupportedKeys) { TestGroupClassSupportedKeys<RowSegmenter>(); }
+TEST(RowSegmenter, SupportedKeys) {
+  TestGroupClassSupportedKeys<RowSegmenter>(MakeRowSegmenter);
+}
 
 TEST(RowSegmenter, Basics) {
   std::vector<TypeHolder> bad_types2 = {int32(), float32()};
@@ -506,7 +531,7 @@ TEST(RowSegmenter, Basics) {
   ExecBatch batch0({}, 3);
   {
     SCOPED_TRACE("offset");
-    ASSERT_OK_AND_ASSIGN(auto segmenter, RowSegmenter::Make(types0));
+    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types0));
     ExecSpan span0(batch0);
     for (int64_t offset : {-1, 4}) {
       EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
@@ -516,7 +541,7 @@ TEST(RowSegmenter, Basics) {
   }
   {
     SCOPED_TRACE("types0 segmenting of batch2");
-    ASSERT_OK_AND_ASSIGN(auto segmenter, RowSegmenter::Make(types0));
+    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types0));
     ExecSpan span2(batch2);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 0 "),
                                     segmenter->GetNextSegment(span2, 0));
@@ -525,14 +550,14 @@ TEST(RowSegmenter, Basics) {
   }
   {
     SCOPED_TRACE("bad_types1 segmenting of batch1");
-    ASSERT_OK_AND_ASSIGN(auto segmenter, RowSegmenter::Make(bad_types1));
+    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(bad_types1));
     ExecSpan span1(batch1);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch value 0 of type "),
                                     segmenter->GetNextSegment(span1, 0));
   }
   {
     SCOPED_TRACE("types1 segmenting of batch2");
-    ASSERT_OK_AND_ASSIGN(auto segmenter, RowSegmenter::Make(types1));
+    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types1));
     ExecSpan span2(batch2);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 1 "),
                                     segmenter->GetNextSegment(span2, 0));
@@ -542,14 +567,14 @@ TEST(RowSegmenter, Basics) {
   }
   {
     SCOPED_TRACE("bad_types2 segmenting of batch2");
-    ASSERT_OK_AND_ASSIGN(auto segmenter, RowSegmenter::Make(bad_types2));
+    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(bad_types2));
     ExecSpan span2(batch2);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch value 1 of type "),
                                     segmenter->GetNextSegment(span2, 0));
   }
   {
     SCOPED_TRACE("types2 segmenting of batch1");
-    ASSERT_OK_AND_ASSIGN(auto segmenter, RowSegmenter::Make(types2));
+    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types2));
     ExecSpan span1(batch1);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 2 "),
                                     segmenter->GetNextSegment(span1, 0));
@@ -576,7 +601,7 @@ void test_row_segmenter_constant_batch(std::function<ArgShape(size_t i)> shape_f
                               full_batch.values.begin() + size);
     ExecBatch batch(values, full_batch.length);
     std::vector<TypeHolder> key_types(types.begin(), types.begin() + size);
-    ARROW_ASSIGN_OR_RAISE(auto segmenter, RowSegmenter::Make(key_types));
+    ARROW_ASSIGN_OR_RAISE(auto segmenter, MakeRowSegmenter(key_types));
     TestSegments(segmenter, ExecSpan(batch), {{0, 3, true, true}, {3, 0, true, true}});
     return Status::OK();
   };
@@ -614,7 +639,7 @@ TEST(RowSegmenter, RowConstantBatch) {
                               full_batch.values.begin() + size);
     ExecBatch batch(values, full_batch.length);
     std::vector<TypeHolder> key_types(types.begin(), types.begin() + size);
-    ARROW_ASSIGN_OR_RAISE(auto segmenter, RowSegmenter::Make(key_types));
+    ARROW_ASSIGN_OR_RAISE(auto segmenter, MakeRowSegmenter(key_types));
     TestSegments(segmenter, ExecSpan(batch),
                  size == 0 ? expected_segments_for_size_0 : expected_segments);
     return Status::OK();
@@ -624,7 +649,7 @@ TEST(RowSegmenter, RowConstantBatch) {
   }
 }
 
-TEST(Grouper, SupportedKeys) { TestGroupClassSupportedKeys<Grouper>(); }
+TEST(Grouper, SupportedKeys) { TestGroupClassSupportedKeys<Grouper>(MakeGrouper); }
 
 struct TestGrouper {
   explicit TestGrouper(std::vector<TypeHolder> types, std::vector<ArgShape> shapes = {})

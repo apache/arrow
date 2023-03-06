@@ -86,8 +86,7 @@ class ARROW_EXPORT RowSegmenter {
   /// \param[in] nullable_keys whether values of the specified keys may be null
   /// \param[in] ctx the execution context to use
   static Result<std::unique_ptr<RowSegmenter>> Make(
-      const std::vector<TypeHolder>& key_types, bool nullable_keys = false,
-      ExecContext* ctx = default_exec_context());
+      const std::vector<TypeHolder>& key_types, bool nullable_keys, ExecContext* ctx);
 
   /// \brief Return the key types of this segmenter
   virtual const std::vector<TypeHolder>& key_types() const = 0;

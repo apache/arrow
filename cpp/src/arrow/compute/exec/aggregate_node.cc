@@ -288,7 +288,8 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     }
 
     ARROW_ASSIGN_OR_RAISE(auto segmenter,
-                          RowSegmenter::Make(std::move(segment_key_types), exec_ctx));
+                          RowSegmenter::Make(std::move(segment_key_types),
+                                             /*nullable_keys=*/false, exec_ctx));
 
     std::vector<std::vector<TypeHolder>> kernel_intypes(aggregates.size());
     std::vector<const ScalarAggregateKernel*> kernels(aggregates.size());
@@ -606,7 +607,8 @@ class GroupByNode : public ExecNode, public TracedNode {
     auto ctx = plan->query_context()->exec_context();
 
     ARROW_ASSIGN_OR_RAISE(auto segmenter,
-                          RowSegmenter::Make(std::move(segment_key_types), ctx));
+                          RowSegmenter::Make(std::move(segment_key_types),
+                                             /*nullable_keys=*/false, ctx));
 
     // Construct aggregates
     ARROW_ASSIGN_OR_RAISE(auto agg_kernels, GetKernels(ctx, aggs, agg_src_types));
