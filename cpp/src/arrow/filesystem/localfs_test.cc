@@ -509,7 +509,11 @@ TYPED_TEST(TestLocalFS, NeedsExtendedFileInfo) {
   }
 
   // Invalid path
+#ifdef _WIN32
+  selector.base_dir = "\\foo\\bar\\baz\\";
+#else
   selector.base_dir = "//foo//bar//baz//";
+#endif
   ASSERT_RAISES(Invalid, this->fs_->GetFileInfo(selector));
 }
 
