@@ -68,7 +68,7 @@ can assume that the function works in Acero just as it does in R.
 Functions can be called either as \code{pkg::fun()} or just \code{fun()}, i.e. both
 \code{str_sub()} and \code{stringr::str_sub()} work.
 
-In addition to these functions, you can call any of Arrow's 246 compute
+In addition to these functions, you can call any of Arrow's 249 compute
 functions directly. Arrow has many functions that don't map to an existing R
 function. In other cases where there is an R function mapping, you can still
 call the Arrow function directly if you don't want the adaptations that the R
@@ -254,6 +254,8 @@ providing both \code{num} and \code{...} is not supported
 \item \code{\link[lubridate:ymd]{my()}}: \code{locale} argument not supported
 \item \code{\link[lubridate:ymd]{myd()}}: \code{locale} argument not supported
 \item \code{\link[lubridate:parse_date_time]{parse_date_time()}}: \code{quiet = FALSE} is not supported
+Available formats are H, I, j, M, S, U, w, W, y, Y, R, T.
+On Linux and OS X additionally a, A, b, B, Om, p, r are available.
 \item \code{\link[lubridate:am]{pm()}}
 \item \code{\link[lubridate:day]{qday()}}
 \item \code{\link[lubridate:quarter]{quarter()}}

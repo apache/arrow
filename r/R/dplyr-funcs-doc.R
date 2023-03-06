@@ -83,7 +83,7 @@
 #' Functions can be called either as `pkg::fun()` or just `fun()`, i.e. both
 #' `str_sub()` and `stringr::str_sub()` work.
 #'
-#' In addition to these functions, you can call any of Arrow's 246 compute
+#' In addition to these functions, you can call any of Arrow's 249 compute
 #' functions directly. Arrow has many functions that don't map to an existing R
 #' function. In other cases where there is an R function mapping, you can still
 #' call the Arrow function directly if you don't want the adaptations that the R
@@ -262,6 +262,8 @@
 #' * [`my()`][lubridate::my()]: `locale` argument not supported
 #' * [`myd()`][lubridate::myd()]: `locale` argument not supported
 #' * [`parse_date_time()`][lubridate::parse_date_time()]: `quiet = FALSE` is not supported
+#' Available formats are H, I, j, M, S, U, w, W, y, Y, R, T.
+#' On Linux and OS X additionally a, A, b, B, Om, p, r are available.
 #' * [`pm()`][lubridate::pm()]
 #' * [`qday()`][lubridate::qday()]
 #' * [`quarter()`][lubridate::quarter()]

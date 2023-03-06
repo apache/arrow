@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 11.0.0.2
+Version: 11.0.0.3
 Authors@R: c(
     person("Neal", "Richardson", email = "neal.p.richardson@gmail.com", role = c("aut")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
