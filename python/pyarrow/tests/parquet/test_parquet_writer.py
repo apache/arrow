@@ -203,6 +203,7 @@ def test_parquet_writer_write_wrappers(tempdir, filesystem):
     tm.assert_frame_equal(result, df)
 
 
+@pytest.mark.large_memory
 @pytest.mark.pandas
 def test_parquet_writer_chunk_size(tempdir):
     default_chunk_size = 1024 * 1024
