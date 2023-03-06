@@ -39,12 +39,12 @@ namespace internal {
 // ----------------------------------------------------------------------
 // Null handling for types without a validity bitmap
 
-bool IsNullSparseUnion(const ArrayData& data, int64_t i);
-bool IsNullDenseUnion(const ArrayData& data, int64_t i);
-bool IsNullRunEndEncoded(const ArrayData& data, int64_t i);
+ARROW_EXPORT bool IsNullSparseUnion(const ArrayData& data, int64_t i);
+ARROW_EXPORT bool IsNullDenseUnion(const ArrayData& data, int64_t i);
+ARROW_EXPORT bool IsNullRunEndEncoded(const ArrayData& data, int64_t i);
 
-bool UnionMayHaveLogicalNulls(const ArrayData& data);
-bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data);
+ARROW_EXPORT bool UnionMayHaveLogicalNulls(const ArrayData& data);
+ARROW_EXPORT bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data);
 }  // namespace internal
 
 // When slicing, we do not know the null count of the sliced range without
