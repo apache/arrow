@@ -95,3 +95,9 @@ jobs:
               --event-name "${{ github.event_name }}" \
               --event-payload "${{ github.event_path }}"
           fi
+  arm:
+    name: "Arm"
+    runs-on: ["arm", "linux"]
+    steps:
+      - name: check architecture
+        run: uname -m
