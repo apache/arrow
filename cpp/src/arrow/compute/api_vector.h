@@ -558,10 +558,13 @@ Result<Datum> DictionaryEncode(
 
 /// \brief Run-end-encode values in an array-like object
 ///
+/// The returned run-end encoded type uses the same value type of the input and
+/// run-end type defined in the options.
+///
 /// \param[in] value array-like input
 /// \param[in] options configures encoding behavior
 /// \param[in] ctx the function execution context, optional
-/// \return result with same shape and type as input
+/// \return result with same shape but run-end encoded
 ///
 /// \since 12.0.0
 /// \note API not yet finalized
@@ -571,9 +574,12 @@ Result<Datum> RunEndEncode(const Datum& value, const RunEndEncodeOptions& option
 
 /// \brief Decode a Run-End Encoded array to a plain array
 ///
+/// The output data type is the same as the values array type of run-end encoded
+/// input.
+///
 /// \param[in] value run-end-encoded input
 /// \param[in] ctx the function execution context, optional
-/// \return result with same shape and type as input
+/// \return plain array resulting from decoding the run-end encoded input
 ///
 /// \since 12.0.0
 /// \note API not yet finalized
