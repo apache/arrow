@@ -38,7 +38,7 @@ struct REETestData {
     result.input = input_array->Slice(input_offset);
     result.expected_values = ArrayFromJSON(data_type, expected_values_json);
     result.expected_run_ends_json = std::move(expected_run_ends_json);
-    result.string = input_json;
+    result.description = input_json;
     return result;
   }
 
@@ -51,7 +51,7 @@ struct REETestData {
         std::make_shared<arrow::NullArray>(input_slice_length > 0 ? 1 : 0);
     result.expected_run_ends_json =
         input_slice_length > 0 ? "[" + std::to_string(input_slice_length) + "]" : "[]";
-    result.string = "[null * " + std::to_string(input_slice_length) + "]";
+    result.description = "[null * " + std::to_string(input_slice_length) + "]";
     return result;
   }
 
@@ -66,7 +66,7 @@ struct REETestData {
     result.input = builder.Finish().ValueOrDie();
     result.expected_values = result.input;
     result.expected_run_ends_json = "[1, 2, 3]";
-    result.string = "Type min, max, & null values";
+    result.description = "Type min, max, & null values";
     return result;
   }
 
@@ -74,7 +74,7 @@ struct REETestData {
   std::shared_ptr<Array> expected_values;
   std::string expected_run_ends_json;
   // only used for gtest output
-  std::string string;
+  std::string description;
 };
 
 }  // namespace
