@@ -312,7 +312,7 @@ class FileReaderImpl : public FileReader {
   }
 
   Status WillNeedRowGroups(const std::vector<int>& row_groups,
-                          const std::vector<int>& column_indices) override;
+                           const std::vector<int>& column_indices) override;
 
   Status DecodeRowGroups(const std::vector<int>& row_groups,
                          const std::vector<int>& column_indices,
@@ -1239,8 +1239,8 @@ Status FileReaderImpl::WillNeedRowGroups(const std::vector<int>& row_groups,
 }
 
 Status FileReaderImpl::DecodeRowGroups(const std::vector<int>& row_groups,
-                       const std::vector<int>& column_indices,
-                       std::shared_ptr<::arrow::Table>* out) {
+                                       const std::vector<int>& column_indices,
+                                       std::shared_ptr<::arrow::Table>* out) {
   RETURN_NOT_OK(BoundsCheck(row_groups, column_indices));
 
   auto fut = DecodeRowGroups(/*self=*/nullptr, row_groups, column_indices,

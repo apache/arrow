@@ -250,7 +250,7 @@ class PARQUET_EXPORT FileReader {
   virtual ::arrow::Status ReadRowGroup(int i, std::shared_ptr<::arrow::Table>* out) = 0;
 
   virtual ::arrow::Status WillNeedRowGroups(const std::vector<int>& row_groups,
-                                           const std::vector<int>& column_indices) = 0;
+                                            const std::vector<int>& column_indices) = 0;
 
   virtual ::arrow::Status DecodeRowGroups(const std::vector<int>& row_groups,
                                           const std::vector<int>& column_indices,
