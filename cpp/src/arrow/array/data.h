@@ -324,7 +324,7 @@ struct ARROW_EXPORT ArrayData {
     if (t == Type::RUN_END_ENCODED) {
       return internal::RunEndEncodedMayHaveLogicalNulls(*this);
     }
-    return false;
+    return null_count.load() != 0;
   }
 
   /// \brief Computes the logical null count for arrays of all types including
@@ -512,7 +512,7 @@ struct ARROW_EXPORT ArraySpan {
     if (t == Type::RUN_END_ENCODED) {
       return RunEndEncodedMayHaveLogicalNulls();
     }
-    return false;
+    return null_count != 0;
   }
 
   /// \brief Compute the logical null count for arrays of all types including
