@@ -20,6 +20,7 @@ from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer
 import atexit
 from collections.abc import Mapping
 import re
+from threading import Lock
 import sys
 import warnings
 
@@ -831,22 +832,62 @@ cdef class BaseExtensionType(DataType):
     """
     Concrete base class for extension types.
     """
+    _cache_lock = Lock()
+    _ext_array_cache = {}
+    _ext_scalar_cache = {}
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
         DataType.init(self, type)
         self.ext_type = <const CExtensionType*> type.get()
 
+    def __arrow_ext_serialize__(self):
+        """Serialized representation of metadata to reconstruct the type object."""
+        return self.ext_type.Serialize()
+
+    @classmethod
+    def __arrow_ext_deserialize__(self, storage_type, serialized):
+        """Return an extension type instance from the storage type and serialized metadata."""
+        return self.ext_type.Deserialize(storage_type, serialized)
+
+    def __eq__(self, other):
+        cdef:
+            const CExtensionType * c_other_ext
+            BaseExtensionType base_type
+
+        if not isinstance(other, BaseExtensionType):
+            return False
+
+        base_type = other
+        c_other_ext = <const CExtensionType*> base_type.ext_type
+        return deref(self.ext_type).ExtensionEquals(deref(c_other_ext))
+
     def __arrow_ext_class__(self):
         """
         The associated array extension class
         """
-        return ExtensionArray
+        key = (self.extension_name, self.storage_type)
+
+        with self._cache_lock:
+            try:
+                return self._ext_array_cache[key]
+            except KeyError:
+                self._ext_array_cache[key] = cls = type(
+                    f"ExtensionArray({key[0]})", (ExtensionArray,), {})
+                return cls
 
     def __arrow_ext_scalar_class__(self):
         """
-        The associated scalar class
+        The associated scalar extension class
         """
-        return ExtensionScalar
+        key = (self.extension_name, self.storage_type)
+
+        with self._cache_lock:
+            try:
+                return self._ext_scalar_cache[key]
+            except KeyError:
+                self._ext_scalar_cache[key] = cls = type(
+                    f"ExtensionScalar({key[0]})", (ExtensionScalar,), {})
+                return cls
 
     @property
     def extension_name(self):

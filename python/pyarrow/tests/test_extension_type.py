@@ -1115,9 +1115,16 @@ def test_cpp_extension_in_python(tmpdir):
     assert uuid_type.extension_name == "uuid"
     assert uuid_type.storage_type == pa.binary(16)
 
+    array_cls = uuid_type.__arrow_ext_class__()
+    scalar_cls = uuid_type.__arrow_ext_scalar_class__()
+    assert array_cls.__name__ == "ExtensionArray(uuid)"
+    assert scalar_cls.__name__ == "ExtensionScalar(uuid)"
+
     array = mod._make_uuid_array()
     assert array.type == uuid_type
+    assert isinstance(array, array_cls)
     assert array.to_pylist() == [b'abcdefghijklmno0', b'0onmlkjihgfedcba']
+    assert isinstance(array[0], scalar_cls)
     assert array[0].as_py() == b'abcdefghijklmno0'
     assert array[1].as_py() == b'0onmlkjihgfedcba'
 
@@ -1127,3 +1134,12 @@ def test_cpp_extension_in_python(tmpdir):
     reconstructed_array = batch.column(0)
     assert reconstructed_array.type == uuid_type
     assert reconstructed_array == array
+
+    storage = pa.array([b'0onmlkjihgfedcba']*4, pa.binary(16))
+    ext_array = pa.ExtensionArray.from_storage(uuid_type, storage)
+    assert isinstance(ext_array, array_cls)
+    assert len(ext_array) == 4
+
+    for i in range(4):
+        assert isinstance(ext_array[i], scalar_cls)
+        assert ext_array[i].as_py() == b'0onmlkjihgfedcba'
