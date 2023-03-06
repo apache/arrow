@@ -951,8 +951,11 @@ struct BatchConverter {
     if (!names.empty()) {
       if (static_cast<int>(names.size()) != schema->num_fields()) {
         return Status::Invalid(
-            "A plan was created with custom field names but the number of names did not "
-            "match the number of output columns");
+            "A plan was created with custom field names but the number of names (",
+            names.size(),
+            ") did not "
+            "match the number of output columns (",
+            schema->num_fields(), ")");
       }
       ARROW_ASSIGN_OR_RAISE(schema, schema->WithNames(names));
     }
