@@ -220,7 +220,8 @@ cdef class ParquetFileFormat(FileFormat):
             If `filesystem` is given, `file` must be a string and specifies
             the path of the file to read from the filesystem.
         partition_expression : Expression, optional
-            The filter expression.
+            An expression that is guaranteed true for all rows in the fragment.  Allows
+            fragment to be potentially skipped while scanning with a filter.
         row_groups : Iterable, optional
             The row groups to include
 
