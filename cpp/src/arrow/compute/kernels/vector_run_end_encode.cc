@@ -171,7 +171,7 @@ class RunEndEncodingLoop {
         input_validity_, input_values_, out, read_offset);
   }
 
-  void WriteValue(int64_t write_offset, bool valid, CType value) {
+  inline void WriteValue(int64_t write_offset, bool valid, CType value) {
     WriteValueImpl<ValueType, has_validity_buffer>{}.WriteValue(
         output_validity_, output_values_, write_offset, valid, value);
   }
@@ -180,7 +180,7 @@ class RunEndEncodingLoop {
   /// \brief Give a pass over the input data and count the number of runs
   ///
   /// \return a pair with the number of non-null run values and total number of runs
-  std::pair<int64_t, int64_t> CountNumberOfRuns() const {
+  ARROW_NOINLINE std::pair<int64_t, int64_t> CountNumberOfRuns() const {
     int64_t read_offset = input_offset_;
     CType current_run;
     bool current_run_valid = ReadValue(&current_run, read_offset);
@@ -204,7 +204,7 @@ class RunEndEncodingLoop {
     return std::make_pair(num_valid_runs, num_output_runs);
   }
 
-  int64_t WriteEncodedRuns() {
+  ARROW_NOINLINE int64_t WriteEncodedRuns() {
     DCHECK(output_values_);
     DCHECK(output_run_ends_);
     int64_t read_offset = input_offset_;
@@ -461,7 +461,8 @@ class RunEndDecodingLoop {
         input_validity_, input_values_, out, read_offset);
   }
 
-  void WriteRun(int64_t write_offset, int64_t run_length, bool valid, CType value) {
+  inline void WriteRun(int64_t write_offset, int64_t run_length, bool valid,
+                       CType value) {
     WriteValueImpl<ValueType, has_validity_buffer>{}.WriteRun(
         output_validity_, output_values_, write_offset, run_length, valid, value);
   }
@@ -470,7 +471,7 @@ class RunEndDecodingLoop {
   /// \brief Expand all runs into the output array
   ///
   /// \return the number of non-null values written.
-  int64_t ExpandAllRuns() {
+  ARROW_NOINLINE int64_t ExpandAllRuns() {
     // Ensure padding is zeroed in validity bitmap
     if constexpr (has_validity_buffer) {
       const int64_t validity_buffer_size = bit_util::BytesForBits(input_array_.length);
