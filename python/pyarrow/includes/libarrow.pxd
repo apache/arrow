@@ -2693,6 +2693,12 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
         c_string extension_name()
         shared_ptr[CDataType] storage_type()
 
+        c_string Serialize()
+        CResult[shared_ptr[CDataType]] Deserialize(shared_ptr[CDataType] storage_type,
+                                                   const c_string & serialized_data)
+
+        bint ExtensionEquals(CExtensionType other)
+
         @staticmethod
         shared_ptr[CArray] WrapArray(shared_ptr[CDataType] ext_type,
                                      shared_ptr[CArray] storage)

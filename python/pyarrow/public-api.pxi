@@ -117,7 +117,8 @@ cdef api object pyarrow_wrap_data_type(
         if cpy_ext_type != nullptr:
             return cpy_ext_type.GetInstance()
         else:
-            out = BaseExtensionType.__new__(BaseExtensionType)
+            cls = get_cpp_extension_type(ext_type)
+            out = cls.__new__(cls)
     else:
         out = DataType.__new__(DataType)
 

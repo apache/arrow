@@ -20,6 +20,7 @@ from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer
 import atexit
 from collections.abc import Mapping
 import re
+from threading import Lock
 import sys
 import warnings
 
@@ -831,7 +832,6 @@ cdef class BaseExtensionType(DataType):
     """
     Concrete base class for extension types.
     """
-
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
         DataType.init(self, type)
         self.ext_type = <const CExtensionType*> type.get()
@@ -844,7 +844,7 @@ cdef class BaseExtensionType(DataType):
 
     def __arrow_ext_scalar_class__(self):
         """
-        The associated scalar class
+        The associated scalar extension class
         """
         return ExtensionScalar
 
@@ -900,6 +900,63 @@ cdef class BaseExtensionType(DataType):
             return pyarrow_wrap_chunked_array(
                 self.ext_type.WrapArray(
                     self.sp_type, (<ChunkedArray> storage).sp_chunked_array))
+
+
+cdef dict _cpp_extension_type = {}
+
+
+cdef get_cpp_extension_type(const CExtensionType * ext_type):
+    """
+    Generates and caches a Python Extension Type wrapping a C++ Extension Type.
+    """
+    ext_name = frombytes(deref(ext_type).extension_name())
+
+    try:
+        return _cpp_extension_type[ext_name]
+    except KeyError:
+        acls = type(f"ExtensionArray({ext_name})", (ExtensionArray,), {})
+        scls = type(f"ExtensionScalar({ext_name})", (ExtensionScalar,), {})
+
+        _cpp_extension_type[ext_name] = tcls = type(
+            f"ExtensionType({ext_name})",
+            (CppExtensionType,),
+            {
+                "__arrow_ext_class__": lambda s: acls,
+                "__arrow_ext_scalar_class__": lambda s: scls
+            })
+
+        return tcls
+
+
+cdef class CppExtensionType(BaseExtensionType):
+    cdef void init(self, const shared_ptr[CDataType]& data_type) except *:
+        BaseExtensionType.init(self, data_type)
+
+    def __arrow_ext_serialize__(self):
+        """Serialized representation of metadata to reconstruct the type object."""
+        return self.ext_type.Serialize()
+
+    @classmethod
+    def __arrow_ext_deserialize__(self, storage_type, serialized):
+        """Return an extension type instance from the storage type and serialized metadata."""
+        return self.ext_type.Deserialize(storage_type, serialized)
+
+    def __repr__(self):
+        return self.__class__.__name__
+
+    __str__ = __repr__
+
+    def __eq__(self, other):
+        cdef:
+            const CExtensionType * c_other_ext
+            BaseExtensionType base_type
+
+        if not isinstance(other, BaseExtensionType):
+            return False
+
+        base_type = other
+        c_other_ext = <const CExtensionType*> base_type.ext_type
+        return deref(self.ext_type).ExtensionEquals(deref(c_other_ext))
 
 
 cdef class ExtensionType(BaseExtensionType):
