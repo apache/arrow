@@ -206,7 +206,7 @@ Status HandleSegments(std::unique_ptr<RowSegmenter>& segmenter, const ExecBatch&
 }
 
 /// @brief Extract values of segment keys from a segment batch
-/// @param[out] values_ptr Vector to store the extract segmenter values
+/// @param[out] values_ptr Vector to store the extracted segment key values
 /// @param[in] input_batch Segment batch. Must have the a constant value for segment key
 /// @param[in] field_ids Segment key field ids
 /// @return
