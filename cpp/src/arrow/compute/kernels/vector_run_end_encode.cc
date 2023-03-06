@@ -21,6 +21,7 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/visit_data_inline.h"
 
 namespace arrow {
 namespace compute {
@@ -139,11 +140,7 @@ class RunEndEncodingLoop {
   using CType = typename ValueType::c_type;
 
  private:
-  const int64_t input_length_;
-  const int64_t input_offset_;
-
-  const uint8_t* input_validity_;
-  const void* input_values_;
+  const ArraySpan& input_array_;
 
   // Needed only by WriteEncodedRuns()
   uint8_t* output_validity_;
@@ -151,26 +148,18 @@ class RunEndEncodingLoop {
   RunEndCType* output_run_ends_;
 
  public:
-  RunEndEncodingLoop(int64_t input_length, int64_t input_offset,
-                     const uint8_t* input_validity, const void* input_values,
-                     uint8_t* output_validity = NULLPTR, void* output_values = NULLPTR,
-                     RunEndCType* output_run_ends = NULLPTR)
-      : input_length_(input_length),
-        input_offset_(input_offset),
-        input_validity_(input_validity),
-        input_values_(input_values),
+  explicit RunEndEncodingLoop(const ArraySpan& input_array,
+                              uint8_t* output_validity = NULLPTR,
+                              void* output_values = NULLPTR,
+                              RunEndCType* output_run_ends = NULLPTR)
+      : input_array_(input_array),
         output_validity_(output_validity),
         output_values_(output_values),
         output_run_ends_(output_run_ends) {
-    DCHECK_GT(input_length, 0);
+    DCHECK_GT(input_array_.length, 0);
   }
 
  private:
-  [[nodiscard]] inline bool ReadValue(CType* out, int64_t read_offset) const {
-    return ReadValueImpl<ValueType, has_validity_buffer>{}.ReadValue(
-        input_validity_, input_values_, out, read_offset);
-  }
-
   inline void WriteValue(int64_t write_offset, bool valid, CType value) {
     WriteValueImpl<ValueType, has_validity_buffer>{}.WriteValue(
         output_validity_, output_values_, write_offset, valid, value);
@@ -181,56 +170,101 @@ class RunEndEncodingLoop {
   ///
   /// \return a pair with the number of non-null run values and total number of runs
   ARROW_NOINLINE std::pair<int64_t, int64_t> CountNumberOfRuns() const {
-    int64_t read_offset = input_offset_;
-    CType current_run;
-    bool current_run_valid = ReadValue(&current_run, read_offset);
-    read_offset += 1;
-    int64_t num_valid_runs = current_run_valid ? 1 : 0;
-    int64_t num_output_runs = 1;
-    for (; read_offset < input_offset_ + input_length_; read_offset += 1) {
-      CType value;
-      const bool valid = ReadValue(&value, read_offset);
-
-      const bool open_new_run = valid != current_run_valid || value != current_run;
-      if (open_new_run) {
-        // Open the new run
-        current_run = value;
-        current_run_valid = valid;
-        // Count the new run
-        num_output_runs += 1;
-        num_valid_runs += valid ? 1 : 0;
-      }
-    }
+    CType current_run;  // undefined value when current_run_valid is false
+    bool current_run_valid = false;
+    int64_t num_valid_runs = 0;
+    int64_t num_output_runs = 0;
+    bool first = true;
+    arrow::internal::ArraySpanInlineVisitor<ValueType> visitor;
+    visitor.VisitVoid(
+        input_array_,
+        [&](CType value) {
+          if (ARROW_PREDICT_FALSE(first)) {
+            first = false;
+            current_run = value;
+            current_run_valid = true;
+            num_output_runs = 1;
+            num_valid_runs = 1;
+            return;
+          }
+          const bool open_new_run = !current_run_valid || value != current_run;
+          if (open_new_run) {
+            // Open the new run
+            current_run = value;
+            current_run_valid = true;
+            // Count the new run
+            num_output_runs += 1;
+            num_valid_runs += 1;
+          }
+        },
+        [&]() {
+          if (ARROW_PREDICT_FALSE(first)) {
+            first = false;
+            current_run_valid = false;
+            num_output_runs = 1;
+            return;
+          }
+          const bool open_new_run = current_run_valid;
+          if (open_new_run) {
+            // Open the new run
+            current_run_valid = false;
+            // Count the new run
+            num_output_runs += 1;
+          }
+        });
     return std::make_pair(num_valid_runs, num_output_runs);
   }
 
   ARROW_NOINLINE int64_t WriteEncodedRuns() {
     DCHECK(output_values_);
     DCHECK(output_run_ends_);
-    int64_t read_offset = input_offset_;
     int64_t write_offset = 0;
-    CType current_run;
-    bool current_run_valid = ReadValue(&current_run, read_offset);
-    read_offset += 1;
-    for (; read_offset < input_offset_ + input_length_; read_offset += 1) {
-      CType value;
-      const bool valid = ReadValue(&value, read_offset);
-
-      const bool open_new_run = valid != current_run_valid || value != current_run;
-      if (open_new_run) {
-        // Close the current run first by writing it out
-        WriteValue(write_offset, current_run_valid, current_run);
-        const int64_t run_end = read_offset - input_offset_;
-        output_run_ends_[write_offset] = static_cast<RunEndCType>(run_end);
-        write_offset += 1;
-        // Open the new run
-        current_run_valid = valid;
-        current_run = value;
-      }
-    }
+    CType current_run;  // undefined value when current_run_valid is false
+    bool current_run_valid = false;
+    int64_t run_end = 1;
+    bool first = true;
+    arrow::internal::ArraySpanInlineVisitor<ValueType> visitor;
+    visitor.VisitVoid(
+        input_array_,
+        [&](CType value) {
+          if (ARROW_PREDICT_FALSE(first)) {
+            first = false;
+            current_run = value;
+            current_run_valid = true;
+            return;
+          }
+          const bool open_new_run = !current_run_valid || value != current_run;
+          if (open_new_run) {
+            // Close the current run first by writing it out
+            WriteValue(write_offset, current_run_valid, current_run);
+            output_run_ends_[write_offset] = static_cast<RunEndCType>(run_end);
+            write_offset += 1;
+            // Open the new run
+            current_run_valid = true;
+            current_run = value;
+          }
+          run_end += 1;
+        },
+        [&]() {
+          if (ARROW_PREDICT_FALSE(first)) {
+            first = false;
+            current_run_valid = false;
+            return;
+          }
+          const bool open_new_run = current_run_valid;
+          if (open_new_run) {
+            // Close the current run first by writing it out
+            WriteValue(write_offset, current_run_valid, current_run);
+            output_run_ends_[write_offset] = static_cast<RunEndCType>(run_end);
+            write_offset += 1;
+            // Open the new run
+            current_run_valid = false;
+          }
+          run_end += 1;
+        });
     WriteValue(write_offset, current_run_valid, current_run);
-    DCHECK_EQ(input_length_, read_offset - input_offset_);
-    output_run_ends_[write_offset] = static_cast<RunEndCType>(input_length_);
+    DCHECK_EQ(input_array_.length, run_end);
+    output_run_ends_[write_offset] = static_cast<RunEndCType>(input_array_.length);
     return write_offset + 1;
   }
 };
@@ -264,9 +298,6 @@ class RunEndEncodeImpl {
 
   Status Exec() {
     const int64_t input_length = input_array_.length;
-    const int64_t input_offset = input_array_.offset;
-    const auto* input_validity = input_array_.buffers[0].data;
-    const auto* input_values = input_array_.buffers[1].data;
 
     // First pass: count the number of runs
     int64_t num_valid_runs = 0;
@@ -275,7 +306,7 @@ class RunEndEncodeImpl {
       RETURN_NOT_OK(ValidateRunEndType<RunEndType>(input_length));
 
       RunEndEncodingLoop<RunEndType, ValueType, has_validity_buffer> counting_loop(
-          input_array_.length, input_array_.offset, input_validity, input_values);
+          input_array_);
       std::tie(num_valid_runs, num_output_runs) = counting_loop.CountNumberOfRuns();
     }
 
@@ -329,8 +360,7 @@ class RunEndEncodeImpl {
 
       // Second pass: write the runs
       RunEndEncodingLoop<RunEndType, ValueType, has_validity_buffer> writing_loop(
-          input_length, input_offset, input_validity, input_values, output_validity,
-          output_values, output_run_ends);
+          input_array_, output_validity, output_values, output_run_ends);
       [[maybe_unused]] int64_t num_written_runs = writing_loop.WriteEncodedRuns();
       DCHECK_EQ(num_written_runs, num_output_runs);
     }
