@@ -369,3 +369,41 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/go_test.sh $(pwd)
+
+  linux-arm:
+    name: ARM64 Debian 11 GO ${{ matrix.go }}
+    runs-on: ["arm", "linux"]
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        go: [1.17]
+    env:
+      GO: ${{ matrix.go }}
+      ARROW_ENABLE_TIMING_TESTS: "OFF"
+      ARCH: arm64v8
+      ARROW_CI_MODULES: "GO"
+      DOCKER_IMAGE_ID: debian-go
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Setup Python
+        run: |
+          sudo apt install -y --no-install-recommends python3 python3-pip
+      - name: Setup Archery
+        run: python3 -m pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: archery docker run debian-go
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+        continue-on-error: true
+        run: archery docker push debian-go
