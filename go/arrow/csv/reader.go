@@ -469,14 +469,6 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(s string) {
 			r.parseList(bldr, s)
 		}
-	case *arrow.FixedSizeBinaryType:
-		return func(s string) {
-			r.parseFixedSizeBinary(bldr, s, dt.ByteWidth)
-		}
-	case arrow.ExtensionType:
-		return func(s string) {
-			r.initFieldConverter(bldr.(*array.ExtensionBuilder).StorageBuilder())(s)
-		}
 	default:
 		panic(fmt.Errorf("arrow/csv: unhandled field type %T", bldr.Type()))
 	}
@@ -758,14 +750,6 @@ func (r *Reader) parseList(field array.Builder, str string) {
 	for _, str := range items {
 		r.initFieldConverter(valueBldr)(str)
 	}
-}
-
-func (r *Reader) parseFixedSizeBinary(field array.Builder, str string, byteWidth int) {
-	if r.isNull(str) {
-		field.AppendNull()
-		return
-	}
-	field.(*array.FixedSizeBinaryBuilder).Append([]byte(str))
 }
 
 // Retain increases the reference count by 1.

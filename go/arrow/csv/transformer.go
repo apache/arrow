@@ -215,18 +215,6 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 				res[i] = w.nullValue
 			}
 		}
-	case *arrow.FixedSizeBinaryType:
-		arr := col.(*array.FixedSizeBinary)
-		for i := 0; i < arr.Len(); i++ {
-			if arr.IsValid(i) {
-				res[i] = string(arr.Value(i))
-			} else {
-				res[i] = w.nullValue
-			}
-		}
-	case arrow.ExtensionType:
-		extRes := w.transformColToStringArr(col.(array.ExtensionArray).Storage().DataType(), col.(array.ExtensionArray).Storage())
-		copy(res, extRes)
 	default:
 		panic(fmt.Errorf("arrow/csv: field has unsupported data type %s", typ.String()))
 	}
