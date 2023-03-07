@@ -591,6 +591,51 @@ TEST(RowSegmenter, Basics) {
   }
 }
 
+TEST(RowSegmenter, NonOrdered) {
+  std::vector<TypeHolder> types = {int32()};
+  auto batch = ExecBatchFromJSON(types, "[[1], [1], [2], [1], [2]]");
+  ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
+  TestSegments(segmenter, ExecSpan(batch),
+               {{0, 2, false, true},
+                {2, 1, false, false},
+                {3, 1, false, false},
+                {4, 1, true, false},
+                {5, 0, true, true}});
+}
+
+TEST(RowSegmenter, EmptyBatches) {
+  std::vector<TypeHolder> types = {int32()};
+  std::vector<ExecBatch> batches = {
+      ExecBatchFromJSON(types, "[]"),         ExecBatchFromJSON(types, "[]"),
+      ExecBatchFromJSON(types, "[[1]]"),      ExecBatchFromJSON(types, "[]"),
+      ExecBatchFromJSON(types, "[[1]]"),      ExecBatchFromJSON(types, "[]"),
+      ExecBatchFromJSON(types, "[[2], [2]]"), ExecBatchFromJSON(types, "[]"),
+  };
+  ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
+  TestSegments(segmenter, ExecSpan(batches[0]), {});
+  TestSegments(segmenter, ExecSpan(batches[1]), {});
+  TestSegments(segmenter, ExecSpan(batches[2]), {{0, 1, true, true}});
+  TestSegments(segmenter, ExecSpan(batches[3]), {});
+  TestSegments(segmenter, ExecSpan(batches[4]), {{0, 1, true, true}});
+  TestSegments(segmenter, ExecSpan(batches[5]), {});
+  TestSegments(segmenter, ExecSpan(batches[6]), {{0, 2, true, false}});
+  TestSegments(segmenter, ExecSpan(batches[7]), {});
+}
+
+TEST(RowSegmenter, MultipleSegments) {
+  std::vector<TypeHolder> types = {int32()};
+  auto batch = ExecBatchFromJSON(types, "[[1], [1], [2], [5], [3], [3], [5], [5], [4]]");
+  ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
+  TestSegments(segmenter, ExecSpan(batch),
+               {{0, 2, false, true},
+                {2, 1, false, false},
+                {3, 1, false, false},
+                {4, 2, false, false},
+                {6, 2, false, false},
+                {8, 1, true, false},
+                {9, 0, true, true}});
+}
+
 namespace {
 
 void TestRowSegmenterConstantBatch(
@@ -4632,11 +4677,13 @@ void TestSegment(GroupByFunction group_by, const std::shared_ptr<Table>& table,
   AssertDatumsEqual(output, aggregated_and_grouped, /*verbose=*/true);
 }
 
+// test with empty keys, covering code in ScalarAggregateNode
 void TestSegmentScalar(GroupByFunction group_by, const std::shared_ptr<Table>& table,
                        Datum output, const std::vector<Datum>& segment_keys) {
   TestSegment(group_by, table, output, {}, segment_keys, /*scalar=*/true);
 }
 
+// test with given segment-keys and keys set to `{"key"}`, covering code in GroupByNode
 void TestSegmentKey(GroupByFunction group_by, const std::shared_ptr<Table>& table,
                     Datum output, const std::vector<Datum>& segment_keys) {
   TestSegment(group_by, table, output, {table->GetColumnByName("key")}, segment_keys,
@@ -4752,7 +4799,7 @@ TEST_P(SegmentedKeyGroupBy, SingleSegmentKeyCombined) {
 }
 
 // extracts one segment of the obtained (single-segment-key) table
-Result<std::shared_ptr<Table>> GetEmptySegmentInput(
+Result<std::shared_ptr<Table>> GetEmptySegmentKeysInput(
     std::function<Result<std::shared_ptr<Table>>()> get_table) {
   ARROW_ASSIGN_OR_RAISE(auto table, get_table());
   auto sliced = table->Slice(0, 10);
@@ -4762,12 +4809,12 @@ Result<std::shared_ptr<Table>> GetEmptySegmentInput(
   return Table::FromChunkedStructArray(chunked);
 }
 
-Result<std::shared_ptr<Table>> GetEmptySegmentInputAsChunked() {
-  return GetEmptySegmentInput(GetSingleSegmentInputAsChunked);
+Result<std::shared_ptr<Table>> GetEmptySegmentKeysInputAsChunked() {
+  return GetEmptySegmentKeysInput(GetSingleSegmentInputAsChunked);
 }
 
-Result<std::shared_ptr<Table>> GetEmptySegmentInputAsCombined() {
-  return GetEmptySegmentInput(GetSingleSegmentInputAsCombined);
+Result<std::shared_ptr<Table>> GetEmptySegmentKeysInputAsCombined() {
+  return GetEmptySegmentKeysInput(GetSingleSegmentInputAsCombined);
 }
 
 // extracts the expected output for one segment
@@ -4788,11 +4835,11 @@ void TestEmptySegmentKey(GroupByFunction group_by,
 }
 
 TEST_P(SegmentedKeyGroupBy, EmptySegmentKeyChunked) {
-  TestEmptySegmentKey(GetParam(), GetEmptySegmentInputAsChunked);
+  TestEmptySegmentKey(GetParam(), GetEmptySegmentKeysInputAsChunked);
 }
 
 TEST_P(SegmentedKeyGroupBy, EmptySegmentKeyCombined) {
-  TestEmptySegmentKey(GetParam(), GetEmptySegmentInputAsCombined);
+  TestEmptySegmentKey(GetParam(), GetEmptySegmentKeysInputAsCombined);
 }
 
 // adds a named copy of the last (single-segment-key) column to the obtained table
