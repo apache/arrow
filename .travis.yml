@@ -70,17 +70,6 @@ jobs:
         LLVM: "10"
         UBUNTU: "20.04"
 
-    - name: "Go on ARM"
-      os: linux
-      arch: arm64-graviton2
-      group: edge
-      virt: vm
-      env:
-        <<: *global_env
-        ARCH: arm64v8
-        ARROW_CI_MODULES: "GO"
-        DOCKER_IMAGE_ID: debian-go
-
     - name: "C++ on s390x"
       os: linux
       arch: s390x
