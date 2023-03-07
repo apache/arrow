@@ -21,6 +21,7 @@
 #include "arrow/array/array_primitive.h"
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/tensor.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/sort.h"
 
@@ -155,7 +156,7 @@ Result<std::shared_ptr<Array>> FixedShapeTensorType::MakeArray(
   }
 
   auto ext_type = internal::checked_pointer_cast<ExtensionType>(
-      fixed_shape_tensor(tensor->type(), cell_shape, permutation, tensor->dim_names()));
+      fixed_shape_tensor(tensor->type(), cell_shape, permutation, dim_names()));
 
   std::shared_ptr<FixedSizeListArray> arr;
   std::shared_ptr<Array> value_array;
@@ -223,20 +224,33 @@ Result<std::shared_ptr<Tensor>> FixedShapeTensorType::ToTensor(
   // define n+1 dimensional tensor's strides by front appending a new stride to the n
   // dimensional tensor's strides.
 
-  ARROW_CHECK(is_tensor_supported(this->value_type_->id()));
-
-  ARROW_DCHECK_EQ(arr->null_count(), 0) << "Null values not supported in tensors.";
+  ARROW_RETURN_IF(arr->null_count() > 0,
+                  Status::Invalid("Null values not supported in tensors."));
   auto ext_arr = internal::checked_pointer_cast<FixedSizeListArray>(
       internal::checked_pointer_cast<ExtensionArray>(arr)->storage());
 
   std::vector<int64_t> shape = this->shape();
   shape.insert(shape.begin(), 1, arr->length());
 
+  int64_t major_stride;
   std::vector<int64_t> tensor_strides = this->strides();
-  tensor_strides.insert(tensor_strides.begin(), 1, arr->length() * tensor_strides[0]);
+  if (internal::MultiplyWithOverflow(arr->length(), tensor_strides[0], &major_stride)) {
+    return Status::Invalid("Overflow in tensor strides");
+  }
+  tensor_strides.insert(tensor_strides.begin(), 1, major_stride);
+
+  std::vector<std::string> dim_names;
+  if (!this->dim_names().empty()) {
+    dim_names = this->dim_names();
+    dim_names.insert(dim_names.begin(), 1, "");
+  } else {
+    dim_names = {};
+  }
 
   std::shared_ptr<Buffer> buffer = ext_arr->values()->data()->buffers[1];
-  return *Tensor::Make(ext_arr->value_type(), buffer, shape, tensor_strides, dim_names());
+  ARROW_ASSIGN_OR_RAISE(auto tensor, Tensor::Make(ext_arr->value_type(), buffer, shape,
+                                                  tensor_strides, dim_names));
+  return tensor;
 }
 
 Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(

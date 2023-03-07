@@ -124,7 +124,7 @@ TEST_F(TestExtensionType, CreateFromArray) {
   std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, Buffer::Wrap(values_)};
   auto arr_data = std::make_shared<ArrayData>(value_type_, values_.size(), buffers, 0, 0);
   auto arr = std::make_shared<Int64Array>(arr_data);
-  EXPECT_OK_AND_ASSIGN(auto fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type_));
+  ASSERT_OK_AND_ASSIGN(auto fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type_));
   auto data = fsla_arr->data();
   data->type = ext_type_;
   auto ext_arr = exact_ext_type->MakeArray(data);
@@ -140,7 +140,7 @@ TEST_F(TestExtensionType, CreateFromTensor) {
                        Tensor::Make(value_type_, Buffer::Wrap(values_), shape_));
 
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
-  EXPECT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
+  ASSERT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
 
   ASSERT_OK(ext_arr->ValidateFull());
   ASSERT_TRUE(tensor->is_row_major());
@@ -149,7 +149,7 @@ TEST_F(TestExtensionType, CreateFromTensor) {
 
   auto ext_type_2 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int64(), {3, 4}, {0, 1}));
-  EXPECT_OK_AND_ASSIGN(auto ext_arr_2, ext_type_2->MakeArray(tensor));
+  ASSERT_OK_AND_ASSIGN(auto ext_arr_2, ext_type_2->MakeArray(tensor));
 
   ASSERT_OK_AND_ASSIGN(
       auto column_major_tensor,
@@ -168,15 +168,41 @@ TEST_F(TestExtensionType, CreateFromTensor) {
   auto ext_type_4 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int64(), {3, 4}, {1, 0}));
   ASSERT_OK_AND_ASSIGN(auto ext_arr_4, ext_type_4->MakeArray(neither_major_tensor));
+
+  auto ext_type_5 = internal::checked_pointer_cast<FixedShapeTensorType>(
+      fixed_shape_tensor(binary(), {1, 2}));
+  auto arr = ArrayFromJSON(binary(), R"(["abc", "def"])");
+
+  ASSERT_OK_AND_ASSIGN(auto fsla_arr,
+                       FixedSizeListArray::FromArrays(arr, fixed_size_list(binary(), 1)));
+  auto data = fsla_arr->data();
+  data->type = ext_type_5;
+  auto ext_arr_5 = ext_type_5->MakeArray(data);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("binary is not valid data type for a tensor"),
+      exact_ext_type->ToTensor(ext_arr_5));
+
+  auto ext_type_6 = internal::checked_pointer_cast<FixedShapeTensorType>(
+      fixed_shape_tensor(int64(), {1, 2}));
+  auto arr_with_null = ArrayFromJSON(int64(), "[0, null]");
+  ASSERT_OK_AND_ASSIGN(auto fsla_arr_6, FixedSizeListArray::FromArrays(
+                                            arr_with_null, fixed_size_list(int64(), 1)));
+  auto data6 = fsla_arr_6->data();
+  data6->type = ext_type_6;
+  data6->null_count = 1;
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Null values not supported in tensors."),
+      ext_type_6->ToTensor(ext_type_6->MakeArray(data6)));
 }
 
 TEST_F(TestExtensionType, RoundtripTensor) {
   ASSERT_OK_AND_ASSIGN(auto tensor,
                        Tensor::Make(value_type_, Buffer::Wrap(values_), shape_));
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
-  EXPECT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
+  ASSERT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
 
-  EXPECT_OK_AND_ASSIGN(auto tensor_from_array, exact_ext_type->ToTensor(ext_arr));
+  ASSERT_OK_AND_ASSIGN(auto tensor_from_array, exact_ext_type->ToTensor(ext_arr));
   ASSERT_EQ(tensor_from_array->shape(), tensor->shape());
   ASSERT_EQ(tensor_from_array->strides(), tensor->strides());
   ASSERT_TRUE(tensor->Equals(*tensor_from_array));
@@ -193,8 +219,8 @@ TEST_F(TestExtensionType, SliceTensor) {
   auto ext_type = fixed_shape_tensor(value_type_, cell_shape_, {}, dim_names_);
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
 
-  EXPECT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
-  EXPECT_OK_AND_ASSIGN(auto ext_arr_partial, exact_ext_type->MakeArray(tensor_partial));
+  ASSERT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
+  ASSERT_OK_AND_ASSIGN(auto ext_arr_partial, exact_ext_type->MakeArray(tensor_partial));
   ASSERT_OK(ext_arr->ValidateFull());
   ASSERT_OK(ext_arr_partial->ValidateFull());
 
@@ -254,7 +280,7 @@ TEST_F(TestExtensionType, RoudtripBatch) {
   std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, Buffer::Wrap(values_)};
   auto arr_data = std::make_shared<ArrayData>(value_type_, values_.size(), buffers, 0, 0);
   auto arr = std::make_shared<Int64Array>(arr_data);
-  EXPECT_OK_AND_ASSIGN(auto fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type_));
+  ASSERT_OK_AND_ASSIGN(auto fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type_));
   auto data = fsla_arr->data();
   data->type = ext_type_;
   auto ext_arr = exact_ext_type->MakeArray(data);
@@ -273,7 +299,7 @@ TEST_F(TestExtensionType, RoudtripBatchFromTensor) {
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
   ASSERT_OK_AND_ASSIGN(auto tensor, Tensor::Make(value_type_, Buffer::Wrap(values_),
                                                  shape_, {}, dim_names_));
-  EXPECT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
+  ASSERT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
   ext_arr->data()->type = exact_ext_type;
 
   auto ext_metadata =
