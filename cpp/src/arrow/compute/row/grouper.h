@@ -92,6 +92,10 @@ class ARROW_EXPORT RowSegmenter {
   virtual const std::vector<TypeHolder>& key_types() const = 0;
 
   /// \brief Reset this segmenter
+  ///
+  /// A segmenter normally extends (see `Segment`) a segment from one batch to the next.
+  /// If segment-extenion is undesirable, for example when each batch is processed
+  /// independently, then `Reset` should be invoked before processing the next batch.
   virtual Status Reset() = 0;
 
   /// \brief Get the next segment for the given batch starting from the given offset
@@ -112,13 +116,6 @@ class ARROW_EXPORT Grouper {
   /// Currently only uint32 indices will be produced, eventually the bit width will only
   /// be as wide as necessary.
   virtual Result<Datum> Consume(const ExecSpan& batch, int64_t offset = 0,
-                                int64_t length = -1) = 0;
-
-  /// Consume a batch of keys, producing the corresponding group ids as an integer array,
-  /// over a slice defined by an offset and length, which defaults to the batch length.
-  /// Currently only uint32 indices will be produced, eventually the bit width will only
-  /// be as wide as necessary.
-  virtual Result<Datum> Consume(const ExecBatch& batch, int64_t offset = 0,
                                 int64_t length = -1) = 0;
 
   /// Get current unique keys. May be called multiple times.

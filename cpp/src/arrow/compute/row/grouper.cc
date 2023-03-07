@@ -32,6 +32,7 @@
 #include "arrow/compute/light_array.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/compare_internal.h"
+#include "arrow/compute/row/grouper_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bitmap_ops.h"
@@ -103,6 +104,8 @@ Segment MakeSegment(int64_t batch_length, int64_t offset, int64_t length, bool e
   return Segment{offset, length, offset + length >= batch_length, extends};
 }
 
+// Used by SimpleKeySegmenter::GetNextSegment to find the match-length of a value within a
+// fixed-width buffer
 int64_t GetMatchLength(const uint8_t* match_bytes, int64_t match_width,
                        const uint8_t* array_bytes, int64_t offset, int64_t length) {
   int64_t cursor, byte_cursor;
@@ -117,8 +120,8 @@ int64_t GetMatchLength(const uint8_t* match_bytes, int64_t match_width,
 }
 
 using ExtendFunc = std::function<bool(const void*)>;
-constexpr bool kDefaultExtends = true;
-constexpr bool kEmptyExtends = true;
+constexpr bool kDefaultExtends = true;  // by default, the first segment extends
+constexpr bool kEmptyExtends = true;    // an empty segment extends too
 
 struct NoKeysSegmenter : public BaseRowSegmenter {
   static std::unique_ptr<RowSegmenter> Make() {
@@ -141,7 +144,10 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
   }
 
   explicit SimpleKeySegmenter(TypeHolder key_type)
-      : BaseRowSegmenter({key_type}), key_type_(key_types_[0]), save_key_data_() {}
+      : BaseRowSegmenter({key_type}),
+        key_type_(key_types_[0]),
+        save_key_data_(static_cast<size_t>(key_type_.type->byte_width())),
+        extend_was_called_(false) {}
 
   Status CheckType(const DataType& type) {
     if (!is_fixed_width(type)) {
@@ -151,19 +157,18 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
   }
 
   Status Reset() override {
-    save_key_data_.resize(0);
+    extend_was_called_ = false;
     return Status::OK();
   }
 
   // Checks whether the given grouping data extends the current segment, i.e., is equal to
   // previously seen grouping data, which is updated with each invocation.
   bool Extend(const void* data) {
-    size_t byte_width = static_cast<size_t>(key_type_.type->byte_width());
-    bool extends = save_key_data_.size() != byte_width
+    bool extends = !extend_was_called_
                        ? kDefaultExtends
-                       : 0 == memcmp(save_key_data_.data(), data, byte_width);
-    save_key_data_.resize(byte_width);
-    memcpy(save_key_data_.data(), data, byte_width);
+                       : 0 == memcmp(save_key_data_.data(), data, save_key_data_.size());
+    extend_was_called_ = true;
+    memcpy(save_key_data_.data(), data, save_key_data_.size());
     return extends;
   }
 
@@ -180,6 +185,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
   Result<Segment> GetNextSegment(const DataType& array_type, const uint8_t* array_bytes,
                                  int64_t offset, int64_t length) {
     RETURN_NOT_OK(CheckType(array_type));
+    DCHECK_LE(offset, length);
     int64_t byte_width = array_type.byte_width();
     int64_t match_length = GetMatchLength(array_bytes + offset * byte_width, byte_width,
                                           array_bytes, offset, length);
@@ -206,7 +212,8 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
 
  private:
   TypeHolder key_type_;
-  std::vector<uint8_t> save_key_data_;
+  std::vector<uint8_t> save_key_data_;  // previusly seen segment-key grouping data
+  bool extend_was_called_;
 };
 
 struct AnyKeysSegmenter : public BaseRowSegmenter {
@@ -308,6 +315,11 @@ Status CheckForConsume(int64_t batch_length, int64_t& consume_offset,
 
 }  // namespace
 
+Result<std::unique_ptr<RowSegmenter>> MakeAnyKeysSegmenter(
+    const std::vector<TypeHolder>& key_types, ExecContext* ctx) {
+  return AnyKeysSegmenter::Make(key_types, ctx);
+}
+
 Result<std::unique_ptr<RowSegmenter>> RowSegmenter::Make(
     const std::vector<TypeHolder>& key_types, bool nullable_keys, ExecContext* ctx) {
   if (key_types.size() == 0) {
@@ -322,14 +334,6 @@ Result<std::unique_ptr<RowSegmenter>> RowSegmenter::Make(
 }
 
 namespace {
-
-struct BaseGrouper : public Grouper {
-  using Grouper::Consume;
-
-  Result<Datum> Consume(const ExecBatch& batch, int64_t offset, int64_t length) override {
-    return Consume(ExecSpan(batch), offset, length);
-  }
-};
 
 struct GrouperNoKeysImpl : Grouper {
   Result<std::shared_ptr<Array>> MakeConstantGroupIdArray(int64_t length,
@@ -352,10 +356,6 @@ struct GrouperNoKeysImpl : Grouper {
     ARROW_ASSIGN_OR_RAISE(auto array, MakeConstantGroupIdArray(length, 0));
     return Datum(array);
   }
-  Result<Datum> Consume(const ExecBatch& batch, int64_t offset, int64_t length) override {
-    ARROW_ASSIGN_OR_RAISE(auto array, MakeConstantGroupIdArray(length, 0));
-    return Datum(array);
-  }
   Result<ExecBatch> GetUniques() override {
     auto data = ArrayData::Make(uint32(), 1, 0);
     auto values = data->GetMutableValues<uint32_t>(0);
@@ -366,7 +366,7 @@ struct GrouperNoKeysImpl : Grouper {
   uint32_t num_groups() const override { return 1; }
 };
 
-struct GrouperImpl : public BaseGrouper {
+struct GrouperImpl : public Grouper {
   static Result<std::unique_ptr<GrouperImpl>> Make(
       const std::vector<TypeHolder>& key_types, ExecContext* ctx) {
     auto impl = std::make_unique<GrouperImpl>();
@@ -416,8 +416,6 @@ struct GrouperImpl : public BaseGrouper {
 
     return std::move(impl);
   }
-
-  using BaseGrouper::Consume;
 
   Result<Datum> Consume(const ExecSpan& batch, int64_t offset, int64_t length) override {
     ARROW_RETURN_NOT_OK(CheckForConsume(batch.length, offset, &length));
@@ -508,7 +506,7 @@ struct GrouperImpl : public BaseGrouper {
   std::vector<std::unique_ptr<internal::KeyEncoder>> encoders_;
 };
 
-struct GrouperFastImpl : public BaseGrouper {
+struct GrouperFastImpl : public Grouper {
   static constexpr int kBitmapPaddingForSIMD = 64;  // bits
   static constexpr int kPaddingForSIMD = 32;        // bytes
 
@@ -596,8 +594,6 @@ struct GrouperFastImpl : public BaseGrouper {
   }
 
   ~GrouperFastImpl() { map_.cleanup(); }
-
-  using BaseGrouper::Consume;
 
   Result<Datum> Consume(const ExecSpan& batch, int64_t offset, int64_t length) override {
     ARROW_RETURN_NOT_OK(CheckForConsume(batch.length, offset, &length));

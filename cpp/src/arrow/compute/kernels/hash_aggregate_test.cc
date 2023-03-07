@@ -42,6 +42,7 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/grouper.h"
+#include "arrow/compute/row/grouper_internal.h"
 #include "arrow/table.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
@@ -209,7 +210,7 @@ Result<Datum> RunGroupBy(const BatchesWithSchema& input,
   // array per segment) but only one array per column (because, technically, there is only
   // one segment in this case). Thus, this case focuses on the structure of the result.
   //
-  // The `naive` flag means that the output is expected to be that of like `NaiveGroupBy`,
+  // The `naive` flag means that the output is expected to be like that of `NaiveGroupBy`,
   // which in particular doesn't require sorting. The reason for the naive flag is that
   // the expected output of some test-cases is naive and of some others it is not. The
   // current `RunGroupBy` function deals with both kinds of expected output.
@@ -514,6 +515,11 @@ Result<std::unique_ptr<RowSegmenter>> MakeRowSegmenter(
   return RowSegmenter::Make(key_types, /*nullable_leys=*/false, default_exec_context());
 }
 
+Result<std::unique_ptr<RowSegmenter>> MakeGenericSegmenter(
+    const std::vector<TypeHolder>& key_types) {
+  return MakeAnyKeysSegmenter(key_types, default_exec_context());
+}
+
 }  // namespace
 
 TEST(RowSegmenter, SupportedKeys) {
@@ -589,8 +595,11 @@ TEST(RowSegmenter, Basics) {
 
 namespace {
 
-void test_row_segmenter_constant_batch(std::function<ArgShape(size_t i)> shape_func) {
-  constexpr size_t n = 3;
+void test_row_segmenter_constant_batch(
+    std::function<ArgShape(size_t i)> shape_func,
+    std::function<Result<std::unique_ptr<RowSegmenter>>(const std::vector<TypeHolder>&)>
+        make_segmenter) {
+  constexpr size_t n = 3, repetitions = 3;
   std::vector<TypeHolder> types = {int32(), int32(), int32()};
   std::vector<ArgShape> shapes(n);
   for (size_t i = 0; i < n; i++) shapes[i] = shape_func(i);
@@ -601,8 +610,11 @@ void test_row_segmenter_constant_batch(std::function<ArgShape(size_t i)> shape_f
                               full_batch.values.begin() + size);
     ExecBatch batch(values, full_batch.length);
     std::vector<TypeHolder> key_types(types.begin(), types.begin() + size);
-    ARROW_ASSIGN_OR_RAISE(auto segmenter, MakeRowSegmenter(key_types));
-    TestSegments(segmenter, ExecSpan(batch), {{0, 3, true, true}, {3, 0, true, true}});
+    ARROW_ASSIGN_OR_RAISE(auto segmenter, make_segmenter(key_types));
+    for (size_t i = 0; i < repetitions; i++) {
+      TestSegments(segmenter, ExecSpan(batch), {{0, 3, true, true}, {3, 0, true, true}});
+      ARROW_RETURN_NOT_OK(segmenter->Reset());
+    }
     return Status::OK();
   };
   for (size_t i = 0; i <= 3; i++) {
@@ -613,16 +625,35 @@ void test_row_segmenter_constant_batch(std::function<ArgShape(size_t i)> shape_f
 }  // namespace
 
 TEST(RowSegmenter, ConstantArrayBatch) {
-  test_row_segmenter_constant_batch([](size_t i) { return ArgShape::ARRAY; });
+  test_row_segmenter_constant_batch([](size_t i) { return ArgShape::ARRAY; },
+                                    MakeRowSegmenter);
 }
 
 TEST(RowSegmenter, ConstantScalarBatch) {
-  test_row_segmenter_constant_batch([](size_t i) { return ArgShape::SCALAR; });
+  test_row_segmenter_constant_batch([](size_t i) { return ArgShape::SCALAR; },
+                                    MakeRowSegmenter);
 }
 
 TEST(RowSegmenter, ConstantMixedBatch) {
   test_row_segmenter_constant_batch(
-      [](size_t i) { return i % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; });
+      [](size_t i) { return i % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
+      MakeRowSegmenter);
+}
+
+TEST(RowSegmenter, ConstantArrayBatchWithAnyKeysSegmenter) {
+  test_row_segmenter_constant_batch([](size_t i) { return ArgShape::ARRAY; },
+                                    MakeGenericSegmenter);
+}
+
+TEST(RowSegmenter, ConstantScalarBatchWithAnyKeysSegmenter) {
+  test_row_segmenter_constant_batch([](size_t i) { return ArgShape::SCALAR; },
+                                    MakeGenericSegmenter);
+}
+
+TEST(RowSegmenter, ConstantMixedBatchWithAnyKeysSegmenter) {
+  test_row_segmenter_constant_batch(
+      [](size_t i) { return i % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
+      MakeGenericSegmenter);
 }
 
 TEST(RowSegmenter, RowConstantBatch) {
