@@ -306,11 +306,13 @@ jobs:
         run: brew install apache-arrow pkg-config
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@${{ matrix.staticcheck }}
-      - name: Build
+      - name: Add To pkg config path
         shell: bash
         run: |
-           echo "PKG_CONFIG_PATH=/usr/local/Cellar/openssl@3/3.0.8/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
-          ci/scripts/go_build.sh $(pwd)
+          echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+      - name: Build
+        shell: bash
+        run: ci/scripts/go_build.sh $(pwd)
       - name: Test
         shell: bash
         run: ci/scripts/go_test.sh $(pwd)
@@ -374,7 +376,7 @@ jobs:
 
   linux-arm:
     name: ARM64 Debian 11 GO ${{ matrix.go }}
-    runs-on: ["arm", "linux"]
+    runs-on: ["self-hosted", "linux"]
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     strategy:
