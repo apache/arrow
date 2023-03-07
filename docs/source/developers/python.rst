@@ -596,6 +596,8 @@ to be used when building PyArrow are:
    :widths: 30 30
    :header-rows: 1
 
+   * - Arrow flags/options
+     - Corresponding environment variables for PyArrow
    * - CMAKE_BUILD_TYPE
      - PYARROW_BUILD_TYPE (release, debug or relwithdebinfo)
    * - ARROW_GCS
