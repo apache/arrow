@@ -26,8 +26,12 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
+template <typename ArrowType, bool has_validity_buffer, typename Enable = void>
+struct ReadValueImpl {};
+
+// Numeric and primitive C-compatible types
 template <typename ArrowType, bool has_validity_buffer>
-struct ReadValueImpl {
+struct ReadValueImpl<ArrowType, has_validity_buffer, enable_if_has_c_type<ArrowType>> {
   using CType = typename ArrowType::c_type;
 
   [[nodiscard]] bool ReadValue(const uint8_t* input_validity, const void* input_values,
@@ -43,6 +47,7 @@ struct ReadValueImpl {
   }
 };
 
+// Boolean w/ validity_bitmap
 template <>
 bool ReadValueImpl<BooleanType, true>::ReadValue(const uint8_t* input_validity,
                                                  const void* input_values, CType* out,
@@ -53,6 +58,7 @@ bool ReadValueImpl<BooleanType, true>::ReadValue(const uint8_t* input_validity,
   return valid;
 }
 
+// Boolean w/o validity_bitmap
 template <>
 bool ReadValueImpl<BooleanType, false>::ReadValue(const uint8_t* input_validity,
                                                   const void* input_values, CType* out,
@@ -61,8 +67,12 @@ bool ReadValueImpl<BooleanType, false>::ReadValue(const uint8_t* input_validity,
   return true;
 }
 
+template <typename ArrowType, bool has_validity_buffer, typename Enable = void>
+struct WriteValueImpl {};
+
+// Numeric and primitive C-compatible types
 template <typename ArrowType, bool has_validity_buffer>
-struct WriteValueImpl {
+struct WriteValueImpl<ArrowType, has_validity_buffer, enable_if_has_c_type<ArrowType>> {
   using CType = typename ArrowType::c_type;
 
   void WriteValue(uint8_t* output_validity, void* output_values, int64_t write_offset,
@@ -84,6 +94,7 @@ struct WriteValueImpl {
   }
 };
 
+// Boolean w/ validity_bitmap
 template <>
 void WriteValueImpl<BooleanType, true>::WriteValue(uint8_t* output_validity,
                                                    void* output_values,
@@ -107,6 +118,7 @@ void WriteValueImpl<BooleanType, true>::WriteRun(uint8_t* output_validity,
   }
 }
 
+// Boolean w/o validity_bitmap
 template <>
 void WriteValueImpl<BooleanType, false>::WriteValue(uint8_t*, void* output_values,
                                                     int64_t write_offset, bool,
