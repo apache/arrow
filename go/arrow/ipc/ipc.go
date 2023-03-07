@@ -182,7 +182,7 @@ func WithDictionaryDeltas(v bool) Option {
 // Values outside of the range [0,1] are handled as errors.
 //
 // Note that enabling this option may result in unreadable data for Arrow
-// C++ versions prior to 12.0.0.
+// Go and C++ versions prior to 12.0.0.
 func WithMinSpaceSavings(savings float64) Option {
 	return func(cfg *config) {
 		cfg.minSpaceSavings = &savings
