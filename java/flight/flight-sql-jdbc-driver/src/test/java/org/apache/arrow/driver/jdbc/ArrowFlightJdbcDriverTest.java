@@ -287,6 +287,47 @@ public class ArrowFlightJdbcDriverTest {
   }
 
   @Test
+  public void testRegion() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    Properties props = new Properties();
+    props.setProperty("user", "admin");
+    props.setProperty("password", "password");
+    props.setProperty("useEncryption", "false");
+    String conString = "jdbc:arrow-flight://127.0.0.1:50060";
+    try (Connection con = driver.connect(conString, props); Statement stmt = con.createStatement()) {
+      try {
+        stmt.execute("create table region (r_regionkey int, r_name varchar, r_comment varchar, primary key (r_regionkey))");
+      } catch (Exception ignored) {}
+      String sql = "insert into region (r_regionkey, r_name, r_comment) values\n" +
+              "\t($1, $2, $3),\n" +
+              "\t($4, $5, $6),\n" +
+              "\t($7, $8, $9),\n" +
+              "\t($10, $11, $12)";
+      try(PreparedStatement ps = con.prepareStatement(sql)) {
+
+        ps.setInt(1, 1);
+        ps.setString(2, "Africa");
+        ps.setString(3, "Africa");
+
+        ps.setInt(4, 1);
+        ps.setString(5, "Americas");
+        ps.setString(6, "Americas");
+
+        ps.setInt(7, 1);
+        ps.setString(8, "Europe");
+        ps.setString(9, "Europe");
+
+        ps.setInt(10, 1);
+        ps.setString(11, "Asia");
+        ps.setString(12, "Asia");
+
+        int res = ps.executeUpdate();
+        assertNotNull(res);
+      }
+    }
+  }
+
+  @Test
   public void testOrders() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
     Properties props = new Properties();
