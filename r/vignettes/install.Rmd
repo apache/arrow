@@ -105,7 +105,10 @@ Similarly, if you use `conda` to manage your R environment, you can get the
 latest official release of the R package including libarrow via:
 
 ```shell
-conda install -c conda-forge --strict-channel-priority r-arrow
+# Using the --strict-channel-priority flag on `conda install` causes very long
+# solve times, so we add it directly to the config
+conda config --set channel_priority strict
+conda install -c conda-forge r-arrow
 ```
 
 ### R source package with libarrow binary

@@ -32,6 +32,7 @@ type bufBuilder interface {
 	Bytes() []byte
 	resize(int)
 	Advance(int)
+	SetLength(int)
 	Append([]byte)
 	Reset()
 	Finish() *memory.Buffer
@@ -94,6 +95,15 @@ func (b *bufferBuilder) resize(elements int) {
 	if b.capacity > oldCapacity {
 		memory.Set(b.bytes[oldCapacity:], 0)
 	}
+}
+
+func (b *bufferBuilder) SetLength(length int) {
+	if length > b.length {
+		b.Advance(length)
+		return
+	}
+
+	b.length = length
 }
 
 // Advance increases the buffer by length and initializes the skipped bytes to zero.

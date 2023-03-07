@@ -758,7 +758,6 @@ else()
   set_urls(THRIFT_SOURCE_URL
            "https://www.apache.org/dyn/closer.cgi?action=download&filename=/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
            "https://downloads.apache.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://github.com/apache/thrift/archive/v${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
            "https://apache.claz.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
            "https://apache.cs.utah.edu/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
            "https://apache.mirrors.lucidnetworks.net/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
@@ -1814,7 +1813,11 @@ if(ARROW_WITH_PROTOBUF)
   # Log protobuf paths as we often see issues with mixed sources for
   # the libraries and protoc.
   get_target_property(PROTOBUF_PROTOC_EXECUTABLE ${ARROW_PROTOBUF_PROTOC}
-                      IMPORTED_LOCATION)
+                      IMPORTED_LOCATION_RELEASE)
+  if(NOT PROTOBUF_PROTOC_EXECUTABLE)
+    get_target_property(PROTOBUF_PROTOC_EXECUTABLE ${ARROW_PROTOBUF_PROTOC}
+                        IMPORTED_LOCATION)
+  endif()
   message(STATUS "Found protoc: ${PROTOBUF_PROTOC_EXECUTABLE}")
   get_target_property(PROTOBUF_TYPE ${ARROW_PROTOBUF_LIBPROTOBUF} TYPE)
   if(NOT STREQUAL "INTERFACE_LIBRARY")
@@ -4416,14 +4419,9 @@ macro(build_orc)
   set(ORC_STATIC_LIB
       "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-  get_target_property(ORC_PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC} IMPORTED_LOCATION)
-
-  get_target_property(ORC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
+  get_target_property(ORC_PROTOBUF_ROOT ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(ORC_PROTOBUF_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
-
-  get_target_property(ORC_PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF}
-                      IMPORTED_LOCATION)
+  get_filename_component(ORC_PROTOBUF_ROOT "${ORC_PROTOBUF_ROOT}" DIRECTORY)
 
   get_target_property(ORC_SNAPPY_INCLUDE_DIR ${Snappy_TARGET}
                       INTERFACE_INCLUDE_DIRECTORIES)
@@ -4435,8 +4433,6 @@ macro(build_orc)
   get_target_property(ORC_ZSTD_ROOT ${ARROW_ZSTD_LIBZSTD} INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_ZSTD_ROOT "${ORC_ZSTD_ROOT}" DIRECTORY)
 
-  # Weirdly passing in PROTOBUF_LIBRARY for PROTOC_LIBRARY still results in ORC finding
-  # the protoc library.
   set(ORC_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
@@ -4446,21 +4442,17 @@ macro(build_orc)
       -DBUILD_TOOLS=OFF
       -DBUILD_CPP_TESTS=OFF
       -DINSTALL_VENDORED_LIBS=OFF
+      "-DLZ4_HOME=${ORC_LZ4_ROOT}"
+      "-DPROTOBUF_EXECUTABLE=$<TARGET_FILE:${ARROW_PROTOBUF_PROTOC}>"
+      "-DPROTOBUF_HOME=${ORC_PROTOBUF_ROOT}"
+      "-DPROTOBUF_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_PROTOBUF_LIBPROTOBUF},INTERFACE_INCLUDE_DIRECTORIES>"
+      "-DPROTOBUF_LIBRARY=$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOBUF}>"
+      "-DPROTOC_LIBRARY=$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOC}>"
       "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
       "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
-      "-DPROTOBUF_EXECUTABLE=${ORC_PROTOBUF_EXECUTABLE}"
-      "-DPROTOBUF_HOME=${ORC_PROTOBUF_ROOT}"
-      "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
-      "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
-      "-DPROTOC_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
-      "-DLZ4_HOME=${ORC_LZ4_ROOT}"
       "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
       "-DZSTD_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_ZSTD_LIBZSTD},INTERFACE_INCLUDE_DIRECTORIES>"
       "-DZSTD_LIBRARY=$<TARGET_FILE:${ARROW_ZSTD_LIBZSTD}>")
-  if(ORC_PROTOBUF_EXECUTABLE)
-    set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS}
-                       "-DPROTOBUF_EXECUTABLE:FILEPATH=${ORC_PROTOBUF_EXECUTABLE}")
-  endif()
   if(ZLIB_ROOT)
     set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
   endif()
@@ -4863,6 +4855,9 @@ macro(build_awssdk)
   if("s2n-tls" IN_LIST _AWSSDK_LIBS)
     set(AWS_LC_C_FLAGS ${EP_C_FLAGS})
     string(APPEND AWS_LC_C_FLAGS " -Wno-error=overlength-strings -Wno-error=pedantic")
+    # Link time optimization is causing trouble like #34349
+    string(REPLACE "-flto=auto" "" AWS_LC_C_FLAGS "${AWS_LC_C_FLAGS}")
+    string(REPLACE "-ffat-lto-objects" "" AWS_LC_C_FLAGS "${AWS_LC_C_FLAGS}")
 
     set(AWS_LC_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
     list(APPEND AWS_LC_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${AWS_LC_PREFIX}
@@ -4876,11 +4871,17 @@ macro(build_awssdk)
                         BUILD_BYPRODUCTS ${AWS_LC_STATIC_LIBRARY})
     add_dependencies(AWS::crypto aws_lc_ep)
 
+    set(S2N_TLS_C_FLAGS ${EP_C_FLAGS})
+    # Link time optimization is causing trouble like #34349
+    string(REPLACE "-flto=auto" "" S2N_TLS_C_FLAGS "${S2N_TLS_C_FLAGS}")
+    string(REPLACE "-ffat-lto-objects" "" S2N_TLS_C_FLAGS "${S2N_TLS_C_FLAGS}")
+
     set(S2N_TLS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
     list(APPEND
          S2N_TLS_CMAKE_ARGS
          -DS2N_INTERN_LIBCRYPTO=ON # internalize libcrypto to avoid name conflict with openssl
-         -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX}) # path to find crypto provided by aws-lc
+         -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX} # path to find crypto provided by aws-lc
+         -DCMAKE_C_FLAGS=${S2N_TLS_C_FLAGS})
 
     externalproject_add(s2n_tls_ep
                         ${EP_COMMON_OPTIONS}

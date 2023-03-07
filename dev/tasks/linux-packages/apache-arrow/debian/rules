@@ -21,7 +21,7 @@ override_dh_auto_configure:
 	  ARROW_CUDA=OFF;					\
 	  ARROW_PLASMA=OFF;					\
 	fi;							\
-	if [ $$(arch) = "x86_64" ]; then				\
+	if [ $$(arch) = "x86_64" ]; then			\
 	  ARROW_FLIGHT=ON;					\
 	  ARROW_FLIGHT_SQL=ON;					\
 	else							\

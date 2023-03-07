@@ -44,6 +44,7 @@ namespace liborc = orc;
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 using internal::ToChars;
 
 namespace adapters {
@@ -283,6 +284,58 @@ Status AppendDecimalBatch(const liborc::Type* type,
   return Status::OK();
 }
 
+template <typename UnionBuilderType>
+Status AppendUnionBatchInternal(const liborc::Type* type,
+                                liborc::ColumnVectorBatch* column_vector_batch,
+                                int64_t offset, int64_t length, ArrayBuilder* abuilder) {
+  auto builder = checked_cast<UnionBuilderType*>(abuilder);
+  auto batch = checked_cast<liborc::UnionVectorBatch*>(column_vector_batch);
+
+  auto union_type = checked_pointer_cast<UnionType>(abuilder->type());
+  const std::vector<int8_t>& type_codes = union_type->type_codes();
+  const unsigned char* tags = batch->tags.data();
+
+  for (int64_t i = offset; i < length + offset; i++) {
+    if (!batch->hasNulls || batch->notNull[i]) {
+      auto child_id = tags[i];
+      auto type_code = type_codes[child_id];
+      RETURN_NOT_OK(builder->Append(type_code));
+
+      auto child_type = type->getSubtype(child_id);
+      auto child_batch = batch->children[child_id];
+      auto start = static_cast<int64_t>(batch->offsets[i]);
+      RETURN_NOT_OK(AppendBatch(child_type, child_batch, start, /*length=*/1,
+                                builder->child_builder(child_id).get()));
+
+      if constexpr (std::is_same_v<UnionBuilderType, SparseUnionBuilder>) {
+        // Append null value to other child builders for sparse union type.
+        for (int8_t field_id = 0; field_id < union_type->num_fields(); field_id++) {
+          if (field_id != child_id) {
+            RETURN_NOT_OK(builder->child_builder(field_id)->AppendNull());
+          }
+        }
+      }
+    } else {
+      RETURN_NOT_OK(builder->AppendNull());
+    }
+  }
+  return Status::OK();
+}
+
+Status AppendUnionBatch(const liborc::Type* type,
+                        liborc::ColumnVectorBatch* column_vector_batch, int64_t offset,
+                        int64_t length, ArrayBuilder* abuilder) {
+  if (abuilder->type()->id() == Type::SPARSE_UNION) {
+    return AppendUnionBatchInternal<SparseUnionBuilder>(type, column_vector_batch, offset,
+                                                        length, abuilder);
+  }
+  if (abuilder->type()->id() == Type::DENSE_UNION) {
+    return AppendUnionBatchInternal<DenseUnionBuilder>(type, column_vector_batch, offset,
+                                                       length, abuilder);
+  }
+  return Status::Invalid("Invalid union type");
+}
+
 }  // namespace
 
 Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
@@ -332,6 +385,8 @@ Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
       return AppendTimestampBatch(batch, offset, length, builder);
     case liborc::DECIMAL:
       return AppendDecimalBatch(type, batch, offset, length, builder);
+    case liborc::UNION:
+      return AppendUnionBatch(type, batch, offset, length, builder);
     default:
       return Status::NotImplemented("Not implemented type kind: ", kind);
   }
@@ -414,6 +469,32 @@ Result<std::shared_ptr<Array>> NormalizeArray(const std::shared_ptr<Array>& arra
                                         map_array->value_offsets(), key_array, item_array,
                                         map_array->null_bitmap(), map_array->null_count(),
                                         map_array->offset());
+    }
+    case Type::type::DENSE_UNION: {
+      auto dense_union_array = checked_pointer_cast<DenseUnionArray>(array);
+      ArrayVector children;
+      for (int i = 0; i < dense_union_array->num_fields(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto child_array,
+                              NormalizeArray(dense_union_array->field(i)));
+        children.emplace_back(std::move(child_array));
+      }
+      return std::make_shared<DenseUnionArray>(
+          dense_union_array->type(), dense_union_array->length(), children,
+          dense_union_array->type_codes(), dense_union_array->value_offsets(),
+          dense_union_array->offset());
+    }
+    case Type::type::SPARSE_UNION: {
+      auto sparse_union_array = checked_pointer_cast<SparseUnionArray>(array);
+      ArrayVector children;
+      for (int i = 0; i < sparse_union_array->num_fields(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto flattened_child,
+                              sparse_union_array->GetFlattenedField(i));
+        ARROW_ASSIGN_OR_RAISE(auto child_array, NormalizeArray(flattened_child));
+        children.emplace_back(std::move(child_array));
+      }
+      return std::make_shared<SparseUnionArray>(
+          sparse_union_array->type(), sparse_union_array->length(), children,
+          sparse_union_array->type_codes(), sparse_union_array->offset());
     }
     default: {
       return array;
@@ -578,7 +659,7 @@ struct FixedSizeBinaryAppender {
 };
 
 // static_cast from int64_t or double to itself shouldn't introduce overhead
-// Pleae see
+// Please see
 // https://stackoverflow.com/questions/19106826/
 // can-static-cast-to-same-type-introduce-runtime-overhead
 template <class DataType, class BatchType>
@@ -742,6 +823,55 @@ Status WriteMapBatch(const Array& array, int64_t orc_offset,
   return Status::OK();
 }
 
+template <typename UnionArrayType>
+Status WriteUnionBatch(const Array& array, int64_t orc_offset,
+                       liborc::ColumnVectorBatch* column_vector_batch) {
+  auto union_array = checked_cast<const UnionArrayType*>(&array);
+  auto batch = checked_cast<liborc::UnionVectorBatch*>(column_vector_batch);
+
+  // Union array itself does not have nulls.
+  batch->hasNulls = false;
+
+  int64_t arrow_length = array.length();
+  int64_t running_arrow_offset = 0, running_orc_offset = orc_offset;
+
+  for (; running_arrow_offset < arrow_length;
+       running_orc_offset++, running_arrow_offset++) {
+    auto child_id = union_array->child_id(running_arrow_offset);
+    batch->tags[running_orc_offset] = static_cast<unsigned char>(child_id);
+    batch->notNull[running_orc_offset] = true;
+
+    // Orc union batch is dense, so we need to find the previous row that has the same
+    // type code (or child_id) to calculate the offset.
+    batch->offsets[running_orc_offset] = 0;
+    for (int64_t row = running_orc_offset - 1; row >= 0; row--) {
+      if (batch->tags[row] == child_id) {
+        batch->offsets[running_orc_offset] = batch->offsets[row] + 1;
+        break;
+      }
+    }
+
+    // Fill child batch.
+    liborc::ColumnVectorBatch* child_batch = batch->children[child_id];
+    int64_t child_array_orc_offset = batch->offsets[running_orc_offset];
+    int64_t child_array_arrow_offset;
+
+    if constexpr (std::is_same_v<UnionArrayType, DenseUnionArray>) {
+      child_array_arrow_offset = union_array->value_offset(running_arrow_offset);
+    } else {
+      static_assert(std::is_same_v<UnionArrayType, SparseUnionArray>);
+      child_array_arrow_offset = running_arrow_offset;
+    }
+    child_batch->resize(child_array_orc_offset + 1);
+
+    std::shared_ptr<Array> child_array = union_array->field(child_id);
+    RETURN_NOT_OK(WriteBatch(*(child_array->Slice(child_array_arrow_offset, 1)),
+                             child_array_orc_offset, child_batch));
+  }
+
+  return Status::OK();
+}
+
 Status WriteBatch(const Array& array, int64_t orc_offset,
                   liborc::ColumnVectorBatch* column_vector_batch) {
   Type::type kind = array.type_id();
@@ -827,6 +957,10 @@ Status WriteBatch(const Array& array, int64_t orc_offset,
       return WriteListBatch<FixedSizeListArray>(array, orc_offset, column_vector_batch);
     case Type::type::MAP:
       return WriteMapBatch(array, orc_offset, column_vector_batch);
+    case Type::type::SPARSE_UNION:
+      return WriteUnionBatch<SparseUnionArray>(array, orc_offset, column_vector_batch);
+    case Type::type::DENSE_UNION:
+      return WriteUnionBatch<DenseUnionArray>(array, orc_offset, column_vector_batch);
     default: {
       return Status::NotImplemented("Unknown or unsupported Arrow type: ",
                                     array.type()->ToString());
@@ -884,8 +1018,7 @@ Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const DataType& type) {
       ORC_UNIQUE_PTR<liborc::Type> out_type = liborc::createStructType();
       std::vector<std::shared_ptr<Field>> arrow_fields =
           checked_cast<const StructType&>(type).fields();
-      for (std::vector<std::shared_ptr<Field>>::iterator it = arrow_fields.begin();
-           it != arrow_fields.end(); ++it) {
+      for (auto it = arrow_fields.begin(); it != arrow_fields.end(); ++it) {
         std::string field_name = (*it)->name();
         std::shared_ptr<DataType> arrow_child_type = (*it)->type();
         ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*arrow_child_type));
@@ -907,10 +1040,8 @@ Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const DataType& type) {
       ORC_UNIQUE_PTR<liborc::Type> out_type = liborc::createUnionType();
       std::vector<std::shared_ptr<Field>> arrow_fields =
           checked_cast<const UnionType&>(type).fields();
-      for (std::vector<std::shared_ptr<Field>>::iterator it = arrow_fields.begin();
-           it != arrow_fields.end(); ++it) {
-        std::string field_name = (*it)->name();
-        std::shared_ptr<DataType> arrow_child_type = (*it)->type();
+      for (const auto& arrow_field : arrow_fields) {
+        std::shared_ptr<DataType> arrow_child_type = arrow_field->type();
         ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*arrow_child_type));
         out_type->addUnionChild(std::move(orc_subtype));
       }
@@ -991,10 +1122,8 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
       if (precision == 0) {
         // In HIVE 0.11/0.12 precision is set as 0, but means max precision
         return decimal128(38, 6);
-      } else {
-        return decimal128(precision, scale);
       }
-      break;
+      return decimal128(precision, scale);
     }
     case liborc::LIST: {
       if (subtype_count != 1) {
@@ -1021,6 +1150,9 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
       return struct_(std::move(fields));
     }
     case liborc::UNION: {
+      if (subtype_count > UnionType::kMaxTypeCode + 1) {
+        return Status::TypeError("ORC union subtype count exceeds Arrow union limit");
+      }
       FieldVector fields(subtype_count);
       std::vector<int8_t> type_codes(subtype_count);
       for (int child = 0; child < subtype_count; ++child) {

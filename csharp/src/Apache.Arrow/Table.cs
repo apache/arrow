@@ -32,7 +32,7 @@ namespace Apache.Arrow
         public static Table TableFromRecordBatches(Schema schema, IList<RecordBatch> recordBatches)
         {
             int nBatches = recordBatches.Count;
-            int nColumns = schema.Fields.Count;
+            int nColumns = schema.FieldsList.Count;
 
             List<Column> columns = new List<Column>(nColumns);
             for (int icol = 0; icol < nColumns; icol++)
@@ -42,7 +42,7 @@ namespace Apache.Arrow
                 {
                     columnArrays.Add(recordBatches[jj].Column(icol) as Array);
                 }
-                columns.Add(new Arrow.Column(schema.GetFieldByIndex(icol), columnArrays));
+                columns.Add(new Column(schema.GetFieldByIndex(icol), columnArrays));
             }
 
             return new Table(schema, columns);

@@ -119,7 +119,8 @@ Result<std::shared_ptr<compute::ExecPlan>> PlanFromTestCase(
                                                        default_memory_pool());
 
   // Mock table provider that ignores the table name and returns input_table
-  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
+  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&,
+                                                    const Schema&) {
     std::shared_ptr<compute::ExecNodeOptions> options =
         std::make_shared<compute::TableSourceNodeOptions>(input_table);
     return compute::Declaration("table_source", {}, options, "mock_source");
@@ -187,6 +188,12 @@ TEST(FunctionMapping, ValidCases) {
        {{"overflow", {"SILENT", "ERROR"}}},
        {int8(), int8()},
        "-119",
+       int8()},
+      {{kArrowSimpleExtensionFunctionsUri, "add_checked"},
+       {"10", "15"},
+       kNoOptions,
+       {int8(), int8()},
+       "25",
        int8()},
       {{kSubstraitArithmeticFunctionsUri, "subtract"},
        {"-119", "10"},
@@ -497,6 +504,12 @@ TEST(FunctionMapping, ErrorCases) {
        {int8(), int8()},
        "",
        int8()},
+      {{kArrowSimpleExtensionFunctionsUri, "add_checked"},
+       {"127", "10"},
+       kNoOptions,
+       {int8(), int8()},
+       "",
+       int8()},
       {{kSubstraitArithmeticFunctionsUri, "subtract"},
        {"-119", "10"},
        {{"overflow", {"ERROR", "SILENT"}}},
@@ -605,7 +618,8 @@ std::shared_ptr<compute::ExecPlan> PlanFromAggregateCase(
                                                        default_memory_pool());
 
   // Mock table provider that ignores the table name and returns input_table
-  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
+  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&,
+                                                    const Schema&) {
     std::shared_ptr<compute::ExecNodeOptions> options =
         std::make_shared<compute::TableSourceNodeOptions>(input_table);
     return compute::Declaration("table_source", {}, options, "mock_source");

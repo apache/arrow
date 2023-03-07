@@ -32,9 +32,10 @@ struct PARQUET_EXPORT LevelInfo {
   LevelInfo(int32_t null_slots, int32_t definition_level, int32_t repetition_level,
             int32_t repeated_ancestor_definition_level)
       : null_slot_usage(null_slots),
-        def_level(definition_level),
-        rep_level(repetition_level),
-        repeated_ancestor_def_level(repeated_ancestor_definition_level) {}
+        def_level(static_cast<int16_t>(definition_level)),
+        rep_level(static_cast<int16_t>(repetition_level)),
+        repeated_ancestor_def_level(
+            static_cast<int16_t>(repeated_ancestor_definition_level)) {}
 
   bool operator==(const LevelInfo& b) const {
     return null_slot_usage == b.null_slot_usage && def_level == b.def_level &&

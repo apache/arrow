@@ -17,12 +17,16 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static org.apache.arrow.driver.jdbc.utils.ConvertUtils.convertArrowFieldsToColumnMetaDataList;
+
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Properties;
 import java.util.TimeZone;
 
+import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
 import org.apache.calcite.avatica.AvaticaResultSetMetaData;
@@ -81,9 +85,19 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
       final int resultType,
       final int resultSetConcurrency,
       final int resultSetHoldability) throws SQLException {
-    return ArrowFlightPreparedStatement.createNewPreparedStatement(
-        (ArrowFlightConnection) connection, statementHandle, signature,
-        resultType, resultSetConcurrency, resultSetHoldability);
+    final ArrowFlightConnection flightConnection = (ArrowFlightConnection) connection;
+    ArrowFlightSqlClientHandler.PreparedStatement preparedStatement =
+        flightConnection.getMeta().getPreparedStatement(statementHandle);
+
+    if (preparedStatement == null) {
+      preparedStatement = flightConnection.getClientHandler().prepare(signature.sql);
+    }
+    final Schema resultSetSchema = preparedStatement.getDataSetSchema();
+    signature.columns.addAll(convertArrowFieldsToColumnMetaDataList(resultSetSchema.getFields()));
+
+    return ArrowFlightPreparedStatement.newPreparedStatement(
+        flightConnection, preparedStatement, statementHandle,
+        signature, resultType, resultSetConcurrency, resultSetHoldability);
   }
 
   @Override

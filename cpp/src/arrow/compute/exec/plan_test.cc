@@ -24,12 +24,14 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/test_nodes.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -277,6 +279,12 @@ void TestSourceSinkError(
   auto null_schema_options = OptionsType{no_schema, element_it_maker};
   ASSERT_THAT(MakeExecNode(source_factory_name, plan.get(), {}, null_schema_options),
               Raises(StatusCode::Invalid, HasSubstr("not null")));
+
+  auto no_io_but_executor = OptionsType{exp_batches.schema, element_it_maker,
+                                        io::default_io_context().executor()};
+  no_io_but_executor.requires_io = false;
+  ASSERT_THAT(MakeExecNode(source_factory_name, plan.get(), {}, no_io_but_executor),
+              Raises(StatusCode::Invalid, HasSubstr("io_executor was not nullptr")));
 }
 
 template <typename ElementType, typename OptionsType>
@@ -289,11 +297,19 @@ void TestSourceSink(
   auto element_it_maker = [&elements]() {
     return MakeVectorIterator<ElementType>(elements);
   };
-  Declaration plan(source_factory_name,
-                   OptionsType{exp_batches.schema, element_it_maker});
-  ASSERT_OK_AND_ASSIGN(auto result,
-                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
-  AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches.batches);
+  for (bool requires_io : {false, true}) {
+    for (bool use_threads : {false, true}) {
+      Declaration plan(source_factory_name,
+                       OptionsType{exp_batches.schema, element_it_maker, requires_io});
+      QueryOptions query_options;
+      query_options.use_threads = use_threads;
+      ASSERT_OK_AND_ASSIGN(auto result,
+                           DeclarationToExecBatches(std::move(plan), query_options));
+      // Should not need to ignore order since sink should sequence by implicit order
+      AssertExecBatchesEqual(result.schema, result.batches, exp_batches.batches);
+      AssertExecBatchesSequenced(result.batches);
+    }
+  }
 }
 
 void TestRecordBatchReaderSourceSink(
@@ -586,6 +602,19 @@ TEST(ExecPlanExecution, SourceSinkError) {
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
               Finishes(Raises(StatusCode::Invalid, HasSubstr("Artificial"))));
+}
+
+TEST(ExecPlanExecution, InvalidSequencing) {
+  auto basic_data = MakeBasicBatches();
+  Declaration plan = Declaration::Sequence(
+      {{"source", SourceNodeOptions{basic_data.schema, basic_data.gen(false, false)}},
+       {"aggregate", AggregateNodeOptions({}, {"i32"})}});
+
+  QueryOptions query_options;
+  ASSERT_OK(DeclarationToStatus(plan, query_options));
+  query_options.sequence_output = true;
+  ASSERT_THAT(DeclarationToStatus(plan, query_options),
+              Raises(StatusCode::Invalid, HasSubstr("no meaningful ordering")));
 }
 
 TEST(ExecPlanExecution, SourceConsumingSink) {
@@ -950,6 +979,49 @@ TEST(ExecPlanExecution, SourceProjectSink) {
       ExecBatchFromJSON({boolean(), int32()}, "[[null, 6], [true, 7], [true, 8]]")};
   ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan)));
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
+}
+
+TEST(ExecPlanExecution, ProjectMaintainsOrder) {
+  RegisterTestNodes();
+  constexpr int kRandomSeed = 42;
+  constexpr int64_t kRowsPerBatch = 1;
+  constexpr int kNumBatches = 16;
+  auto source_node = gen::Gen({{"x", gen::Step()}})
+                         ->FailOnError()
+                         ->SourceNode(kRowsPerBatch, kNumBatches);
+  Declaration plan =
+      Declaration::Sequence({source_node,
+                             {"jitter", JitterNodeOptions(kRandomSeed)},
+                             {"project", ProjectNodeOptions({field_ref("x")})}});
+
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema batches,
+                       DeclarationToExecBatches(std::move(plan)));
+
+  AssertExecBatchesSequenced(batches.batches);
+}
+
+TEST(ExecPlanExecution, FilterMaintainsOrder) {
+  RegisterTestNodes();
+  constexpr int kRandomSeed = 42;
+  constexpr int64_t kRowsPerBatch = 1;
+  constexpr int kNumBatches = 16;
+  auto source_node = gen::Gen({{"x", gen::Step()}})
+                         ->FailOnError()
+                         ->SourceNode(kRowsPerBatch, kNumBatches);
+  Declaration plan = Declaration::Sequence(
+      {source_node,
+       {"jitter", JitterNodeOptions(kRandomSeed)},
+       {"filter",
+        // The filter x > 50 should result in a few empty batches
+        FilterNodeOptions({call("greater", {field_ref("x"), literal(50)})})}});
+
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema batches,
+                       DeclarationToExecBatches(std::move(plan)));
+
+  // Sanity check that some filtering took place
+  ASSERT_EQ(0, batches.batches[0].length);
+
+  AssertExecBatchesSequenced(batches.batches);
 }
 
 namespace {

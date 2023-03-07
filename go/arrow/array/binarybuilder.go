@@ -220,6 +220,9 @@ func (b *BinaryBuilder) ReserveData(n int) {
 // additional memory will be allocated. If n is smaller, the allocated memory may be reduced.
 func (b *BinaryBuilder) Resize(n int) {
 	b.offsets.resize((n + 1) * b.offsetByteWidth)
+	if (n * b.offsetByteWidth) < b.offsets.Len() {
+		b.offsets.SetLength(n * b.offsetByteWidth)
+	}
 	b.builder.resize(n, b.init)
 }
 

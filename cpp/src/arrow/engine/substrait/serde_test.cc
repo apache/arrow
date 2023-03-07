@@ -774,6 +774,127 @@ TEST(Substrait, CallExtensionFunction) {
   }
 }
 
+TEST(Substrait, Cast) {
+  ExtensionSet ext_set;
+  ConversionOptions conversion_options;
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Expression", R"({
+  "selection": {
+      "direct_reference": {
+        "struct_field": {
+          "field": 0
+        }
+      },
+    "expression": {
+      "cast": {
+        "type": {
+          "fp64": {
+            "nullability": "NULLABILITY_NULLABLE"
+          }
+        },
+        "input": {
+          "selection": {
+            "direct_reference": {
+              "struct_field": {
+                "field": 0
+              }
+            }
+          }
+        },
+        "failure_behavior": "FAILURE_BEHAVIOR_THROW_EXCEPTION"
+      }
+    }
+  }
+})",
+                                                   /*ignore_unknown_fields=*/false))
+
+  ASSERT_OK_AND_ASSIGN(auto expr, DeserializeExpression(*buf, ext_set));
+
+  ASSERT_TRUE(expr.call());
+
+  ASSERT_THAT(expr.call()->arguments[0].call()->function_name, "cast");
+}
+
+TEST(Substrait, CastRequiresFailureBehavior) {
+  ExtensionSet ext_set;
+  ConversionOptions conversion_options;
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Expression", R"({
+  "selection": {
+      "direct_reference": {
+        "struct_field": {
+          "field": 0
+        }
+      },
+    "expression": {
+      "cast": {
+        "type": {
+          "fp64": {
+            "nullability": "NULLABILITY_NULLABLE"
+          }
+        },
+        "input": {
+          "selection": {
+            "direct_reference": {
+              "struct_field": {
+                "field": 0
+              }
+            }
+          }
+        },
+        "failure_behavior": "FAILURE_BEHAVIOR_UNSPECIFIED"
+      }
+    }
+  }
+})",
+                                                   /*ignore_unknown_fields=*/false))
+
+  EXPECT_THAT(DeserializeExpression(*buf, ext_set, conversion_options),
+              Raises(StatusCode::Invalid, HasSubstr("FailureBehavior unspecified")));
+}
+
+TEST(Substrait, CallCastNonNullableFails) {
+  ExtensionSet ext_set;
+  ConversionOptions conversion_options;
+  conversion_options.strictness = ConversionStrictness::EXACT_ROUNDTRIP;
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Expression", R"({
+  "selection": {
+      "direct_reference": {
+        "struct_field": {
+          "field": 0
+        }
+      },
+    "expression": {
+      "cast": {
+        "type": {
+          "fp64": {
+            "nullability": "NULLABILITY_REQUIRED"
+          }
+        },
+        "input": {
+          "selection": {
+            "direct_reference": {
+              "struct_field": {
+                "field": 0
+              }
+            }
+          }
+        },
+        "failure_behavior": "FAILURE_BEHAVIOR_THROW_EXCEPTION"
+      }
+    }
+  }
+})",
+                                                   /*ignore_unknown_fields=*/false))
+
+  EXPECT_THAT(DeserializeExpression(*buf, ext_set, conversion_options),
+              Raises(StatusCode::Invalid, HasSubstr("must be of nullable type")));
+}
+
 TEST(Substrait, ReadRel) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Rel", R"({
@@ -831,7 +952,7 @@ TEST(Substrait, ReadRel) {
 
 /// \brief Create a NamedTableProvider that provides `table` regardless of the name
 NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
-  return [table = std::move(table)](const std::vector<std::string>&) {
+  return [table = std::move(table)](const std::vector<std::string>&, const Schema&) {
     std::shared_ptr<compute::ExecNodeOptions> options =
         std::make_shared<compute::TableSourceNodeOptions>(table);
     return compute::Declaration("table_source", {}, options, "mock_source");
@@ -2309,11 +2430,16 @@ TEST(SubstraitRoundTrip, FilterNamedTable) {
   ])"});
 
   NamedTableProvider table_provider =
-      [&input_table, &table_names](
-          const std::vector<std::string>& names) -> Result<compute::Declaration> {
+      [&input_table, &table_names, &dummy_schema](
+          const std::vector<std::string>& names,
+          const Schema& schema) -> Result<compute::Declaration> {
     if (table_names != names) {
       return Status::Invalid("Table name mismatch");
     }
+    if (!dummy_schema->Equals(schema)) {
+      return Status::Invalid("Table schema mismatch");
+    }
+
     std::shared_ptr<compute::ExecNodeOptions> options =
         std::make_shared<compute::TableSourceNodeOptions>(input_table);
     return compute::Declaration("table_source", {}, std::move(options), "mock_source");
@@ -3050,7 +3176,7 @@ TEST(SubstraitRoundTrip, JoinRel) {
   ])"});
 
   NamedTableProvider table_provider =
-      [left_table, right_table](const std::vector<std::string>& names) {
+      [left_table, right_table](const std::vector<std::string>& names, const Schema&) {
         std::shared_ptr<Table> output_table;
         for (const auto& name : names) {
           if (name == "left") {
@@ -3201,7 +3327,7 @@ TEST(SubstraitRoundTrip, JoinRelWithEmit) {
   ])"});
 
   NamedTableProvider table_provider =
-      [left_table, right_table](const std::vector<std::string>& names) {
+      [left_table, right_table](const std::vector<std::string>& names, const Schema&) {
         std::shared_ptr<Table> output_table;
         for (const auto& name : names) {
           if (name == "left") {
@@ -3551,7 +3677,8 @@ TEST(Substrait, IsthmusPlan) {
 
 NamedTableProvider ProvideMadeTable(
     std::function<Result<std::shared_ptr<Table>>(const std::vector<std::string>&)> make) {
-  return [make](const std::vector<std::string>& names) -> Result<compute::Declaration> {
+  return [make](const std::vector<std::string>& names,
+                const Schema&) -> Result<compute::Declaration> {
     ARROW_ASSIGN_OR_RAISE(auto table, make(names));
     std::shared_ptr<compute::ExecNodeOptions> options =
         std::make_shared<compute::TableSourceNodeOptions>(table);
@@ -4114,21 +4241,21 @@ TEST(Substrait, SetRelationBasic) {
       [112, 7, 32]
   ])"});
 
-  NamedTableProvider table_provider = [table1,
-                                       table2](const std::vector<std::string>& names) {
-    std::shared_ptr<Table> output_table;
-    for (const auto& name : names) {
-      if (name == "T1") {
-        output_table = table1;
-      }
-      if (name == "T2") {
-        output_table = table2;
-      }
-    }
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
+  NamedTableProvider table_provider =
+      [table1, table2](const std::vector<std::string>& names, const Schema&) {
+        std::shared_ptr<Table> output_table;
+        for (const auto& name : names) {
+          if (name == "T1") {
+            output_table = table1;
+          }
+          if (name == "T2") {
+            output_table = table2;
+          }
+        }
+        std::shared_ptr<compute::ExecNodeOptions> options =
+            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
+        return compute::Declaration("table_source", {}, options, "mock_source");
+      };
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
@@ -4657,7 +4784,7 @@ TEST(Substrait, CompoundEmitFilterless) {
   ])"});
 
   NamedTableProvider table_provider =
-      [left_table, right_table](const std::vector<std::string>& names) {
+      [left_table, right_table](const std::vector<std::string>& names, const Schema&) {
         std::shared_ptr<Table> output_table;
         for (const auto& name : names) {
           if (name == "left") {
@@ -4983,9 +5110,9 @@ TEST(Substrait, CompoundEmitWithFilter) {
       [10, 42, 16]
   ])"});
 
-  NamedTableProvider table_provider =
-      [left_table, right_table](
-          const std::vector<std::string>& names) -> Result<compute::Declaration> {
+  NamedTableProvider table_provider = [left_table, right_table](
+                                          const std::vector<std::string>& names,
+                                          const Schema&) -> Result<compute::Declaration> {
     std::shared_ptr<Table> output_table;
     for (const auto& name : names) {
       if (name == "left") {

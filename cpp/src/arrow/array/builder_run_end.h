@@ -262,10 +262,10 @@ class ARROW_EXPORT RunEndEncodedBuilder : public ArrayBuilder {
   }
 
   // Pre-condition: !value_run_builder_.has_open_run()
-  template <typename RunEndsType>
+  template <typename RunEndCType>
   Status DoAppendArray(const ArraySpan& to_append);
 
-  template <typename RunEndsType>
+  template <typename RunEndCType>
   Status DoAppendRunEnd(int64_t run_end);
 
   /// \brief Cast run_end to the appropriate type and appends it to the run_ends

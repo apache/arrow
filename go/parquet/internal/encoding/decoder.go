@@ -20,8 +20,11 @@ import (
 	"bytes"
 	"reflect"
 
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/apache/arrow/go/v12/internal/bitutils"
+	shared_utils "github.com/apache/arrow/go/v12/internal/utils"
 	"github.com/apache/arrow/go/v12/parquet"
 	"github.com/apache/arrow/go/v12/parquet/internal/debug"
 	format "github.com/apache/arrow/go/v12/parquet/internal/gen-go/parquet"
@@ -105,6 +108,8 @@ type dictDecoder struct {
 	mem              memory.Allocator
 	dictValueDecoder utils.DictionaryConverter
 	idxDecoder       *utils.RleDecoder
+
+	idxScratchSpace []uint64
 }
 
 // SetDict sets a decoder that can be used to decode the dictionary that is
@@ -138,11 +143,59 @@ func (d *dictDecoder) SetData(nvals int, data []byte) error {
 }
 
 func (d *dictDecoder) decode(out interface{}) (int, error) {
-	return d.idxDecoder.GetBatchWithDict(d.dictValueDecoder, out)
+	n, err := d.idxDecoder.GetBatchWithDict(d.dictValueDecoder, out)
+	d.nvals -= n
+	return n, err
 }
 
 func (d *dictDecoder) decodeSpaced(out interface{}, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-	return d.idxDecoder.GetBatchWithDictSpaced(d.dictValueDecoder, out, nullCount, validBits, validBitsOffset)
+	n, err := d.idxDecoder.GetBatchWithDictSpaced(d.dictValueDecoder, out, nullCount, validBits, validBitsOffset)
+	d.nvals -= n
+	return n, err
+}
+
+func (d *dictDecoder) DecodeIndices(numValues int, bldr array.Builder) (int, error) {
+	n := shared_utils.MinInt(numValues, d.nvals)
+	if cap(d.idxScratchSpace) < n {
+		d.idxScratchSpace = make([]uint64, n, bitutil.NextPowerOf2(n))
+	} else {
+		d.idxScratchSpace = d.idxScratchSpace[:n]
+	}
+
+	n = d.idxDecoder.GetBatch(d.idxScratchSpace)
+
+	toAppend := make([]int, n)
+	for i, v := range d.idxScratchSpace {
+		toAppend[i] = int(v)
+	}
+	bldr.(*array.BinaryDictionaryBuilder).AppendIndices(toAppend, nil)
+	d.nvals -= n
+	return n, nil
+}
+
+func (d *dictDecoder) DecodeIndicesSpaced(numValues, nullCount int, validBits []byte, offset int64, bldr array.Builder) (int, error) {
+	if cap(d.idxScratchSpace) < numValues {
+		d.idxScratchSpace = make([]uint64, numValues, bitutil.NextPowerOf2(numValues))
+	} else {
+		d.idxScratchSpace = d.idxScratchSpace[:numValues]
+	}
+
+	n, err := d.idxDecoder.GetBatchSpaced(d.idxScratchSpace, nullCount, validBits, offset)
+	if err != nil {
+		return n, err
+	}
+
+	valid := make([]bool, n)
+	bitutils.VisitBitBlocks(validBits, offset, int64(n),
+		func(pos int64) { valid[pos] = true }, func() {})
+
+	toAppend := make([]int, n)
+	for i, v := range d.idxScratchSpace {
+		toAppend[i] = int(v)
+	}
+	bldr.(*array.BinaryDictionaryBuilder).AppendIndices(toAppend, valid)
+	d.nvals -= n - nullCount
+	return n, nil
 }
 
 var empty = [1]byte{0}

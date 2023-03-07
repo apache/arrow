@@ -35,10 +35,10 @@ inline const ArraySpan& RunEndsArray(const ArraySpan& span) { return span.child_
 inline const ArraySpan& ValuesArray(const ArraySpan& span) { return span.child_data[1]; }
 
 /// \brief Get a pointer to run ends values of an REE array
-template <typename RunEndsType>
-const RunEndsType* RunEnds(const ArraySpan& span) {
-  assert(RunEndsArray(span).type->id() == CTypeTraits<RunEndsType>::ArrowType::type_id);
-  return RunEndsArray(span).GetValues<RunEndsType>(1);
+template <typename RunEndCType>
+const RunEndCType* RunEnds(const ArraySpan& span) {
+  assert(RunEndsArray(span).type->id() == CTypeTraits<RunEndCType>::ArrowType::type_id);
+  return RunEndsArray(span).GetValues<RunEndCType>(1);
 }
 
 namespace internal {
@@ -48,8 +48,8 @@ namespace internal {
 ///
 /// \return the physical offset or run_ends_size if the physical offset is not
 /// found in run_ends
-template <typename RunEndsType>
-int64_t FindPhysicalIndex(const RunEndsType* run_ends, int64_t run_ends_size, int64_t i,
+template <typename RunEndCType>
+int64_t FindPhysicalIndex(const RunEndCType* run_ends, int64_t run_ends_size, int64_t i,
                           int64_t absolute_offset) {
   assert(absolute_offset + i >= 0);
   auto it = std::upper_bound(run_ends, run_ends + run_ends_size, absolute_offset + i);
@@ -61,8 +61,8 @@ int64_t FindPhysicalIndex(const RunEndsType* run_ends, int64_t run_ends_size, in
 /// \brief Uses binary-search to calculate the number of physical values (and
 /// run-ends) necessary to represent the logical range of values from
 /// offset to length
-template <typename RunEndsType>
-int64_t FindPhysicalLength(const RunEndsType* run_ends, int64_t run_ends_size,
+template <typename RunEndCType>
+int64_t FindPhysicalLength(const RunEndCType* run_ends, int64_t run_ends_size,
                            int64_t length, int64_t offset) {
   // The physical length is calculated by finding the offset of the last element
   // and adding 1 to it, so first we ensure there is at least one element.
@@ -70,8 +70,8 @@ int64_t FindPhysicalLength(const RunEndsType* run_ends, int64_t run_ends_size,
     return 0;
   }
   const int64_t physical_offset =
-      FindPhysicalIndex<RunEndsType>(run_ends, run_ends_size, 0, offset);
-  const int64_t physical_index_of_last = FindPhysicalIndex<RunEndsType>(
+      FindPhysicalIndex<RunEndCType>(run_ends, run_ends_size, 0, offset);
+  const int64_t physical_index_of_last = FindPhysicalIndex<RunEndCType>(
       run_ends + physical_offset, run_ends_size - physical_offset, length - 1, offset);
 
   assert(physical_index_of_last < run_ends_size - physical_offset);
@@ -81,10 +81,10 @@ int64_t FindPhysicalLength(const RunEndsType* run_ends, int64_t run_ends_size,
 /// \brief Find the physical index into the values array of the REE ArraySpan
 ///
 /// This function uses binary-search, so it has a O(log N) cost.
-template <typename RunEndsType>
+template <typename RunEndCType>
 int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i, int64_t absolute_offset) {
   const int64_t run_ends_size = RunEndsArray(span).length;
-  return FindPhysicalIndex(RunEnds<RunEndsType>(span), run_ends_size, i, absolute_offset);
+  return FindPhysicalIndex(RunEnds<RunEndCType>(span), run_ends_size, i, absolute_offset);
 }
 
 /// \brief Find the physical length of an REE ArraySpan
@@ -96,10 +96,10 @@ int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i, int64_t absolute_off
 /// Avoid calling this function if the physical length can be estabilished in
 /// some other way (e.g. when iterating over the runs sequentially until the
 /// end). This function uses binary-search, so it has a O(log N) cost.
-template <typename RunEndsType>
+template <typename RunEndCType>
 int64_t FindPhysicalLength(const ArraySpan& span) {
   return FindPhysicalLength(
-      /*run_ends=*/RunEnds<RunEndsType>(span),
+      /*run_ends=*/RunEnds<RunEndCType>(span),
       /*run_ends_size=*/RunEndsArray(span).length,
       /*length=*/span.length,
       /*offset=*/span.offset);
@@ -123,7 +123,7 @@ int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i, int64_t absolute_off
 /// end). This function uses binary-search, so it has a O(log N) cost.
 int64_t FindPhysicalLength(const ArraySpan& span);
 
-template <typename RunEndsType>
+template <typename RunEndCType>
 class RunEndEncodedArraySpan {
  private:
   struct PrivateTag {};
@@ -194,7 +194,7 @@ class RunEndEncodedArraySpan {
       : RunEndEncodedArraySpan(ArraySpan{data}) {}
 
   explicit RunEndEncodedArraySpan(const ArraySpan& array_span)
-      : array_span{array_span}, run_ends_(RunEnds<RunEndsType>(array_span)) {
+      : array_span{array_span}, run_ends_(RunEnds<RunEndCType>(array_span)) {
     assert(array_span.type->id() == Type::RUN_END_ENCODED);
   }
 
@@ -251,7 +251,7 @@ class RunEndEncodedArraySpan {
   const ArraySpan array_span;
 
  private:
-  const RunEndsType* run_ends_;
+  const RunEndCType* run_ends_;
 };
 
 /// \brief Iterate over two run-end encoded arrays in runs or sub-runs that are

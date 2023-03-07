@@ -402,7 +402,7 @@ Encodings
 +--------------------------+----------+----------+---------+
 | DELTA_BYTE_ARRAY         | ✓        |          |         |
 +--------------------------+----------+----------+---------+
-| DELTA_LENGTH_BYTE_ARRAY  | ✓        |          |         |
+| DELTA_LENGTH_BYTE_ARRAY  | ✓        | ✓        |         |
 +--------------------------+----------+----------+---------+
 
 * \(1) Only supported for encoding definition and repetition levels,

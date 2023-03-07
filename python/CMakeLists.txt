@@ -525,6 +525,7 @@ set(CYTHON_EXTENSIONS
     _compute
     _csv
     _exec_plan
+    _acero
     _feather
     _fs
     _hdfsio

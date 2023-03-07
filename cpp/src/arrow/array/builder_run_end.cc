@@ -202,12 +202,12 @@ Status RunEndEncodedBuilder::AppendScalars(const ScalarVector& scalars) {
   return Status::OK();
 }
 
-template <typename RunEndsType>
+template <typename RunEndCType>
 Status RunEndEncodedBuilder::DoAppendArray(const ArraySpan& to_append) {
   DCHECK_GT(to_append.length, 0);
   DCHECK(!value_run_builder_->has_open_run());
 
-  ree_util::RunEndEncodedArraySpan<RunEndsType> ree_span(to_append);
+  ree_util::RunEndEncodedArraySpan<RunEndCType> ree_span(to_append);
   const int64_t physical_offset = ree_span.PhysicalIndex(0);
   const int64_t physical_length =
       ree_span.PhysicalIndex(ree_span.length() - 1) + 1 - physical_offset;
@@ -218,7 +218,7 @@ Status RunEndEncodedBuilder::DoAppendArray(const ArraySpan& to_append) {
   const auto end = ree_span.end();
   for (auto it = ree_span.iterator(0, physical_offset); it != end; ++it) {
     const int64_t run_end = committed_logical_length_ + it.run_length();
-    RETURN_NOT_OK(DoAppendRunEnd<RunEndsType>(run_end));
+    RETURN_NOT_OK(DoAppendRunEnd<RunEndCType>(run_end));
     UpdateDimensions(run_end, 0);
   }
 
@@ -284,16 +284,16 @@ Status RunEndEncodedBuilder::FinishCurrentRun() {
   return Status::OK();
 }
 
-template <typename RunEndsType>
+template <typename RunEndCType>
 Status RunEndEncodedBuilder::DoAppendRunEnd(int64_t run_end) {
-  constexpr auto max = std::numeric_limits<RunEndsType>::max();
+  constexpr auto max = std::numeric_limits<RunEndCType>::max();
   if (ARROW_PREDICT_FALSE(run_end > max)) {
     return Status::Invalid("Run end value must fit on run ends type but ", run_end, " > ",
                            max, ".");
   }
-  return internal::checked_cast<typename CTypeTraits<RunEndsType>::BuilderType*>(
+  return internal::checked_cast<typename CTypeTraits<RunEndCType>::BuilderType*>(
              children_[0].get())
-      ->Append(static_cast<RunEndsType>(run_end));
+      ->Append(static_cast<RunEndCType>(run_end));
 }
 
 Status RunEndEncodedBuilder::AppendRunEnd(int64_t run_end) {
