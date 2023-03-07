@@ -300,7 +300,7 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
           cache: true
-          cache-dependency-path: go/go.sum      
+          cache-dependency-path: go/go.sum
       - name: Brew Install Arrow and pkg-config
         shell: bash
         run: brew install apache-arrow pkg-config
