@@ -377,7 +377,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       matrix:
-        go: [1.17, 1.18]
+        go: [1.17]
     env:
       GO: ${{ matrix.go }}
       ARROW_ENABLE_TIMING_TESTS: "OFF"
