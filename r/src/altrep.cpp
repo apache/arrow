@@ -1052,8 +1052,12 @@ bool is_arrow_altrep(SEXP x) {
   return false;
 }
 
+bool is_unmaterialized_arrow_altrep(SEXP x) {
+  return is_arrow_altrep(x) && R_altrep_data1(x) != R_NilValue;
+}
+
 std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP x) {
-  if (is_arrow_altrep(x) && R_altrep_data1(x) != R_NilValue) {
+  if (is_unmaterialized_arrow_altrep(x)) {
     return GetChunkedArray(x);
   }
 
@@ -1078,6 +1082,8 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
 bool is_arrow_altrep(SEXP) { return false; }
 
 std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP x) { return nullptr; }
+
+bool is_unmaterialized_arrow_altrep(SEXP) { return false; }
 
 }  // namespace altrep
 }  // namespace r
