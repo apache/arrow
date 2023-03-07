@@ -167,6 +167,14 @@ void AssertExecBatchesEqualIgnoringOrder(const std::shared_ptr<Schema>& schema,
                                          const std::vector<ExecBatch>& act);
 
 ARROW_TESTING_EXPORT
+void AssertExecBatchesEqual(const std::shared_ptr<Schema>& schema,
+                            const std::vector<ExecBatch>& exp,
+                            const std::vector<ExecBatch>& act);
+
+ARROW_TESTING_EXPORT void AssertExecBatchesSequenced(
+    const std::vector<ExecBatch>& batches);
+
+ARROW_TESTING_EXPORT
 bool operator==(const Declaration&, const Declaration&);
 
 ARROW_TESTING_EXPORT

@@ -420,6 +420,21 @@ void AssertExecBatchesEqualIgnoringOrder(const std::shared_ptr<Schema>& schema,
   AssertTablesEqualIgnoringOrder(exp_tab, act_tab);
 }
 
+void AssertExecBatchesEqual(const std::shared_ptr<Schema>& schema,
+                            const std::vector<ExecBatch>& exp,
+                            const std::vector<ExecBatch>& act) {
+  ASSERT_OK_AND_ASSIGN(auto exp_tab, TableFromExecBatches(schema, exp));
+  ASSERT_OK_AND_ASSIGN(auto act_tab, TableFromExecBatches(schema, act));
+  AssertTablesEqual(*exp_tab, *act_tab);
+}
+
+void AssertExecBatchesSequenced(const std::vector<ExecBatch>& batches) {
+  int expected_index = 0;
+  for (const auto& batch : batches) {
+    ASSERT_EQ(expected_index++, batch.index);
+  }
+}
+
 template <typename T>
 static const T& OptionsAs(const ExecNodeOptions& opts) {
   const auto& ptr = checked_cast<const T&>(opts);

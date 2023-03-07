@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "arrow/compute/function.h"
+#include "arrow/compute/ordering.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
@@ -77,37 +78,6 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
   static DictionaryEncodeOptions Defaults() { return DictionaryEncodeOptions(); }
 
   NullEncodingBehavior null_encoding_behavior = MASK;
-};
-
-enum class SortOrder {
-  /// Arrange values in increasing order
-  Ascending,
-  /// Arrange values in decreasing order
-  Descending,
-};
-
-enum class NullPlacement {
-  /// Place nulls and NaNs before any non-null values.
-  /// NaNs will come after nulls.
-  AtStart,
-  /// Place nulls and NaNs after any non-null values.
-  /// NaNs will come before nulls.
-  AtEnd,
-};
-
-/// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
-class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
- public:
-  explicit SortKey(FieldRef target, SortOrder order = SortOrder::Ascending)
-      : target(std::move(target)), order(order) {}
-
-  bool Equals(const SortKey& other) const;
-  std::string ToString() const;
-
-  /// A FieldRef targetting the sort column.
-  FieldRef target;
-  /// How to order by this sort key.
-  SortOrder order;
 };
 
 class ARROW_EXPORT ArraySortOptions : public FunctionOptions {

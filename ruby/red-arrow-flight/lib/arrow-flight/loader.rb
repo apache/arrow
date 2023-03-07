@@ -32,6 +32,7 @@ module ArrowFlight
       require "arrow-flight/call-options"
       require "arrow-flight/client-options"
       require "arrow-flight/location"
+      require "arrow-flight/record-batch-reader"
       require "arrow-flight/server-options"
       require "arrow-flight/ticket"
     end

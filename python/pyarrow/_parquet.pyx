@@ -1597,6 +1597,15 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         props.encryption(
             (<FileEncryptionProperties>encryption_properties).unwrap())
 
+    # For backwards compatibility reasons we cap the maximum row group size
+    # at 64Mi rows.  This could be changed in the future, though it would be
+    # a breaking change.
+    #
+    # The user can always specify a smaller row group size (and the default
+    # is smaller) when calling write_table.  If the call to write_table uses
+    # a size larger than this then it will be latched to this value.
+    props.max_row_group_length(64*1024*1024)
+
     properties = props.build()
 
     return properties

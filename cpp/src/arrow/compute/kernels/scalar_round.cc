@@ -771,114 +771,6 @@ struct Trunc {
   }
 };
 
-// Generate a kernel given a bitwise arithmetic functor. Assumes the
-// functor treats all integer types of equal width identically
-template <template <typename... Args> class KernelGenerator, typename Op>
-ArrayKernelExec TypeAgnosticBitWiseExecFromOp(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-    case Type::UINT8:
-      return KernelGenerator<UInt8Type, UInt8Type, Op>::Exec;
-    case Type::INT16:
-    case Type::UINT16:
-      return KernelGenerator<UInt16Type, UInt16Type, Op>::Exec;
-    case Type::INT32:
-    case Type::UINT32:
-      return KernelGenerator<UInt32Type, UInt32Type, Op>::Exec;
-    case Type::INT64:
-    case Type::UINT64:
-      return KernelGenerator<UInt64Type, UInt64Type, Op>::Exec;
-    default:
-      DCHECK(false);
-      return nullptr;
-  }
-}
-
-template <template <typename... Args> class KernelGenerator, typename Op>
-ArrayKernelExec ShiftExecFromOp(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return KernelGenerator<Int8Type, Int8Type, Op>::Exec;
-    case Type::UINT8:
-      return KernelGenerator<UInt8Type, UInt8Type, Op>::Exec;
-    case Type::INT16:
-      return KernelGenerator<Int16Type, Int16Type, Op>::Exec;
-    case Type::UINT16:
-      return KernelGenerator<UInt16Type, UInt16Type, Op>::Exec;
-    case Type::INT32:
-      return KernelGenerator<Int32Type, Int32Type, Op>::Exec;
-    case Type::UINT32:
-      return KernelGenerator<UInt32Type, UInt32Type, Op>::Exec;
-    case Type::INT64:
-      return KernelGenerator<Int64Type, Int64Type, Op>::Exec;
-    case Type::UINT64:
-      return KernelGenerator<UInt64Type, UInt64Type, Op>::Exec;
-    default:
-      DCHECK(false);
-      return nullptr;
-  }
-}
-
-template <template <typename... Args> class KernelGenerator, typename Op>
-ArrayKernelExec GenerateArithmeticFloatingPoint(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::FLOAT:
-      return KernelGenerator<FloatType, FloatType, Op>::Exec;
-    case Type::DOUBLE:
-      return KernelGenerator<DoubleType, DoubleType, Op>::Exec;
-    default:
-      DCHECK(false);
-      return nullptr;
-  }
-}
-
-// resolve decimal binary operation output type per *casted* args
-template <typename OutputGetter>
-Result<TypeHolder> ResolveDecimalBinaryOperationOutput(
-    const std::vector<TypeHolder>& types, OutputGetter&& getter) {
-  // casted types should be same size decimals
-  const auto& left_type = checked_cast<const DecimalType&>(*types[0]);
-  const auto& right_type = checked_cast<const DecimalType&>(*types[1]);
-  DCHECK_EQ(left_type.id(), right_type.id());
-
-  int32_t precision, scale;
-  std::tie(precision, scale) = getter(left_type.precision(), left_type.scale(),
-                                      right_type.precision(), right_type.scale());
-  ARROW_ASSIGN_OR_RAISE(auto type, DecimalType::Make(left_type.id(), precision, scale));
-  return std::move(type);
-}
-
-// Generate a kernel given an arithmetic functor
-template <template <typename...> class KernelGenerator, typename OutType, typename Op>
-ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return KernelGenerator<OutType, Int8Type, Op>::Exec;
-    case Type::UINT8:
-      return KernelGenerator<OutType, UInt8Type, Op>::Exec;
-    case Type::INT16:
-      return KernelGenerator<OutType, Int16Type, Op>::Exec;
-    case Type::UINT16:
-      return KernelGenerator<OutType, UInt16Type, Op>::Exec;
-    case Type::INT32:
-      return KernelGenerator<OutType, Int32Type, Op>::Exec;
-    case Type::UINT32:
-      return KernelGenerator<OutType, UInt32Type, Op>::Exec;
-    case Type::INT64:
-    case Type::TIMESTAMP:
-      return KernelGenerator<OutType, Int64Type, Op>::Exec;
-    case Type::UINT64:
-      return KernelGenerator<OutType, UInt64Type, Op>::Exec;
-    case Type::FLOAT:
-      return KernelGenerator<FloatType, FloatType, Op>::Exec;
-    case Type::DOUBLE:
-      return KernelGenerator<DoubleType, DoubleType, Op>::Exec;
-    default:
-      DCHECK(false);
-      return nullptr;
-  }
-}
-
 struct RoundFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
@@ -896,7 +788,7 @@ struct RoundFunction : ScalarFunction {
 };
 
 /// A RoundFunction that promotes only decimal arguments to double.
-struct ArithmeticDecimalToFloatingPointFunction : public RoundFunction {
+struct RoundDecimalToFloatingPointFunction : public RoundFunction {
   using RoundFunction::RoundFunction;
 
   Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
@@ -970,64 +862,6 @@ struct RoundFloatingPointFunction : public RoundFunction {
   }
 };
 
-// A scalar kernel that ignores (assumed all-null) inputs and returns null.
-Status NullToNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return Status::OK();
-}
-
-void AddNullExec(ScalarFunction* func) {
-  std::vector<InputType> input_types(func->arity().num_args, InputType(Type::NA));
-  DCHECK_OK(func->AddKernel(std::move(input_types), OutputType(null()), NullToNullExec));
-}
-
-template <typename Op>
-std::shared_ptr<ScalarFunction> MakeUnaryRoundFunction(std::string name,
-                                                       FunctionDoc doc) {
-  auto func = std::make_shared<RoundFunction>(name, Arity::Unary(), std::move(doc));
-  for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOp<ScalarUnary, Op>(ty);
-    DCHECK_OK(func->AddKernel({ty}, ty, exec));
-  }
-  AddNullExec(func.get());
-  return func;
-}
-
-// Like MakeUnaryRoundFunction, but for unary arithmetic ops with a fixed
-// output type for integral inputs.
-template <typename Op, typename IntOutType>
-std::shared_ptr<ScalarFunction> MakeUnaryRoundFunctionWithFixedIntOutType(
-    std::string name, FunctionDoc doc) {
-  auto int_out_ty = TypeTraits<IntOutType>::type_singleton();
-  auto func = std::make_shared<RoundFunction>(name, Arity::Unary(), std::move(doc));
-  for (const auto& ty : NumericTypes()) {
-    auto out_ty = arrow::is_floating(ty->id()) ? ty : int_out_ty;
-    auto exec = GenerateArithmeticWithFixedIntOutType<ScalarUnary, IntOutType, Op>(ty);
-    DCHECK_OK(func->AddKernel({ty}, out_ty, exec));
-  }
-  {
-    auto exec = ScalarUnary<Int64Type, Decimal128Type, Op>::Exec;
-    DCHECK_OK(func->AddKernel({InputType(Type::DECIMAL128)}, int64(), exec));
-    exec = ScalarUnary<Int64Type, Decimal256Type, Op>::Exec;
-    DCHECK_OK(func->AddKernel({InputType(Type::DECIMAL256)}, int64(), exec));
-  }
-  AddNullExec(func.get());
-  return func;
-}
-
-// Like MakeUnaryRoundFunction, but for arithmetic ops that need to run
-// only on non-null output.
-template <typename Op>
-std::shared_ptr<ScalarFunction> MakeUnaryRoundFunctionNotNull(std::string name,
-                                                              FunctionDoc doc) {
-  auto func = std::make_shared<RoundFunction>(name, Arity::Unary(), std::move(doc));
-  for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
-    DCHECK_OK(func->AddKernel({ty}, ty, exec));
-  }
-  AddNullExec(func.get());
-  return func;
-}
-
 #define ROUND_CASE(MODE)                                                       \
   case RoundMode::MODE: {                                                      \
     using Op = OpImpl<Type, RoundMode::MODE>;                                  \
@@ -1097,8 +931,8 @@ struct RoundBinaryKernel {
 };
 #undef ROUND_BINARY_CASE
 
-// Like MakeUnaryRoundFunction, but for unary rounding functions that control
-// kernel dispatch based on RoundMode, only on non-null output.
+// For unary rounding functions that control kernel dispatch based on RoundMode, only on
+// non-null output.
 template <template <typename, RoundMode, typename...> class Op, typename OptionsType>
 std::shared_ptr<ScalarFunction> MakeUnaryRoundFunction(std::string name,
                                                        FunctionDoc doc) {
@@ -1169,65 +1003,12 @@ std::shared_ptr<ScalarFunction> MakeBinaryRoundFunction(const std::string& name,
   return func;
 }
 
-// Like MakeUnaryRoundFunction, but for signed arithmetic ops that need to run
-// only on non-null output.
-template <typename Op>
-std::shared_ptr<ScalarFunction> MakeUnarySignedRoundFunctionNotNull(std::string name,
-                                                                    FunctionDoc doc) {
-  auto func = std::make_shared<RoundFunction>(name, Arity::Unary(), std::move(doc));
-  for (const auto& ty : NumericTypes()) {
-    if (!arrow::is_unsigned_integer(ty->id())) {
-      auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
-      DCHECK_OK(func->AddKernel({ty}, ty, exec));
-    }
-  }
-  AddNullExec(func.get());
-  return func;
-}
-
-template <typename Op>
-std::shared_ptr<ScalarFunction> MakeBitWiseFunctionNotNull(std::string name,
-                                                           FunctionDoc doc) {
-  auto func = std::make_shared<RoundFunction>(name, Arity::Binary(), std::move(doc));
-  for (const auto& ty : IntTypes()) {
-    auto exec = TypeAgnosticBitWiseExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
-  }
-  AddNullExec(func.get());
-  return func;
-}
-
-template <typename Op>
-std::shared_ptr<ScalarFunction> MakeShiftFunctionNotNull(std::string name,
-                                                         FunctionDoc doc) {
-  auto func = std::make_shared<RoundFunction>(name, Arity::Binary(), std::move(doc));
-  for (const auto& ty : IntTypes()) {
-    auto exec = ShiftExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
-  }
-  AddNullExec(func.get());
-  return func;
-}
-
 template <typename Op, typename FunctionImpl = RoundFloatingPointFunction>
 std::shared_ptr<ScalarFunction> MakeUnaryRoundFunctionFloatingPoint(std::string name,
                                                                     FunctionDoc doc) {
   auto func = std::make_shared<FunctionImpl>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
     auto exec = GenerateArithmeticFloatingPoint<ScalarUnary, Op>(ty);
-    DCHECK_OK(func->AddKernel({ty}, ty, exec));
-  }
-  AddNullExec(func.get());
-  return func;
-}
-
-template <typename Op>
-std::shared_ptr<ScalarFunction> MakeUnaryRoundFunctionFloatingPointNotNull(
-    std::string name, FunctionDoc doc) {
-  auto func =
-      std::make_shared<RoundFloatingPointFunction>(name, Arity::Unary(), std::move(doc));
-  for (const auto& ty : FloatingPointTypes()) {
-    auto exec = GenerateArithmeticFloatingPoint<ScalarUnaryNotNull, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
   }
   AddNullExec(func.get());

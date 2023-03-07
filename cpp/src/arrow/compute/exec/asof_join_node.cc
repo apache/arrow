@@ -1150,8 +1150,8 @@ class AsofJoinNode : public ExecNode {
       if (result.ok()) {
         auto out_rb = *result;
         if (!out_rb) break;
-        ++batches_produced_;
         ExecBatch out_b(*out_rb);
+        out_b.index = batches_produced_++;
         Status st = output_->InputReceived(this, std::move(out_b));
         if (!st.ok()) {
           EndFromProcessThread(std::move(st));
@@ -1491,6 +1491,7 @@ class AsofJoinNode : public ExecNode {
   }
 
   const char* kind_name() const override { return "AsofJoinNode"; }
+  const Ordering& ordering() const override { return ordering_; }
 
   Status InputReceived(ExecNode* input, ExecBatch batch) override {
     // Get the input
@@ -1540,6 +1541,8 @@ class AsofJoinNode : public ExecNode {
   }
 
  private:
+  // Outputs from this node are always in ascending order according to the on key
+  const Ordering ordering_;
   std::vector<col_index_t> indices_of_on_key_;
   std::vector<std::vector<col_index_t>> indices_of_by_key_;
   std::vector<std::unique_ptr<KeyHasher>> key_hashers_;
@@ -1573,6 +1576,7 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
                            bool must_hash, bool may_rehash)
     : ExecNode(plan, inputs, input_labels,
                /*output_schema=*/std::move(output_schema)),
+      ordering_({SortKey(indices_of_on_key[0])}),
       indices_of_on_key_(std::move(indices_of_on_key)),
       indices_of_by_key_(std::move(indices_of_by_key)),
       key_hashers_(std::move(key_hashers)),

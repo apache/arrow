@@ -28,6 +28,7 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
@@ -288,7 +289,6 @@ class DataGeneratorImpl : public DataGenerator,
     return batches;
   }
 
-#ifdef ARROW_COMPUTE
   Result<::arrow::compute::ExecBatch> ExecBatch(int64_t num_rows) override {
     std::vector<Datum> values;
     values.reserve(generators_.size());
@@ -308,7 +308,15 @@ class DataGeneratorImpl : public DataGenerator,
     }
     return batches;
   }
-#endif
+
+  Result<::arrow::compute::Declaration> SourceNode(int64_t rows_per_batch,
+                                                   int num_batches) override {
+    ARROW_ASSIGN_OR_RAISE(std::vector<::arrow::compute::ExecBatch> batches,
+                          ExecBatches(rows_per_batch, num_batches));
+    return ::arrow::compute::Declaration(
+        "exec_batch_source",
+        ::arrow::compute::ExecBatchSourceNodeOptions(schema_, std::move(batches)));
+  }
 
   Result<std::shared_ptr<::arrow::Table>> Table(int64_t rows_per_chunk,
                                                 int num_chunks = 1) override {
@@ -355,7 +363,7 @@ class GTestDataGeneratorImpl : public GTestDataGenerator {
                          target_->RecordBatches(rows_per_batch, num_batches));
     return batches;
   }
-#ifdef ARROW_COMPUTE
+
   ::arrow::compute::ExecBatch ExecBatch(int64_t num_rows) override {
     EXPECT_OK_AND_ASSIGN(auto batch, target_->ExecBatch(num_rows));
     return batch;
@@ -365,7 +373,13 @@ class GTestDataGeneratorImpl : public GTestDataGenerator {
     EXPECT_OK_AND_ASSIGN(auto batches, target_->ExecBatches(rows_per_batch, num_batches));
     return batches;
   }
-#endif
+  ::arrow::compute::Declaration SourceNode(int64_t rows_per_batch,
+                                           int num_batches) override {
+    EXPECT_OK_AND_ASSIGN(auto source_node,
+                         target_->SourceNode(rows_per_batch, num_batches));
+    return source_node;
+  }
+
   std::shared_ptr<::arrow::Table> Table(int64_t rows_per_chunk, int num_chunks) override {
     EXPECT_OK_AND_ASSIGN(auto table, target_->Table(rows_per_chunk, num_chunks));
     return table;

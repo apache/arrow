@@ -104,12 +104,54 @@ namespace {
     return true;
   }
 
-  bool
-  garrow_sort_key_equal_raw(const arrow::compute::SortKey &sort_key,
-                            const arrow::compute::SortKey &other_sort_key) {
-    return
-      (sort_key.target == other_sort_key.target) &&
-      (sort_key.order == other_sort_key.order);
+  GList *
+  garrow_sort_keys_new_raw(std::vector<arrow::compute::SortKey> &arrow_sort_keys)
+  {
+    GList *sort_keys = NULL;
+    for (const auto &arrow_sort_key : arrow_sort_keys) {
+      auto sort_key = garrow_sort_key_new_raw(arrow_sort_key);
+      sort_keys = g_list_prepend(sort_keys, sort_key);
+    }
+    return g_list_reverse(sort_keys);
+  }
+
+  gboolean
+  garrow_raw_sort_keys_equal(
+    std::vector<arrow::compute::SortKey> &arrow_sort_keys,
+    std::vector<arrow::compute::SortKey> &arrow_other_sort_keys)
+  {
+    if (arrow_sort_keys.size() != arrow_other_sort_keys.size()) {
+      return FALSE;
+    }
+    const auto n_sort_keys = arrow_sort_keys.size();
+    for (size_t i = 0; i < n_sort_keys; ++i) {
+      auto arrow_sort_key = &(arrow_sort_keys[i]);
+      auto arrow_other_sort_key = &(arrow_other_sort_keys[i]);
+      if (!arrow_sort_key->Equals(*arrow_other_sort_key)) {
+        return FALSE;
+      }
+    }
+    return TRUE;
+  }
+
+  void
+  garrow_raw_sort_keys_set(std::vector<arrow::compute::SortKey> &arrow_sort_keys,
+                           GList *sort_keys)
+  {
+    arrow_sort_keys.clear();
+    for (auto node = sort_keys; node; node = node->next) {
+      auto sort_key = GARROW_SORT_KEY(node->data);
+      auto arrow_sort_key = garrow_sort_key_get_raw(sort_key);
+      arrow_sort_keys.push_back(*arrow_sort_key);
+    }
+  }
+
+  void
+  garrow_raw_sort_keys_add(std::vector<arrow::compute::SortKey> &arrow_sort_keys,
+                           GArrowSortKey *sort_key)
+  {
+    auto arrow_sort_key = garrow_sort_key_get_raw(sort_key);
+    arrow_sort_keys.push_back(*arrow_sort_key);
   }
 }
 
@@ -2928,8 +2970,7 @@ garrow_sort_key_equal(GArrowSortKey *sort_key,
 {
   auto arrow_sort_key = garrow_sort_key_get_raw(sort_key);
   auto arrow_other_sort_key = garrow_sort_key_get_raw(other_sort_key);
-  return garrow_sort_key_equal_raw(*arrow_sort_key,
-                                   *arrow_other_sort_key);
+  return arrow_sort_key->Equals(*arrow_other_sort_key);
 }
 
 
@@ -2985,16 +3026,9 @@ garrow_sort_options_equal(GArrowSortOptions *options,
 {
   auto arrow_options = garrow_sort_options_get_raw(options);
   auto arrow_other_options = garrow_sort_options_get_raw(other_options);
-  if (arrow_options->sort_keys.size() !=
-      arrow_other_options->sort_keys.size()) {
+  if (!garrow_raw_sort_keys_equal(arrow_options->sort_keys,
+                                  arrow_other_options->sort_keys)) {
     return FALSE;
-  }
-  const auto n_sort_keys = arrow_options->sort_keys.size();
-  for (size_t i = 0; i < n_sort_keys; ++i) {
-    if (!garrow_sort_key_equal_raw(arrow_options->sort_keys[i],
-                                   arrow_other_options->sort_keys[i])) {
-      return FALSE;
-    }
   }
   return TRUE;
 }
@@ -3012,30 +3046,7 @@ GList *
 garrow_sort_options_get_sort_keys(GArrowSortOptions *options)
 {
   auto arrow_options = garrow_sort_options_get_raw(options);
-  GList *sort_keys = NULL;
-  for (const auto &arrow_sort_key : arrow_options->sort_keys) {
-    auto sort_key = garrow_sort_key_new_raw(arrow_sort_key);
-    sort_keys = g_list_prepend(sort_keys, sort_key);
-  }
-  return g_list_reverse(sort_keys);
-}
-
-/**
- * garrow_sort_options_add_sort_key:
- * @options: A #GArrowSortOptions.
- * @sort_key: The sort key to be added.
- *
- * Add a sort key to be used.
- *
- * Since: 3.0.0
- */
-void
-garrow_sort_options_add_sort_key(GArrowSortOptions *options,
-                                 GArrowSortKey *sort_key)
-{
-  auto arrow_options = garrow_sort_options_get_raw(options);
-  auto arrow_sort_key = garrow_sort_key_get_raw(sort_key);
-  arrow_options->sort_keys.push_back(*arrow_sort_key);
+  return garrow_sort_keys_new_raw(arrow_options->sort_keys);
 }
 
 /**
@@ -3052,12 +3063,24 @@ garrow_sort_options_set_sort_keys(GArrowSortOptions *options,
                                   GList *sort_keys)
 {
   auto arrow_options = garrow_sort_options_get_raw(options);
-  arrow_options->sort_keys.clear();
-  for (auto node = sort_keys; node; node = node->next) {
-    auto sort_key = GARROW_SORT_KEY(node->data);
-    auto arrow_sort_key = garrow_sort_key_get_raw(sort_key);
-    arrow_options->sort_keys.push_back(*arrow_sort_key);
-  }
+  garrow_raw_sort_keys_set(arrow_options->sort_keys, sort_keys);
+}
+
+/**
+ * garrow_sort_options_add_sort_key:
+ * @options: A #GArrowSortOptions.
+ * @sort_key: The sort key to be added.
+ *
+ * Add a sort key to be used.
+ *
+ * Since: 3.0.0
+ */
+void
+garrow_sort_options_add_sort_key(GArrowSortOptions *options,
+                                 GArrowSortKey *sort_key)
+{
+  auto arrow_options = garrow_sort_options_get_raw(options);
+  garrow_raw_sort_keys_add(arrow_options->sort_keys, sort_key);
 }
 
 
@@ -4003,6 +4026,220 @@ garrow_quantile_options_set_qs(GArrowQuantileOptions *options,
   for (gsize i = 0; i < n; i++) {
     priv->q.push_back(qs[i]);
   }
+}
+
+
+enum {
+  PROP_RANK_OPTIONS_NULL_PLACEMENT = 1,
+  PROP_RANK_OPTIONS_TIEBREAKER,
+};
+
+G_DEFINE_TYPE(GArrowRankOptions,
+              garrow_rank_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+#define GARROW_RANK_OPTIONS_GET_PRIVATE(object)          \
+  static_cast<GArrowRankOptionsPrivate *>(               \
+    garrow_rank_options_get_instance_private(            \
+      GARROW_RANK_OPTIONS(object)))
+
+static void
+garrow_rank_options_set_property(GObject *object,
+                                 guint prop_id,
+                                 const GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto options = garrow_rank_options_get_raw(GARROW_RANK_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_RANK_OPTIONS_NULL_PLACEMENT:
+    options->null_placement =
+      static_cast<arrow::compute::NullPlacement>(g_value_get_enum(value));
+    break;
+  case PROP_RANK_OPTIONS_TIEBREAKER:
+    options->tiebreaker =
+      static_cast<arrow::compute::RankOptions::Tiebreaker>(
+        g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_rank_options_get_property(GObject *object,
+                                 guint prop_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto options = garrow_rank_options_get_raw(GARROW_RANK_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_RANK_OPTIONS_NULL_PLACEMENT:
+    g_value_set_enum(
+      value,
+      static_cast<GArrowNullPlacement>(options->null_placement));
+    break;
+  case PROP_RANK_OPTIONS_TIEBREAKER:
+    g_value_set_enum(
+      value,
+      static_cast<GArrowRankTiebreaker>(options->tiebreaker));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_rank_options_init(GArrowRankOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::RankOptions());
+}
+
+static void
+garrow_rank_options_class_init(GArrowRankOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_rank_options_set_property;
+  gobject_class->get_property = garrow_rank_options_get_property;
+
+
+  auto options = arrow::compute::RankOptions::Defaults();
+
+  GParamSpec *spec;
+  /**
+   * GArrowRankOptions:null-placement:
+   *
+   * Whether nulls and NaNs are placed at the start or at the end.
+   *
+   * Since: 12.0.0
+   */
+  spec = g_param_spec_enum("null-placement",
+                           "Null placement",
+                           "Whether nulls and NaNs are placed "
+                           "at the start or at the end.",
+                           GARROW_TYPE_NULL_PLACEMENT,
+                           static_cast<GArrowNullPlacement>(
+                             options.null_placement),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_RANK_OPTIONS_NULL_PLACEMENT,
+                                  spec);
+
+  /**
+   * GArrowRankOptions:tiebreaker:
+   *
+   * Tiebreaker for dealing with equal values in ranks.
+   *
+   * Since: 12.0.0
+   */
+  spec = g_param_spec_enum("tiebreaker",
+                           "Tiebreaker",
+                           "Tiebreaker for dealing with equal values in ranks.",
+                           GARROW_TYPE_RANK_TIEBREAKER,
+                           static_cast<GArrowRankTiebreaker>(
+                             options.tiebreaker),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_RANK_OPTIONS_TIEBREAKER,
+                                  spec);
+}
+
+/**
+ * garrow_rank_options_new:
+ *
+ * Returns: A newly created #GArrowRankOptions.
+ *
+ * Since: 12.0.0
+ */
+GArrowRankOptions *
+garrow_rank_options_new(void)
+{
+  return GARROW_RANK_OPTIONS(g_object_new(GARROW_TYPE_RANK_OPTIONS, nullptr));
+}
+
+/**
+ * garrow_rank_options_equal:
+ * @options: A #GArrowRankOptions.
+ * @other_options: A #GArrowRankOptions to be compared.
+ *
+ * Returns: %TRUE if both of them have the same option values, %FALSE
+ *   otherwise.
+ *
+ * Since: 12.0.0
+ */
+gboolean
+garrow_rank_options_equal(GArrowRankOptions *options,
+                          GArrowRankOptions *other_options)
+{
+  auto arrow_options = garrow_rank_options_get_raw(options);
+  auto arrow_other_options = garrow_rank_options_get_raw(other_options);
+  if (!garrow_raw_sort_keys_equal(arrow_options->sort_keys,
+                                  arrow_other_options->sort_keys)) {
+    return FALSE;
+  }
+  if (arrow_options->null_placement != arrow_other_options->null_placement) {
+    return FALSE;
+  }
+  if (arrow_options->tiebreaker != arrow_other_options->tiebreaker) {
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/**
+ * garrow_rank_options_get_sort_keys:
+ * @options: A #GArrowSortOptions.
+ *
+ * Returns: (transfer full) (element-type GArrowSortKey):
+ *   The sort keys to be used.
+ *
+ * Since: 12.0.0
+ */
+GList *
+garrow_rank_options_get_sort_keys(GArrowRankOptions *options)
+{
+  auto arrow_options = garrow_rank_options_get_raw(options);
+  return garrow_sort_keys_new_raw(arrow_options->sort_keys);
+}
+
+/**
+ * garrow_rank_options_set_sort_keys:
+ * @options: A #GArrowRankOptions.
+ * @sort_keys: (element-type GArrowSortKey): The sort keys to be used.
+ *
+ * Set sort keys to be used.
+ *
+ * Since: 12.0.0
+ */
+void
+garrow_rank_options_set_sort_keys(GArrowRankOptions *options,
+                                  GList *sort_keys)
+{
+  auto arrow_options = garrow_rank_options_get_raw(options);
+  garrow_raw_sort_keys_set(arrow_options->sort_keys, sort_keys);
+}
+
+/**
+ * garrow_rank_options_add_sort_key:
+ * @options: A #GArrowRankOptions.
+ * @sort_key: The sort key to be added.
+ *
+ * Add a sort key to be used.
+ *
+ * Since: 12.0.0
+ */
+void
+garrow_rank_options_add_sort_key(GArrowRankOptions *options,
+                                 GArrowSortKey *sort_key)
+{
+  auto arrow_options = garrow_rank_options_get_raw(options);
+  garrow_raw_sort_keys_add(arrow_options->sort_keys, sort_key);
 }
 
 
@@ -5279,6 +5516,11 @@ garrow_function_options_new_raw(
       static_cast<const arrow::compute::QuantileOptions *>(arrow_options);
     auto options = garrow_quantile_options_new_raw(arrow_quantile_options);
     return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "RankOptions") {
+    const auto arrow_rank_options =
+      static_cast<const arrow::compute::RankOptions *>(arrow_options);
+    auto options = garrow_rank_options_new_raw(arrow_rank_options);
+    return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS,
                                 NULL);
@@ -5663,5 +5905,26 @@ arrow::compute::QuantileOptions *
 garrow_quantile_options_get_raw(GArrowQuantileOptions *options)
 {
   return static_cast<arrow::compute::QuantileOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+
+GArrowRankOptions *
+garrow_rank_options_new_raw(const arrow::compute::RankOptions *arrow_options)
+{
+  auto options = GARROW_RANK_OPTIONS(
+    g_object_new(GARROW_TYPE_RANK_OPTIONS,
+                 "null-placement", arrow_options->null_placement,
+                 "tiebreaker", arrow_options->tiebreaker,
+                 nullptr));
+  auto arrow_new_options = garrow_rank_options_get_raw(options);
+  arrow_new_options->sort_keys = arrow_options->sort_keys;
+  return options;
+}
+
+arrow::compute::RankOptions *
+garrow_rank_options_get_raw(GArrowRankOptions *options)
+{
+  return static_cast<arrow::compute::RankOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

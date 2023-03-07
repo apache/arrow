@@ -33,7 +33,7 @@
 #'   * "tsv", equivalent to passing `format = "text", delimiter = "\t"`
 #' * `...`: Additional format-specific options
 #'
-#'   `format = "parquet"``:
+#'   `format = "parquet"`:
 #'   * `dict_columns`: Names of columns which should be read as dictionaries.
 #'   * Any Parquet options from [FragmentScanOptions].
 #'
@@ -470,7 +470,7 @@ csv_file_format_read_opts <- function(schema = NULL, ...) {
 #'   * "csv"/"text", aliases for the same format.
 #' * `...`: Additional format-specific options
 #'
-#'   `format = "parquet"``:
+#'   `format = "parquet"`:
 #'   * `use_buffered_stream`: Read files through buffered input streams rather than
 #'                            loading entire row groups at once. This may be enabled
 #'                            to reduce memory overhead. Disabled by default.

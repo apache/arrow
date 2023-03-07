@@ -152,6 +152,50 @@ func (w *{{.Name}}ColumnChunkWriter) WriteBatchSpaced(values []{{.name}}, defLev
   })
 }
 
+func (w *{{.Name}}ColumnChunkWriter) WriteDictIndices(indices arrow.Array, defLevels, repLevels []int16) (err error) {
+  defer func() {
+    if r := recover(); r != nil {
+      switch r := r.(type) {
+      case string:
+        err = errors.New(r)
+      case error:
+        err = r
+      default:
+        err = fmt.Errorf("unknown error type: %s", r)
+      }
+    }
+  }()
+  
+  valueOffset := int64(0)
+  length := len(defLevels)
+  if defLevels == nil {
+    length = indices.Len()
+  }
+
+  dictEncoder := w.currentEncoder.(encoding.DictEncoder)
+
+  doBatches(int64(length), w.props.WriteBatchSize(), func(offset, batch int64) {
+    info := w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch)
+    w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
+
+    writeableIndices := array.NewSlice(indices, valueOffset, valueOffset+info.numSpaced())
+    defer writeableIndices.Release()
+    writeableIndices = w.maybeReplaceValidity(writeableIndices, info.nullCount)
+    defer writeableIndices.Release()
+
+    if err := dictEncoder.PutIndices(writeableIndices); err != nil {
+      panic(err) // caught above
+    }
+
+    if err := w.commitWriteAndCheckPageLimit(batch, info.batchNum); err != nil {
+      panic(err)
+    }
+
+    valueOffset += info.numSpaced()
+  })
+  
+  return
+}
 
 func (w *{{.Name}}ColumnChunkWriter) writeValues(values []{{.name}}, numNulls int64) {
   w.currentEncoder.(encoding.{{.Name}}Encoder).Put(values)
@@ -167,7 +211,7 @@ func (w *{{.Name}}ColumnChunkWriter) writeValuesSpaced(spacedValues []{{.name}},
     w.currentEncoder.(encoding.{{.Name}}Encoder).Put(spacedValues)
   }
   if w.pageStatistics != nil {
-    nulls := int64(len(spacedValues)) - numValues
+    nulls := numValues - numRead
     w.pageStatistics.(*metadata.{{.Name}}Statistics).UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
   }
 }
@@ -178,15 +222,16 @@ func (w *{{.Name}}ColumnChunkWriter) checkDictionarySizeLimit() {
   }
 
   if w.currentEncoder.(encoding.DictEncoder).DictEncodedSize() >= int(w.props.DictionaryPageSizeLimit()) {
-    w.fallbackToPlain()
+    w.FallbackToPlain()
   }
 }
 
-func (w *{{.Name}}ColumnChunkWriter) fallbackToPlain() {
+func (w *{{.Name}}ColumnChunkWriter) FallbackToPlain() {
   if w.currentEncoder.Encoding() == parquet.Encodings.PlainDict {
     w.WriteDictionaryPage()
     w.FlushBufferedDataPages()
     w.fallbackToNonDict = true
+    w.currentEncoder.Release()
     w.currentEncoder = encoding.{{.Name}}EncoderTraits.Encoder(format.Encoding(parquet.Encodings.Plain), false, w.descr, w.mem)
     w.encoding = parquet.Encodings.Plain
   }

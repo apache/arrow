@@ -26,8 +26,22 @@ arrow_add_pkg_config("arrow-compute")
 # Unit tests
 #
 
+# The following kernels are always present:
+#  - array_filter
+#  - array_take
+#  - cast
+#  - dictionary_encode
+#  - drop_null
+#  - filter
+#  - indices_nonzero
+#  - take
+#  - unique
+#  - value_counts
+#
+# Tests that use additional kernels should specify REQUIRE_ALL_KERNELS to avoid
+# being included in minimal builds. See: GH-34388
 function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
-  set(options)
+  set(options REQUIRE_ALL_KERNELS)
   set(one_value_args PREFIX)
   set(multi_value_args LABELS)
   cmake_parse_arguments(ARG
@@ -35,6 +49,10 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
                         "${one_value_args}"
                         "${multi_value_args}"
                         ${ARGN})
+
+  if(ARG_REQUIRE_ALL_KERNELS AND (NOT ARROW_COMPUTE))
+    return()
+  endif()
 
   if(ARG_PREFIX)
     set(PREFIX ${ARG_PREFIX})

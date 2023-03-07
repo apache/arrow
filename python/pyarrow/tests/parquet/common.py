@@ -111,6 +111,10 @@ def _random_integers(size, dtype):
                              size=size).astype(dtype)
 
 
+def _range_integers(size, dtype):
+    return pa.array(np.arange(size, dtype=dtype))
+
+
 def _test_dataframe(size=10000, seed=0):
     import pandas as pd
 

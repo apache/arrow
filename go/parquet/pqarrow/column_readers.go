@@ -461,7 +461,8 @@ func chunksToSingle(chunked *arrow.Chunked) (arrow.ArrayData, error) {
 func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *schema.Column, mem memory.Allocator) (*arrow.Chunked, error) {
 	var data arrow.ArrayData
 	switch valueType.ID() {
-	// case arrow.DICTIONARY:
+	case arrow.DICTIONARY:
+		return transferDictionary(rdr, valueType), nil
 	case arrow.NULL:
 		return arrow.NewChunked(arrow.Null, []arrow.Array{array.NewNull(rdr.ValuesWritten())}), nil
 	case arrow.INT32, arrow.INT64, arrow.FLOAT32, arrow.FLOAT64:
@@ -533,6 +534,9 @@ func transferZeroCopy(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData 
 
 func transferBinary(rdr file.RecordReader, dt arrow.DataType) *arrow.Chunked {
 	brdr := rdr.(file.BinaryRecordReader)
+	if brdr.ReadDictionary() {
+		return transferDictionary(brdr, &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: dt})
+	}
 	chunks := brdr.GetBuilderChunks()
 	if dt == arrow.BinaryTypes.String || dt == arrow.BinaryTypes.LargeString {
 		// convert chunks from binary to string without copying data,
@@ -827,4 +831,13 @@ func transferDecimalBytes(rdr file.BinaryRecordReader, dt arrow.DataType) (*arro
 		defer chunks[idx].Release()
 	}
 	return arrow.NewChunked(dt, chunks), nil
+}
+
+func transferDictionary(rdr file.RecordReader, logicalValueType arrow.DataType) *arrow.Chunked {
+	brdr := rdr.(file.BinaryRecordReader)
+	chunks := brdr.GetBuilderChunks()
+	for _, chunk := range chunks {
+		defer chunk.Release()
+	}
+	return arrow.NewChunked(logicalValueType, chunks)
 }

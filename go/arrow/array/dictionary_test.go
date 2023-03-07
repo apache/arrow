@@ -1638,3 +1638,48 @@ func TestDictioanryUnifierTableZeroColumns(t *testing.T) {
 	assert.EqualValues(t, 42, unified.NumRows())
 	assert.True(t, array.TableEqual(table, unified))
 }
+
+func TestDictionaryAppendIndices(t *testing.T) {
+	indexTypes := []arrow.DataType{
+		arrow.PrimitiveTypes.Int8,
+		arrow.PrimitiveTypes.Uint8,
+		arrow.PrimitiveTypes.Int16,
+		arrow.PrimitiveTypes.Uint16,
+		arrow.PrimitiveTypes.Int32,
+		arrow.PrimitiveTypes.Uint32,
+		arrow.PrimitiveTypes.Int64,
+		arrow.PrimitiveTypes.Uint64,
+	}
+
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dict, _, err := array.FromJSON(mem, arrow.BinaryTypes.String, strings.NewReader(`["a", "b", "c", "d", "e", "f"]`))
+	require.NoError(t, err)
+	defer dict.Release()
+
+	indices := []int{3, 4, 0, 3, 1, 4, 4, 5}
+
+	for _, typ := range indexTypes {
+		t.Run(typ.String(), func(t *testing.T) {
+			scoped := memory.NewCheckedAllocatorScope(mem)
+			defer scoped.CheckSize(t)
+
+			dictType := &arrow.DictionaryType{
+				IndexType: typ, ValueType: dict.DataType()}
+			bldr := array.NewDictionaryBuilderWithDict(mem, dictType, dict)
+			defer bldr.Release()
+
+			bldr.AppendIndices(indices, nil)
+
+			arr := bldr.NewDictionaryArray()
+			defer arr.Release()
+
+			arrIndices := arr.Indices()
+			assert.EqualValues(t, len(indices), arr.Len())
+			assert.EqualValues(t, len(indices), arrIndices.Len())
+
+			assert.Equal(t, fmt.Sprint(indices), arrIndices.String())
+		})
+	}
+}

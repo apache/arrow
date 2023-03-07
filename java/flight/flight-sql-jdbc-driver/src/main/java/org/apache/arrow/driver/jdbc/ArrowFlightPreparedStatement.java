@@ -80,6 +80,18 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
         signature, resultSetType, resultSetConcurrency, resultSetHoldability);
   }
 
+  static ArrowFlightPreparedStatement newPreparedStatement(final ArrowFlightConnection connection,
+      final ArrowFlightSqlClientHandler.PreparedStatement preparedStmt,
+      final StatementHandle statementHandle,
+      final Signature signature,
+      final int resultSetType,
+      final int resultSetConcurrency,
+      final int resultSetHoldability) throws SQLException {
+    return new ArrowFlightPreparedStatement(
+        connection, preparedStmt, statementHandle,
+        signature, resultSetType, resultSetConcurrency, resultSetHoldability);
+  }
+
   @Override
   public ArrowFlightConnection getConnection() throws SQLException {
     return (ArrowFlightConnection) super.getConnection();
