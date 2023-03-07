@@ -309,7 +309,7 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          export PKG_CONFIG_PATH=/usr/local/Cellar/openssl@3/3.0.8/lib/pkgconfig:$PKG_CONFIG_PATH
+           echo "PKG_CONFIG_PATH=/usr/local/Cellar/openssl@3/3.0.8/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
           ci/scripts/go_build.sh $(pwd)
       - name: Test
         shell: bash
