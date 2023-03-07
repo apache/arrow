@@ -301,9 +301,12 @@ jobs:
           go-version: ${{ matrix.go }}
           cache: true
           cache-dependency-path: go/go.sum
+      - name: Brew reinstall openssl
+        shell: bash
+        run: brew reinstall openssl@3
       - name: Brew Install Arrow and pkg-config
         shell: bash
-        run: brew install apache-arrow pkg-config openssl
+        run: brew install apache-arrow pkg-config
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@${{ matrix.staticcheck }}
       - name: Build
