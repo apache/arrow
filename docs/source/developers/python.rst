@@ -616,8 +616,6 @@ to be used when building PyArrow are:
      - PYARROW_WITH_PARQUET
    * - PARQUET_REQUIRE_ENCRYPTION
      - PYARROW_WITH_PARQUET_ENCRYPTION
-   * - ARROW_PLASMA
-     - PYARROW_WITH_PLASMA
    * - ARROW_TENSORFLOW
      - PYARROW_WITH_TENSORFLOW
    * - ARROW_ORC
@@ -656,8 +654,6 @@ PyArrow are:
      - Bundle the Boost libraries when we bundle Arrow C++, default OFF
    * - PYARROW_BUNDLE_ARROW_CPP_HEADERS
      - Bundle the Arrow C++ headers
-   * - PYARROW_BUNDLE_PLASMA_EXECUTABLE
-     - Bundle the plasma-store-server, default ON
    * - PYARROW_INSTALL_TESTS
      - Add the test to the python package, default ON
    * - PYARROW_BUILD_VERBOSE
