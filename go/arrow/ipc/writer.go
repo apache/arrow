@@ -80,11 +80,12 @@ type Writer struct {
 	mem memory.Allocator
 	pw  PayloadWriter
 
-	started    bool
-	schema     *arrow.Schema
-	mapper     dictutils.Mapper
-	codec      flatbuf.CompressionType
-	compressNP int
+	started         bool
+	schema          *arrow.Schema
+	mapper          dictutils.Mapper
+	codec           flatbuf.CompressionType
+	compressNP      int
+	minSpaceSavings *float64
 
 	// map of the last written dictionaries by id
 	// so we can avoid writing the same dictionary over and over
@@ -98,12 +99,13 @@ type Writer struct {
 func NewWriterWithPayloadWriter(pw PayloadWriter, opts ...Option) *Writer {
 	cfg := newConfig(opts...)
 	return &Writer{
-		mem:            cfg.alloc,
-		pw:             pw,
-		schema:         cfg.schema,
-		codec:          cfg.codec,
-		compressNP:     cfg.compressNP,
-		emitDictDeltas: cfg.emitDictDeltas,
+		mem:             cfg.alloc,
+		pw:              pw,
+		schema:          cfg.schema,
+		codec:           cfg.codec,
+		compressNP:      cfg.compressNP,
+		minSpaceSavings: cfg.minSpaceSavings,
+		emitDictDeltas:  cfg.emitDictDeltas,
 	}
 }
 
@@ -167,7 +169,7 @@ func (w *Writer) Write(rec arrow.Record) (err error) {
 	const allow64b = true
 	var (
 		data = Payload{msg: MessageRecordBatch}
-		enc  = newRecordEncoder(w.mem, 0, kMaxNestingDepth, allow64b, w.codec, w.compressNP)
+		enc  = newRecordEncoder(w.mem, 0, kMaxNestingDepth, allow64b, w.codec, w.compressNP, w.minSpaceSavings)
 	)
 	defer data.Release()
 
@@ -301,22 +303,34 @@ type recordEncoder struct {
 	fields []fieldMetadata
 	meta   []bufferMetadata
 
-	depth      int64
-	start      int64
-	allow64b   bool
-	codec      flatbuf.CompressionType
-	compressNP int
+	depth           int64
+	start           int64
+	allow64b        bool
+	codec           flatbuf.CompressionType
+	compressNP      int
+	minSpaceSavings *float64
 }
 
-func newRecordEncoder(mem memory.Allocator, startOffset, maxDepth int64, allow64b bool, codec flatbuf.CompressionType, compressNP int) *recordEncoder {
+func newRecordEncoder(mem memory.Allocator, startOffset, maxDepth int64, allow64b bool, codec flatbuf.CompressionType, compressNP int, minSpaceSavings *float64) *recordEncoder {
 	return &recordEncoder{
-		mem:        mem,
-		start:      startOffset,
-		depth:      maxDepth,
-		allow64b:   allow64b,
-		codec:      codec,
-		compressNP: compressNP,
+		mem:             mem,
+		start:           startOffset,
+		depth:           maxDepth,
+		allow64b:        allow64b,
+		codec:           codec,
+		compressNP:      compressNP,
+		minSpaceSavings: minSpaceSavings,
 	}
+}
+
+func (w *recordEncoder) shouldCompress(uncompressed, compressed int) bool {
+	debug.Assert(uncompressed > 0, "uncompressed size is 0")
+	if w.minSpaceSavings == nil {
+		return true
+	}
+
+	savings := 1.0 - float64(compressed)/float64(uncompressed)
+	return savings >= *w.minSpaceSavings
 }
 
 func (w *recordEncoder) reset() {
@@ -336,14 +350,26 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 		binary.LittleEndian.PutUint64(buf.Buf(), uint64(p.body[idx].Len()))
 		bw := &bufferWriter{buf: buf, pos: arrow.Int64SizeBytes}
 		codec.Reset(bw)
-		if _, err := codec.Write(p.body[idx].Bytes()); err != nil {
+
+		n, err := codec.Write(p.body[idx].Bytes())
+		if err != nil {
 			return err
 		}
 		if err := codec.Close(); err != nil {
 			return err
 		}
 
-		buf.Resize(bw.pos)
+		finalLen := bw.pos
+		compressedLen := bw.pos - arrow.Int64SizeBytes
+		if !w.shouldCompress(n, compressedLen) {
+			n = copy(buf.Buf()[arrow.Int64SizeBytes:], p.body[idx].Bytes())
+			// size of -1 indicates to the reader that the body
+			// doesn't need to be decompressed
+			var noprefix int64 = -1
+			binary.LittleEndian.PutUint64(buf.Buf(), uint64(noprefix))
+			finalLen = n + arrow.Int64SizeBytes
+		}
+		bw.buf.Resize(finalLen)
 		p.body[idx].Release()
 		p.body[idx] = buf
 		return nil
@@ -405,7 +431,6 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 }
 
 func (w *recordEncoder) encode(p *Payload, rec arrow.Record) error {
-
 	// perform depth-first traversal of the row-batch
 	for i, col := range rec.Columns() {
 		err := w.visit(p, col)
@@ -415,6 +440,14 @@ func (w *recordEncoder) encode(p *Payload, rec arrow.Record) error {
 	}
 
 	if w.codec != -1 {
+		if w.minSpaceSavings != nil {
+			pct := *w.minSpaceSavings
+			if pct < 0 || pct > 1 {
+				p.Release()
+				return fmt.Errorf("%w: minSpaceSavings not in range [0,1]. Provided %.05f",
+					arrow.ErrInvalid, pct)
+			}
+		}
 		w.compressBodyBuffers(p)
 	}
 

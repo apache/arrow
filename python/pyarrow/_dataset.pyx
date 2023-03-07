@@ -1234,8 +1234,14 @@ cdef class FileFormat(_Weakrefable):
         filesystem : Filesystem, optional
             If `filesystem` is given, `file` must be a string and specifies
             the path of the file to read from the filesystem.
-        partition_expression : Expression
-            The filter expression.
+        partition_expression : Expression, optional
+            An expression that is guaranteed true for all rows in the fragment.  Allows
+            fragment to be potentially skipped while scanning with a filter.
+
+        Returns
+        -------
+        fragment : Fragment
+            The file fragment
         """
         if partition_expression is None:
             partition_expression = _true
