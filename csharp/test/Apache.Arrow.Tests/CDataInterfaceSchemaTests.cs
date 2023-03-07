@@ -217,7 +217,7 @@ namespace Apache.Arrow.Tests
             Schema schema = GetTestSchema();
             IEnumerable<dynamic> pyFields = GetPythonFields();
 
-            foreach ((Field field, dynamic pyField) in schema.Fields.Values.AsEnumerable()
+            foreach ((Field field, dynamic pyField) in schema.FieldsList
                 .Zip(pyFields))
             {
                 CArrowSchema* cSchema = CArrowSchema.New();
@@ -250,7 +250,7 @@ namespace Apache.Arrow.Tests
             Schema schema = GetTestSchema();
             IEnumerable<dynamic> pyFields = GetPythonFields();
 
-            foreach ((Field field, dynamic pyField) in schema.Fields.Values.AsEnumerable()
+            foreach ((Field field, dynamic pyField) in schema.FieldsList
                 .Zip(pyFields))
             {
                 CArrowSchema* cSchema = CArrowSchema.New();
@@ -298,7 +298,7 @@ namespace Apache.Arrow.Tests
             Schema schema = GetTestSchema();
             IEnumerable<dynamic> pyFields = GetPythonFields();
 
-            foreach ((Field field, dynamic pyField) in schema.Fields.Values.AsEnumerable()
+            foreach ((Field field, dynamic pyField) in schema.FieldsList
                 .Zip(pyFields))
             {
                 IArrowType datatype = field.DataType;
@@ -339,7 +339,7 @@ namespace Apache.Arrow.Tests
             Schema schema = GetTestSchema();
             IEnumerable<dynamic> pyFields = GetPythonFields();
 
-            foreach ((Field field, dynamic pyField) in schema.Fields.Values.AsEnumerable()
+            foreach ((Field field, dynamic pyField) in schema.FieldsList
                 .Zip(pyFields))
             {
                 CArrowSchema* cSchema = CArrowSchema.New();

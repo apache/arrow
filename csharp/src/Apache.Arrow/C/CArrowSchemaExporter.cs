@@ -63,7 +63,7 @@ namespace Apache.Arrow.C
 
         public static unsafe void ExportSchema(Schema schema, CArrowSchema* out_schema)
         {
-            var structType = new StructType(schema.Fields.Values.ToList());
+            var structType = new StructType(schema.FieldsList);
             // TODO: top-level metadata
             ExportType(structType, out_schema);
         }
