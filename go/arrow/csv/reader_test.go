@@ -163,6 +163,61 @@ func Example_withChunk() {
 	// rec[3]["str"]: ["str-9"]
 }
 
+func TestCSVReadInvalidFields(t *testing.T) {
+  tests := []struct {
+		Name string
+		Data string
+		Fields []arrow.Field
+		ExpectedError bool
+	}{
+		{
+			Name: "ValidListInt64",
+			Data: "{}",
+			Fields: []arrow.Field{
+				{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
+			},
+			ExpectedError: false,
+		},
+		{
+			Name: "InvalidListInt64T1",
+			Data: "{",
+			Fields: []arrow.Field{
+				{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
+			},
+			ExpectedError: true,
+		},
+		{
+			Name: "InvalidListInt64T2",
+			Data: "}",
+			Fields: []arrow.Field{
+				{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
+			},
+			ExpectedError: true,
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			f := bytes.NewBufferString(tc.Data)
+			schema := arrow.NewSchema(tc.Fields, nil)
+		
+			r := csv.NewReader(
+				f, schema,
+				csv.WithComma(','),
+			)
+			defer r.Release()
+			for r.Next() {}
+			parseErr := r.Err()
+			if tc.ExpectedError && parseErr == nil {
+				t.Fatal("Expected error, but none found")
+			}
+			if !tc.ExpectedError && parseErr != nil {
+				t.Fatalf("Not expecting error, but got %v", parseErr)
+			}
+		})
+	}
+}
+
 func TestCSVReaderParseError(t *testing.T) {
 	f := bytes.NewBufferString(`## a simple set of data: int64;float64;string
 0;0;str-0
