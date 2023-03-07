@@ -205,8 +205,13 @@ Status HandleSegments(std::unique_ptr<RowSegmenter>& segmenter, const ExecBatch&
   return Status::OK();
 }
 
-Status SelectConstantFields(std::vector<Datum>* values_ptr, const ExecBatch& input_batch,
-                            const std::vector<int>& field_ids) {
+/// @brief Extract values of segment keys from a segment batch
+/// @param[out] values_ptr Vector to store the extracted segment key values
+/// @param[in] input_batch Segment batch. Must have the a constant value for segment key
+/// @param[in] field_ids Segment key field ids
+Status ExtractSegmenterValues(std::vector<Datum>* values_ptr,
+                              const ExecBatch& input_batch,
+                              const std::vector<int>& field_ids) {
   DCHECK_GT(input_batch.length, 0);
   std::vector<Datum>& values = *values_ptr;
   int64_t row = input_batch.length - 1;
@@ -399,7 +404,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
       auto exec_batch = full_batch.Slice(segment.offset, segment.length);
       RETURN_NOT_OK(DoConsume(ExecSpan(exec_batch), thread_index));
       RETURN_NOT_OK(
-          SelectConstantFields(&segmenter_values_, exec_batch, segment_field_ids_));
+          ExtractSegmenterValues(&segmenter_values_, exec_batch, segment_field_ids_));
 
       // If the segment closes the current segment group, we can output segment group
       // aggregation.
@@ -490,11 +495,12 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     return Status::OK();
   }
 
-  /// \brief A segmenter for the segment-keys
+  // A segmenter for the segment-keys
   std::unique_ptr<RowSegmenter> segmenter_;
-  /// \brief Field indices corresponding to the segment-keys
+  // Field indices corresponding to the segment-keys
   const std::vector<int> segment_field_ids_;
-  /// \brief Holds values of the current batch that were selected for the segment-keys
+  // Holds the value of segment keys of the most recent input batch
+  // The values are updated everytime an input batch is processed
   std::vector<Datum> segmenter_values_;
 
   const std::vector<std::vector<int>> target_fieldsets_;
@@ -811,11 +817,13 @@ class GroupByNode : public ExecNode, public TracedNode {
 
     auto handler = [this](const ExecBatch& full_batch, const Segment& segment) {
       if (!segment.extends && segment.offset == 0) RETURN_NOT_OK(OutputResult(false));
+      // This is not zero copy - we should refactor the code to pass
+      // offset and length to Consume to avoid copying here
       auto exec_batch = full_batch.Slice(segment.offset, segment.length);
       auto batch = ExecSpan(exec_batch);
       RETURN_NOT_OK(Consume(batch));
       RETURN_NOT_OK(
-          SelectConstantFields(&segmenter_values_, exec_batch, segment_key_field_ids_));
+          ExtractSegmenterValues(&segmenter_values_, exec_batch, segment_key_field_ids_));
       if (!segment.is_open) RETURN_NOT_OK(OutputResult(false));
       return Status::OK();
     };
