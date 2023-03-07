@@ -313,9 +313,7 @@ jobs:
           ci/scripts/go_build.sh $(pwd)
       - name: Test
         shell: bash
-        run: |
-          export PKG_CONFIG_PATH=/usr/local/Cellar/openssl@3/3.0.8/lib/pkgconfig:$PKG_CONFIG_PATH
-          ci/scripts/go_test.sh $(pwd)
+        run: ci/scripts/go_test.sh $(pwd)
 
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} CGO
