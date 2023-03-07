@@ -264,15 +264,15 @@ template <typename RunEndType, typename ValueType, bool has_validity_buffer>
 class RunEndEncodeImpl {
  private:
   KernelContext* ctx_;
-  const ArraySpan input_array_;
+  const ArraySpan& input_array_;
   ExecResult* output_;
 
  public:
   using RunEndCType = typename RunEndType::c_type;
   using CType = typename ValueType::c_type;
 
-  RunEndEncodeImpl(KernelContext* ctx, const ExecSpan& batch, ExecResult* out)
-      : ctx_{ctx}, input_array_{batch.values[0].array}, output_{out} {}
+  RunEndEncodeImpl(KernelContext* ctx, const ArraySpan& input_array, ExecResult* out)
+      : ctx_{ctx}, input_array_{input_array}, output_{out} {}
 
   Status Exec() {
     const int64_t input_length = input_array_.length;
@@ -353,11 +353,10 @@ class RunEndEncodeImpl {
 };
 
 template <typename RunEndType>
-Status RunEndEncodeNullArray(KernelContext* ctx, const ExecSpan& span,
+Status RunEndEncodeNullArray(KernelContext* ctx, const ArraySpan& input_array,
                              ExecResult* output) {
   using RunEndCType = typename RunEndType::c_type;
 
-  const auto& input_array = span.values[0].array;
   const int64_t input_length = input_array.length;
   auto input_array_type = input_array.type->GetSharedPtr();
   DCHECK(input_array_type->id() == Type::NA);
@@ -406,14 +405,18 @@ template <typename ValueType>
 struct RunEndEncodeExec {
   template <typename RunEndType>
   static Status DoExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
+    DCHECK(span.values[0].is_array());
+    const auto& input_array = span.values[0].array;
     if constexpr (ValueType::type_id == Type::NA) {
-      return RunEndEncodeNullArray<RunEndType>(ctx, span, result);
+      return RunEndEncodeNullArray<RunEndType>(ctx, input_array, result);
     } else {
-      const bool has_validity_buffer = span.values[0].array.MayHaveNulls();
+      const bool has_validity_buffer = input_array.MayHaveNulls();
       if (has_validity_buffer) {
-        return RunEndEncodeImpl<RunEndType, ValueType, true>(ctx, span, result).Exec();
+        return RunEndEncodeImpl<RunEndType, ValueType, true>(ctx, input_array, result)
+            .Exec();
       }
-      return RunEndEncodeImpl<RunEndType, ValueType, false>(ctx, span, result).Exec();
+      return RunEndEncodeImpl<RunEndType, ValueType, false>(ctx, input_array, result)
+          .Exec();
     }
   }
 
@@ -511,15 +514,15 @@ template <typename RunEndType, typename ValueType, bool has_validity_buffer>
 class RunEndDecodeImpl {
  private:
   KernelContext* ctx_;
-  const ArraySpan input_array_;
+  const ArraySpan& input_array_;
   ExecResult* output_;
 
  public:
   using RunEndCType = typename RunEndType::c_type;
   using CType = typename ValueType::c_type;
 
-  RunEndDecodeImpl(KernelContext* ctx, const ExecSpan& batch, ExecResult* out)
-      : ctx_{ctx}, input_array_{batch.values[0].array}, output_{out} {}
+  RunEndDecodeImpl(KernelContext* ctx, const ArraySpan& input_array, ExecResult* out)
+      : ctx_{ctx}, input_array_{input_array}, output_{out} {}
 
  public:
   Status Exec() {
@@ -557,9 +560,8 @@ class RunEndDecodeImpl {
   }
 };
 
-Status RunEndDecodeNullREEArray(KernelContext* ctx, const ExecSpan& span,
+Status RunEndDecodeNullREEArray(KernelContext* ctx, const ArraySpan& input_array,
                                 ExecResult* out) {
-  auto& input_array = span.values[0].array;
   auto ree_type = checked_cast<const RunEndEncodedType*>(input_array.type);
   ARROW_ASSIGN_OR_RAISE(auto output_array,
                         arrow::MakeArrayOfNull(ree_type->value_type(), input_array.length,
@@ -572,15 +574,18 @@ template <typename ValueType>
 struct RunEndDecodeExec {
   template <typename RunEndType>
   static Status DoExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
+    DCHECK(span.values[0].is_array());
+    auto& input_array = span.values[0].array;
     if constexpr (ValueType::type_id == Type::NA) {
-      return RunEndDecodeNullREEArray(ctx, span, result);
+      return RunEndDecodeNullREEArray(ctx, input_array, result);
     } else {
-      const bool has_validity_buffer =
-          ree_util::ValuesArray(span.values[0].array).MayHaveNulls();
+      const bool has_validity_buffer = ree_util::ValuesArray(input_array).MayHaveNulls();
       if (has_validity_buffer) {
-        return RunEndDecodeImpl<RunEndType, ValueType, true>(ctx, span, result).Exec();
+        return RunEndDecodeImpl<RunEndType, ValueType, true>(ctx, input_array, result)
+            .Exec();
       }
-      return RunEndDecodeImpl<RunEndType, ValueType, false>(ctx, span, result).Exec();
+      return RunEndDecodeImpl<RunEndType, ValueType, false>(ctx, input_array, result)
+          .Exec();
     }
   }
 
