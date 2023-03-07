@@ -17,11 +17,12 @@
 package csv
 
 import (
+	"bytes"
+	"encoding/csv"
 	"fmt"
 	"math"
 	"math/big"
 	"strconv"
-	"strings"
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
@@ -201,7 +202,14 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 		for i := 0; i < arr.Len(); i++ {
 			if arr.IsValid(i) {
 				list := array.NewSlice(listVals, int64(offsets[i]), int64(offsets[i+1]))
-				res[i] = "{" + strings.Join(w.transformColToStringArr(list.DataType(), list), ",") + "}"
+				var b bytes.Buffer
+				b.Write([]byte{'{'})
+				writer := csv.NewWriter(&b)
+				writer.Write(w.transformColToStringArr(list.DataType(), list))
+				writer.Flush()
+				b.Truncate(b.Len() - 1)
+				b.Write([]byte{'}'})
+				res[i] = b.String()
 				list.Release()
 			} else {
 				res[i] = w.nullValue
@@ -217,7 +225,7 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 			}
 		}
 	case arrow.ExtensionType:
-		extRes :=  w.transformColToStringArr(col.(array.ExtensionArray).Storage().DataType(), col.(array.ExtensionArray).Storage())
+		extRes := w.transformColToStringArr(col.(array.ExtensionArray).Storage().DataType(), col.(array.ExtensionArray).Storage())
 		copy(res, extRes)
 	default:
 		panic(fmt.Errorf("arrow/csv: field has unsupported data type %s", typ.String()))

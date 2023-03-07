@@ -33,7 +33,6 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/decimal256"
 	"github.com/apache/arrow/go/v12/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -362,9 +361,7 @@ rec[2]["list(i64)"]: [(null)]
 rec[2]["uuid"]: (extension_type<storage=fixed_size_binary[16]>)[(null)]
 `
 	got, want := out.String(), want
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Fatalf("invalid output: (-want, +got) = %s", diff)
-	}
+	require.Equal(t, want, got)
 
 	if r.Err() != nil {
 		t.Fatalf("unexpected error: %v", r.Err())

@@ -746,15 +746,16 @@ func (r *Reader) parseList(field array.Builder, str string) {
 	}
 	str = strings.TrimPrefix(str, "{")
 	str = strings.TrimSuffix(str, "}")
-	strs := strings.Split(str, ",")
-	if len(strs) == 0 {
-		field.AppendNull()
-		return
-	}
 	listBldr := field.(*array.ListBuilder)
 	listBldr.Append(true)
 	valueBldr := listBldr.ValueBuilder()
-	for _, str := range strs {
+	reader := csv.NewReader(strings.NewReader(str))
+	items, err := reader.Read()
+	if err != nil {
+		r.err = err
+		return
+	}
+	for _, str := range items {
 		r.initFieldConverter(valueBldr)(str)
 	}
 }
