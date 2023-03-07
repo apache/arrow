@@ -595,7 +595,8 @@ void EncodingByteArrayBenchmark(benchmark::State& state, Encoding::type encoding
     encoder->FlushValues();
   }
   state.SetItemsProcessed(state.iterations() * array_actual->length());
-  state.SetBytesProcessed(state.iterations() * array_actual->total_values_length());
+  state.SetBytesProcessed(state.iterations() * (array_actual->value_data()->size() +
+                                                array_actual->value_offsets()->size()));
 }
 
 static void BM_DeltaLengthEncodingByteArray(benchmark::State& state) {
@@ -630,7 +631,8 @@ void DecodingByteArrayBenchmark(benchmark::State& state, Encoding::type encoding
     ::benchmark::DoNotOptimize(values);
   }
   state.SetItemsProcessed(state.iterations() * array->length());
-  state.SetBytesProcessed(state.iterations() * array_actual->total_values_length());
+  state.SetBytesProcessed(state.iterations() * (array_actual->value_data()->size() +
+                                                array_actual->value_offsets()->size()));
 }
 
 static void BM_PlainDecodingByteArray(benchmark::State& state) {
@@ -679,7 +681,8 @@ static void BM_DecodingByteArraySpaced(benchmark::State& state, Encoding::type e
   }
   state.counters["null_percent"] = null_percent * 100;
   state.SetItemsProcessed(state.iterations() * array_actual->length());
-  state.SetBytesProcessed(state.iterations() * array_actual->total_values_length());
+  state.SetBytesProcessed(state.iterations() * (array_actual->value_data()->size() +
+                                                array_actual->value_offsets()->size()));
 }
 
 static void BM_PlainDecodingSpacedByteArray(benchmark::State& state) {
@@ -775,7 +778,8 @@ static void BM_DictDecodingByteArray(benchmark::State& state) {
   }
   DecodeDict<ByteArrayType>(values, state);
   state.SetItemsProcessed(state.iterations() * array_actual->length());
-  state.SetBytesProcessed(state.iterations() * array_actual->total_values_length());
+  state.SetBytesProcessed(state.iterations() * (array_actual->value_data()->size() +
+                                                array_actual->value_offsets()->size()));
 }
 
 BENCHMARK(BM_DictDecodingByteArray)->Apply(ByteArrayCustomArguments);
