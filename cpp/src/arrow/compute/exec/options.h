@@ -352,7 +352,6 @@ class ARROW_EXPORT SinkNodeConsumer {
   /// This will be run once the schema is finalized as the plan is starting and
   /// before any calls to Consume.  A common use is to save off the schema so that
   /// batches can be interpreted.
-  /// TODO(ARROW-17837) Move ExecPlan* plan to query context
   virtual Status Init(const std::shared_ptr<Schema>& schema,
                       BackpressureControl* backpressure_control, ExecPlan* plan) = 0;
   /// \brief Consume a batch of data
@@ -380,7 +379,9 @@ class ARROW_EXPORT ConsumingSinkNodeOptions : public ExecNodeOptions {
   /// \brief Names to rename the sink's schema fields to
   ///
   /// If specified then names must be provided for all fields. Currently, only a flat
-  /// schema is supported (see ARROW-15901).
+  /// schema is supported (see GH-31875).
+  ///
+  /// If not specified then names will be generated based on the source data.
   std::vector<std::string> names;
   /// \brief Controls whether batches should be emitted immediately or sequenced in order
   ///
@@ -614,6 +615,13 @@ class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
   ///
   /// \see QueryOptions for more details
   std::optional<bool> sequence_output;
+  /// \brief Custom names to use for the columns.
+  ///
+  /// If specified then names must be provided for all fields. Currently, only a flat
+  /// schema is supported (see GH-31875).
+  ///
+  /// If not specified then names will be generated based on the source data.
+  std::vector<std::string> names;
 };
 
 struct ARROW_EXPORT PivotLongerRowTemplate {

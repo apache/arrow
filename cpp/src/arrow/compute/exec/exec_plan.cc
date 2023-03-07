@@ -624,6 +624,7 @@ Future<std::shared_ptr<Table>> DeclarationToTableImpl(
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
   TableSinkNodeOptions sink_options(output_table.get());
   sink_options.sequence_output = query_options.sequence_output;
+  sink_options.names = std::move(query_options.field_names);
   Declaration with_sink =
       Declaration::Sequence({declaration, {"table_sink", sink_options}});
   ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
@@ -652,6 +653,10 @@ Future<BatchesWithCommonSchema> DeclarationToExecBatchesImpl(
   sink_options.sequence_output = options.sequence_output;
   Declaration with_sink = Declaration::Sequence({declaration, {"sink", sink_options}});
   ARROW_RETURN_NOT_OK(with_sink.AddToPlan(exec_plan.get()));
+  if (!options.field_names.empty()) {
+    ARROW_ASSIGN_OR_RAISE(out_schema,
+                          out_schema->WithNames(std::move(options.field_names)));
+  }
   ARROW_RETURN_NOT_OK(exec_plan->Validate());
   exec_plan->StartProducing();
   auto collected_fut = CollectAsyncGenerator(sink_gen);
@@ -800,6 +805,19 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatches(
       use_threads);
 }
 
+Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatches(
+    Declaration declaration, QueryOptions query_options) {
+  if (query_options.custom_cpu_executor != nullptr) {
+    return Status::Invalid("Cannot use synchronous methods with a custom CPU executor");
+  }
+  return ::arrow::internal::RunSynchronously<
+      Future<std::vector<std::shared_ptr<RecordBatch>>>>(
+      [=, declaration = std::move(declaration)](::arrow::internal::Executor* executor) {
+        return DeclarationToBatchesImpl(std::move(declaration), query_options, executor);
+      },
+      query_options.use_threads);
+}
+
 Future<BatchesWithCommonSchema> DeclarationToExecBatchesAsync(Declaration declaration,
                                                               ExecContext exec_context) {
   return DeclarationToExecBatchesImpl(std::move(declaration),
@@ -925,14 +943,35 @@ struct BatchConverter {
         });
   }
 
+  Result<std::shared_ptr<Schema>> InitializeSchema(
+      const std::vector<std::string>& names) {
+    // By this point this->schema will have been set by the SinkNode.  We potentially
+    // rename it with the names provided by the user and then return this in case the user
+    // wants to know the output schema.
+    if (!names.empty()) {
+      if (static_cast<int>(names.size()) != schema->num_fields()) {
+        return Status::Invalid(
+            "A plan was created with custom field names but the number of names (",
+            names.size(),
+            ") did not "
+            "match the number of output columns (",
+            schema->num_fields(), ")");
+      }
+      ARROW_ASSIGN_OR_RAISE(schema, schema->WithNames(names));
+    }
+    return schema;
+  }
+
   AsyncGenerator<std::optional<ExecBatch>> exec_batch_gen;
   std::shared_ptr<Schema> schema;
   std::shared_ptr<ExecPlan> exec_plan;
 };
 
 Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> DeclarationToRecordBatchGenerator(
-    Declaration declaration, ExecContext exec_ctx, std::shared_ptr<Schema>* out_schema) {
+    Declaration declaration, QueryOptions options,
+    ::arrow::internal::Executor* cpu_executor, std::shared_ptr<Schema>* out_schema) {
   auto converter = std::make_shared<BatchConverter>();
+  ExecContext exec_ctx(options.memory_pool, cpu_executor, options.function_registry);
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(exec_ctx));
   Declaration with_sink = Declaration::Sequence(
       {declaration,
@@ -941,23 +980,28 @@ Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> DeclarationToRecordBatchGen
   ARROW_RETURN_NOT_OK(plan->Validate());
   plan->StartProducing();
   converter->exec_plan = std::move(plan);
-  *out_schema = converter->schema;
+  ARROW_ASSIGN_OR_RAISE(*out_schema, converter->InitializeSchema(options.field_names));
   return [conv = std::move(converter)] { return (*conv)(); };
 }
+
 }  // namespace
 
-Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
-    Declaration declaration, bool use_threads, MemoryPool* memory_pool,
-    FunctionRegistry* function_registry) {
+Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(Declaration declaration,
+                                                               QueryOptions options) {
+  if (options.custom_cpu_executor != nullptr) {
+    return Status::Invalid("Cannot use synchronous methods with a custom CPU executor");
+  }
   std::shared_ptr<Schema> schema;
   auto batch_iterator = std::make_unique<Iterator<std::shared_ptr<RecordBatch>>>(
       ::arrow::internal::IterateSynchronously<std::shared_ptr<RecordBatch>>(
           [&](::arrow::internal::Executor* executor)
               -> Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> {
-            ExecContext exec_ctx(memory_pool, executor, function_registry);
-            return DeclarationToRecordBatchGenerator(declaration, exec_ctx, &schema);
+            ExecContext exec_ctx(options.memory_pool, executor,
+                                 options.function_registry);
+            return DeclarationToRecordBatchGenerator(declaration, std::move(options),
+                                                     executor, &schema);
           },
-          use_threads));
+          options.use_threads));
 
   struct PlanReader : RecordBatchReader {
     PlanReader(std::shared_ptr<Schema> schema,
@@ -992,6 +1036,16 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
   };
 
   return std::make_unique<PlanReader>(std::move(schema), std::move(batch_iterator));
+}
+
+Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
+    Declaration declaration, bool use_threads, MemoryPool* memory_pool,
+    FunctionRegistry* function_registry) {
+  QueryOptions options;
+  options.memory_pool = memory_pool;
+  options.function_registry = function_registry;
+  options.use_threads = use_threads;
+  return DeclarationToReader(std::move(declaration), std::move(options));
 }
 
 namespace internal {

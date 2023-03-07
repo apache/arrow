@@ -50,5 +50,21 @@ struct ARROW_ENGINE_EXPORT RelationInfo {
   std::optional<std::vector<int>> field_output_indices;
 };
 
+/// Information resulting from converting a Substrait plan
+struct ARROW_ENGINE_EXPORT PlanInfo {
+  /// The root declaration.
+  ///
+  /// Only plans containing a single top-level relation are supported and so this will
+  /// represent that relation.
+  ///
+  /// This should technically be a RelRoot but some producers use a simple Rel here and so
+  /// Acero currently supports that case.
+  DeclarationInfo root;
+  /// The names of the output fields
+  ///
+  /// If `root` was created from a simple Rel then this will be empty
+  std::vector<std::string> names;
+};
+
 }  // namespace engine
 }  // namespace arrow

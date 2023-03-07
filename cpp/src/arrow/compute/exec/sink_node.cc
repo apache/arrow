@@ -104,7 +104,7 @@ class SinkNode : public ExecNode,
  public:
   SinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
            AsyncGenerator<std::optional<ExecBatch>>* generator,
-           std::shared_ptr<Schema>* schema, BackpressureOptions backpressure,
+           std::shared_ptr<Schema>* schema_out, BackpressureOptions backpressure,
            BackpressureMonitor** backpressure_monitor_out,
            std::optional<bool> sequence_output)
       : ExecNode(plan, std::move(inputs), {"collected"}, {}),
@@ -117,8 +117,8 @@ class SinkNode : public ExecNode,
       *backpressure_monitor_out = &backpressure_queue_;
     }
     auto node_destroyed_capture = node_destroyed_;
-    if (schema) {
-      *schema = inputs_[0]->output_schema();
+    if (schema_out) {
+      *schema_out = inputs_[0]->output_schema();
     }
     *generator = [this, node_destroyed_capture]() -> Future<std::optional<ExecBatch>> {
       if (*node_destroyed_capture) {
@@ -334,15 +334,11 @@ class ConsumingSinkNode : public ExecNode,
     if (names_.size() > 0) {
       int num_fields = output_schema->num_fields();
       if (names_.size() != static_cast<size_t>(num_fields)) {
-        return Status::Invalid("ConsumingSinkNode with mismatched number of names");
+        return Status::Invalid(
+            "A plan was created with custom field names but the number of names did not "
+            "match the number of output columns");
       }
-      FieldVector fields(num_fields);
-      int i = 0;
-      for (const auto& output_field : output_schema->fields()) {
-        fields[i] = field(names_[i], output_field->type());
-        ++i;
-      }
-      output_schema = schema(std::move(fields));
+      ARROW_ASSIGN_OR_RAISE(output_schema, output_schema->WithNames(names_));
     }
     RETURN_NOT_OK(consumer_->Init(output_schema, this, plan_));
     return Status::OK();
@@ -437,6 +433,7 @@ static Result<ExecNode*> MakeTableConsumingSinkNode(
       std::make_shared<TableSinkNodeConsumer>(sink_options.output_table, pool);
   auto consuming_sink_node_options = ConsumingSinkNodeOptions{tb_consumer};
   consuming_sink_node_options.sequence_output = sink_options.sequence_output;
+  consuming_sink_node_options.names = sink_options.names;
   return MakeExecNode("consuming_sink", plan, inputs, consuming_sink_node_options);
 }
 
