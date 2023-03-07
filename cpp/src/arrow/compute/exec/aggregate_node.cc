@@ -401,6 +401,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
       if (!segment.extends && segment.offset == 0) RETURN_NOT_OK(OutputResult(false));
 
       // We add segment to the current segment group aggregation
+      // GH-34475: change to zero-copy slicing
       auto exec_batch = full_batch.Slice(segment.offset, segment.length);
       RETURN_NOT_OK(DoConsume(ExecSpan(exec_batch), thread_index));
       RETURN_NOT_OK(

@@ -302,8 +302,8 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
   group_id_t save_group_id_;
 };
 
-Status CheckForConsume(int64_t batch_length, int64_t& consume_offset,
-                       int64_t* consume_length) {
+Status CheckAndCapLengthForConsume(int64_t batch_length, int64_t& consume_offset,
+                                   int64_t* consume_length) {
   if (consume_offset < 0) {
     return Status::Invalid("invalid grouper consume offset: ", consume_offset);
   }
@@ -418,7 +418,7 @@ struct GrouperImpl : public Grouper {
   }
 
   Result<Datum> Consume(const ExecSpan& batch, int64_t offset, int64_t length) override {
-    ARROW_RETURN_NOT_OK(CheckForConsume(batch.length, offset, &length));
+    ARROW_RETURN_NOT_OK(CheckAndCapLengthForConsume(batch.length, offset, &length));
     if (offset != 0 || length != batch.length) {
       auto batch_slice = batch.ToExecBatch().Slice(offset, length);
       return Consume(ExecSpan(batch_slice), 0, -1);
@@ -596,7 +596,7 @@ struct GrouperFastImpl : public Grouper {
   ~GrouperFastImpl() { map_.cleanup(); }
 
   Result<Datum> Consume(const ExecSpan& batch, int64_t offset, int64_t length) override {
-    ARROW_RETURN_NOT_OK(CheckForConsume(batch.length, offset, &length));
+    ARROW_RETURN_NOT_OK(CheckAndCapLengthForConsume(batch.length, offset, &length));
     if (offset != 0 || length != batch.length) {
       auto batch_slice = batch.ToExecBatch().Slice(offset, length);
       return Consume(ExecSpan(batch_slice), 0, -1);

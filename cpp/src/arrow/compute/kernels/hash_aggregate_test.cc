@@ -73,8 +73,6 @@ using internal::ToChars;
 namespace compute {
 namespace {
 
-bool kDefaultUseThreads = false;
-
 using GroupByFunction = std::function<Result<Datum>(
     const std::vector<Datum>&, const std::vector<Datum>&, const std::vector<Datum>&,
     const std::vector<Aggregate>&, bool, bool)>;
@@ -405,8 +403,8 @@ void ValidateGroupBy(GroupByFunction group_by, const std::vector<Aggregate>& agg
                      bool naive = true) {
   ASSERT_OK_AND_ASSIGN(Datum expected, NaiveGroupBy(arguments, keys, aggregates));
 
-  ASSERT_OK_AND_ASSIGN(
-      Datum actual, group_by(arguments, keys, {}, aggregates, kDefaultUseThreads, naive));
+  ASSERT_OK_AND_ASSIGN(Datum actual, group_by(arguments, keys, {}, aggregates,
+                                              /*use_threads=*/false, naive));
 
   ASSERT_OK(expected.make_array()->ValidateFull());
   ValidateOutput(actual);
@@ -595,7 +593,7 @@ TEST(RowSegmenter, Basics) {
 
 namespace {
 
-void test_row_segmenter_constant_batch(
+void TestRowSegmenterConstantBatch(
     std::function<ArgShape(size_t i)> shape_func,
     std::function<Result<std::unique_ptr<RowSegmenter>>(const std::vector<TypeHolder>&)>
         make_segmenter) {
@@ -625,33 +623,33 @@ void test_row_segmenter_constant_batch(
 }  // namespace
 
 TEST(RowSegmenter, ConstantArrayBatch) {
-  test_row_segmenter_constant_batch([](size_t i) { return ArgShape::ARRAY; },
-                                    MakeRowSegmenter);
+  TestRowSegmenterConstantBatch([](size_t i) { return ArgShape::ARRAY; },
+                                MakeRowSegmenter);
 }
 
 TEST(RowSegmenter, ConstantScalarBatch) {
-  test_row_segmenter_constant_batch([](size_t i) { return ArgShape::SCALAR; },
-                                    MakeRowSegmenter);
+  TestRowSegmenterConstantBatch([](size_t i) { return ArgShape::SCALAR; },
+                                MakeRowSegmenter);
 }
 
 TEST(RowSegmenter, ConstantMixedBatch) {
-  test_row_segmenter_constant_batch(
+  TestRowSegmenterConstantBatch(
       [](size_t i) { return i % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
       MakeRowSegmenter);
 }
 
 TEST(RowSegmenter, ConstantArrayBatchWithAnyKeysSegmenter) {
-  test_row_segmenter_constant_batch([](size_t i) { return ArgShape::ARRAY; },
-                                    MakeGenericSegmenter);
+  TestRowSegmenterConstantBatch([](size_t i) { return ArgShape::ARRAY; },
+                                MakeGenericSegmenter);
 }
 
 TEST(RowSegmenter, ConstantScalarBatchWithAnyKeysSegmenter) {
-  test_row_segmenter_constant_batch([](size_t i) { return ArgShape::SCALAR; },
-                                    MakeGenericSegmenter);
+  TestRowSegmenterConstantBatch([](size_t i) { return ArgShape::SCALAR; },
+                                MakeGenericSegmenter);
 }
 
 TEST(RowSegmenter, ConstantMixedBatchWithAnyKeysSegmenter) {
-  test_row_segmenter_constant_batch(
+  TestRowSegmenterConstantBatch(
       [](size_t i) { return i % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
       MakeGenericSegmenter);
 }
@@ -2248,7 +2246,7 @@ TEST_P(GroupBy, MinMaxDecimal) {
   }
 }
 
-TEST_P(GroupBy, MinMaxFixedSizeBinary) {
+TEST_P(GroupBy, MinMaxBinary) {
   for (bool use_threads : {true, false}) {
     for (const auto& ty : BaseBinaryTypes()) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
@@ -2296,6 +2294,56 @@ TEST_P(GroupBy, MinMaxFixedSizeBinary) {
           aggregated_and_grouped,
           /*verbose=*/true);
     }
+  }
+}
+
+TEST_P(GroupBy, MinMaxFixedSizeBinary) {
+  const auto ty = fixed_size_binary(3);
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+    auto table = TableFromJSON(schema({
+                                   field("argument0", ty),
+                                   field("key", int64()),
+                               }),
+                               {R"([
+    ["aaa", 1],
+    [null,  1]
+])",
+                                R"([
+    ["bac", 2],
+    [null,  3],
+    ["234", null],
+    ["ddd", 1],
+    ["bcd", 2]
+])",
+                                R"([
+    ["bab", 2],
+    ["123", null],
+    [null,  3]
+])"});
+
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         GroupByTest({table->GetColumnByName("argument0")},
+                                     {table->GetColumnByName("key")},
+                                     {{"hash_min_max", nullptr}}, use_threads));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(
+        ArrayFromJSON(
+            struct_({
+                field("hash_min_max", struct_({field("min", ty), field("max", ty)})),
+                field("key_0", int64()),
+            }),
+            R"([
+    [{"min": "aaa", "max": "ddd"}, 1],
+    [{"min": "bab", "max": "bcd"}, 2],
+    [{"min": null, "max": null},   3],
+    [{"min": "123", "max": "234"}, null]
+  ])"),
+        aggregated_and_grouped,
+        /*verbose=*/true);
   }
 }
 
@@ -4560,11 +4608,11 @@ class SegmentedKeyGroupBy : public GroupBy {};
 
 void TestSegment(GroupByFunction group_by, const std::shared_ptr<Table>& table,
                  Datum output, const std::vector<Datum>& keys,
-                 const std::vector<Datum>& segment_keys, bool scalar) {
+                 const std::vector<Datum>& segment_keys, bool is_scalar_aggregate) {
   const char* names[] = {
-      scalar ? "count" : "hash_count",
-      scalar ? "sum" : "hash_sum",
-      scalar ? "min_max" : "hash_min_max",
+      is_scalar_aggregate ? "count" : "hash_count",
+      is_scalar_aggregate ? "sum" : "hash_sum",
+      is_scalar_aggregate ? "min_max" : "hash_min_max",
   };
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        group_by(
@@ -4579,7 +4627,7 @@ void TestSegment(GroupByFunction group_by, const std::shared_ptr<Table>& table,
                                {names[1], nullptr, "agg_1", names[1]},
                                {names[2], nullptr, "agg_2", names[2]},
                            },
-                           kDefaultUseThreads, /*naive=*/false));
+                           /*use_threads=*/false, /*naive=*/false));
 
   AssertDatumsEqual(output, aggregated_and_grouped, /*verbose=*/true);
 }
