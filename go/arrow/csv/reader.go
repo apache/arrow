@@ -731,15 +731,19 @@ func (r *Reader) parseList(field array.Builder, str string) {
 		field.AppendNull()
 		return
 	}
-	if !(strings.HasPrefix(str, "{") || strings.HasSuffix(str, "}")) {
+	if !(strings.HasPrefix(str, "{") && strings.HasSuffix(str, "}")) {
 		r.err = errors.New("invalid list format. should start with '{' and end with '}'")
-		field.AppendNull()
 		return
 	}
 	str = strings.TrimPrefix(str, "{")
 	str = strings.TrimSuffix(str, "}")
 	listBldr := field.(*array.ListBuilder)
 	listBldr.Append(true)
+	if len(str) == 0 {
+		// we don't want to create the csv reader if we already know the
+		// string is empty
+		return
+	}
 	valueBldr := listBldr.ValueBuilder()
 	reader := csv.NewReader(strings.NewReader(str))
 	items, err := reader.Read()

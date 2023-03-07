@@ -298,7 +298,6 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 	}
 
 	out := new(bytes.Buffer)
-
 	n := 0
 	for r.Next() {
 		rec := r.Record()
@@ -307,7 +306,9 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 		}
 		n++
 	}
-
+	if err := r.Err(); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
 	if got, want := n, 3; got != want {
 		t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
 	}
@@ -339,7 +340,7 @@ rec[1]["f32"]: [2.2]
 rec[1]["f64"]: [2.2]
 rec[1]["str"]: ["str-2"]
 rec[1]["ts"]: [1652140799000]
-rec[1]["list(i64)"]: [[4 5 6]]
+rec[1]["list(i64)"]: [[]]
 rec[2]["bool"]: [(null)]
 rec[2]["i8"]: [(null)]
 rec[2]["i16"]: [(null)]
