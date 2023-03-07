@@ -290,29 +290,29 @@ struct ARROW_EXPORT ArrayData {
   /// performance degradation when handling most types by adopting
   /// HasValidityBitmap and MayHaveLogicalNulls.
   ///
-  /// BEFORE:
+  /// Before:
   ///
-  ///   uint8_t* validity = array.MayHaveNulls() ? array.buffers[0].data : NULLPTR;
-  ///   for (int64_t i = 0; i < array.length; ++i) {
-  ///     if (validity && !bit_util::GetBit(validity, i)) {
-  ///       continue;  // skip a NULL
+  ///     uint8_t* validity = array.MayHaveNulls() ? array.buffers[0].data : NULLPTR;
+  ///     for (int64_t i = 0; i < array.length; ++i) {
+  ///       if (validity && !bit_util::GetBit(validity, i)) {
+  ///         continue;  // skip a NULL
+  ///       }
+  ///       ...
   ///     }
-  ///     ...
-  ///   }
   ///
-  /// AFTER:
+  /// After:
   ///
-  ///   bool all_valid = !array.MayHaveLogicalNulls();
-  ///   uint8_t* validity = array.HasValidityBitmap() ? array.buffers[0].data : NULLPTR;
-  ///   for (int64_t i = 0; i < array.length; ++i) {
-  ///     bool is_valid = all_valid ||
-  ///                     (validity && bit_util::GetBit(validity, i)) ||
-  ///                     array.IsValid(i);
-  ///     if (!is_valid) {
-  ///       continue;  // skip a NULL
+  ///     bool all_valid = !array.MayHaveLogicalNulls();
+  ///     uint8_t* validity = array.HasValidityBitmap() ? array.buffers[0].data : NULLPTR;
+  ///     for (int64_t i = 0; i < array.length; ++i) {
+  ///       bool is_valid = all_valid ||
+  ///                       (validity && bit_util::GetBit(validity, i)) ||
+  ///                       array.IsValid(i);
+  ///       if (!is_valid) {
+  ///         continue;  // skip a NULL
+  ///       }
+  ///       ...
   ///     }
-  ///     ...
-  ///   }
   bool MayHaveLogicalNulls() const {
     if (buffers[0] != NULLPTR) {
       return null_count.load() != 0;
