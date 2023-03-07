@@ -597,7 +597,7 @@ to be used when building PyArrow are:
    :header-rows: 1
 
    * - CMAKE_BUILD_TYPE
-     - PYARROW_BUILD_TYPE (release, dbug or relwithdebinfo)
+     - PYARROW_BUILD_TYPE (release, debug or relwithdebinfo)
    * - ARROW_GCS
      - PYARROW_WITH_GCS
    * - ARROW_S3
@@ -637,12 +637,11 @@ PyArrow are:
    * - PYARROW_CMAKE_GENERATOR
      - Example: 'Visual Studio 15 2017 Win64'
    * - PYARROW_CMAKE_OPTIONS
-     - Extra CMake and Arrow options (ex. ``"-DARROW_SIMD_LEVEL"``,
-       ``"-DCMAKE_OSX_ARCHITECTURES"``)
+     - Extra CMake and Arrow options (ex. ``"-DARROW_SIMD_LEVEL=NONE -DCMAKE_OSX_ARCHITECTURES=x86_64;arm64"``)
    * - PYARROW_BOOST_NAMESPACE
-     - Name of install folder for boost (if different from 'boost')
+     - Name of install folder for Boost (if different from 'boost')
    * - PYARROW_CXXFLAGS
-     - Extra cxx flags
+     - Extra C++ compiler flags
    * - PYARROW_WITH_STATIC_PARQUET
      - Rely on parquet shared libraries where relevant, default OFF
    * - PYARROW_WITH_STATIC_BOOST
@@ -664,7 +663,7 @@ PyArrow are:
    * - PYARROW_BUILD_VERBOSE
      - Enable verbose output from Makefile builds, default OFF
    * - PYARROW_PARALLEL
-     - Number of threads used to compile PyArrow’s C++/Cython components
+     - Number of processes used to compile PyArrow’s C++/Cython components
 
 Deleting stale build artifacts
 ==============================
