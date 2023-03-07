@@ -46,8 +46,7 @@ add_arrow_compute_test(hash_join_node_test
                        "arrow-compute"
                        SOURCES
                        hash_join_node_test.cc
-                       bloom_filter_test.cc
-                       key_hash_test.cc)
+                       bloom_filter_test.cc)
 add_arrow_compute_test(pivot_longer_node_test
                        PREFIX
                        "arrow-compute"

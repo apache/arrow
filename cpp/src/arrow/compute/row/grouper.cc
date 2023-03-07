@@ -20,7 +20,7 @@
 #include <memory>
 #include <mutex>
 
-#include "arrow/compute/exec/key_hash.h"
+#include "arrow/compute/key_hash.h"
 #include "arrow/compute/exec/key_map.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec_internal.h"

@@ -401,7 +401,7 @@ list(APPEND
      compute/exec/hash_join.cc
      compute/exec/hash_join_dict.cc
      compute/exec/hash_join_node.cc
-     compute/exec/key_hash.cc
+        compute/key_hash.cc
      compute/exec/key_map.cc
      compute/exec/map_node.cc
      compute/exec/options.cc
@@ -442,7 +442,7 @@ list(APPEND
      compute/row/row_internal.cc)
 
 append_avx2_src(compute/exec/bloom_filter_avx2.cc)
-append_avx2_src(compute/exec/key_hash_avx2.cc)
+append_avx2_src(compute/key_hash_avx2.cc)
 append_avx2_src(compute/exec/key_map_avx2.cc)
 append_avx2_src(compute/exec/swiss_join_avx2.cc)
 append_avx2_src(compute/exec/util_avx2.cc)

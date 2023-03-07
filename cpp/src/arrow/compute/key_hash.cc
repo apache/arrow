@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/key_hash.h"
+#include "key_hash.h"
 
 #include <memory.h>
 

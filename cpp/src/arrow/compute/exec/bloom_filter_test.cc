@@ -23,7 +23,7 @@
 #include <thread>
 #include <unordered_set>
 #include "arrow/compute/exec/bloom_filter.h"
-#include "arrow/compute/exec/key_hash.h"
+#include "arrow/compute/key_hash.h"
 #include "arrow/compute/exec/task_util.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"

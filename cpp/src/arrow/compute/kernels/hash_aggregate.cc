@@ -29,7 +29,7 @@
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/exec/key_hash.h"
+#include "arrow/compute/key_hash.h"
 #include "arrow/compute/exec/key_map.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"

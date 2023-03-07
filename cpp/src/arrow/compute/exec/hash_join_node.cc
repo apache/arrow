@@ -24,7 +24,7 @@
 #include "arrow/compute/exec/hash_join.h"
 #include "arrow/compute/exec/hash_join_dict.h"
 #include "arrow/compute/exec/hash_join_node.h"
-#include "arrow/compute/exec/key_hash.h"
+#include "arrow/compute/key_hash.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/schema_util.h"
 #include "arrow/compute/exec/util.h"

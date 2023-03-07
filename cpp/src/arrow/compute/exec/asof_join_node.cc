@@ -30,7 +30,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/key_hash.h"
+#include "arrow/compute/key_hash.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/schema_util.h"
