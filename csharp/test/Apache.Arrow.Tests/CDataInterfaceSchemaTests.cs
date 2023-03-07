@@ -41,7 +41,47 @@ namespace Apache.Arrow.Tests
             Assert.True(cSchema->private_data == null);
 
             CArrowSchema.Free(cSchema);
-        } 
+        }
+
+        [Fact]
+        public unsafe void FlagsSet()
+        {
+            // Non-nullable field
+            {
+                var nonNullField = new Field("non_null", Int32Type.Default, false);
+                CArrowSchema* cSchema = CArrowSchema.New();
+                CArrowSchemaExporter.ExportField(nonNullField, cSchema);
+                Assert.False(cSchema->GetFlag(CArrowSchema.ArrowFlagNullable));
+                CArrowSchema.Free(cSchema);
+            }
+
+            // Nullable field
+            {
+                var nullableField = new Field("nullable", Int32Type.Default, true);
+                CArrowSchema* cSchema = CArrowSchema.New();
+                CArrowSchemaExporter.ExportField(nullableField, cSchema);
+                Assert.True(cSchema->GetFlag(CArrowSchema.ArrowFlagNullable));
+                CArrowSchema.Free(cSchema);
+            }
+
+            // dictionary ordered
+            {
+                var orderedDictionary = new DictionaryType(Int32Type.Default, StringType.Default, true);
+                CArrowSchema* cSchema = CArrowSchema.New();
+                CArrowSchemaExporter.ExportType(orderedDictionary, cSchema);
+                Assert.True(cSchema->GetFlag(CArrowSchema.ArrowFlagDictionaryOrdered));
+                CArrowSchema.Free(cSchema);
+            }
+
+            // dictionary unordered
+            {
+                var unorderedDictionary = new DictionaryType(Int32Type.Default, StringType.Default, false);
+                CArrowSchema* cSchema = CArrowSchema.New();
+                CArrowSchemaExporter.ExportType(unorderedDictionary, cSchema);
+                Assert.False(cSchema->GetFlag(CArrowSchema.ArrowFlagDictionaryOrdered));
+                CArrowSchema.Free(cSchema);
+            }
+        }
     }
 
     public class CDataSchemaPythonTest
@@ -77,9 +117,9 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("f32").DataType(FloatType.Default).Nullable(true))
                     .Field(f => f.Name("f64").DataType(DoubleType.Default).Nullable(true))
 
-                    .Field(f => f.Name("decmial128_19_3").DataType(new Decimal128Type(19, 3)).Nullable(true))
-                    .Field(f => f.Name("decmial256_19_3").DataType(new Decimal256Type(19, 3)).Nullable(true))
-                    .Field(f => f.Name("decmial256_40_2").DataType(new Decimal256Type(40, 2)).Nullable(false))
+                    .Field(f => f.Name("decimal128_19_3").DataType(new Decimal128Type(19, 3)).Nullable(true))
+                    .Field(f => f.Name("decimal256_19_3").DataType(new Decimal256Type(19, 3)).Nullable(true))
+                    .Field(f => f.Name("decimal256_40_2").DataType(new Decimal256Type(40, 2)).Nullable(false))
 
                     .Field(f => f.Name("binary").DataType(BinaryType.Default).Nullable(false))
                     .Field(f => f.Name("string").DataType(StringType.Default).Nullable(false))
@@ -131,9 +171,9 @@ namespace Apache.Arrow.Tests
                 yield return pa.field("f32", pa.float32(), true);
                 yield return pa.field("f64", pa.float64(), true);
 
-                yield return pa.field("decmial128_19_3", pa.decimal128(19, 3), true);
-                yield return pa.field("decmial256_19_3", pa.decimal256(19, 3), true);
-                yield return pa.field("decmial256_40_2", pa.decimal256(40, 2), false);
+                yield return pa.field("decimal128_19_3", pa.decimal128(19, 3), true);
+                yield return pa.field("decimal256_19_3", pa.decimal256(19, 3), true);
+                yield return pa.field("decimal256_40_2", pa.decimal256(40, 2), false);
 
                 yield return pa.field("binary", pa.binary(), false);
                 yield return pa.field("string", pa.utf8(), false);

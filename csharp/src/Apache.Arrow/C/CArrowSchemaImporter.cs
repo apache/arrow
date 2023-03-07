@@ -18,7 +18,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.C
@@ -98,12 +97,12 @@ namespace Apache.Arrow.C
                 _data = (CArrowSchema*)handle;
                 if (_data->release == null)
                 {
-                    throw new Exception("Tried to import a schema that has already been released.");
+                    throw new ArgumentException("Tried to import a schema that has already been released.");
                 }
                 _isRoot = true;
             }
 
-            private ImportedArrowSchema(CArrowSchema* handle, bool isRoot) : this(handle)
+            public ImportedArrowSchema(CArrowSchema* handle, bool isRoot) : this(handle)
             {
                 _isRoot = isRoot;
             }
@@ -148,12 +147,12 @@ namespace Apache.Arrow.C
                 {
                     if (_data->n_children != 1)
                     {
-                        throw new Exception("Expected list type to have exactly one child.");
+                        throw new InvalidDataException("Expected list type to have exactly one child.");
                     }
                     ImportedArrowSchema childSchema;
                     if (_data->GetChild(0) == null)
                     {
-                        throw new Exception("Expected list type child to be non-null.");
+                        throw new InvalidDataException("Expected list type child to be non-null.");
                     }
                     childSchema = new ImportedArrowSchema(_data->GetChild(0), isRoot: false);
 
@@ -169,7 +168,7 @@ namespace Apache.Arrow.C
                     {
                         if (_data->GetChild(i) == null)
                         {
-                            throw new Exception("Expected struct type child to be non-null.");
+                            throw new InvalidDataException("Expected struct type child to be non-null.");
                         }
                         child_schemas[i] = new ImportedArrowSchema(_data->GetChild(i), isRoot: false);
                     }
@@ -278,7 +277,7 @@ namespace Apache.Arrow.C
                 }
                 else
                 {
-                    throw new Exception("Imported type is not a struct type, so it cannot be converted to a schema.");
+                    throw new ArgumentException("Imported type is not a struct type, so it cannot be converted to a schema.");
                 }
             }
         }

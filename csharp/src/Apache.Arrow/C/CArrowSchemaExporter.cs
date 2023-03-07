@@ -29,11 +29,11 @@ namespace Apache.Arrow.C
         {
             if (schema == null)
             {
-                throw new Exception("Cannot export schema to a null pointer.");
+                throw new ArgumentNullException("Cannot export schema to a null pointer.");
             }
             if (schema->release != null)
             {
-                throw new Exception("Cannot export schema to a struct that is already initialized.");
+                throw new ArgumentException("Cannot export schema to a struct that is already initialized.");
             }
 
             schema->format = StringUtil.ToCStringUtf8(GetFormat(datatype));

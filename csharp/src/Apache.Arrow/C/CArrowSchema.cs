@@ -19,7 +19,6 @@ using System;
 using System.Runtime.InteropServices;
 using Apache.Arrow.Types;
 
-
 namespace Apache.Arrow.C
 {
     /// <summary>
@@ -58,7 +57,7 @@ namespace Apache.Arrow.C
             ptr->dictionary = null;
             ptr->release = null;
             ptr->private_data = null;
-            
+
             return ptr;
         }
 
@@ -108,11 +107,11 @@ namespace Apache.Arrow.C
         {
             if (i >= n_children)
             {
-                throw new Exception("Child index out of bounds.");
+                throw new ArgumentOutOfRangeException("Child index out of bounds.");
             }
             if (children == null)
             {
-                throw new Exception("Children array is null.");
+                throw new Exception("Children array is null but n_children is not zero.");
             }
             unsafe
             {
