@@ -555,74 +555,31 @@ class TestCheckDataPageCrc : public ::testing::Test {
     row_group_ = file_reader_->RowGroup(0);
 
     column_readers_.resize(2);
-    column_readers_[0] =
-        std::dynamic_pointer_cast<TypedColumnReader<Int32Type>>(row_group_->Column(0));
-    column_readers_[1] =
-        std::dynamic_pointer_cast<TypedColumnReader<Int32Type>>(row_group_->Column(1));
-    EXPECT_NE(nullptr, column_readers_[0]);
-    EXPECT_NE(nullptr, column_readers_[1]);
+    column_readers_[0] = row_group_->Column(0);
+    column_readers_[1] = row_group_->Column(1);
 
     page_readers_.resize(2);
     page_readers_[0] = row_group_->GetColumnPageReader(0);
     page_readers_[1] = row_group_->GetColumnPageReader(1);
   }
 
-  void OpenExampleDictFile(const std::string& file_path) {
-    file_reader_ = ParquetFileReader::OpenFile(file_path,
-                                               /*memory_map=*/false, reader_props_);
-    auto metadata_ptr = file_reader_->metadata();
-    EXPECT_EQ(1, metadata_ptr->num_row_groups());
-    EXPECT_EQ(2, metadata_ptr->num_columns());
-    row_group_ = file_reader_->RowGroup(0);
-
-    dict_column_reader1_ =
-        std::dynamic_pointer_cast<TypedColumnReader<Int64Type>>(row_group_->Column(0));
-    dict_column_reader2_ = std::dynamic_pointer_cast<TypedColumnReader<ByteArrayType>>(
-        row_group_->Column(1));
-    EXPECT_NE(nullptr, dict_column_reader1_);
-    EXPECT_NE(nullptr, dict_column_reader2_);
-
-    page_readers_.resize(2);
-    page_readers_[0] = row_group_->GetColumnPageReader(0);
-    page_readers_[1] = row_group_->GetColumnPageReader(1);
-  }
-
-  void CheckReadBatches(int col_index) {
+  template <typename DType>
+  void CheckReadBatches(int col_index, int expect_values) {
+    ASSERT_GT(column_readers_.size(), col_index);
+    auto column_reader =
+        std::dynamic_pointer_cast<TypedColumnReader<DType>>(column_readers_[col_index]);
+    ASSERT_NE(nullptr, column_reader);
     int64_t total_values = 0;
-    std::vector<int32_t> values(1024);
+    std::vector<typename DType::c_type> values(1024);
 
-    while (column_readers_[col_index]->HasNext()) {
+    while (column_reader->HasNext()) {
       int64_t values_read;
-      int64_t levels_read = column_readers_[col_index]->ReadBatch(
-          values.size(), nullptr, nullptr, values.data(), &values_read);
+      int64_t levels_read = column_reader->ReadBatch(values.size(), nullptr, nullptr,
+                                                     values.data(), &values_read);
       EXPECT_EQ(levels_read, values_read);
       total_values += values_read;
     }
-    EXPECT_EQ(kValuesPerColumn, total_values);
-  }
-
-  void CheckDictReadBatches(int col_index) {
-    int64_t total_values = 0;
-    std::vector<int64_t> values_col1(1024);
-    std::vector<ByteArray> values_col2(1024);
-    bool has_next = col_index == 0 ? dict_column_reader1_->HasNext()
-                                   : dict_column_reader2_->HasNext();
-    while (has_next) {
-      int64_t values_read;
-      int64_t levels_read;
-      if (col_index == 0) {
-        levels_read = dict_column_reader1_->ReadBatch(
-            values_col1.size(), nullptr, nullptr, values_col1.data(), &values_read);
-        has_next = dict_column_reader1_->HasNext();
-      } else {
-        levels_read = dict_column_reader2_->ReadBatch(
-            values_col2.size(), nullptr, nullptr, values_col2.data(), &values_read);
-        has_next = dict_column_reader2_->HasNext();
-      }
-      EXPECT_EQ(levels_read, values_read);
-      total_values += values_read;
-    }
-    EXPECT_EQ(1000, total_values);
+    EXPECT_EQ(expect_values, total_values);
   }
 
   void CheckCorrectCrc(const std::string& file_path, bool page_checksum_verification) {
@@ -630,8 +587,8 @@ class TestCheckDataPageCrc : public ::testing::Test {
     {
       // Exercise column readers
       OpenExampleFile(file_path);
-      CheckReadBatches(/*col_index=*/0);
-      CheckReadBatches(/*col_index=*/1);
+      CheckReadBatches<Int32Type>(/*col_index=*/0, kDataPageValuesPerColumn);
+      CheckReadBatches<Int32Type>(/*col_index=*/1, kDataPageValuesPerColumn);
     }
     {
       // Exercise page readers directly
@@ -649,13 +606,13 @@ class TestCheckDataPageCrc : public ::testing::Test {
     reader_props_.set_page_checksum_verification(page_checksum_verification);
     {
       // Exercise column readers
-      OpenExampleDictFile(file_path);
-      CheckDictReadBatches(/*col_index=*/0);
-      CheckDictReadBatches(/*col_index=*/1);
+      OpenExampleFile(file_path);
+      CheckReadBatches<Int64Type>(/*col_index=*/0, kDictPageValuesPerColumn);
+      CheckReadBatches<ByteArrayType>(/*col_index=*/1, kDictPageValuesPerColumn);
     }
     {
       // Exercise page readers directly
-      OpenExampleDictFile(file_path);
+      OpenExampleFile(file_path);
       for (auto& page_reader : page_readers_) {
         // read dict page
         EXPECT_NE(nullptr, page_reader->NextPage());
@@ -677,16 +634,15 @@ class TestCheckDataPageCrc : public ::testing::Test {
   }
 
  protected:
+  static constexpr int kDataPageSize = 1024 * 10;
   // Example CRC files have two v1 data pages per column
-  static constexpr int kPageSize = 1024 * 10;
-  static constexpr int kValuesPerColumn = kPageSize * 2 / sizeof(int32_t);
+  static constexpr int kDataPageValuesPerColumn = kDataPageSize * 2 / sizeof(int32_t);
+  static constexpr int kDictPageValuesPerColumn = 1000;
 
   ReaderProperties reader_props_;
   std::unique_ptr<ParquetFileReader> file_reader_;
   std::shared_ptr<RowGroupReader> row_group_;
-  std::vector<std::shared_ptr<TypedColumnReader<Int32Type>>> column_readers_;
-  std::shared_ptr<TypedColumnReader<Int64Type>> dict_column_reader1_;
-  std::shared_ptr<TypedColumnReader<ByteArrayType>> dict_column_reader2_;
+  std::vector<std::shared_ptr<ColumnReader>> column_readers_;
   std::vector<std::unique_ptr<PageReader>> page_readers_;
 };
 
@@ -700,8 +656,12 @@ TEST_F(TestCheckDataPageCrc, CorruptPageV1) {
     // With column readers
     OpenExampleFile(data_page_v1_corrupt_checksum());
 
-    AssertCrcValidationError([this]() { CheckReadBatches(/*col_index=*/0); });
-    AssertCrcValidationError([this]() { CheckReadBatches(/*col_index=*/1); });
+    AssertCrcValidationError([this]() {
+      CheckReadBatches<Int32Type>(/*col_index=*/0, kDataPageValuesPerColumn);
+    });
+    AssertCrcValidationError([this]() {
+      CheckReadBatches<Int32Type>(/*col_index=*/1, kDataPageValuesPerColumn);
+    });
   }
   {
     // With page readers
@@ -761,14 +721,18 @@ TEST_F(TestCheckDataPageCrc, CorruptDict) {
   reader_props_.set_page_checksum_verification(true);
   {
     // With column readers
-    OpenExampleDictFile(rle_dict_uncompressed_corrupt_checksum());
+    OpenExampleFile(rle_dict_uncompressed_corrupt_checksum());
 
-    AssertCrcValidationError([this]() { CheckDictReadBatches(/*col_index=*/0); });
-    AssertCrcValidationError([this]() { CheckDictReadBatches(/*col_index=*/1); });
+    AssertCrcValidationError([this]() {
+      CheckReadBatches<Int64Type>(/*col_index=*/0, kDictPageValuesPerColumn);
+    });
+    AssertCrcValidationError([this]() {
+      CheckReadBatches<ByteArrayType>(/*col_index=*/1, kDictPageValuesPerColumn);
+    });
   }
   {
     // With page readers
-    OpenExampleDictFile(rle_dict_uncompressed_corrupt_checksum());
+    OpenExampleFile(rle_dict_uncompressed_corrupt_checksum());
 
     CheckNextPageCorrupt(page_readers_[0].get());
     EXPECT_NE(nullptr, page_readers_[0]->NextPage());
