@@ -197,7 +197,7 @@ void StreamWriter::CheckColumn(Type::type physical_type,
                            "' has physical type '" + TypeToString(node->physical_type()) +
                            "' not '" + TypeToString(physical_type) + "'");
   }
-  if (converted_type != node->converted_type()) {
+  if (!node->CompatibleType(converted_type)) {
     throw ParquetException("Column converted type mismatch.  Column '" + node->name() +
                            "' has converted type[" +
                            ConvertedTypeToString(node->converted_type()) + "] not '" +

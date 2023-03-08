@@ -222,6 +222,9 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
   bool Equals(const Node* other) const override;
 
+  // Check if a value of converted_type can be read or written to this Parquet node.
+  bool CompatibleType(ConvertedType::type converted_type) const;
+
   Type::type physical_type() const { return physical_type_; }
 
   ColumnOrder column_order() const { return column_order_; }

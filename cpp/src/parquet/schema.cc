@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstring>
 #include <memory>
+#include <set>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -302,6 +303,34 @@ bool PrimitiveNode::Equals(const Node* other) const {
     return false;
   }
   return EqualsInternal(static_cast<const PrimitiveNode*>(other));
+}
+
+bool PrimitiveNode::CompatibleType(ConvertedType::type converted_type) const {
+  // The converted type in the parquet schema may not match exactly with the
+  // converted type of a value to be read or written. The following is a list
+  // of converted types which are allowed instead.
+  // Each pair given is:
+  //   {<type to be read or written>, <Parquet file converted type>}
+  // So for example {ConvertedType::INT_32, ConvertedType::NONE} means
+  // that a converted type INT_32 can be read or written to Parquet field with
+  // converted type NONE.
+  static const std::set<std::pair<ConvertedType::type, ConvertedType::type> >
+      converted_type_exceptions = {{ConvertedType::INT_32, ConvertedType::NONE},
+                                   {ConvertedType::INT_64, ConvertedType::NONE},
+                                   {ConvertedType::INT_32, ConvertedType::DECIMAL},
+                                   {ConvertedType::INT_64, ConvertedType::DECIMAL},
+                                   {ConvertedType::UTF8, ConvertedType::NONE}};
+
+  if (converted_type != converted_type_) {
+    // The converted type does not always match with the value
+    // provided so check the set of exceptions.
+    if (converted_type_exceptions.find({converted_type, converted_type_}) ==
+        converted_type_exceptions.end()) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 void PrimitiveNode::Visit(Node::Visitor* visitor) { visitor->Visit(this); }

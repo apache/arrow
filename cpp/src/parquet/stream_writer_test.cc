@@ -415,5 +415,54 @@ TEST_F(TestOptionalFields, OutputOperatorTAndSkipColumns) {
   EXPECT_EQ(num_rows, writer_.current_row());
 }
 
+class TestConvertedTypes : public ::testing::Test {
+ protected:
+  void SetUp() {
+    writer_ = StreamWriter{ParquetFileWriter::Open(CreateOutputStream(), GetSchema())};
+  }
+
+  void TearDown() { writer_ = StreamWriter{}; }
+
+  std::shared_ptr<schema::GroupNode> GetSchema() {
+    schema::NodeVector fields;
+
+    // Certain fields in the parquet schema can have converted types different than
+    // the ones usually expected by the stream writer. For example, an int32 can be
+    // written to a parquet field with converted type NONE.
+    fields.push_back(schema::PrimitiveNode::Make("string_field", Repetition::REQUIRED,
+                                                 Type::BYTE_ARRAY, ConvertedType::NONE));
+
+    fields.push_back(schema::PrimitiveNode::Make("int32_field", Repetition::REQUIRED,
+                                                 Type::INT32, ConvertedType::NONE));
+
+    fields.push_back(schema::PrimitiveNode::Make("int64_field", Repetition::OPTIONAL,
+                                                 Type::INT64, ConvertedType::NONE));
+
+    return std::static_pointer_cast<schema::GroupNode>(
+        schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
+  }
+
+  StreamWriter writer_;
+};
+
+TEST_F(TestConvertedTypes, ConvertedTypeChecking) {
+  std::array<char, 4> char4_array = {'T', 'E', 'S', 'T'};
+
+  // Required type: Variable length string.
+  EXPECT_EQ(0, writer_.current_column());
+  EXPECT_THROW(writer_ << char4_array, ParquetException);
+  EXPECT_NO_THROW(writer_ << "ok");
+
+  // Required type: int32_t
+  EXPECT_EQ(1, writer_.current_column());
+  EXPECT_THROW(writer_ << int16_t(99), ParquetException);
+  EXPECT_NO_THROW(writer_ << int32_t(329487));
+
+  // Required type: int64_t
+  EXPECT_EQ(2, writer_.current_column());
+  EXPECT_THROW(writer_ << int32_t(9832423), ParquetException);
+  EXPECT_NO_THROW(writer_ << int64_t((1ull << 30) + 123));
+}
+
 }  // namespace test
 }  // namespace parquet
