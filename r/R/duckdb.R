@@ -95,7 +95,7 @@ run_duckdb_examples <- function() {
     packageVersion("duckdb") > "0.2.7" &&
     requireNamespace("dplyr", quietly = TRUE) &&
     requireNamespace("dbplyr", quietly = TRUE) &&
-    R.Version()$major >= 4
+    getRversion() >= 4
 }
 
 # Adapted from dbplyr
