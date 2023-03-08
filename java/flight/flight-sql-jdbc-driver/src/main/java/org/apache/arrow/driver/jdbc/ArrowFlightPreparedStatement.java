@@ -121,7 +121,7 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
   }
 
   private void copyParameters() throws SQLException {
-    BufferAllocator allocator = new RootAllocator(1024 * 1024);
+    BufferAllocator allocator = new RootAllocator(50000000);
     List<FieldVector> fields = new ArrayList<>();
     List<TypedValue> values = this.getParameterValues();
     for(int i = 0; i < this.getParameterCount(); i++) {
