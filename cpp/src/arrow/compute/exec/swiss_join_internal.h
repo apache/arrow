@@ -18,7 +18,7 @@
 #pragma once
 
 #include <cstdint>
-#include "arrow/compute/exec/key_map.h"
+#include "arrow/compute/key_map.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/partition_util.h"
 #include "arrow/compute/exec/schema_util.h"

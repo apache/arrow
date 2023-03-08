@@ -401,8 +401,6 @@ list(APPEND
      compute/exec/hash_join.cc
      compute/exec/hash_join_dict.cc
      compute/exec/hash_join_node.cc
-        compute/key_hash.cc
-     compute/exec/key_map.cc
      compute/exec/map_node.cc
      compute/exec/options.cc
      compute/exec/order_by_impl.cc
@@ -420,6 +418,8 @@ list(APPEND
      compute/function.cc
      compute/function_internal.cc
      compute/kernel.cc
+     compute/key_hash.cc
+     compute/key_map.cc
      compute/light_array.cc
      compute/ordering.cc
      compute/registry.cc
@@ -439,11 +439,12 @@ list(APPEND
      compute/row/encode_internal.cc
      compute/row/compare_internal.cc
      compute/row/grouper.cc
-     compute/row/row_internal.cc)
+     compute/row/row_internal.cc
+     compute/util.cc)
 
 append_avx2_src(compute/exec/bloom_filter_avx2.cc)
 append_avx2_src(compute/key_hash_avx2.cc)
-append_avx2_src(compute/exec/key_map_avx2.cc)
+append_avx2_src(compute/key_map_avx2.cc)
 append_avx2_src(compute/exec/swiss_join_avx2.cc)
 append_avx2_src(compute/exec/util_avx2.cc)
 append_avx2_src(compute/row/compare_internal_avx2.cc)

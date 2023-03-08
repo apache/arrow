@@ -16,7 +16,8 @@
 // under the License.
 
 #include "arrow/compute/row/encode_internal.h"
-#include "arrow/compute/exec.h"
+//#include "arrow/compute/exec.h"
+//DIPO
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {

@@ -67,25 +67,25 @@ namespace util {
 //  ARROW_DCHECK(reinterpret_cast<uint64_t>(ptr) % sizeof(T) == 0);
 //}
 
-// Some platforms typedef int64_t as long int instead of long long int,
-// which breaks the _mm256_i64gather_epi64 and _mm256_i32gather_epi64 intrinsics
-// which need long long.
-// We use the cast to the type below in these intrinsics to make the code
-// compile in all cases.
+//// Some platforms typedef int64_t as long int instead of long long int,
+//// which breaks the _mm256_i64gather_epi64 and _mm256_i32gather_epi64 intrinsics
+//// which need long long.
+//// We use the cast to the type below in these intrinsics to make the code
+//// compile in all cases.
+////
+//using int64_for_gather_t = const long long int;  // NOLINT runtime-int
 //
-using int64_for_gather_t = const long long int;  // NOLINT runtime-int
-
-// All MiniBatch... classes use TempVectorStack for vector allocations and can
-// only work with vectors up to 1024 elements.
-//
-// They should only be allocated on the stack to guarantee the right sequence
-// of allocation and deallocation of vectors from TempVectorStack.
-//
-class MiniBatch {
- public:
-  static constexpr int kLogMiniBatchLength = 10;
-  static constexpr int kMiniBatchLength = 1 << kLogMiniBatchLength;
-};
+//// All MiniBatch... classes use TempVectorStack for vector allocations and can
+//// only work with vectors up to 1024 elements.
+////
+//// They should only be allocated on the stack to guarantee the right sequence
+//// of allocation and deallocation of vectors from TempVectorStack.
+////
+//class MiniBatch {
+// public:
+//  static constexpr int kLogMiniBatchLength = 10;
+//  static constexpr int kMiniBatchLength = 1 << kLogMiniBatchLength;
+//};
 
 // DIPO
 ///// Storage used to allocate temporary vectors of a batch size.
@@ -151,89 +151,89 @@ class MiniBatch {
 //  std::unique_ptr<Buffer> buffer_;
 //  int64_t buffer_size_;
 //};
-
-template <typename T>
-class TempVectorHolder {
-  friend class TempVectorStack;
-
- public:
-  ~TempVectorHolder() { stack_->release(id_, num_elements_ * sizeof(T)); }
-  T* mutable_data() { return reinterpret_cast<T*>(data_); }
-  TempVectorHolder(TempVectorStack* stack, uint32_t num_elements) {
-    stack_ = stack;
-    num_elements_ = num_elements;
-    stack_->alloc(num_elements * sizeof(T), &data_, &id_);
-  }
-
- private:
-  TempVectorStack* stack_;
-  uint8_t* data_;
-  int id_;
-  uint32_t num_elements_;
-};
-
-class bit_util {
- public:
-  static void bits_to_indexes(int bit_to_search, int64_t hardware_flags,
-                              const int num_bits, const uint8_t* bits, int* num_indexes,
-                              uint16_t* indexes, int bit_offset = 0);
-
-  static void bits_filter_indexes(int bit_to_search, int64_t hardware_flags,
-                                  const int num_bits, const uint8_t* bits,
-                                  const uint16_t* input_indexes, int* num_indexes,
-                                  uint16_t* indexes, int bit_offset = 0);
-
-  // Input and output indexes may be pointing to the same data (in-place filtering).
-  static void bits_split_indexes(int64_t hardware_flags, const int num_bits,
-                                 const uint8_t* bits, int* num_indexes_bit0,
-                                 uint16_t* indexes_bit0, uint16_t* indexes_bit1,
-                                 int bit_offset = 0);
-
-  // Bit 1 is replaced with byte 0xFF.
-  static void bits_to_bytes(int64_t hardware_flags, const int num_bits,
-                            const uint8_t* bits, uint8_t* bytes, int bit_offset = 0);
-
-  // Return highest bit of each byte.
-  static void bytes_to_bits(int64_t hardware_flags, const int num_bits,
-                            const uint8_t* bytes, uint8_t* bits, int bit_offset = 0);
-
-  static bool are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
-                                 uint32_t num_bytes);
-
- private:
-  inline static uint64_t SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes);
-  inline static void SafeStoreUpTo8Bytes(uint8_t* bytes, int num_bytes, uint64_t value);
-  inline static void bits_to_indexes_helper(uint64_t word, uint16_t base_index,
-                                            int* num_indexes, uint16_t* indexes);
-  inline static void bits_filter_indexes_helper(uint64_t word,
-                                                const uint16_t* input_indexes,
-                                                int* num_indexes, uint16_t* indexes);
-  template <int bit_to_search, bool filter_input_indexes>
-  static void bits_to_indexes_internal(int64_t hardware_flags, const int num_bits,
-                                       const uint8_t* bits, const uint16_t* input_indexes,
-                                       int* num_indexes, uint16_t* indexes,
-                                       uint16_t base_index = 0);
-
-#if defined(ARROW_HAVE_AVX2)
-  static void bits_to_indexes_avx2(int bit_to_search, const int num_bits,
-                                   const uint8_t* bits, int* num_indexes,
-                                   uint16_t* indexes, uint16_t base_index = 0);
-  static void bits_filter_indexes_avx2(int bit_to_search, const int num_bits,
-                                       const uint8_t* bits, const uint16_t* input_indexes,
-                                       int* num_indexes, uint16_t* indexes);
-  template <int bit_to_search>
-  static void bits_to_indexes_imp_avx2(const int num_bits, const uint8_t* bits,
-                                       int* num_indexes, uint16_t* indexes,
-                                       uint16_t base_index = 0);
-  template <int bit_to_search>
-  static void bits_filter_indexes_imp_avx2(const int num_bits, const uint8_t* bits,
-                                           const uint16_t* input_indexes,
-                                           int* num_indexes, uint16_t* indexes);
-  static void bits_to_bytes_avx2(const int num_bits, const uint8_t* bits, uint8_t* bytes);
-  static void bytes_to_bits_avx2(const int num_bits, const uint8_t* bytes, uint8_t* bits);
-  static bool are_all_bytes_zero_avx2(const uint8_t* bytes, uint32_t num_bytes);
-#endif
-};
+//
+//template <typename T>
+//class TempVectorHolder {
+//  friend class TempVectorStack;
+//
+// public:
+//  ~TempVectorHolder() { stack_->release(id_, num_elements_ * sizeof(T)); }
+//  T* mutable_data() { return reinterpret_cast<T*>(data_); }
+//  TempVectorHolder(TempVectorStack* stack, uint32_t num_elements) {
+//    stack_ = stack;
+//    num_elements_ = num_elements;
+//    stack_->alloc(num_elements * sizeof(T), &data_, &id_);
+//  }
+//
+// private:
+//  TempVectorStack* stack_;
+//  uint8_t* data_;
+//  int id_;
+//  uint32_t num_elements_;
+//};
+//
+//class bit_util {
+// public:
+//  static void bits_to_indexes(int bit_to_search, int64_t hardware_flags,
+//                              const int num_bits, const uint8_t* bits, int* num_indexes,
+//                              uint16_t* indexes, int bit_offset = 0);
+//
+//  static void bits_filter_indexes(int bit_to_search, int64_t hardware_flags,
+//                                  const int num_bits, const uint8_t* bits,
+//                                  const uint16_t* input_indexes, int* num_indexes,
+//                                  uint16_t* indexes, int bit_offset = 0);
+//
+//  // Input and output indexes may be pointing to the same data (in-place filtering).
+//  static void bits_split_indexes(int64_t hardware_flags, const int num_bits,
+//                                 const uint8_t* bits, int* num_indexes_bit0,
+//                                 uint16_t* indexes_bit0, uint16_t* indexes_bit1,
+//                                 int bit_offset = 0);
+//
+//  // Bit 1 is replaced with byte 0xFF.
+//  static void bits_to_bytes(int64_t hardware_flags, const int num_bits,
+//                            const uint8_t* bits, uint8_t* bytes, int bit_offset = 0);
+//
+//  // Return highest bit of each byte.
+//  static void bytes_to_bits(int64_t hardware_flags, const int num_bits,
+//                            const uint8_t* bytes, uint8_t* bits, int bit_offset = 0);
+//
+//  static bool are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
+//                                 uint32_t num_bytes);
+//
+// private:
+//  inline static uint64_t SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes);
+//  inline static void SafeStoreUpTo8Bytes(uint8_t* bytes, int num_bytes, uint64_t value);
+//  inline static void bits_to_indexes_helper(uint64_t word, uint16_t base_index,
+//                                            int* num_indexes, uint16_t* indexes);
+//  inline static void bits_filter_indexes_helper(uint64_t word,
+//                                                const uint16_t* input_indexes,
+//                                                int* num_indexes, uint16_t* indexes);
+//  template <int bit_to_search, bool filter_input_indexes>
+//  static void bits_to_indexes_internal(int64_t hardware_flags, const int num_bits,
+//                                       const uint8_t* bits, const uint16_t* input_indexes,
+//                                       int* num_indexes, uint16_t* indexes,
+//                                       uint16_t base_index = 0);
+//
+//#if defined(ARROW_HAVE_AVX2)
+//  static void bits_to_indexes_avx2(int bit_to_search, const int num_bits,
+//                                   const uint8_t* bits, int* num_indexes,
+//                                   uint16_t* indexes, uint16_t base_index = 0);
+//  static void bits_filter_indexes_avx2(int bit_to_search, const int num_bits,
+//                                       const uint8_t* bits, const uint16_t* input_indexes,
+//                                       int* num_indexes, uint16_t* indexes);
+//  template <int bit_to_search>
+//  static void bits_to_indexes_imp_avx2(const int num_bits, const uint8_t* bits,
+//                                       int* num_indexes, uint16_t* indexes,
+//                                       uint16_t base_index = 0);
+//  template <int bit_to_search>
+//  static void bits_filter_indexes_imp_avx2(const int num_bits, const uint8_t* bits,
+//                                           const uint16_t* input_indexes,
+//                                           int* num_indexes, uint16_t* indexes);
+//  static void bits_to_bytes_avx2(const int num_bits, const uint8_t* bits, uint8_t* bytes);
+//  static void bytes_to_bits_avx2(const int num_bits, const uint8_t* bytes, uint8_t* bits);
+//  static bool are_all_bytes_zero_avx2(const uint8_t* bytes, uint32_t num_bytes);
+//#endif
+//};
 
 }  // namespace util
 namespace compute {

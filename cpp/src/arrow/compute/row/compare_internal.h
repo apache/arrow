@@ -19,7 +19,8 @@
 
 #include <cstdint>
 
-#include "arrow/compute/exec/util.h"
+// DIPO
+#include "arrow/compute/util.h"
 #include "arrow/compute/light_array.h"
 #include "arrow/compute/row/encode_internal.h"
 #include "arrow/compute/row/row_internal.h"
