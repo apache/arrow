@@ -55,6 +55,21 @@ test_that("GcsFileSystem$create() options", {
     fs$options,
     options
   )
+
+  # Expiration round-trips
+  options <- list(
+    expiration = as.POSIXct("2030-01-01", tz = "UTC"),
+    access_token = "MY_TOKEN"
+  )
+  fs <- do.call(GcsFileSystem$create, options)
+
+  expect_equal(fs$options$expiration, options$expiration)
+
+  # Verify create fails if expiration isn't a POSIXct
+  expect_error(
+    GcsFileSystem$create(access_token = "", expiration = ""),
+    "must be of class POSIXct"
+  )
 })
 
 test_that("GcsFileSystem$create() input validation", {
