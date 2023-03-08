@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "key_map.h"
+#include "arrow/compute/key_map.h"
 
 #include <algorithm>
 #include <cstdint>

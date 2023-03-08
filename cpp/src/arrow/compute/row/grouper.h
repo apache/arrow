@@ -20,7 +20,6 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/compute/key_map.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
