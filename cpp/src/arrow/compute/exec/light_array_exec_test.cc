@@ -27,7 +27,7 @@
 namespace arrow {
 namespace compute {
 
- TEST(KeyColumnArray, FromExecBatch) {
+TEST(KeyColumnArray, FromExecBatch) {
   ExecBatch batch =
       ExecBatchFromJSON({int64(), boolean()}, "[[1, true], [2, false], [null, null]]");
   std::vector<KeyColumnArray> arrays;
@@ -139,7 +139,7 @@ TEST(ExecBatchBuilder, AppendBatchesSomeCols) {
   ASSERT_EQ(0, pool->bytes_allocated());
 }
 
- TEST(ExecBatchBuilder, AppendNulls) {
+TEST(ExecBatchBuilder, AppendNulls) {
   std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
   MemoryPool* pool = owned_pool.get();
   ExecBatch batch_one =
