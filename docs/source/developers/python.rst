@@ -665,8 +665,6 @@ PyArrow are:
    * - PYARROW_BUNDLE_BOOST
      - Bundle the Boost libraries when we bundle Arrow C++
      - ``0``(OFF)
-   * - PYARROW_BUNDLE_ARROW_CPP_HEADERS
-     - Bundle the Arrow C++ headers
    * - PYARROW_INSTALL_TESTS
      - Add the test to the python package
      - ``1``(ON)

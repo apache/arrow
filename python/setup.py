@@ -193,8 +193,6 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_BUNDLE_CYTHON_CPP', '0'))
         self.bundle_boost = strtobool(
             os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
-        self.bundle_arrow_cpp_headers = strtobool(
-            os.environ.get('PYARROW_BUNDLE_ARROW_CPP_HEADERS', '1'))
         self.bundle_plasma_executable = strtobool(
             os.environ.get('PYARROW_BUNDLE_PLASMA_EXECUTABLE', '1'))
 
