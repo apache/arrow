@@ -191,8 +191,6 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
         self.bundle_cython_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_CYTHON_CPP', '0'))
-        self.bundle_boost = strtobool(
-            os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
         self.bundle_plasma_executable = strtobool(
             os.environ.get('PYARROW_BUNDLE_PLASMA_EXECUTABLE', '1'))
 
@@ -295,8 +293,6 @@ class build_ext(_build_ext):
             append_cmake_bool(self.with_tensorflow, 'PYARROW_USE_TENSORFLOW')
             append_cmake_bool(self.bundle_arrow_cpp,
                               'PYARROW_BUNDLE_ARROW_CPP')
-            append_cmake_bool(self.bundle_boost,
-                              'PYARROW_BUNDLE_BOOST')
             append_cmake_bool(self.bundle_cython_cpp,
                               'PYARROW_BUNDLE_CYTHON_CPP')
             append_cmake_bool(self.bundle_plasma_executable,
