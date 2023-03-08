@@ -382,6 +382,7 @@ arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsReques
     result.session_options.reserve(command.session_options_size());
     for (const pb::sql::SessionOption &opt : command.session_options()) {
       //FIXME implement me
+      assert(opt);  // be quiet, -Wunused-variable
     }
 
     //result.session_options.assign(command.session_options().begin(), command.session_options().end());
@@ -457,13 +458,13 @@ arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult resul
 arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
   pb::sql::ActionSetSessionOptionsResult pb_result;
   //FIXME impl
-  return result;
+  return PackActionResult(pb_result);
 }
 
 arrow::Result<Result> PackActionResult(ActionCloseSessionResult result) {
   pb::sql::ActionSetSessionOptionsResult pb_result;
   //FIXME impl
-  return result;
+  return PackActionResult(pb_result);
 }
 
 }  // namespace
