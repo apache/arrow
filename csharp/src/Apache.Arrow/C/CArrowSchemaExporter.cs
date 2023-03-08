@@ -23,8 +23,21 @@ using Apache.Arrow.Types;
 
 namespace Apache.Arrow.C
 {
-    public sealed class CArrowSchemaExporter
+    public static class CArrowSchemaExporter
     {
+        /// <summary>
+        /// Export a type to a <see cref="CArrowSchema"/>.
+        /// </summary>
+        /// <param name="datatype">The datatype to export</param>
+        /// <param name="schema">An allocated but uninitialized CArrowSchema pointer.</param>
+        /// <example>
+        /// <code>
+        /// CArrowSchema* exportPtr = CArrowSchema.New();
+        /// CArrowSchemaExporter.ExportType(dataType, exportPtr);
+        /// foreign_import_function(exportPtr);
+        /// CArrowSchema.Free(exportPtr);
+        /// </code>
+        /// </example>
         public static unsafe void ExportType(IArrowType datatype, CArrowSchema* schema)
         {
             if (schema == null)
@@ -52,6 +65,19 @@ namespace Apache.Arrow.C
             schema->private_data = null;
         }
 
+        /// <summary>
+        /// Export a field to a <see cref="CArrowSchema"/>.
+        /// </summary>
+        /// <param name="field">The field to export</param>
+        /// <param name="schema">An allocated but uninitialized CArrowSchema pointer.</param>
+        /// <example>
+        /// <code>
+        /// CArrowSchema* exportPtr = CArrowSchema.New();
+        /// CArrowSchemaExporter.ExportType(field, exportPtr);
+        /// foreign_import_function(exportPtr);
+        /// CArrowSchema.Free(exportPtr);
+        /// </code>
+        /// </example>
         public static unsafe void ExportField(Field field, CArrowSchema* schema)
         {
             ExportType(field.DataType, schema);
@@ -61,14 +87,25 @@ namespace Apache.Arrow.C
             schema->flags = GetFlags(field.DataType, field.IsNullable);
         }
 
+        /// <summary>
+        /// Export a schema to a <see cref="CArrowSchema"/>.
+        /// </summary>
+        /// <param name="schema">The schema to export</param>
+        /// <param name="out_schema">An allocated but uninitialized CArrowSchema pointer.</param>
+        /// <example>
+        /// <code>
+        /// CArrowSchema* exportPtr = CArrowSchema.New();
+        /// CArrowSchemaExporter.ExportType(schema, exportPtr);
+        /// foreign_import_function(exportPtr);
+        /// CArrowSchema.Free(exportPtr);
+        /// </code>
+        /// </example>
         public static unsafe void ExportSchema(Schema schema, CArrowSchema* out_schema)
         {
             var structType = new StructType(schema.FieldsList);
             // TODO: top-level metadata
             ExportType(structType, out_schema);
         }
-
-
 
         private static char FormatTimeUnit(TimeUnit unit) => unit switch
         {

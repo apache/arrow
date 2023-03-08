@@ -22,7 +22,7 @@ using Apache.Arrow.Types;
 
 namespace Apache.Arrow.C
 {
-    public sealed class CArrowSchemaImporter
+    public static class CArrowSchemaImporter
     {
         /// <summary>
         /// Import C pointer as an <see cref="ArrowType"/>.
@@ -33,10 +33,10 @@ namespace Apache.Arrow.C
         /// the result.
         /// 
         /// <code>
-        /// IntPtr importedPtr = CArrowSchema.AllocateUninitialized();
+        /// CArrowSchema* importedPtr = CArrowSchema.New();
         /// foreign_export_function(importedPtr);
-        /// ArrowType importedType = CArrowSchema.ImportType(importedPtr);
-        /// CArrowSchema.FreePtr(importedPtr);
+        /// ArrowType importedType = CArrowSchemaImporter.ImportType(importedPtr);
+        /// CArrowSchema.Free(importedPtr);
         /// </code>
         /// </examples>
         public static unsafe ArrowType ImportType(CArrowSchema* ptr)
@@ -54,10 +54,10 @@ namespace Apache.Arrow.C
         /// the result.
         /// 
         /// <code>
-        /// IntPtr importedPtr = CArrowSchema.AllocateUninitialized();
+        /// CArrowSchema* importedPtr = CArrowSchema.New();
         /// foreign_export_function(importedPtr);
-        /// Field importedField = CArrowSchema.ImportField(importedPtr);
-        /// CArrowSchema.FreePtr(importedPtr);
+        /// Field importedField = CArrowSchemaImporter.ImportField(importedPtr);
+        /// CArrowSchema.Free(importedPtr);
         /// </code>
         /// </examples>
         public static unsafe Field ImportField(CArrowSchema* ptr)
@@ -75,10 +75,10 @@ namespace Apache.Arrow.C
         /// the result.
         /// 
         /// <code>
-        /// IntPtr importedPtr = CArrowSchema.AllocateUninitialized();
+        /// CArrowSchema* importedPtr = CArrowSchema.New();
         /// foreign_export_function(importedPtr);
-        /// Field importedSchema = CArrowSchema.ImportSchema(importedPtr);
-        /// CArrowSchema.FreePtr(importedPtr);
+        /// Field importedSchema = CArrowSchemaImporter.ImportSchema(importedPtr);
+        /// CArrowSchema.Free(importedPtr);
         /// </code>
         /// </examples>
         public static unsafe Schema ImportSchema(CArrowSchema* ptr)
