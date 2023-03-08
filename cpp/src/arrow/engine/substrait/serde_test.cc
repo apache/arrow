@@ -5594,5 +5594,215 @@ TEST(Substrait, PlanWithNamedTapExtension) {
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
+// Result<std::string> GetSubstraitJSON() {
+
+void WriteTableToFile(const std::shared_ptr<Table>& table, const std::string& file_path) {
+  auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  WriteIpcData(file_path, filesystem, table);
+}
+
+TEST(Substrait, JoinRelWithFileSource) {
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("substrait-tempdir-join"));
+  const std::string left_file = "left.arrow";
+  const std::string right_file = "right.arrow";
+
+  ASSERT_OK_AND_ASSIGN(auto left_file_path, tempdir->path().Join(left_file));
+  const std::string left_file_path_str = left_file_path.ToString();
+
+  ASSERT_OK_AND_ASSIGN(auto right_file_path, tempdir->path().Join(right_file));
+  const std::string right_file_path_str = right_file_path.ToString();
+
+  auto left_schema = schema({field("city", utf8()), field("country", utf8())});
+  auto right_schema = schema({field("country", utf8()), field("continent", utf8())});
+  auto expected_schema = schema({field("city", utf8()), field("country", utf8()),
+                                 field("country", utf8()), field("continent", utf8())});
+
+  auto left_table = TableFromJSON(left_schema, {R"([
+      ["Bloomington", "United States"],
+      ["Paris", "France"],
+      ["Barcelona", "Spain"],
+      ["Cape Town", "South Africa"]
+  ])"});
+
+  auto right_table = TableFromJSON(right_schema, {R"([
+      ["United States", "North America"],
+      ["France", "Europe"],
+      ["Spain", "Europe"],
+      ["South Africa", "Africa"]
+  ])"});
+
+  auto expected_table = TableFromJSON(expected_schema, {R"([
+      ["Bloomington", "United States", "United States", "North America"],
+      ["Paris", "France", "France", "Europe"],
+      ["Barcelona", "Spain", "Spain", "Europe"],
+      ["Cape Town", "South Africa", "South Africa", "Africa"]
+  ])"});
+
+  WriteTableToFile(left_table, left_file_path_str);
+  WriteTableToFile(right_table, right_file_path_str);
+
+  std::string substrait_json = R"({
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1,
+      "uri": ")" + std::string(kSubstraitArithmeticFunctionsUri) +
+                               R"("
+    },
+    {
+      "extensionUriAnchor": 2,
+      "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+                               R"("
+    }
+  ],
+  "extensions": [
+    {
+      "extensionFunction": {
+        "extensionUriReference": 2,
+        "functionAnchor": 3,
+        "name": "equal"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "rel": {
+        "join": {
+          "common": {
+            "emit": {
+              "outputMapping": [
+                0,
+                1,
+                2,
+                3
+              ]
+            }
+          },
+          "left": {
+            "read": {
+              "baseSchema": {
+                "names": [
+                  "city",
+                  "country"
+                ],
+                "struct": {
+                  "types": [
+                    {
+                      "string": {
+                        "nullability": "NULLABILITY_NULLABLE"
+                      }
+                    },
+                    {
+                      "string": {
+                        "nullability": "NULLABILITY_NULLABLE"
+                      }
+                    }
+                  ]
+                }
+              },
+              "localFiles": {
+                "items": [
+                  {
+                    "uri_file": "file://LEFT_FILENAME_PLACEHOLDER",
+                    "arrow": {}
+                  }
+                ]
+              }
+            }
+          },
+          "right": {
+            "read": {
+              "baseSchema": {
+                "names": [
+                  "country",
+                  "continent"
+                ],
+                "struct": {
+                  "types": [
+                    {
+                      "string": {
+                        "nullability": "NULLABILITY_NULLABLE"
+                      }
+                    },
+                    {
+                      "string": {
+                        "nullability": "NULLABILITY_NULLABLE"
+                      }
+                    }
+                  ]
+                }
+              },
+              "localFiles": {
+                "items": [
+                  {
+                    "uri_file": "file://RIGHT_FILENAME_PLACEHOLDER",
+                    "arrow": {}
+                  }
+                ]
+              }
+            }
+          },
+          "expression": {
+            "scalarFunction": {
+              "functionReference": 3,
+              "outputType": {
+                "bool": {
+                  "nullability": "NULLABILITY_NULLABLE"
+                }
+              },
+              "arguments": [
+                {
+                  "value": {
+                    "selection": {
+                      "directReference": {
+                        "structField": {
+                          "field": 1
+                        }
+                      },
+                      "rootReference": {
+
+                      }
+                    }
+                  }
+                },
+                {
+                  "value": {
+                    "selection": {
+                      "directReference": {
+                        "structField": {
+                          "field": 2
+                        }
+                      },
+                      "rootReference": {
+
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "type": "JOIN_TYPE_INNER"
+        }
+      }
+    }
+  ]
+})";
+  std::string left_filename_placeholder = "LEFT_FILENAME_PLACEHOLDER";
+  std::string right_filename_placeholder = "RIGHT_FILENAME_PLACEHOLDER";
+
+  substrait_json.replace(substrait_json.find(left_filename_placeholder),
+                         left_filename_placeholder.size(), left_file_path_str);
+  substrait_json.replace(substrait_json.find(right_filename_placeholder),
+                         right_filename_placeholder.size(), right_file_path_str);
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
+  ConversionOptions conversion_options;
+  CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
+}
+
 }  // namespace engine
 }  // namespace arrow

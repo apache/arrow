@@ -489,9 +489,18 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(base_schema));
 
-      DeclarationInfo scan_declaration{
-          compute::Declaration{"scan", dataset::ScanNodeOptions{ds, scan_options}},
-          base_schema};
+      // GH-34484: Based on the proposed fixed, adding a project node to eliminate
+      // unnecessary columns
+      std::vector<compute::Expression> project_exprs;
+      project_exprs.reserve(base_schema->num_fields());
+      for (const auto& field_name : base_schema->field_names()) {
+        project_exprs.emplace_back(compute::field_ref(field_name));
+      }
+
+      compute::Declaration scan_project = compute::Declaration::Sequence(
+          {{"scan", dataset::ScanNodeOptions{ds, scan_options}},
+           {"project", compute::ProjectNodeOptions{std::move(project_exprs)}}});
+      DeclarationInfo scan_declaration{scan_project, base_schema};
 
       return ProcessEmit(std::move(read), std::move(scan_declaration),
                          std::move(base_schema));
