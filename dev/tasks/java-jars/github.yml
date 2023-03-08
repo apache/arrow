@@ -81,7 +81,7 @@ jobs:
           # doesn't provides static z3 because z3's CMake doesn't accept
           # building both shared and static libraries at once.
           # See also: Z3_BUILD_LIBZ3_SHARED in
-          # https://github.com/Z3Prover/z3/blob/master/README-CMake.md
+          # https://github.com/Z3Prover/z3/blob/main/README-CMake.md
           #
           # If llvm is installed, Apache Arrow C++ uses llvm rather than
           # llvm@14 because llvm is newer than llvm@14.
