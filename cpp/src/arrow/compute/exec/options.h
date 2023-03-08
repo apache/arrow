@@ -215,8 +215,6 @@ class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
 /// described above, applies.
 ///
 /// The keys and segment_keys vectors must be disjoint.
-///
-/// See also doc in `aggregate_node.cc`
 class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
  public:
   explicit AggregateNodeOptions(std::vector<Aggregate> aggregates,

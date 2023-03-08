@@ -46,9 +46,9 @@
 // segment-keys is used to refine the partitioning. However, segment-keys are different in
 // that they partition only consecutive rows into a single group. Such a partition of
 // consecutive rows is called a segment group. For example, consider a column X with
-// values [A, B, A] at row-indices [0, 1, 2]. A regular group-by aggregation with keys [X]
-// yields a row-index partitioning [[0, 2], [1]] whereas a segmented-group-by aggregation
-// with segment-keys [X] yields [[0], [1], [2]].
+// values [A, A, B, A] at row-indices [0, 1, 2]. A regular group-by aggregation with keys
+// [X] yields a row-index partitioning [[0, 1, 3], [2]] whereas a segmented-group-by
+// aggregation with segment-keys [X] yields [[0, 1], [1], [3]].
 //
 // The implementation first segments the input using the segment-keys, then groups by the
 // keys. When a segment group end is reached while scanning the input, output is pushed
@@ -185,11 +185,11 @@ void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
   *ss << ']';
 }
 
-// Handle the input batch
-// If a segment is closed by this batch, then we output the aggregation for the segment
-// If a segment is not closed by this batch, then we add the batch to the segment
+// Extract segments from a batch and run the given handler on them.  Note that the
+// handle may be called on open segments which are not yet finished.  Typically a
+// handler should accumulate those open segments until a closed segment is reached.
 template <typename BatchHandler>
-Status HandleSegments(std::unique_ptr<RowSegmenter>& segmenter, const ExecBatch& batch,
+Status HandleSegments(RowSegmenter* segmenter, const ExecBatch& batch,
                       const std::vector<int>& ids, const BatchHandler& handle_batch) {
   int64_t offset = 0;
   ARROW_ASSIGN_OR_RAISE(auto segment_exec_batch, batch.SelectValues(ids));
@@ -401,7 +401,6 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
       if (!segment.extends && segment.offset == 0) RETURN_NOT_OK(OutputResult(false));
 
       // We add segment to the current segment group aggregation
-      // GH-34475: change to zero-copy slicing
       auto exec_batch = full_batch.Slice(segment.offset, segment.length);
       RETURN_NOT_OK(DoConsume(ExecSpan(exec_batch), thread_index));
       RETURN_NOT_OK(
@@ -413,7 +412,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
 
       return Status::OK();
     };
-    RETURN_NOT_OK(HandleSegments(segmenter_, batch, segment_field_ids_, handler));
+    RETURN_NOT_OK(HandleSegments(segmenter_.get(), batch, segment_field_ids_, handler));
 
     if (input_counter_.Increment()) {
       RETURN_NOT_OK(OutputResult(/*is_last=*/true));
@@ -818,8 +817,6 @@ class GroupByNode : public ExecNode, public TracedNode {
 
     auto handler = [this](const ExecBatch& full_batch, const Segment& segment) {
       if (!segment.extends && segment.offset == 0) RETURN_NOT_OK(OutputResult(false));
-      // This is not zero copy - we should refactor the code to pass
-      // offset and length to Consume to avoid copying here
       auto exec_batch = full_batch.Slice(segment.offset, segment.length);
       auto batch = ExecSpan(exec_batch);
       RETURN_NOT_OK(Consume(batch));
@@ -829,7 +826,7 @@ class GroupByNode : public ExecNode, public TracedNode {
       return Status::OK();
     };
     ARROW_RETURN_NOT_OK(
-        HandleSegments(segmenter_, batch, segment_key_field_ids_, handler));
+        HandleSegments(segmenter_.get(), batch, segment_key_field_ids_, handler));
 
     if (input_counter_.Increment()) {
       ARROW_RETURN_NOT_OK(OutputResult(/*is_last=*/true));
