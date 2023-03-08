@@ -209,7 +209,7 @@ class RunEndEncodedArraySpan {
   /// \brief Create an iterator from a logical position and its
   /// pre-computed physical offset into the run ends array
   ///
-  /// \param logical_pos is an index in the [0, length()) range
+  /// \param logical_pos is an index in the [0, length()] range
   /// \param physical_offset the pre-calculated PhysicalIndex(logical_pos)
   Iterator iterator(int64_t logical_pos, int64_t physical_offset) const {
     return Iterator{PrivateTag{}, *this, logical_pos, physical_offset};
@@ -217,10 +217,11 @@ class RunEndEncodedArraySpan {
 
   /// \brief Create an iterator from a logical position
   ///
-  /// \param logical_pos is an index in the [0, length()) range
+  /// \param logical_pos is an index in the [0, length()] range
   Iterator iterator(int64_t logical_pos) const {
-    assert(logical_pos < length());
-    return iterator(logical_pos, PhysicalIndex(logical_pos));
+    return iterator(logical_pos, logical_pos < length()
+                                     ? PhysicalIndex(logical_pos)
+                                     : RunEndsArray(array_span).length);
   }
 
   /// \brief Create an iterator representing the logical begin of the run-end
