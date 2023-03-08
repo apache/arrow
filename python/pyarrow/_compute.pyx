@@ -24,7 +24,7 @@ from cython.operator cimport dereference as deref
 
 from collections import namedtuple
 
-from pyarrow.lib import frombytes, tobytes, ordered_dict, ArrowInvalid
+from pyarrow.lib import frombytes, tobytes, ArrowInvalid
 from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
@@ -2238,7 +2238,6 @@ def _group_by(table, aggregates, keys):
         vector[CAggregate] c_aggregates
         vector[CFieldRef] c_keys
         CAggregate c_aggr
-        shared_ptr[CTable] sp_out_table
 
     c_table = (<Table> table).sp_table
 

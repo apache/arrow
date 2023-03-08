@@ -831,7 +831,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CRecordBatchWithMetadata" arrow::RecordBatchWithMetadata":
         shared_ptr[CRecordBatch] batch
-        # The struct in C++ does not actually have these two `const` qualifiers, but adding `const` gets Cython to not complain
+        # The struct in C++ does not actually have these two `const` qualifiers, but
+        # adding `const` gets Cython to not complain
         const shared_ptr[const CKeyValueMetadata] custom_metadata
 
     cdef cppclass CTable" arrow::Table":

@@ -31,7 +31,7 @@ from pyarrow.lib import ArrowTypeError, frombytes, tobytes, _pc
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow._compute cimport Expression, _bind
 from pyarrow._compute import _forbid_instantiation
-from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
+from pyarrow._fs cimport FileSystem, FileSelector
 from pyarrow._csv cimport (
     ConvertOptions, ParseOptions, ReadOptions, WriteOptions)
 from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
@@ -229,7 +229,6 @@ cdef class Dataset(_Weakrefable):
     def _get_fragments(self, Expression filter):
         cdef:
             CExpression c_filter
-            CFragmentIterator c_iterator
 
         if filter is None:
             c_fragments = move(GetResultValue(self.dataset.GetFragments()))
@@ -877,7 +876,6 @@ cdef class InMemoryDataset(Dataset):
 
     def __init__(self, source, Schema schema=None):
         cdef:
-            RecordBatchReader reader
             shared_ptr[CInMemoryDataset] in_memory_dataset
 
         if isinstance(source, (pa.RecordBatch, pa.Table)):
@@ -1080,9 +1078,6 @@ cdef class FileSystemDataset(Dataset):
         root_partition : Expression, optional
             The top-level partition of the DataDataset.
         """
-        cdef:
-            FileFragment fragment
-
         if root_partition is None:
             root_partition = _true
 
@@ -3357,7 +3352,6 @@ cdef class Scanner(_Weakrefable):
             default pool.
         """
         cdef:
-            shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
             shared_ptr[CScannerBuilder] builder
             shared_ptr[CScanner] scanner
             RecordBatchReader reader
@@ -3572,10 +3566,8 @@ cdef void _filesystemdataset_write_visitor(
         str path
         str base_dir
         WrittenFile written_file
-        object parquet_metadata
         FileFormat file_format
 
-    parquet_metadata = None
     path = frombytes(deref(file_writer).destination().path)
     base_dir = frombytes(visit_args['base_dir'])
     file_format = FileFormat.wrap(file_writer.format())
@@ -3605,7 +3597,6 @@ def _filesystemdataset_write(
     cdef:
         CFileSystemDatasetWriteOptions c_options
         shared_ptr[CScanner] c_scanner
-        vector[shared_ptr[CRecordBatch]] c_batches
         dict visit_args
 
     c_options.file_write_options = file_options.unwrap()

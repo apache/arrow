@@ -19,7 +19,6 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-from libc.stdint cimport uintptr_t
 from libcpp.vector cimport vector
 from libcpp.pair cimport pair
 
