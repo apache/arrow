@@ -80,6 +80,7 @@ this one can be created with :func:`~pyarrow.ipc.new_stream`:
    with pa.ipc.new_stream(sink, batch.schema) as writer:
       for i in range(5):
          writer.write_batch(batch)
+      writer.close()
 
 Here we used an in-memory Arrow buffer stream (``sink``), 
 but this could have been a socket or some other IO sink.
@@ -130,6 +131,7 @@ The :class:`~pyarrow.RecordBatchFileWriter` has the same API as
    with pa.ipc.new_file(sink, batch.schema) as writer:
       for i in range(10):
          writer.write_batch(batch)
+      writer.close()
 
    buf = sink.getvalue()
    buf.size
@@ -195,6 +197,7 @@ of 10000 entries:
             for row in range(NUM_BATCHES):
                   batch = pa.record_batch([pa.array(range(BATCH_SIZE), type=pa.int32())], schema)
                   writer.write(batch)
+            writer.close()
 
 record batches support multiple columns, so in practice we always write the
 equivalent of a :class:`~pyarrow.Table`.
