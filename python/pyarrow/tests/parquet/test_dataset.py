@@ -735,12 +735,13 @@ def _partition_test_for_filesystem(fs, base_path, use_legacy_dataset=True):
                    .reset_index(drop=True)
                    .reindex(columns=result_df.columns))
 
-    if use_legacy_dataset==True or Version(pd.__version__) < Version("2.0.0"):
+    if use_legacy_dataset or Version(pd.__version__) < Version("2.0.0"):
         expected_df['foo'] = pd.Categorical(df['foo'], categories=foo_keys)
         expected_df['bar'] = pd.Categorical(df['bar'], categories=bar_keys)
     else:
-        # With pandas 2.0.0 Index can store all numeric dtypes (not just int64/uint64/float64)
-        # Using astype() to create a categorical column preserves original dtype (int32)
+        # With pandas 2.0.0 Index can store all numeric dtypes (not just
+        # int64/uint64/float64). Using astype() to create a categorical
+        # column preserves original dtype (int32)
         expected_df['foo'] = expected_df['foo'].astype("category")
         expected_df['bar'] = expected_df['bar'].astype("category")
 
