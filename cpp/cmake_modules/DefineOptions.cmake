@@ -552,7 +552,7 @@ takes precedence over ccache if a storage backend is configured" ON)
 
     if(DEFINED ENV{CONDA_PREFIX})
       # Conda package changes the output name.
-      # https://github.com/conda-forge/snappy-feedstock/blob/master/recipe/windows-static-lib-name.patch
+      # https://github.com/conda-forge/snappy-feedstock/blob/main/recipe/windows-static-lib-name.patch
       set(SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT "_static")
     else()
       set(SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT "")
