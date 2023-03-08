@@ -133,7 +133,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet
   @Override
   protected AvaticaResultSet execute() throws SQLException {
     try(final Timer.Context context = rsExec.time()) {
-      System.out.format("Getting FlightInfo @ %dms\n", System.currentTimeMillis());
+//      System.out.format("Getting FlightInfo @ %dms\n", System.currentTimeMillis());
       final FlightInfo flightInfo = ((ArrowFlightInfoStatement) statement).executeFlightInfoQuery();
 
       if (flightInfo != null) {

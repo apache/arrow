@@ -405,7 +405,7 @@ public class FlightStream implements AutoCloseable {
 
     @Override
     public void onNext(ArrowMessage msg) {
-      System.out.format("FlightStream.onNext() @ %dms\n", System.currentTimeMillis());
+//      System.out.format("FlightStream.onNext() @ %dms\n", System.currentTimeMillis());
       // Operations here have to be under a lock so that we don't add a message to the queue while in the middle of
       // close().
       requestOutstanding();
