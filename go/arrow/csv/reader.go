@@ -735,8 +735,7 @@ func (r *Reader) parseList(field array.Builder, str string) {
 		r.err = errors.New("invalid list format. should start with '{' and end with '}'")
 		return
 	}
-	str = strings.TrimPrefix(str, "{")
-	str = strings.TrimSuffix(str, "}")
+	str = strings.Trim(str, "{}")
 	listBldr := field.(*array.ListBuilder)
 	listBldr.Append(true)
 	if len(str) == 0 {
