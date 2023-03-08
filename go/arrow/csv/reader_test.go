@@ -163,6 +163,61 @@ func Example_withChunk() {
 	// rec[3]["str"]: ["str-9"]
 }
 
+func TestCSVReadInvalidFields(t *testing.T) {
+  tests := []struct {
+		Name string
+		Data string
+		Fields []arrow.Field
+		ExpectedError bool
+	}{
+		{
+			Name: "ValidListInt64",
+			Data: "{}",
+			Fields: []arrow.Field{
+				{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
+			},
+			ExpectedError: false,
+		},
+		{
+			Name: "InvalidListInt64T1",
+			Data: "{",
+			Fields: []arrow.Field{
+				{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
+			},
+			ExpectedError: true,
+		},
+		{
+			Name: "InvalidListInt64T2",
+			Data: "}",
+			Fields: []arrow.Field{
+				{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
+			},
+			ExpectedError: true,
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			f := bytes.NewBufferString(tc.Data)
+			schema := arrow.NewSchema(tc.Fields, nil)
+		
+			r := csv.NewReader(
+				f, schema,
+				csv.WithComma(','),
+			)
+			defer r.Release()
+			for r.Next() {}
+			parseErr := r.Err()
+			if tc.ExpectedError && parseErr == nil {
+				t.Fatal("Expected error, but none found")
+			}
+			if !tc.ExpectedError && parseErr != nil {
+				t.Fatalf("Not expecting error, but got %v", parseErr)
+			}
+		})
+	}
+}
+
 func TestCSVReaderParseError(t *testing.T) {
 	f := bytes.NewBufferString(`## a simple set of data: int64;float64;string
 0;0;str-0
@@ -278,6 +333,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
 			{Name: "str", Type: arrow.BinaryTypes.String},
 			{Name: "ts", Type: arrow.FixedWidthTypes.Timestamp_ms},
+			{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
 		},
 		nil,
 	)
@@ -297,7 +353,6 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 	}
 
 	out := new(bytes.Buffer)
-
 	n := 0
 	for r.Next() {
 		rec := r.Record()
@@ -306,7 +361,9 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 		}
 		n++
 	}
-
+	if err := r.Err(); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
 	if got, want := n, 3; got != want {
 		t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
 	}
@@ -324,6 +381,7 @@ rec[0]["f32"]: [1.1]
 rec[0]["f64"]: [1.1]
 rec[0]["str"]: ["str-1"]
 rec[0]["ts"]: [1652054461000]
+rec[0]["list(i64)"]: [[1 2 3]]
 rec[1]["bool"]: [false]
 rec[1]["i8"]: [-2]
 rec[1]["i16"]: [-2]
@@ -337,6 +395,7 @@ rec[1]["f32"]: [2.2]
 rec[1]["f64"]: [2.2]
 rec[1]["str"]: ["str-2"]
 rec[1]["ts"]: [1652140799000]
+rec[1]["list(i64)"]: [[]]
 rec[2]["bool"]: [(null)]
 rec[2]["i8"]: [(null)]
 rec[2]["i16"]: [(null)]
@@ -350,11 +409,10 @@ rec[2]["f32"]: [(null)]
 rec[2]["f64"]: [(null)]
 rec[2]["str"]: [(null)]
 rec[2]["ts"]: [(null)]
+rec[2]["list(i64)"]: [(null)]
 `
-
-	if got, want := out.String(), want; got != want {
-		t.Fatalf("invalid output:\ngot= %s\nwant=%s\n", got, want)
-	}
+	got, want := out.String(), want
+	require.Equal(t, want, got)
 
 	if r.Err() != nil {
 		t.Fatalf("unexpected error: %v", r.Err())
