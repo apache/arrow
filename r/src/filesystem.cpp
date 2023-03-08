@@ -22,7 +22,6 @@
 #include <arrow/filesystem/localfs.h>
 #include <arrow/util/key_value_metadata.h>
 
-
 namespace fs = ::arrow::fs;
 namespace io = ::arrow::io;
 
@@ -433,39 +432,41 @@ cpp11::list fs___GcsFileSystem__options(const std::shared_ptr<fs::GcsFileSystem>
   fs::GcsOptions opts = fs->options();
 
   // GcsCredentials
-  out.push_back({"anonymous"_nm = opts.credentials.anonymous() });
+  out.push_back({"anonymous"_nm = opts.credentials.anonymous()});
 
   if (opts.credentials.access_token() != "") {
-    out.push_back({"access_token"_nm = opts.credentials.access_token() });
+    out.push_back({"access_token"_nm = opts.credentials.access_token()});
   }
 
   // TODO: Cast to posixct?
   if (opts.credentials.expiration().time_since_epoch().count() != 0) {
-    out.push_back({"expiration"_nm = cpp11::as_sexp(opts.credentials.expiration().time_since_epoch().count()) });
+    out.push_back({"expiration"_nm = cpp11::as_sexp<double>(
+                       opts.credentials.expiration().time_since_epoch().count())});
   }
 
   if (opts.credentials.target_service_account() != "") {
-    out.push_back({"target_service_account"_nm = opts.credentials.target_service_account() });
+    out.push_back(
+        {"target_service_account"_nm = opts.credentials.target_service_account()});
   }
 
   if (opts.credentials.json_credentials() != "") {
-    out.push_back({"json_credentials"_nm = opts.credentials.json_credentials() });
+    out.push_back({"json_credentials"_nm = opts.credentials.json_credentials()});
   }
 
   // GcsOptions direct members
   if (opts.endpoint_override != "") {
-    out.push_back({"endpoint_override"_nm = opts.endpoint_override });
+    out.push_back({"endpoint_override"_nm = opts.endpoint_override});
   }
 
   if (opts.scheme != "") {
-    out.push_back({"scheme"_nm = opts.scheme });
+    out.push_back({"scheme"_nm = opts.scheme});
   }
 
   if (opts.default_bucket_location != "") {
-    out.push_back({"default_bucket_location"_nm = opts.default_bucket_location });
+    out.push_back({"default_bucket_location"_nm = opts.default_bucket_location});
   }
 
-  out.push_back({"retry_limit_seconds"_nm = opts.retry_limit_seconds.value() });
+  out.push_back({"retry_limit_seconds"_nm = opts.retry_limit_seconds.value()});
 
   // default_metadata
   if (opts.default_metadata != nullptr && opts.default_metadata->size() > 0) {
