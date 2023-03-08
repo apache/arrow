@@ -200,6 +200,9 @@ Result<Datum> RunGroupBy(const BatchesWithSchema& input,
                          const std::vector<std::string>& segment_key_names,
                          const std::vector<Aggregate>& aggregates, ExecContext* ctx,
                          bool use_threads, bool segmented = false, bool naive = false) {
+  // The `use_threads` flag determines whether threads are used in generating the input to
+  // the group-by.
+  //
   // When segment_keys is non-empty the `segmented` flag is always true; otherwise (when
   // empty), it may still be set to true. In this case, the tester restructures (without
   // changing the data of) the result of RunGroupBy from `std::vector<ExecBatch>`

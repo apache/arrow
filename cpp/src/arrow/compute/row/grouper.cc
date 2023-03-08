@@ -267,7 +267,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
       return MakeSegment(batch.length, offset, 0, kEmptyExtends);
     }
     // ARROW-18311: make Grouper support Reset()
-    // so it can be cached instead of recreated below
+    // so it can be reset instead of recreated below
     //
     // the group id must be computed prior to resetting the grouper, since it is compared
     // to save_group_id_, and after resetting the grouper produces incomparable group ids
@@ -277,6 +277,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
       save_group_id_ = *static_cast<const group_id_t*>(data);
       return extends;
     };
+    // resetting drops grouper's group-ids, freeing-up memory for the next segment
     ARROW_ASSIGN_OR_RAISE(grouper_, Grouper::Make(key_types_, ctx_));  // TODO: reset it
     // GH-34475: cache the grouper-consume result across invocations of GetNextSegment
     ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch, offset));
