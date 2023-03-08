@@ -473,8 +473,8 @@ cpp11::list fs___GcsFileSystem__options(const std::shared_ptr<fs::GcsFileSystem>
 
     metadata.names() = opts.default_metadata->keys();
 
-    for (int64_t i = 0; i < opts.default_metadata->size(); i++) {
-      metadata[i] = opts.default_metadata->value(i);
+    for (size_t i = 0; i < opts.default_metadata->size(); i++) {
+      metadata[i] = opts.default_metadata->value(static_cast<int64_t>(i));
     }
 
     out.push_back({"default_metadata"_nm = metadata});
