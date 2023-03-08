@@ -3028,7 +3028,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
  protected:
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
-    // TODO: optimize using ArrowPoolVector<int32_t> prefix_lengths(num_values);
+    // TODO(rok): optimize using ArrowPoolVector<int32_t> prefix_lengths(num_values);
     PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
         *array.data(),
         [&](::std::string_view view) {
@@ -3512,9 +3512,10 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
     switch (type_num) {
       case Type::BYTE_ARRAY:
         return std::make_unique<DeltaByteArrayEncoder<ByteArrayType>>(descr, pool);
+      case Type::FIXED_LEN_BYTE_ARRAY:
+        return std::make_unique<DeltaByteArrayEncoder<ByteArrayType>>(descr, pool);
       default:
         throw ParquetException("DELTA_BYTE_ARRAY only supports BYTE_ARRAY");
-        break;
     }
   } else {
     ParquetException::NYI("Selected encoding is not supported");
@@ -3567,10 +3568,15 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
             "DELTA_BINARY_PACKED decoder only supports INT32 and INT64");
     }
   } else if (encoding == Encoding::DELTA_BYTE_ARRAY) {
-    if (type_num == Type::BYTE_ARRAY) {
-      return std::make_unique<DeltaByteArrayDecoder>(descr, pool);
+    switch (type_num) {
+      case Type::BYTE_ARRAY:
+        return std::make_unique<DeltaByteArrayDecoder>(descr, pool);
+      case Type::FIXED_LEN_BYTE_ARRAY:
+        return std::make_unique<DeltaByteArrayDecoder>(descr, pool);
+      default:
+        throw ParquetException(
+            "DELTA_BYTE_ARRAY only supports BYTE_ARRAY and FIXED_LEN_BYTE_ARRAY");
     }
-    throw ParquetException("DELTA_BYTE_ARRAY only supports BYTE_ARRAY");
   } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
     if (type_num == Type::BYTE_ARRAY) {
       return std::make_unique<DeltaLengthByteArrayDecoder>(descr, pool);
