@@ -68,7 +68,7 @@ test_that("GcsFileSystem$create() options", {
   # Verify create fails if expiration isn't a POSIXct
   expect_error(
     GcsFileSystem$create(access_token = "", expiration = ""),
-    "must be of class POSIXct"
+    "must be of class POSIXct, not"
   )
 })
 

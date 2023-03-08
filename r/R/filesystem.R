@@ -563,7 +563,11 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
 
   # Stop if expiration isn't a POSIXct
   if ("expiration" %in% names(options) && !inherits(options$expiration, "POSIXct")) {
-    stop("Option 'expiration' must be of class POSIXct", call. = FALSE)
+    stop(
+      paste(
+        "Option 'expiration' must be of class POSIXct, not",
+        class(options$expiration)[[1]]),
+      call. = FALSE)
   }
 
   options$retry_limit_seconds <- retry_limit_seconds
