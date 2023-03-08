@@ -454,6 +454,18 @@ arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult resul
   return PackActionResult(pb_result);
 }
 
+arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
+  pb::sql::ActionSetSessionOptionsResult pb_result;
+  //FIXME impl
+  return result;
+}
+
+arrow::Result<Result> PackActionResult(ActionCloseSessionResult result) {
+  pb::sql::ActionSetSessionOptionsResult pb_result;
+  //FIXME impl
+  return result;
+}
+
 }  // namespace
 
 arrow::Result<StatementQueryTicket> StatementQueryTicket::Deserialize(
@@ -819,7 +831,7 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(ActionCloseSessionRequest internal_command,
                           ParseActionCloseSessionRequest(any));
     ARROW_ASSIGN_OR_RAISE(ActionCloseSessionResult result, CloseSession(context, internal_command));
-    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(result));
+    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
   } else if (action.type == FlightSqlServerBase::kClosePreparedStatementActionType.type) {
@@ -860,7 +872,7 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(ActionSetSessionOptionsRequest internal_command,
                           ParseActionSetSessionOptionsRequest(any));
     ARROW_ASSIGN_OR_RAISE(ActionSetSessionOptionsResult result, SetSessionOptions(context, internal_command));
-    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(result));
+    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
   } else {
