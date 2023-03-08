@@ -28,6 +28,7 @@
 #include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/engine/substrait/options.h"
+#include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
@@ -151,7 +152,7 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
 /// Plan is returned here.
 /// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return A declaration representing the Substrait plan
-ARROW_ENGINE_EXPORT Result<compute::Declaration> DeserializePlan(
+ARROW_ENGINE_EXPORT Result<PlanInfo> DeserializePlan(
     const Buffer& buf, const ExtensionIdRegistry* registry = NULLPTR,
     ExtensionSet* ext_set_out = NULLPTR,
     const ConversionOptions& conversion_options = {});

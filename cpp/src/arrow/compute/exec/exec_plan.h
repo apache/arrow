@@ -505,6 +505,12 @@ struct ARROW_EXPORT QueryOptions {
   ///
   /// Must remain valid for the duration of the plan.
   FunctionRegistry* function_registry = GetFunctionRegistry();
+  /// \brief the names of the output columns
+  ///
+  /// If this is empty then names will be generated based on the input columns
+  ///
+  /// If set then the number of names must equal the number of output columns
+  std::vector<std::string> field_names;
 };
 
 /// \brief Calculate the output schema of a declaration
@@ -622,6 +628,9 @@ ARROW_EXPORT Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatc
     MemoryPool* memory_pool = default_memory_pool(),
     FunctionRegistry* function_registry = NULLPTR);
 
+ARROW_EXPORT Result<std::vector<std::shared_ptr<RecordBatch>>> DeclarationToBatches(
+    Declaration declaration, QueryOptions query_options);
+
 /// \brief Asynchronous version of \see DeclarationToBatches
 ///
 /// \see DeclarationToTableAsync for details on threading & execution
@@ -656,9 +665,8 @@ ARROW_EXPORT Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
     MemoryPool* memory_pool = default_memory_pool(),
     FunctionRegistry* function_registry = NULLPTR);
 
-/// \brief Overload of \see DeclarationToReader accepting a custom exec context
 ARROW_EXPORT Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
-    Declaration declaration, ExecContext exec_context);
+    Declaration declaration, QueryOptions query_options);
 
 /// \brief Utility method to run a declaration and ignore results
 ///
