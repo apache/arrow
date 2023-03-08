@@ -242,9 +242,9 @@ public class FlightStream implements AutoCloseable {
 
         Object data;
         try (final Timer.Context takeCtx = fsTake.time()) {
-          System.out.format("Trying to take @ %dms\n", System.currentTimeMillis());
+//          System.out.format("Trying to take @ %dms\n", System.currentTimeMillis());
           data = queue.take();
-          System.out.format("Took @ %dms\n", System.currentTimeMillis());
+//          System.out.format("Took @ %dms\n", System.currentTimeMillis());
         }
         if (DONE == data) {
           queue.put(DONE);

@@ -138,10 +138,10 @@ public final class ArrowFlightJdbcFlightStreamResultSet
 
       if (flightInfo != null) {
         schema = flightInfo.getSchema();
-        System.out.format("Getting FlightDatas @ %dms\n", System.currentTimeMillis());
+//        System.out.format("Getting FlightDatas @ %dms\n", System.currentTimeMillis());
         execute(flightInfo);
       }
-      System.out.format("Got FlightDatas @ %dms\n", System.currentTimeMillis());
+//      System.out.format("Got FlightDatas @ %dms\n", System.currentTimeMillis());
       return this;
     }
   }
