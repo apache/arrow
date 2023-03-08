@@ -21,10 +21,6 @@
 #include <mutex>
 
 #include "arrow/compute/key_hash.h"
-// DIPO
-//#include "arrow/compute/exec/key_map.h"
-//#include "arrow/compute/exec/options.h"
-//#include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/light_array.h"

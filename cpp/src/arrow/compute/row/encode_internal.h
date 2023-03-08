@@ -22,8 +22,6 @@
 #include <vector>
 
 #include "arrow/array/data.h"
-//#include "arrow/compute/exec.h"
-// DIPO
 #include "arrow/compute/key_map.h"
 #include "arrow/compute/util.h"
 #include "arrow/compute/light_array.h"

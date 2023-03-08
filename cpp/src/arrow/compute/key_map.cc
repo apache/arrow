@@ -17,15 +17,12 @@
 
 #include "key_map.h"
 
-#include <memory.h>
-
 #include <algorithm>
 #include <cstdint>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/ubsan.h"
-#include "arrow/util/logging.h"
 
 
 namespace arrow {
@@ -831,52 +828,6 @@ void SwissTable::cleanup() {
   log_blocks_ = 0;
   num_inserted_ = 0;
 }
-
-
-uint64_t SwissTable::extract_group_id(const uint8_t* block_ptr, int slot,
-                                      uint64_t group_id_mask) const {
-  // Group id values for all 8 slots in the block are bit-packed and follow the status
-  // bytes. We assume here that the number of bits is rounded up to 8, 16, 32 or 64. In
-  // that case we can extract group id using aligned 64-bit word access.
-  int num_group_id_bits = static_cast<int>(ARROW_POPCOUNT64(group_id_mask));
-  ARROW_DCHECK(num_group_id_bits == 8 || num_group_id_bits == 16 ||
-      num_group_id_bits == 32 || num_group_id_bits == 64);
-
-  int bit_offset = slot * num_group_id_bits;
-  const uint64_t* group_id_bytes =
-      reinterpret_cast<const uint64_t*>(block_ptr) + 1 + (bit_offset >> 6);
-  uint64_t group_id = (*group_id_bytes >> (bit_offset & 63)) & group_id_mask;
-
-  return group_id;
-}
-
-void SwissTable::insert_into_empty_slot(uint32_t slot_id, uint32_t hash,
-                                        uint32_t group_id) {
-  const uint64_t num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
-
-  // We assume here that the number of bits is rounded up to 8, 16, 32 or 64.
-  // In that case we can insert group id value using aligned 64-bit word access.
-  ARROW_DCHECK(num_groupid_bits == 8 || num_groupid_bits == 16 ||
-      num_groupid_bits == 32 || num_groupid_bits == 64);
-
-  const uint64_t num_block_bytes = (8 + num_groupid_bits);
-  constexpr uint64_t stamp_mask = 0x7f;
-
-  int start_slot = (slot_id & 7);
-  int stamp =
-      static_cast<int>((hash >> (bits_hash_ - log_blocks_ - bits_stamp_)) & stamp_mask);
-  uint64_t block_id = slot_id >> 3;
-  uint8_t* blockbase = blocks_ + num_block_bytes * block_id;
-
-  blockbase[7 - start_slot] = static_cast<uint8_t>(stamp);
-  int groupid_bit_offset = static_cast<int>(start_slot * num_groupid_bits);
-
-  // Block status bytes should start at an address aligned to 8 bytes
-  ARROW_DCHECK((reinterpret_cast<uint64_t>(blockbase) & 7) == 0);
-  uint64_t* ptr = reinterpret_cast<uint64_t*>(blockbase) + 1 + (groupid_bit_offset >> 6);
-  *ptr |= (static_cast<uint64_t>(group_id) << (groupid_bit_offset & 63));
-}
-
 
 }  // namespace compute
 }  // namespace arrow

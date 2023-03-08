@@ -22,7 +22,6 @@
 #include <algorithm>
 #include <cstdint>
 
-// DIPO
 #include "arrow/compute/util.h"
 #include "arrow/compute/util_internal.h"
 #include "arrow/util/bit_util.h"

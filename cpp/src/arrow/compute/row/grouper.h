@@ -20,8 +20,6 @@
 #include <memory>
 #include <vector>
 
-//#include "arrow/compute/exec.h"
-//#include "arrow/compute/exec/options.h"
 #include "arrow/compute/key_map.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"

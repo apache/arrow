@@ -17,7 +17,6 @@
 
 #include "arrow/compute/row/row_internal.h"
 
-// DIPO
 #include "arrow/compute/util.h"
 
 namespace arrow {
