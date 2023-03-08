@@ -25,6 +25,7 @@
 #include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/light_array.h"
 #include "arrow/compute/registry.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/row/compare_internal.h"
 #include "arrow/type.h"
 #include "arrow/util/bitmap_ops.h"
