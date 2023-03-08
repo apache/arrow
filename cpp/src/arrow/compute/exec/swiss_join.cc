@@ -22,10 +22,10 @@
 #include <mutex>
 #include "arrow/array/util.h"  // MakeArrayFromScalar
 #include "arrow/compute/exec/hash_join.h"
-#include "arrow/compute/key_hash.h"
 #include "arrow/compute/exec/swiss_join_internal.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/kernels/row_encoder_internal.h"
+#include "arrow/compute/key_hash.h"
 #include "arrow/compute/row/compare_internal.h"
 #include "arrow/compute/row/encode_internal.h"
 #include "arrow/util/bit_util.h"

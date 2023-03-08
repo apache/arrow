@@ -24,7 +24,6 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/ubsan.h"
 
-
 namespace arrow {
 
 using bit_util::CountLeadingZeros;

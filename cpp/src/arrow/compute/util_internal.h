@@ -22,9 +22,10 @@
 namespace arrow {
 namespace util {
 
-template<typename T> void CheckAlignment(const void *ptr) {
-      ARROW_DCHECK(reinterpret_cast<uint64_t>(ptr) % sizeof(T) == 0);
+template <typename T>
+void CheckAlignment(const void* ptr) {
+  ARROW_DCHECK(reinterpret_cast<uint64_t>(ptr) % sizeof(T) == 0);
 }
 
-}
-}
+}  // namespace util
+}  // namespace arrow

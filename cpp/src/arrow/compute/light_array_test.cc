@@ -217,7 +217,7 @@ TEST(KeyColumnArray, SliceBool) {
 }
 
 // DIPO
-//TEST(KeyColumnArray, FromExecBatch) {
+// TEST(KeyColumnArray, FromExecBatch) {
 //  ExecBatch batch =
 //      ExecBatchFromJSON({int64(), boolean()}, "[[1, true], [2, false], [null, null]]");
 //  std::vector<KeyColumnArray> arrays;
@@ -316,7 +316,7 @@ TEST(ResizableArrayData, Binary) {
   }
 }
 // DIPO
-//TEST(ExecBatchBuilder, AppendBatches) {
+// TEST(ExecBatchBuilder, AppendBatches) {
 //  std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
 //  MemoryPool* pool = owned_pool.get();
 //  ExecBatch batch_one =
@@ -339,7 +339,7 @@ TEST(ResizableArrayData, Binary) {
 //}
 
 // DIPO
-//TEST(ExecBatchBuilder, AppendBatchesSomeRows) {
+// TEST(ExecBatchBuilder, AppendBatchesSomeRows) {
 //  std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
 //  MemoryPool* pool = owned_pool.get();
 //  ExecBatch batch_one =
@@ -360,7 +360,7 @@ TEST(ResizableArrayData, Binary) {
 //  ASSERT_EQ(0, pool->bytes_allocated());
 //}
 // DIPO
-//TEST(ExecBatchBuilder, AppendBatchesSomeCols) {
+// TEST(ExecBatchBuilder, AppendBatchesSomeCols) {
 //  std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
 //  MemoryPool* pool = owned_pool.get();
 //  ExecBatch batch_one =
@@ -408,7 +408,7 @@ TEST(ResizableArrayData, Binary) {
 //  ASSERT_EQ(0, pool->bytes_allocated());
 //}
 //
-//TEST(ExecBatchBuilder, AppendNulls) {
+// TEST(ExecBatchBuilder, AppendNulls) {
 //  std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
 //  MemoryPool* pool = owned_pool.get();
 //  ExecBatch batch_one =

@@ -81,12 +81,11 @@ class MiniBatch {
 /// but in the context of vectorized processing where we need to store a vector of
 /// temporaries instead of a single value.
 class TempVectorStack {
-  template<typename>
-  friend
-  class TempVectorHolder;
+  template <typename>
+  friend class TempVectorHolder;
 
  public:
-  Status Init(MemoryPool *pool, int64_t size) {
+  Status Init(MemoryPool* pool, int64_t size) {
     num_vectors_ = 0;
     top_ = 0;
     buffer_size_ = PaddedAllocationSize(size) + kPadding + 2 * sizeof(uint64_t);
@@ -108,7 +107,7 @@ class TempVectorStack {
     //
     return ::arrow::bit_util::RoundUp(num_bytes, sizeof(int64_t)) + kPadding;
   }
-  void alloc(uint32_t num_bytes, uint8_t **data, int *id);
+  void alloc(uint32_t num_bytes, uint8_t** data, int* id);
   void release(int id, uint32_t num_bytes);
   static constexpr uint64_t kGuard1 = 0x3141592653589793ULL;
   static constexpr uint64_t kGuard2 = 0x0577215664901532ULL;
@@ -202,5 +201,5 @@ class bit_util {
 #endif
 };
 
-}
-}
+}  // namespace util
+}  // namespace arrow

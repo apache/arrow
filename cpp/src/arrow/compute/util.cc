@@ -20,9 +20,9 @@
 #include "arrow/table.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/ubsan.h"
-#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -30,29 +30,29 @@ using bit_util::CountTrailingZeros;
 
 namespace util {
 
-void TempVectorStack::alloc(uint32_t num_bytes, uint8_t **data, int *id) {
+void TempVectorStack::alloc(uint32_t num_bytes, uint8_t** data, int* id) {
   int64_t old_top = top_;
   top_ += PaddedAllocationSize(num_bytes) + 2 * sizeof(uint64_t);
   // Stack overflow check
-      ARROW_DCHECK(top_ <= buffer_size_);
+  ARROW_DCHECK(top_ <= buffer_size_);
   *data = buffer_->mutable_data() + old_top + sizeof(uint64_t);
   // We set 8 bytes before the beginning of the allocated range and
   // 8 bytes after the end to check for stack overflow (which would
   // result in those known bytes being corrupted).
-  reinterpret_cast<uint64_t *>(buffer_->mutable_data() + old_top)[0] = kGuard1;
-  reinterpret_cast<uint64_t *>(buffer_->mutable_data() + top_)[-1] = kGuard2;
+  reinterpret_cast<uint64_t*>(buffer_->mutable_data() + old_top)[0] = kGuard1;
+  reinterpret_cast<uint64_t*>(buffer_->mutable_data() + top_)[-1] = kGuard2;
   *id = num_vectors_++;
 }
 
 void TempVectorStack::release(int id, uint32_t num_bytes) {
-      ARROW_DCHECK(num_vectors_ == id + 1);
+  ARROW_DCHECK(num_vectors_ == id + 1);
   int64_t size = PaddedAllocationSize(num_bytes) + 2 * sizeof(uint64_t);
-      ARROW_DCHECK(reinterpret_cast<const uint64_t *>(buffer_->mutable_data() + top_)[-1] ==
-      kGuard2);
-      ARROW_DCHECK(top_ >= size);
+  ARROW_DCHECK(reinterpret_cast<const uint64_t*>(buffer_->mutable_data() + top_)[-1] ==
+               kGuard2);
+  ARROW_DCHECK(top_ >= size);
   top_ -= size;
-      ARROW_DCHECK(reinterpret_cast<const uint64_t *>(buffer_->mutable_data() + top_)[0] ==
-      kGuard1);
+  ARROW_DCHECK(reinterpret_cast<const uint64_t*>(buffer_->mutable_data() + top_)[0] ==
+               kGuard1);
   --num_vectors_;
 }
 

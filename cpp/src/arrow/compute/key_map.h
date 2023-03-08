@@ -234,8 +234,8 @@ uint64_t SwissTable::extract_group_id(const uint8_t* block_ptr, int slot,
   // bytes. We assume here that the number of bits is rounded up to 8, 16, 32 or 64. In
   // that case we can extract group id using aligned 64-bit word access.
   int num_group_id_bits = static_cast<int>(ARROW_POPCOUNT64(group_id_mask));
-      ARROW_DCHECK(num_group_id_bits == 8 || num_group_id_bits == 16 ||
-      num_group_id_bits == 32 || num_group_id_bits == 64);
+  ARROW_DCHECK(num_group_id_bits == 8 || num_group_id_bits == 16 ||
+               num_group_id_bits == 32 || num_group_id_bits == 64);
 
   int bit_offset = slot * num_group_id_bits;
   const uint64_t* group_id_bytes =
@@ -251,8 +251,8 @@ void SwissTable::insert_into_empty_slot(uint32_t slot_id, uint32_t hash,
 
   // We assume here that the number of bits is rounded up to 8, 16, 32 or 64.
   // In that case we can insert group id value using aligned 64-bit word access.
-      ARROW_DCHECK(num_groupid_bits == 8 || num_groupid_bits == 16 ||
-      num_groupid_bits == 32 || num_groupid_bits == 64);
+  ARROW_DCHECK(num_groupid_bits == 8 || num_groupid_bits == 16 ||
+               num_groupid_bits == 32 || num_groupid_bits == 64);
 
   const uint64_t num_block_bytes = (8 + num_groupid_bits);
   constexpr uint64_t stamp_mask = 0x7f;
@@ -267,7 +267,7 @@ void SwissTable::insert_into_empty_slot(uint32_t slot_id, uint32_t hash,
   int groupid_bit_offset = static_cast<int>(start_slot * num_groupid_bits);
 
   // Block status bytes should start at an address aligned to 8 bytes
-      ARROW_DCHECK((reinterpret_cast<uint64_t>(blockbase) & 7) == 0);
+  ARROW_DCHECK((reinterpret_cast<uint64_t>(blockbase) & 7) == 0);
   uint64_t* ptr = reinterpret_cast<uint64_t*>(blockbase) + 1 + (groupid_bit_offset >> 6);
   *ptr |= (static_cast<uint64_t>(group_id) << (groupid_bit_offset & 63));
 }

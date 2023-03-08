@@ -31,7 +31,6 @@
 #include "arrow/buffer.h"
 #include "arrow/chunked_array.h"
 
-
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/codegen_internal.h"
