@@ -32,6 +32,8 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 
+#include <cassert> // FIXME temporarily here for build workarounds
+
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
   COMMAND.has_##PROPERTY() ? std::make_optional(COMMAND.PROPERTY()) : std::nullopt
 
@@ -382,7 +384,7 @@ arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsReques
     result.session_options.reserve(command.session_options_size());
     for (const pb::sql::SessionOption &opt : command.session_options()) {
       //FIXME implement me
-      assert(opt);  // be quiet, -Wunused-variable
+      assert(&opt);  // be quiet, -Wunused-variable
     }
 
     //result.session_options.assign(command.session_options().begin(), command.session_options().end());
@@ -416,6 +418,7 @@ arrow::Result<Result> PackActionResult(ActionBeginTransactionResult result) {
   return PackActionResult(pb_result);
 }
 
+/* FIXME is this extraneous from orig PR?
 arrow::Result<Result> PackActionResult(CancelResult result) {
   pb::sql::ActionCancelQueryResult pb_result;
   switch (result) {
@@ -435,6 +438,7 @@ arrow::Result<Result> PackActionResult(CancelResult result) {
   }
   return PackActionResult(pb_result);
 }
+*/
 
 arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult result) {
   pb::sql::ActionCreatePreparedStatementResult pb_result;
@@ -828,6 +832,7 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(ActionCancelQueryRequest internal_command,
                           ParseActionCancelQueryRequest(any));
     ARROW_ASSIGN_OR_RAISE(CancelResult result, CancelQuery(context, internal_command));
+    assert(&result);
   } else if (action.type == FlightSqlServerBase::kCloseSessionActionType.type) {
     ARROW_ASSIGN_OR_RAISE(ActionCloseSessionRequest internal_command,
                           ParseActionCloseSessionRequest(any));
