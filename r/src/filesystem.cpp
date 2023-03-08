@@ -438,7 +438,6 @@ cpp11::list fs___GcsFileSystem__options(const std::shared_ptr<fs::GcsFileSystem>
     out.push_back({"access_token"_nm = opts.credentials.access_token()});
   }
 
-  // TODO: Cast to posixct?
   if (opts.credentials.expiration().time_since_epoch().count() != 0) {
     out.push_back({"expiration"_nm = cpp11::as_sexp<double>(
                        opts.credentials.expiration().time_since_epoch().count())});
