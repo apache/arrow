@@ -116,7 +116,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_DATASET "Build the PyArrow Dataset integration" OFF)
   option(PYARROW_BUILD_GANDIVA "Build the PyArrow Gandiva integration" OFF)
   option(PYARROW_BUILD_PARQUET "Build the PyArrow Parquet integration" OFF)
-  option(PYARROW_PARQUET_USE_SHARED "Rely on parquet shared libraries where relevant" ON)
   option(PYARROW_BUILD_PARQUET_ENCRYPTION
          "Build the PyArrow Parquet encryption integration" OFF)
   option(PYARROW_BOOST_USE_SHARED
@@ -584,7 +583,7 @@ if(PYARROW_BUILD_PARQUET)
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   endif()
 
-  if(PYARROW_PARQUET_USE_SHARED)
+  if(ARROW_BUILD_SHARED)
     if(PYARROW_BUNDLE_ARROW_CPP)
       bundle_arrow_lib(${PARQUET_SHARED_LIB} SO_VERSION ${PARQUET_SO_VERSION})
       if(MSVC)

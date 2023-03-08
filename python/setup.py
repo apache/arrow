@@ -171,8 +171,6 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_DATASET', '0'))
         self.with_parquet = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
-        self.with_static_parquet = strtobool(
-            os.environ.get('PYARROW_WITH_STATIC_PARQUET', '0'))
         self.with_parquet_encryption = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET_ENCRYPTION', '0'))
         self.with_static_boost = strtobool(
@@ -301,8 +299,6 @@ class build_ext(_build_ext):
                               'PYARROW_GENERATE_COVERAGE')
             append_cmake_bool(not self.with_static_boost,
                               'PYARROW_BOOST_USE_SHARED')
-            append_cmake_bool(not self.with_static_parquet,
-                              'PYARROW_PARQUET_USE_SHARED')
 
             cmake_options.append(
                 f'-DCMAKE_BUILD_TYPE={self.build_type.lower()}')

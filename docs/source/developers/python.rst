@@ -647,9 +647,6 @@ PyArrow are:
    * - PYARROW_CXXFLAGS
      - Extra C++ compiler flags
      - ``''``
-   * - PYARROW_WITH_STATIC_PARQUET
-     - Rely on parquet shared libraries where relevant
-     - ``0``(OFF)
    * - PYARROW_WITH_STATIC_BOOST
      - Rely on Boost shared libraries on linking static parquet
      - ``0``(OFF)
