@@ -278,9 +278,12 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
       return extends;
     };
     ARROW_ASSIGN_OR_RAISE(grouper_, Grouper::Make(key_types_, ctx_));  // TODO: reset it
+    // GH-34475: cache the grouper-consume result across invocations of GetNextSegment
     ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch, offset));
     if (datum.is_array()) {
+      // `data` is an array whose index-0 corresponds to index `offset` of `batch`
       const std::shared_ptr<ArrayData>& data = datum.array();
+      DCHECK_EQ(data->length, batch.length - offset);
       ARROW_DCHECK(data->GetNullCount() == 0);
       DCHECK_EQ(data->type->id(), GroupIdType::type_id);
       const group_id_t* values = data->GetValues<group_id_t>(1);
@@ -288,7 +291,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
       for (cursor = 1; cursor < data->length; cursor++) {
         if (values[0] != values[cursor]) break;
       }
-      int64_t length = std::min(cursor, batch.length - offset);
+      int64_t length = cursor;
       bool extends = length > 0 ? bound_extend(values) : kEmptyExtends;
       return MakeSegment(batch.length, offset, length, extends);
     } else {
