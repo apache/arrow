@@ -1752,6 +1752,87 @@ TEST_F(TestProjector, TestSign) {
   EXPECT_ARROW_ARRAY_EQUALS(out_float64, outputs4.at(0));
 }
 
+TEST_F(TestProjector, TestAbsInt32) {
+  auto in_field = field("in", arrow::int32());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::int32());
+  auto abs = TreeExprBuilder::MakeExpression("abs", {in_field}, out_field);
+
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {abs}, TestConfiguration(), &projector));
+
+  int num_records = 4;
+  auto array = MakeArrowArrayInt32({-1, 2, -3, 4}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, true});
+
+  arrow::ArrayVector outs;
+
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+TEST_F(TestProjector, TestAbsInt64) {
+  auto in_field = field("in", arrow::int64());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::int64());
+  auto abs = TreeExprBuilder::MakeExpression("abs", {in_field}, out_field);
+
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {abs}, TestConfiguration(), &projector));
+
+  int num_records = 4;
+  auto array = MakeArrowArrayInt64({1, -2, 3, -4}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayInt64({1, 2, 3, 4}, {true, true, true, true});
+
+  arrow::ArrayVector outs;
+
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+TEST_F(TestProjector, TestAbsFloat32) {
+  auto in_field = field("in", arrow::float32());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::float32());
+  auto abs = TreeExprBuilder::MakeExpression("abs", {in_field}, out_field);
+
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {abs}, TestConfiguration(), &projector));
+
+  int num_records = 4;
+  auto array =
+      MakeArrowArrayFloat32({1.1f, -2.2f, 3.3f, -4.4f}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayFloat32({1.1f, 2.2f, 3.3f, 4.4f}, {true, true, true, true});
+
+  arrow::ArrayVector outs;
+
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+TEST_F(TestProjector, TestAbsFloat64) {
+  auto in_field = field("in", arrow::float64());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::float64());
+  auto abs = TreeExprBuilder::MakeExpression("abs", {in_field}, out_field);
+
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {abs}, TestConfiguration(), &projector));
+
+  int num_records = 4;
+  auto array = MakeArrowArrayFloat64({1.1, -2.2, 3.3, -4.4}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayFloat64({1.1, 2.2, 3.3, 4.4}, {true, true, true, true});
+
+  arrow::ArrayVector outs;
+
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
 TEST_F(TestProjector, TestCeiling) {
   // input fields
   auto field1 = field("f1", arrow::float32());

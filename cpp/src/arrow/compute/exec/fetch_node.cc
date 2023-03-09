@@ -106,6 +106,8 @@ class FetchNode : public ExecNode, public TracedNode, util::SequencingQueue::Pro
 
   const char* kind_name() const override { return "FetchNode"; }
 
+  const Ordering& ordering() const override { return inputs_[0]->ordering(); }
+
   Status InputFinished(ExecNode* input, int total_batches) override {
     DCHECK_EQ(input, inputs_[0]);
     EVENT_ON_CURRENT_SPAN("InputFinished", {{"batches.length", total_batches}});
@@ -118,6 +120,17 @@ class FetchNode : public ExecNode, public TracedNode, util::SequencingQueue::Pro
         ARROW_RETURN_NOT_OK(inputs_[0]->StopProducing());
         ARROW_RETURN_NOT_OK(output_->InputFinished(this, out_batch_count_));
       }
+    }
+    return Status::OK();
+  }
+
+  Status Validate() const override {
+    ARROW_RETURN_NOT_OK(ExecNode::Validate());
+    if (inputs_[0]->ordering().is_unordered()) {
+      return Status::Invalid(
+          "Fetch node's input has no meaningful ordering and so limit/offset will be "
+          "non-deterministic.  Please establish order in some way (e.g. by inserting an "
+          "order_by node)");
     }
     return Status::OK();
   }

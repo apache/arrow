@@ -19,7 +19,6 @@ package pqarrow
 import (
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"time"
 	"unsafe"
@@ -40,6 +39,8 @@ func calcLeafCount(dt arrow.DataType) int {
 	switch dt.ID() {
 	case arrow.EXTENSION, arrow.SPARSE_UNION, arrow.DENSE_UNION:
 		panic("arrow type not implemented")
+	case arrow.DICTIONARY:
+		return calcLeafCount(dt.(*arrow.DictionaryType).ValueType)
 	case arrow.LIST:
 		return calcLeafCount(dt.(*arrow.ListType).Elem())
 	case arrow.FIXED_SIZE_LIST:
@@ -221,8 +222,7 @@ func WriteArrowToColumn(ctx context.Context, cw file.ColumnChunkWriter, leafArr 
 	}
 
 	if leafArr.DataType().ID() == arrow.DICTIONARY {
-		// TODO(mtopol): write arrow dictionary ARROW-7283
-		return errors.New("parquet/pqarrow: dictionary columns not yet implemented for WriteArrowToColumn")
+		return writeDictionaryArrow(arrowCtxFromContext(ctx), cw, leafArr, defLevels, repLevels, maybeParentNulls)
 	}
 	return writeDenseArrow(arrowCtxFromContext(ctx), cw, leafArr, defLevels, repLevels, maybeParentNulls)
 }

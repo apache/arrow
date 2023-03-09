@@ -1590,9 +1590,6 @@ def _copy_files(FileSystem source_fs, str source_path,
         vector[CFileLocator] c_sources
         CFileLocator c_destination
         vector[CFileLocator] c_destinations
-        FileSystem fs
-        CStatus c_status
-        shared_ptr[CFileSystem] c_fs
 
     c_source.filesystem = source_fs.unwrap()
     c_source.path = tobytes(source_path)

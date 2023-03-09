@@ -17,6 +17,8 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -53,11 +55,9 @@ public class TestServerOptions {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
-        FlightServer s =
-            FlightTestUtil.getStartedServer(
-                (location) -> FlightServer.builder(a, location, producer)
-                    .transportHint("grpc.builderConsumer", consumer).build()
-            )) {
+        FlightServer s = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), producer)
+            .transportHint("grpc.builderConsumer", consumer).build().start()
+    ) {
       Assertions.assertTrue(consumerCalled.get());
     }
   }
@@ -70,11 +70,9 @@ public class TestServerOptions {
     final ExecutorService executor;
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-        FlightServer server =
-            FlightTestUtil.getStartedServer(
-                (location) -> FlightServer.builder(a, location, new NoOpFlightProducer())
-                    .build()
-            )) {
+        FlightServer server = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), new NoOpFlightProducer())
+            .build().start()
+    ) {
       assertNotNull(server.grpcExecutor);
       executor = server.grpcExecutor;
     }
@@ -90,12 +88,10 @@ public class TestServerOptions {
     try {
       try (
           BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-          FlightServer server =
-              FlightTestUtil.getStartedServer(
-                  (location) -> FlightServer.builder(a, location, new NoOpFlightProducer())
-                      .executor(executor)
-                      .build()
-              )) {
+          FlightServer server = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), new NoOpFlightProducer())
+              .executor(executor)
+              .build().start()
+      ) {
         Assertions.assertNull(server.grpcExecutor);
       }
       Assertions.assertFalse(executor.isShutdown());
@@ -116,10 +112,8 @@ public class TestServerOptions {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
-        FlightServer s =
-            FlightTestUtil.getStartedServer(
-                (port) -> FlightServer.builder(a, location, producer).build()
-            )) {
+        FlightServer s = FlightServer.builder(a, location, producer).build().start();
+    ) {
       try (FlightClient c = FlightClient.builder(a, location).build()) {
         try (FlightStream stream = c.getStream(new Ticket(new byte[0]))) {
           VectorSchemaRoot root = stream.getRoot();

@@ -84,8 +84,13 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
         // Ensure column() API which is specific to BufferedRowGroup cannot be called
         ASSERT_THROW(row_group_writer->column(col), ParquetException);
       }
-
+      EXPECT_EQ(0, row_group_writer->total_compressed_bytes());
+      EXPECT_NE(0, row_group_writer->total_bytes_written());
+      EXPECT_NE(0, row_group_writer->total_compressed_bytes_written());
       row_group_writer->Close();
+      EXPECT_EQ(0, row_group_writer->total_compressed_bytes());
+      EXPECT_NE(0, row_group_writer->total_bytes_written());
+      EXPECT_NE(0, row_group_writer->total_compressed_bytes_written());
     }
     // Write half BufferedRowGroups
     for (int rg = 0; rg < num_rowgroups_ / 2; ++rg) {
@@ -102,12 +107,19 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
           ASSERT_THROW(row_group_writer->NextColumn(), ParquetException);
         }
       }
+      // total_compressed_bytes() may equal to 0 if no dictionary enabled and no buffered
+      // values.
+      EXPECT_EQ(0, row_group_writer->total_bytes_written());
+      EXPECT_EQ(0, row_group_writer->total_compressed_bytes_written());
       for (int col = 0; col < num_columns_; ++col) {
         auto column_writer =
             static_cast<TypedColumnWriter<TestType>*>(row_group_writer->column(col));
         column_writer->Close();
       }
       row_group_writer->Close();
+      EXPECT_EQ(0, row_group_writer->total_compressed_bytes());
+      EXPECT_NE(0, row_group_writer->total_bytes_written());
+      EXPECT_NE(0, row_group_writer->total_compressed_bytes_written());
     }
     file_writer->Close();
 

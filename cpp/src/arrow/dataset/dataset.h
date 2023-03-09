@@ -58,8 +58,26 @@ struct ARROW_DS_EXPORT FragmentSelectionColumn {
   /// when reading from CSV, if we know the target type of the column, we can
   /// convert from string to the target type as we read.
   DataType* requested_type;
-  /// \brief The index in the output selection of this column
-  int selection_index;
+};
+
+/// \brief A list of columns that should be loaded from a fragment
+///
+/// The paths in this selection should be referring to the fragment schema.  This class
+/// contains a virtual destructor as it is expected evolution strategies will need to
+/// extend this to add any information needed to later evolve the batches.
+///
+/// For example, in the basic evolution strategy, we keep track of which columns
+/// were missing from the file so that we can fill those in with null when evolving.
+class ARROW_DS_EXPORT FragmentSelection {
+ public:
+  explicit FragmentSelection(std::vector<FragmentSelectionColumn> columns)
+      : columns_(std::move(columns)) {}
+  virtual ~FragmentSelection() = default;
+  /// The columns that should be loaded from the fragment
+  const std::vector<FragmentSelectionColumn>& columns() const { return columns_; }
+
+ private:
+  std::vector<FragmentSelectionColumn> columns_;
 };
 
 /// \brief Instructions for scanning a particular fragment
@@ -86,7 +104,7 @@ struct ARROW_DS_EXPORT FragmentScanRequest {
   /// to satisfy these columns.  If a format cannot partially read a nested
   /// column (e.g. JSON) then it must apply the column selection (in memory)
   /// before returning the scanned batch.
-  std::vector<FragmentSelectionColumn> columns;
+  std::shared_ptr<FragmentSelection> fragment_selection;
   /// \brief Options specific to the format being scanned
   const FragmentScanOptions* format_scan_options;
 };
@@ -274,7 +292,7 @@ class ARROW_DS_EXPORT FragmentEvolutionStrategy {
   /// For example, if the user wants fields 2 & 4 of the dataset schema and
   /// in this fragment the field 2 is missing and the field 4 is at index 1 then
   /// this should return {1}
-  virtual Result<std::vector<FragmentSelectionColumn>> DevolveSelection(
+  virtual Result<std::unique_ptr<FragmentSelection>> DevolveSelection(
       const std::vector<FieldPath>& dataset_schema_selection) const = 0;
 
   /// \brief Return a filter expression bound to the fragment schema given
@@ -302,7 +320,7 @@ class ARROW_DS_EXPORT FragmentEvolutionStrategy {
   virtual Result<compute::ExecBatch> EvolveBatch(
       const std::shared_ptr<RecordBatch>& batch,
       const std::vector<FieldPath>& dataset_selection,
-      const std::vector<FragmentSelectionColumn>& selection) const = 0;
+      const FragmentSelection& selection) const = 0;
 
   /// \brief Return a string description of this strategy
   virtual std::string ToString() const = 0;

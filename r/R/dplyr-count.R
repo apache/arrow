@@ -39,8 +39,7 @@ count.Dataset <- count.ArrowTabular <- count.RecordBatchReader <- count.arrow_dp
 
 #' @importFrom rlang sym :=
 tally.arrow_dplyr_query <- function(x, wt = NULL, sort = FALSE, name = NULL) {
-  check_name <- getFromNamespace("check_name", "dplyr")
-  name <- check_name(name, dplyr::group_vars(x))
+  name <- check_n_name(name, dplyr::group_vars(x))
 
   if (quo_is_null(enquo(wt))) {
     out <- dplyr::summarize(x, !!name := n())
@@ -59,3 +58,32 @@ tally.Dataset <- tally.ArrowTabular <- tally.RecordBatchReader <- tally.arrow_dp
 
 # we don't want to depend on dplyr, but we refrence these above
 utils::globalVariables(c("n", "desc"))
+
+check_n_name <- function(name,
+                         vars,
+                         call = caller_env()) {
+  if (is.null(name)) {
+    name <- n_name(vars)
+
+    if (name != "n") {
+      inform(c(
+        glue("Storing counts in `{name}`, as `n` already present in input"),
+        i = "Use `name = \"new_name\"` to pick a new name."
+      ))
+    }
+  } else if (!is_string(name)) {
+    abort("`name` must be a string or `NULL`.", call = call)
+  }
+
+  name
+}
+
+n_name <- function(x) {
+  name <- "n"
+
+  while (name %in% x) {
+    name <- paste0("n", name)
+  }
+
+  name
+}

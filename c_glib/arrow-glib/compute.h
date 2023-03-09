@@ -493,6 +493,24 @@ typedef enum {
   GARROW_SORT_ORDER_DESCENDING,
 } GArrowSortOrder;
 
+/**
+ * GArrowNullPlacement:
+ * @GARROW_NULL_PLACEMENT_AT_START:
+ *   Place nulls and NaNs before any non-null values.
+ *   NaNs will come after nulls.
+ * @GARROW_NULL_PLACEMENT_AT_END:
+ *   Place nulls and NaNs after any non-null values.
+ *   NaNs will come before nulls.
+ *
+ * They are corresponding to `arrow::compute::NullPlacement` values.
+ *
+ * Since: 12.0.0
+ */
+typedef enum /*<prefix=GARROW_NULL_PLACEMENT_>*/ {
+  GARROW_NULL_PLACEMENT_AT_START,
+  GARROW_NULL_PLACEMENT_AT_END,
+} GArrowNullPlacement;
+
 #define GARROW_TYPE_ARRAY_SORT_OPTIONS (garrow_array_sort_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowArraySortOptions,
                          garrow_array_sort_options,
@@ -764,6 +782,63 @@ void
 garrow_quantile_options_set_qs(GArrowQuantileOptions *options,
                                const gdouble *qs,
                                gsize n);
+
+
+/**
+ * GArrowRankTiebreader:
+ * @GARROW_RANK_TIEBREAKER_MIN:
+ *   Ties get the smallest possible rank in sorted order.
+ * @GARROW_RANK_TIEBREAKER_MAX:
+ *   Ties get the largest possible rank in sorted order.
+ * @GARROW_RANK_TIEBREAKER_FIRST:
+ *   Ranks are assigned in order of when ties appear in the input.
+ *   This ensures the ranks are a stable permutation of the input.
+ * @GARROW_RANK_TIEBREAKER_DENSE:
+ *   The ranks span a dense [1, M] interval where M is the number
+ *   of distinct values in the input.
+ *
+ * They correspond to the values of
+ * `arrow::compute::RankOptions::Tiebreaker`.
+ *
+ * Since: 12.0.0
+ */
+typedef enum {
+  GARROW_RANK_TIEBREAKER_MIN,
+  GARROW_RANK_TIEBREAKER_MAX,
+  GARROW_RANK_TIEBREAKER_FIRST,
+  GARROW_RANK_TIEBREAKER_DENSE,
+} GArrowRankTiebreaker;
+
+#define GARROW_TYPE_RANK_OPTIONS                \
+  (garrow_rank_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowRankOptions,
+                         garrow_rank_options,
+                         GARROW,
+                         RANK_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRankOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_12_0
+GArrowRankOptions *
+garrow_rank_options_new(void);
+GARROW_AVAILABLE_IN_12_0
+gboolean
+garrow_rank_options_equal(GArrowRankOptions *options,
+                          GArrowRankOptions *other_options);
+GARROW_AVAILABLE_IN_12_0
+GList *
+garrow_rank_options_get_sort_keys(GArrowRankOptions *options);
+GARROW_AVAILABLE_IN_12_0
+void
+garrow_rank_options_set_sort_keys(GArrowRankOptions *options,
+                                  GList *sort_keys);
+GARROW_AVAILABLE_IN_12_0
+void
+garrow_rank_options_add_sort_key(GArrowRankOptions *options,
+                                 GArrowSortKey *sort_key);
 
 
 GArrowArray *garrow_array_cast(GArrowArray *array,

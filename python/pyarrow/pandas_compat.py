@@ -808,7 +808,7 @@ def table_to_blockmanager(options, table, categories=None,
         index_descriptors = pandas_metadata['index_columns']
         table = _add_any_metadata(table, pandas_metadata)
         table, index = _reconstruct_index(table, index_descriptors,
-                                          all_columns)
+                                          all_columns, types_mapper)
         ext_columns_dtypes = _get_extension_dtypes(
             table, all_columns, types_mapper)
     else:
@@ -940,7 +940,7 @@ def _deserialize_column_index(block_table, all_columns, column_indexes):
     return columns
 
 
-def _reconstruct_index(table, index_descriptors, all_columns):
+def _reconstruct_index(table, index_descriptors, all_columns, types_mapper=None):
     # 0. 'field_name' is the name of the column in the arrow Table
     # 1. 'name' is the user-facing name of the column, that is, it came from
     #    pandas
@@ -959,7 +959,7 @@ def _reconstruct_index(table, index_descriptors, all_columns):
     for descr in index_descriptors:
         if isinstance(descr, str):
             result_table, index_level, index_name = _extract_index_level(
-                table, result_table, descr, field_name_to_metadata)
+                table, result_table, descr, field_name_to_metadata, types_mapper)
             if index_level is None:
                 # ARROW-1883: the serialized index column was not found
                 continue
@@ -995,7 +995,7 @@ def _reconstruct_index(table, index_descriptors, all_columns):
 
 
 def _extract_index_level(table, result_table, field_name,
-                         field_name_to_metadata):
+                         field_name_to_metadata, types_mapper=None):
     logical_name = field_name_to_metadata[field_name]['name']
     index_name = _backwards_compatible_index_name(field_name, logical_name)
     i = table.schema.get_field_index(field_name)
@@ -1007,7 +1007,7 @@ def _extract_index_level(table, result_table, field_name,
     pd = _pandas_api.pd
 
     col = table.column(i)
-    values = col.to_pandas().values
+    values = col.to_pandas(types_mapper=types_mapper).values
 
     if hasattr(values, 'flags') and not values.flags.writeable:
         # ARROW-1054: in pandas 0.19.2, factorize will reject

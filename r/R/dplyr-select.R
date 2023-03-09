@@ -39,7 +39,7 @@ rename_with.Dataset <- rename_with.ArrowTabular <- rename_with.RecordBatchReader
 
 relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL) {
   # The code in this function is adapted from the code in dplyr::relocate.data.frame
-  # at https://github.com/tidyverse/dplyr/blob/master/R/relocate.R
+  # at https://github.com/tidyverse/dplyr/blob/main/R/relocate.R
   # TODO: revisit this after https://github.com/tidyverse/dplyr/issues/5829
 
   .data <- as_adq(.data)

@@ -22,6 +22,7 @@
 #include <queue>
 #include <vector>
 
+#include "arrow/compute/exec.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -73,6 +74,7 @@ class SequencingQueueImpl : public SequencingQueue {
   explicit SequencingQueueImpl(Processor* processor) : processor_(processor) {}
 
   Status InsertBatch(ExecBatch batch) override {
+    DCHECK_NE(::arrow::compute::kUnsequencedIndex, batch.index);
     std::unique_lock lk(mutex_);
     if (batch.index == next_index_) {
       return DeliverNextUnlocked(std::move(batch), std::move(lk));
@@ -122,6 +124,7 @@ class SerialSequencingQueueImpl : public SerialSequencingQueue {
   explicit SerialSequencingQueueImpl(Processor* processor) : processor_(processor) {}
 
   Status InsertBatch(ExecBatch batch) override {
+    DCHECK_NE(::arrow::compute::kUnsequencedIndex, batch.index);
     std::unique_lock lk(mutex_);
     queue_.push(std::move(batch));
     if (queue_.top().index == next_index_ && !is_processing_) {

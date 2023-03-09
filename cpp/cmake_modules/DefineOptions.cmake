@@ -296,7 +296,7 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
 
-  define_option(ARROW_COMPUTE "Build the Arrow Compute Modules" OFF)
+  define_option(ARROW_COMPUTE "Build all Arrow Compute kernels" OFF)
 
   define_option(ARROW_CSV "Build the Arrow CSV Parser Module" OFF)
 
@@ -361,7 +361,6 @@ takes precedence over ccache if a storage backend is configured" ON)
                 "Build the Parquet libraries"
                 OFF
                 DEPENDS
-                ARROW_COMPUTE
                 ARROW_IPC)
 
   define_option(ARROW_ORC
@@ -553,7 +552,7 @@ takes precedence over ccache if a storage backend is configured" ON)
 
     if(DEFINED ENV{CONDA_PREFIX})
       # Conda package changes the output name.
-      # https://github.com/conda-forge/snappy-feedstock/blob/master/recipe/windows-static-lib-name.patch
+      # https://github.com/conda-forge/snappy-feedstock/blob/main/recipe/windows-static-lib-name.patch
       set(SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT "_static")
     else()
       set(SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT "")
@@ -586,7 +585,10 @@ Always OFF if building binaries" OFF)
                 "Build the Parquet examples. Requires static libraries to be built." OFF)
 
   define_option(PARQUET_REQUIRE_ENCRYPTION
-                "Build support for encryption. Fail if OpenSSL is not found" OFF)
+                "Build support for encryption. Fail if OpenSSL is not found"
+                OFF
+                DEPENDS
+                ARROW_FILESYSTEM)
 
   #----------------------------------------------------------------------
   set_option_category("Gandiva")

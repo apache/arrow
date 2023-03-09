@@ -213,12 +213,14 @@ func (d *Dictionary) Release() {
 func (d *Dictionary) setData(data *Data) {
 	d.array.setData(data)
 
-	if data.dictionary == nil {
-		panic("arrow/array: no dictionary set in Data for Dictionary array")
-	}
-
 	dictType := data.dtype.(*arrow.DictionaryType)
-	debug.Assert(arrow.TypeEqual(dictType.ValueType, data.dictionary.DataType()), "mismatched dictionary value types")
+	if data.dictionary == nil {
+		if data.length > 0 {
+			panic("arrow/array: no dictionary set in Data for Dictionary array")
+		}
+	} else {
+		debug.Assert(arrow.TypeEqual(dictType.ValueType, data.dictionary.DataType()), "mismatched dictionary value types")
+	}
 
 	indexData := NewData(dictType.IndexType, data.length, data.buffers, data.childData, data.nulls, data.offset)
 	defer indexData.Release()
@@ -400,6 +402,7 @@ type DictionaryBuilder interface {
 	NewDictionaryArray() *Dictionary
 	NewDelta() (indices, delta arrow.Array, err error)
 	AppendArray(arrow.Array) error
+	AppendIndices([]int, []bool)
 	ResetFull()
 }
 
@@ -881,6 +884,60 @@ func (b *dictionaryBuilder) AppendArray(arr arrow.Array) error {
 		}
 	}
 	return nil
+}
+
+func (b *dictionaryBuilder) AppendIndices(indices []int, valid []bool) {
+	b.length += len(indices)
+	switch idxbldr := b.idxBuilder.Builder.(type) {
+	case *Int8Builder:
+		vals := make([]int8, len(indices))
+		for i, v := range indices {
+			vals[i] = int8(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	case *Int16Builder:
+		vals := make([]int16, len(indices))
+		for i, v := range indices {
+			vals[i] = int16(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	case *Int32Builder:
+		vals := make([]int32, len(indices))
+		for i, v := range indices {
+			vals[i] = int32(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	case *Int64Builder:
+		vals := make([]int64, len(indices))
+		for i, v := range indices {
+			vals[i] = int64(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	case *Uint8Builder:
+		vals := make([]uint8, len(indices))
+		for i, v := range indices {
+			vals[i] = uint8(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	case *Uint16Builder:
+		vals := make([]uint16, len(indices))
+		for i, v := range indices {
+			vals[i] = uint16(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	case *Uint32Builder:
+		vals := make([]uint32, len(indices))
+		for i, v := range indices {
+			vals[i] = uint32(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	case *Uint64Builder:
+		vals := make([]uint64, len(indices))
+		for i, v := range indices {
+			vals[i] = uint64(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	}
 }
 
 type NullDictionaryBuilder struct {
