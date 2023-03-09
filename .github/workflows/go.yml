@@ -374,9 +374,9 @@ jobs:
         shell: bash
         run: ci/scripts/go_test.sh $(pwd)
 
-  linux-arm:
-    name: ARM64 Debian 11 GO ${{ matrix.go }}
-    runs-on: ["self-hosted", "linux"]
+  docker-arm:
+    name: ARM64 Debian 11 Go ${{ matrix.go }}
+    runs-on: ["self-hosted", "arm", "linux"]
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     strategy:
@@ -384,9 +384,7 @@ jobs:
         go: [1.17]
     env:
       GO: ${{ matrix.go }}
-      ARROW_ENABLE_TIMING_TESTS: "OFF"
       ARCH: arm64v8
-      ARROW_CI_MODULES: "GO"
       DOCKER_IMAGE_ID: debian-go
     steps:
       - name: Checkout Arrow

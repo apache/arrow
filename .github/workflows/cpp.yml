@@ -401,15 +401,14 @@ jobs:
           PATH="$(cygpath --unix ${PYTHON_BIN_DIR}):${PATH}"
           ci/scripts/cpp_test.sh "$(pwd)" "$(pwd)/build"
 
-  linux-arm:
+  docker-arm:
     name: ARM64 Ubuntu 20.04 C++
-    runs-on: ["arm", "linux"]
+    runs-on: ["self-hosted", "arm", "linux"]
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
     env:
       ARROW_ENABLE_TIMING_TESTS: "OFF"
       ARCH: arm64v8
-      ARROW_CI_MODULES: "CPP"
       DOCKER_IMAGE_ID: ubuntu-cpp
       # ARROW_USE_GLOG=OFF is needed to avoid build error caused by
       # glog and CMAKE_UNITY_BUILD=ON.
