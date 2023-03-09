@@ -1934,31 +1934,19 @@ def _check_datetime_components(timestamps, timezone=None):
         [iso_year, iso_week, iso_day],
         fields=iso_calendar_fields)
 
-    year = ts.dt.year
-    month = ts.dt.month
-    day = ts.dt.day
-    dayofweek = ts.dt.dayofweek
-    dayofyear = ts.dt.dayofyear
-    quarter = ts.dt.quarter
-    hour = ts.dt.hour
-    minute = ts.dt.minute
-    second = ts.dt.second.values
-    microsecond = ts.dt.microsecond
-    nanosecond = ts.dt.nanosecond
-    if Version(pd.__version__) >= Version("2.0.0"):
-        # Casting is required because pandas with 2.0.0 various numeric
-        # date/time attributes have dtype int32 (previously int64)
-        year = ts.dt.year.astype("int64")
-        month = ts.dt.month.astype("int64")
-        day = ts.dt.day.astype("int64")
-        dayofweek = ts.dt.dayofweek.astype("int64")
-        dayofyear = ts.dt.dayofyear.astype("int64")
-        quarter = ts.dt.quarter.astype("int64")
-        hour = ts.dt.hour.astype("int64")
-        minute = ts.dt.minute.astype("int64")
-        second = ts.dt.second.values.astype("int64")
-        microsecond = ts.dt.microsecond.astype("int64")
-        nanosecond = ts.dt.nanosecond.astype("int64")
+    # Casting is required because pandas with 2.0.0 various numeric
+    # date/time attributes have dtype int32 (previously int64)
+    year = ts.dt.year.astype("int64")
+    month = ts.dt.month.astype("int64")
+    day = ts.dt.day.astype("int64")
+    dayofweek = ts.dt.dayofweek.astype("int64")
+    dayofyear = ts.dt.dayofyear.astype("int64")
+    quarter = ts.dt.quarter.astype("int64")
+    hour = ts.dt.hour.astype("int64")
+    minute = ts.dt.minute.astype("int64")
+    second = ts.dt.second.values.astype("int64")
+    microsecond = ts.dt.microsecond.astype("int64")
+    nanosecond = ts.dt.nanosecond.astype("int64")
 
     assert pc.year(tsa).equals(pa.array(year))
     assert pc.is_leap_year(tsa).equals(pa.array(ts.dt.is_leap_year))
