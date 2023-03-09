@@ -42,48 +42,37 @@ struct ArraySpanInlineVisitor<T, enable_if_has_c_type<T>> {
   template <typename ValidFunc, typename NullFunc>
   static Status VisitStatus(const ArraySpan& arr, ValidFunc&& valid_func,
                             NullFunc&& null_func) {
-    const c_type* data = arr.GetValues<c_type>(1);
-    auto visit_valid = [&](int64_t i) { return valid_func(data[i]); };
-    return VisitBitBlocks(arr.buffers[0].data, arr.offset, arr.length,
-                          std::move(visit_valid), std::forward<NullFunc>(null_func));
+    if constexpr (std::is_same_v<T, BooleanType>) {
+      int64_t offset = arr.offset;
+      const uint8_t* data = arr.buffers[1].data;
+      return VisitBitBlocks(
+          arr.buffers[0].data, offset, arr.length,
+          [&](int64_t i) { return valid_func(bit_util::GetBit(data, offset + i)); },
+          std::forward<NullFunc>(null_func));
+    } else {
+      const c_type* data = arr.GetValues<c_type>(1);
+      auto visit_valid = [&](int64_t i) { return valid_func(data[i]); };
+      return VisitBitBlocks(arr.buffers[0].data, arr.offset, arr.length,
+                            std::move(visit_valid), std::forward<NullFunc>(null_func));
+    }
   }
 
   template <typename ValidFunc, typename NullFunc>
   static void VisitVoid(const ArraySpan& arr, ValidFunc&& valid_func,
                         NullFunc&& null_func) {
-    using c_type = typename T::c_type;
-    const c_type* data = arr.GetValues<c_type>(1);
-    auto visit_valid = [&](int64_t i) { valid_func(data[i]); };
-    VisitBitBlocksVoid(arr.buffers[0].data, arr.offset, arr.length,
-                       std::move(visit_valid), std::forward<NullFunc>(null_func));
-  }
-};
-
-// Boolean
-template <>
-struct ArraySpanInlineVisitor<BooleanType> {
-  using c_type = bool;
-
-  template <typename ValidFunc, typename NullFunc>
-  static Status VisitStatus(const ArraySpan& arr, ValidFunc&& valid_func,
-                            NullFunc&& null_func) {
-    int64_t offset = arr.offset;
-    const uint8_t* data = arr.buffers[1].data;
-    return VisitBitBlocks(
-        arr.buffers[0].data, offset, arr.length,
-        [&](int64_t i) { return valid_func(bit_util::GetBit(data, offset + i)); },
-        std::forward<NullFunc>(null_func));
-  }
-
-  template <typename ValidFunc, typename NullFunc>
-  static void VisitVoid(const ArraySpan& arr, ValidFunc&& valid_func,
-                        NullFunc&& null_func) {
-    int64_t offset = arr.offset;
-    const uint8_t* data = arr.buffers[1].data;
-    VisitBitBlocksVoid(
-        arr.buffers[0].data, offset, arr.length,
-        [&](int64_t i) { valid_func(bit_util::GetBit(data, offset + i)); },
-        std::forward<NullFunc>(null_func));
+    if constexpr (std::is_same_v<T, BooleanType>) {
+      int64_t offset = arr.offset;
+      const uint8_t* data = arr.buffers[1].data;
+      VisitBitBlocksVoid(
+          arr.buffers[0].data, offset, arr.length,
+          [&](int64_t i) { valid_func(bit_util::GetBit(data, offset + i)); },
+          std::forward<NullFunc>(null_func));
+    } else {
+      const c_type* data = arr.GetValues<c_type>(1);
+      auto visit_valid = [&](int64_t i) { valid_func(data[i]); };
+      VisitBitBlocksVoid(arr.buffers[0].data, arr.offset, arr.length,
+                         std::move(visit_valid), std::forward<NullFunc>(null_func));
+    }
   }
 };
 
