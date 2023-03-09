@@ -472,7 +472,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     comparator_ = std::static_pointer_cast<TypedComparator<DType>>(comp);
     TypedStatisticsImpl::Reset();
     has_null_count_ = true;
-    has_distinct_count_ = true;
+    has_distinct_count_ = false;
   }
 
   TypedStatisticsImpl(const T& min, const T& max, int64_t num_values, int64_t null_count,
@@ -482,7 +482,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
         max_buffer_(AllocateBuffer(pool_, 0)) {
     TypedStatisticsImpl::IncrementNumValues(num_values);
     TypedStatisticsImpl::IncrementNullCount(null_count);
-    IncrementDistinctCount(distinct_count);
+    TypedStatisticsImpl::SetDistinctCount(distinct_count);
 
     Copy(min, &min_, min_buffer_.get());
     Copy(max, &max_, max_buffer_.get());
@@ -500,9 +500,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (has_null_count_) {
       TypedStatisticsImpl::IncrementNullCount(null_count);
     }
-    has_distinct_count_ = has_distinct_count;
+
     if (has_distinct_count) {
-      IncrementDistinctCount(distinct_count);
+      this->SetDistinctCount(distinct_count);
     }
 
     if (!encoded_min.empty()) {
@@ -558,11 +558,10 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (other.HasNullCount()) {
       this->IncrementNullCount(other.null_count());
     }
-    if (HasDistinctCount() && other.HasDistinctCount()) {
-      this->IncrementDistinctCount(other.distinct_count());
-    } else {
+    // Force clear distinct count, because ndv is cannot merge.
+    if (HasDistinctCount()) {
       this->has_distinct_count_ = false;
-      this->has_distinct_count_ = 0;
+      statistics_.distinct_count = 0;
     }
     if (other.HasMinMax()) {
       SetMinMax(other.min(), other.max());
@@ -628,7 +627,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   bool has_min_max_ = false;
   // Currently, has_null_count_ is always true, and would
   // be collected and encoded to `EncodedStatistics`.
-  bool has_null_count_ = false;
+  bool has_null_count_ = true;
   // Currently, has_distinct_count_ would not be encoded
   // to `EncodedStatistics`.
   bool has_distinct_count_ = false;
@@ -645,8 +644,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void Copy(const T& src, T* dst, ResizableBuffer*) { *dst = src; }
 
-  void IncrementDistinctCount(int64_t n) {
-    statistics_.distinct_count += n;
+  void SetDistinctCount(int64_t n) {
+    statistics_.distinct_count = n;
     has_distinct_count_ = true;
   }
 
