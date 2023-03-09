@@ -930,8 +930,10 @@ TEST(Substrait, ReadRel) {
   })",
                                                    /*ignore_unknown_fields=*/false));
   ExtensionSet ext_set;
-  ASSERT_OK_AND_ASSIGN(auto rel, DeserializeRelation(*buf, ext_set));
-
+  ASSERT_OK_AND_ASSIGN(auto des_rel, DeserializeRelation(*buf, ext_set));
+  // Since GH-34484 there is a `project` after `scan` if data is read from
+  // a file.
+  auto rel = std::get<compute::Declaration>(des_rel.inputs[0]);
   // converting a ReadRel produces a scan Declaration
   ASSERT_EQ(rel.factory_name, "scan");
   const auto& scan_node_options =
@@ -1240,7 +1242,10 @@ TEST(Substrait, DeserializeWithConsumerFactory) {
   ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
   ASSERT_EQ(sink_node->num_inputs(), 1);
   auto& prev_node = sink_node->inputs()[0];
-  ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
+  // Since GH-34484 there is a `project` after `scan` if data is read from
+  // a file.
+  auto& source_node = prev_node->inputs()[0];
+  ASSERT_STREQ(source_node->kind_name(), "SourceNode");
 
   plan->StartProducing();
   ASSERT_FINISHES_OK(plan->finished());
@@ -1251,12 +1256,15 @@ TEST(Substrait, DeserializeSinglePlanWithConsumerFactory) {
   ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
                        DeserializePlan(*buf, compute::NullSinkNodeConsumer::Make()));
-  ASSERT_EQ(2, plan->nodes().size());
-  compute::ExecNode* sink_node = plan->nodes()[1];
+  // Since GH-34484 there is a `project` after `scan` if data is read from
+  // a file, we have source, project, sink nodes in the plan.
+  ASSERT_EQ(3, plan->nodes().size());
+  compute::ExecNode* sink_node = plan->nodes()[2];
   ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
   ASSERT_EQ(sink_node->num_inputs(), 1);
   auto& prev_node = sink_node->inputs()[0];
-  ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
+  auto& source_node = prev_node->inputs()[0];
+  ASSERT_STREQ(source_node->kind_name(), "SourceNode");
 
   plan->StartProducing();
   ASSERT_FINISHES_OK(plan->finished());
@@ -1287,6 +1295,11 @@ TEST(Substrait, DeserializeWithWriteOptionsFactory) {
   compute::Declaration* decl = &declarations[0];
   ASSERT_EQ(decl->factory_name, "write");
   ASSERT_EQ(decl->inputs.size(), 1);
+  // Since GH-34484 there is a `project` after `scan` if data is read from
+  // a file.
+  // this retrievs the `project`
+  decl = std::get_if<compute::Declaration>(&decl->inputs[0]);
+  // this retrieves the `scan`
   decl = std::get_if<compute::Declaration>(&decl->inputs[0]);
   ASSERT_NE(decl, nullptr);
   ASSERT_EQ(decl->factory_name, "scan");
@@ -1295,7 +1308,8 @@ TEST(Substrait, DeserializeWithWriteOptionsFactory) {
   ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
   ASSERT_EQ(sink_node->num_inputs(), 1);
   auto& prev_node = sink_node->inputs()[0];
-  ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
+  auto& source_node = prev_node->inputs()[0];
+  ASSERT_STREQ(source_node->kind_name(), "SourceNode");
 
   plan->StartProducing();
   ASSERT_FINISHES_OK(plan->finished());
@@ -1483,15 +1497,20 @@ TEST(Substrait, JoinPlanBasic) {
     auto join_decl = sink_decls[0].inputs[0];
 
     const auto& join_rel = std::get<compute::Declaration>(join_decl);
+    EXPECT_EQ(join_rel.factory_name, "hashjoin");
 
     const auto& join_options =
         checked_cast<const compute::HashJoinNodeOptions&>(*join_rel.options);
-
-    EXPECT_EQ(join_rel.factory_name, "hashjoin");
     EXPECT_EQ(join_options.join_type, compute::JoinType::INNER);
-
-    const auto& left_rel = std::get<compute::Declaration>(join_rel.inputs[0]);
-    const auto& right_rel = std::get<compute::Declaration>(join_rel.inputs[1]);
+    // Since GH-34484 there is a `project` after `scan` if data is read from
+    // a file.
+    // Since the input to join_rel is project, first extract project from each join_rel
+    // inputs
+    const auto& left_project = std::get<compute::Declaration>(join_rel.inputs[0]);
+    const auto& right_project = std::get<compute::Declaration>(join_rel.inputs[1]);
+    // Input to project is `scan`
+    const auto& left_rel = std::get<compute::Declaration>(left_project.inputs[0]);
+    const auto& right_rel = std::get<compute::Declaration>(right_project.inputs[0]);
 
     const auto& l_options =
         checked_cast<const dataset::ScanNodeOptions&>(*left_rel.options);
@@ -2268,9 +2287,13 @@ TEST(SubstraitRoundTrip, BasicPlan) {
     auto right_index = args[1].field_ref()->field_path()->indices()[0];
     EXPECT_EQ(dummy_schema->field_names()[right_index], filter_col_right);
   }
+  // Since GH-34484 there is a `project` after `scan` if data is read from
+  // a file.
+  const auto& roundtripped_proj =
+      std::get<compute::Declaration>(roundtripped_filter.inputs[0]);
   // scan declaration
   const auto& roundtripped_scan =
-      std::get<compute::Declaration>(roundtripped_filter.inputs[0]);
+      std::get<compute::Declaration>(roundtripped_proj.inputs[0]);
   const auto& dataset_opts =
       checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan.options));
   const auto& roundripped_ds = dataset_opts.dataset;
@@ -2351,8 +2374,11 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
            {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
        compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"})});
 
-  ASSERT_OK_AND_ASSIGN(auto expected_table, compute::DeclarationToTable(declarations));
-
+  ASSERT_OK_AND_ASSIGN(auto output_table, compute::DeclarationToTable(declarations));
+  // GH-34484 removes the augmented fields when the data source is files.
+  // To replicate the same, here we only select the columns from index 0 to 2 since
+  // there are only 3 data columns in the defined schema `dummy_schema`
+  ASSERT_OK_AND_ASSIGN(auto expected_table, output_table->SelectColumns({0, 1, 2}));
   std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
   ExtensionSet ext_set(ext_id_reg);
@@ -2378,8 +2404,12 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
     EXPECT_EQ(dummy_schema->field_names()[right_index], filter_col_right);
   }
   // scan declaration
-  const auto& roundtripped_scan =
+  // Since GH-34484 there is a `project` after `scan` if data is read from
+  // a file.
+  const auto& roundtripped_project =
       std::get<compute::Declaration>(roundtripped_filter.inputs[0]);
+  const auto& roundtripped_scan =
+      std::get<compute::Declaration>(roundtripped_project.inputs[0]);
   const auto& dataset_opts =
       checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan.options));
   const auto& roundripped_ds = dataset_opts.dataset;

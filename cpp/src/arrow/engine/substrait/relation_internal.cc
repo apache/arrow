@@ -490,7 +490,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(base_schema));
 
       // GH-34484: Based on the proposed fixed, adding a project node to eliminate
-      // unnecessary columns
+      // augmented columns from `scan`.
       std::vector<compute::Expression> project_exprs;
       project_exprs.reserve(base_schema->num_fields());
       for (const auto& field_name : base_schema->field_names()) {
