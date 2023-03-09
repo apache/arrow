@@ -40,9 +40,7 @@ struct ReadValueImpl<ArrowType, has_validity_buffer, enable_if_has_c_type<ArrowT
     if constexpr (has_validity_buffer) {
       valid = bit_util::GetBit(input_validity, read_offset);
     }
-    if (valid) {
-      *out = (reinterpret_cast<const CType*>(input_values))[read_offset];
-    }
+    *out = (reinterpret_cast<const CType*>(input_values))[read_offset];
     return valid;
   }
 };
@@ -53,8 +51,7 @@ bool ReadValueImpl<BooleanType, true>::ReadValue(const uint8_t* input_validity,
                                                  const void* input_values, CType* out,
                                                  int64_t read_offset) const {
   const bool valid = bit_util::GetBit(input_validity, read_offset);
-  *out = valid &&
-         bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), read_offset);
+  *out = bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), read_offset);
   return valid;
 }
 
