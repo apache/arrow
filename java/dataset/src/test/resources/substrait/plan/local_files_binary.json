@@ -1,0 +1,27 @@
+{
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
+  "relations": [
+    {"rel": {
+      "read": {
+        "base_schema": {
+          "struct": {
+            "types": [
+              {"binary": {}}
+            ]
+          },
+          "names": [
+            "foo"
+          ]
+        },
+        "local_files": {
+          "items": [
+            {
+              "uri_file": "FILENAME_PLACEHOLDER",
+              "parquet": {}
+            }
+          ]
+        }
+      }
+    }}
+  ]
+}

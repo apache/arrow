@@ -37,6 +37,7 @@ on the Arrow format and other language bindings see the :doc:`parent documentati
    flight_sql
    flight_sql_jdbc_driver
    dataset
+   substrait
    cdata
    jdbc
    Reference (javadoc) <reference/index>
