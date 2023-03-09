@@ -141,8 +141,9 @@ Result<std::shared_ptr<Array>> FixedShapeTensorArray::FromTensor(
   cell_shape.erase(cell_shape.begin());
 
   std::vector<std::string> dim_names;
-  std::copy(tensor->dim_names().begin() + 1, tensor->dim_names().end(),
-            std::back_inserter(dim_names));
+  for (size_t i = 1; i < tensor->dim_names().size(); ++i) {
+    dim_names.emplace_back(tensor->dim_names()[i]);
+  }
 
   auto permutation = internal::ArgSort(tensor->strides());
   std::reverse(permutation.begin(), permutation.end());
