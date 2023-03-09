@@ -26,7 +26,6 @@ require (
 	github.com/goccy/go-json v0.9.11
 	github.com/golang/snappy v0.0.4
 	github.com/google/flatbuffers v2.0.8+incompatible
-	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
 	github.com/klauspost/asmfmt v1.3.2
 	github.com/klauspost/compress v1.15.9
