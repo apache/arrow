@@ -252,7 +252,7 @@ class RunEndEncodeImpl {
     int64_t validity_buffer_size = 0;  // in bytes
     {
       ARROW_ASSIGN_OR_RAISE(auto run_ends_buffer,
-                            AllocateBuffer(num_output_runs * RunEndType().bit_width(),
+                            AllocateBuffer(num_output_runs * RunEndType().byte_width(),
                                            ctx_->memory_pool()));
       std::shared_ptr<Buffer> validity_buffer = NULLPTR;
       if constexpr (has_validity_buffer) {
@@ -329,7 +329,7 @@ Status RunEndEncodeNullArray(KernelContext* ctx, const ArraySpan& input_array,
   {
     ARROW_ASSIGN_OR_RAISE(
         auto run_ends_buffer,
-        AllocateBuffer(num_output_runs * RunEndType().bit_width(), ctx->memory_pool()));
+        AllocateBuffer(num_output_runs * RunEndType().byte_width(), ctx->memory_pool()));
 
     auto ree_type = std::make_shared<RunEndEncodedType>(std::make_shared<RunEndType>(),
                                                         input_array_type);
