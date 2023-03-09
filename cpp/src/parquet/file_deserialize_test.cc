@@ -160,11 +160,15 @@ class TestPageSerde : public ::testing::Test {
   }
 
   void WriteDictionaryPageHeader(int32_t uncompressed_size = 0,
-                                 int32_t compressed_size = 0) {
+                                 int32_t compressed_size = 0,
+                                 std::optional<int32_t> checksum = std::nullopt) {
     page_header_.__set_dictionary_page_header(dictionary_page_header_);
     page_header_.uncompressed_page_size = uncompressed_size;
     page_header_.compressed_page_size = compressed_size;
     page_header_.type = format::PageType::DICTIONARY_PAGE;
+    if (checksum.has_value()) {
+      page_header_.__set_crc(checksum.value());
+    }
 
     ThriftSerializer serializer;
     ASSERT_NO_THROW(serializer.Serialize(&page_header_, out_stream_.get()));
@@ -185,7 +189,7 @@ class TestPageSerde : public ::testing::Test {
   void EndStream() { PARQUET_ASSIGN_OR_THROW(out_buffer_, out_stream_->Finish()); }
 
   void TestPageSerdeCrc(bool write_checksum, bool write_page_corrupt,
-                        bool verification_checksum);
+                        bool verification_checksum, bool has_dictionary = false);
 
  protected:
   std::shared_ptr<::arrow::io::BufferOutputStream> out_stream_;
@@ -200,11 +204,12 @@ class TestPageSerde : public ::testing::Test {
 };
 
 void TestPageSerde::TestPageSerdeCrc(bool write_checksum, bool write_page_corrupt,
-                                     bool verification_checksum) {
+                                     bool verification_checksum, bool has_dictionary) {
   auto codec_types = GetSupportedCodecTypes();
   codec_types.push_back(Compression::UNCOMPRESSED);
   const int32_t num_rows = 32;  // dummy value
   data_page_header_.num_values = num_rows;
+  dictionary_page_header_.num_values = num_rows;
 
   const int num_pages = 10;
 
@@ -243,8 +248,13 @@ void TestPageSerde::TestPageSerdeCrc(bool write_checksum, bool write_page_corrup
         }
         checksum_opt = checksum;
       }
-      ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(
-          1024, data_size, static_cast<int32_t>(actual_size), checksum_opt));
+      if (has_dictionary && i == 0) {
+        ASSERT_NO_FATAL_FAILURE(WriteDictionaryPageHeader(
+            data_size, static_cast<int32_t>(actual_size), checksum_opt));
+      } else {
+        ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(
+            1024, data_size, static_cast<int32_t>(actual_size), checksum_opt));
+      }
       ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
     }
     ReaderProperties readerProperties;
@@ -260,9 +270,17 @@ void TestPageSerde::TestPageSerdeCrc(bool write_checksum, bool write_page_corrup
       } else {
         const auto page = page_reader_->NextPage();
         const int data_size = static_cast<int>(faux_data[i].size());
-        const auto data_page = static_cast<const DataPageV1*>(page.get());
-        ASSERT_EQ(data_size, data_page->size());
-        ASSERT_EQ(0, memcmp(faux_data[i].data(), data_page->data(), data_size));
+        if (has_dictionary && i == 0) {
+          ASSERT_EQ(PageType::DICTIONARY_PAGE, page->type());
+          const auto dict_page = static_cast<const DictionaryPage*>(page.get());
+          ASSERT_EQ(data_size, dict_page->size());
+          ASSERT_EQ(0, memcmp(faux_data[i].data(), dict_page->data(), data_size));
+        } else {
+          ASSERT_EQ(PageType::DATA_PAGE, page->type());
+          const auto data_page = static_cast<const DataPageV1*>(page.get());
+          ASSERT_EQ(data_size, data_page->size());
+          ASSERT_EQ(0, memcmp(faux_data[i].data(), data_page->data(), data_size));
+        }
       }
     }
 
@@ -270,7 +288,7 @@ void TestPageSerde::TestPageSerdeCrc(bool write_checksum, bool write_page_corrup
   }
 }
 
-void CheckDataPageHeader(const format::DataPageHeader expected, const Page* page) {
+void CheckDataPageHeader(const format::DataPageHeader& expected, const Page* page) {
   ASSERT_EQ(PageType::DATA_PAGE, page->type());
 
   const DataPageV1* data_page = static_cast<const DataPageV1*>(page);
@@ -282,7 +300,7 @@ void CheckDataPageHeader(const format::DataPageHeader expected, const Page* page
 }
 
 // Overload for DataPageV2 tests.
-void CheckDataPageHeader(const format::DataPageHeaderV2 expected, const Page* page) {
+void CheckDataPageHeader(const format::DataPageHeaderV2& expected, const Page* page) {
   ASSERT_EQ(PageType::DATA_PAGE_V2, page->type());
 
   const DataPageV2* data_page = static_cast<const DataPageV2*>(page);
@@ -740,6 +758,22 @@ TEST_F(TestPageSerde, NoCrc) {
   ASSERT_NO_FATAL_FAILURE(CheckDataPageHeader(data_page_header_, current_page.get()));
 }
 
+TEST_F(TestPageSerde, NoCrcDict) {
+  const int32_t num_rows = 4444;
+  dictionary_page_header_.num_values = num_rows;
+
+  ASSERT_NO_FATAL_FAILURE(WriteDictionaryPageHeader());
+  ReaderProperties readerProperties;
+  readerProperties.set_page_checksum_verification(true);
+  InitSerializedPageReader(num_rows, Compression::UNCOMPRESSED, readerProperties);
+  std::shared_ptr<Page> current_page = page_reader_->NextPage();
+
+  ASSERT_EQ(PageType::DICTIONARY_PAGE, current_page->type());
+
+  const auto* dict_page = static_cast<const DictionaryPage*>(current_page.get());
+  EXPECT_EQ(num_rows, dict_page->num_values());
+}
+
 TEST_F(TestPageSerde, CrcCheckSuccessful) {
   this->TestPageSerdeCrc(/* write_checksum */ true, /* write_page_corrupt */ false,
                          /* verification_checksum */ true);
@@ -758,6 +792,26 @@ TEST_F(TestPageSerde, CrcCorruptNotChecked) {
 TEST_F(TestPageSerde, CrcCheckNonExistent) {
   this->TestPageSerdeCrc(/* write_checksum */ false, /* write_page_corrupt */ false,
                          /* verification_checksum */ true);
+}
+
+TEST_F(TestPageSerde, DictCrcCheckSuccessful) {
+  this->TestPageSerdeCrc(/* write_checksum */ true, /* write_page_corrupt */ false,
+                         /* verification_checksum */ true, /* has_dictionary */ true);
+}
+
+TEST_F(TestPageSerde, DictCrcCheckFail) {
+  this->TestPageSerdeCrc(/* write_checksum */ true, /* write_page_corrupt */ true,
+                         /* verification_checksum */ true, /* has_dictionary */ true);
+}
+
+TEST_F(TestPageSerde, DictCrcCorruptNotChecked) {
+  this->TestPageSerdeCrc(/* write_checksum */ true, /* write_page_corrupt */ true,
+                         /* verification_checksum */ false, /* has_dictionary */ true);
+}
+
+TEST_F(TestPageSerde, DictCrcCheckNonExistent) {
+  this->TestPageSerdeCrc(/* write_checksum */ false, /* write_page_corrupt */ false,
+                         /* verification_checksum */ true, /* has_dictionary */ true);
 }
 
 // ----------------------------------------------------------------------

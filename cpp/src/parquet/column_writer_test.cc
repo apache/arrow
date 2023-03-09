@@ -688,7 +688,6 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainChecksum) {
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredDictChecksum) {
-  // Note: DictionaryPage will not have checksum.
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::UNCOMPRESSED,
                                  /* enable_dictionary */ true, false, SMALL_SIZE,
                                  Codec::UseDefaultCompressionLevel(),

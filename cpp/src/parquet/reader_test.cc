@@ -104,6 +104,18 @@ std::string data_page_v1_snappy_checksum() {
   return data_file("datapage_v1-snappy-compressed-checksum.parquet");
 }
 
+std::string plain_dict_uncompressed_checksum() {
+  return data_file("plain-dict-uncompressed-checksum.parquet");
+}
+
+std::string rle_dict_snappy_checksum() {
+  return data_file("rle-dict-snappy-checksum.parquet");
+}
+
+std::string rle_dict_uncompressed_corrupt_checksum() {
+  return data_file("rle-dict-uncompressed-corrupt-checksum.parquet");
+}
+
 // TODO: Assert on definition and repetition levels
 template <typename DType, typename ValueType>
 void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t batch_size,
@@ -543,30 +555,31 @@ class TestCheckDataPageCrc : public ::testing::Test {
     row_group_ = file_reader_->RowGroup(0);
 
     column_readers_.resize(2);
-    column_readers_[0] =
-        std::dynamic_pointer_cast<TypedColumnReader<Int32Type>>(row_group_->Column(0));
-    column_readers_[1] =
-        std::dynamic_pointer_cast<TypedColumnReader<Int32Type>>(row_group_->Column(1));
-    EXPECT_NE(nullptr, column_readers_[0]);
-    EXPECT_NE(nullptr, column_readers_[1]);
+    column_readers_[0] = row_group_->Column(0);
+    column_readers_[1] = row_group_->Column(1);
 
     page_readers_.resize(2);
     page_readers_[0] = row_group_->GetColumnPageReader(0);
     page_readers_[1] = row_group_->GetColumnPageReader(1);
   }
 
-  void CheckReadBatches(int col_index) {
+  template <typename DType>
+  void CheckReadBatches(int col_index, int expect_values) {
+    ASSERT_GT(column_readers_.size(), col_index);
+    auto column_reader =
+        std::dynamic_pointer_cast<TypedColumnReader<DType>>(column_readers_[col_index]);
+    ASSERT_NE(nullptr, column_reader);
     int64_t total_values = 0;
-    std::vector<int32_t> values(1024);
+    std::vector<typename DType::c_type> values(1024);
 
-    while (column_readers_[col_index]->HasNext()) {
+    while (column_reader->HasNext()) {
       int64_t values_read;
-      int64_t levels_read = column_readers_[col_index]->ReadBatch(
-          values.size(), nullptr, nullptr, values.data(), &values_read);
+      int64_t levels_read = column_reader->ReadBatch(values.size(), nullptr, nullptr,
+                                                     values.data(), &values_read);
       EXPECT_EQ(levels_read, values_read);
       total_values += values_read;
     }
-    EXPECT_EQ(kValuesPerColumn, total_values);
+    EXPECT_EQ(expect_values, total_values);
   }
 
   void CheckCorrectCrc(const std::string& file_path, bool page_checksum_verification) {
@@ -574,8 +587,8 @@ class TestCheckDataPageCrc : public ::testing::Test {
     {
       // Exercise column readers
       OpenExampleFile(file_path);
-      CheckReadBatches(/*col_index=*/0);
-      CheckReadBatches(/*col_index=*/1);
+      CheckReadBatches<Int32Type>(/*col_index=*/0, kDataPageValuesPerColumn);
+      CheckReadBatches<Int32Type>(/*col_index=*/1, kDataPageValuesPerColumn);
     }
     {
       // Exercise page readers directly
@@ -584,6 +597,27 @@ class TestCheckDataPageCrc : public ::testing::Test {
         EXPECT_NE(nullptr, page_reader->NextPage());
         EXPECT_NE(nullptr, page_reader->NextPage());
         EXPECT_EQ(nullptr, page_reader->NextPage());
+      }
+    }
+  }
+
+  void CheckCorrectDictCrc(const std::string& file_path,
+                           bool page_checksum_verification) {
+    reader_props_.set_page_checksum_verification(page_checksum_verification);
+    {
+      // Exercise column readers
+      OpenExampleFile(file_path);
+      CheckReadBatches<Int64Type>(/*col_index=*/0, kDictPageValuesPerColumn);
+      CheckReadBatches<ByteArrayType>(/*col_index=*/1, kDictPageValuesPerColumn);
+    }
+    {
+      // Exercise page readers directly
+      OpenExampleFile(file_path);
+      for (auto& page_reader : page_readers_) {
+        // read dict page
+        EXPECT_NE(nullptr, page_reader->NextPage());
+        // read data page
+        EXPECT_NE(nullptr, page_reader->NextPage());
       }
     }
   }
@@ -600,14 +634,15 @@ class TestCheckDataPageCrc : public ::testing::Test {
   }
 
  protected:
+  static constexpr int kDataPageSize = 1024 * 10;
   // Example CRC files have two v1 data pages per column
-  static constexpr int kPageSize = 1024 * 10;
-  static constexpr int kValuesPerColumn = kPageSize * 2 / sizeof(int32_t);
+  static constexpr int kDataPageValuesPerColumn = kDataPageSize * 2 / sizeof(int32_t);
+  static constexpr int kDictPageValuesPerColumn = 1000;
 
   ReaderProperties reader_props_;
   std::unique_ptr<ParquetFileReader> file_reader_;
   std::shared_ptr<RowGroupReader> row_group_;
-  std::vector<std::shared_ptr<TypedColumnReader<Int32Type>>> column_readers_;
+  std::vector<std::shared_ptr<ColumnReader>> column_readers_;
   std::vector<std::unique_ptr<PageReader>> page_readers_;
 };
 
@@ -621,8 +656,12 @@ TEST_F(TestCheckDataPageCrc, CorruptPageV1) {
     // With column readers
     OpenExampleFile(data_page_v1_corrupt_checksum());
 
-    AssertCrcValidationError([this]() { CheckReadBatches(/*col_index=*/0); });
-    AssertCrcValidationError([this]() { CheckReadBatches(/*col_index=*/1); });
+    AssertCrcValidationError([this]() {
+      CheckReadBatches<Int32Type>(/*col_index=*/0, kDataPageValuesPerColumn);
+    });
+    AssertCrcValidationError([this]() {
+      CheckReadBatches<Int32Type>(/*col_index=*/1, kDataPageValuesPerColumn);
+    });
   }
   {
     // With page readers
@@ -655,6 +694,52 @@ TEST_F(TestCheckDataPageCrc, SnappyPageV1) {
                   /*page_checksum_verification=*/false);
   CheckCorrectCrc(data_page_v1_snappy_checksum(),
                   /*page_checksum_verification=*/true);
+}
+
+TEST_F(TestCheckDataPageCrc, UncompressedDict) {
+  CheckCorrectDictCrc(plain_dict_uncompressed_checksum(),
+                      /*page_checksum_verification=*/false);
+  CheckCorrectDictCrc(plain_dict_uncompressed_checksum(),
+                      /*page_checksum_verification=*/true);
+}
+
+TEST_F(TestCheckDataPageCrc, SnappyDict) {
+#ifndef ARROW_WITH_SNAPPY
+  GTEST_SKIP() << "Test requires Snappy compression";
+#endif
+  CheckCorrectDictCrc(rle_dict_snappy_checksum(),
+                      /*page_checksum_verification=*/false);
+  CheckCorrectDictCrc(rle_dict_snappy_checksum(),
+                      /*page_checksum_verification=*/true);
+}
+
+TEST_F(TestCheckDataPageCrc, CorruptDict) {
+  // Works when not checking crc
+  CheckCorrectDictCrc(rle_dict_uncompressed_corrupt_checksum(),
+                      /*page_checksum_verification=*/false);
+  // Fails when checking crc
+  reader_props_.set_page_checksum_verification(true);
+  {
+    // With column readers
+    OpenExampleFile(rle_dict_uncompressed_corrupt_checksum());
+
+    AssertCrcValidationError([this]() {
+      CheckReadBatches<Int64Type>(/*col_index=*/0, kDictPageValuesPerColumn);
+    });
+    AssertCrcValidationError([this]() {
+      CheckReadBatches<ByteArrayType>(/*col_index=*/1, kDictPageValuesPerColumn);
+    });
+  }
+  {
+    // With page readers
+    OpenExampleFile(rle_dict_uncompressed_corrupt_checksum());
+
+    CheckNextPageCorrupt(page_readers_[0].get());
+    EXPECT_NE(nullptr, page_readers_[0]->NextPage());
+
+    CheckNextPageCorrupt(page_readers_[1].get());
+    EXPECT_NE(nullptr, page_readers_[1]->NextPage());
+  }
 }
 
 TEST(TestFileReaderAdHoc, NationDictTruncatedDataPage) {
