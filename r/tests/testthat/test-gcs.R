@@ -91,6 +91,18 @@ test_that("GcsFileSystem$create() input validation", {
   )
 })
 
+test_that("GcsFileSystem$create() can read json_credentials", {
+  # From string
+  fs <- GcsFileSystem$create(json_credentials = "fromstring")
+  expect_equal(fs$options$json_credentials, "fromstring")
+
+  # From disk
+  cred_path <- tempfile()
+  writeLines("fromdisk", cred_path)
+  fs <- GcsFileSystem$create(json_credentials = cred_path)
+  expect_equal(fs$options$json_credentials, "fromdisk")
+})
+
 skip_on_cran()
 skip_if_not(system('python -c "import testbench"') == 0, message = "googleapis-storage-testbench is not installed.")
 library(dplyr)

@@ -167,8 +167,8 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'   with `expiration`
 #' - `expiration`: `POSIXct`. optional datetime representing point at which
 #'   `access_token` will expire.
-#' - `json_credentials`: optional string for authentication. Point to a JSON
-#'   credentials file downloaded from GCS.
+#' - `json_credentials`: optional string for authentication. Either a string
+#'   containing JSON credentials or a path to their location on the filesystem.
 #' - `endpoint_override`: if non-empty, will connect to provided host name / port,
 #'   such as "localhost:9001", instead of default GCS ones. This is primarily useful
 #'   for testing purposes.
@@ -571,6 +571,11 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
   }
 
   options$retry_limit_seconds <- retry_limit_seconds
+
+  # Handle reading json_credentials from the filesystem
+  if ("json_credentials" %in% names(options) && file.exists(options[["json_credentials"]])) {
+    options[["json_credentials"]] <- paste(readLines(options[["json_credentials"]]), collapse = "")
+  }
 
   fs___GcsFileSystem__Make(anonymous, options)
 }
