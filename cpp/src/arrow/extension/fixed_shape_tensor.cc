@@ -135,28 +135,28 @@ std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
   return std::make_shared<ExtensionArray>(data);
 }
 
-Result<std::shared_ptr<Array>> FixedShapeTensorType::MakeArray(
-    std::shared_ptr<Tensor> tensor) const {
+Result<std::shared_ptr<Array>> FixedShapeTensorArray::FromTensor(
+    const std::shared_ptr<Tensor>& tensor) {
+  auto cell_shape = tensor->shape();
+  cell_shape.erase(cell_shape.begin());
+
+  std::vector<std::string> dim_names;
+  std::copy(tensor->dim_names().begin() + 1, tensor->dim_names().end(),
+            std::back_inserter(dim_names));
+
   auto permutation = internal::ArgSort(tensor->strides());
   std::reverse(permutation.begin(), permutation.end());
   if (permutation[0] != 0) {
     return Status::Invalid(
         "Only first-major tensors can be zero-copy converted to arrays");
   }
-
-  auto cell_shape = tensor->shape();
-  cell_shape.erase(cell_shape.begin());
-  if (cell_shape != shape_) {
-    return Status::Invalid("Expected cell shape does not match input tensor shape");
-  }
-
   permutation.erase(permutation.begin());
   for (auto& x : permutation) {
     x--;
   }
 
   auto ext_type = internal::checked_pointer_cast<ExtensionType>(
-      fixed_shape_tensor(tensor->type(), cell_shape, permutation, dim_names()));
+      fixed_shape_tensor(tensor->type(), cell_shape, permutation, dim_names));
 
   std::shared_ptr<FixedSizeListArray> arr;
   std::shared_ptr<Array> value_array;
@@ -214,7 +214,7 @@ Result<std::shared_ptr<Array>> FixedShapeTensorType::MakeArray(
                                              value_array);
   auto ext_data = arr->data();
   ext_data->type = ext_type;
-  return MakeArray(ext_data);
+  return ext_type->MakeArray(ext_data);
 }
 
 Result<std::shared_ptr<Tensor>> FixedShapeTensorType::ToTensor(

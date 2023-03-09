@@ -29,6 +29,16 @@ const std::shared_ptr<DataType> GetStorageType(
 class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
+
+  /// \brief Create a FixedShapeTensorArray from a Tensor
+  ///
+  /// This function will create a FixedShapeTensorArray from a Tensor, taking its
+  /// first dimension as the "element dimension" and the remaining dimensions as the
+  /// "tensor dimensions". If Tensor provides strides, they will be used to determine
+  /// dimension permutation. Otherwise, row-major permutation will be assumed.
+  ///
+  /// \param[in] tensor The Tensor to convert to a FixedShapeTensorArray
+  static Result<std::shared_ptr<Array>> FromTensor(const std::shared_ptr<Tensor>& tensor);
 };
 
 /// \brief Concrete type class for constant-size Tensor data.
@@ -72,17 +82,6 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
 
   /// Create a FixedShapeTensorArray from ArrayData
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
-
-  /// \brief Create a FixedShapeTensorArray from a Tensor
-  ///
-  /// This function will create a FixedShapeTensorArray from a Tensor, taking its
-  /// first dimension as the "element dimension" and the remaining dimensions as the
-  /// "tensor dimensions". The tensor dimensions must match the FixedShapeTensorType's
-  /// element shape. This function assumes that the tensor's memory layout is
-  /// row-major.
-  ///
-  /// \param[in] tensor The Tensor to convert to a FixedShapeTensorArray
-  Result<std::shared_ptr<Array>> MakeArray(std::shared_ptr<Tensor> tensor) const;
 
   /// \brief Create a Tensor from FixedShapeTensorArray
   ///

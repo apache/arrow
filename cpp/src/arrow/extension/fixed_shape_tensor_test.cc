@@ -33,6 +33,7 @@ namespace arrow {
 
 using FixedShapeTensorType = extension::FixedShapeTensorType;
 using extension::fixed_shape_tensor;
+using extension::FixedShapeTensorArray;
 
 class TestExtensionType : public ::testing::Test {
  public:
@@ -160,7 +161,7 @@ TEST_F(TestExtensionType, CreateFromTensor) {
                        Tensor::Make(value_type_, Buffer::Wrap(values_), shape_));
 
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
-  ASSERT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
+  ASSERT_OK_AND_ASSIGN(auto ext_arr, FixedShapeTensorArray::FromTensor(tensor));
 
   ASSERT_OK(ext_arr->ValidateFull());
   ASSERT_TRUE(tensor->is_row_major());
@@ -169,7 +170,7 @@ TEST_F(TestExtensionType, CreateFromTensor) {
 
   auto ext_type_2 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int64(), {3, 4}, {0, 1}));
-  ASSERT_OK_AND_ASSIGN(auto ext_arr_2, ext_type_2->MakeArray(tensor));
+  ASSERT_OK_AND_ASSIGN(auto ext_arr_2, FixedShapeTensorArray::FromTensor(tensor));
 
   ASSERT_OK_AND_ASSIGN(
       auto column_major_tensor,
@@ -180,14 +181,16 @@ TEST_F(TestExtensionType, CreateFromTensor) {
       Invalid,
       testing::HasSubstr(
           "Invalid: Only first-major tensors can be zero-copy converted to arrays"),
-      ext_type_3->MakeArray(column_major_tensor));
-  ASSERT_THAT(ext_type_3->MakeArray(column_major_tensor), Raises(StatusCode::Invalid));
+      FixedShapeTensorArray::FromTensor(column_major_tensor));
+  ASSERT_THAT(FixedShapeTensorArray::FromTensor(column_major_tensor),
+              Raises(StatusCode::Invalid));
 
   auto neither_major_tensor = std::make_shared<Tensor>(value_type_, Buffer::Wrap(values_),
                                                        shape_, neither_major_strides);
   auto ext_type_4 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int64(), {3, 4}, {1, 0}));
-  ASSERT_OK_AND_ASSIGN(auto ext_arr_4, ext_type_4->MakeArray(neither_major_tensor));
+  ASSERT_OK_AND_ASSIGN(auto ext_arr_4,
+                       FixedShapeTensorArray::FromTensor(neither_major_tensor));
 
   auto ext_type_5 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(binary(), {1, 2}));
@@ -220,7 +223,7 @@ TEST_F(TestExtensionType, RoundtripTensor) {
   ASSERT_OK_AND_ASSIGN(auto tensor,
                        Tensor::Make(value_type_, Buffer::Wrap(values_), shape_));
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
-  ASSERT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
+  ASSERT_OK_AND_ASSIGN(auto ext_arr, FixedShapeTensorArray::FromTensor(tensor));
 
   ASSERT_OK_AND_ASSIGN(auto tensor_from_array, exact_ext_type->ToTensor(ext_arr));
   ASSERT_EQ(tensor_from_array->shape(), tensor->shape());
@@ -239,8 +242,9 @@ TEST_F(TestExtensionType, SliceTensor) {
   auto ext_type = fixed_shape_tensor(value_type_, cell_shape_, {}, dim_names_);
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
 
-  ASSERT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
-  ASSERT_OK_AND_ASSIGN(auto ext_arr_partial, exact_ext_type->MakeArray(tensor_partial));
+  ASSERT_OK_AND_ASSIGN(auto ext_arr, FixedShapeTensorArray::FromTensor(tensor));
+  ASSERT_OK_AND_ASSIGN(auto ext_arr_partial,
+                       FixedShapeTensorArray::FromTensor(tensor_partial));
   ASSERT_OK(ext_arr->ValidateFull());
   ASSERT_OK(ext_arr_partial->ValidateFull());
 
@@ -318,8 +322,8 @@ TEST_F(TestExtensionType, RoudtripBatch) {
 TEST_F(TestExtensionType, RoudtripBatchFromTensor) {
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
   ASSERT_OK_AND_ASSIGN(auto tensor, Tensor::Make(value_type_, Buffer::Wrap(values_),
-                                                 shape_, {}, dim_names_));
-  ASSERT_OK_AND_ASSIGN(auto ext_arr, exact_ext_type->MakeArray(tensor));
+                                                 shape_, {}, {"n", "x", "y"}));
+  ASSERT_OK_AND_ASSIGN(auto ext_arr, FixedShapeTensorArray::FromTensor(tensor));
   ext_arr->data()->type = exact_ext_type;
 
   auto ext_metadata =
