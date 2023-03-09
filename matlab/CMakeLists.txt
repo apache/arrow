@@ -32,8 +32,13 @@ function(build_arrow)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
-  # If Arrow needs to be built, the default location will be within the build tree.
-  set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-prefix")
+  # If Arrow build available, set ARROW_PREFIX to the ARROW_HOME specified with cmake.
+  if(Arrow_FOUND)
+    set(ARROW_PREFIX "${ARROW_HOME}")
+  else()
+    # If Arrow needs to be built, the default location will be within the build tree.
+    set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-prefix")
+  endif()
 
   if(WIN32)
     # The shared library is located in the "bin" directory.
@@ -322,35 +327,68 @@ matlab_add_mex(R2018a
 target_include_directories(mexcall PRIVATE ${CPP_SOURCE_DIR})
 
 ############# libmexclass #################################
+message(STATUS "Start configure libmexclass")
+
+message(STATUS "Arrow_FOUND is ${Arrow_FOUND}.")
+
+# ARROW_SHARED_LIB
+# On Windows, this will be ARROW_HOME/bin/arrow.dll and on Linux and macOS, it is the arrow.so/dylib in the newly built arrow_shared library.
+if(NOT Arrow_FOUND)
+    message(STATUS "ARROW_SHARED_LIB will be set using IMPORTED_LOCATION value when building.")
+    get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
+else()
+    # If not building Arrow, ARROW_SHARED_LIB derived from ARROW_PREFIX set to the ARROW_HOME specified with cmake would be non-empty.
+    message(STATUS "ARROW_SHARED_LIB: ${ARROW_SHARED_LIB}")
+endif()
+
+# ARROW_LINK_LIB
 # On Windows, we use the arrow.lib for linking arrow_matlab against the Arrow C++ library.
 # The location of arrow.lib is previously saved in IMPORTED_IMPLIB.
 if(WIN32)
-	get_target_property(ARROW_LINK_LIB arrow_shared IMPORTED_IMPLIB)
+    # If not building Arrow, IMPORTED_IMPLIB will be empty.
+    # Then set ARROW_LINK_LIB to ARROW_IMPORT_LIB which would have been derived from ARROW_PREFIX set to the ARROW_HOME specified with cmake. This will avoid the ARROW_LINK_LIB set to NOTFOUND error.
+    # The ARROW_IMPORT_LIB should be ARROW_HOME/lib/arrow.lib on Windows.
+    if(NOT Arrow_FOUND)
+        message(STATUS "ARROW_LINK_LIB will be set using IMPORTED_IMPLIB value when building.")
+        get_target_property(ARROW_LINK_LIB arrow_shared IMPORTED_IMPLIB)
+    else()
+        set(ARROW_LINK_LIB "${ARROW_IMPORT_LIB}")
+        message(STATUS "Setting ARROW_LINK_LIB to ARROW_IMPORT_LIB: ${ARROW_IMPORT_LIB}, which is derived from the ARROW_HOME provided.")
+    endif()
 else()
-	# On Linux and macOS, it is the arrow.so/dylib in the newly built arrow_shared library used for linking.
-	# This is available in IMPORTED_LOCATION.
-  # TODO: Why does this not return a value? Returns NOT-FOUND
-	# get_target_property(ARROW_LINK_LIB arrow_shared IMPORTED_LOCATION)
-  # message(STATUS "**************** ARROW_SHARED_LIB: ${ARROW_SHARED_LIB}")
-
-  set(ARROW_LINK_LIB "${ARROW_SHARED_LIB}")
+    # On Linux and macOS, it is the arrow.so/dylib in the newly built arrow_shared library used for linking.
+    # On Unix, this is the same as ARROW_SHARED_LIB.
+    message(STATUS "Setting ARROW_LINK_LIB to ARROW_SHARED_LIB as they are same on Unix.")
+    set(ARROW_LINK_LIB "${ARROW_SHARED_LIB}")
 endif()
-get_target_property(ARROW_INCLUDE_DIR arrow_shared INTERFACE_INCLUDE_DIRECTORIES)
 
+# ARROW_INCLUDE_DIR should be set so that header files in the include directory can be found correctly.
+# The value of ARROW_INCLUDE_DIR should be ARROW_HOME/include on all platforms.
+if(NOT Arrow_FOUND)
+    message(STATUS "ARROW_INCLUDE_DIR will be set using INTERFACE_INCLUDE_DIRECTORIES value when building.")
+    get_target_property(ARROW_INCLUDE_DIR arrow_shared INTERFACE_INCLUDE_DIRECTORIES)
+else()
+    # If not building Arrow, ARROW_INCLUDE_DIR derived from ARROW_PREFIX set to the ARROW_HOME specified with cmake would be non-empty.
+    message(STATUS "ARROW_INCLUDE_DIR: ${ARROW_INCLUDE_DIR}")
+endif()
 
-
+# Arguments to build libmexclass.
 set(CUSTOM_PROXY_FACTORY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy;${CMAKE_SOURCE_DIR}/src/cpp")
 set(CUSTOM_PROXY_FACTORY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy/CustomProxyFactory.cc")
 set(CUSTOM_PROXY_SOURCES_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy")
 set(CUSTOM_PROXY_SOURCES "${CUSTOM_PROXY_SOURCES_DIR}/array/double_array_proxy.cc" "${CUSTOM_PROXY_SOURCES_DIR}/array/uint64_array_proxy.cc" "${CUSTOM_PROXY_SOURCES_DIR}/array/uint8_array_proxy.cc" )
 set(CUSTOM_PROXY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp;${ARROW_INCLUDE_DIR}")
 set(CUSTOM_PROXY_LINK_LIBRARIES ${ARROW_LINK_LIB})
+# On Windows, arrow.dll must be installed regardless of whether Arrow_FOUND is true or false.
+# Pass this to libmexclass to copy over to the packaged install folder +libmexclass during install.
+set(CUSTOM_PROXY_RUNTIME_LIBRARIES ${ARROW_SHARED_LIB})
 
 # Build libmexclass as an external project.
 include(ExternalProject)
 ExternalProject_Add(
     libmexclass
-    GIT_REPOSITORY git@github.com:mathworks/libmexclass.git
+    # TODO: Consider using SSH URL for the Git Repository when libmexclass is accessible for CI without permission issues.
+    GIT_REPOSITORY https://github.com/mathworks/libmexclass.git
     GIT_TAG main
     SOURCE_SUBDIR libmexclass/cpp
     CMAKE_CACHE_ARGS "-D CUSTOM_PROXY_FACTORY_INCLUDE_DIR:STRING=${CUSTOM_PROXY_FACTORY_INCLUDE_DIR}"
@@ -358,10 +396,11 @@ ExternalProject_Add(
                      "-D CUSTOM_PROXY_SOURCES:STRING=${CUSTOM_PROXY_SOURCES}"
                      "-D CUSTOM_PROXY_INCLUDE_DIR:STRING=${CUSTOM_PROXY_INCLUDE_DIR}"
                      "-D CUSTOM_PROXY_LINK_LIBRARIES:STRING=${CUSTOM_PROXY_LINK_LIBRARIES}"
-    INSTALL_COMMAND ""
+                     "-D CUSTOM_PROXY_RUNTIME_LIBRARIES:STRING=${CUSTOM_PROXY_RUNTIME_LIBRARIES}"
+    INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
 )
 
-# TODO: Install libmexclass binaries.
+message(STATUS "End configure libmexclass")
 ############# libmexclass #################################
 
 # ##############################################################################
@@ -443,9 +482,15 @@ endif()
 # Create a subdirectory at CMAKE_INSTALL_PREFIX to install the interface.
 set(CMAKE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/arrow_matlab")
 
+# Install libmexclass.
+# Get the installation directory for libmexclass.
+ExternalProject_Get_Property(libmexclass BINARY_DIR)
+# Copy only the packaged folder +libmexclass from the libmexclass installation directory.
+install(DIRECTORY ${BINARY_DIR}/+libmexclass DESTINATION ${CMAKE_INSTALL_DIR})
+
 # Create a package hierarchy at CMAKE_INSTALL_PREFIX to install the mex function
 # and dependencies.
-set(CMAKE_PACKAGED_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/arrow_matlab/+arrow/+cpp")
+set(CMAKE_PACKAGED_INSTALL_DIR "${CMAKE_INSTALL_DIR}/+arrow/+cpp")
 
 # Install MATLAB source files.
 # On macOS, exclude '.DS_Store' files in the source tree from installation.
@@ -460,15 +505,8 @@ install(TARGETS arrow_matlab mexcall
         RUNTIME DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
         LIBRARY DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR})
 
-get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
 get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
 get_filename_component(ARROW_SHARED_LIB_FILENAME ${ARROW_SHARED_LIB} NAME_WE)
-
-if(WIN32)
-  # On Windows, arrow.dll must be installed to to CMAKE_PACKAGED_INSTALL_DIR regardless of whether
-  # Arrow_FOUND is true or false.
-  install(FILES ${ARROW_SHARED_LIB} DESTINATION "${CMAKE_PACKAGED_INSTALL_DIR}")
-endif()
 
 # On macOS, use the RPATH values below for runtime dependency resolution. This enables
 # relocation of the installation directory.

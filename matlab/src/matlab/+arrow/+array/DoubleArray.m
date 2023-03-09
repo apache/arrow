@@ -11,7 +11,7 @@ classdef DoubleArray < arrow.array.internal.CustomDisplay
     methods
         function obj = DoubleArray(matlabArray)
             obj.MatlabArray = matlabArray;
-            obj.Proxy = arrow.proxy.array.DoubleArrayProxy(obj.MatlabArray);
+            obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.proxy.array.DoubleArrayProxy", "ConstructorArguments", {obj.MatlabArray});
         end
 
         function Print(obj)

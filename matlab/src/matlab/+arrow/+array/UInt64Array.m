@@ -11,7 +11,7 @@ classdef UInt64Array
     methods
         function obj = UInt64Array(matlabArray)
             obj.MatlabArray = uint64(matlabArray);
-            obj.Proxy = arrow.proxy.array.UInt64ArrayProxy(obj.MatlabArray);
+            obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.proxy.array.UInt64ArrayProxy", "ConstructorArguments", {obj.MatlabArray});
         end
 
         function Print(obj)

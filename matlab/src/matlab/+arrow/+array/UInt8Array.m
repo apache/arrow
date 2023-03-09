@@ -11,7 +11,7 @@ classdef UInt8Array
     methods
         function obj = UInt8Array(matlabArray)
             obj.MatlabArray = uint8(matlabArray);
-            obj.Proxy = arrow.proxy.array.UInt8ArrayProxy(obj.MatlabArray);
+            obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.proxy.array.UInt8ArrayProxy", "ConstructorArguments", {obj.MatlabArray});
         end
 
         function Print(obj)

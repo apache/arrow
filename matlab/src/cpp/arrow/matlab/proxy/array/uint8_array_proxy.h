@@ -55,7 +55,7 @@ class UInt8ArrayProxy : public libmexclass::proxy::Proxy {
             array = array_wrapper;
 
             // Register Proxy methods.
-            registerMethod(UInt8ArrayProxy, Print);
+            REGISTER_METHOD(UInt8ArrayProxy, Print);
         }
     private:
         void Print(libmexclass::proxy::method::Context& context);

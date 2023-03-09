@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <_types/_uint64_t.h>
 #include "libmexclass/proxy/Proxy.h"
 
 #include "arrow/array.h"
@@ -51,7 +50,7 @@ class UInt64ArrayProxy : public libmexclass::proxy::Proxy {
             array = array_wrapper;
 
             // Register Proxy methods.
-            registerMethod(UInt64ArrayProxy, Print);
+            REGISTER_METHOD(UInt64ArrayProxy, Print);
         }
     private:
         void Print(libmexclass::proxy::method::Context& context);

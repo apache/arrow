@@ -51,7 +51,7 @@ class DoubleArrayProxy : public libmexclass::proxy::Proxy {
             array = array_wrapper;
 
             // Register Proxy methods.
-            registerMethod(DoubleArrayProxy, Print);
+            REGISTER_METHOD(DoubleArrayProxy, Print);
         }
     private:
         void Print(libmexclass::proxy::method::Context& context);
