@@ -207,7 +207,7 @@ template <typename RunEndType>
 Status ValidateRunEndType(int64_t input_length) {
   using RunEndCType = typename RunEndType::c_type;
   constexpr int64_t kRunEndMax = std::numeric_limits<RunEndCType>::max();
-  if (input_length > kRunEndMax) {
+  if (input_length < 0 || input_length > kRunEndMax) {
     return Status::Invalid(
         "Cannot run-end encode Arrays with more elements than the "
         "run end type can hold: ",
