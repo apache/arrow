@@ -135,3 +135,13 @@ Fixed shape tensor
 
   Elements in a fixed shape tensor extension array are stored
   in row-major/C-contiguous order.
+
+.. note::
+
+  Other Data Structures in Arrow include a
+  `Tensor (Multi-dimensional Array) <https://arrow.apache.org/docs/format/Other.html>`_
+  to be used as a message in the interprocess communication machinery (IPC).
+
+  This structure has no relationship with the Fixed shape tensor extension type defined
+  by this specification. With defining an extension type one can use fixed shape tensors
+  as elements in a field of a RecordBatch or a Table.
