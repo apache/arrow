@@ -193,7 +193,7 @@ TEST_P(TestRunEndEncodeDecode, EncodeDecodeArray) {
 }
 
 // Encoding an input with an offset results in a completely new encoded array without an
-// offset. This means The EncodeDecodeArray test will never actually decode an array
+// offset. This means the EncodeDecodeArray test will never actually decode an array
 // with an offset, even though we have inputs with offsets. This test slices one element
 // off the encoded array and decodes that.
 TEST_P(TestRunEndEncodeDecode, DecodeWithOffset) {

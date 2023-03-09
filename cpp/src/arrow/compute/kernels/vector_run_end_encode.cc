@@ -579,6 +579,13 @@ void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   auto function = std::make_shared<VectorFunction>("run_end_encode", Arity::Unary(),
                                                    run_end_encode_doc);
 
+  // NOTE: When the input to run_end_encode() is a ChunkedArray, the output is also a
+  // ChunkedArray with the same number of chunks as the input. Each chunk in the output
+  // has the same logical length as the corresponding chunk in the input. This simplicity
+  // has a small downside: if a run of identical values crosses a chunk boundary, this run
+  // cannot be encoded as a single run in the output. This is a conscious trade-off as
+  // trying to solve this corner-case would complicate the implementation,
+  // require reallocations, and could create surprising behavior for users of this API.
   auto add_kernel = [&function](const std::shared_ptr<DataType>& ty) {
     auto sig =
         KernelSignature::Make({InputType(ty)}, OutputType(VectorRunEndEncodedResolver));
