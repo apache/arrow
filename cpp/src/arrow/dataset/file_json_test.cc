@@ -327,9 +327,7 @@ INSTANTIATE_TEST_SUITE_P(TestJsonScan, TestJsonScan,
 
 // Common tests for new scanner
 TEST_P(TestJsonScanNode, Scan) { TestScan(); }
-TEST_P(TestJsonScanNode, ScanMissingFilterField) { TestScanMissingFilterField(); }
-TEST_P(TestJsonScanNode, ScanProjected) { TestScanProjected(); }
-TEST_P(TestJsonScanNode, ScanProjectedMissingColumns) { TestScanProjectedMissingCols(); }
+TEST_P(TestJsonScanNode, ScanSomeColumns) { TestScanSomeColumns(); }
 // JSON-specific tests for new scanner
 TEST_P(TestJsonScanNode, ScanWithBOM) { TestScanWithBOM(); }
 TEST_P(TestJsonScanNode, ScanWithCustomParseOptions) { TestScanWithCustomParseOptions(); }

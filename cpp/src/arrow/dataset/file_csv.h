@@ -57,7 +57,8 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
   Future<std::shared_ptr<FragmentScanner>> BeginScan(
-      const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+      const FileSource& file_source, const FragmentScanRequest& request,
+      const InspectedFragment& inspected_fragment,
       const FragmentScanOptions* format_options,
       compute::ExecContext* exec_context) const override;
 

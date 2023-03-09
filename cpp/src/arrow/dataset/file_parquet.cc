@@ -17,6 +17,7 @@
 
 #include "arrow/dataset/file_parquet.h"
 
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -24,17 +25,26 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/acero/exec_plan.h"
 #include "arrow/compute/exec.h"
+#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/dataset/type_fwd.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/io/caching.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/io/type_fwd.h"
 #include "arrow/table.h"
+#include "arrow/util/async_generator_fwd.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
 #include "arrow/util/tracing_internal.h"
+#include "metadata.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/writer.h"
@@ -56,8 +66,26 @@ using parquet::arrow::StatisticsAsScalars;
 
 namespace {
 
+std::vector<std::string> ColumnNamesFromMetadata(
+    const parquet::FileMetaData& file_metadata) {
+  std::vector<std::string> names(file_metadata.num_columns());
+  for (int i = 0; i < file_metadata.num_columns(); i++) {
+    names[i] = file_metadata.schema()->Column(i)->name();
+  }
+  return names;
+}
+
+class ParquetInspectedFragment : public InspectedFragment {
+ public:
+  explicit ParquetInspectedFragment(std::shared_ptr<parquet::FileMetaData> file_metadata)
+      : InspectedFragment(ColumnNamesFromMetadata(*file_metadata)),
+        file_metadata(std::move(file_metadata)) {}
+
+  std::shared_ptr<parquet::FileMetaData> file_metadata;
+};
+
 parquet::ReaderProperties MakeReaderProperties(
-    const ParquetFileFormat& format, ParquetFragmentScanOptions* parquet_scan_options,
+    const ParquetFragmentScanOptions* parquet_scan_options,
     MemoryPool* pool = default_memory_pool()) {
   // Can't mutate pool after construction
   parquet::ReaderProperties properties(pool);
@@ -77,14 +105,14 @@ parquet::ReaderProperties MakeReaderProperties(
 }
 
 parquet::ArrowReaderProperties MakeArrowReaderProperties(
-    const ParquetFileFormat& format, const parquet::FileMetaData& metadata) {
+    const ParquetFileFormat::ReaderOptions& reader_options,
+    const parquet::FileMetaData& metadata) {
   parquet::ArrowReaderProperties properties(/* use_threads = */ false);
-  for (const std::string& name : format.reader_options.dict_columns) {
+  for (const std::string& name : reader_options.dict_columns) {
     auto column_index = metadata.schema()->ColumnIndex(name);
     properties.set_read_dictionary(column_index, true);
   }
-  properties.set_coerce_int96_timestamp_unit(
-      format.reader_options.coerce_int96_timestamp_unit);
+  properties.set_coerce_int96_timestamp_unit(reader_options.coerce_int96_timestamp_unit);
   return properties;
 }
 
@@ -298,7 +326,7 @@ Result<bool> IsSupportedParquetFile(const ParquetFileFormat& format,
         GetFragmentScanOptions<ParquetFragmentScanOptions>(
             kParquetTypeName, nullptr, format.default_fragment_scan_options));
     auto reader = parquet::ParquetFileReader::Open(
-        std::move(input), MakeReaderProperties(format, parquet_scan_options.get()));
+        std::move(input), MakeReaderProperties(parquet_scan_options.get()));
     std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
     return metadata != nullptr && metadata->can_decompress();
   } catch (const ::parquet::ParquetInvalidOrCorruptedFileException& e) {
@@ -307,6 +335,203 @@ Result<bool> IsSupportedParquetFile(const ParquetFileFormat& format,
   }
   END_PARQUET_CATCH_EXCEPTIONS
 }
+
+class ParquetFragmentScanner : public FragmentScanner {
+ public:
+  explicit ParquetFragmentScanner(
+      std::string path, std::shared_ptr<parquet::FileMetaData> file_metadata,
+      const ParquetFragmentScanOptions* scan_options,
+      const ParquetFileFormat::ReaderOptions* format_reader_options,
+      compute::ExecContext* exec_context)
+      : path_(std::move(path)),
+        file_metadata_(std::move(file_metadata)),
+        scan_options_(scan_options),
+        format_reader_options_(format_reader_options),
+        exec_context_(exec_context) {}
+
+  AsyncGenerator<std::shared_ptr<RecordBatch>> RunScanTask(int task_number) override {
+    // TODO(weston) limit columns to read
+    return file_reader_->ReadRowGroupAsync(task_number, exec_context_->executor());
+  }
+
+  int NumScanTasks() override { return file_metadata_->num_row_groups(); }
+
+  int NumBatchesInScanTask(int task_number) override {
+    if (scan_options_->allow_jumbo_values) {
+      return FragmentScanner::kUnknownNumberOfBatches;
+    }
+    int64_t num_rows = file_metadata_->RowGroup(task_number)->num_rows();
+    int64_t num_batches = bit_util::CeilDiv(num_rows, static_cast<int64_t>(batch_size_));
+    return static_cast<int>(num_batches);
+  }
+
+  // These are the parquet-specific reader properties.  Some of these properties are set
+  // from the plan (e.g. memory pool) and some of these properties are controlled by the
+  // user via ParquetFragmentScanOptions
+  parquet::ReaderProperties MakeParquetReaderProperties() {
+    parquet::ReaderProperties reader_properties;
+    parquet::ReaderProperties properties(exec_context_->memory_pool());
+    switch (scan_options_->scan_strategy) {
+      case ParquetScanStrategy::kLeastMemory:
+        // This makes it so we don't need to load the entire row group into memory
+        // but introduces a memcpy of the I/O data, In theory we should be able to prevent
+        // this memcpy if it is becoming a bottleneck
+        properties.enable_buffered_stream();
+        // 8MiB for reads tends to be a pretty safe balance between too many small reads
+        // and too few large reads.
+        properties.set_buffer_size(8 * 1024 * 1024);
+        break;
+      case ParquetScanStrategy::kMaxSpeed:
+        // I'm not actually convinced this does lead to better performance.  More
+        // experiments are needed.  However, the way this is documented, it appears that
+        // should be the case.
+        properties.disable_buffered_stream();
+        break;
+      case ParquetScanStrategy::kCustom:
+        // Use what the user provided if custom
+        if (scan_options_->reader_properties->is_buffered_stream_enabled()) {
+          properties.enable_buffered_stream();
+        } else {
+          properties.disable_buffered_stream();
+        }
+        properties.set_buffer_size(scan_options_->reader_properties->buffer_size());
+        break;
+    }
+    // These properties are unrelated to a RAM / CPU tradeoff and we always use what the
+    // user provided.
+    properties.file_decryption_properties(
+        scan_options_->reader_properties->file_decryption_properties());
+    properties.set_thrift_string_size_limit(
+        scan_options_->reader_properties->thrift_string_size_limit());
+    properties.set_thrift_container_size_limit(
+        scan_options_->reader_properties->thrift_container_size_limit());
+    return properties;
+  }
+
+  // These are properties that control how we convert from the Arrow-unaware low level
+  // parquet reader to the arrow aware reader.  Similar to the reader properties these
+  // come both from the plan itself as well as from user options
+  //
+  // In addition, and regrettably, some options come from the format object itself.
+  // TODO(GH-35211): Simplify this so all options come from ParquetFragmentScanOptions
+  parquet::ArrowReaderProperties MakeParquetArrowReaderProperties() {
+    parquet::ArrowReaderProperties properties;
+
+    // These properties are controlled by the plan
+    properties.set_io_context(io::default_io_context());
+
+    // These properties are controlled by the user, but simplified
+    switch (scan_options_->scan_strategy) {
+      // There's not much point in reading large batches that will just get sliced up by
+      // the source node anyways.
+      case ParquetScanStrategy::kLeastMemory:
+        properties.set_batch_size(acero::ExecPlan::kMaxBatchSize);
+        // Pre-buffering requires reading the entire row-group all at once
+        properties.set_pre_buffer(false);
+        // This does not actually mean we will use threads.  The reader's async methods
+        // take a CPU executor.  If that is a serial executor then columns will be
+        // processed serially.
+        properties.set_use_threads(true);
+        break;
+      case ParquetScanStrategy::kMaxSpeed:
+        // This batch_size emulates some historical behavior and is probably redundant.
+        // Since we've disabled stream buffering we are reading entire row groups into
+        // memory so there isn't all that much reason to have any kind of batch size
+        properties.set_batch_size(64 * 1024 * 1024);
+        properties.set_pre_buffer(true);
+        properties.set_cache_options(io::CacheOptions::LazyDefaults());
+        // see comment above about threads
+        properties.set_use_threads(true);
+        break;
+      case ParquetScanStrategy::kCustom:
+        properties.set_batch_size(scan_options_->arrow_reader_properties->batch_size());
+        properties.set_pre_buffer(scan_options_->arrow_reader_properties->pre_buffer());
+        properties.set_cache_options(
+            scan_options_->arrow_reader_properties->cache_options());
+        properties.set_use_threads(scan_options_->arrow_reader_properties->use_threads());
+        break;
+    }
+
+    // These options are unrelated to the CPU/RAM tradeoff and we always take from
+    // the user
+    for (const std::string& name : format_reader_options_->dict_columns) {
+      auto column_index = file_metadata_->schema()->ColumnIndex(name);
+      properties.set_read_dictionary(column_index, true);
+    }
+    properties.set_coerce_int96_timestamp_unit(
+        format_reader_options_->coerce_int96_timestamp_unit);
+    return properties;
+  }
+
+  Status CheckRowGroupSizes(int64_t batch_size) {
+    // This seems extremely unlikely (by default a row group would need 64Bi rows) but
+    // better safe than sorry since these properties are both int64_t and we would get an
+    // overflow since we assume int32_t in NumBatchesInScanTask
+    for (int row_group = 0; row_group < file_metadata_->num_row_groups(); row_group++) {
+      int64_t num_rows = file_metadata_->RowGroup(row_group)->num_rows();
+      if (bit_util::CeilDiv(num_rows, batch_size) > std::numeric_limits<int32_t>::max()) {
+        return Status::NotImplemented("A single row group with more than 2^31 batches");
+      }
+    }
+    return Status::OK();
+  }
+
+  Future<> Initialize(std::shared_ptr<io::RandomAccessFile> file) {
+    parquet::ReaderProperties properties = MakeParquetReaderProperties();
+    // TODO(ARROW-12259): workaround since we have Future<(move-only type)>
+    auto reader_fut = parquet::ParquetFileReader::OpenAsync(
+        std::move(file), std::move(properties), file_metadata_);
+    return reader_fut.Then(
+        [this, reader_fut](
+            const std::unique_ptr<parquet::ParquetFileReader>&) mutable -> Status {
+          ARROW_ASSIGN_OR_RAISE(std::unique_ptr<parquet::ParquetFileReader> reader,
+                                reader_fut.MoveResult());
+          std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
+          parquet::ArrowReaderProperties arrow_properties =
+              MakeParquetArrowReaderProperties();
+          ARROW_RETURN_NOT_OK(CheckRowGroupSizes(arrow_properties.batch_size()));
+          if (batch_size_ > std::numeric_limits<int32_t>::max()) {
+            return Status::NotImplemented("Scanner batch size > int32_t max");
+          }
+          batch_size_ = static_cast<int32_t>(arrow_properties.batch_size());
+          RETURN_NOT_OK(parquet::arrow::FileReader::Make(
+              exec_context_->memory_pool(), std::move(reader),
+              std::move(arrow_properties), &file_reader_));
+          return Status::OK();
+        },
+        [this](const Status& status) -> Status {
+          return WrapSourceError(status, path_);
+        });
+  }
+
+  static Future<std::shared_ptr<FragmentScanner>> Make(
+      std::shared_ptr<io::RandomAccessFile> file, std::string path,
+      const ParquetFragmentScanOptions* scan_options,
+      const ParquetFileFormat::ReaderOptions* format_reader_options,
+      const FragmentScanRequest& request, const ParquetInspectedFragment& inspection,
+      compute::ExecContext* exec_context) {
+    // Construct a fragment scanner, initialize it, and return it
+    std::shared_ptr<ParquetFragmentScanner> parquet_fragment_scanner =
+        std::make_shared<ParquetFragmentScanner>(std::move(path),
+                                                 inspection.file_metadata, scan_options,
+                                                 format_reader_options, exec_context);
+    return parquet_fragment_scanner->Initialize(std::move(file))
+        .Then([fragment_scanner = std::static_pointer_cast<FragmentScanner>(
+                   parquet_fragment_scanner)]() { return fragment_scanner; });
+  }
+
+ private:
+  // These properties are set during construction
+  std::string path_;
+  std::shared_ptr<parquet::FileMetaData> file_metadata_;
+  const ParquetFragmentScanOptions* scan_options_;
+  const ParquetFileFormat::ReaderOptions* format_reader_options_;
+  compute::ExecContext* exec_context_;
+
+  // These are set during Initialize
+  std::unique_ptr<parquet::arrow::FileReader> file_reader_;
+  int32_t batch_size_;
+};
 
 }  // namespace
 
@@ -408,6 +633,38 @@ Result<std::shared_ptr<Schema>> ParquetFileFormat::Inspect(
   return schema;
 }
 
+Future<std::shared_ptr<InspectedFragment>> ParquetFileFormat::InspectFragment(
+    const FileSource& source, const FragmentScanOptions* format_options,
+    compute::ExecContext* exec_context) const {
+  ARROW_ASSIGN_OR_RAISE(const ParquetFragmentScanOptions* parquet_scan_options,
+                        GetFragmentScanOptions<ParquetFragmentScanOptions>(
+                            format_options, kParquetTypeName));
+  auto properties =
+      MakeReaderProperties(parquet_scan_options, exec_context->memory_pool());
+  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
+  auto reader_fut =
+      parquet::ParquetFileReader::OpenAsync(std::move(input), std::move(properties));
+  return reader_fut.Then([](const std::unique_ptr<parquet::ParquetFileReader>& reader)
+                             -> std::shared_ptr<InspectedFragment> {
+    std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
+    return std::make_shared<ParquetInspectedFragment>(std::move(metadata));
+  });
+}
+
+Future<std::shared_ptr<FragmentScanner>> ParquetFileFormat::BeginScan(
+    const FileSource& source, const FragmentScanRequest& request,
+    const InspectedFragment& inspected_fragment,
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) const {
+  ARROW_ASSIGN_OR_RAISE(const ParquetFragmentScanOptions* parquet_scan_options,
+                        GetFragmentScanOptions<ParquetFragmentScanOptions>(
+                            format_options, kParquetTypeName));
+  auto inspection = checked_cast<const ParquetInspectedFragment&>(inspected_fragment);
+  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
+  return ParquetFragmentScanner::Make(std::move(input), source.path(),
+                                      parquet_scan_options, &reader_options, request,
+                                      inspection, exec_context);
+}
+
 Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader(
     const FileSource& source, const std::shared_ptr<ScanOptions>& options) const {
   return GetReaderAsync(source, options, nullptr).result();
@@ -431,8 +688,7 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
       auto parquet_scan_options,
       GetFragmentScanOptions<ParquetFragmentScanOptions>(kParquetTypeName, options.get(),
                                                          default_fragment_scan_options));
-  auto properties =
-      MakeReaderProperties(*this, parquet_scan_options.get(), options->pool);
+  auto properties = MakeReaderProperties(parquet_scan_options.get(), options->pool);
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
   // TODO(ARROW-12259): workaround since we have Future<(move-only type)>
   auto reader_fut = parquet::ParquetFileReader::OpenAsync(
@@ -445,7 +701,8 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
         ARROW_ASSIGN_OR_RAISE(std::unique_ptr<parquet::ParquetFileReader> reader,
                               reader_fut.MoveResult());
         std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
-        auto arrow_properties = MakeArrowReaderProperties(*self, *metadata);
+        auto arrow_properties =
+            MakeArrowReaderProperties(self->reader_options, *metadata);
         arrow_properties.set_batch_size(options->batch_size);
         // Must be set here since the sync ScanTask handles pre-buffering itself
         arrow_properties.set_pre_buffer(
@@ -933,7 +1190,7 @@ Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
         "ParquetDatasetFactory must contain a schema with at least one column");
   }
 
-  auto properties = MakeArrowReaderProperties(*format, *metadata);
+  auto properties = MakeArrowReaderProperties(format->reader_options, *metadata);
   ARROW_ASSIGN_OR_RAISE(auto physical_schema, GetSchema(*metadata, properties));
   ARROW_ASSIGN_OR_RAISE(auto manifest, GetSchemaManifest(*metadata, properties));
 

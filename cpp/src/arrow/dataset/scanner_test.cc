@@ -42,6 +42,7 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/byte_size.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/range.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
@@ -163,6 +164,8 @@ TEST(BasicEvolution, ReorderedColumns) {
 struct MockScanTask {
   explicit MockScanTask(std::shared_ptr<RecordBatch> batch) : batch(std::move(batch)) {}
 
+  void Finish() { batch_future.MarkFinished(batch); }
+
   std::shared_ptr<RecordBatch> batch;
   Future<std::shared_ptr<RecordBatch>> batch_future =
       Future<std::shared_ptr<RecordBatch>>::Make();
@@ -188,14 +191,26 @@ struct MockFragmentScanner : public FragmentScanner {
       : scan_tasks_(std::move(scan_tasks)), has_started_(scan_tasks_.size(), false) {}
 
   // ### FragmentScanner API ###
-  Future<std::shared_ptr<RecordBatch>> ScanBatch(int batch_number) override {
-    has_started_[batch_number] = true;
-    return scan_tasks_[batch_number].batch_future;
+  AsyncGenerator<std::shared_ptr<RecordBatch>> RunScanTask(
+      int scan_task_number) override {
+    auto batch_number = std::make_shared<int>(0);
+    return [this, batch_number] {
+      if (*batch_number == static_cast<int>(scan_tasks_.size())) {
+        return AsyncGeneratorEnd<std::shared_ptr<RecordBatch>>();
+      }
+      has_started_[*batch_number] = true;
+      Future<std::shared_ptr<RecordBatch>> batch =
+          scan_tasks_[*batch_number].batch_future;
+      (*batch_number)++;
+      return batch;
+    };
   }
-  int64_t EstimatedDataBytes(int batch_number) override {
-    return util::TotalBufferSize(*scan_tasks_[batch_number].batch);
+
+  int NumScanTasks() override { return 1; }
+
+  int NumBatchesInScanTask(int task_number) override {
+    return static_cast<int>(scan_tasks_.size());
   }
-  int NumBatches() override { return static_cast<int>(scan_tasks_.size()); }
 
   // ### Unit Test API ###
   void DeliverBatches(bool slow, const std::vector<MockScanTask>& to_deliver) {
@@ -224,6 +239,8 @@ struct MockFragmentScanner : public FragmentScanner {
     return scan_tasks_[batch_number].batch_future.is_finished();
   }
 
+  int num_batches() { return static_cast<int>(scan_tasks_.size()); }
+
   std::vector<MockScanTask> scan_tasks_;
   std::vector<bool> has_started_;
 };
@@ -245,15 +262,14 @@ struct MockFragment : public Fragment {
   };
 
   Future<std::shared_ptr<InspectedFragment>> InspectFragment(
-      const FragmentScanOptions* format_options,
-      compute::ExecContext* exec_context) override {
+      const FragmentScanOptions* format_options, compute::ExecContext* exec_context,
+      bool should_cache) override {
     has_inspected_ = true;
     return inspected_future_;
   }
 
   Future<std::shared_ptr<FragmentScanner>> BeginScan(
       const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
-      const FragmentScanOptions* format_options,
       compute::ExecContext* exec_context) override {
     has_started_ = true;
     seen_request_ = request;
@@ -582,8 +598,11 @@ INSTANTIATE_TEST_SUITE_P(BasicNewScannerTests, TestScannerBase,
                          });
 
 void CheckScannerBackpressure(std::shared_ptr<MockDataset> dataset, ScanV2Options options,
-                              int maxConcurrentFragments, int maxConcurrentBatches,
+                              int maxConcurrentScanTasks,
                               ::arrow::internal::ThreadPool* thread_pool) {
+  // These are hard-coded and not configurable
+  constexpr int kMaxInspectionsReadahead = 4;
+  // constexpr int kMaxQueuedScanTasks = 4;
   // Start scanning
   acero::Declaration scan_decl = acero::Declaration("scan2", std::move(options));
   Future<RecordBatchVector> batches_fut =
@@ -598,15 +617,21 @@ void CheckScannerBackpressure(std::shared_ptr<MockDataset> dataset, ScanV2Option
     }
     return num_inspected;
   };
+  // Since inspection is not finishing we shouldn't get more than kMaxInspectionReadahead
+  // inspections running at once
   BusyWait(10, [&] {
-    return get_num_inspected() == static_cast<int>(maxConcurrentFragments);
+    return get_num_inspected() >= static_cast<int>(kMaxInspectionsReadahead);
   });
+  std::cout << "### Wait done.  Ensuring inspections readahead limit reached ###"
+            << std::endl;
   SleepABit();
-  ASSERT_EQ(get_num_inspected(), static_cast<int>(maxConcurrentFragments));
+  ASSERT_EQ(get_num_inspected(), static_cast<int>(kMaxInspectionsReadahead));
 
+  std::cout << "### Assert passed.  Finishing inspections and starting scan ###"
+            << std::endl;
   int total_batches = 0;
   for (const auto& frag : dataset->fragments_) {
-    total_batches += frag->fragment_scanner_->NumBatches();
+    total_batches += frag->fragment_scanner_->num_batches();
     frag->FinishInspection();
     frag->FinishScanBegin();
   }
@@ -617,7 +642,7 @@ void CheckScannerBackpressure(std::shared_ptr<MockDataset> dataset, ScanV2Option
     thread_pool->WaitForIdle();
     int batches_started = 0;
     for (const auto& frag : dataset->fragments_) {
-      for (int i = 0; i < frag->fragment_scanner_->NumBatches(); i++) {
+      for (int i = 0; i < frag->fragment_scanner_->num_batches(); i++) {
         if (frag->HasBatchStarted(i)) {
           batches_started++;
           if (next_task_to_deliver == nullptr && !frag->HasBatchDelivered(i)) {
@@ -626,7 +651,7 @@ void CheckScannerBackpressure(std::shared_ptr<MockDataset> dataset, ScanV2Option
         }
       }
     }
-    ASSERT_LE(batches_started - batches_scanned, maxConcurrentBatches)
+    ASSERT_LE(batches_started - batches_scanned, maxConcurrentScanTasks)
         << " too many scan tasks were allowed to run";
     ASSERT_NE(next_task_to_deliver, nullptr);
     next_task_to_deliver->batch_future.MarkFinished(next_task_to_deliver->batch);
@@ -635,7 +660,7 @@ void CheckScannerBackpressure(std::shared_ptr<MockDataset> dataset, ScanV2Option
 }
 
 TEST(TestNewScanner, Backpressure) {
-  constexpr int kNumFragments = 4;
+  constexpr int kNumFragments = 20;
   constexpr int kNumBatchesPerFragment = 4;
   internal::Initialize();
   std::shared_ptr<MockDataset> test_dataset =
@@ -646,20 +671,60 @@ TEST(TestNewScanner, Backpressure) {
   // No readahead
   options.dataset = test_dataset;
   options.columns = ScanV2Options::AllColumns(*test_dataset->schema());
-  options.fragment_readahead = 0;
-  options.target_bytes_readahead = 0;
-  CheckScannerBackpressure(test_dataset, options, 1, 1,
+  options.scan_task_readahead = 0;
+  CheckScannerBackpressure(test_dataset, options, /*max_scan_tasks=*/1,
                            ::arrow::internal::GetCpuThreadPool());
 
   // Some readahead
   test_dataset = MakeTestDataset(kNumFragments, kNumBatchesPerFragment);
   options = ScanV2Options(test_dataset);
   options.columns = ScanV2Options::AllColumns(*test_dataset->schema());
-  options.fragment_readahead = 4;
-  // each batch should be 14Ki so 50Ki readahead should yield 3-at-a-time
-  options.target_bytes_readahead = 50 * kRowsPerTestBatch;
-  CheckScannerBackpressure(test_dataset, options, 4, 3,
+  options.scan_task_readahead = 4;
+  CheckScannerBackpressure(test_dataset, options, /*max_scan_tasks=*/4,
                            ::arrow::internal::GetCpuThreadPool());
+}
+
+// Test a fragment completing when a previous fragment is still running
+TEST(TestNewScanner, OutOfOrderFragmentCompletion) {
+  constexpr int kNumFragments = 3;
+  constexpr int kNumBatchesPerFragment = 1;
+
+  internal::Initialize();
+  std::shared_ptr<MockDataset> test_dataset =
+      MakeTestDataset(kNumFragments, kNumBatchesPerFragment);
+
+  ScanV2Options options(test_dataset);
+  options.columns = ScanV2Options::AllColumns(*test_dataset->schema());
+
+  // Begin scan
+  acero::Declaration scan_decl = acero::Declaration("scan2", std::move(options));
+  Future<RecordBatchVector> batches_fut =
+      acero::DeclarationToBatchesAsync(std::move(scan_decl));
+
+  // Start scanning on all fragments
+  for (int i = 0; i < kNumFragments; i++) {
+    test_dataset->fragments_[i]->FinishInspection();
+    test_dataset->fragments_[i]->FinishScanBegin();
+  }
+
+  // Let scan tasks get started
+  SleepABit();
+  // A fragment in the middle finishes
+  test_dataset->fragments_[1]->fragment_scanner_->scan_tasks_[0].Finish();
+
+  SleepABit();
+
+  // A fragment at the end finishes
+  test_dataset->fragments_[2]->fragment_scanner_->scan_tasks_[0].Finish();
+
+  SleepABit();
+
+  // Now the first fragment finishes
+  test_dataset->fragments_[0]->fragment_scanner_->scan_tasks_[0].Finish();
+
+  // The scan should finish cleanly
+  ASSERT_FINISHES_OK_AND_ASSIGN(RecordBatchVector batches, batches_fut);
+  ASSERT_EQ(3, batches.size());
 }
 
 TEST(TestNewScanner, NestedRead) {

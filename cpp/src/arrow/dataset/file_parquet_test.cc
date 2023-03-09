@@ -23,6 +23,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/plan.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"
@@ -729,6 +730,27 @@ TEST(TestParquetStatistics, NullMax) {
       ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics);
   EXPECT_EQ(stat_expression->ToString(), "(x >= 1)");
 }
+
+class TestParquetFileFormatScanNode
+    : public FileFormatScanNodeMixin<ParquetFormatHelper> {
+  void SetUp() override { internal::Initialize(); }
+
+  const FragmentScanOptions* GetFormatOptions() override { return &scan_options_; }
+
+ protected:
+  ParquetFragmentScanOptions scan_options_;
+};
+
+TEST_P(TestParquetFileFormatScanNode, Inspect) { TestInspect(); }
+TEST_P(TestParquetFileFormatScanNode, Scan) { TestScan(); }
+TEST_P(TestParquetFileFormatScanNode, ScanSomeColumn) { TestScanSomeColumns(); }
+TEST_P(TestParquetFileFormatScanNode, ScanWithInvalidOptions) {
+  TestInvalidFormatScanOptions();
+}
+
+INSTANTIATE_TEST_SUITE_P(TestScanNode, TestParquetFileFormatScanNode,
+                         ::testing::ValuesIn(TestFormatParams::Values()),
+                         TestFormatParams::ToTestNameString);
 
 }  // namespace dataset
 }  // namespace arrow
