@@ -318,11 +318,11 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		return NewMapBuilderWithType(mem, typ)
 	case arrow.EXTENSION:
 		typ := dtype.(arrow.ExtensionType)
-		bldr := typ.NewBuilder(mem, typ)
-		if bldr != nil {
-			return bldr.(Builder)
+		bldr := NewExtensionBuilder(mem, typ)
+		if custom, ok := typ.(ExtensionBuilderWrapper); ok {
+			return custom.NewBuilder(bldr)
 		}
-		return NewExtensionBuilder(mem, typ)
+		return bldr
 	case arrow.FIXED_SIZE_LIST:
 		typ := dtype.(*arrow.FixedSizeListType)
 		return NewFixedSizeListBuilder(mem, typ.Len(), typ.Elem())

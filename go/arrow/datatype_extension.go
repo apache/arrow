@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-
-	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 var (
@@ -124,20 +122,16 @@ type ExtensionType interface {
 	// If the storage type is incorrect or something else is invalid with the data this should
 	// return nil and an appropriate error.
 	Deserialize(storageType DataType, data string) (ExtensionType, error)
-	// this should return array.Builder interface but we cannot import due to cycle import, so we use 
-	// interface{} instead. At least for 
-	NewBuilder(mem memory.Allocator, dt ExtensionType) interface{}
 	mustEmbedExtensionBase()
 }
 
 // ExtensionBase is the base struct for user-defined Extension Types which must be
 // embedded in any user-defined types like so:
 //
-//     type UserDefinedType struct {
-//         arrow.ExtensionBase
-//         // any other data
-//     }
-//
+//	type UserDefinedType struct {
+//	    arrow.ExtensionBase
+//	    // any other data
+//	}
 type ExtensionBase struct {
 	// Storage is the underlying storage type
 	Storage DataType
@@ -166,13 +160,10 @@ func (e *ExtensionBase) Fields() []Field {
 	return nil
 }
 
-func (e *ExtensionBase) NewBuilder(mem memory.Allocator, dt ExtensionType) interface{} {
-	return nil
-}
-
 func (e *ExtensionBase) Layout() DataTypeLayout { return e.Storage.Layout() }
 
 // this no-op exists to ensure that this type must be embedded in any user-defined extension type.
+//
 //lint:ignore U1000 this function is intentionally unused as it only exists to ensure embedding happens
 func (ExtensionBase) mustEmbedExtensionBase() {}
 

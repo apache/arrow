@@ -28,7 +28,6 @@ import (
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/google/uuid"
 	"golang.org/x/xerrors"
 )
@@ -38,10 +37,9 @@ type UUIDBuilder struct {
 	dtype *UUIDType
 }
 
-func NewUUIDBuilder(mem memory.Allocator, dtype arrow.ExtensionType) *UUIDBuilder {
+func NewUUIDBuilder(bldr *array.ExtensionBuilder) *UUIDBuilder {
 	b := &UUIDBuilder{
-		ExtensionBuilder: array.NewExtensionBuilder(mem, dtype),
-		dtype:            dtype.(*UUIDType),
+		ExtensionBuilder: bldr,
 	}
 	return b
 }
@@ -192,7 +190,6 @@ type UUIDType struct {
 	arrow.ExtensionBase
 }
 
-
 // NewUUIDType is a convenience function to create an instance of UuidType
 // with the correct storage type
 func NewUUIDType() *UUIDType {
@@ -226,10 +223,9 @@ func (u UUIDType) ExtensionEquals(other arrow.ExtensionType) bool {
 	return u.ExtensionName() == other.ExtensionName()
 }
 
-func (u UUIDType) NewBuilder(mem memory.Allocator, dt arrow.ExtensionType) interface{} {
-	return NewUUIDBuilder(mem, dt)
+func (u UUIDType) NewBuilder(bldr *array.ExtensionBuilder) array.Builder {
+	return NewUUIDBuilder(bldr)
 }
-
 
 // Parametric1Array is a simple int32 array for use with the Parametric1Type
 // in testing a parameterized user-defined extension type.
