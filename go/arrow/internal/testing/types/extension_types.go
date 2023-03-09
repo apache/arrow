@@ -34,7 +34,6 @@ import (
 
 type UUIDBuilder struct {
 	*array.ExtensionBuilder
-	dtype *UUIDType
 }
 
 func NewUUIDBuilder(bldr *array.ExtensionBuilder) *UUIDBuilder {
