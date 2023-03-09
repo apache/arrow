@@ -70,10 +70,10 @@ add_arrow_compute_test(util_test
                        util_test.cc
                        task_util_test.cc)
 add_arrow_compute_test(light_array_exec_test
-        PREFIX
-        "arrow-compute"
-        SOURCES
-        light_array_exec_test.cc)
+                       PREFIX
+                       "arrow-compute"
+                       SOURCES
+                       light_array_exec_test.cc)
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
 
