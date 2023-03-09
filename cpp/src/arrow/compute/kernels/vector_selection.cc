@@ -249,11 +249,8 @@ Status PreallocateData(KernelContext* ctx, int64_t length, int bit_width,
   if (allocate_validity) {
     ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(length));
   }
-  if (bit_width == 1) {
-    ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->AllocateBitmap(length));
-  } else {
-    ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->Allocate(length * bit_width / 8));
-  }
+  ARROW_ASSIGN_OR_RAISE(out->buffers[1],
+                        ctx->AllocateBitmap(bit_util::BytesForBits(length * bit_width)));
   return Status::OK();
 }
 
