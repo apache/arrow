@@ -67,25 +67,19 @@ struct CsvInspectedFragment : public InspectedFragment {
 
 class CsvFileScanner : public FragmentScanner {
  public:
-  CsvFileScanner(std::shared_ptr<csv::StreamingReader> reader, int num_batches,
-                 int64_t best_guess_bytes_per_batch)
-      : reader_(std::move(reader)),
-        num_batches_(num_batches),
-        best_guess_bytes_per_batch_(best_guess_bytes_per_batch) {}
+  explicit CsvFileScanner(std::shared_ptr<csv::StreamingReader> reader, int num_batches)
+      : reader_(std::move(reader)), num_batches_(num_batches) {}
 
-  Future<std::shared_ptr<RecordBatch>> ScanBatch(int batch_number) override {
-    // This should be called in increasing order but let's verify that in case it changes.
-    // It would be easy enough to handle out of order but no need for that complexity at
-    // the moment.
-    DCHECK_EQ(scanned_so_far_++, batch_number);
-    return reader_->ReadNextAsync();
+  AsyncGenerator<std::shared_ptr<RecordBatch>> RunScanTask(int task_number) override {
+    return [this] { return reader_->ReadNextAsync(); };
   }
 
-  int64_t EstimatedDataBytes(int batch_number) override {
-    return best_guess_bytes_per_batch_;
-  }
+  int NumScanTasks() override { return 1; }
 
-  int NumBatches() override { return num_batches_; }
+  int NumBatchesInScanTask(int32_t task_number) override {
+    DCHECK_EQ(task_number, 0);
+    return num_batches_;
+  }
 
   static Result<csv::ConvertOptions> GetConvertOptions(
       const CsvFragmentScanOptions& csv_options, const FragmentScanRequest& scan_request,
@@ -114,11 +108,10 @@ class CsvFileScanner : public FragmentScanner {
       const CsvInspectedFragment& inspected_fragment, Executor* cpu_executor) {
     auto read_options = csv_options.read_options;
 
+    // Right now we disallow values larger than a block.  If we wanted to allow them
+    // however we could just emit an empty batch.  So this should be pretty safe.
     int num_batches = static_cast<int>(bit_util::CeilDiv(
         inspected_fragment.num_bytes, static_cast<int64_t>(read_options.block_size)));
-    // Could be better, but a reasonable starting point.  CSV presumably takes up more
-    // space than an in-memory format so this should be conservative.
-    int64_t best_guess_bytes_per_batch = read_options.block_size;
     ARROW_ASSIGN_OR_RAISE(
         csv::ConvertOptions convert_options,
         GetConvertOptions(csv_options, scan_request, inspected_fragment));
@@ -126,20 +119,15 @@ class CsvFileScanner : public FragmentScanner {
     return csv::StreamingReader::MakeAsync(
                io::default_io_context(), inspected_fragment.input_stream, cpu_executor,
                read_options, csv_options.parse_options, convert_options)
-        .Then([num_batches, best_guess_bytes_per_batch](
-                  const std::shared_ptr<csv::StreamingReader>& reader)
+        .Then([num_batches](const std::shared_ptr<csv::StreamingReader>& reader)
                   -> std::shared_ptr<FragmentScanner> {
-          return std::make_shared<CsvFileScanner>(reader, num_batches,
-                                                  best_guess_bytes_per_batch);
+          return std::make_shared<CsvFileScanner>(reader, num_batches);
         });
   }
 
  private:
   std::shared_ptr<csv::StreamingReader> reader_;
   int num_batches_;
-  int64_t best_guess_bytes_per_batch_;
-
-  int scanned_so_far_ = 0;
 };
 
 using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>()>;
@@ -412,11 +400,12 @@ Future<std::optional<int64_t>> CsvFileFormat::CountRows(
 }
 
 Future<std::shared_ptr<FragmentScanner>> CsvFileFormat::BeginScan(
-    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
-    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) const {
+    const FileSource& file_source, const FragmentScanRequest& request,
+    InspectedFragment* inspected_fragment, const FragmentScanOptions* format_options,
+    compute::ExecContext* exec_context) const {
   auto csv_options = static_cast<const CsvFragmentScanOptions*>(format_options);
-  auto csv_fragment = static_cast<const CsvInspectedFragment&>(inspected_fragment);
-  return CsvFileScanner::Make(*csv_options, request, csv_fragment,
+  auto* csv_fragment = static_cast<CsvInspectedFragment*>(inspected_fragment);
+  return CsvFileScanner::Make(*csv_options, request, *csv_fragment,
                               exec_context->executor());
 }
 
@@ -443,9 +432,11 @@ Result<std::shared_ptr<InspectedFragment>> DoInspectFragment(
 }
 
 Future<std::shared_ptr<InspectedFragment>> CsvFileFormat::InspectFragment(
-    const FileSource& source, const FragmentScanOptions* format_options,
-    compute::ExecContext* exec_context) const {
-  auto csv_options = static_cast<const CsvFragmentScanOptions*>(format_options);
+    const FileFragment& fragment, const FileSource& source,
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) const {
+  ARROW_ASSIGN_OR_RAISE(
+      const auto* csv_options,
+      GetFragmentScanOptions<CsvFragmentScanOptions>(format_options, kCsvTypeName));
   Executor* io_executor;
   if (source.filesystem()) {
     io_executor = source.filesystem()->io_context().executor();

@@ -131,16 +131,19 @@ class ARROW_EXPORT AsyncTaskScheduler {
   /// This visits the task serially without readahead.  If readahead or parallelism
   /// is desired then it should be added in the generator itself.
   ///
-  /// The generator itself will be kept alive until all tasks have been completed.
-  /// However, if the scheduler is aborted, the generator will be destroyed as soon as the
-  /// next item would be requested.
+  /// The generator itself will be kept alive until all tasks have been completed and the
+  /// on_completion function is run.  However, if the scheduler is aborted, the generator
+  /// will be destroyed as soon as the next item would be requested and the on_completion
+  /// function will not run.
   ///
   /// \param generator the generator to submit to the scheduler
   /// \param visitor a function which visits each generator future as it completes
   /// \param name a name which will be used for each submitted task
+  /// \param on_completion an optional function that will be called after all tasks
   template <typename T>
   bool AddAsyncGenerator(std::function<Future<T>()> generator,
-                         std::function<Status(const T&)> visitor, std::string_view name);
+                         std::function<Status(const T&)> visitor, std::string_view name,
+                         std::function<Status()> on_completion = {});
 
   template <typename Callable>
   struct SimpleTask : public Task {
@@ -271,11 +274,15 @@ class ARROW_EXPORT ThrottledAsyncTaskScheduler : public AsyncTaskScheduler {
   ///
   /// Any tasks that have been submitted already will continue.  However, no new tasks
   /// will be run until the throttle is resumed.
+  ///
+  /// This method should be idempotent
   virtual void Pause() = 0;
   /// Resume the throttle
   ///
   /// Allows taks to be submitted again.  If there is a max_concurrent_cost limit then
   /// it will still apply.
+  ///
+  /// This method should be idempotent
   virtual void Resume() = 0;
 
   /// Create a throttled view of a scheduler
@@ -377,7 +384,8 @@ ARROW_EXPORT std::unique_ptr<ThrottledAsyncTaskScheduler> MakeThrottledAsyncTask
 template <typename T>
 bool AsyncTaskScheduler::AddAsyncGenerator(std::function<Future<T>()> generator,
                                            std::function<Status(const T&)> visitor,
-                                           std::string_view name) {
+                                           std::string_view name,
+                                           std::function<Status()> on_completion) {
   struct State {
     State(std::function<Future<T>()> generator, std::function<Status(const T&)> visitor,
           std::unique_ptr<AsyncTaskGroup> task_group, std::string_view name)
@@ -412,8 +420,10 @@ bool AsyncTaskScheduler::AddAsyncGenerator(std::function<Future<T>()> generator,
           task_completion.MarkFinished(std::move(visit_st));
           return;
         }
-        state_holder->task_group->AddTask(
-            std::make_unique<SubmitTask>(std::move(state_holder)));
+        State* state_view = state_holder.get();
+        std::unique_ptr<SubmitTask> next_task =
+            std::make_unique<SubmitTask>(std::move(state_holder));
+        state_view->task_group->AddTask(std::move(next_task));
         task_completion.MarkFinished();
       }
       std::unique_ptr<State> state_holder;
@@ -443,8 +453,12 @@ bool AsyncTaskScheduler::AddAsyncGenerator(std::function<Future<T>()> generator,
 
     std::unique_ptr<State> state_holder;
   };
+  std::function<Status()> finish_cb = std::move(on_completion);
+  if (!finish_cb) {
+    finish_cb = [] { return Status::OK(); };
+  }
   std::unique_ptr<AsyncTaskGroup> task_group =
-      AsyncTaskGroup::Make(this, [] { return Status::OK(); });
+      AsyncTaskGroup::Make(this, std::move(finish_cb));
   AsyncTaskGroup* task_group_view = task_group.get();
   std::unique_ptr<State> state_holder = std::make_unique<State>(
       std::move(generator), std::move(visitor), std::move(task_group), name);

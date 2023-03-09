@@ -66,17 +66,20 @@ struct JsonInspectedFragment : public InspectedFragment {
 
 class JsonFragmentScanner : public FragmentScanner {
  public:
-  JsonFragmentScanner(ReaderPtr reader, int num_batches, int64_t block_size)
-      : reader_(std::move(reader)), block_size_(block_size), num_batches_(num_batches) {}
+  JsonFragmentScanner(ReaderPtr reader, int num_batches)
+      : reader_(std::move(reader)), num_batches_(num_batches) {}
 
-  int NumBatches() override { return num_batches_; }
+  int NumScanTasks() override { return 1; }
 
-  Future<std::shared_ptr<RecordBatch>> ScanBatch(int index) override {
-    DCHECK_EQ(num_scanned_++, index);
-    return reader_->ReadNextAsync();
+  int NumBatchesInScanTask(int task_number) override {
+    DCHECK_EQ(task_number, 0);
+    return num_batches_;
   }
 
-  int64_t EstimatedDataBytes(int) override { return block_size_; }
+  AsyncGenerator<std::shared_ptr<RecordBatch>> RunScanTask(int task_number) override {
+    DCHECK_EQ(task_number, 0);
+    return [this] { return reader_->ReadNextAsync(); };
+  }
 
   static Result<std::shared_ptr<Schema>> GetSchema(
       const FragmentScanRequest& scan_request, const JsonInspectedFragment& inspected) {
@@ -114,17 +117,15 @@ class JsonFragmentScanner : public FragmentScanner {
     auto future = json::StreamingReader::MakeAsync(
         inspected.stream, format_options.read_options, parse_options,
         io::default_io_context(), cpu_executor);
-    return future.Then([num_batches, block_size](const ReaderPtr& reader)
+    return future.Then([num_batches](const ReaderPtr& reader)
                            -> Result<std::shared_ptr<FragmentScanner>> {
-      return std::make_shared<JsonFragmentScanner>(reader, num_batches, block_size);
+      return std::make_shared<JsonFragmentScanner>(reader, num_batches);
     });
   }
 
  private:
   ReaderPtr reader_;
-  int64_t block_size_;
   int num_batches_;
-  int num_scanned_ = 0;
 };
 
 // Return the same parse options, but disable any options that could interfere with
@@ -400,8 +401,8 @@ Future<std::optional<int64_t>> JsonFileFormat::CountRows(
 }
 
 Future<std::shared_ptr<InspectedFragment>> JsonFileFormat::InspectFragment(
-    const FileSource& source, const FragmentScanOptions* format_options,
-    compute::ExecContext* exec_context) const {
+    const FileFragment& fragment, const FileSource& source,
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) const {
   auto json_options = static_cast<const JsonFragmentScanOptions*>(format_options);
   auto* executor = source.filesystem() ? source.filesystem()->io_context().executor()
                                        : exec_context->executor();
@@ -412,11 +413,12 @@ Future<std::shared_ptr<InspectedFragment>> JsonFileFormat::InspectFragment(
 }
 
 Future<std::shared_ptr<FragmentScanner>> JsonFileFormat::BeginScan(
-    const FragmentScanRequest& scan_request, const InspectedFragment& inspected,
-    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) const {
+    const FileSource& file_source, const FragmentScanRequest& scan_request,
+    InspectedFragment* inspected, const FragmentScanOptions* format_options,
+    compute::ExecContext* exec_context) const {
   return JsonFragmentScanner::Make(
       scan_request, static_cast<const JsonFragmentScanOptions&>(*format_options),
-      static_cast<const JsonInspectedFragment&>(inspected), exec_context->executor());
+      static_cast<const JsonInspectedFragment&>(*inspected), exec_context->executor());
 }
 
 }  // namespace dataset

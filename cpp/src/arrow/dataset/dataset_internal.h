@@ -89,6 +89,21 @@ arrow::Result<std::shared_ptr<T>> GetFragmentScanOptions(
   return ::arrow::internal::checked_pointer_cast<T>(source);
 }
 
+template <typename T>
+Result<const T*> GetFragmentScanOptions(const FragmentScanOptions* scan_or_format_opts,
+                                        const std::string& type_name) {
+  static T fallback_opts = {};
+  if (scan_or_format_opts == nullptr) {
+    return &fallback_opts;
+  }
+  auto* casted_opts = dynamic_cast<const T*>(scan_or_format_opts);
+  if (!casted_opts) {
+    return Status::Invalid("User provided scan options of type ",
+                           scan_or_format_opts->type_name(), " but expected ", type_name);
+  }
+  return casted_opts;
+}
+
 class FragmentDataset : public Dataset {
  public:
   FragmentDataset(std::shared_ptr<Schema> schema, FragmentVector fragments)

@@ -20,6 +20,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/acero/exec_plan.h"
@@ -27,11 +28,13 @@
 #include "arrow/acero/util.h"
 #include "arrow/compute/expression.h"
 #include "arrow/compute/expression_internal.h"
+#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/async_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
@@ -47,6 +50,234 @@ using internal::checked_cast;
 namespace dataset {
 
 namespace {
+
+// How many inspection tasks we allow to run at the same time
+constexpr int kNumConcurrentInspections = 4;
+// How many scan tasks we need queued up to pause inspection
+constexpr int kLimitQueuedScanTasks = 4;
+
+// An interface for an object that knows all the details requires to launch a scan task
+class ScanTaskLauncher {
+ public:
+  virtual ~ScanTaskLauncher() = default;
+  virtual void LaunchTask(FragmentScanner* scanner, int scan_task_number,
+                          int first_batch_index,
+                          std::function<void(int num_batches)> task_complete_cb) = 0;
+};
+
+// When we have finished inspecting a fragment we can submit its scan tasks.  However,
+// we only allow certain number of scan tasks at a time.  Ironically, a scan task is not
+// actually a "task".  It's a collection of tasks that will run to scan the stream of
+// batches.
+//
+// This class serves as a synchronous "throttle" which makes sure we aren't running too
+// many scan tasks at once.  It also pauses the inspection process if we have a bunch
+// of scan tasks ready to go.
+//
+// Lastly, it also serves as a sort of sequencing point where we hold off on launching
+// a scan task until we know how many batches precede that scan task.
+//
+// There are two events.
+//
+// First, when a fragment finishes inspection, it is inserted into the queue (we might
+// know how many batches are in the scan tasks at this point or may not)
+//
+//  * An entry is created for each scan task and added to the queue
+//  * We check to see if any entries are free to run
+//  * We may pause or resume the inspection throttle
+//
+// Second, when a scan task finishes it records that it is finished (at this point we
+// definitely know how many batches were in the scan task)
+//
+//  * The task is removed from the queue
+//  * We check to see if any entries are free to run
+//  * We may resume the inspection throttle
+class ScanTaskStagingArea {
+ public:
+  ScanTaskStagingArea(int queue_limit, int run_limit,
+                      util::ThrottledAsyncTaskScheduler* inspection_throttle,
+                      std::function<void()> completion_cb)
+      : queue_limit_(queue_limit),
+        run_limit_(run_limit),
+        inspection_throttle_(inspection_throttle),
+        completion_cb_(std::move(completion_cb)) {}
+
+  void InsertInspectedFragment(std::shared_ptr<FragmentScanner> fragment_scanner,
+                               int fragment_index,
+                               std::unique_ptr<ScanTaskLauncher> task_launcher) {
+    auto fragment_entry = std::make_unique<FragmentEntry>(
+        std::move(fragment_scanner), fragment_index, std::move(task_launcher));
+
+    std::lock_guard lg(mutex_);
+    num_queued_scan_tasks_ += static_cast<int>(fragment_entry->scan_tasks.size());
+
+    // Ordered insertion into linked list
+    if (!root_) {
+      root_ = std::move(fragment_entry);
+      // fragment_entry.prev will be nullptr, which is correct
+    } else {
+      FragmentEntry* itr = root_.get();
+      while (itr->next != nullptr && itr->next->fragment_index < fragment_index) {
+        itr = itr->next.get();
+      }
+      if (itr->next != nullptr) {
+        fragment_entry->next = std::move(itr->next);
+        fragment_entry->next->prev = fragment_entry.get();
+      }
+      fragment_entry->prev = itr;
+      itr->next = std::move(fragment_entry);
+    }
+
+    // Even if this isn't the first fragment it is still possible that there are tasks we
+    // can now run.  For example, if we are allowed to run 4 scan tasks and the root only
+    // had one.
+    TryAndLaunchTasksUnlocked();
+
+    if (num_queued_scan_tasks_ >= queue_limit_) {
+      inspection_throttle_->Pause();
+    }
+  }
+
+  void FinishedInsertingFragments(int num_fragments) {
+    std::lock_guard lg(mutex_);
+    total_num_fragments_ = num_fragments;
+    if (num_fragments_processed_ == total_num_fragments_) {
+      completion_cb_();
+    }
+  }
+
+ private:
+  struct ScanTaskEntry {
+    int scan_task_index;
+    int num_batches;
+    bool launched;
+  };
+  struct FragmentEntry {
+    FragmentEntry(std::shared_ptr<FragmentScanner> fragment_scanner, int fragment_index,
+                  std::unique_ptr<ScanTaskLauncher> task_launcher)
+        : fragment_scanner(std::move(fragment_scanner)),
+          fragment_index(fragment_index),
+          task_launcher(std::move(task_launcher)) {
+      for (int i = 0; i < this->fragment_scanner->NumScanTasks(); i++) {
+        ScanTaskEntry scan_task;
+        scan_task.scan_task_index = i;
+        scan_task.num_batches = this->fragment_scanner->NumBatchesInScanTask(i);
+        scan_task.launched = false;
+        scan_tasks.push_back(scan_task);
+      }
+    }
+
+    std::shared_ptr<FragmentScanner> fragment_scanner;
+    int fragment_index;
+    std::unique_ptr<ScanTaskLauncher> task_launcher;
+
+    std::unique_ptr<FragmentEntry> next;
+    FragmentEntry* prev = nullptr;
+    std::deque<ScanTaskEntry> scan_tasks;
+  };
+
+  void LaunchScanTaskUnlocked(FragmentEntry* entry, int scan_task_number,
+                              int first_batch_index) {
+    entry->task_launcher->LaunchTask(
+        entry->fragment_scanner.get(), scan_task_number, first_batch_index,
+        [this, entry, scan_task_number](int num_batches) {
+          MarkScanTaskFinished(entry, scan_task_number, num_batches);
+        });
+    num_queued_scan_tasks_--;
+    if (num_queued_scan_tasks_ < queue_limit_) {
+      inspection_throttle_->Resume();
+    }
+    num_scan_tasks_running_++;
+  }
+
+  void TryAndLaunchTasksUnlocked() {
+    if (!root_ || num_scan_tasks_running_ >= run_limit_) {
+      return;
+    }
+    FragmentEntry* itr = root_.get();
+    int num_preceding_batches = batches_completed_;
+    while (itr != nullptr) {
+      for (auto& scan_task : itr->scan_tasks) {
+        if (!scan_task.launched) {
+          scan_task.launched = true;
+          LaunchScanTaskUnlocked(itr, scan_task.scan_task_index, num_preceding_batches);
+          if (num_scan_tasks_running_ >= run_limit_) {
+            // We've launched as many as we can
+            return;
+          }
+        }
+        if (scan_task.num_batches != FragmentScanner::kUnknownNumberOfBatches) {
+          num_preceding_batches += scan_task.num_batches;
+        } else {
+          // A scan task is running that doesn't know how many batches it has.  We can't
+          // proceed.
+          return;
+        }
+      }
+      itr = itr->next.get();
+    }
+  }
+
+  void MarkScanTaskFinished(FragmentEntry* fragment_entry, int scan_task_number,
+                            int num_batches) {
+    std::lock_guard lg(mutex_);
+    batches_completed_ += num_batches;
+    num_scan_tasks_running_--;
+    auto itr = fragment_entry->scan_tasks.cbegin();
+    std::size_t old_size = fragment_entry->scan_tasks.size();
+    while (itr != fragment_entry->scan_tasks.cend()) {
+      if (itr->scan_task_index == scan_task_number) {
+        fragment_entry->scan_tasks.erase(itr);
+        break;
+      }
+      itr++;
+    }
+    DCHECK_LT(fragment_entry->scan_tasks.size(), old_size);
+    if (fragment_entry->scan_tasks.empty()) {
+      FragmentEntry* prev = fragment_entry->prev;
+      if (prev == nullptr) {
+        // The current root has finished
+        std::unique_ptr<FragmentEntry> new_root = std::move(root_->next);
+        if (new_root != nullptr) {
+          new_root->prev = nullptr;
+        }
+        // This next line will cause fragment_entry to be deleted
+        root_ = std::move(new_root);
+      } else {
+        if (fragment_entry->next != nullptr) {
+          // In this case a fragment in the middle finished
+          std::unique_ptr<FragmentEntry> next = std::move(fragment_entry->next);
+          next->prev = prev;
+          // This next line will cause fragment_entry to be deleted
+          prev->next = std::move(next);
+        } else {
+          // In this case a fragment at the end finished
+          // This next line will cause fragment_entry to be deleted
+          prev->next = nullptr;
+        }
+      }
+      num_fragments_processed_++;
+      if (num_fragments_processed_ == total_num_fragments_) {
+        completion_cb_();
+        return;
+      }
+    }
+    TryAndLaunchTasksUnlocked();
+  }
+
+  int queue_limit_;
+  int run_limit_;
+  util::ThrottledAsyncTaskScheduler* inspection_throttle_;
+  std::function<void()> completion_cb_;
+
+  int num_queued_scan_tasks_ = 0;
+  int num_scan_tasks_running_ = 0;
+  int batches_completed_ = 0;
+  std::unique_ptr<FragmentEntry> root_;
+  std::mutex mutex_;
+  int num_fragments_processed_ = 0;
+  int total_num_fragments_ = -1;
+};
 
 Result<std::shared_ptr<Schema>> OutputSchemaFromOptions(const ScanV2Options& options) {
   return FieldPath::GetAll(*options.dataset->schema(), options.columns);
@@ -80,40 +311,45 @@ Future<AsyncGenerator<std::shared_ptr<Fragment>>> GetFragments(
 
 /// \brief A node that scans a dataset
 ///
-/// The scan node has three groups of io-tasks and one task.
+/// The scan node has three stages.
 ///
-/// The first io-task (listing) fetches the fragments from the dataset.  This may be a
+/// The first stage (listing) fetches the fragments from the dataset.  This may be a
 /// simple iteration of paths or, if the dataset is described with wildcards, this may
-/// involve I/O for listing and walking directory paths.  There is one listing io-task
-/// per dataset.
+/// involve I/O for listing and walking directory paths.  There is only one listing task.
+///
+/// The next step is to inspect the fragment.  At a minimum we need to know the names of
+/// the columns in the fragment so that we can perform evolution.  This often involves
+/// reading file metadata or the first block of the file (e.g. CSV / JSON). There is one
+/// inspect task per fragment.
+///
+/// Once the inspect is done we can issue scan tasks.  The number of scan tasks created
+/// will depend on the format and the file structure.  For example, CSV creates 1 scan
+/// task per file.  Parquet creates one scan task per row group.
+///
+/// The creation of scan tasks is a partially sequenced operation.  We can start
+/// inspecting fragments in parallel.  However, we cannot start scanning a fragment until
+/// we know how many batches will come before that fragment.  This allows us to assign a
+/// sequence number to scanned batches.
+///
+/// Each scan task is then broken up into a series of batch scans which scan a single
+/// batch from the disk.  For example, in parquet, we might have a very large row group.
+/// That single row group will have one scan task.  That scan task might generate hundreds
+/// of batch scans.  These batch tasks run serially, without parallelism.
+///
+/// Finally, when the batch scan is complete, we issue a pipeline task to drive the batch
+/// through the plan.
+///
+/// Most of these tasks are I/O tasks.  They take very few CPU resources and they run on
+/// the I/O thread pool.
+///
+/// In order to manage the disk load and our running memory requirements we limit the
+/// number of scan tasks that run at any one time.
 ///
 /// If a fragment has a guarantee we may use that expression to reduce the columns that
 /// we need to load from disk.  For example, if the guarantee is x==7 then we don't need
 /// to load the column x from disk and can instead populate x with the scalar 7.  If the
 /// fragment on disk actually had a column x, and the value was not 7, then we will prefer
 /// the guarantee in this invalid case.
-///
-/// Ths next step is to fetch the metadata for the fragment.  For some formats (e.g.
-/// CSV) this may be quite simple (get the size of the file).  For other formats (e.g.
-/// parquet) this is more involved and requires reading data.  There is one metadata
-/// io-task per fragment.  The metadata io-task creates an AsyncGenerator<RecordBatch>
-/// from the fragment.
-///
-/// Once the metadata io-task is done we can issue read io-tasks.  Each read io-task
-/// requests a single batch of data from the disk by pulling the next Future from the
-/// generator.
-///
-/// Finally, when the future is fulfilled, we issue a pipeline task to drive the batch
-/// through the pipeline.
-///
-/// Most of these tasks are io-tasks.  They take very few CPU resources and they run on
-/// the I/O thread pool.  These io-tasks are invisible to the exec plan and so we need
-/// to do some custom scheduling.  We limit how many fragments we read from at any one
-/// time. This is referred to as "fragment readahead".
-///
-/// Within a fragment there is usually also some amount of "row readahead".  This row
-/// readahead is handled by the fragment (and not the scanner) because the exact details
-/// of how it is performed depend on the underlying format.
 ///
 /// When a scan node is aborted (StopProducing) we send a cancel signal to any active
 /// fragments.  On destruction we continue consuming the fragments until they complete
@@ -125,7 +361,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
            std::shared_ptr<Schema> output_schema)
       : acero::ExecNode(plan, {}, {}, std::move(output_schema)),
         acero::TracedNode(this),
-        options_(options) {}
+        options_(std::move(options)) {}
 
   static Result<ScanV2Options> NormalizeAndValidate(const ScanV2Options& options,
                                                     compute::ExecContext* ctx) {
@@ -134,14 +370,9 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
       return Status::Invalid("Scan options must include a dataset");
     }
 
-    if (options.fragment_readahead < 0) {
+    if (options.scan_task_readahead < 0) {
       return Status::Invalid(
-          "Fragment readahead may not be less than 0.  Set to 0 to disable readahead");
-    }
-
-    if (options.target_bytes_readahead < 0) {
-      return Status::Invalid(
-          "Batch readahead may not be less than 0.  Set to 0 to disable readahead");
+          "Scan task readahead may not be less than 0.  Set to 0 to disable readahead");
     }
 
     if (!normalized.filter.is_valid()) {
@@ -199,51 +430,63 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
     Datum value;
   };
 
-  struct ScanState {
-    std::mutex mutex;
-    std::shared_ptr<FragmentScanner> fragment_scanner;
-    std::unique_ptr<FragmentEvolutionStrategy> fragment_evolution;
-    std::vector<KnownValue> known_values;
-    FragmentScanRequest scan_request;
-  };
+  // The staging area and the fragment scanner don't want to know any details about
+  // evolution Those details are encapsulated here.  The inspection task calculates
+  // exactly how to evolve outgoing batches and creates a template that is used by all
+  // scan tasks in the fragment
+  class ScanTaskLauncherImpl : public ScanTaskLauncher {
+   public:
+    ScanTaskLauncherImpl(ScanNode* node,
+                         std::unique_ptr<FragmentEvolutionStrategy> fragment_evolution,
+                         std::vector<KnownValue> known_values,
+                         FragmentScanRequest scan_request)
+        : node_(node),
+          fragment_evolution_(std::move(fragment_evolution)),
+          known_values_(std::move(known_values)),
+          scan_request_(std::move(scan_request)) {}
 
-  struct ScanBatchTask : public util::AsyncTaskScheduler::Task {
-    ScanBatchTask(ScanNode* node, ScanState* scan_state, int batch_index)
-        : node_(node), scan_(scan_state), batch_index_(batch_index) {
-      int64_t cost = scan_state->fragment_scanner->EstimatedDataBytes(batch_index_);
-      // It's possible, though probably a bad idea, for a single batch of a fragment
-      // to be larger than 2GiB.  In that case, it doesn't matter much if we
-      // underestimate because the largest the throttle can be is 2GiB and thus we will
-      // be in "one batch at a time" mode anyways which is the best we can do in this
-      // case.
-      cost_ = static_cast<int>(
-          std::min(cost, static_cast<int64_t>(std::numeric_limits<int>::max())));
-      name_ = "ScanNode::ScanBatch::" + ::arrow::internal::ToChars(batch_index_);
+    void LaunchTask(FragmentScanner* scanner, int scan_task_number, int first_batch_index,
+                    std::function<void(int num_batches)> task_complete_cb) override {
+      AsyncGenerator<std::shared_ptr<RecordBatch>> batch_gen =
+          scanner->RunScanTask(scan_task_number);
+      auto batch_count = std::make_shared<int>(0);
+      int* batch_count_view = batch_count.get();
+      node_->plan_->query_context()
+          ->async_scheduler()
+          ->AddAsyncGenerator<std::shared_ptr<RecordBatch>>(
+              std::move(batch_gen),
+              [this, batch_count_view](const std::shared_ptr<RecordBatch>& batch) {
+                (*batch_count_view)++;
+                return HandleBatch(batch);
+              },
+              "ScanNode::ScanBatch::Next",
+              [this, task_complete_cb = std::move(task_complete_cb),
+               batch_count = std::move(batch_count)]() {
+                node_->plan_->query_context()->ScheduleTask(
+                    [task_complete_cb, batch_count] {
+                      task_complete_cb(*batch_count);
+                      return Status::OK();
+                    },
+                    "ScanTaskWrapUp");
+                return Status::OK();
+              });
     }
 
-    Result<Future<>> operator()() override {
-      // Prevent concurrent calls to ScanBatch which might not be thread safe
-      std::lock_guard<std::mutex> lk(scan_->mutex);
-      return scan_->fragment_scanner->ScanBatch(batch_index_)
-          .Then([this](const std::shared_ptr<RecordBatch>& batch) {
-            return HandleBatch(batch);
-          });
-    }
+    const FragmentScanRequest& scan_request() const { return scan_request_; }
 
-    std::string_view name() const override { return name_; }
-
+   private:
     compute::ExecBatch AddKnownValues(compute::ExecBatch batch) {
-      if (scan_->known_values.empty()) {
+      if (known_values_.empty()) {
         return batch;
       }
       std::vector<Datum> with_known_values;
       int num_combined_cols =
-          static_cast<int>(batch.values.size() + scan_->known_values.size());
+          static_cast<int>(batch.values.size() + known_values_.size());
       with_known_values.reserve(num_combined_cols);
-      auto known_values_itr = scan_->known_values.cbegin();
+      auto known_values_itr = known_values_.cbegin();
       auto batch_itr = batch.values.begin();
       for (int i = 0; i < num_combined_cols; i++) {
-        if (known_values_itr != scan_->known_values.end() &&
+        if (known_values_itr != known_values_.end() &&
             static_cast<int>(known_values_itr->index) == i) {
           with_known_values.push_back(known_values_itr->value);
           known_values_itr++;
@@ -258,38 +501,38 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
     Status HandleBatch(const std::shared_ptr<RecordBatch>& batch) {
       ARROW_ASSIGN_OR_RAISE(
           compute::ExecBatch evolved_batch,
-          scan_->fragment_evolution->EvolveBatch(
-              batch, node_->options_.columns, *scan_->scan_request.fragment_selection));
+          fragment_evolution_->EvolveBatch(batch, node_->options_.columns,
+                                           *scan_request_.fragment_selection));
       compute::ExecBatch with_known_values = AddKnownValues(std::move(evolved_batch));
       node_->plan_->query_context()->ScheduleTask(
           [node = node_, output_batch = std::move(with_known_values)] {
+            node->batch_counter_++;
             return node->output_->InputReceived(node, output_batch);
           },
           "ScanNode::ProcessMorsel");
       return Status::OK();
     }
 
-    int cost() const override { return cost_; }
-
     ScanNode* node_;
-    ScanState* scan_;
-    int batch_index_;
-    int cost_;
-    std::string name_;
+    const std::unique_ptr<FragmentEvolutionStrategy> fragment_evolution_;
+    const std::vector<KnownValue> known_values_;
+    const FragmentScanRequest scan_request_;
   };
 
-  struct ListFragmentTask : util::AsyncTaskScheduler::Task {
-    ListFragmentTask(ScanNode* node, std::shared_ptr<Fragment> fragment)
-        : node(node), fragment(std::move(fragment)) {
-      name_ = "ScanNode::ListFragment::" + this->fragment->ToString();
+  struct InspectFragmentTask : util::AsyncTaskScheduler::Task {
+    InspectFragmentTask(ScanNode* node, std::shared_ptr<Fragment> fragment,
+                        int fragment_index)
+        : node_(node), fragment_(std::move(fragment)), fragment_index_(fragment_index) {
+      name_ = "ScanNode::InspectFragment::" + fragment_->ToString();
     }
 
     Result<Future<>> operator()() override {
-      return fragment
-          ->InspectFragment(node->options_.format_options,
-                            node->plan_->query_context()->exec_context())
+      return fragment_
+          ->InspectFragment(node_->options_.format_options,
+                            node_->plan_->query_context()->exec_context(),
+                            node_->options_.cache_fragment_inspection)
           .Then([this](const std::shared_ptr<InspectedFragment>& inspected_fragment) {
-            return BeginScan(inspected_fragment);
+            return OnInspectionComplete(inspected_fragment);
           });
     }
 
@@ -306,10 +549,10 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
         const compute::Expression& guarantee) {
       ARROW_ASSIGN_OR_RAISE(
           compute::KnownFieldValues part_values,
-          compute::ExtractKnownFieldValues(fragment->partition_expression()));
+          compute::ExtractKnownFieldValues(fragment_->partition_expression()));
       ExtractedKnownValues extracted;
-      for (std::size_t i = 0; i < node->options_.columns.size(); i++) {
-        const auto& field_path = node->options_.columns[i];
+      for (std::size_t i = 0; i < node_->options_.columns.size(); i++) {
+        const auto& field_path = node_->options_.columns[i];
         FieldRef field_ref(field_path);
         auto existing = part_values.map.find(FieldRef(field_path));
         if (existing == part_values.map.end()) {
@@ -317,7 +560,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
           extracted.remaining_columns.push_back(field_path);
         } else {
           ARROW_ASSIGN_OR_RAISE(const std::shared_ptr<Field>& field,
-                                field_path.Get(*node->options_.dataset->schema()));
+                                field_path.Get(*node_->options_.dataset->schema()));
           Result<Datum> maybe_casted = compute::Cast(existing->second, field->type());
           if (!maybe_casted.ok()) {
             // TODO(weston) In theory this should be preventable.  The dataset and
@@ -336,117 +579,106 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
       return std::move(extracted);
     }
 
-    Future<> BeginScan(const std::shared_ptr<InspectedFragment>& inspected_fragment) {
+    Future<> OnInspectionComplete(
+        const std::shared_ptr<InspectedFragment>& inspected_fragment) {
       // Based on the fragment's guarantee we may not need to retrieve all the columns
-      compute::Expression fragment_filter = node->options_.filter;
+      compute::Expression fragment_filter = node_->options_.filter;
       ARROW_ASSIGN_OR_RAISE(
           compute::Expression filter_minus_part,
           compute::SimplifyWithGuarantee(std::move(fragment_filter),
-                                         fragment->partition_expression()));
+                                         fragment_->partition_expression()));
 
       ARROW_ASSIGN_OR_RAISE(
           ExtractedKnownValues extracted,
-          ExtractKnownValuesFromGuarantee(fragment->partition_expression()));
+          ExtractKnownValuesFromGuarantee(fragment_->partition_expression()));
 
       // Now that we have an inspected fragment we need to use the dataset's evolution
       // strategy to figure out how to scan it
-      scan_state->fragment_evolution =
-          node->options_.dataset->evolution_strategy()->GetStrategy(
-              *node->options_.dataset, *fragment, *inspected_fragment);
-      ARROW_RETURN_NOT_OK(InitFragmentScanRequest(extracted.remaining_columns,
-                                                  filter_minus_part,
-                                                  std::move(extracted.known_values)));
-      return fragment
-          ->BeginScan(scan_state->scan_request, *inspected_fragment,
-                      node->options_.format_options,
-                      node->plan_->query_context()->exec_context())
-          .Then([this](const std::shared_ptr<FragmentScanner>& fragment_scanner) {
-            return AddScanTasks(fragment_scanner);
+      std::unique_ptr<FragmentEvolutionStrategy> fragment_evolution =
+          node_->options_.dataset->evolution_strategy()->GetStrategy(
+              *node_->options_.dataset, *fragment_, *inspected_fragment);
+      ARROW_ASSIGN_OR_RAISE(
+          std::unique_ptr<ScanTaskLauncherImpl> task_launcher,
+          CreateTaskLauncher(std::move(fragment_evolution), extracted.remaining_columns,
+                             filter_minus_part, std::move(extracted.known_values)));
+
+      return fragment_
+          ->BeginScan(task_launcher->scan_request(), inspected_fragment.get(),
+                      node_->plan_->query_context()->exec_context())
+          .Then([this, task_launcher = std::move(task_launcher)](
+                    const std::shared_ptr<FragmentScanner>& fragment_scanner) mutable {
+            node_->staging_area_->InsertInspectedFragment(
+                fragment_scanner, fragment_index_, std::move(task_launcher));
           });
-    }
-
-    Future<> AddScanTasks(const std::shared_ptr<FragmentScanner>& fragment_scanner) {
-      scan_state->fragment_scanner = fragment_scanner;
-      ScanState* state_view = scan_state.get();
-      Future<> list_and_scan_done = Future<>::Make();
-      // Finish callback keeps the scan state alive until all scan tasks done
-      struct StateHolder {
-        Status operator()() {
-          list_and_scan_done.MarkFinished();
-          return Status::OK();
-        }
-        Future<> list_and_scan_done;
-        std::unique_ptr<ScanState> scan_state;
-      };
-
-      std::unique_ptr<util::AsyncTaskGroup> scan_tasks = util::AsyncTaskGroup::Make(
-          node->batches_throttle_.get(),
-          StateHolder{list_and_scan_done, std::move(scan_state)});
-      for (int i = 0; i < fragment_scanner->NumBatches(); i++) {
-        node->num_batches_.fetch_add(1);
-        scan_tasks->AddTask(std::make_unique<ScanBatchTask>(node, state_view, i));
-      }
-      return Status::OK();
-      // The "list fragments" task doesn't actually end until the fragments are
-      // all scanned.  This allows us to enforce fragment readahead.
-      return list_and_scan_done;
     }
 
     // Take the dataset options, and the fragment evolution, and figure out exactly how
     // we should scan the fragment itself.
-    Status InitFragmentScanRequest(const std::vector<FieldPath>& desired_columns,
-                                   const compute::Expression& filter,
-                                   std::vector<KnownValue> known_values) {
-      ARROW_ASSIGN_OR_RAISE(
-          scan_state->scan_request.fragment_selection,
-          scan_state->fragment_evolution->DevolveSelection(desired_columns));
-      ARROW_ASSIGN_OR_RAISE(
-          compute::Expression devolution_guarantee,
-          scan_state->fragment_evolution->GetGuarantee(desired_columns));
+    Result<std::unique_ptr<ScanTaskLauncherImpl>> CreateTaskLauncher(
+        std::unique_ptr<FragmentEvolutionStrategy> fragment_evolution,
+        const std::vector<FieldPath>& desired_columns, const compute::Expression& filter,
+        std::vector<KnownValue> known_values) {
+      FragmentScanRequest scan_request;
+      ARROW_ASSIGN_OR_RAISE(scan_request.fragment_selection,
+                            fragment_evolution->DevolveSelection(desired_columns));
+      ARROW_ASSIGN_OR_RAISE(compute::Expression devolution_guarantee,
+                            fragment_evolution->GetGuarantee(desired_columns));
       ARROW_ASSIGN_OR_RAISE(compute::Expression simplified_filter,
                             compute::SimplifyWithGuarantee(filter, devolution_guarantee));
-      ARROW_ASSIGN_OR_RAISE(
-          scan_state->scan_request.filter,
-          scan_state->fragment_evolution->DevolveFilter(std::move(simplified_filter)));
-      scan_state->scan_request.format_scan_options = node->options_.format_options;
-      scan_state->known_values = std::move(known_values);
-      return Status::OK();
+      ARROW_ASSIGN_OR_RAISE(scan_request.filter, fragment_evolution->DevolveFilter(
+                                                     std::move(simplified_filter)));
+      scan_request.format_scan_options = node_->options_.format_options;
+      auto task_launcher = std::make_unique<ScanTaskLauncherImpl>(
+          node_, std::move(fragment_evolution), std::move(known_values),
+          std::move(scan_request));
+      return task_launcher;
     }
 
-    ScanNode* node;
-    std::shared_ptr<Fragment> fragment;
-    std::unique_ptr<ScanState> scan_state = std::make_unique<ScanState>();
+    ScanNode* node_;
+    std::shared_ptr<Fragment> fragment_;
+    int fragment_index_;
     std::string name_;
   };
 
-  void ScanFragments(const AsyncGenerator<std::shared_ptr<Fragment>>& frag_gen) {
-    std::shared_ptr<util::AsyncTaskScheduler> fragment_tasks =
-        util::MakeThrottledAsyncTaskGroup(
-            plan_->query_context()->async_scheduler(), options_.fragment_readahead + 1,
-            /*queue=*/nullptr,
-            [this]() { return output_->InputFinished(this, num_batches_.load()); });
-    fragment_tasks->AddAsyncGenerator<std::shared_ptr<Fragment>>(
-        std::move(frag_gen),
-        [this, fragment_tasks =
-                   std::move(fragment_tasks)](const std::shared_ptr<Fragment>& fragment) {
-          fragment_tasks->AddTask(std::make_unique<ListFragmentTask>(this, fragment));
-          return Status::OK();
-        },
-        "ScanNode::ListDataset::Next");
+  void InspectFragments(const AsyncGenerator<std::shared_ptr<Fragment>>& frag_gen) {
+    plan_->query_context()
+        ->async_scheduler()
+        ->AddAsyncGenerator<std::shared_ptr<Fragment>>(
+            std::move(frag_gen),
+            [this](const std::shared_ptr<Fragment>& fragment) {
+              inspection_throttle_->AddTask(std::make_unique<InspectFragmentTask>(
+                  this, fragment, fragment_index_++));
+              return Status::OK();
+            },
+            "ScanNode::ListDataset::Next",
+            [this] {
+              staging_area_->FinishedInsertingFragments(fragment_index_);
+              return Status::OK();
+            });
   }
 
   Status StartProducing() override {
     NoteStartProducing(ToStringExtra());
-    batches_throttle_ = util::ThrottledAsyncTaskScheduler::Make(
-        plan_->query_context()->async_scheduler(), options_.target_bytes_readahead + 1);
+    inspection_throttle_ = util::ThrottledAsyncTaskScheduler::Make(
+        plan_->query_context()->async_scheduler(), kNumConcurrentInspections);
+    auto completion = [this] {
+      plan_->query_context()->ScheduleTask(
+          [this] { return output_->InputFinished(this, batch_counter_.load()); },
+          "ScanNode::Finished");
+    };
+    // For ease of use we treat readahead=1 as "only scan one thing at a time"
+    int scan_task_readahead = std::max(options_.scan_task_readahead, 1);
+    staging_area_ = std::make_unique<ScanTaskStagingArea>(
+        kLimitQueuedScanTasks, scan_task_readahead, inspection_throttle_.get(),
+        std::move(completion));
     plan_->query_context()->async_scheduler()->AddSimpleTask(
         [this] {
           return GetFragments(options_.dataset.get(), options_.filter)
               .Then([this](const AsyncGenerator<std::shared_ptr<Fragment>>& frag_gen) {
-                ScanFragments(frag_gen);
+                InspectFragments(frag_gen);
               });
         },
-        "ScanNode::ListDataset::GetFragments"sv);
+        "ScanNode::StartListing"sv);
     return Status::OK();
   }
 
@@ -462,8 +694,10 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
 
  private:
   ScanV2Options options_;
-  std::atomic<int> num_batches_{0};
-  std::shared_ptr<util::ThrottledAsyncTaskScheduler> batches_throttle_;
+  std::shared_ptr<util::ThrottledAsyncTaskScheduler> inspection_throttle_;
+  std::unique_ptr<ScanTaskStagingArea> staging_area_;
+  int fragment_index_ = 0;
+  std::atomic<int32_t> batch_counter_{0};
 };
 
 }  // namespace
