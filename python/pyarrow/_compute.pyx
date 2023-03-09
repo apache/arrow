@@ -2440,6 +2440,19 @@ cdef class Expression(_Weakrefable):
         options = NullOptions(nan_is_null=nan_is_null)
         return Expression._call("is_null", [self], options)
 
+    def is_nan(self):
+        """
+        Check whether the expression is NaN.
+
+        This creates a new expression equivalent to calling the
+        `is_nan` compute function on this expression.
+
+        Returns
+        -------
+        is_nan : Expression
+        """
+        return Expression._call("is_nan", [self])
+
     def cast(self, type=None, safe=None, options=None):
         """
         Explicitly set or change the expression's data type.

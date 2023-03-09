@@ -1261,6 +1261,16 @@ cdef class Array(_PandasConvertible):
         options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
 
+    def is_nan(self):
+        """
+        Return BooleanArray indicating the NaN values.
+
+        Returns
+        -------
+        array : boolean Array
+        """
+        return _pc().call_function('is_nan', [self])
+
     def is_valid(self):
         """
         Return BooleanArray indicating the non-null values.

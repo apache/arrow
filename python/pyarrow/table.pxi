@@ -327,6 +327,30 @@ cdef class ChunkedArray(_PandasConvertible):
         options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
 
+    def is_nan(self):
+        """
+        Return boolean array indicating the NaN values.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> arr = pa.chunked_array([[2, np.nan, 4], [4, None, 100]])
+        >>> arr.is_nan()
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            false,
+            true,
+            false,
+            false,
+            null,
+            false
+          ]
+        ]
+        """
+        return _pc().is_nan(self)
+
     def is_valid(self):
         """
         Return boolean array indicating the non-null values.
