@@ -63,7 +63,8 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
   const std::vector<int64_t>& shape() const { return shape_; }
 
   /// Strides of tensor elements. Strides state offset in bytes between adjacent
-  /// elements along each dimension.
+  /// elements along each dimension. In case permutation is non-empty strides are
+  /// computed according to logical layout.
   const std::vector<int64_t>& strides();
 
   /// Permutation mapping from logical to physical memory layout of tensor elements
