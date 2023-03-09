@@ -3347,6 +3347,21 @@ extern "C" SEXP _arrow_fs___GcsFileSystem__Make(SEXP anonymous_sexp, SEXP option
 }
 #endif
 
+// filesystem.cpp
+#if defined(ARROW_R_WITH_GCS)
+cpp11::list fs___GcsFileSystem__options(const std::shared_ptr<fs::GcsFileSystem>& fs);
+extern "C" SEXP _arrow_fs___GcsFileSystem__options(SEXP fs_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<fs::GcsFileSystem>&>::type fs(fs_sexp);
+	return cpp11::as_sexp(fs___GcsFileSystem__options(fs));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_fs___GcsFileSystem__options(SEXP fs_sexp){
+	Rf_error("Cannot call fs___GcsFileSystem__options(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // io.cpp
 std::shared_ptr<arrow::Buffer> io___Readable__Read(const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes);
 extern "C" SEXP _arrow_io___Readable__Read(SEXP x_sexp, SEXP nbytes_sexp){
@@ -5643,6 +5658,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 17}, 
 		{ "_arrow_fs___S3FileSystem__region", (DL_FUNC) &_arrow_fs___S3FileSystem__region, 1}, 
 		{ "_arrow_fs___GcsFileSystem__Make", (DL_FUNC) &_arrow_fs___GcsFileSystem__Make, 2}, 
+		{ "_arrow_fs___GcsFileSystem__options", (DL_FUNC) &_arrow_fs___GcsFileSystem__options, 1}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
 		{ "_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1}, 
