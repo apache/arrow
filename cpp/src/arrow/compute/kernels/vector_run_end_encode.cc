@@ -40,29 +40,15 @@ struct ReadValueImpl<ArrowType, has_validity_buffer, enable_if_has_c_type<ArrowT
     if constexpr (has_validity_buffer) {
       valid = bit_util::GetBit(input_validity, read_offset);
     }
-    *out = (reinterpret_cast<const CType*>(input_values))[read_offset];
+    if constexpr (std::is_same_v<ArrowType, BooleanType>) {
+      *out =
+          bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), read_offset);
+    } else {
+      *out = (reinterpret_cast<const CType*>(input_values))[read_offset];
+    }
     return valid;
   }
 };
-
-// Boolean w/ validity_bitmap
-template <>
-bool ReadValueImpl<BooleanType, true>::ReadValue(const uint8_t* input_validity,
-                                                 const void* input_values, CType* out,
-                                                 int64_t read_offset) const {
-  const bool valid = bit_util::GetBit(input_validity, read_offset);
-  *out = bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), read_offset);
-  return valid;
-}
-
-// Boolean w/o validity_bitmap
-template <>
-bool ReadValueImpl<BooleanType, false>::ReadValue(const uint8_t* input_validity,
-                                                  const void* input_values, CType* out,
-                                                  int64_t read_offset) const {
-  *out = bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), read_offset);
-  return true;
-}
 
 template <typename ArrowType, bool has_validity_buffer, typename Enable = void>
 struct WriteValueImpl {};
@@ -75,9 +61,16 @@ struct WriteValueImpl<ArrowType, has_validity_buffer, enable_if_has_c_type<Arrow
   void WriteValue(uint8_t* output_validity, void* output_values, int64_t write_offset,
                   bool valid, CType value) const {
     if constexpr (has_validity_buffer) {
-      bit_util::SetBitsTo(output_validity, write_offset, 1, valid);
+      bit_util::SetBitTo(output_validity, write_offset, valid);
     }
-    (reinterpret_cast<CType*>(output_values))[write_offset] = value;
+    if (valid) {
+      if constexpr (std::is_same_v<ArrowType, BooleanType>) {
+        bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), write_offset,
+                           value);
+      } else {
+        (reinterpret_cast<CType*>(output_values))[write_offset] = value;
+      }
+    }
   }
 
   void WriteRun(uint8_t* output_validity, void* output_values, int64_t write_offset,
@@ -85,52 +78,18 @@ struct WriteValueImpl<ArrowType, has_validity_buffer, enable_if_has_c_type<Arrow
     if constexpr (has_validity_buffer) {
       bit_util::SetBitsTo(output_validity, write_offset, run_length, valid);
     }
-    auto* output_values_c = reinterpret_cast<CType*>(output_values);
-    std::fill(output_values_c + write_offset, output_values_c + write_offset + run_length,
-              value);
+    if (valid) {
+      if constexpr (std::is_same_v<ArrowType, BooleanType>) {
+        bit_util::SetBitsTo(reinterpret_cast<uint8_t*>(output_values), write_offset,
+                            run_length, value);
+      } else {
+        auto* output_values_c = reinterpret_cast<CType*>(output_values);
+        std::fill(output_values_c + write_offset,
+                  output_values_c + write_offset + run_length, value);
+      }
+    }
   }
 };
-
-// Boolean w/ validity_bitmap
-template <>
-void WriteValueImpl<BooleanType, true>::WriteValue(uint8_t* output_validity,
-                                                   void* output_values,
-                                                   int64_t write_offset, bool valid,
-                                                   CType value) const {
-  bit_util::SetBitTo(output_validity, write_offset, valid);
-  if (valid) {
-    bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), write_offset, value);
-  }
-}
-
-template <>
-void WriteValueImpl<BooleanType, true>::WriteRun(uint8_t* output_validity,
-                                                 void* output_values,
-                                                 int64_t write_offset, int64_t run_length,
-                                                 bool valid, CType value) const {
-  bit_util::SetBitsTo(output_validity, write_offset, run_length, valid);
-  if (valid) {
-    bit_util::SetBitsTo(reinterpret_cast<uint8_t*>(output_values), write_offset,
-                        run_length, value);
-  }
-}
-
-// Boolean w/o validity_bitmap
-template <>
-void WriteValueImpl<BooleanType, false>::WriteValue(uint8_t*, void* output_values,
-                                                    int64_t write_offset, bool,
-                                                    CType value) const {
-  bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), write_offset, value);
-}
-
-template <>
-void WriteValueImpl<BooleanType, false>::WriteRun(uint8_t*, void* output_values,
-                                                  int64_t write_offset,
-                                                  int64_t run_length, bool,
-                                                  CType value) const {
-  bit_util::SetBitsTo(reinterpret_cast<uint8_t*>(output_values), write_offset, run_length,
-                      value);
-}
 
 struct RunEndEncondingState : public KernelState {
   explicit RunEndEncondingState(std::shared_ptr<DataType> run_end_type)
