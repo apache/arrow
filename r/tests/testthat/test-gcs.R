@@ -98,6 +98,8 @@ test_that("GcsFileSystem$create() can read json_credentials", {
 
   # From disk
   cred_path <- tempfile()
+  on.exit(unlink(cred_path))
+
   writeLines("fromdisk", cred_path)
   fs <- GcsFileSystem$create(json_credentials = cred_path)
   expect_equal(fs$options$json_credentials, "fromdisk")
