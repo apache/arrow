@@ -641,15 +641,9 @@ PyArrow are:
    * - ``PYARROW_CMAKE_OPTIONS``
      - Extra CMake and Arrow options (ex. ``"-DARROW_SIMD_LEVEL=NONE -DCMAKE_OSX_ARCHITECTURES=x86_64;arm64"``)
      - ``''``
-   * - ``PYARROW_BOOST_NAMESPACE``
-     - Name of install folder for Boost (if different from 'boost')
-     - ``''``
    * - ``PYARROW_CXXFLAGS``
      - Extra C++ compiler flags
      - ``''``
-   * - ``PYARROW_WITH_STATIC_BOOST``
-     - Rely on Boost shared libraries on linking static parquet
-     - ``0`` (``OFF``)
    * - ``PYARROW_GENERATE_COVERAGE``
      - Setting ``Xlinetrace`` flag to true for the Cython compiler
      - ``false``

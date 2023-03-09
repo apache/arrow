@@ -118,8 +118,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_PARQUET "Build the PyArrow Parquet integration" OFF)
   option(PYARROW_BUILD_PARQUET_ENCRYPTION
          "Build the PyArrow Parquet encryption integration" OFF)
-  option(PYARROW_BOOST_USE_SHARED
-         "Rely on Boost shared libraries on linking static parquet" ON)
   option(PYARROW_BUILD_PLASMA "Build the PyArrow Plasma integration" OFF)
   option(PYARROW_USE_TENSORFLOW "Build PyArrow with TensorFlow support" OFF)
   option(PYARROW_BUILD_ORC "Build the PyArrow ORC integration" OFF)
