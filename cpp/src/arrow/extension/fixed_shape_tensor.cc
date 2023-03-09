@@ -48,12 +48,12 @@ bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
     return true;
   };
   const bool permutation_equivalent =
-      (permutation_ == other_ext.permutation()) ||
-      ((permutation_.empty() && is_permutation_trivial(other_ext.permutation())) &&
-       (is_permutation_trivial(permutation_) || other_ext.permutation().empty()));
+      ((permutation_ == other_ext.permutation()) ||
+       (permutation_.empty() && is_permutation_trivial(other_ext.permutation())) ||
+       (is_permutation_trivial(permutation_) && other_ext.permutation().empty()));
 
-  return storage_type()->Equals(other_ext.storage_type()) &&
-         shape_ == other_ext.shape() && dim_names_ == other_ext.dim_names() &&
+  return (storage_type()->Equals(other_ext.storage_type())) &&
+         (shape_ == other_ext.shape()) && (dim_names_ == other_ext.dim_names()) &&
          permutation_equivalent;
 }
 

@@ -118,6 +118,26 @@ TEST_F(TestExtensionType, CreateExtensionType) {
       FixedShapeTensorType::Make(value_type_, cell_shape_, {}, {"x"}));
 }
 
+TEST_F(TestExtensionType, EqualsCases) {
+  auto ext_type_permutation_1 = fixed_shape_tensor(int64(), {3, 4}, {0, 1}, {"x", "y"});
+  auto ext_type_permutation_2 = fixed_shape_tensor(int64(), {3, 4}, {1, 0}, {"x", "y"});
+  auto ext_type_no_permutation = fixed_shape_tensor(int64(), {3, 4}, {}, {"x", "y"});
+
+  ASSERT_TRUE(ext_type_permutation_1->Equals(ext_type_permutation_1));
+
+  ASSERT_FALSE(fixed_shape_tensor(int32(), {3, 4}, {}, {"x", "y"})
+                   ->Equals(ext_type_no_permutation));
+  ASSERT_FALSE(fixed_shape_tensor(int64(), {2, 4}, {}, {"x", "y"})
+                   ->Equals(ext_type_no_permutation));
+  ASSERT_FALSE(fixed_shape_tensor(int64(), {3, 4}, {}, {"H", "W"})
+                   ->Equals(ext_type_no_permutation));
+
+  ASSERT_TRUE(ext_type_no_permutation->Equals(ext_type_permutation_1));
+  ASSERT_TRUE(ext_type_permutation_1->Equals(ext_type_no_permutation));
+  ASSERT_FALSE(ext_type_permutation_1->Equals(ext_type_permutation_2));
+  ASSERT_FALSE(ext_type_permutation_2->Equals(ext_type_permutation_1));
+}
+
 TEST_F(TestExtensionType, CreateFromArray) {
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
 
