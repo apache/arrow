@@ -242,17 +242,10 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 			return nil, fmt.Errorf("getting ticket failed: %w", err)
 		}
 
+		rows.schema = reader.Schema()
 		for reader.Next() {
 			record := reader.Record()
 			record.Retain()
-
-			// Check the schemata
-			if rows.schema == nil {
-				rows.schema = record.Schema()
-			}
-			if !rows.schema.Equal(record.Schema()) {
-				return nil, fmt.Errorf("mixed schemas %w", ErrNotSupported)
-			}
 			rows.records = append(rows.records, record)
 
 		}
