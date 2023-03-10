@@ -329,22 +329,16 @@ func (t *Tx) Rollback() error {
 	return t.tx.Rollback(ctx)
 }
 
-type Driver struct {
-	addr    string
-	timeout time.Duration
-	options []grpc.DialOption
-
-	client *Client
-	txn    *Txn
-}
+type Driver struct{}
 
 // Open returns a new connection to the database.
 func (d *Driver) Open(name string) (driver.Conn, error) {
-	if _, err := d.OpenConnector(name); err != nil {
+	c, err := d.OpenConnector(name)
+	if err != nil {
 		return nil, err
 	}
 
-	return d.Connect(context.Background())
+	return c.Connect(context.Background())
 }
 
 // OpenConnector must parse the name in the same format that Driver.Open
@@ -355,36 +349,26 @@ func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
 		return nil, err
 	}
 
-	if err := d.Configure(config); err != nil {
+	c := &Connector{}
+	if err := c.Configure(config); err != nil {
 		return nil, err
 	}
 
-	return d, nil
+	return c, nil
 }
 
-// Connect returns a connection to the database.
-func (d *Driver) Connect(ctx context.Context) (driver.Conn, error) {
-	if _, set := ctx.Deadline(); !set && d.timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, d.timeout)
-		defer cancel()
-	}
-
-	client, err := NewClientCtx(ctx, d.addr, nil, nil, d.options...)
-	if err != nil {
-		return nil, err
-	}
-	d.client = client
-
-	return d, nil
+type Connector struct {
+	addr    string
+	timeout time.Duration
+	options []grpc.DialOption
 }
 
 // Configure the driver with the corresponding config
-func (d *Driver) Configure(config *DriverConfig) error {
+func (c *Connector) Configure(config *DriverConfig) error {
 	// Set the driver properties
-	d.addr = config.Address
-	d.timeout = config.Timeout
-	d.options = []grpc.DialOption{grpc.WithBlock()}
+	c.addr = config.Address
+	c.timeout = config.Timeout
+	c.options = []grpc.DialOption{grpc.WithBlock()}
 
 	// Create GRPC options necessary for the backend
 	var transportCreds credentials.TransportCredentials
@@ -393,7 +377,7 @@ func (d *Driver) Configure(config *DriverConfig) error {
 	} else {
 		transportCreds = credentials.NewTLS(config.TLSConfig)
 	}
-	d.options = append(d.options, grpc.WithTransportCredentials(transportCreds))
+	c.options = append(c.options, grpc.WithTransportCredentials(transportCreds))
 
 	// Set authentication credentials
 	rpcCreds := grpcCredentials{
@@ -402,40 +386,66 @@ func (d *Driver) Configure(config *DriverConfig) error {
 		token:    config.Token,
 		params:   config.Params,
 	}
-	d.options = append(d.options, grpc.WithPerRPCCredentials(rpcCreds))
+	c.options = append(c.options, grpc.WithPerRPCCredentials(rpcCreds))
 
 	return nil
+}
+
+// Connect returns a connection to the database.
+func (c *Connector) Connect(ctx context.Context) (driver.Conn, error) {
+	if _, set := ctx.Deadline(); !set && c.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
+		defer cancel()
+	}
+
+	client, err := NewClientCtx(ctx, c.addr, nil, nil, c.options...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Connection{
+		client:  client,
+		timeout: c.timeout,
+	}, nil
 }
 
 // Driver returns the underlying Driver of the Connector,
 // mainly to maintain compatibility with the Driver method
 // on sql.DB.
-func (d *Driver) Driver() driver.Driver {
-	return d
+func (c *Connector) Driver() driver.Driver {
+	return &Driver{}
+}
+
+type Connection struct {
+	client *Client
+	txn    *Txn
+
+	timeout time.Duration
 }
 
 // Prepare returns a prepared statement, bound to this connection.
-func (d *Driver) Prepare(query string) (driver.Stmt, error) {
-	return d.PrepareContext(context.Background(), query)
+func (c *Connection) Prepare(query string) (driver.Stmt, error) {
+	return c.PrepareContext(context.Background(), query)
 }
 
 // PrepareContext returns a prepared statement, bound to this connection.
 // context is for the preparation of the statement,
 // it must not store the context within the statement itself.
-func (d *Driver) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	if _, set := ctx.Deadline(); !set && d.timeout > 0 {
+func (c *Connection) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+	if _, set := ctx.Deadline(); !set && c.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, d.timeout)
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
 		defer cancel()
 	}
 
 	var err error
 	var stmt *PreparedStatement
-	if d.txn != nil && d.txn.txn.IsValid() {
-		stmt, err = d.txn.Prepare(ctx, query)
+	if c.txn != nil && c.txn.txn.IsValid() {
+		stmt, err = c.txn.Prepare(ctx, query)
 	} else {
-		stmt, err = d.client.Prepare(ctx, query)
-		d.txn = nil
+		stmt, err = c.client.Prepare(ctx, query)
+		c.txn = nil
 	}
 	if err != nil {
 		return nil, err
@@ -443,46 +453,42 @@ func (d *Driver) PrepareContext(ctx context.Context, query string) (driver.Stmt,
 
 	return &Stmt{
 		stmt:    stmt,
-		client:  d.client,
-		timeout: d.timeout,
+		client:  c.client,
+		timeout: c.timeout,
 	}, nil
 }
 
 // Close invalidates and potentially stops any current
 // prepared statements and transactions, marking this
 // connection as no longer in use.
-func (d *Driver) Close() error {
-	d.addr = ""
-	d.options = nil
-	if d.client == nil {
-		return nil
-	}
-
-	if d.txn != nil && d.txn.txn.IsValid() {
+func (c *Connection) Close() error {
+	if c.txn != nil && c.txn.txn.IsValid() {
 		return ErrTransactionInProgress
 	}
 
-	// Drivers must ensure all network calls made by Close
-	// do not block indefinitely (e.g. apply a timeout).
-	err := d.client.Close()
-	d.client = nil
+	if c.client == nil {
+		return nil
+	}
+
+	err := c.client.Close()
+	c.client = nil
 
 	return err
 }
 
 // Begin starts and returns a new transaction.
-func (d *Driver) Begin() (driver.Tx, error) {
-	return d.BeginTx(context.Background(), sql.TxOptions{})
+func (c *Connection) Begin() (driver.Tx, error) {
+	return c.BeginTx(context.Background(), sql.TxOptions{})
 }
 
-func (d *Driver) BeginTx(ctx context.Context, opts sql.TxOptions) (driver.Tx, error) {
-	tx, err := d.client.BeginTransaction(ctx)
+func (c *Connection) BeginTx(ctx context.Context, opts sql.TxOptions) (driver.Tx, error) {
+	tx, err := c.client.BeginTransaction(ctx)
 	if err != nil {
 		return nil, err
 	}
-	d.txn = tx
+	c.txn = tx
 
-	return &Tx{tx: tx, timeout: d.timeout}, nil
+	return &Tx{tx: tx, timeout: c.timeout}, nil
 }
 
 // *** Internal functions and structures ***
