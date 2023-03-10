@@ -91,6 +91,17 @@ struct WriteValueImpl<ArrowType, has_validity_buffer, enable_if_has_c_type<Arrow
   }
 };
 
+Result<std::shared_ptr<Buffer>> AllocatePrimitiveBuffer(int64_t length,
+                                                        const DataType& type,
+                                                        MemoryPool* pool) {
+  DCHECK(is_primitive(type.id()));
+  if (type.bit_width() == 1) {
+    return AllocateBitmap(length, pool);
+  } else {
+    return AllocateBuffer(length * type.byte_width(), pool);
+  }
+}
+
 struct RunEndEncondingState : public KernelState {
   explicit RunEndEncondingState(std::shared_ptr<DataType> run_end_type)
       : run_end_type{std::move(run_end_type)} {}
@@ -249,21 +260,18 @@ class RunEndEncodeImpl {
 
     // Allocate the output array data
     std::shared_ptr<ArrayData> output_array_data;
-    int64_t validity_buffer_size = 0;  // in bytes
     {
       ARROW_ASSIGN_OR_RAISE(auto run_ends_buffer,
                             AllocateBuffer(num_output_runs * RunEndType().byte_width(),
                                            ctx_->memory_pool()));
       std::shared_ptr<Buffer> validity_buffer = NULLPTR;
       if constexpr (has_validity_buffer) {
-        validity_buffer_size = bit_util::BytesForBits(num_output_runs);
         ARROW_ASSIGN_OR_RAISE(validity_buffer,
-                              AllocateBuffer(validity_buffer_size, ctx_->memory_pool()));
+                              AllocateBitmap(num_output_runs, ctx_->memory_pool()));
       }
-      ARROW_ASSIGN_OR_RAISE(auto values_buffer,
-                            AllocateBuffer(bit_util::BytesForBits(
-                                               num_output_runs * ValueType().bit_width()),
-                                           ctx_->memory_pool()));
+      ARROW_ASSIGN_OR_RAISE(
+          auto values_buffer,
+          AllocatePrimitiveBuffer(num_output_runs, ValueType(), ctx_->memory_pool()));
 
       auto ree_type = std::make_shared<RunEndEncodedType>(
           std::make_shared<RunEndType>(), input_array_.type->GetSharedPtr());
@@ -289,11 +297,6 @@ class RunEndEncodeImpl {
           output_array_data->child_data[1]->template GetMutableValues<uint8_t>(0);
       auto* output_values =
           output_array_data->child_data[1]->template GetMutableValues<uint8_t>(1);
-
-      if constexpr (has_validity_buffer) {
-        // Clear last byte in validity buffer to ensure padding bits are zeroed
-        output_validity[validity_buffer_size - 1] = 0;
-      }
 
       // Second pass: write the runs
       RunEndEncodingLoop<RunEndType, ValueType, has_validity_buffer> writing_loop(
@@ -486,17 +489,11 @@ class RunEndDecodeImpl {
     const int64_t length = input_array_.length;
     std::shared_ptr<Buffer> validity_buffer = NULLPTR;
     if constexpr (has_validity_buffer) {
-      // in bytes
-      int64_t validity_buffer_size = 0;
-      validity_buffer_size = bit_util::BytesForBits(length);
-      ARROW_ASSIGN_OR_RAISE(validity_buffer,
-                            AllocateBuffer(validity_buffer_size, ctx_->memory_pool()));
+      ARROW_ASSIGN_OR_RAISE(validity_buffer, AllocateBitmap(length, ctx_->memory_pool()));
     }
     ARROW_ASSIGN_OR_RAISE(
         auto values_buffer,
-        AllocateBuffer(
-            bit_util::BytesForBits(length * ree_type->value_type()->bit_width()),
-            ctx_->memory_pool()));
+        AllocatePrimitiveBuffer(length, *ree_type->value_type(), ctx_->memory_pool()));
 
     auto output_array_data =
         ArrayData::Make(ree_type->value_type(), length,
