@@ -47,13 +47,9 @@ type RunEndsType interface {
 }
 
 func readFixedWidthVal[V exec.FixedWidthTypes](inputValidity, inputValues []byte, offset int64, out *V) bool {
-	if bitutil.BitIsNotSet(inputValidity, int(offset)) {
-		return false
-	}
-
 	sz := int64(unsafe.Sizeof(*out))
 	*out = *(*V)(unsafe.Pointer(&inputValues[offset*sz]))
-	return true
+	return bitutil.BitIsSet(inputValidity, int(offset))
 }
 
 func writeFixedWidthVal[V exec.FixedWidthTypes](result *exec.ExecResult, offset int64, valid bool, value V) {
@@ -66,12 +62,8 @@ func writeFixedWidthVal[V exec.FixedWidthTypes](result *exec.ExecResult, offset 
 }
 
 func readBoolVal(inputValidity, inputValues []byte, offset int64, out *bool) bool {
-	if bitutil.BitIsNotSet(inputValidity, int(offset)) {
-		return false
-	}
-
 	*out = bitutil.BitIsSet(inputValues, int(offset))
-	return true
+	return bitutil.BitIsSet(inputValidity, int(offset))
 }
 
 func writeBoolVal(result *exec.ExecResult, offset int64, valid bool, value bool) {
