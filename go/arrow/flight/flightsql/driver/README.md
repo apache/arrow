@@ -10,10 +10,6 @@ connection pooling, transactions combined with ease of use (see (#usage)).
 * [Prerequisits](#prerequisits)
 * [Usage](#usage)
 * [Data Source Name (DSN)](#data-source-name-dsn)
-* [Common parameters](#common-parameters)
-* [Backend specific settings](#backend-specific-settings)
-  * [SQLite](#sqlite)
-  * [InfluxData IOx](#influxdata-iox)
 * [Driver config usage](#driver-config-usage)
 * [TLS setup](#tls-setup)
 
@@ -33,8 +29,6 @@ _Go FlightQL Driver_ is an implementation of Go's `database/sql/driver`
 interface to use the [`database/sql`](https://golang.org/pkg/database/sql/)
 framework. The driver is registered as `flightsql` and configured using a
 [data-source name (DSN)](#data-source-name-dsn).
-Different backends might require specific parameters, check the
-[Backends section](#backend-specific-settings) for known requirements.
 
 A basic example using a SQLite backend looks like this
 
@@ -47,7 +41,7 @@ import (
 )
 
 // Open the connection to an SQLite backend
-db, err := sql.Open("flightsql", "flightsql://127.0.0.1:12345?timeout=5s")
+db, err := sql.Open("flightsql", "flightsql://localhost:12345?timeout=5s")
 if err != nil {
     panic(err)
 }
@@ -99,32 +93,6 @@ to limit the maximum time an operation can take. This prevents calls that wait
 forever, e.g. if the backend is down or a query is taking very long. When
 not set, the driver will use an _infinite_ timeout.
 
-## Backend specific settings
-
-This section describes the backend-specific part of the DSN. Some parts
-might overlap between backends but might carry different meanings. Please
-always check the documentation of the backend you are planning to use.
-
-### SQLite
-
-[SQLite] only requires the specification of the address (and port). No
-additional parameters are required. However, it is recommended to specify a
-`timeout`.
-
-[SQLite]: https://www.sqlite.org/
-
-### InfluxData IOx
-
-[InfluxDB IOx][IOx] requires a `token` and a namespace to be specified as DSN
-parameters.
-
-* `token`: your Influx access token
-* `iox-namespace-name`: IOX namespace to access
-
-It is recommended to additionally specify a `timeout`.
-
-[IOx]: https://github.com/influxdata/influxdb_iox
-
 ## Driver config usage
 
 Alternatively to specifying the DSN directly you can fill the `DriverConfig`
@@ -144,11 +112,11 @@ import (
 
 func main() {
     config := flightsql.DriverConfig{
-        Address: "localhost:8082",
+        Address: "localhost:12345",
         Token:   "your token",
         Timeout: 10 * time.Second,
         Params: map[string]string{
-            "iox-namespace-name": "company_sensors",
+            "my-custom-parameter": "foobar",
         },
     }
     db, err := sql.Open("flightsql", config.DSN())
