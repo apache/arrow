@@ -143,5 +143,5 @@ Fixed shape tensor
   to be used as a message in the interprocess communication machinery (IPC).
 
   This structure has no relationship with the Fixed shape tensor extension type defined
-  by this specification. With defining an extension type one can use fixed shape tensors
+  by this specification. Instead, this extension type lets one use fixed shape tensors
   as elements in a field of a RecordBatch or a Table.
