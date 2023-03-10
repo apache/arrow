@@ -16,6 +16,8 @@
 
 package array
 
+// ExtensionBuilderWrapper is an interface that you need to implement in your custom extension type if you want to provide a customer builder as well.
+// See example in ./arrow/internal/testing/types/extension_types.go
 type ExtensionBuilderWrapper interface {
 	NewBuilder(bldr *ExtensionBuilder) Builder
 }

@@ -47,10 +47,6 @@ func (b *UUIDBuilder) Append(v uuid.UUID) {
 	b.ExtensionBuilder.Builder.(*array.FixedSizeBinaryBuilder).Append(v[:])
 }
 
-func (b *UUIDBuilder) UnsafeAppend(v uuid.UUID) {
-	b.ExtensionBuilder.Builder.(*array.FixedSizeBinaryBuilder).UnsafeAppend(v[:])
-}
-
 func (b *UUIDBuilder) AppendValues(v []uuid.UUID, valid []bool) {
 	data := make([][]byte, len(v))
 	for i, v := range v {
@@ -69,12 +65,6 @@ func (b *UUIDBuilder) UnmarshalOne(dec *json.Decoder) error {
 	switch v := t.(type) {
 	case string:
 		data, err := uuid.Parse(v)
-		if err != nil {
-			return err
-		}
-		val = data
-	case []byte:
-		data, err := uuid.ParseBytes(v)
 		if err != nil {
 			return err
 		}

@@ -33,16 +33,21 @@ import (
 var testUUID = uuid.New()
 
 func TestExtensionBuilder(t *testing.T) {
-	extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, types.NewUUIDType())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+	extBuilder := array.NewExtensionBuilder(mem, types.NewUUIDType())
+	defer extBuilder.Release()
 	builder := types.NewUUIDBuilder(extBuilder)
 	builder.Append(testUUID)
 	arr := builder.NewArray()
+	defer arr.Release()
 	arrStr := arr.String()
 	assert.Equal(t, "[\""+testUUID.String()+"\"]", arrStr)
 	jsonStr, err := json.Marshal(arr)
 	assert.NoError(t, err)
 
-	arr1, _, err := array.FromJSON(memory.DefaultAllocator, types.NewUUIDType(), bytes.NewReader(jsonStr))
+	arr1, _, err := array.FromJSON(mem, types.NewUUIDType(), bytes.NewReader(jsonStr))
+	defer arr1.Release()
 	assert.NoError(t, err)
 	assert.Equal(t, arr, arr1)
 }
