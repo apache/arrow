@@ -242,14 +242,8 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 			return nil, fmt.Errorf("getting ticket failed: %w", err)
 		}
 
-		for {
-			record, err := reader.Read()
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				return nil, fmt.Errorf("reading record failed: %w", err)
-			}
+		for reader.Next() {
+			record := reader.Record()
 			record.Retain()
 
 			// Check the schemata
@@ -261,7 +255,6 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 			}
 			rows.records = append(rows.records, record)
 
-			reader.Next()
 		}
 		if err := reader.Err(); err != nil {
 			return &rows, err
