@@ -231,6 +231,8 @@ func (re *runEndEncodeFSB[R]) PreallocOutput(ctx *exec.KernelCtx, numOutput int6
 
 	valueBuffer := ctx.Allocate(re.width * int(numOutput))
 	reeType := arrow.RunEndEncodedOf(exec.GetDataType[R](), re.valueType)
+	out.Release()
+
 	*out = exec.ExecResult{
 		Type:   reeType,
 		Len:    re.inputLen,
