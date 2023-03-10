@@ -26,7 +26,7 @@ require (
 	github.com/goccy/go-json v0.9.11
 	github.com/golang/snappy v0.0.4
 	github.com/google/flatbuffers v2.0.8+incompatible
-	github.com/google/go-cmp v0.5.9
+	github.com/google/uuid v1.3.0
 	github.com/klauspost/asmfmt v1.3.2
 	github.com/klauspost/compress v1.15.9
 	github.com/klauspost/cpuid/v2 v2.0.9
@@ -50,7 +50,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
