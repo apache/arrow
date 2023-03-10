@@ -263,25 +263,24 @@ func (s *Stmt) setParameters(args []driver.NamedValue) error {
 		return nil
 	}
 
-	var fields []arrow.Field
 	sort.SliceStable(args, func(i, j int) bool {
 		return args[i].Ordinal < args[j].Ordinal
 	})
 
-	for _, arg := range args {
-		dt, err := toArrowDataType(arg.Value)
-		if err != nil {
-			return fmt.Errorf("schema: %w", err)
-		}
-		fields = append(fields, arrow.Field{
-			Name:     arg.Name,
-			Type:     dt,
-			Nullable: true,
-		})
-	}
-
 	schema := s.stmt.ParameterSchema()
 	if schema == nil {
+		var fields []arrow.Field
+		for _, arg := range args {
+			dt, err := toArrowDataType(arg.Value)
+			if err != nil {
+				return fmt.Errorf("schema: %w", err)
+			}
+			fields = append(fields, arrow.Field{
+				Name:     arg.Name,
+				Type:     dt,
+				Nullable: true,
+			})
+		}
 		schema = arrow.NewSchema(fields, nil)
 	}
 
