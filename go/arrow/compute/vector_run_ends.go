@@ -65,8 +65,8 @@ func RunEndEncode(ctx context.Context, opts RunEndEncodeOptions, arg Datum) (Dat
 	return CallFunction(ctx, "run_end_encode", &opts, arg)
 }
 
-func RunEndEncodeArray(ctx context.Context, opts RunEndEncodeOptions, values arrow.Array) (arrow.Array, error) {
-	out, err := RunEndEncode(ctx, opts, &ArrayDatum{Value: values.Data()})
+func RunEndEncodeArray(ctx context.Context, opts RunEndEncodeOptions, input arrow.Array) (arrow.Array, error) {
+	out, err := RunEndEncode(ctx, opts, &ArrayDatum{Value: input.Data()})
 	if err != nil {
 		return nil, err
 	}
@@ -79,8 +79,8 @@ func RunEndDecode(ctx context.Context, arg Datum) (Datum, error) {
 	return CallFunction(ctx, "run_end_decode", nil, arg)
 }
 
-func RunEndDecodeArray(ctx context.Context, values arrow.Array) (arrow.Array, error) {
-	out, err := RunEndDecode(ctx, &ArrayDatum{Value: values.Data()})
+func RunEndDecodeArray(ctx context.Context, input arrow.Array) (arrow.Array, error) {
+	out, err := RunEndDecode(ctx, &ArrayDatum{Value: input.Data()})
 	if err != nil {
 		return nil, err
 	}
