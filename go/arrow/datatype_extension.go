@@ -122,7 +122,7 @@ type ExtensionType interface {
 	// If the storage type is incorrect or something else is invalid with the data this should
 	// return nil and an appropriate error.
 	Deserialize(storageType DataType, data string) (ExtensionType, error)
-	
+
 	mustEmbedExtensionBase()
 }
 
