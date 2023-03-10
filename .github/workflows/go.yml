@@ -123,7 +123,7 @@ jobs:
           python3 ci/scripts/go_bench_adapt.py
 
   docker_cgo:
-    name: AMD64 Debian 11 GO ${{ matrix.go }} - CGO
+    name: AMD64 Debian 11 Go ${{ matrix.go }} - CGO
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
@@ -166,7 +166,7 @@ jobs:
 
 
   docker_cgo_python:
-    name: AMD64 Debian 11 GO ${{ matrix.go }} - CGO Python
+    name: AMD64 Debian 11 Go ${{ matrix.go }} - CGO Python
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
