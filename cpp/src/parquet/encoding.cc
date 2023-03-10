@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -2842,6 +2843,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 // RLE_BOOLEAN_ENCODER
 
 class RleBooleanEncoder final : public EncoderImpl, virtual public BooleanEncoder {
+ public:
   explicit RleBooleanEncoder(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
       : EncoderImpl(descr, Encoding::RLE, pool) {}
 
@@ -2895,8 +2897,11 @@ class RleBooleanEncoder final : public EncoderImpl, virtual public BooleanEncode
   void PutImpl(const SequenceType& src, int num_values);
 
   int MaxRleBufferSize() const noexcept {
-    return ::arrow::util::RleEncoder::MaxBufferSize(
-        /*bit_width*/ kBitWidth, static_cast<int>(buffered_append_values_.size()));
+    // TODO(mwish): Encapsulate these rules.
+    return 1 + ::arrow::util::RleEncoder::MaxBufferSize(
+                   kBitWidth,
+                   static_cast<int>(static_cast<int>(buffered_append_values_.size()))) +
+                       ::arrow::util::RleEncoder::MinBufferSize(kBitWidth);
   }
 
   constexpr static int32_t kBitWidth = 1;
@@ -3373,6 +3378,13 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
         return std::make_unique<DeltaLengthByteArrayEncoder<ByteArrayType>>(descr, pool);
       default:
         throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
+    }
+  } else if (encoding == Encoding::RLE) {
+    switch (type_num) {
+      case Type::BOOLEAN:
+        return std::make_unique<RleBooleanEncoder>(descr, pool);
+      default:
+        throw ParquetException("RLE only supports BOOL within data page");
     }
   } else {
     ParquetException::NYI("Selected encoding is not supported");
