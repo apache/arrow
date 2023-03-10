@@ -17,7 +17,7 @@
 //go:build go1.18
 // +build go1.18
 
-package flightsql_test
+package driver_test
 
 import (
 	"database/sql"
@@ -33,6 +33,7 @@ import (
 
 	"github.com/apache/arrow/go/v12/arrow/flight"
 	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v12/arrow/flight/flightsql/driver"
 	"github.com/apache/arrow/go/v12/arrow/flight/flightsql/example"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 )
@@ -55,7 +56,7 @@ CREATE TABLE %s (
 type SqlTestSuite struct {
 	suite.Suite
 
-	Config     flightsql.DriverConfig
+	Config     driver.DriverConfig
 	TableName  string
 	Statements map[string]string
 
@@ -147,7 +148,7 @@ func (s *SqlTestSuite) TestCreateTable() {
 
 	last, err := result.LastInsertId()
 	require.Equal(t, int64(-1), last)
-	require.ErrorIs(t, err, flightsql.ErrNotSupported)
+	require.ErrorIs(t, err, driver.ErrNotSupported)
 
 	require.NoError(t, db.Close())
 
@@ -619,7 +620,7 @@ func (s *SqlTestSuite) TestTxCommit() {
 func TestSqliteBackend(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	s := &SqlTestSuite{
-		Config: flightsql.DriverConfig{
+		Config: driver.DriverConfig{
 			Timeout: 5 * time.Second,
 		},
 	}

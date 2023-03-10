@@ -13,7 +13,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package flightsql
+package driver
 
 import (
 	"context"
@@ -30,6 +30,7 @@ import (
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 
 	"google.golang.org/grpc"
@@ -137,8 +138,8 @@ func (r *Result) RowsAffected() (int64, error) {
 }
 
 type Stmt struct {
-	stmt   *PreparedStatement
-	client *Client
+	stmt   *flightsql.PreparedStatement
+	client *flightsql.Client
 
 	timeout time.Duration
 }
@@ -303,7 +304,7 @@ func (s *Stmt) setParameters(args []driver.NamedValue) error {
 }
 
 type Tx struct {
-	tx      *Txn
+	tx      *flightsql.Txn
 	timeout time.Duration
 }
 
@@ -399,7 +400,7 @@ func (c *Connector) Connect(ctx context.Context) (driver.Conn, error) {
 		defer cancel()
 	}
 
-	client, err := NewClientCtx(ctx, c.addr, nil, nil, c.options...)
+	client, err := flightsql.NewClientCtx(ctx, c.addr, nil, nil, c.options...)
 	if err != nil {
 		return nil, err
 	}
@@ -418,8 +419,8 @@ func (c *Connector) Driver() driver.Driver {
 }
 
 type Connection struct {
-	client *Client
-	txn    *Txn
+	client *flightsql.Client
+	txn    *flightsql.Txn
 
 	timeout time.Duration
 }
@@ -440,8 +441,8 @@ func (c *Connection) PrepareContext(ctx context.Context, query string) (driver.S
 	}
 
 	var err error
-	var stmt *PreparedStatement
-	if c.txn != nil && c.txn.txn.IsValid() {
+	var stmt *flightsql.PreparedStatement
+	if c.txn != nil && c.txn.ID().IsValid() {
 		stmt, err = c.txn.Prepare(ctx, query)
 	} else {
 		stmt, err = c.client.Prepare(ctx, query)
@@ -462,7 +463,7 @@ func (c *Connection) PrepareContext(ctx context.Context, query string) (driver.S
 // prepared statements and transactions, marking this
 // connection as no longer in use.
 func (c *Connection) Close() error {
-	if c.txn != nil && c.txn.txn.IsValid() {
+	if c.txn != nil && c.txn.ID().IsValid() {
 		return ErrTransactionInProgress
 	}
 
