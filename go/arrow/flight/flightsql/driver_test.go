@@ -106,11 +106,7 @@ func (s *SqlTestSuite) TestOpenClose() {
 	// Configure client
 	cfg := s.Config
 	cfg.Address = addr
-	dsn, err := cfg.ToDSN()
-	require.NoError(t, err)
-
-	// Actual test
-	db, err := sql.Open("flightsql", dsn)
+	db, err := sql.Open("flightsql", cfg.DSN())
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
@@ -138,11 +134,7 @@ func (s *SqlTestSuite) TestCreateTable() {
 	// Configure client
 	cfg := s.Config
 	cfg.Address = addr
-	dsn, err := cfg.ToDSN()
-	require.NoError(t, err)
-
-	// Actual test
-	db, err := sql.Open("flightsql", dsn)
+	db, err := sql.Open("flightsql", cfg.DSN())
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -183,11 +175,7 @@ func (s *SqlTestSuite) TestInsert() {
 	// Configure client
 	cfg := s.Config
 	cfg.Address = addr
-	dsn, err := cfg.ToDSN()
-	require.NoError(t, err)
-
-	// Actual test
-	db, err := sql.Open("flightsql", dsn)
+	db, err := sql.Open("flightsql", cfg.DSN())
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -239,11 +227,7 @@ func (s *SqlTestSuite) TestQuery() {
 	// Configure client
 	cfg := s.Config
 	cfg.Address = addr
-	dsn, err := cfg.ToDSN()
-	require.NoError(t, err)
-
-	// Actual test
-	db, err := sql.Open("flightsql", dsn)
+	db, err := sql.Open("flightsql", cfg.DSN())
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -303,11 +287,7 @@ func (s *SqlTestSuite) TestPreparedQuery() {
 	// Configure client
 	cfg := s.Config
 	cfg.Address = addr
-	dsn, err := cfg.ToDSN()
-	require.NoError(t, err)
-
-	// Actual test
-	db, err := sql.Open("flightsql", dsn)
+	db, err := sql.Open("flightsql", cfg.DSN())
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -371,11 +351,7 @@ func (s *SqlTestSuite) TestPreparedQueryWithConstraint() {
 	// Configure client
 	cfg := s.Config
 	cfg.Address = addr
-	dsn, err := cfg.ToDSN()
-	require.NoError(t, err)
-
-	// Actual test
-	db, err := sql.Open("flightsql", dsn)
+	db, err := sql.Open("flightsql", cfg.DSN())
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -443,11 +419,7 @@ func (s *SqlTestSuite) TestPreparedQueryWithPlaceholder() {
 	// Configure client
 	cfg := s.Config
 	cfg.Address = addr
-	dsn, err := cfg.ToDSN()
-	require.NoError(t, err)
-
-	// Actual test
-	db, err := sql.Open("flightsql", dsn)
+	db, err := sql.Open("flightsql", cfg.DSN())
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -517,11 +489,7 @@ func (s *SqlTestSuite) TestTxRollback() {
 	// Configure client
 	cfg := s.Config
 	cfg.Address = addr
-	dsn, err := cfg.ToDSN()
-	require.NoError(t, err)
-
-	// Actual test
-	db, err := sql.Open("flightsql", dsn)
+	db, err := sql.Open("flightsql", cfg.DSN())
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -583,11 +551,7 @@ func (s *SqlTestSuite) TestTxCommit() {
 	// Configure client
 	cfg := s.Config
 	cfg.Address = addr
-	dsn, err := cfg.ToDSN()
-	require.NoError(t, err)
-
-	// Actual test
-	db, err := sql.Open("flightsql", dsn)
+	db, err := sql.Open("flightsql", cfg.DSN())
 	require.NoError(t, err)
 	defer db.Close()
 

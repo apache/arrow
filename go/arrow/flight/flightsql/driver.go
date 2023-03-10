@@ -812,7 +812,7 @@ func NewDriverConfigFromDSN(dsn string) (*DriverConfig, error) {
 	return config, nil
 }
 
-func (config *DriverConfig) ToDSN() (string, error) {
+func (config *DriverConfig) DSN() string {
 	u := url.URL{
 		Scheme: "flightsql",
 		Host:   config.Address,
@@ -842,7 +842,7 @@ func (config *DriverConfig) ToDSN() (string, error) {
 		u.RawQuery = values.Encode()
 	}
 
-	return u.String(), nil
+	return u.String()
 }
 
 // Register the driver on load.
