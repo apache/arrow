@@ -723,6 +723,8 @@ func setFieldValue(builder array.Builder, arg interface{}) error {
 		default:
 			return fmt.Errorf("invalid value type %T for builder %T", arg, builder)
 		}
+	default:
+		return fmt.Errorf("unknown builder type %T", builder)
 	}
 	return nil
 }
