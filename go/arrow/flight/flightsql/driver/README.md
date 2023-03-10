@@ -96,8 +96,7 @@ not set, the driver will use an _infinite_ timeout.
 ## Driver config usage
 
 Alternatively to specifying the DSN directly you can fill the `DriverConfig`
-structure and generate the DSN out of this. Here is some example code to use
-for the [InfluxData IOx backend](#influxdata-iox):
+structure and generate the DSN out of this. Here is some example
 
 ```golang
 package main
