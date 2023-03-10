@@ -1,6 +1,8 @@
 package driver
 
 import (
+	"context"
+	"encoding/base64"
 	"fmt"
 	"time"
 
@@ -8,6 +10,38 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/array"
 )
 
+// *** GRPC helpers ***
+type grpcCredentials struct {
+	username string
+	password string
+	token    string
+	params   map[string]string
+}
+
+func (g grpcCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+	md := make(map[string]string, len(g.params)+1)
+
+	// Authentication parameters
+	switch {
+	case g.token != "":
+		md["authorization"] = "Bearer " + g.token
+	case g.username != "":
+
+		md["authorization"] = "Basic " + base64.StdEncoding.EncodeToString([]byte(g.username+":"+g.password))
+	}
+
+	for k, v := range g.params {
+		md[k] = v
+	}
+
+	return md, nil
+}
+
+func (g grpcCredentials) RequireTransportSecurity() bool {
+	return g.token != "" || g.username != ""
+}
+
+// *** Type conversions ***
 func fromArrowType(arr arrow.Array, idx int) (interface{}, error) {
 	switch c := arr.(type) {
 	case *array.Boolean:
@@ -86,6 +120,7 @@ func toArrowDataType(value interface{}) (arrow.DataType, error) {
 	return nil, fmt.Errorf("type %T: %w", value, ErrNotSupported)
 }
 
+// *** Field builder versions ***
 func setFieldValue(builder array.Builder, arg interface{}) error {
 	switch b := builder.(type) {
 	case *array.BooleanBuilder:
