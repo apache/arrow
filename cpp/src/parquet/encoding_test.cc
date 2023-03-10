@@ -1630,7 +1630,6 @@ TEST_F(TestRleBooleanEncoding, BasicRoundTrip) {
       /*null_probability*/ 0.1));
 }
 
-
 // ----------------------------------------------------------------------
 // DELTA_LENGTH_BYTE_ARRAY encode/decode tests.
 

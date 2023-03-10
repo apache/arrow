@@ -2898,10 +2898,11 @@ class RleBooleanEncoder final : public EncoderImpl, virtual public BooleanEncode
 
   int MaxRleBufferSize() const noexcept {
     // TODO(mwish): Encapsulate these rules.
-    return 1 + ::arrow::util::RleEncoder::MaxBufferSize(
-                   kBitWidth,
-                   static_cast<int>(static_cast<int>(buffered_append_values_.size()))) +
-                       ::arrow::util::RleEncoder::MinBufferSize(kBitWidth);
+    return 1 +
+           ::arrow::util::RleEncoder::MaxBufferSize(
+               kBitWidth,
+               static_cast<int>(static_cast<int>(buffered_append_values_.size()))) +
+           ::arrow::util::RleEncoder::MinBufferSize(kBitWidth);
   }
 
   constexpr static int32_t kBitWidth = 1;
