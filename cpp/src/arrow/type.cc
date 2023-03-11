@@ -35,6 +35,7 @@
 #include "arrow/array.h"
 #include "arrow/compare.h"
 #include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/checked_cast.h"
@@ -1066,6 +1067,7 @@ std::string FieldPath::ToString() const {
 
 struct FieldPathGetImpl {
   static const DataType& GetType(const ArrayData& data) { return *data.type; }
+  static const DataType& GetType(const ChunkedArray& array) { return *array.type(); }
 
   static void Summarize(const FieldVector& fields, std::stringstream* ss) {
     *ss << "{ ";
@@ -1159,6 +1161,21 @@ struct FieldPathGetImpl {
     });
   }
 
+  static Result<std::shared_ptr<ChunkedArray>> Get(const FieldPath* path,
+                                                   const ChunkedArrayVector& table) {
+    return FieldPathGetImpl::Get(
+      path, &table,
+      [](const std::shared_ptr<ChunkedArray>& data) -> const ChunkedArrayVector * {
+          auto chunkedArrayVector = data->Flatten();
+          if (!chunkedArrayVector.ok())
+          {
+            return nullptr;
+          }
+
+          return &(chunkedArrayVector.ValueUnsafe());
+      });
+  }
+
   static Result<std::shared_ptr<ArrayData>> Get(const FieldPath* path,
                                                 const ArrayDataVector& child_data) {
     return FieldPathGetImpl::Get(
@@ -1202,6 +1219,11 @@ Result<std::shared_ptr<Schema>> FieldPath::GetAll(const Schema& schm,
 Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto data, FieldPathGetImpl::Get(this, batch.column_data()));
   return MakeArray(std::move(data));
+}
+
+Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const Table& table) const {
+  ARROW_ASSIGN_OR_RAISE(auto data, FieldPathGetImpl::Get(this, table.columns()));
+  return data;
 }
 
 Result<std::shared_ptr<Array>> FieldPath::Get(const Array& array) const {
@@ -1536,6 +1558,10 @@ std::vector<FieldPath> FieldRef::FindAll(const Array& array) const {
 
 std::vector<FieldPath> FieldRef::FindAll(const RecordBatch& batch) const {
   return FindAll(*batch.schema());
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const Table& table) const {
+  return FindAll(*table.schema());
 }
 
 void PrintTo(const FieldRef& ref, std::ostream* os) { *os << ref.ToString(); }

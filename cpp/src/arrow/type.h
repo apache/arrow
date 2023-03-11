@@ -1689,6 +1689,7 @@ class ARROW_EXPORT FieldPath {
 
   /// \brief Retrieve the referenced column from a RecordBatch or Table
   Result<std::shared_ptr<Array>> Get(const RecordBatch& batch) const;
+  Result<std::shared_ptr<ChunkedArray>> Get(const Table& table) const;
 
   /// \brief Retrieve the referenced child from an Array or ArrayData
   Result<std::shared_ptr<Array>> Get(const Array& array) const;
@@ -1824,6 +1825,7 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
   std::vector<FieldPath> FindAll(const ArrayData& array) const;
   std::vector<FieldPath> FindAll(const Array& array) const;
   std::vector<FieldPath> FindAll(const RecordBatch& batch) const;
+  std::vector<FieldPath> FindAll(const Table& table) const;
 
   /// \brief Convenience function: raise an error if matches is empty.
   template <typename T>
