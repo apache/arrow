@@ -1167,8 +1167,7 @@ struct FieldPathGetImpl {
       path, &table,
       [](const std::shared_ptr<ChunkedArray>& data) -> const ChunkedArrayVector * {
           auto chunkedArrayVector = data->Flatten();
-          if (!chunkedArrayVector.ok())
-          {
+          if (!chunkedArrayVector.ok()) {
             return nullptr;
           }
 
