@@ -32,7 +32,7 @@ namespace Apache.Arrow.C
         /// <param name="schema">An allocated but uninitialized CArrowSchema pointer.</param>
         /// <example>
         /// <code>
-        /// CArrowSchema* exportPtr = CArrowSchema.New();
+        /// CArrowSchema* exportPtr = CArrowSchema.Create();
         /// CArrowSchemaExporter.ExportType(dataType, exportPtr);
         /// foreign_import_function(exportPtr);
         /// CArrowSchema.Free(exportPtr);
@@ -72,7 +72,7 @@ namespace Apache.Arrow.C
         /// <param name="schema">An allocated but uninitialized CArrowSchema pointer.</param>
         /// <example>
         /// <code>
-        /// CArrowSchema* exportPtr = CArrowSchema.New();
+        /// CArrowSchema* exportPtr = CArrowSchema.Create();
         /// CArrowSchemaExporter.ExportType(field, exportPtr);
         /// foreign_import_function(exportPtr);
         /// CArrowSchema.Free(exportPtr);
@@ -94,7 +94,7 @@ namespace Apache.Arrow.C
         /// <param name="out_schema">An allocated but uninitialized CArrowSchema pointer.</param>
         /// <example>
         /// <code>
-        /// CArrowSchema* exportPtr = CArrowSchema.New();
+        /// CArrowSchema* exportPtr = CArrowSchema.Create();
         /// CArrowSchemaExporter.ExportType(schema, exportPtr);
         /// foreign_import_function(exportPtr);
         /// CArrowSchema.Free(exportPtr);
@@ -196,19 +196,16 @@ namespace Apache.Arrow.C
                 int numFields = fields.Count;
                 numChildren = numFields;
 
-                unsafe
+                var pointerList = (CArrowSchema**)Marshal.AllocHGlobal(numFields * IntPtr.Size);
+
+                for (var i = 0; i < numChildren; i++)
                 {
-                    var pointerList = (CArrowSchema**)Marshal.AllocHGlobal(numFields * IntPtr.Size);
-
-                    for (var i = 0; i < numChildren; i++)
-                    {
-                        CArrowSchema* cSchema = CArrowSchema.New();
-                        ExportField(fields[i], cSchema);
-                        pointerList[i] = cSchema;
-                    }
-
-                    return pointerList;
+                    CArrowSchema* cSchema = CArrowSchema.Create();
+                    ExportField(fields[i], cSchema);
+                    pointerList[i] = cSchema;
                 }
+
+                return pointerList;
 
             }
             else
@@ -222,7 +219,7 @@ namespace Apache.Arrow.C
         {
             if (datatype is DictionaryType dictType)
             {
-                CArrowSchema* cSchema = CArrowSchema.New();
+                CArrowSchema* cSchema = CArrowSchema.Create();
                 ExportType(dictType.ValueType, cSchema);
                 return cSchema;
             }

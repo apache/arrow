@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Apache.Arrow.C;
 using Apache.Arrow.Types;
 using Python.Runtime;
@@ -28,7 +29,7 @@ namespace Apache.Arrow.Tests
         [Fact]
         public unsafe void InitializeZeroed()
         {
-            CArrowSchema* cSchema = CArrowSchema.New();
+            CArrowSchema* cSchema = CArrowSchema.Create();
 
             Assert.True(cSchema->format == null);
             Assert.True(cSchema->name == null);
@@ -49,7 +50,7 @@ namespace Apache.Arrow.Tests
             // Non-nullable field
             {
                 var nonNullField = new Field("non_null", Int32Type.Default, false);
-                CArrowSchema* cSchema = CArrowSchema.New();
+                CArrowSchema* cSchema = CArrowSchema.Create();
                 CArrowSchemaExporter.ExportField(nonNullField, cSchema);
                 Assert.False(cSchema->GetFlag(CArrowSchema.ArrowFlagNullable));
                 CArrowSchema.Free(cSchema);
@@ -58,7 +59,7 @@ namespace Apache.Arrow.Tests
             // Nullable field
             {
                 var nullableField = new Field("nullable", Int32Type.Default, true);
-                CArrowSchema* cSchema = CArrowSchema.New();
+                CArrowSchema* cSchema = CArrowSchema.Create();
                 CArrowSchemaExporter.ExportField(nullableField, cSchema);
                 Assert.True(cSchema->GetFlag(CArrowSchema.ArrowFlagNullable));
                 CArrowSchema.Free(cSchema);
@@ -67,7 +68,7 @@ namespace Apache.Arrow.Tests
             // dictionary ordered
             {
                 var orderedDictionary = new DictionaryType(Int32Type.Default, StringType.Default, true);
-                CArrowSchema* cSchema = CArrowSchema.New();
+                CArrowSchema* cSchema = CArrowSchema.Create();
                 CArrowSchemaExporter.ExportType(orderedDictionary, cSchema);
                 Assert.True(cSchema->GetFlag(CArrowSchema.ArrowFlagDictionaryOrdered));
                 CArrowSchema.Free(cSchema);
@@ -76,11 +77,46 @@ namespace Apache.Arrow.Tests
             // dictionary unordered
             {
                 var unorderedDictionary = new DictionaryType(Int32Type.Default, StringType.Default, false);
-                CArrowSchema* cSchema = CArrowSchema.New();
+                CArrowSchema* cSchema = CArrowSchema.Create();
                 CArrowSchemaExporter.ExportType(unorderedDictionary, cSchema);
                 Assert.False(cSchema->GetFlag(CArrowSchema.ArrowFlagDictionaryOrdered));
                 CArrowSchema.Free(cSchema);
             }
+        }
+
+        [Fact]
+        public unsafe void CallsReleaseForValid()
+        {
+            CArrowSchema* cSchema = CArrowSchema.Create();
+            CArrowSchemaExporter.ExportType(Int32Type.Default, cSchema);
+            Assert.False(cSchema->release == null);
+            CArrowSchemaImporter.ImportType(cSchema);
+            Assert.True(cSchema->release == null);
+            CArrowSchema.Free(cSchema);
+        }
+
+        [Fact]
+        public unsafe void CallsReleaseForInvalid()
+        {
+            // Make sure we call release callback, even if the imported schema
+            // is invalid.
+            CArrowSchema* cSchema = CArrowSchema.Create();
+
+            bool wasCalled = false;
+            var releaseCallback = (CArrowSchema* cSchema) =>
+            {
+                wasCalled = true;
+                cSchema->release = null;
+            };
+            cSchema->release = (delegate* unmanaged[Stdcall]<CArrowSchema*, void>)Marshal.GetFunctionPointerForDelegate(
+                releaseCallback);
+
+            Assert.Throws<NullReferenceException>(() =>
+            {
+                CArrowSchemaImporter.ImportType(cSchema);
+            });
+            Assert.True(wasCalled);
+            CArrowSchema.Free(cSchema);
         }
     }
 
@@ -220,7 +256,7 @@ namespace Apache.Arrow.Tests
             foreach ((Field field, dynamic pyField) in schema.FieldsList
                 .Zip(pyFields))
             {
-                CArrowSchema* cSchema = CArrowSchema.New();
+                CArrowSchema* cSchema = CArrowSchema.Create();
 
                 using (Py.GIL())
                 {
@@ -253,7 +289,7 @@ namespace Apache.Arrow.Tests
             foreach ((Field field, dynamic pyField) in schema.FieldsList
                 .Zip(pyFields))
             {
-                CArrowSchema* cSchema = CArrowSchema.New();
+                CArrowSchema* cSchema = CArrowSchema.Create();
 
                 using (Py.GIL())
                 {
@@ -275,7 +311,7 @@ namespace Apache.Arrow.Tests
             Schema schema = GetTestSchema();
             dynamic pySchema = GetPythonSchema();
 
-            CArrowSchema* cSchema = CArrowSchema.New();
+            CArrowSchema* cSchema = CArrowSchema.Create();
 
             using (Py.GIL())
             {
@@ -302,7 +338,7 @@ namespace Apache.Arrow.Tests
                 .Zip(pyFields))
             {
                 IArrowType datatype = field.DataType;
-                CArrowSchema* cSchema = CArrowSchema.New();
+                CArrowSchema* cSchema = CArrowSchema.Create();
                 CArrowSchemaExporter.ExportType(datatype, cSchema);
 
                 // For Python, we need to provide the pointer
@@ -342,7 +378,7 @@ namespace Apache.Arrow.Tests
             foreach ((Field field, dynamic pyField) in schema.FieldsList
                 .Zip(pyFields))
             {
-                CArrowSchema* cSchema = CArrowSchema.New();
+                CArrowSchema* cSchema = CArrowSchema.Create();
                 CArrowSchemaExporter.ExportField(field, cSchema);
 
                 // For Python, we need to provide the pointer
@@ -371,7 +407,7 @@ namespace Apache.Arrow.Tests
             Schema schema = GetTestSchema();
             dynamic pySchema = GetPythonSchema();
 
-            CArrowSchema* cSchema = CArrowSchema.New();
+            CArrowSchema* cSchema = CArrowSchema.Create();
             CArrowSchemaExporter.ExportSchema(schema, cSchema);
 
             // For Python, we need to provide the pointer

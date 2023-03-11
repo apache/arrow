@@ -27,13 +27,17 @@ namespace Apache.Arrow.C
         /// <summary>
         /// Import C pointer as an <see cref="ArrowType"/>.
         /// </summary>
+        /// <remarks>
+        /// This will call the release callback on the passed struct, even if
+        /// this function fails.
+        /// </remarks>
         /// <examples>
         /// Typically, you will allocate a uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
         /// 
         /// <code>
-        /// CArrowSchema* importedPtr = CArrowSchema.New();
+        /// CArrowSchema* importedPtr = CArrowSchema.Create();
         /// foreign_export_function(importedPtr);
         /// ArrowType importedType = CArrowSchemaImporter.ImportType(importedPtr);
         /// CArrowSchema.Free(importedPtr);
@@ -48,13 +52,17 @@ namespace Apache.Arrow.C
         /// <summary>
         /// Import C pointer as an <see cref="Field"/>.
         /// </summary>
+        /// <remarks>
+        /// This will call the release callback on the passed struct, even if
+        /// this function fails.
+        /// </remarks>
         /// <examples>
         /// Typically, you will allocate a uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
         /// 
         /// <code>
-        /// CArrowSchema* importedPtr = CArrowSchema.New();
+        /// CArrowSchema* importedPtr = CArrowSchema.Create();
         /// foreign_export_function(importedPtr);
         /// Field importedField = CArrowSchemaImporter.ImportField(importedPtr);
         /// CArrowSchema.Free(importedPtr);
@@ -69,13 +77,17 @@ namespace Apache.Arrow.C
         /// <summary>
         /// Import C pointer as an <see cref="Schema"/>.
         /// </summary>
+        /// <remarks>
+        /// This will call the release callback on the passed struct, even if
+        /// this function fails.
+        /// </remarks>
         /// <examples>
         /// Typically, you will allocate a uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
         /// 
         /// <code>
-        /// CArrowSchema* importedPtr = CArrowSchema.New();
+        /// CArrowSchema* importedPtr = CArrowSchema.Create();
         /// foreign_export_function(importedPtr);
         /// Field importedSchema = CArrowSchemaImporter.ImportSchema(importedPtr);
         /// CArrowSchema.Free(importedPtr);
@@ -89,13 +101,17 @@ namespace Apache.Arrow.C
 
         private sealed unsafe class ImportedArrowSchema : IDisposable
         {
-            private readonly CArrowSchema* _data;
+            private readonly CArrowSchema* _cSchema;
             private readonly bool _isRoot;
 
-            public ImportedArrowSchema(CArrowSchema* handle)
+            public ImportedArrowSchema(CArrowSchema* cSchema)
             {
-                _data = (CArrowSchema*)handle;
-                if (_data->release == null)
+                if (cSchema == null)
+                {
+                    throw new ArgumentException("Passed null pointer for cSchema.");
+                }
+                _cSchema = cSchema;
+                if (_cSchema->release == null)
                 {
                     throw new ArgumentException("Tried to import a schema that has already been released.");
                 }
@@ -110,34 +126,34 @@ namespace Apache.Arrow.C
             public void Dispose()
             {
                 // We only call release on a root-level schema, not child ones.
-                if (_isRoot && _data->release != null)
+                if (_isRoot && _cSchema->release != null)
                 {
-                    _data->release(_data);
+                    _cSchema->release(_cSchema);
                 }
             }
 
             public ArrowType GetAsType()
             {
-                var format = StringUtil.PtrToStringUtf8(_data->format);
-                if (_data->dictionary != null)
+                var format = StringUtil.PtrToStringUtf8(_cSchema->format);
+                if (_cSchema->dictionary != null)
                 {
                     ArrowType indicesType = format switch
                     {
-                        "c" => new Int8Type(),
-                        "C" => new UInt8Type(),
-                        "s" => new Int16Type(),
-                        "S" => new UInt16Type(),
-                        "i" => new Int32Type(),
-                        "I" => new UInt32Type(),
-                        "l" => new Int64Type(),
-                        "L" => new UInt64Type(),
+                        "c" => Int8Type.Default,
+                        "C" => UInt8Type.Default,
+                        "s" => Int16Type.Default,
+                        "S" => UInt16Type.Default,
+                        "i" => Int32Type.Default,
+                        "I" => UInt32Type.Default,
+                        "l" => Int64Type.Default,
+                        "L" => UInt64Type.Default,
                         _ => throw new InvalidDataException($"Indices must be an integer, but got format string {format}"),
                     };
 
-                    var dictionarySchema = new ImportedArrowSchema(_data->dictionary, isRoot: false);
+                    var dictionarySchema = new ImportedArrowSchema(_cSchema->dictionary, isRoot: false);
                     ArrowType dictionaryType = dictionarySchema.GetAsType();
 
-                    bool ordered = _data->GetFlag(CArrowSchema.ArrowFlagDictionaryOrdered);
+                    bool ordered = _cSchema->GetFlag(CArrowSchema.ArrowFlagDictionaryOrdered);
 
                     return new DictionaryType(indicesType, dictionaryType, ordered);
                 }
@@ -145,16 +161,16 @@ namespace Apache.Arrow.C
                 // Special handling for nested types
                 if (format == "+l")
                 {
-                    if (_data->n_children != 1)
+                    if (_cSchema->n_children != 1)
                     {
                         throw new InvalidDataException("Expected list type to have exactly one child.");
                     }
                     ImportedArrowSchema childSchema;
-                    if (_data->GetChild(0) == null)
+                    if (_cSchema->GetChild(0) == null)
                     {
                         throw new InvalidDataException("Expected list type child to be non-null.");
                     }
-                    childSchema = new ImportedArrowSchema(_data->GetChild(0), isRoot: false);
+                    childSchema = new ImportedArrowSchema(_cSchema->GetChild(0), isRoot: false);
 
                     Field childField = childSchema.GetAsField();
 
@@ -162,15 +178,15 @@ namespace Apache.Arrow.C
                 }
                 else if (format == "+s")
                 {
-                    var child_schemas = new ImportedArrowSchema[_data->n_children];
+                    var child_schemas = new ImportedArrowSchema[_cSchema->n_children];
 
-                    for (int i = 0; i < _data->n_children; i++)
+                    for (int i = 0; i < _cSchema->n_children; i++)
                     {
-                        if (_data->GetChild(i) == null)
+                        if (_cSchema->GetChild(i) == null)
                         {
                             throw new InvalidDataException("Expected struct type child to be non-null.");
                         }
-                        child_schemas[i] = new ImportedArrowSchema(_data->GetChild(i), isRoot: false);
+                        child_schemas[i] = new ImportedArrowSchema(_cSchema->GetChild(i), isRoot: false);
                     }
 
 
@@ -225,27 +241,27 @@ namespace Apache.Arrow.C
                 return format switch
                 {
                     // Primitives
-                    "n" => new NullType(),
-                    "b" => new BooleanType(),
-                    "c" => new Int8Type(),
-                    "C" => new UInt8Type(),
-                    "s" => new Int16Type(),
-                    "S" => new UInt16Type(),
-                    "i" => new Int32Type(),
-                    "I" => new UInt32Type(),
-                    "l" => new Int64Type(),
-                    "L" => new UInt64Type(),
-                    "e" => new HalfFloatType(),
-                    "f" => new FloatType(),
-                    "g" => new DoubleType(),
+                    "n" => NullType.Default,
+                    "b" => BooleanType.Default,
+                    "c" => Int8Type.Default,
+                    "C" => UInt8Type.Default,
+                    "s" => Int16Type.Default,
+                    "S" => UInt16Type.Default,
+                    "i" => Int32Type.Default,
+                    "I" => UInt32Type.Default,
+                    "l" => Int64Type.Default,
+                    "L" => UInt64Type.Default,
+                    "e" => HalfFloatType.Default,
+                    "f" => FloatType.Default,
+                    "g" => DoubleType.Default,
                     // Binary data
-                    "z" => new BinaryType(),
+                    "z" => BinaryType.Default,
                     //"Z" => new LargeBinaryType() // Not yet implemented
-                    "u" => new StringType(),
+                    "u" => StringType.Default,
                     //"U" => new LargeStringType(), // Not yet implemented
                     // Date and time
-                    "tdD" => new Date32Type(),
-                    "tdm" => new Date64Type(),
+                    "tdD" => Date32Type.Default,
+                    "tdm" => Date64Type.Default,
                     "tts" => new Time32Type(TimeUnit.Second),
                     "ttm" => new Time32Type(TimeUnit.Millisecond),
                     "ttu" => new Time64Type(TimeUnit.Microsecond),
@@ -260,10 +276,10 @@ namespace Apache.Arrow.C
 
             public Field GetAsField()
             {
-                string name = StringUtil.PtrToStringUtf8(_data->name);
+                string name = StringUtil.PtrToStringUtf8(_cSchema->name);
                 string fieldName = string.IsNullOrEmpty(name) ? "" : name;
 
-                bool nullable = _data->GetFlag(CArrowSchema.ArrowFlagNullable);
+                bool nullable = _cSchema->GetFlag(CArrowSchema.ArrowFlagNullable);
 
                 return new Field(fieldName, GetAsType(), nullable);
             }

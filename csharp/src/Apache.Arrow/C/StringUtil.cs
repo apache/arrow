@@ -35,7 +35,7 @@ namespace Apache.Arrow.C
                 utf8.GetBytes(chars, str.Length, byteArray, byteCount);
             }
 
-            // Need to make sure it is nul-terminated.
+            // Need to make sure it is null-terminated.
             byteArray[byteCount] = 0;
 
             return byteArray;
@@ -51,15 +51,12 @@ namespace Apache.Arrow.C
                 return null;
             }
 
-            unsafe
+            int length;
+            for (length = 0; ptr[length] != '\0'; ++length)
             {
-                int length;
-                for (length = 0; ptr[length] != '\0'; ++length)
-                {
-                }
-
-                return System.Text.Encoding.UTF8.GetString(ptr, length);
             }
+
+            return System.Text.Encoding.UTF8.GetString(ptr, length);
 #endif
         }
     }

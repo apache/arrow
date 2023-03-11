@@ -24,7 +24,6 @@ namespace Apache.Arrow.C
     /// <summary>
     /// An Arrow C Data Interface Schema, which represents a type, field, or schema.
     /// </summary>
-    /// 
     /// <remarks>
     /// This is used to export <see cref="ArrowType"/>, <see cref="Field"/>, or
     /// <see cref="Schema"/> to other languages. It matches the layout of the
@@ -43,10 +42,15 @@ namespace Apache.Arrow.C
         public delegate* unmanaged[Stdcall]<CArrowSchema*, void> release;
         public void* private_data;
 
-
-        public static unsafe CArrowSchema* New()
+        /// <summary>
+        /// Allocate and zero-initialize an unmanaged pointer of this type.
+        /// </summary>
+        /// <remarks>
+        /// This pointer must later be freed by <see cref="Free"/>.
+        /// </remarks>
+        public static CArrowSchema* Create()
         {
-            var ptr = (CArrowSchema*)Marshal.AllocHGlobal(Marshal.SizeOf<CArrowSchema>());
+            var ptr = (CArrowSchema*)Marshal.AllocHGlobal(sizeof(CArrowSchema));
 
             ptr->format = null;
             ptr->name = null;
@@ -62,12 +66,12 @@ namespace Apache.Arrow.C
         }
 
         /// <summary>
-        /// Free a pointer that was allocated in <see cref="AllocateAsPtr"/>.
+        /// Free a pointer that was allocated in <see cref="Create"/>.
         /// </summary>
         /// <remarks>
         /// Do not call this on a pointer that was allocated elsewhere.
         /// </remarks>
-        public static unsafe void Free(CArrowSchema* schema)
+        public static void Free(CArrowSchema* schema)
         {
             if (schema->release != null)
             {
@@ -98,25 +102,23 @@ namespace Apache.Arrow.C
         /// Known valid flags are <see cref="ArrowFlagDictionaryOrdered" />,
         /// <see cref="ArrowFlagNullable" />, and <see cref="ArrowFlagMapKeysSorted" />.
         /// </remarks>
-        public bool GetFlag(long flag)
+        public readonly bool GetFlag(long flag)
         {
             return (flags & flag) == flag;
         }
 
-        internal CArrowSchema* GetChild(int i)
+        internal readonly CArrowSchema* GetChild(long i)
         {
-            if (i >= n_children)
+            if ((ulong)i >= (ulong)n_children)
             {
                 throw new ArgumentOutOfRangeException("Child index out of bounds.");
             }
             if (children == null)
             {
-                throw new Exception("Children array is null but n_children is not zero.");
+                throw new ArgumentOutOfRangeException($"Child index '{i}' out of bounds.");
             }
-            unsafe
-            {
-                return children[i];
-            }
+
+            return children[i];
         }
     }
 }
