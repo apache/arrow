@@ -40,7 +40,7 @@ endif()
 if(ARROW_FLIGHT)
   # Static gRPC means we cannot linked to shared Arrow, since then
   # we'll violate ODR for gRPC symbols
-  if(ARROW_GRPC_USE_SHARED)
+  if(ARROW_BUILD_SHARED AND ARROW_GRPC_USE_SHARED)
     set(FLIGHT_EXAMPLES_LINK_LIBS arrow_flight_shared)
     if(APPLE)
       set(GRPC_REFLECTION_LINK_LIBS gRPC::grpc++_reflection)
@@ -106,7 +106,7 @@ if(ARROW_FLIGHT)
                     "${CMAKE_CURRENT_BINARY_DIR}/helloworld.grpc.pb.cc")
 
   if(ARROW_FLIGHT_SQL)
-    if(ARROW_GRPC_USE_SHARED)
+    if(ARROW_BUILD_SHARED AND ARROW_GRPC_USE_SHARED)
       set(FLIGHT_SQL_EXAMPLES_LINK_LIBS arrow_flight_sql_shared)
     else()
       set(FLIGHT_SQL_EXAMPLES_LINK_LIBS arrow_flight_sql_static)
