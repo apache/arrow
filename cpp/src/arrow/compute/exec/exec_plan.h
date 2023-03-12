@@ -28,8 +28,8 @@
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/type_fwd.h"
 #include "arrow/compute/ordering.h"
-#include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/future.h"
 #include "arrow/util/macros.h"

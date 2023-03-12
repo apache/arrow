@@ -20,8 +20,8 @@
 #include <thread>
 
 #include "arrow/compute/cast.h"
-#include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/test_util.h"
+#include "arrow/compute/expression.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
