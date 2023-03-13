@@ -2899,7 +2899,8 @@ class RleBooleanEncoder final : public EncoderImpl, virtual public BooleanEncode
   void PutImpl(const SequenceType& src, int num_values);
 
   int MaxRleBufferSize() const noexcept {
-    return RlePreserveBufferSize(buffered_append_values_.size(), kBitWidth);
+    return RlePreserveBufferSize(static_cast<int>(buffered_append_values_.size()),
+                                 kBitWidth);
   }
 
   constexpr static int32_t kBitWidth = 1;

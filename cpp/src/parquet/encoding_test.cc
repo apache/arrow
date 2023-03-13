@@ -1624,14 +1624,16 @@ class TestRleBooleanEncoding : public TestEncodingBase<BooleanType> {
                                                  /*use_dictionary=*/false, descr_.get());
     auto decoder = MakeTypedDecoder<BooleanType>(Encoding::RLE, descr_.get());
 
-    encoder->Put(draws_, num_values_);
-    encode_buffer_ = encoder->FlushValues();
+    for (int i = 0; i < 3; ++i) {
+      encoder->Put(draws_, num_values_);
+      encode_buffer_ = encoder->FlushValues();
 
-    decoder->SetData(num_values_, encode_buffer_->data(),
-                     static_cast<int>(encode_buffer_->size()));
-    int values_decoded = decoder->Decode(decode_buf_, num_values_);
-    ASSERT_EQ(num_values_, values_decoded);
-    ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+      decoder->SetData(num_values_, encode_buffer_->data(),
+                       static_cast<int>(encode_buffer_->size()));
+      int values_decoded = decoder->Decode(decode_buf_, num_values_);
+      ASSERT_EQ(num_values_, values_decoded);
+      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+    }
   }
 
   void CheckRoundtripSpaced(const uint8_t* valid_bits, int64_t valid_bits_offset) {
@@ -1644,16 +1646,17 @@ class TestRleBooleanEncoding : public TestEncodingBase<BooleanType> {
         null_count++;
       }
     }
-
-    encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
-    encode_buffer_ = encoder->FlushValues();
-    decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
-                     static_cast<int>(encode_buffer_->size()));
-    auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
-                                                valid_bits, valid_bits_offset);
-    ASSERT_EQ(num_values_, values_decoded);
-    ASSERT_NO_FATAL_FAILURE(VerifyResultsSpaced<c_type>(decode_buf_, draws_, num_values_,
-                                                        valid_bits, valid_bits_offset));
+    for (int i = 0; i < 3; ++i) {
+      encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
+      encode_buffer_ = encoder->FlushValues();
+      decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
+                       static_cast<int>(encode_buffer_->size()));
+      auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
+                                                  valid_bits, valid_bits_offset);
+      ASSERT_EQ(num_values_, values_decoded);
+      ASSERT_NO_FATAL_FAILURE(VerifyResultsSpaced<c_type>(
+          decode_buf_, draws_, num_values_, valid_bits, valid_bits_offset));
+    }
   }
 };
 
