@@ -341,7 +341,7 @@ std::unique_ptr<liborc::Writer> CreateWriter(uint64_t stripe_size,
 
 TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   MemoryOutputStream mem_stream(kDefaultMemStreamSize);
-  ORC_UNIQUE_PTR<liborc::Type> type(
+  std::unique_ptr<liborc::Type> type(
       liborc::Type::buildTypeFromString("struct<col1:int,col2:string>"));
 
   constexpr uint64_t stripe_size = 1024;  // 1K
