@@ -237,7 +237,7 @@ if(MATLAB_BUILD_TESTS)
   if(NOT GTest_FOUND)
     # find_package(Arrow) supports custom ARROW_HOME as well as package
     # managers.
-    find_package(Arrow)
+    find_package(Arrow QUIET)
     # Trigger an automatic build of the Arrow C++ libraries and bundled
     # GoogleTest binaries. If a valid Arrow installation was not already
     # found by find_package, then build_arrow will use the Arrow
@@ -267,7 +267,7 @@ if(MATLAB_BUILD_TESTS)
                                        "${GTEST_MAIN_SHARED_LIBRARY_LIB}")
     endif()
 
-    find_package(Arrow)
+    find_package(Arrow QUIET)
     if(NOT Arrow_FOUND)
       # Trigger an automatic build of the Arrow C++ libraries.
       build_arrow()
@@ -275,7 +275,7 @@ if(MATLAB_BUILD_TESTS)
   endif()
 
 else()
-  find_package(Arrow)
+  find_package(Arrow QUIET)
   if(NOT Arrow_FOUND)
     build_arrow()
   endif()
