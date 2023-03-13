@@ -2919,10 +2919,11 @@ void RleBooleanEncoder::Put(const std::vector<bool>& src, int num_values) {
 
 template <typename SequenceType>
 void RleBooleanEncoder::PutImpl(const SequenceType& src, int num_values) {
-  for (int i = 0; i < num_values; ++i) {
-    // TODO(mwish): using iterator to batch insert?
-    buffered_append_values_.push_back(src[i]);
+  if (num_values == 0) {
+    return;
   }
+  buffered_append_values_.insert(buffered_append_values_.end(), &src[0],
+                                 &src[num_values - 1]);
 }
 
 std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
@@ -2962,7 +2963,7 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
                              " (corrupt data page?)");
     }
     // Load the first 4 bytes in little-endian, which indicates the length
-    num_bytes = ::arrow::bit_util::ToLittleEndian(SafeLoadAs<uint32_t>(data));
+    num_bytes = ::arrow::bit_util::FromLittleEndian(SafeLoadAs<uint32_t>(data));
     if (num_bytes < 0 || num_bytes > static_cast<uint32_t>(len - 4)) {
       throw ParquetException("Received invalid number of bytes : " +
                              std::to_string(num_bytes) + " (corrupt data page?)");
@@ -2990,7 +2991,26 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<BooleanType>::Accumulator* out) override {
-    ParquetException::NYI("DecodeArrow for RleBooleanDecoder");
+    if (null_count != 0) {
+      ParquetException::NYI("RleBoolean DecodeArrow with null slots");
+    }
+    constexpr int kBatchSize = 1024;
+    std::array<bool, kBatchSize> values;
+    int sum_decode_count = 0;
+    do {
+      int current_batch = std::min(kBatchSize, num_values);
+      int decoded_count = decoder_->GetBatch(values.data(), current_batch);
+      if (decoded_count == 0) {
+        break;
+      }
+      sum_decode_count += decoded_count;
+      PARQUET_THROW_NOT_OK(out->Reserve(sum_decode_count));
+      for (int i = 0; i < decoded_count; ++i) {
+        PARQUET_THROW_NOT_OK(out->Append(values[i]));
+      }
+      num_values -= decoded_count;
+    } while (num_values > 0);
+    return sum_decode_count;
   }
 
   int DecodeArrow(
