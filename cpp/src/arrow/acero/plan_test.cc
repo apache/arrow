@@ -1113,11 +1113,11 @@ BatchesWithSchema MakeGroupableBatches(int multiplicity = 1) {
 
 TEST(ExecPlanExecution, SourceGroupedSum) {
   std::shared_ptr<Schema> out_schema =
-      schema({field("sum(i32)", int64()), field("str", utf8())});
+      schema({field("str", utf8()), field("sum(i32)", int64())});
   const std::shared_ptr<Table> expected_parallel =
-      TableFromJSON(out_schema, {R"([[800, "alfa"], [1000, "beta"], [400, "gama"]])"});
+      TableFromJSON(out_schema, {R"([["alfa", 800], ["beta", 1000], ["gama", 400]])"});
   const std::shared_ptr<Table> expected_single =
-      TableFromJSON(out_schema, {R"([[8, "alfa"], [10, "beta"], [4, "gama"]])"});
+      TableFromJSON(out_schema, {R"([["alfa", 8], ["beta", 10], ["gama", 4]])"});
 
   for (bool parallel : {false, true}) {
     SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
@@ -1193,10 +1193,10 @@ TEST(ExecPlanExecution, NestedSourceProjectGroupedSum) {
 
     auto input = MakeNestedBatches();
     auto expected =
-        TableFromJSON(schema({field("x", int64()), field("y", boolean())}), {R"([
-      [null, true],
-      [17, false],
-      [5, null]
+        TableFromJSON(schema({field("bool", boolean()), field("i32", int64())}), {R"([
+      [true, null],
+      [false, 17],
+      [null, 5]
 ])"});
 
     Declaration plan = Declaration::Sequence(
@@ -1236,9 +1236,10 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumFilter) {
          {"filter", FilterNodeOptions{greater(field_ref("sum(multiply(i32, 2))"),
                                               literal(10 * batch_multiplicity))}}});
 
-    auto expected = TableFromJSON(schema({field("a", int64()), field("b", utf8())}),
-                                  {parallel ? R"([[3600, "alfa"], [2000, "beta"]])"
-                                            : R"([[36, "alfa"], [20, "beta"]])"});
+    auto expected = TableFromJSON(
+        schema({field("str", utf8()), field("sum(multiply(i32, 2))", int64())}),
+        {parallel ? R"([["alfa", 3600], ["beta", 2000]])"
+                  : R"([["alfa", 36], ["beta", 20]])"});
     ASSERT_OK_AND_ASSIGN(auto actual, DeclarationToTable(std::move(plan), parallel));
     AssertTablesEqualIgnoringOrder(expected, actual);
   }
@@ -1279,8 +1280,8 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumOrderBy) {
 
     ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
                 Finishes(ResultWith(ElementsAreArray({ExecBatchFromJSON(
-                    {int64(), utf8()}, parallel ? R"([[2000, "beta"], [3600, "alfa"]])"
-                                                : R"([[20, "beta"], [36, "alfa"]])")}))));
+                    {utf8(), int64()}, parallel ? R"([["beta", 2000], ["alfa", 3600]])"
+                                                : R"([["beta", 20], ["alfa", 36]])")}))));
   }
 }
 
@@ -1315,7 +1316,7 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumTopK) {
     ASSERT_THAT(
         StartAndCollect(plan.get(), sink_gen),
         Finishes(ResultWith(ElementsAreArray({ExecBatchFromJSON(
-            {int64(), utf8()}, parallel ? R"([[800, "gama"]])" : R"([[8, "gama"]])")}))));
+            {utf8(), int64()}, parallel ? R"([["gama", 800]])" : R"([["gama", 8]])")}))));
   }
 }
 
@@ -1374,8 +1375,8 @@ TEST(ExecPlanExecution, AggregationPreservesOptions) {
     }
 
     std::shared_ptr<Table> expected =
-        TableFromJSON(schema({field("count(i32)", int64()), field("str", utf8())}),
-                      {R"([[500, "alfa"], [200, "beta"], [200, "gama"]])"});
+        TableFromJSON(schema({field("str", utf8()), field("count(i32)", int64())}),
+                      {R"([["alfa", 500], ["beta", 200], ["gama", 200]])"});
 
     ASSERT_FINISHES_OK_AND_ASSIGN(std::shared_ptr<Table> actual, table_future);
     AssertTablesEqualIgnoringOrder(expected, actual);
@@ -1479,7 +1480,7 @@ TEST(ExecPlanExecution, ScalarSourceGroupedSum) {
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
               Finishes(ResultWith(UnorderedElementsAreArray({
-                  ExecBatchFromJSON({int64(), boolean()}, R"([[6, true], [18, false]])"),
+                  ExecBatchFromJSON({boolean(), int64()}, R"([[true, 6], [false, 18]])"),
               }))));
 }
 
@@ -1638,8 +1639,8 @@ TEST(ExecPlanExecution, SegmentedAggregationWithOneSegment) {
   ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema actual_batches,
                        DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
 
-  auto expected = ExecBatchFromJSON({int64(), float64(), int32(), int32()},
-                                    R"([[6, 2, 1, 1], [6, 2, 2, 1]])");
+  auto expected = ExecBatchFromJSON({int32(), int32(), int64(), float64()},
+                                    R"([[1, 1, 6, 2], [2, 1, 6, 2]])");
   AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
                                       {expected});
 }
@@ -1663,13 +1664,13 @@ TEST(ExecPlanExecution, SegmentedAggregationWithTwoSegments) {
                                               {"hash_sum", nullptr, "c", "sum(c)"},
                                               {"hash_mean", nullptr, "c", "mean(c)"},
                                           },
-                                          /*keys=*/{"b"}, /*segment_leys=*/{"a"}}}});
+                                          /*keys=*/{"b"}, /*segment_keys=*/{"a"}}}});
   ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema actual_batches,
                        DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
 
   auto expected = ExecBatchFromJSON(
-      {int64(), float64(), int32(), int32()},
-      R"([[3, 1.5, 1, 1], [1, 1, 2, 1], [3, 3, 1, 2], [5, 2.5, 2, 2]])");
+      {int32(), int32(), int64(), float64()},
+      R"([[1, 1, 3, 1.5], [2, 1, 1, 1], [1, 2, 3, 3], [2, 2, 5, 2.5]])");
   AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
                                       {expected});
 }
@@ -1697,8 +1698,8 @@ TEST(ExecPlanExecution, SegmentedAggregationWithBatchCrossingSegment) {
   ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema actual_batches,
                        DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
 
-  auto expected = ExecBatchFromJSON({int64(), float64(), int32(), int32()},
-                                    R"([[2, 1, 1, 1], [4, 2, 2, 2], [6, 3, 3, 3]])");
+  auto expected = ExecBatchFromJSON({int32(), int32(), int64(), float64()},
+                                    R"([[1, 1, 2, 1], [2, 2, 4, 2], [3, 3, 6, 3]])");
   AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
                                       {expected});
 }
