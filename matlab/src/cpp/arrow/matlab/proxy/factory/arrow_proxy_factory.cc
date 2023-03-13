@@ -16,8 +16,6 @@
 // under the License.
 
 #include "arrow/matlab/proxy/array/double_array_proxy.h"
-#include "arrow/matlab/proxy/array/uint64_array_proxy.h"
-#include "arrow/matlab/proxy/array/uint8_array_proxy.h"
 
 #include "ArrowProxyFactory.h"
 
@@ -25,10 +23,8 @@
 
 std::shared_ptr<Proxy> ArrowProxyFactory::make_proxy(const ClassName& class_name, const FunctionArguments& constructor_arguments) {
 
-    // Link MATLAB proxy classes with corresponding C++ proxy classes
-    REGISTER_PROXY(arrow.proxy.array.DoubleArrayProxy, proxy::array::DoubleArrayProxy);
-    REGISTER_PROXY(arrow.proxy.array.UInt64ArrayProxy, proxy::array::UInt64ArrayProxy);
-    REGISTER_PROXY(arrow.proxy.array.UInt8ArrayProxy, proxy::array::UInt8ArrayProxy);
+    // Register MATLAB Proxy classes with corresponding C++ Proxy classes.
+    REGISTER_PROXY(arrow.proxy.array.DoubleArrayProxy, arrow::matlab::proxy::array::DoubleArrayProxy);
 
     // TODO: Decide what to do in the case that there isn't a Proxy match.
     std::cout << "Did not find a matching C++ proxy for: " + class_name << std::endl;
