@@ -382,6 +382,8 @@ set(CUSTOM_PROXY_LINK_LIBRARIES ${ARROW_LINK_LIB})
 # On Windows, arrow.dll must be installed regardless of whether Arrow_FOUND is true or false.
 # Pass this to libmexclass to copy over to the packaged install folder +libmexclass during install.
 set(CUSTOM_PROXY_RUNTIME_LIBRARIES ${ARROW_SHARED_LIB})
+set(CUSTOM_PROXY_FACTORY_HEADER_FILENAME "CustomProxyFactory.h")
+set(CUSTOM_PROXY_FACTORY_CLASS_NAME "CustomProxyFactory")
 
 # Build libmexclass as an external project.
 include(ExternalProject)
@@ -397,6 +399,8 @@ ExternalProject_Add(
                      "-D CUSTOM_PROXY_INCLUDE_DIR:STRING=${CUSTOM_PROXY_INCLUDE_DIR}"
                      "-D CUSTOM_PROXY_LINK_LIBRARIES:STRING=${CUSTOM_PROXY_LINK_LIBRARIES}"
                      "-D CUSTOM_PROXY_RUNTIME_LIBRARIES:STRING=${CUSTOM_PROXY_RUNTIME_LIBRARIES}"
+                     "-D CUSTOM_PROXY_FACTORY_HEADER_FILENAME:STRING=${CUSTOM_PROXY_FACTORY_HEADER_FILENAME}"
+                     "-D CUSTOM_PROXY_FACTORY_CLASS_NAME:STIRNG=${CUSTOM_PROXY_FACTORY_CLASS_NAME}"
     INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
 )
 
