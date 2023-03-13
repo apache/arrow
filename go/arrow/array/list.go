@@ -87,7 +87,7 @@ func (a *List) setData(data *Data) {
 	a.values = MakeFromData(data.childData[0])
 }
 
-func (a *List) getOneForMarshal(i int) interface{} {
+func (a *List) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -110,7 +110,7 @@ func (a *List) MarshalJSON() ([]byte, error) {
 		if i != 0 {
 			buf.WriteByte(',')
 		}
-		if err := enc.Encode(a.getOneForMarshal(i)); err != nil {
+		if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
 			return nil, err
 		}
 	}
@@ -210,7 +210,7 @@ func (a *LargeList) setData(data *Data) {
 	a.values = MakeFromData(data.childData[0])
 }
 
-func (a *LargeList) getOneForMarshal(i int) interface{} {
+func (a *LargeList) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -233,7 +233,7 @@ func (a *LargeList) MarshalJSON() ([]byte, error) {
 		if i != 0 {
 			buf.WriteByte(',')
 		}
-		if err := enc.Encode(a.getOneForMarshal(i)); err != nil {
+		if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
 			return nil, err
 		}
 	}
@@ -531,7 +531,7 @@ func (b *baseListBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *baseListBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *baseListBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -540,7 +540,7 @@ func (b *baseListBuilder) unmarshalOne(dec *json.Decoder) error {
 	switch t {
 	case json.Delim('['):
 		b.Append(true)
-		if err := b.values.unmarshal(dec); err != nil {
+		if err := b.values.Unmarshal(dec); err != nil {
 			return err
 		}
 		// consume ']'
@@ -558,9 +558,9 @@ func (b *baseListBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *baseListBuilder) unmarshal(dec *json.Decoder) error {
+func (b *baseListBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -578,7 +578,7 @@ func (b *baseListBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("list builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

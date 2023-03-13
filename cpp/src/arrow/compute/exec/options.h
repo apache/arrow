@@ -221,21 +221,37 @@ class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
   std::vector<std::string> names;
 };
 
-/// \brief Make a node which aggregates input batches, optionally grouped by keys.
+/// \brief Make a node which aggregates input batches, optionally grouped by keys and
+/// optionally segmented by segment-keys. Both keys and segment-keys determine the group.
+/// However segment-keys are also used for determining grouping segments, which should be
+/// large, and allow streaming a partial aggregation result after processing each segment.
+/// One common use-case for segment-keys is ordered aggregation, in which the segment-key
+/// attribute specifies a column with non-decreasing values or a lexicographically-ordered
+/// set of such columns.
 ///
 /// If the keys attribute is a non-empty vector, then each aggregate in `aggregates` is
 /// expected to be a HashAggregate function. If the keys attribute is an empty vector,
 /// then each aggregate is assumed to be a ScalarAggregate function.
+///
+/// If the segment_keys attribute is a non-empty vector, then segmented aggregation, as
+/// described above, applies.
+///
+/// The keys and segment_keys vectors must be disjoint.
 class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
  public:
   explicit AggregateNodeOptions(std::vector<Aggregate> aggregates,
-                                std::vector<FieldRef> keys = {})
-      : aggregates(std::move(aggregates)), keys(std::move(keys)) {}
+                                std::vector<FieldRef> keys = {},
+                                std::vector<FieldRef> segment_keys = {})
+      : aggregates(std::move(aggregates)),
+        keys(std::move(keys)),
+        segment_keys(std::move(segment_keys)) {}
 
   // aggregations which will be applied to the targetted fields
   std::vector<Aggregate> aggregates;
-  // keys by which aggregations will be grouped
+  // keys by which aggregations will be grouped (optional)
   std::vector<FieldRef> keys;
+  // keys by which aggregations will be segmented (optional)
+  std::vector<FieldRef> segment_keys;
 };
 
 constexpr int32_t kDefaultBackpressureHighBytes = 1 << 30;  // 1GiB

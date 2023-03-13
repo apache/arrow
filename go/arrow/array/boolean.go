@@ -81,7 +81,7 @@ func (a *Boolean) setData(data *Data) {
 	}
 }
 
-func (a *Boolean) getOneForMarshal(i int) interface{} {
+func (a *Boolean) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.Value(i)
 	}
