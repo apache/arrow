@@ -309,7 +309,7 @@ type runEndEncodeLoopBinary[R RunEndsType, O int32 | int64] struct {
 }
 
 func (re *runEndEncodeLoopBinary[R, O]) readValue(idx int64) ([]byte, bool) {
-	if len(re.inputValidity) > 0 && bitutil.BitIsNotSet(re.inputValidity, int(idx)) {
+	if len(re.inputValidity) > 0 && bitutil.BitIsNotSet(re.inputValidity, int(idx+re.inputOffset)) {
 		return nil, false
 	}
 
@@ -319,7 +319,8 @@ func (re *runEndEncodeLoopBinary[R, O]) readValue(idx int64) ([]byte, bool) {
 
 func (re *runEndEncodeLoopBinary[R, O]) CountNumberOfRuns() (numValid, numOutput int64) {
 	re.estimatedValuesLen = 0
-
+	// re.offsetValues already accounts for the input.Offset so we don't
+	// need to use it as the initial value for `offset` here.
 	var offset int64
 	currentRun, curRunValid := re.readValue(offset)
 	offset++
@@ -392,6 +393,8 @@ func (re *runEndEncodeLoopBinary[R, O]) WriteEncodedRuns(out *exec.ExecResult) i
 	outputOffsets := exec.GetSpanOffsets[O](&out.Children[1], 1)
 	outputValues := out.Children[1].Buffers[2].Buf
 
+	// re.offsetValues already accounts for the input.offset so we don't
+	// need to initalize readOffset to re.inputOffset
 	var readOffset int64
 	currentRun, curRunValid := re.readValue(readOffset)
 	readOffset++
@@ -458,8 +461,9 @@ func createVarBinaryEncoder[R RunEndsType, O int32 | int64](input *exec.ArraySpa
 		inputOffset:   input.Offset,
 		inputValidity: input.Buffers[0].Buf,
 		inputValues:   input.Buffers[2].Buf,
-		offsetValues:  exec.GetSpanOffsets[O](input, 1),
-		valueType:     input.Type,
+		// exec.GetSpanOffsets applies input.Offset to the resulting slice
+		offsetValues: exec.GetSpanOffsets[O](input, 1),
+		valueType:    input.Type,
 	}
 }
 
@@ -603,19 +607,20 @@ func (de *decodeBool[R]) ExpandAllRuns(out *exec.ExecResult) int64 {
 		runLength, numValid int64
 		outputValues        = out.Buffers[1].Buf
 		prevRunEnd          = R(de.inputOffset)
+		hasValidity         = len(de.inputValidity) != 0 && len(out.Buffers[0].Buf) != 0
 	)
 
 	for i, runEnd := range de.inputRunEnds[de.inputPhysicalOffset:] {
 		runLength, prevRunEnd = int64(runEnd-prevRunEnd), runEnd
 		// if this run is a null, clear the bits and update writeOffset
-		if len(de.inputValidity) != 0 && bitutil.BitIsNotSet(de.inputValidity, int(de.inputValueOffset+de.inputPhysicalOffset)+i) {
-			bitutil.SetBitsTo(out.Buffers[0].Buf, writeOffset, runLength, false)
-			writeOffset += runLength
-			continue
-		}
+		if hasValidity {
+			if bitutil.BitIsNotSet(de.inputValidity, int(de.inputValueOffset+de.inputPhysicalOffset)+i) {
+				bitutil.SetBitsTo(out.Buffers[0].Buf, writeOffset, runLength, false)
+				writeOffset += runLength
+				continue
+			}
 
-		// if the output has a validity bitmap, update it with 1s
-		if len(out.Buffers[0].Buf) != 0 {
+			// if the output has a validity bitmap, update it with 1s
 			bitutil.SetBitsTo(out.Buffers[0].Buf, writeOffset, runLength, true)
 		}
 
@@ -662,19 +667,20 @@ func (de *decodeFixedWidth[R]) ExpandAllRuns(out *exec.ExecResult) int64 {
 		width               = de.valueType.(arrow.FixedWidthDataType).Bytes()
 		inputValues         = de.inputValues[(de.inputValueOffset+de.inputPhysicalOffset)*int64(width):]
 		prevRunEnd          = R(de.inputOffset)
+		hasValidity         = len(de.inputValidity) != 0 && len(out.Buffers[0].Buf) != 0
 	)
 
 	for i, runEnd := range de.inputRunEnds[de.inputPhysicalOffset:] {
 		runLength, prevRunEnd = int64(runEnd-prevRunEnd), runEnd
 		// if this run is a null, clear the bits and update writeOffset
-		if len(de.inputValidity) != 0 && bitutil.BitIsNotSet(de.inputValidity, int(de.inputValueOffset+de.inputPhysicalOffset)+i) {
-			bitutil.SetBitsTo(out.Buffers[0].Buf, writeOffset, runLength, false)
-			writeOffset += runLength
-			continue
-		}
+		if hasValidity {
+			if bitutil.BitIsNotSet(de.inputValidity, int(de.inputValueOffset+de.inputPhysicalOffset)+i) {
+				bitutil.SetBitsTo(out.Buffers[0].Buf, writeOffset, runLength, false)
+				writeOffset += runLength
+				continue
+			}
 
-		// if the output has a validity bitmap, update it with 1s
-		if len(out.Buffers[0].Buf) != 0 {
+			// if the output has a validity bitmap, update it with 1s
 			bitutil.SetBitsTo(out.Buffers[0].Buf, writeOffset, runLength, true)
 		}
 
@@ -748,22 +754,26 @@ func (de *decodeBinary[R, O]) ExpandAllRuns(out *exec.ExecResult) int64 {
 		outputOffsets                 = exec.GetSpanOffsets[O](out, 1)
 		outputValues                  = out.Buffers[2].Buf
 		prevRunEnd                    = R(de.inputLogicalOffset)
+		hasValidity                   = len(de.inputValidity) != 0 && len(out.Buffers[0].Buf) != 0
 	)
 
 	for i, runEnd := range de.inputRunEnds[de.inputPhysicalOffset:] {
 		runLength, prevRunEnd = int64(runEnd-prevRunEnd), runEnd
 
 		// if this run is a null, clear the bits and update writeOffset
-		if len(de.inputValidity) != 0 && bitutil.BitIsNotSet(de.inputValidity, int(de.inputValuesOffset+de.inputPhysicalOffset)+i) {
+		if hasValidity && bitutil.BitIsNotSet(de.inputValidity, int(de.inputValuesOffset+de.inputPhysicalOffset)+i) {
 			bitutil.SetBitsTo(out.Buffers[0].Buf, writeOffset, runLength, false)
 		} else {
 			numValid += runLength
-			if len(out.Buffers[0].Buf) != 0 {
+			if hasValidity {
 				bitutil.SetBitsTo(out.Buffers[0].Buf, writeOffset, runLength, true)
 			}
 		}
 
 		// get the value for this run + where to start writing
+		// de.inputOffsets already accounts for inputOffset so we don't
+		// need to add it here, we can just use the physicaloffset and that's
+		// sufficient to get the correct values.
 		var (
 			start = de.inputOffsets[de.inputPhysicalOffset+int64(i)]
 			end   = de.inputOffsets[de.inputPhysicalOffset+int64(i)+1]
