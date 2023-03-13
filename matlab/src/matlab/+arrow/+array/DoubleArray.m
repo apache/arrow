@@ -19,4 +19,10 @@ classdef DoubleArray < arrow.array.internal.CustomDisplay
         end
     end
 
+    methods (Access=protected)
+        function displayScalarObject(obj)
+            obj.Print();
+        end
+    end
+
 end
