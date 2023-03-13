@@ -22,7 +22,7 @@
 
 #include "libmexclass/proxy/Proxy.h"
 
-namespace proxy::array {
+namespace arrow::matlab::proxy::array {
 class DoubleArrayProxy : public libmexclass::proxy::Proxy {
     public:
         DoubleArrayProxy(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
@@ -57,4 +57,4 @@ class DoubleArrayProxy : public libmexclass::proxy::Proxy {
         // "Raw" arrow::Array
         std::shared_ptr<arrow::Array> array;
 };
-} // namespace proxy::array
+} // namespace arrow::matlab::proxy::array
