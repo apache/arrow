@@ -26,8 +26,6 @@ namespace proxy::array {
 class DoubleArrayProxy : public libmexclass::proxy::Proxy {
     public:
         DoubleArrayProxy(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-            // No copy version
-
             // Get the mxArray from constructor arguments
             const matlab::data::TypedArray<double> double_mda = constructor_arguments[0];
 
