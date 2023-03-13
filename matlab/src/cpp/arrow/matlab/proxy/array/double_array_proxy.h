@@ -27,7 +27,7 @@ class DoubleArrayProxy : public libmexclass::proxy::Proxy {
     public:
         DoubleArrayProxy(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
             // Get the mxArray from constructor arguments
-            const matlab::data::TypedArray<double> double_mda = constructor_arguments[0];
+            const ::matlab::data::TypedArray<double> double_mda = constructor_arguments[0];
 
             // Get raw pointer of mxArray
             auto it(double_mda.cbegin());
