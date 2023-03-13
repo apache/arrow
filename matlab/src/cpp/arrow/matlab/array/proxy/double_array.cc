@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "double_array_proxy.h"
+#include "double_array.h"
 
-namespace arrow::matlab::proxy::array {
-void DoubleArrayProxy::Print(libmexclass::proxy::method::Context& context) {
+namespace arrow::matlab::array::proxy {
+void DoubleArray::Print(libmexclass::proxy::method::Context& context) {
     // TODO: Return an MDA string representation of the Arrow array. 
     std::cout << array->ToString() << std::endl;
 }
-} // namespace arrow::matlab::proxy::array
+} // namespace arrow::matlab::array::proxy
