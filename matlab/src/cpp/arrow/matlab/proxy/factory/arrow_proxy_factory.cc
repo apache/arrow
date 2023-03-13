@@ -17,7 +17,7 @@
 
 #include "arrow/matlab/proxy/array/double_array_proxy.h"
 
-#include "ArrowProxyFactory.h"
+#include "arrow_proxy_factory.h"
 
 #include <iostream>
 
