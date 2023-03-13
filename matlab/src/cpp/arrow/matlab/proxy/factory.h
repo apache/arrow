@@ -21,6 +21,8 @@
 
 namespace arrow::matlab::proxy {
 
+using namespace libmexclass::proxy;
+
 class Factory : public libmexclass::proxy::Factory {
     public:
         Factory() { }
