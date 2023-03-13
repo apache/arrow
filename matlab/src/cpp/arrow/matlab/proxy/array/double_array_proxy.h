@@ -17,10 +17,10 @@
 
 #pragma once
 
-#include "libmexclass/proxy/Proxy.h"
-
 #include "arrow/array.h"
 #include "arrow/builder.h"
+
+#include "libmexclass/proxy/Proxy.h"
 
 namespace proxy::array {
 class DoubleArrayProxy : public libmexclass::proxy::Proxy {
