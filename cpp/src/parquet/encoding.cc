@@ -465,7 +465,7 @@ struct DictEncoderTraits<FLBAType> {
 // Initially 1024 elements
 static constexpr int32_t kInitialHashTableSize = 1 << 10;
 
-int64_t RlePreserveBufferSize(int num_values, int bit_width) {
+int RlePreserveBufferSize(int num_values, int bit_width) {
   // Note: because of the way RleEncoder::CheckBufferFull() is called, we have to
   // reserve
   // an extra "RleEncoder::MinBufferSize" bytes. These extra bytes won't be used
@@ -2849,6 +2849,7 @@ class RleBooleanEncoder final : public EncoderImpl, virtual public BooleanEncode
 
   int64_t EstimatedDataEncodedSize() override {
     // FIXME(mwish): should we just use buffered_append_values_.size() / 8
+    //  or just use ::arrow::util::RleEncoder::MaxBufferSize?
     return kRleLengthInBytes + MaxRleBufferSize();
   }
 
@@ -2919,11 +2920,9 @@ void RleBooleanEncoder::Put(const std::vector<bool>& src, int num_values) {
 
 template <typename SequenceType>
 void RleBooleanEncoder::PutImpl(const SequenceType& src, int num_values) {
-  if (num_values == 0) {
-    return;
+  for (int i = 0; i < num_values; ++i) {
+    buffered_append_values_.push_back(src[i]);
   }
-  buffered_append_values_.insert(buffered_append_values_.end(), &src[0],
-                                 &src[num_values - 1]);
 }
 
 std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
@@ -2938,7 +2937,7 @@ std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
   }
   encoder.Flush();
   // FIXME(mwish): Seems buffer is allocated from pool, it's already aligned by 64B,
-  //  should we just set? Or we have buffer way to write it?
+  //  should we just set? Or we have better way to write it?
   ::arrow::util::SafeStore(buffer->mutable_data(),
                            ::arrow::bit_util::ToLittleEndian(encoder.len()));
   PARQUET_THROW_NOT_OK(buffer->Resize(kRleLengthInBytes + encoder.len()));
