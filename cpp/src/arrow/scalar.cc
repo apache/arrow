@@ -1049,8 +1049,12 @@ Status CastImpl(const StringScalar& from, ScalarType* to) {
   return Status::OK();
 }
 
-// binary to string
-Status CastImpl(const BinaryScalar& from, StringScalar* to) {
+// binary/large binary/large string to string
+template <typename ScalarType>
+enable_if_t<std::is_base_of_v<BaseBinaryScalar, ScalarType> &&
+                !std::is_same<ScalarType, StringScalar>::value,
+            Status>
+CastImpl(const ScalarType& from, StringScalar* to) {
   to->value = from.value;
   return Status::OK();
 }
