@@ -373,8 +373,8 @@ else()
 endif()
 
 # Arguments to build libmexclass.
-set(CUSTOM_PROXY_FACTORY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy/factory;${CMAKE_SOURCE_DIR}/src/cpp")
-set(CUSTOM_PROXY_FACTORY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy/factory/arrow_proxy_factory.cc")
+set(CUSTOM_PROXY_FACTORY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy;${CMAKE_SOURCE_DIR}/src/cpp")
+set(CUSTOM_PROXY_FACTORY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy/factory.cc")
 set(CUSTOM_PROXY_SOURCES_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy")
 set(CUSTOM_PROXY_SOURCES "${CUSTOM_PROXY_SOURCES_DIR}/array/proxy/double_array.cc")
 set(CUSTOM_PROXY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp;${ARROW_INCLUDE_DIR}")
@@ -382,8 +382,8 @@ set(CUSTOM_PROXY_LINK_LIBRARIES ${ARROW_LINK_LIB})
 # On Windows, arrow.dll must be installed regardless of whether Arrow_FOUND is true or false.
 # Pass this to libmexclass to copy over to the packaged install folder +libmexclass during install.
 set(CUSTOM_PROXY_RUNTIME_LIBRARIES ${ARROW_SHARED_LIB})
-set(CUSTOM_PROXY_FACTORY_HEADER_FILENAME "arrow_proxy_factory.h")
-set(CUSTOM_PROXY_FACTORY_CLASS_NAME "ArrowProxyFactory")
+set(CUSTOM_PROXY_FACTORY_HEADER_FILENAME "factory.h")
+set(CUSTOM_PROXY_FACTORY_CLASS_NAME "arrow::matlab::proxy::Factory")
 
 # Build libmexclass as an external project.
 include(ExternalProject)

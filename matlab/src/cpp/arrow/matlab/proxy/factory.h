@@ -19,10 +19,12 @@
 
 #include "libmexclass/proxy/Factory.h"
 
-using namespace libmexclass::proxy;
+namespace arrow::matlab::proxy {
 
-class ArrowProxyFactory : public libmexclass::proxy::Factory {
+class Factory : public libmexclass::proxy::Factory {
     public:
-        ArrowProxyFactory() { }
+        Factory() { }
         virtual std::shared_ptr<Proxy> make_proxy(const ClassName& class_name, const FunctionArguments& constructor_arguments);
 };
+
+}
