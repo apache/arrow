@@ -742,6 +742,33 @@ class EncodingAdHocTyped : public ::testing::Test {
     ::arrow::AssertArraysEqual(*values, *result);
   }
 
+  void Rle(int seed) {
+    if (!std::is_same<ParquetType, BooleanType>::value) {
+      return;
+    }
+    auto values = GetValues(seed);
+    auto encoder = MakeTypedEncoder<ParquetType>(Encoding::RLE, /*use_dictionary=*/false,
+                                                 column_descr());
+    auto decoder = MakeTypedDecoder<ParquetType>(Encoding::RLE, column_descr());
+
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.Finish(&result));
+    ASSERT_EQ(50, result->length());
+    ::arrow::AssertArraysEqual(*values, *result);
+  }
+
   void DeltaBitPack(int seed) {
     if (!std::is_same<ParquetType, Int32Type>::value &&
         !std::is_same<ParquetType, Int64Type>::value) {
@@ -908,6 +935,16 @@ TYPED_TEST(EncodingAdHocTyped, ByteStreamSplitArrowDirectPut) {
     this->ByteStreamSplit(seed);
   }
 }
+
+/*
+// TODO(mwish): test with nulls once DeltaBitPackDecoder::RleBooleanDecoder
+//  supports them
+TYPED_TEST(EncodingAdHocTyped, RleArrowDirectPut) {
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    this->Rle(seed);
+  }
+}
+*/
 
 TYPED_TEST(EncodingAdHocTyped, DeltaBitPackArrowDirectPut) {
   // TODO: test with nulls once DeltaBitPackDecoder::DecodeArrow supports them
@@ -1629,6 +1666,8 @@ TEST_F(TestRleBooleanEncoding, BasicRoundTrip) {
       /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
       /*null_probability*/ 0.1));
 }
+
+// TODO(mwish): Testing Boolean Encoding
 
 // ----------------------------------------------------------------------
 // DELTA_LENGTH_BYTE_ARRAY encode/decode tests.

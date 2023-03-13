@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
-#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -116,7 +115,6 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   using TypedEncoder<DType>::Put;
 
   void Put(const T* buffer, int num_values) override;
-
   void Put(const ::arrow::Array& values) override;
 
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
@@ -467,6 +465,15 @@ struct DictEncoderTraits<FLBAType> {
 // Initially 1024 elements
 static constexpr int32_t kInitialHashTableSize = 1 << 10;
 
+int64_t RlePreserveBufferSize(int num_values, int bit_width) {
+  // Note: because of the way RleEncoder::CheckBufferFull() is called, we have to
+  // reserve
+  // an extra "RleEncoder::MinBufferSize" bytes. These extra bytes won't be used
+  // but not reserving them would cause the encoder to fail.
+  return 1 + ::arrow::util::RleEncoder::MaxBufferSize(bit_width, num_values) +
+         ::arrow::util::RleEncoder::MinBufferSize(bit_width);
+}
+
 /// See the dictionary encoding section of
 /// https://github.com/Parquet/parquet-format.  The encoding supports
 /// streaming encoding. Values are encoded as they are added while the
@@ -513,14 +520,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   /// Returns a conservative estimate of the number of bytes needed to encode the buffered
   /// indices. Used to size the buffer passed to WriteIndices().
   int64_t EstimatedDataEncodedSize() override {
-    // Note: because of the way RleEncoder::CheckBufferFull() is called, we have to
-    // reserve
-    // an extra "RleEncoder::MinBufferSize" bytes. These extra bytes won't be used
-    // but not reserving them would cause the encoder to fail.
-    return 1 +
-           ::arrow::util::RleEncoder::MaxBufferSize(
-               bit_width(), static_cast<int>(buffered_indices_.size())) +
-           ::arrow::util::RleEncoder::MinBufferSize(bit_width());
+    return RlePreserveBufferSize(static_cast<int>(buffered_indices_.size()), bit_width());
   }
 
   /// The minimum bit width required to encode the currently buffered indices.
@@ -2847,24 +2847,36 @@ class RleBooleanEncoder final : public EncoderImpl, virtual public BooleanEncode
   explicit RleBooleanEncoder(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
       : EncoderImpl(descr, Encoding::RLE, pool) {}
 
-  int64_t EstimatedDataEncodedSize() override;
+  int64_t EstimatedDataEncodedSize() override {
+    // FIXME(mwish): should we just use buffered_append_values_.size() / 8
+    return kRleLengthInBytes + MaxRleBufferSize();
+  }
+
   std::shared_ptr<Buffer> FlushValues() override;
 
   void Put(const T* buffer, int num_values) override;
   void Put(const ::arrow::Array& values) override {
     if (values.type_id() != ::arrow::Type::BOOL) {
-      throw ParquetException("RleBooleanEncoder Expected BoolTArray, got ",
+      throw ParquetException("RleBooleanEncoder expects BooleanArray, got ",
                              values.type()->ToString());
     }
     const auto& boolean_array = checked_cast<const ::arrow::BooleanArray&>(values);
-    PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<::arrow::BooleanType>(
-        *boolean_array.data(),
-        [&](bool value) {
-          buffered_append_values_.push_back(value);
-          return Status::OK();
-        },
-        []() { return Status::OK(); }));
+    if (values.null_count() == 0) {
+      for (int i = 0; i < boolean_array.length(); ++i) {
+        // null_count == 0, so just call Value directly is ok.
+        buffered_append_values_.push_back(boolean_array.Value(i));
+      }
+    } else {
+      PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<::arrow::BooleanType>(
+          *boolean_array.data(),
+          [&](bool value) {
+            buffered_append_values_.push_back(value);
+            return Status::OK();
+          },
+          []() { return Status::OK(); }));
+    }
   }
+
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override {
     if (valid_bits != NULLPTR) {
@@ -2882,27 +2894,11 @@ class RleBooleanEncoder final : public EncoderImpl, virtual public BooleanEncode
   void Put(const std::vector<bool>& src, int num_values) override;
 
  protected:
-  template <typename ArrowType>
-  void PutImpl(const ::arrow::Array& values) {
-    if (values.type_id() != ::arrow::Type::BOOL) {
-      throw ParquetException(std::string() + "direct put to " + ArrowType::type_name() +
-                             " from " + values.type()->ToString() + " not supported");
-    }
-    const auto& data = *values.data();
-    PutSpaced(data.GetValues<typename ArrowType::c_type>(1),
-              static_cast<int>(data.length), data.GetValues<uint8_t>(0, 0), data.offset);
-  }
-
   template <typename SequenceType>
   void PutImpl(const SequenceType& src, int num_values);
 
   int MaxRleBufferSize() const noexcept {
-    // TODO(mwish): Encapsulate these rules.
-    return 1 +
-           ::arrow::util::RleEncoder::MaxBufferSize(
-               kBitWidth,
-               static_cast<int>(static_cast<int>(buffered_append_values_.size()))) +
-           ::arrow::util::RleEncoder::MinBufferSize(kBitWidth);
+    return RlePreserveBufferSize(buffered_append_values_.size(), kBitWidth);
   }
 
   constexpr static int32_t kBitWidth = 1;
@@ -2927,10 +2923,6 @@ void RleBooleanEncoder::PutImpl(const SequenceType& src, int num_values) {
     // TODO(mwish): using iterator to batch insert?
     buffered_append_values_.push_back(src[i]);
   }
-}
-
-int64_t RleBooleanEncoder::EstimatedDataEncodedSize() {
-  return kRleLengthInBytes + MaxRleBufferSize();
 }
 
 std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
@@ -3385,7 +3377,7 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
       case Type::BOOLEAN:
         return std::make_unique<RleBooleanEncoder>(descr, pool);
       default:
-        throw ParquetException("RLE only supports BOOL within data page");
+        throw ParquetException("RLE only supports BOOLEAN");
     }
   } else {
     ParquetException::NYI("Selected encoding is not supported");
