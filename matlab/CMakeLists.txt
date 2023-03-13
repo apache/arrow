@@ -224,6 +224,10 @@ else()
   set(MATLAB_BUILD_OUTPUT_DIR "${CMAKE_BINARY_DIR}")
 endif()
 
+if(MATLAB_ARROW_INTERFACE)
+    include(BuildMatlabArrowInterface)
+endif()
+
 # Only build the MATLAB interface C++ tests if MATLAB_BUILD_TESTS=ON.
 if(MATLAB_BUILD_TESTS)
   # find_package(GTest) supports custom GTEST_ROOT as well as package managers.
