@@ -21,8 +21,8 @@
 
 using namespace libmexclass::proxy;
 
-class CustomProxyFactory : public libmexclass::proxy::Factory {
+class ArrowProxyFactory : public libmexclass::proxy::Factory {
     public:
-        CustomProxyFactory() { }
+        ArrowProxyFactory() { }
         virtual std::shared_ptr<Proxy> make_proxy(const ClassName& class_name, const FunctionArguments& constructor_arguments);
 };
