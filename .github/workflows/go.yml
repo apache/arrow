@@ -63,7 +63,7 @@ jobs:
           - arch-label: ARM64
             arch: arm64v8
             go: 1.17
-            staticcheck: v0.3.3
+            staticcheck: v0.2.2
             runs-on: ["self-hosted", "arm", "linux"]
     env:
       ARCH: ${{ matrix.arch }}
