@@ -1578,5 +1578,108 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
   }
 }
 
+TEST(ExecPlanExecution, SegmentedAggregationWithMultiThreading) {
+  BatchesWithSchema data;
+  data.batches = {ExecBatchFromJSON({int32()}, "[[1]]")};
+  data.schema = schema({field("i32", int32())});
+  Declaration plan = Declaration::Sequence(
+      {{"source",
+        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                                              {"count", nullptr, "i32", "count(i32)"},
+                                          },
+                                          /*keys=*/{"i32"}, /*segment_leys=*/{"i32"}}}});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, HasSubstr("multi-threaded"),
+                                  DeclarationToExecBatches(std::move(plan)));
+}
+
+TEST(ExecPlanExecution, SegmentedAggregationWithOneSegment) {
+  BatchesWithSchema data;
+  data.batches = {
+      ExecBatchFromJSON({int32(), int32(), int32()}, "[[1, 1, 1], [1, 2, 1], [1, 1, 2]]"),
+      ExecBatchFromJSON({int32(), int32(), int32()},
+                        "[[1, 2, 2], [1, 1, 3], [1, 2, 3]]")};
+  data.schema = schema({
+      field("a", int32()),
+      field("b", int32()),
+      field("c", int32()),
+  });
+
+  Declaration plan = Declaration::Sequence(
+      {{"source",
+        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                                              {"hash_sum", nullptr, "c", "sum(c)"},
+                                              {"hash_mean", nullptr, "c", "mean(c)"},
+                                          },
+                                          /*keys=*/{"b"}, /*segment_leys=*/{"a"}}}});
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema actual_batches,
+                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+
+  auto expected = ExecBatchFromJSON({int64(), float64(), int32(), int32()},
+                                    R"([[6, 2, 1, 1], [6, 2, 2, 1]])");
+  AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
+                                      {expected});
+}
+
+TEST(ExecPlanExecution, SegmentedAggregationWithTwoSegments) {
+  BatchesWithSchema data;
+  data.batches = {
+      ExecBatchFromJSON({int32(), int32(), int32()}, "[[1, 1, 1], [1, 2, 1], [1, 1, 2]]"),
+      ExecBatchFromJSON({int32(), int32(), int32()},
+                        "[[2, 2, 2], [2, 1, 3], [2, 2, 3]]")};
+  data.schema = schema({
+      field("a", int32()),
+      field("b", int32()),
+      field("c", int32()),
+  });
+
+  Declaration plan = Declaration::Sequence(
+      {{"source",
+        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                                              {"hash_sum", nullptr, "c", "sum(c)"},
+                                              {"hash_mean", nullptr, "c", "mean(c)"},
+                                          },
+                                          /*keys=*/{"b"}, /*segment_leys=*/{"a"}}}});
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema actual_batches,
+                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+
+  auto expected = ExecBatchFromJSON(
+      {int64(), float64(), int32(), int32()},
+      R"([[3, 1.5, 1, 1], [1, 1, 2, 1], [3, 3, 1, 2], [5, 2.5, 2, 2]])");
+  AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
+                                      {expected});
+}
+
+TEST(ExecPlanExecution, SegmentedAggregationWithBatchCrossingSegment) {
+  BatchesWithSchema data;
+  data.batches = {
+      ExecBatchFromJSON({int32(), int32(), int32()}, "[[1, 1, 1], [1, 1, 1], [2, 2, 2]]"),
+      ExecBatchFromJSON({int32(), int32(), int32()},
+                        "[[2, 2, 2], [3, 3, 3], [3, 3, 3]]")};
+  data.schema = schema({
+      field("a", int32()),
+      field("b", int32()),
+      field("c", int32()),
+  });
+
+  Declaration plan = Declaration::Sequence(
+      {{"source",
+        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                                              {"hash_sum", nullptr, "c", "sum(c)"},
+                                              {"hash_mean", nullptr, "c", "mean(c)"},
+                                          },
+                                          /*keys=*/{"b"}, /*segment_leys=*/{"a"}}}});
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema actual_batches,
+                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+
+  auto expected = ExecBatchFromJSON({int64(), float64(), int32(), int32()},
+                                    R"([[2, 1, 1, 1], [4, 2, 2, 2], [6, 3, 3, 3]])");
+  AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
+                                      {expected});
+}
+
 }  // namespace compute
 }  // namespace arrow

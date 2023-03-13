@@ -281,18 +281,18 @@ func (d *Dictionary) GetValueIndex(i int) int {
 	return -1
 }
 
-func (d *Dictionary) getOneForMarshal(i int) interface{} {
+func (d *Dictionary) GetOneForMarshal(i int) interface{} {
 	if d.IsNull(i) {
 		return nil
 	}
 	vidx := d.GetValueIndex(i)
-	return d.Dictionary().(arraymarshal).getOneForMarshal(vidx)
+	return d.Dictionary().(arraymarshal).GetOneForMarshal(vidx)
 }
 
 func (d *Dictionary) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, d.Len())
 	for i := 0; i < d.Len(); i++ {
-		vals[i] = d.getOneForMarshal(i)
+		vals[i] = d.GetOneForMarshal(i)
 	}
 	return json.Marshal(vals)
 }
@@ -721,14 +721,14 @@ func (b *dictionaryBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("dictionary builder must upack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
-func (b *dictionaryBuilder) unmarshal(dec *json.Decoder) error {
+func (b *dictionaryBuilder) Unmarshal(dec *json.Decoder) error {
 	bldr := NewBuilder(b.mem, b.dt.ValueType)
 	defer bldr.Release()
 
-	if err := bldr.unmarshal(dec); err != nil {
+	if err := bldr.Unmarshal(dec); err != nil {
 		return err
 	}
 
@@ -737,7 +737,7 @@ func (b *dictionaryBuilder) unmarshal(dec *json.Decoder) error {
 	return b.AppendArray(arr)
 }
 
-func (b *dictionaryBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *dictionaryBuilder) UnmarshalOne(dec *json.Decoder) error {
 	return errors.New("unmarshal json to dictionary not yet implemented")
 }
 

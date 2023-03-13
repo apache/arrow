@@ -289,7 +289,7 @@ func (b *BinaryBuilder) appendNextOffset() {
 	b.appendOffsetVal(numBytes)
 }
 
-func (b *BinaryBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *BinaryBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -316,9 +316,9 @@ func (b *BinaryBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *BinaryBuilder) unmarshal(dec *json.Decoder) error {
+func (b *BinaryBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -336,7 +336,7 @@ func (b *BinaryBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (
