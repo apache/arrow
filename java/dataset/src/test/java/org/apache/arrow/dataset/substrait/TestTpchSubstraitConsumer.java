@@ -32,7 +32,6 @@ import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
-import org.jetbrains.annotations.NotNull;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -187,7 +186,6 @@ public class TestTpchSubstraitConsumer {
     }
   }
 
-  @NotNull
   private String getNamedTableUri(String name) {
     return Paths.get(
         Paths.get("src", "test", "resources", "substrait", "parquet", name)
@@ -196,7 +194,6 @@ public class TestTpchSubstraitConsumer {
     ).toUri().toString();
   }
 
-  @NotNull
   private String getSubstraitPlan(String name) throws IOException {
     return new String(
         Files.readAllBytes(
