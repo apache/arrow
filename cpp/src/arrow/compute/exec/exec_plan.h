@@ -241,8 +241,7 @@ class ARROW_EXPORT ExecNode {
   ///   concurrently, potentially even before the call to StartProducing
   ///   has finished.
   /// - PauseProducing(), ResumeProducing(), StopProducing() may be called
-  ///   by the downstream nodes' InputReceived(), ErrorReceived(), InputFinished()
-  ///   methods
+  ///   by the downstream nodes' InputReceived(), InputFinished() methods
   ///
   /// StopProducing may be called due to an error, by the user (e.g. cancel), or
   /// because a node has all the data it needs (e.g. limit, top-k on sorted data).

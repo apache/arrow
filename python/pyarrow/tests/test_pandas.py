@@ -3250,7 +3250,7 @@ def test_table_from_pandas_schema_index_columns():
     schema = pa.schema([
         ('a', pa.int64()),
         ('b', pa.float64()),
-        ('index', pa.int32()),
+        ('index', pa.int64()),
     ])
 
     # schema includes index with name not in dataframe
@@ -3283,7 +3283,7 @@ def test_table_from_pandas_schema_index_columns():
 
     # schema has different order (index column not at the end)
     schema = pa.schema([
-        ('index', pa.int32()),
+        ('index', pa.int64()),
         ('a', pa.int64()),
         ('b', pa.float64()),
     ])

@@ -366,7 +366,7 @@ func (b *RecordBuilder) UnmarshalJSON(data []byte) error {
 			continue
 		}
 
-		if err := b.fields[indices[0]].unmarshalOne(dec); err != nil {
+		if err := b.fields[indices[0]].UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}

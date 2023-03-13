@@ -313,7 +313,7 @@ func (a *SparseUnion) setData(data *Data) {
 	debug.Assert(a.data.buffers[0] == nil, "arrow/array: validity bitmap for sparse unions should be nil")
 }
 
-func (a *SparseUnion) getOneForMarshal(i int) interface{} {
+func (a *SparseUnion) GetOneForMarshal(i int) interface{} {
 	typeID := a.RawTypeCodes()[i]
 
 	childID := a.ChildID(i)
@@ -323,7 +323,7 @@ func (a *SparseUnion) getOneForMarshal(i int) interface{} {
 		return nil
 	}
 
-	return []interface{}{typeID, data.(arraymarshal).getOneForMarshal(i)}
+	return []interface{}{typeID, data.(arraymarshal).GetOneForMarshal(i)}
 }
 
 func (a *SparseUnion) MarshalJSON() ([]byte, error) {
@@ -335,7 +335,7 @@ func (a *SparseUnion) MarshalJSON() ([]byte, error) {
 		if i != 0 {
 			buf.WriteByte(',')
 		}
-		if err := enc.Encode(a.getOneForMarshal(i)); err != nil {
+		if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
 			return nil, err
 		}
 	}
@@ -355,7 +355,7 @@ func (a *SparseUnion) String() string {
 
 		field := fieldList[a.ChildID(i)]
 		f := a.Field(a.ChildID(i))
-		fmt.Fprintf(&b, "{%s=%v}", field.Name, f.(arraymarshal).getOneForMarshal(i))
+		fmt.Fprintf(&b, "{%s=%v}", field.Name, f.(arraymarshal).GetOneForMarshal(i))
 	}
 	b.WriteByte(']')
 	return b.String()
@@ -570,7 +570,7 @@ func (a *DenseUnion) setData(data *Data) {
 	}
 }
 
-func (a *DenseUnion) getOneForMarshal(i int) interface{} {
+func (a *DenseUnion) GetOneForMarshal(i int) interface{} {
 	typeID := a.RawTypeCodes()[i]
 
 	childID := a.ChildID(i)
@@ -581,7 +581,7 @@ func (a *DenseUnion) getOneForMarshal(i int) interface{} {
 		return nil
 	}
 
-	return []interface{}{typeID, data.(arraymarshal).getOneForMarshal(int(offsets[i]))}
+	return []interface{}{typeID, data.(arraymarshal).GetOneForMarshal(int(offsets[i]))}
 }
 
 func (a *DenseUnion) MarshalJSON() ([]byte, error) {
@@ -593,7 +593,7 @@ func (a *DenseUnion) MarshalJSON() ([]byte, error) {
 		if i != 0 {
 			buf.WriteByte(',')
 		}
-		if err := enc.Encode(a.getOneForMarshal(i)); err != nil {
+		if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
 			return nil, err
 		}
 	}
@@ -615,7 +615,7 @@ func (a *DenseUnion) String() string {
 
 		field := fieldList[a.ChildID(i)]
 		f := a.Field(a.ChildID(i))
-		fmt.Fprintf(&b, "{%s=%v}", field.Name, f.(arraymarshal).getOneForMarshal(int(offsets[i])))
+		fmt.Fprintf(&b, "{%s=%v}", field.Name, f.(arraymarshal).GetOneForMarshal(int(offsets[i])))
 	}
 	b.WriteByte(']')
 	return b.String()
@@ -975,19 +975,19 @@ func (b *SparseUnionBuilder) UnmarshalJSON(data []byte) (err error) {
 	if delim, ok := t.(json.Delim); !ok || delim != '[' {
 		return fmt.Errorf("sparse union builder must unpack from json array, found %s", t)
 	}
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
-func (b *SparseUnionBuilder) unmarshal(dec *json.Decoder) error {
+func (b *SparseUnionBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (b *SparseUnionBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *SparseUnionBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -1037,7 +1037,7 @@ func (b *SparseUnionBuilder) unmarshalOne(dec *json.Decoder) error {
 		}
 
 		b.Append(typeCode)
-		if err := b.children[childNum].unmarshalOne(dec); err != nil {
+		if err := b.children[childNum].UnmarshalOne(dec); err != nil {
 			return err
 		}
 
@@ -1220,19 +1220,19 @@ func (b *DenseUnionBuilder) UnmarshalJSON(data []byte) (err error) {
 	if delim, ok := t.(json.Delim); !ok || delim != '[' {
 		return fmt.Errorf("dense union builder must unpack from json array, found %s", t)
 	}
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
-func (b *DenseUnionBuilder) unmarshal(dec *json.Decoder) error {
+func (b *DenseUnionBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (b *DenseUnionBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *DenseUnionBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -1276,7 +1276,7 @@ func (b *DenseUnionBuilder) unmarshalOne(dec *json.Decoder) error {
 		}
 
 		b.Append(typeCode)
-		if err := b.children[childNum].unmarshalOne(dec); err != nil {
+		if err := b.children[childNum].UnmarshalOne(dec); err != nil {
 			return err
 		}
 
