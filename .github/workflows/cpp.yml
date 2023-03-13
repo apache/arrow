@@ -61,16 +61,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        clang_tools: [""]
-        llvm: [""]
         include:
           - arch: amd64
+            clang_tools: "14"
             image: conda-cpp
+            llvm: "14"
             runs-on: ubuntu-latest
             title: AMD64 Conda C++
             ubuntu: "22.04"
           - arch: amd64
+            clang_tools: "14"
             image: ubuntu-cpp-sanitizer
+            llvm: "14"
             runs-on: ubuntu-latest
             title: AMD64 Ubuntu 22.04 C++ ASAN UBSAN
             ubuntu: "22.04"
