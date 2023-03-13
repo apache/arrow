@@ -61,8 +61,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        clang_tools: ""
-        llvm: ""
+        clang_tools: [""]
+        llvm: [""]
         include:
           - arch: amd64
             image: conda-cpp
