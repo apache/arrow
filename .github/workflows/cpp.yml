@@ -63,21 +63,21 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            clang_tools: "14"
+            clang-tools: "14"
             image: conda-cpp
             llvm: "14"
             runs-on: ubuntu-latest
             title: AMD64 Conda C++
             ubuntu: "22.04"
           - arch: amd64
-            clang_tools: "14"
+            clang-tools: "14"
             image: ubuntu-cpp-sanitizer
             llvm: "14"
             runs-on: ubuntu-latest
             title: AMD64 Ubuntu 22.04 C++ ASAN UBSAN
             ubuntu: "22.04"
           - arch: arm64v8
-            clang_tools: "10"
+            clang-tools: "10"
             image: ubuntu-cpp
             llvm: "10"
             runs-on: ["self-hosted", "arm", "linux"]
@@ -85,7 +85,7 @@ jobs:
             ubuntu: "20.04"
     env:
       ARCH: ${{ matrix.arch }}
-      CLANG_TOOLS: ${{ matrix.clang_tools }}
+      CLANG_TOOLS: ${{ matrix.clang-tools }}
       LLVM: ${{ matrix.llvm }}
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
