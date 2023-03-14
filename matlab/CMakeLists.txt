@@ -324,42 +324,46 @@ target_include_directories(mexcall PRIVATE ${CPP_SOURCE_DIR})
 # ARROW_SHARED_LIB
 # On Windows, this will be ARROW_HOME/bin/arrow.dll and on Linux and macOS, it is the arrow.so/dylib in the newly built arrow_shared library.
 if(NOT Arrow_FOUND)
-    message(STATUS "ARROW_SHARED_LIB will be set using IMPORTED_LOCATION value when building.")
-    get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
+  message(STATUS "ARROW_SHARED_LIB will be set using IMPORTED_LOCATION value when building."
+  )
+  get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
 else()
-    # If not building Arrow, ARROW_SHARED_LIB derived from ARROW_PREFIX set to the ARROW_HOME specified with cmake would be non-empty.
-    message(STATUS "ARROW_SHARED_LIB: ${ARROW_SHARED_LIB}")
+  # If not building Arrow, ARROW_SHARED_LIB derived from ARROW_PREFIX set to the ARROW_HOME specified with cmake would be non-empty.
+  message(STATUS "ARROW_SHARED_LIB: ${ARROW_SHARED_LIB}")
 endif()
 
 # ARROW_LINK_LIB
 # On Windows, we use the arrow.lib for linking arrow_matlab against the Arrow C++ library.
 # The location of arrow.lib is previously saved in IMPORTED_IMPLIB.
 if(WIN32)
-    # If not building Arrow, IMPORTED_IMPLIB will be empty.
-    # Then set ARROW_LINK_LIB to ARROW_IMPORT_LIB which would have been derived from ARROW_PREFIX set to the ARROW_HOME specified with cmake. This will avoid the ARROW_LINK_LIB set to NOTFOUND error.
-    # The ARROW_IMPORT_LIB should be ARROW_HOME/lib/arrow.lib on Windows.
-    if(NOT Arrow_FOUND)
-        message(STATUS "ARROW_LINK_LIB will be set using IMPORTED_IMPLIB value when building.")
-        get_target_property(ARROW_LINK_LIB arrow_shared IMPORTED_IMPLIB)
-    else()
-        set(ARROW_LINK_LIB "${ARROW_IMPORT_LIB}")
-        message(STATUS "Setting ARROW_LINK_LIB to ARROW_IMPORT_LIB: ${ARROW_IMPORT_LIB}, which is derived from the ARROW_HOME provided.")
-    endif()
+  # If not building Arrow, IMPORTED_IMPLIB will be empty.
+  # Then set ARROW_LINK_LIB to ARROW_IMPORT_LIB which would have been derived from ARROW_PREFIX set to the ARROW_HOME specified with cmake. This will avoid the ARROW_LINK_LIB set to NOTFOUND error.
+  # The ARROW_IMPORT_LIB should be ARROW_HOME/lib/arrow.lib on Windows.
+  if(NOT Arrow_FOUND)
+    message(STATUS "ARROW_LINK_LIB will be set using IMPORTED_IMPLIB value when building."
+    )
+    get_target_property(ARROW_LINK_LIB arrow_shared IMPORTED_IMPLIB)
+  else()
+    set(ARROW_LINK_LIB "${ARROW_IMPORT_LIB}")
+    message(STATUS "Setting ARROW_LINK_LIB to ARROW_IMPORT_LIB: ${ARROW_IMPORT_LIB}, which is derived from the ARROW_HOME provided."
+    )
+  endif()
 else()
-    # On Linux and macOS, it is the arrow.so/dylib in the newly built arrow_shared library used for linking.
-    # On Unix, this is the same as ARROW_SHARED_LIB.
-    message(STATUS "Setting ARROW_LINK_LIB to ARROW_SHARED_LIB as they are same on Unix.")
-    set(ARROW_LINK_LIB "${ARROW_SHARED_LIB}")
+  # On Linux and macOS, it is the arrow.so/dylib in the newly built arrow_shared library used for linking.
+  # On Unix, this is the same as ARROW_SHARED_LIB.
+  message(STATUS "Setting ARROW_LINK_LIB to ARROW_SHARED_LIB as they are same on Unix.")
+  set(ARROW_LINK_LIB "${ARROW_SHARED_LIB}")
 endif()
 
 # ARROW_INCLUDE_DIR should be set so that header files in the include directory can be found correctly.
 # The value of ARROW_INCLUDE_DIR should be ARROW_HOME/include on all platforms.
 if(NOT Arrow_FOUND)
-    message(STATUS "ARROW_INCLUDE_DIR will be set using INTERFACE_INCLUDE_DIRECTORIES value when building.")
-    get_target_property(ARROW_INCLUDE_DIR arrow_shared INTERFACE_INCLUDE_DIRECTORIES)
+  message(STATUS "ARROW_INCLUDE_DIR will be set using INTERFACE_INCLUDE_DIRECTORIES value when building."
+  )
+  get_target_property(ARROW_INCLUDE_DIR arrow_shared INTERFACE_INCLUDE_DIRECTORIES)
 else()
-    # If not building Arrow, ARROW_INCLUDE_DIR derived from ARROW_PREFIX set to the ARROW_HOME specified with cmake would be non-empty.
-    message(STATUS "ARROW_INCLUDE_DIR: ${ARROW_INCLUDE_DIR}")
+  # If not building Arrow, ARROW_INCLUDE_DIR derived from ARROW_PREFIX set to the ARROW_HOME specified with cmake would be non-empty.
+  message(STATUS "ARROW_INCLUDE_DIR: ${ARROW_INCLUDE_DIR}")
 endif()
 
 # ##############################################################################
@@ -442,7 +446,7 @@ endif()
 set(CMAKE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/arrow_matlab")
 
 if(MATLAB_ARROW_INTERFACE)
-    include(BuildMatlabArrowInterface)
+  include(BuildMatlabArrowInterface)
 endif()
 
 # Create a package hierarchy at CMAKE_INSTALL_PREFIX to install the mex function
