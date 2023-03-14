@@ -23,9 +23,9 @@
 #include "libmexclass/proxy/Proxy.h"
 
 namespace arrow::matlab::array::proxy {
-class DoubleArray : public libmexclass::proxy::Proxy {
+class Float64Array : public libmexclass::proxy::Proxy {
     public:
-        DoubleArray(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+        Float64Array(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
             // Get the mxArray from constructor arguments
             const ::matlab::data::TypedArray<double> double_mda = constructor_arguments[0];
 
@@ -49,7 +49,7 @@ class DoubleArray : public libmexclass::proxy::Proxy {
             array = array_wrapper;
 
             // Register Proxy methods.
-            REGISTER_METHOD(DoubleArray, Print);
+            REGISTER_METHOD(Float64Array, Print);
         }
     private:
         void Print(libmexclass::proxy::method::Context& context);

@@ -1,5 +1,5 @@
-classdef tDoubleArray < matlab.unittest.TestCase
-    % Tests for arrow.array.DoubleArray
+classdef Float64Array < matlab.mixin.CustomDisplay
+    % arrow.array.Float64Array
 
     % Licensed to the Apache Software Foundation (ASF) under one or more
     % contributor license agreements.  See the NOTICE file distributed with
@@ -15,27 +15,30 @@ classdef tDoubleArray < matlab.unittest.TestCase
     % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
     % implied.  See the License for the specific language governing
     % permissions and limitations under the License.
-    
-    methods(TestClassSetup)
-        function verifyOnMatlabPath(testCase)
-            % arrow.cpp.DoubleArray must be on the MATLAB path.
-            testCase.assertTrue(~isempty(which('arrow.array.DoubleArray')), ...
-                '''arrow.array.DoubleArray'' must be on the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
+
+    properties (Access=private)
+        Proxy
+    end
+
+    properties (Access=private)
+        MatlabArray
+    end
+
+    methods
+        function obj = Float64Array(matlabArray)
+            obj.MatlabArray = matlabArray;
+            obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {obj.MatlabArray});
+        end
+
+        function Print(obj)
+            obj.Proxy.Print();
         end
     end
-    
-    methods(TestMethodSetup)
-        function setupTempWorkingDirectory(testCase)
-            import matlab.unittest.fixtures.WorkingFolderFixture;
-            testCase.applyFixture(WorkingFolderFixture);
+
+    methods (Access=protected)
+        function displayScalarObject(obj)
+            obj.Print();
         end
     end
-    
-    methods(Test)
-        function Basic(testCase)
-            A = arrow.array.DoubleArray([1, 2, 3]);
-            className = string(class(A));
-            testCase.verifyEqual(className, "arrow.array.DoubleArray");
-        end
-    end
+
 end
