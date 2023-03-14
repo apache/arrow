@@ -1,7 +1,6 @@
 # -------
 # Build
 # -------
-message(STATUS "Building MATLAB Interface to Arrow...")
 
 # Arguments to build libmexclass.
 set(CUSTOM_PROXY_FACTORY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy;${CMAKE_SOURCE_DIR}/src/cpp")
@@ -34,16 +33,11 @@ ExternalProject_Add(
     INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
 )
 
-message(STATUS "Successfully built MATLAB Interface to Arrow.")
-
 # -------
 # Install
 # -------
-message(STATUS "Installing MATLAB Interface to Arrow...")
 # Install libmexclass.
 # Get the installation directory for libmexclass.
 ExternalProject_Get_Property(libmexclass BINARY_DIR)
 # Copy only the packaged folder +libmexclass from the libmexclass installation directory.
 install(DIRECTORY ${BINARY_DIR}/+libmexclass DESTINATION ${CMAKE_INSTALL_DIR})
-
-message(STATUS "Successfully installed MATLAB Interface to Arrow.")
