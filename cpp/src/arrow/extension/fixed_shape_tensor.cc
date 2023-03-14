@@ -53,7 +53,7 @@ bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
        (is_permutation_trivial(permutation_) && other_ext.permutation().empty()));
 
   return (storage_type()->Equals(other_ext.storage_type())) &&
-         (shape_ == other_ext.shape()) && (dim_names_ == other_ext.dim_names()) &&
+         (this->shape() == other_ext.shape()) && (dim_names_ == other_ext.dim_names()) &&
          permutation_equivalent;
 }
 
@@ -155,6 +155,7 @@ Result<std::shared_ptr<Array>> FixedShapeTensorArray::FromTensor(
   for (auto& x : permutation) {
     x--;
   }
+  internal::Permute(permutation, &cell_shape);
 
   auto ext_type = internal::checked_pointer_cast<ExtensionType>(
       fixed_shape_tensor(tensor->type(), cell_shape, permutation, dim_names));
@@ -227,16 +228,24 @@ Result<std::shared_ptr<Tensor>> FixedShapeTensorType::ToTensor(
 
   ARROW_RETURN_IF(arr->null_count() > 0,
                   Status::Invalid("Null values not supported in tensors."));
+
   auto ext_arr = internal::checked_pointer_cast<FixedSizeListArray>(
       internal::checked_pointer_cast<ExtensionArray>(arr)->storage());
+  ARROW_RETURN_IF(!is_fixed_width(ext_arr->value_type()->id()),
+                  Status::Invalid(ext_arr->value_type()->ToString(),
+                                  " is not valid data type for a tensor"));
 
   std::vector<int64_t> shape = this->shape();
   shape.insert(shape.begin(), 1, arr->length());
 
   int64_t major_stride;
   std::vector<int64_t> tensor_strides = this->strides();
-  if (internal::MultiplyWithOverflow(arr->length(), tensor_strides[0], &major_stride)) {
+  if (internal::MultiplyWithOverflow(ext_arr->value_type()->byte_width(),
+                                     ext_arr->list_type()->list_size(), &major_stride)) {
     return Status::Invalid("Overflow in tensor strides");
+  }
+  if (!this->permutation().empty()) {
+    internal::Permute(this->permutation(), &tensor_strides);
   }
   tensor_strides.insert(tensor_strides.begin(), 1, major_stride);
 
@@ -277,11 +286,12 @@ Result<std::vector<int64_t>> FixedShapeTensorType::ComputeStrides(
   auto value_type =
       internal::checked_pointer_cast<FixedWidthType>(element_type->value_type());
 
-  ARROW_RETURN_NOT_OK(
-      internal::ComputeRowMajorStrides(*value_type.get(), type.shape(), &strides));
+  auto shape = type.shape();
   if (!type.permutation().empty()) {
-    internal::Permute(type.permutation(), &strides);
+    internal::Permute(type.permutation(), &shape);
   }
+  ARROW_RETURN_NOT_OK(
+      internal::ComputeRowMajorStrides(*value_type.get(), shape, &strides));
   return strides;
 }
 
@@ -298,7 +308,12 @@ std::shared_ptr<DataType> fixed_shape_tensor(const std::shared_ptr<DataType>& va
                                              const std::vector<int64_t>& shape,
                                              const std::vector<int64_t>& permutation,
                                              const std::vector<std::string>& dim_names) {
-  auto maybe_type = FixedShapeTensorType::Make(value_type, shape, permutation, dim_names);
+  std::vector<int64_t> shape_ = std::move(shape);
+  if (!permutation.empty()) {
+    internal::Permute(permutation, &shape_);
+  }
+  auto maybe_type =
+      FixedShapeTensorType::Make(value_type, shape_, permutation, dim_names);
   ARROW_DCHECK_OK(maybe_type.status());
   return maybe_type.MoveValueUnsafe();
 }
