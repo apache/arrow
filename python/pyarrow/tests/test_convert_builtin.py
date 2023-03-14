@@ -1133,6 +1133,33 @@ def test_sequence_timestamp_with_timezone_inference():
         assert arr.type == expected_type
 
 
+def test_sequence_timestamp_with_zoneinfo_timezone_inference():
+    pytest.importorskip("zoneinfo")
+    import zoneinfo
+
+    data = [
+        datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
+        datetime.datetime(2008, 1, 5, 5, 0, 0, 1000,
+                          tzinfo=datetime.timezone.utc),
+        None,
+        datetime.datetime(2006, 1, 13, 12, 34, 56, 432539,
+                          tzinfo=zoneinfo.ZoneInfo(key='US/Eastern')),
+        datetime.datetime(2010, 8, 13, 5, 0, 0, 437699,
+                          tzinfo=zoneinfo.ZoneInfo(key='Europe/Moscow')),
+    ]
+    expected = [
+        pa.timestamp('us', tz=None),
+        pa.timestamp('us', tz='UTC'),
+        pa.timestamp('us', tz=None),
+        pa.timestamp('us', tz='US/Eastern'),
+        pa.timestamp('us', tz='Europe/Moscow')
+    ]
+    for dt, expected_type in zip(data, expected):
+        prepended = [dt] + data
+        arr = pa.array(prepended)
+        assert arr.type == expected_type
+
+
 @pytest.mark.pandas
 def test_sequence_timestamp_from_mixed_builtin_and_pandas_datetimes():
     pytest.importorskip("pytz")
