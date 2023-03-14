@@ -469,6 +469,10 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(s string) {
 			r.parseList(bldr, s)
 		}
+	case arrow.BinaryDataType:
+		return func(s string) {
+			r.parseBinaryDataType(bldr, s)
+		}
 	default:
 		panic(fmt.Errorf("arrow/csv: unhandled field type %T", bldr.Type()))
 	}
@@ -753,6 +757,18 @@ func (r *Reader) parseList(field array.Builder, str string) {
 	for _, str := range items {
 		r.initFieldConverter(valueBldr)(str)
 	}
+}
+
+func (r *Reader) parseBinaryDataType(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+	decodedVal, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		panic("cannot decode base64 string " + str)
+	}
+	field.(*array.BinaryBuilder).Append(decodedVal)
 }
 
 // Retain increases the reference count by 1.
