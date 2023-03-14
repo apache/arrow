@@ -76,7 +76,21 @@ Status RunCompressorBuilder::AppendNulls(int64_t length) {
 }
 
 Status RunCompressorBuilder::AppendEmptyValues(int64_t length) {
-  return Status::NotImplemented("Append empty values to a run-compressed array.");
+  if (ARROW_PREDICT_FALSE(length == 0)) {
+    return Status::OK();
+  }
+  // Empty values are usually appended as placeholders for future values, so
+  // we make no attempt at making the empty values appended now part of the
+  // current run. Each AppendEmptyValues() creates its own run of the given length.
+  ARROW_RETURN_NOT_OK(FinishCurrentRun());
+  {
+    ARROW_RETURN_NOT_OK(WillCloseRunOfEmptyValues(length));
+    ARROW_RETURN_NOT_OK(inner_builder_->AppendEmptyValue());
+    UpdateDimensions();
+  }
+  // Current run remains cleared after FinishCurrentRun() as we don't want to
+  // extend it with empty values potentially coming in the future.
+  return Status::OK();
 }
 
 Status RunCompressorBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
@@ -183,7 +197,10 @@ Status RunEndEncodedBuilder::AppendNulls(int64_t length) {
 }
 
 Status RunEndEncodedBuilder::AppendEmptyValues(int64_t length) {
-  return Status::NotImplemented("Append empty values to run-end encoded array.");
+  RETURN_NOT_OK(value_run_builder_->AppendEmptyValues(length));
+  DCHECK_EQ(value_run_builder_->open_run_length(), 0);
+  UpdateDimensions(committed_logical_length_, 0);
+  return Status::OK();
 }
 
 Status RunEndEncodedBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
@@ -313,8 +330,7 @@ Status RunEndEncodedBuilder::AppendRunEnd(int64_t run_end) {
   return Status::OK();
 }
 
-Status RunEndEncodedBuilder::CloseRun(const std::shared_ptr<const Scalar>& value,
-                                      int64_t run_length) {
+Status RunEndEncodedBuilder::CloseRun(int64_t run_length) {
   // TODO(felipecrv): gracefully fragment runs bigger than INT32_MAX
   if (ARROW_PREDICT_FALSE(run_length > std::numeric_limits<int32_t>::max())) {
     return Status::Invalid(
