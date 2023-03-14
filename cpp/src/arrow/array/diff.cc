@@ -32,6 +32,7 @@
 #include "arrow/array/array_decimal.h"
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
+#include "arrow/array/array_run_end.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/extension_type.h"
@@ -43,6 +44,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
+#include "arrow/util/ree_util.h"
 #include "arrow/util/string.h"
 #include "arrow/vendored/datetime.h"
 #include "arrow/visit_type_inline.h"
@@ -119,7 +121,31 @@ struct ValueComparatorVisitor {
   }
 
   Status Visit(const RunEndEncodedType&) {
-    return Status::NotImplemented("run-end encoded type");
+    struct REEComparatorCache {
+      ValueComparator values_comparator;
+    };
+    REEComparatorCache cache;
+    out = [cache = std::move(cache)](const Array& base, int64_t base_index,
+                                     const Array& target, int64_t target_index) mutable {
+      const int64_t physical_base_index =
+          ree_util::FindPhysicalIndex(ArraySpan(*base.data()), base_index, base.offset());
+      const int64_t physical_target_index = ree_util::FindPhysicalIndex(
+          ArraySpan(*target.data()), target_index, target.offset());
+      // TODO(felipecrv): cache these values so that the next binary search for
+      // the physical index can probe from the last found position.
+
+      const auto& ree_type = checked_cast<const RunEndEncodedType&>(*base.type());
+      const auto& base_ree = checked_cast<const RunEndEncodedArray&>(base);
+      const auto& target_ree = checked_cast<const RunEndEncodedArray&>(target);
+
+      if (!cache.values_comparator) {
+        ValueComparatorVisitor values_visitor;
+        cache.values_comparator = values_visitor.Create(*ree_type.value_type());
+      }
+      return cache.values_comparator(*base_ree.values(), physical_base_index,
+                                     *target_ree.values(), physical_target_index);
+    };
+    return Status::OK();
   }
 
   ValueComparator Create(const DataType& type) {
@@ -385,8 +411,6 @@ Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target
     auto target_storage = checked_cast<const ExtensionArray&>(target).storage();
     return Diff(*base_storage, *target_storage, pool);
   } else if (base.type()->id() == Type::DICTIONARY) {
-    return Status::NotImplemented("diffing arrays of type ", *base.type());
-  } else if (base.type()->id() == Type::RUN_END_ENCODED) {
     return Status::NotImplemented("diffing arrays of type ", *base.type());
   } else {
     return QuadraticSpaceMyersDiff(base, target, pool).Diff();
