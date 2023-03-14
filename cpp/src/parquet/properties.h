@@ -137,7 +137,7 @@ static constexpr bool DEFAULT_ARE_STATISTICS_ENABLED = true;
 static constexpr int64_t DEFAULT_MAX_STATISTICS_SIZE = 4096;
 static constexpr Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
-static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
+static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::ACT_UNCOMPRESSED;
 
 class PARQUET_EXPORT ColumnProperties {
  public:

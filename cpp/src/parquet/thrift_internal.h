@@ -79,24 +79,24 @@ static inline PageType::type FromThriftUnsafe(format::PageType::type type) {
 static inline Compression::type FromThriftUnsafe(format::CompressionCodec::type type) {
   switch (type) {
     case format::CompressionCodec::UNCOMPRESSED:
-      return Compression::UNCOMPRESSED;
+      return Compression::ACT_UNCOMPRESSED;
     case format::CompressionCodec::SNAPPY:
-      return Compression::SNAPPY;
+      return Compression::ACT_SNAPPY;
     case format::CompressionCodec::GZIP:
-      return Compression::GZIP;
+      return Compression::ACT_GZIP;
     case format::CompressionCodec::LZO:
-      return Compression::LZO;
+      return Compression::ACT_LZO;
     case format::CompressionCodec::BROTLI:
-      return Compression::BROTLI;
+      return Compression::ACT_BROTLI;
     case format::CompressionCodec::LZ4:
-      return Compression::LZ4_HADOOP;
+      return Compression::ACT_LZ4_HADOOP;
     case format::CompressionCodec::LZ4_RAW:
-      return Compression::LZ4;
+      return Compression::ACT_LZ4;
     case format::CompressionCodec::ZSTD:
-      return Compression::ZSTD;
+      return Compression::ACT_ZSTD;
     default:
       DCHECK(false) << "Cannot reach here";
-      return Compression::UNCOMPRESSED;
+      return Compression::ACT_UNCOMPRESSED;
   }
 }
 
@@ -214,7 +214,7 @@ inline typename Compression::type LoadEnumSafe(const format::CompressionCodec::t
   const auto max_value =
       static_cast<decltype(raw_value)>(format::CompressionCodec::LZ4_RAW);
   if (raw_value < min_value || raw_value > max_value) {
-    return Compression::UNCOMPRESSED;
+    return Compression::ACT_UNCOMPRESSED;
   }
   return FromThriftUnsafe(*in);
 }
@@ -272,22 +272,22 @@ static inline format::Encoding::type ToThrift(Encoding::type type) {
 
 static inline format::CompressionCodec::type ToThrift(Compression::type type) {
   switch (type) {
-    case Compression::UNCOMPRESSED:
+    case Compression::ACT_UNCOMPRESSED:
       return format::CompressionCodec::UNCOMPRESSED;
-    case Compression::SNAPPY:
+    case Compression::ACT_SNAPPY:
       return format::CompressionCodec::SNAPPY;
-    case Compression::GZIP:
+    case Compression::ACT_GZIP:
       return format::CompressionCodec::GZIP;
-    case Compression::LZO:
+    case Compression::ACT_LZO:
       return format::CompressionCodec::LZO;
-    case Compression::BROTLI:
+    case Compression::ACT_BROTLI:
       return format::CompressionCodec::BROTLI;
-    case Compression::LZ4:
+    case Compression::ACT_LZ4:
       return format::CompressionCodec::LZ4_RAW;
-    case Compression::LZ4_HADOOP:
+    case Compression::ACT_LZ4_HADOOP:
       // Deprecated "LZ4" Parquet compression has Hadoop-specific framing
       return format::CompressionCodec::LZ4;
-    case Compression::ZSTD:
+    case Compression::ACT_ZSTD:
       return format::CompressionCodec::ZSTD;
     default:
       DCHECK(false) << "Cannot reach here";

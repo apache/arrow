@@ -200,21 +200,21 @@ GArrowCompressionType
 garrow_compression_type_from_raw(arrow::Compression::type arrow_type)
 {
   switch (arrow_type) {
-  case arrow::Compression::type::UNCOMPRESSED:
+  case arrow::Compression::type::ACT_UNCOMPRESSED:
     return GARROW_COMPRESSION_TYPE_UNCOMPRESSED;
-  case arrow::Compression::type::SNAPPY:
+  case arrow::Compression::type::ACT_SNAPPY:
     return GARROW_COMPRESSION_TYPE_SNAPPY;
-  case arrow::Compression::type::GZIP:
+  case arrow::Compression::type::ACT_GZIP:
     return GARROW_COMPRESSION_TYPE_GZIP;
-  case arrow::Compression::type::BROTLI:
+  case arrow::Compression::type::ACT_BROTLI:
     return GARROW_COMPRESSION_TYPE_BROTLI;
-  case arrow::Compression::type::ZSTD:
+  case arrow::Compression::type::ACT_ZSTD:
     return GARROW_COMPRESSION_TYPE_ZSTD;
-  case arrow::Compression::type::LZ4:
+  case arrow::Compression::type::ACT_LZ4:
     return GARROW_COMPRESSION_TYPE_LZ4;
-  case arrow::Compression::type::LZO:
+  case arrow::Compression::type::ACT_LZO:
     return GARROW_COMPRESSION_TYPE_LZO;
-  case arrow::Compression::type::BZ2:
+  case arrow::Compression::type::ACT_BZ2:
     return GARROW_COMPRESSION_TYPE_BZ2;
   default:
     return GARROW_COMPRESSION_TYPE_UNCOMPRESSED;
@@ -226,23 +226,23 @@ garrow_compression_type_to_raw(GArrowCompressionType type)
 {
   switch (type) {
   case GARROW_COMPRESSION_TYPE_UNCOMPRESSED:
-    return arrow::Compression::type::UNCOMPRESSED;
+    return arrow::Compression::type::ACT_UNCOMPRESSED;
   case GARROW_COMPRESSION_TYPE_SNAPPY:
-    return arrow::Compression::type::SNAPPY;
+    return arrow::Compression::type::ACT_SNAPPY;
   case GARROW_COMPRESSION_TYPE_GZIP:
-    return arrow::Compression::type::GZIP;
+    return arrow::Compression::type::ACT_GZIP;
   case GARROW_COMPRESSION_TYPE_BROTLI:
-    return arrow::Compression::type::BROTLI;
+    return arrow::Compression::type::ACT_BROTLI;
   case GARROW_COMPRESSION_TYPE_ZSTD:
-    return arrow::Compression::type::ZSTD;
+    return arrow::Compression::type::ACT_ZSTD;
   case GARROW_COMPRESSION_TYPE_LZ4:
-    return arrow::Compression::type::LZ4;
+    return arrow::Compression::type::ACT_LZ4;
   case GARROW_COMPRESSION_TYPE_LZO:
-    return arrow::Compression::type::LZO;
+    return arrow::Compression::type::ACT_LZO;
   case GARROW_COMPRESSION_TYPE_BZ2:
-    return arrow::Compression::type::BZ2;
+    return arrow::Compression::type::ACT_BZ2;
   default:
-    return arrow::Compression::type::UNCOMPRESSED;
+    return arrow::Compression::type::ACT_UNCOMPRESSED;
   }
 }
 

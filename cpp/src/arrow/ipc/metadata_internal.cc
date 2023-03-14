@@ -936,9 +936,9 @@ static Status GetBodyCompression(FBB& fbb, const IpcWriteOptions& options,
                                  BodyCompressionOffset* out) {
   if (options.codec != nullptr) {
     flatbuf::CompressionType codec;
-    if (options.codec->compression_type() == Compression::LZ4_FRAME) {
+    if (options.codec->compression_type() == Compression::ACT_LZ4_FRAME) {
       codec = flatbuf::CompressionType::LZ4_FRAME;
-    } else if (options.codec->compression_type() == Compression::ZSTD) {
+    } else if (options.codec->compression_type() == Compression::ACT_ZSTD) {
       codec = flatbuf::CompressionType::ZSTD;
     } else {
       return Status::Invalid("Unsupported IPC compression codec: ",

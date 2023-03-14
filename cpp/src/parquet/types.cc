@@ -37,13 +37,13 @@ namespace parquet {
 
 bool IsCodecSupported(Compression::type codec) {
   switch (codec) {
-    case Compression::UNCOMPRESSED:
-    case Compression::SNAPPY:
-    case Compression::GZIP:
-    case Compression::BROTLI:
-    case Compression::ZSTD:
-    case Compression::LZ4:
-    case Compression::LZ4_HADOOP:
+    case Compression::ACT_UNCOMPRESSED:
+    case Compression::ACT_SNAPPY:
+    case Compression::ACT_GZIP:
+    case Compression::ACT_BROTLI:
+    case Compression::ACT_ZSTD:
+    case Compression::ACT_LZ4:
+    case Compression::ACT_LZ4_HADOOP:
       return true;
     default:
       return false;
@@ -56,7 +56,7 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec) {
 
 std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) {
   std::unique_ptr<Codec> result;
-  if (codec == Compression::LZO) {
+  if (codec == Compression::ACT_LZO) {
     throw ParquetException(
         "While LZO compression is supported by the Parquet format in "
         "general, it is currently not supported by the C++ implementation.");

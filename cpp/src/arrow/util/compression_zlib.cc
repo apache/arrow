@@ -468,7 +468,7 @@ class GZipCodec : public Codec {
     return InitDecompressor();
   }
 
-  Compression::type compression_type() const override { return Compression::GZIP; }
+  Compression::type compression_type() const override { return Compression::ACT_GZIP; }
 
   int compression_level() const override { return compression_level_; }
   int minimum_compression_level() const override { return kGZipMinCompressionLevel; }

@@ -52,25 +52,25 @@ const std::string& Codec::GetCodecAsString(Compression::type t) {
                            zstd = "zstd", bz2 = "bz2", unknown = "unknown";
 
   switch (t) {
-    case Compression::UNCOMPRESSED:
+    case Compression::ACT_UNCOMPRESSED:
       return uncompressed;
-    case Compression::SNAPPY:
+    case Compression::ACT_SNAPPY:
       return snappy;
-    case Compression::GZIP:
+    case Compression::ACT_GZIP:
       return gzip;
-    case Compression::LZO:
+    case Compression::ACT_LZO:
       return lzo;
-    case Compression::BROTLI:
+    case Compression::ACT_BROTLI:
       return brotli;
-    case Compression::LZ4:
+    case Compression::ACT_LZ4:
       return lz4_raw;
-    case Compression::LZ4_FRAME:
+    case Compression::ACT_LZ4_FRAME:
       return lz4;
-    case Compression::LZ4_HADOOP:
+    case Compression::ACT_LZ4_HADOOP:
       return lz4_hadoop;
-    case Compression::ZSTD:
+    case Compression::ACT_ZSTD:
       return zstd;
-    case Compression::BZ2:
+    case Compression::ACT_BZ2:
       return bz2;
     default:
       return unknown;
@@ -79,25 +79,25 @@ const std::string& Codec::GetCodecAsString(Compression::type t) {
 
 Result<Compression::type> Codec::GetCompressionType(const std::string& name) {
   if (name == "uncompressed") {
-    return Compression::UNCOMPRESSED;
+    return Compression::ACT_UNCOMPRESSED;
   } else if (name == "gzip") {
-    return Compression::GZIP;
+    return Compression::ACT_GZIP;
   } else if (name == "snappy") {
-    return Compression::SNAPPY;
+    return Compression::ACT_SNAPPY;
   } else if (name == "lzo") {
-    return Compression::LZO;
+    return Compression::ACT_LZO;
   } else if (name == "brotli") {
-    return Compression::BROTLI;
+    return Compression::ACT_BROTLI;
   } else if (name == "lz4_raw") {
-    return Compression::LZ4;
+    return Compression::ACT_LZ4;
   } else if (name == "lz4") {
-    return Compression::LZ4_FRAME;
+    return Compression::ACT_LZ4_FRAME;
   } else if (name == "lz4_hadoop") {
-    return Compression::LZ4_HADOOP;
+    return Compression::ACT_LZ4_HADOOP;
   } else if (name == "zstd") {
-    return Compression::ZSTD;
+    return Compression::ACT_ZSTD;
   } else if (name == "bz2") {
-    return Compression::BZ2;
+    return Compression::ACT_BZ2;
   } else {
     return Status::Invalid("Unrecognized compression type: ", name);
   }
@@ -105,12 +105,12 @@ Result<Compression::type> Codec::GetCompressionType(const std::string& name) {
 
 bool Codec::SupportsCompressionLevel(Compression::type codec) {
   switch (codec) {
-    case Compression::GZIP:
-    case Compression::BROTLI:
-    case Compression::ZSTD:
-    case Compression::BZ2:
-    case Compression::LZ4_FRAME:
-    case Compression::LZ4:
+    case Compression::ACT_GZIP:
+    case Compression::ACT_BROTLI:
+    case Compression::ACT_ZSTD:
+    case Compression::ACT_BZ2:
+    case Compression::ACT_LZ4_FRAME:
+    case Compression::ACT_LZ4:
       return true;
     default:
       return false;
@@ -138,7 +138,7 @@ Result<int> Codec::DefaultCompressionLevel(Compression::type codec_type) {
 Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
                                              int compression_level) {
   if (!IsAvailable(codec_type)) {
-    if (codec_type == Compression::LZO) {
+    if (codec_type == Compression::ACT_LZO) {
       return Status::NotImplemented("LZO codec not implemented");
     }
 
@@ -159,44 +159,44 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
 
   std::unique_ptr<Codec> codec;
   switch (codec_type) {
-    case Compression::UNCOMPRESSED:
+    case Compression::ACT_UNCOMPRESSED:
       return nullptr;
-    case Compression::SNAPPY:
+    case Compression::ACT_SNAPPY:
 #ifdef ARROW_WITH_SNAPPY
       codec = internal::MakeSnappyCodec();
 #endif
       break;
-    case Compression::GZIP:
+    case Compression::ACT_GZIP:
 #ifdef ARROW_WITH_ZLIB
       codec = internal::MakeGZipCodec(compression_level);
 #endif
       break;
-    case Compression::BROTLI:
+    case Compression::ACT_BROTLI:
 #ifdef ARROW_WITH_BROTLI
       codec = internal::MakeBrotliCodec(compression_level);
 #endif
       break;
-    case Compression::LZ4:
+    case Compression::ACT_LZ4:
 #ifdef ARROW_WITH_LZ4
       codec = internal::MakeLz4RawCodec(compression_level);
 #endif
       break;
-    case Compression::LZ4_FRAME:
+    case Compression::ACT_LZ4_FRAME:
 #ifdef ARROW_WITH_LZ4
       codec = internal::MakeLz4FrameCodec(compression_level);
 #endif
       break;
-    case Compression::LZ4_HADOOP:
+    case Compression::ACT_LZ4_HADOOP:
 #ifdef ARROW_WITH_LZ4
       codec = internal::MakeLz4HadoopRawCodec();
 #endif
       break;
-    case Compression::ZSTD:
+    case Compression::ACT_ZSTD:
 #ifdef ARROW_WITH_ZSTD
       codec = internal::MakeZSTDCodec(compression_level);
 #endif
       break;
-    case Compression::BZ2:
+    case Compression::ACT_BZ2:
 #ifdef ARROW_WITH_BZ2
       codec = internal::MakeBZ2Codec(compression_level);
 #endif
@@ -212,43 +212,43 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
 
 bool Codec::IsAvailable(Compression::type codec_type) {
   switch (codec_type) {
-    case Compression::UNCOMPRESSED:
+    case Compression::ACT_UNCOMPRESSED:
       return true;
-    case Compression::SNAPPY:
+    case Compression::ACT_SNAPPY:
 #ifdef ARROW_WITH_SNAPPY
       return true;
 #else
       return false;
 #endif
-    case Compression::GZIP:
+    case Compression::ACT_GZIP:
 #ifdef ARROW_WITH_ZLIB
       return true;
 #else
       return false;
 #endif
-    case Compression::LZO:
+    case Compression::ACT_LZO:
       return false;
-    case Compression::BROTLI:
+    case Compression::ACT_BROTLI:
 #ifdef ARROW_WITH_BROTLI
       return true;
 #else
       return false;
 #endif
-    case Compression::LZ4:
-    case Compression::LZ4_FRAME:
-    case Compression::LZ4_HADOOP:
+    case Compression::ACT_LZ4:
+    case Compression::ACT_LZ4_FRAME:
+    case Compression::ACT_LZ4_HADOOP:
 #ifdef ARROW_WITH_LZ4
       return true;
 #else
       return false;
 #endif
-    case Compression::ZSTD:
+    case Compression::ACT_ZSTD:
 #ifdef ARROW_WITH_ZSTD
       return true;
 #else
       return false;
 #endif
-    case Compression::BZ2:
+    case Compression::ACT_BZ2:
 #ifdef ARROW_WITH_BZ2
       return true;
 #else

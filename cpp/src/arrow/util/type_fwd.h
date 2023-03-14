@@ -45,17 +45,18 @@ struct Scope;
 
 struct Compression {
   /// \brief Compression algorithm
+  //   prefix 'ACT'(arrow compression type) to avoid nameing conflicts.
   enum type {
-    UNCOMPRESSED,
-    SNAPPY,
-    GZIP,
-    BROTLI,
-    ZSTD,
-    LZ4,
-    LZ4_FRAME,
-    LZO,
-    BZ2,
-    LZ4_HADOOP
+    ACT_UNCOMPRESSED,
+    ACT_SNAPPY,
+    ACT_GZIP,
+    ACT_BROTLI,
+    ACT_ZSTD,
+    ACT_LZ4,
+    ACT_LZ4_FRAME,
+    ACT_LZO,
+    ACT_BZ2,
+    ACT_LZ4_HADOOP
   };
 };
 

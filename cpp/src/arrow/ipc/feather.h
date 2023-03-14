@@ -135,7 +135,7 @@ struct ARROW_EXPORT WriteProperties {
   /// WriteProperties::Defaults() is not used, the default constructor for
   /// WriteProperties will work regardless of the options used to build the C++
   /// project.
-  Compression::type compression = Compression::UNCOMPRESSED;
+  Compression::type compression = Compression::ACT_UNCOMPRESSED;
 
   /// Compressor-specific compression level
   int compression_level = ::arrow::util::kUseDefaultCompressionLevel;

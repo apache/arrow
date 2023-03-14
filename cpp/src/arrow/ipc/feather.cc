@@ -798,9 +798,9 @@ Result<std::shared_ptr<Reader>> Reader::Open(
 WriteProperties WriteProperties::Defaults() {
   WriteProperties result;
 #ifdef ARROW_WITH_LZ4
-  result.compression = Compression::LZ4_FRAME;
+  result.compression = Compression::ACT_LZ4_FRAME;
 #else
-  result.compression = Compression::UNCOMPRESSED;
+  result.compression = Compression::ACT_UNCOMPRESSED;
 #endif
   return result;
 }
