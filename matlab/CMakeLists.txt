@@ -321,11 +321,6 @@ matlab_add_mex(R2018a
 
 target_include_directories(mexcall PRIVATE ${CPP_SOURCE_DIR})
 
-############# libmexclass #################################
-message(STATUS "Start configure libmexclass")
-
-message(STATUS "Arrow_FOUND is ${Arrow_FOUND}.")
-
 # ARROW_SHARED_LIB
 # On Windows, this will be ARROW_HOME/bin/arrow.dll and on Linux and macOS, it is the arrow.so/dylib in the newly built arrow_shared library.
 if(NOT Arrow_FOUND)
