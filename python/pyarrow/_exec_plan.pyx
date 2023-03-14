@@ -29,13 +29,27 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.lib cimport Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table
 from pyarrow.lib import tobytes
-from pyarrow._compute cimport Expression, _true, _SortOptions
+from pyarrow._compute cimport Expression, _SortOptions
 from pyarrow._dataset cimport Dataset, Scanner
-from pyarrow._dataset import InMemoryDataset
+from pyarrow._dataset import InMemoryDataset, ScanNodeOptions
 
 from pyarrow._acero import Declaration, TableSourceNodeOptions, FilterNodeOptions, HashJoinNodeOptions, ProjectNodeOptions
 
 Initialize()  # Initialise support for Datasets in ExecPlan
+
+
+def _dataset_to_decl(Dataset dataset, use_threads=True):
+    decl = Declaration("scan", ScanNodeOptions(dataset, use_threads=use_threads))
+
+    filter_expr = dataset._scan_options.get("filter")
+    if filter_expr is not None:
+        # Filters applied in CScanNodeOptions are "best effort" for the scan node itself,
+        # so we always need to inject an additional Filter node to apply them for real.
+        decl = Declaration.from_sequence(
+            [decl, Declaration("filter", FilterNodeOptions(filter_expr))]
+        )
+
+    return decl
 
 
 cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True,
@@ -276,14 +290,14 @@ def _perform_join(join_type, left_operand not None, left_keys,
             right_column_keys_indices[colname] = idx
 
     # Add the join node to the execplan
-    # TEMP
     if isinstance(left_operand, Dataset):
-        left_operand = left_operand.to_table()
+        left_source = _dataset_to_decl(left_operand, use_threads=use_threads)
+    else:
+        left_source = Declaration("table_source", TableSourceNodeOptions(left_operand))
     if isinstance(right_operand, Dataset):
-        right_operand = right_operand.to_table()
-
-    left_source = Declaration("table_source", TableSourceNodeOptions(left_operand))
-    right_source = Declaration("table_source", TableSourceNodeOptions(right_operand))
+        right_source = _dataset_to_decl(right_operand, use_threads=use_threads)
+    else:
+        right_source = Declaration("table_source", TableSourceNodeOptions(right_operand))
 
     join_opts = HashJoinNodeOptions(
         join_type, left_keys, right_keys, left_columns, right_columns,
