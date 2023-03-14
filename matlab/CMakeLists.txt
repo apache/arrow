@@ -224,10 +224,6 @@ else()
   set(MATLAB_BUILD_OUTPUT_DIR "${CMAKE_BINARY_DIR}")
 endif()
 
-if(MATLAB_ARROW_INTERFACE)
-    include(BuildMatlabArrowInterface)
-endif()
-
 # Only build the MATLAB interface C++ tests if MATLAB_BUILD_TESTS=ON.
 if(MATLAB_BUILD_TESTS)
   # find_package(GTest) supports custom GTEST_ROOT as well as package managers.
@@ -449,6 +445,10 @@ endif()
 # ##############################################################################
 # Create a subdirectory at CMAKE_INSTALL_PREFIX to install the interface.
 set(CMAKE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/arrow_matlab")
+
+if(MATLAB_ARROW_INTERFACE)
+    include(BuildMatlabArrowInterface)
+endif()
 
 # Create a package hierarchy at CMAKE_INSTALL_PREFIX to install the mex function
 # and dependencies.
