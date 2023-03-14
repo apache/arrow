@@ -1,4 +1,4 @@
-classdef DoubleArray < arrow.array.internal.CustomDisplay
+classdef DoubleArray < matlab.mixin.CustomDisplay
 
     properties (Access=private)
         Proxy
