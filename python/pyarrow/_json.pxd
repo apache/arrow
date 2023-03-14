@@ -25,7 +25,13 @@ cdef class ParseOptions(_Weakrefable):
     cdef:
         unique_ptr[CJSONParseOptions] options
 
+    @staticmethod
+    cdef ParseOptions wrap(CJSONParseOptions options)
+
 cdef class ReadOptions(_Weakrefable):
     cdef:
         unique_ptr[CJSONReadOptions] options
+    
+    @staticmethod
+    cdef ReadOptions wrap(CJSONReadOptions options)
 

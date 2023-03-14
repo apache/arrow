@@ -83,6 +83,12 @@ cdef class ReadOptions(_Weakrefable):
             self.use_threads,
             self.block_size
         )
+    
+    @staticmethod
+    cdef ReadOptions wrap(CJSONReadOptions options):
+        out = ReadOptions()
+        out.options.reset(new CJSONReadOptions(move(options)))
+        return out
 
 
 cdef class ParseOptions(_Weakrefable):
@@ -197,6 +203,12 @@ cdef class ParseOptions(_Weakrefable):
             )
 
         self.options.unexpected_field_behavior = v
+    
+    @staticmethod
+    cdef ParseOptions wrap(CJSONParseOptions options):
+        out = ParseOptions()
+        out.options.reset(new CJSONParseOptions(move(options)))
+        return out
 
 
 cdef _get_reader(input_file, shared_ptr[CInputStream]* out):
