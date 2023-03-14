@@ -1963,7 +1963,7 @@ cdef class _SortOptions(FunctionOptions):
         cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
             c_sort_keys.push_back(
-                CSortKey(tobytes(name), unwrap_sort_order(order))
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
             )
         self.wrapped.reset(new CSortOptions(
             c_sort_keys, unwrap_null_placement(null_placement)))
@@ -1994,7 +1994,7 @@ cdef class _SelectKOptions(FunctionOptions):
         cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
             c_sort_keys.push_back(
-                CSortKey(tobytes(name), unwrap_sort_order(order))
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
             )
         self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
 
@@ -2183,12 +2183,12 @@ cdef class _RankOptions(FunctionOptions):
         cdef vector[CSortKey] c_sort_keys
         if isinstance(sort_keys, str):
             c_sort_keys.push_back(
-                CSortKey(tobytes(""), unwrap_sort_order(sort_keys))
+                CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
             )
         else:
             for name, order in sort_keys:
                 c_sort_keys.push_back(
-                    CSortKey(tobytes(name), unwrap_sort_order(order))
+                    CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
                 )
         try:
             self.wrapped.reset(
