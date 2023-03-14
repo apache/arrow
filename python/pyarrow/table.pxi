@@ -480,13 +480,6 @@ cdef class ChunkedArray(_PandasConvertible):
             PandasOptions c_options
             object values
 
-        if self.type.id == _Type_EXTENSION:
-            storage_array = chunked_array(
-                [chunk.storage for chunk in self.iterchunks()],
-                type=self.type.storage_type
-            )
-            return storage_array.to_numpy()
-
         with nogil:
             check_status(
                 ConvertChunkedArrayToPandas(

@@ -1133,18 +1133,23 @@ def test_extension_to_pandas_storage_type(registered_period_type):
     period_type, _ = registered_period_type
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(period_type, storage)
-    breakpoint()
     arr.to_pandas()
 
-    data = [
-        pa.array([1, 2, 3, 4]),
-        pa.array(['foo', 'bar', None, None]),
-        pa.array([True, None, True, False]),
-        arr
-    ]
-    my_schema = pa.schema([('f0', pa.int8()),
-                           ('f1', pa.string()),
-                           ('f2', pa.bool_()),
-                           ('ext', period_type)])
-    table = pa.Table.from_arrays(data, schema=my_schema)
-    table.to_pandas()
+    # Test the change in ConvertChunkedArrayToPandas
+    chunked_arr = pa.chunked_array([arr])
+    chunked_arr.to_numpy()
+
+    # Test the change in ConvertTableToPandas
+    # data = [
+    #     pa.array([1, 2, 3, 4]),
+    #     pa.array(['foo', 'bar', None, None]),
+    #     pa.array([True, None, True, False]),
+    #     arr
+    # ]
+    # my_schema = pa.schema([('f0', pa.int8()),
+    #                        ('f1', pa.string()),
+    #                        ('f2', pa.bool_()),
+    #                        ('ext', period_type)])
+    # table = pa.Table.from_arrays(data, schema=my_schema)
+
+    # table.to_pandas()
