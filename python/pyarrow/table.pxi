@@ -4879,11 +4879,11 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> table.group_by('year').aggregate([('n_legs', 'sum')])
         pyarrow.Table
-        n_legs_sum: int64
         year: int64
+        n_legs_sum: int64
         ----
-        n_legs_sum: [[2,6,104,5]]
         year: [[2020,2022,2021,2019]]
+        n_legs_sum: [[2,6,104,5]]
         """
         return TableGroupBy(self, keys)
 
@@ -5486,11 +5486,11 @@ class TableGroupBy:
 
     >>> pa.TableGroupBy(t,"keys").aggregate([("values", "sum")])
     pyarrow.Table
-    values_sum: int64
     keys: string
+    values_sum: int64
     ----
-    values_sum: [[3,7,5]]
     keys: [["a","b","c"]]
+    values_sum: [[3,7,5]]
     """
 
     def __init__(self, table, keys):
