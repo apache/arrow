@@ -522,3 +522,29 @@ func TestRecordBuilderUnmarshalJSONExtraFields(t *testing.T) {
 
 	assert.Truef(t, array.RecordEqual(rec1, rec2), "expected: %s\nactual: %s", rec1, rec2)
 }
+
+func TestJSON(t *testing.T) {
+	const jsonData = `[
+        { "hello": 1.5, "world": [1, null, 3, 4], "datetimes": [
+            {"date": "2005-05-06", "time": "15:02:04.123"},
+            {"date": "1956-01-02", "time": "02:10:00"}]},
+        { "hello": null, "world": null, "datetimes": [ null, { "date": "2022-02-02", "time": "12:00:00" } ] }
+    ]`
+
+	dataType := arrow.StructOf(
+		arrow.Field{Name: "hello", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+		arrow.Field{Name: "world", Type: arrow.ListOf(arrow.PrimitiveTypes.Int32),
+			Nullable: true},
+		arrow.Field{Name: "datetimes",
+			Type: arrow.FixedSizeListOf(2, arrow.StructOf(
+				arrow.Field{Name: "date", Type: arrow.FixedWidthTypes.Date32},
+				arrow.Field{Name: "time", Type: arrow.FixedWidthTypes.Time32ms},
+			))},
+	)
+
+	arr, pos, err := array.FromJSON(memory.DefaultAllocator, dataType,
+		strings.NewReader(jsonData))
+	assert.NoError(t, err)
+	assert.EqualValues(t, len(jsonData), pos)
+	defer arr.Release()
+}
