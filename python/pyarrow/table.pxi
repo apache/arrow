@@ -5536,21 +5536,21 @@ list[tuple(str, str, FunctionOptions)]
 
         >>> t.group_by("keys").aggregate([("values", "sum")])
         pyarrow.Table
-        values_sum: int64
         keys: string
+        values_sum: int64
         ----
-        values_sum: [[3,7,5]]
         keys: [["a","b","c"]]
+        values_sum: [[3,7,5]]
 
         Count the rows over the grouped column "keys":
 
         >>> t.group_by("keys").aggregate([([], "count_all")])
         pyarrow.Table
-        count_all: int64
         keys: string
+        count_all: int64
         ----
-        count_all: [[2,2,1]]
         keys: [["a","b","c"]]
+        count_all: [[2,2,1]]
 
         Do multiple aggregations:
 
@@ -5563,9 +5563,9 @@ list[tuple(str, str, FunctionOptions)]
         keys_count: int64
         keys: string
         ----
+        keys: [["a","b","c"]]
         values_sum: [[3,7,5]]
         keys_count: [[2,2,1]]
-        keys: [["a","b","c"]]
 
         Count the number of non-null values for column "values"
         over the grouped column "keys":
@@ -5578,8 +5578,8 @@ list[tuple(str, str, FunctionOptions)]
         values_count: int64
         keys: string
         ----
-        values_count: [[2,2,1]]
         keys: [["a","b","c"]]
+        values_count: [[2,2,1]]
 
         Get a single row for each group in column "keys":
 
