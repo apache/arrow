@@ -24,8 +24,6 @@ import os
 import pathlib
 import sys
 
-from ruamel.yaml import YAML
-
 from .benchmark.codec import JsonEncoder
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
 from .benchmark.runner import CppBenchmarkRunner, JavaBenchmarkRunner
@@ -785,6 +783,7 @@ def integration(with_all=False, random_seed=12345, **args):
               default='-', required=True)
 def trigger_bot(arrow_token, committers_path, event_name, event_payload):
     from .bot import CommentBot, PullRequestWorkflowBot, actions
+    from ruamel.yaml import YAML
 
     event_payload = json.loads(event_payload.read())
     if 'comment' in event_name:
