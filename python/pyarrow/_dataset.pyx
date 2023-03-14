@@ -29,6 +29,7 @@ import pyarrow as pa
 from pyarrow.lib cimport *
 from pyarrow.lib import ArrowTypeError, frombytes, tobytes, _pc
 from pyarrow.includes.libarrow_dataset cimport *
+from pyarrow._acero cimport ExecNodeOptions
 from pyarrow._compute cimport Expression, _bind
 from pyarrow._compute import _forbid_instantiation
 from pyarrow._fs cimport FileSystem, FileSelector
@@ -37,12 +38,17 @@ from pyarrow._csv cimport (
 from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
 
 
-_orc_fileformat = None
-_orc_imported = False
-
 _DEFAULT_BATCH_SIZE = 2**17
 _DEFAULT_BATCH_READAHEAD = 16
 _DEFAULT_FRAGMENT_READAHEAD = 4
+
+
+# Initialise support for Datasets in ExecPlan
+Initialize()
+
+
+_orc_fileformat = None
+_orc_imported = False
 
 
 def _get_orc_fileformat():
@@ -3634,3 +3640,45 @@ def _filesystemdataset_write(
     c_scanner = data.unwrap()
     with nogil:
         check_status(CFileSystemDataset.Write(c_options, c_scanner))
+
+
+cdef class _ScanNodeOptions(ExecNodeOptions):
+
+    def _set_options(self, Dataset dataset, dict scan_options):
+        cdef:
+            shared_ptr[CScanOptions] c_scan_options
+
+        c_scan_options = Scanner._make_scan_options(dataset, scan_options)
+
+        self.wrapped.reset(
+            new CScanNodeOptions(dataset.unwrap(), c_scan_options)
+        )
+
+
+class ScanNodeOptions(_ScanNodeOptions):
+    """
+    A Source node which yields batches from a Dataset scan.
+
+    This is the option class for the "scan" node factory.
+
+    This node is capable of applying pushdown projections or filters
+    to the file readers which reduce the amount of data that needs to
+    be read (if supported by the file format). But note that this does not
+    construct associated filter or project nodes to perform the final
+    filtering or projection. Rather, you may supply the same filter
+    expression or projection to the scan node that you also supply
+    to the filter or project node.
+
+    Yielded batches will be augmented with fragment/batch indices to
+    enable stable ordering for simple ExecPlans.
+
+    Parameters
+    ----------
+    dataset : pyarrow.dataset.Dataset
+        The table which acts as the data source.
+    **kwargs : dict, optional
+        Scan options. See `Scanner.from_dataset` for possible arguments.
+    """
+
+    def __init__(self, Dataset dataset, **kwargs):
+        self._set_options(dataset, kwargs)
