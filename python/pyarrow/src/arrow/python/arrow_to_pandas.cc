@@ -2099,6 +2099,16 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
       *out = PandasWriter::EXTENSION;
       return Status::OK();
     } else {
+      // In case of an extension array default to the storage type
+      if (arrays_[column_index]->type()->id() == Type::EXTENSION) {
+          auto value_type = checked_cast<const ExtensionType&>(*arrays_[column_index]->type()).storage_type();
+          ArrayVector storage_arrays;
+          for (int c = 0; c < arrays_[column_index]->num_chunks(); c++) {
+            const auto& arr_ext = checked_cast<const ExtensionArray&>(*arrays_[column_index]->chunk(c));
+            storage_arrays.emplace_back(arr_ext.storage());
+          }
+          arrays_[column_index] = std::make_shared<ChunkedArray>(std::move(storage_arrays), value_type);
+      }
       return GetPandasWriterType(*arrays_[column_index], options_, out);
     }
   }
@@ -2321,6 +2331,7 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
   // Table->DataFrame
   modified_options.allow_zero_copy_blocks = true;
 
+  // In case of an extension array default to the storage type
   if (arr->type()->id() == Type::EXTENSION) {
       auto value_type = checked_cast<const ExtensionType&>(*arr->type()).storage_type();
       ArrayVector storage_arrays;
