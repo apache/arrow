@@ -17,38 +17,15 @@
 
 #pragma once
 
-// IWYU pragma: begin_exports
-
-#include <cstdint>
-#include <memory>
-#include <string>
-#include <string_view>
-#include <type_traits>
-#include <utility>
-#include <vector>
-
-#include "arrow/array/data.h"
-#include "arrow/buffer.h"
-#include "arrow/chunked_array.h"
-
-#include "arrow/compute/function.h"
-#include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/compute/registry.h"
-#include "arrow/datum.h"
-#include "arrow/memory_pool.h"
-#include "arrow/status.h"
-#include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/macros.h"
-
-// IWYU pragma: end_exports
 
 namespace arrow {
+namespace util {
 
-using internal::checked_cast;
-using internal::checked_pointer_cast;
+template <typename T>
+void CheckAlignment(const void* ptr) {
+  ARROW_DCHECK(reinterpret_cast<uint64_t>(ptr) % sizeof(T) == 0);
+}
 
+}  // namespace util
 }  // namespace arrow

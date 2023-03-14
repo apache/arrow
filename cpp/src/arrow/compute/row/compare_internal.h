@@ -19,10 +19,10 @@
 
 #include <cstdint>
 
-#include "arrow/compute/exec/util.h"
 #include "arrow/compute/light_array.h"
 #include "arrow/compute/row/encode_internal.h"
 #include "arrow/compute/row/row_internal.h"
+#include "arrow/compute/util.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
