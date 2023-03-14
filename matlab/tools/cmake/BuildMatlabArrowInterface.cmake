@@ -39,6 +39,11 @@ ExternalProject_Add(
     INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
 )
 
+# When building Arrow from source, Arrow must be built before building libmexclass.
+if(TARGET arrow_ep)
+    add_dependencies(libmexclass arrow_ep)
+endif()
+
 add_custom_command(TARGET libmexclass
                    POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --green --bold --no-newline "✓ Success "
