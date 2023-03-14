@@ -24,6 +24,8 @@ import os
 import pathlib
 import sys
 
+from ruamel.yaml import YAML
+
 from .benchmark.codec import JsonEncoder
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
 from .benchmark.runner import CppBenchmarkRunner, JavaBenchmarkRunner
@@ -775,12 +777,13 @@ def integration(with_all=False, random_seed=12345, **args):
 
 
 @archery.command()
+@click.option('--arrow-token', envvar='ARROW_GITHUB_TOKEN',
+              help='OAuth token for responding comment in the arrow repo')
+@click.option('--committers', '-c', type=click.File('r', encoding='utf8'))
 @click.option('--event-name', '-n', required=True)
 @click.option('--event-payload', '-p', type=click.File('r', encoding='utf8'),
               default='-', required=True)
-@click.option('--arrow-token', envvar='ARROW_GITHUB_TOKEN',
-              help='OAuth token for responding comment in the arrow repo')
-def trigger_bot(event_name, event_payload, arrow_token):
+def trigger_bot(arrow_token, committers_path, event_name, event_payload):
     from .bot import CommentBot, PullRequestWorkflowBot, actions
 
     event_payload = json.loads(event_payload.read())
@@ -788,7 +791,12 @@ def trigger_bot(event_name, event_payload, arrow_token):
         bot = CommentBot(name='github-actions', handler=actions, token=arrow_token)
         bot.handle(event_name, event_payload)
     else:
-        bot = PullRequestWorkflowBot(event_name, event_payload, token=arrow_token)
+        committers = None
+        if committers_path:
+            with pathlib.Path(committers_path).open() as fp:
+                committers = [committer['alias'] for committer in YAML().load(fp)]
+        bot = PullRequestWorkflowBot(event_name, event_payload, token=arrow_token,
+                                     committers=committers)
         bot.handle()
 
 
