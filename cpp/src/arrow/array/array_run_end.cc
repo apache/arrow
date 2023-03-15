@@ -125,9 +125,9 @@ Result<std::shared_ptr<Array>> RunEndEncodedArray::LogicalRunEnds() const {
     case Type::INT32:
       return MakeLogicalRunEnds<Int32Type>(*this, physical_offset, physical_length);
     default:
-      break;
+      DCHECK_EQ(run_ends_array_->type_id(), Type::INT64);
+      return MakeLogicalRunEnds<Int64Type>(*this, physical_offset, physical_length);
   }
-  return MakeLogicalRunEnds<Int64Type>(*this, physical_offset, physical_length);
 }
 
 std::shared_ptr<Array> RunEndEncodedArray::LogicalValues() const {
