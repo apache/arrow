@@ -34,11 +34,21 @@ public interface Substrait {
   ArrowReader runQueryLocalFiles(String plan);
 
   /**
-   * Execute Substrait Plan to read Schema and ArrowRecordBatches for Named Tables.
+   * Execute JSON Substrait Plan to read Schema and ArrowRecordBatches for Named Tables.
    *
    * @param plan                  the JSON Substrait plan.
    * @param mapTableToArrowReader the mapping name of Tables Name and theirs memory addres representation.
    * @return the ArrowReader to iterate for record batches.
    */
   ArrowReader runQueryNamedTables(String plan, Map<String, ArrowReader> mapTableToArrowReader);
+
+
+  /**
+   * Execute binary Substrait Plan to read Schema and ArrowRecordBatches for Named Tables.
+   *
+   * @param plan                  the binary Substrait plan.
+   * @param mapTableToArrowReader the mapping name of Tables Name and theirs memory addres representation.
+   * @return the ArrowReader to iterate for record batches.
+   */
+  ArrowReader runQueryNamedTables(Object plan, Map<String, ArrowReader> mapTableToArrowReader);
 }

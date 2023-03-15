@@ -73,4 +73,35 @@ public class SubstraitConsumer implements Substrait {
       }
     }
   }
+
+  @Override
+  public ArrowReader runQueryNamedTables(Object plan, Map<String, ArrowReader> mapTableToArrowReader) {
+    List<ArrowArrayStream> listStreamInput = new ArrayList<>();
+    try (
+        ArrowArrayStream streamOutput = ArrowArrayStream.allocateNew(this.allocator)
+    ) {
+      String[] mapTableToMemoryAddress = new String[mapTableToArrowReader.size() * 2];
+      ArrowArrayStream streamInput;
+      int pos = 0;
+      for (Map.Entry<String, ArrowReader> entries : mapTableToArrowReader.entrySet()) {
+        streamInput = ArrowArrayStream.allocateNew(this.allocator);
+        listStreamInput.add(streamInput);
+        Data.exportArrayStream(this.allocator, entries.getValue(), streamInput);
+        mapTableToMemoryAddress[pos] = entries.getKey();
+        mapTableToMemoryAddress[pos + 1] = String.valueOf(streamInput.memoryAddress());
+        pos += 2;
+      }
+
+      JniWrapper.get().executeSerializedPlanNamedTables(
+          plan,
+          mapTableToMemoryAddress,
+          streamOutput.memoryAddress()
+      );
+      return Data.importArrayStream(this.allocator, streamOutput);
+    } finally {
+      for (ArrowArrayStream stream : listStreamInput) {
+        stream.close();
+      }
+    }
+  }
 }

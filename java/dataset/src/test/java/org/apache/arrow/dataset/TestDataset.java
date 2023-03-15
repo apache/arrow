@@ -18,6 +18,8 @@
 package org.apache.arrow.dataset;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -38,8 +40,12 @@ import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.calcite.sql.parser.SqlParseException;
 import org.junit.After;
 import org.junit.Before;
+
+import io.substrait.isthmus.SqlToSubstrait;
+import io.substrait.proto.Plan;
 
 public abstract class TestDataset {
   private RootAllocator allocator = null;
@@ -112,5 +118,43 @@ public abstract class TestDataset {
 
   protected <T> List<T> collect(Iterator<T> iterator) {
     return stream(iterator).collect(Collectors.toList());
+  }
+
+  protected Plan getPlan(String sql, List<String> schema) throws SqlParseException {
+    SqlToSubstrait sqlToSubstrait = new SqlToSubstrait();
+    Plan plan = sqlToSubstrait.execute(sql, schema);
+    return plan;
+  }
+
+  protected String getNamedTableUri(String name) {
+    return Paths.get(
+        Paths.get("src", "test", "resources", "substrait", "parquet", name)
+            .toFile()
+            .getAbsolutePath()
+    ).toUri().toString();
+  }
+
+  protected String getSubstraitPlan(String name) throws IOException {
+    return new String(
+        Files.readAllBytes(
+            Paths.get(
+                Paths.get("src", "test", "resources", "substrait", "plan", name)
+                    .toFile()
+                    .getAbsolutePath()
+            )
+        )
+    );
+  }
+
+  protected String getSubstraitTpchPlan(String name) throws IOException {
+    return new String(
+        Files.readAllBytes(
+            Paths.get(
+                Paths.get("src", "test", "resources", "substrait", "tpch", "plan", name)
+                    .toFile()
+                    .getAbsolutePath()
+            )
+        )
+    );
   }
 }

@@ -151,7 +151,7 @@
             <exclude>**/*.tbl</exclude>
             <exclude>**/*.iml</exclude>
             <exclude>**/flight.properties</exclude>
-              <exclude>**/*.idea/**</exclude>
+            <exclude>**/*.idea/**</exclude>
           </excludes>
         </configuration>
       </plugin>
