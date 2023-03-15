@@ -760,7 +760,8 @@ func (r *Reader) parseList(field array.Builder, str string) {
 }
 
 func (r *Reader) parseBinaryType(field array.Builder, str string) {
-	if r.isNull(str) {
+	// specialize the implementation when we know we cannot have nulls
+	if str != "" && r.isNull(str) {
 		field.AppendNull()
 		return
 	}
