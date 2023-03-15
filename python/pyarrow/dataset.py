@@ -23,6 +23,8 @@ from pyarrow.util import _is_iterable, _stringify_path, _is_path_like
 from pyarrow._dataset import (  # noqa
     CsvFileFormat,
     CsvFragmentScanOptions,
+    JsonFileFormat,
+    JsonFragmentScanOptions,
     Dataset,
     DatasetFactory,
     DirectoryPartitioning,

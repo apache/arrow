@@ -23,14 +23,14 @@ from pyarrow.lib cimport _Weakrefable
 
 cdef class ParseOptions(_Weakrefable):
     cdef:
-        unique_ptr[CJSONParseOptions] options
+        CJSONParseOptions options
 
     @staticmethod
     cdef ParseOptions wrap(CJSONParseOptions options)
 
 cdef class ReadOptions(_Weakrefable):
     cdef:
-        unique_ptr[CJSONReadOptions] options
+        CJSONReadOptions options
     
     @staticmethod
     cdef ReadOptions wrap(CJSONReadOptions options)

@@ -40,8 +40,6 @@ cdef class ReadOptions(_Weakrefable):
         This will determine multi-threading granularity as well as
         the size of individual chunks in the Table.
     """
-    cdef:
-        CJSONReadOptions options
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -87,7 +85,7 @@ cdef class ReadOptions(_Weakrefable):
     @staticmethod
     cdef ReadOptions wrap(CJSONReadOptions options):
         out = ReadOptions()
-        out.options.reset(new CJSONReadOptions(move(options)))
+        out.options=options #shallow copy
         return out
 
 
@@ -112,9 +110,6 @@ cdef class ParseOptions(_Weakrefable):
          - "infer": unexpected JSON fields are type-inferred and included in
            the output
     """
-
-    cdef:
-        CJSONParseOptions options
 
     __slots__ = ()
 
@@ -207,7 +202,7 @@ cdef class ParseOptions(_Weakrefable):
     @staticmethod
     cdef ParseOptions wrap(CJSONParseOptions options):
         out = ParseOptions()
-        out.options.reset(new CJSONParseOptions(move(options)))
+        out.options = options #shallow copy
         return out
 
 
