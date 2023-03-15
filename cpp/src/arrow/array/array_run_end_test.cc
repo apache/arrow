@@ -301,22 +301,40 @@ TEST_P(TestRunEndEncodedArray, Builder) {
           R"(["unique", null, "common", "common", "appended", "common", "common", "appended"])"));
       continue;
     }
-    if (step == 10) {
-      ASSERT_EQ(builder->length(), 505);
+    // Append empty values
+    ASSERT_OK(builder->AppendEmptyValues(10));
+    if (step == 11) {
+      ASSERT_EQ(builder->length(), 515);
+      ASSERT_OK(BuilderEquals(
+          *builder, 515, "[1, 3, 105, 165, 205, 305, 405, 505, 515]",
+          R"(["unique", null, "common", "common", "appended", "common", "common", "appended", ""])"));
+      continue;
+    }
+    // Append NULL after empty
+    ASSERT_OK(builder->AppendNull());
+    if (step == 12) {
+      ASSERT_EQ(builder->length(), 516);
+      ASSERT_OK(BuilderEquals(
+          *builder, 516, "[1, 3, 105, 165, 205, 305, 405, 505, 515, 516]",
+          R"(["unique", null, "common", "common", "appended", "common", "common", "appended", "", null])"));
+      continue;
+    }
+    if (step == 13) {
+      ASSERT_EQ(builder->length(), 516);
       ASSERT_EQ(*builder->type(), *run_end_encoded(run_end_type, utf8()));
 
       auto expected_run_ends =
-          ArrayFromJSON(run_end_type, "[1, 3, 105, 165, 205, 305, 405, 505]");
+          ArrayFromJSON(run_end_type, "[1, 3, 105, 165, 205, 305, 405, 505, 515, 516]");
       auto expected_values = ArrayFromJSON(
           value_type,
-          R"(["unique", null, "common", "common", "appended", "common", "common", "appended"])");
+          R"(["unique", null, "common", "common", "appended", "common", "common", "appended", "", null])");
 
       ASSERT_OK_AND_ASSIGN(auto array, builder->Finish());
       auto ree_array = std::dynamic_pointer_cast<RunEndEncodedArray>(array);
       ASSERT_NE(ree_array, NULLPTR);
       ASSERT_ARRAYS_EQUAL(*expected_run_ends, *ree_array->run_ends());
       ASSERT_ARRAYS_EQUAL(*expected_values, *ree_array->values());
-      ASSERT_EQ(array->length(), 505);
+      ASSERT_EQ(array->length(), 516);
       ASSERT_EQ(array->offset(), 0);
       break;
     }
