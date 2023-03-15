@@ -777,11 +777,11 @@ def integration(with_all=False, random_seed=12345, **args):
 @archery.command()
 @click.option('--arrow-token', envvar='ARROW_GITHUB_TOKEN',
               help='OAuth token for responding comment in the arrow repo')
-@click.option('--committers', '-c', type=click.File('r', encoding='utf8'))
+@click.option('--committers-file', '-c', type=click.File('r', encoding='utf8'))
 @click.option('--event-name', '-n', required=True)
 @click.option('--event-payload', '-p', type=click.File('r', encoding='utf8'),
               default='-', required=True)
-def trigger_bot(arrow_token, committers_path, event_name, event_payload):
+def trigger_bot(arrow_token, committers_file, event_name, event_payload):
     from .bot import CommentBot, PullRequestWorkflowBot, actions
     from ruamel.yaml import YAML
 
@@ -791,9 +791,9 @@ def trigger_bot(arrow_token, committers_path, event_name, event_payload):
         bot.handle(event_name, event_payload)
     else:
         committers = None
-        if committers_path:
-            with pathlib.Path(committers_path).open() as fp:
-                committers = [committer['alias'] for committer in YAML().load(fp)]
+        if committers_file:
+            committers = [committer['alias']
+                          for committer in YAML().load(committers_file)]
         bot = PullRequestWorkflowBot(event_name, event_payload, token=arrow_token,
                                      committers=committers)
         bot.handle()
