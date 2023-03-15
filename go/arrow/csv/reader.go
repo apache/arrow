@@ -469,9 +469,9 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(s string) {
 			r.parseList(bldr, s)
 		}
-	case arrow.BinaryDataType:
+	case *arrow.BinaryType:
 		return func(s string) {
-			r.parseBinaryDataType(bldr, s)
+			r.parseBinaryType(bldr, s)
 		}
 	default:
 		panic(fmt.Errorf("arrow/csv: unhandled field type %T", bldr.Type()))
@@ -759,7 +759,7 @@ func (r *Reader) parseList(field array.Builder, str string) {
 	}
 }
 
-func (r *Reader) parseBinaryDataType(field array.Builder, str string) {
+func (r *Reader) parseBinaryType(field array.Builder, str string) {
 	if r.isNull(str) {
 		field.AppendNull()
 		return

@@ -216,7 +216,7 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 				res[i] = w.nullValue
 			}
 		}
-	case arrow.BinaryDataType:
+	case *arrow.BinaryType:
 		arr := col.(*array.Binary)
 		for i :=0 ; i < arr.Len(); i++ {
 			if arr.IsValid(i) {
