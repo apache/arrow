@@ -87,6 +87,19 @@ class ARROW_EXPORT RunEndEncodedArray : public Array {
   /// The physical offset to the array is applied.
   const std::shared_ptr<Array>& values() const { return values_array_; }
 
+  /// \brief Returns an array holding the logical indexes of each run end
+  ///
+  /// If a non-zero logical offset is set, this function allocates a new
+  /// array and rewrites all the run end values to be relative to the logical
+  /// offset and cuts the end of the array to the logical length.
+  Result<std::shared_ptr<Array>> LogicalRunEnds(MemoryPool* pool) const;
+
+  /// \brief Returns an array holding the values of each run
+  ///
+  /// If a non-zero logical offset is set, this function allocates a new
+  /// array containing only the values within the logical range.
+  std::shared_ptr<Array> LogicalValues() const;
+
   /// \brief Find the physical offset of this REE array
   ///
   /// This function uses binary-search, so it has a O(log N) cost.

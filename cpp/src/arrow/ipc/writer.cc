@@ -522,8 +522,18 @@ class RecordBatchSerializer {
     return VisitType(*array.indices());
   }
 
-  Status Visit(const RunEndEncodedArray& type) {
-    return Status::NotImplemented("run-end encoded array in IPC");
+  Status Visit(const RunEndEncodedArray& array) {
+    // NOTE: LogicalRunEnds() copies the whole run ends array to add an offset and
+    // clip the ends. To improve performance (by avoiding the extra allocation
+    // and memory writes) we could fuse this process with serialization.
+    ARROW_ASSIGN_OR_RAISE(const auto run_ends,
+                          array.LogicalRunEnds(options_.memory_pool));
+    const auto values = array.LogicalValues();
+    --max_recursion_depth_;
+    RETURN_NOT_OK(VisitArray(*run_ends));
+    RETURN_NOT_OK(VisitArray(*values));
+    ++max_recursion_depth_;
+    return Status::OK();
   }
 
   Status Visit(const ExtensionArray& array) { return VisitType(*array.storage()); }
