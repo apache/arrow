@@ -112,6 +112,9 @@ Result<std::shared_ptr<Array>> MakeLogicalRunEnds(const RunEndEncodedArray& self
 }  // namespace
 
 Result<std::shared_ptr<Array>> RunEndEncodedArray::LogicalRunEnds() const {
+  if (offset() == 0) {
+    return run_ends();
+  }
   int64_t physical_offset = FindPhysicalOffset();
   int64_t physical_length = FindPhysicalLength();
   DCHECK(data()->child_data[0]->buffers[1]->is_cpu());
