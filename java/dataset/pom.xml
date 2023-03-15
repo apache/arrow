@@ -215,4 +215,28 @@
         </plugins>
     </build>
 
+    <profiles>
+
+    <profile>
+        <id>default</id>
+        <activation>
+            <activeByDefault>true</activeByDefault>
+        </activation>
+        <build>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <source>1.8</source>
+                        <target>1.8</target>
+                        <!--To be able to consume Isthmus Library to create binary Substrait Plan-->
+                        <testSource>11</testSource>
+                        <testTarget>11</testTarget>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </build>
+    </profile>
+    </profiles>
 </project>
