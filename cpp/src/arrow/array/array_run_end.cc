@@ -90,19 +90,51 @@ namespace {
 
 template <typename RunEndType>
 Result<std::shared_ptr<Array>> MakeLogicalRunEnds(const RunEndEncodedArray& self,
-                                                  int64_t physical_offset,
-                                                  int64_t physical_length) {
+                                                  MemoryPool* pool) {
   using RunEndCType = typename RunEndType::c_type;
-  const auto* run_ends = self.data()->child_data[0]->GetValues<RunEndCType>(1);
-  NumericBuilder<RunEndType> builder;
+  if (self.offset() == 0) {
+    const auto& run_ends = *self.run_ends();
+    if (self.length() == 0) {
+      return run_ends.Slice(0, 0);
+    }
+
+    // If offset==0 and the non-zero logical length aligns perfectly with a
+    // physical run-end, we can return a slice of the run-ends array.
+    const int64_t physical_length = self.FindPhysicalLength();
+    const auto* run_end_values = self.data()->child_data[0]->GetValues<RunEndCType>(1);
+    if (run_end_values[physical_length - 1] == self.length()) {
+      return run_ends.Slice(0, physical_length);
+    }
+
+    // Otherwise we need to copy the run-ends array and adjust only the very
+    // last run-end.
+    auto new_run_ends_data = ArrayData::Make(run_ends.type(), physical_length, 0, 0);
+    {
+      ARROW_ASSIGN_OR_RAISE(auto buffer,
+                            AllocateBuffer(physical_length * sizeof(RunEndCType), pool));
+      new_run_ends_data->buffers = {NULLPTR, std::move(buffer)};
+    }
+    auto* new_run_end_values = new_run_ends_data->GetMutableValues<RunEndCType>(1);
+    memcpy(new_run_end_values, run_end_values,
+           (physical_length - 1) * sizeof(RunEndCType));
+    new_run_end_values[physical_length - 1] = static_cast<RunEndCType>(self.length());
+    return MakeArray(std::move(new_run_ends_data));
+  }
+
+  // When the logical offset is non-zero, all run-end values need to be adjusted.
+  int64_t physical_offset = self.FindPhysicalOffset();
+  int64_t physical_length = self.FindPhysicalLength();
+
+  const auto* run_end_values = self.data()->child_data[0]->GetValues<RunEndCType>(1);
+  NumericBuilder<RunEndType> builder(pool);
   RETURN_NOT_OK(builder.Resize(physical_length));
   if (physical_length > 0) {
     for (int64_t i = 0; i < physical_length - 1; i++) {
-      const auto run_end = run_ends[physical_offset + i] - self.offset();
+      const auto run_end = run_end_values[physical_offset + i] - self.offset();
       DCHECK_LT(run_end, self.length());
       RETURN_NOT_OK(builder.Append(static_cast<RunEndCType>(run_end)));
     }
-    DCHECK_GE(run_ends[physical_offset + physical_length - 1] - self.offset(),
+    DCHECK_GE(run_end_values[physical_offset + physical_length - 1] - self.offset(),
               self.length());
     RETURN_NOT_OK(builder.Append(static_cast<RunEndCType>(self.length())));
   }
@@ -111,22 +143,17 @@ Result<std::shared_ptr<Array>> MakeLogicalRunEnds(const RunEndEncodedArray& self
 
 }  // namespace
 
-Result<std::shared_ptr<Array>> RunEndEncodedArray::LogicalRunEnds() const {
-  if (offset() == 0) {
-    return run_ends();
-  }
-  int64_t physical_offset = FindPhysicalOffset();
-  int64_t physical_length = FindPhysicalLength();
+Result<std::shared_ptr<Array>> RunEndEncodedArray::LogicalRunEnds(
+    MemoryPool* pool) const {
   DCHECK(data()->child_data[0]->buffers[1]->is_cpu());
-
   switch (run_ends_array_->type_id()) {
     case Type::INT16:
-      return MakeLogicalRunEnds<Int16Type>(*this, physical_offset, physical_length);
+      return MakeLogicalRunEnds<Int16Type>(*this, pool);
     case Type::INT32:
-      return MakeLogicalRunEnds<Int32Type>(*this, physical_offset, physical_length);
+      return MakeLogicalRunEnds<Int32Type>(*this, pool);
     default:
       DCHECK_EQ(run_ends_array_->type_id(), Type::INT64);
-      return MakeLogicalRunEnds<Int64Type>(*this, physical_offset, physical_length);
+      return MakeLogicalRunEnds<Int64Type>(*this, pool);
   }
 }
 

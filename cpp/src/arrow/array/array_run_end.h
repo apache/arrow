@@ -92,7 +92,7 @@ class ARROW_EXPORT RunEndEncodedArray : public Array {
   /// If a non-zero logical offset is set, this function allocates a new
   /// array and rewrites all the run end values to be relative to the logical
   /// offset and cuts the end of the array to the logical length.
-  Result<std::shared_ptr<Array>> LogicalRunEnds() const;
+  Result<std::shared_ptr<Array>> LogicalRunEnds(MemoryPool* pool) const;
 
   /// \brief Returns an array holding the values of each run
   ///

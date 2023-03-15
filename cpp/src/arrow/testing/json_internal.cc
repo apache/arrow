@@ -750,7 +750,7 @@ class ArrayWriter {
 
   Status Visit(const RunEndEncodedArray& array) {
     const auto& ree_type = checked_cast<const RunEndEncodedType&>(*array.type());
-    ARROW_ASSIGN_OR_RAISE(auto run_ends, array.LogicalRunEnds());
+    ARROW_ASSIGN_OR_RAISE(auto run_ends, array.LogicalRunEnds(default_memory_pool()));
     const std::vector<std::shared_ptr<Array>> children = {
         std::move(run_ends),
         array.LogicalValues(),
