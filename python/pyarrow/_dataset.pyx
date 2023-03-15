@@ -2181,6 +2181,7 @@ cdef class CsvFileWriteOptions(FileWriteOptions):
         FileWriteOptions.init(self, sp)
         self.csv_options = <CCsvFileWriteOptions*> sp.get()
 
+
 cdef class JsonFileFormat(FileFormat):
     """
     FileFormat for JSON files.
