@@ -106,10 +106,11 @@ COMMITTER_ROLES = {'OWNER', 'MEMBER'}
 
 class PullRequestWorkflowBot:
 
-    def __init__(self, event_name, event_payload, token=None):
+    def __init__(self, event_name, event_payload, token=None, committers=None):
         self.github = github.Github(token)
         self.event_name = event_name
         self.event_payload = event_payload
+        self.committers = committers
 
     @cached_property
     def pull(self):
@@ -121,6 +122,18 @@ class PullRequestWorkflowBot:
     @cached_property
     def repo(self):
         return self.github.get_repo(self.event_payload['repository']['id'], lazy=True)
+
+    def is_committer(self, action):
+        """
+        Returns whether the author of the action is a committer or not.
+        If the list of committer usernames is not available it will use the
+        author_association as a fallback mechanism.
+        """
+        if self.committers:
+            return (self.event_payload[action]['user']['login'] in
+                    self.committers)
+        return (self.event_payload[action]['author_association'] in
+                COMMITTER_ROLES)
 
     def handle(self):
         current_state = None
@@ -165,17 +178,14 @@ class PullRequestWorkflowBot:
         """
         if (self.event_name == "pull_request_target" and
                 self.event_payload['action'] == 'opened'):
-            if (self.event_payload['pull_request']['author_association'] in
-                    COMMITTER_ROLES):
+            if self.is_committer('pull_request'):
                 return PullRequestState.committer_review
             else:
                 return PullRequestState.review
         elif (self.event_name == "pull_request_review" and
                 self.event_payload["action"] == "submitted"):
             review_state = self.event_payload["review"]["state"].lower()
-            is_committer_review = (self.event_payload['review']['author_association']
-                                   in COMMITTER_ROLES)
-            if not is_committer_review:
+            if not self.is_committer('review'):
                 # Non-committer reviews cannot change state once committer has already
                 # reviewed, requested changes or approved
                 if current_state in (
