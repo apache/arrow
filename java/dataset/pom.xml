@@ -28,6 +28,9 @@
         <protobuf.version>2.5.0</protobuf.version>
         <parquet.version>1.11.0</parquet.version>
         <avro.version>1.8.2</avro.version>
+        <substrait.version>0.7.0</substrait.version>
+        <calcite.version>1.32.0</calcite.version>
+        <protobuf.java.version>3.22.2</protobuf.java.version>
     </properties>
 
     <dependencies>
@@ -148,14 +151,8 @@
         </dependency>
         <dependency>
             <groupId>io.substrait</groupId>
-            <artifactId>core</artifactId>
-            <version>0.7.0</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.substrait</groupId>
             <artifactId>isthmus</artifactId>
-            <version>0.7.0</version>
+            <version>${substrait.version}</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -165,9 +162,15 @@
             </exclusions>
         </dependency>
         <dependency>
+            <groupId>io.substrait</groupId>
+            <artifactId>core</artifactId>
+            <version>${substrait.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.apache.calcite</groupId>
             <artifactId>calcite-core</artifactId>
-            <version>1.32.0</version>
+            <version>${calcite.version}</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -179,7 +182,7 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java-util</artifactId>
-            <version>3.21.6</version>
+            <version>${protobuf.java.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -192,51 +195,29 @@
                 </includes>
             </resource>
         </resources>
-
-        <plugins>
-            <plugin>
-                <groupId>org.xolstice.maven.plugins</groupId>
-                <artifactId>protobuf-maven-plugin</artifactId>
-                <version>0.6.1</version>
-                <configuration>
-                    <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}
-                    </protocArtifact>
-                    <protoSourceRoot>../../cpp/src/jni/dataset/proto</protoSourceRoot>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>compile</goal>
-                            <goal>test-compile</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
     </build>
-
     <profiles>
-
-    <profile>
-        <id>default</id>
-        <activation>
-            <activeByDefault>true</activeByDefault>
-        </activation>
-        <build>
-            <plugins>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-compiler-plugin</artifactId>
-                    <configuration>
-                        <source>1.8</source>
-                        <target>1.8</target>
-                        <!--To be able to consume Isthmus Library to create binary Substrait Plan-->
-                        <testSource>11</testSource>
-                        <testTarget>11</testTarget>
-                    </configuration>
-                </plugin>
-            </plugins>
-        </build>
-    </profile>
+        <profile>
+            <id>default</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <version>${maven-compiler-plugin.version}</version>
+                        <configuration>
+                            <source>1.8</source>
+                            <target>1.8</target>
+                            <!--To be able to consume Isthmus Library to create binary Substrait Plan-->
+                            <testSource>11</testSource>
+                            <testTarget>11</testTarget>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>
