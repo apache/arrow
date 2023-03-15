@@ -79,11 +79,6 @@ class TestArray : public ::testing::Test {
   MemoryPool* pool_;
 };
 
-template <class ScalarType>
-std::shared_ptr<ScalarType> MakeScalar(typename ScalarType::ValueType value) {
-  return std::make_shared<ScalarType>(value);
-}
-
 TEST_F(TestArray, TestNullCount) {
   // These are placeholders
   auto data = std::make_shared<Buffer>(nullptr, 0);
@@ -110,11 +105,11 @@ TEST_F(TestArray, TestNullCount) {
   RunEndEncodedBuilder ree_builder(pool_, std::make_shared<Int32Builder>(pool_),
                                    std::make_shared<Int32Builder>(pool_),
                                    run_end_encoded(int32(), int32()));
-  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<Int32Scalar>(2), 2));
+  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<int32_t>(2), 2));
   ASSERT_OK(ree_builder.AppendNull());
-  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<Int32Scalar>(4), 3));
+  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<int32_t>(4), 3));
   ASSERT_OK(ree_builder.AppendNulls(2));
-  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<Int32Scalar>(8), 5));
+  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<int32_t>(8), 5));
   ASSERT_OK(ree_builder.AppendNulls(7));
   ASSERT_OK_AND_ASSIGN(auto ree, ree_builder.Finish());
 
@@ -123,9 +118,9 @@ TEST_F(TestArray, TestNullCount) {
   ASSERT_FALSE(ree->data()->MayHaveNulls());
   ASSERT_TRUE(ree->data()->MayHaveLogicalNulls());
 
-  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<Int32Scalar>(2), 2));
-  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<Int32Scalar>(4), 3));
-  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<Int32Scalar>(8), 5));
+  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<int32_t>(2), 2));
+  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<int32_t>(4), 3));
+  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<int32_t>(8), 5));
   ASSERT_OK_AND_ASSIGN(auto ree_no_nulls, ree_builder.Finish());
   ASSERT_EQ(0, ree_no_nulls->null_count());
   ASSERT_EQ(0, ree_no_nulls->ComputeLogicalNullCount());
