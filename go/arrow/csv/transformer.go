@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -223,6 +224,24 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 				res[i] = base64.StdEncoding.EncodeToString(arr.Value(i))
 			} else {
 				res[i] = w.nullValue
+			}
+		}
+	case arrow.ExtensionType:
+		arr := col.(array.ExtensionArray)
+		b, err := arr.MarshalJSON()
+		if err != nil {
+			panic(fmt.Errorf("arrow/csv: could not marshal extension array: %w", err))
+		}
+		var stringArr []*string
+		if err := json.Unmarshal(b, &stringArr); err != nil {
+			panic(fmt.Errorf("arrow/csv: could not unmarshal extnesion to string arry: %s", err))
+		}
+		fmt.Println(stringArr)
+		for i := range stringArr {
+			if stringArr[i] == nil {
+				res[i] = w.nullValue
+			} else {
+				res[i] = *stringArr[i]
 			}
 		}
 	default:

@@ -49,8 +49,9 @@ func (b *UUIDBuilder) Append(v uuid.UUID) {
 
 func (b *UUIDBuilder) AppendValues(v []uuid.UUID, valid []bool) {
 	data := make([][]byte, len(v))
-	for i, v := range v {
-		data[i] = v[:]
+	for i, u := range v {
+		data[i] = make([]byte, 16)
+		copy(data[i][:], u[:])
 	}
 	b.ExtensionBuilder.Builder.(*array.FixedSizeBinaryBuilder).AppendValues(data, valid)
 }
