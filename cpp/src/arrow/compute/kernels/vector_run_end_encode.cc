@@ -573,7 +573,7 @@ struct RunEndDecodeExec {
 
 static const FunctionDoc run_end_encode_doc(
     "Run-end encode array", ("Return a run-end encoded version of the input array."),
-    {"array"}, "RunEndEncodeOptions", true);
+    {"array"}, "RunEndEncodeOptions");
 static const FunctionDoc run_end_decode_doc(
     "Decode run-end encoded array",
     ("Return a decoded version of a run-end encoded input array."), {"array"});
