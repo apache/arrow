@@ -34,7 +34,8 @@ const std::vector<std::shared_ptr<DataType>> kSampleFixedDataTypes = {
     uint16(), uint32(), uint64(), decimal128(38, 6), decimal256(76, 6)};
 const std::vector<std::shared_ptr<DataType>> kSampleBinaryTypes = {utf8(), binary()};
 
-ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types, std::string_view json) {
+static ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
+                                   std::string_view json) {
   auto fields = ::arrow::internal::MapVector(
       [](const TypeHolder& th) { return field("", th.GetSharedPtr()); }, types);
 

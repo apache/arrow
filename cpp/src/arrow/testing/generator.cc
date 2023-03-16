@@ -369,8 +369,6 @@ class GTestDataGeneratorImpl : public GTestDataGenerator {
   }
   std::shared_ptr<::arrow::Schema> Schema() override { return target_->Schema(); }
 
-  std::shared_ptr<DataGenerator> Target() { return target_; }
-
  private:
   std::shared_ptr<DataGenerator> target_;
 };

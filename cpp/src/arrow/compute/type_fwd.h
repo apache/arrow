@@ -48,7 +48,6 @@ struct VectorKernel;
 
 struct KernelState;
 
-struct Declaration;
 class Expression;
 
 ARROW_EXPORT ExecContext* default_exec_context();
