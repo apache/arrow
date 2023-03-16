@@ -204,7 +204,7 @@ jobs:
       - name: Build bundled jar
         run: |
           set -e
-          export JAVA_HOME=$(JAVA_HOME_11_X64)/Contents/Home
+          export JAVA_HOME=$(JAVA_HOME_11_X64)
           pushd arrow/java
           mvn versions:set -DnewVersion={{ arrow.no_rc_snapshot_version }}
           popd
