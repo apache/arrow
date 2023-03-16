@@ -818,6 +818,19 @@ def test_fields_weakrefable():
     assert wr() is None
 
 
+def test_run_end_encoded_type():
+    ty = pa.run_end_encoded(pa.int64(), pa.utf8())
+    assert isinstance(ty, pa.RunEndEncodedType)
+    assert ty.run_end_type == pa.int64()
+    assert ty.value_type == pa.utf8()
+
+    with pytest.raises(TypeError):
+        pa.run_end_encoded(pa.int64(), None)
+
+    with pytest.raises(TypeError):
+        pa.run_end_encoded(None, pa.utf8())
+
+
 @pytest.mark.parametrize('t,check_func', [
     (pa.date32(), types.is_date32),
     (pa.date64(), types.is_date64),
