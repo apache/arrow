@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <iomanip>
 #include <limits>
 #include <memory>
 #include <sstream>
@@ -176,19 +177,47 @@ class RecordBatchSerializer {
                                    field_nodes_, buffer_meta_, options_, &out_->metadata);
   }
 
+  bool ShouldCompress(int64_t uncompressed_size, int64_t compressed_size) const {
+    DCHECK_GT(uncompressed_size, 0);
+    if (!options_.min_space_savings) return true;
+    const double space_savings =
+        1.0 - static_cast<double>(compressed_size) / uncompressed_size;
+    return space_savings >= *options_.min_space_savings;
+  }
+
   Status CompressBuffer(const Buffer& buffer, util::Codec* codec,
                         std::shared_ptr<Buffer>* out) {
-    // Convert buffer to uncompressed-length-prefixed compressed buffer
+    // Convert buffer to uncompressed-length-prefixed buffer. The actual body may or may
+    // not be compressed, depending on user-preference and projected size reduction.
     int64_t maximum_length = codec->MaxCompressedLen(buffer.size(), buffer.data());
-    ARROW_ASSIGN_OR_RAISE(auto result, AllocateBuffer(maximum_length + sizeof(int64_t)));
+    int64_t prefixed_length = buffer.size();
 
-    int64_t actual_length;
-    ARROW_ASSIGN_OR_RAISE(actual_length,
+    ARROW_ASSIGN_OR_RAISE(auto result,
+                          AllocateResizableBuffer(maximum_length + sizeof(int64_t)));
+    ARROW_ASSIGN_OR_RAISE(auto actual_length,
                           codec->Compress(buffer.size(), buffer.data(), maximum_length,
                                           result->mutable_data() + sizeof(int64_t)));
+    // FIXME: Not the most sophisticated way to handle this. Ideally, you'd want to avoid
+    // pre-compressing the entire buffer via some kind of sampling method. As the feature
+    // gains adoption, this may become a worthwhile optimization.
+    //
+    // See: GH-33885
+    if (!ShouldCompress(buffer.size(), actual_length)) {
+      if (buffer.size() < actual_length || buffer.size() > maximum_length) {
+        RETURN_NOT_OK(
+            result->Resize(buffer.size() + sizeof(int64_t), /*shrink_to_fit=*/false));
+        result->ZeroPadding();
+      }
+      std::memcpy(result->mutable_data() + sizeof(int64_t), buffer.data(),
+                  static_cast<size_t>(buffer.size()));
+      actual_length = buffer.size();
+      // Size of -1 indicates to the reader that the body doesn't need to be decompressed
+      prefixed_length = -1;
+    }
     *reinterpret_cast<int64_t*>(result->mutable_data()) =
-        bit_util::ToLittleEndian(buffer.size());
+        bit_util::ToLittleEndian(prefixed_length);
     *out = SliceBuffer(std::move(result), /*offset=*/0, actual_length + sizeof(int64_t));
+
     return Status::OK();
   }
 
@@ -230,6 +259,14 @@ class RecordBatchSerializer {
     out_->raw_body_length = raw_size;
 
     if (options_.codec != nullptr) {
+      if (options_.min_space_savings) {
+        double percentage = *options_.min_space_savings;
+        if (percentage < 0 || percentage > 1) {
+          return Status::Invalid(
+              "min_space_savings not in range [0,1]. Provided: ",
+              std::setprecision(std::numeric_limits<double>::max_digits10), percentage);
+        }
+      }
       RETURN_NOT_OK(CompressBodyBuffers());
     }
 
