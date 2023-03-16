@@ -83,11 +83,11 @@ namespace Apache.Arrow.C
 
 
         /// <summary>
-        /// Whether this field is semantically nullable (regardless of whether it actually has null values)
+        /// For dictionary-encoded types, whether the ordering of dictionary indices is semantically meaningful.
         /// </summary>
         public const long ArrowFlagDictionaryOrdered = 1;
         /// <summary>
-        /// For dictionary-encoded types, whether the ordering of dictionary indices is semantically meaningful.
+        /// Whether this field is semantically nullable (regardless of whether it actually has null values)
         /// </summary>
         public const long ArrowFlagNullable = 2;
         /// <summary>

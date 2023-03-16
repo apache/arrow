@@ -32,7 +32,7 @@ namespace Apache.Arrow.C
         /// this function fails.
         /// </remarks>
         /// <examples>
-        /// Typically, you will allocate a uninitialized CArrowSchema pointer,
+        /// Typically, you will allocate an uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
         /// 
@@ -50,14 +50,14 @@ namespace Apache.Arrow.C
         }
 
         /// <summary>
-        /// Import C pointer as an <see cref="Field"/>.
+        /// Import C pointer as a <see cref="Field"/>.
         /// </summary>
         /// <remarks>
         /// This will call the release callback on the passed struct, even if
         /// this function fails.
         /// </remarks>
         /// <examples>
-        /// Typically, you will allocate a uninitialized CArrowSchema pointer,
+        /// Typically, you will allocate an uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
         /// 
@@ -75,14 +75,14 @@ namespace Apache.Arrow.C
         }
 
         /// <summary>
-        /// Import C pointer as an <see cref="Schema"/>.
+        /// Import C pointer as a <see cref="Schema"/>.
         /// </summary>
         /// <remarks>
         /// This will call the release callback on the passed struct, even if
         /// this function fails.
         /// </remarks>
         /// <examples>
-        /// Typically, you will allocate a uninitialized CArrowSchema pointer,
+        /// Typically, you will allocate an uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
         /// 
