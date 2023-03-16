@@ -2848,8 +2848,6 @@ class RleBooleanEncoder final : public EncoderImpl, virtual public BooleanEncode
       : EncoderImpl(descr, Encoding::RLE, pool) {}
 
   int64_t EstimatedDataEncodedSize() override {
-    // FIXME(mwish): should we just use buffered_append_values_.size() / 8
-    //  or just use ::arrow::util::RleEncoder::MaxBufferSize?
     return kRleLengthInBytes + MaxRleBufferSize();
   }
 
@@ -2937,8 +2935,6 @@ std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
     encoder.Put(value ? 1 : 0);
   }
   encoder.Flush();
-  // FIXME(mwish): Seems buffer is allocated from pool, it's already aligned by 64B,
-  //  should we just set? Or we have better way to write it?
   ::arrow::util::SafeStore(buffer->mutable_data(),
                            ::arrow::bit_util::ToLittleEndian(encoder.len()));
   PARQUET_THROW_NOT_OK(buffer->Resize(kRleLengthInBytes + encoder.len()));
