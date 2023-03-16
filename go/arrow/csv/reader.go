@@ -70,6 +70,7 @@ type Reader struct {
 //
 // This can be further customized using the WithColumnTypes and
 // WithIncludeColumns options.
+// For BinaryType the reader will use base64 decoding with padding as per base64.StdDecoding.
 func NewInferringReader(r io.Reader, opts ...Option) *Reader {
 	rr := &Reader{
 		r:                csv.NewReader(r),
