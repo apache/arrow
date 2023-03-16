@@ -61,6 +61,10 @@ public class NoCompressionCodec implements CompressionCodec {
 
     @Override
     public CompressionCodec createCodec(CompressionUtil.CodecType codecType) {
+      if (codecType != CompressionUtil.CodecType.NO_COMPRESSION) {
+        throw new IllegalArgumentException(
+            "Unsupported codec type: " + codecType + " for NoCompressionCodec");
+      }
       return NoCompressionCodec.INSTANCE;
     }
   }
