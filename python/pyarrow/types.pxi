@@ -1483,6 +1483,39 @@ cdef class PyExtensionType(ExtensionType):
     ...     def __reduce__(self):
     ...         return UuidType, ()
     ...
+
+    Create an instance of UuidType extension type:
+
+    >>> uuid_type = UuidType() # doctest: +SKIP
+    >>> uuid_type # doctest: +SKIP
+    UuidType(FixedSizeBinaryType(fixed_size_binary[16]))
+
+    Inspect the extension type:
+
+    >>> uuid_type.extension_name # doctest: +SKIP
+    'arrow.py_extension_type'
+    >>> uuid_type.storage_type # doctest: +SKIP
+    FixedSizeBinaryType(fixed_size_binary[16])
+
+    Wrap an array as an extension array:
+
+    >>> import uuid
+    >>> storage_array = pa.array([uuid.uuid4().bytes for _ in range(4)],
+    ...                          pa.binary(16)) # doctest: +SKIP
+    >>> uuid_type.wrap_array(storage_array) # doctest: +SKIP
+    <pyarrow.lib.ExtensionArray object at ...>
+    [
+      ...
+    ]
+
+    Or do the same with creating an ExtensionArray:
+
+    >>> pa.ExtensionArray.from_storage(uuid_type,
+    ...                                storage_array) # doctest: +SKIP
+    <pyarrow.lib.ExtensionArray object at ...>
+    [
+      ...
+    ]
     """
 
     def __cinit__(self):
