@@ -381,6 +381,7 @@ Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
       return AppendNumericBatchCast<Date32Builder, int32_t, liborc::LongVectorBatch,
                                     int64_t>(batch, offset, length, builder);
     case liborc::TIMESTAMP:
+    case liborc::TIMESTAMP_INSTANT:
       return AppendTimestampBatch(batch, offset, length, builder);
     case liborc::DECIMAL:
       return AppendDecimalBatch(type, batch, offset, length, builder);
@@ -995,8 +996,16 @@ Result<std::unique_ptr<liborc::Type>> GetOrcType(const DataType& type) {
     case Type::type::DATE32:
       return liborc::createPrimitiveType(liborc::TypeKind::DATE);
     case Type::type::DATE64:
-    case Type::type::TIMESTAMP:
       return liborc::createPrimitiveType(liborc::TypeKind::TIMESTAMP);
+    case Type::type::TIMESTAMP: {
+      const auto& timestamp_type = checked_cast<const TimestampType&>(type);
+      if (!timestamp_type.timezone().empty()) {
+        // The timestamp values stored in the arrow array are normalized to UTC.
+        return liborc::createPrimitiveType(liborc::TypeKind::TIMESTAMP_INSTANT);
+      }
+      // The timestamp values stored in the arrow array can be in any timezone.
+      return liborc::createPrimitiveType(liborc::TypeKind::TIMESTAMP);
+    }
     case Type::type::DECIMAL128: {
       const uint64_t precision =
           static_cast<uint64_t>(checked_cast<const Decimal128Type&>(type).precision());
@@ -1111,7 +1120,11 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
     case liborc::CHAR:
       return fixed_size_binary(static_cast<int>(type->getMaximumLength()));
     case liborc::TIMESTAMP:
+      // The timestamp values stored in ORC are in the writer timezone.
       return timestamp(TimeUnit::NANO);
+    case liborc::TIMESTAMP_INSTANT:
+      // The timestamp values stored in ORC are in UTC.
+      return timestamp(TimeUnit::NANO, "UTC");
     case liborc::DATE:
       return date32();
     case liborc::DECIMAL: {
