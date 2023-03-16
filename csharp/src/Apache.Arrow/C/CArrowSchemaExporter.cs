@@ -40,9 +40,13 @@ namespace Apache.Arrow.C
         /// </example>
         public static unsafe void ExportType(IArrowType datatype, CArrowSchema* schema)
         {
+            if (datatype == null)
+            {
+                throw new ArgumentNullException(nameof(datatype));
+            }
             if (schema == null)
             {
-                throw new ArgumentNullException("Cannot export schema to a null pointer.");
+                throw new ArgumentNullException(nameof(schema));
             }
             if (schema->release != null)
             {
@@ -184,7 +188,12 @@ namespace Apache.Arrow.C
                 }
             }
 
-            // TODO: when we implement MapType, make sure to set the KEYS_SORTED flag.
+            if (datatype.TypeId == ArrowTypeId.Map)
+            {
+                // TODO: when we implement MapType, make sure to set the KEYS_SORTED flag.
+                throw new NotSupportedException("Exporting MapTypes is not supported.");
+            }
+
             return flags;
         }
 
@@ -195,6 +204,10 @@ namespace Apache.Arrow.C
                 IReadOnlyList<Field> fields = nestedType.Fields;
                 int numFields = fields.Count;
                 numChildren = numFields;
+                if (numFields == 0)
+                {
+                    throw new NotSupportedException("Exporting nested data types with zero children.");
+                };
 
                 var pointerList = (CArrowSchema**)Marshal.AllocHGlobal(numFields * IntPtr.Size);
 
