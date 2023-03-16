@@ -1459,6 +1459,9 @@ cdef class Array(_PandasConvertible):
         supported for primitive arrays with the same memory layout as NumPy
         (i.e. integers, floating point, ..) and without any nulls.
 
+        For the extension arrays, this method simply delegates to the
+        underlying storage array.
+
         Parameters
         ----------
         zero_copy_only : bool, default True
