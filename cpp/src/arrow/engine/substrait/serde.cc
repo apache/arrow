@@ -127,13 +127,6 @@ DeclarationFactory MakeWriteDeclarationFactory(
   };
 }
 
-DeclarationFactory MakeNoSinkDeclarationFactory() {
-  return [](compute::Declaration input,
-            std::vector<std::string> names) -> Result<compute::Declaration> {
-    return input;
-  };
-}
-
 constexpr uint32_t kMinimumMajorVersion = 0;
 constexpr uint32_t kMinimumMinorVersion = 20;
 
@@ -194,19 +187,45 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
                           registry, ext_set_out, conversion_options);
 }
 
-ARROW_ENGINE_EXPORT Result<compute::Declaration> DeserializePlan(
+ARROW_ENGINE_EXPORT Result<PlanInfo> DeserializePlan(
     const Buffer& buf, const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
     const ConversionOptions& conversion_options) {
-  ARROW_ASSIGN_OR_RAISE(std::vector<compute::Declaration> top_level_decls,
-                        DeserializePlans(buf, MakeNoSinkDeclarationFactory(), registry,
-                                         ext_set_out, conversion_options));
-  if (top_level_decls.empty()) {
-    return Status::Invalid("No RelRoot in plan");
+  ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
+
+  if (plan.version().major_number() < kMinimumMajorVersion &&
+      plan.version().minor_number() < kMinimumMinorVersion) {
+    return Status::Invalid("Can only parse plans with a version >= ",
+                           kMinimumMajorVersion, ".", kMinimumMinorVersion);
   }
-  if (top_level_decls.size() != 1) {
-    return Status::Invalid("Multiple top level declarations found in Substrait plan");
+
+  ARROW_ASSIGN_OR_RAISE(auto ext_set,
+                        GetExtensionSetFromPlan(plan, conversion_options, registry));
+
+  if (plan.relations_size() == 0) {
+    return Status::Invalid("Plan has no relations");
   }
-  return top_level_decls[0];
+  if (plan.relations_size() > 1) {
+    return Status::NotImplemented("Common sub-plans");
+  }
+  const substrait::PlanRel& root_rel = plan.relations(0);
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto decl_info,
+      FromProto(root_rel.has_root() ? root_rel.root().input() : root_rel.rel(), ext_set,
+                conversion_options));
+
+  std::vector<std::string> names;
+  if (root_rel.has_root()) {
+    names.assign(root_rel.root().names().begin(), root_rel.root().names().end());
+    ARROW_ASSIGN_OR_RAISE(decl_info.output_schema,
+                          decl_info.output_schema->WithNames(names));
+  }
+
+  if (ext_set_out) {
+    *ext_set_out = std::move(ext_set);
+  }
+
+  return PlanInfo{std::move(decl_info), std::move(names)};
 }
 
 namespace {

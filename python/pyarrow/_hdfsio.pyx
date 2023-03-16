@@ -28,8 +28,6 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_fs cimport *
 from pyarrow.lib import frombytes, tobytes, ArrowIOError
 
-from queue import Queue, Empty as QueueEmpty, Full as QueueFull
-
 
 _HDFS_PATH_RE = re.compile(r'hdfs://(.*):(\d+)(.*)')
 

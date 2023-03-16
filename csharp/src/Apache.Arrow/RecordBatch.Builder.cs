@@ -63,7 +63,7 @@ namespace Apache.Arrow
             public BinaryArray Binary(Action<BinaryArray.Builder> action) => Build<BinaryArray, BinaryArray.Builder>(new BinaryArray.Builder(), action);
             public StringArray String(Action<StringArray.Builder> action) => Build<StringArray, StringArray.Builder>(new StringArray.Builder(), action);
             public TimestampArray Timestamp(Action<TimestampArray.Builder> action) => Build<TimestampArray, TimestampArray.Builder>(new TimestampArray.Builder(), action);
-            public TimestampArray Timestamp(TimestampType type, Action<TimestampArray.Builder> action) => 
+            public TimestampArray Timestamp(TimestampType type, Action<TimestampArray.Builder> action) =>
                 Build<TimestampArray, TimestampArray.Builder>(
                     new TimestampArray.Builder(type), action);
             public TimestampArray Timestamp(TimeUnit unit, TimeZoneInfo timezone, Action<TimestampArray.Builder> action) =>
@@ -122,9 +122,9 @@ namespace Apache.Arrow
 
             public Builder Append(RecordBatch batch)
             {
-                foreach (KeyValuePair<string, Field> field in batch.Schema.Fields)
+                foreach (Field field in batch.Schema.FieldsList)
                 {
-                    _schemaBuilder.Field(field.Value);
+                    _schemaBuilder.Field(field);
                 }
 
                 foreach (IArrowArray array in batch.Arrays)
@@ -138,8 +138,8 @@ namespace Apache.Arrow
             public Builder Append<TArray>(string name, bool nullable, IArrowArrayBuilder<TArray> builder)
                 where TArray: IArrowArray
             {
-                return builder == null 
-                    ? this 
+                return builder == null
+                    ? this
                     : Append(name, nullable, builder.Build(_allocator));
             }
 

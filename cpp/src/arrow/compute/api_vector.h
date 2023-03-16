@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "arrow/compute/function.h"
+#include "arrow/compute/ordering.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
@@ -79,35 +80,13 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
   NullEncodingBehavior null_encoding_behavior = MASK;
 };
 
-enum class SortOrder {
-  /// Arrange values in increasing order
-  Ascending,
-  /// Arrange values in decreasing order
-  Descending,
-};
-
-enum class NullPlacement {
-  /// Place nulls and NaNs before any non-null values.
-  /// NaNs will come after nulls.
-  AtStart,
-  /// Place nulls and NaNs after any non-null values.
-  /// NaNs will come before nulls.
-  AtEnd,
-};
-
-/// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
-class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
+/// \brief Options for the run-end encode function
+class ARROW_EXPORT RunEndEncodeOptions : public FunctionOptions {
  public:
-  explicit SortKey(FieldRef target, SortOrder order = SortOrder::Ascending)
-      : target(std::move(target)), order(order) {}
+  explicit RunEndEncodeOptions(std::shared_ptr<DataType> run_end_type = int32());
+  static constexpr char const kTypeName[] = "RunEndEncodeOptions";
 
-  bool Equals(const SortKey& other) const;
-  std::string ToString() const;
-
-  /// A FieldRef targetting the sort column.
-  FieldRef target;
-  /// How to order by this sort key.
-  SortOrder order;
+  std::shared_ptr<DataType> run_end_type;
 };
 
 class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
@@ -576,6 +555,36 @@ Result<Datum> DictionaryEncode(
     const Datum& data,
     const DictionaryEncodeOptions& options = DictionaryEncodeOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
+
+/// \brief Run-end-encode values in an array-like object
+///
+/// The returned run-end encoded type uses the same value type of the input and
+/// run-end type defined in the options.
+///
+/// \param[in] value array-like input
+/// \param[in] options configures encoding behavior
+/// \param[in] ctx the function execution context, optional
+/// \return result with same shape but run-end encoded
+///
+/// \since 12.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> RunEndEncode(const Datum& value, const RunEndEncodeOptions& options,
+                           ExecContext* ctx = NULLPTR);
+
+/// \brief Decode a Run-End Encoded array to a plain array
+///
+/// The output data type is the same as the values array type of run-end encoded
+/// input.
+///
+/// \param[in] value run-end-encoded input
+/// \param[in] ctx the function execution context, optional
+/// \return plain array resulting from decoding the run-end encoded input
+///
+/// \since 12.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> RunEndDecode(const Datum& value, ExecContext* ctx = NULLPTR);
 
 ARROW_EXPORT
 Result<Datum> CumulativeSum(

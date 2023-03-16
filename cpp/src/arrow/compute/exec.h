@@ -181,6 +181,12 @@ struct ARROW_EXPORT ExecBatch {
   /// \brief Infer the ExecBatch length from values.
   static Result<int64_t> InferLength(const std::vector<Datum>& values);
 
+  /// Creates an ExecBatch with length-validation.
+  ///
+  /// If any value is given, then all values must have a common length. If the given
+  /// length is negative, then the length of the ExecBatch is set to this common length,
+  /// or to 1 if no values are given. Otherwise, the given length must equal the common
+  /// length, if any value is given.
   static Result<ExecBatch> Make(std::vector<Datum> values, int64_t length = -1);
 
   Result<std::shared_ptr<RecordBatch>> ToRecordBatch(
@@ -239,6 +245,8 @@ struct ARROW_EXPORT ExecBatch {
   int num_values() const { return static_cast<int>(values.size()); }
 
   ExecBatch Slice(int64_t offset, int64_t length) const;
+
+  Result<ExecBatch> SelectValues(const std::vector<int>& ids) const;
 
   /// \brief A convenience for returning the types from the batch.
   std::vector<TypeHolder> GetTypes() const {

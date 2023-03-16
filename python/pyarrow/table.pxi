@@ -327,6 +327,30 @@ cdef class ChunkedArray(_PandasConvertible):
         options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
 
+    def is_nan(self):
+        """
+        Return boolean array indicating the NaN values.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> arr = pa.chunked_array([[2, np.nan, 4], [4, None, 100]])
+        >>> arr.is_nan()
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            false,
+            true,
+            false,
+            false,
+            null,
+            false
+          ]
+        ]
+        """
+        return _pc().is_nan(self)
+
     def is_valid(self):
         """
         Return boolean array indicating the non-null values.
@@ -1516,6 +1540,39 @@ cdef class RecordBatch(_PandasConvertible):
     cdef void init(self, const shared_ptr[CRecordBatch]& batch):
         self.sp_batch = batch
         self.batch = batch.get()
+
+    # ----------------------------------------------------------------------
+    def __dataframe__(self, nan_as_null: bool = False, allow_copy: bool = True):
+        """
+        Return the dataframe interchange object implementing the interchange protocol.
+
+        Parameters
+        ----------
+        nan_as_null : bool, default False
+            Whether to tell the DataFrame to overwrite null values in the data
+            with ``NaN`` (or ``NaT``).
+        allow_copy : bool, default True
+            Whether to allow memory copying when exporting. If set to False
+            it would cause non-zero-copy exports to fail.
+
+        Returns
+        -------
+        DataFrame interchange object
+            The object which consuming library can use to ingress the dataframe.
+
+        Notes
+        -----
+        Details on the interchange protocol:
+        https://data-apis.org/dataframe-protocol/latest/index.html
+        `nan_as_null` currently has no effect; once support for nullable extension
+        dtypes is added, this value should be propagated to columns.
+        """
+
+        from pyarrow.interchange.dataframe import _PyArrowDataFrame
+
+        return _PyArrowDataFrame(self, nan_as_null, allow_copy)
+
+    # ----------------------------------------------------------------------
 
     @staticmethod
     def from_pydict(mapping, schema=None, metadata=None):

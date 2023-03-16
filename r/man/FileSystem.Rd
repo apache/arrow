@@ -67,8 +67,8 @@ SDK default is used (typically 1 second).
 credentials using standard GCS configuration methods.
 \item \code{access_token}: optional string for authentication. Should be provided along
 with \code{expiration}
-\item \code{expiration}: optional date representing point at which \code{access_token} will
-expire.
+\item \code{expiration}: \code{POSIXct}. optional datetime representing point at which
+\code{access_token} will expire.
 \item \code{json_credentials}: optional string for authentication. Point to a JSON
 credentials file downloaded from GCS.
 \item \code{endpoint_override}: if non-empty, will connect to provided host name / port,

@@ -118,23 +118,6 @@ namespace compute {
 // ----------------------------------------------------------------------
 // Function options
 
-bool SortKey::Equals(const SortKey& other) const {
-  return target == other.target && order == other.order;
-}
-std::string SortKey::ToString() const {
-  std::stringstream ss;
-  ss << target.ToString() << ' ';
-  switch (order) {
-    case SortOrder::Ascending:
-      ss << "ASC";
-      break;
-    case SortOrder::Descending:
-      ss << "DESC";
-      break;
-  }
-  return ss.str();
-}
-
 namespace internal {
 namespace {
 using ::arrow::internal::DataMember;
@@ -165,6 +148,8 @@ static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     DataMember("sort_keys", &RankOptions::sort_keys),
     DataMember("null_placement", &RankOptions::null_placement),
     DataMember("tiebreaker", &RankOptions::tiebreaker));
+static auto kRunEndEncodeOptionsType = GetFunctionOptionsType<RunEndEncodeOptions>(
+    DataMember("run_end_type", &RunEndEncodeOptions::run_end_type));
 }  // namespace
 }  // namespace internal
 
@@ -226,6 +211,10 @@ RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_plac
       tiebreaker(tiebreaker) {}
 constexpr char RankOptions::kTypeName[];
 
+RunEndEncodeOptions::RunEndEncodeOptions(std::shared_ptr<DataType> run_end_type)
+    : FunctionOptions(internal::kRunEndEncodeOptionsType),
+      run_end_type{std::move(run_end_type)} {}
+
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
@@ -237,6 +226,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeSumOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRunEndEncodeOptionsType));
 }
 }  // namespace internal
 
@@ -325,6 +315,15 @@ Result<std::shared_ptr<Array>> Unique(const Datum& value, ExecContext* ctx) {
 Result<Datum> DictionaryEncode(const Datum& value, const DictionaryEncodeOptions& options,
                                ExecContext* ctx) {
   return CallFunction("dictionary_encode", {value}, &options, ctx);
+}
+
+Result<Datum> RunEndEncode(const Datum& value, const RunEndEncodeOptions& options,
+                           ExecContext* ctx) {
+  return CallFunction("run_end_encode", {value}, &options, ctx);
+}
+
+Result<Datum> RunEndDecode(const Datum& value, ExecContext* ctx) {
+  return CallFunction("run_end_decode", {value}, ctx);
 }
 
 const char kValuesFieldName[] = "values";

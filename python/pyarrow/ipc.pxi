@@ -981,7 +981,7 @@ cdef class _RecordBatchFileReader(_Weakrefable):
 
     def get_batch_with_custom_metadata(self, int i):
         """
-        Read the record batch with the given index along with 
+        Read the record batch with the given index along with
         its custom metadata
 
         Parameters

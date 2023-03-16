@@ -134,6 +134,8 @@ type columnChunkReader struct {
 	// is set when an error is encountered
 	err          error
 	defLvlBuffer []int16
+
+	newDictionary bool
 }
 
 // NewColumnReader returns a column reader for the provided column initialized with the given pagereader that will
@@ -225,6 +227,7 @@ func (c *columnChunkReader) configureDict(page *DictionaryPage) error {
 		return xerrors.New("parquet: dictionary index must be plain encoding")
 	}
 
+	c.newDictionary = true
 	c.curDecoder = c.decoders[enc]
 	return nil
 }

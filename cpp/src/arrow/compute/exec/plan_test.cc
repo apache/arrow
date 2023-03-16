@@ -24,12 +24,14 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/test_nodes.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -277,6 +279,12 @@ void TestSourceSinkError(
   auto null_schema_options = OptionsType{no_schema, element_it_maker};
   ASSERT_THAT(MakeExecNode(source_factory_name, plan.get(), {}, null_schema_options),
               Raises(StatusCode::Invalid, HasSubstr("not null")));
+
+  auto no_io_but_executor = OptionsType{exp_batches.schema, element_it_maker,
+                                        io::default_io_context().executor()};
+  no_io_but_executor.requires_io = false;
+  ASSERT_THAT(MakeExecNode(source_factory_name, plan.get(), {}, no_io_but_executor),
+              Raises(StatusCode::Invalid, HasSubstr("io_executor was not nullptr")));
 }
 
 template <typename ElementType, typename OptionsType>
@@ -289,11 +297,19 @@ void TestSourceSink(
   auto element_it_maker = [&elements]() {
     return MakeVectorIterator<ElementType>(elements);
   };
-  Declaration plan(source_factory_name,
-                   OptionsType{exp_batches.schema, element_it_maker});
-  ASSERT_OK_AND_ASSIGN(auto result,
-                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
-  AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches.batches);
+  for (bool requires_io : {false, true}) {
+    for (bool use_threads : {false, true}) {
+      Declaration plan(source_factory_name,
+                       OptionsType{exp_batches.schema, element_it_maker, requires_io});
+      QueryOptions query_options;
+      query_options.use_threads = use_threads;
+      ASSERT_OK_AND_ASSIGN(auto result,
+                           DeclarationToExecBatches(std::move(plan), query_options));
+      // Should not need to ignore order since sink should sequence by implicit order
+      AssertExecBatchesEqual(result.schema, result.batches, exp_batches.batches);
+      AssertExecBatchesSequenced(result.batches);
+    }
+  }
 }
 
 void TestRecordBatchReaderSourceSink(
@@ -533,6 +549,36 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
 )a");
 }
 
+TEST(ExecPlanExecution, CustomFieldNames) {
+  Declaration source = gen::Gen({{"x", gen::Step()}})
+                           ->FailOnError()
+                           ->SourceNode(/*rows_per_batch=*/1, /*num_batches=*/1);
+
+  QueryOptions opts;
+  opts.field_names = {"y"};
+
+  ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
+                       DeclarationToBatches(source, opts));
+
+  std::shared_ptr<Schema> expected_schema = schema({field("y", uint32())});
+
+  for (const auto& batch : batches) {
+    AssertSchemaEqual(*expected_schema, *batch->schema());
+  }
+
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema batches_with_schema,
+                       DeclarationToExecBatches(source, opts));
+
+  AssertSchemaEqual(*expected_schema, *batches_with_schema.schema);
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> table, DeclarationToTable(source, opts));
+  AssertSchemaEqual(*expected_schema, *table->schema());
+
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> reader,
+                       DeclarationToReader(source, opts));
+  AssertSchemaEqual(*expected_schema, *reader->schema());
+}
+
 TEST(ExecPlanExecution, SourceOrderBy) {
   std::vector<ExecBatch> expected = {
       ExecBatchFromJSON({int32(), boolean()},
@@ -586,6 +632,19 @@ TEST(ExecPlanExecution, SourceSinkError) {
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
               Finishes(Raises(StatusCode::Invalid, HasSubstr("Artificial"))));
+}
+
+TEST(ExecPlanExecution, InvalidSequencing) {
+  auto basic_data = MakeBasicBatches();
+  Declaration plan = Declaration::Sequence(
+      {{"source", SourceNodeOptions{basic_data.schema, basic_data.gen(false, false)}},
+       {"aggregate", AggregateNodeOptions({}, {"i32"})}});
+
+  QueryOptions query_options;
+  ASSERT_OK(DeclarationToStatus(plan, query_options));
+  query_options.sequence_output = true;
+  ASSERT_THAT(DeclarationToStatus(plan, query_options),
+              Raises(StatusCode::Invalid, HasSubstr("no meaningful ordering")));
 }
 
 TEST(ExecPlanExecution, SourceConsumingSink) {
@@ -950,6 +1009,49 @@ TEST(ExecPlanExecution, SourceProjectSink) {
       ExecBatchFromJSON({boolean(), int32()}, "[[null, 6], [true, 7], [true, 8]]")};
   ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan)));
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
+}
+
+TEST(ExecPlanExecution, ProjectMaintainsOrder) {
+  RegisterTestNodes();
+  constexpr int kRandomSeed = 42;
+  constexpr int64_t kRowsPerBatch = 1;
+  constexpr int kNumBatches = 16;
+  auto source_node = gen::Gen({{"x", gen::Step()}})
+                         ->FailOnError()
+                         ->SourceNode(kRowsPerBatch, kNumBatches);
+  Declaration plan =
+      Declaration::Sequence({source_node,
+                             {"jitter", JitterNodeOptions(kRandomSeed)},
+                             {"project", ProjectNodeOptions({field_ref("x")})}});
+
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema batches,
+                       DeclarationToExecBatches(std::move(plan)));
+
+  AssertExecBatchesSequenced(batches.batches);
+}
+
+TEST(ExecPlanExecution, FilterMaintainsOrder) {
+  RegisterTestNodes();
+  constexpr int kRandomSeed = 42;
+  constexpr int64_t kRowsPerBatch = 1;
+  constexpr int kNumBatches = 16;
+  auto source_node = gen::Gen({{"x", gen::Step()}})
+                         ->FailOnError()
+                         ->SourceNode(kRowsPerBatch, kNumBatches);
+  Declaration plan = Declaration::Sequence(
+      {source_node,
+       {"jitter", JitterNodeOptions(kRandomSeed)},
+       {"filter",
+        // The filter x > 50 should result in a few empty batches
+        FilterNodeOptions({call("greater", {field_ref("x"), literal(50)})})}});
+
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema batches,
+                       DeclarationToExecBatches(std::move(plan)));
+
+  // Sanity check that some filtering took place
+  ASSERT_EQ(0, batches.batches[0].length);
+
+  AssertExecBatchesSequenced(batches.batches);
 }
 
 namespace {
@@ -1474,6 +1576,109 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
   for (const auto& batch : result.batches) {
     ASSERT_LE(batch.length, ExecPlan::kMaxBatchSize);
   }
+}
+
+TEST(ExecPlanExecution, SegmentedAggregationWithMultiThreading) {
+  BatchesWithSchema data;
+  data.batches = {ExecBatchFromJSON({int32()}, "[[1]]")};
+  data.schema = schema({field("i32", int32())});
+  Declaration plan = Declaration::Sequence(
+      {{"source",
+        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                                              {"count", nullptr, "i32", "count(i32)"},
+                                          },
+                                          /*keys=*/{"i32"}, /*segment_leys=*/{"i32"}}}});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, HasSubstr("multi-threaded"),
+                                  DeclarationToExecBatches(std::move(plan)));
+}
+
+TEST(ExecPlanExecution, SegmentedAggregationWithOneSegment) {
+  BatchesWithSchema data;
+  data.batches = {
+      ExecBatchFromJSON({int32(), int32(), int32()}, "[[1, 1, 1], [1, 2, 1], [1, 1, 2]]"),
+      ExecBatchFromJSON({int32(), int32(), int32()},
+                        "[[1, 2, 2], [1, 1, 3], [1, 2, 3]]")};
+  data.schema = schema({
+      field("a", int32()),
+      field("b", int32()),
+      field("c", int32()),
+  });
+
+  Declaration plan = Declaration::Sequence(
+      {{"source",
+        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                                              {"hash_sum", nullptr, "c", "sum(c)"},
+                                              {"hash_mean", nullptr, "c", "mean(c)"},
+                                          },
+                                          /*keys=*/{"b"}, /*segment_leys=*/{"a"}}}});
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema actual_batches,
+                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+
+  auto expected = ExecBatchFromJSON({int64(), float64(), int32(), int32()},
+                                    R"([[6, 2, 1, 1], [6, 2, 2, 1]])");
+  AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
+                                      {expected});
+}
+
+TEST(ExecPlanExecution, SegmentedAggregationWithTwoSegments) {
+  BatchesWithSchema data;
+  data.batches = {
+      ExecBatchFromJSON({int32(), int32(), int32()}, "[[1, 1, 1], [1, 2, 1], [1, 1, 2]]"),
+      ExecBatchFromJSON({int32(), int32(), int32()},
+                        "[[2, 2, 2], [2, 1, 3], [2, 2, 3]]")};
+  data.schema = schema({
+      field("a", int32()),
+      field("b", int32()),
+      field("c", int32()),
+  });
+
+  Declaration plan = Declaration::Sequence(
+      {{"source",
+        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                                              {"hash_sum", nullptr, "c", "sum(c)"},
+                                              {"hash_mean", nullptr, "c", "mean(c)"},
+                                          },
+                                          /*keys=*/{"b"}, /*segment_leys=*/{"a"}}}});
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema actual_batches,
+                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+
+  auto expected = ExecBatchFromJSON(
+      {int64(), float64(), int32(), int32()},
+      R"([[3, 1.5, 1, 1], [1, 1, 2, 1], [3, 3, 1, 2], [5, 2.5, 2, 2]])");
+  AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
+                                      {expected});
+}
+
+TEST(ExecPlanExecution, SegmentedAggregationWithBatchCrossingSegment) {
+  BatchesWithSchema data;
+  data.batches = {
+      ExecBatchFromJSON({int32(), int32(), int32()}, "[[1, 1, 1], [1, 1, 1], [2, 2, 2]]"),
+      ExecBatchFromJSON({int32(), int32(), int32()},
+                        "[[2, 2, 2], [3, 3, 3], [3, 3, 3]]")};
+  data.schema = schema({
+      field("a", int32()),
+      field("b", int32()),
+      field("c", int32()),
+  });
+
+  Declaration plan = Declaration::Sequence(
+      {{"source",
+        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                                              {"hash_sum", nullptr, "c", "sum(c)"},
+                                              {"hash_mean", nullptr, "c", "mean(c)"},
+                                          },
+                                          /*keys=*/{"b"}, /*segment_leys=*/{"a"}}}});
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema actual_batches,
+                       DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
+
+  auto expected = ExecBatchFromJSON({int64(), float64(), int32(), int32()},
+                                    R"([[2, 1, 1, 1], [4, 2, 2, 2], [6, 3, 3, 3]])");
+  AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
+                                      {expected});
 }
 
 }  // namespace compute

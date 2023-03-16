@@ -17,7 +17,7 @@
 
 #include "arrow/compute/row/row_internal.h"
 
-#include "arrow/compute/exec/util.h"
+#include "arrow/compute/util.h"
 
 namespace arrow {
 namespace compute {

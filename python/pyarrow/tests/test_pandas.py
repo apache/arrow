@@ -3250,7 +3250,7 @@ def test_table_from_pandas_schema_index_columns():
     schema = pa.schema([
         ('a', pa.int64()),
         ('b', pa.float64()),
-        ('index', pa.int32()),
+        ('index', pa.int64()),
     ])
 
     # schema includes index with name not in dataframe
@@ -3283,7 +3283,7 @@ def test_table_from_pandas_schema_index_columns():
 
     # schema has different order (index column not at the end)
     schema = pa.schema([
-        ('index', pa.int32()),
+        ('index', pa.int64()),
         ('a', pa.int64()),
         ('b', pa.float64()),
     ])
@@ -4157,6 +4157,24 @@ def test_roundtrip_empty_table_with_extension_dtype_index():
                                          {'left': 1, 'right': 2},
                                          {'left': 2, 'right': 3}],
                                         dtype='object')
+
+
+@pytest.mark.parametrize("index", ["a", ["a", "b"]])
+def test_to_pandas_types_mapper_index(index):
+    if Version(pd.__version__) < Version("1.5.0"):
+        pytest.skip("ArrowDtype missing")
+    df = pd.DataFrame(
+        {
+            "a": [1, 2],
+            "b": [3, 4],
+            "c": [5, 6],
+        },
+        dtype=pd.ArrowDtype(pa.int64()),
+    ).set_index(index)
+    expected = df.copy()
+    table = pa.table(df)
+    result = table.to_pandas(types_mapper=pd.ArrowDtype)
+    tm.assert_frame_equal(result, expected)
 
 
 def test_array_to_pandas_types_mapper():

@@ -331,7 +331,7 @@ def _make_global_functions():
 _make_global_functions()
 
 
-def cast(arr, target_type=None, safe=None, options=None):
+def cast(arr, target_type=None, safe=None, options=None, memory_pool=None):
     """
     Cast array values to another data type. Can also be invoked as an array
     instance method.
@@ -345,6 +345,8 @@ def cast(arr, target_type=None, safe=None, options=None):
         Check for overflows or other unsafe conversions
     options : CastOptions, default None
         Additional checks pass by CastOptions
+    memory_pool : MemoryPool, optional
+        memory pool to use for allocations during function execution.
 
     Examples
     --------
@@ -395,7 +397,7 @@ def cast(arr, target_type=None, safe=None, options=None):
             options = CastOptions.unsafe(target_type)
         else:
             options = CastOptions.safe(target_type)
-    return call_function("cast", [arr], options)
+    return call_function("cast", [arr], options, memory_pool)
 
 
 def index(data, value, start=None, end=None, *, memory_pool=None):

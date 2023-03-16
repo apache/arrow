@@ -239,6 +239,7 @@ void Init_Altrep_classes(DllInfo* dll);
 
 SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array);
 bool is_arrow_altrep(SEXP x);
+bool is_unmaterialized_arrow_altrep(SEXP x);
 std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP);
 
 }  // namespace altrep

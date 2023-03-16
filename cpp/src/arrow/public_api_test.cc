@@ -22,13 +22,10 @@
 
 // Include various "api.h" entrypoints and check they don't leak internal symbols
 
-#include "arrow/api.h"      // IWYU pragma: keep
-#include "arrow/io/api.h"   // IWYU pragma: keep
-#include "arrow/ipc/api.h"  // IWYU pragma: keep
-
-#ifdef ARROW_COMPUTE
+#include "arrow/api.h"          // IWYU pragma: keep
 #include "arrow/compute/api.h"  // IWYU pragma: keep
-#endif
+#include "arrow/io/api.h"       // IWYU pragma: keep
+#include "arrow/ipc/api.h"      // IWYU pragma: keep
 
 #ifdef ARROW_CSV
 #include "arrow/csv/api.h"  // IWYU pragma: keep

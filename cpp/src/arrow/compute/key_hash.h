@@ -23,8 +23,8 @@
 
 #include <cstdint>
 
-#include "arrow/compute/exec/util.h"
 #include "arrow/compute/light_array.h"
+#include "arrow/compute/util.h"
 
 namespace arrow {
 namespace compute {

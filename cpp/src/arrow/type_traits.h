@@ -981,6 +981,23 @@ constexpr bool is_decimal(Type::type type_id) {
   return false;
 }
 
+/// \brief Check for a type that can be used as a run-end in Run-End Encoded
+/// arrays
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id can represent a run-end value
+constexpr bool is_run_end_type(Type::type type_id) {
+  switch (type_id) {
+    case Type::INT16:
+    case Type::INT32:
+    case Type::INT64:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 /// \brief Check for a primitive type
 ///
 /// This predicate doesn't match null, decimals and binary-like types.

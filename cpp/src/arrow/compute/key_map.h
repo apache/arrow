@@ -19,7 +19,8 @@
 
 #include <functional>
 
-#include "arrow/compute/exec/util.h"
+#include "arrow/compute/util.h"
+#include "arrow/compute/util_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"

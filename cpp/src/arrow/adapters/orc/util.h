@@ -33,10 +33,11 @@ namespace orc {
 
 Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type);
 
-Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const Schema& schema);
+Result<std::unique_ptr<liborc::Type>> GetOrcType(const Schema& schema);
 
-Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
-                   int64_t offset, int64_t length, arrow::ArrayBuilder* builder);
+ARROW_EXPORT Status AppendBatch(const liborc::Type* type,
+                                liborc::ColumnVectorBatch* batch, int64_t offset,
+                                int64_t length, arrow::ArrayBuilder* builder);
 
 /// \brief Write a chunked array to an orc::ColumnVectorBatch
 ///
@@ -47,9 +48,9 @@ Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
 /// before or after a process
 /// \param[in,out] column_vector_batch the orc::ColumnVectorBatch to be filled
 /// \return Status
-Status WriteBatch(const ChunkedArray& chunked_array, int64_t length,
-                  int* arrow_chunk_offset, int64_t* arrow_index_offset,
-                  liborc::ColumnVectorBatch* column_vector_batch);
+ARROW_EXPORT Status WriteBatch(const ChunkedArray& chunked_array, int64_t length,
+                               int* arrow_chunk_offset, int64_t* arrow_index_offset,
+                               liborc::ColumnVectorBatch* column_vector_batch);
 
 }  // namespace orc
 }  // namespace adapters

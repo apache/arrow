@@ -62,3 +62,5 @@ cdef class Expression(_Weakrefable):
 
 
 cdef CExpression _true
+
+cdef CFieldRef _ensure_field_ref(value) except *

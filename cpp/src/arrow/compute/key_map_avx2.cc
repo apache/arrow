@@ -17,7 +17,7 @@
 
 #include <immintrin.h>
 
-#include "arrow/compute/exec/key_map.h"
+#include "arrow/compute/key_map.h"
 
 namespace arrow {
 namespace compute {

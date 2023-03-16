@@ -265,7 +265,10 @@ func (fw *FileWriter) Close() error {
 		}
 
 		writeCtx := arrowCtxFromContext(fw.ctx)
-		writeCtx.dataBuffer.Release()
+		if writeCtx.dataBuffer != nil {
+			writeCtx.dataBuffer.Release()
+			writeCtx.dataBuffer = nil
+		}
 
 		return fw.wr.Close()
 	}

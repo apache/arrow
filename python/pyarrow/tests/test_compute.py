@@ -35,6 +35,7 @@ except ImportError:
 
 import pyarrow as pa
 import pyarrow.compute as pc
+from pyarrow.lib import ArrowNotImplementedError
 
 all_array_types = [
     ('bool', [True, False, False, True, True]),
@@ -1635,6 +1636,23 @@ def test_is_null():
     assert result.equals(expected)
 
 
+def test_is_nan():
+    arr = pa.array([1, 2, 3, None, np.nan])
+    result = arr.is_nan()
+    expected = pa.array([False, False, False, None, True])
+    assert result.equals(expected)
+
+    arr = pa.array(["1", "2", None], type=pa.string())
+    with pytest.raises(
+            ArrowNotImplementedError, match="has no kernel matching input types"):
+        _ = arr.is_nan()
+
+    with pytest.raises(
+            ArrowNotImplementedError, match="has no kernel matching input types"):
+        arr = pa.array([b'a', b'bb', None], type=pa.large_binary())
+        _ = arr.is_nan()
+
+
 def test_fill_null():
     arr = pa.array([1, 2, None, 4], type=pa.int8())
     fill_value = pa.array([5], type=pa.int8())
@@ -1934,22 +1952,36 @@ def _check_datetime_components(timestamps, timezone=None):
         [iso_year, iso_week, iso_day],
         fields=iso_calendar_fields)
 
-    assert pc.year(tsa).equals(pa.array(ts.dt.year))
+    # Casting is required because pandas with 2.0.0 various numeric
+    # date/time attributes have dtype int32 (previously int64)
+    year = ts.dt.year.astype("int64")
+    month = ts.dt.month.astype("int64")
+    day = ts.dt.day.astype("int64")
+    dayofweek = ts.dt.dayofweek.astype("int64")
+    dayofyear = ts.dt.dayofyear.astype("int64")
+    quarter = ts.dt.quarter.astype("int64")
+    hour = ts.dt.hour.astype("int64")
+    minute = ts.dt.minute.astype("int64")
+    second = ts.dt.second.values.astype("int64")
+    microsecond = ts.dt.microsecond.astype("int64")
+    nanosecond = ts.dt.nanosecond.astype("int64")
+
+    assert pc.year(tsa).equals(pa.array(year))
     assert pc.is_leap_year(tsa).equals(pa.array(ts.dt.is_leap_year))
-    assert pc.month(tsa).equals(pa.array(ts.dt.month))
-    assert pc.day(tsa).equals(pa.array(ts.dt.day))
-    assert pc.day_of_week(tsa).equals(pa.array(ts.dt.dayofweek))
-    assert pc.day_of_year(tsa).equals(pa.array(ts.dt.dayofyear))
+    assert pc.month(tsa).equals(pa.array(month))
+    assert pc.day(tsa).equals(pa.array(day))
+    assert pc.day_of_week(tsa).equals(pa.array(dayofweek))
+    assert pc.day_of_year(tsa).equals(pa.array(dayofyear))
     assert pc.iso_year(tsa).equals(pa.array(iso_year))
     assert pc.iso_week(tsa).equals(pa.array(iso_week))
     assert pc.iso_calendar(tsa).equals(iso_calendar)
-    assert pc.quarter(tsa).equals(pa.array(ts.dt.quarter))
-    assert pc.hour(tsa).equals(pa.array(ts.dt.hour))
-    assert pc.minute(tsa).equals(pa.array(ts.dt.minute))
-    assert pc.second(tsa).equals(pa.array(ts.dt.second.values))
-    assert pc.millisecond(tsa).equals(pa.array(ts.dt.microsecond // 10 ** 3))
-    assert pc.microsecond(tsa).equals(pa.array(ts.dt.microsecond % 10 ** 3))
-    assert pc.nanosecond(tsa).equals(pa.array(ts.dt.nanosecond))
+    assert pc.quarter(tsa).equals(pa.array(quarter))
+    assert pc.hour(tsa).equals(pa.array(hour))
+    assert pc.minute(tsa).equals(pa.array(minute))
+    assert pc.second(tsa).equals(pa.array(second))
+    assert pc.millisecond(tsa).equals(pa.array(microsecond // 10 ** 3))
+    assert pc.microsecond(tsa).equals(pa.array(microsecond % 10 ** 3))
+    assert pc.nanosecond(tsa).equals(pa.array(nanosecond))
     assert pc.subsecond(tsa).equals(pa.array(subseconds))
     assert pc.local_timestamp(tsa).equals(pa.array(ts.dt.tz_localize(None)))
 
@@ -1964,7 +1996,7 @@ def _check_datetime_components(timestamps, timezone=None):
     day_of_week_options = pc.DayOfWeekOptions(
         count_from_zero=False, week_start=1)
     assert pc.day_of_week(tsa, options=day_of_week_options).equals(
-        pa.array(ts.dt.dayofweek + 1))
+        pa.array(dayofweek + 1))
 
     week_options = pc.WeekOptions(
         week_starts_monday=True, count_from_zero=False,

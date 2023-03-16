@@ -455,6 +455,17 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
                              int64_t alignment = kDefaultBufferAlignment,
                              MemoryPool* memory_pool = default_memory_pool());
 
+  /// \brief Generate a random RunEndEncodedArray
+  ///
+  /// \param[in] value_type The DataType of the encoded values
+  /// \param[in] logical_size The logical length of the generated array
+  /// \param[in] null_probability the probability of a value being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> RunEndEncoded(std::shared_ptr<DataType> value_type,
+                                       int64_t logical_size,
+                                       double null_probability = 0.0);
+
   /// \brief Generate a random SparseUnionArray
   ///
   /// The type ids are chosen randomly, according to a uniform distribution,

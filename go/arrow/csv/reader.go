@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -464,6 +465,10 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(str string) {
 			r.parseDecimal256(bldr, str, dt.Precision, dt.Scale)
 		}
+	case *arrow.ListType:
+		return func(s string) {
+			r.parseList(bldr, s)
+		}
 	default:
 		panic(fmt.Errorf("arrow/csv: unhandled field type %T", bldr.Type()))
 	}
@@ -719,6 +724,35 @@ func (r *Reader) parseDecimal256(field array.Builder, str string, prec, scale in
 		return
 	}
 	field.(*array.Decimal256Builder).Append(val)
+}
+
+func (r *Reader) parseList(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+	if !(strings.HasPrefix(str, "{") && strings.HasSuffix(str, "}")) {
+		r.err = errors.New("invalid list format. should start with '{' and end with '}'")
+		return
+	}
+	str = strings.Trim(str, "{}")
+	listBldr := field.(*array.ListBuilder)
+	listBldr.Append(true)
+	if len(str) == 0 {
+		// we don't want to create the csv reader if we already know the
+		// string is empty
+		return
+	}
+	valueBldr := listBldr.ValueBuilder()
+	reader := csv.NewReader(strings.NewReader(str))
+	items, err := reader.Read()
+	if err != nil {
+		r.err = err
+		return
+	}
+	for _, str := range items {
+		r.initFieldConverter(valueBldr)(str)
+	}
 }
 
 // Retain increases the reference count by 1.

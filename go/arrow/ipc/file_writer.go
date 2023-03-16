@@ -274,10 +274,11 @@ type FileWriter struct {
 
 	pw PayloadWriter
 
-	schema     *arrow.Schema
-	mapper     dictutils.Mapper
-	codec      flatbuf.CompressionType
-	compressNP int
+	schema          *arrow.Schema
+	mapper          dictutils.Mapper
+	codec           flatbuf.CompressionType
+	compressNP      int
+	minSpaceSavings *float64
 
 	// map of the last written dictionaries by id
 	// so we can avoid writing the same dictionary over and over
@@ -294,12 +295,13 @@ func NewFileWriter(w io.WriteSeeker, opts ...Option) (*FileWriter, error) {
 	)
 
 	f := FileWriter{
-		w:          w,
-		pw:         &pwriter{w: w, schema: cfg.schema, pos: -1},
-		mem:        cfg.alloc,
-		schema:     cfg.schema,
-		codec:      cfg.codec,
-		compressNP: cfg.compressNP,
+		w:               w,
+		pw:              &pwriter{w: w, schema: cfg.schema, pos: -1},
+		mem:             cfg.alloc,
+		schema:          cfg.schema,
+		codec:           cfg.codec,
+		compressNP:      cfg.compressNP,
+		minSpaceSavings: cfg.minSpaceSavings,
 	}
 
 	pos, err := f.w.Seek(0, io.SeekCurrent)
@@ -343,7 +345,7 @@ func (f *FileWriter) Write(rec arrow.Record) error {
 	const allow64b = true
 	var (
 		data = Payload{msg: MessageRecordBatch}
-		enc  = newRecordEncoder(f.mem, 0, kMaxNestingDepth, allow64b, f.codec, f.compressNP)
+		enc  = newRecordEncoder(f.mem, 0, kMaxNestingDepth, allow64b, f.codec, f.compressNP, f.minSpaceSavings)
 	)
 	defer data.Release()
 
