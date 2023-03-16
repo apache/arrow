@@ -123,6 +123,9 @@ ARROW_TESTING_EXPORT
 Status MakeStruct(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
+Status MakeRunEndEncoded(std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
 Status MakeUnion(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT

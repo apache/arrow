@@ -345,7 +345,8 @@ const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &ipc::test::MakeDecimal,
     &ipc::test::MakeBooleanBatch,
     &ipc::test::MakeFloatBatch,
-    &ipc::test::MakeIntervals};
+    &ipc::test::MakeIntervals,
+    &ipc::test::MakeRunEndEncoded};
 
 }  // namespace
 

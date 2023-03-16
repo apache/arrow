@@ -33,7 +33,7 @@ namespace orc {
 
 Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type);
 
-Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const Schema& schema);
+Result<std::unique_ptr<liborc::Type>> GetOrcType(const Schema& schema);
 
 ARROW_EXPORT Status AppendBatch(const liborc::Type* type,
                                 liborc::ColumnVectorBatch* batch, int64_t offset,

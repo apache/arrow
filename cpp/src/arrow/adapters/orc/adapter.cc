@@ -781,7 +781,7 @@ class ORCFileWriter::Impl {
   std::unique_ptr<liborc::OutputStream> out_stream_;
   std::shared_ptr<Schema> arrow_schema_;
   WriteOptions write_options_;
-  ORC_UNIQUE_PTR<liborc::Type> orc_schema_;
+  std::unique_ptr<liborc::Type> orc_schema_;
 };
 
 ORCFileWriter::~ORCFileWriter() {}

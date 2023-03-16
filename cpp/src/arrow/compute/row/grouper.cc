@@ -23,12 +23,10 @@
 
 #include "arrow/array/builder_primitive.h"
 
-#include "arrow/compute/exec/key_hash.h"
-#include "arrow/compute/exec/key_map.h"
-#include "arrow/compute/exec/options.h"
-#include "arrow/compute/exec_internal.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernels/row_encoder_internal.h"
+#include "arrow/compute/key_hash.h"
 #include "arrow/compute/light_array.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/compare_internal.h"

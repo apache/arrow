@@ -2320,6 +2320,28 @@ def field(name, type, bint nullable=True, metadata=None):
     Returns
     -------
     field : pyarrow.Field
+
+    Examples
+    --------
+    Create an instance of pyarrow.Field:
+
+    >>> import pyarrow as pa
+    >>> pa.field('key', pa.int32())
+    pyarrow.Field<key: int32>
+    >>> pa.field('key', pa.int32(), nullable=False)
+    pyarrow.Field<key: int32 not null>
+
+    >>> field = pa.field('key', pa.int32(),
+    ...                  metadata={"key": "Something important"})
+    >>> field
+    pyarrow.Field<key: int32>
+    >>> field.metadata
+    {b'key': b'Something important'}
+
+    Use the field to create a struct type:
+
+    >>> pa.struct([field])
+    StructType(struct<key: int32>)
     """
     cdef:
         Field result = Field.__new__(Field)
@@ -2358,6 +2380,21 @@ cdef set PRIMITIVE_TYPES = set([
 def null():
     """
     Create instance of null type.
+
+    Examples
+    --------
+    Create an instance of a null type:
+
+    >>> import pyarrow as pa
+    >>> pa.null()
+    DataType(null)
+    >>> print(pa.null())
+    null
+
+    Create a ``Field`` type with a null type and a name:
+
+    >>> pa.field('null_field', pa.null())
+    pyarrow.Field<null_field: null>
     """
     return primitive_type(_Type_NA)
 
@@ -2365,6 +2402,22 @@ def null():
 def bool_():
     """
     Create instance of boolean type.
+
+    Examples
+    --------
+    Create an instance of a boolean type:
+
+    >>> import pyarrow as pa
+    >>> pa.bool_()
+    DataType(bool)
+    >>> print(pa.bool_())
+    bool
+
+    Create a ``Field`` type with a boolean type
+    and a name:
+
+    >>> pa.field('bool_field', pa.bool_())
+    pyarrow.Field<bool_field: bool>
     """
     return primitive_type(_Type_BOOL)
 
@@ -2372,6 +2425,26 @@ def bool_():
 def uint8():
     """
     Create instance of unsigned int8 type.
+
+    Examples
+    --------
+    Create an instance of unsigned int8 type:
+
+    >>> import pyarrow as pa
+    >>> pa.uint8()
+    DataType(uint8)
+    >>> print(pa.uint8())
+    uint8
+
+    Create an array with unsigned int8 type:
+
+    >>> pa.array([0, 1, 2], type=pa.uint8())
+    <pyarrow.lib.UInt8Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_UINT8)
 
@@ -2379,6 +2452,26 @@ def uint8():
 def int8():
     """
     Create instance of signed int8 type.
+
+    Examples
+    --------
+    Create an instance of int8 type:
+
+    >>> import pyarrow as pa
+    >>> pa.int8()
+    DataType(int8)
+    >>> print(pa.int8())
+    int8
+
+    Create an array with int8 type:
+
+    >>> pa.array([0, 1, 2], type=pa.int8())
+    <pyarrow.lib.Int8Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_INT8)
 
@@ -2386,6 +2479,26 @@ def int8():
 def uint16():
     """
     Create instance of unsigned uint16 type.
+
+    Examples
+    --------
+    Create an instance of unsigned int16 type:
+
+    >>> import pyarrow as pa
+    >>> pa.uint16()
+    DataType(uint16)
+    >>> print(pa.uint16())
+    uint16
+
+    Create an array with unsigned int16 type:
+
+    >>> pa.array([0, 1, 2], type=pa.uint16())
+    <pyarrow.lib.UInt16Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_UINT16)
 
@@ -2393,6 +2506,26 @@ def uint16():
 def int16():
     """
     Create instance of signed int16 type.
+
+    Examples
+    --------
+    Create an instance of int16 type:
+
+    >>> import pyarrow as pa
+    >>> pa.int16()
+    DataType(int16)
+    >>> print(pa.int16())
+    int16
+
+    Create an array with int16 type:
+
+    >>> pa.array([0, 1, 2], type=pa.int16())
+    <pyarrow.lib.Int16Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_INT16)
 
@@ -2400,6 +2533,26 @@ def int16():
 def uint32():
     """
     Create instance of unsigned uint32 type.
+
+    Examples
+    --------
+    Create an instance of unsigned int32 type:
+
+    >>> import pyarrow as pa
+    >>> pa.uint32()
+    DataType(uint32)
+    >>> print(pa.uint32())
+    uint32
+
+    Create an array with unsigned int32 type:
+
+    >>> pa.array([0, 1, 2], type=pa.uint32())
+    <pyarrow.lib.UInt32Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_UINT32)
 
@@ -2407,6 +2560,26 @@ def uint32():
 def int32():
     """
     Create instance of signed int32 type.
+
+    Examples
+    --------
+    Create an instance of int32 type:
+
+    >>> import pyarrow as pa
+    >>> pa.int32()
+    DataType(int32)
+    >>> print(pa.int32())
+    int32
+
+    Create an array with int32 type:
+
+    >>> pa.array([0, 1, 2], type=pa.int32())
+    <pyarrow.lib.Int32Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_INT32)
 
@@ -2414,6 +2587,26 @@ def int32():
 def uint64():
     """
     Create instance of unsigned uint64 type.
+
+    Examples
+    --------
+    Create an instance of unsigned int64 type:
+
+    >>> import pyarrow as pa
+    >>> pa.uint64()
+    DataType(uint64)
+    >>> print(pa.uint64())
+    uint64
+
+    Create an array with unsigned uint64 type:
+
+    >>> pa.array([0, 1, 2], type=pa.uint64())
+    <pyarrow.lib.UInt64Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_UINT64)
 
@@ -2421,6 +2614,26 @@ def uint64():
 def int64():
     """
     Create instance of signed int64 type.
+
+    Examples
+    --------
+    Create an instance of int64 type:
+
+    >>> import pyarrow as pa
+    >>> pa.int64()
+    DataType(int64)
+    >>> print(pa.int64())
+    int64
+
+    Create an array with int64 type:
+
+    >>> pa.array([0, 1, 2], type=pa.int64())
+    <pyarrow.lib.Int64Array object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_INT64)
 
@@ -2512,6 +2725,8 @@ def timestamp(unit, tz=None):
 
     Examples
     --------
+    Create an instance of timestamp type:
+
     >>> import pyarrow as pa
     >>> pa.timestamp('us')
     TimestampType(timestamp[us])
@@ -2519,6 +2734,14 @@ def timestamp(unit, tz=None):
     TimestampType(timestamp[s, tz=America/New_York])
     >>> pa.timestamp('s', tz='+07:30')
     TimestampType(timestamp[s, tz=+07:30])
+
+    Use timestamp type when creating a scalar object:
+
+    >>> from datetime import datetime
+    >>> pa.scalar(datetime(2012, 1, 1), type=pa.timestamp('s', tz='UTC'))
+    <pyarrow.TimestampScalar: datetime.datetime(2012, 1, 1, 0, 0, tzinfo=<UTC>)>
+    >>> pa.scalar(datetime(2012, 1, 1), type=pa.timestamp('us'))
+    <pyarrow.TimestampScalar: datetime.datetime(2012, 1, 1, 0, 0)>
 
     Returns
     -------
@@ -2649,11 +2872,23 @@ def duration(unit):
 
     Examples
     --------
+    Create an instance of duration type:
+
     >>> import pyarrow as pa
     >>> pa.duration('us')
     DurationType(duration[us])
     >>> pa.duration('s')
     DurationType(duration[s])
+
+    Create an array with duration type:
+
+    >>> pa.array([0, 1, 2], type=pa.duration('s'))
+    <pyarrow.lib.DurationArray object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     cdef:
         TimeUnit unit_code
@@ -2675,6 +2910,19 @@ def month_day_nano_interval():
     """
     Create instance of an interval type representing months, days and
     nanoseconds between two dates.
+
+    Examples
+    --------
+    Create an instance of an month_day_nano_interval type:
+
+    >>> import pyarrow as pa
+    >>> pa.month_day_nano_interval()
+    DataType(month_day_nano_interval)
+
+    Create a scalar with month_day_nano_interval type:
+
+    >>> pa.scalar((1, 15, -30), type=pa.month_day_nano_interval())
+    <pyarrow.MonthDayNanoIntervalScalar: MonthDayNano(months=1, days=15, nanoseconds=-30)>
     """
     return primitive_type(_Type_INTERVAL_MONTH_DAY_NANO)
 
@@ -2682,6 +2930,20 @@ def month_day_nano_interval():
 def date32():
     """
     Create instance of 32-bit date (days since UNIX epoch 1970-01-01).
+
+    Examples
+    --------
+    Create an instance of 32-bit date type:
+
+    >>> import pyarrow as pa
+    >>> pa.date32()
+    DataType(date32[day])
+
+    Create a scalar with 32-bit date type:
+
+    >>> from datetime import date
+    >>> pa.scalar(date(2012, 1, 1), type=pa.date32())
+    <pyarrow.Date32Scalar: datetime.date(2012, 1, 1)>
     """
     return primitive_type(_Type_DATE32)
 
@@ -2689,6 +2951,20 @@ def date32():
 def date64():
     """
     Create instance of 64-bit date (milliseconds since UNIX epoch 1970-01-01).
+
+    Examples
+    --------
+    Create an instance of 64-bit date type:
+
+    >>> import pyarrow as pa
+    >>> pa.date64()
+    DataType(date64[ms])
+
+    Create a scalar with 64-bit date type:
+
+    >>> from datetime import datetime
+    >>> pa.scalar(datetime(2012, 1, 1), type=pa.date64())
+    <pyarrow.Date64Scalar: datetime.date(2012, 1, 1)>
     """
     return primitive_type(_Type_DATE64)
 
@@ -2696,6 +2972,29 @@ def date64():
 def float16():
     """
     Create half-precision floating point type.
+
+    Examples
+    --------
+    Create an instance of float16 type:
+
+    >>> import pyarrow as pa
+    >>> pa.float16()
+    DataType(halffloat)
+    >>> print(pa.float16())
+    halffloat
+
+    Create an array with float16 type:
+
+    >>> arr = np.array([1.5, np.nan], dtype=np.float16)
+    >>> a = pa.array(arr, type=pa.float16())
+    >>> a
+    <pyarrow.lib.HalfFloatArray object at ...>
+    [
+      15872,
+      32256
+    ]
+    >>> a.to_pylist()
+    [1.5, nan]
     """
     return primitive_type(_Type_HALF_FLOAT)
 
@@ -2703,6 +3002,26 @@ def float16():
 def float32():
     """
     Create single-precision floating point type.
+
+    Examples
+    --------
+    Create an instance of float32 type:
+
+    >>> import pyarrow as pa
+    >>> pa.float32()
+    DataType(float)
+    >>> print(pa.float32())
+    float
+
+    Create an array with float32 type:
+
+    >>> pa.array([0.0, 1.0, 2.0], type=pa.float32())
+    <pyarrow.lib.FloatArray object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_FLOAT)
 
@@ -2710,6 +3029,26 @@ def float32():
 def float64():
     """
     Create double-precision floating point type.
+
+    Examples
+    --------
+    Create an instance of float64 type:
+
+    >>> import pyarrow as pa
+    >>> pa.float64()
+    DataType(double)
+    >>> print(pa.float64())
+    double
+
+    Create an array with float64 type:
+
+    >>> pa.array([0.0, 1.0, 2.0], type=pa.float64())
+    <pyarrow.lib.DoubleArray object at ...>
+    [
+      0,
+      1,
+      2
+    ]
     """
     return primitive_type(_Type_DOUBLE)
 
@@ -2743,6 +3082,24 @@ cpdef DataType decimal128(int precision, int scale=0):
     Returns
     -------
     decimal_type : Decimal128Type
+
+    Examples
+    --------
+    Create an instance of decimal type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal128(5, 2)
+    Decimal128Type(decimal128(5, 2))
+
+    Create an array with decimal type:
+
+    >>> import decimal
+    >>> a = decimal.Decimal('123.45')
+    >>> pa.array([a], pa.decimal128(5, 2))
+    <pyarrow.lib.Decimal128Array object at ...>
+    [
+      123.45
+    ]
     """
     cdef shared_ptr[CDataType] decimal_type
     if precision < 1 or precision > 38:
@@ -2785,6 +3142,24 @@ cpdef DataType decimal256(int precision, int scale=0):
 def string():
     """
     Create UTF8 variable-length string type.
+
+    Examples
+    --------
+    Create an instance of a string type:
+
+    >>> import pyarrow as pa
+    >>> pa.string()
+    DataType(string)
+
+    and use the string type to create an array:
+
+    >>> pa.array(['foo', 'bar', 'baz'], type=pa.string())
+    <pyarrow.lib.StringArray object at ...>
+    [
+      "foo",
+      "bar",
+      "baz"
+    ]
     """
     return primitive_type(_Type_STRING)
 
@@ -2792,13 +3167,31 @@ def string():
 def utf8():
     """
     Alias for string().
+
+    Examples
+    --------
+    Create an instance of a string type:
+
+    >>> import pyarrow as pa
+    >>> pa.utf8()
+    DataType(string)
+
+    and use the string type to create an array:
+
+    >>> pa.array(['foo', 'bar', 'baz'], type=pa.utf8())
+    <pyarrow.lib.StringArray object at ...>
+    [
+      "foo",
+      "bar",
+      "baz"
+    ]
     """
     return string()
 
 
 def binary(int length=-1):
     """
-    Create variable-length binary type.
+    Create variable-length or fixed size binary type.
 
     Parameters
     ----------
@@ -2806,6 +3199,38 @@ def binary(int length=-1):
         If length == -1 then return a variable length binary type. If length is
         greater than or equal to 0 then return a fixed size binary type of
         width `length`.
+
+    Examples
+    --------
+    Create an instance of a variable-length binary type:
+
+    >>> import pyarrow as pa
+    >>> pa.binary()
+    DataType(binary)
+
+    and use the variable-length binary type to create an array:
+
+    >>> pa.array(['foo', 'bar', 'baz'], type=pa.binary())
+    <pyarrow.lib.BinaryArray object at ...>
+    [
+      666F6F,
+      626172,
+      62617A
+    ]
+
+    Create an instance of a fixed-size binary type:
+
+    >>> pa.binary(3)
+    FixedSizeBinaryType(fixed_size_binary[3])
+
+    and use the fixed-length binary type to create an array:
+    >>> pa.array(['foo', 'bar', 'baz'], type=pa.binary(3))
+    <pyarrow.lib.FixedSizeBinaryArray object at ...>
+    [
+      666F6F,
+      626172,
+      62617A
+    ]
     """
     if length == -1:
         return primitive_type(_Type_BINARY)
@@ -2821,6 +3246,24 @@ def large_binary():
 
     This data type may not be supported by all Arrow implementations.  Unless
     you need to represent data larger than 2GB, you should prefer binary().
+
+    Examples
+    --------
+    Create an instance of large variable-length binary type:
+
+    >>> import pyarrow as pa
+    >>> pa.large_binary()
+    DataType(large_binary)
+
+    and use the type to create an array:
+
+    >>> pa.array(['foo', 'bar', 'baz'], type=pa.large_binary())
+    <pyarrow.lib.LargeBinaryArray object at ...>
+    [
+      666F6F,
+      626172,
+      62617A
+    ]
     """
     return primitive_type(_Type_LARGE_BINARY)
 
@@ -2831,6 +3274,26 @@ def large_string():
 
     This data type may not be supported by all Arrow implementations.  Unless
     you need to represent data larger than 2GB, you should prefer string().
+
+    Examples
+    --------
+    Create an instance of large UTF8 variable-length binary type:
+
+    >>> import pyarrow as pa
+    >>> pa.large_string()
+    DataType(large_string)
+
+    and use the type to create an array:
+
+    >>> pa.array(['foo', 'bar'] * 50, type=pa.large_string())
+    <pyarrow.lib.LargeStringArray object at ...>
+    [
+      "foo",
+      "bar",
+      ...
+      "foo",
+      "bar"
+    ]
     """
     return primitive_type(_Type_LARGE_STRING)
 
@@ -2838,6 +3301,26 @@ def large_string():
 def large_utf8():
     """
     Alias for large_string().
+
+    Examples
+    --------
+    Create an instance of large UTF8 variable-length binary type:
+
+    >>> import pyarrow as pa
+    >>> pa.large_utf8()
+    DataType(large_string)
+
+    and use the type to create an array:
+
+    >>> pa.array(['foo', 'bar'] * 50, type=pa.large_utf8())
+    <pyarrow.lib.LargeStringArray object at ...>
+    [
+      "foo",
+      "bar",
+      ...
+      "foo",
+      "bar"
+    ]
     """
     return large_string()
 
@@ -2856,6 +3339,36 @@ def list_(value_type, int list_size=-1):
     Returns
     -------
     list_type : DataType
+
+    Examples
+    --------
+    Create an instance of ListType:
+
+    >>> import pyarrow as pa
+    >>> pa.list_(pa.string())
+    ListType(list<item: string>)
+    >>> pa.list_(pa.int32(), 2)
+    FixedSizeListType(fixed_size_list<item: int32>[2])
+
+    Use the ListType to create a scalar:
+
+    >>> pa.scalar(['foo', None], type=pa.list_(pa.string(), 2))
+    <pyarrow.FixedSizeListScalar: ['foo', None]>
+
+    or an array:
+
+    >>> pa.array([[1, 2], [3, 4]], pa.list_(pa.int32(), 2))
+    <pyarrow.lib.FixedSizeListArray object at ...>
+    [
+      [
+        1,
+        2
+      ],
+      [
+        3,
+        4
+      ]
+    ]
     """
     cdef:
         Field _field
@@ -2893,6 +3406,29 @@ cpdef LargeListType large_list(value_type):
     Returns
     -------
     list_type : DataType
+
+    Examples
+    --------
+    Create an instance of LargeListType:
+
+    >>> import pyarrow as pa
+    >>> pa.large_list(pa.int8())
+    LargeListType(large_list<item: int8>)
+
+    Use the LargeListType to create an array:
+
+    >>> pa.array([[-1, 3]] * 5, type=pa.large_list(pa.int8()))
+    <pyarrow.lib.LargeListArray object at ...>
+    [
+      [
+        -1,
+        3
+      ],
+      [
+        -1,
+        3
+      ],
+    ...
     """
     cdef:
         DataType data_type
@@ -2925,6 +3461,42 @@ cpdef MapType map_(key_type, item_type, keys_sorted=False):
     Returns
     -------
     map_type : DataType
+
+    Examples
+    --------
+    Create an instance of MapType:
+
+    >>> import pyarrow as pa
+    >>> pa.map_(pa.string(), pa.int32())
+    MapType(map<string, int32>)
+    >>> pa.map_(pa.string(), pa.int32(), keys_sorted=True)
+    MapType(map<string, int32, keys_sorted>)
+
+    Use MapType to create an array:
+
+    >>> data = [[{'key': 'a', 'value': 1}, {'key': 'b', 'value': 2}], [{'key': 'c', 'value': 3}]]
+    >>> pa.array(data, type=pa.map_(pa.string(), pa.int32(), keys_sorted=True))
+    <pyarrow.lib.MapArray object at ...>
+    [
+      keys:
+      [
+        "a",
+        "b"
+      ]
+      values:
+      [
+        1,
+        2
+      ],
+      keys:
+      [
+        "c"
+      ]
+      values:
+      [
+        3
+      ]
+    ]
     """
     cdef:
         Field _key_field
@@ -2964,6 +3536,33 @@ cpdef DictionaryType dictionary(index_type, value_type, bint ordered=False):
     Returns
     -------
     type : DictionaryType
+
+    Examples
+    --------
+    Create an instance of dictionary type:
+
+    >>> import pyarrow as pa
+    >>> pa.dictionary(pa.int64(), pa.utf8())
+    DictionaryType(dictionary<values=string, indices=int64, ordered=0>)
+
+    Use dictionary type to create an array:
+
+    >>> pa.array(["a", "b", None, "d"], pa.dictionary(pa.int64(), pa.utf8()))
+    <pyarrow.lib.DictionaryArray object at ...>
+    ...
+    -- dictionary:
+      [
+        "a",
+        "b",
+        "d"
+      ]
+    -- indices:
+      [
+        0,
+        1,
+        null,
+        2
+      ]
     """
     cdef:
         DataType _index_type = ensure_type(index_type, allow_none=False)
@@ -2998,6 +3597,8 @@ def struct(fields):
 
     Examples
     --------
+    Create an instance of StructType from an iterable of tuples:
+
     >>> import pyarrow as pa
     >>> fields = [
     ...     ('f1', pa.int32()),
@@ -3006,6 +3607,16 @@ def struct(fields):
     >>> struct_type = pa.struct(fields)
     >>> struct_type
     StructType(struct<f1: int32, f2: string>)
+
+    Retrieve a field from a StructType:
+
+    >>> struct_type[0]
+    pyarrow.Field<f1: int32>
+    >>> struct_type['f1']
+    pyarrow.Field<f1: int32>
+
+    Create an instance of StructType from an iterable of Fields:
+
     >>> fields = [
     ...     pa.field('f1', pa.int32()),
     ...     pa.field('f2', pa.string(), nullable=False),
@@ -3278,6 +3889,8 @@ def schema(fields, metadata=None):
 
     Examples
     --------
+    Create a Schema from iterable of tuples:
+
     >>> import pyarrow as pa
     >>> pa.schema([
     ...     ('some_int', pa.int32()),
@@ -3287,6 +3900,9 @@ def schema(fields, metadata=None):
     some_int: int32
     some_string: string
     some_required_string: string not null
+
+    Create a Schema from iterable of Fields:
+
     >>> pa.schema([
     ...     pa.field('some_int', pa.int32()),
     ...     pa.field('some_string', pa.string())
@@ -3334,6 +3950,22 @@ def from_numpy_dtype(object dtype):
     Parameters
     ----------
     dtype : the numpy dtype to convert
+
+
+    Examples
+    --------
+    Create a pyarrow DataType from NumPy dtype:
+
+    >>> import pyarrow as pa
+    >>> import numpy as np
+    >>> pa.from_numpy_dtype(np.dtype('float16'))
+    DataType(halffloat)
+    >>> pa.from_numpy_dtype('U')
+    DataType(string)
+    >>> pa.from_numpy_dtype(bool)
+    DataType(bool)
+    >>> pa.from_numpy_dtype(np.str_)
+    DataType(string)
     """
     cdef shared_ptr[CDataType] c_type
     dtype = np.dtype(dtype)

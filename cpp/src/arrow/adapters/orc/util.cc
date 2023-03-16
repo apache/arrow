@@ -34,7 +34,6 @@
 #include "arrow/util/string.h"
 #include "arrow/visit_data_inline.h"
 
-#include "orc/Exceptions.hh"
 #include "orc/MemoryPool.hh"
 #include "orc/OrcFile.hh"
 
@@ -966,10 +965,9 @@ Status WriteBatch(const Array& array, int64_t orc_offset,
                                     array.type()->ToString());
     }
   }
-  return Status::OK();
 }
 
-Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const DataType& type) {
+Result<std::unique_ptr<liborc::Type>> GetOrcType(const DataType& type) {
   Type::type kind = type.id();
   switch (kind) {
     case Type::type::BOOL:
@@ -1015,7 +1013,7 @@ Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const DataType& type) {
       return liborc::createListType(std::move(orc_subtype));
     }
     case Type::type::STRUCT: {
-      ORC_UNIQUE_PTR<liborc::Type> out_type = liborc::createStructType();
+      std::unique_ptr<liborc::Type> out_type = liborc::createStructType();
       std::vector<std::shared_ptr<Field>> arrow_fields =
           checked_cast<const StructType&>(type).fields();
       for (auto it = arrow_fields.begin(); it != arrow_fields.end(); ++it) {
@@ -1037,7 +1035,7 @@ Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const DataType& type) {
     }
     case Type::type::DENSE_UNION:
     case Type::type::SPARSE_UNION: {
-      ORC_UNIQUE_PTR<liborc::Type> out_type = liborc::createUnionType();
+      std::unique_ptr<liborc::Type> out_type = liborc::createUnionType();
       std::vector<std::shared_ptr<Field>> arrow_fields =
           checked_cast<const UnionType&>(type).fields();
       for (const auto& arrow_field : arrow_fields) {
@@ -1167,9 +1165,9 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
   }
 }
 
-Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const Schema& schema) {
+Result<std::unique_ptr<liborc::Type>> GetOrcType(const Schema& schema) {
   int numFields = schema.num_fields();
-  ORC_UNIQUE_PTR<liborc::Type> out_type = liborc::createStructType();
+  std::unique_ptr<liborc::Type> out_type = liborc::createStructType();
   for (int i = 0; i < numFields; i++) {
     const auto& field = schema.field(i);
     ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*field->type()));

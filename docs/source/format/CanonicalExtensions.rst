@@ -72,4 +72,76 @@ same rules as laid out above, and provide backwards compatibility guarantees.
 Official List
 =============
 
-No canonical extension types have been standardized yet.
+Fixed shape tensor
+==================
+
+* Extension name: `arrow.fixed_shape_tensor`.
+
+* The storage type of the extension: ``FixedSizeList`` where:
+
+  * **value_type** is the data type of individual tensor elements.
+  * **list_size** is the product of all the elements in tensor shape.
+
+* Extension type parameters:
+
+  * **value_type** = the Arrow data type of individual tensor elements.
+  * **shape** = the physical shape of the contained tensors
+    as an array.
+
+  Optional parameters describing the logical layout:
+
+  * **dim_names** = explicit names to tensor dimensions
+    as an array. The length of it should be equal to the shape
+    length and equal to the number of dimensions.
+
+    ``dim_names`` can be used if the dimensions have well-known
+    names and they map to the physical layout (row-major).
+
+  * **permutation**  = indices of the desired ordering of the
+    original dimensions, defined as an array.
+
+    The indices contain a permutation of the values [0, 1, .., N-1] where
+    N is the number of dimensions. The permutation indicates which
+    dimension of the logical layout corresponds to which dimension of the
+    physical tensor (the i-th dimension of the logical view corresponds
+    to the dimension with number ``permutations[i]`` of the physical tensor).
+
+    Permutation can be useful in case the logical order of
+    the tensor is a permutation of the physical order (row-major).
+
+    When logical and physical layout are equal, the permutation will always
+    be ([0, 1, .., N-1]) and can therefore be left out.
+
+* Description of the serialization:
+
+  The metadata must be a valid JSON object including shape of
+  the contained tensors as an array with key **"shape"** plus optional
+  dimension names with keys **"dim_names"** and ordering of the
+  dimensions with key **"permutation"**.
+
+  - Example: ``{ "shape": [2, 5]}``
+  - Example with ``dim_names`` metadata for NCHW ordered data:
+
+    ``{ "shape": [100, 200, 500], "dim_names": ["C", "H", "W"]}``
+
+  - Example of permuted 3-dimensional tensor:
+
+    ``{ "shape": [100, 200, 500], "permutation": [2, 0, 1]}``
+
+    This is the physical layout shape and the the shape of the logical
+    layout would in this case be ``[500, 100, 200]``.
+
+.. note::
+
+  Elements in a fixed shape tensor extension array are stored
+  in row-major/C-contiguous order.
+
+.. note::
+
+  Other Data Structures in Arrow include a
+  `Tensor (Multi-dimensional Array) <https://arrow.apache.org/docs/format/Other.html>`_
+  to be used as a message in the interprocess communication machinery (IPC).
+
+  This structure has no relationship with the Fixed shape tensor extension type defined
+  by this specification. Instead, this extension type lets one use fixed shape tensors
+  as elements in a field of a RecordBatch or a Table.

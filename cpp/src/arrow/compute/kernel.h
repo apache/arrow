@@ -141,6 +141,25 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> FixedSizeBinaryLike();
 // Type)
 ARROW_EXPORT std::shared_ptr<TypeMatcher> Primitive();
 
+// \brief Match any integer type that can be used as run-end in run-end encoded
+// arrays
+ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndInteger();
+
+/// \brief Match run-end encoded types that use any valid run-end type and
+/// encode specific value types
+///
+/// @param[in] value_type_matcher a matcher that is applied to the values field
+ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndEncoded(
+    std::shared_ptr<TypeMatcher> value_type_matcher);
+
+/// \brief Match run-end encoded types that encode specific run-end and value types
+///
+/// @param[in] run_end_type_matcher a matcher that is applied to the run_ends field
+/// @param[in] value_type_matcher a matcher that is applied to the values field
+ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndEncoded(
+    std::shared_ptr<TypeMatcher> run_end_type_matcher,
+    std::shared_ptr<TypeMatcher> value_type_matcher);
+
 }  // namespace match
 
 /// \brief An object used for type-checking arguments to be passed to a kernel

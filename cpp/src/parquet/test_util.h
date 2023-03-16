@@ -540,7 +540,7 @@ static inline int MakePages(const ColumnDescriptor* d, int num_pages, int levels
   int16_t max_rep_level = d->max_repetition_level();
   std::vector<int> values_per_page(num_pages, levels_per_page);
   // Create definition levels
-  if (max_def_level > 0) {
+  if (max_def_level > 0 && num_levels != 0) {
     def_levels.resize(num_levels);
     random_numbers(num_levels, seed, zero, max_def_level, def_levels.data());
     for (int p = 0; p < num_pages; p++) {
@@ -557,7 +557,7 @@ static inline int MakePages(const ColumnDescriptor* d, int num_pages, int levels
     num_values = num_levels;
   }
   // Create repitition levels
-  if (max_rep_level > 0) {
+  if (max_rep_level > 0 && num_levels != 0) {
     rep_levels.resize(num_levels);
     // Using a different seed so that def_levels and rep_levels are different.
     random_numbers(num_levels, seed + 789, zero, max_rep_level, rep_levels.data());
