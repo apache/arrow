@@ -40,6 +40,7 @@ type Writer struct {
 //
 // NewWriter panics if the given schema contains fields that have types that are not
 // primitive types.
+// For BinaryType the writer will use base64 encoding with padding as per base64.StdEncoding.
 func NewWriter(w io.Writer, schema *arrow.Schema, opts ...Option) *Writer {
 	validate(schema)
 
