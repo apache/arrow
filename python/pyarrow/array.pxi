@@ -2851,6 +2851,103 @@ cdef class StructArray(Array):
         return self.take(indices)
 
 
+cdef class RunEndEncodedArray(Array):
+    """
+    Concrete class for Arrow run-end encoded arrays.
+    """
+
+    @staticmethod
+    def from_arrays(logical_length, run_ends, values, type=None):
+        """
+        Construct RunEndEncodedArray from run_ends and values arrays.
+
+        Parameters
+        ----------
+        logical_length : int
+            The logical length of the run-end encoded array.
+        run_ends : Array (int16, int32, or int64 type)
+            The run_ends array.
+        values : Array (any type)
+            The values array.
+        type : pyarrow.DataType, optional
+            The run_end_encoded(run_end_type, value_type) array type.
+
+        Returns
+        -------
+        RunEndEncodedArray
+        """
+        cdef:
+            int64_t _logical_length
+            Array _run_ends
+            Array _values
+            int64_t _logical_offset
+            shared_ptr[CDataType] c_type
+            shared_ptr[CRunEndEncodedArray] ree_array
+
+        _logical_length = <int64_t>logical_length
+        _run_ends = asarray(run_ends)
+        _values = asarray(values)
+        _logical_offset = <int64_t>0
+
+        type = ensure_type(type, allow_none=True)
+        if type is not None:
+            c_type = pyarrow_unwrap_data_type(type)
+            ree_array.reset(new CRunEndEncodedArray(
+                    c_type, _logical_length, _run_ends.sp_array,
+                    _values.sp_array, _logical_offset))
+        else:
+            with nogil:
+                ree_array = GetResultValue(CRunEndEncodedArray.Make(
+                        _logical_length, _run_ends.sp_array, _values.sp_array, _logical_offset))
+        cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]>ree_array)
+        result.validate()
+        return result
+
+    @property
+    def run_ends(self):
+        """
+        An array holding the logical indexes of each run-end.
+
+        The physical offset to the array is applied.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return pyarrow_wrap_array(ree_array.run_ends())
+
+    @property
+    def values(self):
+        """
+        An array holding the values of each run.
+
+        The physical offset to the array is applied.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return pyarrow_wrap_array(ree_array.values())
+
+    def find_physical_offset(self):
+        """
+        Find the physical offset of this REE array.
+
+        This function uses binary-search, so it has a O(log N) cost.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return ree_array.FindPhysicalOffset()
+
+    def find_physical_length(self):
+        """
+        Find the physical length of this REE array.
+
+        The physical length of an REE is the number of physical values (and
+        run-ends) necessary to represent the logical range of values from offset
+        to length.
+
+        Avoid calling this function if the physical length can be estabilished in
+        some other way (e.g. when iterating over the runs sequentially until the
+        end). This function uses binary-search, so it has a O(log N) cost.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return ree_array.FindPhysicalLength()
+
+
 cdef class ExtensionArray(Array):
     """
     Concrete class for Arrow extension arrays.
@@ -2960,6 +3057,7 @@ cdef dict _array_classes = {
     _Type_DECIMAL128: Decimal128Array,
     _Type_DECIMAL256: Decimal256Array,
     _Type_STRUCT: StructArray,
+    _Type_RUN_END_ENCODED: RunEndEncodedArray,
     _Type_EXTENSION: ExtensionArray,
 }
 
