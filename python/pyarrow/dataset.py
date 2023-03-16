@@ -298,6 +298,8 @@ def _ensure_format(obj):
         if not _orc_available:
             raise ValueError(_orc_msg)
         return OrcFileFormat()
+    elif obj == "json":
+        return JsonFileFormat()
     else:
         raise ValueError("format '{}' is not supported".format(obj))
 
