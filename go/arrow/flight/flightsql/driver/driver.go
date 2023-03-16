@@ -35,8 +35,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-const dsnPattern = "flightsq://[username[:password]@]address[:port][?param1=value1&...&paramN=valueN]"
-
 var (
 	ErrNotSupported          = errors.New("not supported")
 	ErrOutOfRange            = errors.New("index out of range")
