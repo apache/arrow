@@ -4500,13 +4500,6 @@ def union(child_fields, mode, type_codes=None):
     -------
     type : UnionType
     """
-    cdef:
-        Field child_field
-        vector[shared_ptr[CField]] c_fields
-        vector[int8_t] c_type_codes
-        shared_ptr[CDataType] union_type
-        int i
-
     if isinstance(mode, int):
         if mode not in (_UnionMode_SPARSE, _UnionMode_DENSE):
             raise ValueError("Invalid union mode {0!r}".format(mode))
