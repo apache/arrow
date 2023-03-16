@@ -2232,6 +2232,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             CDictionaryEncodeNullEncodingBehavior null_encoding)
         CDictionaryEncodeNullEncodingBehavior null_encoding
 
+    cdef cppclass CRunEndEncodeOptions \
+            "arrow::compute::RunEndEncodeOptions"(CFunctionOptions):
+        CRunEndEncodeOptions()
+        CRunEndEncodeOptions(shared_ptr[CDataType] run_end_type)
+        shared_ptr[CDataType] run_end_type
+
     cdef cppclass CTakeOptions \
             " arrow::compute::TakeOptions"(CFunctionOptions):
         CTakeOptions(c_bool boundscheck)
