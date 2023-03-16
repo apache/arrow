@@ -61,11 +61,16 @@ public class NoCompressionCodec implements CompressionCodec {
 
     @Override
     public CompressionCodec createCodec(CompressionUtil.CodecType codecType) {
-      if (codecType != CompressionUtil.CodecType.NO_COMPRESSION) {
-        throw new IllegalArgumentException(
-            "Unsupported codec type: " + codecType + " for NoCompressionCodec");
+      switch (codecType) {
+        case NO_COMPRESSION:
+          return NoCompressionCodec.INSTANCE;
+        case LZ4_FRAME:
+        case ZSTD:
+          throw new IllegalArgumentException(
+            "Please add arrow-compression module to use CommonsCompressionFactory for " + codecType);
+        default:
+          throw new IllegalArgumentException("Unsupported codec type: " + codecType);
       }
-      return NoCompressionCodec.INSTANCE;
     }
   }
 }
