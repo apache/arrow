@@ -3407,3 +3407,22 @@ def test_array_accepts_pyarrow_array():
     # Test memory_pool keyword is accepted
     result = pa.array(arr, memory_pool=pa.default_memory_pool())
     assert arr == result
+
+
+def check_run_end_encoded_with_type(ree_type=None):
+    run_ends = [3, 5, 10, 19]
+    values = [1, 2, 1, 3]
+    ree_array = pa.RunEndEncodedArray.from_arrays(run_ends, values, ree_type)
+    assert ree_array.run_ends.to_pylist() == run_ends
+    assert ree_array.values.to_pylist() == values
+    assert len(ree_array) == 19
+    assert ree_array.find_physical_offset() == 0
+    assert ree_array.find_physical_length() == 4
+
+
+def test_run_end_encoded_from_arrays():
+    check_run_end_encoded_with_type()
+    for run_end_type in [pa.int16(), pa.int32(), pa.int64()]:
+        for value_type in [pa.uint32(), pa.int32(), pa.uint64(), pa.int64()]:
+            ree_type = pa.run_end_encoded(run_end_type, value_type)
+            check_run_end_encoded_with_type(ree_type)
