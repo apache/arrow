@@ -941,8 +941,14 @@ class StreamingReaderImpl : public ReaderMixin,
       return Status::Invalid("Empty CSV file");
     }
 
-    util::tracing::Span span;
-    START_SPAN(span, "arrow::csv::InitAfterFirstBuffer");
+    util::tracing::Span init_span;
+    START_SPAN(init_span, "arrow::csv::InitAfterFirstBuffer");
+
+    // Create a arrow::csv::ReadNextAsync span so that grouping by that name does not ignore
+    // the work performed for this first block. Especially when Fragments consists of small numers of blocks,
+    // this fraction can be very significant (if block size == fragment size, the first block is all of the work!)
+    util::tracing::Span read_span;
+    auto scope = START_SCOPED_SPAN(read_span, "arrow::csv::ReadNextAsync");
 
     std::shared_ptr<Buffer> after_header;
     ARROW_ASSIGN_OR_RAISE(auto header_bytes_consumed,
@@ -964,11 +970,20 @@ class StreamingReaderImpl : public ReaderMixin,
 
     auto self = shared_from_this();
     auto init_finished =
-        rb_gen().Then([self, rb_gen, max_readahead,
-                       span = std::move(span)](const DecodedBlock& first_block) {
+        rb_gen().Then([self, rb_gen, max_readahead
+#ifdef ARROW_WITH_OPENTELEMETRY
+                       , init_span = std::move(init_span), read_span = std::move(read_span)
+#endif
+                               ](const DecodedBlock& first_block) {
           auto fut =
               self->InitFromBlock(first_block, std::move(rb_gen), max_readahead, 0);
-          END_SPAN(span);
+#ifdef ARROW_WITH_OPENTELEMETRY
+            opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
+                    ::arrow::internal::tracing::UnwrapSpan(read_span.details.get());
+            raw_span->SetAttribute("batch.size_bytes", util::TotalBufferSize(*first_block.record_batch));
+#endif
+          END_SPAN(read_span);
+          END_SPAN(init_span);
           return fut;
         });
     return init_finished;
