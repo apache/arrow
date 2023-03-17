@@ -19,16 +19,14 @@ package org.apache.arrow.flight;
 
 import java.io.InputStream;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
 import javax.net.ssl.SSLException;
 
+import io.netty.channel.ChannelOption;
 import org.apache.arrow.flight.FlightProducer.StreamListener;
 import org.apache.arrow.flight.auth.BasicClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthHandler;
@@ -573,6 +571,7 @@ public class FlightClient implements AutoCloseable {
     private String overrideHostname = null;
     private List<FlightClientMiddleware.Factory> middleware = new ArrayList<>();
     private boolean verifyServer = true;
+    private final Map<ChannelOption<?>, Object> channelOptions = new HashMap();
 
     private Builder() {
     }
@@ -634,6 +633,11 @@ public class FlightClient implements AutoCloseable {
 
     public Builder verifyServer(boolean verifyServer) {
       this.verifyServer = verifyServer;
+      return this;
+    }
+
+    public <T> Builder channelOption(ChannelOption<T> option, T value) {
+      channelOptions.put(option, value);
       return this;
     }
 
@@ -712,6 +716,13 @@ public class FlightClient implements AutoCloseable {
         }
       } else {
         builder.usePlaintext();
+      }
+
+      for (Map.Entry<ChannelOption<?>, ?> entry : channelOptions.entrySet()) {
+        // Every entry in the map is obtained from
+        // Builder#channelOption(ChannelOption<T> option, T value)
+        // so it is safe to pass the key-value pair to builder.withOption().
+        builder.withOption((ChannelOption<Object>) entry.getKey(), entry.getValue());
       }
 
       builder
