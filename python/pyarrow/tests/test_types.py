@@ -83,7 +83,10 @@ def get_many_types():
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
         pa.union([pa.field('a', pa.binary(10), nullable=False),
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
-        pa.dictionary(pa.int32(), pa.string())
+        pa.dictionary(pa.int32(), pa.string()),
+        pa.run_end_encoded(pa.int16(), pa.int32()),
+        pa.run_end_encoded(pa.int32(), pa.string()),
+        pa.run_end_encoded(pa.int64(), pa.uint8())
     )
 
 
