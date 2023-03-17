@@ -2356,7 +2356,7 @@ def test_array_from_pylist_offset_overflow():
 def check_run_end_encoded_with_type(ree_type=None):
     run_ends = [3, 5, 10, 19]
     values = [1, 2, 1, 3]
-    ree_array = pa.RunEndEncodedArray.from_arrays(19, run_ends, values, ree_type)
+    ree_array = pa.RunEndEncodedArray.from_arrays(run_ends, values, ree_type)
     assert ree_array.run_ends.to_pylist() == run_ends
     assert ree_array.values.to_pylist() == values
     assert len(ree_array) == 19

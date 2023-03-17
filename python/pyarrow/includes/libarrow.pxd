@@ -783,14 +783,16 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CResult[vector[shared_ptr[CArray]]] Flatten(CMemoryPool* pool)
 
     cdef cppclass CRunEndEncodedArray" arrow::RunEndEncodedArray"(CArray):
-        CRunEndEncodedArray(const shared_ptr[CDataType]& type,
-                            int64_t length,
-                            const shared_ptr[CArray]& run_ends,
-                            const shared_ptr[CArray]& values,
-                            int64_t offset)
-
         @staticmethod
         CResult[shared_ptr[CRunEndEncodedArray]] Make(
+            const shared_ptr[CDataType]& type,
+            int64_t logical_length,
+            const shared_ptr[CArray]& run_ends,
+            const shared_ptr[CArray]& values,
+            int64_t logical_offset)
+
+        @staticmethod
+        CResult[shared_ptr[CRunEndEncodedArray]] MakeFromArrays "Make"(
                 int64_t logical_length,
                 const shared_ptr[CArray]& run_ends,
                 const shared_ptr[CArray]& values,

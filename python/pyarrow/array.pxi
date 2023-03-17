@@ -2857,14 +2857,12 @@ cdef class RunEndEncodedArray(Array):
     """
 
     @staticmethod
-    def from_arrays(logical_length, run_ends, values, type=None):
+    def from_arrays(run_ends, values, type=None):
         """
         Construct RunEndEncodedArray from run_ends and values arrays.
 
         Parameters
         ----------
-        logical_length : int
-            The logical length of the run-end encoded array.
         run_ends : Array (int16, int32, or int64 type)
             The run_ends array.
         values : Array (any type)
@@ -2884,23 +2882,26 @@ cdef class RunEndEncodedArray(Array):
             shared_ptr[CDataType] c_type
             shared_ptr[CRunEndEncodedArray] ree_array
 
+        logical_length = run_ends[-1] if len(run_ends) > 0 else 0
         _logical_length = <int64_t>logical_length
-        _run_ends = asarray(run_ends)
-        _values = asarray(values)
         _logical_offset = <int64_t>0
 
         type = ensure_type(type, allow_none=True)
         if type is not None:
+            _run_ends = asarray(run_ends, type=type.run_end_type)
+            _values = asarray(values, type=type.value_type)
             c_type = pyarrow_unwrap_data_type(type)
-            ree_array.reset(new CRunEndEncodedArray(
-                    c_type, _logical_length, _run_ends.sp_array,
-                    _values.sp_array, _logical_offset))
-        else:
             with nogil:
                 ree_array = GetResultValue(CRunEndEncodedArray.Make(
-                        _logical_length, _run_ends.sp_array, _values.sp_array, _logical_offset))
+                        c_type, _logical_length, _run_ends.sp_array, _values.sp_array, _logical_offset))
+        else:
+            _run_ends = asarray(run_ends)
+            _values = asarray(values)
+            with nogil:
+                ree_array = GetResultValue(CRunEndEncodedArray.MakeFromArrays(
+                    _logical_length, _run_ends.sp_array, _values.sp_array, _logical_offset))
         cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]>ree_array)
-        result.validate()
+        result.validate(full=True)
         return result
 
     @property
