@@ -4516,6 +4516,7 @@ def union(child_fields, mode, type_codes=None):
     else:
         return dense_union(child_fields, type_codes)
 
+
 def run_end_encoded(run_end_type, value_type):
     """
     Create RunEndEncodedType from run-end and value types.

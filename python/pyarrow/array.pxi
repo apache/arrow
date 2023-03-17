@@ -2876,7 +2876,7 @@ cdef class RunEndEncodedArray(Array):
             c_type = pyarrow_unwrap_data_type(type)
             with nogil:
                 ree_array = GetResultValue(CRunEndEncodedArray.Make(
-                        c_type, _logical_length, _run_ends.sp_array, _values.sp_array, _logical_offset))
+                    c_type, _logical_length, _run_ends.sp_array, _values.sp_array, _logical_offset))
         else:
             _run_ends = asarray(run_ends)
             _values = asarray(values)
@@ -2908,7 +2908,6 @@ cdef class RunEndEncodedArray(Array):
         logical_length = run_ends[-1] if len(run_ends) > 0 else 0
         return RunEndEncodedArray._from_arrays(type, True, logical_length,
                                                run_ends, values, 0)
-
 
     @staticmethod
     def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,
@@ -2969,7 +2968,6 @@ cdef class RunEndEncodedArray(Array):
 
         return RunEndEncodedArray._from_arrays(type, False, length, children[0],
                                                children[1], offset)
-
 
     @property
     def run_ends(self):

@@ -471,8 +471,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         vector[int8_t] type_codes)
 
     cdef shared_ptr[CDataType] CMakeRunEndEncodedType" arrow::run_end_encoded"(
-            shared_ptr[CDataType] run_end_type,
-            shared_ptr[CDataType] value_type)
+        shared_ptr[CDataType] run_end_type,
+        shared_ptr[CDataType] value_type)
 
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)
@@ -793,10 +793,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         @staticmethod
         CResult[shared_ptr[CRunEndEncodedArray]] MakeFromArrays "Make"(
-                int64_t logical_length,
-                const shared_ptr[CArray]& run_ends,
-                const shared_ptr[CArray]& values,
-                int64_t logical_offset)
+            int64_t logical_length,
+            const shared_ptr[CArray]& run_ends,
+            const shared_ptr[CArray]& values,
+            int64_t logical_offset)
 
         shared_ptr[CArray]& run_ends()
         shared_ptr[CArray]& values()
