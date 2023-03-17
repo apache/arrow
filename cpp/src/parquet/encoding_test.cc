@@ -1668,6 +1668,12 @@ TEST_F(TestRleBooleanEncoding, BasicRoundTrip) {
       /*null_probability*/ 0.1));
 }
 
+TEST_F(TestRleBooleanEncoding, AllNull) {
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 1));
+}
+
 // ----------------------------------------------------------------------
 // DELTA_LENGTH_BYTE_ARRAY encode/decode tests.
 

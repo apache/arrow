@@ -115,6 +115,7 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   using TypedEncoder<DType>::Put;
 
   void Put(const T* buffer, int num_values) override;
+
   void Put(const ::arrow::Array& values) override;
 
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
@@ -2845,7 +2846,8 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 class RleBooleanEncoder final : public EncoderImpl, virtual public BooleanEncoder {
  public:
   explicit RleBooleanEncoder(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
-      : EncoderImpl(descr, Encoding::RLE, pool) {}
+      : EncoderImpl(descr, Encoding::RLE, pool),
+        buffered_append_values_(::arrow::stl::allocator<T>(pool)) {}
 
   int64_t EstimatedDataEncodedSize() override {
     return kRleLengthInBytes + MaxRleBufferSize();
@@ -2908,7 +2910,7 @@ class RleBooleanEncoder final : public EncoderImpl, virtual public BooleanEncode
   // std::vector<bool> in C++ is tricky, because it's a bitmap.
   // Here RleBooleanEncoder will only append values into it, and
   // dump values into Buffer, so using it here is ok.
-  std::vector<bool> buffered_append_values_;
+  ArrowPoolVector<bool> buffered_append_values_;
 };
 
 void RleBooleanEncoder::Put(const bool* src, int num_values) { PutImpl(src, num_values); }
