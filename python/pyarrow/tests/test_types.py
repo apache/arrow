@@ -826,6 +826,8 @@ def test_run_end_encoded_type():
     assert isinstance(ty, pa.RunEndEncodedType)
     assert ty.run_end_type == pa.int64()
     assert ty.value_type == pa.utf8()
+    assert ty.num_buffers == 1  # buffers expected to be {NULLPTR}
+    assert ty.num_fields == 2
 
     with pytest.raises(TypeError):
         pa.run_end_encoded(pa.int64(), None)
