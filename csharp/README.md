@@ -79,7 +79,7 @@ for currently available features.
 
 - Int8, Int16, Int32, Int64
 - UInt8, UInt16, UInt32, UInt64
-- Float, Double
+- Float, Double, Half-float (.NET 6+)
 - Binary (variable-length)
 - String (utf-8)
 - Null
@@ -131,7 +131,6 @@ for currently available features.
     - Union
         - Dense
         - Sparse
-    - Half-Float
 - Array Operations
 	- Equality / Comparison
 	- Casting
