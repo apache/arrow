@@ -126,7 +126,6 @@ for currently available features.
     - Dictionary Encoding
 - Types
     - Tensor
-    - Table
 - Arrays
     - Union
         - Dense
