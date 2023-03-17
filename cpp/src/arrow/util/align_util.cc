@@ -26,63 +26,189 @@ namespace arrow {
 
 namespace util {
 
-Result<std::shared_ptr<Buffer>> EnsureAlignment(const std::shared_ptr<Buffer>& object, int64_t alignment,
-                                               MemoryPool* memory_pool) {
-    auto buffer_address = object->address();
-    if ((buffer_address % alignment) != 0) {
-        ARROW_ASSIGN_OR_RAISE(
-                auto new_buffer, AllocateBuffer(object->size(), alignment, memory_pool));
-        std::memcpy(new_buffer->mutable_data(), object->data(), object->size());
-        return new_buffer;
-    } else {
-        return object;
+bool CheckAlignment(const Buffer& buffer, const int64_t& alignment) {
+  return buffer.address() % alignment == 0;
+}
+
+bool CheckAlignment(const ArrayData& array, const int64_t& alignment) {
+  for (const auto& buffer : array.buffers) {
+    if (buffer) {
+      if (!CheckAlignment(*buffer, alignment)) return false;
     }
+  }
+  return true;
 }
 
-Result<std::shared_ptr<Array>> EnsureAlignment(const std::shared_ptr<Array>& object, int64_t alignment,
-                                               MemoryPool* memory_pool) {
-  std::vector<std::shared_ptr<Buffer>> buffers_ = object->data()->buffers;
-  for (size_t i = 0; i < buffers_.size(); ++i) {
-    if (buffers_[i]) {
-        ARROW_ASSIGN_OR_RAISE(buffers_[i], EnsureAlignment(buffers_[i], alignment, memory_pool));
+bool CheckAlignment(const Array& array, const int64_t& alignment) {
+  bool align_dictionary = true, align_children = true;
+
+  if (array.type()->id() == Type::DICTIONARY) {
+    align_dictionary = CheckAlignment(*array.data()->dictionary, alignment);
+  }
+
+  for (const auto& child : array.data()->child_data) {
+    if (child) {
+      if (!CheckAlignment(*child, alignment)) align_children = false;
+    }
+  }
+  return CheckAlignment(*array.data(), alignment) && align_dictionary && align_children;
+}
+
+bool CheckAlignment(const ChunkedArray& array, const int64_t& alignment,
+                    std::vector<bool>& needs_alignment, const int& offset) {
+  needs_alignment.resize(needs_alignment.size() + array.num_chunks(), false);
+  for (auto i = 0; i < array.num_chunks(); ++i) {
+    if (array.chunk(i) && !CheckAlignment(*array.chunk(i), alignment))
+      needs_alignment[i + offset] = true;
+  }
+  return std::find(needs_alignment.begin() + offset,
+                   needs_alignment.begin() + offset + array.num_chunks(),
+                   true) == needs_alignment.begin() + offset + array.num_chunks();
+}
+
+bool CheckAlignment(const RecordBatch& batch, const int64_t& alignment,
+                    std::vector<bool>& needs_alignment) {
+  needs_alignment.resize(batch.num_columns(), false);
+  for (auto i = 0; i < batch.num_columns(); ++i) {
+    if (batch.column(i) && !CheckAlignment(*batch.column(i), alignment))
+      needs_alignment[i] = true;
+  }
+  return std::find(needs_alignment.begin(), needs_alignment.end(), true) ==
+         needs_alignment.end();
+}
+
+bool CheckAlignment(const Table& table, const int64_t& alignment,
+                    std::vector<bool>& needs_alignment) {
+  needs_alignment.resize(table.num_columns(), false);
+  for (auto i = 1; i <= table.num_columns(); ++i) {
+    if (table.column(i - 1) &&
+        !CheckAlignment(*table.column(i - 1), alignment, needs_alignment,
+                        (i - 1) * (1 + table.column(i - 1)->num_chunks())))
+      needs_alignment[i * table.column(i - 1)->num_chunks() + i - 1] = true;
+  }
+  return std::find(needs_alignment.begin(), needs_alignment.end(), true) ==
+         needs_alignment.end();
+}
+
+Result<std::shared_ptr<Buffer>> EnsureAlignment(std::shared_ptr<Buffer> buffer,
+                                                const int64_t& alignment,
+                                                MemoryPool* memory_pool) {
+  if (!CheckAlignment(*buffer, alignment)) {
+    ARROW_ASSIGN_OR_RAISE(auto new_buffer,
+                          AllocateBuffer(buffer->size(), alignment, memory_pool));
+    std::memcpy(new_buffer->mutable_data(), buffer->data(), buffer->size());
+    return new_buffer;
+  } else {
+    return std::move(buffer);
+  }
+}
+
+Result<std::shared_ptr<ArrayData>> EnsureAlignment(std::shared_ptr<ArrayData> array_data,
+                                                   const int64_t& alignment,
+                                                   MemoryPool* memory_pool) {
+  if (!CheckAlignment(*array_data, alignment)) {
+    std::vector<std::shared_ptr<Buffer>> buffers_ = array_data->buffers;
+    for (size_t i = 0; i < buffers_.size(); ++i) {
+      if (buffers_[i]) {
+        ARROW_ASSIGN_OR_RAISE(
+            buffers_[i], EnsureAlignment(std::move(buffers_[i]), alignment, memory_pool));
       }
+    }
+
+    for (auto& it : array_data->child_data) {
+      ARROW_ASSIGN_OR_RAISE(it, EnsureAlignment(std::move(it), alignment, memory_pool));
+    }
+
+    if (array_data->type->id() == Type::DICTIONARY) {
+      ARROW_ASSIGN_OR_RAISE(
+          array_data->dictionary,
+          EnsureAlignment(std::move(array_data->dictionary), alignment, memory_pool));
+    }
+
+    auto new_array_data = ArrayData::Make(
+        array_data->type, array_data->length, std::move(buffers_), array_data->child_data,
+        array_data->dictionary, array_data->GetNullCount(), array_data->offset);
+    return std::move(new_array_data);
+
+  } else {
+    return std::move(array_data);
   }
-  auto new_array_data =
-      ArrayData::Make(object->data()->type, object->data()->length, std::move(buffers_),
-                      object->data()->GetNullCount(), object->data()->offset);
-  return MakeArray(new_array_data);
 }
 
-Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(const std::shared_ptr<ChunkedArray>& object,
-                                                      int64_t alignment,
-                                                      MemoryPool* memory_pool) {
-  ArrayVector chunks_ = object->chunks();
-  for (int i = 0; i < object->num_chunks(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(chunks_[i],
-                          EnsureAlignment(object->chunk(i), alignment, memory_pool));
-  }
-  return ChunkedArray::Make(std::move(chunks_), object->type());
-}
-
-Result<std::shared_ptr<RecordBatch>> EnsureAlignment(const std::shared_ptr<RecordBatch>& object,
-                                                     int64_t alignment,
-                                                     MemoryPool* memory_pool) {
-  ArrayVector columns_ = object->columns();
-  for (int i = 0; i < object->num_columns(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(columns_[i],
-                          EnsureAlignment(object->column(i), alignment, memory_pool));
-  }
-  return RecordBatch::Make(object->schema(), object->num_rows(), std::move(columns_));
-}
-
-Result<std::shared_ptr<Table>> EnsureAlignment(const std::shared_ptr<Table>& object, int64_t alignment,
+Result<std::shared_ptr<Array>> EnsureAlignment(std::shared_ptr<Array> array,
+                                               const int64_t& alignment,
                                                MemoryPool* memory_pool) {
-  std::vector<std::shared_ptr<ChunkedArray>> columns_ = object->columns();
-  for (int i = 0; i < object->num_columns(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(columns_[i],
-                          EnsureAlignment(object->column(i), alignment, memory_pool));
+  ARROW_ASSIGN_OR_RAISE(auto new_array_data,
+                        EnsureAlignment(array->data(), alignment, memory_pool));
+
+  if (new_array_data.get() == array->data().get()) {
+    return std::move(array);
+  } else {
+    return MakeArray(std::move(new_array_data));
   }
-  return Table::Make(object->schema(), std::move(columns_), object->num_rows());
+}
+
+Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(std::shared_ptr<ChunkedArray> array,
+                                                      const int64_t& alignment,
+                                                      MemoryPool* memory_pool) {
+  std::vector<bool> needs_alignment;
+  if (!CheckAlignment(*array, alignment, needs_alignment)) {
+    ArrayVector chunks_ = array->chunks();
+    for (int i = 0; i < array->num_chunks(); ++i) {
+      if (needs_alignment[i] && chunks_[i]) {
+        ARROW_ASSIGN_OR_RAISE(
+            chunks_[i], EnsureAlignment(std::move(chunks_[i]), alignment, memory_pool));
+      }
+    }
+    return ChunkedArray::Make(std::move(chunks_), array->type());
+  } else {
+    return std::move(array);
+  }
+}
+
+Result<std::shared_ptr<RecordBatch>> EnsureAlignment(std::shared_ptr<RecordBatch> batch,
+                                                     const int64_t& alignment,
+                                                     MemoryPool* memory_pool) {
+  std::vector<bool> needs_alignment;
+  if (!CheckAlignment(*batch, alignment, needs_alignment)) {
+    ArrayVector columns_ = batch->columns();
+    for (int i = 0; i < batch->num_columns(); ++i) {
+      if (needs_alignment[i] && columns_[i]) {
+        ARROW_ASSIGN_OR_RAISE(
+            columns_[i], EnsureAlignment(std::move(columns_[i]), alignment, memory_pool));
+      }
+    }
+    return RecordBatch::Make(batch->schema(), batch->num_rows(), std::move(columns_));
+  } else {
+    return std::move(batch);
+  }
+}
+
+Result<std::shared_ptr<Table>> EnsureAlignment(std::shared_ptr<Table> table,
+                                               const int64_t& alignment,
+                                               MemoryPool* memory_pool) {
+  std::vector<bool> needs_alignment;
+  if (!CheckAlignment(*table, alignment, needs_alignment)) {
+    std::vector<std::shared_ptr<ChunkedArray>> columns_ = table->columns();
+    for (int i = 1; i <= table->num_columns(); ++i) {
+      if (columns_[i - 1] && needs_alignment[i * columns_[i - 1]->num_chunks() + i - 1]) {
+        ArrayVector chunks_ = columns_[i - 1]->chunks();
+        for (size_t j = 0; j < chunks_.size(); ++j) {
+          if (chunks_[j] &&
+              needs_alignment[j + (i - 1) * (1 + columns_[i - 1]->num_chunks())]) {
+            ARROW_ASSIGN_OR_RAISE(chunks_[j], EnsureAlignment(std::move(chunks_[j]),
+                                                              alignment, memory_pool));
+          }
+        }
+        ARROW_ASSIGN_OR_RAISE(
+            columns_[i - 1],
+            ChunkedArray::Make(std::move(chunks_), columns_[i - 1]->type()));
+      }
+    }
+    return Table::Make(table->schema(), std::move(columns_), table->num_rows());
+  } else {
+    return std::move(table);
+  }
 }
 
 }  // namespace util

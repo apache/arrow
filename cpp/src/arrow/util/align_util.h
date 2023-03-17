@@ -68,25 +68,39 @@ inline BitmapWordAlignParams BitmapWordAlign(const uint8_t* data, int64_t bit_of
 
 namespace util {
 
-Result<std::shared_ptr<Buffer>> EnsureAlignment(const std::shared_ptr<Buffer>& object,
-                                                int64_t alignment,
+bool CheckAlignment(const Buffer& buffer, const int64_t& alignment);
+bool CheckAlignment(const ArrayData& array, const int64_t& alignment);
+bool CheckAlignment(const Array& array, const int64_t& alignment);
+bool CheckAlignment(const ChunkedArray& array, const int64_t& alignment,
+                    std::vector<bool>& needs_alignment, const int& offset = 0);
+bool CheckAlignment(const RecordBatch& batch, const int64_t& alignment,
+                    std::vector<bool>& needs_alignment);
+bool CheckAlignment(const Table& table, const int64_t& alignment,
+                    std::vector<bool>& needs_alignment);
+
+Result<std::shared_ptr<Buffer>> EnsureAlignment(std::shared_ptr<Buffer> buffer,
+                                                const int64_t& alignment,
                                                 MemoryPool* memory_pool);
 
-Result<std::shared_ptr<Array>> EnsureAlignment(const std::shared_ptr<Array>& object,
-                                               int64_t alignment,
-                                                MemoryPool* memory_pool);
+Result<std::shared_ptr<ArrayData>> EnsureAlignment(std::shared_ptr<ArrayData> array_data,
+                                                   const int64_t& alignment,
+                                                   MemoryPool* memory_pool);
 
-Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(
-    const std::shared_ptr<ChunkedArray>& object, int64_t alignment,
-    MemoryPool* memory_pool);
+Result<std::shared_ptr<Array>> EnsureAlignment(std::shared_ptr<Array> array,
+                                               const int64_t& alignment,
+                                               MemoryPool* memory_pool);
 
-Result<std::shared_ptr<RecordBatch>> EnsureAlignment(
-    const std::shared_ptr<RecordBatch>& object, int64_t alignment,
-    MemoryPool* memory_pool);
+Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(std::shared_ptr<ChunkedArray> array,
+                                                      const int64_t& alignment,
+                                                      MemoryPool* memory_pool);
 
-Result<std::shared_ptr<Table>> EnsureAlignment(const std::shared_ptr<Table>& object,
-                                               int64_t alignment,
-                                                MemoryPool* memory_pool);
+Result<std::shared_ptr<RecordBatch>> EnsureAlignment(std::shared_ptr<RecordBatch> batch,
+                                                     const int64_t& alignment,
+                                                     MemoryPool* memory_pool);
+
+Result<std::shared_ptr<Table>> EnsureAlignment(std::shared_ptr<Table> table,
+                                               const int64_t& alignment,
+                                               MemoryPool* memory_pool);
 
 }  // namespace util
 }  // namespace arrow
