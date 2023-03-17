@@ -1,4 +1,4 @@
-// Licensed to the Apache Software Foundation (ASF) under one or more
+﻿// Licensed to the Apache Software Foundation (ASF) under one or more
 // contributor license agreements. See the NOTICE file distributed with
 // this work for additional information regarding copyright ownership.
 // The ASF licenses this file to You under the Apache License, Version 2.0
@@ -104,6 +104,7 @@ namespace Apache.Arrow.Tests
             TestNumberSlice<ushort, UInt16Array, UInt16Array.Builder>();
             TestNumberSlice<uint, UInt32Array, UInt32Array.Builder>();
             TestNumberSlice<ulong, UInt64Array, UInt64Array.Builder>();
+            TestNumberSlice<Half, HalfFloatArray, HalfFloatArray.Builder>();
             TestNumberSlice<float, FloatArray, FloatArray.Builder>();
             TestNumberSlice<double, DoubleArray, DoubleArray.Builder>();
             TestSlice<Date32Array, Date32Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).Append(new DateTime(2019, 1, 3)));
@@ -130,6 +131,7 @@ namespace Apache.Arrow.Tests
             TestNumberSlice<ushort, UInt16Array, UInt16Array.Builder>();
             TestNumberSlice<uint, UInt32Array, UInt32Array.Builder>();
             TestNumberSlice<ulong, UInt64Array, UInt64Array.Builder>();
+            TestNumberSlice<Half, HalfFloatArray, HalfFloatArray.Builder>();
             TestNumberSlice<float, FloatArray, FloatArray.Builder>();
             TestNumberSlice<double, DoubleArray, DoubleArray.Builder>();
             TestSlice<Date32Array, Date32Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).AppendNull().Append(new DateTime(2019, 1, 3)));
@@ -196,6 +198,7 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
+            IArrowArrayVisitor<HalfFloatArray>,
             IArrowArrayVisitor<FloatArray>,
             IArrowArrayVisitor<DoubleArray>,
             IArrowArrayVisitor<BooleanArray>,
@@ -237,6 +240,7 @@ namespace Apache.Arrow.Tests
             public void Visit(Time32Array array) => ValidateArrays(array);
             public void Visit(Time64Array array) => ValidateArrays(array);
 
+            public void Visit(HalfFloatArray array) => ValidateArrays(array);
             public void Visit(FloatArray array) => ValidateArrays(array);
             public void Visit(DoubleArray array) => ValidateArrays(array);
             public void Visit(StringArray array) => ValidateArrays(array);
