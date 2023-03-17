@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"reflect"
 	"strconv"
 
 	"github.com/apache/arrow/go/v12/arrow"
@@ -232,16 +233,44 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 		if err != nil {
 			panic(fmt.Errorf("arrow/csv: could not marshal extension array: %w", err))
 		}
-		var stringArr []*string
+		var stringArr []any
 		if err := json.Unmarshal(b, &stringArr); err != nil {
-			panic(fmt.Errorf("arrow/csv: could not unmarshal extnesion to string arry: %s", err))
+			panic(fmt.Errorf("arrow/csv: could not unmarshal extnesion to string array: %s", err))
 		}
 		fmt.Println(stringArr)
 		for i := range stringArr {
-			if stringArr[i] == nil {
+			if arr.IsNull(i) || stringArr[i] == nil {
 				res[i] = w.nullValue
 			} else {
-				res[i] = *stringArr[i]
+				rv := reflect.ValueOf(stringArr[i])
+				switch rv.Kind() {
+				case reflect.String:
+					res[i] = stringArr[i].(string)
+				case reflect.Float32:
+					res[i] = strconv.FormatFloat(float64(stringArr[i].(float32)), 'g', -1, 32)
+				case reflect.Float64:
+					res[i] = strconv.FormatFloat(stringArr[i].(float64), 'g', -1, 64)
+				case reflect.Int:
+					res[i] = strconv.FormatInt(int64(stringArr[i].(int)), 10)
+				case reflect.Int8:
+					res[i] = strconv.FormatInt(int64(stringArr[i].(int8)), 10)
+				case reflect.Int16:
+					res[i] = strconv.FormatInt(int64(stringArr[i].(int16)), 10)
+				case reflect.Int32:
+					res[i] = strconv.FormatInt(int64(stringArr[i].(int32)), 10)
+				case reflect.Int64:
+					res[i] = strconv.FormatInt(stringArr[i].(int64), 10)
+				case reflect.Bool:
+					res[i] = strconv.FormatBool(stringArr[i].(bool))
+				case reflect.Map:
+					b, err := json.Marshal(stringArr[i])
+					if err != nil {
+						panic(fmt.Errorf("arrow/csv: could not marshal extension value: %w", err))
+					}
+					res[i] = string(b)
+				default:
+					panic(fmt.Errorf("arrow/csv: extension type %s is not supported", rv.Kind().String()))
+				}
 			}
 		}
 	default:
