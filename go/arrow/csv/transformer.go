@@ -262,7 +262,7 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 					res[i] = strconv.FormatInt(stringArr[i].(int64), 10)
 				case reflect.Bool:
 					res[i] = strconv.FormatBool(stringArr[i].(bool))
-				case reflect.Map:
+				case reflect.Map, reflect.Slice:
 					b, err := json.Marshal(stringArr[i])
 					if err != nil {
 						panic(fmt.Errorf("arrow/csv: could not marshal extension value: %w", err))
