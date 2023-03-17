@@ -116,10 +116,10 @@ TEST_P(TestRunEndEncodedArray, FromRunEndsAndValues) {
                              "Invalid: Run end type must be int16, int32 or int64",
                              RunEndEncodedArray::Make(30, string_values, int32_values));
   ASSERT_RAISES_WITH_MESSAGE(
-      Invalid, "Invalid: Run ends array cannot contain null values",
+      Invalid, "Invalid: Null count must be 0 for run ends array, but is 3",
       RunEndEncodedArray::Make(30, run_end_only_null, int32_values));
   ASSERT_RAISES_WITH_MESSAGE(
-      Invalid, "Invalid: Values array has to be at least as long as run ends array",
+      Invalid, "Invalid: Length of run_ends is greater than the length of values: 3 > 2",
       RunEndEncodedArray::Make(30, run_end_values, ArrayFromJSON(int32(), "[2, 0]")));
 }
 
@@ -531,12 +531,10 @@ TEST_P(TestRunEndEncodedArray, Validate) {
       "run_ends[3] is 40 and run_ends[2] is 40",
       run_ends_not_ordered_array->ValidateFull());
 
-  ASSERT_OK_AND_ASSIGN(auto run_ends_too_low_array,
-                       RunEndEncodedArray::Make(40, run_ends_too_low, values));
   ASSERT_RAISES_WITH_MESSAGE(Invalid,
                              "Invalid: Last run end is 39 but it should match 40"
                              " (offset: 0, length: 40)",
-                             run_ends_too_low_array->Validate());
+                             RunEndEncodedArray::Make(40, run_ends_too_low, values));
 }
 
 TEST_P(TestRunEndEncodedArray, Compare) {
