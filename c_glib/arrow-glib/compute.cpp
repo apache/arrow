@@ -799,7 +799,8 @@ garrow_function_to_string(GArrowFunction *function)
     if (i > 0) {
       g_string_append(string, ", ");
     }
-    g_string_append(string, arrow_default_options->ToString().c_str());
+    const auto options_string = arrow_default_options->ToString();
+    g_string_append(string, options_string.c_str());
   }
   g_string_append_printf(string, "): %s", arrow_doc.summary.c_str());
   return g_string_free(string, FALSE);

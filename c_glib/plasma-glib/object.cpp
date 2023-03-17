@@ -140,7 +140,8 @@ gchar *
 gplasma_object_id_to_hex(GPlasmaObjectID *id)
 {
   auto priv = GPLASMA_OBJECT_ID_GET_PRIVATE(id);
-  return g_strdup(priv->id.hex().c_str());
+  const auto hex = priv->id.hex();
+  return g_strdup(hex.c_str());
 }
 
 typedef struct GPlasmaObjectPrivate_ {

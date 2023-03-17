@@ -149,7 +149,8 @@ gchar *
 garrow_memory_pool_get_backend_name(GArrowMemoryPool *memory_pool)
 {
   auto arrow_memory_pool = garrow_memory_pool_get_raw(memory_pool);
-  return g_strdup(arrow_memory_pool->backend_name().c_str());
+  const auto name = arrow_memory_pool->backend_name();
+  return g_strdup(name.c_str());
 }
 
 G_END_DECLS
