@@ -99,10 +99,16 @@ test_that("GcsFileSystem$create() can read json_credentials", {
   # From disk
   cred_path <- tempfile()
   on.exit(unlink(cred_path))
+  con <- file(cred_path, open = "wb")
+  writeBin('{"key" : "valu\u00e9"}', con)
+  close(con)
 
-  writeLines("fromdisk", cred_path)
-  fs <- GcsFileSystem$create(json_credentials = cred_path)
-  expect_equal(fs$options$json_credentials, "fromdisk")
+  # This calls readLines which complains about embedded nuls and missing a
+  # final newline (See ?readLines)
+  suppressWarnings({
+    fs <- GcsFileSystem$create(json_credentials = cred_path)
+  })
+  expect_equal(fs$options$json_credentials, "{\"key\" : \"valué\"}")
 })
 
 skip_on_cran()
