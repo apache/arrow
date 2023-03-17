@@ -923,7 +923,7 @@ class StreamingReaderImpl : public ReaderMixin,
           if (result.ok()) {
             auto result_batch = result.ValueOrDie();
             if (result_batch) {
-              raw_span->SetAttribute("batch.size_byte",
+              raw_span->SetAttribute("batch.size_bytes",
                                      ::arrow::util::TotalBufferSize(*result_batch));
             }
           }
