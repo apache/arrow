@@ -143,6 +143,7 @@ x-hierarchy:
     - ubuntu-r
     - ubuntu-r-only-r
   - ubuntu-cpp-bundled
+  - ubuntu-cpp-minimal
   - ubuntu-cuda-cpp:
     - ubuntu-cuda-python
   - ubuntu-csharp
@@ -464,6 +465,48 @@ services:
       <<: [*ccache, *sccache]
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       CMAKE_GENERATOR: "Unix Makefiles"
+    volumes: *ubuntu-volumes
+    command: *cpp-command
+
+  ubuntu-cpp-minimal:
+    # Arrow build with minimal components/dependencies
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp-minimal.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
+      args:
+        arch: ${ARCH}
+        base: "${ARCH}/ubuntu:${UBUNTU}"
+        llvm: ${LLVM}
+    shm_size: *shm-size
+    ulimits: *ulimits
+    environment:
+      <<: [*ccache, *sccache]
+      ARROW_BUILD_UTILITIES: "OFF"
+      ARROW_COMPUTE: "OFF"
+      ARROW_CSV: "OFF"
+      ARROW_DATASET: "OFF"
+      ARROW_FILESYSTEM: "OFF"
+      ARROW_FLIGHT: "OFF"
+      ARROW_GANDIVA: "OFF"
+      ARROW_GCS: "OFF"
+      ARROW_HDFS: "OFF"
+      ARROW_ORC: "OFF"
+      ARROW_PARQUET: "OFF"
+      ARROW_PLASMA: "OFF"
+      ARROW_S3: "OFF"
+      ARROW_SUBSTRAIT: "OFF"
+      ARROW_WITH_BROTLI: "OFF"
+      ARROW_WITH_BZ2: "OFF"
+      ARROW_WITH_LZ4: "OFF"
+      ARROW_WITH_SNAPPY: "OFF"
+      ARROW_WITH_ZLIB: "OFF"
+      ARROW_WITH_ZSTD: "OFF"
+      PARQUET_BUILD_EXAMPLES: "OFF"
+      PARQUET_BUILD_EXECUTABLES: "OFF"
+      PARQUET_REQUIRE_ENCRYPTION: "OFF"
     volumes: *ubuntu-volumes
     command: *cpp-command
 
