@@ -163,8 +163,8 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     ARROW_ASSIGN_OR_RAISE(
         auto decl,
         conv_opts.named_tap_provider(named_tap_rel.kind(), input_decls,
-                                     named_tap_rel.name(), std::move(renamed_schema)));
-    return RelationInfo{{std::move(decl), std::move(renamed_schema)}, std::nullopt};
+                                     named_tap_rel.name(), renamed_schema));
+    return RelationInfo{{std::move(decl), renamed_schema}, std::nullopt};
   }
 };
 
