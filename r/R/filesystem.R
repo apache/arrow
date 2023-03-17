@@ -574,7 +574,7 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
 
   # Handle reading json_credentials from the filesystem
   if ("json_credentials" %in% names(options) && file.exists(options[["json_credentials"]])) {
-    options[["json_credentials"]] <- paste(readLines(options[["json_credentials"]]), collapse = "")
+    options[["json_credentials"]] <- paste(readLines(options[["json_credentials"]]), collapse = "\n")
   }
 
   fs___GcsFileSystem__Make(anonymous, options)
