@@ -713,6 +713,14 @@ endif()
 # Error on any warnings not already explicitly ignored.
 set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--warning-errors")
 
+if(PYARROW_BUILD_PARQUET_ENCRYPTION)
+  message(STATUS "Parquet Encryption Enabled")
+  list(APPEND CYTHON_FLAGS "-E" "PARQUET_ENCRYPTION_ENABLED=1")
+else()
+  message(STATUS "Parquet Encryption is NOT Enabled")
+  list(APPEND CYTHON_FLAGS "-E" "PARQUET_ENCRYPTION_ENABLED=0")
+endif()
+
 foreach(module ${CYTHON_EXTENSIONS})
   string(REPLACE "." ";" directories ${module})
   list(GET directories -1 module_name)
