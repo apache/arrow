@@ -36,7 +36,8 @@ export CXXFLAGS="-DARROW_NO_DEPRECATED_API"
 mkdir -p ${build_dir}
 
 # Build with Meson
-meson --prefix=$ARROW_HOME \
+meson setup \
+      --prefix=$ARROW_HOME \
       --libdir=lib \
       -Dgtk_doc=${with_gtk_doc} \
       -Dvapi=${ARROW_GLIB_VAPI} \
