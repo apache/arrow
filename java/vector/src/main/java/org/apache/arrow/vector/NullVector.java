@@ -58,10 +58,10 @@ public class NullVector implements FieldVector {
   }
 
   /**
-   * Instantiate a NullVector with the given number of values
+   * Instantiate a NullVector with the given number of values.
    *
    * @param name name of the vector
-   * @param valueCount number of values (i.e., nulls) in this vector
+   * @param valueCount number of values (i.e., nulls) in this vector.
    */
   public NullVector(String name, int valueCount) {
     this(new Field(name, FieldType.nullable(Types.MinorType.NULL.getType()), null), valueCount);
@@ -87,10 +87,10 @@ public class NullVector implements FieldVector {
   }
 
   /**
-   * Instantiate a NullVector with the given number of values
+   * Instantiate a NullVector with the given number of values.
    *
    * @param field field materialized by this vector.
-   * @param valueCount number of values (i.e., nulls) in this vector
+   * @param valueCount number of values (i.e., nulls) in this vector.
    */
   public NullVector(Field field, int valueCount) {
     this.field = field;
