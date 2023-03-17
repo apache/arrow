@@ -271,13 +271,13 @@ TEST_F(TestExtensionType, RoundtripTensor) {
 
   CheckTensorRoundtrip(tensor1,
                        fixed_shape_tensor(value_type_, {3, 4}, {0, 1}, {"y", "z"}));
-  CheckTensorRoundtrip(tensor2, fixed_shape_tensor(value_type_, {4, 3}, {1, 0}, {}));
+  CheckTensorRoundtrip(tensor2, fixed_shape_tensor(value_type_, {3, 4}, {1, 0}, {}));
   CheckTensorRoundtrip(tensor3, fixed_shape_tensor(value_type_, {4, 3}, {0, 1}));
-  CheckTensorRoundtrip(tensor4, fixed_shape_tensor(value_type_, {3, 4}, {1, 0}));
+  CheckTensorRoundtrip(tensor4, fixed_shape_tensor(value_type_, {4, 3}, {1, 0}));
   CheckTensorRoundtrip(tensor5, fixed_shape_tensor(value_type_, {2, 3}, {0, 1}));
-  CheckTensorRoundtrip(tensor6, fixed_shape_tensor(value_type_, {3, 2}, {1, 0}));
+  CheckTensorRoundtrip(tensor6, fixed_shape_tensor(value_type_, {2, 3}, {1, 0}));
   CheckTensorRoundtrip(tensor7, fixed_shape_tensor(value_type_, {3, 6}, {0, 1}));
-  CheckTensorRoundtrip(tensor8, fixed_shape_tensor(value_type_, {6, 3}, {1, 0}));
+  CheckTensorRoundtrip(tensor8, fixed_shape_tensor(value_type_, {3, 6}, {1, 0}));
   CheckTensorRoundtrip(tensor9, fixed_shape_tensor(value_type_, {3, 2, 3}, {0, 1, 2}));
   CheckTensorRoundtrip(tensor10, fixed_shape_tensor(value_type_, {3, 2, 3}, {2, 1, 0}));
 }

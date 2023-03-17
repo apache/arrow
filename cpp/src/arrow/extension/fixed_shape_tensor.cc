@@ -155,7 +155,6 @@ Result<std::shared_ptr<Array>> FixedShapeTensorArray::FromTensor(
   for (auto& x : permutation) {
     x--;
   }
-  internal::Permute(permutation, &cell_shape);
 
   auto ext_type = internal::checked_pointer_cast<ExtensionType>(
       fixed_shape_tensor(tensor->type(), cell_shape, permutation, dim_names));
@@ -308,12 +307,7 @@ std::shared_ptr<DataType> fixed_shape_tensor(const std::shared_ptr<DataType>& va
                                              const std::vector<int64_t>& shape,
                                              const std::vector<int64_t>& permutation,
                                              const std::vector<std::string>& dim_names) {
-  std::vector<int64_t> shape_ = std::move(shape);
-  if (!permutation.empty()) {
-    internal::Permute(permutation, &shape_);
-  }
-  auto maybe_type =
-      FixedShapeTensorType::Make(value_type, shape_, permutation, dim_names);
+  auto maybe_type = FixedShapeTensorType::Make(value_type, shape, permutation, dim_names);
   ARROW_DCHECK_OK(maybe_type.status());
   return maybe_type.MoveValueUnsafe();
 }
