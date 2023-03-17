@@ -64,7 +64,7 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
 
   /// Strides of tensor elements. Strides state offset in bytes between adjacent
   /// elements along each dimension. In case permutation is non-empty strides are
-  /// computed according to logical layout.
+  /// computed from permuted tensor element's shape.
   const std::vector<int64_t>& strides();
 
   /// Permutation mapping from logical to physical memory layout of tensor elements
