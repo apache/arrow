@@ -830,6 +830,9 @@ def test_run_end_encoded_type():
     with pytest.raises(TypeError):
         pa.run_end_encoded(None, pa.utf8())
 
+    with pytest.raises(ValueError):
+        pa.run_end_encoded(pa.int8(), pa.utf8())
+
 
 @pytest.mark.parametrize('t,check_func', [
     (pa.date32(), types.is_date32),
