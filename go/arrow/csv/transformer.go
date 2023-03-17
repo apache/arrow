@@ -233,7 +233,7 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 		if err != nil {
 			panic(fmt.Errorf("arrow/csv: could not marshal extension array: %w", err))
 		}
-		var stringArr []any
+		var stringArr []interface{}
 		if err := json.Unmarshal(b, &stringArr); err != nil {
 			panic(fmt.Errorf("arrow/csv: could not unmarshal extnesion to string array: %s", err))
 		}
