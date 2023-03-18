@@ -91,7 +91,7 @@ jobs:
           ulimit -c unlimited
           archery docker run \
             -e EXTRA_CMAKE_FLAGS="{{ '${{ matrix.extra-cmake-flags }}' }}" \
-            {{ '${{ matrix.config.os }}' }}-cpp-static
+            {{ '${{ matrix.os }}' }}-cpp-static
       - name: Bundle libarrow
         shell: bash
         env:
