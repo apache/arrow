@@ -36,9 +36,13 @@ func TestGetOriginSchemaBase64(t *testing.T) {
 	origArrSc := arrow.NewSchema([]arrow.Field{
 		{Name: "f1", Type: arrow.BinaryTypes.String, Metadata: md},
 		{Name: "f2", Type: arrow.PrimitiveTypes.Int64, Metadata: md},
+		{Name: "uuid", Type: pqarrow.NewUUIDType(), Metadata: md},
 	}, nil)
 
 	arrSerializedSc := flight.SerializeSchema(origArrSc, memory.DefaultAllocator)
+	if err := arrow.RegisterExtensionType(pqarrow.NewUUIDType()); err != nil {
+		t.Fatal(err)
+	}
 	pqschema, err := pqarrow.ToParquet(origArrSc, nil, pqarrow.DefaultWriterProps())
 	require.NoError(t, err)
 

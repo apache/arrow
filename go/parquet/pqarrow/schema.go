@@ -32,6 +32,10 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// constants for the extension type metadata keys for the type name and
+// any extension metadata to be passed to deserialize.
+const	ExtensionTypeKeyName = "ARROW:extension:name"
+
 // SchemaField is a holder that defines a specific logical field in the schema
 // which could potentially refer to multiple physical columns in the underlying
 // parquet file if it is a nested type.
@@ -354,7 +358,15 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		return fieldToNode(name, arrow.Field{Name: name, Type: dictType.ValueType, Nullable: field.Nullable, Metadata: field.Metadata},
 			props, arrprops)
 	case arrow.EXTENSION:
-		return nil, xerrors.New("not implemented yet")
+		return fieldToNode(name, arrow.Field{
+			Name: name,
+			Type: field.Type.(arrow.ExtensionType).StorageType(),
+			Nullable: field.Nullable,
+			Metadata: arrow.MetadataFrom(map[string]string{
+				ExtensionTypeKeyName: field.Type.(arrow.ExtensionType).ExtensionName(),
+			}),
+			// Metadata: ,
+		}, props, arrprops)
 	case arrow.MAP:
 		mapType := field.Type.(*arrow.MapType)
 		keyNode, err := fieldToNode("key", mapType.KeyField(), props, arrprops)
@@ -948,7 +960,15 @@ func getNestedFactory(origin, inferred arrow.DataType) func(fieldList []arrow.Fi
 func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (modified bool, err error) {
 	nchildren := len(inferred.Children)
 	switch origin.Type.ID() {
-	case arrow.EXTENSION, arrow.SPARSE_UNION, arrow.DENSE_UNION:
+	case arrow.EXTENSION:
+		extType := arrow.GetExtensionType(origin.Type.(arrow.ExtensionType).ExtensionName())
+		if extType == nil {
+			err = xerrors.Errorf("arrow: extension type %q not registered", origin.Type.Name())
+			return
+		}
+		inferred.Field.Type = extType
+		modified = true
+	case arrow.SPARSE_UNION, arrow.DENSE_UNION:
 		err = xerrors.New("unimplemented type")
 	case arrow.STRUCT:
 		typ := origin.Type.(*arrow.StructType)
@@ -1053,10 +1073,6 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 }
 
 func applyOriginalMetadata(origin arrow.Field, inferred *SchemaField) (bool, error) {
-	if origin.Type.ID() == arrow.EXTENSION {
-		return false, xerrors.New("extension types not implemented yet")
-	}
-
 	return applyOriginalStorageMetadata(origin, inferred)
 }
 
