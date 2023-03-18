@@ -17,12 +17,11 @@
 
 arrow_install_all_headers("arrow/compute/exec")
 
-add_arrow_compute_test(expression_test
+add_arrow_compute_test(subtree_test
                        REQUIRE_ALL_KERNELS
                        PREFIX
                        "arrow-compute"
                        SOURCES
-                       expression_test.cc
                        subtree_test.cc)
 
 add_arrow_compute_test(plan_test
@@ -69,11 +68,6 @@ add_arrow_compute_test(util_test
                        SOURCES
                        util_test.cc
                        task_util_test.cc)
-add_arrow_compute_test(light_array_exec_test
-                       PREFIX
-                       "arrow-compute"
-                       SOURCES
-                       light_array_exec_test.cc)
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
 

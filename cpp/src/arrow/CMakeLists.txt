@@ -395,7 +395,7 @@ list(APPEND
      compute/exec/asof_join_node.cc
      compute/exec/bloom_filter.cc
      compute/exec/exec_plan.cc
-     compute/exec/expression.cc
+     compute/expression.cc
      compute/exec/fetch_node.cc
      compute/exec/filter_node.cc
      compute/exec/hash_join.cc

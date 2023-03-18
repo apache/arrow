@@ -32,8 +32,8 @@
 
 #include "arrow/buffer.h"
 #include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/expression.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/extension_set.h"

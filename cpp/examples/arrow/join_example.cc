@@ -21,8 +21,8 @@
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
-#include <arrow/compute/exec/expression.h>
 #include <arrow/csv/api.h>
+#include "arrow/compute/expression.h"
 
 #include <arrow/dataset/dataset.h>
 #include <arrow/dataset/plan.h>
