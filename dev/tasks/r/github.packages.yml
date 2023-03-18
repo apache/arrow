@@ -57,7 +57,7 @@ jobs:
           path: arrow/r/arrow_*.tar.gz
 
   linux-cpp:
-    name: C++ Binary {{ '${{ matrix.config.os }}-${{ matrix.config.version }}' }}
+    name: C++ Binary {{ '${{ matrix.id }}' }}
     runs-on: ubuntu-latest
     needs: source
     strategy:
