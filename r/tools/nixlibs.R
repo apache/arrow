@@ -99,7 +99,8 @@ download_binary <- function(lib) {
 # * Some other string: a "distro-version" that corresponds to a binary that is
 #   available, to override what this function may discover by default.
 #   Possible values are:
-#    * "centos-7" (gcc 8 (devtoolset), _GLIBCXX_USE_CXX11_ABI=0, openssl 1)
+#    * "centos-7" (gcc 8 (devtoolset), _GLIBCXX_USE_CXX11_ABI=0, openssl 1.0)
+#    * "centos-7-openssl-1.1" (gcc 8 (devtoolset), _GLIBCXX_USE_CXX11_ABI=0, openssl 1.1)
 #    * "ubuntu-22.04" (openssl 3)
 #   These string values, along with `NULL`, are the potential return values of
 #   this function.
@@ -172,6 +173,9 @@ test_for_curl_and_openssl <- "
 #if OPENSSL_VERSION_NUMBER < 0x10002000L
 #error OpenSSL version too old
 #endif
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#error Using OpenSSL version 1.0
+#endif
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 #error Using OpenSSL version 3
 #endif
@@ -188,10 +192,10 @@ compile_test_program <- function(code) {
 # (built with newer devtoolset but older glibc (2.17) for broader compatibility,# like manylinux2014)
 determine_binary_from_stderr <- function(errs) {
   if (is.null(attr(errs, "status"))) {
-    # There was no error in compiling: so we found libcurl and openssl > 1.0.2,
-    # openssl is < 3.0, and we're not using a strict libc++
-    cat("*** Found libcurl and openssl >= 1.0.2\n")
-    return("centos-7")
+    # There was no error in compiling: so we found libcurl and openssl >= 1.1,
+    # openssl is < 3.0
+    cat("*** Found libcurl and openssl >= 1.1\n")
+    return("centos-7-openssl-1.1")
     # Else, check for dealbreakers:
   } else if (any(grepl("Using libc++", errs, fixed = TRUE))) {
     # Our binaries are all built with GNU stdlib so they fail with libc++
@@ -207,6 +211,9 @@ determine_binary_from_stderr <- function(errs) {
     cat("*** openssl found but version >= 1.0.2 is required for some features\n")
     return(NULL)
     # Else, determine which other binary will work
+  } else if (any(grepl("Using OpenSSL version 1.0", errs))) {
+    cat("*** Found libcurl and openssl < 1.1\n")
+    return("centos-7")
   } else if (any(grepl("Using OpenSSL version 3", errs))) {
     cat("*** Found libcurl and openssl >= 3.0.0\n")
     return("ubuntu-22.04")
