@@ -57,16 +57,23 @@ jobs:
           path: arrow/r/arrow_*.tar.gz
 
   linux-cpp:
-    name: C++ Binary {{ '${{ matrix.config.os }}-${{ matrix.config.version }}' }}
+    name: C++ Binary {{ '${{ matrix.id }}' }}
     runs-on: ubuntu-latest
     needs: source
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - { os: ubuntu, version: "20.04" }
-          - { os: ubuntu, version: "22.04" }
-          - { os: centos, version: "7" }
+        include:
+          - id: "ubuntu-22.04"
+            os: ubuntu
+            ubuntu: "22.04"
+          - id: "centos-7"
+            os: centos
+          - extra-cmake-flags: >-
+              -DCMAKE_INCLUDE_PATH=/usr/include/openssl11
+              -DCMAKE_LIBRARY_PATH=/usr/lib64/openssl11
+            id: "centos-7-openssl-1.1"
+            os: centos
     env:
       UBUNTU: {{ '${{ matrix.config.version }}' }}
     steps:
@@ -77,12 +84,14 @@ jobs:
       - name: Build libarrow
         shell: bash
         env:
-          UBUNTU: {{ '"${{ matrix.config.version }}"' }}
+          UBUNTU: {{ '"${{ matrix.ubuntu }}"' }}
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run {{ '${{ matrix.os }}' }}-cpp-static
+          archery docker run \
+            -e EXTRA_CMAKE_FLAGS="{{ '${{ matrix.extra-cmake-flags }}' }}" \
+            {{ '${{ matrix.os }}' }}-cpp-static
       - name: Bundle libarrow
         shell: bash
         env:
@@ -96,7 +105,7 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
-          name: r-lib__libarrow__bin__{{ '${{ matrix.config.os}}-${{ matrix.config.version}}' }}
+          name: r-lib__libarrow__bin__{{ '${{ matrix.id }}' }}
           path: arrow/r/libarrow/dist/arrow-*.zip
 
   windows-cpp:

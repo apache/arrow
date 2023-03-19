@@ -989,8 +989,8 @@ tasks:
       custom_version: Unset
     artifacts:
       - r-lib__libarrow__bin__windows__arrow-{no_rc_r_version}\.zip
-      - r-lib__libarrow__bin__centos-7_arrow-{no_rc_r_version}\.zip
-      - r-lib__libarrow__bin__ubuntu-20.04__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__centos-7-openssl-1.0__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__centos-7-openssl-1.1__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__ubuntu-22.04__arrow-{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.1__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.2__arrow_{no_rc_r_version}\.zip

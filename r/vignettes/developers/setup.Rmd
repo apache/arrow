@@ -55,7 +55,7 @@ On Linux, you can download a .zip file containing libarrow from the
 
 The directory names correspond to the OS the binaries where built on:
 - "centos-7" (gcc 8 via devtoolset, `_GLIBCXX_USE_CXX11_ABI=0`, openssl 1.0)
-- "ubuntu-20.04" (openssl 1.1)
+- "centos-7-openssl-1.1" (gcc 8 via devtoolset, `_GLIBCXX_USE_CXX11_ABI=0`, openssl 1.1)
 - "ubuntu-22.04" (openssl 3)
 
 Version numbers in that repository correspond to dates.
