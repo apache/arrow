@@ -18,6 +18,7 @@
 #pragma once
 
 #include <jni.h>
+#include <map>
 
 #include "arrow/array.h"
 #include "arrow/io/api.h"
@@ -25,7 +26,6 @@
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
-#include "map"
 
 namespace arrow {
 namespace dataset {
@@ -47,7 +47,7 @@ std::string JStringToCString(JNIEnv* env, jstring string);
 
 std::vector<std::string> ToStringVector(JNIEnv* env, jobjectArray& str_array);
 
-std::map<std::string, long> ToMap(JNIEnv* env, jobjectArray& str_array);
+std::unordered_map<std::string, long> ToMapTableToArrowReader(JNIEnv* env, jobjectArray& str_array);
 
 arrow::Result<jbyteArray> ToSchemaByteArray(JNIEnv* env,
                                             std::shared_ptr<arrow::Schema> schema);

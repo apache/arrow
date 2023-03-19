@@ -36,10 +36,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
 
-import com.google.common.collect.ImmutableList;
-
-import io.substrait.proto.Plan;
-
 public class TestTpchSubstraitConsumer extends TestDataset {
   private RootAllocator allocator = null;
 
@@ -79,8 +75,6 @@ public class TestTpchSubstraitConsumer extends TestDataset {
           }
         }
       }, "conversion to arrow::compute::Declaration from Substrait relation sort");
-    } catch (Exception e) {
-      e.printStackTrace();
     }
   }
 
@@ -97,47 +91,19 @@ public class TestTpchSubstraitConsumer extends TestDataset {
       Map<String, ArrowReader> mapReaderToTable = new HashMap<>();
       mapReaderToTable.put("LINEITEM", reader);
       // get binary oan
-      String sql = "select\n" +
-          "    l_returnflag,\n" +
-          "    l_linestatus,\n" +
-          "    sum(l_quantity) as sum_qty,\n" +
-          "    sum(l_extendedprice) as sum_base_price,\n" +
-          "    sum(l_extendedprice * (1 - l_discount)) as sum_disc_price,\n" +
-          "    sum(l_extendedprice * (1 - l_discount) * (1 + l_tax)) as sum_charge,\n" +
-          "    avg(l_quantity) as avg_qty,\n" +
-          "    avg(l_extendedprice) as avg_price,\n" +
-          "    avg(l_discount) as avg_disc,\n" +
-          "    count(*) as count_order\n" +
-          "from\n" +
-          "    lineitem\n" +
-          "where\n" +
-          "    l_shipdate <= date '1998-12-01' - interval '120' day (3)\n" +
-          "group by\n" +
-          "    l_returnflag,\n" +
-          "    l_linestatus\n" +
-          "order by\n" +
-          "    l_returnflag,\n" +
-          "    l_linestatus";
-      String lineitem = "CREATE TABLE LINEITEM (L_ORDERKEY BIGINT NOT NULL, L_PARTKEY BIGINT NOT NULL, " +
-          "L_SUPPKEY BIGINT NOT NULL, L_LINENUMBER INTEGER, L_QUANTITY DECIMAL, L_EXTENDEDPRICE DECIMAL, " +
-          "L_DISCOUNT DECIMAL, L_TAX DECIMAL, L_RETURNFLAG CHAR(1), L_LINESTATUS CHAR(1), L_SHIPDATE DATE, " +
-          "L_COMMITDATE DATE, L_RECEIPTDATE DATE, L_SHIPINSTRUCT CHAR(25), L_SHIPMODE CHAR(10), " +
-          "L_COMMENT VARCHAR(44) )";
-      Plan plan = getPlan(sql, ImmutableList.of(lineitem));
-      ByteBuffer directByteBuffer = ByteBuffer.allocateDirect(plan.toByteArray().length);
-      directByteBuffer.put(plan.toByteArray());
+      byte[] plan = getBinarySubstraitTpchPlan("01.binary");
+      ByteBuffer substraitPlan = ByteBuffer.allocateDirect(plan.length);
+      substraitPlan.put(plan);
       // run query
       Assertions.assertThrows(RuntimeException.class, () -> {
         try (ArrowReader arrowReader = new SubstraitConsumer(rootAllocator()).runQueryNamedTables(
-            directByteBuffer,
+            substraitPlan,
             mapReaderToTable
         )) {
           while (arrowReader.loadNextBatch()) {
           }
         }
       }, "conversion to arrow::compute::Declaration from Substrait relation sort");
-    } catch (Exception e) {
-      e.printStackTrace();
     }
   }
 
@@ -197,8 +163,6 @@ public class TestTpchSubstraitConsumer extends TestDataset {
           }
         }
       }, "conversion to arrow::compute::Declaration from Substrait relation sort");
-    } catch (Exception e) {
-      e.printStackTrace();
     }
   }
 
@@ -241,8 +205,6 @@ public class TestTpchSubstraitConsumer extends TestDataset {
           }
         }
       }, "conversion to arrow::compute::Declaration from Substrait relation sort");
-    } catch (Exception e) {
-      e.printStackTrace();
     }
   }
 }

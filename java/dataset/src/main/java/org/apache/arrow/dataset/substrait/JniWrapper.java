@@ -17,12 +17,19 @@
 
 package org.apache.arrow.dataset.substrait;
 
+import java.nio.ByteBuffer;
+
 import org.apache.arrow.dataset.jni.JniLoader;
 
 /**
- * JniWrapper to Consume Substrait Plans.
+ * Class that contains Native methods to call Acero C++ Substrait API. It internally depends on C++ function
+ * arrow::engine::ExecuteSerializedPlan. Currently supported input parameters supported are:
+ * <pre>
+ * - arrow::Buffer: Susbtrait Plan (JSON or Binary format).
+ * - arrow::engine::ConversionOptions: Mapping for arrow::engine::NamedTableProvider.
+ * </pre>
  */
-public class JniWrapper {
+final class JniWrapper {
   private static final JniWrapper INSTANCE = new JniWrapper();
 
   private JniWrapper() {
@@ -47,8 +54,19 @@ public class JniWrapper {
    * C-Data Interface ArrowArrayStream.
    *
    * @param planInput the JSON Substrait plan.
-   * @param mapTableToMemoryAddressInput the mapping name of Tables Name and theirs memory addres representation.
+   * @param mapTableToMemoryAddressInput the mapping name of Tables Name on position `i` and theirs Memory Address
+   *                                     representation on `i+1` position linearly.
+   *                              .
+   * <pre>{@code
+   * public class Example {
+   *    String[] mapTableToMemoryAddress = new String[2];
+   *    mapTableToMemoryAddress[0]="NATION"
+   *    mapTableToMemoryAddress[1]="140650250895360"
+   * }
+   * }
+   * </pre>
    * @param memoryAddressOutput the memory address where RecordBatchReader is exported.
+   *
    */
   public native void executeSerializedPlanNamedTables(String planInput, String[] mapTableToMemoryAddressInput,
                                                       long memoryAddressOutput);
@@ -58,9 +76,19 @@ public class JniWrapper {
    * C-Data Interface ArrowArrayStream.
    *
    * @param planInput the binary Substrait plan.
-   * @param mapTableToMemoryAddressInput the mapping name of Tables Name and theirs memory addres representation.
+   * @param mapTableToMemoryAddressInput the mapping name of Tables Name on position `i` and theirs Memory Address
+   *                                     representation on `i+1` position linearly.
+   *                              .
+   * <pre>{@code
+   * public class Example {
+   *    String[] mapTableToMemoryAddress = new String[2];
+   *    mapTableToMemoryAddress[0]="NATION"
+   *    mapTableToMemoryAddress[1]="140650250895360"
+   * }
+   * }
+   * </pre>
    * @param memoryAddressOutput the memory address where RecordBatchReader is exported.
    */
-  public native void executeSerializedPlanNamedTables(Object planInput, String[] mapTableToMemoryAddressInput,
+  public native void executeSerializedPlanNamedTables(ByteBuffer planInput, String[] mapTableToMemoryAddressInput,
                                                       long memoryAddressOutput);
 }

@@ -40,12 +40,9 @@ import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.calcite.sql.parser.SqlParseException;
 import org.junit.After;
 import org.junit.Before;
 
-import io.substrait.isthmus.SqlToSubstrait;
-import io.substrait.proto.Plan;
 
 public abstract class TestDataset {
   private RootAllocator allocator = null;
@@ -120,15 +117,12 @@ public abstract class TestDataset {
     return stream(iterator).collect(Collectors.toList());
   }
 
-  protected Plan getPlan(String sql, List<String> schema) throws SqlParseException {
-    SqlToSubstrait sqlToSubstrait = new SqlToSubstrait();
-    Plan plan = sqlToSubstrait.execute(sql, schema);
-    return plan;
-  }
-
   protected String getNamedTableUri(String name) {
     return Paths.get(
-        Paths.get("src", "test", "resources", "substrait", "parquet", name)
+        Paths.get(
+            (Paths.get("").toAbsolutePath().getParent().getParent().toString()),
+                "testing", "data", "parquet", "tpch", name
+            )
             .toFile()
             .getAbsolutePath()
     ).toUri().toString();
@@ -157,4 +151,25 @@ public abstract class TestDataset {
         )
     );
   }
+
+  protected byte[] getBinarySubstraitPlan(String name) throws IOException {
+    return Files.readAllBytes(
+        Paths.get(
+            Paths.get("src", "test", "resources", "substrait", "plan", name)
+                .toFile()
+                .getAbsolutePath()
+        )
+    );
+  }
+
+  protected byte[] getBinarySubstraitTpchPlan(String name) throws IOException {
+    return Files.readAllBytes(
+        Paths.get(
+            Paths.get("src", "test", "resources", "substrait", "tpch", "plan", name)
+                .toFile()
+                .getAbsolutePath()
+        )
+    );
+  }
+
 }

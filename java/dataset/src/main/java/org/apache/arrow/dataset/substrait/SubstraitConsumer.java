@@ -17,6 +17,7 @@
 
 package org.apache.arrow.dataset.substrait;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -27,16 +28,23 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
 
 /**
- * Java binding of the C++ ExecuteSerializedPlan.
+ * Class to expose Java Substrait API for end users, currently operations supported are only to Consume Substrait Plan
+ * in Plan format (JSON) or Binary format (ByteBuffer).
  */
-public class SubstraitConsumer implements Substrait {
+public final class SubstraitConsumer {
   private final BufferAllocator allocator;
 
   public SubstraitConsumer(BufferAllocator allocator) {
     this.allocator = allocator;
   }
 
-  @Override
+  /**
+   * Read plain-text Substrait plan, execute and return an ArrowReader to read Schema and ArrowRecordBatches.
+   * Local files can be recovered using URI items defined in the Substrait plan.
+   *
+   * @param plan the JSON Substrait plan.
+   * @return the ArrowReader to iterate for record batches.
+   */
   public ArrowReader runQueryLocalFiles(String plan) {
     try (ArrowArrayStream arrowArrayStream = ArrowArrayStream.allocateNew(this.allocator)) {
       JniWrapper.get().executeSerializedPlanLocalFiles(plan, arrowArrayStream.memoryAddress());
@@ -44,23 +52,29 @@ public class SubstraitConsumer implements Substrait {
     }
   }
 
-  @Override
+  /**
+   * Read plain-text Substrait plan, execute and return an ArrowReader to read Schema and ArrowRecordBatches.
+   * Needed to define a mapping name of Tables and theirs ArrowReader representation.
+   *
+   * @param plan                  the JSON Substrait plan.
+   * @param mapTableToArrowReader the mapping name of Tables Name and theirs ArrowReader representation.
+   *                              Contains the Table Name to Query as a Key and ArrowReader as a Value.
+   * <pre>{@code
+   * public class Client {
+   *    ArrowReader nationReader = scanner.scanBatches();
+   *    Map<String, ArrowReader> mapTableToArrowReader = new HashMap<>();
+   *    mapTableToArrowReader.put("NATION", nationReader);
+   * }
+   * }
+   * </pre>
+   * @return the ArrowReader to iterate for record batches.
+   */
   public ArrowReader runQueryNamedTables(String plan, Map<String, ArrowReader> mapTableToArrowReader) {
     List<ArrowArrayStream> listStreamInput = new ArrayList<>();
     try (
         ArrowArrayStream streamOutput = ArrowArrayStream.allocateNew(this.allocator)
     ) {
-      String[] mapTableToMemoryAddress = new String[mapTableToArrowReader.size() * 2];
-      ArrowArrayStream streamInput;
-      int pos = 0;
-      for (Map.Entry<String, ArrowReader> entries : mapTableToArrowReader.entrySet()) {
-        streamInput = ArrowArrayStream.allocateNew(this.allocator);
-        listStreamInput.add(streamInput);
-        Data.exportArrayStream(this.allocator, entries.getValue(), streamInput);
-        mapTableToMemoryAddress[pos] = entries.getKey();
-        mapTableToMemoryAddress[pos + 1] = String.valueOf(streamInput.memoryAddress());
-        pos += 2;
-      }
+      String[] mapTableToMemoryAddress = getMapTableToMemoryAddress(mapTableToArrowReader, listStreamInput);
       JniWrapper.get().executeSerializedPlanNamedTables(
           plan,
           mapTableToMemoryAddress,
@@ -74,23 +88,29 @@ public class SubstraitConsumer implements Substrait {
     }
   }
 
-  @Override
-  public ArrowReader runQueryNamedTables(Object plan, Map<String, ArrowReader> mapTableToArrowReader) {
+  /**
+   * Read binary Substrait plan, execute and return an ArrowReader to read Schema and ArrowRecordBatches.
+   * Needed to define a mapping name of Tables and theirs ArrowReader representation.
+   *
+   * @param plan                  the binary Substrait plan.
+   * @param mapTableToArrowReader the mapping name of Tables Name and theirs ArrowReader representation.
+   *                              Contains the Table Name to Query as a Key and ArrowReader as a Value.
+   * <pre>{@code
+   * public class Client {
+   *    ArrowReader nationReader = scanner.scanBatches();
+   *    Map<String, ArrowReader> mapTableToArrowReader = new HashMap<>();
+   *    mapTableToArrowReader.put("NATION", nationReader);
+   * }
+   * }
+   * </pre>
+   * @return the ArrowReader to iterate for record batches.
+   */
+  public ArrowReader runQueryNamedTables(ByteBuffer plan, Map<String, ArrowReader> mapTableToArrowReader) {
     List<ArrowArrayStream> listStreamInput = new ArrayList<>();
     try (
         ArrowArrayStream streamOutput = ArrowArrayStream.allocateNew(this.allocator)
     ) {
-      String[] mapTableToMemoryAddress = new String[mapTableToArrowReader.size() * 2];
-      ArrowArrayStream streamInput;
-      int pos = 0;
-      for (Map.Entry<String, ArrowReader> entries : mapTableToArrowReader.entrySet()) {
-        streamInput = ArrowArrayStream.allocateNew(this.allocator);
-        listStreamInput.add(streamInput);
-        Data.exportArrayStream(this.allocator, entries.getValue(), streamInput);
-        mapTableToMemoryAddress[pos] = entries.getKey();
-        mapTableToMemoryAddress[pos + 1] = String.valueOf(streamInput.memoryAddress());
-        pos += 2;
-      }
+      String[] mapTableToMemoryAddress = getMapTableToMemoryAddress(mapTableToArrowReader, listStreamInput);
 
       JniWrapper.get().executeSerializedPlanNamedTables(
           plan,
@@ -103,5 +123,21 @@ public class SubstraitConsumer implements Substrait {
         stream.close();
       }
     }
+  }
+
+  private String[] getMapTableToMemoryAddress(Map<String, ArrowReader> mapTableToArrowReader,
+                                              List<ArrowArrayStream> listStreamInput) {
+    String[] mapTableToMemoryAddress = new String[mapTableToArrowReader.size() * 2];
+    ArrowArrayStream streamInput;
+    int pos = 0;
+    for (Map.Entry<String, ArrowReader> entries : mapTableToArrowReader.entrySet()) {
+      streamInput = ArrowArrayStream.allocateNew(this.allocator);
+      listStreamInput.add(streamInput);
+      Data.exportArrayStream(this.allocator, entries.getValue(), streamInput);
+      mapTableToMemoryAddress[pos] = entries.getKey();
+      mapTableToMemoryAddress[pos + 1] = String.valueOf(streamInput.memoryAddress());
+      pos += 2;
+    }
+    return mapTableToMemoryAddress;
   }
 }

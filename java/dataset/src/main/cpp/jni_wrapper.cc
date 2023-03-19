@@ -206,7 +206,7 @@ using arrow::dataset::jni::ReleaseNativeRef;
 using arrow::dataset::jni::RetrieveNativeInstance;
 using arrow::dataset::jni::ToSchemaByteArray;
 using arrow::dataset::jni::ToStringVector;
-using arrow::dataset::jni::ToMap;
+using arrow::dataset::jni::ToMapTableToArrowReader;
 
 using arrow::dataset::jni::ReservationListenableMemoryPool;
 using arrow::dataset::jni::ReservationListener;
@@ -599,14 +599,14 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
 
 /*
  * Class:     org_apache_arrow_dataset_substrait_JniWrapper
- * Method:    callMeRN
+ * Method:    executeSerializedPlanNamedTables
  * Signature: (Ljava/lang/String;[Ljava/lang/String;J)V
  */
 JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlanNamedTables__Ljava_lang_String_2_3Ljava_lang_String_2J (
     JNIEnv* env, jobject, jstring plan, jobjectArray table_to_memory_address_input, jlong memory_address_output) {
   JNI_METHOD_START
   // get mapping of table name to memory address
-  std::map<std::string, long> map_table_to_memory_address = ToMap(env, table_to_memory_address_input);
+  std::unordered_map<std::string, long> map_table_to_memory_address = ToMapTableToArrowReader(env, table_to_memory_address_input);
   // create table provider
   arrow::engine::NamedTableProvider table_provider = [&map_table_to_memory_address](const std::vector<std::string>& names, const arrow::Schema&) {
     std::shared_ptr<arrow::Table> output_table;
@@ -616,11 +616,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
       auto* arrow_stream_in = reinterpret_cast<ArrowArrayStream*>(memory_address);
       std::shared_ptr<arrow::RecordBatchReader> readerIn =
         JniGetOrThrow(arrow::ImportRecordBatchReader(arrow_stream_in));
-      std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
-        arrow::dataset::ScannerBuilder::FromRecordBatchReader(readerIn);
-      JniAssertOkOrThrow(scanner_builder->Pool(arrow::default_memory_pool()));
-      auto scanner = JniGetOrThrow(scanner_builder->Finish());
-      output_table = JniGetOrThrow(scanner->ToTable());
+      output_table = JniGetOrThrow(readerIn->ToTable());
     }
     std::shared_ptr<arrow::compute::ExecNodeOptions> options =
       std::make_shared<arrow::compute::TableSourceNodeOptions>(std::move(output_table));
@@ -638,14 +634,14 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
 
 /*
  * Class:     org_apache_arrow_dataset_substrait_JniWrapper
- * Method:    callMeRN
- * Signature: (Ljava/lang/Object;[Ljava/lang/String;J)V
+ * Method:    executeSerializedPlanNamedTables
+ * Signature: (Ljava/nio/ByteBuffer;[Ljava/lang/String;J)V
  */
-JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlanNamedTables__Ljava_lang_Object_2_3Ljava_lang_String_2J (
+JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlanNamedTables__Ljava_nio_ByteBuffer_2_3Ljava_lang_String_2J (
     JNIEnv* env, jobject, jobject plan, jobjectArray table_to_memory_address_input, jlong memory_address_output) {
   JNI_METHOD_START
   // get mapping of table name to memory address
-  std::map<std::string, long> map_table_to_memory_address = ToMap(env, table_to_memory_address_input);
+  std::unordered_map<std::string, long> map_table_to_memory_address = ToMapTableToArrowReader(env, table_to_memory_address_input);
   // create table provider
   arrow::engine::NamedTableProvider table_provider = [&map_table_to_memory_address](const std::vector<std::string>& names, const arrow::Schema&) {
     std::shared_ptr<arrow::Table> output_table;
@@ -655,11 +651,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
       auto* arrow_stream_in = reinterpret_cast<ArrowArrayStream*>(memory_address);
       std::shared_ptr<arrow::RecordBatchReader> readerIn =
         JniGetOrThrow(arrow::ImportRecordBatchReader(arrow_stream_in));
-      std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
-        arrow::dataset::ScannerBuilder::FromRecordBatchReader(readerIn);
-      JniAssertOkOrThrow(scanner_builder->Pool(arrow::default_memory_pool()));
-      auto scanner = JniGetOrThrow(scanner_builder->Finish());
-      output_table = JniGetOrThrow(scanner->ToTable());
+      output_table = JniGetOrThrow(readerIn->ToTable());
     }
     std::shared_ptr<arrow::compute::ExecNodeOptions> options =
       std::make_shared<arrow::compute::TableSourceNodeOptions>(std::move(output_table));
@@ -668,10 +660,10 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
   arrow::engine::ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
   // mapping arrow::Buffer
-  jbyte *buff = (jbyte *) env->GetDirectBufferAddress(plan);
+  auto *buff = reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(plan));
   int length = env->GetDirectBufferCapacity(plan);
-  std::shared_ptr<arrow::Buffer> buffer = arrow::AllocateBuffer(length).ValueOrDie();
-  memcpy(buffer->mutable_data(), buff, length);
+  std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
+  std::memcpy(buffer->mutable_data(), buff, length);
   // execute plan
   std::shared_ptr<arrow::RecordBatchReader> readerOut = JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer, NULLPTR, NULLPTR, conversion_options));
   auto* arrow_stream_out = reinterpret_cast<ArrowArrayStream*>(memory_address_output);

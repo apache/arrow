@@ -35,25 +35,12 @@ import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
-import org.apache.calcite.sql.parser.SqlParseException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.google.common.collect.ImmutableList;
-import com.google.protobuf.util.JsonFormat;
-
-import io.substrait.proto.Plan;
-
 public class TestSubstraitConsumer extends TestDataset {
   private RootAllocator allocator = null;
-
-  public static String planReplaceLocalFileURI(String plan, String uri) throws IOException {
-    StringBuilder builder = new StringBuilder(plan);
-    builder.replace(builder.indexOf("FILENAME_PLACEHOLDER"),
-        builder.indexOf("FILENAME_PLACEHOLDER") + "FILENAME_PLACEHOLDER".length(), uri);
-    return builder.toString();
-  }
 
   @Before
   public void setUp() {
@@ -67,16 +54,6 @@ public class TestSubstraitConsumer extends TestDataset {
 
   protected RootAllocator rootAllocator() {
     return allocator;
-  }
-
-  @Test
-  public void testCreateSubstraitPlan() throws SqlParseException, IOException {
-    String sql = "SELECT * from nation";
-    String nation = "CREATE TABLE NATION (N_NATIONKEY BIGINT NOT NULL, N_NAME CHAR(25), " +
-        "N_REGIONKEY BIGINT NOT NULL, N_COMMENT VARCHAR(152))";
-    Plan plan = getPlan(sql, ImmutableList.of(nation));
-    String jsonPlan = JsonFormat.printer().includingDefaultValueFields().print(plan);
-    assertEquals(getSubstraitPlan("named_table_nation.json"), jsonPlan);
   }
 
   @Test
@@ -117,8 +94,6 @@ public class TestSubstraitConsumer extends TestDataset {
           assertTrue(arrowReader.getVectorSchemaRoot().contentToTSVString().contains("MOROCCO"));
         }
       }
-    } catch (Exception e) {
-      e.printStackTrace();
     }
   }
 
@@ -152,8 +127,6 @@ public class TestSubstraitConsumer extends TestDataset {
           assertTrue(arrowReader.getVectorSchemaRoot().contentToTSVString().contains("Customer#000014924"));
         }
       }
-    } catch (Exception e) {
-      e.printStackTrace();
     }
   }
 
@@ -172,12 +145,9 @@ public class TestSubstraitConsumer extends TestDataset {
       Map<String, ArrowReader> mapTableToArrowReader = new HashMap<>();
       mapTableToArrowReader.put("NATION", reader);
       // get binary plan
-      String sql = "SELECT * from nation";
-      String nation = "CREATE TABLE NATION (N_NATIONKEY BIGINT NOT NULL, N_NAME CHAR(25), " +
-          "N_REGIONKEY BIGINT NOT NULL, N_COMMENT VARCHAR(152))";
-      Plan plan = getPlan(sql, ImmutableList.of(nation));
-      ByteBuffer substraitPlan = ByteBuffer.allocateDirect(plan.toByteArray().length);
-      substraitPlan.put(plan.toByteArray());
+      byte[] plan = getBinarySubstraitPlan("named_table_nation.binary");
+      ByteBuffer substraitPlan = ByteBuffer.allocateDirect(plan.length);
+      substraitPlan.put(plan);
       // run query
       try (ArrowReader arrowReader = new SubstraitConsumer(rootAllocator()).runQueryNamedTables(
           substraitPlan,
@@ -188,8 +158,6 @@ public class TestSubstraitConsumer extends TestDataset {
           assertTrue(arrowReader.getVectorSchemaRoot().contentToTSVString().contains("MOROCCO"));
         }
       }
-    } catch (Exception e) {
-      e.printStackTrace();
     }
   }
 
@@ -216,16 +184,9 @@ public class TestSubstraitConsumer extends TestDataset {
       mapTableToArrowReader.put("NATION", readerNation);
       mapTableToArrowReader.put("CUSTOMER", readerCustomer);
       // get binary plan
-      String sql = "SELECT n.n_name, c.c_name, c.c_phone, c.c_address FROM nation n JOIN customer c " +
-          "ON n.n_nationkey = c.c_nationkey";
-      String nation = "CREATE TABLE NATION (N_NATIONKEY BIGINT NOT NULL, N_NAME CHAR(25), " +
-          "N_REGIONKEY BIGINT NOT NULL, N_COMMENT VARCHAR(152))";
-      String customer = "CREATE TABLE CUSTOMER (C_CUSTKEY BIGINT NOT NULL, C_NAME VARCHAR(25), " +
-          "C_ADDRESS VARCHAR(40), C_NATIONKEY BIGINT NOT NULL, C_PHONE CHAR(15), C_ACCTBAL DECIMAL, " +
-          "C_MKTSEGMENT CHAR(10), C_COMMENT VARCHAR(117) )";
-      Plan plan = getPlan(sql, ImmutableList.of(nation, customer));
-      ByteBuffer substraitPlan = ByteBuffer.allocateDirect(plan.toByteArray().length);
-      substraitPlan.put(plan.toByteArray());
+      byte[] plan = getBinarySubstraitPlan("named_table_nation_customer.binary");
+      ByteBuffer substraitPlan = ByteBuffer.allocateDirect(plan.length);
+      substraitPlan.put(plan);
       // run query
       try (ArrowReader arrowReader = new SubstraitConsumer(rootAllocator()).runQueryNamedTables(
           substraitPlan,
@@ -236,8 +197,13 @@ public class TestSubstraitConsumer extends TestDataset {
           assertTrue(arrowReader.getVectorSchemaRoot().contentToTSVString().contains("Customer#000014924"));
         }
       }
-    } catch (Exception e) {
-      e.printStackTrace();
     }
+  }
+
+  private static String planReplaceLocalFileURI(String plan, String uri) throws IOException {
+    StringBuilder builder = new StringBuilder(plan);
+    builder.replace(builder.indexOf("FILENAME_PLACEHOLDER"),
+        builder.indexOf("FILENAME_PLACEHOLDER") + "FILENAME_PLACEHOLDER".length(), uri);
+    return builder.toString();
   }
 }

@@ -33,10 +33,9 @@ RUN vcpkg install \
         --x-feature=s3
 
 # Install Java
-ARG java1=1.8.0
-ARG java2=11
-RUN yum install -y java-$java1-openjdk-devel java-$java2-openjdk-devel rh-maven35 && yum clean all
-ENV JAVA_HOME=/usr/lib/jvm/java-$java2-openjdk/
+ARG java=1.8.0
+RUN yum install -y java-$java-openjdk-devel rh-maven35 && yum clean all
+ENV JAVA_HOME=/usr/lib/jvm/java-$java-openjdk/
 
 # For ci/scripts/{cpp,java}_*.sh
 ENV ARROW_HOME=/tmp/local \

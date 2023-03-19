@@ -152,6 +152,7 @@
             <exclude>**/*.iml</exclude>
             <exclude>**/flight.properties</exclude>
             <exclude>**/*.idea/**</exclude>
+            <exclude>**/*.binary/**</exclude>
           </excludes>
         </configuration>
       </plugin>
