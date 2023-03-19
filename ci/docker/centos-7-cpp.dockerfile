@@ -31,7 +31,6 @@ RUN \
     libcurl-devel \
     make \
     openssl-devel \
-    openssl11-devel \
     wget \
     which
 

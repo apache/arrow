@@ -100,7 +100,7 @@ download_binary <- function(lib) {
 #   available, to override what this function may discover by default.
 #   Possible values are:
 #    * "centos-7" (gcc 8 (devtoolset), _GLIBCXX_USE_CXX11_ABI=0, openssl 1.0)
-#    * "centos-7-openssl-1.1" (gcc 8 (devtoolset), _GLIBCXX_USE_CXX11_ABI=0, openssl 1.1)
+#    * "ubuntu-20.04" (openssl 1.1)
 #    * "ubuntu-22.04" (openssl 3)
 #   These string values, along with `NULL`, are the potential return values of
 #   this function.
@@ -195,7 +195,7 @@ determine_binary_from_stderr <- function(errs) {
     # There was no error in compiling: so we found libcurl and openssl >= 1.1,
     # openssl is < 3.0
     cat("*** Found libcurl and openssl >= 1.1\n")
-    return("centos-7-openssl-1.1")
+    return("ubuntu-20.04")
     # Else, check for dealbreakers:
   } else if (any(grepl("Using libc++", errs, fixed = TRUE))) {
     # Our binaries are all built with GNU stdlib so they fail with libc++

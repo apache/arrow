@@ -26,7 +26,7 @@ source("nixlibs.R", local = TRUE)
 
 test_that("identify_binary() based on LIBARROW_BINARY", {
   expect_null(identify_binary("FALSE"))
-  expect_identical(identify_binary("centos-7"), "centos-7")
+  expect_identical(identify_binary("ubuntu-20.04"), "ubuntu-20.04")
   expect_null(identify_binary("", info = list(id = "debian")))
 })
 
@@ -52,9 +52,9 @@ test_that("determine_binary_from_stderr", {
   expect_output(
     expect_identical(
       determine_binary_from_stderr(compile_test_program("int a;")),
-      "centos-7"
+      "ubuntu-20.04"
     ),
-    "Found libcurl and openssl >= 1.0.2"
+    "Found libcurl and openssl >= 1.1"
   )
   expect_output(
     expect_identical(
@@ -75,9 +75,16 @@ test_that("select_binary() with test program", {
   expect_output(
     expect_identical(
       select_binary("linux", "x86_64", "int a;"),
+      "ubuntu-20.04"
+    ),
+    "Found libcurl and openssl >= 1.1"
+  )
+  expect_output(
+    expect_identical(
+      select_binary("linux", "x86_64", "#error Using OpenSSL version 1.0"),
       "centos-7"
     ),
-    "Found libcurl and openssl >= 1.0.2"
+    "Found libcurl and openssl < 1.1"
   )
   expect_output(
     expect_identical(
