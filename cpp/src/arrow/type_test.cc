@@ -387,9 +387,9 @@ TEST(TestFieldPath, GetForTable) {
 
   const int length = 100;
   auto f0 = field("alpha", int32());
-  auto f1 = field("beta", int32());
+  auto f1 = field("beta",  int32());
   auto f2 = field("alpha", int32());
-  auto f3 = field("beta", int32());
+  auto f3 = field("beta",  int32());
   auto schema = arrow::schema({f0, f1, f2, f3});
 
   arrow::random::RandomArrayGenerator gen_{42};
@@ -397,22 +397,26 @@ TEST(TestFieldPath, GetForTable) {
   auto a1 = gen_.ArrayOf(int32(), length);
   auto a2 = gen_.ArrayOf(int32(), length);
   auto a3 = gen_.ArrayOf(int32(), length);
-  auto arrayVector = ArrayVector({a0, a1, a2, a3});
+  auto array_vector = ArrayVector({a0, a1, a2, a3});
 
-  auto tablePtr = Table::Make(schema, {a0, a1, a2, a3});
+  auto table_ptr = Table::Make(schema, {a0, a1, a2, a3});
+  ASSERT_OK(table_ptr->ValidateFull());
 
   // retrieving a chunked array FieldPath is equivalent to Table::column
-  auto numColumns = tablePtr->num_columns();
-  for (int index = 0; index < numColumns; ++index) {
-    ASSERT_OK_AND_ASSIGN(auto fieldPathColumn, FieldPath({index}).Get(*tablePtr));
-    EXPECT_TRUE(fieldPathColumn->Equals(tablePtr->column(index)));
+  auto num_columns = table_ptr->num_columns();
+  auto table_schema = table_ptr->schema();
+  for (int index = 0; index < num_columns; ++index) {
+    ASSERT_OK_AND_EQ(table_ptr->field(index), FieldPath({index}).Get(*schema));
+    ASSERT_OK_AND_EQ(table_schema->field(index), FieldPath({index}).Get(*schema));
+    ASSERT_OK_AND_ASSIGN(auto field_path_column, FieldPath({index}).Get(*table_ptr));
+    EXPECT_TRUE(field_path_column->Equals(table_ptr->column(index)));
   }
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   HasSubstr("empty indices cannot be traversed"),
-                                  FieldPath().Get(*tablePtr));
+                                  FieldPath().Get(*table_ptr));
   EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, 
                                   HasSubstr("index out of range"),
-                                  FieldPath({numColumns * 2}).Get(*tablePtr));
+                                  FieldPath({num_columns * 2}).Get(*table_ptr));
 }
 
 TEST(TestFieldPath, GetForRecordBatch) {
@@ -420,9 +424,9 @@ TEST(TestFieldPath, GetForRecordBatch) {
 
   const int length = 100;
   auto f0 = field("alpha", int32());
-  auto f1 = field("beta", int32());
+  auto f1 = field("beta",  int32());
   auto f2 = field("alpha", int32());
-  auto f3 = field("beta", int32());
+  auto f3 = field("beta",  int32());
   auto schema = arrow::schema({f0, f1, f2, f3});
 
   arrow::random::RandomArrayGenerator gen_{42};
@@ -430,22 +434,26 @@ TEST(TestFieldPath, GetForRecordBatch) {
   auto a1 = gen_.ArrayOf(int32(), length);
   auto a2 = gen_.ArrayOf(int32(), length);
   auto a3 = gen_.ArrayOf(int32(), length);
-  auto arrayVector = ArrayVector({a0, a1, a2, a3});
+  auto array_vector = ArrayVector({a0, a1, a2, a3});
 
-  auto recordBatchPtr = arrow::RecordBatch::Make(schema, length, arrayVector);
+  auto record_batch_ptr = arrow::RecordBatch::Make(schema, length, array_vector);
+  ASSERT_OK(record_batch_ptr->ValidateFull());
 
   // retrieving an array FieldPath is equivalent to RecordBatch::column
-  auto numColumns = recordBatchPtr->num_columns();
-  for (int index = 0; index < numColumns; ++index) {
-    ASSERT_OK_AND_ASSIGN(auto fieldPathColumn, FieldPath({index}).Get(*recordBatchPtr));
-    EXPECT_TRUE(fieldPathColumn->Equals(recordBatchPtr->column(index)));
+  auto num_columns = record_batch_ptr->num_columns();
+  auto record_batch_schema = record_batch_ptr->schema();
+  for (int index = 0; index < num_columns; ++index) {
+    ASSERT_OK_AND_EQ(record_batch_schema->field(index), FieldPath({index}).Get(*schema));
+    ASSERT_OK_AND_ASSIGN(auto field_path_column, 
+                         FieldPath({index}).Get(*record_batch_ptr));
+    EXPECT_TRUE(field_path_column->Equals(record_batch_ptr->column(index)));
   }
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   HasSubstr("empty indices cannot be traversed"),
-                                  FieldPath().Get(*recordBatchPtr));
+                                  FieldPath().Get(*record_batch_ptr));
   EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, 
                                   HasSubstr("index out of range"),
-                                  FieldPath({numColumns * 2}).Get(*recordBatchPtr));
+                                  FieldPath({num_columns * 2}).Get(*record_batch_ptr));
 }
 
 TEST(TestFieldRef, Basics) {
@@ -470,9 +478,9 @@ TEST(TestFieldRef, Basics) {
 TEST(TestFieldRef, FindAllForTable) {
   const int length = 100;
   auto f0 = field("alpha", int32());
-  auto f1 = field("beta", int32());
+  auto f1 = field("beta",  int32());
   auto f2 = field("alpha", int32());
-  auto f3 = field("beta", int32());
+  auto f3 = field("beta",  int32());
   auto schema = arrow::schema({f0, f1, f2, f3});
 
   arrow::random::RandomArrayGenerator gen_{42};
@@ -481,30 +489,30 @@ TEST(TestFieldRef, FindAllForTable) {
   auto a2 = gen_.ArrayOf(int32(), length);
   auto a3 = gen_.ArrayOf(int32(), length);
 
-  auto tablePtr = Table::Make(schema, {a0, a1, a2, a3});
+  auto table_ptr = Table::Make(schema, {a0, a1, a2, a3});
+  ASSERT_OK(table_ptr->ValidateFull());
 
   // lookup by index returns Indices{index}
-  auto schemaNumFields = tablePtr->schema()->num_fields();
-  for (int index = 0; index < schemaNumFields; ++index) {
-    EXPECT_THAT(FieldRef(index).FindAll(*tablePtr), ElementsAre(FieldPath{index}));
+  auto schema_num_fields = table_ptr->schema()->num_fields();
+  for (int index = 0; index < schema_num_fields; ++index) {
+    EXPECT_THAT(FieldRef(index).FindAll(*table_ptr), ElementsAre(FieldPath{index}));
   }
   // out of range index results in a failure to match
-  EXPECT_THAT(FieldRef(schemaNumFields * 2).FindAll(*tablePtr), ElementsAre());
+  EXPECT_THAT(FieldRef(schema_num_fields * 2).FindAll(*table_ptr), ElementsAre());
 
   //// lookup by name returns the Indices of both matching fields
-  EXPECT_THAT(FieldRef("alpha").FindAll(*tablePtr),
+  EXPECT_THAT(FieldRef("alpha").FindAll(*table_ptr),
               ElementsAre(FieldPath{0}, FieldPath{2}));
-  EXPECT_THAT(FieldRef("beta").FindAll(*tablePtr),
+  EXPECT_THAT(FieldRef("beta").FindAll(*table_ptr),
               ElementsAre(FieldPath{1}, FieldPath{3}));
 }
 
 TEST(TestFieldRef, FindAllForRecordBatch) {
   const int length = 100;
-
   auto f0 = field("alpha", int32());
-  auto f1 = field("beta", uint8());
-  auto f2 = field("alpha", int16());
-  auto f3 = field("beta", int16());
+  auto f1 = field("beta",  int32());
+  auto f2 = field("alpha", int32());
+  auto f3 = field("beta",  int32());
   auto schema = arrow::schema({f0, f1, f2, f3});
 
   arrow::random::RandomArrayGenerator gen_{42};
@@ -513,22 +521,23 @@ TEST(TestFieldRef, FindAllForRecordBatch) {
   auto a2 = gen_.ArrayOf(int32(), length);
   auto a3 = gen_.ArrayOf(int32(), length);
 
-  auto recordBatchPtr = RecordBatch::Make(schema, length, {a0, a1, a2, a3});
+  auto record_batch_ptr = RecordBatch::Make(schema, length, {a0, a1, a2, a3});
+  ASSERT_OK(record_batch_ptr->ValidateFull());
 
   // lookup by index returns Indices{index}
-  auto schemaNumFields = recordBatchPtr->schema()->num_fields();
-  for (int index = 0; index < schemaNumFields; ++index) {
-    EXPECT_THAT(FieldRef(index).FindAll(*recordBatchPtr), 
+  auto schema_num_fields = record_batch_ptr->schema()->num_fields();
+  for (int index = 0; index < schema_num_fields; ++index) {
+    EXPECT_THAT(FieldRef(index).FindAll(*record_batch_ptr), 
                 ElementsAre(FieldPath{index}));
   }
   // out of range index results in a failure to match
-  EXPECT_THAT(FieldRef(schemaNumFields * 2).FindAll(*recordBatchPtr), 
+  EXPECT_THAT(FieldRef(schema_num_fields * 2).FindAll(*record_batch_ptr), 
               ElementsAre());
 
   //// lookup by name returns the Indices of both matching fields
-  EXPECT_THAT(FieldRef("alpha").FindAll(*recordBatchPtr),
+  EXPECT_THAT(FieldRef("alpha").FindAll(*record_batch_ptr),
               ElementsAre(FieldPath{0}, FieldPath{2}));
-  EXPECT_THAT(FieldRef("beta").FindAll(*recordBatchPtr),
+  EXPECT_THAT(FieldRef("beta").FindAll(*record_batch_ptr),
               ElementsAre(FieldPath{1}, FieldPath{3}));
 }
 

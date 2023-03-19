@@ -1163,15 +1163,16 @@ struct FieldPathGetImpl {
 
   static Result<std::shared_ptr<ChunkedArray>> Get(const FieldPath* path,
                                                    const ChunkedArrayVector& table) {
+    arrow::ChunkedArrayVector chunked_array_vector_buffer;
+
     return FieldPathGetImpl::Get(
       path, &table,
-      [](const std::shared_ptr<ChunkedArray>& data) -> const ChunkedArrayVector * {
-          auto chunkedArrayVector = data->Flatten();
-          if (!chunkedArrayVector.ok()) {
-            return nullptr;
-          }
+      [&chunked_array_vector_buffer]
+      (const std::shared_ptr<ChunkedArray>& data) -> const ChunkedArrayVector * {
+          auto chunked_array_vector = data->Flatten();
 
-          return &(chunkedArrayVector.ValueUnsafe());
+          chunked_array_vector_buffer = chunked_array_vector.ValueUnsafe();
+          return &chunked_array_vector_buffer;
       });
   }
 
@@ -1222,6 +1223,7 @@ Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
 
 Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const Table& table) const {
   ARROW_ASSIGN_OR_RAISE(auto data, FieldPathGetImpl::Get(this, table.columns()));
+  ARROW_CHECK_OK(data->ValidateFull());
   return data;
 }
 
