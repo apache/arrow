@@ -4754,10 +4754,12 @@ macro(build_awssdk)
     # provide hint for AWS SDK to link with the already located libcurl and zlib
     list(APPEND
          AWSSDK_CMAKE_ARGS
-         -DCURL_LIBRARY=${CURL_ROOT_HINT}/lib
          -DCURL_INCLUDE_DIR=${CURL_ROOT_HINT}/include
+         -DCURL_LIBRARY=${CURL_ROOT_HINT}/lib
+         -DZLIB_INCLUDE_DIR=${ZLIB_ROOT_HINT}/include
          -DZLIB_LIBRARY=${ZLIB_ROOT_HINT}/lib
-         -DZLIB_INCLUDE_DIR=${ZLIB_ROOT_HINT}/include)
+         -Dcrypto_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
+         -Dcrypto_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
   endif()
 
   file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
