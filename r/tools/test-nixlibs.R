@@ -52,9 +52,16 @@ test_that("determine_binary_from_stderr", {
   expect_output(
     expect_identical(
       determine_binary_from_stderr(compile_test_program("int a;")),
+      "centos-7-openssl-1.1"
+    ),
+    "Found libcurl and openssl >= 1.1"
+  )
+  expect_output(
+    expect_identical(
+      determine_binary_from_stderr(compile_test_program("#error Using OpenSSL version 1.0")),
       "centos-7"
     ),
-    "Found libcurl and openssl >= 1.0.2"
+    "Found libcurl and openssl < 1.1"
   )
   expect_output(
     expect_identical(
@@ -75,9 +82,16 @@ test_that("select_binary() with test program", {
   expect_output(
     expect_identical(
       select_binary("linux", "x86_64", "int a;"),
+      "centos-7-openssl-1.1"
+    ),
+    "Found libcurl and openssl >= 1.1"
+  )
+  expect_output(
+    expect_identical(
+      select_binary("linux", "x86_64", "#error Using OpenSSL version 1.0"),
       "centos-7"
     ),
-    "Found libcurl and openssl >= 1.0.2"
+    "Found libcurl and openssl < 1.1"
   )
   expect_output(
     expect_identical(

@@ -74,8 +74,6 @@ jobs:
               -DCMAKE_LIBRARY_PATH=/usr/lib64/openssl11
             id: "centos-7-openssl-1.1"
             os: centos
-    env:
-      UBUNTU: {{ '${{ matrix.config.version }}' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
