@@ -100,18 +100,8 @@ test_that("GcsFileSystem$create() can read json_credentials", {
   cred_path <- tempfile()
   on.exit(unlink(cred_path))
   con <- file(cred_path, open = "wb")
-  writeBin(iconv('{"key" : "valu\u00e9"}\n', toRaw = TRUE)[[1]], con)
+  writeBin(iconv('{"key" : "valu\u00e9"}\n', to = "UTF-8", toRaw = TRUE)[[1]], con)
   close(con)
-
-  # WIP: Debugging https://github.com/apache/arrow/pull/34524 via CI
-  cred_path <- tempfile()
-  on.exit(unlink(cred_path))
-  con <- file(cred_path, open = "wb")
-  input <- '{"key" : "valu\u00e9"}\n'
-  print(Encoding(input))
-  writeBin(iconv(input, from = Encoding(input), to = "UTF-8", toRaw = TRUE)[[1]], con)
-  close(con) # Close now, Windows file handles are special
-  print(readBin(cred_path, "raw", file.size(cred_path)))
 
   fs <- GcsFileSystem$create(json_credentials = cred_path)
   expect_equal(fs$options$json_credentials, "{\"key\" : \"valué\"}")
