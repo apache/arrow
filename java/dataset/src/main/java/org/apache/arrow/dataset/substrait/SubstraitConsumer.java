@@ -57,7 +57,7 @@ public final class SubstraitConsumer {
    * Needed to define a mapping name of Tables and theirs ArrowReader representation.
    *
    * @param plan                  the JSON Substrait plan.
-   * @param mapTableToArrowReader the mapping name of Tables Name and theirs ArrowReader representation.
+   * @param namedTables A mapping of named tables referenced by the plan to an ArrowReader providing the data for the table
    *                              Contains the Table Name to Query as a Key and ArrowReader as a Value.
    * <pre>{@code
    * public class Client {
