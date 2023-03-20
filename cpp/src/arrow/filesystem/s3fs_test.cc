@@ -1146,6 +1146,49 @@ TEST_F(TestS3FS, FileSystemFromUri) {
   AssertFileInfo(fs.get(), path, FileType::File, 8);
 }
 
+TEST_F(TestS3FS, CopyFilesAvoidsDeadlock) {
+  auto input_fs_time = TimePoint(TimePoint::duration(42));
+  auto input_fs = std::make_shared<internal::MockFileSystem>(input_fs_time);
+
+  const io::IOContext& context = io::default_io_context();
+  auto originalThreads =  io::GetIOThreadPoolCapacity();
+  std::cout << "Original IO thread pool capacity: " << originalThreads << std::endl;
+  ASSERT_GT(originalThreads, 2) << "Pool must have at least three threads so we can detect contention.";
+
+  // Create some files to copy equal to the number of threads available in the pool.
+  ASSERT_OK(input_fs->CreateDir("flatdir"));
+  auto subdir_input_fs = std::make_shared<SubTreeFileSystem>("flatdir", input_fs);
+  for (int i=0; i<io::GetIOThreadPoolCapacity()-1; ++i) {
+    ASSERT_OK_AND_ASSIGN(auto stream,
+                         subdir_input_fs->OpenOutputStream("file" + std::to_string(i)));
+    ASSERT_OK(stream->Write("data"));
+    ASSERT_OK(stream->Close());
+  }
+
+  auto inputFilesSelector = arrow::fs::FileSelector();
+  inputFilesSelector.base_dir = "flatdir";
+  inputFilesSelector.allow_not_found = false;
+  inputFilesSelector.recursive = false;
+
+  MakeFileSystem();
+
+  ASSERT_OK(fs_->CreateDir("bucketname/subdir"));
+
+  // Reduce the thread capacity so we can have recover from contention.
+  ASSERT_OK(io::SetIOThreadPoolCapacity(originalThreads - 1));
+
+  // Each copy usually takes less than a tenth of a second.
+  auto asyncFuture = std::async(std::launch::async, [&] {
+      return CopyFiles(input_fs, inputFilesSelector, fs_, "bucketname/subdir", context);
+  });
+
+  auto result = asyncFuture.wait_for(std::chrono::seconds(30));
+  EXPECT_TRUE(result != std::future_status::timeout) << "Threadpool contention detected.";
+
+  // Add back the extra thread so the pool can empty.
+  ASSERT_OK(io::SetIOThreadPoolCapacity(originalThreads));
+}
+
 TEST_F(TestS3FS, NoCreateDeleteBucket) {
   // Create a bucket to try deleting
   ASSERT_OK(fs_->CreateDir("test-no-delete"));

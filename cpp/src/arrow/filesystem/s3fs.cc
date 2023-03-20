@@ -1244,12 +1244,12 @@ class ObjectOutputStream final : public io::OutputStream {
 
     if (current_part_) {
       // Upload last part
-      RETURN_NOT_OK(CommitCurrentPart());
+      RETURN_NOT_OK(CommitCurrentPart(true));
     }
 
     // S3 mandates at least one part, upload an empty one if necessary
     if (part_number_ == 1) {
-      RETURN_NOT_OK(UploadPart("", 0));
+      RETURN_NOT_OK(UploadPart("", 0, true));
     }
 
     // Wait for in-progress uploads to finish (if async writes are enabled)
@@ -1307,7 +1307,7 @@ class ObjectOutputStream final : public io::OutputStream {
     if (!current_part_ && nbytes >= part_upload_threshold_) {
       // No current part and data large enough, upload it directly
       // (without copying if the buffer is owned)
-      RETURN_NOT_OK(UploadPart(data, nbytes, owned_buffer));
+      RETURN_NOT_OK(UploadPart(data, nbytes, false, owned_buffer));
       pos_ += nbytes;
       return Status::OK();
     }
@@ -1324,7 +1324,7 @@ class ObjectOutputStream final : public io::OutputStream {
 
     if (current_part_size_ >= part_upload_threshold_) {
       // Current part large enough, upload it
-      RETURN_NOT_OK(CommitCurrentPart());
+      RETURN_NOT_OK(CommitCurrentPart(false));
     }
 
     return Status::OK();
@@ -1346,18 +1346,21 @@ class ObjectOutputStream final : public io::OutputStream {
 
   // Upload-related helpers
 
-  Status CommitCurrentPart() {
+  Status CommitCurrentPart(bool always_foreground_writes) {
     ARROW_ASSIGN_OR_RAISE(auto buf, current_part_->Finish());
     current_part_.reset();
     current_part_size_ = 0;
-    return UploadPart(buf);
+    return UploadPart(buf, always_foreground_writes);
   }
 
-  Status UploadPart(std::shared_ptr<Buffer> buffer) {
-    return UploadPart(buffer->data(), buffer->size(), buffer);
+  Status UploadPart(std::shared_ptr<Buffer> buffer,
+                    bool always_foreground_writes) {
+    return UploadPart(buffer->data(), buffer->size(), always_foreground_writes,
+                      buffer);
   }
 
   Status UploadPart(const void* data, int64_t nbytes,
+                    bool always_foreground_writes,
                     std::shared_ptr<Buffer> owned_buffer = nullptr) {
     S3Model::UploadPartRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
@@ -1366,7 +1369,7 @@ class ObjectOutputStream final : public io::OutputStream {
     req.SetPartNumber(part_number_);
     req.SetContentLength(nbytes);
 
-    if (!background_writes_) {
+    if (!background_writes_ || always_foreground_writes) {
       req.SetBody(std::make_shared<StringViewStream>(data, nbytes));
       auto outcome = client_->UploadPart(req);
       if (!outcome.IsSuccess()) {
