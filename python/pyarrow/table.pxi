@@ -5618,4 +5618,4 @@ list[tuple(str, str, FunctionOptions)]
 
         key_indices = [
             self._table.schema.get_field_index(k) for k in self.keys]
-        return _pc()._group_by(self._table, group_by_aggrs, key_indices)
+        return _pac()._group_by(self._table, group_by_aggrs, key_indices)

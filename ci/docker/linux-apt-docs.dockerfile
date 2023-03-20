@@ -93,7 +93,8 @@ COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow && \
     R -e "install.packages('pkgdown')"
 
-ENV ARROW_BUILD_STATIC=OFF \
+ENV ARROW_ACERO=ON \
+    ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_COMPUTE=ON \

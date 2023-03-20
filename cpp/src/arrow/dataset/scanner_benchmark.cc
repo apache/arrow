@@ -17,10 +17,9 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/acero/options.h"
 #include "arrow/api.h"
 #include "arrow/compute/api.h"
-#include "arrow/compute/exec/options.h"
-#include "arrow/compute/exec/test_util.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
@@ -30,6 +29,9 @@
 #include "arrow/testing/random.h"
 
 namespace arrow {
+
+using dataset::BatchesWithSchema;
+
 namespace compute {
 
 constexpr auto kSeed = 0x0ff1ce;
@@ -98,7 +100,7 @@ size_t GetBytesForSchema() { return sizeof(int32_t) + sizeof(bool); }
 
 void MinimalEndToEndScan(
     size_t num_batches, size_t batch_size, const std::string& factory_name,
-    std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, size_t)>
+    std::function<Result<std::shared_ptr<acero::ExecNodeOptions>>(size_t, size_t)>
         options_factory) {
   // ensure arrow::dataset node factories are in the registry
   ::arrow::dataset::internal::Initialize();
@@ -112,35 +114,35 @@ void MinimalEndToEndScan(
   std::shared_ptr<Dataset> dataset =
       std::make_shared<InMemoryDataset>(GetSchema(), batches);
 
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecNodeOptions> node_options,
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<acero::ExecNodeOptions> node_options,
                        options_factory(num_batches, batch_size));
 
   // construct the scan node
-  compute::Declaration scan(factory_name, std::move(node_options));
+  acero::Declaration scan(factory_name, std::move(node_options));
 
   // pipe the scan node into a filter node
   compute::Expression b_is_true = equal(field_ref("b"), literal(true));
-  compute::Declaration filter("filter", {std::move(scan)},
-                              compute::FilterNodeOptions{b_is_true});
+  acero::Declaration filter("filter", {std::move(scan)},
+                            acero::FilterNodeOptions{b_is_true});
 
   // pipe the filter node into a project node
   // NB: we're using the project node factory which preserves fragment/batch index
   // tagging, so we *can* reorder later if we choose. The tags will not appear in
   // our output.
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
-  compute::Declaration project("project", {std::move(filter)},
-                               compute::ProjectNodeOptions{{a_times_2}, {"a*2"}});
+  acero::Declaration project("project", {std::move(filter)},
+                             acero::ProjectNodeOptions{{a_times_2}, {"a*2"}});
 
   // Consume the plan and transform into a table
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> collected,
-                       compute::DeclarationToTable(std::move(project)));
+                       acero::DeclarationToTable(std::move(project)));
 
   ASSERT_GT(collected->num_rows(), 0);
 }
 
 void ScanOnly(
     size_t num_batches, size_t batch_size, const std::string& factory_name,
-    std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, size_t)>
+    std::function<Result<std::shared_ptr<acero::ExecNodeOptions>>(size_t, size_t)>
         options_factory) {
   // ensure arrow::dataset node factories are in the registry
   ::arrow::dataset::internal::Initialize();
@@ -150,14 +152,14 @@ void ScanOnly(
   std::shared_ptr<Dataset> dataset =
       std::make_shared<InMemoryDataset>(GetSchema(), batches);
 
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecNodeOptions> node_options,
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<acero::ExecNodeOptions> node_options,
                        options_factory(num_batches, batch_size));
 
   // construct the plan
-  compute::Declaration scan(factory_name, std::move(node_options));
+  acero::Declaration scan(factory_name, std::move(node_options));
 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> collected,
-                       compute::DeclarationToTable(std::move(scan)));
+                       acero::DeclarationToTable(std::move(scan)));
 
   ASSERT_GT(collected->num_rows(), 0);
   ASSERT_EQ(collected->num_columns(), 2);
@@ -166,7 +168,7 @@ void ScanOnly(
 static constexpr int kScanIdx = 0;
 static constexpr int kScanV2Idx = 1;
 
-const std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, size_t)>
+const std::function<Result<std::shared_ptr<acero::ExecNodeOptions>>(size_t, size_t)>
     kScanFactory = [](size_t num_batches, size_t batch_size) {
       RecordBatchVector batches = GetBatches(num_batches, batch_size);
       std::shared_ptr<Dataset> dataset =
@@ -182,10 +184,10 @@ const std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, si
       return std::make_shared<ScanNodeOptions>(std::move(dataset), std::move(options));
     };
 
-const std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, size_t)>
+const std::function<Result<std::shared_ptr<acero::ExecNodeOptions>>(size_t, size_t)>
     kScanV2Factory =
         [](size_t num_batches,
-           size_t batch_size) -> Result<std::shared_ptr<compute::ExecNodeOptions>> {
+           size_t batch_size) -> Result<std::shared_ptr<acero::ExecNodeOptions>> {
   RecordBatchVector batches = GetBatches(num_batches, batch_size);
   std::shared_ptr<Schema> sch = GetSchema();
   std::shared_ptr<Dataset> dataset =
@@ -204,7 +206,7 @@ static void MinimalEndToEndBench(benchmark::State& state) {
   size_t num_batches = state.range(0);
   size_t batch_size = state.range(1);
 
-  std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, size_t)>
+  std::function<Result<std::shared_ptr<acero::ExecNodeOptions>>(size_t, size_t)>
       options_factory;
   std::string scan_factory = "scan";
   if (state.range(2) == kScanIdx) {
@@ -227,7 +229,7 @@ static void ScanOnlyBench(benchmark::State& state) {
   size_t num_batches = state.range(0);
   size_t batch_size = state.range(1);
 
-  std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, size_t)>
+  std::function<Result<std::shared_ptr<acero::ExecNodeOptions>>(size_t, size_t)>
       options_factory;
   std::string scan_factory = "scan";
   if (state.range(2) == kScanIdx) {

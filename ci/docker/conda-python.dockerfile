@@ -37,7 +37,8 @@ RUN mamba install -q -y \
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
-ENV ARROW_BUILD_STATIC=OFF \
+ENV ARROW_ACERO=ON \
+    ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_COMPUTE=ON \

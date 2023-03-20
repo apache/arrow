@@ -22,6 +22,6 @@ libdir=@ARROW_PKG_CONFIG_LIBDIR@
 Name: Apache Arrow Substrait Consumer
 Description: Apache Arrow's Substrait Consumer.
 Version: @ARROW_VERSION@
-Requires: arrow
+Requires: arrow-dataset
 Libs: -L${libdir} -larrow_substrait
 Cflags.private: -DARROW_ENGINE_STATIC

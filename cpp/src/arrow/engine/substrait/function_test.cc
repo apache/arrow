@@ -28,12 +28,12 @@
 #include <gtest/gtest-matchers.h>
 #include <gtest/gtest.h>
 
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/options.h"
+#include "arrow/acero/util.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/options.h"
-#include "arrow/compute/exec/util.h"
 #include "arrow/datum.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/options.h"
@@ -105,7 +105,7 @@ Result<std::shared_ptr<Table>> GetOutputTable(
   return table;
 }
 
-Result<std::shared_ptr<compute::ExecPlan>> PlanFromTestCase(
+Result<std::shared_ptr<acero::ExecPlan>> PlanFromTestCase(
     const FunctionTestCase& test_case, std::shared_ptr<Table>* output_table) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> input_table,
                         GetInputTable(test_case.arguments, test_case.data_types));
@@ -114,23 +114,22 @@ Result<std::shared_ptr<compute::ExecPlan>> PlanFromTestCase(
       internal::CreateScanProjectSubstrait(
           test_case.function_id, input_table, test_case.arguments, test_case.options,
           test_case.data_types, *test_case.expected_output_type));
-  std::shared_ptr<compute::SinkNodeConsumer> consumer =
-      std::make_shared<compute::TableSinkNodeConsumer>(output_table,
-                                                       default_memory_pool());
+  std::shared_ptr<acero::SinkNodeConsumer> consumer =
+      std::make_shared<acero::TableSinkNodeConsumer>(output_table, default_memory_pool());
 
   // Mock table provider that ignores the table name and returns input_table
   NamedTableProvider table_provider = [input_table](const std::vector<std::string>&,
                                                     const Schema&) {
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(input_table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
+    std::shared_ptr<acero::ExecNodeOptions> options =
+        std::make_shared<acero::TableSourceNodeOptions>(input_table);
+    return acero::Declaration("table_source", {}, options, "mock_source");
   };
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
   ARROW_ASSIGN_OR_RAISE(
-      std::shared_ptr<compute::ExecPlan> plan,
+      std::shared_ptr<acero::ExecPlan> plan,
       DeserializePlan(*substrait, std::move(consumer), default_extension_id_registry(),
                       /*ext_set_out=*/nullptr, conversion_options));
   return plan;
@@ -139,7 +138,7 @@ Result<std::shared_ptr<compute::ExecPlan>> PlanFromTestCase(
 void CheckValidTestCases(const std::vector<FunctionTestCase>& valid_cases) {
   for (const FunctionTestCase& test_case : valid_cases) {
     std::shared_ptr<Table> output_table;
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<acero::ExecPlan> plan,
                          PlanFromTestCase(test_case, &output_table));
     plan->StartProducing();
     ASSERT_FINISHES_OK(plan->finished());
@@ -160,7 +159,7 @@ void CheckErrorTestCases(const std::vector<FunctionTestCase>& error_cases) {
     ARROW_SCOPED_TRACE("func=", test_case.function_id.uri, "#",
                        test_case.function_id.name);
     std::shared_ptr<Table> output_table;
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<acero::ExecPlan> plan,
                          PlanFromTestCase(test_case, &output_table));
     plan->StartProducing();
     ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
@@ -599,7 +598,7 @@ std::shared_ptr<Table> GetOutputTableForAggregateCase(
   return table;
 }
 
-std::shared_ptr<compute::ExecPlan> PlanFromAggregateCase(
+std::shared_ptr<acero::ExecPlan> PlanFromAggregateCase(
     const AggregateTestCase& test_case, std::shared_ptr<Table>* output_table,
     bool with_keys) {
   std::shared_ptr<Table> input_table = GetInputTableForAggregateCase(test_case);
@@ -613,23 +612,22 @@ std::shared_ptr<compute::ExecPlan> PlanFromAggregateCase(
           test_case.function_id, input_table, key_idxs,
           /*arg_idxs=*/test_case.nullary ? std::vector<int>{} : std::vector<int>{1},
           *test_case.output_type));
-  std::shared_ptr<compute::SinkNodeConsumer> consumer =
-      std::make_shared<compute::TableSinkNodeConsumer>(output_table,
-                                                       default_memory_pool());
+  std::shared_ptr<acero::SinkNodeConsumer> consumer =
+      std::make_shared<acero::TableSinkNodeConsumer>(output_table, default_memory_pool());
 
   // Mock table provider that ignores the table name and returns input_table
   NamedTableProvider table_provider = [input_table](const std::vector<std::string>&,
                                                     const Schema&) {
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(input_table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
+    std::shared_ptr<acero::ExecNodeOptions> options =
+        std::make_shared<acero::TableSourceNodeOptions>(input_table);
+    return acero::Declaration("table_source", {}, options, "mock_source");
   };
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
   EXPECT_OK_AND_ASSIGN(
-      std::shared_ptr<compute::ExecPlan> plan,
+      std::shared_ptr<acero::ExecPlan> plan,
       DeserializePlan(*substrait, std::move(consumer), default_extension_id_registry(),
                       /*ext_set_out=*/nullptr, conversion_options));
   return plan;
@@ -637,7 +635,7 @@ std::shared_ptr<compute::ExecPlan> PlanFromAggregateCase(
 
 void CheckWholeAggregateCase(const AggregateTestCase& test_case) {
   std::shared_ptr<Table> output_table;
-  std::shared_ptr<compute::ExecPlan> plan =
+  std::shared_ptr<acero::ExecPlan> plan =
       PlanFromAggregateCase(test_case, &output_table, /*with_keys=*/false);
 
   plan->StartProducing();
@@ -653,7 +651,7 @@ void CheckWholeAggregateCase(const AggregateTestCase& test_case) {
 
 void CheckGroupedAggregateCase(const AggregateTestCase& test_case) {
   std::shared_ptr<Table> output_table;
-  std::shared_ptr<compute::ExecPlan> plan =
+  std::shared_ptr<acero::ExecPlan> plan =
       PlanFromAggregateCase(test_case, &output_table, /*with_keys=*/true);
 
   plan->StartProducing();

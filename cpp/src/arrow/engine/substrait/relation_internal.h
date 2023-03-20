@@ -45,7 +45,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel&, const ExtensionSet&,
 /// is preferred in the Substrait space rather than internal components of
 /// Acero execution engine.
 ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> ToProto(
-    const compute::Declaration&, ExtensionSet*, const ConversionOptions&);
+    const acero::Declaration&, ExtensionSet*, const ConversionOptions&);
 
 namespace internal {
 

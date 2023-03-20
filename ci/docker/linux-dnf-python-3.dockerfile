@@ -36,7 +36,8 @@ RUN pip install \
     -r arrow/python/requirements-build.txt \
     -r arrow/python/requirements-test.txt
 
-ENV ARROW_BUILD_STATIC=OFF \
+ENV ARROW_ACERO=ON \
+    ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_COMPUTE=ON \

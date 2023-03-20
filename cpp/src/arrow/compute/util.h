@@ -81,7 +81,7 @@ class MiniBatch {
 /// Temporary vectors should resemble allocating temporary variables on the stack
 /// but in the context of vectorized processing where we need to store a vector of
 /// temporaries instead of a single value.
-class TempVectorStack {
+class ARROW_EXPORT TempVectorStack {
   template <typename>
   friend class TempVectorHolder;
 
@@ -139,7 +139,7 @@ class TempVectorHolder {
   uint32_t num_elements_;
 };
 
-class bit_util {
+class ARROW_EXPORT bit_util {
  public:
   static void bits_to_indexes(int bit_to_search, int64_t hardware_flags,
                               const int num_bits, const uint8_t* bits, int* num_indexes,

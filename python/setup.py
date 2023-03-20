@@ -107,6 +107,7 @@ class build_ext(_build_ext):
                      ('with-cuda', None, 'build the Cuda extension'),
                      ('with-flight', None, 'build the Flight extension'),
                      ('with-substrait', None, 'build the Substrait extension'),
+                     ('with-acero', None, 'build the Acero Engine extension'),
                      ('with-dataset', None, 'build the Dataset extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-parquet-encryption', None,
@@ -160,6 +161,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_SUBSTRAIT', '0'))
         self.with_flight = strtobool(
             os.environ.get('PYARROW_WITH_FLIGHT', '0'))
+        self.with_acero = strtobool(
+            os.environ.get('PYARROW_WITH_ACERO', '0'))
         self.with_dataset = strtobool(
             os.environ.get('PYARROW_WITH_DATASET', '0'))
         self.with_parquet = strtobool(
@@ -179,6 +182,12 @@ class build_ext(_build_ext):
 
         self.with_parquet_encryption = (self.with_parquet_encryption and
                                         self.with_parquet)
+
+        # enforce module dependencies
+        if self.with_substrait:
+            self.with_dataset = True
+        if self.with_dataset:
+            self.with_acero = True
 
     CYTHON_MODULE_NAMES = [
         'lib',
@@ -263,6 +272,7 @@ class build_ext(_build_ext):
             append_cmake_bool(self.with_substrait, 'PYARROW_BUILD_SUBSTRAIT')
             append_cmake_bool(self.with_flight, 'PYARROW_BUILD_FLIGHT')
             append_cmake_bool(self.with_gandiva, 'PYARROW_BUILD_GANDIVA')
+            append_cmake_bool(self.with_acero, 'PYARROW_BUILD_ACERO')
             append_cmake_bool(self.with_dataset, 'PYARROW_BUILD_DATASET')
             append_cmake_bool(self.with_orc, 'PYARROW_BUILD_ORC')
             append_cmake_bool(self.with_parquet, 'PYARROW_BUILD_PARQUET')
@@ -341,6 +351,10 @@ class build_ext(_build_ext):
         if name == '_hdfs' and not self.with_hdfs:
             return True
         if name == '_dataset' and not self.with_dataset:
+            return True
+        if name == '_acero' and not self.with_acero:
+            return True
+        if name == '_exec_plan' and not self.with_acero:
             return True
         if name == '_dataset_orc' and not (
                 self.with_orc and self.with_dataset

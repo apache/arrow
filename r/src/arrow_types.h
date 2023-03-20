@@ -32,13 +32,14 @@
 // forward declaration-only headers
 #include <arrow/c/abi.h>
 #include <arrow/compute/type_fwd.h>
+#include <arrow/acero/type_fwd.h>
 #include <arrow/csv/type_fwd.h>
 
 #if defined(ARROW_R_WITH_DATASET)
 #include <arrow/dataset/type_fwd.h>
 #endif
 
-#include <arrow/compute/exec/options.h>
+#include <arrow/acero/options.h>
 
 #include <arrow/filesystem/type_fwd.h>
 #include <arrow/io/type_fwd.h>
@@ -51,15 +52,6 @@
 #include <arrow/type_fwd.h>
 #include <arrow/util/type_fwd.h>
 
-namespace arrow {
-namespace compute {
-
-class ExecPlan;
-class ExecNode;
-
-}  // namespace compute
-}  // namespace arrow
-
 class ExecPlanReader;
 
 #if defined(ARROW_R_WITH_PARQUET)
@@ -71,6 +63,7 @@ namespace ds = ::arrow::dataset;
 #endif
 
 namespace compute = ::arrow::compute;
+namespace acero = ::arrow::acero;
 namespace fs = ::arrow::fs;
 
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP, SEXP);
