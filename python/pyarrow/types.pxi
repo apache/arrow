@@ -683,8 +683,16 @@ cdef class StructType(DataType):
         --------
         >>> import pyarrow as pa
         >>> struct_type = pa.struct({'x': pa.int32(), 'y': pa.string()})
+
+        Index of the field with a name 'y':
+
         >>> struct_type.get_field_index('y')
         1
+
+        Index of the field that does not exist:
+
+        >>> struct_type.get_field_index('z')
+        -1
         """
         return self.struct_type.GetFieldIndex(tobytes(name))
 
