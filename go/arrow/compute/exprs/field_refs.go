@@ -16,7 +16,7 @@
 
 //go:build go1.18
 
-package substrait
+package exprs
 
 import (
 	"fmt"
@@ -140,7 +140,7 @@ func GetReferencedValue(ref expr.ReferenceSegment, value compute.Datum, ext Exte
 					return nil, arrow.ErrInvalid
 				}
 
-				keyvalDatum, err := LiteralToDatum(r.MapKey, ext)
+				keyvalDatum, err := literalToDatum(r.MapKey, ext)
 				if err != nil {
 					return nil, err
 				}

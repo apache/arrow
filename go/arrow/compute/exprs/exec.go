@@ -16,7 +16,7 @@
 
 //go:build go1.18
 
-package substrait
+package exprs
 
 import (
 	"context"
@@ -36,7 +36,130 @@ import (
 	"github.com/substrait-io/substrait-go/types"
 )
 
-func LiteralToDatum(lit expr.Literal, ext ExtensionIDSet) (compute.Datum, error) {
+func makeExecBatch(ctx context.Context, schema *arrow.Schema, partial compute.Datum) (out compute.ExecBatch, err error) {
+	// cleanup if we get an error
+	defer func() {
+		if err != nil {
+			for _, v := range out.Values {
+				if v != nil {
+					v.Release()
+				}
+			}
+		}
+	}()
+
+	if partial.Kind() == compute.KindRecord {
+		partialBatch := partial.(*compute.RecordDatum).Value
+		batchSchema := partialBatch.Schema()
+
+		out.Values = make([]compute.Datum, len(schema.Fields()))
+		out.Len = partialBatch.NumRows()
+
+		for i, field := range schema.Fields() {
+			idxes := batchSchema.FieldIndices(field.Name)
+			switch len(idxes) {
+			case 0:
+				out.Values[i] = compute.NewDatum(scalar.MakeNullScalar(field.Type))
+			case 1:
+				col := partialBatch.Column(idxes[0])
+				if !arrow.TypeEqual(col.DataType(), field.Type) {
+					// referenced field was present but didn't have expected type
+					// we'll cast this case for now
+					col, err = compute.CastArray(ctx, col, compute.SafeCastOptions(field.Type))
+					if err != nil {
+						return compute.ExecBatch{}, err
+					}
+					defer col.Release()
+				}
+				out.Values[i] = compute.NewDatum(col)
+			default:
+				err = fmt.Errorf("%w: exec batch field '%s' ambiguous, more than one match",
+					arrow.ErrInvalid, field.Name)
+				return compute.ExecBatch{}, err
+			}
+		}
+		return
+	}
+
+	part, ok := partial.(compute.ArrayLikeDatum)
+	if !ok {
+		return out, fmt.Errorf("%w: MakeExecBatch from %s", arrow.ErrNotImplemented, partial)
+	}
+
+	// wasteful but useful for testing
+	if part.Type().ID() == arrow.STRUCT {
+		switch part := part.(type) {
+		case *compute.ArrayDatum:
+			arr := part.MakeArray().(*array.Struct)
+			defer arr.Release()
+
+			batch := array.RecordFromStructArray(arr, nil)
+			defer batch.Release()
+			return makeExecBatch(ctx, schema, compute.NewDatumWithoutOwning(batch))
+		case *compute.ScalarDatum:
+			out.Len = 1
+			out.Values = make([]compute.Datum, len(schema.Fields()))
+
+			s := part.Value.(*scalar.Struct)
+			dt := s.Type.(*arrow.StructType)
+
+			for i, field := range schema.Fields() {
+				idx, found := dt.FieldIdx(field.Name)
+				if !found {
+					out.Values[i] = compute.NewDatum(scalar.MakeNullScalar(field.Type))
+					continue
+				}
+
+				val := s.Value[idx]
+				if !arrow.TypeEqual(val.DataType(), field.Type) {
+					// referenced field was present but didn't have the expected
+					// type. for now we'll cast this
+					val, err = val.CastTo(field.Type)
+					if err != nil {
+						return compute.ExecBatch{}, err
+					}
+				}
+				out.Values[i] = compute.NewDatum(val)
+			}
+			return
+		}
+	}
+
+	return out, fmt.Errorf("%w: MakeExecBatch from %s", arrow.ErrNotImplemented, partial)
+}
+
+func ToArrowSchema(base types.NamedStruct, ext ExtensionIDSet) (*arrow.Schema, error) {
+	fields := make([]arrow.Field, len(base.Names))
+	for i, typ := range base.Struct.Types {
+		dt, nullable, err := FromSubstraitType(typ, ext)
+		if err != nil {
+			return nil, err
+		}
+		fields[i] = arrow.Field{
+			Name:     base.Names[i],
+			Type:     dt,
+			Nullable: nullable,
+		}
+	}
+
+	return arrow.NewSchema(fields, nil), nil
+}
+
+type regCtxKey struct{}
+
+func WithExtensionRegistry(ctx context.Context, reg *ExtensionIDRegistry) context.Context {
+	return context.WithValue(ctx, regCtxKey{}, reg)
+}
+
+func GetExtensionRegistry(ctx context.Context) *ExtensionIDRegistry {
+	v, ok := ctx.Value(regCtxKey{}).(*ExtensionIDRegistry)
+	if !ok {
+		v = DefaultExtensionIDRegistry
+	}
+	return v
+}
+
+func literalToDatum(lit expr.Literal, ext ExtensionIDSet) (compute.Datum, error) {
 	switch v := lit.(type) {
 	case *expr.PrimitiveLiteral[bool]:
 		return compute.NewDatum(scalar.NewBooleanScalar(v.Value)), nil
@@ -67,12 +190,12 @@ func LiteralToDatum(lit expr.Literal, ext ExtensionIDSet) (compute.Datum, error)
 		length := int(v.Type.(*types.FixedCharType).Length)
 		return compute.NewDatum(scalar.NewExtensionScalar(
 			scalar.NewFixedSizeBinaryScalar(memory.NewBufferBytes([]byte(v.Value)),
-				&arrow.FixedSizeBinaryType{ByteWidth: length}), FixedChar(int32(length)))), nil
+				&arrow.FixedSizeBinaryType{ByteWidth: length}), fixedChar(int32(length)))), nil
 	case *expr.ByteSliceLiteral[[]byte]:
 		return compute.NewDatum(scalar.NewBinaryScalar(memory.NewBufferBytes(v.Value), arrow.BinaryTypes.Binary)), nil
 	case *expr.ByteSliceLiteral[types.UUID]:
 		return compute.NewDatum(scalar.NewExtensionScalar(scalar.NewFixedSizeBinaryScalar(
-			memory.NewBufferBytes(v.Value), Uuid().(arrow.ExtensionType).StorageType()), Uuid())), nil
+			memory.NewBufferBytes(v.Value), uuid().(arrow.ExtensionType).StorageType()), uuid())), nil
 	case *expr.ByteSliceLiteral[types.FixedBinary]:
 		return compute.NewDatum(scalar.NewFixedSizeBinaryScalar(memory.NewBufferBytes(v.Value),
 			&arrow.FixedSizeBinaryType{ByteWidth: int(v.Type.(*types.FixedBinaryType).Length)})), nil
@@ -83,9 +206,36 @@ func LiteralToDatum(lit expr.Literal, ext ExtensionIDSet) (compute.Datum, error)
 		}
 		return compute.NewDatum(scalar.MakeNullScalar(dt)), nil
 	case *expr.ListLiteral:
-		// not yet implemented, need to implement AppendScalars for builders
+		var elemType arrow.DataType
+
+		values := make([]scalar.Scalar, len(v.Value))
+		for i, val := range v.Value {
+			d, err := literalToDatum(val, ext)
+			if err != nil {
+				return nil, err
+			}
+			defer d.Release()
+			values[i] = d.(*compute.ScalarDatum).Value
+			if elemType != nil {
+				if !arrow.TypeEqual(values[i].DataType(), elemType) {
+					return nil, fmt.Errorf("%w: %s has a value whose type doesn't match the other list values",
+						arrow.ErrInvalid, v)
+				}
+			} else {
+				elemType = values[i].DataType()
+			}
+		}
+
+		bldr := array.NewBuilder(memory.DefaultAllocator, elemType)
+		defer bldr.Release()
+		if err := scalar.AppendSlice(bldr, values); err != nil {
+			return nil, err
+		}
+		arr := bldr.NewArray()
+		defer arr.Release()
+		return compute.NewDatum(scalar.NewListScalar(arr)), nil
 	case *expr.MapLiteral:
-		// not yet implemented, need to implement AppendScalars for builders
+		// not yet implemented
 	case *expr.StructLiteral:
 		fields := make([]scalar.Scalar, len(v.Value))
 		names := make([]string, len(v.Value))
@@ -117,7 +267,7 @@ func LiteralToDatum(lit expr.Literal, ext ExtensionIDSet) (compute.Datum, error)
 		case *types.IntervalYearToMonth:
 			bldr := array.NewInt32Builder(memory.DefaultAllocator)
 			defer bldr.Release()
-			typ := IntervalYear()
+			typ := intervalYear()
 			bldr.Append(v.Years)
 			bldr.Append(v.Months)
 			arr := bldr.NewArray()
@@ -127,7 +277,7 @@ func LiteralToDatum(lit expr.Literal, ext ExtensionIDSet) (compute.Datum, error)
 		case *types.IntervalDayToSecond:
 			bldr := array.NewInt32Builder(memory.DefaultAllocator)
 			defer bldr.Release()
-			typ := IntervalDay()
+			typ := intervalDay()
 			bldr.Append(v.Days)
 			bldr.Append(v.Seconds)
 			arr := bldr.NewArray()
@@ -136,14 +286,97 @@ func LiteralToDatum(lit expr.Literal, ext ExtensionIDSet) (compute.Datum, error)
 				scalar.NewFixedSizeListScalar(arr), typ)}, nil
 		case *types.VarChar:
 			return compute.NewDatum(scalar.NewExtensionScalar(
-				scalar.NewStringScalar(v.Value), VarChar(int32(v.Length)))), nil
+				scalar.NewStringScalar(v.Value), varChar(int32(v.Length)))), nil
 		}
 	}
 
 	return nil, arrow.ErrNotImplemented
 }
 
-func ExecuteScalarExpression(ctx context.Context, input compute.ExecBatch, exp expr.Expression, ext ExtensionIDSet) (compute.Datum, error) {
+func ExecuteScalarExpression(ctx context.Context, inputSchema *arrow.Schema, ext ExtensionIDSet, expression expr.Expression, partialInput compute.Datum) (compute.Datum, error) {
+	if expression == nil {
+		return nil, arrow.ErrInvalid
+	}
+
+	batch, err := makeExecBatch(ctx, inputSchema, partialInput)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		for _, v := range batch.Values {
+			v.Release()
+		}
+	}()
+
+	return ExecuteScalarBatch(ctx, batch, expression, ext)
+}
+
+func ExecuteScalarSubstrait(ctx context.Context, expression *expr.Extended, partialInput compute.Datum) (compute.Datum, error) {
+	if expression == nil {
+		return nil, arrow.ErrInvalid
+	}
+
+	var toExecute expr.Expression
+
+	switch len(expression.ReferredExpr) {
+	case 0:
+		return nil, fmt.Errorf("%w: no referred expression to execute", arrow.ErrInvalid)
+	case 1:
+		if toExecute = expression.ReferredExpr[0].GetExpr(); toExecute == nil {
+			return nil, fmt.Errorf("%w: measures not implemented", arrow.ErrNotImplemented)
+		}
+	default:
+		return nil, fmt.Errorf("%w: only single referred expression implemented", arrow.ErrNotImplemented)
+	}
+
+	reg := GetExtensionRegistry(ctx)
+	set := NewExtensionSet(expression.Extensions, reg)
+	sc, err := ToArrowSchema(expression.BaseSchema, set)
+	if err != nil {
+		return nil, err
+	}
+
+	return ExecuteScalarExpression(ctx, sc, set, toExecute, partialInput)
+}
+
+func execFieldRef(ctx context.Context, e *expr.FieldReference, input compute.ExecBatch, ext ExtensionIDSet) (compute.Datum, error) {
+	if e.Root != expr.RootReference {
+		return nil, fmt.Errorf("%w: only RootReference is implemented", arrow.ErrNotImplemented)
+	}
+
+	ref, ok := e.Reference.(expr.ReferenceSegment)
+	if !ok {
+		return nil, fmt.Errorf("%w: only direct references are implemented", arrow.ErrNotImplemented)
+	}
+
+	expectedType, _, err := FromSubstraitType(e.GetType(), ext)
+	if err != nil {
+		return nil, err
+	}
+
+	var param compute.Datum
+	if sref, ok := ref.(*expr.StructFieldRef); ok {
+		if sref.Field < 0 || sref.Field >= int32(len(input.Values)) {
+			return nil, arrow.ErrInvalid
+		}
+		param = input.Values[sref.Field]
+		ref = ref.GetChild()
+	}
+
+	out, err := GetReferencedValue(ref, param, ext)
+	if err == compute.ErrEmpty {
+		out = param
+	} else if err != nil {
+		return nil, err
+	}
+	if !arrow.TypeEqual(out.(compute.ArrayLikeDatum).Type(), expectedType) {
+		return nil, fmt.Errorf("%w: referenced field %s was %s, but should have been %s",
+			arrow.ErrInvalid, ref, out.(compute.ArrayLikeDatum).Type(), expectedType)
+	}
+	return out, nil
+}
+
+func ExecuteScalarBatch(ctx context.Context, input compute.ExecBatch, exp expr.Expression, ext ExtensionIDSet) (compute.Datum, error) {
 	if !exp.IsScalar() {
 		return nil, fmt.Errorf("%w: ExecuteScalarExpression cannot execute non-scalar expressions",
 			arrow.ErrInvalid)
@@ -151,42 +384,9 @@ func ExecuteScalarExpression(ctx context.Context, input compute.ExecBatch, exp e
 
 	switch e := exp.(type) {
 	case expr.Literal:
-		return LiteralToDatum(e, ext)
+		return literalToDatum(e, ext)
 	case *expr.FieldReference:
-		if e.Root != expr.RootReference {
-			return nil, fmt.Errorf("%w: only RootReference is implemented", arrow.ErrNotImplemented)
-		}
-
-		ref, ok := e.Reference.(expr.ReferenceSegment)
-		if !ok {
-			return nil, fmt.Errorf("%w: only direct references are implemented", arrow.ErrNotImplemented)
-		}
-
-		expectedType, _, err := FromSubstraitType(e.GetType(), ext)
-		if err != nil {
-			return nil, err
-		}
-
-		var param compute.Datum
-		if sref, ok := ref.(*expr.StructFieldRef); ok {
-			if sref.Field < 0 || sref.Field >= int32(len(input.Values)) {
-				return nil, arrow.ErrInvalid
-			}
-			param = input.Values[sref.Field]
-			ref = ref.GetChild()
-		}
-
-		out, err := GetReferencedValue(ref, param, ext)
-		if err == compute.ErrEmpty {
-			out = param
-		} else if err != nil {
-			return nil, err
-		}
-		if !arrow.TypeEqual(out.(compute.ArrayLikeDatum).Type(), expectedType) {
-			return nil, fmt.Errorf("%w: referenced field %s was %s, but should have been %s",
-				arrow.ErrInvalid, ref, out.(compute.ArrayLikeDatum).Type(), expectedType)
-		}
-		return out, nil
+		return execFieldRef(ctx, e, input, ext)
 	case *expr.ScalarFunction:
 		var (
 			err       error
@@ -199,7 +399,7 @@ func ExecuteScalarExpression(ctx context.Context, input compute.ExecBatch, exp e
 			case types.Enum:
 				args[i] = compute.NewDatum(scalar.NewStringScalar(string(v)))
 			case expr.Expression:
-				args[i], err = ExecuteScalarExpression(ctx, input, v, ext)
+				args[i], err = ExecuteScalarBatch(ctx, input, v, ext)
 				if err != nil {
 					return nil, err
 				}

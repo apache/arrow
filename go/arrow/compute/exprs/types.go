@@ -16,18 +16,15 @@
 
 //go:build go1.18
 
-package substrait
+package exprs
 
 import (
-	"encoding/json"
 	"fmt"
 	"hash/maphash"
-	"reflect"
 	"strconv"
 	"strings"
 
 	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/compute"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/extensions"
@@ -38,6 +35,7 @@ const (
 	ArrowExtTypesUri            = "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
 	SubstraitDefaultURIPrefix   = "https://github.com/substrait-io/substrait/blob/main/extensions/"
 	SubstraitArithmeticFuncsURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	SubstraitComparisonFuncsURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml"
 )
 
 var hashSeed maphash.Seed
@@ -88,68 +86,22 @@ func init() {
 			panic(err)
 		}
 	}
-}
 
-type SimpleExtensionTypeFactory[P comparable] struct {
-	arrow.ExtensionBase
-
-	params     P
-	name       string
-	getStorage func(P) arrow.DataType
-}
-
-func (ef *SimpleExtensionTypeFactory[P]) String() string        { return "extension<" + ef.Serialize() + ">" }
-func (ef *SimpleExtensionTypeFactory[P]) ExtensionName() string { return ef.name }
-func (ef *SimpleExtensionTypeFactory[P]) Serialize() string {
-	s, _ := json.Marshal(ef.params)
-	return ef.name + string(s)
-}
-func (ef *SimpleExtensionTypeFactory[P]) Deserialize(storage arrow.DataType, data string) (arrow.ExtensionType, error) {
-	if !strings.HasPrefix(data, ef.name) {
-		return nil, fmt.Errorf("%w: invalid deserialization of extension type %s", arrow.ErrInvalid, ef.name)
+	for _, fn := range []string{"equal", "not_equal", "lt", "lte", "gt", "gte"} {
+		err := DefaultExtensionIDRegistry.AddSubstraitScalarToArrow(
+			extensions.ID{URI: SubstraitComparisonFuncsURI, Name: fn},
+			simpleMapSubstraitToArrowFunc)
+		if err != nil {
+			panic(err)
+		}
 	}
 
-	data = strings.TrimPrefix(data, ef.name)
-	if err := json.Unmarshal([]byte(data), &ef.params); err != nil {
-		return nil, fmt.Errorf("%w: failed parsing parameters for extension type", err)
-	}
-
-	if !arrow.TypeEqual(storage, ef.getStorage(ef.params)) {
-		return nil, fmt.Errorf("%w: invalid storage type for %s: %s (expected: %s)",
-			arrow.ErrInvalid, ef.name, storage, ef.getStorage(ef.params))
-	}
-
-	return &SimpleExtensionTypeFactory[P]{
-		name:       ef.name,
-		params:     ef.params,
-		getStorage: ef.getStorage,
-		ExtensionBase: arrow.ExtensionBase{
-			Storage: storage,
-		},
-	}, nil
-}
-func (ef *SimpleExtensionTypeFactory[P]) ExtensionEquals(other arrow.ExtensionType) bool {
-	if ef.name != other.ExtensionName() {
-		return false
-	}
-
-	rhs := other.(*SimpleExtensionTypeFactory[P])
-	return ef.params == rhs.params
-}
-func (ef *SimpleExtensionTypeFactory[P]) ArrayType() reflect.Type {
-	return reflect.TypeOf(array.ExtensionArrayBase{})
-}
-
-func (ef *SimpleExtensionTypeFactory[P]) CreateType(params P) arrow.DataType {
-	storage := ef.getStorage(params)
-
-	return &SimpleExtensionTypeFactory[P]{
-		name:       ef.name,
-		params:     params,
-		getStorage: ef.getStorage,
-		ExtensionBase: arrow.ExtensionBase{
-			Storage: storage,
-		},
+	for _, fn := range []string{"equal", "not_equal", "less", "less_equal", "greater", "greater_equal"} {
+		err := DefaultExtensionIDRegistry.AddArrowToSubstrait(fn,
+			simpleMapArrowToSubstraitFunc(SubstraitComparisonFuncsURI))
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -205,6 +157,39 @@ func parseOption[typ ~string](sf *expr.ScalarFunction, optionName string, parser
 type substraitToArrow func(*expr.ScalarFunction) (fname string, opts compute.FunctionOptions, err error)
 type arrowToSubstrait func(fname string) (extensions.ID, []*types.FunctionOption, error)
 
+var substraitToArrowFuncMap = map[string]string{
+	"lt":  "less",
+	"gt":  "greater",
+	"lte": "less_equal",
+	"gte": "greater_equal",
+}
+
+var arrowToSubstraitFuncMap = map[string]string{
+	"less":          "lt",
+	"greater":       "gt",
+	"less_equal":    "lte",
+	"greater_equal": "gte",
+}
+
+func simpleMapSubstraitToArrowFunc(sf *expr.ScalarFunction) (fname string, opts compute.FunctionOptions, err error) {
+	fname, _, _ = strings.Cut(sf.ID.Name, ":")
+	f, ok := substraitToArrowFuncMap[fname]
+	if ok {
+		fname = f
+	}
+	return
+}
+
+func simpleMapArrowToSubstraitFunc(uri string) arrowToSubstrait {
+	return func(fname string) (extensions.ID, []*types.FunctionOption, error) {
+		f, ok := arrowToSubstraitFuncMap[fname]
+		if ok {
+			fname = f
+		}
+		return extensions.ID{URI: uri, Name: fname}, nil, nil
+	}
+}
+
 func decodeOptionlessOverflowableArithmetic(n string) substraitToArrow {
 	return func(sf *expr.ScalarFunction) (fname string, opts compute.FunctionOptions, err error) {
 		overflow, err := parseOption(sf, "overflow", &overflowParser, []overflowBehavior{overflowSILENT, overflowERROR}, overflowSILENT)
@@ -244,13 +229,21 @@ func encodeOptionlessOverflowableArithmetic(id extensions.ID) arrowToSubstrait {
 	}
 }
 
+func NewExtensionSetDefault(set extensions.Set) ExtensionIDSet {
+	return &extensionSet{Set: set, reg: DefaultExtensionIDRegistry}
+}
+
+func NewExtensionSet(set extensions.Set, reg *ExtensionIDRegistry) ExtensionIDSet {
+	return &extensionSet{Set: set, reg: reg}
+}
+
 type extensionSet struct {
-	set extensions.Set
+	extensions.Set
 	reg *ExtensionIDRegistry
 }
 
-func (e *extensionSet) DecodeType(anchor uint32) (extensions.ID, arrow.DataType, bool) {
-	id, ok := e.set.DecodeType(anchor)
+func (e *extensionSet) DecodeTypeArrow(anchor uint32) (extensions.ID, arrow.DataType, bool) {
+	id, ok := e.Set.DecodeType(anchor)
 	if !ok {
 		return id, nil, false
 	}
@@ -260,7 +253,7 @@ func (e *extensionSet) DecodeType(anchor uint32) (extensions.ID, arrow.DataType,
 }
 
 func (e *extensionSet) DecodeFunction(ref uint32) (extensions.ID, substraitToArrow, bool) {
-	id, ok := e.set.DecodeFunc(ref)
+	id, ok := e.Set.DecodeFunc(ref)
 	if !ok {
 		return id, nil, false
 	}
@@ -281,7 +274,11 @@ func (e *extensionSet) EncodeType(dt arrow.DataType) (extensions.ID, uint32, boo
 		return extensions.ID{}, 0, false
 	}
 
-	return id, e.set.GetTypeAnchor(id), true
+	return id, e.Set.GetTypeAnchor(id), true
+}
+
+func (e *extensionSet) EncodeFunction(id extensions.ID) uint32 {
+	return e.Set.GetFuncAnchor(id)
 }
 
 type ExtensionIDRegistry struct {
@@ -382,18 +379,12 @@ func (e *ExtensionIDRegistry) GetArrowToSubstrait(name string) (conv arrowToSubs
 }
 
 type ExtensionIDSet interface {
-	DecodeType(anchor uint32) (extensions.ID, arrow.DataType, bool)
+	extensions.Set
+
+	DecodeTypeArrow(anchor uint32) (extensions.ID, arrow.DataType, bool)
 	DecodeFunction(ref uint32) (extensions.ID, substraitToArrow, bool)
 
 	EncodeType(dt arrow.DataType) (extensions.ID, uint32, bool)
-}
-
-func NewExtensionSetDefault(set extensions.Set) ExtensionIDSet {
-	return &extensionSet{set: set, reg: DefaultExtensionIDRegistry}
-}
-
-func NewExtensionSet(set extensions.Set, reg *ExtensionIDRegistry) ExtensionIDSet {
-	return &extensionSet{set: set, reg: reg}
 }
 
 func IsNullable(t types.Type) bool {
@@ -524,15 +515,15 @@ func FromSubstraitType(t types.Type, ext ExtensionIDSet) (arrow.DataType, bool, 
 	case *types.TimeType:
 		return &arrow.Time64Type{Unit: arrow.Microsecond}, nullable, nil
 	case *types.IntervalYearType:
-		return IntervalYear(), nullable, nil
+		return intervalYear(), nullable, nil
 	case *types.IntervalDayType:
-		return IntervalDay(), nullable, nil
+		return intervalDay(), nullable, nil
 	case *types.UUIDType:
-		return Uuid(), nullable, nil
+		return uuid(), nullable, nil
 	case *types.FixedCharType:
-		return FixedChar(t.Length), nullable, nil
+		return fixedChar(t.Length), nullable, nil
 	case *types.VarCharType:
-		return VarChar(t.Length), nullable, nil
+		return varChar(t.Length), nullable, nil
 	case *types.FixedBinaryType:
 		return &arrow.FixedSizeBinaryType{ByteWidth: int(t.Length)}, nullable, nil
 	case *types.DecimalType:
@@ -577,7 +568,7 @@ func FromSubstraitType(t types.Type, ext ExtensionIDSet) (arrow.DataType, bool, 
 		return ret, nullable, nil
 	case *types.UserDefinedType:
 		anchor := t.TypeReference
-		_, dt, ok := ext.DecodeType(anchor)
+		_, dt, ok := ext.DecodeTypeArrow(anchor)
 		if !ok {
 			return nil, false, arrow.ErrNotImplemented
 		}

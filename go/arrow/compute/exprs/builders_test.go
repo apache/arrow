@@ -21,17 +21,76 @@ package exprs_test
 import (
 	"testing"
 
+	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/compute/exprs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/expr"
+	"github.com/substrait-io/substrait-go/extensions"
+	"github.com/substrait-io/substrait-go/types"
 )
 
 func TestNewScalarFunc(t *testing.T) {
-	fn, err := exprs.NewScalarCall("add:i32_i32", nil,
+	fn, err := exprs.NewScalarCall("add", nil,
 		expr.NewPrimitiveLiteral(int32(1), false),
 		expr.NewPrimitiveLiteral(int32(10), false))
 	require.NoError(t, err)
 
-	assert.Equal(t, "add:i32_i32(i32(1), i32(10)) => i32", fn.String())
+	assert.Equal(t, "add(i32(1), i32(10)) => ?", fn.String())
+
+	bound, err := expr.BindExpression(fn, types.NamedStruct{}, extSet,
+		&extensions.DefaultCollection)
+	require.NoError(t, err)
+	assert.Equal(t, "add:i32_i32(i32(1), i32(10)) => i32", bound.String())
+}
+
+func TestFieldRefDotPath(t *testing.T) {
+	f0 := arrow.Field{Name: "alpha", Type: arrow.PrimitiveTypes.Int32}
+	f1_0 := arrow.Field{Name: "be.ta", Type: arrow.PrimitiveTypes.Int32}
+	f1 := arrow.Field{Name: "beta", Type: arrow.StructOf(f1_0)}
+	f2_0 := arrow.Field{Name: "alpha", Type: arrow.PrimitiveTypes.Int32}
+	f2_1_0 := arrow.Field{Name: "[alpha]", Type: arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32)}
+	f2_1_1 := arrow.Field{Name: "beta", Type: arrow.ListOf(arrow.PrimitiveTypes.Int32)}
+	f2_1 := arrow.Field{Name: "gamma", Type: arrow.StructOf(f2_1_0, f2_1_1)}
+	f2 := arrow.Field{Name: "gamma", Type: arrow.StructOf(f2_0, f2_1)}
+	s := arrow.NewSchema([]arrow.Field{f0, f1, f2}, nil)
+
+	tests := []struct {
+		dotpath   string
+		shouldErr bool
+		expected  expr.ReferenceSegment
+	}{
+		{".alpha", false, &expr.StructFieldRef{Field: 0}},
+		{"[2]", false, &expr.StructFieldRef{Field: 2}},
+		{".beta[0]", false, &expr.StructFieldRef{Field: 1, Child: &expr.StructFieldRef{Field: 0}}},
+		{"[2].gamma[1][5]", false, &expr.StructFieldRef{Field: 2,
+			Child: &expr.StructFieldRef{Field: 1,
+				Child: &expr.StructFieldRef{Field: 1,
+					Child: &expr.ListElementRef{Offset: 5}}}}},
+		{"[2].gamma[0].foobar", false, &expr.StructFieldRef{Field: 2,
+			Child: &expr.StructFieldRef{Field: 1,
+				Child: &expr.StructFieldRef{Field: 0,
+					Child: &expr.MapKeyRef{MapKey: expr.NewPrimitiveLiteral("foobar", false)}}}}},
+		{`[1].be\.ta`, false, &expr.StructFieldRef{Field: 1, Child: &expr.StructFieldRef{Field: 0}}},
+		{`[2].gamma.\[alpha\]`, false, &expr.StructFieldRef{Field: 2,
+			Child: &expr.StructFieldRef{Field: 1,
+				Child: &expr.StructFieldRef{Field: 0}}}},
+		{`[5]`, true, nil},     // bad struct index
+		{``, true, nil},        // empty
+		{`delta`, true, nil},   // not found
+		{`[1234`, true, nil},   // bad syntax
+		{`[1stuf]`, true, nil}, // bad syntax
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.dotpath, func(t *testing.T) {
+			ref, err := exprs.NewFieldRefFromDotPath(tt.dotpath, s)
+			if tt.shouldErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Truef(t, tt.expected.Equals(ref), "expected: %s\ngot: %s", tt.expected, ref)
+			}
+		})
+	}
 }

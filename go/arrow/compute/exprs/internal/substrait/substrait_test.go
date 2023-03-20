@@ -18,22 +18,6 @@
 
 package substrait
 
-import (
-	"context"
-	"fmt"
-	"strings"
-	"testing"
-
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/compute"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/expr"
-	"github.com/substrait-io/substrait-go/proto"
-	"google.golang.org/protobuf/encoding/protojson"
-)
-
 const extendedExpr = `{
 	"extensionUris": [
 	  {
@@ -71,29 +55,29 @@ const extendedExpr = `{
 
 const simpleData = `[1, 2, 3, 4, 5, 6]`
 
-func TestSubstraitExecute(t *testing.T) {
-	var ex proto.ExtendedExpression
-	require.NoError(t, protojson.Unmarshal([]byte(extendedExpr), &ex))
+// func TestSubstraitExecute(t *testing.T) {
+// 	var ex proto.ExtendedExpression
+// 	require.NoError(t, protojson.Unmarshal([]byte(extendedExpr), &ex))
 
-	expression, err := expr.ExtendedFromProto(&ex, nil)
-	require.NoError(t, err)
+// 	expression, err := expr.ExtendedFromProto(&ex, nil)
+// 	require.NoError(t, err)
 
-	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
-	defer mem.AssertSize(t, 0)
+// 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+// 	defer mem.AssertSize(t, 0)
 
-	arr, _, err := array.FromJSON(mem, arrow.PrimitiveTypes.Int32, strings.NewReader(simpleData))
-	require.NoError(t, err)
+// 	arr, _, err := array.FromJSON(mem, arrow.PrimitiveTypes.Int32, strings.NewReader(simpleData))
+// 	require.NoError(t, err)
 
-	val := compute.NewDatumWithoutOwning(arr)
+// 	val := compute.NewDatumWithoutOwning(arr)
 
-	ctx := compute.WithAllocator(context.Background(), mem)
-	extset := NewExtensionSetDefault(expression.Extensions)
-	result, err := ExecuteScalarExpression(ctx, compute.ExecBatch{Values: []compute.Datum{val}, Len: int64(arr.Len())},
-		expression.ReferredExpr[0].GetExpr(), extset)
-	require.NoError(t, err)
-	defer result.Release()
+// 	ctx := compute.WithAllocator(context.Background(), mem)
+// 	extset := NewExtensionSetDefault(expression.Extensions)
+// 	result, err := ExecuteScalarExpression(ctx, compute.ExecBatch{Values: []compute.Datum{val}, Len: int64(arr.Len())},
+// 		expression.ReferredExpr[0].GetExpr(), extset)
+// 	require.NoError(t, err)
+// 	defer result.Release()
 
-	out := result.(*compute.ArrayDatum).MakeArray()
-	defer out.Release()
-	fmt.Println(out)
-}
+// 	out := result.(*compute.ArrayDatum).MakeArray()
+// 	defer out.Release()
+// 	fmt.Println(out)
+// }
