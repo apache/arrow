@@ -194,6 +194,9 @@ cdef class DataType(_Weakrefable):
         ListType(list<item: string>)
         >>> pa.list_(pa.string()).num_fields
         1
+        >>> struct = pa.struct({'x': pa.int32(), 'y': pa.string()})
+        >>> struct.num_fields
+        2
         """
         return self.type.num_fields()
 
