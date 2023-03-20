@@ -18,7 +18,7 @@
 #pragma once
 
 #include <jni.h>
-#include <map>
+#include <unordered_map>
 
 #include "arrow/array.h"
 #include "arrow/io/api.h"
