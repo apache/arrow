@@ -106,8 +106,16 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
   explicit SortOptions(std::vector<SortKey> sort_keys = {},
                        NullPlacement null_placement = NullPlacement::AtEnd);
+  explicit SortOptions(const Ordering& ordering);
   static constexpr char const kTypeName[] = "SortOptions";
   static SortOptions Defaults() { return SortOptions(); }
+  /// Convenience constructor to create an ordering from SortOptions
+  ///
+  /// Note: Both classes contain the exact same information.  However,
+  /// sort_options should only be used in a "function options" context while Ordering
+  /// is used more generally.
+  Ordering AsOrdering() && { return Ordering(std::move(sort_keys), null_placement); }
+  Ordering AsOrdering() const& { return Ordering(sort_keys, null_placement); }
 
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
