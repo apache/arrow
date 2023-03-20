@@ -1164,10 +1164,7 @@ def test_extension_to_pandas_storage_type(registered_period_type):
     assert result.dtype == np_arr.dtype
 
     result = chunked_arr.to_pandas()
-    # TODO: to_pandas should take use of to_pandas_dtype
-    # if defined!
-    # assert result.dtype == pandas_dtype
-    assert result.dtype == np_arr.dtype
+    assert result.dtype == pandas_dtype
 
     # Test the change in ConvertTableToPandas
     data = [
