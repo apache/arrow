@@ -20,7 +20,6 @@ import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.compute import field
-import pyarrow.dataset as ds
 
 from pyarrow._acero import (
     TableSourceNodeOptions,
@@ -30,7 +29,12 @@ from pyarrow._acero import (
     HashJoinNodeOptions,
     Declaration,
 )
-from pyarrow._dataset import ScanNodeOptions
+
+try:
+    import pyarrow.dataset as ds
+    from pyarrow._dataset import ScanNodeOptions
+except ImportError:
+    ds = None
 
 
 @pytest.fixture
@@ -295,6 +299,7 @@ def test_hash_join():
     assert result.sort_by("a").equals(expected)
 
 
+@pytest.mark.dataset
 def test_scan(tempdir):
     table = pa.table({'a': [1, 2, 3], 'b': [4, 5, 6]})
     ds.write_dataset(table, tempdir / "dataset", format="parquet")
