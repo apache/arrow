@@ -109,7 +109,7 @@ test_that("GcsFileSystem$create() can read json_credentials", {
   con <- file(cred_path, open = "wb")
   input <- '{"key" : "valu\u00e9"}\n'
   print(Encoding(input))
-  writeBin(iconv(input, from = Encoding(input), out = "UTF-8", toRaw = TRUE)[[1]], con)
+  writeBin(iconv(input, from = Encoding(input), to = "UTF-8", toRaw = TRUE)[[1]], con)
   close(con) # Close now, Windows file handles are special
   print(readBin(cred_path, "raw", file.size(cred_path)))
 
