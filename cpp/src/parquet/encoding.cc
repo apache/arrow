@@ -2708,7 +2708,14 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     num_values_ = num_values;
-    if (len == 0) return;
+    if (len == 0) {
+      if (num_values > 0) {
+        throw ParquetException(
+            "Delta length byte array page was empty, but expected {num_values} values.");
+      }
+      num_valid_values_ = 0;
+      return;
+    }
     decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
     DecodeLengths();
   }
@@ -2723,6 +2730,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     // Decode up to `max_values` strings into an internal buffer
     // and reference them into `buffer`.
     max_values = std::min(max_values, num_valid_values_);
+    DCHECK_GE(max_values, 0);
     if (max_values == 0) {
       return 0;
     }
