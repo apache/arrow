@@ -1053,6 +1053,7 @@ namespace internal {
 void RegisterSourceNode(ExecFactoryRegistry*);
 void RegisterFetchNode(ExecFactoryRegistry*);
 void RegisterFilterNode(ExecFactoryRegistry*);
+void RegisterOrderByNode(ExecFactoryRegistry*);
 void RegisterPivotLongerNode(ExecFactoryRegistry*);
 void RegisterProjectNode(ExecFactoryRegistry*);
 void RegisterUnionNode(ExecFactoryRegistry*);
@@ -1070,6 +1071,7 @@ ExecFactoryRegistry* default_exec_factory_registry() {
       internal::RegisterSourceNode(this);
       internal::RegisterFetchNode(this);
       internal::RegisterFilterNode(this);
+      internal::RegisterOrderByNode(this);
       internal::RegisterPivotLongerNode(this);
       internal::RegisterProjectNode(this);
       internal::RegisterUnionNode(this);

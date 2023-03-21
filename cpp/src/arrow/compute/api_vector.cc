@@ -177,6 +177,10 @@ SortOptions::SortOptions(std::vector<SortKey> sort_keys, NullPlacement null_plac
     : FunctionOptions(internal::kSortOptionsType),
       sort_keys(std::move(sort_keys)),
       null_placement(null_placement) {}
+SortOptions::SortOptions(const Ordering& ordering)
+    : FunctionOptions(internal::kSortOptionsType),
+      sort_keys(ordering.sort_keys()),
+      null_placement(ordering.null_placement()) {}
 constexpr char SortOptions::kTypeName[];
 
 PartitionNthOptions::PartitionNthOptions(int64_t pivot, NullPlacement null_placement)
