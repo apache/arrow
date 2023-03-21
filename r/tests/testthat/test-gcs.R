@@ -97,10 +97,18 @@ test_that("GcsFileSystem$create() can read json_credentials", {
   expect_equal(fs$options$json_credentials, "fromstring")
 
   # From disk
+  cred_string <- '{"key" : "valu\u00e9"}'
+  cred_string_bytes_utf8 <- iconv(
+    cred_string,
+    from = Encoding(cred_string),
+    to = "UTF-8",
+    toRaw = TRUE
+  )[[1]]
+
   cred_path <- tempfile()
   on.exit(unlink(cred_path))
   con <- file(cred_path, open = "wb")
-  writeBin(iconv('{"key" : "valu\u00e9"}', to = "UTF-8", toRaw = TRUE)[[1]], con)
+  writeBin(cred_string_bytes_utf8, con)
   close(con)
 
   fs <- GcsFileSystem$create(json_credentials = cred_path)
