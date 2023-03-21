@@ -18,6 +18,7 @@ package csv
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/csv"
 	"fmt"
 	"math"
@@ -211,6 +212,15 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 				b.Write([]byte{'}'})
 				res[i] = b.String()
 				list.Release()
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.BinaryType:
+		arr := col.(*array.Binary)
+		for i :=0 ; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = base64.StdEncoding.EncodeToString(arr.Value(i))
 			} else {
 				res[i] = w.nullValue
 			}

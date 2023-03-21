@@ -2529,7 +2529,7 @@ cdef extern from * namespace "arrow::compute":
     cdef struct CKnownFieldValues "arrow::compute::KnownFieldValues":
         unordered_map[CFieldRef, CDatum, CFieldRefHash] map
 
-cdef extern from "arrow/compute/exec/expression.h" \
+cdef extern from "arrow/compute/expression.h" \
         namespace "arrow::compute" nogil:
 
     cdef cppclass CExpression "arrow::compute::Expression":

@@ -30,7 +30,7 @@
 #include <vector>
 
 #include "arrow/array/data.h"
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"

@@ -83,7 +83,8 @@ add_arrow_compute_test(internals_test
                        kernel_test.cc
                        light_array_test.cc
                        registry_test.cc
-                       key_hash_test.cc)
+                       key_hash_test.cc
+                       expression_test.cc)
 
 add_arrow_benchmark(function_benchmark PREFIX "arrow-compute")
 

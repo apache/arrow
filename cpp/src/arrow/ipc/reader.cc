@@ -463,6 +463,10 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
   int64_t compressed_size = buf->size() - sizeof(int64_t);
   int64_t uncompressed_size = bit_util::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
 
+  if (uncompressed_size == -1) {
+    return SliceBuffer(buf, sizeof(int64_t), compressed_size);
+  }
+
   ARROW_ASSIGN_OR_RAISE(auto uncompressed,
                         AllocateBuffer(uncompressed_size, options.memory_pool));
 

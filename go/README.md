@@ -28,6 +28,29 @@ for flat and hierarchical data, organized for efficient analytic operations on
 modern hardware. It also provides computational libraries and zero-copy
 streaming messaging and inter-process communication.
 
+### A note about FlightSQL drivers
+
+Go FlightSQL drivers live in the
+[ADBC repository](https://github.com/apache/arrow-adbc/tree/main/go/adbc).
+In particular, to use the Golang `database/sql` interface:
+```golang
+import (
+    "database/sql"
+    _ "github.com/apache/arrow-adbc/go/adbc/sqldriver/flightsql"
+)
+
+func main() {
+	dsn := "uri=grpc://localhost:12345;username=mickeymouse;password=p@55w0RD"
+    db, err := sql.Open("flightsql", dsn)
+    ...
+}
+```
+
+DSN option keys are expressed as `k=v`, delimited with `;`. 
+Some options keys are defined in ADBC, others are defined in the FlightSQL ADBC driver.
+- Arrow ADBC [developer doc](https://arrow.apache.org/adbc/main/driver/go/flight_sql.html#client-options)
+- ADBC [source code](https://github.com/apache/arrow-adbc/blob/3d12fad1bae21029a8ff25604d6e65760c3f65bd/go/adbc/adbc.go#L149-L158)
+- FlightSQL driver option keys [source code](https://github.com/apache/arrow-adbc/blob/3d12fad1bae21029a8ff25604d6e65760c3f65bd/go/adbc/driver/flightsql/flightsql_adbc.go#L70-L81)
 
 Reference Counting
 ------------------

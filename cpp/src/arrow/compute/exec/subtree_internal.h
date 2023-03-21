@@ -24,7 +24,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 
 namespace arrow {
 namespace compute {

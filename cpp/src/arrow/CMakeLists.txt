@@ -395,7 +395,7 @@ list(APPEND
      compute/exec/asof_join_node.cc
      compute/exec/bloom_filter.cc
      compute/exec/exec_plan.cc
-     compute/exec/expression.cc
+     compute/expression.cc
      compute/exec/fetch_node.cc
      compute/exec/filter_node.cc
      compute/exec/hash_join.cc
@@ -404,6 +404,7 @@ list(APPEND
      compute/exec/map_node.cc
      compute/exec/options.cc
      compute/exec/order_by_impl.cc
+     compute/exec/order_by_node.cc
      compute/exec/partition_util.cc
      compute/exec/pivot_longer_node.cc
      compute/exec/project_node.cc

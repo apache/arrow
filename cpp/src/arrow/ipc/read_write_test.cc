@@ -25,6 +25,7 @@
 #include <unordered_set>
 
 #include <flatbuffers/flatbuffers.h>
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -52,6 +53,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/ubsan.h"
 
 #include "generated/Message_generated.h"  // IWYU pragma: keep
 
@@ -732,6 +734,69 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
     IpcWriteOptions write_options = IpcWriteOptions::Defaults();
     ASSERT_OK_AND_ASSIGN(write_options.codec, util::Codec::Create(codec));
     ASSERT_RAISES(Invalid, SerializeRecordBatch(*batch, write_options));
+  }
+}
+
+TEST_F(TestWriteRecordBatch, WriteWithCompressionAndMinSavings) {
+  // A small batch that's known to be compressible
+  auto batch = RecordBatchFromJSON(schema({field("n", int64())}), R"([
+    {"n":0},{"n":1},{"n":2},{"n":3},{"n":4},
+    {"n":5},{"n":6},{"n":7},{"n":8},{"n":9}])");
+
+  auto prefixed_size = [](const Buffer& buffer) -> int64_t {
+    if (buffer.size() < int64_t(sizeof(int64_t))) return 0;
+    return bit_util::FromLittleEndian(util::SafeLoadAs<int64_t>(buffer.data()));
+  };
+  auto content_size = [](const Buffer& buffer) -> int64_t {
+    return buffer.size() - sizeof(int64_t);
+  };
+
+  for (auto codec : {Compression::LZ4_FRAME, Compression::ZSTD}) {
+    if (!util::Codec::IsAvailable(codec)) {
+      continue;
+    }
+
+    auto write_options = IpcWriteOptions::Defaults();
+    ASSERT_OK_AND_ASSIGN(write_options.codec, util::Codec::Create(codec));
+    auto read_options = IpcReadOptions::Defaults();
+
+    IpcPayload payload;
+    ASSERT_OK(GetRecordBatchPayload(*batch, write_options, &payload));
+    ASSERT_EQ(payload.body_buffers.size(), 2);
+    // Compute the savings when body buffers are compressed unconditionally. We also
+    // validate that our test batch is indeed compressible.
+    const int64_t uncompressed_size = prefixed_size(*payload.body_buffers[1]);
+    const int64_t compressed_size = content_size(*payload.body_buffers[1]);
+    ASSERT_LT(compressed_size, uncompressed_size);
+    ASSERT_GT(compressed_size, 0);
+    const double expected_savings =
+        1.0 - static_cast<double>(compressed_size) / uncompressed_size;
+
+    // Using the known savings % as the minimum should yield the same outcome.
+    write_options.min_space_savings = expected_savings;
+    payload = IpcPayload();
+    ASSERT_OK(GetRecordBatchPayload(*batch, write_options, &payload));
+    ASSERT_EQ(payload.body_buffers.size(), 2);
+    ASSERT_EQ(prefixed_size(*payload.body_buffers[1]), uncompressed_size);
+    ASSERT_EQ(content_size(*payload.body_buffers[1]), compressed_size);
+    CheckRoundtrip(*batch, write_options, read_options);
+
+    // Slightly bump the threshold. The body buffer should now be prefixed with -1 and its
+    // content left uncompressed.
+    write_options.min_space_savings = std::nextafter(expected_savings, 1.0);
+    payload = IpcPayload();
+    ASSERT_OK(GetRecordBatchPayload(*batch, write_options, &payload));
+    ASSERT_EQ(payload.body_buffers.size(), 2);
+    ASSERT_EQ(prefixed_size(*payload.body_buffers[1]), -1);
+    ASSERT_EQ(content_size(*payload.body_buffers[1]), uncompressed_size);
+    CheckRoundtrip(*batch, write_options, read_options);
+
+    for (double out_of_range : {std::nextafter(1.0, 2.0), std::nextafter(0.0, -1.0)}) {
+      write_options.min_space_savings = out_of_range;
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid, ::testing::StartsWith("Invalid: min_space_savings not in range [0,1]"),
+          SerializeRecordBatch(*batch, write_options));
+    }
   }
 }
 
