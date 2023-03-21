@@ -1001,6 +1001,7 @@ Result<std::unique_ptr<liborc::Type>> GetOrcType(const DataType& type) {
       const auto& timestamp_type = checked_cast<const TimestampType&>(type);
       if (!timestamp_type.timezone().empty()) {
         // The timestamp values stored in the arrow array are normalized to UTC.
+        // TIMESTAMP_INSTANT type is always preferred over TIMESTAMP type.
         return liborc::createPrimitiveType(liborc::TypeKind::TIMESTAMP_INSTANT);
       }
       // The timestamp values stored in the arrow array can be in any timezone.
@@ -1120,10 +1121,19 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
     case liborc::CHAR:
       return fixed_size_binary(static_cast<int>(type->getMaximumLength()));
     case liborc::TIMESTAMP:
-      // The timestamp values stored in ORC are in the writer timezone.
+      // Values of TIMESTAMP type are stored in the writer timezone in the Orc file.
+      // Values are read back in the reader timezone. However, the writer timezone
+      // information in the Orc stripe footer is optional and may be missing. What is
+      // more, stripes in the same Orc file may have different writer timezones (though
+      // unlikely). So we cannot tell the exact timezone of values read back in the
+      // arrow::TimestampArray. In the adapter implementations, we set both writer and
+      // reader timezone to UTC to avoid any conversion so users can get the same values
+      // as written. To get rid of this burden, TIMESTAMP_INSTANT type is always preferred
+      // over TIMESTAMP type.
       return timestamp(TimeUnit::NANO);
     case liborc::TIMESTAMP_INSTANT:
-      // The timestamp values stored in ORC are in UTC.
+      // Values of TIMESTAMP_INSTANT type are stored in the UTC timezone in the ORC file.
+      // Both read and write use the UTC timezone without any conversion.
       return timestamp(TimeUnit::NANO, "UTC");
     case liborc::DATE:
       return date32();
