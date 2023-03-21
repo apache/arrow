@@ -1,0 +1,26 @@
+From 7f1350d76bf71a8123cf78abe18ddb5876a7ca80 Mon Sep 17 00:00:00 2001
+From: "H. Vetinari" <h.vetinari@gmx.com>
+Date: Thu, 26 Jan 2023 12:37:02 +1100
+Subject: [PATCH] don't bake non-relocatable CMAKE_INSTALL_FULL_LIBDIR into
+ gdb-integration
+
+---
+ cpp/src/arrow/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/cpp/src/arrow/CMakeLists.txt b/cpp/src/arrow/CMakeLists.txt
+index 90ab1e6ac..c1f51e0da 100644
+--- a/cpp/src/arrow/CMakeLists.txt
++++ b/cpp/src/arrow/CMakeLists.txt
+@@ -644,7 +644,7 @@ if(ARROW_BUILD_SHARED AND NOT WIN32)
+     endif()
+   else()
+     set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_DIR
+-        "${ARROW_GDB_AUTO_LOAD_DIR}/${CMAKE_INSTALL_FULL_LIBDIR}")
++        "${ARROW_GDB_AUTO_LOAD_DIR}/replace_this_section_with_absolute_slashed_path_to_CONDA_PREFIX/lib/")
+     set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL TRUE)
+   endif()
+   if(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL)
+-- 
+2.38.1.windows.1
+
