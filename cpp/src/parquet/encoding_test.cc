@@ -2092,4 +2092,40 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
     CheckSeed(values);
   }
 }
+
+TEST(DeltaByteArrayEncodingAdHoc, ArrowBinaryDirectPutFixedLength) {
+  const int64_t size = 50;
+  const double null_probability = 0.25;
+  ::arrow::random::RandomArrayGenerator rag(0);
+  auto encoder = MakeTypedEncoder<FLBAType>(Encoding::DELTA_BYTE_ARRAY);
+  auto decoder = MakeTypedDecoder<FLBAType>(Encoding::DELTA_BYTE_ARRAY);
+
+  auto CheckSeed = [&](std::shared_ptr<::arrow::Array> values) {
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    typename EncodingTraits<FLBAType>::Accumulator acc(values->type());
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.Finish(&result));
+    ASSERT_EQ(values->length(), result->length());
+    ASSERT_OK(result->ValidateFull());
+    ::arrow::AssertArraysEqual(*values, *result);
+  };
+
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    for (auto length : {0, 10, 100, 1000}) {
+      rag = ::arrow::random::RandomArrayGenerator(seed);
+      auto values = rag.FixedSizeBinary(size, length, null_probability);
+      CheckSeed(values);
+    }
+  }
+}
 }  // namespace parquet::test

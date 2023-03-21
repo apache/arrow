@@ -1215,6 +1215,35 @@ struct ArrowBinaryHelper {
   int64_t chunk_space_remaining;
 };
 
+struct ArrowFLBAHelper {
+  explicit ArrowFLBAHelper(::arrow::FixedSizeBinaryBuilder* builder) {
+    this->builder = builder;
+    this->chunk_space_remaining =
+        ::arrow::kBinaryMemoryLimit - this->builder->value_data_length();
+  }
+
+  Status PushChunk() {
+    std::shared_ptr<::arrow::Array> result;
+    RETURN_NOT_OK(builder->Finish(&result));
+    chunks.push_back(result);
+    chunk_space_remaining = ::arrow::kBinaryMemoryLimit;
+    return Status::OK();
+  }
+
+  bool CanFit(int64_t length) const { return length <= chunk_space_remaining; }
+
+  Status Append(const uint8_t* data, int32_t length) {
+    chunk_space_remaining -= length;
+    return builder->Append(data);
+  }
+
+  Status AppendNull() { return builder->AppendNull(); }
+
+  ::arrow::FixedSizeBinaryBuilder* builder;
+  std::vector<std::shared_ptr<::arrow::Array>> chunks;
+  int64_t chunk_space_remaining;
+};
+
 template <>
 inline int PlainDecoder<ByteArrayType>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
@@ -3026,6 +3055,42 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
   }
 
  protected:
+  void PutFixedLenByteArray(const ::arrow::FixedSizeBinaryArray& array) {
+    const uint32_t byte_width = array.byte_width();
+
+    // TODO(rok): optimize using ArrowPoolVector<int32_t> prefix_lengths(num_values);
+    PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<::arrow::FixedSizeBinaryType>(
+        *array.data(),
+        [&](::std::string_view view) {
+          uint32_t previous_len = 0;
+          const ByteArray src{view};
+          if (ARROW_PREDICT_TRUE(last_value_.empty())) {
+            last_value_ = view;
+            suffix_encoder_.Put(&src, 1);
+            prefix_length_encoder_.Put({static_cast<int32_t>(0)}, 1);
+          } else {
+            uint32_t j = 0;
+            while (j < std::min(previous_len, byte_width)) {
+              if (last_value_[j] != view[j]) {
+                break;
+              }
+              j++;
+            }
+            previous_len = j;
+            prefix_length_encoder_.Put({static_cast<int32_t>(j)}, 1);
+
+            const uint8_t* suffix_ptr = src.ptr + j;
+            const uint32_t suffix_length = static_cast<uint32_t>(byte_width - j);
+            last_value_ =
+                string_view{reinterpret_cast<const char*>(suffix_ptr), suffix_length};
+            const ByteArray suffix(suffix_length, suffix_ptr);
+            suffix_encoder_.Put(&suffix, 1);
+          }
+          return Status::OK();
+        },
+        []() { return Status::OK(); }));
+  }
+
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
     // TODO(rok): optimize using ArrowPoolVector<int32_t> prefix_lengths(num_values);
@@ -3070,12 +3135,33 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
   string_view last_value_;
 };
 
+template <>
+inline void DeltaByteArrayEncoder<FLBAType>::Put(const FixedLenByteArray* src,
+                                                 int num_values) {
+  if (descr_->type_length() == 0) {
+    return;
+  }
+  for (int i = 0; i < num_values; ++i) {
+    // Write the result to the output stream
+    DCHECK(src[i].ptr != nullptr) << "Value ptr cannot be NULL";
+    PARQUET_THROW_NOT_OK(sink_.Append(src[i].ptr, descr_->type_length()));
+  }
+}
+
+template <>
+void DeltaByteArrayEncoder<FLBAType>::Put(const ::arrow::Array& values) {
+  if (!::arrow::is_fixed_size_binary(values.type_id())) {
+    throw ParquetException("Only FixedSizeBinaryArray and subclasses supported");
+  }
+  PutFixedLenByteArray(checked_cast<const ::arrow::FixedSizeBinaryArray&>(values));
+}
+
 template <typename DType>
 void DeltaByteArrayEncoder<DType>::Put(const ::arrow::Array& values) {
   AssertBaseBinary(values);
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
-  } else {
+  } else if (::arrow::is_large_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
   }
 }
@@ -3132,8 +3218,10 @@ std::shared_ptr<Buffer> DeltaByteArrayEncoder<DType>::FlushValues() {
 // ----------------------------------------------------------------------
 // DeltaByteArrayDecoder
 
-class DeltaByteArrayDecoder : public DecoderImpl,
-                              virtual public TypedDecoder<ByteArrayType> {
+template <typename DType>
+class DeltaByteArrayDecoder : public DecoderImpl, virtual public TypedDecoder<DType> {
+  using T = typename DType::c_type;
+
  public:
   explicit DeltaByteArrayDecoder(const ColumnDescriptor* descr,
                                  MemoryPool* pool = ::arrow::default_memory_pool())
@@ -3172,23 +3260,22 @@ class DeltaByteArrayDecoder : public DecoderImpl,
     last_value_ = "";
   }
 
-  int Decode(ByteArray* buffer, int max_values) override {
+  int Decode(ByteArray* buffer, int max_values) {
     return GetInternal(buffer, max_values);
   }
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
-                  typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
+                  typename EncodingTraits<DType>::Accumulator* out) override {
     int result = 0;
     PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
                                           valid_bits_offset, out, &result));
     return result;
   }
 
-  int DecodeArrow(
-      int num_values, int null_count, const uint8_t* valid_bits,
-      int64_t valid_bits_offset,
-      typename EncodingTraits<ByteArrayType>::DictAccumulator* builder) override {
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<DType>::DictAccumulator* builder) override {
     ParquetException::NYI("DecodeArrow of DictAccumulator for DeltaByteArrayDecoder");
   }
 
@@ -3250,6 +3337,41 @@ class DeltaByteArrayDecoder : public DecoderImpl,
 
   Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
+                          typename EncodingTraits<FLBAType>::Accumulator* out,
+                          int* out_num_values) {
+    ArrowFLBAHelper helper(out);
+
+    std::vector<ByteArray> values(num_values);
+    const int num_valid_values = GetInternal(values.data(), num_values - null_count);
+    DCHECK_EQ(num_values - null_count, num_valid_values);
+
+    auto values_ptr = reinterpret_cast<const ByteArray*>(values.data());
+    int value_idx = 0;
+
+    RETURN_NOT_OK(VisitNullBitmapInline(
+        valid_bits, valid_bits_offset, num_values, null_count,
+        [&]() {
+          const auto& val = values_ptr[value_idx];
+          if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
+            RETURN_NOT_OK(helper.PushChunk());
+          }
+          RETURN_NOT_OK(helper.Append(val.ptr, static_cast<int32_t>(val.len)));
+          ++value_idx;
+          return Status::OK();
+        },
+        [&]() {
+          RETURN_NOT_OK(helper.AppendNull());
+          --null_count;
+          return Status::OK();
+        }));
+
+    DCHECK_EQ(null_count, 0);
+    *out_num_values = num_valid_values;
+    return Status::OK();
+  }
+
+  Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_num_values) {
     ArrowBinaryHelper helper(out);
@@ -3293,6 +3415,15 @@ class DeltaByteArrayDecoder : public DecoderImpl,
   uint32_t prefix_len_offset_;
   std::shared_ptr<ResizableBuffer> buffered_prefix_length_;
   std::shared_ptr<ResizableBuffer> buffered_data_;
+};
+
+class DeltaByteArrayFLBADecoder : public DeltaByteArrayDecoder<FLBAType>,
+                                  virtual public FLBADecoder {
+ public:
+  using Base = DeltaByteArrayDecoder<FLBAType>;
+  using Base::DeltaByteArrayDecoder;
+
+  int Decode(FixedLenByteArray* buffer, int max_values) override { return 0; };
 };
 
 // ----------------------------------------------------------------------
@@ -3513,7 +3644,7 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
       case Type::BYTE_ARRAY:
         return std::make_unique<DeltaByteArrayEncoder<ByteArrayType>>(descr, pool);
       case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::make_unique<DeltaByteArrayEncoder<ByteArrayType>>(descr, pool);
+        return std::make_unique<DeltaByteArrayEncoder<FLBAType>>(descr, pool);
       default:
         throw ParquetException("DELTA_BYTE_ARRAY only supports BYTE_ARRAY");
     }
@@ -3572,7 +3703,7 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
       case Type::BYTE_ARRAY:
         return std::make_unique<DeltaByteArrayDecoder>(descr, pool);
       case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::make_unique<DeltaByteArrayDecoder>(descr, pool);
+        return std::make_unique<DeltaByteArrayFLBADecoder>(descr, pool);
       default:
         throw ParquetException(
             "DELTA_BYTE_ARRAY only supports BYTE_ARRAY and FIXED_LEN_BYTE_ARRAY");
