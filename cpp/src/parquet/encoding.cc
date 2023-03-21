@@ -3020,9 +3020,9 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
  public:
   using T = typename DType::c_type;
 
-  explicit DeltaByteArrayEncoder(const ColumnDescriptor* descr, MemoryPool* pool)
-      : EncoderImpl(descr, Encoding::DELTA_BYTE_ARRAY,
-                    pool = ::arrow::default_memory_pool()),
+  explicit DeltaByteArrayEncoder(const ColumnDescriptor* descr,
+                                 MemoryPool* pool = ::arrow::default_memory_pool())
+      : EncoderImpl(descr, Encoding::DELTA_BYTE_ARRAY, pool),
         sink_(pool),
         prefix_length_encoder_(nullptr, pool),
         suffix_encoder_(nullptr, pool) {}
@@ -3646,7 +3646,8 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
       case Type::FIXED_LEN_BYTE_ARRAY:
         return std::make_unique<DeltaByteArrayEncoder<FLBAType>>(descr, pool);
       default:
-        throw ParquetException("DELTA_BYTE_ARRAY only supports BYTE_ARRAY");
+        throw ParquetException(
+            "DELTA_BYTE_ARRAY only supports BYTE_ARRAY and FIXED_LEN_BYTE_ARRAY");
     }
   } else {
     ParquetException::NYI("Selected encoding is not supported");
