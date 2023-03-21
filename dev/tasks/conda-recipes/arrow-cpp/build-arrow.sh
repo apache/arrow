@@ -1,7 +1,13 @@
 #!/bin/bash
+set -ex
 
-set -e
-set -x
+# Copy the [de]activate scripts to $PREFIX/etc/conda/[de]activate.d, see
+# https://conda-forge.org/docs/maintainer/adding_pkgs.html#activate-scripts
+for CHANGE in "activate"
+do
+    mkdir -p "${PREFIX}/etc/conda/${CHANGE}.d"
+    cp "${RECIPE_DIR}/${CHANGE}.sh" "${PREFIX}/etc/conda/${CHANGE}.d/${PKG_NAME}_${CHANGE}.sh"
+done
 
 mkdir cpp/build
 pushd cpp/build
@@ -12,10 +18,13 @@ EXTRA_CMAKE_ARGS=""
 if [ "$(uname)" == "Linux" ]; then
   SYSTEM_INCLUDES=$(echo | ${CXX} -E -Wp,-v -xc++ - 2>&1 | grep '^ ' | awk '{print "-isystem;" substr($1, 1)}' | tr '\n' ';')
   ARROW_GANDIVA_PC_CXX_FLAGS="${SYSTEM_INCLUDES}"
+  # only available on linux
+  ARROW_WITH_UCX=ON
 else
   # See https://conda-forge.org/docs/maintainer/knowledge_base.html#newer-c-features-with-old-sdk
   CXXFLAGS="${CXXFLAGS} -D_LIBCPP_DISABLE_AVAILABILITY"
   ARROW_GANDIVA_PC_CXX_FLAGS="-D_LIBCPP_DISABLE_AVAILABILITY"
+  ARROW_WITH_UCX=OFF
 fi
 
 # Enable CUDA support
@@ -55,6 +64,16 @@ if [[ "${target_platform}" == "linux-aarch64" ]] || [[ "${target_platform}" == "
      export CMAKE_BUILD_PARALLEL_LEVEL=3
 fi
 
+# point to a usable protoc if we're running on a different architecture than the target
+if [[ "${build_platform}" != "${target_platform}" ]]; then
+    EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DProtobuf_PROTOC_EXECUTABLE=$BUILD_PREFIX/bin/protoc"
+fi
+
+# reusable variable for dependencies we cannot yet unvendor
+export READ_RECIPE_META_YAML_WHY_NOT=OFF
+
+# for available switches see
+# https://github.com/apache/arrow/blame/apache-arrow-11.0.0/cpp/cmake_modules/DefineOptions.cmake
 cmake -GNinja \
     -DARROW_BOOST_USE_SHARED=ON \
     -DARROW_BUILD_BENCHMARKS=OFF \
@@ -88,7 +107,10 @@ cmake -GNinja \
     -DARROW_WITH_BROTLI=ON \
     -DARROW_WITH_BZ2=ON \
     -DARROW_WITH_LZ4=ON \
+    -DARROW_WITH_NLOHMANN_JSON=ON \
+    -DARROW_WITH_OPENTELEMETRY=${READ_RECIPE_META_YAML_WHY_NOT} \
     -DARROW_WITH_SNAPPY=ON \
+    -DARROW_WITH_UCX=${ARROW_WITH_UCX} \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \
     -DBUILD_SHARED_LIBS=ON \
@@ -98,7 +120,6 @@ cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX=$PREFIX \
     -DLLVM_TOOLS_BINARY_DIR=$PREFIX/bin \
     -DPARQUET_REQUIRE_ENCRYPTION=ON \
-    -DProtobuf_PROTOC_EXECUTABLE=$BUILD_PREFIX/bin/protoc \
     -DPython3_EXECUTABLE=${PYTHON} \
     ${EXTRA_CMAKE_ARGS} \
     ..
