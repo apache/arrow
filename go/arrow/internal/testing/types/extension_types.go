@@ -122,6 +122,18 @@ type UUIDArray struct {
 	array.ExtensionArrayBase
 }
 
+func (a UUIDArray) ValueString(i int) string {
+	if a.IsNull(i) {
+		return "(null)"
+	}
+	arr := a.Storage().(*array.FixedSizeBinary)
+	uuidStr, err := uuid.FromBytes(arr.Value(i))
+	if err != nil {
+		panic(fmt.Errorf("invalid uuid: %w", err))
+	}
+	return uuidStr.String()
+}
+
 func (a UUIDArray) String() string {
 	arr := a.Storage().(*array.FixedSizeBinary)
 	o := new(strings.Builder)
@@ -223,6 +235,14 @@ type Parametric1Array struct {
 	array.ExtensionArrayBase
 }
 
+func (a Parametric1Array) ValueString(i int) string {
+	arr := a.Storage().(*array.Int32)
+	if a.IsNull(i) {
+		return "(null)"
+	}
+	return fmt.Sprintf("%d", arr.Value(i))
+}
+
 // Parametric2Array is another simple int32 array for use with the Parametric2Type
 // also for testing a parameterized user-defined extension type that utilizes
 // the parameter for defining different types based on the param.
@@ -230,12 +250,22 @@ type Parametric2Array struct {
 	array.ExtensionArrayBase
 }
 
+func (a Parametric2Array) ValueString(i int) string {
+	arr := a.Storage().(*array.Int32)
+	if a.IsNull(i) {
+		return "(null)"
+	}
+	return fmt.Sprintf("%d", arr.Value(i))
+}
+
+
 // A type where ExtensionName is always the same
 type Parametric1Type struct {
 	arrow.ExtensionBase
 
 	param int32
 }
+
 
 func NewParametric1Type(p int32) *Parametric1Type {
 	ret := &Parametric1Type{param: p}
@@ -340,6 +370,18 @@ type ExtStructArray struct {
 	array.ExtensionArrayBase
 }
 
+func (a ExtStructArray) ValueString(i int) string {
+	arr := a.Storage().(*array.Struct)
+	if a.IsNull(i) {
+		return "(null)"
+	}
+	b, err := arr.MarshalJSON()
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
+}
+
 // ExtStructType is an extension type with a non-primitive storage type containing a struct
 // with fields {a: int64, b: float64}
 type ExtStructType struct {
@@ -385,6 +427,18 @@ type DictExtensionArray struct {
 	array.ExtensionArrayBase
 }
 
+func (a DictExtensionArray) ValueString(i int) string {
+	arr := a.Storage().(*array.Dictionary)
+	if a.IsNull(i) {
+		return "(null)"
+	}
+	b, err := arr.MarshalJSON()
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
+}
+
 type DictExtensionType struct {
 	arrow.ExtensionBase
 }
@@ -422,6 +476,14 @@ func (p *DictExtensionType) Deserialize(storage arrow.DataType, data string) (ar
 // SmallintArray is an int16 array
 type SmallintArray struct {
 	array.ExtensionArrayBase
+}
+
+func (a SmallintArray) ValueString(i int) string {
+	if a.IsNull(i) {
+		return "(null)"
+	}
+	arr := a.Storage().(*array.Int16)
+	return fmt.Sprintf("%d", arr.Value(i))
 }
 
 type SmallintType struct {
