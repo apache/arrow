@@ -328,7 +328,8 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             # Check if first element is pa.Scalar, use as_py() on whole sequence
             if isinstance(obj[0], Scalar):
                 obj_as_py = [s.as_py() for s in obj]
-                result = _sequence_to_array(obj_as_py, mask, size, type, pool, c_from_pandas)
+                result = _sequence_to_array(
+                    obj_as_py, mask, size, type, pool, c_from_pandas)
             else:
                 raise
 
