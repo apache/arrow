@@ -467,11 +467,11 @@ struct DictEncoderTraits<FLBAType> {
 static constexpr int32_t kInitialHashTableSize = 1 << 10;
 
 int RlePreserveBufferSize(int num_values, int bit_width) {
-  // Note: because of the way RleEncoder::CheckBufferFull() is called, we have to
-  // reserve
-  // an extra "RleEncoder::MinBufferSize" bytes. These extra bytes won't be used
-  // but not reserving them would cause the encoder to fail.
-  return 1 + ::arrow::util::RleEncoder::MaxBufferSize(bit_width, num_values) +
+  // Note: because of the way RleEncoder::CheckBufferFull()
+  // is called, we have to reserve an extra "RleEncoder::MinBufferSize"
+  // bytes. These extra bytes won't be used but not reserving them
+  // would cause the encoder to fail.
+  return ::arrow::util::RleEncoder::MaxBufferSize(bit_width, num_values) +
          ::arrow::util::RleEncoder::MinBufferSize(bit_width);
 }
 
@@ -488,6 +488,10 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
  public:
   typedef typename DType::c_type T;
+
+  /// In data page, the bit width used to encode the entry
+  /// ids stored as 1 byte (max bit width = 32).
+  constexpr static int32_t kDataPageBitWidthBytes = 1;
 
   explicit DictEncoderImpl(const ColumnDescriptor* desc, MemoryPool* pool)
       : EncoderImpl(desc, Encoding::PLAIN_DICTIONARY, pool),
@@ -513,7 +517,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
     encoder.Flush();
 
     ClearIndices();
-    return 1 + encoder.len();
+    return kDataPageBitWidthBytes + encoder.len();
   }
 
   void set_type_length(int type_length) { this->type_length_ = type_length; }
@@ -521,7 +525,8 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   /// Returns a conservative estimate of the number of bytes needed to encode the buffered
   /// indices. Used to size the buffer passed to WriteIndices().
   int64_t EstimatedDataEncodedSize() override {
-    return RlePreserveBufferSize(static_cast<int>(buffered_indices_.size()), bit_width());
+    return kDataPageBitWidthBytes +
+           RlePreserveBufferSize(static_cast<int>(buffered_indices_.size()), bit_width());
   }
 
   /// The minimum bit width required to encode the currently buffered indices.
@@ -2392,6 +2397,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::Accumulator* out) override {
     if (null_count != 0) {
+      // TODO(ARROW-34660): implement DecodeArrow with null slots.
       ParquetException::NYI("Delta bit pack DecodeArrow with null slots");
     }
     std::vector<T> values(num_values);
@@ -2404,6 +2410,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::DictAccumulator* out) override {
     if (null_count != 0) {
+      // TODO(ARROW-34660): implement DecodeArrow with null slots.
       ParquetException::NYI("Delta bit pack DecodeArrow with null slots");
     }
     std::vector<T> values(num_values);
@@ -2990,6 +2997,7 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
                   int64_t valid_bits_offset,
                   typename EncodingTraits<BooleanType>::Accumulator* out) override {
     if (null_count != 0) {
+      // TODO(ARROW-34660): implement DecodeArrow with null slots.
       ParquetException::NYI("RleBoolean DecodeArrow with null slots");
     }
     constexpr int kBatchSize = 1024;
