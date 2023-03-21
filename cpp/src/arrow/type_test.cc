@@ -31,8 +31,8 @@
 #include "arrow/memory_pool.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/util.h"
 #include "arrow/testing/random.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
@@ -387,9 +387,9 @@ TEST(TestFieldPath, GetForTable) {
 
   const int length = 100;
   auto f0 = field("alpha", int32());
-  auto f1 = field("beta",  int32());
+  auto f1 = field("beta", int32());
   auto f2 = field("alpha", int32());
-  auto f3 = field("beta",  int32());
+  auto f3 = field("beta", int32());
   auto schema = arrow::schema({f0, f1, f2, f3});
 
   arrow::random::RandomArrayGenerator gen_{42};
@@ -411,11 +411,9 @@ TEST(TestFieldPath, GetForTable) {
     ASSERT_OK_AND_ASSIGN(auto field_path_column, FieldPath({index}).Get(*table_ptr));
     EXPECT_TRUE(field_path_column->Equals(table_ptr->column(index)));
   }
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  HasSubstr("empty indices cannot be traversed"),
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("empty indices cannot be traversed"),
                                   FieldPath().Get(*table_ptr));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, 
-                                  HasSubstr("index out of range"),
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, HasSubstr("index out of range"),
                                   FieldPath({num_columns * 2}).Get(*table_ptr));
 }
 
@@ -424,9 +422,9 @@ TEST(TestFieldPath, GetForRecordBatch) {
 
   const int length = 100;
   auto f0 = field("alpha", int32());
-  auto f1 = field("beta",  int32());
+  auto f1 = field("beta", int32());
   auto f2 = field("alpha", int32());
-  auto f3 = field("beta",  int32());
+  auto f3 = field("beta", int32());
   auto schema = arrow::schema({f0, f1, f2, f3});
 
   arrow::random::RandomArrayGenerator gen_{42};
@@ -444,15 +442,13 @@ TEST(TestFieldPath, GetForRecordBatch) {
   auto record_batch_schema = record_batch_ptr->schema();
   for (int index = 0; index < num_columns; ++index) {
     ASSERT_OK_AND_EQ(record_batch_schema->field(index), FieldPath({index}).Get(*schema));
-    ASSERT_OK_AND_ASSIGN(auto field_path_column, 
+    ASSERT_OK_AND_ASSIGN(auto field_path_column,
                          FieldPath({index}).Get(*record_batch_ptr));
     EXPECT_TRUE(field_path_column->Equals(record_batch_ptr->column(index)));
   }
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  HasSubstr("empty indices cannot be traversed"),
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("empty indices cannot be traversed"),
                                   FieldPath().Get(*record_batch_ptr));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, 
-                                  HasSubstr("index out of range"),
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, HasSubstr("index out of range"),
                                   FieldPath({num_columns * 2}).Get(*record_batch_ptr));
 }
 
@@ -478,9 +474,9 @@ TEST(TestFieldRef, Basics) {
 TEST(TestFieldRef, FindAllForTable) {
   const int length = 100;
   auto f0 = field("alpha", int32());
-  auto f1 = field("beta",  int32());
+  auto f1 = field("beta", int32());
   auto f2 = field("alpha", int32());
-  auto f3 = field("beta",  int32());
+  auto f3 = field("beta", int32());
   auto schema = arrow::schema({f0, f1, f2, f3});
 
   arrow::random::RandomArrayGenerator gen_{42};
@@ -510,9 +506,9 @@ TEST(TestFieldRef, FindAllForTable) {
 TEST(TestFieldRef, FindAllForRecordBatch) {
   const int length = 100;
   auto f0 = field("alpha", int32());
-  auto f1 = field("beta",  int32());
+  auto f1 = field("beta", int32());
   auto f2 = field("alpha", int32());
-  auto f3 = field("beta",  int32());
+  auto f3 = field("beta", int32());
   auto schema = arrow::schema({f0, f1, f2, f3});
 
   arrow::random::RandomArrayGenerator gen_{42};
@@ -527,12 +523,11 @@ TEST(TestFieldRef, FindAllForRecordBatch) {
   // lookup by index returns Indices{index}
   auto schema_num_fields = record_batch_ptr->schema()->num_fields();
   for (int index = 0; index < schema_num_fields; ++index) {
-    EXPECT_THAT(FieldRef(index).FindAll(*record_batch_ptr), 
+    EXPECT_THAT(FieldRef(index).FindAll(*record_batch_ptr),
                 ElementsAre(FieldPath{index}));
   }
   // out of range index results in a failure to match
-  EXPECT_THAT(FieldRef(schema_num_fields * 2).FindAll(*record_batch_ptr), 
-              ElementsAre());
+  EXPECT_THAT(FieldRef(schema_num_fields * 2).FindAll(*record_batch_ptr), ElementsAre());
 
   //// lookup by name returns the Indices of both matching fields
   EXPECT_THAT(FieldRef("alpha").FindAll(*record_batch_ptr),

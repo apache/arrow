@@ -1277,19 +1277,19 @@ TEST_P(GroupBy, CountOnly) {
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
-    auto table =
-        TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
+    auto table = TableFromJSON(
+        schema({field("argument", float64()), field("key", int64())}), {R"([
     [1.0,   1],
     [null,  1]
                         ])",
-                                                                                      R"([
+                                                                        R"([
     [0.0,   2],
     [null,  3],
     [4.0,   null],
     [3.25,  1],
     [0.125, 2]
                         ])",
-                                                                                      R"([
+                                                                        R"([
     [-0.25, 2],
     [0.75,  null],
     [null,  3]
@@ -1363,19 +1363,19 @@ TEST_P(GroupBy, SumOnly) {
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
-    auto table =
-        TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
+    auto table = TableFromJSON(
+        schema({field("argument", float64()), field("key", int64())}), {R"([
     [1.0,   1],
     [null,  1]
                         ])",
-                                                                                      R"([
+                                                                        R"([
     [0.0,   2],
     [null,  3],
     [4.0,   null],
     [3.25,  1],
     [0.125, 2]
                         ])",
-                                                                                      R"([
+                                                                        R"([
     [-0.25, 2],
     [0.75,  null],
     [null,  3]
@@ -1483,19 +1483,19 @@ TEST_P(GroupBy, MeanOnly) {
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
-    auto table =
-        TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
+    auto table = TableFromJSON(
+        schema({field("argument", float64()), field("key", int64())}), {R"([
     [1.0,   1],
     [null,  1]
                         ])",
-                                                                                      R"([
+                                                                        R"([
     [0.0,   2],
     [null,  3],
     [4.0,   null],
     [3.25,  1],
     [0.125, 2]
                         ])",
-                                                                                      R"([
+                                                                        R"([
     [-0.25, 2],
     [0.75,  null],
     [null,  3]
@@ -1862,8 +1862,8 @@ TEST_P(GroupBy, TDigestDecimal) {
 
 TEST_P(GroupBy, ApproximateMedian) {
   for (const auto& type : {float64(), int8()}) {
-    auto batch =
-        RecordBatchFromJSON(schema({field("argument", type), field("key", int64())}), R"([
+    auto batch = RecordBatchFromJSON(
+        schema({field("argument", type), field("key", int64())}), R"([
     [1,    1],
     [null, 1],
     [0,    2],
@@ -2485,12 +2485,12 @@ TEST_P(GroupBy, AnyAndAll) {
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
-    auto table =
-        TableFromJSON(schema({field("argument", boolean()), field("key", int64())}), {R"([
+    auto table = TableFromJSON(
+        schema({field("argument", boolean()), field("key", int64())}), {R"([
     [true,  1],
     [null,  1]
                         ])",
-                                                                                      R"([
+                                                                        R"([
     [false, 2],
     [null,  3],
     [null,  4],
@@ -2500,7 +2500,7 @@ TEST_P(GroupBy, AnyAndAll) {
     [true,  1],
     [true,  2]
                         ])",
-                                                                                      R"([
+                                                                        R"([
     [false, 2],
     [false, null],
     [null,  3]
@@ -2618,33 +2618,33 @@ TEST_P(GroupBy, CountDistinct) {
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
-    auto table =
-        TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
+    auto table = TableFromJSON(
+        schema({field("argument", float64()), field("key", int64())}), {R"([
     [1,    1],
     [1,    1]
 ])",
-                                                                                      R"([
+                                                                        R"([
     [0,    2],
     [null, 3],
     [null, 3]
 ])",
-                                                                                      R"([
+                                                                        R"([
     [null, 4],
     [null, 4]
 ])",
-                                                                                      R"([
+                                                                        R"([
     [4,    null],
     [1,    3]
 ])",
-                                                                                      R"([
+                                                                        R"([
     [0,    2],
     [-1,   2]
 ])",
-                                                                                      R"([
+                                                                        R"([
     [1,    null],
     [NaN,  3]
   ])",
-                                                                                      R"([
+                                                                        R"([
     [2,    null],
     [3,    null]
   ])"});
@@ -2754,16 +2754,16 @@ TEST_P(GroupBy, CountDistinct) {
                       aggregated_and_grouped,
                       /*verbose=*/true);
 
-    table =
-        TableFromJSON(schema({field("argument", utf8()), field("key", int64())}), {
-                                                                                      R"([
+    table = TableFromJSON(schema({field("argument", utf8()), field("key", int64())}),
+                          {
+                              R"([
     ["foo",  1],
     ["foo",  1],
     ["bar",  2],
     ["bar",  2],
     ["spam", 2]
 ])",
-                                                                                  });
+                          });
 
     ASSERT_OK_AND_ASSIGN(
         aggregated_and_grouped,
@@ -2904,15 +2904,15 @@ TEST_P(GroupBy, Distinct) {
     AssertDatumsEqual(ArrayFromJSON(utf8(), R"([])"), sort(*null_arr->value_slice(4)),
                       /*verbose=*/true);
 
-    table =
-        TableFromJSON(schema({field("argument", utf8()), field("key", int64())}), {
-                                                                                      R"([
+    table = TableFromJSON(schema({field("argument", utf8()), field("key", int64())}),
+                          {
+                              R"([
     ["foo",  1],
     ["foo",  1],
     ["bar",  2],
     ["bar",  2]
 ])",
-                                                                                  });
+                          });
     ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
                          AltGroupBy(
                              {

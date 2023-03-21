@@ -951,18 +951,20 @@ TEST_F(TestUnaryRoundArithmeticDecimal, RoundToMultipleHalfToOdd) {
     // There is no exact halfway point, check what happens
     set_multiple(ty, 25);
     CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"), &options);
-    CheckScalar(func, {values},
-                ArrayFromJSON(ty, R"(["-0.50", "-0.25", "-0.25", "-0.25", "-0.00", "0.00",
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(ty, R"(["-0.50", "-0.25", "-0.25", "-0.25", "-0.00", "0.00",
                               "0.00", "0.25", "0.25", "0.25", "0.50", null])"),
-                &options);
+        &options);
     set_multiple(ty, 1);
     CheckScalar(func, {values}, values, &options);
     set_multiple(ty, 24);
     CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"), &options);
-    CheckScalar(func, {values},
-                ArrayFromJSON(ty, R"(["-0.48", "-0.48", "-0.24", "-0.24", "-0.24", "0.00",
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(ty, R"(["-0.48", "-0.48", "-0.24", "-0.24", "-0.24", "0.00",
                               "0.24", "0.24", "0.24", "0.48", "0.48", null])"),
-                &options);
+        &options);
     set_multiple(decimal128(3, 1), 1);
     CheckScalar(
         func, {values},

@@ -35,9 +35,9 @@
 #include "arrow/array.h"
 #include "arrow/compare.h"
 #include "arrow/record_batch.h"
-#include "arrow/table.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
@@ -1163,17 +1163,26 @@ struct FieldPathGetImpl {
 
   static Result<std::shared_ptr<ChunkedArray>> Get(const FieldPath* path,
                                                    const ChunkedArrayVector& table) {
-    arrow::ChunkedArrayVector chunked_array_vector_buffer;
+    ChunkedArrayVector chunked_array_vector_buffer;
+    Status status;
 
-    return FieldPathGetImpl::Get(
-      path, &table,
-      [&chunked_array_vector_buffer]
-      (const std::shared_ptr<ChunkedArray>& data) -> const ChunkedArrayVector * {
-          auto chunked_array_vector = data->Flatten();
+    auto result = FieldPathGetImpl::Get(
+        path, &table,
+        [&chunked_array_vector_buffer,
+         &status](const std::shared_ptr<ChunkedArray>& chunked_array)
+            -> const ChunkedArrayVector* {
+          auto maybe_chunked_array_vector = chunked_array->Flatten();
+          if (!maybe_chunked_array_vector.ok()) {
+            status = maybe_chunked_array_vector.status();
+            return nullptr;
+          }
 
-          chunked_array_vector_buffer = chunked_array_vector.ValueUnsafe();
+          chunked_array_vector_buffer = maybe_chunked_array_vector.MoveValueUnsafe();
           return &chunked_array_vector_buffer;
-      });
+        });
+
+    ARROW_RETURN_NOT_OK(status);
+    return result;
   }
 
   static Result<std::shared_ptr<ArrayData>> Get(const FieldPath* path,
@@ -1223,7 +1232,6 @@ Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
 
 Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const Table& table) const {
   ARROW_ASSIGN_OR_RAISE(auto data, FieldPathGetImpl::Get(this, table.columns()));
-  ARROW_CHECK_OK(data->ValidateFull());
   return data;
 }
 

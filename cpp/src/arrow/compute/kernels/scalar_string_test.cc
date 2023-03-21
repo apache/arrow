@@ -1140,7 +1140,8 @@ TYPED_TEST(TestStringKernels, BinaryRepeatWithScalarRepeat) {
                                   "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
   std::vector<std::pair<int, std::string>> nrepeats_and_expected{{
       {0, R"(["", null, "", "", "", "", "", "", "", ""])"},
-      {1, R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!",
+      {1,
+       R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!",
               "$. A3", "!ɑⱤⱤow"])"},
       {4, R"(["aAazZæÆ&aAazZæÆ&aAazZæÆ&aAazZæÆ&", null, "", "bbbb",
               "ɑɽⱤoWɑɽⱤoWɑɽⱤoWɑɽⱤoW", "ıIıIıIıI", "ⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺ",
