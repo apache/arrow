@@ -329,6 +329,23 @@ ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
 
 }  // namespace internal
 
+namespace {
+
+bool IsSortNullsFirst(const substrait::SortField::SortDirection& direction) {
+  return direction % 2 == 1;
+}
+
+compute::SortOrder SortOrderFromDirection(
+    const substrait::SortField::SortDirection& direction) {
+  if (direction < 3) {
+    return compute::SortOrder::Ascending;
+  } else {
+    return compute::SortOrder::Descending;
+  }
+}
+
+}  // namespace
+
 Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet& ext_set,
                                   const ConversionOptions& conversion_options) {
   static bool dataset_init = false;
@@ -713,6 +730,95 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       DeclarationInfo join_declaration{std::move(join_dec), join_schema};
 
       return ProcessEmit(join, join_declaration, join_schema);
+    }
+    case substrait::Rel::RelTypeCase::kFetch: {
+      const auto& fetch = rel.fetch();
+      RETURN_NOT_OK(CheckRelCommon(fetch, conversion_options));
+
+      if (!fetch.has_input()) {
+        return Status::Invalid("substrait::FetchRel with no input relation");
+      }
+
+      ARROW_ASSIGN_OR_RAISE(auto input,
+                            FromProto(fetch.input(), ext_set, conversion_options));
+
+      int64_t offset = fetch.offset();
+      int64_t count = fetch.count();
+
+      acero::Declaration fetch_dec{
+          "fetch", {input.declaration}, acero::FetchNodeOptions(offset, count)};
+
+      DeclarationInfo fetch_declaration{std::move(fetch_dec), input.output_schema};
+      return ProcessEmit(fetch, std::move(fetch_declaration),
+                         fetch_declaration.output_schema);
+    }
+    case substrait::Rel::RelTypeCase::kSort: {
+      const auto& sort = rel.sort();
+      RETURN_NOT_OK(CheckRelCommon(sort, conversion_options));
+
+      if (!sort.has_input()) {
+        return Status::Invalid("substrait::SortRel with no input relation");
+      }
+
+      ARROW_ASSIGN_OR_RAISE(auto input,
+                            FromProto(sort.input(), ext_set, conversion_options));
+
+      if (sort.sorts_size() == 0) {
+        return Status::Invalid("substrait::SortRel with no sorts");
+      }
+
+      std::vector<compute::SortKey> sort_keys;
+      compute::NullPlacement null_placement;
+      bool first = true;
+      for (const auto& sort : sort.sorts()) {
+        if (sort.direction() == substrait::SortField::SortDirection::
+                                    SortField_SortDirection_SORT_DIRECTION_UNSPECIFIED) {
+          return Status::Invalid(
+              "substrait::SortRel with sort that had unspecified direction");
+        }
+        if (sort.direction() == substrait::SortField::SortDirection::
+                                    SortField_SortDirection_SORT_DIRECTION_CLUSTERED) {
+          return Status::NotImplemented(
+              "substrait::SortRel with sort with clustered sort direction");
+        }
+        // Substrait allows null placement to differ for each field.  Acero expects it to
+        // be consistent across all fields.  So we grab the null placement from the first
+        // key and verify all other keys have the same null placement
+        if (first) {
+          null_placement = IsSortNullsFirst(sort.direction())
+                               ? compute::NullPlacement::AtStart
+                               : compute::NullPlacement::AtEnd;
+        } else {
+          if ((null_placement == compute::NullPlacement::AtStart &&
+               !IsSortNullsFirst(sort.direction())) ||
+              (null_placement == compute::NullPlacement::AtEnd &&
+               IsSortNullsFirst(sort.direction()))) {
+            return Status::NotImplemented(
+                "substrait::SortRel with ordering with mixed null placement");
+          }
+        }
+        if (sort.sort_kind_case() != substrait::SortField::SortKindCase::kDirection) {
+          return Status::NotImplemented("substrait::SortRel with custom sort function");
+        }
+        ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
+                              FromProto(sort.expr(), ext_set, conversion_options));
+        const FieldRef* field_ref = expr.field_ref();
+        if (field_ref) {
+          sort_keys.push_back(
+              compute::SortKey(*field_ref, SortOrderFromDirection(sort.direction())));
+        } else {
+          return Status::Invalid("Sort key expressions must be a direct reference.");
+        }
+      }
+
+      acero::Declaration sort_dec{"order_by",
+                                  {input.declaration},
+                                  acero::OrderByNodeOptions(compute::Ordering(
+                                      std::move(sort_keys), null_placement))};
+
+      DeclarationInfo sort_declaration{std::move(sort_dec), input.output_schema};
+      return ProcessEmit(sort, std::move(sort_declaration),
+                         sort_declaration.output_schema);
     }
     case substrait::Rel::RelTypeCase::kAggregate: {
       const auto& aggregate = rel.aggregate();
