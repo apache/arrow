@@ -96,12 +96,13 @@ download_binary <- function(lib) {
 # of action based on the current system. Other values you can set it to:
 # * "FALSE" (not case-sensitive), to skip this option altogether
 # * "TRUE" (not case-sensitive), to try to discover your current OS, or
-# * Some other string: a "distro-version" that corresponds to a binary that is
-#   available, to override what this function may discover by default.
+# * Some other string: a "linux-openssl-${OPENSSL_VERSION}" that corresponds to
+#   a binary that is available, to override what this function may discover by
+#   default.
 #   Possible values are:
-#    * "centos-7" (gcc 8 (devtoolset), _GLIBCXX_USE_CXX11_ABI=0, openssl 1.0)
-#    * "centos-7-openssl-1.1" (gcc 8 (devtoolset), _GLIBCXX_USE_CXX11_ABI=0, openssl 1.1)
-#    * "ubuntu-22.04" (openssl 3)
+#    * "linux-openssl-1.0" (OpenSSL 1.0)
+#    * "linux-openssl-1.1" (OpenSSL 1.1)
+#    * "linux-openssl-3.0" (OpenSSL 3.0)
 #   These string values, along with `NULL`, are the potential return values of
 #   this function.
 identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()) {
@@ -160,7 +161,7 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
   }
 }
 
-# This tests that curl and openssl are present (bc we can include their headers)
+# This tests that curl and OpenSSL are present (bc we can include their headers)
 # and it checks for other versions/features and raises errors that we grep for
 test_for_curl_and_openssl <- "
 #include <ciso646>
@@ -195,7 +196,7 @@ determine_binary_from_stderr <- function(errs) {
     # There was no error in compiling: so we found libcurl and openssl >= 1.1,
     # openssl is < 3.0
     cat("*** Found libcurl and openssl >= 1.1\n")
-    return("centos-7-openssl-1.1")
+    return("linux-openssl-1.1")
     # Else, check for dealbreakers:
   } else if (any(grepl("Using libc++", errs, fixed = TRUE))) {
     # Our binaries are all built with GNU stdlib so they fail with libc++
@@ -205,18 +206,18 @@ determine_binary_from_stderr <- function(errs) {
     cat("*** libcurl not found\n")
     return(NULL)
   } else if (header_not_found("openssl/opensslv", errs)) {
-    cat("*** openssl not found\n")
+    cat("*** OpenSSL not found\n")
     return(NULL)
   } else if (any(grepl("OpenSSL version too old", errs))) {
-    cat("*** openssl found but version >= 1.0.2 is required for some features\n")
+    cat("*** OpenSSL found but version >= 1.0.2 is required for some features\n")
     return(NULL)
     # Else, determine which other binary will work
   } else if (any(grepl("Using OpenSSL version 1.0", errs))) {
-    cat("*** Found libcurl and openssl < 1.1\n")
-    return("centos-7")
+    cat("*** Found libcurl and OpenSSL < 1.1\n")
+    return("linux-openssl-1.0")
   } else if (any(grepl("Using OpenSSL version 3", errs))) {
-    cat("*** Found libcurl and openssl >= 3.0.0\n")
-    return("ubuntu-22.04")
+    cat("*** Found libcurl and OpenSSL >= 3.0.0\n")
+    return("linux-openssl-3.0")
   }
   NULL
 }
