@@ -50,21 +50,24 @@ final class JniWrapper {
   public native void executeSerializedPlanLocalFiles(String planInput, long memoryAddressOutput);
 
   /**
+   * Consume the binary Substrait Plan that contains Local Files and export the RecordBatchReader into
+   * C-Data Interface ArrowArrayStream.
+   *
+   * @param planInput the binary Substrait plan.
+   * @param memoryAddressOutput the memory address where RecordBatchReader is exported.
+   */
+  public native void executeSerializedPlanLocalFiles(ByteBuffer planInput, long memoryAddressOutput);
+
+  /**
    * Consume the JSON Substrait Plan that contains Named Tables and export the RecordBatchReader into
    * C-Data Interface ArrowArrayStream.
    *
    * @param planInput the JSON Substrait plan.
    * @param mapTableToMemoryAddressInput the mapping name of Tables Name on position `i` and theirs Memory Address
    *                                     representation on `i+1` position linearly.
-   *                              .
-   * <pre>{@code
-   * public class Example {
-   *    String[] mapTableToMemoryAddress = new String[2];
-   *    mapTableToMemoryAddress[0]="NATION"
-   *    mapTableToMemoryAddress[1]="140650250895360"
-   * }
-   * }
-   * </pre>
+   * <pre>{@code String[] mapTableToMemoryAddress = new String[2];
+   * mapTableToMemoryAddress[0]="NATION";
+   * mapTableToMemoryAddress[1]="140650250895360";}</pre>
    * @param memoryAddressOutput the memory address where RecordBatchReader is exported.
    *
    */
@@ -78,15 +81,9 @@ final class JniWrapper {
    * @param planInput the binary Substrait plan.
    * @param mapTableToMemoryAddressInput the mapping name of Tables Name on position `i` and theirs Memory Address
    *                                     representation on `i+1` position linearly.
-   *                              .
-   * <pre>{@code
-   * public class Example {
-   *    String[] mapTableToMemoryAddress = new String[2];
-   *    mapTableToMemoryAddress[0]="NATION"
-   *    mapTableToMemoryAddress[1]="140650250895360"
-   * }
-   * }
-   * </pre>
+   * <pre>{@code String[] mapTableToMemoryAddress = new String[2];
+   * mapTableToMemoryAddress[0]="NATION";
+   * mapTableToMemoryAddress[1]="140650250895360";}</pre>
    * @param memoryAddressOutput the memory address where RecordBatchReader is exported.
    */
   public native void executeSerializedPlanNamedTables(ByteBuffer planInput, String[] mapTableToMemoryAddressInput,

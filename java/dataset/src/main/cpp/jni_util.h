@@ -18,7 +18,6 @@
 #pragma once
 
 #include <jni.h>
-#include <unordered_map>
 
 #include "arrow/array.h"
 #include "arrow/io/api.h"
@@ -46,8 +45,6 @@ arrow::Result<jmethodID> GetStaticMethodID(JNIEnv* env, jclass this_class,
 std::string JStringToCString(JNIEnv* env, jstring string);
 
 std::vector<std::string> ToStringVector(JNIEnv* env, jobjectArray& str_array);
-
-std::unordered_map<std::string, long> ToMapTableToArrowReader(JNIEnv* env, jobjectArray& str_array);
 
 arrow::Result<jbyteArray> ToSchemaByteArray(JNIEnv* env,
                                             std::shared_ptr<arrow::Schema> schema);

@@ -331,18 +331,6 @@ std::vector<std::string> ToStringVector(JNIEnv* env, jobjectArray& str_array) {
   return vector;
 }
 
-std::unordered_map<std::string, long> ToMapTableToArrowReader(JNIEnv* env, jobjectArray& str_array) {
-  std::unordered_map<std::string, long> map_table_to_memory_address;
-  int length = env->GetArrayLength(str_array);
-  for (int pos = 0; pos < length; pos++) {
-    auto j_string_key = reinterpret_cast<jstring>(env->GetObjectArrayElement(str_array, pos));
-    pos++;
-    auto j_string_value = reinterpret_cast<jstring>(env->GetObjectArrayElement(str_array, pos));
-    map_table_to_memory_address[JStringToCString(env, j_string_key)] = std::stol(JStringToCString(env, j_string_value));
-  }
-  return map_table_to_memory_address;
-}
-
 arrow::Result<jbyteArray> ToSchemaByteArray(JNIEnv* env,
                                             std::shared_ptr<arrow::Schema> schema) {
   ARROW_ASSIGN_OR_RAISE(

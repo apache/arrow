@@ -29,6 +29,7 @@ import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.junit.After;
@@ -36,8 +37,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
 
-public class TestTpchSubstraitConsumer extends TestDataset {
-  private RootAllocator allocator = null;
+public class TestTpchSubstraitAceroConsumer extends TestDataset {
+  private BufferAllocator allocator = null;
 
   @Before
   public void setUp() {
@@ -49,7 +50,7 @@ public class TestTpchSubstraitConsumer extends TestDataset {
     allocator.close();
   }
 
-  protected RootAllocator rootAllocator() {
+  protected BufferAllocator rootAllocator() {
     return allocator;
   }
 
@@ -67,7 +68,7 @@ public class TestTpchSubstraitConsumer extends TestDataset {
       Map<String, ArrowReader> mapReaderToTable = new HashMap<>();
       mapReaderToTable.put("LINEITEM", reader);
       Assertions.assertThrows(RuntimeException.class, () -> {
-        try (ArrowReader arrowReader = new SubstraitConsumer(rootAllocator()).runQueryNamedTables(
+        try (ArrowReader arrowReader = new SubstraitAceroConsumer(rootAllocator()).runQuery(
             getSubstraitTpchPlan("01.json"),
             mapReaderToTable
         )) {
@@ -96,7 +97,7 @@ public class TestTpchSubstraitConsumer extends TestDataset {
       substraitPlan.put(plan);
       // run query
       Assertions.assertThrows(RuntimeException.class, () -> {
-        try (ArrowReader arrowReader = new SubstraitConsumer(rootAllocator()).runQueryNamedTables(
+        try (ArrowReader arrowReader = new SubstraitAceroConsumer(rootAllocator()).runQuery(
             substraitPlan,
             mapReaderToTable
         )) {
@@ -155,7 +156,7 @@ public class TestTpchSubstraitConsumer extends TestDataset {
       mapTableToArrowReader.put("NATION", readerNation);
       mapTableToArrowReader.put("REGION", readerRegion);
       Assertions.assertThrows(RuntimeException.class, () -> {
-        try (ArrowReader arrowReader = new SubstraitConsumer(rootAllocator()).runQueryNamedTables(
+        try (ArrowReader arrowReader = new SubstraitAceroConsumer(rootAllocator()).runQuery(
             getSubstraitTpchPlan("02.json"),
             mapTableToArrowReader
         )) {
@@ -197,7 +198,7 @@ public class TestTpchSubstraitConsumer extends TestDataset {
       mapTableToArrowReader.put("ORDERS", readerOrders);
       mapTableToArrowReader.put("LINEITEM", readerLineitem);
       Assertions.assertThrows(RuntimeException.class, () -> {
-        try (ArrowReader arrowReader = new SubstraitConsumer(rootAllocator()).runQueryNamedTables(
+        try (ArrowReader arrowReader = new SubstraitAceroConsumer(rootAllocator()).runQuery(
             getSubstraitTpchPlan("03.json"),
             mapTableToArrowReader
         )) {

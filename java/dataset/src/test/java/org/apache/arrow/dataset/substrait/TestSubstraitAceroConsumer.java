@@ -20,8 +20,9 @@ package org.apache.arrow.dataset.substrait;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -35,12 +36,22 @@ import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-public class TestSubstraitConsumer extends TestDataset {
+public class TestSubstraitAceroConsumer extends TestDataset {
   private RootAllocator allocator = null;
+
+  private static String planReplaceLocalFileURI(String plan, String uri) {
+    StringBuilder builder = new StringBuilder(plan);
+    builder.replace(builder.indexOf("FILENAME_PLACEHOLDER"),
+        builder.indexOf("FILENAME_PLACEHOLDER") + "FILENAME_PLACEHOLDER".length(), uri);
+    return builder.toString();
+  }
 
   @Before
   public void setUp() {
@@ -58,23 +69,42 @@ public class TestSubstraitConsumer extends TestDataset {
 
   @Test
   public void testRunQueryLocalFiles() throws Exception {
-    try (ArrowReader arrowReader = new SubstraitConsumer(rootAllocator())
-        .runQueryLocalFiles(
+    final Schema schema = new Schema(Arrays.asList(
+        Field.nullable("FieldPath(0)", new ArrowType.Int(64, true)),
+        Field.nullable("FieldPath(1)", new ArrowType.FixedSizeBinary(25)),
+        Field.nullable("FieldPath(2)", new ArrowType.Int(64, true)),
+        Field.nullable("FieldPath(3)", new ArrowType.Utf8())
+    ));
+    try (ArrowReader arrowReader = new SubstraitAceroConsumer(rootAllocator())
+        .runQuery(
             planReplaceLocalFileURI(
-                getSubstraitPlan("local_files_binary.json"),
-                getNamedTableUri("binary.parquet")
-            )
+                getSubstraitPlan("local_files_nation.json"),
+                getNamedTableUri("nation.parquet")
+            ),
+            Collections.EMPTY_MAP
         )
     ) {
+      assertEquals(schema.toString(), arrowReader.getVectorSchemaRoot().getSchema().toString());
       while (arrowReader.loadNextBatch()) {
-        assertEquals(arrowReader.getVectorSchemaRoot().getRowCount(), 12);
+        assertEquals(arrowReader.getVectorSchemaRoot().getRowCount(), 25);
       }
     }
   }
 
   @Test
+  public void testRunQueryBinaryLocalFiles() throws Exception {
+    //FIXME! Implement test
+  }
+
+  @Test
   public void testRunQueryNamedTableNation() throws Exception {
     // Query: SELECT * from nation
+    final Schema schema = new Schema(Arrays.asList(
+        Field.nullable("FieldPath(0)", new ArrowType.Int(32, true)),
+        Field.nullable("FieldPath(1)", new ArrowType.Utf8()),
+        Field.nullable("FieldPath(2)", new ArrowType.Int(32, true)),
+        Field.nullable("FieldPath(3)", new ArrowType.Utf8())
+    ));
     ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -85,10 +115,11 @@ public class TestSubstraitConsumer extends TestDataset {
     ) {
       Map<String, ArrowReader> mapTableToArrowReader = new HashMap<>();
       mapTableToArrowReader.put("NATION", reader);
-      try (ArrowReader arrowReader = new SubstraitConsumer(rootAllocator()).runQueryNamedTables(
+      try (ArrowReader arrowReader = new SubstraitAceroConsumer(rootAllocator()).runQuery(
           getSubstraitPlan("named_table_nation.json"),
           mapTableToArrowReader
       )) {
+        assertEquals(schema.toString(), arrowReader.getVectorSchemaRoot().getSchema().toString());
         while (arrowReader.loadNextBatch()) {
           assertEquals(arrowReader.getVectorSchemaRoot().getRowCount(), 25);
           assertTrue(arrowReader.getVectorSchemaRoot().contentToTSVString().contains("MOROCCO"));
@@ -101,6 +132,12 @@ public class TestSubstraitConsumer extends TestDataset {
   public void testRunQueryNamedTableNationAndCustomer() throws Exception {
     // Query:
     // SELECT n.n_name, c.c_name, c.c_phone, c.c_address FROM nation n JOIN customer c ON n.n_nationkey = c.c_nationkey
+    final Schema schema = new Schema(Arrays.asList(
+        Field.nullable("FieldPath(1)", new ArrowType.Utf8()),
+        Field.nullable("FieldPath(5)", new ArrowType.Utf8()),
+        Field.nullable("FieldPath(8)", new ArrowType.Utf8()),
+        Field.nullable("FieldPath(6)", new ArrowType.Utf8())
+    ));
     ScanOptions optionsNations = new ScanOptions(/*batchSize*/ 32768);
     ScanOptions optionsCustomer = new ScanOptions(/*batchSize*/ 32768);
     try (
@@ -118,10 +155,11 @@ public class TestSubstraitConsumer extends TestDataset {
       Map<String, ArrowReader> mapTableToArrowReader = new HashMap<>();
       mapTableToArrowReader.put("NATION", readerNation);
       mapTableToArrowReader.put("CUSTOMER", readerCustomer);
-      try (ArrowReader arrowReader = new SubstraitConsumer(rootAllocator()).runQueryNamedTables(
+      try (ArrowReader arrowReader = new SubstraitAceroConsumer(rootAllocator()).runQuery(
           getSubstraitPlan("named_table_nation_customer.json"),
           mapTableToArrowReader
       )) {
+        assertEquals(schema.toString(), arrowReader.getVectorSchemaRoot().getSchema().toString());
         while (arrowReader.loadNextBatch()) {
           assertEquals(arrowReader.getVectorSchemaRoot().getRowCount(), 15000);
           assertTrue(arrowReader.getVectorSchemaRoot().contentToTSVString().contains("Customer#000014924"));
@@ -133,6 +171,12 @@ public class TestSubstraitConsumer extends TestDataset {
   @Test
   public void testRunBinaryQueryNamedTableNation() throws Exception {
     // Query: SELECT * from nation
+    final Schema schema = new Schema(Arrays.asList(
+        Field.nullable("FieldPath(0)", new ArrowType.Int(32, true)),
+        Field.nullable("FieldPath(1)", new ArrowType.Utf8()),
+        Field.nullable("FieldPath(2)", new ArrowType.Int(32, true)),
+        Field.nullable("FieldPath(3)", new ArrowType.Utf8())
+    ));
     ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -149,10 +193,11 @@ public class TestSubstraitConsumer extends TestDataset {
       ByteBuffer substraitPlan = ByteBuffer.allocateDirect(plan.length);
       substraitPlan.put(plan);
       // run query
-      try (ArrowReader arrowReader = new SubstraitConsumer(rootAllocator()).runQueryNamedTables(
+      try (ArrowReader arrowReader = new SubstraitAceroConsumer(rootAllocator()).runQuery(
           substraitPlan,
           mapTableToArrowReader
       )) {
+        assertEquals(schema.toString(), arrowReader.getVectorSchemaRoot().getSchema().toString());
         while (arrowReader.loadNextBatch()) {
           assertEquals(arrowReader.getVectorSchemaRoot().getRowCount(), 25);
           assertTrue(arrowReader.getVectorSchemaRoot().contentToTSVString().contains("MOROCCO"));
@@ -165,6 +210,12 @@ public class TestSubstraitConsumer extends TestDataset {
   public void testRunBinaryQueryNamedTableNationAndCustomer() throws Exception {
     // Query:
     // SELECT n.n_name, c.c_name, c.c_phone, c.c_address FROM nation n JOIN customer c ON n.n_nationkey = c.c_nationkey
+    final Schema schema = new Schema(Arrays.asList(
+        Field.nullable("FieldPath(1)", new ArrowType.Utf8()),
+        Field.nullable("FieldPath(5)", new ArrowType.Utf8()),
+        Field.nullable("FieldPath(8)", new ArrowType.Utf8()),
+        Field.nullable("FieldPath(6)", new ArrowType.Utf8())
+    ));
     ScanOptions optionsNations = new ScanOptions(/*batchSize*/ 32768);
     ScanOptions optionsCustomer = new ScanOptions(/*batchSize*/ 32768);
     try (
@@ -188,22 +239,16 @@ public class TestSubstraitConsumer extends TestDataset {
       ByteBuffer substraitPlan = ByteBuffer.allocateDirect(plan.length);
       substraitPlan.put(plan);
       // run query
-      try (ArrowReader arrowReader = new SubstraitConsumer(rootAllocator()).runQueryNamedTables(
+      try (ArrowReader arrowReader = new SubstraitAceroConsumer(rootAllocator()).runQuery(
           substraitPlan,
           mapTableToArrowReader
       )) {
+        assertEquals(schema.toString(), arrowReader.getVectorSchemaRoot().getSchema().toString());
         while (arrowReader.loadNextBatch()) {
           assertEquals(arrowReader.getVectorSchemaRoot().getRowCount(), 15000);
           assertTrue(arrowReader.getVectorSchemaRoot().contentToTSVString().contains("Customer#000014924"));
         }
       }
     }
-  }
-
-  private static String planReplaceLocalFileURI(String plan, String uri) throws IOException {
-    StringBuilder builder = new StringBuilder(plan);
-    builder.replace(builder.indexOf("FILENAME_PLACEHOLDER"),
-        builder.indexOf("FILENAME_PLACEHOLDER") + "FILENAME_PLACEHOLDER".length(), uri);
-    return builder.toString();
   }
 }

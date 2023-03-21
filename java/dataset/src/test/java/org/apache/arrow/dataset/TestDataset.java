@@ -33,6 +33,7 @@ import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -45,7 +46,7 @@ import org.junit.Before;
 
 
 public abstract class TestDataset {
-  private RootAllocator allocator = null;
+  private BufferAllocator allocator = null;
 
   @Before
   public void setUp() {
@@ -57,7 +58,7 @@ public abstract class TestDataset {
     allocator.close();
   }
 
-  protected RootAllocator rootAllocator() {
+  protected BufferAllocator rootAllocator() {
     return allocator;
   }
 
@@ -121,7 +122,7 @@ public abstract class TestDataset {
     return Paths.get(
         Paths.get(
             (Paths.get("").toAbsolutePath().getParent().getParent().toString()),
-                "testing", "data", "parquet", "tpch", name
+                "testing", "data", "substrait", "tpch", "parquet", name
             )
             .toFile()
             .getAbsolutePath()
@@ -132,9 +133,12 @@ public abstract class TestDataset {
     return new String(
         Files.readAllBytes(
             Paths.get(
-                Paths.get("src", "test", "resources", "substrait", "plan", name)
-                    .toFile()
-                    .getAbsolutePath()
+              Paths.get(
+                      (Paths.get("").toAbsolutePath().getParent().getParent().toString()),
+                      "testing", "data", "substrait", "plan", name
+                  )
+                  .toFile()
+                  .getAbsolutePath()
             )
         )
     );
@@ -144,7 +148,10 @@ public abstract class TestDataset {
     return new String(
         Files.readAllBytes(
             Paths.get(
-                Paths.get("src", "test", "resources", "substrait", "tpch", "plan", name)
+                Paths.get(
+                        (Paths.get("").toAbsolutePath().getParent().getParent().toString()),
+                        "testing", "data", "substrait", "tpch", "plan", name
+                    )
                     .toFile()
                     .getAbsolutePath()
             )
@@ -155,7 +162,10 @@ public abstract class TestDataset {
   protected byte[] getBinarySubstraitPlan(String name) throws IOException {
     return Files.readAllBytes(
         Paths.get(
-            Paths.get("src", "test", "resources", "substrait", "plan", name)
+            Paths.get(
+                    (Paths.get("").toAbsolutePath().getParent().getParent().toString()),
+                    "testing", "data", "substrait", "plan", name
+                )
                 .toFile()
                 .getAbsolutePath()
         )
@@ -165,7 +175,10 @@ public abstract class TestDataset {
   protected byte[] getBinarySubstraitTpchPlan(String name) throws IOException {
     return Files.readAllBytes(
         Paths.get(
-            Paths.get("src", "test", "resources", "substrait", "tpch", "plan", name)
+            Paths.get(
+                    (Paths.get("").toAbsolutePath().getParent().getParent().toString()),
+                    "testing", "data", "substrait", "tpch", "plan", name
+                )
                 .toFile()
                 .getAbsolutePath()
         )
