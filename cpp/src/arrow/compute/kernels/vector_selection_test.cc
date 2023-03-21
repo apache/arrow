@@ -255,8 +255,8 @@ class TestFilterKernel : public ::testing::Test {
   void AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
     auto& child = array->child_data[1];
     auto builder = MakeBuilder(child->type).ValueOrDie();
-    ARROW_CHECK_OK(builder->AppendNulls(offset));
-    ARROW_CHECK_OK(builder->AppendArraySlice(ArraySpan(*child), 0, child->length));
+    ASSERT_OK(builder->AppendNulls(offset));
+    ASSERT_OK(builder->AppendArraySlice(ArraySpan(*child), 0, child->length));
     array->child_data[1] = builder->Finish().ValueOrDie()->Slice(offset)->data();
   }
 
@@ -330,9 +330,11 @@ class TestFilterKernel : public ::testing::Test {
         ARROW_SCOPED_TRACE(
             "for run-end encoded values and filter with sliced child arrays");
         auto values_ree_sliced = values_ree.array()->Copy();
-        AddArtificialOffsetInChildArray(values_ree_sliced.get(), 2);
+        ASSERT_NO_FATAL_FAILURE(
+            AddArtificialOffsetInChildArray(values_ree_sliced.get(), 2));
         auto filter_ree_sliced = filter_ree.array()->Copy();
-        AddArtificialOffsetInChildArray(filter_ree_sliced.get(), 1000);
+        ASSERT_NO_FATAL_FAILURE(
+            AddArtificialOffsetInChildArray(filter_ree_sliced.get(), 1000));
         DoAssertFilter(values_ree.make_array(), filter_ree.make_array(),
                        expected_ree.make_array());
       }

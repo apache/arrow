@@ -21,6 +21,7 @@
 
 #include "arrow/array/data.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/result.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/ree_util.h"
 
@@ -30,7 +31,10 @@
 
 namespace arrow::compute::internal {
 
-int64_t REEGetREEFilterOutputSize(const ArraySpan& values, const ArraySpan& filter,
-                                  FilterOptions::NullSelectionBehavior null_selection);
+/// \brief Calculate the physical size of the output REE array when filtering a REE array
+/// with a REE filter array.
+Result<int64_t> CalculateREExREEFilterOutputSize(
+    const ArraySpan& values, const ArraySpan& filter,
+    FilterOptions::NullSelectionBehavior null_selection);
 
 }  // namespace arrow::compute::internal
