@@ -141,19 +141,17 @@ Result<std::shared_ptr<Schema>> GetProjectedSchemaFromExpression(
     if (call->function_name != "make_struct") {
       return Status::Invalid("Top level projection expression call must be make_struct");
     }
-    for (const compute::Expression& arg : call->arguments) {
-      if (auto field_ref = arg.field_ref()) {
-        if (field_ref->IsName()) {
-          field_names.emplace(*field_ref->name());
-        } else if (field_ref->IsNested()) {
-          // We keep the top-level field name.
-          auto nested_field_refs = *field_ref->nested_refs();
-          field_names.emplace(*nested_field_refs[0].name());
-        } else {
-          return Status::Invalid(
-              "No projected schema was supplied and we could not infer the projected "
-              "schema from the projection expression.");
-        }
+    for (auto field_ref : compute::FieldsInExpression(projection)) {
+      if (field_ref.IsName()) {
+        field_names.emplace(*field_ref.name());
+      } else if (field_ref.IsNested()) {
+        // We keep the top-level field name.
+        auto nested_field_refs = *field_ref.nested_refs();
+        field_names.emplace(*nested_field_refs[0].name());
+      } else {
+        return Status::Invalid(
+            "No projected schema was supplied and we could not infer the projected "
+            "schema from the projection expression.");
       }
     }
   }
