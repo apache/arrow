@@ -1260,9 +1260,8 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        ARROW_CSV: ON
-        ARROW_PARQUET: ON
         UBUNTU: 20.04
+      flags: "-e ARROW_CSV=ON -e ARROW_PARQUET=ON"
       image: ubuntu-cpp-minimal
 
 {% for python_version in ["3.7", "3.8", "3.9", "3.10", "3.11"] %}
