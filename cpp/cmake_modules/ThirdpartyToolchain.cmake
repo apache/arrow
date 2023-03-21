@@ -4740,9 +4740,14 @@ macro(build_awssdk)
       -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
       -DOPENSSL_SSL_LIBRARY=${OPENSSL_SSL_LIBRARY}
       -Dcrypto_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
-      -Dcrypto_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
-      -Dcrypto_SHARED_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
-      -Dcrypto_STATIC_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
+      -Dcrypto_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
+  if(ARROW_OPENSSL_USE_SHARED)
+    list(APPEND AWSSDK_COMMON_CMAKE_ARGS
+         -Dcrypto_SHARED_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
+  else()
+    list(APPEND AWSSDK_COMMON_CMAKE_ARGS
+         -Dcrypto_STATIC_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
+  endif()
   set(AWSSDK_CMAKE_ARGS
       ${AWSSDK_COMMON_CMAKE_ARGS}
       -DBUILD_DEPS=OFF
@@ -4883,9 +4888,15 @@ macro(build_awssdk)
     set(S2N_TLS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
     list(APPEND
          S2N_TLS_CMAKE_ARGS
-         -DS2N_INTERN_LIBCRYPTO=ON # internalize libcrypto to avoid name conflict with openssl
-         -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX} # path to find crypto provided by aws-lc
-         -DCMAKE_C_FLAGS=${S2N_TLS_C_FLAGS})
+         # internalize libcrypto to avoid name conflict with OpenSSL
+         -DS2N_INTERN_LIBCRYPTO=ON
+         # path to find crypto provided by aws-lc
+         -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX}
+         -DCMAKE_C_FLAGS=${S2N_TLS_C_FLAGS}
+         # paths to find crypto provided by aws-lc
+         -Dcrypto_INCLUDE_DIR=${AWS_LC_PREFIX}/include
+         -Dcrypto_LIBRARY=${AWS_LC_STATIC_LIBRARY}
+         -Dcrypto_STATIC_LIBRARY=${AWS_LC_STATIC_LIBRARY})
 
     externalproject_add(s2n_tls_ep
                         ${EP_COMMON_OPTIONS}
