@@ -17,7 +17,7 @@
 
 ARG arch=amd64
 ARG dotnet=7.0
-ARG platform=focal
+ARG platform=jammy
 FROM mcr.microsoft.com/dotnet/sdk:${dotnet}-${platform}-${arch}
 
 RUN dotnet tool install --tool-path /usr/local/bin sourcelink
