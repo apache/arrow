@@ -85,6 +85,7 @@ class ARROW_EXPORT RunEndEncodeOptions : public FunctionOptions {
  public:
   explicit RunEndEncodeOptions(std::shared_ptr<DataType> run_end_type = int32());
   static constexpr char const kTypeName[] = "RunEndEncodeOptions";
+  static RunEndEncodeOptions Defaults() { return RunEndEncodeOptions(); }
 
   std::shared_ptr<DataType> run_end_type;
 };
@@ -577,8 +578,10 @@ Result<Datum> DictionaryEncode(
 /// \since 12.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> RunEndEncode(const Datum& value, const RunEndEncodeOptions& options,
-                           ExecContext* ctx = NULLPTR);
+Result<Datum> RunEndEncode(
+    const Datum& value,
+    const RunEndEncodeOptions& options = RunEndEncodeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Decode a Run-End Encoded array to a plain array
 ///
