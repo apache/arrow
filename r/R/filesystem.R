@@ -575,7 +575,7 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
 
   # Handle reading json_credentials from the filesystem
   if ("json_credentials" %in% names(options) && file.exists(options[["json_credentials"]])) {
-    options[["json_credentials"]] <- paste(readLines(options[["json_credentials"]], encoding = "UTF-8"), collapse = "\n")
+    options[["json_credentials"]] <- paste(read_file_utf8(options[["json_credentials"]]), collapse = "\n")
   }
 
   fs___GcsFileSystem__Make(anonymous, options)
@@ -662,4 +662,11 @@ clean_path_rel <- function(path) {
   # Make sure all path separators are "/", not "\" as on Windows
   path_sep <- ifelse(tolower(Sys.info()[["sysname"]]) == "windows", "\\\\", "/")
   gsub(path_sep, "/", path)
+}
+
+read_file_utf8 <- function(file) {
+  res <- readBin(file, "raw", n = file.size(file))
+  res <- rawToChar(res)
+  Encoding(res) <- "UTF-8"
+  res
 }

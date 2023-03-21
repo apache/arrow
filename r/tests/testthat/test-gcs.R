@@ -100,7 +100,7 @@ test_that("GcsFileSystem$create() can read json_credentials", {
   cred_path <- tempfile()
   on.exit(unlink(cred_path))
   con <- file(cred_path, open = "wb")
-  writeBin(iconv('{"key" : "valu\u00e9"}\n', to = "UTF-8", toRaw = TRUE)[[1]], con)
+  writeBin(iconv('{"key" : "valu\u00e9"}', to = "UTF-8", toRaw = TRUE)[[1]], con)
   close(con)
 
   fs <- GcsFileSystem$create(json_credentials = cred_path)
