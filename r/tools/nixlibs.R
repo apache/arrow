@@ -193,9 +193,9 @@ compile_test_program <- function(code) {
 # (built with newer devtoolset but older glibc (2.17) for broader compatibility,# like manylinux2014)
 determine_binary_from_stderr <- function(errs) {
   if (is.null(attr(errs, "status"))) {
-    # There was no error in compiling: so we found libcurl and openssl >= 1.1,
+    # There was no error in compiling: so we found libcurl and OpenSSL >= 1.1,
     # openssl is < 3.0
-    cat("*** Found libcurl and openssl >= 1.1\n")
+    cat("*** Found libcurl and OpenSSL >= 1.1\n")
     return("linux-openssl-1.1")
     # Else, check for dealbreakers:
   } else if (any(grepl("Using libc++", errs, fixed = TRUE))) {
