@@ -3407,3 +3407,14 @@ def test_array_accepts_pyarrow_array():
     # Test memory_pool keyword is accepted
     result = pa.array(arr, memory_pool=pa.default_memory_pool())
     assert arr == result
+
+
+def test_array_accepts_pyarrow_scalar():
+    arr = pa.array([1, 2, 3])
+    result = pa.array([arr.sum()])
+    expect = pa.array([6])
+    assert expect == result
+
+    result = pa.array([pa.scalar(1), pa.scalar(2), pa.scalar(3)])
+    expect = pa.array([1, 2, 3])
+    assert expect == result

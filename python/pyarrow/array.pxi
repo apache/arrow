@@ -321,8 +321,16 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
                                        pool)
     else:
-        # ConvertPySequence does strict conversion if type is explicitly passed
-        result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
+        try:
+            # ConvertPySequence does strict conversion if type is explicitly passed
+            result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
+        except ArrowInvalid:
+            # Check if first element is pa.Scalar, use as_py() on whole sequence
+            if isinstance(obj[0], Scalar):
+                obj_as_py = [s.as_py() for s in obj]
+                result = _sequence_to_array(obj_as_py, mask, size, type, pool, c_from_pandas)
+            else:
+                raise
 
     if extension_type is not None:
         result = ExtensionArray.from_storage(extension_type, result)
