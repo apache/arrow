@@ -175,7 +175,7 @@ TEST(EnsureAlignment, ChunkedArray) {
   ASSERT_OK_AND_ASSIGN(auto aligned_chunked_array,
                        util::EnsureAlignment(std::move(chunked_array), 2048, pool));
   std::vector<bool> needs_alignment;
-  ASSERT_EQ(util::CheckAlignment(*aligned_chunked_array, 2048, needs_alignment), true);
+  ASSERT_EQ(util::CheckAlignment(*aligned_chunked_array, 2048, &needs_alignment), true);
 }
 
 TEST(EnsureAlignment, RecordBatch) {
@@ -195,7 +195,7 @@ TEST(EnsureAlignment, RecordBatch) {
   ASSERT_OK_AND_ASSIGN(auto aligned_record_batch,
                        util::EnsureAlignment(std::move(record_batch), 2048, pool));
   std::vector<bool> needs_alignment;
-  ASSERT_EQ(util::CheckAlignment(*aligned_record_batch, 2048, needs_alignment), true);
+  ASSERT_EQ(util::CheckAlignment(*aligned_record_batch, 2048, &needs_alignment), true);
 }
 
 TEST(EnsureAlignment, Table) {
@@ -227,7 +227,7 @@ TEST(EnsureAlignment, Table) {
   ASSERT_OK_AND_ASSIGN(auto aligned_table,
                        util::EnsureAlignment(std::move(table), 2048, pool));
   std::vector<bool> needs_alignment;
-  ASSERT_EQ(util::CheckAlignment(*aligned_table, 2048, needs_alignment), true);
+  ASSERT_EQ(util::CheckAlignment(*aligned_table, 2048, &needs_alignment), true);
 }
 
 }  // namespace arrow

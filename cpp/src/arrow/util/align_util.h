@@ -20,6 +20,7 @@
 #include <algorithm>
 
 #include "arrow/memory_pool.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 
 namespace arrow {
@@ -68,38 +69,38 @@ inline BitmapWordAlignParams BitmapWordAlign(const uint8_t* data, int64_t bit_of
 
 namespace util {
 
-ARROW_EXPORT bool CheckAlignment(const Buffer& buffer, const int64_t& alignment);
-ARROW_EXPORT bool CheckAlignment(const ArrayData& array, const int64_t& alignment);
-ARROW_EXPORT bool CheckAlignment(const Array& array, const int64_t& alignment);
-ARROW_EXPORT bool CheckAlignment(const ChunkedArray& array, const int64_t& alignment,
-                                 std::vector<bool>& needs_alignment,
-                                 const int& offset = 0);
-ARROW_EXPORT bool CheckAlignment(const RecordBatch& batch, const int64_t& alignment,
-                                 std::vector<bool>& needs_alignment);
-ARROW_EXPORT bool CheckAlignment(const Table& table, const int64_t& alignment,
-                                 std::vector<bool>& needs_alignment);
+ARROW_EXPORT bool CheckAlignment(const Buffer& buffer, int64_t alignment);
+ARROW_EXPORT bool CheckAlignment(const ArrayData& array, int64_t alignment);
+ARROW_EXPORT bool CheckAlignment(const Array& array, int64_t alignment);
+ARROW_EXPORT bool CheckAlignment(const ChunkedArray& array, int64_t alignment,
+                                 std::vector<bool>* needs_alignment,
+                                 int offset = 0);
+ARROW_EXPORT bool CheckAlignment(const RecordBatch& batch, int64_t alignment,
+                                 std::vector<bool>* needs_alignment);
+ARROW_EXPORT bool CheckAlignment(const Table& table, int64_t alignment,
+                                 std::vector<bool>* needs_alignment);
 
 ARROW_EXPORT Result<std::shared_ptr<Buffer>> EnsureAlignment(
-    std::shared_ptr<Buffer> buffer, const int64_t& alignment, MemoryPool* memory_pool);
+    std::shared_ptr<Buffer> buffer, int64_t alignment, MemoryPool* memory_pool);
 
 ARROW_EXPORT Result<std::shared_ptr<ArrayData>> EnsureAlignment(
-    std::shared_ptr<ArrayData> array_data, const int64_t& alignment,
+    std::shared_ptr<ArrayData> array_data, int64_t alignment,
     MemoryPool* memory_pool);
 
 ARROW_EXPORT Result<std::shared_ptr<Array>> EnsureAlignment(std::shared_ptr<Array> array,
-                                                            const int64_t& alignment,
+                                                            int64_t alignment,
                                                             MemoryPool* memory_pool);
 
 ARROW_EXPORT Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(
-    std::shared_ptr<ChunkedArray> array, const int64_t& alignment,
+    std::shared_ptr<ChunkedArray> array, int64_t alignment,
     MemoryPool* memory_pool);
 
 ARROW_EXPORT Result<std::shared_ptr<RecordBatch>> EnsureAlignment(
-    std::shared_ptr<RecordBatch> batch, const int64_t& alignment,
+    std::shared_ptr<RecordBatch> batch, int64_t alignment,
     MemoryPool* memory_pool);
 
 ARROW_EXPORT Result<std::shared_ptr<Table>> EnsureAlignment(std::shared_ptr<Table> table,
-                                                            const int64_t& alignment,
+                                                            int64_t alignment,
                                                             MemoryPool* memory_pool);
 
 }  // namespace util

@@ -26,11 +26,11 @@ namespace arrow {
 
 namespace util {
 
-bool CheckAlignment(const Buffer& buffer, const int64_t& alignment) {
+bool CheckAlignment(const Buffer& buffer, int64_t alignment) {
   return buffer.address() % alignment == 0;
 }
 
-bool CheckAlignment(const ArrayData& array, const int64_t& alignment) {
+bool CheckAlignment(const ArrayData& array, int64_t alignment) {
   for (const auto& buffer : array.buffers) {
     if (buffer) {
       if (!CheckAlignment(*buffer, alignment)) return false;
@@ -39,7 +39,7 @@ bool CheckAlignment(const ArrayData& array, const int64_t& alignment) {
   return true;
 }
 
-bool CheckAlignment(const Array& array, const int64_t& alignment) {
+bool CheckAlignment(const Array& array, int64_t alignment) {
   bool align_dictionary = true, align_children = true;
 
   if (array.type()->id() == Type::DICTIONARY) {
@@ -54,44 +54,44 @@ bool CheckAlignment(const Array& array, const int64_t& alignment) {
   return CheckAlignment(*array.data(), alignment) && align_dictionary && align_children;
 }
 
-bool CheckAlignment(const ChunkedArray& array, const int64_t& alignment,
-                    std::vector<bool>& needs_alignment, const int& offset) {
-  needs_alignment.resize(needs_alignment.size() + array.num_chunks(), false);
+bool CheckAlignment(const ChunkedArray& array, int64_t alignment,
+                    std::vector<bool>* needs_alignment, int offset) {
+  needs_alignment->resize(needs_alignment->size() + array.num_chunks(), false);
   for (auto i = 0; i < array.num_chunks(); ++i) {
     if (array.chunk(i) && !CheckAlignment(*array.chunk(i), alignment))
-      needs_alignment[i + offset] = true;
+      (*needs_alignment)[i + offset] = true;
   }
-  return std::find(needs_alignment.begin() + offset,
-                   needs_alignment.begin() + offset + array.num_chunks(),
-                   true) == needs_alignment.begin() + offset + array.num_chunks();
+  return std::find(needs_alignment->begin() + offset,
+                   needs_alignment->begin() + offset + array.num_chunks(),
+                   true) == needs_alignment->begin() + offset + array.num_chunks();
 }
 
-bool CheckAlignment(const RecordBatch& batch, const int64_t& alignment,
-                    std::vector<bool>& needs_alignment) {
-  needs_alignment.resize(batch.num_columns(), false);
+bool CheckAlignment(const RecordBatch& batch, int64_t alignment,
+                    std::vector<bool>* needs_alignment) {
+  needs_alignment->resize(batch.num_columns(), false);
   for (auto i = 0; i < batch.num_columns(); ++i) {
     if (batch.column(i) && !CheckAlignment(*batch.column(i), alignment))
-      needs_alignment[i] = true;
+      (*needs_alignment)[i] = true;
   }
-  return std::find(needs_alignment.begin(), needs_alignment.end(), true) ==
-         needs_alignment.end();
+  return std::find(needs_alignment->begin(), needs_alignment->end(), true) ==
+         needs_alignment->end();
 }
 
-bool CheckAlignment(const Table& table, const int64_t& alignment,
-                    std::vector<bool>& needs_alignment) {
-  needs_alignment.resize(table.num_columns(), false);
+bool CheckAlignment(const Table& table, int64_t alignment,
+                    std::vector<bool>* needs_alignment) {
+  needs_alignment->resize(table.num_columns(), false);
   for (auto i = 1; i <= table.num_columns(); ++i) {
     if (table.column(i - 1) &&
         !CheckAlignment(*table.column(i - 1), alignment, needs_alignment,
                         (i - 1) * (1 + table.column(i - 1)->num_chunks())))
-      needs_alignment[i * table.column(i - 1)->num_chunks() + i - 1] = true;
+      (*needs_alignment)[i * table.column(i - 1)->num_chunks() + i - 1] = true;
   }
-  return std::find(needs_alignment.begin(), needs_alignment.end(), true) ==
-         needs_alignment.end();
+  return std::find(needs_alignment->begin(), needs_alignment->end(), true) ==
+         needs_alignment->end();
 }
 
 Result<std::shared_ptr<Buffer>> EnsureAlignment(std::shared_ptr<Buffer> buffer,
-                                                const int64_t& alignment,
+                                                int64_t alignment,
                                                 MemoryPool* memory_pool) {
   if (!CheckAlignment(*buffer, alignment)) {
     ARROW_ASSIGN_OR_RAISE(auto new_buffer,
@@ -104,7 +104,7 @@ Result<std::shared_ptr<Buffer>> EnsureAlignment(std::shared_ptr<Buffer> buffer,
 }
 
 Result<std::shared_ptr<ArrayData>> EnsureAlignment(std::shared_ptr<ArrayData> array_data,
-                                                   const int64_t& alignment,
+                                                   int64_t alignment,
                                                    MemoryPool* memory_pool) {
   if (!CheckAlignment(*array_data, alignment)) {
     std::vector<std::shared_ptr<Buffer>> buffers_ = array_data->buffers;
@@ -136,7 +136,7 @@ Result<std::shared_ptr<ArrayData>> EnsureAlignment(std::shared_ptr<ArrayData> ar
 }
 
 Result<std::shared_ptr<Array>> EnsureAlignment(std::shared_ptr<Array> array,
-                                               const int64_t& alignment,
+                                               int64_t alignment,
                                                MemoryPool* memory_pool) {
   ARROW_ASSIGN_OR_RAISE(auto new_array_data,
                         EnsureAlignment(array->data(), alignment, memory_pool));
@@ -149,10 +149,10 @@ Result<std::shared_ptr<Array>> EnsureAlignment(std::shared_ptr<Array> array,
 }
 
 Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(std::shared_ptr<ChunkedArray> array,
-                                                      const int64_t& alignment,
+                                                      int64_t alignment,
                                                       MemoryPool* memory_pool) {
   std::vector<bool> needs_alignment;
-  if (!CheckAlignment(*array, alignment, needs_alignment)) {
+  if (!CheckAlignment(*array, alignment, &needs_alignment)) {
     ArrayVector chunks_ = array->chunks();
     for (int i = 0; i < array->num_chunks(); ++i) {
       if (needs_alignment[i] && chunks_[i]) {
@@ -167,10 +167,10 @@ Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(std::shared_ptr<ChunkedArr
 }
 
 Result<std::shared_ptr<RecordBatch>> EnsureAlignment(std::shared_ptr<RecordBatch> batch,
-                                                     const int64_t& alignment,
+                                                     int64_t alignment,
                                                      MemoryPool* memory_pool) {
   std::vector<bool> needs_alignment;
-  if (!CheckAlignment(*batch, alignment, needs_alignment)) {
+  if (!CheckAlignment(*batch, alignment, &needs_alignment)) {
     ArrayVector columns_ = batch->columns();
     for (int i = 0; i < batch->num_columns(); ++i) {
       if (needs_alignment[i] && columns_[i]) {
@@ -185,10 +185,10 @@ Result<std::shared_ptr<RecordBatch>> EnsureAlignment(std::shared_ptr<RecordBatch
 }
 
 Result<std::shared_ptr<Table>> EnsureAlignment(std::shared_ptr<Table> table,
-                                               const int64_t& alignment,
+                                               int64_t alignment,
                                                MemoryPool* memory_pool) {
   std::vector<bool> needs_alignment;
-  if (!CheckAlignment(*table, alignment, needs_alignment)) {
+  if (!CheckAlignment(*table, alignment, &needs_alignment)) {
     std::vector<std::shared_ptr<ChunkedArray>> columns_ = table->columns();
     for (int i = 1; i <= table->num_columns(); ++i) {
       if (columns_[i - 1] && needs_alignment[i * columns_[i - 1]->num_chunks() + i - 1]) {
