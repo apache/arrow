@@ -22,6 +22,7 @@ import (
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/flight"
+	"github.com/apache/arrow/go/v12/arrow/ipc"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/apache/arrow/go/v12/internal/types"
 	"github.com/apache/arrow/go/v12/parquet"
@@ -33,15 +34,16 @@ import (
 )
 
 func TestGetOriginSchemaBase64(t *testing.T) {
+	uuidType := types.NewUUIDType()
 	md := arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})
+  extMd := arrow.NewMetadata([]string{ipc.ExtensionMetadataKeyName, ipc.ExtensionTypeKeyName, "PARQUET:field_id"}, []string{ uuidType.Serialize(), uuidType.ExtensionName(), "-1"})
 	origArrSc := arrow.NewSchema([]arrow.Field{
 		{Name: "f1", Type: arrow.BinaryTypes.String, Metadata: md},
 		{Name: "f2", Type: arrow.PrimitiveTypes.Int64, Metadata: md},
-		{Name: "uuid", Type: types.NewUUIDType(), Metadata: md},
+		{Name: "uuid", Type: uuidType, Metadata: extMd},
 	}, nil)
 
 	arrSerializedSc := flight.SerializeSchema(origArrSc, memory.DefaultAllocator)
-	uuidType := types.NewUUIDType()
 	if err := arrow.RegisterExtensionType(uuidType); err != nil {
 		t.Fatal(err)
 	}
