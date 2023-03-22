@@ -3220,12 +3220,12 @@ std::shared_ptr<Buffer> DeltaByteArrayEncoder<DType>::FlushValues() {
 // DeltaByteArrayDecoder
 
 template <typename DType>
-class DeltaByteArrayDecoder : public DecoderImpl, virtual public TypedDecoder<DType> {
+class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecoder<DType> {
   using T = typename DType::c_type;
 
  public:
-  explicit DeltaByteArrayDecoder(const ColumnDescriptor* descr,
-                                 MemoryPool* pool = ::arrow::default_memory_pool())
+  explicit DeltaByteArrayDecoderImpl(const ColumnDescriptor* descr,
+                                     MemoryPool* pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::DELTA_BYTE_ARRAY),
         prefix_len_decoder_(nullptr, pool),
         suffix_decoder_(nullptr, pool),
@@ -3261,10 +3261,6 @@ class DeltaByteArrayDecoder : public DecoderImpl, virtual public TypedDecoder<DT
     last_value_ = "";
   }
 
-  int Decode(ByteArray* buffer, int max_values) {
-    return GetInternal(buffer, max_values);
-  }
-
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::Accumulator* out) override {
@@ -3280,7 +3276,7 @@ class DeltaByteArrayDecoder : public DecoderImpl, virtual public TypedDecoder<DT
     ParquetException::NYI("DecodeArrow of DictAccumulator for DeltaByteArrayDecoder");
   }
 
- private:
+ protected:
   int GetInternal(ByteArray* buffer, int max_values) {
     // Decode up to `max_values` strings into an internal buffer
     // and reference them into `buffer`.
@@ -3406,6 +3402,7 @@ class DeltaByteArrayDecoder : public DecoderImpl, virtual public TypedDecoder<DT
     return Status::OK();
   }
 
+ private:
   std::shared_ptr<::arrow::bit_util::BitReader> decoder_;
   DeltaBitPackDecoder<Int32Type> prefix_len_decoder_;
   DeltaLengthByteArrayDecoder suffix_decoder_;
@@ -3418,13 +3415,28 @@ class DeltaByteArrayDecoder : public DecoderImpl, virtual public TypedDecoder<DT
   std::shared_ptr<ResizableBuffer> buffered_data_;
 };
 
-class DeltaByteArrayFLBADecoder : public DeltaByteArrayDecoder<FLBAType>,
+class DeltaByteArrayDecoder : public DeltaByteArrayDecoderImpl<ByteArrayType> {
+ public:
+  using Base = DeltaByteArrayDecoderImpl<ByteArrayType>;
+  using Base::DeltaByteArrayDecoderImpl;
+
+  int Decode(ByteArray* buffer, int max_values) override {
+    return GetInternal(buffer, max_values);
+  }
+};
+
+class DeltaByteArrayFLBADecoder : public DeltaByteArrayDecoderImpl<FLBAType>,
                                   virtual public FLBADecoder {
  public:
-  using Base = DeltaByteArrayDecoder<FLBAType>;
-  using Base::DeltaByteArrayDecoder;
+  using Base = DeltaByteArrayDecoderImpl<FLBAType>;
+  using Base::DeltaByteArrayDecoderImpl;
 
-  int Decode(FixedLenByteArray* buffer, int max_values) override { return 0; };
+  int Decode(ByteArray* buffer, int max_values) {
+    return GetInternal(buffer, max_values);
+  }
+  int Decode(FixedLenByteArray* buffer, int max_values) override {
+    throw ParquetException("Cannot decode DeltaByteArray from FixedLenByteArray");
+  }
 };
 
 // ----------------------------------------------------------------------
