@@ -1,4 +1,4 @@
-package pqarrow
+package types
 
 import (
 	"bytes"

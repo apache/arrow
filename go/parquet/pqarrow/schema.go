@@ -24,6 +24,7 @@ import (
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/flight"
+	"github.com/apache/arrow/go/v12/arrow/ipc"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/apache/arrow/go/v12/parquet"
 	"github.com/apache/arrow/go/v12/parquet/file"
@@ -31,10 +32,6 @@ import (
 	"github.com/apache/arrow/go/v12/parquet/schema"
 	"golang.org/x/xerrors"
 )
-
-// constants for the extension type metadata keys for the type name and
-// any extension metadata to be passed to deserialize.
-const	ExtensionTypeKeyName = "ARROW:extension:name"
 
 // SchemaField is a holder that defines a specific logical field in the schema
 // which could potentially refer to multiple physical columns in the underlying
@@ -363,9 +360,9 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 			Type: field.Type.(arrow.ExtensionType).StorageType(),
 			Nullable: field.Nullable,
 			Metadata: arrow.MetadataFrom(map[string]string{
-				ExtensionTypeKeyName: field.Type.(arrow.ExtensionType).ExtensionName(),
+				ipc.ExtensionTypeKeyName: field.Type.(arrow.ExtensionType).ExtensionName(),
+				ipc.ExtensionMetadataKeyName: field.Type.(arrow.ExtensionType).Serialize(),
 			}),
-			// Metadata: ,
 		}, props, arrprops)
 	case arrow.MAP:
 		mapType := field.Type.(*arrow.MapType)
@@ -961,11 +958,17 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 	nchildren := len(inferred.Children)
 	switch origin.Type.ID() {
 	case arrow.EXTENSION:
-		extType := arrow.GetExtensionType(origin.Type.(arrow.ExtensionType).ExtensionName())
-		if extType == nil {
-			err = xerrors.Errorf("arrow: extension type %q not registered", origin.Type.Name())
-			return
+		extType := origin.Type.(arrow.ExtensionType)
+		modified, err = applyOriginalStorageMetadata(arrow.Field{
+										 Type: extType.StorageType(), 
+										 Metadata: arrow.NewMetadata(
+																[]string{ipc.ExtensionTypeKeyName, ipc.ExtensionMetadataKeyName},
+																[]string{extType.ExtensionName(), extType.Serialize()}),
+							 }, inferred)
+		if err != nil {
+				return
 		}
+		
 		inferred.Field.Type = extType
 		modified = true
 	case arrow.SPARSE_UNION, arrow.DENSE_UNION:
