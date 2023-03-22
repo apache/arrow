@@ -2361,9 +2361,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CNullPlacement null_placement
 
     cdef cppclass CSortKey" arrow::compute::SortKey":
-        CSortKey(c_string name, CSortOrder order)
-        c_string name
+        CSortKey(CFieldRef target, CSortOrder order)
+        CFieldRef target
         CSortOrder order
+
+    cdef cppclass COrdering" arrow::compute::Ordering":
+        COrdering(vector[CSortKey] sort_keys, CNullPlacement null_placement)
 
     cdef cppclass CSortOptions \
             "arrow::compute::SortOptions"(CFunctionOptions):
@@ -2604,6 +2607,9 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
     cdef cppclass COrderBySinkNodeOptions "arrow::compute::OrderBySinkNodeOptions"(CExecNodeOptions):
         COrderBySinkNodeOptions(vector[CSortOptions] options,
                                 CAsyncExecBatchGenerator generator)
+
+    cdef cppclass COrderByNodeOptions "arrow::compute::OrderByNodeOptions"(CExecNodeOptions):
+        COrderByNodeOptions(COrdering ordering)
 
     cdef cppclass CHashJoinNodeOptions "arrow::compute::HashJoinNodeOptions"(CExecNodeOptions):
         CHashJoinNodeOptions(CJoinType, vector[CFieldRef] in_left_keys,
