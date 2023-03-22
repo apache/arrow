@@ -53,10 +53,10 @@ recent version of the library without building from source.
 On Linux, you can download a .zip file containing libarrow from the
 [nightly repository](https://nightlies.apache.org/arrow/r/libarrow/bin/).
 
-The directory names correspond to the OS the binaries where built on:
-- "centos-7" (gcc 8 via devtoolset, openssl 1, glib 2.17)
-- "ubuntu-18.04" (gcc 8, openssl 1, glib 2.27)
-- "ubuntu-22.04" (openssl 3)
+The directory names correspond to the OpenSSL version the binaries built with:
+- "linux-openssl-1.0" (OpenSSL 1.0)
+- "linux-openssl-1.1" (OpenSSL 1.1)
+- "linux-openssl-3.0" (OpenSSL 3.0)
 
 Version numbers in that repository correspond to dates.
 

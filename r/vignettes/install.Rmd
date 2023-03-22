@@ -297,8 +297,8 @@ See below for more in-depth explanations of these environment variables.
   will work with your system. You can set it to `false` to skip this option
   altogether, or you can specify a string "distro-version" that corresponds to
   a binary that is available, to override what this function may discover by
-  default. Possible values are: "centos-7",
-  "ubuntu-18.04" (both with gcc 8, and openssl 1), "ubuntu-22.04" (openssl 3).
+  default. Possible values are: "linux-openssl-1.0", "linux-openssl-1.1",
+  "linux-openssl-3.0".
 * `LIBARROW_BUILD` : If set to `false`, the build script
   will not attempt to build the C++ from source. This means you will only get
   a working arrow R package if a prebuilt binary is found.

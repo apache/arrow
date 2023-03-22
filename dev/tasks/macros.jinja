@@ -320,12 +320,12 @@ on:
       path: repo/libarrow/bin/windows
   {% endif %}
   {% if get_nix %}
-    {% for os in ["ubuntu-18.04", "ubuntu-22.04", "centos-7"] %}
-  - name: Get {{ os }} binary
+    {% for openssl_version in ["1.0", "1.1", "3.0"] %}
+  - name: Get Linux OpenSSL {{ openssl_version }} binary
     uses: actions/download-artifact@v3
     with:
-      name: r-lib__libarrow__bin__{{ os }}
-      path: repo/libarrow/bin/{{ os }}
+      name: r-lib__libarrow__bin__linux-openssl-{{ openssl_version }}
+      path: repo/libarrow/bin/linux-openssl-{{ openssl_version }}
     {% endfor %}
   {% endif %}
   - name: Get src pkg
