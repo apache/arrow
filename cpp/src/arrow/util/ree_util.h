@@ -154,13 +154,13 @@ class RunEndEncodedArraySpan {
     /// The values array can be addressed with this index to get the value
     /// that makes up the run.
     ///
-    /// NOTE: if this Iterator was produced by RunEndEncodedArraySpan::end(),
+    /// NOTE: if this Iterator is equal to RunEndEncodedArraySpan::end(),
     /// the value returned is undefined.
     int64_t index_into_array() const { return physical_pos_; }
 
     /// \brief Return the initial logical position of the run
     ///
-    /// If this Iterator was produced by RunEndEncodedArraySpan::end(), this is
+    /// If this Iterator is equal to RunEndEncodedArraySpan::end(), this is
     /// the same as RunEndEncodedArraySpan::length().
     int64_t logical_position() const { return logical_pos_; }
 
@@ -174,6 +174,16 @@ class RunEndEncodedArraySpan {
     /// Pre-condition: *this != RunEndEncodedArraySpan::end()
     int64_t run_length() const { return run_end() - logical_pos_; }
 
+    /// \brief Check if the iterator is at the end of the array.
+    ///
+    /// This can be used to avoid paying the cost of a call to
+    /// RunEndEncodedArraySpan::end().
+    ///
+    /// \return true if the iterator is at the end of the array
+    bool is_end(const RunEndEncodedArraySpan& span) const {
+      return logical_pos_ >= span.length();
+    }
+
     Iterator& operator++() {
       logical_pos_ = span.run_end(physical_pos_);
       physical_pos_ += 1;
@@ -183,6 +193,18 @@ class RunEndEncodedArraySpan {
     Iterator operator++(int) {
       const Iterator prev = *this;
       ++(*this);
+      return prev;
+    }
+
+    Iterator& operator--() {
+      physical_pos_ -= 1;
+      logical_pos_ = (physical_pos_ > 0) ? span.run_end(physical_pos_ - 1) : 0;
+      return *this;
+    }
+
+    Iterator operator--(int) {
+      const Iterator prev = *this;
+      --(*this);
       return prev;
     }
 
@@ -231,31 +253,52 @@ class RunEndEncodedArraySpan {
   ///
   /// \param logical_pos is an index in the [0, length()] range
   Iterator iterator(int64_t logical_pos) const {
-    return iterator(logical_pos, logical_pos < length()
-                                     ? PhysicalIndex(logical_pos)
-                                     : RunEndsArray(array_span).length);
+    if (logical_pos < length()) {
+      return iterator(logical_pos, PhysicalIndex(logical_pos));
+    }
+    // If logical_pos is above the valid range, use length() as the logical
+    // position and calculate the physical address right after the last valid
+    // physical position. Which is the physical index of the last logical
+    // position, plus 1.
+    return (length() == 0) ? iterator(0, PhysicalIndex(0))
+                           : iterator(length(), PhysicalIndex(length() - 1) + 1);
   }
 
   /// \brief Create an iterator representing the logical begin of the run-end
   /// encoded array
-  Iterator begin() const { return iterator(0); }
+  Iterator begin() const { return iterator(0, PhysicalIndex(0)); }
 
   /// \brief Create an iterator representing the first invalid logical position
   /// of the run-end encoded array
   ///
-  /// The Iterator returned by end() should not be
+  /// \warning Avoid calling end() in a loop, as it will recompute the physical
+  /// length of the array on each call (O(log N) cost per call).
+  ///
+  /// \par You can write your loops like this instead:
+  /// \code
+  /// for (auto it = array.begin(), end = array.end(); it != end; ++it) {
+  ///   // ...
+  /// }
+  /// \endcode
+  ///
+  /// \par Or this version that does not look like idiomatic C++, but removes
+  /// the need for calling end() completely:
+  /// \code
+  /// for (auto it = array.begin(); !it.is_end(array); ++it) {
+  ///   // ...
+  /// }
+  /// \endcode
   Iterator end() const {
-    // NOTE: the run ends array length is not necessarily what
-    // PhysicalIndex(length()) would return but it is a cheap to obtain
-    // physical offset that is invalid.
-    return iterator(length(), RunEndsArray(array_span).length);
+    return iterator(length(),
+                    (length() == 0) ? PhysicalIndex(0) : PhysicalIndex(length() - 1) + 1);
   }
 
   // Pre-condition: physical_pos < RunEndsArray(array_span).length);
   inline int64_t run_end(int64_t physical_pos) const {
     assert(physical_pos < RunEndsArray(array_span).length);
-    // Logical index of the end of the currently active run
-    const int64_t logical_run_end = run_ends_[physical_pos] - offset();
+    // Logical index of the end of the run at physical_pos with offset applied
+    const int64_t logical_run_end =
+        std::max<int64_t>(static_cast<int64_t>(run_ends_[physical_pos]) - offset(), 0);
     // The current run may go further than the logical length, cap it
     return std::min(logical_run_end, length());
   }

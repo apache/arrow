@@ -103,7 +103,7 @@ TYPED_TEST_P(ReeUtilTest, PhysicalLength) {
 
 TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
   // Construct the following two test arrays with a lot of different offsets to test the
-  // RLE iterator: left:
+  // REE iterator: left:
   //
   //          child offset: 0
   //                 |
@@ -121,7 +121,7 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
   //                                                logical offset: 1000
   //                                                physical offset: 10
   //
-  // right:
+  // REE iterator: right:
   //           child offset: 0
   //                  |
   //                  +---+---+---+---+---+------+------+------+------+
@@ -170,8 +170,8 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
   const RunEndEncodedArraySpan<TypeParam> left_ree_span(*left_array->data());
   const RunEndEncodedArraySpan<TypeParam> right_ree_span(*right_array->data());
 
-  // Left array on one side and right on the other side
   {
+    ARROW_SCOPED_TRACE("iterate over merged(left, right)");
     size_t i = 0;
     size_t logical_pos = 0;
     auto it = MergedRunsIterator(left_ree_span, right_ree_span);
@@ -189,9 +189,9 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
     ASSERT_EQ(i, expected_run_ends.size());
   }
 
-  // Left child array on both sides
   const int32_t left_only_run_lengths[] = {5, 10, 5, 5, 25};
   {
+    ARROW_SCOPED_TRACE("iterate over merged(left, left)");
     int64_t i = 0;
     int64_t logical_pos = 0;
     auto it = MergedRunsIterator(left_ree_span, left_ree_span);
@@ -208,9 +208,8 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
     }
     ASSERT_EQ(i, std::size(left_only_run_lengths));
   }
-
-  // Stand-alone left array
   {
+    ARROW_SCOPED_TRACE("iterate over left array)");
     int64_t i = 0;
     int64_t logical_pos = 0;
     for (auto it = left_ree_span.begin(); it != left_ree_span.end(); ++it, ++i) {
@@ -220,11 +219,27 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
       logical_pos += it.run_length();
     }
     ASSERT_EQ(i, std::size(left_only_run_lengths));
+    {
+      ARROW_SCOPED_TRACE("in reverse order");
+      auto it = left_ree_span.end();
+      auto begin = left_ree_span.begin();
+      ASSERT_EQ(it.logical_position(), left_ree_span.length());
+      while (it != begin) {
+        --it;
+        --i;
+        ASSERT_EQ(it.run_length(), left_only_run_lengths[i]);
+        ASSERT_EQ(it.index_into_array(), 10 + i);
+        logical_pos -= it.run_length();
+        ASSERT_EQ(it.logical_position(), logical_pos);
+      }
+      ASSERT_EQ(i, 0);
+      ASSERT_EQ(logical_pos, 0);
+    }
   }
 
-  // Right array on both sides
   const int32_t right_only_run_lengths[] = {5, 4, 16, 25};
   {
+    ARROW_SCOPED_TRACE("iterate over merged(right, right)");
     int64_t i = 0;
     int64_t logical_pos = 0;
     auto it = MergedRunsIterator(right_ree_span, right_ree_span);
@@ -237,8 +252,8 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
     }
     ASSERT_EQ(i, std::size(right_only_run_lengths));
   }
-
   {
+    ARROW_SCOPED_TRACE("iterate over right array");
     int64_t i = 0;
     int64_t logical_pos = 0;
     for (auto it = right_ree_span.begin(); it != right_ree_span.end(); ++it, ++i) {
@@ -248,6 +263,22 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
       logical_pos += it.run_length();
     }
     ASSERT_EQ(i, std::size(right_only_run_lengths));
+    {
+      ARROW_SCOPED_TRACE("in reverse order");
+      auto it = right_ree_span.end();
+      auto begin = right_ree_span.begin();
+      ASSERT_EQ(it.logical_position(), right_ree_span.length());
+      while (it != begin) {
+        --it;
+        --i;
+        ASSERT_EQ(it.run_length(), right_only_run_lengths[i]);
+        ASSERT_EQ(it.index_into_array(), 5 + i);
+        logical_pos -= it.run_length();
+        ASSERT_EQ(it.logical_position(), logical_pos);
+      }
+      ASSERT_EQ(i, 0);
+      ASSERT_EQ(logical_pos, 0);
+    }
   }
 }
 
