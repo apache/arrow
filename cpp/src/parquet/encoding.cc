@@ -3057,20 +3057,20 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
  protected:
   void PutFixedLenByteArray(const ::arrow::FixedSizeBinaryArray& array) {
     const uint32_t byte_width = array.byte_width();
+    uint32_t previous_len = byte_width;
 
-    // TODO(rok): optimize using ArrowPoolVector<int32_t> prefix_lengths(num_values);
     PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<::arrow::FixedSizeBinaryType>(
         *array.data(),
         [&](::std::string_view view) {
-          uint32_t previous_len = 0;
           const ByteArray src{view};
           if (ARROW_PREDICT_TRUE(last_value_.empty())) {
             last_value_ = view;
             suffix_encoder_.Put(&src, 1);
             prefix_length_encoder_.Put({static_cast<int32_t>(0)}, 1);
+            previous_len = byte_width;
           } else {
             uint32_t j = 0;
-            while (j < std::min(previous_len, byte_width)) {
+            while (j < previous_len) {
               if (last_value_[j] != view[j]) {
                 break;
               }
@@ -3093,19 +3093,20 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
-    // TODO(rok): optimize using ArrowPoolVector<int32_t> prefix_lengths(num_values);
+    uint32_t previous_len = 0;
+
     PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
         *array.data(),
         [&](::std::string_view view) {
-          if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
+          if (ARROW_PREDICT_TRUE(view.size() > kMaxByteArraySize)) {
             return Status::Invalid("Parquet cannot store strings with size 2GB or more");
           }
-          uint32_t previous_len = 0;
           const ByteArray src{view};
           if (ARROW_PREDICT_TRUE(last_value_.empty())) {
             last_value_ = view;
             suffix_encoder_.Put(&src, 1);
             prefix_length_encoder_.Put({static_cast<int32_t>(0)}, 1);
+            previous_len = src.len;
           } else {
             uint32_t j = 0;
             while (j < std::min(previous_len, src.len)) {

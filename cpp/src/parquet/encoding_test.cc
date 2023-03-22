@@ -2030,6 +2030,8 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
 typedef ::testing::Types<ByteArrayType> TestDeltaByteArrayEncodingTypes;
 TYPED_TEST_SUITE(TestDeltaByteArrayEncoding, TestDeltaByteArrayEncodingTypes);
 
+// TODO: add FLBAType and Decimal type tests
+
 TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
   ASSERT_NO_FATAL_FAILURE(this->Execute(250, 2));
