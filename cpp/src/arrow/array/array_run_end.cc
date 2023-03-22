@@ -74,19 +74,6 @@ void RunEndEncodedArray::SetData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(ree_type->run_end_type()->id(), data->child_data[0]->type->id());
   ARROW_CHECK_EQ(ree_type->value_type()->id(), data->child_data[1]->type->id());
 
-  DCHECK_EQ(data->child_data.size(), 2);
-
-  // A non-zero number of logical values in this array (offset + length) implies
-  // a non-zero number of runs and values.
-  DCHECK(data->offset + data->length == 0 || data->child_data[0]->length > 0);
-  DCHECK(data->offset + data->length == 0 || data->child_data[1]->length > 0);
-  // At least as many values as run_ends
-  DCHECK_GE(data->child_data[1]->length, data->child_data[0]->length);
-
-  // The null count for run-end encoded arrays is always 0. Actual number of
-  // nulls needs to be calculated through other means.
-  DCHECK_EQ(data->null_count, 0);
-
   Array::SetData(data);
   run_ends_array_ = MakeArray(this->data()->child_data[0]);
   values_array_ = MakeArray(this->data()->child_data[1]);

@@ -639,6 +639,16 @@ struct ValidateArrayImpl {
 
   template <typename RunEndCType>
   Status ValidateRunEndEncoded(const RunEndEncodedType& type) {
+    if (data.child_data.size() != 2) {
+      return Status::Invalid(
+          "Run end encoded array should have 2 children; this array has ",
+          data.child_data.size());
+    }
+
+    if (data.buffers.size() > 0 && data.buffers[0] != nullptr) {
+      return Status::Invalid("Run end encoded array should not have a null bitmap.");
+    }
+
     const auto& run_ends_data = data.child_data[0];
     const auto& values_data = data.child_data[1];
     RETURN_NOT_OK(ree_util::ValidateRunEndEncodedChildren(
