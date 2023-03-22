@@ -331,6 +331,8 @@ outputs:
 
     test:
       requires:
+        # test_cpp_extension_in_python requires a compiler
+        - {{ compiler("c") }}  # [unix]
         - pytest
         - pytest-lazy-fixture
         - backports.zoneinfo  # [py<39]
