@@ -2708,7 +2708,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     num_values_ = num_values;
-    if (len == 0) {
+    if (ARROW_PREDICT_FALSE(len <= 0)) {
       if (num_values > 0) {
         throw ParquetException(
             "Delta length byte array page was empty, but expected {num_values} values.");
