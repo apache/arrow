@@ -1615,7 +1615,7 @@ class TestDeltaLengthByteArrayEncoding : public TestEncodingBase<Type> {
 
     encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
     encode_buffer_ = encoder->FlushValues();
-    decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
+    decoder->SetData(num_values_, encode_buffer_->data(),
                      static_cast<int>(encode_buffer_->size()));
     auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
                                                 valid_bits, valid_bits_offset);
@@ -1637,6 +1637,12 @@ TYPED_TEST(TestDeltaLengthByteArrayEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
       /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
       /*null_probability*/ 0.1));
+}
+
+TYPED_TEST(TestDeltaLengthByteArrayEncoding, AllNulls) {
+  this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 1);
 }
 
 std::shared_ptr<Buffer> DeltaEncode(std::vector<int32_t> lengths) {
@@ -1690,8 +1696,16 @@ TEST(TestDeltaLengthByteArrayEncoding, AdHocRoundTrip) {
 TEST(DeltaLengthByteArrayEncoding, RejectBadBuffer) {
   auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
 
+  // Missing length delta header
   Buffer empty_buffer = Buffer("");
   ASSERT_THROW(decoder->SetData(10, empty_buffer.data(), 0), ParquetException);
+
+  // Incomplete header
+  std::shared_ptr<Buffer> partial_buffer =
+      DeltaEncode({3, 2, 0})->CopySlice(0, 2).ValueOrDie();
+  ASSERT_THROW(decoder->SetData(10, partial_buffer->data(),
+                                static_cast<int>(partial_buffer->size())),
+               ParquetException);
 
   typename EncodingTraits<ByteArrayType>::Accumulator acc;
   acc.builder.reset(new ::arrow::StringBuilder);
