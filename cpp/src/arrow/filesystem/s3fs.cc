@@ -1244,12 +1244,12 @@ class ObjectOutputStream final : public io::OutputStream {
 
     if (current_part_) {
       // Upload last part
-      RETURN_NOT_OK(CommitCurrentPart(true));
+      RETURN_NOT_OK(CommitCurrentPart(/*always_foreground_writes=*/ true));
     }
 
     // S3 mandates at least one part, upload an empty one if necessary
     if (part_number_ == 1) {
-      RETURN_NOT_OK(UploadPart("", 0, true));
+      RETURN_NOT_OK(UploadPart("", 0, /*always_foreground_writes=*/ true));
     }
 
     // Wait for in-progress uploads to finish (if async writes are enabled)
@@ -1307,7 +1307,8 @@ class ObjectOutputStream final : public io::OutputStream {
     if (!current_part_ && nbytes >= part_upload_threshold_) {
       // No current part and data large enough, upload it directly
       // (without copying if the buffer is owned)
-      RETURN_NOT_OK(UploadPart(data, nbytes, false, owned_buffer));
+      RETURN_NOT_OK(UploadPart(data, nbytes,
+                               /*always_foreground_writes=*/ false, owned_buffer));
       pos_ += nbytes;
       return Status::OK();
     }
@@ -1324,7 +1325,7 @@ class ObjectOutputStream final : public io::OutputStream {
 
     if (current_part_size_ >= part_upload_threshold_) {
       // Current part large enough, upload it
-      RETURN_NOT_OK(CommitCurrentPart(false));
+      RETURN_NOT_OK(CommitCurrentPart(/*always_foreground_writes=*/ false));
     }
 
     return Status::OK();
