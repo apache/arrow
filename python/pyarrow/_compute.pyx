@@ -1963,7 +1963,7 @@ cdef class _SortOptions(FunctionOptions):
         cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
             c_sort_keys.push_back(
-                CSortKey(tobytes(name), unwrap_sort_order(order))
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
             )
         self.wrapped.reset(new CSortOptions(
             c_sort_keys, unwrap_null_placement(null_placement)))
@@ -1979,6 +1979,7 @@ class SortOptions(_SortOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
     null_placement : str, default "at_end"
         Where nulls in input should be sorted, only applying to
         columns/fields mentioned in `sort_keys`.
@@ -1994,7 +1995,7 @@ cdef class _SelectKOptions(FunctionOptions):
         cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
             c_sort_keys.push_back(
-                CSortKey(tobytes(name), unwrap_sort_order(order))
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
             )
         self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
 
@@ -2013,6 +2014,7 @@ class SelectKOptions(_SelectKOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
     """
 
     def __init__(self, k, sort_keys):
@@ -2183,12 +2185,12 @@ cdef class _RankOptions(FunctionOptions):
         cdef vector[CSortKey] c_sort_keys
         if isinstance(sort_keys, str):
             c_sort_keys.push_back(
-                CSortKey(tobytes(""), unwrap_sort_order(sort_keys))
+                CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
             )
         else:
             for name, order in sort_keys:
                 c_sort_keys.push_back(
-                    CSortKey(tobytes(name), unwrap_sort_order(order))
+                    CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
                 )
         try:
             self.wrapped.reset(
@@ -2210,6 +2212,7 @@ class RankOptions(_RankOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
         Alternatively, one can simply pass "ascending" or "descending" as a string
         if the input is array-like.
     null_placement : str, default "at_end"
