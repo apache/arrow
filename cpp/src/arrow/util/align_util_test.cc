@@ -169,14 +169,14 @@ TEST(EnsureAlignment, Array) {
   auto random_array = rand.UInt8(/*size*/ 50, /*min*/ 0, /*max*/ 100,
                                  /*null_probability*/ 0, /*alignment*/ 512, pool);
 
-  // for having buffers which are not aligned by 1024
+  // for having buffers which are not aligned by 2048
   ASSERT_OK_AND_ASSIGN(auto sliced_array,
                        arrow::internal::CreateUnalignedArray(std::move(random_array)));
 
-  ASSERT_EQ(util::CheckAlignment(*sliced_array, 1024), false);
+  ASSERT_EQ(util::CheckAlignment(*sliced_array, 2048), false);
   ASSERT_OK_AND_ASSIGN(auto aligned_array,
-                       util::EnsureAlignment(std::move(sliced_array), 1024, pool));
-  ASSERT_EQ(util::CheckAlignment(*aligned_array, 1024), true);
+                       util::EnsureAlignment(std::move(sliced_array), 2048, pool));
+  ASSERT_EQ(util::CheckAlignment(*aligned_array, 2048), true);
 }
 
 TEST(EnsureAlignment, ChunkedArray) {
