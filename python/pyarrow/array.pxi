@@ -2993,6 +2993,9 @@ cdef class RunEndEncodedArray(Array):
         """
         Find the physical offset of this REE array.
 
+        This is the offset of the run that contains the value of the first
+        logical element of this array considering its offet.
+
         This function uses binary-search, so it has a O(log N) cost.
         """
         cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
@@ -3006,9 +3009,7 @@ cdef class RunEndEncodedArray(Array):
         run-ends) necessary to represent the logical range of values from offset
         to length.
 
-        Avoid calling this function if the physical length can be estabilished in
-        some other way (e.g. when iterating over the runs sequentially until the
-        end). This function uses binary-search, so it has a O(log N) cost.
+        This function uses binary-search, so it has a O(log N) cost.
         """
         cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
         return ree_array.FindPhysicalLength()
