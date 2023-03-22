@@ -91,7 +91,7 @@ Here is an example of a Java program that queries a Parquet file using Java Subs
       ByteBuffer substraitPlan = ByteBuffer.allocateDirect(plan.toByteArray().length);
       substraitPlan.put(plan.toByteArray());
       // run query
-      try (ArrowReader arrowReader = new SubstraitConsumer(rootAllocator()).runQuery(
+      try (ArrowReader arrowReader = new SubstraitAceroConsumer(rootAllocator()).runQuery(
           substraitPlan,
           mapTableToArrowReader
       )) {
