@@ -809,9 +809,7 @@ cdef class Dataset(_Weakrefable):
             sorting = [(sorting, "ascending")]
 
         res = _pc()._exec_plan._sort_source(self, output_type=InMemoryDataset,
-                                            sort_options=_pc().SortOptions(
-                                                sort_keys=sorting, **kwargs
-                                            ))
+                                            sort_keys=sorting, **kwargs)
         return res
 
     def join(self, right_dataset, keys, right_keys=None, join_type="left outer",

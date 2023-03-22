@@ -22,23 +22,17 @@
 # distutils: language = c++
 # cython: language_level = 3
 
-from cython.operator cimport dereference as deref, preincrement as inc
-
-from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_dataset cimport *
-from pyarrow.lib cimport Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table
-from pyarrow.lib import tobytes
-from pyarrow._compute cimport Expression, _SortOptions
-from pyarrow._dataset cimport Dataset, Scanner
-from pyarrow._dataset import InMemoryDataset, ScanNodeOptions
-
-from pyarrow._acero import Declaration, TableSourceNodeOptions, FilterNodeOptions, HashJoinNodeOptions, ProjectNodeOptions
-
-Initialize()  # Initialise support for Datasets in ExecPlan
+from pyarrow.lib import Table
+from pyarrow.compute import Expression
+from pyarrow.dataset import Dataset, InMemoryDataset
+from pyarrow._dataset import ScanNodeOptions
+from pyarrow._acero import (
+    Declaration, TableSourceNodeOptions, FilterNodeOptions, HashJoinNodeOptions, 
+    ProjectNodeOptions, OrderByNodeOptions
+)
 
 
-def _dataset_to_decl(Dataset dataset, use_threads=True):
+def _dataset_to_decl(dataset, use_threads=True):
     decl = Declaration("scan", ScanNodeOptions(dataset, use_threads=use_threads))
 
     filter_expr = dataset._scan_options.get("filter")
@@ -50,161 +44,6 @@ def _dataset_to_decl(Dataset dataset, use_threads=True):
         )
 
     return decl
-
-
-cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True,
-              _SortOptions sort_options=None):
-    """
-    Internal Function to create an ExecPlan and run it.
-
-    Parameters
-    ----------
-    inputs : list of Table or Dataset
-        The sources from which the ExecPlan should fetch data.
-        In most cases this is only one, unless the first node of the
-        plan is able to get data from multiple different sources.
-    output_type : Table or InMemoryDataset
-        In which format the output should be provided.
-    plan : vector[CDeclaration]
-        The nodes of the plan that should be applied to the sources
-        to produce the output.
-    use_threads : bool, default True
-        Whether to use multithreading or not.
-    """
-    cdef:
-        CExecutor *c_executor
-        shared_ptr[CExecContext] c_exec_context
-        shared_ptr[CExecPlan] c_exec_plan
-        CDeclaration current_decl
-        vector[CDeclaration] c_decls
-        vector[CExecNode*] _empty
-        vector[CExecNode*] c_final_node_vec
-        CExecNode *c_node
-        shared_ptr[CTable] c_in_table
-        shared_ptr[CTable] c_out_table
-        shared_ptr[CTableSourceNodeOptions] c_tablesourceopts
-        shared_ptr[CScanNodeOptions] c_scanopts
-        shared_ptr[CExecNodeOptions] c_input_node_opts
-        shared_ptr[CSinkNodeOptions] c_sinkopts
-        shared_ptr[COrderBySinkNodeOptions] c_orderbysinkopts
-        shared_ptr[CAsyncExecBatchGenerator] c_async_exec_batch_gen
-        shared_ptr[CRecordBatchReader] c_recordbatchreader
-        vector[CDeclaration].iterator plan_iter
-        vector[CDeclaration.Input] no_c_inputs
-        CStatus c_plan_status
-
-    if use_threads:
-        c_executor = GetCpuThreadPool()
-    else:
-        c_executor = NULL
-
-    # TODO(weston): This is deprecated.  Once ordering is better supported
-    # in the exec plan we can remove all references to ExecPlan and use the
-    # DeclarationToXyz methods
-    c_exec_context = make_shared[CExecContext](
-        c_default_memory_pool(), c_executor)
-    c_exec_plan = GetResultValue(CExecPlan.Make(c_exec_context.get()))
-
-    plan_iter = plan.begin()
-
-    # Create source nodes for each input
-    for ipt in inputs:
-        if isinstance(ipt, Table):
-            c_in_table = pyarrow_unwrap_table(ipt)
-            c_tablesourceopts = make_shared[CTableSourceNodeOptions](
-                c_in_table)
-            c_input_node_opts = static_pointer_cast[CExecNodeOptions, CTableSourceNodeOptions](
-                c_tablesourceopts)
-
-            current_decl = CDeclaration(
-                tobytes("table_source"), no_c_inputs, c_input_node_opts)
-        elif isinstance(ipt, Dataset):
-            c_in_dataset = (<Dataset>ipt).unwrap()
-            c_scanopts = make_shared[CScanNodeOptions](
-                c_in_dataset, Scanner._make_scan_options(ipt, {"use_threads": use_threads}))
-            c_input_node_opts = static_pointer_cast[CExecNodeOptions, CScanNodeOptions](
-                c_scanopts)
-
-            # Filters applied in CScanNodeOptions are "best effort" for the scan node itself,
-            # so we always need to inject an additional Filter node to apply them for real.
-            current_decl = CDeclaration(
-                tobytes("filter"),
-                no_c_inputs,
-                static_pointer_cast[CExecNodeOptions, CFilterNodeOptions](
-                    make_shared[CFilterNodeOptions](
-                        deref(deref(c_scanopts).scan_options).filter
-                    )
-                )
-            )
-            current_decl.inputs.push_back(
-                CDeclaration.Input(
-                    CDeclaration(tobytes("scan"), no_c_inputs, c_input_node_opts))
-            )
-        else:
-            raise TypeError("Unsupported type")
-
-        if plan_iter != plan.end():
-            # Flag the source as the input of the first plan node.
-            deref(plan_iter).inputs.push_back(CDeclaration.Input(current_decl))
-        else:
-            # Empty plan, make the source the first plan node.
-            c_decls.push_back(current_decl)
-
-    # Add Here additional nodes
-    while plan_iter != plan.end():
-        c_decls.push_back(deref(plan_iter))
-        inc(plan_iter)
-
-    # Add all CDeclarations to the plan
-    c_node = GetResultValue(
-        CDeclaration.Sequence(c_decls).AddToPlan(&deref(c_exec_plan))
-    )
-    c_final_node_vec.push_back(c_node)
-
-    # Create the output node
-    c_async_exec_batch_gen = make_shared[CAsyncExecBatchGenerator]()
-
-    if sort_options is None:
-        c_sinkopts = make_shared[CSinkNodeOptions](
-            c_async_exec_batch_gen.get())
-        GetResultValue(
-            MakeExecNode(tobytes("sink"), &deref(c_exec_plan),
-                         c_final_node_vec, deref(c_sinkopts))
-        )
-    else:
-        c_orderbysinkopts = make_shared[COrderBySinkNodeOptions](
-            deref(<CSortOptions*>(sort_options.unwrap().get())),
-            c_async_exec_batch_gen.get()
-        )
-        GetResultValue(
-            MakeExecNode(tobytes("order_by_sink"), &deref(c_exec_plan),
-                         c_final_node_vec, deref(c_orderbysinkopts))
-        )
-
-    # Convert the asyncgenerator to a sync batch reader
-    c_recordbatchreader = MakeGeneratorReader(c_node.output_schema(),
-                                              deref(c_async_exec_batch_gen),
-                                              deref(c_exec_context).memory_pool())
-
-    # Start execution of the ExecPlan
-    deref(c_exec_plan).Validate()
-    deref(c_exec_plan).StartProducing()
-
-    # Convert output to the expected one.
-    c_out_table = GetResultValue(
-        CTable.FromRecordBatchReader(c_recordbatchreader.get()))
-    if output_type == Table:
-        output = pyarrow_wrap_table(c_out_table)
-    elif output_type == InMemoryDataset:
-        output = InMemoryDataset(pyarrow_wrap_table(c_out_table))
-    else:
-        raise TypeError("Unsupported output type")
-
-    with nogil:
-        c_plan_status = deref(c_exec_plan).finished().status()
-    check_status(c_plan_status)
-
-    return output
 
 
 def _perform_join(join_type, left_operand not None, left_keys,
@@ -386,21 +225,25 @@ def _filter_table(table, expression):
     return decl.to_table(use_threads=False)
 
 
-def _sort_source(table_or_dataset, sort_options, output_type=Table):
-    cdef:
-        vector[CDeclaration] c_empty_decl_plan
+def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):
 
-    r = execplan([table_or_dataset],
-                 plan=c_empty_decl_plan,
-                 output_type=Table,
-                 use_threads=True,
-                 sort_options=sort_options)
+    if isinstance(table_or_dataset, Dataset):
+        data_source = _dataset_to_decl(table_or_dataset, use_threads=True)
+    else:
+        data_source = Declaration(
+            "table_source", TableSourceNodeOptions(table_or_dataset)
+        )
+
+    order_by = Declaration("order_by", OrderByNodeOptions(sort_keys, **kwargs))
+
+    decl = Declaration.from_sequence([data_source, order_by])
+    result_table = decl.to_table(use_threads=True)
 
     if output_type == Table:
-        return r
+        return result_table
     elif output_type == InMemoryDataset:
         # Get rid of special dataset columns
         # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
-        return InMemoryDataset(r.select(table_or_dataset.schema.names))
+        return InMemoryDataset(result_table.select(table_or_dataset.schema.names))
     else:
         raise TypeError("Unsupported output type")
