@@ -15,12 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gtest/gtest.h>
 #include <algorithm>
 #include <cstdint>
 #include <utility>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/record_batch.h"
@@ -62,6 +61,18 @@ void CheckBitmapWordAlign(const uint8_t* data, int64_t bit_offset, int64_t lengt
     ASSERT_EQ(p.trailing_bit_offset, bit_offset + p.leading_bits + p.aligned_bits);
     ASSERT_EQ(p.trailing_bit_offset + p.trailing_bits, bit_offset + length);
   }
+}
+
+arrow::Result<std::shared_ptr<Array>> CreateUnalignedArray(std::shared_ptr<Array> array) {
+  BufferVector sliced_buffers(array->data()->buffers.size(), nullptr);
+  for (std::size_t i = 0; i < array->data()->buffers.size(); ++i) {
+    if (array->data()->buffers[i]) {
+      sliced_buffers[i] = array->data()->buffers[i]->CopySlice(0, 2).MoveValueUnsafe();
+    }
+  }
+  auto sliced_array_data =
+      ArrayData::Make(array->type(), array->length(), std::move(sliced_buffers));
+  return MakeArray(std::move(sliced_array_data));
 }
 
 TEST(BitmapWordAlign, AlignedDataStart) {
@@ -157,8 +168,14 @@ TEST(EnsureAlignment, Array) {
   auto rand = ::arrow::random::RandomArrayGenerator(1923);
   auto random_array = rand.UInt8(/*size*/ 50, /*min*/ 0, /*max*/ 100,
                                  /*null_probability*/ 0, /*alignment*/ 512, pool);
+
+  // for having buffers which are not aligned by 1024
+  ASSERT_OK_AND_ASSIGN(auto sliced_array,
+                       arrow::internal::CreateUnalignedArray(std::move(random_array)));
+
+  ASSERT_EQ(util::CheckAlignment(*sliced_array, 1024), false);
   ASSERT_OK_AND_ASSIGN(auto aligned_array,
-                       util::EnsureAlignment(std::move(random_array), 1024, pool));
+                       util::EnsureAlignment(std::move(sliced_array), 1024, pool));
   ASSERT_EQ(util::CheckAlignment(*aligned_array, 1024), true);
 }
 
@@ -169,12 +186,21 @@ TEST(EnsureAlignment, ChunkedArray) {
                                    /*null_probability*/ 0, /*alignment*/ 512, pool);
   auto random_array_2 = rand.UInt8(/*size*/ 100, /*min*/ 10, /*max*/ 50,
                                    /*null_probability*/ 0, /*alignment*/ 1024, pool);
+
+  ASSERT_OK_AND_ASSIGN(auto sliced_array_1,
+                       arrow::internal::CreateUnalignedArray(std::move(random_array_1)));
+  ASSERT_OK_AND_ASSIGN(auto sliced_array_2,
+                       arrow::internal::CreateUnalignedArray(std::move(random_array_2)));
+
   ASSERT_OK_AND_ASSIGN(
       auto chunked_array,
-      ChunkedArray::Make({random_array_1, random_array_2}, random_array_1->type()));
+      ChunkedArray::Make({sliced_array_1, sliced_array_2}, sliced_array_1->type()));
+
+  std::vector<bool> needs_alignment;
+  ASSERT_EQ(util::CheckAlignment(*chunked_array, 2048, &needs_alignment), false);
+
   ASSERT_OK_AND_ASSIGN(auto aligned_chunked_array,
                        util::EnsureAlignment(std::move(chunked_array), 2048, pool));
-  std::vector<bool> needs_alignment;
   ASSERT_EQ(util::CheckAlignment(*aligned_chunked_array, 2048, &needs_alignment), true);
 }
 
@@ -186,15 +212,23 @@ TEST(EnsureAlignment, RecordBatch) {
   auto random_array_2 = rand.UInt8(/*size*/ 50, /*min*/ 10, /*max*/ 50,
                                    /*null_probability*/ 0, /*alignment*/ 1024, pool);
 
+  ASSERT_OK_AND_ASSIGN(auto sliced_array_1,
+                       arrow::internal::CreateUnalignedArray(std::move(random_array_1)));
+  ASSERT_OK_AND_ASSIGN(auto sliced_array_2,
+                       arrow::internal::CreateUnalignedArray(std::move(random_array_2)));
+
   auto f0 = field("f0", uint8());
   auto f1 = field("f1", uint8());
   std::vector<std::shared_ptr<Field>> fields = {f0, f1};
   auto schema = ::arrow::schema({f0, f1});
 
-  auto record_batch = RecordBatch::Make(schema, 50, {random_array_1, random_array_2});
+  auto record_batch = RecordBatch::Make(schema, 50, {sliced_array_1, sliced_array_2});
+
+  std::vector<bool> needs_alignment;
+  ASSERT_EQ(util::CheckAlignment(*record_batch, 2048, &needs_alignment), false);
+
   ASSERT_OK_AND_ASSIGN(auto aligned_record_batch,
                        util::EnsureAlignment(std::move(record_batch), 2048, pool));
-  std::vector<bool> needs_alignment;
   ASSERT_EQ(util::CheckAlignment(*aligned_record_batch, 2048, &needs_alignment), true);
 }
 
@@ -206,17 +240,25 @@ TEST(EnsureAlignment, Table) {
                                    /*null_probability*/ 0, /*alignment*/ 512, pool);
   auto random_array_2 = rand.UInt8(/*size*/ 100, /*min*/ 10, /*max*/ 50,
                                    /*null_probability*/ 0, /*alignment*/ 1024, pool);
+  ASSERT_OK_AND_ASSIGN(auto sliced_array_1,
+                       arrow::internal::CreateUnalignedArray(std::move(random_array_1)));
+  ASSERT_OK_AND_ASSIGN(auto sliced_array_2,
+                       arrow::internal::CreateUnalignedArray(std::move(random_array_2)));
   ASSERT_OK_AND_ASSIGN(
       auto chunked_array_1,
-      ChunkedArray::Make({random_array_1, random_array_2}, random_array_1->type()));
+      ChunkedArray::Make({sliced_array_1, sliced_array_2}, sliced_array_1->type()));
 
   random_array_1 = rand.UInt8(/*size*/ 150, /*min*/ 0, /*max*/ 100,
                               /*null_probability*/ 0, /*alignment*/ 1024, pool);
   random_array_2 = rand.UInt8(/*size*/ 75, /*min*/ 10, /*max*/ 50,
                               /*null_probability*/ 0, /*alignment*/ 512, pool);
+  ASSERT_OK_AND_ASSIGN(sliced_array_1,
+                       arrow::internal::CreateUnalignedArray(std::move(random_array_1)));
+  ASSERT_OK_AND_ASSIGN(sliced_array_2,
+                       arrow::internal::CreateUnalignedArray(std::move(random_array_2)));
   ASSERT_OK_AND_ASSIGN(
       auto chunked_array_2,
-      ChunkedArray::Make({random_array_1, random_array_2}, random_array_1->type()));
+      ChunkedArray::Make({sliced_array_1, sliced_array_2}, sliced_array_1->type()));
 
   auto f0 = field("f0", uint8());
   auto f1 = field("f1", uint8());
@@ -224,9 +266,15 @@ TEST(EnsureAlignment, Table) {
   auto schema = ::arrow::schema({f0, f1});
 
   auto table = Table::Make(schema, {chunked_array_1, chunked_array_2});
+
+  std::vector<bool> needs_alignment;
+  ASSERT_EQ(util::CheckAlignment(*chunked_array_2, 2048, &needs_alignment), false);
+
+  ASSERT_EQ(util::CheckAlignment(*table, 2048, &needs_alignment), false);
+
+  needs_alignment.clear();
   ASSERT_OK_AND_ASSIGN(auto aligned_table,
                        util::EnsureAlignment(std::move(table), 2048, pool));
-  std::vector<bool> needs_alignment;
   ASSERT_EQ(util::CheckAlignment(*aligned_table, 2048, &needs_alignment), true);
 }
 

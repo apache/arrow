@@ -88,7 +88,7 @@ bool CheckAlignment(const Table& table, int64_t alignment,
         !CheckAlignment(*table.column(i - 1), alignment, needs_alignment,
                         (i - 1) * (1 + table.column(i - 1)->num_chunks()))) {
       (*needs_alignment)[i * table.column(i - 1)->num_chunks() + i - 1] = true;
-      all_aligned = true;
+      all_aligned = false;
     }
   }
   return all_aligned;
