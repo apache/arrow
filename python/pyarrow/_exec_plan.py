@@ -27,7 +27,7 @@ from pyarrow.compute import Expression
 from pyarrow.dataset import Dataset, InMemoryDataset
 from pyarrow._dataset import ScanNodeOptions
 from pyarrow._acero import (
-    Declaration, TableSourceNodeOptions, FilterNodeOptions, HashJoinNodeOptions, 
+    Declaration, TableSourceNodeOptions, FilterNodeOptions, HashJoinNodeOptions,
     ProjectNodeOptions, OrderByNodeOptions
 )
 
@@ -37,7 +37,7 @@ def _dataset_to_decl(dataset, use_threads=True):
 
     filter_expr = dataset._scan_options.get("filter")
     if filter_expr is not None:
-        # Filters applied in CScanNodeOptions are "best effort" for the scan node itself,
+        # Filters applied in CScanNodeOptions are "best effort" for the scan node itself
         # so we always need to inject an additional Filter node to apply them for real.
         decl = Declaration.from_sequence(
             [decl, Declaration("filter", FilterNodeOptions(filter_expr))]
@@ -46,8 +46,8 @@ def _dataset_to_decl(dataset, use_threads=True):
     return decl
 
 
-def _perform_join(join_type, left_operand not None, left_keys,
-                  right_operand not None, right_keys,
+def _perform_join(join_type, left_operand, left_keys,
+                  right_operand, right_keys,
                   left_suffix=None, right_suffix=None,
                   use_threads=True, coalesce_keys=False,
                   output_type=Table):
@@ -86,6 +86,11 @@ def _perform_join(join_type, left_operand not None, left_keys,
     -------
     result_table : Table or InMemoryDataset
     """
+    if not isinstance(left_operand, (Table, Dataset)):
+        raise TypeError(f"Expected Table or Dataset, got {type(left_operand)}")
+    if not isinstance(right_operand, (Table, Dataset)):
+        raise TypeError(f"Expected Table or Dataset, got {type(right_operand)}")
+
     # Prepare left and right tables Keys to send them to the C++ function
     left_keys_order = {}
     if not isinstance(left_keys, (tuple, list)):
@@ -136,18 +141,23 @@ def _perform_join(join_type, left_operand not None, left_keys,
     if isinstance(right_operand, Dataset):
         right_source = _dataset_to_decl(right_operand, use_threads=use_threads)
     else:
-        right_source = Declaration("table_source", TableSourceNodeOptions(right_operand))
+        right_source = Declaration(
+            "table_source", TableSourceNodeOptions(right_operand)
+        )
 
     join_opts = HashJoinNodeOptions(
         join_type, left_keys, right_keys, left_columns, right_columns,
         output_suffix_for_left=left_suffix or "",
         output_suffix_for_right=right_suffix or "",
     )
-    decl = Declaration("hashjoin", options=join_opts, inputs=[left_source, right_source])
+    decl = Declaration(
+        "hashjoin", options=join_opts, inputs=[left_source, right_source]
+    )
 
     if coalesce_keys and join_type == "full outer":
         # In case of full outer joins, the join operation will output all columns
-        # so that we can coalesce the keys and exclude duplicates in a subsequent projection.
+        # so that we can coalesce the keys and exclude duplicates in a subsequent
+        # projection.
         left_columns_set = set(left_columns)
         right_columns_set = set(right_columns)
         # Where the right table columns start.
@@ -162,7 +172,8 @@ def _perform_join(join_type, left_operand not None, left_keys,
                 # with this left key. We do so by retrieving the name
                 # of the right key that is in the same position in the provided keys
                 # and then looking up the index for that name in the right table.
-                right_key_index = right_column_keys_indices[right_keys[left_keys_order[col]]]
+                right_key_index = right_column_keys_indices[
+                    right_keys[left_keys_order[col]]]
                 projections.append(
                     Expression._call("coalesce", [
                         Expression._field(idx), Expression._field(
@@ -170,15 +181,21 @@ def _perform_join(join_type, left_operand not None, left_keys,
                     ])
                 )
             elif idx >= right_operand_index and col in right_column_keys_indices:
-                # Do not include right table keys. As they would lead to duplicated keys.
+                # Do not include right table keys. As they would lead to duplicated keys
                 continue
             else:
                 # For all the other columns incude them as they are.
                 # Just recompute the suffixes that the join produced as the projection
                 # would lose them otherwise.
-                if left_suffix and idx < right_operand_index and col in right_columns_set:
+                if (
+                    left_suffix and idx < right_operand_index
+                    and col in right_columns_set
+                ):
                     col += left_suffix
-                if right_suffix and idx >= right_operand_index and col in left_columns_set:
+                if (
+                    right_suffix and idx >= right_operand_index
+                    and col in left_columns_set
+                ):
                     col += right_suffix
                 projected_col_names.append(col)
                 projections.append(
