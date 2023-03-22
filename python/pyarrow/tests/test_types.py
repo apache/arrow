@@ -212,6 +212,11 @@ def test_is_union():
     assert not types.is_union(pa.list_(pa.int32()))
 
 
+def test_is_run_end_encoded():
+    assert types.is_run_end_encoded(pa.run_end_encoded(pa.int32(), pa.int64()))
+    assert not types.is_run_end_encoded(pa.utf8())
+
+
 # TODO(wesm): is_map, once implemented
 
 
