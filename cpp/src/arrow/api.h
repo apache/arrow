@@ -20,6 +20,7 @@
 #pragma once
 
 #include "arrow/array.h"                    // IYWU pragma: export
+#include "arrow/array/array_run_end.h"      // IYWU pragma: export
 #include "arrow/array/concatenate.h"        // IYWU pragma: export
 #include "arrow/buffer.h"                   // IYWU pragma: export
 #include "arrow/builder.h"                  // IYWU pragma: export

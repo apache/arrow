@@ -17,12 +17,11 @@
 
 arrow_install_all_headers("arrow/compute/exec")
 
-add_arrow_compute_test(expression_test
+add_arrow_compute_test(subtree_test
                        REQUIRE_ALL_KERNELS
                        PREFIX
                        "arrow-compute"
                        SOURCES
-                       expression_test.cc
                        subtree_test.cc)
 
 add_arrow_compute_test(plan_test
@@ -47,6 +46,12 @@ add_arrow_compute_test(hash_join_node_test
                        SOURCES
                        hash_join_node_test.cc
                        bloom_filter_test.cc)
+add_arrow_compute_test(order_by_node_test
+                       PREFIX
+                       "arrow-compute"
+                       SOURCES
+                       order_by_node_test.cc
+                       test_nodes.cc)
 add_arrow_compute_test(pivot_longer_node_test
                        PREFIX
                        "arrow-compute"
@@ -69,11 +74,6 @@ add_arrow_compute_test(util_test
                        SOURCES
                        util_test.cc
                        task_util_test.cc)
-add_arrow_compute_test(light_array_exec_test
-                       PREFIX
-                       "arrow-compute"
-                       SOURCES
-                       light_array_exec_test.cc)
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
 

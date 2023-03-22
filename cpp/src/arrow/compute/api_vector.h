@@ -85,6 +85,7 @@ class ARROW_EXPORT RunEndEncodeOptions : public FunctionOptions {
  public:
   explicit RunEndEncodeOptions(std::shared_ptr<DataType> run_end_type = int32());
   static constexpr char const kTypeName[] = "RunEndEncodeOptions";
+  static RunEndEncodeOptions Defaults() { return RunEndEncodeOptions(); }
 
   std::shared_ptr<DataType> run_end_type;
 };
@@ -106,8 +107,16 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
   explicit SortOptions(std::vector<SortKey> sort_keys = {},
                        NullPlacement null_placement = NullPlacement::AtEnd);
+  explicit SortOptions(const Ordering& ordering);
   static constexpr char const kTypeName[] = "SortOptions";
   static SortOptions Defaults() { return SortOptions(); }
+  /// Convenience constructor to create an ordering from SortOptions
+  ///
+  /// Note: Both classes contain the exact same information.  However,
+  /// sort_options should only be used in a "function options" context while Ordering
+  /// is used more generally.
+  Ordering AsOrdering() && { return Ordering(std::move(sort_keys), null_placement); }
+  Ordering AsOrdering() const& { return Ordering(sort_keys, null_placement); }
 
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
@@ -569,8 +578,10 @@ Result<Datum> DictionaryEncode(
 /// \since 12.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> RunEndEncode(const Datum& value, const RunEndEncodeOptions& options,
-                           ExecContext* ctx = NULLPTR);
+Result<Datum> RunEndEncode(
+    const Datum& value,
+    const RunEndEncodeOptions& options = RunEndEncodeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Decode a Run-End Encoded array to a plain array
 ///

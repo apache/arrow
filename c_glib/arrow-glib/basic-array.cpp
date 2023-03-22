@@ -929,7 +929,8 @@ gchar *
 garrow_array_to_string(GArrowArray *array, GError **error)
 {
   const auto arrow_array = garrow_array_get_raw(array);
-  return g_strdup(arrow_array->ToString().c_str());
+  const auto string = arrow_array->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**

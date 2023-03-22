@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 
 #include <unordered_map>
 #include <unordered_set>

@@ -443,7 +443,7 @@ services:
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       ARROW_HOME: /arrow
       LIBARROW_MINIMAL: "false"
-    command: /bin/bash -c " 
+    command: /bin/bash -c "
           scl enable devtoolset-8 '/arrow/r/inst/build_arrow_static.sh'"
 
   ubuntu-cpp-bundled:
@@ -1538,16 +1538,16 @@ services:
     # Usage:
     #   docker-compose build ubuntu-csharp
     #   docker-compose run ubuntu-csharp
-    image: ${REPO}:${ARCH}-ubuntu-20.04-csharp-${DOTNET}
+    image: ${REPO}:${ARCH}-ubuntu-22.04-csharp-${DOTNET}
     build:
       context: .
-      dockerfile: ci/docker/ubuntu-20.04-csharp.dockerfile
+      dockerfile: ci/docker/ubuntu-22.04-csharp.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-ubuntu-20.04-csharp-${DOTNET}
+        - ${REPO}:${ARCH}-ubuntu-22.04-csharp-${DOTNET}
       args:
         arch: ${ARCH}
         dotnet: ${DOTNET}
-        platform: focal
+        platform: jammy
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     command: &csharp-command >

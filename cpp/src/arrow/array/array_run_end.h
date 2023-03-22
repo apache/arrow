@@ -65,6 +65,17 @@ class ARROW_EXPORT RunEndEncodedArray : public Array {
                      const std::shared_ptr<Array>& run_ends,
                      const std::shared_ptr<Array>& values, int64_t offset = 0);
 
+  /// \brief Construct a RunEndEncodedArray from all parameters
+  ///
+  /// The length and offset parameters refer to the dimensions of the logical
+  /// array which is the array we would get after expanding all the runs into
+  /// repeated values. As such, length can be much greater than the lenght of
+  /// the child run_ends and values arrays.
+  static Result<std::shared_ptr<RunEndEncodedArray>> Make(
+      const std::shared_ptr<DataType>& type, int64_t logical_length,
+      const std::shared_ptr<Array>& run_ends, const std::shared_ptr<Array>& values,
+      int64_t logical_offset = 0);
+
   /// \brief Construct a RunEndEncodedArray from values and run ends arrays
   ///
   /// The data type is automatically inferred from the arguments.

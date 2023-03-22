@@ -70,6 +70,7 @@ type Reader struct {
 //
 // This can be further customized using the WithColumnTypes and
 // WithIncludeColumns options.
+// For BinaryType the reader will use base64 decoding with padding as per base64.StdDecoding.
 func NewInferringReader(r io.Reader, opts ...Option) *Reader {
 	rr := &Reader{
 		r:                csv.NewReader(r),
@@ -469,6 +470,10 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(s string) {
 			r.parseList(bldr, s)
 		}
+	case *arrow.BinaryType:
+		return func(s string) {
+			r.parseBinaryType(bldr, s)
+		}
 	default:
 		panic(fmt.Errorf("arrow/csv: unhandled field type %T", bldr.Type()))
 	}
@@ -753,6 +758,19 @@ func (r *Reader) parseList(field array.Builder, str string) {
 	for _, str := range items {
 		r.initFieldConverter(valueBldr)(str)
 	}
+}
+
+func (r *Reader) parseBinaryType(field array.Builder, str string) {
+	// specialize the implementation when we know we cannot have nulls
+	if str != "" && r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+	decodedVal, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		panic("cannot decode base64 string " + str)
+	}
+	field.(*array.BinaryBuilder).Append(decodedVal)
 }
 
 // Retain increases the reference count by 1.

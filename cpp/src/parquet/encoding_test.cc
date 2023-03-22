@@ -742,6 +742,33 @@ class EncodingAdHocTyped : public ::testing::Test {
     ::arrow::AssertArraysEqual(*values, *result);
   }
 
+  void Rle(int seed) {
+    if (!std::is_same<ParquetType, BooleanType>::value) {
+      return;
+    }
+    auto values = GetValues(seed);
+    auto encoder = MakeTypedEncoder<ParquetType>(Encoding::RLE, /*use_dictionary=*/false,
+                                                 column_descr());
+    auto decoder = MakeTypedDecoder<ParquetType>(Encoding::RLE, column_descr());
+
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.Finish(&result));
+    ASSERT_EQ(50, result->length());
+    ::arrow::AssertArraysEqual(*values, *result);
+  }
+
   void DeltaBitPack(int seed) {
     if (!std::is_same<ParquetType, Int32Type>::value &&
         !std::is_same<ParquetType, Int64Type>::value) {
@@ -906,6 +933,14 @@ TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPut) {
 TYPED_TEST(EncodingAdHocTyped, ByteStreamSplitArrowDirectPut) {
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
     this->ByteStreamSplit(seed);
+  }
+}
+
+TYPED_TEST(EncodingAdHocTyped, RleArrowDirectPut) {
+  // TODO: test with nulls once RleBooleanDecoder::DecodeArrow supports them
+  this->null_probability_ = 0;
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    this->Rle(seed);
   }
 }
 
@@ -1574,6 +1609,69 @@ TYPED_TEST(TestDeltaBitPackEncoding, NonZeroPaddedMiniblockBitWidth) {
     mini_block_bitwidths[kMiniBlocksPerBlock - num_padding_bytes - 1] = 0xFFU;
     EXPECT_THROW(this->CheckDecoding(), ParquetException);
   }
+}
+
+// ----------------------------------------------------------------------
+// Rle for Boolean encode/decode tests.
+
+class TestRleBooleanEncoding : public TestEncodingBase<BooleanType> {
+ public:
+  using c_type = bool;
+  static constexpr int TYPE = Type::BOOLEAN;
+
+  virtual void CheckRoundtrip() {
+    auto encoder = MakeTypedEncoder<BooleanType>(Encoding::RLE,
+                                                 /*use_dictionary=*/false, descr_.get());
+    auto decoder = MakeTypedDecoder<BooleanType>(Encoding::RLE, descr_.get());
+
+    for (int i = 0; i < 3; ++i) {
+      encoder->Put(draws_, num_values_);
+      encode_buffer_ = encoder->FlushValues();
+
+      decoder->SetData(num_values_, encode_buffer_->data(),
+                       static_cast<int>(encode_buffer_->size()));
+      int values_decoded = decoder->Decode(decode_buf_, num_values_);
+      ASSERT_EQ(num_values_, values_decoded);
+      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+    }
+  }
+
+  void CheckRoundtripSpaced(const uint8_t* valid_bits, int64_t valid_bits_offset) {
+    auto encoder = MakeTypedEncoder<BooleanType>(Encoding::RLE,
+                                                 /*use_dictionary=*/false, descr_.get());
+    auto decoder = MakeTypedDecoder<BooleanType>(Encoding::RLE, descr_.get());
+    int null_count = 0;
+    for (auto i = 0; i < num_values_; i++) {
+      if (!bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
+        null_count++;
+      }
+    }
+    for (int i = 0; i < 3; ++i) {
+      encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
+      encode_buffer_ = encoder->FlushValues();
+      decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
+                       static_cast<int>(encode_buffer_->size()));
+      auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
+                                                  valid_bits, valid_bits_offset);
+      ASSERT_EQ(num_values_, values_decoded);
+      ASSERT_NO_FATAL_FAILURE(VerifyResultsSpaced<c_type>(
+          decode_buf_, draws_, num_values_, valid_bits, valid_bits_offset));
+    }
+  }
+};
+
+TEST_F(TestRleBooleanEncoding, BasicRoundTrip) {
+  ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, 200));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 0.1));
+}
+
+TEST_F(TestRleBooleanEncoding, AllNull) {
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 1));
 }
 
 // ----------------------------------------------------------------------

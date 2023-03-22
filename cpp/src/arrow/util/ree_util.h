@@ -41,6 +41,18 @@ const RunEndCType* RunEnds(const ArraySpan& span) {
   return RunEndsArray(span).GetValues<RunEndCType>(1);
 }
 
+/// \brief Perform basic validations on the parameters of an REE array
+/// and its two children arrays
+///
+/// All the checks complete in O(1) time. Consequently, this function:
+/// - DOES NOT check that run_ends is sorted and all-positive
+/// - DOES NOT check the actual contents of the run_ends and values arrays
+Status ValidateRunEndEncodedChildren(const RunEndEncodedType& type,
+                                     int64_t logical_length,
+                                     const std::shared_ptr<ArrayData>& run_ends_data,
+                                     const std::shared_ptr<ArrayData>& values_data,
+                                     int64_t null_count, int64_t logical_offset);
+
 namespace internal {
 
 /// \brief Uses binary-search to find the physical offset given a logical offset

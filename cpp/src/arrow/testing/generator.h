@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "arrow/array/array_base.h"
-#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/visibility.h"
@@ -256,8 +255,6 @@ class ARROW_TESTING_EXPORT GTestDataGenerator {
   virtual ::arrow::compute::ExecBatch ExecBatch(int64_t num_rows) = 0;
   virtual std::vector<::arrow::compute::ExecBatch> ExecBatches(int64_t rows_per_batch,
                                                                int num_batches) = 0;
-  virtual ::arrow::compute::Declaration SourceNode(int64_t rows_per_batch,
-                                                   int num_batches) = 0;
 
   virtual std::shared_ptr<::arrow::Table> Table(int64_t rows_per_chunk,
                                                 int num_chunks = 1) = 0;
@@ -274,8 +271,6 @@ class ARROW_TESTING_EXPORT DataGenerator {
   virtual Result<::arrow::compute::ExecBatch> ExecBatch(int64_t num_rows) = 0;
   virtual Result<std::vector<::arrow::compute::ExecBatch>> ExecBatches(
       int64_t rows_per_batch, int num_batches) = 0;
-  virtual Result<::arrow::compute::Declaration> SourceNode(int64_t rows_per_batch,
-                                                           int num_batches) = 0;
 
   virtual Result<std::shared_ptr<::arrow::Table>> Table(int64_t rows_per_chunk,
                                                         int num_chunks = 1) = 0;
@@ -310,7 +305,8 @@ ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Constant(
 ///
 /// Note: overflow is not prevented standard unsigned integer overflow applies
 ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Step(uint32_t start = 0,
-                                                          uint32_t step = 1);
+                                                          uint32_t step = 1,
+                                                          bool signed_int = false);
 /// make a generator that returns a random value
 ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Random(
     std::shared_ptr<DataType> type);
