@@ -16,8 +16,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build noasm
-// +build noasm
+//go:build noasm || (!amd64 && !arm64 && !s390x && !ppc64le)
 
 package utils
 
