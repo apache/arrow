@@ -461,6 +461,23 @@ std::shared_ptr<acero::ExecNode> ExecNode_Union(
 }
 
 // [[acero::export]]
+std::shared_ptr<acero::ExecNode> ExecNode_Fetch(
+    const std::shared_ptr<acero::ExecNode>& input, int64_t offset, int64_t limit) {
+  return MakeExecNodeOrStop("fetch", input->plan(), {input.get()},
+                            acero::FetchNodeOptions{offset, limit});
+}
+
+// [[acero::export]]
+std::shared_ptr<acero::ExecNode> ExecNode_OrderBy(
+    const std::shared_ptr<acero::ExecNode>& input, cpp11::list sort_options) {
+  return MakeExecNodeOrStop(
+      "order_by", input->plan(), {input.get()},
+      acero::OrderByNodeOptions{std::dynamic_pointer_cast<compute::SortOptions>(
+                                      make_compute_options("sort_indices", sort_options))
+                                      ->AsOrdering()});
+}
+
+// [[acero::export]]
 std::shared_ptr<acero::ExecNode> ExecNode_SourceNode(
     const std::shared_ptr<acero::ExecPlan>& plan,
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {

@@ -1189,6 +1189,39 @@ extern "C" SEXP _arrow_ExecNode_Union(SEXP input_sexp, SEXP right_data_sexp){
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_ACERO)
+std::shared_ptr<acero::ExecNode> ExecNode_Fetch(const std::shared_ptr<acero::ExecNode>& input, int64_t offset, int64_t limit);
+extern "C" SEXP _arrow_ExecNode_Fetch(SEXP input_sexp, SEXP offset_sexp, SEXP limit_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type input(input_sexp);
+	arrow::r::Input<int64_t>::type offset(offset_sexp);
+	arrow::r::Input<int64_t>::type limit(limit_sexp);
+	return cpp11::as_sexp(ExecNode_Fetch(input, offset, limit));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_Fetch(SEXP input_sexp, SEXP offset_sexp, SEXP limit_sexp){
+	Rf_error("Cannot call ExecNode_Fetch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
+std::shared_ptr<acero::ExecNode> ExecNode_OrderBy(const std::shared_ptr<acero::ExecNode>& input, cpp11::list sort_options);
+extern "C" SEXP _arrow_ExecNode_OrderBy(SEXP input_sexp, SEXP sort_options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type input(input_sexp);
+	arrow::r::Input<cpp11::list>::type sort_options(sort_options_sexp);
+	return cpp11::as_sexp(ExecNode_OrderBy(input, sort_options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_OrderBy(SEXP input_sexp, SEXP sort_options_sexp){
+	Rf_error("Cannot call ExecNode_OrderBy(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 std::shared_ptr<acero::ExecNode> ExecNode_SourceNode(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<arrow::RecordBatchReader>& reader);
 extern "C" SEXP _arrow_ExecNode_SourceNode(SEXP plan_sexp, SEXP reader_sexp){
 BEGIN_CPP11
@@ -5566,6 +5599,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_Aggregate", (DL_FUNC) &_arrow_ExecNode_Aggregate, 3}, 
 		{ "_arrow_ExecNode_Join", (DL_FUNC) &_arrow_ExecNode_Join, 9}, 
 		{ "_arrow_ExecNode_Union", (DL_FUNC) &_arrow_ExecNode_Union, 2}, 
+		{ "_arrow_ExecNode_Fetch", (DL_FUNC) &_arrow_ExecNode_Fetch, 3}, 
+		{ "_arrow_ExecNode_OrderBy", (DL_FUNC) &_arrow_ExecNode_OrderBy, 2}, 
 		{ "_arrow_ExecNode_SourceNode", (DL_FUNC) &_arrow_ExecNode_SourceNode, 2}, 
 		{ "_arrow_ExecNode_TableSourceNode", (DL_FUNC) &_arrow_ExecNode_TableSourceNode, 2}, 
 		{ "_arrow_substrait__internal__SubstraitToJSON", (DL_FUNC) &_arrow_substrait__internal__SubstraitToJSON, 1}, 

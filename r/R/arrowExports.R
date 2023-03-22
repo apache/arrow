@@ -488,6 +488,14 @@ ExecNode_Union <- function(input, right_data) {
   .Call(`_arrow_ExecNode_Union`, input, right_data)
 }
 
+ExecNode_Fetch <- function(input, offset, limit) {
+  .Call(`_arrow_ExecNode_Fetch`, input, offset, limit)
+}
+
+ExecNode_OrderBy <- function(input, sort_options) {
+  .Call(`_arrow_ExecNode_OrderBy`, input, sort_options)
+}
+
 ExecNode_SourceNode <- function(plan, reader) {
   .Call(`_arrow_ExecNode_SourceNode`, plan, reader)
 }

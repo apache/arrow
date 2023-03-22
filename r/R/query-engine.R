@@ -128,12 +128,11 @@ ExecPlan <- R6Class("ExecPlan",
         )
 
         if (grouped && getOption("arrow.summarise.sort", FALSE)) {
-          # Add sorting instructions for the rows too to match dplyr
-          # (see below about why sorting isn't itself a Node)
-          node$extras$sort <- list(
+          # Add sorting instructions for the rows to match dplyr
+          node <- node$OrderBy(list(
             names = group_vars,
             orders = rep(0L, length(group_vars))
-          )
+          ))
         }
       } else {
         # If any columns are derived, reordered, or renamed we need to Project
@@ -166,25 +165,37 @@ ExecPlan <- R6Class("ExecPlan",
         }
       }
 
-      # Apply sorting: this is currently not an ExecNode itself, it is a
-      # sink node option.
-      # TODO: handle some cases:
-      # (1) arrange > summarize > arrange
-      # (2) ARROW-13779: arrange then operation where order matters (e.g. cumsum)
+      # Apply sorting and head/tail
       if (length(.data$arrange_vars)) {
-        node$extras$sort <- list(
+        if (!is.null(.data$tail)) {
+          # Reverse sort, take head, then sort again
+          node <- node$OrderBy(list(
+            names = names(.data$arrange_vars),
+            orders = as.integer(!.data$arrange_desc)
+          ))
+          node <- node$Fetch(.data$tail)
+        }
+        node <- node$OrderBy(list(
           names = names(.data$arrange_vars),
-          orders = .data$arrange_desc,
-          temp_columns = names(.data$temp_columns)
-        )
-      }
-      # This is only safe because we are going to evaluate queries that end
-      # with head/tail first, then evaluate any subsequent query as a new query
-      if (!is.null(.data$head)) {
-        node$extras$head <- .data$head
-      }
-      if (!is.null(.data$tail)) {
+          orders = as.integer(.data$arrange_desc)
+        ))
+        if (length(.data$temp_columns)) {
+          # Project to remove them
+          temp_schema <- node$schema
+          cols_to_keep <- setdiff(names(temp_schema), names(.data$temp_columns))
+          node <- node$Project(make_field_refs(cols_to_keep))
+        }
+        if (!is.null(.data$head)) {
+          node <- node$Fetch(.data$head)
+        }
+      } else if (!is.null(.data$tail)) {
+        # tail but not sorted, so just take any rows since scan has nondeterministic order
+        # TODO(here): switch to FetchNode
         node$extras$tail <- .data$tail
+      } else if (!is.null(.data$head)) {
+        # TODO(here): switch to the FetchNode 
+        # node <- node$Fetch(.data$head)
+        node$extras$head <- .data$head
       }
       node
     },
@@ -336,6 +347,16 @@ ExecNode <- R6Class("ExecNode",
     },
     Union = function(right_node) {
       self$preserve_extras(ExecNode_Union(self, right_node))
+    },
+    Fetch = function(limit, offset = 0L) {
+      self$preserve_extras(
+        ExecNode_Fetch(self, offset, limit)
+      )
+    },
+    OrderBy = function(sorting) {
+      self$preserve_extras(
+        ExecNode_OrderBy(self, sorting)
+      )
     }
   ),
   active = list(
