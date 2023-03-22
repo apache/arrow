@@ -322,4 +322,11 @@ class ArrayTest < Test::Unit::TestCase
       end
     end
   end
+
+  sub_test_case("#index") do
+    test("Integer") do
+      assert_equal(2,
+                   Arrow::Int32Array.new([1, 2, 3, 4, 5]).index(3))
+    end
+  end
 end
