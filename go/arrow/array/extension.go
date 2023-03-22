@@ -185,6 +185,12 @@ func (e *ExtensionArrayBase) setData(data *Data) {
 	e.storage = MakeFromData(storageData).(arraymarshal)
 }
 
+// ValueString returns the value at index i as a string.
+// This needs to be implemented by the extension array type.
+func (e *ExtensionArrayBase) ValueString(i int) interface{} {
+	panic("arrow/array: ValueString wasn't implemented by this extension array type")
+}
+
 // no-op function that exists simply to force embedding this in any extension array types.
 func (ExtensionArrayBase) mustEmbedExtensionArrayBase() {}
 
