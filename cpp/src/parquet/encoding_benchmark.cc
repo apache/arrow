@@ -25,8 +25,8 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/byte_stream_split.h"
-
 #include "arrow/visit_data_inline.h"
+
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
@@ -318,7 +318,7 @@ static void BM_DecodingSpaced(benchmark::State& state, Encoding::type encoding) 
   auto rand = ::arrow::random::RandomArrayGenerator(1923);
   std::shared_ptr<::arrow::Array> array;
   if constexpr (std::is_same_v<ParquetType, BooleanType>) {
-    array = rand.Boolean(num_values, /*true_probability*/0.5, null_percent);
+    array = rand.Boolean(num_values, /*true_probability*/ 0.5, null_percent);
   } else {
     array = rand.Numeric<ArrowType>(num_values, -100, 100, null_percent);
   }
