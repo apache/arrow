@@ -1336,12 +1336,9 @@ class DictionaryEncodeOptions(_DictionaryEncodeOptions):
 
 
 cdef class _RunEndEncodeOptions(FunctionOptions):
-    def _set_options(self, run_end_type=None):
-        run_end_ty = ensure_type(run_end_type, allow_none=True)
-        if run_end_ty is None:
-            self.wrapped.reset(new CRunEndEncodeOptions())
-        else:
-            self.wrapped.reset(new CRunEndEncodeOptions(pyarrow_unwrap_data_type(run_end_ty)))
+    def _set_options(self, run_end_type):
+        run_end_ty = ensure_type(run_end_type)
+        self.wrapped.reset(new CRunEndEncodeOptions(pyarrow_unwrap_data_type(run_end_ty)))
 
 
 class RunEndEncodeOptions(_RunEndEncodeOptions):
