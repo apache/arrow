@@ -17,7 +17,6 @@
 // limitations under the License.
 
 //go:build noasm || (!amd64 && !arm64 && !s390x && !ppc64le)
-// +build noasm || (!amd64 && !arm64 && !s390x && !ppc64le)
 
 package utils
 
