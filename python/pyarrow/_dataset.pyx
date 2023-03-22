@@ -1174,7 +1174,7 @@ cdef class FileFormat(_Weakrefable):
         classes = {
             'ipc': IpcFileFormat,
             'csv': CsvFileFormat,
-            'json':JsonFileFormat,
+            'json': JsonFileFormat,
             'parquet': _get_parquet_symbol('ParquetFileFormat'),
             'orc': _get_orc_fileformat(),
         }
