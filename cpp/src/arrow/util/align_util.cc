@@ -36,9 +36,9 @@ bool CheckAlignment(const ArrayData& array, int64_t alignment) {
       if (!CheckAlignment(*buffer, alignment)) return false;
     }
   }
-  
+
   if (array.type->id() == Type::DICTIONARY) {
-    if(!CheckAlignment(*array.dictionary, alignment)) return false;
+    if (!CheckAlignment(*array.dictionary, alignment)) return false;
   }
 
   for (const auto& child : array.child_data) {
@@ -58,7 +58,7 @@ bool CheckAlignment(const ChunkedArray& array, int64_t alignment,
   bool all_aligned = true;
   needs_alignment->resize(needs_alignment->size() + array.num_chunks(), false);
   for (auto i = 0; i < array.num_chunks(); ++i) {
-    if (array.chunk(i) && !CheckAlignment(*array.chunk(i), alignment)){
+    if (array.chunk(i) && !CheckAlignment(*array.chunk(i), alignment)) {
       (*needs_alignment)[i + offset] = true;
       all_aligned = false;
     }
@@ -71,7 +71,7 @@ bool CheckAlignment(const RecordBatch& batch, int64_t alignment,
   bool all_aligned = true;
   needs_alignment->resize(batch.num_columns(), false);
   for (auto i = 0; i < batch.num_columns(); ++i) {
-    if (batch.column(i) && !CheckAlignment(*batch.column(i), alignment)){
+    if (batch.column(i) && !CheckAlignment(*batch.column(i), alignment)) {
       (*needs_alignment)[i] = true;
       all_aligned = false;
     }
@@ -86,7 +86,7 @@ bool CheckAlignment(const Table& table, int64_t alignment,
   for (auto i = 1; i <= table.num_columns(); ++i) {
     if (table.column(i - 1) &&
         !CheckAlignment(*table.column(i - 1), alignment, needs_alignment,
-                        (i - 1) * (1 + table.column(i - 1)->num_chunks()))){
+                        (i - 1) * (1 + table.column(i - 1)->num_chunks()))) {
       (*needs_alignment)[i * table.column(i - 1)->num_chunks() + i - 1] = true;
       all_aligned = true;
     }
