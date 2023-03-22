@@ -24,6 +24,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -411,6 +412,24 @@ public class TestBasicOperation {
         parsedMessage.asSchema();
       }
     }
+  }
+
+  @Test
+  public void testGrpcInsecureLocation() throws Exception {
+    Location location = Location.forGrpcInsecure(LOCALHOST, 9000);
+    Assertions.assertEquals(
+        new URI(LocationSchemes.GRPC_INSECURE, null, LOCALHOST, 9000, null, null, null),
+        location.getUri());
+    Assertions.assertEquals(new InetSocketAddress(LOCALHOST, 9000), location.toSocketAddress());
+  }
+
+  @Test
+  public void testGrpcTlsLocation() throws Exception {
+    Location location = Location.forGrpcTls(LOCALHOST, 9000);
+    Assertions.assertEquals(
+            new URI(LocationSchemes.GRPC_TLS, null, LOCALHOST, 9000, null, null, null),
+            location.getUri());
+    Assertions.assertEquals(new InetSocketAddress(LOCALHOST, 9000), location.toSocketAddress());
   }
 
   /**
