@@ -74,11 +74,11 @@ ExecPlan <- R6Class("ExecPlan",
 
       if (is_collapsed(.data)) {
         # We have a nested query.
-        if (has_head_tail(.data$.data)) {
-          # head and tail are not ExecNodes; at best we can handle them via
-          # SinkNode, so if there are any steps done after head/tail, we need to
-          # evaluate the query up to then and then do a new query for the rest.
-          # as_record_batch_reader() will build and run an ExecPlan
+        if (has_unordered_head(.data$.data)) {
+          # TODO(here): FetchNode should do non-deterministic fetch
+          # Instead, we need to evaluate the query up to here,
+          # and then do a new query for the rest.
+          # as_record_batch_reader() will build and run an ExecPlan and do head() on it
           reader <- as_record_batch_reader(.data$.data)
           on.exit(reader$.unsafe_delete())
           node <- self$SourceNode(reader)
@@ -201,58 +201,22 @@ ExecPlan <- R6Class("ExecPlan",
     },
     Run = function(node) {
       assert_is(node, "ExecNode")
-
-      # Sorting and head/tail (if sorted) are handled in the SinkNode,
-      # created in ExecPlan_build
-      sorting <- node$extras$sort %||% list()
-      select_k <- node$extras$head %||% -1L
-      has_sorting <- length(sorting) > 0
-      if (has_sorting) {
-        if (!is.null(node$extras$tail)) {
-          # Reverse the sort order and take the top K, then after we'll reverse
-          # the resulting rows so that it is ordered as expected
-          sorting$orders <- !sorting$orders
-          select_k <- node$extras$tail
-        }
-        sorting$orders <- as.integer(sorting$orders)
-      }
-
       out <- ExecPlan_run(
         self,
         node,
-        sorting,
-        prepare_key_value_metadata(node$final_metadata()),
-        select_k
+        prepare_key_value_metadata(node$final_metadata())
       )
 
-      if (!has_sorting) {
+      has_sorting <- length(node$extras$sort) > 0
+      slice_size <- node$extras$head %||% node$extras$tail
+      if (!has_sorting && !is.null(slice_size)) {
         # Since ExecPlans don't scan in deterministic order, head/tail are both
         # essentially taking a random slice from somewhere in the dataset.
         # And since the head() implementation is way more efficient than tail(),
         # just use it to take the random slice
         # TODO(ARROW-16628): handle limit in ExecNode
-        slice_size <- node$extras$head %||% node$extras$tail
-        if (!is.null(slice_size)) {
-          out <- head(out, slice_size)
-        }
-      } else if (!is.null(node$extras$tail)) {
-        # TODO(ARROW-16630): proper BottomK support
-        # Reverse the row order to get back what we expect
-        out <- as_arrow_table(out)
-        out <- out[rev(seq_len(nrow(out))), , drop = FALSE]
-        out <- as_record_batch_reader(out)
+        out <- head(out, slice_size)
       }
-
-      # If arrange() created $temp_columns, make sure to omit them from the result
-      # We can't currently handle this in ExecPlan_run itself because sorting
-      # happens in the end (SinkNode) so nothing comes after it.
-      # TODO(ARROW-16631): move into ExecPlan
-      if (length(node$extras$sort$temp_columns) > 0) {
-        tab <- as_arrow_table(out)
-        tab <- tab[, setdiff(names(tab), node$extras$sort$temp_columns), drop = FALSE]
-        out <- as_record_batch_reader(tab)
-      }
-
       out
     },
     Write = function(node, ...) {

@@ -226,6 +226,7 @@ test_that("head", {
   expect_equal(
     batch %>%
       select(int, strng = chr) %>%
+      arrange(int) %>%
       head(2) %>%
       filter(int > 5) %>%
       collect(),
@@ -550,7 +551,7 @@ test_that("show_exec_plan(), show_query() and explain()", {
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
-      "OrderBySinkNode.*wt.*DESC.*", # arrange goes via the OrderBy sink node
+      "OrderBy.*wt.*DESC.*", # arrange goes via the OrderBy node
       "FilterNode.*", # filter node
       "TableSourceNode.*" # entry point
     )
@@ -562,7 +563,6 @@ test_that("show_exec_plan(), show_query() and explain()", {
     mtcars %>%
       arrow_table() %>%
       filter(mpg > 20) %>%
-      arrange(desc(wt)) %>%
       head(3) %>%
       show_exec_plan(),
     "The `ExecPlan` cannot be printed for a nested query."

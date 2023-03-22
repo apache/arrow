@@ -988,19 +988,17 @@ extern "C" SEXP _arrow_ExecPlanReader__PlanStatus(SEXP reader_sexp){
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_ACERO)
-std::shared_ptr<ExecPlanReader> ExecPlan_run(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<acero::ExecNode>& final_node, cpp11::list sort_options, cpp11::strings metadata, int64_t head);
-extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp, SEXP metadata_sexp, SEXP head_sexp){
+std::shared_ptr<ExecPlanReader> ExecPlan_run(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<acero::ExecNode>& final_node, cpp11::strings metadata);
+extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP metadata_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<acero::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type final_node(final_node_sexp);
-	arrow::r::Input<cpp11::list>::type sort_options(sort_options_sexp);
 	arrow::r::Input<cpp11::strings>::type metadata(metadata_sexp);
-	arrow::r::Input<int64_t>::type head(head_sexp);
-	return cpp11::as_sexp(ExecPlan_run(plan, final_node, sort_options, metadata, head));
+	return cpp11::as_sexp(ExecPlan_run(plan, final_node, metadata));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp, SEXP metadata_sexp, SEXP head_sexp){
+extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP metadata_sexp){
 	Rf_error("Cannot call ExecPlan_run(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -5588,7 +5586,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__from_ExecPlanReader", (DL_FUNC) &_arrow_Table__from_ExecPlanReader, 1}, 
 		{ "_arrow_ExecPlanReader__Plan", (DL_FUNC) &_arrow_ExecPlanReader__Plan, 1}, 
 		{ "_arrow_ExecPlanReader__PlanStatus", (DL_FUNC) &_arrow_ExecPlanReader__PlanStatus, 1}, 
-		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 5}, 
+		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 3}, 
 		{ "_arrow_ExecPlan_ToString", (DL_FUNC) &_arrow_ExecPlan_ToString, 1}, 
 		{ "_arrow_ExecPlan_UnsafeDelete", (DL_FUNC) &_arrow_ExecPlan_UnsafeDelete, 1}, 
 		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 

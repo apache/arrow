@@ -289,7 +289,7 @@ show_exec_plan <- function(x) {
   # do not show the plan if we have a nested query (as this will force the
   # evaluation of the inner query/queries)
   # TODO see if we can remove after ARROW-16628
-  if (is_collapsed(x) && has_head_tail(x$.data)) {
+  if (is_collapsed(adq) && has_unordered_head(adq)) {
     warn("The `ExecPlan` cannot be printed for a nested query.")
     return(invisible(x))
   }
@@ -419,6 +419,6 @@ query_can_stream <- function(x) {
 
 is_collapsed <- function(x) inherits(x$.data, "arrow_dplyr_query")
 
-has_head_tail <- function(x) {
-  !is.null(x$head) || !is.null(x$tail) || (is_collapsed(x) && has_head_tail(x$.data))
+has_unordered_head <- function(x) {
+  ((!is.null(x$head) || !is.null(x$tail)) && length(x$arrange_vars) == 0) || (is_collapsed(x) && has_unordered_head(x$.data))
 }
