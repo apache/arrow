@@ -3872,7 +3872,11 @@ macro(build_grpc)
       "${EP_COMMON_CMAKE_ARGS}"
       "-DCMAKE_C_FLAGS=${GRPC_C_FLAGS}"
       "-DCMAKE_CXX_FLAGS=${GRPC_CXX_FLAGS}"
+      -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
       -DCMAKE_PREFIX_PATH='${GRPC_PREFIX_PATH_ALT_SEP}'
+      -DOPENSSL_CRYPTO_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
+      -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
+      -DOPENSSL_SSL_LIBRARY=${OPENSSL_SSL_LIBRARY}
       -DgRPC_ABSL_PROVIDER=package
       -DgRPC_BUILD_CSHARP_EXT=OFF
       -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF
@@ -3888,13 +3892,9 @@ macro(build_grpc)
       -DgRPC_PROTOBUF_PROVIDER=package
       -DgRPC_RE2_PROVIDER=package
       -DgRPC_SSL_PROVIDER=package
-      -DgRPC_ZLIB_PROVIDER=package
-      -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX})
+      -DgRPC_ZLIB_PROVIDER=package)
   if(PROTOBUF_VENDORED)
     list(APPEND GRPC_CMAKE_ARGS -DgRPC_PROTOBUF_PACKAGE_TYPE=CONFIG)
-  endif()
-  if(OPENSSL_ROOT_DIR)
-    list(APPEND GRPC_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
   endif()
 
   # XXX the gRPC git checkout is huge and takes a long time
@@ -4224,10 +4224,10 @@ macro(build_google_cloud_cpp_storage)
       -DGOOGLE_CLOUD_CPP_ENABLE=storage
       # We need this to build with OpenSSL 3.0.
       # See also: https://github.com/googleapis/google-cloud-cpp/issues/8544
-      -DGOOGLE_CLOUD_CPP_ENABLE_WERROR=OFF)
-  if(OPENSSL_ROOT_DIR)
-    list(APPEND GOOGLE_CLOUD_CPP_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
-  endif()
+      -DGOOGLE_CLOUD_CPP_ENABLE_WERROR=OFF
+      -DOPENSSL_CRYPTO_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
+      -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
+      -DOPENSSL_SSL_LIBRARY=${OPENSSL_SSL_LIBRARY})
 
   add_custom_target(google_cloud_cpp_dependencies)
 
@@ -4729,16 +4729,25 @@ macro(build_awssdk)
     set(AWSSDK_BUILD_TYPE release)
   endif()
 
-  # provide hint for AWS SDK to link with the already located openssl
-  get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
   set(AWSSDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       -DCMAKE_BUILD_TYPE=${AWSSDK_BUILD_TYPE}
       -DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}
-      -DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}\\$<SEMICOLON>${OPENSSL_ROOT_HINT}
+      -DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}
       -DENABLE_TESTING=OFF
       -DENABLE_UNITY_BUILD=ON
-      -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT})
+      -DOPENSSL_CRYPTO_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
+      -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
+      -DOPENSSL_SSL_LIBRARY=${OPENSSL_SSL_LIBRARY}
+      -Dcrypto_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
+      -Dcrypto_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
+  if(ARROW_OPENSSL_USE_SHARED)
+    list(APPEND AWSSDK_COMMON_CMAKE_ARGS
+         -Dcrypto_SHARED_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
+  else()
+    list(APPEND AWSSDK_COMMON_CMAKE_ARGS
+         -Dcrypto_STATIC_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
+  endif()
   set(AWSSDK_CMAKE_ARGS
       ${AWSSDK_COMMON_CMAKE_ARGS}
       -DBUILD_DEPS=OFF
@@ -4754,10 +4763,10 @@ macro(build_awssdk)
     # provide hint for AWS SDK to link with the already located libcurl and zlib
     list(APPEND
          AWSSDK_CMAKE_ARGS
-         -DCURL_LIBRARY=${CURL_ROOT_HINT}/lib
          -DCURL_INCLUDE_DIR=${CURL_ROOT_HINT}/include
-         -DZLIB_LIBRARY=${ZLIB_ROOT_HINT}/lib
-         -DZLIB_INCLUDE_DIR=${ZLIB_ROOT_HINT}/include)
+         -DCURL_LIBRARY=${CURL_ROOT_HINT}/lib
+         -DZLIB_INCLUDE_DIR=${ZLIB_ROOT_HINT}/include
+         -DZLIB_LIBRARY=${ZLIB_ROOT_HINT}/lib)
   endif()
 
   file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
@@ -4879,9 +4888,15 @@ macro(build_awssdk)
     set(S2N_TLS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
     list(APPEND
          S2N_TLS_CMAKE_ARGS
-         -DS2N_INTERN_LIBCRYPTO=ON # internalize libcrypto to avoid name conflict with openssl
-         -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX} # path to find crypto provided by aws-lc
-         -DCMAKE_C_FLAGS=${S2N_TLS_C_FLAGS})
+         # internalize libcrypto to avoid name conflict with OpenSSL
+         -DS2N_INTERN_LIBCRYPTO=ON
+         # path to find crypto provided by aws-lc
+         -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX}
+         -DCMAKE_C_FLAGS=${S2N_TLS_C_FLAGS}
+         # paths to find crypto provided by aws-lc
+         -Dcrypto_INCLUDE_DIR=${AWS_LC_PREFIX}/include
+         -Dcrypto_LIBRARY=${AWS_LC_STATIC_LIBRARY}
+         -Dcrypto_STATIC_LIBRARY=${AWS_LC_STATIC_LIBRARY})
 
     externalproject_add(s2n_tls_ep
                         ${EP_COMMON_OPTIONS}
