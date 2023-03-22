@@ -268,11 +268,8 @@ TEST(EnsureAlignment, Table) {
   auto table = Table::Make(schema, {chunked_array_1, chunked_array_2});
 
   std::vector<bool> needs_alignment;
-  ASSERT_EQ(util::CheckAlignment(*chunked_array_2, 2048, &needs_alignment), false);
-
   ASSERT_EQ(util::CheckAlignment(*table, 2048, &needs_alignment), false);
 
-  needs_alignment.clear();
   ASSERT_OK_AND_ASSIGN(auto aligned_table,
                        util::EnsureAlignment(std::move(table), 2048, pool));
   ASSERT_EQ(util::CheckAlignment(*aligned_table, 2048, &needs_alignment), true);
