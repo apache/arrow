@@ -1713,7 +1713,7 @@ class TestDeltaLengthByteArrayEncoding : public TestEncodingBase<Type> {
 
     encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
     encode_buffer_ = encoder->FlushValues();
-    decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
+    decoder->SetData(num_values_, encode_buffer_->data(),
                      static_cast<int>(encode_buffer_->size()));
     auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
                                                 valid_bits, valid_bits_offset);
@@ -1735,6 +1735,93 @@ TYPED_TEST(TestDeltaLengthByteArrayEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
       /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
       /*null_probability*/ 0.1));
+}
+
+TYPED_TEST(TestDeltaLengthByteArrayEncoding, AllNulls) {
+  this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 1);
+}
+
+std::shared_ptr<Buffer> DeltaEncode(std::vector<int32_t> lengths) {
+  auto encoder = MakeTypedEncoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
+  encoder->Put(lengths.data(), static_cast<int>(lengths.size()));
+  return encoder->FlushValues();
+}
+
+TEST(TestDeltaLengthByteArrayEncoding, AdHocRoundTrip) {
+  const std::shared_ptr<::arrow::Array> cases[] = {
+      ::arrow::ArrayFromJSON(::arrow::utf8(), R"([])"),
+      ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["abc", "de", ""])"),
+      ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["", "", ""])"),
+      ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["abc", "", "xyz"])")->Slice(1),
+  };
+
+  std::string expected_encoded_vals[] = {
+      DeltaEncode({})->ToString(),
+      DeltaEncode({3, 2, 0})->ToString() + "abcde",
+      DeltaEncode({0, 0, 0})->ToString(),
+      DeltaEncode({0, 3})->ToString() + "xyz",
+  };
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+                                                 /*use_dictionary=*/false);
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+  for (int i = 0; i < 4; ++i) {
+    auto array = cases[i];
+    auto expected_encoded = expected_encoded_vals[i];
+
+    encoder->Put(*array);
+    std::shared_ptr<Buffer> buffer = encoder->FlushValues();
+
+    ASSERT_EQ(expected_encoded, buffer->ToString());
+
+    int num_values = static_cast<int>(array->length() - array->null_count());
+    decoder->SetData(num_values, buffer->data(), static_cast<int>(buffer->size()));
+
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
+    acc.builder.reset(new ::arrow::StringBuilder);
+
+    int values_decoded = decoder->DecodeArrow(num_values, 0, nullptr, 0, &acc);
+    ASSERT_EQ(values_decoded, num_values);
+
+    std::shared_ptr<::arrow::Array> roundtripped_array;
+    ASSERT_OK(acc.builder->Finish(&roundtripped_array));
+    ASSERT_ARRAYS_EQUAL(*array, *roundtripped_array);
+  }
+}
+
+TEST(DeltaLengthByteArrayEncoding, RejectBadBuffer) {
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+
+  // Missing length delta header
+  Buffer empty_buffer = Buffer("");
+  ASSERT_THROW(decoder->SetData(10, empty_buffer.data(), 0), ParquetException);
+
+  // Incomplete header
+  std::shared_ptr<Buffer> partial_buffer =
+      DeltaEncode({3, 2, 0})->CopySlice(0, 2).ValueOrDie();
+  ASSERT_THROW(decoder->SetData(10, partial_buffer->data(),
+                                static_cast<int>(partial_buffer->size())),
+               ParquetException);
+
+  typename EncodingTraits<ByteArrayType>::Accumulator acc;
+  acc.builder.reset(new ::arrow::StringBuilder);
+
+  // buffer only has lengths
+  std::shared_ptr<Buffer> buffer = DeltaEncode({3, 2, 0});
+  decoder->SetData(3, buffer->data(), static_cast<int>(buffer->size()));
+  acc.builder.reset(new ::arrow::StringBuilder);
+  ASSERT_THROW(decoder->DecodeArrow(3, 0, nullptr, 0, &acc), ParquetException);
+
+  // bytes are too short for lengths
+  std::shared_ptr<Buffer> short_buffer =
+      ::arrow::ConcatenateBuffers(
+          {DeltaEncode({2, 4, 6}), std::make_shared<Buffer>("short")})
+          .ValueOrDie();
+  decoder->SetData(3, short_buffer->data(), static_cast<int>(short_buffer->size()));
+  acc.builder.reset(new ::arrow::StringBuilder);
+  ASSERT_THROW(decoder->DecodeArrow(3, 0, nullptr, 0, &acc), ParquetException);
 }
 
 std::shared_ptr<::arrow::Array> CastBinaryTypesHelper(
@@ -1857,12 +1944,10 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowDirectPut) {
   CheckEncode(::arrow::ArrayFromJSON(::arrow::binary(), values), lengths);
   CheckEncode(::arrow::ArrayFromJSON(::arrow::large_binary(), values), lengths);
 
-  const uint8_t data[] = {
-      0x80, 0x01, 0x04, 0x04, 0x0a, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00,
-      0x00, 0x00, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x57, 0x6f, 0x72, 0x6c, 0x64,
-      0x46, 0x6f, 0x6f, 0x62, 0x61, 0x72, 0x41, 0x44, 0x42, 0x43, 0x45, 0x46,
-  };
-  auto encoded = Buffer::Wrap(data, sizeof(data));
+  auto encoded =
+      ::arrow::ConcatenateBuffers(
+          {DeltaEncode({5, 5, 6, 6}), std::make_shared<Buffer>("HelloWorldFoobarADBCEF")})
+          .ValueOrDie();
 
   CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::utf8(), values));
   CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_utf8(), values));
