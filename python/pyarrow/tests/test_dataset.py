@@ -35,6 +35,7 @@ import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.csv
+import pyarrow.json
 import pyarrow.feather
 import pyarrow.fs as fs
 from pyarrow.tests.util import (change_cwd, _filesystem_uri,
@@ -798,12 +799,17 @@ def test_file_format_pickling():
     formats = [
         ds.IpcFileFormat(),
         ds.CsvFileFormat(),
+        ds.JsonFileFormat(),
         ds.CsvFileFormat(pa.csv.ParseOptions(delimiter='\t',
                                              ignore_empty_lines=True)),
         ds.CsvFileFormat(read_options=pa.csv.ReadOptions(
             skip_rows=3, column_names=['foo'])),
         ds.CsvFileFormat(read_options=pa.csv.ReadOptions(
             skip_rows=3, block_size=2**20)),
+        ds.JsonFileFormat(pa.json.ParseOptions(newlines_in_values=True,
+            unexpected_field_behavior="ignore")),
+        ds.JsonFileFormat(read_options=pa.json.ReadOptions(
+            use_threads=False,block_size=14)),
     ]
     try:
         formats.append(ds.OrcFileFormat())
@@ -829,6 +835,11 @@ def test_file_format_pickling():
 
 def test_fragment_scan_options_pickling():
     options = [
+        ds.JsonFragmentScanOptions(),
+        ds.JsonFragmentScanOptions(pa.json.ParseOptions(newlines_in_values=False,
+            unexpected_field_behavior="error")),
+        ds.JsonFragmentScanOptions(
+            read_options=pa.json.ReadOptions(use_threads=True,block_size=512)),
         ds.CsvFragmentScanOptions(),
         ds.CsvFragmentScanOptions(
             convert_options=pa.csv.ConvertOptions(strings_can_be_null=True)),
