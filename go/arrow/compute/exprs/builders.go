@@ -32,7 +32,7 @@ import (
 )
 
 func NewDefaultExtensionSet() ExtensionIDSet {
-	return NewExtensionSetDefault(extensions.NewSet())
+	return NewExtensionSetDefault(expr.NewEmptyExtensionRegistry(&extensions.DefaultCollection))
 }
 
 // NewScalarCall constructs a substrait ScalarFunction expression with the provided
@@ -45,10 +45,9 @@ func NewDefaultExtensionSet() ExtensionIDSet {
 // we try constructing the compound signature name by getting the types of the
 // arguments which were passed and appending them to the function name appropriately.
 //
-// An error is returned if the function cannot be resolved. If you want to use a custom
-// collection / ignore the Arrow function conversion, then use NewScalarCallCustom.
-func NewScalarCall(fn string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.ScalarFunction, error) {
-	conv, ok := DefaultExtensionIDRegistry.GetArrowToSubstrait(fn)
+// An error is returned if the function cannot be resolved.
+func NewScalarCall(reg ExtensionIDSet, fn string, opts []*types.FunctionOption, args ...types.FuncArg) (*expr.ScalarFunction, error) {
+	conv, ok := reg.GetArrowRegistry().GetArrowToSubstrait(fn)
 	if !ok {
 		return nil, arrow.ErrNotFound
 	}
@@ -59,7 +58,7 @@ func NewScalarCall(fn string, opts []*types.FunctionOption, args ...types.FuncAr
 	}
 
 	opts = append(opts, convOpts...)
-	return expr.NewScalarFunc(id, opts, args...), nil
+	return expr.NewScalarFunc(reg.GetSubstraitRegistry(), id, opts, args...)
 }
 
 // NewFieldRefFromDotPath constructs a substrait reference segment from

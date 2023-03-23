@@ -172,7 +172,7 @@ var arrowToSubstraitFuncMap = map[string]string{
 }
 
 func simpleMapSubstraitToArrowFunc(sf *expr.ScalarFunction) (fname string, opts compute.FunctionOptions, err error) {
-	fname, _, _ = strings.Cut(sf.ID.Name, ":")
+	fname, _, _ = strings.Cut(sf.Name(), ":")
 	f, ok := substraitToArrowFuncMap[fname]
 	if ok {
 		fname = f
@@ -229,18 +229,21 @@ func encodeOptionlessOverflowableArithmetic(id extensions.ID) arrowToSubstrait {
 	}
 }
 
-func NewExtensionSetDefault(set extensions.Set) ExtensionIDSet {
-	return &extensionSet{Set: set, reg: DefaultExtensionIDRegistry}
+func NewExtensionSetDefault(set expr.ExtensionRegistry) ExtensionIDSet {
+	return &extensionSet{ExtensionRegistry: set, reg: DefaultExtensionIDRegistry}
 }
 
-func NewExtensionSet(set extensions.Set, reg *ExtensionIDRegistry) ExtensionIDSet {
-	return &extensionSet{Set: set, reg: reg}
+func NewExtensionSet(set expr.ExtensionRegistry, reg *ExtensionIDRegistry) ExtensionIDSet {
+	return &extensionSet{ExtensionRegistry: set, reg: reg}
 }
 
 type extensionSet struct {
-	extensions.Set
+	expr.ExtensionRegistry
 	reg *ExtensionIDRegistry
 }
+
+func (e *extensionSet) GetArrowRegistry() *ExtensionIDRegistry       { return e.reg }
+func (e *extensionSet) GetSubstraitRegistry() expr.ExtensionRegistry { return e.ExtensionRegistry }
 
 func (e *extensionSet) DecodeTypeArrow(anchor uint32) (extensions.ID, arrow.DataType, bool) {
 	id, ok := e.Set.DecodeType(anchor)
@@ -379,7 +382,8 @@ func (e *ExtensionIDRegistry) GetArrowToSubstrait(name string) (conv arrowToSubs
 }
 
 type ExtensionIDSet interface {
-	extensions.Set
+	GetArrowRegistry() *ExtensionIDRegistry
+	GetSubstraitRegistry() expr.ExtensionRegistry
 
 	DecodeTypeArrow(anchor uint32) (extensions.ID, arrow.DataType, bool)
 	DecodeFunction(ref uint32) (extensions.ID, substraitToArrow, bool)

@@ -33,6 +33,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/apache/arrow/go/v12/arrow/scalar"
 	"github.com/substrait-io/substrait-go/expr"
+	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/types"
 )
 
@@ -330,7 +331,7 @@ func ExecuteScalarSubstrait(ctx context.Context, expression *expr.Extended, part
 	}
 
 	reg := GetExtensionRegistry(ctx)
-	set := NewExtensionSet(expression.Extensions, reg)
+	set := NewExtensionSet(expr.NewExtensionRegistry(expression.Extensions, &extensions.DefaultCollection), reg)
 	sc, err := ToArrowSchema(expression.BaseSchema, set)
 	if err != nil {
 		return nil, err
@@ -391,11 +392,11 @@ func ExecuteScalarBatch(ctx context.Context, input compute.ExecBatch, exp expr.E
 		var (
 			err       error
 			allScalar = true
-			args      = make([]compute.Datum, len(e.Args))
-			argTypes  = make([]arrow.DataType, len(e.Args))
+			args      = make([]compute.Datum, e.NArgs())
+			argTypes  = make([]arrow.DataType, e.NArgs())
 		)
-		for i, a := range e.Args {
-			switch v := a.(type) {
+		for i := 0; i < e.NArgs(); i++ {
+			switch v := e.Arg(i).(type) {
 			case types.Enum:
 				args[i] = compute.NewDatum(scalar.NewStringScalar(string(v)))
 			case expr.Expression:
@@ -415,7 +416,7 @@ func ExecuteScalarBatch(ctx context.Context, input compute.ExecBatch, exp expr.E
 			argTypes[i] = args[i].(compute.ArrayLikeDatum).Type()
 		}
 
-		_, conv, ok := ext.DecodeFunction(e.FuncRef)
+		_, conv, ok := ext.DecodeFunction(e.FuncRef())
 		if !ok {
 			return nil, arrow.ErrNotImplemented
 		}

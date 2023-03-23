@@ -30,7 +30,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/expr"
-	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/types"
 )
 
@@ -114,11 +113,6 @@ func TestComparisons(t *testing.T) {
 	}
 
 	expect := func(t *testing.T, fn string, arg1, arg2 scalar.Scalar, res bool) {
-		f, err := exprs.NewScalarCall(fn, nil,
-			&expr.FieldReference{Reference: expr.NewStructFieldRef(0)},
-			&expr.FieldReference{Reference: expr.NewStructFieldRef(1)})
-		require.NoError(t, err)
-
 		baseStruct := types.NamedStruct{
 			Names: []string{"arg1", "arg2"},
 			Struct: types.StructType{
@@ -126,11 +120,13 @@ func TestComparisons(t *testing.T) {
 			},
 		}
 
-		ex, err := expr.BindExpression(f, baseStruct, extSet, &extensions.DefaultCollection)
+		ex, err := exprs.NewScalarCall(extSet, fn, nil,
+			expr.MustExpr(expr.NewRootFieldRef(expr.NewStructFieldRef(0), &baseStruct.Struct)),
+			expr.MustExpr(expr.NewRootFieldRef(expr.NewStructFieldRef(1), &baseStruct.Struct)))
 		require.NoError(t, err)
 
 		expression := &expr.Extended{
-			Extensions: extSet,
+			Extensions: extSet.GetSubstraitRegistry().Set,
 			ReferredExpr: []expr.ExpressionReference{
 				expr.NewExpressionReference([]string{"out"}, ex),
 			},

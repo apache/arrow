@@ -26,22 +26,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/expr"
-	"github.com/substrait-io/substrait-go/extensions"
-	"github.com/substrait-io/substrait-go/types"
 )
 
 func TestNewScalarFunc(t *testing.T) {
-	fn, err := exprs.NewScalarCall("add", nil,
+	reg := exprs.NewDefaultExtensionSet()
+
+	fn, err := exprs.NewScalarCall(reg, "add", nil,
 		expr.NewPrimitiveLiteral(int32(1), false),
 		expr.NewPrimitiveLiteral(int32(10), false))
 	require.NoError(t, err)
 
-	assert.Equal(t, "add(i32(1), i32(10)) => ?", fn.String())
-
-	bound, err := expr.BindExpression(fn, types.NamedStruct{}, extSet,
-		&extensions.DefaultCollection)
-	require.NoError(t, err)
-	assert.Equal(t, "add:i32_i32(i32(1), i32(10)) => i32", bound.String())
+	assert.Equal(t, "add(i32(1), i32(10)) => i32", fn.String())
+	assert.Equal(t, "add:i32_i32", fn.Name())
 }
 
 func TestFieldRefDotPath(t *testing.T) {
