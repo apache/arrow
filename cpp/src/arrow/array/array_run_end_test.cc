@@ -448,6 +448,16 @@ TEST_P(TestRunEndEncodedArray, Validate) {
     ASSERT_OK(too_large_for_ree32->ValidateFull());
   }
 
+  std::shared_ptr<Array> has_null_buffer = MakeArray(good_array->data()->Copy());
+  std::shared_ptr<Buffer> null_bitmap;
+  BitmapFromVector<bool>({true, false}, &null_bitmap);
+  has_null_buffer->data()->buffers[0] = null_bitmap;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          std::string("Invalid: Run end encoded array should not have a null bitmap.")),
+      has_null_buffer->Validate());
+
   auto too_many_children = MakeArray(good_array->data()->Copy());
   too_many_children->data()->child_data.push_back(NULLPTR);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
