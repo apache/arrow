@@ -225,6 +225,15 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 				res[i] = w.nullValue
 			}
 		}
+	case arrow.ExtensionType:
+		arr := col.(array.ExtensionArray)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsNull(i) {
+				res[i] = w.nullValue
+			} else {
+				res[i] = arr.ValueString(i)
+			}
+		}
 	default:
 		panic(fmt.Errorf("arrow/csv: field has unsupported data type %s", typ.String()))
 	}
