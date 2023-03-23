@@ -239,6 +239,14 @@ make_readable_file <- function(file, mmap = TRUE) {
     path <- sub("/$", "", file$base_path)
     file <- filesystem$OpenInputFile(path)
   } else if (is.string(file)) {
+
+    # if this is a HTTP URL, we need a local copy to pass to FileSystem$from_uri
+    if (is_http_url(file)) {
+        tf <- tempfile()
+        download.file(file, tf)
+        file <- tf
+    }
+
     if (is_url(file)) {
       file <- tryCatch(
         {
