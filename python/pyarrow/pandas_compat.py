@@ -1015,9 +1015,9 @@ def _extract_index_level(table, result_table, field_name,
         values = values.copy()
 
     if isinstance(col.type, pa.lib.TimestampType) and col.type.tz is not None:
-        index_level = make_tz_aware(pd.Series(values), col.type.tz)
+        index_level = make_tz_aware(pd.Series(values, copy=False), col.type.tz)
     else:
-        index_level = pd.Series(values, dtype=values.dtype)
+        index_level = pd.Series(values, dtype=values.dtype, copy=False)
     result_table = result_table.remove_column(
         result_table.schema.get_field_index(field_name)
     )
