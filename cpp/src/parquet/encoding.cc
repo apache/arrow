@@ -3027,7 +3027,8 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
       : EncoderImpl(descr, Encoding::DELTA_BYTE_ARRAY, pool),
         sink_(pool),
         prefix_length_encoder_(nullptr, pool),
-        suffix_encoder_(nullptr, pool) {}
+        suffix_encoder_(nullptr, pool),
+        last_value_("") {}
 
   std::shared_ptr<Buffer> FlushValues() override;
 
@@ -3061,6 +3062,10 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
     const uint32_t byte_width = array.byte_width();
     uint32_t previous_len = byte_width;
     std::string_view last_value_view = last_value_;
+
+    if (ARROW_PREDICT_FALSE(byte_width >= kMaxByteArraySize)) {
+      throw Status::Invalid("Parquet cannot store strings with size 2GB or more");
+    }
 
     PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<::arrow::FixedSizeBinaryType>(
         *array.data(),

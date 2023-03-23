@@ -393,7 +393,8 @@ def test_column_encoding(use_legacy_dataset):
     arr_float = pa.array(list(map(float, range(100))))
     arr_int = pa.array(list(map(int, range(100))))
     arr_bin = pa.array([str(x) for x in range(100)], type=pa.binary())
-    arr_flba = pa.array([str(x) for x in range(100)], type=pa.binary(10))
+    arr_flba = pa.array(
+        [str(x).zfill(10) for x in range(100)], type=pa.binary(10))
     arr_bool = pa.array([False, True, False, False] * 25)
     mixed_table = pa.Table.from_arrays(
         [arr_float, arr_int, arr_bin, arr_flba, arr_bool],
