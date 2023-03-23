@@ -31,6 +31,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/csv"
 	"github.com/apache/arrow/go/v12/arrow/decimal128"
 	"github.com/apache/arrow/go/v12/arrow/decimal256"
+	"github.com/apache/arrow/go/v12/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -335,6 +336,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 			{Name: "ts", Type: arrow.FixedWidthTypes.Timestamp_ms},
 			{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
 			{Name: "binary", Type: arrow.BinaryTypes.Binary},
+			{Name: "uuid", Type: types.NewUUIDType()},
 		},
 		nil,
 	)
@@ -384,6 +386,7 @@ rec[0]["str"]: ["str-1"]
 rec[0]["ts"]: [1652054461000]
 rec[0]["list(i64)"]: [[1 2 3]]
 rec[0]["binary"]: ["\x00\x01\x02"]
+rec[0]["uuid"]: ["00000000-0000-0000-0000-000000000001"]
 rec[1]["bool"]: [false]
 rec[1]["i8"]: [-2]
 rec[1]["i16"]: [-2]
@@ -399,6 +402,7 @@ rec[1]["str"]: ["str-2"]
 rec[1]["ts"]: [1652140799000]
 rec[1]["list(i64)"]: [[]]
 rec[1]["binary"]: [""]
+rec[1]["uuid"]: ["00000000-0000-0000-0000-000000000002"]
 rec[2]["bool"]: [(null)]
 rec[2]["i8"]: [(null)]
 rec[2]["i16"]: [(null)]
@@ -414,6 +418,7 @@ rec[2]["str"]: [(null)]
 rec[2]["ts"]: [(null)]
 rec[2]["list(i64)"]: [(null)]
 rec[2]["binary"]: [(null)]
+rec[2]["uuid"]: [(null)]
 `
 	got, want := out.String(), want
 	require.Equal(t, want, got)
