@@ -814,6 +814,19 @@ TEST(Substrait, Cast) {
   ASSERT_TRUE(expr.call());
 
   ASSERT_THAT(expr.call()->arguments[0].call()->function_name, "cast");
+
+  std::shared_ptr<compute::FunctionOptions> call_opts =
+      expr.call()->arguments[0].call()->options;
+
+  ASSERT_TRUE(!!call_opts);
+  std::shared_ptr<compute::CastOptions> cast_opts =
+      std::dynamic_pointer_cast<compute::CastOptions>(call_opts);
+  ASSERT_TRUE(!!cast_opts);
+  // It is unclear whether a Substrait cast should be safe or not.  In the meantime we are
+  // assuming it is unsafe based on the behavior of many SQL engines.
+  ASSERT_TRUE(cast_opts->allow_int_overflow);
+  ASSERT_TRUE(cast_opts->allow_float_truncate);
+  ASSERT_TRUE(cast_opts->allow_decimal_truncate);
 }
 
 TEST(Substrait, CastRequiresFailureBehavior) {
