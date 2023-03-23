@@ -128,6 +128,8 @@ static auto kTakeOptionsType = GetFunctionOptionsType<TakeOptions>(
 static auto kDictionaryEncodeOptionsType =
     GetFunctionOptionsType<DictionaryEncodeOptions>(DataMember(
         "null_encoding_behavior", &DictionaryEncodeOptions::null_encoding_behavior));
+static auto kRunEndEncodeOptionsType = GetFunctionOptionsType<RunEndEncodeOptions>(
+    DataMember("run_end_type", &RunEndEncodeOptions::run_end_type));
 static auto kArraySortOptionsType = GetFunctionOptionsType<ArraySortOptions>(
     DataMember("order", &ArraySortOptions::order),
     DataMember("null_placement", &ArraySortOptions::null_placement));
@@ -148,8 +150,6 @@ static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     DataMember("sort_keys", &RankOptions::sort_keys),
     DataMember("null_placement", &RankOptions::null_placement),
     DataMember("tiebreaker", &RankOptions::tiebreaker));
-static auto kRunEndEncodeOptionsType = GetFunctionOptionsType<RunEndEncodeOptions>(
-    DataMember("run_end_type", &RunEndEncodeOptions::run_end_type));
 }  // namespace
 }  // namespace internal
 
@@ -166,6 +166,10 @@ DictionaryEncodeOptions::DictionaryEncodeOptions(NullEncodingBehavior null_encod
     : FunctionOptions(internal::kDictionaryEncodeOptionsType),
       null_encoding_behavior(null_encoding) {}
 constexpr char DictionaryEncodeOptions::kTypeName[];
+
+RunEndEncodeOptions::RunEndEncodeOptions(std::shared_ptr<DataType> run_end_type)
+    : FunctionOptions(internal::kRunEndEncodeOptionsType),
+      run_end_type{std::move(run_end_type)} {}
 
 ArraySortOptions::ArraySortOptions(SortOrder order, NullPlacement null_placement)
     : FunctionOptions(internal::kArraySortOptionsType),
@@ -215,22 +219,18 @@ RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_plac
       tiebreaker(tiebreaker) {}
 constexpr char RankOptions::kTypeName[];
 
-RunEndEncodeOptions::RunEndEncodeOptions(std::shared_ptr<DataType> run_end_type)
-    : FunctionOptions(internal::kRunEndEncodeOptionsType),
-      run_end_type{std::move(run_end_type)} {}
-
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kTakeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kDictionaryEncodeOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRunEndEncodeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kArraySortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeSumOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kRunEndEncodeOptionsType));
 }
 }  // namespace internal
 

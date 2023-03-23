@@ -178,6 +178,8 @@ G_BEGIN_DECLS
  *
  * #GArrowSourceNodeOptions is a class to customize a source node.
  *
+ * #GArrowFilterNodeOptions is a class to customize a filter node.
+ *
  * #GArrowProjectNodeOptions is a class to customize a project node.
  *
  * #GArrowAggregation is a class to specify how to aggregate.
@@ -1059,6 +1061,41 @@ garrow_source_node_options_new_table(GArrowTable *table)
 }
 
 
+G_DEFINE_TYPE(GArrowFilterNodeOptions,
+              garrow_filter_node_options,
+              GARROW_TYPE_EXECUTE_NODE_OPTIONS)
+
+static void
+garrow_filter_node_options_init(GArrowFilterNodeOptions *object)
+{
+}
+
+static void
+garrow_filter_node_options_class_init(GArrowFilterNodeOptionsClass *klass)
+{
+}
+
+/**
+ * garrow_filter_node_options_new:
+ * @expression: A #GArrowExpression to be used for filter.
+ *
+ * Returns: A newly created #GArrowFilterNodeOptions.
+ *
+ * Since: 12.0.0
+ */
+GArrowFilterNodeOptions *
+garrow_filter_node_options_new(GArrowExpression *expression)
+{
+  auto arrow_expression = garrow_expression_get_raw(expression);
+  auto arrow_options =
+    new arrow::compute::FilterNodeOptions(*arrow_expression);
+  auto options = g_object_new(GARROW_TYPE_FILTER_NODE_OPTIONS,
+                              "options", arrow_options,
+                              NULL);
+  return GARROW_FILTER_NODE_OPTIONS(options);
+}
+
+
 G_DEFINE_TYPE(GArrowProjectNodeOptions,
               garrow_project_node_options,
               GARROW_TYPE_EXECUTE_NODE_OPTIONS)
@@ -1869,6 +1906,39 @@ garrow_execute_plan_build_source_node(GArrowExecutePlan *plan,
                                         NULL,
                                         GARROW_EXECUTE_NODE_OPTIONS(options),
                                         error);
+}
+
+/**
+ * garrow_execute_plan_build_filter_node:
+ * @plan: A #GArrowExecutePlan.
+ * @input: A #GArrowExecuteNode.
+ * @options: A #GArrowFilterNodeOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * This is a shortcut of garrow_execute_plan_build_node() for filter
+ * node.
+ *
+ * Returns: (transfer full): A newly built and added #GArrowExecuteNode
+ *   for filter on success, %NULL on error.
+ *
+ * Since: 12.0.0
+ */
+GArrowExecuteNode *
+garrow_execute_plan_build_filter_node(GArrowExecutePlan *plan,
+                                      GArrowExecuteNode *input,
+                                      GArrowFilterNodeOptions *options,
+                                      GError **error)
+{
+  GList *inputs = nullptr;
+  inputs = g_list_prepend(inputs, input);
+  auto node =
+    garrow_execute_plan_build_node(plan,
+                                   "filter",
+                                   inputs,
+                                   GARROW_EXECUTE_NODE_OPTIONS(options),
+                                   error);
+  g_list_free(inputs);
+  return node;
 }
 
 /**

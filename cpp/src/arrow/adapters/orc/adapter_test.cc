@@ -124,30 +124,25 @@ Result<std::shared_ptr<Array>> GenerateRandomDate64Array(int64_t size,
       date64(), rand.Int64(size, kMilliMin, kMilliMax, null_probability));
 }
 
-Result<std::shared_ptr<Array>> GenerateRandomTimestampArray(int64_t size,
-                                                            TimeUnit::type type,
-                                                            double null_probability) {
+Result<std::shared_ptr<Array>> GenerateRandomTimestampArray(
+    int64_t size, std::shared_ptr<TimestampType> type, double null_probability) {
   random::RandomArrayGenerator rand(kRandomSeed);
-  switch (type) {
+  switch (type->unit()) {
     case TimeUnit::type::SECOND: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
-          timestamp(TimeUnit::SECOND),
-          rand.Int64(size, kSecondMin, kSecondMax, null_probability));
+          type, rand.Int64(size, kSecondMin, kSecondMax, null_probability));
     }
     case TimeUnit::type::MILLI: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
-          timestamp(TimeUnit::MILLI),
-          rand.Int64(size, kMilliMin, kMilliMax, null_probability));
+          type, rand.Int64(size, kMilliMin, kMilliMax, null_probability));
     }
     case TimeUnit::type::MICRO: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
-          timestamp(TimeUnit::MICRO),
-          rand.Int64(size, kMicroMin, kMicroMax, null_probability));
+          type, rand.Int64(size, kMicroMin, kMicroMax, null_probability));
     }
     case TimeUnit::type::NANO: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
-          timestamp(TimeUnit::NANO),
-          rand.Int64(size, kNanoMin, kNanoMax, null_probability));
+          type, rand.Int64(size, kNanoMin, kNanoMax, null_probability));
     }
     default: {
       return Status::TypeError("Unknown or unsupported Arrow TimeUnit: ", type);
@@ -196,12 +191,11 @@ std::shared_ptr<ChunkedArray> GenerateRandomChunkedArray(
         break;
       }
       case Type::TIMESTAMP: {
-        EXPECT_OK_AND_ASSIGN(
-            arrays[j],
-            GenerateRandomTimestampArray(
-                current_size_chunks[j],
-                internal::checked_pointer_cast<TimestampType>(data_type)->unit(),
-                null_probability));
+        EXPECT_OK_AND_ASSIGN(arrays[j],
+                             GenerateRandomTimestampArray(
+                                 current_size_chunks[j],
+                                 internal::checked_pointer_cast<TimestampType>(data_type),
+                                 null_probability));
         break;
       }
       default:
@@ -486,7 +480,8 @@ class TestORCWriterTrivialNoConversion : public ::testing::Test {
          field("int32", int32()), field("int64", int64()), field("float", float32()),
          field("double", float64()), field("decimal128nz", decimal128(25, 6)),
          field("decimal128z", decimal128(32, 0)), field("date32", date32()),
-         field("ts3", timestamp(TimeUnit::NANO)), field("string", utf8()),
+         field("ts3", timestamp(TimeUnit::NANO)),
+         field("ts4", timestamp(TimeUnit::NANO, "UTC")), field("string", utf8()),
          field("binary", binary()),
          field("struct", struct_({field("a", utf8()), field("b", int64())})),
          field("list", list(int32())),
@@ -526,6 +521,7 @@ TEST_F(TestORCWriterTrivialNoConversion, writeFilledChunkAndSelectField) {
       field("double", float64()),
       field("date32", date32()),
       field("ts3", timestamp(TimeUnit::NANO)),
+      field("ts4", timestamp(TimeUnit::NANO), "UTC"),
       field("string", utf8()),
       field("binary", binary()),
   });

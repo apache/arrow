@@ -408,8 +408,10 @@ struct RunEndEncodeExec {
 
 Result<std::unique_ptr<KernelState>> RunEndEncodeInit(KernelContext*,
                                                       const KernelInitArgs& args) {
-  auto options = checked_cast<const RunEndEncodeOptions*>(args.options);
-  return std::make_unique<RunEndEncondingState>(options->run_end_type);
+  auto* options = checked_cast<const RunEndEncodeOptions*>(args.options);
+  auto run_end_type =
+      options ? options->run_end_type : RunEndEncodeOptions::Defaults().run_end_type;
+  return std::make_unique<RunEndEncondingState>(std::move(run_end_type));
 }
 
 template <typename RunEndType, typename ValueType, bool has_validity_buffer>
@@ -571,7 +573,7 @@ struct RunEndDecodeExec {
 
 static const FunctionDoc run_end_encode_doc(
     "Run-end encode array", ("Return a run-end encoded version of the input array."),
-    {"array"}, "RunEndEncodeOptions", true);
+    {"array"}, "RunEndEncodeOptions");
 static const FunctionDoc run_end_decode_doc(
     "Decode run-end encoded array",
     ("Return a decoded version of a run-end encoded input array."), {"array"});

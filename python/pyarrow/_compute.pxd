@@ -64,3 +64,7 @@ cdef class Expression(_Weakrefable):
 cdef CExpression _true
 
 cdef CFieldRef _ensure_field_ref(value) except *
+
+cdef CSortOrder unwrap_sort_order(order) except *
+
+cdef CNullPlacement unwrap_null_placement(null_placement) except *
