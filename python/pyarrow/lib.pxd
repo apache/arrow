@@ -184,6 +184,11 @@ cdef class Decimal256Type(FixedSizeBinaryType):
         const CDecimal256Type* decimal256_type
 
 
+cdef class RunEndEncodedType(DataType):
+    cdef:
+        const CRunEndEncodedType* run_end_encoded_type
+
+
 cdef class BaseExtensionType(DataType):
     cdef:
         const CExtensionType* ext_type

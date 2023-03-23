@@ -129,6 +129,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_SPARSE_UNION" arrow::Type::SPARSE_UNION"
         _Type_DENSE_UNION" arrow::Type::DENSE_UNION"
         _Type_DICTIONARY" arrow::Type::DICTIONARY"
+        _Type_RUN_END_ENCODED" arrow::Type::RUN_END_ENCODED"
         _Type_MAP" arrow::Type::MAP"
 
         _Type_EXTENSION" arrow::Type::EXTENSION"
@@ -396,6 +397,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int precision()
         int scale()
 
+    cdef cppclass CRunEndEncodedType " arrow::RunEndEncodedType"(CDataType):
+        CRunEndEncodedType(const shared_ptr[CDataType]& run_end_type,
+                           const shared_ptr[CDataType]& value_type)
+        const shared_ptr[CDataType]& run_end_type()
+        const shared_ptr[CDataType]& value_type()
+
     cdef cppclass CField" arrow::Field":
         cppclass CMergeOptions "arrow::Field::MergeOptions":
             c_bool promote_nullability
@@ -462,6 +469,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef shared_ptr[CDataType] CMakeDenseUnionType" arrow::dense_union"(
         vector[shared_ptr[CField]] fields,
         vector[int8_t] type_codes)
+
+    cdef shared_ptr[CDataType] CMakeRunEndEncodedType" arrow::run_end_encoded"(
+        shared_ptr[CDataType] run_end_type,
+        shared_ptr[CDataType] value_type)
 
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)
@@ -770,6 +781,28 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CResult[shared_ptr[CArray]] GetFlattenedField(int index, CMemoryPool* pool) const
 
         CResult[vector[shared_ptr[CArray]]] Flatten(CMemoryPool* pool)
+
+    cdef cppclass CRunEndEncodedArray" arrow::RunEndEncodedArray"(CArray):
+        @staticmethod
+        CResult[shared_ptr[CRunEndEncodedArray]] Make(
+            const shared_ptr[CDataType]& type,
+            int64_t logical_length,
+            const shared_ptr[CArray]& run_ends,
+            const shared_ptr[CArray]& values,
+            int64_t logical_offset)
+
+        @staticmethod
+        CResult[shared_ptr[CRunEndEncodedArray]] MakeFromArrays "Make"(
+            int64_t logical_length,
+            const shared_ptr[CArray]& run_ends,
+            const shared_ptr[CArray]& values,
+            int64_t logical_offset)
+
+        shared_ptr[CArray]& run_ends()
+        shared_ptr[CArray]& values()
+
+        int64_t FindPhysicalOffset()
+        int64_t FindPhysicalLength()
 
     cdef cppclass CChunkedArray" arrow::ChunkedArray":
         CChunkedArray(const vector[shared_ptr[CArray]]& arrays)
@@ -2200,6 +2233,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CDictionaryEncodeOptions(
             CDictionaryEncodeNullEncodingBehavior null_encoding)
         CDictionaryEncodeNullEncodingBehavior null_encoding
+
+    cdef cppclass CRunEndEncodeOptions \
+            "arrow::compute::RunEndEncodeOptions"(CFunctionOptions):
+        CRunEndEncodeOptions()
+        CRunEndEncodeOptions(shared_ptr[CDataType] run_end_type)
+        shared_ptr[CDataType] run_end_type
 
     cdef cppclass CTakeOptions \
             " arrow::compute::TakeOptions"(CFunctionOptions):

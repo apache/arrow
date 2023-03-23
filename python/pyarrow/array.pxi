@@ -2851,6 +2851,170 @@ cdef class StructArray(Array):
         return self.take(indices)
 
 
+cdef class RunEndEncodedArray(Array):
+    """
+    Concrete class for Arrow run-end encoded arrays.
+    """
+
+    @staticmethod
+    def _from_arrays(type, allow_none_for_type, logical_length, run_ends, values, logical_offset):
+        cdef:
+            int64_t _logical_length
+            Array _run_ends
+            Array _values
+            int64_t _logical_offset
+            shared_ptr[CDataType] c_type
+            shared_ptr[CRunEndEncodedArray] ree_array
+
+        _logical_length = <int64_t>logical_length
+        _logical_offset = <int64_t>logical_offset
+
+        type = ensure_type(type, allow_none=allow_none_for_type)
+        if type is not None:
+            _run_ends = asarray(run_ends, type=type.run_end_type)
+            _values = asarray(values, type=type.value_type)
+            c_type = pyarrow_unwrap_data_type(type)
+            with nogil:
+                ree_array = GetResultValue(CRunEndEncodedArray.Make(
+                    c_type, _logical_length, _run_ends.sp_array, _values.sp_array, _logical_offset))
+        else:
+            _run_ends = asarray(run_ends)
+            _values = asarray(values)
+            with nogil:
+                ree_array = GetResultValue(CRunEndEncodedArray.MakeFromArrays(
+                    _logical_length, _run_ends.sp_array, _values.sp_array, _logical_offset))
+        cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]>ree_array)
+        result.validate(full=True)
+        return result
+
+    @staticmethod
+    def from_arrays(run_ends, values, type=None):
+        """
+        Construct RunEndEncodedArray from run_ends and values arrays.
+
+        Parameters
+        ----------
+        run_ends : Array (int16, int32, or int64 type)
+            The run_ends array.
+        values : Array (any type)
+            The values array.
+        type : pyarrow.DataType, optional
+            The run_end_encoded(run_end_type, value_type) array type.
+
+        Returns
+        -------
+        RunEndEncodedArray
+        """
+        logical_length = run_ends[-1] if len(run_ends) > 0 else 0
+        return RunEndEncodedArray._from_arrays(type, True, logical_length,
+                                               run_ends, values, 0)
+
+    @staticmethod
+    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,
+                     children=None):
+        """
+        Construct a RunEndEncodedArray from all the parameters that make up an
+        Array.
+
+        RunEndEncodedArrays do not have buffers, only children arrays, but this
+        implementation is needed to satisfy the Array interface.
+
+        Parameters
+        ----------
+        type : DataType
+            The run_end_encoded(run_end_type, value_type) type.
+        length : int
+            The logical length of the run-end encoded array. Expected to match
+            the last value of the run_ends array (children[0]) minus the offset.
+        buffers : List[Buffer]
+            Empty List or [None].
+        null_count : int, default -1
+            The number of null entries in the array. Run-end encoded arrays
+            are specified to not have valid bits and null_count always equals 0.
+        offset : int, default 0
+            The array's logical offset (in values, not in bytes) from the
+            start of each buffer.
+        children : List[Array]
+            Nested type children containing the run_ends and values arrays.
+
+        Returns
+        -------
+        RunEndEncodedArray
+        """
+        children = children or []
+
+        if type.num_fields != len(children):
+            raise ValueError("RunEndEncodedType's expected number of children "
+                             "({0}) did not match the passed number "
+                             "({1}).".format(type.num_fields, len(children)))
+
+        # buffers are validated as if we needed to pass them to C++, but
+        # _make_from_arrays will take care of filling in the expected
+        # buffers array containing a single NULL buffer on the C++ side
+        if len(buffers) == 0:
+            buffers = [None]
+        if buffers[0] is not None:
+            raise ValueError("RunEndEncodedType expects None as validity "
+                             "bitmap, buffers[0] is not None")
+        if type.num_buffers != len(buffers):
+            raise ValueError("RunEndEncodedType's expected number of buffers "
+                             "({0}) did not match the passed number "
+                             "({1}).".format(type.num_buffers, len(buffers)))
+
+        # null_count is also validated as if we needed it
+        if null_count != -1 and null_count != 0:
+            raise ValueError("RunEndEncodedType's expected null_count (0) "
+                             "did not match passed number ({0})".format(null_count))
+
+        return RunEndEncodedArray._from_arrays(type, False, length, children[0],
+                                               children[1], offset)
+
+    @property
+    def run_ends(self):
+        """
+        An array holding the logical indexes of each run-end.
+
+        The physical offset to the array is applied.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return pyarrow_wrap_array(ree_array.run_ends())
+
+    @property
+    def values(self):
+        """
+        An array holding the values of each run.
+
+        The physical offset to the array is applied.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return pyarrow_wrap_array(ree_array.values())
+
+    def find_physical_offset(self):
+        """
+        Find the physical offset of this REE array.
+
+        This is the offset of the run that contains the value of the first
+        logical element of this array considering its offet.
+
+        This function uses binary-search, so it has a O(log N) cost.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return ree_array.FindPhysicalOffset()
+
+    def find_physical_length(self):
+        """
+        Find the physical length of this REE array.
+
+        The physical length of an REE is the number of physical values (and
+        run-ends) necessary to represent the logical range of values from offset
+        to length.
+
+        This function uses binary-search, so it has a O(log N) cost.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return ree_array.FindPhysicalLength()
+
+
 cdef class ExtensionArray(Array):
     """
     Concrete class for Arrow extension arrays.
@@ -2960,6 +3124,7 @@ cdef dict _array_classes = {
     _Type_DECIMAL128: Decimal128Array,
     _Type_DECIMAL256: Decimal256Array,
     _Type_STRUCT: StructArray,
+    _Type_RUN_END_ENCODED: RunEndEncodedArray,
     _Type_EXTENSION: ExtensionArray,
 }
 

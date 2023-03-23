@@ -134,6 +134,7 @@ def test_option_class_equality():
         pc.CountOptions(),
         pc.DayOfWeekOptions(count_from_zero=False, week_start=0),
         pc.DictionaryEncodeOptions(),
+        pc.RunEndEncodeOptions(),
         pc.ElementWiseAggregateOptions(skip_nulls=True),
         pc.ExtractRegexOptions("pattern"),
         pc.FilterOptions(),
@@ -3108,3 +3109,18 @@ def test_list_slice_bad_parameters():
         pc.list_slice(arr, 0, 1, step=0)
     with pytest.raises(pa.ArrowInvalid, match=msg + "-1"):
         pc.list_slice(arr, 0, 1, step=-1)
+
+
+def check_run_end_encode_decode(run_end_encode_opts=None):
+    arr = pa.array([1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3])
+    encoded = pc.run_end_encode(arr, options=run_end_encode_opts)
+    decoded = pc.run_end_decode(encoded)
+    assert decoded.type == arr.type
+    assert decoded.equals(arr)
+
+
+def test_run_end_encode():
+    check_run_end_encode_decode()
+    check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int16()))
+    check_run_end_encode_decode(pc.RunEndEncodeOptions('int32'))
+    check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int64()))

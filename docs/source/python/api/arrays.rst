@@ -73,6 +73,7 @@ may expose data type-specific methods or properties.
    FixedSizeListArray
    LargeListArray
    MapArray
+   RunEndEncodedArray
    StructArray
    UnionArray
    ExtensionArray
