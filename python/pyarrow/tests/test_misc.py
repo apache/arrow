@@ -171,6 +171,7 @@ def test_runtime_info():
     pa.Decimal128Array,
     pa.Decimal256Array,
     pa.StructArray,
+    pa.RunEndEncodedArray,
     pa.Scalar,
     pa.BooleanScalar,
     pa.Int8Scalar,

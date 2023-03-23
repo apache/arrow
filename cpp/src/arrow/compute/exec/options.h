@@ -26,7 +26,8 @@
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec/type_fwd.h"
+#include "arrow/compute/expression.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/async_generator.h"
@@ -111,8 +112,18 @@ template <typename ItMaker>
 class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
  public:
   SchemaSourceNodeOptions(std::shared_ptr<Schema> schema, ItMaker it_maker,
-                          arrow::internal::Executor* io_executor = NULLPTR)
-      : schema(schema), it_maker(std::move(it_maker)), io_executor(io_executor) {}
+                          arrow::internal::Executor* io_executor)
+      : schema(schema),
+        it_maker(std::move(it_maker)),
+        io_executor(io_executor),
+        requires_io(true) {}
+
+  SchemaSourceNodeOptions(std::shared_ptr<Schema> schema, ItMaker it_maker,
+                          bool requires_io = false)
+      : schema(schema),
+        it_maker(std::move(it_maker)),
+        io_executor(NULLPTR),
+        requires_io(requires_io) {}
 
   /// \brief The schema of the record batches from the iterator
   std::shared_ptr<Schema> schema;
@@ -122,8 +133,13 @@ class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
 
   /// \brief The executor to use for scanning the iterator
   ///
-  /// Defaults to the default I/O executor.
+  /// Defaults to the default I/O executor.  Only used if requires_io is true.
+  /// If requires_io is false then this MUST be nullptr.
   arrow::internal::Executor* io_executor;
+
+  /// \brief If true then items will be fetched from the iterator on a dedicated I/O
+  ///        thread to keep I/O off the CPU thread
+  bool requires_io;
 };
 
 class ARROW_EXPORT RecordBatchReaderSourceNodeOptions : public ExecNodeOptions {
@@ -152,7 +168,13 @@ using ExecBatchIteratorMaker = std::function<Iterator<std::shared_ptr<ExecBatch>
 /// \brief An extended Source node which accepts a schema and exec-batches
 class ARROW_EXPORT ExecBatchSourceNodeOptions
     : public SchemaSourceNodeOptions<ExecBatchIteratorMaker> {
+ public:
   using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
+  ExecBatchSourceNodeOptions(std::shared_ptr<Schema> schema,
+                             std::vector<ExecBatch> batches,
+                             ::arrow::internal::Executor* io_executor);
+  ExecBatchSourceNodeOptions(std::shared_ptr<Schema> schema,
+                             std::vector<ExecBatch> batches, bool requires_io = false);
 };
 
 using RecordBatchIteratorMaker = std::function<Iterator<std::shared_ptr<RecordBatch>>()>;
@@ -183,7 +205,8 @@ class ARROW_EXPORT FetchNodeOptions : public ExecNodeOptions {
   int64_t count;
 };
 
-/// \brief Make a node which executes expressions on input batches, producing new batches.
+/// \brief Make a node which executes expressions on input batches, producing batches
+/// of the same length with new columns.
 ///
 /// Each expression will be evaluated against each batch which is pushed to
 /// this node to produce a corresponding output column.
@@ -199,21 +222,37 @@ class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
   std::vector<std::string> names;
 };
 
-/// \brief Make a node which aggregates input batches, optionally grouped by keys.
+/// \brief Make a node which aggregates input batches, optionally grouped by keys and
+/// optionally segmented by segment-keys. Both keys and segment-keys determine the group.
+/// However segment-keys are also used for determining grouping segments, which should be
+/// large, and allow streaming a partial aggregation result after processing each segment.
+/// One common use-case for segment-keys is ordered aggregation, in which the segment-key
+/// attribute specifies a column with non-decreasing values or a lexicographically-ordered
+/// set of such columns.
 ///
 /// If the keys attribute is a non-empty vector, then each aggregate in `aggregates` is
 /// expected to be a HashAggregate function. If the keys attribute is an empty vector,
 /// then each aggregate is assumed to be a ScalarAggregate function.
+///
+/// If the segment_keys attribute is a non-empty vector, then segmented aggregation, as
+/// described above, applies.
+///
+/// The keys and segment_keys vectors must be disjoint.
 class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
  public:
   explicit AggregateNodeOptions(std::vector<Aggregate> aggregates,
-                                std::vector<FieldRef> keys = {})
-      : aggregates(std::move(aggregates)), keys(std::move(keys)) {}
+                                std::vector<FieldRef> keys = {},
+                                std::vector<FieldRef> segment_keys = {})
+      : aggregates(std::move(aggregates)),
+        keys(std::move(keys)),
+        segment_keys(std::move(segment_keys)) {}
 
   // aggregations which will be applied to the targetted fields
   std::vector<Aggregate> aggregates;
-  // keys by which aggregations will be grouped
+  // keys by which aggregations will be grouped (optional)
   std::vector<FieldRef> keys;
+  // keys by which aggregations will be segmented (optional)
+  std::vector<FieldRef> segment_keys;
 };
 
 constexpr int32_t kDefaultBackpressureHighBytes = 1 << 30;  // 1GiB
@@ -253,29 +292,29 @@ struct ARROW_EXPORT BackpressureOptions {
 /// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
 ///
 /// Emitted batches will only be ordered if there is a meaningful ordering
-/// and sequence_delivery is set to true.
+/// and sequence_output is not set to false.
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
   explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
                            std::shared_ptr<Schema>* schema,
                            BackpressureOptions backpressure = {},
                            BackpressureMonitor** backpressure_monitor = NULLPTR,
-                           bool sequence_delivery = false)
+                           std::optional<bool> sequence_output = std::nullopt)
       : generator(generator),
         schema(schema),
         backpressure(backpressure),
         backpressure_monitor(backpressure_monitor),
-        sequence_delivery(false) {}
+        sequence_output(sequence_output) {}
 
   explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
                            BackpressureOptions backpressure = {},
                            BackpressureMonitor** backpressure_monitor = NULLPTR,
-                           bool sequence_delivery = false)
+                           std::optional<bool> sequence_output = std::nullopt)
       : generator(generator),
         schema(NULLPTR),
         backpressure(std::move(backpressure)),
         backpressure_monitor(backpressure_monitor),
-        sequence_delivery(false) {}
+        sequence_output(sequence_output) {}
 
   /// \brief A pointer to a generator of batches.
   ///
@@ -299,8 +338,10 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   /// the amount of data currently queued in the sink node.  This is an optional utility
   /// and backpressure can be applied even if this is not used.
   BackpressureMonitor** backpressure_monitor;
-  /// \brief If true and there is a meaningful ordering then sequence delivered batches
-  bool sequence_delivery;
+  /// \brief Controls whether batches should be emitted immediately or sequenced in order
+  ///
+  /// \see QueryOptions for more details
+  std::optional<bool> sequence_output;
 };
 
 /// \brief Control used by a SinkNodeConsumer to pause & resume
@@ -328,7 +369,6 @@ class ARROW_EXPORT SinkNodeConsumer {
   /// This will be run once the schema is finalized as the plan is starting and
   /// before any calls to Consume.  A common use is to save off the schema so that
   /// batches can be interpreted.
-  /// TODO(ARROW-17837) Move ExecPlan* plan to query context
   virtual Status Init(const std::shared_ptr<Schema>& schema,
                       BackpressureControl* backpressure_control, ExecPlan* plan) = 0;
   /// \brief Consume a batch of data
@@ -346,16 +386,24 @@ class ARROW_EXPORT SinkNodeConsumer {
 class ARROW_EXPORT ConsumingSinkNodeOptions : public ExecNodeOptions {
  public:
   explicit ConsumingSinkNodeOptions(std::shared_ptr<SinkNodeConsumer> consumer,
-                                    std::vector<std::string> names = {})
-      : consumer(std::move(consumer)), names(std::move(names)) {}
+                                    std::vector<std::string> names = {},
+                                    std::optional<bool> sequence_output = std::nullopt)
+      : consumer(std::move(consumer)),
+        names(std::move(names)),
+        sequence_output(sequence_output) {}
 
   std::shared_ptr<SinkNodeConsumer> consumer;
   /// \brief Names to rename the sink's schema fields to
   ///
   /// If specified then names must be provided for all fields. Currently, only a flat
-  /// schema is supported (see ARROW-15901).
+  /// schema is supported (see GH-31875).
+  ///
+  /// If not specified then names will be generated based on the source data.
   std::vector<std::string> names;
-  bool sequence_output = false;
+  /// \brief Controls whether batches should be emitted immediately or sequenced in order
+  ///
+  /// \see QueryOptions for more details
+  std::optional<bool> sequence_output;
 };
 
 /// \brief Make a node which sorts rows passed through it
@@ -370,6 +418,21 @@ class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
       : SinkNodeOptions(generator), sort_options(std::move(sort_options)) {}
 
   SortOptions sort_options;
+};
+
+/// \brief Apply a new ordering to data
+///
+/// Currently this node works by accumulating all data, sorting, and then emitting
+/// the new data with an updated batch index.
+///
+/// Larger-than-memory sort is not currently supported.
+class ARROW_EXPORT OrderByNodeOptions : public ExecNodeOptions {
+ public:
+  static constexpr std::string_view kName = "order_by";
+  explicit OrderByNodeOptions(Ordering ordering) : ordering(std::move(ordering)) {}
+
+  /// \brief The new ordering to apply to outgoing data
+  Ordering ordering;
 };
 
 /// @}
@@ -575,11 +638,110 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
 /// a table pointer.
 class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
  public:
-  explicit TableSinkNodeOptions(std::shared_ptr<Table>* output_table)
-      : output_table(output_table) {}
+  explicit TableSinkNodeOptions(std::shared_ptr<Table>* output_table,
+                                std::optional<bool> sequence_output = std::nullopt)
+      : output_table(output_table), sequence_output(sequence_output) {}
 
   std::shared_ptr<Table>* output_table;
-  bool sequence_output = false;
+  /// \brief Controls whether batches should be emitted immediately or sequenced in order
+  ///
+  /// \see QueryOptions for more details
+  std::optional<bool> sequence_output;
+  /// \brief Custom names to use for the columns.
+  ///
+  /// If specified then names must be provided for all fields. Currently, only a flat
+  /// schema is supported (see GH-31875).
+  ///
+  /// If not specified then names will be generated based on the source data.
+  std::vector<std::string> names;
+};
+
+struct ARROW_EXPORT PivotLongerRowTemplate {
+  PivotLongerRowTemplate(std::vector<std::string> feature_values,
+                         std::vector<std::optional<FieldRef>> measurement_values)
+      : feature_values(std::move(feature_values)),
+        measurement_values(std::move(measurement_values)) {}
+  /// A (typically unique) set of feature values for the template, usually derived from a
+  /// column name
+  ///
+  /// These will be used to populate the feature columns
+  std::vector<std::string> feature_values;
+  /// The fields containing the measurements to use for this row
+  ///
+  /// These will be used to populate the measurement columns.  If nullopt then nulls
+  /// will be inserted for the given value.
+  std::vector<std::optional<FieldRef>> measurement_values;
+};
+
+/// \brief Reshape a table by turning some columns into additional rows
+///
+/// This operation is sometimes also referred to as UNPIVOT
+///
+/// This is typically done when there are multiple observations in each row in order to
+/// transform to a table containing a single observation per row.
+///
+/// For example:
+///
+/// | time | left_temp | right_temp |
+/// | ---- | --------- | ---------- |
+/// | 1    | 10        | 20         |
+/// | 2    | 15        | 18         |
+///
+/// The above table contains two observations per row.  There is an implicit feature
+/// "location" (left vs right) and a measurement "temp".  What we really want is:
+///
+/// | time | location | temp |
+/// | 1    | left     | 10   |
+/// | 1    | right    | 20   |
+/// | 2    | left     | 15   |
+/// | 2    | right    | 18   |
+///
+/// For a more complex example consider:
+///
+/// | time | ax1 | ay1 | bx1 | ay2 |
+/// | ---- | --- | --- | --- | --- |
+/// | 0    | 1   | 2   | 3   | 4   |
+///
+/// We can pretend a vs b and x vs y are features while 1 and 2 are two different
+/// kinds of measurements.  We thus want to pivot to
+///
+/// | time | a/b | x/y |  f1  |  f2  |
+/// | ---- | --- | --- | ---- | ---- |
+/// | 0    | a   | x   | 1    | null |
+/// | 0    | a   | y   | 2    | 4    |
+/// | 0    | b   | x   | 3    | null |
+///
+/// To do this we create a row template for each combination of features.  One should
+/// be able to do this purely by looking at the column names.  For example, given the
+/// above columns "ax1", "ay1", "bx1", and "ay2" we know we have three feature
+/// combinations (a, x), (a, y), and (b, x).  Similarly, we know we have two possible
+/// measurements, "1" and "2".
+///
+/// For each combination of features we create a row template.  In each row template we
+/// describe the combination and then list which columns to use for the measurements.
+/// If a measurement doesn't exist for a given combination then we use nullopt.
+///
+/// So, for our above example, we have:
+///
+/// (a, x): names={"a", "x"}, values={"ax1", nullopt}
+/// (a, y): names={"a", "y"}, values={"ay1", "ay2"}
+/// (b, x): names={"b", "x"}, values={"bx1", nullopt}
+///
+/// Finishing it off we name our new columns:
+/// feature_field_names={"a/b","x/y"}
+/// measurement_field_names={"f1", "f2"}
+class ARROW_EXPORT PivotLongerNodeOptions : public ExecNodeOptions {
+ public:
+  static constexpr std::string_view kName = "pivot_longer";
+  /// One or more row templates to create new output rows
+  ///
+  /// Normally there are at least two row templates.  The output # of rows
+  /// will be the input # of rows * the number of row templates
+  std::vector<PivotLongerRowTemplate> row_templates;
+  /// The names of the columns which describe the new features
+  std::vector<std::string> feature_field_names;
+  /// The names of the columns which represent the measurements
+  std::vector<std::string> measurement_field_names;
 };
 
 /// @}

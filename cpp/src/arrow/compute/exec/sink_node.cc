@@ -25,12 +25,12 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/accumulation_queue.h"
 #include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/order_by_impl.h"
 #include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
+#include "arrow/compute/expression.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
@@ -104,8 +104,9 @@ class SinkNode : public ExecNode,
  public:
   SinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
            AsyncGenerator<std::optional<ExecBatch>>* generator,
-           std::shared_ptr<Schema>* schema, BackpressureOptions backpressure,
-           BackpressureMonitor** backpressure_monitor_out, bool sequence_delivery)
+           std::shared_ptr<Schema>* schema_out, BackpressureOptions backpressure,
+           BackpressureMonitor** backpressure_monitor_out,
+           std::optional<bool> sequence_output)
       : ExecNode(plan, std::move(inputs), {"collected"}, {}),
         TracedNode(this),
         backpressure_queue_(backpressure.resume_if_below, backpressure.pause_if_above),
@@ -116,8 +117,8 @@ class SinkNode : public ExecNode,
       *backpressure_monitor_out = &backpressure_queue_;
     }
     auto node_destroyed_capture = node_destroyed_;
-    if (schema) {
-      *schema = inputs_[0]->output_schema();
+    if (schema_out) {
+      *schema_out = inputs_[0]->output_schema();
     }
     *generator = [this, node_destroyed_capture]() -> Future<std::optional<ExecBatch>> {
       if (*node_destroyed_capture) {
@@ -131,7 +132,11 @@ class SinkNode : public ExecNode,
         return batch;
       });
     };
-    if (sequence_delivery) {
+
+    bool explicit_sequencing = sequence_output.has_value() && *sequence_output;
+    bool sequencing_disabled = sequence_output.has_value() && !*sequence_output;
+    if (explicit_sequencing ||
+        (!sequencing_disabled && !inputs_[0]->ordering().is_unordered())) {
       sequencer_ = util::SerialSequencingQueue::Make(this);
     }
   }
@@ -147,7 +152,7 @@ class SinkNode : public ExecNode,
     return plan->EmplaceNode<SinkNode>(plan, std::move(inputs), sink_options.generator,
                                        sink_options.schema, sink_options.backpressure,
                                        sink_options.backpressure_monitor,
-                                       sink_options.sequence_delivery);
+                                       sink_options.sequence_output);
   }
 
   const char* kind_name() const override { return "SinkNode"; }
@@ -177,10 +182,16 @@ class SinkNode : public ExecNode,
   }
 
   Status Validate() const override {
+    ARROW_RETURN_NOT_OK(ExecNode::Validate());
     if (output_ != nullptr) {
       return Status::Invalid("Sink node '", label(), "' has an output");
     }
-    return ExecNode::Validate();
+    if (inputs_[0]->ordering().is_unordered() && !!sequencer_) {
+      return Status::Invalid("Sink node '", label(),
+                             "' is configured to sequence output but there is no "
+                             "meaningful ordering in the input");
+    }
+    return Status::OK();
   }
 
   void RecordBackpressureBytesUsed(const ExecBatch& batch) {
@@ -284,12 +295,18 @@ class ConsumingSinkNode : public ExecNode,
  public:
   ConsumingSinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                     std::shared_ptr<SinkNodeConsumer> consumer,
-                    std::vector<std::string> names, bool sequence_delivery)
+                    std::vector<std::string> names, std::optional<bool> sequence_output)
       : ExecNode(plan, std::move(inputs), {"to_consume"}, {}),
         TracedNode(this),
         consumer_(std::move(consumer)),
         names_(std::move(names)) {
-    if (sequence_delivery) {
+    bool explicit_sequencing = sequence_output.has_value() && *sequence_output;
+    bool sequencing_disabled = sequence_output.has_value() && !*sequence_output;
+    // If the user explicitly requests sequencing then we configure a sequencer_ even
+    // if the input isn't ordered.  This will later lead to a validation failure (which is
+    // what the user is asking for in this case)
+    if (explicit_sequencing ||
+        (!sequencing_disabled && !inputs_[0]->ordering().is_unordered())) {
       sequencer_ = util::SerialSequencingQueue::Make(this);
     }
   }
@@ -317,17 +334,26 @@ class ConsumingSinkNode : public ExecNode,
     if (names_.size() > 0) {
       int num_fields = output_schema->num_fields();
       if (names_.size() != static_cast<size_t>(num_fields)) {
-        return Status::Invalid("ConsumingSinkNode with mismatched number of names");
+        return Status::Invalid(
+            "A plan was created with custom field names but the number of names did not "
+            "match the number of output columns");
       }
-      FieldVector fields(num_fields);
-      int i = 0;
-      for (const auto& output_field : output_schema->fields()) {
-        fields[i] = field(names_[i], output_field->type());
-        ++i;
-      }
-      output_schema = schema(std::move(fields));
+      ARROW_ASSIGN_OR_RAISE(output_schema, output_schema->WithNames(names_));
     }
     RETURN_NOT_OK(consumer_->Init(output_schema, this, plan_));
+    return Status::OK();
+  }
+
+  Status Validate() const override {
+    ARROW_RETURN_NOT_OK(ExecNode::Validate());
+    if (output_ != nullptr) {
+      return Status::Invalid("Consuming sink node '", label(), "' has an output");
+    }
+    if (inputs_[0]->ordering().is_unordered() && !!sequencer_) {
+      return Status::Invalid("Consuming sink node '", label(),
+                             "' is configured to sequence output but there is no "
+                             "meaningful ordering in the input");
+    }
     return Status::OK();
   }
 
@@ -407,6 +433,7 @@ static Result<ExecNode*> MakeTableConsumingSinkNode(
       std::make_shared<TableSinkNodeConsumer>(sink_options.output_table, pool);
   auto consuming_sink_node_options = ConsumingSinkNodeOptions{tb_consumer};
   consuming_sink_node_options.sequence_output = sink_options.sequence_output;
+  consuming_sink_node_options.names = sink_options.names;
   return MakeExecNode("consuming_sink", plan, inputs, consuming_sink_node_options);
 }
 
@@ -417,7 +444,7 @@ struct OrderBySinkNode final : public SinkNode {
                   AsyncGenerator<std::optional<ExecBatch>>* generator)
       : SinkNode(plan, std::move(inputs), generator, /*schema=*/nullptr,
                  /*backpressure=*/{},
-                 /*backpressure_monitor_out=*/nullptr, /*sequence_delivery=*/false),
+                 /*backpressure_monitor_out=*/nullptr, /*sequence_output=*/false),
         impl_(std::move(impl)) {}
 
   const char* kind_name() const override { return "OrderBySinkNode"; }

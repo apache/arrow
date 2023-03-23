@@ -128,6 +128,49 @@ func NewTable(schema *arrow.Schema, cols []arrow.Column, rows int64) *simpleTabl
 	return &tbl
 }
 
+// NewTableFromSlice is a convenience function to create a table from a slice
+// of slices of arrow.Array.
+//
+// Like other NewTable functions this can panic if:
+//  - len(schema.Fields) != len(data)
+//  - the total length of each column's array slice (ie: number of rows
+//    in the column) aren't the same for all columns.
+func NewTableFromSlice(schema *arrow.Schema, data [][]arrow.Array) *simpleTable {
+	if len(data) != len(schema.Fields()) {
+		panic("array/table: mismatch in number of columns and data for creating a table")
+	}
+
+	cols := make([]arrow.Column, len(schema.Fields()))
+	for i, arrs := range data {
+		field := schema.Field(i)
+		chunked := arrow.NewChunked(field.Type, arrs)
+		cols[i] = *arrow.NewColumn(field, chunked)
+		chunked.Release()
+	}
+
+	tbl := simpleTable{
+		refCount: 1,
+		schema:   schema,
+		cols:     cols,
+		rows:     int64(cols[0].Len()),
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			// if validate panics, let's release the columns
+			// so that we don't leak them, then propagate the panic
+			for _, c := range cols {
+				c.Release()
+			}
+			panic(r)
+		}
+	}()
+	// validate the table and its constituents.
+	tbl.validate()
+
+	return &tbl
+}
+
 // NewTableFromRecords returns a new basic, non-lazy in-memory table.
 //
 // NewTableFromRecords panics if the records and schema are inconsistent.

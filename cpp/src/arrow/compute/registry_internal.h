@@ -52,6 +52,8 @@ void RegisterVectorReplace(FunctionRegistry* registry);
 void RegisterVectorSelectK(FunctionRegistry* registry);
 void RegisterVectorSelection(FunctionRegistry* registry);
 void RegisterVectorSort(FunctionRegistry* registry);
+void RegisterVectorRunEndEncode(FunctionRegistry* registry);
+void RegisterVectorRunEndDecode(FunctionRegistry* registry);
 
 void RegisterVectorOptions(FunctionRegistry* registry);
 

@@ -17,7 +17,6 @@
 // limitations under the License.
 
 //go:build !noasm
-// +build !noasm
 
 package utils
 

@@ -176,7 +176,7 @@ func (b *Float16Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Float16Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Float16Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -210,9 +210,9 @@ func (b *Float16Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Float16Builder) unmarshal(dec *json.Decoder) error {
+func (b *Float16Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -233,5 +233,5 @@ func (b *Float16Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("float16 builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }

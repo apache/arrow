@@ -48,7 +48,6 @@ void CheckFetch(FetchNodeOptions options) {
                              {"fetch", options}});
   for (bool use_threads : {false, true}) {
     QueryOptions query_options;
-    query_options.sequence_output = true;
     query_options.use_threads = use_threads;
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> actual,
                          DeclarationToTable(plan, query_options));

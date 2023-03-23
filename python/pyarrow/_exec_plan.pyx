@@ -27,8 +27,7 @@ from cython.operator cimport dereference as deref, preincrement as inc
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
-from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table,
-                          RecordBatchReader)
+from pyarrow.lib cimport Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table
 from pyarrow.lib import tobytes
 from pyarrow._compute cimport Expression, _true, _SortOptions
 from pyarrow._dataset cimport Dataset, Scanner
@@ -65,18 +64,15 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         vector[CExecNode*] _empty
         vector[CExecNode*] c_final_node_vec
         CExecNode *c_node
-        CTable* c_table
         shared_ptr[CTable] c_in_table
         shared_ptr[CTable] c_out_table
         shared_ptr[CTableSourceNodeOptions] c_tablesourceopts
-        shared_ptr[CScanner] c_dataset_scanner
         shared_ptr[CScanNodeOptions] c_scanopts
         shared_ptr[CExecNodeOptions] c_input_node_opts
         shared_ptr[CSinkNodeOptions] c_sinkopts
         shared_ptr[COrderBySinkNodeOptions] c_orderbysinkopts
         shared_ptr[CAsyncExecBatchGenerator] c_async_exec_batch_gen
         shared_ptr[CRecordBatchReader] c_recordbatchreader
-        shared_ptr[CRecordBatchReader] c_recordbatchreader_in
         vector[CDeclaration].iterator plan_iter
         vector[CDeclaration.Input] no_c_inputs
         CStatus c_plan_status

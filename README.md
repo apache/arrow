@@ -30,9 +30,9 @@ set of technologies that enable big data systems to process and move data fast.
 
 Major components of the project include:
 
- - [The Arrow Columnar In-Memory Format](https://github.com/apache/arrow/blob/main/docs/source/format/Columnar.rst):
+ - [The Arrow Columnar In-Memory Format](https://arrow.apache.org/docs/dev/format/Columnar.html):
    a standard and efficient in-memory representation of various datatypes, plain or nested
- - [The Arrow IPC Format](https://github.com/apache/arrow/blob/main/docs/source/format/Columnar.rst#serialization-and-interprocess-communication-ipc):
+ - [The Arrow IPC Format](https://arrow.apache.org/docs/dev/format/Columnar.html#serialization-and-interprocess-communication-ipc):
    an efficient serialization of the Arrow format and associated metadata,
    for communication between processes and heterogeneous environments
  - [The Arrow Flight RPC protocol](https://github.com/apache/arrow/tree/main/format/Flight.proto):
@@ -78,7 +78,7 @@ The reference Arrow libraries contain many distinct software components:
 
 The official Arrow libraries in this repository are in different stages of
 implementing the Arrow format and related features.  See our current
-[feature matrix](https://github.com/apache/arrow/blob/main/docs/source/status.rst)
+[feature matrix](https://arrow.apache.org/docs/dev/status.html)
 on git main.
 
 ## How to Contribute
@@ -101,4 +101,4 @@ integrations in other projects, we'd be happy to have you involved:
 [2]: https://github.com/apache/arrow/tree/main/format
 [3]: https://github.com/apache/arrow/issues
 [4]: https://github.com/apache/arrow
-[5]: https://github.com/apache/arrow/blob/main/docs/source/developers/contributing.rst
+[5]: https://arrow.apache.org/docs/dev/developers/contributing.html

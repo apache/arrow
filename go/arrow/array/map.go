@@ -300,12 +300,12 @@ func (b *MapBuilder) ValueBuilder() Builder {
 	return b.listBuilder.ValueBuilder()
 }
 
-func (b *MapBuilder) unmarshalOne(dec *json.Decoder) error {
-	return b.listBuilder.unmarshalOne(dec)
+func (b *MapBuilder) UnmarshalOne(dec *json.Decoder) error {
+	return b.listBuilder.UnmarshalOne(dec)
 }
 
-func (b *MapBuilder) unmarshal(dec *json.Decoder) error {
-	return b.listBuilder.unmarshal(dec)
+func (b *MapBuilder) Unmarshal(dec *json.Decoder) error {
+	return b.listBuilder.Unmarshal(dec)
 }
 
 func (b *MapBuilder) UnmarshalJSON(data []byte) error {
@@ -319,7 +319,7 @@ func (b *MapBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("map builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

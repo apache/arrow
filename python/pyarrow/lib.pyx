@@ -29,7 +29,6 @@ from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport *
 from pyarrow.includes.common cimport PyObject_to_object
-cimport pyarrow.includes.libarrow as libarrow
 cimport pyarrow.includes.libarrow_python as libarrow_python
 cimport cpython as cp
 
@@ -115,6 +114,7 @@ Type_STRUCT = _Type_STRUCT
 Type_SPARSE_UNION = _Type_SPARSE_UNION
 Type_DENSE_UNION = _Type_DENSE_UNION
 Type_DICTIONARY = _Type_DICTIONARY
+Type_RUN_END_ENCODED = _Type_RUN_END_ENCODED
 
 UnionMode_SPARSE = _UnionMode_SPARSE
 UnionMode_DENSE = _UnionMode_DENSE

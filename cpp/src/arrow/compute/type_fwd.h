@@ -31,6 +31,10 @@ class FunctionExecutor;
 class FunctionOptions;
 class FunctionRegistry;
 
+/// \brief Return the process-global function registry.
+// Defined in registry.cc
+ARROW_EXPORT FunctionRegistry* GetFunctionRegistry();
+
 class CastOptions;
 
 struct ExecBatch;
@@ -44,16 +48,7 @@ struct VectorKernel;
 
 struct KernelState;
 
-struct Declaration;
 class Expression;
-class ExecNode;
-class ExecPlan;
-class ExecNodeOptions;
-class ExecFactoryRegistry;
-class QueryContext;
-struct QueryOptions;
-
-class SinkNodeConsumer;
 
 ARROW_EXPORT ExecContext* default_exec_context();
 ARROW_EXPORT ExecContext* threaded_exec_context();

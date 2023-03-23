@@ -34,12 +34,12 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/asof_join_node.h"
 #include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/expression.h"
-#include "arrow/compute/exec/expression_internal.h"
 #include "arrow/compute/exec/map_node.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/compute/expression.h"
+#include "arrow/compute/expression_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/dataset.h"
@@ -772,6 +772,140 @@ TEST(Substrait, CallExtensionFunction) {
     ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*kBoringSchema));
     EXPECT_EQ(UseBoringRefs(roundtripped), UseBoringRefs(expr));
   }
+}
+
+TEST(Substrait, Cast) {
+  ExtensionSet ext_set;
+  ConversionOptions conversion_options;
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Expression", R"({
+  "selection": {
+      "direct_reference": {
+        "struct_field": {
+          "field": 0
+        }
+      },
+    "expression": {
+      "cast": {
+        "type": {
+          "fp64": {
+            "nullability": "NULLABILITY_NULLABLE"
+          }
+        },
+        "input": {
+          "selection": {
+            "direct_reference": {
+              "struct_field": {
+                "field": 0
+              }
+            }
+          }
+        },
+        "failure_behavior": "FAILURE_BEHAVIOR_THROW_EXCEPTION"
+      }
+    }
+  }
+})",
+                                                   /*ignore_unknown_fields=*/false))
+
+  ASSERT_OK_AND_ASSIGN(auto expr, DeserializeExpression(*buf, ext_set));
+
+  ASSERT_TRUE(expr.call());
+
+  ASSERT_THAT(expr.call()->arguments[0].call()->function_name, "cast");
+
+  std::shared_ptr<compute::FunctionOptions> call_opts =
+      expr.call()->arguments[0].call()->options;
+
+  ASSERT_TRUE(!!call_opts);
+  std::shared_ptr<compute::CastOptions> cast_opts =
+      std::dynamic_pointer_cast<compute::CastOptions>(call_opts);
+  ASSERT_TRUE(!!cast_opts);
+  // It is unclear whether a Substrait cast should be safe or not.  In the meantime we are
+  // assuming it is unsafe based on the behavior of many SQL engines.
+  ASSERT_TRUE(cast_opts->allow_int_overflow);
+  ASSERT_TRUE(cast_opts->allow_float_truncate);
+  ASSERT_TRUE(cast_opts->allow_decimal_truncate);
+}
+
+TEST(Substrait, CastRequiresFailureBehavior) {
+  ExtensionSet ext_set;
+  ConversionOptions conversion_options;
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Expression", R"({
+  "selection": {
+      "direct_reference": {
+        "struct_field": {
+          "field": 0
+        }
+      },
+    "expression": {
+      "cast": {
+        "type": {
+          "fp64": {
+            "nullability": "NULLABILITY_NULLABLE"
+          }
+        },
+        "input": {
+          "selection": {
+            "direct_reference": {
+              "struct_field": {
+                "field": 0
+              }
+            }
+          }
+        },
+        "failure_behavior": "FAILURE_BEHAVIOR_UNSPECIFIED"
+      }
+    }
+  }
+})",
+                                                   /*ignore_unknown_fields=*/false))
+
+  EXPECT_THAT(DeserializeExpression(*buf, ext_set, conversion_options),
+              Raises(StatusCode::Invalid, HasSubstr("FailureBehavior unspecified")));
+}
+
+TEST(Substrait, CallCastNonNullableFails) {
+  ExtensionSet ext_set;
+  ConversionOptions conversion_options;
+  conversion_options.strictness = ConversionStrictness::EXACT_ROUNDTRIP;
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Expression", R"({
+  "selection": {
+      "direct_reference": {
+        "struct_field": {
+          "field": 0
+        }
+      },
+    "expression": {
+      "cast": {
+        "type": {
+          "fp64": {
+            "nullability": "NULLABILITY_REQUIRED"
+          }
+        },
+        "input": {
+          "selection": {
+            "direct_reference": {
+              "struct_field": {
+                "field": 0
+              }
+            }
+          }
+        },
+        "failure_behavior": "FAILURE_BEHAVIOR_THROW_EXCEPTION"
+      }
+    }
+  }
+})",
+                                                   /*ignore_unknown_fields=*/false))
+
+  EXPECT_THAT(DeserializeExpression(*buf, ext_set, conversion_options),
+              Raises(StatusCode::Invalid, HasSubstr("must be of nullable type")));
 }
 
 TEST(Substrait, ReadRel) {

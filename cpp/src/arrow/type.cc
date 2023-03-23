@@ -806,8 +806,7 @@ std::string RunEndEncodedType::ToString() const {
 }
 
 bool RunEndEncodedType::RunEndTypeValid(const DataType& run_end_type) {
-  return run_end_type.id() == Type::INT16 || run_end_type.id() == Type::INT32 ||
-         run_end_type.id() == Type::INT64;
+  return is_run_end_type(run_end_type.id());
 }
 
 // ----------------------------------------------------------------------

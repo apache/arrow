@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
@@ -40,8 +43,7 @@ public class TestLargeMessage {
   public void getLargeMessage() throws Exception {
     try (final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
          final Producer producer = new Producer(a);
-         final FlightServer s =
-             FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build())) {
+         final FlightServer s = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), producer).build().start()) {
 
       try (FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
         try (FlightStream stream = client.getStream(new Ticket(new byte[]{}));
@@ -68,10 +70,7 @@ public class TestLargeMessage {
   public void putLargeMessage() throws Exception {
     try (final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
          final Producer producer = new Producer(a);
-         final FlightServer s =
-             FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build()
-             )) {
-
+         final FlightServer s = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), producer).build().start()) {
       try (FlightClient client = FlightClient.builder(a, s.getLocation()).build();
            BufferAllocator testAllocator = a.newChildAllocator("testcase", 0, Long.MAX_VALUE);
            VectorSchemaRoot root = generateData(testAllocator)) {

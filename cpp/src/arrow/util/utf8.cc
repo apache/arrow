@@ -126,7 +126,7 @@ namespace {
 // Some platforms (such as old MinGWs) don't have the <codecvt> header,
 // so call into a vendored utf8 implementation instead.
 
-std::wstring UTF8ToWideStringInternal(const std::string& source) {
+std::wstring UTF8ToWideStringInternal(std::string_view source) {
   std::wstring ws;
 #if WCHAR_MAX > 0xFFFF
   ::utf8::utf8to32(source.begin(), source.end(), std::back_inserter(ws));
@@ -148,7 +148,7 @@ std::string WideStringToUTF8Internal(const std::wstring& source) {
 
 }  // namespace
 
-Result<std::wstring> UTF8ToWideString(const std::string& source) {
+Result<std::wstring> UTF8ToWideString(std::string_view source) {
   try {
     return UTF8ToWideStringInternal(source);
   } catch (std::exception& e) {

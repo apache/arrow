@@ -775,18 +775,28 @@ def integration(with_all=False, random_seed=12345, **args):
 
 
 @archery.command()
+@click.option('--arrow-token', envvar='ARROW_GITHUB_TOKEN',
+              help='OAuth token for responding comment in the arrow repo')
+@click.option('--committers-file', '-c', type=click.File('r', encoding='utf8'))
 @click.option('--event-name', '-n', required=True)
 @click.option('--event-payload', '-p', type=click.File('r', encoding='utf8'),
               default='-', required=True)
-@click.option('--arrow-token', envvar='ARROW_GITHUB_TOKEN',
-              help='OAuth token for responding comment in the arrow repo')
-def trigger_bot(event_name, event_payload, arrow_token):
-    from .bot import CommentBot, actions
+def trigger_bot(arrow_token, committers_file, event_name, event_payload):
+    from .bot import CommentBot, PullRequestWorkflowBot, actions
+    from ruamel.yaml import YAML
 
     event_payload = json.loads(event_payload.read())
-
-    bot = CommentBot(name='github-actions', handler=actions, token=arrow_token)
-    bot.handle(event_name, event_payload)
+    if 'comment' in event_name:
+        bot = CommentBot(name='github-actions', handler=actions, token=arrow_token)
+        bot.handle(event_name, event_payload)
+    else:
+        committers = None
+        if committers_file:
+            committers = [committer['alias']
+                          for committer in YAML().load(committers_file)]
+        bot = PullRequestWorkflowBot(event_name, event_payload, token=arrow_token,
+                                     committers=committers)
+        bot.handle()
 
 
 @archery.group("linking")

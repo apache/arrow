@@ -134,7 +134,7 @@ transmute.arrow_dplyr_query <- function(.data, ...) {
 transmute.Dataset <- transmute.ArrowTabular <- transmute.RecordBatchReader <- transmute.arrow_dplyr_query
 
 # This function is a copy of dplyr:::check_transmute_args at
-# https://github.com/tidyverse/dplyr/blob/master/R/mutate.R
+# https://github.com/tidyverse/dplyr/blob/main/R/mutate.R
 check_transmute_args <- function(..., .keep, .before, .after) {
   if (!missing(.keep)) {
     abort("`transmute()` does not support the `.keep` argument")

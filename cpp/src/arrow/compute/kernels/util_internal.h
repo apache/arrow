@@ -35,6 +35,9 @@ using internal::CountAndSetBits;
 using internal::CountSetBits;
 
 namespace compute {
+
+class ScalarFunction;
+
 namespace internal {
 
 template <typename T>
@@ -135,6 +138,22 @@ int64_t CopyNonNullValues(const ChunkedArray& arr, T* out) {
 ExecValue GetExecValue(const Datum& value);
 
 int64_t GetTrueCount(const ArraySpan& mask);
+
+template <template <typename... Args> class KernelGenerator, typename Op>
+ArrayKernelExec GenerateArithmeticFloatingPoint(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::FLOAT:
+      return KernelGenerator<FloatType, FloatType, Op>::Exec;
+    case Type::DOUBLE:
+      return KernelGenerator<DoubleType, DoubleType, Op>::Exec;
+    default:
+      DCHECK(false);
+      return nullptr;
+  }
+}
+
+// A scalar kernel that ignores (assumed all-null) inputs and returns null.
+void AddNullExec(ScalarFunction* func);
 
 }  // namespace internal
 }  // namespace compute

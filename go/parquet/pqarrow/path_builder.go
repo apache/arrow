@@ -17,6 +17,7 @@
 package pqarrow
 
 import (
+	"fmt"
 	"sync/atomic"
 	"unsafe"
 
@@ -412,7 +413,20 @@ func (p *pathBuilder) Visit(arr arrow.Array) error {
 		// if arr.data.offset > 0, slice?
 		return p.Visit(larr.ListValues())
 	case arrow.DICTIONARY:
-		return xerrors.New("dictionary types not implemented yet")
+		// only currently handle dictionaryarray where the dictionary
+		// is a primitive type
+		dictArr := arr.(*array.Dictionary)
+		valType := dictArr.DataType().(*arrow.DictionaryType).ValueType
+		if _, ok := valType.(arrow.NestedType); ok {
+			return fmt.Errorf("%w: writing DictionaryArray with nested dictionary type not yet supported",
+				arrow.ErrNotImplemented)
+		}
+		if dictArr.Dictionary().NullN() > 0 {
+			return fmt.Errorf("%w: writing DictionaryArray with null encoded in dictionary not yet supported",
+				arrow.ErrNotImplemented)
+		}
+		p.addTerminalInfo(arr)
+		return nil
 	case arrow.STRUCT:
 		p.maybeAddNullable(arr)
 		infoBackup := p.info

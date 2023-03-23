@@ -81,7 +81,7 @@ func (a *Int64) setData(data *Data) {
 	}
 }
 
-func (a *Int64) getOneForMarshal(i int) interface{} {
+func (a *Int64) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -169,7 +169,7 @@ func (a *Uint64) setData(data *Data) {
 	}
 }
 
-func (a *Uint64) getOneForMarshal(i int) interface{} {
+func (a *Uint64) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -257,7 +257,7 @@ func (a *Float64) setData(data *Data) {
 	}
 }
 
-func (a *Float64) getOneForMarshal(i int) interface{} {
+func (a *Float64) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -345,7 +345,7 @@ func (a *Int32) setData(data *Data) {
 	}
 }
 
-func (a *Int32) getOneForMarshal(i int) interface{} {
+func (a *Int32) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -433,7 +433,7 @@ func (a *Uint32) setData(data *Data) {
 	}
 }
 
-func (a *Uint32) getOneForMarshal(i int) interface{} {
+func (a *Uint32) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -521,7 +521,7 @@ func (a *Float32) setData(data *Data) {
 	}
 }
 
-func (a *Float32) getOneForMarshal(i int) interface{} {
+func (a *Float32) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -609,7 +609,7 @@ func (a *Int16) setData(data *Data) {
 	}
 }
 
-func (a *Int16) getOneForMarshal(i int) interface{} {
+func (a *Int16) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -697,7 +697,7 @@ func (a *Uint16) setData(data *Data) {
 	}
 }
 
-func (a *Uint16) getOneForMarshal(i int) interface{} {
+func (a *Uint16) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -785,7 +785,7 @@ func (a *Int8) setData(data *Data) {
 	}
 }
 
-func (a *Int8) getOneForMarshal(i int) interface{} {
+func (a *Int8) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -873,7 +873,7 @@ func (a *Uint8) setData(data *Data) {
 	}
 }
 
-func (a *Uint8) getOneForMarshal(i int) interface{} {
+func (a *Uint8) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -961,7 +961,7 @@ func (a *Timestamp) setData(data *Data) {
 	}
 }
 
-func (a *Timestamp) getOneForMarshal(i int) interface{} {
+func (a *Timestamp) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -971,7 +971,7 @@ func (a *Timestamp) getOneForMarshal(i int) interface{} {
 func (a *Timestamp) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := range a.values {
-		vals[i] = a.getOneForMarshal(i)
+		vals[i] = a.GetOneForMarshal(i)
 	}
 
 	return json.Marshal(vals)
@@ -1044,7 +1044,7 @@ func (a *Time32) setData(data *Data) {
 	}
 }
 
-func (a *Time32) getOneForMarshal(i int) interface{} {
+func (a *Time32) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -1054,7 +1054,7 @@ func (a *Time32) getOneForMarshal(i int) interface{} {
 func (a *Time32) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := range a.values {
-		vals[i] = a.getOneForMarshal(i)
+		vals[i] = a.GetOneForMarshal(i)
 	}
 
 	return json.Marshal(vals)
@@ -1127,7 +1127,7 @@ func (a *Time64) setData(data *Data) {
 	}
 }
 
-func (a *Time64) getOneForMarshal(i int) interface{} {
+func (a *Time64) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -1137,7 +1137,7 @@ func (a *Time64) getOneForMarshal(i int) interface{} {
 func (a *Time64) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := range a.values {
-		vals[i] = a.getOneForMarshal(i)
+		vals[i] = a.GetOneForMarshal(i)
 	}
 
 	return json.Marshal(vals)
@@ -1210,7 +1210,7 @@ func (a *Date32) setData(data *Data) {
 	}
 }
 
-func (a *Date32) getOneForMarshal(i int) interface{} {
+func (a *Date32) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -1220,7 +1220,7 @@ func (a *Date32) getOneForMarshal(i int) interface{} {
 func (a *Date32) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := range a.values {
-		vals[i] = a.getOneForMarshal(i)
+		vals[i] = a.GetOneForMarshal(i)
 	}
 
 	return json.Marshal(vals)
@@ -1293,7 +1293,7 @@ func (a *Date64) setData(data *Data) {
 	}
 }
 
-func (a *Date64) getOneForMarshal(i int) interface{} {
+func (a *Date64) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -1303,7 +1303,7 @@ func (a *Date64) getOneForMarshal(i int) interface{} {
 func (a *Date64) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := range a.values {
-		vals[i] = a.getOneForMarshal(i)
+		vals[i] = a.GetOneForMarshal(i)
 	}
 
 	return json.Marshal(vals)
@@ -1376,7 +1376,7 @@ func (a *Duration) setData(data *Data) {
 	}
 }
 
-func (a *Duration) getOneForMarshal(i int) interface{} {
+func (a *Duration) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -1387,7 +1387,7 @@ func (a *Duration) getOneForMarshal(i int) interface{} {
 func (a *Duration) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := range a.values {
-		vals[i] = a.getOneForMarshal(i)
+		vals[i] = a.GetOneForMarshal(i)
 	}
 
 	return json.Marshal(vals)

@@ -402,7 +402,7 @@ Encodings
 +--------------------------+----------+----------+---------+
 | DELTA_BYTE_ARRAY         | ✓        |          |         |
 +--------------------------+----------+----------+---------+
-| DELTA_LENGTH_BYTE_ARRAY  | ✓        |          |         |
+| DELTA_LENGTH_BYTE_ARRAY  | ✓        | ✓        |         |
 +--------------------------+----------+----------+---------+
 
 * \(1) Only supported for encoding definition and repetition levels,
@@ -589,4 +589,5 @@ Miscellaneous
 * \(2) APIs are provided for creating, serializing and deserializing Bloom
   Filters, but they are not integrated into data read APIs.
 
-* \(3) For now, only the checksums of V1 Data Pages are computed.
+* \(3) For now, only the checksums of V1 Data Pages and Dictionary Pages
+  are computed.

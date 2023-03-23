@@ -20,11 +20,11 @@
 # cython: language_level = 3
 
 from libcpp cimport bool as c_bool, nullptr
-from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
+from libcpp.memory cimport shared_ptr, unique_ptr
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector as c_vector
 from libcpp.unordered_map cimport unordered_map
-from libc.stdint cimport int64_t, uint8_t, uintptr_t
+from libc.stdint cimport int64_t, uint8_t
 from cython.operator cimport dereference as deref, preincrement as inc
 from cpython.pycapsule cimport *
 
@@ -34,11 +34,11 @@ import socket
 import warnings
 
 import pyarrow
-from pyarrow.lib cimport (Buffer, NativeFile, _Weakrefable,
+from pyarrow.lib cimport (Buffer, _Weakrefable,
                           check_status, pyarrow_wrap_buffer)
 from pyarrow.lib import ArrowException, frombytes
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
-                                        CFixedSizeBufferWriter, CStatus)
+                                        CStatus)
 from pyarrow.includes.libplasma cimport *
 
 PLASMA_WAIT_TIMEOUT = 2 ** 30

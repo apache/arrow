@@ -25,13 +25,10 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, _Weakrefable,
                           MemoryPool, maybe_unbox_memory_pool,
-                          Schema, pyarrow_wrap_schema,
-                          KeyValueMetadata,
+                          pyarrow_wrap_schema,
                           pyarrow_wrap_batch,
-                          RecordBatch,
                           Table,
                           pyarrow_wrap_table,
-                          pyarrow_unwrap_schema,
                           pyarrow_wrap_metadata,
                           pyarrow_unwrap_table,
                           get_reader,
@@ -348,7 +345,6 @@ cdef class ORCReader(_Weakrefable):
     def read_stripe(self, n, columns=None):
         cdef:
             shared_ptr[CRecordBatch] sp_record_batch
-            RecordBatch batch
             int64_t stripe
             std_vector[c_string] c_names
 

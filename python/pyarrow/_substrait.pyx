@@ -18,7 +18,6 @@
 # cython: language_level = 3
 from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector as std_vector
-from libcpp cimport bool
 
 from pyarrow import Buffer, py_buffer
 from pyarrow.lib import frombytes, tobytes
@@ -27,7 +26,9 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_substrait cimport *
 
 
-cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector[c_string]& names, const CSchema& schema):
+cdef CDeclaration _create_named_table_provider(
+    dict named_args, const std_vector[c_string]& names, const CSchema& schema
+):
     cdef:
         c_string c_name
         shared_ptr[CTable] c_in_table
@@ -125,9 +126,7 @@ def run_query(plan, *, table_provider=None, use_threads=True):
         CResult[shared_ptr[CRecordBatchReader]] c_res_reader
         shared_ptr[CRecordBatchReader] c_reader
         RecordBatchReader reader
-        c_string c_str_plan
         shared_ptr[CBuffer] c_buf_plan
-        function[CNamedTableProvider] c_named_table_provider
         CConversionOptions c_conversion_options
         c_bool c_use_threads
 

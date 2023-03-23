@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 
 #include <chrono>
 #include <cstdint>
@@ -27,7 +27,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "arrow/compute/exec/expression_internal.h"
+#include "arrow/compute/expression_internal.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"

@@ -39,8 +39,10 @@ TEST(JitterNode, Basic) {
   Declaration plan =
       Declaration::Sequence({{"table_source", TableSourceNodeOptions(input)},
                              {"jitter", JitterNodeOptions(kTestSeed, kMaxJitterMod)}});
+  QueryOptions query_options;
+  query_options.sequence_output = false;
   ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema batches_and_schema,
-                       DeclarationToExecBatches(std::move(plan)));
+                       DeclarationToExecBatches(std::move(plan), query_options));
 
   ASSERT_EQ(kNumBatches, static_cast<int>(batches_and_schema.batches.size()));
   int numOutOfPlace = 0;

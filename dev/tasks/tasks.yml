@@ -976,6 +976,8 @@ tasks:
       - Apache.Arrow.Flight.AspNetCore.{no_rc_version}.snupkg
       - Apache.Arrow.Flight.{no_rc_version}.nupkg
       - Apache.Arrow.Flight.{no_rc_version}.snupkg
+      - Apache.Arrow.Compression.{no_rc_version}.nupkg
+      - Apache.Arrow.Compression.{no_rc_version}.snupkg
       - Apache.Arrow.{no_rc_version}.nupkg
       - Apache.Arrow.{no_rc_version}.snupkg
 
@@ -987,9 +989,9 @@ tasks:
       custom_version: Unset
     artifacts:
       - r-lib__libarrow__bin__windows__arrow-{no_rc_r_version}\.zip
-      - r-lib__libarrow__bin__centos-7__arrow-{no_rc_r_version}\.zip
-      - r-lib__libarrow__bin__ubuntu-18.04__arrow-{no_rc_r_version}\.zip
-      - r-lib__libarrow__bin__ubuntu-22.04__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__linux-openssl-1.0__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__linux-openssl-1.1__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__linux-openssl-3.0__arrow-{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.1__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.2__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__macosx__contrib__4.1__arrow_{no_rc_r_version}\.tgz
@@ -1252,6 +1254,15 @@ tasks:
         LLVM: 11
         UBUNTU: 20.04
       image: ubuntu-cpp-thread-sanitizer
+
+  test-ubuntu-20.04-cpp-minimal-with-formats:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 20.04
+      flags: "-e ARROW_CSV=ON -e ARROW_PARQUET=ON"
+      image: ubuntu-cpp-minimal
 
 {% for python_version in ["3.7", "3.8", "3.9", "3.10", "3.11"] %}
   test-conda-python-{{ python_version }}:
@@ -1587,9 +1598,9 @@ tasks:
       image: conda-python-hdfs
 {% endfor %}
 
-{% for python_version, spark_version, test_pyarrow_only in [("3.7", "v3.1.2", "false"),
-                                                            ("3.8", "v3.2.0", "false"),
-                                                            ("3.9", "master", "false")] %}
+{% for python_version, spark_version, test_pyarrow_only, numpy_version in [("3.7", "v3.1.2", "false", "latest"),
+                                                                           ("3.8", "v3.2.0", "false", "1.23"),
+                                                                           ("3.9", "master", "false", "latest")] %}
   test-conda-python-{{ python_version }}-spark-{{ spark_version }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1598,6 +1609,7 @@ tasks:
         PYTHON: "{{ python_version }}"
         SPARK: "{{ spark_version }}"
         TEST_PYARROW_ONLY: "{{ test_pyarrow_only }}"
+        NUMPY: "{{ numpy_version }}"
       # use the branch-3.0 of spark, so prevent reusing any layers
       flags: --no-leaf-cache
       image: conda-python-spark

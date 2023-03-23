@@ -21,7 +21,6 @@
 
 from cython.operator cimport dereference as deref
 
-import codecs
 from collections import namedtuple
 from collections.abc import Mapping
 
@@ -39,7 +38,6 @@ from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           pyarrow_unwrap_data_type, Table, RecordBatch,
                           StopToken, _CRecordBatchWriter)
 from pyarrow.lib import frombytes, tobytes, SignalStopHandler
-from pyarrow.util import _stringify_path
 
 
 cdef unsigned char _single_char(s) except 0:
@@ -110,7 +108,7 @@ cdef class ReadOptions(_Weakrefable):
         block, and empty rows are counted.
         The order of application is as follows:
         - `skip_rows` is applied (if non-zero);
-        - column names aread (unless `column_names` is set);
+        - column names are read (unless `column_names` is set);
         - `skip_rows_after_names` is applied (if non-zero).
     column_names : list, optional
         The column names of the target table.  If empty, fall back on
@@ -251,7 +249,7 @@ cdef class ReadOptions(_Weakrefable):
         block, and empty rows are counted.
         The order of application is as follows:
         - `skip_rows` is applied (if non-zero);
-        - column names aread (unless `column_names` is set);
+        - column names are read (unless `column_names` is set);
         - `skip_rows_after_names` is applied (if non-zero).
         """
         return deref(self.options).skip_rows_after_names
@@ -364,7 +362,14 @@ cdef class ParseOptions(_Weakrefable):
     Defining an example file from bytes object:
 
     >>> import io
-    >>> s = "animals;n_legs;entry\\nFlamingo;2;2022-03-01\\n# Comment here:\\nHorse;4;2022-03-02\\nBrittle stars;5;2022-03-03\\nCentipede;100;2022-03-04"
+    >>> s = (
+    ...     "animals;n_legs;entry\\n"
+    ...     "Flamingo;2;2022-03-01\\n"
+    ...     "# Comment here:\\n"
+    ...     "Horse;4;2022-03-02\\n"
+    ...     "Brittle stars;5;2022-03-03\\n"
+    ...     "Centipede;100;2022-03-04"
+    ... )
     >>> print(s)
     animals;n_legs;entry
     Flamingo;2;2022-03-01
@@ -648,7 +653,14 @@ cdef class ConvertOptions(_Weakrefable):
     Defining an example data:
 
     >>> import io
-    >>> s = "animals,n_legs,entry,fast\\nFlamingo,2,01/03/2022,Yes\\nHorse,4,02/03/2022,Yes\\nBrittle stars,5,03/03/2022,No\\nCentipede,100,04/03/2022,No\\n,6,05/03/2022,"
+    >>> s = (
+    ...     "animals,n_legs,entry,fast\\n"
+    ...     "Flamingo,2,01/03/2022,Yes\\n"
+    ...     "Horse,4,02/03/2022,Yes\\n"
+    ...     "Brittle stars,5,03/03/2022,No\\n"
+    ...     "Centipede,100,04/03/2022,No\\n"
+    ...     ",6,05/03/2022,"
+    ... )
     >>> print(s)
     animals,n_legs,entry,fast
     Flamingo,2,01/03/2022,Yes
@@ -1178,7 +1190,13 @@ def read_csv(input_file, read_options=None, parse_options=None,
     Defining an example file from bytes object:
 
     >>> import io
-    >>> s = "animals,n_legs,entry\\nFlamingo,2,2022-03-01\\nHorse,4,2022-03-02\\nBrittle stars,5,2022-03-03\\nCentipede,100,2022-03-04"
+    >>> s = (
+    ...     "animals,n_legs,entry\\n"
+    ...     "Flamingo,2,2022-03-01\\n"
+    ...     "Horse,4,2022-03-02\\n"
+    ...     "Brittle stars,5,2022-03-03\\n"
+    ...     "Centipede,100,2022-03-04"
+    ... )
     >>> print(s)
     animals,n_legs,entry
     Flamingo,2,2022-03-01

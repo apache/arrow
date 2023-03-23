@@ -25,8 +25,8 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/expression.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/projector.h"

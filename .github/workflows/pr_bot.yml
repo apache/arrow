@@ -1,0 +1,105 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: "Workflow label bot"
+on:
+  pull_request_target:
+    types:
+      - opened
+      - converted_to_draft
+      - ready_for_review
+      - synchronize
+  workflow_run:
+    workflows: ["Label when reviewed"]
+    types: ['completed']
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  pr-workflow-bot-job:
+    name: "PR Workflow bot"
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Download PR review payload'
+        id: 'download'
+        if: github.event_name == 'workflow_run'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const run_id = "${{ github.event.workflow_run.id }}";
+            let artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: run_id,
+            });
+            let pr_review_artifact = artifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "pr_review_payload"
+            })[0];
+            let pr_review_download = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: pr_review_artifact.id,
+              archive_format: 'zip',
+            });
+            var fs = require('fs');
+            fs.writeFileSync('${{github.workspace}}/pr_review.zip', Buffer.from(pr_review_download.data));
+      - name: Extract artifact
+        id: extract
+        if: github.event_name == 'workflow_run'
+        run: |
+          unzip pr_review.zip
+          echo "pr_review_path=$(pwd)/event.json" >> $GITHUB_OUTPUT
+      - name: Download committers file
+        id: committers
+        run: |
+          url="https://raw.githubusercontent.com/apache/arrow-site/main/_data/committers.yml"
+          curl -sL -o committers.yml $url
+          echo "committers_path=$(pwd)/committers.yml" >> $GITHUB_OUTPUT
+      - name: Checkout Arrow
+        uses: actions/checkout@v3
+        with:
+          path: arrow
+          repository: apache/arrow
+          ref: main
+          persist-credentials: false
+          # fetch the tags for version number generation
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+      - name: Install Archery and Crossbow dependencies
+        run: pip install -e arrow/dev/archery[bot]
+      - name: Handle PR workflow event
+        env:
+          ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_run" ]; then
+            # workflow_run is executed on PR review. Update to original event.
+            archery trigger-bot \
+              --event-name "pull_request_review" \
+              --event-payload "${{ steps.extract.outputs.pr_review_path }}" \
+              --committers-file "${{ steps.committers.outputs.committers_path }}"
+          else
+            archery trigger-bot \
+              --event-name "${{ github.event_name }}" \
+              --event-payload "${{ github.event_path }}" \
+              --committers-file "${{ steps.committers.outputs.committers_path }}"
+          fi

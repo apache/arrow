@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/type_fwd.h"
@@ -85,7 +85,7 @@ class JsonFragmentScanner : public FragmentScanner {
     std::unordered_set<int> indices;
     indices.reserve(inspected.column_names.size());
 
-    for (const auto& scan_column : scan_request.columns) {
+    for (const auto& scan_column : scan_request.fragment_selection->columns()) {
       const auto index = scan_column.path[0];
 
       if (!indices.emplace(index).second) continue;

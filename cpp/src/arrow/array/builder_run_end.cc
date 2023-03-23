@@ -76,7 +76,21 @@ Status RunCompressorBuilder::AppendNulls(int64_t length) {
 }
 
 Status RunCompressorBuilder::AppendEmptyValues(int64_t length) {
-  return Status::NotImplemented("Append empty values to a run-compressed array.");
+  if (ARROW_PREDICT_FALSE(length == 0)) {
+    return Status::OK();
+  }
+  // Empty values are usually appended as placeholders for future values, so
+  // we make no attempt at making the empty values appended now part of the
+  // current run. Each AppendEmptyValues() creates its own run of the given length.
+  ARROW_RETURN_NOT_OK(FinishCurrentRun());
+  {
+    ARROW_RETURN_NOT_OK(WillCloseRunOfEmptyValues(length));
+    ARROW_RETURN_NOT_OK(inner_builder_->AppendEmptyValue());
+    UpdateDimensions();
+  }
+  // Current run remains cleared after FinishCurrentRun() as we don't want to
+  // extend it with empty values potentially coming in the future.
+  return Status::OK();
 }
 
 Status RunCompressorBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
@@ -183,7 +197,10 @@ Status RunEndEncodedBuilder::AppendNulls(int64_t length) {
 }
 
 Status RunEndEncodedBuilder::AppendEmptyValues(int64_t length) {
-  return Status::NotImplemented("Append empty values to run-end encoded array.");
+  RETURN_NOT_OK(value_run_builder_->AppendEmptyValues(length));
+  DCHECK_EQ(value_run_builder_->open_run_length(), 0);
+  UpdateDimensions(committed_logical_length_, 0);
+  return Status::OK();
 }
 
 Status RunEndEncodedBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
@@ -202,12 +219,12 @@ Status RunEndEncodedBuilder::AppendScalars(const ScalarVector& scalars) {
   return Status::OK();
 }
 
-template <typename RunEndsType>
+template <typename RunEndCType>
 Status RunEndEncodedBuilder::DoAppendArray(const ArraySpan& to_append) {
   DCHECK_GT(to_append.length, 0);
   DCHECK(!value_run_builder_->has_open_run());
 
-  ree_util::RunEndEncodedArraySpan<RunEndsType> ree_span(to_append);
+  ree_util::RunEndEncodedArraySpan<RunEndCType> ree_span(to_append);
   const int64_t physical_offset = ree_span.PhysicalIndex(0);
   const int64_t physical_length =
       ree_span.PhysicalIndex(ree_span.length() - 1) + 1 - physical_offset;
@@ -218,7 +235,7 @@ Status RunEndEncodedBuilder::DoAppendArray(const ArraySpan& to_append) {
   const auto end = ree_span.end();
   for (auto it = ree_span.iterator(0, physical_offset); it != end; ++it) {
     const int64_t run_end = committed_logical_length_ + it.run_length();
-    RETURN_NOT_OK(DoAppendRunEnd<RunEndsType>(run_end));
+    RETURN_NOT_OK(DoAppendRunEnd<RunEndCType>(run_end));
     UpdateDimensions(run_end, 0);
   }
 
@@ -284,16 +301,16 @@ Status RunEndEncodedBuilder::FinishCurrentRun() {
   return Status::OK();
 }
 
-template <typename RunEndsType>
+template <typename RunEndCType>
 Status RunEndEncodedBuilder::DoAppendRunEnd(int64_t run_end) {
-  constexpr auto max = std::numeric_limits<RunEndsType>::max();
+  constexpr auto max = std::numeric_limits<RunEndCType>::max();
   if (ARROW_PREDICT_FALSE(run_end > max)) {
     return Status::Invalid("Run end value must fit on run ends type but ", run_end, " > ",
                            max, ".");
   }
-  return internal::checked_cast<typename CTypeTraits<RunEndsType>::BuilderType*>(
+  return internal::checked_cast<typename CTypeTraits<RunEndCType>::BuilderType*>(
              children_[0].get())
-      ->Append(static_cast<RunEndsType>(run_end));
+      ->Append(static_cast<RunEndCType>(run_end));
 }
 
 Status RunEndEncodedBuilder::AppendRunEnd(int64_t run_end) {
@@ -313,8 +330,7 @@ Status RunEndEncodedBuilder::AppendRunEnd(int64_t run_end) {
   return Status::OK();
 }
 
-Status RunEndEncodedBuilder::CloseRun(const std::shared_ptr<const Scalar>& value,
-                                      int64_t run_length) {
+Status RunEndEncodedBuilder::CloseRun(int64_t run_length) {
   // TODO(felipecrv): gracefully fragment runs bigger than INT32_MAX
   if (ARROW_PREDICT_FALSE(run_length > std::numeric_limits<int32_t>::max())) {
     return Status::Invalid(
