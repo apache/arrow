@@ -499,8 +499,8 @@ function(bundle_arrow_dependency library_name)
 endfunction()
 
 # Always bundle includes
-get_filename_component(ARROW_INCLUDE_DIR_REAL ${ARROW_INCLUDE_DIR} REALPATH)
-install(DIRECTORY ${ARROW_INCLUDE_DIR_REAL}/arrow DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+get_filename_component(ARROW_INCLUDE_ARROW_DIR_REAL ${ARROW_INCLUDE_DIR}/arrow REALPATH)
+install(DIRECTORY ${ARROW_INCLUDE_ARROW_DIR_REAL} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 if(PYARROW_BUNDLE_ARROW_CPP)
   # Arrow
@@ -577,8 +577,9 @@ endif()
 # Parquet
 if(PYARROW_BUILD_PARQUET)
   if(PYARROW_BUNDLE_ARROW_CPP)
-    get_filename_component(PARQUET_INCLUDE_DIR_REAL ${PARQUET_INCLUDE_DIR} REALPATH)
-    install(DIRECTORY ${PARQUET_INCLUDE_DIR_REAL}/parquet
+    get_filename_component(PARQUET_INCLUDE_PARQUET_DIR_REAL
+                           ${PARQUET_INCLUDE_DIR}/parquet REALPATH)
+    install(DIRECTORY ${PARQUET_INCLUDE_PARQUET_DIR_REAL}
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   endif()
 
@@ -609,8 +610,9 @@ if(PYARROW_BUILD_PLASMA)
   endif()
   find_package(Plasma REQUIRED)
 
-  get_filename_component(PLASMA_INCLUDE_DIR_REAL ${PLASMA_INCLUDE_DIR} REALPATH)
-  install(DIRECTORY ${PLASMA_INCLUDE_DIR_REAL}/plasma
+  get_filename_component(PLASMA_INCLUDE_PLASMA_DIR_REAL ${PLASMA_INCLUDE_DIR}/plasma
+                         REALPATH)
+  install(DIRECTORY ${PLASMA_INCLUDE_PLASMA_DIR_REAL}
           DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
   if(PYARROW_BUNDLE_ARROW_CPP)
@@ -679,8 +681,9 @@ if(PYARROW_BUILD_GANDIVA)
   find_package(Gandiva REQUIRED)
 
   if(PYARROW_BUNDLE_ARROW_CPP)
-    get_filename_component(GANDIVA_INCLUDE_DIR_REAL ${GANDIVA_INCLUDE_DIR} REALPATH)
-    install(DIRECTORY ${GANDIVA_INCLUDE_DIR_REAL}/gandiva
+    get_filename_component(GANDIVA_INCLUDE_GANDIVA_DIR_REAL
+                           ${GANDIVA_INCLUDE_DIR}/gandiva REALPATH)
+    install(DIRECTORY ${GANDIVA_INCLUDE_GANDIVA_DIR_REAL}
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
     bundle_arrow_lib(${GANDIVA_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
