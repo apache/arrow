@@ -601,6 +601,23 @@ if(ARROW_BUILD_BUNDLED_DEPENDENCIES)
   string(APPEND ARROW_PC_LIBS_PRIVATE " -larrow_bundled_dependencies")
   list(INSERT ARROW_STATIC_INSTALL_INTERFACE_LIBS 0 "Arrow::arrow_bundled_dependencies")
 endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set(GLIBCXX_USE_CXX11_ABI_SOURCE
+      ${CMAKE_CURRENT_BINARY_DIR}/try_compile_glibcxx_use_cxx_abi.cc)
+  file(WRITE ${GLIBCXX_USE_CXX11_ABI_SOURCE}
+       "#include <string>\n"
+       "#if !_GLIBCXX_USE_CXX11_ABI\n"
+       "#error Not using CXX11 ABI\n"
+       "#endif\n"
+       "int main(void) {return 0;}\n")
+  try_compile(IS_GLIBCXX_USE_CXX11_ABI ${CMAKE_CURRENT_BINARY_DIR}/try_compile
+              SOURCES ${GLIBCXX_USE_CXX11_ABI_SOURCE})
+  if(NOT IS_GLIBCXX_USE_CXX11_ABI)
+    string(APPEND ARROW_PC_CFLAGS " -D_GLIBCXX_USE_CXX11_ABI=0")
+  endif()
+endif()
+
 # Need -latomic on Raspbian.
 # See also: https://issues.apache.org/jira/browse/ARROW-12860
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "armv7")
@@ -614,7 +631,7 @@ endif()
 # linking. ARROW_PC_* except ARROW_PC_*_PRIVATE are for the static
 # linking case.
 if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
-  set(ARROW_PC_CFLAGS "${ARROW_PC_CFLAGS_PRIVATE}")
+  string(APPEND ARROW_PC_CFLAGS "${ARROW_PC_CFLAGS_PRIVATE}")
   set(ARROW_PC_CFLAGS_PRIVATE "")
   set(ARROW_PC_LIBS "${ARROW_PC_LIBS_PRIVATE}")
   set(ARROW_PC_LIBS_PRIVATE "")
@@ -624,7 +641,6 @@ if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
   string(APPEND ARROW_TESTING_PC_CFLAGS "${ARROW_TESTING_PC_CFLAGS_PRIVATE}")
   set(ARROW_TESTING_PC_CFLAGS_PRIVATE "")
 else()
-  set(ARROW_PC_CFLAGS "")
   set(ARROW_PC_LIBS "")
   set(ARROW_PC_REQUIRES "")
 endif()
