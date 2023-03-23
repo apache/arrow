@@ -1664,7 +1664,7 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
     else:
         dtype = None
 
-    result = pandas_api.series(arr, dtype=dtype, name=name)
+    result = pandas_api.series(arr, dtype=dtype, name=name, copy=False)
 
     if (isinstance(original_type, TimestampType) and
             original_type.tz is not None and
@@ -3065,7 +3065,7 @@ cdef class ExtensionArray(Array):
         # pandas ExtensionDtype that implements conversion from pyarrow
         if hasattr(pandas_dtype, '__from_arrow__'):
             arr = pandas_dtype.__from_arrow__(self)
-            return pandas_api.series(arr)
+            return pandas_api.series(arr, copy=False)
 
         # otherwise convert the storage array with the base implementation
         return Array._to_pandas(self.storage, options, **kwargs)
@@ -3169,7 +3169,7 @@ cdef object get_values(object obj, bint* is_series):
         result = obj
         is_series[0] = False
     else:
-        result = pandas_api.series(obj).values
+        result = pandas_api.series(obj, copy=False).values
         is_series[0] = False
 
     return result
