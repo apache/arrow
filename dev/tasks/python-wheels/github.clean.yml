@@ -32,4 +32,4 @@ jobs:
           gem install --user-install gemfury
           ruby ./ci/scripts/gemfury_clean.rb
     env:
-      GEMFURY_API_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
+      GEMFURY_API_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_API_TOKEN }}' }}
