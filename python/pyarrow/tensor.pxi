@@ -553,7 +553,8 @@ shape: {0.shape}""".format(self)
 
     @property
     def dim_names(self):
-        return tuple(frombytes(x) for x in tuple(self.stp.dim_names()))
+        names_tuple = tuple(self.stp.dim_names())
+        return tuple(frombytes(x) for x in names_tuple)
 
     @property
     def non_zero_length(self):
@@ -784,7 +785,8 @@ shape: {0.shape}""".format(self)
 
     @property
     def dim_names(self):
-        return tuple(frombytes(x) for x in tuple(self.stp.dim_names()))
+        names_tuple = tuple(self.stp.dim_names())
+        return tuple(frombytes(x) for x in names_tuple)
 
     @property
     def non_zero_length(self):
@@ -999,7 +1001,8 @@ shape: {0.shape}""".format(self)
 
     @property
     def dim_names(self):
-        return tuple(frombytes(x) for x in tuple(self.stp.dim_names()))
+        names_tuple = tuple(self.stp.dim_names())
+        return tuple(frombytes(x) for x in names_tuple)
 
     @property
     def non_zero_length(self):
@@ -1191,7 +1194,8 @@ shape: {0.shape}""".format(self)
 
     @property
     def dim_names(self):
-        return tuple(frombytes(x) for x in tuple(self.stp.dim_names()))
+        names_tuple = tuple(self.stp.dim_names())
+        return tuple(frombytes(x) for x in names_tuple)
 
     @property
     def non_zero_length(self):
