@@ -63,15 +63,15 @@ void CheckBitmapWordAlign(const uint8_t* data, int64_t bit_offset, int64_t lengt
   }
 }
 
-arrow::Result<std::shared_ptr<Array>> CreateUnalignedArray(std::shared_ptr<Array> array) {
-  BufferVector sliced_buffers(array->data()->buffers.size(), nullptr);
-  for (std::size_t i = 0; i < array->data()->buffers.size(); ++i) {
-    if (array->data()->buffers[i]) {
-      sliced_buffers[i] = array->data()->buffers[i]->CopySlice(0, 2).MoveValueUnsafe();
+arrow::Result<std::shared_ptr<Array>> CreateUnalignedArray(const Array& array) {
+  BufferVector sliced_buffers(array.data()->buffers.size(), nullptr);
+  for (std::size_t i = 0; i < array.data()->buffers.size(); ++i) {
+    if (array.data()->buffers[i]) {
+      sliced_buffers[i] = SliceBuffer(array.data()->buffers[i], 0, 2);
     }
   }
   auto sliced_array_data =
-      ArrayData::Make(array->type(), array->length(), std::move(sliced_buffers));
+      ArrayData::Make(array.type(), array.length(), std::move(sliced_buffers));
   return MakeArray(std::move(sliced_array_data));
 }
 
@@ -171,7 +171,7 @@ TEST(EnsureAlignment, Array) {
 
   // for having buffers which are not aligned by 2048
   ASSERT_OK_AND_ASSIGN(auto sliced_array,
-                       arrow::internal::CreateUnalignedArray(std::move(random_array)));
+                       arrow::internal::CreateUnalignedArray(*random_array));
 
   ASSERT_EQ(util::CheckAlignment(*sliced_array, 2048), false);
   ASSERT_OK_AND_ASSIGN(auto aligned_array,
@@ -188,9 +188,9 @@ TEST(EnsureAlignment, ChunkedArray) {
                                    /*null_probability*/ 0, /*alignment*/ 1024, pool);
 
   ASSERT_OK_AND_ASSIGN(auto sliced_array_1,
-                       arrow::internal::CreateUnalignedArray(std::move(random_array_1)));
+                       arrow::internal::CreateUnalignedArray(*random_array_1));
   ASSERT_OK_AND_ASSIGN(auto sliced_array_2,
-                       arrow::internal::CreateUnalignedArray(std::move(random_array_2)));
+                       arrow::internal::CreateUnalignedArray(*random_array_2));
 
   ASSERT_OK_AND_ASSIGN(
       auto chunked_array,
@@ -213,9 +213,9 @@ TEST(EnsureAlignment, RecordBatch) {
                                    /*null_probability*/ 0, /*alignment*/ 1024, pool);
 
   ASSERT_OK_AND_ASSIGN(auto sliced_array_1,
-                       arrow::internal::CreateUnalignedArray(std::move(random_array_1)));
+                       arrow::internal::CreateUnalignedArray(*random_array_1));
   ASSERT_OK_AND_ASSIGN(auto sliced_array_2,
-                       arrow::internal::CreateUnalignedArray(std::move(random_array_2)));
+                       arrow::internal::CreateUnalignedArray(*random_array_2));
 
   auto f0 = field("f0", uint8());
   auto f1 = field("f1", uint8());
@@ -241,9 +241,9 @@ TEST(EnsureAlignment, Table) {
   auto random_array_2 = rand.UInt8(/*size*/ 100, /*min*/ 10, /*max*/ 50,
                                    /*null_probability*/ 0, /*alignment*/ 1024, pool);
   ASSERT_OK_AND_ASSIGN(auto sliced_array_1,
-                       arrow::internal::CreateUnalignedArray(std::move(random_array_1)));
+                       arrow::internal::CreateUnalignedArray(*random_array_1));
   ASSERT_OK_AND_ASSIGN(auto sliced_array_2,
-                       arrow::internal::CreateUnalignedArray(std::move(random_array_2)));
+                       arrow::internal::CreateUnalignedArray(*random_array_2));
   ASSERT_OK_AND_ASSIGN(
       auto chunked_array_1,
       ChunkedArray::Make({sliced_array_1, sliced_array_2}, sliced_array_1->type()));
@@ -253,9 +253,9 @@ TEST(EnsureAlignment, Table) {
   random_array_2 = rand.UInt8(/*size*/ 75, /*min*/ 10, /*max*/ 50,
                               /*null_probability*/ 0, /*alignment*/ 512, pool);
   ASSERT_OK_AND_ASSIGN(sliced_array_1,
-                       arrow::internal::CreateUnalignedArray(std::move(random_array_1)));
+                       arrow::internal::CreateUnalignedArray(*random_array_1));
   ASSERT_OK_AND_ASSIGN(sliced_array_2,
-                       arrow::internal::CreateUnalignedArray(std::move(random_array_2)));
+                       arrow::internal::CreateUnalignedArray(*random_array_2));
   ASSERT_OK_AND_ASSIGN(
       auto chunked_array_2,
       ChunkedArray::Make({sliced_array_1, sliced_array_2}, sliced_array_1->type()));
