@@ -22,12 +22,20 @@
 jobs:
   package:
     name: Package
+    {% if architecture == "amd64" }
     runs-on: ubuntu-22.04
+    {% else %}
+    runs-on: ["self-hosted", "Linux", "arm64"]
+    {% endif %}
+    env:
+      ARCHITECTURE: {{ architecture }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
 
       - name: Free up disk space
+        if: |
+          env.ARCHITECTURE == 'amd64'
         run: |
           df -h
           # 5.3GB
@@ -36,9 +44,12 @@ jobs:
           sudo rm -rf /opt/hostedtoolcache/go || :
           df -h
       - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.1'
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            rake \
+            ruby \
+            ruby-dev
       - name: Build
         run: |
           set -e
