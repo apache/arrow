@@ -64,6 +64,9 @@ void CheckBitmapWordAlign(const uint8_t* data, int64_t bit_offset, int64_t lengt
 }
 
 arrow::Result<std::shared_ptr<Array>> CreateUnalignedArray(const Array& array) {
+  // Slicing by 1 would create an invalid array if the type was wider than
+  // 1 byte so double-check that the array is a 1-byte type
+  EXPECT_EQ(array.type_id(), Type::UINT8);
   BufferVector sliced_buffers(array.data()->buffers.size(), nullptr);
   for (std::size_t i = 0; i < array.data()->buffers.size(); ++i) {
     if (array.data()->buffers[i]) {
@@ -71,7 +74,7 @@ arrow::Result<std::shared_ptr<Array>> CreateUnalignedArray(const Array& array) {
     }
   }
   auto sliced_array_data =
-      ArrayData::Make(array.type(), array.length(), std::move(sliced_buffers));
+      ArrayData::Make(array.type(), /*length=*/2, std::move(sliced_buffers));
   return MakeArray(std::move(sliced_array_data));
 }
 
