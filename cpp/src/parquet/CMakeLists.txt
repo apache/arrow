@@ -170,6 +170,7 @@ set(PARQUET_SRCS
     metadata.cc
     xxhasher.cc
     page_index.cc
+    bloom_filter_reader.cc
     "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
     "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
     platform.cc

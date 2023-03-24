@@ -33,6 +33,7 @@ namespace parquet {
 class ColumnReader;
 class FileMetaData;
 class PageIndexReader;
+class BloomFilterReader;
 class PageReader;
 class RowGroupMetaData;
 
@@ -100,6 +101,7 @@ class PARQUET_EXPORT ParquetFileReader {
     virtual std::shared_ptr<RowGroupReader> GetRowGroup(int i) = 0;
     virtual std::shared_ptr<FileMetaData> metadata() const = 0;
     virtual std::shared_ptr<PageIndexReader> GetPageIndexReader() = 0;
+    virtual std::shared_ptr<BloomFilterReader> GetBloomFilterReader() = 0;
   };
 
   ParquetFileReader();
