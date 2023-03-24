@@ -2975,8 +2975,12 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
     }
 
     auto decoder_data = data + 4;
-    decoder_ = std::make_shared<::arrow::util::RleDecoder>(decoder_data, num_bytes,
-                                                           /*bit_width=*/1);
+    if (decoder_ == nullptr) {
+      decoder_ = std::make_shared<::arrow::util::RleDecoder>(decoder_data, num_bytes,
+                                                             /*bit_width=*/1);
+    } else {
+      decoder_->Reset(decoder_data, num_bytes, /*bit_width=*/1);
+    }
   }
 
   int Decode(bool* buffer, int max_values) override {
