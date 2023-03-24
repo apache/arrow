@@ -615,9 +615,9 @@ that have not been built"
                 OFF)
 
   define_option_string(ARROW_GDB_INSTALL_DIR
-                       "Use a custom install directory for GDB plugin. \
-In general, you don't need to specify this because the default \
-(CMAKE_INSTALL_FULL_BINDIR on Windows, CMAKE_INSTALL_FULL_LIBDIR otherwise) \
+                       "Use a custom install directory for GDB plugin.;\
+In general, you don't need to specify this because the default;\
+(CMAKE_INSTALL_FULL_BINDIR on Windows, CMAKE_INSTALL_FULL_LIBDIR otherwise);\
 is reasonable."
                        "")
 
