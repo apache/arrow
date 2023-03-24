@@ -282,7 +282,7 @@ class PlasmaObjectExists(ArrowException):
     pass
 
 
-cdef int plasma_check_status(const CStatus& status) nogil except -1:
+cdef int plasma_check_status(const CStatus& status) except -1 nogil:
     if status.ok():
         return 0
 

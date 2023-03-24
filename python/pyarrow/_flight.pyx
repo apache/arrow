@@ -40,7 +40,7 @@ import pyarrow.lib as lib
 cdef CFlightCallOptions DEFAULT_CALL_OPTIONS
 
 
-cdef int check_flight_status(const CStatus& status) nogil except -1:
+cdef int check_flight_status(const CStatus& status) except -1 nogil:
     cdef shared_ptr[FlightStatusDetail] detail
 
     if status.ok():

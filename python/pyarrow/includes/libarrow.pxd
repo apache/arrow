@@ -1571,7 +1571,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         c_bool unify_dictionaries
 
         CIpcWriteOptions()
-        CIpcWriteOptions(CIpcWriteOptions&&)
+        CIpcWriteOptions(CIpcWriteOptions)
 
         @staticmethod
         CIpcWriteOptions Defaults()
@@ -1777,7 +1777,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         function[CInvalidRowHandler] invalid_row_handler
 
         CCSVParseOptions()
-        CCSVParseOptions(CCSVParseOptions&&)
+        CCSVParseOptions(CCSVParseOptions)
 
         @staticmethod
         CCSVParseOptions Defaults()
@@ -1802,7 +1802,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         c_bool include_missing_columns
 
         CCSVConvertOptions()
-        CCSVConvertOptions(CCSVConvertOptions&&)
+        CCSVConvertOptions(CCSVConvertOptions)
 
         @staticmethod
         CCSVConvertOptions Defaults()
@@ -1818,7 +1818,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         c_bool autogenerate_column_names
 
         CCSVReadOptions()
-        CCSVReadOptions(CCSVReadOptions&&)
+        CCSVReadOptions(CCSVReadOptions)
 
         @staticmethod
         CCSVReadOptions Defaults()
@@ -1833,7 +1833,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         CIOContext io_context
 
         CCSVWriteOptions()
-        CCSVWriteOptions(CCSVWriteOptions&&)
+        CCSVWriteOptions(CCSVWriteOptions)
 
         @staticmethod
         CCSVWriteOptions Defaults()
@@ -2193,7 +2193,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CCastOptions" arrow::compute::CastOptions"(CFunctionOptions):
         CCastOptions()
         CCastOptions(c_bool safe)
-        CCastOptions(CCastOptions&& options)
+        CCastOptions(CCastOptions options)
 
         @staticmethod
         CCastOptions Safe()
