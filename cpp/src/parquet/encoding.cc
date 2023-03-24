@@ -1189,7 +1189,7 @@ struct ArrowBinaryHelper {
   Status PushChunk() {
     std::shared_ptr<::arrow::Array> result;
     RETURN_NOT_OK(builder->Finish(&result));
-    out->chunks.push_back(result);
+    out->chunks.push_back(std::move(result));
     chunk_space_remaining = ::arrow::kBinaryMemoryLimit;
     return Status::OK();
   }
@@ -3152,15 +3152,42 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 template <>
 inline void DeltaByteArrayEncoder<FLBAType>::Put(const FixedLenByteArray* src,
                                                  int num_values) {
-  if (descr_->type_length() == 0) {
+  if (num_values == 0) {
     return;
   }
-  // TODO: This is a temporary solution.
-  for (int i = 0; i < num_values; ++i) {
-    // Write the result to the output stream
-    DCHECK(src[i].ptr != nullptr) << "Value ptr cannot be NULL";
-    PARQUET_THROW_NOT_OK(sink_.Append(src[i].ptr, descr_->type_length()));
+  const uint32_t byte_width = sizeof(src[0]);
+  ArrowPoolVector<int32_t> prefix_lengths(num_values,
+                                          ::arrow::stl::allocator<int32_t>(pool_));
+  std::string_view last_value_view = last_value_;
+
+  if (last_value_view.empty()) {
+    last_value_view = string_view{reinterpret_cast<const char*>(src[0].ptr), byte_width};
+    const ByteArray value{byte_width, src[0].ptr};
+    suffix_encoder_.Put(&value, 1);
+    prefix_lengths[0] = 0;
   }
+
+  for (int32_t i = 1; i < num_values; i++) {
+    auto prefix = string_view{reinterpret_cast<const char*>(src[i].ptr), byte_width};
+
+    uint32_t j = 0;
+    while (j < byte_width) {
+      if (last_value_view[j] != prefix[j]) {
+        break;
+      }
+      j++;
+    }
+
+    prefix_lengths[i] = j;
+    const uint8_t* suffix_ptr = src[i].ptr + j;
+    const uint32_t suffix_length = static_cast<uint32_t>(byte_width - j);
+    last_value_view =
+        string_view{reinterpret_cast<const char*>(suffix_ptr), suffix_length};
+    const ByteArray suffix(suffix_length, suffix_ptr);
+    suffix_encoder_.Put(&suffix, 1);
+  }
+  prefix_length_encoder_.Put(prefix_lengths.data(), num_values);
+  last_value_ = last_value_view;
 }
 
 template <>
