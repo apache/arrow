@@ -356,11 +356,11 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 			props, arrprops)
 	case arrow.EXTENSION:
 		return fieldToNode(name, arrow.Field{
-			Name: name,
-			Type: field.Type.(arrow.ExtensionType).StorageType(),
+			Name:     name,
+			Type:     field.Type.(arrow.ExtensionType).StorageType(),
 			Nullable: field.Nullable,
 			Metadata: arrow.MetadataFrom(map[string]string{
-				ipc.ExtensionTypeKeyName: field.Type.(arrow.ExtensionType).ExtensionName(),
+				ipc.ExtensionTypeKeyName:     field.Type.(arrow.ExtensionType).ExtensionName(),
 				ipc.ExtensionMetadataKeyName: field.Type.(arrow.ExtensionType).Serialize(),
 			}),
 		}, props, arrprops)
@@ -960,15 +960,15 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 	case arrow.EXTENSION:
 		extType := origin.Type.(arrow.ExtensionType)
 		modified, err = applyOriginalStorageMetadata(arrow.Field{
-										 Type: extType.StorageType(), 
-										 Metadata: arrow.NewMetadata(
-																[]string{ipc.ExtensionTypeKeyName, ipc.ExtensionMetadataKeyName},
-																[]string{extType.ExtensionName(), extType.Serialize()}),
-							 }, inferred)
+			Type: extType.StorageType(),
+			Metadata: arrow.NewMetadata(
+				[]string{ipc.ExtensionTypeKeyName, ipc.ExtensionMetadataKeyName},
+				[]string{extType.ExtensionName(), extType.Serialize()}),
+		}, inferred)
 		if err != nil {
-				return
+			return
 		}
-		
+
 		inferred.Field.Type = extType
 		modified = true
 	case arrow.SPARSE_UNION, arrow.DENSE_UNION:
