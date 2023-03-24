@@ -193,6 +193,7 @@ set(ARROW_SRCS
     io/slow.cc
     io/stdio.cc
     io/transform.cc
+    util/align_util.cc
     util/async_util.cc
     util/atfork_internal.cc
     util/basic_decimal.cc
