@@ -50,6 +50,24 @@ jobs:
             rake \
             ruby \
             ruby-dev
+      - name: Prepare apache-arrow-apt-source for arm64
+        if: |
+          env.ARCHITECTURE == 'arm64'
+        run: |
+          pushd arrow/dev/tasks/linux-packages/apache-arrow-apt-source/apt
+          for target in *-*; do
+            cp -a ${target} ${target}-arm64
+          done
+          popd
+      - name: Prepare apache-arrow-release for arm64
+        if: |
+          env.ARCHITECTURE == 'arm64'
+        run: |
+          pushd arrow/dev/tasks/linux-packages/apache-arrow-release/yum
+          for target in *-*; do
+            cp -a ${target} ${target}-aarch64
+          done
+          popd
       - name: Build
         run: |
           set -e
