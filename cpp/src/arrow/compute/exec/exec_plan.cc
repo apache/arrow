@@ -24,11 +24,11 @@
 #include <unordered_set>
 
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/task_util.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/compute/expression.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
@@ -1053,6 +1053,7 @@ namespace internal {
 void RegisterSourceNode(ExecFactoryRegistry*);
 void RegisterFetchNode(ExecFactoryRegistry*);
 void RegisterFilterNode(ExecFactoryRegistry*);
+void RegisterOrderByNode(ExecFactoryRegistry*);
 void RegisterPivotLongerNode(ExecFactoryRegistry*);
 void RegisterProjectNode(ExecFactoryRegistry*);
 void RegisterUnionNode(ExecFactoryRegistry*);
@@ -1070,6 +1071,7 @@ ExecFactoryRegistry* default_exec_factory_registry() {
       internal::RegisterSourceNode(this);
       internal::RegisterFetchNode(this);
       internal::RegisterFilterNode(this);
+      internal::RegisterOrderByNode(this);
       internal::RegisterPivotLongerNode(this);
       internal::RegisterProjectNode(this);
       internal::RegisterUnionNode(this);

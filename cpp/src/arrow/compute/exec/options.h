@@ -26,7 +26,8 @@
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec/type_fwd.h"
+#include "arrow/compute/expression.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/async_generator.h"
@@ -417,6 +418,21 @@ class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
       : SinkNodeOptions(generator), sort_options(std::move(sort_options)) {}
 
   SortOptions sort_options;
+};
+
+/// \brief Apply a new ordering to data
+///
+/// Currently this node works by accumulating all data, sorting, and then emitting
+/// the new data with an updated batch index.
+///
+/// Larger-than-memory sort is not currently supported.
+class ARROW_EXPORT OrderByNodeOptions : public ExecNodeOptions {
+ public:
+  static constexpr std::string_view kName = "order_by";
+  explicit OrderByNodeOptions(Ordering ordering) : ordering(std::move(ordering)) {}
+
+  /// \brief The new ordering to apply to outgoing data
+  Ordering ordering;
 };
 
 /// @}

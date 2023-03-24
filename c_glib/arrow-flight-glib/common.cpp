@@ -284,7 +284,8 @@ gchar *
 gaflight_location_to_string(GAFlightLocation *location)
 {
   const auto flight_location = gaflight_location_get_raw(location);
-  return g_strdup(flight_location->ToString().c_str());
+  const auto string = flight_location->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**
@@ -301,7 +302,8 @@ gchar *
 gaflight_location_get_scheme(GAFlightLocation *location)
 {
   const auto flight_location = gaflight_location_get_raw(location);
-  return g_strdup(flight_location->scheme().c_str());
+  const auto scheme = flight_location->scheme();
+  return g_strdup(scheme.c_str());
 }
 
 /**
@@ -406,8 +408,9 @@ gaflight_descriptor_class_init(GAFlightDescriptorClass *klass)
 gchar *
 gaflight_descriptor_to_string(GAFlightDescriptor *descriptor)
 {
-  auto flight_descriptor = gaflight_descriptor_get_raw(descriptor);
-  return g_strdup(flight_descriptor->ToString().c_str());
+  const auto flight_descriptor = gaflight_descriptor_get_raw(descriptor);
+  const auto string = flight_descriptor->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**

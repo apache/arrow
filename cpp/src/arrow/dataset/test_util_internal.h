@@ -33,7 +33,7 @@
 
 #include "arrow/array.h"
 #include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"

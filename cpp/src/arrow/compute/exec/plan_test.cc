@@ -22,11 +22,11 @@
 
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_nodes.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/compute/expression.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -37,6 +37,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
 
@@ -550,10 +551,12 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
 }
 
 TEST(ExecPlanExecution, CustomFieldNames) {
-  Declaration source = gen::Gen({{"x", gen::Step()}})
-                           ->FailOnError()
-                           ->SourceNode(/*rows_per_batch=*/1, /*num_batches=*/1);
-
+  auto generator = gen::Gen({{"x", gen::Step()}})->FailOnError();
+  std::vector<::arrow::compute::ExecBatch> ebatches =
+      generator->ExecBatches(/*rows_per_batch=*/1, /*num_batches=*/1);
+  Declaration source =
+      Declaration("exec_batch_source", ::arrow::compute::ExecBatchSourceNodeOptions(
+                                           generator->Schema(), std::move(ebatches)));
   QueryOptions opts;
   opts.field_names = {"y"};
 
@@ -1016,9 +1019,14 @@ TEST(ExecPlanExecution, ProjectMaintainsOrder) {
   constexpr int kRandomSeed = 42;
   constexpr int64_t kRowsPerBatch = 1;
   constexpr int kNumBatches = 16;
-  auto source_node = gen::Gen({{"x", gen::Step()}})
-                         ->FailOnError()
-                         ->SourceNode(kRowsPerBatch, kNumBatches);
+
+  auto generator = gen::Gen({{"x", gen::Step()}})->FailOnError();
+  std::vector<::arrow::compute::ExecBatch> ebatches =
+      generator->ExecBatches(kRowsPerBatch, kNumBatches);
+  Declaration source_node =
+      Declaration("exec_batch_source", ::arrow::compute::ExecBatchSourceNodeOptions(
+                                           generator->Schema(), std::move(ebatches)));
+
   Declaration plan =
       Declaration::Sequence({source_node,
                              {"jitter", JitterNodeOptions(kRandomSeed)},
@@ -1035,9 +1043,14 @@ TEST(ExecPlanExecution, FilterMaintainsOrder) {
   constexpr int kRandomSeed = 42;
   constexpr int64_t kRowsPerBatch = 1;
   constexpr int kNumBatches = 16;
-  auto source_node = gen::Gen({{"x", gen::Step()}})
-                         ->FailOnError()
-                         ->SourceNode(kRowsPerBatch, kNumBatches);
+
+  auto generator = gen::Gen({{"x", gen::Step()}})->FailOnError();
+  std::vector<::arrow::compute::ExecBatch> ebatches =
+      generator->ExecBatches(kRowsPerBatch, kNumBatches);
+  Declaration source_node =
+      Declaration("exec_batch_source", ::arrow::compute::ExecBatchSourceNodeOptions(
+                                           generator->Schema(), std::move(ebatches)));
+
   Declaration plan = Declaration::Sequence(
       {source_node,
        {"jitter", JitterNodeOptions(kRandomSeed)},

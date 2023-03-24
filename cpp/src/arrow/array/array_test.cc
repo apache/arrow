@@ -661,6 +661,13 @@ TEST_F(TestArray, TestMakeArrayFromMapScalar) {
   AssertAppendScalar(pool_, std::make_shared<MapScalar>(scalar));
 }
 
+void CheckSpanRoundTrip(const Array& array) {
+  ArraySpan span;
+  span.SetMembers(*array.data());
+  std::shared_ptr<Array> array2 = span.ToArray();
+  AssertArraysEqual(array, *array2);
+}
+
 TEST_F(TestArray, TestMakeEmptyArray) {
   FieldVector union_fields1({field("a", utf8()), field("b", int32())});
   FieldVector union_fields2({field("a", null()), field("b", list(large_utf8()))});
@@ -696,7 +703,16 @@ TEST_F(TestArray, TestMakeEmptyArray) {
     ASSERT_OK_AND_ASSIGN(auto array, MakeEmptyArray(type));
     ASSERT_OK(array->ValidateFull());
     ASSERT_EQ(array->length(), 0);
+    CheckSpanRoundTrip(*array);
   }
+}
+
+TEST_F(TestArray, ExtensionSpanRoundTrip) {
+  // Other types are checked in MakeEmptyArray but MakeEmptyArray doesn't
+  // work for extension types so we check that here
+  ASSERT_OK_AND_ASSIGN(auto array, MakeEmptyArray(dictionary(int8(), utf8())));
+  auto ext_array = ExtensionArray(dict_extension_type(), std::move(array));
+  CheckSpanRoundTrip(ext_array);
 }
 
 TEST_F(TestArray, TestAppendArraySlice) {

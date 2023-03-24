@@ -156,7 +156,8 @@ ggandiva_function_signature_to_string(GGandivaFunctionSignature *function_signat
 {
   auto gandiva_function_signature =
     ggandiva_function_signature_get_raw(function_signature);
-  return g_strdup(gandiva_function_signature->ToString().c_str());
+  const auto string = gandiva_function_signature->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**
@@ -193,7 +194,8 @@ ggandiva_function_signature_get_base_name(GGandivaFunctionSignature *function_si
 {
   auto gandiva_function_signature =
     ggandiva_function_signature_get_raw(function_signature);
-  return g_strdup(gandiva_function_signature->base_name().c_str());
+  const auto base_name = gandiva_function_signature->base_name();
+  return g_strdup(base_name.c_str());
 }
 
 /**

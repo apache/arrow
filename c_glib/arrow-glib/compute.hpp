@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow/compute/api.h>
+#include <arrow/compute/exec/exec_plan.h>
 
 #include <arrow-glib/compute.h>
 
@@ -162,6 +163,13 @@ garrow_quantile_options_new_raw(
   const arrow::compute::QuantileOptions *arrow_options);
 arrow::compute::QuantileOptions *
 garrow_quantile_options_get_raw(GArrowQuantileOptions *options);
+
+
+GArrowIndexOptions *
+garrow_index_options_new_raw(
+  const arrow::compute::IndexOptions *arrow_options);
+arrow::compute::IndexOptions *
+garrow_index_options_get_raw(GArrowIndexOptions *options);
 
 
 GArrowRankOptions *

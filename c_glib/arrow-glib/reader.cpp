@@ -386,6 +386,26 @@ garrow_table_batch_reader_new(GArrowTable *table)
   return garrow_table_batch_reader_new_raw(&arrow_table_batch_reader);
 }
 
+/**
+ * garrow_table_batch_reader_set_max_chunk_size:
+ * @reader: A #GArrowTableBatchReader.
+ * @max_chunk_size: The maximum chunk size of record batches.
+ *
+ * Set the desired maximum chunk size of record batches.
+ *
+ * The actual chunk size of each record batch may be smaller,
+ * depending on actual chunking characteristics of each table column.
+ *
+ * Since: 12.0.0
+ */
+void
+garrow_table_batch_reader_set_max_chunk_size(GArrowTableBatchReader *reader,
+                                             gint64 max_chunk_size)
+{
+  auto arrow_reader = garrow_table_batch_reader_get_raw(reader);
+  arrow_reader->set_chunksize(max_chunk_size);
+}
+
 
 G_DEFINE_TYPE(GArrowRecordBatchStreamReader,
               garrow_record_batch_stream_reader,
@@ -2236,6 +2256,13 @@ garrow_table_batch_reader_new_raw(std::shared_ptr<arrow::TableBatchReader> *arro
                                            "record-batch-reader", arrow_reader,
                                            NULL));
   return reader;
+}
+
+std::shared_ptr<arrow::TableBatchReader>
+garrow_table_batch_reader_get_raw(GArrowTableBatchReader *reader)
+{
+  return std::static_pointer_cast<arrow::TableBatchReader>(
+    garrow_record_batch_reader_get_raw(GARROW_RECORD_BATCH_READER(reader)));
 }
 
 GArrowRecordBatchStreamReader *

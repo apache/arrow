@@ -23,10 +23,10 @@
 #include <vector>
 
 #include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/expression.h"
-#include "arrow/compute/exec/expression_internal.h"
 #include "arrow/compute/exec/query_context.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/compute/expression.h"
+#include "arrow/compute/expression_internal.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"

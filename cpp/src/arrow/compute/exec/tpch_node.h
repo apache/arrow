@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "arrow/compute/type_fwd.h"
+#include "arrow/compute/exec/type_fwd.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 

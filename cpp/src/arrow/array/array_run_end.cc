@@ -42,23 +42,29 @@ RunEndEncodedArray::RunEndEncodedArray(const std::shared_ptr<DataType>& type,
 }
 
 Result<std::shared_ptr<RunEndEncodedArray>> RunEndEncodedArray::Make(
+    const std::shared_ptr<DataType>& type, int64_t logical_length,
+    const std::shared_ptr<Array>& run_ends, const std::shared_ptr<Array>& values,
+    int64_t logical_offset) {
+  if (type->id() != Type::RUN_END_ENCODED) {
+    return Status::Invalid("Type must be RUN_END_ENCODED");
+  }
+  const auto* ree_type = internal::checked_cast<const RunEndEncodedType*>(type.get());
+  RETURN_NOT_OK(ree_util::ValidateRunEndEncodedChildren(
+      *ree_type, logical_length, run_ends->data(), values->data(), 0, logical_offset));
+  return std::make_shared<RunEndEncodedArray>(type, logical_length, run_ends, values,
+                                              logical_offset);
+}
+
+Result<std::shared_ptr<RunEndEncodedArray>> RunEndEncodedArray::Make(
     int64_t logical_length, const std::shared_ptr<Array>& run_ends,
     const std::shared_ptr<Array>& values, int64_t logical_offset) {
   auto run_end_type = run_ends->type();
-  auto values_type = values->type();
+  auto value_type = values->type();
   if (!RunEndEncodedType::RunEndTypeValid(*run_end_type)) {
     return Status::Invalid("Run end type must be int16, int32 or int64");
   }
-  if (run_ends->null_count() != 0) {
-    return Status::Invalid("Run ends array cannot contain null values");
-  }
-  if (values->length() < run_ends->length()) {
-    return Status::Invalid("Values array has to be at least as long as run ends array");
-  }
-
-  return std::make_shared<RunEndEncodedArray>(
-      run_end_encoded(std::move(run_end_type), std::move(values_type)), logical_length,
-      run_ends, values, logical_offset);
+  auto ree_type = run_end_encoded(std::move(run_end_type), std::move(value_type));
+  return Make(ree_type, logical_length, run_ends, values, logical_offset);
 }
 
 void RunEndEncodedArray::SetData(const std::shared_ptr<ArrayData>& data) {

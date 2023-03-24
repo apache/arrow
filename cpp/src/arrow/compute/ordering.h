@@ -90,8 +90,8 @@ class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
   bool is_implicit() const { return is_implicit_; }
   bool is_unordered() const { return !is_implicit_ && sort_keys_.empty(); }
 
-  std::vector<SortKey> sort_keys() { return sort_keys_; }
-  NullPlacement null_placement() { return null_placement_; }
+  const std::vector<SortKey>& sort_keys() const { return sort_keys_; }
+  NullPlacement null_placement() const { return null_placement_; }
 
   static const Ordering& Implicit() {
     static const Ordering kImplicit(true);
