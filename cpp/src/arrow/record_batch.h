@@ -84,6 +84,7 @@ class ARROW_EXPORT RecordBatch {
   /// This constructs a record batch using the child arrays of the given
   /// array, which must be a struct array.
   ///
+  /// \param[in] array the source array, must be a StructArray
   /// \param[in] pool the memory pool to allocate new validity bitmaps
   ///
   /// This operation will usually be zero-copy.  However, if the struct array has an
