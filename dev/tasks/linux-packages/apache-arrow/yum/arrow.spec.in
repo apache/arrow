@@ -79,6 +79,7 @@
 # %%define use_s3 (%%{rhel} >= 8)
 %define use_s3 0
 
+%define have_lz4_libs (%{rhel} >= 8)
 %define have_rapidjson (%{rhel} != 8)
 %define have_re2 (%{rhel} >= 8)
 %define have_thrift (%{rhel} >= 8)
@@ -244,7 +245,11 @@ Requires:	glog
 %if %{have_zstd}
 Requires:	libzstd
 %endif
+%if %{have_lz4_libs}
+Requires:	lz4-libs %{lz4_requirement}
+%else
 Requires:	lz4 %{lz4_requirement}
+%endif
 %if %{have_re2}
 Requires:	re2
 %endif
