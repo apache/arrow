@@ -64,7 +64,7 @@ cdef extern from "Python.h":
     int PySlice_Check(object)
 
 
-cdef int check_status(const CStatus& status) nogil except -1
+cdef int check_status(const CStatus& status) except -1 nogil
 
 
 cdef class _Weakrefable:
