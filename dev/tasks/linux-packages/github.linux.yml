@@ -112,6 +112,7 @@ jobs:
         run: |
           sudo apt install -y \
             apt-utils \
+            cpio \
             devscripts \
             gpg \
             rpm
