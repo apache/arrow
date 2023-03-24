@@ -122,7 +122,6 @@ endmacro()
 
 macro(resolve_option_dependencies)
   if(MSVC_TOOLCHAIN)
-    # Plasma using glog is not fully tested on windows.
     set(ARROW_USE_GLOG OFF)
   endif()
 
@@ -371,8 +370,6 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_WITH_SNAPPY
                 ARROW_WITH_ZLIB
                 ARROW_WITH_ZSTD)
-
-  define_option(ARROW_PLASMA "Build the plasma object store along with Arrow" OFF)
 
   define_option(ARROW_PYTHON
                 "Build some components needed by PyArrow.;\

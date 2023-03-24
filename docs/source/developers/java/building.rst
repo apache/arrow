@@ -141,7 +141,6 @@ Maven
         |__ libarrow_dataset_jni.dylib
         |__ libarrow_orc_jni.dylib
         |__ libgandiva_jni.dylib
-        |__ libplasma_java.dylib
 
 - To build all JNI libraries (Windows) except the JNI C Data Interface library:
 
@@ -219,7 +218,6 @@ CMake
             -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
             -DARROW_ORC=ON \
             -DARROW_PARQUET=ON \
-            -DARROW_PLASMA=ON \
             -DARROW_S3=ON \
             -DARROW_USE_CCACHE=ON \
             -DCMAKE_BUILD_TYPE=Release \
@@ -242,10 +240,8 @@ CMake
         |__ libarrow_dataset_jni.dylib
         |__ libarrow_orc_jni.dylib
         |__ libgandiva_jni.dylib
-        |__ libplasma_java.dylib
 
-- To build all JNI libraries (Windows) except the JNI C Data Interface library
-  (Please note: Plasma and ORC are not available on Windows):
+- To build all JNI libraries (Windows) except the JNI C Data Interface library:
 
     .. code-block::
 
@@ -283,7 +279,6 @@ CMake
             -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON ^
             -DARROW_JAVA_JNI_ENABLE_GANDIVA=OFF ^
             -DARROW_JAVA_JNI_ENABLE_ORC=OFF ^
-            -DARROW_JAVA_JNI_ENABLE_PLASMA=OFF ^
             -DBUILD_TESTING=OFF ^
             -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_INSTALL_LIBDIR=lib/x86_64 ^
@@ -305,7 +300,6 @@ Archery
     |__ libarrow_dataset_jni.so
     |__ libarrow_orc_jni.so
     |__ libgandiva_jni.so
-    |__ libplasma_java.so
 
 Building Java JNI Modules
 -------------------------

@@ -176,8 +176,6 @@ def _apply_options(cmd, options):
               help="Build the Arrow mimalloc based allocator.")
 @click.option("--with-parquet", default=None, type=BOOL,
               help="Build with Parquet file support.")
-@click.option("--with-plasma", default=None, type=BOOL,
-              help="Build with Plasma object store support.")
 @click.option("--with-python", default=None, type=BOOL,
               help="Build the Arrow CPython extesions.")
 @click.option("--with-r", default=None, type=BOOL,

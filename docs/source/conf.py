@@ -517,13 +517,6 @@ except ImportError:
     parquet_encryption_enabled = False
     pyarrow.parquet.encryption = sys.modules['pyarrow.parquet.encryption'] = mock.Mock()
 
-try:
-    import pyarrow.plasma
-    plasma_enabled = True
-except ImportError:
-    plasma_enabled = False
-    pyarrow.plasma = sys.modules['pyarrow.plasma'] = mock.Mock()
-
 
 def setup(app):
     # Use a config value to indicate whether CUDA API docs can be generated.

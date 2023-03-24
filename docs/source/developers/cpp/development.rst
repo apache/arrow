@@ -198,7 +198,6 @@ in a new out-of-source CMake build directory like so:
      -DARROW_HDFS=ON \
      -DARROW_JSON=ON \
      -DARROW_PARQUET=ON \
-     -DARROW_PLASMA=ON \
      -DARROW_S3=ON \
      -DARROW_WITH_BROTLI=ON \
      -DARROW_WITH_BZ2=ON \

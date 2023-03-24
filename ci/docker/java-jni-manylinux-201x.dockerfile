@@ -41,5 +41,4 @@ ENV JAVA_HOME=/usr/lib/jvm/java-$java-openjdk/
 ENV ARROW_HOME=/tmp/local \
     ARROW_JAVA_CDATA=ON \
     ARROW_JAVA_JNI=ON \
-    ARROW_PLASMA=ON \
     ARROW_USE_CCACHE=ON

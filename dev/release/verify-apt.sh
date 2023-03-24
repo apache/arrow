@@ -64,7 +64,6 @@ case "${TYPE}" in
 esac
 
 have_flight=yes
-have_plasma=yes
 workaround_missing_packages=()
 case "${distribution}-${code_name}" in
   debian-bookworm)
@@ -82,7 +81,6 @@ case "${distribution}-${code_name}" in
 esac
 if [ "$(arch)" = "aarch64" ]; then
   have_flight=no
-  have_plasma=no
 fi
 
 if [ "${TYPE}" = "local" ]; then
@@ -201,16 +199,6 @@ if [ "${have_flight}" = "yes" ]; then
   ${APT_INSTALL} libarrow-flight-sql-glib-dev=${package_version}
   ${APT_INSTALL} libarrow-flight-sql-glib-doc=${package_version}
   ruby -r gi -e "p GI.load('ArrowFlightSQL')"
-  echo "::endgroup::"
-fi
-
-
-if [ "${have_plasma}" = "yes" ]; then
-  echo "::group::Test Plasma"
-  ${APT_INSTALL} libplasma-glib-dev=${package_version}
-  ${APT_INSTALL} libplasma-glib-doc=${package_version}
-  ${APT_INSTALL} plasma-store-server=${package_version}
-  ruby -r gi -e "p GI.load('Plasma')"
   echo "::endgroup::"
 fi
 

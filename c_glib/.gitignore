@@ -61,7 +61,6 @@ Makefile.in
 /gandiva-glib/*.pc
 /parquet-glib/version.h
 /parquet-glib/*.pc
-/plasma-glib/*.pc
 /example/build
 /example/extension-type
 /example/read-batch

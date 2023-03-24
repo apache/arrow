@@ -1,5 +1,0 @@
-usr/include/plasma-glib/
-usr/lib/*/libplasma-glib.so
-usr/lib/*/pkgconfig/plasma-glib.pc
-usr/share/gir-1.0/Plasma-*.gir
-usr/share/vala/vapi/plasma-glib.*
