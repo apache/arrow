@@ -178,6 +178,8 @@ G_BEGIN_DECLS
  *
  * #GArrowSourceNodeOptions is a class to customize a source node.
  *
+ * #GArrowFilterNodeOptions is a class to customize a filter node.
+ *
  * #GArrowProjectNodeOptions is a class to customize a project node.
  *
  * #GArrowAggregation is a class to specify how to aggregate.
@@ -227,6 +229,13 @@ G_BEGIN_DECLS
  *
  * #GArrowUTF8NormalizeOptions is a class to customize the
  * `utf8_normalize` function.
+ *
+ * #GArrowQuantileOptions is a class to customize the `qunatile`
+ * function.
+ *
+ * #GArrowIndexOptions is a class to customize the `index` function.
+ *
+ * #GArrowRankOptions is a class to customize the `rank` function.
  *
  * There are many functions to compute data on an array.
  */
@@ -1059,6 +1068,41 @@ garrow_source_node_options_new_table(GArrowTable *table)
 }
 
 
+G_DEFINE_TYPE(GArrowFilterNodeOptions,
+              garrow_filter_node_options,
+              GARROW_TYPE_EXECUTE_NODE_OPTIONS)
+
+static void
+garrow_filter_node_options_init(GArrowFilterNodeOptions *object)
+{
+}
+
+static void
+garrow_filter_node_options_class_init(GArrowFilterNodeOptionsClass *klass)
+{
+}
+
+/**
+ * garrow_filter_node_options_new:
+ * @expression: A #GArrowExpression to be used for filter.
+ *
+ * Returns: A newly created #GArrowFilterNodeOptions.
+ *
+ * Since: 12.0.0
+ */
+GArrowFilterNodeOptions *
+garrow_filter_node_options_new(GArrowExpression *expression)
+{
+  auto arrow_expression = garrow_expression_get_raw(expression);
+  auto arrow_options =
+    new arrow::compute::FilterNodeOptions(*arrow_expression);
+  auto options = g_object_new(GARROW_TYPE_FILTER_NODE_OPTIONS,
+                              "options", arrow_options,
+                              NULL);
+  return GARROW_FILTER_NODE_OPTIONS(options);
+}
+
+
 G_DEFINE_TYPE(GArrowProjectNodeOptions,
               garrow_project_node_options,
               GARROW_TYPE_EXECUTE_NODE_OPTIONS)
@@ -1869,6 +1913,39 @@ garrow_execute_plan_build_source_node(GArrowExecutePlan *plan,
                                         NULL,
                                         GARROW_EXECUTE_NODE_OPTIONS(options),
                                         error);
+}
+
+/**
+ * garrow_execute_plan_build_filter_node:
+ * @plan: A #GArrowExecutePlan.
+ * @input: A #GArrowExecuteNode.
+ * @options: A #GArrowFilterNodeOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * This is a shortcut of garrow_execute_plan_build_node() for filter
+ * node.
+ *
+ * Returns: (transfer full): A newly built and added #GArrowExecuteNode
+ *   for filter on success, %NULL on error.
+ *
+ * Since: 12.0.0
+ */
+GArrowExecuteNode *
+garrow_execute_plan_build_filter_node(GArrowExecutePlan *plan,
+                                      GArrowExecuteNode *input,
+                                      GArrowFilterNodeOptions *options,
+                                      GError **error)
+{
+  GList *inputs = nullptr;
+  inputs = g_list_prepend(inputs, input);
+  auto node =
+    garrow_execute_plan_build_node(plan,
+                                   "filter",
+                                   inputs,
+                                   GARROW_EXECUTE_NODE_OPTIONS(options),
+                                   error);
+  g_list_free(inputs);
+  return node;
 }
 
 /**
@@ -3820,11 +3897,6 @@ G_DEFINE_TYPE(GArrowQuantileOptions,
               garrow_quantile_options,
               GARROW_TYPE_FUNCTION_OPTIONS)
 
-#define GARROW_QUANTILE_OPTIONS_GET_PRIVATE(object)      \
-  static_cast<GArrowQuantileOptionsPrivate *>(           \
-    garrow_quantile_options_get_instance_private(        \
-      GARROW_QUANTILE_OPTIONS(object)))
-
 static void
 garrow_quantile_options_set_property(GObject *object,
                                      guint prop_id,
@@ -4027,6 +4099,126 @@ garrow_quantile_options_set_qs(GArrowQuantileOptions *options,
   for (gsize i = 0; i < n; i++) {
     priv->q.push_back(qs[i]);
   }
+}
+
+
+struct GArrowIndexOptionsPrivate {
+  GArrowScalar *value;
+};
+
+enum {
+  PROP_INDEX_OPTIONS_VALUE = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowIndexOptions,
+                           garrow_index_options,
+                           GARROW_TYPE_FUNCTION_OPTIONS)
+
+#define GARROW_INDEX_OPTIONS_GET_PRIVATE(object)      \
+  static_cast<GArrowIndexOptionsPrivate *>(           \
+    garrow_index_options_get_instance_private(        \
+      GARROW_INDEX_OPTIONS(object)))
+
+static void
+garrow_index_options_set_property(GObject *object,
+                                  guint prop_id,
+                                  const GValue *value,
+                                  GParamSpec *pspec)
+{
+  auto priv = GARROW_INDEX_OPTIONS_GET_PRIVATE(object);
+  auto options = garrow_index_options_get_raw(GARROW_INDEX_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_INDEX_OPTIONS_VALUE:
+  {
+    auto scalar = GARROW_SCALAR(g_value_get_object(value));
+    if (priv->value == scalar) {
+      return;
+    }
+    if (priv->value) {
+      g_object_unref(priv->value);
+    }
+    priv->value = scalar;
+    if (priv->value) {
+      g_object_ref(priv->value);
+      options->value = garrow_scalar_get_raw(scalar);
+    } else {
+      options->value = nullptr;
+    }
+    break;
+  }
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_index_options_get_property(GObject *object,
+                                  guint prop_id,
+                                  GValue *value,
+                                  GParamSpec *pspec)
+{
+  auto priv = GARROW_INDEX_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_INDEX_OPTIONS_VALUE:
+    g_value_set_object(value, priv->value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_index_options_init(GArrowIndexOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::IndexOptions());
+}
+
+static void
+garrow_index_options_class_init(GArrowIndexOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_index_options_set_property;
+  gobject_class->get_property = garrow_index_options_get_property;
+
+
+  GParamSpec *spec;
+  /**
+   * GArrowIndexOptions:value:
+   *
+   * The value to be compared.
+   *
+   * Since: 12.0.0
+   */
+  spec = g_param_spec_object("value",
+                             "Value",
+                             "The value to be compared.",
+                             GARROW_TYPE_SCALAR,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_INDEX_OPTIONS_VALUE, spec);
+}
+
+/**
+ * garrow_index_options_new:
+ * @value: (nullable): A #GArrowScalar to be compared.
+ *
+ * Returns: A newly created #GArrowIndexOptions.
+ *
+ * Since: 12.0.0
+ */
+GArrowIndexOptions *
+garrow_index_options_new(GArrowScalar *value)
+{
+  return GARROW_INDEX_OPTIONS(
+    g_object_new(GARROW_TYPE_INDEX_OPTIONS,
+                 "value", value,
+                 NULL));
 }
 
 
@@ -5517,6 +5709,11 @@ garrow_function_options_new_raw(
       static_cast<const arrow::compute::QuantileOptions *>(arrow_options);
     auto options = garrow_quantile_options_new_raw(arrow_quantile_options);
     return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "IndexOptions") {
+    const auto arrow_index_options =
+      static_cast<const arrow::compute::IndexOptions *>(arrow_options);
+    auto options = garrow_index_options_new_raw(arrow_index_options);
+    return GARROW_FUNCTION_OPTIONS(options);
   } else if (arrow_type_name == "RankOptions") {
     const auto arrow_rank_options =
       static_cast<const arrow::compute::RankOptions *>(arrow_options);
@@ -5906,6 +6103,22 @@ arrow::compute::QuantileOptions *
 garrow_quantile_options_get_raw(GArrowQuantileOptions *options)
 {
   return static_cast<arrow::compute::QuantileOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+
+GArrowIndexOptions *
+garrow_index_options_new_raw(const arrow::compute::IndexOptions *arrow_options)
+{
+  auto arrow_value = arrow_options->value->GetSharedPtr();
+  auto value = garrow_scalar_new_raw(&arrow_value);
+  return garrow_index_options_new(value);
+}
+
+arrow::compute::IndexOptions *
+garrow_index_options_get_raw(GArrowIndexOptions *options)
+{
+  return static_cast<arrow::compute::IndexOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
 

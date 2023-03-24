@@ -21,7 +21,7 @@
 #include <arrow/buffer.h>
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
-#include <arrow/compute/exec/expression.h>
+#include <arrow/compute/expression.h>
 #include <arrow/table.h>
 #include <arrow/util/async_generator.h>
 #include <arrow/util/future.h>

@@ -30,8 +30,8 @@
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/expression.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/discovery.h"

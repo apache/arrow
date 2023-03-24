@@ -20,8 +20,8 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/compute/exec/benchmark_util.h"
-#include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/expression.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/random.h"
 

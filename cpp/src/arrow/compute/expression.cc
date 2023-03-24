@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 
 #include <algorithm>
 #include <optional>
@@ -24,10 +24,10 @@
 
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/exec/expression_internal.h"
-#include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
+#include "arrow/compute/expression_internal.h"
 #include "arrow/compute/function_internal.h"
+#include "arrow/compute/util.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"

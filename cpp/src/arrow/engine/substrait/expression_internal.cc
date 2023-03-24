@@ -41,8 +41,8 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/exec/expression.h"
-#include "arrow/compute/exec/expression_internal.h"
+#include "arrow/compute/expression.h"
+#include "arrow/compute/expression_internal.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/substrait/options.h"
@@ -336,8 +336,9 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       if (cast_exp.failure_behavior() ==
           substrait::Expression::Cast::FailureBehavior::
               Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_THROW_EXCEPTION) {
-        return compute::call("cast", {std::move(input)},
-                             compute::CastOptions::Safe(std::move(type_nullable.first)));
+        return compute::call(
+            "cast", {std::move(input)},
+            compute::CastOptions::Unsafe(std::move(type_nullable.first)));
       } else if (cast_exp.failure_behavior() ==
                  substrait::Expression::Cast::FailureBehavior::
                      Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL) {

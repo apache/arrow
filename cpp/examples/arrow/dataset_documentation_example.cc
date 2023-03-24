@@ -20,7 +20,6 @@
 
 #include <arrow/api.h>
 #include <arrow/compute/cast.h>
-#include <arrow/compute/exec/expression.h>
 #include <arrow/dataset/dataset.h>
 #include <arrow/dataset/discovery.h>
 #include <arrow/dataset/file_base.h>
@@ -31,6 +30,7 @@
 #include <arrow/ipc/writer.h>
 #include <arrow/util/iterator.h>
 #include <parquet/arrow/writer.h>
+#include "arrow/compute/expression.h"
 
 #include <iostream>
 #include <vector>

@@ -211,6 +211,9 @@ else
         else
           # This case must be ARROW_DEPENDENCY_SOURCE=BUNDLED.
           PKG_CFLAGS="-I${LIB_DIR}/../include $PKG_CFLAGS"
+          if grep -q "_GLIBCXX_USE_CXX11_ABI=0" "${LIB_DIR}/pkgconfig/arrow.pc"; then
+            PKG_CFLAGS="${PKG_CFLAGS} -D_GLIBCXX_USE_CXX11_ABI=0"
+          fi
           PKG_DIRS="-L${LIB_DIR}"
           if [ "${OPENSSL_ROOT_DIR}" != "" ]; then
             PKG_DIRS="${PKG_DIRS} -L${OPENSSL_ROOT_DIR}/lib"

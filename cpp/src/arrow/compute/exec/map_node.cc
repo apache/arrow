@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"

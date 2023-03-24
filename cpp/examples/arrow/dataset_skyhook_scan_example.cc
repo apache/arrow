@@ -16,7 +16,6 @@
 // under the License.
 
 #include <arrow/api.h>
-#include <arrow/compute/exec/expression.h>
 #include <arrow/dataset/dataset.h>
 #include <arrow/dataset/discovery.h>
 #include <arrow/dataset/file_base.h>
@@ -24,6 +23,7 @@
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/path_util.h>
 #include <skyhook/client/file_skyhook.h>
+#include "arrow/compute/expression.h"
 
 #include <cstdlib>
 #include <iostream>

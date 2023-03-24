@@ -64,7 +64,7 @@ cdef extern from "Python.h":
     int PySlice_Check(object)
 
 
-cdef int check_status(const CStatus& status) nogil except -1
+cdef int check_status(const CStatus& status) except -1 nogil
 
 
 cdef class _Weakrefable:
@@ -182,6 +182,11 @@ cdef class Decimal128Type(FixedSizeBinaryType):
 cdef class Decimal256Type(FixedSizeBinaryType):
     cdef:
         const CDecimal256Type* decimal256_type
+
+
+cdef class RunEndEncodedType(DataType):
+    cdef:
+        const CRunEndEncodedType* run_end_encoded_type
 
 
 cdef class BaseExtensionType(DataType):
