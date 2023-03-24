@@ -676,20 +676,27 @@ add_arrow_lib(arrow
 # So it's disabled for now.
 if(ARROW_BUILD_SHARED AND NOT WIN32)
   configure_file(libarrow_gdb.py.in "${CMAKE_CURRENT_BINARY_DIR}/libarrow_gdb.py" @ONLY)
+  if(NOT ARROW_GDB_INSTALL_DIR)
+    if(WIN32)
+      set(ARROW_GDB_INSTALL_DIR ${CMAKE_INSTALL_FULL_BINDIR})
+    else()
+      set(ARROW_GDB_INSTALL_DIR ${CMAKE_INSTALL_FULL_LIBDIR})
+    endif()
+  endif()
   set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL FALSE)
   if(WIN32)
     find_program(cygpath "cygpath")
     if(cygpath)
-      execute_process(COMMAND cygpath "${CMAKE_INSTALL_FULL_BINDIR}"
-                      OUTPUT_VARIABLE MSYS2_CMAKE_INSTALL_FULL_BINDIR
+      execute_process(COMMAND cygpath "${ARROW_GDB_INSTALL_DIR}"
+                      OUTPUT_VARIABLE MSYS2_ARROW_GDB_INSTALL_DIR
                       OUTPUT_STRIP_TRAILING_WHITESPACE)
       set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_DIR
-          "${ARROW_GDB_AUTO_LOAD_DIR}${MSYS2_CMAKE_INSTALL_FULL_BINDIR}")
+          "${ARROW_GDB_AUTO_LOAD_DIR}${MSYS2_ARROW_GDB_INSTALL_DIR}")
       set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL TRUE)
     endif()
   else()
     set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_DIR
-        "${ARROW_GDB_AUTO_LOAD_DIR}/${CMAKE_INSTALL_FULL_LIBDIR}")
+        "${ARROW_GDB_AUTO_LOAD_DIR}/${ARROW_GDB_INSTALL_DIR}")
     set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL TRUE)
   endif()
   if(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL)
