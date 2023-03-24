@@ -67,7 +67,7 @@ arrow::Result<std::shared_ptr<Array>> CreateUnalignedArray(const Array& array) {
   BufferVector sliced_buffers(array.data()->buffers.size(), nullptr);
   for (std::size_t i = 0; i < array.data()->buffers.size(); ++i) {
     if (array.data()->buffers[i]) {
-      sliced_buffers[i] = SliceBuffer(array.data()->buffers[i], 0, 2);
+      sliced_buffers[i] = SliceBuffer(array.data()->buffers[i], 1, 2);
     }
   }
   auto sliced_array_data =
