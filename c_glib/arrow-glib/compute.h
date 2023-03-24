@@ -806,6 +806,22 @@ garrow_quantile_options_set_qs(GArrowQuantileOptions *options,
                                gsize n);
 
 
+#define GARROW_TYPE_INDEX_OPTIONS (garrow_index_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowIndexOptions,
+                         garrow_index_options,
+                         GARROW,
+                         INDEX_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowIndexOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_12_0
+GArrowIndexOptions *
+garrow_index_options_new(GArrowScalar *value);
+
+
 /**
  * GArrowRankTiebreader:
  * @GARROW_RANK_TIEBREAKER_MIN:

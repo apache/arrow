@@ -165,6 +165,13 @@ arrow::compute::QuantileOptions *
 garrow_quantile_options_get_raw(GArrowQuantileOptions *options);
 
 
+GArrowIndexOptions *
+garrow_index_options_new_raw(
+  const arrow::compute::IndexOptions *arrow_options);
+arrow::compute::IndexOptions *
+garrow_index_options_get_raw(GArrowIndexOptions *options);
+
+
 GArrowRankOptions *
 garrow_rank_options_new_raw(const arrow::compute::RankOptions *arrow_options);
 arrow::compute::RankOptions *
