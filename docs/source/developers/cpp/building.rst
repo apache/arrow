@@ -317,7 +317,7 @@ several optional system components which you can opt into building by passing
 boolean flags to ``cmake``.
 
 * ``-DARROW_BUILD_UTILITIES=ON`` : Build Arrow commandline utilities
-* ``-DARROW_COMPUTE=ON``: Computational kernel functions and other support
+* ``-DARROW_COMPUTE=ON``: Build all computational kernel functions
 * ``-DARROW_CSV=ON``: CSV reader module
 * ``-DARROW_CUDA=ON``: CUDA integration for GPU development. Depends on NVIDIA
   CUDA toolkit. The CUDA toolchain used to build the library can be customized
@@ -368,6 +368,19 @@ Some features of the core Arrow shared library can be switched off for improved
 build times if they are not required for your application:
 
 * ``-DARROW_IPC=ON``: build the IPC extensions
+
+.. note::
+   If your use-case is limited to reading/writing Arrow data then the default
+   options should be sufficient. However, if you wish to build any tests/benchmarks
+   then ``ARROW_JSON`` is also required (it will be enabled automatically).
+   If extended format support is desired then adding ``ARROW_PARQUET``, ``ARROW_CSV``,
+    ``ARROW_JSON``, or ``ARROW_ORC`` shouldn't enable any additional components.
+
+.. note::
+   In general, it's a good idea to enable ``ARROW_COMPUTE`` if you anticipate using
+   any compute kernels beyond ``cast``. While there are (as of 12.0.0) a handful of
+   additional kernels built in by default, this list may change in the future as it's
+   partly based on kernel usage in the current format implementations.
 
 .. warning::
    Plasma is deprecated as of Arrow 10.0.0, and will be removed in 12.0.0 or so.
