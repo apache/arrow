@@ -504,6 +504,9 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				wr.WriteBatchSpaced(data, defLevels, repLevels, arr.NullBitmapBytes(), int64(arr.Data().Offset()))
 			}
 		default:
+			if leafArr.DataType().ID() == arrow.EXTENSION {
+				// TODO: (hermanschaaf) support extension types here
+			}
 			return xerrors.New("unimplemented")
 		}
 	default:

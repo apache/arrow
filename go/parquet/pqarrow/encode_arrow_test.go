@@ -1519,6 +1519,24 @@ func (ps *ParquetIOTestSuite) TestArrowMapTypeRoundTrip() {
 	ps.roundTripTable(tbl, true)
 }
 
+func (ps *ParquetIOTestSuite) TestArrowExtensionTypeRoundTrip() {
+	var testUUID = uuid.New()
+
+	extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, types.NewUUIDType())
+	defer extBuilder.Release()
+	builder := types.NewUUIDBuilder(extBuilder)
+	builder.Append(testUUID)
+	arr := builder.NewArray()
+	defer arr.Release()
+
+	fld := arrow.Field{Name: "uuid", Type: arr.DataType(), Nullable: true}
+	tbl := array.NewTable(arrow.NewSchema([]arrow.Field{fld}, nil),
+		[]arrow.Column{*arrow.NewColumn(fld, arrow.NewChunked(arr.DataType(), []arrow.Array{arr}))}, -1)
+	defer tbl.Release()
+
+	ps.roundTripTable(tbl, true)
+}
+
 func TestWriteTableMemoryAllocation(t *testing.T) {
 	allocator := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	sc := arrow.NewSchema([]arrow.Field{
