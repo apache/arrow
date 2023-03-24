@@ -887,7 +887,7 @@ TEST_F(TestReadingDataFiles, Int32Decimal) {
   auto reader = StreamReader{std::move(file_reader)};
 
   int32_t x;
-  int i;
+  int i = 0;
 
   for (i = 1; !reader.eof(); ++i) {
     reader >> x >> EndRow;
@@ -904,7 +904,7 @@ TEST_F(TestReadingDataFiles, Int64Decimal) {
   auto reader = StreamReader{std::move(file_reader)};
 
   int64_t x;
-  int i;
+  int i = 0;
 
   for (i = 1; !reader.eof(); ++i) {
     reader >> x >> EndRow;
@@ -921,7 +921,7 @@ TEST_F(TestReadingDataFiles, FLBADecimal) {
   auto reader = StreamReader{std::move(file_reader)};
 
   ::arrow::Decimal128 x;
-  int i;
+  int i = 0;
 
   for (i = 1; !reader.eof(); ++i) {
     reader >> x >> EndRow;
@@ -938,7 +938,7 @@ TEST_F(TestReadingDataFiles, ByteArrayDecimal) {
   auto reader = StreamReader{std::move(file_reader)};
 
   ::arrow::Decimal128 x;
-  int i;
+  int i = 0;
 
   for (i = 1; !reader.eof(); ++i) {
     reader >> x >> EndRow;
