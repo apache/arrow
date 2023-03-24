@@ -11,17 +11,11 @@ import (
 )
 
 type SortIndicesOptions struct {
-	SortKeys      []SortKey     `compute:"sort_keys"`
 	NullPlacement NullPlacement `compute:"null_placement"`
 }
 
 func (s *SortIndicesOptions) TypeName() string {
 	return "SortIndicesOptions"
-}
-
-type SortKey struct {
-	Name  string `compute:"name"`
-	Order Order  `compute:"order"`
 }
 
 type Order int
@@ -87,10 +81,7 @@ func sortExec(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) e
 
 	// Build the output array and set it in the output ExecResult
 	outArr := builder.NewArray()
-	defer outArr.Release()
-
 	out.SetMembers(outArr.Data())
-	out.Release()
 
 	return nil
 }

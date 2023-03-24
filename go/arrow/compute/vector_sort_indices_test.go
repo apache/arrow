@@ -8,7 +8,6 @@ import (
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/compute"
-	"github.com/apache/arrow/go/v12/arrow/compute/internal/kernels"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/stretchr/testify/suite"
 )
@@ -61,18 +60,12 @@ func (suite *SortIndicesSuite) TearDownTest() {
 func (suite *SortIndicesSuite) TestSortIndices() {
 	result, err := compute.SortIndices(suite.ctx,
 		compute.SortIndicesOptions{
-			SortKeys: []kernels.SortKey{
-				{
-					Name:  "a",
-					Order: kernels.Ascending,
-				},
-			},
 			NullPlacement: 0,
 		}, suite.input)
 	suite.Require().NoError(err)
 	defer result.Release()
 
-	// assertDatumsEqual(suite.T(), suite.expected, result, nil, nil)
+	assertDatumsEqual(suite.T(), suite.expected, result, nil, nil)
 }
 
 func TestSortIndicesFunctions(t *testing.T) {
