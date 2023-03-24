@@ -26,6 +26,7 @@
 #include <utility>
 
 #include "arrow/io/file.h"
+#include "arrow/util/decimal.h"
 #include "parquet/exception.h"
 #include "parquet/test_util.h"
 
@@ -908,6 +909,40 @@ TEST_F(TestReadingDataFiles, Int64Decimal) {
   for (i = 1; !reader.eof(); ++i) {
     reader >> x >> EndRow;
     EXPECT_EQ(x, i * 100);
+  }
+  EXPECT_EQ(i, 25);
+}
+
+TEST_F(TestReadingDataFiles, FLBADecimal) {
+  PARQUET_ASSIGN_OR_THROW(auto infile, ::arrow::io::ReadableFile::Open(
+                                           GetDataFile("fixed_length_decimal.parquet")));
+
+  auto file_reader = ParquetFileReader::Open(infile);
+  auto reader = StreamReader{std::move(file_reader)};
+
+  ::arrow::Decimal128 x;
+  int i;
+
+  for (i = 1; !reader.eof(); ++i) {
+    reader >> x >> EndRow;
+    EXPECT_EQ(x.ToString(2), ::arrow::Decimal128(i * 100).ToString(2));
+  }
+  EXPECT_EQ(i, 25);
+}
+
+TEST_F(TestReadingDataFiles, ByteArrayDecimal) {
+  PARQUET_ASSIGN_OR_THROW(auto infile, ::arrow::io::ReadableFile::Open(
+                                           GetDataFile("byte_array_decimal.parquet")));
+
+  auto file_reader = ParquetFileReader::Open(infile);
+  auto reader = StreamReader{std::move(file_reader)};
+
+  ::arrow::Decimal128 x;
+  int i;
+
+  for (i = 1; !reader.eof(); ++i) {
+    reader >> x >> EndRow;
+    EXPECT_EQ(x.ToString(2), ::arrow::Decimal128(i * 100).ToString(2));
   }
   EXPECT_EQ(i, 25);
 }

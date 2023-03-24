@@ -16,6 +16,7 @@
 // under the License.
 
 #include "parquet/stream_reader.h"
+#include "arrow/util/decimal.h"
 
 #include <set>
 #include <utility>
@@ -35,7 +36,7 @@ constexpr int64_t StreamReader::kBatchSizeOne;
 // then it will allow the Parquet file to use the converted type
 // NONE.
 //
-static const std::set<std::pair<ConvertedType::type, ConvertedType::type> >
+static const std::set<std::pair<ConvertedType::type, ConvertedType::type>>
     converted_type_exceptions = {{ConvertedType::INT_32, ConvertedType::NONE},
                                  {ConvertedType::INT_64, ConvertedType::NONE},
                                  {ConvertedType::INT_32, ConvertedType::DECIMAL},
@@ -170,6 +171,60 @@ StreamReader& StreamReader::operator>>(std::string& v) {
 
   Read(&ba);
   v = std::string(reinterpret_cast<const char*>(ba.ptr), ba.len);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(::arrow::Decimal128& v) {
+  const auto& node = nodes_[column_index_];
+  ::arrow::Decimal128 value;
+
+  if (node->physical_type() == Type::FIXED_LEN_BYTE_ARRAY) {
+    const int type_length = node->type_length();
+    CheckColumn(Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::DECIMAL, type_length);
+
+    FixedLenByteArray flba;
+    Read(&flba);
+    PARQUET_ASSIGN_OR_THROW(value,
+                            ::arrow::Decimal128::FromBigEndian(flba.ptr, type_length));
+  } else if (node->physical_type() == Type::BYTE_ARRAY) {
+    CheckColumn(Type::BYTE_ARRAY, ConvertedType::DECIMAL);
+
+    ByteArray ba;
+    Read(&ba);
+    PARQUET_ASSIGN_OR_THROW(value, ::arrow::Decimal128::FromBigEndian(ba.ptr, ba.len));
+  } else {
+    ParquetException::NYI("Decimal128 is not implemented for non-binary types");
+  }
+
+  v = std::move(value);
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<::arrow::Decimal128>& v) {
+  const auto& node = nodes_[column_index_];
+  std::optional<::arrow::Decimal128> value = std::nullopt;
+
+  if (node->physical_type() == Type::FIXED_LEN_BYTE_ARRAY) {
+    const int type_length = node->type_length();
+    CheckColumn(Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::DECIMAL, type_length);
+
+    FixedLenByteArray flba;
+    if (ReadOptional(&flba)) {
+      PARQUET_ASSIGN_OR_THROW(value,
+                              ::arrow::Decimal128::FromBigEndian(flba.ptr, type_length));
+    }
+  } else if (node->physical_type() == Type::BYTE_ARRAY) {
+    CheckColumn(Type::BYTE_ARRAY, ConvertedType::DECIMAL);
+
+    ByteArray ba;
+    if (ReadOptional(&ba)) {
+      PARQUET_ASSIGN_OR_THROW(value, ::arrow::Decimal128::FromBigEndian(ba.ptr, ba.len));
+    }
+  } else {
+    ParquetException::NYI("Decimal128 is not implemented for non-binary types");
+  }
+
+  v = std::move(value);
   return *this;
 }
 
