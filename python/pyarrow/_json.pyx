@@ -82,6 +82,18 @@ cdef class ReadOptions(_Weakrefable):
             self.block_size
         )
     
+    def equals(self, ReadOptions other):
+        return (
+            self.use_threads == other.use_threads and
+            self.block_size == other.block_size
+        )
+    
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
+    
     @staticmethod
     cdef ReadOptions wrap(CJSONReadOptions options):
         out = ReadOptions()
@@ -199,11 +211,25 @@ cdef class ParseOptions(_Weakrefable):
 
         self.options.unexpected_field_behavior = v
     
+    def equals(self, ParseOptions other):
+        return (
+            self.explicit_schema == other.explicit_schema and
+            self.newlines_in_values == other.newlines_in_values and
+            self.unexpected_field_behavior == other.unexpected_field_behavior
+        )
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
+    
     @staticmethod
     cdef ParseOptions wrap(CJSONParseOptions options):
         out = ParseOptions()
         out.options = options #shallow copy
         return out
+        
 
 
 cdef _get_reader(input_file, shared_ptr[CInputStream]* out):

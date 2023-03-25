@@ -2259,6 +2259,9 @@ cdef class JsonFragmentScanOptions(FragmentScanOptions):
     cdef:
         CJsonFragmentScanOptions* json_options
 
+     # Avoid mistakingly creating attributes
+    __slots__ = ()
+
     def __init__(self,JsonParseOptions parse_options=None,
      JsonReadOptions read_options=None):
         self.init(shared_ptr[CFragmentScanOptions](
@@ -2267,10 +2270,6 @@ cdef class JsonFragmentScanOptions(FragmentScanOptions):
             self.parse_options = parse_options
         if read_options is not None:
             self.read_options = read_options
-
-    
-    # Avoid mistakingly creating attributes
-    __slots__ = ()
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -2283,7 +2282,6 @@ cdef class JsonFragmentScanOptions(FragmentScanOptions):
     @parse_options.setter
     def parse_options(self, JsonParseOptions parse_options not None):
         self.json_options.parse_options = parse_options.options
-        self.parse_options = parse_options
 
     @property
     def read_options(self):
@@ -2293,7 +2291,6 @@ cdef class JsonFragmentScanOptions(FragmentScanOptions):
     @read_options.setter
     def read_options(self, JsonReadOptions read_options not None):
         self.json_options.read_options = read_options.options
-        self.read_options = read_options
 
     def equals(self, JsonFragmentScanOptions other):
         return (

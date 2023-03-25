@@ -799,14 +799,14 @@ def test_file_format_pickling():
     formats = [
         ds.IpcFileFormat(),
         ds.CsvFileFormat(),
-        ds.JsonFileFormat(),
         ds.CsvFileFormat(pa.csv.ParseOptions(delimiter='\t',
                                              ignore_empty_lines=True)),
         ds.CsvFileFormat(read_options=pa.csv.ReadOptions(
             skip_rows=3, column_names=['foo'])),
         ds.CsvFileFormat(read_options=pa.csv.ReadOptions(
             skip_rows=3, block_size=2**20)),
-        ds.JsonFileFormat(pa.json.ParseOptions(newlines_in_values=True,
+        ds.JsonFileFormat(),
+        ds.JsonFileFormat(parse_options=pa.json.ParseOptions(newlines_in_values=True,
             unexpected_field_behavior="ignore")),
         ds.JsonFileFormat(read_options=pa.json.ReadOptions(
             use_threads=False,block_size=14)),
@@ -835,16 +835,16 @@ def test_file_format_pickling():
 
 def test_fragment_scan_options_pickling():
     options = [
-        ds.JsonFragmentScanOptions(),
-        ds.JsonFragmentScanOptions(pa.json.ParseOptions(newlines_in_values=False,
-            unexpected_field_behavior="error")),
-        ds.JsonFragmentScanOptions(
-            read_options=pa.json.ReadOptions(use_threads=True,block_size=512)),
         ds.CsvFragmentScanOptions(),
         ds.CsvFragmentScanOptions(
             convert_options=pa.csv.ConvertOptions(strings_can_be_null=True)),
         ds.CsvFragmentScanOptions(
             read_options=pa.csv.ReadOptions(block_size=2**16)),
+        ds.JsonFragmentScanOptions(),
+        ds.JsonFragmentScanOptions(pa.json.ParseOptions(newlines_in_values=False,
+            unexpected_field_behavior="error")),
+        ds.JsonFragmentScanOptions(
+            read_options=pa.json.ReadOptions(use_threads=True,block_size=512)),
     ]
 
     if pq is not None:
@@ -968,6 +968,25 @@ def test_make_csv_fragment_from_buffer(dataset_reader):
 
     csv_format = ds.CsvFileFormat()
     fragment = csv_format.make_fragment(buffer)
+
+    # When buffer, fragment open returns a BufferReader, not NativeFile
+    assert isinstance(fragment.open(), pa.BufferReader)
+
+    expected = pa.table([['a', 'b', 'c'],
+                         [12, 11, 10],
+                         ['dog', 'cat', 'rabbit']],
+                        names=['alpha', 'num', 'animal'])
+    assert dataset_reader.to_table(fragment).equals(expected)
+
+    pickled = pickle.loads(pickle.dumps(fragment))
+    assert dataset_reader.to_table(pickled).equals(fragment.to_table())
+
+def test_make_json_fragment_from_buffer(dataset_reader):
+    content = '{"alpha" : "a", "num": 12, "animal" : "dog"}\n' + '{"alpha" : "b", "num": 11, "animal" : "cat"}\n' + '{"alpha" : "c", "num": 10, "animal" : "rabbit"}\n'
+    buffer = pa.py_buffer(content.encode('utf-8'))
+
+    json_format = ds.JsonFileFormat()
+    fragment = json_format.make_fragment(buffer)
 
     # When buffer, fragment open returns a BufferReader, not NativeFile
     assert isinstance(fragment.open(), pa.BufferReader)
@@ -5133,3 +5152,5 @@ def test_dataset_sort_by(tempdir, dstype):
     sorted_tab_dict = sorted_tab.to_table().to_pydict()
     assert sorted_tab_dict["a"] == [5, 7, 7, 35]
     assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]
+
+test_fragment_scan_options_pickling()
