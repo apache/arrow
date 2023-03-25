@@ -21,7 +21,6 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
-    <LangVersion>default</LangVersion>
   </PropertyGroup>
 
 </Project>
