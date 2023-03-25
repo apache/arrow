@@ -101,7 +101,7 @@ Data Types
 
 Notes:
 
-* \(1) FLoat16 support in C# is only available when targeting .NET 6+.
+* \(1) Float16 support in C# is only available when targeting .NET 6+.
 * \(2) Nested dictionaries not supported
 
 .. seealso::
