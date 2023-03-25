@@ -1178,7 +1178,11 @@ int PlainBooleanDecoder::Decode(bool* buffer, int max_values) {
   return max_values;
 }
 
-struct ArrowBinaryHelper {
+template <typename DType>
+struct ArrowBinaryHelper;
+
+template <>
+struct ArrowBinaryHelper<ByteArrayType> {
   explicit ArrowBinaryHelper(typename EncodingTraits<ByteArrayType>::Accumulator* out) {
     this->out = out;
     this->builder = out->builder.get();
@@ -1216,8 +1220,9 @@ struct ArrowBinaryHelper {
   int64_t chunk_space_remaining;
 };
 
-struct ArrowFLBAHelper {
-  explicit ArrowFLBAHelper(::arrow::FixedSizeBinaryBuilder* builder) {
+template <>
+struct ArrowBinaryHelper<FLBAType> {
+  explicit ArrowBinaryHelper(EncodingTraits<FLBAType>::Accumulator* builder) {
     this->builder = builder;
     this->chunk_space_remaining =
         ::arrow::kBinaryMemoryLimit - this->builder->value_data_length();
@@ -1344,7 +1349,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
                           int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_values_decoded) {
-    ArrowBinaryHelper helper(out);
+    ArrowBinaryHelper<ByteArrayType> helper(out);
     int values_decoded = 0;
 
     RETURN_NOT_OK(helper.builder->Reserve(num_values));
@@ -1865,7 +1870,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     constexpr int32_t kBufferSize = 1024;
     int32_t indices[kBufferSize];
 
-    ArrowBinaryHelper helper(out);
+    ArrowBinaryHelper<ByteArrayType> helper(out);
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
     int values_decoded = 0;
@@ -1934,7 +1939,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     int32_t indices[kBufferSize];
     int values_decoded = 0;
 
-    ArrowBinaryHelper helper(out);
+    ArrowBinaryHelper<ByteArrayType> helper(out);
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
 
     while (values_decoded < num_values) {
@@ -2777,7 +2782,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
                           int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_num_values) {
-    ArrowBinaryHelper helper(out);
+    ArrowBinaryHelper<ByteArrayType> helper(out);
 
     std::vector<ByteArray> values(num_values - null_count);
     const int num_valid_values = Decode(values.data(), num_values - null_count);
@@ -3073,30 +3078,25 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
           }
           // Convert view to ByteArray so it can be passed to the suffix_encoder_.
           const ByteArray src{view};
-          if (last_value_view.empty()) {
-            last_value_view = view;
-            suffix_encoder_.Put(&src, 1);
-            prefix_length_encoder_.Put({static_cast<int32_t>(0)}, 1);
-            previous_len = src.len;
-          } else {
-            uint32_t j = 0;
-            while (j < std::min(previous_len, src.len)) {
-              if (last_value_view[j] != view[j]) {
-                break;
-              }
-              j++;
-            }
-            previous_len = j;
-            prefix_length_encoder_.Put({static_cast<int32_t>(j)}, 1);
 
-            const uint8_t* suffix_ptr = src.ptr + j;
-            const uint32_t suffix_length = static_cast<uint32_t>(src.len - j);
-            last_value_view =
-                string_view{reinterpret_cast<const char*>(suffix_ptr), suffix_length};
-            // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
-            const ByteArray suffix(suffix_length, suffix_ptr);
-            suffix_encoder_.Put(&suffix, 1);
+          uint32_t j = 0;
+          while (j < std::min(previous_len, src.len)) {
+            if (last_value_view[j] != view[j]) {
+              break;
+            }
+            j++;
           }
+          previous_len = j;
+          prefix_length_encoder_.Put({static_cast<int32_t>(j)}, 1);
+
+          const uint8_t* suffix_ptr = src.ptr + j;
+          const uint32_t suffix_length = static_cast<uint32_t>(src.len - j);
+          last_value_view =
+              string_view{reinterpret_cast<const char*>(suffix_ptr), suffix_length};
+          // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
+          const ByteArray suffix(suffix_length, suffix_ptr);
+          suffix_encoder_.Put(&suffix, 1);
+
           return Status::OK();
         },
         []() { return Status::OK(); }));
@@ -3295,44 +3295,9 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
 
   Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
-                          typename EncodingTraits<FLBAType>::Accumulator* out,
+                          typename EncodingTraits<DType>::Accumulator* out,
                           int* out_num_values) {
-    ArrowFLBAHelper helper(out);
-
-    std::vector<ByteArray> values(num_values);
-    const int num_valid_values = GetInternal(values.data(), num_values - null_count);
-    DCHECK_EQ(num_values - null_count, num_valid_values);
-
-    auto values_ptr = reinterpret_cast<const ByteArray*>(values.data());
-    int value_idx = 0;
-
-    RETURN_NOT_OK(VisitNullBitmapInline(
-        valid_bits, valid_bits_offset, num_values, null_count,
-        [&]() {
-          const auto& val = values_ptr[value_idx];
-          if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
-            RETURN_NOT_OK(helper.PushChunk());
-          }
-          RETURN_NOT_OK(helper.Append(val.ptr, static_cast<int32_t>(val.len)));
-          ++value_idx;
-          return Status::OK();
-        },
-        [&]() {
-          RETURN_NOT_OK(helper.AppendNull());
-          --null_count;
-          return Status::OK();
-        }));
-
-    DCHECK_EQ(null_count, 0);
-    *out_num_values = num_valid_values;
-    return Status::OK();
-  }
-
-  Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
-                          int64_t valid_bits_offset,
-                          typename EncodingTraits<ByteArrayType>::Accumulator* out,
-                          int* out_num_values) {
-    ArrowBinaryHelper helper(out);
+    ArrowBinaryHelper<DType> helper(out);
 
     std::vector<ByteArray> values(num_values);
     const int num_valid_values = GetInternal(values.data(), num_values - null_count);
