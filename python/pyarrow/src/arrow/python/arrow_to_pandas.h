@@ -90,6 +90,14 @@ struct PandasOptions {
   /// conversions
   bool self_destruct = false;
 
+  /// \brief If true, convert Arrow Map arrays to native Python dicts.
+  /// This can change the ordering of (key, value) pairs, and will deduplicate
+  /// multiple keys, resulting in a possible loss of data.
+  /// The default behavior (false), is to convert Arrow Map arrays to Python
+  /// list-of-tuples in the same order as the Arrow Map,
+  /// as in [(key1, value1), (key2, value2), ...]
+  bool maps_as_pydicts = false;
+
   // Used internally for nested arrays.
   bool decode_dictionaries = false;
 

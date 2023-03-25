@@ -921,24 +921,51 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
   PyArrayObject* py_keys = reinterpret_cast<PyArrayObject*>(owned_numpy_keys.obj());
   PyArrayObject* py_items = reinterpret_cast<PyArrayObject*>(owned_numpy_items.obj());
 
-  // The default behavior to express an Arrow MAP as a list of [(key, value), ...] pairs
-  OwnedRef list_item;
-  return ConvertMapHelper(
-      [&list_item](int64_t num_pairs){
-        list_item.reset(PyList_New(num_pairs));
-        return CheckPyError();
-      },
-      [&list_item](int64_t idx, OwnedRef& key_value, OwnedRef& item_value){
-        PyList_SET_ITEM(list_item.obj(), idx,
-                        PyTuple_Pack(2, key_value.obj(), item_value.obj()));
-        return CheckPyError();
-      },
-      [&list_item]{ return list_item.detach(); },
-      data,
-      py_keys,
-      py_items,
-      item_arrays,
-      out_values);
+  if (!options.maps_as_pydicts) {
+    // The default behavior to express an Arrow MAP as a list of [(key, value), ...] pairs
+    OwnedRef list_item;
+    return ConvertMapHelper(
+        [&list_item](int64_t num_pairs) {
+          list_item.reset(PyList_New(num_pairs));
+          return CheckPyError();
+        },
+        [&list_item](int64_t idx, OwnedRef& key_value, OwnedRef& item_value) {
+          PyList_SET_ITEM(list_item.obj(), idx,
+                          PyTuple_Pack(2, key_value.obj(), item_value.obj()));
+          return CheckPyError();
+        },
+        [&list_item]{ return list_item.detach(); },
+        data,
+        py_keys,
+        py_items,
+        item_arrays,
+        out_values);
+  } else {
+    // Use a native pydict
+    OwnedRef dict_item;
+    return ConvertMapHelper(
+        [&dict_item]([[maybe_unused]] int64_t) {
+          dict_item.reset(PyDict_New());
+          return CheckPyError();
+        },
+        [&dict_item]([[maybe_unused]] int64_t idx, OwnedRef& key_value, OwnedRef& item_value) {
+          auto setitem_result =
+              PyDict_SetItem(dict_item.obj(), key_value.obj(), item_value.obj());
+          RETURN_IF_PYERROR();
+          // returns -1 if there are internal errors around hashing/resizing
+          return setitem_result == 0 ?
+            Status::OK() :
+            Status::UnknownError(
+                "Unexpected failure inserting Arrow (key, value) pair into Python dict"
+            );
+        },
+        [&dict_item]{ return dict_item.detach(); },
+        data,
+        py_keys,
+        py_items,
+        item_arrays,
+        out_values);
+  }
 }
 
 template <typename InType, typename OutType>

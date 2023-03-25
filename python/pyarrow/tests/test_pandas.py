@@ -4576,3 +4576,36 @@ def test_does_not_mutate_timedelta_nested():
     df = table.to_pandas()
 
     assert df["timedelta_2"][0].to_pytimedelta() == timedelta_2[0]
+
+
+def test_roundtrip_nested_map_table_with_pydicts():
+    schema = pa.schema([pa.field("a", pa.list_(pa.map_(pa.int8(), pa.struct([pa.field("b", pa.binary())]))))])
+    table = pa.table([[
+            [[(1, None)]],
+            None,
+            [
+                [(2, {"b": b"abc"})],
+                [(3, {"b": None}), (4, {"b": b"def"})],
+            ]
+        ]],
+        schema=schema,
+    )
+
+    expected_default_df = pd.DataFrame(
+        {"a": [[[(1, None)]], None, [[(2, {"b": b"abc"})], [(3, {"b": None}), (4, {"b": b"def"})]]]}
+    )
+    expected_as_pydicts_df = pd.DataFrame(
+        {"a": [[{1: None}], None, [{2: {"b": b"abc"}}, {3: {"b": None}, 4: {"b": b"def"}}]]}
+    )
+
+    default_df = table.to_pandas()
+    as_pydicts_df = table.to_pandas(maps_as_pydicts=True)
+
+    tm.assert_frame_equal(default_df, expected_default_df)
+    tm.assert_frame_equal(as_pydicts_df, expected_as_pydicts_df)
+
+    table_default_roundtrip = pa.Table.from_pandas(default_df, schema=schema)
+    assert table.equals(table_default_roundtrip)
+
+    with pytest.raises(pa.ArrowTypeError):
+        table_as_pydicts_roundtrip = pa.Table.from_pandas(as_pydicts_df, schema=schema)

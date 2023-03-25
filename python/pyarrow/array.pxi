@@ -699,6 +699,7 @@ cdef class _PandasConvertible(_Weakrefable):
             bint safe=True,
             bint split_blocks=False,
             bint self_destruct=False,
+            bint maps_as_pydicts=False,
             types_mapper=None
     ):
         """
@@ -753,6 +754,13 @@ cdef class _PandasConvertible(_Weakrefable):
             Note that you may not see always memory usage improvements. For
             example, if multiple columns share an underlying allocation,
             memory can't be freed until all columns are converted.
+        maps_as_pydicts : bool, default False
+            If true, convert Arrow Map arrays to native Python dicts.
+            This can change the ordering of (key, value) pairs, and will
+            deduplicate multiple keys, resulting in a possible loss of data.
+            The default behavior (false), is to convert Arrow Map arrays to
+            Python list-of-tuples in the same order as the Arrow Map, as in
+            [(key1, value1), (key2, value2), ...]
         types_mapper : function, default None
             A function mapping a pyarrow DataType to a pandas ExtensionDtype.
             This can be used to override the default pandas type for conversion
@@ -832,7 +840,8 @@ cdef class _PandasConvertible(_Weakrefable):
             deduplicate_objects=deduplicate_objects,
             safe=safe,
             split_blocks=split_blocks,
-            self_destruct=self_destruct
+            self_destruct=self_destruct,
+            maps_as_pydicts=maps_as_pydicts
         )
         return self._to_pandas(options, categories=categories,
                                ignore_metadata=ignore_metadata,
@@ -853,6 +862,7 @@ cdef PandasOptions _convert_pandas_options(dict options):
     result.split_blocks = options['split_blocks']
     result.self_destruct = options['self_destruct']
     result.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
+    result.maps_as_pydicts = options['maps_as_pydicts']
     return result
 
 
