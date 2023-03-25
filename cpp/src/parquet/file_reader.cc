@@ -824,6 +824,10 @@ std::shared_ptr<PageIndexReader> ParquetFileReader::GetPageIndexReader() {
   return contents_->GetPageIndexReader();
 }
 
+std::shared_ptr<BloomFilterReader> ParquetFileReader::GetBloomFilterReader() {
+  return contents_->GetBloomFilterReader();
+}
+
 std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
   if (i >= metadata()->num_row_groups()) {
     std::stringstream ss;

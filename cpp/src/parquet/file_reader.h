@@ -148,6 +148,11 @@ class PARQUET_EXPORT ParquetFileReader {
   /// WARNING: The returned PageIndexReader must not outlive the ParquetFileReader.
   std::shared_ptr<PageIndexReader> GetPageIndexReader();
 
+  /// Returns the BloomFilterReader. Only one instance is ever created.
+  ///
+  /// WARNING: The returned BloomFilterReader must not outlive the ParquetFileReader.
+  std::shared_ptr<BloomFilterReader> GetBloomFilterReader();
+
   /// Pre-buffer the specified column indices in all row groups.
   ///
   /// Readers can optionally call this to cache the necessary slices

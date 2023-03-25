@@ -340,6 +340,7 @@ add_parquet_test(internals-test
                  encoding_test.cc
                  metadata_test.cc
                  page_index_test.cc
+                 bloom_filter_reader_test.cc
                  public_api_test.cc
                  types_test.cc
                  test_util.cc)
