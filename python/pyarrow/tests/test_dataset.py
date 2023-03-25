@@ -3202,6 +3202,25 @@ def test_csv_fragment_options(tempdir, dataset_reader):
     assert result.equals(
         pa.table({'col0': pa.array(['foo', 'spam', 'MYNULL'])}))
 
+@pytest.mark.pandas
+def test_json_format(tempdir, dataset_reader):
+    table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    path = str(tempdir / 'test.json')
+    out = table.to_pandas().to_json(orient='records')[1:-1].replace('},{', '}\n{')
+    with open(path, 'w') as f:
+        f.write(out)
+
+    dataset = ds.dataset(path, format=ds.JsonFileFormat())
+    result = dataset_reader.to_table(dataset)
+    assert result.equals(table)
+
+    assert_dataset_fragment_convenience_methods(dataset)
+
+    dataset = ds.dataset(path, format='json')
+    result = dataset_reader.to_table(dataset)
+    assert result.equals(table)
 
 def test_encoding(tempdir, dataset_reader):
     path = str(tempdir / 'test.csv')
