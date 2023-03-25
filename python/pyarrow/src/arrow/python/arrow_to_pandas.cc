@@ -808,6 +808,75 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   return Status::OK();
 }
 
+template<typename F1, typename F2, typename F3>
+Status ConvertMapHelper(
+    F1 resetRow,
+    F2 addPairToRow,
+    F3 stealRow,
+    const ChunkedArray& data,
+    PyArrayObject* py_keys,
+    PyArrayObject* py_items,
+    // needed for null checks in items
+    const std::vector<std::shared_ptr<Array>> item_arrays,
+    PyObject** out_values) {
+
+  OwnedRef key_value;
+  OwnedRef item_value;
+
+  int64_t chunk_offset = 0;
+  for (int c = 0; c < data.num_chunks(); ++c) {
+    const auto& arr = checked_cast<const MapArray&>(*data.chunk(c));
+    const bool has_nulls = data.null_count() > 0;
+
+    // Make a list of key/item pairs for each row in array
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (has_nulls && arr.IsNull(i)) {
+        Py_INCREF(Py_None);
+        *out_values = Py_None;
+      } else {
+        int64_t entry_offset = arr.value_offset(i);
+        int64_t num_pairs = arr.value_offset(i + 1) - entry_offset;
+
+        // Build the new list object for the row of Python pairs
+        RETURN_NOT_OK(resetRow(num_pairs));
+
+        // Add each key/item pair in the row
+        for (int64_t j = 0; j < num_pairs; ++j) {
+          // Get key value, key is non-nullable for a valid row
+          auto ptr_key = reinterpret_cast<const char*>(
+              PyArray_GETPTR1(py_keys, chunk_offset + entry_offset + j));
+          key_value.reset(PyArray_GETITEM(py_keys, ptr_key));
+          RETURN_IF_PYERROR();
+
+          if (item_arrays[c]->IsNull(entry_offset + j)) {
+            // Translate the Null to a None
+            Py_INCREF(Py_None);
+            item_value.reset(Py_None);
+          } else {
+            // Get valid value from item array
+            auto ptr_item = reinterpret_cast<const char*>(
+                PyArray_GETPTR1(py_items, chunk_offset + entry_offset + j));
+            item_value.reset(PyArray_GETITEM(py_items, ptr_item));
+            RETURN_IF_PYERROR();
+          }
+
+          // Add the key/item pair to the row
+          RETURN_NOT_OK(addPairToRow(j, key_value, item_value));
+        }
+
+        // Pass ownership to the resulting array
+        *out_values = stealRow();
+      }
+      ++out_values;
+    }
+    RETURN_IF_PYERROR();
+
+    chunk_offset += arr.values()->length();
+  }
+
+  return Status::OK();
+}
+
 Status ConvertMap(PandasOptions options, const ChunkedArray& data,
                   PyObject** out_values) {
   // Get columns of underlying key/item arrays
@@ -843,9 +912,6 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
 
   auto flat_keys = std::make_shared<ChunkedArray>(key_arrays, key_type);
   auto flat_items = std::make_shared<ChunkedArray>(item_arrays, item_type);
-  OwnedRef list_item;
-  OwnedRef key_value;
-  OwnedRef item_value;
   OwnedRefNoGIL owned_numpy_keys;
   RETURN_NOT_OK(
       ConvertChunkedArrayToPandas(options, flat_keys, nullptr, owned_numpy_keys.ref()));
@@ -855,61 +921,24 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
   PyArrayObject* py_keys = reinterpret_cast<PyArrayObject*>(owned_numpy_keys.obj());
   PyArrayObject* py_items = reinterpret_cast<PyArrayObject*>(owned_numpy_items.obj());
 
-  int64_t chunk_offset = 0;
-  for (int c = 0; c < data.num_chunks(); ++c) {
-    const auto& arr = checked_cast<const MapArray&>(*data.chunk(c));
-    const bool has_nulls = data.null_count() > 0;
-
-    // Make a list of key/item pairs for each row in array
-    for (int64_t i = 0; i < arr.length(); ++i) {
-      if (has_nulls && arr.IsNull(i)) {
-        Py_INCREF(Py_None);
-        *out_values = Py_None;
-      } else {
-        int64_t entry_offset = arr.value_offset(i);
-        int64_t num_maps = arr.value_offset(i + 1) - entry_offset;
-
-        // Build the new list object for the row of maps
-        list_item.reset(PyList_New(num_maps));
-        RETURN_IF_PYERROR();
-
-        // Add each key/item pair in the row
-        for (int64_t j = 0; j < num_maps; ++j) {
-          // Get key value, key is non-nullable for a valid row
-          auto ptr_key = reinterpret_cast<const char*>(
-              PyArray_GETPTR1(py_keys, chunk_offset + entry_offset + j));
-          key_value.reset(PyArray_GETITEM(py_keys, ptr_key));
-          RETURN_IF_PYERROR();
-
-          if (item_arrays[c]->IsNull(entry_offset + j)) {
-            // Translate the Null to a None
-            Py_INCREF(Py_None);
-            item_value.reset(Py_None);
-          } else {
-            // Get valid value from item array
-            auto ptr_item = reinterpret_cast<const char*>(
-                PyArray_GETPTR1(py_items, chunk_offset + entry_offset + j));
-            item_value.reset(PyArray_GETITEM(py_items, ptr_item));
-            RETURN_IF_PYERROR();
-          }
-
-          // Add the key/item pair to the list for the row
-          PyList_SET_ITEM(list_item.obj(), j,
-                          PyTuple_Pack(2, key_value.obj(), item_value.obj()));
-          RETURN_IF_PYERROR();
-        }
-
-        // Pass ownership to the resulting array
-        *out_values = list_item.detach();
-      }
-      ++out_values;
-    }
-    RETURN_IF_PYERROR();
-
-    chunk_offset += arr.values()->length();
-  }
-
-  return Status::OK();
+  // The default behavior to express an Arrow MAP as a list of [(key, value), ...] pairs
+  OwnedRef list_item;
+  return ConvertMapHelper(
+      [&list_item](int64_t num_pairs){
+        list_item.reset(PyList_New(num_pairs));
+        return CheckPyError();
+      },
+      [&list_item](int64_t idx, OwnedRef& key_value, OwnedRef& item_value){
+        PyList_SET_ITEM(list_item.obj(), idx,
+                        PyTuple_Pack(2, key_value.obj(), item_value.obj()));
+        return CheckPyError();
+      },
+      [&list_item]{ return list_item.detach(); },
+      data,
+      py_keys,
+      py_items,
+      item_arrays,
+      out_values);
 }
 
 template <typename InType, typename OutType>
