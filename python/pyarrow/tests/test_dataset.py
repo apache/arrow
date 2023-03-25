@@ -5171,5 +5171,3 @@ def test_dataset_sort_by(tempdir, dstype):
     sorted_tab_dict = sorted_tab.to_table().to_pydict()
     assert sorted_tab_dict["a"] == [5, 7, 7, 35]
     assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]
-
-test_fragment_scan_options_pickling()
