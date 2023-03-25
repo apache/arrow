@@ -51,11 +51,11 @@ class PARQUET_EXPORT BloomFilterReader {
       std::shared_ptr<FileMetaData> file_metadata, const ReaderProperties& properties,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
-  /// \brief Get the page index reader of a specific row group.
-  /// \param[in] i row group ordinal to get page index reader.
+  /// \brief Get the bloom filter reader of a specific row group.
+  /// \param[in] i row group ordinal to get bloom filter reader.
   /// \returns RowGroupBloomFilterReader of the specified row group. A nullptr may or may
-  ///          not be returned if the page index for the row group is unavailable. It is
-  ///          the caller's responsibility to check the return value of follow-up calls
+  ///          not be returned if the bloom filter for the row group is unavailable. It
+  ///          is the caller's responsibility to check the return value of follow-up calls
   ///          to the RowGroupBloomFilterReader.
   /// \throws ParquetException if the index is out of bound.
   virtual std::shared_ptr<RowGroupBloomFilterReader> RowGroup(int i) = 0;
