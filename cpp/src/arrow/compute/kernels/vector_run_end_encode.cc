@@ -31,51 +31,76 @@ struct ReadWriteValueImpl {};
 
 // Numeric and primitive C-compatible types
 template <typename ArrowType, bool has_validity_buffer>
-struct ReadWriteValueImpl<ArrowType, has_validity_buffer,
-                          enable_if_has_c_type<ArrowType>> {
+class ReadWriteValueImpl<ArrowType, has_validity_buffer,
+                         enable_if_has_c_type<ArrowType>> {
+ public:
   using ValueRepr = typename ArrowType::c_type;
 
-  [[nodiscard]] bool ReadValue(const uint8_t* input_validity, const void* input_values,
-                               ValueRepr* out, int64_t read_offset) const {
+ private:
+  const uint8_t* input_validity_;
+  const void* input_values_;
+
+  // Needed only by the writing functions
+  uint8_t* output_validity_;
+  void* output_values_;
+
+ public:
+  ReadWriteValueImpl(const uint8_t* input_validity, const void* input_values,
+                     uint8_t* output_validity = NULLPTR, void* output_values = NULLPTR)
+      : input_validity_(input_validity),
+        input_values_(input_values),
+        output_validity_(output_validity),
+        output_values_(output_values) {}
+
+  [[nodiscard]] bool ReadValue(ValueRepr* out, int64_t read_offset) const {
     bool valid = true;
     if constexpr (has_validity_buffer) {
-      valid = bit_util::GetBit(input_validity, read_offset);
+      valid = bit_util::GetBit(input_validity_, read_offset);
     }
     if constexpr (std::is_same_v<ArrowType, BooleanType>) {
       *out =
-          bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), read_offset);
+          bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values_), read_offset);
     } else {
-      *out = (reinterpret_cast<const ValueRepr*>(input_values))[read_offset];
+      *out = (reinterpret_cast<const ValueRepr*>(input_values_))[read_offset];
     }
     return valid;
   }
 
-  void WriteValue(uint8_t* output_validity, void* output_values, int64_t write_offset,
-                  bool valid, ValueRepr value) const {
+  /// \brief Ensure padding is zeroed in validity bitmap.
+  void ZeroValidityPadding(int64_t length) const {
+    DCHECK(output_values_);
     if constexpr (has_validity_buffer) {
-      bit_util::SetBitTo(output_validity, write_offset, valid);
+      DCHECK(output_validity_);
+      const int64_t validity_buffer_size = bit_util::BytesForBits(length);
+      output_validity_[validity_buffer_size - 1] = 0;
+    }
+  }
+
+  void WriteValue(int64_t write_offset, bool valid, ValueRepr value) const {
+    if constexpr (has_validity_buffer) {
+      bit_util::SetBitTo(output_validity_, write_offset, valid);
     }
     if (valid) {
       if constexpr (std::is_same_v<ArrowType, BooleanType>) {
-        bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), write_offset,
+        bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values_), write_offset,
                            value);
       } else {
-        (reinterpret_cast<ValueRepr*>(output_values))[write_offset] = value;
+        (reinterpret_cast<ValueRepr*>(output_values_))[write_offset] = value;
       }
     }
   }
 
-  void WriteRun(uint8_t* output_validity, void* output_values, int64_t write_offset,
-                int64_t run_length, bool valid, ValueRepr value) const {
+  void WriteRun(int64_t write_offset, int64_t run_length, bool valid,
+                ValueRepr value) const {
     if constexpr (has_validity_buffer) {
-      bit_util::SetBitsTo(output_validity, write_offset, run_length, valid);
+      bit_util::SetBitsTo(output_validity_, write_offset, run_length, valid);
     }
     if (valid) {
       if constexpr (std::is_same_v<ArrowType, BooleanType>) {
-        bit_util::SetBitsTo(reinterpret_cast<uint8_t*>(output_values), write_offset,
+        bit_util::SetBitsTo(reinterpret_cast<uint8_t*>(output_values_), write_offset,
                             run_length, value);
       } else {
-        auto* output_values_c = reinterpret_cast<ValueRepr*>(output_values);
+        auto* output_values_c = reinterpret_cast<ValueRepr*>(output_values_);
         std::fill(output_values_c + write_offset,
                   output_values_c + write_offset + run_length, value);
       }
@@ -107,18 +132,16 @@ template <typename RunEndType, typename ValueType, bool has_validity_buffer>
 class RunEndEncodingLoop {
  public:
   using RunEndCType = typename RunEndType::c_type;
-  using CType = typename ValueType::c_type;
+
+ private:
+  using ReadWriteValue = ReadWriteValueImpl<ValueType, has_validity_buffer>;
+  using ValueRepr = typename ReadWriteValue::ValueRepr;
 
  private:
   const int64_t input_length_;
   const int64_t input_offset_;
-
-  const uint8_t* input_validity_;
-  const void* input_values_;
-
+  ReadWriteValue read_write_value_;
   // Needed only by WriteEncodedRuns()
-  uint8_t* output_validity_;
-  void* output_values_;
   RunEndCType* output_run_ends_;
 
  public:
@@ -128,41 +151,24 @@ class RunEndEncodingLoop {
                      RunEndCType* output_run_ends = NULLPTR)
       : input_length_(input_length),
         input_offset_(input_offset),
-        input_validity_(input_validity),
-        input_values_(input_values),
-        output_validity_(output_validity),
-        output_values_(output_values),
+        read_write_value_(input_validity, input_values, output_validity, output_values),
         output_run_ends_(output_run_ends) {
     DCHECK_GT(input_length, 0);
   }
 
- private:
-  using ReadWriteValue = ReadWriteValueImpl<ValueType, has_validity_buffer>;
-  using ValueRepr = typename ReadWriteValue::ValueRepr;
-
-  [[nodiscard]] inline bool ReadValue(ValueRepr* out, int64_t read_offset) const {
-    return ReadWriteValue{}.ReadValue(input_validity_, input_values_, out, read_offset);
-  }
-
-  inline void WriteValue(int64_t write_offset, bool valid, ValueRepr value) {
-    ReadWriteValue{}.WriteValue(output_validity_, output_values_, write_offset, valid,
-                                value);
-  }
-
- public:
   /// \brief Give a pass over the input data and count the number of runs
   ///
   /// \return a pair with the number of non-null run values and total number of runs
   ARROW_NOINLINE std::pair<int64_t, int64_t> CountNumberOfRuns() const {
     int64_t read_offset = input_offset_;
     ValueRepr current_run;
-    bool current_run_valid = ReadValue(&current_run, read_offset);
+    bool current_run_valid = read_write_value_.ReadValue(&current_run, read_offset);
     read_offset += 1;
     int64_t num_valid_runs = current_run_valid ? 1 : 0;
     int64_t num_output_runs = 1;
     for (; read_offset < input_offset_ + input_length_; read_offset += 1) {
       ValueRepr value;
-      const bool valid = ReadValue(&value, read_offset);
+      const bool valid = read_write_value_.ReadValue(&value, read_offset);
 
       const bool open_new_run = valid != current_run_valid || value != current_run;
       if (open_new_run) {
@@ -178,21 +184,20 @@ class RunEndEncodingLoop {
   }
 
   ARROW_NOINLINE int64_t WriteEncodedRuns() {
-    DCHECK(output_values_);
     DCHECK(output_run_ends_);
     int64_t read_offset = input_offset_;
     int64_t write_offset = 0;
     ValueRepr current_run;
-    bool current_run_valid = ReadValue(&current_run, read_offset);
+    bool current_run_valid = read_write_value_.ReadValue(&current_run, read_offset);
     read_offset += 1;
     for (; read_offset < input_offset_ + input_length_; read_offset += 1) {
       ValueRepr value;
-      const bool valid = ReadValue(&value, read_offset);
+      const bool valid = read_write_value_.ReadValue(&value, read_offset);
 
       const bool open_new_run = valid != current_run_valid || value != current_run;
       if (open_new_run) {
         // Close the current run first by writing it out
-        WriteValue(write_offset, current_run_valid, current_run);
+        read_write_value_.WriteValue(write_offset, current_run_valid, current_run);
         const int64_t run_end = read_offset - input_offset_;
         output_run_ends_[write_offset] = static_cast<RunEndCType>(run_end);
         write_offset += 1;
@@ -201,7 +206,7 @@ class RunEndEncodingLoop {
         current_run = value;
       }
     }
-    WriteValue(write_offset, current_run_valid, current_run);
+    read_write_value_.WriteValue(write_offset, current_run_valid, current_run);
     DCHECK_EQ(input_length_, read_offset - input_offset_);
     output_run_ends_[write_offset] = static_cast<RunEndCType>(input_length_);
     return write_offset + 1;
@@ -262,7 +267,6 @@ class RunEndEncodeImpl {
 
  public:
   using RunEndCType = typename RunEndType::c_type;
-  using CType = typename ValueType::c_type;
 
   RunEndEncodeImpl(KernelContext* ctx, const ArraySpan& input_array, ExecResult* out)
       : ctx_{ctx}, input_array_{input_array}, output_{out} {}
@@ -415,51 +419,32 @@ class RunEndDecodingLoop {
   using CType = typename ValueType::c_type;
 
  private:
-  const ArraySpan& input_array_;
-
-  const uint8_t* input_validity_;
-  const void* input_values_;
-  int64_t values_offset_;
-
-  uint8_t* output_validity_;
-  void* output_values_;
-
- public:
-  explicit RunEndDecodingLoop(const ArraySpan& input_array, ArrayData* output_array_data)
-      : input_array_(input_array) {
-    const ArraySpan& values = ree_util::ValuesArray(input_array);
-    input_validity_ = values.buffers[0].data;
-    input_values_ = values.buffers[1].data;
-    values_offset_ = values.offset;
-
-    output_validity_ = output_array_data->template GetMutableValues<uint8_t>(0);
-    output_values_ = output_array_data->template GetMutableValues<CType>(1);
-  }
-
- private:
   using ReadWriteValue = ReadWriteValueImpl<ValueType, has_validity_buffer>;
   using ValueRepr = typename ReadWriteValue::ValueRepr;
 
-  [[nodiscard]] inline bool ReadValue(ValueRepr* out, int64_t read_offset) const {
-    return ReadWriteValue{}.ReadValue(input_validity_, input_values_, out, read_offset);
-  }
+  const ArraySpan& input_array_;
+  ReadWriteValue read_write_value_;
+  int64_t values_offset_;
 
-  inline void WriteRun(int64_t write_offset, int64_t run_length, bool valid,
-                       ValueRepr value) {
-    ReadWriteValue{}.WriteRun(output_validity_, output_values_, write_offset, run_length,
-                              valid, value);
-  }
+  RunEndDecodingLoop(const ArraySpan& input_array, const ArraySpan& input_array_values,
+                     ArrayData* output_array_data)
+      : input_array_(input_array),
+        read_write_value_(input_array_values.buffers[0].data,
+                          input_array_values.buffers[1].data,
+                          output_array_data->template GetMutableValues<uint8_t>(0),
+                          output_array_data->template GetMutableValues<CType>(1)),
+        values_offset_(input_array_values.offset) {}
 
  public:
+  RunEndDecodingLoop(const ArraySpan& input_array, ArrayData* output_array_data)
+      : RunEndDecodingLoop(input_array, ree_util::ValuesArray(input_array),
+                           output_array_data) {}
+
   /// \brief Expand all runs into the output array
   ///
   /// \return the number of non-null values written.
   ARROW_NOINLINE int64_t ExpandAllRuns() {
-    // Ensure padding is zeroed in validity bitmap
-    if constexpr (has_validity_buffer) {
-      const int64_t validity_buffer_size = bit_util::BytesForBits(input_array_.length);
-      output_validity_[validity_buffer_size - 1] = 0;
-    }
+    read_write_value_.ZeroValidityPadding(input_array_.length);
 
     const ree_util::RunEndEncodedArraySpan<RunEndCType> ree_array_span(input_array_);
     int64_t write_offset = 0;
@@ -468,8 +453,8 @@ class RunEndDecodingLoop {
       const int64_t read_offset = values_offset_ + it.index_into_array();
       const int64_t run_length = it.run_length();
       ValueRepr value;
-      const bool valid = ReadValue(&value, read_offset);
-      WriteRun(write_offset, run_length, valid, value);
+      const bool valid = read_write_value_.ReadValue(&value, read_offset);
+      read_write_value_.WriteRun(write_offset, run_length, valid, value);
       write_offset += run_length;
       output_valid_count += valid ? run_length : 0;
     }
@@ -487,7 +472,6 @@ class RunEndDecodeImpl {
 
  public:
   using RunEndCType = typename RunEndType::c_type;
-  using CType = typename ValueType::c_type;
 
   RunEndDecodeImpl(KernelContext* ctx, const ArraySpan& input_array, ExecResult* out)
       : ctx_{ctx}, input_array_{input_array}, output_{out} {}
