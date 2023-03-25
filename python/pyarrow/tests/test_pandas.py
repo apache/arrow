@@ -2135,6 +2135,33 @@ class TestConvertListTypes:
                                     DeprecationWarning)
             tm.assert_series_equal(series, expected)
 
+    def test_to_list_of_maps_pandas(self):
+        if ((Version(np.__version__) >= Version("1.25.0.dev0")) and
+                (Version(pd.__version__) < Version("2.0.0"))):
+            # TODO: regression in pandas with numpy 1.25dev
+            # https://github.com/pandas-dev/pandas/issues/50360
+            pytest.skip("Regression in pandas with numpy 1.25")
+        offsets = pa.array([0, 2, 5, 6], pa.int32())
+        keys = pa.array(['foo', 'bar', 'baz', 'qux', 'quux', 'quz'])
+        items = pa.array([['a', 'b'], ['c', 'd'], [], None, [None, 'e'], ['f', 'g']],
+                           pa.list_(pa.string()))
+        maps = pa.MapArray.from_arrays(offsets, keys, items)
+        data = pa.ListArray.from_arrays([0, 1, 3], maps)
+
+        expected = pd.Series([
+            [[('foo', ['a', 'b']), ('bar', ['c', 'd'])]],
+            [[('baz', []), ('qux', None), ('quux', [None, 'e'])], [('quz', ['f', 'g'])]]
+        ])
+
+        series = pd.Series(data.to_pandas())
+
+        # pandas.testing generates a
+        # DeprecationWarning: elementwise comparison failed
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "elementwise comparison failed",
+                                    DeprecationWarning)
+            tm.assert_series_equal(series, expected)
+
     @pytest.mark.parametrize('t,data,expected', [
         (
             pa.int64,

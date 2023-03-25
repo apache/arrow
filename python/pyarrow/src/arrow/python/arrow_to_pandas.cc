@@ -176,6 +176,7 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::DATE32:
     case Type::DATE64:
     case Type::STRUCT:
+    case Type::MAP:
     case Type::TIME32:
     case Type::TIME64:
     case Type::TIMESTAMP:
