@@ -334,6 +334,7 @@ class SerializedFile : public ParquetFileReader::Contents {
       bloom_filter_reader_ =
           BloomFilterReader::Make(source_, file_metadata_, properties_, file_decryptor_);
     }
+    return bloom_filter_reader_;
   }
 
   void set_metadata(std::shared_ptr<FileMetaData> metadata) {

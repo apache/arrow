@@ -26,6 +26,12 @@ class PARQUET_EXPORT RowGroupBloomFilterReader {
  public:
   virtual ~RowGroupBloomFilterReader() = default;
 
+  /// \brief Read bloom filter of a column chunk.
+  ///
+  /// \param[in] i column ordinal of the column chunk.
+  /// \returns bloom filter of the column or nullptr if it does not exist.
+  /// \throws ParquetException if the index is out of bound, or read bloom
+  /// filter failed.
   virtual std::unique_ptr<BloomFilter> GetColumnBloomFilter(int i) = 0;
 };
 
@@ -45,6 +51,13 @@ class PARQUET_EXPORT BloomFilterReader {
       std::shared_ptr<FileMetaData> file_metadata, const ReaderProperties& properties,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
+  /// \brief Get the page index reader of a specific row group.
+  /// \param[in] i row group ordinal to get page index reader.
+  /// \returns RowGroupBloomFilterReader of the specified row group. A nullptr may or may
+  ///          not be returned if the page index for the row group is unavailable. It is
+  ///          the caller's responsibility to check the return value of follow-up calls
+  ///          to the RowGroupBloomFilterReader.
+  /// \throws ParquetException if the index is out of bound.
   virtual std::shared_ptr<RowGroupBloomFilterReader> RowGroup(int i) = 0;
 };
 

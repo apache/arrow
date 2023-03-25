@@ -16,8 +16,8 @@
 // under the License.
 
 #include "parquet/bloom_filter_reader.h"
-#include "metadata.h"
 #include "parquet/exception.h"
+#include "parquet/metadata.h"
 
 namespace parquet {
 
