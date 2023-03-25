@@ -3008,11 +3008,13 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
 // ----------------------------------------------------------------------
 // DELTA_BYTE_ARRAY
 
-// This is also known as incremental encoding or front compression: for each element in a
-// sequence of strings, store the prefix length of the previous entry plus the suffix.
-//
-// This is stored as a sequence of delta-encoded prefix lengths (DELTA_BINARY_PACKED),
-// followed by the suffixes encoded as delta length byte arrays (DELTA_LENGTH_BYTE_ARRAY).
+/// Delta Byte Array encoding also known as incremental encoding or front compression:
+/// for each element in a sequence of strings, store the prefix length of the previous
+/// entry plus the suffix.
+///
+/// This is stored as a sequence of delta-encoded prefix lengths (DELTA_BINARY_PACKED),
+/// followed by the suffixes encoded as delta length byte arrays
+/// (DELTA_LENGTH_BYTE_ARRAY).
 
 // ----------------------------------------------------------------------
 // DeltaByteArrayEncoder
@@ -3058,50 +3060,6 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
   }
 
  protected:
-  void PutFixedLenByteArray(const ::arrow::FixedSizeBinaryArray& array) {
-    const uint32_t byte_width = array.byte_width();
-    uint32_t previous_len = byte_width;
-    std::string_view last_value_view = last_value_;
-
-    if (ARROW_PREDICT_FALSE(byte_width >= kMaxByteArraySize)) {
-      throw Status::Invalid("Parquet cannot store strings with size 2GB or more");
-    }
-
-    PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<::arrow::FixedSizeBinaryType>(
-        *array.data(),
-        [&](::std::string_view view) {
-          // Convert view to ByteArray so it can be passed to the suffix_encoder_.
-          const ByteArray src{view};
-          if (last_value_view.empty()) {
-            last_value_view = view;
-            suffix_encoder_.Put(&src, 1);
-            prefix_length_encoder_.Put({static_cast<int32_t>(0)}, 1);
-            previous_len = byte_width;
-          } else {
-            uint32_t j = 0;
-            while (j < previous_len) {
-              if (last_value_view[j] != view[j]) {
-                break;
-              }
-              j++;
-            }
-            previous_len = j;
-            prefix_length_encoder_.Put({static_cast<int32_t>(j)}, 1);
-
-            const uint8_t* suffix_ptr = src.ptr + j;
-            const uint32_t suffix_length = static_cast<uint32_t>(byte_width - j);
-            last_value_view =
-                string_view{reinterpret_cast<const char*>(suffix_ptr), suffix_length};
-            // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
-            const ByteArray suffix(suffix_length, suffix_ptr);
-            suffix_encoder_.Put(&suffix, 1);
-          }
-          return Status::OK();
-        },
-        []() { return Status::OK(); }));
-    last_value_ = last_value_view;
-  }
-
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
     uint32_t previous_len = 0;
@@ -3113,6 +3071,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
           if (ARROW_PREDICT_FALSE(view.size() >= kMaxByteArraySize)) {
             return Status::Invalid("Parquet cannot store strings with size 2GB or more");
           }
+          // Convert view to ByteArray so it can be passed to the suffix_encoder_.
           const ByteArray src{view};
           if (last_value_view.empty()) {
             last_value_view = view;
@@ -3134,6 +3093,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
             const uint32_t suffix_length = static_cast<uint32_t>(src.len - j);
             last_value_view =
                 string_view{reinterpret_cast<const char*>(suffix_ptr), suffix_length};
+            // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
             const ByteArray suffix(suffix_length, suffix_ptr);
             suffix_encoder_.Put(&suffix, 1);
           }
@@ -3149,65 +3109,6 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
   std::string last_value_;
 };
 
-template <>
-inline void DeltaByteArrayEncoder<FLBAType>::Put(const FixedLenByteArray* src,
-                                                 int num_values) {
-  if (num_values == 0) {
-    return;
-  }
-  const uint32_t byte_width = sizeof(src[0]);
-  ArrowPoolVector<int32_t> prefix_lengths(num_values,
-                                          ::arrow::stl::allocator<int32_t>(pool_));
-  std::string_view last_value_view = last_value_;
-
-  if (last_value_view.empty()) {
-    last_value_view = string_view{reinterpret_cast<const char*>(src[0].ptr), byte_width};
-    const ByteArray value{byte_width, src[0].ptr};
-    suffix_encoder_.Put(&value, 1);
-    prefix_lengths[0] = 0;
-  }
-
-  for (int32_t i = 1; i < num_values; i++) {
-    auto prefix = string_view{reinterpret_cast<const char*>(src[i].ptr), byte_width};
-
-    uint32_t j = 0;
-    while (j < byte_width) {
-      if (last_value_view[j] != prefix[j]) {
-        break;
-      }
-      j++;
-    }
-
-    prefix_lengths[i] = j;
-    const uint8_t* suffix_ptr = src[i].ptr + j;
-    const uint32_t suffix_length = static_cast<uint32_t>(byte_width - j);
-    last_value_view =
-        string_view{reinterpret_cast<const char*>(suffix_ptr), suffix_length};
-    const ByteArray suffix(suffix_length, suffix_ptr);
-    suffix_encoder_.Put(&suffix, 1);
-  }
-  prefix_length_encoder_.Put(prefix_lengths.data(), num_values);
-  last_value_ = last_value_view;
-}
-
-template <>
-void DeltaByteArrayEncoder<FLBAType>::Put(const ::arrow::Array& values) {
-  if (!::arrow::is_fixed_size_binary(values.type_id())) {
-    throw ParquetException("Only FixedSizeBinaryArray and subclasses supported");
-  }
-  PutFixedLenByteArray(checked_cast<const ::arrow::FixedSizeBinaryArray&>(values));
-}
-
-template <typename DType>
-void DeltaByteArrayEncoder<DType>::Put(const ::arrow::Array& values) {
-  AssertBaseBinary(values);
-  if (::arrow::is_binary_like(values.type_id())) {
-    PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
-  } else if (::arrow::is_large_binary_like(values.type_id())) {
-    PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
-  }
-}
-
 template <typename DType>
 void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
   if (num_values == 0) {
@@ -3217,33 +3118,48 @@ void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
                                           ::arrow::stl::allocator<int32_t>(pool_));
   std::string_view last_value_view = last_value_;
 
-  if (last_value_view.empty()) {
-    last_value_view = string_view{reinterpret_cast<const char*>(src[0].ptr), src[0].len};
-    suffix_encoder_.Put(&src[0], 1);
-    prefix_lengths[0] = 0;
-  }
+  int i = 0;
+  while (i < num_values) {
+    // Convert to ByteArray so we can pass to the suffix_encoder_.
+    auto value = reinterpret_cast<const ByteArray*>(&src[i]);
+    if (ARROW_PREDICT_FALSE(value->len >= kMaxByteArraySize)) {
+      throw Status::Invalid("Parquet cannot store strings with size 2GB or more");
+    }
 
-  for (int32_t i = 1; i < num_values; i++) {
-    auto prefix = string_view{reinterpret_cast<const char*>(src[i].ptr), src[i].len};
-
+    auto view = string_view{reinterpret_cast<const char*>(value->ptr), value->len};
     uint32_t j = 0;
-    while (j < std::min(src[i - 1].len, src[i].len)) {
-      if (last_value_view[j] != prefix[j]) {
+    while (j < std::min(value->len, static_cast<uint32_t>(last_value_view.length()))) {
+      if (last_value_view[j] != view[j]) {
         break;
       }
       j++;
     }
 
     prefix_lengths[i] = j;
-    const uint8_t* suffix_ptr = src[i].ptr + j;
-    const uint32_t suffix_length = static_cast<uint32_t>(src[i].len - j);
+    const uint8_t* suffix_ptr = value->ptr + j;
+    const uint32_t suffix_length = static_cast<uint32_t>(value->len - j);
     last_value_view =
         string_view{reinterpret_cast<const char*>(suffix_ptr), suffix_length};
+    // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
     const ByteArray suffix(suffix_length, suffix_ptr);
     suffix_encoder_.Put(&suffix, 1);
+    i++;
   }
   prefix_length_encoder_.Put(prefix_lengths.data(), num_values);
   last_value_ = last_value_view;
+}
+
+template <typename DType>
+void DeltaByteArrayEncoder<DType>::Put(const ::arrow::Array& values) {
+  if (::arrow::is_binary_like(values.type_id())) {
+    PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
+  } else if (::arrow::is_large_binary_like(values.type_id())) {
+    PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
+  } else if (::arrow::is_fixed_size_binary(values.type_id())) {
+    PutBinaryArray(checked_cast<const ::arrow::FixedSizeBinaryArray&>(values));
+  } else {
+    throw ParquetException("Only BaseBinaryArray and subclasses supported");
+  }
 }
 
 template <typename DType>
