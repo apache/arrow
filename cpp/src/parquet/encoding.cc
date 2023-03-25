@@ -2125,6 +2125,7 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
         values_per_block_(values_per_block),
         mini_blocks_per_block_(mini_blocks_per_block),
         values_per_mini_block_(values_per_block / mini_blocks_per_block),
+        max_deltas_(mini_blocks_per_block, ::arrow::stl::allocator<T>(pool)),
         deltas_(values_per_block, ::arrow::stl::allocator<T>(pool)),
         bits_buffer_(
             AllocateBuffer(pool, (kMiniBlocksPerBlock + values_per_block) * sizeof(T))),
@@ -2172,6 +2173,8 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
   uint32_t total_value_count_{0};
   UT first_value_{0};
   UT current_value_{0};
+  UT min_delta_{std::numeric_limits<UT>::max()};
+  ArrowPoolVector<UT> max_deltas_;//maximum deltas per miniblock
   ArrowPoolVector<UT> deltas_;
   std::shared_ptr<ResizableBuffer> bits_buffer_;
   ::arrow::BufferBuilder sink_;
@@ -2188,6 +2191,7 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
   if (total_value_count_ == 0) {
     current_value_ = src[0];
     first_value_ = current_value_;
+    min_delta_ = current_value_;
     idx = 1;
   }
   total_value_count_ += num_values;
@@ -2198,7 +2202,13 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
     // making subtraction operations well-defined and correct even in case of overflow.
     // Encoded integers will wrap back around on decoding.
     // See http://en.wikipedia.org/wiki/Modular_arithmetic#Integers_modulo_n
-    deltas_[values_current_block_] = value - current_value_;
+    UT delta = value - current_value_;
+    //update blocks minimum delta
+    if(delta < min_delta_) min_delta_ = delta;
+    //calculate which block a maximum delta belongs to -> whole number division
+    const uint32_t miniblock_index{values_current_block_/values_per_mini_block_};
+    if(delta > max_deltas_[miniblock_index])max_deltas_[miniblock_index] = delta;
+    deltas_[values_current_block_] = delta;
     current_value_ = value;
     idx++;
     values_current_block_++;
@@ -2213,10 +2223,8 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
   if (values_current_block_ == 0) {
     return;
   }
-
-  const UT min_delta =
-      *std::min_element(deltas_.begin(), deltas_.begin() + values_current_block_);
-  bit_writer_.PutZigZagVlqInt(static_cast<T>(min_delta));
+  //uses precomputed (in Put) minimum delta
+  bit_writer_.PutZigZagVlqInt(static_cast<T>(min_delta_));
 
   // Call to GetNextBytePtr reserves mini_blocks_per_block_ bytes of space to write
   // bit widths of miniblocks as they become known during the encoding.
@@ -2230,18 +2238,16 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
     const uint32_t values_current_mini_block =
         std::min(values_per_mini_block_, values_current_block_);
 
-    const uint32_t start = i * values_per_mini_block_;
-    const UT max_delta = *std::max_element(
-        deltas_.begin() + start, deltas_.begin() + start + values_current_mini_block);
-
     // The minimum number of bits required to write any of values in deltas_ vector.
     // See overflow comment above.
     const auto bit_width = bit_width_data[i] =
-        bit_util::NumRequiredBits(max_delta - min_delta);
+        bit_util::NumRequiredBits(max_deltas_[i] - min_delta_);
+
+    const uint32_t start = i * values_per_mini_block_;
 
     for (uint32_t j = start; j < start + values_current_mini_block; j++) {
       // See overflow comment above.
-      const UT value = deltas_[j] - min_delta;
+      const UT value = deltas_[j] - min_delta_;
       bit_writer_.PutValue(value, bit_width);
     }
     // If there are not enough values to fill the last mini block, we pad the mini block
@@ -2260,6 +2266,11 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
   for (uint32_t i = num_miniblocks; i < mini_blocks_per_block_; i++) {
     bit_width_data[i] = 0;
   }
+
+  // reset incremental minimum delta and maximal deltas for next block
+  min_delta_ = std::numeric_limits<UT>::max();
+  max_deltas_.assign(mini_blocks_per_block_, 0);
+
   DCHECK_EQ(values_current_block_, 0);
 
   bit_writer_.Flush();
