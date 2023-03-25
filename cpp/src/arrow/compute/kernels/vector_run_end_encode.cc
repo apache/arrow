@@ -108,10 +108,9 @@ class ReadWriteValueImpl<ArrowType, has_validity_buffer,
   }
 };
 
-Result<std::shared_ptr<Buffer>> AllocatePrimitiveBuffer(int64_t length,
-                                                        const DataType& type,
-                                                        MemoryPool* pool) {
-  DCHECK(is_primitive(type.id()));
+Result<std::shared_ptr<Buffer>> AllocateValuesBuffer(int64_t length, const DataType& type,
+                                                     MemoryPool* pool) {
+  DCHECK(is_fixed_width(type.id()));
   if (type.bit_width() == 1) {
     return AllocateBitmap(length, pool);
   } else {
@@ -240,9 +239,8 @@ Result<std::shared_ptr<ArrayData>> PreallocateREEData(const ArraySpan& input_arr
   if constexpr (has_validity_buffer) {
     ARROW_ASSIGN_OR_RAISE(validity_buffer, AllocateBitmap(physical_length, pool));
   }
-  ARROW_ASSIGN_OR_RAISE(
-      auto values_buffer,
-      AllocatePrimitiveBuffer(physical_length, *input_array.type, pool));
+  ARROW_ASSIGN_OR_RAISE(auto values_buffer,
+                        AllocateValuesBuffer(physical_length, *input_array.type, pool));
 
   auto ree_type = std::make_shared<RunEndEncodedType>(std::make_shared<RunEndType>(),
                                                       input_array.type->GetSharedPtr());
@@ -486,7 +484,7 @@ class RunEndDecodeImpl {
     }
     ARROW_ASSIGN_OR_RAISE(
         auto values_buffer,
-        AllocatePrimitiveBuffer(length, *ree_type->value_type(), ctx_->memory_pool()));
+        AllocateValuesBuffer(length, *ree_type->value_type(), ctx_->memory_pool()));
 
     auto output_array_data =
         ArrayData::Make(ree_type->value_type(), length,
