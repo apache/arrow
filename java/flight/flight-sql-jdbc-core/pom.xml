@@ -23,7 +23,7 @@
 
     <artifactId>flight-sql-jdbc-core</artifactId>
     <name>Arrow Flight SQL JDBC Driver Core</name>
-    <description>(Contrib/Experimental) A JDBC driver based on Arrow Flight SQL.</description>
+    <description>(Contrib/Experimental) Core implementation of JDBC driver based on Arrow Flight SQL.</description>
     <packaging>jar</packaging>
     <url>https://arrow.apache.org</url>
 
@@ -53,7 +53,7 @@
 
         <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory-core -->
         <dependency>
-        <groupId>org.apache.arrow</groupId>
+            <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory-core</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -72,7 +72,7 @@
             <artifactId>arrow-vector</artifactId>
             <version>${project.version}</version>
             <classifier>${arrow.vector.classifier}</classifier>
-            </dependency>
+        </dependency>
 
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -89,6 +89,7 @@
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
         </dependency>
+
         <dependency>
             <groupId>org.hamcrest</groupId>
             <artifactId>hamcrest-core</artifactId>
@@ -133,6 +134,7 @@
             <artifactId>avatica</artifactId>
             <version>1.18.0</version>
         </dependency>
+
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk15on</artifactId>
