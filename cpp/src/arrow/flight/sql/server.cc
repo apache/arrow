@@ -466,7 +466,7 @@ arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
 }
 
 arrow::Result<Result> PackActionResult(ActionCloseSessionResult result) {
-  pb::sql::ActionSetSessionOptionsResult pb_result;
+  pb::sql::ActionCloseSessionResult pb_result;
   //FIXME impl
   return PackActionResult(pb_result);
 }
