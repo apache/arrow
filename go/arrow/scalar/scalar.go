@@ -39,31 +39,6 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// Scalar represents a single value of a specific DataType as opposed to
-// an array.
-//
-// Scalars are useful for passing single value inputs to compute functions
-// (not yet implemented) or for representing individual array elements,
-// (with a non-trivial cost though).
-type Scalar interface {
-	fmt.Stringer
-	// IsValid returns true if the value is non-null, otherwise false.
-	IsValid() bool
-	// The datatype of the value in this scalar
-	DataType() arrow.DataType
-	// Performs cheap validation checks, returns nil if successful
-	Validate() error
-	// Perform more expensive validation checks, returns nil if successful
-	ValidateFull() error
-	// Cast the value to the desired DataType (returns an error if unable to do so)
-	// should take semantics into account and modify the value accordingly.
-	CastTo(arrow.DataType) (Scalar, error)
-
-	// internal only functions for delegation
-	value() interface{}
-	equals(Scalar) bool
-}
-
 type Releasable interface {
 	Release()
 	Retain()
@@ -112,14 +87,14 @@ type Null struct {
 }
 
 // by the time we get here we already know that the rhs is the right type
-func (n *Null) equals(s Scalar) bool {
+func (n *Null) Equals(s arrow.Scalar) bool {
 	debug.Assert(s.DataType().ID() == arrow.NULL, "scalar null equals should only receive null")
 	return true
 }
 
-func (n *Null) value() interface{} { return nil }
+func (n *Null) ValueInterface() interface{} { return nil }
 
-func (n *Null) CastTo(dt arrow.DataType) (Scalar, error) {
+func (n *Null) CastTo(dt arrow.DataType) (arrow.Scalar, error) {
 	return MakeNullScalar(dt), nil
 }
 
@@ -141,7 +116,7 @@ var (
 )
 
 type PrimitiveScalar interface {
-	Scalar
+	arrow.Scalar
 	Data() []byte
 }
 
@@ -151,11 +126,11 @@ type Boolean struct {
 }
 
 // by the time we get here we already know that the rhs is the right type
-func (n *Boolean) equals(rhs Scalar) bool {
+func (n *Boolean) Equals(rhs arrow.Scalar) bool {
 	return n.Value == rhs.(*Boolean).Value
 }
 
-func (s *Boolean) value() interface{} { return s.Value }
+func (s *Boolean) ValueInterface() interface{} { return s.Value }
 
 func (s *Boolean) Data() []byte {
 	return (*[1]byte)(unsafe.Pointer(&s.Value))[:]
@@ -172,7 +147,7 @@ func (s *Boolean) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *Boolean) CastTo(dt arrow.DataType) (Scalar, error) {
+func (s *Boolean) CastTo(dt arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(dt), nil
 	}
@@ -223,15 +198,15 @@ type Float16 struct {
 	Value float16.Num
 }
 
-func (s *Float16) value() interface{} { return s.Value }
+func (s *Float16) ValueInterface() interface{} { return s.Value }
 
 func (f *Float16) Data() []byte {
 	return (*[arrow.Float16SizeBytes]byte)(unsafe.Pointer(&f.Value))[:]
 }
-func (f *Float16) equals(rhs Scalar) bool {
+func (f *Float16) Equals(rhs arrow.Scalar) bool {
 	return f.Value == rhs.(*Float16).Value
 }
-func (f *Float16) CastTo(to arrow.DataType) (Scalar, error) {
+func (f *Float16) CastTo(to arrow.DataType) (arrow.Scalar, error) {
 	if !f.Valid {
 		return MakeNullScalar(to), nil
 	}
@@ -277,7 +252,7 @@ func (s *Decimal128) Data() []byte {
 	return (*[arrow.Decimal128SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
-func (s *Decimal128) value() interface{} { return s.Value }
+func (s *Decimal128) ValueInterface() interface{} { return s.Value }
 
 func (s *Decimal128) String() string {
 	if !s.Valid {
@@ -290,11 +265,11 @@ func (s *Decimal128) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *Decimal128) equals(rhs Scalar) bool {
+func (s *Decimal128) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Decimal128).Value
 }
 
-func (s *Decimal128) CastTo(to arrow.DataType) (Scalar, error) {
+func (s *Decimal128) CastTo(to arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(to), nil
 	}
@@ -345,7 +320,7 @@ func (s *Decimal256) Data() []byte {
 	return (*[arrow.Decimal256SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
-func (s *Decimal256) value() interface{} { return s.Value }
+func (s *Decimal256) ValueInterface() interface{} { return s.Value }
 
 func (s *Decimal256) String() string {
 	if !s.Valid {
@@ -358,11 +333,11 @@ func (s *Decimal256) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *Decimal256) equals(rhs Scalar) bool {
+func (s *Decimal256) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Decimal256).Value
 }
 
-func (s *Decimal256) CastTo(to arrow.DataType) (Scalar, error) {
+func (s *Decimal256) CastTo(to arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(to), nil
 	}
@@ -395,11 +370,11 @@ func NewDecimal256Scalar(val decimal256.Num, typ arrow.DataType) *Decimal256 {
 
 type Extension struct {
 	scalar
-	Value Scalar
+	Value arrow.Scalar
 }
 
-func (s *Extension) value() interface{} { return s.Value }
-func (s *Extension) equals(rhs Scalar) bool {
+func (s *Extension) ValueInterface() interface{} { return s.Value }
+func (s *Extension) Equals(rhs arrow.Scalar) bool {
 	return Equals(s.Value, rhs.(*Extension).Value)
 }
 func (e *Extension) Validate() (err error) {
@@ -438,7 +413,7 @@ func (e *Extension) ValidateFull() error {
 	return nil
 }
 
-func (s *Extension) CastTo(to arrow.DataType) (Scalar, error) {
+func (s *Extension) CastTo(to arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(to), nil
 	}
@@ -461,93 +436,93 @@ func (s *Extension) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func NewExtensionScalar(storage Scalar, typ arrow.DataType) *Extension {
+func NewExtensionScalar(storage arrow.Scalar, typ arrow.DataType) *Extension {
 	return &Extension{scalar{typ, true}, storage}
 }
 
-func convertToNumeric(v reflect.Value, to reflect.Type, fn reflect.Value) Scalar {
-	return fn.Call([]reflect.Value{v.Convert(to)})[0].Interface().(Scalar)
+func convertToNumeric(v reflect.Value, to reflect.Type, fn reflect.Value) arrow.Scalar {
+	return fn.Call([]reflect.Value{v.Convert(to)})[0].Interface().(arrow.Scalar)
 }
 
 // MakeNullScalar creates a scalar value of the desired type representing a null value
-func MakeNullScalar(dt arrow.DataType) Scalar {
+func MakeNullScalar(dt arrow.DataType) arrow.Scalar {
 	return makeNullFn[byte(dt.ID()&0x3f)](dt)
 }
 
-func invalidScalarType(dt arrow.DataType) Scalar {
+func invalidScalarType(dt arrow.DataType) arrow.Scalar {
 	panic("invalid scalar type: " + dt.ID().String())
 }
 
-type scalarMakeNullFn func(arrow.DataType) Scalar
+type scalarMakeNullFn func(arrow.DataType) arrow.Scalar
 
 var makeNullFn [64]scalarMakeNullFn
 
 func init() {
 	makeNullFn = [...]scalarMakeNullFn{
-		arrow.NULL:                    func(dt arrow.DataType) Scalar { return ScalarNull },
-		arrow.BOOL:                    func(dt arrow.DataType) Scalar { return &Boolean{scalar: scalar{dt, false}} },
-		arrow.UINT8:                   func(dt arrow.DataType) Scalar { return &Uint8{scalar: scalar{dt, false}} },
-		arrow.INT8:                    func(dt arrow.DataType) Scalar { return &Int8{scalar: scalar{dt, false}} },
-		arrow.UINT16:                  func(dt arrow.DataType) Scalar { return &Uint16{scalar: scalar{dt, false}} },
-		arrow.INT16:                   func(dt arrow.DataType) Scalar { return &Int16{scalar: scalar{dt, false}} },
-		arrow.UINT32:                  func(dt arrow.DataType) Scalar { return &Uint32{scalar: scalar{dt, false}} },
-		arrow.INT32:                   func(dt arrow.DataType) Scalar { return &Int32{scalar: scalar{dt, false}} },
-		arrow.UINT64:                  func(dt arrow.DataType) Scalar { return &Uint64{scalar: scalar{dt, false}} },
-		arrow.INT64:                   func(dt arrow.DataType) Scalar { return &Int64{scalar: scalar{dt, false}} },
-		arrow.FLOAT16:                 func(dt arrow.DataType) Scalar { return &Float16{scalar: scalar{dt, false}} },
-		arrow.FLOAT32:                 func(dt arrow.DataType) Scalar { return &Float32{scalar: scalar{dt, false}} },
-		arrow.FLOAT64:                 func(dt arrow.DataType) Scalar { return &Float64{scalar: scalar{dt, false}} },
-		arrow.STRING:                  func(dt arrow.DataType) Scalar { return &String{&Binary{scalar: scalar{dt, false}}} },
-		arrow.BINARY:                  func(dt arrow.DataType) Scalar { return &Binary{scalar: scalar{dt, false}} },
-		arrow.FIXED_SIZE_BINARY:       func(dt arrow.DataType) Scalar { return &FixedSizeBinary{&Binary{scalar: scalar{dt, false}}} },
-		arrow.DATE32:                  func(dt arrow.DataType) Scalar { return &Date32{scalar: scalar{dt, false}} },
-		arrow.DATE64:                  func(dt arrow.DataType) Scalar { return &Date64{scalar: scalar{dt, false}} },
-		arrow.TIMESTAMP:               func(dt arrow.DataType) Scalar { return &Timestamp{scalar: scalar{dt, false}} },
-		arrow.TIME32:                  func(dt arrow.DataType) Scalar { return &Time32{scalar: scalar{dt, false}} },
-		arrow.TIME64:                  func(dt arrow.DataType) Scalar { return &Time64{scalar: scalar{dt, false}} },
-		arrow.INTERVAL_MONTHS:         func(dt arrow.DataType) Scalar { return &MonthInterval{scalar: scalar{dt, false}} },
-		arrow.INTERVAL_DAY_TIME:       func(dt arrow.DataType) Scalar { return &DayTimeInterval{scalar: scalar{dt, false}} },
-		arrow.INTERVAL_MONTH_DAY_NANO: func(dt arrow.DataType) Scalar { return &MonthDayNanoInterval{scalar: scalar{dt, false}} },
-		arrow.DECIMAL128:              func(dt arrow.DataType) Scalar { return &Decimal128{scalar: scalar{dt, false}} },
-		arrow.LIST:                    func(dt arrow.DataType) Scalar { return &List{scalar: scalar{dt, false}} },
-		arrow.STRUCT: func(dt arrow.DataType) Scalar {
+		arrow.NULL:                    func(dt arrow.DataType) arrow.Scalar { return ScalarNull },
+		arrow.BOOL:                    func(dt arrow.DataType) arrow.Scalar { return &Boolean{scalar: scalar{dt, false}} },
+		arrow.UINT8:                   func(dt arrow.DataType) arrow.Scalar { return &Uint8{scalar: scalar{dt, false}} },
+		arrow.INT8:                    func(dt arrow.DataType) arrow.Scalar { return &Int8{scalar: scalar{dt, false}} },
+		arrow.UINT16:                  func(dt arrow.DataType) arrow.Scalar { return &Uint16{scalar: scalar{dt, false}} },
+		arrow.INT16:                   func(dt arrow.DataType) arrow.Scalar { return &Int16{scalar: scalar{dt, false}} },
+		arrow.UINT32:                  func(dt arrow.DataType) arrow.Scalar { return &Uint32{scalar: scalar{dt, false}} },
+		arrow.INT32:                   func(dt arrow.DataType) arrow.Scalar { return &Int32{scalar: scalar{dt, false}} },
+		arrow.UINT64:                  func(dt arrow.DataType) arrow.Scalar { return &Uint64{scalar: scalar{dt, false}} },
+		arrow.INT64:                   func(dt arrow.DataType) arrow.Scalar { return &Int64{scalar: scalar{dt, false}} },
+		arrow.FLOAT16:                 func(dt arrow.DataType) arrow.Scalar { return &Float16{scalar: scalar{dt, false}} },
+		arrow.FLOAT32:                 func(dt arrow.DataType) arrow.Scalar { return &Float32{scalar: scalar{dt, false}} },
+		arrow.FLOAT64:                 func(dt arrow.DataType) arrow.Scalar { return &Float64{scalar: scalar{dt, false}} },
+		arrow.STRING:                  func(dt arrow.DataType) arrow.Scalar { return &String{&Binary{scalar: scalar{dt, false}}} },
+		arrow.BINARY:                  func(dt arrow.DataType) arrow.Scalar { return &Binary{scalar: scalar{dt, false}} },
+		arrow.FIXED_SIZE_BINARY:       func(dt arrow.DataType) arrow.Scalar { return &FixedSizeBinary{&Binary{scalar: scalar{dt, false}}} },
+		arrow.DATE32:                  func(dt arrow.DataType) arrow.Scalar { return &Date32{scalar: scalar{dt, false}} },
+		arrow.DATE64:                  func(dt arrow.DataType) arrow.Scalar { return &Date64{scalar: scalar{dt, false}} },
+		arrow.TIMESTAMP:               func(dt arrow.DataType) arrow.Scalar { return &Timestamp{scalar: scalar{dt, false}} },
+		arrow.TIME32:                  func(dt arrow.DataType) arrow.Scalar { return &Time32{scalar: scalar{dt, false}} },
+		arrow.TIME64:                  func(dt arrow.DataType) arrow.Scalar { return &Time64{scalar: scalar{dt, false}} },
+		arrow.INTERVAL_MONTHS:         func(dt arrow.DataType) arrow.Scalar { return &MonthInterval{scalar: scalar{dt, false}} },
+		arrow.INTERVAL_DAY_TIME:       func(dt arrow.DataType) arrow.Scalar { return &DayTimeInterval{scalar: scalar{dt, false}} },
+		arrow.INTERVAL_MONTH_DAY_NANO: func(dt arrow.DataType) arrow.Scalar { return &MonthDayNanoInterval{scalar: scalar{dt, false}} },
+		arrow.DECIMAL128:              func(dt arrow.DataType) arrow.Scalar { return &Decimal128{scalar: scalar{dt, false}} },
+		arrow.LIST:                    func(dt arrow.DataType) arrow.Scalar { return &List{scalar: scalar{dt, false}} },
+		arrow.STRUCT: func(dt arrow.DataType) arrow.Scalar {
 			typ := dt.(*arrow.StructType)
-			values := make([]Scalar, len(typ.Fields()))
+			values := make([]arrow.Scalar, len(typ.Fields()))
 			for i, f := range typ.Fields() {
 				values[i] = MakeNullScalar(f.Type)
 			}
 			return &Struct{scalar: scalar{dt, false}, Value: values}
 		},
-		arrow.SPARSE_UNION: func(dt arrow.DataType) Scalar {
+		arrow.SPARSE_UNION: func(dt arrow.DataType) arrow.Scalar {
 			typ := dt.(*arrow.SparseUnionType)
 			if len(typ.Fields()) == 0 {
 				panic("cannot make scalar of empty union type")
 			}
-			values := make([]Scalar, len(typ.Fields()))
+			values := make([]arrow.Scalar, len(typ.Fields()))
 			for i, f := range typ.Fields() {
 				values[i] = MakeNullScalar(f.Type)
 			}
 			return NewSparseUnionScalar(values, typ.TypeCodes()[0], typ)
 		},
-		arrow.DENSE_UNION: func(dt arrow.DataType) Scalar {
+		arrow.DENSE_UNION: func(dt arrow.DataType) arrow.Scalar {
 			typ := dt.(*arrow.DenseUnionType)
 			if len(typ.Fields()) == 0 {
 				panic("cannot make scalar of empty union type")
 			}
 			return NewDenseUnionScalar(MakeNullScalar(typ.Fields()[0].Type), typ.TypeCodes()[0], typ)
 		},
-		arrow.DICTIONARY:   func(dt arrow.DataType) Scalar { return NewNullDictScalar(dt) },
-		arrow.LARGE_STRING: func(dt arrow.DataType) Scalar { return &LargeString{&String{&Binary{scalar: scalar{dt, false}}}} },
-		arrow.LARGE_BINARY: func(dt arrow.DataType) Scalar { return &LargeBinary{&Binary{scalar: scalar{dt, false}}} },
-		arrow.LARGE_LIST:   func(dt arrow.DataType) Scalar { return &LargeList{&List{scalar: scalar{dt, false}}} },
-		arrow.DECIMAL256:   func(dt arrow.DataType) Scalar { return &Decimal256{scalar: scalar{dt, false}} },
-		arrow.MAP:          func(dt arrow.DataType) Scalar { return &Map{&List{scalar: scalar{dt, false}}} },
-		arrow.EXTENSION: func(dt arrow.DataType) Scalar {
+		arrow.DICTIONARY:   func(dt arrow.DataType) arrow.Scalar { return NewNullDictScalar(dt) },
+		arrow.LARGE_STRING: func(dt arrow.DataType) arrow.Scalar { return &LargeString{&String{&Binary{scalar: scalar{dt, false}}}} },
+		arrow.LARGE_BINARY: func(dt arrow.DataType) arrow.Scalar { return &LargeBinary{&Binary{scalar: scalar{dt, false}}} },
+		arrow.LARGE_LIST:   func(dt arrow.DataType) arrow.Scalar { return &LargeList{&List{scalar: scalar{dt, false}}} },
+		arrow.DECIMAL256:   func(dt arrow.DataType) arrow.Scalar { return &Decimal256{scalar: scalar{dt, false}} },
+		arrow.MAP:          func(dt arrow.DataType) arrow.Scalar { return &Map{&List{scalar: scalar{dt, false}}} },
+		arrow.EXTENSION: func(dt arrow.DataType) arrow.Scalar {
 			return &Extension{scalar: scalar{dt, false}, Value: MakeNullScalar(dt.(arrow.ExtensionType).StorageType())}
 		},
-		arrow.FIXED_SIZE_LIST: func(dt arrow.DataType) Scalar { return &FixedSizeList{&List{scalar: scalar{dt, false}}} },
-		arrow.DURATION:        func(dt arrow.DataType) Scalar { return &Duration{scalar: scalar{dt, false}} },
-		arrow.RUN_END_ENCODED: func(dt arrow.DataType) Scalar { return &RunEndEncoded{scalar: scalar{dt, false}} },
+		arrow.FIXED_SIZE_LIST: func(dt arrow.DataType) arrow.Scalar { return &FixedSizeList{&List{scalar: scalar{dt, false}}} },
+		arrow.DURATION:        func(dt arrow.DataType) arrow.Scalar { return &Duration{scalar: scalar{dt, false}} },
+		arrow.RUN_END_ENCODED: func(dt arrow.DataType) arrow.Scalar { return &RunEndEncoded{scalar: scalar{dt, false}} },
 		// invalid data types to fill out array size 2^6 - 1
 		63: invalidScalarType,
 	}
@@ -560,7 +535,7 @@ func init() {
 
 // GetScalar creates a scalar object from the value at a given index in the
 // passed in array, returns an error if unable to do so.
-func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
+func GetScalar(arr arrow.Array, idx int) (arrow.Scalar, error) {
 	if arr.DataType().ID() != arrow.DICTIONARY && arr.IsNull(idx) {
 		return MakeNullScalar(arr.DataType()), nil
 	}
@@ -700,7 +675,7 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 	case *array.SparseUnion:
 		var err error
 		typeCode := arr.TypeCode(idx)
-		children := make([]Scalar, arr.NumFields())
+		children := make([]arrow.Scalar, arr.NumFields())
 		defer func() {
 			if err != nil {
 				for _, c := range children {
@@ -774,7 +749,7 @@ func MakeArrayOfNull(dt arrow.DataType, length int, mem memory.Allocator) arrow.
 
 // MakeArrayFromScalar returns an array filled with the scalar value repeated length times.
 // Not yet implemented for nested types such as Struct, List, extension and so on.
-func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (arrow.Array, error) {
+func MakeArrayFromScalar(sc arrow.Scalar, length int, mem memory.Allocator) (arrow.Array, error) {
 	if !sc.IsValid() {
 		return MakeArrayOfNull(sc.DataType(), length, mem), nil
 	}
@@ -968,7 +943,7 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (arrow.Arr
 	}
 }
 
-func Hash(seed maphash.Seed, s Scalar) uint64 {
+func Hash(seed maphash.Seed, s arrow.Scalar) uint64 {
 	var h maphash.Hash
 	h.SetSeed(seed)
 	binary.Write(&h, endian.Native, arrow.HashType(seed, s.DataType()))
@@ -1048,7 +1023,7 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 		h.Write(s.Data())
 		hash()
 	case TemporalScalar:
-		return valueHash(s.value())
+		return valueHash(s.ValueInterface())
 	case ListScalar:
 		array.Hash(&h, s.GetList().Data())
 		hash()

@@ -207,7 +207,7 @@ func bitwiseKernelOp(op BitwiseOp) exec.ArrayKernelExec {
 		return nil
 	}
 
-	arrayScalar := func(arr *exec.ArraySpan, sc scalar.Scalar, out *exec.ExecResult) error {
+	arrayScalar := func(arr *exec.ArraySpan, sc arrow.Scalar, out *exec.ExecResult) error {
 		if !sc.IsValid() {
 			// no work to be done, everything is null
 			return nil

@@ -26,7 +26,7 @@ import (
 )
 
 type BinaryScalar interface {
-	Scalar
+	arrow.Scalar
 
 	Retain()
 	Release()
@@ -52,9 +52,9 @@ func (b *Binary) Release() {
 	}
 }
 
-func (b *Binary) value() interface{} { return b.Value }
+func (b *Binary) ValueInterface() interface{} { return b.Value }
 func (b *Binary) Data() []byte       { return b.Value.Bytes() }
-func (b *Binary) equals(rhs Scalar) bool {
+func (b *Binary) Equals(rhs arrow.Scalar) bool {
 	return bytes.Equal(b.Value.Bytes(), rhs.(BinaryScalar).Data())
 }
 func (b *Binary) Buffer() *memory.Buffer { return b.Value }
@@ -66,7 +66,7 @@ func (b *Binary) String() string {
 	return string(b.Value.Bytes())
 }
 
-func (b *Binary) CastTo(to arrow.DataType) (Scalar, error) {
+func (b *Binary) CastTo(to arrow.DataType) (arrow.Scalar, error) {
 	if !b.Valid {
 		return MakeNullScalar(to), nil
 	}
@@ -132,7 +132,7 @@ func (s *String) ValidateFull() (err error) {
 	return
 }
 
-func (s *String) CastTo(to arrow.DataType) (Scalar, error) {
+func (s *String) CastTo(to arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(to), nil
 	}

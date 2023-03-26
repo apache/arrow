@@ -100,7 +100,7 @@ func (EmptyDatum) data() any { return nil }
 
 // ScalarDatum contains a scalar value
 type ScalarDatum struct {
-	Value scalar.Scalar
+	Value arrow.Scalar
 }
 
 func (ScalarDatum) Kind() DatumKind         { return KindScalar }
@@ -108,7 +108,7 @@ func (ScalarDatum) Len() int64              { return 1 }
 func (ScalarDatum) Chunks() []arrow.Array   { return nil }
 func (d *ScalarDatum) Type() arrow.DataType { return d.Value.DataType() }
 func (d *ScalarDatum) String() string       { return d.Value.String() }
-func (d *ScalarDatum) ToScalar() (scalar.Scalar, error) {
+func (d *ScalarDatum) ToScalar() (arrow.Scalar, error) {
 	return d.Value, nil
 }
 func (d *ScalarDatum) data() any { return d.Value }
@@ -149,7 +149,7 @@ func (d *ArrayDatum) NullN() int64           { return int64(d.Value.NullN()) }
 func (d *ArrayDatum) String() string         { return fmt.Sprintf("Array:{%s}", d.Value.DataType()) }
 func (d *ArrayDatum) MakeArray() arrow.Array { return array.MakeFromData(d.Value) }
 func (d *ArrayDatum) Chunks() []arrow.Array  { return []arrow.Array{d.MakeArray()} }
-func (d *ArrayDatum) ToScalar() (scalar.Scalar, error) {
+func (d *ArrayDatum) ToScalar() (arrow.Scalar, error) {
 	return scalar.NewListScalarData(d.Value), nil
 }
 func (d *ArrayDatum) Release() {
@@ -248,7 +248,7 @@ func (d *TableDatum) Equals(other Datum) bool {
 // An array.Chunked gets a ChunkedDatum
 // An array.Record gets a RecordDatum
 // an array.Table gets a TableDatum
-// a scalar.Scalar gets a ScalarDatum
+// a arrow.Scalar gets a ScalarDatum
 //
 // Anything else is passed to scalar.MakeScalar and recieves a scalar
 // datum of that appropriate type.
@@ -262,7 +262,7 @@ func NewDatum(value interface{}) Datum {
 	case scalar.Releasable:
 		v.Retain()
 		return NewDatumWithoutOwning(v)
-	case scalar.Scalar:
+	case arrow.Scalar:
 		return &ScalarDatum{v}
 	default:
 		return &ScalarDatum{scalar.MakeScalar(value)}
@@ -289,7 +289,7 @@ func NewDatumWithoutOwning(value interface{}) Datum {
 		return &RecordDatum{v}
 	case arrow.Table:
 		return &TableDatum{v}
-	case scalar.Scalar:
+	case arrow.Scalar:
 		return &ScalarDatum{v}
 	default:
 		return &ScalarDatum{scalar.MakeScalar(value)}

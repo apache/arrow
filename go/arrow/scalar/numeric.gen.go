@@ -38,11 +38,11 @@ func (s *Int8) Data() []byte {
 	return (*[arrow.Int8SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
-func (s *Int8) equals(rhs Scalar) bool {
+func (s *Int8) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Int8).Value
 }
 
-func (s *Int8) value() interface{} {
+func (s *Int8) ValueInterface() interface{} {
 	return s.Value
 }
 
@@ -57,7 +57,7 @@ func (s *Int8) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *Int8) CastTo(dt arrow.DataType) (Scalar, error) {
+func (s *Int8) CastTo(dt arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(dt), nil
 	}
@@ -108,11 +108,11 @@ func (s *Int16) Data() []byte {
 	return (*[arrow.Int16SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
-func (s *Int16) equals(rhs Scalar) bool {
+func (s *Int16) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Int16).Value
 }
 
-func (s *Int16) value() interface{} {
+func (s *Int16) ValueInterface() interface{} {
 	return s.Value
 }
 
@@ -127,7 +127,7 @@ func (s *Int16) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *Int16) CastTo(dt arrow.DataType) (Scalar, error) {
+func (s *Int16) CastTo(dt arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(dt), nil
 	}
@@ -178,11 +178,11 @@ func (s *Int32) Data() []byte {
 	return (*[arrow.Int32SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
-func (s *Int32) equals(rhs Scalar) bool {
+func (s *Int32) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Int32).Value
 }
 
-func (s *Int32) value() interface{} {
+func (s *Int32) ValueInterface() interface{} {
 	return s.Value
 }
 
@@ -197,7 +197,7 @@ func (s *Int32) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *Int32) CastTo(dt arrow.DataType) (Scalar, error) {
+func (s *Int32) CastTo(dt arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(dt), nil
 	}
@@ -248,11 +248,11 @@ func (s *Int64) Data() []byte {
 	return (*[arrow.Int64SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
-func (s *Int64) equals(rhs Scalar) bool {
+func (s *Int64) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Int64).Value
 }
 
-func (s *Int64) value() interface{} {
+func (s *Int64) ValueInterface() interface{} {
 	return s.Value
 }
 
@@ -267,7 +267,7 @@ func (s *Int64) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *Int64) CastTo(dt arrow.DataType) (Scalar, error) {
+func (s *Int64) CastTo(dt arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(dt), nil
 	}
@@ -318,11 +318,11 @@ func (s *Uint8) Data() []byte {
 	return (*[arrow.Uint8SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
-func (s *Uint8) equals(rhs Scalar) bool {
+func (s *Uint8) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Uint8).Value
 }
 
-func (s *Uint8) value() interface{} {
+func (s *Uint8) ValueInterface() interface{} {
 	return s.Value
 }
 
@@ -337,7 +337,7 @@ func (s *Uint8) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *Uint8) CastTo(dt arrow.DataType) (Scalar, error) {
+func (s *Uint8) CastTo(dt arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(dt), nil
 	}
@@ -388,11 +388,11 @@ func (s *Uint16) Data() []byte {
 	return (*[arrow.Uint16SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
-func (s *Uint16) equals(rhs Scalar) bool {
+func (s *Uint16) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Uint16).Value
 }
 
-func (s *Uint16) value() interface{} {
+func (s *Uint16) ValueInterface() interface{} {
 	return s.Value
 }
 
@@ -407,7 +407,7 @@ func (s *Uint16) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *Uint16) CastTo(dt arrow.DataType) (Scalar, error) {
+func (s *Uint16) CastTo(dt arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(dt), nil
 	}
@@ -458,11 +458,11 @@ func (s *Uint32) Data() []byte {
 	return (*[arrow.Uint32SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
-func (s *Uint32) equals(rhs Scalar) bool {
+func (s *Uint32) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Uint32).Value
 }
 
-func (s *Uint32) value() interface{} {
+func (s *Uint32) ValueInterface() interface{} {
 	return s.Value
 }
 
@@ -477,7 +477,7 @@ func (s *Uint32) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *Uint32) CastTo(dt arrow.DataType) (Scalar, error) {
+func (s *Uint32) CastTo(dt arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(dt), nil
 	}
@@ -528,11 +528,11 @@ func (s *Uint64) Data() []byte {
 	return (*[arrow.Uint64SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
-func (s *Uint64) equals(rhs Scalar) bool {
+func (s *Uint64) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Uint64).Value
 }
 
-func (s *Uint64) value() interface{} {
+func (s *Uint64) ValueInterface() interface{} {
 	return s.Value
 }
 
@@ -547,7 +547,7 @@ func (s *Uint64) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *Uint64) CastTo(dt arrow.DataType) (Scalar, error) {
+func (s *Uint64) CastTo(dt arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(dt), nil
 	}
@@ -598,11 +598,11 @@ func (s *Float32) Data() []byte {
 	return (*[arrow.Float32SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
-func (s *Float32) equals(rhs Scalar) bool {
+func (s *Float32) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Float32).Value
 }
 
-func (s *Float32) approxEquals(rhs Scalar, eq equalOption) bool {
+func (s *Float32) approxEquals(rhs arrow.Scalar, eq equalOption) bool {
 	v1 := float64(s.Value)
 	v2 := float64(rhs.(*Float32).Value)
 	switch {
@@ -613,7 +613,7 @@ func (s *Float32) approxEquals(rhs Scalar, eq equalOption) bool {
 	}
 }
 
-func (s *Float32) value() interface{} {
+func (s *Float32) ValueInterface() interface{} {
 	return s.Value
 }
 
@@ -628,7 +628,7 @@ func (s *Float32) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *Float32) CastTo(dt arrow.DataType) (Scalar, error) {
+func (s *Float32) CastTo(dt arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(dt), nil
 	}
@@ -687,11 +687,11 @@ func (s *Float64) Data() []byte {
 	return (*[arrow.Float64SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
-func (s *Float64) equals(rhs Scalar) bool {
+func (s *Float64) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Float64).Value
 }
 
-func (s *Float64) approxEquals(rhs Scalar, eq equalOption) bool {
+func (s *Float64) approxEquals(rhs arrow.Scalar, eq equalOption) bool {
 	v1 := float64(s.Value)
 	v2 := float64(rhs.(*Float64).Value)
 	switch {
@@ -702,7 +702,7 @@ func (s *Float64) approxEquals(rhs Scalar, eq equalOption) bool {
 	}
 }
 
-func (s *Float64) value() interface{} {
+func (s *Float64) ValueInterface() interface{} {
 	return s.Value
 }
 
@@ -717,7 +717,7 @@ func (s *Float64) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *Float64) CastTo(dt arrow.DataType) (Scalar, error) {
+func (s *Float64) CastTo(dt arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(dt), nil
 	}
@@ -784,14 +784,14 @@ var numericMap = map[arrow.Type]struct {
 }
 
 var (
-	_ Scalar = (*Int8)(nil)
-	_ Scalar = (*Int16)(nil)
-	_ Scalar = (*Int32)(nil)
-	_ Scalar = (*Int64)(nil)
-	_ Scalar = (*Uint8)(nil)
-	_ Scalar = (*Uint16)(nil)
-	_ Scalar = (*Uint32)(nil)
-	_ Scalar = (*Uint64)(nil)
-	_ Scalar = (*Float32)(nil)
-	_ Scalar = (*Float64)(nil)
+	_ arrow.Scalar = (*Int8)(nil)
+	_ arrow.Scalar = (*Int16)(nil)
+	_ arrow.Scalar = (*Int32)(nil)
+	_ arrow.Scalar = (*Int64)(nil)
+	_ arrow.Scalar = (*Uint8)(nil)
+	_ arrow.Scalar = (*Uint16)(nil)
+	_ arrow.Scalar = (*Uint32)(nil)
+	_ arrow.Scalar = (*Uint64)(nil)
+	_ arrow.Scalar = (*Float32)(nil)
+	_ arrow.Scalar = (*Float64)(nil)
 )

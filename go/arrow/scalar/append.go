@@ -46,17 +46,17 @@ type binaryBuilder interface {
 	ReserveData(int)
 }
 
-func appendPrimitive[T primitives, B builder[T]](bldr B, scalars []Scalar) {
+func appendPrimitive[T primitives, B builder[T]](bldr B, scalars []arrow.Scalar) {
 	for _, sc := range scalars {
 		if sc.IsValid() {
-			bldr.UnsafeAppend(sc.value().(T))
+			bldr.UnsafeAppend(sc.ValueInterface().(T))
 		} else {
 			bldr.UnsafeAppendBoolToBitmap(false)
 		}
 	}
 }
 
-func appendBinary(bldr binaryBuilder, scalars []Scalar) {
+func appendBinary(bldr binaryBuilder, scalars []arrow.Scalar) {
 	var dataSize int
 	for _, s := range scalars {
 		s := s.(BinaryScalar)
@@ -81,8 +81,8 @@ func appendBinary(bldr binaryBuilder, scalars []Scalar) {
 // the type hasn't been implemented for this.
 //
 // NOTE only available in go1.18+
-func Append(bldr array.Builder, s Scalar) error {
-	return AppendSlice(bldr, []Scalar{s})
+func Append(bldr array.Builder, s arrow.Scalar) error {
+	return AppendSlice(bldr, []arrow.Scalar{s})
 }
 
 // AppendSlice requires the passed in builder and all scalars in the slice
@@ -90,7 +90,7 @@ func Append(bldr array.Builder, s Scalar) error {
 // arrow.ErrNotImplemented if the type hasn't been implemented for this.
 //
 // NOTE only available in go1.18+
-func AppendSlice(bldr array.Builder, scalars []Scalar) error {
+func AppendSlice(bldr array.Builder, scalars []arrow.Scalar) error {
 	if len(scalars) == 0 {
 		return nil
 	}

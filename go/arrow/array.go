@@ -23,6 +23,31 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
+// Scalar represents a single value of a specific DataType as opposed to
+// an array.
+//
+// Scalars are useful for passing single value inputs to compute functions
+// (not yet implemented) or for representing individual array elements,
+// (with a non-trivial cost though).
+type Scalar interface {
+	fmt.Stringer
+	// IsValid returns true if the value is non-null, otherwise false.
+	IsValid() bool
+	// The datatype of the value in this scalar
+	DataType() DataType
+	// Performs cheap validation checks, returns nil if successful
+	Validate() error
+	// Perform more expensive validation checks, returns nil if successful
+	ValidateFull() error
+	// Cast the value to the desired DataType (returns an error if unable to do so)
+	// should take semantics into account and modify the value accordingly.
+	CastTo(DataType) (Scalar, error)
+
+	// internal only functions for delegation
+	ValueInterface() interface{}
+	Equals(Scalar) bool
+}
+
 // ArrayData is the underlying memory and metadata of an Arrow array, corresponding
 // to the same-named object in the C++ implementation.
 //
@@ -105,6 +130,9 @@ type Array interface {
 	// IsValid returns true if value at index is not null.
 	// NOTE: IsValid will panic if NullBitmapBytes is not empty and 0 > i ≥ Len.
 	IsValid(i int) bool
+	
+	// GetScalar returns the scalar value at index i.
+	// GetScalar(i int) Scalar
 
 	Data() ArrayData
 

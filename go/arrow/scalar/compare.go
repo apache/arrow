@@ -20,7 +20,7 @@ import "github.com/apache/arrow/go/v12/arrow"
 
 // Equals returns true if two scalars are equal, which means they have the same
 // datatype, validity and value.
-func Equals(left, right Scalar) bool {
+func Equals(left, right arrow.Scalar) bool {
 	if left == right {
 		return true
 	}
@@ -37,7 +37,7 @@ func Equals(left, right Scalar) bool {
 		return true
 	}
 
-	return left.equals(right)
+	return left.Equals(right)
 }
 
 type equalOption struct {
@@ -66,10 +66,10 @@ func WithAbsTolerance(atol float64) EqualOption {
 const defaultAbsoluteTolerance = 1e-5
 
 type approxEqualScalar interface {
-	approxEquals(Scalar, equalOption) bool
+	approxEquals(arrow.Scalar, equalOption) bool
 }
 
-func ApproxEquals(left, right Scalar, opts ...EqualOption) bool {
+func ApproxEquals(left, right arrow.Scalar, opts ...EqualOption) bool {
 	eq := equalOption{
 		atol:   defaultAbsoluteTolerance,
 		nansEq: false,
@@ -93,5 +93,5 @@ func ApproxEquals(left, right Scalar, opts ...EqualOption) bool {
 		return approx.approxEquals(right, eq)
 	}
 
-	return left.equals(right)
+	return left.Equals(right)
 }

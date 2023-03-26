@@ -702,7 +702,7 @@ func SerializeExpr(expr Expression, mem memory.Allocator) (*memory.Buffer, error
 		visit     func(Expression) error
 	)
 
-	addScalar := func(s scalar.Scalar) (string, error) {
+	addScalar := func(s arrow.Scalar) (string, error) {
 		ret := len(cols)
 		arr, err := scalar.MakeArrayFromScalar(s, 1, mem)
 		if err != nil {
@@ -816,7 +816,7 @@ func DeserializeExpr(mem memory.Allocator, buf *memory.Buffer) (Expression, erro
 		metadata     = batch.Schema().Metadata()
 	)
 
-	getscalar := func(i string) (scalar.Scalar, error) {
+	getscalar := func(i string) (arrow.Scalar, error) {
 		colIndex, err := strconv.ParseInt(i, 10, 32)
 		if err != nil {
 			return nil, err

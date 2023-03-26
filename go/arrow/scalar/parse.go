@@ -34,7 +34,7 @@ import (
 )
 
 type TypeToScalar interface {
-	ToScalar() (Scalar, error)
+	ToScalar() (arrow.Scalar, error)
 }
 
 type TypeFromScalar interface {
@@ -84,7 +84,7 @@ func FromScalar(sc *Struct, val interface{}) error {
 	return nil
 }
 
-func setFromScalar(s Scalar, v reflect.Value) error {
+func setFromScalar(s arrow.Scalar, v reflect.Value) error {
 	if v.Type() == dataTypeType {
 		v.Set(reflect.ValueOf(s.DataType()))
 		return nil
@@ -92,7 +92,7 @@ func setFromScalar(s Scalar, v reflect.Value) error {
 
 	switch s := s.(type) {
 	case BinaryScalar:
-		value := s.value().(*memory.Buffer)
+		value := s.ValueInterface().(*memory.Buffer)
 		switch v.Kind() {
 		case reflect.String:
 			if value == nil {
@@ -113,15 +113,15 @@ func setFromScalar(s Scalar, v reflect.Value) error {
 		return FromScalar(s, v.Interface())
 	default:
 		if v.Type() == reflect.TypeOf(arrow.TimeUnit(0)) {
-			v.Set(reflect.ValueOf(arrow.TimeUnit(s.value().(uint32))))
+			v.Set(reflect.ValueOf(arrow.TimeUnit(s.ValueInterface().(uint32))))
 		} else {
-			v.Set(reflect.ValueOf(s.value()))
+			v.Set(reflect.ValueOf(s.ValueInterface()))
 		}
 	}
 	return nil
 }
 
-func ToScalar(val interface{}, mem memory.Allocator) (Scalar, error) {
+func ToScalar(val interface{}, mem memory.Allocator) (arrow.Scalar, error) {
 	switch v := val.(type) {
 	case arrow.DataType:
 		return MakeScalar(v), nil
@@ -132,7 +132,7 @@ func ToScalar(val interface{}, mem memory.Allocator) (Scalar, error) {
 	v := reflect.Indirect(reflect.ValueOf(val))
 	switch v.Kind() {
 	case reflect.Struct:
-		scalars := make([]Scalar, 0, v.Type().NumField())
+		scalars := make([]arrow.Scalar, 0, v.Type().NumField())
 		fields := make([]string, 0, v.Type().NumField())
 		for i := 0; i < v.Type().NumField(); i++ {
 			fld := v.Type().Field(i)
@@ -164,7 +164,7 @@ func ToScalar(val interface{}, mem memory.Allocator) (Scalar, error) {
 	}
 }
 
-func createListScalar(sliceval reflect.Value, mem memory.Allocator) (Scalar, error) {
+func createListScalar(sliceval reflect.Value, mem memory.Allocator) (arrow.Scalar, error) {
 	if sliceval.Kind() != reflect.Slice {
 		return nil, fmt.Errorf("createListScalar only works for slices, not %s", sliceval.Kind())
 	}
@@ -369,7 +369,7 @@ func fromListScalar(s ListScalar, v reflect.Value) error {
 //
 // Will fall back to MakeScalar without the passed in type if not one of the
 // parameterized types.
-func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
+func MakeScalarParam(val interface{}, dt arrow.DataType) (arrow.Scalar, error) {
 	switch v := val.(type) {
 	case []byte:
 		buf := memory.NewBufferBytes(v)
@@ -548,7 +548,7 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 }
 
 // MakeScalar creates a scalar of the passed in type via reflection.
-func MakeScalar(val interface{}) Scalar {
+func MakeScalar(val interface{}) arrow.Scalar {
 	switch v := val.(type) {
 	case nil:
 		return ScalarNull
@@ -622,7 +622,7 @@ func MakeScalar(val interface{}) Scalar {
 
 // MakeIntegerScalar is a helper function for creating an integer scalar of a
 // given bitsize.
-func MakeIntegerScalar(v int64, bitsize int) (Scalar, error) {
+func MakeIntegerScalar(v int64, bitsize int) (arrow.Scalar, error) {
 	switch bitsize {
 	case 8:
 		return NewInt8Scalar(int8(v)), nil
@@ -638,7 +638,7 @@ func MakeIntegerScalar(v int64, bitsize int) (Scalar, error) {
 
 // MakeUnsignedIntegerScalar is a helper function for creating an unsigned int
 // scalar of the specified bit width.
-func MakeUnsignedIntegerScalar(v uint64, bitsize int) (Scalar, error) {
+func MakeUnsignedIntegerScalar(v uint64, bitsize int) (arrow.Scalar, error) {
 	switch bitsize {
 	case 8:
 		return NewUint8Scalar(uint8(v)), nil
@@ -654,7 +654,7 @@ func MakeUnsignedIntegerScalar(v uint64, bitsize int) (Scalar, error) {
 
 // ParseScalar parses a string to create a scalar of the passed in type. Currently
 // does not support any nested types such as Structs or Lists.
-func ParseScalar(dt arrow.DataType, val string) (Scalar, error) {
+func ParseScalar(dt arrow.DataType, val string) (arrow.Scalar, error) {
 	switch dt.ID() {
 	case arrow.STRING:
 		return NewStringScalar(val), nil

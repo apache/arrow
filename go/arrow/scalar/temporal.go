@@ -45,7 +45,7 @@ func temporalToString(s TemporalScalar) string {
 }
 
 type TemporalScalar interface {
-	Scalar
+	arrow.Scalar
 	temporal()
 }
 
@@ -55,8 +55,8 @@ type Duration struct {
 }
 
 func (Duration) temporal()                                   {}
-func (s *Duration) value() interface{}                       { return s.Value }
-func (s *Duration) CastTo(to arrow.DataType) (Scalar, error) { return castTemporal(s, to) }
+func (s *Duration) ValueInterface() interface{}                       { return s.Value }
+func (s *Duration) CastTo(to arrow.DataType) (arrow.Scalar, error) { return castTemporal(s, to) }
 func (s *Duration) String() string {
 	if !s.Valid {
 		return "null"
@@ -68,7 +68,7 @@ func (s *Duration) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *Duration) equals(rhs Scalar) bool {
+func (s *Duration) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Duration).Value
 }
 
@@ -103,7 +103,7 @@ type IntervalScalar interface {
 
 const millisecondsInDay = (time.Hour * 24) / time.Millisecond
 
-func castTemporal(from TemporalScalar, to arrow.DataType) (Scalar, error) {
+func castTemporal(from TemporalScalar, to arrow.DataType) (arrow.Scalar, error) {
 	if arrow.TypeEqual(from.DataType(), to) {
 		return from, nil
 	}
@@ -113,7 +113,7 @@ func castTemporal(from TemporalScalar, to arrow.DataType) (Scalar, error) {
 	}
 
 	if r, ok := numericMap[to.ID()]; ok {
-		return convertToNumeric(reflect.ValueOf(from.value()), r.valueType, r.scalarFunc), nil
+		return convertToNumeric(reflect.ValueOf(from.ValueInterface()), r.valueType, r.scalarFunc), nil
 	}
 
 	if to.ID() == arrow.STRING {
@@ -157,9 +157,9 @@ func castTemporal(from TemporalScalar, to arrow.DataType) (Scalar, error) {
 	case TimeScalar:
 		switch to := to.(type) {
 		case *arrow.Time32Type:
-			return NewTime32Scalar(arrow.Time32(arrow.ConvertTimestampValue(s.Unit(), to.Unit, int64(s.value().(arrow.Time64)))), to), nil
+			return NewTime32Scalar(arrow.Time32(arrow.ConvertTimestampValue(s.Unit(), to.Unit, int64(s.ValueInterface().(arrow.Time64)))), to), nil
 		case *arrow.Time64Type:
-			return NewTime64Scalar(arrow.Time64(arrow.ConvertTimestampValue(s.Unit(), to.Unit, int64(s.value().(arrow.Time32)))), to), nil
+			return NewTime64Scalar(arrow.Time64(arrow.ConvertTimestampValue(s.Unit(), to.Unit, int64(s.ValueInterface().(arrow.Time32)))), to), nil
 		}
 
 	case *Duration:
@@ -181,14 +181,14 @@ type Date32 struct {
 
 func (Date32) temporal()             {}
 func (Date32) date()                 {}
-func (s *Date32) value() interface{} { return s.Value }
+func (s *Date32) ValueInterface() interface{} { return s.Value }
 func (s *Date32) Data() []byte {
 	return (*[arrow.Date32SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
-func (s *Date32) equals(rhs Scalar) bool {
+func (s *Date32) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Date32).Value
 }
-func (s *Date32) CastTo(to arrow.DataType) (Scalar, error) { return castTemporal(s, to) }
+func (s *Date32) CastTo(to arrow.DataType) (arrow.Scalar, error) { return castTemporal(s, to) }
 func (s *Date32) String() string {
 	if !s.Valid {
 		return "null"
@@ -214,12 +214,12 @@ type Date64 struct {
 
 func (Date64) temporal()                                   {}
 func (Date64) date()                                       {}
-func (s *Date64) value() interface{}                       { return s.Value }
-func (s *Date64) CastTo(to arrow.DataType) (Scalar, error) { return castTemporal(s, to) }
+func (s *Date64) ValueInterface() interface{}                       { return s.Value }
+func (s *Date64) CastTo(to arrow.DataType) (arrow.Scalar, error) { return castTemporal(s, to) }
 func (s *Date64) Data() []byte {
 	return (*[arrow.Date64SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
-func (s *Date64) equals(rhs Scalar) bool {
+func (s *Date64) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Date64).Value
 }
 func (s *Date64) String() string {
@@ -247,12 +247,12 @@ type Time32 struct {
 
 func (Time32) temporal()                                   {}
 func (Time32) time()                                       {}
-func (s *Time32) value() interface{}                       { return s.Value }
-func (s *Time32) CastTo(to arrow.DataType) (Scalar, error) { return castTemporal(s, to) }
+func (s *Time32) ValueInterface() interface{}                       { return s.Value }
+func (s *Time32) CastTo(to arrow.DataType) (arrow.Scalar, error) { return castTemporal(s, to) }
 func (s *Time32) Unit() arrow.TimeUnit {
 	return s.DataType().(*arrow.Time32Type).Unit
 }
-func (s *Time32) equals(rhs Scalar) bool {
+func (s *Time32) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Time32).Value
 }
 func (s *Time32) String() string {
@@ -285,15 +285,15 @@ type Time64 struct {
 
 func (Time64) temporal()                                   {}
 func (Time64) time()                                       {}
-func (s *Time64) value() interface{}                       { return s.Value }
-func (s *Time64) CastTo(to arrow.DataType) (Scalar, error) { return castTemporal(s, to) }
+func (s *Time64) ValueInterface() interface{}                       { return s.Value }
+func (s *Time64) CastTo(to arrow.DataType) (arrow.Scalar, error) { return castTemporal(s, to) }
 func (s *Time64) Unit() arrow.TimeUnit {
 	return s.DataType().(*arrow.Time64Type).Unit
 }
 func (s *Time64) Data() []byte {
 	return (*[arrow.Time64SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
-func (s *Time64) equals(rhs Scalar) bool {
+func (s *Time64) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Time64).Value
 }
 func (s *Time64) String() string {
@@ -322,15 +322,15 @@ type Timestamp struct {
 
 func (Timestamp) temporal()                                   {}
 func (Timestamp) time()                                       {}
-func (s *Timestamp) value() interface{}                       { return s.Value }
-func (s *Timestamp) CastTo(to arrow.DataType) (Scalar, error) { return castTemporal(s, to) }
+func (s *Timestamp) ValueInterface() interface{}                       { return s.Value }
+func (s *Timestamp) CastTo(to arrow.DataType) (arrow.Scalar, error) { return castTemporal(s, to) }
 func (s *Timestamp) Unit() arrow.TimeUnit {
 	return s.DataType().(*arrow.TimestampType).Unit
 }
 func (s *Timestamp) Data() []byte {
 	return (*[arrow.TimestampSizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
-func (s *Timestamp) equals(rhs Scalar) bool {
+func (s *Timestamp) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*Timestamp).Value
 }
 func (s *Timestamp) String() string {
@@ -359,8 +359,8 @@ type MonthInterval struct {
 
 func (MonthInterval) temporal()             {}
 func (MonthInterval) interval()             {}
-func (s *MonthInterval) value() interface{} { return s.Value }
-func (s *MonthInterval) CastTo(to arrow.DataType) (Scalar, error) {
+func (s *MonthInterval) ValueInterface() interface{} { return s.Value }
+func (s *MonthInterval) CastTo(to arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(to), nil
 	}
@@ -381,7 +381,7 @@ func (s *MonthInterval) String() string {
 	}
 	return string(val.(*String).Value.Bytes())
 }
-func (s *MonthInterval) equals(rhs Scalar) bool {
+func (s *MonthInterval) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*MonthInterval).Value
 }
 func (s *MonthInterval) Data() []byte {
@@ -399,7 +399,7 @@ type DayTimeInterval struct {
 
 func (DayTimeInterval) temporal()             {}
 func (DayTimeInterval) interval()             {}
-func (s *DayTimeInterval) value() interface{} { return s.Value }
+func (s *DayTimeInterval) ValueInterface() interface{} { return s.Value }
 func (s *DayTimeInterval) Data() []byte {
 	return (*[arrow.DayTimeIntervalSizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
@@ -414,7 +414,7 @@ func (s *DayTimeInterval) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *DayTimeInterval) CastTo(to arrow.DataType) (Scalar, error) {
+func (s *DayTimeInterval) CastTo(to arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(to), nil
 	}
@@ -426,7 +426,7 @@ func (s *DayTimeInterval) CastTo(to arrow.DataType) (Scalar, error) {
 	return s, nil
 }
 
-func (s *DayTimeInterval) equals(rhs Scalar) bool {
+func (s *DayTimeInterval) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*DayTimeInterval).Value
 }
 
@@ -441,7 +441,7 @@ type MonthDayNanoInterval struct {
 
 func (MonthDayNanoInterval) temporal()             {}
 func (MonthDayNanoInterval) interval()             {}
-func (s *MonthDayNanoInterval) value() interface{} { return s.Value }
+func (s *MonthDayNanoInterval) ValueInterface() interface{} { return s.Value }
 func (s *MonthDayNanoInterval) Data() []byte {
 	return (*[arrow.MonthDayNanoIntervalSizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
@@ -456,7 +456,7 @@ func (s *MonthDayNanoInterval) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *MonthDayNanoInterval) CastTo(to arrow.DataType) (Scalar, error) {
+func (s *MonthDayNanoInterval) CastTo(to arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(to), nil
 	}
@@ -468,7 +468,7 @@ func (s *MonthDayNanoInterval) CastTo(to arrow.DataType) (Scalar, error) {
 	return s, nil
 }
 
-func (s *MonthDayNanoInterval) equals(rhs Scalar) bool {
+func (s *MonthDayNanoInterval) Equals(rhs arrow.Scalar) bool {
 	return s.Value == rhs.(*MonthDayNanoInterval).Value
 }
 
@@ -477,5 +477,5 @@ func NewMonthDayNanoIntervalScalar(val arrow.MonthDayNanoInterval) *MonthDayNano
 }
 
 var (
-	_ Scalar = (*Date32)(nil)
+	_ arrow.Scalar = (*Date32)(nil)
 )

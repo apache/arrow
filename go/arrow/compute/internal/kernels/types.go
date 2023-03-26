@@ -24,7 +24,6 @@ import (
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
 	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/scalar"
 )
 
 var (
@@ -72,19 +71,19 @@ const (
 
 type simpleBinaryKernel interface {
 	Call(*exec.KernelCtx, *exec.ArraySpan, *exec.ArraySpan, *exec.ExecResult) error
-	CallScalarLeft(*exec.KernelCtx, scalar.Scalar, *exec.ArraySpan, *exec.ExecResult) error
+	CallScalarLeft(*exec.KernelCtx, arrow.Scalar, *exec.ArraySpan, *exec.ExecResult) error
 }
 
 type commutativeBinaryKernel[T simpleBinaryKernel] struct{}
 
-func (commutativeBinaryKernel[T]) CallScalarRight(ctx *exec.KernelCtx, left *exec.ArraySpan, right scalar.Scalar, out *exec.ExecResult) error {
+func (commutativeBinaryKernel[T]) CallScalarRight(ctx *exec.KernelCtx, left *exec.ArraySpan, right arrow.Scalar, out *exec.ExecResult) error {
 	var t T
 	return t.CallScalarLeft(ctx, right, left, out)
 }
 
 type SimpleBinaryKernel interface {
 	simpleBinaryKernel
-	CallScalarRight(*exec.KernelCtx, *exec.ArraySpan, scalar.Scalar, *exec.ExecResult) error
+	CallScalarRight(*exec.KernelCtx, *exec.ArraySpan, arrow.Scalar, *exec.ExecResult) error
 }
 
 func SimpleBinary[K SimpleBinaryKernel](ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {

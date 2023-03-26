@@ -200,7 +200,7 @@ func ScalarBinary[OutT, Arg0T, Arg1T exec.FixedWidthTypes](ops binaryOps[OutT, A
 		return ops.arrArr(ctx, a0, a1, outData)
 	}
 
-	arrayScalar := func(ctx *exec.KernelCtx, arg0 *exec.ArraySpan, arg1 scalar.Scalar, out *exec.ExecResult) error {
+	arrayScalar := func(ctx *exec.KernelCtx, arg0 *exec.ArraySpan, arg1 arrow.Scalar, out *exec.ExecResult) error {
 		var (
 			a0      = exec.GetSpanValues[Arg0T](arg0, 1)
 			a1      = UnboxScalar[Arg1T](arg1.(scalar.PrimitiveScalar))
@@ -209,7 +209,7 @@ func ScalarBinary[OutT, Arg0T, Arg1T exec.FixedWidthTypes](ops binaryOps[OutT, A
 		return ops.arrScalar(ctx, a0, a1, outData)
 	}
 
-	scalarArray := func(ctx *exec.KernelCtx, arg0 scalar.Scalar, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
+	scalarArray := func(ctx *exec.KernelCtx, arg0 arrow.Scalar, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
 		var (
 			a0      = UnboxScalar[Arg0T](arg0.(scalar.PrimitiveScalar))
 			a1      = exec.GetSpanValues[Arg1T](arg1, 1)
@@ -246,7 +246,7 @@ func ScalarBinaryBools(ops *binaryBoolOps) exec.ArrayKernelExec {
 		return ops.arrArr(ctx, a0Bm, a1Bm, outBm)
 	}
 
-	arrayScalar := func(ctx *exec.KernelCtx, arg0 *exec.ArraySpan, arg1 scalar.Scalar, out *exec.ExecResult) error {
+	arrayScalar := func(ctx *exec.KernelCtx, arg0 *exec.ArraySpan, arg1 arrow.Scalar, out *exec.ExecResult) error {
 		var (
 			a0Bm  = bitutil.Bitmap{Data: arg0.Buffers[1].Buf, Offset: arg0.Offset, Len: arg0.Len}
 			a1    = arg1.(*scalar.Boolean).Value
@@ -255,7 +255,7 @@ func ScalarBinaryBools(ops *binaryBoolOps) exec.ArrayKernelExec {
 		return ops.arrScalar(ctx, a0Bm, a1, outBm)
 	}
 
-	scalarArray := func(ctx *exec.KernelCtx, arg0 scalar.Scalar, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
+	scalarArray := func(ctx *exec.KernelCtx, arg0 arrow.Scalar, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
 		var (
 			a0    = arg0.(*scalar.Boolean).Value
 			a1Bm  = bitutil.Bitmap{Data: arg1.Buffers[1].Buf, Offset: arg1.Offset, Len: arg1.Len}
@@ -306,7 +306,7 @@ func ScalarBinaryNotNull[OutT, Arg0T, Arg1T exec.FixedWidthTypes](op func(*exec.
 		return
 	}
 
-	arrayScalar := func(ctx *exec.KernelCtx, arg0 *exec.ArraySpan, arg1 scalar.Scalar, out *exec.ExecResult) (err error) {
+	arrayScalar := func(ctx *exec.KernelCtx, arg0 *exec.ArraySpan, arg1 arrow.Scalar, out *exec.ExecResult) (err error) {
 		// fast path if one side is entirely null
 		if arg0.UpdateNullCount() == arg0.Len || !arg1.IsValid() {
 			return nil
@@ -334,7 +334,7 @@ func ScalarBinaryNotNull[OutT, Arg0T, Arg1T exec.FixedWidthTypes](op func(*exec.
 		return
 	}
 
-	scalarArray := func(ctx *exec.KernelCtx, arg0 scalar.Scalar, arg1 *exec.ArraySpan, out *exec.ExecResult) (err error) {
+	scalarArray := func(ctx *exec.KernelCtx, arg0 arrow.Scalar, arg1 *exec.ArraySpan, out *exec.ExecResult) (err error) {
 		// fast path if one side is entirely null
 		if arg1.UpdateNullCount() == arg1.Len || !arg0.IsValid() {
 			return nil
@@ -394,7 +394,7 @@ func ScalarBinaryBinaryArgsBoolOut(itrFn func(*exec.ArraySpan) exec.ArrayIter[[]
 		return nil
 	}
 
-	arrScalar := func(ctx *exec.KernelCtx, arg0 *exec.ArraySpan, arg1 scalar.Scalar, out *exec.ExecResult) error {
+	arrScalar := func(ctx *exec.KernelCtx, arg0 *exec.ArraySpan, arg1 arrow.Scalar, out *exec.ExecResult) error {
 		var (
 			arg0It = itrFn(arg0)
 			a1     = UnboxBinaryScalar(arg1.(scalar.BinaryScalar))
@@ -406,7 +406,7 @@ func ScalarBinaryBinaryArgsBoolOut(itrFn func(*exec.ArraySpan) exec.ArrayIter[[]
 		return nil
 	}
 
-	scalarArr := func(ctx *exec.KernelCtx, arg0 scalar.Scalar, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
+	scalarArr := func(ctx *exec.KernelCtx, arg0 arrow.Scalar, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
 		var (
 			arg1It = itrFn(arg1)
 			a0     = UnboxBinaryScalar(arg0.(scalar.BinaryScalar))

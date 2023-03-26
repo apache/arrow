@@ -96,7 +96,7 @@ type RoundToMultipleOptions struct {
 	// Should be a positive numeric scalar of a type compatible
 	// with the argument to be rounded. The cast kernel is used
 	// to convert the rounding multiple to match the result type.
-	Multiple scalar.Scalar
+	Multiple arrow.Scalar
 	// Mode is the rounding and tie-breaking mode
 	Mode RoundMode
 }
@@ -105,7 +105,7 @@ func (RoundToMultipleOptions) TypeName() string { return "RoundToMultipleOptions
 
 type RoundToMultipleState = RoundToMultipleOptions
 
-func isPositive(s scalar.Scalar) bool {
+func isPositive(s arrow.Scalar) bool {
 	switch s := s.(type) {
 	case *scalar.Decimal128:
 		return s.Value.Greater(decimal128.Num{})

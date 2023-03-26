@@ -268,7 +268,7 @@ func setOffsetsForScalar[T int32 | int64](span *ArraySpan, buf []T, valueSize in
 
 // FillFromScalar populates this ArraySpan as if it were a 1 length array
 // with the single value equal to the passed in Scalar.
-func (a *ArraySpan) FillFromScalar(val scalar.Scalar) {
+func (a *ArraySpan) FillFromScalar(val arrow.Scalar) {
 	var (
 		trueBit  byte = 0x01
 		falseBit byte = 0x00
@@ -560,7 +560,7 @@ func (a *ArraySpan) SetMembers(data arrow.ArrayData) {
 // be either an Array (ArraySpan) or a Scalar value
 type ExecValue struct {
 	Array  ArraySpan
-	Scalar scalar.Scalar
+	Scalar arrow.Scalar
 }
 
 func (e *ExecValue) IsArray() bool  { return e.Scalar == nil }

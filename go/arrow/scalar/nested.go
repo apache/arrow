@@ -29,7 +29,7 @@ import (
 )
 
 type ListScalar interface {
-	Scalar
+	arrow.Scalar
 	GetList() arrow.Array
 	Release()
 	Retain()
@@ -52,9 +52,9 @@ func (l *List) Retain() {
 	}
 }
 
-func (l *List) value() interface{}   { return l.Value }
+func (l *List) ValueInterface() interface{}   { return l.Value }
 func (l *List) GetList() arrow.Array { return l.Value }
-func (l *List) equals(rhs Scalar) bool {
+func (l *List) Equals(rhs arrow.Scalar) bool {
 	return array.Equal(l.Value, rhs.(ListScalar).GetList())
 }
 func (l *List) Validate() (err error) {
@@ -93,7 +93,7 @@ func (l *List) Validate() (err error) {
 }
 
 func (l *List) ValidateFull() error { return l.Validate() }
-func (l *List) CastTo(to arrow.DataType) (Scalar, error) {
+func (l *List) CastTo(to arrow.DataType) (arrow.Scalar, error) {
 	if !l.Valid {
 		return MakeNullScalar(to), nil
 	}
@@ -187,7 +187,7 @@ func NewFixedSizeListScalarWithType(val arrow.Array, typ arrow.DataType) *FixedS
 	return &FixedSizeList{&List{scalar{typ, true}, array.MakeFromData(val.Data())}}
 }
 
-type Vector []Scalar
+type Vector []arrow.Scalar
 
 type Struct struct {
 	scalar
@@ -202,7 +202,7 @@ func (s *Struct) Release() {
 	}
 }
 
-func (s *Struct) Field(name string) (Scalar, error) {
+func (s *Struct) Field(name string) (arrow.Scalar, error) {
 	idx, ok := s.Type.(*arrow.StructType).FieldIdx(name)
 	if !ok {
 		return nil, fmt.Errorf("no field named %s found in struct scalar %s", name, s.Type)
@@ -211,7 +211,7 @@ func (s *Struct) Field(name string) (Scalar, error) {
 	return s.Value[idx], nil
 }
 
-func (s *Struct) value() interface{} { return s.Value }
+func (s *Struct) ValueInterface() interface{} { return s.Value }
 
 func (s *Struct) String() string {
 	if !s.Valid {
@@ -224,7 +224,7 @@ func (s *Struct) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func (s *Struct) CastTo(to arrow.DataType) (Scalar, error) {
+func (s *Struct) CastTo(to arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(to), nil
 	}
@@ -248,7 +248,7 @@ func (s *Struct) CastTo(to arrow.DataType) (Scalar, error) {
 	return NewStringScalarFromBuffer(buf), nil
 }
 
-func (s *Struct) equals(rhs Scalar) bool {
+func (s *Struct) Equals(rhs arrow.Scalar) bool {
 	right := rhs.(*Struct)
 	if len(s.Value) != len(right.Value) {
 		return false
@@ -338,11 +338,11 @@ func (s *Struct) ValidateFull() (err error) {
 	return
 }
 
-func NewStructScalar(val []Scalar, typ arrow.DataType) *Struct {
+func NewStructScalar(val []arrow.Scalar, typ arrow.DataType) *Struct {
 	return &Struct{scalar{typ, true}, val}
 }
 
-func NewStructScalarWithNames(val []Scalar, names []string) (*Struct, error) {
+func NewStructScalarWithNames(val []arrow.Scalar, names []string) (*Struct, error) {
 	if len(val) != len(names) {
 		return nil, xerrors.New("mismatching number of field names and child scalars")
 	}
@@ -358,7 +358,7 @@ type Dictionary struct {
 	scalar
 
 	Value struct {
-		Index Scalar
+		Index arrow.Scalar
 		Dict  arrow.Array
 	}
 }
@@ -370,7 +370,7 @@ func NewNullDictScalar(dt arrow.DataType) *Dictionary {
 	return ret
 }
 
-func NewDictScalar(index Scalar, dict arrow.Array) *Dictionary {
+func NewDictScalar(index arrow.Scalar, dict arrow.Array) *Dictionary {
 	ret := &Dictionary{scalar: scalar{&arrow.DictionaryType{IndexType: index.DataType(), ValueType: dict.DataType()}, index.IsValid()}}
 	ret.Value.Index = index
 	ret.Value.Dict = dict
@@ -404,7 +404,7 @@ func (s *Dictionary) Validate() (err error) {
 		return errors.New("arrow/scalar: dictionary scalar should have type Dictionary")
 	}
 
-	if s.Value.Index == (Scalar)(nil) {
+	if s.Value.Index == (arrow.Scalar)(nil) {
 		return fmt.Errorf("%s scalar doesn't have an index value", dt)
 	}
 
@@ -450,7 +450,7 @@ func (s *Dictionary) ValidateFull() (err error) {
 	}
 
 	max := s.Value.Dict.Len() - 1
-	switch idx := s.Value.Index.value().(type) {
+	switch idx := s.Value.Index.ValueInterface().(type) {
 	case int8:
 		if idx < 0 || int(idx) > max {
 			err = fmt.Errorf("%s scalar index value out of bounds: %d", s.DataType(), idx)
@@ -496,16 +496,16 @@ func (s *Dictionary) String() string {
 	return s.Value.Dict.String() + "[" + s.Value.Index.String() + "]"
 }
 
-func (s *Dictionary) equals(rhs Scalar) bool {
-	return s.Value.Index.equals(rhs.(*Dictionary).Value.Index) &&
+func (s *Dictionary) Equals(rhs arrow.Scalar) bool {
+	return s.Value.Index.Equals(rhs.(*Dictionary).Value.Index) &&
 		array.Equal(s.Value.Dict, rhs.(*Dictionary).Value.Dict)
 }
 
-func (s *Dictionary) CastTo(arrow.DataType) (Scalar, error) {
+func (s *Dictionary) CastTo(arrow.DataType) (arrow.Scalar, error) {
 	return nil, fmt.Errorf("cast from scalar %s not implemented", s.DataType())
 }
 
-func (s *Dictionary) GetEncodedValue() (Scalar, error) {
+func (s *Dictionary) GetEncodedValue() (arrow.Scalar, error) {
 	dt := s.Type.(*arrow.DictionaryType)
 	if !s.IsValid() {
 		return MakeNullScalar(dt.ValueType), nil
@@ -514,34 +514,34 @@ func (s *Dictionary) GetEncodedValue() (Scalar, error) {
 	var idxValue int
 	switch dt.IndexType.ID() {
 	case arrow.INT8:
-		idxValue = int(s.Value.Index.value().(int8))
+		idxValue = int(s.Value.Index.ValueInterface().(int8))
 	case arrow.UINT8:
-		idxValue = int(s.Value.Index.value().(uint8))
+		idxValue = int(s.Value.Index.ValueInterface().(uint8))
 	case arrow.INT16:
-		idxValue = int(s.Value.Index.value().(int16))
+		idxValue = int(s.Value.Index.ValueInterface().(int16))
 	case arrow.UINT16:
-		idxValue = int(s.Value.Index.value().(uint16))
+		idxValue = int(s.Value.Index.ValueInterface().(uint16))
 	case arrow.INT32:
-		idxValue = int(s.Value.Index.value().(int32))
+		idxValue = int(s.Value.Index.ValueInterface().(int32))
 	case arrow.UINT32:
-		idxValue = int(s.Value.Index.value().(uint32))
+		idxValue = int(s.Value.Index.ValueInterface().(uint32))
 	case arrow.INT64:
-		idxValue = int(s.Value.Index.value().(int64))
+		idxValue = int(s.Value.Index.ValueInterface().(int64))
 	case arrow.UINT64:
-		idxValue = int(s.Value.Index.value().(uint64))
+		idxValue = int(s.Value.Index.ValueInterface().(uint64))
 	default:
 		return nil, fmt.Errorf("unimplemented dictionary type %s", dt.IndexType)
 	}
 	return GetScalar(s.Value.Dict, idxValue)
 }
 
-func (s *Dictionary) value() interface{} {
-	return s.Value.Index.value()
+func (s *Dictionary) ValueInterface() interface{} {
+	return s.Value.Index.ValueInterface()
 }
 
 type Union interface {
-	Scalar
-	ChildValue() Scalar
+	arrow.Scalar
+	ChildValue() arrow.Scalar
 	Release()
 }
 
@@ -549,16 +549,16 @@ type SparseUnion struct {
 	scalar
 
 	TypeCode arrow.UnionTypeCode
-	Value    []Scalar
+	Value    []arrow.Scalar
 	ChildID  int
 }
 
-func (s *SparseUnion) equals(rhs Scalar) bool {
+func (s *SparseUnion) Equals(rhs arrow.Scalar) bool {
 	right := rhs.(*SparseUnion)
 	return Equals(s.ChildValue(), right.ChildValue())
 }
 
-func (s *SparseUnion) value() interface{} { return s.ChildValue() }
+func (s *SparseUnion) ValueInterface() interface{} { return s.ChildValue() }
 
 func (s *SparseUnion) String() string {
 	dt := s.Type.(*arrow.SparseUnionType)
@@ -626,7 +626,7 @@ func (s *SparseUnion) ValidateFull() (err error) {
 	return
 }
 
-func (s *SparseUnion) CastTo(to arrow.DataType) (Scalar, error) {
+func (s *SparseUnion) CastTo(to arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(to), nil
 	}
@@ -641,9 +641,9 @@ func (s *SparseUnion) CastTo(to arrow.DataType) (Scalar, error) {
 	return nil, fmt.Errorf("cannot cast non-nil union to type other than string")
 }
 
-func (s *SparseUnion) ChildValue() Scalar { return s.Value[s.ChildID] }
+func (s *SparseUnion) ChildValue() arrow.Scalar { return s.Value[s.ChildID] }
 
-func NewSparseUnionScalar(val []Scalar, code arrow.UnionTypeCode, dt *arrow.SparseUnionType) *SparseUnion {
+func NewSparseUnionScalar(val []arrow.Scalar, code arrow.UnionTypeCode, dt *arrow.SparseUnionType) *SparseUnion {
 	ret := &SparseUnion{
 		scalar:   scalar{dt, true},
 		TypeCode: code,
@@ -654,9 +654,9 @@ func NewSparseUnionScalar(val []Scalar, code arrow.UnionTypeCode, dt *arrow.Spar
 	return ret
 }
 
-func NewSparseUnionScalarFromValue(val Scalar, idx int, dt *arrow.SparseUnionType) *SparseUnion {
+func NewSparseUnionScalarFromValue(val arrow.Scalar, idx int, dt *arrow.SparseUnionType) *SparseUnion {
 	code := dt.TypeCodes()[idx]
-	values := make([]Scalar, len(dt.Fields()))
+	values := make([]arrow.Scalar, len(dt.Fields()))
 	for i, f := range dt.Fields() {
 		if i == idx {
 			values[i] = val
@@ -671,15 +671,15 @@ type DenseUnion struct {
 	scalar
 
 	TypeCode arrow.UnionTypeCode
-	Value    Scalar
+	Value    arrow.Scalar
 }
 
-func (s *DenseUnion) equals(rhs Scalar) bool {
+func (s *DenseUnion) Equals(rhs arrow.Scalar) bool {
 	right := rhs.(*DenseUnion)
 	return Equals(s.Value, right.Value)
 }
 
-func (s *DenseUnion) value() interface{} { return s.ChildValue() }
+func (s *DenseUnion) ValueInterface() interface{} { return s.ChildValue() }
 
 func (s *DenseUnion) String() string {
 	dt := s.Type.(*arrow.DenseUnionType)
@@ -724,7 +724,7 @@ func (s *DenseUnion) ValidateFull() error {
 	return s.Value.ValidateFull()
 }
 
-func (s *DenseUnion) CastTo(to arrow.DataType) (Scalar, error) {
+func (s *DenseUnion) CastTo(to arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(to), nil
 	}
@@ -739,19 +739,19 @@ func (s *DenseUnion) CastTo(to arrow.DataType) (Scalar, error) {
 	return nil, fmt.Errorf("cannot cast non-nil union to type other than string")
 }
 
-func (s *DenseUnion) ChildValue() Scalar { return s.Value }
+func (s *DenseUnion) ChildValue() arrow.Scalar { return s.Value }
 
-func NewDenseUnionScalar(v Scalar, code arrow.UnionTypeCode, dt *arrow.DenseUnionType) *DenseUnion {
+func NewDenseUnionScalar(v arrow.Scalar, code arrow.UnionTypeCode, dt *arrow.DenseUnionType) *DenseUnion {
 	return &DenseUnion{scalar: scalar{dt, v.IsValid()}, TypeCode: code, Value: v}
 }
 
 type RunEndEncoded struct {
 	scalar
 
-	Value Scalar
+	Value arrow.Scalar
 }
 
-func NewRunEndEncodedScalar(v Scalar, dt *arrow.RunEndEncodedType) *RunEndEncoded {
+func NewRunEndEncodedScalar(v arrow.Scalar, dt *arrow.RunEndEncodedType) *RunEndEncoded {
 	return &RunEndEncoded{scalar: scalar{dt, v.IsValid()}, Value: v}
 }
 
@@ -761,14 +761,14 @@ func (s *RunEndEncoded) Release() {
 	}
 }
 
-func (s *RunEndEncoded) value() interface{} { return s.Value.value() }
+func (s *RunEndEncoded) ValueInterface() interface{} { return s.Value.ValueInterface() }
 
 func (s *RunEndEncoded) Validate() (err error) {
 	if err = s.Value.Validate(); err != nil {
 		return
 	}
 
-	if err = validateOptional(&s.scalar, s.value(), "value"); err != nil {
+	if err = validateOptional(&s.scalar, s.ValueInterface(), "value"); err != nil {
 		return
 	}
 
@@ -790,7 +790,7 @@ func (s *RunEndEncoded) Validate() (err error) {
 
 func (s *RunEndEncoded) ValidateFull() error { return s.Validate() }
 
-func (s *RunEndEncoded) equals(rhs Scalar) bool {
+func (s *RunEndEncoded) Equals(rhs arrow.Scalar) bool {
 	other := rhs.(*RunEndEncoded)
 	return Equals(s.Value, other.Value)
 }
@@ -799,7 +799,7 @@ func (s *RunEndEncoded) String() string {
 	return s.Value.String()
 }
 
-func (s *RunEndEncoded) CastTo(to arrow.DataType) (Scalar, error) {
+func (s *RunEndEncoded) CastTo(to arrow.DataType) (arrow.Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(to), nil
 	}

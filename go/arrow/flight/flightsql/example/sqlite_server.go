@@ -546,7 +546,7 @@ func (s *SQLiteFlightSQLServer) DoGetPreparedStatement(ctx context.Context, cmd 
 	return
 }
 
-func scalarToIFace(s scalar.Scalar) (interface{}, error) {
+func scalarToIFace(s arrow.Scalar) (interface{}, error) {
 	if !s.IsValid() {
 		return nil, nil
 	}

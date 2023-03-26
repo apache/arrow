@@ -19,6 +19,7 @@
 package kernels
 
 import (
+	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/bitutil"
 	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
 	"github.com/apache/arrow/go/v12/arrow/scalar"
@@ -74,7 +75,7 @@ func (AndOpKernel) Call(ctx *exec.KernelCtx, left, right *exec.ArraySpan, out *e
 	return nil
 }
 
-func (AndOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left scalar.Scalar, right *exec.ArraySpan, out *exec.ExecResult) error {
+func (AndOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left arrow.Scalar, right *exec.ArraySpan, out *exec.ExecResult) error {
 	if !left.IsValid() {
 		return nil
 	}
@@ -106,7 +107,7 @@ func (KleeneAndOpKernel) Call(ctx *exec.KernelCtx, left, right *exec.ArraySpan, 
 	return computeKleene(computeWord, ctx, left, right, out)
 }
 
-func (KleeneAndOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left scalar.Scalar, right *exec.ArraySpan, out *exec.ExecResult) error {
+func (KleeneAndOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left arrow.Scalar, right *exec.ArraySpan, out *exec.ExecResult) error {
 	var (
 		leftTrue  = left.IsValid() && left.(*scalar.Boolean).Value
 		leftFalse = left.IsValid() && !left.(*scalar.Boolean).Value
@@ -151,7 +152,7 @@ func (OrOpKernel) Call(ctx *exec.KernelCtx, left, right *exec.ArraySpan, out *ex
 	return nil
 }
 
-func (OrOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left scalar.Scalar, right *exec.ArraySpan, out *exec.ExecResult) error {
+func (OrOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left arrow.Scalar, right *exec.ArraySpan, out *exec.ExecResult) error {
 	if !left.IsValid() {
 		return nil
 	}
@@ -183,7 +184,7 @@ func (KleeneOrOpKernel) Call(ctx *exec.KernelCtx, left, right *exec.ArraySpan, o
 	return computeKleene(computeWord, ctx, left, right, out)
 }
 
-func (KleeneOrOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left scalar.Scalar, right *exec.ArraySpan, out *exec.ExecResult) error {
+func (KleeneOrOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left arrow.Scalar, right *exec.ArraySpan, out *exec.ExecResult) error {
 	var (
 		leftTrue  = left.IsValid() && left.(*scalar.Boolean).Value
 		leftFalse = left.IsValid() && !left.(*scalar.Boolean).Value
@@ -228,7 +229,7 @@ func (XorOpKernel) Call(ctx *exec.KernelCtx, left, right *exec.ArraySpan, out *e
 	return nil
 }
 
-func (XorOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left scalar.Scalar, right *exec.ArraySpan, out *exec.ExecResult) error {
+func (XorOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left arrow.Scalar, right *exec.ArraySpan, out *exec.ExecResult) error {
 	if !left.IsValid() {
 		return nil
 	}
@@ -244,7 +245,7 @@ func (XorOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left scalar.Scalar, right
 	return nil
 }
 
-func invertScalar(in scalar.Scalar) *scalar.Boolean {
+func invertScalar(in arrow.Scalar) *scalar.Boolean {
 	if in.IsValid() {
 		return scalar.NewBooleanScalar(!in.(*scalar.Boolean).Value)
 	}
@@ -259,7 +260,7 @@ func (AndNotOpKernel) Call(ctx *exec.KernelCtx, left, right *exec.ArraySpan, out
 	return nil
 }
 
-func (AndNotOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left scalar.Scalar, right *exec.ArraySpan, out *exec.ExecResult) error {
+func (AndNotOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left arrow.Scalar, right *exec.ArraySpan, out *exec.ExecResult) error {
 	if !left.IsValid() {
 		return nil
 	}
@@ -274,7 +275,7 @@ func (AndNotOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left scalar.Scalar, ri
 	return nil
 }
 
-func (AndNotOpKernel) CallScalarRight(ctx *exec.KernelCtx, left *exec.ArraySpan, right scalar.Scalar, out *exec.ExecResult) error {
+func (AndNotOpKernel) CallScalarRight(ctx *exec.KernelCtx, left *exec.ArraySpan, right arrow.Scalar, out *exec.ExecResult) error {
 	return (AndOpKernel{}).CallScalarRight(ctx, left, invertScalar(right), out)
 }
 
@@ -294,7 +295,7 @@ func (KleeneAndNotOpKernel) Call(ctx *exec.KernelCtx, left, right *exec.ArraySpa
 	return computeKleene(computeWord, ctx, left, right, out)
 }
 
-func (KleeneAndNotOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left scalar.Scalar, right *exec.ArraySpan, out *exec.ExecResult) error {
+func (KleeneAndNotOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left arrow.Scalar, right *exec.ArraySpan, out *exec.ExecResult) error {
 	var (
 		leftTrue  = left.IsValid() && left.(*scalar.Boolean).Value
 		leftFalse = left.IsValid() && !left.(*scalar.Boolean).Value
@@ -329,6 +330,6 @@ func (KleeneAndNotOpKernel) CallScalarLeft(ctx *exec.KernelCtx, left scalar.Scal
 	return nil
 }
 
-func (KleeneAndNotOpKernel) CallScalarRight(ctx *exec.KernelCtx, left *exec.ArraySpan, right scalar.Scalar, out *exec.ExecResult) error {
+func (KleeneAndNotOpKernel) CallScalarRight(ctx *exec.KernelCtx, left *exec.ArraySpan, right arrow.Scalar, out *exec.ExecResult) error {
 	return (KleeneAndOpKernel{}).CallScalarRight(ctx, left, invertScalar(right), out)
 }
