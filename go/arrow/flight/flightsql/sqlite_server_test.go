@@ -748,7 +748,7 @@ func (s *FlightSqliteServerSuite) TestCommandGetCrossRef() {
 	s.False(rdr.Next())
 }
 
-func validateSqlInfo(t *testing.T, expected interface{}, sc scalar.Scalar) bool {
+func validateSqlInfo(t *testing.T, expected interface{}, sc arrow.Scalar) bool {
 	switch ex := expected.(type) {
 	case string:
 		return assert.Equal(t, ex, sc.String())

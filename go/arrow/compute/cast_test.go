@@ -41,8 +41,8 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-func getScalars(inputs []compute.Datum, idx int) []scalar.Scalar {
-	out := make([]scalar.Scalar, len(inputs))
+func getScalars(inputs []compute.Datum, idx int) []arrow.Scalar {
+	out := make([]arrow.Scalar, len(inputs))
 	for i, in := range inputs {
 		if in.Kind() == compute.KindArray {
 			arr := in.(*compute.ArrayDatum).MakeArray()
@@ -97,7 +97,7 @@ func checkScalarNonRecursive(t *testing.T, funcName string, inputs []compute.Dat
 	assertDatumsEqual(t, expected, out, nil, nil)
 }
 
-func checkScalarWithScalars(t *testing.T, funcName string, inputs []scalar.Scalar, expected scalar.Scalar, opts compute.FunctionOptions) {
+func checkScalarWithScalars(t *testing.T, funcName string, inputs []arrow.Scalar, expected arrow.Scalar, opts compute.FunctionOptions) {
 	datums := getDatums(inputs)
 	defer func() {
 		for _, s := range inputs {

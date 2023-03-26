@@ -37,7 +37,7 @@ func checkScalarBinary(t *testing.T, fn string, left, right, expected compute.Da
 
 func checkBooleanScalarArrayBinary(t *testing.T, ctx context.Context, funcName string, array compute.Datum) {
 	mem := compute.GetAllocator(ctx)
-	for _, sc := range []scalar.Scalar{scalar.MakeNullScalar(arrow.FixedWidthTypes.Boolean), scalar.NewBooleanScalar(true), scalar.NewBooleanScalar(false)} {
+	for _, sc := range []arrow.Scalar{scalar.MakeNullScalar(arrow.FixedWidthTypes.Boolean), scalar.NewBooleanScalar(true), scalar.NewBooleanScalar(false)} {
 		constantArr, err := scalar.MakeArrayFromScalar(sc, int(array.Len()), mem)
 		defer constantArr.Release()
 

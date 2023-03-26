@@ -78,13 +78,13 @@ func ExecNoPreallocatedAnything(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *
 }
 
 type ExampleOptions struct {
-	Value scalar.Scalar
+	Value arrow.Scalar
 }
 
 func (e *ExampleOptions) TypeName() string { return "example" }
 
 type ExampleState struct {
-	Value scalar.Scalar
+	Value arrow.Scalar
 }
 
 func InitStateful(_ *exec.KernelCtx, args exec.KernelInitArgs) (exec.KernelState, error) {

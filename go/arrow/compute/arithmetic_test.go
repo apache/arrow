@@ -108,7 +108,7 @@ type binaryArithmeticFunc = func(context.Context, compute.ArithmeticOptions, com
 
 type binaryFunc = func(left, right compute.Datum) (compute.Datum, error)
 
-func assertScalarEquals(t *testing.T, expected, actual scalar.Scalar, opt ...scalar.EqualOption) {
+func assertScalarEquals(t *testing.T, expected, actual arrow.Scalar, opt ...scalar.EqualOption) {
 	assert.Truef(t, scalar.ApproxEquals(expected, actual, opt...), "expected: %s\ngot: %s", expected, actual)
 }
 
@@ -218,11 +218,11 @@ func (b *BinaryArithmeticSuite[T]) SetupTest() {
 	b.opts.NoCheckOverflow = false
 }
 
-func (b *BinaryArithmeticSuite[T]) makeNullScalar() scalar.Scalar {
+func (b *BinaryArithmeticSuite[T]) makeNullScalar() arrow.Scalar {
 	return scalar.MakeNullScalar(b.DataType())
 }
 
-func (b *BinaryArithmeticSuite[T]) makeScalar(val T) scalar.Scalar {
+func (b *BinaryArithmeticSuite[T]) makeScalar(val T) arrow.Scalar {
 	return scalar.MakeScalar(val)
 }
 
@@ -242,7 +242,7 @@ func (b *BinaryArithmeticSuite[T]) assertBinopScalarValArr(fn binaryArithmeticFu
 	b.assertBinopScalarArr(fn, left, rhs, expected)
 }
 
-func (b *BinaryArithmeticSuite[T]) assertBinopScalarArr(fn binaryArithmeticFunc, lhs scalar.Scalar, rhs, expected string) {
+func (b *BinaryArithmeticSuite[T]) assertBinopScalarArr(fn binaryArithmeticFunc, lhs arrow.Scalar, rhs, expected string) {
 	right, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(rhs))
 	defer right.Release()
 	exp, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(expected))
@@ -254,7 +254,7 @@ func (b *BinaryArithmeticSuite[T]) assertBinopScalarArr(fn binaryArithmeticFunc,
 	assertDatumsEqual(b.T(), &compute.ArrayDatum{Value: exp.Data()}, actual, b.equalOpts, b.scalarEqualOpts)
 }
 
-func (b *BinaryArithmeticSuite[T]) assertBinopArrScalarExpArr(fn binaryArithmeticFunc, lhs string, rhs scalar.Scalar, exp arrow.Array) {
+func (b *BinaryArithmeticSuite[T]) assertBinopArrScalarExpArr(fn binaryArithmeticFunc, lhs string, rhs arrow.Scalar, exp arrow.Array) {
 	left, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(lhs))
 	defer left.Release()
 
@@ -269,7 +269,7 @@ func (b *BinaryArithmeticSuite[T]) assertBinopArrScalarVal(fn binaryArithmeticFu
 	b.assertBinopArrScalar(fn, lhs, right, expected)
 }
 
-func (b *BinaryArithmeticSuite[T]) assertBinopArrScalar(fn binaryArithmeticFunc, lhs string, rhs scalar.Scalar, expected string) {
+func (b *BinaryArithmeticSuite[T]) assertBinopArrScalar(fn binaryArithmeticFunc, lhs string, rhs arrow.Scalar, expected string) {
 	left, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(lhs))
 	defer left.Release()
 	exp, _, _ := array.FromJSON(b.mem, b.DataType(), strings.NewReader(expected))
@@ -2436,11 +2436,11 @@ func (*UnaryArithmeticSuite[T, O]) datatype() arrow.DataType {
 	return exec.GetDataType[T]()
 }
 
-func (us *UnaryArithmeticSuite[T, O]) makeNullScalar() scalar.Scalar {
+func (us *UnaryArithmeticSuite[T, O]) makeNullScalar() arrow.Scalar {
 	return scalar.MakeNullScalar(us.datatype())
 }
 
-func (us *UnaryArithmeticSuite[T, O]) makeScalar(v T) scalar.Scalar {
+func (us *UnaryArithmeticSuite[T, O]) makeScalar(v T) arrow.Scalar {
 	return scalar.MakeScalar(v)
 }
 
@@ -2477,7 +2477,7 @@ func (us *UnaryArithmeticSuite[T, O]) assertUnaryOpVals(fn unaryArithmeticFunc[O
 	assertScalarEquals(us.T(), exp, actual.(*compute.ScalarDatum).Value, scalar.WithNaNsEqual(true))
 }
 
-func (us *UnaryArithmeticSuite[T, O]) assertUnaryOpScalars(fn unaryArithmeticFunc[O], arg, exp scalar.Scalar) {
+func (us *UnaryArithmeticSuite[T, O]) assertUnaryOpScalars(fn unaryArithmeticFunc[O], arg, exp arrow.Scalar) {
 	actual, err := fn(us.ctx, us.opts, compute.NewDatum(arg))
 	us.Require().NoError(err)
 	assertScalarEquals(us.T(), exp, actual.(*compute.ScalarDatum).Value, scalar.WithNaNsEqual(true))

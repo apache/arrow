@@ -35,13 +35,13 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-func assertScalarsEqual(t *testing.T, expected, actual scalar.Scalar) {
+func assertScalarsEqual(t *testing.T, expected, actual arrow.Scalar) {
 	assert.Truef(t, scalar.Equals(expected, actual), "Expected:\n%s\nActual:\n%s", expected, actual)
 	seed := maphash.MakeSeed()
 	assert.Equal(t, scalar.Hash(seed, expected), scalar.Hash(seed, actual))
 }
 
-func assertMakeScalarParam(t *testing.T, expected scalar.Scalar, dt arrow.DataType, val interface{}) {
+func assertMakeScalarParam(t *testing.T, expected arrow.Scalar, dt arrow.DataType, val interface{}) {
 	out, err := scalar.MakeScalarParam(val, dt)
 	assert.NoError(t, err)
 	assert.NoError(t, out.Validate())
@@ -49,14 +49,14 @@ func assertMakeScalarParam(t *testing.T, expected scalar.Scalar, dt arrow.DataTy
 	assertScalarsEqual(t, expected, out)
 }
 
-func assertMakeScalar(t *testing.T, expected scalar.Scalar, val interface{}) {
+func assertMakeScalar(t *testing.T, expected arrow.Scalar, val interface{}) {
 	out := scalar.MakeScalar(val)
 	assert.NoError(t, out.Validate())
 	assert.NoError(t, out.ValidateFull())
 	assertScalarsEqual(t, expected, out)
 }
 
-func assertParseScalar(t *testing.T, dt arrow.DataType, str string, expected scalar.Scalar) {
+func assertParseScalar(t *testing.T, dt arrow.DataType, str string, expected arrow.Scalar) {
 	out, err := scalar.ParseScalar(dt, str)
 	assert.NoError(t, err)
 	assert.NoError(t, out.Validate())
@@ -68,7 +68,7 @@ func TestMakeScalarInt(t *testing.T) {
 	three := scalar.MakeScalar(int(3))
 	assert.NoError(t, three.ValidateFull())
 
-	var expected scalar.Scalar
+	var expected arrow.Scalar
 	if bits.UintSize == 32 {
 		expected = scalar.NewInt32Scalar(3)
 	} else {
@@ -80,7 +80,7 @@ func TestMakeScalarInt(t *testing.T) {
 	assertParseScalar(t, expected.DataType(), "3", expected)
 }
 
-func checkMakeNullScalar(t *testing.T, dt arrow.DataType) scalar.Scalar {
+func checkMakeNullScalar(t *testing.T, dt arrow.DataType) arrow.Scalar {
 	s := scalar.MakeNullScalar(dt)
 	assert.NoError(t, s.Validate())
 	assert.NoError(t, s.ValidateFull())
@@ -93,7 +93,7 @@ func TestMakeScalarUint(t *testing.T) {
 	three := scalar.MakeScalar(uint(3))
 	assert.NoError(t, three.ValidateFull())
 
-	var expected scalar.Scalar
+	var expected arrow.Scalar
 	if bits.UintSize == 32 {
 		expected = scalar.NewUint32Scalar(3)
 	} else {
@@ -742,7 +742,7 @@ func TestMapScalarBasics(t *testing.T) {
 }
 
 func TestStructScalar(t *testing.T) {
-	abc := scalar.NewStructScalar([]scalar.Scalar{
+	abc := scalar.NewStructScalar([]arrow.Scalar{
 		scalar.MakeScalar(true),
 		scalar.MakeNullScalar(arrow.PrimitiveTypes.Int32),
 		scalar.MakeScalar("hello"),
@@ -793,7 +793,7 @@ func TestStructScalarValidateErrors(t *testing.T) {
 	ty := arrow.StructOf(arrow.Field{Name: "a", Type: arrow.BinaryTypes.String})
 
 	// inconsistent isvalid value
-	sc := scalar.NewStructScalar([]scalar.Scalar{scalar.MakeScalar("hello")}, ty)
+	sc := scalar.NewStructScalar([]arrow.Scalar{scalar.MakeScalar("hello")}, ty)
 	sc.Valid = false
 	assert.Error(t, sc.ValidateFull())
 
@@ -802,23 +802,23 @@ func TestStructScalarValidateErrors(t *testing.T) {
 	assert.Error(t, sc.ValidateFull())
 
 	// inconsistent number of fields
-	sc = scalar.NewStructScalar([]scalar.Scalar{}, ty)
+	sc = scalar.NewStructScalar([]arrow.Scalar{}, ty)
 	assert.Error(t, sc.ValidateFull())
 
-	sc = scalar.NewStructScalar([]scalar.Scalar{scalar.MakeScalar("foo"), scalar.MakeScalar("bar")}, ty)
+	sc = scalar.NewStructScalar([]arrow.Scalar{scalar.MakeScalar("foo"), scalar.MakeScalar("bar")}, ty)
 	assert.Error(t, sc.ValidateFull())
 
 	// inconsistent child value type
-	sc = scalar.NewStructScalar([]scalar.Scalar{scalar.MakeScalar(42)}, ty)
+	sc = scalar.NewStructScalar([]arrow.Scalar{scalar.MakeScalar(42)}, ty)
 	assert.Error(t, sc.ValidateFull())
 
 	// child value has invalid utf8 data
-	sc = scalar.NewStructScalar([]scalar.Scalar{scalar.MakeScalar("\xff")}, ty)
+	sc = scalar.NewStructScalar([]arrow.Scalar{scalar.MakeScalar("\xff")}, ty)
 	assert.NoError(t, sc.Validate())
 	assert.Error(t, sc.ValidateFull())
 }
 
-func getScalars(mem memory.Allocator) []scalar.Scalar {
+func getScalars(mem memory.Allocator) []arrow.Scalar {
 	hello := memory.NewBufferBytes([]byte("hello"))
 	daytime := arrow.DayTimeInterval{Days: 1, Milliseconds: 100}
 	monthdaynano := arrow.MonthDayNanoInterval{Months: 5, Days: 4, Nanoseconds: 100}
@@ -843,7 +843,7 @@ func getScalars(mem memory.Allocator) []scalar.Scalar {
 	mapArr := mapBldr.NewMapArray()
 	defer mapArr.Release()
 
-	return []scalar.Scalar{
+	return []arrow.Scalar{
 		scalar.NewBooleanScalar(false),
 		scalar.NewInt8Scalar(3),
 		scalar.NewUint16Scalar(3),
@@ -866,7 +866,7 @@ func getScalars(mem memory.Allocator) []scalar.Scalar {
 		scalar.NewListScalar(int8Arr),
 		scalar.NewMapScalar(mapArr.List.ListValues()),
 		scalar.NewFixedSizeListScalar(int8Arr),
-		scalar.NewStructScalar([]scalar.Scalar{scalar.NewInt32Scalar(2), scalar.NewInt32Scalar(6)},
+		scalar.NewStructScalar([]arrow.Scalar{scalar.NewInt32Scalar(2), scalar.NewInt32Scalar(6)},
 			arrow.StructOf([]arrow.Field{{Name: "min", Type: arrow.PrimitiveTypes.Int32}, {Name: "max", Type: arrow.PrimitiveTypes.Int32}}...)),
 		scalar.NewRunEndEncodedScalar(scalar.NewStringScalarFromBuffer(hello),
 			arrow.RunEndEncodedOf(arrow.PrimitiveTypes.Int32, arrow.BinaryTypes.String)),
@@ -1147,7 +1147,7 @@ func TestDictionaryScalarValidateErrors(t *testing.T) {
 	}
 }
 
-func checkGetValidUnionScalar(t *testing.T, arr arrow.Array, idx int, expected, expectedValue scalar.Scalar) {
+func checkGetValidUnionScalar(t *testing.T, arr arrow.Array, idx int, expected, expectedValue arrow.Scalar) {
 	s, err := scalar.GetScalar(arr, idx)
 	assert.NoError(t, err)
 	assert.NoError(t, s.ValidateFull())
@@ -1165,18 +1165,18 @@ func checkGetNullUnionScalar(t *testing.T, arr arrow.Array, idx int) {
 	assert.False(t, s.(scalar.Union).ChildValue().IsValid())
 }
 
-func makeSparseUnionScalar(ty *arrow.SparseUnionType, val scalar.Scalar, idx int) scalar.Scalar {
+func makeSparseUnionScalar(ty *arrow.SparseUnionType, val arrow.Scalar, idx int) arrow.Scalar {
 	return scalar.NewSparseUnionScalarFromValue(val, idx, ty)
 }
 
-func makeDenseUnionScalar(ty *arrow.DenseUnionType, val scalar.Scalar, idx int) scalar.Scalar {
+func makeDenseUnionScalar(ty *arrow.DenseUnionType, val arrow.Scalar, idx int) arrow.Scalar {
 	return scalar.NewDenseUnionScalar(val, ty.TypeCodes()[idx], ty)
 }
 
-func makeSpecificNullScalar(dt arrow.UnionType, idx int) scalar.Scalar {
+func makeSpecificNullScalar(dt arrow.UnionType, idx int) arrow.Scalar {
 	switch dt.Mode() {
 	case arrow.SparseMode:
-		values := make([]scalar.Scalar, len(dt.Fields()))
+		values := make([]arrow.Scalar, len(dt.Fields()))
 		for i, f := range dt.Fields() {
 			values[i] = scalar.MakeNullScalar(f.Type)
 		}
@@ -1195,12 +1195,12 @@ type UnionScalarSuite struct {
 	mode                                            arrow.UnionMode
 	dt                                              arrow.DataType
 	unionType                                       arrow.UnionType
-	alpha, beta, two, three                         scalar.Scalar
-	unionAlpha, unionBeta, unionTwo, unionThree     scalar.Scalar
-	unionOtherTwo, unionStringNull, unionNumberNull scalar.Scalar
+	alpha, beta, two, three                         arrow.Scalar
+	unionAlpha, unionBeta, unionTwo, unionThree     arrow.Scalar
+	unionOtherTwo, unionStringNull, unionNumberNull arrow.Scalar
 }
 
-func (s *UnionScalarSuite) scalarFromValue(idx int, val scalar.Scalar) scalar.Scalar {
+func (s *UnionScalarSuite) scalarFromValue(idx int, val arrow.Scalar) arrow.Scalar {
 	switch s.mode {
 	case arrow.SparseMode:
 		return makeSparseUnionScalar(s.dt.(*arrow.SparseUnionType), val, idx)
@@ -1210,7 +1210,7 @@ func (s *UnionScalarSuite) scalarFromValue(idx int, val scalar.Scalar) scalar.Sc
 	return nil
 }
 
-func (s *UnionScalarSuite) specificNull(idx int) scalar.Scalar {
+func (s *UnionScalarSuite) specificNull(idx int) arrow.Scalar {
 	return makeSpecificNullScalar(s.unionType, idx)
 }
 
@@ -1254,7 +1254,7 @@ func (s *UnionScalarSuite) TestValidate() {
 	s.NoError(s.unionNumberNull.Validate())
 }
 
-func (s *UnionScalarSuite) setTypeCode(sc scalar.Scalar, c arrow.UnionTypeCode) {
+func (s *UnionScalarSuite) setTypeCode(sc arrow.Scalar, c arrow.UnionTypeCode) {
 	switch sc := sc.(type) {
 	case *scalar.SparseUnion:
 		sc.TypeCode = c
@@ -1263,7 +1263,7 @@ func (s *UnionScalarSuite) setTypeCode(sc scalar.Scalar, c arrow.UnionTypeCode) 
 	}
 }
 
-func (s *UnionScalarSuite) setIsValid(sc scalar.Scalar, v bool) {
+func (s *UnionScalarSuite) setIsValid(sc arrow.Scalar, v bool) {
 	switch sc := sc.(type) {
 	case *scalar.SparseUnion:
 		sc.Valid = v

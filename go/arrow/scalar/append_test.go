@@ -110,7 +110,7 @@ type PrimitiveAppendTestSuite[T primitiveTypes | string | []byte] struct {
 	dt      arrow.DataType
 	bldr    builder[T]
 	bldrNN  builder[T]
-	scalars []scalar.Scalar
+	scalars []arrow.Scalar
 
 	getRand func(n int64) []T
 
@@ -143,7 +143,7 @@ func (pt *PrimitiveAppendTestSuite[T]) TestAppendScalar() {
 	pt.randomData(int64(size), 0.1)
 
 	pt.bldr.Reserve(size)
-	pt.scalars = make([]scalar.Scalar, size)
+	pt.scalars = make([]arrow.Scalar, size)
 
 	var nullCount int
 	for i := 0; i < 1000; i++ {

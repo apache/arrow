@@ -497,7 +497,7 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 
 	tests := []struct {
 		name string
-		args scalar.Scalar
+		args arrow.Scalar
 		exp  exec.ArraySpan
 	}{
 		{"null-type",
@@ -691,8 +691,8 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 			},
 		},
 		{"struct scalar",
-			func() scalar.Scalar {
-				s, _ := scalar.NewStructScalarWithNames([]scalar.Scalar{
+			func() arrow.Scalar {
+				s, _ := scalar.NewStructScalarWithNames([]arrow.Scalar{
 					scalar.MakeScalar(int32(5)), scalar.MakeScalar(uint8(10)),
 				}, []string{"int32", "uint8"})
 				return s
@@ -728,7 +728,7 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 			},
 		},
 		{"dense union scalar",
-			func() scalar.Scalar {
+			func() arrow.Scalar {
 				dt := arrow.UnionOf(arrow.DenseMode, []arrow.Field{
 					{Name: "string", Type: arrow.BinaryTypes.String, Nullable: true},
 					{Name: "number", Type: arrow.PrimitiveTypes.Uint64, Nullable: true},
@@ -773,7 +773,7 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 			},
 		},
 		{"sparse union",
-			func() scalar.Scalar {
+			func() arrow.Scalar {
 				dt := arrow.UnionOf(arrow.SparseMode, []arrow.Field{
 					{Name: "string", Type: arrow.BinaryTypes.String, Nullable: true},
 					{Name: "number", Type: arrow.PrimitiveTypes.Uint64, Nullable: true},
