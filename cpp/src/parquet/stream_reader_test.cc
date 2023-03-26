@@ -925,7 +925,7 @@ TEST_F(TestReadingDataFiles, FLBADecimal) {
 
   for (i = 1; !reader.eof(); ++i) {
     reader >> x >> EndRow;
-    EXPECT_EQ(x.ToString(2), ::arrow::Decimal128(i * 100).ToString(2));
+    EXPECT_EQ(x, ::arrow::Decimal128(i * 100));
   }
   EXPECT_EQ(i, 25);
 }
@@ -942,7 +942,7 @@ TEST_F(TestReadingDataFiles, ByteArrayDecimal) {
 
   for (i = 1; !reader.eof(); ++i) {
     reader >> x >> EndRow;
-    EXPECT_EQ(x.ToString(2), ::arrow::Decimal128(i * 100).ToString(2));
+    EXPECT_EQ(x, ::arrow::Decimal128(i * 100));
   }
   EXPECT_EQ(i, 25);
 }

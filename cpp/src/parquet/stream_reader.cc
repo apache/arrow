@@ -174,60 +174,6 @@ StreamReader& StreamReader::operator>>(std::string& v) {
   return *this;
 }
 
-StreamReader& StreamReader::operator>>(::arrow::Decimal128& v) {
-  const auto& node = nodes_[column_index_];
-  ::arrow::Decimal128 value;
-
-  if (node->physical_type() == Type::FIXED_LEN_BYTE_ARRAY) {
-    const int type_length = node->type_length();
-    CheckColumn(Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::DECIMAL, type_length);
-
-    FixedLenByteArray flba;
-    Read(&flba);
-    PARQUET_ASSIGN_OR_THROW(value,
-                            ::arrow::Decimal128::FromBigEndian(flba.ptr, type_length));
-  } else if (node->physical_type() == Type::BYTE_ARRAY) {
-    CheckColumn(Type::BYTE_ARRAY, ConvertedType::DECIMAL);
-
-    ByteArray ba;
-    Read(&ba);
-    PARQUET_ASSIGN_OR_THROW(value, ::arrow::Decimal128::FromBigEndian(ba.ptr, ba.len));
-  } else {
-    ParquetException::NYI("Decimal128 is not implemented for non-binary types");
-  }
-
-  v = std::move(value);
-  return *this;
-}
-
-StreamReader& StreamReader::operator>>(optional<::arrow::Decimal128>& v) {
-  const auto& node = nodes_[column_index_];
-  std::optional<::arrow::Decimal128> value = std::nullopt;
-
-  if (node->physical_type() == Type::FIXED_LEN_BYTE_ARRAY) {
-    const int type_length = node->type_length();
-    CheckColumn(Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::DECIMAL, type_length);
-
-    FixedLenByteArray flba;
-    if (ReadOptional(&flba)) {
-      PARQUET_ASSIGN_OR_THROW(value,
-                              ::arrow::Decimal128::FromBigEndian(flba.ptr, type_length));
-    }
-  } else if (node->physical_type() == Type::BYTE_ARRAY) {
-    CheckColumn(Type::BYTE_ARRAY, ConvertedType::DECIMAL);
-
-    ByteArray ba;
-    if (ReadOptional(&ba)) {
-      PARQUET_ASSIGN_OR_THROW(value, ::arrow::Decimal128::FromBigEndian(ba.ptr, ba.len));
-    }
-  } else {
-    ParquetException::NYI("Decimal128 is not implemented for non-binary types");
-  }
-
-  v = std::move(value);
-  return *this;
-}
-
 StreamReader& StreamReader::operator>>(optional<bool>& v) {
   CheckColumn(Type::BOOLEAN, ConvertedType::NONE);
   ReadOptional<BoolReader>(&v);
@@ -327,6 +273,45 @@ StreamReader& StreamReader::operator>>(optional<std::string>& v) {
   } else {
     v.reset();
   }
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(optional<::arrow::Decimal128>& v) {
+  const auto& node = nodes_[column_index_];
+  if (node->physical_type() == Type::FIXED_LEN_BYTE_ARRAY) {
+    const int type_length = node->type_length();
+    CheckColumn(Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::DECIMAL, type_length);
+
+    FixedLenByteArray flba;
+    if (ReadOptional(&flba)) {
+      PARQUET_ASSIGN_OR_THROW(v,
+                              ::arrow::Decimal128::FromBigEndian(flba.ptr, type_length));
+    } else {
+      v.reset();
+    }
+  } else if (node->physical_type() == Type::BYTE_ARRAY) {
+    CheckColumn(Type::BYTE_ARRAY, ConvertedType::DECIMAL);
+
+    ByteArray ba;
+    if (ReadOptional(&ba)) {
+      PARQUET_ASSIGN_OR_THROW(v, ::arrow::Decimal128::FromBigEndian(ba.ptr, ba.len));
+    } else {
+      v.reset();
+    }
+  } else {
+    ParquetException::NYI("Decimal128 is not implemented for non-binary types");
+  }
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(::arrow::Decimal128& v) {
+  const auto& node = nodes_[column_index_];
+  std::optional<::arrow::Decimal128> maybe_v;
+  *this >> maybe_v;
+  if (!maybe_v.has_value()) {
+    ThrowReadFailedException(node);
+  }
+  v = std::move(maybe_v.value());
   return *this;
 }
 
