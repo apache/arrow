@@ -490,6 +490,12 @@ func TestTable(t *testing.T) {
 	if got, want := tbl2.Column(0).Name(), col1.Name(); got != want {
 		t.Fatalf("invalid column: got=%q, want=%q", got, want)
 	}
+	if err := tbl2.SetColumn(0, *col2); err == nil {
+		t.Fatalf("expected error setting column")
+	}
+	if err := tbl2.SetColumn(1, *col2); err != nil {
+		t.Fatalf("expected error setting column")
+	}
 
 	for _, tc := range []struct {
 		schema *arrow.Schema

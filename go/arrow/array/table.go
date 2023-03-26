@@ -217,6 +217,16 @@ func (tbl *simpleTable) validate() {
 	}
 }
 
+func (tbl *simpleTable) SetColumn(i int, col arrow.Column) error {
+	if tbl.cols[i].DataType() != col.DataType() {
+		return fmt.Errorf("arrow/array: column %q expected type %q but got type %q", col.Name(), tbl.cols[i].DataType(), col.DataType())
+	}
+	col.Retain()
+	tbl.cols[i].Release()
+	tbl.cols[i] = col
+	return nil
+}
+
 // Retain increases the reference count by 1.
 // Retain may be called simultaneously from multiple goroutines.
 func (tbl *simpleTable) Retain() {
