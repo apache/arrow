@@ -2144,7 +2144,7 @@ class TestConvertListTypes:
         offsets = pa.array([0, 2, 5, 6], pa.int32())
         keys = pa.array(['foo', 'bar', 'baz', 'qux', 'quux', 'quz'])
         items = pa.array([['a', 'b'], ['c', 'd'], [], None, [None, 'e'], ['f', 'g']],
-                           pa.list_(pa.string()))
+                         pa.list_(pa.string()))
         maps = pa.MapArray.from_arrays(offsets, keys, items)
         data = pa.ListArray.from_arrays([0, 1, 3], maps)
 
@@ -4579,20 +4579,22 @@ def test_does_not_mutate_timedelta_nested():
 
 
 def test_roundtrip_nested_map_table_with_pydicts():
-    schema = pa.schema([pa.field("a", pa.list_(pa.map_(pa.int8(), pa.struct([pa.field("b", pa.binary())]))))])
+    schema = pa.schema(
+        [pa.field("a", pa.list_(pa.map_(pa.int8(), pa.struct([pa.field("b", pa.binary())]))))])
     table = pa.table([[
-            [[(1, None)]],
-            None,
-            [
-                [(2, {"b": b"abc"})],
-                [(3, {"b": None}), (4, {"b": b"def"})],
-            ]
-        ]],
+        [[(1, None)]],
+        None,
+        [
+            [(2, {"b": b"abc"})],
+            [(3, {"b": None}), (4, {"b": b"def"})],
+        ]
+    ]],
         schema=schema,
     )
 
     expected_default_df = pd.DataFrame(
-        {"a": [[[(1, None)]], None, [[(2, {"b": b"abc"})], [(3, {"b": None}), (4, {"b": b"def"})]]]}
+        {"a": [[[(1, None)]], None, [[(2, {"b": b"abc"})],
+                                     [(3, {"b": None}), (4, {"b": b"def"})]]]}
     )
     expected_as_pydicts_df = pd.DataFrame(
         {"a": [[{1: None}], None, [{2: {"b": b"abc"}}, {3: {"b": None}, 4: {"b": b"def"}}]]}
@@ -4607,5 +4609,5 @@ def test_roundtrip_nested_map_table_with_pydicts():
     table_default_roundtrip = pa.Table.from_pandas(default_df, schema=schema)
     assert table.equals(table_default_roundtrip)
 
-    with pytest.raises(pa.ArrowTypeError):
-        table_as_pydicts_roundtrip = pa.Table.from_pandas(as_pydicts_df, schema=schema)
+    table_as_pydicts_roundtrip = pa.Table.from_pandas(as_pydicts_df, schema=schema)
+    assert table.equals(table_as_pydicts_roundtrip)
