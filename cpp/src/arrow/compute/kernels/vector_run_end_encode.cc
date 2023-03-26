@@ -38,19 +38,26 @@ class ReadWriteValueImpl<ArrowType, has_validity_buffer,
 
  private:
   const uint8_t* input_validity_;
-  const void* input_values_;
+  const uint8_t* input_values_;
 
   // Needed only by the writing functions
   uint8_t* output_validity_;
-  void* output_values_;
+  uint8_t* output_values_;
 
  public:
-  ReadWriteValueImpl(const uint8_t* input_validity, const void* input_values,
-                     uint8_t* output_validity = NULLPTR, void* output_values = NULLPTR)
-      : input_validity_(input_validity),
-        input_values_(input_values),
-        output_validity_(output_validity),
-        output_values_(output_values) {}
+  explicit ReadWriteValueImpl(const ArraySpan& input_values_array,
+                              ArrayData* output_values_array_data)
+      : input_validity_(has_validity_buffer ? input_values_array.buffers[0].data
+                                            : NULLPTR),
+        input_values_(input_values_array.buffers[1].data),
+        output_validity_(
+            (has_validity_buffer && output_values_array_data)
+                ? output_values_array_data->template GetMutableValues<uint8_t>(0)
+                : NULLPTR),
+        output_values_(
+            output_values_array_data
+                ? output_values_array_data->template GetMutableValues<uint8_t>(1)
+                : NULLPTR) {}
 
   [[nodiscard]] bool ReadValue(ValueRepr* out, int64_t read_offset) const {
     bool valid = true;
@@ -58,8 +65,7 @@ class ReadWriteValueImpl<ArrowType, has_validity_buffer,
       valid = bit_util::GetBit(input_validity_, read_offset);
     }
     if constexpr (std::is_same_v<ArrowType, BooleanType>) {
-      *out =
-          bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values_), read_offset);
+      *out = bit_util::GetBit(input_values_, read_offset);
     } else {
       *out = (reinterpret_cast<const ValueRepr*>(input_values_))[read_offset];
     }
@@ -82,8 +88,7 @@ class ReadWriteValueImpl<ArrowType, has_validity_buffer,
     }
     if (valid) {
       if constexpr (std::is_same_v<ArrowType, BooleanType>) {
-        bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values_), write_offset,
-                           value);
+        bit_util::SetBitTo(output_values_, write_offset, value);
       } else {
         (reinterpret_cast<ValueRepr*>(output_values_))[write_offset] = value;
       }
@@ -144,15 +149,14 @@ class RunEndEncodingLoop {
   RunEndCType* output_run_ends_;
 
  public:
-  RunEndEncodingLoop(int64_t input_length, int64_t input_offset,
-                     const uint8_t* input_validity, const void* input_values,
-                     uint8_t* output_validity = NULLPTR, void* output_values = NULLPTR,
-                     RunEndCType* output_run_ends = NULLPTR)
-      : input_length_(input_length),
-        input_offset_(input_offset),
-        read_write_value_(input_validity, input_values, output_validity, output_values),
+  explicit RunEndEncodingLoop(const ArraySpan& input_array,
+                              ArrayData* output_values_array_data,
+                              RunEndCType* output_run_ends)
+      : input_length_(input_array.length),
+        input_offset_(input_array.offset),
+        read_write_value_(input_array, output_values_array_data),
         output_run_ends_(output_run_ends) {
-    DCHECK_GT(input_length, 0);
+    DCHECK_GT(input_array.length, 0);
   }
 
   /// \brief Give a pass over the input data and count the number of runs
@@ -271,9 +275,6 @@ class RunEndEncodeImpl {
 
   Status Exec() {
     const int64_t input_length = input_array_.length;
-    const int64_t input_offset = input_array_.offset;
-    const auto* input_validity = input_array_.buffers[0].data;
-    const auto* input_values = input_array_.buffers[1].data;
 
     if (input_length == 0) {
       ARROW_ASSIGN_OR_RAISE(auto output_array_data,
@@ -289,7 +290,9 @@ class RunEndEncodeImpl {
     RETURN_NOT_OK(ValidateRunEndType<RunEndType>(input_length));
 
     RunEndEncodingLoop<RunEndType, ValueType, has_validity_buffer> counting_loop(
-        input_array_.length, input_array_.offset, input_validity, input_values);
+        input_array_,
+        /*output_values_array_data=*/NULLPTR,
+        /*output_run_ends=*/NULLPTR);
     std::tie(num_valid_runs, num_output_runs) = counting_loop.CountNumberOfRuns();
 
     ARROW_ASSIGN_OR_RAISE(auto output_array_data,
@@ -300,15 +303,11 @@ class RunEndEncodeImpl {
     // Initialize the output pointers
     auto* output_run_ends =
         output_array_data->child_data[0]->template GetMutableValues<RunEndCType>(1);
-    auto* output_validity =
-        output_array_data->child_data[1]->template GetMutableValues<uint8_t>(0);
-    auto* output_values =
-        output_array_data->child_data[1]->template GetMutableValues<uint8_t>(1);
+    auto* output_values_array_data = output_array_data->child_data[1].get();
 
     // Second pass: write the runs
     RunEndEncodingLoop<RunEndType, ValueType, has_validity_buffer> writing_loop(
-        input_length, input_offset, input_validity, input_values, output_validity,
-        output_values, output_run_ends);
+        input_array_, output_values_array_data, output_run_ends);
     [[maybe_unused]] int64_t num_written_runs = writing_loop.WriteEncodedRuns();
     DCHECK_EQ(num_written_runs, num_output_runs);
 
@@ -414,7 +413,6 @@ template <typename RunEndType, typename ValueType, bool has_validity_buffer>
 class RunEndDecodingLoop {
  public:
   using RunEndCType = typename RunEndType::c_type;
-  using CType = typename ValueType::c_type;
 
  private:
   using ReadWriteValue = ReadWriteValueImpl<ValueType, has_validity_buffer>;
@@ -427,10 +425,7 @@ class RunEndDecodingLoop {
   RunEndDecodingLoop(const ArraySpan& input_array, const ArraySpan& input_array_values,
                      ArrayData* output_array_data)
       : input_array_(input_array),
-        read_write_value_(input_array_values.buffers[0].data,
-                          input_array_values.buffers[1].data,
-                          output_array_data->template GetMutableValues<uint8_t>(0),
-                          output_array_data->template GetMutableValues<CType>(1)),
+        read_write_value_(input_array_values, output_array_data),
         values_offset_(input_array_values.offset) {}
 
  public:
