@@ -225,13 +225,9 @@ struct ARROW_FLIGHT_SQL_EXPORT ActionCreatePreparedStatementResult {
   std::string prepared_statement_handle;
 };
 
+//FIXME these probably need to be in types.h (?) for app visibility
 /// \brief A request to close the open client session.
 struct ARROW_FLIGHT_SQL_EXPORT ActionCloseSessionRequest {};
-
-/// \brief The result of a request to close the session.
-struct ARROW_FLIGHT_SQL_EXPORT ActionCloseSessionResult {
-  CloseSessionResult result;
-};
 
 /// \brief A request to set a set of session options by key/value.
 struct ARROW_FLIGHT_SQL_EXPORT ActionSetSessionOptionsRequest {
@@ -619,7 +615,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
       const ServerCallContext& context,
       const ActionSetSessionOptionsRequest& request);
 
-  virtual arrow::Result<ActionCloseSessionResult> CloseSession(
+  virtual arrow::Result<CloseSessionResult> CloseSession(
       const ServerCallContext& context,
       const ActionCloseSessionRequest& request
       );

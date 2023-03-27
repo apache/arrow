@@ -382,9 +382,9 @@ arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsReques
   ActionSetSessionOptionsRequest result;
   if (command.session_options_size() > 0) {
     result.session_options.reserve(command.session_options_size());
-    for (const pb::sql::SessionOption &in_opt : command.session_options()) {
+    for (const pb::sql::SessionOption& in_opt : command.session_options()) {
       const std::string& name = in_opt.option_name();
-      SessionOption opt&;
+      SessionOption opt;
       switch (in_opt.option_value_case()) {
         case pb::sql::SessionOption::OPTION_VALUE_NOT_SET:
           return Status::Invalid("Unset SessionOptionValue for key '" + name + "'");
@@ -407,20 +407,12 @@ arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsReques
           opt = {name, in_opt.double_value()};
           break;
         case pb::sql::SessionOption::kStringListValue:
-          opt = {name, []};
-          for (const std::string s : in_opt.string_list_value())
-            opt.option_value.push_back(s);
+          std::vector<std::string> vlist;
+          for (const std::string& s : in_opt.string_list_value().list())
+            vlist.push_back(s);
+          opt = {name, vlist};
           break;
-string string_value = 2;
-bool bool_value = 3;
-sfixed32 int32_value = 4;
-sfixed64 int64_value = 5;
-float float_value = 6;
-double double_value = 7;
-repeated string string_list_value = 8;
-
       }
-      SessionOption opt = {/*key*/, /*value*/}
       result.session_options.push_back(opt);
     }
 
@@ -502,7 +494,7 @@ arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
   return PackActionResult(pb_result);
 }
 
-arrow::Result<Result> PackActionResult(ActionCloseSessionResult result) {
+arrow::Result<Result> PackActionResult(CloseSessionResult result) {
   pb::sql::ActionCloseSessionResult pb_result;
   switch (result) {
     case CloseSessionResult::kUnspecified:
@@ -881,7 +873,7 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
   } else if (action.type == FlightSqlServerBase::kCloseSessionActionType.type) {
     ARROW_ASSIGN_OR_RAISE(ActionCloseSessionRequest internal_command,
                           ParseActionCloseSessionRequest(any));
-    ARROW_ASSIGN_OR_RAISE(ActionCloseSessionResult result, CloseSession(context, internal_command));
+    ARROW_ASSIGN_OR_RAISE(CloseSessionResult result, CloseSession(context, internal_command));
     ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
@@ -1153,7 +1145,7 @@ arrow::Result<CancelResult> FlightSqlServerBase::CancelQuery(
   return Status::NotImplemented("CancelQuery not implemented");
 }
 
-arrow::Result<ActionCloseSessionResult> FlightSqlServerBase::CloseSession(
+arrow::Result<CloseSessionResult> FlightSqlServerBase::CloseSession(
     const ServerCallContext& context,
     const ActionCloseSessionRequest& request) {
   //FIXME
