@@ -358,7 +358,7 @@ if(NOT PYARROW_CPP_LINK_LIBS)
   endif()
 endif()
 
-add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
+add_library(arrow_python ${PYARROW_CPP_SRCS})
 target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR}
                                                ${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src)
 if(NOT CMAKE_VERSION VERSION_LESS 3.16)
