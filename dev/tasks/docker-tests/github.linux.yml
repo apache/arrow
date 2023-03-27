@@ -19,6 +19,9 @@
 
 {{ macros.github_header() }}
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: |
@@ -28,10 +31,13 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
       {{ macros.github_install_archery()|indent }}
-
+      - name: "Save token in file"
+        run: |
+          echo "$GITHUB_TOKEN" >> gh_token.txt
       - name: Execute Docker Build
         shell: bash
         env:
+        GITHUB_TOKEN_FILE: "./gh_token.txt"
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           archery docker run \

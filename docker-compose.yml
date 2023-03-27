@@ -189,7 +189,8 @@ volumes:
     name: ${ARCH}-ubuntu-${UBUNTU}-ccache
 
 secrets:
-  - github_pat: ${GITHUB_TOKEN_FILE}
+  github_pat:
+    file: ${GITHUB_TOKEN_FILE}
 
 services:
 
