@@ -322,14 +322,16 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                                        pool)
     else:
         try:
-            # Check if first element is pa.Scalar, use as_py() on whole sequence
-            obj_as_py = [s.as_py() for s in obj]
-            return _sequence_to_array(
-                obj_as_py, mask, size, type, pool, c_from_pandas)
-        except:
-            pass
-        # ConvertPySequence does strict conversion if type is explicitly passed
-        result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
+            # ConvertPySequence does strict conversion if type is explicitly passed
+            result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
+        except ArrowInvalid as err:
+            if "Scalar" in str(err):
+                # If it fails because of the pa.Scalar, use as_py() on whole sequence
+                obj_as_py = [s.as_py() for s in obj]
+                return _sequence_to_array(
+                    obj_as_py, mask, size, type, pool, c_from_pandas)
+            else:
+                raise
 
     if extension_type is not None:
         result = ExtensionArray.from_storage(extension_type, result)
