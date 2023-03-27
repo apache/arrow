@@ -1147,7 +1147,7 @@ def test_cpp_extension_in_python(tmpdir):
 @pytest.mark.pandas
 def test_extension_to_pandas_storage_type(registered_period_type):
     period_type, _ = registered_period_type
-    np_arr = np.array([1, 2, 3, 4])
+    np_arr = np.array([1, 2, 3, 4], dtype='i8')
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(period_type, storage)
 
