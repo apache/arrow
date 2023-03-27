@@ -65,8 +65,15 @@ on:
 {% endmacro %}
 
 {%- macro github_upload_releases(pattern) -%}
-  - name: Set up Python
+  - name: Set up Python by actions/setup-python
+    if: runner.arch == 'X64'
     uses: actions/setup-python@v4
+    with:
+      python-version: 3.8
+  - name: Set up Python by apt
+    if: runner.os == 'Linux' && runner.arch != 'X64'
+    run: |
+      sudo apt install -y python-pip
     with:
       python-version: 3.8
   - name: Checkout Crossbow
