@@ -1321,6 +1321,18 @@ Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
   return FieldPathGetImpl::Get(this, data.child_data);
 }
 
+Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(
+    const ChunkedArray& chunked_array) const {
+  if (chunked_array.num_chunks() < 1) {
+    return Status::Invalid("Chunked array must have at least one chunk");
+  }
+  if (chunked_array.chunk(0)->data()->type->id() != Type::STRUCT) {
+    return Status::NotImplemented("Get child data of non-struct chunked array");
+  }
+  auto columns = ChunkedArrayRef(chunked_array).Flatten();
+  return FieldPathGetImpl::Get(this, columns);
+}
+
 FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {}
 
 void FieldRef::Flatten(std::vector<FieldRef> children) {

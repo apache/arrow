@@ -1695,6 +1695,9 @@ class ARROW_EXPORT FieldPath {
   Result<std::shared_ptr<Array>> Get(const Array& array) const;
   Result<std::shared_ptr<ArrayData>> Get(const ArrayData& data) const;
 
+  /// \brief Retrieve the referenced child from a ChunkedArray
+  Result<std::shared_ptr<ChunkedArray>> Get(const ChunkedArray& chunked_array) const;
+
  private:
   std::vector<int> indices_;
 };
