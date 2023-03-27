@@ -1143,6 +1143,7 @@ def test_cpp_extension_in_python(tmpdir):
     assert reconstructed_array == array
 
 
+@pytest.mark.pandas
 def test_extension_to_pandas_storage_type(registered_period_type):
     period_type, _ = registered_period_type
     np_arr = np.array([1, 2, 3, 4])
@@ -1180,3 +1181,8 @@ def test_extension_to_pandas_storage_type(registered_period_type):
     table = pa.Table.from_arrays(data, schema=my_schema)
     result = table.to_pandas()
     assert result["ext"].dtype == pandas_dtype
+
+    # Check the usage of types_mapper
+    import pandas as pd
+    result = table.to_pandas(types_mapper=pd.ArrowDtype)
+    assert isinstance(result["ext"].dtype, pd.ArrowDtype)
