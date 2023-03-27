@@ -705,3 +705,11 @@ test_that("can create empty table from schema", {
   expect_equal(nrow(out), 0)
   expect_equal(out$schema, schema)
 })
+
+test_that("R to Arrow to R roundtrip with list column in table doesn't change attributes", {
+  df <- tibble::tibble(x = list(1, 2, 3))
+  out <- Table$create(df)
+  back <- as.data.frame(out)
+
+  expect_identical(df, back)
+})
