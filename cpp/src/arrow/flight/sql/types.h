@@ -46,7 +46,11 @@ using SqlInfoResultMap = std::unordered_map<int32_t, SqlInfoResult>;
 
 /// \brief Variant supporting all possible types for SetSessionOption
 using SessionOptionValue =
-    std::variant<std::string, bool, int64_t, int32_t, double, float, std::vector<std::string>>;
+    std::variant<std::string, bool, int32_t, int64_t, float, double, std::vector<std::string>>;
+
+enum struct SessionOptionValueType {
+  kString, kBool, kInt32, kInt64, kFloat, kDouble, kStringList
+};
 
 struct ARROW_FLIGHT_SQL_EXPORT SessionOption {
   std::string option_key;

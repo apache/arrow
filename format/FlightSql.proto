@@ -1880,7 +1880,15 @@ message SessionOption {
   option (experimental) = true;
 
   string option_name = 1;
-  bytes option_value = 2;
+  oneof option_value {
+    string string_value = 2;
+    bool bool_value = 3;
+    sfixed32 int32_value = 4;
+    sfixed64 int64_value = 5;
+    float float_value = 6;
+    double double_value = 7;
+    repeated string string_list_value = 8;
+  }
 }
 
 message ActionSetSessionOptionsRequest {

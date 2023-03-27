@@ -382,9 +382,46 @@ arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsReques
   ActionSetSessionOptionsRequest result;
   if (command.session_options_size() > 0) {
     result.session_options.reserve(command.session_options_size());
-    for (const pb::sql::SessionOption &opt : command.session_options()) {
-      //FIXME implement me
-      assert(&opt);  // be quiet, -Wunused-variable
+    for (const pb::sql::SessionOption &in_opt : command.session_options()) {
+      const std::string& name = in_opt.option_name();
+      SessionOption opt&;
+      switch (in_opt.option_value_case()) {
+        case pb::sql::SessionOption::OPTION_VALUE_NOT_SET:
+          return Status::Invalid("Unset SessionOptionValue for key '" + name + "'");
+        case pb::sql::SessionOption::kStringValue:
+          opt = {name, in_opt.string_value()};
+          break;
+        case pb::sql::SessionOption::kBoolValue:
+          opt = {name, in_opt.bool_value()};
+          break;
+        case pb::sql::SessionOption::kInt32Value:
+          opt = {name, in_opt.int32_value()};
+          break;
+        case pb::sql::SessionOption::kInt64Value:
+          opt = {name, in_opt.int64_value()};
+          break;
+        case pb::sql::SessionOption::kFloatValue:
+          opt = {name, in_opt.float_value()};
+          break;
+        case pb::sql::SessionOption::kDoubleValue:
+          opt = {name, in_opt.double_value()};
+          break;
+        case pb::sql::SessionOption::kStringListValue:
+          opt = {name, []};
+          for (const std::string s : in_opt.string_list_value())
+            opt.option_value.push_back(s);
+          break;
+string string_value = 2;
+bool bool_value = 3;
+sfixed32 int32_value = 4;
+sfixed64 int64_value = 5;
+float float_value = 6;
+double double_value = 7;
+repeated string string_list_value = 8;
+
+      }
+      SessionOption opt = {/*key*/, /*value*/}
+      result.session_options.push_back(opt);
     }
 
     //result.session_options.assign(command.session_options().begin(), command.session_options().end());
