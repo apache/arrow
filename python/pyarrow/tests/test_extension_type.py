@@ -25,6 +25,7 @@ import sys
 
 import numpy as np
 import pyarrow as pa
+from pyarrow.vendored.version import Version
 
 import pytest
 
@@ -1182,7 +1183,10 @@ def test_extension_to_pandas_storage_type(registered_period_type):
     result = table.to_pandas()
     assert result["ext"].dtype == pandas_dtype
 
-    # Check the usage of types_mapper
     import pandas as pd
-    result = table.to_pandas(types_mapper=pd.ArrowDtype)
-    assert isinstance(result["ext"].dtype, pd.ArrowDtype)
+    if Version(pd.__version__) < Version("1.5.0"):
+        pytest.skip("ArrowDtype missing")
+
+        # Check the usage of types_mapper
+        result = table.to_pandas(types_mapper=pd.ArrowDtype)
+        assert isinstance(result["ext"].dtype, pd.ArrowDtype)
