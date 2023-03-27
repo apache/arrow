@@ -74,8 +74,6 @@ on:
     if: runner.os == 'Linux' && runner.arch != 'X64'
     run: |
       sudo apt install -y python-pip
-    with:
-      python-version: 3.8
   - name: Checkout Crossbow
     uses: actions/checkout@v3
     with:
