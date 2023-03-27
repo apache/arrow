@@ -1917,7 +1917,7 @@ message ActionSetSessionOptionsResult {
     SET_SESSION_OPTION_RESULT_ERROR = 3;
   }
 
-  repeated SetSessionOptionResult result = 1;
+  repeated SetSessionOptionResult results = 1;
 }
 
 extend google.protobuf.MessageOptions {

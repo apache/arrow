@@ -486,7 +486,26 @@ arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult resul
 
 arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
   pb::sql::ActionSetSessionOptionsResult pb_result;
-  //FIXME impl
+  for (SetSessionOptionResult& res : result.results) {
+    switch (res) {
+      case SetSessionOptionResult::kUnspecified:
+        pb_result.add_results(
+            pb::sql::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_UNSPECIFIED);
+        break;
+      case SetSessionOptionResult::kOk:
+        pb_result.add_results(
+            pb::sql::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_OK);
+        break;
+      case SetSessionOptionResult::kInvalidResult:
+        pb_result.add_results(
+            pb::sql::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_INVALID_VALUE);
+        break;
+      case SetSessionOptionResult::kError:
+        pb_result.add_results(
+            pb::sql::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_ERROR);
+        break;
+    }
+  }
   return PackActionResult(pb_result);
 }
 
