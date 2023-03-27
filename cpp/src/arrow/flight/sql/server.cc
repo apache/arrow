@@ -467,7 +467,20 @@ arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
 
 arrow::Result<Result> PackActionResult(ActionCloseSessionResult result) {
   pb::sql::ActionCloseSessionResult pb_result;
-  //FIXME impl
+  switch (result) {
+    case CloseSessionResult::kUnspecified:
+      pb_result.set_result(pb::sql::ActionCloseSessionResult::CLOSE_RESULT_UNSPECIFIED);
+      break;
+    case CloseSessionResult::kClosed:
+      pb_result.set_result(pb::sql::ActionCloseSessionResult::CLOSE_RESULT_CLOSED);
+      break;
+    case CloseSessionResult::kClosing:
+      pb_result.set_result(pb::sql::ActionCloseSessionResult::CLOSE_RESULT_CLOSING);
+      break;
+    case CloseSessionResult::kNotClosable:
+      pb_result.set_result(pb::sql::ActionCloseSessionResult::CLOSE_RESULT_NOT_CLOSEABLE);
+      break;
+  }
   return PackActionResult(pb_result);
 }
 
