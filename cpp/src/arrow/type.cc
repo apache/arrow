@@ -1065,9 +1065,81 @@ std::string FieldPath::ToString() const {
   return repr;
 }
 
+class ChunkedColumn;
+using ChunkedColumnVector = std::vector<std::shared_ptr<ChunkedColumn>>;
+
+class ChunkedColumn {
+ public:
+  virtual ~ChunkedColumn() = default;
+
+  virtual int num_chunks() const = 0;
+  virtual const std::shared_ptr<ArrayData>& chunk(int i) const = 0;
+
+  const std::shared_ptr<DataType>& type() const { return chunk(0)->type; }
+
+  ChunkedColumnVector Flatten() const;
+
+  Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() const {
+    ArrayVector chunks(num_chunks());
+    for (int i = 0; i < num_chunks(); ++i) {
+      chunks[i] = MakeArray(chunk(i));
+    }
+    return ChunkedArray::Make(std::move(chunks), type());
+  }
+};
+
+// References a chunk vector owned by another ChunkedArray.
+// This can be used to avoid transforming a top-level ChunkedArray's ArrayVector into an
+// ArrayDataVector if flattening isn't needed.
+class ChunkedArrayRef : public ChunkedColumn {
+ public:
+  explicit ChunkedArrayRef(const ChunkedArray& chunked_array)
+      : chunks_(chunked_array.chunks()) {}
+
+  int num_chunks() const override { return static_cast<int>(chunks_.size()); }
+  const std::shared_ptr<ArrayData>& chunk(int i) const override {
+    return chunks_[i]->data();
+  }
+
+ private:
+  const ArrayVector& chunks_;
+};
+
+// Owns a chunked ArrayDataVector (created after flattening its parent).
+class ChunkedArrayData : public ChunkedColumn {
+ public:
+  explicit ChunkedArrayData(ArrayDataVector chunks) : chunks_(std::move(chunks)) {}
+
+  int num_chunks() const override { return static_cast<int>(chunks_.size()); }
+  const std::shared_ptr<ArrayData>& chunk(int i) const override { return chunks_[i]; }
+
+ private:
+  ArrayDataVector chunks_;
+};
+
+// Return a vector of ChunkedColumns - one for each struct field.
+// Unlike ChunkedArray::Flatten, this is zero-copy and doesn't merge parent/child
+// validity bitmaps.
+ChunkedColumnVector ChunkedColumn::Flatten() const {
+  DCHECK_EQ(type()->id(), Type::STRUCT);
+
+  ChunkedColumnVector columns(chunk(0)->child_data.size());
+  for (size_t column_idx = 0; column_idx < columns.size(); ++column_idx) {
+    ArrayDataVector chunks(num_chunks());
+    for (int chunk_idx = 0; chunk_idx < num_chunks(); ++chunk_idx) {
+      const auto& child_data = chunk(chunk_idx)->child_data;
+      DCHECK_EQ(columns.size(), child_data.size());
+      chunks[chunk_idx] = child_data[column_idx];
+    }
+    columns[column_idx] = std::make_shared<ChunkedArrayData>(std::move(chunks));
+  }
+
+  return columns;
+}
+
 struct FieldPathGetImpl {
   static const DataType& GetType(const ArrayData& data) { return *data.type; }
-  static const DataType& GetType(const ChunkedArray& array) { return *array.type(); }
+  static const DataType& GetType(const ChunkedColumn& column) { return *column.type(); }
 
   static void Summarize(const FieldVector& fields, std::stringstream* ss) {
     *ss << "{ ";
@@ -1123,19 +1195,22 @@ struct FieldPathGetImpl {
 
     int depth = 0;
     const T* out;
-    for (int index : path->indices()) {
+    while (true) {
       if (children == nullptr) {
         return Status::NotImplemented("Get child data of non-struct array");
       }
 
+      auto index = (*path)[depth];
       if (index < 0 || static_cast<size_t>(index) >= children->size()) {
         *out_of_range_depth = depth;
         return nullptr;
       }
 
       out = &children->at(index);
+      if (static_cast<size_t>(++depth) == path->indices().size()) {
+        break;
+      }
       children = get_children(*out);
-      ++depth;
     }
 
     return *out;
@@ -1161,28 +1236,23 @@ struct FieldPathGetImpl {
     });
   }
 
-  static Result<std::shared_ptr<ChunkedArray>> Get(const FieldPath* path,
-                                                   const ChunkedArrayVector& table) {
-    ChunkedArrayVector chunked_array_vector_buffer;
-    Status status;
+  static Result<std::shared_ptr<ChunkedArray>> Get(
+      const FieldPath* path, const ChunkedColumnVector& toplevel_children) {
+    ChunkedColumnVector children;
 
-    auto result = FieldPathGetImpl::Get(
-        path, &table,
-        [&chunked_array_vector_buffer,
-         &status](const std::shared_ptr<ChunkedArray>& chunked_array)
-            -> const ChunkedArrayVector* {
-          auto maybe_chunked_array_vector = chunked_array->Flatten();
-          if (!maybe_chunked_array_vector.ok()) {
-            status = maybe_chunked_array_vector.status();
-            return nullptr;
-          }
+    ARROW_ASSIGN_OR_RAISE(
+        auto child,
+        FieldPathGetImpl::Get(path, &toplevel_children,
+                              [&children](const std::shared_ptr<ChunkedColumn>& parent)
+                                  -> const ChunkedColumnVector* {
+                                if (parent->type()->id() != Type::STRUCT) {
+                                  return nullptr;
+                                }
+                                children = parent->Flatten();
+                                return &children;
+                              }));
 
-          chunked_array_vector_buffer = maybe_chunked_array_vector.MoveValueUnsafe();
-          return &chunked_array_vector_buffer;
-        });
-
-    ARROW_RETURN_NOT_OK(status);
-    return result;
+    return child->ToChunkedArray();
   }
 
   static Result<std::shared_ptr<ArrayData>> Get(const FieldPath* path,
@@ -1231,8 +1301,12 @@ Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
 }
 
 Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const Table& table) const {
-  ARROW_ASSIGN_OR_RAISE(auto data, FieldPathGetImpl::Get(this, table.columns()));
-  return data;
+  ChunkedColumnVector columns(table.num_columns());
+  std::transform(table.columns().cbegin(), table.columns().cend(), columns.begin(),
+                 [](const std::shared_ptr<ChunkedArray>& chunked_array) {
+                   return std::make_shared<ChunkedArrayRef>(*chunked_array);
+                 });
+  return FieldPathGetImpl::Get(this, columns);
 }
 
 Result<std::shared_ptr<Array>> FieldPath::Get(const Array& array) const {
