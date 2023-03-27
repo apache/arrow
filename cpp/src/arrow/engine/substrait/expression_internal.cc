@@ -138,6 +138,77 @@ std::string EnumToString(int value, const google::protobuf::EnumDescriptor* desc
   return value_desc->name();
 }
 
+Result<compute::Expression> FromProto(const substrait::Expression::ReferenceSegment* ref,
+                                      const ExtensionSet& ext_set,
+                                      const ConversionOptions& conversion_options,
+                                      std::optional<compute::Expression> in_expr) {
+  auto in_ref = ref;
+  auto& out = in_expr;
+  while (ref != nullptr) {
+    switch (ref->reference_type_case()) {
+      case substrait::Expression::ReferenceSegment::kStructField: {
+        auto index = ref->struct_field().field();
+        if (!out) {
+          // Root StructField (column selection)
+          out = compute::field_ref(FieldRef(index));
+        } else if (auto out_ref = out->field_ref()) {
+          // Nested StructFields on the root (selection of struct-typed column
+          // combined with selecting struct fields)
+          out = compute::field_ref(FieldRef(*out_ref, index));
+        } else if (out->call() && out->call()->function_name == "struct_field") {
+          // Nested StructFields on top of an arbitrary expression
+          auto* field_options =
+              checked_cast<compute::StructFieldOptions*>(out->call()->options.get());
+          field_options->field_ref = FieldRef(std::move(field_options->field_ref), index);
+        } else {
+          // First StructField on top of an arbitrary expression
+          out = compute::call("struct_field", {std::move(*out)},
+                              arrow::compute::StructFieldOptions({index}));
+        }
+
+        // Segment handled, continue with child segment (if any)
+        if (ref->struct_field().has_child()) {
+          ref = &ref->struct_field().child();
+        } else {
+          ref = nullptr;
+        }
+        break;
+      }
+      case substrait::Expression::ReferenceSegment::kListElement: {
+        if (!out) {
+          // Root ListField (illegal)
+          return Status::Invalid(
+              "substrait::ListElement cannot take a Relation as an argument");
+        }
+
+        // ListField on top of an arbitrary expression
+        out = compute::call(
+            "list_element",
+            {std::move(*out), compute::literal(ref->list_element().offset())});
+
+        // Segment handled, continue with child segment (if any)
+        if (ref->list_element().has_child()) {
+          ref = &ref->list_element().child();
+        } else {
+          ref = nullptr;
+        }
+        break;
+      }
+      default:
+        // Unimplemented construct, break out of loop
+        out.reset();
+        ref = nullptr;
+    }
+  }
+  if (out) {
+    return *std::move(out);
+  }
+
+  return Status::NotImplemented(
+      "conversion to arrow::compute::Expression from Substrait reference segment: ",
+      in_ref ? in_ref->DebugString() : "null");
+}
+
 Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool is_hash,
                                 const ExtensionSet& ext_set,
                                 const ConversionOptions& conversion_options) {
@@ -193,67 +264,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       }
 
       const auto* ref = &expr.selection().direct_reference();
-      while (ref != nullptr) {
-        switch (ref->reference_type_case()) {
-          case substrait::Expression::ReferenceSegment::kStructField: {
-            auto index = ref->struct_field().field();
-            if (!out) {
-              // Root StructField (column selection)
-              out = compute::field_ref(FieldRef(index));
-            } else if (auto out_ref = out->field_ref()) {
-              // Nested StructFields on the root (selection of struct-typed column
-              // combined with selecting struct fields)
-              out = compute::field_ref(FieldRef(*out_ref, index));
-            } else if (out->call() && out->call()->function_name == "struct_field") {
-              // Nested StructFields on top of an arbitrary expression
-              auto* field_options =
-                  checked_cast<compute::StructFieldOptions*>(out->call()->options.get());
-              field_options->field_ref =
-                  FieldRef(std::move(field_options->field_ref), index);
-            } else {
-              // First StructField on top of an arbitrary expression
-              out = compute::call("struct_field", {std::move(*out)},
-                                  arrow::compute::StructFieldOptions({index}));
-            }
-
-            // Segment handled, continue with child segment (if any)
-            if (ref->struct_field().has_child()) {
-              ref = &ref->struct_field().child();
-            } else {
-              ref = nullptr;
-            }
-            break;
-          }
-          case substrait::Expression::ReferenceSegment::kListElement: {
-            if (!out) {
-              // Root ListField (illegal)
-              return Status::Invalid(
-                  "substrait::ListElement cannot take a Relation as an argument");
-            }
-
-            // ListField on top of an arbitrary expression
-            out = compute::call(
-                "list_element",
-                {std::move(*out), compute::literal(ref->list_element().offset())});
-
-            // Segment handled, continue with child segment (if any)
-            if (ref->list_element().has_child()) {
-              ref = &ref->list_element().child();
-            } else {
-              ref = nullptr;
-            }
-            break;
-          }
-          default:
-            // Unimplemented construct, break out of loop
-            out.reset();
-            ref = nullptr;
-        }
-      }
-      if (out) {
-        return *std::move(out);
-      }
-      break;
+      return FromProto(ref, ext_set, conversion_options, std::move(out));
     }
 
     case substrait::Expression::kIfThen: {

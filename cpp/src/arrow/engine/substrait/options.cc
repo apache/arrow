@@ -75,6 +75,11 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
       rel.UnpackTo(&named_tap_rel);
       return MakeNamedTapRel(conv_opts, inputs, named_tap_rel, ext_set);
     }
+    if (rel.Is<substrait_ext::SegmentedAggregateRel>()) {
+      substrait_ext::SegmentedAggregateRel seg_agg_rel;
+      rel.UnpackTo(&seg_agg_rel);
+      return MakeSegmentedAggregateRel(conv_opts, inputs, seg_agg_rel, ext_set);
+    }
     return Status::NotImplemented("Unrecognized extension in Susbstrait plan: ",
                                   rel.DebugString());
   }
@@ -164,6 +169,68 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
         auto decl, conv_opts.named_tap_provider(named_tap_rel.kind(), input_decls,
                                                 named_tap_rel.name(), renamed_schema));
     return RelationInfo{{std::move(decl), std::move(renamed_schema)}, std::nullopt};
+  }
+
+  Result<RelationInfo> MakeSegmentedAggregateRel(
+      const ConversionOptions& conv_opts, const std::vector<DeclarationInfo>& inputs,
+      const substrait_ext::SegmentedAggregateRel& seg_agg_rel,
+      const ExtensionSet& ext_set) {
+    if (inputs.size() != 1) {
+      return Status::Invalid(
+          "substrait_ext::SegmentedAggregateRel requires a single input but got: ",
+          inputs.size());
+    }
+
+    auto input_schema = inputs[0].output_schema;
+
+    // store key fields to be used when output schema is created
+    std::vector<int> key_field_ids;
+    std::vector<FieldRef> keys;
+    for (auto& key_refseg : seg_agg_rel.grouping_keys()) {
+      ARROW_ASSIGN_OR_RAISE(auto expr, FromProto(&key_refseg, ext_set, conv_opts, {}));
+      if (auto field_ref = expr.field_ref()) {
+        ARROW_ASSIGN_OR_RAISE(auto match, field_ref->FindOne(*input_schema));
+        key_field_ids.emplace_back(std::move(match[0]));
+        keys.emplace_back(std::move(*field_ref));
+      }
+    }
+
+    // store segment key fields to be used when output schema is created
+    std::vector<int> segment_key_field_ids;
+    std::vector<FieldRef> segment_keys;
+    for (auto& key_refseg : seg_agg_rel.segment_keys()) {
+      ARROW_ASSIGN_OR_RAISE(auto expr, FromProto(&key_refseg, ext_set, conv_opts, {}));
+      if (auto field_ref = expr.field_ref()) {
+        ARROW_ASSIGN_OR_RAISE(auto match, field_ref->FindOne(*input_schema));
+        segment_key_field_ids.emplace_back(std::move(match[0]));
+        segment_keys.emplace_back(std::move(*field_ref));
+      }
+    }
+
+    std::vector<compute::Aggregate> aggregates;
+    std::vector<std::vector<int>> agg_src_fieldsets;
+    for (auto agg_measure : seg_agg_rel.measures()) {
+      ARROW_RETURN_NOT_OK(internal::ParseAggregateMeasure(
+          agg_measure, ext_set, conv_opts, /*is_hash=*/!keys.empty(), input_schema,
+          &aggregates, &agg_src_fieldsets));
+    }
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto decl_info,
+        internal::MakeAggregateDeclaration(
+            seg_agg_rel.common(), std::move(inputs[0].declaration),
+            std::move(input_schema), seg_agg_rel.measures_size(), std::move(aggregates),
+            std::move(agg_src_fieldsets), std::move(keys), std::move(key_field_ids),
+            std::move(segment_keys), std::move(segment_key_field_ids), ext_set,
+            conv_opts));
+
+    const auto& output_schema = decl_info.output_schema;
+    size_t out_size = output_schema->num_fields();
+    std::vector<int> field_output_indices(out_size);
+    for (int i = 0; i < static_cast<int>(out_size); i++) {
+      field_output_indices[i] = i;
+    }
+    return RelationInfo{decl_info, std::move(field_output_indices)};
   }
 };
 

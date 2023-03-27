@@ -74,10 +74,9 @@ struct EmitInfo {
   std::shared_ptr<Schema> schema;
 };
 
-template <typename RelMessage>
-Result<EmitInfo> GetEmitInfo(const RelMessage& rel,
+Result<EmitInfo> GetEmitInfo(const substrait::RelCommon& rel_common,
                              const std::shared_ptr<Schema>& input_schema) {
-  const auto& emit = rel.common().emit();
+  const auto& emit = rel_common.emit();
   int emit_size = emit.output_mapping_size();
   std::vector<compute::Expression> proj_field_refs(emit_size);
   EmitInfo emit_info;
@@ -90,6 +89,11 @@ Result<EmitInfo> GetEmitInfo(const RelMessage& rel,
   emit_info.expressions = std::move(proj_field_refs);
   emit_info.schema = schema(std::move(emit_fields));
   return std::move(emit_info);
+}
+template <typename RelMessage>
+Result<EmitInfo> GetEmitInfo(const RelMessage& rel,
+                             const std::shared_ptr<Schema>& input_schema) {
+  return GetEmitInfo(rel.common(), input_schema);
 }
 
 Result<DeclarationInfo> ProcessEmitProject(
@@ -128,16 +132,15 @@ Result<DeclarationInfo> ProcessEmitProject(
   }
 }
 
-template <typename RelMessage>
-Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
+Result<DeclarationInfo> ProcessEmit(std::optional<substrait::RelCommon> rel_common_opt,
                                     const DeclarationInfo& no_emit_declr,
                                     const std::shared_ptr<Schema>& schema) {
-  if (rel.has_common()) {
-    switch (rel.common().emit_kind_case()) {
+  if (rel_common_opt) {
+    switch (rel_common_opt->emit_kind_case()) {
       case substrait::RelCommon::EmitKindCase::kDirect:
         return no_emit_declr;
       case substrait::RelCommon::EmitKindCase::kEmit: {
-        ARROW_ASSIGN_OR_RAISE(auto emit_info, GetEmitInfo(rel, schema));
+        ARROW_ASSIGN_OR_RAISE(auto emit_info, GetEmitInfo(*rel_common_opt, schema));
         return DeclarationInfo{
             compute::Declaration::Sequence(
                 {no_emit_declr.declaration,
@@ -151,6 +154,13 @@ Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
   } else {
     return no_emit_declr;
   }
+}
+template <typename RelMessage>
+Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
+                                    const DeclarationInfo& no_emit_declr,
+                                    const std::shared_ptr<Schema>& schema) {
+  return ProcessEmit(rel.has_common() ? std::make_optional(rel.common()) : std::nullopt,
+                     no_emit_declr, schema);
 }
 /// In the specialization, a single ProjectNode is being used to
 /// get the Acero relation with or without emit.
@@ -292,6 +302,90 @@ Status DiscoverFilesFromDir(const std::shared_ptr<fs::LocalFileSystem>& local_fs
 
   return Status::OK();
 }
+
+namespace internal {
+
+ARROW_ENGINE_EXPORT Status ParseAggregateMeasure(
+    const substrait::AggregateRel::Measure& agg_measure, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options, bool is_hash,
+    const std::shared_ptr<Schema> input_schema,
+    std::vector<compute::Aggregate>* aggregates_ptr,
+    std::vector<std::vector<int>>* agg_src_fieldsets_ptr) {
+  std::vector<compute::Aggregate>& aggregates = *aggregates_ptr;
+  std::vector<std::vector<int>>& agg_src_fieldsets = *agg_src_fieldsets_ptr;
+  if (agg_measure.has_measure()) {
+    if (agg_measure.has_filter()) {
+      return Status::NotImplemented("Aggregate filters are not supported.");
+    }
+    const auto& agg_func = agg_measure.measure();
+    ARROW_ASSIGN_OR_RAISE(SubstraitCall aggregate_call,
+                          FromProto(agg_func, is_hash, ext_set, conversion_options));
+    ExtensionIdRegistry::SubstraitAggregateToArrow converter;
+    if (aggregate_call.id().uri.empty() || aggregate_call.id().uri[0] == '/') {
+      ARROW_ASSIGN_OR_RAISE(converter,
+                            ext_set.registry()->GetSubstraitAggregateToArrowFallback(
+                                aggregate_call.id().name));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(converter, ext_set.registry()->GetSubstraitAggregateToArrow(
+                                           aggregate_call.id()));
+    }
+    ARROW_ASSIGN_OR_RAISE(compute::Aggregate arrow_agg, converter(aggregate_call));
+
+    // find aggregate field ids from schema
+    const auto& target = arrow_agg.target;
+    size_t measure_id = agg_src_fieldsets.size();
+    agg_src_fieldsets.push_back({});
+    for (const auto& field_ref : target) {
+      ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*input_schema));
+      agg_src_fieldsets[measure_id].push_back(match[0]);
+    }
+
+    aggregates.push_back(std::move(arrow_agg));
+    return Status::OK();
+  } else {
+    return Status::Invalid("substrait::AggregateFunction not provided");
+  }
+}
+
+ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
+    std::optional<substrait::RelCommon> agg_common_opt, compute::Declaration input_decl,
+    std::shared_ptr<Schema> input_schema, const int measure_size,
+    std::vector<compute::Aggregate> aggregates,
+    std::vector<std::vector<int>> agg_src_fieldsets, std::vector<FieldRef> keys,
+    std::vector<int> key_field_ids, std::vector<FieldRef> segment_keys,
+    std::vector<int> segment_key_field_ids, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options) {
+  FieldVector output_fields;
+  output_fields.reserve(key_field_ids.size() + segment_key_field_ids.size() +
+                        measure_size);
+  // extract aggregate fields to output schema
+  for (const auto& agg_src_fieldset : agg_src_fieldsets) {
+    for (int field : agg_src_fieldset) {
+      output_fields.emplace_back(input_schema->field(field));
+    }
+  }
+  // extract key fields to output schema
+  for (int key_field_id : key_field_ids) {
+    output_fields.emplace_back(input_schema->field(key_field_id));
+  }
+  // extract segment key fields to output schema
+  for (int segment_key_field_id : segment_key_field_ids) {
+    output_fields.emplace_back(input_schema->field(segment_key_field_id));
+  }
+
+  std::shared_ptr<Schema> aggregate_schema = schema(std::move(output_fields));
+
+  DeclarationInfo aggregate_declaration{
+      compute::Declaration::Sequence(
+          {std::move(input_decl),
+           {"aggregate", compute::AggregateNodeOptions{aggregates, keys, segment_keys}}}),
+      aggregate_schema};
+
+  return ProcessEmit(std::move(agg_common_opt), std::move(aggregate_declaration),
+                     std::move(aggregate_schema));
+}
+
+}  // namespace internal
 
 Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet& ext_set,
                                   const ConversionOptions& conversion_options) {
@@ -730,64 +824,20 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       std::vector<compute::Aggregate> aggregates;
       aggregates.reserve(measure_size);
       // store aggregate fields to be used when output schema is created
-      std::vector<std::vector<int>> agg_src_fieldsets(measure_size);
+      std::vector<std::vector<int>> agg_src_fieldsets;
+      agg_src_fieldsets.reserve(measure_size);
       for (int measure_id = 0; measure_id < measure_size; measure_id++) {
         const auto& agg_measure = aggregate.measures(measure_id);
-        if (agg_measure.has_measure()) {
-          if (agg_measure.has_filter()) {
-            return Status::NotImplemented("Aggregate filters are not supported.");
-          }
-          const auto& agg_func = agg_measure.measure();
-          ARROW_ASSIGN_OR_RAISE(SubstraitCall aggregate_call,
-                                FromProto(agg_func, /*is_hash=*/!keys.empty(), ext_set,
-                                          conversion_options));
-          ExtensionIdRegistry::SubstraitAggregateToArrow converter;
-          if (aggregate_call.id().uri.empty() || aggregate_call.id().uri[0] == '/') {
-            ARROW_ASSIGN_OR_RAISE(
-                converter, ext_set.registry()->GetSubstraitAggregateToArrowFallback(
-                               aggregate_call.id().name));
-          } else {
-            ARROW_ASSIGN_OR_RAISE(
-                converter,
-                ext_set.registry()->GetSubstraitAggregateToArrow(aggregate_call.id()));
-          }
-          ARROW_ASSIGN_OR_RAISE(compute::Aggregate arrow_agg, converter(aggregate_call));
-
-          // find aggregate field ids from schema
-          const auto& target = arrow_agg.target;
-          for (const auto& field_ref : target) {
-            ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*input_schema));
-            agg_src_fieldsets[measure_id].push_back(match[0]);
-          }
-
-          aggregates.push_back(std::move(arrow_agg));
-        } else {
-          return Status::Invalid("substrait::AggregateFunction not provided");
-        }
-      }
-      FieldVector output_fields;
-      output_fields.reserve(key_field_ids.size() + measure_size);
-      // extract aggregate fields to output schema
-      for (const auto& agg_src_fieldset : agg_src_fieldsets) {
-        for (int field : agg_src_fieldset) {
-          output_fields.emplace_back(input_schema->field(field));
-        }
-      }
-      // extract key fields to output schema
-      for (int key_field_id : key_field_ids) {
-        output_fields.emplace_back(input_schema->field(key_field_id));
+        ARROW_RETURN_NOT_OK(internal::ParseAggregateMeasure(
+            agg_measure, ext_set, conversion_options, /*is_hash=*/!keys.empty(),
+            input_schema, &aggregates, &agg_src_fieldsets));
       }
 
-      std::shared_ptr<Schema> aggregate_schema = schema(std::move(output_fields));
-
-      DeclarationInfo aggregate_declaration{
-          compute::Declaration::Sequence(
-              {std::move(input.declaration),
-               {"aggregate", compute::AggregateNodeOptions{aggregates, keys}}}),
-          aggregate_schema};
-
-      return ProcessEmit(std::move(aggregate), std::move(aggregate_declaration),
-                         std::move(aggregate_schema));
+      return internal::MakeAggregateDeclaration(
+          aggregate.has_common() ? std::make_optional(aggregate.common()) : std::nullopt,
+          std::move(input.declaration), std::move(input_schema), measure_size,
+          std::move(aggregates), std::move(agg_src_fieldsets), std::move(keys),
+          std::move(key_field_ids), {}, {}, ext_set, conversion_options);
     }
 
     case substrait::Rel::RelTypeCase::kExtensionLeaf:
