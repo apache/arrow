@@ -53,7 +53,7 @@ enum struct SessionOptionValueType {
 };
 
 struct ARROW_FLIGHT_SQL_EXPORT SessionOption {
-  std::string option_key;
+  std::string option_name;
   SessionOptionValue option_value;
 };
 

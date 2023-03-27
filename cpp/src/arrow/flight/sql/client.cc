@@ -802,17 +802,97 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   return Status::IOError("Server returned unknown result ", result.result());
 }
 
-::arrow::Result<std::vector<SetSessionOptionResult>> FlightSqlClient::SetSessionOptions(const FlightCallOptions& options,
-                                                                         const std::vector<SessionOption>& session_options) {
-  // FIXME
-  std::vector<SetSessionOptionResult> result = {};
+::arrow::Result<std::vector<SetSessionOptionResult>> FlightSqlClient::SetSessionOptions(
+    const FlightCallOptions& options,
+    const std::vector<SessionOption>& session_options) {
+  flight_sql_pb::ActionSetSessionOptionsRequest request;
+  for (const SessionOption& in_opt : session_options) {
+    flight_sql_pb::SessionOption opt = request.add_session_options();
+    std::string& name = in_opt.option_name;
+    opt.set_option_name(name);
+
+    SessionOptionValue& value = in_opt.option_value;
+    switch (value.index) {
+      case std::variant_npos:
+        return Status::Invalid("Undefined SessionOptionValue type ");
+      case SessionOptionValueType::kString:
+        opt.set_string_value(std::get<SessionOptionValueType::kString>(value));
+        break;
+      case SessionOptionValueType::kBool:
+        opt.set_bool_value(std::get<SessionOptionValueType::kBool>(value));
+        break;
+      case SessionOptionValueType::kInt32:
+        opt.set_int32_value(std::get<SessionOptionValueType::kInt32>(value));
+        break;
+      case SessionOptionValueType::kInt64:
+        opt.set_int64_value(std::get<SessionOptionValueType::kInt64>(value));
+        break;
+      case SessionOptionValueType::kFloat:
+        opt.set_float_value(std::get<SessionOptionValueType::kFloat>(value));
+        break;
+      case SessionOptionValueType::kDouble:
+        opt.set_double_value(std::get<SessionOptionValueType::kDouble>(value));
+        break;
+      case SessionOptionValueType::kStringList:
+        for (const std::string& s : std::get<SessionOptionValueType::kStringList>(value))
+          opt.add_string_list_value(s);
+        break;
+    }
+  }
+
+  std::unique_ptr<ResultStream> results;
+  ARROW_ASSIGN_OR_RAUSE(auto action, PackAction("SetSessionOptions", request));
+  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
+
+  flight_sql_pb::ActionSetSessionOptionsResult pb_result;
+  ARROW_RETURN_NOT_OK(ReadResult(results.get(), &pb_result));
+  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+  std::vector<SetSessionOptionResult> result;
+  for (const int result_value : result.results()) {
+    switch (result_value) {
+      case flight_sql_pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_UNSPECIFIED:
+        result.push_back(SetSessionOptionResult::kUnspecified);
+        break;
+      case flight_sql_pb::ActionSetSessionOptionsResult
+          ::SET_SESSION_OPTION_RESULT_OK:
+        result.push_back(SetSessionOptionResult::kOk);
+        break;
+      case flight_sql_pb::ActionSetSessionOptionsResult
+          ::SET_SESSION_OPTION_RESULT_INVALID_VALUE:
+        result.push_back(SetSessionOptionResult::kInvalidResult);
+        break;
+      case flight_sql_pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_ERROR:
+        result.push_back(SetSessionOptionResult::kError);
+        break;
+    }
+  }
+
   return result;
 }
 
-::arrow::Result<CloseSessionResult> FlightSqlClient::CloseSession(const FlightCallOptions& options) {
-  // FIXME
-  CloseSessionResult result;
-  return result;
+::arrow::Result<CloseSessionResult> FlightSqlClient::CloseSession(
+    const FlightCallOptions& options) {
+  flight_sql_pb::ActionCloseSessionRequest request;
+
+  std::unique_ptr<ResultStream> results;
+  ARROW_ASSIGN_OR_RAUSE(auto action, PackAction("CloseSession", request));
+  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
+
+  flight_sql_pb:ActionCloseSessionResult result;
+  ARROW_RETURN_NOT_OK(ReadResult(results.get(), &pb_result));
+  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+  switch (result.result()) {
+    case flight_sql_pb::ActionCloseSessionResult::CLOSE_RESULT_UNSPECIFIED:
+      return CloseSessionResult::kUnspecified;
+    case flight_sql_pb::ActionCloseSessionResult::CLOSE_RESULT_CLOSED:
+      return CloseSessionResult::kClosed;
+    case flight_sql_pb::ActionCloseSessionResult::CLOSE_RESULT_CLOSING:
+      return CloseSessionResult::kClosing;
+    case flight_sql_pb::ActionCloseSessionResult::CLOSE_RESULT_NOT_CLOSEABLE:
+      return CloseSessionResult::kNotClosable;
+  }
+
+  return Status::IOError("Server returned unknown result ", result.result());
 }
   
 Status FlightSqlClient::Close() { return impl_->Close(); }
