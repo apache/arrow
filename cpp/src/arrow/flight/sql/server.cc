@@ -447,7 +447,6 @@ arrow::Result<Result> PackActionResult(ActionBeginTransactionResult result) {
   return PackActionResult(pb_result);
 }
 
-/* FIXME is this extraneous from orig PR?
 arrow::Result<Result> PackActionResult(CancelResult result) {
   pb::sql::ActionCancelQueryResult pb_result;
   switch (result) {
@@ -467,7 +466,6 @@ arrow::Result<Result> PackActionResult(CancelResult result) {
   }
   return PackActionResult(pb_result);
 }
-*/
 
 arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult result) {
   pb::sql::ActionCreatePreparedStatementResult pb_result;
