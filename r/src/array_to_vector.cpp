@@ -1007,7 +1007,7 @@ class Converter_List : public Converter {
 
   SEXP Allocate(R_xlen_t n) const {
     cpp11::writable::list res(n);
-    
+
     std::shared_ptr<arrow::Array> array = CreateEmptyArray(value_type_);
 
     return res;
