@@ -222,6 +222,18 @@ func (sc *Schema) Equal(o *Schema) bool {
 	return true
 }
 
+func (s *Schema) AddField(i int, field Field) (*Schema, error) {
+	if i < 0 || i > len(s.fields) {
+		return nil, fmt.Errorf("arrow: invalid field index %d", i)
+	}
+
+	fields := make([]Field, len(s.fields)+1)
+	copy(fields[:i], s.fields[:i])
+	fields[i] = field
+	copy(fields[i+1:], s.fields[i:])
+	return NewSchema(fields, &s.meta), nil
+}
+
 func (s *Schema) String() string {
 	o := new(strings.Builder)
 	fmt.Fprintf(o, "schema:\n  fields: %d\n", len(s.Fields()))
