@@ -1007,19 +1007,8 @@ class Converter_List : public Converter {
 
   SEXP Allocate(R_xlen_t n) const {
     cpp11::writable::list res(n);
-
-    if (std::is_same<ListArrayType, MapArray>::value) {
-      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_list;
-    } else if (std::is_same<ListArrayType, ListArray>::value) {
-      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_list;
-    } else {
-      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_large_list;
-    }
-
+    
     std::shared_ptr<arrow::Array> array = CreateEmptyArray(value_type_);
-
-    // convert to an R object to store as the list' ptype
-    res.attr(arrow::r::symbols::ptype) = Converter::Convert(array);
 
     return res;
   }
