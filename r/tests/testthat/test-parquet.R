@@ -474,7 +474,9 @@ test_that("Can read parquet with nested lists and maps", {
 })
 
 test_that("Can read Parquet files from a URL", {
-  parquet_url <- "https://raw.githubusercontent.com/apache/arrow/master/r/inst/v0.7.1.parquet"
+  skip_if_offline()
+  skip_on_cran()
+  parquet_url <- "https://github.com/apache/arrow/blob/64f2cc7986ce672dd1a8cb268d193617a80a1653/r/inst/v0.7.1.parquet?raw=true" # nolint
   pu <- read_parquet(parquet_url)
   expect_true(tibble::is_tibble(pu))
   expect_identical(dim(pu), c(10L, 11L))
