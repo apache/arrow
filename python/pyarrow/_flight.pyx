@@ -1039,7 +1039,9 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
         """
         cdef RecordBatchReader reader
         reader = RecordBatchReader.__new__(RecordBatchReader)
-        reader.reader = GetResultValue(MakeRecordBatchReader(self.reader))
+        with nogil:
+            reader.reader = GetResultValue(MakeRecordBatchReader(self.reader))
+
         return reader
 
 
