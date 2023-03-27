@@ -431,12 +431,12 @@ def test_column_encoding(use_legacy_dataset):
                      use_legacy_dataset=use_legacy_dataset)
 
     # Check "DELTA_BYTE_ARRAY" for byte columns.
-    # TODO: 'd': "DELTA_BYTE_ARRAY"
     _check_roundtrip(mixed_table, expected=mixed_table,
                      use_dictionary=False,
                      column_encoding={'a': "PLAIN",
                                       'b': "DELTA_BINARY_PACKED",
-                                      'c': "DELTA_BYTE_ARRAY"},
+                                      'c': "DELTA_BYTE_ARRAY",
+                                      'd': "DELTA_BYTE_ARRAY"},
                      use_legacy_dataset=use_legacy_dataset)
 
     # Check "RLE" for boolean columns.
