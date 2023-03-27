@@ -32,8 +32,6 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 
-#include <cassert> // FIXME temporarily here for build workarounds
-
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
   COMMAND.has_##PROPERTY() ? std::make_optional(COMMAND.PROPERTY()) : std::nullopt
 
