@@ -3308,6 +3308,7 @@ def test_array_protocol():
     arr = MyArray3(np_arr, np_arr)
     result = pa.array(arr)
     expected = pa.chunked_array([[1, 2, 3], [1, 2, 3]], type=pa.int64())
+    assert result.equals(expected)
 
 
 def test_concat_array():
