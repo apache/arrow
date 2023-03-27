@@ -86,7 +86,8 @@ RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
-RUN /arrow/ci/scripts/r_deps.sh /arrow
+RUN --mount=type=secret,id=github_pat \
+    GITHUB_PAT=$(cat /run/secrets/github_pat) /arrow/ci/scripts/r_deps.sh /arrow
 
 RUN pip install -U pip setuptools wheel
 

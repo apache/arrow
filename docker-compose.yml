@@ -188,6 +188,9 @@ volumes:
   ubuntu-ccache:
     name: ${ARCH}-ubuntu-${UBUNTU}-ccache
 
+secrets:
+  - github_pat: ${GITHUB_TOKEN_FILE}
+
 services:
 
   ################################# C++ #######################################
@@ -1327,6 +1330,8 @@ services:
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
         r_duckdb_dev: ${R_DUCKDB_DEV:-}
+      secrets:
+        - github_pat
     shm_size: *shm-size
     environment:
       <<: [*ccache, *sccache]
@@ -1374,6 +1379,8 @@ services:
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
         r_custom_ccache: ${R_CUSTOM_CCACHE}
+      secrets:
+        - github_pat
     shm_size: *shm-size
     environment:
       <<: *sccache
