@@ -3067,7 +3067,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
  protected:
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
-    uint32_t previous_len = 0;
+    uint32_t previous_len = static_cast<uint32_t>(last_value_.size());
     std::string_view last_value_view = last_value_;
 
     PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
@@ -3086,13 +3086,12 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
             }
             j++;
           }
-          previous_len = j;
+          previous_len = src.len;
           prefix_length_encoder_.Put({static_cast<int32_t>(j)}, 1);
 
           const uint8_t* suffix_ptr = src.ptr + j;
           const uint32_t suffix_length = static_cast<uint32_t>(src.len - j);
-          last_value_view =
-              string_view{reinterpret_cast<const char*>(suffix_ptr), suffix_length};
+          last_value_view = view;
           // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
           const ByteArray suffix(suffix_length, suffix_ptr);
           suffix_encoder_.Put(&suffix, 1);
@@ -3138,8 +3137,7 @@ void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
     prefix_lengths[i] = j;
     const uint8_t* suffix_ptr = value->ptr + j;
     const uint32_t suffix_length = static_cast<uint32_t>(value->len - j);
-    last_value_view =
-        string_view{reinterpret_cast<const char*>(suffix_ptr), suffix_length};
+    last_value_view = view;
     // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
     const ByteArray suffix(suffix_length, suffix_ptr);
     suffix_encoder_.Put(&suffix, 1);
@@ -3174,6 +3172,7 @@ std::shared_ptr<Buffer> DeltaByteArrayEncoder<DType>::FlushValues() {
 
   std::shared_ptr<Buffer> buffer;
   PARQUET_THROW_NOT_OK(sink_.Finish(&buffer, true));
+  last_value_.clear();
   return buffer;
 }
 

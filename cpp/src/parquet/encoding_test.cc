@@ -2130,4 +2130,41 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowBinaryDirectPutFixedLength) {
     }
   }
 }
+
+TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
+  auto CheckEncode = [](std::shared_ptr<::arrow::Array> values,
+                        std::shared_ptr<::arrow::Array> prefix_lengths,
+                        std::shared_ptr<::arrow::Array> suffix_lengths, std::string_view value)  {
+    auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    auto prefix_lengths_encoder = MakeTypedEncoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
+    ASSERT_NO_THROW(prefix_lengths_encoder->Put(*prefix_lengths));
+    auto prefix_lengths_buf = prefix_lengths_encoder->FlushValues();
+
+    auto encoded_prefix_lengths_buf = SliceBuffer(buf, 0, prefix_lengths_buf->size());
+
+    auto suffix_lengths_encoder = MakeTypedEncoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
+    ASSERT_NO_THROW(suffix_lengths_encoder->Put(*suffix_lengths));
+    auto suffix_lengths_buf = suffix_lengths_encoder->FlushValues();
+
+    auto encoded_values_buf = SliceBuffer(buf, prefix_lengths_buf->size() + suffix_lengths_buf->size());
+
+    auto encoded_prefix_length_buf = SliceBuffer(buf, 0, prefix_lengths_buf->size());
+    EXPECT_TRUE(prefix_lengths_buf->Equals(*encoded_prefix_length_buf));
+    auto encoded_suffix_length_buf = SliceBuffer(buf, prefix_lengths_buf->size(), suffix_lengths_buf->size());
+    EXPECT_TRUE(suffix_lengths_buf->Equals(*encoded_suffix_length_buf));
+    EXPECT_EQ(value, encoded_values_buf->ToString());
+  };
+
+  auto values = R"(["axis", "axle", "babble", "babyhood"])";
+  auto prefix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([0, 2, 0, 3])");
+  auto suffix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([4, 2, 6, 5])");
+
+  CheckEncode(::arrow::ArrayFromJSON(::arrow::utf8(), values), prefix_lengths, suffix_lengths, "axislebabbleyhood");
+  CheckEncode(::arrow::ArrayFromJSON(::arrow::large_utf8(), values), prefix_lengths, suffix_lengths, "axislebabbleyhood");
+  CheckEncode(::arrow::ArrayFromJSON(::arrow::binary(), values), prefix_lengths, suffix_lengths, "axislebabbleyhood");
+  CheckEncode(::arrow::ArrayFromJSON(::arrow::large_binary(), values), prefix_lengths, suffix_lengths, "axislebabbleyhood");
+}
 }  // namespace parquet::test
