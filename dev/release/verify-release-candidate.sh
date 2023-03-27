@@ -189,8 +189,6 @@ test_apt() {
                 "arm64v8/debian:bullseye" \
                 "debian:bookworm" \
                 "arm64v8/debian:bookworm" \
-                "ubuntu:bionic" \
-                "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:jammy" \
@@ -201,7 +199,7 @@ test_apt() {
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
           case "${target}" in
-            arm64v8/ubuntu:bionic|arm64v8/ubuntu:focal)
+            arm64v8/ubuntu:focal)
               : # OK
               ;;
             *)
