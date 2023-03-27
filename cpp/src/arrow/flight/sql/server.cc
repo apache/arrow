@@ -841,11 +841,6 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
-  } else if (action.type == FlightSqlServerBase::kCancelQueryActionType.type) {
-    ARROW_ASSIGN_OR_RAISE(ActionCancelQueryRequest internal_command,
-                          ParseActionCancelQueryRequest(any));
-    ARROW_ASSIGN_OR_RAISE(CancelResult result, CancelQuery(context, internal_command));
-    assert(&result); //FIXME unused variable
   } else if (action.type == FlightSqlServerBase::kCloseSessionActionType.type) {
     ARROW_ASSIGN_OR_RAISE(ActionCloseSessionRequest internal_command,
                           ParseActionCloseSessionRequest(any));
