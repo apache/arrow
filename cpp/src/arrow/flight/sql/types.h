@@ -48,7 +48,7 @@ using SqlInfoResultMap = std::unordered_map<int32_t, SqlInfoResult>;
 using SessionOptionValue =
     std::variant<std::string, bool, int32_t, int64_t, float, double, std::vector<std::string>>;
 
-enum struct SessionOptionValueType {
+enum struct SessionOptionValueType : size_t {
   kString, kBool, kInt32, kInt64, kFloat, kDouble, kStringList
 };
 

@@ -812,9 +812,9 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
     opt.set_option_name(name);
 
     const SessionOptionValue& value = in_opt.option_value;
-    switch (value.index()) {
-      case std::variant_npos:
-        return Status::Invalid("Undefined SessionOptionValue type ");
+    if (value.index() == std::variant_npos)
+      return Status::Invalid("Undefined SessionOptionValue type ");
+    switch ((SessionOptionValueType)(value.index())) {
       case SessionOptionValueType::kString:
         opt.set_string_value(std::get<std::string>(value));
         break;
@@ -834,8 +834,10 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
         opt.set_double_value(std::get<double>(value));
         break;
       case SessionOptionValueType::kStringList:
+        flight_sql_pb::SessionOption::StringListValue& string_list_value =
+            *opt.mutable_string_list_value();
         for (const std::string& s : std::get<std::vector<std::string>>(value))
-          opt.add_string_list_value(s);
+          string_list_value.add_values(s);
         break;
     }
   }
@@ -848,7 +850,7 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   ARROW_RETURN_NOT_OK(ReadResult(results.get(), &pb_result));
   ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
   std::vector<SetSessionOptionResult> result;
-  for (const int result_value : result.results()) {
+  for (const int result_value : pb_result.results()) {
     switch (result_value) {
       case flight_sql_pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_UNSPECIFIED:
         result.push_back(SetSessionOptionResult::kUnspecified);
@@ -878,7 +880,7 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   ARROW_ASSIGN_OR_RAISE(auto action, PackAction("CloseSession", request));
   ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
 
-  flight_sql_pb:ActionCloseSessionResult result;
+  flight_sql_pb::ActionCloseSessionResult result;
   ARROW_RETURN_NOT_OK(ReadResult(results.get(), &result));
   ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
   switch (result.result()) {

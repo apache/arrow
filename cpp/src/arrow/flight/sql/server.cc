@@ -406,7 +406,7 @@ arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsReques
           break;
         case pb::sql::SessionOption::kStringListValue:
           std::vector<std::string> vlist;
-          for (const std::string& s : in_opt.string_list_value().list())
+          for (const std::string& s : in_opt.string_list_value().values())
             vlist.push_back(s);
           opt = {name, vlist};
           break;

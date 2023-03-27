@@ -1880,7 +1880,7 @@ message SessionOption {
   option (experimental) = true;
 
   message StringListValue {
-    repeated string list = 1;
+    repeated string values = 1;
   }
 
   string option_name = 1;
