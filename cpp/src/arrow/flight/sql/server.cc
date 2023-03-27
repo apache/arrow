@@ -1170,7 +1170,6 @@ arrow::Result<CancelResult> FlightSqlServerBase::CancelQuery(
 arrow::Result<CloseSessionResult> FlightSqlServerBase::CloseSession(
     const ServerCallContext& context,
     const ActionCloseSessionRequest& request) {
-  //FIXME
   return Status::NotImplemented("CloseSession not implemented pending ");
 }
 
@@ -1207,7 +1206,6 @@ Status FlightSqlServerBase::EndTransaction(const ServerCallContext& context,
 arrow::Result<ActionSetSessionOptionsResult> FlightSqlServerBase::SetSessionOptions (
     const ServerCallContext& context,
     const ActionSetSessionOptionsRequest& request) {
-  //FIXME
   return Status::NotImplemented("SetSessionOptions stubbed pending implementation");
 }
 
