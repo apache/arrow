@@ -892,6 +892,8 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
       return CloseSessionResult::kClosing;
     case flight_sql_pb::ActionCloseSessionResult::CLOSE_RESULT_NOT_CLOSEABLE:
       return CloseSessionResult::kNotClosable;
+    default:
+      break;
   }
 
   return Status::IOError("Server returned unknown result ", result.result());

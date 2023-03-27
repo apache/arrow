@@ -225,7 +225,6 @@ struct ARROW_FLIGHT_SQL_EXPORT ActionCreatePreparedStatementResult {
   std::string prepared_statement_handle;
 };
 
-//FIXME these probably need to be in types.h (?) for app visibility
 /// \brief A request to close the open client session.
 struct ARROW_FLIGHT_SQL_EXPORT ActionCloseSessionRequest {};
 
