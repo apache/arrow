@@ -190,7 +190,7 @@ volumes:
 
 secrets:
   github_pat:
-    file: ${GITHUB_TOKEN_FILE}
+    file: ./gh_token.txt 
 
 services:
 
