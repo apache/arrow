@@ -1827,6 +1827,7 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
   /// \brief Convenience function which applies FindAll to arg's type or schema.
   std::vector<FieldPath> FindAll(const ArrayData& array) const;
   std::vector<FieldPath> FindAll(const Array& array) const;
+  std::vector<FieldPath> FindAll(const ChunkedArray& chunked_array) const;
   std::vector<FieldPath> FindAll(const RecordBatch& batch) const;
   std::vector<FieldPath> FindAll(const Table& table) const;
 

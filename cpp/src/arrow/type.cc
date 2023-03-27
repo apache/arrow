@@ -1651,6 +1651,10 @@ std::vector<FieldPath> FieldRef::FindAll(const Array& array) const {
   return FindAll(*array.type());
 }
 
+std::vector<FieldPath> FieldRef::FindAll(const ChunkedArray& chunked_array) const {
+  return FindAll(*chunked_array.type());
+}
+
 std::vector<FieldPath> FieldRef::FindAll(const RecordBatch& batch) const {
   return FindAll(*batch.schema());
 }
