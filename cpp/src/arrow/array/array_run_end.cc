@@ -71,6 +71,7 @@ void RunEndEncodedArray::SetData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->type->id(), Type::RUN_END_ENCODED);
   const auto* ree_type =
       internal::checked_cast<const RunEndEncodedType*>(data->type.get());
+  ARROW_CHECK_EQ(data->child_data.size(), 2);
   ARROW_CHECK_EQ(ree_type->run_end_type()->id(), data->child_data[0]->type->id());
   ARROW_CHECK_EQ(ree_type->value_type()->id(), data->child_data[1]->type->id());
 
