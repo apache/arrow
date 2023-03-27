@@ -533,7 +533,6 @@ tasks:
 
 {% for target in ["debian-bullseye",
                   "debian-bookworm",
-                  "ubuntu-bionic",
                   "ubuntu-focal",
                   "ubuntu-jammy",
                   "ubuntu-kinetic"] %}
@@ -1007,7 +1006,6 @@ tasks:
 
 {% for distribution, version in [("conda", "latest"),
                                  ("almalinux", "8"),
-                                 ("ubuntu", "18.04"),
                                  ("ubuntu", "20.04"),
                                  ("ubuntu", "22.04")] %}
   {% for target in ["cpp",
@@ -1158,7 +1156,7 @@ tasks:
     params:
       image: conda-cpp-valgrind
 
-{% for ubuntu_version in ["18.04", "20.04", "22.04"] %}
+{% for ubuntu_version in ["20.04", "22.04"] %}
   test-ubuntu-{{ ubuntu_version }}-cpp:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1213,24 +1211,6 @@ tasks:
       env:
         FEDORA: 35
       image: fedora-cpp
-
-  test-ubuntu-18.04-cpp-release:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 18.04
-      flags: "-e ARROW_BUILD_TYPE=release"
-      image: ubuntu-cpp
-
-  test-ubuntu-18.04-cpp-static:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 18.04
-      flags: "-e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static"
-      image: ubuntu-cpp
 
 {% for cpp_standard in [20] %}
   test-ubuntu-20.04-cpp-{{ cpp_standard }}:
@@ -1324,7 +1304,6 @@ tasks:
     params:
       env:
         ARROW_R_DEV: "TRUE"
-        UBUNTU: 18.04
       image: ubuntu-r-valgrind
 
   test-r-linux-rchk:
@@ -1481,12 +1460,11 @@ tasks:
       r_tag: latest
       flags: "-e LIBARROW_MINIMAL=TRUE"
 
-  test-ubuntu-18.04-r-sanitizer:
+  test-ubuntu-r-sanitizer:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
-        UBUNTU: 18.04
         R_PRUNE_DEPS: TRUE
       image: ubuntu-r-sanitizer
 
