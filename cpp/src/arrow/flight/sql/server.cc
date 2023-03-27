@@ -899,10 +899,6 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
-  } else if (action.type == FlightSqlServerBase::kClosePreparedStatementActionType.type) {
-    ARROW_ASSIGN_OR_RAISE(ActionClosePreparedStatementRequest internal_command,
-                          ParseActionClosePreparedStatementRequest(any));
-    ARROW_RETURN_NOT_OK(ClosePreparedStatement(context, internal_command));
   } else if (action.type ==
              FlightSqlServerBase::kCreatePreparedStatementActionType.type) {
     ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedStatementRequest internal_command,
