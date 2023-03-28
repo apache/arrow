@@ -5516,7 +5516,7 @@ list[tuple(str, str, FunctionOptions)]
             respectively.
 
             For the list of function names and respective aggregation
-            function options see: :ref:`py-grouped-aggrs`.
+            function options see :ref:`py-grouped-aggrs`.
 
         Returns
         -------
@@ -5571,7 +5571,7 @@ list[tuple(str, str, FunctionOptions)]
 
         >>> import pyarrow.compute as pc
         >>> t.group_by(["keys"]).aggregate([
-        ...    ("values", "count", pc.CountOptions(mode="all"))
+        ...    ("values", "count", pc.CountOptions(mode="only_valid"))
         ... ])
         pyarrow.Table
         values_count: int64
