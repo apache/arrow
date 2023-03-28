@@ -15,27 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM debian:buster
+class TestMatchSubstringOptions < Test::Unit::TestCase
+  def setup
+    @options = Arrow::MatchSubstringOptions.new
+  end
 
-RUN \
-  echo "debconf debconf/frontend select Noninteractive" | \
-    debconf-set-selections
+  def test_pattern
+    assert_equal("", @options.pattern)
+    @options.pattern = "substring"
+    assert_equal("substring", @options.pattern)
+  end
 
-RUN \
-  echo 'APT::Install-Recommends "false";' > \
-    /etc/apt/apt.conf.d/disable-install-recommends
-
-ARG DEBUG
-
-RUN \
-  quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
-  apt update ${quiet} && \
-  apt install -y -V ${quiet} \
-    build-essential \
-    debhelper \
-    devscripts \
-    fakeroot \
-    gnupg \
-    lsb-release && \
-  apt clean && \
-  rm -rf /var/lib/apt/lists/*
+  def test_ignore_case
+    assert do
+      not @options.ignore_case?
+    end
+    @options.ignore_case = true
+    assert do
+      @options.ignore_case?
+    end
+  end
+end

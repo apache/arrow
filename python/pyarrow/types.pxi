@@ -1244,6 +1244,27 @@ cdef class Decimal256Type(FixedSizeBinaryType):
         return self.decimal256_type.scale()
 
 
+cdef class RunEndEncodedType(DataType):
+    """
+    Concrete class for run-end encoded types.
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        DataType.init(self, type)
+        self.run_end_encoded_type = <const CRunEndEncodedType*> type.get()
+
+    def __reduce__(self):
+        return run_end_encoded, (self.run_end_type, self.value_type)
+
+    @property
+    def run_end_type(self):
+        return pyarrow_wrap_data_type(self.run_end_encoded_type.run_end_type())
+
+    @property
+    def value_type(self):
+        return pyarrow_wrap_data_type(self.run_end_encoded_type.value_type())
+
+
 cdef class BaseExtensionType(DataType):
     """
     Concrete base class for extension types.
@@ -4479,13 +4500,6 @@ def union(child_fields, mode, type_codes=None):
     -------
     type : UnionType
     """
-    cdef:
-        Field child_field
-        vector[shared_ptr[CField]] c_fields
-        vector[int8_t] c_type_codes
-        shared_ptr[CDataType] union_type
-        int i
-
     if isinstance(mode, int):
         if mode not in (_UnionMode_SPARSE, _UnionMode_DENSE):
             raise ValueError("Invalid union mode {0!r}".format(mode))
@@ -4501,6 +4515,32 @@ def union(child_fields, mode, type_codes=None):
         return sparse_union(child_fields, type_codes)
     else:
         return dense_union(child_fields, type_codes)
+
+
+def run_end_encoded(run_end_type, value_type):
+    """
+    Create RunEndEncodedType from run-end and value types.
+
+    Parameters
+    ----------
+    run_end_type : pyarrow.DataType
+        The integer type of the run_ends array. Must be 'int16', 'int32', or 'int64'.
+    value_type : pyarrow.DataType
+        The type of the values array.
+
+    Returns
+    -------
+    type : RunEndEncodedType
+    """
+    cdef:
+        DataType _run_end_type = ensure_type(run_end_type, allow_none=False)
+        DataType _value_type = ensure_type(value_type, allow_none=False)
+        shared_ptr[CDataType] ree_type
+
+    if not _run_end_type.type.id() in [_Type_INT16, _Type_INT32, _Type_INT64]:
+        raise ValueError("The run_end_type should be 'int16', 'int32', or 'int64'")
+    ree_type = CMakeRunEndEncodedType(_run_end_type.sp_type, _value_type.sp_type)
+    return pyarrow_wrap_data_type(ree_type)
 
 
 cdef dict _type_aliases = {

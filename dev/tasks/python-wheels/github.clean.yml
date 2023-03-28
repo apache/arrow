@@ -15,27 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:bionic
+{% import 'macros.jinja' as macros with context %}
 
-RUN \
-  echo "debconf debconf/frontend select Noninteractive" | \
-    debconf-set-selections
+{{ macros.github_header() }}
 
-RUN \
-  echo 'APT::Install-Recommends "false";' > \
-    /etc/apt/apt.conf.d/disable-install-recommends
+jobs:
+  build:
+    name: "Clean old wheels"
+    runs-on: ubuntu-latest
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
 
-ARG DEBUG
-
-RUN \
-  quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
-  apt update ${quiet} && \
-  apt install -y -V ${quiet} \
-    build-essential \
-    debhelper \
-    devscripts \
-    fakeroot \
-    gnupg \
-    lsb-release && \
-  apt clean && \
-  rm -rf /var/lib/apt/lists/*
+      - name: Clean old wheels
+        env:
+          GEMFURY_API_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_API_TOKEN }}' }}
+        shell: bash
+        run: |
+          gem install --user-install gemfury
+          ruby ./ci/scripts/gemfury_clean.rb

@@ -151,6 +151,13 @@ arrow::compute::RoundToMultipleOptions *
 garrow_round_to_multiple_options_get_raw(GArrowRoundToMultipleOptions *options);
 
 
+GArrowMatchSubstringOptions *
+garrow_match_substring_options_new_raw(
+  const arrow::compute::MatchSubstringOptions *arrow_options);
+arrow::compute::MatchSubstringOptions *
+garrow_match_substring_options_get_raw(GArrowMatchSubstringOptions *options);
+
+
 GArrowUTF8NormalizeOptions *
 garrow_utf8_normalize_options_new_raw(
   const arrow::compute::Utf8NormalizeOptions *arrow_options);
@@ -163,6 +170,13 @@ garrow_quantile_options_new_raw(
   const arrow::compute::QuantileOptions *arrow_options);
 arrow::compute::QuantileOptions *
 garrow_quantile_options_get_raw(GArrowQuantileOptions *options);
+
+
+GArrowIndexOptions *
+garrow_index_options_new_raw(
+  const arrow::compute::IndexOptions *arrow_options);
+arrow::compute::IndexOptions *
+garrow_index_options_get_raw(GArrowIndexOptions *options);
 
 
 GArrowRankOptions *

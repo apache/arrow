@@ -33,6 +33,7 @@ RUN apt-get update -y -q && \
         libssl-dev \
         libcurl4-openssl-dev \
         python3-pip \
+        tzdata \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*

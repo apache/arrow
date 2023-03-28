@@ -1,3 +1,4 @@
+#!/usr/bin/env ruby
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,36 +16,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Arrow
-  module ArrayComputable
-    def min(options: nil)
-      compute("min", options: options).value
-    end
+# Clean old releases from Gemfury.
 
-    def max(options: nil)
-      compute("max", options: options).value
-    end
+require "gemfury"
 
-    def uniq
-      unique.values
-    end
+client = Gemfury::Client.new(user_api_key: ENV["GEMFURY_API_TOKEN"])
 
-    # Finds the index of the first occurrence of a given value.
-    #
-    # @param value [Object] The value to be compared.
-    #
-    # @return [Integer] The index of the first occurrence of a given
-    #   value on found, -1 on not found.
-    #
-    # @since 12.0.0
-    def index(value)
-      value = Scalar.resolve(value, value_data_type)
-      compute("index", options: {value: value}).value
-    end
+client.list.each do |artifact|
+  puts artifact["name"]
+  versions = client.versions(artifact["name"])
+  versions.sort_by! { |v| v["created_at"] }
 
-    private
-    def compute(name, options: nil)
-      Function.find(name).execute([self], options).value
+  # Keep all versions uploaded within 90 days of the last uploaded version
+  cutoff = DateTime.parse(versions.last['created_at']) - 90.0
+
+  versions.each do |version|
+    time = DateTime.parse(version['created_at'])
+    if time < cutoff
+      client.yank_version(artifact["name"], version["version"])
+      puts "Yanked #{artifact['name']} #{version['version']} (created #{version['created_at']})"
+    else
+      puts "Kept #{artifact['name']} #{version['version']} (created #{version['created_at']})"
     end
   end
 end

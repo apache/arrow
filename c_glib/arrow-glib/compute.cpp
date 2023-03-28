@@ -230,6 +230,13 @@ G_BEGIN_DECLS
  * #GArrowUTF8NormalizeOptions is a class to customize the
  * `utf8_normalize` function.
  *
+ * #GArrowQuantileOptions is a class to customize the `qunatile`
+ * function.
+ *
+ * #GArrowIndexOptions is a class to customize the `index` function.
+ *
+ * #GArrowRankOptions is a class to customize the `rank` function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -3775,6 +3782,131 @@ garrow_round_to_multiple_options_new(void)
 
 
 enum {
+  PROP_MATCH_SUBSTRING_OPTIONS_PATTERN = 1,
+  PROP_MATCH_SUBSTRING_OPTIONS_IGNORE_CASE,
+};
+
+G_DEFINE_TYPE(GArrowMatchSubstringOptions,
+              garrow_match_substring_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_match_substring_options_set_property(GObject *object,
+                                            guint prop_id,
+                                            const GValue *value,
+                                            GParamSpec *pspec)
+{
+  auto options =
+    garrow_match_substring_options_get_raw(
+      GARROW_MATCH_SUBSTRING_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_MATCH_SUBSTRING_OPTIONS_PATTERN:
+    options->pattern = g_value_get_string(value);
+    break;
+  case PROP_MATCH_SUBSTRING_OPTIONS_IGNORE_CASE:
+    options->ignore_case = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_match_substring_options_get_property(GObject *object,
+                                            guint prop_id,
+                                            GValue *value,
+                                            GParamSpec *pspec)
+{
+  auto options =
+    garrow_match_substring_options_get_raw(
+      GARROW_MATCH_SUBSTRING_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_MATCH_SUBSTRING_OPTIONS_PATTERN:
+    g_value_set_string(value, options->pattern.c_str());
+    break;
+  case PROP_MATCH_SUBSTRING_OPTIONS_IGNORE_CASE:
+    g_value_set_boolean(value, options->ignore_case);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_match_substring_options_init(GArrowMatchSubstringOptions *object)
+{
+  auto function_options_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  function_options_priv->options =
+    static_cast<arrow::compute::FunctionOptions *>(
+      new arrow::compute::MatchSubstringOptions());
+}
+
+static void
+garrow_match_substring_options_class_init(
+  GArrowMatchSubstringOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->set_property = garrow_match_substring_options_set_property;
+  gobject_class->get_property = garrow_match_substring_options_get_property;
+
+
+  arrow::compute::MatchSubstringOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowMatchSubstringOptions:pattern:
+   *
+   * The exact substring (or regex, depending on kernel) to look for
+   * inside input values.
+   *
+   * Since: 12.0.0
+   */
+  spec = g_param_spec_string("pattern",
+                             "Pattern",
+                             "The pattern to be looked for",
+                             NULL,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_MATCH_SUBSTRING_OPTIONS_PATTERN,
+                                  spec);
+
+  /**
+   * GArrowMatchSubstringOptions:ignore-case:
+   *
+   * Whether to perform a case-insensitive match.
+   *
+   * Since: 12.0.0
+   */
+  spec = g_param_spec_boolean("ignore-case",
+                              "Ignore case",
+                              "Whether to perform a case-insensitive match",
+                              options.ignore_case,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_MATCH_SUBSTRING_OPTIONS_IGNORE_CASE,
+                                  spec);
+}
+
+/**
+ * garrow_match_substring_options_new:
+ *
+ * Returns: A newly created #GArrowMatchSubstringOptions.
+ *
+ * Since: 12.0.0
+ */
+GArrowMatchSubstringOptions *
+garrow_match_substring_options_new(void)
+{
+  return GARROW_MATCH_SUBSTRING_OPTIONS(
+    g_object_new(GARROW_TYPE_MATCH_SUBSTRING_OPTIONS, NULL));
+}
+
+
+enum {
   PROP_UTF8_NORMALIZE_OPTIONS_FORM = 1,
 };
 
@@ -3889,11 +4021,6 @@ enum {
 G_DEFINE_TYPE(GArrowQuantileOptions,
               garrow_quantile_options,
               GARROW_TYPE_FUNCTION_OPTIONS)
-
-#define GARROW_QUANTILE_OPTIONS_GET_PRIVATE(object)      \
-  static_cast<GArrowQuantileOptionsPrivate *>(           \
-    garrow_quantile_options_get_instance_private(        \
-      GARROW_QUANTILE_OPTIONS(object)))
 
 static void
 garrow_quantile_options_set_property(GObject *object,
@@ -4097,6 +4224,140 @@ garrow_quantile_options_set_qs(GArrowQuantileOptions *options,
   for (gsize i = 0; i < n; i++) {
     priv->q.push_back(qs[i]);
   }
+}
+
+
+struct GArrowIndexOptionsPrivate {
+  GArrowScalar *value;
+};
+
+enum {
+  PROP_INDEX_OPTIONS_VALUE = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowIndexOptions,
+                           garrow_index_options,
+                           GARROW_TYPE_FUNCTION_OPTIONS)
+
+#define GARROW_INDEX_OPTIONS_GET_PRIVATE(object)      \
+  static_cast<GArrowIndexOptionsPrivate *>(           \
+    garrow_index_options_get_instance_private(        \
+      GARROW_INDEX_OPTIONS(object)))
+
+static void
+garrow_index_options_dispose(GObject *object)
+{
+  auto priv = GARROW_INDEX_OPTIONS_GET_PRIVATE(object);
+
+  if (priv->value) {
+    g_object_unref(priv->value);
+    priv->value = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_index_options_parent_class)->dispose(object);
+}
+
+static void
+garrow_index_options_set_property(GObject *object,
+                                  guint prop_id,
+                                  const GValue *value,
+                                  GParamSpec *pspec)
+{
+  auto priv = GARROW_INDEX_OPTIONS_GET_PRIVATE(object);
+  auto options = garrow_index_options_get_raw(GARROW_INDEX_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_INDEX_OPTIONS_VALUE:
+  {
+    auto scalar = GARROW_SCALAR(g_value_get_object(value));
+    if (priv->value == scalar) {
+      return;
+    }
+    if (priv->value) {
+      g_object_unref(priv->value);
+    }
+    priv->value = scalar;
+    if (priv->value) {
+      g_object_ref(priv->value);
+      options->value = garrow_scalar_get_raw(scalar);
+    } else {
+      options->value = nullptr;
+    }
+    break;
+  }
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_index_options_get_property(GObject *object,
+                                  guint prop_id,
+                                  GValue *value,
+                                  GParamSpec *pspec)
+{
+  auto priv = GARROW_INDEX_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_INDEX_OPTIONS_VALUE:
+    g_value_set_object(value, priv->value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_index_options_init(GArrowIndexOptions *object)
+{
+  auto function_options_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  auto options = new arrow::compute::IndexOptions();
+  function_options_priv->options =
+    static_cast<arrow::compute::FunctionOptions *>(options);
+  auto priv = GARROW_INDEX_OPTIONS_GET_PRIVATE(object);
+  priv->value = nullptr;
+}
+
+static void
+garrow_index_options_class_init(GArrowIndexOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_index_options_dispose;
+  gobject_class->set_property = garrow_index_options_set_property;
+  gobject_class->get_property = garrow_index_options_get_property;
+
+
+  GParamSpec *spec;
+  /**
+   * GArrowIndexOptions:value:
+   *
+   * The value to be compared.
+   *
+   * Since: 12.0.0
+   */
+  spec = g_param_spec_object("value",
+                             "Value",
+                             "The value to be compared.",
+                             GARROW_TYPE_SCALAR,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_INDEX_OPTIONS_VALUE, spec);
+}
+
+/**
+ * garrow_index_options_new:
+ *
+ * Returns: A newly created #GArrowIndexOptions.
+ *
+ * Since: 12.0.0
+ */
+GArrowIndexOptions *
+garrow_index_options_new(void)
+{
+  return GARROW_INDEX_OPTIONS(g_object_new(GARROW_TYPE_INDEX_OPTIONS,
+                                           NULL));
 }
 
 
@@ -5576,6 +5837,12 @@ garrow_function_options_new_raw(
     auto options =
       garrow_round_to_multiple_options_new_raw(arrow_round_to_multiple_options);
     return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "MatchSubstringOptions") {
+    const auto arrow_match_substring_options =
+      static_cast<const arrow::compute::MatchSubstringOptions *>(arrow_options);
+    auto options =
+      garrow_match_substring_options_new_raw(arrow_match_substring_options);
+    return GARROW_FUNCTION_OPTIONS(options);
   } else if (arrow_type_name == "UTF8NormalizedOptions") {
     const auto arrow_utf8_normalize_options =
       static_cast<const arrow::compute::Utf8NormalizeOptions *>(arrow_options);
@@ -5586,6 +5853,11 @@ garrow_function_options_new_raw(
     const auto arrow_quantile_options =
       static_cast<const arrow::compute::QuantileOptions *>(arrow_options);
     auto options = garrow_quantile_options_new_raw(arrow_quantile_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "IndexOptions") {
+    const auto arrow_index_options =
+      static_cast<const arrow::compute::IndexOptions *>(arrow_options);
+    auto options = garrow_index_options_new_raw(arrow_index_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else if (arrow_type_name == "RankOptions") {
     const auto arrow_rank_options =
@@ -5937,6 +6209,25 @@ garrow_round_to_multiple_options_get_raw(GArrowRoundToMultipleOptions *options)
 }
 
 
+GArrowMatchSubstringOptions *
+garrow_match_substring_options_new_raw(
+  const arrow::compute::MatchSubstringOptions *arrow_options)
+{
+  return GARROW_MATCH_SUBSTRING_OPTIONS(
+    g_object_new(GARROW_TYPE_MATCH_SUBSTRING_OPTIONS,
+                 "pattern", arrow_options->pattern.c_str(),
+                 "ignore-case", arrow_options->ignore_case,
+                 NULL));
+}
+
+arrow::compute::MatchSubstringOptions *
+garrow_match_substring_options_get_raw(GArrowMatchSubstringOptions *options)
+{
+  return static_cast<arrow::compute::MatchSubstringOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+
 GArrowUTF8NormalizeOptions *
 garrow_utf8_normalize_options_new_raw(
   const arrow::compute::Utf8NormalizeOptions *arrow_options)
@@ -5976,6 +6267,33 @@ arrow::compute::QuantileOptions *
 garrow_quantile_options_get_raw(GArrowQuantileOptions *options)
 {
   return static_cast<arrow::compute::QuantileOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+
+GArrowIndexOptions *
+garrow_index_options_new_raw(const arrow::compute::IndexOptions *arrow_options)
+{
+  auto arrow_value = arrow_options->value->GetSharedPtr();
+  GArrowScalar *value = nullptr;
+  if (arrow_value) {
+    value = garrow_scalar_new_raw(&arrow_value);
+  }
+  auto options =
+    GARROW_INDEX_OPTIONS(
+      g_object_new(GARROW_TYPE_INDEX_OPTIONS,
+                   "value", value,
+                   NULL));
+  if (value) {
+    g_object_unref(value);
+  }
+  return options;
+}
+
+arrow::compute::IndexOptions *
+garrow_index_options_get_raw(GArrowIndexOptions *options)
+{
+  return static_cast<arrow::compute::IndexOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
 

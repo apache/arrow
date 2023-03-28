@@ -21,9 +21,8 @@ Installing PyArrow
 System Compatibility
 --------------------
 
-PyArrow is regularly built and tested on Windows, macOS and various Linux
-distributions (including Ubuntu 16.04, Ubuntu 18.04).  We strongly recommend
-using a 64-bit system.
+PyArrow is regularly built and tested on Windows, macOS and various
+Linux distributions. We strongly recommend using a 64-bit system.
 
 Python Compatibility
 --------------------

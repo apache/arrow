@@ -402,6 +402,8 @@ Conversions
    ceil_temporal
    floor_temporal
    round_temporal
+   run_end_decode
+   run_end_encode
    strftime
    strptime
 
@@ -546,6 +548,7 @@ Compute Options
    RoundOptions
    RoundTemporalOptions
    RoundToMultipleOptions
+   RunEndEncodeOptions
    ScalarAggregateOptions
    ScalarAggregateOptions
    SelectKOptions
