@@ -116,6 +116,87 @@ class ReadWriteValueImpl<ArrowType, has_validity_buffer,
   bool Compare(ValueRepr lhs, ValueRepr rhs) const { return lhs == rhs; }
 };
 
+// FixedSizeBinary, Decimal128
+template <typename ArrowType, bool has_validity_buffer>
+class ReadWriteValueImpl<ArrowType, has_validity_buffer,
+                         enable_if_fixed_size_binary<ArrowType>> {
+ public:
+  // Every value is represented as a pointer to byte_width_ bytes
+  using ValueRepr = uint8_t const*;
+
+ private:
+  const uint8_t* input_validity_;
+  const uint8_t* input_values_;
+
+  // Needed only by the writing functions
+  uint8_t* output_validity_;
+  uint8_t* output_values_;
+
+  const size_t byte_width_;
+
+ public:
+  ReadWriteValueImpl(const ArraySpan& input_values_array,
+                     ArrayData* output_values_array_data)
+      : input_validity_(has_validity_buffer ? input_values_array.buffers[0].data
+                                            : NULLPTR),
+        input_values_(input_values_array.buffers[1].data),
+        output_validity_(
+            (has_validity_buffer && output_values_array_data)
+                ? output_values_array_data->template GetMutableValues<uint8_t>(0)
+                : NULLPTR),
+        output_values_(
+            output_values_array_data
+                ? output_values_array_data->template GetMutableValues<uint8_t>(1)
+                : NULLPTR),
+        byte_width_(input_values_array.type->byte_width()) {}
+
+  [[nodiscard]] bool ReadValue(ValueRepr* out, int64_t read_offset) const {
+    bool valid = true;
+    if constexpr (has_validity_buffer) {
+      valid = bit_util::GetBit(input_validity_, read_offset);
+    }
+    *out = input_values_ + (read_offset * byte_width_);
+    return valid;
+  }
+
+  /// \brief Ensure padding is zeroed in validity bitmap.
+  void ZeroValidityPadding(int64_t length) const {
+    DCHECK(output_values_);
+    if constexpr (has_validity_buffer) {
+      DCHECK(output_validity_);
+      const int64_t validity_buffer_size = bit_util::BytesForBits(length);
+      output_validity_[validity_buffer_size - 1] = 0;
+    }
+  }
+
+  void WriteValue(int64_t write_offset, bool valid, ValueRepr value) const {
+    if constexpr (has_validity_buffer) {
+      bit_util::SetBitTo(output_validity_, write_offset, valid);
+    }
+    if (valid) {
+      memcpy(output_values_ + (write_offset * byte_width_), value, byte_width_);
+    }
+  }
+
+  void WriteRun(int64_t write_offset, int64_t run_length, bool valid,
+                ValueRepr value) const {
+    if constexpr (has_validity_buffer) {
+      bit_util::SetBitsTo(output_validity_, write_offset, run_length, valid);
+    }
+    if (valid) {
+      uint8_t* ptr = output_values_ + (write_offset * byte_width_);
+      for (int64_t i = 0; i < run_length; ++i) {
+        memcpy(ptr, value, byte_width_);
+        ptr += byte_width_;
+      }
+    }
+  }
+
+  bool Compare(ValueRepr lhs, ValueRepr rhs) const {
+    return memcmp(lhs, rhs, byte_width_) == 0;
+  }
+};
+
 Result<std::shared_ptr<Buffer>> AllocateValuesBuffer(int64_t length, const DataType& type,
                                                      MemoryPool* pool) {
   DCHECK(is_fixed_width(type.id()));
@@ -595,6 +676,12 @@ static ArrayKernelExec GenerateREEKernelExec(Type::type type_id) {
       return Functor::template Exec<UInt64Type>;
     case Type::INTERVAL_MONTH_DAY_NANO:
       return Functor::template Exec<MonthDayNanoIntervalType>;
+    case Type::DECIMAL128:
+      return Functor::template Exec<Decimal128Type>;
+    case Type::DECIMAL256:
+      return Functor::template Exec<Decimal256Type>;
+    case Type::FIXED_SIZE_BINARY:
+      return Functor::template Exec<FixedSizeBinaryType>;
     default:
       DCHECK(false);
       return FailFunctor<ArrayKernelExec>::Exec;
@@ -643,6 +730,9 @@ void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   for (const auto& ty : IntervalTypes()) {
     add_kernel(ty->id());
   }
+  add_kernel(Type::DECIMAL128);
+  add_kernel(Type::DECIMAL256);
+  add_kernel(Type::FIXED_SIZE_BINARY);
   // TODO(GH-34195): Add support for more types
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
@@ -678,6 +768,9 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
   for (const auto& ty : IntervalTypes()) {
     add_kernel(ty->id());
   }
+  add_kernel(Type::DECIMAL128);
+  add_kernel(Type::DECIMAL256);
+  add_kernel(Type::FIXED_SIZE_BINARY);
   // TODO(GH-34195): Add support for more types
 
   DCHECK_OK(registry->AddFunction(std::move(function)));

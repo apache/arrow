@@ -319,6 +319,7 @@ INSTANTIATE_TEST_SUITE_P(
             REETestData::TypeMinMaxNull<UInt64Type>(),
             REETestData::TypeMinMaxNull<FloatType>(),
             REETestData::TypeMinMaxNull<DoubleType>(),
+            // A few temporal types
             REETestData::JSON(
                 date32(), "[86400, 86400, 0, 432000, 432000, 432000, 22075200, 22075200]",
                 "[86400, 0, 432000, 22075200]", "[2, 3, 6, 8]"),
@@ -329,7 +330,20 @@ INSTANTIATE_TEST_SUITE_P(
             REETestData::JSON(time32(TimeUnit::SECOND), "[1, 1, 0, 5, 5, 5, 255, 255]",
                               "[1, 0, 5, 255]", "[2, 3, 6, 8]"),
             REETestData::JSON(time64(TimeUnit::MICRO), "[1, 1, 0, 5, 5, 5, 255, 255]",
-                              "[1, 0, 5, 255]", "[2, 3, 6, 8]")),
+                              "[1, 0, 5, 255]", "[2, 3, 6, 8]"),
+            // Decimal and fixed size binary types
+            REETestData::JSON(
+                decimal128(4, 1),
+                R"(["1.0", "1.0", "0.0", "5.2", "5.2", "5.2", "255.0", "255.0"])",
+                R"(["1.0", "0.0", "5.2", "255.0"])", "[2, 3, 6, 8]"),
+            REETestData::JSON(
+                decimal256(4, 1),
+                R"(["1.0", "1.0", "0.0", "5.2", "5.2", "5.2", "255.0", "255.0"])",
+                R"(["1.0", "0.0", "5.2", "255.0"])", "[2, 3, 6, 8]"),
+            REETestData::JSON(
+                fixed_size_binary(3),
+                R"(["abc", "abc", "abc", "def", "def", "def", "ghi", "ghi"])",
+                R"(["abc", "def", "ghi"])", "[3, 6, 8]")),
         ::testing::Values(int16(), int32(), int64())));
 
 }  // namespace compute
