@@ -385,7 +385,7 @@ arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsReques
       SessionOption opt;
       switch (in_opt.option_value_case()) {
         case pb::sql::SessionOption::OPTION_VALUE_NOT_SET:
-          return Status::Invalid("Unset SessionOptionValue for key '" + name + "'");
+          return Status::Invalid("Unset SessionOptionValue for name '" + name + "'");
         case pb::sql::SessionOption::kStringValue:
           opt = {name, in_opt.string_value()};
           break;
@@ -406,15 +406,16 @@ arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsReques
           break;
         case pb::sql::SessionOption::kStringListValue:
           std::vector<std::string> vlist;
-          for (const std::string& s : in_opt.string_list_value().values())
-            vlist.push_back(s);
+          if (in_opt.string_list_value().values_size() > 0) {
+            vlist.reserve(in_opt.string_list_value().values_size());
+              for (const std::string& s : in_opt.string_list_value().values())
+                vlist.push_back(s);
+          }
           opt = {name, vlist};
           break;
       }
       result.session_options.push_back(opt);
     }
-
-    //result.session_options.assign(command.session_options().begin(), command.session_options().end());
   }
 
   return result;

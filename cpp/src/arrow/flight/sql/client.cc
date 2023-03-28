@@ -872,6 +872,62 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   return result;
 }
 
+::arrow::Result<std::vector<SessionOption>> FlightSqlClient::GetSessionOptions (
+    const FlightCallOptions& options) {
+  flight_sql_pb::ActionGetSessionOptionsRequest request;
+
+  std::unique_ptr<ResultStream> results;
+  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("GetSessionOptions", request));
+  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
+
+  flight_sql_pb::ActionGetSessionOptionsResult pb_result;
+  ARROW_RETURN_NOT_OK(ReadResult(results.get(), &pb_result));
+  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+
+  std::vector<SessionOption> result;
+  if (pb_result.session_options_size() > 0) {
+    result.reserve(pb_result.session_options_size());
+    for (const flight_sql_pb::SessionOption& in_opt : pb_result.session_options()) {
+      const std::string& name = in_opt.option_name();
+      SessionOption opt;
+      switch (in_opt.option_value_case()) {
+        case flight_sql_pb::SessionOption::OPTION_VALUE_NOT_SET:
+          return Status::Invalid("Unset option_value for name '" + name + "'");
+        case flight_sql_pb::SessionOption::kStringValue:
+          opt = {name, in_opt.string_value()};
+          break;
+        case flight_sql_pb::SessionOption::kBoolValue:
+          opt = {name, in_opt.bool_value()};
+          break;
+        case flight_sql_pb::SessionOption::kInt32Value:
+          opt = {name, in_opt.int32_value()};
+          break;
+        case flight_sql_pb::SessionOption::kInt64Value:
+          opt = {name, in_opt.int64_value()};
+          break;
+        case flight_sql_pb::SessionOption::kFloatValue:
+          opt = {name, in_opt.float_value()};
+          break;
+        case flight_sql_pb::SessionOption::kDoubleValue:
+          opt = {name, in_opt.double_value()};
+          break;
+        case flight_sql_pb::SessionOption::kStringListValue:
+          std::vector<std::string> vlist;
+          if (in_opt.string_list_value().values_size() > 0) {
+            vlist.reserve(in_opt.string_list_value().values_size());
+            for (const std::string& s : in_opt.string_list_value().values())
+              vlist.push_back(s);
+          }
+          opt = {name, vlist};
+          break;
+      }
+      result.push_back(opt);
+    }
+  }
+
+  return result;
+}
+
 ::arrow::Result<CloseSessionResult> FlightSqlClient::CloseSession(
     const FlightCallOptions& options) {
   flight_sql_pb::ActionCloseSessionRequest request;

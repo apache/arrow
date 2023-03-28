@@ -338,6 +338,12 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
       const FlightCallOptions& options,
       const std::vector<SessionOption>& session_options);
 
+  /// \brief Gets current session options.
+  ///
+  /// \param[in] options            RPC-layer hints for this call.
+  ::arrow::Result<std::vector<SessionOption>> GetSessionOptions(
+      const FlightCallOptions& options);
+
   /// \brief Explicitly closes the session if applicable.
   ///
   /// \param[in] options      RPC-layer hints for this call.
