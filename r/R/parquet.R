@@ -47,6 +47,14 @@ read_parquet <- function(file,
   if (!inherits(file, "RandomAccessFile")) {
     # Compression is handled inside the parquet file format, so we don't need
     # to detect from the file extension and wrap in a CompressedInputStream
+    # if this is a HTTP URL, we need a local copy to pass to FileSystem$from_uri
+    if (is_http_url(file)) {
+      tf <- tempfile()
+      download.file(file, tf, quiet = TRUE, mode = "wb")
+      file <- tf
+      on.exit(unlink(file))
+    }
+
     file <- make_readable_file(file)
     on.exit(file$close())
   }
@@ -606,7 +614,6 @@ ParquetArrowReaderProperties$create <- function(use_threads = option_use_threads
 calculate_chunk_size <- function(rows, columns,
                                  target_cells_per_group = getOption("arrow.parquet_cells_per_group", 2.5e8),
                                  max_chunks = getOption("arrow.parquet_max_chunks", 200)) {
-
   # Ensure is a float to prevent integer overflow issues
   num_cells <- as.numeric(rows) * as.numeric(columns)
 
