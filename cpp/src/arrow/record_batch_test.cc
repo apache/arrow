@@ -331,6 +331,19 @@ TEST_F(TestRecordBatch, ToFromEmptyStructArray) {
   ASSERT_TRUE(batch1->Equals(*batch2));
 }
 
+TEST_F(TestRecordBatch, FromSlicedStructArray) {
+  static constexpr int64_t kLength = 10;
+  std::shared_ptr<Array> x_arr = ArrayFromJSON(int64(), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]");
+  StructArray struct_array(struct_({field("x", int64())}), kLength, {x_arr});
+  std::shared_ptr<Array> sliced = struct_array.Slice(5, 3);
+  ASSERT_OK_AND_ASSIGN(auto batch, RecordBatch::FromStructArray(sliced));
+
+  std::shared_ptr<Array> expected_arr = ArrayFromJSON(int64(), "[5, 6, 7]");
+  std::shared_ptr<RecordBatch> expected =
+      RecordBatch::Make(schema({field("x", int64())}), 3, {expected_arr});
+  AssertBatchesEqual(*expected, *batch);
+}
+
 TEST_F(TestRecordBatch, FromStructArrayInvalidType) {
   random::RandomArrayGenerator gen(42);
   ASSERT_RAISES(TypeError, RecordBatch::FromStructArray(gen.ArrayOf(int32(), 6)));
@@ -339,7 +352,11 @@ TEST_F(TestRecordBatch, FromStructArrayInvalidType) {
 TEST_F(TestRecordBatch, FromStructArrayInvalidNullCount) {
   auto struct_array =
       ArrayFromJSON(struct_({field("f1", int32())}), R"([{"f1": 1}, null])");
-  ASSERT_RAISES(Invalid, RecordBatch::FromStructArray(struct_array));
+  ASSERT_OK_AND_ASSIGN(auto batch, RecordBatch::FromStructArray(struct_array));
+  std::shared_ptr<Array> expected_arr = ArrayFromJSON(int32(), "[1, null]");
+  std::shared_ptr<RecordBatch> expected =
+      RecordBatch::Make(schema({field("f1", int32())}), 2, {expected_arr});
+  AssertBatchesEqual(*expected, *batch);
 }
 
 TEST_F(TestRecordBatch, MakeEmpty) {

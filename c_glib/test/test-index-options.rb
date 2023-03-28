@@ -15,27 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:impish
+class TestIndexOptions < Test::Unit::TestCase
+  def setup
+    @value = Arrow::Int32Scalar.new(29)
+    @options = Arrow::IndexOptions.new
+    @options.value = @value
+  end
 
-RUN \
-  echo "debconf debconf/frontend select Noninteractive" | \
-    debconf-set-selections
-
-RUN \
-  echo 'APT::Install-Recommends "false";' > \
-    /etc/apt/apt.conf.d/disable-install-recommends
-
-ARG DEBUG
-
-RUN \
-  quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
-  apt update ${quiet} && \
-  apt install -y -V ${quiet} \
-    build-essential \
-    debhelper \
-    devscripts \
-    fakeroot \
-    gnupg \
-    lsb-release && \
-  apt clean && \
-  rm -rf /var/lib/apt/lists/*
+  def test_value
+    assert_equal(@value, @options.value)
+    new_value = Arrow::UInt8Scalar.new(1)
+    @options.value = new_value
+    assert_equal(new_value, @options.value)
+  end
+end
