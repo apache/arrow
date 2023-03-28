@@ -618,6 +618,7 @@ tasks:
       - libparquet1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libparquet1200_{no_rc_version}-1_[a-z0-9]+.deb
       - parquet-tools_{no_rc_version}-1_[a-z0-9]+.deb
+    {% if architecture == "amd64" %}
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -625,6 +626,7 @@ tasks:
       - libarrow-cuda-glib1200_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-cuda1200_{no_rc_version}-1_[a-z0-9]+.deb
+    {% endif %}
   {% endfor %}
 {% endfor %}
 
