@@ -949,7 +949,8 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
   } else if (action.type == FlightSqlServerBase::kSetSessionOptionsActionType.type) {
     ARROW_ASSIGN_OR_RAISE(ActionSetSessionOptionsRequest internal_command,
                           ParseActionSetSessionOptionsRequest(any));
-    ARROW_ASSIGN_OR_RAISE(ActionSetSessionOptionsResult result, SetSessionOptions(context, internal_command));
+    ARROW_ASSIGN_OR_RAISE(ActionSetSessionOptionsResult result,
+                          SetSessionOptions(context, internal_command));
     ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
