@@ -1920,6 +1920,16 @@ message ActionSetSessionOptionsResult {
   repeated SetSessionOptionResult results = 1;
 }
 
+message ActionGetSessionOptionsRequest {
+    option (experimental) = true;
+}
+
+message ActionGetSessionOptionsResult {
+    option (experimental) = true;
+
+    repeated SessionOption session_options = 1;
+}
+
 extend google.protobuf.MessageOptions {
   bool experimental = 1000;
 }
