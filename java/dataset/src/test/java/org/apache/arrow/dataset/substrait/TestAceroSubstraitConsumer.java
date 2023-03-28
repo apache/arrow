@@ -68,8 +68,6 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         Field.nullable("FieldPath(2)", new ArrowType.Int(64, true)),
         Field.nullable("FieldPath(3)", new ArrowType.Utf8())
     ));
-    System.out.println(TestAceroSubstraitConsumer.class.getClassLoader()
-        .getResource("substrait/nation.parquet").toURI().toString());
     try (ArrowReader arrowReader = new AceroSubstraitConsumer(rootAllocator())
         .runQuery(
             planReplaceLocalFileURI(
