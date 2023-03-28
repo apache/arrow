@@ -143,27 +143,27 @@ Result<compute::Expression> FromProto(const substrait::Expression::ReferenceSegm
                                       const ConversionOptions& conversion_options,
                                       std::optional<compute::Expression> in_expr) {
   auto in_ref = ref;
-  auto& out = in_expr;
+  auto& current = in_expr;
   while (ref != nullptr) {
     switch (ref->reference_type_case()) {
       case substrait::Expression::ReferenceSegment::kStructField: {
         auto index = ref->struct_field().field();
-        if (!out) {
+        if (!current) {
           // Root StructField (column selection)
-          out = compute::field_ref(FieldRef(index));
-        } else if (auto out_ref = out->field_ref()) {
+          current = compute::field_ref(FieldRef(index));
+        } else if (auto current_ref = current->field_ref()) {
           // Nested StructFields on the root (selection of struct-typed column
           // combined with selecting struct fields)
-          out = compute::field_ref(FieldRef(*out_ref, index));
-        } else if (out->call() && out->call()->function_name == "struct_field") {
+          current = compute::field_ref(FieldRef(*current_ref, index));
+        } else if (current->call() && current->call()->function_name == "struct_field") {
           // Nested StructFields on top of an arbitrary expression
           auto* field_options =
-              checked_cast<compute::StructFieldOptions*>(out->call()->options.get());
+              checked_cast<compute::StructFieldOptions*>(current->call()->options.get());
           field_options->field_ref = FieldRef(std::move(field_options->field_ref), index);
         } else {
           // First StructField on top of an arbitrary expression
-          out = compute::call("struct_field", {std::move(*out)},
-                              arrow::compute::StructFieldOptions({index}));
+          current = compute::call("struct_field", {std::move(*current)},
+                                  arrow::compute::StructFieldOptions({index}));
         }
 
         // Segment handled, continue with child segment (if any)
@@ -175,16 +175,16 @@ Result<compute::Expression> FromProto(const substrait::Expression::ReferenceSegm
         break;
       }
       case substrait::Expression::ReferenceSegment::kListElement: {
-        if (!out) {
+        if (!current) {
           // Root ListField (illegal)
           return Status::Invalid(
               "substrait::ListElement cannot take a Relation as an argument");
         }
 
         // ListField on top of an arbitrary expression
-        out = compute::call(
+        current = compute::call(
             "list_element",
-            {std::move(*out), compute::literal(ref->list_element().offset())});
+            {std::move(*current), compute::literal(ref->list_element().offset())});
 
         // Segment handled, continue with child segment (if any)
         if (ref->list_element().has_child()) {
@@ -195,18 +195,33 @@ Result<compute::Expression> FromProto(const substrait::Expression::ReferenceSegm
         break;
       }
       default:
-        // Unimplemented construct, break out of loop
-        out.reset();
+        // Unimplemented construct, break current of loop
+        current.reset();
         ref = nullptr;
     }
   }
-  if (out) {
-    return *std::move(out);
+  if (current) {
+    return *std::move(current);
   }
 
   return Status::NotImplemented(
       "conversion to arrow::compute::Expression from Substrait reference segment: ",
       in_ref ? in_ref->DebugString() : "null");
+}
+
+Result<FieldRef> DirectReferenceFromProto(
+    const substrait::Expression::ReferenceSegment* refseg, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options) {
+  ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
+                        FromProto(refseg, ext_set, conversion_options, {}));
+  const FieldRef* field_ref = expr.field_ref();
+  if (field_ref) {
+    return *field_ref;
+  } else {
+    return Status::Invalid(
+        "A direct reference was expected but a more complex expression was given "
+        "instead");
+  }
 }
 
 Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool is_hash,

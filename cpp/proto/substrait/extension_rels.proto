@@ -60,8 +60,6 @@ message NamedTapRel {
 }
 
 message SegmentedAggregateRel {
-  substrait.RelCommon common = 1;
-
   // Grouping keys of the aggregation
   repeated substrait.Expression.ReferenceSegment grouping_keys = 2;
 

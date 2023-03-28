@@ -187,24 +187,22 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     std::vector<int> key_field_ids;
     std::vector<FieldRef> keys;
     for (auto& key_refseg : seg_agg_rel.grouping_keys()) {
-      ARROW_ASSIGN_OR_RAISE(auto expr, FromProto(&key_refseg, ext_set, conv_opts, {}));
-      if (auto field_ref = expr.field_ref()) {
-        ARROW_ASSIGN_OR_RAISE(auto match, field_ref->FindOne(*input_schema));
-        key_field_ids.emplace_back(std::move(match[0]));
-        keys.emplace_back(std::move(*field_ref));
-      }
+      ARROW_ASSIGN_OR_RAISE(auto field_ref,
+                            DirectReferenceFromProto(&key_refseg, ext_set, conv_opts));
+      ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*input_schema));
+      key_field_ids.emplace_back(std::move(match[0]));
+      keys.emplace_back(std::move(field_ref));
     }
 
     // store segment key fields to be used when output schema is created
     std::vector<int> segment_key_field_ids;
     std::vector<FieldRef> segment_keys;
     for (auto& key_refseg : seg_agg_rel.segment_keys()) {
-      ARROW_ASSIGN_OR_RAISE(auto expr, FromProto(&key_refseg, ext_set, conv_opts, {}));
-      if (auto field_ref = expr.field_ref()) {
-        ARROW_ASSIGN_OR_RAISE(auto match, field_ref->FindOne(*input_schema));
-        segment_key_field_ids.emplace_back(std::move(match[0]));
-        segment_keys.emplace_back(std::move(*field_ref));
-      }
+      ARROW_ASSIGN_OR_RAISE(auto field_ref,
+                            DirectReferenceFromProto(&key_refseg, ext_set, conv_opts));
+      ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*input_schema));
+      segment_key_field_ids.emplace_back(std::move(match[0]));
+      segment_keys.emplace_back(std::move(field_ref));
     }
 
     std::vector<compute::Aggregate> aggregates;
@@ -215,14 +213,13 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
           &aggregates, &agg_src_fieldsets));
     }
 
-    ARROW_ASSIGN_OR_RAISE(
-        auto decl_info,
-        internal::MakeAggregateDeclaration(
-            seg_agg_rel.common(), std::move(inputs[0].declaration),
-            std::move(input_schema), seg_agg_rel.measures_size(), std::move(aggregates),
-            std::move(agg_src_fieldsets), std::move(keys), std::move(key_field_ids),
-            std::move(segment_keys), std::move(segment_key_field_ids), ext_set,
-            conv_opts));
+    ARROW_ASSIGN_OR_RAISE(auto decl_info,
+                          internal::MakeAggregateDeclaration(
+                              std::move(inputs[0].declaration), std::move(input_schema),
+                              seg_agg_rel.measures_size(), std::move(aggregates),
+                              std::move(agg_src_fieldsets), std::move(keys),
+                              std::move(key_field_ids), std::move(segment_keys),
+                              std::move(segment_key_field_ids), ext_set, conv_opts));
 
     const auto& output_schema = decl_info.output_schema;
     size_t out_size = output_schema->num_fields();

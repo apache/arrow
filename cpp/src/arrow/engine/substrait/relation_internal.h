@@ -72,7 +72,6 @@ ARROW_ENGINE_EXPORT Status ParseAggregateMeasure(
 
 /// \brief Make an aggregate declaration info
 ///
-/// \param[in] agg_common_opt the aggregate relation's common info, if exists
 /// \param[in] input_decl the input declaration to use
 /// \param[in] input_schema the schema to which field refs apply
 /// \param[in] measure_size the number of measures to use
@@ -85,9 +84,8 @@ ARROW_ENGINE_EXPORT Status ParseAggregateMeasure(
 /// \param[in] ext_set an extension mapping to use
 /// \param[in] conversion_options options to control how the conversion is done
 ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
-    std::optional<substrait::RelCommon> agg_common_opt, compute::Declaration input_decl,
-    std::shared_ptr<Schema> input_schema, const int measure_size,
-    std::vector<compute::Aggregate> aggregates,
+    compute::Declaration input_decl, std::shared_ptr<Schema> input_schema,
+    const int measure_size, std::vector<compute::Aggregate> aggregates,
     std::vector<std::vector<int>> agg_src_fieldsets, std::vector<FieldRef> keys,
     std::vector<int> key_field_ids, std::vector<FieldRef> segment_keys,
     std::vector<int> segment_key_field_ids, const ExtensionSet& ext_set,

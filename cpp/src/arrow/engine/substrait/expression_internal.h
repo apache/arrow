@@ -36,6 +36,10 @@ namespace engine {
 class SubstraitCall;
 
 ARROW_ENGINE_EXPORT
+Result<FieldRef> DirectReferenceFromProto(const substrait::Expression::ReferenceSegment*,
+                                          const ExtensionSet&, const ConversionOptions&);
+
+ARROW_ENGINE_EXPORT
 Result<compute::Expression> FromProto(const substrait::Expression::ReferenceSegment*,
                                       const ExtensionSet&, const ConversionOptions&,
                                       std::optional<compute::Expression>);

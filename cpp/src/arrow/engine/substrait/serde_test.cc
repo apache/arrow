@@ -5665,10 +5665,6 @@ TEST(Substrait, PlanWithSegmentedAggregateExtension) {
             },
             "detail": {
               "@type": "/arrow.substrait_ext.SegmentedAggregateRel",
-              "common": {
-                "direct": {
-                }
-              },
               "grouping_keys": [{
                       "structField": {
                         "field": 1

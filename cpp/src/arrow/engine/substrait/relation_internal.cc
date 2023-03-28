@@ -74,9 +74,10 @@ struct EmitInfo {
   std::shared_ptr<Schema> schema;
 };
 
-Result<EmitInfo> GetEmitInfo(const substrait::RelCommon& rel_common,
+template <typename RelMessage>
+Result<EmitInfo> GetEmitInfo(const RelMessage& rel,
                              const std::shared_ptr<Schema>& input_schema) {
-  const auto& emit = rel_common.emit();
+  const auto& emit = rel.common().emit();
   int emit_size = emit.output_mapping_size();
   std::vector<compute::Expression> proj_field_refs(emit_size);
   EmitInfo emit_info;
@@ -89,11 +90,6 @@ Result<EmitInfo> GetEmitInfo(const substrait::RelCommon& rel_common,
   emit_info.expressions = std::move(proj_field_refs);
   emit_info.schema = schema(std::move(emit_fields));
   return std::move(emit_info);
-}
-template <typename RelMessage>
-Result<EmitInfo> GetEmitInfo(const RelMessage& rel,
-                             const std::shared_ptr<Schema>& input_schema) {
-  return GetEmitInfo(rel.common(), input_schema);
 }
 
 Result<DeclarationInfo> ProcessEmitProject(
@@ -132,15 +128,16 @@ Result<DeclarationInfo> ProcessEmitProject(
   }
 }
 
-Result<DeclarationInfo> ProcessEmit(std::optional<substrait::RelCommon> rel_common_opt,
+template <typename RelMessage>
+Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
                                     const DeclarationInfo& no_emit_declr,
                                     const std::shared_ptr<Schema>& schema) {
-  if (rel_common_opt) {
-    switch (rel_common_opt->emit_kind_case()) {
+  if (rel.has_common()) {
+    switch (rel.common().emit_kind_case()) {
       case substrait::RelCommon::EmitKindCase::kDirect:
         return no_emit_declr;
       case substrait::RelCommon::EmitKindCase::kEmit: {
-        ARROW_ASSIGN_OR_RAISE(auto emit_info, GetEmitInfo(*rel_common_opt, schema));
+        ARROW_ASSIGN_OR_RAISE(auto emit_info, GetEmitInfo(rel, schema));
         return DeclarationInfo{
             compute::Declaration::Sequence(
                 {no_emit_declr.declaration,
@@ -154,13 +151,6 @@ Result<DeclarationInfo> ProcessEmit(std::optional<substrait::RelCommon> rel_comm
   } else {
     return no_emit_declr;
   }
-}
-template <typename RelMessage>
-Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
-                                    const DeclarationInfo& no_emit_declr,
-                                    const std::shared_ptr<Schema>& schema) {
-  return ProcessEmit(rel.has_common() ? std::make_optional(rel.common()) : std::nullopt,
-                     no_emit_declr, schema);
 }
 /// In the specialization, a single ProjectNode is being used to
 /// get the Acero relation with or without emit.
@@ -348,9 +338,8 @@ ARROW_ENGINE_EXPORT Status ParseAggregateMeasure(
 }
 
 ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
-    std::optional<substrait::RelCommon> agg_common_opt, compute::Declaration input_decl,
-    std::shared_ptr<Schema> input_schema, const int measure_size,
-    std::vector<compute::Aggregate> aggregates,
+    compute::Declaration input_decl, std::shared_ptr<Schema> input_schema,
+    const int measure_size, std::vector<compute::Aggregate> aggregates,
     std::vector<std::vector<int>> agg_src_fieldsets, std::vector<FieldRef> keys,
     std::vector<int> key_field_ids, std::vector<FieldRef> segment_keys,
     std::vector<int> segment_key_field_ids, const ExtensionSet& ext_set,
@@ -375,14 +364,11 @@ ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
 
   std::shared_ptr<Schema> aggregate_schema = schema(std::move(output_fields));
 
-  DeclarationInfo aggregate_declaration{
+  return DeclarationInfo{
       compute::Declaration::Sequence(
           {std::move(input_decl),
            {"aggregate", compute::AggregateNodeOptions{aggregates, keys, segment_keys}}}),
       aggregate_schema};
-
-  return ProcessEmit(std::move(agg_common_opt), std::move(aggregate_declaration),
-                     std::move(aggregate_schema));
 }
 
 }  // namespace internal
@@ -833,11 +819,15 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             input_schema, &aggregates, &agg_src_fieldsets));
       }
 
-      return internal::MakeAggregateDeclaration(
-          aggregate.has_common() ? std::make_optional(aggregate.common()) : std::nullopt,
-          std::move(input.declaration), std::move(input_schema), measure_size,
-          std::move(aggregates), std::move(agg_src_fieldsets), std::move(keys),
-          std::move(key_field_ids), {}, {}, ext_set, conversion_options);
+      ARROW_ASSIGN_OR_RAISE(
+          auto aggregate_declaration,
+          internal::MakeAggregateDeclaration(
+              std::move(input.declaration), std::move(input_schema), measure_size,
+              std::move(aggregates), std::move(agg_src_fieldsets), std::move(keys),
+              std::move(key_field_ids), {}, {}, ext_set, conversion_options));
+
+      return ProcessEmit(std::move(aggregate), std::move(aggregate_declaration),
+                         aggregate_declaration.output_schema);
     }
 
     case substrait::Rel::RelTypeCase::kExtensionLeaf:

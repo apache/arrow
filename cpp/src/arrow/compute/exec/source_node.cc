@@ -110,12 +110,6 @@ struct SourceNode : ExecNode, public TracedNode {
                     value, util::EnsureAlignment(value.make_array(), ipc::kArrowAlignment,
                                                  default_memory_pool()));
               }
-              if (value.is_chunked_array()) {
-                ARROW_ASSIGN_OR_RAISE(
-                    value,
-                    util::EnsureAlignment(value.chunked_array(), ipc::kArrowAlignment,
-                                          default_memory_pool()));
-              }
             }
             if (has_ordering) {
               batch.index = batch_index;
