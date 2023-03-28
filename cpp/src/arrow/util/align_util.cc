@@ -101,7 +101,7 @@ Result<std::shared_ptr<Buffer>> EnsureAlignment(std::shared_ptr<Buffer> buffer,
     ARROW_ASSIGN_OR_RAISE(auto new_buffer,
                           AllocateBuffer(buffer->size(), alignment, memory_pool));
     std::memcpy(new_buffer->mutable_data(), buffer->data(), buffer->size());
-    return new_buffer;
+    return std::move(new_buffer);
   } else {
     return std::move(buffer);
   }
