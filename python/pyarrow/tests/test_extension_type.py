@@ -1160,7 +1160,7 @@ def test_extension_to_pandas_storage_type(registered_period_type):
     result = arr.to_pandas()
     assert result.dtype == pandas_dtype
 
-    # Test the change in ConvertChunkedArrayToPandas
+    # Test chunked arrays
     chunked_arr = pa.chunked_array([arr])
     result = chunked_arr.to_numpy()
     assert result.dtype == np_arr.dtype
@@ -1168,7 +1168,7 @@ def test_extension_to_pandas_storage_type(registered_period_type):
     result = chunked_arr.to_pandas()
     assert result.dtype == pandas_dtype
 
-    # Test the change in ConvertTableToPandas
+    # Test Table.to_pandas
     data = [
         pa.array([1, 2, 3, 4]),
         pa.array(['foo', 'bar', None, None]),
@@ -1184,8 +1184,7 @@ def test_extension_to_pandas_storage_type(registered_period_type):
     assert result["ext"].dtype == pandas_dtype
 
     import pandas as pd
-    if Version(pd.__version__) < Version("1.5.0"):
-        pytest.skip("ArrowDtype missing")
+    if Version(pd.__version__) >= Version("2.0.0.dev0"):
 
         # Check the usage of types_mapper
         result = table.to_pandas(types_mapper=pd.ArrowDtype)
