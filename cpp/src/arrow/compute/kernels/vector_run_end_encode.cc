@@ -579,11 +579,21 @@ void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   };
 
+  add_kernel(null());
+  add_kernel(boolean());
   for (const auto& ty : NumericTypes()) {
     add_kernel(ty);
   }
-  add_kernel(boolean());
-  add_kernel(null());
+  add_kernel(date32());
+  add_kernel(date64());
+  // The TimeUnit doesn't matter to these kernels.
+  add_kernel(time32(TimeUnit::SECOND));
+  add_kernel(time64(TimeUnit::MICRO));
+  add_kernel(timestamp(TimeUnit::SECOND));
+  add_kernel(duration(TimeUnit::SECOND));
+  for (const auto& ty : IntervalTypes()) {
+    add_kernel(ty);
+  }
   // TODO(GH-34195): Add support for more types
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
@@ -603,11 +613,21 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
     }
   };
 
+  add_kernel(null());
+  add_kernel(boolean());
   for (const auto& ty : NumericTypes()) {
     add_kernel(ty);
   }
-  add_kernel(boolean());
-  add_kernel(null());
+  add_kernel(date32());
+  add_kernel(date64());
+  // The TimeUnit doesn't matter to these kernels.
+  add_kernel(time32(TimeUnit::SECOND));
+  add_kernel(time64(TimeUnit::MICRO));
+  add_kernel(timestamp(TimeUnit::SECOND));
+  add_kernel(duration(TimeUnit::SECOND));
+  for (const auto& ty : IntervalTypes()) {
+    add_kernel(ty);
+  }
   // TODO(GH-34195): Add support for more types
 
   DCHECK_OK(registry->AddFunction(std::move(function)));

@@ -21,6 +21,7 @@
 #include "arrow/builder.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
 
@@ -317,7 +318,18 @@ INSTANTIATE_TEST_SUITE_P(
             REETestData::TypeMinMaxNull<Int64Type>(),
             REETestData::TypeMinMaxNull<UInt64Type>(),
             REETestData::TypeMinMaxNull<FloatType>(),
-            REETestData::TypeMinMaxNull<DoubleType>()),
+            REETestData::TypeMinMaxNull<DoubleType>(),
+            REETestData::JSON(
+                date32(), "[86400, 86400, 0, 432000, 432000, 432000, 22075200, 22075200]",
+                "[86400, 0, 432000, 22075200]", "[2, 3, 6, 8]"),
+            REETestData::JSON(date64(),
+                              "[86400000, 86400000, 0, 432000000, 432000000, 432000000, "
+                              "22032000000, 22032000000]",
+                              "[86400000, 0, 432000000, 22032000000]", "[2, 3, 6, 8]"),
+            REETestData::JSON(time32(TimeUnit::SECOND), "[1, 1, 0, 5, 5, 5, 255, 255]",
+                              "[1, 0, 5, 255]", "[2, 3, 6, 8]"),
+            REETestData::JSON(time64(TimeUnit::MICRO), "[1, 1, 0, 5, 5, 5, 255, 255]",
+                              "[1, 0, 5, 255]", "[2, 3, 6, 8]")),
         ::testing::Values(int16(), int32(), int64())));
 
 }  // namespace compute
