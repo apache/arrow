@@ -622,6 +622,13 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
       const ServerCallContext& context,
       const ActionSetSessionOptionsRequest& request);
 
+  /// \brief Get server session option(s).
+  /// \param[in] context  The call context.
+  /// \param[in] request  Request object.
+  virtual arrow::Result<ActionGetSessionOptionsResult> GetSessionOptions(
+      const ServerCallContext& context,
+      const ACtionGetSessionOptionsRequest& request);
+
   virtual arrow::Result<CloseSessionResult> CloseSession(
       const ServerCallContext& context,
       const ActionCloseSessionRequest& request
