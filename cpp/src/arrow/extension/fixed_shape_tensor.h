@@ -32,13 +32,22 @@ class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
 
   /// \brief Create a FixedShapeTensorArray from a Tensor
   ///
-  /// This function will create a FixedShapeTensorArray from a Tensor, taking its
+  /// This method will create a FixedShapeTensorArray from a Tensor, taking its
   /// first dimension as the "element dimension" and the remaining dimensions as the
   /// "tensor dimensions". If Tensor provides strides, they will be used to determine
-  /// dimension permutation. Otherwise, row-major layout (i.e. no permutation) will be assumed.
+  /// dimension permutation. Otherwise, row-major layout (i.e. no permutation) will be
+  /// assumed.
   ///
   /// \param[in] tensor The Tensor to convert to a FixedShapeTensorArray
-  static Result<std::shared_ptr<Array>> FromTensor(const std::shared_ptr<Tensor>& tensor);
+  static Result<std::shared_ptr<FixedShapeTensorArray>> FromTensor(
+      const std::shared_ptr<Tensor>& tensor);
+
+  /// \brief Create a Tensor from FixedShapeTensorArray
+  ///
+  /// This method will create a Tensor from a FixedShapeTensorArray, setting its
+  /// first dimension as length equal to the FixedShapeTensorArray's length and the
+  /// remaining dimensions as the FixedShapeTensorType's element shape.
+  const Result<std::shared_ptr<Tensor>> ToTensor() const;
 };
 
 /// \brief Concrete type class for constant-size Tensor data.
@@ -83,15 +92,6 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
 
   /// Create a FixedShapeTensorArray from ArrayData
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
-
-  /// \brief Create a Tensor from FixedShapeTensorArray
-  ///
-  /// This function will create a Tensor from a FixedShapeTensorArray, setting its
-  /// first dimension as length equal to the FixedShapeTensorArray's length and the
-  /// remaining dimensions as the FixedShapeTensorType's element shape.
-  ///
-  /// \param[in] arr The FixedShapeTensorArray to convert to a Tensor
-  Result<std::shared_ptr<Tensor>> ToTensor(std::shared_ptr<Array> arr);
 
   /// \brief Create a FixedShapeTensorType instance
   static Result<std::shared_ptr<DataType>> Make(

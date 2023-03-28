@@ -135,7 +135,7 @@ std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
   return std::make_shared<ExtensionArray>(data);
 }
 
-Result<std::shared_ptr<Array>> FixedShapeTensorArray::FromTensor(
+Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor(
     const std::shared_ptr<Tensor>& tensor) {
   auto cell_shape = tensor->shape();
   cell_shape.erase(cell_shape.begin());
@@ -159,7 +159,6 @@ Result<std::shared_ptr<Array>> FixedShapeTensorArray::FromTensor(
   auto ext_type = internal::checked_pointer_cast<ExtensionType>(
       fixed_shape_tensor(tensor->type(), cell_shape, permutation, dim_names));
 
-  std::shared_ptr<FixedSizeListArray> arr;
   std::shared_ptr<Array> value_array;
   switch (tensor->type_id()) {
     case Type::UINT8: {
@@ -211,55 +210,50 @@ Result<std::shared_ptr<Array>> FixedShapeTensorArray::FromTensor(
                                     tensor->type()->ToString());
     }
   }
-  arr = std::make_shared<FixedSizeListArray>(ext_type->storage_type(), tensor->shape()[0],
-                                             value_array);
-  auto ext_data = arr->data();
-  ext_data->type = ext_type;
-  return ext_type->MakeArray(ext_data);
+  auto cell_size = tensor->size() / tensor->shape()[0];
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> arr,
+                        FixedSizeListArray::FromArrays(value_array, cell_size));
+  std::shared_ptr<Array> ext_arr = ExtensionType::WrapArray(ext_type, arr);
+  return std::reinterpret_pointer_cast<FixedShapeTensorArray>(ext_arr);
 }
 
-Result<std::shared_ptr<Tensor>> FixedShapeTensorType::ToTensor(
-    std::shared_ptr<Array> arr) {
+const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   // To convert an array of n dimensional tensors to a n+1 dimensional tensor we
   // interpret the array's length as the first dimension the new tensor. Further, we
   // define n+1 dimensional tensor's strides by front appending a new stride to the n
   // dimensional tensor's strides.
 
-  if (arr->null_count() > 0) {
-    return Status::Invalid("Null values not supported in tensors.");
-  }
-
-  auto ext_arr = internal::checked_pointer_cast<FixedSizeListArray>(
-      internal::checked_pointer_cast<ExtensionArray>(arr)->storage());
-  ARROW_RETURN_IF(!is_fixed_width(ext_arr->value_type()->id()),
+  auto ext_arr = internal::checked_pointer_cast<FixedSizeListArray>(this->storage());
+  auto ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(this->type());
+  ARROW_RETURN_IF(!is_fixed_width(*ext_arr->value_type()),
                   Status::Invalid(ext_arr->value_type()->ToString(),
                                   " is not valid data type for a tensor"));
-
-  std::vector<int64_t> shape = this->shape();
-  shape.insert(shape.begin(), 1, arr->length());
+  std::vector<int64_t> shape = ext_type->shape();
+  shape.insert(shape.begin(), 1, this->length());
 
   int64_t major_stride;
-  std::vector<int64_t> tensor_strides = this->strides();
+  std::vector<int64_t> tensor_strides = ext_type->strides();
   if (internal::MultiplyWithOverflow(ext_arr->value_type()->byte_width(),
                                      ext_arr->list_type()->list_size(), &major_stride)) {
     return Status::Invalid("Overflow in tensor strides");
   }
-  if (!this->permutation().empty()) {
-    internal::Permute(this->permutation(), &tensor_strides);
+  if (!ext_type->permutation().empty()) {
+    internal::Permute(ext_type->permutation(), &tensor_strides);
   }
   tensor_strides.insert(tensor_strides.begin(), 1, major_stride);
 
   std::vector<std::string> dim_names;
-  if (!this->dim_names().empty()) {
-    dim_names = this->dim_names();
+  if (!ext_type->dim_names().empty()) {
+    dim_names = ext_type->dim_names();
     dim_names.insert(dim_names.begin(), 1, "");
   } else {
     dim_names = {};
   }
 
-  std::shared_ptr<Buffer> buffer = ext_arr->values()->data()->buffers[1];
-  ARROW_ASSIGN_OR_RAISE(auto tensor, Tensor::Make(ext_arr->value_type(), buffer, shape,
-                                                  tensor_strides, dim_names));
+  ARROW_ASSIGN_OR_RAISE(auto buffers, ext_arr->Flatten());
+  ARROW_ASSIGN_OR_RAISE(
+      auto tensor, Tensor::Make(ext_arr->value_type(), buffers->data()->buffers[1], shape,
+                                tensor_strides, dim_names));
   return tensor;
 }
 

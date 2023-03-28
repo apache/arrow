@@ -195,30 +195,22 @@ TEST_F(TestExtensionType, CreateFromTensor) {
                        FixedShapeTensorArray::FromTensor(neither_major_tensor));
 
   auto ext_type_5 = internal::checked_pointer_cast<FixedShapeTensorType>(
-      fixed_shape_tensor(binary(), {1, 2}));
+      fixed_shape_tensor(binary(), {1, 3}));
   auto arr = ArrayFromJSON(binary(), R"(["abc", "def"])");
 
   ASSERT_OK_AND_ASSIGN(auto fsla_arr,
-                       FixedSizeListArray::FromArrays(arr, fixed_size_list(binary(), 1)));
-  auto data = fsla_arr->data();
-  data->type = ext_type_5;
-  auto ext_arr_5 = ext_type_5->MakeArray(data);
+                       FixedSizeListArray::FromArrays(arr, fixed_size_list(binary(), 2)));
+  auto ext_arr_5 = std::reinterpret_pointer_cast<FixedShapeTensorArray>(
+      ExtensionType::WrapArray(ext_type_5, fsla_arr));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, testing::HasSubstr("binary is not valid data type for a tensor"),
-      exact_ext_type->ToTensor(ext_arr_5));
+      ext_arr_5->ToTensor());
 
   auto ext_type_6 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int64(), {1, 2}));
-  auto arr_with_null = ArrayFromJSON(int64(), "[0, null]");
+  auto arr_with_null = ArrayFromJSON(int64(), "[1, 0, null, null, 1, 2]");
   ASSERT_OK_AND_ASSIGN(auto fsla_arr_6, FixedSizeListArray::FromArrays(
-                                            arr_with_null, fixed_size_list(int64(), 1)));
-  auto data6 = fsla_arr_6->data();
-  data6->type = ext_type_6;
-  data6->null_count = 1;
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("Null values not supported in tensors."),
-      ext_type_6->ToTensor(ext_type_6->MakeArray(data6)));
+                                            arr_with_null, fixed_size_list(int64(), 2)));
 }
 
 void CheckTensorRoundtrip(const std::shared_ptr<Tensor>& tensor,
@@ -226,7 +218,7 @@ void CheckTensorRoundtrip(const std::shared_ptr<Tensor>& tensor,
   auto ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(expected_ext_type);
   ASSERT_OK_AND_ASSIGN(auto ext_arr, FixedShapeTensorArray::FromTensor(tensor));
   auto generated_ext_type =
-      internal::checked_pointer_cast<FixedShapeTensorType>(ext_arr->type());
+      internal::checked_cast<const FixedShapeTensorType*>(ext_arr->extension_type());
 
   // Check that generated type is equal to the expected type
   ASSERT_EQ(generated_ext_type->type_name(), ext_type->type_name());
@@ -237,7 +229,7 @@ void CheckTensorRoundtrip(const std::shared_ptr<Tensor>& tensor,
   ASSERT_TRUE(generated_ext_type->Equals(ext_type));
 
   // Check Tensor roundtrip
-  ASSERT_OK_AND_ASSIGN(auto tensor_from_array, generated_ext_type->ToTensor(ext_arr));
+  ASSERT_OK_AND_ASSIGN(auto tensor_from_array, ext_arr->ToTensor());
   ASSERT_EQ(tensor->type(), tensor_from_array->type());
   ASSERT_EQ(tensor->shape(), tensor_from_array->shape());
   for (size_t i = 1; i < tensor->dim_names().size(); i++) {
