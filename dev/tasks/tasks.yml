@@ -444,6 +444,10 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
 
+  wheel-clean:
+    ci: github
+    template: python-wheels/github.clean.yml
+
 {% for python_version, python_tag, abi_tag in [("3.7", "cp37", "cp37m"),
                                                ("3.8", "cp38", "cp38"),
                                                ("3.9", "cp39", "cp39"),
@@ -533,7 +537,6 @@ tasks:
 
 {% for target in ["debian-bullseye",
                   "debian-bookworm",
-                  "ubuntu-bionic",
                   "ubuntu-focal",
                   "ubuntu-jammy",
                   "ubuntu-kinetic"] %}
@@ -956,9 +959,15 @@ tasks:
       - flight-sql-{no_rc_snapshot_version}-tests.jar
       - flight-sql-{no_rc_snapshot_version}.jar
       - flight-sql-{no_rc_snapshot_version}.pom
+      - flight-sql-jdbc-core-{no_rc_snapshot_version}-cyclonedx.json
+      - flight-sql-jdbc-core-{no_rc_snapshot_version}-cyclonedx.xml
+      - flight-sql-jdbc-core-{no_rc_snapshot_version}-javadoc.jar
+      - flight-sql-jdbc-core-{no_rc_snapshot_version}-sources.jar
+      - flight-sql-jdbc-core-{no_rc_snapshot_version}-tests.jar
+      - flight-sql-jdbc-core-{no_rc_snapshot_version}.jar
+      - flight-sql-jdbc-core-{no_rc_snapshot_version}.pom
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}-cyclonedx.json
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}-cyclonedx.xml
-      - flight-sql-jdbc-driver-{no_rc_snapshot_version}-javadoc.jar
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}-sources.jar
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}-tests.jar
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}.jar
@@ -1007,7 +1016,6 @@ tasks:
 
 {% for distribution, version in [("conda", "latest"),
                                  ("almalinux", "8"),
-                                 ("ubuntu", "18.04"),
                                  ("ubuntu", "20.04"),
                                  ("ubuntu", "22.04")] %}
   {% for target in ["cpp",
@@ -1158,7 +1166,7 @@ tasks:
     params:
       image: conda-cpp-valgrind
 
-{% for ubuntu_version in ["18.04", "20.04", "22.04"] %}
+{% for ubuntu_version in ["20.04", "22.04"] %}
   test-ubuntu-{{ ubuntu_version }}-cpp:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1213,24 +1221,6 @@ tasks:
       env:
         FEDORA: 35
       image: fedora-cpp
-
-  test-ubuntu-18.04-cpp-release:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 18.04
-      flags: "-e ARROW_BUILD_TYPE=release"
-      image: ubuntu-cpp
-
-  test-ubuntu-18.04-cpp-static:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 18.04
-      flags: "-e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static"
-      image: ubuntu-cpp
 
 {% for cpp_standard in [20] %}
   test-ubuntu-20.04-cpp-{{ cpp_standard }}:
@@ -1324,7 +1314,6 @@ tasks:
     params:
       env:
         ARROW_R_DEV: "TRUE"
-        UBUNTU: 18.04
       image: ubuntu-r-valgrind
 
   test-r-linux-rchk:
@@ -1481,12 +1470,11 @@ tasks:
       r_tag: latest
       flags: "-e LIBARROW_MINIMAL=TRUE"
 
-  test-ubuntu-18.04-r-sanitizer:
+  test-ubuntu-r-sanitizer:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
-        UBUNTU: 18.04
         R_PRUNE_DEPS: TRUE
       image: ubuntu-r-sanitizer
 

@@ -76,6 +76,11 @@ namespace Apache.Arrow
                 case ArrowTypeId.Dictionary:
                     return new DictionaryArray(data);
                 case ArrowTypeId.HalfFloat:
+#if NET5_0_OR_GREATER
+                    return new HalfFloatArray(data);
+#else
+                    throw new NotSupportedException("Half-float arrays are not supported by this target framework.");
+#endif
                 case ArrowTypeId.Interval:
                 case ArrowTypeId.Map:
                 default:

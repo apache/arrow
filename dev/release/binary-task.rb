@@ -1085,7 +1085,6 @@ class BinaryTask
     [
       ["debian", "bullseye", "main"],
       ["debian", "bookworm", "main"],
-      ["ubuntu", "bionic", "main"],
       ["ubuntu", "focal", "main"],
       ["ubuntu", "jammy", "main"],
       ["ubuntu", "kinetic", "main"],
@@ -2111,8 +2110,6 @@ class LocalBinaryTask < BinaryTask
       # "debian-bullseye-arm64",
       "debian-bookworm",
       # "debian-bookworm-arm64",
-      "ubuntu-bionic",
-      # "ubuntu-bionic-arm64",
       "ubuntu-focal",
       # "ubuntu-focal-arm64",
       "ubuntu-impish",
