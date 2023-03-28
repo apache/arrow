@@ -209,44 +209,27 @@ def test_filter_table_errors():
     })
 
     with pytest.raises(pa.ArrowTypeError):
-        ep._filter_table(
-            t, pc.divide(pc.field("a"), pc.scalar(2)),
-            output_type=pa.Table
-        )
+        ep._filter_table(t, pc.divide(pc.field("a"), pc.scalar(2)))
 
     with pytest.raises(pa.ArrowInvalid):
-        ep._filter_table(
-            t, (pc.field("Z") <= pc.scalar(2)),
-            output_type=pa.Table
-        )
+        ep._filter_table(t, (pc.field("Z") <= pc.scalar(2)))
 
 
-@pytest.mark.parametrize("use_datasets", [False, True])
-def test_filter_table(use_datasets):
+def test_filter_table():
     t = pa.table({
         "a": [1, 2, 3, 4, 5],
         "b": [10, 20, 30, 40, 50]
     })
-    if use_datasets:
-        t = ds.dataset([t])
 
     result = ep._filter_table(
         t, (pc.field("a") <= pc.scalar(3)) & (pc.field("b") == pc.scalar(20)),
-        output_type=pa.Table if not use_datasets else ds.InMemoryDataset
     )
-    if use_datasets:
-        result = result.to_table()
     assert result == pa.table({
         "a": [2],
         "b": [20]
     })
 
-    result = ep._filter_table(
-        t, pc.field("b") > pc.scalar(30),
-        output_type=pa.Table if not use_datasets else ds.InMemoryDataset
-    )
-    if use_datasets:
-        result = result.to_table()
+    result = ep._filter_table(t, pc.field("b") > pc.scalar(30))
     assert result == pa.table({
         "a": [4, 5],
         "b": [40, 50]

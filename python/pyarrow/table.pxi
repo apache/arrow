@@ -3145,8 +3145,7 @@ cdef class Table(_PandasConvertible):
         animals: [["Flamingo","Horse",null]]
         """
         if isinstance(mask, _pc().Expression):
-            return _pc()._exec_plan._filter_table(self, mask,
-                                                  output_type=Table)
+            return _pc()._exec_plan._filter_table(self, mask)
         else:
             return _pc().filter(self, mask, null_selection_behavior)
 

@@ -202,7 +202,6 @@ class build_ext(_build_ext):
         '_dataset',
         '_dataset_orc',
         '_dataset_parquet',
-        '_exec_plan',
         '_acero',
         '_feather',
         '_parquet',
