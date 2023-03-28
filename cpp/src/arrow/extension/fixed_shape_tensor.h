@@ -38,11 +38,11 @@ class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
 
   /// \brief Create a FixedShapeTensorArray from a Tensor
   ///
-  /// This method will create a FixedShapeTensorArray from a Tensor, taking its
-  /// first dimension as the "element dimension" and the remaining dimensions as the
-  /// "tensor dimensions". If Tensor provides strides, they will be used to determine
-  /// dimension permutation. Otherwise, row-major layout (i.e. no permutation) will be
-  /// assumed.
+  /// This method will create a FixedShapeTensorArray from a Tensor, taking its first
+  /// dimension as the number of elements in the resulting array and the remaining
+  /// dimensions as the shape of the individual tensors. If Tensor provides strides,
+  /// they will be used to determine dimension permutation. Otherwise, row-major layout
+  /// (i.e. no permutation) will be assumed.
   ///
   /// \param[in] tensor The Tensor to convert to a FixedShapeTensorArray
   static Result<std::shared_ptr<FixedShapeTensorArray>> FromTensor(
@@ -52,7 +52,7 @@ class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
   ///
   /// This method will create a Tensor from a FixedShapeTensorArray, setting its
   /// first dimension as length equal to the FixedShapeTensorArray's length and the
-  /// remaining dimensions as the FixedShapeTensorType's element shape.
+  /// remaining dimensions as the FixedShapeTensorType's shape.
   const Result<std::shared_ptr<Tensor>> ToTensor() const;
 };
 

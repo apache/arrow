@@ -210,7 +210,7 @@ Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor
                                     tensor->type()->ToString());
     }
   }
-  auto cell_size = tensor->size() / tensor->shape()[0];
+  auto cell_size = static_cast<int32_t>(tensor->size() / tensor->shape()[0]);
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> arr,
                         FixedSizeListArray::FromArrays(value_array, cell_size));
   std::shared_ptr<Array> ext_arr = ExtensionType::WrapArray(ext_type, arr);
