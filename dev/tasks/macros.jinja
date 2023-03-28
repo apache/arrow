@@ -73,7 +73,10 @@ on:
   - name: Set up Python by apt
     if: runner.os == 'Linux' && runner.arch != 'X64'
     run: |
-      sudo apt install -y python3-pip
+      sudo apt install -y \
+	libgit2-dev \
+	libpython3-dev \
+        python3-pip
   - name: Checkout Crossbow
     uses: actions/checkout@v3
     with:
