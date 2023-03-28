@@ -549,7 +549,6 @@ if(ARROW_IPC)
 endif()
 
 if(ARROW_JSON)
-  add_definitions(-DARROW_WITH_JSON)
   list(APPEND
        ARROW_SRCS
        extension/fixed_shape_tensor.cc
