@@ -17,10 +17,14 @@
 
 #pragma once
 
-#include "parquet/bloom_filter.h"
-#include "parquet/encryption/internal_file_decryptor.h"
+#include "arrow/io/interfaces.h"
+#include "parquet/properties.h"
+#include "parquet/type_fwd.h"
 
 namespace parquet {
+
+class InternalFileDecryptor;
+class BloomFilter;
 
 class PARQUET_EXPORT RowGroupBloomFilterReader {
  public:

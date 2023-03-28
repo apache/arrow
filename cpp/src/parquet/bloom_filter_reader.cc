@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "parquet/bloom_filter.h"
 #include "parquet/bloom_filter_reader.h"
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
@@ -78,7 +79,7 @@ class BloomFilterReaderImpl final : public BloomFilterReader {
         file_metadata_(std::move(file_metadata)),
         properties_(properties) {
     if (file_decryptor != nullptr) {
-      ParquetException::NYI("BloomFilter encryption not support");
+      ParquetException::NYI("BloomFilter decryption is not yet supported");
     }
   }
 

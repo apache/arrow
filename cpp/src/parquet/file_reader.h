@@ -146,11 +146,13 @@ class PARQUET_EXPORT ParquetFileReader {
   /// value and follow-up calls to PageIndexReader.
   ///
   /// WARNING: The returned PageIndexReader must not outlive the ParquetFileReader.
+  /// Initialize GetPageIndexReader() is not thread-safety.
   std::shared_ptr<PageIndexReader> GetPageIndexReader();
 
   /// Returns the BloomFilterReader. Only one instance is ever created.
   ///
   /// WARNING: The returned BloomFilterReader must not outlive the ParquetFileReader.
+  /// Initialize GetBloomFilterReader() is not thread-safety.
   BloomFilterReader& GetBloomFilterReader();
 
   /// Pre-buffer the specified column indices in all row groups.

@@ -155,6 +155,7 @@ set(PARQUET_SRCS
     arrow/schema_internal.cc
     arrow/writer.cc
     bloom_filter.cc
+    bloom_filter_reader.cc
     column_reader.cc
     column_scanner.cc
     column_writer.cc
@@ -170,7 +171,6 @@ set(PARQUET_SRCS
     metadata.cc
     xxhasher.cc
     page_index.cc
-    bloom_filter_reader.cc
     "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
     "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
     platform.cc
@@ -335,12 +335,12 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
 add_parquet_test(internals-test
                  SOURCES
                  bloom_filter_test.cc
+                 bloom_filter_reader_test.cc
                  properties_test.cc
                  statistics_test.cc
                  encoding_test.cc
                  metadata_test.cc
                  page_index_test.cc
-                 bloom_filter_reader_test.cc
                  public_api_test.cc
                  types_test.cc
                  test_util.cc)

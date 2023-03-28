@@ -17,8 +17,7 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/testing/gtest_util.h"
-
+#include "parquet/bloom_filter.h"
 #include "parquet/bloom_filter_reader.h"
 #include "parquet/file_reader.h"
 #include "parquet/test_util.h"
