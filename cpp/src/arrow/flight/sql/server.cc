@@ -953,6 +953,14 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
+  } else if (action.type == FlightSqlServerBase::kGetSessionOptionsActionType.type) {
+    ARROW_ASSIGN_OR_RAISE(ActionGetSessionOptionsRequest internal_command,
+                          ParseActionGetSessionOptionsRequest(any));
+    ARROW_ASSIGN_OR_RAISE(ActionGetSessionOptionsResult result,
+                          GetSessionOptions(context, internal_command));
+    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
+
+    results.push_back(std::move(packed_result));
   } else {
     return Status::NotImplemented("Action not implemented: ", action.type);
   }
