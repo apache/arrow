@@ -18,8 +18,6 @@
 package org.apache.arrow.dataset;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -117,72 +115,4 @@ public abstract class TestDataset {
   protected <T> List<T> collect(Iterator<T> iterator) {
     return stream(iterator).collect(Collectors.toList());
   }
-
-  protected String getNamedTableUri(String name) {
-    return Paths.get(
-        Paths.get(
-            (Paths.get("").toAbsolutePath().getParent().getParent().toString()),
-                "testing", "data", "substrait", "tpch", "parquet", name
-            )
-            .toFile()
-            .getAbsolutePath()
-    ).toUri().toString();
-  }
-
-  protected String getSubstraitPlan(String name) throws IOException {
-    return new String(
-        Files.readAllBytes(
-            Paths.get(
-              Paths.get(
-                      (Paths.get("").toAbsolutePath().getParent().getParent().toString()),
-                      "testing", "data", "substrait", "plan", name
-                  )
-                  .toFile()
-                  .getAbsolutePath()
-            )
-        )
-    );
-  }
-
-  protected String getSubstraitTpchPlan(String name) throws IOException {
-    return new String(
-        Files.readAllBytes(
-            Paths.get(
-                Paths.get(
-                        (Paths.get("").toAbsolutePath().getParent().getParent().toString()),
-                        "testing", "data", "substrait", "tpch", "plan", name
-                    )
-                    .toFile()
-                    .getAbsolutePath()
-            )
-        )
-    );
-  }
-
-  protected byte[] getBinarySubstraitPlan(String name) throws IOException {
-    return Files.readAllBytes(
-        Paths.get(
-            Paths.get(
-                    (Paths.get("").toAbsolutePath().getParent().getParent().toString()),
-                    "testing", "data", "substrait", "plan", name
-                )
-                .toFile()
-                .getAbsolutePath()
-        )
-    );
-  }
-
-  protected byte[] getBinarySubstraitTpchPlan(String name) throws IOException {
-    return Files.readAllBytes(
-        Paths.get(
-            Paths.get(
-                    (Paths.get("").toAbsolutePath().getParent().getParent().toString()),
-                    "testing", "data", "substrait", "tpch", "plan", name
-                )
-                .toFile()
-                .getAbsolutePath()
-        )
-    );
-  }
-
 }
