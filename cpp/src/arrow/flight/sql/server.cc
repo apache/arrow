@@ -1219,7 +1219,13 @@ Status FlightSqlServerBase::EndTransaction(const ServerCallContext& context,
 arrow::Result<ActionSetSessionOptionsResult> FlightSqlServerBase::SetSessionOptions (
     const ServerCallContext& context,
     const ActionSetSessionOptionsRequest& request) {
-  return Status::NotImplemented("SetSessionOptions stubbed pending implementation");
+  return Status::NotImplemented("SetSessionOptions not implemented");
+}
+
+arrow::Result<ActionGetSessionOptionsResult> FlightSqlServerBase::GetSessionOptions (
+    const ServerCallContext& context,
+    const ActionGetSessionOptionsRequest& request) {
+  return Status::NotImplemented("GetSessionOptions not implemented");
 }
 
 Status FlightSqlServerBase::DoPutPreparedStatementQuery(
