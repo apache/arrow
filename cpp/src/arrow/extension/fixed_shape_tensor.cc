@@ -225,8 +225,9 @@ Result<std::shared_ptr<Tensor>> FixedShapeTensorType::ToTensor(
   // define n+1 dimensional tensor's strides by front appending a new stride to the n
   // dimensional tensor's strides.
 
-  ARROW_RETURN_IF(arr->null_count() > 0,
-                  Status::Invalid("Null values not supported in tensors."));
+  if (arr->null_count() > 0) {
+    return Status::Invalid("Null values not supported in tensors.");
+  }
 
   auto ext_arr = internal::checked_pointer_cast<FixedSizeListArray>(
       internal::checked_pointer_cast<ExtensionArray>(arr)->storage());

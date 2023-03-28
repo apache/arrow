@@ -135,6 +135,8 @@ TEST_F(TestExtensionType, EqualsCases) {
 
   ASSERT_TRUE(ext_type_no_permutation->Equals(ext_type_permutation_1));
   ASSERT_TRUE(ext_type_permutation_1->Equals(ext_type_no_permutation));
+  ASSERT_FALSE(ext_type_no_permutation->Equals(ext_type_permutation_2));
+  ASSERT_FALSE(ext_type_permutation_2->Equals(ext_type_no_permutation));
   ASSERT_FALSE(ext_type_permutation_1->Equals(ext_type_permutation_2));
   ASSERT_FALSE(ext_type_permutation_2->Equals(ext_type_permutation_1));
 }
