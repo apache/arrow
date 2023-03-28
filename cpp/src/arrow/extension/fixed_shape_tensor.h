@@ -23,8 +23,14 @@
 namespace arrow {
 namespace extension {
 
+namespace {
 const std::shared_ptr<DataType> GetStorageType(
-    const std::shared_ptr<DataType>& value_type, const std::vector<int64_t>& shape);
+    const std::shared_ptr<DataType>& value_type, const std::vector<int64_t>& shape) {
+  const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
+                                    std::multiplies<>());
+  return fixed_size_list(value_type, static_cast<int32_t>(size));
+}
+}  // namespace
 
 class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
  public:
@@ -99,10 +105,10 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
       const std::vector<int64_t>& permutation = {},
       const std::vector<std::string>& dim_names = {});
 
+ private:
   /// \brief Compute strides of FixedShapeTensorType
   static Result<std::vector<int64_t>> ComputeStrides(const FixedShapeTensorType& type);
 
- private:
   std::shared_ptr<DataType> storage_type_;
   std::shared_ptr<DataType> value_type_;
   std::vector<int64_t> shape_;

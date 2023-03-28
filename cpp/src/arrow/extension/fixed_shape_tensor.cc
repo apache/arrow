@@ -307,12 +307,5 @@ std::shared_ptr<DataType> fixed_shape_tensor(const std::shared_ptr<DataType>& va
   return maybe_type.MoveValueUnsafe();
 }
 
-const std::shared_ptr<DataType> GetStorageType(
-    const std::shared_ptr<DataType>& value_type, const std::vector<int64_t>& shape) {
-  const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
-                                    std::multiplies<>());
-  return fixed_size_list(value_type, static_cast<int32_t>(size));
-}
-
 }  // namespace extension
 }  // namespace arrow
