@@ -366,9 +366,8 @@ Status RunEndEncodeNullArray(KernelContext* ctx, const ArraySpan& input_array,
   return Status::OK();
 }
 
-template <typename ValueType>
 struct RunEndEncodeExec {
-  template <typename RunEndType>
+  template <typename RunEndType, typename ValueType>
   static Status DoExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
     DCHECK(span.values[0].is_array());
     const auto& input_array = span.values[0].array;
@@ -385,15 +384,16 @@ struct RunEndEncodeExec {
     }
   }
 
+  template <typename ValueType>
   static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
     auto state = checked_cast<const RunEndEncondingState*>(ctx->state());
     switch (state->run_end_type->id()) {
       case Type::INT16:
-        return DoExec<Int16Type>(ctx, span, result);
+        return DoExec<Int16Type, ValueType>(ctx, span, result);
       case Type::INT32:
-        return DoExec<Int32Type>(ctx, span, result);
+        return DoExec<Int32Type, ValueType>(ctx, span, result);
       case Type::INT64:
-        return DoExec<Int64Type>(ctx, span, result);
+        return DoExec<Int64Type, ValueType>(ctx, span, result);
       default:
         break;
     }
@@ -509,9 +509,8 @@ Status RunEndDecodeNullREEArray(KernelContext* ctx, const ArraySpan& input_array
   return Status::OK();
 }
 
-template <typename ValueType>
 struct RunEndDecodeExec {
-  template <typename RunEndType>
+  template <typename RunEndType, typename ValueType>
   static Status DoExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
     DCHECK(span.values[0].is_array());
     auto& input_array = span.values[0].array;
@@ -528,21 +527,59 @@ struct RunEndDecodeExec {
     }
   }
 
+  template <typename ValueType>
   static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
     const auto& ree_type = checked_cast<const RunEndEncodedType*>(span.values[0].type());
     switch (ree_type->run_end_type()->id()) {
       case Type::INT16:
-        return DoExec<Int16Type>(ctx, span, result);
+        return DoExec<Int16Type, ValueType>(ctx, span, result);
       case Type::INT32:
-        return DoExec<Int32Type>(ctx, span, result);
+        return DoExec<Int32Type, ValueType>(ctx, span, result);
       case Type::INT64:
-        return DoExec<Int64Type>(ctx, span, result);
+        return DoExec<Int64Type, ValueType>(ctx, span, result);
       default:
         break;
     }
     return Status::Invalid("Invalid run end type: ", *ree_type->run_end_type());
   }
 };
+
+template <typename Functor>
+static ArrayKernelExec GenerateREEKernelExec(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::NA:
+      return Functor::template Exec<NullType>;
+    case Type::BOOL:
+      return Functor::template Exec<BooleanType>;
+    case Type::UINT8:
+    case Type::INT8:
+      return Functor::template Exec<UInt8Type>;
+    case Type::UINT16:
+    case Type::INT16:
+      return Functor::template Exec<UInt16Type>;
+    case Type::UINT32:
+    case Type::INT32:
+    case Type::FLOAT:
+    case Type::DATE32:
+    case Type::TIME32:
+    case Type::INTERVAL_MONTHS:
+      return Functor::template Exec<UInt32Type>;
+    case Type::UINT64:
+    case Type::INT64:
+    case Type::DOUBLE:
+    case Type::DATE64:
+    case Type::TIMESTAMP:
+    case Type::TIME64:
+    case Type::DURATION:
+    case Type::INTERVAL_DAY_TIME:
+      return Functor::template Exec<UInt64Type>;
+    case Type::INTERVAL_MONTH_DAY_NANO:
+      return Functor::template Exec<MonthDayNanoIntervalType>;
+    default:
+      DCHECK(false);
+      return FailFunctor<ArrayKernelExec>::Exec;
+  }
+}
 
 static const FunctionDoc run_end_encode_doc(
     "Run-end encode array", ("Return a run-end encoded version of the input array."),
@@ -572,7 +609,7 @@ void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   auto add_kernel = [&function](const std::shared_ptr<DataType>& ty) {
     auto sig =
         KernelSignature::Make({InputType(ty)}, OutputType(VectorRunEndEncodedResolver));
-    auto exec = GenerateTypeAgnosticPrimitive<RunEndEncodeExec>(ty);
+    auto exec = GenerateREEKernelExec<RunEndEncodeExec>(ty);
     VectorKernel kernel(sig, exec, RunEndEncodeInit);
     // A REE has null_count=0, so no need to allocate a validity bitmap for them.
     kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
@@ -605,7 +642,7 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
 
   auto add_kernel = [&function](const std::shared_ptr<DataType>& ty) {
     for (const auto& run_end_type : {int16(), int32(), int64()}) {
-      auto exec = GenerateTypeAgnosticPrimitive<RunEndDecodeExec>(ty);
+      auto exec = GenerateREEKernelExec<RunEndDecodeExec>(ty);
       auto input_type = std::make_shared<RunEndEncodedType>(run_end_type, ty);
       auto sig = KernelSignature::Make({InputType(input_type)}, OutputType({ty}));
       VectorKernel kernel(sig, exec);
