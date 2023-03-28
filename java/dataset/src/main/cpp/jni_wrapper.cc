@@ -661,7 +661,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
   conversion_options.named_table_provider = std::move(table_provider);
   // execute plan
   std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::engine::SerializeJsonPlan(JStringToCString(env, plan)));
-  std::shared_ptr<arrow::RecordBatchReader> readerOut = JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer, NULLPTR, NULLPTR, conversion_options));
+  std::shared_ptr<arrow::RecordBatchReader> readerOut = JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer, nullptr, nullptr, conversion_options));
   auto* arrow_stream_out = reinterpret_cast<ArrowArrayStream*>(memory_address_output);
   JniAssertOkOrThrow(arrow::ExportRecordBatchReader(readerOut, arrow_stream_out));
   JNI_METHOD_END()
@@ -695,7 +695,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
   std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
   std::memcpy(buffer->mutable_data(), buff, length);
   // execute plan
-  std::shared_ptr<arrow::RecordBatchReader> readerOut = JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer, NULLPTR, NULLPTR, conversion_options));
+  std::shared_ptr<arrow::RecordBatchReader> readerOut = JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer, nullptr, nullptr, conversion_options));
   auto* arrow_stream_out = reinterpret_cast<ArrowArrayStream*>(memory_address_output);
   JniAssertOkOrThrow(arrow::ExportRecordBatchReader(readerOut, arrow_stream_out));
   JNI_METHOD_END()

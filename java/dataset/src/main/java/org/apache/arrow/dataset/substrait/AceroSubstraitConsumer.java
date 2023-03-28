@@ -31,10 +31,10 @@ import org.apache.arrow.vector.ipc.ArrowReader;
  * Class to expose Java Substrait API for end users, currently operations supported are only to Consume Substrait Plan
  * in Plan format (JSON) or Binary format (ByteBuffer).
  */
-public final class SubstraitAceroConsumer {
+public final class AceroSubstraitConsumer {
   private final BufferAllocator allocator;
 
-  public SubstraitAceroConsumer(BufferAllocator allocator) {
+  public AceroSubstraitConsumer(BufferAllocator allocator) {
     this.allocator = allocator;
   }
 
@@ -78,39 +78,50 @@ public final class SubstraitAceroConsumer {
     }
   }
 
-  private ArrowReader getArrowReader(Object plan) {
+  private ArrowReader getArrowReader(String plan) {
     try (ArrowArrayStream arrowArrayStream = ArrowArrayStream.allocateNew(this.allocator)) {
-      if (plan instanceof String) {
-        JniWrapper.get().executeSerializedPlanLocalFiles((String) plan, arrowArrayStream.memoryAddress());
-      } else if (plan instanceof ByteBuffer) {
-        System.out.println("plan--=<");
-        System.out.println(plan);
-        ByteBuffer demo = (ByteBuffer) plan;
-        JniWrapper.get().executeSerializedPlanLocalFiles(demo, arrowArrayStream.memoryAddress());
-      }
+      JniWrapper.get().executeSerializedPlanLocalFiles(plan, arrowArrayStream.memoryAddress());
       return Data.importArrayStream(this.allocator, arrowArrayStream);
     }
   }
 
-  private ArrowReader getArrowReader(Object plan, Map<String, ArrowReader> namedTables) {
+  private ArrowReader getArrowReader(ByteBuffer plan) {
+    try (ArrowArrayStream arrowArrayStream = ArrowArrayStream.allocateNew(this.allocator)) {
+      JniWrapper.get().executeSerializedPlanLocalFiles(plan, arrowArrayStream.memoryAddress());
+      return Data.importArrayStream(this.allocator, arrowArrayStream);
+    }
+  }
+
+  private ArrowReader getArrowReader(String plan, Map<String, ArrowReader> namedTables) {
     List<ArrowArrayStream> listStreamInput = new ArrayList<>();
     try (
         ArrowArrayStream streamOutput = ArrowArrayStream.allocateNew(this.allocator)
     ) {
       String[] mapTableToMemoryAddress = getMapTableToMemoryAddress(namedTables, listStreamInput);
-      if (plan instanceof String) {
-        JniWrapper.get().executeSerializedPlanNamedTables(
-            (String) plan,
-            mapTableToMemoryAddress,
-            streamOutput.memoryAddress()
-        );
-      } else if (plan instanceof ByteBuffer) {
-        JniWrapper.get().executeSerializedPlanNamedTables(
-            (ByteBuffer) plan,
-            mapTableToMemoryAddress,
-            streamOutput.memoryAddress()
-        );
+      JniWrapper.get().executeSerializedPlanNamedTables(
+          plan,
+          mapTableToMemoryAddress,
+          streamOutput.memoryAddress()
+      );
+      return Data.importArrayStream(this.allocator, streamOutput);
+    } finally {
+      for (ArrowArrayStream stream : listStreamInput) {
+        stream.close();
       }
+    }
+  }
+
+  private ArrowReader getArrowReader(ByteBuffer plan, Map<String, ArrowReader> namedTables) {
+    List<ArrowArrayStream> listStreamInput = new ArrayList<>();
+    try (
+        ArrowArrayStream streamOutput = ArrowArrayStream.allocateNew(this.allocator)
+    ) {
+      String[] mapTableToMemoryAddress = getMapTableToMemoryAddress(namedTables, listStreamInput);
+      JniWrapper.get().executeSerializedPlanNamedTables(
+          plan,
+          mapTableToMemoryAddress,
+          streamOutput.memoryAddress()
+      );
       return Data.importArrayStream(this.allocator, streamOutput);
     } finally {
       for (ArrowArrayStream stream : listStreamInput) {
