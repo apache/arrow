@@ -21,7 +21,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.compute import field
 
-from pyarrow._acero import (
+from pyarrow.acero import (
     TableSourceNodeOptions,
     FilterNodeOptions,
     ProjectNodeOptions,
