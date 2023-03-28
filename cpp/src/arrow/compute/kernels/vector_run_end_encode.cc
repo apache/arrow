@@ -112,6 +112,8 @@ class ReadWriteValueImpl<ArrowType, has_validity_buffer,
       }
     }
   }
+
+  bool Compare(ValueRepr lhs, ValueRepr rhs) const { return lhs == rhs; }
 };
 
 Result<std::shared_ptr<Buffer>> AllocateValuesBuffer(int64_t length, const DataType& type,
@@ -174,7 +176,8 @@ class RunEndEncodingLoop {
       ValueRepr value;
       const bool valid = read_write_value_.ReadValue(&value, read_offset);
 
-      const bool open_new_run = valid != current_run_valid || value != current_run;
+      const bool open_new_run =
+          valid != current_run_valid || !read_write_value_.Compare(value, current_run);
       if (open_new_run) {
         // Open the new run
         current_run = value;
@@ -198,7 +201,8 @@ class RunEndEncodingLoop {
       ValueRepr value;
       const bool valid = read_write_value_.ReadValue(&value, read_offset);
 
-      const bool open_new_run = valid != current_run_valid || value != current_run;
+      const bool open_new_run =
+          valid != current_run_valid || !read_write_value_.Compare(value, current_run);
       if (open_new_run) {
         // Close the current run first by writing it out
         read_write_value_.WriteValue(write_offset, current_run_valid, current_run);
