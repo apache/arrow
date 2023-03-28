@@ -18,6 +18,7 @@
 #include <utility>
 
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/ree_util.h"
@@ -399,6 +400,14 @@ struct RunEndEncodeExec {
     }
     return Status::Invalid("Invalid run end type: ", *state->run_end_type);
   }
+
+  /// \brief The OutputType::Resolver of the "run_end_decode" function.
+  static Result<TypeHolder> ResolveOutputType(
+      KernelContext* ctx, const std::vector<TypeHolder>& input_types) {
+    auto state = checked_cast<const RunEndEncondingState*>(ctx->state());
+    return TypeHolder(std::make_shared<RunEndEncodedType>(state->run_end_type,
+                                                          input_types[0].GetSharedPtr()));
+  }
 };
 
 Result<std::unique_ptr<KernelState>> RunEndEncodeInit(KernelContext*,
@@ -542,11 +551,18 @@ struct RunEndDecodeExec {
     }
     return Status::Invalid("Invalid run end type: ", *ree_type->run_end_type());
   }
+
+  /// \brief The OutputType::Resolver of the "run_end_decode" function.
+  static Result<TypeHolder> ResolveOutputType(KernelContext*,
+                                              const std::vector<TypeHolder>& in_types) {
+    const auto* ree_type = checked_cast<const RunEndEncodedType*>(in_types[0].type);
+    return TypeHolder(ree_type->value_type());
+  }
 };
 
 template <typename Functor>
-static ArrayKernelExec GenerateREEKernelExec(detail::GetTypeId get_id) {
-  switch (get_id.id) {
+static ArrayKernelExec GenerateREEKernelExec(Type::type type_id) {
+  switch (type_id) {
     case Type::NA:
       return Functor::template Exec<NullType>;
     case Type::BOOL:
@@ -588,13 +604,6 @@ static const FunctionDoc run_end_decode_doc(
     "Decode run-end encoded array",
     ("Return a decoded version of a run-end encoded input array."), {"array"});
 
-static Result<TypeHolder> VectorRunEndEncodedResolver(
-    KernelContext* ctx, const std::vector<TypeHolder>& input_types) {
-  auto state = checked_cast<const RunEndEncondingState*>(ctx->state());
-  return TypeHolder(std::make_shared<RunEndEncodedType>(state->run_end_type,
-                                                        input_types[0].GetSharedPtr()));
-}
-
 void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   auto function = std::make_shared<VectorFunction>("run_end_encode", Arity::Unary(),
                                                    run_end_encode_doc);
@@ -606,30 +615,29 @@ void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   // cannot be encoded as a single run in the output. This is a conscious trade-off as
   // trying to solve this corner-case would complicate the implementation,
   // require reallocations, and could create surprising behavior for users of this API.
-  auto add_kernel = [&function](const std::shared_ptr<DataType>& ty) {
-    auto sig =
-        KernelSignature::Make({InputType(ty)}, OutputType(VectorRunEndEncodedResolver));
-    auto exec = GenerateREEKernelExec<RunEndEncodeExec>(ty);
+  auto add_kernel = [&function](Type::type type_id) {
+    auto sig = KernelSignature::Make({InputType(match::SameTypeId(type_id))},
+                                     OutputType(RunEndEncodeExec::ResolveOutputType));
+    auto exec = GenerateREEKernelExec<RunEndEncodeExec>(type_id);
     VectorKernel kernel(sig, exec, RunEndEncodeInit);
     // A REE has null_count=0, so no need to allocate a validity bitmap for them.
     kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   };
 
-  add_kernel(null());
-  add_kernel(boolean());
+  add_kernel(Type::NA);
+  add_kernel(Type::BOOL);
   for (const auto& ty : NumericTypes()) {
-    add_kernel(ty);
+    add_kernel(ty->id());
   }
-  add_kernel(date32());
-  add_kernel(date64());
-  // The TimeUnit doesn't matter to these kernels.
-  add_kernel(time32(TimeUnit::SECOND));
-  add_kernel(time64(TimeUnit::MICRO));
-  add_kernel(timestamp(TimeUnit::SECOND));
-  add_kernel(duration(TimeUnit::SECOND));
+  add_kernel(Type::DATE32);
+  add_kernel(Type::DATE64);
+  add_kernel(Type::TIME32);
+  add_kernel(Type::TIME64);
+  add_kernel(Type::TIMESTAMP);
+  add_kernel(Type::DURATION);
   for (const auto& ty : IntervalTypes()) {
-    add_kernel(ty);
+    add_kernel(ty->id());
   }
   // TODO(GH-34195): Add support for more types
 
@@ -640,30 +648,31 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
   auto function = std::make_shared<VectorFunction>("run_end_decode", Arity::Unary(),
                                                    run_end_decode_doc);
 
-  auto add_kernel = [&function](const std::shared_ptr<DataType>& ty) {
-    for (const auto& run_end_type : {int16(), int32(), int64()}) {
-      auto exec = GenerateREEKernelExec<RunEndDecodeExec>(ty);
-      auto input_type = std::make_shared<RunEndEncodedType>(run_end_type, ty);
-      auto sig = KernelSignature::Make({InputType(input_type)}, OutputType({ty}));
+  auto add_kernel = [&function](Type::type type_id) {
+    for (const auto& run_end_type_id : {Type::INT16, Type::INT32, Type::INT64}) {
+      auto exec = GenerateREEKernelExec<RunEndDecodeExec>(type_id);
+      auto input_type_matcher = match::RunEndEncoded(match::SameTypeId(run_end_type_id),
+                                                     match::SameTypeId(type_id));
+      auto sig = KernelSignature::Make({InputType(std::move(input_type_matcher))},
+                                       OutputType(RunEndDecodeExec::ResolveOutputType));
       VectorKernel kernel(sig, exec);
       DCHECK_OK(function->AddKernel(std::move(kernel)));
     }
   };
 
-  add_kernel(null());
-  add_kernel(boolean());
+  add_kernel(Type::NA);
+  add_kernel(Type::BOOL);
   for (const auto& ty : NumericTypes()) {
-    add_kernel(ty);
+    add_kernel(ty->id());
   }
-  add_kernel(date32());
-  add_kernel(date64());
-  // The TimeUnit doesn't matter to these kernels.
-  add_kernel(time32(TimeUnit::SECOND));
-  add_kernel(time64(TimeUnit::MICRO));
-  add_kernel(timestamp(TimeUnit::SECOND));
-  add_kernel(duration(TimeUnit::SECOND));
+  add_kernel(Type::DATE32);
+  add_kernel(Type::DATE64);
+  add_kernel(Type::TIME32);
+  add_kernel(Type::TIME64);
+  add_kernel(Type::TIMESTAMP);
+  add_kernel(Type::DURATION);
   for (const auto& ty : IntervalTypes()) {
-    add_kernel(ty);
+    add_kernel(ty->id());
   }
   // TODO(GH-34195): Add support for more types
 
