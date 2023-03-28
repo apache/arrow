@@ -26,6 +26,7 @@ from pyarrow.fs import LocalFileSystem, SubTreeFileSystem
 from pyarrow.tests.parquet.common import (
     parametrize_legacy_dataset, parametrize_legacy_dataset_not_supported)
 from pyarrow.util import guid
+from pyarrow.vendored.version import Version
 
 try:
     import pyarrow.parquet as pq
@@ -554,6 +555,30 @@ def test_pandas_categorical_roundtrip(use_legacy_dataset):
     assert result.x.dtype == 'category'
     assert (result.x.cat.categories == categories).all()
     tm.assert_frame_equal(result, df)
+
+
+@pytest.mark.pandas
+def test_categories_with_string_pyarrow_dtype(tempdir):
+    # gh-33727: writing to parquet should not fail
+    if Version(pd.__version__) < Version("1.3.0"):
+        pytest.skip("PyArrow backed string data type introduced in pandas 1.3.0")
+
+    df1 = pd.DataFrame({"x": ["foo", "bar", "foo"]}, dtype="string[pyarrow]")
+    df1 = df1.astype("category")
+
+    df2 = pd.DataFrame({"x": ["foo", "bar", "foo"]})
+    df2 = df2.astype("category")
+
+    # categories should be converted to pa.Array
+    assert pa.array(df1["x"]) == pa.array(df2["x"])
+    assert pa.array(df1["x"].cat.categories.values) == pa.array(
+        df2["x"].cat.categories.values)
+
+    path = str(tempdir / 'cat.parquet')
+    pq.write_table(pa.table(df1), path)
+    result = pq.read_table(path).to_pandas()
+
+    tm.assert_frame_equal(result, df2)
 
 
 @pytest.mark.pandas

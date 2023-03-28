@@ -3924,6 +3924,22 @@ def test_dictionary_from_pandas_specified_type():
     assert result.to_pylist() == ['a', 'b']
 
 
+def test_convert_categories_to_array_with_string_pyarrow_dtype():
+    # gh-33727: categories should be converted to pa.Array
+    if Version(pd.__version__) < Version("1.3.0"):
+        pytest.skip("PyArrow backed string data type introduced in pandas 1.3.0")
+
+    df = pd.DataFrame({"x": ["foo", "bar", "foo"]}, dtype="string[pyarrow]")
+    df = df.astype("category")
+    indices = pa.array(df['x'].cat.codes)
+    dictionary = pa.array(df["x"].cat.categories.values)
+    assert isinstance(dictionary, pa.Array)
+
+    expected = pa.Array.from_pandas(df['x'])
+    result = pa.DictionaryArray.from_arrays(indices, dictionary)
+    assert result == expected
+
+
 # ----------------------------------------------------------------------
 # Array protocol in pandas conversions tests
 
