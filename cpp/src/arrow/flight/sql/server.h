@@ -238,6 +238,14 @@ struct ARROW_FLIGHT_SQL_EXPORT ActionSetSessionOptionsResult {
   std::vector<SetSessionOptionResult> results;
 };
 
+/// \brief A request to get current session options.
+struct ARROW_FLIGHT_SQL_EXPORT ActionGetSessionOptionsRequest {};
+
+/// \brief The current session options.
+struct ARROW_FLIGHT_SQL_EXPORT ActionGetSessionOptionsResult {
+  std::vector<SessionOption> session_options;
+};
+
 /// @}
 
 /// \brief A utility function to create a ticket (a opaque binary
