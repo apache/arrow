@@ -495,7 +495,6 @@ services:
       ARROW_HDFS: "OFF"
       ARROW_ORC: "OFF"
       ARROW_PARQUET: "OFF"
-      ARROW_PLASMA: "OFF"
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
       ARROW_WITH_BROTLI: "OFF"
@@ -546,7 +545,6 @@ services:
       ARROW_JSON: "OFF"
       ARROW_ORC: "OFF"
       ARROW_PARQUET: "OFF"
-      ARROW_PLASMA: "OFF"
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
       ARROW_WITH_OPENTELEMETRY: "OFF"
@@ -862,7 +860,6 @@ services:
       ARROW_JSON: "ON"
       ARROW_ORC: "OFF"
       ARROW_PARQUET: "ON"
-      ARROW_PLASMA: "OFF"
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
       ARROW_WITH_OPENTELEMETRY: "OFF"
@@ -1291,7 +1288,6 @@ services:
       ARROW_JAVA_CDATA: "ON"
       ARROW_ORC: "OFF"
       ARROW_PARQUET: "OFF"
-      ARROW_PLASMA: "OFF"
       JAVA_JNI_CMAKE_ARGS: >-
         -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
         -DARROW_JAVA_JNI_ENABLE_C=ON

@@ -933,10 +933,6 @@ list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 # Subdirectories
 #
 
-if(NOT WIN32 AND ARROW_PLASMA)
-  add_subdirectory(src/plasma)
-endif()
-
 add_subdirectory(src/arrow)
 
 if(ARROW_PARQUET)

@@ -45,7 +45,6 @@ files into Arrow structures.
    ipc
    filesystems
    filesystems_deprecated
-   plasma
    numpy
    pandas
    timestamps

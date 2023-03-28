@@ -69,7 +69,6 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_ORC:=ON}
 : ${ARROW_PARQUET:=ON}
 : ${PARQUET_REQUIRE_ENCRYPTION:=ON}
-: ${ARROW_PLASMA:=ON}
 : ${ARROW_SUBSTRAIT:=ON}
 : ${ARROW_S3:=ON}
 : ${ARROW_SIMD_LEVEL:="SSE4_2"}
@@ -110,7 +109,6 @@ cmake \
     -DARROW_ORC=${ARROW_ORC} \
     -DARROW_PACKAGE_KIND="python-wheel-macos" \
     -DARROW_PARQUET=${ARROW_PARQUET} \
-    -DARROW_PLASMA=${ARROW_PLASMA} \
     -DARROW_RPATH_ORIGIN=ON \
     -DARROW_S3=${ARROW_S3} \
     -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} \
@@ -152,7 +150,6 @@ export PYARROW_WITH_HDFS=${ARROW_HDFS}
 export PYARROW_WITH_ORC=${ARROW_ORC}
 export PYARROW_WITH_PARQUET=${ARROW_PARQUET}
 export PYARROW_WITH_PARQUET_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION}
-export PYARROW_WITH_PLASMA=${ARROW_PLASMA}
 export PYARROW_WITH_SUBSTRAIT=${ARROW_SUBSTRAIT}
 export PYARROW_WITH_S3=${ARROW_S3}
 export PYARROW_CMAKE_OPTIONS="-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL}"
@@ -169,7 +166,7 @@ popd
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="
 deps=$(delocate-listdeps ${source_dir}/python/dist/*.whl)
 
-if echo $deps | grep -v "^pyarrow/lib\(arrow\|gandiva\|parquet\|plasma\)"; then
+if echo $deps | grep -v "^pyarrow/lib\(arrow\|gandiva\|parquet\)"; then
   echo "There are non-bundled shared library dependencies."
   exit 1
 fi

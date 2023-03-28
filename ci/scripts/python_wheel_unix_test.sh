@@ -45,7 +45,6 @@ export PYARROW_TEST_HDFS=ON
 export PYARROW_TEST_ORC=ON
 export PYARROW_TEST_PANDAS=ON
 export PYARROW_TEST_PARQUET=ON
-export PYARROW_TEST_PLASMA=ON
 export PYARROW_TEST_SUBSTRAIT=${ARROW_SUBSTRAIT}
 export PYARROW_TEST_S3=${ARROW_S3}
 export PYARROW_TEST_TENSORFLOW=ON
@@ -69,7 +68,6 @@ import pyarrow.fs
 import pyarrow.json
 import pyarrow.orc
 import pyarrow.parquet
-import pyarrow.plasma
 "
   if [ "${PYARROW_TEST_GCS}" == "ON" ]; then
     python -c "import pyarrow._gcsfs"

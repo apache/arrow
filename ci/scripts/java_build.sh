@@ -91,12 +91,6 @@ if [ "${ARROW_JAVA_JNI}" = "ON" ]; then
   ${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} -Parrow-jni install
 fi
 
-if [ "${ARROW_PLASMA}" = "ON" ]; then
-  pushd ${source_dir}/plasma
-  ${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} clean install
-  popd
-fi
-
 if [ "${BUILD_DOCS_JAVA}" == "ON" ]; then
   # HTTP pooling is turned of to avoid download issues https://issues.apache.org/jira/browse/ARROW-11633
   mkdir -p ${build_dir}/docs/java/reference

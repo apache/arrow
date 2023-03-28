@@ -279,7 +279,6 @@ def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
         'pyarrow.json',
         'pyarrow.orc',
         'pyarrow.parquet',
-        'pyarrow.plasma',
         'pyarrow.types',
     }
     try:

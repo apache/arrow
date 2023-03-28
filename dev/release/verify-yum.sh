@@ -268,18 +268,6 @@ if [ "${have_flight}" = "yes" ]; then
   echo "::endgroup::"
 fi
 
-echo "::group::Test Plasma"
-if [ "${have_glib}" = "yes" ]; then
-  ${install_command} --enablerepo=epel plasma-glib-devel-${package_version}
-  ${install_command} --enablerepo=epel plasma-glib-doc-${package_version}
-  if [ "${have_ruby}" = "yes" ]; then
-    ruby -r gi -e "p GI.load('Plasma')"
-  fi
-else
-  ${install_command} --enablerepo=epel plasma-devel-${package_version}
-fi
-echo "::endgroup::"
-
 if [ "${have_gandiva}" = "yes" ]; then
   echo "::group::Test Gandiva"
   if [ "${have_glib}" = "yes" ]; then

@@ -36,6 +36,5 @@ API Reference
    api/formats
    api/filesystems
    api/dataset
-   api/plasma
    api/cuda
    api/misc
