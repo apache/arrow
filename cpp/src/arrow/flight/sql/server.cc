@@ -427,7 +427,7 @@ arrow::Result<ActionGetSessionOptionsRequest> ParseActionGetSessionOptionsReques
     return Status::Invalid("Unable to unpack ActionGetSessionOptionsRequest");
   }
 
-  ParseActionGetSessionOptionsRequest result;
+  ActionGetSessionOptionsRequest result;
   return result;
 }
 
@@ -872,7 +872,8 @@ Status FlightSqlServerBase::ListActions(const ServerCallContext& context,
       FlightSqlServerBase::kCloseSessionActionType,
       FlightSqlServerBase::kEndSavepointActionType,
       FlightSqlServerBase::kEndTransactionActionType,
-      FlightSqlServerBase::kSetSessionOptionsActionType
+      FlightSqlServerBase::kSetSessionOptionsActionType,
+      FlightSqlServerBase::kGetSessionOptionsActionType
   };
   return Status::OK();
 }

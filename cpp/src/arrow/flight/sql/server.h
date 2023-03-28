@@ -627,7 +627,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \param[in] request  Request object.
   virtual arrow::Result<ActionGetSessionOptionsResult> GetSessionOptions(
       const ServerCallContext& context,
-      const ACtionGetSessionOptionsRequest& request);
+      const ActionGetSessionOptionsRequest& request);
 
   /// \brief Close/invalidate the session.
   /// \param[in] context  The call context.
@@ -723,7 +723,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
                  "Set a series of session options.\n"
                  "Request Message: ActionSetSessionOptionsRequest\n"
                  "Response Message: ActionSetSessionOptionsResult"};
-  const ActionType kGetSessionOptionActionType =
+  const ActionType kGetSessionOptionsActionType =
       ActionType{"GetSessionOption",
                  "Get a series of session options.\n"
                  "Request Message: ActionGetSessionOptionRequest\n"
