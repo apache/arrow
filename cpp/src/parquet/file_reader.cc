@@ -321,7 +321,7 @@ class SerializedFile : public ParquetFileReader::Contents {
     return page_index_reader_;
   }
 
-  std::shared_ptr<BloomFilterReader> GetBloomFilterReader() override {
+  BloomFilterReader& GetBloomFilterReader() override {
     if (!file_metadata_) {
       // Usually this won't happen if user calls one of the static Open() functions
       // to create a ParquetFileReader instance. But if user calls the constructor
@@ -333,8 +333,11 @@ class SerializedFile : public ParquetFileReader::Contents {
     if (!bloom_filter_reader_) {
       bloom_filter_reader_ =
           BloomFilterReader::Make(source_, file_metadata_, properties_, file_decryptor_);
+      if (bloom_filter_reader_ == nullptr) {
+        throw ParquetException("Cannot create BloomFilterReader");
+      }
     }
-    return bloom_filter_reader_;
+    return *bloom_filter_reader_;
   }
 
   void set_metadata(std::shared_ptr<FileMetaData> metadata) {
@@ -824,7 +827,7 @@ std::shared_ptr<PageIndexReader> ParquetFileReader::GetPageIndexReader() {
   return contents_->GetPageIndexReader();
 }
 
-std::shared_ptr<BloomFilterReader> ParquetFileReader::GetBloomFilterReader() {
+BloomFilterReader& ParquetFileReader::GetBloomFilterReader() {
   return contents_->GetBloomFilterReader();
 }
 

@@ -101,7 +101,7 @@ class PARQUET_EXPORT ParquetFileReader {
     virtual std::shared_ptr<RowGroupReader> GetRowGroup(int i) = 0;
     virtual std::shared_ptr<FileMetaData> metadata() const = 0;
     virtual std::shared_ptr<PageIndexReader> GetPageIndexReader() = 0;
-    virtual std::shared_ptr<BloomFilterReader> GetBloomFilterReader() = 0;
+    virtual BloomFilterReader& GetBloomFilterReader() = 0;
   };
 
   ParquetFileReader();
@@ -151,7 +151,7 @@ class PARQUET_EXPORT ParquetFileReader {
   /// Returns the BloomFilterReader. Only one instance is ever created.
   ///
   /// WARNING: The returned BloomFilterReader must not outlive the ParquetFileReader.
-  std::shared_ptr<BloomFilterReader> GetBloomFilterReader();
+  BloomFilterReader& GetBloomFilterReader();
 
   /// Pre-buffer the specified column indices in all row groups.
   ///

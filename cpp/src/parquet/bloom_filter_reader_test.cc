@@ -31,11 +31,11 @@ TEST(BloomFilterReader, ReadBloomFilter) {
   std::string path = dir_string + "/data_index_bloom_encoding_stats.parquet";
   auto reader = ParquetFileReader::OpenFile(path, false);
   auto file_metadata = reader->metadata();
-  auto bloom_filter_reader = reader->GetBloomFilterReader();
-  ASSERT_NE(nullptr, bloom_filter_reader);
-  auto row_group_0 = bloom_filter_reader->RowGroup(0);
+  EXPECT_FALSE(file_metadata->is_encryption_algorithm_set());
+  auto& bloom_filter_reader = reader->GetBloomFilterReader();
+  auto row_group_0 = bloom_filter_reader.RowGroup(0);
   ASSERT_NE(nullptr, row_group_0);
-  EXPECT_THROW(bloom_filter_reader->RowGroup(1), ParquetException);
+  EXPECT_THROW(bloom_filter_reader.RowGroup(1), ParquetException);
   auto bloom_filter = row_group_0->GetColumnBloomFilter(0);
   ASSERT_NE(nullptr, bloom_filter);
   EXPECT_THROW(row_group_0->GetColumnBloomFilter(1), ParquetException);
@@ -53,6 +53,22 @@ TEST(BloomFilterReader, ReadBloomFilter) {
     ByteArray ba{sv};
     EXPECT_FALSE(bloom_filter->FindHash(bloom_filter->Hash(&ba)));
   }
+}
+
+TEST(BloomFilterReader, FileNotHaveBloomFilter) {
+  // Can still get a BloomFilterReader and a RowGroupBloomFilter
+  // reader, but cannot get a non-null BloomFilter.
+  std::string dir_string(parquet::test::get_data_dir());
+  std::string path = dir_string + "/alltypes_plain.parquet";
+  auto reader = ParquetFileReader::OpenFile(path, false);
+  auto file_metadata = reader->metadata();
+  EXPECT_FALSE(file_metadata->is_encryption_algorithm_set());
+  auto& bloom_filter_reader = reader->GetBloomFilterReader();
+  auto row_group_0 = bloom_filter_reader.RowGroup(0);
+  ASSERT_NE(nullptr, row_group_0);
+  EXPECT_THROW(bloom_filter_reader.RowGroup(1), ParquetException);
+  auto bloom_filter = row_group_0->GetColumnBloomFilter(0);
+  ASSERT_EQ(nullptr, bloom_filter);
 }
 
 }  // namespace test
