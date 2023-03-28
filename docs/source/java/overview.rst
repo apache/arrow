@@ -53,9 +53,6 @@ but some modules are JNI bindings to the C++ library.
    * - arrow-jdbc
      - (Experimental) A library for converting JDBC data to Arrow data.
      - Native
-   * - arrow-plasma
-     - (Experimental) Java client for the Plasma object store.
-     - Native
    * - flight-core
      - (Experimental) An RPC mechanism for transferring ValueVectors.
      - Native

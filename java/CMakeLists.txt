@@ -37,7 +37,6 @@ option(ARROW_JAVA_JNI_ENABLE_C "Enable C data interface" ${ARROW_JAVA_JNI_ENABLE
 option(ARROW_JAVA_JNI_ENABLE_DATASET "Enable dataset" ${ARROW_JAVA_JNI_ENABLE_DEFAULT})
 option(ARROW_JAVA_JNI_ENABLE_GANDIVA "Enable Gandiva" ${ARROW_JAVA_JNI_ENABLE_DEFAULT})
 option(ARROW_JAVA_JNI_ENABLE_ORC "Enable ORC" ${ARROW_JAVA_JNI_ENABLE_DEFAULT})
-option(ARROW_JAVA_JNI_ENABLE_PLASMA "Enable Plasma" ${ARROW_JAVA_JNI_ENABLE_DEFAULT})
 
 include(GNUInstallDirs)
 
@@ -86,7 +85,4 @@ if(ARROW_JAVA_JNI_ENABLE_GANDIVA)
 endif()
 if(ARROW_JAVA_JNI_ENABLE_ORC)
   add_subdirectory(adapter/orc)
-endif()
-if(ARROW_JAVA_JNI_ENABLE_PLASMA)
-  add_subdirectory(plasma)
 endif()

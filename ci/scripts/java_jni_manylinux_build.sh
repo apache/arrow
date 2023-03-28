@@ -42,8 +42,6 @@ export ARROW_GANDIVA
 : ${ARROW_ORC:=ON}
 export ARROW_ORC
 : ${ARROW_PARQUET:=ON}
-: ${ARROW_PLASMA:=ON}
-export ARROW_PLASMA
 : ${ARROW_S3:=ON}
 : ${ARROW_USE_CCACHE:=OFF}
 : ${CMAKE_BUILD_TYPE:=release}
@@ -77,7 +75,6 @@ cmake \
   -DARROW_JEMALLOC=${ARROW_JEMALLOC} \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \
-  -DARROW_PLASMA=${ARROW_PLASMA} \
   -DARROW_RPATH_ORIGIN=${ARROW_RPATH_ORIGIN} \
   -DARROW_S3=${ARROW_S3} \
   -DARROW_USE_CCACHE=${ARROW_USE_CCACHE} \
@@ -148,6 +145,5 @@ archery linking check-dependencies \
   libarrow_cdata_jni.so \
   libarrow_dataset_jni.so \
   libarrow_orc_jni.so \
-  libgandiva_jni.so \
-  libplasma_java.so
+  libgandiva_jni.so
 popd

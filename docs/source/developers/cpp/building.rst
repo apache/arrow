@@ -340,8 +340,6 @@ boolean flags to ``cmake``.
 * ``-DARROW_ORC=ON``: Arrow integration with Apache ORC
 * ``-DARROW_PARQUET=ON``: Apache Parquet libraries and Arrow integration
 * ``-DPARQUET_REQUIRE_ENCRYPTION=ON``: Parquet Modular Encryption
-* ``-DARROW_PLASMA=ON``: Plasma Shared Memory Object Store
-* ``-DARROW_PLASMA_JAVA_CLIENT=ON``: Build Java client for Plasma
 * ``-DARROW_PYTHON=ON``: This option is deprecated since 10.0.0. This
   will be removed in a future release. Use CMake presets instead. Or
   you can enable ``ARROW_COMPUTE``, ``ARROW_CSV``, ``ARROW_DATASET``,
@@ -381,9 +379,6 @@ build times if they are not required for your application:
    any compute kernels beyond ``cast``. While there are (as of 12.0.0) a handful of
    additional kernels built in by default, this list may change in the future as it's
    partly based on kernel usage in the current format implementations.
-
-.. warning::
-   Plasma is deprecated as of Arrow 10.0.0, and will be removed in 12.0.0 or so.
 
 Optional Targets
 ~~~~~~~~~~~~~~~~
@@ -622,7 +617,6 @@ and benchmarks, and their dependencies:
 * ``make arrow`` for Arrow core libraries
 * ``make parquet`` for Parquet libraries
 * ``make gandiva`` for Gandiva (LLVM expression compiler) libraries
-* ``make plasma`` for Plasma libraries, server
 
 .. note::
    If you have selected Ninja as CMake generator, replace ``make arrow`` with

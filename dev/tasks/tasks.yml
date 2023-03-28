@@ -628,22 +628,12 @@ tasks:
       - parquet-tools_{no_rc_version}-1_[a-z0-9]+.deb
     {% if architecture == "amd64" %}
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-plasma-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-cuda-glib1200_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-cuda1200_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libplasma-glib1200_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libplasma1200_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
     {% endif %}
   {% endfor %}
 {% endfor %}
@@ -753,21 +743,6 @@ tasks:
     {% if not is_rhel7_based %}
       - parquet-tools-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
-      - plasma-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - plasma-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - plasma-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - plasma[0-9]+-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - plasma[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - plasma[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - plasma[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - plasma-store-server-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - plasma-store-server-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
   {% endfor %}
 {% endfor %}
 
@@ -904,13 +879,6 @@ tasks:
       - arrow-performance-{no_rc_snapshot_version}-tests.jar
       - arrow-performance-{no_rc_snapshot_version}.jar
       - arrow-performance-{no_rc_snapshot_version}.pom
-      - arrow-plasma-{no_rc_snapshot_version}-cyclonedx.json
-      - arrow-plasma-{no_rc_snapshot_version}-cyclonedx.xml
-      - arrow-plasma-{no_rc_snapshot_version}-javadoc.jar
-      - arrow-plasma-{no_rc_snapshot_version}-sources.jar
-      - arrow-plasma-{no_rc_snapshot_version}-tests.jar
-      - arrow-plasma-{no_rc_snapshot_version}.jar
-      - arrow-plasma-{no_rc_snapshot_version}.pom
       - arrow-tools-{no_rc_snapshot_version}-cyclonedx.json
       - arrow-tools-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-tools-{no_rc_snapshot_version}-jar-with-dependencies.jar
@@ -1099,7 +1067,6 @@ tasks:
     template: verify-rc/github.macos.arm64.yml
     params:
       env:
-        ARROW_PLASMA: 0
         ARROW_FLIGHT: 0
         ARROW_GANDIVA: 0
         TEST_INTEGRATION_JAVA: 0
