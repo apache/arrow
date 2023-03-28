@@ -61,11 +61,11 @@ message NamedTapRel {
 
 message SegmentedAggregateRel {
   // Grouping keys of the aggregation
-  repeated substrait.Expression.ReferenceSegment grouping_keys = 2;
+  repeated substrait.Expression.ReferenceSegment grouping_keys = 1;
 
   // Segment keys of the aggregation
-  repeated substrait.Expression.ReferenceSegment segment_keys = 3;
+  repeated substrait.Expression.ReferenceSegment segment_keys = 2;
 
   // A list of one or more aggregate expressions along with an optional filter.
-  repeated substrait.AggregateRel.Measure measures = 4;
+  repeated substrait.AggregateRel.Measure measures = 3;
 }

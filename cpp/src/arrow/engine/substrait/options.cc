@@ -180,6 +180,10 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
           "substrait_ext::SegmentedAggregateRel requires a single input but got: ",
           inputs.size());
     }
+    if (seg_agg_rel.segment_keys_size() == 0) {
+      return Status::Invalid(
+          "substrait_ext::SegmentedAggregateRel requires at least one segment key");
+    }
 
     auto input_schema = inputs[0].output_schema;
 
