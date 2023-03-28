@@ -420,6 +420,17 @@ arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsReques
   return result;
 }
 
+arrow::Result<ActionGetSessionOptionsRequest> ParseActionGetSessionOptionsRequest(
+    const google::protobuf::Any& any) {
+  pb::sql::ActionGetSessionOptionsRequest command;
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack ActionGetSessionOptionsRequest");
+  }
+
+  ParseActionGetSessionOptionsRequest result;
+  return result;
+}
+
 arrow::Result<Result> PackActionResult(const google::protobuf::Message& message) {
   google::protobuf::Any any;
   if (!any.PackFrom(message)) {
@@ -506,6 +517,12 @@ arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
         break;
     }
   }
+  return PackActionResult(pb_result);
+}
+
+arrow::Result<Result> PackActionResult(ActionGetSessionOptionsResult result) {
+  pb::sql::ActionGetSessionOptionsResult pb_result;
+  //FIXME
   return PackActionResult(pb_result);
 }
 
