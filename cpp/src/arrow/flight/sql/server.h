@@ -629,10 +629,12 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
       const ServerCallContext& context,
       const ACtionGetSessionOptionsRequest& request);
 
+  /// \brief Close/invalidate the session.
+  /// \param[in] context  The call context.
+  /// \param[in] request  Request object.
   virtual arrow::Result<CloseSessionResult> CloseSession(
       const ServerCallContext& context,
-      const ActionCloseSessionRequest& request
-      );
+      const ActionCloseSessionRequest& request);
 
   /// \brief Attempt to explicitly cancel a query.
   /// \param[in] context  The call context.
