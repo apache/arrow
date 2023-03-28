@@ -561,7 +561,7 @@ class SerializedFile : public ParquetFileReader::Contents {
   std::shared_ptr<FileMetaData> file_metadata_;
   ReaderProperties properties_;
   std::shared_ptr<PageIndexReader> page_index_reader_;
-  std::shared_ptr<BloomFilterReader> bloom_filter_reader_;
+  std::unique_ptr<BloomFilterReader> bloom_filter_reader_;
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 
   // \return The true length of the metadata in bytes

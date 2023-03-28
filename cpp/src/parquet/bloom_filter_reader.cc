@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/bloom_filter.h"
 #include "parquet/bloom_filter_reader.h"
+#include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
 
@@ -104,11 +104,11 @@ class BloomFilterReaderImpl final : public BloomFilterReader {
   const ReaderProperties& properties_;
 };
 
-std::shared_ptr<BloomFilterReader> BloomFilterReader::Make(
+std::unique_ptr<BloomFilterReader> BloomFilterReader::Make(
     std::shared_ptr<::arrow::io::RandomAccessFile> input,
     std::shared_ptr<FileMetaData> file_metadata, const ReaderProperties& properties,
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
-  return std::make_shared<BloomFilterReaderImpl>(std::move(input), file_metadata,
+  return std::make_unique<BloomFilterReaderImpl>(std::move(input), file_metadata,
                                                  properties, std::move(file_decryptor));
 }
 

@@ -50,7 +50,7 @@ class PARQUET_EXPORT BloomFilterReader {
   /// it must not outlive all of the input parameters. Usually these input parameters
   /// come from the same ParquetFileReader object, so it must not outlive the reader
   /// that creates this BloomFilterReader.
-  static std::shared_ptr<BloomFilterReader> Make(
+  static std::unique_ptr<BloomFilterReader> Make(
       std::shared_ptr<::arrow::io::RandomAccessFile> input,
       std::shared_ptr<FileMetaData> file_metadata, const ReaderProperties& properties,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
