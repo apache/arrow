@@ -5666,14 +5666,20 @@ TEST(Substrait, PlanWithSegmentedAggregateExtension) {
             "detail": {
               "@type": "/arrow.substrait_ext.SegmentedAggregateRel",
               "grouping_keys": [{
-                      "structField": {
-                        "field": 1
-                      }
+                "directReference": {
+                  "structField": {
+                    "field": 1
+                  }
+                },
+                "rootReference": {}
               }],
               "segment_keys": [{
-                      "structField": {
-                        "field": 0
-                      }
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                },
+                "rootReference": {}
               }],
               "measures": [{
                 "measure": {

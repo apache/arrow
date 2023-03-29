@@ -209,11 +209,24 @@ Result<compute::Expression> FromProto(const substrait::Expression::ReferenceSegm
       in_ref ? in_ref->DebugString() : "null");
 }
 
+Result<compute::Expression> FromProto(const substrait::Expression::FieldReference* fref,
+                                      const ExtensionSet& ext_set,
+                                      const ConversionOptions& conversion_options,
+                                      std::optional<compute::Expression> in_expr) {
+  if (fref->reference_type_case() !=
+          substrait::Expression::FieldReference::kDirectReference ||
+      fref->root_type_case() != substrait::Expression::FieldReference::kRootReference) {
+    return Status::NotImplemented("substrait::FieldReference not direct root reference");
+  }
+  auto& dref = fref->direct_reference();
+  return FromProto(&dref, ext_set, conversion_options, std::move(in_expr));
+}
+
 Result<FieldRef> DirectReferenceFromProto(
-    const substrait::Expression::ReferenceSegment* refseg, const ExtensionSet& ext_set,
+    const substrait::Expression::FieldReference* fref, const ExtensionSet& ext_set,
     const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
-                        FromProto(refseg, ext_set, conversion_options, {}));
+                        FromProto(fref, ext_set, conversion_options, {}));
   const FieldRef* field_ref = expr.field_ref();
   if (field_ref) {
     return *field_ref;

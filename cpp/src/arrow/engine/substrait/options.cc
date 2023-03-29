@@ -190,9 +190,9 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     // store key fields to be used when output schema is created
     std::vector<int> key_field_ids;
     std::vector<FieldRef> keys;
-    for (auto& key_refseg : seg_agg_rel.grouping_keys()) {
+    for (auto& ref : seg_agg_rel.grouping_keys()) {
       ARROW_ASSIGN_OR_RAISE(auto field_ref,
-                            DirectReferenceFromProto(&key_refseg, ext_set, conv_opts));
+                            DirectReferenceFromProto(&ref, ext_set, conv_opts));
       ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*input_schema));
       key_field_ids.emplace_back(std::move(match[0]));
       keys.emplace_back(std::move(field_ref));
@@ -201,9 +201,9 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     // store segment key fields to be used when output schema is created
     std::vector<int> segment_key_field_ids;
     std::vector<FieldRef> segment_keys;
-    for (auto& key_refseg : seg_agg_rel.segment_keys()) {
+    for (auto& ref : seg_agg_rel.segment_keys()) {
       ARROW_ASSIGN_OR_RAISE(auto field_ref,
-                            DirectReferenceFromProto(&key_refseg, ext_set, conv_opts));
+                            DirectReferenceFromProto(&ref, ext_set, conv_opts));
       ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*input_schema));
       segment_key_field_ids.emplace_back(std::move(match[0]));
       segment_keys.emplace_back(std::move(field_ref));
