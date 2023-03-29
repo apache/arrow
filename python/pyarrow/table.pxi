@@ -5514,6 +5514,9 @@ list[tuple(str, str, FunctionOptions)]
             column names, for unary, nullary and n-ary aggregation functions
             respectively.
 
+            For the list of function names and respective aggregation
+            function options see :ref:`py-grouped-aggrs`.
+
         Returns
         -------
         Table
@@ -5526,6 +5529,9 @@ list[tuple(str, str, FunctionOptions)]
         ...       pa.array(["a", "a", "b", "b", "c"]),
         ...       pa.array([1, 2, 3, 4, 5]),
         ... ], names=["keys", "values"])
+
+        Sum the column "values" over the grouped column "keys":
+
         >>> t.group_by("keys").aggregate([("values", "sum")])
         pyarrow.Table
         values_sum: int64
@@ -5533,6 +5539,9 @@ list[tuple(str, str, FunctionOptions)]
         ----
         values_sum: [[3,7,5]]
         keys: [["a","b","c"]]
+
+        Count the rows over the grouped column "keys":
+
         >>> t.group_by("keys").aggregate([([], "count_all")])
         pyarrow.Table
         count_all: int64
@@ -5540,6 +5549,38 @@ list[tuple(str, str, FunctionOptions)]
         ----
         count_all: [[2,2,1]]
         keys: [["a","b","c"]]
+
+        Do multiple aggregations:
+
+        >>> t.group_by("keys").aggregate([
+        ...    ("values", "sum"),
+        ...    ("keys", "count")
+        ... ])
+        pyarrow.Table
+        values_sum: int64
+        keys_count: int64
+        keys: string
+        ----
+        values_sum: [[3,7,5]]
+        keys_count: [[2,2,1]]
+        keys: [["a","b","c"]]
+
+        Count the number of non-null values for column "values"
+        over the grouped column "keys":
+
+        >>> import pyarrow.compute as pc
+        >>> t.group_by(["keys"]).aggregate([
+        ...    ("values", "count", pc.CountOptions(mode="only_valid"))
+        ... ])
+        pyarrow.Table
+        values_count: int64
+        keys: string
+        ----
+        values_count: [[2,2,1]]
+        keys: [["a","b","c"]]
+
+        Get a single row for each group in column "keys":
+
         >>> t.group_by("keys").aggregate([])
         pyarrow.Table
         keys: string
