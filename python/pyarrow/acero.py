@@ -24,12 +24,23 @@
 
 from pyarrow.lib import Table
 from pyarrow.compute import Expression
-from pyarrow.dataset import Dataset, InMemoryDataset
-from pyarrow._dataset import ScanNodeOptions
-from pyarrow._acero import (
-    Declaration, TableSourceNodeOptions, FilterNodeOptions, HashJoinNodeOptions,
-    ProjectNodeOptions, OrderByNodeOptions
+
+from pyarrow._acero import (  # noqa
+    Declaration,
+    ExecNodeOptions,
+    TableSourceNodeOptions,
+    FilterNodeOptions,
+    ProjectNodeOptions,
+    AggregateNodeOptions,
+    OrderByNodeOptions,
+    HashJoinNodeOptions,
 )
+
+try:
+    import pyarrow.dataset as ds
+    from pyarrow._dataset import ScanNodeOptions
+except ImportError:
+    ds = None
 
 
 def _dataset_to_decl(dataset, use_threads=True):
@@ -86,9 +97,9 @@ def _perform_join(join_type, left_operand, left_keys,
     -------
     result_table : Table or InMemoryDataset
     """
-    if not isinstance(left_operand, (Table, Dataset)):
+    if not isinstance(left_operand, (Table, ds.Dataset)):
         raise TypeError(f"Expected Table or Dataset, got {type(left_operand)}")
-    if not isinstance(right_operand, (Table, Dataset)):
+    if not isinstance(right_operand, (Table, ds.Dataset)):
         raise TypeError(f"Expected Table or Dataset, got {type(right_operand)}")
 
     # Prepare left and right tables Keys to send them to the C++ function
@@ -134,11 +145,11 @@ def _perform_join(join_type, left_operand, left_keys,
             right_column_keys_indices[colname] = idx
 
     # Add the join node to the execplan
-    if isinstance(left_operand, Dataset):
+    if isinstance(left_operand, ds.Dataset):
         left_source = _dataset_to_decl(left_operand, use_threads=use_threads)
     else:
         left_source = Declaration("table_source", TableSourceNodeOptions(left_operand))
-    if isinstance(right_operand, Dataset):
+    if isinstance(right_operand, ds.Dataset):
         right_source = _dataset_to_decl(right_operand, use_threads=use_threads)
     else:
         right_source = Declaration(
@@ -210,8 +221,8 @@ def _perform_join(join_type, left_operand, left_keys,
 
     if output_type == Table:
         return result_table
-    elif output_type == InMemoryDataset:
-        return InMemoryDataset(result_table)
+    elif output_type == ds.InMemoryDataset:
+        return ds.InMemoryDataset(result_table)
     else:
         raise TypeError("Unsupported output type")
 
@@ -244,7 +255,7 @@ def _filter_table(table, expression):
 
 def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):
 
-    if isinstance(table_or_dataset, Dataset):
+    if isinstance(table_or_dataset, ds.Dataset):
         data_source = _dataset_to_decl(table_or_dataset, use_threads=True)
     else:
         data_source = Declaration(
@@ -258,9 +269,9 @@ def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):
 
     if output_type == Table:
         return result_table
-    elif output_type == InMemoryDataset:
+    elif output_type == ds.InMemoryDataset:
         # Get rid of special dataset columns
         # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
-        return InMemoryDataset(result_table.select(table_or_dataset.schema.names))
+        return ds.InMemoryDataset(result_table.select(table_or_dataset.schema.names))
     else:
         raise TypeError("Unsupported output type")
