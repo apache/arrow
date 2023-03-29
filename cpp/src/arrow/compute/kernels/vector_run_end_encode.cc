@@ -20,6 +20,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/common_internal.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/ree_util.h"
 
@@ -408,7 +409,7 @@ Result<std::shared_ptr<ArrayData>> PreallocateNullREEData(int64_t logical_length
                                                           MemoryPool* pool) {
   ARROW_ASSIGN_OR_RAISE(
       auto run_ends_buffer,
-      AllocateBuffer(physical_length * RunEndType().byte_width(), pool));
+      AllocateBuffer(TypeTraits<RunEndType>::bytes_required(physical_length), pool));
 
   auto ree_type =
       std::make_shared<RunEndEncodedType>(std::make_shared<RunEndType>(), null());
