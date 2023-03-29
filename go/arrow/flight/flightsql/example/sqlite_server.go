@@ -643,6 +643,9 @@ func (s *SQLiteFlightSQLServer) DoPutPreparedStatementUpdate(ctx context.Context
 	if len(args) == 0 {
 		result, err := stmt.stmt.ExecContext(ctx)
 		if err != nil {
+			if strings.Contains(err.Error(), "no such table") {
+				return 0, status.Error(codes.NotFound, err.Error())
+			}
 			return 0, err
 		}
 
@@ -653,6 +656,9 @@ func (s *SQLiteFlightSQLServer) DoPutPreparedStatementUpdate(ctx context.Context
 	for _, p := range args {
 		result, err := stmt.stmt.ExecContext(ctx, p...)
 		if err != nil {
+			if strings.Contains(err.Error(), "no such table") {
+				return totalAffected, status.Error(codes.NotFound, err.Error())
+			}
 			return totalAffected, err
 		}
 
