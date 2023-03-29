@@ -155,6 +155,7 @@ set(PARQUET_SRCS
     arrow/schema_internal.cc
     arrow/writer.cc
     bloom_filter.cc
+    bloom_filter_reader.cc
     column_reader.cc
     column_scanner.cc
     column_writer.cc
@@ -334,6 +335,7 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
 add_parquet_test(internals-test
                  SOURCES
                  bloom_filter_test.cc
+                 bloom_filter_reader_test.cc
                  properties_test.cc
                  statistics_test.cc
                  encoding_test.cc
