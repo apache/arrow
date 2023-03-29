@@ -21,7 +21,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.compute import field
 
-from pyarrow._acero import (
+from pyarrow.acero import (
     TableSourceNodeOptions,
     FilterNodeOptions,
     ProjectNodeOptions,
@@ -33,7 +33,7 @@ from pyarrow._acero import (
 
 try:
     import pyarrow.dataset as ds
-    from pyarrow._dataset import ScanNodeOptions
+    from pyarrow.acero import ScanNodeOptions
 except ImportError:
     ds = None
 
