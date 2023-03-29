@@ -28,7 +28,7 @@ from pyarrow.dataset import Dataset, InMemoryDataset
 from pyarrow._dataset import ScanNodeOptions
 from pyarrow._acero import (
     Declaration, TableSourceNodeOptions, FilterNodeOptions, HashJoinNodeOptions,
-    ProjectNodeOptions, OrderByNodeOptions
+    ProjectNodeOptions, OrderByNodeOptions, AggregateNodeOptions
 )
 
 
@@ -264,3 +264,12 @@ def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):
         return InMemoryDataset(result_table.select(table_or_dataset.schema.names))
     else:
         raise TypeError("Unsupported output type")
+
+
+def _group_by(table, aggregates, keys):
+
+    decl = Declaration.from_sequence([
+        Declaration("table_source", TableSourceNodeOptions(table)),
+        Declaration("aggregate", AggregateNodeOptions(aggregates, keys=keys))
+    ])
+    return decl.to_table(use_threads=True)

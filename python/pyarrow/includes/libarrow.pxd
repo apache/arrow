@@ -2545,11 +2545,6 @@ cdef extern from "arrow/compute/exec/groupby.h" namespace \
         vector[CFieldRef] target
         c_string name
 
-    CResult[shared_ptr[CTable]] CTableGroupBy "arrow::compute::TableGroupBy"(
-        shared_ptr[CTable] table,
-        vector[CAggregate] aggregates,
-        vector[CFieldRef] keys)
-
 
 cdef extern from * namespace "arrow::compute":
     # inlined from expression_internal.h to avoid
