@@ -44,8 +44,9 @@ std::shared_ptr<acero::ExecPlan> ExecPlan_create(bool use_threads) {
   // TODO(weston) using gc_context() in this way is deprecated.  Once ordering has
   // been added we can probably entirely remove all reference to ExecPlan from R
   // in favor of DeclarationToXyz
-  auto plan = ValueOrStop(
-      acero::ExecPlan::Make(use_threads ? &threaded_context : gc_context()));
+  auto plan =
+      ValueOrStop(acero::ExecPlan::Make(use_threads ? &threaded_context : gc_context()));
+
   return plan;
 }
 
@@ -468,8 +469,8 @@ std::shared_ptr<acero::ExecNode> ExecNode_TableSourceNode(
     const std::shared_ptr<acero::ExecPlan>& plan,
     const std::shared_ptr<arrow::Table>& table) {
   arrow::acero::TableSourceNodeOptions options{/*table=*/table,
-                                                 // TODO: make batch_size configurable
-                                                 /*batch_size=*/1048576};
+                                               // TODO: make batch_size configurable
+                                               /*batch_size=*/1048576};
 
   return MakeExecNodeOrStop("table_source", plan.get(), {}, options);
 }

@@ -30,9 +30,9 @@
 #include <utility>
 
 // forward declaration-only headers
+#include <arrow/acero/type_fwd.h>
 #include <arrow/c/abi.h>
 #include <arrow/compute/type_fwd.h>
-#include <arrow/acero/type_fwd.h>
 #include <arrow/csv/type_fwd.h>
 
 #if defined(ARROW_R_WITH_DATASET)

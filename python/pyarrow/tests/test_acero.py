@@ -30,7 +30,6 @@ from pyarrow.acero import (
     HashJoinNodeOptions,
     OrderByNodeOptions
 )
-from pyarrow.compute import field
 
 try:
     import pyarrow.dataset as ds
