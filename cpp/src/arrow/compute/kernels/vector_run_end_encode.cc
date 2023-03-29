@@ -52,14 +52,12 @@ class ReadWriteValueImpl<ArrowType, has_validity_buffer,
       : input_validity_(has_validity_buffer ? input_values_array.buffers[0].data
                                             : NULLPTR),
         input_values_(input_values_array.buffers[1].data),
-        output_validity_(
-            (has_validity_buffer && output_values_array_data)
-                ? output_values_array_data->template GetMutableValues<uint8_t>(0)
-                : NULLPTR),
-        output_values_(
-            output_values_array_data
-                ? output_values_array_data->template GetMutableValues<uint8_t>(1)
-                : NULLPTR) {}
+        output_validity_((has_validity_buffer && output_values_array_data)
+                             ? output_values_array_data->buffers[0]->mutable_data()
+                             : NULLPTR),
+        output_values_(output_values_array_data
+                           ? output_values_array_data->buffers[1]->mutable_data()
+                           : NULLPTR) {}
 
   [[nodiscard]] bool ReadValue(ValueRepr* out, int64_t read_offset) const {
     bool valid = true;
@@ -141,14 +139,12 @@ class ReadWriteValueImpl<ArrowType, has_validity_buffer,
       : input_validity_(has_validity_buffer ? input_values_array.buffers[0].data
                                             : NULLPTR),
         input_values_(input_values_array.buffers[1].data),
-        output_validity_(
-            (has_validity_buffer && output_values_array_data)
-                ? output_values_array_data->template GetMutableValues<uint8_t>(0)
-                : NULLPTR),
-        output_values_(
-            output_values_array_data
-                ? output_values_array_data->template GetMutableValues<uint8_t>(1)
-                : NULLPTR),
+        output_validity_((has_validity_buffer && output_values_array_data)
+                             ? output_values_array_data->buffers[0]->mutable_data()
+                             : NULLPTR),
+        output_values_(output_values_array_data
+                           ? output_values_array_data->buffers[1]->mutable_data()
+                           : NULLPTR),
         byte_width_(input_values_array.type->byte_width()) {}
 
   [[nodiscard]] bool ReadValue(ValueRepr* out, int64_t read_offset) const {
