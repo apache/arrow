@@ -157,7 +157,7 @@ struct SourceNode : ExecNode, public TracedNode {
       }
       lock.unlock();
 
-      util::tracing::Span fetch_batch_span;
+      arrow::util::tracing::Span fetch_batch_span;
       auto fetch_batch_scope =
           START_SCOPED_SPAN(fetch_batch_span, "SourceNode::ReadBatch");
       return generator_().Then(

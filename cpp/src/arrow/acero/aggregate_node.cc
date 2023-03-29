@@ -383,7 +383,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
 
   Status DoConsume(const ExecSpan& batch, size_t thread_index) {
     for (size_t i = 0; i < kernels_.size(); ++i) {
-      util::tracing::Span span;
+      arrow::util::tracing::Span span;
       START_COMPUTE_SPAN(span, aggs_[i].function,
                          {{"function.name", aggs_[i].function},
                           {"function.options",
@@ -486,7 +486,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     batch.values.resize(kernels_.size() + segment_field_ids_.size());
 
     for (size_t i = 0; i < kernels_.size(); ++i) {
-      util::tracing::Span span;
+      arrow::util::tracing::Span span;
       START_COMPUTE_SPAN(span, aggs_[i].function,
                          {{"function.name", aggs_[i].function},
                           {"function.options",
@@ -695,7 +695,7 @@ class GroupByNode : public ExecNode, public TracedNode {
 
     // Execute aggregate kernels
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
-      util::tracing::Span span;
+      arrow::util::tracing::Span span;
       START_COMPUTE_SPAN(span, aggs_[i].function,
                          {{"function.name", aggs_[i].function},
                           {"function.options",
@@ -719,7 +719,7 @@ class GroupByNode : public ExecNode, public TracedNode {
   }
 
   Status Merge() {
-    util::tracing::Span span;
+    arrow::util::tracing::Span span;
     START_COMPUTE_SPAN(span, "Merge",
                        {{"group_by", ToStringExtra()}, {"node.label", label()}});
     ThreadLocalState* state0 = &local_states_[0];
@@ -735,7 +735,7 @@ class GroupByNode : public ExecNode, public TracedNode {
       state->grouper.reset();
 
       for (size_t i = 0; i < agg_kernels_.size(); ++i) {
-        util::tracing::Span span;
+        arrow::util::tracing::Span span;
         START_COMPUTE_SPAN(
             span, aggs_[i].function,
             {{"function.name", aggs_[i].function},
@@ -758,7 +758,7 @@ class GroupByNode : public ExecNode, public TracedNode {
   }
 
   Result<ExecBatch> Finalize() {
-    util::tracing::Span span;
+    arrow::util::tracing::Span span;
     START_COMPUTE_SPAN(span, "Finalize",
                        {{"group_by", ToStringExtra()}, {"node.label", label()}});
 
@@ -772,7 +772,7 @@ class GroupByNode : public ExecNode, public TracedNode {
 
     // Aggregate fields come before key fields to match the behavior of GroupBy function
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
-      util::tracing::Span span;
+      arrow::util::tracing::Span span;
       START_COMPUTE_SPAN(span, aggs_[i].function,
                          {{"function.name", aggs_[i].function},
                           {"function.options",

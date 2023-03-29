@@ -80,7 +80,7 @@ class ProjectNode : public MapNode {
   Result<ExecBatch> ProcessBatch(ExecBatch batch) override {
     std::vector<Datum> values{exprs_.size()};
     for (size_t i = 0; i < exprs_.size(); ++i) {
-      util::tracing::Span span;
+      arrow::util::tracing::Span span;
       START_COMPUTE_SPAN(span, "Project",
                          {{"project.type", exprs_[i].type()->ToString()},
                           {"project.length", batch.length},

@@ -74,7 +74,7 @@ class FilterNode : public MapNode {
     ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
                           SimplifyWithGuarantee(filter_, batch.guarantee));
 
-    util::tracing::Span span;
+    arrow::util::tracing::Span span;
     START_COMPUTE_SPAN(span, "Filter",
                        {{"filter.expression", ToStringExtra()},
                         {"filter.expression.simplified", simplified_filter.ToString()},

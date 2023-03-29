@@ -70,7 +70,7 @@ class ARROW_EXPORT SwissTable {
 
   int minibatch_size() const { return 1 << log_minibatch_; }
 
-  int64_t num_inserted() const { return num_inserted_; }
+  uint32_t num_inserted() const { return num_inserted_; }
 
   int64_t hardware_flags() const { return hardware_flags_; }
 

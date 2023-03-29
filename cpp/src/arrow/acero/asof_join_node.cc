@@ -329,7 +329,7 @@ struct MemoStore {
 // a specialized higher-performance variation of Hashing64 logic from hash_join_node
 // the code here avoids recreating objects that are independent of each batch processed
 class KeyHasher {
-  static constexpr int kMiniBatchLength = util::MiniBatch::kMiniBatchLength;
+  static constexpr int kMiniBatchLength = arrow::util::MiniBatch::kMiniBatchLength;
 
  public:
   explicit KeyHasher(const std::vector<col_index_t>& indices)
@@ -383,7 +383,7 @@ class KeyHasher {
   std::vector<HashType> hashes_;
   LightContext ctx_;
   std::vector<KeyColumnArray> column_arrays_;
-  util::TempVectorStack stack_;
+  arrow::util::TempVectorStack stack_;
 };
 
 class BackpressureController : public BackpressureControl {

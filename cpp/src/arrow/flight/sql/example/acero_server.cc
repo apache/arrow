@@ -98,8 +98,7 @@ class AceroFlightSqlServer : public FlightSqlServerBase {
         << "DoGetStatement: executing plan "
         << acero::DeclarationToString(plan.root.declaration).ValueOr("Invalid plan");
 
-    ARROW_ASSIGN_OR_RAISE(auto reader,
-                          acero::DeclarationToReader(plan.root.declaration));
+    ARROW_ASSIGN_OR_RAISE(auto reader, acero::DeclarationToReader(plan.root.declaration));
     return std::make_unique<RecordBatchStream>(std::move(reader));
   }
 

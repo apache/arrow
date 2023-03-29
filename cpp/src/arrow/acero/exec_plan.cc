@@ -124,8 +124,8 @@ struct ExecPlanImpl : public ExecPlan {
     // part of StartProducing) then the plan may be finished before we return from this
     // call.
     auto scope = START_SCOPED_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
-    Future<> scheduler_finished = util::AsyncTaskScheduler::Make(
-        [this](util::AsyncTaskScheduler* async_scheduler) {
+    Future<> scheduler_finished = arrow::util::AsyncTaskScheduler::Make(
+        [this](arrow::util::AsyncTaskScheduler* async_scheduler) {
           QueryContext* ctx = query_context();
           RETURN_NOT_OK(ctx->Init(ctx->max_concurrency(), async_scheduler));
 
@@ -336,7 +336,7 @@ struct ExecPlanImpl : public ExecPlan {
   NodeVector node_ptrs_;
   NodeVector sorted_nodes_;
   uint32_t auto_label_counter_ = 0;
-  util::tracing::Span span_;
+  arrow::util::tracing::Span span_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
   QueryContext query_context_;
   // This field only exists for backwards compatibility.  Remove once the deprecated
