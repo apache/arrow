@@ -35,6 +35,11 @@ from pyarrow._compute cimport (
 
 
 cdef class ExecNodeOptions(_Weakrefable):
+    """
+    Base class for the node options.
+
+    Use one of the subclasses to construct an options object.
+    """
     __slots__ = ()  # avoid mistakingly creating attributes
 
     cdef void init(self, const shared_ptr[CExecNodeOptions]& sp):
