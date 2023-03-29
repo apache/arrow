@@ -713,6 +713,7 @@ cdef class Dataset(_Weakrefable):
         Count rows matching the scanner filter.
 
         Parameters
+        ----------
         filter : Expression, default None
             Scan will return only the rows matching the filter.
             If possible the predicate will be pushed down to exploit the
