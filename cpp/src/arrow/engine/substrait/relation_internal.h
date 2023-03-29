@@ -21,6 +21,7 @@
 
 #include <memory>
 
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/type_fwd.h"
@@ -30,12 +31,6 @@
 #include "substrait/algebra.pb.h"  // IWYU pragma: export
 
 namespace arrow {
-namespace compute {
-
-struct Aggregate;
-class AggregateNodeOptions;
-
-}  // namespace compute
 namespace engine {
 
 /// \brief Convert a Substrait Rel object to an Acero declaration
@@ -54,6 +49,11 @@ ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> ToProto(
 
 namespace internal {
 
+struct ParsedMeasure {
+  compute::Aggregate aggregate;
+  std::vector<int> fieldset;
+};
+
 /// \brief Parse an aggregate relation's measure
 ///
 /// \param[in] agg_measure the measure
@@ -61,14 +61,11 @@ namespace internal {
 /// \param[in] conversion_options options to control how the conversion is done
 /// \param[in] input_schema the schema to which field refs apply
 /// \param[in] is_hash whether the measure is a hash one (i.e., aggregation keys exist)
-/// \param[out] aggregates points to vector to push the parsed measure into
-/// \param[out] agg_src_fieldsets points to vector to push the parsed field set into
-ARROW_ENGINE_EXPORT Status ParseAggregateMeasure(
+ARROW_ENGINE_EXPORT
+Result<ParsedMeasure> ParseAggregateMeasure(
     const substrait::AggregateRel::Measure& agg_measure, const ExtensionSet& ext_set,
     const ConversionOptions& conversion_options, bool is_hash,
-    const std::shared_ptr<Schema> input_schema,
-    std::vector<compute::Aggregate>* aggregates,
-    std::vector<std::vector<int>>* agg_src_fieldsets);
+    const std::shared_ptr<Schema> input_schema);
 
 /// \brief Make an aggregate declaration info
 ///

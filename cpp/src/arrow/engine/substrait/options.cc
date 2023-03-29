@@ -210,11 +210,16 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     }
 
     std::vector<compute::Aggregate> aggregates;
+    aggregates.reserve(seg_agg_rel.measures_size());
     std::vector<std::vector<int>> agg_src_fieldsets;
+    agg_src_fieldsets.reserve(seg_agg_rel.measures_size());
     for (auto agg_measure : seg_agg_rel.measures()) {
-      ARROW_RETURN_NOT_OK(internal::ParseAggregateMeasure(
-          agg_measure, ext_set, conv_opts, /*is_hash=*/!keys.empty(), input_schema,
-          &aggregates, &agg_src_fieldsets));
+      ARROW_ASSIGN_OR_RAISE(
+          auto parsed_measure,
+          internal::ParseAggregateMeasure(agg_measure, ext_set, conv_opts,
+                                          /*is_hash=*/!keys.empty(), input_schema));
+      aggregates.push_back(std::move(parsed_measure.aggregate));
+      agg_src_fieldsets.push_back(std::move(parsed_measure.fieldset));
     }
 
     ARROW_ASSIGN_OR_RAISE(auto decl_info,

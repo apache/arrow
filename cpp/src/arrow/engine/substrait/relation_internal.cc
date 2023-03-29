@@ -295,14 +295,10 @@ Status DiscoverFilesFromDir(const std::shared_ptr<fs::LocalFileSystem>& local_fs
 
 namespace internal {
 
-ARROW_ENGINE_EXPORT Status ParseAggregateMeasure(
+Result<ParsedMeasure> ParseAggregateMeasure(
     const substrait::AggregateRel::Measure& agg_measure, const ExtensionSet& ext_set,
     const ConversionOptions& conversion_options, bool is_hash,
-    const std::shared_ptr<Schema> input_schema,
-    std::vector<compute::Aggregate>* aggregates_ptr,
-    std::vector<std::vector<int>>* agg_src_fieldsets_ptr) {
-  std::vector<compute::Aggregate>& aggregates = *aggregates_ptr;
-  std::vector<std::vector<int>>& agg_src_fieldsets = *agg_src_fieldsets_ptr;
+    const std::shared_ptr<Schema> input_schema) {
   if (agg_measure.has_measure()) {
     if (agg_measure.has_filter()) {
       return Status::NotImplemented("Aggregate filters are not supported.");
@@ -323,15 +319,14 @@ ARROW_ENGINE_EXPORT Status ParseAggregateMeasure(
 
     // find aggregate field ids from schema
     const auto& target = arrow_agg.target;
-    size_t measure_id = agg_src_fieldsets.size();
-    agg_src_fieldsets.push_back({});
+    std::vector<int> fieldset;
+    fieldset.reserve(target.size());
     for (const auto& field_ref : target) {
       ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*input_schema));
-      agg_src_fieldsets[measure_id].push_back(match[0]);
+      fieldset.push_back(match[0]);
     }
 
-    aggregates.push_back(std::move(arrow_agg));
-    return Status::OK();
+    return ParsedMeasure{std::move(arrow_agg), std::move(fieldset)};
   } else {
     return Status::Invalid("substrait::AggregateFunction not provided");
   }
@@ -814,9 +809,12 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       agg_src_fieldsets.reserve(measure_size);
       for (int measure_id = 0; measure_id < measure_size; measure_id++) {
         const auto& agg_measure = aggregate.measures(measure_id);
-        ARROW_RETURN_NOT_OK(internal::ParseAggregateMeasure(
-            agg_measure, ext_set, conversion_options, /*is_hash=*/!keys.empty(),
-            input_schema, &aggregates, &agg_src_fieldsets));
+        ARROW_ASSIGN_OR_RAISE(
+            auto parsed_measure,
+            internal::ParseAggregateMeasure(agg_measure, ext_set, conversion_options,
+                                            /*is_hash=*/!keys.empty(), input_schema));
+        aggregates.push_back(std::move(parsed_measure.aggregate));
+        agg_src_fieldsets.push_back(std::move(parsed_measure.fieldset));
       }
 
       ARROW_ASSIGN_OR_RAISE(
@@ -826,8 +824,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
               std::move(aggregates), std::move(agg_src_fieldsets), std::move(keys),
               std::move(key_field_ids), {}, {}, ext_set, conversion_options));
 
+      auto aggregate_schema = aggregate_declaration.output_schema;
       return ProcessEmit(std::move(aggregate), std::move(aggregate_declaration),
-                         aggregate_declaration.output_schema);
+                         std::move(aggregate_schema));
     }
 
     case substrait::Rel::RelTypeCase::kExtensionLeaf:
