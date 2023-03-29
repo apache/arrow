@@ -133,6 +133,13 @@ def test_failing_iterator():
         pa.array((1 // 0 for x in range(10)), size=10)
 
 
+def test_failing_iterator_with_scalars():
+    # GH-21761: iterator with pa.Scalars should error and
+    # not return a NullArray
+    with pytest.raises(pa.ArrowInvalid):
+        pa.array(iter([pa.scalar(1), pa.scalar(2)]))
+
+
 def _as_list(xs):
     return xs
 
@@ -2351,3 +2358,21 @@ def test_array_from_pylist_offset_overflow():
     assert isinstance(arr, pa.ChunkedArray)
     assert len(arr) == 2**31
     assert len(arr.chunks) > 1
+
+
+@parametrize_with_collections_types
+def test_array_accepts_pyarrow_scalar(seq):
+    arr = pa.array([1, 2, 3])
+    result = pa.array([arr.sum()])
+    expect = pa.array([6])
+    assert expect == result
+
+    sequence = seq([pa.scalar(1), pa.scalar(2), pa.scalar(3)])
+    if isinstance(sequence, set):
+        # GH-21761: iterator with pa.Scalars should error
+        with pytest.raises(pa.ArrowInvalid):
+            pa.array(sequence)
+    else:
+        result = pa.array(sequence)
+        expect = pa.array([1, 2, 3])
+        assert expect == result

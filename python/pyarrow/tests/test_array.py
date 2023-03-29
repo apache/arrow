@@ -3409,17 +3409,6 @@ def test_array_accepts_pyarrow_array():
     assert arr == result
 
 
-def test_array_accepts_pyarrow_scalar():
-    arr = pa.array([1, 2, 3])
-    result = pa.array([arr.sum()])
-    expect = pa.array([6])
-    assert expect == result
-
-    result = pa.array([pa.scalar(1), pa.scalar(2), pa.scalar(3)])
-    expect = pa.array([1, 2, 3])
-    assert expect == result
-
-
 def check_run_end_encoded(ree_array, run_ends, values, logical_length, physical_length,
                           physical_offset):
     assert ree_array.run_ends.to_pylist() == run_ends

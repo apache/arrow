@@ -318,14 +318,23 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             if pandas_api.have_pandas:
                 values, type = pandas_api.compat.get_datetimetz_type(
                     values, obj.dtype, type)
-            result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
-                                       pool)
+            try:
+                result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
+                                           pool)
+            except ArrowInvalid as err:
+                if "Scalar" in str(err):
+                    # If it fails because of the pa.Scalar, use as_py() on whole sequence
+                    obj_as_py = [s.as_py() for s in obj]
+                    return _sequence_to_array(
+                        obj_as_py, mask, size, type, pool, c_from_pandas)
+                else:
+                    raise
     else:
         try:
             # ConvertPySequence does strict conversion if type is explicitly passed
             result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
         except ArrowInvalid as err:
-            if "Scalar" in str(err):
+            if "Scalar" in str(err) and not (isinstance(obj, set) or hasattr(obj, '__next__')):
                 # If it fails because of the pa.Scalar, use as_py() on whole sequence
                 obj_as_py = [s.as_py() for s in obj]
                 return _sequence_to_array(
