@@ -21,66 +21,66 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
 
-cdef extern from "arrow/acero/groupby.h" namespace \
-        "arrow::acero" nogil:
+cdef extern from "arrow/compute/exec/groupby.h" namespace \
+        "arrow::compute" nogil:
     cdef cppclass CAggregate "arrow::compute::Aggregate":
         c_string function
         shared_ptr[CFunctionOptions] options
         vector[CFieldRef] target
         c_string name
 
-    CResult[shared_ptr[CTable]] CTableGroupBy "arrow::acero::TableGroupBy"(
+    CResult[shared_ptr[CTable]] CTableGroupBy "arrow::compute::TableGroupBy"(
         shared_ptr[CTable] table,
         vector[CAggregate] aggregates,
         vector[CFieldRef] keys)
 
 
-cdef extern from "arrow/acero/options.h" namespace "arrow::acero" nogil:
-    cdef enum CJoinType "arrow::acero::JoinType":
-        CJoinType_LEFT_SEMI "arrow::acero::JoinType::LEFT_SEMI"
-        CJoinType_RIGHT_SEMI "arrow::acero::JoinType::RIGHT_SEMI"
-        CJoinType_LEFT_ANTI "arrow::acero::JoinType::LEFT_ANTI"
-        CJoinType_RIGHT_ANTI "arrow::acero::JoinType::RIGHT_ANTI"
-        CJoinType_INNER "arrow::acero::JoinType::INNER"
-        CJoinType_LEFT_OUTER "arrow::acero::JoinType::LEFT_OUTER"
-        CJoinType_RIGHT_OUTER "arrow::acero::JoinType::RIGHT_OUTER"
-        CJoinType_FULL_OUTER "arrow::acero::JoinType::FULL_OUTER"
+cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil:
+    cdef enum CJoinType "arrow::compute::JoinType":
+        CJoinType_LEFT_SEMI "arrow::compute::JoinType::LEFT_SEMI"
+        CJoinType_RIGHT_SEMI "arrow::compute::JoinType::RIGHT_SEMI"
+        CJoinType_LEFT_ANTI "arrow::compute::JoinType::LEFT_ANTI"
+        CJoinType_RIGHT_ANTI "arrow::compute::JoinType::RIGHT_ANTI"
+        CJoinType_INNER "arrow::compute::JoinType::INNER"
+        CJoinType_LEFT_OUTER "arrow::compute::JoinType::LEFT_OUTER"
+        CJoinType_RIGHT_OUTER "arrow::compute::JoinType::RIGHT_OUTER"
+        CJoinType_FULL_OUTER "arrow::compute::JoinType::FULL_OUTER"
 
-    cdef cppclass CAsyncExecBatchGenerator "arrow::acero::AsyncExecBatchGenerator":
+    cdef cppclass CAsyncExecBatchGenerator "arrow::compute::AsyncExecBatchGenerator":
         pass
 
-    cdef cppclass CExecNodeOptions "arrow::acero::ExecNodeOptions":
+    cdef cppclass CExecNodeOptions "arrow::compute::ExecNodeOptions":
         pass
 
-    cdef cppclass CSourceNodeOptions "arrow::acero::SourceNodeOptions"(CExecNodeOptions):
+    cdef cppclass CSourceNodeOptions "arrow::compute::SourceNodeOptions"(CExecNodeOptions):
         pass
 
-    cdef cppclass CTableSourceNodeOptions "arrow::acero::TableSourceNodeOptions"(CExecNodeOptions):
+    cdef cppclass CTableSourceNodeOptions "arrow::compute::TableSourceNodeOptions"(CExecNodeOptions):
         CTableSourceNodeOptions(shared_ptr[CTable] table)
         CTableSourceNodeOptions(shared_ptr[CTable] table, int64_t max_batch_size)
 
-    cdef cppclass CSinkNodeOptions "arrow::acero::SinkNodeOptions"(CExecNodeOptions):
+    cdef cppclass CSinkNodeOptions "arrow::compute::SinkNodeOptions"(CExecNodeOptions):
         pass
 
-    cdef cppclass CFilterNodeOptions "arrow::acero::FilterNodeOptions"(CExecNodeOptions):
+    cdef cppclass CFilterNodeOptions "arrow::compute::FilterNodeOptions"(CExecNodeOptions):
         CFilterNodeOptions(CExpression)
 
-    cdef cppclass CProjectNodeOptions "arrow::acero::ProjectNodeOptions"(CExecNodeOptions):
+    cdef cppclass CProjectNodeOptions "arrow::compute::ProjectNodeOptions"(CExecNodeOptions):
         CProjectNodeOptions(vector[CExpression] expressions)
         CProjectNodeOptions(vector[CExpression] expressions,
                             vector[c_string] names)
 
-    cdef cppclass CAggregateNodeOptions "arrow::acero::AggregateNodeOptions"(CExecNodeOptions):
+    cdef cppclass CAggregateNodeOptions "arrow::compute::AggregateNodeOptions"(CExecNodeOptions):
         CAggregateNodeOptions(vector[CAggregate] aggregates, vector[CFieldRef] names)
 
-    cdef cppclass COrderBySinkNodeOptions "arrow::acero::OrderBySinkNodeOptions"(CExecNodeOptions):
+    cdef cppclass COrderBySinkNodeOptions "arrow::compute::OrderBySinkNodeOptions"(CExecNodeOptions):
         COrderBySinkNodeOptions(vector[CSortOptions] options,
                                 CAsyncExecBatchGenerator generator)
 
-    cdef cppclass COrderByNodeOptions "arrow::acero::OrderByNodeOptions"(CExecNodeOptions):
+    cdef cppclass COrderByNodeOptions "arrow::compute::OrderByNodeOptions"(CExecNodeOptions):
         COrderByNodeOptions(COrdering ordering)
 
-    cdef cppclass CHashJoinNodeOptions "arrow::acero::HashJoinNodeOptions"(CExecNodeOptions):
+    cdef cppclass CHashJoinNodeOptions "arrow::compute::HashJoinNodeOptions"(CExecNodeOptions):
         CHashJoinNodeOptions(CJoinType, vector[CFieldRef] in_left_keys,
                              vector[CFieldRef] in_right_keys)
         CHashJoinNodeOptions(CJoinType, vector[CFieldRef] in_left_keys,
@@ -98,8 +98,8 @@ cdef extern from "arrow/acero/options.h" namespace "arrow::acero" nogil:
                              c_string output_suffix_for_right)
 
 
-cdef extern from "arrow/acero/exec_plan.h" namespace "arrow::acero" nogil:
-    cdef cppclass CDeclaration "arrow::acero::Declaration":
+cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nogil:
+    cdef cppclass CDeclaration "arrow::compute::Declaration":
         cppclass Input:
             Input(CExecNode*)
             Input(CDeclaration)
@@ -116,7 +116,7 @@ cdef extern from "arrow/acero/exec_plan.h" namespace "arrow::acero" nogil:
 
         CResult[CExecNode*] AddToPlan(CExecPlan* plan) const
 
-    cdef cppclass CExecPlan "arrow::acero::ExecPlan":
+    cdef cppclass CExecPlan "arrow::compute::ExecPlan":
         @staticmethod
         CResult[shared_ptr[CExecPlan]] Make(CExecContext* exec_context)
 
@@ -129,11 +129,11 @@ cdef extern from "arrow/acero/exec_plan.h" namespace "arrow::acero" nogil:
         vector[CExecNode*] sinks() const
         vector[CExecNode*] sources() const
 
-    cdef cppclass CExecNode "arrow::acero::ExecNode":
+    cdef cppclass CExecNode "arrow::compute::ExecNode":
         const vector[CExecNode*]& inputs() const
         const shared_ptr[CSchema]& output_schema() const
 
-    cdef cppclass CExecBatch "arrow::acero::ExecBatch":
+    cdef cppclass CExecBatch "arrow::compute::ExecBatch":
         vector[CDatum] values
         int64_t length
 
