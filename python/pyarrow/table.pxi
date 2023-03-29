@@ -5613,4 +5613,4 @@ list[tuple(str, str, FunctionOptions)]
                 aggr_name = "_".join(target) + "_" + func_nohash
             group_by_aggrs.append((target, func, opt, aggr_name))
 
-        return _pc()._exec_plan._group_by(self._table, group_by_aggrs, self.keys)
+        return _pac()._group_by(self._table, group_by_aggrs, self.keys)
