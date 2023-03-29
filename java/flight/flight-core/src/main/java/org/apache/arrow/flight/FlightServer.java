@@ -47,6 +47,7 @@ import org.apache.arrow.util.VisibleForTesting;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
+import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
 import io.grpc.netty.NettyServerBuilder;
@@ -175,11 +176,13 @@ public class FlightServer implements AutoCloseable {
     private final List<KeyFactory<?>> interceptors;
     // Keep track of inserted interceptors
     private final Set<String> interceptorKeys;
+    private final List<BindableService> extraServices;
 
     Builder() {
       builderOptions = new HashMap<>();
       interceptors = new ArrayList<>();
       interceptorKeys = new HashSet<>();
+      extraServices = new ArrayList<>();
     }
 
     Builder(BufferAllocator allocator, Location location, FlightProducer producer) {
@@ -293,6 +296,8 @@ public class FlightServer implements AutoCloseable {
         return null;
       });
 
+      extraServices.forEach(builder::addService);
+
       builder.intercept(new ServerInterceptorAdapter(interceptors));
       return new FlightServer(location, builder.build(), grpcExecutor);
     }
@@ -393,6 +398,11 @@ public class FlightServer implements AutoCloseable {
 
     public Builder producer(FlightProducer producer) {
       this.producer = Preconditions.checkNotNull(producer);
+      return this;
+    }
+
+    public Builder addService(BindableService service) {
+      this.extraServices.add(service);
       return this;
     }
   }
