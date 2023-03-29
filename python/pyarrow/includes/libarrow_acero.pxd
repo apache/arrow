@@ -46,9 +46,6 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
         CJoinType_RIGHT_OUTER "arrow::compute::JoinType::RIGHT_OUTER"
         CJoinType_FULL_OUTER "arrow::compute::JoinType::FULL_OUTER"
 
-    cdef cppclass CAsyncExecBatchGenerator "arrow::compute::AsyncExecBatchGenerator":
-        pass
-
     cdef cppclass CExecNodeOptions "arrow::compute::ExecNodeOptions":
         pass
 
@@ -67,15 +64,10 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
 
     cdef cppclass CProjectNodeOptions "arrow::compute::ProjectNodeOptions"(CExecNodeOptions):
         CProjectNodeOptions(vector[CExpression] expressions)
-        CProjectNodeOptions(vector[CExpression] expressions,
-                            vector[c_string] names)
+        CProjectNodeOptions(vector[CExpression] expressions, vector[c_string] names)
 
     cdef cppclass CAggregateNodeOptions "arrow::compute::AggregateNodeOptions"(CExecNodeOptions):
         CAggregateNodeOptions(vector[CAggregate] aggregates, vector[CFieldRef] names)
-
-    cdef cppclass COrderBySinkNodeOptions "arrow::compute::OrderBySinkNodeOptions"(CExecNodeOptions):
-        COrderBySinkNodeOptions(vector[CSortOptions] options,
-                                CAsyncExecBatchGenerator generator)
 
     cdef cppclass COrderByNodeOptions "arrow::compute::OrderByNodeOptions"(CExecNodeOptions):
         COrderByNodeOptions(COrdering ordering)
@@ -114,37 +106,9 @@ cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nog
         @staticmethod
         CDeclaration Sequence(vector[CDeclaration] decls)
 
-        CResult[CExecNode*] AddToPlan(CExecPlan* plan) const
-
-    cdef cppclass CExecPlan "arrow::compute::ExecPlan":
-        @staticmethod
-        CResult[shared_ptr[CExecPlan]] Make(CExecContext* exec_context)
-
-        void StartProducing()
-        CStatus Validate()
-        CStatus StopProducing()
-
-        CFuture_Void finished()
-
-        vector[CExecNode*] sinks() const
-        vector[CExecNode*] sources() const
-
     cdef cppclass CExecNode "arrow::compute::ExecNode":
         const vector[CExecNode*]& inputs() const
         const shared_ptr[CSchema]& output_schema() const
-
-    cdef cppclass CExecBatch "arrow::compute::ExecBatch":
-        vector[CDatum] values
-        int64_t length
-
-    shared_ptr[CRecordBatchReader] MakeGeneratorReader(
-        shared_ptr[CSchema] schema,
-        CAsyncExecBatchGenerator gen,
-        CMemoryPool* memory_pool
-    )
-    CResult[CExecNode*] MakeExecNode(c_string factory_name, CExecPlan* plan,
-                                     vector[CExecNode*] inputs,
-                                     const CExecNodeOptions& options)
 
     CResult[shared_ptr[CTable]] DeclarationToTable(
         CDeclaration declaration, c_bool use_threads
