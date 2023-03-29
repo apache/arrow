@@ -312,33 +312,44 @@ Status ValidateRunEndType(int64_t input_length) {
   return Status::OK();
 }
 
-/// \brief Preallocate the ArrayData for the run-end encoded version
-/// of the input array
-template <typename RunEndType, bool has_validity_buffer>
-Result<std::shared_ptr<ArrayData>> PreallocateREEData(const ArraySpan& input_array,
-                                                      int64_t physical_length,
-                                                      int64_t physical_null_count,
-                                                      MemoryPool* pool) {
+Result<std::shared_ptr<ArrayData>> PreallocateRunEndsArray(
+    const std::shared_ptr<DataType>& run_end_type, int64_t physical_length,
+    MemoryPool* pool) {
   ARROW_ASSIGN_OR_RAISE(
       auto run_ends_buffer,
-      AllocateBuffer(physical_length * RunEndType().byte_width(), pool));
+      AllocateBuffer(physical_length * run_end_type->byte_width(), pool));
+  return ArrayData::Make(run_end_type, physical_length,
+                         {NULLPTR, std::move(run_ends_buffer)}, /*null_count=*/0);
+}
+
+Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
+    const std::shared_ptr<DataType>& value_type, bool has_validity_buffer, int64_t length,
+    int64_t null_count, MemoryPool* pool) {
+  std::vector<std::shared_ptr<Buffer>> values_data_buffers;
   std::shared_ptr<Buffer> validity_buffer = NULLPTR;
-  if constexpr (has_validity_buffer) {
-    ARROW_ASSIGN_OR_RAISE(validity_buffer, AllocateBitmap(physical_length, pool));
+  if (has_validity_buffer) {
+    ARROW_ASSIGN_OR_RAISE(validity_buffer, AllocateBitmap(length, pool));
   }
-  ARROW_ASSIGN_OR_RAISE(auto values_buffer,
-                        AllocateValuesBuffer(physical_length, *input_array.type, pool));
+  ARROW_ASSIGN_OR_RAISE(auto values_buffer, AllocateValuesBuffer(length, *value_type, pool));
+  values_data_buffers = {std::move(validity_buffer), std::move(values_buffer)};
+  return ArrayData::Make(value_type, length, std::move(values_data_buffers), null_count);
+}
 
-  auto ree_type = std::make_shared<RunEndEncodedType>(std::make_shared<RunEndType>(),
-                                                      input_array.type->GetSharedPtr());
-  auto run_ends_data =
-      ArrayData::Make(ree_type->run_end_type(), physical_length,
-                      {NULLPTR, std::move(run_ends_buffer)}, /*null_count=*/0);
-  auto values_data = ArrayData::Make(
-      ree_type->value_type(), physical_length,
-      {std::move(validity_buffer), std::move(values_buffer)}, physical_null_count);
+/// \brief Preallocate the ArrayData for the run-end encoded version
+/// of the flat input array
+ARROW_NOINLINE Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
+    std::shared_ptr<RunEndEncodedType> ree_type, bool has_validity_buffer,
+    int64_t logical_length, int64_t physical_length, int64_t physical_null_count,
+    MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto run_ends_data,
+      PreallocateRunEndsArray(ree_type->run_end_type(), physical_length, pool));
+  ARROW_ASSIGN_OR_RAISE(
+      auto values_data,
+      PreallocateValuesArray(ree_type->value_type(), has_validity_buffer, physical_length,
+                             physical_null_count, pool));
 
-  return ArrayData::Make(std::move(ree_type), input_array.length, {NULLPTR},
+  return ArrayData::Make(std::move(ree_type), logical_length, {NULLPTR},
                          {std::move(run_ends_data), std::move(values_data)},
                          /*null_count=*/0);
 }
@@ -359,10 +370,13 @@ class RunEndEncodeImpl {
   Status Exec() {
     const int64_t input_length = input_array_.length;
 
+    auto ree_type = std::make_shared<RunEndEncodedType>(
+        TypeTraits<RunEndType>::type_singleton(), input_array_.type->GetSharedPtr());
     if (input_length == 0) {
-      ARROW_ASSIGN_OR_RAISE(auto output_array_data,
-                            (PreallocateREEData<RunEndType, has_validity_buffer>(
-                                input_array_, 0, 0, ctx_->memory_pool())));
+      ARROW_ASSIGN_OR_RAISE(
+          auto output_array_data,
+          PreallocateREEArray(std::move(ree_type), has_validity_buffer, input_length, 0,
+                              0, ctx_->memory_pool()));
       output_->value = std::move(output_array_data);
       return Status::OK();
     }
@@ -378,14 +392,15 @@ class RunEndEncodeImpl {
         /*output_run_ends=*/NULLPTR);
     std::tie(num_valid_runs, num_output_runs) = counting_loop.CountNumberOfRuns();
 
-    ARROW_ASSIGN_OR_RAISE(auto output_array_data,
-                          (PreallocateREEData<RunEndType, has_validity_buffer>(
-                              input_array_, num_output_runs,
-                              num_output_runs - num_valid_runs, ctx_->memory_pool())));
+    ARROW_ASSIGN_OR_RAISE(
+        auto output_array_data,
+        PreallocateREEArray(std::move(ree_type), has_validity_buffer, input_length,
+                            num_output_runs, num_output_runs - num_valid_runs,
+                            ctx_->memory_pool()));
 
     // Initialize the output pointers
     auto* output_run_ends =
-        output_array_data->child_data[0]->template GetMutableValues<RunEndCType>(1);
+        output_array_data->child_data[0]->template GetMutableValues<RunEndCType>(1, 0);
     auto* output_values_array_data = output_array_data->child_data[1].get();
 
     // Second pass: write the runs
@@ -400,9 +415,9 @@ class RunEndEncodeImpl {
 };
 
 template <typename RunEndType>
-Result<std::shared_ptr<ArrayData>> PreallocateNullREEData(int64_t logical_length,
-                                                          int64_t physical_length,
-                                                          MemoryPool* pool) {
+Result<std::shared_ptr<ArrayData>> PreallocateNullREEArray(int64_t logical_length,
+                                                           int64_t physical_length,
+                                                           MemoryPool* pool) {
   ARROW_ASSIGN_OR_RAISE(
       auto run_ends_buffer,
       AllocateBuffer(TypeTraits<RunEndType>::bytes_required(physical_length), pool));
@@ -429,7 +444,7 @@ Status RunEndEncodeNullArray(KernelContext* ctx, const ArraySpan& input_array,
 
   if (input_length == 0) {
     ARROW_ASSIGN_OR_RAISE(auto output_array_data,
-                          PreallocateNullREEData<RunEndType>(0, 0, ctx->memory_pool()));
+                          PreallocateNullREEArray<RunEndType>(0, 0, ctx->memory_pool()));
     output->value = std::move(output_array_data);
     return Status::OK();
   }
@@ -437,12 +452,12 @@ Status RunEndEncodeNullArray(KernelContext* ctx, const ArraySpan& input_array,
   // Abort if run-end type cannot hold the input length
   RETURN_NOT_OK(ValidateRunEndType<RunEndType>(input_array.length));
 
-  ARROW_ASSIGN_OR_RAISE(auto output_array_data, PreallocateNullREEData<RunEndType>(
+  ARROW_ASSIGN_OR_RAISE(auto output_array_data, PreallocateNullREEArray<RunEndType>(
                                                     input_length, 1, ctx->memory_pool()));
 
   // Write the single run-end this REE has
   auto* output_run_ends =
-      output_array_data->child_data[0]->template GetMutableValues<RunEndCType>(1);
+      output_array_data->child_data[0]->template GetMutableValues<RunEndCType>(1, 0);
   output_run_ends[0] = static_cast<RunEndCType>(input_length);
 
   output->value = std::move(output_array_data);
@@ -568,9 +583,9 @@ class RunEndDecodeImpl {
     if constexpr (has_validity_buffer) {
       ARROW_ASSIGN_OR_RAISE(validity_buffer, AllocateBitmap(length, ctx_->memory_pool()));
     }
-    ARROW_ASSIGN_OR_RAISE(
-        auto values_buffer,
-        AllocateValuesBuffer(length, *ree_type->value_type(), ctx_->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer,
+                          AllocateValuesBuffer(length, *ree_type->value_type(),
+                                               ctx_->memory_pool()));
 
     auto output_array_data =
         ArrayData::Make(ree_type->value_type(), length,
