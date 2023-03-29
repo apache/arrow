@@ -63,10 +63,10 @@ public class TestAceroSubstraitConsumer extends TestDataset {
   public void testRunQueryLocalFiles() throws Exception {
     // Query: SELECT * from nation
     final Schema schema = new Schema(Arrays.asList(
-        Field.nullable("FieldPath(0)", new ArrowType.Int(64, true)),
-        Field.nullable("FieldPath(1)", new ArrowType.FixedSizeBinary(25)),
-        Field.nullable("FieldPath(2)", new ArrowType.Int(64, true)),
-        Field.nullable("FieldPath(3)", new ArrowType.Utf8())
+        Field.nullable("N_NATIONKEY", new ArrowType.Int(64, true)),
+        Field.nullable("N_NAME", new ArrowType.FixedSizeBinary(25)),
+        Field.nullable("N_REGIONKEY", new ArrowType.Int(64, true)),
+        Field.nullable("N_COMMENT", new ArrowType.Utf8())
     ));
     try (ArrowReader arrowReader = new AceroSubstraitConsumer(rootAllocator())
         .runQuery(
@@ -89,10 +89,10 @@ public class TestAceroSubstraitConsumer extends TestDataset {
   public void testRunQueryNamedTableNation() throws Exception {
     // Query: SELECT * from nation
     final Schema schema = new Schema(Arrays.asList(
-        Field.nullable("FieldPath(0)", new ArrowType.Int(32, true)),
-        Field.nullable("FieldPath(1)", new ArrowType.Utf8()),
-        Field.nullable("FieldPath(2)", new ArrowType.Int(32, true)),
-        Field.nullable("FieldPath(3)", new ArrowType.Utf8())
+        Field.nullable("N_NATIONKEY", new ArrowType.Int(64, true)),
+        Field.nullable("N_NAME", new ArrowType.FixedSizeBinary(25)),
+        Field.nullable("N_REGIONKEY", new ArrowType.Int(64, true)),
+        Field.nullable("N_COMMENT", new ArrowType.Utf8())
     ));
     ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
     try (
