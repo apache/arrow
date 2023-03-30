@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.arrow.c.ArrowArrayStream;
 import org.apache.arrow.c.Data;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.ipc.ArrowReader;
 
 /**
@@ -51,11 +52,7 @@ public final class AceroSubstraitConsumer {
    * @return the ArrowReader to iterate for record batches.
    */
   public ArrowReader runQuery(String plan, Map<String, ArrowReader> namedTables) {
-    if (namedTables.isEmpty()) {
-      return getArrowReader(plan);
-    } else {
-      return getArrowReader(plan, namedTables);
-    }
+    return execute(plan, namedTables);
   }
 
   /**
@@ -71,33 +68,15 @@ public final class AceroSubstraitConsumer {
    * @return the ArrowReader to iterate for record batches.
    */
   public ArrowReader runQuery(ByteBuffer plan, Map<String, ArrowReader> namedTables) {
-    if (namedTables.isEmpty()) {
-      return getArrowReader(plan);
-    } else {
-      return getArrowReader(plan, namedTables);
-    }
+    return execute(plan, namedTables);
   }
 
-  private ArrowReader getArrowReader(String plan) {
-    try (ArrowArrayStream arrowArrayStream = ArrowArrayStream.allocateNew(this.allocator)) {
-      JniWrapper.get().executeSerializedPlanLocalFiles(plan, arrowArrayStream.memoryAddress());
-      return Data.importArrayStream(this.allocator, arrowArrayStream);
-    }
-  }
-
-  private ArrowReader getArrowReader(ByteBuffer plan) {
-    try (ArrowArrayStream arrowArrayStream = ArrowArrayStream.allocateNew(this.allocator)) {
-      JniWrapper.get().executeSerializedPlanLocalFiles(plan, arrowArrayStream.memoryAddress());
-      return Data.importArrayStream(this.allocator, arrowArrayStream);
-    }
-  }
-
-  private ArrowReader getArrowReader(String plan, Map<String, ArrowReader> namedTables) {
-    List<ArrowArrayStream> listStreamInput = new ArrayList<>();
+  private ArrowReader execute(String plan, Map<String, ArrowReader> namedTables) {
+    List<ArrowArrayStream> arrowArrayStream = new ArrayList<>();
     try (
         ArrowArrayStream streamOutput = ArrowArrayStream.allocateNew(this.allocator)
     ) {
-      String[] mapTableToMemoryAddress = getMapTableToMemoryAddress(namedTables, listStreamInput);
+      String[] mapTableToMemoryAddress = getMapTableToMemoryAddress(namedTables, arrowArrayStream);
       JniWrapper.get().executeSerializedPlanNamedTables(
           plan,
           mapTableToMemoryAddress,
@@ -105,18 +84,18 @@ public final class AceroSubstraitConsumer {
       );
       return Data.importArrayStream(this.allocator, streamOutput);
     } finally {
-      for (ArrowArrayStream stream : listStreamInput) {
+      for (ArrowArrayStream stream : arrowArrayStream) {
         stream.close();
       }
     }
   }
 
-  private ArrowReader getArrowReader(ByteBuffer plan, Map<String, ArrowReader> namedTables) {
-    List<ArrowArrayStream> listStreamInput = new ArrayList<>();
+  private ArrowReader execute(ByteBuffer plan, Map<String, ArrowReader> namedTables) {
+    List<ArrowArrayStream> arrowArrayStream = new ArrayList<>();
     try (
         ArrowArrayStream streamOutput = ArrowArrayStream.allocateNew(this.allocator)
     ) {
-      String[] mapTableToMemoryAddress = getMapTableToMemoryAddress(namedTables, listStreamInput);
+      String[] mapTableToMemoryAddress = getMapTableToMemoryAddress(namedTables, arrowArrayStream);
       JniWrapper.get().executeSerializedPlanNamedTables(
           plan,
           mapTableToMemoryAddress,
@@ -124,8 +103,12 @@ public final class AceroSubstraitConsumer {
       );
       return Data.importArrayStream(this.allocator, streamOutput);
     } finally {
-      for (ArrowArrayStream stream : listStreamInput) {
-        stream.close();
+      try {
+        AutoCloseables.close(arrowArrayStream);
+      } catch (RuntimeException e) {
+        throw e;
+      } catch (Exception e) {
+        throw new RuntimeException(e);
       }
     }
   }

@@ -18,13 +18,15 @@
 package org.apache.arrow.dataset.substrait;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
-import java.util.Arrays;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.arrow.dataset.ParquetWriteSupport;
 import org.apache.arrow.dataset.TestDataset;
 import org.apache.arrow.dataset.file.FileFormat;
 import org.apache.arrow.dataset.file.FileSystemDatasetFactory;
@@ -35,14 +37,18 @@ import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
-import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.types.Types;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 public class TestAceroSubstraitConsumer extends TestDataset {
+
+  @ClassRule
+  public static final TemporaryFolder TMP = new TemporaryFolder();
+  public static final String AVRO_SCHEMA_USER = "user.avsc";
   private RootAllocator allocator = null;
 
   @Before
@@ -61,58 +67,112 @@ public class TestAceroSubstraitConsumer extends TestDataset {
 
   @Test
   public void testRunQueryLocalFiles() throws Exception {
-    // Query: SELECT * from nation
-    final Schema schema = new Schema(Arrays.asList(
-        Field.nullable("N_NATIONKEY", new ArrowType.Int(64, true)),
-        Field.nullable("N_NAME", new ArrowType.FixedSizeBinary(25)),
-        Field.nullable("N_REGIONKEY", new ArrowType.Int(64, true)),
-        Field.nullable("N_COMMENT", new ArrowType.Utf8())
-    ));
+    //Query:
+    //SELECT id, name FROM Users
+    //Isthmus:
+    //./isthmus-macOS-0.7.0  -c "CREATE TABLE USERS ( id INT NOT NULL, name VARCHAR(150));" "SELECT id, name FROM Users"
+    ParquetWriteSupport writeSupport = ParquetWriteSupport
+        .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
+    System.out.println(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
+        .getResource("substrait/local_files_users.json").toURI()));
     try (ArrowReader arrowReader = new AceroSubstraitConsumer(rootAllocator())
         .runQuery(
             planReplaceLocalFileURI(
-                localTableJsonPlan,
-                TestAceroSubstraitConsumer.class.getClassLoader()
-                    .getResource("substrait/nation.parquet").toURI().toString()
+                new String(Files.readAllBytes(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
+                    .getResource("substrait/local_files_users.json").toURI()))),
+                writeSupport.getOutputURI()
             ),
             Collections.EMPTY_MAP
         )
     ) {
-      assertEquals(schema.toString(), arrowReader.getVectorSchemaRoot().getSchema().toString());
       while (arrowReader.loadNextBatch()) {
-        assertEquals(arrowReader.getVectorSchemaRoot().getRowCount(), 25);
+        assertEquals(3, arrowReader.getVectorSchemaRoot().getRowCount());
+        assertEquals(2, arrowReader.getVectorSchemaRoot().getSchema().getFields().size());
+        assertEquals("ID", arrowReader.getVectorSchemaRoot().getSchema().getFields().get(0).getName());
+        assertEquals("NAME", arrowReader.getVectorSchemaRoot().getSchema().getFields().get(1).getName());
+        assertEquals(Types.MinorType.INT.getType(),
+            arrowReader.getVectorSchemaRoot().getSchema().getFields().get(0).getType());
+        assertEquals(Types.MinorType.VARCHAR.getType(),
+            arrowReader.getVectorSchemaRoot().getSchema().getFields().get(1).getType());
       }
     }
   }
 
   @Test
   public void testRunQueryNamedTableNation() throws Exception {
-    // Query: SELECT * from nation
-    final Schema schema = new Schema(Arrays.asList(
-        Field.nullable("N_NATIONKEY", new ArrowType.Int(64, true)),
-        Field.nullable("N_NAME", new ArrowType.FixedSizeBinary(25)),
-        Field.nullable("N_REGIONKEY", new ArrowType.Int(64, true)),
-        Field.nullable("N_COMMENT", new ArrowType.Utf8())
-    ));
+    //Query:
+    //SELECT id, name FROM Users
+    //Isthmus:
+    //./isthmus-macOS-0.7.0  -c "CREATE TABLE USERS ( id INT NOT NULL, name VARCHAR(150));" "SELECT id, name FROM Users"
+    ParquetWriteSupport writeSupport = ParquetWriteSupport
+        .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
     ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
-            FileFormat.PARQUET, TestAceroSubstraitConsumer.class.getClassLoader()
-            .getResource("substrait/nation.parquet").toURI().toString());
+            FileFormat.PARQUET, writeSupport.getOutputURI());
         Dataset dataset = datasetFactory.finish();
         Scanner scanner = dataset.newScan(options);
         ArrowReader reader = scanner.scanBatches()
     ) {
       Map<String, ArrowReader> mapTableToArrowReader = new HashMap<>();
-      mapTableToArrowReader.put("NATION", reader);
+      mapTableToArrowReader.put("USERS", reader);
       try (ArrowReader arrowReader = new AceroSubstraitConsumer(rootAllocator()).runQuery(
-          namedTableJsonPlan,
+          new String(Files.readAllBytes(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
+              .getResource("substrait/named_table_users.json").toURI()))),
           mapTableToArrowReader
       )) {
-        assertEquals(schema.toString(), arrowReader.getVectorSchemaRoot().getSchema().toString());
         while (arrowReader.loadNextBatch()) {
-          assertEquals(arrowReader.getVectorSchemaRoot().getRowCount(), 25);
-          assertTrue(arrowReader.getVectorSchemaRoot().contentToTSVString().contains("MOROCCO"));
+          assertEquals(3, arrowReader.getVectorSchemaRoot().getRowCount());
+          assertEquals(2, arrowReader.getVectorSchemaRoot().getSchema().getFields().size());
+          assertEquals("ID", arrowReader.getVectorSchemaRoot().getSchema().getFields().get(0).getName());
+          assertEquals("NAME", arrowReader.getVectorSchemaRoot().getSchema().getFields().get(1).getName());
+          assertEquals(Types.MinorType.INT.getType(),
+              arrowReader.getVectorSchemaRoot().getSchema().getFields().get(0).getType());
+          assertEquals(Types.MinorType.VARCHAR.getType(),
+              arrowReader.getVectorSchemaRoot().getSchema().getFields().get(1).getType());
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testRunBinaryQueryNamedTableNation() throws Exception {
+    //Query:
+    //SELECT id, name FROM Users
+    //Isthmus:
+    //./isthmus-macOS-0.7.0  -c "CREATE TABLE USERS ( id INT NOT NULL, name VARCHAR(150));" "SELECT id, name FROM Users"
+    ParquetWriteSupport writeSupport = ParquetWriteSupport
+        .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
+    ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
+    try (
+        DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.PARQUET, writeSupport.getOutputURI());
+        Dataset dataset = datasetFactory.finish();
+        Scanner scanner = dataset.newScan(options);
+        ArrowReader reader = scanner.scanBatches()
+    ) {
+      // map table to reader
+      Map<String, ArrowReader> mapTableToArrowReader = new HashMap<>();
+      mapTableToArrowReader.put("USERS", reader);
+      // get binary plan
+      byte[] plan = Files.readAllBytes(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
+          .getResource("substrait/named_table_users.binary").toURI()));
+      ByteBuffer substraitPlan = ByteBuffer.allocateDirect(plan.length);
+      substraitPlan.put(plan);
+      // run query
+      try (ArrowReader arrowReader = new AceroSubstraitConsumer(rootAllocator()).runQuery(
+          substraitPlan,
+          mapTableToArrowReader
+      )) {
+        while (arrowReader.loadNextBatch()) {
+          assertEquals(3, arrowReader.getVectorSchemaRoot().getRowCount());
+          assertEquals(2, arrowReader.getVectorSchemaRoot().getSchema().getFields().size());
+          assertEquals("ID", arrowReader.getVectorSchemaRoot().getSchema().getFields().get(0).getName());
+          assertEquals("NAME", arrowReader.getVectorSchemaRoot().getSchema().getFields().get(1).getName());
+          assertEquals(Types.MinorType.INT.getType(),
+              arrowReader.getVectorSchemaRoot().getSchema().getFields().get(0).getType());
+          assertEquals(Types.MinorType.VARCHAR.getType(),
+              arrowReader.getVectorSchemaRoot().getSchema().getFields().get(1).getType());
         }
       }
     }
@@ -124,217 +184,4 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         builder.indexOf("FILENAME_PLACEHOLDER") + "FILENAME_PLACEHOLDER".length(), uri);
     return builder.toString();
   }
-
-  final String localTableJsonPlan = "" +
-      "{\n" +
-      "  \"extensionUris\": [],\n" +
-      "  \"extensions\": [],\n" +
-      "  \"relations\": [{\n" +
-      "    \"root\": {\n" +
-      "      \"input\": {\n" +
-      "        \"project\": {\n" +
-      "          \"common\": {\n" +
-      "            \"emit\": {\n" +
-      "              \"outputMapping\": [4, 5, 6, 7]\n" +
-      "            }\n" +
-      "          },\n" +
-      "          \"input\": {\n" +
-      "            \"read\": {\n" +
-      "              \"common\": {\n" +
-      "                \"direct\": {\n" +
-      "                }\n" +
-      "              },\n" +
-      "              \"baseSchema\": {\n" +
-      "                \"names\": [\"N_NATIONKEY\", \"N_NAME\", \"N_REGIONKEY\", \"N_COMMENT\"],\n" +
-      "                \"struct\": {\n" +
-      "                  \"types\": [{\n" +
-      "                    \"i64\": {\n" +
-      "                      \"typeVariationReference\": 0,\n" +
-      "                      \"nullability\": \"NULLABILITY_REQUIRED\"\n" +
-      "                    }\n" +
-      "                  }, {\n" +
-      "                    \"fixedChar\": {\n" +
-      "                      \"length\": 25,\n" +
-      "                      \"typeVariationReference\": 0,\n" +
-      "                      \"nullability\": \"NULLABILITY_NULLABLE\"\n" +
-      "                    }\n" +
-      "                  }, {\n" +
-      "                    \"i64\": {\n" +
-      "                      \"typeVariationReference\": 0,\n" +
-      "                      \"nullability\": \"NULLABILITY_REQUIRED\"\n" +
-      "                    }\n" +
-      "                  }, {\n" +
-      "                    \"varchar\": {\n" +
-      "                      \"length\": 152,\n" +
-      "                      \"typeVariationReference\": 0,\n" +
-      "                      \"nullability\": \"NULLABILITY_NULLABLE\"\n" +
-      "                    }\n" +
-      "                  }],\n" +
-      "                  \"typeVariationReference\": 0,\n" +
-      "                  \"nullability\": \"NULLABILITY_REQUIRED\"\n" +
-      "                }\n" +
-      "              },\n" +
-      "              \"local_files\": {\n" +
-      "                \"items\": [\n" +
-      "                  {\n" +
-      "                    \"uri_file\": \"FILENAME_PLACEHOLDER\",\n" +
-      "                    \"parquet\": {}\n" +
-      "                  }\n" +
-      "                ]\n" +
-      "              }\n" +
-      "            }\n" +
-      "          },\n" +
-      "          \"expressions\": [{\n" +
-      "            \"selection\": {\n" +
-      "              \"directReference\": {\n" +
-      "                \"structField\": {\n" +
-      "                  \"field\": 0\n" +
-      "                }\n" +
-      "              },\n" +
-      "              \"rootReference\": {\n" +
-      "              }\n" +
-      "            }\n" +
-      "          }, {\n" +
-      "            \"selection\": {\n" +
-      "              \"directReference\": {\n" +
-      "                \"structField\": {\n" +
-      "                  \"field\": 1\n" +
-      "                }\n" +
-      "              },\n" +
-      "              \"rootReference\": {\n" +
-      "              }\n" +
-      "            }\n" +
-      "          }, {\n" +
-      "            \"selection\": {\n" +
-      "              \"directReference\": {\n" +
-      "                \"structField\": {\n" +
-      "                  \"field\": 2\n" +
-      "                }\n" +
-      "              },\n" +
-      "              \"rootReference\": {\n" +
-      "              }\n" +
-      "            }\n" +
-      "          }, {\n" +
-      "            \"selection\": {\n" +
-      "              \"directReference\": {\n" +
-      "                \"structField\": {\n" +
-      "                  \"field\": 3\n" +
-      "                }\n" +
-      "              },\n" +
-      "              \"rootReference\": {\n" +
-      "              }\n" +
-      "            }\n" +
-      "          }]\n" +
-      "        }\n" +
-      "      },\n" +
-      "      \"names\": [\"N_NATIONKEY\", \"N_NAME\", \"N_REGIONKEY\", \"N_COMMENT\"]\n" +
-      "    }\n" +
-      "  }],\n" +
-      "  \"expectedTypeUrls\": []\n" +
-      "}" +
-      "";
-  
-  final String namedTableJsonPlan = "" +
-      "{\n" +
-      "  \"extensionUris\": [],\n" +
-      "  \"extensions\": [],\n" +
-      "  \"relations\": [{\n" +
-      "    \"root\": {\n" +
-      "      \"input\": {\n" +
-      "        \"project\": {\n" +
-      "          \"common\": {\n" +
-      "            \"emit\": {\n" +
-      "              \"outputMapping\": [4, 5, 6, 7]\n" +
-      "            }\n" +
-      "          },\n" +
-      "          \"input\": {\n" +
-      "            \"read\": {\n" +
-      "              \"common\": {\n" +
-      "                \"direct\": {\n" +
-      "                }\n" +
-      "              },\n" +
-      "              \"baseSchema\": {\n" +
-      "                \"names\": [\"N_NATIONKEY\", \"N_NAME\", \"N_REGIONKEY\", \"N_COMMENT\"],\n" +
-      "                \"struct\": {\n" +
-      "                  \"types\": [{\n" +
-      "                    \"i64\": {\n" +
-      "                      \"typeVariationReference\": 0,\n" +
-      "                      \"nullability\": \"NULLABILITY_REQUIRED\"\n" +
-      "                    }\n" +
-      "                  }, {\n" +
-      "                    \"fixedChar\": {\n" +
-      "                      \"length\": 25,\n" +
-      "                      \"typeVariationReference\": 0,\n" +
-      "                      \"nullability\": \"NULLABILITY_NULLABLE\"\n" +
-      "                    }\n" +
-      "                  }, {\n" +
-      "                    \"i64\": {\n" +
-      "                      \"typeVariationReference\": 0,\n" +
-      "                      \"nullability\": \"NULLABILITY_REQUIRED\"\n" +
-      "                    }\n" +
-      "                  }, {\n" +
-      "                    \"varchar\": {\n" +
-      "                      \"length\": 152,\n" +
-      "                      \"typeVariationReference\": 0,\n" +
-      "                      \"nullability\": \"NULLABILITY_NULLABLE\"\n" +
-      "                    }\n" +
-      "                  }],\n" +
-      "                  \"typeVariationReference\": 0,\n" +
-      "                  \"nullability\": \"NULLABILITY_REQUIRED\"\n" +
-      "                }\n" +
-      "              },\n" +
-      "              \"namedTable\": {\n" +
-      "                \"names\": [\"NATION\"]\n" +
-      "              }\n" +
-      "            }\n" +
-      "          },\n" +
-      "          \"expressions\": [{\n" +
-      "            \"selection\": {\n" +
-      "              \"directReference\": {\n" +
-      "                \"structField\": {\n" +
-      "                  \"field\": 0\n" +
-      "                }\n" +
-      "              },\n" +
-      "              \"rootReference\": {\n" +
-      "              }\n" +
-      "            }\n" +
-      "          }, {\n" +
-      "            \"selection\": {\n" +
-      "              \"directReference\": {\n" +
-      "                \"structField\": {\n" +
-      "                  \"field\": 1\n" +
-      "                }\n" +
-      "              },\n" +
-      "              \"rootReference\": {\n" +
-      "              }\n" +
-      "            }\n" +
-      "          }, {\n" +
-      "            \"selection\": {\n" +
-      "              \"directReference\": {\n" +
-      "                \"structField\": {\n" +
-      "                  \"field\": 2\n" +
-      "                }\n" +
-      "              },\n" +
-      "              \"rootReference\": {\n" +
-      "              }\n" +
-      "            }\n" +
-      "          }, {\n" +
-      "            \"selection\": {\n" +
-      "              \"directReference\": {\n" +
-      "                \"structField\": {\n" +
-      "                  \"field\": 3\n" +
-      "                }\n" +
-      "              },\n" +
-      "              \"rootReference\": {\n" +
-      "              }\n" +
-      "            }\n" +
-      "          }]\n" +
-      "        }\n" +
-      "      },\n" +
-      "      \"names\": [\"N_NATIONKEY\", \"N_NAME\", \"N_REGIONKEY\", \"N_COMMENT\"]\n" +
-      "    }\n" +
-      "  }],\n" +
-      "  \"expectedTypeUrls\": []\n" +
-      "}" +
-      "";
 }
