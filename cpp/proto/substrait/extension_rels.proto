@@ -58,3 +58,14 @@ message NamedTapRel {
   // If empty, field names will be automatically generated.
   repeated string columns = 3;
 }
+
+message SegmentedAggregateRel {
+  // Grouping keys of the aggregation
+  repeated substrait.Expression.FieldReference grouping_keys = 1;
+
+  // Segment keys of the aggregation
+  repeated substrait.Expression.FieldReference segment_keys = 2;
+
+  // A list of one or more aggregate expressions along with an optional filter.
+  repeated substrait.AggregateRel.Measure measures = 3;
+}
