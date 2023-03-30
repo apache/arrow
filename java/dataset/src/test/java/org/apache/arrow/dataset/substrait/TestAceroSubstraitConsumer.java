@@ -19,6 +19,7 @@ package org.apache.arrow.dataset.substrait;
 
 import static org.junit.Assert.assertEquals;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -73,13 +74,10 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     //./isthmus-macOS-0.7.0  -c "CREATE TABLE USERS ( id INT NOT NULL, name VARCHAR(150));" "SELECT id, name FROM Users"
     ParquetWriteSupport writeSupport = ParquetWriteSupport
         .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
-    System.out.println(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
-        .getResource("substrait/local_files_users.json").toURI()));
     try (ArrowReader arrowReader = new AceroSubstraitConsumer(rootAllocator())
         .runQuery(
             planReplaceLocalFileURI(
-                new String(Files.readAllBytes(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
-                    .getResource("substrait/local_files_users.json").toURI()))),
+                getSubstraitPlan("local_files_users.json"),
                 writeSupport.getOutputURI()
             ),
             Collections.EMPTY_MAP
@@ -117,8 +115,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       Map<String, ArrowReader> mapTableToArrowReader = new HashMap<>();
       mapTableToArrowReader.put("USERS", reader);
       try (ArrowReader arrowReader = new AceroSubstraitConsumer(rootAllocator()).runQuery(
-          new String(Files.readAllBytes(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
-              .getResource("substrait/named_table_users.json").toURI()))),
+          getSubstraitPlan("named_table_users.json"),
           mapTableToArrowReader
       )) {
         while (arrowReader.loadNextBatch()) {
@@ -155,8 +152,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       Map<String, ArrowReader> mapTableToArrowReader = new HashMap<>();
       mapTableToArrowReader.put("USERS", reader);
       // get binary plan
-      byte[] plan = Files.readAllBytes(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
-          .getResource("substrait/named_table_users.binary").toURI()));
+      byte[] plan = getBinarySubstraitPlan("named_table_users.binary");
       ByteBuffer substraitPlan = ByteBuffer.allocateDirect(plan.length);
       substraitPlan.put(plan);
       // run query
@@ -183,5 +179,31 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     builder.replace(builder.indexOf("FILENAME_PLACEHOLDER"),
         builder.indexOf("FILENAME_PLACEHOLDER") + "FILENAME_PLACEHOLDER".length(), uri);
     return builder.toString();
+  }
+
+  protected String getSubstraitPlan(String name) throws IOException {
+    return new String(
+        Files.readAllBytes(
+            Paths.get(
+                Paths.get(
+                        Paths.get("").toAbsolutePath().toString(),
+                        "src", "test", "resources", "substrait", name
+                    )
+                    .toFile()
+                    .getAbsolutePath()
+            )
+        )
+    );
+  }
+
+  protected byte[] getBinarySubstraitPlan(String name) throws IOException {
+    return Files.readAllBytes(
+        Paths.get(
+            Paths.get(
+                Paths.get("").toAbsolutePath().toString(), "src", "test", "resources", "substrait", name)
+                .toFile()
+                .getAbsolutePath()
+        )
+    );
   }
 }
