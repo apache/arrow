@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifdef ARROW_JSON
+#ifdef ARROW_WITH_JSON
 #include "arrow/extension/fixed_shape_tensor.h"
 
 #include "arrow/testing/matchers.h"
@@ -144,9 +144,7 @@ TEST_F(TestExtensionType, CreateFromArray) {
   auto arr_data = std::make_shared<ArrayData>(value_type_, values_.size(), buffers, 0, 0);
   auto arr = std::make_shared<Int64Array>(arr_data);
   ASSERT_OK_AND_ASSIGN(auto fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type_));
-  auto data = fsla_arr->data();
-  data->type = ext_type_;
-  auto ext_arr = exact_ext_type->MakeArray(data);
+  auto ext_arr = ExtensionType::WrapArray(ext_type_, fsla_arr);
   ASSERT_EQ(ext_arr->length(), shape_[0]);
   ASSERT_EQ(ext_arr->null_count(), 0);
 }
@@ -198,29 +196,24 @@ TEST_F(TestExtensionType, RoudtripBatch) {
   auto arr_data = std::make_shared<ArrayData>(value_type_, values_.size(), buffers, 0, 0);
   auto arr = std::make_shared<Int64Array>(arr_data);
   ASSERT_OK_AND_ASSIGN(auto fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type_));
-  auto data = fsla_arr->data();
-  data->type = ext_type_;
-  auto ext_arr = exact_ext_type->MakeArray(data);
+  auto ext_arr = ExtensionType::WrapArray(ext_type_, fsla_arr);
 
   // Pass extension array, expect getting back extension array
   std::shared_ptr<RecordBatch> read_batch;
-  auto ext_field =
-      field(/*name=*/"f0", /*type=*/exact_ext_type, /*nullable=*/true, /*metadata=*/{});
-  auto batch = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {ext_arr});
+  auto ext_field = field(/*name=*/"f0", /*type=*/cell_type_);
+  auto batch = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {fsla_arr});
   RoundtripBatch(batch, &read_batch);
   CompareBatch(*batch, *read_batch, /*compare_metadata=*/true);
 
   // Pass extension metadata and storage array, expect getting back extension array
-  ASSERT_OK_AND_ASSIGN(fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type_));
-  std::shared_ptr<RecordBatch> read_batch2;
   auto ext_metadata =
-      key_value_metadata({{"ARROW:extension:name", exact_ext_type->extension_name()},
-                          {"ARROW:extension:metadata", serialized_}});
+      key_value_metadata({{"ARROW:extension:name", "ARROW:extension:metadata"},
+                          {exact_ext_type->extension_name(), serialized_}});
   ext_field = field(/*name=*/"f0", /*type=*/cell_type_, /*nullable=*/true,
                     /*metadata=*/ext_metadata);
-  auto batch2 = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {fsla_arr});
-  RoundtripBatch(batch2, &read_batch2);
-  CompareBatch(*batch, *read_batch2, /*compare_metadata=*/false);
+  batch = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {fsla_arr});
+  RoundtripBatch(batch, &read_batch);
+  CompareBatch(*batch, *read_batch, /*compare_metadata=*/true);
 }
 
 }  // namespace arrow
