@@ -91,13 +91,15 @@ func TestRecord(t *testing.T) {
 	if got, want := rec.ColumnName(0), schema.Field(0).Name; got != want {
 		t.Fatalf("invalid column name: got=%q, want=%q", got, want)
 	}
-	if err := rec.SetColumn(0, col2_1); err == nil {
+	if _, err := rec.SetColumn(0, col2_1); err == nil {
 		t.Fatalf("expected an error")
 	}
-	if err := rec.SetColumn(1, col2_1); err != nil {
+	newRec, err := rec.SetColumn(1, col2_1);
+	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !reflect.DeepEqual(rec.Column(1), col2_1) {
+	defer newRec.Release()
+	if !reflect.DeepEqual(newRec.Column(1), col2_1) {
 		t.Fatalf("invalid column: got=%q, want=%q", rec.Column(1), col2_1)
 	}
 
