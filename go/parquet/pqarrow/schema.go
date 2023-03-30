@@ -1066,6 +1066,26 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 				final[k] = inferred.Field.Metadata.Values()[idx]
 			}
 			inferred.Field.Metadata = arrow.MetadataFrom(final)
+
+			if extName, ok := final[ipc.ExtensionTypeKeyName]; ok {
+				if extMeta, ok := final[ipc.ExtensionMetadataKeyName]; ok {
+					ext := arrow.GetExtensionType(extName)
+					if ext != nil {
+						dd, err2 := ext.Deserialize(inferred.Field.Type, extMeta)
+						if err2 != nil {
+							err = err2
+							return
+						}
+						inferred.Field.Type = dd
+					} else {
+						// We'll be here if the extension isn't registered.
+						// Optional? maybe skip this error and leave the type as is?
+						err = fmt.Errorf("extension type %q not registered", extName)
+						return
+					}
+				}
+			}
+
 		} else {
 			inferred.Field.Metadata = meta
 		}

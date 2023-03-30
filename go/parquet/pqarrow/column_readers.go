@@ -459,8 +459,13 @@ func chunksToSingle(chunked *arrow.Chunked) (arrow.ArrayData, error) {
 
 // create a chunked arrow array from the raw record data
 func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *schema.Column, mem memory.Allocator) (*arrow.Chunked, error) {
+	valueID := valueType.ID()
+	if valueID == arrow.EXTENSION {
+		valueID = valueType.(arrow.ExtensionType).StorageType().ID()
+	}
+
 	var data arrow.ArrayData
-	switch valueType.ID() {
+	switch valueID {
 	case arrow.DICTIONARY:
 		return transferDictionary(rdr, valueType), nil
 	case arrow.NULL:
@@ -543,6 +548,15 @@ func transferBinary(rdr file.RecordReader, dt arrow.DataType) *arrow.Chunked {
 		// just changing the interpretation of the metadata
 		for idx := range chunks {
 			chunks[idx] = array.MakeFromData(chunks[idx].Data())
+			defer chunks[idx].Data().Release()
+			defer chunks[idx].Release()
+		}
+	} else if dt.ID() == arrow.EXTENSION && len(chunks) > 0 && arrow.StorageTypeEqual(chunks[0].DataType(), dt) && !arrow.TypeEqual(chunks[0].DataType(), dt) {
+		// convert chunks from the underlying storage type to extension type without copying data
+		etype := dt.(arrow.ExtensionType)
+
+		for idx := range chunks {
+			chunks[idx] = array.NewExtensionArrayWithStorage(etype, chunks[idx])
 			defer chunks[idx].Data().Release()
 			defer chunks[idx].Release()
 		}

@@ -214,8 +214,8 @@ func (UUIDType) Deserialize(storageType arrow.DataType, data string) (arrow.Exte
 	if string(data) != "uuid-serialized" {
 		return nil, fmt.Errorf("type identifier did not match: '%s'", string(data))
 	}
-	if !arrow.TypeEqual(storageType, &arrow.FixedSizeBinaryType{ByteWidth: 16}) {
-		return nil, fmt.Errorf("invalid storage type for UuidType: %s", storageType.Name())
+	if !arrow.StorageTypeEqual(storageType, &arrow.FixedSizeBinaryType{ByteWidth: 16}) {
+		return nil, fmt.Errorf("invalid storage type for UUIDType: %s", storageType.Name())
 	}
 	return NewUUIDType(), nil
 }
