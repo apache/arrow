@@ -22,12 +22,20 @@
 jobs:
   package:
     name: Package
+    {% if architecture == "amd64" %}
     runs-on: ubuntu-22.04
+    {% else %}
+    runs-on: ["self-hosted", "Linux", "arm64"]
+    {% endif %}
+    env:
+      ARCHITECTURE: {{ architecture }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
 
       - name: Free up disk space
+        if: |
+          env.ARCHITECTURE == 'amd64'
         run: |
           df -h
           # 5.3GB
@@ -36,9 +44,30 @@ jobs:
           sudo rm -rf /opt/hostedtoolcache/go || :
           df -h
       - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.1'
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            rake \
+            ruby \
+            ruby-dev
+      - name: Prepare apache-arrow-apt-source for arm64
+        if: |
+          env.ARCHITECTURE == 'arm64'
+        run: |
+          pushd arrow/dev/tasks/linux-packages/apache-arrow-apt-source/apt
+          for target in *-*; do
+            cp -a ${target} ${target}-arm64
+          done
+          popd
+      - name: Prepare apache-arrow-release for arm64
+        if: |
+          env.ARCHITECTURE == 'arm64'
+        run: |
+          pushd arrow/dev/tasks/linux-packages/apache-arrow-release/yum
+          for target in *-*; do
+            cp -a ${target} ${target}-aarch64
+          done
+          popd
       - name: Build
         run: |
           set -e
@@ -65,15 +94,15 @@ jobs:
           YUM_TARGETS: {{ target }}
       - name: Set up test
         run: |
-          set -e
-          sudo apt update
           sudo apt install -y \
             apt-utils \
+            cpio \
             createrepo-c \
             devscripts \
             gpg \
-            rpm
-          gem install apt-dists-merge
+            rpm \
+            rsync
+          gem install --user-install apt-dists-merge
           (echo "Key-Type: RSA"; \
            echo "Key-Length: 4096"; \
            echo "Name-Real: Test"; \
