@@ -31,6 +31,7 @@ type Table interface {
 	NumRows() int64
 	NumCols() int64
 	Column(i int) *Column
+	SetColumn(i int, col Column) error
 
 	Retain()
 	Release()
