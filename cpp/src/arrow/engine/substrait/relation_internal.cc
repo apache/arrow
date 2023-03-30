@@ -819,7 +819,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
               std::move(aggregates), std::move(agg_src_fieldsets), std::move(keys),
               std::move(key_field_ids), {}, {}, ext_set, conversion_options));
 
-      return ProcessEmit(aggregate, aggregate_declaration, aggregate_declaration.output_schema);
+      return ProcessEmit(aggregate, aggregate_declaration,
+                         aggregate_declaration.output_schema);
     }
 
     case substrait::Rel::RelTypeCase::kExtensionLeaf:
