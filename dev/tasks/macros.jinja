@@ -86,7 +86,9 @@ on:
       ref: {{ job.branch }}
   - name: Setup Crossbow
     shell: bash
-    run: python3 -m pip install --verbose -e arrow/dev/archery[crossbow]
+    run: |
+      python3 -m pip install -e arrow/dev/archery[crossbow]
+      echo "$HOME/.local/bin" >> $GITHUB_PATH
   - name: Upload artifacts
     shell: bash
     run: |
