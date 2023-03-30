@@ -65,10 +65,20 @@ on:
 {% endmacro %}
 
 {%- macro github_upload_releases(pattern) -%}
-  - name: Set up Python
+  - name: Set up Python by actions/setup-python
+    if: runner.arch == 'X64'
     uses: actions/setup-python@v4
     with:
       python-version: 3.8
+  - name: Set up Python by apt
+    if: runner.os == 'Linux' && runner.arch != 'X64'
+    run: |
+      sudo apt update
+      sudo apt install -y \
+        libgit2-dev \
+        libpython3-dev \
+        python3-pip
+      sudo python3 -m pip install --upgrade pip
   - name: Checkout Crossbow
     uses: actions/checkout@v3
     with:
@@ -76,7 +86,9 @@ on:
       ref: {{ job.branch }}
   - name: Setup Crossbow
     shell: bash
-    run: pip install -e arrow/dev/archery[crossbow]
+    run: |
+      python3 -m pip install -e arrow/dev/archery[crossbow]
+      echo "$HOME/.local/bin" >> $GITHUB_PATH
   - name: Upload artifacts
     shell: bash
     run: |

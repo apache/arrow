@@ -542,14 +542,10 @@ tasks:
                   "ubuntu-kinetic"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
-    {% if architecture == "amd64" %}
     ci: github
-    template: linux-packages/github.linux.amd64.yml
-    {% else %}
-    ci: travis
-    template: linux-packages/travis.linux.arm64.yml
-    {% endif %}
+    template: linux-packages/github.linux.yml
     params:
+      architecture: "{{ architecture }}"
     {% if architecture == "amd64" %}
       target: "{{ target }}"
     {% else %}
@@ -575,10 +571,8 @@ tasks:
     {% endif %}
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-arrow-dataset-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-    {% if architecture == "amd64" %}
       - gir1.2-arrow-flight-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-arrow-flight-sql-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-    {% endif %}
       - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -589,7 +583,6 @@ tasks:
       - libarrow-dataset1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset1200_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
-    {% if architecture == "amd64" %}
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
@@ -604,7 +597,6 @@ tasks:
       - libarrow-flight-sql1200_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight1200_{no_rc_version}-1_[a-z0-9]+.deb
-    {% endif %}
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
@@ -649,14 +641,10 @@ tasks:
        in ["amd64", "arm64"]
        if not (target == "centos-7" and architecture == "arm64") %}
   {{ target }}-{{ architecture }}:
-    {% if architecture == "amd64" %}
     ci: github
-    template: linux-packages/github.linux.amd64.yml
-    {% else %}
-    ci: travis
-    template: linux-packages/travis.linux.arm64.yml
-    {% endif %}
+    template: linux-packages/github.linux.yml
     params:
+      architecture: "{{ architecture }}"
     {% if architecture == "amd64" %}
       target: "{{ target }}"
     {% else %}
@@ -686,7 +674,7 @@ tasks:
       - arrow-debugsource-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
       - arrow-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based and architecture == "amd64" %}
+    {% if not is_rhel7_based %}
       - arrow-flight-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -719,7 +707,7 @@ tasks:
     {% if not is_rhel7_based %}
       - arrow-tools-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
-    {% if not is_rhel7_based and architecture == "amd64" %}
+    {% if not is_rhel7_based %}
       - gandiva-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - gandiva-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - gandiva-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
