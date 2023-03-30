@@ -214,8 +214,8 @@ TEST_F(TestExtensionType, CreateFromTensor) {
                                             arr_with_null, fixed_size_list(int64(), 2)));
 }
 
-void CheckTensorRoundtrip(const std::shared_ptr<Tensor>& tensor,
-                          std::shared_ptr<DataType> expected_ext_type) {
+void CheckFromTensorType(const std::shared_ptr<Tensor>& tensor,
+                         std::shared_ptr<DataType> expected_ext_type) {
   auto ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(expected_ext_type);
   ASSERT_OK_AND_ASSIGN(auto ext_arr, FixedShapeTensorArray::FromTensor(tensor));
   auto generated_ext_type =
@@ -228,9 +228,30 @@ void CheckTensorRoundtrip(const std::shared_ptr<Tensor>& tensor,
   ASSERT_EQ(generated_ext_type->permutation(), ext_type->permutation());
   ASSERT_TRUE(generated_ext_type->storage_type()->Equals(*ext_type->storage_type()));
   ASSERT_TRUE(generated_ext_type->Equals(ext_type));
+}
 
-  // Check Tensor roundtrip
+TEST_F(TestExtensionType, TestFromTensorType) {
+  auto values = Buffer::Wrap(values_);
+  auto shapes =
+      std::vector<std::vector<int64_t>>{{3, 3, 4}, {3, 3, 4}, {3, 4, 3}, {3, 4, 3}};
+  auto strides = std::vector<std::vector<int64_t>>{
+      {96, 32, 8}, {96, 8, 24}, {96, 24, 8}, {96, 8, 32}};
+  auto cell_shapes = std::vector<std::vector<int64_t>>{{3, 4}, {3, 4}, {4, 3}, {4, 3}};
+  auto permutations = std::vector<std::vector<int64_t>>{{0, 1}, {1, 0}, {0, 1}, {1, 0}};
+
+  for (size_t i = 0; i < shapes.size(); i++) {
+    ASSERT_OK_AND_ASSIGN(auto tensor,
+                         Tensor::Make(value_type_, values, shapes[i], strides[i]));
+    ASSERT_OK_AND_ASSIGN(auto ext_arr, FixedShapeTensorArray::FromTensor(tensor));
+    auto ext_type = fixed_shape_tensor(value_type_, cell_shapes[i], permutations[i]);
+    CheckFromTensorType(tensor, ext_type);
+  }
+}
+
+void CheckTensorRoundtrip(const std::shared_ptr<Tensor>& tensor) {
+  ASSERT_OK_AND_ASSIGN(auto ext_arr, FixedShapeTensorArray::FromTensor(tensor));
   ASSERT_OK_AND_ASSIGN(auto tensor_from_array, ext_arr->ToTensor());
+
   ASSERT_EQ(tensor->type(), tensor_from_array->type());
   ASSERT_EQ(tensor->shape(), tensor_from_array->shape());
   for (size_t i = 1; i < tensor->dim_names().size(); i++) {
@@ -243,38 +264,18 @@ void CheckTensorRoundtrip(const std::shared_ptr<Tensor>& tensor,
 
 TEST_F(TestExtensionType, RoundtripTensor) {
   auto values = Buffer::Wrap(values_);
-  ASSERT_OK_AND_ASSIGN(auto tensor1, Tensor::Make(value_type_, values, {3, 3, 4},
-                                                  {96, 32, 8}, {"", "y", "z"}));
-  ASSERT_OK_AND_ASSIGN(auto tensor2,
-                       Tensor::Make(value_type_, values, {3, 3, 4}, {96, 8, 24}));
-  ASSERT_OK_AND_ASSIGN(auto tensor3,
-                       Tensor::Make(value_type_, values, {3, 4, 3}, {96, 24, 8}));
-  ASSERT_OK_AND_ASSIGN(auto tensor4,
-                       Tensor::Make(value_type_, values, {3, 4, 3}, {96, 8, 32}));
-  ASSERT_OK_AND_ASSIGN(auto tensor5,
-                       Tensor::Make(value_type_, values, {6, 2, 3}, {48, 24, 8}));
-  ASSERT_OK_AND_ASSIGN(auto tensor6,
-                       Tensor::Make(value_type_, values, {6, 2, 3}, {48, 8, 16}));
-  ASSERT_OK_AND_ASSIGN(auto tensor7,
-                       Tensor::Make(value_type_, values, {2, 3, 6}, {144, 48, 8}));
-  ASSERT_OK_AND_ASSIGN(auto tensor8,
-                       Tensor::Make(value_type_, values, {2, 3, 6}, {144, 8, 24}));
-  ASSERT_OK_AND_ASSIGN(auto tensor9,
-                       Tensor::Make(value_type_, values, {2, 3, 2, 3}, {144, 48, 24, 8}));
-  ASSERT_OK_AND_ASSIGN(auto tensor10,
-                       Tensor::Make(value_type_, values, {2, 3, 2, 3}, {144, 8, 24, 48}));
 
-  CheckTensorRoundtrip(tensor1,
-                       fixed_shape_tensor(value_type_, {3, 4}, {0, 1}, {"y", "z"}));
-  CheckTensorRoundtrip(tensor2, fixed_shape_tensor(value_type_, {3, 4}, {1, 0}, {}));
-  CheckTensorRoundtrip(tensor3, fixed_shape_tensor(value_type_, {4, 3}, {0, 1}));
-  CheckTensorRoundtrip(tensor4, fixed_shape_tensor(value_type_, {4, 3}, {1, 0}));
-  CheckTensorRoundtrip(tensor5, fixed_shape_tensor(value_type_, {2, 3}, {0, 1}));
-  CheckTensorRoundtrip(tensor6, fixed_shape_tensor(value_type_, {2, 3}, {1, 0}));
-  CheckTensorRoundtrip(tensor7, fixed_shape_tensor(value_type_, {3, 6}, {0, 1}));
-  CheckTensorRoundtrip(tensor8, fixed_shape_tensor(value_type_, {3, 6}, {1, 0}));
-  CheckTensorRoundtrip(tensor9, fixed_shape_tensor(value_type_, {3, 2, 3}, {0, 1, 2}));
-  CheckTensorRoundtrip(tensor10, fixed_shape_tensor(value_type_, {3, 2, 3}, {2, 1, 0}));
+  auto shapes = std::vector<std::vector<int64_t>>{
+      {3, 3, 4}, {3, 3, 4}, {3, 4, 3}, {3, 4, 3},    {6, 2, 3},
+      {6, 2, 3}, {2, 3, 6}, {2, 3, 6}, {2, 3, 2, 3}, {2, 3, 2, 3}};
+  auto strides = std::vector<std::vector<int64_t>>{
+      {96, 32, 8}, {96, 8, 24},  {96, 24, 8},  {96, 8, 32},      {48, 24, 8},
+      {48, 8, 16}, {144, 48, 8}, {144, 8, 24}, {144, 48, 24, 8}, {144, 8, 24, 48}};
+  for (size_t i = 0; i < shapes.size(); i++) {
+    ASSERT_OK_AND_ASSIGN(auto tensor,
+                         Tensor::Make(value_type_, values, shapes[i], strides[i]));
+    CheckTensorRoundtrip(tensor);
+  }
 }
 
 TEST_F(TestExtensionType, SliceTensor) {
@@ -403,17 +404,17 @@ TEST_F(TestExtensionType, ComputeStrides) {
 
   auto ext_type_5 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int64(), {3, 4, 7}, {1, 0, 2}));
-  ASSERT_EQ(ext_type_5->strides(), (std::vector<int64_t>{168, 56, 8}));
+  ASSERT_EQ(ext_type_5->strides(), (std::vector<int64_t>{56, 224, 8}));
   ASSERT_EQ(ext_type_5->Serialize(), R"({"shape":[3,4,7],"permutation":[1,0,2]})");
 
   auto ext_type_6 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int64(), {3, 4, 7}, {1, 2, 0}, {}));
-  ASSERT_EQ(ext_type_6->strides(), (std::vector<int64_t>{168, 24, 8}));
+  ASSERT_EQ(ext_type_6->strides(), (std::vector<int64_t>{32, 8, 96}));
   ASSERT_EQ(ext_type_6->Serialize(), R"({"shape":[3,4,7],"permutation":[1,2,0]})");
 
   auto ext_type_7 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int32(), {3, 4, 7}, {2, 0, 1}, {}));
-  ASSERT_EQ(ext_type_7->strides(), (std::vector<int64_t>{48, 16, 4}));
+  ASSERT_EQ(ext_type_7->strides(), (std::vector<int64_t>{4, 84, 28}));
   ASSERT_EQ(ext_type_7->Serialize(), R"({"shape":[3,4,7],"permutation":[2,0,1]})");
 }
 

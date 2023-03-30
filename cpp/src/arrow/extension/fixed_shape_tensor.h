@@ -66,7 +66,7 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
   size_t ndim() { return shape_.size(); }
 
   /// Shape of tensor elements
-  const std::vector<int64_t>& shape() const { return shape_; }
+  const std::vector<int64_t> shape() const;
 
   /// Strides of tensor elements. Strides state offset in bytes between adjacent
   /// elements along each dimension. In case permutation is non-empty strides are
@@ -96,10 +96,13 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
       const std::vector<int64_t>& permutation = {},
       const std::vector<std::string>& dim_names = {});
 
- private:
   /// \brief Compute strides of FixedShapeTensorType
-  static Result<std::vector<int64_t>> ComputeStrides(const FixedShapeTensorType& type);
+  static Status ComputeStrides(const FixedWidthType& type,
+                               const std::vector<int64_t>& shape,
+                               const std::vector<int64_t>& permutation,
+                               std::vector<int64_t>* strides);
 
+ private:
   std::shared_ptr<DataType> storage_type_;
   std::shared_ptr<DataType> value_type_;
   std::vector<int64_t> shape_;

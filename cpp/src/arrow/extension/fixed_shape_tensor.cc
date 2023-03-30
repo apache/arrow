@@ -145,15 +145,14 @@ Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor
     dim_names.emplace_back(tensor->dim_names()[i]);
   }
 
-  auto permutation = internal::ArgSort(tensor->strides());
-  std::reverse(permutation.begin(), permutation.end());
+  auto permutation = internal::ArgSort(tensor->strides(), std::greater<>());
   if (permutation[0] != 0) {
     return Status::Invalid(
         "Only first-major tensors can be zero-copy converted to arrays");
   }
   permutation.erase(permutation.begin());
-  for (auto& x : permutation) {
-    x--;
+  for (size_t i = 0; i < permutation.size(); ++i) {
+    --permutation[i];
   }
 
   auto ext_type = internal::checked_pointer_cast<ExtensionType>(
@@ -217,11 +216,49 @@ Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor
   return std::reinterpret_pointer_cast<FixedShapeTensorArray>(ext_arr);
 }
 
+Status FixedShapeTensorType::ComputeStrides(const FixedWidthType& type,
+                                            const std::vector<int64_t>& shape,
+                                            const std::vector<int64_t>& permutation,
+                                            std::vector<int64_t>* strides) {
+  if (permutation.empty()) {
+    return internal::ComputeRowMajorStrides(type, shape, strides);
+  }
+
+  const int byte_width = type.byte_width();
+
+  int64_t remaining = 0;
+  if (!shape.empty() && shape.front() > 0) {
+    remaining = byte_width;
+    for (auto i : permutation) {
+      if (i > 0) {
+        if (internal::MultiplyWithOverflow(remaining, shape[i], &remaining)) {
+          return Status::Invalid(
+              "Strides computed from shape would not fit in 64-bit integer");
+        }
+      }
+    }
+  }
+
+  if (remaining == 0) {
+    strides->assign(shape.size(), byte_width);
+    return Status::OK();
+  }
+
+  strides->push_back(remaining);
+  for (auto i : permutation) {
+    if (i > 0) {
+      remaining /= shape[i];
+      strides->push_back(remaining);
+    }
+  }
+  internal::Permute(permutation, strides);
+
+  return Status::OK();
+}
+
 const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   // To convert an array of n dimensional tensors to a n+1 dimensional tensor we
-  // interpret the array's length as the first dimension the new tensor. Further, we
-  // define n+1 dimensional tensor's strides by front appending a new stride to the n
-  // dimensional tensor's strides.
+  // interpret the array's length as the first dimension the new tensor.
 
   auto ext_arr = internal::checked_pointer_cast<FixedSizeListArray>(this->storage());
   auto ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(this->type());
@@ -231,16 +268,15 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   std::vector<int64_t> shape = ext_type->shape();
   shape.insert(shape.begin(), 1, this->length());
 
-  int64_t major_stride;
-  std::vector<int64_t> tensor_strides = ext_type->strides();
-  if (internal::MultiplyWithOverflow(ext_arr->value_type()->byte_width(),
-                                     ext_arr->list_type()->list_size(), &major_stride)) {
-    return Status::Invalid("Overflow in tensor strides");
+  std::vector<int64_t> tensor_strides;
+  auto value_type = internal::checked_pointer_cast<FixedWidthType>(ext_arr->value_type());
+  auto permutation = ext_type->permutation();
+  for (size_t i = 0; i < permutation.size(); ++i) {
+    ++permutation[i];
   }
-  if (!ext_type->permutation().empty()) {
-    internal::Permute(ext_type->permutation(), &tensor_strides);
-  }
-  tensor_strides.insert(tensor_strides.begin(), 1, major_stride);
+  permutation.insert(permutation.begin(), 1, 0);
+  ARROW_RETURN_NOT_OK(FixedShapeTensorType::ComputeStrides(*value_type.get(), shape,
+                                                           permutation, &tensor_strides));
 
   std::vector<std::string> dim_names;
   if (!ext_type->dim_names().empty()) {
@@ -274,28 +310,23 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
                                                 shape, permutation, dim_names);
 }
 
-Result<std::vector<int64_t>> FixedShapeTensorType::ComputeStrides(
-    const FixedShapeTensorType& type) {
-  std::vector<int64_t> strides;
-  auto element_type =
-      internal::checked_pointer_cast<FixedSizeListType>(type.storage_type());
-  auto value_type =
-      internal::checked_pointer_cast<FixedWidthType>(element_type->value_type());
-
-  auto shape = type.shape();
-  if (!type.permutation().empty()) {
-    internal::Permute(type.permutation(), &shape);
+const std::vector<int64_t> FixedShapeTensorType::shape() const {
+  std::vector<int64_t> shape = shape_;
+  if (!permutation_.empty()) {
+    std::vector<int64_t> reverse_permutation = permutation_;
+    internal::Permute(permutation_, &reverse_permutation);
+    internal::Permute(reverse_permutation, &shape);
   }
-  ARROW_RETURN_NOT_OK(
-      internal::ComputeRowMajorStrides(*value_type.get(), shape, &strides));
-  return strides;
+  return shape;
 }
 
 const std::vector<int64_t>& FixedShapeTensorType::strides() {
   if (strides_.empty()) {
-    auto maybe_strides = ComputeStrides(*this);
-    ARROW_CHECK_OK(maybe_strides.status());
-    strides_ = maybe_strides.MoveValueUnsafe();
+    auto value_type = internal::checked_pointer_cast<FixedWidthType>(this->value_type_);
+    std::vector<int64_t> tensor_strides;
+    ARROW_CHECK_OK(ComputeStrides(*value_type.get(), this->shape(), this->permutation(),
+                                  &tensor_strides));
+    strides_ = tensor_strides;
   }
   return strides_;
 }
