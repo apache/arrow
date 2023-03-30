@@ -138,6 +138,8 @@ static constexpr int64_t DEFAULT_MAX_STATISTICS_SIZE = 4096;
 static constexpr Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
+static constexpr std::optional<int64_t> DEFAULT_BLOOM_FILTER_NDV = std::nullopt;  // N/A
+static constexpr bool DEFAULT_BLOOM_FILTER_ENABLED = false;
 
 class PARQUET_EXPORT ColumnProperties {
  public:
@@ -145,7 +147,9 @@ class PARQUET_EXPORT ColumnProperties {
                    Compression::type codec = DEFAULT_COMPRESSION_TYPE,
                    bool dictionary_enabled = DEFAULT_IS_DICTIONARY_ENABLED,
                    bool statistics_enabled = DEFAULT_ARE_STATISTICS_ENABLED,
-                   size_t max_stats_size = DEFAULT_MAX_STATISTICS_SIZE)
+                   size_t max_stats_size = DEFAULT_MAX_STATISTICS_SIZE,
+                   bool bloom_filter_enabled = DEFAULT_BLOOM_FILTER_ENABLED,
+                   std::optional<int64_t> bloom_filter_ndv = DEFAULT_BLOOM_FILTER_NDV)
       : encoding_(encoding),
         codec_(codec),
         dictionary_enabled_(dictionary_enabled),
@@ -185,6 +189,22 @@ class PARQUET_EXPORT ColumnProperties {
 
   int compression_level() const { return compression_level_; }
 
+  void set_bloom_filter_enabled(bool bloom_filter_enabled) {
+    bloom_filter_enabled_ = bloom_filter_enabled;
+  }
+
+  bool bloom_filter_enabled() const {
+    return bloom_filter_enabled_;
+  }
+
+  void set_bloom_filter_ndv(std::optional<int64_t> bloom_filter_ndv) {
+    bloom_filter_ndv_ = bloom_filter_ndv;
+  }
+
+  std::optional<int64_t> bloom_filter_ndv() const {
+    return bloom_filter_ndv_;
+  }
+
  private:
   Encoding::type encoding_;
   Compression::type codec_;
@@ -192,6 +212,8 @@ class PARQUET_EXPORT ColumnProperties {
   bool statistics_enabled_;
   size_t max_stats_size_;
   int compression_level_;
+  bool bloom_filter_enabled_;
+  std::optional<int64_t> bloom_filter_ndv_;
 };
 
 class PARQUET_EXPORT WriterProperties {
