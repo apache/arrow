@@ -327,3 +327,13 @@ test_that("Error is created when feather reads a parquet file", {
 test_that("The read_ipc_file function is an alias of read_feather", {
   expect_identical(read_ipc_file, read_feather)
 })
+
+test_that("Error if trying to write data.frame with NULL names", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  df <- data.frame(a = 1)
+  names(df) <- NULL
+
+  expect_error(write_feather(df, tf), regexp = "Input data frame columns must be named")
+})

@@ -724,3 +724,13 @@ test_that("skip_rows and skip_rows_after_names option", {
     tibble::tibble(`1` = 3:4)
   )
 })
+
+test_that("Error if trying to write data.frame with NULL names", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  df <- data.frame(a = 1)
+  names(df) <- NULL
+
+  expect_error(write_csv_arrow(df, tf), regexp = "Input data frame columns must be named")
+})

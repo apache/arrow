@@ -171,7 +171,6 @@ recycle_scalars <- function(arrays) {
   is_scalar <- arr_lens == 1
 
   if (length(arrays) > 1 && any(is_scalar) && !all(is_scalar)) {
-
     # Recycling not supported for tibbles and data.frames
     if (all(map_lgl(arrays, ~ inherits(.x, "data.frame")))) {
       abort(c(
@@ -249,4 +248,16 @@ augment_io_error_msg <- function(e, call, schema = NULL, format = NULL) {
 
   handle_augmented_field_misuse(msg, call)
   abort(msg, call = call)
+}
+
+check_named_cols <- function(df) {
+  if (inherits(df, "data.frame") && is.null(names(df))) {
+    abort(
+      c(
+        "Input data frame columns must be named",
+        i = "Column names are NULL"
+      ),
+      call = caller_env(n = 3)
+    )
+  }
 }
