@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/validate.h"
 #include "arrow/builder.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/testing/gtest_util.h"
@@ -141,6 +142,7 @@ class TestRunEndEncodeDecode : public ::testing::TestWithParam<
     ASSERT_OK(builder->AppendNulls(offset));
     ASSERT_OK(builder->AppendArraySlice(ArraySpan(*child), 0, child->length));
     array->child_data[1] = builder->Finish().ValueOrDie()->Slice(offset)->data();
+    ASSERT_OK(arrow::internal::ValidateArrayFull(*array));
   }
 
   std::shared_ptr<ChunkedArray> AsChunkedArray(const Datum& datum) {
@@ -343,7 +345,27 @@ INSTANTIATE_TEST_SUITE_P(
             REETestData::JSON(
                 fixed_size_binary(3),
                 R"(["abc", "abc", "abc", "def", "def", "def", "ghi", "ghi"])",
-                R"(["abc", "def", "ghi"])", "[3, 6, 8]")),
+                R"(["abc", "def", "ghi"])", "[3, 6, 8]"),
+            REETestData::JSON(
+                fixed_size_binary(3),
+                R"([null, "abc", "abc", "abc", "def", "def", "def", "ghi", "ghi", null, null])",
+                R"([null, "abc", "def", "ghi", null])", "[1, 4, 7, 9, 11]"),
+            // String and binary types
+            REETestData::JSON(
+                utf8(), R"(["abc", "abc", "", "", "de", "de", "de", "ghijkl", "ghijkl"])",
+                R"(["abc", "", "de", "ghijkl"])", "[2, 4, 7, 9]"),
+            REETestData::JSON(
+                binary(),
+                R"(["abc", "abc", "", "", "de", "de", "de", "ghijkl", "ghijkl"])",
+                R"(["abc", "", "de", "ghijkl"])", "[2, 4, 7, 9]"),
+            REETestData::JSON(
+                utf8(),
+                R"(["abc", "abc", "", "", "de", "de", "de", null, null, "ghijkl", "ghijkl"])",
+                R"(["abc", "", "de", null, "ghijkl"])", "[2, 4, 7, 9, 11]"),
+            REETestData::JSON(
+                binary(),
+                R"(["abc", "abc", null, "", "", "de", "de", "de", null, null, null, "ghijkl", "ghijkl"])",
+                R"(["abc", null, "", "de", null, "ghijkl"])", "[2, 3, 5, 8, 11, 13]")),
         ::testing::Values(int16(), int32(), int64())));
 
 }  // namespace compute

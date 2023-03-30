@@ -194,13 +194,113 @@ class ReadWriteValueImpl<ArrowType, has_validity_buffer,
   }
 };
 
+// Binary, String...
+template <typename ArrowType, bool has_validity_buffer>
+class ReadWriteValueImpl<ArrowType, has_validity_buffer,
+                         enable_if_base_binary<ArrowType>> {
+ public:
+  using ValueRepr = std::string_view;
+  using offset_type = typename ArrowType::offset_type;
+
+ private:
+  const uint8_t* input_validity_;
+  const offset_type* input_offsets_;
+  const uint8_t* input_values_;
+
+  // Needed only by the writing functions
+  uint8_t* output_validity_;
+  offset_type* output_offsets_;
+  uint8_t* output_values_;
+
+ public:
+  ReadWriteValueImpl(const ArraySpan& input_values_array,
+                     ArrayData* output_values_array_data)
+      : input_validity_(has_validity_buffer ? input_values_array.buffers[0].data
+                                            : NULLPTR),
+        input_offsets_(input_values_array.template GetValues<offset_type>(1, 0)),
+        input_values_(input_values_array.buffers[2].data),
+        output_validity_((has_validity_buffer && output_values_array_data)
+                             ? output_values_array_data->buffers[0]->mutable_data()
+                             : NULLPTR),
+        output_offsets_(
+            output_values_array_data
+                ? output_values_array_data->template GetMutableValues<offset_type>(1, 0)
+                : NULLPTR),
+        output_values_(output_values_array_data
+                           ? output_values_array_data->buffers[2]->mutable_data()
+                           : NULLPTR) {}
+
+  [[nodiscard]] bool ReadValue(ValueRepr* out, int64_t read_offset) const {
+    bool valid = true;
+    if constexpr (has_validity_buffer) {
+      valid = bit_util::GetBit(input_validity_, read_offset);
+    }
+    if (valid) {
+      const offset_type offset0 = input_offsets_[read_offset];
+      const offset_type offset1 = input_offsets_[read_offset + 1];
+      *out = std::string_view(reinterpret_cast<const char*>(input_values_ + offset0),
+                              offset1 - offset0);
+    }
+    return valid;
+  }
+
+  /// \brief Ensure padding is zeroed in validity bitmap.
+  void ZeroValidityPadding(int64_t length) const {
+    DCHECK(output_values_);
+    if constexpr (has_validity_buffer) {
+      DCHECK(output_validity_);
+      const int64_t validity_buffer_size = bit_util::BytesForBits(length);
+      output_validity_[validity_buffer_size - 1] = 0;
+    }
+  }
+
+  void WriteValue(int64_t write_offset, bool valid, ValueRepr value) const {
+    if constexpr (has_validity_buffer) {
+      bit_util::SetBitTo(output_validity_, write_offset, valid);
+    }
+    const offset_type offset0 = output_offsets_[write_offset];
+    const offset_type offset1 =
+        offset0 + (valid ? static_cast<offset_type>(value.size()) : 0);
+    output_offsets_[write_offset + 1] = offset1;
+    if (valid) {
+      memcpy(output_values_ + offset0, value.data(), value.size());
+    }
+  }
+
+  void WriteRun(int64_t write_offset, int64_t run_length, bool valid,
+                ValueRepr value) const {
+    if constexpr (has_validity_buffer) {
+      bit_util::SetBitsTo(output_validity_, write_offset, run_length, valid);
+    }
+    if (valid) {
+      int64_t i = write_offset;
+      offset_type offset = output_offsets_[i];
+      while (i < write_offset + run_length) {
+        memcpy(output_values_ + offset, value.data(), value.size());
+        offset += static_cast<offset_type>(value.size());
+        i += 1;
+        output_offsets_[i] = offset;
+      }
+    } else {
+      offset_type offset = output_offsets_[write_offset];
+      offset_type* begin = output_offsets_ + write_offset + 1;
+      std::fill(begin, begin + run_length, offset);
+    }
+  }
+
+  bool Compare(ValueRepr lhs, ValueRepr rhs) const { return lhs == rhs; }
+};
+
 Result<std::shared_ptr<Buffer>> AllocateValuesBuffer(int64_t length, const DataType& type,
-                                                     MemoryPool* pool) {
-  DCHECK(is_fixed_width(type.id()));
+                                                     MemoryPool* pool,
+                                                     int64_t data_buffer_size) {
   if (type.bit_width() == 1) {
     return AllocateBitmap(length, pool);
-  } else {
+  } else if (is_fixed_width(type.id())) {
     return AllocateBuffer(length * type.byte_width(), pool);
+  } else {
+    DCHECK(is_base_binary_like(type.id()));
+    return AllocateBuffer(data_buffer_size, pool);
   }
 }
 
@@ -242,14 +342,19 @@ class RunEndEncodingLoop {
 
   /// \brief Give a pass over the input data and count the number of runs
   ///
-  /// \return a pair with the number of non-null run values and total number of runs
-  ARROW_NOINLINE std::pair<int64_t, int64_t> CountNumberOfRuns() const {
+  /// \return a tuple with the number of non-null run values, the total number of runs,
+  /// and the data buffer size for string and binary types
+  ARROW_NOINLINE std::tuple<int64_t, int64_t, int64_t> CountNumberOfRuns() const {
     int64_t read_offset = input_offset_;
     ValueRepr current_run;
     bool current_run_valid = read_write_value_.ReadValue(&current_run, read_offset);
     read_offset += 1;
     int64_t num_valid_runs = current_run_valid ? 1 : 0;
     int64_t num_output_runs = 1;
+    int64_t data_buffer_size = 0;
+    if constexpr (is_base_binary_like(ValueType::type_id)) {
+      data_buffer_size = current_run_valid ? current_run.size() : 0;
+    }
     for (; read_offset < input_offset_ + input_length_; read_offset += 1) {
       ValueRepr value;
       const bool valid = read_write_value_.ReadValue(&value, read_offset);
@@ -263,9 +368,12 @@ class RunEndEncodingLoop {
         // Count the new run
         num_output_runs += 1;
         num_valid_runs += valid ? 1 : 0;
+        if constexpr (is_base_binary_like(ValueType::type_id)) {
+          data_buffer_size += valid ? current_run.size() : 0;
+        }
       }
     }
-    return std::make_pair(num_valid_runs, num_output_runs);
+    return std::make_tuple(num_valid_runs, num_output_runs, data_buffer_size);
   }
 
   ARROW_NOINLINE int64_t WriteEncodedRuns() {
@@ -322,32 +430,46 @@ Result<std::shared_ptr<ArrayData>> PreallocateRunEndsArray(
                          {NULLPTR, std::move(run_ends_buffer)}, /*null_count=*/0);
 }
 
-Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
+ARROW_NOINLINE Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
     const std::shared_ptr<DataType>& value_type, bool has_validity_buffer, int64_t length,
-    int64_t null_count, MemoryPool* pool) {
+    int64_t null_count, MemoryPool* pool, int64_t data_buffer_size) {
   std::vector<std::shared_ptr<Buffer>> values_data_buffers;
   std::shared_ptr<Buffer> validity_buffer = NULLPTR;
   if (has_validity_buffer) {
     ARROW_ASSIGN_OR_RAISE(validity_buffer, AllocateBitmap(length, pool));
   }
-  ARROW_ASSIGN_OR_RAISE(auto values_buffer, AllocateValuesBuffer(length, *value_type, pool));
-  values_data_buffers = {std::move(validity_buffer), std::move(values_buffer)};
+  ARROW_ASSIGN_OR_RAISE(auto values_buffer, AllocateValuesBuffer(length, *value_type,
+                                                                 pool, data_buffer_size));
+  if (is_base_binary_like(value_type->id())) {
+    const int offset_byte_width = offset_bit_width(value_type->id()) / 8;
+    ARROW_ASSIGN_OR_RAISE(auto offsets_buffer,
+                          AllocateBuffer((length + 1) * offset_byte_width, pool));
+    // Ensure the first offset is zero
+    memset(offsets_buffer->mutable_data(), 0, offset_byte_width);
+    offsets_buffer->ZeroPadding();
+    values_data_buffers = {std::move(validity_buffer), std::move(offsets_buffer),
+                           std::move(values_buffer)};
+  } else {
+    values_data_buffers = {std::move(validity_buffer), std::move(values_buffer)};
+  }
   return ArrayData::Make(value_type, length, std::move(values_data_buffers), null_count);
 }
 
 /// \brief Preallocate the ArrayData for the run-end encoded version
 /// of the flat input array
+///
+/// \param data_buffer_size the size of the data buffer for string and binary types
 ARROW_NOINLINE Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
     std::shared_ptr<RunEndEncodedType> ree_type, bool has_validity_buffer,
     int64_t logical_length, int64_t physical_length, int64_t physical_null_count,
-    MemoryPool* pool) {
+    MemoryPool* pool, int64_t data_buffer_size) {
   ARROW_ASSIGN_OR_RAISE(
       auto run_ends_data,
       PreallocateRunEndsArray(ree_type->run_end_type(), physical_length, pool));
   ARROW_ASSIGN_OR_RAISE(
       auto values_data,
       PreallocateValuesArray(ree_type->value_type(), has_validity_buffer, physical_length,
-                             physical_null_count, pool));
+                             physical_null_count, pool, data_buffer_size));
 
   return ArrayData::Make(std::move(ree_type), logical_length, {NULLPTR},
                          {std::move(run_ends_data), std::move(values_data)},
@@ -376,7 +498,7 @@ class RunEndEncodeImpl {
       ARROW_ASSIGN_OR_RAISE(
           auto output_array_data,
           PreallocateREEArray(std::move(ree_type), has_validity_buffer, input_length, 0,
-                              0, ctx_->memory_pool()));
+                              0, ctx_->memory_pool(), 0));
       output_->value = std::move(output_array_data);
       return Status::OK();
     }
@@ -384,19 +506,21 @@ class RunEndEncodeImpl {
     // First pass: count the number of runs
     int64_t num_valid_runs = 0;
     int64_t num_output_runs = 0;
+    int64_t data_buffer_size = 0;  // for string and binary types
     RETURN_NOT_OK(ValidateRunEndType<RunEndType>(input_length));
 
     RunEndEncodingLoop<RunEndType, ValueType, has_validity_buffer> counting_loop(
         input_array_,
         /*output_values_array_data=*/NULLPTR,
         /*output_run_ends=*/NULLPTR);
-    std::tie(num_valid_runs, num_output_runs) = counting_loop.CountNumberOfRuns();
+    std::tie(num_valid_runs, num_output_runs, data_buffer_size) =
+        counting_loop.CountNumberOfRuns();
 
     ARROW_ASSIGN_OR_RAISE(
         auto output_array_data,
         PreallocateREEArray(std::move(ree_type), has_validity_buffer, input_length,
                             num_output_runs, num_output_runs - num_valid_runs,
-                            ctx_->memory_pool()));
+                            ctx_->memory_pool(), data_buffer_size));
 
     // Initialize the output pointers
     auto* output_run_ends =
@@ -539,6 +663,32 @@ class RunEndDecodingLoop {
       : RunEndDecodingLoop(input_array, ree_util::ValuesArray(input_array),
                            output_array_data) {}
 
+  /// \brief For variable-length types, calculate the total length of the data
+  /// buffer needed to store the expanded values.
+  int64_t CalculateOutputDataBufferSize() const {
+    auto& input_array_values = ree_util::ValuesArray(input_array_);
+    DCHECK_EQ(input_array_values.type->id(), ValueType::type_id);
+    if constexpr (is_base_binary_like(ValueType::type_id)) {
+      using offset_type = typename ValueType::offset_type;
+      int64_t data_buffer_size = 0;
+
+      const ree_util::RunEndEncodedArraySpan<RunEndCType> ree_array_span(input_array_);
+      const auto* offsets_buffer =
+          input_array_values.template GetValues<offset_type>(1, 0);
+      auto it = ree_array_span.begin();
+      auto offset = offsets_buffer[input_array_values.offset + it.index_into_array()];
+      while (it != ree_array_span.end()) {
+        const int64_t i = input_array_values.offset + it.index_into_array();
+        const int64_t value_length = offsets_buffer[i + 1] - offset;
+        data_buffer_size += it.run_length() * value_length;
+        offset = offsets_buffer[i + 1];
+        ++it;
+      }
+      return data_buffer_size;
+    }
+    return 0;
+  }
+
   /// \brief Expand all runs into the output array
   ///
   /// \return the number of non-null values written.
@@ -579,18 +729,19 @@ class RunEndDecodeImpl {
   Status Exec() {
     const auto* ree_type = checked_cast<const RunEndEncodedType*>(input_array_.type);
     const int64_t length = input_array_.length;
-    std::shared_ptr<Buffer> validity_buffer = NULLPTR;
-    if constexpr (has_validity_buffer) {
-      ARROW_ASSIGN_OR_RAISE(validity_buffer, AllocateBitmap(length, ctx_->memory_pool()));
+    int64_t data_buffer_size = 0;
+    if constexpr (is_base_binary_like(ValueType::type_id)) {
+      if (length > 0) {
+        RunEndDecodingLoop<RunEndType, ValueType, has_validity_buffer> loop(input_array_,
+                                                                            NULLPTR);
+        data_buffer_size = loop.CalculateOutputDataBufferSize();
+      }
     }
-    ARROW_ASSIGN_OR_RAISE(auto values_buffer,
-                          AllocateValuesBuffer(length, *ree_type->value_type(),
-                                               ctx_->memory_pool()));
 
-    auto output_array_data =
-        ArrayData::Make(ree_type->value_type(), length,
-                        {std::move(validity_buffer), std::move(values_buffer)},
-                        /*child_data=*/std::vector<std::shared_ptr<ArrayData>>{});
+    ARROW_ASSIGN_OR_RAISE(
+        auto output_array_data,
+        PreallocateValuesArray(ree_type->value_type(), has_validity_buffer, length,
+                               kUnknownNullCount, ctx_->memory_pool(), data_buffer_size));
 
     int64_t output_null_count = 0;
     if (length > 0) {
@@ -694,6 +845,14 @@ static ArrayKernelExec GenerateREEKernelExec(Type::type type_id) {
       return Functor::template Exec<Decimal256Type>;
     case Type::FIXED_SIZE_BINARY:
       return Functor::template Exec<FixedSizeBinaryType>;
+    case Type::STRING:
+      return Functor::template Exec<StringType>;
+    case Type::BINARY:
+      return Functor::template Exec<BinaryType>;
+    case Type::LARGE_STRING:
+      return Functor::template Exec<LargeStringType>;
+    case Type::LARGE_BINARY:
+      return Functor::template Exec<LargeBinaryType>;
     default:
       DCHECK(false);
       return FailFunctor<ArrayKernelExec>::Exec;
@@ -745,7 +904,10 @@ void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   add_kernel(Type::DECIMAL128);
   add_kernel(Type::DECIMAL256);
   add_kernel(Type::FIXED_SIZE_BINARY);
-  // TODO(GH-34195): Add support for more types
+  add_kernel(Type::STRING);
+  add_kernel(Type::BINARY);
+  add_kernel(Type::LARGE_STRING);
+  add_kernel(Type::LARGE_BINARY);
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
@@ -783,7 +945,10 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
   add_kernel(Type::DECIMAL128);
   add_kernel(Type::DECIMAL256);
   add_kernel(Type::FIXED_SIZE_BINARY);
-  // TODO(GH-34195): Add support for more types
+  add_kernel(Type::STRING);
+  add_kernel(Type::BINARY);
+  add_kernel(Type::LARGE_STRING);
+  add_kernel(Type::LARGE_BINARY);
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
