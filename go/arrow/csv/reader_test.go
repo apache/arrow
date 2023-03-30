@@ -31,8 +31,8 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/csv"
 	"github.com/apache/arrow/go/v12/arrow/decimal128"
 	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -165,10 +165,10 @@ func Example_withChunk() {
 }
 
 func TestCSVReadInvalidFields(t *testing.T) {
-  tests := []struct {
-		Name string
-		Data string
-		Fields []arrow.Field
+	tests := []struct {
+		Name          string
+		Data          string
+		Fields        []arrow.Field
 		ExpectedError bool
 	}{
 		{
@@ -201,13 +201,14 @@ func TestCSVReadInvalidFields(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			f := bytes.NewBufferString(tc.Data)
 			schema := arrow.NewSchema(tc.Fields, nil)
-		
+
 			r := csv.NewReader(
 				f, schema,
 				csv.WithComma(','),
 			)
 			defer r.Release()
-			for r.Next() {}
+			for r.Next() {
+			}
 			parseErr := r.Err()
 			if tc.ExpectedError && parseErr == nil {
 				t.Fatal("Expected error, but none found")

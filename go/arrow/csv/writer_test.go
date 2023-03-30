@@ -30,8 +30,8 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/csv"
 	"github.com/apache/arrow/go/v12/arrow/decimal128"
 	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/internal/types"
 	"github.com/google/uuid"
 )
 
@@ -257,7 +257,6 @@ func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bo
 	listBuilderInt64.AppendValues([]int64{7, 8, 9}, nil)
 	b.Field(18).(*array.BinaryBuilder).AppendValues([][]byte{{0, 1, 2}, {3, 4, 5}, {}}, nil)
 	b.Field(19).(*types.UUIDBuilder).AppendValues([]uuid.UUID{uuid.MustParse("00000000-0000-0000-0000-000000000001"), uuid.MustParse("00000000-0000-0000-0000-000000000002"), uuid.MustParse("00000000-0000-0000-0000-000000000003")}, nil)
-	
 
 	for _, field := range b.Fields() {
 		field.AppendNull()
