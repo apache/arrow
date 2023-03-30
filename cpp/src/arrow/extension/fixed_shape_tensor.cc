@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <numeric>
+#include <sstream>
+
 #include "arrow/extension/fixed_shape_tensor.h"
 
 #include "arrow/array/array_nested.h"
@@ -132,7 +135,8 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
 std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
     std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
-  DCHECK_EQ("arrow.fixed_shape_tensor", static_cast<const ExtensionType&>(*data->type).extension_name());
+  DCHECK_EQ("arrow.fixed_shape_tensor",
+            static_cast<const ExtensionType&>(*data->type).extension_name());
   return std::make_shared<ExtensionArray>(data);
 }
 

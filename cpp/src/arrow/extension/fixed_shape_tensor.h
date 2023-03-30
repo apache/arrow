@@ -15,9 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <numeric>
-#include <sstream>
-
 #include "arrow/extension_type.h"
 
 namespace arrow {
@@ -29,6 +26,8 @@ class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
 };
 
 /// \brief Concrete type class for constant-size Tensor data.
+/// This is a canonical arrow extension extension type.
+/// See: https://arrow.apache.org/docs/format/CanonicalExtensions.html
 class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
  public:
   FixedShapeTensorType(const std::shared_ptr<DataType>& value_type, const int32_t& size,

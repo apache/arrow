@@ -806,10 +806,6 @@ if(ARROW_IPC)
   add_arrow_test(extension_type_test)
 endif()
 
-if(ARROW_JSON)
-  add_arrow_test(canonical_extension_test SOURCES extension/fixed_shape_tensor_test.cc)
-endif()
-
 add_arrow_test(misc_test
                SOURCES
                datum_test.cc

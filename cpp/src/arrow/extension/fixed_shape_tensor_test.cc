@@ -51,8 +51,6 @@ class TestExtensionType : public ::testing::Test {
     values_partial_ = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
                        12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23};
     shape_partial_ = {2, 3, 4};
-    tensor_strides_ = {96, 32, 8};
-    cell_strides_ = {32, 8};
     serialized_ = R"({"shape":[3,4],"dim_names":["x","y"]})";
   }
 
@@ -66,8 +64,6 @@ class TestExtensionType : public ::testing::Test {
   std::shared_ptr<ExtensionType> ext_type_;
   std::vector<int64_t> values_;
   std::vector<int64_t> values_partial_;
-  std::vector<int64_t> tensor_strides_;
-  std::vector<int64_t> cell_strides_;
   std::string serialized_;
 };
 
@@ -206,14 +202,25 @@ TEST_F(TestExtensionType, RoudtripBatch) {
   data->type = ext_type_;
   auto ext_arr = exact_ext_type->MakeArray(data);
 
+  // Pass extension array, expect getting back extension array
+  std::shared_ptr<RecordBatch> read_batch;
+  auto ext_field =
+      field(/*name=*/"f0", /*type=*/exact_ext_type, /*nullable=*/true, /*metadata=*/{});
+  auto batch = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {ext_arr});
+  RoundtripBatch(batch, &read_batch);
+  CompareBatch(*batch, *read_batch, /*compare_metadata=*/true);
+
+  // Pass extension metadata and storage array, expect getting back extension array
+  ASSERT_OK_AND_ASSIGN(fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type_));
+  std::shared_ptr<RecordBatch> read_batch2;
   auto ext_metadata =
       key_value_metadata({{"ARROW:extension:name", exact_ext_type->extension_name()},
                           {"ARROW:extension:metadata", serialized_}});
-  auto ext_field = field("f0", exact_ext_type, true, ext_metadata);
-  auto batch = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {ext_arr});
-  std::shared_ptr<RecordBatch> read_batch;
-  RoundtripBatch(batch, &read_batch);
-  CompareBatch(*batch, *read_batch, /*compare_metadata=*/true);
+  ext_field = field(/*name=*/"f0", /*type=*/cell_type_, /*nullable=*/true,
+                    /*metadata=*/ext_metadata);
+  auto batch2 = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {fsla_arr});
+  RoundtripBatch(batch2, &read_batch2);
+  CompareBatch(*batch, *read_batch2, /*compare_metadata=*/false);
 }
 
 }  // namespace arrow
