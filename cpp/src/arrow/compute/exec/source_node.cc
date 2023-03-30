@@ -28,8 +28,10 @@
 #include "arrow/compute/expression.h"
 #include "arrow/datum.h"
 #include "arrow/io/util_internal.h"
+#include "arrow/ipc/util.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
+#include "arrow/util/align_util.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/checked_cast.h"
@@ -102,6 +104,13 @@ struct SourceNode : ExecNode, public TracedNode {
               batch_size = morsel_length;
             }
             ExecBatch batch = morsel.Slice(offset, batch_size);
+            for (auto& value : batch.values) {
+              if (value.is_array()) {
+                ARROW_ASSIGN_OR_RAISE(
+                    value, util::EnsureAlignment(value.make_array(), ipc::kArrowAlignment,
+                                                 default_memory_pool()));
+              }
+            }
             if (has_ordering) {
               batch.index = batch_index;
             }

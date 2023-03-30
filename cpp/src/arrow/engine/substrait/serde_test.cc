@@ -5607,5 +5607,132 @@ TEST(Substrait, PlanWithNamedTapExtension) {
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
+TEST(Substrait, PlanWithSegmentedAggregateExtension) {
+  // This demos an extension relation
+  std::string substrait_json = R"({
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "sum"
+      }
+    }],
+    "relations": [{
+      "root": {
+        "input": {
+          "extension_single": {
+            "input": {
+              "read": {
+                "common": {
+                  "direct": {
+                  }
+                },
+                "baseSchema": {
+                  "names": ["time", "key", "value"],
+                  "struct": {
+                    "types": [
+                      {
+                        "i32": {
+                          "typeVariationReference": 0,
+                          "nullability": "NULLABILITY_NULLABLE"
+                        }
+                      },
+                      {
+                        "i32": {
+                          "typeVariationReference": 0,
+                          "nullability": "NULLABILITY_NULLABLE"
+                        }
+                      },
+                      {
+                        "fp64": {
+                          "typeVariationReference": 0,
+                          "nullability": "NULLABILITY_NULLABLE"
+                        }
+                      }
+                    ],
+                    "typeVariationReference": 0,
+                    "nullability": "NULLABILITY_REQUIRED"
+                  }
+                },
+                "namedTable": {
+                  "names": ["T"]
+                }
+              }
+            },
+            "detail": {
+              "@type": "/arrow.substrait_ext.SegmentedAggregateRel",
+              "grouping_keys": [{
+                "directReference": {
+                  "structField": {
+                    "field": 1
+                  }
+                },
+                "rootReference": {}
+              }],
+              "segment_keys": [{
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                },
+                "rootReference": {}
+              }],
+              "measures": [{
+                "measure": {
+                  "functionReference": 0,
+                  "arguments": [{
+                    "value": {
+                      "selection": {
+                        "directReference": {
+                          "structField": {
+                            "field": 2
+                          }
+                        }
+                      }
+                    }
+                  }],
+                  "sorts": [],
+                  "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+                  "outputType": {
+                    "i64": {}
+                  }
+                }
+              }]
+            }
+          }
+        },
+        "names": ["v", "k", "t"]
+      }
+    }],
+    "expectedTypeUrls": []
+  })";
+
+  std::shared_ptr<Schema> input_schema =
+      schema({field("time", int32()), field("key", int32()), field("value", float64())});
+  NamedTableProvider table_provider = AlwaysProvideSameTable(
+      TableFromJSON(input_schema, {"[[1, 1, 1], [1, 2, 2], [1, 1, 3],"
+                                   " [2, 2, 4], [2, 1, 5], [2, 2, 6]]"}));
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+  conversion_options.named_tap_provider =
+      [](const std::string& tap_kind, std::vector<compute::Declaration::Input> inputs,
+         const std::string& tap_name,
+         std::shared_ptr<Schema> tap_schema) -> Result<compute::Declaration> {
+    return compute::Declaration{tap_kind, std::move(inputs), compute::ExecNodeOptions{}};
+  };
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+
+  std::shared_ptr<Schema> output_schema =
+      schema({field("v", float64()), field("k", int32()), field("t", int32())});
+  auto expected_table =
+      TableFromJSON(output_schema, {"[[4, 1, 1], [2, 2, 1], [10, 2, 2], [5, 1, 2]]"});
+  CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
+}
+
 }  // namespace engine
 }  // namespace arrow
