@@ -45,7 +45,7 @@ download_dependency() {
   local url=$1
   local out=$2
 
-  echo 'download.file("'${url}'", "'${out}'")'
+  echo 'download.file("'${url}'", "'${out}'", quiet = !identical(tolower(Sys.getenv("ARROW_R_DEV")), "true"))'
 }
 
 print_tar_name() {
