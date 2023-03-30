@@ -73,8 +73,6 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     //./isthmus-macOS-0.7.0  -c "CREATE TABLE USERS ( id INT NOT NULL, name VARCHAR(150));" "SELECT id, name FROM Users"
     ParquetWriteSupport writeSupport = ParquetWriteSupport
         .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
-    System.out.println(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
-        .getResource("substrait/local_files_users.json").toURI()));
     try (ArrowReader arrowReader = new AceroSubstraitConsumer(rootAllocator())
         .runQuery(
             planReplaceLocalFileURI(
