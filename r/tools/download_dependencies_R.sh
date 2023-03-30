@@ -45,7 +45,7 @@ download_dependency() {
   local url=$1
   local out=$2
 
-  echo 'download.file("'${url}'", "'${out}'", quiet = TRUE)'
+  echo 'download.file("'${url}'", "'${out}'")'
 }
 
 print_tar_name() {
