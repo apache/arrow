@@ -888,6 +888,7 @@ endif()
 
 if(ARROW_JSON)
   add_subdirectory(json)
+  add_subdirectory(extension)
 endif()
 
 if(ARROW_ORC)
