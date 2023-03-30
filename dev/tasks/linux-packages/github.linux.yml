@@ -92,48 +92,16 @@ jobs:
           APT_TARGETS: {{ target }}
           REPO: {{ '${{ secrets.REPO }}' }}
           YUM_TARGETS: {{ target }}
-      - name: Install createrepo
-        run: |
-          if apt list | grep '^createrepo-c/'; then
-            sudo apt install -y createrepo-c
-          else
-            sudo apt install -y \
-              cmake \
-              libbz2-dev \
-              libcurl4-openssl-dev \
-              libglib2.0-dev \
-              liblzma-dev \
-              libmagic-dev \
-              librpm-dev \
-              libsqlite3-dev \
-              libssl-dev \
-              libxml2-dev \
-              libzstd-dev \
-              pkg-config \
-              zlib1g-dev
-            git clone --depth 1 --branch 0.20.1 \
-              https://github.com/rpm-software-management/createrepo_c.git
-            pushd createrepo_c
-            cmake \
-              -DENABLE_BASHCOMP=OFF \
-              -DENABLE_DRPM=OFF \
-              -DENABLE_PYTHON=OFF \
-              -DWITH_LIBMODULEMD=OFF \
-              -DWITH_ZCHUNK=OFF \
-              .
-            make -j$(nproc)
-            sudo make install
-            popd
-            rm -rf createrepo_c
-          fi
       - name: Set up test
         run: |
           sudo apt install -y \
             apt-utils \
             cpio \
+            createrepo-c \
             devscripts \
             gpg \
-            rpm
+            rpm \
+            rsync
           gem install --user-install apt-dists-merge
           (echo "Key-Type: RSA"; \
            echo "Key-Length: 4096"; \
