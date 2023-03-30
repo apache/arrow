@@ -956,7 +956,9 @@ func (ps *ParquetIOTestSuite) roundTripTable(expected arrow.Table, storeSchema b
 
 	ps.Equal(len(exChunk.Chunks()), len(tblChunk.Chunks()))
 	if exChunk.DataType().ID() != arrow.STRUCT {
-		ps.Truef(array.Equal(exChunk.Chunk(0), tblChunk.Chunk(0)), "expected: %s\ngot: %s", exChunk.Chunk(0), tblChunk.Chunk(0))
+		exc := exChunk.Chunk(0)
+		tbc := tblChunk.Chunk(0)
+		ps.Truef(array.Equal(exChunk.Chunk(0), tblChunk.Chunk(0)), "expected: %T %s\ngot: %T %s", exc, exc, tbc, tbc)
 	} else {
 		// current impl of ArrayEquals for structs doesn't correctly handle nulls in the parent
 		// with a non-nullable child when comparing. Since after the round trip, the data in the

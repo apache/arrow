@@ -209,7 +209,7 @@ func (UUIDType) ExtensionName() string { return "uuid" }
 func (UUIDType) Serialize() string { return "uuid-serialized" }
 
 // Deserialize expects storageType to be FixedSizeBinaryType{ByteWidth: 16} and the data to be
-// "uuid-serialized" in order to correctly create a UuidType for testing deserialize.
+// "uuid-serialized" in order to correctly create a UUIDType for testing deserialize.
 func (UUIDType) Deserialize(storageType arrow.DataType, data string) (arrow.ExtensionType, error) {
 	if string(data) != "uuid-serialized" {
 		return nil, fmt.Errorf("type identifier did not match: '%s'", string(data))

@@ -238,6 +238,12 @@ type binary64arr interface {
 }
 
 func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr arrow.Array, defLevels, repLevels []int16, maybeParentNulls bool) (err error) {
+	if leafArr.DataType().ID() == arrow.EXTENSION {
+		extensionArray := leafArr.(array.ExtensionArray)
+		// Replace leafArr with its underlying storage array
+		leafArr = extensionArray.Storage()
+	}
+
 	noNulls := cw.Descr().SchemaNode().RepetitionType() == parquet.Repetitions.Required || leafArr.NullN() == 0
 
 	if ctx.dataBuffer == nil {
@@ -451,7 +457,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				data[i] = parquet.ByteArray(valueBuf[offsets[i]:offsets[i+1]])
 			}
 		default:
-			return xerrors.New(fmt.Sprintf("invalid column type to write to ByteArray: %s", leafArr.DataType().Name()))
+			return xerrors.Errorf("invalid column type to write to ByteArray: %s", leafArr.DataType().Name())
 		}
 
 		if !maybeParentNulls && noNulls {
@@ -504,10 +510,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				wr.WriteBatchSpaced(data, defLevels, repLevels, arr.NullBitmapBytes(), int64(arr.Data().Offset()))
 			}
 		default:
-			if leafArr.DataType().ID() == arrow.EXTENSION {
-				// TODO: (hermanschaaf) support extension types here
-			}
-			return xerrors.New("unimplemented")
+			return xerrors.Errorf("invalid column type to write to FixedLenByteArray: %s", leafArr.DataType().Name())
 		}
 	default:
 		return xerrors.New("unknown column writer physical type")
