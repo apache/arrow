@@ -454,6 +454,35 @@ func TestTable(t *testing.T) {
 	}()
 	defer col2.Release()
 
+	col2_1 := func() *arrow.Column {
+		chunk := func() *arrow.Chunked {
+			fb := array.NewFloat64Builder(mem)
+			defer fb.Release()
+
+			fb.AppendValues([]float64{2, 2, 3, 4, 5}, nil)
+			f1 := fb.NewFloat64Array()
+			defer f1.Release()
+
+			fb.AppendValues([]float64{2, 7}, nil)
+			f2 := fb.NewFloat64Array()
+			defer f2.Release()
+
+			fb.AppendValues([]float64{8, 9, 10}, nil)
+			f3 := fb.NewFloat64Array()
+			defer f3.Release()
+
+			c := arrow.NewChunked(
+				arrow.PrimitiveTypes.Float64,
+				[]arrow.Array{f1, f2, f3},
+			)
+			return c
+		}()
+		defer chunk.Release()
+
+		return arrow.NewColumn(schema.Field(1), chunk)
+	}()
+	defer col2_1.Release()
+
 	cols := []arrow.Column{*col1, *col2}
 
 	slices := [][]arrow.Array{col1.Data().Chunks(), col2.Data().Chunks()}
@@ -493,8 +522,11 @@ func TestTable(t *testing.T) {
 	if err := tbl2.SetColumn(0, *col2); err == nil {
 		t.Fatalf("expected error setting column")
 	}
-	if err := tbl2.SetColumn(1, *col2); err != nil {
+	if err := tbl2.SetColumn(1, *col2_1); err != nil {
 		t.Fatalf("expected error setting column")
+	}
+	if !reflect.DeepEqual(tbl2.Column(1).Data().Chunks(), col2_1.Data().Chunks()) {
+		t.Fatalf("invalid column: got=%v, want=%v", tbl2.Column(0).Data(), col2.Data())
 	}
 
 	for _, tc := range []struct {
