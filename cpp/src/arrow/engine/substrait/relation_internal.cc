@@ -332,7 +332,7 @@ Result<ParsedMeasure> ParseAggregateMeasure(
 }
 
 ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
-    compute::Declaration input_decl, std::shared_ptr<Schema> input_schema,
+    acero::Declaration input_decl, std::shared_ptr<Schema> input_schema,
     const int measure_size, std::vector<compute::Aggregate> aggregates,
     std::vector<std::vector<int>> agg_src_fieldsets, std::vector<FieldRef> keys,
     std::vector<int> key_field_ids, std::vector<FieldRef> segment_keys,
@@ -359,9 +359,9 @@ ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
   std::shared_ptr<Schema> aggregate_schema = schema(std::move(output_fields));
 
   return DeclarationInfo{
-      compute::Declaration::Sequence(
+      acero::Declaration::Sequence(
           {std::move(input_decl),
-           {"aggregate", compute::AggregateNodeOptions{aggregates, keys, segment_keys}}}),
+           {"aggregate", acero::AggregateNodeOptions{aggregates, keys, segment_keys}}}),
       aggregate_schema};
 }
 

@@ -5715,10 +5715,10 @@ TEST(Substrait, PlanWithSegmentedAggregateExtension) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
   conversion_options.named_tap_provider =
-      [](const std::string& tap_kind, std::vector<compute::Declaration::Input> inputs,
+      [](const std::string& tap_kind, std::vector<acero::Declaration::Input> inputs,
          const std::string& tap_name,
-         std::shared_ptr<Schema> tap_schema) -> Result<compute::Declaration> {
-    return compute::Declaration{tap_kind, std::move(inputs), compute::ExecNodeOptions{}};
+         std::shared_ptr<Schema> tap_schema) -> Result<acero::Declaration> {
+    return acero::Declaration{tap_kind, std::move(inputs), acero::ExecNodeOptions{}};
   };
 
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));

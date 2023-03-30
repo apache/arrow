@@ -21,6 +21,7 @@
 
 #include <memory>
 
+#include "arrow/acero/exec_plan.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/relation.h"
@@ -81,7 +82,7 @@ Result<ParsedMeasure> ParseAggregateMeasure(
 /// \param[in] ext_set an extension mapping to use
 /// \param[in] conversion_options options to control how the conversion is done
 ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
-    compute::Declaration input_decl, std::shared_ptr<Schema> input_schema,
+    acero::Declaration input_decl, std::shared_ptr<Schema> input_schema,
     const int measure_size, std::vector<compute::Aggregate> aggregates,
     std::vector<std::vector<int>> agg_src_fieldsets, std::vector<FieldRef> keys,
     std::vector<int> key_field_ids, std::vector<FieldRef> segment_keys,

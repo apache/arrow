@@ -106,8 +106,8 @@ struct SourceNode : ExecNode, public TracedNode {
             ExecBatch batch = morsel.Slice(offset, batch_size);
             for (auto& value : batch.values) {
               if (value.is_array()) {
-                ARROW_ASSIGN_OR_RAISE(
-                    value, util::EnsureAlignment(value.make_array(), ipc::kArrowAlignment,
+                ARROW_ASSIGN_OR_RAISE(value, arrow::util::EnsureAlignment(
+                                                 value.make_array(), ipc::kArrowAlignment,
                                                  default_memory_pool()));
               }
             }
