@@ -492,7 +492,7 @@ class AccumulatingConsumer : public acero::SinkNodeConsumer {
     return arrow::Status::OK();
   }
 
-  arrow::Status Consume(acero::ExecBatch batch) override {
+  arrow::Status Consume(compute::ExecBatch batch) override {
     auto record_batch = batch.ToRecordBatch(schema_);
     ARROW_RETURN_NOT_OK(record_batch);
     batches_.push_back(record_batch.ValueUnsafe());
