@@ -26,7 +26,7 @@
 
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
-#ifdef ARROW_JSON
+#ifdef ARROW_WITH_JSON
 #include "arrow/extension/fixed_shape_tensor.h"
 #endif
 #include "arrow/status.h"
@@ -143,7 +143,7 @@ namespace internal {
 static void CreateGlobalRegistry() {
   g_registry = std::make_shared<ExtensionTypeRegistryImpl>();
 
-#ifdef ARROW_JSON
+#ifdef ARROW_WITH_JSON
   // Register canonical extension types
   auto ext_type =
       checked_pointer_cast<ExtensionType>(extension::fixed_shape_tensor(int64(), {}));

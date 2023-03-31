@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_definitions(-DARROW_JSON)
+add_definitions(-DARROW_WITH_JSON)
 add_arrow_test(test
                SOURCES
                fixed_shape_tensor_test.cc
