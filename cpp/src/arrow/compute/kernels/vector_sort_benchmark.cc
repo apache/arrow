@@ -116,7 +116,7 @@ static void ChunkedArraySortFuncStringBenchmark(benchmark::State& state,
           : (args.size * 2) / (max_length + min_length);
 
   const auto n_chunks = 10;
-  const auto array_chunk_size = array_size / n_chunks;
+  const auto array_chunk_size = static_cast<int64_t>(std::round(array_size / n_chunks));
   auto rand = random::RandomArrayGenerator(kSeed);
 
   ArrayVector chunks;
@@ -150,10 +150,10 @@ static void ArraySortFuncStringBenchmark(benchmark::State& state, const Runner& 
       (valid_proportion > std::numeric_limits<double>::epsilon())
           ? (args.size * 2) / (valid_proportion * (max_length + min_length))
           : (args.size * 2) / (max_length + min_length);
+  const auto array_size_i = static_cast<int64_t>(std::round(array_size));
 
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto values =
-      rand.String(std::round(array_size), min_length, max_length, args.null_proportion);
+  auto values = rand.String(array_size_i, min_length, max_length, args.null_proportion);
 
   ArraySortFuncBenchmark(state, runner, values);
 }
