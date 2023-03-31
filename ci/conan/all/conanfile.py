@@ -244,6 +244,12 @@ class ArrowConan(ConanFile):
         else:
             return bool(self.options.parquet)
 
+    def _plasma(self, required=False):
+        if Version(self.version) >= "12.0.0":
+            return False
+        else:
+            return required or self.options.plasma
+
     def _dataset_modules(self, required=False):
         if required or self.options.dataset_modules == "auto":
             return bool(self.options.get_safe("substrait", False))
@@ -280,7 +286,7 @@ class ArrowConan(ConanFile):
 
     def _with_gflags(self, required=False):
         if required or self.options.with_gflags == "auto":
-            return bool(self.options.plasma or self._with_glog() or self._with_grpc())
+            return bool(self._plasma() or self._with_glog() or self._with_grpc())
         else:
             return bool(self.options.with_gflags)
 
@@ -438,7 +444,8 @@ class ArrowConan(ConanFile):
         tc.variables["ARROW_GANDIVA"] = bool(self.options.gandiva)
         tc.variables["ARROW_PARQUET"] = self._parquet()
         tc.variables["ARROW_SUBSTRAIT"] = bool(self.options.get_safe("substrait", False))
-        tc.variables["ARROW_PLASMA"] = bool(self.options.plasma)
+        if Version(self.version) < "12.0.0":
+            tc.variables["ARROW_PLASMA"] = bool(self._plasma())
         tc.variables["ARROW_DATASET"] = self._dataset_modules()
         tc.variables["ARROW_FILESYSTEM"] = bool(self.options.filesystem_layer)
         tc.variables["PARQUET_REQUIRE_ENCRYPTION"] = bool(self.options.encryption)
@@ -619,7 +626,7 @@ class ArrowConan(ConanFile):
             self.cpp_info.components["libarrow_substrait"].names["pkg_config"] = "arrow_substrait"
             self.cpp_info.components["libarrow_substrait"].requires = ["libparquet", "dataset"]
 
-        if self.options.plasma:
+        if self._plasma():
             self.cpp_info.components["libplasma"].libs = [self._lib_name("plasma")]
             self.cpp_info.components["libplasma"].names["cmake_find_package"] = "plasma"
             self.cpp_info.components["libplasma"].names["cmake_find_package_multi"] = "plasma"
@@ -650,7 +657,7 @@ class ArrowConan(ConanFile):
         if self._dataset_modules():
             self.cpp_info.components["dataset"].libs = ["arrow_dataset"]
 
-        if (self.options.cli and (self.options.with_cuda or self._with_flight_rpc() or self._parquet())) or self.options.plasma:
+        if (self.options.cli and (self.options.with_cuda or self._with_flight_rpc() or self._parquet())) or self._plasma():
             binpath = os.path.join(self.package_folder, "bin")
             self.output.info(f"Appending PATH env var: {binpath}")
             self.env_info.PATH.append(binpath)

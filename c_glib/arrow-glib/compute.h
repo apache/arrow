@@ -718,6 +718,23 @@ GArrowRoundToMultipleOptions *
 garrow_round_to_multiple_options_new(void);
 
 
+#define GARROW_TYPE_MATCH_SUBSTRING_OPTIONS     \
+  (garrow_match_substring_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowMatchSubstringOptions,
+                         garrow_match_substring_options,
+                         GARROW,
+                         MATCH_SUBSTRING_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowMatchSubstringOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_12_0
+GArrowMatchSubstringOptions *
+garrow_match_substring_options_new(void);
+
+
 /**
  * GArrowUTF8NormalizeForm:
  * @GARROW_UTF8_NORMALIZE_FORM_NFC: Normalization Form Canonical Composition.
@@ -819,7 +836,7 @@ struct _GArrowIndexOptionsClass
 
 GARROW_AVAILABLE_IN_12_0
 GArrowIndexOptions *
-garrow_index_options_new(GArrowScalar *value);
+garrow_index_options_new(void);
 
 
 /**

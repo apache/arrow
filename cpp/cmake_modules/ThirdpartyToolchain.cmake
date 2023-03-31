@@ -1459,7 +1459,6 @@ endif()
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
-   OR ARROW_PLASMA
    OR ARROW_USE_GLOG
    OR ARROW_WITH_GRPC)
   set(ARROW_NEED_GFLAGS 1)
@@ -2230,6 +2229,13 @@ if(ARROW_TESTING)
                      1.10.0
                      USE_CONFIG
                      ${GTEST_USE_CONFIG})
+  get_target_property(gtest_cxx_standard GTest::gtest INTERFACE_COMPILE_FEATURES)
+
+  if((${gtest_cxx_standard} STREQUAL "cxx_std_11") OR (${gtest_cxx_standard} STREQUAL
+                                                       "cxx_std_14"))
+    message(FATAL_ERROR "System GTest is built with a C++ standard lower than 17. Use bundled GTest via passing in CMake flag
+-DGTest_SOURCE=\"BUNDLED\"")
+  endif()
 
   if(GTest_SOURCE STREQUAL "SYSTEM")
     find_package(PkgConfig QUIET)

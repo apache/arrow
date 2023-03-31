@@ -360,7 +360,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -396,7 +396,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp-static
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-static
     build:
       context: .
@@ -495,7 +495,6 @@ services:
       ARROW_HDFS: "OFF"
       ARROW_ORC: "OFF"
       ARROW_PARQUET: "OFF"
-      ARROW_PLASMA: "OFF"
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
       ARROW_WITH_BROTLI: "OFF"
@@ -546,7 +545,6 @@ services:
       ARROW_JSON: "OFF"
       ARROW_ORC: "OFF"
       ARROW_PARQUET: "OFF"
-      ARROW_PLASMA: "OFF"
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
       ARROW_WITH_OPENTELEMETRY: "OFF"
@@ -606,7 +604,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp-thread-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -721,7 +719,7 @@ services:
     #   docker-compose run --rm ubuntu-c-glib
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
     build:
       context: .
@@ -781,7 +779,7 @@ services:
     #   docker-compose run --rm ubuntu-ruby
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-ruby
     build:
       context: .
@@ -862,7 +860,6 @@ services:
       ARROW_JSON: "ON"
       ARROW_ORC: "OFF"
       ARROW_PARQUET: "ON"
-      ARROW_PLASMA: "OFF"
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
       ARROW_WITH_OPENTELEMETRY: "OFF"
@@ -904,7 +901,7 @@ services:
     #   docker-compose run --rm ubuntu-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -982,7 +979,7 @@ services:
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   PYARROW_VERSION: The test target pyarrow version such as "3.0.0"
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -1291,7 +1288,6 @@ services:
       ARROW_JAVA_CDATA: "ON"
       ARROW_ORC: "OFF"
       ARROW_PARQUET: "OFF"
-      ARROW_PLASMA: "OFF"
       JAVA_JNI_CMAKE_ARGS: >-
         -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
         -DARROW_JAVA_JNI_ENABLE_C=ON
@@ -1389,11 +1385,11 @@ services:
       /bin/bash -c "/arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
-    # Only 18.04 and amd64 supported
+    # Only 20.04 and amd64 supported
     # Usage:
     #   docker-compose build ubuntu-r-sanitizer
     #   docker-compose run ubuntu-r-sanitizer
-    image: ${REPO}:amd64-ubuntu-18.04-r-sanitizer
+    image: ${REPO}:amd64-ubuntu-20.04-r-sanitizer
     cap_add:
       # LeakSanitizer and gdb requires ptrace(2)
       - SYS_PTRACE
@@ -1401,7 +1397,7 @@ services:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:amd64-ubuntu-18.04-r-sanitizer
+        - ${REPO}:amd64-ubuntu-20.04-r-sanitizer
       args:
         base: wch1/r-debug:latest
         r_bin: RDsan
@@ -1443,16 +1439,16 @@ services:
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
   ubuntu-r-valgrind:
-    # Only 18.04 and amd64 supported
+    # Only 20.04 and amd64 supported
     # Usage:
     #   docker-compose build ubuntu-r-valgrind
     #   docker-compose run ubuntu-r-valgrind
-    image: ${REPO}:amd64-ubuntu-18.04-r-valgrind
+    image: ${REPO}:amd64-ubuntu-20.04-r-valgrind
     build:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:amd64-ubuntu-18.04-r-valgrind
+        - ${REPO}:amd64-ubuntu-20.04-r-valgrind
       args:
         base: wch1/r-debug:latest
         r_bin: RDvalgrind
@@ -1897,7 +1893,7 @@ services:
     #   docker-compose build ubuntu-verify-rc
     #   docker-compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 ubuntu-verify-rc
     # Parameters:
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
     build:
       context: .

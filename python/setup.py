@@ -116,9 +116,6 @@ class build_ext(_build_ext):
                      ('with-s3', None, 'build the Amazon S3 extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
-                     ('with-plasma', None, 'build the Plasma extension'),
-                     ('with-tensorflow', None,
-                      'build pyarrow with TensorFlow support'),
                      ('with-orc', None, 'build the ORC extension'),
                      ('with-gandiva', None, 'build the Gandiva extension'),
                      ('generate-coverage', None,
@@ -131,9 +128,7 @@ class build_ext(_build_ext):
                      ('bundle-arrow-cpp', None,
                       'bundle the Arrow C++ libraries'),
                      ('bundle-arrow-cpp-headers', None,
-                      'bundle the Arrow C++ headers'),
-                     ('bundle-plasma-executable', None,
-                      'bundle the plasma-store-server executable')] +
+                      'bundle the Arrow C++ headers')] +
                     _build_ext.user_options)
 
     def initialize_options(self):
@@ -171,10 +166,6 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
         self.with_parquet_encryption = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET_ENCRYPTION', '0'))
-        self.with_plasma = strtobool(
-            os.environ.get('PYARROW_WITH_PLASMA', '0'))
-        self.with_tensorflow = strtobool(
-            os.environ.get('PYARROW_WITH_TENSORFLOW', '0'))
         self.with_orc = strtobool(
             os.environ.get('PYARROW_WITH_ORC', '0'))
         self.with_gandiva = strtobool(
@@ -185,8 +176,6 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
         self.bundle_cython_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_CYTHON_CPP', '0'))
-        self.bundle_plasma_executable = strtobool(
-            os.environ.get('PYARROW_BUNDLE_PLASMA_EXECUTABLE', '1'))
 
         self.with_parquet_encryption = (self.with_parquet_encryption and
                                         self.with_parquet)
@@ -202,14 +191,12 @@ class build_ext(_build_ext):
         '_dataset',
         '_dataset_orc',
         '_dataset_parquet',
-        '_exec_plan',
         '_acero',
         '_feather',
         '_parquet',
         '_parquet_encryption',
         '_pyarrow_cpp_tests',
         '_orc',
-        '_plasma',
         '_gcsfs',
         '_s3fs',
         '_substrait',
@@ -281,17 +268,13 @@ class build_ext(_build_ext):
             append_cmake_bool(self.with_parquet, 'PYARROW_BUILD_PARQUET')
             append_cmake_bool(self.with_parquet_encryption,
                               'PYARROW_BUILD_PARQUET_ENCRYPTION')
-            append_cmake_bool(self.with_plasma, 'PYARROW_BUILD_PLASMA')
             append_cmake_bool(self.with_gcs, 'PYARROW_BUILD_GCS')
             append_cmake_bool(self.with_s3, 'PYARROW_BUILD_S3')
             append_cmake_bool(self.with_hdfs, 'PYARROW_BUILD_HDFS')
-            append_cmake_bool(self.with_tensorflow, 'PYARROW_USE_TENSORFLOW')
             append_cmake_bool(self.bundle_arrow_cpp,
                               'PYARROW_BUNDLE_ARROW_CPP')
             append_cmake_bool(self.bundle_cython_cpp,
                               'PYARROW_BUNDLE_CYTHON_CPP')
-            append_cmake_bool(self.bundle_plasma_executable,
-                              'PYARROW_BUNDLE_PLASMA_EXECUTABLE')
             append_cmake_bool(self.generate_coverage,
                               'PYARROW_GENERATE_COVERAGE')
 
@@ -344,8 +327,6 @@ class build_ext(_build_ext):
         if name == '_parquet' and not self.with_parquet:
             return True
         if name == '_parquet_encryption' and not self.with_parquet_encryption:
-            return True
-        if name == '_plasma' and not self.with_plasma:
             return True
         if name == '_orc' and not self.with_orc:
             return True
@@ -488,11 +469,6 @@ setup(
     ext_modules=[Extension('__dummy__', sources=[])],
     cmdclass={
         'build_ext': build_ext
-    },
-    entry_points={
-        'console_scripts': [
-            'plasma_store = pyarrow:_plasma_store_entry_point'
-        ]
     },
     use_scm_version={
         'root': os.path.dirname(setup_dir),

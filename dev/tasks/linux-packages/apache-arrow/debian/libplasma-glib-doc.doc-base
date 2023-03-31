@@ -1,9 +1,0 @@
-Document: plasma-glib
-Title: Plasma GLib Reference Manual
-Author: The Apache Software Foundation
-Abstract: Plasma GLib is an in-memory object store and cache for big data that uses GLib.
-Section: Programming
-
-Format: HTML
-Index: /usr/share/gtk-doc/html/plasma-glib/index.html
-Files: /usr/share/gtk-doc/html/plasma-glib/*.html

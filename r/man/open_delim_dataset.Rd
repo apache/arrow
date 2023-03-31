@@ -181,7 +181,7 @@ starting from the beginning of this vector. Possible values are:
 }
 \description{
 A wrapper around \link{open_dataset} which explicitly includes parameters mirroring \code{\link[=read_csv_arrow]{read_csv_arrow()}},
-\code{\link[=read_delim_arrow]{read_delim_arrow()}}, and \code{\link[=read_tsv_arrow]{read_tsv_arrow()}} to allows for easy switching between functions
+\code{\link[=read_delim_arrow]{read_delim_arrow()}}, and \code{\link[=read_tsv_arrow]{read_tsv_arrow()}} to allow for easy switching between functions
 for opening single files and functions for opening datasets.
 }
 \section{Options currently supported by \code{\link[=read_delim_arrow]{read_delim_arrow()}} which are not supported here}{

@@ -28,7 +28,6 @@ modules=(
   arrow-flight-sql-glib
   gandiva-glib
   parquet-glib
-  plasma-glib
 )
 
 for module in "${modules[@]}"; do

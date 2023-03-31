@@ -139,7 +139,7 @@ def show_info():
 
     print("\nOptional modules:")
     modules = ["csv", "cuda", "dataset", "feather", "flight", "fs", "gandiva", "json",
-               "orc", "parquet", "plasma"]
+               "orc", "parquet"]
     for module in modules:
         status = "Enabled" if _module_is_available(module) else "-"
         print(f"  {module: <20}: {status: <8}")
@@ -338,31 +338,6 @@ def __getattr__(name):
     raise AttributeError(
         "module 'pyarrow' has no attribute '{0}'".format(name)
     )
-
-
-# Entry point for starting the plasma store
-
-
-def _plasma_store_entry_point():
-    """
-    DEPRECATED: Entry point for starting the plasma store.
-
-    This can be used by invoking e.g.
-    ``plasma_store -s /tmp/plasma -m 1000000000``
-    from the command line and will start the plasma_store executable with the
-    given arguments.
-
-    .. deprecated:: 10.0.0
-       Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.
-    """
-    _warnings.warn(
-        "Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.",
-        DeprecationWarning)
-
-    import pyarrow
-    plasma_store_executable = _os.path.join(pyarrow.__path__[0],
-                                            "plasma-store-server")
-    _os.execv(plasma_store_executable, _sys.argv)
 
 
 # ----------------------------------------------------------------------

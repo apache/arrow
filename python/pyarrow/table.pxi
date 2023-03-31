@@ -3145,8 +3145,7 @@ cdef class Table(_PandasConvertible):
         animals: [["Flamingo","Horse",null]]
         """
         if isinstance(mask, _pc().Expression):
-            return _pc()._exec_plan._filter_table(self, mask,
-                                                  output_type=Table)
+            return _pac()._filter_table(self, mask)
         else:
             return _pc().filter(self, mask, null_selection_behavior)
 
@@ -5045,10 +5044,12 @@ cdef class Table(_PandasConvertible):
         """
         if right_keys is None:
             right_keys = keys
-        return _pc()._exec_plan._perform_join(join_type, self, keys, right_table, right_keys,
-                                              left_suffix=left_suffix, right_suffix=right_suffix,
-                                              use_threads=use_threads, coalesce_keys=coalesce_keys,
-                                              output_type=Table)
+        return _pac()._perform_join(
+            join_type, self, keys, right_table, right_keys,
+            left_suffix=left_suffix, right_suffix=right_suffix,
+            use_threads=use_threads, coalesce_keys=coalesce_keys,
+            output_type=Table
+        )
 
 
 def _reconstruct_table(arrays, schema):
@@ -5515,6 +5516,9 @@ list[tuple(str, str, FunctionOptions)]
             column names, for unary, nullary and n-ary aggregation functions
             respectively.
 
+            For the list of function names and respective aggregation
+            function options see :ref:`py-grouped-aggrs`.
+
         Returns
         -------
         Table
@@ -5527,6 +5531,9 @@ list[tuple(str, str, FunctionOptions)]
         ...       pa.array(["a", "a", "b", "b", "c"]),
         ...       pa.array([1, 2, 3, 4, 5]),
         ... ], names=["keys", "values"])
+
+        Sum the column "values" over the grouped column "keys":
+
         >>> t.group_by("keys").aggregate([("values", "sum")])
         pyarrow.Table
         values_sum: int64
@@ -5534,6 +5541,9 @@ list[tuple(str, str, FunctionOptions)]
         ----
         values_sum: [[3,7,5]]
         keys: [["a","b","c"]]
+
+        Count the rows over the grouped column "keys":
+
         >>> t.group_by("keys").aggregate([([], "count_all")])
         pyarrow.Table
         count_all: int64
@@ -5541,6 +5551,38 @@ list[tuple(str, str, FunctionOptions)]
         ----
         count_all: [[2,2,1]]
         keys: [["a","b","c"]]
+
+        Do multiple aggregations:
+
+        >>> t.group_by("keys").aggregate([
+        ...    ("values", "sum"),
+        ...    ("keys", "count")
+        ... ])
+        pyarrow.Table
+        values_sum: int64
+        keys_count: int64
+        keys: string
+        ----
+        values_sum: [[3,7,5]]
+        keys_count: [[2,2,1]]
+        keys: [["a","b","c"]]
+
+        Count the number of non-null values for column "values"
+        over the grouped column "keys":
+
+        >>> import pyarrow.compute as pc
+        >>> t.group_by(["keys"]).aggregate([
+        ...    ("values", "count", pc.CountOptions(mode="only_valid"))
+        ... ])
+        pyarrow.Table
+        values_count: int64
+        keys: string
+        ----
+        values_count: [[2,2,1]]
+        keys: [["a","b","c"]]
+
+        Get a single row for each group in column "keys":
+
         >>> t.group_by("keys").aggregate([])
         pyarrow.Table
         keys: string

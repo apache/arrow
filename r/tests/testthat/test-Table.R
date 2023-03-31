@@ -705,3 +705,9 @@ test_that("can create empty table from schema", {
   expect_equal(nrow(out), 0)
   expect_equal(out$schema, schema)
 })
+
+test_that("as_arrow_table() errors on data.frame with NULL names", {
+  df <- data.frame(a = 1, b = "two")
+  names(df) <- NULL
+  expect_error(as_arrow_table(df), "Input data frame columns must be named")
+})

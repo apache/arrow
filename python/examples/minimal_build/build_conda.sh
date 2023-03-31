@@ -85,7 +85,6 @@ cmake -GNinja \
       -DARROW_WITH_LZ4=ON \
       -DARROW_WITH_SNAPPY=ON \
       -DARROW_WITH_BROTLI=ON \
-      -DARROW_PLASMA=ON \
       -DARROW_PYTHON=ON \
       $ARROW_ROOT/cpp
 
