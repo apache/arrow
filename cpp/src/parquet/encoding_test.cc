@@ -1556,7 +1556,8 @@ TYPED_TEST(TestDeltaBitPackEncoding, NonZeroPaddedMiniblockBitWidth) {
   // according to the Parquet spec.
 
   // Same values as in DeltaBitPackEncoder
-  constexpr int kValuesPerBlock = 128;
+  constexpr int kValuesPerBlock =
+      std::is_same_v<int32_t, typename TypeParam::c_type> ? 128 : 256;
   constexpr int kMiniBlocksPerBlock = 4;
   constexpr int kValuesPerMiniBlock = kValuesPerBlock / kMiniBlocksPerBlock;
 

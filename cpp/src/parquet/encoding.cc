@@ -2109,7 +2109,8 @@ template <typename DType>
 class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   // Maximum possible header size
   static constexpr uint32_t kMaxPageHeaderWriterSize = 32;
-  static constexpr uint32_t kValuesPerBlock = 128;
+  static constexpr uint32_t kValuesPerBlock =
+      std::is_same_v<int32_t, typename DType::c_type> ? 128 : 256;
   static constexpr uint32_t kMiniBlocksPerBlock = 4;
 
  public:
@@ -2455,7 +2456,12 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
     }
 
     total_values_remaining_ = total_value_count_;
-    delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
+    if (delta_bit_widths_ == nullptr) {
+      delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
+    } else {
+      PARQUET_THROW_NOT_OK(
+          delta_bit_widths_->Resize(mini_blocks_per_block_, /*shrink_to_fit*/ false));
+    }
     first_block_initialized_ = false;
     values_remaining_current_mini_block_ = 0;
   }
