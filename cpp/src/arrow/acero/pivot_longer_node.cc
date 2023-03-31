@@ -270,13 +270,13 @@ class PivotLongerNode : public ExecNode, public TracedNode {
 
 }  // namespace
 
-namespace acerointernal {
+namespace internal {
 
 void RegisterPivotLongerNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory(std::string(PivotLongerNodeOptions::kName),
                                  PivotLongerNode::Make));
 }
 
-}  // namespace acerointernal
+}  // namespace internal
 }  // namespace acero
 }  // namespace arrow

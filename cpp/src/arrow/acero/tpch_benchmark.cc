@@ -34,7 +34,7 @@ using compute::ScalarAggregateOptions;
 using compute::SortKey;
 
 namespace acero {
-namespace acerointernal {
+namespace internal {
 
 std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<std::optional<ExecBatch>>* sink_gen,
                                   int scale_factor) {
@@ -124,6 +124,6 @@ static void BM_Tpch_Q1(benchmark::State& st) {
 }
 
 BENCHMARK(BM_Tpch_Q1)->Args({1})->ArgNames({"ScaleFactor"});
-}  // namespace acerointernal
+}  // namespace internal
 }  // namespace acero
 }  // namespace arrow

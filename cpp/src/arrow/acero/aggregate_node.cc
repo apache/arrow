@@ -968,7 +968,7 @@ class GroupByNode : public ExecNode, public TracedNode {
 
 }  // namespace
 
-namespace acerointernal {
+namespace internal {
 
 void RegisterAggregateNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory(
@@ -986,6 +986,6 @@ void RegisterAggregateNode(ExecFactoryRegistry* registry) {
       }));
 }
 
-}  // namespace acerointernal
+}  // namespace internal
 }  // namespace acero
 }  // namespace arrow

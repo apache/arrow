@@ -114,11 +114,11 @@ class FilterNode : public MapNode {
 };
 }  // namespace
 
-namespace acerointernal {
+namespace internal {
 void RegisterFilterNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("filter", FilterNode::Make));
 }
 
-}  // namespace acerointernal
+}  // namespace internal
 }  // namespace acero
 }  // namespace arrow

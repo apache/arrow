@@ -209,12 +209,12 @@ class FetchNode : public ExecNode, public TracedNode, util::SequencingQueue::Pro
 
 }  // namespace
 
-namespace acerointernal {
+namespace internal {
 
 void RegisterFetchNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory(std::string(FetchNodeOptions::kName), FetchNode::Make));
 }
 
-}  // namespace acerointernal
+}  // namespace internal
 }  // namespace acero
 }  // namespace arrow

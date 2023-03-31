@@ -1186,7 +1186,7 @@ class GroupBy : public ::testing::TestWithParam<GroupByFunction> {
   void ValidateGroupBy(const std::vector<Aggregate>& aggregates,
                        std::vector<Datum> arguments, std::vector<Datum> keys,
                        bool naive = true) {
-    ValidateGroupBy(GetParam(), aggregates, arguments, keys, naive);
+    acero::ValidateGroupBy(GetParam(), aggregates, arguments, keys, naive);
   }
 
   Result<Datum> GroupByTest(const std::vector<Datum>& arguments,
@@ -1194,15 +1194,15 @@ class GroupBy : public ::testing::TestWithParam<GroupByFunction> {
                             const std::vector<Datum>& segment_keys,
                             const std::vector<TestAggregate>& aggregates,
                             bool use_threads) {
-    return GroupByTest(GetParam(), arguments, keys, segment_keys, aggregates,
-                       use_threads);
+    return acero::GroupByTest(GetParam(), arguments, keys, segment_keys, aggregates,
+                              use_threads);
   }
 
   Result<Datum> GroupByTest(const std::vector<Datum>& arguments,
                             const std::vector<Datum>& keys,
                             const std::vector<TestAggregate>& aggregates,
                             bool use_threads) {
-    return GroupByTest(GetParam(), arguments, keys, aggregates, use_threads);
+    return acero::GroupByTest(GetParam(), arguments, keys, aggregates, use_threads);
   }
 
   Result<Datum> AltGroupBy(const std::vector<Datum>& arguments,
@@ -1216,7 +1216,7 @@ class GroupBy : public ::testing::TestWithParam<GroupByFunction> {
 
   void TestSegmentKey(const std::shared_ptr<Table>& table, Datum output,
                       const std::vector<Datum>& segment_keys) {
-    return TestSegmentKey(GetParam(), table, output, segment_keys);
+    return acero::TestSegmentKey(GetParam(), table, output, segment_keys);
   }
 };
 

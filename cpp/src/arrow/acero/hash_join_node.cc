@@ -1250,11 +1250,11 @@ std::pair<HashJoinNode*, std::vector<int>> BloomFilterPushdownContext::GetPushdo
 #endif  // ARROW_LITTLE_ENDIAN
 }
 
-namespace acerointernal {
+namespace internal {
 void RegisterHashJoinNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("hashjoin", HashJoinNode::Make));
 }
 
-}  // namespace acerointernal
+}  // namespace internal
 }  // namespace acero
 }  // namespace arrow

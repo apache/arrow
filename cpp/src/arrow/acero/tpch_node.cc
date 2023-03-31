@@ -47,7 +47,7 @@ using arrow::internal::checked_cast;
 using arrow::internal::GetRandomSeed;
 
 namespace acero {
-namespace acerointernal {
+namespace internal {
 /*
 Architecture of the generator:
     This is a multithreaded implementation of TPC-H's DBGen data generator. For each table
@@ -3538,6 +3538,6 @@ Result<std::unique_ptr<TpchGen>> TpchGen::Make(ExecPlan* plan, double scale_fact
   return std::make_unique<TpchGenImpl>(plan, scale_factor, batch_size, *seed);
 }
 
-}  // namespace acerointernal
+}  // namespace internal
 }  // namespace acero
 }  // namespace arrow

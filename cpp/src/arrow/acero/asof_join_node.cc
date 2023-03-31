@@ -1594,11 +1594,11 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
       process_(),
       process_thread_() {}
 
-namespace acerointernal {
+namespace internal {
 void RegisterAsofJoinNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("asofjoin", AsofJoinNode::Make));
 }
-}  // namespace acerointernal
+}  // namespace internal
 
 namespace asofjoin {
 

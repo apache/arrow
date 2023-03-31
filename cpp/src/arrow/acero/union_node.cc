@@ -119,12 +119,12 @@ class UnionNode : public ExecNode, public TracedNode {
   std::atomic<int> total_batches_{0};
 };
 
-namespace acerointernal {
+namespace internal {
 
 void RegisterUnionNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("union", UnionNode::Make));
 }
 
-}  // namespace acerointernal
+}  // namespace internal
 }  // namespace acero
 }  // namespace arrow

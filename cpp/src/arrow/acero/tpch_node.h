@@ -29,7 +29,7 @@
 
 namespace arrow {
 namespace acero {
-namespace acerointernal {
+namespace internal {
 
 class ARROW_ACERO_EXPORT TpchGen {
  public:
@@ -60,6 +60,6 @@ class ARROW_ACERO_EXPORT TpchGen {
   virtual Result<ExecNode*> Region(std::vector<std::string> columns = {}) = 0;
 };
 
-}  // namespace acerointernal
+}  // namespace internal
 }  // namespace acero
 }  // namespace arrow

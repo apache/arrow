@@ -156,13 +156,13 @@ class OrderByNode : public ExecNode, public TracedNode {
 
 }  // namespace
 
-namespace acerointernal {
+namespace internal {
 
 void RegisterOrderByNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(
       registry->AddFactory(std::string(OrderByNodeOptions::kName), OrderByNode::Make));
 }
 
-}  // namespace acerointernal
+}  // namespace internal
 }  // namespace acero
 }  // namespace arrow

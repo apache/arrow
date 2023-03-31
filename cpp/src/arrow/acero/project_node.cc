@@ -117,12 +117,12 @@ class ProjectNode : public MapNode {
 
 }  // namespace
 
-namespace acerointernal {
+namespace internal {
 
 void RegisterProjectNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("project", ProjectNode::Make));
 }
 
-}  // namespace acerointernal
+}  // namespace internal
 }  // namespace acero
 }  // namespace arrow

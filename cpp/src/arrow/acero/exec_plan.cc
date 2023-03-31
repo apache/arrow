@@ -1048,7 +1048,7 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
   return DeclarationToReader(std::move(declaration), std::move(options));
 }
 
-namespace acerointernal {
+namespace internal {
 
 void RegisterSourceNode(ExecFactoryRegistry*);
 void RegisterFetchNode(ExecFactoryRegistry*);
@@ -1062,23 +1062,23 @@ void RegisterSinkNode(ExecFactoryRegistry*);
 void RegisterHashJoinNode(ExecFactoryRegistry*);
 void RegisterAsofJoinNode(ExecFactoryRegistry*);
 
-}  // namespace acerointernal
+}  // namespace internal
 
 ExecFactoryRegistry* default_exec_factory_registry() {
   class DefaultRegistry : public ExecFactoryRegistry {
    public:
     DefaultRegistry() {
-      acerointernal::RegisterSourceNode(this);
-      acerointernal::RegisterFetchNode(this);
-      acerointernal::RegisterFilterNode(this);
-      acerointernal::RegisterOrderByNode(this);
-      acerointernal::RegisterPivotLongerNode(this);
-      acerointernal::RegisterProjectNode(this);
-      acerointernal::RegisterUnionNode(this);
-      acerointernal::RegisterAggregateNode(this);
-      acerointernal::RegisterSinkNode(this);
-      acerointernal::RegisterHashJoinNode(this);
-      acerointernal::RegisterAsofJoinNode(this);
+      internal::RegisterSourceNode(this);
+      internal::RegisterFetchNode(this);
+      internal::RegisterFilterNode(this);
+      internal::RegisterOrderByNode(this);
+      internal::RegisterPivotLongerNode(this);
+      internal::RegisterProjectNode(this);
+      internal::RegisterUnionNode(this);
+      internal::RegisterAggregateNode(this);
+      internal::RegisterSinkNode(this);
+      internal::RegisterHashJoinNode(this);
+      internal::RegisterAsofJoinNode(this);
     }
 
     Result<Factory> GetFactory(const std::string& factory_name) override {

@@ -554,7 +554,7 @@ struct OrderBySinkNode final : public SinkNode {
 
 }  // namespace
 
-namespace acerointernal {
+namespace internal {
 
 void RegisterSinkNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("select_k_sink", OrderBySinkNode::MakeSelectK));
@@ -564,6 +564,6 @@ void RegisterSinkNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("table_sink", MakeTableConsumingSinkNode));
 }
 
-}  // namespace acerointernal
+}  // namespace internal
 }  // namespace acero
 }  // namespace arrow

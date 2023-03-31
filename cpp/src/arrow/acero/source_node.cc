@@ -515,7 +515,7 @@ Result<ExecNode*> MakeNamedTableNode(ExecPlan* plan, std::vector<ExecNode*> inpu
 
 }  // namespace
 
-namespace acerointernal {
+namespace internal {
 
 void RegisterSourceNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("source", SourceNode::Make));
@@ -528,6 +528,6 @@ void RegisterSourceNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("named_table", MakeNamedTableNode));
 }
 
-}  // namespace acerointernal
+}  // namespace internal
 }  // namespace acero
 }  // namespace arrow
