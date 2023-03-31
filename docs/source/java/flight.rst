@@ -204,8 +204,7 @@ authentication methods.
 Adding Services
 ===============
 
-Servers can add other gRPC services. For example, to add the `Health Check service
-<https://github.com/grpc/grpc/blob/master/doc/health-checking.md>`:
+Servers can add other gRPC services. For example, to add the `Health Check service <https://github.com/grpc/grpc/blob/master/doc/health-checking.md>`:
 
 .. code-block:: Java
 
