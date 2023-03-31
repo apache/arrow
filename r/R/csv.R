@@ -789,7 +789,8 @@ write_csv_arrow <- function(x,
             paste0(
               "x must be an object of class 'data.frame', 'RecordBatch', ",
               "'Dataset', 'Table', or 'RecordBatchReader' not '", class(x)[1], "'."
-            )
+            ),
+            parent = NA
           )
         }
       }
