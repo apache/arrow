@@ -199,8 +199,8 @@ TEST_F(TestExtensionType, RoudtripBatch) {
 
   // Pass extension array, expect getting back extension array
   std::shared_ptr<RecordBatch> read_batch;
-  auto ext_field = field(/*name=*/"f0", /*type=*/cell_type_);
-  auto batch = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {fsla_arr});
+  auto ext_field = field(/*name=*/"f0", /*type=*/ext_type_);
+  auto batch = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {ext_arr});
   RoundtripBatch(batch, &read_batch);
   CompareBatch(*batch, *read_batch, /*compare_metadata=*/true);
 
