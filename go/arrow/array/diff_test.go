@@ -39,8 +39,6 @@ type diffTestCase struct {
 }
 
 func (s *diffTestCase) check(t *testing.T) {
-	t.Helper()
-
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
@@ -444,8 +442,6 @@ func testRandomCase(t *testing.T, rng *rand.Rand) {
 
 // validateEditScript checks that the edit script produces target when applied to base.
 func validateEditScript(t *testing.T, edits *array.Struct, base, target arrow.Array) {
-	t.Helper()
-
 	inserts := boolValues(edits.Field(0).(*array.Boolean))
 	runLengths := edits.Field(1).(*array.Int64).Int64Values()
 
