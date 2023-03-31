@@ -22,7 +22,8 @@ import static org.junit.Assert.assertEquals;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Collections;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -37,7 +38,9 @@ import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -79,20 +82,16 @@ public class TestAceroSubstraitConsumer extends TestDataset {
                 new String(Files.readAllBytes(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
                     .getResource("substrait/local_files_users.json").toURI()))),
                 writeSupport.getOutputURI()
-            ),
-            Collections.EMPTY_MAP
+            )
         )
     ) {
+      assertEquals("Schema<ID: Int(32, true), NAME: Utf8>",
+          arrowReader.getVectorSchemaRoot().getSchema().toString());
+      int rowcount = 0;
       while (arrowReader.loadNextBatch()) {
-        assertEquals(3, arrowReader.getVectorSchemaRoot().getRowCount());
-        assertEquals(2, arrowReader.getVectorSchemaRoot().getSchema().getFields().size());
-        assertEquals("ID", arrowReader.getVectorSchemaRoot().getSchema().getFields().get(0).getName());
-        assertEquals("NAME", arrowReader.getVectorSchemaRoot().getSchema().getFields().get(1).getName());
-        assertEquals(Types.MinorType.INT.getType(),
-            arrowReader.getVectorSchemaRoot().getSchema().getFields().get(0).getType());
-        assertEquals(Types.MinorType.VARCHAR.getType(),
-            arrowReader.getVectorSchemaRoot().getSchema().getFields().get(1).getType());
+        rowcount = arrowReader.getVectorSchemaRoot().getRowCount();
       }
+      assertEquals(3, rowcount);
     }
   }
 
@@ -119,16 +118,51 @@ public class TestAceroSubstraitConsumer extends TestDataset {
               .getResource("substrait/named_table_users.json").toURI()))),
           mapTableToArrowReader
       )) {
+        assertEquals("Schema<ID: Int(32, true), NAME: Utf8>",
+            arrowReader.getVectorSchemaRoot().getSchema().toString());
+        int rowcount = 0;
         while (arrowReader.loadNextBatch()) {
-          assertEquals(3, arrowReader.getVectorSchemaRoot().getRowCount());
-          assertEquals(2, arrowReader.getVectorSchemaRoot().getSchema().getFields().size());
-          assertEquals("ID", arrowReader.getVectorSchemaRoot().getSchema().getFields().get(0).getName());
-          assertEquals("NAME", arrowReader.getVectorSchemaRoot().getSchema().getFields().get(1).getName());
-          assertEquals(Types.MinorType.INT.getType(),
-              arrowReader.getVectorSchemaRoot().getSchema().getFields().get(0).getType());
-          assertEquals(Types.MinorType.VARCHAR.getType(),
-              arrowReader.getVectorSchemaRoot().getSchema().getFields().get(1).getType());
+          rowcount = arrowReader.getVectorSchemaRoot().getRowCount();
         }
+        assertEquals(3, rowcount);
+      }
+    }
+  }
+
+  @Test(expected = RuntimeException.class)
+  public void testRunQueryNamedTableNationWithException() throws Exception {
+    //Query:
+    //SELECT id, name FROM Users
+    //Isthmus:
+    //./isthmus-macOS-0.7.0  -c "CREATE TABLE USERS ( id INT NOT NULL, name VARCHAR(150));" "SELECT id, name FROM Users"
+    final Schema schema = new Schema(Arrays.asList(
+        Field.nullable("ID", new ArrowType.Int(32, true)),
+        Field.nullable("NAME", new ArrowType.Utf8())
+    ));
+    ParquetWriteSupport writeSupport = ParquetWriteSupport
+        .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
+    ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
+    try (
+        DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.PARQUET, writeSupport.getOutputURI());
+        Dataset dataset = datasetFactory.finish();
+        Scanner scanner = dataset.newScan(options);
+        ArrowReader reader = scanner.scanBatches()
+    ) {
+      Map<String, ArrowReader> mapTableToArrowReader = new HashMap<>();
+      mapTableToArrowReader.put("USERS_INVALID_MAP", reader);
+      try (ArrowReader arrowReader = new AceroSubstraitConsumer(rootAllocator()).runQuery(
+          new String(Files.readAllBytes(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
+              .getResource("substrait/named_table_users.json").toURI()))),
+          mapTableToArrowReader
+      )) {
+        assertEquals("Schema<ID: Int(32, true), NAME: Utf8>",
+            arrowReader.getVectorSchemaRoot().getSchema().toString());
+        int rowcount = 0;
+        while (arrowReader.loadNextBatch()) {
+          rowcount = arrowReader.getVectorSchemaRoot().getRowCount();
+        }
+        assertEquals(3, rowcount);
       }
     }
   }
@@ -139,6 +173,14 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     //SELECT id, name FROM Users
     //Isthmus:
     //./isthmus-macOS-0.7.0  -c "CREATE TABLE USERS ( id INT NOT NULL, name VARCHAR(150));" "SELECT id, name FROM Users"
+    final Schema schema = new Schema(Arrays.asList(
+        Field.nullable("ID", new ArrowType.Int(32, true)),
+        Field.nullable("NAME", new ArrowType.Utf8())
+    ));
+    // Base64.getEncoder().encodeToString(plan.toByteArray());
+    String binaryPlan =
+        "Gl8SXQpROk8KBhIECgICAxIvCi0KAgoAEh4KAklECgROQU1FEhIKBCoCEAEKC" +
+            "LIBBQiWARgBGAI6BwoFVVNFUlMaCBIGCgISACIAGgoSCAoEEgIIASIAEgJJRBIETkFNRQ==";
     ParquetWriteSupport writeSupport = ParquetWriteSupport
         .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
     ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
@@ -153,8 +195,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       Map<String, ArrowReader> mapTableToArrowReader = new HashMap<>();
       mapTableToArrowReader.put("USERS", reader);
       // get binary plan
-      byte[] plan = Files.readAllBytes(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
-          .getResource("substrait/named_table_users.binary").toURI()));
+      byte[] plan = Base64.getDecoder().decode(binaryPlan);
       ByteBuffer substraitPlan = ByteBuffer.allocateDirect(plan.length);
       substraitPlan.put(plan);
       // run query
@@ -162,16 +203,13 @@ public class TestAceroSubstraitConsumer extends TestDataset {
           substraitPlan,
           mapTableToArrowReader
       )) {
+        assertEquals("Schema<ID: Int(32, true), NAME: Utf8>",
+            arrowReader.getVectorSchemaRoot().getSchema().toString());
+        int rowcount = 0;
         while (arrowReader.loadNextBatch()) {
-          assertEquals(3, arrowReader.getVectorSchemaRoot().getRowCount());
-          assertEquals(2, arrowReader.getVectorSchemaRoot().getSchema().getFields().size());
-          assertEquals("ID", arrowReader.getVectorSchemaRoot().getSchema().getFields().get(0).getName());
-          assertEquals("NAME", arrowReader.getVectorSchemaRoot().getSchema().getFields().get(1).getName());
-          assertEquals(Types.MinorType.INT.getType(),
-              arrowReader.getVectorSchemaRoot().getSchema().getFields().get(0).getType());
-          assertEquals(Types.MinorType.VARCHAR.getType(),
-              arrowReader.getVectorSchemaRoot().getSchema().getFields().get(1).getType());
+          rowcount = arrowReader.getVectorSchemaRoot().getRowCount();
         }
+        assertEquals(3, rowcount);
       }
     }
   }

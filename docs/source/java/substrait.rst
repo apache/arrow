@@ -19,45 +19,16 @@
 Substrait
 =========
 
-The ``arrow-dataset`` module can execute Substrait_ plans via the Acero_
+The ``arrow-dataset`` module can execute Substrait_ plans via the :doc:`Acero <../cpp/streaming_execution>`
 query engine.
-
-.. contents::
-
-Getting Started
-===============
-
-Java Substrait API uses Acero C++ Substrait API capabilities thru JNI wrappers.
-
-.. seealso:: :doc:`../cpp/streaming_execution` for more information on Acero.
 
 Executing Substrait Plans
 =========================
 
 Plans can reference data in files via URIs, or "named tables" that must be provided along with the plan.
 
-Local Files:
-
-.. code-block:: json
-
-    "local_files": {
-      "items": [
-        {
-          "uri_file": "file:///tmp/opt/lineitem.parquet",
-          "parquet": {}
-        }
-      ]
-    }
-
-Named Table:
-
-.. code-block:: json
-
-    "namedTable": {
-        "names": ["LINEITEM"]
-    }
-
-Here is an example of a Java program that queries a Parquet file using Java Substrait:
+Here is an example of a Java program that queries a Parquet file using Java Substrait
+(this example use `Java Substrait`_ project to compile a SQL query to a Substrait plan):
 
 .. code-block:: Java
 
@@ -131,10 +102,6 @@ Here is an example of a Java program that queries a Parquet file using Java Subs
     0	ALGERIA	0	 haggle. carefully final deposits detect slyly agai
     1	ARGENTINA	1	al foxes promise slyly according to the regular accounts. bold requests alon
 
-Substrait Producer
-==================
-
-The following options are available for producing Substrait Plans: Acero,
-Isthmus, Ibis, DuckDB, others.
-
-You can generate Substrait plans and then send them to Java Substrait for consumption.
+.. _`Substrait`: https://substrait.io/
+.. _`Java Substrait`: https://github.com/substrait-io/substrait-java
+.. _`Acero`: https://arrow.apache.org/docs/cpp/streaming_execution.html

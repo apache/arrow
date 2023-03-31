@@ -273,12 +273,21 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
 std::unordered_map<std::string, std::shared_ptr<arrow::Table>> LoadNamedTables(JNIEnv* env, jobjectArray& str_array) {
   std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_record_batch_reader;
   int length = env->GetArrayLength(str_array);
+  if (length % 2 != 0) {
+    JniThrow("Review mapping of Table names to memory addresses");
+  }
   std::shared_ptr<arrow::Table> output_table;
   for (int pos = 0; pos < length; pos++) {
     auto j_string_key = reinterpret_cast<jstring>(env->GetObjectArrayElement(str_array, pos));
     pos++;
     auto j_string_value = reinterpret_cast<jstring>(env->GetObjectArrayElement(str_array, pos));
-    auto* arrow_stream_in = reinterpret_cast<ArrowArrayStream*>(std::stol(JStringToCString(env, j_string_value)));
+    long memory_address = 0;
+    try {
+      memory_address = std::stol(JStringToCString(env, j_string_value));
+    } catch (...) {
+      JniThrow("Error to interpret an string address as a signed number");
+    }
+    auto* arrow_stream_in = reinterpret_cast<ArrowArrayStream*>(memory_address);
     std::shared_ptr<arrow::RecordBatchReader> readerIn = JniGetOrThrow(arrow::ImportRecordBatchReader(arrow_stream_in));
     output_table = JniGetOrThrow(readerIn->ToTable());
     map_table_to_record_batch_reader[JStringToCString(env, j_string_key)] = output_table;
@@ -648,12 +657,15 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
     JNIEnv* env, jobject, jstring plan, jobjectArray table_to_memory_address_input, jlong memory_address_output) {
   JNI_METHOD_START
   // get mapping of table name to memory address
-  std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_reader = ToMapTableToArrowReader(env, table_to_memory_address_input);
+  std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_reader = LoadNamedTables(env, table_to_memory_address_input);
   // create table provider
   arrow::engine::NamedTableProvider table_provider = [&map_table_to_reader](const std::vector<std::string>& names, const arrow::Schema&) {
     std::shared_ptr<arrow::Table> output_table;
     for (const auto& name : names) {
       output_table = map_table_to_reader[name];
+      if (output_table == nullptr) {
+        JniThrow("Table name " + name + " is needed to execute the Substrait plan");
+      }
     }
     std::shared_ptr<arrow::compute::ExecNodeOptions> options =
       std::make_shared<arrow::compute::TableSourceNodeOptions>(std::move(output_table));
@@ -678,12 +690,15 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
     JNIEnv* env, jobject, jobject plan, jobjectArray table_to_memory_address_input, jlong memory_address_output) {
   JNI_METHOD_START
   // get mapping of table name to memory address
-  std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_reader = ToMapTableToArrowReader(env, table_to_memory_address_input);
+  std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_reader = LoadNamedTables(env, table_to_memory_address_input);
   // create table provider
   arrow::engine::NamedTableProvider table_provider = [&map_table_to_reader](const std::vector<std::string>& names, const arrow::Schema&) {
     std::shared_ptr<arrow::Table> output_table;
     for (const auto& name : names) {
       output_table = map_table_to_reader[name];
+      if (output_table == nullptr) {
+        JniThrow("Table name " + name + " is needed to execute the Substrait plan");
+      }
     }
     std::shared_ptr<arrow::compute::ExecNodeOptions> options =
       std::make_shared<arrow::compute::TableSourceNodeOptions>(std::move(output_table));

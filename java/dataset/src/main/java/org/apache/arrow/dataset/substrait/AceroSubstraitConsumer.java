@@ -19,6 +19,7 @@ package org.apache.arrow.dataset.substrait;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -44,6 +45,18 @@ public final class AceroSubstraitConsumer {
    * Needed to define a mapping name of Tables and theirs ArrowReader representation.
    *
    * @param plan The JSON Substrait plan.
+
+   * @return the ArrowReader to iterate for record batches.
+   */
+  public ArrowReader runQuery(String plan) throws Exception {
+    return runQuery(plan, Collections.emptyMap());
+  }
+
+  /**
+   * Read plain-text Substrait plan, execute and return an ArrowReader to read Schema and ArrowRecordBatches.
+   * Needed to define a mapping name of Tables and theirs ArrowReader representation.
+   *
+   * @param plan The JSON Substrait plan.
    * @param namedTables A mapping of named tables referenced by the plan to an ArrowReader providing the data
    *                    for the table. Contains the Table Name to Query as a Key and ArrowReader as a Value.
    * <pre>{@code ArrowReader nationReader = scanner.scanBatches();
@@ -51,8 +64,19 @@ public final class AceroSubstraitConsumer {
    * namedTables.put("NATION", nationReader);}</pre>
    * @return the ArrowReader to iterate for record batches.
    */
-  public ArrowReader runQuery(String plan, Map<String, ArrowReader> namedTables) {
+  public ArrowReader runQuery(String plan, Map<String, ArrowReader> namedTables) throws Exception {
     return execute(plan, namedTables);
+  }
+
+  /**
+   * Read binary Substrait plan, execute and return an ArrowReader to read Schema and ArrowRecordBatches.
+   * Needed to define a mapping name of Tables and theirs ArrowReader representation.
+   *
+   * @param plan                  the binary Substrait plan.
+   * @return the ArrowReader to iterate for record batches.
+   */
+  public ArrowReader runQuery(ByteBuffer plan) throws Exception {
+    return runQuery(plan, Collections.EMPTY_MAP);
   }
 
   /**
@@ -67,11 +91,11 @@ public final class AceroSubstraitConsumer {
    * namedTables.put("NATION", nationReader);}</pre>
    * @return the ArrowReader to iterate for record batches.
    */
-  public ArrowReader runQuery(ByteBuffer plan, Map<String, ArrowReader> namedTables) {
+  public ArrowReader runQuery(ByteBuffer plan, Map<String, ArrowReader> namedTables) throws Exception {
     return execute(plan, namedTables);
   }
 
-  private ArrowReader execute(String plan, Map<String, ArrowReader> namedTables) {
+  private ArrowReader execute(String plan, Map<String, ArrowReader> namedTables) throws Exception {
     List<ArrowArrayStream> arrowArrayStream = new ArrayList<>();
     try (
         ArrowArrayStream streamOutput = ArrowArrayStream.allocateNew(this.allocator)
@@ -90,7 +114,7 @@ public final class AceroSubstraitConsumer {
     }
   }
 
-  private ArrowReader execute(ByteBuffer plan, Map<String, ArrowReader> namedTables) {
+  private ArrowReader execute(ByteBuffer plan, Map<String, ArrowReader> namedTables) throws Exception {
     List<ArrowArrayStream> arrowArrayStream = new ArrayList<>();
     try (
         ArrowArrayStream streamOutput = ArrowArrayStream.allocateNew(this.allocator)
