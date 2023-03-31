@@ -205,14 +205,15 @@ TEST_F(TestExtensionType, RoudtripBatch) {
   CompareBatch(*batch, *read_batch, /*compare_metadata=*/true);
 
   // Pass extension metadata and storage array, expect getting back extension array
+  std::shared_ptr<RecordBatch> read_batch2;
   auto ext_metadata =
-      key_value_metadata({{"ARROW:extension:name", "ARROW:extension:metadata"},
-                          {exact_ext_type->extension_name(), serialized_}});
+      key_value_metadata({{"ARROW:extension:name", exact_ext_type->extension_name()},
+                          {"ARROW:extension:metadata", serialized_}});
   ext_field = field(/*name=*/"f0", /*type=*/cell_type_, /*nullable=*/true,
                     /*metadata=*/ext_metadata);
-  batch = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {fsla_arr});
-  RoundtripBatch(batch, &read_batch);
-  CompareBatch(*batch, *read_batch, /*compare_metadata=*/true);
+  auto batch2 = RecordBatch::Make(schema({ext_field}), fsla_arr->length(), {fsla_arr});
+  RoundtripBatch(batch2, &read_batch2);
+  CompareBatch(*batch, *read_batch2, /*compare_metadata=*/true);
 }
 
 }  // namespace arrow
