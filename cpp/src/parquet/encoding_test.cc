@@ -2151,7 +2151,6 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
         MakeTypedEncoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
     ASSERT_NO_THROW(suffix_lengths_encoder->Put(*suffix_lengths));
     auto suffix_lengths_buf = suffix_lengths_encoder->FlushValues();
-
     auto encoded_values_buf =
         SliceBuffer(buf, prefix_lengths_buf->size() + suffix_lengths_buf->size());
 
@@ -2163,17 +2162,99 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     EXPECT_EQ(value, encoded_values_buf->ToString());
   };
 
-  auto values = R"(["axis", "axle", "babble", "babyhood"])";
-  auto prefix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([0, 2, 0, 3])");
-  auto suffix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([4, 2, 6, 5])");
+  auto arrayToI32 = [](const std::shared_ptr<::arrow::Array>& lengths) {
+    std::vector<int32_t> arrays;
+    auto data_ptr = checked_cast<::arrow::Int32Array*>(lengths.get());
+    for (int i = 0; i < lengths->length(); ++i) {
+      arrays.push_back(data_ptr->GetView(i));
+    }
+    return arrays;
+  };
 
-  CheckEncode(::arrow::ArrayFromJSON(::arrow::utf8(), values), prefix_lengths,
-              suffix_lengths, "axislebabbleyhood");
-  CheckEncode(::arrow::ArrayFromJSON(::arrow::large_utf8(), values), prefix_lengths,
-              suffix_lengths, "axislebabbleyhood");
-  CheckEncode(::arrow::ArrayFromJSON(::arrow::binary(), values), prefix_lengths,
-              suffix_lengths, "axislebabbleyhood");
-  CheckEncode(::arrow::ArrayFromJSON(::arrow::large_binary(), values), prefix_lengths,
-              suffix_lengths, "axislebabbleyhood");
+  auto CheckDecode = [](std::shared_ptr<Buffer> buf,
+                        std::shared_ptr<::arrow::Array> values) {
+    int num_values = static_cast<int>(values->length());
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
+    if (::arrow::is_string(values->type()->id())) {
+      acc.builder = std::make_unique<::arrow::StringBuilder>();
+    } else {
+      acc.builder = std::make_unique<::arrow::BinaryBuilder>();
+    }
+
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.builder->Finish(&result));
+    ASSERT_EQ(num_values, result->length());
+    ASSERT_OK(result->ValidateFull());
+
+    auto upcast_result = CastBinaryTypesHelper(result, values->type());
+    ::arrow::AssertArraysEqual(*values, *upcast_result);
+  };
+
+  auto checkEncodeDecode = [&](std::string_view values,
+                               std::shared_ptr<::arrow::Array> prefix_lengths,
+                               std::shared_ptr<::arrow::Array> suffix_lengths,
+                               std::string_view suffix_data) {
+    CheckEncode(::arrow::ArrayFromJSON(::arrow::utf8(), values), prefix_lengths,
+                suffix_lengths, suffix_data);
+    CheckEncode(::arrow::ArrayFromJSON(::arrow::large_utf8(), values), prefix_lengths,
+                suffix_lengths, suffix_data);
+    CheckEncode(::arrow::ArrayFromJSON(::arrow::binary(), values), prefix_lengths,
+                suffix_lengths, suffix_data);
+    CheckEncode(::arrow::ArrayFromJSON(::arrow::large_binary(), values), prefix_lengths,
+                suffix_lengths, suffix_data);
+
+    auto encoded = ::arrow::ConcatenateBuffers({DeltaEncode(arrayToI32(prefix_lengths)),
+                                                DeltaEncode(arrayToI32(suffix_lengths)),
+                                                std::make_shared<Buffer>(suffix_data)})
+                       .ValueOrDie();
+
+    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::utf8(), values));
+    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_utf8(), values));
+    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::binary(), values));
+    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_binary(), values));
+  };
+
+  {
+    auto values = R"(["axis", "axle", "babble", "babyhood"])";
+    auto prefix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([0, 2, 0, 3])");
+    auto suffix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([4, 2, 6, 5])");
+
+    constexpr std::string_view suffix_data = "axislebabbleyhood";
+    checkEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
+  }
+
+  {
+    auto values = R"(["axis", "axis", "axis", "axis"])";
+    auto prefix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([0, 4, 4, 4])");
+    auto suffix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([4, 0, 0, 0])");
+
+    constexpr std::string_view suffix_data = "axis";
+    checkEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
+  }
+
+  {
+    auto values = R"(["axisba", "axis", "axis", "axis"])";
+    auto prefix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([0, 4, 4, 4])");
+    auto suffix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([6, 0, 0, 0])");
+
+    constexpr std::string_view suffix_data = "axisba";
+    checkEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
+  }
+  {
+    auto values = R"(["baaxis", "axis", "axis", "axis"])";
+    auto prefix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([0, 0, 4, 4])");
+    auto suffix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([6, 4, 0, 0])");
+
+    constexpr std::string_view suffix_data = "baaxisaxis";
+    checkEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
+  }
 }
 }  // namespace parquet::test
