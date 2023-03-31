@@ -32,7 +32,7 @@ import (
 // target: an array of identical type to base whose elements differ from base's
 // mem: memory to store the result will be allocated from this memory pool
 func Diff(base, target arrow.Array, mem memory.Allocator) (*Struct, error) {
-	if base.DataType() != target.DataType() {
+	if base.DataType().Fingerprint() != target.DataType().Fingerprint() {
 		return nil, errors.New("only taking the diff of like-typed arrays is supported")
 	}
 	switch base.DataType().ID() {
