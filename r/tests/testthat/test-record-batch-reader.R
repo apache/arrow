@@ -269,3 +269,9 @@ test_that("as_record_batch_reader() works for function", {
     "Expected fun\\(\\) to return batch with schema 'a: string'"
   )
 })
+
+test_that("as_record_batch_reader() errors on data.frame with NULL names", {
+  df <- data.frame(a = 1, b = "two")
+  names(df) <- NULL
+  expect_error(as_record_batch_reader(df), "Input data frame columns must be named")
+})
