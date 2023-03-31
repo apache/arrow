@@ -260,7 +260,7 @@ func (d *quadraticSpaceMyersDiff) Diff(mem memory.Allocator) (*Struct, error) {
 	return d.GetEdits(mem)
 }
 
-// DiffString returns a representation of the diff in unified diff format.
+// DiffString returns a representation of the diff in Unified Diff format.
 func DiffString(base, target arrow.Array, mem memory.Allocator) (string, error) {
 	edits, err := Diff(base, target, mem)
 	if err != nil {
