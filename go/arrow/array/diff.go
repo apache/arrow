@@ -171,7 +171,7 @@ func (d *quadraticSpaceMyersDiff) Next() {
 
 	// check if inserting from target could do better
 	for i, iOut := 0, 1; i < d.editCount; i, iOut = i+1, iOut+1 {
-		// retrieve the previously computed best endpoint for (edit_count_, i_out)
+		// retrieve the previously computed best endpoint for (editCount, iOut)
 		// for comparison with the best endpoint achievable with an insertion
 		endpointAfterDeletion := d.getEditPoint(d.editCount, iOut+currentOffset)
 
@@ -179,7 +179,7 @@ func (d *quadraticSpaceMyersDiff) Next() {
 		endpointAfterInsertion := d.insertOne(previousEndpoint)
 
 		if endpointAfterInsertion.base-endpointAfterDeletion.base >= 0 {
-			// insertion was more efficient; keep it and mark the insertion in insert_
+			// insertion was more efficient; keep it and mark the insertion in insert
 			d.insert[iOut+currentOffset] = true
 			d.endpointBase[iOut+currentOffset] = endpointAfterInsertion.base
 		}
