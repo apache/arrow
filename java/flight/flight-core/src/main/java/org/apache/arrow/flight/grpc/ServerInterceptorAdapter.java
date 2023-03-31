@@ -25,6 +25,7 @@ import java.util.Map;
 
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.FlightConstants;
 import org.apache.arrow.flight.FlightMethod;
 import org.apache.arrow.flight.FlightProducer.CallContext;
 import org.apache.arrow.flight.FlightRuntimeException;
@@ -82,14 +83,11 @@ public class ServerInterceptorAdapter implements ServerInterceptor {
   @Override
   public <ReqT, RespT> Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call, Metadata headers,
       ServerCallHandler<ReqT, RespT> next) {
-    FlightMethod method;
-    try {
-      method = FlightMethod.fromProtocol(call.getMethodDescriptor().getFullMethodName());
-    } catch (IllegalArgumentException ignored) {
-      // Don't add middleware to non Flight methods
+    if (!FlightConstants.SERVICE.equals(call.getMethodDescriptor().getServiceName())) {
       return Contexts.interceptCall(Context.current(), call, headers, next);
     }
-    final CallInfo info = new CallInfo(method);
+    
+    final CallInfo info = new CallInfo(FlightMethod.fromProtocol(call.getMethodDescriptor().getFullMethodName()));
     final List<FlightServerMiddleware> middleware = new ArrayList<>();
     // Use LinkedHashMap to preserve insertion order
     final Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> middlewareMap = new LinkedHashMap<>();
