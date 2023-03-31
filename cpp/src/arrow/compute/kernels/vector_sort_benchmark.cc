@@ -105,25 +105,32 @@ static void ChunkedArraySortFuncStringBenchmark(benchmark::State& state,
                                                 int32_t max_length) {
   RegressionArgs args(state);
 
+  // The array_size is derived from these two equations:
+  //
+  //     size = array_size * (1.0 - args.null_proportion) * string_mean_length
+  //     string_mean_length = (max_length + min_length) / 2.0
+  const double valid_proportion = 1.0 - args.null_proportion;
+  const double array_size =
+      (valid_proportion > std::numeric_limits<double>::epsilon())
+          ? (args.size * 2) / (valid_proportion * (max_length + min_length))
+          : (args.size * 2) / (max_length + min_length);
+
   const auto n_chunks = 10;
-  const auto string_mean_length = (max_length + min_length) / 2;
-  const auto array_size = args.size / n_chunks / string_mean_length;
+  const auto array_chunk_size = array_size / n_chunks;
   auto rand = random::RandomArrayGenerator(kSeed);
 
   ArrayVector chunks;
-  int64_t chunked_array_bytes = 0;
+  int64_t generated_array_size_in_bytes = 0;
   for (auto i = 0; i < n_chunks; ++i) {
-    auto values = rand.String(array_size, min_length, max_length, args.null_proportion);
-    chunks.push_back(values);
+    auto values =
+        rand.String(array_chunk_size, min_length, max_length, args.null_proportion);
     auto array = arrow::internal::checked_pointer_cast<const arrow::StringArray>(values);
-    chunked_array_bytes += array->value_offsets()->size() + array->value_data()->size();
-    if (array->null_bitmap() != nullptr) {
-      chunked_array_bytes += array->null_bitmap()->size();
-    }
+    generated_array_size_in_bytes += array->value_data()->size();
+    chunks.push_back(std::move(values));
   }
 
+  state.counters["generated_array_size"] = generated_array_size_in_bytes;
   ArraySortFuncBenchmark(state, runner, std::make_shared<ChunkedArray>(chunks));
-  state.SetBytesProcessed(state.iterations() * chunked_array_bytes);
 }
 
 template <typename Runner>
@@ -142,20 +149,21 @@ static void ArraySortFuncStringBenchmark(benchmark::State& state, const Runner& 
                                          int32_t min_length, int32_t max_length) {
   RegressionArgs args(state);
 
-  const auto string_mean_length = (max_length + min_length) / 2;
-  const auto array_size = args.size / string_mean_length;
+  const double valid_proportion = 1.0 - args.null_proportion;
+  const double array_size =
+      (valid_proportion > std::numeric_limits<double>::epsilon())
+          ? (args.size * 2) / (valid_proportion * (max_length + min_length))
+          : (args.size * 2) / (max_length + min_length);
 
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto values = rand.String(array_size, min_length, max_length, args.null_proportion);
+  auto values =
+      rand.String(std::round(array_size), min_length, max_length, args.null_proportion);
 
-  ArraySortFuncBenchmark(state, runner, values);
   auto array = arrow::internal::checked_pointer_cast<const arrow::StringArray>(values);
-  auto nbytes = array->value_offsets()->size() + array->value_data()->size();
-  if (array->null_bitmap() != nullptr) {
-    nbytes += array->null_bitmap()->size();
-  }
+  const int64_t generated_array_size_in_bytes = array->value_data()->size();
 
-  state.SetBytesProcessed(state.iterations() * nbytes);
+  state.counters["generated_array_size"] = generated_array_size_in_bytes;
+  ArraySortFuncBenchmark(state, runner, values);
 }
 
 static void ArraySortIndicesInt64Narrow(benchmark::State& state) {
