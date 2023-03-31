@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifdef ARROW_WITH_JSON
 #include "arrow/extension/fixed_shape_tensor.h"
 
 #include "arrow/testing/matchers.h"
@@ -217,4 +216,3 @@ TEST_F(TestExtensionType, RoudtripBatch) {
 }
 
 }  // namespace arrow
-#endif
