@@ -3080,7 +3080,8 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
           const ByteArray src{view};
 
           uint32_t j = 0;
-          while (j < std::min(previous_len, src.len)) {
+          uint32_t common_length = std::min(previous_len, src.len);
+          while (j < common_length) {
             if (last_value_view[j] != view[j]) {
               break;
             }
@@ -3127,7 +3128,8 @@ void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
 
     auto view = string_view{reinterpret_cast<const char*>(value->ptr), value->len};
     uint32_t j = 0;
-    int32_t common_length = std::min(value->len, static_cast<uint32_t>(last_value_view.length()));
+    uint32_t common_length =
+        std::min(value->len, static_cast<uint32_t>(last_value_view.length()));
     while (j < common_length) {
       if (last_value_view[j] != view[j]) {
         break;
