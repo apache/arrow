@@ -499,6 +499,7 @@ func (s *diffStringTestCase) check(t *testing.T) {
 }
 
 func TestDiffString(t *testing.T) {
+	msPerDay := 24 * 60 * 60 * 1000
 	cases := []diffStringTestCase{
 		{
 			name:       "no changes",
@@ -556,17 +557,102 @@ func TestDiffString(t *testing.T) {
 +"quote:\\\""
 `,
 		},
-		//		{
-		//			name:       "date32",
-		//			dataType:   arrow.PrimitiveTypes.Date32,
-		//			baseJSON:   `[0, 1, 2, 31, 4]`,
-		//			targetJSON: `[0, 1, 31, 2, 4]`,
-		//			want: `@@ -2, +2 @@
-		//-1970-01-03
-		//@@ -4, +3 @@
-		//+1970-01-03
-		//`,
-		//		},
+		{
+			name:       "date32",
+			dataType:   arrow.PrimitiveTypes.Date32,
+			baseJSON:   `[0, 1, 2, 31, 4]`,
+			targetJSON: `[0, 1, 31, 2, 4]`,
+			want: `@@ -2, +2 @@
+-"1970-01-03"
+@@ -4, +3 @@
++"1970-01-03"
+`,
+		},
+		{
+			name:       "date64",
+			dataType:   arrow.PrimitiveTypes.Date64,
+			baseJSON:   fmt.Sprintf(`[%d, %d, %d, %d, %d]`, 0*msPerDay, 1*msPerDay, 2*msPerDay, 31*msPerDay, 4*msPerDay),
+			targetJSON: fmt.Sprintf(`[%d, %d, %d, %d, %d]`, 0*msPerDay, 1*msPerDay, 31*msPerDay, 2*msPerDay, 4*msPerDay),
+			want: `@@ -2, +2 @@
+-"1970-01-03"
+@@ -4, +3 @@
++"1970-01-03"
+`,
+		},
+		{
+			name: "timestamp",
+			dataType: &arrow.TimestampType{
+				Unit: arrow.Microsecond,
+			},
+			baseJSON:   fmt.Sprintf(`[0, 1, %d, 2, 4]`, 678+1000000*(5+60*(4+60*(3+24*int64(1))))),
+			targetJSON: fmt.Sprintf(`[0, 1, 2, %d, 4]`, 678+1000000*(5+60*(4+60*(3+24*int64(1))))),
+			want: `@@ -2, +2 @@
+-"1970-01-02 03:04:05.000678"
+@@ -4, +3 @@
++"1970-01-02 03:04:05.000678"
+`,
+		},
+		{
+			name:       "lists",
+			dataType:   arrow.ListOf(arrow.PrimitiveTypes.Int32),
+			baseJSON:   `[[2, 3, 1], [], [13], []]`,
+			targetJSON: `[[2, 3, 1], [5, 9], [], [13]]`,
+			want: `@@ -1, +1 @@
++[5,9]
+@@ -3, +4 @@
+-[]
+`,
+		},
+		{
+			name:     "maps",
+			dataType: arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32),
+			baseJSON: `[
+			[{"key": "foo", "value": 2}, {"key": "bar", "value": 3}, {"key": "baz", "value": 1}],
+			[{"key": "quux", "value": 13}]
+			[]
+		]`,
+			targetJSON: `[
+			[{"key": "foo", "value": 2}, {"key": "bar", "value": 3}, {"key": "baz", "value": 1}],
+			[{"key": "ytho", "value": 11}],
+			[{"key": "quux", "value": 13}]
+			[]
+		]`,
+			want: `@@ -1, +1 @@
++[{"key":"ytho","value":11}]
+`,
+		},
+		{
+			name: "structs",
+			dataType: arrow.StructOf(
+				[]arrow.Field{
+					{Name: "foo", Type: arrow.BinaryTypes.String, Nullable: true},
+					{Name: "bar", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+				}...,
+			),
+			baseJSON:   `[{"foo": "!", "bar": 3}, {}, {"bar": 13}]`,
+			targetJSON: `[{"foo": null, "bar": 2}, {}, {"bar": 13}]`,
+			want: `@@ -0, +0 @@
+-{"bar":3,"foo":"!"}
++{"bar":2,"foo":null}
+`,
+		},
+		{
+			name: "unions",
+			dataType: arrow.UnionOf(arrow.SparseMode,
+				[]arrow.Field{
+					{Name: "foo", Type: arrow.BinaryTypes.String},
+					{Name: "bar", Type: arrow.PrimitiveTypes.Int32},
+				},
+				[]arrow.UnionTypeCode{2, 5},
+			),
+			baseJSON:   `[[2, "!"], [5, 3], [5, 13]]`,
+			targetJSON: `[[2, "!"], [2, "3"], [5, 13]]`,
+			want: `@@ -1, +1 @@
+-[5,3]
++[2,"3"]
+`,
+		},
+
 		{
 			name:       "string",
 			dataType:   arrow.BinaryTypes.String,

@@ -305,6 +305,6 @@ func stringAt(arr arrow.Array, i int64) string {
 
 	s := NewSlice(arr, i, i+1)
 	defer s.Release()
-	st := s.String()
-	return st[1 : len(st)-1]
+	st, _ := s.MarshalJSON()
+	return strings.Trim(string(st[1:len(st)-1]), "\n")
 }
