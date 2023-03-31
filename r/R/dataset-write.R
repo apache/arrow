@@ -141,6 +141,7 @@ write_dataset <- function(dataset,
     # partitioning vars need to be in the `select` schema
     dataset <- ensure_group_vars(dataset)
   } else {
+    check_named_cols(dataset)
     if (inherits(dataset, "grouped_df")) {
       force(partitioning)
       # Drop the grouping metadata before writing; we've already consumed it
