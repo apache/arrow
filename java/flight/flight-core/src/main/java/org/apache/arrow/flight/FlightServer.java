@@ -47,8 +47,8 @@ import org.apache.arrow.util.VisibleForTesting;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
-import io.grpc.BindableService;
 import io.grpc.Server;
+import io.grpc.ServerBuilder;
 import io.grpc.ServerInterceptors;
 import io.grpc.netty.NettyServerBuilder;
 import io.netty.channel.EventLoopGroup;
@@ -176,13 +176,12 @@ public class FlightServer implements AutoCloseable {
     private final List<KeyFactory<?>> interceptors;
     // Keep track of inserted interceptors
     private final Set<String> interceptorKeys;
-    private final List<BindableService> extraServices;
+    private Consumer<ServerBuilder<?>> transportHook = null;
 
     Builder() {
       builderOptions = new HashMap<>();
       interceptors = new ArrayList<>();
       interceptorKeys = new HashSet<>();
-      extraServices = new ArrayList<>();
     }
 
     Builder(BufferAllocator allocator, Location location, FlightProducer producer) {
@@ -265,6 +264,7 @@ public class FlightServer implements AutoCloseable {
             new ThreadFactoryBuilder().setNameFormat("flight-server-default-executor-%d").build());
         grpcExecutor = exec;
       }
+
       final FlightBindingService flightService = new FlightBindingService(allocator, producer, authHandler, exec);
       builder
           .executor(exec)
@@ -296,9 +296,12 @@ public class FlightServer implements AutoCloseable {
         return null;
       });
 
-      extraServices.forEach(builder::addService);
-
       builder.intercept(new ServerInterceptorAdapter(interceptors));
+
+      if (transportHook != null) {
+        transportHook.accept(builder);
+      }
+      
       return new FlightServer(location, builder.build(), grpcExecutor);
     }
 
@@ -401,8 +404,8 @@ public class FlightServer implements AutoCloseable {
       return this;
     }
 
-    public Builder addService(BindableService service) {
-      this.extraServices.add(service);
+    public Builder withTransportHook(Consumer<ServerBuilder<?>> hook) {
+      this.transportHook = hook;
       return this;
     }
   }
