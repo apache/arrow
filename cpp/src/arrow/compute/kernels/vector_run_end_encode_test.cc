@@ -344,22 +344,16 @@ std::vector<REETestData> GenerateTestData() {
           fixed_size_binary(3),
           R"([null, "abc", "abc", "abc", "def", "def", "def", "ghi", "ghi", null, null])",
           R"([null, "abc", "def", "ghi", null])", "[1, 4, 7, 9, 11]"),
-      // String and binary types
-      REETestData::JSON(utf8(),
-                        R"(["abc", "abc", "", "", "de", "de", "de", "ghijkl", "ghijkl"])",
-                        R"(["abc", "", "de", "ghijkl"])", "[2, 4, 7, 9]"),
-      REETestData::JSON(binary(),
-                        R"(["abc", "abc", "", "", "de", "de", "de", "ghijkl", "ghijkl"])",
-                        R"(["abc", "", "de", "ghijkl"])", "[2, 4, 7, 9]"),
-      REETestData::JSON(
-          utf8(),
-          R"(["abc", "abc", "", "", "de", "de", "de", null, null, "ghijkl", "ghijkl"])",
-          R"(["abc", "", "de", null, "ghijkl"])", "[2, 4, 7, 9, 11]"),
-      REETestData::JSON(
-          binary(),
-          R"(["abc", "abc", null, "", "", "de", "de", "de", null, null, null, "ghijkl", "ghijkl"])",
-          R"(["abc", null, "", "de", null, "ghijkl"])", "[2, 3, 5, 8, 11, 13]"),
   };
+  for (auto& binary_type : {binary(), large_binary(), utf8(), large_utf8()}) {
+    test_data.push_back(REETestData::JSON(
+        binary_type, R"(["abc", "abc", "", "", "de", "de", "de", "ghijkl", "ghijkl"])",
+        R"(["abc", "", "de", "ghijkl"])", "[2, 4, 7, 9]"));
+    test_data.push_back(REETestData::JSON(
+        binary_type,
+        R"(["abc", "abc", "", "", "de", "de", "de", null, null, "ghijkl", "ghijkl"])",
+        R"(["abc", "", "de", null, "ghijkl"])", "[2, 4, 7, 9, 11]"));
+  }
   return test_data;
 }
 
