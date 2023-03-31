@@ -806,3 +806,9 @@ test_that("Can delete filesystem dataset after write_dataset", {
   unlink(dataset_dir2, recursive = TRUE)
   expect_false(dir.exists(dataset_dir2))
 })
+
+test_that("write_dataset() errors on data.frame with NULL names", {
+  df <- data.frame(a = 1, b = "two")
+  names(df) <- NULL
+  expect_error(write_dataset(df, tempfile()), "Input data frame columns must be named")
+})

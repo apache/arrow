@@ -321,6 +321,7 @@ as_arrow_table.RecordBatch <- function(x, ..., schema = NULL) {
 #' @rdname as_arrow_table
 #' @export
 as_arrow_table.data.frame <- function(x, ..., schema = NULL) {
+  check_named_cols(x)
   Table$create(x, schema = schema)
 }
 
