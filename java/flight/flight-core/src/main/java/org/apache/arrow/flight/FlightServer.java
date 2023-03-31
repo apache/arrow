@@ -48,7 +48,6 @@ import org.apache.arrow.util.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import io.grpc.Server;
-import io.grpc.ServerBuilder;
 import io.grpc.ServerInterceptors;
 import io.grpc.netty.NettyServerBuilder;
 import io.netty.channel.EventLoopGroup;
@@ -176,7 +175,6 @@ public class FlightServer implements AutoCloseable {
     private final List<KeyFactory<?>> interceptors;
     // Keep track of inserted interceptors
     private final Set<String> interceptorKeys;
-    private Consumer<ServerBuilder<?>> transportHook = null;
 
     Builder() {
       builderOptions = new HashMap<>();
@@ -297,11 +295,6 @@ public class FlightServer implements AutoCloseable {
       });
 
       builder.intercept(new ServerInterceptorAdapter(interceptors));
-
-      if (transportHook != null) {
-        transportHook.accept(builder);
-      }
-      
       return new FlightServer(location, builder.build(), grpcExecutor);
     }
 
@@ -401,11 +394,6 @@ public class FlightServer implements AutoCloseable {
 
     public Builder producer(FlightProducer producer) {
       this.producer = Preconditions.checkNotNull(producer);
-      return this;
-    }
-
-    public Builder withTransportHook(Consumer<ServerBuilder<?>> hook) {
-      this.transportHook = hook;
       return this;
     }
   }
