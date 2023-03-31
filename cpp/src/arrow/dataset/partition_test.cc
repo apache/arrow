@@ -189,42 +189,10 @@ TEST_F(TestPartitioning, Partition) {
                   expected_expressions);
 }
 
-TEST_F(TestPartitioning, DefaultPartitioningPartition) {
-  auto dataset_schema =
-      schema({field("a", int32()), field("b", utf8()), field("c", uint32())});
-
+TEST_F(TestPartitioning, DefaultPartitioningIsDirectoryPartitioning) {
   auto partitioning = Partitioning::Default();
-  std::string json = R"([{"a": 3,    "b": "x",  "c": 0},
-                         {"a": 3,    "b": "x",  "c": 1},
-                         {"a": 1,    "b": null, "c": 2},
-                         {"a": null, "b": null, "c": 3},
-                         {"a": null, "b": "z",  "c": 4},
-                         {"a": null, "b": null, "c": 5}
-                       ])";
-  std::vector<std::string> expected_batches = {json};
-  std::vector<compute::Expression> expected_expressions = {literal(true)};
-  AssertPartition(partitioning, dataset_schema, json, dataset_schema, expected_batches,
-                  expected_expressions);
-}
-
-TEST_F(TestPartitioning, DefaultPartitioningParse) {
-  partitioning_ = Partitioning::Default();
-
-  AssertParse("/hello", literal(true));
-  AssertParse("", literal(true));  // no segments to parse
-}
-
-TEST_F(TestPartitioning, DefaultPartitioningFormat) {
-  partitioning_ = Partitioning::Default();
-
-  written_schema_ = partitioning_->schema();
-
-  AssertFormat(and_(equal(field_ref("alpha"), literal(0)),
-                    equal(field_ref("beta"), literal("hello"))),
-               "");
-  AssertFormat(and_(equal(field_ref("alpha"), literal(0)), is_null(field_ref("beta"))),
-               "");
-  AssertFormat(literal(true), "");
+  ASSERT_EQ(partitioning->type_name(), "directory");
+  AssertSchemaEqual(partitioning->schema(), schema({}));
 }
 
 TEST_F(TestPartitioning, DirectoryPartitioning) {
