@@ -462,3 +462,126 @@ func validateEditScript(t *testing.T, edits *array.Struct, base, target arrow.Ar
 		t.Fatalf("edit script (inserts=%v, runLengths=%v) when applied to base %v does not produce target %v", inserts, runLengths, base, target)
 	}
 }
+
+type diffStringTestCase struct {
+	dataType arrow.DataType
+
+	name       string
+	baseJSON   string
+	targetJSON string
+	want       string
+}
+
+func (s *diffStringTestCase) check(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	base, _, err := array.FromJSON(mem, s.dataType, strings.NewReader(s.baseJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer base.Release()
+
+	target, _, err := array.FromJSON(mem, s.dataType, strings.NewReader(s.targetJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer target.Release()
+
+	got, err := array.DiffString(base, target, mem)
+	if err != nil {
+		t.Fatalf("got unexpected error %v", err)
+	}
+
+	if got != s.want {
+		t.Errorf("got:\n%v\n, want:\n%v", got, s.want)
+	}
+}
+
+func TestDiffString(t *testing.T) {
+	cases := []diffStringTestCase{
+		{
+			name:       "no changes",
+			dataType:   arrow.BinaryTypes.String,
+			baseJSON:   `["give", "me", "a", "break"]`,
+			targetJSON: `["give", "me", "a", "break"]`,
+			want:       ``,
+		},
+		{
+			name:       "insert one",
+			dataType:   arrow.BinaryTypes.String,
+			baseJSON:   `["give", "a", "break"]`,
+			targetJSON: `["give", "me", "a", "break"]`,
+			want: `@@ -1, +1 @@
++"me"
+`,
+		},
+		{
+			name:       "delete one",
+			dataType:   arrow.BinaryTypes.String,
+			baseJSON:   `["give", "me", "a", "break"]`,
+			targetJSON: `["give", "a", "break"]`,
+			want: `@@ -1, +1 @@
+-"me"
+`,
+		},
+		{
+			name:       "change one",
+			dataType:   arrow.BinaryTypes.String,
+			baseJSON:   `["give", "a", "break"]`,
+			targetJSON: `["gimme", "a", "break"]`,
+			want: `@@ -0, +0 @@
+-"give"
++"gimme"
+`,
+		},
+		{
+			name:       "null out one",
+			dataType:   arrow.BinaryTypes.String,
+			baseJSON:   `["give", "a", "break"]`,
+			targetJSON: `["give", "a", null]`,
+			want: `@@ -2, +2 @@
+-"break"
++null
+`,
+		},
+		{
+			name:       "strings with escaped chars",
+			dataType:   arrow.BinaryTypes.String,
+			baseJSON:   `["newline:\\n", "quote:'", "backslash:\\\\"]`,
+			targetJSON: `["newline:\\n", "tab:\\t", "quote:\\\"", "backslash:\\\\"]`,
+			want: `@@ -1, +1 @@
+-"quote:'"
++"tab:\\t"
++"quote:\\\""
+`,
+		},
+		//		{
+		//			name:       "date32",
+		//			dataType:   arrow.PrimitiveTypes.Date32,
+		//			baseJSON:   `[0, 1, 2, 31, 4]`,
+		//			targetJSON: `[0, 1, 31, 2, 4]`,
+		//			want: `@@ -2, +2 @@
+		//-1970-01-03
+		//@@ -4, +3 @@
+		//+1970-01-03
+		//`,
+		//		},
+		{
+			name:       "string",
+			dataType:   arrow.BinaryTypes.String,
+			baseJSON:   `["h", "l", "l", "o", "o"]`,
+			targetJSON: `["h", "e", "l", "l", "o", "0"]`,
+			want: `@@ -1, +1 @@
++"e"
+@@ -4, +5 @@
+-"o"
++"0"
+`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, tc.check)
+	}
+}

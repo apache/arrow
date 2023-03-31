@@ -3,6 +3,7 @@ package array
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/memory"
@@ -257,4 +258,53 @@ func (d *quadraticSpaceMyersDiff) Diff(mem memory.Allocator) (*Struct, error) {
 		d.Next()
 	}
 	return d.GetEdits(mem)
+}
+
+// DiffString returns a representation of the diff in unified diff format.
+func DiffString(base, target arrow.Array, mem memory.Allocator) (string, error) {
+	edits, err := Diff(base, target, mem)
+	if err != nil {
+		return "", err
+	}
+	defer edits.Release()
+
+	inserts := edits.Field(0).(*Boolean)
+	runLengths := edits.Field(1).(*Int64)
+
+	var s strings.Builder
+	baseIndex := int64(0)
+	targetIndex := int64(0)
+	wrotePosition := false
+	for i := 0; i < runLengths.Len(); i++ {
+		if i > 0 {
+			if !wrotePosition {
+				s.WriteString(fmt.Sprintf("@@ -%d, +%d @@\n", baseIndex, targetIndex))
+				wrotePosition = true
+			}
+			if inserts.Value(i) {
+				s.WriteString(fmt.Sprintf("+%v\n", stringAt(target, targetIndex)))
+				targetIndex++
+			} else {
+				s.WriteString(fmt.Sprintf("-%v\n", stringAt(base, baseIndex)))
+				baseIndex++
+			}
+		}
+		for j := int64(0); j < runLengths.Value(i); j++ {
+			baseIndex += 1
+			targetIndex += 1
+			wrotePosition = false
+		}
+	}
+	return s.String(), nil
+}
+
+func stringAt(arr arrow.Array, i int64) string {
+	if arr.IsNull(int(i)) {
+		return "null"
+	}
+
+	s := NewSlice(arr, i, i+1)
+	defer s.Release()
+	st := s.String()
+	return st[1 : len(st)-1]
 }
