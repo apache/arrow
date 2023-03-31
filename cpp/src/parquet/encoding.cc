@@ -2107,8 +2107,6 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
 
 template <typename DType>
 class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
-  static_assert(std::is_same_v<int32_t, typename DType::c_type> ||
-                std::is_same_v<int64_t, typename DType::c_type>);
   // Maximum possible header size
   static constexpr uint32_t kMaxPageHeaderWriterSize = 32;
   static constexpr uint32_t kValuesPerBlock =
