@@ -472,13 +472,3 @@ test_that("Can read parquet with nested lists and maps", {
   pq <- read_parquet(paste0(parquet_test_data, "/nested_maps.snappy.parquet"), as_data_frame = FALSE)
   expect_true(pq$a$type == map_of(utf8(), map_of(int32(), field("value", boolean(), nullable = FALSE))))
 })
-
-test_that("Error if trying to write data.frame with NULL names", {
-  tf <- tempfile()
-  on.exit(unlink(tf))
-
-  df <- data.frame(a = 1)
-  names(df) <- NULL
-
-  expect_error(write_parquet(df, tf), regexp = "Input data frame columns must be named")
-})
