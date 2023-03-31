@@ -180,7 +180,7 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
       mask ^= cur_level_mask;
     }
     root_level = std::max(root_level, cur_level);
-  };
+  }
 
   const ValueType* values = data.GetValues<ValueType>(1);
   VisitSetBitRunsVoid(data.buffers[0].data, data.offset, data.length,
