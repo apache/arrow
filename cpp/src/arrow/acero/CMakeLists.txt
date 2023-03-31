@@ -156,7 +156,6 @@ function(add_arrow_acero_test REL_TEST_NAME)
                  ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
-add_arrow_acero_test(subtree_test SOURCES subtree_test.cc)
 add_arrow_acero_test(plan_test
                      SOURCES
                      plan_test.cc

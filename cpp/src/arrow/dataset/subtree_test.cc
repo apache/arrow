@@ -25,7 +25,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/acero/forest_internal.h"
-#include "arrow/acero/subtree_internal.h"
+#include "arrow/dataset/subtree_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/string.h"
 
@@ -36,7 +36,7 @@ using internal::StartsWith;
 using compute::field_ref;
 using compute::literal;
 
-namespace acero {
+namespace dataset {
 
 using testing::ContainerEq;
 
@@ -380,5 +380,5 @@ TEST(Subtree, EncodeFragments) {
           SubtreeImpl::Encoded{std::nullopt, SubtreeImpl::expression_codes({2, 3})},
       }));
 }
-}  // namespace acero
+}  // namespace dataset
 }  // namespace arrow

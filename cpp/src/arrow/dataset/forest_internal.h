@@ -25,7 +25,7 @@
 #include "arrow/status.h"
 
 namespace arrow {
-namespace acero {
+namespace dataset {
 
 /// A Forest is a view of a sorted range which carries an ancestry relation in addition
 /// to an ordering relation: each element's descendants appear directly after it.
@@ -121,5 +121,5 @@ class Forest {
   std::shared_ptr<std::vector<int>> descendant_counts_;
 };
 
-}  // namespace acero
+}  // namespace dataset
 }  // namespace arrow

@@ -30,7 +30,7 @@ namespace arrow {
 
 using compute::Expression;
 
-namespace acero {
+namespace dataset {
 // Helper class for efficiently detecting subtrees given expressions.
 //
 // Using fragment partition expressions as an example:
@@ -177,5 +177,5 @@ inline bool operator==(const SubtreeImpl::Encoded& l, const SubtreeImpl::Encoded
   return l.index == r.index && l.guarantee == r.guarantee;
 }
 
-}  // namespace acero
+}  // namespace dataset
 }  // namespace arrow

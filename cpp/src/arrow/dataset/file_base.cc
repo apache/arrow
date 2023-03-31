@@ -26,15 +26,15 @@
 #include <variant>
 #include <vector>
 
-#include "arrow/acero/forest_internal.h"
 #include "arrow/acero/map_node.h"
 #include "arrow/acero/query_context.h"
-#include "arrow/acero/subtree_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/dataset_writer.h"
+#include "arrow/dataset/forest_internal.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/dataset/subtree_internal.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/io/compressed.h"
@@ -211,7 +211,7 @@ bool FileFragment::Equals(const FileFragment& other) const {
 
 struct FileSystemDataset::FragmentSubtrees {
   // Forest for skipping fragments based on extracted subtree expressions
-  acero::Forest forest;
+  Forest forest;
   // fragment indices and subtree expressions in forest order
   std::vector<std::variant<int, compute::Expression>> fragments_and_subtrees;
 };
@@ -268,13 +268,13 @@ std::string FileSystemDataset::ToString() const {
 
 void FileSystemDataset::SetupSubtreePruning() {
   subtrees_ = std::make_shared<FragmentSubtrees>();
-  acero::SubtreeImpl impl;
+  SubtreeImpl impl;
 
   auto encoded = impl.EncodeGuarantees(
       [&](int index) { return fragments_[index]->partition_expression(); },
       static_cast<int>(fragments_.size()));
 
-  std::sort(encoded.begin(), encoded.end(), acero::SubtreeImpl::ByGuarantee());
+  std::sort(encoded.begin(), encoded.end(), SubtreeImpl::ByGuarantee());
 
   for (const auto& e : encoded) {
     if (e.index) {
@@ -284,8 +284,8 @@ void FileSystemDataset::SetupSubtreePruning() {
     }
   }
 
-  subtrees_->forest = acero::Forest(static_cast<int>(encoded.size()),
-                                    acero::SubtreeImpl::IsAncestor{encoded});
+  subtrees_->forest =
+      Forest(static_cast<int>(encoded.size()), SubtreeImpl::IsAncestor{encoded});
 }
 
 Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
@@ -299,7 +299,7 @@ Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
 
   std::vector<compute::Expression> predicates{predicate};
   RETURN_NOT_OK(subtrees_->forest.Visit(
-      [&](acero::Forest::Ref ref) -> Result<bool> {
+      [&](Forest::Ref ref) -> Result<bool> {
         if (auto fragment_index =
                 std::get_if<int>(&subtrees_->fragments_and_subtrees[ref.i])) {
           fragment_indices.push_back(*fragment_index);
@@ -318,7 +318,7 @@ Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
         predicates.push_back(std::move(simplified));
         return true;
       },
-      [&](acero::Forest::Ref ref) { predicates.pop_back(); }));
+      [&](Forest::Ref ref) { predicates.pop_back(); }));
 
   std::sort(fragment_indices.begin(), fragment_indices.end());
 
