@@ -264,11 +264,13 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   default_memory_pool_id = -1L;
 }
 
-/// Iterate over an object array of Tables Name on position `i` and theirs
-/// Memory Address representation on `i+1` position linearly.
-/// Return a mapping of the Table Name to Query as a Key and a RecordBatchReader
-/// as a Value.
-std::unordered_map<std::string, std::shared_ptr<arrow::Table>> ToMapTableToArrowReader(JNIEnv* env, jobjectArray& str_array) {
+/// Unpack the named tables passed through JNI.
+///
+/// Named tables are encoded as a string array, where every two elements 
+/// encode (1) the table name and (2) the address of an ArrowArrayStream
+/// containing the table data.  This function will eagerly read all
+/// tables into Tables.
+std::unordered_map<std::string, std::shared_ptr<arrow::Table>> LoadNamedTables(JNIEnv* env, jobjectArray& str_array) {
   std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_record_batch_reader;
   int length = env->GetArrayLength(str_array);
   std::shared_ptr<arrow::Table> output_table;

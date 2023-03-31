@@ -19,14 +19,8 @@
 Substrait
 =========
 
-Java Substrait offer capabilities to ``Query`` data received as a Susbtrait
-Plan (`plain or binary format`).
-
-During this process, Substrait plans are read, executed, and ArrowReaders are
-returned for reading Schema and ArrowRecordBatches. For Substrait plan that contains
-``Local Files`` the URI per table are defined in the Substrait plan, different
-than ``Named Tables`` where is needed to define a mapping name of tables
-and theirs ArrowReader representation.
+The ``arrow-dataset`` module can execute Substrait_ plans via the Acero_
+query engine.
 
 .. contents::
 
@@ -37,13 +31,10 @@ Java Substrait API uses Acero C++ Substrait API capabilities thru JNI wrappers.
 
 .. seealso:: :doc:`../cpp/streaming_execution` for more information on Acero.
 
-Substrait Consumer
-==================
+Executing Substrait Plans
+=========================
 
-Substrait Plan offer two ways to define URI for Query data:
-
-- Local Files: A fixed URI value on the plan
-- Named Table: An external configuration to define URI value
+Plans can reference data in files via URIs, or "named tables" that must be provided along with the plan.
 
 Local Files:
 
