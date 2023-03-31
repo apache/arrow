@@ -19,6 +19,15 @@ add_custom_target(arrow_acero)
 
 arrow_install_all_headers("arrow/acero")
 
+macro(append_acero_avx2_src SRC)
+  if(ARROW_HAVE_RUNTIME_AVX2)
+    list(APPEND ARROW_ACERO_SRCS ${SRC})
+    set_source_files_properties(${SRC} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX2_FLAG})
+  endif()
+endmacro()
+
+
 set(ARROW_ACERO_SRCS
     groupby.cc
     accumulation_queue.cc
@@ -47,9 +56,9 @@ set(ARROW_ACERO_SRCS
     union_node.cc
     util.cc)
 
-append_avx2_src(bloom_filter_avx2.cc)
-append_avx2_src(swiss_join_avx2.cc)
-append_avx2_src(util_avx2.cc)
+append_acero_avx2_src(bloom_filter_avx2.cc)
+append_acero_avx2_src(swiss_join_avx2.cc)
+append_acero_avx2_src(util_avx2.cc)
 
 set(ARROW_ACERO_PKG_CONFIG_REQUIRES arrow)
 

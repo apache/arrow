@@ -17,6 +17,7 @@
 
 #include <immintrin.h>
 
+#include "arrow/acero/util.h"
 #include "arrow/compute/row/compare_internal.h"
 #include "arrow/util/bit_util.h"
 
@@ -571,10 +572,10 @@ uint32_t KeyCompare::NullUpdateColumnToRow_avx2(
     const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
     LightContext* ctx, const KeyColumnArray& col, const RowTableImpl& rows,
     uint8_t* match_bytevector) {
-  int64_t num_rows_safe =
-      TailSkipForSIMD::FixBitAccess(sizeof(uint32_t), col.length(), col.bit_offset(0));
+  int64_t num_rows_safe = acero::TailSkipForSIMD::FixBitAccess(
+      sizeof(uint32_t), col.length(), col.bit_offset(0));
   if (sel_left_maybe_null) {
-    num_rows_to_compare = static_cast<uint32_t>(TailSkipForSIMD::FixSelection(
+    num_rows_to_compare = static_cast<uint32_t>(acero::TailSkipForSIMD::FixSelection(
         num_rows_safe, static_cast<int>(num_rows_to_compare), sel_left_maybe_null));
   } else {
     num_rows_to_compare = static_cast<uint32_t>(num_rows_safe);
@@ -600,19 +601,19 @@ uint32_t KeyCompare::CompareBinaryColumnToRow_avx2(
   int64_t num_rows_safe = col.length();
   if (col_width == 0) {
     // In this case we will access left column memory 4B at a time
-    num_rows_safe =
-        TailSkipForSIMD::FixBitAccess(sizeof(uint32_t), col.length(), col.bit_offset(1));
+    num_rows_safe = acero::TailSkipForSIMD::FixBitAccess(sizeof(uint32_t), col.length(),
+                                                         col.bit_offset(1));
   } else if (col_width == 1 || col_width == 2) {
     // In this case we will access left column memory 4B at a time
-    num_rows_safe =
-        TailSkipForSIMD::FixBinaryAccess(sizeof(uint32_t), col.length(), col_width);
+    num_rows_safe = acero::TailSkipForSIMD::FixBinaryAccess(sizeof(uint32_t),
+                                                            col.length(), col_width);
   } else if (col_width != 4 && col_width != 8) {
     // In this case we will access left column memory 32B at a time
     num_rows_safe =
-        TailSkipForSIMD::FixBinaryAccess(sizeof(__m256i), col.length(), col_width);
+        acero::TailSkipForSIMD::FixBinaryAccess(sizeof(__m256i), col.length(), col_width);
   }
   if (sel_left_maybe_null) {
-    num_rows_to_compare = static_cast<uint32_t>(TailSkipForSIMD::FixSelection(
+    num_rows_to_compare = static_cast<uint32_t>(acero::TailSkipForSIMD::FixSelection(
         num_rows_safe, static_cast<int>(num_rows_to_compare), sel_left_maybe_null));
   } else {
     num_rows_to_compare = static_cast<uint32_t>(
@@ -635,10 +636,10 @@ uint32_t KeyCompare::CompareVarBinaryColumnToRow_avx2(
     uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
     const uint32_t* left_to_right_map, LightContext* ctx, const KeyColumnArray& col,
     const RowTableImpl& rows, uint8_t* match_bytevector) {
-  int64_t num_rows_safe =
-      TailSkipForSIMD::FixVarBinaryAccess(sizeof(__m256i), col.length(), col.offsets());
+  int64_t num_rows_safe = acero::TailSkipForSIMD::FixVarBinaryAccess(
+      sizeof(__m256i), col.length(), col.offsets());
   if (use_selection) {
-    num_rows_to_compare = static_cast<uint32_t>(TailSkipForSIMD::FixSelection(
+    num_rows_to_compare = static_cast<uint32_t>(acero::TailSkipForSIMD::FixSelection(
         num_rows_safe, static_cast<int>(num_rows_to_compare), sel_left_maybe_null));
   } else {
     num_rows_to_compare = static_cast<uint32_t>(num_rows_safe);
