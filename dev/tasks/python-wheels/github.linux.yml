@@ -22,10 +22,14 @@
 jobs:
   build:
     name: "Build wheel for manylinux {{ manylinux_version }}"
+    {% if arch == "amd64" %}
     runs-on: ubuntu-latest
+    {% else %}
+    runs-on: ["self-hosted", "Linux", "arm64"]
+    {% endif %}
     env:
       # archery uses these environment variables
-      ARCH: amd64
+      ARCH: "{{ arch }}"
       PYTHON: "{{ python_version }}"
 
     steps:
@@ -49,6 +53,7 @@ jobs:
           archery docker run python-wheel-manylinux-test-imports
           archery docker run python-wheel-manylinux-test-unittests
 
+      {% if arch == "amd64" %}
       - name: Test wheel on AlmaLinux 8
         shell: bash
         if: |
@@ -90,6 +95,7 @@ jobs:
             -e TEST_PYTHON_VERSIONS={{ python_version }} \
             -e TEST_WHEELS=1 \
             ubuntu-verify-rc
+      {% endif %}
 
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
