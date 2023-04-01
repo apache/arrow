@@ -31,9 +31,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/acero/exec_plan.h"
 #include "arrow/array.h"
-#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec.h"
 #include "arrow/compute/expression.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
@@ -48,19 +50,91 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
+#include "arrow/testing/visibility.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/pcg_random.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
+using acero::ExecNode;
+using acero::ExecPlan;
+using compute::ExecBatch;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::TemporaryDir;
 
 namespace dataset {
+
+using StartProducingFunc = std::function<Status(ExecNode*)>;
+using StopProducingFunc = std::function<void(ExecNode*)>;
+
+ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types, std::string_view json);
+
+/// \brief Shape qualifier for value types. In certain instances
+/// (e.g. "map_lookup" kernel), an argument may only be a scalar, where in
+/// other kernels arguments can be arrays or scalars
+enum class ArgShape { ANY, ARRAY, SCALAR };
+
+ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
+                            const std::vector<ArgShape>& shapes, std::string_view json);
+
+struct BatchesWithSchema {
+  std::vector<ExecBatch> batches;
+  std::shared_ptr<Schema> schema;
+
+  AsyncGenerator<std::optional<ExecBatch>> gen(bool parallel, bool slow) const {
+    auto opt_batches = ::arrow::internal::MapVector(
+        [](ExecBatch batch) { return std::make_optional(std::move(batch)); }, batches);
+
+    AsyncGenerator<std::optional<ExecBatch>> gen;
+
+    if (parallel) {
+      // emulate batches completing initial decode-after-scan on a cpu thread
+      gen = MakeBackgroundGenerator(MakeVectorIterator(std::move(opt_batches)),
+                                    ::arrow::internal::GetCpuThreadPool())
+                .ValueOrDie();
+
+      // ensure that callbacks are not executed immediately on a background thread
+      gen =
+          MakeTransferredGenerator(std::move(gen), ::arrow::internal::GetCpuThreadPool());
+    } else {
+      gen = MakeVectorGenerator(std::move(opt_batches));
+    }
+
+    if (slow) {
+      gen =
+          MakeMappedGenerator(std::move(gen), [](const std::optional<ExecBatch>& batch) {
+            SleepABit();
+            return batch;
+          });
+    }
+
+    return gen;
+  }
+};
+
+Future<> StartAndFinish(ExecPlan* plan);
+
+Future<std::vector<ExecBatch>> StartAndCollect(
+    ExecPlan* plan, AsyncGenerator<std::optional<ExecBatch>> gen);
+
+Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab);
+
+void AssertTablesEqualIgnoringOrder(const std::shared_ptr<Table>& exp,
+                                    const std::shared_ptr<Table>& act);
+
+void AssertExecBatchesEqualIgnoringOrder(const std::shared_ptr<Schema>& schema,
+                                         const std::vector<ExecBatch>& exp,
+                                         const std::vector<ExecBatch>& act);
+
+void AssertExecBatchesEqual(const std::shared_ptr<Schema>& schema,
+                            const std::vector<ExecBatch>& exp,
+                            const std::vector<ExecBatch>& act);
 
 using compute::call;
 using compute::field_ref;
@@ -1189,10 +1263,9 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
       ARROW_RETURN_NOT_OK(ScanV2Options::AddFieldsNeededForFilter(opts_.get()));
     }
     opts_->format_options = GetFormatOptions();
-    ARROW_ASSIGN_OR_RAISE(
-        std::unique_ptr<RecordBatchReader> reader,
-        compute::DeclarationToReader(compute::Declaration("scan2", *opts_),
-                                     GetParam().use_threads));
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<RecordBatchReader> reader,
+                          acero::DeclarationToReader(acero::Declaration("scan2", *opts_),
+                                                     GetParam().use_threads));
     return reader;
   }
 

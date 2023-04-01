@@ -912,7 +912,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
-std::shared_ptr<compute::ExecPlan> ExecPlan_create(bool use_threads);
+std::shared_ptr<acero::ExecPlan> ExecPlan_create(bool use_threads);
 extern "C" SEXP _arrow_ExecPlan_create(SEXP use_threads_sexp){
 BEGIN_CPP11
 	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
@@ -936,7 +936,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
-std::shared_ptr<compute::ExecPlan> ExecPlanReader__Plan(const std::shared_ptr<ExecPlanReader>& reader);
+std::shared_ptr<acero::ExecPlan> ExecPlanReader__Plan(const std::shared_ptr<ExecPlanReader>& reader);
 extern "C" SEXP _arrow_ExecPlanReader__Plan(SEXP reader_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ExecPlanReader>&>::type reader(reader_sexp);
@@ -952,11 +952,11 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
-std::shared_ptr<ExecPlanReader> ExecPlan_run(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options, cpp11::strings metadata, int64_t head);
+std::shared_ptr<ExecPlanReader> ExecPlan_run(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<acero::ExecNode>& final_node, cpp11::list sort_options, cpp11::strings metadata, int64_t head);
 extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp, SEXP metadata_sexp, SEXP head_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
-	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type final_node(final_node_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type final_node(final_node_sexp);
 	arrow::r::Input<cpp11::list>::type sort_options(sort_options_sexp);
 	arrow::r::Input<cpp11::strings>::type metadata(metadata_sexp);
 	arrow::r::Input<int64_t>::type head(head_sexp);
@@ -964,36 +964,36 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
-std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan);
+std::string ExecPlan_ToString(const std::shared_ptr<acero::ExecPlan>& plan);
 extern "C" SEXP _arrow_ExecPlan_ToString(SEXP plan_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecPlan>&>::type plan(plan_sexp);
 	return cpp11::as_sexp(ExecPlan_ToString(plan));
 END_CPP11
 }
 // compute-exec.cpp
-void ExecPlan_UnsafeDelete(const std::shared_ptr<compute::ExecPlan>& plan);
+void ExecPlan_UnsafeDelete(const std::shared_ptr<acero::ExecPlan>& plan);
 extern "C" SEXP _arrow_ExecPlan_UnsafeDelete(SEXP plan_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecPlan>&>::type plan(plan_sexp);
 	ExecPlan_UnsafeDelete(plan);
 	return R_NilValue;
 END_CPP11
 }
 // compute-exec.cpp
-std::shared_ptr<arrow::Schema> ExecNode_output_schema(const std::shared_ptr<compute::ExecNode>& node);
+std::shared_ptr<arrow::Schema> ExecNode_output_schema(const std::shared_ptr<acero::ExecNode>& node);
 extern "C" SEXP _arrow_ExecNode_output_schema(SEXP node_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type node(node_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type node(node_sexp);
 	return cpp11::as_sexp(ExecNode_output_schema(node));
 END_CPP11
 }
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<compute::ExecNode> ExecNode_Scan(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<ds::Dataset>& dataset, const std::shared_ptr<compute::Expression>& filter, cpp11::list projection);
+std::shared_ptr<acero::ExecNode> ExecNode_Scan(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<ds::Dataset>& dataset, const std::shared_ptr<compute::Expression>& filter, cpp11::list projection);
 extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP filter_sexp, SEXP projection_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<ds::Dataset>&>::type dataset(dataset_sexp);
 	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type filter(filter_sexp);
 	arrow::r::Input<cpp11::list>::type projection(projection_sexp);
@@ -1008,11 +1008,11 @@ extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP fil
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
-void ExecPlan_Write(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<compute::ExecNode>& final_node, cpp11::strings metadata, const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions, uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group, uint64_t max_rows_per_group);
+void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<acero::ExecNode>& final_node, cpp11::strings metadata, const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions, uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group, uint64_t max_rows_per_group);
 extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP metadata_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
-	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type final_node(final_node_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type final_node(final_node_sexp);
 	arrow::r::Input<cpp11::strings>::type metadata(metadata_sexp);
 	arrow::r::Input<const std::shared_ptr<ds::FileWriteOptions>&>::type file_write_options(file_write_options_sexp);
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
@@ -1036,41 +1036,41 @@ extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP
 #endif
 
 // compute-exec.cpp
-std::shared_ptr<compute::ExecNode> ExecNode_Filter(const std::shared_ptr<compute::ExecNode>& input, const std::shared_ptr<compute::Expression>& filter);
+std::shared_ptr<acero::ExecNode> ExecNode_Filter(const std::shared_ptr<acero::ExecNode>& input, const std::shared_ptr<compute::Expression>& filter);
 extern "C" SEXP _arrow_ExecNode_Filter(SEXP input_sexp, SEXP filter_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type input(input_sexp);
 	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type filter(filter_sexp);
 	return cpp11::as_sexp(ExecNode_Filter(input, filter));
 END_CPP11
 }
 // compute-exec.cpp
-std::shared_ptr<compute::ExecNode> ExecNode_Project(const std::shared_ptr<compute::ExecNode>& input, const std::vector<std::shared_ptr<compute::Expression>>& exprs, std::vector<std::string> names);
+std::shared_ptr<acero::ExecNode> ExecNode_Project(const std::shared_ptr<acero::ExecNode>& input, const std::vector<std::shared_ptr<compute::Expression>>& exprs, std::vector<std::string> names);
 extern "C" SEXP _arrow_ExecNode_Project(SEXP input_sexp, SEXP exprs_sexp, SEXP names_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type input(input_sexp);
 	arrow::r::Input<const std::vector<std::shared_ptr<compute::Expression>>&>::type exprs(exprs_sexp);
 	arrow::r::Input<std::vector<std::string>>::type names(names_sexp);
 	return cpp11::as_sexp(ExecNode_Project(input, exprs, names));
 END_CPP11
 }
 // compute-exec.cpp
-std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(const std::shared_ptr<compute::ExecNode>& input, cpp11::list options, std::vector<std::string> key_names);
+std::shared_ptr<acero::ExecNode> ExecNode_Aggregate(const std::shared_ptr<acero::ExecNode>& input, cpp11::list options, std::vector<std::string> key_names);
 extern "C" SEXP _arrow_ExecNode_Aggregate(SEXP input_sexp, SEXP options_sexp, SEXP key_names_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type input(input_sexp);
 	arrow::r::Input<cpp11::list>::type options(options_sexp);
 	arrow::r::Input<std::vector<std::string>>::type key_names(key_names_sexp);
 	return cpp11::as_sexp(ExecNode_Aggregate(input, options, key_names));
 END_CPP11
 }
 // compute-exec.cpp
-std::shared_ptr<compute::ExecNode> ExecNode_Join(const std::shared_ptr<compute::ExecNode>& input, compute::JoinType join_type, const std::shared_ptr<compute::ExecNode>& right_data, std::vector<std::string> left_keys, std::vector<std::string> right_keys, std::vector<std::string> left_output, std::vector<std::string> right_output, std::string output_suffix_for_left, std::string output_suffix_for_right);
+std::shared_ptr<acero::ExecNode> ExecNode_Join(const std::shared_ptr<acero::ExecNode>& input, acero::JoinType join_type, const std::shared_ptr<acero::ExecNode>& right_data, std::vector<std::string> left_keys, std::vector<std::string> right_keys, std::vector<std::string> left_output, std::vector<std::string> right_output, std::string output_suffix_for_left, std::string output_suffix_for_right);
 extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP join_type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp, SEXP output_suffix_for_left_sexp, SEXP output_suffix_for_right_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
-	arrow::r::Input<compute::JoinType>::type join_type(join_type_sexp);
-	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type right_data(right_data_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type input(input_sexp);
+	arrow::r::Input<acero::JoinType>::type join_type(join_type_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type right_data(right_data_sexp);
 	arrow::r::Input<std::vector<std::string>>::type left_keys(left_keys_sexp);
 	arrow::r::Input<std::vector<std::string>>::type right_keys(right_keys_sexp);
 	arrow::r::Input<std::vector<std::string>>::type left_output(left_output_sexp);
@@ -1081,28 +1081,28 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
-std::shared_ptr<compute::ExecNode> ExecNode_Union(const std::shared_ptr<compute::ExecNode>& input, const std::shared_ptr<compute::ExecNode>& right_data);
+std::shared_ptr<acero::ExecNode> ExecNode_Union(const std::shared_ptr<acero::ExecNode>& input, const std::shared_ptr<acero::ExecNode>& right_data);
 extern "C" SEXP _arrow_ExecNode_Union(SEXP input_sexp, SEXP right_data_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
-	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type right_data(right_data_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type input(input_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type right_data(right_data_sexp);
 	return cpp11::as_sexp(ExecNode_Union(input, right_data));
 END_CPP11
 }
 // compute-exec.cpp
-std::shared_ptr<compute::ExecNode> ExecNode_SourceNode(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<arrow::RecordBatchReader>& reader);
+std::shared_ptr<acero::ExecNode> ExecNode_SourceNode(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<arrow::RecordBatchReader>& reader);
 extern "C" SEXP _arrow_ExecNode_SourceNode(SEXP plan_sexp, SEXP reader_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
 	return cpp11::as_sexp(ExecNode_SourceNode(plan, reader));
 END_CPP11
 }
 // compute-exec.cpp
-std::shared_ptr<compute::ExecNode> ExecNode_TableSourceNode(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<arrow::Table>& table);
+std::shared_ptr<acero::ExecNode> ExecNode_TableSourceNode(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<arrow::Table>& table);
 extern "C" SEXP _arrow_ExecNode_TableSourceNode(SEXP plan_sexp, SEXP table_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
 	return cpp11::as_sexp(ExecNode_TableSourceNode(plan, table));
 END_CPP11
@@ -1139,10 +1139,10 @@ extern "C" SEXP _arrow_substrait__internal__SubstraitFromJSON(SEXP substrait_jso
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_SUBSTRAIT)
-std::shared_ptr<arrow::Table> ExecPlan_run_substrait(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<arrow::Buffer>& serialized_plan);
+std::shared_ptr<arrow::Table> ExecPlan_run_substrait(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<arrow::Buffer>& serialized_plan);
 extern "C" SEXP _arrow_ExecPlan_run_substrait(SEXP plan_sexp, SEXP serialized_plan_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<acero::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::Buffer>&>::type serialized_plan(serialized_plan_sexp);
 	return cpp11::as_sexp(ExecPlan_run_substrait(plan, serialized_plan));
 END_CPP11

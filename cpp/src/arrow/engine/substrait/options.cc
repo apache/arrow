@@ -20,8 +20,8 @@
 #include <google/protobuf/util/json_util.h>
 #include <mutex>
 
-#include "arrow/compute/exec/asof_join_node.h"
-#include "arrow/compute/exec/options.h"
+#include "arrow/acero/asof_join_node.h"
+#include "arrow/acero/options.h"
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/options_internal.h"
 #include "arrow/engine/substrait/relation_internal.h"
@@ -32,9 +32,9 @@ namespace engine {
 
 namespace {
 
-std::vector<compute::Declaration::Input> MakeDeclarationInputs(
+std::vector<acero::Declaration::Input> MakeDeclarationInputs(
     const std::vector<DeclarationInfo>& inputs) {
-  std::vector<compute::Declaration::Input> input_decls(inputs.size());
+  std::vector<acero::Declaration::Input> input_decls(inputs.size());
   for (size_t i = 0; i < inputs.size(); i++) {
     input_decls[i] = inputs[i].declaration;
   }
@@ -97,7 +97,7 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     }
 
     size_t n_input = inputs.size(), i = 0;
-    std::vector<compute::AsofJoinNodeOptions::Keys> input_keys(n_input);
+    std::vector<acero::AsofJoinNodeOptions::Keys> input_keys(n_input);
     for (const auto& keys : as_of_join_rel.keys()) {
       // on-key
       if (!keys.has_on()) {
@@ -134,14 +134,14 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     }
     std::vector<int> field_output_indices;
     ARROW_ASSIGN_OR_RAISE(auto schema,
-                          compute::asofjoin::MakeOutputSchema(input_schema, input_keys,
-                                                              &field_output_indices));
-    compute::AsofJoinNodeOptions asofjoin_node_opts{std::move(input_keys), tolerance};
+                          acero::asofjoin::MakeOutputSchema(input_schema, input_keys,
+                                                            &field_output_indices));
+    acero::AsofJoinNodeOptions asofjoin_node_opts{std::move(input_keys), tolerance};
 
     // declaration
     auto input_decls = MakeDeclarationInputs(inputs);
     return RelationInfo{
-        {compute::Declaration("asofjoin", input_decls, std::move(asofjoin_node_opts)),
+        {acero::Declaration("asofjoin", input_decls, std::move(asofjoin_node_opts)),
          std::move(schema)},
         std::move(field_output_indices)};
   }
@@ -271,9 +271,9 @@ default_extension_provider_singleton() {
 
 ConfigurableSingleton<NamedTapProvider>& default_named_tap_provider_singleton() {
   static ConfigurableSingleton<NamedTapProvider> singleton(
-      [](const std::string& tap_kind, std::vector<compute::Declaration::Input> inputs,
+      [](const std::string& tap_kind, std::vector<acero::Declaration::Input> inputs,
          const std::string& tap_name,
-         std::shared_ptr<Schema> tap_schema) -> Result<compute::Declaration> {
+         std::shared_ptr<Schema> tap_schema) -> Result<acero::Declaration> {
         return Status::NotImplemented(
             "Plan contained a NamedTapRel but no provider configured");
       });

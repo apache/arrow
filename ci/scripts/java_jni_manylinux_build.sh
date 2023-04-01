@@ -32,6 +32,8 @@ echo "=== Building Arrow C++ libraries ==="
 devtoolset_version=$(rpm -qa "devtoolset-*-gcc" --queryformat %{VERSION} | \
                        grep -o "^[0-9]*")
 devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/include/c++/${devtoolset_version}"
+: ${ARROW_ACERO:=ON}
+export ARROW_ACERO
 : ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
 export ARROW_DATASET
@@ -64,6 +66,7 @@ mkdir -p "${build_dir}/cpp"
 pushd "${build_dir}/cpp"
 
 cmake \
+  -DARROW_ACERO=${ARROW_ACERO} \
   -DARROW_BUILD_SHARED=OFF \
   -DARROW_BUILD_TESTS=ON \
   -DARROW_CSV=${ARROW_DATASET} \

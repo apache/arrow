@@ -28,9 +28,9 @@
 #include <variant>
 #include <vector>
 
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/options.h"
 #include "arrow/compute/api_aggregate.h"
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/options.h"
 #include "arrow/compute/expression.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/dataset/dataset.h"
@@ -102,7 +102,7 @@ Result<DeclarationInfo> ProcessEmitProject(
       case substrait::RelCommon::EmitKindCase::kEmit: {
         const auto& emit = rel_common_opt->emit();
         int emit_size = emit.output_mapping_size();
-        const auto& proj_options = checked_cast<const compute::ProjectNodeOptions&>(
+        const auto& proj_options = checked_cast<const acero::ProjectNodeOptions&>(
             *project_declr.declaration.options);
         FieldVector emit_fields(emit_size);
         std::vector<compute::Expression> emit_proj_exprs(emit_size);
@@ -115,9 +115,9 @@ Result<DeclarationInfo> ProcessEmitProject(
         // ProjectRel and the ProjectNodeOptions are set by only considering
         // what is in the emit expression in Substrait.
         return DeclarationInfo{
-            compute::Declaration::Sequence(
-                {std::get<compute::Declaration>(project_declr.declaration.inputs[0]),
-                 {"project", compute::ProjectNodeOptions{std::move(emit_proj_exprs)}}}),
+            acero::Declaration::Sequence(
+                {std::get<acero::Declaration>(project_declr.declaration.inputs[0]),
+                 {"project", acero::ProjectNodeOptions{std::move(emit_proj_exprs)}}}),
             schema(std::move(emit_fields))};
       }
       default:
@@ -139,10 +139,9 @@ Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
       case substrait::RelCommon::EmitKindCase::kEmit: {
         ARROW_ASSIGN_OR_RAISE(auto emit_info, GetEmitInfo(rel, schema));
         return DeclarationInfo{
-            compute::Declaration::Sequence(
-                {no_emit_declr.declaration,
-                 {"project",
-                  compute::ProjectNodeOptions{std::move(emit_info.expressions)}}}),
+            acero::Declaration::Sequence({no_emit_declr.declaration,
+                                          {"project", acero::ProjectNodeOptions{std::move(
+                                                          emit_info.expressions)}}}),
             std::move(emit_info.schema)};
       }
       default:
@@ -186,9 +185,9 @@ Result<DeclarationInfo> ProcessExtensionEmit(
   std::shared_ptr<Schema> emit_schema = schema(std::move(emit_fields));
 
   return DeclarationInfo{
-      compute::Declaration::Sequence(
+      acero::Declaration::Sequence(
           {no_emit_declr.declaration,
-           {"project", compute::ProjectNodeOptions{std::move(proj_field_refs)}}}),
+           {"project", acero::ProjectNodeOptions{std::move(proj_field_refs)}}}),
       std::move(emit_schema)};
 }
 
@@ -333,7 +332,7 @@ Result<ParsedMeasure> ParseAggregateMeasure(
 }
 
 ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
-    compute::Declaration input_decl, std::shared_ptr<Schema> input_schema,
+    acero::Declaration input_decl, std::shared_ptr<Schema> input_schema,
     const int measure_size, std::vector<compute::Aggregate> aggregates,
     std::vector<std::vector<int>> agg_src_fieldsets, std::vector<FieldRef> keys,
     std::vector<int> key_field_ids, std::vector<FieldRef> segment_keys,
@@ -360,9 +359,9 @@ ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
   std::shared_ptr<Schema> aggregate_schema = schema(std::move(output_fields));
 
   return DeclarationInfo{
-      compute::Declaration::Sequence(
+      acero::Declaration::Sequence(
           {std::move(input_decl),
-           {"aggregate", compute::AggregateNodeOptions{aggregates, keys, segment_keys}}}),
+           {"aggregate", acero::AggregateNodeOptions{aggregates, keys, segment_keys}}}),
       aggregate_schema};
 }
 
@@ -413,7 +412,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         const substrait::ReadRel::NamedTable& named_table = read.named_table();
         std::vector<std::string> table_names(named_table.names().begin(),
                                              named_table.names().end());
-        ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
+        ARROW_ASSIGN_OR_RAISE(acero::Declaration source_decl,
                               named_table_provider(table_names, *base_schema));
 
         if (!source_decl.IsValid()) {
@@ -565,7 +564,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(base_schema));
 
       DeclarationInfo scan_declaration{
-          compute::Declaration{"scan", dataset::ScanNodeOptions{ds, scan_options}},
+          acero::Declaration{"scan", dataset::ScanNodeOptions{ds, scan_options}},
           base_schema};
 
       return ProcessEmit(std::move(read), std::move(scan_declaration),
@@ -588,9 +587,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       ARROW_ASSIGN_OR_RAISE(auto condition,
                             FromProto(filter.condition(), ext_set, conversion_options));
       DeclarationInfo filter_declaration{
-          compute::Declaration::Sequence({
+          acero::Declaration::Sequence({
               std::move(input.declaration),
-              {"filter", compute::FilterNodeOptions{std::move(condition)}},
+              {"filter", acero::FilterNodeOptions{std::move(condition)}},
           }),
           input.output_schema};
 
@@ -642,9 +641,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       }
 
       DeclarationInfo project_declaration{
-          compute::Declaration::Sequence({
+          acero::Declaration::Sequence({
               std::move(input.declaration),
-              {"project", compute::ProjectNodeOptions{std::move(expressions)}},
+              {"project", acero::ProjectNodeOptions{std::move(expressions)}},
           }),
           project_schema};
 
@@ -664,27 +663,27 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         return Status::Invalid("substrait::JoinRel with no right relation");
       }
 
-      compute::JoinType join_type;
+      acero::JoinType join_type;
       switch (join.type()) {
         case substrait::JoinRel::JOIN_TYPE_UNSPECIFIED:
           return Status::NotImplemented("Unspecified join type is not supported");
         case substrait::JoinRel::JOIN_TYPE_INNER:
-          join_type = compute::JoinType::INNER;
+          join_type = acero::JoinType::INNER;
           break;
         case substrait::JoinRel::JOIN_TYPE_OUTER:
-          join_type = compute::JoinType::FULL_OUTER;
+          join_type = acero::JoinType::FULL_OUTER;
           break;
         case substrait::JoinRel::JOIN_TYPE_LEFT:
-          join_type = compute::JoinType::LEFT_OUTER;
+          join_type = acero::JoinType::LEFT_OUTER;
           break;
         case substrait::JoinRel::JOIN_TYPE_RIGHT:
-          join_type = compute::JoinType::RIGHT_OUTER;
+          join_type = acero::JoinType::RIGHT_OUTER;
           break;
         case substrait::JoinRel::JOIN_TYPE_SEMI:
-          join_type = compute::JoinType::LEFT_SEMI;
+          join_type = acero::JoinType::LEFT_SEMI;
           break;
         case substrait::JoinRel::JOIN_TYPE_ANTI:
-          join_type = compute::JoinType::LEFT_ANTI;
+          join_type = acero::JoinType::LEFT_ANTI;
           break;
         default:
           return Status::Invalid("Unsupported join type");
@@ -709,11 +708,11 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             expression.ToString());
       }
 
-      compute::JoinKeyCmp join_key_cmp;
+      acero::JoinKeyCmp join_key_cmp;
       if (callptr->function_name == "equal") {
-        join_key_cmp = compute::JoinKeyCmp::EQ;
+        join_key_cmp = acero::JoinKeyCmp::EQ;
       } else if (callptr->function_name == "is_not_distinct_from") {
-        join_key_cmp = compute::JoinKeyCmp::IS;
+        join_key_cmp = acero::JoinKeyCmp::IS;
       } else {
         return Status::Invalid(
             "Only `equal` or `is_not_distinct_from` are supported for join key "
@@ -745,11 +744,11 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       std::vector<int> adjusted_field_indices(right_field_path->indices());
       adjusted_field_indices[0] -= num_left_fields;
       FieldPath adjusted_right_keys(adjusted_field_indices);
-      compute::HashJoinNodeOptions join_options{{std::move(*left_keys)},
-                                                {std::move(adjusted_right_keys)}};
+      acero::HashJoinNodeOptions join_options{{std::move(*left_keys)},
+                                              {std::move(adjusted_right_keys)}};
       join_options.join_type = join_type;
       join_options.key_cmp = {join_key_cmp};
-      compute::Declaration join_dec{"hashjoin", std::move(join_options)};
+      acero::Declaration join_dec{"hashjoin", std::move(join_options)};
       join_dec.inputs.emplace_back(std::move(left.declaration));
       join_dec.inputs.emplace_back(std::move(right.declaration));
 
@@ -901,7 +900,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           return Status::Invalid("Unknown union type");
       }
       int input_size = set.inputs_size();
-      compute::Declaration union_declr{"union", compute::ExecNodeOptions{}};
+      acero::Declaration union_declr{"union", acero::ExecNodeOptions{}};
       std::shared_ptr<Schema> union_schema;
       for (int input_id = 0; input_id < input_size; input_id++) {
         ARROW_ASSIGN_OR_RAISE(
@@ -922,23 +921,22 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
   }
 
   return Status::NotImplemented(
-      "conversion to arrow::compute::Declaration from Substrait relation ",
+      "conversion to arrow::acero::Declaration from Substrait relation ",
       rel.DebugString());
 }
 
 namespace {
 
-Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& declr) {
+Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const acero::Declaration& declr) {
   std::shared_ptr<Schema> bind_schema;
   if (declr.factory_name == "scan") {
     const auto& opts = checked_cast<const dataset::ScanNodeOptions&>(*(declr.options));
     bind_schema = opts.dataset->schema();
   } else if (declr.factory_name == "filter") {
-    auto input_declr = std::get<compute::Declaration>(declr.inputs[0]);
+    auto input_declr = std::get<acero::Declaration>(declr.inputs[0]);
     ARROW_ASSIGN_OR_RAISE(bind_schema, ExtractSchemaToBind(input_declr));
   } else if (declr.factory_name == "named_table") {
-    const auto& opts =
-        checked_cast<const compute::NamedTableNodeOptions&>(*declr.options);
+    const auto& opts = checked_cast<const acero::NamedTableNodeOptions&>(*declr.options);
     bind_schema = opts.schema;
   } else if (declr.factory_name == "sink") {
     // Note that the sink has no output_schema
@@ -951,11 +949,11 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
 }
 
 Result<std::unique_ptr<substrait::ReadRel>> NamedTableRelationConverter(
-    const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
+    const std::shared_ptr<Schema>& schema, const acero::Declaration& declaration,
     ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
   auto read_rel = std::make_unique<substrait::ReadRel>();
   const auto& named_table_options =
-      checked_cast<const compute::NamedTableNodeOptions&>(*declaration.options);
+      checked_cast<const acero::NamedTableNodeOptions&>(*declaration.options);
 
   // set schema
   ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*schema, ext_set, conversion_options));
@@ -975,7 +973,7 @@ Result<std::unique_ptr<substrait::ReadRel>> NamedTableRelationConverter(
 }
 
 Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
-    const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
+    const std::shared_ptr<Schema>& schema, const acero::Declaration& declaration,
     ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
   auto read_rel = std::make_unique<substrait::ReadRel>();
   const auto& scan_node_options =
@@ -1019,11 +1017,11 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
 }
 
 Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
-    const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
+    const std::shared_ptr<Schema>& schema, const acero::Declaration& declaration,
     ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
   auto filter_rel = std::make_unique<substrait::FilterRel>();
   const auto& filter_node_options =
-      checked_cast<const compute::FilterNodeOptions&>(*(declaration.options));
+      checked_cast<const acero::FilterNodeOptions&>(*(declaration.options));
 
   auto filter_expr = filter_node_options.filter_expression;
   compute::Expression bound_expression;
@@ -1037,9 +1035,8 @@ Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
 
   // handling input
   auto declr_input = declaration.inputs[0];
-  ARROW_ASSIGN_OR_RAISE(
-      auto input_rel,
-      ToProto(std::get<compute::Declaration>(declr_input), ext_set, conversion_options));
+  ARROW_ASSIGN_OR_RAISE(auto input_rel, ToProto(std::get<acero::Declaration>(declr_input),
+                                                ext_set, conversion_options));
   filter_rel->set_allocated_input(input_rel.release());
 
   ARROW_ASSIGN_OR_RAISE(auto subs_expr,
@@ -1050,7 +1047,7 @@ Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
 
 }  // namespace
 
-Status SerializeAndCombineRelations(const compute::Declaration& declaration,
+Status SerializeAndCombineRelations(const acero::Declaration& declaration,
                                     ExtensionSet* ext_set,
                                     std::unique_ptr<substrait::Rel>* rel,
                                     const ConversionOptions& conversion_options) {
@@ -1078,7 +1075,7 @@ Status SerializeAndCombineRelations(const compute::Declaration& declaration,
     // Generally when a plan is deserialized the declaration will be a sink declaration.
     // Since there is no Sink relation in substrait, this function would be recursively
     // called on the input of the Sink declaration.
-    auto sink_input_decl = std::get<compute::Declaration>(declaration.inputs[0]);
+    auto sink_input_decl = std::get<acero::Declaration>(declaration.inputs[0]);
     RETURN_NOT_OK(
         SerializeAndCombineRelations(sink_input_decl, ext_set, rel, conversion_options));
   } else {
@@ -1090,7 +1087,7 @@ Status SerializeAndCombineRelations(const compute::Declaration& declaration,
 }
 
 Result<std::unique_ptr<substrait::Rel>> ToProto(
-    const compute::Declaration& declr, ExtensionSet* ext_set,
+    const acero::Declaration& declr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
   auto rel = std::make_unique<substrait::Rel>();
   RETURN_NOT_OK(SerializeAndCombineRelations(declr, ext_set, &rel, conversion_options));
