@@ -85,10 +85,10 @@ Here are a list of ORC types and mapped Arrow types.
 +-------------------+-----------------------------------+-----------+
 | DATE              | Date32                            |           |
 +-------------------+-----------------------------------+-----------+
-| VARCHAR           | String                            |           |
+| VARCHAR           | String                            | \(3)      |
 +-------------------+-----------------------------------+-----------+
-
-*Unsupported ORC types:* CHAR.
+| CHAR              | String                            | \(3)      |
++-------------------+-----------------------------------+-----------+
 
 * \(1) On the read side the ORC type is read as the first corresponding Arrow type in the table.
 
@@ -96,6 +96,9 @@ Here are a list of ORC types and mapped Arrow types.
   ORC TIMESTAMP is used. On the read side both ORC TIMESTAMP and TIMESTAMP_INSTANT types are read
   as the Arrow Timestamp type with :cpp:enumerator:`arrow::TimeUnit::NANO` and timezone is set to
   UTC for ORC TIMESTAMP_INSTANT type only.
+
+* \(3) On the read side both ORC CHAR and VARCHAR types are read as the Arrow String type. ORC CHAR
+  and VARCHAR types are not supported on the write side.
 
 Compression
 -----------
