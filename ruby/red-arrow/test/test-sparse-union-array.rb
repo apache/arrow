@@ -15,27 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class DenseUnionDataTypeTest < Test::Unit::TestCase
-  sub_test_case(".new") do
-    def setup
-      @fields = [
-        Arrow::Field.new("visible", :boolean),
-        {
-          name: "count",
-          type: :int32,
-        },
-      ]
-    end
+class SparseUnionArrayTest < Test::Unit::TestCase
+  def setup
+    data_type_fields = [
+      Arrow::Field.new("number", :int16),
+      Arrow::Field.new("text", :string),
+    ]
+    type_codes = [11, 13]
+    @data_type = Arrow::SparseUnionDataType.new(data_type_fields, type_codes)
+    type_ids = Arrow::Int8Array.new([11, 13, 11, 13, 11])
+    fields = [
+      Arrow::Int16Array.new([1, nil, nil, nil, 5]),
+      Arrow::StringArray.new([nil, "b", nil, "d", nil]),
+    ]
+    @array = Arrow::SparseUnionArray.new(@data_type, type_ids, fields)
+  end
 
-    test("ordered arguments") do
-      assert_equal("dense_union<visible: bool=2, count: int32=9>",
-                   Arrow::DenseUnionDataType.new(@fields, [2, 9]).to_s)
-    end
-
-    test("description") do
-      assert_equal("dense_union<visible: bool=2, count: int32=9>",
-                   Arrow::DenseUnionDataType.new(fields: @fields,
-                                                 type_codes: [2, 9]).to_s)
-    end
+  def test_get_value
+    assert_equal([1, "b", nil, "d", 5],
+                 @array.length.times.collect {|i| @array[i]})
   end
 end
