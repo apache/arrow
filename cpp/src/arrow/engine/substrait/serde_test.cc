@@ -6070,5 +6070,30 @@ TEST(Substrait, PlanWithSegmentedAggregateExtension) {
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
+void CheckExpressionRoundTrip(const Schema& schema,
+                              const compute::Expression& expression) {
+  ASSERT_OK_AND_ASSIGN(compute::Expression bound_expression, expression.Bind(schema));
+  BoundExpressions bound_expressions;
+  bound_expressions.schema = std::make_shared<Schema>(schema);
+  bound_expressions.named_expressions = {{std::move(bound_expression), "some_name"}};
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buf,
+                       SerializeExpressions(bound_expressions));
+  ASSERT_OK_AND_ASSIGN(BoundExpressions round_tripped, DeserializeExpressions(*buf));
+
+  AssertSchemaEqual(schema, *round_tripped.schema);
+  ASSERT_EQ(1, round_tripped.named_expressions.size());
+  ASSERT_EQ("some_name", round_tripped.named_expressions[0].name);
+  ASSERT_EQ(bound_expressions.named_expressions[0].expression,
+            round_tripped.named_expressions[0].expression);
+}
+
+TEST(Substrait, ExtendedExpressionSerialization) {
+  std::shared_ptr<Schema> test_schema =
+      schema({field("a", int32()), field("b", int32())});
+  CheckExpressionRoundTrip(
+      *test_schema, compute::call("add", {compute::field_ref(0), compute::field_ref(1)}));
+}
+
 }  // namespace engine
 }  // namespace arrow
