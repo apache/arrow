@@ -54,11 +54,19 @@ on:
 {% endmacro %}
 
 {%- macro github_install_archery() -%}
-  - name: Set up Python
+  - name: Set up Python by actions/setup-python
+    if: runner.arch == 'X64'
     uses: actions/setup-python@v4
     with:
       cache: 'pip'
       python-version: 3.8
+  - name: Set up Python by apt
+    if: runner.os == 'Linux' && runner.arch != 'X64'
+    run: |
+      sudo apt update
+      sudo apt-get install -y python3-pip
+      pip install -U pip
+      echo "$HOME/.local/bin" >>"$GITHUB_PATH"
   - name: Install Archery
     shell: bash
     run: pip install -e arrow/dev/archery[all]

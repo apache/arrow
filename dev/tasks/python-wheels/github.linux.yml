@@ -38,21 +38,7 @@ jobs:
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      {% if arch == "amd64" %}
       {{ macros.github_install_archery()|indent }}
-      {% else %}
-      - name: add path
-        run: echo "$HOME/.local/bin" >>"$GITHUB_PATH"
-      - name: Install python # Workaround for arm64 https://github.com/actions/setup-python/issues/108
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-pip
-          pip3 install -U pip
-      - name: Install Archery
-        shell: bash
-        run: pip3 install -e arrow/dev/archery[all]
-      {% endif %}
       {{ macros.github_login_dockerhub()|indent }}
 
       - name: Build wheel
