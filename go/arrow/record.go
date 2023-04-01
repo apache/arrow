@@ -37,6 +37,7 @@ type Record interface {
 	Columns() []Array
 	Column(i int) Array
 	ColumnName(i int) string
+	SetColumn(i int, col Array) (Record, error)
 
 	// NewSlice constructs a zero-copy slice of the record with the indicated
 	// indices i and j, corresponding to array[i:j].
