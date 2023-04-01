@@ -29,7 +29,11 @@ jobs:
     {% endif %}
     env:
       # archery uses these environment variables
-      ARCH: "{{ arch }}"
+      {% if arch == "amd64" %}
+      ARCH: amd64
+      {% else %}
+      ARCH: arm64v8
+      {% endif %}
       PYTHON: "{{ python_version }}"
 
     steps:
