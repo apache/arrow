@@ -21,6 +21,7 @@ arrow_install_all_headers("arrow/engine")
 
 set(ARROW_SUBSTRAIT_SRCS
     substrait/expression_internal.cc
+    substrait/extended_expression_internal.cc
     substrait/extension_set.cc
     substrait/extension_types.cc
     substrait/options.cc
