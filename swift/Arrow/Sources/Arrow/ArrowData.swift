@@ -18,11 +18,11 @@
 import Foundation
 
 public class ArrowData {
-    let type: ArrowType.Info
-    let buffers: [ArrowBuffer]
-    let nullCount: UInt
-    let length: UInt
-    let stride: Int
+    public let type: ArrowType.Info
+    public let buffers: [ArrowBuffer]
+    public let nullCount: UInt
+    public let length: UInt
+    public let stride: Int
 
     init(_ type: ArrowType.Info, buffers: [ArrowBuffer], nullCount: UInt, stride: Int) throws {
         switch(type) {
@@ -43,8 +43,8 @@ public class ArrowData {
         self.stride = stride
     }
 
-    func isNull(_ at: UInt) -> Bool {
+    public func isNull(_ at: UInt) -> Bool {
         let nullBuffer = buffers[0];
-        return nullBuffer.length == 0 || BitUtility.isSet(at, buffer: nullBuffer)
+        return nullBuffer.length > 0 && !BitUtility.isSet(at, buffer: nullBuffer)
     }
 }
