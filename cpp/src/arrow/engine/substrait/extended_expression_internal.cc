@@ -109,9 +109,11 @@ Result<NamedExpression> ExpressionFromProto(
                            output_type.ToString(), " which doesn't have enough fields");
   }
   if (expression.output_names_size() == 0) {
+    // This is potentially invalid substrait but we can handle it
     named_expr.name = "";
+  } else {
+    named_expr.name = expression.output_names(expression.output_names_size() - 1);
   }
-  named_expr.name = expression.output_names(0);
   return named_expr;
 }
 
