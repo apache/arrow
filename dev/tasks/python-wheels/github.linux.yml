@@ -36,8 +36,10 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {% if arch == "amd64" %}
       {{ macros.github_install_archery()|indent }}
-      {% else %} # Workaround for arm64 https://github.com/actions/setup-python/issues/108
-      - name: Install python
+      {% else %}
+      - name: add path
+        run: echo "$HOME/.local/bin" >>"$GITHUB_PATH"
+      - name: Install python # Workaround for arm64 https://github.com/actions/setup-python/issues/108
         shell: bash
         run: |
           sudo apt-get update
