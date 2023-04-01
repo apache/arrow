@@ -139,6 +139,7 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # ARROW-17051: this build uses static Protobuf, so we must also use
 # static Arrow to run Flight/Flight SQL tests
 ENV absl_SOURCE=BUNDLED \
+    ARROW_ACERO=ON \
     ARROW_BUILD_STATIC=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \

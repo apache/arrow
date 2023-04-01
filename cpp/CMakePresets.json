@@ -71,6 +71,7 @@
       "hidden": true,
       "cacheVariables": {
         "ARROW_SUBSTRAIT": "ON",
+        "ARROW_ACERO": "ON",
         "ARROW_MIMALLOC": "ON",
         "ARROW_PARQUET": "ON",
         "ARROW_WITH_BROTLI": "ON",

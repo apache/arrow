@@ -51,6 +51,7 @@ class ArrowConan(ConanFile):
         "plasma": [True, False],
         "cli": [True, False],
         "compute": ["auto", True, False],
+        "acero": ["auto", True, False],
         "dataset_modules":  ["auto", True, False],
         "deprecated": [True, False],
         "encryption": [True, False],
@@ -96,6 +97,7 @@ class ArrowConan(ConanFile):
         "plasma": False,
         "cli": False,
         "compute": "auto",
+        "acero": "auto",
         "dataset_modules": "auto",
         "deprecated": True,
         "encryption": False,
@@ -191,6 +193,8 @@ class ArrowConan(ConanFile):
             del self.options.fPIC
         if self.options.compute == False and not self._compute(True):
             raise ConanInvalidConfiguration("compute options is required (or choose auto)")
+        if self.options.acero == False and not self._acero(True):
+            raise ConanInvalidConfiguration("acero options is required (or choose auto)")
         if self.options.parquet == False and self._parquet(True):
             raise ConanInvalidConfiguration("parquet options is required (or choose auto)")
         if self.options.dataset_modules == False and self._dataset_modules(True):
@@ -234,9 +238,15 @@ class ArrowConan(ConanFile):
 
     def _compute(self, required=False):
         if required or self.options.compute == "auto":
-            return bool(self._parquet()) or bool(self._dataset_modules()) or bool(self.options.get_safe("substrait", False))
+            return bool(self._parquet()) or bool(self._acero())
         else:
             return bool(self.options.compute)
+
+    def _acero(self, required=False):
+        if required or self.options.acero == "auto":
+            return bool(self._dataset_modules())
+        else:
+            return bool(self.options.acero)
 
     def _parquet(self, required=False):
         if required or self.options.parquet == "auto":
@@ -446,6 +456,7 @@ class ArrowConan(ConanFile):
         tc.variables["ARROW_SUBSTRAIT"] = bool(self.options.get_safe("substrait", False))
         if Version(self.version) < "12.0.0":
             tc.variables["ARROW_PLASMA"] = bool(self._plasma())
+        tc.variables["ARROW_ACERO"] = self._acero()
         tc.variables["ARROW_DATASET"] = self._dataset_modules()
         tc.variables["ARROW_FILESYSTEM"] = bool(self.options.filesystem_layer)
         tc.variables["PARQUET_REQUIRE_ENCRYPTION"] = bool(self.options.encryption)
@@ -553,6 +564,7 @@ class ArrowConan(ConanFile):
             for filename in glob.glob(os.path.join(self.source_folder, "cpp", "cmake_modules", "Find*.cmake")):
                 if os.path.basename(filename) not in [
                     "FindArrow.cmake",
+                    "FindArrowAcero.cmake",
                     "FindArrowCUDA.cmake",
                     "FindArrowDataset.cmake",
                     "FindArrowFlight.cmake",
@@ -624,7 +636,7 @@ class ArrowConan(ConanFile):
             self.cpp_info.components["libarrow_substrait"].names["cmake_find_package"] = "arrow_substrait"
             self.cpp_info.components["libarrow_substrait"].names["cmake_find_package_multi"] = "arrow_substrait"
             self.cpp_info.components["libarrow_substrait"].names["pkg_config"] = "arrow_substrait"
-            self.cpp_info.components["libarrow_substrait"].requires = ["libparquet", "dataset"]
+            self.cpp_info.components["libarrow_substrait"].requires = ["libparquet", "dataset", "acero"]
 
         if self._plasma():
             self.cpp_info.components["libplasma"].libs = [self._lib_name("plasma")]
@@ -653,6 +665,9 @@ class ArrowConan(ConanFile):
             self.cpp_info.components["libarrow_flight_sql"].names["cmake_find_package_multi"] = "flight_sql"
             self.cpp_info.components["libarrow_flight_sql"].names["pkg_config"] = "flight_sql"
             self.cpp_info.components["libarrow_flight_sql"].requires = ["libarrow", "libarrow_flight"]
+
+        if self._acero():
+            self.cpp_info.components["acero"].libs = ["arrow_acero"]
 
         if self._dataset_modules():
             self.cpp_info.components["dataset"].libs = ["arrow_dataset"]

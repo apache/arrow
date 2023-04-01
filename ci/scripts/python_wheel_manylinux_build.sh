@@ -48,6 +48,7 @@ rm -rf /arrow/python/pyarrow/*.so
 rm -rf /arrow/python/pyarrow/*.so.*
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
+: ${ARROW_ACERO:=ON}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=OFF}
@@ -88,6 +89,7 @@ pushd /tmp/arrow-build
 # https://github.com/aws/aws-sdk-cpp/issues/1809 is fixed and vcpkg
 # ships the fix.
 cmake \
+    -DARROW_ACERO=${ARROW_ACERO} \
     -DARROW_BUILD_SHARED=ON \
     -DARROW_BUILD_STATIC=OFF \
     -DARROW_BUILD_TESTS=OFF \
@@ -142,6 +144,7 @@ export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE}
 export PYARROW_BUNDLE_ARROW_CPP=1
 export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR}
 export PYARROW_INSTALL_TESTS=1
+export PYARROW_WITH_ACERO=${ARROW_ACERO}
 export PYARROW_WITH_DATASET=${ARROW_DATASET}
 export PYARROW_WITH_FLIGHT=${ARROW_FLIGHT}
 export PYARROW_WITH_GANDIVA=${ARROW_GANDIVA}

@@ -22,9 +22,9 @@
 #include <string>
 #include <vector>
 
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/query_context.h"
-#include "arrow/compute/exec/util.h"
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/query_context.h"
+#include "arrow/acero/util.h"
 #include "arrow/compute/expression.h"
 #include "arrow/compute/expression_internal.h"
 #include "arrow/dataset/scanner.h"
@@ -39,8 +39,6 @@
 #include "arrow/util/unreachable.h"
 
 using namespace std::string_view_literals;  // NOLINT
-
-namespace cp = arrow::compute;
 
 namespace arrow {
 
@@ -57,8 +55,8 @@ Result<std::shared_ptr<Schema>> OutputSchemaFromOptions(const ScanV2Options& opt
 // In the future we should support async scanning of fragments.  The
 // Dataset class doesn't support this yet but we pretend it does here to
 // ease future adoption of the feature.
-Future<AsyncGenerator<std::shared_ptr<Fragment>>> GetFragments(Dataset* dataset,
-                                                               cp::Expression predicate) {
+Future<AsyncGenerator<std::shared_ptr<Fragment>>> GetFragments(
+    Dataset* dataset, compute::Expression predicate) {
   // In the future the dataset should be responsible for figuring out
   // the I/O context.  This will allow different I/O contexts to be used
   // when scanning different datasets.  For example, if we are scanning a
@@ -121,12 +119,12 @@ Future<AsyncGenerator<std::shared_ptr<Fragment>>> GetFragments(Dataset* dataset,
 /// fragments.  On destruction we continue consuming the fragments until they complete
 /// (which should be fairly quick since we cancelled the fragment).  This ensures the
 /// I/O work is completely finished before the node is destroyed.
-class ScanNode : public cp::ExecNode, public cp::TracedNode {
+class ScanNode : public acero::ExecNode, public acero::TracedNode {
  public:
-  ScanNode(cp::ExecPlan* plan, ScanV2Options options,
+  ScanNode(acero::ExecPlan* plan, ScanV2Options options,
            std::shared_ptr<Schema> output_schema)
-      : cp::ExecNode(plan, {}, {}, std::move(output_schema)),
-        cp::TracedNode(this),
+      : acero::ExecNode(plan, {}, {}, std::move(output_schema)),
+        acero::TracedNode(this),
         options_(options) {}
 
   static Result<ScanV2Options> NormalizeAndValidate(const ScanV2Options& options,
@@ -170,8 +168,9 @@ class ScanNode : public cp::ExecNode, public cp::TracedNode {
     return std::move(normalized);
   }
 
-  static Result<cp::ExecNode*> Make(cp::ExecPlan* plan, std::vector<cp::ExecNode*> inputs,
-                                    const cp::ExecNodeOptions& options) {
+  static Result<acero::ExecNode*> Make(acero::ExecPlan* plan,
+                                       std::vector<acero::ExecNode*> inputs,
+                                       const acero::ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, "ScanNode"));
     const auto& scan_options = checked_cast<const ScanV2Options&>(options);
     ARROW_ASSIGN_OR_RAISE(
@@ -188,8 +187,10 @@ class ScanNode : public cp::ExecNode, public cp::TracedNode {
   [[noreturn]] static void NoInputs() {
     Unreachable("no inputs; this should never be called");
   }
-  [[noreturn]] Status InputReceived(cp::ExecNode*, cp::ExecBatch) override { NoInputs(); }
-  [[noreturn]] Status InputFinished(cp::ExecNode*, int) override { NoInputs(); }
+  [[noreturn]] Status InputReceived(acero::ExecNode*, compute::ExecBatch) override {
+    NoInputs();
+  }
+  [[noreturn]] Status InputFinished(acero::ExecNode*, int) override { NoInputs(); }
 
   Status Init() override { return Status::OK(); }
 
@@ -468,7 +469,7 @@ class ScanNode : public cp::ExecNode, public cp::TracedNode {
 }  // namespace
 
 namespace internal {
-void InitializeScannerV2(arrow::compute::ExecFactoryRegistry* registry) {
+void InitializeScannerV2(arrow::acero::ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("scan2", ScanNode::Make));
 }
 }  // namespace internal

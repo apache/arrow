@@ -17,7 +17,7 @@
 
 #include "arrow/dataset/plan.h"
 
-#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/acero/exec_plan.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/scanner.h"
 
@@ -30,7 +30,7 @@ namespace internal {
 void Initialize() {
   static std::once_flag flag;
   std::call_once(flag, [] {
-    auto registry = compute::default_exec_factory_registry();
+    auto registry = acero::default_exec_factory_registry();
     if (registry) {
       InitializeScanner(registry);
       InitializeScannerV2(registry);

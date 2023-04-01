@@ -33,8 +33,8 @@
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
 
-#include <arrow/compute/exec/exec_plan.h>
-#include <arrow/compute/exec/options.h>
+#include <arrow/acero/exec_plan.h>
+#include <arrow/acero/options.h>
 
 template <typename ArrowType, typename GArrowArrayType>
 typename ArrowType::c_type
@@ -817,7 +817,7 @@ garrow_function_to_string(GArrowFunction *function)
 
 
 typedef struct GArrowExecuteNodeOptionsPrivate_ {
-  arrow::compute::ExecNodeOptions *options;
+  arrow::acero::ExecNodeOptions *options;
 } GArrowExecuteNodeOptionsPrivate;
 
 enum {
@@ -852,7 +852,7 @@ garrow_execute_node_options_set_property(GObject *object,
   switch (prop_id) {
   case PROP_FUNCTION:
     priv->options =
-      static_cast<arrow::compute::ExecNodeOptions *>(g_value_get_pointer(value));
+      static_cast<arrow::acero::ExecNodeOptions *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -877,7 +877,7 @@ garrow_execute_node_options_class_init(GArrowExecuteNodeOptionsClass *klass)
   GParamSpec *spec;
   spec = g_param_spec_pointer("options",
                               "Options",
-                              "The raw arrow::compute::ExecNodeOptions *",
+                              "The raw arrow::acero::ExecNodeOptions *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class,
@@ -988,7 +988,7 @@ garrow_source_node_options_new_record_batch_reader(
   GArrowRecordBatchReader *reader)
 {
   auto arrow_reader = garrow_record_batch_reader_get_raw(reader);
-  auto arrow_options = new arrow::compute::SourceNodeOptions(
+  auto arrow_options = new arrow::acero::SourceNodeOptions(
     arrow_reader->schema(),
     [arrow_reader]() {
       using ExecBatch = arrow::compute::ExecBatch;
@@ -1029,7 +1029,7 @@ garrow_source_node_options_new_record_batch(GArrowRecordBatch *record_batch)
   auto state = std::make_shared<State>();
   state->record_batch = garrow_record_batch_get_raw(record_batch);
   state->generated = false;
-  auto arrow_options = new arrow::compute::SourceNodeOptions(
+  auto arrow_options = new arrow::acero::SourceNodeOptions(
     state->record_batch->schema(),
     [state]() {
       using ExecBatch = arrow::compute::ExecBatch;
@@ -1095,7 +1095,7 @@ garrow_filter_node_options_new(GArrowExpression *expression)
 {
   auto arrow_expression = garrow_expression_get_raw(expression);
   auto arrow_options =
-    new arrow::compute::FilterNodeOptions(*arrow_expression);
+    new arrow::acero::FilterNodeOptions(*arrow_expression);
   auto options = g_object_new(GARROW_TYPE_FILTER_NODE_OPTIONS,
                               "options", arrow_options,
                               NULL);
@@ -1150,7 +1150,7 @@ garrow_project_node_options_new(GList *expressions,
     }
   }
   auto arrow_options =
-    new arrow::compute::ProjectNodeOptions(arrow_expressions, arrow_names);
+    new arrow::acero::ProjectNodeOptions(arrow_expressions, arrow_names);
   auto options = g_object_new(GARROW_TYPE_PROJECT_NODE_OPTIONS,
                               "options", arrow_options,
                               NULL);
@@ -1430,7 +1430,7 @@ garrow_aggregate_node_options_new(GList *aggregations,
     }
   }
   auto arrow_options =
-    new arrow::compute::AggregateNodeOptions(std::move(arrow_aggregates),
+    new arrow::acero::AggregateNodeOptions(std::move(arrow_aggregates),
                                              std::move(arrow_keys));
   auto options = g_object_new(GARROW_TYPE_AGGREGATE_NODE_OPTIONS,
                               "options", arrow_options,
@@ -1500,7 +1500,7 @@ garrow_sink_node_options_new(void)
 {
   auto options = g_object_new(GARROW_TYPE_SINK_NODE_OPTIONS, NULL);
   auto priv = GARROW_SINK_NODE_OPTIONS_GET_PRIVATE(options);
-  auto arrow_options = new arrow::compute::SinkNodeOptions(&(priv->generator));
+  auto arrow_options = new arrow::acero::SinkNodeOptions(&(priv->generator));
   auto execute_node_options_priv = GARROW_EXECUTE_NODE_OPTIONS_GET_PRIVATE(options);
   execute_node_options_priv->options = arrow_options;
   return GARROW_SINK_NODE_OPTIONS(options);
@@ -1523,7 +1523,7 @@ garrow_sink_node_options_get_reader(GArrowSinkNodeOptions *options,
   auto priv = GARROW_SINK_NODE_OPTIONS_GET_PRIVATE(options);
   if (!priv->reader) {
     auto arrow_reader =
-      arrow::compute::MakeGeneratorReader(arrow_schema,
+      arrow::acero::MakeGeneratorReader(arrow_schema,
                                           std::move(priv->generator),
                                           arrow::default_memory_pool());
     priv->reader = garrow_record_batch_reader_new_raw(&arrow_reader);
@@ -1570,7 +1570,7 @@ garrow_hash_join_node_options_new(GArrowJoinType type,
                                   gsize n_right_keys,
                                   GError **error)
 {
-  auto arrow_type = static_cast<arrow::compute::JoinType>(type);
+  auto arrow_type = static_cast<arrow::acero::JoinType>(type);
   std::vector<arrow::FieldRef> arrow_left_keys;
   for (gsize i = 0; i < n_left_keys; ++i) {
     if (!garrow_field_refs_add(arrow_left_keys,
@@ -1590,7 +1590,7 @@ garrow_hash_join_node_options_new(GArrowJoinType type,
     }
   }
   auto arrow_options =
-    new arrow::compute::HashJoinNodeOptions(arrow_type,
+    new arrow::acero::HashJoinNodeOptions(arrow_type,
                                             std::move(arrow_left_keys),
                                             std::move(arrow_right_keys));
   auto options = g_object_new(GARROW_TYPE_HASH_JOIN_NODE_OPTIONS,
@@ -1618,7 +1618,7 @@ garrow_hash_join_node_options_set_left_outputs(
   GError **error)
 {
   auto arrow_options =
-    static_cast<arrow::compute::HashJoinNodeOptions *>(
+    static_cast<arrow::acero::HashJoinNodeOptions *>(
       garrow_execute_node_options_get_raw(
         GARROW_EXECUTE_NODE_OPTIONS(options)));
   arrow_options->output_all = false;
@@ -1653,7 +1653,7 @@ garrow_hash_join_node_options_set_right_outputs(
   GError **error)
 {
   auto arrow_options =
-    static_cast<arrow::compute::HashJoinNodeOptions *>(
+    static_cast<arrow::acero::HashJoinNodeOptions *>(
       garrow_execute_node_options_get_raw(
         GARROW_EXECUTE_NODE_OPTIONS(options)));
   arrow_options->output_all = false;
@@ -1671,7 +1671,7 @@ garrow_hash_join_node_options_set_right_outputs(
 
 
 typedef struct GArrowExecuteNodePrivate_ {
-  arrow::compute::ExecNode *node;
+  arrow::acero::ExecNode *node;
 } GArrowExecuteNodePrivate;
 
 enum {
@@ -1698,7 +1698,7 @@ garrow_execute_node_set_property(GObject *object,
   switch (prop_id) {
   case PROP_NODE:
     priv->node =
-      static_cast<arrow::compute::ExecNode *>(g_value_get_pointer(value));
+      static_cast<arrow::acero::ExecNode *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1720,7 +1720,7 @@ garrow_execute_node_class_init(GArrowExecuteNodeClass *klass)
   GParamSpec *spec;
   spec = g_param_spec_pointer("node",
                               "Node",
-                              "The raw arrow::compute::ExecNode *",
+                              "The raw arrow::acero::ExecNode *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_NODE, spec);
@@ -1759,7 +1759,7 @@ garrow_execute_node_get_output_schema(GArrowExecuteNode *node)
 
 
 typedef struct GArrowExecutePlanPrivate_ {
-  std::shared_ptr<arrow::compute::ExecPlan> plan;
+  std::shared_ptr<arrow::acero::ExecPlan> plan;
 } GArrowExecutePlanPrivate;
 
 enum {
@@ -1794,7 +1794,7 @@ garrow_execute_plan_set_property(GObject *object,
   switch (prop_id) {
   case PROP_PLAN:
     priv->plan =
-      *static_cast<std::shared_ptr<arrow::compute::ExecPlan> *>(
+      *static_cast<std::shared_ptr<arrow::acero::ExecPlan> *>(
         g_value_get_pointer(value));
     break;
   default:
@@ -1807,7 +1807,7 @@ static void
 garrow_execute_plan_init(GArrowExecutePlan *object)
 {
   auto priv = GARROW_EXECUTE_PLAN_GET_PRIVATE(object);
-  new(&(priv->plan)) std::shared_ptr<arrow::compute::ExecPlan>;
+  new(&(priv->plan)) std::shared_ptr<arrow::acero::ExecPlan>;
 }
 
 static void
@@ -1820,7 +1820,7 @@ garrow_execute_plan_class_init(GArrowExecutePlanClass *klass)
   GParamSpec *spec;
   spec = g_param_spec_pointer("plan",
                               "Plan",
-                              "The raw std::shared_ptr<arrow::compute::ExecPlan>",
+                              "The raw std::shared_ptr<arrow::acero::ExecPlan>",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_PLAN, spec);
@@ -1838,7 +1838,7 @@ garrow_execute_plan_class_init(GArrowExecutePlanClass *klass)
 GArrowExecutePlan *
 garrow_execute_plan_new(GError **error)
 {
-  auto arrow_plan_result = arrow::compute::ExecPlan::Make();
+  auto arrow_plan_result = arrow::acero::ExecPlan::Make();
   if (garrow::check(error, arrow_plan_result, "[execute-plan][new]")) {
     return GARROW_EXECUTE_PLAN(g_object_new(GARROW_TYPE_EXECUTE_PLAN,
                                             "plan", &(*arrow_plan_result),
@@ -1869,14 +1869,14 @@ garrow_execute_plan_build_node(GArrowExecutePlan *plan,
                                GError **error)
 {
   auto arrow_plan = garrow_execute_plan_get_raw(plan);
-  std::vector<arrow::compute::ExecNode *> arrow_inputs;
+  std::vector<arrow::acero::ExecNode *> arrow_inputs;
   for (auto node = inputs; node; node = node->next) {
     auto arrow_node =
       garrow_execute_node_get_raw(GARROW_EXECUTE_NODE(node->data));
     arrow_inputs.push_back(arrow_node);
   }
   auto arrow_options = garrow_execute_node_options_get_raw(options);
-  auto arrow_node_result = arrow::compute::MakeExecNode(factory_name,
+  auto arrow_node_result = arrow::acero::MakeExecNode(factory_name,
                                                         arrow_plan.get(),
                                                         arrow_inputs,
                                                         *arrow_options);
@@ -5914,7 +5914,7 @@ garrow_function_get_raw(GArrowFunction *function)
 
 GArrowExecuteNodeOptions *
 garrow_execute_node_options_new_raw(
-  arrow::compute::ExecNodeOptions *arrow_options)
+  arrow::acero::ExecNodeOptions *arrow_options)
 {
   return GARROW_EXECUTE_NODE_OPTIONS(
     g_object_new(GARROW_TYPE_EXECUTE_NODE_OPTIONS,
@@ -5922,7 +5922,7 @@ garrow_execute_node_options_new_raw(
                  NULL));
 }
 
-arrow::compute::ExecNodeOptions *
+arrow::acero::ExecNodeOptions *
 garrow_execute_node_options_get_raw(GArrowExecuteNodeOptions *options)
 {
   auto priv = GARROW_EXECUTE_NODE_OPTIONS_GET_PRIVATE(options);
@@ -5931,14 +5931,14 @@ garrow_execute_node_options_get_raw(GArrowExecuteNodeOptions *options)
 
 
 GArrowExecuteNode *
-garrow_execute_node_new_raw(arrow::compute::ExecNode *arrow_node)
+garrow_execute_node_new_raw(arrow::acero::ExecNode *arrow_node)
 {
   return GARROW_EXECUTE_NODE(g_object_new(GARROW_TYPE_EXECUTE_NODE,
                                           "node", arrow_node,
                                           NULL));
 }
 
-arrow::compute::ExecNode *
+arrow::acero::ExecNode *
 garrow_execute_node_get_raw(GArrowExecuteNode *node)
 {
   auto priv = GARROW_EXECUTE_NODE_GET_PRIVATE(node);
@@ -5946,7 +5946,7 @@ garrow_execute_node_get_raw(GArrowExecuteNode *node)
 }
 
 
-std::shared_ptr<arrow::compute::ExecPlan>
+std::shared_ptr<arrow::acero::ExecPlan>
 garrow_execute_plan_get_raw(GArrowExecutePlan *plan)
 {
   auto priv = GARROW_EXECUTE_PLAN_GET_PRIVATE(plan);

@@ -26,6 +26,7 @@ from pyarrow.lib import Table
 from pyarrow.compute import Expression
 
 from pyarrow._acero import (  # noqa
+    _group_by,
     Declaration,
     ExecNodeOptions,
     TableSourceNodeOptions,

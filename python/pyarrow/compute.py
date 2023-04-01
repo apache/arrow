@@ -80,7 +80,6 @@ from pyarrow._compute import (  # noqa
     function_registry,
     get_function,
     list_functions,
-    _group_by,
     # Udf
     call_tabular_function,
     register_scalar_function,
