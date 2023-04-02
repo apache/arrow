@@ -473,7 +473,7 @@ using KernelInit = std::function<Result<std::unique_ptr<KernelState>>(
 /// \brief Base type for kernels. Contains the function signature and
 /// optionally the state initialization function, along with some common
 /// attributes
-struct Kernel {
+struct ARROW_EXPORT Kernel {
   Kernel() = default;
 
   Kernel(std::shared_ptr<KernelSignature> sig, KernelInit init)
@@ -524,7 +524,7 @@ using ArrayKernelExec = Status (*)(KernelContext*, const ExecSpan&, ExecResult*)
 /// \brief Kernel data structure for implementations of ScalarFunction. In
 /// addition to the members found in Kernel, contains the null handling
 /// and memory pre-allocation preferences.
-struct ScalarKernel : public Kernel {
+struct ARROW_EXPORT ScalarKernel : public Kernel {
   ScalarKernel() = default;
 
   ScalarKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
@@ -561,7 +561,7 @@ struct ScalarKernel : public Kernel {
 /// contains an optional finalizer function, the null handling and memory
 /// pre-allocation preferences (which have different defaults from
 /// ScalarKernel), and some other execution-related options.
-struct VectorKernel : public Kernel {
+struct ARROW_EXPORT VectorKernel : public Kernel {
   /// \brief See VectorKernel::finalize member for usage
   using FinalizeFunc = std::function<Status(KernelContext*, std::vector<Datum>*)>;
 
@@ -643,7 +643,7 @@ using ScalarAggregateFinalize = Status (*)(KernelContext*, Datum*);
 /// * merge: combines one KernelState with another.
 /// * finalize: produces the end result of the aggregation using the
 ///   KernelState in the KernelContext.
-struct ScalarAggregateKernel : public Kernel {
+struct ARROW_EXPORT ScalarAggregateKernel : public Kernel {
   ScalarAggregateKernel() = default;
 
   ScalarAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
@@ -694,7 +694,7 @@ using HashAggregateFinalize = Status (*)(KernelContext*, Datum*);
 /// * merge: combines one KernelState with another.
 /// * finalize: produces the end result of the aggregation using the
 ///   KernelState in the KernelContext.
-struct HashAggregateKernel : public Kernel {
+struct ARROW_EXPORT HashAggregateKernel : public Kernel {
   HashAggregateKernel() = default;
 
   HashAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,

@@ -1459,7 +1459,6 @@ endif()
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
-   OR ARROW_PLASMA
    OR ARROW_USE_GLOG
    OR ARROW_WITH_GRPC)
   set(ARROW_NEED_GFLAGS 1)
@@ -2230,6 +2229,13 @@ if(ARROW_TESTING)
                      1.10.0
                      USE_CONFIG
                      ${GTEST_USE_CONFIG})
+  get_target_property(gtest_cxx_standard GTest::gtest INTERFACE_COMPILE_FEATURES)
+
+  if((${gtest_cxx_standard} STREQUAL "cxx_std_11") OR (${gtest_cxx_standard} STREQUAL
+                                                       "cxx_std_14"))
+    message(FATAL_ERROR "System GTest is built with a C++ standard lower than 17. Use bundled GTest via passing in CMake flag
+-DGTest_SOURCE=\"BUNDLED\"")
+  endif()
 
   if(GTest_SOURCE STREQUAL "SYSTEM")
     find_package(PkgConfig QUIET)
@@ -5070,11 +5076,12 @@ if(ARROW_S3)
       foreach(AWSSDK_LINK_LIBRARY ${AWSSDK_LINK_LIBRARIES})
         string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:${AWSSDK_LINK_LIBRARY}>")
       endforeach()
+    else()
+      if(UNIX)
+        string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
+      endif()
+      string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
     endif()
-    if(UNIX)
-      string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
-    endif()
-    string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
   endif()
 
   if(APPLE)

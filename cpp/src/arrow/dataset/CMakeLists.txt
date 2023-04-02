@@ -34,7 +34,7 @@ set(ARROW_DATASET_SRCS
 if(ARROW_PARQUET)
   set(ARROW_DATASET_PKG_CONFIG_REQUIRES parquet)
 else()
-  set(ARROW_DATASET_PKG_CONFIG_REQUIRES arrow)
+  set(ARROW_DATASET_PKG_CONFIG_REQUIRES arrow arrow_acero)
 endif()
 
 set(ARROW_DATASET_STATIC_LINK_LIBS)
@@ -66,8 +66,12 @@ else()
   list(APPEND ARROW_DATASET_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
 endif()
 
-list(APPEND ARROW_DATASET_STATIC_LINK_LIBS arrow_static ${ARROW_STATIC_LINK_LIBS})
-list(APPEND ARROW_DATASET_SHARED_LINK_LIBS arrow_shared)
+list(APPEND
+     ARROW_DATASET_STATIC_LINK_LIBS
+     arrow_static
+     arrow_acero_static
+     ${ARROW_STATIC_LINK_LIBS})
+list(APPEND ARROW_DATASET_SHARED_LINK_LIBS arrow_shared arrow_acero_shared)
 
 add_arrow_lib(arrow_dataset
               CMAKE_PACKAGE_NAME
@@ -135,6 +139,8 @@ function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
                  ${ARROW_DATASET_TEST_LINK_LIBS}
                  PREFIX
                  ${PREFIX}
+                 SOURCES
+                 test_util_internal.cc
                  LABELS
                  ${LABELS}
                  ${ARG_UNPARSED_ARGUMENTS})
@@ -147,6 +153,7 @@ add_arrow_dataset_test(file_ipc_test)
 add_arrow_dataset_test(file_test)
 add_arrow_dataset_test(partition_test)
 add_arrow_dataset_test(scanner_test)
+add_arrow_dataset_test(subtree_test)
 
 if(ARROW_CSV)
   add_arrow_dataset_test(file_csv_test)

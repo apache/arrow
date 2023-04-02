@@ -135,7 +135,6 @@ outputs:
             "arrow/api.h", "arrow/flight/types.h", "arrow/flight/sql/api.h",
             "gandiva/engine.h", "parquet/api/reader.h"
         ] %}
-        {% set headers = headers + ["plasma/client.h"] %}  # [unix]
         {% for each_header in headers %}
         # headers
         - test -f $PREFIX/include/{{ each_header }} || (echo "{{ each_header }} not found" && exit 1)  # [unix]
@@ -146,7 +145,6 @@ outputs:
             "arrow", "arrow_dataset", "arrow_flight", "arrow_flight_sql",
             "arrow_substrait", "gandiva", "parquet"
         ] %}
-        {% set libs = libs + ["plasma"] %}  # [unix]
         {% for each_lib in libs %}
         # shared
         - test -f $PREFIX/lib/lib{{ each_lib }}.so                 # [linux]
@@ -254,7 +252,6 @@ outputs:
         - pyarrow.gandiva
         - pyarrow.orc      # [unix]
         - pyarrow.parquet
-        - pyarrow.plasma   # [unix]
         - pyarrow.fs
         - pyarrow._s3fs
         - pyarrow._hdfs
@@ -375,8 +372,6 @@ outputs:
         {% set tests_to_skip = tests_to_skip + " or test_debug_memory_pool_disabled" %}   # [aarch64 or ppc64le]
         {% set tests_to_skip = tests_to_skip + " or test_env_var_io_thread_count" %}      # [aarch64 or ppc64le]
         # vvvvvvv TESTS THAT SHOULDN'T HAVE TO BE SKIPPED vvvvvvv
-        # failing on linux with "OSError: Could not connect to socket /tmp/[...]/plasma.sock"
-        {% set tests_to_skip = tests_to_skip + " or test_plasma" %}                       # [linux]
         # "Unsupported backend 'nonexistent' specified in ARROW_DEFAULT_MEMORY_POOL"
         {% set tests_to_skip = tests_to_skip + " or (test_memory and test_env_var)" %}    # [unix]
         # test is broken; header is in $PREFIX, not $SP_DIR

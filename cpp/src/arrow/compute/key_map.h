@@ -36,7 +36,7 @@ namespace compute {
 // slots, stamps) and operations provided by this class is given in the document:
 // arrow/compute/exec/doc/key_map.md.
 //
-class SwissTable {
+class ARROW_EXPORT SwissTable {
   friend class SwissTableMerge;
 
  public:
@@ -70,11 +70,37 @@ class SwissTable {
 
   int minibatch_size() const { return 1 << log_minibatch_; }
 
-  int64_t num_inserted() const { return num_inserted_; }
+  uint32_t num_inserted() const { return num_inserted_; }
 
   int64_t hardware_flags() const { return hardware_flags_; }
 
   MemoryPool* pool() const { return pool_; }
+
+  int log_blocks() const { return log_blocks_; }
+
+  void num_inserted(uint32_t i) { num_inserted_ = i; }
+
+  uint8_t* blocks() const { return blocks_; }
+
+  uint32_t* hashes() const { return hashes_; }
+
+  /// \brief Extract group id for a given slot in a given block.
+  ///
+  inline uint64_t extract_group_id(const uint8_t* block_ptr, int slot,
+                                   uint64_t group_id_mask) const;
+
+  inline void insert_into_empty_slot(uint32_t slot_id, uint32_t hash, uint32_t group_id);
+
+  static int num_groupid_bits_from_log_blocks(int log_blocks) {
+    int required_bits = log_blocks + 3;
+    return required_bits <= 8    ? 8
+           : required_bits <= 16 ? 16
+           : required_bits <= 32 ? 32
+                                 : 64;
+  }
+
+  // Use 32-bit hash for now
+  static constexpr int bits_hash_ = 32;
 
  private:
   // Lookup helpers
@@ -106,10 +132,6 @@ class SwissTable {
   inline void search_block(uint64_t block, int stamp, int start_slot, int* out_slot,
                            int* out_match_found) const;
 
-  /// \brief Extract group id for a given slot in a given block.
-  ///
-  inline uint64_t extract_group_id(const uint8_t* block_ptr, int slot,
-                                   uint64_t group_id_mask) const;
   void extract_group_ids(const int num_keys, const uint16_t* optional_selection,
                          const uint32_t* hashes, const uint8_t* local_slots,
                          uint32_t* out_group_ids) const;
@@ -160,8 +182,6 @@ class SwissTable {
   inline bool find_next_stamp_match(const uint32_t hash, const uint32_t in_slot_id,
                                     uint32_t* out_slot_id, uint32_t* out_group_id) const;
 
-  inline void insert_into_empty_slot(uint32_t slot_id, uint32_t hash, uint32_t group_id);
-
   // Slow processing of input keys in the most generic case.
   // Handles inserting new keys.
   // Pre-existing keys will be handled correctly, although the intended use is for this
@@ -178,17 +198,6 @@ class SwissTable {
   // Resize small hash tables when 50% full (up to 8KB).
   // Resize large hash tables when 75% full.
   Status grow_double();
-
-  static int num_groupid_bits_from_log_blocks(int log_blocks) {
-    int required_bits = log_blocks + 3;
-    return required_bits <= 8    ? 8
-           : required_bits <= 16 ? 16
-           : required_bits <= 32 ? 32
-                                 : 64;
-  }
-
-  // Use 32-bit hash for now
-  static constexpr int bits_hash_ = 32;
 
   // Number of hash bits stored in slots in a block.
   // The highest bits of hash determine block id.

@@ -237,6 +237,7 @@ as_record_batch_reader.RecordBatch <- function(x, ...) {
 #' @rdname as_record_batch_reader
 #' @export
 as_record_batch_reader.data.frame <- function(x, ...) {
+  check_named_cols(x)
   RecordBatchReader$create(as_record_batch(x))
 }
 

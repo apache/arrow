@@ -122,7 +122,6 @@ endmacro()
 
 macro(resolve_option_dependencies)
   if(MSVC_TOOLCHAIN)
-    # Plasma using glog is not fully tested on windows.
     set(ARROW_USE_GLOG OFF)
   endif()
 
@@ -310,7 +309,7 @@ takes precedence over ccache if a storage backend is configured" ON)
                 "Build the Arrow Dataset Modules"
                 OFF
                 DEPENDS
-                ARROW_COMPUTE
+                ARROW_ACERO
                 ARROW_FILESYSTEM)
 
   define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" OFF)
@@ -372,14 +371,11 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_WITH_ZLIB
                 ARROW_WITH_ZSTD)
 
-  define_option(ARROW_PLASMA "Build the plasma object store along with Arrow" OFF)
-
   define_option(ARROW_PYTHON
                 "Build some components needed by PyArrow.;\
 (This is a deprecated option. Use CMake presets instead.)"
                 OFF
                 DEPENDS
-                ARROW_COMPUTE
                 ARROW_CSV
                 ARROW_DATASET
                 ARROW_FILESYSTEM
@@ -402,6 +398,14 @@ takes precedence over ccache if a storage backend is configured" ON)
                 OFF
                 DEPENDS
                 ARROW_DATASET
+                ARROW_IPC
+                ARROW_PARQUET)
+
+  define_option(ARROW_ACERO
+                "Build the Arrow Acero Engine Module"
+                OFF
+                DEPENDS
+                ARROW_COMPUTE
                 ARROW_IPC
                 ARROW_PARQUET)
 

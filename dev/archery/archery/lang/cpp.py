@@ -56,7 +56,7 @@ class CppConfiguration:
                  with_hiveserver2=None,
                  with_ipc=True, with_json=None,
                  with_mimalloc=None, with_jemalloc=None,
-                 with_parquet=None, with_plasma=None, with_python=True,
+                 with_parquet=None, with_python=True,
                  with_r=None, with_s3=None,
                  # Compressions
                  with_brotli=None, with_bz2=None, with_lz4=None,
@@ -104,7 +104,6 @@ class CppConfiguration:
         self.with_mimalloc = with_mimalloc
         self.with_jemalloc = with_jemalloc
         self.with_parquet = with_parquet
-        self.with_plasma = with_plasma
         self.with_python = with_python
         self.with_r = with_r
         self.with_s3 = with_s3
@@ -232,7 +231,6 @@ class CppConfiguration:
         yield ("ARROW_MIMALLOC", truthifier(self.with_mimalloc))
         yield ("ARROW_JEMALLOC", truthifier(self.with_jemalloc))
         yield ("ARROW_PARQUET", truthifier(self.with_parquet))
-        yield ("ARROW_PLASMA", truthifier(self.with_plasma))
         yield ("ARROW_S3", truthifier(self.with_s3))
 
         # Compressions

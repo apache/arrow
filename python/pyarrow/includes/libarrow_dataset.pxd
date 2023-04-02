@@ -22,6 +22,7 @@ from libcpp cimport bool as c_bool
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_acero cimport *
 from pyarrow.includes.libarrow_fs cimport *
 
 

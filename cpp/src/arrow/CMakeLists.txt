@@ -390,33 +390,7 @@ list(APPEND
      compute/api_vector.cc
      compute/cast.cc
      compute/exec.cc
-     compute/exec/groupby.cc
-     compute/exec/accumulation_queue.cc
-     compute/exec/aggregate_node.cc
-     compute/exec/asof_join_node.cc
-     compute/exec/bloom_filter.cc
-     compute/exec/exec_plan.cc
      compute/expression.cc
-     compute/exec/fetch_node.cc
-     compute/exec/filter_node.cc
-     compute/exec/hash_join.cc
-     compute/exec/hash_join_dict.cc
-     compute/exec/hash_join_node.cc
-     compute/exec/map_node.cc
-     compute/exec/options.cc
-     compute/exec/order_by_impl.cc
-     compute/exec/order_by_node.cc
-     compute/exec/partition_util.cc
-     compute/exec/pivot_longer_node.cc
-     compute/exec/project_node.cc
-     compute/exec/query_context.cc
-     compute/exec/sink_node.cc
-     compute/exec/source_node.cc
-     compute/exec/swiss_join.cc
-     compute/exec/task_util.cc
-     compute/exec/tpch_node.cc
-     compute/exec/union_node.cc
-     compute/exec/util.cc
      compute/function.cc
      compute/function_internal.cc
      compute/kernel.cc
@@ -444,15 +418,10 @@ list(APPEND
      compute/row/row_internal.cc
      compute/util.cc)
 
-append_avx2_src(compute/exec/bloom_filter_avx2.cc)
 append_avx2_src(compute/key_hash_avx2.cc)
 append_avx2_src(compute/key_map_avx2.cc)
-append_avx2_src(compute/exec/swiss_join_avx2.cc)
-append_avx2_src(compute/exec/util_avx2.cc)
 append_avx2_src(compute/row/compare_internal_avx2.cc)
 append_avx2_src(compute/row/encode_internal_avx2.cc)
-
-list(APPEND ARROW_TESTING_SRCS compute/exec/test_util.cc)
 
 if(ARROW_COMPUTE)
   # Include the remaining kernels
@@ -859,6 +828,10 @@ endif()
 
 if(ARROW_SUBSTRAIT)
   add_subdirectory(engine)
+endif()
+
+if(ARROW_ACERO)
+  add_subdirectory(acero)
 endif()
 
 if(ARROW_CUDA)

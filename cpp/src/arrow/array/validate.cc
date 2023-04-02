@@ -639,11 +639,26 @@ struct ValidateArrayImpl {
 
   template <typename RunEndCType>
   Status ValidateRunEndEncoded(const RunEndEncodedType& type) {
+    if (data.child_data.size() != 2) {
+      return Status::Invalid(
+          "Run end encoded array should have 2 children; this array has ",
+          data.child_data.size());
+    }
+
+    if (data.buffers.size() > 0 && data.buffers[0] != nullptr) {
+      return Status::Invalid("Run end encoded array should not have a null bitmap.");
+    }
+
     const auto& run_ends_data = data.child_data[0];
     const auto& values_data = data.child_data[1];
-    RETURN_NOT_OK(ree_util::ValidateRunEndEncodedChildren(
-        type, data.length, run_ends_data, values_data, data.GetNullCount(), data.offset));
 
+    if (!run_ends_data) {
+      return Status::Invalid("Run ends array is null pointer");
+    }
+    if (!values_data) {
+      return Status::Invalid("Values array is null pointer");
+    }
+    // We must validate child array buffers are valid before making additional checks.
     const Status run_ends_valid = RecurseInto(*run_ends_data);
     if (!run_ends_valid.ok()) {
       return Status::Invalid("Run ends array invalid: ", run_ends_valid.message());
@@ -652,6 +667,9 @@ struct ValidateArrayImpl {
     if (!values_valid.ok()) {
       return Status::Invalid("Values array invalid: ", values_valid.message());
     }
+
+    RETURN_NOT_OK(ree_util::ValidateRunEndEncodedChildren(
+        type, data.length, run_ends_data, values_data, data.GetNullCount(), data.offset));
 
     if (run_ends_data->length == 0) {
       return Status::OK();

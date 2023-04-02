@@ -40,11 +40,9 @@ groups = [
     'pandas',
     'parquet',
     'parquet_encryption',
-    'plasma',
     's3',
     'snappy',
     'substrait',
-    'tensorflow',
     'flight',
     'slow',
     'requires_testing_data',
@@ -72,13 +70,11 @@ defaults = {
     'pandas': False,
     'parquet': False,
     'parquet_encryption': False,
-    'plasma': False,
     'requires_testing_data': True,
     's3': False,
     'slow': False,
     'snappy': Codec.is_available('snappy'),
     'substrait': False,
-    'tensorflow': False,
     'zstd': Codec.is_available('zstd'),
 }
 
@@ -130,19 +126,6 @@ try:
 except ImportError:
     pass
 
-
-try:
-    import pyarrow.plasma  # noqa
-    defaults['plasma'] = True
-except ImportError:
-    pass
-
-try:
-    import tensorflow  # noqa
-    defaults['tensorflow'] = True
-except ImportError:
-    pass
-
 try:
     import pyarrow.flight  # noqa
     defaults['flight'] = True
@@ -186,7 +169,6 @@ def pytest_ignore_collect(path, config):
             'dataset',
             'orc',
             'parquet',
-            'plasma',
             'flight',
             'substrait',
         ]

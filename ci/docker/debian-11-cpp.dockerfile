@@ -95,6 +95,7 @@ COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 ENV absl_SOURCE=BUNDLED \
+    ARROW_ACERO=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
@@ -104,7 +105,6 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_HOME=/usr/local \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
-    ARROW_PLASMA=ON \
     ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_WITH_BROTLI=ON \

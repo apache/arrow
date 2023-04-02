@@ -158,7 +158,6 @@ jobs:
       # TODO(kszucs): link error in the tests
       ARROW_ORC: OFF
       ARROW_PARQUET: ON
-      ARROW_PLASMA: ON
       ARROW_S3: ON
       ARROW_WITH_BROTLI: ON
       ARROW_WITH_BZ2: ON

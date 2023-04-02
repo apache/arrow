@@ -33,6 +33,8 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
+#include "parquet/bloom_filter.h"
+#include "parquet/bloom_filter_reader.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
 #include "parquet/encryption/encryption_internal.h"
@@ -319,6 +321,25 @@ class SerializedFile : public ParquetFileReader::Contents {
     return page_index_reader_;
   }
 
+  BloomFilterReader& GetBloomFilterReader() override {
+    if (!file_metadata_) {
+      // Usually this won't happen if user calls one of the static Open() functions
+      // to create a ParquetFileReader instance. But if user calls the constructor
+      // directly and calls GetBloomFilterReader() before Open() then this could happen.
+      throw ParquetException(
+          "Cannot call GetBloomFilterReader() due to missing file metadata. Did you "
+          "forget to call ParquetFileReader::Open() first?");
+    }
+    if (!bloom_filter_reader_) {
+      bloom_filter_reader_ =
+          BloomFilterReader::Make(source_, file_metadata_, properties_, file_decryptor_);
+      if (bloom_filter_reader_ == nullptr) {
+        throw ParquetException("Cannot create BloomFilterReader");
+      }
+    }
+    return *bloom_filter_reader_;
+  }
+
   void set_metadata(std::shared_ptr<FileMetaData> metadata) {
     file_metadata_ = std::move(metadata);
   }
@@ -540,6 +561,7 @@ class SerializedFile : public ParquetFileReader::Contents {
   std::shared_ptr<FileMetaData> file_metadata_;
   ReaderProperties properties_;
   std::shared_ptr<PageIndexReader> page_index_reader_;
+  std::unique_ptr<BloomFilterReader> bloom_filter_reader_;
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 
   // \return The true length of the metadata in bytes
@@ -803,6 +825,10 @@ std::shared_ptr<FileMetaData> ParquetFileReader::metadata() const {
 
 std::shared_ptr<PageIndexReader> ParquetFileReader::GetPageIndexReader() {
   return contents_->GetPageIndexReader();
+}
+
+BloomFilterReader& ParquetFileReader::GetBloomFilterReader() {
+  return contents_->GetBloomFilterReader();
 }
 
 std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {

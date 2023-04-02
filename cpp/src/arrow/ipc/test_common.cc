@@ -1065,7 +1065,7 @@ Status MakeDictExtension(std::shared_ptr<RecordBatch>* out) {
 
   auto storage1 = std::make_shared<DictionaryArray>(
       storage_type, ArrayFromJSON(int8(), "[2, 0, 0, 1, 1]"),
-      ArrayFromJSON(utf8(), R"(["arrow", "parquet", "plasma"])"));
+      ArrayFromJSON(utf8(), R"(["arrow", "parquet", "gandiva"])"));
   auto a1 = std::make_shared<ExtensionArray>(type, storage1);
 
   *out = RecordBatch::Make(schema, a1->length(), {a0, a1});

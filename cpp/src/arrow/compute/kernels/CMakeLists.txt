@@ -24,9 +24,6 @@ add_arrow_test(scalar_cast_test
                scalar_cast_test.cc
                test_util.cc)
 
-add_arrow_test(kernel_utility_test ${ARROW_COMPUTE_TEST_ARGS} SOURCES
-               codegen_internal_test.cc)
-
 # ----------------------------------------------------------------------
 # Scalar kernels
 
@@ -93,9 +90,9 @@ add_arrow_benchmark(vector_selection_benchmark PREFIX "arrow-compute")
 
 # Aggregates
 
-add_arrow_compute_test(aggregate_test
-                       SOURCES
-                       aggregate_test.cc
-                       hash_aggregate_test.cc
-                       test_util.cc)
-add_arrow_benchmark(aggregate_benchmark PREFIX "arrow-compute")
+add_arrow_compute_test(aggregate_test SOURCES aggregate_test.cc test_util.cc)
+
+# ----------------------------------------------------------------------
+# Utilities
+
+add_arrow_compute_test(kernel_utility_test SOURCES codegen_internal_test.cc)

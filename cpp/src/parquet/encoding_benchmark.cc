@@ -569,8 +569,8 @@ static void BM_DeltaBitPackingDecode(benchmark::State& state, NumberGenerator ge
   encoder->Put(values.data(), static_cast<int>(values.size()));
   std::shared_ptr<Buffer> buf = encoder->FlushValues();
 
+  auto decoder = MakeTypedDecoder<DType>(Encoding::DELTA_BINARY_PACKED);
   for (auto _ : state) {
-    auto decoder = MakeTypedDecoder<DType>(Encoding::DELTA_BINARY_PACKED);
     decoder->SetData(static_cast<int>(values.size()), buf->data(),
                      static_cast<int>(buf->size()));
     decoder->Decode(values.data(), static_cast<int>(values.size()));

@@ -25,7 +25,6 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array/array_primitive.h"
-#include "arrow/compute/exec/test_util.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/plan.h"

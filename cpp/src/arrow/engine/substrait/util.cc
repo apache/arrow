@@ -22,10 +22,10 @@
 #include <string_view>
 #include <utility>
 
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/options.h"
 #include "arrow/buffer.h"
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/options.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/relation.h"
@@ -48,13 +48,13 @@ Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
   ARROW_ASSIGN_OR_RAISE(PlanInfo plan_info,
                         DeserializePlan(substrait_buffer, registry,
                                         /*ext_set_out=*/nullptr, conversion_options));
-  compute::QueryOptions query_options;
+  acero::QueryOptions query_options;
   query_options.memory_pool = memory_pool;
   query_options.function_registry = func_registry;
   query_options.use_threads = use_threads;
   query_options.field_names = plan_info.names;
-  return compute::DeclarationToReader(std::move(plan_info.root.declaration),
-                                      std::move(query_options));
+  return acero::DeclarationToReader(std::move(plan_info.root.declaration),
+                                    std::move(query_options));
 }
 
 Result<std::shared_ptr<Buffer>> SerializeJsonPlan(const std::string& substrait_json) {
