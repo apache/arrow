@@ -385,7 +385,7 @@ TEST(TestFieldPath, Basics) {
 TEST(TestFieldPath, GetForTable) {
   using testing::HasSubstr;
 
-  const int length = 4;
+  constexpr int kNumRows = 4;
   auto f0 = field("a", int32());
   auto f1 = field("b", int32());
   auto f2 = field("c", struct_({f1}));
@@ -401,7 +401,7 @@ TEST(TestFieldPath, GetForTable) {
   columns[3] = ChunkedArrayFromJSON(
       f3->type(), {R"([{"a":0,"c":{"b":3}},{"a":1,"c":{"b":2}}])",
                    R"([{"a":2,"c":{"b":1}}])", R"([{"a":3,"c":{"b":0}}])"});
-  auto table = Table::Make(table_schema, columns, length);
+  auto table = Table::Make(table_schema, columns, kNumRows);
   ASSERT_OK(table->ValidateFull());
 
   ASSERT_OK_AND_ASSIGN(auto v0, FieldPath({0}).Get(*table));
@@ -512,7 +512,7 @@ TEST(TestFieldPath, GetForChunkedArrayWithNulls) {
 TEST(TestFieldPath, GetForRecordBatch) {
   using testing::HasSubstr;
 
-  const int length = 100;
+  constexpr int kNumRows = 100;
   auto f0 = field("alpha", int32());
   auto f1 = field("beta", int32());
   auto f2 = field("alpha", int32());
@@ -520,13 +520,13 @@ TEST(TestFieldPath, GetForRecordBatch) {
   auto schema = arrow::schema({f0, f1, f2, f3});
 
   arrow::random::RandomArrayGenerator gen_{42};
-  auto a0 = gen_.ArrayOf(int32(), length);
-  auto a1 = gen_.ArrayOf(int32(), length);
-  auto a2 = gen_.ArrayOf(int32(), length);
-  auto a3 = gen_.ArrayOf(int32(), length);
+  auto a0 = gen_.ArrayOf(int32(), kNumRows);
+  auto a1 = gen_.ArrayOf(int32(), kNumRows);
+  auto a2 = gen_.ArrayOf(int32(), kNumRows);
+  auto a3 = gen_.ArrayOf(int32(), kNumRows);
   auto array_vector = ArrayVector({a0, a1, a2, a3});
 
-  auto record_batch_ptr = arrow::RecordBatch::Make(schema, length, array_vector);
+  auto record_batch_ptr = arrow::RecordBatch::Make(schema, kNumRows, array_vector);
   ASSERT_OK(record_batch_ptr->ValidateFull());
 
   // retrieving an array FieldPath is equivalent to RecordBatch::column
@@ -564,7 +564,7 @@ TEST(TestFieldRef, Basics) {
 }
 
 TEST(TestFieldRef, FindAllForTable) {
-  const int length = 100;
+  constexpr int kNumRows = 100;
   auto f0 = field("alpha", int32());
   auto f1 = field("beta", int32());
   auto f2 = field("alpha", int32());
@@ -572,10 +572,10 @@ TEST(TestFieldRef, FindAllForTable) {
   auto schema = arrow::schema({f0, f1, f2, f3});
 
   arrow::random::RandomArrayGenerator gen_{42};
-  auto a0 = gen_.ArrayOf(int32(), length);
-  auto a1 = gen_.ArrayOf(int32(), length);
-  auto a2 = gen_.ArrayOf(int32(), length);
-  auto a3 = gen_.ArrayOf(int32(), length);
+  auto a0 = gen_.ArrayOf(int32(), kNumRows);
+  auto a1 = gen_.ArrayOf(int32(), kNumRows);
+  auto a2 = gen_.ArrayOf(int32(), kNumRows);
+  auto a3 = gen_.ArrayOf(int32(), kNumRows);
 
   auto table_ptr = Table::Make(schema, {a0, a1, a2, a3});
   ASSERT_OK(table_ptr->ValidateFull());
@@ -596,7 +596,7 @@ TEST(TestFieldRef, FindAllForTable) {
 }
 
 TEST(TestFieldRef, FindAllForRecordBatch) {
-  const int length = 100;
+  constexpr int kNumRows = 100;
   auto f0 = field("alpha", int32());
   auto f1 = field("beta", int32());
   auto f2 = field("alpha", int32());
@@ -604,12 +604,12 @@ TEST(TestFieldRef, FindAllForRecordBatch) {
   auto schema = arrow::schema({f0, f1, f2, f3});
 
   arrow::random::RandomArrayGenerator gen_{42};
-  auto a0 = gen_.ArrayOf(int32(), length);
-  auto a1 = gen_.ArrayOf(int32(), length);
-  auto a2 = gen_.ArrayOf(int32(), length);
-  auto a3 = gen_.ArrayOf(int32(), length);
+  auto a0 = gen_.ArrayOf(int32(), kNumRows);
+  auto a1 = gen_.ArrayOf(int32(), kNumRows);
+  auto a2 = gen_.ArrayOf(int32(), kNumRows);
+  auto a3 = gen_.ArrayOf(int32(), kNumRows);
 
-  auto record_batch_ptr = RecordBatch::Make(schema, length, {a0, a1, a2, a3});
+  auto record_batch_ptr = RecordBatch::Make(schema, kNumRows, {a0, a1, a2, a3});
   ASSERT_OK(record_batch_ptr->ValidateFull());
 
   // lookup by index returns Indices{index}
