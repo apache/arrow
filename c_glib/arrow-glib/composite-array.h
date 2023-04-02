@@ -161,6 +161,14 @@ struct _GArrowUnionArrayClass
   GArrowArrayClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_12_0
+gint8
+garrow_union_array_get_type_code(GArrowUnionArray *array,
+                                 gint64 i);
+GARROW_AVAILABLE_IN_12_0
+gint
+garrow_union_array_get_child_id(GArrowUnionArray *array,
+                                gint64 i);
 GArrowArray *
 garrow_union_array_get_field(GArrowUnionArray *array,
                              gint i);
@@ -209,6 +217,10 @@ garrow_dense_union_array_new_data_type(GArrowDenseUnionDataType *data_type,
                                        GArrowInt32Array *value_offsets,
                                        GList *fields,
                                        GError **error);
+GARROW_AVAILABLE_IN_12_0
+gint32
+garrow_dense_union_array_get_value_offset(GArrowDenseUnionArray *array,
+                                          gint64 i);
 
 
 #define GARROW_TYPE_DICTIONARY_ARRAY (garrow_dictionary_array_get_type())

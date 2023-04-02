@@ -66,12 +66,21 @@ module RawRecordsSparseUnionArrayTests
                            [union_array])
   end
 
+  def remove_field_names(records)
+    records.collect do |record|
+      record.collect do |column|
+        column.values[0]
+      end
+    end
+  end
+
   def test_null
     records = [
       [{"0" => nil}],
     ]
     target = build(:null, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_boolean
@@ -80,7 +89,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:boolean, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_int8
@@ -89,7 +99,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:int8, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_uint8
@@ -98,7 +109,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:uint8, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_int16
@@ -107,7 +119,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:int16, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_uint16
@@ -116,7 +129,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:uint16, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_int32
@@ -125,7 +139,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:int32, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_uint32
@@ -134,7 +149,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:uint32, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_int64
@@ -143,7 +159,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:int64, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_uint64
@@ -152,7 +169,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:uint64, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_float
@@ -161,7 +179,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:float, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_double
@@ -170,7 +189,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:double, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_binary
@@ -179,7 +199,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:binary, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_string
@@ -188,7 +209,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:string, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_date32
@@ -197,7 +219,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:date32, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_date64
@@ -206,7 +229,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:date64, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_timestamp_second
@@ -219,7 +243,8 @@ module RawRecordsSparseUnionArrayTests
                      unit: :second,
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_timestamp_milli
@@ -232,7 +257,8 @@ module RawRecordsSparseUnionArrayTests
                      unit: :milli,
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_timestamp_micro
@@ -245,7 +271,8 @@ module RawRecordsSparseUnionArrayTests
                      unit: :micro,
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_timestamp_nano
@@ -258,7 +285,8 @@ module RawRecordsSparseUnionArrayTests
                      unit: :nano,
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_time32_second
@@ -273,7 +301,8 @@ module RawRecordsSparseUnionArrayTests
                      unit: :second,
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_time32_milli
@@ -288,7 +317,8 @@ module RawRecordsSparseUnionArrayTests
                      unit: :milli,
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_time64_micro
@@ -303,7 +333,8 @@ module RawRecordsSparseUnionArrayTests
                      unit: :micro,
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_time64_nano
@@ -318,7 +349,8 @@ module RawRecordsSparseUnionArrayTests
                      unit: :nano,
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_decimal128
@@ -332,7 +364,8 @@ module RawRecordsSparseUnionArrayTests
                      scale: 2,
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_decimal256
@@ -346,7 +379,8 @@ module RawRecordsSparseUnionArrayTests
                      scale: 2,
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_month_interval
@@ -355,7 +389,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:month_interval, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_day_time_interval
@@ -364,7 +399,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:day_time_interval, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_month_day_nano_interval
@@ -373,7 +409,8 @@ module RawRecordsSparseUnionArrayTests
       [{"1" => nil}],
     ]
     target = build(:month_day_nano_interval, records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_list
@@ -389,7 +426,8 @@ module RawRecordsSparseUnionArrayTests
                      },
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_struct
@@ -408,7 +446,8 @@ module RawRecordsSparseUnionArrayTests
                      ],
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_map
@@ -422,7 +461,8 @@ module RawRecordsSparseUnionArrayTests
                      item: :boolean,
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_sparse_union
@@ -447,7 +487,8 @@ module RawRecordsSparseUnionArrayTests
                      type_codes: [0, 1],
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_dense_union
@@ -472,7 +513,8 @@ module RawRecordsSparseUnionArrayTests
                      type_codes: [0, 1],
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 
   def test_dictionary
@@ -490,7 +532,8 @@ module RawRecordsSparseUnionArrayTests
                      ordered: true,
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_field_names(records),
+                 target.raw_records)
   end
 end
 

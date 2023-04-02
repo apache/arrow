@@ -1114,6 +1114,44 @@ garrow_union_array_class_init(GArrowUnionArrayClass *klass)
 }
 
 /**
+ * garrow_union_array_get_type_code:
+ * @array: A #GArrowUnionArray.
+ * @i: The index of the logical type code of the value in the union.
+ *
+ * Returns: The i-th logical type code of the value.
+ *
+ * Since: 12.0.0
+ */
+gint8
+garrow_union_array_get_type_code(GArrowUnionArray *array,
+                                 gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_union_array =
+    std::static_pointer_cast<arrow::UnionArray>(arrow_array);
+  return arrow_union_array->type_code(i);
+}
+
+/**
+ * garrow_union_array_get_child_id:
+ * @array: A #GArrowUnionArray.
+ * @i: The index of the physical child ID containing value in the union.
+ *
+ * Returns: The physical child ID containing the i-th value.
+ *
+ * Since: 12.0.0
+ */
+gint
+garrow_union_array_get_child_id(GArrowUnionArray *array,
+                                gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_union_array =
+    std::static_pointer_cast<arrow::UnionArray>(arrow_array);
+  return arrow_union_array->child_id(i);
+}
+
+/**
  * garrow_union_array_get_field
  * @array: A #GArrowUnionArray.
  * @i: The index of the field in the union.
@@ -1481,6 +1519,25 @@ garrow_dense_union_array_new_data_type(GArrowDenseUnionDataType *data_type,
     fields,
     error,
     "[dense-union-array][new][data-type]");
+}
+
+/**
+ * garrow_dense_union_array_get_value_offset:
+ * @array: A #GArrowUnionArray.
+ * @i: The index of the offset of the value in the union.
+ *
+ * Returns: The offset of the i-th value.
+ *
+ * Since: 12.0.0
+ */
+gint32
+garrow_dense_union_array_get_value_offset(GArrowDenseUnionArray *array,
+                                          gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_dense_union_array =
+    std::static_pointer_cast<arrow::DenseUnionArray>(arrow_array);
+  return arrow_dense_union_array->value_offset(i);
 }
 
 

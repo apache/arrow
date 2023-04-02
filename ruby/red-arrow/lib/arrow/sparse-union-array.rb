@@ -15,27 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class DenseUnionDataTypeTest < Test::Unit::TestCase
-  sub_test_case(".new") do
-    def setup
-      @fields = [
-        Arrow::Field.new("visible", :boolean),
-        {
-          name: "count",
-          type: :int32,
-        },
-      ]
-    end
-
-    test("ordered arguments") do
-      assert_equal("dense_union<visible: bool=2, count: int32=9>",
-                   Arrow::DenseUnionDataType.new(@fields, [2, 9]).to_s)
-    end
-
-    test("description") do
-      assert_equal("dense_union<visible: bool=2, count: int32=9>",
-                   Arrow::DenseUnionDataType.new(fields: @fields,
-                                                 type_codes: [2, 9]).to_s)
+module Arrow
+  class SparseUnionArray
+    def get_value(i)
+      child_id = get_child_id(i)
+      field = get_field(child_id)
+      field[i]
     end
   end
 end
