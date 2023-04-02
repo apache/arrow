@@ -30,6 +30,7 @@
 #include <iostream>
 #include <optional>
 
+namespace acero = ::arrow::acero;
 namespace compute = ::arrow::compute;
 
 std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_name,
