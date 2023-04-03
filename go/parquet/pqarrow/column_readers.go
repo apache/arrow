@@ -557,7 +557,6 @@ func transferBinary(rdr file.RecordReader, dt arrow.DataType) *arrow.Chunked {
 
 		for idx := range chunks {
 			chunks[idx] = array.NewExtensionArrayWithStorage(etype, chunks[idx])
-			defer chunks[idx].Data().Release()
 			defer chunks[idx].Release()
 		}
 	}
