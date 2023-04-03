@@ -23,12 +23,11 @@
 
 #include <gmock/gmock.h>
 
+#include "arrow/acero/exec_plan.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/expression_internal.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/plan.h"

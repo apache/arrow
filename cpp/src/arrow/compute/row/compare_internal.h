@@ -30,7 +30,7 @@
 namespace arrow {
 namespace compute {
 
-class KeyCompare {
+class ARROW_EXPORT KeyCompare {
  public:
   // Returns a single 16-bit selection vector of rows that failed comparison.
   // If there is input selection on the left, the resulting selection is a filtered image

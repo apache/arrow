@@ -20,8 +20,8 @@
 
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
-#include <arrow/compute/exec/exec_plan.h>
 #include <arrow/csv/api.h>
+#include "arrow/acero/exec_plan.h"
 #include "arrow/compute/expression.h"
 
 #include <arrow/dataset/dataset.h>
@@ -101,22 +101,22 @@ arrow::Status DoHashJoin() {
   auto l_scan_node_options = arrow::dataset::ScanNodeOptions{l_dataset, l_options};
   auto r_scan_node_options = arrow::dataset::ScanNodeOptions{r_dataset, r_options};
 
-  arrow::compute::Declaration left{"scan", std::move(l_scan_node_options)};
-  arrow::compute::Declaration right{"scan", std::move(r_scan_node_options)};
+  arrow::acero::Declaration left{"scan", std::move(l_scan_node_options)};
+  arrow::acero::Declaration right{"scan", std::move(r_scan_node_options)};
 
-  arrow::compute::HashJoinNodeOptions join_opts{arrow::compute::JoinType::INNER,
-                                                /*in_left_keys=*/{"lkey"},
-                                                /*in_right_keys=*/{"rkey"},
-                                                /*filter*/ arrow::compute::literal(true),
-                                                /*output_suffix_for_left*/ "_l",
-                                                /*output_suffix_for_right*/ "_r"};
+  arrow::acero::HashJoinNodeOptions join_opts{arrow::acero::JoinType::INNER,
+                                              /*in_left_keys=*/{"lkey"},
+                                              /*in_right_keys=*/{"rkey"},
+                                              /*filter*/ arrow::compute::literal(true),
+                                              /*output_suffix_for_left*/ "_l",
+                                              /*output_suffix_for_right*/ "_r"};
 
-  arrow::compute::Declaration hashjoin{
+  arrow::acero::Declaration hashjoin{
       "hashjoin", {std::move(left), std::move(right)}, join_opts};
 
   // expected columns l_a, l_b
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Table> response_table,
-                        arrow::compute::DeclarationToTable(std::move(hashjoin)));
+                        arrow::acero::DeclarationToTable(std::move(hashjoin)));
 
   std::cout << "Results : " << response_table->ToString() << std::endl;
 

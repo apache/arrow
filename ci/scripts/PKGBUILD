@@ -80,6 +80,7 @@ build() {
     ${MINGW_PREFIX}/bin/cmake.exe \
     ${ARROW_CPP_DIR} \
     -G "MSYS Makefiles" \
+    -DARROW_ACERO=ON \
     -DARROW_BUILD_SHARED=OFF \
     -DARROW_BUILD_STATIC=ON \
     -DARROW_BUILD_UTILITIES=OFF \

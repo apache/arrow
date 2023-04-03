@@ -49,12 +49,12 @@ namespace engine {
 /// \return a buffer containing the protobuf serialization of the Acero relation
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SerializePlan(
-    const compute::Declaration& declaration, ExtensionSet* ext_set,
+    const acero::Declaration& declaration, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options = {});
 
 /// Factory function type for generating the node that consumes the batches produced by
 /// each toplevel Substrait relation when deserializing a Substrait Plan.
-using ConsumerFactory = std::function<std::shared_ptr<compute::SinkNodeConsumer>()>;
+using ConsumerFactory = std::function<std::shared_ptr<acero::SinkNodeConsumer>()>;
 
 /// \brief Deserializes a Substrait Plan message to a list of ExecNode declarations
 ///
@@ -71,7 +71,7 @@ using ConsumerFactory = std::function<std::shared_ptr<compute::SinkNodeConsumer>
 /// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return a vector of ExecNode declarations, one for each toplevel relation in the
 /// Substrait Plan
-ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
+ARROW_ENGINE_EXPORT Result<std::vector<acero::Declaration>> DeserializePlans(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
     const ConversionOptions& conversion_options = {});
@@ -91,8 +91,8 @@ ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
 /// Plan is returned here.
 /// \return an ExecNode corresponding to the single toplevel relation in the Substrait
 /// Plan
-ARROW_ENGINE_EXPORT Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
-    const Buffer& buf, const std::shared_ptr<compute::SinkNodeConsumer>& consumer,
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<acero::ExecPlan>> DeserializePlan(
+    const Buffer& buf, const std::shared_ptr<acero::SinkNodeConsumer>& consumer,
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
     const ConversionOptions& conversion_options = {});
 
@@ -115,7 +115,7 @@ using WriteOptionsFactory = std::function<std::shared_ptr<dataset::WriteNodeOpti
 /// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return a vector of ExecNode declarations, one for each toplevel relation in the
 /// Substrait Plan
-ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
+ARROW_ENGINE_EXPORT Result<std::vector<acero::Declaration>> DeserializePlans(
     const Buffer& buf, const WriteOptionsFactory& write_options_factory,
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
     const ConversionOptions& conversion_options = {});
@@ -135,7 +135,7 @@ ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
 /// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return a vector of ExecNode declarations, one for each toplevel relation in the
 /// Substrait Plan
-ARROW_ENGINE_EXPORT Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<acero::ExecPlan>> DeserializePlan(
     const Buffer& buf, const std::shared_ptr<dataset::WriteNodeOptions>& write_options,
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
     const ConversionOptions& conversion_options = {});
@@ -243,7 +243,7 @@ Result<std::shared_ptr<Buffer>> SerializeExpression(
 ///
 /// \return a buffer containing the protobuf serialization of the Acero relation
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeRelation(
-    const compute::Declaration& declaration, ExtensionSet* ext_set,
+    const acero::Declaration& declaration, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options = {});
 
 /// \brief Deserializes a Substrait Rel (relation) message to an ExecNode declaration
@@ -254,7 +254,7 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeRelation(
 /// surrounding Plan message
 /// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return the corresponding ExecNode declaration
-ARROW_ENGINE_EXPORT Result<compute::Declaration> DeserializeRelation(
+ARROW_ENGINE_EXPORT Result<acero::Declaration> DeserializeRelation(
     const Buffer& buf, const ExtensionSet& ext_set,
     const ConversionOptions& conversion_options = {});
 

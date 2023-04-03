@@ -56,7 +56,8 @@ ENV DOTNET_ROOT=/opt/dotnet \
     PATH=/opt/dotnet:$PATH
 RUN curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin -Channel 7.0 -InstallDir /opt/dotnet
 
-ENV ARROW_BUILD_INTEGRATION=ON \
+ENV ARROW_ACERO=OFF \
+    ARROW_BUILD_INTEGRATION=ON \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_COMPUTE=OFF \
