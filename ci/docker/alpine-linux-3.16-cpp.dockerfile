@@ -37,7 +37,6 @@ RUN apk add \
         glog-dev \
         gmock \
         grpc-dev \
-        gtest-dev \
         libxml2-dev \
         llvm13-dev \
         llvm13-static \
