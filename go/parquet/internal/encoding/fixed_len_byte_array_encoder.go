@@ -84,9 +84,6 @@ func (enc *DictFixedLenByteArrayEncoder) WriteDict(out []byte) {
 // Put writes fixed length values to a dictionary encoded column
 func (enc *DictFixedLenByteArrayEncoder) Put(in []parquet.FixedLenByteArray) {
 	for _, v := range in {
-		if v == nil {
-			v = empty[:]
-		}
 		memoIdx, found, err := enc.memo.GetOrInsert(v)
 		if err != nil {
 			panic(err)

@@ -21,6 +21,7 @@ from libcpp.vector cimport vector as std_vector
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_acero cimport *
 
 ctypedef CResult[CDeclaration] CNamedTableProvider(const std_vector[c_string]&, const CSchema&)
 

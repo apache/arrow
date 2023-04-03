@@ -19,7 +19,7 @@
 
 #include <memory>
 
-#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/acero/exec_plan.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 
@@ -29,7 +29,7 @@ namespace engine {
 /// Execution information resulting from converting a Substrait relation.
 struct ARROW_ENGINE_EXPORT DeclarationInfo {
   /// The compute declaration produced thus far.
-  compute::Declaration declaration;
+  acero::Declaration declaration;
 
   std::shared_ptr<Schema> output_schema;
 };
