@@ -667,9 +667,9 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
         JniThrow("Table name " + name + " is needed to execute the Substrait plan");
       }
     }
-    std::shared_ptr<arrow::compute::ExecNodeOptions> options =
-      std::make_shared<arrow::compute::TableSourceNodeOptions>(std::move(output_table));
-    return arrow::compute::Declaration("table_source", {}, options, "java_source");
+    std::shared_ptr<arrow::acero::ExecNodeOptions> options =
+      std::make_shared<arrow::acero::TableSourceNodeOptions>(std::move(output_table));
+    return arrow::acero::Declaration("table_source", {}, options, "java_source");
   };
   arrow::engine::ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
@@ -700,9 +700,9 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
         JniThrow("Table name " + name + " is needed to execute the Substrait plan");
       }
     }
-    std::shared_ptr<arrow::compute::ExecNodeOptions> options =
-      std::make_shared<arrow::compute::TableSourceNodeOptions>(std::move(output_table));
-    return arrow::compute::Declaration("table_source", {}, options, "java_source");
+    std::shared_ptr<arrow::acero::ExecNodeOptions> options =
+      std::make_shared<arrow::acero::TableSourceNodeOptions>(std::move(output_table));
+    return arrow::acero::Declaration("table_source", {}, options, "java_source");
   };
   arrow::engine::ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);

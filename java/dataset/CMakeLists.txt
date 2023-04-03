@@ -38,6 +38,7 @@ target_link_libraries(arrow_java_jni_dataset
                       arrow_java_jni_dataset_headers
                       jni
                       ArrowDataset::arrow_dataset_static
+                      ArrowAcero::arrow_acero_static
                       ArrowSubstrait::arrow_substrait_static)
 
 if(BUILD_TESTING)
