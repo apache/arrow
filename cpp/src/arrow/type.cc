@@ -1072,20 +1072,28 @@ class ChunkedColumn {
  public:
   virtual ~ChunkedColumn() = default;
 
+  explicit ChunkedColumn(const std::shared_ptr<DataType>& type = nullptr) : type_(type) {}
+
   virtual int num_chunks() const = 0;
   virtual const std::shared_ptr<ArrayData>& chunk(int i) const = 0;
 
-  const std::shared_ptr<DataType>& type() const { return chunk(0)->type; }
+  const std::shared_ptr<DataType>& type() const { return type_; }
 
   ChunkedColumnVector Flatten() const;
 
   Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() const {
+    if (num_chunks() == 0) {
+      return ChunkedArray::MakeEmpty(type());
+    }
     ArrayVector chunks(num_chunks());
     for (int i = 0; i < num_chunks(); ++i) {
       chunks[i] = MakeArray(chunk(i));
     }
     return ChunkedArray::Make(std::move(chunks), type());
   }
+
+ private:
+  const std::shared_ptr<DataType>& type_;
 };
 
 // References a chunk vector owned by another ChunkedArray.
@@ -1094,7 +1102,7 @@ class ChunkedColumn {
 class ChunkedArrayRef : public ChunkedColumn {
  public:
   explicit ChunkedArrayRef(const ChunkedArray& chunked_array)
-      : chunks_(chunked_array.chunks()) {}
+      : ChunkedColumn(chunked_array.type()), chunks_(chunked_array.chunks()) {}
 
   int num_chunks() const override { return static_cast<int>(chunks_.size()); }
   const std::shared_ptr<ArrayData>& chunk(int i) const override {
@@ -1108,7 +1116,9 @@ class ChunkedArrayRef : public ChunkedColumn {
 // Owns a chunked ArrayDataVector (created after flattening its parent).
 class ChunkedArrayData : public ChunkedColumn {
  public:
-  explicit ChunkedArrayData(ArrayDataVector chunks) : chunks_(std::move(chunks)) {}
+  explicit ChunkedArrayData(const std::shared_ptr<DataType>& type,
+                            ArrayDataVector chunks = {})
+      : ChunkedColumn(type), chunks_(std::move(chunks)) {}
 
   int num_chunks() const override { return static_cast<int>(chunks_.size()); }
   const std::shared_ptr<ArrayData>& chunk(int i) const override { return chunks_[i]; }
@@ -1123,15 +1133,18 @@ class ChunkedArrayData : public ChunkedColumn {
 ChunkedColumnVector ChunkedColumn::Flatten() const {
   DCHECK_EQ(type()->id(), Type::STRUCT);
 
-  ChunkedColumnVector columns(chunk(0)->child_data.size());
-  for (size_t column_idx = 0; column_idx < columns.size(); ++column_idx) {
+  ChunkedColumnVector columns(type()->num_fields());
+  for (int column_idx = 0; column_idx < type()->num_fields(); ++column_idx) {
+    const auto& child_type = type()->field(column_idx)->type();
     ArrayDataVector chunks(num_chunks());
     for (int chunk_idx = 0; chunk_idx < num_chunks(); ++chunk_idx) {
       const auto& child_data = chunk(chunk_idx)->child_data;
       DCHECK_EQ(columns.size(), child_data.size());
+      DCHECK(child_type->Equals(child_data[column_idx]->type));
       chunks[chunk_idx] = child_data[column_idx];
     }
-    columns[column_idx] = std::make_shared<ChunkedArrayData>(std::move(chunks));
+    columns[column_idx] =
+        std::make_shared<ChunkedArrayData>(child_type, std::move(chunks));
   }
 
   return columns;
@@ -1323,10 +1336,7 @@ Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
 
 Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(
     const ChunkedArray& chunked_array) const {
-  if (chunked_array.num_chunks() < 1) {
-    return Status::Invalid("Chunked array must have at least one chunk");
-  }
-  if (chunked_array.chunk(0)->data()->type->id() != Type::STRUCT) {
+  if (chunked_array.type()->id() != Type::STRUCT) {
     return Status::NotImplemented("Get child data of non-struct chunked array");
   }
   auto columns = ChunkedArrayRef(chunked_array).Flatten();

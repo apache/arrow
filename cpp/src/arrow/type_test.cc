@@ -509,6 +509,35 @@ TEST(TestFieldPath, GetForChunkedArrayWithNulls) {
   ASSERT_TRUE(int_chunked_array->Equals(int_child));
 }
 
+TEST(TestFieldPath, GetForEmptyChunked) {
+  FieldVector fields = {
+      field("i", int32()),
+      field("s", struct_({field("b", boolean()), field("f", float32())}))};
+  std::shared_ptr<ChunkedArray> child;
+
+  // Empty ChunkedArray with no chunks
+  ChunkedArray chunked_array({}, struct_(fields));
+  ASSERT_OK(chunked_array.ValidateFull());
+  ASSERT_EQ(chunked_array.num_chunks(), 0);
+  ASSERT_OK_AND_ASSIGN(child, FieldPath({1, 1}).Get(chunked_array));
+  AssertTypeEqual(float32(), child->type());
+  ASSERT_EQ(child->length(), 0);
+
+  // Empty Table with no column chunks
+  ChunkedArrayVector table_columns;
+  for (const auto& f : fields) {
+    table_columns.push_back(std::make_shared<ChunkedArray>(ArrayVector{}, f->type()));
+  }
+  auto table = Table::Make(schema(fields), table_columns, 0);
+  ASSERT_OK(table->ValidateFull());
+  for (const auto& column : table->columns()) {
+    ASSERT_EQ(column->num_chunks(), 0);
+  }
+  ASSERT_OK_AND_ASSIGN(child, FieldPath({1, 1}).Get(*table));
+  AssertTypeEqual(float32(), child->type());
+  ASSERT_EQ(child->length(), 0);
+}
+
 TEST(TestFieldPath, GetForRecordBatch) {
   using testing::HasSubstr;
 
