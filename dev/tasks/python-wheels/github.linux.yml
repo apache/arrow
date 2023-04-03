@@ -22,10 +22,18 @@
 jobs:
   build:
     name: "Build wheel for manylinux {{ manylinux_version }}"
+    {% if arch == "amd64" %}
     runs-on: ubuntu-latest
+    {% else %}
+    runs-on: ["self-hosted", "Linux", "arm64"]
+    {% endif %}
     env:
       # archery uses these environment variables
+      {% if arch == "amd64" %}
       ARCH: amd64
+      {% else %}
+      ARCH: arm64v8
+      {% endif %}
       PYTHON: "{{ python_version }}"
 
     steps:
