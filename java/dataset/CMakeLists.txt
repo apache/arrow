@@ -32,7 +32,10 @@ add_jar(arrow_java_jni_dataset_jar
 add_library(arrow_java_jni_dataset SHARED src/main/cpp/jni_wrapper.cc
                                           src/main/cpp/jni_util.cc)
 set_property(TARGET arrow_java_jni_dataset PROPERTY OUTPUT_NAME "arrow_dataset_jni")
-target_link_libraries(arrow_java_jni_dataset arrow_java_jni_dataset_headers jni
+target_link_libraries(arrow_java_jni_dataset
+                      arrow_java_jni_dataset_headers
+                      jni
+                      ArrowAcero::arrow_acero_static
                       ArrowDataset::arrow_dataset_static)
 
 if(BUILD_TESTING)
