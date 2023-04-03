@@ -468,14 +468,14 @@ TEST(TestAdapterRead, ReadCharAndVarcharType) {
   const std::vector<std::vector<std::string>> expected_data = {{"abcd  ", "ABCDEF"},
                                                                {"abcd", "ABCDEF"}};
 
-  for (uint64_t col = 0; col < orc_type->getSubtypeCount(); col++) {
+  for (uint64_t col = 0; col < orc_type->getSubtypeCount(); ++col) {
     auto str_batch =
         internal::checked_cast<liborc::StringVectorBatch*>(struct_batch->fields[col]);
     str_batch->hasNulls = false;
     str_batch->numElements = row_count;
-    for (int64_t i = 0; i < row_count; ++i) {
-      str_batch->data[i] = const_cast<char*>(data[i].c_str());
-      str_batch->length[i] = static_cast<int64_t>(data[i].size());
+    for (int64_t row = 0; row < row_count; ++row) {
+      str_batch->data[row] = const_cast<char*>(data[row].c_str());
+      str_batch->length[row] = static_cast<int64_t>(data[row].size());
     }
   }
   batch->numElements = row_count;
@@ -492,8 +492,8 @@ TEST(TestAdapterRead, ReadCharAndVarcharType) {
 
   EXPECT_OK_AND_ASSIGN(auto stripe_reader, reader->NextStripeReader(row_count));
   std::shared_ptr<RecordBatch> record_batch;
-  ASSERT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
-  ASSERT_NE(record_batch, nullptr);
+  ASSERT_OK(stripe_reader->ReadNext(&record_batch));
+  ASSERT_NE(nullptr, record_batch);
   ASSERT_EQ(row_count, record_batch->num_rows());
 
   for (int col = 0; col < record_batch->num_columns(); col++) {
