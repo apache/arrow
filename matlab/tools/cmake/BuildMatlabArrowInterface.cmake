@@ -15,66 +15,95 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# -------
-# Config
-# -------
+# ----------------------------------
+# Configure libmexclass FetchContent
+# ----------------------------------
 
-# Build configuration for libmexclass.
-set(CUSTOM_PROXY_FACTORY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy;${CMAKE_SOURCE_DIR}/src/cpp")
-set(CUSTOM_PROXY_FACTORY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy/factory.cc")
-set(CUSTOM_PROXY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/float64_array.cc")
-set(CUSTOM_PROXY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp;${ARROW_INCLUDE_DIR}")
-set(CUSTOM_PROXY_LINK_LIBRARIES ${ARROW_LINK_LIB})
-# On Windows, arrow.dll must be installed regardless of
-# whether Arrow_FOUND is true or false. Therefore, we explicitly
-# copy ARROW_SHARED_LIB to the installation folder +libmexclass/+proxy.
-set(CUSTOM_PROXY_RUNTIME_LIBRARIES ${ARROW_SHARED_LIB})
-set(CUSTOM_PROXY_FACTORY_HEADER_FILENAME "factory.h")
-set(CUSTOM_PROXY_FACTORY_CLASS_NAME "arrow::matlab::proxy::Factory")
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_NAME libmexclass)
+# TODO: Consider using SSH URL for the Git Repository when
+# libmexclass is accessible for CI without permission issues.
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_GIT_REPOSITORY "https://github.com/mathworks/libmexclass.git")
+# Use a specific Git commit hash to avoid libmexclass version changing unexpectedly.
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_GIT_TAG "44c15d0")
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_SOURCE_SUBDIR "libmexclass/cpp")
 
-# -------
-# Build
-# -------
+# ------------------------------------------
+# Configure libmexclass Client Proxy Library
+# ------------------------------------------
 
-# Build libmexclass as an external project.
-include(ExternalProject)
-ExternalProject_Add(
-    libmexclass
-    # TODO: Consider using SSH URL for the Git Repository when
-    # libmexclass is accessible for CI without permission issues.
-    GIT_REPOSITORY https://github.com/mathworks/libmexclass.git
-    GIT_TAG main
-    SOURCE_SUBDIR libmexclass/cpp
-    CMAKE_CACHE_ARGS "-D CUSTOM_PROXY_FACTORY_INCLUDE_DIR:STRING=${CUSTOM_PROXY_FACTORY_INCLUDE_DIR}"
-                     "-D CUSTOM_PROXY_FACTORY_SOURCES:STRING=${CUSTOM_PROXY_FACTORY_SOURCES}"
-                     "-D CUSTOM_PROXY_SOURCES:STRING=${CUSTOM_PROXY_SOURCES}"
-                     "-D CUSTOM_PROXY_INCLUDE_DIR:STRING=${CUSTOM_PROXY_INCLUDE_DIR}"
-                     "-D CUSTOM_PROXY_LINK_LIBRARIES:STRING=${CUSTOM_PROXY_LINK_LIBRARIES}"
-                     "-D CUSTOM_PROXY_RUNTIME_LIBRARIES:STRING=${CUSTOM_PROXY_RUNTIME_LIBRARIES}"
-                     "-D CUSTOM_PROXY_FACTORY_HEADER_FILENAME:STRING=${CUSTOM_PROXY_FACTORY_HEADER_FILENAME}"
-                     "-D CUSTOM_PROXY_FACTORY_CLASS_NAME:STRING=${CUSTOM_PROXY_FACTORY_CLASS_NAME}"
-    INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME arrowproxy)
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_ROOT_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp")
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy")
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/float64_array.cc")
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy")
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy/factory.cc")
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_INCLUDE_DIRS ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_ROOT_INCLUDE_DIR}
+                                                               ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_INCLUDE_DIR}
+                                                               ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_INCLUDE_DIR}
+                                                               ${ARROW_INCLUDE_DIRS})
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_SOURCES ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_SOURCES}
+                                                          ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_SOURCES})
+# ----------------------------------------
+# Configure libmexclass Client MEX Gateway
+# ----------------------------------------
+
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_MEX_GATEWAY_NAME gateway)
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_MEX_GATEWAY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/mex/gateway.cc")
+
+# ---------------------------------------
+# Download libmexclass Using FetchContent
+# ---------------------------------------
+
+# Include libmexclass using FetchContent.
+include(FetchContent)
+FetchContent_Declare(
+    ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_NAME}
+    GIT_REPOSITORY ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_GIT_REPOSITORY}
+    GIT_TAG ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_GIT_TAG}
+    SOURCE_SUBDIR ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_SOURCE_SUBDIR}
+)
+FetchContent_MakeAvailable(
+    ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_NAME}
 )
 
-# When building Arrow from source, Arrow must be built before building libmexclass.
-if(TARGET arrow_ep)
-    add_dependencies(libmexclass arrow_ep)
+# ------------------------------------
+# Add libmexclass Client Proxy Library
+# ------------------------------------
+
+if(NOT TARGET arrow_shared)
+    message(FATAL_ERROR "The Arrow C++ libraries must be available to build the MATLAB Interface to Arrow.")
 endif()
 
-add_custom_command(TARGET libmexclass
-                   POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --green --bold --no-newline "✓ Success "
-                   VERBATIM)
-add_custom_command(TARGET libmexclass
-                   POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --white "libmexclass build successful."
-                   VERBATIM)
+libmexclass_client_add_proxy_library(
+    NAME ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME}
+    SOURCES ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_SOURCES}
+    INCLUDE_DIRS ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_INCLUDE_DIRS}
+    LINK_LIBRARIES arrow_shared
+)
+# Use C++17
+target_compile_features(${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME} PRIVATE cxx_std_17)
 
-# -------
-# Install
-# -------
+# When building Arrow from source, Arrow must be built before building the client Proxy library.
+if(TARGET arrow_ep)
+    add_dependencies(${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME} arrow_ep)
+endif()
 
-# Install libmexclass.
-ExternalProject_Get_Property(libmexclass BINARY_DIR)
-# Copy only the packaged folder +libmexclass from the libmexclass installation directory.
-install(DIRECTORY ${BINARY_DIR}/+libmexclass DESTINATION ${CMAKE_INSTALL_DIR})
+# ----------------------------------
+# Add libmexclass Client MEX Gateway
+# ----------------------------------
+
+libmexclass_client_add_mex_gateway(
+    NAME ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_MEX_GATEWAY_NAME}
+    CLIENT_PROXY_LIBRARY_NAME ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME}
+    SOURCES ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_MEX_GATEWAY_SOURCES}
+)
+
+# --------------------------
+# Install libmexclass Client
+# --------------------------
+
+libmexclass_client_install(
+    CLIENT_PROXY_LIBRARY_NAME ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME}
+    CLIENT_MEX_GATEWAY_NAME ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_MEX_GATEWAY_NAME}
+    DESTINATION ${CMAKE_INSTALL_DIR}
+)
