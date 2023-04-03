@@ -45,8 +45,8 @@ type Num struct {
 // the highest bits with the rest of the values in order down to the
 // lowest bits
 //
-//   ie: New(1, 2, 3, 4) returns with the elements in little-endian order
-//       {4, 3, 2, 1} but each value is still represented as the native endianness
+//	ie: New(1, 2, 3, 4) returns with the elements in little-endian order
+//	    {4, 3, 2, 1} but each value is still represented as the native endianness
 func New(x1, x2, x3, x4 uint64) Num {
 	return Num{[4]uint64{x4, x3, x2, x1}}
 }
@@ -110,6 +110,11 @@ func (n Num) Div(rhs Num) (res, rem Num) {
 	b := n.BigInt()
 	out, remainder := b.QuoRem(b, rhs.BigInt(), &big.Int{})
 	return FromBigInt(out), FromBigInt(remainder)
+}
+
+func (n Num) Pow(rhs Num) Num {
+	b := n.BigInt()
+	return FromBigInt(b.Exp(b, rhs.BigInt(), nil))
 }
 
 var pt5 = big.NewFloat(0.5)
@@ -212,12 +217,16 @@ func FromFloat64(v float64, prec, scale int32) (Num, error) {
 // Aren't floating point values so much fun?
 //
 // example value to use:
-//    v := float32(1.8446746e+15)
+//
+//	v := float32(1.8446746e+15)
 //
 // You'll end up with a different values if you do:
-// 	  FromFloat64(float64(v), 20, 4)
+//
+//	FromFloat64(float64(v), 20, 4)
+//
 // vs
-//    FromFloat32(v, 20, 4)
+//
+//	FromFloat32(v, 20, 4)
 //
 // because float64(v) == 1844674629206016 rather than 1844674600000000
 func fromPositiveFloat32(v float32, prec, scale int32) (Num, error) {

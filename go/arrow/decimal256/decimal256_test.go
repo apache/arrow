@@ -233,6 +233,27 @@ func TestDiv(t *testing.T) {
 	}
 }
 
+func TestPow(t *testing.T) {
+	for _, tc := range []struct {
+		n    decimal256.Num
+		rhs  decimal256.Num
+		want decimal256.Num
+	}{
+		{decimal256.New(0, 0, 0, 2), decimal256.New(0, 0, 0, 3), decimal256.New(0, 0, 0, 8)},
+		{decimal256.New(0, 0, 2, 0), decimal256.New(0, 0, 0, 3), decimal256.New(8, 0, 0, 0)},
+		{decimal256.New(0, 0, 2, 2), decimal256.New(0, 0, 0, 3), decimal256.New(8, 24, 24, 8)},
+		{decimal256.New(0, 0, 0, 1), decimal256.New(0, 0, 0, 0), decimal256.New(0, 0, 0, 1)},
+		{decimal256.New(0, 0, 0, 0), decimal256.New(0, 0, 0, 1), decimal256.New(0, 0, 0, 0)},
+	} {
+		t.Run("pow", func(t *testing.T) {
+			n := tc.n.Pow(tc.rhs)
+			if got, want := n, tc.want; got != want {
+				t.Fatalf("invalid value. got=%v, want=%v", got, want)
+			}
+		})
+	}
+}
+
 func TestDecimalToBigInt(t *testing.T) {
 	tests := []struct {
 		arr [4]uint64
