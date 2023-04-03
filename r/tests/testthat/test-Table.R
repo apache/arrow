@@ -721,5 +721,4 @@ test_that("as.data.frame() on an ArrowTabular object returns a vanilla data.fram
   expect_s3_class(out1, "data.frame", exact = TRUE)
   expect_s3_class(out2, "data.frame", exact = TRUE)
   expect_s3_class(out3, "data.frame", exact = TRUE)
-
 })
