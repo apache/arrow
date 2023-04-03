@@ -503,7 +503,7 @@ TEST(TestAdapterRead, ReadCharAndVarcharType) {
     }
   }
   ASSERT_OK(stripe_reader->ReadNext(&record_batch));
-  ASSERT_EQ(record_batch, nullptr);
+  ASSERT_EQ(nullptr, record_batch);
 }
 
 // Trivial
