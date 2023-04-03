@@ -383,37 +383,37 @@ arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsReques
     result.session_options.reserve(command.session_options_size());
     for (const pb::sql::SessionOption& in_opt : command.session_options()) {
       const std::string& name = in_opt.option_name();
-      SessionOption opt;
+      SessionOptionValue val;
       switch (in_opt.option_value_case()) {
         case pb::sql::SessionOption::OPTION_VALUE_NOT_SET:
           return Status::Invalid("Unset SessionOptionValue for name '" + name + "'");
         case pb::sql::SessionOption::kStringValue:
-          opt = {name, in_opt.string_value()};
+          val = in_opt.string_value();
           break;
         case pb::sql::SessionOption::kBoolValue:
-          opt = {name, in_opt.bool_value()};
+          val = in_opt.bool_value();
           break;
         case pb::sql::SessionOption::kInt32Value:
-          opt = {name, in_opt.int32_value()};
+          val = in_opt.int32_value();
           break;
         case pb::sql::SessionOption::kInt64Value:
-          opt = {name, in_opt.int64_value()};
+          val = in_opt.int64_value();
           break;
         case pb::sql::SessionOption::kFloatValue:
-          opt = {name, in_opt.float_value()};
+          val = in_opt.float_value();
           break;
         case pb::sql::SessionOption::kDoubleValue:
-          opt = {name, in_opt.double_value()};
+          val = in_opt.double_value();
           break;
         case pb::sql::SessionOption::kStringListValue:
-          std::vector<std::string> vlist;
-          vlist.reserve(in_opt.string_list_value().values_size());
+          val.emplace<std::vector<std::string>>();
+          std::get<std::vector<std::string>>(val)
+              .reserve(in_opt.string_list_value().values_size());
           for (const std::string& s : in_opt.string_list_value().values())
-            vlist.push_back(s);
-          opt = {name, vlist};
+            std::get<std::vector<std::string>>(val).push_back(s);
           break;
       }
-      result.session_options.push_back(opt);
+      result.session_options.emplace_back(name, std::move(val));
     }
   }
 

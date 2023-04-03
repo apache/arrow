@@ -517,21 +517,21 @@ std::string Location::scheme() const {
 }
 
 std::string Location::path() const { return uri_->path(); }
-arrow::Result<std::vector<std::pair<std::string, std::string>>> Location::query_items()
+arrow::Result<std::vector<std::pair<std::string, std::string>>> Location::QueryItems()
     const {
   return uri_->query_items();
 }
 
-arrow::Result<std::vector<std::pair<std::string, std::string>>> Location::as_headers()
+arrow::Result<std::vector<std::pair<std::string, std::string>>> Location::AsHeaders()
     const {
   std::string catalog = path();
   if (catalog.empty()) {
-    return query_items();
+    return QueryItems();
   }
 
   std::vector<std::pair<std::string, std::string>> headers;
 
-  auto query_items_result = query_items();
+  auto query_items_result = QueryItems();
   if (!query_items_result.ok()) {
     return query_items_result;
   }

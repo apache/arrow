@@ -1872,7 +1872,7 @@ message ActionCloseSessionResult {
   option (experimental) = true;
 
   enum CloseSessionResult {
-    // The cancellation status is unknown. Servers should avoid using
+    // The session close status is unknown. Servers should avoid using
     // this value (send a NOT_FOUND error if the requested query is
     // not known). Clients can retry the request.
     CLOSE_RESULT_UNSPECIFIED = 0;

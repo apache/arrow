@@ -55,6 +55,10 @@ enum struct SessionOptionValueType : size_t {
 struct ARROW_FLIGHT_SQL_EXPORT SessionOption {
   std::string option_name;
   SessionOptionValue option_value;
+
+  SessionOption(std::string name, SessionOptionValue val)
+      : option_name{ name }, option_value{ val } {}
+  SessionOption() {}
 };
 
 /// \brief Options to be set in the SqlInfo.
