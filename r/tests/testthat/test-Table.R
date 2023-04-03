@@ -711,3 +711,15 @@ test_that("as_arrow_table() errors on data.frame with NULL names", {
   names(df) <- NULL
   expect_error(as_arrow_table(df), "Input data frame columns must be named")
 })
+
+test_that("as.data.frame() on an ArrowTabular object returns a vanilla data.frame and not a tibble", {
+  df <- data.frame(x = 1)
+  out1 <- as.data.frame(arrow::arrow_table(df, name = "1"))
+  out2 <- as.data.frame(arrow::arrow_table(name = "1", df))
+  out3 <- as.data.frame(arrow::arrow_table(df))
+
+  expect_s3_class(out1, "data.frame", exact = TRUE)
+  expect_s3_class(out2, "data.frame", exact = TRUE)
+  expect_s3_class(out3, "data.frame", exact = TRUE)
+
+})
