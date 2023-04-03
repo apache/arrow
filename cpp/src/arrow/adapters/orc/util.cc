@@ -238,22 +238,6 @@ Status AppendBinaryBatch(liborc::ColumnVectorBatch* column_vector_batch, int64_t
   return Status::OK();
 }
 
-Status AppendFixedBinaryBatch(liborc::ColumnVectorBatch* column_vector_batch,
-                              int64_t offset, int64_t length, ArrayBuilder* abuilder) {
-  auto builder = checked_cast<FixedSizeBinaryBuilder*>(abuilder);
-  auto batch = checked_cast<liborc::StringVectorBatch*>(column_vector_batch);
-
-  const bool has_nulls = batch->hasNulls;
-  for (int64_t i = offset; i < length + offset; i++) {
-    if (!has_nulls || batch->notNull[i]) {
-      RETURN_NOT_OK(builder->Append(batch->data[i]));
-    } else {
-      RETURN_NOT_OK(builder->AppendNull());
-    }
-  }
-  return Status::OK();
-}
-
 Status AppendDecimalBatch(const liborc::Type* type,
                           liborc::ColumnVectorBatch* column_vector_batch, int64_t offset,
                           int64_t length, ArrayBuilder* abuilder) {
@@ -370,13 +354,12 @@ Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
                                     double>(batch, offset, length, builder);
     case liborc::BOOLEAN:
       return AppendBoolBatch(batch, offset, length, builder);
+    case liborc::CHAR:
     case liborc::VARCHAR:
     case liborc::STRING:
       return AppendBinaryBatch<StringBuilder>(batch, offset, length, builder);
     case liborc::BINARY:
       return AppendBinaryBatch<BinaryBuilder>(batch, offset, length, builder);
-    case liborc::CHAR:
-      return AppendFixedBinaryBatch(batch, offset, length, builder);
     case liborc::DATE:
       return AppendNumericBatchCast<Date32Builder, int32_t, liborc::LongVectorBatch,
                                     int64_t>(batch, offset, length, builder);
@@ -1113,13 +1096,12 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
       return float32();
     case liborc::DOUBLE:
       return float64();
+    case liborc::CHAR:
     case liborc::VARCHAR:
     case liborc::STRING:
       return utf8();
     case liborc::BINARY:
       return binary();
-    case liborc::CHAR:
-      return fixed_size_binary(static_cast<int>(type->getMaximumLength()));
     case liborc::TIMESTAMP:
       // Values of TIMESTAMP type are stored in the writer timezone in the Orc file.
       // Values are read back in the reader timezone. However, the writer timezone
