@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "parquet/bloom_filter_writer.h"
 #include "parquet/column_writer.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_encryptor.h"
@@ -89,7 +90,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   RowGroupSerializer(std::shared_ptr<ArrowOutputStream> sink,
                      RowGroupMetaDataBuilder* metadata, int16_t row_group_ordinal,
                      const WriterProperties* properties, bool buffered_row_group = false,
-                     InternalFileEncryptor* file_encryptor = nullptr)
+                     InternalFileEncryptor* file_encryptor = nullptr,
+                     BloomFilterWriter* bloom_filter_writer = nullptr)
       : sink_(std::move(sink)),
         metadata_(metadata),
         properties_(properties),
@@ -345,9 +347,10 @@ class FileSerializer : public ParquetFileWriter::Contents {
     }
     num_row_groups_++;
     auto rg_metadata = metadata_->AppendRowGroup();
-    std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
-        sink_, rg_metadata, static_cast<int16_t>(num_row_groups_ - 1), properties_.get(),
-        buffered_row_group, file_encryptor_.get()));
+    std::unique_ptr<RowGroupWriter::Contents> contents =
+        std::make_unique<RowGroupSerializer>(
+            sink_, rg_metadata, static_cast<int16_t>(num_row_groups_ - 1),
+            properties_.get(), buffered_row_group, file_encryptor_.get());
     row_group_writer_ = std::make_unique<RowGroupWriter>(std::move(contents));
     return row_group_writer_.get();
   }
@@ -422,6 +425,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
   std::unique_ptr<RowGroupWriter> row_group_writer_;
 
   std::unique_ptr<InternalFileEncryptor> file_encryptor_;
+  // Only one of the bloom filter writer is active at a time
+  std::unique_ptr<BloomFilterWriter> bloom_filter_writer_;
 
   void StartFile() {
     auto file_encryption_properties = properties_->file_encryption_properties();
@@ -459,6 +464,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
         PARQUET_THROW_NOT_OK(sink_->Write(kParquetMagic, 4));
       }
     }
+    bloom_filter_writer_ = std::make_unique<BloomFilterWriter>(*properties_);
   }
 };
 

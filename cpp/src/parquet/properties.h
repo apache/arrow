@@ -155,7 +155,9 @@ class PARQUET_EXPORT ColumnProperties {
         dictionary_enabled_(dictionary_enabled),
         statistics_enabled_(statistics_enabled),
         max_stats_size_(max_stats_size),
-        compression_level_(Codec::UseDefaultCompressionLevel()) {}
+        compression_level_(Codec::UseDefaultCompressionLevel()),
+        bloom_filter_enabled_(bloom_filter_enabled),
+        bloom_filter_ndv_(bloom_filter_ndv) {}
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
 
@@ -193,17 +195,13 @@ class PARQUET_EXPORT ColumnProperties {
     bloom_filter_enabled_ = bloom_filter_enabled;
   }
 
-  bool bloom_filter_enabled() const {
-    return bloom_filter_enabled_;
-  }
+  bool bloom_filter_enabled() const { return bloom_filter_enabled_; }
 
   void set_bloom_filter_ndv(std::optional<int64_t> bloom_filter_ndv) {
     bloom_filter_ndv_ = bloom_filter_ndv;
   }
 
-  std::optional<int64_t> bloom_filter_ndv() const {
-    return bloom_filter_ndv_;
-  }
+  std::optional<int64_t> bloom_filter_ndv() const { return bloom_filter_ndv_; }
 
  private:
   Encoding::type encoding_;
@@ -491,6 +489,32 @@ class PARQUET_EXPORT WriterProperties {
       return this->disable_statistics(path->ToDotString());
     }
 
+    /// Enable bloom filter for the column specified by `path`.
+    /// Default disabled.
+    Builder* enable_bloom_filter(const std::string& path) {
+      bloom_filter_enabled_[path] = true;
+      return this;
+    }
+
+    /// Enable bloom filter for the column specified by `path`.
+    /// Default disabled.
+    Builder* enable_bloom_filter(const std::shared_ptr<schema::ColumnPath>& path) {
+      return this->enable_bloom_filter(path->ToDotString());
+    }
+
+    /// Disable bloom filter for the column specified by `path`.
+    /// Default disabled.
+    Builder* disable_bloom_filter(const std::string& path) {
+      bloom_filter_enabled_[path] = false;
+      return this;
+    }
+
+    /// Disable bloom filter for the column specified by `path`.
+    /// Default enabled.
+    Builder* disable_bloom_filter(const std::shared_ptr<schema::ColumnPath>& path) {
+      return this->disable_bloom_filter(path->ToDotString());
+    }
+
     /// Allow decimals with 1 <= precision <= 18 to be stored as integers.
     ///
     /// In Parquet, DECIMAL can be stored in any of the following physical types:
@@ -543,6 +567,10 @@ class PARQUET_EXPORT WriterProperties {
         get(item.first).set_dictionary_enabled(item.second);
       for (const auto& item : statistics_enabled_)
         get(item.first).set_statistics_enabled(item.second);
+      for (const auto& item : bloom_filter_enabled_)
+        get(item.first).set_bloom_filter_enabled(item.second);
+      for (const auto& item : bloom_filter_ndv_)
+        get(item.first).set_bloom_filter_ndv(item.second);
 
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
@@ -572,6 +600,10 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, int32_t> codecs_compression_level_;
     std::unordered_map<std::string, bool> dictionary_enabled_;
     std::unordered_map<std::string, bool> statistics_enabled_;
+    std::unordered_map<std::string, bool> bloom_filter_enabled_;
+    // The expected NDV (number of distinct values) for each column.
+    // Full BloomFilter will share the same ndv with bloom filter.
+    std::unordered_map<std::string, std::optional<int64_t>> bloom_filter_ndv_;
   };
 
   inline MemoryPool* memory_pool() const { return pool_; }
@@ -637,6 +669,15 @@ class PARQUET_EXPORT WriterProperties {
 
   bool statistics_enabled(const std::shared_ptr<schema::ColumnPath>& path) const {
     return column_properties(path).statistics_enabled();
+  }
+
+  bool bloom_filter_enabled(const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).bloom_filter_enabled();
+  }
+
+  std::optional<int64_t> bloom_filter_ndv(
+      const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).bloom_filter_ndv();
   }
 
   size_t max_statistics_size(const std::shared_ptr<schema::ColumnPath>& path) const {
