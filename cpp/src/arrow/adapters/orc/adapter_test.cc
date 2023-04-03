@@ -496,7 +496,7 @@ TEST(TestAdapterRead, ReadCharAndVarcharType) {
   ASSERT_NE(nullptr, record_batch);
   ASSERT_EQ(row_count, record_batch->num_rows());
 
-  for (int col = 0; col < record_batch->num_columns(); col++) {
+  for (int col = 0; col < record_batch->num_columns(); ++col) {
     auto str_array = checked_pointer_cast<StringArray>(record_batch->column(col));
     for (int row = 0; row < row_count; row++) {
       EXPECT_EQ(expected_data[col][row], str_array->GetString(row));
