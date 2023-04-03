@@ -20,6 +20,9 @@ package exprs
 
 import (
 	"fmt"
+	"hash"
+	"hash/maphash"
+	"unsafe"
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
@@ -224,4 +227,43 @@ func GetReferencedValue(ref expr.ReferenceSegment, value compute.Datum, ext Exte
 	}
 
 	return value, nil
+}
+
+var seed = maphash.MakeSeed()
+
+func addHash(s expr.ReferenceSegment, h hash.Hash) {
+	switch s := s.(type) {
+	case *expr.StructFieldRef:
+		h.Write(arrow.Int32Traits.CastToBytes([]int32{s.Field}))
+	case *expr.MapKeyRef:
+		h.Write([]byte(s.String()))
+	case *expr.ListElementRef:
+		h.Write(arrow.Int32Traits.CastToBytes([]int32{s.Offset}))
+	}
+
+	child := s.GetChild()
+	if child != nil {
+		addHash(child, h)
+	}
+}
+
+func hashFieldRef(ref *expr.FieldReference) uint64 {
+	var h maphash.Hash
+	h.SetSeed(seed)
+
+	if ref.Root != expr.RootReference {
+		// not implementing expression references yet, just root references
+		// ensure uniqueness by just using the pointer
+		return uint64(uintptr(unsafe.Pointer(ref)))
+	}
+
+	switch r := ref.Reference.(type) {
+	case expr.ReferenceSegment:
+		addHash(r, &h)
+		return h.Sum64()
+	case *expr.MaskExpression:
+		// not implementing mask expression references yet, just root references
+	}
+
+	return uint64(uintptr(unsafe.Pointer(ref)))
 }
