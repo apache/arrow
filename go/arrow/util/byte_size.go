@@ -27,9 +27,8 @@ func isArrayDataNil(arrayData arrow.ArrayData) bool {
 	if arrayData == nil {
 		return true
 	}
-	switch arrayData.(type) {
+	switch v := arrayData.(type) {
 	case *array.Data:
-		v := arrayData.(*array.Data)
 		if v == nil {
 			return true
 		}
