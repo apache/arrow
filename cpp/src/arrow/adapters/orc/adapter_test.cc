@@ -502,7 +502,7 @@ TEST(TestAdapterRead, ReadCharAndVarcharType) {
       EXPECT_EQ(expected_data[col][row], str_array->GetString(row));
     }
   }
-  ASSERT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
+  ASSERT_OK(stripe_reader->ReadNext(&record_batch));
   ASSERT_EQ(record_batch, nullptr);
 }
 
