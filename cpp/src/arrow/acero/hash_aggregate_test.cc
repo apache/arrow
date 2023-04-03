@@ -4743,10 +4743,16 @@ void TestSegment(GroupByFunction group_by, const std::shared_ptr<Table>& table,
       is_scalar_aggregate ? "count" : "hash_count",
       is_scalar_aggregate ? "sum" : "hash_sum",
       is_scalar_aggregate ? "min_max" : "hash_min_max",
+      is_scalar_aggregate ? "first_last" : "hash_first_last",
+      is_scalar_aggregate ? "first" : "hash_first",
+      is_scalar_aggregate ? "last" : "hash_last",
   };
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        group_by(
                            {
+                               table->GetColumnByName("argument"),
+                               table->GetColumnByName("argument"),
+                               table->GetColumnByName("argument"),
                                table->GetColumnByName("argument"),
                                table->GetColumnByName("argument"),
                                table->GetColumnByName("argument"),
@@ -4756,6 +4762,9 @@ void TestSegment(GroupByFunction group_by, const std::shared_ptr<Table>& table,
                                {names[0], nullptr, "agg_0", names[0]},
                                {names[1], nullptr, "agg_1", names[1]},
                                {names[2], nullptr, "agg_2", names[2]},
+                               {names[3], nullptr, "agg_3", names[3]},
+                               {names[4], nullptr, "agg_4", names[4]},
+                               {names[5], nullptr, "agg_5", names[5]},
                            },
                            /*use_threads=*/false, /*naive=*/false));
 
@@ -4781,26 +4790,29 @@ Result<std::shared_ptr<Table>> GetSingleSegmentInputAsChunked() {
                              {R"([{"argument": 1.0,   "key": 1,    "segment_key": 1},
                          {"argument": null,  "key": 1,    "segment_key": 1}
                         ])",
-                              R"([{"argument": 0.0,   "key": 2,    "segment_key": 1},
-                         {"argument": null,  "key": 3,    "segment_key": 1},
-                         {"argument": 4.0,   "key": null, "segment_key": 1},
-                         {"argument": 3.25,  "key": 1,    "segment_key": 1},
-                         {"argument": 0.125, "key": 2,    "segment_key": 1},
-                         {"argument": -0.25, "key": 2,    "segment_key": 1},
-                         {"argument": 0.75,  "key": null, "segment_key": 1},
-                         {"argument": null,  "key": 3,    "segment_key": 1}
+                              R"([
+                          {"argument": 0.0,   "key": 2,    "segment_key": 1},
+                          {"argument": null,  "key": 3,    "segment_key": 1},
+                          {"argument": 4.0,   "key": null, "segment_key": 1},
+                          {"argument": 3.25,  "key": 1,    "segment_key": 1},
+                          {"argument": 0.125, "key": 2,    "segment_key": 1},
+                          {"argument": -0.25, "key": 2,    "segment_key": 1},
+                          {"argument": 0.75,  "key": null, "segment_key": 1},
+                          {"argument": null,  "key": 3,    "segment_key": 1}
                         ])",
-                              R"([{"argument": 1.0,   "key": 1,    "segment_key": 0},
-                         {"argument": null,  "key": 1,    "segment_key": 0}
+                              R"([
+                          {"argument": 1.0,   "key": 1,    "segment_key": 0},
+                          {"argument": null,  "key": 1,    "segment_key": 0}
                         ])",
-                              R"([{"argument": 0.0,   "key": 2,    "segment_key": 0},
-                         {"argument": null,  "key": 3,    "segment_key": 0},
-                         {"argument": 4.0,   "key": null, "segment_key": 0},
-                         {"argument": 3.25,  "key": 1,    "segment_key": 0},
-                         {"argument": 0.125, "key": 2,    "segment_key": 0},
-                         {"argument": -0.25, "key": 2,    "segment_key": 0},
-                         {"argument": 0.75,  "key": null, "segment_key": 0},
-                         {"argument": null,  "key": 3,    "segment_key": 0}
+                              R"([
+                          {"argument": 0.0,   "key": 2,    "segment_key": 0},
+                          {"argument": null,  "key": 3,    "segment_key": 0},
+                          {"argument": 4.0,   "key": null, "segment_key": 0},
+                          {"argument": 3.25,  "key": 1,    "segment_key": 0},
+                          {"argument": 0.125, "key": 2,    "segment_key": 0},
+                          {"argument": -0.25, "key": 2,    "segment_key": 0},
+                          {"argument": 0.75,  "key": null, "segment_key": 0},
+                          {"argument": null,  "key": 3,    "segment_key": 0}
                         ])"});
   return table;
 }
@@ -4811,20 +4823,26 @@ Result<std::shared_ptr<Table>> GetSingleSegmentInputAsCombined() {
 }
 
 Result<std::shared_ptr<ChunkedArray>> GetSingleSegmentScalarOutput() {
-  return ChunkedArrayFromJSON(struct_({
-                                  field("key_0", int64()),
-                                  field("count", int64()),
-                                  field("sum", float64()),
-                                  field("min_max", struct_({
-                                                       field("min", float64()),
-                                                       field("max", float64()),
-                                                   })),
-                              }),
-                              {R"([
-    [1, 7, 8.875, {"min": -0.25, "max": 4.0}]
+  return ChunkedArrayFromJSON(
+      struct_({
+          field("key_0", int64()),
+          field("count", int64()),
+          field("sum", float64()),
+          field("min_max", struct_({
+                               field("min", float64()),
+                               field("max", float64()),
+                           })),
+          field("first_last",
+                struct_({field("first", float64()), field("last", float64())})),
+          field("first", float64()),
+          field("last", float64()),
+      }),
+      {R"([
+    [1, 7, 8.875, {"min": -0.25, "max": 4.0}, {"first": 1.0, "last": 0.75}, 1.0, 0.75]
   ])",
-                               R"([
-    [0, 7, 8.875, {"min": -0.25, "max": 4.0}]
+       R"([
+    [0, 7, 8.875, {"min": -0.25, "max": 4.0}, {"first": 1.0, "last": 0.75}, 1.0, 0.75]
+
   ])"});
 }
 
@@ -4838,18 +4856,24 @@ Result<std::shared_ptr<ChunkedArray>> GetSingleSegmentKeyOutput() {
                                                             field("min", float64()),
                                                             field("max", float64()),
                                                         })),
+                                  field("hash_first_last", struct_({
+                                                               field("first", float64()),
+                                                               field("last", float64()),
+                                                           })),
+                                  field("hash_first", float64()),
+                                  field("hash_last", float64()),
                               }),
                               {R"([
-    [1, 1,    2, 4.25,   {"min": 1.0,   "max": 3.25} ],
-    [1, 2,    3, -0.125, {"min": -0.25, "max": 0.125}],
-    [1, 3,    0, null,   {"min": null,  "max": null} ],
-    [1, null, 2, 4.75,   {"min": 0.75,  "max": 4.0}  ]
+    [1,    1, 2, 4.25,   {"min": 1.0,   "max": 3.25}, {"first": 1.0, "last": 3.25}, 1.0, 3.25 ],
+    [1,    2, 3, -0.125, {"min": -0.25, "max": 0.125}, {"first": 0.0, "last": -0.25}, 0.0, -0.25],
+    [1,    3, 0, null,   {"min": null,  "max": null}, {"first": null, "last": null}, null, null],
+    [1, null, 2, 4.75,   {"min": 0.75,  "max": 4.0},  {"first": 4.0, "last": 0.75}, 4.0, 0.75]
   ])",
                                R"([
-    [0, 1,    2, 4.25,   {"min": 1.0,   "max": 3.25} ],
-    [0, 2,    3, -0.125, {"min": -0.25, "max": 0.125}],
-    [0, 3,    0, null,   {"min": null,  "max": null} ],
-    [0, null, 2, 4.75,   {"min": 0.75,  "max": 4.0}  ]
+    [0,    1, 2, 4.25,   {"min": 1.0,   "max": 3.25}, {"first": 1.0, "last": 3.25}, 1.0, 3.25 ],
+    [0,    2, 3, -0.125, {"min": -0.25, "max": 0.125}, {"first": 0.0, "last": -0.25}, 0.0, -0.25],
+    [0,    3, 0, null,   {"min": null,  "max": null}, {"first": null, "last": null}, null, null],
+    [0, null, 2, 4.75,   {"min": 0.75,  "max": 4.0}, {"first": 4.0, "last": 0.75}, 4.0, 0.75]
   ])"});
 }
 

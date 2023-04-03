@@ -440,6 +440,47 @@ struct ProductInit {
 };
 
 // ----------------------------------------------------------------------
+// FirstLast implementation
+
+Result<std::unique_ptr<KernelState>> FirstLastInit(KernelContext* ctx,
+                                                   const KernelInitArgs& args) {
+  ARROW_ASSIGN_OR_RAISE(TypeHolder out_type,
+                        args.kernel->signature->out_type().Resolve(ctx, args.inputs));
+
+  FirstLastInitState<SimdLevel::NONE> visitor(
+      ctx, *args.inputs[0], out_type.GetSharedPtr(),
+      static_cast<const ScalarAggregateOptions&>(*args.options));
+  return visitor.Create();
+}
+
+// For "first" and "last" functions: override finanlize and return the actual value
+template <FirstOrLast first_or_last>
+void AddFirstOrLastAggKernel(ScalarAggregateFunction* func,
+                             ScalarAggregateFunction* first_last_func) {
+  auto sig = KernelSignature::Make({InputType::Any()}, FirstType);
+  auto init = [first_last_func](
+                  KernelContext* ctx,
+                  const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
+    ARROW_ASSIGN_OR_RAISE(auto kernel, first_last_func->DispatchExact(args.inputs));
+    KernelInitArgs new_args{kernel, args.inputs, args.options};
+    return kernel->init(ctx, new_args);
+  };
+
+  auto finalize = [](KernelContext* ctx, Datum* out) -> Status {
+    Datum temp;
+    RETURN_NOT_OK(checked_cast<ScalarAggregator*>(ctx->state())->Finalize(ctx, &temp));
+    const auto& result = temp.scalar_as<StructScalar>();
+    DCHECK(result.is_valid);
+    *out = result.value[static_cast<uint8_t>(first_or_last)];
+    return Status::OK();
+  };
+
+  // Note SIMD level is always NONE, but the convenience kernel will
+  // dispatch to an appropriate implementation
+  AddAggKernel(std::move(sig), std::move(init), std::move(finalize), func);
+}
+
+// ----------------------------------------------------------------------
 // MinMax implementation
 
 Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
@@ -835,6 +876,25 @@ Result<TypeHolder> MinMaxType(KernelContext*, const std::vector<TypeHolder>& typ
 
 }  // namespace
 
+Result<TypeHolder> FirstLastType(KernelContext*, const std::vector<TypeHolder>& types) {
+  auto ty = types.front().GetSharedPtr();
+  return struct_({field("first", ty), field("last", ty)});
+}
+
+void AddFirstLastKernel(KernelInit init, internal::detail::GetTypeId get_id,
+                        ScalarAggregateFunction* func, SimdLevel::type simd_level) {
+  auto sig = KernelSignature::Make({InputType(get_id.id)}, FirstLastType);
+  AddAggKernel(std::move(sig), init, func, simd_level);
+}
+
+void AddFirstLastKernels(KernelInit init,
+                         const std::vector<std::shared_ptr<DataType>>& types,
+                         ScalarAggregateFunction* func, SimdLevel::type simd_level) {
+  for (const auto& ty : types) {
+    AddFirstLastKernel(init, ty, func, simd_level);
+  }
+}
+
 void AddMinMaxKernel(KernelInit init, internal::detail::GetTypeId get_id,
                      ScalarAggregateFunction* func, SimdLevel::type simd_level) {
   auto sig = KernelSignature::Make({InputType(get_id.id)}, MinMaxType);
@@ -893,6 +953,16 @@ const FunctionDoc mean_doc{
      "there are no values. For decimals, null is returned instead."),
     {"array"},
     "ScalarAggregateOptions"};
+
+const FunctionDoc first_last_doc{"Compute the first and last values of an array",
+                                 ("Null values are ignored by default."),
+                                 {"array"},
+                                 "ScalarAggregateOptions"};
+
+const FunctionDoc first_or_last_doc{"Compute the first or last values of an array",
+                                    ("Null values are ignored by default."),
+                                    {"array"},
+                                    "ScalarAggregateOptions"};
 
 const FunctionDoc min_max_doc{"Compute the minimum and maximum values of a numeric array",
                               ("Null values are ignored by default.\n"
@@ -1006,6 +1076,26 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 #endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
+  // Add first last function
+  func = std::make_shared<ScalarAggregateFunction>(
+      "first_last", Arity::Unary(), first_last_doc, &default_scalar_aggregate_options);
+  auto first_last_func = func.get();
+
+  AddFirstLastKernels(FirstLastInit, NumericTypes(), func.get(), SimdLevel::NONE);
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  // Add first/last as convience functions
+  func = std::make_shared<ScalarAggregateFunction>(
+      "first", Arity::Unary(), first_or_last_doc, &default_scalar_aggregate_options);
+  AddFirstOrLastAggKernel<FirstOrLast::First>(func.get(), first_last_func);
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  func = std::make_shared<ScalarAggregateFunction>(
+      "last", Arity::Unary(), first_or_last_doc, &default_scalar_aggregate_options);
+  AddFirstOrLastAggKernel<FirstOrLast::Last>(func.get(), first_last_func);
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  // Add min max function
   func = std::make_shared<ScalarAggregateFunction>("min_max", Arity::Unary(), min_max_doc,
                                                    &default_scalar_aggregate_options);
   AddMinMaxKernels(MinMaxInit, {null(), boolean()}, func.get());
