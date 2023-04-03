@@ -69,7 +69,7 @@ type Column struct {
 // of the ref counting.
 func NewColumnFromArr(field Field, arr Array) Column {
 	if !TypeEqual(field.Type, arr.DataType()) {
-		panic("arrow/array: inconsistent data type")
+		panic(fmt.Sprintf("arrow/array: inconsistent data type %s vs %s", field.Type.String(), arr.DataType().String()))
 	}
 
 	arr.Retain()

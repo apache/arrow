@@ -157,7 +157,7 @@ func TestChunkedInvalid(t *testing.T) {
 		if e == nil {
 			t.Fatalf("expected a panic")
 		}
-		if got, want := e.(string), "arrow/array: mismatch data type"; got != want {
+		if got, want := e.(string), "arrow/array: mismatch data type float64 vs int32"; got != want {
 			t.Fatalf("invalid error. got=%q, want=%q", got, want)
 		}
 	}()
@@ -313,7 +313,7 @@ func TestColumn(t *testing.T) {
 				return c
 			}(),
 			field: arrow.Field{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
-			err:   fmt.Errorf("arrow/array: inconsistent data type"),
+			err:   fmt.Errorf("arrow/array: inconsistent data type float64 vs float32"),
 		},
 	} {
 		t.Run("", func(t *testing.T) {
