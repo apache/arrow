@@ -54,11 +54,19 @@ on:
 {% endmacro %}
 
 {%- macro github_install_archery() -%}
-  - name: Set up Python
+  - name: Set up Python by actions/setup-python
+    if: runner.arch == 'X64'
     uses: actions/setup-python@v4
     with:
       cache: 'pip'
       python-version: 3.8
+  - name: Set up Python by apt
+    if: runner.os == 'Linux' && runner.arch != 'X64'
+    run: |
+      sudo apt update
+      sudo apt-get install -y python3-pip
+      pip install -U pip
+      echo "$HOME/.local/bin" >>"$GITHUB_PATH"
   - name: Install Archery
     shell: bash
     run: pip install -e arrow/dev/archery[all]
@@ -179,61 +187,6 @@ on:
       conda install -y anaconda-client
       anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force {{ pattern }}
     displayName: Upload packages to Anaconda
-  {% endif %}
-{% endmacro %}
-
-{%- macro travis_checkout_arrow() -%}
-  - git clone --no-checkout --branch {{ arrow.branch }} {{ arrow.remote }} arrow
-  - git -C arrow checkout {{ arrow.head }}
-  - git -C arrow submodule update --init --recursive
-{% endmacro %}
-
-{%- macro travis_install_archery() -%}
-  - sudo -H pip3 install --upgrade pip
-  - sudo -H pip3 install docker-compose
-  - sudo -H pip3 install -e arrow/dev/archery[docker]
-{% endmacro %}
-
-{%- macro travis_docker_login() -%}
-  - echo "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USER}" --password-stdin
-{% endmacro %}
-
-{%- macro travis_upload_releases(pattern) -%}
-  - sudo -H pip3 install pygit2==1.8.0 cryptography==36
-  - sudo -H pip3 install -e arrow/dev/archery[crossbow]
-  - |
-    archery crossbow \
-      --queue-path $(pwd) \
-      --queue-remote {{ queue_remote_url }} \
-      upload-artifacts \
-      --sha {{ task.branch }} \
-      --tag {{ task.tag }} \
-    {% if pattern is string %}
-      "{{ pattern }}"
-    {% elif pattern is iterable %}
-      {% for p in pattern %}
-      "{{ p }}" {{ "\\" if not loop.last else "" }}
-      {% endfor %}
-    {% endif %}
-  - git fetch origin {{ job.branch }}:remotes/origin/{{ job.branch }}
-  - |
-    archery crossbow \
-      --queue-path $(pwd) \
-      --queue-remote {{ queue_remote_url }} \
-      status \
-      --task-filter '{{ task.name }}' \
-      --no-fetch \
-      --validate \
-      {{ job.branch }}
-{% endmacro %}
-
-{%- macro travis_upload_gemfury(pattern) -%}
-  {%- if arrow.is_default_branch() -%}
-  - |
-    WHEEL_PATH=$(echo arrow/python/repaired_wheels/*.whl)
-    curl \
-      -F "package=@${WHEEL_PATH}" \
-      "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
   {% endif %}
 {% endmacro %}
 
