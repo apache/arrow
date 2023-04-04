@@ -54,7 +54,6 @@ std::shared_ptr<acero::ExecPlan> ExecPlan_create(bool use_threads) {
   return plan;
 }
 
-// [[acero::export]]
 std::shared_ptr<acero::ExecNode> MakeExecNodeOrStop(
     const std::string& factory_name, acero::ExecPlan* plan,
     std::vector<acero::ExecNode*> inputs, const acero::ExecNodeOptions& options) {

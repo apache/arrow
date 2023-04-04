@@ -928,24 +928,6 @@ extern "C" SEXP _arrow_ExecPlan_create(SEXP use_threads_sexp){
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_ACERO)
-std::shared_ptr<acero::ExecNode> MakeExecNodeOrStop(const std::string& factory_name, acero::ExecPlan* plan, std::vector<acero::ExecNode*> inputs, const acero::ExecNodeOptions& options);
-extern "C" SEXP _arrow_MakeExecNodeOrStop(SEXP factory_name_sexp, SEXP plan_sexp, SEXP inputs_sexp, SEXP options_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::string&>::type factory_name(factory_name_sexp);
-	arrow::r::Input<acero::ExecPlan*>::type plan(plan_sexp);
-	arrow::r::Input<std::vector<acero::ExecNode*>>::type inputs(inputs_sexp);
-	arrow::r::Input<const acero::ExecNodeOptions&>::type options(options_sexp);
-	return cpp11::as_sexp(MakeExecNodeOrStop(factory_name, plan, inputs, options));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_MakeExecNodeOrStop(SEXP factory_name_sexp, SEXP plan_sexp, SEXP inputs_sexp, SEXP options_sexp){
-	Rf_error("Cannot call MakeExecNodeOrStop(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// compute-exec.cpp
-#if defined(ARROW_R_WITH_ACERO)
 cpp11::list ExecPlanReader__batches(const std::shared_ptr<arrow::RecordBatchReader>& reader);
 extern "C" SEXP _arrow_ExecPlanReader__batches(SEXP reader_sexp){
 BEGIN_CPP11
@@ -5569,7 +5551,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2}, 
 		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 
 		{ "_arrow_ExecPlan_create", (DL_FUNC) &_arrow_ExecPlan_create, 1}, 
-		{ "_arrow_MakeExecNodeOrStop", (DL_FUNC) &_arrow_MakeExecNodeOrStop, 4}, 
 		{ "_arrow_ExecPlanReader__batches", (DL_FUNC) &_arrow_ExecPlanReader__batches, 1}, 
 		{ "_arrow_Table__from_ExecPlanReader", (DL_FUNC) &_arrow_Table__from_ExecPlanReader, 1}, 
 		{ "_arrow_ExecPlanReader__Plan", (DL_FUNC) &_arrow_ExecPlanReader__Plan, 1}, 
