@@ -42,6 +42,7 @@ COPY ci/etc/hdfs-site.xml $HADOOP_HOME/etc/hadoop/
 # build cpp with tests
 ENV CC=gcc \
     CXX=g++ \
+    ARROW_ACERO=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_COMPUTE=ON \
     ARROW_CSV=ON \

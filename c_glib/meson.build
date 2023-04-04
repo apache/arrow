@@ -87,6 +87,8 @@ if arrow_cpp_build_lib_dir == ''
 
   have_arrow_orc = dependency('arrow-orc', required: false).found()
   arrow_cuda = dependency('arrow-cuda', required: false)
+  # we do not support compiling glib without acero engine
+  arrow_acero = dependency('arrow-acero', required: true)
   arrow_dataset = dependency('arrow-dataset', required: false)
   arrow_flight = dependency('arrow-flight', required: false)
   arrow_flight_sql = dependency('arrow-flight-sql', required: false)
@@ -116,6 +118,9 @@ main(void)
   arrow_cuda = cpp_compiler.find_library('arrow_cuda',
                                          dirs: [arrow_cpp_build_lib_dir],
                                          required: false)
+  arrow_acero = cpp_compiler.find_library('arrow_acero',
+                                          dirs: [arrow_cpp_build_lib_dir],
+                                          required: true)
   arrow_dataset = cpp_compiler.find_library('arrow_dataset',
                                             dirs: [arrow_cpp_build_lib_dir],
                                             required: false)

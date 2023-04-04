@@ -2045,7 +2045,7 @@ def test_generic_options():
         client = flight.connect(('localhost', s.port),
                                 tls_root_certs=certs["root_cert"],
                                 generic_options=options)
-        with pytest.raises(pa.ArrowInvalid):
+        with pytest.raises((pa.ArrowInvalid, flight.FlightCancelledError)):
             client.do_get(flight.Ticket(b'ints'))
         client.close()
 
