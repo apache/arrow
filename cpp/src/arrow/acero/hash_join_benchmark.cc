@@ -34,7 +34,7 @@
 #include <omp.h>
 
 namespace arrow {
-namespace aceroacero {
+namespace acero {
 struct BenchmarkSettings {
   int num_threads = 1;
   JoinType join_type = JoinType::INNER;
@@ -453,5 +453,5 @@ BENCHMARK(BM_HashJoinBasic_ProbeParallelism)
 
 #endif  // ARROW_BUILD_DETAILED_BENCHMARKS
 
-}  // namespace aceroacero
+}  // namespace acero
 }  // namespace arrow
