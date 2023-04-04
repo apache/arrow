@@ -211,16 +211,15 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
       aggregates.push_back(std::move(aggregate));
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto args, acero::aggregate::MakeAggregateNodeArgs(
-                                         *input_schema, keys, segment_keys, aggregates));
+    ARROW_ASSIGN_OR_RAISE(auto output_schema,
+                          acero::aggregate::MakeOutputSchema(*input_schema, keys,
+                                                             segment_keys, aggregates));
 
-    ARROW_ASSIGN_OR_RAISE(
-        auto decl_info,
-        internal::MakeAggregateDeclaration(
-            std::move(inputs[0].declaration), std::move(args.output_schema),
-            std::move(aggregates), std::move(keys), std::move(segment_keys)));
+    ARROW_ASSIGN_OR_RAISE(auto decl_info, internal::MakeAggregateDeclaration(
+                                              std::move(inputs[0].declaration),
+                                              output_schema, std::move(aggregates),
+                                              std::move(keys), std::move(segment_keys)));
 
-    const auto& output_schema = decl_info.output_schema;
     size_t out_size = output_schema->num_fields();
     std::vector<int> field_output_indices(out_size);
     for (int i = 0; i < static_cast<int>(out_size); i++) {

@@ -774,17 +774,16 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         aggregates.push_back(std::move(aggregate));
       }
 
-      ARROW_ASSIGN_OR_RAISE(auto args,
-                            acero::aggregate::MakeAggregateNodeArgs(
+      ARROW_ASSIGN_OR_RAISE(auto aggregate_schema,
+                            acero::aggregate::MakeOutputSchema(
                                 *input_schema, keys, /*segment_keys=*/{}, aggregates));
 
       ARROW_ASSIGN_OR_RAISE(
           auto aggregate_declaration,
-          internal::MakeAggregateDeclaration(
-              std::move(input.declaration), std::move(args.output_schema),
-              std::move(aggregates), std::move(keys), /*segment_keys=*/{}));
+          internal::MakeAggregateDeclaration(std::move(input.declaration),
+                                             aggregate_schema, std::move(aggregates),
+                                             std::move(keys), /*segment_keys=*/{}));
 
-      auto aggregate_schema = aggregate_declaration.output_schema;
       return ProcessEmit(std::move(aggregate), std::move(aggregate_declaration),
                          std::move(aggregate_schema));
     }

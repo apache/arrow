@@ -76,6 +76,35 @@ using compute::Segment;
 
 namespace acero {
 
+namespace aggregate {
+
+struct ARROW_ACERO_EXPORT AggregateNodeArgs {
+  std::shared_ptr<Schema> output_schema;
+  std::vector<int> grouping_key_field_ids;
+  std::vector<int> segment_key_field_ids;
+  std::unique_ptr<RowSegmenter> segmenter;
+  std::vector<std::vector<int>> target_fieldsets;
+  std::vector<Aggregate> aggregates;
+  std::vector<const Kernel*> kernels;
+  std::vector<std::vector<TypeHolder>> kernel_intypes;
+  std::vector<std::vector<std::unique_ptr<KernelState>>> states;
+};
+
+/// \brief Make the arguments of an aggregate node
+///
+/// \param[in] input_schema the schema of the input to the node
+/// \param[in] keys the grouping keys for the aggregation
+/// \param[in] segment_keys the segmenting keys for the aggregation
+/// \param[in] aggregates the aggregates for the aggregation
+/// \param[in] num_states_per_kernel number of states per kernel for the aggregation
+/// \param[in] exec_ctx the execution context for the aggregation
+ARROW_ACERO_EXPORT Result<AggregateNodeArgs> MakeAggregateNodeArgs(
+    const Schema& input_schema, const std::vector<FieldRef>& keys,
+    const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggregates,
+    size_t num_states_per_kernel = 1, ExecContext* exec_ctx = default_exec_context());
+
+}  // namespace aggregate
+
 namespace {
 
 std::vector<TypeHolder> ExtendWithGroupIdType(const std::vector<TypeHolder>& in_types) {
@@ -997,7 +1026,7 @@ Result<std::shared_ptr<Schema>> MakeOutputSchema(
     ExecContext* exec_ctx) {
   ARROW_ASSIGN_OR_RAISE(
       auto args, MakeAggregateNodeArgs(input_schema, keys, segment_keys, aggregates,
-                                       /*num_states_per_kernel=*/0, exec_ctx));
+                                       /*num_states_per_kernel=*/1, exec_ctx));
   return std::move(args.output_schema);
 }
 
