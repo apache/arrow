@@ -17,7 +17,6 @@
 package array
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/apache/arrow/go/v12/arrow"
@@ -47,17 +46,17 @@ import (
 // base: baseline for comparison
 // target: an array of identical type to base whose elements differ from base's
 // mem: memory to store the result will be allocated from this memory pool
-func Diff(base, target arrow.Array, mem memory.Allocator) (*Struct, error) {
-	if base.DataType().Fingerprint() != target.DataType().Fingerprint() {
-		return nil, errors.New("only taking the diff of like-typed arrays is supported")
+func Diff(mem memory.Allocator, base, target arrow.Array) (*Struct, error) {
+	if arrow.TypeEqual(base.DataType(), target.DataType()) {
+		return nil, fmt.Errorf("%w: only taking the diff of like-typed arrays is supported", arrow.ErrNotImplemented)
 	}
 	switch base.DataType().ID() {
 	case arrow.EXTENSION:
-		return Diff(base.(ExtensionArray).Storage(), target.(ExtensionArray).Storage(), mem)
+		return Diff(mem, base.(ExtensionArray).Storage(), target.(ExtensionArray).Storage())
 	case arrow.DICTIONARY:
-		return nil, fmt.Errorf("diffing arrays of type %s is not implemented", base.DataType().String())
+		return nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType().String())
 	case arrow.RUN_END_ENCODED:
-		return nil, fmt.Errorf("diffing arrays of type %s is not implemented", base.DataType().String())
+		return nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType().String())
 	}
 	d := newQuadraticSpaceMyersDiff(base, target)
 	r, err := d.Diff(mem)

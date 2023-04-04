@@ -54,7 +54,7 @@ func (s *diffTestCase) check(t *testing.T) {
 	}
 	defer target.Release()
 
-	got, err := array.Diff(base, target, mem)
+	got, err := array.Diff(mem, base, target)
 	if err != nil {
 		t.Fatalf("got unexpected error %v", err)
 	}
@@ -431,7 +431,7 @@ func testRandomCase(t *testing.T, rng *rand.Rand) {
 	}
 	defer target.Release()
 
-	got, err := array.Diff(base, target, mem)
+	got, err := array.Diff(mem, base, target)
 	if err != nil {
 		t.Fatalf("got unexpected error %v", err)
 	}
