@@ -26,7 +26,7 @@ class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
 };
 
 /// \brief Concrete type class for constant-size Tensor data.
-/// This is a canonical arrow extension extension type.
+/// This is a canonical arrow extension type.
 /// See: https://arrow.apache.org/docs/format/CanonicalExtensions.html
 class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
  public:
