@@ -30,14 +30,14 @@ import com.github.luben.zstd.Zstd;
  */
 public class ZstdCompressionCodec extends AbstractCompressionCodec {
 
-  private int compresionLevel;
+  private int compressionLevel;
 
   public ZstdCompressionCodec() {
-    this.compresionLevel = 3;
+    this.compressionLevel = 3;
   }
 
-  public ZstdCompressionCodec(int compresionLevel) {
-    this.compresionLevel = compresionLevel;
+  public ZstdCompressionCodec(int compressionLevel) {
+    this.compressionLevel = compressionLevel;
   }
 
   @Override
@@ -48,7 +48,7 @@ public class ZstdCompressionCodec extends AbstractCompressionCodec {
     long bytesWritten = Zstd.compressUnsafe(
                           compressedBuffer.memoryAddress() + CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH, dstSize,
                           /*src*/uncompressedBuffer.memoryAddress(), /*srcSize=*/uncompressedBuffer.writerIndex(),
-                          /*level=*/this.compresionLevel);
+                          /*level=*/this.compressionLevel);
     if (Zstd.isError(bytesWritten)) {
       compressedBuffer.close();
       throw new RuntimeException("Error compressing: " + Zstd.getErrorName(bytesWritten));
