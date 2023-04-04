@@ -57,7 +57,7 @@ test_that("Table R metadata", {
     "$r$columns$c$columns$c1$attributes$extra_attr",
     fixed = TRUE
   )
-  expect_identical(as.data.frame(tab), example_with_metadata)
+  expect_identical(as_tibble(tab), example_with_metadata)
 })
 
 test_that("R metadata is not stored for types that map to Arrow types (factor, Date, etc.)", {
@@ -94,7 +94,7 @@ test_that("Garbage R metadata doesn't break things", {
   tab <- Table$create(example_data[1:6])
   tab$metadata$r <- "garbage"
   expect_warning(
-    expect_identical(as.data.frame(tab), example_data[1:6]),
+    expect_identical(as_tibble(tab), example_data[1:6]),
     "Invalid metadata$r",
     fixed = TRUE
   )
@@ -103,7 +103,7 @@ test_that("Garbage R metadata doesn't break things", {
   tab <- Table$create(example_data[1:6])
   tab$metadata$r <- rawToChar(serialize("garbage", NULL, ascii = TRUE))
   expect_warning(
-    expect_identical(as.data.frame(tab), example_data[1:6]),
+    expect_identical(as_tibble(tab), example_data[1:6]),
     "Invalid metadata$r",
     fixed = TRUE
   )
@@ -164,7 +164,7 @@ test_that("RecordBatch metadata", {
 })
 
 test_that("RecordBatch R metadata", {
-  expect_identical(as.data.frame(record_batch(example_with_metadata)), example_with_metadata)
+  expect_identical(as_tibble(record_batch(example_with_metadata)), example_with_metadata)
 })
 
 test_that("R metadata roundtrip via parquet", {
@@ -195,14 +195,14 @@ test_that("haven types roundtrip via feather", {
 test_that("Date/time type roundtrip", {
   rb <- record_batch(example_with_times)
   expect_r6_class(rb$schema$posixlt$type, "VctrsExtensionType")
-  expect_identical(as.data.frame(rb), example_with_times)
+  expect_identical(as_tibble(rb), example_with_times)
 })
 
 test_that("metadata keeps attribute of top level data frame", {
   df <- structure(data.frame(x = 1, y = 2), foo = "bar")
   tab <- Table$create(df)
-  expect_identical(attr(as.data.frame(tab), "foo"), "bar")
-  expect_identical(as.data.frame(tab), df)
+  expect_identical(attr(as_tibble(tab), "foo"), "bar")
+  expect_identical(as_tibble(tab), df)
 })
 
 
@@ -223,7 +223,7 @@ test_that("metadata drops readr's problems attribute", {
   )
 
   tab <- Table$create(readr_like)
-  expect_null(attr(as.data.frame(tab), "problems"))
+  expect_null(attr(as_tibble(tab), "problems"))
 })
 
 test_that("Row-level metadata (does not by default) roundtrip", {
@@ -241,8 +241,8 @@ test_that("Row-level metadata (does not by default) roundtrip", {
     list("arrow.preserve_row_level_metadata" = TRUE),
     {
       tab <- Table$create(df)
-      expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
-      expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
+      expect_identical(attr(as_tibble(tab)$x[[1]], "foo"), "bar")
+      expect_identical(attr(as_tibble(tab)$x[[2]], "baz"), "qux")
     }
   )
 })
@@ -387,7 +387,7 @@ test_that("grouped_df non-arrow metadata is preserved", {
   grouped_tab <- arrow_table(grouped)
 
   expect_equal(
-    attributes(as.data.frame(grouped_tab))$other_metadata,
+    attributes(as_tibble(grouped_tab))$other_metadata,
     "look I'm still here!"
   )
 })
