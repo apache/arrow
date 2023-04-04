@@ -21,6 +21,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "arrow/acero/aggregate_node.h"
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/query_context.h"
@@ -85,8 +86,43 @@ std::vector<TypeHolder> ExtendWithGroupIdType(const std::vector<TypeHolder>& in_
   return aggr_in_types;
 }
 
-Result<const HashAggregateKernel*> GetKernel(ExecContext* ctx, const Aggregate& aggregate,
+void DefaultAggregateOptions(Aggregate* aggregate_ptr,
+                             const std::shared_ptr<Function> function) {
+  Aggregate& aggregate = *aggregate_ptr;
+  if (aggregate.options == nullptr) {
+    DCHECK(!function->doc().options_required);
+    const auto* default_options = function->default_options();
+    if (default_options) {
+      aggregate.options = default_options->Copy();
+    }
+  }
+}
+
+using GetKernel = std::function<Result<const Kernel*>(ExecContext*, Aggregate*,
+                                                      const std::vector<TypeHolder>&)>;
+
+Result<const Kernel*> GetScalarAggregateKernel(ExecContext* ctx, Aggregate* aggregate_ptr,
+                                               const std::vector<TypeHolder>& in_types) {
+  Aggregate& aggregate = *aggregate_ptr;
+  ARROW_ASSIGN_OR_RAISE(auto function,
+                        ctx->func_registry()->GetFunction(aggregate.function));
+  if (function->kind() != Function::SCALAR_AGGREGATE) {
+    if (function->kind() == Function::HASH_AGGREGATE) {
+      return Status::Invalid("The provided function (", aggregate.function,
+                             ") is a hash aggregate function.  Since there are no "
+                             "keys to group by, a scalar aggregate function was "
+                             "expected (normally these do not start with hash_)");
+    }
+    return Status::Invalid("The provided function(", aggregate.function,
+                           ") is not an aggregate function");
+  }
+  DefaultAggregateOptions(&aggregate, function);
+  return function->DispatchExact(in_types);
+}
+
+Result<const Kernel*> GetHashAggregateKernel(ExecContext* ctx, Aggregate* aggregate_ptr,
                                              const std::vector<TypeHolder>& in_types) {
+  Aggregate& aggregate = *aggregate_ptr;
   const auto aggr_in_types = ExtendWithGroupIdType(in_types);
   ARROW_ASSIGN_OR_RAISE(auto function,
                         ctx->func_registry()->GetFunction(aggregate.function));
@@ -100,16 +136,16 @@ Result<const HashAggregateKernel*> GetKernel(ExecContext* ctx, const Aggregate& 
     return Status::Invalid("The provided function(", aggregate.function,
                            ") is not an aggregate function");
   }
-  ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, function->DispatchExact(aggr_in_types));
-  return static_cast<const HashAggregateKernel*>(kernel);
+  DefaultAggregateOptions(&aggregate, function);
+  return function->DispatchExact(aggr_in_types);
 }
 
-Result<std::unique_ptr<KernelState>> InitKernel(const HashAggregateKernel* kernel,
-                                                ExecContext* ctx,
-                                                const Aggregate& aggregate,
-                                                const std::vector<TypeHolder>& in_types) {
-  const auto aggr_in_types = ExtendWithGroupIdType(in_types);
+using InitKernel = std::function<Result<std::unique_ptr<KernelState>>(
+    const Kernel*, ExecContext*, const Aggregate&, const std::vector<TypeHolder>&)>;
 
+Result<std::unique_ptr<KernelState>> InitScalarAggregateKernel(
+    const Kernel* kernel, ExecContext* ctx, const Aggregate& aggregate,
+    const std::vector<TypeHolder>& in_types) {
   KernelContext kernel_ctx{ctx};
   const auto* options =
       arrow::internal::checked_cast<const FunctionOptions*>(aggregate.options.get());
@@ -122,53 +158,91 @@ Result<std::unique_ptr<KernelState>> InitKernel(const HashAggregateKernel* kerne
   }
 
   ARROW_ASSIGN_OR_RAISE(
-      auto state,
-      kernel->init(&kernel_ctx, KernelInitArgs{kernel, aggr_in_types, options}));
+      auto state, kernel->init(&kernel_ctx, KernelInitArgs{kernel, in_types, options}));
   return std::move(state);
 }
 
-Result<std::vector<const HashAggregateKernel*>> GetKernels(
-    ExecContext* ctx, const std::vector<Aggregate>& aggregates,
+Result<std::unique_ptr<KernelState>> InitHashAggregateKernel(
+    const Kernel* kernel, ExecContext* ctx, const Aggregate& aggregate,
+    const std::vector<TypeHolder>& in_types) {
+  const auto aggr_in_types = ExtendWithGroupIdType(in_types);
+  return InitScalarAggregateKernel(kernel, ctx, aggregate, std::move(aggr_in_types));
+}
+
+Result<std::vector<const Kernel*>> GetKernels(
+    GetKernel get_kernel, ExecContext* ctx, std::vector<Aggregate>* aggregates_ptr,
     const std::vector<std::vector<TypeHolder>>& in_types) {
+  std::vector<Aggregate>& aggregates = *aggregates_ptr;
   if (aggregates.size() != in_types.size()) {
     return Status::Invalid(aggregates.size(), " aggregate functions were specified but ",
                            in_types.size(), " arguments were provided.");
   }
 
-  std::vector<const HashAggregateKernel*> kernels(in_types.size());
+  std::vector<const Kernel*> kernels(in_types.size());
   for (size_t i = 0; i < aggregates.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(kernels[i], GetKernel(ctx, aggregates[i], in_types[i]));
+    ARROW_ASSIGN_OR_RAISE(kernels[i], get_kernel(ctx, &aggregates[i], in_types[i]));
   }
   return kernels;
 }
 
-Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
-    const std::vector<const HashAggregateKernel*>& kernels, ExecContext* ctx,
+template <typename KernelType>
+Result<std::vector<std::vector<std::unique_ptr<KernelState>>>> InitKernels(
+    InitKernel init_kernel, const std::vector<const KernelType*>& kernels,
+    ExecContext* ctx, size_t num_states_per_kernel,
     const std::vector<Aggregate>& aggregates,
     const std::vector<std::vector<TypeHolder>>& in_types) {
-  std::vector<std::unique_ptr<KernelState>> states(kernels.size());
+  std::vector<std::vector<std::unique_ptr<KernelState>>> states(kernels.size());
   for (size_t i = 0; i < aggregates.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(states[i],
-                          InitKernel(kernels[i], ctx, aggregates[i], in_types[i]));
+    states[i].resize(num_states_per_kernel);
+    for (size_t j = 0; j < num_states_per_kernel; j++) {
+      ARROW_ASSIGN_OR_RAISE(states[i][j],
+                            init_kernel(kernels[i], ctx, aggregates[i], in_types[i]));
+    }
   }
   return std::move(states);
 }
 
-Result<FieldVector> ResolveKernels(
-    const std::vector<Aggregate>& aggregates,
-    const std::vector<const HashAggregateKernel*>& kernels,
-    const std::vector<std::unique_ptr<KernelState>>& states, ExecContext* ctx,
-    const std::vector<std::vector<TypeHolder>>& types) {
+Result<std::shared_ptr<Field>> ResolveKernel(const Aggregate& aggregate,
+                                             const Kernel* kernel,
+                                             const std::unique_ptr<KernelState>& state,
+                                             ExecContext* ctx,
+                                             const std::vector<TypeHolder>& types) {
+  KernelContext kernel_ctx{ctx};
+  kernel_ctx.SetState(state.get());
+
+  ARROW_ASSIGN_OR_RAISE(auto type,
+                        kernel->signature->out_type().Resolve(&kernel_ctx, types));
+  return field(aggregate.function, type.GetSharedPtr());
+}
+
+using ResolveKernels = std::function<Result<FieldVector>(
+    const std::vector<Aggregate>&, const std::vector<const Kernel*>&,
+    const std::vector<std::vector<std::unique_ptr<KernelState>>>&, ExecContext*,
+    const std::vector<std::vector<TypeHolder>>&)>;
+
+Result<FieldVector> ResolveScalarAggregateKernels(
+    const std::vector<Aggregate>& aggregates, const std::vector<const Kernel*>& kernels,
+    const std::vector<std::vector<std::unique_ptr<KernelState>>>& states,
+    ExecContext* ctx, const std::vector<std::vector<TypeHolder>>& types) {
   FieldVector fields(types.size());
 
   for (size_t i = 0; i < kernels.size(); ++i) {
-    KernelContext kernel_ctx{ctx};
-    kernel_ctx.SetState(states[i].get());
-
-    const auto aggr_in_types = ExtendWithGroupIdType(types[i]);
     ARROW_ASSIGN_OR_RAISE(
-        auto type, kernels[i]->signature->out_type().Resolve(&kernel_ctx, aggr_in_types));
-    fields[i] = field(aggregates[i].function, type.GetSharedPtr());
+        fields[i], ResolveKernel(aggregates[i], kernels[i], states[i][0], ctx, types[i]));
+  }
+  return fields;
+}
+
+Result<FieldVector> ResolveHashAggregateKernels(
+    const std::vector<Aggregate>& aggregates, const std::vector<const Kernel*>& kernels,
+    const std::vector<std::vector<std::unique_ptr<KernelState>>>& states,
+    ExecContext* ctx, const std::vector<std::vector<TypeHolder>>& types) {
+  FieldVector fields(types.size());
+
+  for (size_t i = 0; i < kernels.size(); ++i) {
+    const auto aggr_in_types = ExtendWithGroupIdType(types[i]);
+    ARROW_ASSIGN_OR_RAISE(fields[i], ResolveKernel(aggregates[i], kernels[i],
+                                                   states[i][0], ctx, aggr_in_types));
   }
   return fields;
 }
@@ -294,89 +368,21 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     const auto& input_schema = *inputs[0]->output_schema();
     auto exec_ctx = plan->query_context()->exec_context();
 
-    std::vector<int> segment_field_ids(segment_keys.size());
-    std::vector<TypeHolder> segment_key_types(segment_keys.size());
-    for (size_t i = 0; i < segment_keys.size(); i++) {
-      ARROW_ASSIGN_OR_RAISE(FieldPath match, segment_keys[i].FindOne(input_schema));
-      if (match.indices().size() > 1) {
-        // ARROW-18369: Support nested references as segment ids
-        return Status::Invalid("Nested references cannot be used as segment ids");
-      }
-      segment_field_ids[i] = match[0];
-      segment_key_types[i] = input_schema.field(match[0])->type().get();
+    ARROW_ASSIGN_OR_RAISE(auto args,
+                          aggregate::MakeAggregateNodeArgs(
+                              input_schema, keys, segment_keys, aggregates,
+                              plan->query_context()->max_concurrency(), exec_ctx));
+
+    std::vector<const ScalarAggregateKernel*> kernels;
+    kernels.reserve(args.kernels.size());
+    for (auto kernel : args.kernels) {
+      kernels.push_back(static_cast<const ScalarAggregateKernel*>(kernel));
     }
-
-    ARROW_ASSIGN_OR_RAISE(auto segmenter,
-                          RowSegmenter::Make(std::move(segment_key_types),
-                                             /*nullable_keys=*/false, exec_ctx));
-
-    std::vector<std::vector<TypeHolder>> kernel_intypes(aggregates.size());
-    std::vector<const ScalarAggregateKernel*> kernels(aggregates.size());
-    std::vector<std::vector<std::unique_ptr<KernelState>>> states(kernels.size());
-    FieldVector fields(kernels.size() + segment_keys.size());
-    std::vector<std::vector<int>> target_fieldsets(kernels.size());
-
-    for (size_t i = 0; i < kernels.size(); ++i) {
-      const auto& target_fieldset = aggregate_options.aggregates[i].target;
-      for (const auto& target : target_fieldset) {
-        ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(target).FindOne(input_schema));
-        target_fieldsets[i].push_back(match[0]);
-      }
-
-      ARROW_ASSIGN_OR_RAISE(
-          auto function, exec_ctx->func_registry()->GetFunction(aggregates[i].function));
-
-      if (function->kind() != Function::SCALAR_AGGREGATE) {
-        if (function->kind() == Function::HASH_AGGREGATE) {
-          return Status::Invalid("The provided function (", aggregates[i].function,
-                                 ") is a hash aggregate function.  Since there are no "
-                                 "keys to group by, a scalar aggregate function was "
-                                 "expected (normally these do not start with hash_)");
-        }
-        return Status::Invalid("The provided function(", aggregates[i].function,
-                               ") is not an aggregate function");
-      }
-
-      std::vector<TypeHolder> in_types;
-      for (const auto& target : target_fieldsets[i]) {
-        in_types.emplace_back(input_schema.field(target)->type().get());
-      }
-      kernel_intypes[i] = in_types;
-      ARROW_ASSIGN_OR_RAISE(const Kernel* kernel,
-                            function->DispatchExact(kernel_intypes[i]));
-      kernels[i] = static_cast<const ScalarAggregateKernel*>(kernel);
-
-      if (aggregates[i].options == nullptr) {
-        DCHECK(!function->doc().options_required);
-        const auto* default_options = function->default_options();
-        if (default_options) {
-          aggregates[i].options = default_options->Copy();
-        }
-      }
-
-      KernelContext kernel_ctx{exec_ctx};
-      states[i].resize(plan->query_context()->max_concurrency());
-      RETURN_NOT_OK(Kernel::InitAll(
-          &kernel_ctx,
-          KernelInitArgs{kernels[i], kernel_intypes[i], aggregates[i].options.get()},
-          &states[i]));
-
-      // pick one to resolve the kernel signature
-      kernel_ctx.SetState(states[i][0].get());
-      ARROW_ASSIGN_OR_RAISE(auto out_type, kernels[i]->signature->out_type().Resolve(
-                                               &kernel_ctx, kernel_intypes[i]));
-
-      fields[i] = field(aggregate_options.aggregates[i].name, out_type.GetSharedPtr());
-    }
-    for (size_t i = 0; i < segment_keys.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(fields[kernels.size() + i],
-                            segment_keys[i].GetOne(*inputs[0]->output_schema()));
-    }
-
     return plan->EmplaceNode<ScalarAggregateNode>(
-        plan, std::move(inputs), schema(std::move(fields)), std::move(segmenter),
-        std::move(segment_field_ids), std::move(target_fieldsets), std::move(aggregates),
-        std::move(kernels), std::move(kernel_intypes), std::move(states));
+        plan, std::move(inputs), std::move(args.output_schema), std::move(args.segmenter),
+        std::move(args.segment_key_field_ids), std::move(args.target_fieldsets),
+        std::move(args.aggregates), std::move(kernels), std::move(args.kernel_intypes),
+        std::move(args.states));
   }
 
   const char* kind_name() const override { return "ScalarAggregateNode"; }
@@ -560,114 +566,40 @@ class GroupByNode : public ExecNode, public TracedNode {
                                 const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "GroupByNode"));
 
-    auto input = inputs[0];
     const auto& aggregate_options = checked_cast<const AggregateNodeOptions&>(options);
+    auto aggregates = aggregate_options.aggregates;
     const auto& keys = aggregate_options.keys;
     const auto& segment_keys = aggregate_options.segment_keys;
-    // Copy (need to modify options pointer below)
-    auto aggs = aggregate_options.aggregates;
 
     if (plan->query_context()->exec_context()->executor()->GetCapacity() > 1 &&
         segment_keys.size() > 0) {
       return Status::NotImplemented("Segmented aggregation in a multi-threaded plan");
     }
 
-    // Get input schema
-    auto input_schema = input->output_schema();
+    const auto& input_schema = *inputs[0]->output_schema();
+    auto exec_ctx = plan->query_context()->exec_context();
 
-    // Find input field indices for key fields
-    std::vector<int> key_field_ids(keys.size());
-    for (size_t i = 0; i < keys.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(auto match, keys[i].FindOne(*input_schema));
-      key_field_ids[i] = match[0];
+    ARROW_ASSIGN_OR_RAISE(auto args,
+                          aggregate::MakeAggregateNodeArgs(
+                              input_schema, keys, segment_keys, aggregates,
+                              plan->query_context()->max_concurrency(), exec_ctx));
+
+    std::vector<const HashAggregateKernel*> kernels;
+    kernels.reserve(args.kernels.size());
+    for (auto kernel : args.kernels) {
+      kernels.push_back(static_cast<const HashAggregateKernel*>(kernel));
     }
-
-    // Find input field indices for segment key fields
-    std::vector<int> segment_key_field_ids(segment_keys.size());
-    for (size_t i = 0; i < segment_keys.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(auto match, segment_keys[i].FindOne(*input_schema));
-      segment_key_field_ids[i] = match[0];
-    }
-
-    // Check key fields and segment key fields are disjoint
-    std::unordered_set<int> key_field_id_set(key_field_ids.begin(), key_field_ids.end());
-    for (const auto& segment_key_field_id : segment_key_field_ids) {
-      if (key_field_id_set.find(segment_key_field_id) != key_field_id_set.end()) {
-        return Status::Invalid("Group-by aggregation with field '",
-                               input_schema->field(segment_key_field_id)->name(),
-                               "' as both key and segment key");
-      }
-    }
-
-    // Find input field indices for aggregates
-    std::vector<std::vector<int>> agg_src_fieldsets(aggs.size());
-    for (size_t i = 0; i < aggs.size(); ++i) {
-      const auto& target_fieldset = aggs[i].target;
-      for (const auto& target : target_fieldset) {
-        ARROW_ASSIGN_OR_RAISE(auto match, target.FindOne(*input_schema));
-        agg_src_fieldsets[i].push_back(match[0]);
-      }
-    }
-
-    // Build vector of aggregate source field data types
-    std::vector<std::vector<TypeHolder>> agg_src_types(aggs.size());
-    for (size_t i = 0; i < aggs.size(); ++i) {
-      for (const auto& agg_src_field_id : agg_src_fieldsets[i]) {
-        agg_src_types[i].push_back(input_schema->field(agg_src_field_id)->type().get());
-      }
-    }
-
-    // Build vector of segment key field data types
-    std::vector<TypeHolder> segment_key_types(segment_keys.size());
-    for (size_t i = 0; i < segment_keys.size(); ++i) {
-      auto segment_key_field_id = segment_key_field_ids[i];
-      segment_key_types[i] = input_schema->field(segment_key_field_id)->type().get();
-    }
-
-    auto ctx = plan->query_context()->exec_context();
-
-    ARROW_ASSIGN_OR_RAISE(auto segmenter,
-                          RowSegmenter::Make(std::move(segment_key_types),
-                                             /*nullable_keys=*/false, ctx));
-
-    // Construct aggregates
-    ARROW_ASSIGN_OR_RAISE(auto agg_kernels, GetKernels(ctx, aggs, agg_src_types));
-
-    ARROW_ASSIGN_OR_RAISE(auto agg_states,
-                          InitKernels(agg_kernels, ctx, aggs, agg_src_types));
-
-    ARROW_ASSIGN_OR_RAISE(
-        FieldVector agg_result_fields,
-        ResolveKernels(aggs, agg_kernels, agg_states, ctx, agg_src_types));
-
-    // Build field vector for output schema
-    FieldVector output_fields{keys.size() + segment_keys.size() + aggs.size()};
-
-    // Aggregate fields come before key fields to match the behavior of GroupBy function
-    for (size_t i = 0; i < aggs.size(); ++i) {
-      output_fields[i] =
-          agg_result_fields[i]->WithName(aggregate_options.aggregates[i].name);
-    }
-    size_t base = aggs.size();
-    for (size_t i = 0; i < keys.size(); ++i) {
-      int key_field_id = key_field_ids[i];
-      output_fields[base + i] = input_schema->field(key_field_id);
-    }
-    base += keys.size();
-    for (size_t i = 0; i < segment_keys.size(); ++i) {
-      int segment_key_field_id = segment_key_field_ids[i];
-      output_fields[base + i] = input_schema->field(segment_key_field_id);
-    }
-
-    return input->plan()->EmplaceNode<GroupByNode>(
-        input, schema(std::move(output_fields)), std::move(key_field_ids),
-        std::move(segment_key_field_ids), std::move(segmenter), std::move(agg_src_types),
-        std::move(agg_src_fieldsets), std::move(aggs), std::move(agg_kernels));
+    return inputs[0]->plan()->EmplaceNode<GroupByNode>(
+        inputs[0], std::move(args.output_schema), std::move(args.grouping_key_field_ids),
+        std::move(args.segment_key_field_ids), std::move(args.segmenter),
+        std::move(args.kernel_intypes), std::move(args.target_fieldsets),
+        std::move(args.aggregates), std::move(kernels));
   }
 
   Status ResetKernelStates() {
     auto ctx = plan()->query_context()->exec_context();
-    ARROW_RETURN_NOT_OK(InitKernels(agg_kernels_, ctx, aggs_, agg_src_types_));
+    ARROW_RETURN_NOT_OK(InitKernels(InitHashAggregateKernel, agg_kernels_, ctx,
+                                    /*num_states_per_kernel=*/1, aggs_, agg_src_types_));
     return Status::OK();
   }
 
@@ -703,7 +635,7 @@ class GroupByNode : public ExecNode, public TracedNode {
                           {"function.kind", std::string(kind_name()) + "::Consume"}});
       auto ctx = plan_->query_context()->exec_context();
       KernelContext kernel_ctx{ctx};
-      kernel_ctx.SetState(state->agg_states[i].get());
+      kernel_ctx.SetState(state->agg_states[i][0].get());
 
       std::vector<ExecValue> column_values;
       for (const int field : agg_src_fieldsets_[i]) {
@@ -745,13 +677,13 @@ class GroupByNode : public ExecNode, public TracedNode {
 
         auto ctx = plan_->query_context()->exec_context();
         KernelContext batch_ctx{ctx};
-        DCHECK(state0->agg_states[i]);
-        batch_ctx.SetState(state0->agg_states[i].get());
+        DCHECK(state0->agg_states[i][0]);
+        batch_ctx.SetState(state0->agg_states[i][0].get());
 
         RETURN_NOT_OK(agg_kernels_[i]->resize(&batch_ctx, state0->grouper->num_groups()));
-        RETURN_NOT_OK(agg_kernels_[i]->merge(&batch_ctx, std::move(*state->agg_states[i]),
-                                             *transposition.array()));
-        state->agg_states[i].reset();
+        RETURN_NOT_OK(agg_kernels_[i]->merge(
+            &batch_ctx, std::move(*state->agg_states[i][0]), *transposition.array()));
+        state->agg_states[i][0].reset();
       }
     }
     return Status::OK();
@@ -779,9 +711,9 @@ class GroupByNode : public ExecNode, public TracedNode {
                            aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
                           {"function.kind", std::string(kind_name()) + "::Finalize"}});
       KernelContext batch_ctx{plan_->query_context()->exec_context()};
-      batch_ctx.SetState(state->agg_states[i].get());
+      batch_ctx.SetState(state->agg_states[i][0].get());
       RETURN_NOT_OK(agg_kernels_[i]->finalize(&batch_ctx, &out_data.values[i]));
-      state->agg_states[i].reset();
+      state->agg_states[i][0].reset();
     }
 
     ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, state->grouper->GetUniques());
@@ -893,7 +825,7 @@ class GroupByNode : public ExecNode, public TracedNode {
  private:
   struct ThreadLocalState {
     std::unique_ptr<Grouper> grouper;
-    std::vector<std::unique_ptr<KernelState>> agg_states;
+    std::vector<std::vector<std::unique_ptr<KernelState>>> agg_states;
   };
 
   ThreadLocalState* GetLocalState() {
@@ -926,10 +858,10 @@ class GroupByNode : public ExecNode, public TracedNode {
       }
     }
 
-    ARROW_ASSIGN_OR_RAISE(
-        state->agg_states,
-        InitKernels(agg_kernels_, plan_->query_context()->exec_context(), aggs_,
-                    agg_src_types));
+    ARROW_ASSIGN_OR_RAISE(state->agg_states,
+                          InitKernels(InitHashAggregateKernel, agg_kernels_,
+                                      plan_->query_context()->exec_context(),
+                                      /*num_states_per_kernel=*/1, aggs_, agg_src_types));
 
     return Status::OK();
   }
@@ -967,6 +899,109 @@ class GroupByNode : public ExecNode, public TracedNode {
 };
 
 }  // namespace
+
+namespace aggregate {
+
+Result<AggregateNodeArgs> MakeAggregateNodeArgs(const Schema& input_schema,
+                                                const std::vector<FieldRef>& keys,
+                                                const std::vector<FieldRef>& segment_keys,
+                                                const std::vector<Aggregate>& aggs,
+                                                size_t num_states_per_kernel,
+                                                ExecContext* exec_ctx) {
+  std::vector<Aggregate> aggregates(aggs);
+  GetKernel get_kernel = keys.empty() ? GetScalarAggregateKernel : GetHashAggregateKernel;
+  InitKernel init_kernel =
+      keys.empty() ? InitScalarAggregateKernel : InitHashAggregateKernel;
+  ResolveKernels resolve_kernels =
+      keys.empty() ? ResolveScalarAggregateKernels : ResolveHashAggregateKernels;
+
+  // Find input field indices for key fields
+  std::vector<int> key_field_ids(keys.size());
+  for (size_t i = 0; i < keys.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(auto match, keys[i].FindOne(input_schema));
+    if (match.indices().size() > 1) {
+      // ARROW-18369: Support nested references as segment ids
+      return Status::Invalid("Nested references cannot be used as segment ids");
+    }
+    key_field_ids[i] = match[0];
+  }
+
+  std::vector<int> segment_field_ids(segment_keys.size());
+  std::vector<TypeHolder> segment_key_types(segment_keys.size());
+  for (size_t i = 0; i < segment_keys.size(); i++) {
+    ARROW_ASSIGN_OR_RAISE(FieldPath match, segment_keys[i].FindOne(input_schema));
+    if (match.indices().size() > 1) {
+      // ARROW-18369: Support nested references as segment ids
+      return Status::Invalid("Nested references cannot be used as segment ids");
+    }
+    segment_field_ids[i] = match[0];
+    segment_key_types[i] = input_schema.field(match[0])->type().get();
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto segmenter,
+                        RowSegmenter::Make(std::move(segment_key_types),
+                                           /*nullable_keys=*/false, exec_ctx));
+
+  std::vector<std::vector<TypeHolder>> kernel_intypes(aggregates.size());
+  FieldVector fields(aggregates.size() + keys.size() + segment_keys.size());
+  std::vector<std::vector<int>> target_fieldsets(aggregates.size());
+
+  for (size_t i = 0; i < aggregates.size(); ++i) {
+    const auto& target_fieldset = aggregates[i].target;
+    for (const auto& target : target_fieldset) {
+      ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(target).FindOne(input_schema));
+      target_fieldsets[i].push_back(match[0]);
+    }
+
+    std::vector<TypeHolder> in_types;
+    for (const auto& target : target_fieldsets[i]) {
+      in_types.emplace_back(input_schema.field(target)->type().get());
+    }
+    kernel_intypes[i] = in_types;
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto kernels,
+                        GetKernels(get_kernel, exec_ctx, &aggregates, kernel_intypes));
+
+  ARROW_ASSIGN_OR_RAISE(auto states,
+                        InitKernels(init_kernel, kernels, exec_ctx, num_states_per_kernel,
+                                    aggregates, kernel_intypes));
+  ARROW_ASSIGN_OR_RAISE(auto resolved_fields, resolve_kernels(aggregates, kernels, states,
+                                                              exec_ctx, kernel_intypes));
+
+  for (size_t i = 0; i < aggregates.size(); ++i) {
+    fields[i] = resolved_fields[i]->WithName(aggregates[i].name);
+  }
+  for (size_t i = 0; i < keys.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(fields[kernels.size() + i], keys[i].GetOne(input_schema));
+  }
+  for (size_t i = 0; i < segment_keys.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(fields[kernels.size() + keys.size() + i],
+                          segment_keys[i].GetOne(input_schema));
+  }
+
+  return AggregateNodeArgs{schema(std::move(fields)),
+                           std::move(key_field_ids),
+                           std::move(segment_field_ids),
+                           std::move(segmenter),
+                           std::move(target_fieldsets),
+                           std::move(aggregates),
+                           std::move(kernels),
+                           std::move(kernel_intypes),
+                           std::move(states)};
+}
+
+Result<std::shared_ptr<Schema>> MakeOutputSchema(
+    const Schema& input_schema, const std::vector<FieldRef>& keys,
+    const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggregates,
+    ExecContext* exec_ctx) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto args, MakeAggregateNodeArgs(input_schema, keys, segment_keys, aggregates,
+                                       /*num_states_per_kernel=*/0, exec_ctx));
+  return std::move(args.output_schema);
+}
+
+}  // namespace aggregate
 
 namespace internal {
 
