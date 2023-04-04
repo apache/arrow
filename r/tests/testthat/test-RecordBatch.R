@@ -89,7 +89,7 @@ test_that("RecordBatch", {
     schema(dbl = float64(), lgl = boolean(), chr = utf8(), fct = dictionary(int8(), utf8()))
   )
   expect_equal(batch2$column(0), batch$column(1))
-  expect_data_frame(batch2, tbl[, -1])
+  expect_tibble(batch2, tbl[, -1])
 
   # input validation
   expect_error(batch$RemoveColumn(NA), "'i' cannot be NA")
@@ -109,10 +109,10 @@ test_that("RecordBatch S3 methods", {
 
 test_that("RecordBatch$Slice", {
   batch3 <- batch$Slice(5)
-  expect_data_frame(batch3, tbl[6:10, ])
+  expect_tibble(batch3, tbl[6:10, ])
 
   batch4 <- batch$Slice(5, 2)
-  expect_data_frame(batch4, tbl[6:7, ])
+  expect_tibble(batch4, tbl[6:7, ])
 
   # Input validation
   expect_error(batch$Slice("ten"))
@@ -131,20 +131,20 @@ test_that("RecordBatch$Slice", {
 })
 
 test_that("[ on RecordBatch", {
-  expect_data_frame(batch[6:7, ], tbl[6:7, ])
-  expect_data_frame(batch[c(6, 7), ], tbl[6:7, ])
-  expect_data_frame(batch[6:7, 2:4], tbl[6:7, 2:4])
-  expect_data_frame(batch[, c("dbl", "fct")], tbl[, c(2, 5)])
+  expect_tibble(batch[6:7, ], tbl[6:7, ])
+  expect_tibble(batch[c(6, 7), ], tbl[6:7, ])
+  expect_tibble(batch[6:7, 2:4], tbl[6:7, 2:4])
+  expect_tibble(batch[, c("dbl", "fct")], tbl[, c(2, 5)])
   expect_identical(as.vector(batch[, "chr", drop = TRUE]), tbl$chr)
-  expect_data_frame(batch[c(7, 3, 5), 2:4], tbl[c(7, 3, 5), 2:4])
-  expect_data_frame(
+  expect_tibble(batch[c(7, 3, 5), 2:4], tbl[c(7, 3, 5), 2:4])
+  expect_tibble(
     batch[rep(c(FALSE, TRUE), 5), ],
     tbl[c(2, 4, 6, 8, 10), ]
   )
   # bool Array
-  expect_data_frame(batch[batch$lgl, ], tbl[tbl$lgl, ])
+  expect_tibble(batch[batch$lgl, ], tbl[tbl$lgl, ])
   # int Array
-  expect_data_frame(batch[Array$create(5:6), 2:4], tbl[6:7, 2:4])
+  expect_tibble(batch[Array$create(5:6), 2:4], tbl[6:7, 2:4])
 
   # input validation
   expect_error(batch[, c("dbl", "NOTACOLUMN")], 'Column not found: "NOTACOLUMN"')
@@ -176,15 +176,15 @@ test_that("[[<- assignment", {
 
   # can remove a column
   batch[["chr"]] <- NULL
-  expect_data_frame(batch, tbl[-4])
+  expect_tibble(batch, tbl[-4])
 
   # can remove a column by index
   batch[[4]] <- NULL
-  expect_data_frame(batch, tbl[1:3])
+  expect_tibble(batch, tbl[1:3])
 
   # can add a named column
   batch[["new"]] <- letters[10:1]
-  expect_data_frame(batch, dplyr::bind_cols(tbl[1:3], new = letters[10:1]))
+  expect_tibble(batch, dplyr::bind_cols(tbl[1:3], new = letters[10:1]))
 
   # can replace a column by index
   batch[[2]] <- as.numeric(10:1)
@@ -239,16 +239,16 @@ test_that("head and tail on RecordBatch", {
     fct = factor(letters[1:10])
   )
   batch <- RecordBatch$create(tbl)
-  expect_data_frame(head(batch), head(tbl))
-  expect_data_frame(head(batch, 4), head(tbl, 4))
-  expect_data_frame(head(batch, 40), head(tbl, 40))
-  expect_data_frame(head(batch, -4), head(tbl, -4))
-  expect_data_frame(head(batch, -40), head(tbl, -40))
-  expect_data_frame(tail(batch), tail(tbl))
-  expect_data_frame(tail(batch, 4), tail(tbl, 4))
-  expect_data_frame(tail(batch, 40), tail(tbl, 40))
-  expect_data_frame(tail(batch, -4), tail(tbl, -4))
-  expect_data_frame(tail(batch, -40), tail(tbl, -40))
+  expect_tibble(head(batch), head(tbl))
+  expect_tibble(head(batch, 4), head(tbl, 4))
+  expect_tibble(head(batch, 40), head(tbl, 40))
+  expect_tibble(head(batch, -4), head(tbl, -4))
+  expect_tibble(head(batch, -40), head(tbl, -40))
+  expect_tibble(tail(batch), tail(tbl))
+  expect_tibble(tail(batch, 4), tail(tbl, 4))
+  expect_tibble(tail(batch, 40), tail(tbl, 40))
+  expect_tibble(tail(batch, -4), tail(tbl, -4))
+  expect_tibble(tail(batch, -40), tail(tbl, -40))
 })
 
 test_that("RecordBatch print method", {
@@ -346,7 +346,7 @@ test_that("record_batch() handles data frame columns", {
       b = struct(x = int32(), y = int32())
     )
   )
-  out <- as.data.frame(batch)
+  out <- as_tibble(batch)
   expect_equal(out, tibble::tibble(a = 1:10, b = tib))
 
   # if not named, columns from tib are auto spliced
@@ -355,7 +355,7 @@ test_that("record_batch() handles data frame columns", {
     batch2$schema,
     schema(a = int32(), x = int32(), y = int32())
   )
-  out <- as.data.frame(batch2)
+  out <- as_tibble(batch2)
   expect_equal(out, tibble::tibble(a = 1:10, !!!tib))
 })
 
@@ -366,7 +366,7 @@ test_that("record_batch() handles data frame columns with schema spec", {
   schema <- schema(a = int32(), b = struct(x = int16(), y = float64()))
   batch <- record_batch(a = 1:10, b = tib, schema = schema)
   expect_equal(batch$schema, schema)
-  out <- as.data.frame(batch)
+  out <- as_tibble(batch)
   expect_equal(out, tibble::tibble(a = 1:10, b = tib_float))
 
   schema <- schema(a = int32(), b = struct(x = int16(), y = utf8()))
@@ -379,14 +379,14 @@ test_that("record_batch() auto splices (ARROW-5718)", {
   batch2 <- record_batch(!!!df)
   expect_equal(batch1, batch2)
   expect_equal(batch1$schema, schema(x = int32(), y = utf8()))
-  expect_data_frame(batch1, df)
+  expect_tibble(batch1, df)
 
   batch3 <- record_batch(df, z = 1:10)
   batch4 <- record_batch(!!!df, z = 1:10)
   expect_equal(batch3, batch4)
   expect_equal(batch3$schema, schema(x = int32(), y = utf8(), z = int32()))
   expect_equal(
-    as.data.frame(batch3),
+    as_tibble(batch3),
     tibble::as_tibble(cbind(df, data.frame(z = 1:10)))
   )
 
@@ -395,7 +395,7 @@ test_that("record_batch() auto splices (ARROW-5718)", {
   batch6 <- record_batch(!!!df, schema = s)
   expect_equal(batch5, batch6)
   expect_equal(batch5$schema, s)
-  expect_equal(as.data.frame(batch5), df)
+  expect_equal(as_tibble(batch5), df)
 
   s2 <- schema(x = float64(), y = utf8(), z = int16())
   batch7 <- record_batch(df, z = 1:10, schema = s2)
@@ -403,7 +403,7 @@ test_that("record_batch() auto splices (ARROW-5718)", {
   expect_equal(batch7, batch8)
   expect_equal(batch7$schema, s2)
   expect_equal(
-    as.data.frame(batch7),
+    as_tibble(batch7),
     tibble::as_tibble(cbind(df, data.frame(z = 1:10)))
   )
 })
@@ -425,24 +425,24 @@ test_that("record_batch() handles null type (ARROW-7064)", {
 })
 
 test_that("record_batch() scalar recycling with vectors", {
-  expect_data_frame(
+  expect_tibble(
     record_batch(a = 1:10, b = 5),
     tibble::tibble(a = 1:10, b = 5)
   )
 })
 
 test_that("record_batch() scalar recycling with Scalars, Arrays, and ChunkedArrays", {
-  expect_data_frame(
+  expect_tibble(
     record_batch(a = Array$create(1:10), b = Scalar$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
 
-  expect_data_frame(
+  expect_tibble(
     record_batch(a = Array$create(1:10), b = Array$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
 
-  expect_data_frame(
+  expect_tibble(
     record_batch(a = Array$create(1:10), b = ChunkedArray$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
@@ -627,7 +627,7 @@ test_that("Handling string data with embedded nuls", {
   # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
   # on `as.vector()` where as with it, the error only happens on materialization)
   skip_on_r_older_than("3.6")
-  df <- as.data.frame(batch_with_nul)
+  df <- as_tibble(batch_with_nul)
 
   expect_error(
     df$b[],
@@ -648,7 +648,7 @@ test_that("Handling string data with embedded nuls", {
     suppressWarnings(
       expect_warning(
         expect_equal(
-          as.data.frame(batch_with_nul)$b,
+          as_tibble(batch_with_nul)$b,
           c("person", "woman", "man", "camera", "tv"),
           ignore_attr = TRUE
         ),
