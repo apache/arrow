@@ -117,14 +117,14 @@ test_that("collect(as_data_frame=FALSE)", {
   # collect(as_data_frame = FALSE) always returns Table now
   expect_r6_class(b2, "Table")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
-  expect_equal(as.data.frame(b2), expected)
+  expect_equal(as_tibble(b2), expected)
 
   b3 <- batch %>%
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     collect(as_data_frame = FALSE)
   expect_r6_class(b3, "Table")
-  expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
+  expect_equal(as_tibble(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
     select(int, strng = chr) %>%
@@ -133,7 +133,7 @@ test_that("collect(as_data_frame=FALSE)", {
     collect(as_data_frame = FALSE)
   expect_r6_class(b4, "Table")
   expect_equal(
-    as.data.frame(b4),
+    as_tibble(b4),
     expected %>%
       rename(strng = chr) %>%
       group_by(int)
@@ -154,14 +154,14 @@ test_that("compute()", {
 
   expect_r6_class(b2, "Table")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
-  expect_equal(as.data.frame(b2), expected)
+  expect_equal(as_tibble(b2), expected)
 
   b3 <- batch %>%
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     compute()
   expect_r6_class(b3, "Table")
-  expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
+  expect_equal(as_tibble(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
     select(int, strng = chr) %>%
@@ -170,7 +170,7 @@ test_that("compute()", {
     compute()
   expect_r6_class(b4, "Table")
   expect_equal(
-    as.data.frame(b4),
+    as_tibble(b4),
     expected %>%
       rename(strng = chr) %>%
       group_by(int)
@@ -193,7 +193,7 @@ test_that("head", {
     filter(int > 5) %>%
     head(2)
   expect_s3_class(b3, "arrow_dplyr_query")
-  expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
+  expect_equal(as_tibble(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
     select(int, strng = chr) %>%
@@ -202,7 +202,7 @@ test_that("head", {
     head(2)
   expect_s3_class(b4, "arrow_dplyr_query")
   expect_equal(
-    as.data.frame(b4),
+    as_tibble(b4),
     expected %>%
       rename(strng = chr) %>%
       group_by(int)
@@ -268,7 +268,7 @@ test_that("tail", {
 
   expect_s3_class(b2, "arrow_dplyr_query")
   expected <- tail(tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")], 2)
-  expect_equal(as.data.frame(b2), expected)
+  expect_equal(as_tibble(b2), expected)
 
   b3 <- batch %>%
     select(int, strng = chr) %>%
@@ -276,7 +276,7 @@ test_that("tail", {
     arrange(int) %>%
     tail(2)
   expect_s3_class(b3, "arrow_dplyr_query")
-  expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
+  expect_equal(as_tibble(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
     select(int, strng = chr) %>%
@@ -286,7 +286,7 @@ test_that("tail", {
     tail(2)
   expect_s3_class(b4, "arrow_dplyr_query")
   expect_equal(
-    as.data.frame(b4),
+    as_tibble(b4),
     expected %>%
       rename(strng = chr) %>%
       group_by(int)
@@ -598,7 +598,7 @@ test_that("compute() on a grouped query returns a Table with groups in metadata"
     compute()
   expect_r6_class(tab1, "Table")
   expect_equal(
-    as.data.frame(tab1),
+    as_tibble(tab1),
     tbl %>%
       group_by(int)
   )

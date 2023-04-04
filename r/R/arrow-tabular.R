@@ -93,7 +93,7 @@ ArrowTabular <- R6Class("ArrowTabular",
 
 #' @export
 as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ...) {
-  as.data.frame(as_tibble(x))
+  as.data.frame(as_tibble(x), row.names = row.names, optional = optional, ...)
 }
 
 #' @export
