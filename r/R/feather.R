@@ -196,7 +196,7 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, mmap = T
   )
 
   if (isTRUE(as_data_frame)) {
-    out <- as.data.frame(out)
+    out <- as_tibble(out)
   }
   out
 }
