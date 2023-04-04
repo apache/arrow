@@ -35,8 +35,9 @@
 #include <arrow/csv/type_fwd.h>
 
 #if defined(ARROW_R_WITH_ACERO)
-#include <arrow/acero/type_fwd.h>
 #include <arrow/acero/options.h>
+#include <arrow/acero/type_fwd.h>
+namespace acero = ::arrow::acero;
 #endif
 
 #if defined(ARROW_R_WITH_DATASET)
@@ -65,7 +66,6 @@ namespace ds = ::arrow::dataset;
 #endif
 
 namespace compute = ::arrow::compute;
-namespace acero = ::arrow::acero;
 namespace fs = ::arrow::fs;
 
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP, SEXP);

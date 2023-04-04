@@ -428,6 +428,10 @@ ExecPlan_create <- function(use_threads) {
   .Call(`_arrow_ExecPlan_create`, use_threads)
 }
 
+MakeExecNodeOrStop <- function(factory_name, plan, inputs, options) {
+  .Call(`_arrow_MakeExecNodeOrStop`, factory_name, plan, inputs, options)
+}
+
 ExecPlanReader__batches <- function(reader) {
   .Call(`_arrow_ExecPlanReader__batches`, reader)
 }

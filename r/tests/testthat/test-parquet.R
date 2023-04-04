@@ -466,6 +466,8 @@ test_that("Can read parquet with nested lists and maps", {
   parquet_test_data <- file.path(base_path, "cpp", "submodules", "parquet-testing", "data")
   skip_if_not(dir.exists(parquet_test_data) | force_tests(), "Parquet test data missing")
 
+  skip_if_not_available("snappy")
+
   pq <- read_parquet(paste0(parquet_test_data, "/nested_lists.snappy.parquet"), as_data_frame = FALSE)
   expect_type_equal(pq$a, list_of(field("element", list_of(field("element", list_of(field("element", utf8())))))))
 

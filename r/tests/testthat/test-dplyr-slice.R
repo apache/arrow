@@ -17,6 +17,8 @@
 
 library(dplyr, warn.conflicts = FALSE)
 
+skip_if_not_available("acero")
+
 tbl <- example_data
 
 test_that("slice_head/tail, ungrouped", {

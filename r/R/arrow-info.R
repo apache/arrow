@@ -81,6 +81,14 @@ arrow_available <- function() {
 
 #' @rdname arrow_info
 #' @export
+arrow_with_acero <- function() {
+  tryCatch(.Call(`_acero_available`), error = function(e) {
+    return(FALSE)
+  })
+}
+
+#' @rdname arrow_info
+#' @export
 arrow_with_dataset <- function() {
   tryCatch(.Call(`_dataset_available`), error = function(e) {
     return(FALSE)

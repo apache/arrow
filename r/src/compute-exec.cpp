@@ -16,6 +16,9 @@
 // under the License.
 
 #include "./arrow_types.h"
+
+#if defined(ARROW_R_WITH_ACERO)
+
 #include "./safe-call-into-r.h"
 
 #include <arrow/acero/exec_plan.h>
@@ -38,7 +41,7 @@ std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_
 
 std::shared_ptr<arrow::KeyValueMetadata> strings_to_kvm(cpp11::strings metadata);
 
-// [[arrow::export]]
+// [[acero::export]]
 std::shared_ptr<acero::ExecPlan> ExecPlan_create(bool use_threads) {
   static compute::ExecContext threaded_context{gc_memory_pool(),
                                                arrow::internal::GetCpuThreadPool()};
@@ -51,6 +54,7 @@ std::shared_ptr<acero::ExecPlan> ExecPlan_create(bool use_threads) {
   return plan;
 }
 
+// [[acero::export]]
 std::shared_ptr<acero::ExecNode> MakeExecNodeOrStop(
     const std::string& factory_name, acero::ExecPlan* plan,
     std::vector<acero::ExecNode*> inputs, const acero::ExecNodeOptions& options) {
@@ -186,7 +190,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   }
 };
 
-// [[arrow::export]]
+// [[acero::export]]
 cpp11::list ExecPlanReader__batches(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   auto result = RunWithCapturedRIfPossible<arrow::RecordBatchVector>(
@@ -194,7 +198,7 @@ cpp11::list ExecPlanReader__batches(
   return arrow::r::to_r_list(ValueOrStop(result));
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::shared_ptr<arrow::Table> Table__from_ExecPlanReader(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
@@ -203,7 +207,7 @@ std::shared_ptr<arrow::Table> Table__from_ExecPlanReader(
   return ValueOrStop(result);
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::shared_ptr<acero::ExecPlan> ExecPlanReader__Plan(
     const std::shared_ptr<ExecPlanReader>& reader) {
   if (reader->PlanStatus() == "PLAN_FINISHED") {
@@ -213,12 +217,12 @@ std::shared_ptr<acero::ExecPlan> ExecPlanReader__Plan(
   return reader->Plan();
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::string ExecPlanReader__PlanStatus(const std::shared_ptr<ExecPlanReader>& reader) {
   return reader->PlanStatus();
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::shared_ptr<ExecPlanReader> ExecPlan_run(
     const std::shared_ptr<acero::ExecPlan>& plan,
     const std::shared_ptr<acero::ExecNode>& final_node, cpp11::list sort_options,
@@ -263,18 +267,18 @@ std::shared_ptr<ExecPlanReader> ExecPlan_run(
   return std::make_shared<ExecPlanReader>(plan, out_schema, sink_gen);
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::string ExecPlan_ToString(const std::shared_ptr<acero::ExecPlan>& plan) {
   return plan->ToString();
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 void ExecPlan_UnsafeDelete(const std::shared_ptr<acero::ExecPlan>& plan) {
   auto& plan_unsafe = const_cast<std::shared_ptr<acero::ExecPlan>&>(plan);
   plan_unsafe.reset();
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(
     const std::shared_ptr<acero::ExecNode>& node) {
   return node->output_schema();
@@ -363,7 +367,7 @@ void ExecPlan_Write(
 
 #endif
 
-// [[arrow::export]]
+// [[acero::export]]
 std::shared_ptr<acero::ExecNode> ExecNode_Filter(
     const std::shared_ptr<acero::ExecNode>& input,
     const std::shared_ptr<compute::Expression>& filter) {
@@ -371,7 +375,7 @@ std::shared_ptr<acero::ExecNode> ExecNode_Filter(
                             acero::FilterNodeOptions{*filter});
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::shared_ptr<acero::ExecNode> ExecNode_Project(
     const std::shared_ptr<acero::ExecNode>& input,
     const std::vector<std::shared_ptr<compute::Expression>>& exprs,
@@ -386,7 +390,7 @@ std::shared_ptr<acero::ExecNode> ExecNode_Project(
       acero::ProjectNodeOptions{std::move(expressions), std::move(names)});
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::shared_ptr<acero::ExecNode> ExecNode_Aggregate(
     const std::shared_ptr<acero::ExecNode>& input, cpp11::list options,
     std::vector<std::string> key_names) {
@@ -415,7 +419,7 @@ std::shared_ptr<acero::ExecNode> ExecNode_Aggregate(
       acero::AggregateNodeOptions{std::move(aggregates), std::move(keys)});
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::shared_ptr<acero::ExecNode> ExecNode_Join(
     const std::shared_ptr<acero::ExecNode>& input, acero::JoinType join_type,
     const std::shared_ptr<acero::ExecNode>& right_data,
@@ -450,14 +454,14 @@ std::shared_ptr<acero::ExecNode> ExecNode_Join(
           std::move(output_suffix_for_left), std::move(output_suffix_for_right)});
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::shared_ptr<acero::ExecNode> ExecNode_Union(
     const std::shared_ptr<acero::ExecNode>& input,
     const std::shared_ptr<acero::ExecNode>& right_data) {
   return MakeExecNodeOrStop("union", input->plan(), {input.get(), right_data.get()}, {});
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::shared_ptr<acero::ExecNode> ExecNode_SourceNode(
     const std::shared_ptr<acero::ExecPlan>& plan,
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
@@ -465,7 +469,7 @@ std::shared_ptr<acero::ExecNode> ExecNode_SourceNode(
   return MakeExecNodeOrStop("record_batch_reader_source", plan.get(), {}, options);
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::shared_ptr<acero::ExecNode> ExecNode_TableSourceNode(
     const std::shared_ptr<acero::ExecPlan>& plan,
     const std::shared_ptr<arrow::Table>& table) {
@@ -475,6 +479,8 @@ std::shared_ptr<acero::ExecNode> ExecNode_TableSourceNode(
 
   return MakeExecNodeOrStop("table_source", plan.get(), {}, options);
 }
+
+#endif
 
 #if defined(ARROW_R_WITH_SUBSTRAIT)
 
