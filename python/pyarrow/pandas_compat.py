@@ -1148,8 +1148,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         if pandas_dtype == "datetimetz":
             tz = pa.lib.string_to_tzinfo(
                 column_indexes[0]['metadata']['timezone'])
-            dt = level.astype(numpy_dtype)
-            level = dt.tz_localize('utc').tz_convert(tz)
+            level = pd.to_datetime(level, utc=True).tz_convert(tz)
         elif level.dtype != dtype:
             level = level.astype(dtype)
         # ARROW-9096: if original DataFrame was upcast we keep that
