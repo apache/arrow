@@ -3090,6 +3090,70 @@ cdef class ExtensionArray(Array):
         return self.storage.to_numpy(**kwargs)
 
 
+class FixedShapeTensorArray(ExtensionArray):
+    """
+    Concrete class for fixed shape tensor extension arrays.
+
+    Examples
+    --------
+    Define the extension type for tensor array
+
+    >>> import pyarrow as pa
+    >>> tensor_type = FixedShapeTensorType(pa.int32(), [2, 2])
+
+    Create an extension array
+
+    >>> arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
+    >>> storage = pa.array(arr, pa.list_(pa.int32(), 4))
+    >>> pa.ExtensionArray.from_storage(tensor_type, storage)
+    <pyarrow.lib.FixedShapeTensorArray object at ...>
+    [
+      [
+        1,
+        2,
+        3,
+        4
+      ],
+      [
+        10,
+        20,
+        30,
+        40
+      ],
+      [
+        100,
+        200,
+        300,
+        400
+      ]
+    ]
+    """
+    def to_numpy_ndarray(self):
+        """
+        Convert fixed shape tensor extension array to a numpy array (with dim+1).
+        """
+        np_flat = np.asarray(self.storage.values)
+        numpy_tensor = np_flat.reshape((len(self),) + tuple(self.type.shape),
+                                       order='C')
+
+        return numpy_tensor
+
+    def from_numpy_ndarray(obj):
+        """
+        Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
+        """
+        numpy_type = obj.flatten().dtype
+        arrow_type = from_numpy_dtype(numpy_type)
+        shape = obj.shape[1:]
+        size = obj.size / obj.shape[0]
+
+        return ExtensionArray.from_storage(
+            FixedShapeTensorType(arrow_type, shape),
+            array([t.flatten() for t in obj],
+                  list_(arrow_type, size))
+        )
+
+
 cdef dict _array_classes = {
     _Type_NA: NullArray,
     _Type_BOOL: BooleanArray,

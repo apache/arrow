@@ -1494,6 +1494,135 @@ cdef class ExtensionType(BaseExtensionType):
         """
         return ExtensionScalar
 
+
+cdef class FixedShapeTensorType(BaseExtensionType):
+    """
+    Concrete class for fixed shape tensor extension type.
+
+    Parameters
+    ----------
+    value_type : DataType
+        Data type of individual tensor elements.
+    shape : tuple
+        The physical shape of the contained tensors.
+    dim_names : tuple
+        Explicit names to tensor dimensions.
+    permutation : tuple
+        Indices of the desired ordering of the original dimensions.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+
+    Create fixed shape tensor extension type:
+
+    >>> tensor_type = pa.FixedShapeTensorType(pa.int32(), [2, 2])
+    >>> tensor_type
+    FixedShapeTensorType(extension<arrow.fixed_shape_tensor>)
+
+    Inspect the data type:
+
+    >>> tensor_type.value_type
+    DataType(int32)
+    >>> tensor_type.shape
+    [2, 2]
+
+    Create a fixed shape tensor extension type with names of tensor dimensions:
+
+    >>> tensor_type = pa.FixedShapeTensorType(pa.int8(), (2, 2, 3), dim_names=['C', 'H', 'W'])
+    >>> tensor_type.dim_names
+    [b'C', b'H', b'W']
+
+    Create a fixed shape tensor extension type with permutation:
+    >>> tensor_type = pa.FixedShapeTensorType(pa.int8(), (2, 2, 3), permutation=[0, 2, 1])
+    >>> tensor_type.permutation
+    [0, 2, 1]
+    """
+
+    def __init__(self, DataType value_type, shape, dim_names=None, permutation=None):
+        """
+        Initialize an fixed shape tensor extension type instance.
+
+        This should be called at the end of the subclass'
+        ``__init__`` method.
+        """
+        cdef:
+            vector[int64_t] c_shape
+            vector[int64_t] c_permutation
+            vector[c_string] c_dim_names
+            shared_ptr[CDataType] tensor_ext_type
+
+        assert value_type is not None
+        assert shape is not None
+
+        for i in shape:
+            c_shape.push_back(i)
+
+        if permutation is not None:
+            for i in permutation:
+                c_permutation.push_back(i)
+
+        if dim_names is not None:
+            for x in dim_names:
+                c_dim_names.push_back(tobytes(x))
+
+        tensor_ext_type = GetResultValue(CFixedShapeTensorType.Make(
+            value_type.sp_type, c_shape, c_permutation, c_dim_names))
+
+        self.init(tensor_ext_type)
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        BaseExtensionType.init(self, type)
+        self.tensor_ext_type = <const CFixedShapeTensorType*> type.get()
+
+    @property
+    def value_type(self):
+        """
+        Data type of an individual tensor.
+        """
+        return pyarrow_wrap_data_type(self.tensor_ext_type.value_type())
+
+    @property
+    def shape(self):
+        """
+        Shape of the tensors.
+        """
+        return self.tensor_ext_type.shape()
+
+    @property
+    def dim_names(self):
+        """
+        Explicit names of the dimensions.
+        """
+        return self.tensor_ext_type.dim_names()
+
+    @property
+    def permutation(self):
+        """
+        Indices of the dimensions ordering.
+        """
+        return self.tensor_ext_type.permutation()
+
+    def __arrow_ext_serialize__(self):
+        """
+        Serialized representation of metadata to reconstruct the type object.
+        """
+        metadata = self.tensor_ext_type.Serialize()
+        return metadata
+
+    @classmethod
+    def __arrow_ext_deserialize__(self, storage_type, serialized):
+        """
+        Return an FixedShapeTensor type instance from the storage type and serialized
+        metadata.
+        """
+        tensor_ext_type = self.tensor_ext_type.Deserialize(storage_type, serialized)
+        return tensor_ext_type
+
+    def __arrow_ext_class__(self):
+        return FixedShapeTensorArray
+
+
 cdef class PyExtensionType(ExtensionType):
     """
     Concrete base class for Python-defined extension types based on pickle

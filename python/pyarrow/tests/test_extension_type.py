@@ -1127,3 +1127,86 @@ def test_cpp_extension_in_python(tmpdir):
     reconstructed_array = batch.column(0)
     assert reconstructed_array.type == uuid_type
     assert reconstructed_array == array
+
+
+def test_tensor_type():
+    tensor_type = pa.FixedShapeTensorType(pa.int8(), (2, 3))
+    assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
+    assert tensor_type.storage_type == pa.list_(pa.int8(), 6)
+
+
+def test_tensor_class_methods():
+    tensor_type = pa.FixedShapeTensorType(pa.float32(), (2, 3))
+    storage = pa.array([[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]],
+                       pa.list_(pa.float32(), 6))
+    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
+    expected = np.array(
+        [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]], dtype=np.float32)
+
+    result = arr.to_numpy_ndarray()
+    np.testing.assert_array_equal(result, expected)
+
+    tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(expected)
+    assert isinstance(tensor_array_from_numpy.type, pa.FixedShapeTensorType)
+    assert tensor_array_from_numpy.type.value_type == pa.float32()
+    assert tensor_array_from_numpy.type.shape == [2, 3]
+
+
+@pytest.mark.parametrize("tensor_type", (
+    pa.FixedShapeTensorType(pa.int8(), (2, 2, 3)),
+    pa.FixedShapeTensorType(pa.int8(), (2, 2, 3), permutation=[0, 2, 1]),
+    pa.FixedShapeTensorType(pa.int8(), (2, 2, 3), dim_names=['C', 'H', 'W'])
+))
+def test_tensor_type_ipc(tensor_type):
+    storage = pa.array([[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]], pa.list_(pa.int8(), 12))
+    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
+    batch = pa.RecordBatch.from_arrays([arr], ["ext"])
+
+    # check the built array has exactly the expected clss
+    tensor_class = tensor_type.__arrow_ext_class__()
+    assert type(arr) == tensor_class
+
+    buf = ipc_write_batch(batch)
+    del batch
+    batch = ipc_read_batch(buf)
+
+    result = batch.column(0)
+    # check the deserialized array class is the expected one
+    assert type(result) == tensor_class
+    assert result.type.extension_name == "arrow.fixed_shape_tensor"
+    assert arr.storage.to_pylist() == [[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]]
+
+    # we get back an actual TensorType
+    assert isinstance(result.type, pa.FixedShapeTensorType)
+    assert result.type.value_type == pa.int8()
+    assert result.type.shape == [2, 2, 3]
+
+    # using different parametrization as how it was registered
+    tensor_type_uint = tensor_type.__class__(pa.uint8(), (2, 3))
+    assert tensor_type_uint.extension_name == "arrow.fixed_shape_tensor"
+    assert tensor_type_uint.value_type == pa.uint8()
+    assert tensor_type_uint.shape == [2, 3]
+
+    storage = pa.array([[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]],
+                       pa.list_(pa.uint8(), 6))
+    arr = pa.ExtensionArray.from_storage(tensor_type_uint, storage)
+    batch = pa.RecordBatch.from_arrays([arr], ["ext"])
+
+    buf = ipc_write_batch(batch)
+    del batch
+    batch = ipc_read_batch(buf)
+    result = batch.column(0)
+    assert isinstance(result.type, pa.FixedShapeTensorType)
+    assert result.type.value_type == pa.uint8()
+    assert result.type.shape == [2, 3]
+    assert type(result) == tensor_class
+
+
+def test_tensor_type_equality():
+    tensor_type = pa.FixedShapeTensorType(pa.int8(), (2, 2, 3))
+    assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
+
+    tensor_type2 = pa.FixedShapeTensorType(pa.int8(), (2, 2, 3))
+    tensor_type3 = pa.FixedShapeTensorType(pa.uint8(), (2, 2, 3))
+    assert tensor_type == tensor_type2
+    assert not tensor_type == tensor_type3
