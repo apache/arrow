@@ -223,8 +223,6 @@ services:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
-      GTest_SOURCE: "BUNDLED"  # Alpine's GTest is not built against
-                               # C++17 so we build from source
     volumes: &alpine-linux-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}alpine-linux-ccache:/ccache:delegated

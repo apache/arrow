@@ -95,6 +95,7 @@ ENV ARROW_ACERO=ON \
     ARROW_WITH_ZSTD=ON \
     AWSSDK_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
+    GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
     xsimd_SOURCE=BUNDLED
