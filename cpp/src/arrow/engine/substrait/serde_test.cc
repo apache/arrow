@@ -5701,7 +5701,7 @@ TEST(Substrait, PlanWithSegmentedAggregateExtension) {
             }
           }
         },
-        "names": ["v", "k", "t"]
+        "names": ["k", "t", "v"]
       }
     }],
     "expectedTypeUrls": []
@@ -5724,9 +5724,9 @@ TEST(Substrait, PlanWithSegmentedAggregateExtension) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
   std::shared_ptr<Schema> output_schema =
-      schema({field("v", float64()), field("k", int32()), field("t", int32())});
+      schema({field("k", int32()), field("t", int32()), field("v", float64())});
   auto expected_table =
-      TableFromJSON(output_schema, {"[[4, 1, 1], [2, 2, 1], [10, 2, 2], [5, 1, 2]]"});
+      TableFromJSON(output_schema, {"[[1, 1, 4], [2, 1, 2], [2, 2, 10], [1, 2, 5]]"});
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
