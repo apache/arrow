@@ -3100,9 +3100,14 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
           previous_len = src.len;
           prefix_length_encoder_.Put({static_cast<int32_t>(j)}, 1);
 
-          const uint8_t* suffix_ptr = src.ptr + j;
-          const auto suffix_length = static_cast<uint32_t>(src.len - j);
           last_value_view = view;
+          const auto suffix_length = static_cast<uint32_t>(src.len - j);
+          const uint8_t* suffix_ptr;
+          if (suffix_length == 0) {
+            suffix_ptr = reinterpret_cast<const uint8_t*>("");
+          } else {
+            suffix_ptr = src.ptr + j;
+          }
           // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
           const ByteArray suffix(suffix_length, suffix_ptr);
           suffix_encoder_.Put(&suffix, 1);
@@ -3147,6 +3152,7 @@ void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
       j++;
     }
 
+    last_value_view = view;
     prefix_lengths[i] = j;
     const auto suffix_length = static_cast<uint32_t>(value->len - j);
     const uint8_t* suffix_ptr;
@@ -3155,7 +3161,6 @@ void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
     } else {
       suffix_ptr = value->ptr + j;
     }
-    last_value_view = view;
     // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
     const ByteArray suffix(suffix_length, suffix_ptr);
     suffix_encoder_.Put(&suffix, 1);
@@ -3194,11 +3199,15 @@ void DeltaByteArrayEncoder<FLBAType>::Put(const FLBA* src, int num_values) {
       j++;
     }
 
+    last_value_view = view;
     prefix_lengths[i] = j;
     const auto suffix_length = static_cast<uint32_t>(len - j);
     const uint8_t* suffix_ptr;
-    suffix_ptr = value->ptr + j;
-    last_value_view = view;
+    if (suffix_length == 0) {
+      suffix_ptr = reinterpret_cast<const uint8_t*>("");
+    } else {
+      suffix_ptr = value->ptr + j;
+    }
     // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
     const ByteArray suffix(suffix_length, suffix_ptr);
     suffix_encoder_.Put(&suffix, 1);

@@ -2197,7 +2197,7 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     ::arrow::AssertArraysEqual(*values, *upcast_result);
   };
 
-  auto checkEncodeDecode = [&](std::string_view values,
+  auto CheckEncodeDecode = [&](std::string_view values,
                                std::shared_ptr<::arrow::Array> prefix_lengths,
                                std::shared_ptr<::arrow::Array> suffix_lengths,
                                std::string_view suffix_data) {
@@ -2227,7 +2227,7 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     auto suffix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([4, 2, 6, 5])");
 
     constexpr std::string_view suffix_data = "axislebabbleyhood";
-    checkEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
+    CheckEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
   }
 
   {
@@ -2236,7 +2236,7 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     auto suffix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([4, 0, 0, 0])");
 
     constexpr std::string_view suffix_data = "axis";
-    checkEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
+    CheckEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
   }
 
   {
@@ -2245,15 +2245,24 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     auto suffix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([6, 0, 0, 0])");
 
     constexpr std::string_view suffix_data = "axisba";
-    checkEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
+    CheckEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
   }
+
   {
     auto values = R"(["baaxis", "axis", "axis", "axis"])";
     auto prefix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([0, 0, 4, 4])");
     auto suffix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([6, 4, 0, 0])");
 
     constexpr std::string_view suffix_data = "baaxisaxis";
-    checkEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
+    CheckEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
+  }
+
+  {
+    auto values = R"(["καλημέρα", "καμηλιέρη", "καμηλιέρη", "καλημέρα"])";
+    auto prefix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([0, 5, 18, 5])");
+    auto suffix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([16, 13, 0, 11])");
+    const std::string suffix_data = "καλημέρα\xbcηλιέρη\xbbημέρα";
+    CheckEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
   }
 }
 }  // namespace parquet::test
