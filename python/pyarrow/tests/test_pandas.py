@@ -2570,7 +2570,8 @@ class TestZeroCopyConversion:
     def test_zero_copy_dictionaries(self):
         arr = pa.DictionaryArray.from_arrays(
             np.array([0, 0]),
-            np.array([5]))
+            np.array([5], dtype="int64"),
+        )
 
         result = arr.to_pandas(zero_copy_only=True)
         values = pd.Categorical([5, 5])
