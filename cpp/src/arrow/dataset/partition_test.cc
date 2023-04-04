@@ -215,6 +215,18 @@ TEST_F(TestPartitioning, DirectoryPartitioning) {
                                           equal(field_ref("beta"), literal("foo"))));
 }
 
+TEST_F(TestPartitioning, DirectoryPartitioningEmpty) {
+  partitioning_ = std::make_shared<DirectoryPartitioning>(schema({}));
+  written_schema_ = partitioning_->schema();
+
+  // No partitioning info
+  AssertParse("", literal(true));
+  // Files can be in subdirectories
+  AssertParse("/foo/", literal(true));
+  // Partitioning info is discarded on write
+  AssertFormat(equal(field_ref("alpha"), literal(7)), "");
+}
+
 TEST_F(TestPartitioning, DirectoryPartitioningEquals) {
   auto part = std::make_shared<DirectoryPartitioning>(
       schema({field("alpha", int32()), field("beta", utf8())}));
