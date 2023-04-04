@@ -35,14 +35,14 @@ _DEPR_MSG = (
 
 def doc(*docstrings, **params):
     """
-    A decorator that takes docstring templates, concatenates them, and finally 
+    A decorator that takes docstring templates, concatenates them, and finally
     performs string substitution on them.
     This decorator will add a variable "_docstring_components" to the wrapped
     callable to keep track of the original docstring template for potential future use.
     If the docstring is a template, it will be saved as a string.
     Otherwise, it will be saved as a callable and the docstring will be obtained via
-    the __doc__ attribute. 
-    This decorator can not be used on Cython classes due to a CPython constraint, 
+    the __doc__ attribute.
+    This decorator can not be used on Cython classes due to a CPython constraint,
     which enforces the __doc__ attribute to be read-only.
     See https://github.com/python/cpython/issues/91309
 
