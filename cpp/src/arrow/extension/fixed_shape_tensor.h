@@ -48,6 +48,9 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
   /// Shape of tensor elements
   const std::vector<int64_t> shape() const { return shape_; }
 
+  /// Value type of tensor elements
+  const std::shared_ptr<DataType> value_type() const { return value_type_; }
+
   /// Permutation mapping from logical to physical memory layout of tensor elements
   const std::vector<int64_t>& permutation() const { return permutation_; }
 

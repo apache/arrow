@@ -104,6 +104,7 @@ TEST_F(TestExtensionType, CreateExtensionType) {
   ASSERT_EQ(exact_ext_type->id(), Type::EXTENSION);
   ASSERT_EQ(exact_ext_type->ndim(), cell_shape_.size());
   ASSERT_EQ(exact_ext_type->shape(), cell_shape_);
+  ASSERT_EQ(exact_ext_type->value_type(), value_type_);
   ASSERT_EQ(exact_ext_type->dim_names(), dim_names_);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
