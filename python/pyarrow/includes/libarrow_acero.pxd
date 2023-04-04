@@ -21,15 +21,6 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
 
-cdef extern from "arrow/acero/groupby.h" namespace \
-        "arrow::acero" nogil:
-    cdef cppclass CAggregate "arrow::compute::Aggregate":
-        c_string function
-        shared_ptr[CFunctionOptions] options
-        vector[CFieldRef] target
-        c_string name
-
-
 cdef extern from "arrow/acero/options.h" namespace "arrow::acero" nogil:
     cdef enum CJoinType "arrow::acero::JoinType":
         CJoinType_LEFT_SEMI "arrow::acero::JoinType::LEFT_SEMI"
