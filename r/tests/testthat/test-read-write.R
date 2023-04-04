@@ -115,7 +115,7 @@ test_that("table round trip handles NA in integer and numeric", {
 test_that("reading/writing a raw vector (sparklyr integration)", {
   # These are effectively what sparklyr calls to get data to/from Spark
   read_from_raw_test <- function(x) {
-    as.data.frame(RecordBatchStreamReader$create(x)$read_next_batch())
+    as_tibble(RecordBatchStreamReader$create(x)$read_next_batch())
   }
   bytes <- write_to_raw(example_data)
   expect_type(bytes, "raw")

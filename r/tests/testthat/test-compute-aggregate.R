@@ -377,7 +377,7 @@ test_that("value_counts", {
     type = struct(values = float64(), counts = int64())
   )
   expect_equal(value_counts(a), result)
-  expect_identical(as.data.frame(value_counts(a)), result_df)
+  expect_identical(as_tibble(value_counts(a)), result_df)
   expect_identical(as.vector(value_counts(a)$counts), result_df$counts)
 })
 
