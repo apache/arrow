@@ -265,16 +265,16 @@ if [ $? -eq 0 ]; then
     # NOTE: parquet is assumed to have the same -L flag as arrow
     # so there is no need to add its location to PKG_DIRS
   fi
-  if arrow_built_with ARROW_ACERO; then
-    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ACERO"
-    PKG_LIBS="-larrow_acero $PKG_LIBS"
-    # NOTE: arrow-acero is assumed to have the same -L flag as arrow
-    # so there is no need to add its location to PKG_DIRS
-  fi
   if arrow_built_with ARROW_DATASET; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
     PKG_LIBS="-larrow_dataset $PKG_LIBS"
     # NOTE: arrow-dataset is assumed to have the same -L flag as arrow
+    # so there is no need to add its location to PKG_DIRS
+  fi
+  if arrow_built_with ARROW_ACERO; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ACERO"
+    PKG_LIBS="-larrow_acero $PKG_LIBS"
+    # NOTE: arrow-acero is assumed to have the same -L flag as arrow
     # so there is no need to add its location to PKG_DIRS
   fi
   if arrow_built_with ARROW_SUBSTRAIT; then
