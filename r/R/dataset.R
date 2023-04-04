@@ -524,7 +524,8 @@ c.Dataset <- function(...) Dataset$create(list(...))
 
 #' @export
 as.data.frame.Dataset <- function(x, row.names = NULL, optional = FALSE, ...) {
-  collect.Dataset(x)
+  out <- collect.Dataset(x)
+  as.data.frame(out)
 }
 
 #' @export

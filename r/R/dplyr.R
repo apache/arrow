@@ -216,7 +216,8 @@ unique.RecordBatchReader <- unique.arrow_dplyr_query
 
 #' @export
 as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALSE, ...) {
-  collect.arrow_dplyr_query(x, as_data_frame = TRUE, ...)
+  out <- collect.arrow_dplyr_query(x, as_data_frame = TRUE, ...)
+  as.data.frame(out)
 }
 
 #' @export
