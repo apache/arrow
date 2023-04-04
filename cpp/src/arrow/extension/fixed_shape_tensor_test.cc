@@ -47,22 +47,17 @@ class TestExtensionType : public ::testing::Test {
         fixed_shape_tensor(value_type_, cell_shape_, {}, dim_names_));
     values_ = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17,
                18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
-    values_partial_ = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
-                       12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23};
-    shape_partial_ = {2, 3, 4};
     serialized_ = R"({"shape":[3,4],"dim_names":["x","y"]})";
   }
 
  protected:
   std::vector<int64_t> shape_;
-  std::vector<int64_t> shape_partial_;
   std::vector<int64_t> cell_shape_;
   std::shared_ptr<DataType> value_type_;
   std::shared_ptr<DataType> cell_type_;
   std::vector<std::string> dim_names_;
   std::shared_ptr<ExtensionType> ext_type_;
   std::vector<int64_t> values_;
-  std::vector<int64_t> values_partial_;
   std::string serialized_;
 };
 
