@@ -525,8 +525,7 @@ class PARQUET_EXPORT FileMetaDataBuilder {
  public:
   // API convenience to get a MetaData reader
   static std::unique_ptr<FileMetaDataBuilder> Make(
-      const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
-      std::shared_ptr<const KeyValueMetadata> key_value_metadata = NULLPTR);
+      const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props);
 
   ~FileMetaDataBuilder();
 
@@ -537,15 +536,15 @@ class PARQUET_EXPORT FileMetaDataBuilder {
   void SetPageIndexLocation(const PageIndexLocation& location);
 
   // Complete the Thrift structure
-  std::unique_ptr<FileMetaData> Finish();
+  std::unique_ptr<FileMetaData> Finish(
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = NULLPTR);
 
   // crypto metadata
   std::unique_ptr<FileCryptoMetaData> GetCryptoMetaData();
 
  private:
-  explicit FileMetaDataBuilder(
-      const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
-      std::shared_ptr<const KeyValueMetadata> key_value_metadata = NULLPTR);
+  explicit FileMetaDataBuilder(const SchemaDescriptor* schema,
+                               std::shared_ptr<WriterProperties> props);
   // PIMPL Idiom
   class FileMetaDataBuilderImpl;
   std::unique_ptr<FileMetaDataBuilderImpl> impl_;

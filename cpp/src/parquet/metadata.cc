@@ -1743,13 +1743,11 @@ void RowGroupMetaDataBuilder::Finish(int64_t total_bytes_written,
 // TODO(PARQUET-595) Support key_value_metadata
 class FileMetaDataBuilder::FileMetaDataBuilderImpl {
  public:
-  explicit FileMetaDataBuilderImpl(
-      const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
-      std::shared_ptr<const KeyValueMetadata> key_value_metadata)
+  explicit FileMetaDataBuilderImpl(const SchemaDescriptor* schema,
+                                   std::shared_ptr<WriterProperties> props)
       : metadata_(new format::FileMetaData()),
         properties_(std::move(props)),
-        schema_(schema),
-        key_value_metadata_(std::move(key_value_metadata)) {
+        schema_(schema) {
     if (properties_->file_encryption_properties() != nullptr &&
         properties_->file_encryption_properties()->encrypted_footer()) {
       crypto_metadata_.reset(new format::FileCryptoMetaData());
@@ -1797,7 +1795,8 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     }
   }
 
-  std::unique_ptr<FileMetaData> Finish() {
+  std::unique_ptr<FileMetaData> Finish(
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
     int64_t total_rows = 0;
     for (auto row_group : row_groups_) {
       total_rows += row_group.num_rows;
@@ -1805,13 +1804,13 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     metadata_->__set_num_rows(total_rows);
     metadata_->__set_row_groups(row_groups_);
 
-    if (key_value_metadata_) {
+    if (key_value_metadata) {
       metadata_->key_value_metadata.clear();
-      metadata_->key_value_metadata.reserve(key_value_metadata_->size());
-      for (int64_t i = 0; i < key_value_metadata_->size(); ++i) {
+      metadata_->key_value_metadata.reserve(key_value_metadata->size());
+      for (int64_t i = 0; i < key_value_metadata->size(); ++i) {
         format::KeyValue kv_pair;
-        kv_pair.__set_key(key_value_metadata_->key(i));
-        kv_pair.__set_value(key_value_metadata_->value(i));
+        kv_pair.__set_key(key_value_metadata->key(i));
+        kv_pair.__set_value(key_value_metadata->value(i));
         metadata_->key_value_metadata.push_back(kv_pair);
       }
       metadata_->__isset.key_value_metadata = true;
@@ -1829,7 +1828,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     metadata_->__set_version(file_version);
     metadata_->__set_created_by(properties_->created_by());
 
-    // Users cannot set the `ColumnOrder` since we donot not have user defined sort order
+    // Users cannot set the `ColumnOrder` since we do not have user defined sort order
     // in the spec yet.
     // We always default to `TYPE_DEFINED_ORDER`. We can expose it in
     // the API once we have user defined sort orders in the Parquet format.
@@ -1900,21 +1899,18 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
 
   std::unique_ptr<RowGroupMetaDataBuilder> current_row_group_builder_;
   const SchemaDescriptor* schema_;
-  std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
 };
 
 std::unique_ptr<FileMetaDataBuilder> FileMetaDataBuilder::Make(
-    const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
-    std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
+    const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props) {
   return std::unique_ptr<FileMetaDataBuilder>(
-      new FileMetaDataBuilder(schema, std::move(props), std::move(key_value_metadata)));
+      new FileMetaDataBuilder(schema, std::move(props)));
 }
 
-FileMetaDataBuilder::FileMetaDataBuilder(
-    const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
-    std::shared_ptr<const KeyValueMetadata> key_value_metadata)
-    : impl_{std::unique_ptr<FileMetaDataBuilderImpl>(new FileMetaDataBuilderImpl(
-          schema, std::move(props), std::move(key_value_metadata)))} {}
+FileMetaDataBuilder::FileMetaDataBuilder(const SchemaDescriptor* schema,
+                                         std::shared_ptr<WriterProperties> props)
+    : impl_{std::unique_ptr<FileMetaDataBuilderImpl>(
+          new FileMetaDataBuilderImpl(schema, std::move(props)))} {}
 
 FileMetaDataBuilder::~FileMetaDataBuilder() = default;
 
@@ -1926,7 +1922,10 @@ void FileMetaDataBuilder::SetPageIndexLocation(const PageIndexLocation& location
   impl_->SetPageIndexLocation(location);
 }
 
-std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish() { return impl_->Finish(); }
+std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish(
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
+  return impl_->Finish(key_value_metadata);
+}
 
 std::unique_ptr<FileCryptoMetaData> FileMetaDataBuilder::GetCryptoMetaData() {
   return impl_->BuildFileCryptoMetaData();
