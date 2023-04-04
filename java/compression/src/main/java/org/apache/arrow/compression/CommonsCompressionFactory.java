@@ -27,17 +27,22 @@ import org.apache.arrow.vector.compression.CompressionUtil;
  */
 public class CommonsCompressionFactory implements CompressionCodec.Factory {
 
-  private int compressionLevel;
-
-  public CommonsCompressionFactory(int compressionLevel) {
-    this.compressionLevel = compressionLevel;
-  }
-
-  @Deprecated
-  public static final CommonsCompressionFactory INSTANCE = new CommonsCompressionFactory(3);
+  public static final CommonsCompressionFactory INSTANCE = new CommonsCompressionFactory();
 
   @Override
   public CompressionCodec createCodec(CompressionUtil.CodecType codecType) {
+    switch (codecType) {
+      case LZ4_FRAME:
+        return new Lz4CompressionCodec();
+      case ZSTD:
+        return new ZstdCompressionCodec();
+      default:
+        throw new IllegalArgumentException("Compression type not supported: " + codecType);
+    }
+  }
+
+  @Override
+  public CompressionCodec createCodec(CompressionUtil.CodecType codecType, int compressionLevel) {
     switch (codecType) {
       case LZ4_FRAME:
         return new Lz4CompressionCodec();

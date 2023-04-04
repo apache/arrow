@@ -119,6 +119,53 @@ public abstract class ArrowWriter implements AutoCloseable {
     this.schema = new Schema(fields, root.getSchema().getCustomMetadata());
   }
 
+  /**
+   * Note: fields are not closed when the writer is closed.
+   *
+   * @param root               the vectors to write to the output
+   * @param provider           where to find the dictionaries
+   * @param out                the output where to write
+   * @param option             IPC write options
+   * @param compressionFactory Compression codec factory
+   * @param codecType          Compression codec
+   * @param compressionLevel   Compression level
+   */
+  protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option,
+                        CompressionCodec.Factory compressionFactory, CompressionUtil.CodecType codecType,
+                        int compressionLevel) {
+    this.unloader = new VectorUnloader(
+        root, /*includeNullCount*/ true, compressionFactory.createCodec(codecType, compressionLevel),
+        /*alignBuffers*/ true);
+    this.out = new WriteChannel(out);
+    this.option = option;
+
+    List<Field> fields = new ArrayList<>(root.getSchema().getFields().size());
+    Set<Long> dictionaryIdsUsed = new HashSet<>();
+
+    MetadataV4UnionChecker.checkForUnion(root.getSchema().getFields().iterator(), option.metadataVersion);
+    // Convert fields with dictionaries to have dictionary type
+    for (Field field : root.getSchema().getFields()) {
+      fields.add(DictionaryUtility.toMessageFormat(field, provider, dictionaryIdsUsed));
+    }
+
+    // Create a record batch for each dictionary
+    this.dictionaries = new ArrayList<>(dictionaryIdsUsed.size());
+    for (long id : dictionaryIdsUsed) {
+      Dictionary dictionary = provider.lookup(id);
+      FieldVector vector = dictionary.getVector();
+      int count = vector.getValueCount();
+      VectorSchemaRoot dictRoot = new VectorSchemaRoot(
+          Collections.singletonList(vector.getField()),
+          Collections.singletonList(vector),
+          count);
+      VectorUnloader unloader = new VectorUnloader(dictRoot);
+      ArrowRecordBatch batch = unloader.getRecordBatch();
+      this.dictionaries.add(new ArrowDictionaryBatch(id, batch));
+    }
+
+    this.schema = new Schema(fields, root.getSchema().getCustomMetadata());
+  }
+
   public void start() throws IOException {
     ensureStarted();
   }
