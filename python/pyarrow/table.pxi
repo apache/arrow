@@ -5559,9 +5559,9 @@ list[tuple(str, str, FunctionOptions)]
         ...    ("keys", "count")
         ... ])
         pyarrow.Table
+        keys: string
         values_sum: int64
         keys_count: int64
-        keys: string
         ----
         keys: [["a","b","c"]]
         values_sum: [[3,7,5]]
@@ -5575,8 +5575,8 @@ list[tuple(str, str, FunctionOptions)]
         ...    ("values", "count", pc.CountOptions(mode="only_valid"))
         ... ])
         pyarrow.Table
-        values_count: int64
         keys: string
+        values_count: int64
         ----
         keys: [["a","b","c"]]
         values_count: [[2,2,1]]
