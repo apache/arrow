@@ -22,13 +22,13 @@ import pyarrow.compute as pc
 from pyarrow.compute import field
 
 from pyarrow.acero import (
+    Declaration,
     TableSourceNodeOptions,
     FilterNodeOptions,
     ProjectNodeOptions,
     AggregateNodeOptions,
     OrderByNodeOptions,
     HashJoinNodeOptions,
-    Declaration,
 )
 
 try:

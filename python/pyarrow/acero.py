@@ -35,7 +35,6 @@ from pyarrow._acero import (  # noqa
     AggregateNodeOptions,
     OrderByNodeOptions,
     HashJoinNodeOptions,
-    _group_by,
 )
 
 try:
