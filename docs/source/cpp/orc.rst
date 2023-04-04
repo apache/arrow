@@ -48,53 +48,57 @@ Data types
 ----------
 Here are a list of ORC types and mapped Arrow types.
 
-+--------------+-----------------------------------+-----------+
-| Logical type | Mapped Arrow type                 | Notes     |
-+==============+===================================+===========+
-| BOOLEAN      | Boolean                           |           |
-+--------------+-----------------------------------+-----------+
-| BYTE         | Int8                              |           |
-+--------------+-----------------------------------+-----------+
-| SHORT        | Int16                             |           |
-+--------------+-----------------------------------+-----------+
-| INT          | Int32                             |           |
-+--------------+-----------------------------------+-----------+
-| LONG         | Int64                             |           |
-+--------------+-----------------------------------+-----------+
-| FLOAT        | Float32                           |           |
-+--------------+-----------------------------------+-----------+
-| DOUBLE       | Float64                           |           |
-+--------------+-----------------------------------+-----------+
-| STRING       | String/LargeString                | \(2)      |
-+--------------+-----------------------------------+-----------+
-| BINARY       | Binary/LargeBinary/FixedSizeBinary| \(2)      |
-+--------------+-----------------------------------+-----------+
-| TIMESTAMP    | Timestamp/Date64                  | \(2) \(3) |
-+--------------+-----------------------------------+-----------+
-| LIST         | List/LargeList/FixedSizeList      | \(2)      |
-+--------------+-----------------------------------+-----------+
-| MAP          | Map                               |           |
-+--------------+-----------------------------------+-----------+
-| STRUCT       | Struct                            |           |
-+--------------+-----------------------------------+-----------+
-| UNION        | DenseUnion/SparseUnion            | \(1)      |
-+--------------+-----------------------------------+-----------+
-| DECIMAL      | Decimal128/Decimal64              | \(2)      |
-+--------------+-----------------------------------+-----------+
-| DATE         | Date32                            |           |
-+--------------+-----------------------------------+-----------+
-| VARCHAR      | String                            |           |
-+--------------+-----------------------------------+-----------+
++-------------------+-----------------------------------+-----------+
+| Logical type      | Mapped Arrow type                 | Notes     |
++===================+===================================+===========+
+| BOOLEAN           | Boolean                           |           |
++-------------------+-----------------------------------+-----------+
+| BYTE              | Int8                              |           |
++-------------------+-----------------------------------+-----------+
+| SHORT             | Int16                             |           |
++-------------------+-----------------------------------+-----------+
+| INT               | Int32                             |           |
++-------------------+-----------------------------------+-----------+
+| LONG              | Int64                             |           |
++-------------------+-----------------------------------+-----------+
+| FLOAT             | Float32                           |           |
++-------------------+-----------------------------------+-----------+
+| DOUBLE            | Float64                           |           |
++-------------------+-----------------------------------+-----------+
+| STRING            | String/LargeString                | \(1)      |
++-------------------+-----------------------------------+-----------+
+| BINARY            | Binary/LargeBinary/FixedSizeBinary| \(1)      |
++-------------------+-----------------------------------+-----------+
+| TIMESTAMP         | Timestamp/Date64                  | \(1) \(2) |
++-------------------+-----------------------------------+-----------+
+| TIMESTAMP_INSTANT | Timestamp                         | \(2)      |
++-------------------+-----------------------------------+-----------+
+| LIST              | List/LargeList/FixedSizeList      | \(1)      |
++-------------------+-----------------------------------+-----------+
+| MAP               | Map                               |           |
++-------------------+-----------------------------------+-----------+
+| STRUCT            | Struct                            |           |
++-------------------+-----------------------------------+-----------+
+| UNION             | SparseUnion/DenseUnion            | \(1)      |
++-------------------+-----------------------------------+-----------+
+| DECIMAL           | Decimal128/Decimal256             | \(1)      |
++-------------------+-----------------------------------+-----------+
+| DATE              | Date32                            |           |
++-------------------+-----------------------------------+-----------+
+| VARCHAR           | String                            | \(3)      |
++-------------------+-----------------------------------+-----------+
+| CHAR              | String                            | \(3)      |
++-------------------+-----------------------------------+-----------+
 
-*Unsupported ORC types:* CHAR, TIMESTAMP_INSTANT.
+* \(1) On the read side the ORC type is read as the first corresponding Arrow type in the table.
 
-* \(1) We do not support writing UNION types.
+* \(2) On the write side the ORC TIMESTAMP_INSTANT is used when timezone is provided, otherwise
+  ORC TIMESTAMP is used. On the read side both ORC TIMESTAMP and TIMESTAMP_INSTANT types are read
+  as the Arrow Timestamp type with :cpp:enumerator:`arrow::TimeUnit::NANO` and timezone is set to
+  UTC for ORC TIMESTAMP_INSTANT type only.
 
-* \(2) On the read side the ORC type is read as the first corresponding Arrow type in the table.
-
-* \(3) On the read side the ORC TIMESTAMP type is read as the Arrow Timestamp type with
-  :cpp:enumerator:`arrow::TimeUnit::NANO`. Also we currently don't support timezones.
-
+* \(3) On the read side both ORC CHAR and VARCHAR types are read as the Arrow String type. ORC CHAR
+  and VARCHAR types are not supported on the write side.
 
 Compression
 -----------

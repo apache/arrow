@@ -44,7 +44,7 @@ namespace compute {
 /// be accessed together, as in the case of hash table key.
 ///
 /// Does not support nested types
-class RowTableEncoder {
+class ARROW_EXPORT RowTableEncoder {
  public:
   void Init(const std::vector<KeyColumnMetadata>& cols, int row_alignment,
             int string_alignment);

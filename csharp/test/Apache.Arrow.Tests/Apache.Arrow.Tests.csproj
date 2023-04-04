@@ -13,6 +13,8 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="xunit.skippablefact" Version="1.4.13" />
+    <PackageReference Include="pythonnet" Version="3.0.1" />
   </ItemGroup>
 
   <ItemGroup>
