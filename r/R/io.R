@@ -240,17 +240,17 @@ make_readable_file <- function(file, mmap = TRUE, random_access = TRUE) {
     path <- sub("/$", "", file$base_path)
     file <- filesystem$OpenInputFile(path)
   } else if (is.string(file)) {
+    # if this is a HTTP URL, we need a local copy to pass to FileSystem$from_uri
+    if (random_access && is_http_url(file)) {
+      tf <- tempfile()
+      download.file(file, tf, quiet = TRUE, mode = "wb")
+      file <- tf
+      on.exit(unlink(tf))
+    }
+
     if (is_url(file)) {
       file <- tryCatch(
         {
-          # if this is a HTTP URL, we need a local copy to pass to FileSystem$from_uri
-          if (random_access && is_http_url(file)) {
-            tf <- tempfile()
-            download.file(file, tf, quiet = TRUE, mode = "wb")
-            file <- tf
-            on.exit(unlink(file))
-          }
-
           fs_and_path <- FileSystem$from_uri(file)
           fs_and_path$fs$OpenInputFile(fs_and_path$path)
         },
