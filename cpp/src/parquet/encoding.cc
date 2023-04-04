@@ -56,6 +56,8 @@ using arrow::Status;
 using arrow::VisitNullBitmapInline;
 using arrow::internal::AddWithOverflow;
 using arrow::internal::checked_cast;
+using arrow::internal::MultiplyWithOverflow;
+using arrow::internal::SubtractWithOverflow;
 using arrow::util::SafeLoad;
 using arrow::util::SafeLoadAs;
 using std::string_view;
@@ -1186,6 +1188,11 @@ struct ArrowBinaryHelper<ByteArrayType> {
   explicit ArrowBinaryHelper(typename EncodingTraits<ByteArrayType>::Accumulator* out) {
     this->out = out;
     this->builder = out->builder.get();
+    if (SubtractWithOverflow(::arrow::kBinaryMemoryLimit,
+                             this->builder->value_data_length(),
+                             &this->chunk_space_remaining)) {
+      throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
+    }
     this->chunk_space_remaining =
         ::arrow::kBinaryMemoryLimit - this->builder->value_data_length();
   }
@@ -1224,8 +1231,11 @@ template <>
 struct ArrowBinaryHelper<FLBAType> {
   explicit ArrowBinaryHelper(EncodingTraits<FLBAType>::Accumulator* builder) {
     this->builder = builder;
-    this->chunk_space_remaining =
-        ::arrow::kBinaryMemoryLimit - this->builder->value_data_length();
+    if (SubtractWithOverflow(::arrow::kBinaryMemoryLimit,
+                             this->builder->value_data_length(),
+                             &this->chunk_space_remaining)) {
+      throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
+    }
   }
 
   Status PushChunk() {
@@ -1457,7 +1467,7 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
         byte_array_offsets_(AllocateBuffer(pool, 0)),
         indices_scratch_space_(AllocateBuffer(pool, 0)) {}
 
-  // Perform type-specific initiatialization
+  // Perform type-specific initialization
   void SetDict(TypedDecoder<Type>* dictionary) override;
 
   void SetData(int num_values, const uint8_t* data, int len) override {
@@ -3053,9 +3063,9 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override {
     if (valid_bits != NULLPTR) {
-      PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateBuffer(num_values * sizeof(T),
-                                                                   this->memory_pool()));
-      T* data = reinterpret_cast<T*>(buffer->mutable_data());
+      PARQUET_ASSIGN_OR_THROW(
+          buffer_, ::arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
+      T* data = reinterpret_cast<T*>(buffer_->mutable_data());
       int num_valid_values = ::arrow::util::internal::SpacedCompress<T>(
           src, num_values, valid_bits, valid_bits_offset, data);
       Put(data, num_valid_values);
@@ -3067,7 +3077,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
  protected:
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
-    uint32_t previous_len = static_cast<uint32_t>(last_value_.size());
+    auto previous_len = static_cast<uint32_t>(last_value_.size());
     std::string_view last_value_view = last_value_;
 
     PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
@@ -3080,7 +3090,8 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
           const ByteArray src{view};
 
           uint32_t j = 0;
-          while (j < std::min(previous_len, src.len)) {
+          const uint32_t common_length = std::min(previous_len, src.len);
+          while (j < common_length) {
             if (last_value_view[j] != view[j]) {
               break;
             }
@@ -3090,7 +3101,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
           prefix_length_encoder_.Put({static_cast<int32_t>(j)}, 1);
 
           const uint8_t* suffix_ptr = src.ptr + j;
-          const uint32_t suffix_length = static_cast<uint32_t>(src.len - j);
+          const auto suffix_length = static_cast<uint32_t>(src.len - j);
           last_value_view = view;
           // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
           const ByteArray suffix(suffix_length, suffix_ptr);
@@ -3106,6 +3117,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
   DeltaBitPackEncoder<Int32Type> prefix_length_encoder_;
   DeltaLengthByteArrayEncoder<ByteArrayType> suffix_encoder_;
   std::string last_value_;
+  std::unique_ptr<::arrow::Buffer> buffer_;
 };
 
 template <typename DType>
@@ -3117,8 +3129,7 @@ void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
                                           ::arrow::stl::allocator<int32_t>(pool_));
   std::string_view last_value_view = last_value_;
 
-  int i = 0;
-  while (i < num_values) {
+  for (int i = 0; i < num_values; i++) {
     // Convert to ByteArray so we can pass to the suffix_encoder_.
     auto value = reinterpret_cast<const ByteArray*>(&src[i]);
     if (ARROW_PREDICT_FALSE(value->len >= kMaxByteArraySize)) {
@@ -3127,7 +3138,9 @@ void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
 
     auto view = string_view{reinterpret_cast<const char*>(value->ptr), value->len};
     uint32_t j = 0;
-    while (j < std::min(value->len, static_cast<uint32_t>(last_value_view.length()))) {
+    const uint32_t common_length =
+        std::min(value->len, static_cast<uint32_t>(last_value_view.length()));
+    while (j < common_length) {
       if (last_value_view[j] != view[j]) {
         break;
       }
@@ -3135,13 +3148,60 @@ void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
     }
 
     prefix_lengths[i] = j;
-    const uint8_t* suffix_ptr = value->ptr + j;
-    const uint32_t suffix_length = static_cast<uint32_t>(value->len - j);
+    const auto suffix_length = static_cast<uint32_t>(value->len - j);
+    const uint8_t* suffix_ptr;
+    if (suffix_length == 0) {
+      suffix_ptr = reinterpret_cast<const uint8_t*>("");
+    } else {
+      suffix_ptr = value->ptr + j;
+    }
     last_value_view = view;
     // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
     const ByteArray suffix(suffix_length, suffix_ptr);
     suffix_encoder_.Put(&suffix, 1);
-    i++;
+  }
+  prefix_length_encoder_.Put(prefix_lengths.data(), num_values);
+  last_value_ = last_value_view;
+}
+
+template <>
+void DeltaByteArrayEncoder<FLBAType>::Put(const FLBA* src, int num_values) {
+  if (num_values == 0) {
+    return;
+  }
+  ArrowPoolVector<int32_t> prefix_lengths(num_values,
+                                          ::arrow::stl::allocator<int32_t>(pool_));
+  std::string_view last_value_view = last_value_;
+  const int32_t len = descr_->type_length();
+
+  if (ARROW_PREDICT_FALSE(len >= static_cast<int32_t>(kMaxByteArraySize))) {
+    throw Status::Invalid("Parquet cannot store strings with size 2GB or more");
+  }
+
+  for (int i = 0; i < num_values; i++) {
+    // Convert to ByteArray so we can pass to the suffix_encoder_.
+    const FLBA* value = reinterpret_cast<const FLBA*>(&src[i].ptr);
+
+    auto view = string_view{reinterpret_cast<const char*>(value->ptr),
+                            static_cast<uint32_t>(len)};
+    int32_t j = 0;
+    const int32_t common_length =
+        std::min(len, static_cast<int32_t>(last_value_view.length()));
+    while (j < common_length) {
+      if (last_value_view[j] != view[j]) {
+        break;
+      }
+      j++;
+    }
+
+    prefix_lengths[i] = j;
+    const auto suffix_length = static_cast<uint32_t>(len - j);
+    const uint8_t* suffix_ptr;
+    suffix_ptr = value->ptr + j;
+    last_value_view = view;
+    // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
+    const ByteArray suffix(suffix_length, suffix_ptr);
+    suffix_encoder_.Put(&suffix, 1);
   }
   prefix_length_encoder_.Put(prefix_lengths.data(), num_values);
   last_value_ = last_value_view;
@@ -3360,7 +3420,20 @@ class DeltaByteArrayFLBADecoder : public DeltaByteArrayDecoderImpl<FLBAType>,
     return GetInternal(buffer, max_values);
   }
   int Decode(FixedLenByteArray* buffer, int max_values) override {
-    throw ParquetException("Cannot decode DeltaByteArray from FixedLenByteArray");
+    int decoded_values_size = max_values;
+    if (MultiplyWithOverflow(decoded_values_size,
+                             descr_->type_length() * sizeof(ByteArray),
+                             &decoded_values_size)) {
+      throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
+    }
+    std::vector<uint8_t> decode_values(decoded_values_size);
+    auto decode_buf = reinterpret_cast<ByteArray*>(decode_values.data());
+
+    max_values = GetInternal(decode_buf, max_values);
+    for (int i = 0; i < max_values; i++) {
+      buffer[i].ptr = decode_buf->ptr + i * descr_->type_length();
+    }
+    return max_values;
   }
 };
 

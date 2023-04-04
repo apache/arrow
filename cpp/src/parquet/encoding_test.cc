@@ -1986,7 +1986,7 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
 
-  virtual void CheckRoundtrip() {
+  void CheckRoundtrip() override {
     auto encoder =
         MakeTypedEncoder<Type>(Encoding::DELTA_BYTE_ARRAY, false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BYTE_ARRAY, descr_.get());
@@ -2001,7 +2001,8 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
     ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
   }
 
-  void CheckRoundtripSpaced(const uint8_t* valid_bits, int64_t valid_bits_offset) {
+  void CheckRoundtripSpaced(const uint8_t* valid_bits,
+                            int64_t valid_bits_offset) override {
     auto encoder =
         MakeTypedEncoder<Type>(Encoding::DELTA_BYTE_ARRAY, false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BYTE_ARRAY, descr_.get());
@@ -2027,10 +2028,8 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   USING_BASE_MEMBERS();
 };
 
-typedef ::testing::Types<ByteArrayType> TestDeltaByteArrayEncodingTypes;
+typedef ::testing::Types<ByteArrayType, FLBAType> TestDeltaByteArrayEncodingTypes;
 TYPED_TEST_SUITE(TestDeltaByteArrayEncoding, TestDeltaByteArrayEncodingTypes);
-
-// TODO: add FLBAType and Decimal type tests
 
 TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
