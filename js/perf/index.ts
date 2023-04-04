@@ -133,6 +133,21 @@ b.suite(
     b.cycle(cycle)
 );
 
+b.suite(
+    `[index] Vector`,
+
+    ...Object.entries(vectors).map(([name, vector]) =>
+        b.add(`from: ${name}`, () => {
+            for (let i = -1, n = vector.length; ++i < n;) {
+                vector[i];
+            }
+        })),
+
+    b.cycle(cycle)
+);
+
+
+
 for (const { name, ipc, table } of config) {
     b.suite(
         `Parse`,

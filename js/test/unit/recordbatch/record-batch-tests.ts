@@ -129,4 +129,17 @@ describe(`RecordBatch`, () => {
             expect(f32sBatch.numRows).toBe(45);
         });
     });
+
+    describe(`get()`, () => {
+        test(`can get row with get and []`, () => {
+            const batch = numsRecordBatch(32, 45);
+            const row = batch.get(2)
+            expect(row).not.toBeNull();
+            expect(row!.f32).toEqual(2);
+            expect(row!.i32).toEqual(2);
+
+            const row2 = batch[2];
+            expect(row2).toEqual(row);
+        });
+    });
 });

@@ -21,6 +21,8 @@ import { Vector } from './vector.js';
 import { Schema, Field } from './schema.js';
 import { DataType, Struct, Null, TypeMap } from './type.js';
 
+import { IndexAccessProxyHandler } from './util/proxyhandler.js'
+
 import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
 import { instance as indexOfVisitor } from './visitor/indexof.js';
@@ -94,6 +96,13 @@ export class RecordBatch<T extends TypeMap = any> {
 
     public readonly schema: Schema<T>;
     public readonly data: Data<Struct<T>>;
+
+    /**
+     * Index access of the record batch elements. While equivalent to
+     * {@link * RecordBatch.get}, * it is 1-2 orders of magnitude slower than
+     * {@link * RecordBatch.get}.
+     */
+    [index: number]: T['TValue'] | null;
 
     public get dictionaries() {
         return this._dictionaries || (this._dictionaries = collectDictionaries(this.schema.fields, this.data.children));
@@ -280,6 +289,13 @@ export class RecordBatch<T extends TypeMap = any> {
     protected static [Symbol.toStringTag] = ((proto: RecordBatch) => {
         (proto as any)._nullCount = -1;
         (proto as any)[Symbol.isConcatSpreadable] = true;
+
+        // The Proxy object will slow down all method access if it is returned
+        // from the constructor. By putting it at the root of the prototype
+        // chain, we do not affect the speed of normal access. That said, index
+        // access will be much slower than `.get()`.
+        Object.setPrototypeOf(proto, new Proxy({}, new IndexAccessProxyHandler()))
+
         return 'RecordBatch';
     })(RecordBatch.prototype);
 }
