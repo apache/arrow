@@ -206,6 +206,26 @@ func TestDiv(t *testing.T) {
 	}
 }
 
+func TestPow(t *testing.T) {
+	for _, tc := range []struct {
+		n    decimal128.Num
+		rhs  decimal128.Num
+		want decimal128.Num
+	}{
+		{decimal128.New(0, 2), decimal128.New(0, 3), decimal128.New(0, 8)},
+		{decimal128.New(0, 2), decimal128.New(0, 65), decimal128.New(2, 0)},
+		{decimal128.New(0, 1), decimal128.New(0, 0), decimal128.New(0, 1)},
+		{decimal128.New(0, 0), decimal128.New(0, 1), decimal128.New(0, 0)},
+	} {
+		t.Run("pow", func(t *testing.T) {
+			n := tc.n.Pow(tc.rhs)
+			if got, want := n, tc.want; got != want {
+				t.Fatalf("invalid value. got=%v, want=%v", got, want)
+			}
+		})
+	}
+}
+
 func BenchmarkDecimalToBigInt(b *testing.B) {
 	var (
 		bi *big.Int
