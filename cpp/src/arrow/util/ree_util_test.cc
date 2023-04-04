@@ -176,10 +176,10 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
     size_t logical_pos = 0;
     auto it = MergedRunsIterator(left_ree_span, right_ree_span);
     ASSERT_EQ(it.logical_position(), 0);
-    ASSERT_TRUE(!it.isEnd());
+    ASSERT_TRUE(!it.is_end());
     ASSERT_EQ(&it.left(), &left_ree_span);
     ASSERT_EQ(&it.right(), &right_ree_span);
-    for (; !it.isEnd(); ++it, ++i) {
+    for (; !it.is_end(); ++it, ++i) {
       ASSERT_EQ(it.run_length(), expected_run_ends[i]);
       ASSERT_EQ(it.index_into_left_array(), expected_left_visits[i]);
       ASSERT_EQ(it.index_into_right_array(), expected_right_visits[i]);
@@ -196,10 +196,10 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
     int64_t logical_pos = 0;
     auto it = MergedRunsIterator(left_ree_span, left_ree_span);
     ASSERT_EQ(it.logical_position(), 0);
-    ASSERT_TRUE(!it.isEnd());
+    ASSERT_TRUE(!it.is_end());
     ASSERT_EQ(&it.left(), &left_ree_span);
     ASSERT_EQ(&it.right(), &left_ree_span);
-    for (; !it.isEnd(); ++it, ++i) {
+    for (; !it.is_end(); ++it, ++i) {
       ASSERT_EQ(it.run_length(), left_only_run_lengths[i]);
       ASSERT_EQ(it.index_into_left_array(), 10 + i);
       ASSERT_EQ(it.index_into_right_array(), 10 + i);
@@ -243,7 +243,7 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
     int64_t i = 0;
     int64_t logical_pos = 0;
     auto it = MergedRunsIterator(right_ree_span, right_ree_span);
-    for (; !it.isEnd(); ++it, ++i) {
+    for (; !it.is_end(); ++it, ++i) {
       ASSERT_EQ(it.run_length(), right_only_run_lengths[i]);
       ASSERT_EQ(it.index_into_left_array(), 5 + i);
       ASSERT_EQ(it.index_into_right_array(), 5 + i);

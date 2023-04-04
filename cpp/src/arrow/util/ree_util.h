@@ -335,15 +335,15 @@ class MergedRunsIterator {
 
   /// \brief Return the initial logical position of the run
   ///
-  /// If isEnd(), this is the same as length().
+  /// If is_end(), this is the same as length().
   int64_t logical_position() const { return logical_pos_; }
 
   /// \brief Whether the iterator has reached the end of both arrays
-  bool isEnd() const { return logical_pos_ == logical_length_; }
+  bool is_end() const { return logical_pos_ == logical_length_; }
 
   /// \brief Return the logical position immediately after the run.
   ///
-  /// Pre-condition: !isEnd()
+  /// Pre-condition: !is_end()
   int64_t run_end() const {
     const auto& left_it = std::get<0>(ree_iterators_);
     const auto& right_it = std::get<1>(ree_iterators_);
@@ -352,7 +352,7 @@ class MergedRunsIterator {
 
   /// \brief returns the logical length of the current run
   ///
-  /// Pre-condition: !isEnd()
+  /// Pre-condition: !is_end()
   int64_t run_length() const { return run_end() - logical_pos_; }
 
   /// \brief Return a physical index into the values array of a given input,
