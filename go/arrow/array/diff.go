@@ -51,9 +51,9 @@ func Diff(base, target arrow.Array) (inserts []bool, runLengths []int64, err err
 	case arrow.EXTENSION:
 		return Diff(base.(ExtensionArray).Storage(), target.(ExtensionArray).Storage())
 	case arrow.DICTIONARY:
-		return nil, nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType().String())
+		return nil, nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType())
 	case arrow.RUN_END_ENCODED:
-		return nil, nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType().String())
+		return nil, nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType())
 	}
 	d := newQuadraticSpaceMyersDiff(base, target)
 	return d.Diff()
@@ -63,10 +63,6 @@ func Diff(base, target arrow.Array) (inserts []bool, runLengths []int64, err err
 type editPoint struct {
 	base   int
 	target int
-}
-
-func (e editPoint) Equals(other editPoint) bool {
-	return e.base == other.base && e.target == other.target
 }
 
 type quadraticSpaceMyersDiff struct {
