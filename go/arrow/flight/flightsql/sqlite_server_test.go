@@ -566,6 +566,18 @@ func (s *FlightSqliteServerSuite) TestCommandPreparedStatementQueryWithParams() 
 	s.False(rdr.Next())
 }
 
+func (s *FlightSqliteServerSuite) TestCommandPreparedStatementUpdateNoTable() {
+	ctx := context.Background()
+	stmt, err := s.cl.Prepare(ctx, "INSERT INTO thisTableDoesNotExist (keyName, value) VALUES ('new_value', 2)")
+	s.NoError(err)
+	defer stmt.Close(ctx)
+
+	_, err = stmt.ExecuteUpdate(context.Background())
+	s.Error(err)
+	s.Equal(codes.NotFound, status.Code(err), "%#v", err.Error())
+	s.Contains(err.Error(), "no such table")
+}
+
 func (s *FlightSqliteServerSuite) TestCommandPreparedStatementUpdateWithParams() {
 	ctx := context.Background()
 	stmt, err := s.cl.Prepare(ctx, "INSERT INTO intTable (keyName, value) VALUES ('new_value', ?)")

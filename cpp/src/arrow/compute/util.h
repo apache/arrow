@@ -81,7 +81,7 @@ class MiniBatch {
 /// Temporary vectors should resemble allocating temporary variables on the stack
 /// but in the context of vectorized processing where we need to store a vector of
 /// temporaries instead of a single value.
-class TempVectorStack {
+class ARROW_EXPORT TempVectorStack {
   template <typename>
   friend class TempVectorHolder;
 
@@ -139,7 +139,7 @@ class TempVectorHolder {
   uint32_t num_elements_;
 };
 
-class bit_util {
+class ARROW_EXPORT bit_util {
  public:
   static void bits_to_indexes(int bit_to_search, int64_t hardware_flags,
                               const int num_bits, const uint8_t* bits, int* num_indexes,
@@ -252,6 +252,52 @@ Result<Expression> ModifyExpression(Expression expr, const PreVisit& pre,
 
   return post_call(std::move(expr), NULLPTR);
 }
+
+// Helper class to calculate the modified number of rows to process using SIMD.
+//
+// Some array elements at the end will be skipped in order to avoid buffer
+// overrun, when doing memory loads and stores using larger word size than a
+// single array element.
+//
+class TailSkipForSIMD {
+ public:
+  static int64_t FixBitAccess(int num_bytes_accessed_together, int64_t num_rows,
+                              int bit_offset) {
+    int64_t num_bytes = bit_util::BytesForBits(num_rows + bit_offset);
+    int64_t num_bytes_safe =
+        std::max(static_cast<int64_t>(0LL), num_bytes - num_bytes_accessed_together + 1);
+    int64_t num_rows_safe =
+        std::max(static_cast<int64_t>(0LL), 8 * num_bytes_safe - bit_offset);
+    return std::min(num_rows_safe, num_rows);
+  }
+  static int64_t FixBinaryAccess(int num_bytes_accessed_together, int64_t num_rows,
+                                 int64_t length) {
+    int64_t num_rows_to_skip = bit_util::CeilDiv(length, num_bytes_accessed_together);
+    int64_t num_rows_safe =
+        std::max(static_cast<int64_t>(0LL), num_rows - num_rows_to_skip);
+    return num_rows_safe;
+  }
+  static int64_t FixVarBinaryAccess(int num_bytes_accessed_together, int64_t num_rows,
+                                    const uint32_t* offsets) {
+    // Do not process rows that could read past the end of the buffer using N
+    // byte loads/stores.
+    //
+    int64_t num_rows_safe = num_rows;
+    while (num_rows_safe > 0 &&
+           offsets[num_rows_safe] + num_bytes_accessed_together > offsets[num_rows]) {
+      --num_rows_safe;
+    }
+    return num_rows_safe;
+  }
+  static int FixSelection(int64_t num_rows_safe, int num_selected,
+                          const uint16_t* selection) {
+    int num_selected_safe = num_selected;
+    while (num_selected_safe > 0 && selection[num_selected_safe - 1] >= num_rows_safe) {
+      --num_selected_safe;
+    }
+    return num_selected_safe;
+  }
+};
 
 }  // namespace compute
 }  // namespace arrow

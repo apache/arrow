@@ -123,7 +123,6 @@ case "${distribution}-${distribution_version}" in
     ;;
 esac
 if [ "$(arch)" = "aarch64" ]; then
-  have_flight=no
   have_gandiva=no
 fi
 

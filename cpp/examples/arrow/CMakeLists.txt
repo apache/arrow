@@ -19,8 +19,14 @@ add_arrow_example(row_wise_conversion_example)
 
 add_arrow_example(rapidjson_row_converter)
 
-if(ARROW_COMPUTE)
-  add_arrow_example(compute_register_example)
+if(ARROW_ACERO)
+  if(ARROW_BUILD_SHARED)
+    set(ENGINE_ACERO_EXAMPLE_LINK_LIBS arrow_acero_shared)
+  else()
+    set(ENGINE_ACERO_EXAMPLE_LINK_LIBS arrow_acero_static)
+  endif()
+  add_arrow_example(acero_register_example EXTRA_LINK_LIBS
+                    ${ENGINE_ACERO_EXAMPLE_LINK_LIBS})
 endif()
 
 if(ARROW_SUBSTRAIT)

@@ -24,7 +24,7 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_dataset cimport *
+from pyarrow.includes.libarrow_acero cimport *
 from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table,
                           RecordBatchReader)
 from pyarrow.lib import frombytes, tobytes
