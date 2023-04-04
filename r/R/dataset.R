@@ -523,9 +523,13 @@ dim.Dataset <- function(x) c(x$num_rows, x$num_cols)
 c.Dataset <- function(...) Dataset$create(list(...))
 
 #' @export
+as_tibble.Dataset <- function(x, ...) {
+  collect.Dataset(x)
+}
+
+#' @export
 as.data.frame.Dataset <- function(x, row.names = NULL, optional = FALSE, ...) {
-  out <- collect.Dataset(x)
-  as.data.frame(out)
+  as.data.frame(as_tibble(x), row.names = row.names, optional = optional, ...)
 }
 
 #' @export

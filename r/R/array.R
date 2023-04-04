@@ -473,8 +473,13 @@ names.StructArray <- function(x, ...) StructType__field_names(x$type)
 dim.StructArray <- function(x, ...) c(length(x), x$type$num_fields)
 
 #' @export
-as.data.frame.StructArray <- function(x, row.names = NULL, optional = FALSE, ...) {
+as_tibble.StructArray <- function(x, ...) {
   as.vector(x)
+}
+
+#' @export
+as.data.frame.StructArray <- function(x, row.names = NULL, optional = FALSE, ...) {
+  as.data.frame(as_tibble(x), row.names = row.names, optional = optional, ...)
 }
 
 #' @rdname array
