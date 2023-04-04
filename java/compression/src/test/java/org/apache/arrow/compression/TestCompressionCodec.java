@@ -93,6 +93,9 @@ class TestCompressionCodec {
 
       CompressionCodec zstdCodec = new ZstdCompressionCodec();
       params.add(Arguments.arguments(len, zstdCodec));
+
+      CompressionCodec zstdCodecAndCompresionLevel = new ZstdCompressionCodec(7);
+      params.add(Arguments.arguments(len, zstdCodecAndCompresionLevel));
     }
     return params;
   }
