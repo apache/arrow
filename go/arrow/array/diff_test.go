@@ -54,28 +54,17 @@ func (s *diffTestCase) check(t *testing.T) {
 	}
 	defer target.Release()
 
-	got, err := array.Diff(mem, base, target)
+	gotInserts, gotRunLengths, err := array.Diff(base, target)
 	if err != nil {
 		t.Fatalf("got unexpected error %v", err)
 	}
-	defer got.Release()
 
-	gotInsert := boolValues(got.Field(0).(*array.Boolean))
-	gotRunLength := got.Field(1).(*array.Int64).Int64Values()
-	if !reflect.DeepEqual(gotInsert, s.wantInsert) {
-		t.Errorf("Diff(\n  base=%v, \ntarget=%v\n) got insert %v, want %v", base, target, gotInsert, s.wantInsert)
+	if !reflect.DeepEqual(gotInserts, s.wantInsert) {
+		t.Errorf("Diff(\n  base=%v, \ntarget=%v\n) got insert %v, want %v", base, target, gotInserts, s.wantInsert)
 	}
-	if !reflect.DeepEqual(gotRunLength, s.wantRunLength) {
-		t.Errorf("Diff(\n  base=%v, \ntarget=%v\n) got run length %v, want %v", base, target, gotRunLength, s.wantRunLength)
+	if !reflect.DeepEqual(gotRunLengths, s.wantRunLength) {
+		t.Errorf("Diff(\n  base=%v, \ntarget=%v\n) got run length %v, want %v", base, target, gotRunLengths, s.wantRunLength)
 	}
-}
-
-func boolValues(b *array.Boolean) []bool {
-	ret := make([]bool, b.Len())
-	for i := range ret {
-		ret[i] = b.Value(i)
-	}
-	return ret
 }
 
 func TestDiff_Trivial(t *testing.T) {
@@ -431,20 +420,16 @@ func testRandomCase(t *testing.T, rng *rand.Rand) {
 	}
 	defer target.Release()
 
-	got, err := array.Diff(mem, base, target)
+	inserts, runLengths, err := array.Diff(base, target)
 	if err != nil {
 		t.Fatalf("got unexpected error %v", err)
 	}
-	defer got.Release()
 
-	validateEditScript(t, got, base, target)
+	validateEditScript(t, inserts, runLengths, base, target)
 }
 
 // validateEditScript checks that the edit script produces target when applied to base.
-func validateEditScript(t *testing.T, edits *array.Struct, base, target arrow.Array) {
-	inserts := boolValues(edits.Field(0).(*array.Boolean))
-	runLengths := edits.Field(1).(*array.Int64).Int64Values()
-
+func validateEditScript(t *testing.T, inserts []bool, runLengths []int64, base, target arrow.Array) {
 	if len(runLengths) == 0 {
 		t.Fatalf("edit script has run length of zero")
 	}

@@ -20,17 +20,16 @@ import (
 	"fmt"
 
 	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 // Diff compares two arrays, returning an edit script which expresses the difference
 // between them. The edit script can be applied to the base array to produce the target.
 //
-// An edit script is an array of struct(insert bool, run_length int64).
+// An edit script represents the difference between two arrays.
 // Each element of "insert" determines whether an element was inserted into (true)
 // or deleted from (false) base. Each insertion or deletion is followed by a run of
 // elements which are unchanged from base to target; the length of this run is stored
-// in "run_length". (Note that the edit script begins and ends with a run of shared
+// in RunLength. (Note that the edit script begins and ends with a run of shared
 // elements but both fields of the struct must have the same length. To accommodate this
 // the first element of "insert" should be ignored.)
 //
@@ -42,31 +41,22 @@ import (
 //	{"insert": false, "run_length": 0} // delete("o") then an empty run
 //
 // ]
-//
 // base: baseline for comparison
 // target: an array of identical type to base whose elements differ from base's
-// mem: memory to store the result will be allocated from this memory pool
-func Diff(mem memory.Allocator, base, target arrow.Array) (*Struct, error) {
+func Diff(base, target arrow.Array) (inserts []bool, runLengths []int64, err error) {
 	if !arrow.TypeEqual(base.DataType(), target.DataType()) {
-		return nil, fmt.Errorf("%w: only taking the diff of like-typed arrays is supported", arrow.ErrNotImplemented)
+		return nil, nil, fmt.Errorf("%w: only taking the diff of like-typed arrays is supported", arrow.ErrNotImplemented)
 	}
 	switch base.DataType().ID() {
 	case arrow.EXTENSION:
-		return Diff(mem, base.(ExtensionArray).Storage(), target.(ExtensionArray).Storage())
+		return Diff(base.(ExtensionArray).Storage(), target.(ExtensionArray).Storage())
 	case arrow.DICTIONARY:
-		return nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType().String())
+		return nil, nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType().String())
 	case arrow.RUN_END_ENCODED:
-		return nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType().String())
+		return nil, nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType().String())
 	}
 	d := newQuadraticSpaceMyersDiff(base, target)
-	r, err := d.Diff(mem)
-	if err != nil {
-		if r != nil {
-			r.Release()
-		}
-		return nil, err
-	}
-	return r, nil
+	return d.Diff()
 }
 
 // editPoint represents an intermediate state in the comparison of two arrays
@@ -213,20 +203,20 @@ func (d *quadraticSpaceMyersDiff) Done() bool {
 	return d.finishIndex != -1
 }
 
-func (d *quadraticSpaceMyersDiff) GetEdits(mem memory.Allocator) (*Struct, error) {
+func (d *quadraticSpaceMyersDiff) GetEdits() (inserts []bool, runLengths []int64, err error) {
 	if !d.Done() {
 		panic("GetEdits called but Done() = false")
 	}
 
 	length := d.editCount + 1
-	insertBuf := make([]bool, length)
-	runLength := make([]int64, length)
+	inserts = make([]bool, length)
+	runLengths = make([]int64, length)
 	index := d.finishIndex
 	endpoint := d.getEditPoint(d.editCount, d.finishIndex)
 
 	for i := d.editCount; i > 0; i-- {
 		insert := d.insert[index]
-		insertBuf[i] = insert
+		inserts[i] = insert
 		insertionsMinusDeletions := (endpoint.base - d.baseBegin) - (endpoint.target - d.targetBegin)
 		if insert {
 			insertionsMinusDeletions++
@@ -241,35 +231,18 @@ func (d *quadraticSpaceMyersDiff) GetEdits(mem memory.Allocator) (*Struct, error
 		if insert {
 			in = 1
 		}
-		runLength[i] = int64(endpoint.base - previous.base - (1 - in))
+		runLengths[i] = int64(endpoint.base - previous.base - (1 - in))
 		endpoint = previous
 	}
-	insertBuf[0] = false
-	runLength[0] = int64(endpoint.base - d.baseBegin)
+	inserts[0] = false
+	runLengths[0] = int64(endpoint.base - d.baseBegin)
 
-	inserts := NewBooleanBuilder(mem)
-	defer inserts.Release()
-	inserts.AppendValues(insertBuf, nil)
-
-	run := NewInt64Builder(mem)
-	defer run.Release()
-	run.AppendValues(runLength, nil)
-
-	insArr := inserts.NewArray()
-	defer insArr.Release()
-
-	runArr := run.NewArray()
-	defer runArr.Release()
-
-	return NewStructArray([]arrow.Array{
-		insArr,
-		runArr,
-	}, []string{"insert", "run_length"})
+	return inserts, runLengths, nil
 }
 
-func (d *quadraticSpaceMyersDiff) Diff(mem memory.Allocator) (*Struct, error) {
+func (d *quadraticSpaceMyersDiff) Diff() (inserts []bool, runLengths []int64, err error) {
 	for !d.Done() {
 		d.Next()
 	}
-	return d.GetEdits(mem)
+	return d.GetEdits()
 }
