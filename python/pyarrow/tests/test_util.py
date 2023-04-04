@@ -23,128 +23,129 @@ import weakref
 
 import pytest
 
-from pyarrow.util import _break_traceback_cycle_from_frame, doc
+from pyarrow.util import doc, _break_traceback_cycle_from_frame
 from pyarrow.tests.util import disabled_gc
 
 
-@doc(method="cumsum", operation="sum")
-def cumsum(whatever):
+@doc(method="func_a", operation="A")
+def func_a(whatever):
     """
     This is the {method} method.
 
-    It computes the cumulative {operation}.
+    It computes {operation}.
     """
+    pass
 
 
 @doc(
-    cumsum,
+    func_a,
     textwrap.dedent(
         """
         Examples
         --------
 
-        >>> cumavg([1, 2, 3])
-        2
+        >>> func_b()
+        B
         """
     ),
-    method="cumavg",
-    operation="average",
+    method="func_b",
+    operation="B",
 )
-def cumavg(whatever):
+def func_b(whatever):
     pass
 
 
 @doc(
-    cumsum,
-    method="cumprod",
-    operation="product",
+    func_a,
+    method="func_c",
+    operation="C",
 )
-def cumprod(whatever):
+def func_c(whatever):
     """
     Examples
     --------
 
-    >>> cumprod([1, 2, 3])
-    2
+    >>> func_c()
+    C
     """
     pass
 
 
-@doc(cumsum, method="cummax", operation="maximum")
-def cummax(whatever):
+@doc(func_a, method="func_d", operation="D")
+def func_d(whatever):
     pass
 
 
-@doc(cummax, method="cummin", operation="minimum")
-def cummin(whatever):
+@doc(func_d, method="func_e", operation="E")
+def func_e(whatever):
     pass
 
 
 def test_docstring_formatting():
     docstr = textwrap.dedent(
         """
-        This is the cumsum method.
+        This is the func_a method.
 
-        It computes the cumulative sum.
+        It computes A.
         """
     )
-    assert cumsum.__doc__ == docstr
+    assert func_a.__doc__ == docstr
 
 
-def test_docstrings():
+def test_docstring_concatenation():
     docstr = textwrap.dedent(
         """
-        This is the cumavg method.
+        This is the func_b method.
 
-        It computes the cumulative average.
+        It computes B.
 
         Examples
         --------
 
-        >>> cumavg([1, 2, 3])
-        2
+        >>> func_b()
+        B
         """
     )
-    assert cumavg.__doc__ == docstr
+    assert func_b.__doc__ == docstr
 
 
 def test_docstring_append():
     docstr = textwrap.dedent(
         """
-        This is the cumprod method.
+        This is the func_c method.
 
-        It computes the cumulative product.
+        It computes C.
 
         Examples
         --------
 
-        >>> cumprod([1, 2, 3])
-        2
+        >>> func_c()
+        C
         """
     )
-    assert cumprod.__doc__ == docstr
+    assert func_c.__doc__ == docstr
 
 
-def test_doc_template_from_func():
+def test_docstring_template_from_callable():
     docstr = textwrap.dedent(
         """
-        This is the cummax method.
+        This is the func_d method.
 
-        It computes the cumulative maximum.
+        It computes D.
         """
     )
-    assert cummax.__doc__ == docstr
+    assert func_d.__doc__ == docstr
 
 
-def test_inherit_doc_template():
+def test_inherit_docstring_template_from_callable():
     docstr = textwrap.dedent(
         """
-        This is the cummin method.
+        This is the func_e method.
 
-        It computes the cumulative minimum.
+        It computes E.
         """
     )
-    assert cummin.__doc__ == docstr
+    assert func_e.__doc__ == docstr
 
 
 def exhibit_signal_refcycle():
