@@ -722,3 +722,13 @@ test_that("as.data.frame() on an ArrowTabular object returns a vanilla data.fram
   expect_s3_class(out2, "data.frame", exact = TRUE)
   expect_s3_class(out3, "data.frame", exact = TRUE)
 })
+
+test_that("as_tibble.ArrowTabular retains groups", {
+  # calling as_tibble.default on ArrowTabular objects results in any grouping being dropped, which is why
+  # we need as_tibble.ArrowTabular
+  df <- data.frame(x = 1:4, y = c("a", "b"))
+  df_grouped <- dplyr::group_by(df, y)
+  arrow_grouped <- arrow_table(df_grouped)
+  expect_tibble(arrow_grouped, df_grouped)
+
+})

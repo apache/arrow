@@ -93,9 +93,13 @@ ArrowTabular <- R6Class("ArrowTabular",
 
 #' @export
 as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ...) {
+  as.data.frame(as_tibble(x))
+}
+
+#' @export
+as_tibble.ArrowTabular <- function(x, ...) {
   df <- x$to_data_frame()
-  out <- apply_arrow_r_metadata(df, x$metadata$r)
-  as.data.frame(out)
+  apply_arrow_r_metadata(df, x$metadata$r)
 }
 
 #' @export

@@ -22,6 +22,7 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   out <- compute.arrow_dplyr_query(x)
   collect.ArrowTabular(out, as_data_frame)
 }
+
 collect.ArrowTabular <- function(x, as_data_frame = TRUE, ...) {
   if (as_data_frame) {
     as_tibble(x, ...)
