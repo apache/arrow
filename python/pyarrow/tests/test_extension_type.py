@@ -637,6 +637,13 @@ def test_concat():
     expected = pa.array([1, 2, 3, 4, 5, 6], IntegerType())
     assert result.equals(expected)
 
+    # nested in a struct
+    struct_arr1 = pa.StructArray.from_arrays([arr1], names=["a"])
+    struct_arr2 = pa.StructArray.from_arrays([arr2], names=["a"])
+    result = pa.concat_arrays([struct_arr1, struct_arr2])
+    expected = pa.StructArray.from_arrays([expected], names=["a"])
+    assert result.equals(expected)
+
 
 def test_null_storage_type():
     ext_type = AnnotatedType(pa.null(), {"key": "value"})
