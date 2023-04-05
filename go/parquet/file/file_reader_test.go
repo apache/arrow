@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"github.com/apache/arrow/go/v12/parquet"
 	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/stretchr/testify/require"
 	"io"
 	"math/rand"
 	"testing"
@@ -287,24 +288,13 @@ func (p *PageSerdeSuite) TestCompression() {
 }
 
 func TestWithEOFReader(t *testing.T) {
-	sink := encoding.NewBufferWriter(0, memory.DefaultAllocator)
-	serializer := thrift.NewThriftSerializer()
-	fields := schema.FieldList{
-		schema.NewInt32Node("int_col", parquet.Repetitions.Required, -1),
-	}
-	root, _ := schema.NewGroupNode("schema", parquet.Repetitions.Repeated, fields, -1)
-	schema := schema.NewSchema(root)
+	root, _ := schema.NewGroupNode("schema", parquet.Repetitions.Repeated, schema.FieldList{
+		schema.NewInt32Node("int_col", parquet.Repetitions.Required, -1)}, -1)
 	props := parquet.NewWriterProperties(parquet.WithVersion(parquet.V2_LATEST))
-	builder := metadata.NewFileMetadataBuilder(schema, props, nil)
-	fileMetaData, _ := builder.Finish()
 
-	size, _ := serializer.Serialize(fileMetaData, sink, nil)
-
-	binary.Write(sink, binary.LittleEndian, uint32(size))
-	magic := []byte("PAR1")
-	sink.Write(magic)
-	buf := sink.Finish()
-	defer buf.Release()
+	var buf bytes.Buffer
+	wr := file.NewParquetWriter(&buf, root, file.WithWriterProps(props))
+	require.NoError(t, wr.Close())
 
 	r := bytes.NewReader(buf.Bytes())
 	_, err := file.NewParquetReader(testReader{Reader: r})
