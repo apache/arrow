@@ -157,7 +157,13 @@ func TestChunkedInvalid(t *testing.T) {
 		if e == nil {
 			t.Fatalf("expected a panic")
 		}
-		if got, want := e.(string), "arrow/array: mismatch data type float64 vs int32"; got != want {
+		errStr, ok := e.(string)
+		if !ok {
+			err := e.(error)
+			errStr = err.Error()
+		}
+
+		if got, want := errStr, fmt.Sprintf("%s: arrow/array: mismatch data type float64 vs int32", arrow.ErrInvalid); got != want {
 			t.Fatalf("invalid error. got=%q, want=%q", got, want)
 		}
 	}()

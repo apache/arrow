@@ -150,7 +150,7 @@ func NewChunked(dtype DataType, chunks []Array) *Chunked {
 		}
 
 		if !TypeEqual(chunk.DataType(), dtype) {
-			panic(fmt.Sprintf("arrow/array: mismatch data type %s vs %s", chunk.DataType().String(), dtype.String()))
+			panic(fmt.Errorf("%w: arrow/array: mismatch data type %s vs %s", ErrInvalid, chunk.DataType().String(), dtype.String()))
 		}
 		chunk.Retain()
 		arr.chunks = append(arr.chunks, chunk)
