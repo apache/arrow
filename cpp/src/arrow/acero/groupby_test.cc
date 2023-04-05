@@ -39,13 +39,15 @@ TEST(GroupByConvenienceFunc, Basic) {
   ])"});
 
   // One key, two aggregates, same values array
-  std::shared_ptr<Table> expected =
-      TableFromJSON(schema({field("value_sum", int64()), field("value_count", int64()),
-                            field("key1", utf8())}),
-                    {R"([
-        [1, 1, "x"],
-        [5, 2, "y"],
-        [9, 2, "z"]
+  std::shared_ptr<Table> expected = TableFromJSON(schema({
+                                                      field("key1", utf8()),
+                                                      field("value_sum", int64()),
+                                                      field("value_count", int64()),
+                                                  }),
+                                                  {R"([
+        ["x", 1, 1],
+        ["y", 5, 2],
+        ["z", 9, 2]
     ])"});
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> actual,
                        TableGroupBy(in_table,
@@ -55,14 +57,14 @@ TEST(GroupByConvenienceFunc, Basic) {
   AssertTablesEqual(*expected, *actual);
 
   // Two keys, one aggregate
-  expected = TableFromJSON(schema({field("value_sum", int64()), field("key1", utf8()),
-                                   field("key2", int32())}),
+  expected = TableFromJSON(schema({field("key1", utf8()), field("key2", int32()),
+                                   field("value_sum", int64())}),
                            {
                                R"([
-        [1, "x", 1],
-        [2, "y", 1],
-        [3, "y", 2],
-        [9, "z", 2]
+        ["x", 1, 1],
+        ["y", 1, 2],
+        ["y", 2, 3],
+        ["z", 2, 9]
       ])"});
 
   ASSERT_OK_AND_ASSIGN(actual,
