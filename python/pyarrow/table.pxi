@@ -4879,11 +4879,11 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> table.group_by('year').aggregate([('n_legs', 'sum')])
         pyarrow.Table
-        n_legs_sum: int64
         year: int64
+        n_legs_sum: int64
         ----
-        n_legs_sum: [[2,6,104,5]]
         year: [[2020,2022,2021,2019]]
+        n_legs_sum: [[2,6,104,5]]
         """
         return TableGroupBy(self, keys)
 
@@ -5486,11 +5486,11 @@ class TableGroupBy:
 
     >>> pa.TableGroupBy(t,"keys").aggregate([("values", "sum")])
     pyarrow.Table
-    values_sum: int64
     keys: string
+    values_sum: int64
     ----
-    values_sum: [[3,7,5]]
     keys: [["a","b","c"]]
+    values_sum: [[3,7,5]]
     """
 
     def __init__(self, table, keys):
@@ -5536,21 +5536,21 @@ list[tuple(str, str, FunctionOptions)]
 
         >>> t.group_by("keys").aggregate([("values", "sum")])
         pyarrow.Table
-        values_sum: int64
         keys: string
+        values_sum: int64
         ----
-        values_sum: [[3,7,5]]
         keys: [["a","b","c"]]
+        values_sum: [[3,7,5]]
 
         Count the rows over the grouped column "keys":
 
         >>> t.group_by("keys").aggregate([([], "count_all")])
         pyarrow.Table
-        count_all: int64
         keys: string
+        count_all: int64
         ----
-        count_all: [[2,2,1]]
         keys: [["a","b","c"]]
+        count_all: [[2,2,1]]
 
         Do multiple aggregations:
 
@@ -5559,13 +5559,13 @@ list[tuple(str, str, FunctionOptions)]
         ...    ("keys", "count")
         ... ])
         pyarrow.Table
+        keys: string
         values_sum: int64
         keys_count: int64
-        keys: string
         ----
+        keys: [["a","b","c"]]
         values_sum: [[3,7,5]]
         keys_count: [[2,2,1]]
-        keys: [["a","b","c"]]
 
         Count the number of non-null values for column "values"
         over the grouped column "keys":
@@ -5575,11 +5575,11 @@ list[tuple(str, str, FunctionOptions)]
         ...    ("values", "count", pc.CountOptions(mode="only_valid"))
         ... ])
         pyarrow.Table
-        values_count: int64
         keys: string
+        values_count: int64
         ----
-        values_count: [[2,2,1]]
         keys: [["a","b","c"]]
+        values_count: [[2,2,1]]
 
         Get a single row for each group in column "keys":
 

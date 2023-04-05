@@ -181,9 +181,7 @@ implicit_schema <- function(.data) {
   } else {
     hash <- length(.data$group_by_vars) > 0
     # The output schema is based on the aggregations and any group_by vars.
-    # The group_by vars come first (this can't be done by summarize; they have
-    # to be last per the aggregate node signature, and they get projected to
-    # this order after aggregation)
+    # The group_by vars come first.
     new_fields <- c(
       group_types(.data, old_schm),
       aggregate_types(.data, hash, old_schm)

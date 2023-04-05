@@ -520,6 +520,7 @@ endif()
 if(ARROW_JSON)
   list(APPEND
        ARROW_SRCS
+       extension/fixed_shape_tensor.cc
        json/options.cc
        json/chunked_builder.cc
        json/chunker.cc
@@ -856,6 +857,7 @@ endif()
 
 if(ARROW_JSON)
   add_subdirectory(json)
+  add_subdirectory(extension)
 endif()
 
 if(ARROW_ORC)

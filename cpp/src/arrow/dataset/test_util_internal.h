@@ -156,7 +156,8 @@ using compute::project;
 using fs::internal::GetAbstractPathExtension;
 
 /// \brief Assert a dataset produces data with the schema
-void AssertDatasetHasSchema(std::shared_ptr<Dataset> ds, std::shared_ptr<Schema> schema) {
+inline void AssertDatasetHasSchema(std::shared_ptr<Dataset> ds,
+                                   std::shared_ptr<Schema> schema) {
   ASSERT_OK_AND_ASSIGN(auto scanner_builder, ds->NewScan());
   ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
   ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
@@ -191,7 +192,7 @@ std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
   return std::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
 }
 
-std::unique_ptr<RecordBatchReader> MakeGeneratedRecordBatch(
+inline std::unique_ptr<RecordBatchReader> MakeGeneratedRecordBatch(
     std::shared_ptr<Schema> schema, int64_t batch_size, int64_t batch_repetitions) {
   auto batch = random::GenerateBatch(schema->fields(), batch_size, /*seed=*/0);
   int64_t i = 0;
@@ -202,7 +203,7 @@ std::unique_ptr<RecordBatchReader> MakeGeneratedRecordBatch(
       });
 }
 
-void EnsureRecordBatchReaderDrained(RecordBatchReader* reader) {
+inline void EnsureRecordBatchReaderDrained(RecordBatchReader* reader) {
   ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
   EXPECT_EQ(batch, nullptr);
 }
@@ -438,7 +439,7 @@ struct TestFormatParams {
   }
 };
 
-std::ostream& operator<<(std::ostream& out, const TestFormatParams& params) {
+inline std::ostream& operator<<(std::ostream& out, const TestFormatParams& params) {
   out << params.ToString();
   return out;
 }
@@ -1744,13 +1745,14 @@ static std::vector<std::string> PathsOf(const FragmentVector& fragments) {
   return paths;
 }
 
-void AssertFilesAre(const std::shared_ptr<Dataset>& dataset,
-                    std::vector<std::string> expected) {
+inline void AssertFilesAre(const std::shared_ptr<Dataset>& dataset,
+                           std::vector<std::string> expected) {
   auto fs_dataset = checked_cast<FileSystemDataset*>(dataset.get());
   EXPECT_THAT(fs_dataset->files(), testing::UnorderedElementsAreArray(expected));
 }
 
-void AssertFragmentsAreFromPath(FragmentIterator it, std::vector<std::string> expected) {
+inline void AssertFragmentsAreFromPath(FragmentIterator it,
+                                       std::vector<std::string> expected) {
   // Ordering is not guaranteed.
   EXPECT_THAT(PathsOf(IteratorToVector(std::move(it))),
               testing::UnorderedElementsAreArray(expected));
@@ -1767,8 +1769,8 @@ static std::vector<compute::Expression> PartitionExpressionsOf(
   return partition_expressions;
 }
 
-void AssertFragmentsHavePartitionExpressions(std::shared_ptr<Dataset> dataset,
-                                             std::vector<compute::Expression> expected) {
+inline void AssertFragmentsHavePartitionExpressions(
+    std::shared_ptr<Dataset> dataset, std::vector<compute::Expression> expected) {
   ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset->GetFragments());
   // Ordering is not guaranteed.
   EXPECT_THAT(PartitionExpressionsOf(IteratorToVector(std::move(fragment_it))),

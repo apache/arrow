@@ -24,7 +24,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "arrow/acero/forest_internal.h"
+#include "arrow/dataset/forest_internal.h"
 #include "arrow/dataset/subtree_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/string.h"
