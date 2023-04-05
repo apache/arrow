@@ -1539,15 +1539,22 @@ cdef class FixedShapeTensorType(BaseExtensionType):
         """
         Explicit names of the dimensions.
         """
-        result_list = self.tensor_ext_type.dim_names()
-        return [frombytes(x) for x in result_list]
+        list_of_bytes = self.tensor_ext_type.dim_names()
+        if len(list_of_bytes) != 0:
+            return [frombytes(x) for x in list_of_bytes]
+        else:
+            return None
 
     @property
     def permutation(self):
         """
         Indices of the dimensions ordering.
         """
-        return self.tensor_ext_type.permutation()
+        indices = self.tensor_ext_type.permutation()
+        if len(indices) != 0:
+            return indices
+        else:
+            return None
 
     def __arrow_ext_serialize__(self):
         """
