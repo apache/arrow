@@ -714,15 +714,16 @@ def test_expression_arithmetic_operators():
 
 def test_partition_keys():
     a, b, c = [ds.field(f) == f for f in 'abc']
-    assert ds._get_partition_keys(a) == {'a': 'a'}
-    assert ds._get_partition_keys(a & b & c) == {f: f for f in 'abc'}
+    assert ds.get_partition_keys(a) == {'a': 'a'}
+    assert ds.get_partition_keys(a) == ds._get_partition_keys(a)
+    assert ds.get_partition_keys(a & b & c) == {f: f for f in 'abc'}
 
     nope = ds.field('d') >= 3
-    assert ds._get_partition_keys(nope) == {}
-    assert ds._get_partition_keys(a & nope) == {'a': 'a'}
+    assert ds.get_partition_keys(nope) == {}
+    assert ds.get_partition_keys(a & nope) == {'a': 'a'}
 
     null = ds.field('a').is_null()
-    assert ds._get_partition_keys(null) == {'a': None}
+    assert ds.get_partition_keys(null) == {'a': None}
 
 
 @pytest.mark.parquet
