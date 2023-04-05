@@ -3148,9 +3148,8 @@ class FixedShapeTensorArray(ExtensionArray):
         size = obj.size / obj.shape[0]
 
         return ExtensionArray.from_storage(
-            FixedShapeTensorType(arrow_type, shape),
-            array([t.flatten() for t in obj],
-                  list_(arrow_type, size))
+            fixedshapetensor(arrow_type, shape),
+            FixedSizeListArray.from_arrays(obj.flatten(), size)
         )
 
 
