@@ -313,7 +313,7 @@ func TestColumn(t *testing.T) {
 				return c
 			}(),
 			field: arrow.Field{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
-			err:   fmt.Errorf("arrow/array: inconsistent data type float64 vs float32"),
+			err:   fmt.Errorf("%w: arrow/array: inconsistent data type float64 vs float32", arrow.ErrInvalid),
 		},
 	} {
 		t.Run("", func(t *testing.T) {

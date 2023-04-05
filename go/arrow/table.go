@@ -69,7 +69,7 @@ type Column struct {
 // of the ref counting.
 func NewColumnFromArr(field Field, arr Array) Column {
 	if !TypeEqual(field.Type, arr.DataType()) {
-		panic(fmt.Sprintf("arrow/array: inconsistent data type %s vs %s", field.Type.String(), arr.DataType().String()))
+		panic(fmt.Errorf("%w: arrow/array: inconsistent data type %s vs %s", ErrInvalid, field.Type, arr.DataType()))
 	}
 
 	arr.Retain()
@@ -98,7 +98,7 @@ func NewColumn(field Field, chunks *Chunked) *Column {
 
 	if !StorageTypeEqual(col.data.DataType(), col.field.Type) {
 		col.data.Release()
-		panic(fmt.Sprintf("arrow/array: inconsistent data type %s vs %s", col.data.DataType().String(), col.field.Type.String()))
+		panic(fmt.Errorf("%w: arrow/array: inconsistent data type %s vs %s", ErrInvalid, col.data.DataType(), col.field.Type))
 	}
 
 	return &col
