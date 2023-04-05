@@ -41,6 +41,7 @@ using compute::ExecContext;
 /// \param[in] input_schema the schema of the input to the node
 /// \param[in] keys the grouping keys for the aggregation
 /// \param[in] segment_keys the segmenting keys for the aggregation
+/// \param[in] aggregates the aggregates for the aggregation
 /// \param[in] exec_ctx the execution context for the aggregation
 ARROW_ACERO_EXPORT Result<std::shared_ptr<Schema>> MakeOutputSchema(
     const Schema& input_schema, const std::vector<FieldRef>& keys,
