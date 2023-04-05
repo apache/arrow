@@ -1539,7 +1539,8 @@ cdef class FixedShapeTensorType(BaseExtensionType):
         """
         Explicit names of the dimensions.
         """
-        return self.tensor_ext_type.dim_names()
+        result_list = self.tensor_ext_type.dim_names()
+        return [frombytes(x) for x in result_list]
 
     @property
     def permutation(self):
@@ -4624,11 +4625,11 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
     ----------
     value_type : DataType
         Data type of individual tensor elements.
-    shape : tuple
+    shape : tuple or list of integers
         The physical shape of the contained tensors.
-    dim_names : tuple, default None
+    dim_names : tuple or list of strings, default None
         Explicit names to tensor dimensions.
-    permutation : tuple, default None
+    permutation : tuple or list integers, default None
         Indices of the desired ordering of the original dimensions.
 
     Examples

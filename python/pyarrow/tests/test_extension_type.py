@@ -25,7 +25,6 @@ import sys
 
 import numpy as np
 import pyarrow as pa
-from pyarrow.lib import tobytes
 
 import pytest
 
@@ -1151,7 +1150,7 @@ def test_tensor_type():
     assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
     assert tensor_type.storage_type == pa.list_(pa.bool_(), 12)
     assert tensor_type.shape == [2, 2, 3]
-    assert tensor_type.dim_names == [tobytes(x) for x in ['C', 'H', 'W']]
+    assert tensor_type.dim_names == ['C', 'H', 'W']
     assert not tensor_type.permutation
 
 
