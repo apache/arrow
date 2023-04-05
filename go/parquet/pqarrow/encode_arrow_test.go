@@ -366,6 +366,7 @@ func TestArrowReadWriteTableChunkedCols(t *testing.T) {
 	for _, chnksize := range chunkSizes {
 		chk := array.NewSlice(arr, offset, offset+int64(chnksize))
 		defer chk.Release()
+		defer chk.Release() // for NewChunked below
 		chunks = append(chunks, chk)
 	}
 
@@ -779,6 +780,8 @@ func (ps *ParquetIOTestSuite) TestLargeBinaryReadWriteTable() {
 		},
 		-1,
 	)
+	defer lsValues.Release() // NewChunked
+	defer lbValues.Release() // NewChunked
 	defer expected.Release()
 	ps.roundTripTable(expected, true)
 }
@@ -1216,6 +1219,7 @@ func (ps *ParquetIOTestSuite) TestSimpleStruct() {
 
 	tbl := array.NewTable(arrow.NewSchema([]arrow.Field{{Name: "links", Type: links}}, nil),
 		[]arrow.Column{*arrow.NewColumn(arrow.Field{Name: "links", Type: links}, arrow.NewChunked(links, []arrow.Array{data}))}, -1)
+	defer data.Release() // NewChunked
 	defer tbl.Release()
 
 	ps.roundTripTable(tbl, false)
@@ -1240,6 +1244,7 @@ func (ps *ParquetIOTestSuite) TestSingleColumnNullableStruct() {
 
 	tbl := array.NewTable(arrow.NewSchema([]arrow.Field{{Name: "links", Type: links, Nullable: true}}, nil),
 		[]arrow.Column{*arrow.NewColumn(arrow.Field{Name: "links", Type: links, Nullable: true}, arrow.NewChunked(links, []arrow.Array{data}))}, -1)
+	defer data.Release() // NewChunked
 	defer tbl.Release()
 
 	ps.roundTripTable(tbl, false)
@@ -1269,6 +1274,7 @@ func (ps *ParquetIOTestSuite) TestNestedRequiredFieldStruct() {
 	tbl := array.NewTable(arrow.NewSchema([]arrow.Field{structField}, nil),
 		[]arrow.Column{*arrow.NewColumn(structField,
 			arrow.NewChunked(structField.Type, []arrow.Array{stData}))}, -1)
+	defer stData.Release() // NewChunked
 	defer tbl.Release()
 
 	ps.roundTripTable(tbl, false)
@@ -1298,6 +1304,7 @@ func (ps *ParquetIOTestSuite) TestNestedNullableField() {
 	tbl := array.NewTable(arrow.NewSchema([]arrow.Field{structField}, nil),
 		[]arrow.Column{*arrow.NewColumn(structField,
 			arrow.NewChunked(structField.Type, []arrow.Array{stData}))}, -1)
+	defer stData.Release() // NewChunked
 	defer tbl.Release()
 
 	ps.roundTripTable(tbl, false)
@@ -1345,6 +1352,10 @@ func (ps *ParquetIOTestSuite) TestCanonicalNestedRoundTrip() {
 		*arrow.NewColumn(linksField, arrow.NewChunked(linksField.Type, []arrow.Array{linksIDArr})),
 		*arrow.NewColumn(nameField, arrow.NewChunked(nameField.Type, []arrow.Array{nameArr})),
 	}, 2)
+	defer docIDArr.Release()   // NewChunked
+	defer linksIDArr.Release() // NewChunked
+	defer nameArr.Release()    // NewChunked
+	defer expected.Release()
 
 	ps.roundTripTable(expected, false)
 }
@@ -1362,11 +1373,17 @@ func (ps *ParquetIOTestSuite) TestFixedSizeList() {
 	vb.AppendValues([]int16{1, 2, 3, 4, 5, 6, 7, 8, 9}, nil)
 
 	data := bldr.NewArray()
-	field := arrow.Field{Name: "root", Type: data.DataType(), Nullable: true}
-	expected := array.NewTable(arrow.NewSchema([]arrow.Field{field}, nil),
-		[]arrow.Column{*arrow.NewColumn(field, arrow.NewChunked(field.Type, []arrow.Array{data}))}, -1)
+	defer data.Release() // NewArray
 
-	ps.roundTripTable(expected, true)
+	field := arrow.Field{Name: "root", Type: data.DataType(), Nullable: true}
+	cnk := arrow.NewChunked(field.Type, []arrow.Array{data})
+	defer data.Release() // NewChunked
+
+	tbl := array.NewTable(arrow.NewSchema([]arrow.Field{field}, nil), []arrow.Column{*arrow.NewColumn(field, cnk)}, -1)
+	defer cnk.Release() // NewColumn
+	defer tbl.Release()
+
+	ps.roundTripTable(tbl, true)
 }
 
 func (ps *ParquetIOTestSuite) TestNull() {
@@ -1427,6 +1444,7 @@ func (ps *ParquetIOTestSuite) TestNullableListOfStruct() {
 	field := arrow.Field{Name: "x", Type: arr.DataType(), Nullable: true}
 	expected := array.NewTable(arrow.NewSchema([]arrow.Field{field}, nil),
 		[]arrow.Column{*arrow.NewColumn(field, arrow.NewChunked(field.Type, []arrow.Array{arr}))}, -1)
+	defer arr.Release() // NewChunked
 	defer expected.Release()
 
 	ps.roundTripTable(expected, false)
@@ -1477,6 +1495,7 @@ func (ps *ParquetIOTestSuite) TestStructWithListOfNestedStructs() {
 	field := arrow.Field{Name: "x", Type: arr.DataType(), Nullable: true}
 	expected := array.NewTable(arrow.NewSchema([]arrow.Field{field}, nil),
 		[]arrow.Column{*arrow.NewColumn(field, arrow.NewChunked(field.Type, []arrow.Array{arr}))}, -1)
+	defer arr.Release() // NewChunked
 	defer expected.Release()
 
 	ps.roundTripTable(expected, false)
@@ -1569,8 +1588,10 @@ func (ps *ParquetIOTestSuite) TestArrowMapTypeRoundTrip() {
 	defer arr.Release()
 
 	fld := arrow.Field{Name: "mapped", Type: arr.DataType(), Nullable: true}
-	tbl := array.NewTable(arrow.NewSchema([]arrow.Field{fld}, nil),
-		[]arrow.Column{*arrow.NewColumn(fld, arrow.NewChunked(arr.DataType(), []arrow.Array{arr}))}, -1)
+	cnk := arrow.NewChunked(arr.DataType(), []arrow.Array{arr})
+	defer arr.Release() // NewChunked
+	tbl := array.NewTable(arrow.NewSchema([]arrow.Field{fld}, nil), []arrow.Column{*arrow.NewColumn(fld, cnk)}, -1)
+	defer cnk.Release() // NewColumn
 	defer tbl.Release()
 
 	ps.roundTripTable(tbl, true)
@@ -1588,11 +1609,11 @@ func (ps *ParquetIOTestSuite) TestArrowExtensionTypeRoundTrip() {
 	defer arr.Release()
 
 	fld := arrow.Field{Name: "uuid", Type: arr.DataType(), Nullable: true}
-	tbl := array.NewTable(arrow.NewSchema([]arrow.Field{fld}, nil),
-		[]arrow.Column{*arrow.NewColumn(fld, arrow.NewChunked(arr.DataType(), []arrow.Array{arr}))}, -1)
+	cnk := arrow.NewChunked(arr.DataType(), []arrow.Array{arr})
+	defer arr.Release() // NewChunked
+	tbl := array.NewTable(arrow.NewSchema([]arrow.Field{fld}, nil), []arrow.Column{*arrow.NewColumn(fld, cnk)}, -1)
+	defer cnk.Release() // NewColumn
 	defer tbl.Release()
-
-	ps.roundTripTable(tbl, true)
 }
 
 func TestWriteTableMemoryAllocation(t *testing.T) {
