@@ -1136,14 +1136,14 @@ test_that("We don't add unnecessary ProjectNodes when aggregating", {
     0
   )
 
-  # 2 projections: one before, and one after in order to put grouping cols first
+  # Still just 1 projection
   expect_project_nodes(
     tab %>% group_by(lgl) %>% summarize(mean(int)),
-    2
+    1
   )
   expect_project_nodes(
     tab %>% count(lgl),
-    2
+    1
   )
 })
 

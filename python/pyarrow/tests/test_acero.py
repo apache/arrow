@@ -204,7 +204,7 @@ def test_aggregate_hash():
         table_source, Declaration("aggregate", aggr_opts)
     ])
     result = decl.to_table()
-    expected = pa.table({"count(a)": [1, 1], "b": ["foo", "bar"]})
+    expected = pa.table({"b": ["foo", "bar"], "count(a)": [1, 1]})
     assert result.equals(expected)
 
     # specify function options
@@ -215,7 +215,7 @@ def test_aggregate_hash():
         table_source, Declaration("aggregate", aggr_opts)
     ])
     result = decl.to_table()
-    expected_all = pa.table({"count(a)": [2, 1], "b": ["foo", "bar"]})
+    expected_all = pa.table({"b": ["foo", "bar"], "count(a)": [2, 1]})
     assert result.equals(expected_all)
 
     # specify keys as field references
