@@ -210,6 +210,48 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
     }
   }
 
+  {
+    // This test ensures that iteration over merged(left, right) leads to the same
+    // result as iteration over merged(right, left) both forward and in reverse order.
+    ARROW_SCOPED_TRACE("iterate over merged(right, left)");
+    size_t i = 0;
+    size_t logical_pos = 0;
+    auto it = MergedRunsIterator(right_ree_span, left_ree_span);
+    ASSERT_EQ(it.logical_position(), 0);
+    ASSERT_TRUE(it.is_begin());
+    ASSERT_FALSE(it.is_end());
+    ASSERT_EQ(&it.left(), &right_ree_span);
+    ASSERT_EQ(&it.right(), &left_ree_span);
+    for (; !it.is_end(); ++it, ++i) {
+      ASSERT_EQ(it.run_length(), expected_run_lengths[i]);
+      ASSERT_EQ(it.index_into_left_array(), expected_right_visits[i]);
+      ASSERT_EQ(it.index_into_right_array(), expected_left_visits[i]);
+      ASSERT_EQ(it.logical_position(), logical_pos);
+      logical_pos += it.run_length();
+    }
+    ASSERT_EQ(i, expected_run_lengths.size());
+    {
+      ARROW_SCOPED_TRACE("in reverse order");
+      auto it =
+          MergedRunsIterator<decltype(right_ree_span), decltype(left_ree_span)>::MakeEnd(
+              right_ree_span, left_ree_span)
+              .ValueOrDie();
+      ASSERT_EQ(it.logical_position(), left_ree_span.length());
+      ASSERT_TRUE(it.is_end());
+      ASSERT_EQ(&it.left(), &right_ree_span);
+      ASSERT_EQ(&it.right(), &left_ree_span);
+      while (!it.is_begin()) {
+        --it;
+        --i;
+        ASSERT_EQ(it.run_length(), expected_run_lengths[i]);
+        ASSERT_EQ(it.index_into_left_array(), expected_right_visits[i]);
+        ASSERT_EQ(it.index_into_right_array(), expected_left_visits[i]);
+        logical_pos -= it.run_length();
+        ASSERT_EQ(it.logical_position(), logical_pos);
+      }
+    }
+  }
+
   const int32_t left_only_run_lengths[] = {5, 10, 5, 5, 25};
   {
     ARROW_SCOPED_TRACE("iterate over merged(left, left)");
