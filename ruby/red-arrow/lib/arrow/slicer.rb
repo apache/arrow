@@ -164,7 +164,8 @@ module Arrow
       end
 
       def match_substring(substring, ignore_case: false)
-        MatchSubstringCondition.new(@column, substring, ignore_case)
+        MatchSubstringFamilyCondition.new("match_substring",
+                                          @column, substring, ignore_case)
       end
     end
 
@@ -356,8 +357,9 @@ module Arrow
       end
     end
 
-    class MatchSubstringCondition < Condition
-      def initialize(column, substring, ignore_case)
+    class MatchSubstringFamilyCondition < Condition
+      def initialize(function, column, substring, ignore_case)
+        @function = function
         @column = column
         @options = MatchSubstringOptions.new
         @options.pattern = substring
@@ -365,7 +367,10 @@ module Arrow
       end
 
       def evaluate
-        Function.find("match_substring").execute([@column.data], @options).value
+        case @function
+        when "match_substring"
+          Function.find("match_substring").execute([@column.data], @options).value
+        end
       end
     end
   end
