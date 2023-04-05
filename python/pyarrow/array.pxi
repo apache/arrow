@@ -3128,6 +3128,7 @@ class FixedShapeTensorArray(ExtensionArray):
       ]
     ]
     """
+
     def to_numpy_ndarray(self):
         """
         Convert fixed shape tensor extension array to a numpy array (with dim+1).
