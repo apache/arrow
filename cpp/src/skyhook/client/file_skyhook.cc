@@ -19,7 +19,7 @@
 #include "skyhook/protocol/rados_protocol.h"
 #include "skyhook/protocol/skyhook_protocol.h"
 
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/file_parquet.h"

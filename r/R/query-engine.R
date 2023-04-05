@@ -101,7 +101,11 @@ ExecPlan <- R6Class("ExecPlan",
         # plus group_by_vars (last)
         # TODO: validate that none of names(aggregations) are the same as names(group_by_vars)
         # dplyr does not error on this but the result it gives isn't great
-        node <- node$Project(summarize_projection(.data))
+        projection <- summarize_projection(.data)
+        # skip projection if no grouping and all aggregate functions are nullary
+        if (length(projection)) {
+          node <- node$Project(projection)
+        }
 
         if (grouped) {
           # We need to prefix all of the aggregation function names with "hash_"
@@ -112,9 +116,9 @@ ExecPlan <- R6Class("ExecPlan",
         }
 
         .data$aggregations <- imap(.data$aggregations, function(x, name) {
-          # Embed the name inside the aggregation objects. `target` and `name`
-          # are the same because we just Project()ed the data that way above
-          x[["name"]] <- x[["target"]] <- name
+          # Embed `name` and `targets` inside the aggregation objects
+          x[["name"]] <- name
+          x[["targets"]] <- aggregate_target_names(x$data, name)
           x
         })
 
@@ -123,20 +127,13 @@ ExecPlan <- R6Class("ExecPlan",
           key_names = group_vars
         )
 
-        if (grouped) {
-          # The result will have result columns first then the grouping cols.
-          # dplyr orders group cols first, so adapt the result to meet that expectation.
-          node <- node$Project(
-            make_field_refs(c(group_vars, names(.data$aggregations)))
+        if (grouped && getOption("arrow.summarise.sort", FALSE)) {
+          # Add sorting instructions for the rows too to match dplyr
+          # (see below about why sorting isn't itself a Node)
+          node$extras$sort <- list(
+            names = group_vars,
+            orders = rep(0L, length(group_vars))
           )
-          if (getOption("arrow.summarise.sort", FALSE)) {
-            # Add sorting instructions for the rows too to match dplyr
-            # (see below about why sorting isn't itself a Node)
-            node$extras$sort <- list(
-              names = group_vars,
-              orders = rep(0L, length(group_vars))
-            )
-          }
         }
       } else {
         # If any columns are derived, reordered, or renamed we need to Project

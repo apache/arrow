@@ -207,7 +207,8 @@ gchar *
 garrow_datum_to_string(GArrowDatum *datum)
 {
   const auto &arrow_datum = garrow_datum_get_raw(datum);
-  return g_strdup(arrow_datum.ToString().c_str());
+  const auto string = arrow_datum.ToString();
+  return g_strdup(string.c_str());
 }
 
 

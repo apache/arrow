@@ -1327,6 +1327,54 @@ TEST_F(TestConvertRoundTrip, FieldIdPreserveExisting) {
   ASSERT_EQ(thrift_field_ids, expected_field_ids);
 }
 
+TEST_F(TestConvertRoundTrip, FieldIdPreserveAllColumnTypes) {
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+  arrow_fields.push_back(::arrow::field("c1", INT32, true, FieldIdMetadata(2)));
+  arrow_fields.push_back(::arrow::field("c2", DOUBLE, true, FieldIdMetadata(4)));
+  arrow_fields.push_back(::arrow::field("c3", DECIMAL_8_4, true, FieldIdMetadata(6)));
+  arrow_fields.push_back(::arrow::field("c4", UTF8, true, FieldIdMetadata(8)));
+
+  auto inner_struct =
+      ::arrow::struct_({::arrow::field("c5_1_1", UTF8, true, FieldIdMetadata(14))});
+  arrow_fields.push_back(::arrow::field(
+      "c5",
+      ::arrow::struct_({::arrow::field("c5_1", inner_struct, true, FieldIdMetadata(12)),
+                        ::arrow::field("c5_2", INT64, true, FieldIdMetadata(16))}),
+      true, FieldIdMetadata(10)));
+
+  auto list_element = ::arrow::field("c6_1", UTF8, true, FieldIdMetadata(20));
+  arrow_fields.push_back(::arrow::field("c6", ::arrow::list(std::move(list_element)),
+                                        true, FieldIdMetadata(18)));
+
+  auto map_key = ::arrow::field("c7_1", UTF8, false, FieldIdMetadata(24));
+  auto map_value = ::arrow::field("c7_2", UTF8, true, FieldIdMetadata(26));
+  arrow_fields.push_back(::arrow::field(
+      "c7", std::make_shared<::arrow::MapType>(std::move(map_key), std::move(map_value)),
+      true, FieldIdMetadata(22)));
+
+  ASSERT_OK(RoundTripSchema(arrow_fields));
+  auto field_ids = GetFieldIdsDfs(result_schema_->fields());
+  // c7 field is an arrow map type which is in fact list<struct<key_field, value_field>>
+  // and the middle struct type does not have field-id.
+  auto expected_field_ids =
+      std::vector<int>{2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, -1, 24, 26};
+  ASSERT_EQ(field_ids, expected_field_ids);
+
+  // Parquet has a field id for the schema itself.
+  // c6 field is a three-level list type where the middle level does not have field-id
+  // c7 field is a map type which in turn is a three-level list type, too.
+  expected_field_ids =
+      std::vector<int>{-1, 2, 4, 6, 8, 10, 12, 14, 16, 18, -1, 20, 22, -1, 24, 26};
+  auto parquet_ids = GetParquetFieldIds(parquet_schema_);
+  ASSERT_EQ(parquet_ids, expected_field_ids);
+
+  // In our unit test a "not set" thrift field has a value of 0
+  expected_field_ids =
+      std::vector<int>{0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 0, 20, 22, 0, 24, 26};
+  auto thrift_field_ids = GetThriftFieldIds(parquet_format_schema_);
+  ASSERT_EQ(thrift_field_ids, expected_field_ids);
+}
+
 TEST(InvalidSchema, ParquetNegativeDecimalScale) {
   const auto& type = ::arrow::decimal(23, -2);
   const auto& field = ::arrow::field("f0", type);

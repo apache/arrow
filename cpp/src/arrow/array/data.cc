@@ -157,6 +157,11 @@ void ArraySpan::SetMembers(const ArrayData& data) {
   }
 
   Type::type type_id = this->type->id();
+  if (type_id == Type::EXTENSION) {
+    const ExtensionType* ext_type = checked_cast<const ExtensionType*>(this->type);
+    type_id = ext_type->storage_type()->id();
+  }
+
   if (data.buffers[0] == nullptr && type_id != Type::NA &&
       type_id != Type::SPARSE_UNION && type_id != Type::DENSE_UNION) {
     // This should already be zero but we make for sure
@@ -168,7 +173,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
     this->buffers[i] = {};
   }
 
-  if (this->type->id() == Type::DICTIONARY) {
+  if (type_id == Type::DICTIONARY) {
     this->child_data.resize(1);
     this->child_data[0].SetMembers(*data.dictionary);
   } else {
@@ -196,6 +201,8 @@ int GetNumBuffers(const DataType& type) {
     case Type::STRUCT:
     case Type::FIXED_SIZE_LIST:
       return 1;
+    case Type::RUN_END_ENCODED:
+      return 0;
     case Type::BINARY:
     case Type::LARGE_BINARY:
     case Type::STRING:
@@ -231,10 +238,17 @@ void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
     span->buffers[i] = {};
   }
 
-  // Fill children
-  span->child_data.resize(type->num_fields());
-  for (int i = 0; i < type->num_fields(); ++i) {
-    FillZeroLengthArray(type->field(i)->type().get(), &span->child_data[i]);
+  if (type->id() == Type::DICTIONARY) {
+    span->child_data.resize(1);
+    const std::shared_ptr<DataType>& value_type =
+        checked_cast<const DictionaryType*>(type)->value_type();
+    FillZeroLengthArray(value_type.get(), &span->child_data[0]);
+  } else {
+    // Fill children
+    span->child_data.resize(type->num_fields());
+    for (int i = 0; i < type->num_fields(); ++i) {
+      FillZeroLengthArray(type->field(i)->type().get(), &span->child_data[i]);
+    }
   }
 }
 
@@ -403,16 +417,20 @@ std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
     result->buffers.emplace_back(this->GetBuffer(i));
   }
 
-  if (this->type->id() == Type::NA) {
+  Type::type type_id = this->type->id();
+  if (type_id == Type::EXTENSION) {
+    const ExtensionType* ext_type = checked_cast<const ExtensionType*>(this->type);
+    type_id = ext_type->storage_type()->id();
+  }
+
+  if (type_id == Type::NA) {
     result->null_count = this->length;
   } else if (this->buffers[0].data == nullptr) {
     // No validity bitmap, so the null count is 0
     result->null_count = 0;
   }
 
-  // TODO(wesm): what about extension arrays?
-
-  if (this->type->id() == Type::DICTIONARY) {
+  if (type_id == Type::DICTIONARY) {
     result->dictionary = this->dictionary().ToArrayData();
   } else {
     // Emit children, too
@@ -428,7 +446,7 @@ std::shared_ptr<Array> ArraySpan::ToArray() const {
 }
 
 // ----------------------------------------------------------------------
-// Implement ArrayData::View
+// Implement internal::GetArrayView
 
 namespace {
 

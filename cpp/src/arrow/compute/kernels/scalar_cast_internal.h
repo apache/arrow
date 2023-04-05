@@ -20,7 +20,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"           // IWYU pragma: export
 #include "arrow/compute/cast_internal.h"  // IWYU pragma: export
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 
 namespace arrow {

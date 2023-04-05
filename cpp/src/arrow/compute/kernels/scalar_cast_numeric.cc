@@ -18,7 +18,7 @@
 // Implementation of casting to integer, floating point, or decimal types
 
 #include "arrow/array/builder_primitive.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/scalar.h"
@@ -44,13 +44,13 @@ Status CastIntegerToInteger(KernelContext* ctx, const ExecSpan& batch, ExecResul
     RETURN_NOT_OK(IntegersCanFit(batch[0].array, *out->type()));
   }
   CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0].array,
-                           out->array_span());
+                           out->array_span_mutable());
   return Status::OK();
 }
 
 Status CastFloatingToFloating(KernelContext*, const ExecSpan& batch, ExecResult* out) {
   CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0].array,
-                           out->array_span());
+                           out->array_span_mutable());
   return Status::OK();
 }
 
@@ -161,7 +161,7 @@ Status CheckFloatToIntTruncation(const ExecValue& input, const ExecResult& outpu
 Status CastFloatingToInteger(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const auto& options = checked_cast<const CastState*>(ctx->state())->options;
   CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0].array,
-                           out->array_span());
+                           out->array_span_mutable());
   if (!options.allow_float_truncate) {
     RETURN_NOT_OK(CheckFloatToIntTruncation(batch[0], *out));
   }
@@ -245,7 +245,7 @@ Status CastIntegerToFloating(KernelContext* ctx, const ExecSpan& batch, ExecResu
     RETURN_NOT_OK(CheckForIntegerToFloatingTruncation(batch[0], out_type));
   }
   CastNumberToNumberUnsafe(batch[0].type()->id(), out_type, batch[0].array,
-                           out->array_span());
+                           out->array_span_mutable());
   return Status::OK();
 }
 

@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['6.0.x']
+        dotnet: ['7.0.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v2
@@ -74,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['6.0.x']
+        dotnet: ['7.0.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v2
@@ -101,7 +101,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['6.0.x']
+        dotnet: ['7.0.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v2

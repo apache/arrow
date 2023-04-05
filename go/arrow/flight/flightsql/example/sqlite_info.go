@@ -20,8 +20,8 @@
 package example
 
 import (
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
 )
 
 func SqlInfoResultMap() flightsql.SqlInfoResultMap {
@@ -38,6 +38,8 @@ func SqlInfoResultMap() flightsql.SqlInfoResultMap {
 		uint32(flightsql.SqlInfoQuotedIdentifierCase):        int64(flightsql.SqlCaseSensitivityCaseInsensitive),
 		uint32(flightsql.SqlInfoAllTablesAreASelectable):     true,
 		uint32(flightsql.SqlInfoNullOrdering):                int64(flightsql.SqlNullOrderingSortAtStart),
+		uint32(flightsql.SqlInfoFlightSqlServerTransaction):  int32(flightsql.SqlTransactionTransaction),
+		uint32(flightsql.SqlInfoTransactionsSupported):       true,
 		uint32(flightsql.SqlInfoKeywords): []string{"ABORT",
 			"ACTION",
 			"ADD",

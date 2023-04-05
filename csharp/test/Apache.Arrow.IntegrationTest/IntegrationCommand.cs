@@ -119,9 +119,9 @@ namespace Apache.Arrow.IntegrationTest
 
         private RecordBatch CreateRecordBatch(Schema schema, JsonRecordBatch jsonRecordBatch)
         {
-            if (schema.Fields.Count != jsonRecordBatch.Columns.Count)
+            if (schema.FieldsList.Count != jsonRecordBatch.Columns.Count)
             {
-                throw new NotSupportedException($"jsonRecordBatch.Columns.Count '{jsonRecordBatch.Columns.Count}' doesn't match schema field count '{schema.Fields.Count}'");
+                throw new NotSupportedException($"jsonRecordBatch.Columns.Count '{jsonRecordBatch.Columns.Count}' doesn't match schema field count '{schema.FieldsList.Count}'");
             }
 
             List<IArrowArray> arrays = new List<IArrowArray>(jsonRecordBatch.Columns.Count);

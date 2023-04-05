@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
@@ -204,10 +207,8 @@ public class TestApplicationMetadata {
   public void testMetadataEndianness() throws Exception {
     try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
          final BufferAllocator serverAllocator = allocator.newChildAllocator("flight-server", 0, Long.MAX_VALUE);
-         final FlightServer server = FlightTestUtil.getStartedServer(
-             (location) -> FlightServer
-                 .builder(serverAllocator, location, new EndianFlightProducer(serverAllocator))
-                 .build());
+         final FlightServer server = FlightServer.builder(serverAllocator, forGrpcInsecure(LOCALHOST, 0),
+             new EndianFlightProducer(serverAllocator)).build().start();
          final FlightClient client = FlightClient.builder(allocator, server.getLocation()).build()) {
       final Schema schema = new Schema(Collections.emptyList());
       final FlightDescriptor descriptor = FlightDescriptor.command(new byte[0]);
@@ -228,10 +229,9 @@ public class TestApplicationMetadata {
 
   private void test(BiConsumer<BufferAllocator, FlightClient> fun) {
     try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-        final FlightServer s =
-            FlightTestUtil.getStartedServer(
-                (location) -> FlightServer.builder(allocator, location, new MetadataFlightProducer(allocator)).build());
-        final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
+         final FlightServer s = FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0),
+             new MetadataFlightProducer(allocator)).build().start();
+         final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
       fun.accept(allocator, client);
     } catch (Exception e) {
       throw new RuntimeException(e);

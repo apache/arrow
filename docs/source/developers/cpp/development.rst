@@ -116,7 +116,7 @@ what files/lines need to be fixed, if any.
 In order to account for variations in the behavior of ``clang-format`` between
 major versions of LLVM, we pin the version of ``clang-format`` used. You can
 confirm the current pinned version by finding the ``CLANG_TOOLS`` variable
-value in `.env <https://github.com/apache/arrow/blob/master/.env>`_. Note that
+value in `.env <https://github.com/apache/arrow/blob/main/.env>`_. Note that
 the version must match exactly; a newer version (even a patch release) will
 not work. LLVM can be installed through a system package manager or a package
 manager like Conda or Homebrew, though note they may not offer the exact
@@ -198,7 +198,6 @@ in a new out-of-source CMake build directory like so:
      -DARROW_HDFS=ON \
      -DARROW_JSON=ON \
      -DARROW_PARQUET=ON \
-     -DARROW_PLASMA=ON \
      -DARROW_S3=ON \
      -DARROW_WITH_BROTLI=ON \
      -DARROW_WITH_BZ2=ON \

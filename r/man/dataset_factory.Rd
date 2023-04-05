@@ -80,7 +80,7 @@ yourself).
 }}
 
 \item{...}{Additional format-specific options, passed to
-\code{FileFormat$create()}. For CSV options, note that you can specify them either
+\code{\link[=FileFormat]{FileFormat$create()}}. For CSV options, note that you can specify them either
 with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
 \code{readr}-style naming used in \code{\link[=read_csv_arrow]{read_csv_arrow()}} ("delim", "quote", etc.).
 Not all \code{readr} options are currently supported; please file an issue if you

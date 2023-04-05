@@ -126,3 +126,12 @@ parameters are:
    * - useSystemTrustStore
      - true
      - When TLS is enabled, whether to use the system certificate store
+
+Any URI parameters that are not handled by the driver are passed to
+the Flight SQL service as gRPC headers. For example, the following URI ::
+
+  jdbc:arrow-flight-sql://localhost:12345/?useEncryption=0&database=mydb
+
+This will connect without authentication or encryption, to a Flight
+SQL service running on ``localhost`` on port 12345. Each request will
+also include a `database=mydb` gRPC header.

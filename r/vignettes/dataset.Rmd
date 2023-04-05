@@ -68,7 +68,15 @@ In the case of text files, you can pass the following parsing options to `open_d
 * `escape_backslash`
 * `skip_empty_rows`
 
-For more information on these arguments and on parsing delimited text files generally, see the help documentation for `read_delim_arrow()`.
+An alternative when working with text files is to use `open_delim_dataset()`, `open_csv_dataset()`, or `open_tsv_dataset()`.  These functions are wrappers around `open_dataset()` but with parameters that mirror `read_csv_arrow()`, `read_delim_arrow()`, and `read_tsv_arrow()` to allow for easy switching between functions for opening single files and functions for opening datasets.
+
+For example:
+
+```r
+ds <- open_csv_dataset("nyc-taxi/csv/")
+```
+
+For more information on these arguments and on parsing delimited text files generally, see the help documentation for `read_delim_arrow()` and `open_delim_dataset()`.
 
 Next, what information does `open_dataset()` expect to find in the file paths? By default, the Dataset interface looks for  [Hive](https://hive.apache.org/)-style partitioning structure in which folders are named using a "key=value" convention, and data files in a folder contain the subset of the data for which the key has the relevant value. For example, in the NYC taxi data file paths look like this:
 

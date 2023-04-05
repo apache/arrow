@@ -31,7 +31,7 @@ except ImportError:
 
 try:
     # This function is available after numpy-0.16.0.
-    # See also: https://github.com/numpy/numpy/blob/master/numpy/lib/format.py
+    # See also: https://github.com/numpy/numpy/blob/main/numpy/lib/format.py
     from numpy.lib.format import descr_to_dtype
 except ImportError:
     def descr_to_dtype(descr):

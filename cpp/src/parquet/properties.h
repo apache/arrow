@@ -111,12 +111,18 @@ class PARQUET_EXPORT ReaderProperties {
     return file_decryption_properties_;
   }
 
+  bool page_checksum_verification() const { return page_checksum_verification_; }
+  void set_page_checksum_verification(bool check_crc) {
+    page_checksum_verification_ = check_crc;
+  }
+
  private:
   MemoryPool* pool_;
   int64_t buffer_size_ = kDefaultBufferSize;
   int32_t thrift_string_size_limit_ = kDefaultThriftStringSizeLimit;
   int32_t thrift_container_size_limit_ = kDefaultThriftContainerSizeLimit;
   bool buffered_stream_enabled_ = false;
+  bool page_checksum_verification_ = false;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };
 
@@ -126,7 +132,7 @@ static constexpr int64_t kDefaultDataPageSize = 1024 * 1024;
 static constexpr bool DEFAULT_IS_DICTIONARY_ENABLED = true;
 static constexpr int64_t DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT = kDefaultDataPageSize;
 static constexpr int64_t DEFAULT_WRITE_BATCH_SIZE = 1024;
-static constexpr int64_t DEFAULT_MAX_ROW_GROUP_LENGTH = 64 * 1024 * 1024;
+static constexpr int64_t DEFAULT_MAX_ROW_GROUP_LENGTH = 1024 * 1024;
 static constexpr bool DEFAULT_ARE_STATISTICS_ENABLED = true;
 static constexpr int64_t DEFAULT_MAX_STATISTICS_SIZE = 4096;
 static constexpr Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
@@ -201,7 +207,8 @@ class PARQUET_EXPORT WriterProperties {
           version_(ParquetVersion::PARQUET_2_4),
           data_page_version_(ParquetDataPageVersion::V1),
           created_by_(DEFAULT_CREATED_BY),
-          integer_annotate_decimal_(false) {}
+          store_decimal_as_integer_(false),
+          page_checksum_enabled_(false) {}
     virtual ~Builder() {}
 
     /// Specify the memory pool for the writer. Default default_memory_pool.
@@ -257,8 +264,8 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Specify the max row group length.
-    /// Default 64M.
+    /// Specify the max number of rows to put in a single row group.
+    /// Default 1Mi rows.
     Builder* max_row_group_length(int64_t max_row_group_length) {
       max_row_group_length_ = max_row_group_length;
       return this;
@@ -287,6 +294,16 @@ class PARQUET_EXPORT WriterProperties {
 
     Builder* created_by(const std::string& created_by) {
       created_by_ = created_by;
+      return this;
+    }
+
+    Builder* enable_page_checksum() {
+      page_checksum_enabled_ = true;
+      return this;
+    }
+
+    Builder* disable_page_checksum() {
+      page_checksum_enabled_ = false;
       return this;
     }
 
@@ -452,19 +469,35 @@ class PARQUET_EXPORT WriterProperties {
       return this->disable_statistics(path->ToDotString());
     }
 
-    /// Enable integer type to annotate decimal type as below:
-    ///   int32: 1 <= precision <= 9
-    ///   int64: 10 <= precision <= 18
-    /// Default disabled.
-    Builder* enable_integer_annotate_decimal() {
-      integer_annotate_decimal_ = true;
+    /// Allow decimals with 1 <= precision <= 18 to be stored as integers.
+    ///
+    /// In Parquet, DECIMAL can be stored in any of the following physical types:
+    /// - int32: for 1 <= precision <= 9.
+    /// - int64: for 10 <= precision <= 18.
+    /// - fixed_len_byte_array: precision is limited by the array size.
+    ///   Length n can store <= floor(log_10(2^(8*n - 1) - 1)) base-10 digits.
+    /// - binary: precision is unlimited. The minimum number of bytes to store
+    ///   the unscaled value is used.
+    ///
+    /// By default, this is DISABLED and all decimal types annotate fixed_len_byte_array.
+    ///
+    /// When enabled, the C++ writer will use following physical types to store decimals:
+    /// - int32: for 1 <= precision <= 9.
+    /// - int64: for 10 <= precision <= 18.
+    /// - fixed_len_byte_array: for precision > 18.
+    ///
+    /// As a consequence, decimal columns stored in integer types are more compact.
+    Builder* enable_store_decimal_as_integer() {
+      store_decimal_as_integer_ = true;
       return this;
     }
 
-    /// Disable integer type to annotate decimal type.
+    /// Disable decimal logical type with 1 <= precision <= 18 to be stored as
+    /// integer physical type.
+    ///
     /// Default disabled.
-    Builder* disable_integer_annotate_decimal() {
-      integer_annotate_decimal_ = false;
+    Builder* disable_store_decimal_as_integer() {
+      store_decimal_as_integer_ = false;
       return this;
     }
 
@@ -491,9 +524,9 @@ class PARQUET_EXPORT WriterProperties {
 
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
-          pagesize_, version_, created_by_, std::move(file_encryption_properties_),
-          default_column_properties_, column_properties, data_page_version_,
-          integer_annotate_decimal_));
+          pagesize_, version_, created_by_, page_checksum_enabled_,
+          std::move(file_encryption_properties_), default_column_properties_,
+          column_properties, data_page_version_, store_decimal_as_integer_));
     }
 
    private:
@@ -505,7 +538,8 @@ class PARQUET_EXPORT WriterProperties {
     ParquetVersion::type version_;
     ParquetDataPageVersion data_page_version_;
     std::string created_by_;
-    bool integer_annotate_decimal_;
+    bool store_decimal_as_integer_;
+    bool page_checksum_enabled_;
 
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
@@ -536,7 +570,9 @@ class PARQUET_EXPORT WriterProperties {
 
   inline std::string created_by() const { return parquet_created_by_; }
 
-  inline bool integer_annotate_decimal() const { return integer_annotate_decimal_; }
+  inline bool store_decimal_as_integer() const { return store_decimal_as_integer_; }
+
+  inline bool page_checksum_enabled() const { return page_checksum_enabled_; }
 
   inline Encoding::type dictionary_index_encoding() const {
     if (parquet_version_ == ParquetVersion::PARQUET_1_0) {
@@ -602,11 +638,11 @@ class PARQUET_EXPORT WriterProperties {
   explicit WriterProperties(
       MemoryPool* pool, int64_t dictionary_pagesize_limit, int64_t write_batch_size,
       int64_t max_row_group_length, int64_t pagesize, ParquetVersion::type version,
-      const std::string& created_by,
+      const std::string& created_by, bool page_write_checksum_enabled,
       std::shared_ptr<FileEncryptionProperties> file_encryption_properties,
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
-      ParquetDataPageVersion data_page_version, bool integer_annotate_decimal)
+      ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -615,7 +651,8 @@ class PARQUET_EXPORT WriterProperties {
         parquet_data_page_version_(data_page_version),
         parquet_version_(version),
         parquet_created_by_(created_by),
-        integer_annotate_decimal_(integer_annotate_decimal),
+        store_decimal_as_integer_(store_short_decimal_as_integer),
+        page_checksum_enabled_(page_write_checksum_enabled),
         file_encryption_properties_(file_encryption_properties),
         default_column_properties_(default_column_properties),
         column_properties_(column_properties) {}
@@ -628,7 +665,8 @@ class PARQUET_EXPORT WriterProperties {
   ParquetDataPageVersion parquet_data_page_version_;
   ParquetVersion::type parquet_version_;
   std::string parquet_created_by_;
-  bool integer_annotate_decimal_;
+  bool store_decimal_as_integer_;
+  bool page_checksum_enabled_;
 
   std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 

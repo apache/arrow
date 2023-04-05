@@ -165,7 +165,7 @@ struct IfElseNullPromoter {
   }
 
   Status ExecIntoArraySpan() {
-    ArraySpan* out_span = output->array_span();
+    ArraySpan* out_span = output->array_span_mutable();
 
     // cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
     // In the following cases, we dont need to allocate out_valid bitmap
@@ -375,7 +375,7 @@ Status RunIfElseScalar(const BooleanScalar& cond, const ExecValue& left,
                        const CopyArrayData& copy_array_data,
                        const BroadcastScalar& broadcast_scalar) {
   // either left or right is an array. Output is always an array`
-  ArraySpan* out_array = out->array_span();
+  ArraySpan* out_array = out->array_span_mutable();
   if (!cond.is_valid) {
     // cond is null; output is all null --> clear validity buffer
     bit_util::ClearBitmap(out_array->buffers[0].data, out_array->offset,
@@ -450,7 +450,7 @@ struct IfElseFunctor<Type,
   //  AAA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const ArraySpan& right, ExecResult* out) {
-    T* out_values = out->array_span()->GetValues<T>(1);
+    T* out_values = out->array_span_mutable()->GetValues<T>(1);
 
     // copy right data to out_buff
     std::memcpy(out_values, right.GetValues<T>(1), right.length * sizeof(T));
@@ -468,7 +468,7 @@ struct IfElseFunctor<Type,
   // ASA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const ArraySpan& right, ExecResult* out) {
-    T* out_values = out->array_span()->GetValues<T>(1);
+    T* out_values = out->array_span_mutable()->GetValues<T>(1);
 
     // copy right data to out_buff
     std::memcpy(out_values, right.GetValues<T>(1), right.length * sizeof(T));
@@ -491,7 +491,7 @@ struct IfElseFunctor<Type,
   // AAS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const Scalar& right, ExecResult* out) {
-    T* out_values = out->array_span()->GetValues<T>(1);
+    T* out_values = out->array_span_mutable()->GetValues<T>(1);
 
     // copy left data to out_buff
     const T* left_data = left.GetValues<T>(1);
@@ -514,7 +514,7 @@ struct IfElseFunctor<Type,
   // ASS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const Scalar& right, ExecResult* out) {
-    T* out_values = out->array_span()->GetValues<T>(1);
+    T* out_values = out->array_span_mutable()->GetValues<T>(1);
 
     // copy right data to out_buff
     T right_data = internal::UnboxScalar<Type>::Unbox(right);
@@ -557,7 +557,7 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // AAA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const ArraySpan& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
     // out_buff = right & ~cond
     arrow::internal::BitmapAndNot(right.buffers[1].data, right.offset,
                                   cond.buffers[1].data, cond.offset, cond.length,
@@ -578,7 +578,7 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // ASA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const ArraySpan& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     // out_buff = right & ~cond
     arrow::internal::BitmapAndNot(right.buffers[1].data, right.offset,
@@ -599,7 +599,7 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // AAS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const Scalar& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     // out_buff = left & cond
     arrow::internal::BitmapAnd(left.buffers[1].data, left.offset, cond.buffers[1].data,
@@ -621,7 +621,7 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // ASS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const Scalar& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     bool left_data = internal::UnboxScalar<BooleanType>::Unbox(left);
     bool right_data = internal::UnboxScalar<BooleanType>::Unbox(right);
@@ -889,7 +889,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
   //  AAA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const ArraySpan& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     ARROW_ASSIGN_OR_RAISE(auto byte_width, GetByteWidth(*left.type, *right.type));
     auto* out_values = out_arr->buffers[1].data + out_arr->offset * byte_width;
@@ -912,7 +912,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
   // ASA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const ArraySpan& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     ARROW_ASSIGN_OR_RAISE(auto byte_width, GetByteWidth(*left.type, *right.type));
     auto* out_values = out_arr->buffers[1].data + out_arr->offset * byte_width;
@@ -938,7 +938,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
   // AAS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const Scalar& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     ARROW_ASSIGN_OR_RAISE(auto byte_width, GetByteWidth(*left.type, *right.type));
     auto* out_values = out_arr->buffers[1].data + out_arr->offset * byte_width;
@@ -964,7 +964,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
   // ASS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const Scalar& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     ARROW_ASSIGN_OR_RAISE(auto byte_width, GetByteWidth(*left.type, *right.type));
     auto* out_values = out_arr->buffers[1].data + out_arr->offset * byte_width;
@@ -1498,7 +1498,7 @@ Status ExecScalarCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult*
                      output->GetMutableValues<uint8_t>(1, 0), output->offset);
   } else {
     // ArraySpan
-    ArraySpan* output = out->array_span();
+    ArraySpan* output = out->array_span_mutable();
     if (is_dictionary_type<Type>::value) {
       const ExecValue& dict_from = has_result ? result : batch[1];
       output->child_data.resize(1);
@@ -1527,7 +1527,7 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
         "cond struct must not be a null scalar or "
         "have top-level nulls");
   }
-  ArraySpan* output = out->array_span();
+  ArraySpan* output = out->array_span_mutable();
   const int64_t out_offset = output->offset;
   const auto num_value_args = batch.values.size() - 1;
   const bool have_else_arg =
@@ -2028,7 +2028,7 @@ void InitializeNullSlots(const DataType& type, uint8_t* out_valid, uint8_t* out_
 // Implement 'coalesce' for any mix of scalar/array arguments for any fixed-width type
 template <typename Type>
 Status ExecArrayCoalesce(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  ArraySpan* output = out->array_span();
+  ArraySpan* output = out->array_span_mutable();
   const int64_t out_offset = output->offset;
   // Use output validity buffer as mask to decide what values to copy
   uint8_t* out_valid = output->buffers[0].data;
@@ -2108,7 +2108,7 @@ Status ExecArrayCoalesce(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
 template <typename Type>
 Status ExecArrayScalarCoalesce(KernelContext* ctx, const ExecValue& left,
                                const ExecValue& right, int64_t length, ExecResult* out) {
-  ArraySpan* output = out->array_span();
+  ArraySpan* output = out->array_span_mutable();
   const int64_t out_offset = output->offset;
   uint8_t* out_valid = output->buffers[0].data;
   uint8_t* out_values = output->buffers[1].data;
@@ -2174,7 +2174,7 @@ Status ExecArrayScalarCoalesce(KernelContext* ctx, const ExecValue& left,
 template <typename Type>
 Status ExecBinaryCoalesce(KernelContext* ctx, const ExecValue& left,
                           const ExecValue& right, int64_t length, ExecResult* out) {
-  ArraySpan* output = out->array_span();
+  ArraySpan* output = out->array_span_mutable();
   const int64_t out_offset = output->offset;
   uint8_t* out_valid = output->buffers[0].data;
   uint8_t* out_values = output->buffers[1].data;
@@ -2480,7 +2480,7 @@ Status ExecScalarChoose(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
       // TODO(wesm): more graceful implementation than using
       // MakeNullScalar, which is a little bit lazy
       std::shared_ptr<Scalar> source = MakeNullScalar(out->type()->GetSharedPtr());
-      ArraySpan* output = out->array_span();
+      ArraySpan* output = out->array_span_mutable();
       ExecValue copy_source;
       copy_source.SetScalar(source.get());
       CopyValues<Type>(copy_source, /*row=*/0, batch.length,
@@ -2495,7 +2495,7 @@ Status ExecScalarChoose(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
     return Status::IndexError("choose: index ", index, " out of range");
   }
   auto source = batch[index + 1];
-  ArraySpan* output = out->array_span();
+  ArraySpan* output = out->array_span_mutable();
   CopyValues<Type>(source, /*row=*/0, batch.length,
                    output->GetValues<uint8_t>(0, /*absolute_offset=*/0),
                    output->GetValues<uint8_t>(1, /*absolute_offset=*/0), output->offset);
@@ -2504,7 +2504,7 @@ Status ExecScalarChoose(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
 
 template <typename Type>
 Status ExecArrayChoose(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  ArraySpan* output = out->array_span();
+  ArraySpan* output = out->array_span_mutable();
   const int64_t out_offset = output->offset;
   // Need a null bitmap if any input has nulls
   uint8_t* out_valid = nullptr;

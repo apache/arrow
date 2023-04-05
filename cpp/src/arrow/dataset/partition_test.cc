@@ -30,7 +30,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_ipc.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
@@ -529,6 +529,9 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
   AssertFormatError<StatusCode::TypeError>(
       and_(equal(field_ref("alpha"), literal("0.0")),
            equal(field_ref("beta"), literal("hello"))));
+
+  partitioning_ = std::make_shared<HivePartitioning>(schema({field("x", large_utf8())}));
+  AssertFormat(equal(field_ref("x"), literal("hello")), "x=hello");
 }
 
 TEST_F(TestPartitioning, FilenamePartitioningFormat) {

@@ -71,6 +71,8 @@ class AnyOfJSONMatcher {
   template <typename arg_type>
   operator testing::Matcher<arg_type>() const {  // NOLINT runtime/explicit
     struct Impl : testing::MatcherInterface<const arg_type&> {
+      static_assert(std::is_same<arg_type, std::shared_ptr<Scalar>>(),
+                    "AnyOfJSON only supported for std::shared_ptr<Scalar>");
       Impl(std::shared_ptr<DataType> type, std::string array_json)
           : type_(std::move(type)), array_json_(std::move(array_json)) {
         array = ArrayFromJSON(type_, array_json_);
@@ -98,7 +100,7 @@ class AnyOfJSONMatcher {
             return false;
           }
 
-          if (scalar->Equals(arg)) return true;
+          if (scalar->Equals(*arg)) return true;
         }
         *result_listener << "Argument scalar: '" << arg->ToString()
                          << "' matches no scalar from " << array->ToString();
@@ -430,14 +432,10 @@ DataEqMatcher DataEqArray(T type, const std::vector<std::optional<ValueType>>& v
   static const bool need_safe_append = !is_fixed_width(T::type_id);
 
   for (auto value : values) {
-    if (value) {
-      if (need_safe_append) {
-        builder.UnsafeAppend(*value);
-      } else {
-        DCHECK_OK(builder.Append(*value));
-      }
+    if (need_safe_append) {
+      DCHECK_OK(builder.AppendOrNull(value));
     } else {
-      builder.UnsafeAppendNull();
+      builder.UnsafeAppendOrNull(value);
     }
   }
 

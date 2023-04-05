@@ -68,10 +68,21 @@ class TestIfElseKernel : public ::testing::Test {};
 template <typename Type>
 class TestIfElsePrimitive : public ::testing::Test {};
 
+// There are a lot of tests here if we cover all the types and it gets slow on valgrind
+// so we overrdie the standard type sets with a smaller range
+#ifdef ARROW_VALGRIND
+using IfElseNumericBasedTypes =
+    ::testing::Types<UInt32Type, FloatType, Date32Type, Time32Type, TimestampType,
+                     MonthIntervalType>;
+using BaseBinaryArrowTypes = ::testing::Types<BinaryType>;
+using ListArrowTypes = ::testing::Types<ListType>;
+using IntegralArrowTypes = ::testing::Types<Int32Type>;
+#else
 using IfElseNumericBasedTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type,
                      Time32Type, Time64Type, TimestampType, MonthIntervalType>;
+#endif
 
 TYPED_TEST_SUITE(TestIfElsePrimitive, IfElseNumericBasedTypes);
 

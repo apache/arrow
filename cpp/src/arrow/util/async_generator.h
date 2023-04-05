@@ -1859,6 +1859,33 @@ static Result<AsyncGenerator<T>> MakeBackgroundGenerator(
   return BackgroundGenerator<T>(std::move(iterator), io_executor, max_q, q_restart);
 }
 
+/// \brief Create an AsyncGenerator<T> by iterating over an Iterator<T> synchronously
+///
+/// This should only be used if you know the source iterator does not involve any
+/// I/O (or other blocking calls).  Otherwise a CPU thread will be blocked and, depending
+/// on the complexity of the iterator, it may lead to deadlock.
+///
+/// If you are not certain if there will be I/O then it is better to use
+/// MakeBackgroundGenerator.  If helpful you can think of this as the AsyncGenerator
+/// equivalent of Future::MakeFinished
+///
+/// It is impossible to call this in an async-reentrant manner since the returned
+/// future will be completed by the time it is polled.
+///
+/// This generator does not queue
+template <typename T>
+static Result<AsyncGenerator<T>> MakeBlockingGenerator(
+    std::shared_ptr<Iterator<T>> iterator) {
+  return [it = std::move(iterator)]() mutable -> Future<T> {
+    return Future<T>::MakeFinished(it->Next());
+  };
+}
+
+template <typename T>
+static Result<AsyncGenerator<T>> MakeBlockingGenerator(Iterator<T> iterator) {
+  return MakeBlockingGenerator(std::make_shared<Iterator<T>>(std::move(iterator)));
+}
+
 /// \see MakeGeneratorIterator
 template <typename T>
 class GeneratorIterator {

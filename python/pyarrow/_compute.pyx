@@ -24,7 +24,7 @@ from cython.operator cimport dereference as deref
 
 from collections import namedtuple
 
-from pyarrow.lib import frombytes, tobytes, ordered_dict, ArrowInvalid
+from pyarrow.lib import frombytes, tobytes, ArrowInvalid
 from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
@@ -34,6 +34,18 @@ from libcpp cimport bool as c_bool
 
 import inspect
 import numpy as np
+
+
+def _forbid_instantiation(klass, subclasses_instead=True):
+    msg = '{} is an abstract class thus cannot be initialized.'.format(
+        klass.__name__
+    )
+    if subclasses_instead:
+        subclasses = [cls.__name__ for cls in klass.__subclasses__]
+        msg += ' Use one of the subclasses instead: {}'.format(
+            ', '.join(subclasses)
+        )
+    raise TypeError(msg)
 
 
 cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
@@ -870,6 +882,30 @@ class RoundOptions(_RoundOptions):
         self._set_options(ndigits, round_mode)
 
 
+cdef class _RoundBinaryOptions(FunctionOptions):
+    def _set_options(self, round_mode):
+        self.wrapped.reset(
+            new CRoundBinaryOptions(unwrap_round_mode(round_mode))
+        )
+
+
+class RoundBinaryOptions(_RoundBinaryOptions):
+    """
+    Options for rounding numbers when ndigits is provided by a second array
+
+    Parameters
+    ----------
+    round_mode : str, default "half_to_even"
+        Rounding and tie-breaking mode.
+        Accepted values are "down", "up", "towards_zero", "towards_infinity",
+        "half_down", "half_up", "half_towards_zero", "half_towards_infinity",
+        "half_to_even", "half_to_odd".
+    """
+
+    def __init__(self, round_mode="half_to_even"):
+        self._set_options(round_mode)
+
+
 cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
     if unit == "nanosecond":
         return CCalendarUnit_NANOSECOND
@@ -1299,6 +1335,28 @@ class DictionaryEncodeOptions(_DictionaryEncodeOptions):
         self._set_options(null_encoding)
 
 
+cdef class _RunEndEncodeOptions(FunctionOptions):
+    def _set_options(self, run_end_type):
+        run_end_ty = ensure_type(run_end_type)
+        self.wrapped.reset(new CRunEndEncodeOptions(pyarrow_unwrap_data_type(run_end_ty)))
+
+
+class RunEndEncodeOptions(_RunEndEncodeOptions):
+    """
+    Options for run-end encoding.
+
+    Parameters
+    ----------
+    run_end_type : DataType, default pyarrow.int32()
+        The data type of the run_ends array.
+
+        Accepted values are pyarrow.{int16(), int32(), int64()}.
+    """
+
+    def __init__(self, run_end_type=lib.int32()):
+        self._set_options(run_end_type)
+
+
 cdef class _TakeOptions(FunctionOptions):
     def _set_options(self, boundscheck):
         self.wrapped.reset(new CTakeOptions(boundscheck))
@@ -1359,38 +1417,43 @@ class MakeStructOptions(_MakeStructOptions):
         self._set_options(field_names, field_nullability, field_metadata)
 
 
+cdef CFieldRef _ensure_field_ref(value) except *:
+    cdef:
+        CFieldRef field_ref
+        const CFieldRef* field_ref_ptr
+
+    if isinstance(value, (list, tuple)):
+        value = Expression._nested_field(tuple(value))
+
+    if isinstance(value, Expression):
+        field_ref_ptr = (<Expression>value).unwrap().field_ref()
+        if field_ref_ptr is NULL:
+            raise ValueError("Unable to get FieldRef from Expression")
+        field_ref = <CFieldRef>deref(field_ref_ptr)
+    elif isinstance(value, (bytes, str)):
+        if value.startswith(b'.' if isinstance(value, bytes) else '.'):
+            field_ref = GetResultValue(
+                CFieldRef.FromDotPath(<c_string>tobytes(value)))
+        else:
+            field_ref = CFieldRef(<c_string>tobytes(value))
+    elif isinstance(value, int):
+        field_ref = CFieldRef(<int> value)
+    else:
+        raise TypeError("Expected a field reference as a str or int, list of "
+                        f"str or int, or Expression. Got {type(value)} instead.")
+    return field_ref
+
+
 cdef class _StructFieldOptions(FunctionOptions):
     def _set_options(self, indices):
-        cdef:
-            CFieldRef field_ref
-            const CFieldRef* field_ref_ptr
 
-        if isinstance(indices, (list, tuple)):
-            if len(indices):
-                indices = Expression._nested_field(tuple(indices))
-            else:
-                # Allow empty indices; effecitively return same array
-                self.wrapped.reset(
-                    new CStructFieldOptions(<vector[int]>indices))
-                return
+        if isinstance(indices, (list, tuple)) and not len(indices):
+            # Allow empty indices; effecitively return same array
+            self.wrapped.reset(
+                new CStructFieldOptions(<vector[int]>indices))
+            return
 
-        if isinstance(indices, Expression):
-            field_ref_ptr = (<Expression>indices).unwrap().field_ref()
-            if field_ref_ptr is NULL:
-                raise ValueError("Unable to get CFieldRef from Expression")
-            field_ref = <CFieldRef>deref(field_ref_ptr)
-        elif isinstance(indices, (bytes, str)):
-            if indices.startswith(b'.' if isinstance(indices, bytes) else '.'):
-                field_ref = GetResultValue(
-                    CFieldRef.FromDotPath(<c_string>tobytes(indices)))
-            else:
-                field_ref = CFieldRef(<c_string>tobytes(indices))
-        elif isinstance(indices, int):
-            field_ref = CFieldRef(<int> indices)
-        else:
-            raise TypeError("Expected List[str], List[int], List[bytes], "
-                            "Expression, bytes, str, or int. "
-                            f"Got: {type(indices)}")
+        cdef CFieldRef field_ref = _ensure_field_ref(indices)
         self.wrapped.reset(new CStructFieldOptions(field_ref))
 
 
@@ -1922,7 +1985,7 @@ cdef class _SortOptions(FunctionOptions):
         cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
             c_sort_keys.push_back(
-                CSortKey(tobytes(name), unwrap_sort_order(order))
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
             )
         self.wrapped.reset(new CSortOptions(
             c_sort_keys, unwrap_null_placement(null_placement)))
@@ -1938,6 +2001,7 @@ class SortOptions(_SortOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
     null_placement : str, default "at_end"
         Where nulls in input should be sorted, only applying to
         columns/fields mentioned in `sort_keys`.
@@ -1953,7 +2017,7 @@ cdef class _SelectKOptions(FunctionOptions):
         cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
             c_sort_keys.push_back(
-                CSortKey(tobytes(name), unwrap_sort_order(order))
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
             )
         self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
 
@@ -1972,6 +2036,7 @@ class SelectKOptions(_SelectKOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
     """
 
     def __init__(self, k, sort_keys):
@@ -2142,12 +2207,12 @@ cdef class _RankOptions(FunctionOptions):
         cdef vector[CSortKey] c_sort_keys
         if isinstance(sort_keys, str):
             c_sort_keys.push_back(
-                CSortKey(tobytes(""), unwrap_sort_order(sort_keys))
+                CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
             )
         else:
             for name, order in sort_keys:
                 c_sort_keys.push_back(
-                    CSortKey(tobytes(name), unwrap_sort_order(order))
+                    CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
                 )
         try:
             self.wrapped.reset(
@@ -2169,6 +2234,7 @@ class RankOptions(_RankOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
         Alternatively, one can simply pass "ascending" or "descending" as a string
         if the input is array-like.
     null_placement : str, default "at_end"
@@ -2189,33 +2255,6 @@ class RankOptions(_RankOptions):
 
     def __init__(self, sort_keys="ascending", *, null_placement="at_end", tiebreaker="first"):
         self._set_options(sort_keys, null_placement, tiebreaker)
-
-
-def _group_by(args, keys, aggregations):
-    cdef:
-        vector[CDatum] c_args
-        vector[CDatum] c_keys
-        vector[CAggregate] c_aggregations
-        CDatum result
-        CAggregate c_aggr
-
-    _pack_compute_args(args, &c_args)
-    _pack_compute_args(keys, &c_keys)
-
-    for aggr_func_name, aggr_opts in aggregations:
-        c_aggr.function = tobytes(aggr_func_name)
-        if aggr_opts is not None:
-            c_aggr.options = (<FunctionOptions?>aggr_opts).wrapped
-        else:
-            c_aggr.options = <shared_ptr[CFunctionOptions]>nullptr
-        c_aggregations.push_back(c_aggr)
-
-    with nogil:
-        result = GetResultValue(
-            GroupBy(c_args, c_keys, c_aggregations)
-        )
-
-    return wrap_datum(result)
 
 
 cdef class Expression(_Weakrefable):
@@ -2393,6 +2432,19 @@ cdef class Expression(_Weakrefable):
         """
         options = NullOptions(nan_is_null=nan_is_null)
         return Expression._call("is_null", [self], options)
+
+    def is_nan(self):
+        """
+        Check whether the expression is NaN.
+
+        This creates a new expression equivalent to calling the
+        `is_nan` compute function on this expression.
+
+        Returns
+        -------
+        is_nan : Expression
+        """
+        return Expression._call("is_nan", [self])
 
     def cast(self, type=None, safe=None, options=None):
         """
@@ -2574,7 +2626,7 @@ cdef object box_scalar_udf_context(const CScalarUdfContext& c_context):
     return context
 
 
-cdef _scalar_udf_callback(user_function, const CScalarUdfContext& c_context, inputs):
+cdef _udf_callback(user_function, const CScalarUdfContext& c_context, inputs):
     """
     Helper callback function used to wrap the ScalarUdfContext from Python to C++
     execution.
@@ -2591,8 +2643,30 @@ def _get_scalar_udf_context(memory_pool, batch_length):
     return context
 
 
-def register_scalar_function(func, function_name, function_doc, in_types,
-                             out_type):
+ctypedef CStatus (*CRegisterUdf)(PyObject* function, function[CallbackUdf] wrapper,
+                                 const CUdfOptions& options, CFunctionRegistry* registry)
+
+cdef class RegisterUdf(_Weakrefable):
+    cdef CRegisterUdf register_func
+
+    cdef void init(self, const CRegisterUdf register_func):
+        self.register_func = register_func
+
+
+cdef get_register_scalar_function():
+    cdef RegisterUdf reg = RegisterUdf.__new__(RegisterUdf)
+    reg.register_func = RegisterScalarFunction
+    return reg
+
+
+cdef get_register_tabular_function():
+    cdef RegisterUdf reg = RegisterUdf.__new__(RegisterUdf)
+    reg.register_func = RegisterTabularFunction
+    return reg
+
+
+def register_scalar_function(func, function_name, function_doc, in_types, out_type,
+                             func_registry=None):
     """
     Register a user-defined scalar function.
 
@@ -2633,6 +2707,8 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         arity.
     out_type : DataType
         Output type of the function.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
 
     Examples
     --------
@@ -2662,14 +2738,106 @@ def register_scalar_function(func, function_name, function_doc, in_types,
       21
     ]
     """
+    return _register_scalar_like_function(get_register_scalar_function(),
+                                          func, function_name, function_doc, in_types,
+                                          out_type, func_registry)
+
+
+def register_tabular_function(func, function_name, function_doc, in_types, out_type,
+                              func_registry=None):
+    """
+    Register a user-defined tabular function.
+
+    A tabular function is one accepting a context argument of type
+    ScalarUdfContext and returning a generator of struct arrays.
+    The in_types argument must be empty and the out_type argument
+    specifies a schema. Each struct array must have field types
+    correspoding to the schema.
+
+    Parameters
+    ----------
+    func : callable
+        A callable implementing the user-defined function.
+        The only argument is the context argument of type
+        ScalarUdfContext. It must return a callable that
+        returns on each invocation a StructArray matching
+        the out_type, where an empty array indicates end.
+    function_name : str
+        Name of the function. This name must be globally unique.
+    function_doc : dict
+        A dictionary object with keys "summary" (str),
+        and "description" (str).
+    in_types : Dict[str, DataType]
+        Must be an empty dictionary (reserved for future use).
+    out_type : Union[Schema, DataType]
+        Schema of the function's output, or a corresponding flat struct type.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
+    """
     cdef:
+        shared_ptr[CSchema] c_schema
+        shared_ptr[CDataType] c_type
+
+    if isinstance(out_type, Schema):
+        c_schema = pyarrow_unwrap_schema(out_type)
+        with nogil:
+            c_type = <shared_ptr[CDataType]>make_shared[CStructType](deref(c_schema).fields())
+        out_type = pyarrow_wrap_data_type(c_type)
+    return _register_scalar_like_function(get_register_tabular_function(),
+                                          func, function_name, function_doc, in_types,
+                                          out_type, func_registry)
+
+
+def _register_scalar_like_function(register_func, func, function_name, function_doc, in_types,
+                                   out_type, func_registry=None):
+    """
+    Register a user-defined scalar-like function.
+
+    A scalar-like function is a callable accepting a first
+    context argument of type ScalarUdfContext as well as
+    possibly additional Arrow arguments, and returning a
+    an Arrow result appropriate for the kind of function.
+    A scalar function and a tabular function are examples
+    for scalar-like functions.
+    This function is normally not called directly but via
+    register_scalar_function or register_tabular_function.
+
+    Parameters
+    ----------
+    register_func: object
+        An object holding a CRegisterUdf in a "register_func" attribute. Use
+        get_register_scalar_function() for a scalar function and
+        get_register_tabular_function() for a tabular function.
+    func : callable
+        A callable implementing the user-defined function.
+        See register_scalar_function and
+        register_tabular_function for details.
+
+    function_name : str
+        Name of the function. This name must be globally unique.
+    function_doc : dict
+        A dictionary object with keys "summary" (str),
+        and "description" (str).
+    in_types : Dict[str, DataType]
+        A dictionary mapping function argument names to
+        their respective DataType.
+        See register_scalar_function and
+        register_tabular_function for details.
+    out_type : DataType
+        Output type of the function.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
+    """
+    cdef:
+        CRegisterUdf c_register_func
         c_string c_func_name
         CArity c_arity
         CFunctionDoc c_func_doc
         vector[shared_ptr[CDataType]] c_in_types
         PyObject* c_function
         shared_ptr[CDataType] c_out_type
-        CScalarUdfOptions c_options
+        CUdfOptions c_options
+        CFunctionRegistry* c_func_registry
 
     if callable(func):
         c_function = <PyObject*>func
@@ -2711,5 +2879,51 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     c_options.input_types = c_in_types
     c_options.output_type = c_out_type
 
-    check_status(RegisterScalarFunction(c_function,
-                                        <function[CallbackUdf]> &_scalar_udf_callback, c_options))
+    if func_registry is None:
+        c_func_registry = NULL
+    else:
+        c_func_registry = (<FunctionRegistry>func_registry).registry
+
+    c_register_func = (<RegisterUdf>register_func).register_func
+
+    check_status(c_register_func(c_function,
+                                 <function[CallbackUdf]> &_udf_callback,
+                                 c_options, c_func_registry))
+
+
+def call_tabular_function(function_name, args=None, func_registry=None):
+    """
+    Get a record batch iterator from a tabular function.
+
+    Parameters
+    ----------
+    function_name : str
+        Name of the function.
+    args : iterable
+        The arguments to pass to the function.  Accepted types depend
+        on the specific function.  Currently, only an empty args is supported.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
+    """
+    cdef:
+        c_string c_func_name
+        vector[CDatum] c_args
+        CFunctionRegistry* c_func_registry
+        shared_ptr[CRecordBatchReader] c_reader
+        RecordBatchReader reader
+
+    c_func_name = tobytes(function_name)
+    if func_registry is None:
+        c_func_registry = NULL
+    else:
+        c_func_registry = (<FunctionRegistry>func_registry).registry
+    if args is None:
+        args = []
+    _pack_compute_args(args, &c_args)
+
+    with nogil:
+        c_reader = GetResultValue(CallTabularFunction(
+            c_func_name, c_args, c_func_registry))
+    reader = RecordBatchReader.__new__(RecordBatchReader)
+    reader.reader = c_reader
+    return RecordBatchReader.from_batches(pyarrow_wrap_schema(deref(c_reader).schema()), reader)

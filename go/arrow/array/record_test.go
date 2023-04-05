@@ -21,9 +21,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -56,6 +56,15 @@ func TestRecord(t *testing.T) {
 	}()
 	defer col2.Release()
 
+	col2_1 := func() arrow.Array {
+		b := array.NewFloat64Builder(mem)
+		defer b.Release()
+
+		b.AppendValues([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+		return b.NewFloat64Array()
+	}()
+	defer col2_1.Release()
+
 	cols := []arrow.Array{col1, col2}
 	rec := array.NewRecord(schema, cols, -1)
 	defer rec.Release()
@@ -81,6 +90,17 @@ func TestRecord(t *testing.T) {
 	}
 	if got, want := rec.ColumnName(0), schema.Field(0).Name; got != want {
 		t.Fatalf("invalid column name: got=%q, want=%q", got, want)
+	}
+	if _, err := rec.SetColumn(0, col2_1); err == nil {
+		t.Fatalf("expected an error")
+	}
+	newRec, err := rec.SetColumn(1, col2_1);
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer newRec.Release()
+	if !reflect.DeepEqual(newRec.Column(1), col2_1) {
+		t.Fatalf("invalid column: got=%q, want=%q", rec.Column(1), col2_1)
 	}
 
 	for _, tc := range []struct {
@@ -356,10 +376,14 @@ func TestRecordBuilder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
+	mapDt := arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
+	mapDt.KeysSorted = true
+	mapDt.SetItemNullable(false)
 	schema := arrow.NewSchema(
 		[]arrow.Field{
 			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
 			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "map", Type: mapDt},
 		},
 		nil,
 	)
@@ -370,9 +394,18 @@ func TestRecordBuilder(t *testing.T) {
 	b.Retain()
 	b.Release()
 
-	b.Field(0).(*array.Int32Builder).AppendValues([]int32{1, 2, 3, 4, 5, 6}, nil)
-	b.Field(0).(*array.Int32Builder).AppendValues([]int32{7, 8, 9, 10}, nil)
-	b.Field(1).(*array.Float64Builder).AppendValues([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{1, 2, 3}, nil)
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{4, 5}, nil)
+	b.Field(1).(*array.Float64Builder).AppendValues([]float64{1, 2, 3, 4, 5}, nil)
+	mb := b.Field(2).(*array.MapBuilder)
+	for i := 0; i < 5; i++ {
+		mb.Append(true)
+
+		if i%3 == 0 {
+			mb.KeyBuilder().(*array.StringBuilder).AppendValues([]string{fmt.Sprint(i), "2", "3"}, nil)
+			mb.ItemBuilder().(*array.StringBuilder).AppendValues([]string{"a", "b", "c"}, nil)
+		}
+	}
 
 	rec := b.NewRecord()
 	defer rec.Release()
@@ -381,13 +414,16 @@ func TestRecordBuilder(t *testing.T) {
 		t.Fatalf("invalid schema: got=%#v, want=%#v", got, want)
 	}
 
-	if got, want := rec.NumRows(), int64(10); got != want {
+	if got, want := rec.NumRows(), int64(5); got != want {
 		t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
 	}
-	if got, want := rec.NumCols(), int64(2); got != want {
+	if got, want := rec.NumCols(), int64(3); got != want {
 		t.Fatalf("invalid number of columns: got=%d, want=%d", got, want)
 	}
 	if got, want := rec.ColumnName(0), schema.Field(0).Name; got != want {
+		t.Fatalf("invalid column name: got=%q, want=%q", got, want)
+	}
+	if got, want := rec.Column(2).String(), `[{["0" "2" "3"] ["a" "b" "c"]} {[] []} {[] []} {["3" "2" "3"] ["a" "b" "c"]} {[] []}]`; got != want {
 		t.Fatalf("invalid column name: got=%q, want=%q", got, want)
 	}
 }

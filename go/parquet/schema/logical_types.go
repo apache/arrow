@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v11/parquet"
-	"github.com/apache/arrow/go/v11/parquet/internal/debug"
-	format "github.com/apache/arrow/go/v11/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v12/parquet/internal/debug"
+	format "github.com/apache/arrow/go/v12/parquet/internal/gen-go/parquet"
 )
 
 // DecimalMetadata is a struct for managing scale and precision information between

@@ -20,4 +20,4 @@
 source "https://rubygems.org/"
 
 gem "test-unit"
-gem "gobject-introspection", ">= 3.4.9"
+gem "gobject-introspection", ">= 4.1.1"

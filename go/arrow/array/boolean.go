@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -81,7 +81,7 @@ func (a *Boolean) setData(data *Data) {
 	}
 }
 
-func (a *Boolean) getOneForMarshal(i int) interface{} {
+func (a *Boolean) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.Value(i)
 	}

@@ -44,6 +44,7 @@ std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(
   res->use_threads = cpp11::as_cpp<bool>(options["use_threads"]);
   res->block_size = cpp11::as_cpp<int>(options["block_size"]);
   res->skip_rows = cpp11::as_cpp<int>(options["skip_rows"]);
+  res->skip_rows_after_names = cpp11::as_cpp<int>(options["skip_rows_after_names"]);
   res->column_names = cpp11::as_cpp<std::vector<std::string>>(options["column_names"]);
   res->autogenerate_column_names =
       cpp11::as_cpp<bool>(options["autogenerate_column_names"]);

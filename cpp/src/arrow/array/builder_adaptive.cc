@@ -139,7 +139,13 @@ Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
   RETURN_NOT_OK(TrimBuffer(length_ * int_size_, data_.get()));
 
-  *out = ArrayData::Make(type(), length_, {null_bitmap, data_}, null_count_);
+  std::shared_ptr<Buffer> values_buffer = data_;
+  if (!values_buffer) {
+    ARROW_ASSIGN_OR_RAISE(values_buffer, AllocateBuffer(0, pool_));
+  }
+
+  *out = ArrayData::Make(type(), length_, {null_bitmap, std::move(values_buffer)},
+                         null_count_);
 
   data_ = nullptr;
   capacity_ = length_ = null_count_ = 0;

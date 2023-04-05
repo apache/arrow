@@ -36,6 +36,11 @@ class Flake8(Command):
         self.bin = default_bin(flake8_bin, "flake8")
 
 
+class CythonLint(Command):
+    def __init__(self, cython_lint_bin=None):
+        self.bin = default_bin(cython_lint_bin, "cython-lint")
+
+
 class Autopep8(Command):
     def __init__(self, autopep8_bin=None):
         self.bin = default_bin(autopep8_bin, "autopep8")

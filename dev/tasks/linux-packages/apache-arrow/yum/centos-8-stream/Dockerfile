@@ -59,7 +59,6 @@ RUN \
     snappy-devel \
     tar \
     thrift-devel \
-    utf8proc-devel \
     vala \
     zlib-devel && \
   dnf clean ${quiet} all

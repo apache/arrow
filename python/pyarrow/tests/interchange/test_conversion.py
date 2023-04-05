@@ -108,6 +108,7 @@ def test_categorical_roundtrip():
 
     if Version(pd.__version__) < Version("1.5.0"):
         pytest.skip("__dataframe__ added to pandas in 1.5.0")
+
     arr = ["Mon", "Tue", "Mon", "Wed", "Mon", "Thu", "Fri", "Sat", "Sun"]
     table = pa.table(
         {"weekday": pa.array(arr).dictionary_encode()}
@@ -447,7 +448,7 @@ def test_pyarrow_roundtrip_categorical(offset, length):
     assert col_result.size() == col_table.size()
     assert col_result.offset == col_table.offset
 
-    desc_cat_table = col_result.describe_categorical
+    desc_cat_table = col_table.describe_categorical
     desc_cat_result = col_result.describe_categorical
 
     assert desc_cat_table["is_ordered"] == desc_cat_result["is_ordered"]

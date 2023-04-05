@@ -28,7 +28,7 @@ version=$1
 repository=$2
 
 if [ ! -d "${repository}" ]; then
-  echo "vcpkg/vcpkg's fork repository doesn't exist: ${repository}"
+  echo "microsoft/vcpkg's fork repository doesn't exist: ${repository}"
   exit 1
 fi
 

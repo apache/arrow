@@ -17,6 +17,7 @@ using Apache.Arrow.Ipc;
 using Apache.Arrow.Memory;
 using System;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;

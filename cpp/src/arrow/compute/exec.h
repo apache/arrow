@@ -24,12 +24,13 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "arrow/array/data.h"
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
@@ -150,6 +151,9 @@ class ARROW_EXPORT SelectionVector {
   const int32_t* indices_;
 };
 
+/// An index to represent that a batch does not belong to an ordered stream
+constexpr int64_t kUnsequencedIndex = -1;
+
 /// \brief A unit of work for kernel execution. It contains a collection of
 /// Array and Scalar values and an optional SelectionVector indicating that
 /// there is an unmaterialized filter that either must be materialized, or (if
@@ -174,7 +178,16 @@ struct ARROW_EXPORT ExecBatch {
 
   explicit ExecBatch(const RecordBatch& batch);
 
-  static Result<ExecBatch> Make(std::vector<Datum> values);
+  /// \brief Infer the ExecBatch length from values.
+  static Result<int64_t> InferLength(const std::vector<Datum>& values);
+
+  /// Creates an ExecBatch with length-validation.
+  ///
+  /// If any value is given, then all values must have a common length. If the given
+  /// length is negative, then the length of the ExecBatch is set to this common length,
+  /// or to 1 if no values are given. Otherwise, the given length must equal the common
+  /// length, if any value is given.
+  static Result<ExecBatch> Make(std::vector<Datum> values, int64_t length = -1);
 
   Result<std::shared_ptr<RecordBatch>> ToRecordBatch(
       std::shared_ptr<Schema> schema, MemoryPool* pool = default_memory_pool()) const;
@@ -205,6 +218,12 @@ struct ARROW_EXPORT ExecBatch {
   /// whether any values are Scalar.
   int64_t length = 0;
 
+  /// \brief index of this batch in a sorted stream of batches
+  ///
+  /// This index must be strictly monotonic starting at 0 without gaps or
+  /// it can be set to kUnsequencedIndex if there is no meaningful order
+  int64_t index = kUnsequencedIndex;
+
   /// \brief The sum of bytes in each buffer referenced by the batch
   ///
   /// Note: Scalars are not counted
@@ -226,6 +245,8 @@ struct ARROW_EXPORT ExecBatch {
   int num_values() const { return static_cast<int>(values.size()); }
 
   ExecBatch Slice(int64_t offset, int64_t length) const;
+
+  Result<ExecBatch> SelectValues(const std::vector<int>& ids) const;
 
   /// \brief A convenience for returning the types from the batch.
   std::vector<TypeHolder> GetTypes() const {
@@ -320,9 +341,9 @@ struct ARROW_EXPORT ExecResult {
     }
   }
 
-  ArraySpan* array_span() const {
-    return const_cast<ArraySpan*>(&std::get<ArraySpan>(this->value));
-  }
+  const ArraySpan* array_span() const { return &std::get<ArraySpan>(this->value); }
+  ArraySpan* array_span_mutable() { return &std::get<ArraySpan>(this->value); }
+
   bool is_array_span() const { return this->value.index() == 0; }
 
   const std::shared_ptr<ArrayData>& array_data() const {

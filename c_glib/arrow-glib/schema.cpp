@@ -308,7 +308,8 @@ gchar *
 garrow_schema_to_string(GArrowSchema *schema)
 {
   const auto arrow_schema = garrow_schema_get_raw(schema);
-  return g_strdup(arrow_schema->ToString().c_str());
+  const auto string = arrow_schema->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**
@@ -326,7 +327,8 @@ gchar *
 garrow_schema_to_string_metadata(GArrowSchema *schema, gboolean show_metadata)
 {
   const auto arrow_schema = garrow_schema_get_raw(schema);
-  return g_strdup(arrow_schema->ToString(show_metadata).c_str());
+  const auto string = arrow_schema->ToString(show_metadata);
+  return g_strdup(string.c_str());
 }
 
 /**

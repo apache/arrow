@@ -83,7 +83,7 @@ std::shared_ptr<arrow::DataType> Scalar__type(const std::shared_ptr<arrow::Scala
 // [[arrow::export]]
 bool Scalar__Equals(const std::shared_ptr<arrow::Scalar>& lhs,
                     const std::shared_ptr<arrow::Scalar>& rhs) {
-  return lhs->Equals(rhs);
+  return lhs->Equals(*rhs);
 }
 
 // [[arrow::export]]

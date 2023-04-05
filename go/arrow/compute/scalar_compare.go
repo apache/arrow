@@ -21,9 +21,9 @@ package compute
 import (
 	"context"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v11/arrow/compute/internal/kernels"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v12/arrow/compute/internal/kernels"
 )
 
 type compareFunction struct {

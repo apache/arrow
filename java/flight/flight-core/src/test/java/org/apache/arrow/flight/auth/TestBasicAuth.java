@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight.auth;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -116,9 +119,8 @@ public class TestBasicAuth {
       }
     };
 
-    server = FlightTestUtil.getStartedServer((location) -> FlightServer.builder(
-        allocator,
-        location,
+    server = FlightServer.builder(
+        allocator, forGrpcInsecure(LOCALHOST, 0),
         new NoOpFlightProducer() {
           @Override
           public void listFlights(CallContext context, Criteria criteria,
@@ -146,7 +148,7 @@ public class TestBasicAuth {
               listener.completed();
             }
           }
-        }).authHandler(new BasicServerAuthHandler(validator)).build());
+        }).authHandler(new BasicServerAuthHandler(validator)).build().start();
     client = FlightClient.builder(allocator, server.getLocation()).build();
   }
 

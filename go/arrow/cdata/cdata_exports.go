@@ -17,12 +17,15 @@
 package cdata
 
 // #include <errno.h>
+// #include <stdint.h>
 // #include <stdlib.h>
 // #include "arrow/c/abi.h"
 // #include "arrow/c/helpers.h"
 //
 // extern void releaseExportedSchema(struct ArrowSchema* schema);
 // extern void releaseExportedArray(struct ArrowArray* array);
+//
+// const uint8_t kGoCdataZeroRegion[8] = {0};
 //
 // void goReleaseArray(struct ArrowArray* array) {
 //	releaseExportedArray(array);
@@ -42,10 +45,11 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/endian"
-	"github.com/apache/arrow/go/v11/arrow/ipc"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/endian"
+	"github.com/apache/arrow/go/v12/arrow/internal"
+	"github.com/apache/arrow/go/v12/arrow/ipc"
 )
 
 func encodeCMetadata(keys, values []string) []byte {
@@ -376,7 +380,7 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		// unions don't have validity bitmaps, but we keep them shifted
 		// to make processing easier in other contexts. This means that
 		// we have to adjust for union arrays
-		if arr.DataType().ID() == arrow.DENSE_UNION || arr.DataType().ID() == arrow.SPARSE_UNION {
+		if !internal.DefaultHasValidityBitmap(arr.DataType().ID()) {
 			out.n_buffers--
 			nbuffers--
 			bufs = bufs[1:]
@@ -385,7 +389,13 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		for i := range bufs {
 			buf := bufs[i]
 			if buf == nil || buf.Len() == 0 {
-				buffers[i] = nil
+				if i > 0 || !internal.DefaultHasValidityBitmap(arr.DataType().ID()) {
+					// apache/arrow#33936: export a dummy buffer to be friendly to
+					// implementations that don't import NULL properly
+					buffers[i] = (*C.void)(unsafe.Pointer(&C.kGoCdataZeroRegion))
+				} else {
+					buffers[i] = nil
+				}
 				continue
 			}
 
@@ -396,7 +406,7 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 
 	arr.Data().Retain()
 	h := cgo.NewHandle(arr.Data())
-	out.private_data = unsafe.Pointer(&h)
+	out.private_data = createHandle(h)
 	out.release = (*[0]byte)(C.goReleaseArray)
 	switch arr := arr.(type) {
 	case array.ListLike:

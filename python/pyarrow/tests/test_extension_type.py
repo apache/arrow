@@ -15,12 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 import pickle
+import shutil
+import subprocess
 import weakref
 from uuid import uuid4, UUID
+import sys
 
 import numpy as np
 import pyarrow as pa
+from pyarrow.vendored.version import Version
 
 import pytest
 
@@ -736,7 +741,21 @@ class PeriodTypeWithClass(PeriodType):
         return PeriodTypeWithClass(freq)
 
 
-@pytest.fixture(params=[PeriodType('D'), PeriodTypeWithClass('D')])
+class PeriodTypeWithToPandasDtype(PeriodType):
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        freq = PeriodType.__arrow_ext_deserialize__(
+            storage_type, serialized).freq
+        return PeriodTypeWithToPandasDtype(freq)
+
+    def to_pandas_dtype(self):
+        import pandas as pd
+        return pd.PeriodDtype(freq=self.freq)
+
+
+@pytest.fixture(params=[PeriodType('D'),
+                        PeriodTypeWithClass('D'),
+                        PeriodTypeWithToPandasDtype('D')])
 def registered_period_type(request):
     # setup
     period_type = request.param
@@ -1079,3 +1098,94 @@ def test_array_constructor_from_pandas():
         pd.Series([1, 2, 3], dtype="category"), type=IntegerType()
     )
     assert result.equals(expected)
+
+
+@pytest.mark.cython
+def test_cpp_extension_in_python(tmpdir):
+    from .test_cython import (
+        setup_template, compiler_opts, test_ld_path, test_util, here)
+    with tmpdir.as_cwd():
+        # Set up temporary workspace
+        pyx_file = 'extensions.pyx'
+        shutil.copyfile(os.path.join(here, pyx_file),
+                        os.path.join(str(tmpdir), pyx_file))
+        # Create setup.py file
+        setup_code = setup_template.format(pyx_file=pyx_file,
+                                           compiler_opts=compiler_opts,
+                                           test_ld_path=test_ld_path)
+        with open('setup.py', 'w') as f:
+            f.write(setup_code)
+
+        subprocess_env = test_util.get_modified_env_with_pythonpath()
+
+        # Compile extension module
+        subprocess.check_call([sys.executable, 'setup.py',
+                               'build_ext', '--inplace'],
+                              env=subprocess_env)
+
+    sys.path.insert(0, str(tmpdir))
+    mod = __import__('extensions')
+
+    uuid_type = mod._make_uuid_type()
+    assert uuid_type.extension_name == "uuid"
+    assert uuid_type.storage_type == pa.binary(16)
+
+    array = mod._make_uuid_array()
+    assert array.type == uuid_type
+    assert array.to_pylist() == [b'abcdefghijklmno0', b'0onmlkjihgfedcba']
+    assert array[0].as_py() == b'abcdefghijklmno0'
+    assert array[1].as_py() == b'0onmlkjihgfedcba'
+
+    buf = ipc_write_batch(pa.RecordBatch.from_arrays([array], ["uuid"]))
+
+    batch = ipc_read_batch(buf)
+    reconstructed_array = batch.column(0)
+    assert reconstructed_array.type == uuid_type
+    assert reconstructed_array == array
+
+
+@pytest.mark.pandas
+def test_extension_to_pandas_storage_type(registered_period_type):
+    period_type, _ = registered_period_type
+    np_arr = np.array([1, 2, 3, 4], dtype='i8')
+    storage = pa.array([1, 2, 3, 4], pa.int64())
+    arr = pa.ExtensionArray.from_storage(period_type, storage)
+
+    if isinstance(period_type, PeriodTypeWithToPandasDtype):
+        pandas_dtype = period_type.to_pandas_dtype()
+    else:
+        pandas_dtype = np_arr.dtype
+
+    # Test arrays
+    result = arr.to_pandas()
+    assert result.dtype == pandas_dtype
+
+    # Test chunked arrays
+    chunked_arr = pa.chunked_array([arr])
+    result = chunked_arr.to_numpy()
+    assert result.dtype == np_arr.dtype
+
+    result = chunked_arr.to_pandas()
+    assert result.dtype == pandas_dtype
+
+    # Test Table.to_pandas
+    data = [
+        pa.array([1, 2, 3, 4]),
+        pa.array(['foo', 'bar', None, None]),
+        pa.array([True, None, True, False]),
+        arr
+    ]
+    my_schema = pa.schema([('f0', pa.int8()),
+                           ('f1', pa.string()),
+                           ('f2', pa.bool_()),
+                           ('ext', period_type)])
+    table = pa.Table.from_arrays(data, schema=my_schema)
+    result = table.to_pandas()
+    assert result["ext"].dtype == pandas_dtype
+
+    import pandas as pd
+    if Version(pd.__version__) > Version("2.0.0"):
+
+        # Check the usage of types_mapper
+        result = table.to_pandas(types_mapper=pd.ArrowDtype)
+        assert isinstance(result["ext"].dtype, pd.ArrowDtype)

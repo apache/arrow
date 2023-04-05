@@ -21,7 +21,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/apache/arrow/go/v11/arrow/endian"
+	"github.com/apache/arrow/go/v12/arrow/endian"
 )
 
 type Metadata struct {
@@ -89,6 +89,16 @@ func (md Metadata) FindKey(k string) int {
 		}
 	}
 	return -1
+}
+
+// GetValue returns the value associated with the provided key name.
+// If the key does not exist, the second return value is false.
+func (md Metadata) GetValue(k string) (string, bool) {
+	i := md.FindKey(k)
+	if i < 0 {
+		return "", false
+	}
+	return md.values[i], true
 }
 
 func (md Metadata) clone() Metadata {

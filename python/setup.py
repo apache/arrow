@@ -107,6 +107,7 @@ class build_ext(_build_ext):
                      ('with-cuda', None, 'build the Cuda extension'),
                      ('with-flight', None, 'build the Flight extension'),
                      ('with-substrait', None, 'build the Substrait extension'),
+                     ('with-acero', None, 'build the Acero Engine extension'),
                      ('with-dataset', None, 'build the Dataset extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-parquet-encryption', None,
@@ -116,9 +117,6 @@ class build_ext(_build_ext):
                      ('with-s3', None, 'build the Amazon S3 extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
-                     ('with-plasma', None, 'build the Plasma extension'),
-                     ('with-tensorflow', None,
-                      'build pyarrow with TensorFlow support'),
                      ('with-orc', None, 'build the ORC extension'),
                      ('with-gandiva', None, 'build the Gandiva extension'),
                      ('generate-coverage', None,
@@ -131,9 +129,7 @@ class build_ext(_build_ext):
                      ('bundle-arrow-cpp', None,
                       'bundle the Arrow C++ libraries'),
                      ('bundle-arrow-cpp-headers', None,
-                      'bundle the Arrow C++ headers'),
-                     ('bundle-plasma-executable', None,
-                      'bundle the plasma-store-server executable')] +
+                      'bundle the Arrow C++ headers')] +
                     _build_ext.user_options)
 
     def initialize_options(self):
@@ -144,8 +140,6 @@ class build_ext(_build_ext):
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE',
                                          'release').lower()
-        self.boost_namespace = os.environ.get('PYARROW_BOOST_NAMESPACE',
-                                              'boost')
 
         self.cmake_cxxflags = os.environ.get('PYARROW_CXXFLAGS', '')
 
@@ -167,20 +161,14 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_SUBSTRAIT', '0'))
         self.with_flight = strtobool(
             os.environ.get('PYARROW_WITH_FLIGHT', '0'))
+        self.with_acero = strtobool(
+            os.environ.get('PYARROW_WITH_ACERO', '0'))
         self.with_dataset = strtobool(
             os.environ.get('PYARROW_WITH_DATASET', '0'))
         self.with_parquet = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
-        self.with_static_parquet = strtobool(
-            os.environ.get('PYARROW_WITH_STATIC_PARQUET', '0'))
         self.with_parquet_encryption = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET_ENCRYPTION', '0'))
-        self.with_static_boost = strtobool(
-            os.environ.get('PYARROW_WITH_STATIC_BOOST', '0'))
-        self.with_plasma = strtobool(
-            os.environ.get('PYARROW_WITH_PLASMA', '0'))
-        self.with_tensorflow = strtobool(
-            os.environ.get('PYARROW_WITH_TENSORFLOW', '0'))
         self.with_orc = strtobool(
             os.environ.get('PYARROW_WITH_ORC', '0'))
         self.with_gandiva = strtobool(
@@ -191,15 +179,15 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
         self.bundle_cython_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_CYTHON_CPP', '0'))
-        self.bundle_boost = strtobool(
-            os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
-        self.bundle_arrow_cpp_headers = strtobool(
-            os.environ.get('PYARROW_BUNDLE_ARROW_CPP_HEADERS', '1'))
-        self.bundle_plasma_executable = strtobool(
-            os.environ.get('PYARROW_BUNDLE_PLASMA_EXECUTABLE', '1'))
 
         self.with_parquet_encryption = (self.with_parquet_encryption and
                                         self.with_parquet)
+
+        # enforce module dependencies
+        if self.with_substrait:
+            self.with_dataset = True
+        if self.with_dataset:
+            self.with_acero = True
 
     CYTHON_MODULE_NAMES = [
         'lib',
@@ -212,13 +200,12 @@ class build_ext(_build_ext):
         '_dataset',
         '_dataset_orc',
         '_dataset_parquet',
-        '_exec_plan',
+        '_acero',
         '_feather',
         '_parquet',
         '_parquet_encryption',
         '_pyarrow_cpp_tests',
         '_orc',
-        '_plasma',
         '_gcsfs',
         '_s3fs',
         '_substrait',
@@ -285,37 +272,24 @@ class build_ext(_build_ext):
             append_cmake_bool(self.with_substrait, 'PYARROW_BUILD_SUBSTRAIT')
             append_cmake_bool(self.with_flight, 'PYARROW_BUILD_FLIGHT')
             append_cmake_bool(self.with_gandiva, 'PYARROW_BUILD_GANDIVA')
+            append_cmake_bool(self.with_acero, 'PYARROW_BUILD_ACERO')
             append_cmake_bool(self.with_dataset, 'PYARROW_BUILD_DATASET')
             append_cmake_bool(self.with_orc, 'PYARROW_BUILD_ORC')
             append_cmake_bool(self.with_parquet, 'PYARROW_BUILD_PARQUET')
             append_cmake_bool(self.with_parquet_encryption,
                               'PYARROW_BUILD_PARQUET_ENCRYPTION')
-            append_cmake_bool(self.with_plasma, 'PYARROW_BUILD_PLASMA')
             append_cmake_bool(self.with_gcs, 'PYARROW_BUILD_GCS')
             append_cmake_bool(self.with_s3, 'PYARROW_BUILD_S3')
             append_cmake_bool(self.with_hdfs, 'PYARROW_BUILD_HDFS')
-            append_cmake_bool(self.with_tensorflow, 'PYARROW_USE_TENSORFLOW')
             append_cmake_bool(self.bundle_arrow_cpp,
                               'PYARROW_BUNDLE_ARROW_CPP')
-            append_cmake_bool(self.bundle_boost,
-                              'PYARROW_BUNDLE_BOOST')
             append_cmake_bool(self.bundle_cython_cpp,
                               'PYARROW_BUNDLE_CYTHON_CPP')
-            append_cmake_bool(self.bundle_plasma_executable,
-                              'PYARROW_BUNDLE_PLASMA_EXECUTABLE')
             append_cmake_bool(self.generate_coverage,
                               'PYARROW_GENERATE_COVERAGE')
-            append_cmake_bool(not self.with_static_boost,
-                              'PYARROW_BOOST_USE_SHARED')
-            append_cmake_bool(not self.with_static_parquet,
-                              'PYARROW_PARQUET_USE_SHARED')
 
             cmake_options.append(
                 f'-DCMAKE_BUILD_TYPE={self.build_type.lower()}')
-
-            if self.boost_namespace != 'boost':
-                cmake_options.append(
-                    f'-DBoost_NAMESPACE={self.boost_namespace}')
 
             extra_cmake_args = shlex.split(self.extra_cmake_args)
 
@@ -364,8 +338,6 @@ class build_ext(_build_ext):
             return True
         if name == '_parquet_encryption' and not self.with_parquet_encryption:
             return True
-        if name == '_plasma' and not self.with_plasma:
-            return True
         if name == '_orc' and not self.with_orc:
             return True
         if name == '_flight' and not self.with_flight:
@@ -379,6 +351,10 @@ class build_ext(_build_ext):
         if name == '_hdfs' and not self.with_hdfs:
             return True
         if name == '_dataset' and not self.with_dataset:
+            return True
+        if name == '_acero' and not self.with_acero:
+            return True
+        if name == '_exec_plan' and not self.with_acero:
             return True
         if name == '_dataset_orc' and not (
                 self.with_orc and self.with_dataset
@@ -430,7 +406,7 @@ class build_ext(_build_ext):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '11.0.0-SNAPSHOT'
+default_version = '12.0.0-SNAPSHOT'
 if (not os.path.exists('../.git') and
         not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
@@ -507,11 +483,6 @@ setup(
     ext_modules=[Extension('__dummy__', sources=[])],
     cmdclass={
         'build_ext': build_ext
-    },
-    entry_points={
-        'console_scripts': [
-            'plasma_store = pyarrow:_plasma_store_entry_point'
-        ]
     },
     use_scm_version={
         'root': os.path.dirname(setup_dir),

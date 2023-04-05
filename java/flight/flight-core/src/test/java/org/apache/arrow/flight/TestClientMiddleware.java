@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -106,18 +109,17 @@ public class TestClientMiddleware {
       List<FlightClientMiddleware.Factory> clientMiddleware,
       BiConsumer<BufferAllocator, FlightClient> body) {
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
-      final FlightServer server = FlightTestUtil
-          .getStartedServer(location -> {
-            final FlightServer.Builder builder = FlightServer.builder(allocator, location, producer);
-            if (serverMiddleware != null) {
-              builder.middleware(serverMiddleware.key, serverMiddleware.factory);
-            }
-            return builder.build();
-          });
-      FlightClient.Builder builder = FlightClient.builder(allocator, server.getLocation());
-      clientMiddleware.forEach(builder::intercept);
+      final FlightServer.Builder serverBuilder =
+          FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0), producer);
+      if (serverMiddleware != null) {
+        serverBuilder.middleware(serverMiddleware.key, serverMiddleware.factory);
+      }
+      final FlightServer server = serverBuilder.build().start();
+
+      FlightClient.Builder clientBuilder = FlightClient.builder(allocator, server.getLocation());
+      clientMiddleware.forEach(clientBuilder::intercept);
       try (final FlightServer ignored = server;
-          final FlightClient client = builder.build()
+           final FlightClient client = clientBuilder.build()
       ) {
         body.accept(allocator, client);
       }

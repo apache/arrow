@@ -30,7 +30,11 @@
 GArrowRecordBatchReader *garrow_record_batch_reader_new_raw(std::shared_ptr<arrow::ipc::RecordBatchReader> *arrow_reader);
 std::shared_ptr<arrow::ipc::RecordBatchReader> garrow_record_batch_reader_get_raw(GArrowRecordBatchReader *reader);
 
-GArrowTableBatchReader *garrow_table_batch_reader_new_raw(std::shared_ptr<arrow::TableBatchReader> *arrow_reader);
+GArrowTableBatchReader *
+garrow_table_batch_reader_new_raw(
+  std::shared_ptr<arrow::TableBatchReader> *arrow_reader);
+std::shared_ptr<arrow::TableBatchReader>
+garrow_table_batch_reader_get_raw(GArrowTableBatchReader *reader);
 
 GArrowRecordBatchStreamReader *garrow_record_batch_stream_reader_new_raw(std::shared_ptr<arrow::ipc::RecordBatchStreamReader> *arrow_reader);
 

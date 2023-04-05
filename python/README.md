@@ -52,8 +52,8 @@ See [Python Development][2] in the documentation subproject.
 
 See [documentation build instructions][1] in the documentation subproject.
 
-[1]: https://github.com/apache/arrow/blob/master/docs/source/developers/documentation.rst
-[2]: https://github.com/apache/arrow/blob/master/docs/source/developers/python.rst
+[1]: https://github.com/apache/arrow/blob/main/docs/source/developers/documentation.rst
+[2]: https://github.com/apache/arrow/blob/main/docs/source/developers/python.rst
 [3]: https://github.com/pandas-dev/pandas
 [5]: https://arrow.apache.org/docs/latest/python/benchmarks.html
 [6]: https://www.microsoft.com/en-us/download/details.aspx?id=48145

@@ -41,4 +41,5 @@ User Guide
    flight
    gdb
    threading
+   opentelemetry
    env_vars

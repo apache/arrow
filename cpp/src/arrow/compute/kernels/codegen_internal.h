@@ -30,7 +30,6 @@
 #include "arrow/array/data.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
-#include "arrow/compute/exec.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
@@ -582,7 +581,7 @@ struct ScalarUnary {
     Status st = Status::OK();
     ArrayIterator<Arg0Type> arg0_it(arg0);
     RETURN_NOT_OK(
-        OutputAdapter<OutType>::Write(ctx, out->array_span(), [&]() -> OutValue {
+        OutputAdapter<OutType>::Write(ctx, out->array_span_mutable(), [&]() -> OutValue {
           return Op::template Call<OutValue, Arg0Value>(ctx, arg0_it(), &st);
         }));
     return st;
@@ -617,7 +616,7 @@ struct ScalarUnaryNotNullStateful {
     static Status Exec(const ThisType& functor, KernelContext* ctx, const ArraySpan& arg0,
                        ExecResult* out) {
       Status st = Status::OK();
-      auto out_data = out->array_span()->GetValues<OutValue>(1);
+      auto out_data = out->array_span_mutable()->GetValues<OutValue>(1);
       VisitArrayValuesInline<Arg0Type>(
           arg0,
           [&](Arg0Value v) {
@@ -658,7 +657,7 @@ struct ScalarUnaryNotNullStateful {
     static Status Exec(const ThisType& functor, KernelContext* ctx, const ArraySpan& arg0,
                        ExecResult* out) {
       Status st = Status::OK();
-      ArraySpan* out_arr = out->array_span();
+      ArraySpan* out_arr = out->array_span_mutable();
       FirstTimeBitmapWriter out_writer(out_arr->buffers[1].data, out_arr->offset,
                                        out_arr->length);
       VisitArrayValuesInline<Arg0Type>(
@@ -731,7 +730,7 @@ struct ScalarBinary {
     ArrayIterator<Arg0Type> arg0_it(arg0);
     ArrayIterator<Arg1Type> arg1_it(arg1);
     RETURN_NOT_OK(
-        OutputAdapter<OutType>::Write(ctx, out->array_span(), [&]() -> OutValue {
+        OutputAdapter<OutType>::Write(ctx, out->array_span_mutable(), [&]() -> OutValue {
           return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_it(),
                                                                    arg1_it(), &st);
         }));
@@ -744,7 +743,7 @@ struct ScalarBinary {
     ArrayIterator<Arg0Type> arg0_it(arg0);
     auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
     RETURN_NOT_OK(
-        OutputAdapter<OutType>::Write(ctx, out->array_span(), [&]() -> OutValue {
+        OutputAdapter<OutType>::Write(ctx, out->array_span_mutable(), [&]() -> OutValue {
           return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_it(),
                                                                    arg1_val, &st);
         }));
@@ -757,7 +756,7 @@ struct ScalarBinary {
     auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
     ArrayIterator<Arg1Type> arg1_it(arg1);
     RETURN_NOT_OK(
-        OutputAdapter<OutType>::Write(ctx, out->array_span(), [&]() -> OutValue {
+        OutputAdapter<OutType>::Write(ctx, out->array_span_mutable(), [&]() -> OutValue {
           return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val,
                                                                    arg1_it(), &st);
         }));
@@ -799,7 +798,7 @@ struct ScalarBinaryNotNullStateful {
   Status ArrayArray(KernelContext* ctx, const ArraySpan& arg0, const ArraySpan& arg1,
                     ExecResult* out) {
     Status st = Status::OK();
-    OutputArrayWriter<OutType> writer(out->array_span());
+    OutputArrayWriter<OutType> writer(out->array_span_mutable());
     VisitTwoArrayValuesInline<Arg0Type, Arg1Type>(
         arg0, arg1,
         [&](Arg0Value u, Arg1Value v) {
@@ -812,7 +811,7 @@ struct ScalarBinaryNotNullStateful {
   Status ArrayScalar(KernelContext* ctx, const ArraySpan& arg0, const Scalar& arg1,
                      ExecResult* out) {
     Status st = Status::OK();
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     OutputArrayWriter<OutType> writer(out_span);
     if (arg1.is_valid) {
       const auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
@@ -832,7 +831,7 @@ struct ScalarBinaryNotNullStateful {
   Status ScalarArray(KernelContext* ctx, const Scalar& arg0, const ArraySpan& arg1,
                      ExecResult* out) {
     Status st = Status::OK();
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     OutputArrayWriter<OutType> writer(out_span);
     if (arg0.is_valid) {
       const auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);

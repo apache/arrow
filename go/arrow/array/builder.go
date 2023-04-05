@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -79,8 +79,8 @@ type Builder interface {
 	init(capacity int)
 	resize(newBits int, init func(int))
 
-	unmarshalOne(*json.Decoder) error
-	unmarshal(*json.Decoder) error
+	UnmarshalOne(*json.Decoder) error
+	Unmarshal(*json.Decoder) error
 
 	newData() *Data
 }
@@ -315,10 +315,14 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		return NewLargeListBuilderWithField(mem, typ.ElemField())
 	case arrow.MAP:
 		typ := dtype.(*arrow.MapType)
-		return NewMapBuilder(mem, typ.KeyType(), typ.ItemType(), typ.KeysSorted)
+		return NewMapBuilderWithType(mem, typ)
 	case arrow.EXTENSION:
 		typ := dtype.(arrow.ExtensionType)
-		return NewExtensionBuilder(mem, typ)
+		bldr := NewExtensionBuilder(mem, typ)
+		if custom, ok := typ.(ExtensionBuilderWrapper); ok {
+			return custom.NewBuilder(bldr)
+		}
+		return bldr
 	case arrow.FIXED_SIZE_LIST:
 		typ := dtype.(*arrow.FixedSizeListType)
 		return NewFixedSizeListBuilder(mem, typ.Len(), typ.Elem())

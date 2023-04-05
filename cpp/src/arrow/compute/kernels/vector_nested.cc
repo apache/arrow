@@ -18,7 +18,7 @@
 // Vector kernels involving nested types
 
 #include "arrow/array/array_base.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/result.h"
 #include "arrow/visit_type_inline.h"
 

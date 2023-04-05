@@ -24,7 +24,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/apache/arrow/go/v11/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v12/parquet/internal/gen-go/parquet"
 )
 
 // Compression is an alias to the thrift compression codec enum type for easy use

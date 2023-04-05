@@ -137,6 +137,6 @@ mvn -Pintegration-tests <rest of mvn arguments>
 ```
 
 [1]: https://logback.qos.ch/manual/configuration.html
-[2]: https://github.com/apache/arrow/blob/master/cpp/README.md
+[2]: https://github.com/apache/arrow/blob/main/cpp/README.md
 [3]: http://google.github.io/styleguide/javaguide.html
 [4]: https://maven.apache.org/surefire/maven-failsafe-plugin/

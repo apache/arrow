@@ -25,9 +25,9 @@ Gandiva is a toolset for compiling and evaluating expressions on Arrow data.
 
 [GObject Introspection](https://wiki.gnome.org/action/show/Projects/GObjectIntrospection) is a middleware for language bindings of C library. GObject Introspection can generate language bindings automatically at runtime.
 
-Red Gandiva uses [Gandiva GLib](https://github.com/apache/arrow/tree/master/c_glib/gandiva-glib) and [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection) to generate Ruby bindings of Gandiva.
+Red Gandiva uses [Gandiva GLib](https://github.com/apache/arrow/tree/main/c_glib/gandiva-glib) and [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection) to generate Ruby bindings of Gandiva.
 
-Gandiva GLib is a C wrapper for [Gandiva C++](https://github.com/apache/arrow/tree/master/cpp/gandiva). GObject Introspection can't use Gandiva C++ directly. Gandiva GLib is a bridge between Gandiva C++ and GObject Introspection.
+Gandiva GLib is a C wrapper for [Gandiva C++](https://github.com/apache/arrow/tree/main/cpp/gandiva). GObject Introspection can't use Gandiva C++ directly. Gandiva GLib is a bridge between Gandiva C++ and GObject Introspection.
 
 gobject-introspection gem is a Ruby bindings of GObject Introspection. Red Gandiva uses GObject Introspection via gobject-introspection gem.
 

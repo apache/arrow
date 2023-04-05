@@ -607,7 +607,6 @@ test_that("element access methods for ALTREP factors", {
   }
 })
 
-
 test_that("R checks for bounds", {
   v_int <- Array$create(c(1, 2, 3))$as_vector()
   v_dbl <- Array$create(c(1L, 2L, 3L))$as_vector()
@@ -630,4 +629,24 @@ test_that("Operations on altrep R vectors don't modify the original", {
   b_int <- a_int$as_vector()
   c_int <- -b_int
   expect_false(isTRUE(all.equal(b_int, c_int)))
+})
+
+test_that("Materialized ALTREP arrays don't cause arrow to crash when attempting to bypass", {
+  a_int <- Array$create(c(1L, 2L, 3L))
+  b_int <- a_int$as_vector()
+  expect_true(is_arrow_altrep(b_int))
+  expect_false(test_arrow_altrep_is_materialized(b_int))
+
+  # Some operations that use altrep bypass
+  expect_equal(infer_type(b_int), int32())
+  expect_equal(as_arrow_array(b_int), a_int)
+
+  # Still shouldn't have materialized yet
+  expect_false(test_arrow_altrep_is_materialized(b_int))
+
+  # Force it to materialize and check again
+  test_arrow_altrep_force_materialize(b_int)
+  expect_true(test_arrow_altrep_is_materialized(b_int))
+  expect_equal(infer_type(b_int), int32())
+  expect_equal(as_arrow_array(b_int), a_int)
 })

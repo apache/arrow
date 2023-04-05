@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <iomanip>
 #include <limits>
 #include <memory>
 #include <sstream>
@@ -176,19 +177,47 @@ class RecordBatchSerializer {
                                    field_nodes_, buffer_meta_, options_, &out_->metadata);
   }
 
+  bool ShouldCompress(int64_t uncompressed_size, int64_t compressed_size) const {
+    DCHECK_GT(uncompressed_size, 0);
+    if (!options_.min_space_savings) return true;
+    const double space_savings =
+        1.0 - static_cast<double>(compressed_size) / uncompressed_size;
+    return space_savings >= *options_.min_space_savings;
+  }
+
   Status CompressBuffer(const Buffer& buffer, util::Codec* codec,
                         std::shared_ptr<Buffer>* out) {
-    // Convert buffer to uncompressed-length-prefixed compressed buffer
+    // Convert buffer to uncompressed-length-prefixed buffer. The actual body may or may
+    // not be compressed, depending on user-preference and projected size reduction.
     int64_t maximum_length = codec->MaxCompressedLen(buffer.size(), buffer.data());
-    ARROW_ASSIGN_OR_RAISE(auto result, AllocateBuffer(maximum_length + sizeof(int64_t)));
+    int64_t prefixed_length = buffer.size();
 
-    int64_t actual_length;
-    ARROW_ASSIGN_OR_RAISE(actual_length,
+    ARROW_ASSIGN_OR_RAISE(auto result,
+                          AllocateResizableBuffer(maximum_length + sizeof(int64_t)));
+    ARROW_ASSIGN_OR_RAISE(auto actual_length,
                           codec->Compress(buffer.size(), buffer.data(), maximum_length,
                                           result->mutable_data() + sizeof(int64_t)));
+    // FIXME: Not the most sophisticated way to handle this. Ideally, you'd want to avoid
+    // pre-compressing the entire buffer via some kind of sampling method. As the feature
+    // gains adoption, this may become a worthwhile optimization.
+    //
+    // See: GH-33885
+    if (!ShouldCompress(buffer.size(), actual_length)) {
+      if (buffer.size() < actual_length || buffer.size() > maximum_length) {
+        RETURN_NOT_OK(
+            result->Resize(buffer.size() + sizeof(int64_t), /*shrink_to_fit=*/false));
+        result->ZeroPadding();
+      }
+      std::memcpy(result->mutable_data() + sizeof(int64_t), buffer.data(),
+                  static_cast<size_t>(buffer.size()));
+      actual_length = buffer.size();
+      // Size of -1 indicates to the reader that the body doesn't need to be decompressed
+      prefixed_length = -1;
+    }
     *reinterpret_cast<int64_t*>(result->mutable_data()) =
-        bit_util::ToLittleEndian(buffer.size());
+        bit_util::ToLittleEndian(prefixed_length);
     *out = SliceBuffer(std::move(result), /*offset=*/0, actual_length + sizeof(int64_t));
+
     return Status::OK();
   }
 
@@ -230,6 +259,14 @@ class RecordBatchSerializer {
     out_->raw_body_length = raw_size;
 
     if (options_.codec != nullptr) {
+      if (options_.min_space_savings) {
+        double percentage = *options_.min_space_savings;
+        if (percentage < 0 || percentage > 1) {
+          return Status::Invalid(
+              "min_space_savings not in range [0,1]. Provided: ",
+              std::setprecision(std::numeric_limits<double>::max_digits10), percentage);
+        }
+      }
       RETURN_NOT_OK(CompressBodyBuffers());
     }
 
@@ -473,23 +510,19 @@ class RecordBatchSerializer {
       int32_t* shifted_offsets =
           reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
 
-      // Offsets may not be ascending, so we need to find out the start offset
-      // for each child
-      for (int64_t i = 0; i < length; ++i) {
-        const uint8_t code = type_codes[i];
+      // Offsets are guaranteed to be increasing according to the spec, so
+      // the first offset we find for a child is the initial offset and
+      // will become the 0th offset for this child.
+      for (int64_t code_idx = 0; code_idx < length; ++code_idx) {
+        const uint8_t code = type_codes[code_idx];
         if (child_offsets[code] == -1) {
-          child_offsets[code] = unshifted_offsets[i];
+          child_offsets[code] = unshifted_offsets[code_idx];
+          shifted_offsets[code_idx] = 0;
         } else {
-          child_offsets[code] = std::min(child_offsets[code], unshifted_offsets[i]);
+          shifted_offsets[code_idx] = unshifted_offsets[code_idx] - child_offsets[code];
         }
-      }
-
-      // Now compute shifted offsets by subtracting child offset
-      for (int64_t i = 0; i < length; ++i) {
-        const int8_t code = type_codes[i];
-        shifted_offsets[i] = unshifted_offsets[i] - child_offsets[code];
-        // Update the child length to account for observed value
-        child_lengths[code] = std::max(child_lengths[code], shifted_offsets[i] + 1);
+        child_lengths[code] =
+            std::max(child_lengths[code], shifted_offsets[code_idx] + 1);
       }
 
       value_offsets = std::move(shifted_offsets_buffer);
@@ -524,6 +557,20 @@ class RecordBatchSerializer {
   Status Visit(const DictionaryArray& array) {
     // Dictionary written out separately. Slice offset contained in the indices
     return VisitType(*array.indices());
+  }
+
+  Status Visit(const RunEndEncodedArray& array) {
+    // NOTE: LogicalRunEnds() copies the whole run ends array to add an offset and
+    // clip the ends. To improve performance (by avoiding the extra allocation
+    // and memory writes) we could fuse this process with serialization.
+    ARROW_ASSIGN_OR_RAISE(const auto run_ends,
+                          array.LogicalRunEnds(options_.memory_pool));
+    const auto values = array.LogicalValues();
+    --max_recursion_depth_;
+    RETURN_NOT_OK(VisitArray(*run_ends));
+    RETURN_NOT_OK(VisitArray(*values));
+    ++max_recursion_depth_;
+    return Status::OK();
   }
 
   Status Visit(const ExtensionArray& array) { return VisitType(*array.storage()); }

@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v11/arrow"	
+	"github.com/apache/arrow/go/v12/arrow"	
 	"github.com/goccy/go-json"
 )
 
@@ -82,7 +82,7 @@ func (a *{{.Name}}) setData(data *Data) {
 	}
 }
 
-func (a *{{.Name}}) getOneForMarshal(i int) interface{} {
+func (a *{{.Name}}) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}

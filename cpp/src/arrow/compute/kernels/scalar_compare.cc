@@ -21,7 +21,7 @@
 #include <optional>
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 
@@ -261,7 +261,7 @@ struct CompareKernel {
     DCHECK(kernel);
     const auto kernel_data = checked_cast<const CompareData*>(kernel->data.get());
 
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     // TODO: implement path for offset not multiple of 8
     const bool out_is_byte_aligned = out_arr->offset % 8 == 0;
@@ -670,11 +670,7 @@ struct BinaryScalarMinMax {
         }
       }
 
-      if (result) {
-        RETURN_NOT_OK(builder.Append(*result));
-      } else {
-        builder.UnsafeAppendNull();
-      }
+      RETURN_NOT_OK(builder.AppendOrNull(result));
     }
 
     std::shared_ptr<Array> string_array;

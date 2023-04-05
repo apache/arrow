@@ -421,6 +421,12 @@ class ArrayLoader {
     return LoadType(*type.index_type());
   }
 
+  Status Visit(const RunEndEncodedType& type) {
+    out_->buffers.resize(1);
+    RETURN_NOT_OK(LoadCommon(type.id()));
+    return LoadChildren(type.fields());
+  }
+
   Status Visit(const ExtensionType& type) { return LoadType(*type.storage_type()); }
 
   BatchDataReadRequest& read_request() { return read_request_; }
@@ -456,6 +462,10 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
   const uint8_t* data = buf->data();
   int64_t compressed_size = buf->size() - sizeof(int64_t);
   int64_t uncompressed_size = bit_util::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
+
+  if (uncompressed_size == -1) {
+    return SliceBuffer(buf, sizeof(int64_t), compressed_size);
+  }
 
   ARROW_ASSIGN_OR_RAISE(auto uncompressed,
                         AllocateBuffer(uncompressed_size, options.memory_pool));

@@ -1067,6 +1067,10 @@ TEST(Cast, TimestampToTimestamp) {
     CheckCast(will_be_truncated, coarse, options);
   }
 
+  options.to_type = timestamp(TimeUnit::SECOND);
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[0, null, 200, 1, 2]"),
+            ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, null, 200, 1, 2]"), options);
+
   for (auto types : {
            TimestampTypePair{timestamp(TimeUnit::SECOND), timestamp(TimeUnit::MICRO)},
            TimestampTypePair{timestamp(TimeUnit::MILLI), timestamp(TimeUnit::NANO)},
@@ -1125,6 +1129,10 @@ TEST(Cast, TimestampZeroCopy) {
   }
   CheckCastZeroCopy(ArrayFromJSON(int64(), "[0, null, 2000, 1000, 0]"),
                     timestamp(TimeUnit::SECOND));
+
+  CheckCastZeroCopy(
+      ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[0, null, 2000, 1000, 0]"),
+      timestamp(TimeUnit::SECOND));
 }
 
 TEST(Cast, TimestampToTimestampMultiplyOverflow) {

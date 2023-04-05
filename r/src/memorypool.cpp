@@ -45,6 +45,12 @@ class GcMemoryPool : public arrow::MemoryPool {
 
   int64_t max_memory() const override { return pool_->max_memory(); }
 
+  int64_t total_bytes_allocated() const override {
+    return pool_->total_bytes_allocated();
+  }
+
+  int64_t num_allocations() const override { return pool_->num_allocations(); }
+
   std::string backend_name() const override { return pool_->backend_name(); }
 
  private:

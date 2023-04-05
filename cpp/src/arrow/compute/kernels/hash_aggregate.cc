@@ -29,15 +29,11 @@
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/exec/key_hash.h"
-#include "arrow/compute/exec/key_map.h"
-#include "arrow/compute/exec/util.h"
-#include "arrow/compute/exec_internal.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/aggregate_var_std_internal.h"
-#include "arrow/compute/kernels/common.h"
-#include "arrow/compute/kernels/row_encoder.h"
+#include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/record_batch.h"
@@ -108,17 +104,29 @@ Result<TypeHolder> ResolveGroupOutputType(KernelContext* ctx,
   return checked_cast<GroupedAggregator*>(ctx->state())->out_type();
 }
 
-HashAggregateKernel MakeKernel(InputType argument_type, KernelInit init) {
+HashAggregateKernel MakeKernel(std::shared_ptr<KernelSignature> signature,
+                               KernelInit init) {
   HashAggregateKernel kernel;
   kernel.init = std::move(init);
-  kernel.signature =
-      KernelSignature::Make({std::move(argument_type), InputType(Type::UINT32)},
-                            OutputType(ResolveGroupOutputType));
+  kernel.signature = std::move(signature);
   kernel.resize = HashAggregateResize;
   kernel.consume = HashAggregateConsume;
   kernel.merge = HashAggregateMerge;
   kernel.finalize = HashAggregateFinalize;
   return kernel;
+}
+
+HashAggregateKernel MakeKernel(InputType argument_type, KernelInit init) {
+  return MakeKernel(
+      KernelSignature::Make({std::move(argument_type), InputType(Type::UINT32)},
+                            OutputType(ResolveGroupOutputType)),
+      std::move(init));
+}
+
+HashAggregateKernel MakeUnaryKernel(KernelInit init) {
+  return MakeKernel(KernelSignature::Make({InputType(Type::UINT32)},
+                                          OutputType(ResolveGroupOutputType)),
+                    std::move(init));
 }
 
 Status AddHashAggKernels(
@@ -222,6 +230,53 @@ void VisitGroupedValuesNonNull(const ExecSpan& batch, ConsumeValue&& valid_func)
 
 // ----------------------------------------------------------------------
 // Count implementation
+
+// Nullary-count implementation -- COUNT(*).
+struct GroupedCountAllImpl : public GroupedAggregator {
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    counts_ = BufferBuilder(ctx->memory_pool());
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    auto added_groups = new_num_groups - num_groups_;
+    num_groups_ = new_num_groups;
+    return counts_.Append(added_groups * sizeof(int64_t), 0);
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedCountAllImpl*>(&raw_other);
+
+    auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
+    auto other_counts = reinterpret_cast<const int64_t*>(other->counts_.data());
+
+    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
+      counts[*g] += other_counts[other_g];
+    }
+    return Status::OK();
+  }
+
+  Status Consume(const ExecSpan& batch) override {
+    auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
+    auto g_begin = batch[0].array.GetValues<uint32_t>(1);
+    for (auto g_itr = g_begin, end = g_itr + batch.length; g_itr != end; g_itr++) {
+      counts[*g_itr] += 1;
+    }
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    ARROW_ASSIGN_OR_RAISE(auto counts, counts_.Finish());
+    return std::make_shared<Int64Array>(num_groups_, std::move(counts));
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return int64(); }
+
+  int64_t num_groups_ = 0;
+  BufferBuilder counts_;
+};
 
 struct GroupedCountImpl : public GroupedAggregator {
   Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
@@ -2670,10 +2725,14 @@ struct GroupedListFactory {
 namespace {
 const FunctionDoc hash_count_doc{
     "Count the number of null / non-null values in each group",
-    ("By default, non-null values are counted.\n"
+    ("By default, only non-null values are counted.\n"
      "This can be changed through ScalarAggregateOptions."),
     {"array", "group_id_array"},
     "CountOptions"};
+
+const FunctionDoc hash_count_all_doc{"Count the number of rows in each group",
+                                     ("Not caring about the values of any column."),
+                                     {"group_id_array"}};
 
 const FunctionDoc hash_sum_doc{"Sum values in each group",
                                ("Null values are ignored."),
@@ -2789,6 +2848,15 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     DCHECK_OK(func->AddKernel(
         MakeKernel(InputType::Any(), HashAggregateInit<GroupedCountImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<HashAggregateFunction>("hash_count_all", Arity::Unary(),
+                                                        hash_count_all_doc, NULLPTR);
+
+    DCHECK_OK(func->AddKernel(MakeUnaryKernel(HashAggregateInit<GroupedCountAllImpl>)));
+    auto status = registry->AddFunction(std::move(func));
+    DCHECK_OK(status);
   }
 
   {

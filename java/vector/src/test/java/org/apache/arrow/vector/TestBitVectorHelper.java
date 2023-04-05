@@ -24,10 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.junit.Test;
-
-import io.netty.util.internal.PlatformDependent;
 
 public class TestBitVectorHelper {
   @Test
@@ -117,34 +116,34 @@ public class TestBitVectorHelper {
     try (RootAllocator allocator = new RootAllocator(bufferLength);
          ArrowBuf validityBuffer = allocator.buffer(bufferLength)) {
 
-      PlatformDependent.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
+      MemoryUtil.UNSAFE.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       int bitLength = 1024;
       assertTrue(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
       bitLength = 1028;
       assertTrue(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
-      PlatformDependent.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
+      MemoryUtil.UNSAFE.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       bitLength = 1025;
       BitVectorHelper.unsetBit(validityBuffer, 12);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
-      PlatformDependent.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
+      MemoryUtil.UNSAFE.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       bitLength = 1025;
       BitVectorHelper.unsetBit(validityBuffer, 1024);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
-      PlatformDependent.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
+      MemoryUtil.UNSAFE.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       bitLength = 1026;
       BitVectorHelper.unsetBit(validityBuffer, 1024);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
-      PlatformDependent.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
+      MemoryUtil.UNSAFE.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       bitLength = 1027;
       BitVectorHelper.unsetBit(validityBuffer, 1025);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
-      PlatformDependent.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
+      MemoryUtil.UNSAFE.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       bitLength = 1031;
       BitVectorHelper.unsetBit(validityBuffer, 1029);
       BitVectorHelper.unsetBit(validityBuffer, 1030);

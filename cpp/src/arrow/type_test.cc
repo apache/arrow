@@ -1927,6 +1927,39 @@ TEST(TypesTest, TestDecimalEquals) {
   AssertTypeNotEqual(t5, t10);
 }
 
+TEST(TypesTest, TestRunEndEncodedType) {
+  auto int8_ree_expected = std::make_shared<RunEndEncodedType>(int32(), list(int8()));
+  auto int8_ree_type = run_end_encoded(int32(), list(int8()));
+  auto int32_ree_type = run_end_encoded(int32(), list(int32()));
+
+  ASSERT_EQ(*int8_ree_expected, *int8_ree_type);
+  ASSERT_NE(*int8_ree_expected, *int32_ree_type);
+
+  ASSERT_EQ(int8_ree_type->id(), Type::RUN_END_ENCODED);
+  ASSERT_EQ(int32_ree_type->id(), Type::RUN_END_ENCODED);
+
+  auto int8_ree_type_cast = std::dynamic_pointer_cast<RunEndEncodedType>(int8_ree_type);
+  auto int32_ree_type_cast = std::dynamic_pointer_cast<RunEndEncodedType>(int32_ree_type);
+  ASSERT_EQ(*int8_ree_type_cast->value_type(), *list(int8()));
+  ASSERT_EQ(*int32_ree_type_cast->value_type(), *list(int32()));
+
+  ASSERT_TRUE(int8_ree_type_cast->field(0)->Equals(Field("run_ends", int32(), false)));
+  ASSERT_TRUE(int8_ree_type_cast->field(1)->Equals(Field("values", list(int8()), true)));
+
+  auto int16_int32_ree_type = run_end_encoded(int16(), list(int32()));
+  auto int64_int32_ree_type = run_end_encoded(int64(), list(int32()));
+  ASSERT_NE(*int32_ree_type, *int16_int32_ree_type);
+  ASSERT_NE(*int32_ree_type, *int64_int32_ree_type);
+  ASSERT_NE(*int16_int32_ree_type, *int64_int32_ree_type);
+
+  ASSERT_EQ(int16_int32_ree_type->ToString(),
+            "run_end_encoded<run_ends: int16, values: list<item: int32>>");
+  ASSERT_EQ(int8_ree_type->ToString(),
+            "run_end_encoded<run_ends: int32, values: list<item: int8>>");
+  ASSERT_EQ(int64_int32_ree_type->ToString(),
+            "run_end_encoded<run_ends: int64, values: list<item: int32>>");
+}
+
 #define TEST_PREDICATE(all_types, type_predicate)                 \
   for (auto type : all_types) {                                   \
     ASSERT_EQ(type_predicate(type->id()), type_predicate(*type)); \

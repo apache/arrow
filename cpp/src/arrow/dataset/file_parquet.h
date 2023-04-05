@@ -119,8 +119,16 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Result<std::shared_ptr<parquet::arrow::FileReader>> GetReader(
       const FileSource& source, const std::shared_ptr<ScanOptions>& options) const;
 
+  Result<std::shared_ptr<parquet::arrow::FileReader>> GetReader(
+      const FileSource& source, const std::shared_ptr<ScanOptions>& options,
+      const std::shared_ptr<parquet::FileMetaData>& metadata) const;
+
   Future<std::shared_ptr<parquet::arrow::FileReader>> GetReaderAsync(
       const FileSource& source, const std::shared_ptr<ScanOptions>& options) const;
+
+  Future<std::shared_ptr<parquet::arrow::FileReader>> GetReaderAsync(
+      const FileSource& source, const std::shared_ptr<ScanOptions>& options,
+      const std::shared_ptr<parquet::FileMetaData>& metadata) const;
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
@@ -162,6 +170,9 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   /// \brief Return fragment which selects a filtered subset of this fragment's RowGroups.
   Result<std::shared_ptr<Fragment>> Subset(compute::Expression predicate);
   Result<std::shared_ptr<Fragment>> Subset(std::vector<int> row_group_ids);
+
+  static std::optional<compute::Expression> EvaluateStatisticsAsExpression(
+      const Field& field, const parquet::Statistics& statistics);
 
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,

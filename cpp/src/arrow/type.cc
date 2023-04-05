@@ -135,7 +135,8 @@ std::vector<Type::type> AllTypeIds() {
           Type::SPARSE_UNION,
           Type::DICTIONARY,
           Type::EXTENSION,
-          Type::INTERVAL_MONTH_DAY_NANO};
+          Type::INTERVAL_MONTH_DAY_NANO,
+          Type::RUN_END_ENCODED};
 }
 
 namespace internal {
@@ -200,6 +201,7 @@ std::string ToString(Type::type id) {
     TO_STRING_CASE(DENSE_UNION)
     TO_STRING_CASE(SPARSE_UNION)
     TO_STRING_CASE(DICTIONARY)
+    TO_STRING_CASE(RUN_END_ENCODED)
     TO_STRING_CASE(EXTENSION)
 
 #undef TO_STRING_CASE
@@ -452,7 +454,27 @@ std::string TypeHolder::ToString(const std::vector<TypeHolder>& types) {
   return ss.str();
 }
 
+std::vector<TypeHolder> TypeHolder::FromTypes(
+    const std::vector<std::shared_ptr<DataType>>& types) {
+  std::vector<TypeHolder> type_holders;
+  type_holders.reserve(types.size());
+  for (const auto& type : types) {
+    type_holders.emplace_back(type);
+  }
+  return type_holders;
+}
+
 // ----------------------------------------------------------------------
+
+FixedWidthType::~FixedWidthType() {}
+
+PrimitiveCType::~PrimitiveCType() {}
+
+NumberType::~NumberType() {}
+
+IntegerType::~IntegerType() {}
+
+FloatingPointType::~FloatingPointType() {}
 
 FloatingPointType::Precision HalfFloatType::precision() const {
   return FloatingPointType::HALF;
@@ -477,6 +499,12 @@ std::ostream& operator<<(std::ostream& os,
   os << interval.months << "M" << interval.days << "d" << interval.nanoseconds << "ns";
   return os;
 }
+
+NestedType::~NestedType() {}
+
+BaseBinaryType::~BaseBinaryType() {}
+
+BaseListType::~BaseListType() {}
 
 std::string ListType::ToString() const {
   std::stringstream s;
@@ -588,6 +616,8 @@ std::string FixedSizeBinaryType::ToString() const {
   ss << "fixed_size_binary[" << byte_width_ << "]";
   return ss.str();
 }
+
+TemporalType::~TemporalType() {}
 
 // ----------------------------------------------------------------------
 // Date types
@@ -755,6 +785,28 @@ Result<std::shared_ptr<DataType>> DenseUnionType::Make(
     std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes) {
   RETURN_NOT_OK(ValidateParameters(fields, type_codes, UnionMode::DENSE));
   return std::make_shared<DenseUnionType>(fields, type_codes);
+}
+
+// ----------------------------------------------------------------------
+// Run-end encoded type
+
+RunEndEncodedType::RunEndEncodedType(std::shared_ptr<DataType> run_end_type,
+                                     std::shared_ptr<DataType> value_type)
+    : NestedType(Type::RUN_END_ENCODED) {
+  DCHECK(RunEndTypeValid(*run_end_type));
+  children_ = {std::make_shared<Field>("run_ends", std::move(run_end_type), false),
+               std::make_shared<Field>("values", std::move(value_type), true)};
+}
+
+std::string RunEndEncodedType::ToString() const {
+  std::stringstream s;
+  s << name() << "<run_ends: " << run_end_type()->ToString()
+    << ", values: " << value_type()->ToString() << ">";
+  return s.str();
+}
+
+bool RunEndEncodedType::RunEndTypeValid(const DataType& run_end_type) {
+  return is_run_end_type(run_end_type.id());
 }
 
 // ----------------------------------------------------------------------
@@ -1686,6 +1738,21 @@ bool Schema::HasDistinctFieldNames() const {
   return names.size() == fields.size();
 }
 
+Result<std::shared_ptr<Schema>> Schema::WithNames(
+    const std::vector<std::string>& names) const {
+  if (names.size() != impl_->fields_.size()) {
+    return Status::Invalid("attempted to rename schema with ", impl_->fields_.size(),
+                           " fields but only ", names.size(), " new names were given");
+  }
+  FieldVector new_fields;
+  new_fields.reserve(names.size());
+  auto names_itr = names.begin();
+  for (const auto& field : impl_->fields_) {
+    new_fields.push_back(field->WithName(*names_itr++));
+  }
+  return schema(std::move(new_fields));
+}
+
 std::shared_ptr<Schema> Schema::WithMetadata(
     const std::shared_ptr<const KeyValueMetadata>& metadata) const {
   return std::make_shared<Schema>(impl_->fields_, metadata);
@@ -2221,6 +2288,15 @@ std::string DecimalType::ComputeFingerprint() const {
   return ss.str();
 }
 
+std::string RunEndEncodedType::ComputeFingerprint() const {
+  std::stringstream ss;
+  ss << TypeIdFingerprint(*this) << "{";
+  ss << run_end_type()->fingerprint() << ";";
+  ss << value_type()->fingerprint() << ";";
+  ss << "}";
+  return ss.str();
+}
+
 std::string StructType::ComputeFingerprint() const {
   std::stringstream ss;
   ss << TypeIdFingerprint(*this) << "{";
@@ -2398,6 +2474,12 @@ std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_fi
 
 std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fields) {
   return std::make_shared<StructType>(fields);
+}
+
+std::shared_ptr<DataType> run_end_encoded(std::shared_ptr<arrow::DataType> run_end_type,
+                                          std::shared_ptr<DataType> value_type) {
+  return std::make_shared<RunEndEncodedType>(std::move(run_end_type),
+                                             std::move(value_type));
 }
 
 std::shared_ptr<DataType> sparse_union(FieldVector child_fields,

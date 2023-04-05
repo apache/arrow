@@ -1318,10 +1318,10 @@ data, these custom vectors should be converted to a type that exist in
 the Arrow spec.
 
 .. _Flatbuffers: http://github.com/google/flatbuffers
-.. _Flatbuffers protocol definition files: https://github.com/apache/arrow/tree/master/format
-.. _Schema.fbs: https://github.com/apache/arrow/blob/master/format/Schema.fbs
-.. _Message.fbs: https://github.com/apache/arrow/blob/master/format/Message.fbs
-.. _File.fbs: https://github.com/apache/arrow/blob/master/format/File.fbs
+.. _Flatbuffers protocol definition files: https://github.com/apache/arrow/tree/main/format
+.. _Schema.fbs: https://github.com/apache/arrow/blob/main/format/Schema.fbs
+.. _Message.fbs: https://github.com/apache/arrow/blob/main/format/Message.fbs
+.. _File.fbs: https://github.com/apache/arrow/blob/main/format/File.fbs
 .. _least-significant bit (LSB) numbering: https://en.wikipedia.org/wiki/Bit_numbering
 .. _Intel performance guide: https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness

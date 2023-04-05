@@ -22,12 +22,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/flight"
-	"github.com/apache/arrow/go/v11/arrow/flight/flightsql"
-	pb "github.com/apache/arrow/go/v11/arrow/flight/internal/flight"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/flight"
+	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
+	pb "github.com/apache/arrow/go/v12/arrow/flight/internal/flight"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -352,7 +352,7 @@ func (s *UnimplementedFlightSqlServerSuite) TestDoGet() {
 }
 
 func (s *UnimplementedFlightSqlServerSuite) TestDoAction() {
-	prep, err := s.cl.Prepare(context.TODO(), memory.DefaultAllocator, "IRRELEVANT")
+	prep, err := s.cl.Prepare(context.TODO(), "IRRELEVANT")
 	s.Nil(prep)
 	st, ok := status.FromError(err)
 	s.True(ok)

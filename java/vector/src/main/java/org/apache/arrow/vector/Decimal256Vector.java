@@ -24,6 +24,7 @@ import java.nio.ByteOrder;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.vector.complex.impl.Decimal256ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.Decimal256Holder;
@@ -35,7 +36,6 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DecimalUtility;
 import org.apache.arrow.vector.util.TransferPair;
 
-import io.netty.util.internal.PlatformDependent;
 
 /**
  * Decimal256Vector implements a fixed width vector (32 bytes) of
@@ -222,13 +222,13 @@ public final class Decimal256Vector extends BaseFixedWidthVector {
 
     long outAddress = valueBuffer.memoryAddress() + (long) index * TYPE_WIDTH;
     if (length == 0) {
-      PlatformDependent.setMemory(outAddress, Decimal256Vector.TYPE_WIDTH, (byte) 0);
+      MemoryUtil.UNSAFE.setMemory(outAddress, Decimal256Vector.TYPE_WIDTH, (byte) 0);
       return;
     }
     if (LITTLE_ENDIAN) {
       // swap bytes to convert BE to LE
       for (int byteIdx = 0; byteIdx < length; ++byteIdx) {
-        PlatformDependent.putByte(outAddress + byteIdx, value[length - 1 - byteIdx]);
+        MemoryUtil.UNSAFE.putByte(outAddress + byteIdx, value[length - 1 - byteIdx]);
       }
 
       if (length == TYPE_WIDTH) {
@@ -238,16 +238,21 @@ public final class Decimal256Vector extends BaseFixedWidthVector {
       if (length < TYPE_WIDTH) {
         // sign extend
         final byte pad = (byte) (value[0] < 0 ? 0xFF : 0x00);
-        PlatformDependent.setMemory(outAddress + length, Decimal256Vector.TYPE_WIDTH - length, pad);
+        MemoryUtil.UNSAFE.setMemory(outAddress + length, Decimal256Vector.TYPE_WIDTH - length, pad);
         return;
       }
     } else {
       if (length <= TYPE_WIDTH) {
         // copy data from value to outAddress
-        PlatformDependent.copyMemory(value, 0, outAddress + Decimal256Vector.TYPE_WIDTH - length, length);
+        MemoryUtil.UNSAFE.copyMemory(
+                value,
+                MemoryUtil.BYTE_ARRAY_BASE_OFFSET,
+                null,
+                outAddress + Decimal256Vector.TYPE_WIDTH - length,
+                length);
         // sign extend
         final byte pad = (byte) (value[0] < 0 ? 0xFF : 0x00);
-        PlatformDependent.setMemory(outAddress, Decimal256Vector.TYPE_WIDTH - length, pad);
+        MemoryUtil.UNSAFE.setMemory(outAddress, Decimal256Vector.TYPE_WIDTH - length, pad);
         return;
       }
     }
@@ -285,20 +290,20 @@ public final class Decimal256Vector extends BaseFixedWidthVector {
     long inAddress = buffer.memoryAddress() + start;
     long outAddress = valueBuffer.memoryAddress() + (long) index * TYPE_WIDTH;
     if (LITTLE_ENDIAN) {
-      PlatformDependent.copyMemory(inAddress, outAddress, length);
+      MemoryUtil.UNSAFE.copyMemory(inAddress, outAddress, length);
       // sign extend
       if (length < TYPE_WIDTH) {
-        byte msb = PlatformDependent.getByte(inAddress + length - 1);
+        byte msb = MemoryUtil.UNSAFE.getByte(inAddress + length - 1);
         final byte pad = (byte) (msb < 0 ? 0xFF : 0x00);
-        PlatformDependent.setMemory(outAddress + length, Decimal256Vector.TYPE_WIDTH - length, pad);
+        MemoryUtil.UNSAFE.setMemory(outAddress + length, Decimal256Vector.TYPE_WIDTH - length, pad);
       }
     } else {
-      PlatformDependent.copyMemory(inAddress, outAddress + Decimal256Vector.TYPE_WIDTH - length, length);
+      MemoryUtil.UNSAFE.copyMemory(inAddress, outAddress + Decimal256Vector.TYPE_WIDTH - length, length);
       // sign extend
       if (length < TYPE_WIDTH) {
-        byte msb = PlatformDependent.getByte(inAddress);
+        byte msb = MemoryUtil.UNSAFE.getByte(inAddress);
         final byte pad = (byte) (msb < 0 ? 0xFF : 0x00);
-        PlatformDependent.setMemory(outAddress, Decimal256Vector.TYPE_WIDTH - length, pad);
+        MemoryUtil.UNSAFE.setMemory(outAddress, Decimal256Vector.TYPE_WIDTH - length, pad);
       }
     }
   }
@@ -325,22 +330,22 @@ public final class Decimal256Vector extends BaseFixedWidthVector {
     if (LITTLE_ENDIAN) {
       // swap bytes to convert BE to LE
       for (int byteIdx = 0; byteIdx < length; ++byteIdx) {
-        byte val = PlatformDependent.getByte((inAddress + length - 1) - byteIdx);
-        PlatformDependent.putByte(outAddress + byteIdx, val);
+        byte val = MemoryUtil.UNSAFE.getByte((inAddress + length - 1) - byteIdx);
+        MemoryUtil.UNSAFE.putByte(outAddress + byteIdx, val);
       }
       // sign extend
       if (length < 32) {
-        byte msb = PlatformDependent.getByte(inAddress);
+        byte msb = MemoryUtil.UNSAFE.getByte(inAddress);
         final byte pad = (byte) (msb < 0 ? 0xFF : 0x00);
-        PlatformDependent.setMemory(outAddress + length, Decimal256Vector.TYPE_WIDTH - length, pad);
+        MemoryUtil.UNSAFE.setMemory(outAddress + length, Decimal256Vector.TYPE_WIDTH - length, pad);
       }
     } else {
-      PlatformDependent.copyMemory(inAddress, outAddress + Decimal256Vector.TYPE_WIDTH - length, length);
+      MemoryUtil.UNSAFE.copyMemory(inAddress, outAddress + Decimal256Vector.TYPE_WIDTH - length, length);
       // sign extend
       if (length < TYPE_WIDTH) {
-        byte msb = PlatformDependent.getByte(inAddress);
+        byte msb = MemoryUtil.UNSAFE.getByte(inAddress);
         final byte pad = (byte) (msb < 0 ? 0xFF : 0x00);
-        PlatformDependent.setMemory(outAddress, Decimal256Vector.TYPE_WIDTH - length, pad);
+        MemoryUtil.UNSAFE.setMemory(outAddress, Decimal256Vector.TYPE_WIDTH - length, pad);
       }
     }
   }

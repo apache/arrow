@@ -117,8 +117,5 @@ class ARROW_EXPORT FunctionRegistry {
   explicit FunctionRegistry(FunctionRegistryImpl* impl);
 };
 
-/// \brief Return the process-global function registry.
-ARROW_EXPORT FunctionRegistry* GetFunctionRegistry();
-
 }  // namespace compute
 }  // namespace arrow

@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -107,17 +110,9 @@ public class TestTls {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer();
-        FlightServer s =
-            FlightTestUtil.getStartedServer(
-                (location) -> {
-                  try {
-                    return FlightServer.builder(a, location, producer)
-                        .useTls(certKey.cert, certKey.key)
-                        .build();
-                  } catch (IOException e) {
-                    throw new RuntimeException(e);
-                  }
-                })) {
+        FlightServer s = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), producer)
+            .useTls(certKey.cert, certKey.key)
+            .build().start()) {
       final Builder builder = FlightClient.builder(a, Location.forGrpcTls(FlightTestUtil.LOCALHOST, s.getPort()));
       testFn.accept(builder);
     } catch (InterruptedException | IOException e) {

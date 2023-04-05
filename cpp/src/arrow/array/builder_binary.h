@@ -49,7 +49,9 @@ namespace arrow {
 // Binary and String
 
 template <typename TYPE>
-class BaseBinaryBuilder : public ArrayBuilder {
+class BaseBinaryBuilder
+    : public ArrayBuilder,
+      public internal::ArrayBuilderExtraOps<BaseBinaryBuilder<TYPE>, std::string_view> {
  public:
   using TypeClass = TYPE;
   using offset_type = typename TypeClass::offset_type;

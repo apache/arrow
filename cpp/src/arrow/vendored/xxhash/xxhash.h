@@ -2474,7 +2474,7 @@ XXH_FORCE_INLINE xxh_u64x2 XXH_vec_loadu(const void *ptr)
 #  define XXH_vec_mule __builtin_altivec_vmuleuw
 # else
 /* gcc needs inline assembly */
-/* Adapted from https://github.com/google/highwayhash/blob/master/highwayhash/hh_vsx.h. */
+/* Adapted from https://github.com/google/highwayhash/blob/main/highwayhash/hh_vsx.h. */
 XXH_FORCE_INLINE xxh_u64x2 XXH_vec_mulo(xxh_u32x4 a, xxh_u32x4 b)
 {
     xxh_u64x2 result;

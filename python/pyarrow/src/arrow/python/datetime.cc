@@ -88,7 +88,7 @@ void InitDatetime() {
 #endif
 
 // The following code is adapted from
-// https://github.com/numpy/numpy/blob/master/numpy/core/src/multiarray/datetime.c
+// https://github.com/numpy/numpy/blob/main/numpy/core/src/multiarray/datetime.c
 
 // Days per month, regular year and leap year
 static int64_t _days_per_month_table[2][12] = {

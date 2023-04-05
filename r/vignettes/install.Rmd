@@ -105,7 +105,10 @@ Similarly, if you use `conda` to manage your R environment, you can get the
 latest official release of the R package including libarrow via:
 
 ```shell
-conda install -c conda-forge --strict-channel-priority r-arrow
+# Using the --strict-channel-priority flag on `conda install` causes very long
+# solve times, so we add it directly to the config
+conda config --set channel_priority strict
+conda install -c conda-forge r-arrow
 ```
 
 ### R source package with libarrow binary
@@ -114,7 +117,7 @@ conda install -c conda-forge --strict-channel-priority r-arrow
 knitr::include_graphics("./r_source_libarrow_binary.png")
 ```
 
-Another way of achieving faster installation with all key features enabled is to use static libarrow binaries we host. These are used automatically on many Linux distributions (x86_64 architecture only), according to the [allowlist](https://github.com/apache/arrow/blob/master/r/tools/nixlibs-allowlist.txt). If your distribution isn't in the list, you can opt-in by setting the `NOT_CRAN` environment variable before you call `install.packages()`:
+Another way of achieving faster installation with all key features enabled is to use static libarrow binaries we host. These are used automatically on many Linux distributions (x86_64 architecture only), according to the [allowlist](https://github.com/apache/arrow/blob/main/r/tools/nixlibs-allowlist.txt). If your distribution isn't in the list, you can opt-in by setting the `NOT_CRAN` environment variable before you call `install.packages()`:
 
 ```{r, eval = FALSE}
 Sys.setenv("NOT_CRAN" = "true")
@@ -221,7 +224,7 @@ already present (when set to `AUTO`, the default).
 
 These dependencies vary by platform; however, if you wish to install these
 yourself prior to libarrow installation, we recommend that you take a look at
-the [docker file for whichever of our CI builds](https://github.com/apache/arrow/tree/master/ci/docker)
+the [docker file for whichever of our CI builds](https://github.com/apache/arrow/tree/main/ci/docker)
 (the ones ending in "cpp" are for building Arrow's C++ libaries, aka libarrow)
 corresponds most closely to your setup.  This will contain the most up-to-date
 information about dependencies and minimum versions.
@@ -294,8 +297,8 @@ See below for more in-depth explanations of these environment variables.
   will work with your system. You can set it to `false` to skip this option
   altogether, or you can specify a string "distro-version" that corresponds to
   a binary that is available, to override what this function may discover by
-  default. Possible values are: "centos-7",
-  "ubuntu-18.04" (both with gcc 8, and openssl 1), "ubuntu-22.04" (openssl 3).
+  default. Possible values are: "linux-openssl-1.0", "linux-openssl-1.1",
+  "linux-openssl-3.0".
 * `LIBARROW_BUILD` : If set to `false`, the build script
   will not attempt to build the C++ from source. This means you will only get
   a working arrow R package if a prebuilt binary is found.
@@ -354,7 +357,7 @@ Although this function is part of the arrow package, it is also available as
 a standalone script, so you can access it without first installing the package:
 
 ```r
-source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")
+source("https://raw.githubusercontent.com/apache/arrow/main/r/R/install-arrow.R")
 ```
 
 Notes:
@@ -378,7 +381,7 @@ on a computer without internet access. The process is as follows:
 * Install the arrow package **or** source the script directly using the following command:
   
   ```r
-  source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")
+  source("https://raw.githubusercontent.com/apache/arrow/main/r/R/install-arrow.R")
   ```
   
 * Use the `create_package_with_all_dependencies()` function to create the installation bundle:

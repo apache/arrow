@@ -28,6 +28,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
+import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.compare.VectorVisitor;
@@ -36,8 +37,6 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.util.internal.PlatformDependent;
 
 /**
  * BaseFixedWidthVector provides an abstract interface for
@@ -859,7 +858,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
       BitVectorHelper.unsetBit(this.getValidityBuffer(), thisIndex);
     } else {
       BitVectorHelper.setBit(this.getValidityBuffer(), thisIndex);
-      PlatformDependent.copyMemory(from.getDataBuffer().memoryAddress() + (long) fromIndex * typeWidth,
+      MemoryUtil.UNSAFE.copyMemory(from.getDataBuffer().memoryAddress() + (long) fromIndex * typeWidth,
               this.getDataBuffer().memoryAddress() + (long) thisIndex * typeWidth, typeWidth);
     }
   }

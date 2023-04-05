@@ -472,3 +472,12 @@ test_that("Can read parquet with nested lists and maps", {
   pq <- read_parquet(paste0(parquet_test_data, "/nested_maps.snappy.parquet"), as_data_frame = FALSE)
   expect_true(pq$a$type == map_of(utf8(), map_of(int32(), field("value", boolean(), nullable = FALSE))))
 })
+
+test_that("Can read Parquet files from a URL", {
+  skip_if_offline()
+  skip_on_cran()
+  parquet_url <- "https://github.com/apache/arrow/blob/64f2cc7986ce672dd1a8cb268d193617a80a1653/r/inst/v0.7.1.parquet?raw=true" # nolint
+  pu <- read_parquet(parquet_url)
+  expect_true(tibble::is_tibble(pu))
+  expect_identical(dim(pu), c(10L, 11L))
+})

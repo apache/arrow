@@ -24,39 +24,19 @@ from pyarrow import compute as pc
 # UDFs are all tested with a dataset scan
 pytestmark = pytest.mark.dataset
 
-
 try:
     import pyarrow.dataset as ds
 except ImportError:
     ds = None
 
 
-def mock_udf_context(batch_length=10):
+def mock_scalar_udf_context(batch_length=10):
     from pyarrow._compute import _get_scalar_udf_context
     return _get_scalar_udf_context(pa.default_memory_pool(), batch_length)
 
 
 class MyError(RuntimeError):
     pass
-
-
-@pytest.fixture(scope="session")
-def unary_func_fixture():
-    """
-    Register a unary scalar function.
-    """
-    def unary_function(ctx, x):
-        return pc.call_function("add", [x, 1],
-                                memory_pool=ctx.memory_pool)
-    func_name = "y=x+1"
-    unary_doc = {"summary": "add function",
-                 "description": "test add function"}
-    pc.register_scalar_function(unary_function,
-                                func_name,
-                                unary_doc,
-                                {"array": pa.int64()},
-                                pa.int64())
-    return unary_function, func_name
 
 
 @pytest.fixture(scope="session")
@@ -248,7 +228,7 @@ def check_scalar_function(func_fixture,
         if all_scalar:
             batch_length = 1
 
-    expected_output = function(mock_udf_context(batch_length), *inputs)
+    expected_output = function(mock_scalar_udf_context(batch_length), *inputs)
     func = pc.get_function(name)
     assert func.name == name
 
@@ -266,7 +246,7 @@ def check_scalar_function(func_fixture,
         assert result_table.column(0).chunks[0] == expected_output
 
 
-def test_scalar_udf_array_unary(unary_func_fixture):
+def test_udf_array_unary(unary_func_fixture):
     check_scalar_function(unary_func_fixture,
                           [
                               pa.array([10, 20], pa.int64())
@@ -274,7 +254,7 @@ def test_scalar_udf_array_unary(unary_func_fixture):
                           )
 
 
-def test_scalar_udf_array_binary(binary_func_fixture):
+def test_udf_array_binary(binary_func_fixture):
     check_scalar_function(binary_func_fixture,
                           [
                               pa.array([10, 20], pa.int64()),
@@ -283,7 +263,7 @@ def test_scalar_udf_array_binary(binary_func_fixture):
                           )
 
 
-def test_scalar_udf_array_ternary(ternary_func_fixture):
+def test_udf_array_ternary(ternary_func_fixture):
     check_scalar_function(ternary_func_fixture,
                           [
                               pa.array([10, 20], pa.int64()),
@@ -293,7 +273,7 @@ def test_scalar_udf_array_ternary(ternary_func_fixture):
                           )
 
 
-def test_scalar_udf_array_varargs(varargs_func_fixture):
+def test_udf_array_varargs(varargs_func_fixture):
     check_scalar_function(varargs_func_fixture,
                           [
                               pa.array([2, 3], pa.int64()),
@@ -464,7 +444,7 @@ def test_wrong_input_type_declaration():
                                     in_types, out_type)
 
 
-def test_udf_context(unary_func_fixture):
+def test_scalar_udf_context(unary_func_fixture):
     # Check the memory_pool argument is properly propagated
     proxy_pool = pa.proxy_memory_pool(pa.default_memory_pool())
     _, func_name = unary_func_fixture
@@ -504,3 +484,112 @@ def test_input_lifetime(unary_func_fixture):
     # Calling a UDF should not have kept `v` alive longer than required
     v = None
     assert proxy_pool.bytes_allocated() == 0
+
+
+def _record_batch_from_iters(schema, *iters):
+    arrays = [pa.array(list(v), type=schema[i].type)
+              for i, v in enumerate(iters)]
+    return pa.RecordBatch.from_arrays(arrays=arrays, schema=schema)
+
+
+def _record_batch_for_range(schema, n):
+    return _record_batch_from_iters(schema,
+                                    range(n, n + 10),
+                                    range(n + 1, n + 11))
+
+
+def make_udt_func(schema, batch_gen):
+    def udf_func(ctx):
+        class UDT:
+            def __init__(self):
+                self.caller = None
+
+            def __call__(self, ctx):
+                try:
+                    if self.caller is None:
+                        self.caller, ctx = batch_gen(ctx).send, None
+                    batch = self.caller(ctx)
+                except StopIteration:
+                    arrays = [pa.array([], type=field.type)
+                              for field in schema]
+                    batch = pa.RecordBatch.from_arrays(
+                        arrays=arrays, schema=schema)
+                return batch.to_struct_array()
+        return UDT()
+    return udf_func
+
+
+def datasource1_direct():
+    """A short dataset"""
+    schema = datasource1_schema()
+
+    class Generator:
+        def __init__(self):
+            self.n = 3
+
+        def __call__(self, ctx):
+            if self.n == 0:
+                batch = _record_batch_from_iters(schema, [], [])
+            else:
+                self.n -= 1
+                batch = _record_batch_for_range(schema, self.n)
+            return batch.to_struct_array()
+    return lambda ctx: Generator()
+
+
+def datasource1_generator():
+    schema = datasource1_schema()
+
+    def batch_gen(ctx):
+        for n in range(3, 0, -1):
+            # ctx =
+            yield _record_batch_for_range(schema, n - 1)
+    return make_udt_func(schema, batch_gen)
+
+
+def datasource1_exception():
+    schema = datasource1_schema()
+
+    def batch_gen(ctx):
+        for n in range(3, 0, -1):
+            # ctx =
+            yield _record_batch_for_range(schema, n - 1)
+        raise RuntimeError("datasource1_exception")
+    return make_udt_func(schema, batch_gen)
+
+
+def datasource1_schema():
+    return pa.schema([('', pa.int32()), ('', pa.int32())])
+
+
+def datasource1_args(func, func_name):
+    func_doc = {"summary": f"{func_name} UDT",
+                "description": "test {func_name} UDT"}
+    in_types = {}
+    out_type = pa.struct([("", pa.int32()), ("", pa.int32())])
+    return func, func_name, func_doc, in_types, out_type
+
+
+def _test_datasource1_udt(func_maker):
+    schema = datasource1_schema()
+    func = func_maker()
+    func_name = func_maker.__name__
+    func_args = datasource1_args(func, func_name)
+    pc.register_tabular_function(*func_args)
+    n = 3
+    for item in pc.call_tabular_function(func_name):
+        n -= 1
+        assert item == _record_batch_for_range(schema, n)
+
+
+def test_udt_datasource1_direct():
+    _test_datasource1_udt(datasource1_direct)
+
+
+def test_udt_datasource1_generator():
+    _test_datasource1_udt(datasource1_generator)
+
+
+def test_udt_datasource1_exception():
+    with pytest.raises(RuntimeError, match='datasource1_exception'):
+        _test_datasource1_udt(datasource1_exception)

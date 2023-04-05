@@ -7,7 +7,7 @@ to contribute here:
   * [Contributing Overview](https://arrow.apache.org/docs/dev/developers/overview.html)
 
 
-If this is not a [minor PR](https://github.com/apache/arrow/blob/master/CONTRIBUTING.md#Minor-Fixes). Could you open an issue for this pull request on GitHub? https://github.com/apache/arrow/issues/new/choose
+If this is not a [minor PR](https://github.com/apache/arrow/blob/main/CONTRIBUTING.md#Minor-Fixes). Could you open an issue for this pull request on GitHub? https://github.com/apache/arrow/issues/new/choose
 
 Opening GitHub issues ahead of time contributes to the [Openness](http://theapacheway.com/open/#:~:text=Openness%20allows%20new%20users%20the,must%20happen%20in%20the%20open.) of the Apache Arrow project.
 
@@ -55,5 +55,11 @@ If there are user-facing changes then we may require documentation to be updated
 -->
 
 <!--
-If there are any breaking changes to public APIs, please add the `breaking-change` label.
+If there are any breaking changes to public APIs, please uncomment the line below and explain which changes are breaking.
 -->
+<!-- **This PR includes breaking changes to public APIs.** -->
+
+<!--
+Please uncomment the line below (and provide explanation) if the changes fix either (a) a security vulnerability, (b) a bug that caused incorrect or invalid data to be produced, or (c) a bug that causes a crash (even when the API contract is upheld). We use this to highlight fixes to issues that may affect users without their knowledge. For this reason, fixing bugs that cause errors don't count, since those are usually obvious.
+-->
+<!-- **This PR contains a "Critical Fix".** -->

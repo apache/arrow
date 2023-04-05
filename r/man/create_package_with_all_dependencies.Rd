@@ -38,7 +38,7 @@ something other than the RSPM binary mirror URLs).
 \subsection{Using a computer with internet access, pre-download the dependencies:}{
 \itemize{
 \item Install the \code{arrow} package \emph{or} run
-\code{source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")}
+\code{source("https://raw.githubusercontent.com/apache/arrow/main/r/R/install-arrow.R")}
 \item Run \code{create_package_with_all_dependencies("my_arrow_pkg.tar.gz")}
 \item Copy the newly created \code{my_arrow_pkg.tar.gz} to the computer without internet access
 }

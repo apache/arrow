@@ -221,14 +221,13 @@ class DictEncoder : virtual public TypedEncoder<DType> {
   /// to size buffer.
   virtual int WriteIndices(uint8_t* buffer, int buffer_len) = 0;
 
-  virtual int dict_encoded_size() = 0;
-  // virtual int dict_encoded_size() { return dict_encoded_size_; }
+  virtual int dict_encoded_size() const = 0;
 
   virtual int bit_width() const = 0;
 
   /// Writes out the encoded dictionary to buffer. buffer must be preallocated to
   /// dict_encoded_size() bytes.
-  virtual void WriteDict(uint8_t* buffer) = 0;
+  virtual void WriteDict(uint8_t* buffer) const = 0;
 
   virtual int num_entries() const = 0;
 
@@ -436,8 +435,9 @@ std::unique_ptr<typename EncodingTraits<DType>::Encoder> MakeTypedEncoder(
 }
 
 PARQUET_EXPORT
-std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encoding,
-                                     const ColumnDescriptor* descr = NULLPTR);
+std::unique_ptr<Decoder> MakeDecoder(
+    Type::type type_num, Encoding::type encoding, const ColumnDescriptor* descr = NULLPTR,
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
 namespace detail {
 
@@ -459,9 +459,10 @@ std::unique_ptr<DictDecoder<DType>> MakeDictDecoder(
 
 template <typename DType>
 std::unique_ptr<typename EncodingTraits<DType>::Decoder> MakeTypedDecoder(
-    Encoding::type encoding, const ColumnDescriptor* descr = NULLPTR) {
+    Encoding::type encoding, const ColumnDescriptor* descr = NULLPTR,
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
   using OutType = typename EncodingTraits<DType>::Decoder;
-  std::unique_ptr<Decoder> base = MakeDecoder(DType::type_num, encoding, descr);
+  std::unique_ptr<Decoder> base = MakeDecoder(DType::type_num, encoding, descr, pool);
   return std::unique_ptr<OutType>(dynamic_cast<OutType*>(base.release()));
 }
 

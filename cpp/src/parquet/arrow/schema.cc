@@ -81,7 +81,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
                    const ArrowWriterProperties& arrow_properties, NodePtr* out);
 
 Status ListToNode(const std::shared_ptr<::arrow::BaseListType>& type,
-                  const std::string& name, bool nullable,
+                  const std::string& name, bool nullable, int field_id,
                   const WriterProperties& properties,
                   const ArrowWriterProperties& arrow_properties, NodePtr* out) {
   NodePtr element;
@@ -92,12 +92,12 @@ Status ListToNode(const std::shared_ptr<::arrow::BaseListType>& type,
 
   NodePtr list = GroupNode::Make("list", Repetition::REPEATED, {element});
   *out = GroupNode::Make(name, RepetitionFromNullable(nullable), {list},
-                         LogicalType::List());
+                         LogicalType::List(), field_id);
   return Status::OK();
 }
 
 Status MapToNode(const std::shared_ptr<::arrow::MapType>& type, const std::string& name,
-                 bool nullable, const WriterProperties& properties,
+                 bool nullable, int field_id, const WriterProperties& properties,
                  const ArrowWriterProperties& arrow_properties, NodePtr* out) {
   // TODO: Should we offer a non-compliant mode that forwards the type names?
   NodePtr key_node;
@@ -111,12 +111,12 @@ Status MapToNode(const std::shared_ptr<::arrow::MapType>& type, const std::strin
   NodePtr key_value =
       GroupNode::Make("key_value", Repetition::REPEATED, {key_node, value_node});
   *out = GroupNode::Make(name, RepetitionFromNullable(nullable), {key_value},
-                         LogicalType::Map());
+                         LogicalType::Map(), field_id);
   return Status::OK();
 }
 
 Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
-                    const std::string& name, bool nullable,
+                    const std::string& name, bool nullable, int field_id,
                     const WriterProperties& properties,
                     const ArrowWriterProperties& arrow_properties, NodePtr* out) {
   std::vector<NodePtr> children(type->num_fields());
@@ -134,7 +134,8 @@ Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
                                   "Consider adding a dummy child field.");
   }
 
-  *out = GroupNode::Make(name, RepetitionFromNullable(nullable), std::move(children));
+  *out = GroupNode::Make(name, RepetitionFromNullable(nullable), children, nullptr,
+                         field_id);
   return Status::OK();
 }
 
@@ -281,6 +282,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
   std::shared_ptr<const LogicalType> logical_type = LogicalType::None();
   ParquetType::type type;
   Repetition::type repetition = RepetitionFromNullable(field->nullable());
+  int field_id = FieldIdFromMetadata(field->metadata());
 
   int length = -1;
   int precision = -1;
@@ -357,7 +359,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
       const auto& decimal_type = static_cast<const ::arrow::DecimalType&>(*field->type());
       precision = decimal_type.precision();
       scale = decimal_type.scale();
-      if (properties.integer_annotate_decimal() && 1 <= precision && precision <= 18) {
+      if (properties.store_decimal_as_integer() && 1 <= precision && precision <= 18) {
         type = precision <= 9 ? ParquetType ::INT32 : ParquetType ::INT64;
       } else {
         type = ParquetType::FIXED_LEN_BYTE_ARRAY;
@@ -399,15 +401,15 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
       break;
     case ArrowTypeId::STRUCT: {
       auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type());
-      return StructToNode(struct_type, name, field->nullable(), properties,
+      return StructToNode(struct_type, name, field->nullable(), field_id, properties,
                           arrow_properties, out);
     }
     case ArrowTypeId::FIXED_SIZE_LIST:
     case ArrowTypeId::LARGE_LIST:
     case ArrowTypeId::LIST: {
       auto list_type = std::static_pointer_cast<::arrow::BaseListType>(field->type());
-      return ListToNode(list_type, name, field->nullable(), properties, arrow_properties,
-                        out);
+      return ListToNode(list_type, name, field->nullable(), field_id, properties,
+                        arrow_properties, out);
     }
     case ArrowTypeId::DICTIONARY: {
       // Parquet has no Dictionary type, dictionary-encoded is handled on
@@ -426,8 +428,8 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
     case ArrowTypeId::MAP: {
       auto map_type = std::static_pointer_cast<::arrow::MapType>(field->type());
-      return MapToNode(map_type, name, field->nullable(), properties, arrow_properties,
-                       out);
+      return MapToNode(map_type, name, field->nullable(), field_id, properties,
+                       arrow_properties, out);
     }
 
     default: {
@@ -438,7 +440,6 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
   }
 
-  int field_id = FieldIdFromMetadata(field->metadata());
   PARQUET_CATCH_NOT_OK(*out = PrimitiveNode::Make(name, repetition, logical_type, type,
                                                   length, field_id));
 
@@ -513,7 +514,7 @@ Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
   std::vector<std::shared_ptr<Field>> arrow_fields;
   out->children.resize(node.field_count());
   // All level increments for the node are expected to happen by callers.
-  // This is required because repeated elements need to have there own
+  // This is required because repeated elements need to have their own
   // SchemaField.
 
   for (int i = 0; i < node.field_count(); i++) {
@@ -721,7 +722,7 @@ Status GroupToSchemaField(const GroupNode& node, LevelInfo current_levels,
     ctx->LinkParent(&out->children[0], out);
     out->level_info = current_levels;
     // At this point current_levels contains this list as the def level, we need to
-    // use the previous ancenstor of thi slist.
+    // use the previous ancestor of this list.
     out->level_info.repeated_ancestor_def_level = repeated_ancestor_def_level;
     return Status::OK();
   } else {
@@ -830,7 +831,7 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
 }
 
 // Restore original Arrow field information that was serialized as Parquet metadata
-// but that is not necessarily present in the field reconstitued from Parquet data
+// but that is not necessarily present in the field reconstituted from Parquet data
 // (for example, Parquet timestamp types doesn't carry timezone information).
 
 Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* inferred);
@@ -875,8 +876,8 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
                                           SchemaField* inferred) {
   bool modified = false;
 
-  auto origin_type = origin_field.type();
-  auto inferred_type = inferred->field->type();
+  auto& origin_type = origin_field.type();
+  auto& inferred_type = inferred->field->type();
 
   const int num_children = inferred_type->num_fields();
 
@@ -915,7 +916,7 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
 
     // If the data is tz-aware, then set the original time zone, since Parquet
     // has no native storage for timezones
-    if (ts_type.timezone() == "UTC" && ts_origin_type.timezone() != "") {
+    if (ts_type.timezone() == "UTC" && !ts_origin_type.timezone().empty()) {
       if (ts_type.unit() == ts_origin_type.unit()) {
         inferred->field = inferred->field->WithType(origin_type);
       } else {
@@ -936,7 +937,7 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
   if (origin_type->id() == ::arrow::Type::DICTIONARY &&
       inferred_type->id() != ::arrow::Type::DICTIONARY &&
       IsDictionaryReadSupported(*inferred_type)) {
-    // Direct dictionary reads are only suppored for a couple primitive types,
+    // Direct dictionary reads are only supported for a couple primitive types,
     // so no need to recurse on value types.
     const auto& dict_origin_type =
         checked_cast<const ::arrow::DictionaryType&>(*origin_type);
@@ -977,8 +978,7 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
 Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* inferred) {
   bool modified = false;
 
-  auto origin_type = origin_field.type();
-  auto inferred_type = inferred->field->type();
+  auto& origin_type = origin_field.type();
 
   if (origin_type->id() == ::arrow::Type::EXTENSION) {
     const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
@@ -1100,7 +1100,7 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
       continue;
     }
 
-    auto origin_field = manifest->origin_schema->field(i);
+    auto& origin_field = manifest->origin_schema->field(i);
     RETURN_NOT_OK(ApplyOriginalMetadata(*origin_field, out_field));
   }
   return Status::OK();

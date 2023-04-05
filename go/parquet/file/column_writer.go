@@ -21,14 +21,14 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/memory"
-	"github.com/apache/arrow/go/v11/parquet"
-	"github.com/apache/arrow/go/v11/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v11/parquet/metadata"
-	"github.com/apache/arrow/go/v11/parquet/schema"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v12/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v12/parquet/metadata"
+	"github.com/apache/arrow/go/v12/parquet/schema"
 )
 
 //go:generate go run ../../arrow/_tools/tmpl/main.go -i -data=../internal/encoding/physical_types.tmpldata column_writer_types.gen.go.tmpl
@@ -52,6 +52,26 @@ type ColumnChunkWriter interface {
 	TotalBytesWritten() int64
 	// Properties returns the current WriterProperties in use for this writer
 	Properties() *parquet.WriterProperties
+	// CurrentEncoder returns the current encoder that is being used
+	// to encode new data written to this column
+	CurrentEncoder() encoding.TypedEncoder
+	// FallbackToPlain forces a dictionary encoded column writer to
+	// fallback to plain encoding, first flushing out any data it has
+	// and then changing the encoder to use plain encoding from
+	// here on out.
+	//
+	// This is automatically called if the dictionary reaches the
+	// limit in the write properties or under specific conditions.
+	//
+	// Has no effect if the column is not currently dictionary encoded.
+	FallbackToPlain()
+	// PageStatistics returns the current page statistics for this
+	// column writer. May be nil if stats are not enabled.
+	PageStatistics() metadata.TypedStatistics
+	// WriteDictIndices writes an arrow array of dictionary indices
+	// to this column. This should only be called by pqarrow or
+	// if you *really* know what you're doing.
+	WriteDictIndices(arrow.Array, []int16, []int16) error
 
 	LevelInfo() LevelInfo
 	SetBitsBuffer(*memory.Buffer)
@@ -155,10 +175,11 @@ func newColumnWriterBase(metaData *metadata.ColumnChunkMetaDataBuilder, pager Pa
 	return ret
 }
 
-func (w *columnWriter) HasBitsBuffer() bool              { return w.bitsBuffer != nil }
-func (w *columnWriter) SetBitsBuffer(buf *memory.Buffer) { w.bitsBuffer = buf }
-
-func (w *columnWriter) LevelInfo() LevelInfo { return w.levelInfo }
+func (w *columnWriter) CurrentEncoder() encoding.TypedEncoder    { return w.currentEncoder }
+func (w *columnWriter) HasBitsBuffer() bool                      { return w.bitsBuffer != nil }
+func (w *columnWriter) SetBitsBuffer(buf *memory.Buffer)         { w.bitsBuffer = buf }
+func (w *columnWriter) PageStatistics() metadata.TypedStatistics { return w.pageStatistics }
+func (w *columnWriter) LevelInfo() LevelInfo                     { return w.levelInfo }
 
 func (w *columnWriter) Type() parquet.Type {
 	return w.descr.PhysicalType()
@@ -231,7 +252,8 @@ func (w *columnWriter) commitWriteAndCheckPageLimit(numLevels, numValues int64) 
 	w.numBufferedValues += numLevels
 	w.numDataValues += numValues
 
-	if w.currentEncoder.EstimatedDataEncodedSize() >= w.props.DataPageSize() {
+	enc := w.currentEncoder.EstimatedDataEncodedSize()
+	if enc >= w.props.DataPageSize() {
 		return w.FlushCurrentPage()
 	}
 	return nil
@@ -618,15 +640,19 @@ func levelSliceOrNil(rep []int16, offset, batch int64) []int16 {
 }
 
 //lint:ignore U1000 maybeReplaceValidity
-func (w *ByteArrayColumnChunkWriter) maybeReplaceValidity(values arrow.Array, newNullCount int64) arrow.Array {
+func (w *columnWriter) maybeReplaceValidity(values arrow.Array, newNullCount int64) arrow.Array {
 	if w.bitsBuffer == nil {
+		values.Retain()
 		return values
 	}
 
-	buffers := values.Data().Buffers()
-	if len(buffers) == 0 {
+	if len(values.Data().Buffers()) == 0 {
+		values.Retain()
 		return values
 	}
+
+	buffers := make([]*memory.Buffer, len(values.Data().Buffers()))
+	copy(buffers, values.Data().Buffers())
 	// bitsBuffer should already be the offset slice of the validity bits
 	// we want so we don't need to manually slice the validity buffer
 	buffers[0] = w.bitsBuffer
@@ -635,5 +661,8 @@ func (w *ByteArrayColumnChunkWriter) maybeReplaceValidity(values arrow.Array, ne
 		data := values.Data()
 		buffers[1] = memory.NewBufferBytes(data.Buffers()[1].Bytes()[data.Offset()*arrow.Int32SizeBytes : data.Len()*arrow.Int32SizeBytes])
 	}
-	return array.MakeFromData(array.NewData(values.DataType(), values.Len(), buffers, nil, int(newNullCount), 0))
+
+	data := array.NewData(values.DataType(), values.Len(), buffers, nil, int(newNullCount), 0)
+	defer data.Release()
+	return array.MakeFromData(data)
 }

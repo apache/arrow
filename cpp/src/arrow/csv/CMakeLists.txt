@@ -21,12 +21,8 @@ set(CSV_TEST_SRCS
     column_decoder_test.cc
     converter_test.cc
     parser_test.cc
-    reader_test.cc)
-
-# Writer depends on compute's cast functionality
-if(ARROW_COMPUTE)
-  list(APPEND CSV_TEST_SRCS writer_test.cc)
-endif()
+    reader_test.cc
+    writer_test.cc)
 
 add_arrow_test(csv-test SOURCES ${CSV_TEST_SRCS})
 

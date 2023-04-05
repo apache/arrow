@@ -25,9 +25,9 @@ Red Arrow CUDA is the Ruby bindings of Apache Arrow CUDA. Red Arrow CUDA is base
 
 [GObject Introspection](https://wiki.gnome.org/action/show/Projects/GObjectIntrospection) is a middleware for language bindings of C library. GObject Introspection can generate language bindings automatically at runtime.
 
-Red Arrow CUDA uses [Apache Arrow CUDA GLib](https://github.com/apache/arrow/tree/master/c_glib) and [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection) to generate Ruby bindings of Apache Arrow CUDA.
+Red Arrow CUDA uses [Apache Arrow CUDA GLib](https://github.com/apache/arrow/tree/main/c_glib) and [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection) to generate Ruby bindings of Apache Arrow CUDA.
 
-Apache Arrow CUDA GLib is a C wrapper for [Apache Arrow CUDA C++](https://github.com/apache/arrow/tree/master/cpp). GObject Introspection can't use Apache Arrow CUDA C++ directly. Apache Arrow CUDA GLib is a bridge between Apache Arrow CUDA C++ and GObject Introspection.
+Apache Arrow CUDA GLib is a C wrapper for [Apache Arrow CUDA C++](https://github.com/apache/arrow/tree/main/cpp). GObject Introspection can't use Apache Arrow CUDA C++ directly. Apache Arrow CUDA GLib is a bridge between Apache Arrow CUDA C++ and GObject Introspection.
 
 gobject-introspection gem is a Ruby bindings of GObject Introspection. Red Arrow CUDA uses GObject Introspection via gobject-introspection gem.
 

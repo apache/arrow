@@ -368,7 +368,7 @@ func TestMapOf(t *testing.T) {
 				Field{Name: "key", Type: BinaryTypes.String},
 				Field{Name: "value", Type: PrimitiveTypes.Uint8, Nullable: true},
 			))},
-			str: "map<utf8, uint8>",
+			str: "map<utf8, uint8, items_nullable>",
 		},
 		{
 			key:  BinaryTypes.String,
@@ -381,7 +381,7 @@ func TestMapOf(t *testing.T) {
 						Field{Name: "value", Type: FixedWidthTypes.Date32, Nullable: true},
 					))}},
 			))},
-			str: "map<utf8, map<uint32, date32>>",
+			str: "map<utf8, map<uint32, date32, items_nullable>, items_nullable>",
 		},
 	} {
 		t.Run("", func(t *testing.T) {
@@ -420,6 +420,73 @@ func TestMapOf(t *testing.T) {
 
 			if got, want := got.String(), tc.str; got != want {
 				t.Fatalf("invalid String() result. got=%q, want=%q", got, want)
+			}
+		})
+	}
+}
+
+func TestMapOfWithMetadata(t *testing.T) {
+	for _, tc := range []struct {
+		key, item                 DataType
+		keyMetadata, itemMetadata Metadata
+		want                      DataType
+		str                       string
+	}{
+		{
+			key:          BinaryTypes.String,
+			item:         PrimitiveTypes.Uint8,
+			keyMetadata:  NewMetadata([]string{"mk"}, []string{"true"}),
+			itemMetadata: NewMetadata([]string{"mi"}, []string{"true"}),
+			want: &MapType{value: ListOf(StructOf(
+				Field{Name: "key", Type: BinaryTypes.String, Metadata: NewMetadata([]string{"mk"}, []string{"true"})},
+				Field{Name: "value", Type: PrimitiveTypes.Uint8, Nullable: true, Metadata: NewMetadata([]string{"mi"}, []string{"true"})},
+			))},
+			str: "map<utf8, uint8, items_nullable>",
+		},
+	} {
+		t.Run("", func(t *testing.T) {
+			got := MapOfWithMetadata(tc.key, NewMetadata([]string{"mk"}, []string{"true"}), tc.item, NewMetadata([]string{"mi"}, []string{"true"}))
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("got=%#v, want=%#v", got, tc.want)
+			}
+
+			if got, want := got.ID(), MAP; got != want {
+				t.Fatalf("invalid ID. got=%v, want=%v", got, want)
+			}
+
+			if got, want := got.Name(), "map"; got != want {
+				t.Fatalf("invalid name. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.KeyField().Name, "key"; got != want {
+				t.Fatalf("invalid key field name. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.ItemField().Name, "value"; got != want {
+				t.Fatalf("invalid item field name. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.KeyType(), tc.key; got != want {
+				t.Fatalf("invalid key type. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.ItemType(), tc.item; got != want {
+				t.Fatalf("invalid item type. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.ValueType(), StructOf(got.KeyField(), got.ItemField()); !TypeEqual(got, want) {
+				t.Fatalf("invalid value type. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.String(), tc.str; got != want {
+				t.Fatalf("invalid String() result. got=%q, want=%q", got, want)
+			}
+
+			if !reflect.DeepEqual(got.ValueType().fields[0].Metadata, tc.keyMetadata) {
+				t.Fatalf("invalid key metadata. got=%v, want=%v", got.ValueType().fields[0].Metadata, tc.keyMetadata)
+			}
+			if !reflect.DeepEqual(got.ValueType().fields[1].Metadata, tc.itemMetadata) {
+				t.Fatalf("invalid item metadata. got=%v, want=%v", got.ValueType().fields[1].Metadata, tc.itemMetadata)
 			}
 		})
 	}

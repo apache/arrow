@@ -77,12 +77,15 @@
 #' `col_names`, and the CSV file has a header row that would otherwise be used
 #' to idenfity column names, you'll need to add `skip = 1` to skip that row.
 #'
-#' @param file A character file name or URI, `raw` vector, an Arrow input stream,
-#' or a `FileSystem` with path (`SubTreeFileSystem`).
+#' @param file A character file name or URI, literal data (either a single string or a [raw] vector),
+#' an Arrow input stream, or a `FileSystem` with path (`SubTreeFileSystem`).
+#'
 #' If a file name, a memory-mapped Arrow [InputStream] will be opened and
 #' closed when finished; compression will be detected from the file extension
 #' and handled automatically. If an input stream is provided, it will be left
 #' open.
+#'
+#' To be recognised as literal data, the input must be wrapped with `I()`.
 #' @param delim Single character used to separate fields within a record.
 #' @param quote Single character used to quote strings.
 #' @param escape_double Does the file escape quotes by doubling them?
@@ -154,6 +157,10 @@
 #'   tf,
 #'   col_types = schema(x = timestamp(unit = "us", timezone = "UTC"))
 #' )
+#'
+#' # Read directly from strings with `I()`
+#' read_csv_arrow(I("x,y\n1,2\n3,4"))
+#' read_delim_arrow(I(c("x y", "1 2", "3 4")), delim = " ")
 read_delim_arrow <- function(file,
                              delim = ",",
                              quote = '"',
@@ -198,9 +205,18 @@ read_delim_arrow <- function(file,
     )
   }
 
+  if (inherits(file, "AsIs")) {
+    if (is.raw(file)) {
+      # If a raw vector is wrapped by `I()`, we need to unclass the `AsIs` class to read the raw vector.
+      file <- unclass(file)
+    } else {
+      file <- charToRaw(paste(file, collapse = "\n"))
+    }
+  }
+
   if (!inherits(file, "InputStream")) {
     compression <- detect_compression(file)
-    file <- make_readable_file(file)
+    file <- make_readable_file(file, random_access = FALSE)
     if (compression != "uncompressed") {
       # TODO: accept compression and compression_level as args
       file <- CompressedInputStream$create(file, compression)
@@ -369,7 +385,7 @@ CsvTableReader$create <- function(file,
 #'
 #' `CsvReadOptions$create()` further accepts these additional arguments:
 #'
-#' - `skip_rows` Number of lines to skip before reading data (default 0)
+#' - `skip_rows` Number of lines to skip before reading data (default 0).
 #' - `column_names` Character vector to supply column names. If length-0
 #' (the default), the first non-skipped row will be parsed to generate column
 #' names, unless `autogenerate_column_names` is `TRUE`.
@@ -377,6 +393,12 @@ CsvTableReader$create <- function(file,
 #' using the first non-skipped row (the default)? If `TRUE`, column names will
 #' be "f0", "f1", ..., "fN".
 #' - `encoding` The file encoding. (default `"UTF-8"`)
+#' - `skip_rows_after_names` Number of lines to skip after the column names (default 0).
+#'    This number can be larger than the number of rows in one block, and empty rows are counted.
+#'    The order of application is as follows:
+#'      - `skip_rows` is applied (if non-zero);
+#'      - column names are read (unless `column_names` is set);
+#'      - `skip_rows_after_names` is applied (if non-zero).
 #'
 #' `CsvParseOptions$create()` takes the following arguments:
 #'
@@ -453,7 +475,8 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
                                   skip_rows = 0L,
                                   column_names = character(0),
                                   autogenerate_column_names = FALSE,
-                                  encoding = "UTF-8") {
+                                  encoding = "UTF-8",
+                                  skip_rows_after_names = 0L) {
   assert_that(is.string(encoding))
 
   options <- csv___ReadOptions__initialize(
@@ -461,6 +484,7 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
       use_threads = use_threads,
       block_size = block_size,
       skip_rows = skip_rows,
+      skip_rows_after_names = skip_rows_after_names,
       column_names = column_names,
       autogenerate_column_names = autogenerate_column_names
     )
@@ -758,12 +782,17 @@ write_csv_arrow <- function(x,
     tryCatch(
       x <- as_record_batch_reader(x),
       error = function(e) {
-        abort(
-          paste0(
-            "x must be an object of class 'data.frame', 'RecordBatch', ",
-            "'Dataset', 'Table', or 'RecordBatchReader' not '", class(x)[1], "'."
+        if (grepl("Input data frame columns must be named", conditionMessage(e))) {
+          abort(conditionMessage(e), parent = NA)
+        } else {
+          abort(
+            paste0(
+              "x must be an object of class 'data.frame', 'RecordBatch', ",
+              "'Dataset', 'Table', or 'RecordBatchReader' not '", class(x)[1], "'."
+            ),
+            parent = NA
           )
-        )
+        }
       }
     )
   }

@@ -697,6 +697,57 @@ def test_recordbatch_select_column():
         batch.column(4)
 
 
+def test_recordbatch_select():
+    a1 = pa.array([1, 2, 3, None, 5])
+    a2 = pa.array(['a', 'b', 'c', 'd', 'e'])
+    a3 = pa.array([[1, 2], [3, 4], [5, 6], None, [9, 10]])
+    batch = pa.record_batch([a1, a2, a3], ['f1', 'f2', 'f3'])
+
+    # selecting with string names
+    result = batch.select(['f1'])
+    expected = pa.record_batch([a1], ['f1'])
+    assert result.equals(expected)
+
+    result = batch.select(['f3', 'f2'])
+    expected = pa.record_batch([a3, a2], ['f3', 'f2'])
+    assert result.equals(expected)
+
+    # selecting with integer indices
+    result = batch.select([0])
+    expected = pa.record_batch([a1], ['f1'])
+    assert result.equals(expected)
+
+    result = batch.select([2, 1])
+    expected = pa.record_batch([a3, a2], ['f3', 'f2'])
+    assert result.equals(expected)
+
+    # preserve metadata
+    batch2 = batch.replace_schema_metadata({"a": "test"})
+    result = batch2.select(["f1", "f2"])
+    assert b"a" in result.schema.metadata
+
+    # selecting non-existing column raises
+    with pytest.raises(KeyError, match='Field "f5" does not exist'):
+        batch.select(['f5'])
+
+    with pytest.raises(IndexError, match="index out of bounds"):
+        batch.select([5])
+
+    # duplicate selection gives duplicated names in resulting recordbatch
+    result = batch.select(['f2', 'f2'])
+    expected = pa.record_batch([a2, a2], ['f2', 'f2'])
+    assert result.equals(expected)
+
+    # selection duplicated column raises
+    batch = pa.record_batch([a1, a2, a3], ['f1', 'f2', 'f1'])
+    with pytest.raises(KeyError, match='Field "f1" exists 2 times'):
+        batch.select(['f1'])
+
+    result = batch.select(['f2'])
+    expected = pa.record_batch([a2], ['f2'])
+    assert result.equals(expected)
+
+
 def test_recordbatch_from_struct_array_invalid():
     with pytest.raises(TypeError):
         pa.RecordBatch.from_struct_array(pa.array(range(5)))
@@ -1050,17 +1101,40 @@ def test_table_set_column():
     assert t2.equals(expected)
 
 
-def test_table_drop():
+def test_table_drop_columns():
     """ drop one or more columns given labels"""
     a = pa.array(range(5))
     b = pa.array([-10, -5, 0, 5, 10])
     c = pa.array(range(5, 10))
 
     table = pa.Table.from_arrays([a, b, c], names=('a', 'b', 'c'))
-    t2 = table.drop(['a', 'b'])
+    t2 = table.drop_columns(['a', 'b'])
+    t3 = table.drop_columns('a')
 
-    exp = pa.Table.from_arrays([c], names=('c',))
-    assert exp.equals(t2)
+    exp_t2 = pa.Table.from_arrays([c], names=('c',))
+    assert exp_t2.equals(t2)
+    exp_t3 = pa.Table.from_arrays([b, c], names=('b', 'c',))
+    assert exp_t3.equals(t3)
+
+    # -- raise KeyError if column not in Table
+    with pytest.raises(KeyError, match="Column 'd' not found"):
+        table.drop_columns(['d'])
+
+
+def test_table_drop():
+    """ verify the alias of drop_columns is working"""
+    a = pa.array(range(5))
+    b = pa.array([-10, -5, 0, 5, 10])
+    c = pa.array(range(5, 10))
+
+    table = pa.Table.from_arrays([a, b, c], names=('a', 'b', 'c'))
+    t2 = table.drop(['a', 'b'])
+    t3 = table.drop('a')
+
+    exp_t2 = pa.Table.from_arrays([c], names=('c',))
+    assert exp_t2.equals(t2)
+    exp_t3 = pa.Table.from_arrays([b, c], names=('b', 'c',))
+    assert exp_t3.equals(t3)
 
     # -- raise KeyError if column not in Table
     with pytest.raises(KeyError, match="Column 'd' not found"):
@@ -1995,6 +2069,23 @@ def test_table_group_by():
         "values_sum": [3, 3, 4, 5]
     }
 
+    # Test many arguments
+    r = table.group_by("keys").aggregate([
+        ("values", "max"),
+        ("bigvalues", "sum"),
+        ("bigvalues", "max"),
+        ([], "count_all"),
+        ("values", "sum")
+    ])
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b", "c"],
+        "values_max": [2, 4, 5],
+        "bigvalues_sum": [30, 70, 50],
+        "bigvalues_max": [20, 40, 50],
+        "count_all": [2, 2, 1],
+        "values_sum": [3, 7, 5]
+    }
+
     table_with_nulls = pa.table([
         pa.array(["a", "a", "a"]),
         pa.array([1, None, None])
@@ -2022,6 +2113,35 @@ def test_table_group_by():
     assert r.to_pydict() == {
         "keys": ["a"],
         "values_count": [1]
+    }
+
+    r = table_with_nulls.group_by(["keys"]).aggregate([
+        ([], "count_all"),  # nullary count that takes no parameters
+        ("values", "count", pc.CountOptions(mode="only_valid"))
+    ])
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "count_all": [3],
+        "values_count": [1]
+    }
+
+    r = table_with_nulls.group_by(["keys"]).aggregate([
+        ([], "count_all")
+    ])
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "count_all": [3]
+    }
+
+    table = pa.table({
+        'keys': ['a', 'b', 'a', 'b', 'a', 'b'],
+        'values': range(6)})
+    table_with_chunks = pa.Table.from_batches(
+        table.to_batches(max_chunksize=3))
+    r = table_with_chunks.group_by('keys').aggregate([('values', 'sum')])
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b"],
+        "values_sum": [6, 9]
     }
 
 

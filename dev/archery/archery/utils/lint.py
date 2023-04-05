@@ -28,7 +28,7 @@ from .cmake import CMake
 from .git import git
 from .logger import logger
 from ..lang.cpp import CppCMakeDefinition, CppConfiguration
-from ..lang.python import Autopep8, Flake8, NumpyDoc
+from ..lang.python import Autopep8, Flake8, CythonLint, NumpyDoc
 from .rat import Rat, exclusion_from_globs
 from .tmpdir import tmpdir
 
@@ -234,6 +234,30 @@ def python_linter(src, fix=False):
                setup_py, src.pyarrow, os.path.join(src.python, "examples"),
                src.dev, check=False))
 
+    logger.info("Running Cython linter (cython-lint)")
+
+    cython_lint = CythonLint()
+    if not cython_lint.available:
+        logger.error(
+            "Cython linter requested but cython-lint binary not found. "
+            f"{_archery_install_msg}")
+        return
+
+    # Gather files for cython-lint
+    patterns = ["python/pyarrow/**/*.pyx",
+                "python/pyarrow/**/*.pxd",
+                "python/pyarrow/**/*.pxi",
+                "python/examples/**/*.pyx",
+                "python/examples/**/*.pxd",
+                "python/examples/**/*.pxi",
+                ]
+    files = []
+    for pattern in patterns:
+        files += list(map(str, Path(src.path).glob(pattern)))
+    args = ['--no-pycodestyle']
+    args += sorted(files)
+    yield LintResult.from_cmd(cython_lint(*args))
+
 
 def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
     """Run numpydoc linter on python.
@@ -255,7 +279,6 @@ def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
         'pyarrow.json',
         'pyarrow.orc',
         'pyarrow.parquet',
-        'pyarrow.plasma',
         'pyarrow.types',
     }
     try:

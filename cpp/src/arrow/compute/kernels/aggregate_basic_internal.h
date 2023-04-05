@@ -23,7 +23,7 @@
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/align_util.h"
 #include "arrow/util/bit_block_counter.h"

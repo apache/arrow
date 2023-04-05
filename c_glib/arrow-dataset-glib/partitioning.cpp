@@ -757,10 +757,11 @@ gchar *
 gadataset_hive_partitioning_get_null_fallback(
   GADatasetHivePartitioning *partitioning)
 {
-  auto arrow_partitioning =
+  const auto arrow_partitioning =
     std::static_pointer_cast<arrow::dataset::HivePartitioning>(
       gadataset_partitioning_get_raw(GADATASET_PARTITIONING(partitioning)));
-  return g_strdup(arrow_partitioning->null_fallback().c_str());
+  const auto null_fallback = arrow_partitioning->null_fallback();
+  return g_strdup(null_fallback.c_str());
 }
 
 

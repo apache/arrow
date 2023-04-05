@@ -23,10 +23,10 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/internal/debug"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -172,7 +172,7 @@ func (b *BooleanBuilder) newData() *Data {
 	return res
 }
 
-func (b *BooleanBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *BooleanBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -205,9 +205,9 @@ func (b *BooleanBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *BooleanBuilder) unmarshal(dec *json.Decoder) error {
+func (b *BooleanBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -226,7 +226,7 @@ func (b *BooleanBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("boolean builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

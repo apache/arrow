@@ -21,7 +21,7 @@ import (
 	"hash/maphash"
 	"strings"
 
-	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
 )
 
 // Type is a logical type. They can be expressed as

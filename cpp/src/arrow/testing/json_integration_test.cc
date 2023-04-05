@@ -748,8 +748,9 @@ void TestSchemaRoundTrip(const Schema& schema) {
 
   DictionaryMemo in_memo;
   std::shared_ptr<Schema> out;
-  if (!json::ReadSchema(d, default_memory_pool(), &in_memo, &out).ok()) {
-    FAIL() << "Unable to read JSON schema: " << json_schema;
+  const auto status = json::ReadSchema(d, default_memory_pool(), &in_memo, &out);
+  if (!status.ok()) {
+    FAIL() << "Unable to read JSON schema: " << json_schema << "\nStatus: " << status;
   }
 
   if (!schema.Equals(*out)) {
@@ -830,6 +831,9 @@ TEST(TestJsonSchemaWriter, FlatTypes) {
                         {0, 1})),
       field("f19", large_list(uint8())),
       field("f20", null()),
+      field("f21", run_end_encoded(int16(), utf8())),
+      field("f22", run_end_encoded(int32(), utf8())),
+      field("f23", run_end_encoded(int64(), utf8())),
   };
 
   Schema schema(fields);
@@ -923,6 +927,14 @@ TEST(TestJsonArrayWriter, NestedTypes) {
   StructArray struct_array(struct_type, static_cast<int>(struct_is_valid.size()), fields,
                            struct_bitmap, 2);
   TestArrayRoundTrip(struct_array);
+
+  // Run-End Encoded Type
+  auto run_ends = ArrayFromJSON(int32(), "[100, 200, 300, 400, 500, 600, 700]");
+  ASSERT_OK_AND_ASSIGN(auto ree_array,
+                       RunEndEncodedArray::Make(700, run_ends, i16_values_array));
+  TestArrayRoundTrip(*ree_array);
+  auto sliced_ree_array = ree_array->Slice(150, 300);
+  TestArrayRoundTrip(*sliced_ree_array);
 }
 
 TEST(TestJsonArrayWriter, Unions) {

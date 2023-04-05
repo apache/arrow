@@ -22,7 +22,7 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/goccy/go-json"
 )
 
@@ -141,7 +141,7 @@ func (a *Binary) setData(data *Data) {
 	}
 }
 
-func (a *Binary) getOneForMarshal(i int) interface{} {
+func (a *Binary) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -151,7 +151,7 @@ func (a *Binary) getOneForMarshal(i int) interface{} {
 func (a *Binary) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
-		vals[i] = a.getOneForMarshal(i)
+		vals[i] = a.GetOneForMarshal(i)
 	}
 	// golang marshal standard says that []byte will be marshalled
 	// as a base64-encoded string
@@ -274,7 +274,7 @@ func (a *LargeBinary) setData(data *Data) {
 	}
 }
 
-func (a *LargeBinary) getOneForMarshal(i int) interface{} {
+func (a *LargeBinary) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -284,7 +284,7 @@ func (a *LargeBinary) getOneForMarshal(i int) interface{} {
 func (a *LargeBinary) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
-		vals[i] = a.getOneForMarshal(i)
+		vals[i] = a.GetOneForMarshal(i)
 	}
 	// golang marshal standard says that []byte will be marshalled
 	// as a base64-encoded string

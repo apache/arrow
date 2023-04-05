@@ -49,7 +49,7 @@ provides several utilities:
 
 The following example shows how to implement conversion between ``rapidjson::Document``
 and Arrow objects. You can read the full code example at
-https://github.com/apache/arrow/blob/master/cpp/examples/arrow/rapidjson_row_converter.cc
+https://github.com/apache/arrow/blob/main/cpp/examples/arrow/rapidjson_row_converter.cc
 
 Writing conversions to Arrow
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -87,7 +87,7 @@ an iterator of the column values for the current field across the rows. In
 row-based structures that are flat (such as a vector of values) this may be
 trivial to implement. But if the schema is nested, as in the case of JSON documents,
 a special iterator is needed to navigate the levels of nesting. See the
-`full example <https://github.com/apache/arrow/blob/master/cpp/examples/arrow/rapidjson_row_converter.cc>`_
+`full example <https://github.com/apache/arrow/blob/main/cpp/examples/arrow/rapidjson_row_converter.cc>`_
 for the implementation details of ``DocValuesIterator``.
 
 .. literalinclude:: ../../../../cpp/examples/arrow/rapidjson_row_converter.cc

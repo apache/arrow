@@ -95,6 +95,9 @@ else
 fi
 
 %changelog
+* Wed Jan 18 2023 Raúl Cumplido <raulcumplido@gmail.com> - 11.0.0-1
+- New upstream release.
+
 * Thu Oct 20 2022 Sutou Kouhei <kou@clear-code.com> - 10.0.0-1
 - New upstream release.
 

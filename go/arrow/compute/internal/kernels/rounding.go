@@ -22,11 +22,11 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v11/arrow/decimal128"
-	"github.com/apache/arrow/go/v11/arrow/decimal256"
-	"github.com/apache/arrow/go/v11/arrow/scalar"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v12/arrow/decimal128"
+	"github.com/apache/arrow/go/v12/arrow/decimal256"
+	"github.com/apache/arrow/go/v12/arrow/scalar"
 	"golang.org/x/exp/constraints"
 )
 

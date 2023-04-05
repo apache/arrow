@@ -118,7 +118,7 @@ Result<std::unique_ptr<substrait::ProjectRel>> CreateProject(
 
 Result<std::unique_ptr<substrait::AggregateRel>> CreateAgg(Id function_id,
                                                            const std::vector<int>& keys,
-                                                           int arg_idx,
+                                                           std::vector<int> arg_idxs,
                                                            const DataType& output_type,
                                                            ExtensionSet* ext_set) {
   auto agg = std::make_unique<substrait::AggregateRel>();
@@ -137,10 +137,12 @@ Result<std::unique_ptr<substrait::AggregateRel>> CreateAgg(Id function_id,
 
   agg_func->set_function_reference(function_anchor);
 
-  substrait::FunctionArgument* arg = agg_func->add_arguments();
-  auto arg_expr = std::make_unique<substrait::Expression>();
-  CreateDirectReference(arg_idx, arg_expr.get());
-  arg->set_allocated_value(arg_expr.release());
+  for (int arg_idx : arg_idxs) {
+    substrait::FunctionArgument* arg = agg_func->add_arguments();
+    auto arg_expr = std::make_unique<substrait::Expression>();
+    CreateDirectReference(arg_idx, arg_expr.get());
+    arg->set_allocated_value(arg_expr.release());
+  }
 
   agg_func->set_phase(substrait::AggregationPhase::AGGREGATION_PHASE_INITIAL_TO_RESULT);
   agg_func->set_invocation(
@@ -206,13 +208,15 @@ Result<std::shared_ptr<Buffer>> CreateScanProjectSubstrait(
 
 Result<std::shared_ptr<Buffer>> CreateScanAggSubstrait(
     Id function_id, const std::shared_ptr<Table>& input_table,
-    const std::vector<int>& key_idxs, int arg_idx, const DataType& output_type) {
+    const std::vector<int>& key_idxs, const std::vector<int>& arg_idxs,
+    const DataType& output_type) {
   ExtensionSet ext_set;
 
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::ReadRel> read,
                         CreateRead(*input_table, &ext_set));
-  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::AggregateRel> agg,
-                        CreateAgg(function_id, key_idxs, arg_idx, output_type, &ext_set));
+  ARROW_ASSIGN_OR_RAISE(
+      std::unique_ptr<substrait::AggregateRel> agg,
+      CreateAgg(function_id, key_idxs, arg_idxs, output_type, &ext_set));
 
   auto read_rel = std::make_unique<substrait::Rel>();
   read_rel->set_allocated_read(read.release());

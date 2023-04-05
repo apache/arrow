@@ -205,7 +205,7 @@ handle_partitioning <- function(partitioning, path_and_fs, hive_style) {
 #'     (but if you're providing the file list, you can filter invalid files
 #'     yourself).
 #' @param ... Additional format-specific options, passed to
-#' `FileFormat$create()`. For CSV options, note that you can specify them either
+#' [`FileFormat$create()`][FileFormat]. For CSV options, note that you can specify them either
 #' with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
 #' `readr`-style naming used in [read_csv_arrow()] ("delim", "quote", etc.).
 #' Not all `readr` options are currently supported; please file an issue if you

@@ -455,7 +455,7 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
 };
 
 /// \brief Wraps FileSystemDatasetWriteOptions for consumption as compute::ExecNodeOptions
-class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
+class ARROW_DS_EXPORT WriteNodeOptions : public acero::ExecNodeOptions {
  public:
   explicit WriteNodeOptions(
       FileSystemDatasetWriteOptions options,
@@ -471,8 +471,7 @@ class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
 /// @}
 
 namespace internal {
-ARROW_DS_EXPORT void InitializeDatasetWriter(
-    arrow::compute::ExecFactoryRegistry* registry);
+ARROW_DS_EXPORT void InitializeDatasetWriter(arrow::acero::ExecFactoryRegistry* registry);
 }
 
 }  // namespace dataset

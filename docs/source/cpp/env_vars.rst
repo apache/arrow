@@ -68,8 +68,8 @@ that changing their value later will have an effect.
    execution traces.  Possible values are:
 
    - ``ostream``: emit textual log messages to stdout;
-   - ``otlp_http``: emit JSON traces to a HTTP server (by default, the endpoint
-     URL is "http://localhost:4318/v1/traces");
+   - ``otlp_http``: emit OTLP JSON encoded traces to a HTTP server (by default,
+     the endpoint URL is "http://localhost:4318/v1/traces");
    - ``arrow_otlp_stdout``: emit JSON traces to stdout;
    - ``arrow_otlp_stderr``: emit JSON traces to stderr.
 
@@ -106,6 +106,14 @@ that changing their value later will have an effect.
       Unlike runtime dispatch, compile-time SIMD optimizations cannot be
       changed at runtime (for example, if you compile Arrow C++ with AVX512
       enabled, the resulting binary will only run on AVX512-enabled CPUs).
+      Setting ``ARROW_USER_SIMD_LEVEL=NONE`` prevents the execution of
+      explicit SIMD optimization code, but it does not rule out the execution
+      of compiler generated SIMD instructions.  E.g., on x86_64 platform,
+      Arrow is built with ``ARROW_SIMD_LEVEL=SSE4_2`` by default.  Compiler
+      may generate SSE4.2 instructions from any C/C++ source code.  On legacy
+      x86_64 platforms do not support SSE4.2, Arrow binary may fail with
+      SIGILL (Illegal Instruction).  User must rebuild Arrow and PyArrow from
+      scratch by setting cmake option ``ARROW_SIMD_LEVEL=NONE``.
 
 .. envvar:: GANDIVA_CACHE_SIZE
 

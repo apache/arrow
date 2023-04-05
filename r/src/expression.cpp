@@ -18,7 +18,7 @@
 #include "./arrow_types.h"
 
 #include <arrow/compute/api_scalar.h>
-#include <arrow/compute/exec/expression.h>
+#include <arrow/compute/expression.h>
 
 namespace compute = ::arrow::compute;
 

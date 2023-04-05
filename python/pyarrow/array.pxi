@@ -111,6 +111,8 @@ def _handle_arrow_array_protocol(obj, type, mask, size):
     if not isinstance(res, (Array, ChunkedArray)):
         raise TypeError("The object's __arrow_array__ method does not "
                         "return a pyarrow Array or ChunkedArray.")
+    if isinstance(res, ChunkedArray) and res.num_chunks==1:
+        res = res.chunk(0)
     return res
 
 
@@ -231,6 +233,11 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         c_from_pandas = False
     else:
         c_from_pandas = from_pandas
+
+    if isinstance(obj, Array):
+        if type is not None and not obj.type.equals(type):
+            obj = obj.cast(type, safe=safe, memory_pool=memory_pool)
+        return obj
 
     if hasattr(obj, '__arrow_array__'):
         return _handle_arrow_array_protocol(obj, type, mask, size)
@@ -362,7 +369,7 @@ def nulls(size, type=None, MemoryPool memory_pool=None):
         Explicit type for the array. By default use NullType.
     memory_pool : MemoryPool, default None
         Arrow MemoryPool to use for allocations. Uses the default memory
-        pool is not passed.
+        pool if not passed.
 
     Returns
     -------
@@ -412,7 +419,7 @@ def repeat(value, size, MemoryPool memory_pool=None):
         Number of times to repeat the scalar in the output Array.
     memory_pool : MemoryPool, default None
         Arrow MemoryPool to use for allocations. Uses the default memory
-        pool is not passed.
+        pool if not passed.
 
     Returns
     -------
@@ -701,7 +708,7 @@ cdef class _PandasConvertible(_Weakrefable):
         ----------
         memory_pool : MemoryPool, default None
             Arrow MemoryPool to use for allocations. Uses the default memory
-            pool is not passed.
+            pool if not passed.
         categories : list, default empty
             List of fields that should be returned as pandas.Categorical. Only
             applies to table-like data structures.
@@ -721,7 +728,7 @@ cdef class _PandasConvertible(_Weakrefable):
             If False, all timestamps are converted to datetime64[ns] dtype.
         use_threads : bool, default True
             Whether to parallelize the conversion using multiple threads.
-        deduplicate_objects : bool, default False
+        deduplicate_objects : bool, default True
             Do not create multiple copies Python objects when created, to save
             on memory use. Conversion will be slower.
         ignore_metadata : bool, default False
@@ -904,7 +911,7 @@ cdef class Array(_PandasConvertible):
             result = self.ap.Diff(deref(other.ap))
         return frombytes(result, safe=True)
 
-    def cast(self, object target_type=None, safe=None, options=None):
+    def cast(self, object target_type=None, safe=None, options=None, memory_pool=None):
         """
         Cast array values to another data type
 
@@ -918,12 +925,15 @@ cdef class Array(_PandasConvertible):
             Whether to check for conversion errors such as overflow.
         options : CastOptions, default None
             Additional checks pass by CastOptions
+        memory_pool : MemoryPool, optional
+            memory pool to use for allocations during function execution.
 
         Returns
         -------
         cast : Array
         """
-        return _pc().cast(self, target_type, safe=safe, options=options)
+        return _pc().cast(self, target_type, safe=safe,
+                          options=options, memory_pool=memory_pool)
 
     def view(self, object target_type):
         """
@@ -1253,6 +1263,16 @@ cdef class Array(_PandasConvertible):
         options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
 
+    def is_nan(self):
+        """
+        Return BooleanArray indicating the NaN values.
+
+        Returns
+        -------
+        array : boolean Array
+        """
+        return _pc().call_function('is_nan', [self])
+
     def is_valid(self):
         """
         Return BooleanArray indicating the non-null values.
@@ -1438,6 +1458,9 @@ cdef class Array(_PandasConvertible):
         By default, tries to return a view of this array. This is only
         supported for primitive arrays with the same memory layout as NumPy
         (i.e. integers, floating point, ..) and without any nulls.
+
+        For the extension arrays, this method simply delegates to the
+        underlying storage array.
 
         Parameters
         ----------
@@ -1646,7 +1669,7 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
     else:
         dtype = None
 
-    result = pandas_api.series(arr, dtype=dtype, name=name)
+    result = pandas_api.series(arr, dtype=dtype, name=name, copy=False)
 
     if (isinstance(original_type, TimestampType) and
             original_type.tz is not None and
@@ -2833,6 +2856,170 @@ cdef class StructArray(Array):
         return self.take(indices)
 
 
+cdef class RunEndEncodedArray(Array):
+    """
+    Concrete class for Arrow run-end encoded arrays.
+    """
+
+    @staticmethod
+    def _from_arrays(type, allow_none_for_type, logical_length, run_ends, values, logical_offset):
+        cdef:
+            int64_t _logical_length
+            Array _run_ends
+            Array _values
+            int64_t _logical_offset
+            shared_ptr[CDataType] c_type
+            shared_ptr[CRunEndEncodedArray] ree_array
+
+        _logical_length = <int64_t>logical_length
+        _logical_offset = <int64_t>logical_offset
+
+        type = ensure_type(type, allow_none=allow_none_for_type)
+        if type is not None:
+            _run_ends = asarray(run_ends, type=type.run_end_type)
+            _values = asarray(values, type=type.value_type)
+            c_type = pyarrow_unwrap_data_type(type)
+            with nogil:
+                ree_array = GetResultValue(CRunEndEncodedArray.Make(
+                    c_type, _logical_length, _run_ends.sp_array, _values.sp_array, _logical_offset))
+        else:
+            _run_ends = asarray(run_ends)
+            _values = asarray(values)
+            with nogil:
+                ree_array = GetResultValue(CRunEndEncodedArray.MakeFromArrays(
+                    _logical_length, _run_ends.sp_array, _values.sp_array, _logical_offset))
+        cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]>ree_array)
+        result.validate(full=True)
+        return result
+
+    @staticmethod
+    def from_arrays(run_ends, values, type=None):
+        """
+        Construct RunEndEncodedArray from run_ends and values arrays.
+
+        Parameters
+        ----------
+        run_ends : Array (int16, int32, or int64 type)
+            The run_ends array.
+        values : Array (any type)
+            The values array.
+        type : pyarrow.DataType, optional
+            The run_end_encoded(run_end_type, value_type) array type.
+
+        Returns
+        -------
+        RunEndEncodedArray
+        """
+        logical_length = run_ends[-1] if len(run_ends) > 0 else 0
+        return RunEndEncodedArray._from_arrays(type, True, logical_length,
+                                               run_ends, values, 0)
+
+    @staticmethod
+    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,
+                     children=None):
+        """
+        Construct a RunEndEncodedArray from all the parameters that make up an
+        Array.
+
+        RunEndEncodedArrays do not have buffers, only children arrays, but this
+        implementation is needed to satisfy the Array interface.
+
+        Parameters
+        ----------
+        type : DataType
+            The run_end_encoded(run_end_type, value_type) type.
+        length : int
+            The logical length of the run-end encoded array. Expected to match
+            the last value of the run_ends array (children[0]) minus the offset.
+        buffers : List[Buffer]
+            Empty List or [None].
+        null_count : int, default -1
+            The number of null entries in the array. Run-end encoded arrays
+            are specified to not have valid bits and null_count always equals 0.
+        offset : int, default 0
+            The array's logical offset (in values, not in bytes) from the
+            start of each buffer.
+        children : List[Array]
+            Nested type children containing the run_ends and values arrays.
+
+        Returns
+        -------
+        RunEndEncodedArray
+        """
+        children = children or []
+
+        if type.num_fields != len(children):
+            raise ValueError("RunEndEncodedType's expected number of children "
+                             "({0}) did not match the passed number "
+                             "({1}).".format(type.num_fields, len(children)))
+
+        # buffers are validated as if we needed to pass them to C++, but
+        # _make_from_arrays will take care of filling in the expected
+        # buffers array containing a single NULL buffer on the C++ side
+        if len(buffers) == 0:
+            buffers = [None]
+        if buffers[0] is not None:
+            raise ValueError("RunEndEncodedType expects None as validity "
+                             "bitmap, buffers[0] is not None")
+        if type.num_buffers != len(buffers):
+            raise ValueError("RunEndEncodedType's expected number of buffers "
+                             "({0}) did not match the passed number "
+                             "({1}).".format(type.num_buffers, len(buffers)))
+
+        # null_count is also validated as if we needed it
+        if null_count != -1 and null_count != 0:
+            raise ValueError("RunEndEncodedType's expected null_count (0) "
+                             "did not match passed number ({0})".format(null_count))
+
+        return RunEndEncodedArray._from_arrays(type, False, length, children[0],
+                                               children[1], offset)
+
+    @property
+    def run_ends(self):
+        """
+        An array holding the logical indexes of each run-end.
+
+        The physical offset to the array is applied.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return pyarrow_wrap_array(ree_array.run_ends())
+
+    @property
+    def values(self):
+        """
+        An array holding the values of each run.
+
+        The physical offset to the array is applied.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return pyarrow_wrap_array(ree_array.values())
+
+    def find_physical_offset(self):
+        """
+        Find the physical offset of this REE array.
+
+        This is the offset of the run that contains the value of the first
+        logical element of this array considering its offet.
+
+        This function uses binary-search, so it has a O(log N) cost.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return ree_array.FindPhysicalOffset()
+
+    def find_physical_length(self):
+        """
+        Find the physical length of this REE array.
+
+        The physical length of an REE is the number of physical values (and
+        run-ends) necessary to represent the logical range of values from offset
+        to length.
+
+        This function uses binary-search, so it has a O(log N) cost.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return ree_array.FindPhysicalLength()
+
+
 cdef class ExtensionArray(Array):
     """
     Concrete class for Arrow extension arrays.
@@ -2883,27 +3070,10 @@ cdef class ExtensionArray(Array):
         # pandas ExtensionDtype that implements conversion from pyarrow
         if hasattr(pandas_dtype, '__from_arrow__'):
             arr = pandas_dtype.__from_arrow__(self)
-            return pandas_api.series(arr)
+            return pandas_api.series(arr, copy=False)
 
         # otherwise convert the storage array with the base implementation
         return Array._to_pandas(self.storage, options, **kwargs)
-
-    def to_numpy(self, **kwargs):
-        """
-        Convert extension array to a numpy ndarray.
-
-        This method simply delegates to the underlying storage array.
-
-        Parameters
-        ----------
-        **kwargs : dict, optional
-            See `Array.to_numpy` for parameter description.
-
-        See Also
-        --------
-        Array.to_numpy
-        """
-        return self.storage.to_numpy(**kwargs)
 
 
 cdef dict _array_classes = {
@@ -2942,6 +3112,7 @@ cdef dict _array_classes = {
     _Type_DECIMAL128: Decimal128Array,
     _Type_DECIMAL256: Decimal256Array,
     _Type_STRUCT: StructArray,
+    _Type_RUN_END_ENCODED: RunEndEncodedArray,
     _Type_EXTENSION: ExtensionArray,
 }
 
@@ -2986,7 +3157,7 @@ cdef object get_values(object obj, bint* is_series):
         result = obj
         is_series[0] = False
     else:
-        result = pandas_api.series(obj).values
+        result = pandas_api.series(obj, copy=False).values
         is_series[0] = False
 
     return result

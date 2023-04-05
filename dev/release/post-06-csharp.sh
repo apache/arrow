@@ -39,6 +39,7 @@ base_names=()
 base_names+=(Apache.Arrow.${version})
 base_names+=(Apache.Arrow.Flight.${version})
 base_names+=(Apache.Arrow.Flight.AspNetCore.${version})
+base_names+=(Apache.Arrow.Compression.${version})
 for base_name in ${base_names[@]}; do
   for extension in nupkg snupkg; do
     path=${base_name}.${extension}

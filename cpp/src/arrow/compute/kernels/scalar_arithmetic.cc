@@ -26,7 +26,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -760,16 +760,6 @@ struct ArithmeticFloatingPointFunction : public ArithmeticFunction {
     return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
-
-// A scalar kernel that ignores (assumed all-null) inputs and returns null.
-Status NullToNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return Status::OK();
-}
-
-void AddNullExec(ScalarFunction* func) {
-  std::vector<InputType> input_types(func->arity().num_args, InputType(Type::NA));
-  DCHECK_OK(func->AddKernel(std::move(input_types), OutputType(null()), NullToNullExec));
-}
 
 template <typename Op, typename FunctionImpl = ArithmeticFunction>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,

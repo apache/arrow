@@ -19,15 +19,15 @@ package array
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
 )
 
 type arraymarshal interface {
 	arrow.Array
 
-	getOneForMarshal(i int) interface{}
+	GetOneForMarshal(i int) interface{}
 }
 
 const (

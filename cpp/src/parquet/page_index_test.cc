@@ -256,4 +256,164 @@ TEST(PageIndex, ReadColumnIndexWithNullPage) {
       null_pages, min_values, max_values, has_null_counts, null_counts);
 }
 
+struct PageIndexRanges {
+  int64_t column_index_offset;
+  int64_t column_index_length;
+  int64_t offset_index_offset;
+  int64_t offset_index_length;
+};
+
+using RowGroupRanges = std::vector<PageIndexRanges>;
+
+/// Creates an FileMetaData object w/ single row group based on data in
+/// 'row_group_ranges'. It sets the offsets and sizes of the column index and offset index
+/// members of the row group. It doesn't set the member if the input value is -1.
+std::shared_ptr<FileMetaData> ConstructFakeMetaData(
+    const RowGroupRanges& row_group_ranges) {
+  format::RowGroup row_group;
+  for (auto& page_index_ranges : row_group_ranges) {
+    format::ColumnChunk col_chunk;
+    if (page_index_ranges.column_index_offset != -1) {
+      col_chunk.__set_column_index_offset(page_index_ranges.column_index_offset);
+    }
+    if (page_index_ranges.column_index_length != -1) {
+      col_chunk.__set_column_index_length(
+          static_cast<int32_t>(page_index_ranges.column_index_length));
+    }
+    if (page_index_ranges.offset_index_offset != -1) {
+      col_chunk.__set_offset_index_offset(page_index_ranges.offset_index_offset);
+    }
+    if (page_index_ranges.offset_index_length != -1) {
+      col_chunk.__set_offset_index_length(
+          static_cast<int32_t>(page_index_ranges.offset_index_length));
+    }
+    row_group.columns.push_back(col_chunk);
+  }
+
+  format::FileMetaData metadata;
+  metadata.row_groups.push_back(row_group);
+
+  metadata.schema.emplace_back();
+  schema::NodeVector fields;
+  for (size_t i = 0; i < row_group_ranges.size(); ++i) {
+    fields.push_back(schema::Int64(std::to_string(i)));
+    metadata.schema.emplace_back();
+    fields.back()->ToParquet(&metadata.schema.back());
+  }
+  schema::GroupNode::Make("schema", Repetition::REPEATED, fields)
+      ->ToParquet(&metadata.schema.front());
+
+  auto sink = CreateOutputStream();
+  ThriftSerializer{}.Serialize(&metadata, sink.get());
+  auto buffer = sink->Finish().MoveValueUnsafe();
+  uint32_t len = static_cast<uint32_t>(buffer->size());
+  return FileMetaData::Make(buffer->data(), &len);
+}
+
+/// Validates that 'DeterminePageIndexRangesInRowGroup()' selects the expected file
+/// offsets and sizes or returns false when the row group doesn't have a page index.
+void ValidatePageIndexRange(const RowGroupRanges& row_group_ranges,
+                            const std::vector<int32_t>& column_indices,
+                            bool expected_has_column_index,
+                            bool expected_has_offset_index, int expected_ci_start,
+                            int expected_ci_size, int expected_oi_start,
+                            int expected_oi_size) {
+  auto file_metadata = ConstructFakeMetaData(row_group_ranges);
+  auto read_range = PageIndexReader::DeterminePageIndexRangesInRowGroup(
+      *file_metadata->RowGroup(0), column_indices);
+  ASSERT_EQ(expected_has_column_index, read_range.column_index.has_value());
+  ASSERT_EQ(expected_has_offset_index, read_range.offset_index.has_value());
+  if (expected_has_column_index) {
+    EXPECT_EQ(expected_ci_start, read_range.column_index->offset);
+    EXPECT_EQ(expected_ci_size, read_range.column_index->length);
+  }
+  if (expected_has_offset_index) {
+    EXPECT_EQ(expected_oi_start, read_range.offset_index->offset);
+    EXPECT_EQ(expected_oi_size, read_range.offset_index->length);
+  }
+}
+
+/// This test constructs a couple of artificial row groups with page index offsets in
+/// them. Then it validates if PageIndexReader::DeterminePageIndexRangesInRowGroup()
+/// properly computes the file range that contains the whole page index.
+TEST(PageIndex, DeterminePageIndexRangesInRowGroup) {
+  // No Column chunks
+  ValidatePageIndexRange({}, {}, false, false, -1, -1, -1, -1);
+  // No page index at all.
+  ValidatePageIndexRange({{-1, -1, -1, -1}}, {}, false, false, -1, -1, -1, -1);
+  // Page index for single column chunk.
+  ValidatePageIndexRange({{10, 5, 15, 5}}, {}, true, true, 10, 5, 15, 5);
+  // Page index for two column chunks.
+  ValidatePageIndexRange({{10, 5, 30, 25}, {15, 15, 50, 20}}, {}, true, true, 10, 20, 30,
+                         40);
+  // Page index for second column chunk.
+  ValidatePageIndexRange({{-1, -1, -1, -1}, {20, 10, 30, 25}}, {}, true, true, 20, 10, 30,
+                         25);
+  // Page index for first column chunk.
+  ValidatePageIndexRange({{10, 5, 15, 5}, {-1, -1, -1, -1}}, {}, true, true, 10, 5, 15,
+                         5);
+  // Missing offset index for first column chunk. Gap in column index.
+  ValidatePageIndexRange({{10, 5, -1, -1}, {20, 10, 30, 25}}, {}, true, true, 10, 20, 30,
+                         25);
+  // Missing offset index for second column chunk.
+  ValidatePageIndexRange({{10, 5, 25, 5}, {20, 10, -1, -1}}, {}, true, true, 10, 20, 25,
+                         5);
+  // Four column chunks.
+  ValidatePageIndexRange(
+      {{100, 10, 220, 30}, {110, 25, 250, 10}, {140, 30, 260, 40}, {200, 10, 300, 100}},
+      {}, true, true, 100, 110, 220, 180);
+}
+
+/// This test constructs a couple of artificial row groups with page index offsets in
+/// them. Then it validates if PageIndexReader::DeterminePageIndexRangesInRowGroup()
+/// properly computes the file range that contains the page index of selected columns.
+TEST(PageIndex, DeterminePageIndexRangesInRowGroupWithPartialColumnsSelected) {
+  // No page index at all.
+  ValidatePageIndexRange({{-1, -1, -1, -1}}, {0}, false, false, -1, -1, -1, -1);
+  // Page index for single column chunk.
+  ValidatePageIndexRange({{10, 5, 15, 5}}, {0}, true, true, 10, 5, 15, 5);
+  // Page index for the 1st column chunk.
+  ValidatePageIndexRange({{10, 5, 30, 25}, {15, 15, 50, 20}}, {0}, true, true, 10, 5, 30,
+                         25);
+  // Page index for the 2nd column chunk.
+  ValidatePageIndexRange({{10, 5, 30, 25}, {15, 15, 50, 20}}, {1}, true, true, 15, 15, 50,
+                         20);
+  // Only 2nd column is selected among four column chunks.
+  ValidatePageIndexRange(
+      {{100, 10, 220, 30}, {110, 25, 250, 10}, {140, 30, 260, 40}, {200, 10, 300, 100}},
+      {1}, true, true, 110, 25, 250, 10);
+  // Only 2nd and 3rd columns are selected among four column chunks.
+  ValidatePageIndexRange(
+      {{100, 10, 220, 30}, {110, 25, 250, 10}, {140, 30, 260, 40}, {200, 10, 300, 100}},
+      {1, 2}, true, true, 110, 60, 250, 50);
+  // Only 2nd and 4th columns are selected among four column chunks.
+  ValidatePageIndexRange(
+      {{100, 10, 220, 30}, {110, 25, 250, 10}, {140, 30, 260, 40}, {200, 10, 300, 100}},
+      {1, 3}, true, true, 110, 100, 250, 150);
+  // Only 1st, 2nd and 4th columns are selected among four column chunks.
+  ValidatePageIndexRange(
+      {{100, 10, 220, 30}, {110, 25, 250, 10}, {140, 30, 260, 40}, {200, 10, 300, 100}},
+      {0, 1, 3}, true, true, 100, 110, 220, 180);
+  // 3rd column is selected but not present in the row group.
+  EXPECT_THROW(ValidatePageIndexRange({{10, 5, 30, 25}, {15, 15, 50, 20}}, {2}, false,
+                                      false, -1, -1, -1, -1),
+               ParquetException);
+}
+
+/// This test constructs a couple of artificial row groups with page index offsets in
+/// them. Then it validates if PageIndexReader::DeterminePageIndexRangesInRowGroup()
+/// properly detects if column index or offset index is missing.
+TEST(PageIndex, DeterminePageIndexRangesInRowGroupWithMissingPageIndex) {
+  // No column index at all.
+  ValidatePageIndexRange({{-1, -1, 15, 5}}, {}, false, true, -1, -1, 15, 5);
+  // No offset index at all.
+  ValidatePageIndexRange({{10, 5, -1, -1}}, {}, true, false, 10, 5, -1, -1);
+  // No column index at all among two column chunks.
+  ValidatePageIndexRange({{-1, -1, 30, 25}, {-1, -1, 50, 20}}, {}, false, true, -1, -1,
+                         30, 40);
+  // No offset index at all among two column chunks.
+  ValidatePageIndexRange({{10, 5, -1, -1}, {15, 15, -1, -1}}, {}, true, false, 10, 20, -1,
+                         -1);
+}
+
 }  // namespace parquet

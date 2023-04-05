@@ -26,15 +26,19 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v11/arrow/internal/debug"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 func getArrowTypeFromString(dbtype string) arrow.DataType {
 	dbtype = strings.ToLower(dbtype)
+	if dbtype == "" {
+		// SQLite may not know the type yet.
+		return &arrow.NullType{}
+	}
 	if strings.HasPrefix(dbtype, "varchar") {
 		return arrow.BinaryTypes.String
 	}
@@ -52,7 +56,7 @@ func getArrowTypeFromString(dbtype string) arrow.DataType {
 		return arrow.PrimitiveTypes.Float64
 	case "blob":
 		return arrow.BinaryTypes.Binary
-	case "text", "date", "char":
+	case "text", "date", "char", "clob":
 		return arrow.BinaryTypes.String
 	default:
 		panic("invalid sqlite type: " + dbtype)

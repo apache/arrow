@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/float16"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/float16"
 	"github.com/goccy/go-json"
 )
 
@@ -71,7 +71,7 @@ func (a *Float16) setData(data *Data) {
 	}
 }
 
-func (a *Float16) getOneForMarshal(i int) interface{} {
+func (a *Float16) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.values[i].Float32()
 	}

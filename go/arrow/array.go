@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 // ArrayData is the underlying memory and metadata of an Arrow array, corresponding

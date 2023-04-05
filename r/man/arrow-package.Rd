@@ -13,7 +13,7 @@ Useful links:
 \itemize{
   \item \url{https://github.com/apache/arrow/}
   \item \url{https://arrow.apache.org/docs/r/}
-  \item Report bugs at \url{https://issues.apache.org/jira/projects/ARROW/issues}
+  \item Report bugs at \url{https://github.com/apache/arrow/issues}
 }
 
 }

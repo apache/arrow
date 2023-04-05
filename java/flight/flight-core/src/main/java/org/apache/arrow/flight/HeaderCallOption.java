@@ -47,6 +47,6 @@ public class HeaderCallOption implements CallOptions.GrpcCallOption {
 
   @Override
   public <T extends AbstractStub<T>> T wrapStub(T stub) {
-    return MetadataUtils.attachHeaders(stub, propertiesMetadata);
+    return stub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(propertiesMetadata));
   }
 }

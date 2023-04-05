@@ -275,6 +275,76 @@ std::shared_ptr<TypeMatcher> FixedSizeBinaryLike() {
   return std::make_shared<FixedSizeBinaryLikeMatcher>();
 }
 
+class RunEndIntegerMatcher : public TypeMatcher {
+ public:
+  ~RunEndIntegerMatcher() override = default;
+
+  bool Matches(const DataType& type) const override { return is_run_end_type(type.id()); }
+
+  bool Equals(const TypeMatcher& other) const override {
+    auto casted = dynamic_cast<const RunEndIntegerMatcher*>(&other);
+    return casted != nullptr;
+  }
+
+  std::string ToString() const override { return "run-end-integer"; }
+};
+
+std::shared_ptr<TypeMatcher> RunEndInteger() {
+  return std::make_shared<RunEndIntegerMatcher>();
+}
+
+class RunEndEncodedMatcher : public TypeMatcher {
+ public:
+  RunEndEncodedMatcher(std::shared_ptr<TypeMatcher> run_end_type_matcher,
+                       std::shared_ptr<TypeMatcher> value_type_matcher)
+      : run_end_type_matcher{std::move(run_end_type_matcher)},
+        value_type_matcher{std::move(value_type_matcher)} {}
+
+  ~RunEndEncodedMatcher() override = default;
+
+  bool Matches(const DataType& type) const override {
+    if (type.id() == Type::RUN_END_ENCODED) {
+      const auto& ree_type = dynamic_cast<const RunEndEncodedType&>(type);
+      // This invariant is enforced in RunEndEncodedType's constructor
+      DCHECK(is_run_end_type(ree_type.run_end_type()->id()));
+      return run_end_type_matcher->Matches(*ree_type.run_end_type()) &&
+             value_type_matcher->Matches(*ree_type.value_type());
+    }
+    return false;
+  }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    const auto* casted = dynamic_cast<const RunEndEncodedMatcher*>(&other);
+    return casted != nullptr && value_type_matcher->Equals(*casted->value_type_matcher) &&
+           run_end_type_matcher->Equals(*casted->run_end_type_matcher);
+  }
+
+  std::string ToString() const override {
+    return "run_end_encoded(" + run_end_type_matcher->ToString() + ", " +
+           value_type_matcher->ToString() + ")";
+  };
+
+ private:
+  std::shared_ptr<TypeMatcher> run_end_type_matcher;
+  std::shared_ptr<TypeMatcher> value_type_matcher;
+};
+
+std::shared_ptr<TypeMatcher> RunEndEncoded(
+    std::shared_ptr<TypeMatcher> value_type_matcher) {
+  return std::make_shared<RunEndEncodedMatcher>(RunEndInteger(),
+                                                std::move(value_type_matcher));
+}
+
+std::shared_ptr<TypeMatcher> RunEndEncoded(
+    std::shared_ptr<TypeMatcher> run_end_type_matcher,
+    std::shared_ptr<TypeMatcher> value_type_matcher) {
+  return std::make_shared<RunEndEncodedMatcher>(std::move(run_end_type_matcher),
+                                                std::move(value_type_matcher));
+}
+
 }  // namespace match
 
 // ----------------------------------------------------------------------

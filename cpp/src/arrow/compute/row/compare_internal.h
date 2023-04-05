@@ -19,10 +19,10 @@
 
 #include <cstdint>
 
-#include "arrow/compute/exec/util.h"
 #include "arrow/compute/light_array.h"
 #include "arrow/compute/row/encode_internal.h"
 #include "arrow/compute/row/row_internal.h"
+#include "arrow/compute/util.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -30,7 +30,7 @@
 namespace arrow {
 namespace compute {
 
-class KeyCompare {
+class ARROW_EXPORT KeyCompare {
  public:
   // Returns a single 16-bit selection vector of rows that failed comparison.
   // If there is input selection on the left, the resulting selection is a filtered image

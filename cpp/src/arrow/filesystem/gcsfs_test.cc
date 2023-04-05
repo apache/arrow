@@ -46,7 +46,6 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <iostream>
 #include <random>
 #include <string>
 #include <thread>
@@ -61,10 +60,6 @@
 
 namespace arrow {
 namespace fs {
-/// Custom comparison for FileInfo, we need this to use complex googletest matchers.
-inline bool operator==(const FileInfo& a, const FileInfo& b) {
-  return a.path() == b.path() && a.type() == b.type();
-}
 
 namespace {
 
@@ -268,7 +263,8 @@ class GcsIntegrationTest : public ::testing::Test {
         const auto filename =
             internal::ConcatAbstractPath(folder, "test-file-" + std::to_string(i));
         CreateFile(fs.get(), filename, filename);
-        result.contents.push_back(arrow::fs::File(filename));
+        ARROW_ASSIGN_OR_RAISE(auto file_info, fs->GetFileInfo(filename));
+        result.contents.push_back(std::move(file_info));
       }
     }
     return result;
@@ -1318,6 +1314,22 @@ TEST_F(GcsIntegrationTest, OpenInputFileRandomSeek) {
     ASSERT_OK_AND_ASSIGN(auto actual, file->Read(kLineWidth));
     EXPECT_EQ(lines[index], actual->ToString());
   }
+}
+
+TEST_F(GcsIntegrationTest, OpenInputFileIoContext) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+
+  // Create a test file.
+  const auto path = PreexistingBucketPath() + "OpenInputFileIoContext/object-name";
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
+  const std::string contents = "The quick brown fox jumps over the lazy dog";
+  ASSERT_OK(output->Write(contents.data(), contents.size()));
+  ASSERT_OK(output->Close());
+
+  std::shared_ptr<io::RandomAccessFile> file;
+  ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile(path));
+  EXPECT_EQ(fs->io_context().external_id(), file->io_context().external_id());
 }
 
 TEST_F(GcsIntegrationTest, OpenInputFileInfo) {

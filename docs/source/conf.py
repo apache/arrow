@@ -249,7 +249,7 @@ html_context = {
     # "switcher_template_url": "http://0.0.0.0:8000/docs/{version}",
     "github_user": "apache",
     "github_repo": "arrow",
-    "github_version": "master",
+    "github_version": "main",
     "doc_path": "docs/source",
 }
 
@@ -516,13 +516,6 @@ try:
 except ImportError:
     parquet_encryption_enabled = False
     pyarrow.parquet.encryption = sys.modules['pyarrow.parquet.encryption'] = mock.Mock()
-
-try:
-    import pyarrow.plasma
-    plasma_enabled = True
-except ImportError:
-    plasma_enabled = False
-    pyarrow.plasma = sys.modules['pyarrow.plasma'] = mock.Mock()
 
 
 def setup(app):

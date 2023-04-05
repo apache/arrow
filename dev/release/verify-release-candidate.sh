@@ -189,8 +189,6 @@ test_apt() {
                 "arm64v8/debian:bullseye" \
                 "debian:bookworm" \
                 "arm64v8/debian:bookworm" \
-                "ubuntu:bionic" \
-                "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:jammy" \
@@ -201,7 +199,7 @@ test_apt() {
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
           case "${target}" in
-            arm64v8/ubuntu:bionic|arm64v8/ubuntu:focal)
+            arm64v8/ubuntu:focal)
               : # OK
               ;;
             *)
@@ -347,18 +345,15 @@ install_csharp() {
 
   show_info "Ensuring that C# is installed..."
 
-  if which dotnet > /dev/null 2>&1; then
+  if dotnet --version | grep 7\.0 > /dev/null 2>&1; then
     local csharp_bin=$(dirname $(which dotnet))
-    if ! which sourcelink > /dev/null 2>&1; then
-      local dotnet_tools_dir=$HOME/.dotnet/tools
-      if [ -d "${dotnet_tools_dir}" ]; then
-        PATH="${dotnet_tools_dir}:$PATH"
-      fi
-    fi
     show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
   else
+    if which dotnet > /dev/null 2>&1; then
+      show_info "dotnet found but it is the wrong version and will be ignored."
+    fi
     local csharp_bin=${ARROW_TMPDIR}/csharp/bin
-    local dotnet_version=6.0.202
+    local dotnet_version=7.0.102
     local dotnet_platform=
     case "$(uname)" in
       Linux)
@@ -382,10 +377,11 @@ install_csharp() {
   fi
 
   # Ensure to have sourcelink installed
-  if ! which sourcelink > /dev/null 2>&1; then
-    dotnet tool install --tool-path ${csharp_bin} sourcelink
+  if ! dotnet tool list | grep sourcelink > /dev/null 2>&1; then
+    dotnet new tool-manifest
+    dotnet tool install --local sourcelink
     PATH=${csharp_bin}:${PATH}
-    if ! sourcelink --help > /dev/null 2>&1; then
+    if ! dotnet tool run sourcelink --help > /dev/null 2>&1; then
       export DOTNET_ROOT=${csharp_bin}
     fi
   fi
@@ -623,7 +619,6 @@ test_and_install_cpp() {
     -DARROW_JSON=ON \
     -DARROW_ORC=ON \
     -DARROW_PARQUET=ON \
-    -DARROW_PLASMA=${ARROW_PLASMA} \
     -DARROW_S3=${ARROW_S3} \
     -DARROW_USE_CCACHE=${ARROW_USE_CCACHE:-ON} \
     -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
@@ -653,7 +648,6 @@ test_and_install_cpp() {
   local pythonpath=$(python -c "import site; print(site.getsitepackages()[0])")
 
   LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH PYTHONPATH=$pythonpath ctest \
-    --exclude-regex "plasma-serialization_tests" \
     --label-regex unittest \
     --output-on-failure \
     --parallel $NPROC \
@@ -691,9 +685,6 @@ test_python() {
   if [ "${ARROW_GCS}" = "ON" ]; then
     export PYARROW_WITH_GCS=1
   fi
-  if [ "${ARROW_PLASMA}" = "ON" ]; then
-    export PYARROW_WITH_PLASMA=1
-  fi
   if [ "${ARROW_S3}" = "ON" ]; then
     export PYARROW_WITH_S3=1
   fi
@@ -725,9 +716,6 @@ import pyarrow.parquet
   fi
   if [ "${ARROW_GCS}" == "ON" ]; then
     python -c "import pyarrow._gcsfs"
-  fi
-  if [ "${ARROW_PLASMA}" == "ON" ]; then
-    python -c "import pyarrow.plasma"
   fi
   if [ "${ARROW_S3}" == "ON" ]; then
     python -c "import pyarrow._s3fs"
@@ -803,9 +791,6 @@ test_ruby() {
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     modules="${modules} red-gandiva"
   fi
-  if [ "${ARROW_PLASMA}" = "ON" ]; then
-    modules="${modules} red-plasma"
-  fi
 
   for module in ${modules}; do
     pushd ${module}
@@ -835,8 +820,12 @@ test_csharp() {
     mv ../.git dummy.git
   fi
 
-  sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
-  sourcelink test artifacts/Apache.Arrow/Release/netcoreapp3.1/Apache.Arrow.pdb
+  if [ "${SOURCE_KIND}" = "local" ]; then
+    echo "Skipping sourelink verification on local build"
+  else
+    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
+    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netcoreapp3.1/Apache.Arrow.pdb
+  fi
 
   popd
 }
@@ -1189,7 +1178,6 @@ fi
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=ON}
 : ${ARROW_GCS:=OFF}
-: ${ARROW_PLASMA:=ON}
 : ${ARROW_S3:=OFF}
 
 TEST_SUCCESS=no

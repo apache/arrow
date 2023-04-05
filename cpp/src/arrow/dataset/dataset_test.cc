@@ -22,7 +22,7 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/partition.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/stl.h"
 #include "arrow/testing/generator.h"

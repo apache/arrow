@@ -48,12 +48,24 @@
 #'     { "hello": 3.25, "world": null }
 #'     { "hello": 0.0, "world": true, "yo": null }
 #'   ', tf, useBytes = TRUE)
+#'
 #' read_json_arrow(tf)
+#'
+#' # Read directly from strings with `I()`
+#' read_json_arrow(I(c('{"x": 1, "y": 2}', '{"x": 3, "y": 4}')))
 read_json_arrow <- function(file,
                             col_select = NULL,
                             as_data_frame = TRUE,
                             schema = NULL,
                             ...) {
+  if (inherits(file, "AsIs")) {
+    if (is.raw(file)) {
+      file <- unclass(file)
+    } else {
+      file <- charToRaw(paste(file, collapse = "\n"))
+    }
+  }
+
   if (!inherits(file, "InputStream")) {
     compression <- detect_compression(file)
     file <- make_readable_file(file)

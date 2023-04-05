@@ -77,14 +77,14 @@ class TestBaseUnaryRoundArithmetic : public ::testing::Test {
   void AssertUnaryOp(UnaryFunction func, CType argument, CType expected) {
     auto arg = MakeScalar(argument);
     auto exp = MakeScalar(expected);
-    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr))
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr));
     AssertScalarsApproxEqual(*exp, *actual.scalar(), /*verbose=*/true);
   }
 
   // (Scalar, Scalar)
   void AssertUnaryOp(UnaryFunction func, const std::shared_ptr<Scalar>& arg,
                      const std::shared_ptr<Scalar>& expected) {
-    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr))
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr));
     AssertScalarsApproxEqual(*expected, *actual.scalar(), /*verbose=*/true);
   }
 
@@ -120,7 +120,7 @@ class TestBaseUnaryRoundArithmetic : public ::testing::Test {
     const int64_t length = expected->length();
     for (int64_t i = 0; i < length; ++i) {
       const auto expected_scalar = *expected->GetScalar(i);
-      ASSERT_OK_AND_ASSIGN(actual, func(*arg->GetScalar(i), options_, nullptr))
+      ASSERT_OK_AND_ASSIGN(actual, func(*arg->GetScalar(i), options_, nullptr));
       AssertScalarsApproxEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true,
                                equal_options_);
     }
@@ -140,7 +140,7 @@ class TestBaseUnaryRoundArithmetic : public ::testing::Test {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
                                     func(arg, options_, nullptr));
     for (int64_t i = 0; i < arg->length(); i++) {
-      ASSERT_OK_AND_ASSIGN(auto scalar, arg->GetScalar(i))
+      ASSERT_OK_AND_ASSIGN(auto scalar, arg->GetScalar(i));
       EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
                                       func(scalar, options_, nullptr));
     }
@@ -219,6 +219,200 @@ class TestUnaryRoundUnsigned : public TestUnaryRoundIntegral<T> {};
 template <typename T>
 class TestUnaryRoundFloating : public TestUnaryRound<T> {};
 
+template <typename T, typename OptionsType>
+class TestBaseBinaryRoundArithmetic : public ::testing::Test {
+ protected:
+  using ArrowType = T;
+  using CType = typename ArrowType::c_type;
+
+  static std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<ArrowType>::type_singleton();
+  }
+
+  using BinaryFunction =
+      std::function<Result<Datum>(const Datum&, const Datum&, OptionsType, ExecContext*)>;
+
+  std::shared_ptr<Scalar> MakeNullScalar() {
+    return arrow::MakeNullScalar(type_singleton());
+  }
+
+  std::shared_ptr<Scalar> MakeScalar(CType value) {
+    return *arrow::MakeScalar(type_singleton(), value);
+  }
+
+  std::shared_ptr<Scalar> MakeInt32Scalar(int32_t value) {
+    return *arrow::MakeScalar(int32(), value);
+  }
+
+  void SetUp() override {}
+
+  // (CScalar, CScalar)
+  void AssertBinaryOp(BinaryFunction func, CType argument, int32_t ndigits,
+                      CType expected) {
+    auto arg = MakeScalar(argument);
+    auto nd = MakeInt32Scalar(ndigits);
+    auto exp = MakeScalar(expected);
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, nd, options_, nullptr));
+    AssertScalarsApproxEqual(*exp, *actual.scalar(), /*verbose=*/true);
+  }
+
+  // (Array, Scalar)
+  void AssertBinaryOp(BinaryFunction func, const std::shared_ptr<Array>& arg,
+                      const std::shared_ptr<Scalar>& ndigits,
+                      const std::shared_ptr<Array>& expected) {
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, ndigits, options_, nullptr));
+    ValidateAndAssertApproxEqual(actual.make_array(), expected);
+  }
+
+  // (Scalar, Scalar)
+  void AssertBinaryOp(BinaryFunction func, const std::shared_ptr<Scalar>& arg,
+                      const std::shared_ptr<Scalar>& ndigits,
+                      const std::shared_ptr<Scalar>& expected) {
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, ndigits, options_, nullptr));
+    AssertScalarsApproxEqual(*expected, *actual.scalar(), /*verbose=*/true);
+  }
+
+  // (JSON, JSON)
+  void AssertBinaryOp(BinaryFunction func, const std::string& arg_json, int32_t ndigits,
+                      const std::string& expected_json) {
+    auto arg = ArrayFromJSON(type_singleton(), arg_json);
+    auto nd = MakeInt32Scalar(ndigits);
+    ASSERT_OK_AND_ASSIGN(auto nda, MakeArrayFromScalar(*nd, arg->length()));
+    auto expected = ArrayFromJSON(type_singleton(), expected_json);
+    AssertBinaryOp(func, arg, nda, expected);
+
+    // Also test with ndigits as a scalar.
+    AssertBinaryOp(func, arg, nd, expected);
+  }
+
+  // (JSON, JSON)
+  void AssertBinaryOp(BinaryFunction func, const std::string& arg_json,
+                      const std::string& ndigits_json, const std::string& expected_json) {
+    auto arg = ArrayFromJSON(type_singleton(), arg_json);
+    auto nd = ArrayFromJSON(int32(), ndigits_json);
+    auto expected = ArrayFromJSON(type_singleton(), expected_json);
+    AssertBinaryOp(func, arg, nd, expected);
+  }
+
+  // (Array, JSON)
+  void AssertBinaryOp(BinaryFunction func, const std::shared_ptr<Array>& arg,
+                      const std::shared_ptr<Array>& ndigits,
+                      const std::string& expected_json) {
+    const auto expected = ArrayFromJSON(type_singleton(), expected_json);
+    AssertBinaryOp(func, arg, ndigits, expected);
+  }
+
+  // (JSON, Array)
+  void AssertBinaryOp(BinaryFunction func, const std::string& arg_json, int32_t ndigits,
+                      const std::shared_ptr<Array>& expected) {
+    auto arg = ArrayFromJSON(type_singleton(), arg_json);
+    auto nd = MakeInt32Scalar(ndigits);
+    ASSERT_OK_AND_ASSIGN(auto nda, MakeArrayFromScalar(*nd, arg->length()));
+    AssertBinaryOp(func, arg, nda, expected);
+  }
+
+  // (Array, Array)
+  void AssertBinaryOp(BinaryFunction func, const std::shared_ptr<Array>& arg,
+                      const std::shared_ptr<Array>& ndigits,
+                      const std::shared_ptr<Array>& expected) {
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, ndigits, options_, nullptr));
+    ValidateAndAssertApproxEqual(actual.make_array(), expected);
+
+    // Also check (Scalar, Scalar) operations
+    const int64_t length = expected->length();
+    for (int64_t i = 0; i < length; ++i) {
+      const auto expected_scalar = *expected->GetScalar(i);
+      ASSERT_OK_AND_ASSIGN(
+          actual, func(*arg->GetScalar(i), *ndigits->GetScalar(i), options_, nullptr));
+      AssertScalarsApproxEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true,
+                               equal_options_);
+    }
+  }
+
+  // (CScalar, CScalar)
+  void AssertBinaryOpRaises(BinaryFunction func, CType argument, CType ndigits,
+                            const std::string& expected_msg) {
+    auto arg = MakeScalar(argument);
+    auto nd = MakeInt32Scalar(ndigits);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
+                                    func(arg, nd, options_, nullptr));
+  }
+
+  void AssertBinaryOpRaises(BinaryFunction func, const std::string& argument,
+                            const std::string& ndigits, const std::string& expected_msg) {
+    auto arg = ArrayFromJSON(type_singleton(), argument);
+    auto nd = ArrayFromJSON(int32(), ndigits);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
+                                    func(arg, nd, options_, nullptr));
+    for (int64_t i = 0; i < arg->length(); i++) {
+      ASSERT_OK_AND_ASSIGN(auto scalar, arg->GetScalar(i));
+      ASSERT_OK_AND_ASSIGN(auto nscalar, nd->GetScalar(i));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
+                                      func(scalar, nscalar, options_, nullptr));
+    }
+  }
+
+  void AssertBinaryOpNotImplemented(BinaryFunction func, const std::string& argument,
+                                    const std::string& ndigits) {
+    auto arg = ArrayFromJSON(type_singleton(), argument);
+    auto nd = ArrayFromJSON(int32(), ndigits);
+    const char* expected_msg = "has no kernel matching input types";
+    EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, ::testing::HasSubstr(expected_msg),
+                                    func(arg, nd, options_, nullptr));
+  }
+
+  void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
+                                    const std::string& expected) {
+    const auto exp = ArrayFromJSON(type_singleton(), expected);
+    ValidateAndAssertApproxEqual(actual, exp);
+  }
+
+  void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
+                                    const std::shared_ptr<Array>& expected) {
+    ValidateOutput(*actual);
+    AssertArraysApproxEqual(*expected, *actual, /*verbose=*/true, equal_options_);
+  }
+
+  void SetNansEqual(bool value = true) {
+    equal_options_ = equal_options_.nans_equal(value);
+  }
+
+  OptionsType options_ = OptionsType();
+  EqualOptions equal_options_ = EqualOptions::Defaults().signed_zeros_equal(false);
+};
+
+// Subclasses of TestBaseBinaryRoundArithmetic for different FunctionOptions.
+template <typename T>
+class TestBinaryRoundArithmetic
+    : public TestBaseBinaryRoundArithmetic<T, RoundBinaryOptions> {
+ protected:
+  using Base = TestBaseBinaryRoundArithmetic<T, RoundBinaryOptions>;
+  using Base::options_;
+
+  void SetRoundMode(RoundMode value) { options_.round_mode = value; }
+};
+
+template <typename T>
+class TestBinaryRound : public TestBaseBinaryRoundArithmetic<T, RoundBinaryOptions> {
+ protected:
+  using Base = TestBaseBinaryRoundArithmetic<T, RoundBinaryOptions>;
+  using Base::options_;
+
+  void SetRoundMode(RoundMode value) { options_.round_mode = value; }
+};
+
+template <typename T>
+class TestBinaryRoundIntegral : public TestBinaryRound<T> {};
+
+template <typename T>
+class TestBinaryRoundSigned : public TestBinaryRoundIntegral<T> {};
+
+template <typename T>
+class TestBinaryRoundUnsigned : public TestBinaryRoundIntegral<T> {};
+
+template <typename T>
+class TestBinaryRoundFloating : public TestBinaryRoundArithmetic<T> {};
+
 template <typename T>
 class TestUnaryRoundToMultiple
     : public TestBaseUnaryRoundArithmetic<T, RoundToMultipleOptions> {
@@ -261,14 +455,14 @@ class TestRoundArithmeticDecimal : public ::testing::Test {
     DatumVector floating_args;
     for (const auto& arg : args) {
       if (is_decimal(arg.type()->id())) {
-        ASSERT_OK_AND_ASSIGN(auto casted, Cast(arg, float64()))
+        ASSERT_OK_AND_ASSIGN(auto casted, Cast(arg, float64()));
         floating_args.push_back(casted);
       } else {
         floating_args.push_back(arg);
       }
     }
-    ASSERT_OK_AND_ASSIGN(auto expected, CallFunction(func, floating_args))
-    ASSERT_OK_AND_ASSIGN(auto actual, CallFunction(func, args))
+    ASSERT_OK_AND_ASSIGN(auto expected, CallFunction(func, floating_args));
+    ASSERT_OK_AND_ASSIGN(auto actual, CallFunction(func, args));
     AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
   }
 
@@ -280,71 +474,10 @@ class TestRoundArithmeticDecimal : public ::testing::Test {
   }
 };
 
-template <typename T>
-class TestBinaryRoundArithmetic : public ::testing::Test {
- protected:
-  using ArrowType = T;
-  using CType = typename ArrowType::c_type;
-
-  static std::shared_ptr<DataType> type_singleton() {
-    return TypeTraits<ArrowType>::type_singleton();
-  }
-
-  using BinaryFunction = std::function<Result<Datum>(const Datum&, const Datum&,
-                                                     ArithmeticOptions, ExecContext*)>;
-
-  void SetUp() override { options_.check_overflow = false; }
-
-  std::shared_ptr<Scalar> MakeNullScalar() {
-    return arrow::MakeNullScalar(type_singleton());
-  }
-
-  std::shared_ptr<Scalar> MakeScalar(CType value) {
-    return *arrow::MakeScalar(type_singleton(), value);
-  }
-
-  void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
-                                    const std::string& expected) {
-    ValidateAndAssertApproxEqual(actual, ArrayFromJSON(type_singleton(), expected));
-  }
-
-  void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
-                                    const std::shared_ptr<Array>& expected) {
-    ValidateOutput(*actual);
-    AssertArraysApproxEqual(*expected, *actual, /*verbose=*/true, equal_options_);
-  }
-
-  void SetOverflowCheck(bool value = true) { options_.check_overflow = value; }
-
-  void SetNansEqual(bool value = true) {
-    this->equal_options_ = equal_options_.nans_equal(value);
-  }
-
-  ArithmeticOptions options_ = ArithmeticOptions();
-  EqualOptions equal_options_ = EqualOptions::Defaults().signed_zeros_equal(false);
-};
-
-template <typename T>
-class TestBinaryRoundArithmeticIntegral : public TestBinaryRoundArithmetic<T> {};
-
-template <typename T>
-class TestBinaryRoundArithmeticSigned : public TestBinaryRoundArithmeticIntegral<T> {};
-
-template <typename T>
-class TestBinaryRoundArithmeticUnsigned : public TestBinaryRoundArithmeticIntegral<T> {};
-
-template <typename T>
-class TestBinaryRoundArithmeticFloating : public TestBinaryRoundArithmetic<T> {};
-
 TYPED_TEST_SUITE(TestUnaryRoundArithmeticIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestUnaryRoundArithmeticSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestUnaryRoundArithmeticUnsigned, UnsignedIntegerTypes);
 TYPED_TEST_SUITE(TestUnaryRoundArithmeticFloating, FloatingTypes);
-
-TYPED_TEST_SUITE(TestBinaryRoundArithmeticIntegral, IntegralTypes);
-TYPED_TEST_SUITE(TestBinaryRoundArithmeticSigned, SignedIntegerTypes);
-TYPED_TEST_SUITE(TestBinaryRoundArithmeticUnsigned, UnsignedIntegerTypes);
-TYPED_TEST_SUITE(TestBinaryRoundArithmeticFloating, FloatingTypes);
 
 TEST(TestUnaryRound, DispatchBestRound) {
   // Integer -> Float64
@@ -965,6 +1098,100 @@ TYPED_TEST(TestUnaryRoundFloating, Round) {
   }
 }
 
+TYPED_TEST_SUITE(TestBinaryRoundIntegral, IntegralTypes);
+TYPED_TEST_SUITE(TestBinaryRoundSigned, SignedIntegerTypes);
+TYPED_TEST_SUITE(TestBinaryRoundUnsigned, UnsignedIntegerTypes);
+TYPED_TEST_SUITE(TestBinaryRoundFloating, FloatingTypes);
+
+TYPED_TEST(TestBinaryRoundSigned, Round) {
+  // Test different rounding modes for integer rounding
+  std::string values("[0, 1, -13, -50, 115]");
+  for (const auto& round_mode : kRoundModes) {
+    this->SetRoundMode(round_mode);
+    this->AssertBinaryOp(RoundBinary, values, 0, ArrayFromJSON(float64(), values));
+  }
+
+  // Test different round N-digits for nearest rounding mode
+  std::vector<std::pair<int32_t, std::string>> ndigits_and_expected{{
+      {-2, "[0.0, 0.0, -0.0, -100, 100]"},
+      {-1, "[0.0, 0.0, -10, -50, 120]"},
+      {0, values},
+      {1, values},
+      {2, values},
+  }};
+  this->SetRoundMode(RoundMode::HALF_TOWARDS_INFINITY);
+  for (const auto& pair : ndigits_and_expected) {
+    this->AssertBinaryOp(RoundBinary, values, pair.first,
+                         ArrayFromJSON(float64(), pair.second));
+  }
+}
+
+TYPED_TEST(TestBinaryRoundUnsigned, Round) {
+  // Test different rounding modes for integer rounding
+  std::string values("[0, 1, 13, 50, 115]");
+  for (const auto& round_mode : kRoundModes) {
+    this->SetRoundMode(round_mode);
+    this->AssertBinaryOp(RoundBinary, values, 0, ArrayFromJSON(float64(), values));
+  }
+
+  // Test different round N-digits for nearest rounding mode
+  std::vector<std::pair<int32_t, std::string>> ndigits_and_expected{{
+      {-2, "[0, 0, 0, 100, 100]"},
+      {-1, "[0, 0, 10, 50, 120]"},
+      {0, values},
+      {1, values},
+      {2, values},
+  }};
+  this->SetRoundMode(RoundMode::HALF_TOWARDS_INFINITY);
+  for (const auto& pair : ndigits_and_expected) {
+    this->AssertBinaryOp(RoundBinary, values, pair.first,
+                         ArrayFromJSON(float64(), pair.second));
+  }
+}
+
+TYPED_TEST(TestBinaryRoundFloating, Round) {
+  this->SetNansEqual(true);
+
+  // Test different rounding modes
+  std::string values("[3.2, 3.5, 3.7, 4.5, -3.2, -3.5, -3.7]");
+  std::vector<std::pair<RoundMode, std::string>> rmode_and_expected{{
+      {RoundMode::DOWN, "[3, 3, 3, 4, -4, -4, -4]"},
+      {RoundMode::UP, "[4, 4, 4, 5, -3, -3, -3]"},
+      {RoundMode::TOWARDS_ZERO, "[3, 3, 3, 4, -3, -3, -3]"},
+      {RoundMode::TOWARDS_INFINITY, "[4, 4, 4, 5, -4, -4, -4]"},
+      {RoundMode::HALF_DOWN, "[3, 3, 4, 4, -3, -4, -4]"},
+      {RoundMode::HALF_UP, "[3, 4, 4, 5, -3, -3, -4]"},
+      {RoundMode::HALF_TOWARDS_ZERO, "[3, 3, 4, 4, -3, -3, -4]"},
+      {RoundMode::HALF_TOWARDS_INFINITY, "[3, 4, 4, 5, -3, -4, -4]"},
+      {RoundMode::HALF_TO_EVEN, "[3, 4, 4, 4, -3, -4, -4]"},
+      {RoundMode::HALF_TO_ODD, "[3, 3, 4, 5, -3, -3, -4]"},
+  }};
+  for (const auto& pair : rmode_and_expected) {
+    this->SetRoundMode(pair.first);
+    this->AssertBinaryOp(RoundBinary, "[]", "[]", "[]");
+    this->AssertBinaryOp(RoundBinary, "[null, 0, Inf, -Inf, NaN, -NaN]",
+                         "[0, 0, 0, 0, 0, 0]", "[null, 0, Inf, -Inf, NaN, -NaN]");
+    this->AssertBinaryOp(RoundBinary, "[null, 0, Inf, -Inf, NaN, -NaN, 12]",
+                         "[null, null, null, null, null, null, null]",
+                         "[null, null, null, null, null, null, null]");
+    this->AssertBinaryOp(RoundBinary, values, 0, pair.second);
+  }
+
+  // Test different round N-digits for nearest rounding mode
+  values = "[320, 3.5, 3.075, 4.5, -3.212, -35.1234, -3.045]";
+  std::vector<std::pair<int32_t, std::string>> ndigits_and_expected{{
+      {-2, "[300, 0.0, 0.0, 0.0, -0.0, -0.0, -0.0]"},
+      {-1, "[320, 0.0, 0.0, 0.0, -0.0, -40, -0.0]"},
+      {0, "[320, 4, 3, 5, -3, -35, -3]"},
+      {1, "[320, 3.5, 3.1, 4.5, -3.2, -35.1, -3]"},
+      {2, "[320, 3.5, 3.08, 4.5, -3.21, -35.12, -3.05]"},
+  }};
+  this->SetRoundMode(RoundMode::HALF_TOWARDS_INFINITY);
+  for (const auto& pair : ndigits_and_expected) {
+    this->AssertBinaryOp(RoundBinary, values, pair.first, pair.second);
+  }
+}
+
 TYPED_TEST_SUITE(TestUnaryRoundToMultipleIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestUnaryRoundToMultipleSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestUnaryRoundToMultipleUnsigned, UnsignedIntegerTypes);
@@ -1063,8 +1290,6 @@ TYPED_TEST(TestUnaryRoundToMultipleFloating, RoundToMultiple) {
   this->AssertUnaryOpRaises(RoundToMultiple, values,
                             "Rounding multiple must be positive");
 }
-
-class TestBinaryRoundArithmeticDecimal : public TestRoundArithmeticDecimal {};
 
 TYPED_TEST(TestUnaryRoundArithmeticSigned, Floor) {
   auto floor = [](const Datum& arg, const ArithmeticOptions&, ExecContext* ctx) {

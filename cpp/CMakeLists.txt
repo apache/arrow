@@ -47,7 +47,7 @@ if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
 endif()
 
-set(ARROW_VERSION "11.0.0-SNAPSHOT")
+set(ARROW_VERSION "12.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -491,6 +491,7 @@ enable_testing()
 
 # For arrow.pc. Cflags.private, Libs.private and Requires.private are
 # used when "pkg-config --cflags --libs --static arrow" is used.
+set(ARROW_PC_CFLAGS "")
 set(ARROW_PC_CFLAGS_PRIVATE " -DARROW_STATIC")
 set(ARROW_PC_LIBS_PRIVATE "")
 set(ARROW_PC_REQUIRES_PRIVATE "")
@@ -931,10 +932,6 @@ list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 #
 # Subdirectories
 #
-
-if(NOT WIN32 AND ARROW_PLASMA)
-  add_subdirectory(src/plasma)
-endif()
 
 add_subdirectory(src/arrow)
 

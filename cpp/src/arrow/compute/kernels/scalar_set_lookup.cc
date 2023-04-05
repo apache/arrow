@@ -18,7 +18,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_writer.h"
@@ -326,7 +326,7 @@ struct IndexInVisitor {
 };
 
 Status ExecIndexIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return IndexInVisitor(ctx, batch[0].array, out->array_span()).Execute();
+  return IndexInVisitor(ctx, batch[0].array, out->array_span_mutable()).Execute();
 }
 
 // ----------------------------------------------------------------------
@@ -408,7 +408,7 @@ struct IsInVisitor {
 };
 
 Status ExecIsIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return IsInVisitor(ctx, batch[0].array, out->array_span()).Execute();
+  return IsInVisitor(ctx, batch[0].array, out->array_span_mutable()).Execute();
 }
 
 // Unary set lookup kernels available for the following input types

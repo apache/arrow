@@ -24,10 +24,10 @@ import (
 	"hash/maphash"
 	"strings"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/internal/debug"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"golang.org/x/exp/slices"
 )
 
@@ -241,6 +241,40 @@ func (primitiveMatcher) Equals(other TypeMatcher) bool {
 // Primitive returns a TypeMatcher that will match any type that arrow.IsPrimitive
 // returns true for.
 func Primitive() TypeMatcher { return primitiveMatcher{} }
+
+type reeMatcher struct {
+	runEndsMatcher TypeMatcher
+	encodedMatcher TypeMatcher
+}
+
+func (r reeMatcher) Matches(typ arrow.DataType) bool {
+	if typ.ID() != arrow.RUN_END_ENCODED {
+		return false
+	}
+
+	dt := typ.(*arrow.RunEndEncodedType)
+	return r.runEndsMatcher.Matches(dt.RunEnds()) && r.encodedMatcher.Matches(dt.Encoded())
+}
+
+func (r reeMatcher) Equals(other TypeMatcher) bool {
+	o, ok := other.(reeMatcher)
+	if !ok {
+		return false
+	}
+	return r.runEndsMatcher.Equals(o.runEndsMatcher) && r.encodedMatcher.Equals(o.encodedMatcher)
+}
+
+func (r reeMatcher) String() string {
+	return "run_end_encoded(run_ends=" + r.runEndsMatcher.String() + ", values=" + r.encodedMatcher.String() + ")"
+}
+
+// RunEndEncoded returns a matcher which matches a RunEndEncoded
+// type whose encoded type is matched by the passed in matcher.
+func RunEndEncoded(runEndsMatcher, encodedMatcher TypeMatcher) TypeMatcher {
+	return reeMatcher{
+		runEndsMatcher: runEndsMatcher,
+		encodedMatcher: encodedMatcher}
+}
 
 // InputKind is an enum representing the type of Input matching
 // that will be done. Either accepting any type, an exact specific type

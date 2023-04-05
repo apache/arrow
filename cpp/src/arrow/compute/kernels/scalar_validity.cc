@@ -18,7 +18,7 @@
 #include <cmath>
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
@@ -34,7 +34,7 @@ namespace {
 
 Status IsValidExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& arr = batch[0].array;
-  ArraySpan* out_span = out->array_span();
+  ArraySpan* out_span = out->array_span_mutable();
   if (arr.type->id() == Type::NA) {
     // Input is all nulls => output is entirely false.
     bit_util::SetBitsTo(out_span->buffers[1].data, out_span->offset, out_span->length,
@@ -84,7 +84,7 @@ static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_of
 
 Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& arr = batch[0].array;
-  ArraySpan* out_span = out->array_span();
+  ArraySpan* out_span = out->array_span_mutable();
   if (arr.type->id() == Type::NA) {
     bit_util::SetBitsTo(out_span->buffers[1].data, out_span->offset, out_span->length,
                         true);
@@ -150,7 +150,7 @@ void AddFloatValidityKernel(const std::shared_ptr<DataType>& ty, ScalarFunction*
 
 template <bool kConstant>
 Status ConstBoolExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  ArraySpan* array = out->array_span();
+  ArraySpan* array = out->array_span_mutable();
   bit_util::SetBitsTo(array->buffers[1].data, array->offset, array->length, kConstant);
   return Status::OK();
 }
@@ -210,7 +210,7 @@ std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name, FunctionDoc 
 }
 
 Status TrueUnlessNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  ArraySpan* out_span = out->array_span();
+  ArraySpan* out_span = out->array_span_mutable();
   if (out_span->buffers[0].data) {
     // If there is a validity bitmap computed above the kernel
     // invocation, we copy it to the output buffers

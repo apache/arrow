@@ -191,7 +191,11 @@ class S3TestMixin : public AwsTestMixin {
     ASSERT_OK(connect_status);
   }
 
-  void TearDown() override { AwsTestMixin::TearDown(); }
+  void TearDown() override {
+    client_.reset();  // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
+                      // reset before Aws::ShutdownAPI
+    AwsTestMixin::TearDown();
+  }
 
  protected:
   void InitServerAndClient() {

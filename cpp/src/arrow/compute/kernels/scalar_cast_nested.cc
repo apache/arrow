@@ -24,7 +24,7 @@
 #include "arrow/array/builder_nested.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/int_util.h"

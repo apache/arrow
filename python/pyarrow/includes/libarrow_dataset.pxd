@@ -22,14 +22,8 @@ from libcpp cimport bool as c_bool
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_acero cimport *
 from pyarrow.includes.libarrow_fs cimport *
-
-
-cdef extern from "arrow/api.h" namespace "arrow" nogil:
-
-    cdef cppclass CRecordBatchIterator "arrow::RecordBatchIterator"(
-            CIterator[shared_ptr[CRecordBatch]]):
-        pass
 
 
 cdef extern from "arrow/dataset/plan.h" namespace "arrow::dataset::internal" nogil:

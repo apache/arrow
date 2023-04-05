@@ -17,10 +17,10 @@
 package array
 
 import (
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/bitutil"
-	"github.com/apache/arrow/go/v11/arrow/internal/debug"
-	"github.com/apache/arrow/go/v11/arrow/memory"	
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/memory"	
 	"github.com/goccy/go-json"
 )
 
@@ -184,7 +184,7 @@ func (b *{{.Name}}Builder) newData() (data *Data) {
 	return
 }
 
-func (b *{{.Name}}Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *{{.Name}}Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -340,7 +340,7 @@ func (b *{{.Name}}Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *{{.Name}}Builder) unmarshal(dec *json.Decoder) error {
+func (b *{{.Name}}Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
 		if err := b.unmarshalOne(dec); err != nil {
 			return err

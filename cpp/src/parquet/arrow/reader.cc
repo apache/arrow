@@ -1385,13 +1385,23 @@ Status FuzzReader(std::unique_ptr<FileReader> reader) {
 
 Status FuzzReader(const uint8_t* data, int64_t size) {
   auto buffer = std::make_shared<::arrow::Buffer>(data, size);
-  auto file = std::make_shared<::arrow::io::BufferReader>(buffer);
-  FileReaderBuilder builder;
-  RETURN_NOT_OK(builder.Open(std::move(file)));
+  Status st;
+  for (auto batch_size : std::vector<std::optional<int>>{std::nullopt, 1, 13, 300}) {
+    auto file = std::make_shared<::arrow::io::BufferReader>(buffer);
+    FileReaderBuilder builder;
+    ArrowReaderProperties properties;
+    if (batch_size) {
+      properties.set_batch_size(batch_size.value());
+    }
+    builder.properties(properties);
 
-  std::unique_ptr<FileReader> reader;
-  RETURN_NOT_OK(builder.Build(&reader));
-  return FuzzReader(std::move(reader));
+    RETURN_NOT_OK(builder.Open(std::move(file)));
+
+    std::unique_ptr<FileReader> reader;
+    RETURN_NOT_OK(builder.Build(&reader));
+    st &= FuzzReader(std::move(reader));
+  }
+  return st;
 }
 
 }  // namespace internal

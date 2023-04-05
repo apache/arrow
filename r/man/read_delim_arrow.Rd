@@ -68,12 +68,15 @@ read_tsv_arrow(
 )
 }
 \arguments{
-\item{file}{A character file name or URI, \code{raw} vector, an Arrow input stream,
-or a \code{FileSystem} with path (\code{SubTreeFileSystem}).
+\item{file}{A character file name or URI, literal data (either a single string or a \link{raw} vector),
+an Arrow input stream, or a \code{FileSystem} with path (\code{SubTreeFileSystem}).
+
 If a file name, a memory-mapped Arrow \link{InputStream} will be opened and
 closed when finished; compression will be detected from the file extension
 and handled automatically. If an input stream is provided, it will be left
-open.}
+open.
+
+To be recognised as literal data, the input must be wrapped with \code{I()}.}
 
 \item{delim}{Single character used to separate fields within a record.}
 
@@ -230,4 +233,8 @@ read_csv_arrow(
   tf,
   col_types = schema(x = timestamp(unit = "us", timezone = "UTC"))
 )
+
+# Read directly from strings with `I()`
+read_csv_arrow(I("x,y\n1,2\n3,4"))
+read_delim_arrow(I(c("x y", "1 2", "3 4")), delim = " ")
 }

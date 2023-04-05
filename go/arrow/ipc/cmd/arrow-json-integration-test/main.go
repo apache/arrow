@@ -22,12 +22,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/arrio"
-	"github.com/apache/arrow/go/v11/arrow/internal/arrjson"
-	"github.com/apache/arrow/go/v11/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v11/arrow/ipc"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/arrio"
+	"github.com/apache/arrow/go/v12/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/v12/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v12/arrow/ipc"
 )
 
 func main() {

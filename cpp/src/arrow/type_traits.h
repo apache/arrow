@@ -381,6 +381,15 @@ struct TypeTraits<LargeStringType> {
   static inline std::shared_ptr<DataType> type_singleton() { return large_utf8(); }
 };
 
+template <>
+struct TypeTraits<RunEndEncodedType> {
+  using ArrayType = RunEndEncodedArray;
+  using BuilderType = RunEndEncodedBuilder;
+  using ScalarType = RunEndEncodedScalar;
+
+  constexpr static bool is_parameter_free = false;
+};
+
 /// @}
 
 /// \addtogroup c-type-traits
@@ -757,6 +766,12 @@ template <typename T, typename R = void>
 using enable_if_interval = enable_if_t<is_interval_type<T>::value, R>;
 
 template <typename T>
+using is_run_end_encoded_type = std::is_base_of<RunEndEncodedType, T>;
+
+template <typename T, typename R = void>
+using enable_if_run_end_encoded = enable_if_t<is_run_end_encoded_type<T>::value, R>;
+
+template <typename T>
 using is_dictionary_type = std::is_base_of<DictionaryType, T>;
 
 template <typename T, typename R = void>
@@ -959,6 +974,23 @@ constexpr bool is_decimal(Type::type type_id) {
   switch (type_id) {
     case Type::DECIMAL128:
     case Type::DECIMAL256:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+/// \brief Check for a type that can be used as a run-end in Run-End Encoded
+/// arrays
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id can represent a run-end value
+constexpr bool is_run_end_type(Type::type type_id) {
+  switch (type_id) {
+    case Type::INT16:
+    case Type::INT32:
+    case Type::INT64:
       return true;
     default:
       break;
@@ -1177,6 +1209,7 @@ constexpr bool is_nested(Type::type type_id) {
     case Type::STRUCT:
     case Type::SPARSE_UNION:
     case Type::DENSE_UNION:
+    case Type::RUN_END_ENCODED:
       return true;
     default:
       break;

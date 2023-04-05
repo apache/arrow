@@ -55,22 +55,39 @@ env:
 jobs:
   docker:
     name: ${{ matrix.title }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
-        image:
-          - conda-cpp
-          - ubuntu-cpp-sanitizer
         include:
-          - image: conda-cpp
+          - arch: amd64
+            clang-tools: "14"
+            image: conda-cpp
+            llvm: "14"
+            runs-on: ubuntu-latest
             title: AMD64 Conda C++
-          - image: ubuntu-cpp-sanitizer
+            ubuntu: "22.04"
+          - arch: amd64
+            clang-tools: "14"
+            image: ubuntu-cpp-sanitizer
+            llvm: "14"
+            runs-on: ubuntu-latest
             title: AMD64 Ubuntu 22.04 C++ ASAN UBSAN
+            ubuntu: "22.04"
+          - arch: arm64v8
+            clang-tools: "10"
+            image: ubuntu-cpp
+            llvm: "10"
+            runs-on: ["self-hosted", "arm", "linux"]
+            title: ARM64 Ubuntu 20.04 C++
+            ubuntu: "20.04"
     env:
-      UBUNTU: "22.04"
+      ARCH: ${{ matrix.arch }}
+      CLANG_TOOLS: ${{ matrix.clang-tools }}
+      LLVM: ${{ matrix.llvm }}
+      UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -84,11 +101,10 @@ jobs:
           key: ${{ matrix.image }}-${{ hashFiles('cpp/**') }}
           restore-keys: ${{ matrix.image }}-
       - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.8
+        run: |
+          sudo apt install -y --no-install-recommends python3 python3-pip
       - name: Setup Archery
-        run: pip install -e dev/archery[docker]
+        run: python3 -m pip install -e dev/archery[docker]
       - name: Execute Docker Build
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
@@ -142,7 +158,6 @@ jobs:
       # TODO(kszucs): link error in the tests
       ARROW_ORC: OFF
       ARROW_PARQUET: ON
-      ARROW_PLASMA: ON
       ARROW_S3: ON
       ARROW_WITH_BROTLI: ON
       ARROW_WITH_BZ2: ON

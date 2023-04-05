@@ -24,6 +24,7 @@
 #include <sstream>
 #include <unordered_set>
 
+#include "arrow/compute/api_scalar.h"
 #include "arrow/engine/substrait/options.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
@@ -188,6 +189,8 @@ void SubstraitCall::SetOption(std::string_view option_name,
   }
 }
 
+bool SubstraitCall::HasOptions() const { return !options_.empty(); }
+
 // A builder used when creating a Substrait plan from an Arrow execution plan.  In
 // that situation we do not have a set of anchor values already defined so we keep
 // a map of what Ids we have seen.
@@ -335,6 +338,22 @@ const int* GetIndex(const KeyToIndex& key_to_index, const Key& key) {
 }
 
 namespace {
+
+ExtensionIdRegistry::SubstraitCallToArrow kSimpleSubstraitToArrow =
+    [](const SubstraitCall& call) -> Result<::arrow::compute::Expression> {
+  std::vector<::arrow::compute::Expression> args;
+  for (int i = 0; i < call.size(); i++) {
+    if (!call.HasValueArg(i)) {
+      return Status::Invalid("Simple function mappings can only use value arguments");
+    }
+    if (call.HasOptions()) {
+      return Status::Invalid("Simple function mappings must not specify options");
+    }
+    ARROW_ASSIGN_OR_RAISE(::arrow::compute::Expression arg, call.GetValueArg(i));
+    args.push_back(std::move(arg));
+  }
+  return ::arrow::compute::call(std::string(call.id().name), std::move(args));
+};
 
 struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
   ExtensionIdRegistryImpl() : parent_(nullptr) {}
@@ -540,6 +559,9 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 
   Result<SubstraitCallToArrow> GetSubstraitCallToArrow(
       Id substrait_function_id) const override {
+    if (substrait_function_id.uri == kArrowSimpleExtensionFunctionsUri) {
+      return kSimpleSubstraitToArrow;
+    }
     auto maybe_converter = substrait_to_arrow_.find(substrait_function_id);
     if (maybe_converter == substrait_to_arrow_.end()) {
       if (parent_) {
@@ -714,6 +736,11 @@ enum class OverflowBehavior { kSilent = 0, kSaturate, kError };
 static std::vector<std::string> kOverflowOptions = {"SILENT", "SATURATE", "ERROR"};
 static EnumParser<OverflowBehavior> kOverflowParser(kOverflowOptions);
 
+static std::vector<std::string> kRoundModes = {
+    "FLOOR",  "CEILING",          "TRUNCATE",           "AWAY_FROM_ZERO", "TIE_DOWN",
+    "TIE_UP", "TIE_TOWARDS_ZERO", "TIE_AWAY_FROM_ZERO", "TIE_TO_EVEN",    "TIE_TO_ODD"};
+static EnumParser<compute::RoundMode> kRoundModeParser(kRoundModes);
+
 template <typename Enum>
 Result<Enum> ParseOptionOrElse(const SubstraitCall& call, std::string_view option_name,
                                const EnumParser<Enum>& parser,
@@ -787,6 +814,30 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessUncheckedArithmetic(
     ARROW_ASSIGN_OR_RAISE(std::vector<compute::Expression> value_args,
                           GetValueArgs(call, 0));
     return arrow::compute::call(function_name, std::move(value_args));
+  };
+}
+
+ExtensionIdRegistry::SubstraitCallToArrow DecodeBinaryRoundingMode(
+    const std::string& function_name) {
+  return [function_name](const SubstraitCall& call) -> Result<compute::Expression> {
+    ARROW_ASSIGN_OR_RAISE(
+        compute::RoundMode round_mode,
+        ParseOptionOrElse(
+            call, "rounding", kRoundModeParser,
+            {compute::RoundMode::DOWN, compute::RoundMode::UP,
+             compute::RoundMode::TOWARDS_ZERO, compute::RoundMode::TOWARDS_INFINITY,
+             compute::RoundMode::HALF_DOWN, compute::RoundMode::HALF_UP,
+             compute::RoundMode::HALF_TOWARDS_ZERO,
+             compute::RoundMode::HALF_TOWARDS_INFINITY, compute::RoundMode::HALF_TO_EVEN,
+             compute::RoundMode::HALF_TO_ODD},
+            compute::RoundMode::HALF_TO_EVEN));
+    ARROW_ASSIGN_OR_RAISE(std::vector<compute::Expression> value_args,
+                          GetValueArgs(call, 0));
+    std::shared_ptr<compute::RoundBinaryOptions> options =
+        std::make_shared<compute::RoundBinaryOptions>();
+    options->round_mode = round_mode;
+    return arrow::compute::call("round_binary", std::move(value_args),
+                                std::move(options));
   };
 }
 
@@ -878,21 +929,37 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeConcatMapping() {
 ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
     const std::string& arrow_function_name) {
   return [arrow_function_name](const SubstraitCall& call) -> Result<compute::Aggregate> {
-    if (call.size() != 1) {
-      return Status::NotImplemented(
-          "Only unary aggregate functions are currently supported");
-    }
-    ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(0));
-    const FieldRef* arg_ref = arg.field_ref();
-    if (!arg_ref) {
-      return Status::Invalid("Expected an aggregate call ", call.id().uri, "#",
-                             call.id().name, " to have a direct reference");
-    }
-    std::string fixed_arrow_func = arrow_function_name;
+    std::string fixed_arrow_func;
     if (call.is_hash()) {
-      fixed_arrow_func = "hash_" + arrow_function_name;
+      fixed_arrow_func = "hash_";
     }
-    return compute::Aggregate{std::move(fixed_arrow_func), nullptr, *arg_ref, ""};
+
+    switch (call.size()) {
+      case 0: {
+        if (call.id().name == "count") {
+          fixed_arrow_func += "count_all";
+          return compute::Aggregate{std::move(fixed_arrow_func), ""};
+        }
+        return Status::Invalid("Expected aggregate call ", call.id().uri, "#",
+                               call.id().name, " to have at least one argument");
+      }
+      case 1: {
+        fixed_arrow_func += arrow_function_name;
+
+        ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(0));
+        const FieldRef* arg_ref = arg.field_ref();
+        if (!arg_ref) {
+          return Status::Invalid("Expected an aggregate call ", call.id().uri, "#",
+                                 call.id().name, " to have a direct reference");
+        }
+
+        return compute::Aggregate{std::move(fixed_arrow_func), *arg_ref, ""};
+      }
+      default:
+        break;
+    }
+    return Status::NotImplemented(
+        "Only nullary and unary aggregate functions are currently supported");
   };
 }
 
@@ -953,6 +1020,9 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
           AddSubstraitCallToArrow({kSubstraitRoundingFunctionsUri, function_name},
                                   DecodeOptionlessUncheckedArithmetic(function_name)));
     }
+    // Expose only the binary version of round
+    DCHECK_OK(AddSubstraitCallToArrow({kSubstraitRoundingFunctionsUri, "round"},
+                                      DecodeBinaryRoundingMode("round_binary")));
 
     // Basic mappings that need _kleene appended to them
     for (const auto& function_name : {"or", "and"}) {

@@ -444,6 +444,10 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
 
+  wheel-clean:
+    ci: github
+    template: python-wheels/github.clean.yml
+
 {% for python_version, python_tag, abi_tag in [("3.7", "cp37", "cp37m"),
                                                ("3.8", "cp38", "cp38"),
                                                ("3.9", "cp39", "cp39"),
@@ -452,12 +456,13 @@ tasks:
 
 {############################## Wheel Linux ##################################}
 
-{% for ci, arch, arch_alias, x_y, manylinux in [("github", "amd64", "x86_64", "2_17", "2014"),
-                                                ("travis", "arm64", "aarch64", "2_17", "2014")] %}
+{% for arch, arch_alias, x_y, manylinux in [("amd64", "x86_64", "2_17", "2014"),
+                                            ("arm64", "aarch64", "2_17", "2014")] %}
   wheel-manylinux{{ manylinux }}-{{ python_tag }}-{{ arch }}:
-    ci: "{{ ci }}"
-    template: python-wheels/{{ ci }}.linux.{{ arch }}.yml
+    ci: github
+    template: python-wheels/github.linux.yml
     params:
+      arch: "{{ arch }}"
       python_version: "{{ python_version }}"
       manylinux_version: "{{ manylinux }}"
     artifacts:
@@ -533,20 +538,15 @@ tasks:
 
 {% for target in ["debian-bullseye",
                   "debian-bookworm",
-                  "ubuntu-bionic",
                   "ubuntu-focal",
                   "ubuntu-jammy",
                   "ubuntu-kinetic"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
-    {% if architecture == "amd64" %}
     ci: github
-    template: linux-packages/github.linux.amd64.yml
-    {% else %}
-    ci: travis
-    template: linux-packages/travis.linux.arm64.yml
-    {% endif %}
+    template: linux-packages/github.linux.yml
     params:
+      architecture: "{{ architecture }}"
     {% if architecture == "amd64" %}
       target: "{{ target }}"
     {% else %}
@@ -572,75 +572,61 @@ tasks:
     {% endif %}
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-arrow-dataset-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-    {% if architecture == "amd64" %}
       - gir1.2-arrow-flight-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-arrow-flight-sql-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-    {% endif %}
       - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset-glib1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset-glib1100_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset1100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib1200_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset1200_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
-    {% if architecture == "amd64" %}
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-glib1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-glib1100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-glib1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-glib1200_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql-glib1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql-glib1100_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql1100_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight1100_{no_rc_version}-1_[a-z0-9]+.deb
-    {% endif %}
+      - libarrow-flight-sql-glib1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql-glib1200_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql1200_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight1200_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-glib1100_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow1100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-glib1200_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow1200_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva-glib1100_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva1100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva-glib1200_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva1200_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet-glib1100_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet1100_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet-glib1200_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet1200_{no_rc_version}-1_[a-z0-9]+.deb
       - parquet-tools_{no_rc_version}-1_[a-z0-9]+.deb
     {% if architecture == "amd64" %}
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-plasma-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda-glib1100_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda1100_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libplasma-glib1100_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma1100-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libplasma1100_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda-glib1200_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda1200-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda1200_{no_rc_version}-1_[a-z0-9]+.deb
     {% endif %}
   {% endfor %}
 {% endfor %}
@@ -656,14 +642,10 @@ tasks:
        in ["amd64", "arm64"]
        if not (target == "centos-7" and architecture == "arm64") %}
   {{ target }}-{{ architecture }}:
-    {% if architecture == "amd64" %}
     ci: github
-    template: linux-packages/github.linux.amd64.yml
-    {% else %}
-    ci: travis
-    template: linux-packages/travis.linux.arm64.yml
-    {% endif %}
+    template: linux-packages/github.linux.yml
     params:
+      architecture: "{{ architecture }}"
     {% if architecture == "amd64" %}
       target: "{{ target }}"
     {% else %}
@@ -693,7 +675,7 @@ tasks:
       - arrow-debugsource-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
       - arrow-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based and architecture == "amd64" %}
+    {% if not is_rhel7_based %}
       - arrow-flight-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -726,7 +708,7 @@ tasks:
     {% if not is_rhel7_based %}
       - arrow-tools-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
-    {% if not is_rhel7_based and architecture == "amd64" %}
+    {% if not is_rhel7_based %}
       - gandiva-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - gandiva-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - gandiva-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -750,21 +732,6 @@ tasks:
     {% if not is_rhel7_based %}
       - parquet-tools-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
-      - plasma-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - plasma-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - plasma-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - plasma[0-9]+-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - plasma[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - plasma[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - plasma[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - plasma-store-server-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - plasma-store-server-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
   {% endfor %}
 {% endfor %}
 
@@ -901,13 +868,6 @@ tasks:
       - arrow-performance-{no_rc_snapshot_version}-tests.jar
       - arrow-performance-{no_rc_snapshot_version}.jar
       - arrow-performance-{no_rc_snapshot_version}.pom
-      - arrow-plasma-{no_rc_snapshot_version}-cyclonedx.json
-      - arrow-plasma-{no_rc_snapshot_version}-cyclonedx.xml
-      - arrow-plasma-{no_rc_snapshot_version}-javadoc.jar
-      - arrow-plasma-{no_rc_snapshot_version}-sources.jar
-      - arrow-plasma-{no_rc_snapshot_version}-tests.jar
-      - arrow-plasma-{no_rc_snapshot_version}.jar
-      - arrow-plasma-{no_rc_snapshot_version}.pom
       - arrow-tools-{no_rc_snapshot_version}-cyclonedx.json
       - arrow-tools-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-tools-{no_rc_snapshot_version}-jar-with-dependencies.jar
@@ -956,9 +916,15 @@ tasks:
       - flight-sql-{no_rc_snapshot_version}-tests.jar
       - flight-sql-{no_rc_snapshot_version}.jar
       - flight-sql-{no_rc_snapshot_version}.pom
+      - flight-sql-jdbc-core-{no_rc_snapshot_version}-cyclonedx.json
+      - flight-sql-jdbc-core-{no_rc_snapshot_version}-cyclonedx.xml
+      - flight-sql-jdbc-core-{no_rc_snapshot_version}-javadoc.jar
+      - flight-sql-jdbc-core-{no_rc_snapshot_version}-sources.jar
+      - flight-sql-jdbc-core-{no_rc_snapshot_version}-tests.jar
+      - flight-sql-jdbc-core-{no_rc_snapshot_version}.jar
+      - flight-sql-jdbc-core-{no_rc_snapshot_version}.pom
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}-cyclonedx.json
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}-cyclonedx.xml
-      - flight-sql-jdbc-driver-{no_rc_snapshot_version}-javadoc.jar
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}-sources.jar
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}-tests.jar
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}.jar
@@ -976,6 +942,8 @@ tasks:
       - Apache.Arrow.Flight.AspNetCore.{no_rc_version}.snupkg
       - Apache.Arrow.Flight.{no_rc_version}.nupkg
       - Apache.Arrow.Flight.{no_rc_version}.snupkg
+      - Apache.Arrow.Compression.{no_rc_version}.nupkg
+      - Apache.Arrow.Compression.{no_rc_version}.snupkg
       - Apache.Arrow.{no_rc_version}.nupkg
       - Apache.Arrow.{no_rc_version}.snupkg
 
@@ -987,9 +955,9 @@ tasks:
       custom_version: Unset
     artifacts:
       - r-lib__libarrow__bin__windows__arrow-{no_rc_r_version}\.zip
-      - r-lib__libarrow__bin__centos-7__arrow-{no_rc_r_version}\.zip
-      - r-lib__libarrow__bin__ubuntu-18.04__arrow-{no_rc_r_version}\.zip
-      - r-lib__libarrow__bin__ubuntu-22.04__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__linux-openssl-1.0__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__linux-openssl-1.1__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__linux-openssl-3.0__arrow-{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.1__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.2__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__macosx__contrib__4.1__arrow_{no_rc_r_version}\.tgz
@@ -1005,7 +973,6 @@ tasks:
 
 {% for distribution, version in [("conda", "latest"),
                                  ("almalinux", "8"),
-                                 ("ubuntu", "18.04"),
                                  ("ubuntu", "20.04"),
                                  ("ubuntu", "22.04")] %}
   {% for target in ["cpp",
@@ -1089,7 +1056,6 @@ tasks:
     template: verify-rc/github.macos.arm64.yml
     params:
       env:
-        ARROW_PLASMA: 0
         ARROW_FLIGHT: 0
         ARROW_GANDIVA: 0
         TEST_INTEGRATION_JAVA: 0
@@ -1156,7 +1122,7 @@ tasks:
     params:
       image: conda-cpp-valgrind
 
-{% for ubuntu_version in ["18.04", "20.04", "22.04"] %}
+{% for ubuntu_version in ["20.04", "22.04"] %}
   test-ubuntu-{{ ubuntu_version }}-cpp:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1212,24 +1178,6 @@ tasks:
         FEDORA: 35
       image: fedora-cpp
 
-  test-ubuntu-18.04-cpp-release:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 18.04
-      flags: "-e ARROW_BUILD_TYPE=release"
-      image: ubuntu-cpp
-
-  test-ubuntu-18.04-cpp-static:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 18.04
-      flags: "-e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static"
-      image: ubuntu-cpp
-
 {% for cpp_standard in [20] %}
   test-ubuntu-20.04-cpp-{{ cpp_standard }}:
     ci: github
@@ -1253,6 +1201,15 @@ tasks:
         UBUNTU: 20.04
       image: ubuntu-cpp-thread-sanitizer
 
+  test-ubuntu-20.04-cpp-minimal-with-formats:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 20.04
+      flags: "-e ARROW_CSV=ON -e ARROW_PARQUET=ON"
+      image: ubuntu-cpp-minimal
+
 {% for python_version in ["3.7", "3.8", "3.9", "3.10", "3.11"] %}
   test-conda-python-{{ python_version }}:
     ci: github
@@ -1274,6 +1231,14 @@ tasks:
         # limit to execute hypothesis tests only
         PYTEST_ARGS: "-m hypothesis"
       image: conda-python-pandas
+
+  test-conda-python-3.9-substrait:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        PYTHON: "3.9"
+      image: conda-python-substrait
 
   test-debian-11-python-3:
     ci: azure
@@ -1305,7 +1270,6 @@ tasks:
     params:
       env:
         ARROW_R_DEV: "TRUE"
-        UBUNTU: 18.04
       image: ubuntu-r-valgrind
 
   test-r-linux-rchk:
@@ -1462,12 +1426,11 @@ tasks:
       r_tag: latest
       flags: "-e LIBARROW_MINIMAL=TRUE"
 
-  test-ubuntu-18.04-r-sanitizer:
+  test-ubuntu-r-sanitizer:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
-        UBUNTU: 18.04
         R_PRUNE_DEPS: TRUE
       image: ubuntu-r-sanitizer
 
@@ -1579,9 +1542,9 @@ tasks:
       image: conda-python-hdfs
 {% endfor %}
 
-{% for python_version, spark_version, test_pyarrow_only in [("3.7", "v3.1.2", "false"),
-                                                            ("3.8", "v3.2.0", "false"),
-                                                            ("3.9", "master", "false")] %}
+{% for python_version, spark_version, test_pyarrow_only, numpy_version in [("3.7", "v3.1.2", "false", "latest"),
+                                                                           ("3.8", "v3.2.0", "false", "1.23"),
+                                                                           ("3.9", "master", "false", "latest")] %}
   test-conda-python-{{ python_version }}-spark-{{ spark_version }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1590,6 +1553,7 @@ tasks:
         PYTHON: "{{ python_version }}"
         SPARK: "{{ spark_version }}"
         TEST_PYARROW_ONLY: "{{ test_pyarrow_only }}"
+        NUMPY: "{{ numpy_version }}"
       # use the branch-3.0 of spark, so prevent reusing any layers
       flags: --no-leaf-cache
       image: conda-python-spark

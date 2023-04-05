@@ -18,15 +18,16 @@ package flightsql_test
 
 import (
 	"context"
+	"io"
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/flight"
-	"github.com/apache/arrow/go/v11/arrow/flight/flightsql"
-	pb "github.com/apache/arrow/go/v11/arrow/flight/internal/flight"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/flight"
+	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
+	pb "github.com/apache/arrow/go/v12/arrow/flight/internal/flight"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
@@ -132,6 +133,7 @@ func getAction(cmd proto.Message) *flight.Action {
 func (s *FlightSqlClientSuite) SetupTest() {
 	s.mockClient = FlightServiceClientMock{}
 	s.sqlClient.Client = &s.mockClient
+	s.callOpts = []grpc.CallOption{grpc.EmptyCallOption{}}
 }
 
 func (s *FlightSqlClientSuite) TearDownTest() {
@@ -338,29 +340,36 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecute() {
 	closeAct := getAction(&pb.ActionClosePreparedStatementRequest{PreparedStatementHandle: []byte(query)})
 	closeAct.Type = flightsql.ClosePreparedStatementActionType
 
-	rsp := &mockDoActionClient{}
-	defer rsp.AssertExpectations(s.T())
-
 	result := &pb.ActionCreatePreparedStatementResult{PreparedStatementHandle: []byte(query)}
 	var out anypb.Any
 	out.MarshalFrom(result)
 	data, _ := proto.Marshal(&out)
-	rsp.On("Recv").Return(&pb.Result{Body: data}, nil)
+
+	createRsp := &mockDoActionClient{}
+	defer createRsp.AssertExpectations(s.T())
+	createRsp.On("Recv").Return(&pb.Result{Body: data}, nil).Once()
+	createRsp.On("Recv").Return(&pb.Result{}, io.EOF)
+	createRsp.On("CloseSend").Return(nil)
+
+	closeRsp := &mockDoActionClient{}
+	defer closeRsp.AssertExpectations(s.T())
+	closeRsp.On("Recv").Return(&pb.Result{}, io.EOF)
+	closeRsp.On("CloseSend").Return(nil)
 
 	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).
-		Return(rsp, nil)
+		Return(createRsp, nil)
 	s.mockClient.On("DoAction", flightsql.ClosePreparedStatementActionType, closeAct.Body, s.callOpts).
-		Return(rsp, nil)
+		Return(closeRsp, nil)
 
 	infoCmd := &pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(query)}
 	desc := getDesc(infoCmd)
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
 
-	prepared, err := s.sqlClient.Prepare(context.TODO(), memory.DefaultAllocator, query, s.callOpts...)
+	prepared, err := s.sqlClient.Prepare(context.TODO(), query, s.callOpts...)
 	s.NoError(err)
-	defer prepared.Close(context.TODO())
+	defer prepared.Close(context.TODO(), s.callOpts...)
 
-	info, err := prepared.Execute(context.TODO())
+	info, err := prepared.Execute(context.TODO(), s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
 }
@@ -386,13 +395,21 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	var out anypb.Any
 	out.MarshalFrom(result)
 	data, _ := proto.Marshal(&out)
-	rsp := &mockDoActionClient{}
-	defer rsp.AssertExpectations(s.T())
-	rsp.On("Recv").Return(&pb.Result{Body: data}, nil)
+
+	createRsp := &mockDoActionClient{}
+	defer createRsp.AssertExpectations(s.T())
+	createRsp.On("Recv").Return(&pb.Result{Body: data}, nil).Once()
+	createRsp.On("Recv").Return(&pb.Result{}, io.EOF)
+	createRsp.On("CloseSend").Return(nil)
+
+	closeRsp := &mockDoActionClient{}
+	defer closeRsp.AssertExpectations(s.T())
+	closeRsp.On("Recv").Return(&pb.Result{}, io.EOF)
+	closeRsp.On("CloseSend").Return(nil)
 
 	// expect two actions: one to create and one to close the prepared statement
-	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).Return(rsp, nil)
-	s.mockClient.On("DoAction", flightsql.ClosePreparedStatementActionType, closeAct.Body, s.callOpts).Return(rsp, nil)
+	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).Return(createRsp, nil)
+	s.mockClient.On("DoAction", flightsql.ClosePreparedStatementActionType, closeAct.Body, s.callOpts).Return(closeRsp, nil)
 
 	expectedDesc := getDesc(&pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(query)})
 
@@ -409,9 +426,9 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	desc := getDesc(infoCmd)
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
 
-	prepared, err := s.sqlClient.Prepare(context.TODO(), memory.DefaultAllocator, query, s.callOpts...)
+	prepared, err := s.sqlClient.Prepare(context.TODO(), query, s.callOpts...)
 	s.NoError(err)
-	defer prepared.Close(context.TODO())
+	defer prepared.Close(context.TODO(), s.callOpts...)
 
 	paramSchema := prepared.ParameterSchema()
 	rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, paramSchema, strings.NewReader(`[{"id": 1}]`))
@@ -419,7 +436,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	defer rec.Release()
 
 	prepared.SetParameters(rec)
-	info, err := prepared.Execute(context.TODO())
+	info, err := prepared.Execute(context.TODO(), s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
 }
@@ -445,13 +462,21 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 	var out anypb.Any
 	out.MarshalFrom(result)
 	data, _ := proto.Marshal(&out)
-	rsp := &mockDoActionClient{}
-	defer rsp.AssertExpectations(s.T())
-	rsp.On("Recv").Return(&pb.Result{Body: data}, nil)
+
+	createRsp := &mockDoActionClient{}
+	defer createRsp.AssertExpectations(s.T())
+	createRsp.On("Recv").Return(&pb.Result{Body: data}, nil).Once()
+	createRsp.On("Recv").Return(&pb.Result{}, io.EOF)
+	createRsp.On("CloseSend").Return(nil)
+
+	closeRsp := &mockDoActionClient{}
+	defer closeRsp.AssertExpectations(s.T())
+	closeRsp.On("Recv").Return(&pb.Result{}, io.EOF)
+	closeRsp.On("CloseSend").Return(nil)
 
 	// expect two actions: one to create and one to close the prepared statement
-	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).Return(rsp, nil)
-	s.mockClient.On("DoAction", flightsql.ClosePreparedStatementActionType, closeAct.Body, s.callOpts).Return(rsp, nil)
+	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).Return(createRsp, nil)
+	s.mockClient.On("DoAction", flightsql.ClosePreparedStatementActionType, closeAct.Body, s.callOpts).Return(closeRsp, nil)
 
 	expectedDesc := getDesc(&pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(query)})
 
@@ -473,9 +498,9 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 	desc := getDesc(infoCmd)
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
 
-	prepared, err := s.sqlClient.Prepare(context.TODO(), memory.DefaultAllocator, query, s.callOpts...)
+	prepared, err := s.sqlClient.Prepare(context.TODO(), query, s.callOpts...)
 	s.NoError(err)
-	defer prepared.Close(context.TODO())
+	defer prepared.Close(context.TODO(), s.callOpts...)
 
 	paramSchema := prepared.ParameterSchema()
 	rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, paramSchema, strings.NewReader(`[{"id": 1}]`))
@@ -486,9 +511,55 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 	s.NoError(err)
 	prepared.SetRecordReader(rdr)
 
-	info, err := prepared.Execute(context.TODO())
+	info, err := prepared.Execute(context.TODO(), s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
+}
+
+func (s *FlightSqlClientSuite) TestPreparedStatementClose() {
+	// Setup
+	const query = "query"
+
+	// create and close actions
+	cmd := &pb.ActionCreatePreparedStatementRequest{Query: query}
+	action := getAction(cmd)
+	action.Type = flightsql.CreatePreparedStatementActionType
+	closeAct := getAction(&pb.ActionClosePreparedStatementRequest{PreparedStatementHandle: []byte(query)})
+	closeAct.Type = flightsql.ClosePreparedStatementActionType
+
+	// results from createprepared statement
+	result := &pb.ActionCreatePreparedStatementResult{
+		PreparedStatementHandle: []byte(query),
+	}
+	schema := arrow.NewSchema([]arrow.Field{{Name: "id", Type: arrow.PrimitiveTypes.Int64, Nullable: true}}, nil)
+	result.ParameterSchema = flight.SerializeSchema(schema, memory.DefaultAllocator)
+
+	// mocked client stream
+	var out anypb.Any
+	out.MarshalFrom(result)
+	data, _ := proto.Marshal(&out)
+
+	createRsp := &mockDoActionClient{}
+	defer createRsp.AssertExpectations(s.T())
+	createRsp.On("Recv").Return(&pb.Result{Body: data}, nil).Once()
+	createRsp.On("Recv").Return(&pb.Result{}, io.EOF)
+	createRsp.On("CloseSend").Return(nil)
+
+	closeRsp := &mockDoActionClient{}
+	defer closeRsp.AssertExpectations(s.T())
+	closeRsp.On("Recv").Return(&pb.Result{}, io.EOF)
+	closeRsp.On("CloseSend").Return(nil)
+
+	// expect two actions: one to create and one to close the prepared statement
+	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).Return(createRsp, nil)
+	s.mockClient.On("DoAction", flightsql.ClosePreparedStatementActionType, closeAct.Body, s.callOpts).Return(closeRsp, nil)
+
+	// Mocked calls
+	prepared, err := s.sqlClient.Prepare(context.TODO(), query, s.callOpts...)
+	s.NoError(err)
+
+	err = prepared.Close(context.TODO(), s.callOpts...)
+	s.NoError(err)
 }
 
 func (s *FlightSqlClientSuite) TestExecuteUpdate() {

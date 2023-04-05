@@ -3443,8 +3443,8 @@ TEST(ArrowReadWrite, Decimal256AsInt) {
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
 
   parquet::WriterProperties::Builder builder;
-  // Enforce integer type to annotate decimal type
-  auto writer_properties = builder.enable_integer_annotate_decimal()->build();
+  // Allow small decimals to be stored as int32 or int64.
+  auto writer_properties = builder.enable_store_decimal_as_integer()->build();
   auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
 
   CheckConfiguredRoundtrip(table, table, writer_properties, props_store_schema);
@@ -4083,6 +4083,16 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
   std::vector<std::vector<std::string>> expected_min_max_ = {
       {"a", "b"}, {"b", "c"}, {"a", "d"}, {"", ""}};
 
+  const std::vector<std::vector<std::vector<std::string>>> expected_min_by_page = {
+      {{"b", "a"}, {"b", "a"}}, {{"b", "b"}, {"b", "b"}}, {{"c", "a"}, {"c", "a"}}};
+  const std::vector<std::vector<std::vector<std::string>>> expected_max_by_page = {
+      {{"b", "a"}, {"b", "a"}}, {{"c", "c"}, {"c", "c"}}, {{"d", "a"}, {"d", "a"}}};
+  const std::vector<std::vector<std::vector<bool>>> expected_has_min_max_by_page = {
+      {{true, true}, {true, true}},
+      {{true, true}, {true, true}},
+      {{true, true}, {true, true}},
+      {{false}, {false}}};
+
   for (std::size_t case_index = 0; case_index < test_dictionaries.size(); case_index++) {
     SCOPED_TRACE(test_dictionaries[case_index]->type()->ToString());
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<::arrow::Array> dict_encoded,
@@ -4143,8 +4153,18 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
         DataPage* data_page = (DataPage*)page.get();
         const EncodedStatistics& stats = data_page->statistics();
         EXPECT_EQ(stats.null_count, expected_null_by_page[case_index][page_index]);
-        EXPECT_EQ(stats.has_min, false);
-        EXPECT_EQ(stats.has_max, false);
+
+        auto expect_has_min_max =
+            expected_has_min_max_by_page[case_index][row_group_index][page_index];
+        EXPECT_EQ(stats.has_min, expect_has_min_max);
+        EXPECT_EQ(stats.has_max, expect_has_min_max);
+        if (expect_has_min_max) {
+          EXPECT_EQ(stats.min(),
+                    expected_min_by_page[case_index][row_group_index][page_index]);
+          EXPECT_EQ(stats.max(),
+                    expected_max_by_page[case_index][row_group_index][page_index]);
+        }
+
         EXPECT_EQ(data_page->num_values(),
                   expected_valid_by_page[case_index][page_index] +
                       expected_null_by_page[case_index][page_index]);
@@ -4223,6 +4243,40 @@ TEST_P(TestArrowWriteDictionary, StatisticsUnifiedDictionary) {
   ASSERT_EQ(stats1->EncodeMin(), "b");
   ASSERT_EQ(stats0->EncodeMax(), "b");
   ASSERT_EQ(stats1->EncodeMax(), "c");
+
+  // Check page statistics
+  const auto expected_page_type =
+      GetParquetDataPageVersion() == ParquetDataPageVersion::V1 ? PageType::DATA_PAGE
+                                                                : PageType::DATA_PAGE_V2;
+  auto rg0_page_reader = parquet_reader->RowGroup(0)->GetColumnPageReader(0);
+  ASSERT_EQ(PageType::DICTIONARY_PAGE, rg0_page_reader->NextPage()->type());
+  const std::vector<std::string> rg0_min_values = {"a", "a", "a"};
+  const std::vector<std::string> rg0_max_values = {"a", "a", "b"};
+  for (int i = 0; i < 3; ++i) {
+    auto page = rg0_page_reader->NextPage();
+    ASSERT_EQ(expected_page_type, page->type());
+    auto data_page = std::static_pointer_cast<DataPage>(page);
+    ASSERT_EQ(3, data_page->num_values());
+    const auto& stats = data_page->statistics();
+    EXPECT_EQ(1, stats.null_count);
+    EXPECT_EQ(rg0_min_values[i], stats.min());
+    EXPECT_EQ(rg0_max_values[i], stats.max());
+  }
+  ASSERT_EQ(rg0_page_reader->NextPage(), nullptr);
+
+  auto rg1_page_reader = parquet_reader->RowGroup(1)->GetColumnPageReader(0);
+  ASSERT_EQ(PageType::DICTIONARY_PAGE, rg1_page_reader->NextPage()->type());
+  {
+    auto page = rg1_page_reader->NextPage();
+    ASSERT_EQ(expected_page_type, page->type());
+    auto data_page = std::static_pointer_cast<DataPage>(page);
+    ASSERT_EQ(3, data_page->num_values());
+    const auto& stats = data_page->statistics();
+    EXPECT_EQ(1, stats.null_count);
+    EXPECT_EQ("b", stats.min());
+    EXPECT_EQ("c", stats.max());
+  }
+  ASSERT_EQ(rg1_page_reader->NextPage(), nullptr);
 }
 
 // ----------------------------------------------------------------------
@@ -4821,8 +4875,8 @@ class TestIntegerAnnotateDecimalTypeParquetIO : public TestParquetIO<TestType> {
     auto arrow_schema = ::arrow::schema({::arrow::field("a", values->type())});
 
     parquet::WriterProperties::Builder builder;
-    // Enforce integer type to annotate decimal type
-    auto writer_properties = builder.enable_integer_annotate_decimal()->build();
+    // Allow small decimals to be stored as int32 or int64.
+    auto writer_properties = builder.enable_store_decimal_as_integer()->build();
     std::shared_ptr<SchemaDescriptor> parquet_schema;
     ASSERT_OK_NO_THROW(ToParquetSchema(arrow_schema.get(), *writer_properties,
                                        *default_arrow_writer_properties(),
@@ -5070,6 +5124,26 @@ TEST(TestArrowReadWrite, MultithreadedWrite) {
   ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer), pool, &reader));
   ASSERT_OK_NO_THROW(reader->ReadTable(&result));
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
+}
+
+TEST(TestArrowReadWrite, FuzzReader) {
+  constexpr size_t kMaxFileSize = 1024 * 1024 * 1;
+  {
+    auto path = test::get_data_file("PARQUET-1481.parquet", /*is_good=*/false);
+    PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
+                                             path, ::arrow::io::FileMode::READ));
+    PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
+    auto s = internal::FuzzReader(buffer->data(), buffer->size());
+    ASSERT_NOT_OK(s);
+  }
+  {
+    auto path = test::get_data_file("alltypes_plain.parquet", /*is_good=*/true);
+    PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
+                                             path, ::arrow::io::FileMode::READ));
+    PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
+    auto s = internal::FuzzReader(buffer->data(), buffer->size());
+    ASSERT_OK(s);
+  }
 }
 
 }  // namespace arrow

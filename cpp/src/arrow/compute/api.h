@@ -38,13 +38,7 @@
 /// @{
 /// @}
 
-#include "arrow/compute/exec/expression.h"  // IWYU pragma: export
-
-/// \defgroup execnode-options Concrete option classes for ExecNode options
-/// @{
-/// @}
-
-#include "arrow/compute/exec/options.h"  // IWYU pragma: export
+#include "arrow/compute/expression.h"  // IWYU pragma: export
 
 /// \defgroup execnode-row Utilities for working with data in a row-major format
 /// @{
@@ -52,9 +46,8 @@
 
 #include "arrow/compute/row/grouper.h"  // IWYU pragma: export
 
-/// \defgroup execnode-components Components associated with ExecNode
+/// \defgroup execnode-components Components associated with ExecBatch
 /// @{
 /// @}
 
-#include "arrow/compute/exec.h"            // IWYU pragma: export
-#include "arrow/compute/exec/exec_plan.h"  // IWYU pragma: export
+#include "arrow/compute/exec.h"  // IWYU pragma: export

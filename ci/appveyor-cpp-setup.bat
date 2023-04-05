@@ -63,8 +63,11 @@ if "%ARROW_BUILD_GANDIVA%" == "ON" (
 )
 @rem Install pre-built "toolchain" packages for faster builds
 set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.txt
+@rem Force conda to use conda-forge
+conda config --add channels conda-forge
+conda config --remove channels defaults
 @rem Arrow conda environment
-mamba create -n arrow -q -y -c conda-forge ^
+mamba create -n arrow -y -c conda-forge ^
   --file=ci\conda_env_python.txt ^
   %CONDA_PACKAGES%  ^
   "ccache" ^
@@ -75,6 +78,7 @@ mamba create -n arrow -q -y -c conda-forge ^
   "fsspec" ^
   "python=%PYTHON%" ^
   || exit /B
+conda list -n arrow
 
 @rem
 @rem Configure compiler
