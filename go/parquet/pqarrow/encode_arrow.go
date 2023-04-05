@@ -19,6 +19,7 @@ package pqarrow
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"time"
 	"unsafe"
@@ -31,7 +32,6 @@ import (
 	"github.com/apache/arrow/go/v12/internal/utils"
 	"github.com/apache/arrow/go/v12/parquet"
 	"github.com/apache/arrow/go/v12/parquet/file"
-	"golang.org/x/xerrors"
 )
 
 // get the count of the number of leaf arrays for the type
@@ -114,7 +114,7 @@ func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *Sch
 	}
 
 	if absPos >= int64(data.Len()) {
-		return ArrowColumnWriter{}, xerrors.New("cannot write data at offset past end of chunked array")
+		return ArrowColumnWriter{}, errors.New("cannot write data at offset past end of chunked array")
 	}
 
 	leafCount := calcLeafCount(data.DataType())
@@ -190,7 +190,7 @@ func (acw *ArrowColumnWriter) Write(ctx context.Context) error {
 			defer res.Release()
 
 			if len(res.postListVisitedElems) != 1 {
-				return xerrors.New("lists with non-zero length null components are not supported")
+				return errors.New("lists with non-zero length null components are not supported")
 			}
 			rng := res.postListVisitedElems[0]
 			values := array.NewSlice(res.leafArr, rng.start, rng.end)
@@ -398,7 +398,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 		}
 	case *file.Int96ColumnChunkWriter:
 		if leafArr.DataType().ID() != arrow.TIMESTAMP {
-			return xerrors.New("unsupported arrow type to write to Int96 column")
+			return errors.New("unsupported arrow type to write to Int96 column")
 		}
 		ctx.dataBuffer.ResizeNoShrink(parquet.Int96Traits.BytesRequired(leafArr.Len()))
 		data := parquet.Int96Traits.CastFromBytes(ctx.dataBuffer.Bytes())
@@ -416,7 +416,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 		}
 	case *file.Float32ColumnChunkWriter:
 		if leafArr.DataType().ID() != arrow.FLOAT32 {
-			return xerrors.New("invalid column type to write to Float")
+			return errors.New("invalid column type to write to Float")
 		}
 		if !maybeParentNulls && noNulls {
 			wr.WriteBatch(leafArr.(*array.Float32).Float32Values(), defLevels, repLevels)
@@ -425,7 +425,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 		}
 	case *file.Float64ColumnChunkWriter:
 		if leafArr.DataType().ID() != arrow.FLOAT64 {
-			return xerrors.New("invalid column type to write to Float")
+			return errors.New("invalid column type to write to Float")
 		}
 		if !maybeParentNulls && noNulls {
 			wr.WriteBatch(leafArr.(*array.Float64).Float64Values(), defLevels, repLevels)
@@ -457,7 +457,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				data[i] = parquet.ByteArray(valueBuf[offsets[i]:offsets[i+1]])
 			}
 		default:
-			return xerrors.Errorf("invalid column type to write to ByteArray: %s", leafArr.DataType().Name())
+			return fmt.Errorf("%w: invalid column type to write to ByteArray: %s", arrow.ErrInvalid, leafArr.DataType().Name())
 		}
 
 		if !maybeParentNulls && noNulls {
@@ -510,10 +510,10 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				wr.WriteBatchSpaced(data, defLevels, repLevels, arr.NullBitmapBytes(), int64(arr.Data().Offset()))
 			}
 		default:
-			return xerrors.Errorf("invalid column type to write to FixedLenByteArray: %s", leafArr.DataType().Name())
+			return fmt.Errorf("%w: invalid column type to write to FixedLenByteArray: %s", arrow.ErrInvalid, leafArr.DataType().Name())
 		}
 	default:
-		return xerrors.New("unknown column writer physical type")
+		return errors.New("unknown column writer physical type")
 	}
 	return
 }
