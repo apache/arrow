@@ -505,7 +505,7 @@ class SlicerTest < Test::Unit::TestCase
       TABLE
     end
 
-    test("match_substring with ignore_case option") do
+    test("match_substring(ignore_case:)") do
       sliced_table = @string_table.slice do |slicer|
         slicer.string.match_substring("arr", ignore_case: true)
       end
