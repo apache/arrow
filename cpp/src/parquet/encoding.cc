@@ -3086,7 +3086,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
           if (ARROW_PREDICT_FALSE(view.size() >= kMaxByteArraySize)) {
             return Status::Invalid("Parquet cannot store strings with size 2GB or more");
           }
-          // Convert view to ByteArray so it can be passed to the suffix_encoder_.
+          // Convert to ByteArray, so it can be passed to the suffix_encoder_.
           const ByteArray src{view};
 
           uint32_t j = 0;
@@ -3104,11 +3104,11 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
           const auto suffix_length = static_cast<uint32_t>(src.len - j);
           const uint8_t* suffix_ptr;
           if (suffix_length == 0) {
-            suffix_ptr = reinterpret_cast<const uint8_t*>("");
+            suffix_ptr = nullptr;
           } else {
             suffix_ptr = src.ptr + j;
           }
-          // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
+          // Convert to ByteArray, so it can be passed to the suffix_encoder_.
           const ByteArray suffix(suffix_length, suffix_ptr);
           suffix_encoder_.Put(&suffix, 1);
 
@@ -3127,6 +3127,11 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 
 template <typename DType>
 void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
+  throw Status::Invalid("Put not implemented for " + this->descr_->ToString());
+}
+
+template <>
+void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_values) {
   if (num_values == 0) {
     return;
   }
@@ -3135,7 +3140,7 @@ void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
   std::string_view last_value_view = last_value_;
 
   for (int i = 0; i < num_values; i++) {
-    // Convert to ByteArray so we can pass to the suffix_encoder_.
+    // Convert to ByteArray, so we can pass to the suffix_encoder_.
     auto value = reinterpret_cast<const ByteArray*>(&src[i]);
     if (ARROW_PREDICT_FALSE(value->len >= kMaxByteArraySize)) {
       throw Status::Invalid("Parquet cannot store strings with size 2GB or more");
@@ -3157,11 +3162,11 @@ void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
     const auto suffix_length = static_cast<uint32_t>(value->len - j);
     const uint8_t* suffix_ptr;
     if (suffix_length == 0) {
-      suffix_ptr = reinterpret_cast<const uint8_t*>("");
+      suffix_ptr = nullptr;
     } else {
       suffix_ptr = value->ptr + j;
     }
-    // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
+    // Convert to ByteArray, so it can be passed to the suffix_encoder_.
     const ByteArray suffix(suffix_length, suffix_ptr);
     suffix_encoder_.Put(&suffix, 1);
   }
@@ -3184,7 +3189,7 @@ void DeltaByteArrayEncoder<FLBAType>::Put(const FLBA* src, int num_values) {
   }
 
   for (int i = 0; i < num_values; i++) {
-    // Convert to ByteArray so we can pass to the suffix_encoder_.
+    // Convert to FLBA, so we can access the data
     const FLBA* value = reinterpret_cast<const FLBA*>(&src[i].ptr);
 
     auto view = string_view{reinterpret_cast<const char*>(value->ptr),
@@ -3204,11 +3209,11 @@ void DeltaByteArrayEncoder<FLBAType>::Put(const FLBA* src, int num_values) {
     const auto suffix_length = static_cast<uint32_t>(len - j);
     const uint8_t* suffix_ptr;
     if (suffix_length == 0) {
-      suffix_ptr = reinterpret_cast<const uint8_t*>("");
+      suffix_ptr = nullptr;
     } else {
       suffix_ptr = value->ptr + j;
     }
-    // Convert suffix to ByteArray so it can be passed to the suffix_encoder_.
+    // Convert to ByteArray, so it can be passed to the suffix_encoder_
     const ByteArray suffix(suffix_length, suffix_ptr);
     suffix_encoder_.Put(&suffix, 1);
   }
