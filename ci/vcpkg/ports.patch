@@ -64,15 +64,3 @@ index 4611af6..d11936f 100644
              set(brew_package_name "python")
              set(apt_package_name "python3")
          endif()
-diff --git a/ports/openssl/unix/CMakeLists.txt b/ports/openssl/unix/CMakeLists.txt
-index 75c21805a..f95792a74 100644
---- a/ports/openssl/unix/CMakeLists.txt
-+++ b/ports/openssl/unix/CMakeLists.txt
-@@ -224,6 +224,7 @@ else()
-             "--prefix=${CMAKE_INSTALL_PREFIX}"
-             "--libdir=${CMAKE_INSTALL_PREFIX}/lib"
-             "--openssldir=/etc/ssl"
-+            "--cross-compile-prefix=\"\""
-             ${CFLAGS}
-             VERBATIM
-             APPEND
