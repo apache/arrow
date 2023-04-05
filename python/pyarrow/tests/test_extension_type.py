@@ -25,6 +25,7 @@ import sys
 
 import numpy as np
 import pyarrow as pa
+from pyarrow.lib import tobytes
 
 import pytest
 
@@ -1130,13 +1131,32 @@ def test_cpp_extension_in_python(tmpdir):
 
 
 def test_tensor_type():
-    tensor_type = pa.fixed_shape_tensor(pa.int8(), (2, 3))
+    tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 3])
     assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
     assert tensor_type.storage_type == pa.list_(pa.int8(), 6)
+    assert tensor_type.shape == [2, 3]
+    assert not tensor_type.dim_names
+    assert not tensor_type.permutation
+
+    tensor_type = pa.fixed_shape_tensor(pa.float64(), [2, 2, 3],
+                                        permutation=[0, 2, 1])
+    assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
+    assert tensor_type.storage_type == pa.list_(pa.float64(), 12)
+    assert tensor_type.shape == [2, 2, 3]
+    assert not tensor_type.dim_names
+    assert tensor_type.permutation == [0, 2, 1]
+
+    tensor_type = pa.fixed_shape_tensor(pa.bool_(), [2, 2, 3],
+                                        dim_names=['C', 'H', 'W'])
+    assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
+    assert tensor_type.storage_type == pa.list_(pa.bool_(), 12)
+    assert tensor_type.shape == [2, 2, 3]
+    assert tensor_type.dim_names == [tobytes(x) for x in ['C', 'H', 'W']]
+    assert not tensor_type.permutation
 
 
 def test_tensor_class_methods():
-    tensor_type = pa.fixed_shape_tensor(pa.float32(), (2, 3))
+    tensor_type = pa.fixed_shape_tensor(pa.float32(), [2, 3])
     storage = pa.array([[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]],
                        pa.list_(pa.float32(), 6))
     arr = pa.ExtensionArray.from_storage(tensor_type, storage)
@@ -1153,9 +1173,9 @@ def test_tensor_class_methods():
 
 
 @pytest.mark.parametrize("tensor_type", (
-    pa.fixed_shape_tensor(pa.int8(), (2, 2, 3)),
-    pa.fixed_shape_tensor(pa.int8(), (2, 2, 3), permutation=[0, 2, 1]),
-    pa.fixed_shape_tensor(pa.int8(), (2, 2, 3), dim_names=['C', 'H', 'W'])
+    pa.fixed_shape_tensor(pa.int8(), [2, 2, 3]),
+    pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1]),
+    pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], dim_names=['C', 'H', 'W'])
 ))
 def test_tensor_type_ipc(tensor_type):
     storage = pa.array([[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]], pa.list_(pa.int8(), 12))
@@ -1183,10 +1203,10 @@ def test_tensor_type_ipc(tensor_type):
 
 
 def test_tensor_type_equality():
-    tensor_type = pa.fixed_shape_tensor(pa.int8(), (2, 2, 3))
+    tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 2, 3])
     assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
 
-    tensor_type2 = pa.fixed_shape_tensor(pa.int8(), (2, 2, 3))
-    tensor_type3 = pa.fixed_shape_tensor(pa.uint8(), (2, 2, 3))
+    tensor_type2 = pa.fixed_shape_tensor(pa.int8(), [2, 2, 3])
+    tensor_type3 = pa.fixed_shape_tensor(pa.uint8(), [2, 2, 3])
     assert tensor_type == tensor_type2
     assert not tensor_type == tensor_type3
