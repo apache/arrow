@@ -321,10 +321,35 @@ class MergedRunsIterator {
   using LeftIterator = typename Left::Iterator;
   using RightIterator = typename Right::Iterator;
 
+  MergedRunsIterator(LeftIterator left_it, RightIterator right_it,
+                     int64_t common_logical_length, int64_t common_logical_pos)
+      : ree_iterators_{std::move(left_it), std::move(right_it)},
+        logical_length_(common_logical_length),
+        logical_pos_(common_logical_pos) {}
+
  public:
+  /// \brief Construct a MergedRunsIterator positioned at logical position 0.
+  ///
+  /// Pre-condition: left.length() == right.length()
   MergedRunsIterator(const Left& left, const Right& right)
-      : ree_iterators_{left.begin(), right.begin()}, logical_length_(left.length()) {
+      : MergedRunsIterator(left.begin(), right.begin(), left.length(), 0) {
     assert(left.length() == right.length());
+  }
+
+  static Result<MergedRunsIterator> MakeBegin(const Left& left, const Right& right) {
+    if (left.length() != right.length()) {
+      return Status::Invalid(
+          "MergedRunsIterator expects RunEndEncodedArraySpans of the same length");
+    }
+    return MergedRunsIterator(left, right);
+  }
+
+  static Result<MergedRunsIterator> MakeEnd(const Left& left, const Right& right) {
+    if (left.length() != right.length()) {
+      return Status::Invalid(
+          "MergedRunsIterator expects RunEndEncodedArraySpans of the same length");
+    }
+    return MergedRunsIterator(left.end(), right.end(), left.length(), left.length());
   }
 
   /// \brief Return the left RunEndEncodedArraySpan child
@@ -337,6 +362,9 @@ class MergedRunsIterator {
   ///
   /// If is_end(), this is the same as length().
   int64_t logical_position() const { return logical_pos_; }
+
+  /// \brief Whether the iterator is at logical position 0.
+  bool is_begin() const { return logical_pos_ == 0; }
 
   /// \brief Whether the iterator has reached the end of both arrays
   bool is_end() const { return logical_pos_ == logical_length_; }
@@ -392,6 +420,34 @@ class MergedRunsIterator {
     return prev;
   }
 
+  MergedRunsIterator& operator--() {
+    auto& left_it = std::get<0>(ree_iterators_);
+    auto& right_it = std::get<1>(ree_iterators_);
+
+    // The logical position of each iterator is the run_end() of the previous run.
+    const int64_t left_logical_pos = left_it.logical_position();
+    const int64_t right_logical_pos = right_it.logical_position();
+
+    if (left_logical_pos < right_logical_pos) {
+      --right_it;
+      logical_pos_ = std::max(left_logical_pos, right_it.logical_position());
+    } else if (left_logical_pos > right_logical_pos) {
+      --left_it;
+      logical_pos_ = std::max(left_it.logical_position(), right_logical_pos);
+    } else {
+      --left_it;
+      --right_it;
+      logical_pos_ = std::max(left_it.logical_position(), right_it.logical_position());
+    }
+    return *this;
+  }
+
+  MergedRunsIterator operator--(int) {
+    MergedRunsIterator prev = *this;
+    --(*this);
+    return prev;
+  }
+
   bool operator==(const MergedRunsIterator& other) const {
     return logical_pos_ == other.logical_position();
   }
@@ -401,7 +457,7 @@ class MergedRunsIterator {
  private:
   std::tuple<LeftIterator, RightIterator> ree_iterators_;
   const int64_t logical_length_;
-  int64_t logical_pos_ = 0;
+  int64_t logical_pos_;
 };
 
 }  // namespace ree_util

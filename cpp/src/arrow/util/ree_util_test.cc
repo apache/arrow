@@ -145,7 +145,7 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
       run_end_type, "[1, 2, 3, 4, 5, 6, 7, 8, 9, 1000, 1005, 1015, 1020, 1025, 30000]");
   const auto right_run_ends =
       ArrayFromJSON(run_end_type, "[1, 2, 3, 4, 5, 2005, 2009, 2025, 2050]");
-  const std::vector<int32_t> expected_run_ends = {5, 4, 6, 5, 5, 25};
+  const std::vector<int32_t> expected_run_lengths = {5, 4, 6, 5, 5, 25};
   const std::vector<int32_t> expected_left_visits = {10, 11, 11, 12, 13, 14};
   const std::vector<int32_t> expected_right_visits = {5, 6, 7, 7, 7, 8};
   const int32_t left_parent_offset = 1000;
@@ -176,17 +176,38 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
     size_t logical_pos = 0;
     auto it = MergedRunsIterator(left_ree_span, right_ree_span);
     ASSERT_EQ(it.logical_position(), 0);
-    ASSERT_TRUE(!it.is_end());
+    ASSERT_TRUE(it.is_begin());
+    ASSERT_FALSE(it.is_end());
     ASSERT_EQ(&it.left(), &left_ree_span);
     ASSERT_EQ(&it.right(), &right_ree_span);
     for (; !it.is_end(); ++it, ++i) {
-      ASSERT_EQ(it.run_length(), expected_run_ends[i]);
+      ASSERT_EQ(it.run_length(), expected_run_lengths[i]);
       ASSERT_EQ(it.index_into_left_array(), expected_left_visits[i]);
       ASSERT_EQ(it.index_into_right_array(), expected_right_visits[i]);
       ASSERT_EQ(it.logical_position(), logical_pos);
       logical_pos += it.run_length();
     }
-    ASSERT_EQ(i, expected_run_ends.size());
+    ASSERT_EQ(i, expected_run_lengths.size());
+    {
+      ARROW_SCOPED_TRACE("in reverse order");
+      auto it =
+          MergedRunsIterator<decltype(left_ree_span), decltype(right_ree_span)>::MakeEnd(
+              left_ree_span, right_ree_span)
+              .ValueOrDie();
+      ASSERT_EQ(it.logical_position(), left_ree_span.length());
+      ASSERT_TRUE(it.is_end());
+      ASSERT_EQ(&it.left(), &left_ree_span);
+      ASSERT_EQ(&it.right(), &right_ree_span);
+      while (!it.is_begin()) {
+        --it;
+        --i;
+        ASSERT_EQ(it.run_length(), expected_run_lengths[i]);
+        ASSERT_EQ(it.index_into_left_array(), expected_left_visits[i]);
+        ASSERT_EQ(it.index_into_right_array(), expected_right_visits[i]);
+        logical_pos -= it.run_length();
+        ASSERT_EQ(it.logical_position(), logical_pos);
+      }
+    }
   }
 
   const int32_t left_only_run_lengths[] = {5, 10, 5, 5, 25};
@@ -196,7 +217,8 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
     int64_t logical_pos = 0;
     auto it = MergedRunsIterator(left_ree_span, left_ree_span);
     ASSERT_EQ(it.logical_position(), 0);
-    ASSERT_TRUE(!it.is_end());
+    ASSERT_TRUE(it.is_begin());
+    ASSERT_FALSE(it.is_end());
     ASSERT_EQ(&it.left(), &left_ree_span);
     ASSERT_EQ(&it.right(), &left_ree_span);
     for (; !it.is_end(); ++it, ++i) {
@@ -207,6 +229,25 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
       logical_pos += it.run_length();
     }
     ASSERT_EQ(i, std::size(left_only_run_lengths));
+    {
+      ARROW_SCOPED_TRACE("in reverse order");
+      auto it =
+          MergedRunsIterator<decltype(left_ree_span), decltype(left_ree_span)>::MakeEnd(
+              left_ree_span, left_ree_span)
+              .ValueOrDie();
+      ASSERT_EQ(it.logical_position(), left_ree_span.length());
+      ASSERT_TRUE(it.is_end());
+      ASSERT_EQ(&it.left(), &it.right());
+      while (!it.is_begin()) {
+        --it;
+        --i;
+        ASSERT_EQ(it.run_length(), left_only_run_lengths[i]);
+        ASSERT_EQ(it.index_into_left_array(), 10 + i);
+        ASSERT_EQ(it.index_into_right_array(), 10 + i);
+        logical_pos -= it.run_length();
+        ASSERT_EQ(it.logical_position(), logical_pos);
+      }
+    }
   }
   {
     ARROW_SCOPED_TRACE("iterate over left array)");
@@ -251,6 +292,25 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
       logical_pos += it.run_length();
     }
     ASSERT_EQ(i, std::size(right_only_run_lengths));
+    {
+      ARROW_SCOPED_TRACE("in reverse order");
+      auto it =
+          MergedRunsIterator<decltype(right_ree_span), decltype(right_ree_span)>::MakeEnd(
+              right_ree_span, right_ree_span)
+              .ValueOrDie();
+      ASSERT_EQ(it.logical_position(), right_ree_span.length());
+      ASSERT_TRUE(it.is_end());
+      ASSERT_EQ(&it.left(), &it.right());
+      while (!it.is_begin()) {
+        --it;
+        --i;
+        ASSERT_EQ(it.run_length(), right_only_run_lengths[i]);
+        ASSERT_EQ(it.index_into_left_array(), 5 + i);
+        ASSERT_EQ(it.index_into_right_array(), 5 + i);
+        logical_pos -= it.run_length();
+        ASSERT_EQ(it.logical_position(), logical_pos);
+      }
+    }
   }
   {
     ARROW_SCOPED_TRACE("iterate over right array");
