@@ -357,3 +357,152 @@ pandas ``ExtensionArray``. This method should have the following signature::
 
 This way, you can control the conversion of a pyarrow ``Array`` of your pyarrow
 extension type to a pandas ``ExtensionArray`` that can be stored in a DataFrame.
+
+
+Canonical extension types
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In the :ref:`format_canonical_extensions` under the section **Official List**
+there is a list of canonical extension types. Here you can find an example of how
+to implement and how to use the listed canonical extension types.
+
+Fixed size tensor
+"""""""""""""""""
+
+Define fixed shape tensor extension type:
+
+.. code-block:: python
+
+   >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), (2, 2))
+
+Create an array of tensors with storage array and defined fixed shape tensor
+extension type:
+
+.. code-block:: python
+
+   >>> arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
+   >>> storage = pa.array(arr, pa.list_(pa.int32(), 4))
+   >>> tensor = pa.ExtensionArray.from_storage(tensor_type, storage)
+
+Create another array of tensors with different value type:
+
+.. code-block:: python
+
+   >>> tensor_type2 = pa.fixed_shape_tensor(pa.float32(), (2, 2))
+   >>> storage2 = pa.array(arr, pa.list_(pa.float32(), 4))
+   >>> tensor2 = pa.ExtensionArray.from_storage(tensor_type2, storage2)
+
+Create a ``pyarrow.Table`` with random data and two tensor arrays:
+
+.. code-block:: python
+
+   >>> data = [
+   ...     pa.array([1, 2, 3]),
+   ...     pa.array(['foo', 'bar', None]),
+   ...     pa.array([True, None, True]),
+   ...     tensor,
+   ...     tensor2
+   ... ]
+   >>> my_schema = pa.schema([('f0', pa.int8()),
+   ...                        ('f1', pa.string()),
+   ...                        ('f2', pa.bool_()),
+   ...                        ('tensors_int', tensor_type),
+   ...                        ('tensors_float', tensor_type2)])
+   >>> table = pa.Table.from_arrays(data, schema=my_schema)
+   >>> table
+   pyarrow.Table
+   f0: int8
+   f1: string
+   f2: bool
+   tensors_int: extension<arrow.fixed_size_tensor>
+   tensors_float: extension<arrow.fixed_size_tensor>
+   ----
+   f0: [[1,2,3]]
+   f1: [["foo","bar",null]]
+   f2: [[true,null,true]]
+   tensors_int: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
+   tensors_float: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
+
+Convert a tensor array to numpy ndarray (tensor):
+
+.. code-block:: python
+
+   >>> numpy_tensor = tensor2.to_numpy_ndarray()
+   >>> numpy_tensor
+   array([[[  1.,   2.],
+         [  3.,   4.]],
+         [[ 10.,  20.],
+         [ 30.,  40.]],
+         [[100., 200.],
+         [300., 400.]]])
+
+Convert a list of numpy ndarrays (tensors) to a tensor array:
+
+.. code-block:: python
+
+   >>> pa.FixedShapeTensorArray.from_numpy_ndarray(numpy_tensor)
+   <pyarrow.lib.FixedShapeTensorArray object at ...>
+   [
+     [
+       1,
+       2,
+       3,
+       4
+     ],
+     [
+       10,
+       20,
+       30,
+       40
+     ],
+     [
+       100,
+       200,
+       300,
+       400
+     ]
+   ]
+
+Example of using permutation parameter when converting to numpy ndarray:
+
+.. code-block:: python
+
+   >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), (2, 2), permutation=[1,0])
+   >>> arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
+   >>> storage = pa.array(arr, pa.list_(pa.int32(), 4))
+   >>> tensor = pa.ExtensionArray.from_storage(tensor_type, storage)
+
+Converting tensor to ndarray without the use of permutation parameter:
+
+.. code-block:: python
+
+   >>> tensor.to_numpy_ndarray()
+   array([[[  1,   2],
+         [  3,   4]],
+         [[ 10,  20],
+         [ 30,  40]],
+         [[100, 200],
+         [300, 400]]], dtype=int32)
+
+Converting tensor to ndarray with permutation parameter needs recalculation of
+the permutation parameter.
+
+The dimension of the ndarray is one dimension higher as the first dimension is
+always the array of tensors. For that we need to increment the values of the
+permutation parameter and add the first dimension (dimension of the array of tensors):
+
+.. code-block:: python
+
+   >>> permutation = [x+1 for x in tensor.type.permutation]
+   >>> permutation
+   [2, 1]
+   >>> permutation.insert(0,0)
+   >>> permutation
+   [0, 2, 1]
+   >>> tensor.to_numpy_ndarray().transpose(permutation)
+   array([[[  1,   3],
+         [  2,   4]],
+         [[ 10,  30],
+         [ 20,  40]],
+         [[100, 300],
+         [200, 400]]], dtype=int32)
