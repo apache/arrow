@@ -258,7 +258,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 		// TODO(mtopol): optimize this so that we aren't converting from
 		// the bitmap -> []bool -> bitmap anymore
 		if leafArr.Len() == 0 {
-			wr.WriteBatch(nil, defLevels, repLevels)
+			_, err = wr.WriteBatch(nil, defLevels, repLevels)
 			break
 		}
 
@@ -329,7 +329,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 		}
 
 		if !maybeParentNulls && noNulls {
-			wr.WriteBatch(data, defLevels, repLevels)
+			_, err = wr.WriteBatch(data, defLevels, repLevels)
 		} else {
 			nulls := leafArr.NullBitmapBytes()
 			wr.WriteBatchSpaced(data, defLevels, repLevels, nulls, int64(leafArr.Data().Offset()))
@@ -354,7 +354,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				}
 			} else if (cw.Properties().Version() == parquet.V1_0 || cw.Properties().Version() == parquet.V2_4) && tstype.Unit == arrow.Nanosecond {
 				// absent superceding user instructions, when writing a Parquet Version <=2.4 File,
-				// timestamps in nano seconds are coerced to microseconds
+				// timestamps in nanoseconds are coerced to microseconds
 				ctx.dataBuffer.ResizeNoShrink(arrow.Int64Traits.BytesRequired(leafArr.Len()))
 				data = arrow.Int64Traits.CastFromBytes(ctx.dataBuffer.Bytes())
 				p := NewArrowWriterProperties(WithCoerceTimestamps(arrow.Microsecond), WithTruncatedTimestamps(true))
@@ -391,7 +391,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 		}
 
 		if !maybeParentNulls && noNulls {
-			wr.WriteBatch(data, defLevels, repLevels)
+			_, err = wr.WriteBatch(data, defLevels, repLevels)
 		} else {
 			nulls := leafArr.NullBitmapBytes()
 			wr.WriteBatchSpaced(data, defLevels, repLevels, nulls, int64(leafArr.Data().Offset()))
@@ -402,6 +402,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 		}
 		ctx.dataBuffer.ResizeNoShrink(parquet.Int96Traits.BytesRequired(leafArr.Len()))
 		data := parquet.Int96Traits.CastFromBytes(ctx.dataBuffer.Bytes())
+		ctx.dataBuffer.Release()
 		input := leafArr.(*array.Timestamp).TimestampValues()
 		unit := leafArr.DataType().(*arrow.TimestampType).Unit
 		for idx, val := range input {
@@ -409,7 +410,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 		}
 
 		if !maybeParentNulls && noNulls {
-			wr.WriteBatch(data, defLevels, repLevels)
+			_, err = wr.WriteBatch(data, defLevels, repLevels)
 		} else {
 			nulls := leafArr.NullBitmapBytes()
 			wr.WriteBatchSpaced(data, defLevels, repLevels, nulls, int64(leafArr.Data().Offset()))
@@ -419,7 +420,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 			return errors.New("invalid column type to write to Float")
 		}
 		if !maybeParentNulls && noNulls {
-			wr.WriteBatch(leafArr.(*array.Float32).Float32Values(), defLevels, repLevels)
+			_, err = wr.WriteBatch(leafArr.(*array.Float32).Float32Values(), defLevels, repLevels)
 		} else {
 			wr.WriteBatchSpaced(leafArr.(*array.Float32).Float32Values(), defLevels, repLevels, leafArr.NullBitmapBytes(), int64(leafArr.Data().Offset()))
 		}
@@ -428,7 +429,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 			return errors.New("invalid column type to write to Float")
 		}
 		if !maybeParentNulls && noNulls {
-			wr.WriteBatch(leafArr.(*array.Float64).Float64Values(), defLevels, repLevels)
+			_, err = wr.WriteBatch(leafArr.(*array.Float64).Float64Values(), defLevels, repLevels)
 		} else {
 			wr.WriteBatchSpaced(leafArr.(*array.Float64).Float64Values(), defLevels, repLevels, leafArr.NullBitmapBytes(), int64(leafArr.Data().Offset()))
 		}
@@ -461,7 +462,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 		}
 
 		if !maybeParentNulls && noNulls {
-			wr.WriteBatch(data, defLevels, repLevels)
+			_, err = wr.WriteBatch(data, defLevels, repLevels)
 		} else {
 			wr.WriteBatchSpaced(data, defLevels, repLevels, leafArr.NullBitmapBytes(), int64(leafArr.Data().Offset()))
 		}
@@ -474,7 +475,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				data[idx] = leafArr.(*array.FixedSizeBinary).Value(idx)
 			}
 			if !maybeParentNulls && noNulls {
-				wr.WriteBatch(data, defLevels, repLevels)
+				_, err = wr.WriteBatch(data, defLevels, repLevels)
 			} else {
 				wr.WriteBatchSpaced(data, defLevels, repLevels, leafArr.NullBitmapBytes(), int64(leafArr.Data().Offset()))
 			}
@@ -500,7 +501,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				for idx := range data {
 					data[idx] = fixDecimalEndianness(arr.Value(idx))
 				}
-				wr.WriteBatch(data, defLevels, repLevels)
+				_, err = wr.WriteBatch(data, defLevels, repLevels)
 			} else {
 				for idx := range data {
 					if arr.IsValid(idx) {

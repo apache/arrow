@@ -61,8 +61,8 @@ func (ps *ParquetIOTestSuite) TestSingleColumnOptionalDictionaryWrite() {
 			defer arr.Release()
 
 			sc := ps.makeSimpleSchema(arr.DataType(), parquet.Repetitions.Optional)
-			data := ps.writeColumn(sc, arr)
-			ps.readAndCheckSingleColumnFile(data, values)
+			data := ps.writeColumn(mem, sc, arr)
+			ps.readAndCheckSingleColumnFile(mem, data, values)
 		})
 	}
 }
@@ -103,7 +103,7 @@ func (ad *ArrowWriteDictionarySuite) TestStatisticsWithFallback() {
 	}
 
 	testIndices := []arrow.Array{
-        // ["b", null, "a", "b", null, "a"]
+		// ["b", null, "a", "b", null, "a"]
 		ad.fromJSON(mem, arrow.PrimitiveTypes.Int32, `[0, null, 3, 0, null, 3]`),
 		// ["b", "c", null, "b", "c", null]
 		ad.fromJSON(mem, arrow.PrimitiveTypes.Int32, `[0, 1, null, 0, 1, null]`),
