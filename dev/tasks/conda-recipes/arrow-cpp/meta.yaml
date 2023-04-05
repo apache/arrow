@@ -377,8 +377,6 @@ outputs:
         # vvvvvvv TESTS THAT SHOULDN'T HAVE TO BE SKIPPED vvvvvvv
         # segfaults on OSX: to investigate ASAP
         {% set tests_to_skip = tests_to_skip + " or test_flight" %}                       # [osx]
-        # failing on linux with "OSError: Could not connect to socket /tmp/[...]/plasma.sock"
-        {% set tests_to_skip = tests_to_skip + " or test_plasma" %}                       # [linux]
         # gandiva tests are segfaulting on ppc
         {% set tests_to_skip = tests_to_skip + " or test_gandiva" %}                      # [ppc64le]
         # test failures on ppc
