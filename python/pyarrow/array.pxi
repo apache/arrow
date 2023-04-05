@@ -3131,7 +3131,7 @@ class FixedShapeTensorArray(ExtensionArray):
         The first dimension of ndarray will become the length of the fixed
         shape tensor array.
 
-        For correct results, Numpy array needs to be C-contiguous in memory
+        Numpy array needs to be C-contiguous in memory
         (``obj.flags["C_CONTIGUOUS"]==True``).
 
         Parameters
@@ -3148,31 +3148,35 @@ class FixedShapeTensorArray(ExtensionArray):
         >>> pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
         <pyarrow.lib.FixedShapeTensorArray object at 0x114ac9900>
         [
-        [
+          [
             1,
             2,
             3,
             4,
             5,
             6
-        ],
-        [
+          ],
+          [
             1,
             2,
             3,
             4,
             5,
             6
-        ]
+          ]
         ]
         """
+        if obj.flags["F_CONTIGUOUS"]:
+            raise ValueError('The data in the numpy array need to be in a single, '
+                             'C-style contiguous segment.')
+
         arrow_type = from_numpy_dtype(obj.dtype)
         shape = obj.shape[1:]
         size = obj.size / obj.shape[0]
 
         return ExtensionArray.from_storage(
             fixed_shape_tensor(arrow_type, shape),
-            FixedSizeListArray.from_arrays(obj.flatten(), size)
+            FixedSizeListArray.from_arrays(np.ravel(obj, order='C'), size)
         )
 
 
