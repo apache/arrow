@@ -3142,6 +3142,43 @@ class FixedShapeTensorArray(ExtensionArray):
     def from_numpy_ndarray(obj):
         """
         Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
+        The first dimension of ndarray will become the length of the fixed
+        shape tensor array.
+
+        For correct results, Numpy array needs to be C-contiguous in memory
+        (``obj.flags["C_CONTIGUOUS"]==True``).
+
+        Parameters
+        ----------
+        obj : ndarray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> arr = np.array(
+        ...         [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]],
+        ...         dtype=np.float32)
+        >>> pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
+        <pyarrow.lib.FixedShapeTensorArray object at 0x114ac9900>
+        [
+        [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+        ],
+        [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+        ]
+        ]
         """
         arrow_type = from_numpy_dtype(obj.dtype)
         shape = obj.shape[1:]
