@@ -3641,12 +3641,12 @@ def test_dataset_preserved_partitioning(tempdir):
     # through discovery, but without partitioning
     _, path = _create_single_file(tempdir)
     dataset = ds.dataset(path)
-    assert dataset.partitioning is None
+    assert isinstance(dataset.partitioning, ds.DirectoryPartitioning)
 
     # through discovery, with hive partitioning but not specified
     full_table, path = _create_partitioned_dataset(tempdir)
     dataset = ds.dataset(path)
-    assert dataset.partitioning is None
+    assert isinstance(dataset.partitioning, ds.DirectoryPartitioning)
 
     # through discovery, with hive partitioning (from a partitioning factory)
     dataset = ds.dataset(path, partitioning="hive")
