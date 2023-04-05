@@ -19,6 +19,8 @@ package file_test
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v12/parquet/schema"
 	"io"
 	"math/rand"
 	"testing"
@@ -63,6 +65,19 @@ func checkStatistics(t *testing.T, stats format.Statistics, actual metadata.Enco
 	if stats.IsSetDistinctCount() {
 		assert.Equal(t, stats.GetDistinctCount(), actual.DistinctCount)
 	}
+}
+
+type testReader struct {
+	*bytes.Reader
+}
+
+// ReadAt for testReader returns io.EOF when off + len(b) is exactly the length of the underlying input source.
+func (tr testReader) ReadAt(b []byte, off int64) (int, error) {
+	n, err := tr.Reader.ReadAt(b, off)
+	if err == nil && (int64(n)+off == tr.Size()) {
+		return n, io.EOF
+	}
+	return n, err
 }
 
 type PageSerdeSuite struct {
@@ -269,6 +284,31 @@ func (p *PageSerdeSuite) TestCompression() {
 			p.ResetStream()
 		})
 	}
+}
+
+func TestWithEOFReader(t *testing.T) {
+	sink := encoding.NewBufferWriter(0, memory.DefaultAllocator)
+	serializer := thrift.NewThriftSerializer()
+	fields := schema.FieldList{
+		schema.NewInt32Node("int_col", parquet.Repetitions.Required, -1),
+	}
+	root, _ := schema.NewGroupNode("schema", parquet.Repetitions.Repeated, fields, -1)
+	schema := schema.NewSchema(root)
+	props := parquet.NewWriterProperties(parquet.WithVersion(parquet.V2_LATEST))
+	builder := metadata.NewFileMetadataBuilder(schema, props, nil)
+	fileMetaData, _ := builder.Finish()
+
+	size, _ := serializer.Serialize(fileMetaData, sink, nil)
+
+	binary.Write(sink, binary.LittleEndian, uint32(size))
+	magic := []byte("PAR1")
+	sink.Write(magic)
+	buf := sink.Finish()
+	defer buf.Release()
+
+	r := bytes.NewReader(buf.Bytes())
+	_, err := file.NewParquetReader(testReader{Reader: r})
+	assert.NoError(t, err)
 }
 
 func TestInvalidHeaders(t *testing.T) {
