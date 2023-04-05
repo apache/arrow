@@ -3143,8 +3143,7 @@ class FixedShapeTensorArray(ExtensionArray):
         """
         Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
         """
-        numpy_type = obj.flatten().dtype
-        arrow_type = from_numpy_dtype(numpy_type)
+        arrow_type = from_numpy_dtype(obj.dtype)
         shape = obj.shape[1:]
         size = obj.size / obj.shape[0]
 
