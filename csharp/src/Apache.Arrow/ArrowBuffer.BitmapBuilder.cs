@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Apache.Arrow.Memory;
+using FlatBuffers;
 
 namespace Apache.Arrow
 {
@@ -92,28 +93,28 @@ namespace Apache.Arrow
             /// <summary>
             /// Append a span of bits.
             /// </summary>
-            /// <param name="source">Source of bit span.</param>
-            /// <param name="validBits">Number of valid bits in the bit span</param>
+            /// <param name="source">Source of bits to append.</param>
+            /// <param name="validBits">Number of valid bits in the source span.</param>
             /// <returns>Returns the builder (for fluent-style composition).</returns>
             public BitmapBuilder Append(ReadOnlySpan<byte> source, int validBits)
-            {
-                var length = source.IsEmpty ? validBits : Math.Min(source.Length * 8, validBits);
-
+            {                
+                if (!source.IsEmpty && validBits > source.Length * 8)
+                    throw new ArgumentException($"Number of valid bits ({validBits}) cannot be greater than the the source span length ({source.Length * 8} bits).", nameof(validBits));
+                
                 // Check if memory copy can be used from the source array (performance optimization for byte-aligned coping)
-                if (!source.IsEmpty && this.Length % 8 == 0)
+                if (!source.IsEmpty && Length % 8 == 0)
                 {
-                    EnsureAdditionalCapacity(length * 8);
-                    source.Slice(0, BitUtility.ByteCount(length)).CopyTo(Span.Slice(Length / 8));
+                    EnsureAdditionalCapacity(validBits);
+                    source.Slice(0, BitUtility.ByteCount(validBits)).CopyTo(Span.Slice(Length / 8));
                     
-                    Length += length;
-                    SetBitCount = BitUtility.CountBits(Span, 0, Length);
-                    
+                    Length += validBits;
+                    SetBitCount += BitUtility.CountBits(source, 0, validBits);
                 }
                 else
                 {
-                    for (int i = 0; i < length; i++)
+                    for (int i = 0; i < validBits; i++)
                     {
-                        this.Append(source.IsEmpty || BitUtility.GetBit(source, i));
+                        Append(source.IsEmpty || BitUtility.GetBit(source, i));
                     }
                 }
 
