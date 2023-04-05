@@ -54,11 +54,17 @@ func (s *diffTestCase) check(t *testing.T) {
 	}
 	defer target.Release()
 
-	gotInserts, gotRunLengths, err := array.Diff(base, target)
+	edits, err := array.Diff(base, target)
 	if err != nil {
 		t.Fatalf("got unexpected error %v", err)
 	}
 
+	gotInserts := make([]bool, len(edits))
+	gotRunLengths := make([]int64, len(edits))
+	for i, edit := range edits {
+		gotInserts[i] = edit.Insert
+		gotRunLengths[i] = edit.RunLength
+	}
 	if !reflect.DeepEqual(gotInserts, s.wantInsert) {
 		t.Errorf("Diff(\n  base=%v, \ntarget=%v\n) got insert %v, want %v", base, target, gotInserts, s.wantInsert)
 	}
@@ -420,42 +426,39 @@ func testRandomCase(t *testing.T, rng *rand.Rand) {
 	}
 	defer target.Release()
 
-	inserts, runLengths, err := array.Diff(base, target)
+	edits, err := array.Diff(base, target)
 	if err != nil {
 		t.Fatalf("got unexpected error %v", err)
 	}
 
-	validateEditScript(t, inserts, runLengths, base, target)
+	validateEditScript(t, edits, base, target)
 }
 
 // validateEditScript checks that the edit script produces target when applied to base.
-func validateEditScript(t *testing.T, inserts []bool, runLengths []int64, base, target arrow.Array) {
-	if len(runLengths) == 0 {
+func validateEditScript(t *testing.T, edits array.Edits, base, target arrow.Array) {
+	if len(edits) == 0 {
 		t.Fatalf("edit script has run length of zero")
-	}
-	if len(runLengths) != len(inserts) {
-		t.Fatalf("edit script has %d run lengths but %d insert flags", len(runLengths), len(inserts))
 	}
 
 	baseIndex := int64(0)
 	targetIndex := int64(0)
-	for i := 0; i < len(runLengths); i++ {
+	for i := 0; i < len(edits); i++ {
 		if i > 0 {
-			if inserts[i] {
+			if edits[i].Insert {
 				targetIndex++
 			} else {
 				baseIndex++
 			}
 		}
-		for j := int64(0); j < runLengths[i]; j++ {
+		for j := int64(0); j < edits[i].RunLength; j++ {
 			if !array.SliceEqual(base, baseIndex, baseIndex+1, target, targetIndex, targetIndex+1) {
-				t.Fatalf("edit script (inserts=%v, runLengths=%v) when applied to base %v does not produce target %v", inserts, runLengths, base, target)
+				t.Fatalf("edit script (%v) when applied to base %v does not produce target %v", edits, base, target)
 			}
 			baseIndex += 1
 			targetIndex += 1
 		}
 	}
 	if baseIndex != int64(base.Len()) || targetIndex != int64(target.Len()) {
-		t.Fatalf("edit script (inserts=%v, runLengths=%v) when applied to base %v does not produce target %v", inserts, runLengths, base, target)
+		t.Fatalf("edit script (%v) when applied to base %v does not produce target %v", edits, base, target)
 	}
 }

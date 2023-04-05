@@ -22,10 +22,14 @@ import (
 	"github.com/apache/arrow/go/v12/arrow"
 )
 
-// Diff compares two arrays, returning an edit script which expresses the difference
-// between them. The edit script can be applied to the base array to produce the target.
-//
-// An edit script represents the difference between two arrays.
+// Edit represents one entry in the edit script to compare two arrays.
+type Edit struct {
+	Insert    bool
+	RunLength int64
+}
+
+// Edits is a slice of Edit structs that represents an edit script to compare two arrays.
+// When applied to the base array, it produces the target array.
 // Each element of "insert" determines whether an element was inserted into (true)
 // or deleted from (false) base. Each insertion or deletion is followed by a run of
 // elements which are unchanged from base to target; the length of this run is stored
@@ -41,19 +45,23 @@ import (
 //	{"insert": false, "run_length": 0} // delete("o") then an empty run
 //
 // ]
-// base: baseline for comparison
-// target: an array of identical type to base whose elements differ from base's
-func Diff(base, target arrow.Array) (inserts []bool, runLengths []int64, err error) {
+type Edits []Edit
+
+// Diff compares two arrays, returning an edit script which expresses the difference
+// between them. The edit script can be applied to the base array to produce the target.
+// 'base' is a baseline for comparison.
+// 'target' is an array of identical type to base whose elements differ from base's.
+func Diff(base, target arrow.Array) (edits Edits, err error) {
 	if !arrow.TypeEqual(base.DataType(), target.DataType()) {
-		return nil, nil, fmt.Errorf("%w: only taking the diff of like-typed arrays is supported", arrow.ErrNotImplemented)
+		return nil, fmt.Errorf("%w: only taking the diff of like-typed arrays is supported", arrow.ErrNotImplemented)
 	}
 	switch base.DataType().ID() {
 	case arrow.EXTENSION:
 		return Diff(base.(ExtensionArray).Storage(), target.(ExtensionArray).Storage())
 	case arrow.DICTIONARY:
-		return nil, nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType())
+		return nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType())
 	case arrow.RUN_END_ENCODED:
-		return nil, nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType())
+		return nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType())
 	}
 	d := newQuadraticSpaceMyersDiff(base, target)
 	return d.Diff()
@@ -199,20 +207,19 @@ func (d *quadraticSpaceMyersDiff) Done() bool {
 	return d.finishIndex != -1
 }
 
-func (d *quadraticSpaceMyersDiff) GetEdits() (inserts []bool, runLengths []int64, err error) {
+func (d *quadraticSpaceMyersDiff) GetEdits() (Edits, error) {
 	if !d.Done() {
 		panic("GetEdits called but Done() = false")
 	}
 
 	length := d.editCount + 1
-	inserts = make([]bool, length)
-	runLengths = make([]int64, length)
+	edits := make(Edits, length)
 	index := d.finishIndex
 	endpoint := d.getEditPoint(d.editCount, d.finishIndex)
 
 	for i := d.editCount; i > 0; i-- {
 		insert := d.insert[index]
-		inserts[i] = insert
+		edits[i].Insert = insert
 		insertionsMinusDeletions := (endpoint.base - d.baseBegin) - (endpoint.target - d.targetBegin)
 		if insert {
 			insertionsMinusDeletions++
@@ -227,16 +234,16 @@ func (d *quadraticSpaceMyersDiff) GetEdits() (inserts []bool, runLengths []int64
 		if insert {
 			in = 1
 		}
-		runLengths[i] = int64(endpoint.base - previous.base - (1 - in))
+		edits[i].RunLength = int64(endpoint.base - previous.base - (1 - in))
 		endpoint = previous
 	}
-	inserts[0] = false
-	runLengths[0] = int64(endpoint.base - d.baseBegin)
+	edits[0].Insert = false
+	edits[0].RunLength = int64(endpoint.base - d.baseBegin)
 
-	return inserts, runLengths, nil
+	return edits, nil
 }
 
-func (d *quadraticSpaceMyersDiff) Diff() (inserts []bool, runLengths []int64, err error) {
+func (d *quadraticSpaceMyersDiff) Diff() (edits Edits, err error) {
 	for !d.Done() {
 		d.Next()
 	}
