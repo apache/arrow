@@ -3099,7 +3099,7 @@ class FixedShapeTensorArray(ExtensionArray):
     Define the extension type for tensor array
 
     >>> import pyarrow as pa
-    >>> tensor_type = FixedShapeTensorType(pa.int32(), [2, 2])
+    >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), [2, 2])
 
     Create an extension array
 
