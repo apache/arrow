@@ -1504,14 +1504,14 @@ cdef class FixedShapeTensorType(BaseExtensionType):
     Create an instance of fixed shape tensor extension type:
 
     >>> import pyarrow as pa
-    >>> pa.fixedshapetensor(pa.int32(), [2, 2])
+    >>> pa.fixed_shape_tensor(pa.int32(), [2, 2])
     FixedShapeTensorType(extension<arrow.fixed_shape_tensor>)
 
     Create an instance of fixed shape tensor extension type with
     permutation:
 
-    >>> tensor_type = pa.fixedshapetensor(pa.int8(), (2, 2, 3),
-    ...                                   permutation=[0, 2, 1])
+    >>> tensor_type = pa.fixed_shape_tensor(pa.int8(), (2, 2, 3),
+    ...                                     permutation=[0, 2, 1])
     >>> tensor_type.permutation
     [0, 2, 1]
     """
@@ -4615,7 +4615,7 @@ def run_end_encoded(run_end_type, value_type):
     return pyarrow_wrap_data_type(ree_type)
 
 
-def fixedshapetensor(DataType value_type, shape, dim_names=None, permutation=None):
+def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=None):
     """
     Create instance of fixed shape tensor extension type with shape and optional
     names of tensor dimensions and indices of the desired ordering.
@@ -4636,7 +4636,7 @@ def fixedshapetensor(DataType value_type, shape, dim_names=None, permutation=Non
     Create an instance of fixed shape tensor extension type:
 
     >>> import pyarrow as pa
-    >>> tensor_type = pa.fixedshapetensor(pa.int32(), [2, 2])
+    >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), [2, 2])
     >>> tensor_type
     FixedShapeTensorType(extension<arrow.fixed_shape_tensor>)
 
@@ -4661,16 +4661,16 @@ def fixedshapetensor(DataType value_type, shape, dim_names=None, permutation=Non
     Create an instance of fixed shape tensor extension type with names
     of tensor dimensions:
 
-    >>> tensor_type = pa.fixedshapetensor(pa.int8(), (2, 2, 3),
-    ...                                   dim_names=['C', 'H', 'W'])
+    >>> tensor_type = pa.fixed_shape_tensor(pa.int8(), (2, 2, 3),
+    ...                                     dim_names=['C', 'H', 'W'])
     >>> tensor_type.dim_names
     [b'C', b'H', b'W']
 
     Create an instance of fixed shape tensor extension type with
     permutation:
 
-    >>> tensor_type = pa.fixedshapetensor(pa.int8(), (2, 2, 3),
-    ...                                   permutation=[0, 2, 1])
+    >>> tensor_type = pa.fixed_shape_tensor(pa.int8(), (2, 2, 3),
+    ...                                     permutation=[0, 2, 1])
     >>> tensor_type.permutation
     [0, 2, 1]
 

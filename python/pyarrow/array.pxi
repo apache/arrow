@@ -3148,7 +3148,7 @@ class FixedShapeTensorArray(ExtensionArray):
         size = obj.size / obj.shape[0]
 
         return ExtensionArray.from_storage(
-            fixedshapetensor(arrow_type, shape),
+            fixed_shape_tensor(arrow_type, shape),
             FixedSizeListArray.from_arrays(obj.flatten(), size)
         )
 
