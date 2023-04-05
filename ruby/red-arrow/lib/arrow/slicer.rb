@@ -162,6 +162,10 @@ module Arrow
       def reject(&block)
         RejectCondition.new(@column, block)
       end
+
+      def match_substring(value, ignore_case: false)
+        MatchSubstringCondition.new(@column, value, ignore_case)
+      end
     end
 
     class NotColumnCondition < Condition
@@ -349,6 +353,19 @@ module Arrow
           end
         end
         BooleanArray.new(raw_array)
+      end
+    end
+
+    class MatchSubstringCondition < Condition
+      def initialize(column, value, ignore_case)
+        @column = column
+        @options = MatchSubstringOptions.new
+        @options.pattern = value
+        @options.ignore_case = true if ignore_case
+      end
+
+      def evaluate
+        Function.find("match_substring").execute([@column.data], @options).value
       end
     end
   end

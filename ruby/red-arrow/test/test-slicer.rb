@@ -37,6 +37,10 @@ class SlicerTest < Test::Unit::TestCase
     @count_array = Arrow::ChunkedArray.new(count_arrays)
     @visible_array = Arrow::ChunkedArray.new(visible_arrays)
     @table = Arrow::Table.new(schema, [@count_array, @visible_array])
+
+    # Test data for the sub string slicers
+    @string_table = Arrow::Table.new(index: [*1..5],
+                                     string: ["array", "Arrow", "carrot", nil, "window"])
   end
 
   sub_test_case("column") do
@@ -482,6 +486,31 @@ class SlicerTest < Test::Unit::TestCase
 5	    64	 (null)
 6	(null)	 (null)
 7	   256	true   
+    TABLE
+  end
+
+  test("match_substring") do
+    sliced_table = @string_table.slice do |slicer|
+      slicer.string.match_substring("arr")
+    end
+    assert_equal(<<~TABLE, sliced_table.to_s)
+	 index	string
+0	     1	array 
+1	     3	carrot
+2	(null)	(null)
+    TABLE
+  end
+
+  test("match_substring with ignore_case option") do
+    sliced_table = @string_table.slice do |slicer|
+      slicer.string.match_substring("arr", ignore_case: true)
+    end
+    assert_equal(<<~TABLE, sliced_table.to_s)
+	 index	string
+0	     1	array 
+1	     2	Arrow 
+2	     3	carrot
+3	(null)	(null)
     TABLE
   end
 end
