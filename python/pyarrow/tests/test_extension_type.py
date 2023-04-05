@@ -1155,7 +1155,8 @@ def test_tensor_type():
     assert not tensor_type.permutation
 
 
-def test_tensor_class_methods():
+@pytest.mark.parametrize("numpy_order", ('C', 'F'))
+def test_tensor_class_methods(numpy_order):
     tensor_type = pa.fixed_shape_tensor(pa.float32(), [2, 3])
     storage = pa.array([[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]],
                        pa.list_(pa.float32(), 6))
@@ -1166,7 +1167,10 @@ def test_tensor_class_methods():
     result = arr.to_numpy_ndarray()
     np.testing.assert_array_equal(result, expected)
 
-    tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(expected)
+    arr = np.array(
+        [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]],
+        dtype=np.float32, order=numpy_order)
+    tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
     assert isinstance(tensor_array_from_numpy.type, pa.FixedShapeTensorType)
     assert tensor_array_from_numpy.type.value_type == pa.float32()
     assert tensor_array_from_numpy.type.shape == [2, 3]
