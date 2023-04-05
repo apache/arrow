@@ -129,15 +129,3 @@ func TypeEqual(left, right DataType, opts ...TypeEqualOption) bool {
 		return reflect.DeepEqual(left, right)
 	}
 }
-
-// StorageTypeEqual checks if the underlying storage of two DataType are the same,
-// optionally checking metadata equality for STRUCT types by passing to TypeEqual
-func StorageTypeEqual(left, right DataType, opts ...TypeEqualOption) bool {
-	if leftExt, ok := left.(ExtensionType); ok {
-		left = leftExt.StorageType()
-	}
-	if rightExt, ok := right.(ExtensionType); ok {
-		right = rightExt.StorageType()
-	}
-	return TypeEqual(left, right, opts...)
-}

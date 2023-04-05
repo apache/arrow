@@ -1532,12 +1532,13 @@ func (ps *ParquetIOTestSuite) TestArrowMapTypeRoundTrip() {
 }
 
 func (ps *ParquetIOTestSuite) TestArrowExtensionTypeRoundTrip() {
-	var testUUID = uuid.New()
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
 
-	extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, types.NewUUIDType())
+	extBuilder := array.NewExtensionBuilder(mem, types.NewUUIDType())
 	defer extBuilder.Release()
 	builder := types.NewUUIDBuilder(extBuilder)
-	builder.Append(testUUID)
+	builder.Append(uuid.New())
 	arr := builder.NewArray()
 	defer arr.Release()
 

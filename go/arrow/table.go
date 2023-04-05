@@ -96,7 +96,7 @@ func NewColumn(field Field, chunks *Chunked) *Column {
 	}
 	col.data.Retain()
 
-	if !StorageTypeEqual(col.data.DataType(), col.field.Type) {
+	if !TypeEqual(col.data.DataType(), col.field.Type) {
 		col.data.Release()
 		panic(fmt.Errorf("%w: arrow/array: inconsistent data type %s vs %s", ErrInvalid, col.data.DataType(), col.field.Type))
 	}

@@ -459,13 +459,13 @@ func chunksToSingle(chunked *arrow.Chunked) (arrow.ArrayData, error) {
 
 // create a chunked arrow array from the raw record data
 func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *schema.Column, mem memory.Allocator) (*arrow.Chunked, error) {
-	valueID := valueType.ID()
-	if valueID == arrow.EXTENSION {
-		valueID = valueType.(arrow.ExtensionType).StorageType().ID()
+	dt := valueType
+	if valueType.ID() == arrow.EXTENSION {
+		dt = valueType.(arrow.ExtensionType).StorageType()
 	}
 
 	var data arrow.ArrayData
-	switch valueID {
+	switch dt.ID() {
 	case arrow.DICTIONARY:
 		return transferDictionary(rdr, valueType), nil
 	case arrow.NULL:
@@ -543,21 +543,26 @@ func transferBinary(rdr file.RecordReader, dt arrow.DataType) *arrow.Chunked {
 		return transferDictionary(brdr, &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: dt})
 	}
 	chunks := brdr.GetBuilderChunks()
-	if dt == arrow.BinaryTypes.String || dt == arrow.BinaryTypes.LargeString {
-		// convert chunks from binary to string without copying data,
-		// just changing the interpretation of the metadata
-		for idx := range chunks {
-			chunks[idx] = array.MakeFromData(chunks[idx].Data())
-			defer chunks[idx].Data().Release()
-			defer chunks[idx].Release()
-		}
-	} else if dt.ID() == arrow.EXTENSION && len(chunks) > 0 && arrow.StorageTypeEqual(chunks[0].DataType(), dt) && !arrow.TypeEqual(chunks[0].DataType(), dt) {
-		// convert chunks from the underlying storage type to extension type without copying data
-		etype := dt.(arrow.ExtensionType)
+	storage := dt
+	if dt.ID() == arrow.EXTENSION {
+		storage = dt.(arrow.ExtensionType).StorageType()
+	}
+	if storage == arrow.BinaryTypes.String || storage == arrow.BinaryTypes.LargeString || dt.ID() == arrow.EXTENSION {
+		if storage != dt {
+			etype := dt.(arrow.ExtensionType)
 
-		for idx := range chunks {
-			chunks[idx] = array.NewExtensionArrayWithStorage(etype, chunks[idx])
-			defer chunks[idx].Release()
+			for idx, chk := range chunks {
+				chunks[idx] = array.NewExtensionArrayWithStorage(etype, chk)
+				chk.Release() // NewExtensionArrayWithStorage will call retain on chk, so it still needs to be released
+				defer chunks[idx].Release()
+			}
+		} else {
+			for idx := range chunks {
+				prev := chunks[idx]
+				chunks[idx] = array.MakeFromData(chunks[idx].Data())
+				prev.Release()
+				defer chunks[idx].Release()
+			}
 		}
 	}
 	return arrow.NewChunked(dt, chunks)
