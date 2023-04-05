@@ -316,25 +316,9 @@ Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
     int64_t logical_length, int64_t physical_length, int64_t physical_null_count,
     MemoryPool* pool, int64_t data_buffer_size);
 
-template <typename RunEndType>
-Result<std::shared_ptr<ArrayData>> PreallocateNullREEArray(int64_t logical_length,
-                                                           int64_t physical_length,
-                                                           MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(
-      auto run_ends_buffer,
-      AllocateBuffer(TypeTraits<RunEndType>::bytes_required(physical_length), pool));
-
-  auto ree_type =
-      std::make_shared<RunEndEncodedType>(std::make_shared<RunEndType>(), null());
-  auto run_ends_data = ArrayData::Make(std::make_shared<RunEndType>(), physical_length,
-                                       {NULLPTR, std::move(run_ends_buffer)},
-                                       /*null_count=*/0);
-  auto values_data = ArrayData::Make(null(), physical_length, {NULLPTR},
-                                     /*null_count=*/physical_length);
-  return ArrayData::Make(std::move(ree_type), logical_length, {NULLPTR},
-                         {std::move(run_ends_data), std::move(values_data)},
-                         /*null_count=*/0);
-}
+Result<std::shared_ptr<ArrayData>> PreallocateNullREEArray(
+    const std::shared_ptr<DataType>& run_end_type, int64_t logical_length,
+    int64_t physical_length, MemoryPool* pool);
 
 }  // namespace ree_util
 }  // namespace internal

@@ -97,6 +97,25 @@ Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
                          /*null_count=*/0);
 }
 
+Result<std::shared_ptr<ArrayData>> PreallocateNullREEArray(
+    const std::shared_ptr<DataType>& run_end_type, int64_t logical_length,
+    int64_t physical_length, MemoryPool* pool) {
+  DCHECK(is_run_end_type(run_end_type->id()));
+  ARROW_ASSIGN_OR_RAISE(
+      auto run_ends_buffer,
+      AllocateBuffer(run_end_type->byte_width() * physical_length, pool));
+
+  auto ree_type = std::make_shared<RunEndEncodedType>(run_end_type, null());
+  auto run_ends_data = ArrayData::Make(run_end_type, physical_length,
+                                       {NULLPTR, std::move(run_ends_buffer)},
+                                       /*null_count=*/0);
+  auto values_data = ArrayData::Make(null(), physical_length, {NULLPTR},
+                                     /*null_count=*/physical_length);
+  return ArrayData::Make(std::move(ree_type), logical_length, {NULLPTR},
+                         {std::move(run_ends_data), std::move(values_data)},
+                         /*null_count=*/0);
+}
+
 }  // namespace ree_util
 }  // namespace internal
 }  // namespace compute

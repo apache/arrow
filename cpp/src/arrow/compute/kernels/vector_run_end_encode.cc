@@ -211,6 +211,7 @@ template <typename RunEndType>
 Status RunEndEncodeNullArray(KernelContext* ctx, const ArraySpan& input_array,
                              ExecResult* output) {
   using RunEndCType = typename RunEndType::c_type;
+  auto run_end_type = TypeTraits<RunEndType>::type_singleton();
 
   const int64_t input_length = input_array.length;
   DCHECK(input_array.type->id() == Type::NA);
@@ -218,7 +219,7 @@ Status RunEndEncodeNullArray(KernelContext* ctx, const ArraySpan& input_array,
   if (input_length == 0) {
     ARROW_ASSIGN_OR_RAISE(
         auto output_array_data,
-        ree_util::PreallocateNullREEArray<RunEndType>(0, 0, ctx->memory_pool()));
+        ree_util::PreallocateNullREEArray(run_end_type, 0, 0, ctx->memory_pool()));
     output->value = std::move(output_array_data);
     return Status::OK();
   }
@@ -226,9 +227,9 @@ Status RunEndEncodeNullArray(KernelContext* ctx, const ArraySpan& input_array,
   // Abort if run-end type cannot hold the input length
   RETURN_NOT_OK(ValidateRunEndType<RunEndType>(input_array.length));
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto output_array_data,
-      ree_util::PreallocateNullREEArray<RunEndType>(input_length, 1, ctx->memory_pool()));
+  ARROW_ASSIGN_OR_RAISE(auto output_array_data,
+                        ree_util::PreallocateNullREEArray(run_end_type, input_length, 1,
+                                                          ctx->memory_pool()));
 
   // Write the single run-end this REE has
   auto* output_run_ends =
