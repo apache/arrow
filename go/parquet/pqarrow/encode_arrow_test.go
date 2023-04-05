@@ -138,7 +138,7 @@ func TestWriteArrowCols(t *testing.T) {
 	manifest, err := pqarrow.NewSchemaManifest(psc, nil, nil)
 	require.NoError(t, err)
 
-	sink := encoding.NewBufferWriter(0, memory.DefaultAllocator)
+	sink := encoding.NewBufferWriter(0, mem)
 	writer := file.NewParquetWriter(sink, psc.Root(), file.WithWriterProps(parquet.NewWriterProperties(parquet.WithVersion(parquet.V2_4))))
 
 	srgw := writer.AppendRowGroup()
@@ -239,7 +239,7 @@ func TestWriteArrowInt96(t *testing.T) {
 	manifest, err := pqarrow.NewSchemaManifest(psc, nil, nil)
 	require.NoError(t, err)
 
-	sink := encoding.NewBufferWriter(0, memory.DefaultAllocator)
+	sink := encoding.NewBufferWriter(0, mem)
 	writer := file.NewParquetWriter(sink, psc.Root())
 
 	srgw := writer.AppendRowGroup()
@@ -316,13 +316,16 @@ func writeTableToBuffer(t *testing.T, tbl arrow.Table, rowGroupSize int64, props
 }
 
 func simpleRoundTrip(t *testing.T, tbl arrow.Table, rowGroupSize int64) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
 	buf := writeTableToBuffer(t, tbl, rowGroupSize, pqarrow.DefaultWriterProps())
 	defer buf.Release()
 
 	rdr, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
 	require.NoError(t, err)
 
-	ardr, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{}, memory.DefaultAllocator)
+	ardr, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{}, mem)
 	require.NoError(t, err)
 
 	for i := 0; i < int(tbl.NumCols()); i++ {
@@ -522,79 +525,82 @@ func (ps *ParquetIOTestSuite) makeSimpleSchema(typ arrow.DataType, rep parquet.R
 }
 
 func (ps *ParquetIOTestSuite) makePrimitiveTestCol(size int, typ arrow.DataType) arrow.Array {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
 	switch typ.ID() {
 	case arrow.BOOL:
-		bldr := array.NewBooleanBuilder(memory.DefaultAllocator)
+		bldr := array.NewBooleanBuilder(mem)
 		defer bldr.Release()
 		for i := 0; i < size; i++ {
 			bldr.Append(boolTestValue)
 		}
 		return bldr.NewArray()
 	case arrow.INT8:
-		bldr := array.NewInt8Builder(memory.DefaultAllocator)
+		bldr := array.NewInt8Builder(mem)
 		defer bldr.Release()
 		for i := 0; i < size; i++ {
 			bldr.Append(int8TestVal)
 		}
 		return bldr.NewArray()
 	case arrow.UINT8:
-		bldr := array.NewUint8Builder(memory.DefaultAllocator)
+		bldr := array.NewUint8Builder(mem)
 		defer bldr.Release()
 		for i := 0; i < size; i++ {
 			bldr.Append(uint8TestVal)
 		}
 		return bldr.NewArray()
 	case arrow.INT16:
-		bldr := array.NewInt16Builder(memory.DefaultAllocator)
+		bldr := array.NewInt16Builder(mem)
 		defer bldr.Release()
 		for i := 0; i < size; i++ {
 			bldr.Append(int16TestVal)
 		}
 		return bldr.NewArray()
 	case arrow.UINT16:
-		bldr := array.NewUint16Builder(memory.DefaultAllocator)
+		bldr := array.NewUint16Builder(mem)
 		defer bldr.Release()
 		for i := 0; i < size; i++ {
 			bldr.Append(uint16TestVal)
 		}
 		return bldr.NewArray()
 	case arrow.INT32:
-		bldr := array.NewInt32Builder(memory.DefaultAllocator)
+		bldr := array.NewInt32Builder(mem)
 		defer bldr.Release()
 		for i := 0; i < size; i++ {
 			bldr.Append(int32TestVal)
 		}
 		return bldr.NewArray()
 	case arrow.UINT32:
-		bldr := array.NewUint32Builder(memory.DefaultAllocator)
+		bldr := array.NewUint32Builder(mem)
 		defer bldr.Release()
 		for i := 0; i < size; i++ {
 			bldr.Append(uint32TestVal)
 		}
 		return bldr.NewArray()
 	case arrow.INT64:
-		bldr := array.NewInt64Builder(memory.DefaultAllocator)
+		bldr := array.NewInt64Builder(mem)
 		defer bldr.Release()
 		for i := 0; i < size; i++ {
 			bldr.Append(int64TestVal)
 		}
 		return bldr.NewArray()
 	case arrow.UINT64:
-		bldr := array.NewUint64Builder(memory.DefaultAllocator)
+		bldr := array.NewUint64Builder(mem)
 		defer bldr.Release()
 		for i := 0; i < size; i++ {
 			bldr.Append(uint64TestVal)
 		}
 		return bldr.NewArray()
 	case arrow.FLOAT32:
-		bldr := array.NewFloat32Builder(memory.DefaultAllocator)
+		bldr := array.NewFloat32Builder(mem)
 		defer bldr.Release()
 		for i := 0; i < size; i++ {
 			bldr.Append(floatTestVal)
 		}
 		return bldr.NewArray()
 	case arrow.FLOAT64:
-		bldr := array.NewFloat64Builder(memory.DefaultAllocator)
+		bldr := array.NewFloat64Builder(mem)
 		defer bldr.Release()
 		for i := 0; i < size; i++ {
 			bldr.Append(doubleTestVal)
@@ -605,8 +611,11 @@ func (ps *ParquetIOTestSuite) makePrimitiveTestCol(size int, typ arrow.DataType)
 }
 
 func (ps *ParquetIOTestSuite) makeTestFile(typ arrow.DataType, arr arrow.Array, numChunks int) []byte {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
 	sc := ps.makeSimpleSchema(typ, parquet.Repetitions.Required)
-	sink := encoding.NewBufferWriter(0, memory.DefaultAllocator)
+	sink := encoding.NewBufferWriter(0, mem)
 	writer := file.NewParquetWriter(sink, sc)
 
 	ctx := pqarrow.NewArrowWriteContext(context.TODO(), nil)
@@ -629,10 +638,13 @@ func (ps *ParquetIOTestSuite) makeTestFile(typ arrow.DataType, arr arrow.Array, 
 }
 
 func (ps *ParquetIOTestSuite) createReader(data []byte) *pqarrow.FileReader {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
 	rdr, err := file.NewParquetReader(bytes.NewReader(data))
 	ps.NoError(err)
 
-	reader, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{}, memory.DefaultAllocator)
+	reader, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{}, mem)
 	ps.NoError(err)
 	return reader
 }
@@ -741,9 +753,9 @@ func (ps *ParquetIOTestSuite) TestLargeBinaryReadWriteTable() {
 
 	// While we may write using LargeString, when we read, we get an array.String back out.
 	// So we're building a normal array.String to use with array.Equal
-	lsBldr := array.NewLargeStringBuilder(memory.DefaultAllocator)
+	lsBldr := array.NewLargeStringBuilder(mem)
 	defer lsBldr.Release()
-	lbBldr := array.NewBinaryBuilder(memory.DefaultAllocator, arrow.BinaryTypes.LargeBinary)
+	lbBldr := array.NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
 	defer lbBldr.Release()
 
 	for i := 0; i < smallSize; i++ {
@@ -824,6 +836,9 @@ func (ps *ParquetIOTestSuite) TestSingleColumnRequiredRead() {
 }
 
 func (ps *ParquetIOTestSuite) TestReadDecimals() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
 	bigEndian := []parquet.ByteArray{
 		// 123456
 		[]byte{1, 226, 64},
@@ -833,7 +848,7 @@ func (ps *ParquetIOTestSuite) TestReadDecimals() {
 		[]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 29, 192},
 	}
 
-	bldr := array.NewDecimal128Builder(memory.DefaultAllocator, &arrow.Decimal128Type{Precision: 6, Scale: 3})
+	bldr := array.NewDecimal128Builder(mem, &arrow.Decimal128Type{Precision: 6, Scale: 3})
 	defer bldr.Release()
 
 	bldr.Append(decimal128.FromU64(123456))
@@ -847,7 +862,7 @@ func (ps *ParquetIOTestSuite) TestReadDecimals() {
 		schema.Must(schema.NewPrimitiveNodeLogical("decimals", parquet.Repetitions.Required, schema.NewDecimalLogicalType(6, 3), parquet.Types.ByteArray, -1, -1)),
 	}, -1))
 
-	sink := encoding.NewBufferWriter(0, memory.DefaultAllocator)
+	sink := encoding.NewBufferWriter(0, mem)
 	writer := file.NewParquetWriter(sink, sc)
 
 	rgw := writer.AppendRowGroup()
@@ -1176,10 +1191,13 @@ func (ps *ParquetIOTestSuite) TestSingleNullableListRequiredListRequiredColumnRe
 }
 
 func (ps *ParquetIOTestSuite) TestSimpleStruct() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
 	links := arrow.StructOf(arrow.Field{Name: "Backward", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
 		arrow.Field{Name: "Forward", Type: arrow.PrimitiveTypes.Int64, Nullable: true})
 
-	bldr := array.NewStructBuilder(memory.DefaultAllocator, links)
+	bldr := array.NewStructBuilder(mem, links)
 	defer bldr.Release()
 
 	backBldr := bldr.FieldBuilder(0).(*array.Int64Builder)
@@ -1204,8 +1222,11 @@ func (ps *ParquetIOTestSuite) TestSimpleStruct() {
 }
 
 func (ps *ParquetIOTestSuite) TestSingleColumnNullableStruct() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
 	links := arrow.StructOf(arrow.Field{Name: "Backward", Type: arrow.PrimitiveTypes.Int64, Nullable: true})
-	bldr := array.NewStructBuilder(memory.DefaultAllocator, links)
+	bldr := array.NewStructBuilder(mem, links)
 	defer bldr.Release()
 
 	backBldr := bldr.FieldBuilder(0).(*array.Int64Builder)
@@ -1225,8 +1246,11 @@ func (ps *ParquetIOTestSuite) TestSingleColumnNullableStruct() {
 }
 
 func (ps *ParquetIOTestSuite) TestNestedRequiredFieldStruct() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
 	intField := arrow.Field{Name: "int_array", Type: arrow.PrimitiveTypes.Int32}
-	intBldr := array.NewInt32Builder(memory.DefaultAllocator)
+	intBldr := array.NewInt32Builder(mem)
 	defer intBldr.Release()
 	intBldr.AppendValues([]int32{0, 1, 2, 3, 4, 5, 7, 8}, nil)
 
@@ -1251,8 +1275,11 @@ func (ps *ParquetIOTestSuite) TestNestedRequiredFieldStruct() {
 }
 
 func (ps *ParquetIOTestSuite) TestNestedNullableField() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
 	intField := arrow.Field{Name: "int_array", Type: arrow.PrimitiveTypes.Int32, Nullable: true}
-	intBldr := array.NewInt32Builder(memory.DefaultAllocator)
+	intBldr := array.NewInt32Builder(mem)
 	defer intBldr.Release()
 	intBldr.AppendValues([]int32{0, 1, 2, 3, 4, 5, 7, 8}, []bool{true, false, true, false, true, true, false, true})
 
@@ -1277,6 +1304,9 @@ func (ps *ParquetIOTestSuite) TestNestedNullableField() {
 }
 
 func (ps *ParquetIOTestSuite) TestCanonicalNestedRoundTrip() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
 	docIdField := arrow.Field{Name: "DocID", Type: arrow.PrimitiveTypes.Int64}
 	linksField := arrow.Field{Name: "Links", Type: arrow.StructOf(
 		arrow.Field{Name: "Backward", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
@@ -1292,15 +1322,15 @@ func (ps *ParquetIOTestSuite) TestCanonicalNestedRoundTrip() {
 	nameField := arrow.Field{Name: "Name", Type: arrow.ListOf(nameStruct)}
 	sc := arrow.NewSchema([]arrow.Field{docIdField, linksField, nameField}, nil)
 
-	docIDArr, _, err := array.FromJSON(memory.DefaultAllocator, docIdField.Type, strings.NewReader("[10, 20]"))
+	docIDArr, _, err := array.FromJSON(mem, docIdField.Type, strings.NewReader("[10, 20]"))
 	ps.Require().NoError(err)
 	defer docIDArr.Release()
 
-	linksIDArr, _, err := array.FromJSON(memory.DefaultAllocator, linksField.Type, strings.NewReader(`[{"Backward":[], "Forward":[20, 40, 60]}, {"Backward":[10, 30], "Forward": [80]}]`))
+	linksIDArr, _, err := array.FromJSON(mem, linksField.Type, strings.NewReader(`[{"Backward":[], "Forward":[20, 40, 60]}, {"Backward":[10, 30], "Forward": [80]}]`))
 	ps.Require().NoError(err)
 	defer linksIDArr.Release()
 
-	nameArr, _, err := array.FromJSON(memory.DefaultAllocator, nameField.Type, strings.NewReader(`
+	nameArr, _, err := array.FromJSON(mem, nameField.Type, strings.NewReader(`
 			[[{"Language": [{"Code": "en_us", "Country": "us"},
 							{"Code": "en_us", "Country": null}],
 			   "Url": "http://A"},
@@ -1320,7 +1350,10 @@ func (ps *ParquetIOTestSuite) TestCanonicalNestedRoundTrip() {
 }
 
 func (ps *ParquetIOTestSuite) TestFixedSizeList() {
-	bldr := array.NewFixedSizeListBuilder(memory.DefaultAllocator, 3, arrow.PrimitiveTypes.Int16)
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	bldr := array.NewFixedSizeListBuilder(mem, 3, arrow.PrimitiveTypes.Int16)
 	defer bldr.Release()
 
 	vb := bldr.ValueBuilder().(*array.Int16Builder)
@@ -1337,7 +1370,10 @@ func (ps *ParquetIOTestSuite) TestFixedSizeList() {
 }
 
 func (ps *ParquetIOTestSuite) TestNull() {
-	bldr := array.NewNullBuilder(memory.DefaultAllocator)
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	bldr := array.NewNullBuilder(mem)
 	defer bldr.Release()
 
 	bldr.AppendNull()
@@ -1359,7 +1395,10 @@ func (ps *ParquetIOTestSuite) TestNull() {
 
 // ARROW-17169
 func (ps *ParquetIOTestSuite) TestNullableListOfStruct() {
-	bldr := array.NewListBuilder(memory.DefaultAllocator, arrow.StructOf(
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	bldr := array.NewListBuilder(mem, arrow.StructOf(
 		arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int32},
 		arrow.Field{Name: "b", Type: arrow.BinaryTypes.String},
 	))
@@ -1394,7 +1433,10 @@ func (ps *ParquetIOTestSuite) TestNullableListOfStruct() {
 }
 
 func (ps *ParquetIOTestSuite) TestStructWithListOfNestedStructs() {
-	bldr := array.NewStructBuilder(memory.DefaultAllocator, arrow.StructOf(
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	bldr := array.NewStructBuilder(mem, arrow.StructOf(
 		arrow.Field{
 			Nullable: true,
 			Name:     "l",
@@ -1500,7 +1542,10 @@ func TestBufferedRecWrite(t *testing.T) {
 }
 
 func (ps *ParquetIOTestSuite) TestArrowMapTypeRoundTrip() {
-	bldr := array.NewMapBuilder(memory.DefaultAllocator, arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32, false)
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	bldr := array.NewMapBuilder(mem, arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32, false)
 	defer bldr.Release()
 
 	kb := bldr.KeyBuilder().(*array.StringBuilder)
@@ -1551,7 +1596,7 @@ func (ps *ParquetIOTestSuite) TestArrowExtensionTypeRoundTrip() {
 }
 
 func TestWriteTableMemoryAllocation(t *testing.T) {
-	allocator := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	sc := arrow.NewSchema([]arrow.Field{
 		{Name: "f32", Type: arrow.PrimitiveTypes.Float32, Nullable: true},
 		{Name: "i32", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
@@ -1562,7 +1607,7 @@ func TestWriteTableMemoryAllocation(t *testing.T) {
 		{Name: "uuid", Type: types.NewUUIDType(), Nullable: true},
 	}, nil)
 
-	bld := array.NewRecordBuilder(allocator, sc)
+	bld := array.NewRecordBuilder(mem, sc)
 	bld.Field(0).(*array.Float32Builder).Append(1.0)
 	bld.Field(1).(*array.Int32Builder).Append(1)
 	sbld := bld.Field(2).(*array.StructBuilder)
@@ -1580,12 +1625,12 @@ func TestWriteTableMemoryAllocation(t *testing.T) {
 	var buf bytes.Buffer
 	wr, err := pqarrow.NewFileWriter(sc, &buf,
 		parquet.NewWriterProperties(parquet.WithCompression(compress.Codecs.Snappy)),
-		pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(allocator)))
+		pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
 	require.NoError(t, err)
 
 	require.NoError(t, wr.Write(rec))
 	rec.Release()
 	wr.Close()
 
-	require.Zero(t, allocator.CurrentAlloc())
+	require.Zero(t, mem.CurrentAlloc())
 }
