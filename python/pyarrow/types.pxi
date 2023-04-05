@@ -4672,7 +4672,7 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
     >>> tensor_type = pa.fixed_shape_tensor(pa.int8(), (2, 2, 3),
     ...                                     dim_names=['C', 'H', 'W'])
     >>> tensor_type.dim_names
-    [b'C', b'H', b'W']
+    ['C', 'H', 'W']
 
     Create an instance of fixed shape tensor extension type with
     permutation:
