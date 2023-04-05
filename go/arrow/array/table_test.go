@@ -17,6 +17,7 @@
 package array_test
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -157,13 +158,17 @@ func TestChunkedInvalid(t *testing.T) {
 		if e == nil {
 			t.Fatalf("expected a panic")
 		}
-		errStr, ok := e.(string)
+
+		err, ok := e.(error)
 		if !ok {
-			err := e.(error)
-			errStr = err.Error()
+			t.Fatalf("expected an error")
 		}
 
-		if got, want := errStr, fmt.Sprintf("%s: arrow/array: mismatch data type float64 vs int32", arrow.ErrInvalid); got != want {
+		if !errors.Is(err, arrow.ErrInvalid) {
+			t.Fatalf("should be an ErrInvalid")
+		}
+
+		if got, want := err.Error(), fmt.Sprintf("%s: arrow/array: mismatch data type float64 vs int32", arrow.ErrInvalid); got != want {
 			t.Fatalf("invalid error. got=%q, want=%q", got, want)
 		}
 	}()
