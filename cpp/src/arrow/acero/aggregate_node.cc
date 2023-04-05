@@ -316,8 +316,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
 
     // Output the segment keys first, followed by the aggregates
     for (size_t i = 0; i < segment_keys.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(fields[i],
-                            segment_keys[i].GetOne(input_schema));
+      ARROW_ASSIGN_OR_RAISE(fields[i], segment_keys[i].GetOne(input_schema));
     }
 
     std::vector<std::vector<int>> target_fieldsets(kernels.size());
@@ -711,11 +710,6 @@ class GroupByNode : public ExecNode, public TracedNode {
     if (plan->query_context()->exec_context()->executor()->GetCapacity() > 1 &&
         segment_keys.size() > 0) {
       return Status::NotImplemented("Segmented aggregation in a multi-threaded plan");
-    }
-    base += segment_keys.size();
-    for (size_t i = 0; i < aggs.size(); ++i) {
-      output_fields[base + i] =
-          agg_result_fields[i]->WithName(aggregate_options.aggregates[i].name);
     }
 
     auto input_schema = input->output_schema();
