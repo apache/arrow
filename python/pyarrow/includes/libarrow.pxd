@@ -2639,10 +2639,6 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
         const vector[int64_t] permutation()
         const vector[c_string] dim_names()
 
-        CFixedShapeTensorType(shared_ptr[CDataType]& value_type, int32_t& size,
-                              vector[int64_t]& shape, vector[int64_t]& permutation,
-                              vector[c_string]& dim_names)
-
 
 cdef extern from "arrow/util/compression.h" namespace "arrow" nogil:
     cdef enum CCompressionType" arrow::Compression::type":
