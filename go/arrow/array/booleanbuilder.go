@@ -82,6 +82,19 @@ func (b *BooleanBuilder) AppendEmptyValue() {
 	b.UnsafeAppend(false)
 }
 
+func (b *BooleanBuilder) AppendFromString(s string) error {
+	if s == "(null)" {
+		b.AppendNull()
+		return nil
+	}
+	val, err := strconv.ParseBool(s)
+	if err != nil {
+		return err
+	}
+	b.Append(val)
+	return nil
+}
+
 func (b *BooleanBuilder) UnsafeAppend(v bool) {
 	bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	if v {

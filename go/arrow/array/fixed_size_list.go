@@ -46,6 +46,13 @@ func NewFixedSizeListData(data arrow.ArrayData) *FixedSizeList {
 
 func (a *FixedSizeList) ListValues() arrow.Array { return a.values }
 
+func (a *FixedSizeList) ValueString(i int) string {
+	if !a.IsValid(i) {
+		return "(null)"
+	}
+	sub := a.newListValue(i)
+	return fmt.Sprintf("%v", sub)
+}
 func (a *FixedSizeList) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")

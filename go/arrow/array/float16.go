@@ -39,6 +39,7 @@ func NewFloat16Data(data arrow.ArrayData) *Float16 {
 }
 
 func (a *Float16) Value(i int) float16.Num { return a.values[i] }
+func (a *Float16) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i).Float32())}
 
 func (a *Float16) Values() []float16.Num { return a.values }
 

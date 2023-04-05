@@ -343,6 +343,19 @@ func (a *SparseUnion) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func (a *SparseUnion) Value(i int) string {
+	fieldList := a.unionType.Fields()
+	field := fieldList[a.ChildID(i)]
+	f := a.Field(a.ChildID(i))
+	return fmt.Sprintf("{%s=%v}", field.Name, f.(arraymarshal).GetOneForMarshal(i))
+}
+
+func (a *SparseUnion) ValueString(i int) string {
+	fieldList := a.unionType.Fields()
+	field := fieldList[a.ChildID(i)]
+	f := a.Field(a.ChildID(i))
+	return fmt.Sprintf("{%s=%v}", field.Name, f.(arraymarshal).GetOneForMarshal(i))
+}
 func (a *SparseUnion) String() string {
 	var b strings.Builder
 	b.WriteByte('[')
@@ -599,6 +612,14 @@ func (a *DenseUnion) MarshalJSON() ([]byte, error) {
 	}
 	buf.WriteByte(']')
 	return buf.Bytes(), nil
+}
+
+func (a *DenseUnion) ValueString(i int) string {
+	offsets := a.RawValueOffsets()
+	fieldList := a.unionType.Fields()
+	field := fieldList[a.ChildID(i)]
+	f := a.Field(a.ChildID(i))
+	return fmt.Sprintf("{%s=%v}", field.Name, f.(arraymarshal).GetOneForMarshal(int(offsets[i])))
 }
 
 func (a *DenseUnion) String() string {

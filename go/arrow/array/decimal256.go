@@ -48,6 +48,13 @@ func NewDecimal256Data(data arrow.ArrayData) *Decimal256 {
 }
 
 func (a *Decimal256) Value(i int) decimal256.Num { return a.values[i] }
+func (a *Decimal256) ValueString(i int) string {
+	if a.IsNull(i) {
+		return "(null)"
+	} else {
+		return fmt.Sprintf("%v", a.Value(i))
+	}
+}
 
 func (a *Decimal256) Values() []decimal256.Num { return a.values }
 

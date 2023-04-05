@@ -55,6 +55,14 @@ func (a *Boolean) Value(i int) bool {
 	return bitutil.BitIsSet(a.values, a.array.data.offset+i)
 }
 
+func (a *Boolean) ValueString(i int) string {
+	if a.IsNull(i) {
+		return "(null)"
+	} else {
+		return fmt.Sprintf("%v", a.Value(i))
+	}
+}
+
 func (a *Boolean) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")
@@ -80,6 +88,9 @@ func (a *Boolean) setData(data *Data) {
 		a.values = vals.Bytes()
 	}
 }
+
+// builder.UnmarshalOne -> string
+// array.GetOneForMarshal
 
 func (a *Boolean) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {

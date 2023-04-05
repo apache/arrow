@@ -81,6 +81,19 @@ func NewStructData(data arrow.ArrayData) *Struct {
 func (a *Struct) NumField() int           { return len(a.fields) }
 func (a *Struct) Field(i int) arrow.Array { return a.fields[i] }
 
+func (a *Struct) ValueString(i int) string {
+	v := a.fields[i]
+	structBitmap := a.NullBitmapBytes()
+	if arrow.IsUnion(v.DataType().ID()) {
+		return fmt.Sprintf("%v", v)
+	} else if !bytes.Equal(structBitmap, v.NullBitmapBytes()) {
+		masked := a.newStructFieldWithParentValidityMask(i)
+		defer masked.Release()
+		return fmt.Sprintf("%v", masked)
+	}
+	return fmt.Sprintf("%v", v)
+}
+
 func (a *Struct) String() string {
 	o := new(strings.Builder)
 	o.WriteString("{")

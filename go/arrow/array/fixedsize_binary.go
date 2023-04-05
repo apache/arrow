@@ -51,6 +51,9 @@ func (a *FixedSizeBinary) Value(i int) []byte {
 	)
 	return a.valueBytes[beg:end]
 }
+func (a *FixedSizeBinary) ValueString(i int) string {
+	return fmt.Sprintf("%q", a.Value(i))
+}
 
 func (a *FixedSizeBinary) String() string {
 	o := new(strings.Builder)

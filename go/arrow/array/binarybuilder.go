@@ -125,6 +125,19 @@ func (b *BinaryBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *BinaryBuilder) AppendFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	data, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return err
+	}
+	b.Append(data)
+	return nil
+} 
+
 func (b *BinaryBuilder) AppendEmptyValue() {
 	b.Reserve(1)
 	b.appendNextOffset()
