@@ -361,7 +361,7 @@ module Arrow
         @column = column
         @options = MatchSubstringOptions.new
         @options.pattern = substring
-        @options.ignore_case = true if ignore_case
+        @options.ignore_case = ignore_case
       end
 
       def evaluate
