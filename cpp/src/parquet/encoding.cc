@@ -3045,7 +3045,8 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
         sink_(pool),
         prefix_length_encoder_(nullptr, pool),
         suffix_encoder_(nullptr, pool),
-        last_value_("") {}
+        last_value_(""),
+        kEmpty(ByteArray(0, nullptr)) {}
 
   std::shared_ptr<Buffer> FlushValues() override;
 
@@ -3102,12 +3103,11 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 
           last_value_view = view;
           const auto suffix_length = static_cast<uint32_t>(src.len - j);
-          const uint8_t* suffix_ptr;
           if (suffix_length == 0) {
-            suffix_ptr = nullptr;
-          } else {
-            suffix_ptr = src.ptr + j;
+            suffix_encoder_.Put(&kEmpty, 1);
+            return Status::OK();
           }
+          const uint8_t* suffix_ptr = src.ptr + j;
           // Convert to ByteArray, so it can be passed to the suffix_encoder_.
           const ByteArray suffix(suffix_length, suffix_ptr);
           suffix_encoder_.Put(&suffix, 1);
@@ -3122,6 +3122,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
   DeltaBitPackEncoder<Int32Type> prefix_length_encoder_;
   DeltaLengthByteArrayEncoder<ByteArrayType> suffix_encoder_;
   std::string last_value_;
+  const ByteArray kEmpty;
   std::unique_ptr<::arrow::Buffer> buffer_;
 };
 
@@ -3141,15 +3142,16 @@ void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_val
 
   for (int i = 0; i < num_values; i++) {
     // Convert to ByteArray, so we can pass to the suffix_encoder_.
-    auto value = reinterpret_cast<const ByteArray*>(&src[i]);
-    if (ARROW_PREDICT_FALSE(value->len >= kMaxByteArraySize)) {
+    const ByteArray value = src[i];
+    if (ARROW_PREDICT_FALSE(value.len >= static_cast<int32_t>(kMaxByteArraySize))) {
       throw Status::Invalid("Parquet cannot store strings with size 2GB or more");
     }
 
-    auto view = string_view{reinterpret_cast<const char*>(value->ptr), value->len};
+    auto view = string_view{reinterpret_cast<const char*>(value.ptr),
+                            static_cast<uint32_t>(value.len)};
     uint32_t j = 0;
     const uint32_t common_length =
-        std::min(value->len, static_cast<uint32_t>(last_value_view.length()));
+        std::min(value.len, static_cast<uint32_t>(last_value_view.length()));
     while (j < common_length) {
       if (last_value_view[j] != view[j]) {
         break;
@@ -3159,13 +3161,13 @@ void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_val
 
     last_value_view = view;
     prefix_lengths[i] = j;
-    const auto suffix_length = static_cast<uint32_t>(value->len - j);
-    const uint8_t* suffix_ptr;
+    const auto suffix_length = static_cast<uint32_t>(value.len - j);
+
     if (suffix_length == 0) {
-      suffix_ptr = nullptr;
-    } else {
-      suffix_ptr = value->ptr + j;
+      suffix_encoder_.Put(&kEmpty, 1);
+      continue;
     }
+    const uint8_t* suffix_ptr = value.ptr + j;
     // Convert to ByteArray, so it can be passed to the suffix_encoder_.
     const ByteArray suffix(suffix_length, suffix_ptr);
     suffix_encoder_.Put(&suffix, 1);
@@ -3189,10 +3191,7 @@ void DeltaByteArrayEncoder<FLBAType>::Put(const FLBA* src, int num_values) {
   }
 
   for (int i = 0; i < num_values; i++) {
-    // Convert to FLBA, so we can access the data
-    const FLBA* value = reinterpret_cast<const FLBA*>(&src[i].ptr);
-
-    auto view = string_view{reinterpret_cast<const char*>(value->ptr),
+    auto view = string_view{reinterpret_cast<const char*>(src[i].ptr),
                             static_cast<uint32_t>(len)};
     int32_t j = 0;
     const int32_t common_length =
@@ -3207,12 +3206,12 @@ void DeltaByteArrayEncoder<FLBAType>::Put(const FLBA* src, int num_values) {
     last_value_view = view;
     prefix_lengths[i] = j;
     const auto suffix_length = static_cast<uint32_t>(len - j);
-    const uint8_t* suffix_ptr;
+
     if (suffix_length == 0) {
-      suffix_ptr = nullptr;
-    } else {
-      suffix_ptr = value->ptr + j;
+      suffix_encoder_.Put(&kEmpty, 1);
+      continue;
     }
+    const uint8_t* suffix_ptr = src[i].ptr + j;
     // Convert to ByteArray, so it can be passed to the suffix_encoder_
     const ByteArray suffix(suffix_length, suffix_ptr);
     suffix_encoder_.Put(&suffix, 1);
