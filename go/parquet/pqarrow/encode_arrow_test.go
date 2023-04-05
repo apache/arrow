@@ -1644,6 +1644,8 @@ func (ps *ParquetIOTestSuite) TestArrowExtensionTypeRoundTrip() {
 	tbl := array.NewTable(arrow.NewSchema([]arrow.Field{fld}, nil), []arrow.Column{*arrow.NewColumn(fld, cnk)}, -1)
 	defer cnk.Release() // NewColumn
 	defer tbl.Release()
+
+	ps.roundTripTable(mem, tbl, true)
 }
 
 func TestWriteTableMemoryAllocation(t *testing.T) {
