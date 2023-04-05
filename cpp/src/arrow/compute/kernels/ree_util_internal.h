@@ -19,8 +19,14 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
+#include <memory>
 
 #include "arrow/array/data.h"
+#include "arrow/compute/exec.h"
+#include "arrow/compute/kernel.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
@@ -288,6 +294,47 @@ class ReadWriteValue<ArrowType, has_validity_buffer, enable_if_base_binary<Arrow
 
   bool Compare(ValueRepr lhs, ValueRepr rhs) const { return lhs == rhs; }
 };
+
+Result<std::shared_ptr<Buffer>> AllocateValuesBuffer(int64_t length, const DataType& type,
+                                                     MemoryPool* pool,
+                                                     int64_t data_buffer_size);
+
+Result<std::shared_ptr<ArrayData>> PreallocateRunEndsArray(
+    const std::shared_ptr<DataType>& run_end_type, int64_t physical_length,
+    MemoryPool* pool);
+
+Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
+    const std::shared_ptr<DataType>& value_type, bool has_validity_buffer, int64_t length,
+    int64_t null_count, MemoryPool* pool, int64_t data_buffer_size);
+
+/// \brief Preallocate the ArrayData for the run-end encoded version
+/// of the flat input array
+///
+/// \param data_buffer_size the size of the data buffer for string and binary types
+Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
+    std::shared_ptr<RunEndEncodedType> ree_type, bool has_validity_buffer,
+    int64_t logical_length, int64_t physical_length, int64_t physical_null_count,
+    MemoryPool* pool, int64_t data_buffer_size);
+
+template <typename RunEndType>
+Result<std::shared_ptr<ArrayData>> PreallocateNullREEArray(int64_t logical_length,
+                                                           int64_t physical_length,
+                                                           MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto run_ends_buffer,
+      AllocateBuffer(TypeTraits<RunEndType>::bytes_required(physical_length), pool));
+
+  auto ree_type =
+      std::make_shared<RunEndEncodedType>(std::make_shared<RunEndType>(), null());
+  auto run_ends_data = ArrayData::Make(std::make_shared<RunEndType>(), physical_length,
+                                       {NULLPTR, std::move(run_ends_buffer)},
+                                       /*null_count=*/0);
+  auto values_data = ArrayData::Make(null(), physical_length, {NULLPTR},
+                                     /*null_count=*/physical_length);
+  return ArrayData::Make(std::move(ree_type), logical_length, {NULLPTR},
+                         {std::move(run_ends_data), std::move(values_data)},
+                         /*null_count=*/0);
+}
 
 }  // namespace ree_util
 }  // namespace internal
