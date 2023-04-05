@@ -1824,7 +1824,7 @@ cdef class FileFragment(Fragment):
         else:
             # parquet has a subclass -> type embedded in class name
             typ = ""
-        partition_dict = _get_partition_keys(self.partition_expression)
+        partition_dict = get_partition_keys(self.partition_expression)
         partition = ", ".join(
             [f"{key}={val}" for key, val in partition_dict.items()]
         )
@@ -3520,7 +3520,7 @@ cdef class Scanner(_Weakrefable):
         return reader
 
 
-def _get_partition_keys(Expression partition_expression):
+def get_partition_keys(Expression partition_expression):
     """
     Extract partition keys (equality constraints between a field and a scalar)
     from an expression as a dict mapping the field's name to its value.
@@ -3528,6 +3528,17 @@ def _get_partition_keys(Expression partition_expression):
     NB: All expressions yielded by a HivePartitioning or DirectoryPartitioning
     will be conjunctions of equality conditions and are accessible through this
     function. Other subexpressions will be ignored.
+
+    Parameters
+    ----------
+    partition_expression : pyarrow.dataset.Expression
+
+    Returns
+    -------
+    dict
+
+    Examples
+    --------
 
     For example, an expression of
     <pyarrow.dataset.Expression ((part == A:string) and (year == 2016:int32))>

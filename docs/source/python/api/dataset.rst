@@ -71,3 +71,11 @@ Classes
    Expression
    InMemoryDataset
    WrittenFile
+
+Helper functions
+-----------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   get_partition_keys
