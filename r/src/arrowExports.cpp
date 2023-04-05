@@ -912,6 +912,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 std::shared_ptr<acero::ExecPlan> ExecPlan_create(bool use_threads);
 extern "C" SEXP _arrow_ExecPlan_create(SEXP use_threads_sexp){
 BEGIN_CPP11
@@ -919,7 +920,14 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecPlan_create(use_threads));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecPlan_create(SEXP use_threads_sexp){
+	Rf_error("Cannot call ExecPlan_create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 cpp11::list ExecPlanReader__batches(const std::shared_ptr<arrow::RecordBatchReader>& reader);
 extern "C" SEXP _arrow_ExecPlanReader__batches(SEXP reader_sexp){
 BEGIN_CPP11
@@ -927,7 +935,14 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecPlanReader__batches(reader));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecPlanReader__batches(SEXP reader_sexp){
+	Rf_error("Cannot call ExecPlanReader__batches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 std::shared_ptr<arrow::Table> Table__from_ExecPlanReader(const std::shared_ptr<arrow::RecordBatchReader>& reader);
 extern "C" SEXP _arrow_Table__from_ExecPlanReader(SEXP reader_sexp){
 BEGIN_CPP11
@@ -935,7 +950,14 @@ BEGIN_CPP11
 	return cpp11::as_sexp(Table__from_ExecPlanReader(reader));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_Table__from_ExecPlanReader(SEXP reader_sexp){
+	Rf_error("Cannot call Table__from_ExecPlanReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 std::shared_ptr<acero::ExecPlan> ExecPlanReader__Plan(const std::shared_ptr<ExecPlanReader>& reader);
 extern "C" SEXP _arrow_ExecPlanReader__Plan(SEXP reader_sexp){
 BEGIN_CPP11
@@ -943,7 +965,14 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecPlanReader__Plan(reader));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecPlanReader__Plan(SEXP reader_sexp){
+	Rf_error("Cannot call ExecPlanReader__Plan(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 std::string ExecPlanReader__PlanStatus(const std::shared_ptr<ExecPlanReader>& reader);
 extern "C" SEXP _arrow_ExecPlanReader__PlanStatus(SEXP reader_sexp){
 BEGIN_CPP11
@@ -951,7 +980,14 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecPlanReader__PlanStatus(reader));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecPlanReader__PlanStatus(SEXP reader_sexp){
+	Rf_error("Cannot call ExecPlanReader__PlanStatus(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 std::shared_ptr<ExecPlanReader> ExecPlan_run(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<acero::ExecNode>& final_node, cpp11::list sort_options, cpp11::strings metadata, int64_t head);
 extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp, SEXP metadata_sexp, SEXP head_sexp){
 BEGIN_CPP11
@@ -963,7 +999,14 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecPlan_run(plan, final_node, sort_options, metadata, head));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp, SEXP metadata_sexp, SEXP head_sexp){
+	Rf_error("Cannot call ExecPlan_run(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 std::string ExecPlan_ToString(const std::shared_ptr<acero::ExecPlan>& plan);
 extern "C" SEXP _arrow_ExecPlan_ToString(SEXP plan_sexp){
 BEGIN_CPP11
@@ -971,7 +1014,14 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecPlan_ToString(plan));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecPlan_ToString(SEXP plan_sexp){
+	Rf_error("Cannot call ExecPlan_ToString(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 void ExecPlan_UnsafeDelete(const std::shared_ptr<acero::ExecPlan>& plan);
 extern "C" SEXP _arrow_ExecPlan_UnsafeDelete(SEXP plan_sexp){
 BEGIN_CPP11
@@ -980,7 +1030,14 @@ BEGIN_CPP11
 	return R_NilValue;
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecPlan_UnsafeDelete(SEXP plan_sexp){
+	Rf_error("Cannot call ExecPlan_UnsafeDelete(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(const std::shared_ptr<acero::ExecNode>& node);
 extern "C" SEXP _arrow_ExecNode_output_schema(SEXP node_sexp){
 BEGIN_CPP11
@@ -988,6 +1045,12 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecNode_output_schema(node));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecNode_output_schema(SEXP node_sexp){
+	Rf_error("Cannot call ExecNode_output_schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<acero::ExecNode> ExecNode_Scan(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<ds::Dataset>& dataset, const std::shared_ptr<compute::Expression>& filter, cpp11::list projection);
@@ -1036,6 +1099,7 @@ extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP
 #endif
 
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 std::shared_ptr<acero::ExecNode> ExecNode_Filter(const std::shared_ptr<acero::ExecNode>& input, const std::shared_ptr<compute::Expression>& filter);
 extern "C" SEXP _arrow_ExecNode_Filter(SEXP input_sexp, SEXP filter_sexp){
 BEGIN_CPP11
@@ -1044,7 +1108,14 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecNode_Filter(input, filter));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecNode_Filter(SEXP input_sexp, SEXP filter_sexp){
+	Rf_error("Cannot call ExecNode_Filter(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 std::shared_ptr<acero::ExecNode> ExecNode_Project(const std::shared_ptr<acero::ExecNode>& input, const std::vector<std::shared_ptr<compute::Expression>>& exprs, std::vector<std::string> names);
 extern "C" SEXP _arrow_ExecNode_Project(SEXP input_sexp, SEXP exprs_sexp, SEXP names_sexp){
 BEGIN_CPP11
@@ -1054,7 +1125,14 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecNode_Project(input, exprs, names));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecNode_Project(SEXP input_sexp, SEXP exprs_sexp, SEXP names_sexp){
+	Rf_error("Cannot call ExecNode_Project(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 std::shared_ptr<acero::ExecNode> ExecNode_Aggregate(const std::shared_ptr<acero::ExecNode>& input, cpp11::list options, std::vector<std::string> key_names);
 extern "C" SEXP _arrow_ExecNode_Aggregate(SEXP input_sexp, SEXP options_sexp, SEXP key_names_sexp){
 BEGIN_CPP11
@@ -1064,7 +1142,14 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecNode_Aggregate(input, options, key_names));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecNode_Aggregate(SEXP input_sexp, SEXP options_sexp, SEXP key_names_sexp){
+	Rf_error("Cannot call ExecNode_Aggregate(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 std::shared_ptr<acero::ExecNode> ExecNode_Join(const std::shared_ptr<acero::ExecNode>& input, acero::JoinType join_type, const std::shared_ptr<acero::ExecNode>& right_data, std::vector<std::string> left_keys, std::vector<std::string> right_keys, std::vector<std::string> left_output, std::vector<std::string> right_output, std::string output_suffix_for_left, std::string output_suffix_for_right);
 extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP join_type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp, SEXP output_suffix_for_left_sexp, SEXP output_suffix_for_right_sexp){
 BEGIN_CPP11
@@ -1080,7 +1165,14 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecNode_Join(input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP join_type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp, SEXP output_suffix_for_left_sexp, SEXP output_suffix_for_right_sexp){
+	Rf_error("Cannot call ExecNode_Join(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 std::shared_ptr<acero::ExecNode> ExecNode_Union(const std::shared_ptr<acero::ExecNode>& input, const std::shared_ptr<acero::ExecNode>& right_data);
 extern "C" SEXP _arrow_ExecNode_Union(SEXP input_sexp, SEXP right_data_sexp){
 BEGIN_CPP11
@@ -1089,7 +1181,14 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecNode_Union(input, right_data));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecNode_Union(SEXP input_sexp, SEXP right_data_sexp){
+	Rf_error("Cannot call ExecNode_Union(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 std::shared_ptr<acero::ExecNode> ExecNode_SourceNode(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<arrow::RecordBatchReader>& reader);
 extern "C" SEXP _arrow_ExecNode_SourceNode(SEXP plan_sexp, SEXP reader_sexp){
 BEGIN_CPP11
@@ -1098,7 +1197,14 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecNode_SourceNode(plan, reader));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecNode_SourceNode(SEXP plan_sexp, SEXP reader_sexp){
+	Rf_error("Cannot call ExecNode_SourceNode(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 std::shared_ptr<acero::ExecNode> ExecNode_TableSourceNode(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<arrow::Table>& table);
 extern "C" SEXP _arrow_ExecNode_TableSourceNode(SEXP plan_sexp, SEXP table_sexp){
 BEGIN_CPP11
@@ -1107,6 +1213,12 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecNode_TableSourceNode(plan, table));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecNode_TableSourceNode(SEXP plan_sexp, SEXP table_sexp){
+	Rf_error("Cannot call ExecNode_TableSourceNode(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_SUBSTRAIT)
 std::string substrait__internal__SubstraitToJSON(const std::shared_ptr<arrow::Buffer>& serialized_plan);
@@ -5261,6 +5373,15 @@ BEGIN_CPP11
 	return cpp11::as_sexp(Array__infer_type(x));
 END_CPP11
 }
+extern "C" SEXP _acero_available() {
+return Rf_ScalarLogical(
+#if defined(ARROW_R_WITH_ACERO)
+  TRUE
+#else
+  FALSE
+#endif
+);
+}
 extern "C" SEXP _dataset_available() {
 return Rf_ScalarLogical(
 #if defined(ARROW_R_WITH_DATASET)
@@ -5316,6 +5437,7 @@ return Rf_ScalarLogical(
 );
 }
 static const R_CallMethodDef CallEntries[] = {
+		{ "_acero_available", (DL_FUNC)& _acero_available, 0 },
 		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
 		{ "_substrait_available", (DL_FUNC)& _substrait_available, 0 },
 		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
