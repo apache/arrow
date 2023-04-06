@@ -57,6 +57,7 @@ have_glib=yes
 have_parquet=yes
 have_python=yes
 have_ruby=yes
+have_vala=yes
 ruby_devel_packages=(ruby-devel)
 install_command="dnf install -y --enablerepo=crb"
 uninstall_command="dnf remove -y"
@@ -105,6 +106,7 @@ case "${distribution}-${distribution_version}" in
     have_gandiva=no
     have_python=no
     have_ruby=no
+    have_vala=no
     install_command="yum install -y"
     uninstall_command="yum remove -y"
     clean_command="yum clean"
@@ -234,12 +236,14 @@ if [ "${have_glib}" = "yes" ]; then
   ${install_command} --enablerepo=epel arrow-glib-devel-${package_version}
   ${install_command} --enablerepo=epel arrow-glib-doc-${package_version}
 
-  ${install_command} vala
-  cp -a "${TOP_SOURCE_DIR}/c_glib/example/vala" build/
-  pushd build/vala
-  valac --pkg arrow-glib --pkg posix build.vala
-  ./build
-  popd
+  if [ "${have_vala}" = "yes" ]; then
+    ${install_command} vala
+    cp -a "${TOP_SOURCE_DIR}/c_glib/example/vala" build/
+    pushd build/vala
+    valac --pkg arrow-glib --pkg posix build.vala
+    ./build
+    popd
+  fi
 
   if [ "${have_ruby}" = "yes" ]; then
     ${install_command} "${ruby_devel_packages[@]}"
