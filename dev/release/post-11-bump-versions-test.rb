@@ -317,8 +317,8 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       },
       {
         sampled_diff: [
-          "-      - libarrow-acero-glib#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
-          "+      - libarrow-acero-glib#{@next_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
+          "-      - libarrow-acero#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
+          "+      - libarrow-acero#{@next_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
         ],
         path: "dev/tasks/tasks.yml",
       },
