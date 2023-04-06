@@ -30,7 +30,7 @@
 
 .. _ipc:
 
-Streaming and IPC
+Streaming, Serialization, and IPC
 =================================
 
 Writing and Reading Streams
