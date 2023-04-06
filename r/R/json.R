@@ -84,7 +84,7 @@ read_json_arrow <- function(file,
   }
 
   if (isTRUE(as_data_frame)) {
-    tab <- as_tibble(tab)
+    tab <- as_df(tab)
   }
   tab
 }

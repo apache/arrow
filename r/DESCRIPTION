@@ -37,7 +37,6 @@ Imports:
     R6,
     rlang (>= 1.0.0),
     stats,
-    tibble,
     tidyselect (>= 1.0.0),
     utils,
     vctrs
@@ -64,6 +63,7 @@ Suggests:
     stringr,
     sys,
     testthat (>= 3.1.0),
+    tibble,
     tzdb,
     withr
 LinkingTo: cpp11 (>= 0.4.2)

@@ -71,7 +71,7 @@ glimpse.ArrowTabular <- function(x,
   var_headings <- paste("$", center_pad(tickify(names(x)), var_types))
 
   # Assemble the data glimpse
-  df <- as_tibble(head_tab)
+  df <- as_df(head_tab)
   formatted_data <- map_chr(df, function(.) {
     tryCatch(
       paste(pillar::format_glimpse(.), collapse = ", "),

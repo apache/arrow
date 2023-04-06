@@ -216,12 +216,10 @@ unique.RecordBatchReader <- unique.arrow_dplyr_query
 
 #' @export
 as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALSE, ...) {
-  as.data.frame(as_tibble(x), row.names = row.names, optional = optional, ...)
+  as.data.frame(as_df(x), row.names = row.names, optional = optional, ...)
 }
 
-
-#' @export
-as_tibble.arrow_dplyr_query <- function(x, ...) {
+as_df.arrow_dplyr_query <- function(x, ...) {
   collect.arrow_dplyr_query(x, as_data_frame = TRUE, ...)
 }
 

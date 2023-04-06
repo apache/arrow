@@ -25,7 +25,7 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
 
 collect.ArrowTabular <- function(x, as_data_frame = TRUE, ...) {
   if (as_data_frame) {
-    as_tibble(x, ...)
+    as_df(x, ...)
   } else {
     x
   }
