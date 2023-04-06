@@ -15,10 +15,6 @@ package:
 
 source:
   path: ../../../../
-  patches:
-    # patch that's necessary to make gdb integration work, due to the fact that
-    # we're not installing into the final environment when building with conda
-    - patches/0001-don-t-bake-non-relocatable-CMAKE_INSTALL_FULL_LIBDIR.patch
 
 build:
   number: 0
