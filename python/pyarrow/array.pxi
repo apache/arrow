@@ -3146,7 +3146,7 @@ class FixedShapeTensorArray(ExtensionArray):
         ...         [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]],
         ...         dtype=np.float32)
         >>> pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
-        <pyarrow.lib.FixedShapeTensorArray object at 0x114ac9900>
+        <pyarrow.lib.FixedShapeTensorArray object at ...>
         [
           [
             1,
