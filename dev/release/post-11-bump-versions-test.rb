@@ -310,13 +310,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     expected_changes = [
       {
         sampled_diff: [
-          "-dev/tasks/linux-packages/apache-arrow/debian/libarrow-cuda-glib#{@so_version}.install",
-          "+dev/tasks/linux-packages/apache-arrow/debian/libarrow-cuda-glib#{@next_so_version}.install",
-        ],
-        path: "dev/release/rat_exclude_files.txt",
-      },
-      {
-        sampled_diff: [
           "-Package: libarrow#{@so_version}",
           "+Package: libarrow#{@next_so_version}",
         ],
