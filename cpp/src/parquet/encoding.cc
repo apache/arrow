@@ -3045,7 +3045,8 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
         sink_(pool),
         prefix_length_encoder_(nullptr, pool),
         suffix_encoder_(nullptr, pool),
-        last_value_("") {}
+        last_value_(""),
+        kEmpty(ByteArray(0, reinterpret_cast<const uint8_t*>(""))) {}
 
   std::shared_ptr<Buffer> FlushValues() override;
 
@@ -3103,8 +3104,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
           last_value_view = view;
           const auto suffix_length = static_cast<uint32_t>(src.len - j);
           if (suffix_length == 0) {
-            const ByteArray suffix(suffix_length, nullptr);
-            suffix_encoder_.Put(&suffix, 1);
+            suffix_encoder_.Put(&kEmpty, 1);
             return Status::OK();
           }
           const uint8_t* suffix_ptr = src.ptr + j;
@@ -3123,6 +3123,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
   DeltaLengthByteArrayEncoder<ByteArrayType> suffix_encoder_;
   std::string last_value_;
   std::unique_ptr<::arrow::Buffer> buffer_;
+  const ByteArray kEmpty;
 };
 
 template <typename DType>
