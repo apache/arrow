@@ -3125,6 +3125,7 @@ class FixedShapeTensorArray(ExtensionArray):
 
         return numpy_tensor
 
+    @staticmethod
     def from_numpy_ndarray(obj):
         """
         Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
