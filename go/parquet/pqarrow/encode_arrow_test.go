@@ -126,7 +126,7 @@ func makeDateTimeTypesTable(mem memory.Allocator, expected bool, addFieldMeta bo
 }
 
 func TestWriteArrowCols(t *testing.T) {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
 	tbl := makeDateTimeTypesTable(mem, false, false)
@@ -227,7 +227,7 @@ func TestWriteArrowCols(t *testing.T) {
 }
 
 func TestWriteArrowInt96(t *testing.T) {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
 	tbl := makeDateTimeTypesTable(mem, false, false)
@@ -321,7 +321,7 @@ func writeTableToBuffer(t *testing.T, mem memory.Allocator, tbl arrow.Table, row
 }
 
 func simpleRoundTrip(t *testing.T, tbl arrow.Table, rowGroupSize int64) {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
 	buf := writeTableToBuffer(t, mem, tbl, rowGroupSize, pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
@@ -699,7 +699,7 @@ func (ps *ParquetIOTestSuite) checkSingleColumnRead(mem memory.Allocator, typ ar
 }
 
 func (ps *ParquetIOTestSuite) TestDateTimeTypesReadWriteTable() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
 	toWrite := makeDateTimeTypesTable(mem, false, true)
@@ -728,7 +728,7 @@ func (ps *ParquetIOTestSuite) TestDateTimeTypesReadWriteTable() {
 }
 
 func (ps *ParquetIOTestSuite) TestDateTimeTypesWithInt96ReadWriteTable() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
 	expected := makeDateTimeTypesTable(mem, false, true)
@@ -754,7 +754,7 @@ func (ps *ParquetIOTestSuite) TestDateTimeTypesWithInt96ReadWriteTable() {
 }
 
 func (ps *ParquetIOTestSuite) TestLargeBinaryReadWriteTable() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
 	// While we may write using LargeString, when we read, we get an array.String back out.
@@ -811,7 +811,7 @@ func (ps *ParquetIOTestSuite) TestReadSingleColumnFile() {
 	for _, n := range nchunks {
 		for _, dt := range types {
 			ps.Run(fmt.Sprintf("%s %d chunks", dt.Name(), n), func() {
-				mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+				mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 				defer mem.AssertSize(ps.T(), 0)
 				ps.checkSingleColumnRead(mem, dt, n)
 			})
@@ -839,7 +839,7 @@ func (ps *ParquetIOTestSuite) TestSingleColumnRequiredRead() {
 	for _, n := range nchunks {
 		for _, dt := range types {
 			ps.Run(fmt.Sprintf("%s %d chunks", dt.Name(), n), func() {
-				mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+				mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 				defer mem.AssertSize(ps.T(), 0)
 
 				ps.checkSingleColumnRequiredTableRead(mem, dt, n)
@@ -849,7 +849,7 @@ func (ps *ParquetIOTestSuite) TestSingleColumnRequiredRead() {
 }
 
 func (ps *ParquetIOTestSuite) TestReadDecimals() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
 	bigEndian := []parquet.ByteArray{
@@ -959,7 +959,7 @@ var fullTypeList = []arrow.DataType{
 func (ps *ParquetIOTestSuite) TestSingleColumnRequiredWrite() {
 	for _, dt := range fullTypeList {
 		ps.Run(dt.Name(), func() {
-			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 			defer mem.AssertSize(ps.T(), 0)
 
 			values := testutils.RandomNonNull(mem, dt, smallSize)
@@ -972,7 +972,7 @@ func (ps *ParquetIOTestSuite) TestSingleColumnRequiredWrite() {
 }
 
 func (ps *ParquetIOTestSuite) roundTripTable(_ memory.Allocator, expected arrow.Table, storeSchema bool) {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator()) // FIXME: currently overriding allocator to isolate leaks between roundTripTable and caller
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator) // FIXME: currently overriding allocator to isolate leaks between roundTripTable and caller
 	//defer mem.AssertSize(ps.T(), 0)                            // FIXME: known leak
 
 	var buf bytes.Buffer
@@ -1130,7 +1130,7 @@ func prepareListOfListTable(dt arrow.DataType, size, nullCount int, nullablePare
 }
 
 func (ps *ParquetIOTestSuite) TestSingleEmptyListsColumnReadWrite() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	//defer mem.AssertSize(ps.T(), 0) // FIXME: known leak
 
 	expected := prepareEmptyListsTable(smallSize)
@@ -1155,7 +1155,7 @@ func (ps *ParquetIOTestSuite) TestSingleEmptyListsColumnReadWrite() {
 func (ps *ParquetIOTestSuite) TestSingleColumnOptionalReadWrite() {
 	for _, dt := range fullTypeList {
 		ps.Run(dt.Name(), func() {
-			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 			defer mem.AssertSize(ps.T(), 0)
 
 			values := testutils.RandomNullable(dt, smallSize, 10)
@@ -1218,7 +1218,7 @@ func (ps *ParquetIOTestSuite) TestSingleNullableListRequiredListRequiredColumnRe
 }
 
 func (ps *ParquetIOTestSuite) TestSimpleStruct() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
 	links := arrow.StructOf(arrow.Field{Name: "Backward", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
@@ -1250,7 +1250,7 @@ func (ps *ParquetIOTestSuite) TestSimpleStruct() {
 }
 
 func (ps *ParquetIOTestSuite) TestSingleColumnNullableStruct() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
 	links := arrow.StructOf(arrow.Field{Name: "Backward", Type: arrow.PrimitiveTypes.Int64, Nullable: true})
@@ -1275,7 +1275,7 @@ func (ps *ParquetIOTestSuite) TestSingleColumnNullableStruct() {
 }
 
 func (ps *ParquetIOTestSuite) TestNestedRequiredFieldStruct() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
 	intField := arrow.Field{Name: "int_array", Type: arrow.PrimitiveTypes.Int32}
@@ -1305,7 +1305,7 @@ func (ps *ParquetIOTestSuite) TestNestedRequiredFieldStruct() {
 }
 
 func (ps *ParquetIOTestSuite) TestNestedNullableField() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
 	intField := arrow.Field{Name: "int_array", Type: arrow.PrimitiveTypes.Int32, Nullable: true}
@@ -1335,7 +1335,7 @@ func (ps *ParquetIOTestSuite) TestNestedNullableField() {
 }
 
 func (ps *ParquetIOTestSuite) TestCanonicalNestedRoundTrip() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
 	docIdField := arrow.Field{Name: "DocID", Type: arrow.PrimitiveTypes.Int64}
@@ -1385,7 +1385,7 @@ func (ps *ParquetIOTestSuite) TestCanonicalNestedRoundTrip() {
 }
 
 func (ps *ParquetIOTestSuite) TestFixedSizeList() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
 	bldr := array.NewFixedSizeListBuilder(mem, 3, arrow.PrimitiveTypes.Int16)
@@ -1411,7 +1411,7 @@ func (ps *ParquetIOTestSuite) TestFixedSizeList() {
 }
 
 func (ps *ParquetIOTestSuite) TestNull() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
 	bldr := array.NewNullBuilder(mem)
@@ -1436,7 +1436,7 @@ func (ps *ParquetIOTestSuite) TestNull() {
 
 // ARROW-17169
 func (ps *ParquetIOTestSuite) TestNullableListOfStruct() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
 	bldr := array.NewListBuilder(mem, arrow.StructOf(
@@ -1475,7 +1475,7 @@ func (ps *ParquetIOTestSuite) TestNullableListOfStruct() {
 }
 
 func (ps *ParquetIOTestSuite) TestStructWithListOfNestedStructs() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
 	bldr := array.NewStructBuilder(mem, arrow.StructOf(
@@ -1530,7 +1530,7 @@ func TestParquetArrowIO(t *testing.T) {
 }
 
 func TestBufferedRecWrite(t *testing.T) {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
 	sc := arrow.NewSchema([]arrow.Field{
@@ -1588,7 +1588,7 @@ func TestBufferedRecWrite(t *testing.T) {
 }
 
 func (ps *ParquetIOTestSuite) TestArrowMapTypeRoundTrip() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
 	bldr := array.NewMapBuilder(mem, arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32, false)
@@ -1625,7 +1625,7 @@ func (ps *ParquetIOTestSuite) TestArrowMapTypeRoundTrip() {
 }
 
 func (ps *ParquetIOTestSuite) TestArrowExtensionTypeRoundTrip() {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
 	extBuilder := array.NewExtensionBuilder(mem, types.NewUUIDType())
@@ -1646,7 +1646,7 @@ func (ps *ParquetIOTestSuite) TestArrowExtensionTypeRoundTrip() {
 }
 
 func TestWriteTableMemoryAllocation(t *testing.T) {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	sc := arrow.NewSchema([]arrow.Field{
 		{Name: "f32", Type: arrow.PrimitiveTypes.Float32, Nullable: true},
 		{Name: "i32", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
