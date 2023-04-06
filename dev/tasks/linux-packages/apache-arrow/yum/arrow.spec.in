@@ -77,7 +77,7 @@
 # Travis CI.
 # %%define use_s3 (%%{rhel} >= 8)
 %define use_s3 0
-%define use_vala (%{rhel} >= 8)
+%define use_vala (%{rhel} >= 8 || %{is_amazon_linux})
 
 %define have_lz4_libs (%{rhel} >= 8)
 %define have_rapidjson (%{rhel} != 8)
