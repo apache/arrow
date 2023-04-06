@@ -109,12 +109,26 @@ func TestMetadata(t *testing.T) {
 			t.Fatalf("got=%d, want=%d", got, want)
 		}
 
+		gotVal, _ := md.GetValue("k1")
+		wantVal := "v1"
+		if gotVal != wantVal {
+			t.Fatalf("got=%s, want=%s", gotVal, wantVal)
+		}
+
 		if got, want := md.FindKey(""), -1; got != want {
 			t.Fatalf("got=%d, want=%d", got, want)
+		}
+		_, gotFound := md.GetValue("")
+		if gotFound {
+			t.Fatalf("wasn't expecting to find empty key")
 		}
 
 		if got, want := md.FindKey("k"), -1; got != want {
 			t.Fatalf("got=%d, want=%d", got, want)
+		}
+		_, gotFound = md.GetValue("k")
+		if gotFound {
+			t.Fatalf("wasn't expecting to find key: 'k'")
 		}
 
 		if got, want := md.FindKey(" "), -1; got != want {

@@ -21,6 +21,8 @@ skip_on_r_older_than("3.5")
 library(lubridate, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
 
+skip_if_not_available("acero")
+
 # base::strptime() defaults to local timezone
 # but arrow's strptime defaults to UTC.
 # So that tests are consistent, set the local timezone to UTC

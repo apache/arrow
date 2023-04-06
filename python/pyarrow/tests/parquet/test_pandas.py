@@ -668,7 +668,9 @@ def test_dataset_read_pandas_common_metadata(
     paths = []
     for i in range(nfiles):
         df = _test_dataframe(size, seed=i)
-        df.index = pd.Index(np.arange(i * size, (i + 1) * size), name='index')
+        df.index = pd.Index(
+            np.arange(i * size, (i + 1) * size, dtype="int64"), name='index'
+        )
 
         path = dirpath / '{}.parquet'.format(i)
 

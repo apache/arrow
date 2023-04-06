@@ -314,8 +314,15 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     std::vector<const ScalarAggregateKernel*> kernels(aggregates.size());
     std::vector<std::vector<std::unique_ptr<KernelState>>> states(kernels.size());
     FieldVector fields(kernels.size() + segment_keys.size());
-    std::vector<std::vector<int>> target_fieldsets(kernels.size());
 
+    // Output the segment keys first, followed by the aggregates
+    for (size_t i = 0; i < segment_keys.size(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(fields[i],
+                            segment_keys[i].GetOne(*inputs[0]->output_schema()));
+    }
+
+    std::vector<std::vector<int>> target_fieldsets(kernels.size());
+    std::size_t base = segment_keys.size();
     for (size_t i = 0; i < kernels.size(); ++i) {
       const auto& target_fieldset = aggregate_options.aggregates[i].target;
       for (const auto& target : target_fieldset) {
@@ -366,11 +373,8 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
       ARROW_ASSIGN_OR_RAISE(auto out_type, kernels[i]->signature->out_type().Resolve(
                                                &kernel_ctx, kernel_intypes[i]));
 
-      fields[i] = field(aggregate_options.aggregates[i].name, out_type.GetSharedPtr());
-    }
-    for (size_t i = 0; i < segment_keys.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(fields[kernels.size() + i],
-                            segment_keys[i].GetOne(*inputs[0]->output_schema()));
+      fields[base + i] =
+          field(aggregate_options.aggregates[i].name, out_type.GetSharedPtr());
     }
 
     return plan->EmplaceNode<ScalarAggregateNode>(
@@ -485,6 +489,11 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     ExecBatch batch{{}, 1};
     batch.values.resize(kernels_.size() + segment_field_ids_.size());
 
+    // First, insert segment keys
+    PlaceFields(batch, /*base=*/0, segmenter_values_);
+
+    // Followed by aggregate values
+    std::size_t base = segment_field_ids_.size();
     for (size_t i = 0; i < kernels_.size(); ++i) {
       arrow::util::tracing::Span span;
       START_COMPUTE_SPAN(span, aggs_[i].function,
@@ -495,9 +504,8 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
       KernelContext ctx{plan()->query_context()->exec_context()};
       ARROW_ASSIGN_OR_RAISE(auto merged, ScalarAggregateKernel::MergeAll(
                                              kernels_[i], &ctx, std::move(states_[i])));
-      RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[i]));
+      RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[base + i]));
     }
-    PlaceFields(batch, kernels_.size(), segmenter_values_);
 
     ARROW_RETURN_NOT_OK(output_->InputReceived(this, std::move(batch)));
     total_output_batches_++;
@@ -643,20 +651,22 @@ class GroupByNode : public ExecNode, public TracedNode {
     // Build field vector for output schema
     FieldVector output_fields{keys.size() + segment_keys.size() + aggs.size()};
 
-    // Aggregate fields come before key fields to match the behavior of GroupBy function
-    for (size_t i = 0; i < aggs.size(); ++i) {
-      output_fields[i] =
-          agg_result_fields[i]->WithName(aggregate_options.aggregates[i].name);
-    }
-    size_t base = aggs.size();
+    // First output is keys, followed by segment_keys, followed by aggregates themselves
+    // This matches the behavior described by Substrait and also tends to be the behavior
+    // in SQL engines
     for (size_t i = 0; i < keys.size(); ++i) {
       int key_field_id = key_field_ids[i];
-      output_fields[base + i] = input_schema->field(key_field_id);
+      output_fields[i] = input_schema->field(key_field_id);
     }
-    base += keys.size();
+    size_t base = keys.size();
     for (size_t i = 0; i < segment_keys.size(); ++i) {
       int segment_key_field_id = segment_key_field_ids[i];
       output_fields[base + i] = input_schema->field(segment_key_field_id);
+    }
+    base += segment_keys.size();
+    for (size_t i = 0; i < aggs.size(); ++i) {
+      output_fields[base + i] =
+          agg_result_fields[i]->WithName(aggregate_options.aggregates[i].name);
     }
 
     return input->plan()->EmplaceNode<GroupByNode>(
@@ -766,11 +776,18 @@ class GroupByNode : public ExecNode, public TracedNode {
     // If we never got any batches, then state won't have been initialized
     RETURN_NOT_OK(InitLocalStateIfNeeded(state));
 
+    // Allocate a batch for output
     ExecBatch out_data{{}, state->grouper->num_groups()};
     out_data.values.resize(agg_kernels_.size() + key_field_ids_.size() +
                            segment_key_field_ids_.size());
 
-    // Aggregate fields come before key fields to match the behavior of GroupBy function
+    // Keys come first
+    ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, state->grouper->GetUniques());
+    std::move(out_keys.values.begin(), out_keys.values.end(), out_data.values.begin());
+    // Followed by segment keys
+    PlaceFields(out_data, key_field_ids_.size(), segmenter_values_);
+    // And finally, the aggregates themselves
+    std::size_t base = segment_key_field_ids_.size() + key_field_ids_.size();
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
       arrow::util::tracing::Span span;
       START_COMPUTE_SPAN(span, aggs_[i].function,
@@ -780,15 +797,11 @@ class GroupByNode : public ExecNode, public TracedNode {
                           {"function.kind", std::string(kind_name()) + "::Finalize"}});
       KernelContext batch_ctx{plan_->query_context()->exec_context()};
       batch_ctx.SetState(state->agg_states[i].get());
-      RETURN_NOT_OK(agg_kernels_[i]->finalize(&batch_ctx, &out_data.values[i]));
+      RETURN_NOT_OK(agg_kernels_[i]->finalize(&batch_ctx, &out_data.values[i + base]));
       state->agg_states[i].reset();
     }
-
-    ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, state->grouper->GetUniques());
-    std::move(out_keys.values.begin(), out_keys.values.end(),
-              out_data.values.begin() + agg_kernels_.size());
-    PlaceFields(out_data, agg_kernels_.size() + key_field_ids_.size(), segmenter_values_);
     state->grouper.reset();
+
     return out_data;
   }
 
