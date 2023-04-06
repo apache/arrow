@@ -21,6 +21,7 @@
 #pragma warning(disable : 4800)
 #endif
 
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 #include <cstdint>
@@ -5158,289 +5159,228 @@ TEST(TestArrowReadWrite, FuzzReader) {
   }
 }
 
-TEST(TestArrowReadWrite, WriteReadPageIndexRoundTrip) {
-  // Enable page index to the writer.
+namespace {
+
+struct ColumnIndexObject {
+  std::vector<bool> null_pages;
+  std::vector<std::string> min_values;
+  std::vector<std::string> max_values;
+  BoundaryOrder::type boundary_order = BoundaryOrder::Unordered;
+  std::vector<int64_t> null_counts;
+
+  ColumnIndexObject() = default;
+
+  ColumnIndexObject(const std::vector<bool>& null_pages,
+                    const std::vector<std::string>& min_values,
+                    const std::vector<std::string>& max_values,
+                    BoundaryOrder::type boundary_order,
+                    const std::vector<int64_t>& null_counts)
+      : null_pages(null_pages),
+        min_values(min_values),
+        max_values(max_values),
+        boundary_order(boundary_order),
+        null_counts(null_counts) {}
+
+  ColumnIndexObject(const ColumnIndex* column_index) {
+    if (column_index == nullptr) {
+      return;
+    }
+    null_pages = column_index->null_pages();
+    min_values = column_index->encoded_min_values();
+    max_values = column_index->encoded_max_values();
+    boundary_order = column_index->boundary_order();
+    if (column_index->has_null_counts()) {
+      null_counts = column_index->null_counts();
+    }
+  }
+
+  bool operator==(const ColumnIndexObject& b) const {
+    return null_pages == b.null_pages && min_values == b.min_values &&
+           max_values == b.max_values && boundary_order == b.boundary_order &&
+           null_counts == b.null_counts;
+  }
+};
+
+auto encode_int64 = [](int64_t value) {
+  return std::string(reinterpret_cast<const char*>(&value), sizeof(int64_t));
+};
+
+auto encode_double = [](double value) {
+  return std::string(reinterpret_cast<const char*>(&value), sizeof(double));
+};
+
+}  // namespace
+
+class ParquetPageIndexRoundTripTest : public ::testing::Test {
+ public:
+  void WriteFile(const std::shared_ptr<WriterProperties>& writer_properties,
+                 const std::shared_ptr<::arrow::Table>& table) {
+    // Get schema from table.
+    auto schema = table->schema();
+    std::shared_ptr<SchemaDescriptor> parquet_schema;
+    auto arrow_writer_properties = default_arrow_writer_properties();
+    ASSERT_OK_NO_THROW(ToParquetSchema(schema.get(), *writer_properties,
+                                       *arrow_writer_properties, &parquet_schema));
+    auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
+
+    // Write table to buffer.
+    auto sink = CreateOutputStream();
+    auto pool = ::arrow::default_memory_pool();
+    auto writer = ParquetFileWriter::Open(sink, schema_node, writer_properties);
+    std::unique_ptr<FileWriter> arrow_writer;
+    ASSERT_OK(FileWriter::Make(pool, std::move(writer), schema, arrow_writer_properties,
+                               &arrow_writer));
+    ASSERT_OK_NO_THROW(arrow_writer->WriteTable(*table));
+    ASSERT_OK_NO_THROW(arrow_writer->Close());
+    ASSERT_OK_AND_ASSIGN(buffer_, sink->Finish());
+  }
+
+  void ReadPageIndexes(int expect_num_row_groups, int expect_num_pages) {
+    auto read_properties = default_arrow_reader_properties();
+    auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer_));
+
+    auto metadata = reader->metadata();
+    ASSERT_EQ(expect_num_row_groups, metadata->num_row_groups());
+
+    auto page_index_reader = reader->GetPageIndexReader();
+    ASSERT_NE(page_index_reader, nullptr);
+
+    int64_t offset_lower_bound = 0;
+    for (int rg = 0; rg < metadata->num_row_groups(); ++rg) {
+      auto row_group_index_reader = page_index_reader->RowGroup(rg);
+      ASSERT_NE(row_group_index_reader, nullptr);
+
+      for (int col = 0; col < metadata->num_columns(); ++col) {
+        auto column_index = row_group_index_reader->GetColumnIndex(col);
+        column_indexes_.emplace_back(column_index.get());
+
+        auto offset_index = row_group_index_reader->GetOffsetIndex(col);
+        CheckOffsetIndex(offset_index.get(), expect_num_pages, &offset_lower_bound);
+      }
+    }
+  }
+
+ private:
+  void CheckOffsetIndex(const OffsetIndex* offset_index, int expect_num_pages,
+                        int64_t* offset_lower_bound_in_out) {
+    ASSERT_NE(offset_index, nullptr);
+    const auto& locations = offset_index->page_locations();
+    ASSERT_EQ(static_cast<size_t>(expect_num_pages), locations.size());
+    int64_t prev_first_row_index = 0;
+    for (const auto& location : locations) {
+      ASSERT_GE(location.first_row_index, prev_first_row_index);
+      ASSERT_GE(location.offset, *offset_lower_bound_in_out);
+      ASSERT_GT(location.compressed_page_size, 0);
+      prev_first_row_index = location.first_row_index;
+      *offset_lower_bound_in_out = location.offset + location.compressed_page_size;
+    }
+  }
+
+ protected:
+  std::shared_ptr<Buffer> buffer_;
+  std::vector<ColumnIndexObject> column_indexes_;
+};
+
+TEST_F(ParquetPageIndexRoundTripTest, SimpleRoundTrip) {
   auto writer_properties = WriterProperties::Builder()
                                .enable_write_page_index()
                                ->max_row_group_length(4)
                                ->build();
-  auto arrow_writer_properties = default_arrow_writer_properties();
-  auto pool = ::arrow::default_memory_pool();
-  auto sink = CreateOutputStream();
   auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::int64()),
                                  ::arrow::field("c1", ::arrow::utf8()),
                                  ::arrow::field("c2", ::arrow::list(::arrow::int64()))});
-  std::shared_ptr<SchemaDescriptor> parquet_schema;
-  ASSERT_OK_NO_THROW(ToParquetSchema(schema.get(), *writer_properties,
-                                     *arrow_writer_properties, &parquet_schema));
-  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
-
-  // Create writer to write data via RecordBatch.
-  auto writer = ParquetFileWriter::Open(sink, schema_node, writer_properties);
-  std::unique_ptr<FileWriter> arrow_writer;
-  ASSERT_OK(FileWriter::Make(pool, std::move(writer), schema, arrow_writer_properties,
-                             &arrow_writer));
-  auto record_batch = ::arrow::RecordBatchFromJSON(schema, R"([
+  WriteFile(writer_properties, ::arrow::TableFromJSON(schema, {R"([
       [1,     "a",  [1]      ],
       [2,     "b",  [1, 2]   ],
       [3,     "c",  [null]   ],
       [null,  "d",  []       ],
       [5,     null, [3, 3, 3]],
       [6,     "f",  null     ]
-    ])");
-  ASSERT_OK_NO_THROW(arrow_writer->WriteRecordBatch(*record_batch));
-  ASSERT_OK_NO_THROW(arrow_writer->Close());
-  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+    ])"}));
 
-  // Create reader to read page index.
-  auto read_properties = default_arrow_reader_properties();
-  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
-  auto metadata = reader->metadata();
-  ASSERT_EQ(2, metadata->num_row_groups());
+  ReadPageIndexes(/*expect_num_row_groups=*/2, /*expect_num_pages=*/1);
 
-  // Make sure page index reader is not null.
-  auto page_index_reader = reader->GetPageIndexReader();
-  ASSERT_NE(page_index_reader, nullptr);
-
-  auto encode_int64 = [](int64_t value) {
-    return std::string(reinterpret_cast<const char*>(&value), sizeof(int64_t));
-  };
-
-  const std::vector<std::string> c0_min_values = {encode_int64(1), encode_int64(5)};
-  const std::vector<std::string> c0_max_values = {encode_int64(3), encode_int64(6)};
-  const std::vector<std::string> c1_min_values = {"a", "f"};
-  const std::vector<std::string> c1_max_values = {"d", "f"};
-  const std::vector<std::string> c2_min_values = {encode_int64(1), encode_int64(3)};
-  const std::vector<std::string> c2_max_values = {encode_int64(2), encode_int64(3)};
-  const std::vector<int64_t> c0_null_counts = {1, 0};
-  const std::vector<int64_t> c1_null_counts = {0, 1};
-  const std::vector<int64_t> c2_null_counts = {2, 1};
-
-  const size_t num_pages = 1;
-  for (int rg = 0; rg < metadata->num_row_groups(); ++rg) {
-    auto row_group_index_reader = page_index_reader->RowGroup(rg);
-    ASSERT_NE(row_group_index_reader, nullptr);
-
-    // Verify column index of c0.
-    auto c0_column_index = row_group_index_reader->GetColumnIndex(0);
-    ASSERT_NE(c0_column_index, nullptr);
-    ASSERT_EQ(num_pages, c0_column_index->null_pages().size());
-    ASSERT_FALSE(c0_column_index->null_pages()[0]);
-    ASSERT_EQ(BoundaryOrder::Ascending, c0_column_index->boundary_order());
-    ASSERT_EQ(c0_min_values[rg], c0_column_index->encoded_min_values()[0]);
-    ASSERT_EQ(c0_max_values[rg], c0_column_index->encoded_max_values()[0]);
-    ASSERT_TRUE(c0_column_index->has_null_counts());
-    ASSERT_EQ(c0_null_counts[rg], c0_column_index->null_counts()[0]);
-
-    // Verify column index of c1.
-    auto c1_column_index = row_group_index_reader->GetColumnIndex(1);
-    ASSERT_NE(c1_column_index, nullptr);
-    ASSERT_EQ(num_pages, c1_column_index->null_pages().size());
-    ASSERT_FALSE(c1_column_index->null_pages()[0]);
-    ASSERT_EQ(BoundaryOrder::Ascending, c1_column_index->boundary_order());
-    ASSERT_EQ(c1_min_values[rg], c1_column_index->encoded_min_values()[0]);
-    ASSERT_EQ(c1_max_values[rg], c1_column_index->encoded_max_values()[0]);
-    ASSERT_TRUE(c1_column_index->has_null_counts());
-    ASSERT_EQ(c1_null_counts[rg], c1_column_index->null_counts()[0]);
-
-    // Verify column index of c2.
-    auto c2_column_index = row_group_index_reader->GetColumnIndex(2);
-    ASSERT_NE(c2_column_index, nullptr);
-    ASSERT_EQ(num_pages, c2_column_index->null_pages().size());
-    ASSERT_FALSE(c2_column_index->null_pages()[0]);
-    ASSERT_EQ(BoundaryOrder::Ascending, c2_column_index->boundary_order());
-    ASSERT_EQ(c2_min_values[rg], c2_column_index->encoded_min_values()[0]);
-    ASSERT_EQ(c2_max_values[rg], c2_column_index->encoded_max_values()[0]);
-    ASSERT_TRUE(c2_column_index->has_null_counts());
-    ASSERT_EQ(c2_null_counts[rg], c2_column_index->null_counts()[0]);
-
-    // Verify offset index.
-    for (int c = 0; c < metadata->num_columns(); ++c) {
-      auto offset_index = row_group_index_reader->GetOffsetIndex(c);
-      ASSERT_NE(offset_index, nullptr);
-      ASSERT_EQ(num_pages, offset_index->page_locations().size());
-      ASSERT_EQ(0, offset_index->page_locations()[0].first_row_index);
-      ASSERT_NE(0, offset_index->page_locations()[0].offset);
-      ASSERT_NE(0, offset_index->page_locations()[0].compressed_page_size);
-    }
-  }
+  EXPECT_THAT(
+      column_indexes_,
+      ::testing::ElementsAre(
+          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(1)},
+                            /*max_values=*/{encode_int64(3)}, BoundaryOrder::Ascending,
+                            /*null_counts=*/{1}},
+          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{"a"},
+                            /*max_values=*/{"d"}, BoundaryOrder::Ascending,
+                            /*null_counts=*/{0}},
+          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(1)},
+                            /*max_values=*/{encode_int64(2)}, BoundaryOrder::Ascending,
+                            /*null_counts=*/{2}},
+          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(5)},
+                            /*max_values=*/{encode_int64(6)}, BoundaryOrder::Ascending,
+                            /*null_counts=*/{0}},
+          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{"f"},
+                            /*max_values=*/{"f"}, BoundaryOrder::Ascending,
+                            /*null_counts=*/{1}},
+          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(3)},
+                            /*max_values=*/{encode_int64(3)}, BoundaryOrder::Ascending,
+                            /*null_counts=*/{1}}));
 }
 
-TEST(TestArrowReadWrite, WriteReadPageIndexRoundTripWithLargeStatsDropped) {
-  // Enable page index to the writer.
+TEST_F(ParquetPageIndexRoundTripTest, DropLargeStats) {
   auto writer_properties = WriterProperties::Builder()
                                .enable_write_page_index()
                                ->max_row_group_length(1) /* write single-row row group */
                                ->max_statistics_size(20) /* drop stats larger than it */
                                ->build();
-  auto arrow_writer_properties = default_arrow_writer_properties();
-  auto pool = ::arrow::default_memory_pool();
-  auto sink = CreateOutputStream();
   auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::utf8())});
-  std::shared_ptr<SchemaDescriptor> parquet_schema;
-  ASSERT_OK_NO_THROW(ToParquetSchema(schema.get(), *writer_properties,
-                                     *arrow_writer_properties, &parquet_schema));
-  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
-
-  // Create writer to write data via Table.
-  auto writer = ParquetFileWriter::Open(sink, schema_node, writer_properties);
-  std::unique_ptr<FileWriter> arrow_writer;
-  ASSERT_OK(FileWriter::Make(pool, std::move(writer), schema, arrow_writer_properties,
-                             &arrow_writer));
-  auto table = ::arrow::TableFromJSON(schema, {R"([
+  WriteFile(writer_properties, ::arrow::TableFromJSON(schema, {R"([
       ["short_string"],
       ["very_large_string_to_drop_stats"]
-    ])"});
-  ASSERT_OK_NO_THROW(arrow_writer->WriteTable(*table));
-  ASSERT_OK_NO_THROW(arrow_writer->Close());
-  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+    ])"}));
 
-  // Create reader to read page index.
-  auto read_properties = default_arrow_reader_properties();
-  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
-  auto metadata = reader->metadata();
-  ASSERT_EQ(2, metadata->num_row_groups());
+  ReadPageIndexes(/*expect_num_row_groups=*/2, /*expect_num_pages=*/1);
 
-  // Make sure page index reader is not null.
-  auto page_index_reader = reader->GetPageIndexReader();
-  ASSERT_NE(page_index_reader, nullptr);
-
-  const size_t num_pages = 1;
-  for (int rg = 0; rg < metadata->num_row_groups(); ++rg) {
-    auto row_group_index_reader = page_index_reader->RowGroup(rg);
-    ASSERT_NE(row_group_index_reader, nullptr);
-
-    // Verify column index.
-    auto column_index = row_group_index_reader->GetColumnIndex(0);
-    if (rg == 0) {
-      ASSERT_NE(column_index, nullptr);
-      ASSERT_EQ(num_pages, column_index->null_pages().size());
-      ASSERT_FALSE(column_index->null_pages()[0]);
-      ASSERT_EQ(BoundaryOrder::Ascending, column_index->boundary_order());
-      ASSERT_EQ("short_string", column_index->encoded_min_values()[0]);
-      ASSERT_EQ("short_string", column_index->encoded_max_values()[0]);
-      ASSERT_TRUE(column_index->has_null_counts());
-      ASSERT_EQ(0, column_index->null_counts()[0]);
-    } else {
-      // Large stats have been dropped, so does the column index.
-      ASSERT_EQ(column_index, nullptr);
-    }
-
-    // Verify offset index.
-    for (int c = 0; c < metadata->num_columns(); ++c) {
-      auto offset_index = row_group_index_reader->GetOffsetIndex(c);
-      ASSERT_NE(offset_index, nullptr);
-      ASSERT_EQ(num_pages, offset_index->page_locations().size());
-      ASSERT_EQ(0, offset_index->page_locations()[0].first_row_index);
-      ASSERT_NE(0, offset_index->page_locations()[0].offset);
-      ASSERT_NE(0, offset_index->page_locations()[0].compressed_page_size);
-    }
-  }
+  EXPECT_THAT(
+      column_indexes_,
+      ::testing::ElementsAre(
+          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{"short_string"},
+                            /*max_values=*/{"short_string"}, BoundaryOrder::Ascending,
+                            /*null_counts=*/{0}},
+          ColumnIndexObject{}));
 }
 
-TEST(TestArrowReadWrite, WriteReadPageIndexRoundTripWithMultiplePages) {
-  // Enable page index to the writer.
+TEST_F(ParquetPageIndexRoundTripTest, MultiplePages) {
   auto writer_properties = WriterProperties::Builder()
                                .enable_write_page_index()
                                ->data_pagesize(1) /* write multiple pages */
                                ->build();
-  auto arrow_writer_properties = default_arrow_writer_properties();
-  auto pool = ::arrow::default_memory_pool();
-  auto sink = CreateOutputStream();
   auto schema = ::arrow::schema(
       {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", ::arrow::utf8())});
-  std::shared_ptr<SchemaDescriptor> parquet_schema;
-  ASSERT_OK_NO_THROW(ToParquetSchema(schema.get(), *writer_properties,
-                                     *arrow_writer_properties, &parquet_schema));
-  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
+  WriteFile(
+      writer_properties,
+      ::arrow::TableFromJSON(
+          schema, {R"([[1, "a"], [2, "b"]])", R"([[3, "c"], [4, "d"]])",
+                   R"([[null, null], [6, "f"]])", R"([[null, null], [null, null]])"}));
 
-  // Create writer to write data via Table.
-  auto writer = ParquetFileWriter::Open(sink, schema_node, writer_properties);
-  std::unique_ptr<FileWriter> arrow_writer;
-  ASSERT_OK(FileWriter::Make(pool, std::move(writer), schema, arrow_writer_properties,
-                             &arrow_writer));
-  auto table = ::arrow::TableFromJSON(
-      schema, {R"([[1, "a"], [2, "b"]])", R"([[3, "c"], [4, "d"]])",
-               R"([[null, null], [6, "f"]])", R"([[null, null], [null, null]])"});
-  ASSERT_OK_NO_THROW(arrow_writer->WriteTable(*table));
-  ASSERT_OK_NO_THROW(arrow_writer->Close());
-  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  ReadPageIndexes(/*expect_num_row_groups=*/1, /*expect_num_pages=*/4);
 
-  // Create reader to read page index.
-  auto read_properties = default_arrow_reader_properties();
-  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
-  auto metadata = reader->metadata();
-  ASSERT_EQ(1, metadata->num_row_groups());
-
-  // Make sure page index reader is not null.
-  auto page_index_reader = reader->GetPageIndexReader();
-  ASSERT_NE(page_index_reader, nullptr);
-  auto row_group_index_reader = page_index_reader->RowGroup(0);
-  ASSERT_NE(row_group_index_reader, nullptr);
-
-  // Setup expected data.
-  auto encode_int64 = [](int64_t value) {
-    return std::string(reinterpret_cast<const char*>(&value), sizeof(int64_t));
-  };
-  const std::vector<std::string> c0_min_values = {encode_int64(1), encode_int64(3),
-                                                  encode_int64(6), ""};
-  const std::vector<std::string> c0_max_values = {encode_int64(2), encode_int64(4),
-                                                  encode_int64(6), ""};
-  const std::vector<std::string> c1_min_values = {"a", "c", "f", ""};
-  const std::vector<std::string> c1_max_values = {"b", "d", "f", ""};
-  const std::vector<int64_t> null_counts = {0, 0, 1, 2};
-  const std::vector<bool> null_pages = {false, false, false, true};
-  const size_t num_pages = 4;
-
-  // Verify page index by columns.
-  for (int col_idx = 0; col_idx < metadata->num_columns(); ++col_idx) {
-    // Verify column index.
-    auto column_index = row_group_index_reader->GetColumnIndex(col_idx);
-    ASSERT_NE(column_index, nullptr);
-    ASSERT_EQ(BoundaryOrder::Ascending, column_index->boundary_order());
-    ASSERT_EQ(num_pages, column_index->null_pages().size());
-    ASSERT_TRUE(column_index->has_null_counts());
-    for (size_t page_idx = 0; page_idx < num_pages; ++page_idx) {
-      ASSERT_EQ(null_pages[page_idx], column_index->null_pages()[page_idx]);
-      ASSERT_EQ(null_counts[page_idx], column_index->null_counts()[page_idx]);
-      if (col_idx == 0) {
-        ASSERT_EQ(c0_min_values[page_idx], column_index->encoded_min_values()[page_idx]);
-        ASSERT_EQ(c0_max_values[page_idx], column_index->encoded_max_values()[page_idx]);
-      } else {
-        ASSERT_EQ(c1_min_values[page_idx], column_index->encoded_min_values()[page_idx]);
-        ASSERT_EQ(c1_max_values[page_idx], column_index->encoded_max_values()[page_idx]);
-      }
-    }
-
-    // Verify offset index.
-    auto offset_index = row_group_index_reader->GetOffsetIndex(col_idx);
-    ASSERT_NE(offset_index, nullptr);
-    ASSERT_EQ(num_pages, offset_index->page_locations().size());
-    int64_t prev_offset = 0;
-    for (size_t page_idx = 0; page_idx < num_pages; ++page_idx) {
-      const auto& page_location = offset_index->page_locations()[page_idx];
-      ASSERT_EQ(static_cast<int64_t>(page_idx * 2), page_location.first_row_index);
-      ASSERT_GT(page_location.offset, prev_offset);
-      ASSERT_GT(page_location.compressed_page_size, 0);
-      prev_offset = page_location.offset;
-    }
-  }
+  EXPECT_THAT(
+      column_indexes_,
+      ::testing::ElementsAre(
+          ColumnIndexObject{
+              /*null_pages=*/{false, false, false, true},
+              /*min_values=*/{encode_int64(1), encode_int64(3), encode_int64(6), ""},
+              /*max_values=*/{encode_int64(2), encode_int64(4), encode_int64(6), ""},
+              BoundaryOrder::Ascending,
+              /*null_counts=*/{0, 0, 1, 2}},
+          ColumnIndexObject{/*null_pages=*/{false, false, false, true},
+                            /*min_values=*/{"a", "c", "f", ""},
+                            /*max_values=*/{"b", "d", "f", ""}, BoundaryOrder::Ascending,
+                            /*null_counts=*/{0, 0, 1, 2}}));
 }
 
-TEST(TestArrowReadWrite, WriteReadPageIndexRoundTripWithNaNs) {
-  // Enable page index to the writer.
+TEST_F(ParquetPageIndexRoundTripTest, DoubleWithNaNs) {
   auto writer_properties = WriterProperties::Builder()
                                .enable_write_page_index()
                                ->max_row_group_length(3) /* 3 rows per row group */
                                ->build();
-  auto arrow_writer_properties = default_arrow_writer_properties();
-  auto pool = ::arrow::default_memory_pool();
-  auto sink = CreateOutputStream();
-  auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::float64())});
-  std::shared_ptr<SchemaDescriptor> parquet_schema;
-  ASSERT_OK_NO_THROW(ToParquetSchema(schema.get(), *writer_properties,
-                                     *arrow_writer_properties, &parquet_schema));
-  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
 
   // Create table to write with NaNs.
   auto vectors = std::vector<std::shared_ptr<Array>>(4);
@@ -5454,64 +5394,32 @@ TEST(TestArrowReadWrite, WriteReadPageIndexRoundTripWithNaNs) {
   ::arrow::ArrayFromVector<::arrow::DoubleType>({NAN, NAN, NAN}, &vectors[3]);
   ASSERT_OK_AND_ASSIGN(auto chunked_array,
                        arrow::ChunkedArray::Make(vectors, ::arrow::float64()));
+
+  auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::float64())});
   auto table = Table::Make(schema, {chunked_array});
+  WriteFile(writer_properties, table);
 
-  // Create writer to write data via Table.
-  auto writer = ParquetFileWriter::Open(sink, schema_node, writer_properties);
-  std::unique_ptr<FileWriter> arrow_writer;
-  ASSERT_OK(FileWriter::Make(pool, std::move(writer), schema, arrow_writer_properties,
-                             &arrow_writer));
-  ASSERT_OK_NO_THROW(arrow_writer->WriteTable(*table));
-  ASSERT_OK_NO_THROW(arrow_writer->Close());
-  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  ReadPageIndexes(/*expect_num_row_groups=*/4, /*expect_num_pages=*/1);
 
-  // Create reader to read page index.
-  auto read_properties = default_arrow_reader_properties();
-  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
-  auto metadata = reader->metadata();
-  ASSERT_EQ(4, metadata->num_row_groups());
-
-  // Make sure page index reader is not null.
-  auto page_index_reader = reader->GetPageIndexReader();
-  ASSERT_NE(page_index_reader, nullptr);
-
-  // Set up expected values.
-  auto encode = [](double value) {
-    return std::string(reinterpret_cast<const char*>(&value), sizeof(double));
-  };
-  const std::vector<std::string> min_values = {encode(0.1), encode(-0.0), encode(-0.0)};
-  const std::vector<std::string> max_values = {encode(1.0), encode(+0.0), encode(+0.0)};
-
-  // Verify page index.
-  const size_t num_pages = 1;
-  for (int rg = 0; rg < metadata->num_row_groups(); ++rg) {
-    auto row_group_index_reader = page_index_reader->RowGroup(rg);
-    ASSERT_NE(row_group_index_reader, nullptr);
-
-    // Verify column index.
-    auto column_index = row_group_index_reader->GetColumnIndex(0);
-    if (rg == 3) {
-      // Pages with only NaN values do not have column index built.
-      ASSERT_EQ(column_index, nullptr);
-    } else {
-      ASSERT_NE(column_index, nullptr);
-      ASSERT_EQ(num_pages, column_index->null_pages().size());
-      ASSERT_FALSE(column_index->null_pages()[0]);
-      ASSERT_EQ(BoundaryOrder::Ascending, column_index->boundary_order());
-      ASSERT_EQ(min_values[rg], column_index->encoded_min_values()[0]);
-      ASSERT_EQ(max_values[rg], column_index->encoded_max_values()[0]);
-      ASSERT_TRUE(column_index->has_null_counts());
-      ASSERT_EQ(column_index->null_counts()[0], 0);
-    }
-
-    // Verify offset index.
-    auto offset_index = row_group_index_reader->GetOffsetIndex(0);
-    ASSERT_NE(offset_index, nullptr);
-    ASSERT_EQ(num_pages, offset_index->page_locations().size());
-    ASSERT_EQ(0, offset_index->page_locations()[0].first_row_index);
-    ASSERT_NE(0, offset_index->page_locations()[0].offset);
-    ASSERT_NE(0, offset_index->page_locations()[0].compressed_page_size);
-  }
+  EXPECT_THAT(
+      column_indexes_,
+      ::testing::ElementsAre(
+          ColumnIndexObject{/*null_pages=*/{false},
+                            /*min_values=*/{encode_double(0.1)},
+                            /*max_values=*/{encode_double(1.0)}, BoundaryOrder::Ascending,
+                            /*null_counts=*/{0}},
+          ColumnIndexObject{/*null_pages=*/{false},
+                            /*min_values=*/{encode_double(-0.0)},
+                            /*max_values=*/{encode_double(+0.0)},
+                            BoundaryOrder::Ascending,
+                            /*null_counts=*/{0}},
+          ColumnIndexObject{/*null_pages=*/{false},
+                            /*min_values=*/{encode_double(-0.0)},
+                            /*max_values=*/{encode_double(+0.0)},
+                            BoundaryOrder::Ascending,
+                            /*null_counts=*/{0}},
+          ColumnIndexObject{
+              /* Page with only NaN values does not have column index built */}));
 }
 
 }  // namespace arrow
