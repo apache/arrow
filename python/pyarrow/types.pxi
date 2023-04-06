@@ -4638,6 +4638,11 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
         Explicit names to tensor dimensions.
     permutation : tuple or list integers, default None
         Indices of the desired ordering of the original dimensions.
+        The indices contain a permutation of the values ``[0, 1, .., N-1]`` where
+        N is the number of dimensions. The permutation indicates which dimension
+        of the logical layout corresponds to which dimension of the physical tensor.
+        For more information on this parameter see
+        :ref:`fixed_shape_tensor_extension`.
 
     Examples
     --------
