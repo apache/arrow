@@ -3120,8 +3120,7 @@ class FixedShapeTensorArray(ExtensionArray):
         Convert fixed shape tensor extension array to a numpy array (with dim+1).
         """
         np_flat = np.asarray(self.storage.values)
-        numpy_tensor = np_flat.reshape((len(self),) + tuple(self.type.shape),
-                                       order='C')
+        numpy_tensor = np_flat.reshape((len(self),) + tuple(self.type.shape))
 
         return numpy_tensor
 

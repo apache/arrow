@@ -4626,7 +4626,8 @@ def run_end_encoded(run_end_type, value_type):
 def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=None):
     """
     Create instance of fixed shape tensor extension type with shape and optional
-    names of tensor dimensions and indices of the desired ordering.
+    names of tensor dimensions and indices of the desired logical
+    ordering of dimensions.
 
     Parameters
     ----------
