@@ -493,11 +493,7 @@ func (s *diffStringTestCase) check(t *testing.T) {
 	if err != nil {
 		t.Fatalf("got unexpected error %v", err)
 	}
-	got, err := edits.UnifiedDiff(base, target)
-	if err != nil {
-		t.Fatalf("got unexpected error %v", err)
-	}
-	
+	got := edits.UnifiedDiff(base, target)
 	if got != s.want {
 		t.Errorf("got:\n%v\n, want:\n%v", got, s.want)
 	}

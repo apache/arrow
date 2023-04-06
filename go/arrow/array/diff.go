@@ -54,7 +54,7 @@ func (e Edits) String() string {
 }
 
 // UnifiedDiff returns a string representation of the diff of base and target in Unified Diff format.
-func (e Edits) UnifiedDiff(base, target arrow.Array) (string, error) {
+func (e Edits) UnifiedDiff(base, target arrow.Array) string {
 	var s strings.Builder
 	baseIndex := int64(0)
 	targetIndex := int64(0)
@@ -79,7 +79,7 @@ func (e Edits) UnifiedDiff(base, target arrow.Array) (string, error) {
 			wrotePosition = false
 		}
 	}
-	return s.String(), nil
+	return s.String()
 }
 
 func stringAt(arr arrow.Array, i int64) string {
