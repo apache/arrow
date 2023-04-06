@@ -543,28 +543,22 @@ func transferBinary(rdr file.RecordReader, dt arrow.DataType) *arrow.Chunked {
 		return transferDictionary(brdr, &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: dt})
 	}
 	chunks := brdr.GetBuilderChunks()
-	storage := dt
-	if dt.ID() == arrow.EXTENSION {
-		storage = dt.(arrow.ExtensionType).StorageType()
-	}
-	if storage == arrow.BinaryTypes.String || storage == arrow.BinaryTypes.LargeString || dt.ID() == arrow.EXTENSION {
-		if storage != dt {
-			etype := dt.(arrow.ExtensionType)
-
-			for idx, chk := range chunks {
-				chunks[idx] = array.NewExtensionArrayWithStorage(etype, chk)
-				chk.Release() // NewExtensionArrayWithStorage will call retain on chk, so it still needs to be released
-				defer chunks[idx].Release()
-			}
-		} else {
-			for idx := range chunks {
-				prev := chunks[idx]
-				chunks[idx] = array.MakeFromData(chunks[idx].Data())
-				prev.Release()
-				defer chunks[idx].Release()
-			}
+	switch {
+	case dt.ID() == arrow.EXTENSION:
+		etype := dt.(arrow.ExtensionType)
+		for idx, chk := range chunks {
+			chunks[idx] = array.NewExtensionArrayWithStorage(etype, chk)
+			chk.Release() // NewExtensionArrayWithStorage will call retain on chk, so it still needs to be released
+			defer chunks[idx].Release()
 		}
-	} else {
+	case dt == arrow.BinaryTypes.String || dt == arrow.BinaryTypes.LargeString:
+		for idx := range chunks {
+			prev := chunks[idx]
+			chunks[idx] = array.MakeFromData(chunks[idx].Data())
+			prev.Release()
+			defer chunks[idx].Release()
+		}
+	default:
 		for idx := range chunks {
 			defer chunks[idx].Release()
 		}
