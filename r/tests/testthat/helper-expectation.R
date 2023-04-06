@@ -19,8 +19,8 @@ expect_as_vector <- function(x, y, ...) {
   expect_equal(as.vector(x), y, ...)
 }
 
-expect_tibble <- function(x, y, ...) {
-  expect_equal(as_tibble(x), y, ...)
+expect_data_frame <- function(x, y, ...) {
+  expect_equal(as.data.frame(x), y, ...)
 }
 
 expect_r6_class <- function(object, class) {

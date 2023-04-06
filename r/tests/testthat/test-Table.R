@@ -68,26 +68,26 @@ tab <- Table$create(tbl)
 test_that("[, [[, $ for Table", {
   expect_identical(names(tab), names(tbl))
 
-  expect_tibble(tab[6:7, ], tbl[6:7, ])
-  expect_tibble(tab[6:7, 2:4], tbl[6:7, 2:4])
-  expect_tibble(tab[, c("dbl", "fct")], tbl[, c(2, 5)])
+  expect_data_frame(tab[6:7, ], tbl[6:7, ])
+  expect_data_frame(tab[6:7, 2:4], tbl[6:7, 2:4])
+  expect_data_frame(tab[, c("dbl", "fct")], tbl[, c(2, 5)])
   expect_as_vector(tab[, "chr", drop = TRUE], tbl$chr)
   # Take within a single chunk
-  expect_tibble(tab[c(7, 3, 5), 2:4], tbl[c(7, 3, 5), 2:4])
-  expect_tibble(tab[rep(c(FALSE, TRUE), 5), ], tbl[c(2, 4, 6, 8, 10), ])
+  expect_data_frame(tab[c(7, 3, 5), 2:4], tbl[c(7, 3, 5), 2:4])
+  expect_data_frame(tab[rep(c(FALSE, TRUE), 5), ], tbl[c(2, 4, 6, 8, 10), ])
   # bool ChunkedArray (with one chunk)
-  expect_tibble(tab[tab$lgl, ], tbl[tbl$lgl, ])
+  expect_data_frame(tab[tab$lgl, ], tbl[tbl$lgl, ])
   # ChunkedArray with multiple chunks
   c1 <- c(TRUE, FALSE, TRUE, TRUE, FALSE)
   c2 <- c(FALSE, FALSE, TRUE, TRUE, FALSE)
   ca <- ChunkedArray$create(c1, c2)
-  expect_tibble(tab[ca, ], tbl[c(1, 3, 4, 8, 9), ])
+  expect_data_frame(tab[ca, ], tbl[c(1, 3, 4, 8, 9), ])
   # int Array
-  expect_tibble(tab[Array$create(5:6), 2:4], tbl[6:7, 2:4])
+  expect_data_frame(tab[Array$create(5:6), 2:4], tbl[6:7, 2:4])
   # ChunkedArray
-  expect_tibble(tab[ChunkedArray$create(5L, 6L), 2:4], tbl[6:7, 2:4])
+  expect_data_frame(tab[ChunkedArray$create(5L, 6L), 2:4], tbl[6:7, 2:4])
   # Expression
-  expect_tibble(tab[tab$int > 6, ], tbl[tbl$int > 6, ])
+  expect_data_frame(tab[tab$int > 6, ], tbl[tbl$int > 6, ])
 
   expect_as_vector(tab[["int"]], tbl$int)
   expect_as_vector(tab$int, tbl$int)
@@ -95,9 +95,9 @@ test_that("[, [[, $ for Table", {
   expect_null(tab$qwerty)
   expect_null(tab[["asdf"]])
   # List-like column slicing
-  expect_tibble(tab[2:4], tbl[2:4])
-  expect_tibble(tab[c(2, 1)], tbl[c(2, 1)])
-  expect_tibble(tab[-3], tbl[-3])
+  expect_data_frame(tab[2:4], tbl[2:4])
+  expect_data_frame(tab[c(2, 1)], tbl[c(2, 1)])
+  expect_data_frame(tab[-3], tbl[-3])
 
   expect_error(tab[[c(4, 3)]])
   expect_error(tab[[NA]], "'i' must be character or numeric, not logical")
@@ -112,21 +112,21 @@ test_that("[, [[, $ for Table", {
   expect_error(tab[, c(6, NA)], "Column indices cannot be NA")
 
   skip("Table with 0 cols doesn't know how many rows it should have")
-  expect_tibble(tab[0], tbl[0])
+  expect_data_frame(tab[0], tbl[0])
 })
 
 test_that("[[<- assignment", {
   # can remove a column
   tab[["chr"]] <- NULL
-  expect_tibble(tab, tbl[-4])
+  expect_data_frame(tab, tbl[-4])
 
   # can remove a column by index
   tab[[4]] <- NULL
-  expect_tibble(tab, tbl[1:3])
+  expect_data_frame(tab, tbl[1:3])
 
   # can add a named column
   tab[["new"]] <- letters[10:1]
-  expect_tibble(tab, dplyr::bind_cols(tbl[1:3], new = letters[10:1]))
+  expect_data_frame(tab, dplyr::bind_cols(tbl[1:3], new = letters[10:1]))
 
   # can replace a column by index
   tab[[2]] <- as.numeric(10:1)
@@ -177,10 +177,10 @@ test_that("[[<- assignment", {
 
 test_that("Table$Slice", {
   tab2 <- tab$Slice(5)
-  expect_tibble(tab2, tbl[6:10, ])
+  expect_data_frame(tab2, tbl[6:10, ])
 
   tab3 <- tab$Slice(5, 2)
-  expect_tibble(tab3, tbl[6:7, ])
+  expect_data_frame(tab3, tbl[6:7, ])
 
   # Input validation
   expect_error(tab$Slice("ten"))
@@ -199,16 +199,16 @@ test_that("Table$Slice", {
 })
 
 test_that("head and tail on Table", {
-  expect_tibble(head(tab), head(tbl))
-  expect_tibble(head(tab, 4), head(tbl, 4))
-  expect_tibble(head(tab, 40), head(tbl, 40))
-  expect_tibble(head(tab, -4), head(tbl, -4))
-  expect_tibble(head(tab, -40), head(tbl, -40))
-  expect_tibble(tail(tab), tail(tbl))
-  expect_tibble(tail(tab, 4), tail(tbl, 4))
-  expect_tibble(tail(tab, 40), tail(tbl, 40))
-  expect_tibble(tail(tab, -4), tail(tbl, -4))
-  expect_tibble(tail(tab, -40), tail(tbl, -40))
+  expect_data_frame(head(tab), head(tbl))
+  expect_data_frame(head(tab, 4), head(tbl, 4))
+  expect_data_frame(head(tab, 40), head(tbl, 40))
+  expect_data_frame(head(tab, -4), head(tbl, -4))
+  expect_data_frame(head(tab, -40), head(tbl, -40))
+  expect_data_frame(tail(tab), tail(tbl))
+  expect_data_frame(tail(tab, 4), tail(tbl, 4))
+  expect_data_frame(tail(tab, 40), tail(tbl, 40))
+  expect_data_frame(tail(tab, -4), tail(tbl, -4))
+  expect_data_frame(tail(tab, -40), tail(tbl, -40))
 })
 
 test_that("Table print method", {
@@ -410,24 +410,24 @@ test_that("Table$create() with different length columns", {
 })
 
 test_that("Table$create() scalar recycling with vectors", {
-  expect_tibble(
+  expect_data_frame(
     Table$create(a = 1:10, b = 5),
     tibble::tibble(a = 1:10, b = 5)
   )
 })
 
 test_that("Table$create() scalar recycling with Scalars, Arrays, and ChunkedArrays", {
-  expect_tibble(
+  expect_data_frame(
     Table$create(a = Array$create(1:10), b = Scalar$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
 
-  expect_tibble(
+  expect_data_frame(
     Table$create(a = Array$create(1:10), b = Array$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
 
-  expect_tibble(
+  expect_data_frame(
     Table$create(a = Array$create(1:10), b = ChunkedArray$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
@@ -729,6 +729,6 @@ test_that("as_tibble.ArrowTabular retains groups", {
   df <- data.frame(x = 1:4, y = c("a", "b"))
   df_grouped <- dplyr::group_by(df, y)
   arrow_grouped <- arrow_table(df_grouped)
-  expect_tibble(arrow_grouped, df_grouped)
+  expect_data_frame(arrow_grouped, df_grouped)
 
 })
