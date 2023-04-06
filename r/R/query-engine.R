@@ -126,14 +126,6 @@ ExecPlan <- R6Class("ExecPlan",
           options = .data$aggregations,
           key_names = group_vars
         )
-
-        if (grouped && getOption("arrow.summarise.sort", FALSE)) {
-          # Add sorting instructions for the rows to match dplyr
-          node <- node$OrderBy(list(
-            names = group_vars,
-            orders = rep(0L, length(group_vars))
-          ))
-        }
       } else {
         # If any columns are derived, reordered, or renamed we need to Project
         # If there are aggregations, the projection was already handled above.
