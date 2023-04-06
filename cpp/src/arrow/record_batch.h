@@ -82,10 +82,16 @@ class ARROW_EXPORT RecordBatch {
   /// \brief Construct record batch from struct array
   ///
   /// This constructs a record batch using the child arrays of the given
-  /// array, which must be a struct array.  Note that the struct array's own
-  /// null bitmap is not reflected in the resulting record batch.
+  /// array, which must be a struct array.
+  ///
+  /// \param[in] array the source array, must be a StructArray
+  /// \param[in] pool the memory pool to allocate new validity bitmaps
+  ///
+  /// This operation will usually be zero-copy.  However, if the struct array has an
+  /// offset or a validity bitmap then these will need to be pushed into the child arrays.
+  /// Pushing the offset is zero-copy but pushing the validity bitmap is not.
   static Result<std::shared_ptr<RecordBatch>> FromStructArray(
-      const std::shared_ptr<Array>& array);
+      const std::shared_ptr<Array>& array, MemoryPool* pool = default_memory_pool());
 
   /// \brief Determine if two record batches are exactly equal
   ///

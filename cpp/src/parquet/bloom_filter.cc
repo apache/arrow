@@ -129,7 +129,7 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
   if (bloom_filter_size + header_size <= header_buf->size()) {
     // The bloom filter data is entirely contained in the buffer we just read
     // => just return it.
-    BlockSplitBloomFilter bloom_filter;
+    BlockSplitBloomFilter bloom_filter(properties.memory_pool());
     bloom_filter.Init(header_buf->data() + header_size, bloom_filter_size);
     return bloom_filter;
   }
@@ -150,7 +150,7 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
   if (ARROW_PREDICT_FALSE(read_size < required_read_size)) {
     throw ParquetException("Bloom Filter read failed: not enough data");
   }
-  BlockSplitBloomFilter bloom_filter;
+  BlockSplitBloomFilter bloom_filter(properties.memory_pool());
   bloom_filter.Init(buffer->data(), bloom_filter_size);
   return bloom_filter;
 }

@@ -3283,6 +3283,7 @@ def test_array_protocol():
         pa.array(arr)
 
     # ARROW-7066 - allow ChunkedArray output
+    # GH-33727 - if num_chunks=1 return Array
     class MyArray2:
         def __init__(self, data):
             self.data = data
@@ -3292,7 +3293,21 @@ def test_array_protocol():
 
     arr = MyArray2(np.array([1, 2, 3], dtype='int64'))
     result = pa.array(arr)
-    expected = pa.chunked_array([[1, 2, 3]], type=pa.int64())
+    expected = pa.array([1, 2, 3], type=pa.int64())
+    assert result.equals(expected)
+
+    class MyArray3:
+        def __init__(self, data1, data2):
+            self.data1 = data1
+            self.data2 = data2
+
+        def __arrow_array__(self, type=None):
+            return pa.chunked_array([self.data1, self.data2], type=type)
+
+    np_arr = np.array([1, 2, 3], dtype='int64')
+    arr = MyArray3(np_arr, np_arr)
+    result = pa.array(arr)
+    expected = pa.chunked_array([[1, 2, 3], [1, 2, 3]], type=pa.int64())
     assert result.equals(expected)
 
 

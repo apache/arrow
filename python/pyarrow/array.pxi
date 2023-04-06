@@ -111,6 +111,8 @@ def _handle_arrow_array_protocol(obj, type, mask, size):
     if not isinstance(res, (Array, ChunkedArray)):
         raise TypeError("The object's __arrow_array__ method does not "
                         "return a pyarrow Array or ChunkedArray.")
+    if isinstance(res, ChunkedArray) and res.num_chunks==1:
+        res = res.chunk(0)
     return res
 
 
@@ -1456,6 +1458,9 @@ cdef class Array(_PandasConvertible):
         By default, tries to return a view of this array. This is only
         supported for primitive arrays with the same memory layout as NumPy
         (i.e. integers, floating point, ..) and without any nulls.
+
+        For the extension arrays, this method simply delegates to the
+        underlying storage array.
 
         Parameters
         ----------
@@ -3069,23 +3074,6 @@ cdef class ExtensionArray(Array):
 
         # otherwise convert the storage array with the base implementation
         return Array._to_pandas(self.storage, options, **kwargs)
-
-    def to_numpy(self, **kwargs):
-        """
-        Convert extension array to a numpy ndarray.
-
-        This method simply delegates to the underlying storage array.
-
-        Parameters
-        ----------
-        **kwargs : dict, optional
-            See `Array.to_numpy` for parameter description.
-
-        See Also
-        --------
-        Array.to_numpy
-        """
-        return self.storage.to_numpy(**kwargs)
 
 
 cdef dict _array_classes = {

@@ -42,6 +42,9 @@ namespace Apache.Arrow
             public UInt16Array UInt16(Action<UInt16Array.Builder> action) => Build<UInt16Array, UInt16Array.Builder>(new UInt16Array.Builder(), action);
             public UInt32Array UInt32(Action<UInt32Array.Builder> action) => Build<UInt32Array, UInt32Array.Builder>(new UInt32Array.Builder(), action);
             public UInt64Array UInt64(Action<UInt64Array.Builder> action) => Build<UInt64Array, UInt64Array.Builder>(new UInt64Array.Builder(), action);
+#if NET5_0_OR_GREATER
+            public HalfFloatArray HalfFloat(Action<HalfFloatArray.Builder> action) => Build<HalfFloatArray, HalfFloatArray.Builder>(new HalfFloatArray.Builder(), action);
+#endif
             public FloatArray Float(Action<FloatArray.Builder> action) => Build<FloatArray, FloatArray.Builder>(new FloatArray.Builder(), action);
             public DoubleArray Double(Action<DoubleArray.Builder> action) => Build<DoubleArray, DoubleArray.Builder>(new DoubleArray.Builder(), action);
             public Decimal128Array Decimal128(Decimal128Type type, Action<Decimal128Array.Builder> action) =>

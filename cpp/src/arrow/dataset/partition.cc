@@ -75,32 +75,7 @@ std::string StripNonPrefix(const std::string& path) {
 }  // namespace
 
 std::shared_ptr<Partitioning> Partitioning::Default() {
-  class DefaultPartitioning : public Partitioning {
-   public:
-    DefaultPartitioning() : Partitioning(::arrow::schema({})) {}
-
-    std::string type_name() const override { return "default"; }
-
-    bool Equals(const Partitioning& other) const override {
-      return type_name() == other.type_name();
-    }
-
-    Result<compute::Expression> Parse(const std::string& path) const override {
-      return compute::literal(true);
-    }
-
-    Result<PartitionPathFormat> Format(const compute::Expression& expr) const override {
-      return Status::NotImplemented("formatting paths from ", type_name(),
-                                    " Partitioning");
-    }
-
-    Result<PartitionedBatches> Partition(
-        const std::shared_ptr<RecordBatch>& batch) const override {
-      return PartitionedBatches{{batch}, {compute::literal(true)}};
-    }
-  };
-
-  return std::make_shared<DefaultPartitioning>();
+  return std::make_shared<DirectoryPartitioning>(arrow::schema({}));
 }
 
 static Result<RecordBatchVector> ApplyGroupings(

@@ -184,19 +184,16 @@ jobs:
           test -f arrow/java-dist/x86_64/libarrow_dataset_jni.so
           test -f arrow/java-dist/x86_64/libarrow_orc_jni.so
           test -f arrow/java-dist/x86_64/libgandiva_jni.so
-          test -f arrow/java-dist/x86_64/libplasma_java.so
 
           test -f arrow/java-dist/x86_64/libarrow_cdata_jni.dylib
           test -f arrow/java-dist/x86_64/libarrow_dataset_jni.dylib
           test -f arrow/java-dist/x86_64/libarrow_orc_jni.dylib
           test -f arrow/java-dist/x86_64/libgandiva_jni.dylib
-          test -f arrow/java-dist/x86_64/libplasma_java.dylib
 
           test -f arrow/java-dist/aarch_64/libarrow_cdata_jni.dylib
           test -f arrow/java-dist/aarch_64/libarrow_dataset_jni.dylib
           test -f arrow/java-dist/aarch_64/libarrow_orc_jni.dylib
           test -f arrow/java-dist/aarch_64/libgandiva_jni.dylib
-          test -f arrow/java-dist/aarch_64/libplasma_java.dylib
 
           test -f arrow/java-dist/x86_64/arrow_cdata_jni.dll
           test -f arrow/java-dist/x86_64/arrow_dataset_jni.dll
