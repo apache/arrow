@@ -74,8 +74,8 @@ func (e Edits) UnifiedDiff(base, target arrow.Array) (string, error) {
 			}
 		}
 		for j := int64(0); j < e[i].RunLength; j++ {
-			baseIndex += 1
-			targetIndex += 1
+			baseIndex++
+			targetIndex++
 			wrotePosition = false
 		}
 	}
