@@ -426,6 +426,7 @@ has_order <- function(x) {
 has_implicit_order <- function(x) {
   # Approximate what ExecNode$has_ordered_batches() would return (w/o building ExecPlan)
   # An in-memory table has an implicit order
+  # TODO(GH-34698): FileSystemDataset and RecordBatchReader will have implicit order
   inherits(x$.data, "ArrowTabular") &&
     # But joins, aggregations, etc. will result in non-deterministic order
     is.null(x$aggregations) && is.null(x$join) && is.null(x$union_all)

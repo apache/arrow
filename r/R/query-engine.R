@@ -75,7 +75,7 @@ ExecPlan <- R6Class("ExecPlan",
       if (is_collapsed(.data)) {
         # We have a nested query.
         if (has_unordered_head(.data$.data)) {
-          # TODO(GH-XXXXX): FetchNode should do non-deterministic fetch
+          # TODO(GH-34941): FetchNode should do non-deterministic fetch
           # Instead, we need to evaluate the query up to here,
           # and then do a new query for the rest.
           # as_record_batch_reader() will build and run an ExecPlan and do head() on it
@@ -170,7 +170,7 @@ ExecPlan <- R6Class("ExecPlan",
       if (length(.data$arrange_vars)) {
         if (!is.null(.data$tail)) {
           # Handle tail first: Reverse sort, take head
-          # TODO(GH-XXXXX): FetchNode support for tail
+          # TODO(GH-34942): FetchNode support for tail
           node <- node$OrderBy(list(
             names = names(.data$arrange_vars),
             orders = as.integer(!.data$arrange_desc)
@@ -203,7 +203,7 @@ ExecPlan <- R6Class("ExecPlan",
           if (!is.null(.data$head)) {
             node <- node$Fetch(.data$head)
           } else {
-            # TODO(GH-XXXXX): FetchNode support for tail
+            # TODO(GH-34942): FetchNode support for tail
             # FetchNode currently doesn't support tail, but it has limit + offset
             # So if we know how many rows the query will result in, we can offset
             data_without_tail <- .data
@@ -217,7 +217,7 @@ ExecPlan <- R6Class("ExecPlan",
             }
           }
         } else {
-          # TODO(GH-XXXXX): non-deterministic FetchNode
+          # TODO(GH-34941): non-deterministic FetchNode
           # Data has non-deterministic order, so head/tail means "just show me any N rows"
           # FetchNode does not support non-deterministic scans, so we have to handle outside
           node$extras$slice_size <- head_or_tail
