@@ -404,14 +404,4 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       "SourceNode" # entry point
     )
   )
-
-  # printing the ExecPlan for a nested query would currently force the
-  # evaluation of the inner one(s), which we want to avoid => no output
-  expect_warning(
-    ds %>%
-      filter(lgl) %>%
-      head() %>%
-      show_exec_plan(),
-    "The `ExecPlan` cannot be printed for a nested query."
-  )
 })

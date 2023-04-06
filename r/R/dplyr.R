@@ -284,17 +284,7 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 #'   mutate(x = gear / carb) %>%
 #'   show_exec_plan()
 show_exec_plan <- function(x) {
-  adq <- as_adq(x)
-
-  # do not show the plan if we have a nested query (as this will force the
-  # evaluation of the inner query/queries)
-  # TODO see if we can remove after ARROW-16628
-  if (is_collapsed(adq) && has_unordered_head(adq)) {
-    warn("The `ExecPlan` cannot be printed for a nested query.")
-    return(invisible(x))
-  }
-
-  result <- as_record_batch_reader(adq)
+  result <- as_record_batch_reader(as_adq(x))
   plan <- result$Plan()
   on.exit({
     plan$.unsafe_delete()
