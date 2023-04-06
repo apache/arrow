@@ -31,10 +31,9 @@ set(ARROW_DATASET_SRCS
     scanner.cc
     scan_node.cc)
 
+set(ARROW_DATASET_PKG_CONFIG_REQUIRES arrow_acero)
 if(ARROW_PARQUET)
-  set(ARROW_DATASET_PKG_CONFIG_REQUIRES parquet)
-else()
-  set(ARROW_DATASET_PKG_CONFIG_REQUIRES arrow arrow_acero)
+  list(APPEND ARROW_DATASET_PKG_CONFIG_REQUIRES parquet)
 endif()
 
 set(ARROW_DATASET_STATIC_LINK_LIBS)
