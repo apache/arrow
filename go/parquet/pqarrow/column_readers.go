@@ -661,8 +661,10 @@ func transferBool(rdr file.RecordReader) arrow.ArrayData {
 	if bitmap != nil {
 		defer bitmap.Release()
 	}
+	bb := memory.NewBufferBytes(data)
+	defer bb.Release()
 	return array.NewData(&arrow.BooleanType{}, length, []*memory.Buffer{
-		bitmap, memory.NewBufferBytes(data),
+		bitmap, bb,
 	}, nil, int(rdr.NullCount()), 0)
 }
 

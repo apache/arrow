@@ -535,10 +535,7 @@ func (ps *ParquetIOTestSuite) makeSimpleSchema(typ arrow.DataType, rep parquet.R
 	return schema.MustGroup(schema.NewGroupNode("schema", parquet.Repetitions.Required, schema.FieldList{pnode}, -1))
 }
 
-func (ps *ParquetIOTestSuite) makePrimitiveTestCol(size int, typ arrow.DataType) arrow.Array {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(ps.T(), 0)
-
+func (ps *ParquetIOTestSuite) makePrimitiveTestCol(mem memory.Allocator, size int, typ arrow.DataType) arrow.Array {
 	switch typ.ID() {
 	case arrow.BOOL:
 		bldr := array.NewBooleanBuilder(mem)
@@ -621,16 +618,14 @@ func (ps *ParquetIOTestSuite) makePrimitiveTestCol(size int, typ arrow.DataType)
 	return nil
 }
 
-func (ps *ParquetIOTestSuite) makeTestFile(typ arrow.DataType, arr arrow.Array, numChunks int) []byte {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(ps.T(), 0)
-
+func (ps *ParquetIOTestSuite) makeTestFile(mem memory.Allocator, typ arrow.DataType, arr arrow.Array, numChunks int) []byte {
 	sc := ps.makeSimpleSchema(typ, parquet.Repetitions.Required)
 	sink := encoding.NewBufferWriter(0, mem)
 	defer sink.Release()
-	writer := file.NewParquetWriter(sink, sc)
+	writer := file.NewParquetWriter(sink, sc, file.WithWriterProps(parquet.NewWriterProperties(parquet.WithAllocator(mem))))
 
-	ctx := pqarrow.NewArrowWriteContext(context.TODO(), nil)
+	props := pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem))
+	ctx := pqarrow.NewArrowWriteContext(context.TODO(), &props)
 	rowGroupSize := arr.Len() / numChunks
 
 	for i := 0; i < numChunks; i++ {
@@ -639,18 +634,20 @@ func (ps *ParquetIOTestSuite) makeTestFile(typ arrow.DataType, arr arrow.Array, 
 		ps.NoError(err)
 
 		start := i * rowGroupSize
-		ps.NoError(pqarrow.WriteArrowToColumn(ctx, cw, array.NewSlice(arr, int64(start), int64(start+rowGroupSize)), nil, nil, false))
-		cw.Close()
-		rgw.Close()
+		slc := array.NewSlice(arr, int64(start), int64(start+rowGroupSize))
+		defer slc.Release()
+		ps.NoError(pqarrow.WriteArrowToColumn(ctx, cw, slc, nil, nil, false))
+		ps.NoError(cw.Close())
+		ps.NoError(rgw.Close())
 	}
-	writer.Close()
+	ps.NoError(writer.Close())
 	buf := sink.Finish()
 	defer buf.Release()
 	return buf.Bytes()
 }
 
 func (ps *ParquetIOTestSuite) createReader(mem memory.Allocator, data []byte) *pqarrow.FileReader {
-	rdr, err := file.NewParquetReader(bytes.NewReader(data))
+	rdr, err := file.NewParquetReader(bytes.NewReader(data), file.WithReadProps(parquet.NewReaderProperties(mem)))
 	ps.NoError(err)
 
 	reader, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{}, mem)
@@ -666,10 +663,10 @@ func (ps *ParquetIOTestSuite) readTable(rdr *pqarrow.FileReader) arrow.Table {
 }
 
 func (ps *ParquetIOTestSuite) checkSingleColumnRequiredTableRead(mem memory.Allocator, typ arrow.DataType, numChunks int) {
-	values := ps.makePrimitiveTestCol(smallSize, typ)
+	values := ps.makePrimitiveTestCol(mem, smallSize, typ)
 	defer values.Release()
 
-	data := ps.makeTestFile(typ, values, numChunks)
+	data := ps.makeTestFile(mem, typ, values, numChunks)
 	reader := ps.createReader(mem, data)
 
 	tbl := ps.readTable(reader)
@@ -684,10 +681,10 @@ func (ps *ParquetIOTestSuite) checkSingleColumnRequiredTableRead(mem memory.Allo
 }
 
 func (ps *ParquetIOTestSuite) checkSingleColumnRead(mem memory.Allocator, typ arrow.DataType, numChunks int) {
-	values := ps.makePrimitiveTestCol(smallSize, typ)
+	values := ps.makePrimitiveTestCol(mem, smallSize, typ)
 	defer values.Release()
 
-	data := ps.makeTestFile(typ, values, numChunks)
+	data := ps.makeTestFile(mem, typ, values, numChunks)
 	reader := ps.createReader(mem, data)
 
 	cr, err := reader.GetColumn(context.TODO(), 0)
@@ -1136,6 +1133,7 @@ func (ps *ParquetIOTestSuite) TestSingleEmptyListsColumnReadWrite() {
 	defer mem.AssertSize(ps.T(), 0)
 
 	expected := prepareEmptyListsTable(smallSize)
+	defer expected.Release()
 	buf := writeTableToBuffer(ps.T(), mem, expected, smallSize, pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
 	defer buf.Release()
 

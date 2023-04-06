@@ -223,10 +223,18 @@ func WriteArrowToColumn(ctx context.Context, cw file.ColumnChunkWriter, leafArr 
 		cw.SetBitsBuffer(buf)
 	}
 
+	arrCtx := arrowCtxFromContext(ctx)
+	defer func() {
+		if arrCtx.dataBuffer != nil {
+			arrCtx.dataBuffer.Release()
+			arrCtx.dataBuffer = nil
+		}
+	}()
+
 	if leafArr.DataType().ID() == arrow.DICTIONARY {
-		return writeDictionaryArrow(arrowCtxFromContext(ctx), cw, leafArr, defLevels, repLevels, maybeParentNulls)
+		return writeDictionaryArrow(arrCtx, cw, leafArr, defLevels, repLevels, maybeParentNulls)
 	}
-	return writeDenseArrow(arrowCtxFromContext(ctx), cw, leafArr, defLevels, repLevels, maybeParentNulls)
+	return writeDenseArrow(arrCtx, cw, leafArr, defLevels, repLevels, maybeParentNulls)
 }
 
 type binaryarr interface {
@@ -402,7 +410,6 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 		}
 		ctx.dataBuffer.ResizeNoShrink(parquet.Int96Traits.BytesRequired(leafArr.Len()))
 		data := parquet.Int96Traits.CastFromBytes(ctx.dataBuffer.Bytes())
-		ctx.dataBuffer.Release()
 		input := leafArr.(*array.Timestamp).TimestampValues()
 		unit := leafArr.DataType().(*arrow.TimestampType).Unit
 		for idx, val := range input {
