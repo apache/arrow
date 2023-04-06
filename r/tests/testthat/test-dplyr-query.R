@@ -18,6 +18,8 @@
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
+skip_if_not_available("acero")
+
 tbl <- example_data
 # Add some better string data
 tbl$verses <- verses[[1]]
@@ -508,7 +510,6 @@ test_that("show_exec_plan(), show_query() and explain()", {
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
-      "ProjectNode.*", # output columns
       "GroupByNode.*", # the group_by statement
       "keys=.*lgl.*", # the key for the aggregations
       "aggregates=.*hash_mean.*avg.*", # the aggregations

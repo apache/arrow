@@ -1459,7 +1459,6 @@ endif()
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
-   OR ARROW_PLASMA
    OR ARROW_USE_GLOG
    OR ARROW_WITH_GRPC)
   set(ARROW_NEED_GFLAGS 1)
@@ -2232,6 +2231,13 @@ if(ARROW_TESTING)
                      ${GTEST_USE_CONFIG})
 
   if(GTest_SOURCE STREQUAL "SYSTEM")
+    get_target_property(gtest_cxx_standard GTest::gtest INTERFACE_COMPILE_FEATURES)
+    if((${gtest_cxx_standard} STREQUAL "cxx_std_11") OR (${gtest_cxx_standard} STREQUAL
+                                                         "cxx_std_14"))
+      message(FATAL_ERROR "System GTest is built with a C++ standard lower than 17. Use bundled GTest via passing in CMake flag
+-DGTest_SOURCE=\"BUNDLED\"")
+    endif()
+
     find_package(PkgConfig QUIET)
     pkg_check_modules(gtest_PC
                       gtest
@@ -4252,24 +4258,12 @@ macro(build_google_cloud_cpp_storage)
       "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_common${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
 
-  set(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
-  if(CMAKE_VERSION VERSION_GREATER 3.9)
-    find_package(Patch)
-    if(Patch_FOUND)
-      # This patch is for google-cloud-cpp <= 1.42.0
-      # Upstreamed: https://github.com/googleapis/google-cloud-cpp/pull/9345
-      set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
-          ${Patch_EXECUTABLE} "<SOURCE_DIR>/cmake/FindCurlWithTargets.cmake"
-          "${CMAKE_SOURCE_DIR}/build-support/google-cloud-cpp-curl-static-windows.patch")
-    endif()
-  endif()
   externalproject_add(google_cloud_cpp_ep
                       ${EP_COMMON_OPTIONS}
                       INSTALL_DIR ${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}
                       URL ${google_cloud_cpp_storage_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${GOOGLE_CLOUD_CPP_CMAKE_ARGS}
-                      PATCH_COMMAND ${GOOGLE_CLOUD_CPP_PATCH_COMMAND}
                       BUILD_BYPRODUCTS ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}
                                        ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_REST_INTERNAL}
                                        ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}
@@ -5082,11 +5076,12 @@ if(ARROW_S3)
       foreach(AWSSDK_LINK_LIBRARY ${AWSSDK_LINK_LIBRARIES})
         string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:${AWSSDK_LINK_LIBRARY}>")
       endforeach()
+    else()
+      if(UNIX)
+        string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
+      endif()
+      string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
     endif()
-    if(UNIX)
-      string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
-    endif()
-    string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
   endif()
 
   if(APPLE)

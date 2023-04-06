@@ -255,7 +255,7 @@ jobs:
           - {image: "rocker/r-ver"} # whatever is latest ubuntu LTS
           - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04
           - {image: "rocker/r-ver:3.6.3", libarrow_binary: "TRUE"} # debian:buster (10)
-          - {image: "rstudio/r-base:4.1-bionic"} # ubuntu-18.04
+          - {image: "rstudio/r-base:4.1-focal"} # ubuntu-20.04
           - {image: "rstudio/r-base:4.2-centos7", devtoolset: "8"}
     steps:
       # Get the arrow checkout just for the docker config scripts

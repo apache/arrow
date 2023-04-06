@@ -38,9 +38,6 @@ G_BEGIN_DECLS
  * #GADatasetPartitioning is a base class for partitioning classes
  * such as #GADatasetDirectoryPartitioning.
  *
- * #GADatasetDefaultPartitioning is a class for partitioning that
- * doesn't partition.
- *
  * #GADatasetKeyValuePartitioningOptions is a class for key-value
  * partitioning options.
  *
@@ -345,35 +342,19 @@ gadataset_partitioning_get_type_name(GADatasetPartitioning *partitioning)
 }
 
 
-G_DEFINE_TYPE(GADatasetDefaultPartitioning,
-              gadataset_default_partitioning,
-              GADATASET_TYPE_PARTITIONING)
-
-static void
-gadataset_default_partitioning_init(GADatasetDefaultPartitioning *object)
-{
-}
-
-static void
-gadataset_default_partitioning_class_init(
-  GADatasetDefaultPartitioningClass *klass)
-{
-}
-
 /**
- * gadataset_default_partitioning_new:
+ * gadataset_partitioning_create_default:
  *
- * Returns: The newly created #GADatasetDefaultPartitioning that
- *   doesn't partition.
+ * Returns: (transfer full): The newly created #GADatasetPartitioning
+ *   that doesn't partition.
  *
- * Since: 11.0.0
+ * Since: 12.0.0
  */
-GADatasetDefaultPartitioning *
-gadataset_default_partitioning_new(void)
+GADatasetPartitioning *
+gadataset_partitioning_create_default(void)
 {
   auto arrow_partitioning = arrow::dataset::Partitioning::Default();
-  return GADATASET_DEFAULT_PARTITIONING(
-    gadataset_partitioning_new_raw(&arrow_partitioning));
+  return gadataset_partitioning_new_raw(&arrow_partitioning);
 }
 
 
@@ -813,9 +794,7 @@ gadataset_partitioning_new_raw(
 {
   GType type = GADATASET_TYPE_PARTITIONING;
   const auto arrow_type_name = (*arrow_partitioning)->type_name();
-  if (arrow_type_name == "default") {
-    type = GADATASET_TYPE_DEFAULT_PARTITIONING;
-  } else if (arrow_type_name == "directory") {
+  if (arrow_type_name == "directory") {
     type = GADATASET_TYPE_DIRECTORY_PARTITIONING;
   } else if (arrow_type_name == "hive") {
     type = GADATASET_TYPE_HIVE_PARTITIONING;

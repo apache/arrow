@@ -34,11 +34,15 @@
 #include <arrow/compute/type_fwd.h>
 #include <arrow/csv/type_fwd.h>
 
+#if defined(ARROW_R_WITH_ACERO)
+#include <arrow/acero/options.h>
+#include <arrow/acero/type_fwd.h>
+namespace acero = ::arrow::acero;
+#endif
+
 #if defined(ARROW_R_WITH_DATASET)
 #include <arrow/dataset/type_fwd.h>
 #endif
-
-#include <arrow/compute/exec/options.h>
 
 #include <arrow/filesystem/type_fwd.h>
 #include <arrow/io/type_fwd.h>
@@ -50,15 +54,6 @@
 
 #include <arrow/type_fwd.h>
 #include <arrow/util/type_fwd.h>
-
-namespace arrow {
-namespace compute {
-
-class ExecPlan;
-class ExecNode;
-
-}  // namespace compute
-}  // namespace arrow
 
 class ExecPlanReader;
 

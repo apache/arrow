@@ -132,17 +132,10 @@ This is the list of available ones and the respective targets created:
 +-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
 | ``find_package(Parquet REQUIRED)``            | ``Parquet::parquet_shared``                            | ``Parquet::parquet_static``                         |
 +-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
-| ``find_package(Plasma REQUIRED)``             | ``Plasma::plasma_shared``                              | ``Plasma::plasma_static``                           |
-+-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
-
-``Plasma`` will also expose ``Plasma::plasma-store-server`` for the Plasma store server executable.
 
 .. note::
    CMake is case-sensitive.  The names and variables listed above have to be
    spelt exactly that way!
-
-.. warning::
-   Plasma is deprecated as of Arrow 10.0.0, and will be removed in 12.0.0 or so.
 
 .. seealso::
    A Docker-based :doc:`minimal build example <examples/cmake_minimal_build>`.
@@ -202,7 +195,6 @@ all available packages:
   * ``arrow``
   * ``gandiva``
   * ``parquet``
-  * ``plasma``
 
 A Note on Linking
 =================

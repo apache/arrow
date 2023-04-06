@@ -26,9 +26,8 @@ arrow_dir=${1}
 source_dir=${1}/java
 java_jni_dist_dir=${3}
 
-# For JNI and Plasma tests
+# For JNI
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-export PLASMA_STORE=${ARROW_HOME}/bin/plasma-store-server
 
 mvn="mvn -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
 # Use `2 * ncores` threads
@@ -48,22 +47,11 @@ fi
 if [ "${ARROW_ORC}" = "ON" ]; then
   projects+=(adapter/orc)
 fi
-if [ "${ARROW_PLASMA}" = "ON" ]; then
-  projects+=(plasma)
-fi
 if [ "${#projects[@]}" -gt 0 ]; then
   ${mvn} test \
          -Parrow-jni \
          -pl $(IFS=,; echo "${projects[*]}") \
          -Darrow.cpp.build.dir=${java_jni_dist_dir}
-
-  if [ "${ARROW_PLASMA}" = "ON" ]; then
-    pushd ${source_dir}/plasma
-    java -cp target/test-classes:target/classes \
-         -Djava.library.path=${java_jni_dist_dir}/$(arch) \
-         org.apache.arrow.plasma.PlasmaClientTest
-    popd
-  fi
 fi
 
 if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then

@@ -193,6 +193,7 @@ set(ARROW_SRCS
     io/slow.cc
     io/stdio.cc
     io/transform.cc
+    util/align_util.cc
     util/async_util.cc
     util/atfork_internal.cc
     util/basic_decimal.cc
@@ -389,33 +390,7 @@ list(APPEND
      compute/api_vector.cc
      compute/cast.cc
      compute/exec.cc
-     compute/exec/groupby.cc
-     compute/exec/accumulation_queue.cc
-     compute/exec/aggregate_node.cc
-     compute/exec/asof_join_node.cc
-     compute/exec/bloom_filter.cc
-     compute/exec/exec_plan.cc
      compute/expression.cc
-     compute/exec/fetch_node.cc
-     compute/exec/filter_node.cc
-     compute/exec/hash_join.cc
-     compute/exec/hash_join_dict.cc
-     compute/exec/hash_join_node.cc
-     compute/exec/map_node.cc
-     compute/exec/options.cc
-     compute/exec/order_by_impl.cc
-     compute/exec/order_by_node.cc
-     compute/exec/partition_util.cc
-     compute/exec/pivot_longer_node.cc
-     compute/exec/project_node.cc
-     compute/exec/query_context.cc
-     compute/exec/sink_node.cc
-     compute/exec/source_node.cc
-     compute/exec/swiss_join.cc
-     compute/exec/task_util.cc
-     compute/exec/tpch_node.cc
-     compute/exec/union_node.cc
-     compute/exec/util.cc
      compute/function.cc
      compute/function_internal.cc
      compute/kernel.cc
@@ -443,15 +418,10 @@ list(APPEND
      compute/row/row_internal.cc
      compute/util.cc)
 
-append_avx2_src(compute/exec/bloom_filter_avx2.cc)
 append_avx2_src(compute/key_hash_avx2.cc)
 append_avx2_src(compute/key_map_avx2.cc)
-append_avx2_src(compute/exec/swiss_join_avx2.cc)
-append_avx2_src(compute/exec/util_avx2.cc)
 append_avx2_src(compute/row/compare_internal_avx2.cc)
 append_avx2_src(compute/row/encode_internal_avx2.cc)
-
-list(APPEND ARROW_TESTING_SRCS compute/exec/test_util.cc)
 
 if(ARROW_COMPUTE)
   # Include the remaining kernels
@@ -550,6 +520,7 @@ endif()
 if(ARROW_JSON)
   list(APPEND
        ARROW_SRCS
+       extension/fixed_shape_tensor.cc
        json/options.cc
        json/chunked_builder.cc
        json/chunker.cc
@@ -675,20 +646,27 @@ add_arrow_lib(arrow
 # So it's disabled for now.
 if(ARROW_BUILD_SHARED AND NOT WIN32)
   configure_file(libarrow_gdb.py.in "${CMAKE_CURRENT_BINARY_DIR}/libarrow_gdb.py" @ONLY)
+  if(NOT ARROW_GDB_INSTALL_DIR)
+    if(WIN32)
+      set(ARROW_GDB_INSTALL_DIR ${CMAKE_INSTALL_FULL_BINDIR})
+    else()
+      set(ARROW_GDB_INSTALL_DIR ${CMAKE_INSTALL_FULL_LIBDIR})
+    endif()
+  endif()
   set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL FALSE)
   if(WIN32)
     find_program(cygpath "cygpath")
     if(cygpath)
-      execute_process(COMMAND cygpath "${CMAKE_INSTALL_FULL_BINDIR}"
-                      OUTPUT_VARIABLE MSYS2_CMAKE_INSTALL_FULL_BINDIR
+      execute_process(COMMAND cygpath "${ARROW_GDB_INSTALL_DIR}"
+                      OUTPUT_VARIABLE MSYS2_ARROW_GDB_INSTALL_DIR
                       OUTPUT_STRIP_TRAILING_WHITESPACE)
       set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_DIR
-          "${ARROW_GDB_AUTO_LOAD_DIR}${MSYS2_CMAKE_INSTALL_FULL_BINDIR}")
+          "${ARROW_GDB_AUTO_LOAD_DIR}${MSYS2_ARROW_GDB_INSTALL_DIR}")
       set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL TRUE)
     endif()
   else()
     set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_DIR
-        "${ARROW_GDB_AUTO_LOAD_DIR}/${CMAKE_INSTALL_FULL_LIBDIR}")
+        "${ARROW_GDB_AUTO_LOAD_DIR}/${ARROW_GDB_INSTALL_DIR}")
     set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL TRUE)
   endif()
   if(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL)
@@ -853,6 +831,10 @@ if(ARROW_SUBSTRAIT)
   add_subdirectory(engine)
 endif()
 
+if(ARROW_ACERO)
+  add_subdirectory(acero)
+endif()
+
 if(ARROW_CUDA)
   add_subdirectory(gpu)
 endif()
@@ -875,6 +857,7 @@ endif()
 
 if(ARROW_JSON)
   add_subdirectory(json)
+  add_subdirectory(extension)
 endif()
 
 if(ARROW_ORC)

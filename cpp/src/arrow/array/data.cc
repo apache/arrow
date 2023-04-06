@@ -157,6 +157,11 @@ void ArraySpan::SetMembers(const ArrayData& data) {
   }
 
   Type::type type_id = this->type->id();
+  if (type_id == Type::EXTENSION) {
+    const ExtensionType* ext_type = checked_cast<const ExtensionType*>(this->type);
+    type_id = ext_type->storage_type()->id();
+  }
+
   if (data.buffers[0] == nullptr && type_id != Type::NA &&
       type_id != Type::SPARSE_UNION && type_id != Type::DENSE_UNION) {
     // This should already be zero but we make for sure
@@ -168,7 +173,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
     this->buffers[i] = {};
   }
 
-  if (this->type->id() == Type::DICTIONARY) {
+  if (type_id == Type::DICTIONARY) {
     this->child_data.resize(1);
     this->child_data[0].SetMembers(*data.dictionary);
   } else {
@@ -412,16 +417,20 @@ std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
     result->buffers.emplace_back(this->GetBuffer(i));
   }
 
-  if (this->type->id() == Type::NA) {
+  Type::type type_id = this->type->id();
+  if (type_id == Type::EXTENSION) {
+    const ExtensionType* ext_type = checked_cast<const ExtensionType*>(this->type);
+    type_id = ext_type->storage_type()->id();
+  }
+
+  if (type_id == Type::NA) {
     result->null_count = this->length;
   } else if (this->buffers[0].data == nullptr) {
     // No validity bitmap, so the null count is 0
     result->null_count = 0;
   }
 
-  // TODO(wesm): what about extension arrays?
-
-  if (this->type->id() == Type::DICTIONARY) {
+  if (type_id == Type::DICTIONARY) {
     result->dictionary = this->dictionary().ToArrayData();
   } else {
     // Emit children, too

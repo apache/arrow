@@ -31,8 +31,8 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef cppclass CFileInfo "arrow::fs::FileInfo":
         CFileInfo()
-        CFileInfo(CFileInfo&&)
-        CFileInfo& operator=(CFileInfo&&)
+        CFileInfo(CFileInfo)
+        CFileInfo& operator=(CFileInfo)
         CFileInfo(const CFileInfo&)
         CFileInfo& operator=(const CFileInfo&)
 

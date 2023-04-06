@@ -62,7 +62,7 @@ class PARQUET_EXPORT ColumnIndex {
 
   /// \brief The ordering of lower and upper bounds.
   ///
-  /// The boundary order applies accross all lower bounds, and all upper bounds,
+  /// The boundary order applies across all lower bounds, and all upper bounds,
   /// respectively. However, the order between lower bounds and upper bounds
   /// cannot be derived from this.
   virtual BoundaryOrder::type boundary_order() const = 0;

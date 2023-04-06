@@ -26,6 +26,7 @@ import (
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
@@ -54,28 +55,23 @@ func (s *diffTestCase) check(t *testing.T) {
 	}
 	defer target.Release()
 
-	got, err := array.Diff(base, target, mem)
+	edits, err := array.Diff(base, target)
 	if err != nil {
 		t.Fatalf("got unexpected error %v", err)
 	}
-	defer got.Release()
 
-	gotInsert := boolValues(got.Field(0).(*array.Boolean))
-	gotRunLength := got.Field(1).(*array.Int64).Int64Values()
-	if !reflect.DeepEqual(gotInsert, s.wantInsert) {
-		t.Errorf("Diff(\n  base=%v, \ntarget=%v\n) got insert %v, want %v", base, target, gotInsert, s.wantInsert)
+	gotInserts := make([]bool, len(edits))
+	gotRunLengths := make([]int64, len(edits))
+	for i, edit := range edits {
+		gotInserts[i] = edit.Insert
+		gotRunLengths[i] = edit.RunLength
 	}
-	if !reflect.DeepEqual(gotRunLength, s.wantRunLength) {
-		t.Errorf("Diff(\n  base=%v, \ntarget=%v\n) got run length %v, want %v", base, target, gotRunLength, s.wantRunLength)
+	if !reflect.DeepEqual(gotInserts, s.wantInsert) {
+		t.Errorf("Diff(\n  base=%v, \ntarget=%v\n) got insert %v, want %v", base, target, gotInserts, s.wantInsert)
 	}
-}
-
-func boolValues(b *array.Boolean) []bool {
-	ret := make([]bool, b.Len())
-	for i := range ret {
-		ret[i] = b.Value(i)
+	if !reflect.DeepEqual(gotRunLengths, s.wantRunLength) {
+		t.Errorf("Diff(\n  base=%v, \ntarget=%v\n) got run length %v, want %v", base, target, gotRunLengths, s.wantRunLength)
 	}
-	return ret
 }
 
 func TestDiff_Trivial(t *testing.T) {
@@ -431,47 +427,40 @@ func testRandomCase(t *testing.T, rng *rand.Rand) {
 	}
 	defer target.Release()
 
-	got, err := array.Diff(base, target, mem)
+	edits, err := array.Diff(base, target)
 	if err != nil {
 		t.Fatalf("got unexpected error %v", err)
 	}
-	defer got.Release()
 
-	validateEditScript(t, got, base, target)
+	validateEditScript(t, edits, base, target)
 }
 
 // validateEditScript checks that the edit script produces target when applied to base.
-func validateEditScript(t *testing.T, edits *array.Struct, base, target arrow.Array) {
-	inserts := boolValues(edits.Field(0).(*array.Boolean))
-	runLengths := edits.Field(1).(*array.Int64).Int64Values()
-
-	if len(runLengths) == 0 {
+func validateEditScript(t *testing.T, edits array.Edits, base, target arrow.Array) {
+	if len(edits) == 0 {
 		t.Fatalf("edit script has run length of zero")
-	}
-	if len(runLengths) != len(inserts) {
-		t.Fatalf("edit script has %d run lengths but %d insert flags", len(runLengths), len(inserts))
 	}
 
 	baseIndex := int64(0)
 	targetIndex := int64(0)
-	for i := 0; i < len(runLengths); i++ {
+	for i := 0; i < len(edits); i++ {
 		if i > 0 {
-			if inserts[i] {
+			if edits[i].Insert {
 				targetIndex++
 			} else {
 				baseIndex++
 			}
 		}
-		for j := int64(0); j < runLengths[i]; j++ {
+		for j := int64(0); j < edits[i].RunLength; j++ {
 			if !array.SliceEqual(base, baseIndex, baseIndex+1, target, targetIndex, targetIndex+1) {
-				t.Fatalf("edit script (inserts=%v, runLengths=%v) when applied to base %v does not produce target %v", inserts, runLengths, base, target)
+				t.Fatalf("edit script (%v) when applied to base %v does not produce target %v", edits, base, target)
 			}
 			baseIndex += 1
 			targetIndex += 1
 		}
 	}
 	if baseIndex != int64(base.Len()) || targetIndex != int64(target.Len()) {
-		t.Fatalf("edit script (inserts=%v, runLengths=%v) when applied to base %v does not produce target %v", inserts, runLengths, base, target)
+		t.Fatalf("edit script (%v) when applied to base %v does not produce target %v", edits, base, target)
 	}
 }
 
@@ -500,7 +489,11 @@ func (s *diffStringTestCase) check(t *testing.T) {
 	}
 	defer target.Release()
 
-	got, err := array.DiffString(base, target, mem)
+	edits, err := array.Diff(base, target)
+	if err != nil {
+		t.Fatalf("got unexpected error %v", err)
+	}
+	got, err := edits.UnifiedDiff(base, target)
 	if err != nil {
 		t.Fatalf("got unexpected error %v", err)
 	}
@@ -510,7 +503,7 @@ func (s *diffStringTestCase) check(t *testing.T) {
 	}
 }
 
-func TestDiffString(t *testing.T) {
+func TestEdits_UnifiedDiff(t *testing.T) {
 	msPerDay := 24 * 60 * 60 * 1000
 	cases := []diffStringTestCase{
 		{
@@ -575,9 +568,9 @@ func TestDiffString(t *testing.T) {
 			baseJSON:   `[0, 1, 2, 31, 4]`,
 			targetJSON: `[0, 1, 31, 2, 4]`,
 			want: `@@ -2, +2 @@
--"1970-01-03"
+-1970-01-03
 @@ -4, +3 @@
-+"1970-01-03"
++1970-01-03
 `,
 		},
 		{
@@ -586,22 +579,53 @@ func TestDiffString(t *testing.T) {
 			baseJSON:   fmt.Sprintf(`[%d, %d, %d, %d, %d]`, 0*msPerDay, 1*msPerDay, 2*msPerDay, 31*msPerDay, 4*msPerDay),
 			targetJSON: fmt.Sprintf(`[%d, %d, %d, %d, %d]`, 0*msPerDay, 1*msPerDay, 31*msPerDay, 2*msPerDay, 4*msPerDay),
 			want: `@@ -2, +2 @@
--"1970-01-03"
+-1970-01-03
 @@ -4, +3 @@
-+"1970-01-03"
++1970-01-03
 `,
 		},
 		{
-			name: "timestamp",
-			dataType: &arrow.TimestampType{
-				Unit: arrow.Microsecond,
-			},
+			name:       "timestamp_s",
+			dataType:   arrow.FixedWidthTypes.Timestamp_s,
+			baseJSON:   fmt.Sprintf(`[0, 1, %d, 2, 4]`, 678+(5+60*(4+60*(3+24*int64(1))))),
+			targetJSON: fmt.Sprintf(`[0, 1, 2, %d, 4]`, 678+(5+60*(4+60*(3+24*int64(1))))),
+			want: `@@ -2, +2 @@
+-1970-01-02 03:15:23 +0000 UTC
+@@ -4, +3 @@
++1970-01-02 03:15:23 +0000 UTC
+`,
+		},
+		{
+			name:       "timestamp_ms",
+			dataType:   arrow.FixedWidthTypes.Timestamp_ms,
+			baseJSON:   fmt.Sprintf(`[0, 1, %d, 2, 4]`, 678+1000*(5+60*(4+60*(3+24*int64(1))))),
+			targetJSON: fmt.Sprintf(`[0, 1, 2, %d, 4]`, 678+1000*(5+60*(4+60*(3+24*int64(1))))),
+			want: `@@ -2, +2 @@
+-1970-01-02 03:04:05.678 +0000 UTC
+@@ -4, +3 @@
++1970-01-02 03:04:05.678 +0000 UTC
+`,
+		},
+		{
+			name:       "timestamp_us",
+			dataType:   arrow.FixedWidthTypes.Timestamp_us,
 			baseJSON:   fmt.Sprintf(`[0, 1, %d, 2, 4]`, 678+1000000*(5+60*(4+60*(3+24*int64(1))))),
 			targetJSON: fmt.Sprintf(`[0, 1, 2, %d, 4]`, 678+1000000*(5+60*(4+60*(3+24*int64(1))))),
 			want: `@@ -2, +2 @@
--"1970-01-02 03:04:05.000678"
+-1970-01-02 03:04:05.000678 +0000 UTC
 @@ -4, +3 @@
-+"1970-01-02 03:04:05.000678"
++1970-01-02 03:04:05.000678 +0000 UTC
+`,
+		},
+		{
+			name:       "timestamp_ns",
+			dataType:   arrow.FixedWidthTypes.Timestamp_ns,
+			baseJSON:   fmt.Sprintf(`[0, 1, %d, 2, 4]`, 678+1000000000*(5+60*(4+60*(3+24*int64(1))))),
+			targetJSON: fmt.Sprintf(`[0, 1, 2, %d, 4]`, 678+1000000000*(5+60*(4+60*(3+24*int64(1))))),
+			want: `@@ -2, +2 @@
+-1970-01-02 03:04:05.000000678 +0000 UTC
+@@ -4, +3 @@
++1970-01-02 03:04:05.000000678 +0000 UTC
 `,
 		},
 		{
@@ -664,7 +688,6 @@ func TestDiffString(t *testing.T) {
 +[2,"3"]
 `,
 		},
-
 		{
 			name:       "string",
 			dataType:   arrow.BinaryTypes.String,
@@ -675,6 +698,180 @@ func TestDiffString(t *testing.T) {
 @@ -4, +5 @@
 -"o"
 +"0"
+`,
+		},
+		{
+			name:       "int8",
+			dataType:   arrow.PrimitiveTypes.Int8,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "int16",
+			dataType:   arrow.PrimitiveTypes.Int16,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "int32",
+			dataType:   arrow.PrimitiveTypes.Int32,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "int64",
+			dataType:   arrow.PrimitiveTypes.Int64,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "uint8",
+			dataType:   arrow.PrimitiveTypes.Uint8,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "uint16",
+			dataType:   arrow.PrimitiveTypes.Uint16,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "uint32",
+			dataType:   arrow.PrimitiveTypes.Uint32,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "uint64",
+			dataType:   arrow.PrimitiveTypes.Uint64,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "float32",
+			dataType:   arrow.PrimitiveTypes.Float32,
+			baseJSON:   `[0.1, 0.3, -0.5]`,
+			targetJSON: `[0.1, -0.5, 0.3]`,
+			want: `@@ -1, +1 @@
+-0.300000
+@@ -3, +2 @@
++0.300000
+`,
+		},
+		{
+			name:       "float64",
+			dataType:   arrow.PrimitiveTypes.Float64,
+			baseJSON:   `[0.1, 0.3, -0.5]`,
+			targetJSON: `[0.1, -0.5, 0.3]`,
+			want: `@@ -1, +1 @@
+-0.300000
+@@ -3, +2 @@
++0.300000
+`,
+		},
+		{
+			name:       "equal nulls",
+			dataType:   arrow.PrimitiveTypes.Int32,
+			baseJSON:   `[null, null]`,
+			targetJSON: `[null, null]`,
+			want:       ``,
+		},
+		{
+			name:       "nulls",
+			dataType:   arrow.PrimitiveTypes.Int32,
+			baseJSON:   `[1, null, null, null]`,
+			targetJSON: `[null, 1, null, 2]`,
+			want: `@@ -0, +0 @@
+-1
+@@ -2, +1 @@
+-null
++1
+@@ -4, +3 @@
++2
+`,
+		},
+		{
+			name:       "extensions",
+			dataType:   types.NewUUIDType(),
+			baseJSON:   `["00000000-0000-0000-0000-000000000000", "00000000-0000-0000-0000-000000000001"]`,
+			targetJSON: `["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]`,
+			want: `@@ -0, +0 @@
+-"00000000-0000-0000-0000-000000000000"
+@@ -2, +1 @@
++"00000000-0000-0000-0000-000000000002"
 `,
 		},
 	}

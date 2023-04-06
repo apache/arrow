@@ -55,6 +55,10 @@ struct RankRunner {
   Status operator()(const std::shared_ptr<Array>& values) const {
     return CallFunction("rank", {values}, &options).status();
   }
+
+  Status operator()(const std::shared_ptr<ChunkedArray>& values) const {
+    return CallFunction("rank", {values}, &options).status();
+  }
 };
 
 template <typename Runner, typename ArrayLike>
@@ -114,6 +118,10 @@ static void ArrayRankInt64Narrow(benchmark::State& state) {
   ArraySortFuncInt64Benchmark(state, RankRunner(state), -100, 100);
 }
 
+static void ChunkedArrayRankInt64Narrow(benchmark::State& state) {
+  ChunkedArraySortFuncInt64Benchmark(state, RankRunner(state), -100, 100);
+}
+
 static void ArraySortIndicesInt64Wide(benchmark::State& state) {
   const auto min = std::numeric_limits<int64_t>::min();
   const auto max = std::numeric_limits<int64_t>::max();
@@ -124,6 +132,12 @@ static void ArrayRankInt64Wide(benchmark::State& state) {
   const auto min = std::numeric_limits<int64_t>::min();
   const auto max = std::numeric_limits<int64_t>::max();
   ArraySortFuncInt64Benchmark(state, RankRunner(state), min, max);
+}
+
+static void ChunkedArrayRankInt64Wide(benchmark::State& state) {
+  const auto min = std::numeric_limits<int64_t>::min();
+  const auto max = std::numeric_limits<int64_t>::max();
+  ChunkedArraySortFuncInt64Benchmark(state, RankRunner(state), min, max);
 }
 
 static void ArraySortIndicesBool(benchmark::State& state) {
@@ -365,6 +379,8 @@ void ArrayRankSetArgs(benchmark::internal::Benchmark* bench) {
 
 BENCHMARK(ArrayRankInt64Narrow)->Apply(ArrayRankSetArgs);
 BENCHMARK(ArrayRankInt64Wide)->Apply(ArrayRankSetArgs);
+BENCHMARK(ChunkedArrayRankInt64Narrow)->Apply(ArrayRankSetArgs);
+BENCHMARK(ChunkedArrayRankInt64Wide)->Apply(ArrayRankSetArgs);
 
 }  // namespace compute
 }  // namespace arrow

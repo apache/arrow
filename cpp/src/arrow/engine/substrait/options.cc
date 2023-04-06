@@ -20,8 +20,8 @@
 #include <google/protobuf/util/json_util.h>
 #include <mutex>
 
-#include "arrow/compute/exec/asof_join_node.h"
-#include "arrow/compute/exec/options.h"
+#include "arrow/acero/asof_join_node.h"
+#include "arrow/acero/options.h"
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/options_internal.h"
 #include "arrow/engine/substrait/relation_internal.h"
@@ -32,9 +32,9 @@ namespace engine {
 
 namespace {
 
-std::vector<compute::Declaration::Input> MakeDeclarationInputs(
+std::vector<acero::Declaration::Input> MakeDeclarationInputs(
     const std::vector<DeclarationInfo>& inputs) {
-  std::vector<compute::Declaration::Input> input_decls(inputs.size());
+  std::vector<acero::Declaration::Input> input_decls(inputs.size());
   for (size_t i = 0; i < inputs.size(); i++) {
     input_decls[i] = inputs[i].declaration;
   }
@@ -75,6 +75,11 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
       rel.UnpackTo(&named_tap_rel);
       return MakeNamedTapRel(conv_opts, inputs, named_tap_rel, ext_set);
     }
+    if (rel.Is<substrait_ext::SegmentedAggregateRel>()) {
+      substrait_ext::SegmentedAggregateRel seg_agg_rel;
+      rel.UnpackTo(&seg_agg_rel);
+      return MakeSegmentedAggregateRel(conv_opts, inputs, seg_agg_rel, ext_set);
+    }
     return Status::NotImplemented("Unrecognized extension in Susbstrait plan: ",
                                   rel.DebugString());
   }
@@ -92,7 +97,7 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     }
 
     size_t n_input = inputs.size(), i = 0;
-    std::vector<compute::AsofJoinNodeOptions::Keys> input_keys(n_input);
+    std::vector<acero::AsofJoinNodeOptions::Keys> input_keys(n_input);
     for (const auto& keys : as_of_join_rel.keys()) {
       // on-key
       if (!keys.has_on()) {
@@ -129,14 +134,14 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     }
     std::vector<int> field_output_indices;
     ARROW_ASSIGN_OR_RAISE(auto schema,
-                          compute::asofjoin::MakeOutputSchema(input_schema, input_keys,
-                                                              &field_output_indices));
-    compute::AsofJoinNodeOptions asofjoin_node_opts{std::move(input_keys), tolerance};
+                          acero::asofjoin::MakeOutputSchema(input_schema, input_keys,
+                                                            &field_output_indices));
+    acero::AsofJoinNodeOptions asofjoin_node_opts{std::move(input_keys), tolerance};
 
     // declaration
     auto input_decls = MakeDeclarationInputs(inputs);
     return RelationInfo{
-        {compute::Declaration("asofjoin", input_decls, std::move(asofjoin_node_opts)),
+        {acero::Declaration("asofjoin", input_decls, std::move(asofjoin_node_opts)),
          std::move(schema)},
         std::move(field_output_indices)};
   }
@@ -164,6 +169,74 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
         auto decl, conv_opts.named_tap_provider(named_tap_rel.kind(), input_decls,
                                                 named_tap_rel.name(), renamed_schema));
     return RelationInfo{{std::move(decl), std::move(renamed_schema)}, std::nullopt};
+  }
+
+  Result<RelationInfo> MakeSegmentedAggregateRel(
+      const ConversionOptions& conv_opts, const std::vector<DeclarationInfo>& inputs,
+      const substrait_ext::SegmentedAggregateRel& seg_agg_rel,
+      const ExtensionSet& ext_set) {
+    if (inputs.size() != 1) {
+      return Status::Invalid(
+          "substrait_ext::SegmentedAggregateRel requires a single input but got: ",
+          inputs.size());
+    }
+    if (seg_agg_rel.segment_keys_size() == 0) {
+      return Status::Invalid(
+          "substrait_ext::SegmentedAggregateRel requires at least one segment key");
+    }
+
+    auto input_schema = inputs[0].output_schema;
+
+    // store key fields to be used when output schema is created
+    std::vector<int> key_field_ids;
+    std::vector<FieldRef> keys;
+    for (auto& ref : seg_agg_rel.grouping_keys()) {
+      ARROW_ASSIGN_OR_RAISE(auto field_ref,
+                            DirectReferenceFromProto(&ref, ext_set, conv_opts));
+      ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*input_schema));
+      key_field_ids.emplace_back(std::move(match[0]));
+      keys.emplace_back(std::move(field_ref));
+    }
+
+    // store segment key fields to be used when output schema is created
+    std::vector<int> segment_key_field_ids;
+    std::vector<FieldRef> segment_keys;
+    for (auto& ref : seg_agg_rel.segment_keys()) {
+      ARROW_ASSIGN_OR_RAISE(auto field_ref,
+                            DirectReferenceFromProto(&ref, ext_set, conv_opts));
+      ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*input_schema));
+      segment_key_field_ids.emplace_back(std::move(match[0]));
+      segment_keys.emplace_back(std::move(field_ref));
+    }
+
+    std::vector<compute::Aggregate> aggregates;
+    aggregates.reserve(seg_agg_rel.measures_size());
+    std::vector<std::vector<int>> agg_src_fieldsets;
+    agg_src_fieldsets.reserve(seg_agg_rel.measures_size());
+    for (auto agg_measure : seg_agg_rel.measures()) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto parsed_measure,
+          internal::ParseAggregateMeasure(agg_measure, ext_set, conv_opts,
+                                          /*is_hash=*/!keys.empty(), input_schema));
+      aggregates.push_back(std::move(parsed_measure.aggregate));
+      agg_src_fieldsets.push_back(std::move(parsed_measure.fieldset));
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto decl_info,
+                          internal::MakeAggregateDeclaration(
+                              std::move(inputs[0].declaration), std::move(input_schema),
+                              seg_agg_rel.measures_size(), std::move(aggregates),
+                              std::move(agg_src_fieldsets), std::move(keys),
+                              std::move(key_field_ids), std::move(segment_keys),
+                              std::move(segment_key_field_ids), ext_set, conv_opts));
+
+    const auto& output_schema = decl_info.output_schema;
+    size_t out_size = output_schema->num_fields();
+    std::vector<int> field_output_indices(out_size);
+    for (int i = 0; i < static_cast<int>(out_size); i++) {
+      field_output_indices[i] = i;
+    }
+    return RelationInfo{decl_info, std::move(field_output_indices)};
   }
 };
 
@@ -198,9 +271,9 @@ default_extension_provider_singleton() {
 
 ConfigurableSingleton<NamedTapProvider>& default_named_tap_provider_singleton() {
   static ConfigurableSingleton<NamedTapProvider> singleton(
-      [](const std::string& tap_kind, std::vector<compute::Declaration::Input> inputs,
+      [](const std::string& tap_kind, std::vector<acero::Declaration::Input> inputs,
          const std::string& tap_name,
-         std::shared_ptr<Schema> tap_schema) -> Result<compute::Declaration> {
+         std::shared_ptr<Schema> tap_schema) -> Result<acero::Declaration> {
         return Status::NotImplemented(
             "Plan contained a NamedTapRel but no provider configured");
       });

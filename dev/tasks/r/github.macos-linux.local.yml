@@ -41,7 +41,9 @@ jobs:
         if: contains(matrix.os, 'macOS')
         run: |
           brew install openssl
-          brew install sccache
+          # disable sccache on macos as it timesout for unknown reasons
+          # see GH-33721
+          # brew install sccache
       - name: Configure non-autobrew dependencies (linux)
         if: contains(matrix.os, 'ubuntu')
         run: |
@@ -71,7 +73,7 @@ jobs:
           ARROW_R_DEV: TRUE
         {{ macros.github_set_sccache_envvars()|indent(8)}}
         run: |
-          sccache --start-server
+          sccache --start-server || echo 'sccache not found'
           cd arrow/r
           R CMD INSTALL . --install-tests
       - name: Run the tests

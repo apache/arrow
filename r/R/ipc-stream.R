@@ -98,7 +98,7 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #' @export
 read_ipc_stream <- function(file, as_data_frame = TRUE, ...) {
   if (!inherits(file, "InputStream")) {
-    file <- make_readable_file(file)
+    file <- make_readable_file(file, random_access = FALSE)
     on.exit(file$close())
   }
 

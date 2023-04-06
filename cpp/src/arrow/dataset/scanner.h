@@ -25,7 +25,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/compute/exec/options.h"
+#include "arrow/acero/options.h"
 #include "arrow/compute/expression.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/dataset.h"
@@ -134,8 +134,8 @@ struct ARROW_DS_EXPORT ScanOptions {
   std::vector<FieldRef> MaterializedFields() const;
 
   /// Parameters which control when the plan should pause for a slow consumer
-  compute::BackpressureOptions backpressure =
-      compute::BackpressureOptions::DefaultBackpressure();
+  acero::BackpressureOptions backpressure =
+      acero::BackpressureOptions::DefaultBackpressure();
 };
 
 /// Scan-specific options, which can be changed between scans of the same dataset.
@@ -151,7 +151,7 @@ struct ARROW_DS_EXPORT ScanOptions {
 /// schema.  This is sometimes referred to as the physical or fragment schema.
 /// Conversion from the fragment schema to the dataset schema is a process
 /// known as evolution.
-struct ARROW_DS_EXPORT ScanV2Options : public compute::ExecNodeOptions {
+struct ARROW_DS_EXPORT ScanV2Options : public acero::ExecNodeOptions {
   explicit ScanV2Options(std::shared_ptr<Dataset> dataset)
       : dataset(std::move(dataset)) {}
 
@@ -533,7 +533,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   Status FragmentScanOptions(std::shared_ptr<FragmentScanOptions> fragment_scan_options);
 
   /// \brief Override default backpressure configuration
-  Status Backpressure(compute::BackpressureOptions backpressure);
+  Status Backpressure(acero::BackpressureOptions backpressure);
 
   /// \brief Return the current scan options for the builder.
   Result<std::shared_ptr<ScanOptions>> GetScanOptions();
@@ -554,7 +554,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
 /// Does not construct associated filter or project nodes.
 /// Yielded batches will be augmented with fragment/batch indices to enable stable
 /// ordering for simple ExecPlans.
-class ARROW_DS_EXPORT ScanNodeOptions : public compute::ExecNodeOptions {
+class ARROW_DS_EXPORT ScanNodeOptions : public acero::ExecNodeOptions {
  public:
   explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
                            std::shared_ptr<ScanOptions> scan_options,
@@ -571,8 +571,8 @@ class ARROW_DS_EXPORT ScanNodeOptions : public compute::ExecNodeOptions {
 /// @}
 
 namespace internal {
-ARROW_DS_EXPORT void InitializeScanner(arrow::compute::ExecFactoryRegistry* registry);
-ARROW_DS_EXPORT void InitializeScannerV2(arrow::compute::ExecFactoryRegistry* registry);
+ARROW_DS_EXPORT void InitializeScanner(arrow::acero::ExecFactoryRegistry* registry);
+ARROW_DS_EXPORT void InitializeScannerV2(arrow::acero::ExecFactoryRegistry* registry);
 }  // namespace internal
 }  // namespace dataset
 }  // namespace arrow

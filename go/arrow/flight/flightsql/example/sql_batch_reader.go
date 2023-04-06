@@ -56,7 +56,7 @@ func getArrowTypeFromString(dbtype string) arrow.DataType {
 		return arrow.PrimitiveTypes.Float64
 	case "blob":
 		return arrow.BinaryTypes.Binary
-	case "text", "date", "char":
+	case "text", "date", "char", "clob":
 		return arrow.BinaryTypes.String
 	default:
 		panic("invalid sqlite type: " + dbtype)

@@ -17,22 +17,24 @@
 package array
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
-// Diff compares two arrays, returning an edit script which expresses the difference
-// between them. The edit script can be applied to the base array to produce the target.
-//
-// An edit script is an array of struct(insert bool, run_length int64).
+// Edit represents one entry in the edit script to compare two arrays.
+type Edit struct {
+	Insert    bool
+	RunLength int64
+}
+
+// Edits is a slice of Edit structs that represents an edit script to compare two arrays.
+// When applied to the base array, it produces the target array.
 // Each element of "insert" determines whether an element was inserted into (true)
 // or deleted from (false) base. Each insertion or deletion is followed by a run of
 // elements which are unchanged from base to target; the length of this run is stored
-// in "run_length". (Note that the edit script begins and ends with a run of shared
+// in RunLength. (Note that the edit script begins and ends with a run of shared
 // elements but both fields of the struct must have the same length. To accommodate this
 // the first element of "insert" should be ignored.)
 //
@@ -44,41 +46,95 @@ import (
 //	{"insert": false, "run_length": 0} // delete("o") then an empty run
 //
 // ]
-//
-// base: baseline for comparison
-// target: an array of identical type to base whose elements differ from base's
-// mem: memory to store the result will be allocated from this memory pool
-func Diff(base, target arrow.Array, mem memory.Allocator) (*Struct, error) {
-	if base.DataType().Fingerprint() != target.DataType().Fingerprint() {
-		return nil, errors.New("only taking the diff of like-typed arrays is supported")
+type Edits []Edit
+
+// String returns a simple string representation of the edit script.
+func (e Edits) String() string {
+	return fmt.Sprintf("%v", []Edit(e))
+}
+
+// UnifiedDiff returns a string representation of the diff of base and target in Unified Diff format.
+func (e Edits) UnifiedDiff(base, target arrow.Array) (string, error) {
+	var s strings.Builder
+	baseIndex := int64(0)
+	targetIndex := int64(0)
+	wrotePosition := false
+	for i := 0; i < len(e); i++ {
+		if i > 0 {
+			if !wrotePosition {
+				s.WriteString(fmt.Sprintf("@@ -%d, +%d @@\n", baseIndex, targetIndex))
+				wrotePosition = true
+			}
+			if e[i].Insert {
+				s.WriteString(fmt.Sprintf("+%v\n", stringAt(target, targetIndex)))
+				targetIndex++
+			} else {
+				s.WriteString(fmt.Sprintf("-%v\n", stringAt(base, baseIndex)))
+				baseIndex++
+			}
+		}
+		for j := int64(0); j < e[i].RunLength; j++ {
+			baseIndex += 1
+			targetIndex += 1
+			wrotePosition = false
+		}
+	}
+	return s.String(), nil
+}
+
+func stringAt(arr arrow.Array, i int64) string {
+	if arr.IsNull(int(i)) {
+		return "null"
+	}
+	dt := arr.DataType()
+	switch {
+	case arrow.TypeEqual(dt, arrow.PrimitiveTypes.Float32):
+		return fmt.Sprintf("%f", arr.(*Float32).Value(int(i)))
+	case arrow.TypeEqual(dt, arrow.PrimitiveTypes.Float64):
+		return fmt.Sprintf("%f", arr.(*Float64).Value(int(i)))
+	case arrow.TypeEqual(dt, arrow.PrimitiveTypes.Date32):
+		return arr.(*Date32).Value(int(i)).FormattedString()
+	case arrow.TypeEqual(dt, arrow.PrimitiveTypes.Date64):
+		return arr.(*Date64).Value(int(i)).FormattedString()
+	case arrow.TypeEqual(dt, arrow.FixedWidthTypes.Timestamp_s):
+		return arr.(*Timestamp).Value(int(i)).ToTime(arrow.Second).String()
+	case arrow.TypeEqual(dt, arrow.FixedWidthTypes.Timestamp_ms):
+		return arr.(*Timestamp).Value(int(i)).ToTime(arrow.Millisecond).String()
+	case arrow.TypeEqual(dt, arrow.FixedWidthTypes.Timestamp_us):
+		return arr.(*Timestamp).Value(int(i)).ToTime(arrow.Microsecond).String()
+	case arrow.TypeEqual(dt, arrow.FixedWidthTypes.Timestamp_ns):
+		return arr.(*Timestamp).Value(int(i)).ToTime(arrow.Nanosecond).String()
+	}
+	s := NewSlice(arr, i, i+1)
+	defer s.Release()
+	st, _ := s.MarshalJSON()
+	return strings.Trim(string(st[1:len(st)-1]), "\n")
+}
+
+// Diff compares two arrays, returning an edit script which expresses the difference
+// between them. The edit script can be applied to the base array to produce the target.
+// 'base' is a baseline for comparison.
+// 'target' is an array of identical type to base whose elements differ from base's.
+func Diff(base, target arrow.Array) (edits Edits, err error) {
+	if !arrow.TypeEqual(base.DataType(), target.DataType()) {
+		return nil, fmt.Errorf("%w: only taking the diff of like-typed arrays is supported", arrow.ErrNotImplemented)
 	}
 	switch base.DataType().ID() {
 	case arrow.EXTENSION:
-		return Diff(base.(ExtensionArray).Storage(), target.(ExtensionArray).Storage(), mem)
+		return Diff(base.(ExtensionArray).Storage(), target.(ExtensionArray).Storage())
 	case arrow.DICTIONARY:
-		return nil, fmt.Errorf("diffing arrays of type %s is not implemented", base.DataType().String())
+		return nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType())
 	case arrow.RUN_END_ENCODED:
-		return nil, fmt.Errorf("diffing arrays of type %s is not implemented", base.DataType().String())
+		return nil, fmt.Errorf("%w: diffing arrays of type %s is not implemented", arrow.ErrNotImplemented, base.DataType())
 	}
 	d := newQuadraticSpaceMyersDiff(base, target)
-	r, err := d.Diff(mem)
-	if err != nil {
-		if r != nil {
-			r.Release()
-		}
-		return nil, err
-	}
-	return r, nil
+	return d.Diff()
 }
 
 // editPoint represents an intermediate state in the comparison of two arrays
 type editPoint struct {
 	base   int
 	target int
-}
-
-func (e editPoint) Equals(other editPoint) bool {
-	return e.base == other.base && e.target == other.target
 }
 
 type quadraticSpaceMyersDiff struct {
@@ -215,20 +271,19 @@ func (d *quadraticSpaceMyersDiff) Done() bool {
 	return d.finishIndex != -1
 }
 
-func (d *quadraticSpaceMyersDiff) GetEdits(mem memory.Allocator) (*Struct, error) {
+func (d *quadraticSpaceMyersDiff) GetEdits() (Edits, error) {
 	if !d.Done() {
 		panic("GetEdits called but Done() = false")
 	}
 
 	length := d.editCount + 1
-	insertBuf := make([]bool, length)
-	runLength := make([]int64, length)
+	edits := make(Edits, length)
 	index := d.finishIndex
 	endpoint := d.getEditPoint(d.editCount, d.finishIndex)
 
 	for i := d.editCount; i > 0; i-- {
 		insert := d.insert[index]
-		insertBuf[i] = insert
+		edits[i].Insert = insert
 		insertionsMinusDeletions := (endpoint.base - d.baseBegin) - (endpoint.target - d.targetBegin)
 		if insert {
 			insertionsMinusDeletions++
@@ -243,84 +298,18 @@ func (d *quadraticSpaceMyersDiff) GetEdits(mem memory.Allocator) (*Struct, error
 		if insert {
 			in = 1
 		}
-		runLength[i] = int64(endpoint.base - previous.base - (1 - in))
+		edits[i].RunLength = int64(endpoint.base - previous.base - (1 - in))
 		endpoint = previous
 	}
-	insertBuf[0] = false
-	runLength[0] = int64(endpoint.base - d.baseBegin)
+	edits[0].Insert = false
+	edits[0].RunLength = int64(endpoint.base - d.baseBegin)
 
-	inserts := NewBooleanBuilder(mem)
-	defer inserts.Release()
-	inserts.AppendValues(insertBuf, nil)
-
-	run := NewInt64Builder(mem)
-	defer run.Release()
-	run.AppendValues(runLength, nil)
-
-	insArr := inserts.NewArray()
-	defer insArr.Release()
-
-	runArr := run.NewArray()
-	defer runArr.Release()
-
-	return NewStructArray([]arrow.Array{
-		insArr,
-		runArr,
-	}, []string{"insert", "run_length"})
+	return edits, nil
 }
 
-func (d *quadraticSpaceMyersDiff) Diff(mem memory.Allocator) (*Struct, error) {
+func (d *quadraticSpaceMyersDiff) Diff() (edits Edits, err error) {
 	for !d.Done() {
 		d.Next()
 	}
-	return d.GetEdits(mem)
-}
-
-// DiffString returns a representation of the diff in Unified Diff format.
-func DiffString(base, target arrow.Array, mem memory.Allocator) (string, error) {
-	edits, err := Diff(base, target, mem)
-	if err != nil {
-		return "", err
-	}
-	defer edits.Release()
-
-	inserts := edits.Field(0).(*Boolean)
-	runLengths := edits.Field(1).(*Int64)
-
-	var s strings.Builder
-	baseIndex := int64(0)
-	targetIndex := int64(0)
-	wrotePosition := false
-	for i := 0; i < runLengths.Len(); i++ {
-		if i > 0 {
-			if !wrotePosition {
-				s.WriteString(fmt.Sprintf("@@ -%d, +%d @@\n", baseIndex, targetIndex))
-				wrotePosition = true
-			}
-			if inserts.Value(i) {
-				s.WriteString(fmt.Sprintf("+%v\n", stringAt(target, targetIndex)))
-				targetIndex++
-			} else {
-				s.WriteString(fmt.Sprintf("-%v\n", stringAt(base, baseIndex)))
-				baseIndex++
-			}
-		}
-		for j := int64(0); j < runLengths.Value(i); j++ {
-			baseIndex += 1
-			targetIndex += 1
-			wrotePosition = false
-		}
-	}
-	return s.String(), nil
-}
-
-func stringAt(arr arrow.Array, i int64) string {
-	if arr.IsNull(int(i)) {
-		return "null"
-	}
-
-	s := NewSlice(arr, i, i+1)
-	defer s.Release()
-	st, _ := s.MarshalJSON()
-	return strings.Trim(string(st[1:len(st)-1]), "\n")
+	return d.GetEdits()
 }

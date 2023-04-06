@@ -718,7 +718,6 @@
     <module>vector</module>
     <module>tools</module>
     <module>adapter/jdbc</module>
-    <module>plasma</module>
     <module>flight</module>
     <module>performance</module>
     <module>algorithm</module>
@@ -987,13 +986,11 @@
         <ARROW_CSV>ON</ARROW_CSV>
         <ARROW_ORC>ON</ARROW_ORC>
         <ARROW_PARQUET>ON</ARROW_PARQUET>
-        <ARROW_PLASMA>OFF</ARROW_PLASMA>
         <ARROW_GANDIVA>OFF</ARROW_GANDIVA>
         <ARROW_JAVA_JNI_ENABLE_C>OFF</ARROW_JAVA_JNI_ENABLE_C>
         <ARROW_JAVA_JNI_ENABLE_DATASET>ON</ARROW_JAVA_JNI_ENABLE_DATASET>
         <ARROW_JAVA_JNI_ENABLE_GANDIVA>OFF</ARROW_JAVA_JNI_ENABLE_GANDIVA>
         <ARROW_JAVA_JNI_ENABLE_ORC>ON</ARROW_JAVA_JNI_ENABLE_ORC>
-        <ARROW_JAVA_JNI_ENABLE_PLASMA>OFF</ARROW_JAVA_JNI_ENABLE_PLASMA>
       </properties>
       <build>
         <plugins>
@@ -1023,7 +1020,6 @@
                     -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON
                     -DARROW_ORC=${ARROW_ORC}
                     -DARROW_PARQUET=${ARROW_PARQUET}
-                    -DARROW_PLASMA=${ARROW_PLASMA}
                     -DARROW_S3=ON
                     -DARROW_USE_CCACHE=ON
                     -DCMAKE_BUILD_TYPE=Release
@@ -1065,7 +1061,6 @@
                     -DARROW_JAVA_JNI_ENABLE_DATASET=${ARROW_JAVA_JNI_ENABLE_DATASET}
                     -DARROW_JAVA_JNI_ENABLE_GANDIVA=${ARROW_JAVA_JNI_ENABLE_GANDIVA}
                     -DARROW_JAVA_JNI_ENABLE_ORC=${ARROW_JAVA_JNI_ENABLE_ORC}
-                    -DARROW_JAVA_JNI_ENABLE_PLASMA=${ARROW_JAVA_JNI_ENABLE_PLASMA}
                     -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON
                     -DBUILD_TESTING=OFF
                     -DCMAKE_BUILD_TYPE=Release
@@ -1108,7 +1103,6 @@
         <ARROW_JAVA_JNI_ENABLE_DATASET>ON</ARROW_JAVA_JNI_ENABLE_DATASET>
         <ARROW_JAVA_JNI_ENABLE_GANDIVA>OFF</ARROW_JAVA_JNI_ENABLE_GANDIVA>
         <ARROW_JAVA_JNI_ENABLE_ORC>OFF</ARROW_JAVA_JNI_ENABLE_ORC>
-        <ARROW_JAVA_JNI_ENABLE_PLASMA>OFF</ARROW_JAVA_JNI_ENABLE_PLASMA>
       </properties>
       <build>
         <plugins>
@@ -1182,7 +1176,6 @@
                     -DARROW_JAVA_JNI_ENABLE_DATASET=${ARROW_JAVA_JNI_ENABLE_DATASET}
                     -DARROW_JAVA_JNI_ENABLE_GANDIVA=${ARROW_JAVA_JNI_ENABLE_GANDIVA}
                     -DARROW_JAVA_JNI_ENABLE_ORC=${ARROW_JAVA_JNI_ENABLE_ORC}
-                    -DARROW_JAVA_JNI_ENABLE_PLASMA=${ARROW_JAVA_JNI_ENABLE_PLASMA}
                     -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON
                     -DBUILD_TESTING=OFF
                     -DCMAKE_BUILD_TYPE=Release

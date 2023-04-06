@@ -35,6 +35,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/decimal256"
 	"github.com/apache/arrow/go/v12/arrow/internal/debug"
 	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
@@ -474,6 +475,10 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(s string) {
 			r.parseBinaryType(bldr, s)
 		}
+	case arrow.ExtensionType:
+		return func(s string) {
+			r.parseExtension(bldr, s)
+		}
 	default:
 		panic(fmt.Errorf("arrow/csv: unhandled field type %T", bldr.Type()))
 	}
@@ -771,6 +776,18 @@ func (r *Reader) parseBinaryType(field array.Builder, str string) {
 		panic("cannot decode base64 string " + str)
 	}
 	field.(*array.BinaryBuilder).Append(decodedVal)
+}
+
+func (r *Reader) parseExtension(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+	dec := json.NewDecoder(strings.NewReader(`"` + str + `"`))
+	if err := field.UnmarshalOne(dec); err != nil {
+		r.err = err
+		return
+	}
 }
 
 // Retain increases the reference count by 1.
