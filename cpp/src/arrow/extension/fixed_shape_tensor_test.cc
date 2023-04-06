@@ -302,7 +302,7 @@ TEST_F(TestExtensionType, TestFromTensorType) {
       std::vector<std::vector<int64_t>>{{3, 3, 4}, {3, 3, 4}, {3, 4, 3}, {3, 4, 3}};
   auto strides = std::vector<std::vector<int64_t>>{
       {96, 32, 8}, {96, 8, 24}, {96, 24, 8}, {96, 8, 32}};
-  auto cell_shapes = std::vector<std::vector<int64_t>>{{3, 4}, {3, 4}, {4, 3}, {4, 3}};
+  auto cell_shapes = std::vector<std::vector<int64_t>>{{3, 4}, {4, 3}, {4, 3}, {3, 4}};
   auto permutations = std::vector<std::vector<int64_t>>{{0, 1}, {1, 0}, {0, 1}, {1, 0}};
 
   for (size_t i = 0; i < shapes.size(); i++) {
@@ -332,11 +332,12 @@ TEST_F(TestExtensionType, RoundtripTensor) {
   auto values = Buffer::Wrap(values_);
 
   auto shapes = std::vector<std::vector<int64_t>>{
-      {3, 3, 4}, {3, 3, 4}, {3, 4, 3}, {3, 4, 3},    {6, 2, 3},
-      {6, 2, 3}, {2, 3, 6}, {2, 3, 6}, {2, 3, 2, 3}, {2, 3, 2, 3}};
+      {3, 3, 4}, {3, 4, 3}, {3, 4, 3}, {3, 3, 4},    {6, 2, 3},
+      {6, 3, 2}, {2, 3, 6}, {2, 6, 3}, {2, 3, 2, 3}, {2, 3, 2, 3}};
   auto strides = std::vector<std::vector<int64_t>>{
-      {96, 32, 8}, {96, 8, 24},  {96, 24, 8},  {96, 8, 32},      {48, 24, 8},
-      {48, 8, 16}, {144, 48, 8}, {144, 8, 24}, {144, 48, 24, 8}, {144, 8, 24, 48}};
+      {96, 32, 8}, {96, 8, 32},  {96, 24, 8},  {96, 8, 24},      {48, 24, 8},
+      {48, 8, 24}, {144, 48, 8}, {144, 8, 48}, {144, 48, 24, 8}, {144, 8, 24, 48}};
+
   for (size_t i = 0; i < shapes.size(); i++) {
     ASSERT_OK_AND_ASSIGN(auto tensor,
                          Tensor::Make(value_type_, values, shapes[i], strides[i]));

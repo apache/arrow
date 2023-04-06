@@ -143,9 +143,6 @@ std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
 
 Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor(
     const std::shared_ptr<Tensor>& tensor) {
-  auto cell_shape = tensor->shape();
-  cell_shape.erase(cell_shape.begin());
-
   std::vector<std::string> dim_names;
   for (size_t i = 1; i < tensor->dim_names().size(); ++i) {
     dim_names.emplace_back(tensor->dim_names()[i]);
@@ -157,8 +154,13 @@ Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor
         "Only first-major tensors can be zero-copy converted to arrays");
   }
   permutation.erase(permutation.begin());
-  for (size_t i = 0; i < permutation.size(); ++i) {
-    --permutation[i];
+  for (int64_t& i : permutation) {
+    --i;
+  }
+
+  std::vector<int64_t> cell_shape;
+  for (auto i : permutation) {
+    cell_shape.emplace_back(tensor->shape()[i + 1]);
   }
 
   auto ext_type = internal::checked_pointer_cast<ExtensionType>(
@@ -271,18 +273,14 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   ARROW_RETURN_IF(!is_fixed_width(*ext_arr->value_type()),
                   Status::Invalid(ext_arr->value_type()->ToString(),
                                   " is not valid data type for a tensor"));
-  std::vector<int64_t> shape = ext_type->shape();
-  shape.insert(shape.begin(), 1, this->length());
-
-  std::vector<int64_t> tensor_strides;
-  auto value_type = internal::checked_pointer_cast<FixedWidthType>(ext_arr->value_type());
   auto permutation = ext_type->permutation();
-  for (size_t i = 0; i < permutation.size(); ++i) {
-    ++permutation[i];
+  std::vector<int64_t> shape;
+  for (int64_t& i : permutation) {
+    shape.emplace_back(ext_type->shape()[i]);
+    ++i;
   }
+  shape.insert(shape.begin(), 1, this->length());
   permutation.insert(permutation.begin(), 1, 0);
-  ARROW_RETURN_NOT_OK(FixedShapeTensorType::ComputeStrides(*value_type.get(), shape,
-                                                           permutation, &tensor_strides));
 
   std::vector<std::string> dim_names;
   if (!ext_type->dim_names().empty()) {
@@ -292,6 +290,10 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
     dim_names = {};
   }
 
+  std::vector<int64_t> tensor_strides;
+  auto value_type = internal::checked_pointer_cast<FixedWidthType>(ext_arr->value_type());
+  ARROW_RETURN_NOT_OK(FixedShapeTensorType::ComputeStrides(*value_type.get(), shape,
+                                                           permutation, &tensor_strides));
   ARROW_ASSIGN_OR_RAISE(auto buffers, ext_arr->Flatten());
   ARROW_ASSIGN_OR_RAISE(
       auto tensor, Tensor::Make(ext_arr->value_type(), buffers->data()->buffers[1], shape,
