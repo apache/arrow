@@ -440,7 +440,6 @@ func (p *pathBuilder) Visit(arr arrow.Array) error {
 		}
 		return nil
 	case arrow.EXTENSION:
-		// TODO this needs a test
 		return p.Visit(arr.(array.ExtensionArray).Storage())
 	case arrow.SPARSE_UNION, arrow.DENSE_UNION:
 		return xerrors.New("union types aren't supported in parquet")
