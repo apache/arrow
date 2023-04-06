@@ -100,7 +100,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow_acero1200 (= ${binary:Version}),
+  libarrow-acero1200 (= ${binary:Version}),
   libparquet1200 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
