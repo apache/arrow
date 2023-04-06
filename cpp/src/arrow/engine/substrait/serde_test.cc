@@ -5726,7 +5726,7 @@ TEST(Substrait, PlanWithSegmentedAggregateExtension) {
   std::shared_ptr<Schema> output_schema =
       schema({field("k", int32()), field("t", int32()), field("v", float64())});
   auto expected_table =
-      TableFromJSON(output_schema, {"[[1, 1, 4], [2, 1, 2], [2, 2, 10], [1, 2, 5]]"});
+      TableFromJSON(output_schema, {"[[1, 1, 4], [1, 2, 2], [2, 2, 10], [2, 1, 5]]"});
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
