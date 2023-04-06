@@ -456,8 +456,8 @@ std::shared_ptr<acero::ExecNode> ExecNode_OrderBy(
   return MakeExecNodeOrStop(
       "order_by", input->plan(), {input.get()},
       acero::OrderByNodeOptions{std::dynamic_pointer_cast<compute::SortOptions>(
-                                      make_compute_options("sort_indices", sort_options))
-                                      ->AsOrdering()});
+                                    make_compute_options("sort_indices", sort_options))
+                                    ->AsOrdering()});
 }
 
 // [[acero::export]]
