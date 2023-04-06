@@ -29,11 +29,15 @@
 namespace parquet {
 namespace encryption {
 
+static constexpr uint64_t kCacheCleanPeriodForKeyRotation = 60 * 60;  // 1 hour
+
 // KeyToolkit is a utility that keeps various tools for key management (such as key
 // rotation, kms client instantiation, cache control, etc), plus a number of auxiliary
 // classes for internal use.
 class PARQUET_EXPORT KeyToolkit {
  public:
+  KeyToolkit() { last_cache_clean_for_key_rotation_time_ = {}; }
+
   /// KMS client two level cache: token -> KMSInstanceId -> KmsClient
   TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>>& kms_client_cache_per_token() {
     return kms_client_cache_;
@@ -65,11 +69,39 @@ class PARQUET_EXPORT KeyToolkit {
     kms_client_factory_ = kms_client_factory;
   }
 
+  /// Key rotation. In the single wrapping mode, decrypts data keys with old master keys,
+  /// then encrypts them with new master keys. In the double wrapping mode, decrypts KEKs
+  /// (key encryption keys) with old master keys, generates new KEKs and encrypts them
+  /// with new master keys. Works only if key material is not stored internally in file
+  /// footers. Not supported in local key wrapping mode. Method can be run by multiple
+  /// threads, but each thread must work on different files.
+  void RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
+                        const std::string& parquet_file_path,
+                        const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
+                        bool double_wrapping, double cache_lifetime_seconds);
+
  private:
   TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>> kms_client_cache_;
   TwoLevelCacheWithExpiration<KeyEncryptionKey> key_encryption_key_write_cache_;
   TwoLevelCacheWithExpiration<std::string> key_encryption_key_read_cache_;
   std::shared_ptr<KmsClientFactory> kms_client_factory_;
+  mutable ::arrow::util::Mutex last_cache_clean_for_key_rotation_time_mutex_;
+  internal::TimePoint last_cache_clean_for_key_rotation_time_;
+};
+
+// "data encryption key" and "master key identifier" are paired together as output when
+// parsing from "key material"
+class PARQUET_EXPORT KeyWithMasterId {
+ public:
+  KeyWithMasterId(std::string key_bytes, std::string master_id)
+      : key_bytes_(std::move(key_bytes)), master_id_(std::move(master_id)) {}
+
+  const std::string& data_key() const { return key_bytes_; }
+  const std::string& master_id() const { return master_id_; }
+
+ private:
+  const std::string key_bytes_;
+  const std::string master_id_;
 };
 
 }  // namespace encryption

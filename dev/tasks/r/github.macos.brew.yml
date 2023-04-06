@@ -36,9 +36,7 @@ jobs:
           # for testing
           brew install minio
           
-          # TODO: Update the TODO for ARROW-16907 below to refer to main instead of master
-          #       after migrating the default branch to main.
-          # TODO(ARROW-16907): apache/arrow@master seems to be installed already
+          # TODO(ARROW-16907): apache/arrow@main seems to be installed already
           # so this does nothing on a branch/PR
           brew install -v --HEAD apache-arrow
 

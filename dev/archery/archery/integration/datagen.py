@@ -1740,7 +1740,6 @@ def get_generated_json_files(tempdir=None):
         .skip_category('JS'),
 
         generate_run_end_encoded_case()
-        .skip_category('C++')
         .skip_category('C#')
         .skip_category('Java')
         .skip_category('JS')

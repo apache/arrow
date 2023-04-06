@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -101,8 +104,7 @@ public class TestCallOptions {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         HeaderProducer producer = new HeaderProducer();
-        FlightServer s =
-            FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build());
+        FlightServer s = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), producer).build().start();
         FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
       Assertions.assertFalse(client.doAction(new Action(""), new HeaderCallOption(headers)).hasNext());
       final CallHeaders incomingHeaders = producer.headers();
@@ -122,8 +124,7 @@ public class TestCallOptions {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer();
-        FlightServer s =
-            FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build());
+        FlightServer s = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), producer).build().start();
         FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
       testFn.accept(client);
     } catch (InterruptedException | IOException e) {

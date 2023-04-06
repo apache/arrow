@@ -294,7 +294,6 @@ void StreamWriter::EndRow() {
     }
     // Initialize for each row with size already written
     // (compressed + uncompressed).
-    //
     row_group_size_ = row_group_writer_->total_bytes_written() +
                       row_group_writer_->total_compressed_bytes();
   }

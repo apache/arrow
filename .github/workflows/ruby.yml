@@ -204,8 +204,7 @@ jobs:
       ARROW_BUILD_TYPE: release
       ARROW_FLIGHT: ON
       ARROW_FLIGHT_SQL: ON
-      # ARROW-17728: SEGV on MinGW
-      ARROW_GANDIVA: OFF
+      ARROW_GANDIVA: ON
       ARROW_GCS: ON
       ARROW_HDFS: OFF
       ARROW_HOME: /ucrt${{ matrix.mingw-n-bits }}

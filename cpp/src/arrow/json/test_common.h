@@ -145,6 +145,8 @@ struct GenerateImpl {
 
   Status Visit(const UnionType& t) { return NotImplemented(t); }
 
+  Status Visit(const RunEndEncodedType& t) { return NotImplemented(t); }
+
   Status NotImplemented(const DataType& t) {
     return Status::NotImplemented("random generation of arrays of type ", t);
   }

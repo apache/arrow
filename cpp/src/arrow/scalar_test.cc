@@ -437,10 +437,10 @@ class TestDecimalScalar : public ::testing::Test {
     ASSERT_OK(first->ValidateFull());
     ASSERT_OK(second->ValidateFull());
 
-    ASSERT_TRUE(first->Equals(null));
+    ASSERT_TRUE(first->Equals(*null));
     ASSERT_FALSE(first->Equals(pi));
     ASSERT_TRUE(second->Equals(pi));
-    ASSERT_FALSE(second->Equals(null));
+    ASSERT_FALSE(second->Equals(*null));
 
     auto invalid = ScalarType(ValueType::GetMaxValue(6), std::make_shared<T>(5, 2));
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
@@ -556,7 +556,7 @@ class TestStringScalar : public ::testing::Test {
     ASSERT_OK(one->ValidateFull());
     ASSERT_OK(two->ValidateFull());
 
-    ASSERT_TRUE(null->Equals(CheckMakeNullScalar(type_)));
+    ASSERT_TRUE(null->Equals(*CheckMakeNullScalar(type_)));
     ASSERT_TRUE(one->Equals(ScalarType("one")));
     ASSERT_TRUE(two->Equals(ScalarType("two")));
     ASSERT_FALSE(two->Equals(Int64Scalar(1)));
@@ -632,7 +632,7 @@ TEST(TestFixedSizeBinaryScalar, Basics) {
   ASSERT_OK(one->ValidateFull());
   ASSERT_OK(two->ValidateFull());
 
-  ASSERT_TRUE(null->Equals(CheckMakeNullScalar(ty)));
+  ASSERT_TRUE(null->Equals(*CheckMakeNullScalar(ty)));
   ASSERT_TRUE(one->Equals(FixedSizeBinaryScalar(Buffer::FromString("one"), ty)));
   ASSERT_TRUE(two->Equals(FixedSizeBinaryScalar(Buffer::FromString("two"), ty)));
 }
@@ -695,10 +695,10 @@ TEST(TestDateScalars, Basics) {
     ASSERT_OK(null->ValidateFull());
     ASSERT_OK(last->ValidateFull());
 
-    ASSERT_TRUE(null->Equals(CheckMakeNullScalar(ty)));
-    ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
-    ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
-    ASSERT_FALSE(last->Equals(MakeScalar("string")));
+    ASSERT_TRUE(null->Equals(*CheckMakeNullScalar(ty)));
+    ASSERT_TRUE(first->Equals(*MakeScalar(ty, 5).ValueOrDie()));
+    ASSERT_TRUE(last->Equals(*MakeScalar(ty, 42).ValueOrDie()));
+    ASSERT_FALSE(last->Equals(*MakeScalar("string")));
   }
 }
 
@@ -751,10 +751,10 @@ TEST(TestTimeScalars, Basics) {
     ASSERT_OK(null->ValidateFull());
     ASSERT_OK(last->ValidateFull());
 
-    ASSERT_TRUE(null->Equals(CheckMakeNullScalar(ty)));
-    ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
-    ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
-    ASSERT_FALSE(last->Equals(MakeScalar("string")));
+    ASSERT_TRUE(null->Equals(*CheckMakeNullScalar(ty)));
+    ASSERT_TRUE(first->Equals(*MakeScalar(ty, 5).ValueOrDie()));
+    ASSERT_TRUE(last->Equals(*MakeScalar(ty, 42).ValueOrDie()));
+    ASSERT_FALSE(last->Equals(*MakeScalar("string")));
   }
 }
 
@@ -819,10 +819,10 @@ TEST(TestTimestampScalars, Basics) {
     ASSERT_OK(null->ValidateFull());
     ASSERT_OK(last->ValidateFull());
 
-    ASSERT_TRUE(null->Equals(CheckMakeNullScalar(ty)));
-    ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
-    ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
-    ASSERT_FALSE(last->Equals(MakeScalar(int64(), 42).ValueOrDie()));
+    ASSERT_TRUE(null->Equals(*CheckMakeNullScalar(ty)));
+    ASSERT_TRUE(first->Equals(*MakeScalar(ty, 5).ValueOrDie()));
+    ASSERT_TRUE(last->Equals(*MakeScalar(ty, 42).ValueOrDie()));
+    ASSERT_FALSE(last->Equals(*MakeScalar(int64(), 42).ValueOrDie()));
   }
 }
 
@@ -909,9 +909,9 @@ TEST(TestDurationScalars, Basics) {
     ASSERT_OK(null->ValidateFull());
     ASSERT_OK(last->ValidateFull());
 
-    ASSERT_TRUE(null->Equals(CheckMakeNullScalar(ty)));
-    ASSERT_TRUE(first->Equals(MakeScalar(ty, 5).ValueOrDie()));
-    ASSERT_TRUE(last->Equals(MakeScalar(ty, 42).ValueOrDie()));
+    ASSERT_TRUE(null->Equals(*CheckMakeNullScalar(ty)));
+    ASSERT_TRUE(first->Equals(*MakeScalar(ty, 5).ValueOrDie()));
+    ASSERT_TRUE(last->Equals(*MakeScalar(ty, 42).ValueOrDie()));
   }
 
   EXPECT_EQ(DurationScalar{std::chrono::nanoseconds{1235}},
@@ -972,9 +972,9 @@ TEST(TestMonthIntervalScalars, Basics) {
   ASSERT_OK(null->ValidateFull());
   ASSERT_OK(last->ValidateFull());
 
-  ASSERT_TRUE(null->Equals(CheckMakeNullScalar(type)));
-  ASSERT_TRUE(first->Equals(MakeScalar(type, 5).ValueOrDie()));
-  ASSERT_TRUE(last->Equals(MakeScalar(type, 42).ValueOrDie()));
+  ASSERT_TRUE(null->Equals(*CheckMakeNullScalar(type)));
+  ASSERT_TRUE(first->Equals(*MakeScalar(type, 5).ValueOrDie()));
+  ASSERT_TRUE(last->Equals(*MakeScalar(type, 42).ValueOrDie()));
 }
 
 TEST(TestDayTimeIntervalScalars, Basics) {
@@ -1164,8 +1164,8 @@ TEST(TestStructScalar, FieldAccess) {
   ASSERT_RAISES(Invalid, abc.field("c").status());
 
   ASSERT_OK_AND_ASSIGN(auto d, abc.field("d"));
-  ASSERT_TRUE(d->Equals(MakeNullScalar(int64())));
-  ASSERT_FALSE(d->Equals(MakeScalar(int64(), 12).ValueOrDie()));
+  ASSERT_TRUE(d->Equals(*MakeNullScalar(int64())));
+  ASSERT_FALSE(d->Equals(*MakeScalar(int64(), 12).ValueOrDie()));
 }
 
 TEST(TestStructScalar, NullScalar) {
@@ -1269,25 +1269,25 @@ TEST(TestDictionaryScalar, Basics) {
         auto encoded_null,
         checked_cast<const DictionaryScalar&>(*scalar_null).GetEncodedValue());
     ASSERT_OK(encoded_null->ValidateFull());
-    ASSERT_TRUE(encoded_null->Equals(MakeNullScalar(utf8())));
+    ASSERT_TRUE(encoded_null->Equals(*MakeNullScalar(utf8())));
 
     ASSERT_OK_AND_ASSIGN(
         auto encoded_null_value,
         checked_cast<const DictionaryScalar&>(scalar_null_value).GetEncodedValue());
     ASSERT_OK(encoded_null_value->ValidateFull());
-    ASSERT_TRUE(encoded_null_value->Equals(MakeNullScalar(utf8())));
+    ASSERT_TRUE(encoded_null_value->Equals(*MakeNullScalar(utf8())));
 
     ASSERT_OK_AND_ASSIGN(
         auto encoded_alpha,
         checked_cast<const DictionaryScalar&>(scalar_alpha).GetEncodedValue());
     ASSERT_OK(encoded_alpha->ValidateFull());
-    ASSERT_TRUE(encoded_alpha->Equals(MakeScalar("alpha")));
+    ASSERT_TRUE(encoded_alpha->Equals(*MakeScalar("alpha")));
 
     ASSERT_OK_AND_ASSIGN(
         auto encoded_gamma,
         checked_cast<const DictionaryScalar&>(scalar_gamma).GetEncodedValue());
     ASSERT_OK(encoded_gamma->ValidateFull());
-    ASSERT_TRUE(encoded_gamma->Equals(MakeScalar("gamma")));
+    ASSERT_TRUE(encoded_gamma->Equals(*MakeScalar("gamma")));
 
     // test Array.GetScalar
     DictionaryArray arr(ty, ArrayFromJSON(index_ty, "[2, 0, 1, null]"), dict);
@@ -1306,7 +1306,7 @@ TEST(TestDictionaryScalar, Basics) {
 
     ASSERT_TRUE(first->Equals(scalar_gamma));
     ASSERT_TRUE(second->Equals(scalar_alpha));
-    ASSERT_TRUE(last->Equals(scalar_null));
+    ASSERT_TRUE(last->Equals(*scalar_null));
 
     auto first_dict_scalar = checked_cast<const DictionaryScalar&>(*first);
     ASSERT_TRUE(first_dict_scalar.value.dictionary->Equals(arr.dictionary()));
@@ -1397,7 +1397,7 @@ TEST(TestDictionaryScalar, Cast) {
       AssertScalarsEqual(*encoded_alpha, *roundtripped_alpha);
 
       // dictionaries differ, though encoded values are identical
-      ASSERT_FALSE(alpha_dict.Equals(cast_alpha));
+      ASSERT_FALSE(alpha_dict.Equals(*cast_alpha));
     }
   }
 }
@@ -1415,7 +1415,7 @@ void CheckGetValidUnionScalar(const Array& arr, int64_t index, const Scalar& exp
 
 void CheckGetNullUnionScalar(const Array& arr, int64_t index) {
   ASSERT_OK_AND_ASSIGN(auto scalar, arr.GetScalar(index));
-  ASSERT_TRUE(scalar->Equals(MakeNullScalar(arr.type())));
+  ASSERT_TRUE(scalar->Equals(*MakeNullScalar(arr.type())));
 
   ASSERT_FALSE(scalar->is_valid);
   ASSERT_FALSE(checked_cast<const UnionScalar&>(*scalar).child_value()->is_valid);
@@ -1535,17 +1535,17 @@ class TestUnionScalar : public ::testing::Test {
 
   void TestEquals() {
     // Differing values
-    ASSERT_FALSE(union_alpha_->Equals(union_beta_));
-    ASSERT_FALSE(union_two_->Equals(union_three_));
+    ASSERT_FALSE(union_alpha_->Equals(*union_beta_));
+    ASSERT_FALSE(union_two_->Equals(*union_three_));
     // Differing validities
-    ASSERT_FALSE(union_alpha_->Equals(union_string_null_));
+    ASSERT_FALSE(union_alpha_->Equals(*union_string_null_));
     // Differing types
-    ASSERT_FALSE(union_alpha_->Equals(union_two_));
-    ASSERT_FALSE(union_alpha_->Equals(union_other_two_));
+    ASSERT_FALSE(union_alpha_->Equals(*union_two_));
+    ASSERT_FALSE(union_alpha_->Equals(*union_other_two_));
     // Type codes don't count when comparing union scalars: the underlying values
     // are identical even though their provenance is different.
-    ASSERT_TRUE(union_two_->Equals(union_other_two_));
-    ASSERT_TRUE(union_string_null_->Equals(union_number_null_));
+    ASSERT_TRUE(union_two_->Equals(*union_other_two_));
+    ASSERT_TRUE(union_string_null_->Equals(*union_number_null_));
   }
 
   void TestMakeNullScalar() {
@@ -1621,6 +1621,117 @@ TEST_F(TestDenseUnionScalar, GetScalar) {
   CheckGetNullUnionScalar(arr, 3);
   CheckGetValidUnionScalar(arr, 4, *union_three_, *three_);
 }
+
+template <typename RunEndType>
+class TestRunEndEncodedScalar : public ::testing::Test {
+ public:
+  using RunEndCType = typename RunEndType::c_type;
+
+  void SetUp() override {
+    run_end_type_ = std::make_shared<RunEndType>();
+    value_type_ = utf8();
+    type_.reset(new RunEndEncodedType(run_end_type_, value_type_));
+
+    alpha_ = MakeScalar("alpha");
+    beta_ = MakeScalar("beta");
+  }
+
+  void TestBasics() {
+    RunEndEncodedScalar scalar_alpha{alpha_, type_};
+    ASSERT_OK(scalar_alpha.ValidateFull());
+    ASSERT_TRUE(scalar_alpha.is_valid);
+    AssertTypeEqual(scalar_alpha.type, type_);
+    ASSERT_EQ(scalar_alpha.ToString(),
+              "\n-- run_ends:\n"
+              "  [\n"
+              "    1\n"
+              "  ]\n"
+              "-- values:\n"
+              "  [\n"
+              "    \"alpha\"\n"
+              "  ]");
+
+    auto null_scalar = CheckMakeNullScalar(type_);
+    ASSERT_OK(null_scalar->ValidateFull());
+    ASSERT_FALSE(null_scalar->is_valid);
+    AssertTypeEqual(null_scalar->type, type_);
+    ASSERT_EQ(null_scalar->ToString(), "null");
+
+    RunEndEncodedScalar scalar_beta{beta_, type_};
+    ASSERT_TRUE(scalar_alpha.Equals(scalar_alpha));
+    ASSERT_FALSE(scalar_alpha.Equals(scalar_beta));
+    ASSERT_FALSE(scalar_beta.Equals(scalar_alpha));
+    ASSERT_TRUE(scalar_beta.Equals(scalar_beta));
+    ASSERT_FALSE(null_scalar->Equals(scalar_alpha));
+    ASSERT_FALSE(scalar_alpha.Equals(*null_scalar));
+  }
+
+  void TestValidateErrors() {
+    // Inconsistent is_valid / value
+    RunEndEncodedScalar scalar_alpha{alpha_, type_};
+    scalar_alpha.is_valid = false;
+    ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                               std::string("Invalid: null run_end_encoded<run_ends: ") +
+                                   run_end_type_->ToString() +
+                                   ", values: string> scalar has non-null storage value",
+                               scalar_alpha.Validate());
+
+    auto null_scalar = MakeNullScalar(type_);
+    null_scalar->is_valid = true;
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid,
+        std::string("Invalid: non-null run_end_encoded<run_ends: ") +
+            run_end_type_->ToString() + ", values: string> scalar has null storage value",
+        null_scalar->Validate());
+
+    // Bad value type
+    auto ree_type = run_end_encoded(run_end_type_, int64());
+    RunEndEncodedScalar scalar_beta(beta_, ree_type);
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid,
+        std::string("Invalid: run_end_encoded<run_ends: ") + run_end_type_->ToString() +
+            ", values: int64> scalar should have an underlying value of type int64, got "
+            "string",
+        scalar_beta.Validate());
+
+    // Invalid UTF8
+    auto bad_utf8 = std::make_shared<StringScalar>(Buffer::FromString("\xff"));
+    RunEndEncodedScalar scalar(std::move(bad_utf8), type_);
+    ASSERT_OK(scalar.Validate());
+    ASSERT_RAISES(Invalid, scalar.ValidateFull());
+  }
+
+  void TestHashing() {
+    std::unordered_set<std::shared_ptr<Scalar>, Scalar::Hash, Scalar::PtrsEqual> set;
+    set.emplace(std::make_shared<RunEndEncodedScalar>(type_));
+    for (int i = 0; i < 10; ++i) {
+      const auto value = std::make_shared<StringScalar>(std::to_string(i));
+      set.emplace(std::make_shared<RunEndEncodedScalar>(std::move(value), type_));
+    }
+
+    ASSERT_FALSE(set.emplace(std::make_shared<RunEndEncodedScalar>(type_)).second);
+    for (int i = 0; i < 10; ++i) {
+      const auto value = std::make_shared<StringScalar>(std::to_string(i));
+      ASSERT_FALSE(
+          set.emplace(std::make_shared<RunEndEncodedScalar>(std::move(value), type_))
+              .second);
+    }
+  }
+
+ private:
+  std::shared_ptr<DataType> run_end_type_;
+  std::shared_ptr<DataType> value_type_;
+  std::shared_ptr<DataType> type_;
+  std::shared_ptr<Scalar> alpha_;
+  std::shared_ptr<Scalar> beta_;
+};
+
+using RunEndTestTypes = ::testing::Types<Int16Type, Int32Type, Int64Type>;
+TYPED_TEST_SUITE(TestRunEndEncodedScalar, RunEndTestTypes);
+
+TYPED_TEST(TestRunEndEncodedScalar, Basics) { this->TestBasics(); }
+TYPED_TEST(TestRunEndEncodedScalar, ValidateErrors) { this->TestValidateErrors(); }
+TYPED_TEST(TestRunEndEncodedScalar, Hashing) { this->TestHashing(); }
 
 #define UUID_STRING1 "abcdefghijklmnop"
 #define UUID_STRING2 "zyxwvutsrqponmlk"

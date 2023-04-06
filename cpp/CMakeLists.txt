@@ -128,6 +128,7 @@ set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSIONS
+    "16.0"
     "15.0"
     "14.0"
     "13.0"
@@ -491,6 +492,7 @@ enable_testing()
 
 # For arrow.pc. Cflags.private, Libs.private and Requires.private are
 # used when "pkg-config --cflags --libs --static arrow" is used.
+set(ARROW_PC_CFLAGS "")
 set(ARROW_PC_CFLAGS_PRIVATE " -DARROW_STATIC")
 set(ARROW_PC_LIBS_PRIVATE "")
 set(ARROW_PC_REQUIRES_PRIVATE "")
@@ -931,10 +933,6 @@ list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 #
 # Subdirectories
 #
-
-if(NOT WIN32 AND ARROW_PLASMA)
-  add_subdirectory(src/plasma)
-endif()
 
 add_subdirectory(src/arrow)
 

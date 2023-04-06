@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -65,11 +68,10 @@ public class TestLeak {
   public void testCancelingDoGetDoesNotLeak() throws Exception {
     final CountDownLatch callFinished = new CountDownLatch(1);
     try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-        final FlightServer s =
-            FlightTestUtil.getStartedServer(
-                (location) -> FlightServer.builder(allocator, location, new LeakFlightProducer(allocator, callFinished))
-                    .build());
-        final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
+         final FlightServer s = FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0),
+                 new LeakFlightProducer(allocator, callFinished))
+             .build().start();
+         final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
 
       final FlightStream stream = client.getStream(new Ticket(new byte[0]));
       stream.getRoot();
@@ -87,11 +89,10 @@ public class TestLeak {
   public void testCancelingDoPutDoesNotBlock() throws Exception {
     final CountDownLatch callFinished = new CountDownLatch(1);
     try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-        final FlightServer s =
-            FlightTestUtil.getStartedServer(
-                (location) -> FlightServer.builder(allocator, location, new LeakFlightProducer(allocator, callFinished))
-                    .build());
-        final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
+         final FlightServer s = FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0),
+                 new LeakFlightProducer(allocator, callFinished))
+             .build().start();
+         final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
 
       try (final VectorSchemaRoot root = VectorSchemaRoot.create(getSchema(), allocator)) {
         final FlightDescriptor descriptor = FlightDescriptor.command(new byte[0]);

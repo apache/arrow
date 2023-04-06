@@ -71,6 +71,7 @@ type config struct {
 	ensureNativeEndian bool
 	noAutoSchema       bool
 	emitDictDeltas     bool
+	minSpaceSavings    *float64
 }
 
 func newConfig(opts ...Option) *config {
@@ -165,6 +166,26 @@ func WithDelayReadSchema(v bool) Option {
 func WithDictionaryDeltas(v bool) Option {
 	return func(cfg *config) {
 		cfg.emitDictDeltas = v
+	}
+}
+
+// WithMinSpaceSavings specifies a percentage of space savings for
+// compression to be applied to buffers.
+//
+// Space savings is calculated as (1.0 - compressedSize / uncompressedSize).
+//
+// For example, if minSpaceSavings = 0.1, a 100-byte body buffer won't
+// undergo compression if its expected compressed size exceeds 90 bytes.
+// If this option is unset, compression will be used indiscriminately. If
+// no codec was supplied, this option is ignored.
+//
+// Values outside of the range [0,1] are handled as errors.
+//
+// Note that enabling this option may result in unreadable data for Arrow
+// Go and C++ versions prior to 12.0.0.
+func WithMinSpaceSavings(savings float64) Option {
+	return func(cfg *config) {
+		cfg.minSpaceSavings = &savings
 	}
 }
 

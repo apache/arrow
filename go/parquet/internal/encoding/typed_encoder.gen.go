@@ -19,9 +19,11 @@
 package encoding
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/apache/arrow/go/v12/internal/bitutils"
 	shared_utils "github.com/apache/arrow/go/v12/internal/utils"
@@ -156,6 +158,29 @@ func (enc *DictInt32Encoder) PutSpaced(in []int32, validBits []byte, validBitsOf
 	})
 }
 
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *DictInt32Encoder) PutDictionary(values arrow.Array) error {
+	if err := enc.canPutDictionary(values); err != nil {
+		return err
+	}
+
+	enc.dictEncodedSize += values.Len() * arrow.Int32SizeBytes
+	data := values.(*array.Int32).Int32Values()
+	for _, v := range data {
+		if _, _, err := enc.memo.GetOrInsert(v); err != nil {
+			return err
+		}
+	}
+
+	values.Retain()
+	enc.preservedDict = values
+	return nil
+}
+
 // DictInt32Decoder is a decoder for decoding dictionary encoded data for int32 columns
 type DictInt32Decoder struct {
 	dictDecoder
@@ -178,7 +203,6 @@ func (d *DictInt32Decoder) Decode(out []int32) (int, error) {
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -193,7 +217,6 @@ func (d *DictInt32Decoder) DecodeSpaced(out []int32, nullCount int, validBits []
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict spaced eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -372,6 +395,29 @@ func (enc *DictInt64Encoder) PutSpaced(in []int64, validBits []byte, validBitsOf
 	})
 }
 
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *DictInt64Encoder) PutDictionary(values arrow.Array) error {
+	if err := enc.canPutDictionary(values); err != nil {
+		return err
+	}
+
+	enc.dictEncodedSize += values.Len() * arrow.Int64SizeBytes
+	data := values.(*array.Int64).Int64Values()
+	for _, v := range data {
+		if _, _, err := enc.memo.GetOrInsert(v); err != nil {
+			return err
+		}
+	}
+
+	values.Retain()
+	enc.preservedDict = values
+	return nil
+}
+
 // DictInt64Decoder is a decoder for decoding dictionary encoded data for int64 columns
 type DictInt64Decoder struct {
 	dictDecoder
@@ -394,7 +440,6 @@ func (d *DictInt64Decoder) Decode(out []int64) (int, error) {
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -409,7 +454,6 @@ func (d *DictInt64Decoder) DecodeSpaced(out []int64, nullCount int, validBits []
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict spaced eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -580,6 +624,15 @@ func (enc *DictInt96Encoder) PutSpaced(in []parquet.Int96, validBits []byte, val
 	})
 }
 
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *DictInt96Encoder) PutDictionary(arrow.Array) error {
+	return fmt.Errorf("%w: direct PutDictionary to Int96", arrow.ErrNotImplemented)
+}
+
 // DictInt96Decoder is a decoder for decoding dictionary encoded data for parquet.Int96 columns
 type DictInt96Decoder struct {
 	dictDecoder
@@ -602,7 +655,6 @@ func (d *DictInt96Decoder) Decode(out []parquet.Int96) (int, error) {
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -617,7 +669,6 @@ func (d *DictInt96Decoder) DecodeSpaced(out []parquet.Int96, nullCount int, vali
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict spaced eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -784,6 +835,29 @@ func (enc *DictFloat32Encoder) PutSpaced(in []float32, validBits []byte, validBi
 	})
 }
 
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *DictFloat32Encoder) PutDictionary(values arrow.Array) error {
+	if err := enc.canPutDictionary(values); err != nil {
+		return err
+	}
+
+	enc.dictEncodedSize += values.Len() * arrow.Float32SizeBytes
+	data := values.(*array.Float32).Float32Values()
+	for _, v := range data {
+		if _, _, err := enc.memo.GetOrInsert(v); err != nil {
+			return err
+		}
+	}
+
+	values.Retain()
+	enc.preservedDict = values
+	return nil
+}
+
 // DictFloat32Decoder is a decoder for decoding dictionary encoded data for float32 columns
 type DictFloat32Decoder struct {
 	dictDecoder
@@ -806,7 +880,6 @@ func (d *DictFloat32Decoder) Decode(out []float32) (int, error) {
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -821,7 +894,6 @@ func (d *DictFloat32Decoder) DecodeSpaced(out []float32, nullCount int, validBit
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict spaced eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -988,6 +1060,29 @@ func (enc *DictFloat64Encoder) PutSpaced(in []float64, validBits []byte, validBi
 	})
 }
 
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *DictFloat64Encoder) PutDictionary(values arrow.Array) error {
+	if err := enc.canPutDictionary(values); err != nil {
+		return err
+	}
+
+	enc.dictEncodedSize += values.Len() * arrow.Float64SizeBytes
+	data := values.(*array.Float64).Float64Values()
+	for _, v := range data {
+		if _, _, err := enc.memo.GetOrInsert(v); err != nil {
+			return err
+		}
+	}
+
+	values.Retain()
+	enc.preservedDict = values
+	return nil
+}
+
 // DictFloat64Decoder is a decoder for decoding dictionary encoded data for float64 columns
 type DictFloat64Decoder struct {
 	dictDecoder
@@ -1010,7 +1105,6 @@ func (d *DictFloat64Decoder) Decode(out []float64) (int, error) {
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -1025,7 +1119,6 @@ func (d *DictFloat64Decoder) DecodeSpaced(out []float64, nullCount int, validBit
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict spaced eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -1276,7 +1369,6 @@ func (d *DictByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) {
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -1291,7 +1383,6 @@ func (d *DictByteArrayDecoder) DecodeSpaced(out []parquet.ByteArray, nullCount i
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict spaced eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -1457,7 +1548,6 @@ func (d *DictFixedLenByteArrayDecoder) Decode(out []parquet.FixedLenByteArray) (
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 
@@ -1472,7 +1562,6 @@ func (d *DictFixedLenByteArrayDecoder) DecodeSpaced(out []parquet.FixedLenByteAr
 	if vals != decoded {
 		return decoded, xerrors.New("parquet: dict spaced eof exception")
 	}
-	d.nvals -= vals
 	return vals, nil
 }
 

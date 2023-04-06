@@ -23,6 +23,7 @@ import (
 	"math"
 
 	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/apache/arrow/go/v12/internal/bitutils"
 	shared_utils "github.com/apache/arrow/go/v12/internal/utils"
@@ -71,10 +72,10 @@ func NewInt32StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, n
 	ret := NewInt32Statistics(descr, mem)
 	ret.nvalues += nvalues
 	if encoded.IsSetNullCount() {
-		ret.incNulls(encoded.GetNullCount())
+		ret.IncNulls(encoded.GetNullCount())
 	}
 	if encoded.IsSetDistinctCount() {
-		ret.incDistinct(encoded.GetDistinctCount())
+		ret.IncDistinct(encoded.GetDistinctCount())
 	}
 
 	encodedMin := encoded.GetMin()
@@ -216,7 +217,7 @@ func (s *Int32Statistics) Merge(other TypedStatistics) {
 // Update is used to add more values to the current stat object, finding the
 // min and max values etc.
 func (s *Int32Statistics) Update(values []int32, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	s.nvalues += int64(len(values))
 
 	if len(values) == 0 {
@@ -229,7 +230,7 @@ func (s *Int32Statistics) Update(values []int32, numNull int64) {
 // UpdateSpaced is just like Update, but for spaced values using validBits to determine
 // and skip null values.
 func (s *Int32Statistics) UpdateSpaced(values []int32, validBits []byte, validBitsOffset, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	notnull := int64(len(values)) - numNull
 	s.nvalues += notnull
 
@@ -238,6 +239,26 @@ func (s *Int32Statistics) UpdateSpaced(values []int32, validBits []byte, validBi
 	}
 
 	s.SetMinMax(s.getMinMaxSpaced(values, validBits, validBitsOffset))
+}
+
+func (s *Int32Statistics) UpdateFromArrow(values arrow.Array, updateCounts bool) error {
+	if updateCounts {
+		s.IncNulls(int64(values.NullN()))
+		s.nvalues += int64(values.Len() - values.NullN())
+	}
+
+	if values.NullN() == values.Len() {
+		return nil
+	}
+
+	if values.DataType().(arrow.FixedWidthDataType).Bytes() != arrow.Int32SizeBytes {
+		return fmt.Errorf("%w: cannot update int32 stats with %s arrow array",
+			arrow.ErrInvalid, values.DataType())
+	}
+
+	rawBytes := values.Data().Buffers()[1].Bytes()[values.Data().Offset()*arrow.Int32SizeBytes:]
+	s.SetMinMax(s.getMinMax(arrow.Int32Traits.CastFromBytes(rawBytes)))
+	return nil
 }
 
 // SetMinMax updates the min and max values only if they are not currently set
@@ -351,10 +372,10 @@ func NewInt64StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, n
 	ret := NewInt64Statistics(descr, mem)
 	ret.nvalues += nvalues
 	if encoded.IsSetNullCount() {
-		ret.incNulls(encoded.GetNullCount())
+		ret.IncNulls(encoded.GetNullCount())
 	}
 	if encoded.IsSetDistinctCount() {
-		ret.incDistinct(encoded.GetDistinctCount())
+		ret.IncDistinct(encoded.GetDistinctCount())
 	}
 
 	encodedMin := encoded.GetMin()
@@ -496,7 +517,7 @@ func (s *Int64Statistics) Merge(other TypedStatistics) {
 // Update is used to add more values to the current stat object, finding the
 // min and max values etc.
 func (s *Int64Statistics) Update(values []int64, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	s.nvalues += int64(len(values))
 
 	if len(values) == 0 {
@@ -509,7 +530,7 @@ func (s *Int64Statistics) Update(values []int64, numNull int64) {
 // UpdateSpaced is just like Update, but for spaced values using validBits to determine
 // and skip null values.
 func (s *Int64Statistics) UpdateSpaced(values []int64, validBits []byte, validBitsOffset, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	notnull := int64(len(values)) - numNull
 	s.nvalues += notnull
 
@@ -518,6 +539,26 @@ func (s *Int64Statistics) UpdateSpaced(values []int64, validBits []byte, validBi
 	}
 
 	s.SetMinMax(s.getMinMaxSpaced(values, validBits, validBitsOffset))
+}
+
+func (s *Int64Statistics) UpdateFromArrow(values arrow.Array, updateCounts bool) error {
+	if updateCounts {
+		s.IncNulls(int64(values.NullN()))
+		s.nvalues += int64(values.Len() - values.NullN())
+	}
+
+	if values.NullN() == values.Len() {
+		return nil
+	}
+
+	if values.DataType().(arrow.FixedWidthDataType).Bytes() != arrow.Int64SizeBytes {
+		return fmt.Errorf("%w: cannot update int64 stats with %s arrow array",
+			arrow.ErrInvalid, values.DataType())
+	}
+
+	rawBytes := values.Data().Buffers()[1].Bytes()[values.Data().Offset()*arrow.Int64SizeBytes:]
+	s.SetMinMax(s.getMinMax(arrow.Int64Traits.CastFromBytes(rawBytes)))
+	return nil
 }
 
 // SetMinMax updates the min and max values only if they are not currently set
@@ -631,10 +672,10 @@ func NewInt96StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, n
 	ret := NewInt96Statistics(descr, mem)
 	ret.nvalues += nvalues
 	if encoded.IsSetNullCount() {
-		ret.incNulls(encoded.GetNullCount())
+		ret.IncNulls(encoded.GetNullCount())
 	}
 	if encoded.IsSetDistinctCount() {
-		ret.incDistinct(encoded.GetDistinctCount())
+		ret.IncDistinct(encoded.GetDistinctCount())
 	}
 
 	encodedMin := encoded.GetMin()
@@ -768,7 +809,7 @@ func (s *Int96Statistics) Merge(other TypedStatistics) {
 // Update is used to add more values to the current stat object, finding the
 // min and max values etc.
 func (s *Int96Statistics) Update(values []parquet.Int96, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	s.nvalues += int64(len(values))
 
 	if len(values) == 0 {
@@ -781,7 +822,7 @@ func (s *Int96Statistics) Update(values []parquet.Int96, numNull int64) {
 // UpdateSpaced is just like Update, but for spaced values using validBits to determine
 // and skip null values.
 func (s *Int96Statistics) UpdateSpaced(values []parquet.Int96, validBits []byte, validBitsOffset, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	notnull := int64(len(values)) - numNull
 	s.nvalues += notnull
 
@@ -790,6 +831,19 @@ func (s *Int96Statistics) UpdateSpaced(values []parquet.Int96, validBits []byte,
 	}
 
 	s.SetMinMax(s.getMinMaxSpaced(values, validBits, validBitsOffset))
+}
+
+func (s *Int96Statistics) UpdateFromArrow(values arrow.Array, updateCounts bool) error {
+	if updateCounts {
+		s.IncNulls(int64(values.NullN()))
+		s.nvalues += int64(values.Len() - values.NullN())
+	}
+
+	if values.NullN() == values.Len() {
+		return nil
+	}
+
+	return fmt.Errorf("%w: update int96 stats from Arrow", arrow.ErrNotImplemented)
 }
 
 // SetMinMax updates the min and max values only if they are not currently set
@@ -903,10 +957,10 @@ func NewFloat32StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator,
 	ret := NewFloat32Statistics(descr, mem)
 	ret.nvalues += nvalues
 	if encoded.IsSetNullCount() {
-		ret.incNulls(encoded.GetNullCount())
+		ret.IncNulls(encoded.GetNullCount())
 	}
 	if encoded.IsSetDistinctCount() {
-		ret.incDistinct(encoded.GetDistinctCount())
+		ret.IncDistinct(encoded.GetDistinctCount())
 	}
 
 	encodedMin := encoded.GetMin()
@@ -1047,7 +1101,7 @@ func (s *Float32Statistics) Merge(other TypedStatistics) {
 // Update is used to add more values to the current stat object, finding the
 // min and max values etc.
 func (s *Float32Statistics) Update(values []float32, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	s.nvalues += int64(len(values))
 
 	if len(values) == 0 {
@@ -1060,7 +1114,7 @@ func (s *Float32Statistics) Update(values []float32, numNull int64) {
 // UpdateSpaced is just like Update, but for spaced values using validBits to determine
 // and skip null values.
 func (s *Float32Statistics) UpdateSpaced(values []float32, validBits []byte, validBitsOffset, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	notnull := int64(len(values)) - numNull
 	s.nvalues += notnull
 
@@ -1069,6 +1123,26 @@ func (s *Float32Statistics) UpdateSpaced(values []float32, validBits []byte, val
 	}
 
 	s.SetMinMax(s.getMinMaxSpaced(values, validBits, validBitsOffset))
+}
+
+func (s *Float32Statistics) UpdateFromArrow(values arrow.Array, updateCounts bool) error {
+	if updateCounts {
+		s.IncNulls(int64(values.NullN()))
+		s.nvalues += int64(values.Len() - values.NullN())
+	}
+
+	if values.NullN() == values.Len() {
+		return nil
+	}
+
+	if values.DataType().(arrow.FixedWidthDataType).Bytes() != arrow.Float32SizeBytes {
+		return fmt.Errorf("%w: cannot update float32 stats with %s arrow array",
+			arrow.ErrInvalid, values.DataType())
+	}
+
+	rawBytes := values.Data().Buffers()[1].Bytes()[values.Data().Offset()*arrow.Float32SizeBytes:]
+	s.SetMinMax(s.getMinMax(arrow.Float32Traits.CastFromBytes(rawBytes)))
+	return nil
 }
 
 // SetMinMax updates the min and max values only if they are not currently set
@@ -1182,10 +1256,10 @@ func NewFloat64StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator,
 	ret := NewFloat64Statistics(descr, mem)
 	ret.nvalues += nvalues
 	if encoded.IsSetNullCount() {
-		ret.incNulls(encoded.GetNullCount())
+		ret.IncNulls(encoded.GetNullCount())
 	}
 	if encoded.IsSetDistinctCount() {
-		ret.incDistinct(encoded.GetDistinctCount())
+		ret.IncDistinct(encoded.GetDistinctCount())
 	}
 
 	encodedMin := encoded.GetMin()
@@ -1326,7 +1400,7 @@ func (s *Float64Statistics) Merge(other TypedStatistics) {
 // Update is used to add more values to the current stat object, finding the
 // min and max values etc.
 func (s *Float64Statistics) Update(values []float64, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	s.nvalues += int64(len(values))
 
 	if len(values) == 0 {
@@ -1339,7 +1413,7 @@ func (s *Float64Statistics) Update(values []float64, numNull int64) {
 // UpdateSpaced is just like Update, but for spaced values using validBits to determine
 // and skip null values.
 func (s *Float64Statistics) UpdateSpaced(values []float64, validBits []byte, validBitsOffset, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	notnull := int64(len(values)) - numNull
 	s.nvalues += notnull
 
@@ -1348,6 +1422,26 @@ func (s *Float64Statistics) UpdateSpaced(values []float64, validBits []byte, val
 	}
 
 	s.SetMinMax(s.getMinMaxSpaced(values, validBits, validBitsOffset))
+}
+
+func (s *Float64Statistics) UpdateFromArrow(values arrow.Array, updateCounts bool) error {
+	if updateCounts {
+		s.IncNulls(int64(values.NullN()))
+		s.nvalues += int64(values.Len() - values.NullN())
+	}
+
+	if values.NullN() == values.Len() {
+		return nil
+	}
+
+	if values.DataType().(arrow.FixedWidthDataType).Bytes() != arrow.Float64SizeBytes {
+		return fmt.Errorf("%w: cannot update float64 stats with %s arrow array",
+			arrow.ErrInvalid, values.DataType())
+	}
+
+	rawBytes := values.Data().Buffers()[1].Bytes()[values.Data().Offset()*arrow.Float64SizeBytes:]
+	s.SetMinMax(s.getMinMax(arrow.Float64Traits.CastFromBytes(rawBytes)))
+	return nil
 }
 
 // SetMinMax updates the min and max values only if they are not currently set
@@ -1461,10 +1555,10 @@ func NewBooleanStatisticsFromEncoded(descr *schema.Column, mem memory.Allocator,
 	ret := NewBooleanStatistics(descr, mem)
 	ret.nvalues += nvalues
 	if encoded.IsSetNullCount() {
-		ret.incNulls(encoded.GetNullCount())
+		ret.IncNulls(encoded.GetNullCount())
 	}
 	if encoded.IsSetDistinctCount() {
-		ret.incDistinct(encoded.GetDistinctCount())
+		ret.IncDistinct(encoded.GetDistinctCount())
 	}
 
 	encodedMin := encoded.GetMin()
@@ -1598,7 +1692,7 @@ func (s *BooleanStatistics) Merge(other TypedStatistics) {
 // Update is used to add more values to the current stat object, finding the
 // min and max values etc.
 func (s *BooleanStatistics) Update(values []bool, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	s.nvalues += int64(len(values))
 
 	if len(values) == 0 {
@@ -1611,7 +1705,7 @@ func (s *BooleanStatistics) Update(values []bool, numNull int64) {
 // UpdateSpaced is just like Update, but for spaced values using validBits to determine
 // and skip null values.
 func (s *BooleanStatistics) UpdateSpaced(values []bool, validBits []byte, validBitsOffset, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	notnull := int64(len(values)) - numNull
 	s.nvalues += notnull
 
@@ -1620,6 +1714,19 @@ func (s *BooleanStatistics) UpdateSpaced(values []bool, validBits []byte, validB
 	}
 
 	s.SetMinMax(s.getMinMaxSpaced(values, validBits, validBitsOffset))
+}
+
+func (s *BooleanStatistics) UpdateFromArrow(values arrow.Array, updateCounts bool) error {
+	if updateCounts {
+		s.IncNulls(int64(values.NullN()))
+		s.nvalues += int64(values.Len() - values.NullN())
+	}
+
+	if values.NullN() == values.Len() {
+		return nil
+	}
+
+	return fmt.Errorf("%w: update boolean stats from Arrow", arrow.ErrNotImplemented)
 }
 
 // SetMinMax updates the min and max values only if they are not currently set
@@ -1736,10 +1843,10 @@ func NewByteArrayStatisticsFromEncoded(descr *schema.Column, mem memory.Allocato
 	ret := NewByteArrayStatistics(descr, mem)
 	ret.nvalues += nvalues
 	if encoded.IsSetNullCount() {
-		ret.incNulls(encoded.GetNullCount())
+		ret.IncNulls(encoded.GetNullCount())
 	}
 	if encoded.IsSetDistinctCount() {
-		ret.incDistinct(encoded.GetDistinctCount())
+		ret.IncDistinct(encoded.GetDistinctCount())
 	}
 
 	encodedMin := encoded.GetMin()
@@ -1873,7 +1980,7 @@ func (s *ByteArrayStatistics) Merge(other TypedStatistics) {
 // Update is used to add more values to the current stat object, finding the
 // min and max values etc.
 func (s *ByteArrayStatistics) Update(values []parquet.ByteArray, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	s.nvalues += int64(len(values))
 
 	if len(values) == 0 {
@@ -1886,7 +1993,7 @@ func (s *ByteArrayStatistics) Update(values []parquet.ByteArray, numNull int64) 
 // UpdateSpaced is just like Update, but for spaced values using validBits to determine
 // and skip null values.
 func (s *ByteArrayStatistics) UpdateSpaced(values []parquet.ByteArray, validBits []byte, validBitsOffset, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	notnull := int64(len(values)) - numNull
 	s.nvalues += notnull
 
@@ -1895,6 +2002,45 @@ func (s *ByteArrayStatistics) UpdateSpaced(values []parquet.ByteArray, validBits
 	}
 
 	s.SetMinMax(s.getMinMaxSpaced(values, validBits, validBitsOffset))
+}
+
+func (s *ByteArrayStatistics) UpdateFromArrow(values arrow.Array, updateCounts bool) error {
+	if updateCounts {
+		s.IncNulls(int64(values.NullN()))
+		s.nvalues += int64(values.Len() - values.NullN())
+	}
+
+	if values.NullN() == values.Len() {
+		return nil
+	}
+
+	if !arrow.IsBaseBinary(values.DataType().ID()) {
+		return fmt.Errorf("%w: can only update ByteArray stats from binary or string array", arrow.ErrInvalid)
+	}
+
+	var (
+		min       = s.defaultMin()
+		max       = s.defaultMax()
+		arr       = values.(array.BinaryLike)
+		data      = arr.ValueBytes()
+		curOffset = int64(0)
+	)
+
+	for i := 0; i < arr.Len(); i++ {
+		nextOffset := arr.ValueOffset64(i + 1)
+		v := data[curOffset:nextOffset]
+		curOffset = nextOffset
+
+		if len(v) == 0 {
+			continue
+		}
+
+		min = s.minval(min, v)
+		max = s.maxval(max, v)
+	}
+
+	s.SetMinMax(min, max)
+	return nil
 }
 
 // SetMinMax updates the min and max values only if they are not currently set
@@ -2008,10 +2154,10 @@ func NewFixedLenByteArrayStatisticsFromEncoded(descr *schema.Column, mem memory.
 	ret := NewFixedLenByteArrayStatistics(descr, mem)
 	ret.nvalues += nvalues
 	if encoded.IsSetNullCount() {
-		ret.incNulls(encoded.GetNullCount())
+		ret.IncNulls(encoded.GetNullCount())
 	}
 	if encoded.IsSetDistinctCount() {
-		ret.incDistinct(encoded.GetDistinctCount())
+		ret.IncDistinct(encoded.GetDistinctCount())
 	}
 
 	encodedMin := encoded.GetMin()
@@ -2157,7 +2303,7 @@ func (s *FixedLenByteArrayStatistics) Merge(other TypedStatistics) {
 // Update is used to add more values to the current stat object, finding the
 // min and max values etc.
 func (s *FixedLenByteArrayStatistics) Update(values []parquet.FixedLenByteArray, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	s.nvalues += int64(len(values))
 
 	if len(values) == 0 {
@@ -2170,7 +2316,7 @@ func (s *FixedLenByteArrayStatistics) Update(values []parquet.FixedLenByteArray,
 // UpdateSpaced is just like Update, but for spaced values using validBits to determine
 // and skip null values.
 func (s *FixedLenByteArrayStatistics) UpdateSpaced(values []parquet.FixedLenByteArray, validBits []byte, validBitsOffset, numNull int64) {
-	s.incNulls(numNull)
+	s.IncNulls(numNull)
 	notnull := int64(len(values)) - numNull
 	s.nvalues += notnull
 
@@ -2179,6 +2325,39 @@ func (s *FixedLenByteArrayStatistics) UpdateSpaced(values []parquet.FixedLenByte
 	}
 
 	s.SetMinMax(s.getMinMaxSpaced(values, validBits, validBitsOffset))
+}
+
+func (s *FixedLenByteArrayStatistics) UpdateFromArrow(values arrow.Array, updateCounts bool) error {
+	if updateCounts {
+		s.IncNulls(int64(values.NullN()))
+		s.nvalues += int64(values.Len() - values.NullN())
+	}
+
+	if values.NullN() == values.Len() {
+		return nil
+	}
+
+	dt := values.DataType()
+	if dt.ID() != arrow.FIXED_SIZE_BINARY && dt.ID() != arrow.DECIMAL {
+		return fmt.Errorf("%w: only fixed size binary and decimal128 arrays are supported to update stats from arrow",
+			arrow.ErrInvalid)
+	}
+
+	var (
+		width = dt.(arrow.FixedWidthDataType).Bytes()
+		data  = values.Data().Buffers()[1].Bytes()[values.Data().Offset()*width:]
+		min   = s.defaultMin()
+		max   = s.defaultMax()
+	)
+
+	for i := 0; i < values.Len(); i++ {
+		v := data[i*width : (i+1)*width]
+		min = s.minval(min, v)
+		max = s.maxval(min, v)
+	}
+
+	s.SetMinMax(min, max)
+	return nil
 }
 
 // SetMinMax updates the min and max values only if they are not currently set

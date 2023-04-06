@@ -411,7 +411,7 @@ func (src *ipcSource) buffer(i int) *memory.Buffer {
 			src.codec.Reset(sr)
 			r = src.codec
 		} else {
-			raw.Resize(int(buf.Length()))
+			raw.Resize(int(buf.Length() - 8))
 		}
 
 		if _, err = io.ReadFull(r, raw.Bytes()); err != nil {

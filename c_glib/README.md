@@ -20,7 +20,7 @@
 # Arrow GLib
 
 Arrow GLib is a wrapper library for [Arrow
-C++](https://github.com/apache/arrow/tree/master/cpp). Arrow GLib
+C++](https://github.com/apache/arrow/tree/main/cpp). Arrow GLib
 provides C API.
 
 Arrow GLib supports [GObject
@@ -54,7 +54,7 @@ recommended that you use packages.
 
 We use Meson and Ninja as build tools. If you find problems when
 installing please see [common build
-problems](https://github.com/apache/arrow/blob/master/c_glib/README.md#common-build-problems).
+problems](https://github.com/apache/arrow/blob/main/c_glib/README.md#common-build-problems).
 
 ### Packages
 

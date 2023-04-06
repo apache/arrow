@@ -154,6 +154,28 @@ func (r *RandomArrayGenerator) Int32(size int64, min, max int32, pctNull float64
 	return array.NewInt32Data(array.NewData(arrow.PrimitiveTypes.Int32, int(size), buffers, nil, int(nullCount), 0))
 }
 
+// Int64 generates a random array.Int64 of the given size with each value between min and max,
+// and pctNull as the probability that a given index will be null.
+func (r *RandomArrayGenerator) Int64(size int64, min, max int64, pctNull float64) *array.Int64 {
+	buffers := make([]*memory.Buffer, 2)
+	nullCount := int64(0)
+
+	buffers[0] = memory.NewResizableBuffer(memory.DefaultAllocator)
+	buffers[0].Resize(int(bitutil.BytesForBits(size)))
+	nullCount = r.GenerateBitmap(buffers[0].Bytes(), size, 1-pctNull)
+
+	buffers[1] = memory.NewResizableBuffer(memory.DefaultAllocator)
+	buffers[1].Resize(arrow.Int64Traits.BytesRequired(int(size)))
+
+	r.extra++
+	dist := rand.New(rand.NewSource(r.seed + r.extra))
+	out := arrow.Int64Traits.CastFromBytes(buffers[1].Bytes())
+	for i := int64(0); i < size; i++ {
+		out[i] = dist.Int63n(max-min+1) + min
+	}
+	return array.NewInt64Data(array.NewData(arrow.PrimitiveTypes.Int64, int(size), buffers, nil, int(nullCount), 0))
+}
+
 // Float64 generates a random array.Float64 of the requested size with pctNull as the probability
 // that a given index will be null.
 func (r *RandomArrayGenerator) Float64(size int64, pctNull float64) *array.Float64 {
@@ -174,6 +196,35 @@ func (r *RandomArrayGenerator) Float64(size int64, pctNull float64) *array.Float
 		out[i] = dist.NormFloat64()
 	}
 	return array.NewFloat64Data(array.NewData(arrow.PrimitiveTypes.Float64, int(size), buffers, nil, int(nullCount), 0))
+}
+
+func (r *RandomArrayGenerator) StringWithRepeats(mem memory.Allocator, sz, unique int64, minLen, maxLen int32, nullProb float64) *array.String {
+	if unique > sz {
+		panic("invalid config for random StringWithRepeats")
+	}
+
+	// generate a random string dictionary without any nulls
+	arr := r.ByteArray(unique, minLen, maxLen, 0)
+	defer arr.Release()
+	dict := arr.(*array.String)
+
+	// generate random indices to sample dictionary with
+	idArray := r.Int64(sz, 0, unique-1, nullProb)
+	defer idArray.Release()
+
+	bldr := array.NewStringBuilder(mem)
+	defer bldr.Release()
+
+	for i := int64(0); i < sz; i++ {
+		if idArray.IsValid(int(i)) {
+			idx := idArray.Value(int(i))
+			bldr.Append(dict.Value(int(idx)))
+		} else {
+			bldr.AppendNull()
+		}
+	}
+
+	return bldr.NewStringArray()
 }
 
 // FillRandomInt8 populates the slice out with random int8 values between min and max using

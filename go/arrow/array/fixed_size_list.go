@@ -112,7 +112,7 @@ func (a *FixedSizeList) Release() {
 	a.values.Release()
 }
 
-func (a *FixedSizeList) getOneForMarshal(i int) interface{} {
+func (a *FixedSizeList) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -278,7 +278,7 @@ func (b *FixedSizeListBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *FixedSizeListBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *FixedSizeListBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -287,7 +287,7 @@ func (b *FixedSizeListBuilder) unmarshalOne(dec *json.Decoder) error {
 	switch t {
 	case json.Delim('['):
 		b.Append(true)
-		if err := b.values.unmarshal(dec); err != nil {
+		if err := b.values.Unmarshal(dec); err != nil {
 			return err
 		}
 		// consume ']'
@@ -308,9 +308,9 @@ func (b *FixedSizeListBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *FixedSizeListBuilder) unmarshal(dec *json.Decoder) error {
+func (b *FixedSizeListBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -328,7 +328,7 @@ func (b *FixedSizeListBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("fixed size list builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

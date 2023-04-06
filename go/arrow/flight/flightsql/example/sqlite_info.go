@@ -38,6 +38,8 @@ func SqlInfoResultMap() flightsql.SqlInfoResultMap {
 		uint32(flightsql.SqlInfoQuotedIdentifierCase):        int64(flightsql.SqlCaseSensitivityCaseInsensitive),
 		uint32(flightsql.SqlInfoAllTablesAreASelectable):     true,
 		uint32(flightsql.SqlInfoNullOrdering):                int64(flightsql.SqlNullOrderingSortAtStart),
+		uint32(flightsql.SqlInfoFlightSqlServerTransaction):  int32(flightsql.SqlTransactionTransaction),
+		uint32(flightsql.SqlInfoTransactionsSupported):       true,
 		uint32(flightsql.SqlInfoKeywords): []string{"ABORT",
 			"ACTION",
 			"ADD",

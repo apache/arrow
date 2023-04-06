@@ -256,10 +256,8 @@ func (p *PrimitiveWriterTestSuite) buildReader(nrows int64, compression compress
 	return file.NewColumnReader(p.descr, pagereader, mem, &p.bufferPool)
 }
 
-func (p *PrimitiveWriterTestSuite) buildWriter(_ int64, columnProps parquet.ColumnProperties, version parquet.Version) file.ColumnChunkWriter {
+func (p *PrimitiveWriterTestSuite) buildWriter(_ int64, columnProps parquet.ColumnProperties, opts ...parquet.WriterProperty) file.ColumnChunkWriter {
 	p.sink = encoding.NewBufferWriter(0, mem)
-	opts := make([]parquet.WriterProperty, 0)
-	opts = append(opts, parquet.WithVersion(version))
 	if columnProps.Encoding == parquet.Encodings.PlainDict || columnProps.Encoding == parquet.Encodings.RLEDict {
 		opts = append(opts, parquet.WithDictionaryDefault(true), parquet.WithDictionaryPageSizeLimit(DictionaryPageSize))
 	} else {
@@ -304,7 +302,7 @@ func (p *PrimitiveWriterTestSuite) writeRequiredWithSettings(encoding parquet.En
 		StatsEnabled:      stats,
 		CompressionLevel:  compressLvl,
 	}
-	writer := p.buildWriter(nrows, columnProperties, parquet.V1_0)
+	writer := p.buildWriter(nrows, columnProperties, parquet.WithVersion(parquet.V1_0))
 	p.WriteBatchValues(writer, nil, nil)
 	// behavior should be independant of the number of calls to Close
 	writer.Close()
@@ -321,7 +319,7 @@ func (p *PrimitiveWriterTestSuite) writeRequiredWithSettingsSpaced(encoding parq
 		StatsEnabled:      stats,
 		CompressionLevel:  compressionLvl,
 	}
-	writer := p.buildWriter(nrows, columnProperties, parquet.V1_0)
+	writer := p.buildWriter(nrows, columnProperties, parquet.WithVersion(parquet.V1_0))
 	p.WriteBatchValuesSpaced(writer, nil, nil, validBits, 0)
 	// behavior should be independant from the number of close calls
 	writer.Close()
@@ -382,7 +380,7 @@ func (p *PrimitiveWriterTestSuite) testDictionaryFallbackEncoding(version parque
 		props.Encoding = parquet.Encodings.RLEDict
 	}
 
-	writer := p.buildWriter(VeryLargeSize, props, version)
+	writer := p.buildWriter(VeryLargeSize, props, parquet.WithVersion(version))
 	p.WriteBatchValues(writer, nil, nil)
 	writer.Close()
 
@@ -491,7 +489,7 @@ func (p *PrimitiveWriterTestSuite) TestOptionalNonRepeated() {
 	p.GenerateData(SmallSize)
 	p.DefLevels[1] = 0
 
-	writer := p.buildWriter(SmallSize, parquet.DefaultColumnProperties(), parquet.V1_0)
+	writer := p.buildWriter(SmallSize, parquet.DefaultColumnProperties(), parquet.WithVersion(parquet.V1_0))
 	p.WriteBatchValues(writer, p.DefLevels, nil)
 	writer.Close()
 
@@ -514,7 +512,7 @@ func (p *PrimitiveWriterTestSuite) TestOptionalSpaced() {
 	p.DefLevels[1] = 0
 	bitutil.ClearBit(validBits, 1)
 
-	writer := p.buildWriter(SmallSize, parquet.DefaultColumnProperties(), parquet.V1_0)
+	writer := p.buildWriter(SmallSize, parquet.DefaultColumnProperties(), parquet.WithVersion(parquet.V1_0))
 	p.WriteBatchValuesSpaced(writer, p.DefLevels, nil, validBits, 0)
 	writer.Close()
 
@@ -544,7 +542,7 @@ func (p *PrimitiveWriterTestSuite) TestWriteRepeated() {
 		p.RepLevels[idx] = 0
 	}
 
-	writer := p.buildWriter(SmallSize, parquet.DefaultColumnProperties(), parquet.V1_0)
+	writer := p.buildWriter(SmallSize, parquet.DefaultColumnProperties(), parquet.WithVersion(parquet.V1_0))
 	p.WriteBatchValues(writer, p.DefLevels, p.RepLevels)
 	writer.Close()
 
@@ -559,7 +557,7 @@ func (p *PrimitiveWriterTestSuite) TestRequiredLargeChunk() {
 	p.GenerateData(LargeSize)
 
 	// Test 1: required and non-repeated, so no def or rep levels
-	writer := p.buildWriter(LargeSize, parquet.DefaultColumnProperties(), parquet.V1_0)
+	writer := p.buildWriter(LargeSize, parquet.DefaultColumnProperties(), parquet.WithVersion(parquet.V1_0))
 	p.WriteBatchValues(writer, nil, nil)
 	writer.Close()
 
@@ -588,7 +586,7 @@ func (p *PrimitiveWriterTestSuite) TestOptionalNullValueChunk() {
 		p.RepLevels[idx] = 0
 	}
 
-	writer := p.buildWriter(LargeSize, parquet.DefaultColumnProperties(), parquet.V1_0)
+	writer := p.buildWriter(LargeSize, parquet.DefaultColumnProperties(), parquet.WithVersion(parquet.V1_0))
 	p.WriteBatchValues(writer, p.DefLevels, p.RepLevels)
 	writer.Close()
 
@@ -639,7 +637,7 @@ func (b *ByteArrayWriterSuite) TestOmitStats() {
 	maxLen := 1024 * 8
 	b.SetupSchema(parquet.Repetitions.Required, 1)
 	b.Values = make([]parquet.ByteArray, SmallSize)
-	writer := b.buildWriter(SmallSize, parquet.DefaultColumnProperties(), parquet.V1_0)
+	writer := b.buildWriter(SmallSize, parquet.DefaultColumnProperties(), parquet.WithVersion(parquet.V1_0))
 	testutils.RandomByteArray(0, b.Values.([]parquet.ByteArray), b.Buffer, minLen, maxLen)
 	writer.(*file.ByteArrayColumnChunkWriter).WriteBatch(b.Values.([]parquet.ByteArray), nil, nil)
 	writer.Close()
@@ -657,7 +655,7 @@ func (b *ByteArrayWriterSuite) TestOmitDataPageStats() {
 	colprops := parquet.DefaultColumnProperties()
 	colprops.StatsEnabled = false
 
-	writer := b.buildWriter(SmallSize, colprops, parquet.V1_0)
+	writer := b.buildWriter(SmallSize, colprops, parquet.WithVersion(parquet.V1_0))
 	b.Values = make([]parquet.ByteArray, 1)
 	testutils.RandomByteArray(0, b.Values.([]parquet.ByteArray), b.Buffer, int(minLen), int(maxLen))
 	writer.(*file.ByteArrayColumnChunkWriter).WriteBatch(b.Values.([]parquet.ByteArray), nil, nil)
@@ -673,7 +671,7 @@ func (b *ByteArrayWriterSuite) TestLimitStats() {
 	colprops := parquet.DefaultColumnProperties()
 	colprops.MaxStatsSize = int64(maxLen)
 
-	writer := b.buildWriter(SmallSize, colprops, parquet.V1_0).(*file.ByteArrayColumnChunkWriter)
+	writer := b.buildWriter(SmallSize, colprops, parquet.WithVersion(parquet.V1_0)).(*file.ByteArrayColumnChunkWriter)
 	b.Values = make([]parquet.ByteArray, SmallSize)
 	testutils.RandomByteArray(0, b.Values.([]parquet.ByteArray), b.Buffer, minLen, maxLen)
 	writer.WriteBatch(b.Values.([]parquet.ByteArray), nil, nil)
@@ -684,7 +682,7 @@ func (b *ByteArrayWriterSuite) TestLimitStats() {
 
 func (b *ByteArrayWriterSuite) TestCheckDefaultStats() {
 	b.SetupSchema(parquet.Repetitions.Required, 1)
-	writer := b.buildWriter(SmallSize, parquet.DefaultColumnProperties(), parquet.V1_0)
+	writer := b.buildWriter(SmallSize, parquet.DefaultColumnProperties(), parquet.WithVersion(parquet.V1_0))
 	b.GenerateData(SmallSize)
 	b.WriteBatchValues(writer, nil, nil)
 	writer.Close()
@@ -698,7 +696,8 @@ type BooleanValueWriterSuite struct {
 
 func (b *BooleanValueWriterSuite) TestAlternateBooleanValues() {
 	b.SetupSchema(parquet.Repetitions.Required, 1)
-	writer := b.buildWriter(SmallSize, parquet.DefaultColumnProperties(), parquet.V1_0).(*file.BooleanColumnChunkWriter)
+	// We use an unusual data-page size to try to flush out Boolean encoder issues in usage of the BitMapWriter
+	writer := b.buildWriter(SmallSize, parquet.DefaultColumnProperties(), parquet.WithVersion(parquet.V1_0), parquet.WithDataPageSize(7)).(*file.BooleanColumnChunkWriter)
 	for i := 0; i < SmallSize; i++ {
 		val := i%2 == 0
 		writer.WriteBatch([]bool{val}, nil, nil)

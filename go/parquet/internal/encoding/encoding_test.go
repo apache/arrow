@@ -743,3 +743,40 @@ func TestDeltaBitPacking(t *testing.T) {
 	}
 	assert.Equal(t, dec.ValuesLeft(), 0)
 }
+
+func TestBooleanPlainDecoderAfterFlushing(t *testing.T) {
+	descr := schema.NewColumn(schema.NewBooleanNode("bool", parquet.Repetitions.Optional, -1), 0, 0)
+	enc := encoding.NewEncoder(parquet.Types.Boolean, parquet.Encodings.Plain, false, descr, memory.DefaultAllocator)
+	benc := enc.(encoding.BooleanEncoder)
+
+	dec := encoding.NewDecoder(parquet.Types.Boolean, parquet.Encodings.Plain, descr, memory.DefaultAllocator)
+	decSlice := make([]bool, 1)
+	bdec := dec.(encoding.BooleanDecoder)
+
+	// Write and extract two different values
+	// This is validating that `FlushValues` wholly
+	// resets the encoder state.
+	benc.Put([]bool{true})
+	buf1, err := benc.FlushValues()
+	assert.NoError(t, err)
+
+	benc.Put([]bool{false})
+	buf2, err := benc.FlushValues()
+	assert.NoError(t, err)
+
+	// Decode buf1, expect true
+	err = bdec.SetData(1, buf1.Buf())
+	assert.NoError(t, err)
+	n, err := bdec.Decode(decSlice)
+	assert.NoError(t, err)
+	assert.Equal(t, n, 1)
+	assert.Equal(t, decSlice[0], true)
+
+	// Decode buf2, expect false
+	err = bdec.SetData(1, buf2.Buf())
+	assert.NoError(t, err)
+	n, err = bdec.Decode(decSlice)
+	assert.NoError(t, err)
+	assert.Equal(t, n, 1)
+	assert.Equal(t, decSlice[0], false)
+}

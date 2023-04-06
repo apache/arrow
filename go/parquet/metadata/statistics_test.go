@@ -188,3 +188,15 @@ func TestCheckNegativeZeroStats(t *testing.T) {
 		assertMinMaxZeroesSign(dstats, []float64{f64zero, f64zero})
 	}
 }
+
+func TestBooleanStatisticsEncoding(t *testing.T) {
+	n := schema.NewBooleanNode("boolean", parquet.Repetitions.Required, -1)
+	descr := schema.NewColumn(n, 0, 0)
+	s := metadata.NewStatistics(descr, nil)
+	bs := s.(*metadata.BooleanStatistics)
+	bs.SetMinMax(false, true)
+	maxEnc := bs.EncodeMax()
+	minEnc := bs.EncodeMin()
+	assert.Equal(t, []byte{1}, maxEnc)
+	assert.Equal(t, []byte{0}, minEnc)
+}

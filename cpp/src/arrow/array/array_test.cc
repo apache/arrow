@@ -376,12 +376,15 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       if (is_union(type->id())) {
-        // For unions, MakeArrayOfNull places the nulls in the children
         ASSERT_EQ(array->null_count(), 0);
         const auto& union_array = checked_cast<const UnionArray&>(*array);
         for (int i = 0; i < union_array.num_fields(); ++i) {
           ASSERT_EQ(union_array.field(i)->null_count(), union_array.field(i)->length());
         }
+      } else if (type->id() == Type::RUN_END_ENCODED) {
+        ASSERT_EQ(array->null_count(), 0);
+        const auto& ree_array = checked_cast<const RunEndEncodedArray&>(*array);
+        ASSERT_EQ(ree_array.values()->null_count(), ree_array.values()->length());
       } else {
         ASSERT_EQ(array->null_count(), length);
         for (int64_t i = 0; i < length; ++i) {
@@ -575,6 +578,8 @@ static ScalarVector GetScalars() {
                              ArrayFromJSON(utf8(), R"(["foo", "bar"])")),
       DictionaryScalar::Make(ScalarFromJSON(uint8(), "1"),
                              ArrayFromJSON(utf8(), R"(["foo", "bar"])")),
+      std::make_shared<RunEndEncodedScalar>(ScalarFromJSON(int8(), "1"),
+                                            run_end_encoded(int16(), int8())),
   };
 }
 
@@ -656,6 +661,13 @@ TEST_F(TestArray, TestMakeArrayFromMapScalar) {
   AssertAppendScalar(pool_, std::make_shared<MapScalar>(scalar));
 }
 
+void CheckSpanRoundTrip(const Array& array) {
+  ArraySpan span;
+  span.SetMembers(*array.data());
+  std::shared_ptr<Array> array2 = span.ToArray();
+  AssertArraysEqual(array, *array2);
+}
+
 TEST_F(TestArray, TestMakeEmptyArray) {
   FieldVector union_fields1({field("a", utf8()), field("b", int32())});
   FieldVector union_fields2({field("a", null()), field("b", list(large_utf8()))});
@@ -691,7 +703,16 @@ TEST_F(TestArray, TestMakeEmptyArray) {
     ASSERT_OK_AND_ASSIGN(auto array, MakeEmptyArray(type));
     ASSERT_OK(array->ValidateFull());
     ASSERT_EQ(array->length(), 0);
+    CheckSpanRoundTrip(*array);
   }
+}
+
+TEST_F(TestArray, ExtensionSpanRoundTrip) {
+  // Other types are checked in MakeEmptyArray but MakeEmptyArray doesn't
+  // work for extension types so we check that here
+  ASSERT_OK_AND_ASSIGN(auto array, MakeEmptyArray(dictionary(int8(), utf8())));
+  auto ext_array = ExtensionArray(dict_extension_type(), std::move(array));
+  CheckSpanRoundTrip(ext_array);
 }
 
 TEST_F(TestArray, TestAppendArraySlice) {
@@ -718,22 +739,23 @@ TEST_F(TestArray, TestAppendArraySlice) {
     span.SetMembers(*nulls->data());
     ASSERT_OK(builder->AppendArraySlice(span, 0, 4));
     ASSERT_EQ(12, builder->length());
-    if (!is_union(scalar->type->id())) {
+    const bool has_validity_bitmap = internal::HasValidityBitmap(scalar->type->id());
+    if (has_validity_bitmap) {
       ASSERT_EQ(4, builder->null_count());
     }
     ASSERT_OK(builder->AppendArraySlice(span, 0, 0));
     ASSERT_EQ(12, builder->length());
-    if (!is_union(scalar->type->id())) {
+    if (has_validity_bitmap) {
       ASSERT_EQ(4, builder->null_count());
     }
     ASSERT_OK(builder->AppendArraySlice(span, 1, 0));
     ASSERT_EQ(12, builder->length());
-    if (!is_union(scalar->type->id())) {
+    if (has_validity_bitmap) {
       ASSERT_EQ(4, builder->null_count());
     }
     ASSERT_OK(builder->AppendArraySlice(span, 1, 4));
     ASSERT_EQ(16, builder->length());
-    if (!is_union(scalar->type->id())) {
+    if (has_validity_bitmap) {
       ASSERT_EQ(8, builder->null_count());
     }
 
@@ -741,7 +763,7 @@ TEST_F(TestArray, TestAppendArraySlice) {
     ASSERT_OK(builder->Finish(&result));
     ASSERT_OK(result->ValidateFull());
     ASSERT_EQ(16, result->length());
-    if (!is_union(scalar->type->id())) {
+    if (has_validity_bitmap) {
       ASSERT_EQ(8, result->null_count());
     }
   }

@@ -112,4 +112,25 @@ class RecordBatchFileReaderTest < Test::Unit::TestCase
       end
     end
   end
+
+  sub_test_case("#each") do
+    test("without block") do
+      buffer = Arrow::ResizableBuffer.new(1024)
+      Arrow::Table.new(number: [1, 2, 3]).save(buffer)
+      Arrow::BufferInputStream.open(buffer) do |input|
+        reader = Arrow::RecordBatchFileReader.new(input)
+        each = reader.each
+        assert_equal({
+                       size: 1,
+                       to_a: [
+                         Arrow::RecordBatch.new(number: [1, 2, 3]),
+                       ],
+                     },
+                     {
+                       size: each.size,
+                       to_a: each.to_a,
+                     })
+      end
+    end
+  end
 end

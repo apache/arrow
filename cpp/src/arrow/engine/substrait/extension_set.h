@@ -31,7 +31,7 @@
 #include <vector>
 
 #include "arrow/compute/api_aggregate.h"
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
@@ -66,6 +66,12 @@ constexpr const char* kSubstraitStringFunctionsUri =
 constexpr const char* kSubstraitAggregateGenericFunctionsUri =
     "https://github.com/substrait-io/substrait/blob/main/extensions/"
     "functions_aggregate_generic.yaml";
+
+/// If a function call contains this URI then the function is looked up
+/// in the registry directly, all arguments are mapped as value arguments,
+/// and any options are ignored.
+constexpr const char* kArrowSimpleExtensionFunctionsUri =
+    "urn:arrow:substrait_simple_extension_function";
 
 struct ARROW_ENGINE_EXPORT Id {
   std::string_view uri, name;
@@ -136,6 +142,7 @@ class ARROW_ENGINE_EXPORT SubstraitCall {
       std::string_view option_name) const;
   void SetOption(std::string_view option_name,
                  const std::vector<std::string_view>& option_preferences);
+  bool HasOptions() const;
   int size() const { return size_; }
 
  private:
@@ -283,7 +290,7 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
 };
 
 constexpr std::string_view kArrowExtTypesUri =
-    "https://github.com/apache/arrow/blob/master/format/substrait/"
+    "https://github.com/apache/arrow/blob/main/format/substrait/"
     "extension_types.yaml";
 
 /// A default registry with all supported functions and data types registered

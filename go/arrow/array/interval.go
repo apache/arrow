@@ -87,7 +87,7 @@ func (a *MonthInterval) setData(data *Data) {
 	}
 }
 
-func (a *MonthInterval) getOneForMarshal(i int) interface{} {
+func (a *MonthInterval) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.values[i]
 	}
@@ -267,7 +267,7 @@ func (b *MonthIntervalBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *MonthIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *MonthIntervalBuilder) UnmarshalOne(dec *json.Decoder) error {
 	var v *arrow.MonthInterval
 	if err := dec.Decode(&v); err != nil {
 		return err
@@ -281,9 +281,9 @@ func (b *MonthIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *MonthIntervalBuilder) unmarshal(dec *json.Decoder) error {
+func (b *MonthIntervalBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -304,7 +304,7 @@ func (b *MonthIntervalBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("month interval builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 // A type which represents an immutable sequence of arrow.DayTimeInterval values.
@@ -352,7 +352,7 @@ func (a *DayTimeInterval) setData(data *Data) {
 	}
 }
 
-func (a *DayTimeInterval) getOneForMarshal(i int) interface{} {
+func (a *DayTimeInterval) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.values[i]
 	}
@@ -530,7 +530,7 @@ func (b *DayTimeIntervalBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *DayTimeIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *DayTimeIntervalBuilder) UnmarshalOne(dec *json.Decoder) error {
 	var v *arrow.DayTimeInterval
 	if err := dec.Decode(&v); err != nil {
 		return err
@@ -544,9 +544,9 @@ func (b *DayTimeIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *DayTimeIntervalBuilder) unmarshal(dec *json.Decoder) error {
+func (b *DayTimeIntervalBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -566,7 +566,7 @@ func (b *DayTimeIntervalBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("day_time interval builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 // A type which represents an immutable sequence of arrow.DayTimeInterval values.
@@ -616,7 +616,7 @@ func (a *MonthDayNanoInterval) setData(data *Data) {
 	}
 }
 
-func (a *MonthDayNanoInterval) getOneForMarshal(i int) interface{} {
+func (a *MonthDayNanoInterval) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.values[i]
 	}
@@ -796,7 +796,7 @@ func (b *MonthDayNanoIntervalBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *MonthDayNanoIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *MonthDayNanoIntervalBuilder) UnmarshalOne(dec *json.Decoder) error {
 	var v *arrow.MonthDayNanoInterval
 	if err := dec.Decode(&v); err != nil {
 		return err
@@ -810,9 +810,9 @@ func (b *MonthDayNanoIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *MonthDayNanoIntervalBuilder) unmarshal(dec *json.Decoder) error {
+func (b *MonthDayNanoIntervalBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -833,7 +833,7 @@ func (b *MonthDayNanoIntervalBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("month_day_nano interval builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

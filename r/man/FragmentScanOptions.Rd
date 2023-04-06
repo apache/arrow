@@ -20,7 +20,7 @@ operation.
 }
 \item \code{...}: Additional format-specific options
 
-`format = "parquet"``:
+\code{format = "parquet"}:
 \itemize{
 \item \code{use_buffered_stream}: Read files through buffered input streams rather than
 loading entire row groups at once. This may be enabled

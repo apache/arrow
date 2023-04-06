@@ -31,7 +31,7 @@ namespace util {
 
 // Convert a UTF8 string to a wstring (either UTF16 or UTF32, depending
 // on the wchar_t width).
-ARROW_EXPORT Result<std::wstring> UTF8ToWideString(const std::string& source);
+ARROW_EXPORT Result<std::wstring> UTF8ToWideString(std::string_view source);
 
 // Similarly, convert a wstring to a UTF8 string.
 ARROW_EXPORT Result<std::string> WideStringToUTF8(const std::wstring& source);

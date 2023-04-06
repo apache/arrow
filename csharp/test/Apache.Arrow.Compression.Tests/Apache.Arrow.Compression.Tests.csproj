@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.5.0" />
+    <PackageReference Include="xunit" Version="2.4.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Apache.Arrow\Apache.Arrow.csproj" />
+    <ProjectReference Include="..\..\src\Apache.Arrow.Compression\Apache.Arrow.Compression.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\ipc_lz4_compression.arrow" />
+    <EmbeddedResource Include="Resources\ipc_lz4_compression.arrow_stream" />
+    <EmbeddedResource Include="Resources\ipc_zstd_compression.arrow" />
+    <EmbeddedResource Include="Resources\ipc_zstd_compression.arrow_stream" />
+  </ItemGroup>
+
+</Project>

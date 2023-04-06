@@ -80,7 +80,7 @@ func (a *Decimal256) setData(data *Data) {
 	}
 }
 
-func (a *Decimal256) getOneForMarshal(i int) interface{} {
+func (a *Decimal256) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -94,7 +94,7 @@ func (a *Decimal256) getOneForMarshal(i int) interface{} {
 func (a *Decimal256) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
-		vals[i] = a.getOneForMarshal(i)
+		vals[i] = a.GetOneForMarshal(i)
 	}
 	return json.Marshal(vals)
 }
@@ -259,7 +259,7 @@ func (b *Decimal256Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Decimal256Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Decimal256Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -298,9 +298,9 @@ func (b *Decimal256Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Decimal256Builder) unmarshal(dec *json.Decoder) error {
+func (b *Decimal256Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -322,7 +322,7 @@ func (b *Decimal256Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("arrow/array: decimal256 builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

@@ -189,6 +189,8 @@ void SubstraitCall::SetOption(std::string_view option_name,
   }
 }
 
+bool SubstraitCall::HasOptions() const { return !options_.empty(); }
+
 // A builder used when creating a Substrait plan from an Arrow execution plan.  In
 // that situation we do not have a set of anchor values already defined so we keep
 // a map of what Ids we have seen.
@@ -336,6 +338,22 @@ const int* GetIndex(const KeyToIndex& key_to_index, const Key& key) {
 }
 
 namespace {
+
+ExtensionIdRegistry::SubstraitCallToArrow kSimpleSubstraitToArrow =
+    [](const SubstraitCall& call) -> Result<::arrow::compute::Expression> {
+  std::vector<::arrow::compute::Expression> args;
+  for (int i = 0; i < call.size(); i++) {
+    if (!call.HasValueArg(i)) {
+      return Status::Invalid("Simple function mappings can only use value arguments");
+    }
+    if (call.HasOptions()) {
+      return Status::Invalid("Simple function mappings must not specify options");
+    }
+    ARROW_ASSIGN_OR_RAISE(::arrow::compute::Expression arg, call.GetValueArg(i));
+    args.push_back(std::move(arg));
+  }
+  return ::arrow::compute::call(std::string(call.id().name), std::move(args));
+};
 
 struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
   ExtensionIdRegistryImpl() : parent_(nullptr) {}
@@ -541,6 +559,9 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 
   Result<SubstraitCallToArrow> GetSubstraitCallToArrow(
       Id substrait_function_id) const override {
+    if (substrait_function_id.uri == kArrowSimpleExtensionFunctionsUri) {
+      return kSimpleSubstraitToArrow;
+    }
     auto maybe_converter = substrait_to_arrow_.find(substrait_function_id);
     if (maybe_converter == substrait_to_arrow_.end()) {
       if (parent_) {

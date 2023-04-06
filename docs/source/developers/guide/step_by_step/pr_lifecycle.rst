@@ -43,14 +43,14 @@ have successfully built Arrow and have a GitHub issue to work on.
 **Before making changes to the code, you should create a new
 branch in Git.**
 
-1. Update your fork’s master branch with ``upstream/master``.
+1. Update your fork’s main branch with ``upstream/main``.
    Run this in the shell from the ``arrow`` directory.
 
    .. code:: console
 
-      $ git checkout master # select the main Arrow branch
-      $ git fetch upstream # check for changes in upstream/master
-      $ git pull --ff-only upstream master # save the changes from upstream/master
+      $ git checkout main # select the main Arrow branch
+      $ git fetch upstream # check for changes in upstream/main
+      $ git pull --ff-only upstream main # save the changes from upstream/main
 
    Note: ``--ff-only`` applies changes only if they can be fast-forwarded
    without conflicts or creating merge commits.
@@ -252,15 +252,15 @@ The steps for updating the pull request would then be as follows:
 
    Here we merge the new commits with our local branch and we do not rebase.
 
-3. Now we have to update the branch to sync with upstream master Arrow branch.
+3. Now we have to update the branch to sync with upstream main Arrow branch.
    This way the pull request will be able to get merged. We use rebase in this
    case.
 
    .. code:: console
 
-      $ git pull upstream master --rebase
+      $ git pull upstream main --rebase
 
-   This will rebase your local commits on top of the tip of ``upstream/master``.
+   This will rebase your local commits on top of the tip of ``upstream/main``.
 
 4. Now you can push the changes by running:
 

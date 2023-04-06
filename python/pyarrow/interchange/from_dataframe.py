@@ -60,8 +60,7 @@ _PYARROW_DTYPES: dict[DtypeKind, dict[int, Any]] = {
 
 def from_dataframe(df: DataFrameObject, allow_copy=True) -> pa.Table:
     """
-    Build a ``pa.Table`` from any DataFrame supporting the interchange
-    protocol.
+    Build a ``pa.Table`` from any DataFrame supporting the interchange protocol.
 
     Parameters
     ----------
@@ -78,6 +77,8 @@ def from_dataframe(df: DataFrameObject, allow_copy=True) -> pa.Table:
     """
     if isinstance(df, pa.Table):
         return df
+    elif isinstance(df, pa.RecordBatch):
+        return pa.Table.from_batches([df])
 
     if not hasattr(df, "__dataframe__"):
         raise ValueError("`df` does not support __dataframe__")
@@ -108,8 +109,7 @@ def _from_dataframe(df: DataFrameObject, allow_copy=True):
         batch = protocol_df_chunk_to_pyarrow(chunk, allow_copy)
         batches.append(batch)
 
-    table = pa.Table.from_batches(batches)
-    return table
+    return pa.Table.from_batches(batches)
 
 
 def protocol_df_chunk_to_pyarrow(

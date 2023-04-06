@@ -77,7 +77,7 @@ func (a *Null) setData(data *Data) {
 	a.array.data.nulls = a.array.data.length
 }
 
-func (a *Null) getOneForMarshal(i int) interface{} {
+func (a *Null) GetOneForMarshal(i int) interface{} {
 	return nil
 }
 
@@ -150,7 +150,7 @@ func (b *NullBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *NullBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *NullBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -169,9 +169,9 @@ func (b *NullBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *NullBuilder) unmarshal(dec *json.Decoder) error {
+func (b *NullBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -189,7 +189,7 @@ func (b *NullBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("null builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

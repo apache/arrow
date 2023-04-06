@@ -252,6 +252,14 @@ struct MakeBuilderImpl {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedType& ree_type) {
+    ARROW_ASSIGN_OR_RAISE(auto run_end_builder, ChildBuilder(ree_type.run_end_type()));
+    ARROW_ASSIGN_OR_RAISE(auto value_builder, ChildBuilder(ree_type.value_type()));
+    out.reset(new RunEndEncodedBuilder(pool, std::move(run_end_builder),
+                                       std::move(value_builder), type));
+    return Status::OK();
+  }
+
   Status Visit(const ExtensionType&) { return NotImplemented(); }
   Status Visit(const DataType&) { return NotImplemented(); }
 

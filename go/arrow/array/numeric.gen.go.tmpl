@@ -82,7 +82,7 @@ func (a *{{.Name}}) setData(data *Data) {
 	}
 }
 
-func (a *{{.Name}}) getOneForMarshal(i int) interface{} {
+func (a *{{.Name}}) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}

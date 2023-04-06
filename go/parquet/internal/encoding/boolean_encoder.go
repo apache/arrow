@@ -83,5 +83,7 @@ func (enc *PlainBooleanEncoder) FlushValues() (Buffer, error) {
 		enc.append(enc.bitsBuffer[:bitutil.BytesForBits(int64(toFlush))])
 	}
 
+	enc.wr.Reset(0, boolsInBuf)
+
 	return enc.sink.Finish(), nil
 }

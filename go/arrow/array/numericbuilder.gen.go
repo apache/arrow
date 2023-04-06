@@ -176,7 +176,7 @@ func (b *Int64Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Int64Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Int64Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -220,9 +220,9 @@ func (b *Int64Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Int64Builder) unmarshal(dec *json.Decoder) error {
+func (b *Int64Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -240,7 +240,7 @@ func (b *Int64Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Uint64Builder struct {
@@ -385,7 +385,7 @@ func (b *Uint64Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Uint64Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Uint64Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -429,9 +429,9 @@ func (b *Uint64Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Uint64Builder) unmarshal(dec *json.Decoder) error {
+func (b *Uint64Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -449,7 +449,7 @@ func (b *Uint64Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Float64Builder struct {
@@ -594,7 +594,7 @@ func (b *Float64Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Float64Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Float64Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -638,9 +638,9 @@ func (b *Float64Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Float64Builder) unmarshal(dec *json.Decoder) error {
+func (b *Float64Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -658,7 +658,7 @@ func (b *Float64Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Int32Builder struct {
@@ -803,7 +803,7 @@ func (b *Int32Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Int32Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Int32Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -847,9 +847,9 @@ func (b *Int32Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Int32Builder) unmarshal(dec *json.Decoder) error {
+func (b *Int32Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -867,7 +867,7 @@ func (b *Int32Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Uint32Builder struct {
@@ -1012,7 +1012,7 @@ func (b *Uint32Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Uint32Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Uint32Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -1056,9 +1056,9 @@ func (b *Uint32Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Uint32Builder) unmarshal(dec *json.Decoder) error {
+func (b *Uint32Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -1076,7 +1076,7 @@ func (b *Uint32Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Float32Builder struct {
@@ -1221,7 +1221,7 @@ func (b *Float32Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Float32Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Float32Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -1265,9 +1265,9 @@ func (b *Float32Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Float32Builder) unmarshal(dec *json.Decoder) error {
+func (b *Float32Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -1285,7 +1285,7 @@ func (b *Float32Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Int16Builder struct {
@@ -1430,7 +1430,7 @@ func (b *Int16Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Int16Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Int16Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -1474,9 +1474,9 @@ func (b *Int16Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Int16Builder) unmarshal(dec *json.Decoder) error {
+func (b *Int16Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -1494,7 +1494,7 @@ func (b *Int16Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Uint16Builder struct {
@@ -1639,7 +1639,7 @@ func (b *Uint16Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Uint16Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Uint16Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -1683,9 +1683,9 @@ func (b *Uint16Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Uint16Builder) unmarshal(dec *json.Decoder) error {
+func (b *Uint16Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -1703,7 +1703,7 @@ func (b *Uint16Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Int8Builder struct {
@@ -1848,7 +1848,7 @@ func (b *Int8Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Int8Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Int8Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -1892,9 +1892,9 @@ func (b *Int8Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Int8Builder) unmarshal(dec *json.Decoder) error {
+func (b *Int8Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -1912,7 +1912,7 @@ func (b *Int8Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Uint8Builder struct {
@@ -2057,7 +2057,7 @@ func (b *Uint8Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Uint8Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Uint8Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -2101,9 +2101,9 @@ func (b *Uint8Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Uint8Builder) unmarshal(dec *json.Decoder) error {
+func (b *Uint8Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -2121,7 +2121,7 @@ func (b *Uint8Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type TimestampBuilder struct {
@@ -2267,7 +2267,7 @@ func (b *TimestampBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *TimestampBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *TimestampBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -2313,9 +2313,9 @@ func (b *TimestampBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *TimestampBuilder) unmarshal(dec *json.Decoder) error {
+func (b *TimestampBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -2333,7 +2333,7 @@ func (b *TimestampBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Time32Builder struct {
@@ -2479,7 +2479,7 @@ func (b *Time32Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Time32Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Time32Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -2524,9 +2524,9 @@ func (b *Time32Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Time32Builder) unmarshal(dec *json.Decoder) error {
+func (b *Time32Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -2544,7 +2544,7 @@ func (b *Time32Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Time64Builder struct {
@@ -2690,7 +2690,7 @@ func (b *Time64Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Time64Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Time64Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -2735,9 +2735,9 @@ func (b *Time64Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Time64Builder) unmarshal(dec *json.Decoder) error {
+func (b *Time64Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -2755,7 +2755,7 @@ func (b *Time64Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Date32Builder struct {
@@ -2900,7 +2900,7 @@ func (b *Date32Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Date32Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Date32Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -2944,9 +2944,9 @@ func (b *Date32Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Date32Builder) unmarshal(dec *json.Decoder) error {
+func (b *Date32Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -2964,7 +2964,7 @@ func (b *Date32Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Date64Builder struct {
@@ -3109,7 +3109,7 @@ func (b *Date64Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Date64Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Date64Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -3153,9 +3153,9 @@ func (b *Date64Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Date64Builder) unmarshal(dec *json.Decoder) error {
+func (b *Date64Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -3173,7 +3173,7 @@ func (b *Date64Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type DurationBuilder struct {
@@ -3319,7 +3319,7 @@ func (b *DurationBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *DurationBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *DurationBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -3386,9 +3386,9 @@ func (b *DurationBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *DurationBuilder) unmarshal(dec *json.Decoder) error {
+func (b *DurationBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -3406,7 +3406,7 @@ func (b *DurationBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

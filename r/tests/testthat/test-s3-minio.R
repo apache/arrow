@@ -106,5 +106,23 @@ test_that("S3FileSystem input validation", {
   )
 })
 
+test_that("Confirm s3_bucket works with endpoint_override", {
+  bucket <- s3_bucket(
+    now,
+    access_key = minio_key,
+    secret_key = minio_secret,
+    scheme = "http",
+    endpoint_override = paste0("localhost:", minio_port)
+  )
+
+  expect_r6_class(bucket, "SubTreeFileSystem")
+
+  os <- bucket$OpenOutputStream("bucket-test.csv")
+  write_csv_arrow(example_data, os)
+  os$close()
+  expect_true("bucket-test.csv" %in% bucket$ls())
+  bucket$DeleteFile("bucket-test.csv")
+})
+
 # Cleanup
 withr::deferred_run()

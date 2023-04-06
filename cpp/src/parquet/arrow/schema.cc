@@ -134,8 +134,8 @@ Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
                                   "Consider adding a dummy child field.");
   }
 
-  *out = GroupNode::Make(name, RepetitionFromNullable(nullable), std::move(children),
-                         nullptr, field_id);
+  *out = GroupNode::Make(name, RepetitionFromNullable(nullable), children, nullptr,
+                         field_id);
   return Status::OK();
 }
 
@@ -514,7 +514,7 @@ Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
   std::vector<std::shared_ptr<Field>> arrow_fields;
   out->children.resize(node.field_count());
   // All level increments for the node are expected to happen by callers.
-  // This is required because repeated elements need to have there own
+  // This is required because repeated elements need to have their own
   // SchemaField.
 
   for (int i = 0; i < node.field_count(); i++) {
@@ -722,7 +722,7 @@ Status GroupToSchemaField(const GroupNode& node, LevelInfo current_levels,
     ctx->LinkParent(&out->children[0], out);
     out->level_info = current_levels;
     // At this point current_levels contains this list as the def level, we need to
-    // use the previous ancenstor of thi slist.
+    // use the previous ancestor of this list.
     out->level_info.repeated_ancestor_def_level = repeated_ancestor_def_level;
     return Status::OK();
   } else {
@@ -831,7 +831,7 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
 }
 
 // Restore original Arrow field information that was serialized as Parquet metadata
-// but that is not necessarily present in the field reconstitued from Parquet data
+// but that is not necessarily present in the field reconstituted from Parquet data
 // (for example, Parquet timestamp types doesn't carry timezone information).
 
 Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* inferred);
@@ -876,8 +876,8 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
                                           SchemaField* inferred) {
   bool modified = false;
 
-  auto origin_type = origin_field.type();
-  auto inferred_type = inferred->field->type();
+  auto& origin_type = origin_field.type();
+  auto& inferred_type = inferred->field->type();
 
   const int num_children = inferred_type->num_fields();
 
@@ -916,7 +916,7 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
 
     // If the data is tz-aware, then set the original time zone, since Parquet
     // has no native storage for timezones
-    if (ts_type.timezone() == "UTC" && ts_origin_type.timezone() != "") {
+    if (ts_type.timezone() == "UTC" && !ts_origin_type.timezone().empty()) {
       if (ts_type.unit() == ts_origin_type.unit()) {
         inferred->field = inferred->field->WithType(origin_type);
       } else {
@@ -937,7 +937,7 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
   if (origin_type->id() == ::arrow::Type::DICTIONARY &&
       inferred_type->id() != ::arrow::Type::DICTIONARY &&
       IsDictionaryReadSupported(*inferred_type)) {
-    // Direct dictionary reads are only suppored for a couple primitive types,
+    // Direct dictionary reads are only supported for a couple primitive types,
     // so no need to recurse on value types.
     const auto& dict_origin_type =
         checked_cast<const ::arrow::DictionaryType&>(*origin_type);
@@ -978,8 +978,7 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
 Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* inferred) {
   bool modified = false;
 
-  auto origin_type = origin_field.type();
-  auto inferred_type = inferred->field->type();
+  auto& origin_type = origin_field.type();
 
   if (origin_type->id() == ::arrow::Type::EXTENSION) {
     const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
@@ -1101,7 +1100,7 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
       continue;
     }
 
-    auto origin_field = manifest->origin_schema->field(i);
+    auto& origin_field = manifest->origin_schema->field(i);
     RETURN_NOT_OK(ApplyOriginalMetadata(*origin_field, out_field));
   }
   return Status::OK();

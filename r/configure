@@ -110,6 +110,7 @@ else
     PKG_CFLAGS="$PKGCONFIG_CFLAGS $PKG_CFLAGS"
     PKG_LIBS="${PKGCONFIG_LIBS}"
     PKG_DIRS="${PKGCONFIG_DIRS}"
+    LIB_DIR=${FOUND_LIB_DIR}
 
     # Check for version mismatch
     PC_LIB_VERSION=`pkg-config --modversion arrow`
@@ -210,6 +211,9 @@ else
         else
           # This case must be ARROW_DEPENDENCY_SOURCE=BUNDLED.
           PKG_CFLAGS="-I${LIB_DIR}/../include $PKG_CFLAGS"
+          if grep -q "_GLIBCXX_USE_CXX11_ABI=0" "${LIB_DIR}/pkgconfig/arrow.pc"; then
+            PKG_CFLAGS="${PKG_CFLAGS} -D_GLIBCXX_USE_CXX11_ABI=0"
+          fi
           PKG_DIRS="-L${LIB_DIR}"
           if [ "${OPENSSL_ROOT_DIR}" != "" ]; then
             PKG_DIRS="${PKG_DIRS} -L${OPENSSL_ROOT_DIR}/lib"
@@ -265,6 +269,12 @@ if [ $? -eq 0 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
     PKG_LIBS="-larrow_dataset $PKG_LIBS"
     # NOTE: arrow-dataset is assumed to have the same -L flag as arrow
+    # so there is no need to add its location to PKG_DIRS
+  fi
+  if arrow_built_with ARROW_ACERO; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ACERO"
+    PKG_LIBS="-larrow_acero $PKG_LIBS"
+    # NOTE: arrow-acero is assumed to have the same -L flag as arrow
     # so there is no need to add its location to PKG_DIRS
   fi
   if arrow_built_with ARROW_SUBSTRAIT; then

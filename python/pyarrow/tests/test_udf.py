@@ -24,7 +24,6 @@ from pyarrow import compute as pc
 # UDFs are all tested with a dataset scan
 pytestmark = pytest.mark.dataset
 
-
 try:
     import pyarrow.dataset as ds
 except ImportError:
@@ -38,25 +37,6 @@ def mock_scalar_udf_context(batch_length=10):
 
 class MyError(RuntimeError):
     pass
-
-
-@pytest.fixture(scope="session")
-def unary_func_fixture():
-    """
-    Register a unary scalar function.
-    """
-    def unary_function(ctx, x):
-        return pc.call_function("add", [x, 1],
-                                memory_pool=ctx.memory_pool)
-    func_name = "y=x+1"
-    unary_doc = {"summary": "add function",
-                 "description": "test add function"}
-    pc.register_scalar_function(unary_function,
-                                func_name,
-                                unary_doc,
-                                {"array": pa.int64()},
-                                pa.int64())
-    return unary_function, func_name
 
 
 @pytest.fixture(scope="session")

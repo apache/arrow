@@ -19,8 +19,12 @@ package encoding
 import (
 	"encoding/binary"
 
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/apache/arrow/go/v12/internal/utils"
 	"github.com/apache/arrow/go/v12/parquet"
+	pqutils "github.com/apache/arrow/go/v12/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 
@@ -85,4 +89,42 @@ func (pbad *PlainByteArrayDecoder) DecodeSpaced(out []parquet.ByteArray, nullCou
 	}
 
 	return spacedExpand(out, nullCount, validBits, validBitsOffset), nil
+}
+
+func (d *DictByteArrayDecoder) InsertDictionary(bldr array.Builder) error {
+	conv := d.dictValueDecoder.(*ByteArrayDictConverter)
+	dictLength := cap(conv.dict)
+	conv.ensure(pqutils.IndexType(dictLength))
+
+	byteArrayData := memory.NewResizableBuffer(d.mem)
+	defer byteArrayData.Release()
+	byteArrayOffsets := memory.NewResizableBuffer(d.mem)
+	defer byteArrayOffsets.Release()
+
+	var totalLen int
+	for _, v := range conv.dict {
+		totalLen += len(v)
+	}
+	byteArrayData.ResizeNoShrink(totalLen)
+	byteArrayOffsets.ResizeNoShrink((dictLength + 1) * arrow.Int32SizeBytes)
+
+	byteData := byteArrayData.Bytes()
+	byteOffsets := arrow.Int32Traits.CastFromBytes(byteArrayOffsets.Bytes())
+
+	var offset int32
+	for i, v := range conv.dict {
+		n := copy(byteData, v)
+		byteData, byteOffsets[i] = byteData[n:], offset
+		offset += int32(n)
+	}
+	byteOffsets[dictLength] = offset
+
+	data := array.NewData(bldr.Type().(*arrow.DictionaryType).ValueType, dictLength,
+		[]*memory.Buffer{nil, byteArrayOffsets, byteArrayData}, nil, 0, 0)
+	defer data.Release()
+	arr := array.NewBinaryData(data)
+	defer arr.Release()
+
+	binaryBldr := bldr.(*array.BinaryDictionaryBuilder)
+	return binaryBldr.InsertDictValues(arr)
 }

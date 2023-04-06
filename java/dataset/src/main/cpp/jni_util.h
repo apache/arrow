@@ -158,6 +158,10 @@ class ReservationListenableMemoryPool : public arrow::MemoryPool {
 
   int64_t max_memory() const override;
 
+  int64_t total_bytes_allocated() const override;
+
+  int64_t num_allocations() const override;
+
   std::string backend_name() const override;
 
   std::shared_ptr<ReservationListener> get_listener();

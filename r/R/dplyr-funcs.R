@@ -49,7 +49,7 @@ NULL
 #'   aggregate function. This function must accept `Expression` objects as
 #'   arguments and return a `list()` with components:
 #'   - `fun`: string function name
-#'   - `data`: `Expression` (these are all currently a single field)
+#'   - `data`: list of 0 or more `Expression`s
 #'   - `options`: list of function options, as passed to call_function
 #' @param update_cache Update .cache$functions at the time of registration.
 #'   the default is FALSE because the majority of usage is to register

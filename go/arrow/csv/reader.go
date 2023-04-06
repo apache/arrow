@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -34,6 +35,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/decimal256"
 	"github.com/apache/arrow/go/v12/arrow/internal/debug"
 	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
@@ -69,6 +71,7 @@ type Reader struct {
 //
 // This can be further customized using the WithColumnTypes and
 // WithIncludeColumns options.
+// For BinaryType the reader will use base64 decoding with padding as per base64.StdDecoding.
 func NewInferringReader(r io.Reader, opts ...Option) *Reader {
 	rr := &Reader{
 		r:                csv.NewReader(r),
@@ -464,6 +467,18 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(str string) {
 			r.parseDecimal256(bldr, str, dt.Precision, dt.Scale)
 		}
+	case *arrow.ListType:
+		return func(s string) {
+			r.parseList(bldr, s)
+		}
+	case *arrow.BinaryType:
+		return func(s string) {
+			r.parseBinaryType(bldr, s)
+		}
+	case arrow.ExtensionType:
+		return func(s string) {
+			r.parseExtension(bldr, s)
+		}
 	default:
 		panic(fmt.Errorf("arrow/csv: unhandled field type %T", bldr.Type()))
 	}
@@ -719,6 +734,60 @@ func (r *Reader) parseDecimal256(field array.Builder, str string, prec, scale in
 		return
 	}
 	field.(*array.Decimal256Builder).Append(val)
+}
+
+func (r *Reader) parseList(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+	if !(strings.HasPrefix(str, "{") && strings.HasSuffix(str, "}")) {
+		r.err = errors.New("invalid list format. should start with '{' and end with '}'")
+		return
+	}
+	str = strings.Trim(str, "{}")
+	listBldr := field.(*array.ListBuilder)
+	listBldr.Append(true)
+	if len(str) == 0 {
+		// we don't want to create the csv reader if we already know the
+		// string is empty
+		return
+	}
+	valueBldr := listBldr.ValueBuilder()
+	reader := csv.NewReader(strings.NewReader(str))
+	items, err := reader.Read()
+	if err != nil {
+		r.err = err
+		return
+	}
+	for _, str := range items {
+		r.initFieldConverter(valueBldr)(str)
+	}
+}
+
+func (r *Reader) parseBinaryType(field array.Builder, str string) {
+	// specialize the implementation when we know we cannot have nulls
+	if str != "" && r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+	decodedVal, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		panic("cannot decode base64 string " + str)
+	}
+	field.(*array.BinaryBuilder).Append(decodedVal)
+}
+
+func (r *Reader) parseExtension(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+	dec := json.NewDecoder(strings.NewReader(`"` + str + `"`))
+	if err := field.UnmarshalOne(dec); err != nil {
+		r.err = err
+		return
+	}
 }
 
 // Retain increases the reference count by 1.

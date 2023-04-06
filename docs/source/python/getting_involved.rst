@@ -32,7 +32,7 @@ integrations in other projects, we'd be happy to have you involved:
   `Archive <http://mail-archives.apache.org/mod_mbox/arrow-dev/>`_.
 * Follow our activity on `GitHub <https://github.com/apache/arrow/issues>`_
 * Learn the `Format / Specification
-  <https://github.com/apache/arrow/tree/master/format>`_
+  <https://github.com/apache/arrow/tree/main/format>`_
 
 
 .. _py_arch_overview:

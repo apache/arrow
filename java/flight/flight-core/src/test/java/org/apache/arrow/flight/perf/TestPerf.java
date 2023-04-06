@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight.perf;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -28,7 +31,6 @@ import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
-import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.perf.impl.PerfOuterClass.Perf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -87,8 +89,7 @@ public class TestPerf {
     for (int i = 0; i < numRuns; i++) {
       try (
           final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-          final PerformanceTestServer server =
-              FlightTestUtil.getStartedServer((location) -> new PerformanceTestServer(a, location));
+          final PerformanceTestServer server = new PerformanceTestServer(a, forGrpcInsecure(LOCALHOST, 0)).start();
           final FlightClient client = FlightClient.builder(a, server.getLocation()).build();
       ) {
         final FlightInfo info = client.getInfo(getPerfFlightDescriptor(50_000_000L, 4095, 2));

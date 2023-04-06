@@ -1545,7 +1545,7 @@ is the same, even though the UTC years would be different.
 Timezone handling
 ~~~~~~~~~~~~~~~~~
 
-This function is meant to be used when an external system produces
+`assume_timezone` function is meant to be used when an external system produces
 "timezone-naive" timestamps which need to be converted to "timezone-aware"
 timestamps (see for example the `definition
 <https://docs.python.org/3/library/datetime.html#aware-and-naive-objects>`__
@@ -1556,11 +1556,20 @@ Input timestamps are assumed to be relative to the timezone given in
 UTC-relative timestamps with the timezone metadata set to the above value.
 An error is returned if the timestamps already have the timezone metadata set.
 
-+--------------------+------------+-------------------+---------------+----------------------------------+-------+
-| Function name      | Arity      | Input types       | Output type   | Options class                    | Notes |
-+====================+============+===================+===============+==================================+=======+
-| assume_timezone    | Unary      | Timestamp         | Timestamp     | :struct:`AssumeTimezoneOptions`  | \(1)  |
-+--------------------+------------+-------------------+---------------+----------------------------------+-------+
+`local_timestamp` function converts UTC-relative timestamps to local "timezone-naive"
+timestamps. The timezone is taken from the timezone metadata of the input
+timestamps. This function is the inverse of `assume_timezone`. Please note:
+**all temporal functions already operate on timestamps as if they were in local
+time of the metadata provided timezone**. Using `local_timestamp` is only meant to be
+used when an external system expects local timestamps.
+
++-----------------+-------+-------------+---------------+---------------------------------+-------+
+| Function name   | Arity | Input types | Output type   | Options class                   | Notes |
++=================+=======+=============+===============+=================================+=======+
+| assume_timezone | Unary | Timestamp   | Timestamp     | :struct:`AssumeTimezoneOptions` | \(1)  |
++-----------------+-------+-------------+---------------+---------------------------------+-------+
+| local_timestamp | Unary | Timestamp   | Timestamp     |                                 | \(2)  |
++-----------------+-------+-------------+---------------+---------------------------------+-------+
 
 * \(1) In addition to the timezone value, :struct:`AssumeTimezoneOptions`
   allows choosing the behaviour when a timestamp is ambiguous or nonexistent
@@ -1588,7 +1597,7 @@ Cumulative Functions
 ~~~~~~~~~~~~~~~~~~~~
 
 Cumulative functions are vector functions that perform a running total on their
-input using an given binary associatve operation and output an array containing
+input using a given binary associative operation and output an array containing
 the corresponding intermediate running values. The input is expected to be of
 numeric type. By default these functions do not detect overflow. They are also
 available in an overflow-checking variant, suffixed ``_checked``, which returns

@@ -18,7 +18,8 @@ package metadata
 
 import (
   "fmt"
-  
+
+  "github.com/apache/arrow/go/v12/arrow"
   "github.com/apache/arrow/go/v12/parquet"
   "github.com/apache/arrow/go/v12/parquet/schema"
   "github.com/apache/arrow/go/v12/parquet/internal/utils"
@@ -71,10 +72,10 @@ func New{{.Name}}StatisticsFromEncoded(descr *schema.Column, mem memory.Allocato
   ret := New{{.Name}}Statistics(descr, mem)
   ret.nvalues += nvalues
   if encoded.IsSetNullCount() {
-    ret.incNulls(encoded.GetNullCount())
+    ret.IncNulls(encoded.GetNullCount())
   }
   if encoded.IsSetDistinctCount() {
-    ret.incDistinct(encoded.GetDistinctCount())
+    ret.IncDistinct(encoded.GetDistinctCount())
   }
 
   encodedMin := encoded.GetMin()
@@ -294,7 +295,7 @@ func (s *{{.Name}}Statistics) Merge(other TypedStatistics) {
 // Update is used to add more values to the current stat object, finding the
 // min and max values etc.
 func (s *{{.Name}}Statistics) Update(values []{{.name}}, numNull int64) {
-  s.incNulls(numNull)
+  s.IncNulls(numNull)
   s.nvalues += int64(len(values))
 
   if len(values) == 0 {
@@ -307,7 +308,7 @@ func (s *{{.Name}}Statistics) Update(values []{{.name}}, numNull int64) {
 // UpdateSpaced is just like Update, but for spaced values using validBits to determine
 // and skip null values.
 func (s *{{.Name}}Statistics) UpdateSpaced(values []{{.name}}, validBits []byte, validBitsOffset, numNull int64) {
-  s.incNulls(numNull)
+  s.IncNulls(numNull)
   notnull := int64(len(values)) - numNull
   s.nvalues += notnull
 
@@ -316,6 +317,81 @@ func (s *{{.Name}}Statistics) UpdateSpaced(values []{{.name}}, validBits []byte,
   }
 
   s.SetMinMax(s.getMinMaxSpaced(values, validBits, validBitsOffset))
+}
+
+func (s *{{.Name}}Statistics) UpdateFromArrow(values arrow.Array, updateCounts bool) error {
+  if updateCounts {
+    s.IncNulls(int64(values.NullN()))
+    s.nvalues += int64(values.Len() - values.NullN())
+  }
+
+  if values.NullN() == values.Len() {
+    return nil
+  }
+{{if eq .Name "FixedLenByteArray"}}
+  dt := values.DataType()
+  if dt.ID() != arrow.FIXED_SIZE_BINARY && dt.ID() != arrow.DECIMAL {
+    return fmt.Errorf("%w: only fixed size binary and decimal128 arrays are supported to update stats from arrow", 
+      arrow.ErrInvalid)
+  }
+
+  var (
+    width = dt.(arrow.FixedWidthDataType).Bytes()
+    data = values.Data().Buffers()[1].Bytes()[values.Data().Offset()*width:]
+    min = s.defaultMin()
+    max = s.defaultMax()
+  )
+
+  for i := 0; i < values.Len(); i++ {
+    v := data[i * width : (i+1) * width]
+    min = s.minval(min, v)
+    max = s.maxval(min, v)
+  }
+
+  s.SetMinMax(min, max)
+  return nil
+{{else if eq .Name "Int96"}}
+  return fmt.Errorf("%w: update int96 stats from Arrow", arrow.ErrNotImplemented)
+{{else if eq .Name "ByteArray"}}
+  if !arrow.IsBaseBinary(values.DataType().ID()) {
+    return fmt.Errorf("%w: can only update ByteArray stats from binary or string array", arrow.ErrInvalid)
+  }
+
+  var (
+    min = s.defaultMin()
+    max = s.defaultMax()
+    arr = values.(array.BinaryLike)
+    data = arr.ValueBytes()
+    curOffset = int64(0)
+  )
+
+  for i := 0; i < arr.Len(); i++ {
+    nextOffset := arr.ValueOffset64(i + 1)
+    v := data[curOffset:nextOffset]
+    curOffset = nextOffset
+
+    if len(v) == 0 {
+      continue
+    }
+    
+    min = s.minval(min, v)
+    max = s.maxval(max, v)
+  }
+
+  s.SetMinMax(min, max)
+  return nil
+{{else if eq .Name "Boolean"}}
+  return fmt.Errorf("%w: update boolean stats from Arrow", arrow.ErrNotImplemented)  
+{{else}}
+  if values.DataType().(arrow.FixedWidthDataType).Bytes() != arrow.{{.Name}}SizeBytes {
+    return fmt.Errorf("%w: cannot update {{.name}} stats with %s arrow array", 
+      arrow.ErrInvalid, values.DataType())
+  }
+
+  rawBytes := values.Data().Buffers()[1].Bytes()[values.Data().Offset()*arrow.{{.Name}}SizeBytes:]
+  s.SetMinMax(s.getMinMax(arrow.{{.Name}}Traits.CastFromBytes(rawBytes)))
+  return nil
+{{end -}}
 }
 
 // SetMinMax updates the min and max values only if they are not currently set

@@ -17,10 +17,14 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -113,7 +117,7 @@ public class TestBasicOperation {
                 new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock")),
             new FlightEndpoint(
                 new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock"),
-                Location.forGrpcInsecure("localhost", 50051))
+                forGrpcInsecure("localhost", 50051))
         ), 200, 500);
 
     Assertions.assertEquals(info1, FlightInfo.deserialize(info1.serialize()));
@@ -318,10 +322,7 @@ public class TestBasicOperation {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
-        FlightServer s =
-            FlightTestUtil.getStartedServer(
-                (location) -> FlightServer.builder(a, location, producer).build()
-            )) {
+        FlightServer s = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), producer).build().start()) {
 
       try (
           FlightClient c = FlightClient.builder(a, s.getLocation()).build()
@@ -411,6 +412,24 @@ public class TestBasicOperation {
         parsedMessage.asSchema();
       }
     }
+  }
+
+  @Test
+  public void testGrpcInsecureLocation() throws Exception {
+    Location location = Location.forGrpcInsecure(LOCALHOST, 9000);
+    Assertions.assertEquals(
+        new URI(LocationSchemes.GRPC_INSECURE, null, LOCALHOST, 9000, null, null, null),
+        location.getUri());
+    Assertions.assertEquals(new InetSocketAddress(LOCALHOST, 9000), location.toSocketAddress());
+  }
+
+  @Test
+  public void testGrpcTlsLocation() throws Exception {
+    Location location = Location.forGrpcTls(LOCALHOST, 9000);
+    Assertions.assertEquals(
+            new URI(LocationSchemes.GRPC_TLS, null, LOCALHOST, 9000, null, null, null),
+            location.getUri());
+    Assertions.assertEquals(new InetSocketAddress(LOCALHOST, 9000), location.toSocketAddress());
   }
 
   /**

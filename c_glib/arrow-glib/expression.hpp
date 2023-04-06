@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <arrow/compute/exec/expression.h>
+#include <arrow/compute/expression.h>
 
 #include <arrow-glib/expression.h>
 

@@ -21,7 +21,7 @@
 #include <sys/stat.h>
 #include <sstream>
 
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/type.h"

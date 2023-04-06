@@ -510,14 +510,12 @@ std::unique_ptr<FlightServerBase> ExampleTestServer() {
   return std::make_unique<FlightTestServer>();
 }
 
-Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
-                      const std::vector<FlightEndpoint>& endpoints, int64_t total_records,
-                      int64_t total_bytes, FlightInfo::Data* out) {
-  out->descriptor = descriptor;
-  out->endpoints = endpoints;
-  out->total_records = total_records;
-  out->total_bytes = total_bytes;
-  return internal::SchemaToString(schema, &out->schema);
+FlightInfo MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
+                          const std::vector<FlightEndpoint>& endpoints,
+                          int64_t total_records, int64_t total_bytes) {
+  EXPECT_OK_AND_ASSIGN(auto info, FlightInfo::Make(schema, descriptor, endpoints,
+                                                   total_records, total_bytes));
+  return info;
 }
 
 NumberingStream::NumberingStream(std::unique_ptr<FlightDataStream> stream)
@@ -585,8 +583,6 @@ std::vector<FlightInfo> ExampleFlightInfo() {
   Location location4 = *Location::ForGrpcTcp("foo4.bar.com", 12345);
   Location location5 = *Location::ForGrpcTcp("foo5.bar.com", 12345);
 
-  FlightInfo::Data flight1, flight2, flight3, flight4;
-
   FlightEndpoint endpoint1({{"ticket-ints-1"}, {location1}});
   FlightEndpoint endpoint2({{"ticket-ints-2"}, {location2}});
   FlightEndpoint endpoint3({{"ticket-cmd"}, {location3}});
@@ -603,13 +599,12 @@ std::vector<FlightInfo> ExampleFlightInfo() {
   auto schema3 = ExampleDictSchema();
   auto schema4 = ExampleFloatSchema();
 
-  ARROW_EXPECT_OK(
-      MakeFlightInfo(*schema1, descr1, {endpoint1, endpoint2}, 1000, 100000, &flight1));
-  ARROW_EXPECT_OK(MakeFlightInfo(*schema2, descr2, {endpoint3}, 1000, 100000, &flight2));
-  ARROW_EXPECT_OK(MakeFlightInfo(*schema3, descr3, {endpoint4}, -1, -1, &flight3));
-  ARROW_EXPECT_OK(MakeFlightInfo(*schema4, descr4, {endpoint5}, 1000, 100000, &flight4));
-  return {FlightInfo(flight1), FlightInfo(flight2), FlightInfo(flight3),
-          FlightInfo(flight4)};
+  return {
+      MakeFlightInfo(*schema1, descr1, {endpoint1, endpoint2}, 1000, 100000),
+      MakeFlightInfo(*schema2, descr2, {endpoint3}, 1000, 100000),
+      MakeFlightInfo(*schema3, descr3, {endpoint4}, -1, -1),
+      MakeFlightInfo(*schema4, descr4, {endpoint5}, 1000, 100000),
+  };
 }
 
 Status ExampleIntBatches(RecordBatchVector* out) {

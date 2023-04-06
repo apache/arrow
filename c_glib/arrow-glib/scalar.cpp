@@ -340,10 +340,10 @@ garrow_scalar_equal_options(GArrowScalar *scalar,
     if (is_approx) {
       return arrow_scalar->ApproxEquals(*arrow_other_scalar, *arrow_options);
     } else {
-      return arrow_scalar->Equals(arrow_other_scalar, *arrow_options);
+      return arrow_scalar->Equals(*arrow_other_scalar, *arrow_options);
     }
   } else {
-    return arrow_scalar->Equals(arrow_other_scalar);
+    return arrow_scalar->Equals(*arrow_other_scalar);
   }
 }
 
@@ -361,7 +361,8 @@ gchar *
 garrow_scalar_to_string(GArrowScalar *scalar)
 {
   const auto arrow_scalar = garrow_scalar_get_raw(scalar);
-  return g_strdup(arrow_scalar->ToString().c_str());
+  const auto string = arrow_scalar->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**

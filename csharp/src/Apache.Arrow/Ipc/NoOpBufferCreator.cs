@@ -22,6 +22,11 @@ namespace Apache.Arrow.Ipc
     /// </summary>
     internal sealed class NoOpBufferCreator : IBufferCreator
     {
+        /// <summary>
+        /// Singleton instance, used as this class doesn't need to be disposed and has no state
+        /// </summary>
+        public static readonly NoOpBufferCreator Instance = new NoOpBufferCreator();
+
         public ArrowBuffer CreateBuffer(ReadOnlyMemory<byte> source)
         {
             return new ArrowBuffer(source);

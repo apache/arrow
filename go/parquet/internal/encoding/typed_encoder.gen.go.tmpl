@@ -187,6 +187,29 @@ func (enc *Dict{{.Name}}Encoder) PutSpaced(in []{{.name}}, validBits []byte, val
     return nil
   })
 }
+
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *Dict{{.Name}}Encoder) PutDictionary(values arrow.Array) error {
+  if err := enc.canPutDictionary(values); err != nil {
+    return err
+  }
+
+  enc.dictEncodedSize += values.Len() * arrow.{{.Name}}SizeBytes
+  data := values.(*array.{{.Name}}).{{.Name}}Values()
+  for _, v := range data {
+    if _, _, err := enc.memo.GetOrInsert(v); err != nil {
+      return err
+    }
+  }
+
+  values.Retain()
+  enc.preservedDict = values
+  return nil
+}
 {{else}}
 // WriteDict populates the byte slice with the dictionary index
 func (enc *DictInt96Encoder) WriteDict(out []byte) {
@@ -214,6 +237,15 @@ func (enc *DictInt96Encoder) PutSpaced(in []parquet.Int96, validBits []byte, val
     return nil
   })
 }
+
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *DictInt96Encoder) PutDictionary(arrow.Array) error {
+  return fmt.Errorf("%w: direct PutDictionary to Int96", arrow.ErrNotImplemented)
+}
 {{end}}
 {{end}}
 
@@ -238,8 +270,7 @@ func (d *Dict{{.Name}}Decoder) Decode(out []{{.name}}) (int, error) {
   }
   if vals != decoded {
     return decoded, xerrors.New("parquet: dict eof exception")
-  }
-  d.nvals -= vals
+  }  
   return vals, nil
 }
 
@@ -253,8 +284,7 @@ func (d *Dict{{.Name}}Decoder) DecodeSpaced(out []{{.name}}, nullCount int, vali
   }
   if vals != decoded {
     return decoded, xerrors.New("parquet: dict spaced eof exception")
-  }
-  d.nvals -= vals
+  }  
   return vals, nil
 }
 

@@ -20,6 +20,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/bitutil"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/apache/arrow/go/v12/internal/utils"
@@ -91,6 +92,22 @@ type DictEncoder interface {
 	WriteDict(out []byte)
 	// NumEntries returns the number of values currently in the dictionary index.
 	NumEntries() int
+	// PutDictionary allows pre-seeding a dictionary encoder with
+	// a dictionary from an Arrow Array.
+	//
+	// The passed in array must not have any nulls and this can only
+	// be called on an empty encoder. The dictionary passed in will
+	// be stored internally as a preserved dictionary, and will be
+	// released when this encoder is reset or released.
+	PutDictionary(arrow.Array) error
+	// PreservedDictionary returns the currently stored preserved dict
+	// from PutDictionary or nil.
+	PreservedDictionary() arrow.Array
+	// PutIndices adds the indices from the passed in integral array to
+	// the column data. It is assumed that the indices are within the bounds
+	// of [0,dictSize) and is not validated. Returns an error if a non-integral
+	// array is passed.
+	PutIndices(arrow.Array) error
 }
 
 var bufferPool = sync.Pool{

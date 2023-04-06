@@ -962,10 +962,20 @@ func (v *vectorExecutor) Execute(ctx context.Context, batch *ExecBatch, data cha
 func (v *vectorExecutor) WrapResults(ctx context.Context, out <-chan Datum, hasChunked bool) Datum {
 	// if kernel doesn't output chunked, just grab the one output and return it
 	if !v.kernel.(*exec.VectorKernel).OutputChunked {
+		var output Datum
 		select {
 		case <-ctx.Done():
 			return nil
-		case output := <-out:
+		case output = <-out:
+		}
+
+		// we got an output datum, but let's wait for the channel to
+		// close so we don't have any race conditions
+		select {
+		case <-ctx.Done():
+			output.Release()
+			return nil
+		case <-out:
 			return output
 		}
 	}

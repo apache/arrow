@@ -144,7 +144,7 @@ func (a *Struct) setData(data *Data) {
 	}
 }
 
-func (a *Struct) getOneForMarshal(i int) interface{} {
+func (a *Struct) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -152,7 +152,7 @@ func (a *Struct) getOneForMarshal(i int) interface{} {
 	tmp := make(map[string]interface{})
 	fieldList := a.data.dtype.(*arrow.StructType).Fields()
 	for j, d := range a.fields {
-		tmp[fieldList[j].Name] = d.(arraymarshal).getOneForMarshal(i)
+		tmp[fieldList[j].Name] = d.(arraymarshal).GetOneForMarshal(i)
 	}
 	return tmp
 }
@@ -166,7 +166,7 @@ func (a *Struct) MarshalJSON() ([]byte, error) {
 		if i != 0 {
 			buf.WriteByte(',')
 		}
-		if err := enc.Encode(a.getOneForMarshal(i)); err != nil {
+		if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
 			return nil, err
 		}
 	}
@@ -351,7 +351,7 @@ func (b *StructBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *StructBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *StructBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -385,7 +385,7 @@ func (b *StructBuilder) unmarshalOne(dec *json.Decoder) error {
 				continue
 			}
 
-			if err := b.fields[idx].unmarshalOne(dec); err != nil {
+			if err := b.fields[idx].UnmarshalOne(dec); err != nil {
 				return err
 			}
 		}
@@ -415,9 +415,9 @@ func (b *StructBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *StructBuilder) unmarshal(dec *json.Decoder) error {
+func (b *StructBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -435,7 +435,7 @@ func (b *StructBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("struct builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

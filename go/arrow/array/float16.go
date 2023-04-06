@@ -71,7 +71,7 @@ func (a *Float16) setData(data *Data) {
 	}
 }
 
-func (a *Float16) getOneForMarshal(i int) interface{} {
+func (a *Float16) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.values[i].Float32()
 	}

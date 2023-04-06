@@ -187,4 +187,4 @@ Connection to the specific language development pages:
 
    .. tab-item:: Ruby
 
-      * `Red Arrow - Apache Arrow Ruby <https://github.com/apache/arrow/tree/master/ruby/red-arrow#development>`_
+      * `Red Arrow - Apache Arrow Ruby <https://github.com/apache/arrow/tree/main/ruby/red-arrow#development>`_

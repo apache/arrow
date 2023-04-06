@@ -344,3 +344,18 @@ func VisitSetBitRuns(bitmap []byte, bitmapOffset int64, length int64, visitFn Vi
 	}
 	return nil
 }
+
+func VisitSetBitRunsNoErr(bitmap []byte, bitmapOffset int64, length int64, visitFn func(pos, length int64)) {
+	if bitmap == nil {
+		visitFn(0, length)
+		return
+	}
+	rdr := NewSetBitRunReader(bitmap, bitmapOffset, length)
+	for {
+		run := rdr.NextRun()
+		if run.Length == 0 {
+			break
+		}
+		visitFn(run.Pos, run.Length)
+	}
+}

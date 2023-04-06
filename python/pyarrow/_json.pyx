@@ -21,10 +21,9 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (check_status, _Weakrefable, Field, MemoryPool,
-                          ensure_type, maybe_unbox_memory_pool,
+from pyarrow.lib cimport (_Weakrefable, MemoryPool,
+                          maybe_unbox_memory_pool,
                           get_input_stream, pyarrow_wrap_table,
-                          pyarrow_wrap_data_type, pyarrow_unwrap_data_type,
                           pyarrow_wrap_schema, pyarrow_unwrap_schema)
 
 

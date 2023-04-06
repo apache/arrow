@@ -499,6 +499,26 @@ TEST(RandomList, Basics) {
   }
 }
 
+TEST(RandomRunEndEncoded, Basics) {
+  random::RandomArrayGenerator rng(42);
+  for (const double null_probability : {0.0, 0.1, 1.0}) {
+    SCOPED_TRACE("null_probability = " + std::to_string(null_probability));
+    auto array = rng.ArrayOf(run_end_encoded(int32(), int16()), 12345, null_probability);
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->length(), 12345);
+    const auto& ree_array = checked_cast<const RunEndEncodedArray&>(*array);
+    ASSERT_EQ(*ree_array.type(), *run_end_encoded(int32(), int16()));
+    const int64_t physical_length = ree_array.run_ends()->length();
+    ASSERT_EQ(ree_array.values()->length(), physical_length);
+    if (null_probability == 0.0) {
+      ASSERT_EQ(ree_array.values()->null_count(), 0);
+    }
+    if (null_probability == 1.0) {
+      ASSERT_EQ(ree_array.values()->null_count(), physical_length);
+    }
+  }
+}
+
 template <typename T>
 class UniformRealTest : public ::testing::Test {
  protected:

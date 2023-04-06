@@ -309,3 +309,61 @@ func TestConvertArrowStruct(t *testing.T) {
 		assert.Truef(t, parquetSchema.Column(i).Equals(result.Column(i)), "Column %d didn't match: %s", i, parquetSchema.Column(i).Name())
 	}
 }
+
+func TestListStructBackwardCompatible(t *testing.T) {
+	// Set up old construction for list of struct, not using
+	// the 3-level encoding. Schema looks like:
+	//
+	//     required group field_id=-1 root {
+	//       optional group field_id=-1 answers (List) {
+	//		   repeated group field_id=-1 array {
+	//           optional byte_array field_id=-1 type (String);
+	//           optional byte_array field_id=-1 rdata (String);
+	//           optional byte_array field_id=-1 class (String);
+	//         }
+	//       }
+	//     }
+	//
+	// Instaed of the proper 3-level encoding which would be:
+	//
+	//     repeated group field_id=-1 schema {
+	//       optional group field_id=-1 answers (List) {
+	//         repeated group field_id=-1 list {
+	//           optional group field_id=-1 element {
+	//             optional byte_array field_id=-1 type (String);
+	//             optional byte_array field_id=-1 rdata (String);
+	//             optional byte_array field_id=-1 class (String);
+	//           }
+	//         }
+	//       }
+	//     }
+	//
+	pqSchema := schema.NewSchema(schema.MustGroup(schema.NewGroupNode("root", parquet.Repetitions.Required, schema.FieldList{
+		schema.Must(schema.NewGroupNodeLogical("answers", parquet.Repetitions.Optional, schema.FieldList{
+			schema.Must(schema.NewGroupNode("array", parquet.Repetitions.Repeated, schema.FieldList{
+				schema.MustPrimitive(schema.NewPrimitiveNodeLogical("type", parquet.Repetitions.Optional,
+					schema.StringLogicalType{}, parquet.Types.ByteArray, -1, -1)),
+				schema.MustPrimitive(schema.NewPrimitiveNodeLogical("rdata", parquet.Repetitions.Optional,
+					schema.StringLogicalType{}, parquet.Types.ByteArray, -1, -1)),
+				schema.MustPrimitive(schema.NewPrimitiveNodeLogical("class", parquet.Repetitions.Optional,
+					schema.StringLogicalType{}, parquet.Types.ByteArray, -1, -1)),
+			}, -1)),
+		}, schema.NewListLogicalType(), -1)),
+	}, -1)))
+
+	meta := arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})
+	// desired equivalent arrow schema would be list<item: struct<type: utf8, rdata: utf8, class: utf8>>
+	arrowSchema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "answers", Type: arrow.ListOfField(arrow.Field{
+				Name: "array", Type: arrow.StructOf(
+					arrow.Field{Name: "type", Type: arrow.BinaryTypes.String, Nullable: true, Metadata: meta},
+					arrow.Field{Name: "rdata", Type: arrow.BinaryTypes.String, Nullable: true, Metadata: meta},
+					arrow.Field{Name: "class", Type: arrow.BinaryTypes.String, Nullable: true, Metadata: meta},
+				), Nullable: true}), Nullable: true, Metadata: meta},
+		}, nil)
+
+	arrsc, err := pqarrow.FromParquet(pqSchema, nil, metadata.KeyValueMetadata{})
+	assert.NoError(t, err)
+	assert.True(t, arrowSchema.Equal(arrsc))
+}

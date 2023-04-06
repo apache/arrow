@@ -18,6 +18,8 @@
 // ----------------------------------------------------------------------
 // Tests for Flight which don't actually spin up a client/server
 
+#include <type_traits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -40,129 +42,256 @@ namespace pb = arrow::flight::protocol;
 // ----------------------------------------------------------------------
 // Core Flight types
 
-TEST(FlightTypes, FlightDescriptor) {
-  auto a = FlightDescriptor::Command("select * from table");
-  auto b = FlightDescriptor::Command("select * from table");
-  auto c = FlightDescriptor::Command("select foo from table");
-  auto d = FlightDescriptor::Path({"foo", "bar"});
-  auto e = FlightDescriptor::Path({"foo", "baz"});
-  auto f = FlightDescriptor::Path({"foo", "baz"});
+template <typename PbType, typename FlightType>
+void TestRoundtrip(const std::vector<FlightType>& values,
+                   const std::vector<std::string>& reprs) {
+  for (size_t i = 0; i < values.size(); i++) {
+    ARROW_SCOPED_TRACE("LHS = ", values[i].ToString());
+    for (size_t j = 0; j < values.size(); j++) {
+      ARROW_SCOPED_TRACE("RHS = ", values[j].ToString());
+      if (i == j) {
+        EXPECT_EQ(values[i], values[j]);
+        EXPECT_TRUE(values[i].Equals(values[j]));
+      } else {
+        EXPECT_NE(values[i], values[j]);
+        EXPECT_FALSE(values[i].Equals(values[j]));
+      }
+    }
+    EXPECT_EQ(values[i].ToString(), reprs[i]);
 
-  ASSERT_EQ(a.ToString(), "FlightDescriptor<cmd = 'select * from table'>");
-  ASSERT_EQ(d.ToString(), "FlightDescriptor<path = 'foo/bar'>");
-  ASSERT_TRUE(a.Equals(b));
-  ASSERT_FALSE(a.Equals(c));
-  ASSERT_FALSE(a.Equals(d));
-  ASSERT_FALSE(d.Equals(e));
-  ASSERT_TRUE(e.Equals(f));
-}
+    ASSERT_OK_AND_ASSIGN(std::string serialized, values[i].SerializeToString());
+    ASSERT_OK_AND_ASSIGN(auto deserialized, FlightType::Deserialize(serialized));
+    if constexpr (std::is_same_v<FlightType, FlightInfo>) {
+      EXPECT_EQ(values[i], *deserialized);
+    } else {
+      EXPECT_EQ(values[i], deserialized);
+    }
 
 // This tests the internal protobuf types which don't get exported in the Flight DLL.
 #ifndef _WIN32
-TEST(FlightTypes, FlightDescriptorToFromProto) {
-  FlightDescriptor descr_test;
-  pb::FlightDescriptor pb_descr;
+    PbType pb_value;
+    ASSERT_OK(internal::ToProto(values[i], &pb_value));
 
-  FlightDescriptor descr1{FlightDescriptor::PATH, "", {"foo", "bar"}};
-  ASSERT_OK(internal::ToProto(descr1, &pb_descr));
-  ASSERT_OK(internal::FromProto(pb_descr, &descr_test));
-  ASSERT_EQ(descr1, descr_test);
-
-  FlightDescriptor descr2{FlightDescriptor::CMD, "command", {}};
-  ASSERT_OK(internal::ToProto(descr2, &pb_descr));
-  ASSERT_OK(internal::FromProto(pb_descr, &descr_test));
-  ASSERT_EQ(descr2, descr_test);
-}
+    if constexpr (std::is_same_v<FlightType, FlightInfo>) {
+      FlightInfo::Data data;
+      ASSERT_OK(internal::FromProto(pb_value, &data));
+      FlightInfo value(std::move(data));
+      EXPECT_EQ(values[i], value);
+    } else if constexpr (std::is_same_v<FlightType, SchemaResult>) {
+      std::string data;
+      ASSERT_OK(internal::FromProto(pb_value, &data));
+      SchemaResult value(std::move(data));
+      EXPECT_EQ(values[i], value);
+    } else {
+      FlightType value;
+      ASSERT_OK(internal::FromProto(pb_value, &value));
+      EXPECT_EQ(values[i], value);
+    }
 #endif
+  }
+}
+
+TEST(FlightTypes, Action) {
+  std::vector<Action> values = {
+      {"type", Buffer::FromString("")},
+      {"type", Buffer::FromString("foo")},
+      {"type", Buffer::FromString("bar")},
+  };
+  std::vector<std::string> reprs = {
+      "<Action type='type' body=(0 bytes)>",
+      "<Action type='type' body=(3 bytes)>",
+      "<Action type='type' body=(3 bytes)>",
+  };
+
+  ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::Action>(values, reprs));
+
+  // This doesn't roundtrip since we don't differentiate between no
+  // body and empty body on the wire
+  Action action{"", nullptr};
+  ASSERT_EQ("<Action type='' body=(nullptr)>", action.ToString());
+  ASSERT_NE(values[0], action);
+  ASSERT_EQ(action, action);
+}
+
+TEST(FlightTypes, ActionType) {
+  std::vector<ActionType> values = {
+      {"", ""},
+      {"type", ""},
+      {"type", "descr"},
+      {"", "descr"},
+  };
+  std::vector<std::string> reprs = {
+      "<ActionType type='' description=''>",
+      "<ActionType type='type' description=''>",
+      "<ActionType type='type' description='descr'>",
+      "<ActionType type='' description='descr'>",
+  };
+
+  ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::ActionType>(values, reprs));
+}
+
+TEST(FlightTypes, BasicAuth) {
+  std::vector<BasicAuth> values = {
+      {"", ""},
+      {"user", ""},
+      {"", "pass"},
+      {"user", "pass"},
+  };
+  std::vector<std::string> reprs = {
+      "<BasicAuth username='' password=(redacted)>",
+      "<BasicAuth username='user' password=(redacted)>",
+      "<BasicAuth username='' password=(redacted)>",
+      "<BasicAuth username='user' password=(redacted)>",
+  };
+
+  ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::BasicAuth>(values, reprs));
+}
+
+TEST(FlightTypes, Criteria) {
+  std::vector<Criteria> values = {{""}, {"criteria"}};
+  std::vector<std::string> reprs = {"<Criteria expression=''>",
+                                    "<Criteria expression='criteria'>"};
+  ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::Criteria>(values, reprs));
+}
+
+TEST(FlightTypes, FlightDescriptor) {
+  std::vector<FlightDescriptor> values = {
+      FlightDescriptor::Command(""),
+      FlightDescriptor::Command("\x01"),
+      FlightDescriptor::Command("select * from table"),
+      FlightDescriptor::Command("select foo from table"),
+      FlightDescriptor::Path({}),
+      FlightDescriptor::Path({"foo", "baz"}),
+  };
+  std::vector<std::string> reprs = {
+      "<FlightDescriptor cmd=''>",
+      "<FlightDescriptor cmd='\x01'>",
+      "<FlightDescriptor cmd='select * from table'>",
+      "<FlightDescriptor cmd='select foo from table'>",
+      "<FlightDescriptor path=''>",
+      "<FlightDescriptor path='foo/baz'>",
+  };
+
+  ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::FlightDescriptor>(values, reprs));
+}
+
+TEST(FlightTypes, FlightEndpoint) {
+  ASSERT_OK_AND_ASSIGN(auto location1, Location::ForGrpcTcp("localhost", 1024));
+  ASSERT_OK_AND_ASSIGN(auto location2, Location::ForGrpcTls("localhost", 1024));
+  std::vector<FlightEndpoint> values = {
+      {{""}, {}},
+      {{"foo"}, {}},
+      {{"bar"}, {}},
+      {{"foo"}, {location1}},
+      {{"bar"}, {location1}},
+      {{"foo"}, {location2}},
+      {{"foo"}, {location1, location2}},
+  };
+  std::vector<std::string> reprs = {
+      "<FlightEndpoint ticket=<Ticket ticket=''> locations=[]>",
+      "<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[]>",
+      "<FlightEndpoint ticket=<Ticket ticket='bar'> locations=[]>",
+      "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
+      "[grpc+tcp://localhost:1024]>",
+      "<FlightEndpoint ticket=<Ticket ticket='bar'> locations="
+      "[grpc+tcp://localhost:1024]>",
+      "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
+      "[grpc+tls://localhost:1024]>",
+      "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
+      "[grpc+tcp://localhost:1024, grpc+tls://localhost:1024]>",
+  };
+
+  ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::FlightEndpoint>(values, reprs));
+}
+
+TEST(FlightTypes, FlightInfo) {
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 1234));
+  Schema schema1({field("ints", int64())});
+  Schema schema2({});
+  auto desc1 = FlightDescriptor::Command("foo");
+  auto desc2 = FlightDescriptor::Command("bar");
+  auto endpoint1 = FlightEndpoint{Ticket{"foo"}, {}};
+  auto endpoint2 = FlightEndpoint{Ticket{"foo"}, {location}};
+  std::vector<FlightInfo> values = {
+      MakeFlightInfo(schema1, desc1, {}, -1, -1),
+      MakeFlightInfo(schema1, desc2, {}, -1, -1),
+      MakeFlightInfo(schema2, desc1, {}, -1, -1),
+      MakeFlightInfo(schema1, desc1, {endpoint1}, -1, 42),
+      MakeFlightInfo(schema1, desc2, {endpoint1, endpoint2}, 64, -1),
+  };
+  std::vector<std::string> reprs = {
+      "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='foo'> "
+      "endpoints=[] total_records=-1 total_bytes=-1>",
+      "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='bar'> "
+      "endpoints=[] total_records=-1 total_bytes=-1>",
+      "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='foo'> "
+      "endpoints=[] total_records=-1 total_bytes=-1>",
+      "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='foo'> "
+      "endpoints=[<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[]>] "
+      "total_records=-1 total_bytes=42>",
+      "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='bar'> "
+      "endpoints=[<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[]>, "
+      "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
+      "[grpc+tcp://localhost:1234]>] total_records=64 total_bytes=-1>",
+  };
+
+  ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::FlightInfo>(values, reprs));
+}
+
+TEST(FlightTypes, Result) {
+  std::vector<Result> values = {
+      {Buffer::FromString("")},
+      {Buffer::FromString("foo")},
+      {Buffer::FromString("bar")},
+  };
+  std::vector<std::string> reprs = {
+      "<Result body=(0 bytes)>",
+      "<Result body=(3 bytes)>",
+      "<Result body=(3 bytes)>",
+  };
+
+  ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::Result>(values, reprs));
+
+  // This doesn't roundtrip since we don't differentiate between no
+  // body and empty body on the wire
+  Result result{nullptr};
+  ASSERT_EQ("<Result body=(nullptr)>", result.ToString());
+  ASSERT_NE(values[0], result);
+  ASSERT_EQ(result, result);
+}
+
+TEST(FlightTypes, SchemaResult) {
+  ASSERT_OK_AND_ASSIGN(auto value1, SchemaResult::Make(Schema({})));
+  ASSERT_OK_AND_ASSIGN(auto value2, SchemaResult::Make(Schema({field("foo", int64())})));
+  std::vector<SchemaResult> values = {*value1, *value2};
+  std::vector<std::string> reprs = {
+      "<SchemaResult raw_schema=(serialized)>",
+      "<SchemaResult raw_schema=(serialized)>",
+  };
+
+  ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::SchemaResult>(values, reprs));
+}
+
+TEST(FlightTypes, Ticket) {
+  std::vector<Ticket> values = {
+      {""},
+      {"foo"},
+      {"bar"},
+  };
+  std::vector<std::string> reprs = {
+      "<Ticket ticket=''>",
+      "<Ticket ticket='foo'>",
+      "<Ticket ticket='bar'>",
+  };
+
+  ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::Ticket>(values, reprs));
+}
 
 // ARROW-6017: we should be able to construct locations for unknown
 // schemes
 TEST(FlightTypes, LocationUnknownScheme) {
   ASSERT_OK(Location::Parse("s3://test"));
   ASSERT_OK(Location::Parse("https://example.com/foo"));
-}
-
-TEST(FlightTypes, RoundTripTypes) {
-  ActionType action_type{"action-type1", "action-type1-description"};
-  ASSERT_OK_AND_ASSIGN(std::string action_type_serialized,
-                       action_type.SerializeToString());
-  ASSERT_OK_AND_ASSIGN(ActionType action_type_deserialized,
-                       ActionType::Deserialize(action_type_serialized));
-  ASSERT_EQ(action_type, action_type_deserialized);
-
-  Criteria criteria{"criteria1"};
-  ASSERT_OK_AND_ASSIGN(std::string criteria_serialized, criteria.SerializeToString());
-  ASSERT_OK_AND_ASSIGN(Criteria criteria_deserialized,
-                       Criteria::Deserialize(criteria_serialized));
-  ASSERT_EQ(criteria, criteria_deserialized);
-
-  Action action{"action1", Buffer::FromString("action1-content")};
-  ASSERT_OK_AND_ASSIGN(std::string action_serialized, action.SerializeToString());
-  ASSERT_OK_AND_ASSIGN(Action action_deserialized,
-                       Action::Deserialize(action_serialized));
-  ASSERT_EQ(action, action_deserialized);
-
-  Result result{Buffer::FromString("result1-content")};
-  ASSERT_OK_AND_ASSIGN(std::string result_serialized, result.SerializeToString());
-  ASSERT_OK_AND_ASSIGN(Result result_deserialized,
-                       Result::Deserialize(result_serialized));
-  ASSERT_EQ(result, result_deserialized);
-
-  BasicAuth basic_auth{"username1", "password1"};
-  ASSERT_OK_AND_ASSIGN(std::string basic_auth_serialized, basic_auth.SerializeToString());
-  ASSERT_OK_AND_ASSIGN(BasicAuth basic_auth_deserialized,
-                       BasicAuth::Deserialize(basic_auth_serialized));
-  ASSERT_EQ(basic_auth, basic_auth_deserialized);
-
-  SchemaResult schema_result{"schema_result1"};
-  ASSERT_OK_AND_ASSIGN(std::string schema_result_serialized,
-                       schema_result.SerializeToString());
-  ASSERT_OK_AND_ASSIGN(SchemaResult schema_result_deserialized,
-                       SchemaResult::Deserialize(schema_result_serialized));
-  ASSERT_EQ(schema_result, schema_result_deserialized);
-
-  Ticket ticket{"foo"};
-  ASSERT_OK_AND_ASSIGN(std::string ticket_serialized, ticket.SerializeToString());
-  ASSERT_OK_AND_ASSIGN(Ticket ticket_deserialized,
-                       Ticket::Deserialize(ticket_serialized));
-  ASSERT_EQ(ticket, ticket_deserialized);
-
-  FlightDescriptor desc = FlightDescriptor::Command("select * from foo;");
-  ASSERT_OK_AND_ASSIGN(std::string desc_serialized, desc.SerializeToString());
-  ASSERT_OK_AND_ASSIGN(FlightDescriptor desc_deserialized,
-                       FlightDescriptor::Deserialize(desc_serialized));
-  ASSERT_EQ(desc, desc_deserialized);
-
-  desc = FlightDescriptor::Path({"a", "b", "test.arrow"});
-  ASSERT_OK_AND_ASSIGN(desc_serialized, desc.SerializeToString());
-  ASSERT_OK_AND_ASSIGN(desc_deserialized, FlightDescriptor::Deserialize(desc_serialized));
-  ASSERT_EQ(desc, desc_deserialized);
-
-  FlightInfo::Data data;
-  std::shared_ptr<Schema> schema =
-      arrow::schema({field("a", int64()), field("b", int64()), field("c", int64()),
-                     field("d", int64())});
-  ASSERT_OK_AND_ASSIGN(auto location1, Location::ForGrpcTcp("localhost", 10010));
-  ASSERT_OK_AND_ASSIGN(auto location2, Location::ForGrpcTls("localhost", 10010));
-  ASSERT_OK_AND_ASSIGN(auto location3, Location::ForGrpcUnix("/tmp/test.sock"));
-  std::vector<FlightEndpoint> endpoints{FlightEndpoint{ticket, {location1, location2}},
-                                        FlightEndpoint{ticket, {location3}}};
-  ASSERT_OK(MakeFlightInfo(*schema, desc, endpoints, -1, -1, &data));
-  auto info = std::make_unique<FlightInfo>(data);
-  ASSERT_OK_AND_ASSIGN(std::string info_serialized, info->SerializeToString());
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<FlightInfo> info_deserialized,
-                       FlightInfo::Deserialize(info_serialized));
-  ASSERT_EQ(info->descriptor(), info_deserialized->descriptor());
-  ASSERT_EQ(info->endpoints(), info_deserialized->endpoints());
-  ASSERT_EQ(info->total_records(), info_deserialized->total_records());
-  ASSERT_EQ(info->total_bytes(), info_deserialized->total_bytes());
-
-  FlightEndpoint flight_endpoint{ticket, {location1, location2}};
-  ASSERT_OK_AND_ASSIGN(std::string flight_endpoint_serialized,
-                       flight_endpoint.SerializeToString());
-  ASSERT_OK_AND_ASSIGN(FlightEndpoint flight_endpoint_deserialized,
-                       FlightEndpoint::Deserialize(flight_endpoint_serialized));
-  ASSERT_EQ(flight_endpoint, flight_endpoint_deserialized);
 }
 
 TEST(FlightTypes, RoundtripStatus) {

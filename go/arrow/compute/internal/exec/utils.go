@@ -102,6 +102,11 @@ func GetValues[T FixedWidthTypes](data arrow.ArrayData, i int) []T {
 	return ret[data.Offset():]
 }
 
+func GetOffsets[T int32 | int64](data arrow.ArrayData, i int) []T {
+	ret := unsafe.Slice((*T)(unsafe.Pointer(&data.Buffers()[i].Bytes()[0])), data.Offset()+data.Len()+1)
+	return ret[data.Offset():]
+}
+
 // GetSpanValues returns a properly typed slice by reinterpreting
 // the buffer at index i using unsafe.Slice. This will take into account
 // the offset of the given ArraySpan.
@@ -177,13 +182,14 @@ var typMap = map[reflect.Type]arrow.DataType{
 	reflect.TypeOf(arrow.Date64(0)): arrow.FixedWidthTypes.Date64,
 	reflect.TypeOf(true):            arrow.FixedWidthTypes.Boolean,
 	reflect.TypeOf(float16.Num{}):   arrow.FixedWidthTypes.Float16,
+	reflect.TypeOf([]byte{}):        arrow.BinaryTypes.Binary,
 }
 
 // GetDataType returns the appropriate arrow.DataType for the given type T
 // only for non-parametric types. This uses a map and reflection internally
 // so don't call this in a tight loop, instead call this once and then use
 // a closure with the result.
-func GetDataType[T NumericTypes | bool | string | float16.Num]() arrow.DataType {
+func GetDataType[T NumericTypes | bool | string | []byte | float16.Num]() arrow.DataType {
 	var z T
 	return typMap[reflect.TypeOf(z)]
 }

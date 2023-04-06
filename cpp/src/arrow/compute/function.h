@@ -65,9 +65,6 @@ class ARROW_EXPORT FunctionOptions : public util::EqualityComparable<FunctionOpt
   const char* type_name() const { return options_type()->type_name(); }
 
   bool Equals(const FunctionOptions& other) const;
-  using util::EqualityComparable<FunctionOptions>::Equals;
-  using util::EqualityComparable<FunctionOptions>::operator==;
-  using util::EqualityComparable<FunctionOptions>::operator!=;
   std::string ToString() const;
   std::unique_ptr<FunctionOptions> Copy() const;
   /// \brief Serialize an options struct to a buffer.

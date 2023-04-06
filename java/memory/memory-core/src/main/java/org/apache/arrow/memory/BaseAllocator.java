@@ -234,6 +234,45 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   }
 
   @Override
+  public ArrowBuf wrapForeignAllocation(ForeignAllocation allocation) {
+    assertOpen();
+    final long size = allocation.getSize();
+    listener.onPreAllocation(size);
+    AllocationOutcome outcome = this.allocateBytes(size);
+    if (!outcome.isOk()) {
+      if (listener.onFailedAllocation(size, outcome)) {
+        // Second try, in case the listener can do something about it
+        outcome = this.allocateBytes(size);
+      }
+      if (!outcome.isOk()) {
+        throw new OutOfMemoryException(createErrorMsg(this, size,
+            size), outcome.getDetails());
+      }
+    }
+    try {
+      final AllocationManager manager = new ForeignAllocationManager(this, allocation);
+      final BufferLedger ledger = manager.associate(this);
+      final ArrowBuf buf =
+          new ArrowBuf(ledger, /*bufferManager=*/null, size, allocation.memoryAddress());
+      buf.writerIndex(size);
+      listener.onAllocation(size);
+      return buf;
+    } catch (Throwable t) {
+      try {
+        releaseBytes(size);
+      } catch (Throwable e) {
+        t.addSuppressed(e);
+      }
+      try {
+        allocation.release0();
+      } catch (Throwable e) {
+        t.addSuppressed(e);
+      }
+      throw t;
+    }
+  }
+
+  @Override
   public ArrowBuf buffer(final long initialRequestSize) {
     assertOpen();
 

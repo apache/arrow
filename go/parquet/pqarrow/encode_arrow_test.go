@@ -46,7 +46,8 @@ import (
 )
 
 func makeSimpleTable(values *arrow.Chunked, nullable bool) arrow.Table {
-	sc := arrow.NewSchema([]arrow.Field{{Name: "col", Type: values.DataType(), Nullable: nullable}}, nil)
+	sc := arrow.NewSchema([]arrow.Field{{Name: "col", Type: values.DataType(), Nullable: nullable,
+		Metadata: arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})}}, nil)
 	column := arrow.NewColumn(sc.Field(0), values)
 	defer column.Release()
 	return array.NewTable(sc, []arrow.Column{*column}, -1)
@@ -375,6 +376,8 @@ func TestArrowReadWriteTableChunkedCols(t *testing.T) {
 // that generate them which we export
 func getLogicalType(typ arrow.DataType) schema.LogicalType {
 	switch typ.ID() {
+	case arrow.DICTIONARY:
+		return getLogicalType(typ.(*arrow.DictionaryType).ValueType)
 	case arrow.INT8:
 		return schema.NewIntLogicalType(8, true)
 	case arrow.UINT8:
@@ -431,6 +434,8 @@ func getLogicalType(typ arrow.DataType) schema.LogicalType {
 
 func getPhysicalType(typ arrow.DataType) parquet.Type {
 	switch typ.ID() {
+	case arrow.DICTIONARY:
+		return getPhysicalType(typ.(*arrow.DictionaryType).ValueType)
 	case arrow.BOOL:
 		return parquet.Types.Boolean
 	case arrow.UINT8, arrow.INT8, arrow.UINT16, arrow.INT16, arrow.UINT32, arrow.INT32:
@@ -490,6 +495,14 @@ func (ps *ParquetIOTestSuite) makeSimpleSchema(typ arrow.DataType, rep parquet.R
 		byteWidth = int32(typ.ByteWidth)
 	case *arrow.Decimal128Type:
 		byteWidth = pqarrow.DecimalSize(typ.Precision)
+	case *arrow.DictionaryType:
+		valuesType := typ.ValueType
+		switch dt := valuesType.(type) {
+		case *arrow.FixedSizeBinaryType:
+			byteWidth = int32(dt.ByteWidth)
+		case *arrow.Decimal128Type:
+			byteWidth = pqarrow.DecimalSize(dt.Precision)
+		}
 	}
 
 	pnode, _ := schema.NewPrimitiveNodeLogical("column1", rep, getLogicalType(typ), getPhysicalType(typ), int(byteWidth), -1)

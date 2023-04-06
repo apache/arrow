@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -319,12 +322,9 @@ public class TestServerMiddleware {
   static <T extends FlightServerMiddleware> void test(FlightProducer producer, List<ServerMiddlewarePair<T>> middleware,
       BiConsumer<BufferAllocator, FlightClient> body) {
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
-      final FlightServer server = FlightTestUtil
-          .getStartedServer(location -> {
-            final FlightServer.Builder builder = FlightServer.builder(allocator, location, producer);
-            middleware.forEach(pair -> builder.middleware(pair.key, pair.factory));
-            return builder.build();
-          });
+      final FlightServer.Builder builder = FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0), producer);
+      middleware.forEach(pair -> builder.middleware(pair.key, pair.factory));
+      final FlightServer server = builder.build().start();
       try (final FlightServer ignored = server;
           final FlightClient client = FlightClient.builder(allocator, server.getLocation()).build()
       ) {

@@ -72,6 +72,7 @@ class ApacheArrow < Formula
     # link against system libc++ instead of llvm provided libc++
     ENV.remove "HOMEBREW_LIBRARY_PATHS", Formula["llvm"].opt_lib
     args = %W[
+      -DARROW_ACERO=ON
       -DARROW_COMPUTE=ON
       -DARROW_CSV=ON
       -DARROW_DATASET=ON
@@ -86,7 +87,6 @@ class ApacheArrow < Formula
       -DARROW_MIMALLOC=ON
       -DARROW_ORC=ON
       -DARROW_PARQUET=ON
-      -DARROW_PLASMA=ON
       -DARROW_PROTOBUF_USE_SHARED=ON
       -DARROW_S3=ON
       -DARROW_WITH_BROTLI=ON

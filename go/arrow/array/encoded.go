@@ -200,12 +200,12 @@ func (r *RunEndEncoded) String() string {
 			buf.WriteByte(',')
 		}
 
-		value := r.values.(arraymarshal).getOneForMarshal(i)
+		value := r.values.(arraymarshal).GetOneForMarshal(i)
 		if byts, ok := value.(json.RawMessage); ok {
 			value = string(byts)
 		}
 		fmt.Fprintf(&buf, "{%d -> %v}",
-			r.ends.(arraymarshal).getOneForMarshal(i),
+			r.ends.(arraymarshal).GetOneForMarshal(i),
 			value)
 	}
 
@@ -213,9 +213,9 @@ func (r *RunEndEncoded) String() string {
 	return buf.String()
 }
 
-func (r *RunEndEncoded) getOneForMarshal(i int) interface{} {
+func (r *RunEndEncoded) GetOneForMarshal(i int) interface{} {
 	physIndex := encoded.FindPhysicalIndex(r.data, i+r.data.offset)
-	return r.values.(arraymarshal).getOneForMarshal(physIndex)
+	return r.values.(arraymarshal).GetOneForMarshal(physIndex)
 }
 
 func (r *RunEndEncoded) MarshalJSON() ([]byte, error) {
@@ -226,7 +226,7 @@ func (r *RunEndEncoded) MarshalJSON() ([]byte, error) {
 		if i != 0 {
 			buf.WriteByte(',')
 		}
-		if err := enc.Encode(r.getOneForMarshal(i)); err != nil {
+		if err := enc.Encode(r.GetOneForMarshal(i)); err != nil {
 			return nil, err
 		}
 	}
@@ -397,7 +397,7 @@ func (b *RunEndEncodedBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *RunEndEncodedBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *RunEndEncodedBuilder) UnmarshalOne(dec *json.Decoder) error {
 	var value interface{}
 	if err := dec.Decode(&value); err != nil {
 		return err
@@ -422,13 +422,13 @@ func (b *RunEndEncodedBuilder) unmarshalOne(dec *json.Decoder) error {
 
 	b.Append(1)
 	b.lastUnmarshalled = value
-	return b.ValueBuilder().unmarshalOne(json.NewDecoder(bytes.NewReader(data)))
+	return b.ValueBuilder().UnmarshalOne(json.NewDecoder(bytes.NewReader(data)))
 }
 
-func (b *RunEndEncodedBuilder) unmarshal(dec *json.Decoder) error {
+func (b *RunEndEncodedBuilder) Unmarshal(dec *json.Decoder) error {
 	b.finishRun()
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -446,7 +446,7 @@ func (b *RunEndEncodedBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("list builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

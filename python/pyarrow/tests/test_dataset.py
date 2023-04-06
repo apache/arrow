@@ -714,15 +714,16 @@ def test_expression_arithmetic_operators():
 
 def test_partition_keys():
     a, b, c = [ds.field(f) == f for f in 'abc']
-    assert ds._get_partition_keys(a) == {'a': 'a'}
-    assert ds._get_partition_keys(a & b & c) == {f: f for f in 'abc'}
+    assert ds.get_partition_keys(a) == {'a': 'a'}
+    assert ds.get_partition_keys(a) == ds._get_partition_keys(a)
+    assert ds.get_partition_keys(a & b & c) == {f: f for f in 'abc'}
 
     nope = ds.field('d') >= 3
-    assert ds._get_partition_keys(nope) == {}
-    assert ds._get_partition_keys(a & nope) == {'a': 'a'}
+    assert ds.get_partition_keys(nope) == {}
+    assert ds.get_partition_keys(a & nope) == {'a': 'a'}
 
     null = ds.field('a').is_null()
-    assert ds._get_partition_keys(null) == {'a': None}
+    assert ds.get_partition_keys(null) == {'a': None}
 
 
 @pytest.mark.parquet
@@ -3640,12 +3641,12 @@ def test_dataset_preserved_partitioning(tempdir):
     # through discovery, but without partitioning
     _, path = _create_single_file(tempdir)
     dataset = ds.dataset(path)
-    assert dataset.partitioning is None
+    assert isinstance(dataset.partitioning, ds.DirectoryPartitioning)
 
     # through discovery, with hive partitioning but not specified
     full_table, path = _create_partitioned_dataset(tempdir)
     dataset = ds.dataset(path)
-    assert dataset.partitioning is None
+    assert isinstance(dataset.partitioning, ds.DirectoryPartitioning)
 
     # through discovery, with hive partitioning (from a partitioning factory)
     dataset = ds.dataset(path, partitioning="hive")

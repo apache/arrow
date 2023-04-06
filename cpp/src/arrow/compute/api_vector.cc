@@ -118,23 +118,6 @@ namespace compute {
 // ----------------------------------------------------------------------
 // Function options
 
-bool SortKey::Equals(const SortKey& other) const {
-  return target == other.target && order == other.order;
-}
-std::string SortKey::ToString() const {
-  std::stringstream ss;
-  ss << target.ToString() << ' ';
-  switch (order) {
-    case SortOrder::Ascending:
-      ss << "ASC";
-      break;
-    case SortOrder::Descending:
-      ss << "DESC";
-      break;
-  }
-  return ss.str();
-}
-
 namespace internal {
 namespace {
 using ::arrow::internal::DataMember;
@@ -145,6 +128,8 @@ static auto kTakeOptionsType = GetFunctionOptionsType<TakeOptions>(
 static auto kDictionaryEncodeOptionsType =
     GetFunctionOptionsType<DictionaryEncodeOptions>(DataMember(
         "null_encoding_behavior", &DictionaryEncodeOptions::null_encoding_behavior));
+static auto kRunEndEncodeOptionsType = GetFunctionOptionsType<RunEndEncodeOptions>(
+    DataMember("run_end_type", &RunEndEncodeOptions::run_end_type));
 static auto kArraySortOptionsType = GetFunctionOptionsType<ArraySortOptions>(
     DataMember("order", &ArraySortOptions::order),
     DataMember("null_placement", &ArraySortOptions::null_placement));
@@ -182,6 +167,10 @@ DictionaryEncodeOptions::DictionaryEncodeOptions(NullEncodingBehavior null_encod
       null_encoding_behavior(null_encoding) {}
 constexpr char DictionaryEncodeOptions::kTypeName[];
 
+RunEndEncodeOptions::RunEndEncodeOptions(std::shared_ptr<DataType> run_end_type)
+    : FunctionOptions(internal::kRunEndEncodeOptionsType),
+      run_end_type{std::move(run_end_type)} {}
+
 ArraySortOptions::ArraySortOptions(SortOrder order, NullPlacement null_placement)
     : FunctionOptions(internal::kArraySortOptionsType),
       order(order),
@@ -192,6 +181,10 @@ SortOptions::SortOptions(std::vector<SortKey> sort_keys, NullPlacement null_plac
     : FunctionOptions(internal::kSortOptionsType),
       sort_keys(std::move(sort_keys)),
       null_placement(null_placement) {}
+SortOptions::SortOptions(const Ordering& ordering)
+    : FunctionOptions(internal::kSortOptionsType),
+      sort_keys(ordering.sort_keys()),
+      null_placement(ordering.null_placement()) {}
 constexpr char SortOptions::kTypeName[];
 
 PartitionNthOptions::PartitionNthOptions(int64_t pivot, NullPlacement null_placement)
@@ -231,6 +224,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kTakeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kDictionaryEncodeOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRunEndEncodeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kArraySortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
@@ -325,6 +319,15 @@ Result<std::shared_ptr<Array>> Unique(const Datum& value, ExecContext* ctx) {
 Result<Datum> DictionaryEncode(const Datum& value, const DictionaryEncodeOptions& options,
                                ExecContext* ctx) {
   return CallFunction("dictionary_encode", {value}, &options, ctx);
+}
+
+Result<Datum> RunEndEncode(const Datum& value, const RunEndEncodeOptions& options,
+                           ExecContext* ctx) {
+  return CallFunction("run_end_encode", {value}, &options, ctx);
+}
+
+Result<Datum> RunEndDecode(const Datum& value, ExecContext* ctx) {
+  return CallFunction("run_end_decode", {value}, ctx);
 }
 
 const char kValuesFieldName[] = "values";

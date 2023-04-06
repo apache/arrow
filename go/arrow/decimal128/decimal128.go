@@ -134,6 +134,11 @@ func (n Num) Div(rhs Num) (res, rem Num) {
 	return FromBigInt(out), FromBigInt(remainder)
 }
 
+func (n Num) Pow(rhs Num) Num {
+	b := n.BigInt()
+	return FromBigInt(b.Exp(b, rhs.BigInt(), nil))
+}
+
 func scalePositiveFloat64(v float64, prec, scale int32) (float64, error) {
 	var pscale float64
 	if scale >= -38 && scale <= 38 {
@@ -168,12 +173,16 @@ func fromPositiveFloat64(v float64, prec, scale int32) (Num, error) {
 // Aren't floating point values so much fun?
 //
 // example value to use:
-//    v := float32(1.8446746e+15)
+//
+//	v := float32(1.8446746e+15)
 //
 // You'll end up with a different values if you do:
-// 	  FromFloat64(float64(v), 20, 4)
+//
+//	FromFloat64(float64(v), 20, 4)
+//
 // vs
-//    FromFloat32(v, 20, 4)
+//
+//	FromFloat32(v, 20, 4)
 //
 // because float64(v) == 1844674629206016 rather than 1844674600000000
 func fromPositiveFloat32(v float32, prec, scale int32) (Num, error) {
@@ -297,7 +306,9 @@ func (n Num) HighBits() int64 { return n.hi }
 // Sign returns:
 //
 // -1 if x <  0
-//  0 if x == 0
+//
+//	0 if x == 0
+//
 // +1 if x >  0
 func (n Num) Sign() int {
 	if n == (Num{}) {

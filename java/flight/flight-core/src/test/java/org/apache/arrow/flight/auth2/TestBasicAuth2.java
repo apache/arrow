@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight.auth2;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.io.IOException;
 
 import org.apache.arrow.flight.CallStatus;
@@ -98,12 +101,11 @@ public class TestBasicAuth2 {
 
   private void startServerAndClient() throws IOException {
     final FlightProducer flightProducer = getFlightProducer();
-    this.server = FlightTestUtil.getStartedServer((location) -> FlightServer
-        .builder(allocator, location, flightProducer)
+    this.server = FlightServer
+        .builder(allocator, forGrpcInsecure(LOCALHOST, 0), flightProducer)
         .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
             new BasicCallHeaderAuthenticator(this::validate)))
-        .build());
-
+        .build().start();
     this.client = FlightClient.builder(allocator, server.getLocation())
         .build();
   }

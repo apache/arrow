@@ -402,7 +402,7 @@ Encodings
 +--------------------------+----------+----------+---------+
 | DELTA_BYTE_ARRAY         | ✓        |          |         |
 +--------------------------+----------+----------+---------+
-| DELTA_LENGTH_BYTE_ARRAY  | ✓        |          |         |
+| DELTA_LENGTH_BYTE_ARRAY  | ✓        | ✓        |         |
 +--------------------------+----------+----------+---------+
 
 * \(1) Only supported for encoding definition and repetition levels,
@@ -580,9 +580,14 @@ Miscellaneous
 +--------------------------+----------+----------+---------+
 | Bloom Filter             | ✓        | ✓        | \(2)    |
 +--------------------------+----------+----------+---------+
+| CRC checksums            | ✓        | ✓        | \(3)    |
++--------------------------+----------+----------+---------+
 
 * \(1) Access to the Column and Offset Index structures is provided, but
   data read APIs do not currently make any use of them.
 
 * \(2) APIs are provided for creating, serializing and deserializing Bloom
   Filters, but they are not integrated into data read APIs.
+
+* \(3) For now, only the checksums of V1 Data Pages and Dictionary Pages
+  are computed.

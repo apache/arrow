@@ -68,6 +68,7 @@ class ARROW_EXPORT ArrayVisitor {
   virtual Status Visit(const SparseUnionArray& array);
   virtual Status Visit(const DenseUnionArray& array);
   virtual Status Visit(const DictionaryArray& array);
+  virtual Status Visit(const RunEndEncodedArray& array);
   virtual Status Visit(const ExtensionArray& array);
 };
 
@@ -116,6 +117,7 @@ class ARROW_EXPORT TypeVisitor {
   virtual Status Visit(const SparseUnionType& type);
   virtual Status Visit(const DenseUnionType& type);
   virtual Status Visit(const DictionaryType& type);
+  virtual Status Visit(const RunEndEncodedType& type);
   virtual Status Visit(const ExtensionType& type);
 };
 
@@ -164,6 +166,7 @@ class ARROW_EXPORT ScalarVisitor {
   virtual Status Visit(const DictionaryScalar& scalar);
   virtual Status Visit(const SparseUnionScalar& scalar);
   virtual Status Visit(const DenseUnionScalar& scalar);
+  virtual Status Visit(const RunEndEncodedScalar& scalar);
   virtual Status Visit(const ExtensionScalar& scalar);
 };
 

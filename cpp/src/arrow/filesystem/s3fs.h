@@ -324,6 +324,13 @@ enum class S3LogLevel : int8_t { Off, Fatal, Error, Warn, Info, Debug, Trace };
 
 struct ARROW_EXPORT S3GlobalOptions {
   S3LogLevel log_level;
+  /// The number of threads to configure when creating AWS' I/O event loop
+  ///
+  /// Defaults to 1 as recommended by AWS' doc when the # of connections is
+  /// expected to be, at most, in the hundreds
+  ///
+  /// For more details see Aws::Crt::Io::EventLoopGroup
+  int num_event_loop_threads = 1;
 };
 
 /// Initialize the S3 APIs.  It is required to call this function at least once

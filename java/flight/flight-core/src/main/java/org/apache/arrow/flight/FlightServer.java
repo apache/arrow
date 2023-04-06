@@ -262,6 +262,7 @@ public class FlightServer implements AutoCloseable {
             new ThreadFactoryBuilder().setNameFormat("flight-server-default-executor-%d").build());
         grpcExecutor = exec;
       }
+
       final FlightBindingService flightService = new FlightBindingService(allocator, producer, authHandler, exec);
       builder
           .executor(exec)

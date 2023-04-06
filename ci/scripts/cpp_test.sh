@@ -52,10 +52,7 @@ case "$(uname)" in
     n_jobs=${NUMBER_OF_PROCESSORS:-1}
     # TODO: Enable these crashed tests.
     # https://issues.apache.org/jira/browse/ARROW-9072
-    exclude_tests="gandiva-internals-test"
-    exclude_tests="${exclude_tests}|gandiva-projector-test"
-    exclude_tests="${exclude_tests}|gandiva-utf8-test"
-    exclude_tests="${exclude_tests}|gandiva-binary-test"
+    exclude_tests="gandiva-binary-test"
     exclude_tests="${exclude_tests}|gandiva-boolean-expr-test"
     exclude_tests="${exclude_tests}|gandiva-date-time-test"
     exclude_tests="${exclude_tests}|gandiva-decimal-single-test"
@@ -65,10 +62,12 @@ case "$(uname)" in
     exclude_tests="${exclude_tests}|gandiva-hash-test"
     exclude_tests="${exclude_tests}|gandiva-if-expr-test"
     exclude_tests="${exclude_tests}|gandiva-in-expr-test"
+    exclude_tests="${exclude_tests}|gandiva-internals-test"
     exclude_tests="${exclude_tests}|gandiva-literal-test"
     exclude_tests="${exclude_tests}|gandiva-null-validity-test"
     exclude_tests="${exclude_tests}|gandiva-precompiled-test"
     exclude_tests="${exclude_tests}|gandiva-projector-test"
+    exclude_tests="${exclude_tests}|gandiva-utf8-test"
     ctest_options+=(--exclude-regex "${exclude_tests}")
     ;;
   *)

@@ -27,7 +27,7 @@ import (
 type arraymarshal interface {
 	arrow.Array
 
-	getOneForMarshal(i int) interface{}
+	GetOneForMarshal(i int) interface{}
 }
 
 const (

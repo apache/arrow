@@ -782,6 +782,34 @@ cdef class PythonFile(NativeFile):
     >>> import pyarrow as pa
     >>> pa.PythonFile(io.BytesIO())
     <pyarrow.PythonFile closed=False own_file=False is_seekable=False is_writable=True is_readable=False>
+
+    Create a stream for writing:
+
+    >>> buf = io.BytesIO()
+    >>> f =  pa.PythonFile(buf, mode = 'w')
+    >>> f.writable()
+    True
+    >>> f.write(b'PythonFile')
+    10
+    >>> buf.getvalue()
+    b'PythonFile'
+    >>> f.close()
+    >>> f
+    <pyarrow.PythonFile closed=True own_file=False is_seekable=False is_writable=True is_readable=False>
+
+    Create a stream for reading:
+
+    >>> buf = io.BytesIO(b'PythonFile')
+    >>> f =  pa.PythonFile(buf, mode = 'r')
+    >>> f.mode
+    'rb'
+    >>> f.read()
+    b'PythonFile'
+    >>> f
+    <pyarrow.PythonFile closed=False own_file=False is_seekable=True is_writable=False is_readable=True>
+    >>> f.close()
+    >>> f
+    <pyarrow.PythonFile closed=True own_file=False is_seekable=True is_writable=False is_readable=True>
     """
     cdef:
         object handle
@@ -851,6 +879,23 @@ cdef class MemoryMappedFile(NativeFile):
     A stream that represents a memory-mapped file.
 
     Supports 'r', 'r+', 'w' modes.
+
+    Examples
+    --------
+    Create a new file with memory map:
+
+    >>> import pyarrow as pa
+    >>> mmap = pa.create_memory_map('example_mmap.dat', 10)
+    >>> mmap
+    <pyarrow.MemoryMappedFile closed=False own_file=False is_seekable=True is_writable=True is_readable=True>
+    >>> mmap.close()
+
+    Open an existing file with memory map:
+
+    >>> with pa.memory_map('example_mmap.dat') as mmap:
+    ...     mmap
+    ...
+    <pyarrow.MemoryMappedFile closed=False own_file=False is_seekable=True is_writable=False is_readable=True>
     """
     cdef:
         shared_ptr[CMemoryMappedFile] handle
@@ -1004,6 +1049,34 @@ def create_memory_map(path, size):
 cdef class OSFile(NativeFile):
     """
     A stream backed by a regular file descriptor.
+
+    Examples
+    --------
+    Create a new file to write to:
+
+    >>> import pyarrow as pa
+    >>> with pa.OSFile('example_osfile.arrow', mode='w') as f:
+    ...     f.writable()
+    ...     f.write(b'OSFile')
+    ...     f.seekable()
+    ...
+    True
+    6
+    False
+
+    Open the file to read:
+
+    >>> with pa.OSFile('example_osfile.arrow', mode='r') as f:
+    ...     f.mode
+    ...     f.read()
+    ...
+    'rb'
+    b'OSFile'
+
+    Inspect created OSFile:
+
+    >>> pa.OSFile('example_osfile.arrow')
+    <pyarrow.OSFile closed=False own_file=False is_seekable=True is_writable=False is_readable=True>
     """
     cdef:
         object path
@@ -1046,6 +1119,26 @@ cdef class OSFile(NativeFile):
 cdef class FixedSizeBufferWriter(NativeFile):
     """
     A stream writing to a Arrow buffer.
+
+    Examples
+    --------
+    Create a stream to write to ``pyarrow.Buffer``:
+
+    >>> import pyarrow as pa
+    >>> buf = pa.allocate_buffer(5)
+    >>> with pa.output_stream(buf) as stream:
+    ...     stream.write(b'abcde')
+    ...     stream
+    ...
+    5
+    <pyarrow.FixedSizeBufferWriter closed=False own_file=False is_seekable=False is_writable=True is_readable=False>
+
+    Inspect the buffer:
+
+    >>> buf.to_pybytes()
+    b'abcde'
+    >>> buf
+    <pyarrow.Buffer address=... size=5 is_cpu=True is_mutable=True>
     """
 
     def __cinit__(self, Buffer buffer):
@@ -1353,6 +1446,27 @@ def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
 
 
 cdef class BufferOutputStream(NativeFile):
+    """
+    An output stream that writes to a resizable buffer.
+
+    The buffer is produced as a result when ``get.value()`` is called.
+
+    Examples
+    --------
+    Create an output stream, write data to it and finalize it with
+    ``get.value()``:
+
+    >>> import pyarrow as pa
+    >>> f = pa.BufferOutputStream()
+    >>> f.write(b'pyarrow.Buffer')
+    14
+    >>> f.closed
+    False
+    >>> f.getvalue()
+    <pyarrow.Buffer address=... size=14 is_cpu=True is_mutable=True>
+    >>> f.closed
+    True
+    """
 
     cdef:
         shared_ptr[CResizableBuffer] buffer
@@ -1394,6 +1508,24 @@ cdef class BufferReader(NativeFile):
     Parameters
     ----------
     obj : Python bytes or pyarrow.Buffer
+
+    Examples
+    --------
+    Create an Arrow input stream and inspect it:
+
+    >>> import pyarrow as pa
+    >>> data = b'reader data'
+    >>> buf = memoryview(data)
+    >>> with pa.input_stream(buf) as stream:
+    ...     stream.size()
+    ...     stream.read(6)
+    ...     stream.seek(7)
+    ...     stream.read(15)
+    ...
+    11
+    b'reader'
+    7
+    b'data'
     """
     cdef:
         Buffer buffer
@@ -1419,6 +1551,36 @@ cdef class CompressedInputStream(NativeFile):
         Input stream object to wrap with the compression.
     compression : str
         The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd").
+
+    Examples
+    --------
+    Create an ouput stream wich compresses the data:
+
+    >>> import pyarrow as pa
+    >>> data = b"Compressed stream"
+    >>> raw = pa.BufferOutputStream()
+    >>> with pa.CompressedOutputStream(raw, "gzip") as compressed:
+    ...     compressed.write(data)
+    ...
+    17
+
+    Create an input stream with decompression referencing the
+    buffer with compressed data:
+
+    >>> cdata = raw.getvalue()
+    >>> with pa.input_stream(cdata, compression="gzip") as compressed:
+    ...     compressed.read()
+    ...
+    b'Compressed stream'
+
+    which actually translates to the use of ``BufferReader``and
+    ``CompressedInputStream``:
+
+    >>> raw = pa.BufferReader(cdata)
+    >>> with pa.CompressedInputStream(raw, "gzip") as compressed:
+    ...     compressed.read()
+    ...
+    b'Compressed stream'
     """
 
     def __init__(self, object stream, str compression not None):
@@ -1446,6 +1608,18 @@ cdef class CompressedOutputStream(NativeFile):
         Input stream object to wrap with the compression.
     compression : str
         The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd").
+
+    Examples
+    --------
+    Create an ouput stream wich compresses the data:
+
+    >>> import pyarrow as pa
+    >>> data = b"Compressed stream"
+    >>> raw = pa.BufferOutputStream()
+    >>> with pa.CompressedOutputStream(raw, "gzip") as compressed:
+    ...     compressed.write(data)
+    ...
+    17
     """
 
     def __init__(self, object stream, str compression not None):

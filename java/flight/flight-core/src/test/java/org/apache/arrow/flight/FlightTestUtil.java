@@ -18,18 +18,14 @@
 package org.apache.arrow.flight;
 
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.net.ServerSocket;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
-import java.util.function.Function;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
 
@@ -43,45 +39,6 @@ public class FlightTestUtil {
   public static final String LOCALHOST = "localhost";
   public static final String TEST_DATA_ENV_VAR = "ARROW_TEST_DATA";
   public static final String TEST_DATA_PROPERTY = "arrow.test.dataRoot";
-
-  /**
-   * Returns a a FlightServer (actually anything that is startable)
-   * that has been started bound to a random port.
-   */
-  public static <T> T getStartedServer(Function<Location, T> newServerFromLocation) throws IOException {
-    IOException lastThrown = null;
-    T server = null;
-    for (int x = 0; x < 3; x++) {
-      int port;
-      try (final ServerSocket dynamicPortSocket = new ServerSocket(0)) {
-        port = dynamicPortSocket.getLocalPort();
-      } catch (SecurityException | IOException e) {
-        throw new RuntimeException("Unable to create a ServerSocket instance. ", e);
-      }
-
-      final Location location = Location.forGrpcInsecure(LOCALHOST, port);
-      lastThrown = null;
-      try {
-        server = newServerFromLocation.apply(location);
-        try {
-          server.getClass().getMethod("start").invoke(server);
-        } catch (NoSuchMethodException | IllegalAccessException e) {
-          throw new IllegalArgumentException("Couldn't call start method on object.", e);
-        }
-        break;
-      } catch (InvocationTargetException e) {
-        if (e.getTargetException() instanceof IOException) {
-          lastThrown = (IOException) e.getTargetException();
-        } else {
-          throw (RuntimeException) e.getTargetException();
-        }
-      }
-    }
-    if (lastThrown != null) {
-      throw lastThrown;
-    }
-    return server;
-  }
 
   static Path getTestDataRoot() {
     String path = System.getenv(TEST_DATA_ENV_VAR);

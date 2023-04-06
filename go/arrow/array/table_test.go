@@ -456,8 +456,13 @@ func TestTable(t *testing.T) {
 
 	cols := []arrow.Column{*col1, *col2}
 
+	slices := [][]arrow.Array{col1.Data().Chunks(), col2.Data().Chunks()}
+
 	tbl := array.NewTable(schema, cols, -1)
 	defer tbl.Release()
+
+	tbl2 := array.NewTableFromSlice(schema, slices)
+	defer tbl2.Release()
 
 	tbl.Retain()
 	tbl.Release()
@@ -473,6 +478,16 @@ func TestTable(t *testing.T) {
 		t.Fatalf("invalid number of columns: got=%d, want=%d", got, want)
 	}
 	if got, want := tbl.Column(0).Name(), col1.Name(); got != want {
+		t.Fatalf("invalid column: got=%q, want=%q", got, want)
+	}
+
+	if got, want := tbl2.NumRows(), int64(10); got != want {
+		t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
+	}
+	if got, want := tbl2.NumCols(), int64(2); got != want {
+		t.Fatalf("invalid number of columns: got=%d, want=%d", got, want)
+	}
+	if got, want := tbl2.Column(0).Name(), col1.Name(); got != want {
 		t.Fatalf("invalid column: got=%q, want=%q", got, want)
 	}
 

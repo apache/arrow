@@ -166,4 +166,28 @@ type ArrowReadProperties struct {
 	// BatchSize is the size used for calls to NextBatch when reading whole columns
 	BatchSize int64
 
+	readDictIndices map[int]struct{}
+}
+
+// SetReadDict determines whether to read a particular column as dictionary
+// encoded or not.
+func (props *ArrowReadProperties) SetReadDict(colIdx int, readDict bool) {
+	if props.readDictIndices == nil {
+		props.readDictIndices = make(map[int]struct{})
+	}
+
+	if readDict {
+		props.readDictIndices[colIdx] = struct{}{}
+	} else {
+		delete(props.readDictIndices, colIdx)
+	}
+}
+
+func (props *ArrowReadProperties) ReadDict(colIdx int) bool {
+	if props.readDictIndices == nil {
+		return false
+	}
+
+	_, ok := props.readDictIndices[colIdx]
+	return ok
 }

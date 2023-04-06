@@ -32,7 +32,8 @@ FileKeyWrapper::FileKeyWrapper(KeyToolkit* key_toolkit,
     : kms_connection_config_(kms_connection_config),
       key_material_store_(key_material_store),
       cache_entry_lifetime_seconds_(cache_entry_lifetime_seconds),
-      double_wrapping_(double_wrapping) {
+      double_wrapping_(double_wrapping),
+      key_counter_(0) {
   kms_connection_config_.SetDefaultIfEmpty();
   // Check caches upon each file writing (clean once in cache_entry_lifetime_seconds_)
   key_toolkit->kms_client_cache_per_token().CheckCacheForExpiredTokens(
@@ -51,7 +52,8 @@ FileKeyWrapper::FileKeyWrapper(KeyToolkit* key_toolkit,
 
 std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key,
                                                      const std::string& master_key_id,
-                                                     bool is_footer_key) {
+                                                     bool is_footer_key,
+                                                     std::string key_id_in_file) {
   if (kms_client_ == NULL) {
     throw ParquetException("No KMS client available. See previous errors.");
   }
@@ -75,7 +77,7 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key
     encoded_wrapped_kek = key_encryption_key.encoded_wrapped_kek();
   }
 
-  bool store_key_material_internally = (NULL == key_material_store_);
+  bool store_key_material_internally = (nullptr == key_material_store_);
 
   std::string serialized_key_material =
       KeyMaterial::SerializeToJson(is_footer_key, kms_connection_config_.kms_instance_id,
@@ -86,9 +88,26 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key
   // Internal key material storage: key metadata and key material are the same
   if (store_key_material_internally) {
     return serialized_key_material;
-  } else {
-    throw ParquetException("External key material store is not supported yet.");
   }
+  // External key material storage: key metadata is a reference to a key in the material
+  // store
+  if (key_id_in_file.empty()) {
+    // The key id may be specified explicitly to support key rotation, but usually
+    // we generate an arbitrary identifier that just needs to be unique across
+    // columns and the footer.
+    if (is_footer_key) {
+      key_id_in_file = KeyMaterial::kFooterKeyIdInFile;
+    } else {
+      // Generate a new unique identifier using an incrementing counter
+      key_id_in_file =
+          KeyMaterial::kColumnKeyIdInFilePrefix + std::to_string(key_counter_);
+      key_counter_++;
+    }
+  }
+  key_material_store_->AddKeyMaterial(key_id_in_file, serialized_key_material);
+  std::string serialized_key_metadata =
+      KeyMetadata::CreateSerializedForExternalMaterial(key_id_in_file);
+  return serialized_key_metadata;
 }
 
 KeyEncryptionKey FileKeyWrapper::CreateKeyEncryptionKey(

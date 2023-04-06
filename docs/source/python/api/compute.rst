@@ -402,6 +402,8 @@ Conversions
    ceil_temporal
    floor_temporal
    round_temporal
+   run_end_decode
+   run_end_encode
    strftime
    strptime
 
@@ -500,6 +502,7 @@ Structural Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   fill_null
    fill_null_backward
    fill_null_forward
    list_element
@@ -545,6 +548,7 @@ Compute Options
    RoundOptions
    RoundTemporalOptions
    RoundToMultipleOptions
+   RunEndEncodeOptions
    ScalarAggregateOptions
    ScalarAggregateOptions
    SelectKOptions

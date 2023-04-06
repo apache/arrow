@@ -84,7 +84,7 @@ namespace Apache.Arrow.Tests
 
         public static IEnumerable<IArrowArray> CreateArrays(Schema schema, int length)
         {
-            int fieldCount = schema.Fields.Count;
+            int fieldCount = schema.FieldsList.Count;
             List<IArrowArray> arrays = new List<IArrowArray>(fieldCount);
             for (int i = 0; i < fieldCount; i++)
             {

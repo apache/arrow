@@ -744,3 +744,78 @@ func (s *DenseUnion) ChildValue() Scalar { return s.Value }
 func NewDenseUnionScalar(v Scalar, code arrow.UnionTypeCode, dt *arrow.DenseUnionType) *DenseUnion {
 	return &DenseUnion{scalar: scalar{dt, v.IsValid()}, TypeCode: code, Value: v}
 }
+
+type RunEndEncoded struct {
+	scalar
+
+	Value Scalar
+}
+
+func NewRunEndEncodedScalar(v Scalar, dt *arrow.RunEndEncodedType) *RunEndEncoded {
+	return &RunEndEncoded{scalar: scalar{dt, v.IsValid()}, Value: v}
+}
+
+func (s *RunEndEncoded) Release() {
+	if r, ok := s.Value.(Releasable); ok {
+		r.Release()
+	}
+}
+
+func (s *RunEndEncoded) value() interface{} { return s.Value.value() }
+
+func (s *RunEndEncoded) Validate() (err error) {
+	if err = s.Value.Validate(); err != nil {
+		return
+	}
+
+	if err = validateOptional(&s.scalar, s.value(), "value"); err != nil {
+		return
+	}
+
+	if !s.Valid {
+		return
+	}
+
+	if s.Type.ID() != arrow.RUN_END_ENCODED {
+		return fmt.Errorf("%w: run-end-encoded scalar should not have type %s",
+			arrow.ErrInvalid, s.Type)
+	}
+
+	if !arrow.TypeEqual(s.Value.DataType(), s.Type.(*arrow.RunEndEncodedType).Encoded()) {
+		return fmt.Errorf("%w: run-end-encoded scalar value type %s does not match type %s",
+			arrow.ErrInvalid, s.Value.DataType(), s.Type)
+	}
+	return
+}
+
+func (s *RunEndEncoded) ValidateFull() error { return s.Validate() }
+
+func (s *RunEndEncoded) equals(rhs Scalar) bool {
+	other := rhs.(*RunEndEncoded)
+	return Equals(s.Value, other.Value)
+}
+
+func (s *RunEndEncoded) String() string {
+	return s.Value.String()
+}
+
+func (s *RunEndEncoded) CastTo(to arrow.DataType) (Scalar, error) {
+	if !s.Valid {
+		return MakeNullScalar(to), nil
+	}
+
+	if arrow.TypeEqual(s.Type, to) {
+		return s, nil
+	}
+
+	if otherREE, ok := to.(*arrow.RunEndEncodedType); ok {
+		sc, err := s.Value.CastTo(otherREE.Encoded())
+		if err != nil {
+			return nil, err
+		}
+
+		return NewRunEndEncodedScalar(sc, otherREE), nil
+	}
+
+	return s.Value.CastTo(to)
+}

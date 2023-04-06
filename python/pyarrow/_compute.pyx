@@ -24,7 +24,7 @@ from cython.operator cimport dereference as deref
 
 from collections import namedtuple
 
-from pyarrow.lib import frombytes, tobytes, ordered_dict, ArrowInvalid
+from pyarrow.lib import frombytes, tobytes, ArrowInvalid
 from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
@@ -1335,6 +1335,28 @@ class DictionaryEncodeOptions(_DictionaryEncodeOptions):
         self._set_options(null_encoding)
 
 
+cdef class _RunEndEncodeOptions(FunctionOptions):
+    def _set_options(self, run_end_type):
+        run_end_ty = ensure_type(run_end_type)
+        self.wrapped.reset(new CRunEndEncodeOptions(pyarrow_unwrap_data_type(run_end_ty)))
+
+
+class RunEndEncodeOptions(_RunEndEncodeOptions):
+    """
+    Options for run-end encoding.
+
+    Parameters
+    ----------
+    run_end_type : DataType, default pyarrow.int32()
+        The data type of the run_ends array.
+
+        Accepted values are pyarrow.{int16(), int32(), int64()}.
+    """
+
+    def __init__(self, run_end_type=lib.int32()):
+        self._set_options(run_end_type)
+
+
 cdef class _TakeOptions(FunctionOptions):
     def _set_options(self, boundscheck):
         self.wrapped.reset(new CTakeOptions(boundscheck))
@@ -1395,38 +1417,43 @@ class MakeStructOptions(_MakeStructOptions):
         self._set_options(field_names, field_nullability, field_metadata)
 
 
+cdef CFieldRef _ensure_field_ref(value) except *:
+    cdef:
+        CFieldRef field_ref
+        const CFieldRef* field_ref_ptr
+
+    if isinstance(value, (list, tuple)):
+        value = Expression._nested_field(tuple(value))
+
+    if isinstance(value, Expression):
+        field_ref_ptr = (<Expression>value).unwrap().field_ref()
+        if field_ref_ptr is NULL:
+            raise ValueError("Unable to get FieldRef from Expression")
+        field_ref = <CFieldRef>deref(field_ref_ptr)
+    elif isinstance(value, (bytes, str)):
+        if value.startswith(b'.' if isinstance(value, bytes) else '.'):
+            field_ref = GetResultValue(
+                CFieldRef.FromDotPath(<c_string>tobytes(value)))
+        else:
+            field_ref = CFieldRef(<c_string>tobytes(value))
+    elif isinstance(value, int):
+        field_ref = CFieldRef(<int> value)
+    else:
+        raise TypeError("Expected a field reference as a str or int, list of "
+                        f"str or int, or Expression. Got {type(value)} instead.")
+    return field_ref
+
+
 cdef class _StructFieldOptions(FunctionOptions):
     def _set_options(self, indices):
-        cdef:
-            CFieldRef field_ref
-            const CFieldRef* field_ref_ptr
 
-        if isinstance(indices, (list, tuple)):
-            if len(indices):
-                indices = Expression._nested_field(tuple(indices))
-            else:
-                # Allow empty indices; effecitively return same array
-                self.wrapped.reset(
-                    new CStructFieldOptions(<vector[int]>indices))
-                return
+        if isinstance(indices, (list, tuple)) and not len(indices):
+            # Allow empty indices; effecitively return same array
+            self.wrapped.reset(
+                new CStructFieldOptions(<vector[int]>indices))
+            return
 
-        if isinstance(indices, Expression):
-            field_ref_ptr = (<Expression>indices).unwrap().field_ref()
-            if field_ref_ptr is NULL:
-                raise ValueError("Unable to get CFieldRef from Expression")
-            field_ref = <CFieldRef>deref(field_ref_ptr)
-        elif isinstance(indices, (bytes, str)):
-            if indices.startswith(b'.' if isinstance(indices, bytes) else '.'):
-                field_ref = GetResultValue(
-                    CFieldRef.FromDotPath(<c_string>tobytes(indices)))
-            else:
-                field_ref = CFieldRef(<c_string>tobytes(indices))
-        elif isinstance(indices, int):
-            field_ref = CFieldRef(<int> indices)
-        else:
-            raise TypeError("Expected List[str], List[int], List[bytes], "
-                            "Expression, bytes, str, or int. "
-                            f"Got: {type(indices)}")
+        cdef CFieldRef field_ref = _ensure_field_ref(indices)
         self.wrapped.reset(new CStructFieldOptions(field_ref))
 
 
@@ -1958,7 +1985,7 @@ cdef class _SortOptions(FunctionOptions):
         cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
             c_sort_keys.push_back(
-                CSortKey(tobytes(name), unwrap_sort_order(order))
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
             )
         self.wrapped.reset(new CSortOptions(
             c_sort_keys, unwrap_null_placement(null_placement)))
@@ -1974,6 +2001,7 @@ class SortOptions(_SortOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
     null_placement : str, default "at_end"
         Where nulls in input should be sorted, only applying to
         columns/fields mentioned in `sort_keys`.
@@ -1989,7 +2017,7 @@ cdef class _SelectKOptions(FunctionOptions):
         cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
             c_sort_keys.push_back(
-                CSortKey(tobytes(name), unwrap_sort_order(order))
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
             )
         self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
 
@@ -2008,6 +2036,7 @@ class SelectKOptions(_SelectKOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
     """
 
     def __init__(self, k, sort_keys):
@@ -2178,12 +2207,12 @@ cdef class _RankOptions(FunctionOptions):
         cdef vector[CSortKey] c_sort_keys
         if isinstance(sort_keys, str):
             c_sort_keys.push_back(
-                CSortKey(tobytes(""), unwrap_sort_order(sort_keys))
+                CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
             )
         else:
             for name, order in sort_keys:
                 c_sort_keys.push_back(
-                    CSortKey(tobytes(name), unwrap_sort_order(order))
+                    CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
                 )
         try:
             self.wrapped.reset(
@@ -2205,6 +2234,7 @@ class RankOptions(_RankOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
         Alternatively, one can simply pass "ascending" or "descending" as a string
         if the input is array-like.
     null_placement : str, default "at_end"
@@ -2225,39 +2255,6 @@ class RankOptions(_RankOptions):
 
     def __init__(self, sort_keys="ascending", *, null_placement="at_end", tiebreaker="first"):
         self._set_options(sort_keys, null_placement, tiebreaker)
-
-
-def _group_by(args, keys, aggregations):
-    cdef:
-        vector[CDatum] c_args
-        vector[CDatum] c_keys
-        vector[CAggregate] c_aggregations
-        CDatum result
-        CAggregate c_aggr
-
-    _pack_compute_args(args, &c_args)
-    _pack_compute_args(keys, &c_keys)
-
-    # reference into the flattened list of arguments for the aggregations
-    field_ref = 0
-    for aggr_arg_names, aggr_func_name, aggr_opts in aggregations:
-        c_aggr.function = tobytes(aggr_func_name)
-        if aggr_opts is not None:
-            c_aggr.options = (<FunctionOptions?>aggr_opts).wrapped
-        else:
-            c_aggr.options = <shared_ptr[CFunctionOptions]>nullptr
-        for _ in aggr_arg_names:
-            c_aggr.target.push_back(CFieldRef(<int> field_ref))
-            field_ref += 1
-
-        c_aggregations.push_back(move(c_aggr))
-
-    with nogil:
-        result = GetResultValue(
-            GroupBy(c_args, c_keys, c_aggregations)
-        )
-
-    return wrap_datum(result)
 
 
 cdef class Expression(_Weakrefable):
@@ -2435,6 +2432,19 @@ cdef class Expression(_Weakrefable):
         """
         options = NullOptions(nan_is_null=nan_is_null)
         return Expression._call("is_null", [self], options)
+
+    def is_nan(self):
+        """
+        Check whether the expression is NaN.
+
+        This creates a new expression equivalent to calling the
+        `is_nan` compute function on this expression.
+
+        Returns
+        -------
+        is_nan : Expression
+        """
+        return Expression._call("is_nan", [self])
 
     def cast(self, type=None, safe=None, options=None):
         """

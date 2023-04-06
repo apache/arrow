@@ -155,6 +155,7 @@ set(PARQUET_SRCS
     arrow/schema_internal.cc
     arrow/writer.cc
     bloom_filter.cc
+    bloom_filter_reader.cc
     column_reader.cc
     column_scanner.cc
     column_writer.cc
@@ -224,6 +225,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
       encryption/crypto_factory.cc
       encryption/file_key_unwrapper.cc
       encryption/file_key_wrapper.cc
+      encryption/file_system_key_material_store.cc
       encryption/kms_client.cc
       encryption/key_material.cc
       encryption/key_metadata.cc
@@ -333,6 +335,7 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
 add_parquet_test(internals-test
                  SOURCES
                  bloom_filter_test.cc
+                 bloom_filter_reader_test.cc
                  properties_test.cc
                  statistics_test.cc
                  encoding_test.cc

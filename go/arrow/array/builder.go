@@ -79,8 +79,8 @@ type Builder interface {
 	init(capacity int)
 	resize(newBits int, init func(int))
 
-	unmarshalOne(*json.Decoder) error
-	unmarshal(*json.Decoder) error
+	UnmarshalOne(*json.Decoder) error
+	Unmarshal(*json.Decoder) error
 
 	newData() *Data
 }
@@ -318,7 +318,11 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		return NewMapBuilderWithType(mem, typ)
 	case arrow.EXTENSION:
 		typ := dtype.(arrow.ExtensionType)
-		return NewExtensionBuilder(mem, typ)
+		bldr := NewExtensionBuilder(mem, typ)
+		if custom, ok := typ.(ExtensionBuilderWrapper); ok {
+			return custom.NewBuilder(bldr)
+		}
+		return bldr
 	case arrow.FIXED_SIZE_LIST:
 		typ := dtype.(*arrow.FixedSizeListType)
 		return NewFixedSizeListBuilder(mem, typ.Len(), typ.Elem())

@@ -241,6 +241,7 @@ if not gio.found()
 endif
 dependencies = [
   arrow,
+  arrow_acero,
   gobject,
   gio,
 ]

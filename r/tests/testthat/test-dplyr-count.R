@@ -17,6 +17,8 @@
 
 library(dplyr, warn.conflicts = FALSE)
 
+skip_if_not_available("acero")
+
 tbl <- example_data
 tbl$some_grouping <- rep(c(1, 2), 5)
 tbl$another_grouping <- rep(c(1, 2), 5)
@@ -95,5 +97,29 @@ test_that("count returns an ungrouped tibble", {
       count(some_grouping, another_grouping, sort = TRUE) %>%
       collect(),
     tbl
+  )
+})
+
+test_that("tally raises appropriate error and message for names", {
+
+  expect_message(
+    tbl %>%
+      arrow_table() %>%
+      rename(n = some_grouping) %>%
+      group_by(n) %>%
+      tally() %>%
+      collect(),
+    regexp = 'Use `name = "new_name"` to pick a new name.',
+    fixed = TRUE
+  )
+
+  expect_error(
+    tbl %>%
+      arrow_table() %>%
+      group_by(some_grouping) %>%
+      tally(wt = int, name = 99) %>%
+      collect(),
+    "`name` must be a string or `NULL`.",
+    fixed = TRUE
   )
 })

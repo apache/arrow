@@ -18,6 +18,8 @@
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
+skip_if_not_available("acero")
+
 tbl <- example_data
 # Add some better string data
 tbl$verses <- verses[[1]]
@@ -508,7 +510,6 @@ test_that("show_exec_plan(), show_query() and explain()", {
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
-      "ProjectNode.*", # output columns
       "GroupByNode.*", # the group_by statement
       "keys=.*lgl.*", # the key for the aggregations
       "aggregates=.*hash_mean.*avg.*", # the aggregations
@@ -740,12 +741,19 @@ test_that("Can use nested field refs", {
       collect(),
     nested_data
   )
+})
 
-  # Now with Dataset: make sure column pushdown in ScanNode works
+test_that("Can use nested field refs with Dataset", {
   skip_if_not_available("dataset")
+  # Now with Dataset: make sure column pushdown in ScanNode works
+  nested_data <- tibble(int = 1:5, df_col = tibble(a = 6:10, b = 11:15))
+  tf <- tempfile()
+  dir.create(tf)
+  write_dataset(nested_data, tf)
+  ds <- open_dataset(tf)
+
   expect_equal(
-    nested_data %>%
-      InMemoryDataset$create() %>%
+    ds %>%
       mutate(
         nested = df_col$a,
         times2 = df_col$a * 2
@@ -758,6 +766,15 @@ test_that("Can use nested field refs", {
         times2 = df_col$a * 2
       ) %>%
       filter(nested > 7)
+  )
+  # Issue #34519: error when projecting same name, but only on file dataset
+  expect_equal(
+    ds %>%
+      mutate(int = as.numeric(int)) %>%
+      collect(),
+    nested_data %>%
+      mutate(int = as.numeric(int)) %>%
+      collect()
   )
 })
 
