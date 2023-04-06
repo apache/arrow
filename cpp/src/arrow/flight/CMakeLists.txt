@@ -67,8 +67,8 @@ list(APPEND
      Boost::headers
      Boost::filesystem
      Boost::system
-     GTest::gtest
-     GTest::gmock)
+     ${ARROW_GTEST_GTEST}
+     ${ARROW_GTEST_GMOCK})
 list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS gRPC::grpc++)
 
 # TODO(wesm): Protobuf shared vs static linking
@@ -308,7 +308,7 @@ if(ARROW_TESTING)
                 test_definitions.cc
                 test_util.cc
                 DEPENDENCIES
-                GTest::gtest
+                ${ARROW_GTEST_GTEST}
                 flight_grpc_gen
                 arrow_dependencies
                 SHARED_LINK_LIBS
