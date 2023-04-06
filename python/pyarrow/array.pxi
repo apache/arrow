@@ -3136,7 +3136,7 @@ class FixedShapeTensorArray(ExtensionArray):
 
         Parameters
         ----------
-        obj : ndarray
+        obj : numpy.ndarray
 
         Examples
         --------
@@ -3166,7 +3166,7 @@ class FixedShapeTensorArray(ExtensionArray):
           ]
         ]
         """
-        if obj.flags["F_CONTIGUOUS"]:
+        if not obj.flags["C_CONTIGUOUS"]:
             raise ValueError('The data in the numpy array need to be in a single, '
                              'C-style contiguous segment.')
 
