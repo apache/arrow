@@ -512,7 +512,7 @@ struct PageIndexLocation {
   /// is located by column ordinal. If the column does not have the page index,
   /// its value is set to std::nullopt.
   using RowGroupIndexLocation = std::vector<std::optional<IndexLocation>>;
-  /// Alis type of page index location of a parquet file. The index location
+  /// Alias type of page index location of a parquet file. The index location
   /// is located by the row group ordinal.
   using FileIndexLocation = std::map<size_t, RowGroupIndexLocation>;
   /// Row group column index locations which uses row group ordinal as the key.

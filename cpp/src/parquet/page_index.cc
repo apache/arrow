@@ -481,6 +481,7 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
       column_index_.null_counts.emplace_back(stats.null_count);
     } else {
       column_index_.__isset.null_counts = false;
+      column_index_.null_counts.clear();
     }
   }
 

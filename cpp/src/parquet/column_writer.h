@@ -94,7 +94,9 @@ class PARQUET_EXPORT PageWriter {
       std::shared_ptr<Encryptor> header_encryptor = NULLPTR,
       std::shared_ptr<Encryptor> data_encryptor = NULLPTR,
       bool page_write_checksum_enabled = false,
+      // column_index_builder MUST outlive the PageWriter
       ColumnIndexBuilder* column_index_builder = NULLPTR,
+      // offset_index_builder MUST outlive the PageWriter
       OffsetIndexBuilder* offset_index_builder = NULLPTR);
 
   // The Column Writer decides if dictionary encoding is used if set and

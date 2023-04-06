@@ -346,7 +346,7 @@ class SerializedPageWriter : public PageWriter {
     }
 
     // Serialized page writer does not need to adjust page offsets.
-    FinishPageIndex(/*final_position=*/0);
+    FinishPageIndexes(/*final_position=*/0);
 
     // index_page_offset = -1 since they are not supported
     metadata_->Finish(num_values_, dictionary_page_offset_, -1, data_page_offset_,
@@ -488,7 +488,7 @@ class SerializedPageWriter : public PageWriter {
 
   /// \brief Finish page index builders and update the stream offset to adjust
   /// page offsets.
-  void FinishPageIndex(int64_t final_position) {
+  void FinishPageIndexes(int64_t final_position) {
     if (column_index_builder_ != nullptr) {
       column_index_builder_->Finish();
     }
@@ -652,7 +652,7 @@ class BufferedPageWriter : public PageWriter {
     metadata_->WriteTo(in_memory_sink_.get());
 
     // Buffered page writer needs to adjust page offsets.
-    pager_->FinishPageIndex(final_position);
+    pager_->FinishPageIndexes(final_position);
 
     // flush everything to the serialized sink
     PARQUET_ASSIGN_OR_THROW(auto buffer, in_memory_sink_->Finish());

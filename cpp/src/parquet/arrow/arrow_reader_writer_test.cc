@@ -5202,7 +5202,7 @@ TEST(TestArrowReadWrite, WriteReadPageIndexRoundTrip) {
   auto page_index_reader = reader->GetPageIndexReader();
   ASSERT_NE(page_index_reader, nullptr);
 
-  auto encode_int64 = [=](int64_t value) {
+  auto encode_int64 = [](int64_t value) {
     return std::string(reinterpret_cast<const char*>(&value), sizeof(int64_t));
   };
 
@@ -5379,7 +5379,7 @@ TEST(TestArrowReadWrite, WriteReadPageIndexRoundTripWithMultiplePages) {
   ASSERT_NE(row_group_index_reader, nullptr);
 
   // Setup expected data.
-  auto encode_int64 = [=](int64_t value) {
+  auto encode_int64 = [](int64_t value) {
     return std::string(reinterpret_cast<const char*>(&value), sizeof(int64_t));
   };
   const std::vector<std::string> c0_min_values = {encode_int64(1), encode_int64(3),
@@ -5476,7 +5476,7 @@ TEST(TestArrowReadWrite, WriteReadPageIndexRoundTripWithNaNs) {
   ASSERT_NE(page_index_reader, nullptr);
 
   // Set up expected values.
-  auto encode = [=](double value) {
+  auto encode = [](double value) {
     return std::string(reinterpret_cast<const char*>(&value), sizeof(double));
   };
   const std::vector<std::string> min_values = {encode(0.1), encode(-0.0), encode(-0.0)};

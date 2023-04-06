@@ -65,6 +65,9 @@ class DataPage : public Page {
   Encoding::type encoding() const { return encoding_; }
   int64_t uncompressed_size() const { return uncompressed_size_; }
   const EncodedStatistics& statistics() const { return statistics_; }
+  /// Return the row ordinal within the row group to the first row in the data page.
+  /// Currently it is only present from data pages created by ColumnWriter in order
+  /// to collect page index.
   std::optional<int64_t> first_row_index() const { return first_row_index_; }
 
   virtual ~DataPage() = default;
