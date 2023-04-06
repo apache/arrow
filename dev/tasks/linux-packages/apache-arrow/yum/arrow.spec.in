@@ -373,7 +373,8 @@ Libraries and header files for Apache Arrow Acero
 %package -n %{name}%{major_version}-dataset-libs
 Summary:	C++ library to read and write semantic datasets stored in different locations and formats
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-libs = %{version}-%{release}
+Requires:	%{name}%{major_version}-acero-libs = %{version}-%{release}
+Requires:	parquet%{major_version}-libs = %{version}-%{release}
 
 %description -n %{name}%{major_version}-dataset-libs
 This package contains the libraries for Apache Arrow dataset.
@@ -388,7 +389,8 @@ This package contains the libraries for Apache Arrow dataset.
 Summary:	Libraries and header files for Apache Arrow dataset.
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-dataset-libs = %{version}-%{release}
-Requires:	%{name}-devel = %{version}-%{release}
+Requires:	%{name}-acero-devel = %{version}-%{release}
+Requires:	parquet-devel = %{version}-%{release}
 
 %description dataset-devel
 Libraries and header files for Apache Arrow dataset.
