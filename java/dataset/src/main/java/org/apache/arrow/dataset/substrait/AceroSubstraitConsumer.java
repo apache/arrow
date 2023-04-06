@@ -76,7 +76,7 @@ public final class AceroSubstraitConsumer {
    * @return the ArrowReader to iterate for record batches.
    */
   public ArrowReader runQuery(ByteBuffer plan) throws Exception {
-    return runQuery(plan, Collections.EMPTY_MAP);
+    return runQuery(plan, Collections.emptyMap());
   }
 
   /**

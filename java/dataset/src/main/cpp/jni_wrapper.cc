@@ -33,6 +33,7 @@
 #include "org_apache_arrow_dataset_jni_JniWrapper.h"
 #include "org_apache_arrow_dataset_jni_NativeMemoryPool.h"
 #include "org_apache_arrow_dataset_substrait_JniWrapper.h"
+#include <iostream>
 
 namespace {
 
@@ -274,7 +275,7 @@ std::unordered_map<std::string, std::shared_ptr<arrow::Table>> LoadNamedTables(J
   std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_record_batch_reader;
   int length = env->GetArrayLength(str_array);
   if (length % 2 != 0) {
-    JniThrow("Review mapping of Table names to memory addresses");
+    JniThrow("Can not map odd number of array elements to key/value pairs");
   }
   std::shared_ptr<arrow::Table> output_table;
   for (int pos = 0; pos < length; pos++) {
@@ -285,7 +286,7 @@ std::unordered_map<std::string, std::shared_ptr<arrow::Table>> LoadNamedTables(J
     try {
       memory_address = std::stol(JStringToCString(env, j_string_value));
     } catch (...) {
-      JniThrow("Error to interpret an string address as a signed number");
+      JniThrow("Failed to parse memory address from string value");
     }
     auto* arrow_stream_in = reinterpret_cast<ArrowArrayStream*>(memory_address);
     std::shared_ptr<arrow::RecordBatchReader> readerIn = JniGetOrThrow(arrow::ImportRecordBatchReader(arrow_stream_in));
@@ -293,6 +294,20 @@ std::unordered_map<std::string, std::shared_ptr<arrow::Table>> LoadNamedTables(J
     map_table_to_record_batch_reader[JStringToCString(env, j_string_key)] = output_table;
   }
   return map_table_to_record_batch_reader;
+}
+
+/// Find the arrow Table associated with a given table name
+std::shared_ptr<arrow::Table> GetTableByName(const std::vector<std::string>& names,
+    std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_reader) {
+  std::shared_ptr<arrow::Table> output_table;
+  for (const auto& name : names) {
+    std::cout << "Table: " << name << std::endl;
+    output_table = map_table_to_reader[name];
+    if (output_table == nullptr) {
+      JniThrow("Table name " + name + " is needed to execute the Substrait plan");
+    }
+  }
+  return output_table;
 }
 
 /*
@@ -660,13 +675,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
   std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_reader = LoadNamedTables(env, table_to_memory_address_input);
   // create table provider
   arrow::engine::NamedTableProvider table_provider = [&map_table_to_reader](const std::vector<std::string>& names, const arrow::Schema&) {
-    std::shared_ptr<arrow::Table> output_table;
-    for (const auto& name : names) {
-      output_table = map_table_to_reader[name];
-      if (output_table == nullptr) {
-        JniThrow("Table name " + name + " is needed to execute the Substrait plan");
-      }
-    }
+    std::shared_ptr<arrow::Table> output_table = GetTableByName(names, map_table_to_reader);
     std::shared_ptr<arrow::acero::ExecNodeOptions> options =
       std::make_shared<arrow::acero::TableSourceNodeOptions>(std::move(output_table));
     return arrow::acero::Declaration("table_source", {}, options, "java_source");
@@ -693,13 +702,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
   std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_reader = LoadNamedTables(env, table_to_memory_address_input);
   // create table provider
   arrow::engine::NamedTableProvider table_provider = [&map_table_to_reader](const std::vector<std::string>& names, const arrow::Schema&) {
-    std::shared_ptr<arrow::Table> output_table;
-    for (const auto& name : names) {
-      output_table = map_table_to_reader[name];
-      if (output_table == nullptr) {
-        JniThrow("Table name " + name + " is needed to execute the Substrait plan");
-      }
-    }
+    std::shared_ptr<arrow::Table> output_table = GetTableByName(names, map_table_to_reader);
     std::shared_ptr<arrow::acero::ExecNodeOptions> options =
       std::make_shared<arrow::acero::TableSourceNodeOptions>(std::move(output_table));
     return arrow::acero::Declaration("table_source", {}, options, "java_source");
