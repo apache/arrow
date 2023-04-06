@@ -161,7 +161,7 @@ def is_union(t):
     return t.id in _UNION_TYPES
 
 
-@doc(is_null, datatype="nested")
+@doc(is_null, datatype="nested type")
 def is_nested(t):
     return t.id in _NESTED_TYPES
 
@@ -288,6 +288,6 @@ def is_interval(t):
     return t.id == lib.Type_INTERVAL_MONTH_DAY_NANO
 
 
-@doc(is_null, datatype="primitive")
+@doc(is_null, datatype="primitive type")
 def is_primitive(t):
     return lib._is_primitive(t.id)
