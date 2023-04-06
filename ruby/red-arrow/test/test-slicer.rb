@@ -487,34 +487,45 @@ class SlicerTest < Test::Unit::TestCase
 
   sub_test_case "MatchSubstringOptions family" do
     def setup
-      @string_table = Arrow::Table.new(
-        index: [*1..5],
+      @table = Arrow::Table.new(
         string: ["array", "Arrow", "carrot", nil, "window"]
       )
     end
 
     test("match_substring") do
-      sliced_table = @string_table.slice do |slicer|
+      sliced_table = @table.slice do |slicer|
         slicer.string.match_substring("arr")
       end
       assert_equal(<<~TABLE, sliced_table.to_s)
-	 index	string
-0	     1	array 
-1	     3	carrot
-2	(null)	(null)
+	string
+0	array 
+1	carrot
+2	(null)
       TABLE
     end
 
     test("match_substring(ignore_case:)") do
-      sliced_table = @string_table.slice do |slicer|
+      sliced_table = @table.slice do |slicer|
         slicer.string.match_substring("arr", ignore_case: true)
       end
       assert_equal(<<~TABLE, sliced_table.to_s)
-	 index	string
-0	     1	array 
-1	     2	Arrow 
-2	     3	carrot
-3	(null)	(null)
+	string
+0	array 
+1	Arrow 
+2	carrot
+3	(null)
+      TABLE
+    end
+
+    test("!match_substring") do
+      sliced_table = @table.slice do |slicer|
+        !slicer.string.match_substring("arr")
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	Arrow 
+1	(null)
+2	window
       TABLE
     end
   end
