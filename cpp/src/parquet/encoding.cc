@@ -3103,8 +3103,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
           last_value_view = view;
           const auto suffix_length = static_cast<uint32_t>(src.len - j);
           if (suffix_length == 0) {
-            const auto suffix_ptr = reinterpret_cast<const uint8_t*>("");
-            const ByteArray suffix(suffix_length, suffix_ptr);
+            const ByteArray suffix(suffix_length, nullptr);
             suffix_encoder_.Put(&suffix, 1);
             return Status::OK();
           }
