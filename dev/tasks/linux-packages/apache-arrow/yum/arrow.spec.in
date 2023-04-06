@@ -320,6 +320,7 @@ Libraries and header files for Apache Arrow C++.
 %{_datadir}/arrow/gdb/
 %{_datadir}/gdb/auto-load/
 %{_includedir}/arrow/
+%exclude %{_includedir}/arrow/acero/
 %exclude %{_includedir}/arrow/dataset/
 %if %{use_flight}
 %exclude %{_includedir}/arrow/flight/
@@ -335,6 +336,39 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/pkgconfig/arrow-json.pc
 %{_libdir}/pkgconfig/arrow-orc.pc
 %{_libdir}/pkgconfig/arrow.pc
+
+%package -n %{name}%{major_version}-acero-libs
+Summary:	C++ library to execute a query in streaming
+License:	Apache-2.0
+Requires:	%{name}%{major_version}-libs = %{version}-%{release}
+
+%description -n %{name}%{major_version}-acero-libs
+This package contains the libraries for Apache Arrow Acero.
+
+%files -n %{name}%{major_version}-acero-libs
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_acero.so.*
+
+%package acero-devel
+Summary:	Libraries and header files for Apache Arrow Acero
+License:	Apache-2.0
+Requires:	%{name}%{major_version}-acero-libs = %{version}-%{release}
+Requires:	%{name}-devel = %{version}-%{release}
+
+%description acero-devel
+Libraries and header files for Apache Arrow Acero
+
+%files acero-devel
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_includedir}/arrow/acero/
+%{_libdir}/cmake/ArrowAcero/
+%{_libdir}/libarrow_acero.a
+%{_libdir}/libarrow_acero.so
+%{_libdir}/pkgconfig/arrow-acero.pc
 
 %package -n %{name}%{major_version}-dataset-libs
 Summary:	C++ library to read and write semantic datasets stored in different locations and formats
