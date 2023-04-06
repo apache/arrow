@@ -33,7 +33,6 @@
 #include "org_apache_arrow_dataset_jni_JniWrapper.h"
 #include "org_apache_arrow_dataset_jni_NativeMemoryPool.h"
 #include "org_apache_arrow_dataset_substrait_JniWrapper.h"
-#include <iostream>
 
 namespace {
 
@@ -301,7 +300,6 @@ std::shared_ptr<arrow::Table> GetTableByName(const std::vector<std::string>& nam
     std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_reader) {
   std::shared_ptr<arrow::Table> output_table;
   for (const auto& name : names) {
-    std::cout << "Table: " << name << std::endl;
     output_table = map_table_to_reader[name];
     if (output_table == nullptr) {
       JniThrow("Table name " + name + " is needed to execute the Substrait plan");
