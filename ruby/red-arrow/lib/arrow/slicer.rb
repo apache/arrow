@@ -378,10 +378,9 @@ module Arrow
       def evaluate
         datum = Function.find(@function).execute([@column.data], @options)
         if @invert
-          Function.find("invert").execute([datum]).value
-        else
-          datum.value
+          datum = Function.find("invert").execute([datum])
         end
+        datum.value
       end
     end
   end
