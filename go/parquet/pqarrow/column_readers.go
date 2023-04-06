@@ -18,6 +18,7 @@ package pqarrow
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -35,7 +36,6 @@ import (
 	"github.com/apache/arrow/go/v12/parquet/file"
 	"github.com/apache/arrow/go/v12/parquet/schema"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/xerrors"
 )
 
 // column reader for leaf columns (non-nested)
@@ -201,7 +201,7 @@ func (sr *structReader) IsOrHasRepeatedChild() bool { return sr.hasRepeatedChild
 
 func (sr *structReader) GetDefLevels() ([]int16, error) {
 	if len(sr.children) == 0 {
-		return nil, xerrors.New("struct raeder has no children")
+		return nil, errors.New("struct reader has no children")
 	}
 
 	// this method should only be called when this struct or one of its parents
@@ -212,7 +212,7 @@ func (sr *structReader) GetDefLevels() ([]int16, error) {
 
 func (sr *structReader) GetRepLevels() ([]int16, error) {
 	if len(sr.children) == 0 {
-		return nil, xerrors.New("struct raeder has no children")
+		return nil, errors.New("struct reader has no children")
 	}
 
 	// this method should only be called when this struct or one of its parents
@@ -453,7 +453,7 @@ func chunksToSingle(chunked *arrow.Chunked) (arrow.ArrayData, error) {
 	case 1:
 		return chunked.Chunk(0).Data(), nil
 	default: // if an item reader yields a chunked array, this is not yet implemented
-		return nil, xerrors.New("not implemented")
+		return nil, arrow.ErrNotImplemented
 	}
 }
 
@@ -495,7 +495,7 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 		case parquet.Types.ByteArray, parquet.Types.FixedLenByteArray:
 			return transferDecimalBytes(rdr.(file.BinaryRecordReader), valueType)
 		default:
-			return nil, xerrors.New("physical type for decimal128 must be int32, int64, bytearray or fixed len byte array")
+			return nil, errors.New("physical type for decimal128 must be int32, int64, bytearray or fixed len byte array")
 		}
 	case arrow.TIMESTAMP:
 		tstype := valueType.(*arrow.TimestampType)
@@ -509,7 +509,7 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 				data = transferZeroCopy(rdr, valueType)
 			}
 		default:
-			return nil, xerrors.New("time unit not supported")
+			return nil, errors.New("time unit not supported")
 		}
 	default:
 		return nil, fmt.Errorf("no support for reading columns of type: %s", valueType.Name())
