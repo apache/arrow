@@ -420,5 +420,23 @@ query_can_stream <- function(x) {
 is_collapsed <- function(x) inherits(x$.data, "arrow_dplyr_query")
 
 has_unordered_head <- function(x) {
-  ((!is.null(x$head) || !is.null(x$tail)) && length(x$arrange_vars) == 0) || (is_collapsed(x) && has_unordered_head(x$.data))
+  if (is.null(x$head %||% x$tail)) {
+    # no head/tail
+    return(FALSE)
+  }
+  !has_order(x)
+}
+
+has_order <- function(x) {
+  length(x$arrange_vars) > 0 ||
+    has_implicit_order(x) ||
+    (is_collapsed(x) && has_order(x$.data))
+}
+
+has_implicit_order <- function(x) {
+  # Approximate what ExecNode$has_ordered_batches() would return (w/o building ExecPlan)
+  # An in-memory table has an implicit order
+  inherits(x$.data, "ArrowTabular") &&
+    # But joins, aggregations, etc. will result in non-deterministic order
+    is.null(x$aggregations) && is.null(x$join) && is.null(x$union_all)
 }

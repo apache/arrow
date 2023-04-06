@@ -1050,6 +1050,14 @@ extern "C" SEXP _arrow_ExecNode_output_schema(SEXP node_sexp){
 #endif
 
 // compute-exec.cpp
+bool ExecNode_has_ordered_batches(const std::shared_ptr<acero::ExecNode>& node);
+extern "C" SEXP _arrow_ExecNode_has_ordered_batches(SEXP node_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type node(node_sexp);
+	return cpp11::as_sexp(ExecNode_has_ordered_batches(node));
+END_CPP11
+}
+// compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<acero::ExecNode> ExecNode_Scan(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<ds::Dataset>& dataset, const std::shared_ptr<compute::Expression>& filter, cpp11::list projection);
 extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP filter_sexp, SEXP projection_sexp){
@@ -5590,6 +5598,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecPlan_ToString", (DL_FUNC) &_arrow_ExecPlan_ToString, 1}, 
 		{ "_arrow_ExecPlan_UnsafeDelete", (DL_FUNC) &_arrow_ExecPlan_UnsafeDelete, 1}, 
 		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 
+		{ "_arrow_ExecNode_has_ordered_batches", (DL_FUNC) &_arrow_ExecNode_has_ordered_batches, 1}, 
 		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 
 		{ "_arrow_ExecPlan_Write", (DL_FUNC) &_arrow_ExecPlan_Write, 14}, 
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
