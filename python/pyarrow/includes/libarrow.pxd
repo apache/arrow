@@ -1155,6 +1155,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         vector[shared_ptr[CScalar]] value
         int child_id
 
+    cdef cppclass CRunEndEncodedScalar" arrow::RunEndEncodedScalar"(CScalar):
+        shared_ptr[CScalar] value
+
     cdef cppclass CExtensionScalar" arrow::ExtensionScalar"(CScalar):
         CExtensionScalar(shared_ptr[CScalar] storage,
                          shared_ptr[CDataType], c_bool is_valid)

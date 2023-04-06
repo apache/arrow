@@ -225,7 +225,7 @@ from pyarrow.lib import (null, bool_,
                          StringScalar, LargeStringScalar,
                          FixedSizeBinaryScalar, DictionaryScalar,
                          MapScalar, StructScalar, UnionScalar,
-                         ExtensionScalar)
+                         RunEndEncodedScalar, ExtensionScalar)
 
 # Buffers, allocation
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
