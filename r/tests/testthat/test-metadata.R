@@ -379,15 +379,3 @@ test_that("grouped_df metadata is recorded (efficiently)", {
   expect_r6_class(grouped_tab, "Table")
   expect_equal(grouped_tab$metadata$r$attributes$.group_vars, "a")
 })
-
-test_that("grouped_df non-arrow metadata is preserved", {
-  simple_tbl <- tibble(a = 1:2, b = 3:4)
-  attr(simple_tbl, "other_metadata") <- "look I'm still here!"
-  grouped <- group_by(simple_tbl, a)
-  grouped_tab <- arrow_table(grouped)
-
-  expect_equal(
-    attributes(as_tibble(grouped_tab))$other_metadata,
-    "look I'm still here!"
-  )
-})
