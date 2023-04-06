@@ -1505,7 +1505,6 @@ class TestConvertDateTimeLikeTypes:
         # identical (pyarrow still defaults to pytz)
         # TODO remove if https://github.com/apache/arrow/issues/15047 is fixed
         _check_pandas_roundtrip(df, check_dtype=False)
-        _check_serialize_components_roundtrip(df)
 
     def test_timedeltas_no_nulls(self):
         df = pd.DataFrame({
@@ -2943,40 +2942,6 @@ def test_roundtrip_with_bytes_unicode(columns):
     assert table1.equals(table2)
     assert table1.schema.equals(table2.schema)
     assert table1.schema.metadata == table2.schema.metadata
-
-
-def _check_serialize_components_roundtrip(pd_obj):
-    with pytest.warns(FutureWarning):
-        ctx = pa.default_serialization_context()
-
-    with pytest.warns(FutureWarning):
-        components = ctx.serialize(pd_obj).to_components()
-    with pytest.warns(FutureWarning):
-        deserialized = ctx.deserialize_components(components)
-
-    if isinstance(pd_obj, pd.DataFrame):
-        tm.assert_frame_equal(pd_obj, deserialized)
-    else:
-        tm.assert_series_equal(pd_obj, deserialized)
-
-
-@pytest.mark.skipif(
-    Version('1.16.0') <= Version(np.__version__) < Version('1.16.1'),
-    reason='Until numpy/numpy#12745 is resolved')
-def test_serialize_deserialize_pandas():
-    # ARROW-1784, serialize and deserialize DataFrame by decomposing
-    # BlockManager
-    df = _fully_loaded_dataframe_example()
-    _check_serialize_components_roundtrip(df)
-
-
-def test_serialize_deserialize_empty_pandas():
-    # ARROW-7996, serialize and deserialize empty pandas objects
-    df = pd.DataFrame({'col1': [], 'col2': [], 'col3': []})
-    _check_serialize_components_roundtrip(df)
-
-    series = pd.Series([], dtype=np.float32, name='col')
-    _check_serialize_components_roundtrip(series)
 
 
 def _pytime_from_micros(val):
