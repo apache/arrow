@@ -2190,54 +2190,38 @@ macro(build_gtest)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::gtest SHARED IMPORTED)
-  set_target_properties(GTest::gtest
+  add_library(arrow::GTest::gtest SHARED IMPORTED)
+  set_target_properties(arrow::GTest::gtest
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_SHARED_LIB}"
                                    INTERFACE_COMPILE_DEFINITIONS
                                    "GTEST_LINKED_AS_SHARED_LIBRARY=1"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::gtest_main SHARED IMPORTED)
-  set_target_properties(GTest::gtest_main
+  add_library(arrow::GTest::gtest_main SHARED IMPORTED)
+  set_target_properties(arrow::GTest::gtest_main
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_MAIN_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::gmock SHARED IMPORTED)
-  set_target_properties(GTest::gmock
+  add_library(arrow::GTest::gmock SHARED IMPORTED)
+  set_target_properties(arrow::GTest::gmock
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GMOCK_SHARED_LIB}"
                                    INTERFACE_COMPILE_DEFINITIONS
                                    "GMOCK_LINKED_AS_SHARED_LIBRARY=1"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
   add_dependencies(toolchain-tests googletest_ep)
-  add_dependencies(GTest::gtest googletest_ep)
-  add_dependencies(GTest::gtest_main googletest_ep)
-  add_dependencies(GTest::gmock googletest_ep)
+  add_dependencies(arrow::GTest::gtest googletest_ep)
+  add_dependencies(arrow::GTest::gtest_main googletest_ep)
+  add_dependencies(arrow::GTest::gmock googletest_ep)
 endmacro()
 
 if(ARROW_TESTING)
-  if(CMAKE_VERSION VERSION_LESS 3.23)
-    set(GTEST_USE_CONFIG TRUE)
-  else()
-    set(GTEST_USE_CONFIG FALSE)
-  endif()
-  # We can't find shred library version of GoogleTest on Windows with
-  # Conda's gtest package because it doesn't provide GTestConfig.cmake
-  # provided by GoogleTest and CMake's built-in FindGTtest.cmake
-  # doesn't support gtest_dll.dll.
   resolve_dependency(GTest
+                     HAVE_ALT
+                     TRUE
                      REQUIRED_VERSION
-                     1.10.0
-                     USE_CONFIG
-                     ${GTEST_USE_CONFIG})
+                     1.10.0)
 
   if(GTest_SOURCE STREQUAL "SYSTEM")
-    get_target_property(gtest_cxx_standard GTest::gtest INTERFACE_COMPILE_FEATURES)
-    if((${gtest_cxx_standard} STREQUAL "cxx_std_11") OR (${gtest_cxx_standard} STREQUAL
-                                                         "cxx_std_14"))
-      message(FATAL_ERROR "System GTest is built with a C++ standard lower than 17. Use bundled GTest via passing in CMake flag
--DGTest_SOURCE=\"BUNDLED\"")
-    endif()
-
     find_package(PkgConfig QUIET)
     pkg_check_modules(gtest_PC
                       gtest
@@ -2254,10 +2238,16 @@ if(ARROW_TESTING)
 
       string(APPEND ARROW_TESTING_PC_LIBS " $<TARGET_FILE:GTest::gtest>")
     endif()
+    set(ARROW_GTEST_GMOCK GTest::gmock)
+    set(ARROW_GTEST_GTEST GTest::gtest)
+    set(ARROW_GTEST_GTEST_MAIN GTest::gtest_main)
   else()
     # TODO: How to solve BUNDLED case? Do we install bundled GoogleTest?
     # string(APPEND ARROW_TESTING_PC_CFLAGS " -I${GTEST_INCLUDE_DIR}")
     # string(APPEND ARROW_TESTING_PC_LIBS " -lgtest")
+    set(ARROW_GTEST_GMOCK arrow::GTest::gmock)
+    set(ARROW_GTEST_GTEST arrow::GTest::gtest)
+    set(ARROW_GTEST_GTEST_MAIN arrow::GTest::gtest_main)
   endif()
 endif()
 
