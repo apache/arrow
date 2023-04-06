@@ -269,21 +269,10 @@ from pyarrow.lib import (ArrowCancelled,
                          ArrowTypeError,
                          ArrowSerializationError)
 
-# Serialization
-from pyarrow.lib import (deserialize_from, deserialize,
-                         deserialize_components,
-                         serialize, serialize_to, read_serialized,
-                         SerializationCallbackError,
-                         DeserializationCallbackError)
-
 import pyarrow.hdfs as hdfs
 
 from pyarrow.ipc import serialize_pandas, deserialize_pandas
 import pyarrow.ipc as ipc
-
-from pyarrow.serialization import (default_serialization_context,
-                                   register_default_serialization_handlers,
-                                   register_torch_serialization_handlers)
 
 import pyarrow.types as types
 

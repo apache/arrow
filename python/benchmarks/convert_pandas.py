@@ -72,26 +72,6 @@ class ToPandasStrings(object):
         self.arr.to_pandas(deduplicate_objects=False)
 
 
-class ZeroCopyPandasRead(object):
-
-    def setup(self):
-        # Transpose to make column-major
-        values = np.random.randn(10, 100000)
-
-        df = pd.DataFrame(values.T)
-        ctx = pa.default_serialization_context()
-
-        self.serialized = ctx.serialize(df)
-        self.as_buffer = self.serialized.to_buffer()
-        self.as_components = self.serialized.to_components()
-
-    def time_deserialize_from_buffer(self):
-        pa.deserialize(self.as_buffer)
-
-    def time_deserialize_from_components(self):
-        pa.deserialize_components(self.as_components)
-
-
 class SerializeDeserializePandas(object):
 
     def setup(self):
