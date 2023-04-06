@@ -263,3 +263,7 @@ na.omit.ArrowTabular <- function(object, ...) {
 
 #' @export
 na.exclude.ArrowTabular <- na.omit.ArrowTabular
+
+as_df <- function(x) {
+  UseMethod("as_df")
+}
