@@ -3164,7 +3164,6 @@ void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_val
     const auto suffix_length = static_cast<uint32_t>(value.len - j);
 
     if (suffix_length == 0) {
-      suffix_encoder_.Put(&kEmpty, 1);
       continue;
     }
     const uint8_t* suffix_ptr = value.ptr + j;
@@ -3208,7 +3207,6 @@ void DeltaByteArrayEncoder<FLBAType>::Put(const FLBA* src, int num_values) {
     const auto suffix_length = static_cast<uint32_t>(len - j);
 
     if (suffix_length == 0) {
-      suffix_encoder_.Put(&kEmpty, 1);
       continue;
     }
     const uint8_t* suffix_ptr = src[i].ptr + j;
