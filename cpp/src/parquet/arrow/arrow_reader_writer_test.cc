@@ -5181,7 +5181,7 @@ struct ColumnIndexObject {
         boundary_order(boundary_order),
         null_counts(null_counts) {}
 
-  ColumnIndexObject(const ColumnIndex* column_index) {
+  explicit ColumnIndexObject(const ColumnIndex* column_index) {
     if (column_index == nullptr) {
       return;
     }
@@ -5266,10 +5266,13 @@ class ParquetPageIndexRoundTripTest : public ::testing::Test {
     ASSERT_NE(offset_index, nullptr);
     const auto& locations = offset_index->page_locations();
     ASSERT_EQ(static_cast<size_t>(expect_num_pages), locations.size());
-    int64_t prev_first_row_index = 0;
+    int64_t prev_first_row_index = -1;
     for (const auto& location : locations) {
-      ASSERT_GE(location.first_row_index, prev_first_row_index);
+      // Make sure first_row_index is in the ascending order within a row group.
+      ASSERT_GT(location.first_row_index, prev_first_row_index);
+      // Make sure page offset is in the ascending order across the file.
       ASSERT_GE(location.offset, *offset_lower_bound_in_out);
+      // Make sure page size is positive.
       ASSERT_GT(location.compressed_page_size, 0);
       prev_first_row_index = location.first_row_index;
       *offset_lower_bound_in_out = location.offset + location.compressed_page_size;

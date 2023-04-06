@@ -18,9 +18,11 @@
 #include "parquet/page_index.h"
 
 #include <gtest/gtest.h>
+#include <memory>
 
 #include "arrow/io/file.h"
 #include "parquet/file_reader.h"
+#include "parquet/metadata.h"
 #include "parquet/schema.h"
 #include "parquet/test_util.h"
 #include "parquet/thrift_internal.h"
@@ -652,184 +654,180 @@ TEST(PageIndex, TestPageIndexBuilderWithZeroRowGroup) {
   ASSERT_TRUE(location.offset_index_location.empty());
 }
 
-TEST(PageIndex, TestPageIndexBuilderWithSingleRowGroup) {
-  schema::NodePtr root = schema::GroupNode::Make(
-      "schema", Repetition::REPEATED,
-      {schema::ByteArray("c1"), schema::ByteArray("c2"), schema::ByteArray("c3")});
-  SchemaDescriptor schema;
-  schema.Init(root);
+class PageIndexBuilderTest : public ::testing::Test {
+ public:
+  void WritePageIndexes(int num_row_groups, int num_columns,
+                        const std::vector<std::vector<EncodedStatistics>>& page_stats,
+                        const std::vector<std::vector<PageLocation>>& page_locations,
+                        int final_position) {
+    auto builder = PageIndexBuilder::Make(&schema_);
+    for (int row_group = 0; row_group < num_row_groups; ++row_group) {
+      ASSERT_NO_THROW(builder->AppendRowGroup());
 
-  // Prepare page stats and page locations.
-  const std::vector<EncodedStatistics> page_stats = {
-      EncodedStatistics().set_null_count(0).set_min("a").set_max("b"),
-      EncodedStatistics().set_null_count(0).set_min("A").set_max("B")};
-  const std::vector<PageLocation> page_locations = {
-      {/*offset=*/128, /*compressed_page_size=*/512,
-       /*first_row_index=*/0},
-      {/*offset=*/1024, /*compressed_page_size=*/512,
-       /*first_row_index=*/0}};
-  const int64_t final_position = 200;
+      for (int column = 0; column < num_columns; ++column) {
+        if (static_cast<size_t>(column) < page_stats[row_group].size()) {
+          auto column_index_builder = builder->GetColumnIndexBuilder(column);
+          ASSERT_NO_THROW(column_index_builder->AddPage(page_stats[row_group][column]));
+          ASSERT_NO_THROW(column_index_builder->Finish());
+        }
 
-  // Create builder and add pages of single row group.
-  // Note that the 3rd column does not add any pages and its page index is disabled.
-  auto builder = PageIndexBuilder::Make(&schema);
-  ASSERT_NO_THROW(builder->AppendRowGroup());
-  for (int i = 0; i < 2; ++i) {
-    ASSERT_NO_THROW(builder->GetColumnIndexBuilder(i)->AddPage(page_stats.at(i)));
-    ASSERT_NO_THROW(builder->GetColumnIndexBuilder(i)->Finish());
-    ASSERT_NO_THROW(builder->GetOffsetIndexBuilder(i)->AddPage(page_locations.at(i)));
-    ASSERT_NO_THROW(builder->GetOffsetIndexBuilder(i)->Finish(final_position));
-  }
-  ASSERT_NO_THROW(builder->Finish());
-
-  // Verify WriteTo only serializes page index of first two columns.
-  auto sink = CreateOutputStream();
-  PageIndexLocation location;
-  builder->WriteTo(sink.get(), &location);
-  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
-
-  const size_t num_row_groups = 1;
-  const size_t num_columns = 3;
-  ASSERT_EQ(num_row_groups, location.column_index_location.size());
-  ASSERT_EQ(num_row_groups, location.offset_index_location.size());
-  auto column_index_locations = location.column_index_location[0];
-  auto offset_index_locations = location.offset_index_location[0];
-  ASSERT_EQ(num_columns, column_index_locations.size());
-  ASSERT_EQ(num_columns, offset_index_locations.size());
-
-  auto properties = default_reader_properties();
-  for (int i = 0; i < 3; i++) {
-    if (i < 2) {
-      ASSERT_TRUE(column_index_locations[i].has_value());
-      ASSERT_TRUE(offset_index_locations[i].has_value());
-      auto ci_location = column_index_locations[i].value();
-      auto oi_location = offset_index_locations[i].value();
-
-      auto column_index =
-          ColumnIndex::Make(*schema.Column(i), buffer->data() + ci_location.offset,
-                            static_cast<uint32_t>(ci_location.length), properties);
-      const size_t num_pages = 1;
-      ASSERT_EQ(num_pages, column_index->null_pages().size());
-      ASSERT_EQ(page_stats[i].all_null_value, column_index->null_pages()[0]);
-      ASSERT_EQ(page_stats[i].min(), column_index->encoded_min_values()[0]);
-      ASSERT_EQ(page_stats[i].max(), column_index->encoded_max_values()[0]);
-      ASSERT_TRUE(column_index->has_null_counts());
-      ASSERT_EQ(page_stats[i].null_count, column_index->null_counts()[0]);
-
-      auto offset_index =
-          OffsetIndex::Make(buffer->data() + oi_location.offset,
-                            static_cast<uint32_t>(oi_location.length), properties);
-      ASSERT_EQ(num_pages, offset_index->page_locations().size());
-      ASSERT_EQ(page_locations[i].offset + final_position,
-                offset_index->page_locations()[0].offset);
-      ASSERT_EQ(page_locations[i].compressed_page_size,
-                offset_index->page_locations()[0].compressed_page_size);
-      ASSERT_EQ(page_locations[i].first_row_index,
-                offset_index->page_locations()[0].first_row_index);
-    } else {
-      ASSERT_FALSE(column_index_locations[i].has_value());
-      ASSERT_FALSE(offset_index_locations[i].has_value());
-    }
-  }
-}
-
-TEST(PageIndex, TestPageIndexBuilderWithTwoRowGroups) {
-  schema::NodePtr root = schema::GroupNode::Make(
-      "schema", Repetition::REPEATED, {schema::ByteArray("c1"), schema::ByteArray("c2")});
-  SchemaDescriptor schema;
-  schema.Init(root);
-
-  // Prepare page stats and page locations for two row groups.
-  const std::vector<std::vector<EncodedStatistics>> page_stats = {
-      /* 1st row group */
-      {EncodedStatistics().set_min("a").set_max("b"),
-       EncodedStatistics().set_null_count(0).set_min("A").set_max("B")},
-      /* 2nd row group */
-      {EncodedStatistics() /* corrupted stats */,
-       EncodedStatistics().set_null_count(0).set_min("bar").set_max("foo")}};
-  const std::vector<std::vector<PageLocation>> page_locations = {
-      /* 1st row group */
-      {{/*offset=*/128, /*compressed_page_size=*/512,
-        /*first_row_index=*/0},
-       {/*offset=*/1024, /*compressed_page_size=*/512,
-        /*first_row_index=*/0}},
-      /* 2nd row group */
-      {{/*offset=*/128, /*compressed_page_size=*/512,
-        /*first_row_index=*/0},
-       {/*offset=*/1024, /*compressed_page_size=*/512,
-        /*first_row_index=*/0}}};
-  const std::vector<int64_t> final_positions = {1024, 2048};
-
-  // Create builder and add pages of two row groups.
-  const size_t num_row_groups = 2;
-  const size_t num_columns = 2;
-  const size_t num_pages = 1;
-  auto builder = PageIndexBuilder::Make(&schema);
-  for (size_t rg = 0; rg < num_row_groups; ++rg) {
-    ASSERT_NO_THROW(builder->AppendRowGroup());
-    for (int c = 0; c < static_cast<int>(num_columns); ++c) {
-      ASSERT_NO_THROW(builder->GetColumnIndexBuilder(c)->AddPage(page_stats[rg][c]));
-      ASSERT_NO_THROW(builder->GetColumnIndexBuilder(c)->Finish());
-      ASSERT_NO_THROW(builder->GetOffsetIndexBuilder(c)->AddPage(page_locations[rg][c]));
-      ASSERT_NO_THROW(builder->GetOffsetIndexBuilder(c)->Finish(final_positions[rg]));
-    }
-  }
-  ASSERT_NO_THROW(builder->Finish());
-
-  // Verify WriteTo only serializes valid page index.
-  auto sink = CreateOutputStream();
-  PageIndexLocation location;
-  builder->WriteTo(sink.get(), &location);
-  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
-  ASSERT_EQ(num_row_groups, location.column_index_location.size());
-  ASSERT_EQ(num_row_groups, location.offset_index_location.size());
-
-  // Verify data of deserialized page index.
-  auto properties = default_reader_properties();
-  for (size_t rg = 0; rg < num_row_groups; ++rg) {
-    auto column_index_locations = location.column_index_location[rg];
-    auto offset_index_locations = location.offset_index_location[rg];
-    ASSERT_EQ(num_columns, column_index_locations.size());
-    ASSERT_EQ(num_columns, offset_index_locations.size());
-
-    for (int c = 0; c < static_cast<int>(num_columns); c++) {
-      ASSERT_TRUE(offset_index_locations[c].has_value());
-      auto oi_location = offset_index_locations[c].value();
-
-      auto offset_index =
-          OffsetIndex::Make(buffer->data() + oi_location.offset,
-                            static_cast<uint32_t>(oi_location.length), properties);
-      ASSERT_EQ(num_pages, offset_index->page_locations().size());
-      ASSERT_EQ(page_locations[rg][c].offset + final_positions[rg],
-                offset_index->page_locations()[0].offset);
-      ASSERT_EQ(page_locations[rg][c].compressed_page_size,
-                offset_index->page_locations()[0].compressed_page_size);
-      ASSERT_EQ(page_locations[rg][c].first_row_index,
-                offset_index->page_locations()[0].first_row_index);
-
-      if (rg == 1 && c == 0) {
-        // Corrupted stats.
-        ASSERT_FALSE(column_index_locations[c].has_value());
-      } else {
-        ASSERT_TRUE(column_index_locations[c].has_value());
-        auto ci_location = column_index_locations[c].value();
-
-        auto column_index =
-            ColumnIndex::Make(*schema.Column(c), buffer->data() + ci_location.offset,
-                              static_cast<uint32_t>(ci_location.length), properties);
-        ASSERT_EQ(num_pages, column_index->null_pages().size());
-        ASSERT_EQ(page_stats[rg][c].all_null_value, column_index->null_pages()[0]);
-        ASSERT_EQ(page_stats[rg][c].min(), column_index->encoded_min_values()[0]);
-        ASSERT_EQ(page_stats[rg][c].max(), column_index->encoded_max_values()[0]);
-        if (c == 1) {
-          ASSERT_TRUE(column_index->has_null_counts());
-          ASSERT_EQ(page_stats[rg][c].null_count, column_index->null_counts()[0]);
-        } else {
-          ASSERT_FALSE(column_index->has_null_counts());
+        if (static_cast<size_t>(column) < page_locations[row_group].size()) {
+          auto offset_index_builder = builder->GetOffsetIndexBuilder(column);
+          ASSERT_NO_THROW(
+              offset_index_builder->AddPage(page_locations[row_group][column]));
+          ASSERT_NO_THROW(offset_index_builder->Finish(final_position));
         }
       }
     }
+    ASSERT_NO_THROW(builder->Finish());
+
+    auto sink = CreateOutputStream();
+    builder->WriteTo(sink.get(), &page_index_location_);
+    PARQUET_ASSIGN_OR_THROW(buffer_, sink->Finish());
+
+    ASSERT_EQ(static_cast<size_t>(num_row_groups),
+              page_index_location_.column_index_location.size());
+    ASSERT_EQ(static_cast<size_t>(num_row_groups),
+              page_index_location_.offset_index_location.size());
+    for (int row_group = 0; row_group < num_row_groups; ++row_group) {
+      ASSERT_EQ(static_cast<size_t>(num_columns),
+                page_index_location_.column_index_location[row_group].size());
+      ASSERT_EQ(static_cast<size_t>(num_columns),
+                page_index_location_.offset_index_location[row_group].size());
+    }
   }
+
+  void CheckColumnIndex(int row_group, int column, const EncodedStatistics& stats) {
+    auto column_index = ReadColumnIndex(row_group, column);
+    ASSERT_NE(nullptr, column_index);
+    ASSERT_EQ(size_t{1}, column_index->null_pages().size());
+    ASSERT_EQ(stats.all_null_value, column_index->null_pages()[0]);
+    ASSERT_EQ(stats.min(), column_index->encoded_min_values()[0]);
+    ASSERT_EQ(stats.max(), column_index->encoded_max_values()[0]);
+    ASSERT_EQ(stats.has_null_count, column_index->has_null_counts());
+    if (stats.has_null_count) {
+      ASSERT_EQ(stats.null_count, column_index->null_counts()[0]);
+    }
+  }
+
+  void CheckOffsetIndex(int row_group, int column, const PageLocation& expected_location,
+                        int64_t final_location) {
+    auto offset_index = ReadOffsetIndex(row_group, column);
+    ASSERT_NE(nullptr, offset_index);
+    ASSERT_EQ(size_t{1}, offset_index->page_locations().size());
+    const auto& location = offset_index->page_locations()[0];
+    ASSERT_EQ(expected_location.offset + final_location, location.offset);
+    ASSERT_EQ(expected_location.compressed_page_size, location.compressed_page_size);
+    ASSERT_EQ(expected_location.first_row_index, location.first_row_index);
+  }
+
+ protected:
+  std::unique_ptr<ColumnIndex> ReadColumnIndex(int row_group, int column) {
+    auto location = page_index_location_.column_index_location[row_group][column];
+    if (!location.has_value()) {
+      return nullptr;
+    }
+    auto properties = default_reader_properties();
+    return ColumnIndex::Make(*schema_.Column(column), buffer_->data() + location->offset,
+                             static_cast<uint32_t>(location->length), properties);
+  }
+
+  std::unique_ptr<OffsetIndex> ReadOffsetIndex(int row_group, int column) {
+    auto location = page_index_location_.offset_index_location[row_group][column];
+    if (!location.has_value()) {
+      return nullptr;
+    }
+    auto properties = default_reader_properties();
+    return OffsetIndex::Make(buffer_->data() + location->offset,
+                             static_cast<uint32_t>(location->length), properties);
+  }
+
+  SchemaDescriptor schema_;
+  std::shared_ptr<Buffer> buffer_;
+  PageIndexLocation page_index_location_;
+};
+
+TEST_F(PageIndexBuilderTest, SingleRowGroup) {
+  schema::NodePtr root = schema::GroupNode::Make(
+      "schema", Repetition::REPEATED,
+      {schema::ByteArray("c1"), schema::ByteArray("c2"), schema::ByteArray("c3")});
+  schema_.Init(root);
+
+  // Prepare page stats and page locations for single row group.
+  // Note that the 3rd column does not have any stats and its page index is disabled.
+  const int num_row_groups = 1;
+  const int num_columns = 3;
+  const std::vector<std::vector<EncodedStatistics>> page_stats = {
+      /*row_group_id=0*/
+      {/*column_id=0*/ EncodedStatistics().set_null_count(0).set_min("a").set_max("b"),
+       /*column_id=1*/ EncodedStatistics().set_null_count(0).set_min("A").set_max("B")}};
+  const std::vector<std::vector<PageLocation>> page_locations = {
+      /*row_group_id=0*/
+      {/*column_id=0*/ {/*offset=*/128, /*compressed_page_size=*/512,
+                        /*first_row_index=*/0},
+       /*column_id=1*/ {/*offset=*/1024, /*compressed_page_size=*/512,
+                        /*first_row_index=*/0}}};
+  const int64_t final_position = 200;
+
+  WritePageIndexes(num_row_groups, num_columns, page_stats, page_locations,
+                   final_position);
+
+  // Verify that first two columns have good page indexes.
+  for (int column = 0; column < 2; ++column) {
+    CheckColumnIndex(/*row_group=*/0, column, page_stats[0][column]);
+    CheckOffsetIndex(/*row_group=*/0, column, page_locations[0][column], final_position);
+  }
+
+  // Verify the 3rd column does not have page indexes.
+  ASSERT_EQ(nullptr, ReadColumnIndex(/*row_group=*/0, /*column=*/2));
+  ASSERT_EQ(nullptr, ReadOffsetIndex(/*row_group=*/0, /*column=*/2));
+}
+
+TEST_F(PageIndexBuilderTest, TwoRowGroups) {
+  schema::NodePtr root = schema::GroupNode::Make(
+      "schema", Repetition::REPEATED, {schema::ByteArray("c1"), schema::ByteArray("c2")});
+  schema_.Init(root);
+
+  // Prepare page stats and page locations for two row groups.
+  // Note that the 2nd column in the 2nd row group has corrupted stats.
+  const int num_row_groups = 2;
+  const int num_columns = 2;
+  const std::vector<std::vector<EncodedStatistics>> page_stats = {
+      /*row_group_id=0*/
+      {/*column_id=0*/ EncodedStatistics().set_min("a").set_max("b"),
+       /*column_id=1*/ EncodedStatistics().set_null_count(0).set_min("A").set_max("B")},
+      /*row_group_id=1*/
+      {/*column_id=0*/ EncodedStatistics() /* corrupted stats */,
+       /*column_id=1*/ EncodedStatistics().set_null_count(0).set_min("bar").set_max(
+           "foo")}};
+  const std::vector<std::vector<PageLocation>> page_locations = {
+      /*row_group_id=0*/
+      {/*column_id=0*/ {/*offset=*/128, /*compressed_page_size=*/512,
+                        /*first_row_index=*/0},
+       /*column_id=1*/ {/*offset=*/1024, /*compressed_page_size=*/512,
+                        /*first_row_index=*/0}},
+      /*row_group_id=0*/
+      {/*column_id=0*/ {/*offset=*/128, /*compressed_page_size=*/512,
+                        /*first_row_index=*/0},
+       /*column_id=1*/ {/*offset=*/1024, /*compressed_page_size=*/512,
+                        /*first_row_index=*/0}}};
+  const int64_t final_position = 200;
+
+  WritePageIndexes(num_row_groups, num_columns, page_stats, page_locations,
+                   final_position);
+
+  // Verify that all columns have good column indexes except the 2nd column in the 2nd row
+  // group.
+  CheckColumnIndex(/*row_group=*/0, /*column=*/0, page_stats[0][0]);
+  CheckColumnIndex(/*row_group=*/0, /*column=*/1, page_stats[0][1]);
+  CheckColumnIndex(/*row_group=*/1, /*column=*/1, page_stats[1][1]);
+  ASSERT_EQ(nullptr, ReadColumnIndex(/*row_group=*/1, /*column=*/0));
+
+  // Verify that two columns have good offset indexes.
+  CheckOffsetIndex(/*row_group=*/0, /*column=*/0, page_locations[0][0], final_position);
+  CheckOffsetIndex(/*row_group=*/0, /*column=*/1, page_locations[0][1], final_position);
+  CheckOffsetIndex(/*row_group=*/1, /*column=*/0, page_locations[1][0], final_position);
+  CheckOffsetIndex(/*row_group=*/1, /*column=*/1, page_locations[1][1], final_position);
 }
 
 }  // namespace parquet
