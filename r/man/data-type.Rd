@@ -201,6 +201,7 @@ Use \code{decimal128()} or \code{decimal256()} as the names are more informative
 \code{decimal()}.
 }
 \examples{
+\dontshow{if (arrow_with_acero()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 bool()
 struct(a = int32(), b = double())
 timestamp("ms", timezone = "CEST")
@@ -227,6 +228,7 @@ if (requireNamespace("dplyr", quietly = TRUE)) {
     ) \%>\%
     compute()
 }
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=dictionary]{dictionary()}} for creating a dictionary (factor-like) type.

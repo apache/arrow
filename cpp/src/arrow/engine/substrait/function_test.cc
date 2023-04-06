@@ -661,14 +661,12 @@ void CheckGroupedAggregateCase(const AggregateTestCase& test_case) {
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<Array> sort_indices,
       compute::SortIndices(output_table, compute::SortOptions({compute::SortKey(
-                                             output_table->num_columns() - 1,
-                                             compute::SortOrder::Ascending)})));
+                                             0, compute::SortOrder::Ascending)})));
   ASSERT_OK_AND_ASSIGN(Datum sorted_table_datum,
                        compute::Take(output_table, sort_indices));
   output_table = sorted_table_datum.table();
-  // TODO(ARROW-17245) We should be selecting N-1 here but Acero
-  // currently emits things in reverse order
-  ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns({0}));
+  ASSERT_OK_AND_ASSIGN(output_table,
+                       output_table->SelectColumns({output_table->num_columns() - 1}));
 
   std::shared_ptr<Table> expected_output =
       GetOutputTableForAggregateCase(test_case.output_type, test_case.group_outputs);

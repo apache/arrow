@@ -249,9 +249,7 @@ def _filter_table(table, expression):
         Declaration("table_source", options=TableSourceNodeOptions(table)),
         Declaration("filter", options=FilterNodeOptions(expression))
     ])
-    # TODO use_threads is set to False because this doesn't yet support
-    # preserving the order of the in-memory table's batches
-    return decl.to_table(use_threads=False)
+    return decl.to_table(use_threads=True)
 
 
 def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):

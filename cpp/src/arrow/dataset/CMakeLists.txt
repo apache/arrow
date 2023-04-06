@@ -140,7 +140,9 @@ function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
                  PREFIX
                  ${PREFIX}
                  SOURCES
+                 ${REL_TEST_NAME}.cc
                  test_util_internal.cc
+                 ../acero/test_util_internal.cc
                  LABELS
                  ${LABELS}
                  ${ARG_UNPARSED_ARGUMENTS})

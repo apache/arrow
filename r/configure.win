@@ -59,11 +59,11 @@ function configure_release() {
   # NOTE: If you make changes to the libraries below, you should also change
   # ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
   PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC \
-              -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET \
-              -DARROW_R_WITH_JSON"
+              -DARROW_ACERO_STATIC -DARROW_R_WITH_PARQUET -DARROW_R_WITH_ACERO \
+              -DARROW_R_WITH_DATASET -DARROW_R_WITH_JSON"
   PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '
   PKG_LIBS="$PKG_LIBS -L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '
-  PKG_LIBS="$PKG_LIBS -larrow_dataset -lparquet -larrow -larrow_bundled_dependencies \
+  PKG_LIBS="$PKG_LIBS -larrow_dataset -larrow_acero -lparquet -larrow -larrow_bundled_dependencies \
             -lutf8proc -lthrift -lsnappy -lz -lzstd -llz4 -lbz2 ${BROTLI_LIBS} -lole32 \
             ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
 
@@ -96,6 +96,11 @@ function configure_dev() {
   if [ $(cmake_option ARROW_PARQUET) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
     PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES parquet"
+  fi
+
+  if [ $(cmake_option ARROW_ACERO) -eq 1 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ACERO"
+    PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES arrow-acero"
   fi
 
   if [ $(cmake_option ARROW_DATASET) -eq 1 ]; then

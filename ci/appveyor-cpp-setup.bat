@@ -67,7 +67,7 @@ set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.txt
 conda config --add channels conda-forge
 conda config --remove channels defaults
 @rem Arrow conda environment
-mamba create -n arrow -q -y -c conda-forge ^
+mamba create -n arrow -y -c conda-forge ^
   --file=ci\conda_env_python.txt ^
   %CONDA_PACKAGES%  ^
   "ccache" ^
@@ -78,6 +78,7 @@ mamba create -n arrow -q -y -c conda-forge ^
   "fsspec" ^
   "python=%PYTHON%" ^
   || exit /B
+conda list -n arrow
 
 @rem
 @rem Configure compiler

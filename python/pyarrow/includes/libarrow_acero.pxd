@@ -46,9 +46,6 @@ cdef extern from "arrow/acero/options.h" namespace "arrow::acero" nogil:
         CJoinType_RIGHT_OUTER "arrow::acero::JoinType::RIGHT_OUTER"
         CJoinType_FULL_OUTER "arrow::acero::JoinType::FULL_OUTER"
 
-    cdef cppclass CAsyncExecBatchGenerator "arrow::acero::AsyncExecBatchGenerator":
-        pass
-
     cdef cppclass CExecNodeOptions "arrow::acero::ExecNodeOptions":
         pass
 
@@ -72,10 +69,6 @@ cdef extern from "arrow/acero/options.h" namespace "arrow::acero" nogil:
 
     cdef cppclass CAggregateNodeOptions "arrow::acero::AggregateNodeOptions"(CExecNodeOptions):
         CAggregateNodeOptions(vector[CAggregate] aggregates, vector[CFieldRef] names)
-
-    cdef cppclass COrderBySinkNodeOptions "arrow::acero::OrderBySinkNodeOptions"(CExecNodeOptions):
-        COrderBySinkNodeOptions(vector[CSortOptions] options,
-                                CAsyncExecBatchGenerator generator)
 
     cdef cppclass COrderByNodeOptions "arrow::acero::OrderByNodeOptions"(CExecNodeOptions):
         COrderByNodeOptions(COrdering ordering)
@@ -114,37 +107,9 @@ cdef extern from "arrow/acero/exec_plan.h" namespace "arrow::acero" nogil:
         @staticmethod
         CDeclaration Sequence(vector[CDeclaration] decls)
 
-        CResult[CExecNode*] AddToPlan(CExecPlan* plan) const
-
-    cdef cppclass CExecPlan "arrow::acero::ExecPlan":
-        @staticmethod
-        CResult[shared_ptr[CExecPlan]] Make(CExecContext* exec_context)
-
-        void StartProducing()
-        CStatus Validate()
-        CStatus StopProducing()
-
-        CFuture_Void finished()
-
-        vector[CExecNode*] sinks() const
-        vector[CExecNode*] sources() const
-
     cdef cppclass CExecNode "arrow::acero::ExecNode":
         const vector[CExecNode*]& inputs() const
         const shared_ptr[CSchema]& output_schema() const
-
-    cdef cppclass CExecBatch "arrow::acero::ExecBatch":
-        vector[CDatum] values
-        int64_t length
-
-    shared_ptr[CRecordBatchReader] MakeGeneratorReader(
-        shared_ptr[CSchema] schema,
-        CAsyncExecBatchGenerator gen,
-        CMemoryPool* memory_pool
-    )
-    CResult[CExecNode*] MakeExecNode(c_string factory_name, CExecPlan* plan,
-                                     vector[CExecNode*] inputs,
-                                     const CExecNodeOptions& options)
 
     CResult[shared_ptr[CTable]] DeclarationToTable(
         CDeclaration declaration, c_bool use_threads
