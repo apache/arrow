@@ -164,7 +164,7 @@ module Arrow
       end
 
       def match_substring(substring, ignore_case: false)
-        MatchSubstringCondition.new("match_substring",
+        MatchSubstringFamilyCondition.new("match_substring",
                                     @column, substring, ignore_case)
       end
     end
@@ -357,7 +357,7 @@ module Arrow
       end
     end
 
-    class MatchSubstringCondition < Condition
+    class MatchSubstringFamilyCondition < Condition
       def initialize(function, column, pattern, ignore_case, invert: false)
         @function = function
         @column = column
@@ -368,7 +368,7 @@ module Arrow
       end
 
       def !@
-        MatchSubstringCondition.new(@function,
+        MatchSubstringFamilyCondition.new(@function,
                                     @column,
                                     @options.pattern,
                                     @options.ignore_case?,
