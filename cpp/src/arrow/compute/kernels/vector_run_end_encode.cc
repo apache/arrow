@@ -132,15 +132,25 @@ class RunEndEncodingLoop {
   }
 };
 
-template <typename RunEndType>
-Status ValidateRunEndType(int64_t input_length) {
-  using RunEndCType = typename RunEndType::c_type;
-  constexpr int64_t kRunEndMax = std::numeric_limits<RunEndCType>::max();
-  if (input_length < 0 || input_length > kRunEndMax) {
+ARROW_NOINLINE Status ValidateRunEndType(const std::shared_ptr<DataType>& run_end_type,
+                                         int64_t input_length) {
+  int64_t run_end_max = std::numeric_limits<int64_t>::max();
+  switch (run_end_type->id()) {
+    case Type::INT16:
+      run_end_max = std::numeric_limits<int16_t>::max();
+      break;
+    case Type::INT32:
+      run_end_max = std::numeric_limits<int32_t>::max();
+      break;
+    default:
+      DCHECK_EQ(run_end_type->id(), Type::INT64);
+      break;
+  }
+  if (input_length < 0 || input_length > run_end_max) {
     return Status::Invalid(
         "Cannot run-end encode Arrays with more elements than the "
         "run end type can hold: ",
-        kRunEndMax);
+        run_end_max);
   }
   return Status::OK();
 }
@@ -161,8 +171,9 @@ class RunEndEncodeImpl {
   Status Exec() {
     const int64_t input_length = input_array_.length;
 
+    auto run_end_type = TypeTraits<RunEndType>::type_singleton();
     auto ree_type = std::make_shared<RunEndEncodedType>(
-        TypeTraits<RunEndType>::type_singleton(), input_array_.type->GetSharedPtr());
+        run_end_type, input_array_.type->GetSharedPtr());
     if (input_length == 0) {
       ARROW_ASSIGN_OR_RAISE(
           auto output_array_data,
@@ -176,7 +187,7 @@ class RunEndEncodeImpl {
     int64_t num_valid_runs = 0;
     int64_t num_output_runs = 0;
     int64_t data_buffer_size = 0;  // for string and binary types
-    RETURN_NOT_OK(ValidateRunEndType<RunEndType>(input_length));
+    RETURN_NOT_OK(ValidateRunEndType(run_end_type, input_length));
 
     RunEndEncodingLoop<RunEndType, ValueType, has_validity_buffer> counting_loop(
         input_array_,
@@ -207,12 +218,10 @@ class RunEndEncodeImpl {
   }
 };
 
-template <typename RunEndType>
-Status RunEndEncodeNullArray(KernelContext* ctx, const ArraySpan& input_array,
-                             ExecResult* output) {
-  using RunEndCType = typename RunEndType::c_type;
-  auto run_end_type = TypeTraits<RunEndType>::type_singleton();
-
+ARROW_NOINLINE Status RunEndEncodeNullArray(const std::shared_ptr<DataType>& run_end_type,
+                                            KernelContext* ctx,
+                                            const ArraySpan& input_array,
+                                            ExecResult* output) {
   const int64_t input_length = input_array.length;
   DCHECK(input_array.type->id() == Type::NA);
 
@@ -225,16 +234,26 @@ Status RunEndEncodeNullArray(KernelContext* ctx, const ArraySpan& input_array,
   }
 
   // Abort if run-end type cannot hold the input length
-  RETURN_NOT_OK(ValidateRunEndType<RunEndType>(input_array.length));
+  RETURN_NOT_OK(ValidateRunEndType(run_end_type, input_array.length));
 
   ARROW_ASSIGN_OR_RAISE(auto output_array_data,
                         ree_util::PreallocateNullREEArray(run_end_type, input_length, 1,
                                                           ctx->memory_pool()));
 
   // Write the single run-end this REE has
-  auto* output_run_ends =
-      output_array_data->child_data[0]->template GetMutableValues<RunEndCType>(1, 0);
-  output_run_ends[0] = static_cast<RunEndCType>(input_length);
+  auto* output_run_ends = output_array_data->child_data[0]->buffers[1]->mutable_data();
+  switch (run_end_type->id()) {
+    case Type::INT16:
+      *reinterpret_cast<int16_t*>(output_run_ends) = static_cast<int16_t>(input_length);
+      break;
+    case Type::INT32:
+      *reinterpret_cast<int32_t*>(output_run_ends) = static_cast<int32_t>(input_length);
+      break;
+    default:
+      DCHECK_EQ(run_end_type->id(), Type::INT64);
+      *reinterpret_cast<int64_t*>(output_run_ends) = static_cast<int64_t>(input_length);
+      break;
+  }
 
   output->value = std::move(output_array_data);
   return Status::OK();
@@ -246,7 +265,8 @@ struct RunEndEncodeExec {
     DCHECK(span.values[0].is_array());
     const auto& input_array = span.values[0].array;
     if constexpr (ValueType::type_id == Type::NA) {
-      return RunEndEncodeNullArray<RunEndType>(ctx, input_array, result);
+      return RunEndEncodeNullArray(TypeTraits<RunEndType>::type_singleton(), ctx,
+                                   input_array, result);
     } else {
       const bool has_validity_buffer = input_array.MayHaveNulls();
       if (has_validity_buffer) {
