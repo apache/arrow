@@ -971,8 +971,8 @@ func (ps *ParquetIOTestSuite) TestSingleColumnRequiredWrite() {
 	}
 }
 
-func (ps *ParquetIOTestSuite) roundTripTable(mem memory.Allocator, expected arrow.Table, storeSchema bool) {
-	mem = memory.NewGoAllocator() // FIXME currently overriding allocator to isolate leaks between roundTripTable and caller
+func (ps *ParquetIOTestSuite) roundTripTable(mem_ memory.Allocator, expected arrow.Table, storeSchema bool) {
+	_, mem := mem_, memory.NewGoAllocator() // FIXME currently overriding allocator to isolate leaks between roundTripTable and caller
 
 	var buf bytes.Buffer
 	var props pqarrow.ArrowWriterProperties
