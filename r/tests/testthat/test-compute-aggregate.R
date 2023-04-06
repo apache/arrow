@@ -368,7 +368,7 @@ test_that("is_in", {
 
 test_that("value_counts", {
   a <- Array$create(c(1, 4, 3, 1, 1, 3, 4))
-  result_df <- tibble::tibble(
+  result_df <- data.frame(
     values = c(1, 4, 3),
     counts = c(3L, 2L, 2L)
   )
@@ -377,7 +377,7 @@ test_that("value_counts", {
     type = struct(values = float64(), counts = int64())
   )
   expect_equal(value_counts(a), result)
-  expect_identical(as_tibble(value_counts(a)), result_df)
+  expect_identical(as.data.frame(value_counts(a)), result_df)
   expect_identical(as.vector(value_counts(a)$counts), result_df$counts)
 })
 
