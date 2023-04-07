@@ -34,7 +34,51 @@
 namespace rj = arrow::rapidjson;
 
 namespace arrow {
+
 namespace extension {
+
+namespace {
+
+Status ComputeStrides(const FixedWidthType& type, const std::vector<int64_t>& shape,
+                      const std::vector<int64_t>& permutation,
+                      std::vector<int64_t>* strides) {
+  if (permutation.empty()) {
+    return internal::ComputeRowMajorStrides(type, shape, strides);
+  }
+
+  const int byte_width = type.byte_width();
+
+  int64_t remaining = 0;
+  if (!shape.empty() && shape.front() > 0) {
+    remaining = byte_width;
+    for (auto i : permutation) {
+      if (i > 0) {
+        if (internal::MultiplyWithOverflow(remaining, shape[i], &remaining)) {
+          return Status::Invalid(
+              "Strides computed from shape would not fit in 64-bit integer");
+        }
+      }
+    }
+  }
+
+  if (remaining == 0) {
+    strides->assign(shape.size(), byte_width);
+    return Status::OK();
+  }
+
+  strides->push_back(remaining);
+  for (auto i : permutation) {
+    if (i > 0) {
+      remaining /= shape[i];
+      strides->push_back(remaining);
+    }
+  }
+  internal::Permute(permutation, strides);
+
+  return Status::OK();
+}
+
+}  // namespace
 
 bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   if (extension_name() != other.extension_name()) {
@@ -227,46 +271,6 @@ Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor
   return std::reinterpret_pointer_cast<FixedShapeTensorArray>(ext_arr);
 }
 
-Status FixedShapeTensorType::ComputeStrides(const FixedWidthType& type,
-                                            const std::vector<int64_t>& shape,
-                                            const std::vector<int64_t>& permutation,
-                                            std::vector<int64_t>* strides) {
-  if (permutation.empty()) {
-    return internal::ComputeRowMajorStrides(type, shape, strides);
-  }
-
-  const int byte_width = type.byte_width();
-
-  int64_t remaining = 0;
-  if (!shape.empty() && shape.front() > 0) {
-    remaining = byte_width;
-    for (auto i : permutation) {
-      if (i > 0) {
-        if (internal::MultiplyWithOverflow(remaining, shape[i], &remaining)) {
-          return Status::Invalid(
-              "Strides computed from shape would not fit in 64-bit integer");
-        }
-      }
-    }
-  }
-
-  if (remaining == 0) {
-    strides->assign(shape.size(), byte_width);
-    return Status::OK();
-  }
-
-  strides->push_back(remaining);
-  for (auto i : permutation) {
-    if (i > 0) {
-      remaining /= shape[i];
-      strides->push_back(remaining);
-    }
-  }
-  internal::Permute(permutation, strides);
-
-  return Status::OK();
-}
-
 const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   // To convert an array of n dimensional tensors to a n+1 dimensional tensor we
   // interpret the array's length as the first dimension the new tensor.
@@ -298,8 +302,8 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
 
   std::vector<int64_t> tensor_strides;
   auto value_type = internal::checked_pointer_cast<FixedWidthType>(ext_arr->value_type());
-  ARROW_RETURN_NOT_OK(FixedShapeTensorType::ComputeStrides(*value_type.get(), shape,
-                                                           permutation, &tensor_strides));
+  ARROW_RETURN_NOT_OK(
+      ComputeStrides(*value_type.get(), shape, permutation, &tensor_strides));
   ARROW_ASSIGN_OR_RAISE(auto buffers, ext_arr->Flatten());
   ARROW_ASSIGN_OR_RAISE(
       auto tensor, Tensor::Make(ext_arr->value_type(), buffers->data()->buffers[1], shape,

@@ -99,12 +99,6 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
       const std::vector<int64_t>& permutation = {},
       const std::vector<std::string>& dim_names = {});
 
-  /// \brief Compute strides of FixedShapeTensorType
-  static Status ComputeStrides(const FixedWidthType& type,
-                               const std::vector<int64_t>& shape,
-                               const std::vector<int64_t>& permutation,
-                               std::vector<int64_t>* strides);
-
  private:
   std::shared_ptr<DataType> storage_type_;
   std::shared_ptr<DataType> value_type_;
