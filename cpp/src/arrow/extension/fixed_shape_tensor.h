@@ -38,10 +38,10 @@ class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
 
   /// \brief Create a Tensor from FixedShapeTensorArray
   ///
-  /// This method will create a Tensor from a FixedShapeTensorArray, setting its
-  /// first dimension as length equal to the FixedShapeTensorArray's length and the
-  /// remaining dimensions as the FixedShapeTensorType's shape. Shape will be permuted
-  /// according to permutation stored in the FixedShapeTensorType metadata.
+  /// This method will create a Tensor from a FixedShapeTensorArray, setting its first
+  /// dimension as length equal to the FixedShapeTensorArray's length and the remaining
+  /// dimensions as the FixedShapeTensorType's shape. Shape and dim_names will be
+  /// permuted according to permutation stored in the FixedShapeTensorType metadata.
   const Result<std::shared_ptr<Tensor>> ToTensor() const;
 };
 

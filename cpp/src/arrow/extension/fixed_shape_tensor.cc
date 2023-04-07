@@ -143,24 +143,27 @@ std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
 
 Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor(
     const std::shared_ptr<Tensor>& tensor) {
-  std::vector<std::string> dim_names;
-  for (size_t i = 1; i < tensor->dim_names().size(); ++i) {
-    dim_names.emplace_back(tensor->dim_names()[i]);
-  }
-
   auto permutation = internal::ArgSort(tensor->strides(), std::greater<>());
   if (permutation[0] != 0) {
     return Status::Invalid(
         "Only first-major tensors can be zero-copy converted to arrays");
   }
   permutation.erase(permutation.begin());
-  for (int64_t& i : permutation) {
-    --i;
-  }
 
   std::vector<int64_t> cell_shape;
   for (auto i : permutation) {
-    cell_shape.emplace_back(tensor->shape()[i + 1]);
+    cell_shape.emplace_back(tensor->shape()[i]);
+  }
+
+  std::vector<std::string> dim_names;
+  if (!tensor->dim_names().empty()) {
+    for (auto i : permutation) {
+      dim_names.emplace_back(tensor->dim_names()[i]);
+    }
+  }
+
+  for (int64_t& i : permutation) {
+    --i;
   }
 
   auto ext_type = internal::checked_pointer_cast<ExtensionType>(
@@ -274,6 +277,17 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
                   Status::Invalid(ext_arr->value_type()->ToString(),
                                   " is not valid data type for a tensor"));
   auto permutation = ext_type->permutation();
+
+  std::vector<std::string> dim_names;
+  if (!ext_type->dim_names().empty()) {
+    for (auto i : permutation) {
+      dim_names.emplace_back(ext_type->dim_names()[i]);
+    }
+    dim_names.insert(dim_names.begin(), 1, "");
+  } else {
+    dim_names = {};
+  }
+
   std::vector<int64_t> shape;
   for (int64_t& i : permutation) {
     shape.emplace_back(ext_type->shape()[i]);
@@ -281,14 +295,6 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   }
   shape.insert(shape.begin(), 1, this->length());
   permutation.insert(permutation.begin(), 1, 0);
-
-  std::vector<std::string> dim_names;
-  if (!ext_type->dim_names().empty()) {
-    dim_names = ext_type->dim_names();
-    dim_names.insert(dim_names.begin(), 1, "");
-  } else {
-    dim_names = {};
-  }
 
   std::vector<int64_t> tensor_strides;
   auto value_type = internal::checked_pointer_cast<FixedWidthType>(ext_arr->value_type());

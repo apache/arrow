@@ -302,14 +302,21 @@ TEST_F(TestExtensionType, TestFromTensorType) {
       std::vector<std::vector<int64_t>>{{3, 3, 4}, {3, 3, 4}, {3, 4, 3}, {3, 4, 3}};
   auto strides = std::vector<std::vector<int64_t>>{
       {96, 32, 8}, {96, 8, 24}, {96, 24, 8}, {96, 8, 32}};
+  auto tensor_dim_names = std::vector<std::vector<std::string>>{
+      {"x", "y", "z"}, {"x", "y", "z"}, {"x", "y", "z"}, {"x", "y", "z"},
+      {"x", "y", "z"}, {"x", "y", "z"}, {"x", "y", "z"}, {"x", "y", "z"}};
+  auto dim_names = std::vector<std::vector<std::string>>{
+      {"y", "z"}, {"z", "y"}, {"y", "z"}, {"z", "y"},
+      {"y", "z"}, {"y", "z"}, {"y", "z"}, {"y", "z"}};
   auto cell_shapes = std::vector<std::vector<int64_t>>{{3, 4}, {4, 3}, {4, 3}, {3, 4}};
   auto permutations = std::vector<std::vector<int64_t>>{{0, 1}, {1, 0}, {0, 1}, {1, 0}};
 
   for (size_t i = 0; i < shapes.size(); i++) {
-    ASSERT_OK_AND_ASSIGN(auto tensor,
-                         Tensor::Make(value_type_, values, shapes[i], strides[i]));
+    ASSERT_OK_AND_ASSIGN(auto tensor, Tensor::Make(value_type_, values, shapes[i],
+                                                   strides[i], tensor_dim_names[i]));
     ASSERT_OK_AND_ASSIGN(auto ext_arr, FixedShapeTensorArray::FromTensor(tensor));
-    auto ext_type = fixed_shape_tensor(value_type_, cell_shapes[i], permutations[i]);
+    auto ext_type =
+        fixed_shape_tensor(value_type_, cell_shapes[i], permutations[i], dim_names[i]);
     CheckFromTensorType(tensor, ext_type);
   }
 }
@@ -337,10 +344,14 @@ TEST_F(TestExtensionType, RoundtripTensor) {
   auto strides = std::vector<std::vector<int64_t>>{
       {96, 32, 8}, {96, 8, 32},  {96, 24, 8},  {96, 8, 24},      {48, 24, 8},
       {48, 8, 24}, {144, 48, 8}, {144, 8, 48}, {144, 48, 24, 8}, {144, 8, 24, 48}};
+  auto tensor_dim_names = std::vector<std::vector<std::string>>{
+      {"x", "y", "z"},      {"x", "y", "z"},     {"x", "y", "z"}, {"x", "y", "z"},
+      {"x", "y", "z"},      {"x", "y", "z"},     {"x", "y", "z"}, {"x", "y", "z"},
+      {"N", "H", "W", "C"}, {"N", "H", "W", "C"}};
 
   for (size_t i = 0; i < shapes.size(); i++) {
-    ASSERT_OK_AND_ASSIGN(auto tensor,
-                         Tensor::Make(value_type_, values, shapes[i], strides[i]));
+    ASSERT_OK_AND_ASSIGN(auto tensor, Tensor::Make(value_type_, values, shapes[i],
+                                                   strides[i], tensor_dim_names[i]));
     CheckTensorRoundtrip(tensor);
   }
 }
