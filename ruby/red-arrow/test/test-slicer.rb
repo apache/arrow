@@ -492,6 +492,18 @@ class SlicerTest < Test::Unit::TestCase
       )
     end
 
+    test("ends_with") do
+      sliced_table = @table.slice do |slicer|
+        slicer.string.ends_with("ow")
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	Arrow 
+1	(null)
+2	window
+      TABLE
+    end
+
     test("match_substring") do
       sliced_table = @table.slice do |slicer|
         slicer.string.match_substring("arr")
@@ -526,6 +538,17 @@ class SlicerTest < Test::Unit::TestCase
 0	Arrow 
 1	(null)
 2	window
+      TABLE
+    end
+
+    test("starts_with") do
+      sliced_table = @table.slice do |slicer|
+        slicer.string.starts_with("ca")
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	carrot
+1	(null)
       TABLE
     end
   end
