@@ -469,7 +469,11 @@ cdef class ChunkedArray(_PandasConvertible):
     cdef getitem(self, int64_t i)
 
 
-cdef class Table(_PandasConvertible):
+cdef class _Table(_PandasConvertible):
+    pass
+
+
+cdef class Table(_Table):
     cdef:
         shared_ptr[CTable] sp_table
         CTable* table
@@ -477,7 +481,7 @@ cdef class Table(_PandasConvertible):
     cdef void init(self, const shared_ptr[CTable]& table)
 
 
-cdef class RecordBatch(_PandasConvertible):
+cdef class RecordBatch(_Table):
     cdef:
         shared_ptr[CRecordBatch] sp_batch
         CRecordBatch* batch
