@@ -1188,9 +1188,9 @@ struct ArrowBinaryHelper<ByteArrayType> {
   explicit ArrowBinaryHelper(typename EncodingTraits<ByteArrayType>::Accumulator* out) {
     this->out = out;
     this->builder = out->builder.get();
-    if (SubtractWithOverflow(::arrow::kBinaryMemoryLimit,
-                             this->builder->value_data_length(),
-                             &this->chunk_space_remaining)) {
+    if (ARROW_PREDICT_FALSE(SubtractWithOverflow(::arrow::kBinaryMemoryLimit,
+                                                 this->builder->value_data_length(),
+                                                 &this->chunk_space_remaining))) {
       throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
     }
     this->chunk_space_remaining =
@@ -1231,9 +1231,9 @@ template <>
 struct ArrowBinaryHelper<FLBAType> {
   explicit ArrowBinaryHelper(EncodingTraits<FLBAType>::Accumulator* builder) {
     this->builder = builder;
-    if (SubtractWithOverflow(::arrow::kBinaryMemoryLimit,
-                             this->builder->value_data_length(),
-                             &this->chunk_space_remaining)) {
+    if (ARROW_PREDICT_FALSE(SubtractWithOverflow(::arrow::kBinaryMemoryLimit,
+                                                 this->builder->value_data_length(),
+                                                 &this->chunk_space_remaining))) {
       throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
     }
   }
@@ -3164,6 +3164,7 @@ void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_val
     const auto suffix_length = static_cast<uint32_t>(value.len - j);
 
     if (suffix_length == 0) {
+      suffix_encoder_.Put(&kEmpty, 1);
       continue;
     }
     const uint8_t* suffix_ptr = value.ptr + j;
@@ -3207,6 +3208,7 @@ void DeltaByteArrayEncoder<FLBAType>::Put(const FLBA* src, int num_values) {
     const auto suffix_length = static_cast<uint32_t>(len - j);
 
     if (suffix_length == 0) {
+      suffix_encoder_.Put(&kEmpty, 1);
       continue;
     }
     const uint8_t* suffix_ptr = src[i].ptr + j;
