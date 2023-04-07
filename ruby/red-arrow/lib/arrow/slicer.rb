@@ -163,7 +163,7 @@ module Arrow
         RejectCondition.new(@column, block)
       end
 
-      def ends_with(substring, ignore_case: false)
+      def end_with?(substring, ignore_case: false)
         MatchSubstringFamilyCondition.new("ends_with",
                                           @column, substring, ignore_case)
       end
