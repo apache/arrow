@@ -245,10 +245,9 @@ ARROW_NOINLINE Status RunEndEncodeNullArray(const std::shared_ptr<DataType>& run
   RETURN_NOT_OK(ValidateRunEndType(run_end_type, input_array.length));
 
   ARROW_ASSIGN_OR_RAISE(
-      auto output_array_data,
+      output->value,
       ree_util::MakeNullREEArray(run_end_type, input_length, ctx->memory_pool()));
 
-  output->value = std::move(output_array_data);
   return Status::OK();
 }
 

@@ -37,4 +37,6 @@ Result<int64_t> CalculateREExREEFilterOutputSize(
     const ArraySpan& values, const ArraySpan& filter,
     FilterOptions::NullSelectionBehavior null_selection);
 
+Status REExREEFilterExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result);
+
 }  // namespace arrow::compute::internal
