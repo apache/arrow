@@ -286,7 +286,7 @@ func (d *Dictionary) GetOneForMarshal(i int) interface{} {
 		return nil
 	}
 	vidx := d.GetValueIndex(i)
-	return d.Dictionary().(arraymarshal).GetOneForMarshal(vidx)
+	return d.Dictionary().GetOneForMarshal(vidx)
 }
 
 func (d *Dictionary) MarshalJSON() ([]byte, error) {

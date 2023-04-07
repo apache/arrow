@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -231,7 +232,15 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 			if arr.IsNull(i) {
 				res[i] = w.nullValue
 			} else {
-				res[i] = arr.ValueString(i)
+				// res[i]
+				v := arr.GetOneForMarshal(i)
+				s, err := json.Marshal(v)
+				if err != nil {
+					panic(err)
+				}
+				// "1.2.3"
+				res[i] = string(s)
+				// res[i] = arr.ValueString(i)
 			}
 		}
 	default:
