@@ -93,7 +93,7 @@ cmake -GNinja \
     -DARROW_GANDIVA=ON \
     -DARROW_GANDIVA_PC_CXX_FLAGS="${ARROW_GANDIVA_PC_CXX_FLAGS}" \
     -DARROW_GCS=ON \
-    -DARROW_GDB_INSTALL_DIR=$PREFIX/share/gdb/auto-load/replace_this_section_with_absolute_slashed_path_to_CONDA_PREFIX \
+    -DARROW_GDB_INSTALL_DIR=replace_this_section_with_absolute_slashed_path_to_CONDA_PREFIX/lib \
     -DARROW_HDFS=ON \
     -DARROW_JEMALLOC=ON \
     -DARROW_JSON=ON \
