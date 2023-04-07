@@ -316,9 +316,19 @@ Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
     int64_t logical_length, int64_t physical_length, int64_t physical_null_count,
     MemoryPool* pool, int64_t data_buffer_size);
 
-Result<std::shared_ptr<ArrayData>> PreallocateNullREEArray(
+/// \brief Writes a single run-end to the first slot of the pre-allocated
+/// run-end encoded array in out
+///
+/// Pre-conditions:
+/// - run_ends_data is of a valid run-ends type
+/// - run_ends_data has at least one slot
+/// - run_end > 0
+/// - run_ends fits in the run-end type without overflow
+void WriteSingleRunEnd(ArrayData* run_ends_data, int64_t run_end);
+
+Result<std::shared_ptr<ArrayData>> MakeNullREEArray(
     const std::shared_ptr<DataType>& run_end_type, int64_t logical_length,
-    int64_t physical_length, MemoryPool* pool);
+    MemoryPool* pool);
 
 }  // namespace ree_util
 }  // namespace internal

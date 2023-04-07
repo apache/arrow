@@ -228,7 +228,7 @@ ARROW_NOINLINE Status RunEndEncodeNullArray(const std::shared_ptr<DataType>& run
   if (input_length == 0) {
     ARROW_ASSIGN_OR_RAISE(
         auto output_array_data,
-        ree_util::PreallocateNullREEArray(run_end_type, 0, 0, ctx->memory_pool()));
+        ree_util::MakeNullREEArray(run_end_type, 0, ctx->memory_pool()));
     output->value = std::move(output_array_data);
     return Status::OK();
   }
@@ -236,24 +236,9 @@ ARROW_NOINLINE Status RunEndEncodeNullArray(const std::shared_ptr<DataType>& run
   // Abort if run-end type cannot hold the input length
   RETURN_NOT_OK(ValidateRunEndType(run_end_type, input_array.length));
 
-  ARROW_ASSIGN_OR_RAISE(auto output_array_data,
-                        ree_util::PreallocateNullREEArray(run_end_type, input_length, 1,
-                                                          ctx->memory_pool()));
-
-  // Write the single run-end this REE has
-  auto* output_run_ends = output_array_data->child_data[0]->buffers[1]->mutable_data();
-  switch (run_end_type->id()) {
-    case Type::INT16:
-      *reinterpret_cast<int16_t*>(output_run_ends) = static_cast<int16_t>(input_length);
-      break;
-    case Type::INT32:
-      *reinterpret_cast<int32_t*>(output_run_ends) = static_cast<int32_t>(input_length);
-      break;
-    default:
-      DCHECK_EQ(run_end_type->id(), Type::INT64);
-      *reinterpret_cast<int64_t*>(output_run_ends) = static_cast<int64_t>(input_length);
-      break;
-  }
+  ARROW_ASSIGN_OR_RAISE(
+      auto output_array_data,
+      ree_util::MakeNullREEArray(run_end_type, input_length, ctx->memory_pool()));
 
   output->value = std::move(output_array_data);
   return Status::OK();

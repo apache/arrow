@@ -48,6 +48,7 @@ Result<std::shared_ptr<Buffer>> AllocateValuesBuffer(int64_t length, const DataT
 Result<std::shared_ptr<ArrayData>> PreallocateRunEndsArray(
     const std::shared_ptr<DataType>& run_end_type, int64_t physical_length,
     MemoryPool* pool) {
+  DCHECK(is_run_end_type(run_end_type->id()));
   ARROW_ASSIGN_OR_RAISE(
       auto run_ends_buffer,
       AllocateBuffer(physical_length * run_end_type->byte_width(), pool));
@@ -97,18 +98,34 @@ Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
                          /*null_count=*/0);
 }
 
-Result<std::shared_ptr<ArrayData>> PreallocateNullREEArray(
-    const std::shared_ptr<DataType>& run_end_type, int64_t logical_length,
-    int64_t physical_length, MemoryPool* pool) {
-  DCHECK(is_run_end_type(run_end_type->id()));
-  ARROW_ASSIGN_OR_RAISE(
-      auto run_ends_buffer,
-      AllocateBuffer(run_end_type->byte_width() * physical_length, pool));
+void WriteSingleRunEnd(ArrayData* run_ends_data, int64_t run_end) {
+  DCHECK_GT(run_end, 0);
+  DCHECK(is_run_end_type(run_ends_data->type->id()));
+  auto* output_run_ends = run_ends_data->template GetMutableValues<uint8_t>(1);
+  switch (run_ends_data->type->id()) {
+    case Type::INT16:
+      *reinterpret_cast<int16_t*>(output_run_ends) = static_cast<int16_t>(run_end);
+      break;
+    case Type::INT32:
+      *reinterpret_cast<int32_t*>(output_run_ends) = static_cast<int32_t>(run_end);
+      break;
+    default:
+      DCHECK_EQ(run_ends_data->type->id(), Type::INT64);
+      *reinterpret_cast<int64_t*>(output_run_ends) = static_cast<int64_t>(run_end);
+      break;
+  }
+}
 
+Result<std::shared_ptr<ArrayData>> MakeNullREEArray(
+    const std::shared_ptr<DataType>& run_end_type, int64_t logical_length,
+    MemoryPool* pool) {
   auto ree_type = std::make_shared<RunEndEncodedType>(run_end_type, null());
-  auto run_ends_data = ArrayData::Make(run_end_type, physical_length,
-                                       {NULLPTR, std::move(run_ends_buffer)},
-                                       /*null_count=*/0);
+  const int64_t physical_length = logical_length > 0 ? 1 : 0;
+  ARROW_ASSIGN_OR_RAISE(auto run_ends_data,
+                        PreallocateRunEndsArray(run_end_type, physical_length, pool));
+  if (logical_length > 0) {
+    WriteSingleRunEnd(run_ends_data.get(), logical_length);
+  }
   auto values_data = ArrayData::Make(null(), physical_length, {NULLPTR},
                                      /*null_count=*/physical_length);
   return ArrayData::Make(std::move(ree_type), logical_length, {NULLPTR},
