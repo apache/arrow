@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/v12/arrow/endian"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMetadata(t *testing.T) {
@@ -292,6 +293,15 @@ func TestSchema(t *testing.T) {
 				}
 			}
 
+			if s.FieldIndex("dup") != -1 {
+				t.Fatalf("invalid FieldIndex(dup): got=%d, want=-1", s.FieldIndex("dup"))
+			}
+			if s.HasField("f1") {
+				if s.FieldIndex("f1") != 0 {
+					t.Fatalf("invalid FieldIndex(f1): got=%d, want=0", s.FieldIndex("f1"))
+				}
+			}
+
 			if got, want := s.String(), tc.serialize; got != want {
 				t.Fatalf("invalid stringer: got=%q, want=%q", got, want)
 			}
@@ -412,4 +422,26 @@ func TestSchemaEqual(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSchemaInsertField(t *testing.T) {
+	fields := []Field{
+		{Name: "f1", Type: PrimitiveTypes.Int32},
+		{Name: "f2", Type: PrimitiveTypes.Int64},
+	}
+	md := func() *Metadata {
+		md := MetadataFrom(map[string]string{"k1": "v1", "k2": "v2"})
+		return &md
+	}()
+	sc := NewSchema(fields, md)
+	sc1 := sc.InsertField(0, Field{Name: "f0", Type: PrimitiveTypes.Int32})
+	assert.False(t, sc.Equal(sc1))
+
+	fields1 := []Field{
+		{Name: "f0", Type: PrimitiveTypes.Int32},
+		{Name: "f1", Type: PrimitiveTypes.Int32},
+		{Name: "f2", Type: PrimitiveTypes.Int64},
+	}
+	sc2 := NewSchema(fields1, md)
+	assert.True(t, sc1.Equal(sc2))
 }

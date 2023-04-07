@@ -197,6 +197,26 @@ func (sc *Schema) FieldIndices(n string) []int {
 	return sc.index[n]
 }
 
+// FieldIndex return index of the unique field with the given name.
+// Returns -1 if the name isn’t found or there are several fields with the given name.
+func (sc *Schema) FieldIndex(name string) int {
+	indices := sc.index[name]
+	if len(indices) != 1 {
+		return -1
+	}
+	return indices[0]
+}
+
+func (sc *Schema) InsertField(i int, f Field) *Schema {
+	if f.Type == nil {
+		panic("arrow: field with nil DataType")
+	}
+	fields := make([]Field, len(sc.fields)+1)
+	copy(fields[:i], sc.fields[:i])
+	copy(fields[i+1:], sc.fields[i:])
+	fields[i] = f
+	return NewSchemaWithEndian(fields, &sc.meta, sc.endianness)
+}
 func (sc *Schema) HasField(n string) bool { return len(sc.FieldIndices(n)) > 0 }
 func (sc *Schema) HasMetadata() bool      { return len(sc.meta.keys) > 0 }
 
