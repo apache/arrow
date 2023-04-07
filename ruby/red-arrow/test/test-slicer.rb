@@ -492,9 +492,9 @@ class SlicerTest < Test::Unit::TestCase
       )
     end
 
-    test("ends_with") do
+    test("end_with?") do
       sliced_table = @table.slice do |slicer|
-        slicer.string.ends_with("ow")
+        slicer.string.end_with?("ow")
       end
       assert_equal(<<~TABLE, sliced_table.to_s)
 	string
@@ -565,9 +565,9 @@ class SlicerTest < Test::Unit::TestCase
       TABLE
     end
 
-    test("starts_with") do
+    test("start_with?") do
       sliced_table = @table.slice do |slicer|
-        slicer.string.starts_with("ca")
+        slicer.string.start_with?("ca")
       end
       assert_equal(<<~TABLE, sliced_table.to_s)
 	string
