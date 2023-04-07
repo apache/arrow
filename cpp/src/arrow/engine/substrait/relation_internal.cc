@@ -776,7 +776,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       ARROW_ASSIGN_OR_RAISE(auto aggregate_schema,
                             acero::aggregate::MakeOutputSchema(
-                                *input_schema, keys, /*segment_keys=*/{}, aggregates));
+                                input_schema, keys, /*segment_keys=*/{}, aggregates));
 
       ARROW_ASSIGN_OR_RAISE(
           auto aggregate_declaration,

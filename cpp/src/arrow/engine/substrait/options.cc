@@ -211,9 +211,9 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
       aggregates.push_back(std::move(aggregate));
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto output_schema,
-                          acero::aggregate::MakeOutputSchema(*input_schema, keys,
-                                                             segment_keys, aggregates));
+    ARROW_ASSIGN_OR_RAISE(
+        auto output_schema,
+        acero::aggregate::MakeOutputSchema(input_schema, keys, segment_keys, aggregates));
 
     ARROW_ASSIGN_OR_RAISE(auto decl_info, internal::MakeAggregateDeclaration(
                                               std::move(inputs[0].declaration),

@@ -79,7 +79,7 @@ namespace acero {
 namespace {
 
 template <typename KernelType>
-struct ARROW_ACERO_EXPORT AggregateNodeArgs {
+struct AggregateNodeArgs {
   std::shared_ptr<Schema> output_schema;
   std::vector<int> grouping_key_field_ids;
   std::vector<int> segment_key_field_ids;
@@ -289,20 +289,20 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
         states_(std::move(states)) {}
 
   static Result<AggregateNodeArgs<ScalarAggregateKernel>> MakeAggregateNodeArgs(
-      const Schema& input_schema, const std::vector<FieldRef>& keys,
+      const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
       const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
       ExecContext* exec_ctx, size_t concurrency) {
     std::vector<Aggregate> aggregates(aggs);
     std::vector<int> segment_field_ids(segment_keys.size());
     std::vector<TypeHolder> segment_key_types(segment_keys.size());
     for (size_t i = 0; i < segment_keys.size(); i++) {
-      ARROW_ASSIGN_OR_RAISE(FieldPath match, segment_keys[i].FindOne(input_schema));
+      ARROW_ASSIGN_OR_RAISE(FieldPath match, segment_keys[i].FindOne(*input_schema));
       if (match.indices().size() > 1) {
         // ARROW-18369: Support nested references as segment ids
         return Status::Invalid("Nested references cannot be used as segment ids");
       }
       segment_field_ids[i] = match[0];
-      segment_key_types[i] = input_schema.field(match[0])->type().get();
+      segment_key_types[i] = input_schema->field(match[0])->type().get();
     }
 
     ARROW_ASSIGN_OR_RAISE(auto segmenter,
@@ -316,7 +316,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
 
     // Output the segment keys first, followed by the aggregates
     for (size_t i = 0; i < segment_keys.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(fields[i], segment_keys[i].GetOne(input_schema));
+      ARROW_ASSIGN_OR_RAISE(fields[i], segment_keys[i].GetOne(*input_schema));
     }
 
     std::vector<std::vector<int>> target_fieldsets(kernels.size());
@@ -324,7 +324,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     for (size_t i = 0; i < kernels.size(); ++i) {
       const auto& target_fieldset = aggregates[i].target;
       for (const auto& target : target_fieldset) {
-        ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(target).FindOne(input_schema));
+        ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(target).FindOne(*input_schema));
         target_fieldsets[i].push_back(match[0]);
       }
 
@@ -344,7 +344,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
 
       std::vector<TypeHolder> in_types;
       for (const auto& target : target_fieldsets[i]) {
-        in_types.emplace_back(input_schema.field(target)->type().get());
+        in_types.emplace_back(input_schema->field(target)->type().get());
       }
       kernel_intypes[i] = in_types;
       ARROW_ASSIGN_OR_RAISE(const Kernel* kernel,
@@ -402,7 +402,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
       return Status::NotImplemented("Segmented aggregation in a multi-threaded plan");
     }
 
-    const auto& input_schema = *inputs[0]->output_schema();
+    const auto& input_schema = inputs[0]->output_schema();
     auto exec_ctx = plan->query_context()->exec_context();
 
     ARROW_ASSIGN_OR_RAISE(
@@ -599,20 +599,20 @@ class GroupByNode : public ExecNode, public TracedNode {
   }
 
   static Result<AggregateNodeArgs<HashAggregateKernel>> MakeAggregateNodeArgs(
-      const Schema& input_schema, const std::vector<FieldRef>& keys,
+      const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
       const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
       ExecContext* ctx) {
     // Find input field indices for key fields
     std::vector<int> key_field_ids(keys.size());
     for (size_t i = 0; i < keys.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(auto match, keys[i].FindOne(input_schema));
+      ARROW_ASSIGN_OR_RAISE(auto match, keys[i].FindOne(*input_schema));
       key_field_ids[i] = match[0];
     }
 
     // Find input field indices for segment key fields
     std::vector<int> segment_key_field_ids(segment_keys.size());
     for (size_t i = 0; i < segment_keys.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(auto match, segment_keys[i].FindOne(input_schema));
+      ARROW_ASSIGN_OR_RAISE(auto match, segment_keys[i].FindOne(*input_schema));
       segment_key_field_ids[i] = match[0];
     }
 
@@ -621,7 +621,7 @@ class GroupByNode : public ExecNode, public TracedNode {
     for (const auto& segment_key_field_id : segment_key_field_ids) {
       if (key_field_id_set.find(segment_key_field_id) != key_field_id_set.end()) {
         return Status::Invalid("Group-by aggregation with field '",
-                               input_schema.field(segment_key_field_id)->name(),
+                               input_schema->field(segment_key_field_id)->name(),
                                "' as both key and segment key");
       }
     }
@@ -631,7 +631,7 @@ class GroupByNode : public ExecNode, public TracedNode {
     for (size_t i = 0; i < aggs.size(); ++i) {
       const auto& target_fieldset = aggs[i].target;
       for (const auto& target : target_fieldset) {
-        ARROW_ASSIGN_OR_RAISE(auto match, target.FindOne(input_schema));
+        ARROW_ASSIGN_OR_RAISE(auto match, target.FindOne(*input_schema));
         agg_src_fieldsets[i].push_back(match[0]);
       }
     }
@@ -640,7 +640,7 @@ class GroupByNode : public ExecNode, public TracedNode {
     std::vector<std::vector<TypeHolder>> agg_src_types(aggs.size());
     for (size_t i = 0; i < aggs.size(); ++i) {
       for (const auto& agg_src_field_id : agg_src_fieldsets[i]) {
-        agg_src_types[i].push_back(input_schema.field(agg_src_field_id)->type().get());
+        agg_src_types[i].push_back(input_schema->field(agg_src_field_id)->type().get());
       }
     }
 
@@ -648,7 +648,7 @@ class GroupByNode : public ExecNode, public TracedNode {
     std::vector<TypeHolder> segment_key_types(segment_keys.size());
     for (size_t i = 0; i < segment_keys.size(); ++i) {
       auto segment_key_field_id = segment_key_field_ids[i];
-      segment_key_types[i] = input_schema.field(segment_key_field_id)->type().get();
+      segment_key_types[i] = input_schema->field(segment_key_field_id)->type().get();
     }
 
     ARROW_ASSIGN_OR_RAISE(auto segmenter,
@@ -673,12 +673,12 @@ class GroupByNode : public ExecNode, public TracedNode {
     // in SQL engines
     for (size_t i = 0; i < keys.size(); ++i) {
       int key_field_id = key_field_ids[i];
-      output_fields[i] = input_schema.field(key_field_id);
+      output_fields[i] = input_schema->field(key_field_id);
     }
     size_t base = keys.size();
     for (size_t i = 0; i < segment_keys.size(); ++i) {
       int segment_key_field_id = segment_key_field_ids[i];
-      output_fields[base + i] = input_schema.field(segment_key_field_id);
+      output_fields[base + i] = input_schema->field(segment_key_field_id);
     }
     base += segment_keys.size();
     for (size_t i = 0; i < aggs.size(); ++i) {
@@ -715,7 +715,7 @@ class GroupByNode : public ExecNode, public TracedNode {
     auto input_schema = input->output_schema();
     auto exec_ctx = plan->query_context()->exec_context();
 
-    ARROW_ASSIGN_OR_RAISE(auto args, MakeAggregateNodeArgs(*input_schema, keys,
+    ARROW_ASSIGN_OR_RAISE(auto args, MakeAggregateNodeArgs(input_schema, keys,
                                                            segment_keys, aggs, exec_ctx));
 
     return input->plan()->EmplaceNode<GroupByNode>(
@@ -1034,7 +1034,7 @@ class GroupByNode : public ExecNode, public TracedNode {
 namespace aggregate {
 
 Result<std::shared_ptr<Schema>> MakeOutputSchema(
-    const Schema& input_schema, const std::vector<FieldRef>& keys,
+    const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
     const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggregates,
     ExecContext* exec_ctx) {
   if (keys.empty()) {
