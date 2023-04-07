@@ -175,55 +175,102 @@ int64_t GetREExREEFilterOutputSizeImpl(
   const auto values_values = arrow::ree_util::ValuesArray(values);
   const int64_t null_count = values_values.GetNullCount();
   const bool all_values_are_null = null_count == values_values.length;
-  const uint8_t* values_is_valid =
+  const uint8_t* values_validity =
       (null_count == 0) ? NULLPTR : values_values.buffers[0].data;
-  // values_is_valid implies at least one run value is null but not all
-  DCHECK(!values_is_valid || null_count > 0);
+  // values_validity implies at least one run value is null but not all
+  DCHECK(!values_validity || null_count > 0);
 
-  // We don't use anything that depends on has_validity_bitmap,
-  // so we can pass false.
+  // We don't use anything that depends on has_validity_bitmap, so we can pass false.
   ree_util::ReadWriteValue<ValuesValueType, false> read_write(values_values, NULLPTR);
 
-  int64_t last_emitted_run_i = -1;
-  // NOTE: If last_emitted_run_was_null is true, then the values of last_emitted_run_i
-  // is irrelevant.
-  bool last_emitted_run_was_null = false;
-  // NOTE: The last emitted null run does not necessarily come from
-  // values[last_emitted_run_i] because NULL values from filters (combined with
-  // FilterOptions::EMIT_NULL) can cause nulls to be emitted into the output as well.
+  int64_t open_run_length = 0;
+  // If open_run_length == 0, the values of open_run_is_null and open_run_value_i are
+  // not well-defined.
+  bool open_run_is_null = true;
+  int64_t open_run_value_i = -1;
+  // NOTE: The null value that opens a null run does not necessarily come from
+  // values[open_run_value_i] because null values from filters (combined with
+  // FilterOptions::EMIT_NULL) can cause nulls to be emitted as well.
   int64_t num_output_runs = 0;
   VisitREExREEFilterOutputFragments<ValuesRunEndType, FilterRunEndType>(
       values, filter, null_selection,
-      [all_values_are_null, values_is_valid, &read_write, &last_emitted_run_i,
-       &last_emitted_run_was_null, &num_output_runs](
+      [all_values_are_null, values_validity, &read_write, &open_run_length,
+       &open_run_is_null, &open_run_value_i, &num_output_runs](
           int64_t i, int64_t run_length, int64_t emit_null_from_filter) noexcept {
         const bool emit_null = all_values_are_null || emit_null_from_filter ||
-                               (values_is_valid && !bit_util::GetBit(values_is_valid, i));
+                               (values_validity && !bit_util::GetBit(values_validity, i));
         if (emit_null) {
-          if (!last_emitted_run_was_null) {
-            // Emitting a run of nulls.
-            num_output_runs += 1;
-            last_emitted_run_was_null = true;
+          if (open_run_is_null) {
+            open_run_length += run_length;
+          } else {
+            // Close currently open non-null run.
+            num_output_runs += open_run_length > 0;
+            // Open a new null run.
+            open_run_length = run_length;
+            open_run_is_null = true;
           }
-          return;
-        }
-        // Emitting a valid value run.
-        if (last_emitted_run_was_null) {
-          // Emitting a valid value run after a run of nulls.
-          num_output_runs += 1;
-          last_emitted_run_i = i;
-          last_emitted_run_was_null = false;
+          // We don't need to guard the access to open_run_is_null with a check for
+          // open_run_length > 0 because if open_run_length == 0, both branches on
+          // open_run_is_null will lead to the same outcome:
+          //
+          //   /\ UNCHANGED <<num_output_runs>>
+          //   /\ open_run_length = open_run_length + run_length
+          //   /\ open_run_is_null
         } else {
-          const bool open_new_run =
-              last_emitted_run_i != i &&
-              (last_emitted_run_i < 0 ||
-               !ARROW_PREDICT_FALSE(read_write.CompareValuesAt(last_emitted_run_i, i)));
-          if (open_new_run) {
-            num_output_runs += 1;
+          if (open_run_is_null) {
+            // Close currently open null run.
+            num_output_runs += open_run_length > 0;
+            // Open a new non-null run.
+            open_run_length = run_length;
+            open_run_is_null = false;
+          } else {
+            // If open_run_length > 0, we can trust the !open_run_is_null that led
+            // execution to this else branch, and we can trust that open_run_value_i is
+            // comparable to i. In case open_run_value_i==i, we can assume equality of
+            // the values at these positions, otherwise CompareValuesAt is called.
+            // We know these values are valid because !open_run_is_null and
+            // !emit_null respectively.
+            const bool close_open_run =
+                open_run_length <= 0 ||
+                (open_run_value_i != i &&
+                 !ARROW_PREDICT_FALSE(read_write.CompareValuesAt(open_run_value_i, i)));
+            if (close_open_run) {
+              // Close currently open non-null run.
+              num_output_runs += open_run_length > 0;
+              // Open a new non-null run.
+              open_run_length = run_length;
+              // open_run_is_null remains false.
+              // open_run_value_i is updated below.
+            } else {
+              open_run_length += run_length;
+              // This branch can be reached when open_run_length == 0, and in
+              // that case, we can't trust the value of open_run_is_null, so we
+              // need to prove that the outcome of this branch is the same as
+              // the outcome of the if-open_run_is_null branch above:
+              //
+              //   /\ UNCHANGED <<num_output_runs>>
+              //   /\ open_run_length = open_run_length + run_length
+              //   /\ not open_run_is_null
+              //
+              // Proof: given that open_run_length==0:
+              // 1) num_output_runs+=open_run_length>0 doesn't change num_output_runs.
+              // 2) open_run_length+=run_length and open_run_length=run_length
+              //    are equivalent.
+              // 3) open_run_is_null is set to false or enters the branch as false.
+            }
           }
-          last_emitted_run_i = i;
         }
+        // It's safe to unconditionally update open_run_value_i because:
+        // 1) access to open_run_value_i is guarded by !open_run_is_null checks,
+        //    so it's ok if open_run_value_i points to a null value
+        // 2) if values at the previous open_run_value_i and i are equal, updating
+        //    open_run_value_i to i doesn't change the outcome of future comparisons
+        // 3) otherwise, updating open_run_value_i to i is necessary as it should be an
+        //    index to the value of the currently open non-null run
+        open_run_value_i = i;
       });
+  // Close the trailing open run if one exists.
+  num_output_runs += open_run_length > 0;
   return num_output_runs;
 }
 
