@@ -178,6 +178,11 @@ module Arrow
                                           @column, substring, ignore_case)
       end
 
+      def match_substring_regex(pattern, ignore_case: false)
+        MatchSubstringFamilyCondition.new("match_substring_regex",
+                                          @column, pattern, ignore_case)
+      end
+
       def starts_with(substring, ignore_case: false)
         MatchSubstringFamilyCondition.new("starts_with",
                                           @column, substring, ignore_case)

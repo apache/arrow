@@ -553,6 +553,18 @@ class SlicerTest < Test::Unit::TestCase
       TABLE
     end
 
+    test("match_substring_regex") do
+      sliced_table = @table.slice do |slicer|
+        slicer.string.match_substring_regex("[dr]ow")
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	Arrow 
+1	(null)
+2	window
+      TABLE
+    end
+
     test("starts_with") do
       sliced_table = @table.slice do |slicer|
         slicer.string.starts_with("ca")
