@@ -539,34 +539,30 @@ Result<std::unique_ptr<REEFilterExec>> MakeREExREEFilterExec(
     case Type::INTERVAL_DAY_TIME:
       return MakeREEFilterExecImpl<REExREEFilterExecImpl, UInt64Type>(
           values, filter, values_run_end_type, filter_run_end_type, null_selection);
-    // case Type::INTERVAL_MONTH_DAY_NANO:
-    //   return MakeREEFilterExecImpl<REExREEFilterExecImpl, MonthDayNanoIntervalType>(
-    //       values, filter, values_run_end_type, filter_run_end_type, null_selection);
-    // case Type::DECIMAL128:
-    //   return MakeREEFilterExecImpl<REExREEFilterExecImpl, Decimal128Type>(
-    //       values, filter, values_run_end_type, filter_run_end_type, null_selection);
-    // case Type::DECIMAL256:
-    //   return MakeREEFilterExecImpl<REExREEFilterExecImpl, Decimal256Type>(
-    //       values, filter, values_run_end_type, filter_run_end_type, null_selection);
-    // case Type::FIXED_SIZE_BINARY:
-    //   return MakeREEFilterExecImpl<REExREEFilterExecImpl, FixedSizeBinaryType>(
-    //       values, filter, values_run_end_type, filter_run_end_type, null_selection);
-    // case Type::STRING:
-    //   return MakeREEFilterExecImpl<REExREEFilterExecImpl, StringType>(values, filter,
-    //   values_run_end_type,
-    //                                                filter_run_end_type,
-    //                                                null_selection);
-    // case Type::BINARY:
-    //   return MakeREEFilterExecImpl<REExREEFilterExecImpl, BinaryType>(values, filter,
-    //   values_run_end_type,
-    //                                                filter_run_end_type,
-    //                                                null_selection);
-    // case Type::LARGE_STRING:
-    //   return MakeREEFilterExecImpl<REExREEFilterExecImpl, LargeStringType>(
-    //       values, filter, values_run_end_type, filter_run_end_type, null_selection);
-    // case Type::LARGE_BINARY:
-    //   return MakeREEFilterExecImpl<REExREEFilterExecImpl, LargeBinaryType>(
-    //       values, filter, values_run_end_type, filter_run_end_type, null_selection);
+    case Type::INTERVAL_MONTH_DAY_NANO:
+      return MakeREEFilterExecImpl<REExREEFilterExecImpl, MonthDayNanoIntervalType>(
+          values, filter, values_run_end_type, filter_run_end_type, null_selection);
+    case Type::DECIMAL128:
+      return MakeREEFilterExecImpl<REExREEFilterExecImpl, Decimal128Type>(
+          values, filter, values_run_end_type, filter_run_end_type, null_selection);
+    case Type::DECIMAL256:
+      return MakeREEFilterExecImpl<REExREEFilterExecImpl, Decimal256Type>(
+          values, filter, values_run_end_type, filter_run_end_type, null_selection);
+    case Type::FIXED_SIZE_BINARY:
+      return MakeREEFilterExecImpl<REExREEFilterExecImpl, FixedSizeBinaryType>(
+          values, filter, values_run_end_type, filter_run_end_type, null_selection);
+    case Type::STRING:
+      return MakeREEFilterExecImpl<REExREEFilterExecImpl, StringType>(
+          values, filter, values_run_end_type, filter_run_end_type, null_selection);
+    case Type::BINARY:
+      return MakeREEFilterExecImpl<REExREEFilterExecImpl, BinaryType>(
+          values, filter, values_run_end_type, filter_run_end_type, null_selection);
+    case Type::LARGE_STRING:
+      return MakeREEFilterExecImpl<REExREEFilterExecImpl, LargeStringType>(
+          values, filter, values_run_end_type, filter_run_end_type, null_selection);
+    case Type::LARGE_BINARY:
+      return MakeREEFilterExecImpl<REExREEFilterExecImpl, LargeBinaryType>(
+          values, filter, values_run_end_type, filter_run_end_type, null_selection);
     default:
       DCHECK(false);
       return Status::NotImplemented(
