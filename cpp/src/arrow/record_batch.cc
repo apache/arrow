@@ -232,7 +232,8 @@ const std::string& RecordBatch::column_name(int i) const {
   return schema_->field(i)->name();
 }
 
-bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata) const {
+bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
+                         const EqualOptions& opts) const {
   if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
     return false;
   }
@@ -242,7 +243,7 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata) const {
   }
 
   for (int i = 0; i < num_columns(); ++i) {
-    if (!column(i)->Equals(other.column(i))) {
+    if (!column(i)->Equals(other.column(i), opts)) {
       return false;
     }
   }
@@ -250,13 +251,13 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata) const {
   return true;
 }
 
-bool RecordBatch::ApproxEquals(const RecordBatch& other) const {
+bool RecordBatch::ApproxEquals(const RecordBatch& other, const EqualOptions& opts) const {
   if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
     return false;
   }
 
   for (int i = 0; i < num_columns(); ++i) {
-    if (!column(i)->ApproxEquals(other.column(i))) {
+    if (!column(i)->ApproxEquals(other.column(i), opts)) {
       return false;
     }
   }
