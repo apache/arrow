@@ -36,12 +36,14 @@ namespace compute {
 namespace internal {
 namespace ree_util {
 
-template <typename ArrowType, bool has_validity_buffer, typename Enable = void>
+template <typename ArrowType, bool in_has_validity_buffer,
+          bool out_has_validity_buffer = in_has_validity_buffer, typename Enable = void>
 struct ReadWriteValue {};
 
 // Numeric and primitive C-compatible types
-template <typename ArrowType, bool has_validity_buffer>
-class ReadWriteValue<ArrowType, has_validity_buffer, enable_if_has_c_type<ArrowType>> {
+template <typename ArrowType, bool in_has_validity_buffer, bool out_has_validity_buffer>
+class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
+                     enable_if_has_c_type<ArrowType>> {
  public:
   using ValueRepr = typename ArrowType::c_type;
 
@@ -56,10 +58,10 @@ class ReadWriteValue<ArrowType, has_validity_buffer, enable_if_has_c_type<ArrowT
  public:
   explicit ReadWriteValue(const ArraySpan& input_values_array,
                           ArrayData* output_values_array_data)
-      : input_validity_(has_validity_buffer ? input_values_array.buffers[0].data
-                                            : NULLPTR),
+      : input_validity_(in_has_validity_buffer ? input_values_array.buffers[0].data
+                                               : NULLPTR),
         input_values_(input_values_array.buffers[1].data),
-        output_validity_((has_validity_buffer && output_values_array_data)
+        output_validity_((out_has_validity_buffer && output_values_array_data)
                              ? output_values_array_data->buffers[0]->mutable_data()
                              : NULLPTR),
         output_values_(output_values_array_data
@@ -68,7 +70,7 @@ class ReadWriteValue<ArrowType, has_validity_buffer, enable_if_has_c_type<ArrowT
 
   [[nodiscard]] bool ReadValue(ValueRepr* out, int64_t read_offset) const {
     bool valid = true;
-    if constexpr (has_validity_buffer) {
+    if constexpr (in_has_validity_buffer) {
       valid = bit_util::GetBit(input_validity_, read_offset);
     }
     if constexpr (std::is_same_v<ArrowType, BooleanType>) {
@@ -82,7 +84,7 @@ class ReadWriteValue<ArrowType, has_validity_buffer, enable_if_has_c_type<ArrowT
   /// \brief Ensure padding is zeroed in validity bitmap.
   void ZeroValidityPadding(int64_t length) const {
     DCHECK(output_values_);
-    if constexpr (has_validity_buffer) {
+    if constexpr (out_has_validity_buffer) {
       DCHECK(output_validity_);
       const int64_t validity_buffer_size = bit_util::BytesForBits(length);
       output_validity_[validity_buffer_size - 1] = 0;
@@ -90,7 +92,7 @@ class ReadWriteValue<ArrowType, has_validity_buffer, enable_if_has_c_type<ArrowT
   }
 
   void WriteValue(int64_t write_offset, bool valid, ValueRepr value) const {
-    if constexpr (has_validity_buffer) {
+    if constexpr (out_has_validity_buffer) {
       bit_util::SetBitTo(output_validity_, write_offset, valid);
     }
     if (valid) {
@@ -104,7 +106,7 @@ class ReadWriteValue<ArrowType, has_validity_buffer, enable_if_has_c_type<ArrowT
 
   void WriteRun(int64_t write_offset, int64_t run_length, bool valid,
                 ValueRepr value) const {
-    if constexpr (has_validity_buffer) {
+    if constexpr (out_has_validity_buffer) {
       bit_util::SetBitsTo(output_validity_, write_offset, run_length, valid);
     }
     if (valid) {
@@ -123,8 +125,8 @@ class ReadWriteValue<ArrowType, has_validity_buffer, enable_if_has_c_type<ArrowT
 };
 
 // FixedSizeBinary, Decimal128
-template <typename ArrowType, bool has_validity_buffer>
-class ReadWriteValue<ArrowType, has_validity_buffer,
+template <typename ArrowType, bool in_has_validity_buffer, bool out_has_validity_buffer>
+class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
                      enable_if_fixed_size_binary<ArrowType>> {
  public:
   // Every value is represented as a pointer to byte_width_ bytes
@@ -142,10 +144,10 @@ class ReadWriteValue<ArrowType, has_validity_buffer,
 
  public:
   ReadWriteValue(const ArraySpan& input_values_array, ArrayData* output_values_array_data)
-      : input_validity_(has_validity_buffer ? input_values_array.buffers[0].data
-                                            : NULLPTR),
+      : input_validity_(in_has_validity_buffer ? input_values_array.buffers[0].data
+                                               : NULLPTR),
         input_values_(input_values_array.buffers[1].data),
-        output_validity_((has_validity_buffer && output_values_array_data)
+        output_validity_((out_has_validity_buffer && output_values_array_data)
                              ? output_values_array_data->buffers[0]->mutable_data()
                              : NULLPTR),
         output_values_(output_values_array_data
@@ -155,7 +157,7 @@ class ReadWriteValue<ArrowType, has_validity_buffer,
 
   [[nodiscard]] bool ReadValue(ValueRepr* out, int64_t read_offset) const {
     bool valid = true;
-    if constexpr (has_validity_buffer) {
+    if constexpr (in_has_validity_buffer) {
       valid = bit_util::GetBit(input_validity_, read_offset);
     }
     *out = input_values_ + (read_offset * byte_width_);
@@ -165,7 +167,7 @@ class ReadWriteValue<ArrowType, has_validity_buffer,
   /// \brief Ensure padding is zeroed in validity bitmap.
   void ZeroValidityPadding(int64_t length) const {
     DCHECK(output_values_);
-    if constexpr (has_validity_buffer) {
+    if constexpr (out_has_validity_buffer) {
       DCHECK(output_validity_);
       const int64_t validity_buffer_size = bit_util::BytesForBits(length);
       output_validity_[validity_buffer_size - 1] = 0;
@@ -173,7 +175,7 @@ class ReadWriteValue<ArrowType, has_validity_buffer,
   }
 
   void WriteValue(int64_t write_offset, bool valid, ValueRepr value) const {
-    if constexpr (has_validity_buffer) {
+    if constexpr (out_has_validity_buffer) {
       bit_util::SetBitTo(output_validity_, write_offset, valid);
     }
     if (valid) {
@@ -183,7 +185,7 @@ class ReadWriteValue<ArrowType, has_validity_buffer,
 
   void WriteRun(int64_t write_offset, int64_t run_length, bool valid,
                 ValueRepr value) const {
-    if constexpr (has_validity_buffer) {
+    if constexpr (out_has_validity_buffer) {
       bit_util::SetBitsTo(output_validity_, write_offset, run_length, valid);
     }
     if (valid) {
@@ -201,8 +203,9 @@ class ReadWriteValue<ArrowType, has_validity_buffer,
 };
 
 // Binary, String...
-template <typename ArrowType, bool has_validity_buffer>
-class ReadWriteValue<ArrowType, has_validity_buffer, enable_if_base_binary<ArrowType>> {
+template <typename ArrowType, bool in_has_validity_buffer, bool out_has_validity_buffer>
+class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
+                     enable_if_base_binary<ArrowType>> {
  public:
   using ValueRepr = std::string_view;
   using offset_type = typename ArrowType::offset_type;
@@ -219,11 +222,11 @@ class ReadWriteValue<ArrowType, has_validity_buffer, enable_if_base_binary<Arrow
 
  public:
   ReadWriteValue(const ArraySpan& input_values_array, ArrayData* output_values_array_data)
-      : input_validity_(has_validity_buffer ? input_values_array.buffers[0].data
-                                            : NULLPTR),
+      : input_validity_(in_has_validity_buffer ? input_values_array.buffers[0].data
+                                               : NULLPTR),
         input_offsets_(input_values_array.template GetValues<offset_type>(1, 0)),
         input_values_(input_values_array.buffers[2].data),
-        output_validity_((has_validity_buffer && output_values_array_data)
+        output_validity_((out_has_validity_buffer && output_values_array_data)
                              ? output_values_array_data->buffers[0]->mutable_data()
                              : NULLPTR),
         output_offsets_(
@@ -236,7 +239,7 @@ class ReadWriteValue<ArrowType, has_validity_buffer, enable_if_base_binary<Arrow
 
   [[nodiscard]] bool ReadValue(ValueRepr* out, int64_t read_offset) const {
     bool valid = true;
-    if constexpr (has_validity_buffer) {
+    if constexpr (in_has_validity_buffer) {
       valid = bit_util::GetBit(input_validity_, read_offset);
     }
     if (valid) {
@@ -251,7 +254,7 @@ class ReadWriteValue<ArrowType, has_validity_buffer, enable_if_base_binary<Arrow
   /// \brief Ensure padding is zeroed in validity bitmap.
   void ZeroValidityPadding(int64_t length) const {
     DCHECK(output_values_);
-    if constexpr (has_validity_buffer) {
+    if constexpr (out_has_validity_buffer) {
       DCHECK(output_validity_);
       const int64_t validity_buffer_size = bit_util::BytesForBits(length);
       output_validity_[validity_buffer_size - 1] = 0;
@@ -259,7 +262,7 @@ class ReadWriteValue<ArrowType, has_validity_buffer, enable_if_base_binary<Arrow
   }
 
   void WriteValue(int64_t write_offset, bool valid, ValueRepr value) const {
-    if constexpr (has_validity_buffer) {
+    if constexpr (out_has_validity_buffer) {
       bit_util::SetBitTo(output_validity_, write_offset, valid);
     }
     const offset_type offset0 = output_offsets_[write_offset];
@@ -273,7 +276,7 @@ class ReadWriteValue<ArrowType, has_validity_buffer, enable_if_base_binary<Arrow
 
   void WriteRun(int64_t write_offset, int64_t run_length, bool valid,
                 ValueRepr value) const {
-    if constexpr (has_validity_buffer) {
+    if constexpr (out_has_validity_buffer) {
       bit_util::SetBitsTo(output_validity_, write_offset, run_length, valid);
     }
     if (valid) {
