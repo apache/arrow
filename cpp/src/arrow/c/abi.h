@@ -126,7 +126,7 @@ struct ArrowDeviceArray {
   int64_t reserved[2];
 };
 
-#endif // ARROW_C_DEVICE_DATA_INTERFACE
+#endif  // ARROW_C_DEVICE_DATA_INTERFACE
 
 #ifndef ARROW_C_STREAM_INTERFACE
 #define ARROW_C_STREAM_INTERFACE
@@ -172,7 +172,6 @@ struct ArrowArrayStream {
 #ifndef ARROW_C_DEVICE_STREAM_INTERFACE
 #define ARROW_C_DEVICE_STREAM_INTERFACE
 
-
 struct ArrowDeviceArrayStream {
   // The device that this stream produces data on.
   // All ArrowDeviceArrays that are produced by this
@@ -204,7 +203,7 @@ struct ArrowDeviceArrayStream {
   // Callback to get the next array
   // (if no error and the array is released, the stream has ended)
   //
-  // the provided stream_ptr should be the appropriate stream, or 
+  // the provided stream_ptr should be the appropriate stream, or
   // equivalent object, for the device that the data is allocated on
   // to indicate where the consumer wants the data to be accessible.
   // if stream_ptr is NULL then the default stream (e.g. CUDA stream 0)
@@ -217,7 +216,8 @@ struct ArrowDeviceArrayStream {
   // Return value: 0 if successful, an `errno`-compatible error code otherwise.
   //
   // If successful, the ArrowArray must be released independently from the stream.
-  int (*get_next)(struct ArrowDeviceArrayStream*, const void* stream_ptr, struct ArrowDeviceArray* out);
+  int (*get_next)(struct ArrowDeviceArrayStream*, const void* stream_ptr,
+                  struct ArrowDeviceArray* out);
 
   // Callback to get optional detailed error information.
   // This must only be called if the last stream operation failed
