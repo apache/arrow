@@ -476,19 +476,17 @@ module ValuesStructArrayTests
   end
 
   def test_dictionary
-    omit("Need to add support for DictionaryArrayBuilder")
     values = [
       {"field" => "Ruby"},
       nil,
       {"field" => nil},
       {"field" => "GLib"},
     ]
-    dictionary = Arrow::StringArray.new(["GLib", "Ruby"])
     target = build({
                      type: :dictionary,
                      index_data_type: :int8,
-                     dictionary: dictionary,
-                     ordered: true,
+                     value_data_type: :string,
+                     ordered: false,
                    },
                    values)
     assert_equal(values, target.values)

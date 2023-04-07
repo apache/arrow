@@ -432,17 +432,15 @@ module ValuesMapArrayTests
   end
 
   def test_dictionary
-    omit("Need to add support for DictionaryArrayBuilder")
     values = [
       {"key1" => "Ruby", "key2" => nil, "key3" => "GLib"},
       nil,
     ]
-    dictionary = Arrow::StringArray.new(["GLib", "Ruby"])
     target = build({
                      type: :dictionary,
                      index_data_type: :int8,
-                     dictionary: dictionary,
-                     ordered: true,
+                     value_data_type: :string,
+                     ordered: false,
                    },
                    values)
     assert_equal(values, target.values)
