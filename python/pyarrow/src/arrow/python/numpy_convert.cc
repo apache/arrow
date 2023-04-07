@@ -53,8 +53,10 @@ NumPyBuffer::NumPyBuffer(PyObject* ao) : Buffer(nullptr, 0) {
 }
 
 NumPyBuffer::~NumPyBuffer() {
-  PyAcquireGIL lock;
-  Py_XDECREF(arr_);
+  if (!_Py_IsFinalizing()) {
+    PyAcquireGIL lock;
+    Py_XDECREF(arr_);
+  }
 }
 
 #define TO_ARROW_TYPE_CASE(NPY_NAME, FACTORY) \
