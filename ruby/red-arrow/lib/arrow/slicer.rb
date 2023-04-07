@@ -183,7 +183,7 @@ module Arrow
                                           @column, pattern, ignore_case)
       end
 
-      def starts_with(substring, ignore_case: false)
+      def start_with?(substring, ignore_case: false)
         MatchSubstringFamilyCondition.new("starts_with",
                                           @column, substring, ignore_case)
       end
