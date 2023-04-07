@@ -167,113 +167,6 @@ int64_t CountREEFilterEmits(const ArraySpan& filter,
   return logical_count;
 }
 
-// XXX: inline this in the next commit
-template <typename ValuesRunEndType, typename ValuesValueType, typename FilterRunEndType>
-int64_t GetREExREEFilterOutputSizeImpl(
-    const ArraySpan& values, const ArraySpan& filter,
-    FilterOptions::NullSelectionBehavior null_selection) {
-  const auto values_values = arrow::ree_util::ValuesArray(values);
-  const int64_t null_count = values_values.GetNullCount();
-  const bool all_values_are_null = null_count == values_values.length;
-  const uint8_t* values_validity =
-      (null_count == 0) ? NULLPTR : values_values.buffers[0].data;
-  // values_validity implies at least one run value is null but not all
-  DCHECK(!values_validity || null_count > 0);
-
-  // We don't use anything that depends on has_validity_bitmap, so we can pass false.
-  ree_util::ReadWriteValue<ValuesValueType, false> read_write(values_values, NULLPTR);
-
-  int64_t open_run_length = 0;
-  // If open_run_length == 0, the values of open_run_is_null and open_run_value_i are
-  // not well-defined.
-  bool open_run_is_null = true;
-  int64_t open_run_value_i = -1;
-  // NOTE: The null value that opens a null run does not necessarily come from
-  // values[open_run_value_i] because null values from filters (combined with
-  // FilterOptions::EMIT_NULL) can cause nulls to be emitted as well.
-  int64_t num_output_runs = 0;
-  VisitREExREEFilterOutputFragments<ValuesRunEndType, FilterRunEndType>(
-      values, filter, null_selection,
-      [all_values_are_null, values_validity, &read_write, &open_run_length,
-       &open_run_is_null, &open_run_value_i, &num_output_runs](
-          int64_t i, int64_t run_length, int64_t emit_null_from_filter) noexcept {
-        const bool emit_null = all_values_are_null || emit_null_from_filter ||
-                               (values_validity && !bit_util::GetBit(values_validity, i));
-        if (emit_null) {
-          if (open_run_is_null) {
-            open_run_length += run_length;
-          } else {
-            // Close currently open non-null run.
-            num_output_runs += open_run_length > 0;
-            // Open a new null run.
-            open_run_length = run_length;
-            open_run_is_null = true;
-          }
-          // We don't need to guard the access to open_run_is_null with a check for
-          // open_run_length > 0 because if open_run_length == 0, both branches on
-          // open_run_is_null will lead to the same outcome:
-          //
-          //   /\ UNCHANGED <<num_output_runs>>
-          //   /\ open_run_length = open_run_length + run_length
-          //   /\ open_run_is_null
-        } else {
-          if (open_run_is_null) {
-            // Close currently open null run.
-            num_output_runs += open_run_length > 0;
-            // Open a new non-null run.
-            open_run_length = run_length;
-            open_run_is_null = false;
-          } else {
-            // If open_run_length > 0, we can trust the !open_run_is_null that led
-            // execution to this else branch, and we can trust that open_run_value_i is
-            // comparable to i. In case open_run_value_i==i, we can assume equality of
-            // the values at these positions, otherwise CompareValuesAt is called.
-            // We know these values are valid because !open_run_is_null and
-            // !emit_null respectively.
-            const bool close_open_run =
-                open_run_length <= 0 ||
-                (open_run_value_i != i &&
-                 !ARROW_PREDICT_FALSE(read_write.CompareValuesAt(open_run_value_i, i)));
-            if (close_open_run) {
-              // Close currently open non-null run.
-              num_output_runs += open_run_length > 0;
-              // Open a new non-null run.
-              open_run_length = run_length;
-              // open_run_is_null remains false.
-              // open_run_value_i is updated below.
-            } else {
-              open_run_length += run_length;
-              // This branch can be reached when open_run_length == 0, and in
-              // that case, we can't trust the value of open_run_is_null, so we
-              // need to prove that the outcome of this branch is the same as
-              // the outcome of the if-open_run_is_null branch above:
-              //
-              //   /\ UNCHANGED <<num_output_runs>>
-              //   /\ open_run_length = open_run_length + run_length
-              //   /\ not open_run_is_null
-              //
-              // Proof: given that open_run_length==0:
-              // 1) num_output_runs+=open_run_length>0 doesn't change num_output_runs.
-              // 2) open_run_length+=run_length and open_run_length=run_length
-              //    are equivalent.
-              // 3) open_run_is_null is set to false or enters the branch as false.
-            }
-          }
-        }
-        // It's safe to unconditionally update open_run_value_i because:
-        // 1) access to open_run_value_i is guarded by !open_run_is_null checks,
-        //    so it's ok if open_run_value_i points to a null value
-        // 2) if values at the previous open_run_value_i and i are equal, updating
-        //    open_run_value_i to i doesn't change the outcome of future comparisons
-        // 3) otherwise, updating open_run_value_i to i is necessary as it should be an
-        //    index to the value of the currently open non-null run
-        open_run_value_i = i;
-      });
-  // Close the trailing open run if one exists.
-  num_output_runs += open_run_length > 0;
-  return num_output_runs;
-}
-
 // This is called from a template with many instantiations, so we don't want to inline it.
 ARROW_NOINLINE Status MakeNullREEData(int64_t logical_length, MemoryPool* pool,
                                       ArrayData* out) {
@@ -342,13 +235,117 @@ class REExREEFilterExecImpl final : public REEFilterExec {
 
   ~REExREEFilterExecImpl() override = default;
 
+ private:
+  int64_t CalculateOutputSizeImpl() {
+    const auto values_values = arrow::ree_util::ValuesArray(values_);
+    const int64_t null_count = values_values.GetNullCount();
+    const bool all_values_are_null = null_count == values_values.length;
+    const uint8_t* values_validity =
+        (null_count == 0) ? NULLPTR : values_values.buffers[0].data;
+    // values_validity implies at least one run value is null but not all
+    DCHECK(!values_validity || null_count > 0);
+
+    // We don't use anything that depends on has_validity_bitmap, so we can pass false.
+    ree_util::ReadWriteValue<ValuesValueType, false> read_write(values_values, NULLPTR);
+
+    int64_t open_run_length = 0;
+    // If open_run_length == 0, the values of open_run_is_null and open_run_value_i are
+    // not well-defined.
+    bool open_run_is_null = true;
+    int64_t open_run_value_i = -1;
+    // NOTE: The null value that opens a null run does not necessarily come from
+    // values[open_run_value_i] because null values from filters (combined with
+    // FilterOptions::EMIT_NULL) can cause nulls to be emitted as well.
+    int64_t num_output_runs = 0;
+    VisitREExREEFilterOutputFragments<ValuesRunEndType, FilterRunEndType>(
+        values_, filter_, null_selection_,
+        [all_values_are_null, values_validity, &read_write, &open_run_length,
+         &open_run_is_null, &open_run_value_i, &num_output_runs](
+            int64_t i, int64_t run_length, int64_t emit_null_from_filter) noexcept {
+          const bool emit_null =
+              all_values_are_null || emit_null_from_filter ||
+              (values_validity && !bit_util::GetBit(values_validity, i));
+          if (emit_null) {
+            if (open_run_is_null) {
+              open_run_length += run_length;
+            } else {
+              // Close currently open non-null run.
+              num_output_runs += open_run_length > 0;
+              // Open a new null run.
+              open_run_length = run_length;
+              open_run_is_null = true;
+            }
+            // We don't need to guard the access to open_run_is_null with a check for
+            // open_run_length > 0 because if open_run_length == 0, both branches on
+            // open_run_is_null will lead to the same outcome:
+            //
+            //   /\ UNCHANGED <<num_output_runs>>
+            //   /\ open_run_length = open_run_length + run_length
+            //   /\ open_run_is_null
+          } else {
+            if (open_run_is_null) {
+              // Close currently open null run.
+              num_output_runs += open_run_length > 0;
+              // Open a new non-null run.
+              open_run_length = run_length;
+              open_run_is_null = false;
+            } else {
+              // If open_run_length > 0, we can trust the !open_run_is_null that led
+              // execution to this else branch, and we can trust that open_run_value_i is
+              // comparable to i. In case open_run_value_i==i, we can assume equality of
+              // the values at these positions, otherwise CompareValuesAt is called.
+              // We know these values are valid because !open_run_is_null and
+              // !emit_null respectively.
+              const bool close_open_run =
+                  open_run_length <= 0 ||
+                  (open_run_value_i != i &&
+                   !ARROW_PREDICT_FALSE(read_write.CompareValuesAt(open_run_value_i, i)));
+              if (close_open_run) {
+                // Close currently open non-null run.
+                num_output_runs += open_run_length > 0;
+                // Open a new non-null run.
+                open_run_length = run_length;
+                // open_run_is_null remains false.
+                // open_run_value_i is updated below.
+              } else {
+                open_run_length += run_length;
+                // This branch can be reached when open_run_length == 0, and in
+                // that case, we can't trust the value of open_run_is_null, so we
+                // need to prove that the outcome of this branch is the same as
+                // the outcome of the if-open_run_is_null branch above:
+                //
+                //   /\ UNCHANGED <<num_output_runs>>
+                //   /\ open_run_length = open_run_length + run_length
+                //   /\ not open_run_is_null
+                //
+                // Proof: given that open_run_length==0:
+                // 1) num_output_runs+=open_run_length>0 doesn't change num_output_runs.
+                // 2) open_run_length+=run_length and open_run_length=run_length
+                //    are equivalent.
+                // 3) open_run_is_null is set to false or enters the branch as false.
+              }
+            }
+          }
+          // It's safe to unconditionally update open_run_value_i because:
+          // 1) access to open_run_value_i is guarded by !open_run_is_null checks,
+          //    so it's ok if open_run_value_i points to a null value
+          // 2) if values at the previous open_run_value_i and i are equal, updating
+          //    open_run_value_i to i doesn't change the outcome of future comparisons
+          // 3) otherwise, updating open_run_value_i to i is necessary as it should be an
+          //    index to the value of the currently open non-null run
+          open_run_value_i = i;
+        });
+    // Close the trailing open run if one exists.
+    num_output_runs += open_run_length > 0;
+    return num_output_runs;
+  }
+
+ public:
   int64_t CalculateOutputSize() final {
     if constexpr (std::is_same<ValuesValueType, NullType>::value) {
       return CountREEFilterEmits<FilterRunEndType>(filter_, null_selection_) > 0 ? 1 : 0;
     } else {
-      return GetREExREEFilterOutputSizeImpl<ValuesRunEndType, ValuesValueType,
-                                            FilterRunEndType>(values_, filter_,
-                                                              null_selection_);
+      return CalculateOutputSizeImpl();
     }
   }
 
