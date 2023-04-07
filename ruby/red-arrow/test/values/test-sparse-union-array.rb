@@ -505,18 +505,16 @@ module ValuesSparseUnionArrayTests
   end
 
   def test_dictionary
-    omit("Need to add support for DictionaryArrayBuilder")
     values = [
       {"0" => "Ruby"},
       {"1" => nil},
       {"0" => "GLib"},
     ]
-    dictionary = Arrow::StringArray.new(["GLib", "Ruby"])
     target = build({
                      type: :dictionary,
                      index_data_type: :int8,
-                     dictionary: dictionary,
-                     ordered: true,
+                     value_data_type: :string,
+                     ordered: false,
                    },
                    values)
     assert_equal(remove_field_names(values),

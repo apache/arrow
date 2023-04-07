@@ -570,7 +570,6 @@ module RawRecordsListArrayTests
   end
 
   def test_dictionary
-    omit("Need to add support for DictionaryArrayBuilder")
     records = [
       [
         [
@@ -581,12 +580,11 @@ module RawRecordsListArrayTests
       ],
       [nil],
     ]
-    dictionary = Arrow::StringArray.new(["GLib", "Ruby"])
     target = build({
                      type: :dictionary,
                      index_data_type: :int8,
-                     dictionary: dictionary,
-                     ordered: true,
+                     value_data_type: :string,
+                     ordered: false,
                    },
                    records)
     assert_equal(records, target.raw_records)
