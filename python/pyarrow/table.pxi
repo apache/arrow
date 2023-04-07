@@ -1454,54 +1454,6 @@ cdef class _Table(_PandasConvertible):
     """Internal: An interface for common table operations."""
 
     def take(self, object indices):
-        """
-        Select rows from the table or record batch.
-
-        See :func:`pyarrow.compute.take` for full usage.
-
-        Parameters
-        ----------
-        indices : Array or array-like
-            The indices in the table whose rows will be returned.
-
-        Returns
-        -------
-        taken : Table or RecordBatch
-            A table or record batch with the same schema, containing the taken rows.
-
-        Examples
-        --------
-        Table example
-
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame(dict('year': [2020, 2022, 2019, 2021],
-        ...                    'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]))
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.take([1,3])
-        pyarrow.Table
-        year: int64
-        n_legs: int64
-        animals: string
-        ----
-        year: [[2022,2021]]
-        n_legs: [[4,100]]
-        animals: [["Horse","Centipede"]]
-
-        RecordBatch example
-
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
-        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
-        >>> batch.take([1,3,4]).to_pandas()
-           n_legs        animals
-        0       2         Parrot
-        1       4          Horse
-        2       5  Brittle stars
-        """
         return _pc().take(self, indices)
 
 
@@ -2307,6 +2259,37 @@ cdef class RecordBatch(_Table):
             result = this_batch.Equals(deref(other_batch), check_metadata)
 
         return result
+
+    def take(self, object indices):
+        """
+        Select rows from the record batch.
+
+        See :func:`pyarrow.compute.take` for full usage.
+
+        Parameters
+        ----------
+        indices : Array or array-like
+            The indices in the record batch whose rows will be returned.
+
+        Returns
+        -------
+        taken : RecordBatch
+            A record batch with the same schema, containing the taken rows.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
+        ...                                     names=["n_legs", "animals"])
+        >>> batch.take([1,3,4]).to_pandas()
+           n_legs        animals
+        0       2         Parrot
+        1       4          Horse
+        2       5  Brittle stars
+        """
+        return super().take(indices)
 
     def drop_null(self):
         """
@@ -3175,6 +3158,42 @@ cdef class Table(_Table):
             return _pac()._filter_table(self, mask)
         else:
             return _pc().filter(self, mask, null_selection_behavior)
+
+    def take(self, object indices):
+        """
+        Select rows from the table.
+
+        See :func:`pyarrow.compute.take` for full usage.
+
+        Parameters
+        ----------
+        indices : Array or array-like
+            The indices in the table whose rows will be returned.
+
+        Returns
+        -------
+        taken : Table
+            A table with the same schema, containing the taken rows.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
+        ...                    'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.take([1,3])
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2022,2021]]
+        n_legs: [[4,100]]
+        animals: [["Horse","Centipede"]]
+        """
+        return super().take(indices)
 
     def drop_null(self):
         """
