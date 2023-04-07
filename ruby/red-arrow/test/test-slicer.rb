@@ -541,6 +541,18 @@ class SlicerTest < Test::Unit::TestCase
       TABLE
     end
 
+    test("match_like") do
+      sliced_table = @table.slice do |slicer|
+        slicer.string.match_like("_rr%")
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	array 
+1	Arrow 
+2	(null)
+      TABLE
+    end
+
     test("starts_with") do
       sliced_table = @table.slice do |slicer|
         slicer.string.starts_with("ca")
