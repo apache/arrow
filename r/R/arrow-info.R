@@ -39,6 +39,7 @@ arrow_info <- function() {
     version = packageVersion("arrow"),
     options = opts[grep("^arrow\\.", names(opts))],
     capabilities = c(
+      acero = arrow_with_acero(),
       dataset = arrow_with_dataset(),
       substrait = arrow_with_substrait(),
       parquet = arrow_with_parquet(),
