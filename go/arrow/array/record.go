@@ -179,14 +179,6 @@ func (rec *simpleRecord) SetColumn(i int, arr arrow.Array) (arrow.Record, error)
 	return NewRecord(rec.schema, arrs, rec.rows), nil
 }
 
-func (rec *simpleRecord) TotalBufferSize() uint64 {
-	var sz uint64
-	for _, arr := range rec.arrs {
-		sz += uint64(arr.Data().Len())
-	}
-	return sz
-}
-
 func (rec *simpleRecord) validate() error {
 	if rec.rows == 0 && len(rec.arrs) == 0 {
 		return nil

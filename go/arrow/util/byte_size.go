@@ -17,37 +17,32 @@
 package util
 
 import (
-	"fmt"
-
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 func isArrayDataNil(arrayData arrow.ArrayData) bool {
 	if arrayData == nil {
 		return true
 	}
-	switch v := arrayData.(type) {
-	case *array.Data:
-		if v == nil {
-			return true
-		}
-	default:
-		panic("unknown array data type")
+	if v, ok := arrayData.(*array.Data); ok {
+    return v == nil
 	}
-	return false
+	panic("unknown ArrayData type")
 }
 
-func totalArrayDataSize(arrayData arrow.ArrayData, seenBuffers map[string]struct{}) int64 {
+func totalArrayDataSize(arrayData arrow.ArrayData, seenBuffers map[*memory.Buffer]struct{}) int64 {
 	var sum int64
+	var void = struct{}{}
 	for _, buf := range arrayData.Buffers() {
-		if buf != nil {
-			_, ok := seenBuffers[fmt.Sprintf("%p", buf)]
-			if !ok {
-				sum += int64(buf.Len())
-				seenBuffers[fmt.Sprintf("%p", buf)] = struct{}{}
-			}
-		}
+    if buf == nil {
+        continue
+    }
+    if _, ok := seenBuffers[buf]; !ok {
+        sum += int64(buf.Len())
+        seenBuffers[buf] = void
+    }
 	}
 	for _, child := range arrayData.Children() {
 		sum += totalArrayDataSize(child, seenBuffers)
@@ -60,11 +55,11 @@ func totalArrayDataSize(arrayData arrow.ArrayData, seenBuffers map[string]struct
 } 
 
 
-func totalArraySize(arr arrow.Array, seenBuffers map[string]struct{}) int64 {
+func totalArraySize(arr arrow.Array, seenBuffers map[*memory.Buffer]struct{}) int64 {
 	return totalArrayDataSize(arr.Data(), seenBuffers)
 } 
 
-func totalRecordSize(record arrow.Record, seenBuffers map[string]struct{}) int64 {
+func totalRecordSize(record arrow.Record, seenBuffers map[*memory.Buffer]struct{}) int64 {
 	var sum int64
 	for _, c := range record.Columns() {
 		sum += totalArraySize(c, seenBuffers)
@@ -72,12 +67,14 @@ func totalRecordSize(record arrow.Record, seenBuffers map[string]struct{}) int64
 	return sum
 } 
 
+// TotalArraySize The sum of bytes in each buffer referenced by the Array.
 func TotalArraySize(arr arrow.Array) int64 {
-	seenBuffer := make(map[string]struct{})
+	seenBuffer := make(map[*memory.Buffer]struct{})
 	return totalArraySize(arr, seenBuffer)
 }
 
+// TotalArraySize The sum of bytes in each buffer referenced by the Record.
 func TotalRecordSize(record arrow.Record) int64 {
-	seenBuffer := make(map[string]struct{})
+	seenBuffer := make(map[*memory.Buffer]struct{})
 	return totalRecordSize(record, seenBuffer)
 }
