@@ -3118,6 +3118,9 @@ class FixedShapeTensorArray(ExtensionArray):
     def to_numpy_ndarray(self):
         """
         Convert fixed shape tensor extension array to a numpy array (with dim+1).
+
+        Note: The method doesn't take into account ``permutation`` and ``dim_names``
+        parameter therefore this information will be lost.
         """
         np_flat = np.asarray(self.storage.values)
         numpy_tensor = np_flat.reshape((len(self),) + tuple(self.type.shape))
