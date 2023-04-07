@@ -228,7 +228,7 @@ void VisitREExREEFilterCombinedOutputRuns(
         //    index to the value of the currently open non-null run
         open_run_value_i = i;
       });
-  // Close the trailing open run if one exists.
+  // Close the trailing open run if open_run_length > 0.
   emit_run(open_run_value_i, open_run_length, !open_run_is_null);
 }
 
@@ -369,165 +369,42 @@ class REExREEFilterExecImpl final : public REEFilterExec {
   }
 
  private:
-  /// \tparam in_has_validity_buffer whether the input has a validity buffer that
-  /// needs to be considered by the filtering process
   /// \tparam out_has_validity_buffer whether the output has a validity buffer that
   /// needs to be populated by the filtering process
   /// \param[out] out the pre-allocated output array data
   /// \return the logical length of the output
-  template <bool in_has_validity_buffer, bool out_has_validity_buffer>
-  int64_t Exec(ArrayData* out) {
+  template <bool out_has_validity_buffer>
+  int64_t ExecInternal(ArrayData* out) {
+    // in_has_validity_buffer is false because all calls to ReadWriteValue::ReadValue()
+    // below are already guarded by a validity check based on the values provided by
+    // VisitREExREEFilterCombinedOutputRuns() when it calls the EmitRun.
     using ReadWriteValue =
-        ree_util::ReadWriteValue<ValuesValueType, in_has_validity_buffer,
+        ree_util::ReadWriteValue<ValuesValueType, /*in_has_validity_buffer=*/false,
                                  out_has_validity_buffer>;
     using ValueRepr = typename ReadWriteValue::ValueRepr;
 
     const auto& values_array = arrow::ree_util::ValuesArray(values_);
-    const auto& filter_values_array = arrow::ree_util::ValuesArray(filter_);
-    const int64_t values_offset = values_array.offset;
-    const int64_t filter_offset = filter_values_array.offset;
-    const uint8_t* filter_validity = filter_values_array.buffers[0].data;
-    const uint8_t* filter_data = filter_values_array.buffers[1].data;
     ReadWriteValue read_write{values_array, out->child_data[1].get()};
     auto* out_run_ends = out->child_data[0]->GetMutableValues<ValuesRunEndCType>(1);
 
-    const arrow::ree_util::RunEndEncodedArraySpan<ValuesRunEndCType> values_run_ends(
-        values_);
-    const arrow::ree_util::RunEndEncodedArraySpan<FilterRunEndCType> filter_run_ends(
-        filter_);
-    arrow::ree_util::MergedRunsIterator it(values_run_ends, filter_run_ends);
     int64_t logical_length = 0;
     int64_t write_offset = 0;
-    ValueRepr value{};
-    if (!values_array.MayHaveNulls()) {
-      if (!filter_values_array.MayHaveNulls()) {
-        // both values and filter are non-nullable, so output is non-nullable
-        DCHECK(!in_has_validity_buffer && !out_has_validity_buffer);
-        while (!it.isEnd()) {
-          const int64_t v = values_offset + it.index_into_left_array();
-          const int64_t f = filter_offset + it.index_into_right_array();
-          if (bit_util::GetBit(filter_data, f)) {
-            (void)read_write.ReadValue(&value, v);
-            logical_length += it.run_length();
-            read_write.WriteValue(write_offset, true, value);
+    ValueRepr value;
+    VisitREExREEFilterCombinedOutputRuns<ValuesRunEndType, ValuesValueType,
+                                         FilterRunEndType>(
+        values_, filter_, null_selection_,
+        [&](int64_t i, int64_t run_length, bool valid) {
+          logical_length += run_length;
+          if (run_length > 0) {
             out_run_ends[write_offset] = static_cast<ValuesRunEndCType>(logical_length);
-            ++write_offset;
-          }
-          ++it;
-        }
-      } else if (null_selection_ == FilterOptions::DROP) {
-        // values are not null, and nulls from filters are dropped, so output is
-        // non-nullable
-        DCHECK(!in_has_validity_buffer && !out_has_validity_buffer);
-        while (!it.isEnd()) {
-          const int64_t v = values_offset + it.index_into_left_array();
-          const int64_t f = filter_offset + it.index_into_right_array();
-          if (bit_util::GetBit(filter_validity, f) && bit_util::GetBit(filter_data, f)) {
-            (void)read_write.ReadValue(&value, v);
-            logical_length += it.run_length();
-            read_write.WriteValue(write_offset, true, value);
-            out_run_ends[write_offset] = static_cast<ValuesRunEndCType>(logical_length);
-            ++write_offset;
-          }
-          ++it;
-        }
-      } else {  // null_selection_ == FilterOptions::EMIT_NULL
-        // filter has nulls and they are being emitted, so output is nullable
-        DCHECK(!in_has_validity_buffer && out_has_validity_buffer);
-        while (!it.isEnd()) {
-          const int64_t v = values_offset + it.index_into_left_array();
-          const int64_t f = filter_offset + it.index_into_right_array();
-          const bool filter_is_valid = bit_util::GetBit(filter_validity, f);
-          if (filter_is_valid) {
-            if (bit_util::GetBit(filter_data, f)) {
-              logical_length += it.run_length();
-              const bool valid = read_write.ReadValue(&value, v);
-              read_write.WriteValue(write_offset, valid, value);
-              out_run_ends[write_offset] = static_cast<ValuesRunEndCType>(logical_length);
-              ++write_offset;
+            if (valid) {
+              (void)read_write.ReadValue(&value, i);
             }
-          } else {
-            logical_length += it.run_length();
-            read_write.WriteValue(write_offset, false, value);
-            out_run_ends[write_offset] = static_cast<ValuesRunEndCType>(logical_length);
-            ++write_offset;
-          }
-          ++it;
-        }
-      }
-    } else {  // values input may have nulls
-      DCHECK(in_has_validity_buffer && out_has_validity_buffer);
-      if (!filter_values_array.MayHaveNulls()) {
-        const int64_t v = values_offset + it.index_into_left_array();
-        const int64_t f = filter_offset + it.index_into_right_array();
-        while (!it.isEnd()) {
-          if (bit_util::GetBit(filter_data, f)) {
-            logical_length += it.run_length();
-            const bool valid = read_write.ReadValue(&value, v);
             read_write.WriteValue(write_offset, valid, value);
-            out_run_ends[write_offset] = static_cast<ValuesRunEndCType>(logical_length);
-            ++write_offset;
+            write_offset += 1;
           }
-          ++it;
-        }
-      } else if (null_selection_ == FilterOptions::DROP) {
-        while (!it.isEnd()) {
-          const int64_t v = values_offset + it.index_into_left_array();
-          const int64_t f = filter_offset + it.index_into_right_array();
-          if (bit_util::GetBit(filter_validity, f) && bit_util::GetBit(filter_data, f)) {
-            logical_length += it.run_length();
-            const bool valid = read_write.ReadValue(&value, v);
-            read_write.WriteValue(write_offset, valid, value);
-            out_run_ends[write_offset] = static_cast<ValuesRunEndCType>(logical_length);
-            ++write_offset;
-          }
-          ++it;
-        }
-      } else {  // null_selection_ == FilterOptions::EMIT_NULL
-        while (!it.isEnd()) {
-          const int64_t v = values_offset + it.index_into_left_array();
-          const int64_t f = filter_offset + it.index_into_right_array();
-          const bool is_valid = bit_util::GetBit(filter_validity, f);
-          if (is_valid) {
-            if (bit_util::GetBit(filter_data, f)) {
-              logical_length += it.run_length();
-              const bool valid = read_write.ReadValue(&value, v);
-              read_write.WriteValue(write_offset, valid, value);
-              out_run_ends[write_offset] = static_cast<ValuesRunEndCType>(logical_length);
-              ++write_offset;
-            }
-          } else {
-            logical_length += it.run_length();
-            read_write.WriteValue(write_offset, false, value);
-            out_run_ends[write_offset] = static_cast<ValuesRunEndCType>(logical_length);
-            ++write_offset;
-          }
-          ++it;
-        }
-      }
-    }
+        });
     return logical_length;
-  }
-
-  /// \param in_has_validity_buffer whether the input has a validity buffer that
-  /// needs to be considered by the filtering process
-  /// \param out_has_validity_buffer whether the output has a validity buffer that
-  /// needs to be populated by the filtering process
-  /// \param[out] out the pre-allocated output array data
-  /// \return the logical length of the output
-  int64_t Exec(bool in_has_validity_buffer, bool out_has_validity_buffer,
-               ArrayData* out) {
-    if (in_has_validity_buffer) {
-      // If the input has a validity buffer, so does the output
-      DCHECK(out_has_validity_buffer);
-      return Exec<true, true>(out);
-    } else {
-      if (out_has_validity_buffer) {
-        return Exec<false, true>(out);
-      } else {
-        return Exec<false, false>(out);
-      }
-    }
   }
 
  public:
@@ -548,10 +425,10 @@ class REExREEFilterExecImpl final : public REEFilterExec {
 
       RETURN_NOT_OK(
           PreallocateREEData(physical_length, out_has_validity_buffer, 0, pool, out));
-      const int64_t logical_length =
-          Exec(in_has_validity_buffer, out_has_validity_buffer, out);
-      // Set length now that we know it (PreallocateREEData filled all the other fields)
-      out->length = logical_length;
+      // The length is set after the filtering process makes it known to us
+      // (PreallocateREEData filled all the other fields)
+      out->length =
+          out_has_validity_buffer ? ExecInternal<true>(out) : ExecInternal<false>(out);
     }
     return Status::OK();
   }
