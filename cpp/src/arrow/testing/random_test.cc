@@ -499,6 +499,45 @@ TEST(RandomList, Basics) {
   }
 }
 
+TEST(RandomNestedBatchOf, Basics) {
+  random::RandomArrayGenerator rng(42);
+  {
+    auto item = std::make_shared<arrow::Field>("item", arrow::int8(), true);
+    auto nestListField = std::make_shared<arrow::Field>("list", arrow::list(item), false);
+    auto listField =
+        std::make_shared<arrow::Field>("list", arrow::list(nestListField), true);
+    auto array = rng.ArrayOf(*listField, 428);
+    ARROW_EXPECT_OK(array->ValidateFull());
+
+    auto batch = rng.BatchOf({listField}, 428);
+    ARROW_EXPECT_OK(batch->ValidateFull());
+  }
+  {
+    auto item = std::make_shared<arrow::Field>("item", arrow::int8(), true);
+    auto nestStructField =
+        std::make_shared<arrow::Field>("struct", arrow::struct_({item}), false);
+    auto structField =
+        std::make_shared<arrow::Field>("struct", arrow::struct_({nestStructField}), true);
+    auto array = rng.ArrayOf(*structField, 428);
+    ARROW_EXPECT_OK(array->ValidateFull());
+
+    auto batch = rng.BatchOf({structField}, 428);
+    ARROW_EXPECT_OK(batch->ValidateFull());
+  }
+  {
+    auto item = std::make_shared<arrow::Field>("item", arrow::int8(), true);
+    auto nestMapField = std::make_shared<arrow::Field>(
+        "map", arrow::map(arrow::int8(), item, false), false);
+    auto mapField = std::make_shared<arrow::Field>(
+        "struct", arrow::map(arrow::int8(), nestMapField, false), true);
+    auto array = rng.ArrayOf(*mapField, 428);
+    ARROW_EXPECT_OK(array->ValidateFull());
+
+    auto batch = rng.BatchOf({mapField}, 428);
+    ARROW_EXPECT_OK(batch->ValidateFull());
+  }
+}
+
 TEST(RandomRunEndEncoded, Basics) {
   random::RandomArrayGenerator rng(42);
   for (const double null_probability : {0.0, 0.1, 1.0}) {
