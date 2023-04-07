@@ -42,15 +42,15 @@ set(ARROW_DATASET_STATIC_INSTALL_INTERFACE_LIBS)
 set(ARROW_DATASET_SHARED_INSTALL_INTERFACE_LIBS)
 
 if(ARROW_CSV)
-  set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_csv.cc)
+  list(APPEND ARROW_DATASET_SRCS file_csv.cc)
 endif()
 
 if(ARROW_JSON)
-  set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_json.cc)
+  list(APPEND ARROW_DATASET_SRCS file_json.cc)
 endif()
 
 if(ARROW_ORC)
-  set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_orc.cc)
+  list(APPEND ARROW_DATASET_SRCS file_orc.cc)
 endif()
 
 if(ARROW_PARQUET)
@@ -60,17 +60,13 @@ if(ARROW_PARQUET)
   list(APPEND ARROW_DATASET_SHARED_INSTALL_INTERFACE_LIBS Parquet::parquet_shared)
   list(APPEND ARROW_DATASET_SRCS file_parquet.cc)
   list(APPEND ARROW_DATASET_PRIVATE_INCLUDES ${PROJECT_SOURCE_DIR}/src/parquet)
-else()
-  list(APPEND ARROW_DATASET_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
-  list(APPEND ARROW_DATASET_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
 endif()
 
-list(APPEND
-     ARROW_DATASET_STATIC_LINK_LIBS
-     arrow_static
-     arrow_acero_static
-     ${ARROW_STATIC_LINK_LIBS})
-list(APPEND ARROW_DATASET_SHARED_LINK_LIBS arrow_shared arrow_acero_shared)
+list(APPEND ARROW_DATASET_STATIC_INSTALL_INTERFACE_LIBS ArrowAcero::arrow_acero_static)
+list(APPEND ARROW_DATASET_SHARED_INSTALL_INTERFACE_LIBS ArrowAcero::arrow_acero_shared)
+
+list(APPEND ARROW_DATASET_STATIC_LINK_LIBS arrow_acero_static ${ARROW_STATIC_LINK_LIBS})
+list(APPEND ARROW_DATASET_SHARED_LINK_LIBS arrow_acero_shared)
 
 add_arrow_lib(arrow_dataset
               CMAKE_PACKAGE_NAME
