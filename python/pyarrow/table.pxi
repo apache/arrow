@@ -1453,6 +1453,10 @@ cdef _sanitize_arrays(arrays, names, schema, metadata,
 cdef class _Table(_PandasConvertible):
     """Internal: An interface for common table operations."""
 
+    def __init__(self):
+        raise TypeError("This object is not instantiable, "
+                        "use a subclass instead.")
+
     def take(self, object indices):
         return _pc().take(self, indices)
 
