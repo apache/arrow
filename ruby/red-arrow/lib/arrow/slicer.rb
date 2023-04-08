@@ -173,7 +173,7 @@ module Arrow
                                           @column, pattern, ignore_case)
       end
 
-      def match_substring(substring, ignore_case: false)
+      def match_substring?(substring, ignore_case: false)
         MatchSubstringFamilyCondition.new("match_substring",
                                           @column, substring, ignore_case)
       end
