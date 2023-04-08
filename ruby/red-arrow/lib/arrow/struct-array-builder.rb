@@ -110,11 +110,6 @@ module Arrow
       end
     end
 
-    alias_method :append_null_raw, :append_null
-    def append_null
-      append_null_raw
-    end
-
     # @since 0.12.0
     def append(*values)
       if values.empty?

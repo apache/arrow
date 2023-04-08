@@ -57,7 +57,11 @@ module ValuesSparseUnionArrayTests
 
   def remove_field_names(values)
     values.collect do |value|
-      value.values[0]
+      if value.nil?
+        value
+      else
+        value.values[0]
+      end
     end
   end
 
@@ -457,6 +461,7 @@ module ValuesSparseUnionArrayTests
     values = [
       {"0" => {"field1" => true}},
       {"1" => nil},
+      {"0" => {"field2" => 29}},
       {"0" => {"field2" => nil}},
     ]
     target = build({
@@ -474,15 +479,15 @@ module ValuesSparseUnionArrayTests
                      type_codes: [0, 1],
                    },
                    values)
-    assert_equal(remove_field_names(values),
+    assert_equal(remove_field_names(remove_field_names(values)),
                  target.values)
   end
 
   def test_dense_union
-    omit("Need to add support for DenseUnionArrayBuilder")
     values = [
       {"0" => {"field1" => true}},
       {"1" => nil},
+      {"0" => {"field2" => 29}},
       {"0" => {"field2" => nil}},
     ]
     target = build({
@@ -500,7 +505,7 @@ module ValuesSparseUnionArrayTests
                      type_codes: [0, 1],
                    },
                    values)
-    assert_equal(remove_field_names(values),
+    assert_equal(remove_field_names(remove_field_names(values)),
                  target.values)
   end
 
