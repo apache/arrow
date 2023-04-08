@@ -504,9 +504,21 @@ class SlicerTest < Test::Unit::TestCase
       TABLE
     end
 
-    test("match_substring") do
+    test("match_like?") do
       sliced_table = @table.slice do |slicer|
-        slicer.string.match_substring("arr")
+        slicer.string.match_like?("_rr%")
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	array 
+1	Arrow 
+2	(null)
+      TABLE
+    end
+
+    test("match_substring?") do
+      sliced_table = @table.slice do |slicer|
+        slicer.string.match_substring?("arr")
       end
       assert_equal(<<~TABLE, sliced_table.to_s)
 	string
@@ -516,9 +528,9 @@ class SlicerTest < Test::Unit::TestCase
       TABLE
     end
 
-    test("match_substring(ignore_case:)") do
+    test("match_substring?(ignore_case:)") do
       sliced_table = @table.slice do |slicer|
-        slicer.string.match_substring("arr", ignore_case: true)
+        slicer.string.match_substring?("arr", ignore_case: true)
       end
       assert_equal(<<~TABLE, sliced_table.to_s)
 	string
@@ -529,9 +541,9 @@ class SlicerTest < Test::Unit::TestCase
       TABLE
     end
 
-    test("!match_substring") do
+    test("!match_substring?") do
       sliced_table = @table.slice do |slicer|
-        !slicer.string.match_substring("arr")
+        !slicer.string.match_substring?("arr")
       end
       assert_equal(<<~TABLE, sliced_table.to_s)
 	string
@@ -541,21 +553,9 @@ class SlicerTest < Test::Unit::TestCase
       TABLE
     end
 
-    test("match_like") do
+    test("match_substring_regex?") do
       sliced_table = @table.slice do |slicer|
-        slicer.string.match_like("_rr%")
-      end
-      assert_equal(<<~TABLE, sliced_table.to_s)
-	string
-0	array 
-1	Arrow 
-2	(null)
-      TABLE
-    end
-
-    test("match_substring_regex") do
-      sliced_table = @table.slice do |slicer|
-        slicer.string.match_substring_regex("[dr]ow")
+        slicer.string.match_substring_regex?("[dr]ow")
       end
       assert_equal(<<~TABLE, sliced_table.to_s)
 	string
