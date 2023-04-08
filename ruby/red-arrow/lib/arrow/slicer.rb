@@ -191,6 +191,7 @@ module Arrow
       end
 
       def match_substring_regex?(pattern, ignore_case: false)
+        pattern = pattern.source if pattern.is_a?(Regexp)
         MatchSubstringFamilyCondition.new("match_substring_regex",
                                           @column, pattern, ignore_case)
       end
