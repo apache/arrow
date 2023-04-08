@@ -172,7 +172,7 @@ func (b *FixedSizeBinaryBuilder) AppendValueFromString(s string) error {
 		return nil
 	}
 
-	data, err := base64.RawStdEncoding.DecodeString(s)
+	data, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
 		b.AppendNull()
 		return err

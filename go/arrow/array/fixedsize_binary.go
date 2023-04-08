@@ -56,7 +56,7 @@ func (a *FixedSizeBinary) ValueString(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-	return base64.RawStdEncoding.EncodeToString(a.Value(i))
+	return base64.StdEncoding.EncodeToString(a.Value(i))
 }
 
 func (a *FixedSizeBinary) String() string {
