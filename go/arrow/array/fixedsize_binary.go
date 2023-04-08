@@ -18,6 +18,7 @@ package array
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"strings"
 
@@ -52,7 +53,10 @@ func (a *FixedSizeBinary) Value(i int) []byte {
 	return a.valueBytes[beg:end]
 }
 func (a *FixedSizeBinary) ValueString(i int) string {
-	return fmt.Sprintf("%q", a.Value(i))
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return base64.RawStdEncoding.EncodeToString(a.Value(i))
 }
 
 func (a *FixedSizeBinary) String() string {

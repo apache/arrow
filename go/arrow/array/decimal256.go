@@ -52,7 +52,7 @@ func (a *Decimal256) ValueString(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	} else {
-		return fmt.Sprintf("%v", a.Value(i))
+		return a.GetOneForMarshal(i).(string)
 	}
 }
 

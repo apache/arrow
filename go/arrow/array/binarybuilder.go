@@ -125,19 +125,6 @@ func (b *BinaryBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
-func (b *BinaryBuilder) AppendFromString(s string) error {
-	if s == NullValueStr {
-		b.AppendNull()
-		return nil
-	}
-	data, err := base64.StdEncoding.DecodeString(s)
-	if err != nil {
-		return err
-	}
-	b.Append(data)
-	return nil
-} 
-
 func (b *BinaryBuilder) AppendEmptyValue() {
 	b.Reserve(1)
 	b.appendNextOffset()
@@ -307,11 +294,18 @@ func (b *BinaryBuilder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	decodedVal, err := base64.StdEncoding.DecodeString(s)
-	if err != nil {
-		return fmt.Errorf("could not decode base64 string: %w", err)
+	switch b.dtype.ID() {
+	case arrow.BINARY, arrow.LARGE_BINARY:
+		decodedVal, err := base64.StdEncoding.DecodeString(s)
+		if err != nil {
+			return fmt.Errorf("could not decode base64 string: %w", err)
+		}
+		b.Append(decodedVal)
+	case arrow.STRING, arrow.LARGE_STRING:
+		b.Append([]byte(s))
+	default:
+		return fmt.Errorf("cannot append string to type %s", b.dtype)
 	}
-	b.Append(decodedVal)
 	return nil
 }
 
